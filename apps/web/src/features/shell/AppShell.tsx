@@ -143,6 +143,7 @@ export function AppShell() {
 function useLiveData(projectId: string | null, root: string | null) {
   const loadPipeline = usePipelineStore(s => s.load);
   const onEvent = usePipelineStore(s => s.onEvent);
+  const refreshPipeline = usePipelineStore(s => s.refresh);
   const loadInbox = useInboxStore(s => s.load);
   const loadLab = useLabStore(s => s.load);
   const onConcept = useLabStore(s => s.onEvent);
@@ -179,6 +180,7 @@ function useLiveData(projectId: string | null, root: string | null) {
   useEffect(() => {
     const stops = [
       events.pipelineUpdate.listen(e => onEvent(e.payload)),
+      events.pipelineChanged.listen(e => void refreshPipeline(e.payload.project)),
       events.inboxChanged.listen(() => void loadInbox()),
       events.conceptUpdate.listen(e => onConcept(e.payload)),
       events.thumbnailReady.listen(e => {
@@ -192,7 +194,16 @@ function useLiveData(projectId: string | null, root: string | null) {
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
     };
-  }, [onEvent, loadInbox, onThumbnail, setProject, onConcept, onAgents, onProvider]);
+  }, [
+    onEvent,
+    refreshPipeline,
+    loadInbox,
+    onThumbnail,
+    setProject,
+    onConcept,
+    onAgents,
+    onProvider,
+  ]);
 }
 
 function CurrentView({ view }: { view: ViewId }) {

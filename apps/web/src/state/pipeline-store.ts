@@ -24,6 +24,8 @@ interface PipelineStore {
   savePresets: (presets: CompressPreset[]) => Promise<boolean>;
   /** Updates starter scripts; `replace` also replaces edited ones (kept as .bak). */
   updateStarters: (scripts: string[], replace: boolean) => Promise<boolean>;
+  /** Reloads the open project's pipeline when `project` is it, for example after an agent saved presets. */
+  refresh: (project: string) => Promise<void>;
   onEvent: (event: PipelineEvent) => void;
 }
 
@@ -125,6 +127,16 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
         detail: errorMessage(error),
       });
       return false;
+    }
+  },
+
+  refresh: async project => {
+    if (get().view?.project !== project) return;
+    try {
+      const fresh = await commands.pipelineGet(project);
+      if (get().view?.project === project) set({ view: fresh });
+    } catch {
+      // The next load or run event brings the view back in line.
     }
   },
 
