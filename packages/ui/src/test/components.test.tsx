@@ -9,6 +9,7 @@ import {
   NumberField,
   SegmentedControl,
   StageStepper,
+  TextArea,
   Toggle,
   ToolCheckRow,
 } from '../index';
@@ -188,5 +189,16 @@ describe('LogConsole', () => {
     );
     expect(log.scrollTop).toBe(900);
     expect(log).not.toHaveTextContent('No output yet');
+  });
+});
+
+describe('TextArea', () => {
+  it('labels the field and passes typing through', async () => {
+    const onChange = vi.fn();
+    render(<TextArea label="Prompt" hint="What the concepts show" onChange={onChange} />);
+    const box = screen.getByLabelText('Prompt');
+    expect(box.tagName).toBe('TEXTAREA');
+    await userEvent.type(box, 'moon');
+    expect(onChange).toHaveBeenCalledTimes(4);
   });
 });

@@ -24,6 +24,7 @@ export { Checkbox, type CheckboxProps } from './components/actions/Checkbox';
 
 export { Field, type FieldProps, type FieldTone } from './components/inputs/Field';
 export { TextField, type TextFieldProps } from './components/inputs/TextField';
+export { TextArea, type TextAreaProps } from './components/inputs/TextArea';
 export { Select, type SelectOption, type SelectProps } from './components/inputs/Select';
 export { NumberField, defaultParse, type NumberFieldProps } from './components/inputs/NumberField';
 export { NumberStepper, type NumberStepperProps } from './components/inputs/NumberStepper';
