@@ -116,9 +116,73 @@ pub fn clear_dir_contents(path: &Path) -> io::Result<u64> {
     Ok(freed)
 }
 
+/// Copies the folder `from` to `to` (which must not exist), files and
+/// subfolders. Symlinks are skipped.
+pub fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
+    fs::create_dir(to)?;
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        let kind = entry.file_type()?;
+        let target = to.join(entry.file_name());
+        if kind.is_dir() {
+            copy_tree(&entry.path(), &target)?;
+        } else if kind.is_file() {
+            fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
+}
+
+/// Moves the folder `from` to `to` (which must not exist). A rename when it
+/// can; otherwise (another volume, or Windows refusing to rename a folder
+/// with a file open in it) a copy and then a removal. When the removal
+/// fails the copy is removed again, so the folder ends up in one place.
+pub fn move_tree(from: &Path, to: &Path) -> io::Result<()> {
+    if to.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("{} already exists", to.display()),
+        ));
+    }
+    if fs::rename(from, to).is_ok() {
+        return Ok(());
+    }
+    if let Err(err) = copy_tree(from, to) {
+        let _ = fs::remove_dir_all(to);
+        return Err(err);
+    }
+    if let Err(err) = fs::remove_dir_all(from) {
+        let _ = fs::remove_dir_all(to);
+        return Err(err);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn move_tree_moves_nested_folders_and_refuses_to_overwrite() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let from = dir.path().join("a");
+        fs::create_dir_all(from.join("sub")).expect("mkdir");
+        fs::write(from.join("one.txt"), b"1").expect("write");
+        fs::write(from.join("sub").join("two.txt"), b"22").expect("write");
+        let to = dir.path().join("b");
+        move_tree(&from, &to).expect("move");
+        assert!(!from.exists());
+        assert_eq!(
+            fs::read(to.join("sub").join("two.txt")).expect("read"),
+            b"22"
+        );
+
+        let copy = dir.path().join("c");
+        copy_tree(&to, &copy).expect("copy");
+        assert_eq!(dir_size(&copy), 3);
+        assert!(move_tree(&to, &copy).is_err(), "c exists");
+        assert!(to.join("one.txt").is_file(), "nothing moved");
+    }
 
     #[test]
     fn write_atomic_replaces_and_leaves_no_temp() {

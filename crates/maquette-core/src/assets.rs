@@ -246,6 +246,31 @@ pub fn set_ref_thumbnail(manifest: &mut ProjectManifest, id: &str, file: &str) -
     Ok(true)
 }
 
+/// Takes in an asset from another project. An asset with the same name
+/// that is already here keeps its id and versions, moves up to the later
+/// stage and gains the newcomer's picture when a ref may replace its own.
+/// Otherwise the asset is added under an id that is free here.
+pub fn adopt(manifest: &mut ProjectManifest, asset: Asset) -> Asset {
+    let slug = slugify(asset.name.trim());
+    if let Some(existing) = manifest.assets.iter_mut().find(|a| a.id == slug) {
+        if asset.stage > existing.stage {
+            existing.stage = asset.stage;
+        }
+        if asset.thumbnail.is_some() && ref_may_replace(existing.thumbnail.as_deref()) {
+            existing.thumbnail = asset.thumbnail;
+        }
+        existing.updated_at = now_rfc3339();
+        return existing.clone();
+    }
+    let placed = Asset {
+        id: unique_id(manifest, &asset.name),
+        updated_at: now_rfc3339(),
+        ..asset
+    };
+    manifest.assets.push(placed.clone());
+    placed
+}
+
 /// Records a new version on an existing asset and returns it.
 pub fn add_version(
     manifest: &mut ProjectManifest,

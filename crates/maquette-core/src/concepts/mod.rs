@@ -8,6 +8,7 @@
 
 pub mod jobs;
 pub mod sheet;
+pub mod transfer;
 
 use std::fs;
 use std::io;
@@ -23,6 +24,7 @@ use crate::project::{self, ProjectManifest, now_rfc3339, slugify};
 use crate::workspace::FolderLayout;
 
 pub use jobs::{ConceptEvent, ConceptJob, ConceptJobState, Concepts};
+pub use transfer::{MovedDirection, move_direction};
 
 pub const CONCEPTS_DIR: &str = "concepts";
 pub const DIRECTION_FILE: &str = "direction.json";
