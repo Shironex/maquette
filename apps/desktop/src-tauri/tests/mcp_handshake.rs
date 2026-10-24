@@ -328,6 +328,17 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     // A read tool.
     let projects = call(&client, "list_projects", json!({})).await;
     assert_eq!(projects["projects"][0]["id"], json!(project_id));
+    assert_eq!(projects["projects"][0]["current"], json!(true));
+    assert_eq!(projects["projects"][0]["activity"]["run"], json!(null));
+    assert!(projects["projects"][0]["createdAt"].is_string());
+    assert!(projects["projects"][0].get("thumb").is_some());
+    // No tool moves the app to another project.
+    assert!(
+        tools
+            .iter()
+            .all(|t| !t.name.contains("switch") && !t.name.contains("open_project")),
+        "no tool switches projects"
+    );
     let pipeline = call(&client, "get_pipeline", json!({ "project": project_id })).await;
     assert_eq!(pipeline["def"]["steps"][1]["id"], json!("ship"));
 

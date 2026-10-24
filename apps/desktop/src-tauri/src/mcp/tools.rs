@@ -569,15 +569,30 @@ fn await_send_approval(host: Arc<dyn Host>, hub: Arc<Hub>, approval: String, job
 #[tool_router]
 impl McpTools {
     #[tool(
-        description = "List the projects in the open Maquette workspace, with their template, site repo and asset count.",
+        description = "List the projects in the open Maquette workspace: template, site repo, created, asset count, \
+the picture the app shows for it, what runs in it now and which one is open in the app. Every other tool takes \
+a project id; no tool changes which project the app has open.",
         annotations(read_only_hint = true)
     )]
     async fn list_projects(&self) -> Out {
         let found = self
             .blocking(|host, _| {
                 let (root, config) = workspace(host)?;
-                let list = project::list(&root, &config.layout).map_err(reason)?;
-                let projects: Vec<Value> = list
+                let rows = crate::commands::project::summaries(
+                    host.session(),
+                    host.runner(),
+                    host.concepts(),
+                    host.studio(),
+                )
+                .map_err(reason)?;
+                // The app opens the remembered project, else the oldest one.
+                let current = config
+                    .current_project
+                    .as_deref()
+                    .filter(|id| rows.iter().any(|r| r.id == *id))
+                    .or_else(|| rows.first().map(|r| r.id.as_str()))
+                    .map(str::to_string);
+                let projects: Vec<Value> = rows
                     .iter()
                     .map(|p| {
                         json!({
@@ -585,8 +600,11 @@ impl McpTools {
                             "name": p.name,
                             "template": to_value(p.template),
                             "siteRepo": p.site_repo,
-                            "assets": p.assets.len(),
-                            "current": config.current_project.as_deref() == Some(p.id.as_str()),
+                            "createdAt": p.created_at,
+                            "assets": p.asset_count,
+                            "thumb": p.thumb,
+                            "activity": to_value(&p.activity),
+                            "current": current.as_deref() == Some(p.id.as_str()),
                         })
                     })
                     .collect();
