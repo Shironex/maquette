@@ -43,7 +43,27 @@ pub(crate) fn snapshot(
     root: &Path,
     config: &WorkspaceConfig,
 ) -> CommandResult<WorkspaceSnapshot> {
-    let list = projects::list(root, &config.layout)?;
+    let mut list = projects::list(root, &config.layout)?;
+    let open = config
+        .current_project
+        .as_deref()
+        .filter(|id| list.iter().any(|p| p.id == *id))
+        .or_else(|| list.first().map(|p| p.id.as_str()))
+        .map(str::to_string);
+    if let Some(id) = open {
+        // Cards an older Send picks to Refs left without a picture get one.
+        match maquette_core::concepts::heal_ref_thumbnails(root, &config.layout, &id) {
+            Ok(Some(healed)) => {
+                if let Some(slot) = list.iter_mut().find(|p| p.id == id) {
+                    *slot = healed;
+                }
+            }
+            Ok(None) => {}
+            Err(err) => {
+                tracing::warn!(project = %id, error = %err, "could not heal ref thumbnails")
+            }
+        }
+    }
     let project = config
         .current_project
         .as_deref()
@@ -129,6 +149,62 @@ mod tests {
             boot.workspace.expect("opened").root,
             root.display().to_string()
         );
+    }
+
+    #[test]
+    fn snapshot_heals_a_refs_card_without_a_picture() {
+        use maquette_core::concepts::{self, Aspect, NewConcepts};
+        use maquette_core::{AssetKind, NewProject, ProjectTemplate};
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join("ws");
+        let config = workspace::create(&root, &WorkspaceConfig::default()).expect("create");
+        let manifest = projects::create(
+            &root,
+            &config.layout,
+            NewProject {
+                name: "Moon Island".into(),
+                template: ProjectTemplate::FloatingDiorama,
+                site_repo: None,
+                source_folder: None,
+            },
+        )
+        .expect("project");
+        let project_dir = projects::dir(&root, &config.layout, &manifest.id).expect("dir");
+        let request = NewConcepts {
+            project: manifest.id.clone(),
+            direction: "Maquette landing studio".into(),
+            prompt: "A studio desk".into(),
+            refs: Vec::new(),
+            aspect: Aspect::Wide,
+            count: 1,
+        };
+        let (direction, files) = concepts::prepare(&project_dir, &request).expect("prepare");
+        let (index, file) = files[0].clone();
+        std::fs::write(project_dir.join(&file), b"png").expect("image");
+        concepts::add_image(&project_dir, &direction.id, index, &file).expect("add");
+        concepts::mark(&project_dir, &direction.id, &file, None, Some(true)).expect("pick");
+        concepts::send_picks(
+            &root,
+            &config.layout,
+            &manifest.id,
+            &direction.id,
+            AssetKind::Scene,
+        )
+        .expect("send");
+        projects::modify(&root, &config.layout, &manifest.id, |m| {
+            m.assets[0].thumbnail = None;
+            Ok(())
+        })
+        .expect("stuck");
+
+        let session = Session::with_state(dir.path().join("cfg"), None, AppState::default());
+        let snap = snapshot(&session, &root, &config).expect("snapshot");
+        let want = Some("refs/maquette-landing-studio_01.png");
+        assert_eq!(
+            snap.project.expect("open").assets[0].thumbnail.as_deref(),
+            want
+        );
+        assert_eq!(snap.projects[0].assets[0].thumbnail.as_deref(), want);
     }
 
     #[test]
