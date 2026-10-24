@@ -13,13 +13,16 @@
  * starter scripts banner. The handoff set covers Make object refs, an
  * objects direction, Board multi-select, the batch send panel (By hand and
  * Tripo), the By hand checklist, Add model and Check Downloads, and a batch
- * approval from an agent. It renders pages to files and never captures the
+ * approval from an agent. The scene set covers the Inspector's layout editor
+ * (a selected model, a camera stop, looking through it), Copy to project on
+ * a Board card, the first view in the Pipeline view and the first view
+ * target in Settings. It renders pages to files and never captures the
  * screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
- * ONLY=handoff renders the handoff set alone, ONLY=guards the questions asked
- * before work is dropped; PORT picks the dev server port.
+ * ONLY=handoff or ONLY=scene renders that set alone, ONLY=guards the questions
+ * asked before work is dropped; PORT picks the dev server port.
  *
  * PLAYWRIGHT defaults to the `playwright` package, which this repo does not
  * install; point it at any local copy. OUT_DIR defaults to `.visual/`.
@@ -277,6 +280,47 @@ async function guardShots() {
 
 const only = process.env.ONLY;
 
+/** The layout editor, Copy to project and the first view. */
+async function sceneShots() {
+  const layout = await open('&scenario=configured', '#/inspector');
+  await layout.getByRole('tab', { name: 'Layout' }).click();
+  await layout.getByRole('heading', { name: 'Scene layout' }).waitFor();
+  await layout.getByText(/Loading \d+ models/).waitFor({ state: 'detached', timeout: 30_000 });
+  await layout.waitForTimeout(2500);
+  await shot(layout, 'scene-layout');
+  const details = layout.getByRole('complementary', { name: 'Layout details' });
+  await details.getByRole('button', { name: /^Character/ }).click();
+  await layout.waitForTimeout(800);
+  await shot(layout, 'scene-layout-model');
+  await layout.keyboard.press('e');
+  await layout.waitForTimeout(500);
+  await shot(layout, 'scene-layout-rotate');
+  await details.getByRole('button', { name: /^1 Porch/ }).click();
+  await layout.waitForTimeout(600);
+  await shot(layout, 'scene-layout-stop');
+  await details.getByRole('button', { name: 'Look through', exact: true }).click();
+  await layout.waitForTimeout(1800);
+  await shot(layout, 'scene-layout-look');
+
+  const board = await open('&scenario=configured', '#/board');
+  await board.getByRole('button', { name: 'More for Character' }).click();
+  await board.getByRole('menuitem', { name: 'Copy to project...' }).click();
+  await board.getByRole('menu', { name: 'Copy Character to project' }).waitFor();
+  await shot(board, 'board-copy-to-project');
+  await board.getByRole('menuitem', { name: 'Rooftop cinema' }).click();
+  await board.getByText('Copied Character to Rooftop cinema').waitFor();
+  await shot(board, 'board-copied');
+
+  const pipeline = await open('&scenario=idle', '#/pipeline');
+  await pipeline.getByText('First view · Porch').waitFor();
+  await shot(pipeline, 'pipeline-first-view');
+
+  const settings = await open('&scenario=configured', '#/settings');
+  await settings.getByLabel('First view target').waitFor();
+  await settings.getByLabel('First view target').scrollIntoViewIfNeeded();
+  await shot(settings, 'settings-first-view');
+}
+
 /** Every other view, from onboarding to the starter scripts banner. */
 async function coreShots() {
   const page = await open();
@@ -504,10 +548,9 @@ async function coreShots() {
 
 try {
   if (only === 'guards') await guardShots();
-  else {
-    if (only !== 'handoff') await coreShots();
-    await handoffShots();
-  }
+  if (!only) await coreShots();
+  if (!only || only === 'handoff') await handoffShots();
+  if (!only || only === 'scene') await sceneShots();
 } finally {
   await browser.close();
   await vite?.close();
