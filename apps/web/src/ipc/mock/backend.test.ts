@@ -5,7 +5,9 @@ import type {
   PipelineEvent,
   PipelineView,
   ProjectManifest,
+  ProviderJob,
   RunRecord,
+  SendOptions,
 } from '../client';
 import { createBackend } from './backend';
 
@@ -161,5 +163,45 @@ describe('mock backend', () => {
       thumbnail: path,
       thumbnailState: 'ready',
     });
+  });
+
+  it('sends by hand, takes the model back and refuses a send without a key', async () => {
+    const { handle } = backend('configured');
+    const options = (await handle('provider_send_options', {
+      project: 'moon-island',
+      asset: 'lanterns',
+    })) as SendOptions;
+    expect(options.suggested).toEqual(['refs/lanterns_front.png']);
+    expect(options.keys.find(k => k.service === 'meshy')?.saved).toBe(false);
+    const request = {
+      project: 'moon-island',
+      asset: 'lanterns',
+      provider: 'by-hand',
+      service: 'tripo',
+      variant: 'prop',
+      images: options.suggested,
+      tripo: null,
+      meshy: null,
+    };
+    const job = (await handle('provider_send', { request })) as ProviderJob;
+    expect(job.state).toBe('waiting');
+    expect(job.card?.returnName).toBe(`${job.id}.glb`);
+    await expect(
+      handle('provider_hand_back', { id: job.id, file: '/tmp/a.png' })
+    ).rejects.toMatchObject({
+      code: 'invalid',
+    });
+    const back = (await handle('provider_hand_back', {
+      id: job.id,
+      file: '/tmp/a.glb',
+    })) as ProviderJob;
+    expect(back.state).toBe('inbox');
+    await expect(
+      handle('provider_send', { request: { ...request, provider: 'meshy', service: 'meshy' } })
+    ).rejects.toMatchObject({ code: 'invalid' });
+    const tripo = (await handle('provider_cancel', { id: 'sakura-1' }).catch(e => e)) as {
+      message: string;
+    };
+    expect(tripo.message).toContain('Tripo cannot cancel');
   });
 });

@@ -1,7 +1,7 @@
 /**
  * A fake MCP server for mock mode. It "runs" whenever the workspace setting
- * is on; `?agents=active` adds an activity list from an agent session and a
- * run waiting at Ship for approval.
+ * is on; `?agents=active` adds an activity list from an agent session, a
+ * run waiting at Ship for approval and a send to Tripo waiting the same way.
  */
 import type { Approval, McpCall, McpStatus, WorkspaceConfig } from '../client';
 
@@ -12,6 +12,14 @@ export const MOCK_TOKEN = '7c1e9a4f0d3b58e2a6c4f19d8b0e7a35c2f6d1094be83a7f5c0d2
 
 export function agentCalls(now: number): McpCall[] {
   const rows: [string, string, McpCall['outcome'], string | null, number, number][] = [
+    [
+      'send_to_3d',
+      'moon-island, asset far-spire, provider tripo',
+      'waiting',
+      'waiting for approval',
+      140,
+      40,
+    ],
     ['run_pipeline', 'moon-island, from compress', 'waiting', 'waiting for approval', 31_200, 12],
     ['get_pipeline', 'moon-island', 'ok', null, 18, 44],
     ['get_inbox_checks', 'character_tails_v3.glb', 'ok', null, 64, 72],
@@ -44,11 +52,14 @@ export function createFakeAgents({
   config,
   active,
   emit,
+  onSendDecision,
 }: {
   config: () => WorkspaceConfig;
   /** `active`: an agent session is under way, with a run waiting at Ship. */
   active: boolean;
   emit?: (status: McpStatus) => void;
+  /** A send to 3D an agent asked for was approved or denied. */
+  onSendDecision?: (job: string, approve: boolean) => void;
 }) {
   const now = Date.now();
   let token: string | null = active ? MOCK_TOKEN : null;
@@ -67,6 +78,19 @@ export function createFakeAgents({
           service: null,
           detail: null,
           requestedAtMs: now - 12_000,
+        },
+        {
+          id: 'approval-2',
+          kind: 'send-to-3d',
+          runId: null,
+          project: 'moon-island',
+          runNumber: null,
+          step: null,
+          job: 'far-spire-2',
+          assetName: 'Far spire',
+          service: 'Tripo',
+          detail: 'Tripo H3.1, 1 image',
+          requestedAtMs: now - 40_000,
         },
       ]
     : [];
@@ -91,12 +115,13 @@ export function createFakeAgents({
 
   const handlers: Record<string, (args: Args) => unknown> = {
     mcp_status: () => status(),
-    mcp_decide: ({ approvalId }) => {
-      const before = approvals.length;
-      approvals = approvals.filter(a => a.id !== approvalId);
-      if (approvals.length === before) {
+    mcp_decide: ({ approvalId, approve }) => {
+      const found = approvals.find(a => a.id === approvalId);
+      if (!found) {
         throw { code: 'invalid', message: 'That request is no longer waiting for approval.' };
       }
+      approvals = approvals.filter(a => a.id !== approvalId);
+      if (found.job) onSendDecision?.(found.job, Boolean(approve));
       return status();
     },
     mcp_clear_activity: () => {

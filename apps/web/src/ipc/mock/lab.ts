@@ -326,6 +326,11 @@ export function createFakeLab(options: FakeLabOptions) {
 
   return {
     handlers,
+    refs: (project: string) => refs.get(project) ?? [],
+    sentFor: (project: string, assetName: string) =>
+      list(project)
+        .filter(d => d.name.trim().toLowerCase() === assetName.trim().toLowerCase())
+        .flatMap(d => d.images.flatMap(i => (i.refFile ? [i.refFile] : []))),
     setConcurrency: (n: number) => {
       concurrency = Math.max(1, n);
       pump();

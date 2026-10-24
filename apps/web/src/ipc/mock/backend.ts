@@ -11,8 +11,9 @@
  *
  * `?pace=` sets the milliseconds between streamed log lines (default 260).
  * `?lab=running` holds two concept images of the porch direction mid job.
- * `?agents=active` turns the MCP server on, with an agent's activity and a
- * run waiting at Ship for approval.
+ * `?agents=active` turns the MCP server on, with an agent's activity, a
+ * run waiting at Ship for approval and a send to Tripo waiting the same way.
+ * Configured scenarios also open with Send to 3D jobs (see `providers.ts`).
  */
 import type {
   AcceptRequest,
@@ -28,6 +29,7 @@ import type {
   NewProject,
   PipelineEvent,
   PipelineView,
+  ProviderEvent,
   Stage,
   ProjectManifest,
   RepoInspection,
@@ -50,6 +52,7 @@ import { inspectView } from './inspect-fixtures';
 import { dioramaPipeline, pipelineView, run24Log, runHistory } from './pipeline-fixtures';
 import { createFakeAgents } from './agents';
 import { createFakeLab } from './lab';
+import { createFakeProviders } from './providers';
 import { createFakeRunner, type RunStore } from './runner';
 
 type Args = Record<string, unknown>;
@@ -67,6 +70,7 @@ export interface MockOptions {
       | { name: 'inbox' }
       | { name: 'concept'; payload: ConceptEvent }
       | { name: 'mcp'; payload: McpStatus }
+      | { name: 'provider'; payload: ProviderEvent }
   ) => void;
   /** `active`: the MCP server is on, mid agent session. */
   agents?: string | null;
@@ -225,15 +229,29 @@ export function createBackend({
     fail,
   });
 
+  const providers = createFakeProviders({
+    config: () => config,
+    configured,
+    agentsActive: agentsState === 'active',
+    projectDir: id => `${expand(DEFAULT_ROOT)}/projects/${id}`,
+    project,
+    saveProject,
+    lab,
+    emit: payload => emit?.({ name: 'provider', payload }),
+    fail,
+  });
+
   const agents = createFakeAgents({
     config: () => config,
     active: agentsState === 'active',
     emit: payload => emit?.({ name: 'mcp', payload }),
+    onSendDecision: providers.decide,
   });
 
   const handlers: Record<string, (args: Args) => unknown> = {
     ...lab.handlers,
     ...agents.handlers,
+    ...providers.handlers,
     app_bootstrap: (): Bootstrap => ({
       os: 'mac',
       version: '0.1.0',

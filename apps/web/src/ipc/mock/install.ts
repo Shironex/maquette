@@ -11,6 +11,7 @@ import { DEFAULT_ROOT, HOME } from './fixtures';
 import { PREVIEW_FILE, thumbsDir } from './inbox-fixtures';
 import { conceptFiles, REF_FILES } from './lab-fixtures';
 import { INSPECT_FILES } from './inspect-fixtures';
+import { PROVIDER_REF_FILES } from './providers';
 
 const params = new URLSearchParams(window.location.search);
 const root = DEFAULT_ROOT.replace('~', HOME);
@@ -45,6 +46,10 @@ for (const [file, source] of Object.entries(REF_FILES)) {
     : renders[`../../assets/mock/${source}`];
   if (url) registerMockFile(`${projectDir}/${file}`, url);
 }
+for (const [file, source] of Object.entries(PROVIDER_REF_FILES)) {
+  const url = renders[`../../assets/mock/${source}`];
+  if (url) registerMockFile(`${projectDir}/${file}`, url);
+}
 for (const [path, url] of Object.entries(renders)) {
   registerMockFile(`${root}/projects/moon-island/thumbs/${base(path)}`, url);
   registerMockFile(`${thumbsDir(`${root}/inbox`)}/${base(path)}`, url);
@@ -69,7 +74,11 @@ const handle = createBackend({
     if (event.name === 'pipeline') void events.pipelineUpdate.emit(event.payload);
     else if (event.name === 'concept') void events.conceptUpdate.emit(event.payload);
     else if (event.name === 'mcp') void events.mcpUpdate.emit(event.payload);
-    else void events.inboxChanged.emit({ paths: [] });
+    else if (event.name === 'provider') {
+      const payload = event.payload;
+      if (payload.type === 'project') void events.projectChanged.emit({ project: payload.project });
+      else void events.providerUpdate.emit(payload);
+    } else void events.inboxChanged.emit({ paths: [] });
   },
   files: {
     alias: (path, from) => {
