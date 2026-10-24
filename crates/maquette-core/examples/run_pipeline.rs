@@ -63,6 +63,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let tools = Toolbox::from_reports(&reports, &env);
 
+    // The same placeholders the app fills: the workspace (two folders up,
+    // when it has a maquette.json) and the site repo from project.json.
+    let mut vars = BTreeMap::new();
+    if let Some(ws) = project_dir.parent().and_then(|p| p.parent())
+        && ws.join("maquette.json").is_file()
+    {
+        vars.insert("workspace".to_string(), ws.display().to_string());
+    }
+    let site_repo = std::fs::read_to_string(project_dir.join("project.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+        .and_then(|json| json.get("siteRepo")?.as_str().map(str::to_string))
+        .unwrap_or_default();
+    println!(
+        "site repo: {}",
+        if site_repo.is_empty() {
+            "-"
+        } else {
+            &site_repo
+        }
+    );
+    vars.insert("siteRepo".to_string(), site_repo);
+
     let setup = RunSetup {
         project: "e2e".to_string(),
         cache_dir: project_dir.join(".cache"),
@@ -74,7 +97,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             codec: TextureCodec::Etc1s,
             meshopt: MeshoptLevel::High,
         },
-        vars: BTreeMap::new(),
+        vars,
         from,
         force,
     };
