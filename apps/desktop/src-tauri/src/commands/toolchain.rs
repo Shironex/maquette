@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::{AppState, ProbeEnv, SystemRunner, ToolId, ToolReport, ToolSource, toolchain};
 use tauri::State;
 
@@ -13,6 +14,24 @@ pub(crate) fn overrides(session: &Session, state: &AppState) -> BTreeMap<ToolId,
         .iter()
         .map(|(id, path)| (*id, session.expand(path)))
         .collect()
+}
+
+/// The tools a job runs with: the last check, or a fresh one.
+pub(crate) async fn toolbox(session: &Session) -> CommandResult<Toolbox> {
+    let reports = match session.tools() {
+        Some(reports) => reports,
+        None => {
+            let overrides = overrides(session, &session.app_state());
+            let reports = tauri::async_runtime::spawn_blocking(move || {
+                toolchain::detect_all(&ProbeEnv::from_system(), &overrides, &SystemRunner)
+            })
+            .await
+            .map_err(super::join_failed)?;
+            session.set_tools(Some(reports.clone()));
+            reports
+        }
+    };
+    Ok(Toolbox::from_reports(&reports, &ProbeEnv::from_system()))
 }
 
 async fn run_blocking<T: Send + 'static>(

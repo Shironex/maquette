@@ -3,10 +3,12 @@
 
 use maquette_core::AssetKind;
 use maquette_core::inbox::{self, AcceptRequest, AcceptResult, InboxItem};
+use maquette_core::thumbs::ThumbTarget;
 use serde::Serialize;
 use tauri::State;
 
-use super::{CommandResult, blender};
+use super::thumbs::{self, Thumbs};
+use super::{CommandResult, blender, toolchain};
 use crate::session::Session;
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -37,9 +39,19 @@ async fn blocking<T: Send + 'static>(job: impl FnOnce() -> T + Send + 'static) -
 /// Analysis can take a moment on big models, so it runs off the main thread.
 #[tauri::command]
 #[specta::specta]
-pub async fn inbox_list(session: State<'_, Session>) -> CommandResult<InboxSnapshot> {
+pub async fn inbox_list(
+    session: State<'_, Session>,
+    service: State<'_, Thumbs>,
+) -> CommandResult<InboxSnapshot> {
     let (root, config) = session.workspace()?;
-    let items = blocking(move || inbox::list(&root, &config)).await??;
+    let tools = toolchain::toolbox(&session).await?;
+    let service = service.0.clone();
+    let items = blocking(move || {
+        let mut items = inbox::list(&root, &config)?;
+        thumbs::fill(&service, &root, &config, &tools, &mut items);
+        Ok::<_, maquette_core::CoreError>(items)
+    })
+    .await??;
     let mut snap = snapshot_shell(&session)?;
     snap.items = items;
     Ok(snap)
@@ -59,30 +71,74 @@ fn snapshot_shell(session: &Session) -> CommandResult<InboxSnapshot> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn inbox_reprocess(session: State<'_, Session>, id: String) -> CommandResult<InboxItem> {
+pub async fn inbox_reprocess(
+    session: State<'_, Session>,
+    service: State<'_, Thumbs>,
+    id: String,
+) -> CommandResult<InboxItem> {
     let (root, config) = session.workspace()?;
-    Ok(blocking(move || inbox::reprocess(&root, &config, &id)).await??)
+    let tools = toolchain::toolbox(&session).await?;
+    let service = service.0.clone();
+    Ok(blocking(move || {
+        let mut item = inbox::reprocess(&root, &config, &id)?;
+        thumbs::fill(
+            &service,
+            &root,
+            &config,
+            &tools,
+            std::slice::from_mut(&mut item),
+        );
+        Ok::<_, maquette_core::CoreError>(item)
+    })
+    .await??)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn inbox_set_kind(
+pub async fn inbox_set_kind(
     session: State<'_, Session>,
+    service: State<'_, Thumbs>,
     id: String,
     kind: AssetKind,
 ) -> CommandResult<InboxItem> {
     let (root, config) = session.workspace()?;
-    Ok(inbox::set_kind(&root, &config, &id, kind)?)
+    let tools = toolchain::toolbox(&session).await?;
+    let mut item = inbox::set_kind(&root, &config, &id, kind)?;
+    thumbs::fill(
+        &service.0,
+        &root,
+        &config,
+        &tools,
+        std::slice::from_mut(&mut item),
+    );
+    Ok(item)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn inbox_accept(
+pub async fn inbox_accept(
     session: State<'_, Session>,
+    service: State<'_, Thumbs>,
     request: AcceptRequest,
 ) -> CommandResult<AcceptResult> {
     let (root, config) = session.workspace()?;
-    Ok(inbox::accept(&root, &config, &request)?)
+    let tools = toolchain::toolbox(&session).await?;
+    let mut result = inbox::accept(&root, &config, &request)?;
+    // The file kept its content, so a render made while it sat in the inbox
+    // is reused at once; otherwise the Board gets it from ThumbnailReady.
+    let target = ThumbTarget {
+        project: request.project.clone(),
+        asset: result.asset.id.clone(),
+        version: result.version.version,
+    };
+    let file = std::path::PathBuf::from(&result.file);
+    if let Some(project) = thumbs::for_version(&service.0, &root, &config, &tools, &file, target) {
+        if let Some(asset) = project.assets.iter().find(|a| a.id == result.asset.id) {
+            result.asset = asset.clone();
+        }
+        result.project = project;
+    }
+    Ok(result)
 }
 
 /// Opens the model in Blender's window, imported into an empty scene.

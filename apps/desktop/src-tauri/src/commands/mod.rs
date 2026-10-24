@@ -8,6 +8,7 @@ pub mod dialogs;
 pub mod inbox;
 pub mod pipeline;
 pub mod project;
+pub mod thumbs;
 pub mod toolchain;
 pub mod workspace;
 

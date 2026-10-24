@@ -12,7 +12,7 @@ use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::pipeline::{
     self, CompressDefaults, CompressPreset, PipelineDef, PipelineIssue, history, presets,
 };
-use maquette_core::{ProbeEnv, ProjectManifest, SystemRunner, WorkspaceConfig, project, toolchain};
+use maquette_core::{ProjectManifest, WorkspaceConfig, project};
 use serde::Serialize;
 use tauri::State;
 
@@ -237,20 +237,7 @@ pub async fn pipeline_run(
     from: Option<String>,
     force: bool,
 ) -> CommandResult<RunRecord> {
-    let reports = match session.tools() {
-        Some(reports) => reports,
-        None => {
-            let overrides = super::toolchain::overrides(&session, &session.app_state());
-            let reports = tauri::async_runtime::spawn_blocking(move || {
-                toolchain::detect_all(&ProbeEnv::from_system(), &overrides, &SystemRunner)
-            })
-            .await
-            .map_err(super::join_failed)?;
-            session.set_tools(Some(reports.clone()));
-            reports
-        }
-    };
-    let tools = Toolbox::from_reports(&reports, &ProbeEnv::from_system());
+    let tools = super::toolchain::toolbox(&session).await?;
     let setup = setup(&session, &project, from, force, tools)?;
     Ok(runner.0.submit(setup)?)
 }

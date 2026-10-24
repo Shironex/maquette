@@ -7,8 +7,10 @@ use std::path::PathBuf;
 use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
-use crate::commands::{app, assets, dialogs, inbox, pipeline, project, toolchain, workspace};
-use crate::events::{InboxChanged, PipelineUpdate};
+use crate::commands::{
+    app, assets, dialogs, inbox, pipeline, project, thumbs, toolchain, workspace,
+};
+use crate::events::{InboxChanged, PipelineUpdate, ThumbnailReady};
 
 /// Compile time path, so the export never depends on the working folder.
 pub const GENERATED_FILE: &str = concat!(
@@ -53,8 +55,13 @@ pub fn builder() -> Builder<tauri::Wry> {
             inbox::inbox_set_kind,
             inbox::inbox_accept,
             inbox::inbox_open_in_blender,
+            thumbs::thumbnail_store,
         ])
-        .events(collect_events![PipelineUpdate, InboxChanged])
+        .events(collect_events![
+            PipelineUpdate,
+            InboxChanged,
+            ThumbnailReady
+        ])
         .types(&maquette_core::types())
 }
 
@@ -89,10 +96,11 @@ mod tests {
             "pipelineRun",
             "inboxAccept",
             "assetMove",
+            "thumbnailStore",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }
-        for event in ["pipelineUpdate", "inboxChanged"] {
+        for event in ["pipelineUpdate", "inboxChanged", "thumbnailReady"] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }
         let resolved = PathBuf::from(GENERATED_FILE)

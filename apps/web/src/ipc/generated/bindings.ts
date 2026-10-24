@@ -52,12 +52,14 @@ export const commands = {
 	inboxAccept: (request: AcceptRequest) => __TAURI_INVOKE<AcceptResult>("inbox_accept", { request }),
 	/**  Opens the model in Blender's window, imported into an empty scene. */
 	inboxOpenInBlender: (id: string) => __TAURI_INVOKE<null>("inbox_open_in_blender", { id }),
+	thumbnailStore: (file: string, png: number[]) => __TAURI_INVOKE<string>("thumbnail_store", { file, png }),
 };
 
 /** Events */
 export const events = {
 	inboxChanged: makeEvent<InboxChanged>("inbox-changed"),
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
+	thumbnailReady: makeEvent<ThumbnailReady>("thumbnail-ready"),
 };
 
 /* Types */
@@ -589,6 +591,18 @@ export type ThumbState =
  *  web view snapshots its own preview and stores that.
  */
 "fallback";
+
+/**
+ *  A model's thumbnail finished, or will not come from Blender (`state` is
+ *  fallback, so the web view stores a snapshot of its own preview). With
+ *  `project`, a Board asset now shows it.
+ */
+export type ThumbnailReady = {
+	file: string,
+	thumbnail: string | null,
+	state: ThumbState,
+	project: ProjectManifest | null,
+};
 
 export type ToolId = "blender" | "codex" | "ffmpeg" | "toktx" | "gltf-transform" | "node";
 
