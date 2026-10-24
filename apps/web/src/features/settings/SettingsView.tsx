@@ -13,6 +13,7 @@ import { commands, errorMessage, type WorkspaceConfig } from '@/ipc/client';
 import { PANEL_TITLE, Panel } from '@/features/common/Panel';
 import { AgentsPanel } from '@/features/agents/AgentsPanel';
 import { BudgetFields, CompressionFields } from '@/features/config/ConfigFields';
+import { KeyFields } from '@/features/providers/KeyFields';
 import { ProviderPresetFields } from '@/features/providers/PresetFields';
 import { projectThumb } from '@/features/shell/projectArt';
 import { RecheckButton, ToolList } from '@/features/toolchain/ToolList';
@@ -117,9 +118,11 @@ function SettingsScreen() {
               <Panel
                 id="settings-providers"
                 title="3D providers"
-                help="Presets a Send to 3D starts from"
+                help="API keys, and the presets a Send to 3D starts from"
                 className={cn('gap-3 px-4 py-3.5', active === 'providers' && ACTIVE)}
               >
+                <KeyFields />
+                <div className="h-px bg-line" />
                 <ProviderPresetFields {...props} />
               </Panel>
               <Panel
