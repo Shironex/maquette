@@ -351,7 +351,7 @@ function WorkspaceSection({ active, config }: { active: boolean; config: Workspa
 
 function ProjectSection({ active }: { active: boolean }) {
   const workspace = useAppStore(s => s.workspace);
-  const setWorkspace = useAppStore(s => s.setWorkspace);
+  const setProject = useAppStore(s => s.setProject);
   const notify = useAppStore(s => s.notify);
   const home = useAppStore(s => s.boot?.home);
   const project = workspace?.project;
@@ -374,11 +374,8 @@ function ProjectSection({ active }: { active: boolean }) {
         nextName.trim(),
         nextRepo.trim() || null
       );
-      setWorkspace({
-        ...workspace,
-        project: updated,
-        projects: workspace.projects.map(p => (p.id === updated.id ? updated : p)),
-      });
+      // Only this project: a switch or an agent's change may have landed meanwhile.
+      setProject(updated);
     } catch (error) {
       setName(project.name);
       notify({
