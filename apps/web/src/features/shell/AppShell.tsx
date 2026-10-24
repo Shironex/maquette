@@ -22,7 +22,11 @@ import { InboxView } from '@/features/inbox/InboxView';
 import { LabView } from '@/features/lab/LabView';
 import { InspectorView } from '@/features/inspector/InspectorView';
 import { PipelineView } from '@/features/pipeline/PipelineView';
+import { BatchSendPanel } from '@/features/providers/BatchSendPanel';
+import { DownloadsMatches } from '@/features/providers/DownloadsMatches';
+import { HandoffChecklist } from '@/features/providers/HandoffChecklist';
 import { SendPanel } from '@/features/providers/SendPanel';
+import { ObjectRefsDialog } from '@/features/lab/ObjectRefsDialog';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { PlaceholderView } from '@/features/tools/PlaceholderView';
 import { projectMeta, projectThumb } from './projectArt';
@@ -121,7 +125,11 @@ export function AppShell() {
         </div>
         <ShellStatusBar />
       </div>
+      <HandoffChecklist />
+      <BatchSendPanel />
       <SendPanel />
+      <ObjectRefsDialog />
+      <DownloadsMatches />
       <NewProjectDialog onClosed={() => switcher.current?.focus()} />
       <ApprovalPrompt />
     </div>

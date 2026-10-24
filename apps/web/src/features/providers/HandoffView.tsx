@@ -1,14 +1,21 @@
 /**
  * By hand: the settings card for the provider's web app, with a copy
- * button on every value, and how the model comes back.
+ * button on every value, buttons that open the web app, the folder and
+ * each image, and how the model comes back.
  */
 import { Button, Icon, IconButton } from '@maquette/ui';
-import type { ProviderJob } from '@/ipc/client';
+import type { ProviderId, ProviderJob } from '@/ipc/client';
 import { copyText } from '@/features/config/ConfigFields';
 import { shortPath } from '@/lib/format';
 import { useAppStore } from '@/state/app-store';
 import { SERVICE_LABEL } from '@/state/providers';
 import { useProvidersStore } from '@/state/providers-store';
+
+/** What the OS calls its file manager. */
+export function useFileManager(): string {
+  const os = useAppStore(s => s.boot?.os);
+  return os === 'windows' ? 'Explorer' : os === 'linux' ? 'the file manager' : 'Finder';
+}
 
 function CopyButton({ text, what }: { text: string; what: string }) {
   const notify = useAppStore(s => s.notify);
@@ -48,8 +55,51 @@ function Step({ n, title, children }: { n: number; title: string; children?: Rea
   );
 }
 
+/** "Open Tripo studio", "Open Meshy". */
+export function siteLabel(service: ProviderId): string {
+  return service === 'tripo' ? 'Open Tripo studio' : `Open ${SERVICE_LABEL[service]}`;
+}
+
+/** Add model... and Check Downloads, for a send waiting for its model. */
+export function HandBackButtons({
+  job,
+  size,
+  downloads = true,
+}: {
+  job: ProviderJob;
+  size?: 'sm';
+  /** Also offers Check Downloads. */
+  downloads?: boolean;
+}) {
+  const addModel = useProvidersStore(s => s.addModel);
+  const checkDownloads = useProvidersStore(s => s.checkDownloads);
+  const busy = useProvidersStore(s => s.busy.includes(job.id));
+  return (
+    <>
+      <Button
+        size={size}
+        variant="primary"
+        icon="upload-simple"
+        loading={busy}
+        disabled={busy}
+        onClick={() => void addModel(job.id)}
+      >
+        Add model...
+      </Button>
+      {downloads ? (
+        <Button size={size} icon="download-simple" onClick={() => void checkDownloads()}>
+          Check Downloads
+        </Button>
+      ) : null}
+    </>
+  );
+}
+
 export function HandoffView({ job }: { job: ProviderJob }) {
   const openHandoff = useProvidersStore(s => s.openHandoff);
+  const openSite = useProvidersStore(s => s.openSite);
+  const revealImage = useProvidersStore(s => s.revealImage);
+  const fileManager = useFileManager();
   const card = job.card;
   if (!card) return null;
   const service = SERVICE_LABEL[card.service];
@@ -74,13 +124,23 @@ export function HandoffView({ job }: { job: ProviderJob }) {
 
       <ol className="flex list-none flex-col gap-4 p-0">
         <Step n={1} title={`Open ${service}`}>
-          <div className="flex items-center gap-2 rounded-control border border-line bg-app px-2.5 py-1.5">
-            <code className="min-w-0 flex-1 truncate font-mono text-[12px] text-fg-dim">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="primary"
+              icon="arrow-square-out"
+              onClick={() => void openSite(card.service)}
+            >
+              {siteLabel(card.service)}
+            </Button>
+            <code className="min-w-0 flex-1 truncate font-mono text-[12px] text-fg-mute">
               {card.site}
             </code>
             <CopyButton text={card.site} what="The link" />
           </div>
-          <p className="text-meta text-fg-mute">Choose {card.mode} there.</p>
+          <p className="text-meta text-fg-mute">
+            It opens in your browser. Choose {card.mode} there.
+          </p>
         </Step>
 
         <Step n={2} title="Upload the images">
@@ -96,7 +156,27 @@ export function HandoffView({ job }: { job: ProviderJob }) {
               Open folder
             </Button>
           </div>
-          <p className="font-mono text-[12px] text-fg-mute">{card.images.join(', ')}</p>
+          <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+            {card.images.map(image => (
+              <li
+                key={image}
+                className="flex items-center gap-1.5 rounded-control border border-line bg-raised py-0.5 pr-0.5 pl-2"
+              >
+                <span className="font-mono text-[12px] text-fg-dim">{image}</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon="image"
+                  onClick={() => void revealImage(job.id, image)}
+                >
+                  Reveal image
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <p className="text-meta text-fg-mute">
+            Reveal shows the image in {fileManager}, ready to drag into the browser.
+          </p>
         </Step>
 
         <Step n={3} title="Use these settings">
@@ -123,15 +203,23 @@ export function HandoffView({ job }: { job: ProviderJob }) {
         </Step>
 
         <Step n={4} title="Bring the GLB back">
+          {waiting ? (
+            <div className="flex flex-wrap gap-2">
+              <HandBackButtons job={job} size="sm" />
+            </div>
+          ) : null}
           <p className="text-meta text-fg-dim">
-            Drop it on the {job.assetName} card on the Board, or save it into the inbox as
+            Add model takes a .glb, or the .zip the web app downloads. Check Downloads looks for new
+            models in your Downloads folder and asks before it takes one. You can also drop it on
+            the {job.assetName} card on the Board, or save it into the inbox as
           </p>
           <div className="flex items-center gap-2 rounded-control border border-line bg-app px-2.5 py-1.5">
             <code className="min-w-0 flex-1 truncate font-mono text-[12px]">{card.returnName}</code>
             <CopyButton text={card.returnName} what="The file name" />
           </div>
           <p className="text-meta text-fg-mute">
-            Either way it links to {job.assetName} and the Inbox checks run.
+            Every way copies the model into the inbox, leaves your file where it is, links it to{' '}
+            {job.assetName} and runs the Inbox checks.
           </p>
         </Step>
       </ol>

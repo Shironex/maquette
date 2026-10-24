@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react';
+import { useEffect, useState, type DragEvent, type MouseEvent } from 'react';
 import {
   AssetCard,
   Button,
@@ -16,6 +16,8 @@ import { readFlag, writeFlag } from '@/lib/storage';
 import { useNativeDrop } from '@/lib/useNativeDrop';
 import { useAppStore } from '@/state/app-store';
 import { assetCount, cardNumbers, columns, projectFile } from '@/state/board';
+import { MAX_BATCH, nextSelection, waitingByHand } from '@/state/batch';
+import { useLabStore } from '@/state/lab-store';
 import { cardState, isActive, latestJob } from '@/state/providers';
 import { useProvidersStore } from '@/state/providers-store';
 import { TEMPLATE_LABEL } from '@/state/onboarding';
@@ -28,7 +30,7 @@ import { AddAssetForm } from './AddAssetForm';
 
 const TIPS_KEY = 'maquette.board.tipsHidden';
 const DRAG_TYPE = 'application/x-maquette-asset';
-const GLB_FILE = /\.glb$/i;
+const MODEL_FILE = /\.(glb|zip)$/i;
 
 /** The By hand job of the card under a point, for native GLB drops. */
 function jobAt(x: number, y: number): string | null {
@@ -60,40 +62,70 @@ export function BoardView() {
   const openPanel = useProvidersStore(s => s.openPanel);
   const showHandoff = useProvidersStore(s => s.showHandoff);
   const handBack = useProvidersStore(s => s.handBack);
+  const addModel = useProvidersStore(s => s.addModel);
+  const openBatch = useProvidersStore(s => s.openBatch);
+  const setChecklistOpen = useProvidersStore(s => s.setChecklistOpen);
+  const openObjects = useLabStore(s => s.openObjects);
   const [dropJob, setDropJob] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [anchor, setAnchor] = useState<string | null>(null);
   const project = workspace?.project;
   const assets = project?.assets ?? [];
   const activeJobs = jobs.filter(j => isActive(j.state)).length;
+  const byHand = jobs.some(j => j.provider === 'by-hand');
+  const toMake = waitingByHand(jobs).length;
   useNativeDrop({
     onOver: ({ x, y }) => setDropJob(jobAt(x, y)),
     onLeave: () => setDropJob(null),
     onDrop: ({ x, y }, paths) => {
       setDropJob(null);
       const job = jobAt(x, y);
-      const glb = paths.find(p => GLB_FILE.test(p));
-      if (job && glb) void handBack(job, glb);
+      const model = paths.find(p => MODEL_FILE.test(p));
+      if (job && model) void handBack(job, model);
       else if (job)
         notify({
           status: 'info',
-          title: 'Drop a .glb file',
-          detail: 'The card takes the GLB you made by hand.',
+          title: 'Drop a .glb or .zip file',
+          detail: 'The card takes the GLB you made by hand, or the zip the web app downloads.',
         });
     },
   });
-  const pickGlb = async (job: string) => {
-    try {
-      const file = await commands.dialogPickFile('Choose the GLB you made');
-      if (file) void handBack(job, file);
-    } catch (error) {
-      notify({
-        status: 'failed',
-        title: 'Could not open the file picker',
-        detail: errorMessage(error),
-      });
-    }
-  };
   const budget = workspace?.config.budgets.sceneMb ?? 3;
   const byStage = columns(assets);
+  const order = STAGES.flatMap(stage => byStage[stage].map(a => a.id));
+  const present = selected.filter(id => order.includes(id));
+
+  // A selection belongs to the project it was made in.
+  useEffect(() => {
+    setSelected([]);
+    setAnchor(null);
+  }, [project?.id]);
+  useEffect(() => {
+    if (selected.length === 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.querySelector('[aria-modal="true"]')) setSelected([]);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected.length]);
+
+  const check = (id: string, on: boolean, range: boolean) => {
+    setSelected(s => nextSelection(s, order, id, on, range, anchor));
+    setAnchor(id);
+  };
+  /** Shift and a click anywhere on a card selects it, and the cards between. */
+  const shiftClick = (id: string) => (e: MouseEvent) => {
+    if (!e.shiftKey) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[aria-haspopup], [role="menu"], [role="checkbox"], [data-card-action]'))
+      return;
+    e.preventDefault();
+    check(id, !present.includes(id), true);
+  };
+  const sendSelected = () => {
+    if (!project || present.length === 0) return;
+    void openBatch(project.id, present.slice(0, MAX_BATCH));
+  };
 
   const hideTips = () => {
     setTipsHidden(true);
@@ -156,6 +188,16 @@ export function BoardView() {
               ]}
               defaultValue="board"
             />
+            {byHand ? (
+              <Button icon="hand-pointing" onClick={() => setChecklistOpen(true)}>
+                By hand
+                {toMake > 0 ? (
+                  <span className="ml-0.5 rounded-pill bg-clay-soft px-1.5 font-mono text-[11px] leading-[18px] text-clay-text">
+                    {toMake}
+                  </span>
+                ) : null}
+              </Button>
+            ) : null}
             <div className="relative">
               <Button
                 icon="cube"
@@ -240,10 +282,29 @@ export function BoardView() {
                     const job = latestJob(jobs, asset.id);
                     const sent = cardState(job);
                     const waiting = job?.state === 'waiting' ? job : undefined;
+                    const refPicture = asset.thumbnail?.startsWith('refs/')
+                      ? asset.thumbnail
+                      : null;
                     return (
                       <AssetCard
                         key={asset.id}
                         data-drop-job={waiting?.id}
+                        checked={present.includes(asset.id)}
+                        selecting={present.length > 0}
+                        onCheck={(on, range) => check(asset.id, on, range)}
+                        onClickCapture={shiftClick(asset.id)}
+                        actions={
+                          waiting ? (
+                            <Button
+                              size="sm"
+                              icon="upload-simple"
+                              data-card-action
+                              onClick={() => void addModel(waiting.id)}
+                            >
+                              Add model...
+                            </Button>
+                          ) : undefined
+                        }
                         className={cn(
                           waiting && 'border-dashed border-clay-line',
                           dropJob &&
@@ -288,9 +349,9 @@ export function BoardView() {
                                     },
                                     {
                                       id: 'hand-back',
-                                      label: 'Choose the GLB',
+                                      label: 'Add model...',
                                       icon: 'upload-simple' as const,
-                                      onSelect: () => void pickGlb(waiting.id),
+                                      onSelect: () => void addModel(waiting.id),
                                     },
                                   ]
                                 : []),
@@ -300,6 +361,22 @@ export function BoardView() {
                                 icon: 'cube',
                                 onSelect: () => void openPanel(project?.id ?? '', asset.id),
                               },
+                              ...(refPicture && workspace && project
+                                ? [
+                                    {
+                                      id: 'objects',
+                                      label: 'Make object refs...',
+                                      icon: 'cube-focus' as const,
+                                      onSelect: () =>
+                                        openObjects({
+                                          project: project.id,
+                                          source: refPicture,
+                                          sourcePath: projectFile(workspace, refPicture) ?? '',
+                                          sourceName: asset.name,
+                                        }),
+                                    },
+                                  ]
+                                : []),
                               ...others.map(s => ({
                                 id: `move-${s}`,
                                 label: `Move to ${STAGE_LABEL[s]}`,
@@ -329,6 +406,14 @@ export function BoardView() {
             })}
           </div>
 
+          {present.length > 0 ? (
+            <SelectionBar
+              count={present.length}
+              onSend={sendSelected}
+              onClear={() => setSelected([])}
+            />
+          ) : null}
+
           {tipsHidden || !project || assets.length > 0 ? null : (
             <FirstRunCard
               name={project.name}
@@ -341,6 +426,41 @@ export function BoardView() {
         </div>
       </main>
     </>
+  );
+}
+
+function SelectionBar({
+  count,
+  onSend,
+  onClear,
+}: {
+  count: number;
+  onSend: () => void;
+  onClear: () => void;
+}) {
+  const over = count > MAX_BATCH;
+  return (
+    <div
+      role="toolbar"
+      aria-label="Selected assets"
+      className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-card border border-line-strong bg-panel py-2 pr-2 pl-3.5 shadow-window"
+    >
+      <span className="grid size-[22px] place-items-center rounded-[6px] bg-clay text-clay-ink">
+        <Icon name="check" size={13} />
+      </span>
+      <span className="font-semibold whitespace-nowrap">
+        {count} {count === 1 ? 'asset' : 'assets'} selected
+      </span>
+      <span className="text-meta whitespace-nowrap text-fg-mute">
+        {over ? `The first ${MAX_BATCH} go in one batch` : 'Shift-click to add a range'}
+      </span>
+      <Button variant="primary" icon="cube" onClick={onSend}>
+        Send to 3D
+      </Button>
+      <Button variant="ghost" onClick={onClear}>
+        Clear
+      </Button>
+    </div>
   );
 }
 
