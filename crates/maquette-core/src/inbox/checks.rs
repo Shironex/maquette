@@ -26,6 +26,27 @@ pub struct Check {
     pub detail: Option<String>,
 }
 
+/// Which maps the send behind a model asked for.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SentMaps {
+    /// Not from a send, or one that asked for the full set.
+    #[default]
+    Any,
+    /// Sent with PBR off: base color only.
+    NoPbr,
+    /// Sent with texture off: no maps at all.
+    NoTexture,
+}
+
+/// What the send record says about a model, so a check does not warn
+/// about something that was chosen on purpose.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SendNotes {
+    pub maps: SentMaps,
+    /// Sent with a texture quality above the standard one.
+    pub large_textures: bool,
+}
+
 fn check(
     id: &str,
     status: CheckStatus,
@@ -68,7 +89,12 @@ fn plural(n: u32, one: &str, many: &str) -> String {
 }
 
 /// The rows for one model, in display order.
-pub fn run(report: &GlbReport, kind: AssetKind, config: &WorkspaceConfig) -> Vec<Check> {
+pub fn run(
+    report: &GlbReport,
+    kind: AssetKind,
+    config: &WorkspaceConfig,
+    notes: SendNotes,
+) -> Vec<Check> {
     let mut out = Vec::new();
     let budget = config.budgets.tris_per_model;
     let tris = report.triangles;
@@ -124,9 +150,14 @@ pub fn run(report: &GlbReport, kind: AssetKind, config: &WorkspaceConfig) -> Vec
                 CheckStatus::Warning,
                 title,
                 format!(
-                    "{} over the {limit} px default: {}. Compress resizes them, or set a per model size.",
+                    "{} over the {limit} px default: {}.{} Compress resizes them, or set a per model size.",
                     plural(u32::try_from(over.len()).unwrap_or(u32::MAX), "texture is", "textures are"),
-                    over.join(", ")
+                    over.join(", "),
+                    if notes.large_textures {
+                        " It was sent with detailed textures."
+                    } else {
+                        ""
+                    }
                 ),
             ));
         }
@@ -195,6 +226,20 @@ pub fn run(report: &GlbReport, kind: AssetKind, config: &WorkspaceConfig) -> Vec
             )
         };
         out.push(check("pbr", CheckStatus::Pass, "PBR maps present", detail));
+    } else if notes.maps == SentMaps::NoPbr && p.base_color {
+        out.push(check(
+            "pbr",
+            CheckStatus::Pass,
+            "PBR off, as sent",
+            "Sent with PBR off, so only a base color map is expected.".to_string(),
+        ));
+    } else if notes.maps == SentMaps::NoTexture {
+        out.push(check(
+            "pbr",
+            CheckStatus::Pass,
+            "Texture off, as sent",
+            "Sent with texture off, so no maps are expected.".to_string(),
+        ));
     } else {
         out.push(check(
             "pbr",
@@ -315,6 +360,7 @@ mod tests {
             &analyse_bytes(bytes, Path::new(".")).expect("analyse"),
             kind,
             config,
+            SendNotes::default(),
         )
     }
 
@@ -357,7 +403,12 @@ mod tests {
         assert_eq!(status(&list, "triangles"), Some(CheckStatus::Fail));
         let mut report = analyse_bytes(&fixture::clean_prop(), Path::new(".")).expect("analyse");
         report.textures[0].width = Some(4096);
-        let list = run(&report, AssetKind::Prop, &WorkspaceConfig::default());
+        let list = run(
+            &report,
+            AssetKind::Prop,
+            &WorkspaceConfig::default(),
+            SendNotes::default(),
+        );
         let row = list.iter().find(|c| c.id == "textures").expect("row");
         assert_eq!(row.status, CheckStatus::Warning);
         assert!(
@@ -385,7 +436,7 @@ mod tests {
         assert_eq!(status(&clean, "finger-weights"), Some(CheckStatus::Pass));
         let mut still = analyse_bytes(&fixture::character(false), Path::new(".")).expect("analyse");
         still.animations.clear();
-        let list = run(&still, AssetKind::Character, &config);
+        let list = run(&still, AssetKind::Character, &config, SendNotes::default());
         assert_eq!(status(&list, "animations"), Some(CheckStatus::Warning));
         // The same rig on a prop is suspicious; no rig on a character fails.
         let prop = checks(&fixture::character(false), AssetKind::Prop, &config);
@@ -402,5 +453,49 @@ mod tests {
         assert_eq!(status(&list, "pbr"), Some(CheckStatus::Warning));
         let scene = checks(&fixture::merged_islands(), AssetKind::Scene, &config);
         assert_eq!(status(&scene, "merged"), Some(CheckStatus::Pass));
+    }
+
+    #[test]
+    fn a_send_without_pbr_does_not_warn_about_missing_maps() {
+        let config = WorkspaceConfig::default();
+        let mut report =
+            analyse_bytes(&fixture::merged_islands(), Path::new(".")).expect("analyse");
+        report.pbr.base_color = true;
+        let sent = |maps| {
+            let notes = SendNotes {
+                maps,
+                large_textures: false,
+            };
+            run(&report, AssetKind::Scene, &config, notes)
+        };
+        assert_eq!(
+            status(&sent(SentMaps::Any), "pbr"),
+            Some(CheckStatus::Warning)
+        );
+        let list = sent(SentMaps::NoPbr);
+        assert_eq!(status(&list, "pbr"), Some(CheckStatus::Pass));
+        let row = list.iter().find(|c| c.id == "pbr").expect("row");
+        assert_eq!(row.title, "PBR off, as sent");
+        assert_eq!(worst(&list), CheckStatus::Pass);
+        assert_eq!(
+            status(&sent(SentMaps::NoTexture), "pbr"),
+            Some(CheckStatus::Pass)
+        );
+    }
+
+    #[test]
+    fn detailed_textures_keep_the_warning_and_say_why() {
+        let mut report = analyse_bytes(&fixture::clean_prop(), Path::new(".")).expect("analyse");
+        report.textures[0].width = Some(4096);
+        let notes = SendNotes {
+            large_textures: true,
+            ..SendNotes::default()
+        };
+        let list = run(&report, AssetKind::Prop, &WorkspaceConfig::default(), notes);
+        let row = list.iter().find(|c| c.id == "textures").expect("row");
+        assert_eq!(row.status, CheckStatus::Warning);
+        let detail = row.detail.as_deref().unwrap_or_default();
+        assert!(detail.contains("sent with detailed textures"), "{detail}");
+        assert!(detail.contains("Compress resizes them"));
     }
 }

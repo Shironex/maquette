@@ -21,14 +21,15 @@ use super::handoff::{Handoff, HandoffCard};
 use super::http::{Api, ApiError, StopFlag, Timing};
 use super::meshy::{self, Meshy};
 use super::presets::{
-    MeshyPreset, PresetVariant, ProviderId, TripoPreset, TripoRigSpec, meshy_problem, tripo_problem,
+    MeshyPreset, MeshyTexture, PresetVariant, ProviderId, TripoPreset, TripoRigSpec,
+    TripoTextureQuality, meshy_problem, tripo_problem,
 };
 use super::secrets::SecretStore;
 use super::tripo::{self, Tripo};
 use crate::assets::{self, AssetKind, AssetStatus, Stage};
 use crate::error::{CoreError, CoreResult};
 use crate::fs::write_atomic;
-use crate::inbox::{self, InboxItem};
+use crate::inbox::{self, InboxItem, SendNotes, SentMaps};
 use crate::json::write_json;
 use crate::pipeline::history::now_ms;
 use crate::project::{self, ProjectManifest};
@@ -330,6 +331,42 @@ pub struct BatchSent {
     /// In the order asked, one per asset.
     pub jobs: Vec<ProviderJob>,
     pub failed: Vec<BatchFailure>,
+}
+
+/// What a send's settings say about the model it asked for.
+pub(super) fn send_notes(job: &ProviderJob) -> SendNotes {
+    let tripo = job
+        .tripo
+        .as_ref()
+        .filter(|_| job.service == ProviderId::Tripo);
+    let meshy = job
+        .meshy
+        .as_ref()
+        .filter(|_| job.service == ProviderId::Meshy);
+    let (texture, pbr, large_textures) = match (tripo, meshy) {
+        (Some(t), _) => (
+            t.texture,
+            t.pbr,
+            t.texture_quality != TripoTextureQuality::Standard,
+        ),
+        (None, Some(m)) => (
+            m.should_texture,
+            m.enable_pbr,
+            m.texture_resolution != MeshyTexture::K2,
+        ),
+        (None, None) => return SendNotes::default(),
+    };
+    let maps = if !texture {
+        SentMaps::NoTexture
+    } else if !pbr {
+        SentMaps::NoPbr
+    } else {
+        SentMaps::Any
+    };
+    SendNotes {
+        maps,
+        large_textures: large_textures && texture,
+    }
 }
 
 /// An inbox model that came from a send.
@@ -998,6 +1035,7 @@ impl ProviderJobs {
     /// hand job whose model showed up in the inbox to the Inbox state.
     pub fn link_inbox(&self, items: &mut [InboxItem]) {
         let mut arrived = Vec::new();
+        let config = self.shared.workspace().map(|w| w.config);
         {
             let jobs = self.shared.jobs();
             for item in items.iter_mut() {
@@ -1017,8 +1055,12 @@ impl ProviderJobs {
                     asset_name: job.asset_name.clone(),
                     provider: job.provider,
                 });
-                if job.variant == PresetVariant::Character && item.kind_guessed {
-                    item.kind = AssetKind::Character;
+                if let Some(config) = &config {
+                    let kind = match job.variant {
+                        PresetVariant::Character => AssetKind::Character,
+                        PresetVariant::Prop => AssetKind::Prop,
+                    };
+                    inbox::apply_send(item, kind, send_notes(job), config);
                 }
                 if job.state == JobState::Waiting {
                     arrived.push((job.id.clone(), item.id.clone()));

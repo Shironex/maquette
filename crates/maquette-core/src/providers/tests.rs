@@ -993,6 +993,75 @@ fn a_model_saved_into_the_inbox_under_the_handoff_name_links_too() {
     assert!(stop.is_err(), "an arrived model has nothing to cancel");
 }
 
+#[test]
+fn a_linked_model_takes_its_kind_and_map_choices_from_the_send() {
+    let world = World::new();
+    let server = FakeServer::start(|_, _| Reply::json(404, &json!({})));
+    let jobs = world.jobs(&server);
+    let mut request = world.request(Provider::ByHand, PresetVariant::Prop, &["front.png"]);
+    let mut preset = TripoPreset::prop();
+    preset.texture = false;
+    request.tripo = Some(preset);
+    let job = jobs.send(&request, false, false).expect("send");
+    // The file name alone reads as a scene.
+    fs::write(
+        world.inbox().join(format!("{}-island.glb", job.id)),
+        fixture::merged_islands(),
+    )
+    .expect("write");
+    let mut items = inbox::list(&world.root, &world.config).expect("inbox");
+    assert_eq!(items[0].kind, AssetKind::Scene);
+    jobs.link_inbox(&mut items);
+    let item = &items[0];
+    assert_eq!(item.kind, AssetKind::Prop);
+    assert!(item.kind_from_send && !item.kind_guessed);
+    let pbr = item.checks.iter().find(|c| c.id == "pbr").expect("pbr");
+    assert_eq!(pbr.status, inbox::CheckStatus::Pass);
+    assert_eq!(pbr.title, "Texture off, as sent");
+    // The prop kind brings the merged mesh warning a scene would skip.
+    assert!(
+        item.checks
+            .iter()
+            .any(|c| c.id == "merged" && c.status == inbox::CheckStatus::Warning)
+    );
+
+    // A kind someone picked wins over the send.
+    inbox::set_kind(&world.root, &world.config, &item.id, AssetKind::Scene).expect("kind");
+    let mut items = inbox::list(&world.root, &world.config).expect("inbox");
+    jobs.link_inbox(&mut items);
+    assert_eq!(items[0].kind, AssetKind::Scene);
+    assert!(!items[0].kind_from_send);
+}
+
+#[test]
+fn send_notes_read_the_pbr_and_texture_choices_of_either_service() {
+    let world = World::new();
+    let server = FakeServer::start(|_, _| Reply::json(404, &json!({})));
+    let jobs = world.jobs(&server);
+    let mut request = world.request(Provider::ByHand, PresetVariant::Prop, &["front.png"]);
+    let mut tripo = TripoPreset::prop();
+    tripo.pbr = false;
+    tripo.texture_quality = TripoTextureQuality::Detailed;
+    request.tripo = Some(tripo);
+    let job = jobs.send(&request, false, false).expect("send");
+    let notes = super::jobs::send_notes(&job);
+    assert_eq!(notes.maps, inbox::SentMaps::NoPbr);
+    assert!(notes.large_textures);
+
+    request.service = ProviderId::Meshy;
+    let mut meshy = MeshyPreset::prop();
+    meshy.enable_pbr = false;
+    request.meshy = Some(meshy);
+    let job = jobs.send(&request, false, false).expect("send");
+    let notes = super::jobs::send_notes(&job);
+    assert_eq!(notes.maps, inbox::SentMaps::NoPbr);
+    assert!(!notes.large_textures);
+
+    let plain = world.request(Provider::ByHand, PresetVariant::Prop, &["front.png"]);
+    let job = jobs.send(&plain, false, false).expect("send");
+    assert_eq!(super::jobs::send_notes(&job).maps, inbox::SentMaps::Any);
+}
+
 /// Adds props named `names` at Refs, each with its own ref image.
 fn add_objects(world: &World, names: &[&str]) -> Vec<String> {
     let refs = world.project_dir().join("refs");

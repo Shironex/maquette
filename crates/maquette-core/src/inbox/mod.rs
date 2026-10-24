@@ -18,7 +18,7 @@ use std::time::UNIX_EPOCH;
 use serde::{Deserialize, Serialize};
 
 pub use analyse::{GlbReport, RigKind, analyse};
-pub use checks::{Check, CheckStatus};
+pub use checks::{Check, CheckStatus, SendNotes, SentMaps};
 
 use crate::assets::{
     self, Asset, AssetKind, AssetStatus, AssetVersion, ModelStats, NewAsset, Stage,
@@ -50,8 +50,11 @@ pub struct InboxItem {
     pub bytes: f64,
     pub modified_ms: f64,
     pub kind: AssetKind,
-    /// True until someone picks the kind.
+    /// True while the kind is only a guess from the file: nobody picked
+    /// it and no send says what it is.
     pub kind_guessed: bool,
+    /// True when the kind comes from the send this model was made for.
+    pub kind_from_send: bool,
     pub state: InboxState,
     pub report: Option<GlbReport>,
     pub checks: Vec<Check>,
@@ -136,6 +139,26 @@ pub fn display_name(file: &str) -> String {
     })
 }
 
+/// Takes what the send record says: its kind, unless someone picked one,
+/// and the maps and texture size it asked for. The checks run again, so a
+/// choice made on purpose does not show as a warning.
+pub fn apply_send(
+    item: &mut InboxItem,
+    kind: AssetKind,
+    notes: SendNotes,
+    config: &WorkspaceConfig,
+) {
+    if item.kind_guessed {
+        item.kind = kind;
+        item.kind_guessed = false;
+        item.kind_from_send = true;
+    }
+    if let Some(report) = &item.report {
+        item.checks = checks::run(report, item.kind, config, notes);
+        item.worst = checks::worst(&item.checks);
+    }
+}
+
 /// A first guess from the analysis and the name.
 pub fn guess_kind(report: Option<&GlbReport>, file: &str) -> AssetKind {
     if report.is_some_and(|r| r.skins > 0) {
@@ -207,7 +230,7 @@ fn build_item(
     let kind = picked.unwrap_or_else(|| guess_kind(report.as_ref(), &id));
     let checks = report
         .as_ref()
-        .map(|r| checks::run(r, kind, config))
+        .map(|r| checks::run(r, kind, config, SendNotes::default()))
         .unwrap_or_default();
     #[expect(
         clippy::cast_precision_loss,
@@ -221,6 +244,7 @@ fn build_item(
         modified_ms,
         kind,
         kind_guessed: picked.is_none(),
+        kind_from_send: false,
         state: if report.is_some() {
             InboxState::Ready
         } else {
