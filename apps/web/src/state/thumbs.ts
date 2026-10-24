@@ -29,3 +29,27 @@ export function withThumbnail(
     ),
   };
 }
+
+/**
+ * A fresh listing with the thumbnails already known for unchanged files
+ * kept: a listing taken while a render was still running says "rendering"
+ * or "fallback", and the `thumbnailReady` that followed must win.
+ */
+export function keepRenders(before: InboxSnapshot, listed: InboxSnapshot): InboxSnapshot {
+  const known = new Map(
+    before.items
+      .filter(i => i.thumbnail && i.thumbnailState === 'ready')
+      .map(i => [i.file, i] as const)
+  );
+  if (known.size === 0) return listed;
+  return {
+    ...listed,
+    items: listed.items.map(item => {
+      const old = known.get(item.file);
+      const same = old && old.bytes === item.bytes && old.modifiedMs === item.modifiedMs;
+      return same && !item.thumbnail
+        ? { ...item, thumbnail: old.thumbnail, thumbnailState: 'ready' as const }
+        : item;
+    }),
+  };
+}

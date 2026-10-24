@@ -11,7 +11,7 @@ import {
 import { fileUrl } from '@/ipc/files';
 import { useAppStore } from './app-store';
 import { firstToReview } from './inbox';
-import { needsSnapshot, withThumbnail } from './thumbs';
+import { keepRenders, needsSnapshot, withThumbnail } from './thumbs';
 
 interface InboxStore {
   snapshot: InboxSnapshot | null;
@@ -34,6 +34,9 @@ interface InboxStore {
 /** Files already snapshotted (or tried) this session, so a failure is not retried in a loop. */
 const snapshotted = new Set<string>();
 
+/** Counts inbox loads, so only the latest one lands. */
+let loads = 0;
+
 function replace(snapshot: InboxSnapshot, item: InboxItem): InboxSnapshot {
   return { ...snapshot, items: snapshot.items.map(i => (i.id === item.id ? item : i)) };
 }
@@ -48,9 +51,15 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
   busy: null,
 
   load: async () => {
+    const ticket = ++loads;
     set({ loading: true });
     try {
-      const snapshot = await commands.inboxList();
+      const listed = await commands.inboxList();
+      // The watcher fires several loads when a model lands; an older answer
+      // must not undo a newer one or a render that finished meanwhile.
+      if (ticket !== loads) return;
+      const before = get().snapshot;
+      const snapshot = before ? keepRenders(before, listed) : listed;
       const selected = get().selected;
       const keep = snapshot.items.some(i => i.id === selected);
       set({
@@ -60,6 +69,7 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
       });
       void get().snapshotMissing();
     } catch (error) {
+      if (ticket !== loads) return;
       set({ loading: false });
       fail('Could not read the inbox', error);
     }
