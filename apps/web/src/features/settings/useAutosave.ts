@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { commands, errorMessage, type WorkspaceConfig } from '@/ipc/client';
 import { useCatalog } from '@/features/providers/PresetFields';
 import { useAppStore } from '@/state/app-store';
@@ -18,24 +18,39 @@ export function useAutosave() {
   const [draft, setDraft] = useState<WorkspaceConfig | undefined>(saved);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
+  /** The valid draft waiting for its timer, written at once if Settings closes first. */
+  const pending = useRef<WorkspaceConfig | null>(null);
+  const write = useRef<(config: WorkspaceConfig) => Promise<void>>(async () => undefined);
+
+  write.current = async config => {
+    pending.current = null;
+    setSaving(true);
+    try {
+      const written = await commands.workspaceSaveConfig(config);
+      setFailed(false);
+      setConfig(written);
+    } catch (error) {
+      setFailed(true);
+      notify({ status: 'failed', title: 'Could not save settings', detail: errorMessage(error) });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
+    pending.current = null;
     if (!draft || !saved || sameConfig(draft, saved) || hasErrors(validateConfig(draft))) return;
-    const timer = window.setTimeout(async () => {
-      setSaving(true);
-      try {
-        const written = await commands.workspaceSaveConfig(draft);
-        setFailed(false);
-        setConfig(written);
-      } catch (error) {
-        setFailed(true);
-        notify({ status: 'failed', title: 'Could not save settings', detail: errorMessage(error) });
-      } finally {
-        setSaving(false);
-      }
-    }, DELAY_MS);
+    pending.current = draft;
+    const timer = window.setTimeout(() => void write.current(draft), DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [draft, saved, setConfig, notify]);
+  }, [draft, saved]);
+
+  useEffect(
+    () => () => {
+      if (pending.current) void write.current(pending.current);
+    },
+    []
+  );
 
   const status = draft && saved ? saveStatus(draft, saved, { saving, failed }) : 'saved';
   return { draft, setDraft, status, errors: draft ? validateConfig(draft, catalog) : {} };
