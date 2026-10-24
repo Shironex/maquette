@@ -98,10 +98,13 @@ export function BoardView() {
   const order = STAGES.flatMap(stage => byStage[stage].map(a => a.id));
   const present = selected.filter(id => order.includes(id));
 
-  // A selection belongs to the project it was made in.
+  // A selection, an open menu or dialog belongs to the project it was made in.
   useEffect(() => {
     setSelected([]);
     setAnchor(null);
+    setRenaming(null);
+    setAdding(false);
+    setMenuFor(null);
   }, [project?.id]);
   // A confirmed Send to 3D hands the selection over, so the cards let go.
   const lastSent = useRef(batchesSent);

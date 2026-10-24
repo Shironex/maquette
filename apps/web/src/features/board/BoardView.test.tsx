@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useLabStore } from '@/state/lab-store';
+import { useProjectsStore } from '@/state/projects-store';
 import { useProvidersStore } from '@/state/providers-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { BoardView } from './BoardView';
@@ -137,5 +138,18 @@ describe('the Board', () => {
     await userEvent.type(field, 'brush cup');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Rename' }));
     expect(await within(dialog).findByText(/already called/)).toBeInTheDocument();
+  });
+
+  it('closes the rename dialog and the add form when another project opens', async () => {
+    await renderBoard();
+    await userEvent.click(screen.getByRole('button', { name: 'Add asset' }));
+    expect(screen.getByRole('form', { name: 'Add asset' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'More for Desk lamp' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename...' }));
+    expect(screen.getByRole('dialog', { name: 'Rename asset' })).toBeInTheDocument();
+    // Cmd+P works over the dialog.
+    await act(() => useProjectsStore.getState().switchTo('rooftop-cinema'));
+    expect(screen.queryByRole('dialog', { name: 'Rename asset' })).toBeNull();
+    expect(screen.queryByRole('form', { name: 'Add asset' })).toBeNull();
   });
 });
