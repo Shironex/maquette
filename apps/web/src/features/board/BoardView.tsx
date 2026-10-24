@@ -27,6 +27,7 @@ import { Menu } from '@/features/common/Menu';
 import { ProviderQueue } from '@/features/providers/ProviderQueue';
 import { ProjectTopBar } from '@/features/shell/ProjectTopBar';
 import { AddAssetForm } from './AddAssetForm';
+import { RenameAssetDialog } from './RenameAssetDialog';
 
 const TIPS_KEY = 'maquette.board.tipsHidden';
 const DRAG_TYPE = 'application/x-maquette-asset';
@@ -55,6 +56,7 @@ export function BoardView() {
   const [tipsHidden, setTipsHidden] = useState(() => readFlag(TIPS_KEY));
   const [adding, setAdding] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<Asset | null>(null);
   const [dropTarget, setDropTarget] = useState<Stage | null>(null);
   const jobs = useProvidersStore(s => s.jobs);
   const queueOpen = useProvidersStore(s => s.queueOpen);
@@ -377,6 +379,12 @@ export function BoardView() {
                                     },
                                   ]
                                 : []),
+                              {
+                                id: 'rename',
+                                label: 'Rename...',
+                                icon: 'file-text',
+                                onSelect: () => setRenaming(asset),
+                              },
                               ...others.map(s => ({
                                 id: `move-${s}`,
                                 label: `Move to ${STAGE_LABEL[s]}`,
@@ -405,6 +413,19 @@ export function BoardView() {
               );
             })}
           </div>
+
+          {renaming && project ? (
+            <RenameAssetDialog
+              key={renaming.id}
+              project={project.id}
+              asset={renaming}
+              onDone={next => {
+                setProject(next);
+                setRenaming(null);
+              }}
+              onClose={() => setRenaming(null)}
+            />
+          ) : null}
 
           {present.length > 0 ? (
             <SelectionBar

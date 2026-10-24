@@ -119,6 +119,30 @@ describe('mock backend', () => {
     expect(project.assets!.find(a => a.id === 'paper-lamp')!.stage).toBe('refs');
   });
 
+  it('renames an asset and keeps its id', async () => {
+    const { handle } = backend();
+    await handle('asset_add', {
+      project: 'moon-island',
+      asset: { name: 'Paper lamp', kind: 'prop', stage: 'concept' },
+    });
+    await handle('asset_add', {
+      project: 'moon-island',
+      asset: { name: 'Stone bench', kind: 'prop', stage: 'concept' },
+    });
+    const project = (await handle('asset_rename', {
+      project: 'moon-island',
+      id: 'paper-lamp',
+      name: ' Hanging lamp ',
+    })) as ProjectManifest;
+    expect(project.assets!.find(a => a.id === 'paper-lamp')!.name).toBe('Hanging lamp');
+    await expect(
+      handle('asset_rename', { project: 'moon-island', id: 'paper-lamp', name: 'stone bench' })
+    ).rejects.toMatchObject({ code: 'invalid' });
+    await expect(
+      handle('asset_rename', { project: 'moon-island', id: 'nope', name: 'x' })
+    ).rejects.toMatchObject({ code: 'not-found' });
+  });
+
   it('accepts an inbox model into the project', async () => {
     const { handle, inboxCount } = backend('configured');
     const result = (await handle('inbox_accept', {

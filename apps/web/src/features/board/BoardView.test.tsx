@@ -75,4 +75,30 @@ describe('the Board', () => {
       kind: 'prop',
     });
   });
+
+  it('renames a card from its menu', async () => {
+    await renderBoard();
+    await userEvent.click(screen.getByRole('button', { name: 'More for Desk lamp' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename...' }));
+    const dialog = screen.getByRole('dialog', { name: 'Rename asset' });
+    const field = within(dialog).getByRole('textbox', { name: 'Name' });
+    expect(field).toHaveValue('Desk lamp');
+    await userEvent.clear(field);
+    await userEvent.type(field, 'Brass desk lamp');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Rename' }));
+    await screen.findByRole('button', { name: 'More for Brass desk lamp' });
+    expect(screen.queryByRole('dialog', { name: 'Rename asset' })).toBeNull();
+  });
+
+  it('keeps the rename dialog open with the reason when the name is taken', async () => {
+    await renderBoard();
+    await userEvent.click(screen.getByRole('button', { name: 'More for Desk lamp' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename...' }));
+    const dialog = screen.getByRole('dialog', { name: 'Rename asset' });
+    const field = within(dialog).getByRole('textbox', { name: 'Name' });
+    await userEvent.clear(field);
+    await userEvent.type(field, 'brush cup');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Rename' }));
+    expect(await within(dialog).findByText(/already called/)).toBeInTheDocument();
+  });
 });
