@@ -7,10 +7,12 @@
 //!    "fov": 35 }] }` (a bare list works too; `fov` is the vertical field of
 //!    view in degrees and defaults to 35; `poster` is an optional image
 //!    path relative to the project).
-//! 2. `web/posters/stops.json`, written by the Capture posters step. Each
-//!    entry names its camera and poster file, and the starter script also
-//!    writes the camera's position, target and field of view.
-//! 3. Cameras inside the scene's models, by node name. A glTF camera has no
+//! 2. The stops of the scene layout (`layout.json`), placed in the app.
+//! 3. `web/posters/stops.json`, written by the Capture posters step. Each
+//!    entry names its camera and poster file (and its `label`, for a stop
+//!    from the layout), and the starter script also writes the camera's
+//!    position, target and field of view.
+//! 4. Cameras inside the scene's models, by node name. A glTF camera has no
 //!    target, so the stop looks along the camera's view axis, as far ahead
 //!    as the scene's centre (at least a metre).
 //!
@@ -49,6 +51,7 @@ pub struct CameraStopDef {
 #[serde(rename_all = "kebab-case")]
 pub enum StopsSource {
     ProjectFile,
+    Layout,
     Posters,
     ModelCameras,
     None,
@@ -67,6 +70,8 @@ pub struct CameraStops {
 struct RawStop {
     #[serde(alias = "camera")]
     name: Option<String>,
+    /// The stop's own name, when its camera name is made from it.
+    label: Option<String>,
     position: Option<[f32; 3]>,
     target: Option<[f32; 3]>,
     fov: Option<f32>,
@@ -151,8 +156,10 @@ fn to_stops(raw: Vec<RawStop>, base: &Path) -> Vec<CameraStopDef> {
                 .unwrap_or(DEFAULT_FOV);
             Some(CameraStopDef {
                 name: s
-                    .name
-                    .map_or_else(|| format!("Stop {}", i + 1), |n| stop_label(&n)),
+                    .label
+                    .filter(|l| !l.trim().is_empty())
+                    .or_else(|| s.name.map(|n| stop_label(&n)))
+                    .unwrap_or_else(|| format!("Stop {}", i + 1)),
                 position,
                 target,
                 fov,
@@ -174,8 +181,10 @@ fn posters(project: &Path) -> Vec<(String, PathBuf)> {
         .into_iter()
         .filter_map(|s| {
             let file = dir.join(s.poster?);
-            file.is_file()
-                .then(|| (snake(&stop_label(&s.name.unwrap_or_default())), file))
+            let label = s
+                .label
+                .unwrap_or_else(|| stop_label(&s.name.unwrap_or_default()));
+            file.is_file().then(|| (snake(&label), file))
         })
         .collect()
 }
@@ -243,28 +252,46 @@ pub fn cameras_in(file: &Path, center: [f32; 3]) -> Vec<CameraStopDef> {
 pub fn load(project: &Path, models: &[(PathBuf, [f32; 3])]) -> CameraStops {
     let mut found = None;
     // Poster paths are relative to the file that names them.
-    for (source, rel, base) in [
-        (
-            StopsSource::ProjectFile,
-            PROJECT_STOPS,
-            project.to_path_buf(),
-        ),
-        (
-            StopsSource::Posters,
-            POSTERS_STOPS,
-            project.join("web/posters"),
-        ),
-    ] {
-        if let Some(raw) = read_raw(&project.join(rel)) {
-            let stops = to_stops(raw, &base);
-            if !stops.is_empty() {
-                found = Some(CameraStops {
-                    source,
-                    file: Some(rel.to_string()),
-                    stops,
-                });
-                break;
-            }
+    if let Some(raw) = read_raw(&project.join(PROJECT_STOPS)) {
+        let stops = to_stops(raw, project);
+        if !stops.is_empty() {
+            found = Some(CameraStops {
+                source: StopsSource::ProjectFile,
+                file: Some(PROJECT_STOPS.to_string()),
+                stops,
+            });
+        }
+    }
+    if found.is_none() {
+        let layout = crate::layout::load(project).unwrap_or_default();
+        if !layout.stops.is_empty() {
+            found = Some(CameraStops {
+                source: StopsSource::Layout,
+                file: Some(crate::layout::LAYOUT_FILE.to_string()),
+                stops: layout
+                    .stops
+                    .into_iter()
+                    .map(|s| CameraStopDef {
+                        name: s.name,
+                        position: s.position,
+                        target: s.target,
+                        fov: s.fov,
+                        poster: None,
+                    })
+                    .collect(),
+            });
+        }
+    }
+    if found.is_none()
+        && let Some(raw) = read_raw(&project.join(POSTERS_STOPS))
+    {
+        let stops = to_stops(raw, &project.join("web/posters"));
+        if !stops.is_empty() {
+            found = Some(CameraStops {
+                source: StopsSource::Posters,
+                file: Some(POSTERS_STOPS.to_string()),
+                stops,
+            });
         }
     }
     let mut out = found.unwrap_or_else(|| {
@@ -356,6 +383,51 @@ mod tests {
         assert!((stops.stops[0].fov - DEFAULT_FOV).abs() < f32::EPSILON);
         assert!(stops.stops[0].poster.is_some(), "the porch poster attaches");
         assert!(stops.stops[1].poster.is_none());
+    }
+
+    #[test]
+    fn layout_stops_come_before_posters_and_find_theirs_by_label() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let project = dir.path();
+        write(
+            &project.join(POSTERS_STOPS),
+            &json!({ "stops": [
+                { "camera": "stop_02_3d_model", "label": "3D model", "file": "stop_02_3d_model.png",
+                  "position": [1.0, 1.0, 1.0], "target": [0.0, 0.0, 0.0], "fov": 30 },
+            ]}),
+        );
+        fs::write(project.join("web/posters/stop_02_3d_model.png"), b"png").expect("poster");
+        let from_posters = load(project, &[]);
+        assert_eq!(from_posters.stops[0].name, "3D model", "the label wins");
+
+        let layout = crate::layout::SceneLayout {
+            stops: ["Concept", "3D model"]
+                .iter()
+                .enumerate()
+                .map(|(i, name)| crate::layout::LayoutStop {
+                    id: crate::project::slugify(name),
+                    name: (*name).to_string(),
+                    position: [0.0, 1.0, 3.0 + i as f32],
+                    target: [0.0, 0.5, 0.0],
+                    fov: 40.0,
+                    models: None,
+                })
+                .collect(),
+            ..Default::default()
+        };
+        crate::layout::save(project, &layout).expect("layout");
+        let stops = load(project, &[]);
+        assert_eq!(stops.source, StopsSource::Layout);
+        assert_eq!(stops.file.as_deref(), Some("layout.json"));
+        let names: Vec<&str> = stops.stops.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, ["Concept", "3D model"]);
+        assert!(stops.stops[0].poster.is_none());
+        assert!(
+            stops.stops[1]
+                .poster
+                .as_deref()
+                .is_some_and(|p| p.ends_with("stop_02_3d_model.png"))
+        );
     }
 
     #[test]
