@@ -37,6 +37,15 @@ const DRAIN_GRACE: Duration = Duration::from_secs(2);
 const MAX_LINE_CHARS: usize = 4000;
 /// Progress events are sent at most this often, unless a step finishes.
 const PROGRESS_EVERY: Duration = Duration::from_millis(250);
+/// Why a gated step was skipped without asking.
+const UNCHANGED_MESSAGE: &str = "Nothing changed since the last ship, so I did not ask again.";
+
+/// A step's resolved tool and calls, and its cache key.
+struct Prepared {
+    tool: ResolvedTool,
+    invocations: Vec<Invocation>,
+    key: String,
+}
 
 /// What the runner reports while it works. The UI replaces its copy of the
 /// run on every `run` event and appends `log` lines.
@@ -566,6 +575,19 @@ impl Execution {
                 });
                 continue;
             }
+            if self.gated(&step) && self.unchanged_since_last(&step, &mut hasher) {
+                let rec = &mut self.record.steps[slot];
+                rec.state = StepState::Cached;
+                rec.progress = Some(1.0);
+                rec.message = Some(UNCHANGED_MESSAGE.to_string());
+                self.system(
+                    Some(&step.id),
+                    LogLevel::Ok,
+                    format!("{} skipped: {UNCHANGED_MESSAGE}", step.name),
+                );
+                self.emit_run();
+                continue;
+            }
             if !self.pass_gate(slot, &step) {
                 continue;
             }
@@ -637,6 +659,10 @@ impl Execution {
         } else {
             self.finish(RunState::Done, None);
         }
+    }
+
+    fn gated(&self, step: &StepDef) -> bool {
+        self.options.gate.as_ref().is_some_and(|g| g.applies(step))
     }
 
     /// Asks the run's gate, if it has one for `step`, and waits for the
@@ -732,32 +758,34 @@ impl Execution {
         out
     }
 
-    fn run_step(&mut self, step: &StepDef, force: bool, hasher: &mut FileHasher) -> StepOutcome {
+    /// Resolves the tool and the calls of `step` and its cache key.
+    fn prepare(&self, step: &StepDef, hasher: &mut FileHasher) -> Result<Prepared, StepOutcome> {
         let root = self.root();
-        let tool = match self
+        let tool = self
             .setup
             .tools
             .resolve(step.kind, step.command.as_deref(), &root)
-        {
-            Ok(tool) => tool,
-            Err(err) => return StepOutcome::Failed(err.to_string(), None),
-        };
+            .map_err(|err| StepOutcome::Failed(err.to_string(), None))?;
         if let Some(script) = &step.script
             && !root.join(script).is_file()
         {
-            return StepOutcome::Failed(format!("The script {script} is missing."), None);
+            return Err(StepOutcome::Failed(
+                format!("The script {script} is missing."),
+                None,
+            ));
         }
-        let invocations = match self.invocations(step, &root) {
-            Ok(list) => list,
-            Err(message) => return StepOutcome::Failed(message, None),
-        };
-        if step.kind == StepKind::Blender {
+        let invocations = self
+            .invocations(step, &root)
+            .map_err(|message| StepOutcome::Failed(message, None))?;
+        if step.kind == StepKind::Blender
+            && invocations.iter().any(|(_, args)| !blender_headless(args))
+        {
             // The definition was validated, but the filled args are checked
             // again right before spawning: Blender never starts with a window.
-            if let Some((_, args)) = invocations.iter().find(|(_, args)| !blender_headless(args)) {
-                let _ = args;
-                return StepOutcome::Failed(BLENDER_HEADLESS_MESSAGE.to_string(), None);
-            }
+            return Err(StepOutcome::Failed(
+                BLENDER_HEADLESS_MESSAGE.to_string(),
+                None,
+            ));
         }
         let all_args: Vec<String> = invocations
             .iter()
@@ -773,10 +801,43 @@ impl Execution {
                 extra,
             },
             hasher,
-        );
-        let key = match key {
-            Ok(key) => key,
-            Err(err) => return StepOutcome::Failed(err.to_string(), None),
+        )
+        .map_err(|err| StepOutcome::Failed(err.to_string(), None))?;
+        Ok(Prepared {
+            tool,
+            invocations,
+            key,
+        })
+    }
+
+    /// The record of the last finished run of a step without outputs, such
+    /// as Ship. Only used to skip a gate when nothing changed since.
+    fn last_id(step: &StepDef) -> String {
+        format!("{}.last", step.id)
+    }
+
+    /// True when a gated step without outputs would do exactly what its
+    /// last finished run did, so asking again is pointless.
+    fn unchanged_since_last(&self, step: &StepDef, hasher: &mut FileHasher) -> bool {
+        if !step.outputs.is_empty() || self.setup.force {
+            return false;
+        }
+        let Ok(prepared) = self.prepare(step, hasher) else {
+            return false;
+        };
+        cache::load_record(&self.setup.cache_dir, &Self::last_id(step))
+            .is_some_and(|record| record.key == prepared.key)
+    }
+
+    fn run_step(&mut self, step: &StepDef, force: bool, hasher: &mut FileHasher) -> StepOutcome {
+        let root = self.root();
+        let Prepared {
+            tool,
+            invocations,
+            key,
+        } = match self.prepare(step, hasher) {
+            Ok(prepared) => prepared,
+            Err(outcome) => return outcome,
         };
         if !force
             && let Some(record) = cache::load_record(&self.setup.cache_dir, &step.id)
@@ -847,9 +908,12 @@ impl Execution {
             outputs: cache::stamp_outputs(&root, &outputs),
             duration_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
         };
-        if !outputs.is_empty()
-            && let Err(err) = cache::save_record(&self.setup.cache_dir, &step.id, &record)
-        {
+        let id = if outputs.is_empty() {
+            Self::last_id(step)
+        } else {
+            step.id.clone()
+        };
+        if let Err(err) = cache::save_record(&self.setup.cache_dir, &id, &record) {
             tracing::warn!(error = %err, "could not save the cache record");
         }
         StepOutcome::Done
@@ -1627,14 +1691,22 @@ mod tests {
             ],
         );
         script(&s, "build.sh", "mkdir -p out\necho b > out/build.txt\n");
-        script(&s, "ship.sh", "echo shipped >> shipped.log\n");
-        for (answer, state) in [
+        for (round, (answer, state)) in [
             (GateDecision::Allow, RunState::Done),
             (
                 GateDecision::Deny("Shipping was denied in Maquette.".into()),
                 RunState::Cancelled,
             ),
-        ] {
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            // A changed script, so the second round has something new to ship.
+            script(
+                &s,
+                "ship.sh",
+                &format!("echo shipped >> shipped.log\n# round {round}\n"),
+            );
             let (tx, rx) = mpsc::channel();
             let gate = Arc::new(Approval {
                 answer: Mutex::new(rx),
@@ -1666,6 +1738,61 @@ mod tests {
         // Shipped once: after the approval, never after the denial.
         let shipped = fs::read_to_string(s.project_dir.join("shipped.log")).expect("log");
         assert_eq!(shipped, "shipped\n");
+    }
+
+    #[test]
+    fn a_gated_step_with_nothing_new_is_skipped_without_asking() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let s = setup(
+            dir.path(),
+            vec![
+                shell_step("build", "tools/build.sh", &["out/build.txt"], &[]),
+                shell_step("ship", "tools/ship.sh", &[], &["build"]),
+            ],
+        );
+        script(&s, "build.sh", "mkdir -p out\necho b > out/build.txt\n");
+        script(&s, "ship.sh", "echo shipped >> shipped.log\n");
+        let run_once = |answer: Option<GateDecision>| {
+            let (tx, rx) = mpsc::channel();
+            let gate = Arc::new(Approval {
+                answer: Mutex::new(rx),
+                asked: AtomicBool::new(false),
+            });
+            if let Some(answer) = answer {
+                tx.send(answer).expect("answer");
+            }
+            let runner = PipelineRunner::new(Arc::new(Recorder::default()));
+            let options = RunOptions {
+                gate: Some(gate.clone()),
+                ..RunOptions::default()
+            };
+            runner.submit_with(s.clone(), options).expect("submit");
+            while runner.active("moon").0.is_some() {
+                thread::sleep(Duration::from_millis(20));
+            }
+            (
+                gate.asked.load(Ordering::SeqCst),
+                history::load_runs(&s.cache_dir).remove(0),
+            )
+        };
+        let (asked, run) = run_once(Some(GateDecision::Allow));
+        assert!(asked);
+        assert_eq!(run.steps[1].state, StepState::Done);
+
+        // Nothing changed: no question, and Ship counts as cached.
+        let (asked, run) = run_once(None);
+        assert!(!asked, "the gate was asked although nothing changed");
+        assert_eq!(run.state, RunState::Done);
+        assert_eq!(run.steps[1].state, StepState::Cached);
+        assert_eq!(run.steps[1].message.as_deref(), Some(UNCHANGED_MESSAGE));
+
+        // A changed input means a new ship, so it asks again.
+        fs::create_dir_all(s.project_dir.join("in")).expect("in");
+        fs::write(s.project_dir.join("in/model.txt"), "v2").expect("input");
+        let (asked, _) = run_once(Some(GateDecision::Allow));
+        assert!(asked);
+        let shipped = fs::read_to_string(s.project_dir.join("shipped.log")).expect("log");
+        assert_eq!(shipped, "shipped\nshipped\n");
     }
 
     #[test]
