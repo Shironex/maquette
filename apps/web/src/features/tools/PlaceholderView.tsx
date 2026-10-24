@@ -7,20 +7,10 @@ const COPY: Partial<Record<ViewId, { icon: IconName; title: string; body: string
     title: 'Nothing in the inbox',
     body: 'Tripo downloads land here and I check each model before it reaches Blender. The inbox arrives in a later version.',
   },
-  lab: {
-    icon: 'flask',
-    title: 'The Concept lab is on its way',
-    body: 'Generate a few directions with Codex, then star the ones worth modelling. The lab arrives in a later version.',
-  },
   pipeline: {
     icon: 'flow-arrow',
     title: 'No pipeline runs yet',
     body: 'Each run shows its steps here, from the Blender build to Compress, with logs and cached steps. The runner arrives in a later version.',
-  },
-  inspector: {
-    icon: 'cube-focus',
-    title: 'Nothing to inspect yet',
-    body: 'Pick a model on the Board to check its triangles, textures and budget in 3D. The viewer arrives in a later version.',
   },
 };
 
