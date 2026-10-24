@@ -10,7 +10,7 @@ use crate::error::{CoreError, CoreResult};
 use crate::fs::write_atomic;
 
 /// Pretty JSON with a trailing newline, written atomically.
-pub(crate) fn write_json<T: Serialize>(path: &Path, value: &T) -> CoreResult<()> {
+pub(crate) fn write_json<T: Serialize + ?Sized>(path: &Path, value: &T) -> CoreResult<()> {
     let mut text = serde_json::to_string_pretty(value).map_err(|e| CoreError::json(path, e))?;
     text.push('\n');
     write_atomic(path, text.as_bytes()).map_err(|e| CoreError::io(path, e))

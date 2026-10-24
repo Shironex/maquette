@@ -1,5 +1,6 @@
 //! Maquette domain logic: toolchain detection, the workspace config,
-//! projects and their assets, the per machine app state and the jobs seam.
+//! projects and their assets, the pipeline runner and the per machine app
+//! state.
 
 pub mod app_state;
 pub mod assets;
@@ -7,6 +8,7 @@ pub mod error;
 pub mod fs;
 pub mod jobs;
 mod json;
+pub mod pipeline;
 pub mod project;
 pub mod toolchain;
 pub mod workspace;
@@ -69,6 +71,21 @@ pub fn types() -> specta::Types {
         .register::<ModelStats>()
         .register::<NewAsset>()
         .register::<Stage>()
+        .register::<pipeline::StepKind>()
+        .register::<pipeline::CompressSpec>()
+        .register::<pipeline::StepDef>()
+        .register::<pipeline::PipelineDef>()
+        .register::<pipeline::presets::CompressPreset>()
+        .register::<pipeline::graph::IssueLevel>()
+        .register::<pipeline::graph::PipelineIssue>()
+        .register::<pipeline::history::RunState>()
+        .register::<pipeline::history::StepState>()
+        .register::<pipeline::history::StepRecord>()
+        .register::<pipeline::history::RunRecord>()
+        .register::<pipeline::history::LogLevel>()
+        .register::<pipeline::history::LogStream>()
+        .register::<pipeline::history::LogEntry>()
+        .register::<pipeline::runner::PipelineEvent>()
 }
 
 #[cfg(test)]
@@ -119,6 +136,21 @@ mod tests {
             "ModelStats",
             "NewAsset",
             "Stage",
+            "StepKind",
+            "CompressSpec",
+            "StepDef",
+            "PipelineDef",
+            "CompressPreset",
+            "IssueLevel",
+            "PipelineIssue",
+            "RunState",
+            "StepState",
+            "StepRecord",
+            "RunRecord",
+            "LogLevel",
+            "LogStream",
+            "LogEntry",
+            "PipelineEvent",
         ] {
             assert!(names.iter().any(|n| n == expected), "missing {expected}");
         }
