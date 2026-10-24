@@ -1031,6 +1031,8 @@ fn batch(world: &World, provider: Provider, ids: &[String]) -> BatchRequest {
                 asset: id.clone(),
                 variant: PresetVariant::Prop,
                 images: vec![format!("refs/{}.png", id.replace('-', "_"))],
+                tripo: None,
+                meshy: None,
             })
             .collect(),
         tripo_prop: None,
@@ -1038,6 +1040,28 @@ fn batch(world: &World, provider: Provider, ids: &[String]) -> BatchRequest {
         meshy_prop: None,
         meshy_character: None,
     }
+}
+
+#[test]
+fn a_batch_item_can_carry_its_own_settings() {
+    let world = World::new();
+    let server = FakeServer::start(|_, _| Reply::json(404, &json!({})));
+    let jobs = world.jobs(&server);
+    let ids = add_objects(&world, &["Desk lamp", "Plaster plinth", "Brush cup"]);
+    let mut request = batch(&world, Provider::ByHand, &ids);
+    let mut batch_wide = TripoPreset::prop();
+    batch_wide.face_limit = 10_000;
+    request.tripo_prop = Some(batch_wide.clone());
+    let mut own = batch_wide.clone();
+    own.face_limit = 2_000;
+    own.pbr = false;
+    request.items[1].tripo = Some(own);
+    let sent = jobs.send_batch(&request, true, false).expect("batch");
+    assert!(sent.failed.is_empty(), "{:?}", sent.failed);
+    let tripo = |n: usize| sent.jobs[n].tripo.clone().expect("tripo settings");
+    assert_eq!(tripo(0), batch_wide, "follows the batch settings");
+    assert_eq!((tripo(1).face_limit, tripo(1).pbr), (2_000, false));
+    assert_eq!(tripo(2), batch_wide);
 }
 
 #[test]

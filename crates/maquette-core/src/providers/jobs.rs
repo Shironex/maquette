@@ -253,11 +253,15 @@ pub struct BatchItem {
     pub variant: PresetVariant,
     /// Relative to the project folder, front first, at most 4.
     pub images: Vec<String>,
+    /// This asset's own settings, already merged over the batch preset of
+    /// its variant. `None` follows the batch preset.
+    pub tripo: Option<TripoPreset>,
+    pub meshy: Option<MeshyPreset>,
 }
 
-/// Several assets to one provider with the same settings: one model per
-/// asset. The settings for each variant start from the saved preset;
-/// `Some` changes them for this batch only.
+/// Several assets to one provider: one model per asset. The settings for
+/// each variant start from the saved preset; `Some` changes them for this
+/// batch only, and an item can carry its own on top.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct BatchRequest {
@@ -286,20 +290,24 @@ impl BatchRequest {
             images: item.images.clone(),
             tripo: (service == ProviderId::Tripo)
                 .then(|| {
-                    if character {
-                        self.tripo_character.clone()
-                    } else {
-                        self.tripo_prop.clone()
-                    }
+                    item.tripo.clone().or_else(|| {
+                        if character {
+                            self.tripo_character.clone()
+                        } else {
+                            self.tripo_prop.clone()
+                        }
+                    })
                 })
                 .flatten(),
             meshy: (service == ProviderId::Meshy)
                 .then(|| {
-                    if character {
-                        self.meshy_character.clone()
-                    } else {
-                        self.meshy_prop.clone()
-                    }
+                    item.meshy.clone().or_else(|| {
+                        if character {
+                            self.meshy_character.clone()
+                        } else {
+                            self.meshy_prop.clone()
+                        }
+                    })
                 })
                 .flatten(),
         }
@@ -681,8 +689,8 @@ impl ProviderJobs {
         self.send_in(request, approval, via_agent, None)
     }
 
-    /// Sends several assets with the same provider and settings, one model
-    /// each. Every item is checked before any goes out, so a bad one stops
+    /// Sends several assets to one provider, one model each, on the batch
+    /// settings or an item's own. Every item is checked before any goes out, so a bad one stops
     /// the batch while nothing is spent. With `approval`, the API jobs all
     /// wait in Approval for one decision.
     pub fn send_batch(
