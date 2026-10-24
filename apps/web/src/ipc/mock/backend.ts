@@ -197,11 +197,12 @@ export function createBackend({
     return { ...base, def, active: activeRun(p.id), starters: startersOf(p.id) };
   }
 
-  /** Each project's starter scripts; Moon Island has old ones. */
+  /** Each project's starter scripts; the fixture Moon Island has old ones. */
   const starters = new Map<string, StarterStatus[]>();
   function startersOf(id: string): StarterStatus[] {
-    if (!starters.has(id))
-      starters.set(id, id === 'moon-island' ? oldStarters() : currentStarters());
+    // The fixture Moon Island is older than its starters; a new project is not.
+    const old = id === 'moon-island' && (project(id).assets ?? []).length > 0;
+    if (!starters.has(id)) starters.set(id, old ? oldStarters() : currentStarters());
     return starters.get(id)!;
   }
 
