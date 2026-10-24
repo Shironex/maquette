@@ -6,11 +6,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { commands, errorMessage, type WorkspaceSnapshot } from '@/ipc/client';
 import { useAppStore } from '@/state/app-store';
+import { useFolderPicker, useProjectFieldActions } from '@/features/project/useProjectFieldActions';
 import {
   STEP,
   canContinue,
   continueLabel,
   initialDraft,
+  newProjectRequest,
   nextStep,
   opensExisting,
   type Draft,
@@ -84,42 +86,12 @@ export function useOnboarding() {
     busy,
   };
 
-  const pickFolder = useCallback(
-    async (title: string, start?: string) => {
-      try {
-        return await commands.dialogPickFolder(title, start?.trim() ? start : null);
-      } catch (error) {
-        fail('Could not open the folder picker', error);
-        return null;
-      }
-    },
-    [fail]
-  );
+  const pickFolder = useFolderPicker();
+  const projectActions = useProjectFieldActions(draft, update);
 
   const browseRoot = async () => {
     const picked = await pickFolder('Pick a workspace folder', draft.root);
     if (picked) await inspectRoot(picked);
-  };
-
-  const checkRepo = async (path: string) => {
-    update({ siteRepo: path, repo: null });
-    if (!path.trim()) return;
-    try {
-      update({ repo: await commands.projectInspectRepo(path) });
-    } catch (error) {
-      fail('Could not check that folder', error);
-    }
-  };
-
-  const browseRepo = async () => {
-    const picked = await pickFolder('Pick the site repo', draft.siteRepo);
-    if (picked) await checkRepo(picked);
-  };
-
-  const browseSource = async () => {
-    const picked = await pickFolder('Pick the folder to import', draft.sourceFolder);
-    if (!picked) return;
-    update({ sourceFolder: picked });
   };
 
   const openWorkspace = async (root: string) => {
@@ -141,12 +113,7 @@ export function useOnboarding() {
   async function createEverything(): Promise<boolean> {
     const root = draft.inspection?.path ?? draft.root;
     await commands.workspaceCreate(root, draft.config);
-    const snap = await commands.projectCreate({
-      name: draft.name.trim(),
-      template: draft.mode === 'import' ? 'imported' : draft.template,
-      siteRepo: draft.siteRepo.trim() || null,
-      sourceFolder: draft.mode === 'import' ? draft.sourceFolder.trim() : null,
-    });
+    const snap = await commands.projectCreate(newProjectRequest(draft));
     setSnapshot(snap);
     setCreated(true);
     return true;
@@ -217,9 +184,7 @@ export function useOnboarding() {
     back,
     inspectRoot,
     browseRoot,
-    checkRepo,
-    browseRepo,
-    browseSource,
+    projectActions,
     openExistingFromWelcome,
   };
 }

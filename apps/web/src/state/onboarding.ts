@@ -3,6 +3,7 @@
  * Continue works, what it says and where it goes are tested without React.
  */
 import type {
+  NewProject,
   ProjectTemplate,
   RepoInspection,
   RootInspection,
@@ -50,6 +51,40 @@ export interface Draft {
   siteRepo: string;
   sourceFolder: string;
   repo: RepoInspection | null;
+}
+
+/** The fields of the first project step, shared with New project in the switcher. */
+export type ProjectFields = Pick<
+  Draft,
+  'mode' | 'template' | 'name' | 'siteRepo' | 'sourceFolder' | 'repo'
+>;
+
+export function emptyProjectFields(name = ''): ProjectFields {
+  return {
+    mode: 'template',
+    template: 'floating-diorama',
+    name,
+    siteRepo: '',
+    sourceFolder: '',
+    repo: null,
+  };
+}
+
+/** A name, and a folder when importing. */
+export function projectFieldsReady(fields: ProjectFields): boolean {
+  return (
+    nameError(fields.name) === null &&
+    (fields.mode === 'template' || fields.sourceFolder.trim() !== '')
+  );
+}
+
+export function newProjectRequest(fields: ProjectFields): NewProject {
+  return {
+    name: fields.name.trim(),
+    template: fields.mode === 'import' ? 'imported' : fields.template,
+    siteRepo: fields.siteRepo.trim() || null,
+    sourceFolder: fields.mode === 'import' ? fields.sourceFolder.trim() : null,
+  };
 }
 
 export interface FlowState {
@@ -105,10 +140,7 @@ export function canContinue(step: number, flow: FlowState): boolean {
     case STEP.agents:
       return !hasErrors(validateConfig(draft.config));
     case STEP.project:
-      return (
-        nameError(draft.name) === null &&
-        (draft.mode === 'template' || draft.sourceFolder.trim() !== '')
-      );
+      return projectFieldsReady(draft);
     default:
       return true;
   }
