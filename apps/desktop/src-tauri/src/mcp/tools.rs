@@ -16,13 +16,14 @@ use maquette_core::concepts::{Aspect, NewConcepts, NewObjectRefs};
 use maquette_core::inbox::{self, AcceptRequest};
 use maquette_core::pipeline::cache::project_cache_dir;
 use maquette_core::pipeline::history::{self, LogEntry, RunRecord, RunState};
+use maquette_core::pipeline::presets::{self, CompressPreset};
 use maquette_core::pipeline::runner::{JobRunner as _, RunOptions, StepGate};
 use maquette_core::providers::{
     BatchItem, BatchRequest, JobState, MeshyPreset, PresetVariant, Provider, ProviderId,
     ProviderJob, SendRequest, TripoPreset,
 };
 use maquette_core::thumbs::{self, Requested, ThumbTarget};
-use maquette_core::{AssetKind, ErrorPayload, concepts, project};
+use maquette_core::{AssetKind, ErrorPayload, MeshoptLevel, TextureCodec, concepts, project};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::tool::ToolCallContext;
 use rmcp::handler::server::wrapper::Parameters;
@@ -52,6 +53,8 @@ Tripo or Meshy (it always waits for a person to approve the credits in the app; 
 with get_provider_job) or writes a by hand handoff folder; send_batch_to_3d sends several \
 assets at once under one approval. make_object_refs turns the objects of one concept into \
 one isolated image each. get_concepts reads the Lab. \
+set_compression_presets changes the per model texture size, data map size, codec and \
+meshopt level that get_pipeline shows (it spends nothing; locked rows refuse). \
 Blender always runs headless here; there is no tool that opens Blender's window or \
 captures the screen.";
 
@@ -104,6 +107,47 @@ fn log_line(entry: &LogEntry) -> String {
 pub struct ProjectArgs {
     /// The project id, as list_projects returns it.
     pub project: String,
+}
+
+/// The texture sizes the Pipeline view offers, in pixels.
+const PRESET_SIZES: [u32; 4] = [512, 1024, 2048, 4096];
+const PRESET_CODECS: &str = "etc1s, uastc";
+const PRESET_MESHOPT: &str = "low, medium, high";
+
+/// Tells a missing field from an explicit null.
+fn explicit<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(d).map(Some)
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetEdit {
+    /// The model as get_pipeline lists it in `models` (the GLB file stem, for example
+    /// "clay_v1"), or the asset's name when it has one model.
+    pub model: String,
+    /// The longest texture edge in pixels: 512, 1024, 2048 or 4096.
+    pub texture_size: Option<u32>,
+    /// A smaller edge for the metal, roughness, occlusion and normal maps: 512, 1024,
+    /// 2048 or 4096. null clears the split, so every map uses textureSize.
+    #[serde(default, deserialize_with = "explicit")]
+    pub data_texture_size: Option<Option<u32>>,
+    /// The texture codec: "etc1s" or "uastc".
+    pub codec: Option<String>,
+    /// The meshopt level: "low", "medium" or "high".
+    pub meshopt: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SetPresetsArgs {
+    /// The project id.
+    pub project: String,
+    /// The rows to change. Only the fields you give change; other models stay as they are.
+    pub presets: Vec<PresetEdit>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -392,6 +436,126 @@ fn cache_dir(host: &dyn Host, project_id: &str) -> Result<PathBuf, String> {
         &root.join(&config.layout.cache),
         project_id,
     ))
+}
+
+fn check_size(what: &str, size: u32) -> Result<u32, String> {
+    if PRESET_SIZES.contains(&size) {
+        Ok(size)
+    } else {
+        Err(format!(
+            "{what} must be one of 512, 1024, 2048 or 4096, not {size}."
+        ))
+    }
+}
+
+fn parse_codec(word: &str) -> Result<TextureCodec, String> {
+    serde_json::from_value(json!(word.to_lowercase()))
+        .map_err(|_| format!("codec must be one of {PRESET_CODECS}, not {word:?}."))
+}
+
+fn parse_meshopt(word: &str) -> Result<MeshoptLevel, String> {
+    serde_json::from_value(json!(word.to_lowercase()))
+        .map_err(|_| format!("meshopt must be one of {PRESET_MESHOPT}, not {word:?}."))
+}
+
+/// The model an edit names: a stem, or an asset name with one model.
+fn preset_target<'a>(models: &'a [pipeline::ModelFile], name: &str) -> Result<&'a str, String> {
+    let wanted = name.to_lowercase();
+    let stem = models.iter().find(|m| m.model.to_lowercase() == wanted);
+    let named: Vec<_> = models
+        .iter()
+        .filter(|m| {
+            m.asset_name
+                .as_ref()
+                .is_some_and(|n| n.to_lowercase() == wanted)
+        })
+        .collect();
+    match (stem, named.as_slice()) {
+        (Some(m), _) => Ok(&m.model),
+        (None, [m]) => Ok(&m.model),
+        (None, [_, ..]) => Err(format!(
+            "{name:?} has several models ({}). Use the model name.",
+            named
+                .iter()
+                .map(|m| m.model.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )),
+        (None, []) => Err(format!(
+            "Unknown model {name:?}. Models: {}.",
+            models
+                .iter()
+                .map(|m| m.model.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )),
+    }
+}
+
+/// The stored table with the edits applied. A model without a row starts from
+/// the workspace defaults, the way the Pipeline view's table does.
+fn edited_presets(
+    view: &pipeline::PipelineView,
+    edits: &[PresetEdit],
+) -> Result<Vec<CompressPreset>, String> {
+    let mut table = view.def.presets.clone();
+    let mut touched = Vec::new();
+    for edit in edits {
+        let model = preset_target(&view.models, &edit.model)
+            .or_else(|err| {
+                // A stored row can name a model that has no build yet.
+                let stored = table
+                    .iter()
+                    .find(|p| p.model.eq_ignore_ascii_case(&edit.model));
+                stored.map(|p| p.model.as_str()).ok_or(err)
+            })?
+            .to_string();
+        if touched.contains(&model) {
+            return Err(format!("{model} appears twice. Give each model one entry."));
+        }
+        let index = table
+            .iter()
+            .position(|p| p.model == model)
+            .unwrap_or_else(|| {
+                let label = view
+                    .models
+                    .iter()
+                    .find(|m| m.model == model)
+                    .and_then(|m| m.asset_name.clone())
+                    .unwrap_or_else(|| presets::model_label(&model));
+                table.push(CompressPreset {
+                    label,
+                    model: model.clone(),
+                    texture_size: view.defaults.texture_size,
+                    data_texture_size: None,
+                    codec: view.defaults.codec,
+                    meshopt: view.defaults.meshopt,
+                    lock: None,
+                });
+                table.len() - 1
+            });
+        let row = &mut table[index];
+        if let Some(reason) = &row.lock {
+            return Err(format!("{} is locked: {reason}", row.label));
+        }
+        let name = |what: &str| format!("{}: {what}", row.label);
+        if let Some(size) = edit.texture_size {
+            row.texture_size = check_size(&name("textureSize"), size)?;
+        }
+        if let Some(data) = edit.data_texture_size {
+            row.data_texture_size = data
+                .map(|size| check_size(&name("dataTextureSize"), size))
+                .transpose()?;
+        }
+        if let Some(word) = &edit.codec {
+            row.codec = parse_codec(word).map_err(|e| name(&e))?;
+        }
+        if let Some(word) = &edit.meshopt {
+            row.meshopt = parse_meshopt(word).map_err(|e| name(&e))?;
+        }
+        touched.push(model);
+    }
+    Ok(table)
 }
 
 /// The run an agent asked for: live from the runner, or from history.
@@ -861,6 +1025,36 @@ a project id; no tool changes which project the app has open.",
                     }
                 }
                 Ok(value)
+            })
+            .await;
+        respond(found)
+    }
+
+    #[tool(
+        description = "Set compression presets, as the Pipeline view's Compression presets panel and Apply presets do. Each entry names a model (as get_pipeline lists it in `models`, or its asset name) and any of textureSize (512, 1024, 2048 or 4096), dataTextureSize (the same sizes for the metal, roughness, occlusion and normal maps, or null to use textureSize), codec (etc1s or uastc) and meshopt (low, medium or high). Only the given fields change. Locked rows are refused with their lock note, and an unknown model with the list of valid ones. It spends nothing; the presets apply the next time Compress runs. Returns the presets and the built sizes.",
+        annotations(idempotent_hint = true)
+    )]
+    async fn set_compression_presets(&self, Parameters(args): Parameters<SetPresetsArgs>) -> Out {
+        let found = self
+            .blocking(move |host, _| {
+                let view = pipeline::view(host.session(), host.runner(), &args.project)
+                    .map_err(|e| e.message)?;
+                let table = edited_presets(&view, &args.presets)?;
+                let saved = pipeline::save_presets(host.session(), host.runner(), &args.project, table)
+                    .map_err(|e| e.message)?;
+                host.pipeline_changed(&args.project);
+                let built: f64 = saved
+                    .models
+                    .iter()
+                    .map(|m| m.shipped_bytes.or(m.raw_bytes).unwrap_or(0.0))
+                    .sum();
+                Ok(json!({
+                    "project": saved.project,
+                    "presets": to_value(&saved.def.presets),
+                    "models": to_value(&saved.models),
+                    "builtBytes": built,
+                    "note": "The presets apply the next time Compress runs. builtBytes is what the models weigh now (shipped, else raw).",
+                }))
             })
             .await;
         respond(found)

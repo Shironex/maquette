@@ -12,8 +12,8 @@ use crate::commands::{
     toolchain, workspace,
 };
 use crate::events::{
-    ConceptUpdate, InboxChanged, McpUpdate, PipelineUpdate, ProjectChanged, ProviderUpdate,
-    ThumbnailReady,
+    ConceptUpdate, InboxChanged, McpUpdate, PipelineChanged, PipelineUpdate, ProjectChanged,
+    ProviderUpdate, ThumbnailReady,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -106,6 +106,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             ThumbnailReady,
             ConceptUpdate,
             ProjectChanged,
+            PipelineChanged,
             McpUpdate,
             ProviderUpdate
         ])

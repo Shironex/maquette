@@ -51,6 +51,14 @@ pub struct ProjectChanged {
     pub project: ProjectManifest,
 }
 
+/// An agent saved a project's compression presets through the MCP server,
+/// so the Pipeline view reloads them.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct PipelineChanged {
+    pub project: String,
+}
+
 /// The MCP server started or stopped, took a call, or a run started by an
 /// agent waits for a shipping approval.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

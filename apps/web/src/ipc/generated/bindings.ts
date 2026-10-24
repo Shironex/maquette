@@ -159,6 +159,7 @@ export const events = {
 	conceptUpdate: makeEvent<ConceptUpdate>("concept-update"),
 	inboxChanged: makeEvent<InboxChanged>("inbox-changed"),
 	mcpUpdate: makeEvent<McpUpdate>("mcp-update"),
+	pipelineChanged: makeEvent<PipelineChanged>("pipeline-changed"),
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
 	projectChanged: makeEvent<ProjectChanged>("project-changed"),
 	providerUpdate: makeEvent<ProviderUpdate>("provider-update"),
@@ -1098,6 +1099,14 @@ export type PbrMaps = {
 	normal: boolean,
 	occlusion: boolean,
 	emissive: boolean,
+};
+
+/**
+ *  An agent saved a project's compression presets through the MCP server,
+ *  so the Pipeline view reloads them.
+ */
+export type PipelineChanged = {
+	project: string,
 };
 
 export type PipelineDef = {

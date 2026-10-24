@@ -38,6 +38,8 @@ struct TestHost {
     concepts: Concepts,
     thumbs: Thumbnails,
     studio: ProviderJobs,
+    /// How often a tool told the windows that a pipeline file changed.
+    pipeline_changes: std::sync::atomic::AtomicUsize,
 }
 
 /// Provider jobs that can never reach Tripo or Meshy: both point at a
@@ -79,6 +81,10 @@ impl Host for TestHost {
     }
     fn toolbox(&self) -> Toolbox {
         Toolbox::default()
+    }
+    fn pipeline_changed(&self, _project: &str) {
+        self.pipeline_changes
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
 }
 
@@ -227,6 +233,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         runner: PipelineRunner::new(Arc::new(HubSink(Arc::clone(&hub)))),
         concepts: Concepts::new(None, 1, |_| {}),
         thumbs: Thumbnails::new(|_| {}),
+        pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
     });
     // Port 0 so the test never collides with a running app; the app itself
     // listens on the configured 4791.
@@ -304,6 +311,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "run_pipeline",
             "send_batch_to_3d",
             "send_to_3d",
+            "set_compression_presets",
             "start_concepts",
         ]
     );
@@ -343,6 +351,103 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     );
     let pipeline = call(&client, "get_pipeline", json!({ "project": project_id })).await;
     assert_eq!(pipeline["def"]["steps"][1]["id"], json!("ship"));
+
+    // set_compression_presets: partial edits, locks, validation, live notice.
+    let mut def = pipeline::load(&project_dir).expect("def").expect("file");
+    let row = |model: &str, lock: Option<&str>| pipeline::CompressPreset {
+        model: model.into(),
+        label: model.into(),
+        texture_size: 2048,
+        data_texture_size: None,
+        codec: maquette_core::TextureCodec::Etc1s,
+        meshopt: maquette_core::MeshoptLevel::High,
+        lock: lock.map(str::to_string),
+    };
+    def.presets = vec![
+        row("stone_lantern", None),
+        row("desk_lamp", None),
+        row("hero", Some("High spins")),
+    ];
+    pipeline::save(&project_dir, &def).expect("presets");
+    let set = call(
+        &client,
+        "set_compression_presets",
+        json!({ "project": project_id, "presets": [
+            { "model": "stone_lantern", "dataTextureSize": 1024, "codec": "UASTC" },
+            { "model": "desk_lamp", "textureSize": 512 },
+        ] }),
+    )
+    .await;
+    let rows = set["presets"].as_array().expect("presets");
+    let by = |m: &str| rows.iter().find(|p| p["model"] == json!(m)).expect(m);
+    assert_eq!(by("stone_lantern")["dataTextureSize"], json!(1024));
+    assert_eq!(by("stone_lantern")["codec"], json!("uastc"));
+    assert_eq!(by("stone_lantern")["textureSize"], json!(2048), "kept");
+    assert_eq!(by("hero")["lock"], json!("High spins"), "untouched");
+    let after = pipeline::load(&project_dir).expect("def").expect("file");
+    let lamp = after
+        .presets
+        .iter()
+        .find(|p| p.model == "desk_lamp")
+        .expect("lamp");
+    assert_eq!(lamp.texture_size, 512);
+    assert_eq!(lamp.codec, maquette_core::TextureCodec::Etc1s, "kept");
+    assert_eq!(
+        host.pipeline_changes
+            .load(std::sync::atomic::Ordering::SeqCst),
+        1
+    );
+    let cleared = call(
+        &client,
+        "set_compression_presets",
+        json!({ "project": project_id, "presets": [
+            { "model": "stone_lantern", "dataTextureSize": null },
+        ] }),
+    )
+    .await;
+    let lantern = cleared["presets"]
+        .as_array()
+        .and_then(|p| p.iter().find(|p| p["model"] == json!("stone_lantern")))
+        .expect("row");
+    assert_eq!(
+        lantern["dataTextureSize"],
+        json!(null),
+        "null clears the split"
+    );
+    assert_eq!(lantern["codec"], json!("uastc"), "other fields stay");
+    for (entry, needle) in [
+        (json!({ "model": "hero", "textureSize": 512 }), "High spins"),
+        (json!({ "model": "nope" }), "stone_lantern"),
+        (
+            json!({ "model": "desk_lamp", "textureSize": 999 }),
+            "512, 1024",
+        ),
+        (
+            json!({ "model": "desk_lamp", "codec": "png" }),
+            "etc1s, uastc",
+        ),
+        (
+            json!({ "model": "desk_lamp", "meshopt": "max" }),
+            "low, medium, high",
+        ),
+    ] {
+        let mut params = CallToolRequestParams::new("set_compression_presets".to_string());
+        if let Value::Object(map) = json!({ "project": project_id, "presets": [entry] }) {
+            params = params.with_arguments(map);
+        }
+        let refused = client.call_tool(params).await.expect("call");
+        assert_eq!(refused.is_error, Some(true), "{entry}");
+        assert!(text(&refused).contains(needle), "{}", text(&refused));
+    }
+    assert_eq!(
+        pipeline::load(&project_dir)
+            .expect("def")
+            .expect("file")
+            .presets
+            .len(),
+        3,
+        "a refused edit saves nothing"
+    );
 
     // run_pipeline pauses before Ship and says so.
     let started = Instant::now();
@@ -641,6 +746,7 @@ fn the_app_server_follows_the_workspace_setting() {
         runner: PipelineRunner::new(Arc::new(HubSink(Arc::clone(&hub)))),
         concepts: Concepts::new(None, 1, |_| {}),
         thumbs: Thumbnails::new(|_| {}),
+        pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
     });
     let agents = Agents::new(host, hub);
     // Off by default: nothing listens and there is no token yet.

@@ -14,7 +14,7 @@ use crate::commands::lab::Lab;
 use crate::commands::pipeline::Pipelines;
 use crate::commands::providers::Studio;
 use crate::commands::thumbs::Thumbs;
-use crate::events::ProjectChanged;
+use crate::events::{PipelineChanged, ProjectChanged};
 use crate::session::Session;
 
 pub trait Host: Send + Sync + 'static {
@@ -28,6 +28,9 @@ pub trait Host: Send + Sync + 'static {
     fn toolbox(&self) -> Toolbox;
     /// Tells the windows that a tool changed a project, so the Board updates.
     fn project_changed(&self, _project: &ProjectManifest) {}
+    /// Tells the windows that a tool changed a project's pipeline file, so
+    /// the Pipeline view reloads it.
+    fn pipeline_changed(&self, _project: &str) {}
 }
 
 /// The app's own services.
@@ -64,6 +67,15 @@ impl Host for AppHost {
         };
         if let Err(err) = event.emit(&self.0) {
             tracing::warn!(error = %err, "could not emit a project event");
+        }
+    }
+
+    fn pipeline_changed(&self, project: &str) {
+        let event = PipelineChanged {
+            project: project.to_string(),
+        };
+        if let Err(err) = event.emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit a pipeline event");
         }
     }
 }

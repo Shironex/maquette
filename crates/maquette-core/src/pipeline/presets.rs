@@ -59,6 +59,21 @@ impl CompressPreset {
     }
 }
 
+/// "sakura_large" reads as "Sakura large".
+pub fn model_label(stem: &str) -> String {
+    let words = stem.replace(['_', '-'], " ");
+    let words = words
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase();
+    let mut chars = words.chars();
+    chars.next().map_or_else(
+        || stem.to_string(),
+        |first| first.to_uppercase().chain(chars).collect(),
+    )
+}
+
 /// The preset a model gets: its own row, or the workspace defaults.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedPreset {
@@ -280,6 +295,13 @@ mod tests {
             .iter()
             .map(|p| p.args.iter().map(String::as_str).collect())
             .collect()
+    }
+
+    #[test]
+    fn labels_read_as_words() {
+        assert_eq!(model_label("sakura_large"), "Sakura large");
+        assert_eq!(model_label("desk-lamp__v2"), "Desk lamp v2");
+        assert_eq!(model_label("_"), "_");
     }
 
     #[test]
