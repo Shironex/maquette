@@ -42,6 +42,8 @@ fn finished(handle: &AppHandle, done: Finished) {
     }
     let thumbnail = done.png.as_ref().map(|p| p.display().to_string());
     let file = done.file.display().to_string();
+    let bytes = done.fingerprint.map(|f| f.bytes);
+    let modified_ms = done.fingerprint.map(|f| f.modified_ms);
     let workspace = handle.state::<Session>().workspace().ok();
     for target in &done.targets {
         let (Some(png), Some((root, config))) = (&done.png, &workspace) else {
@@ -52,6 +54,8 @@ fn finished(handle: &AppHandle, done: Finished) {
                 handle,
                 ThumbnailReady {
                     file: file.clone(),
+                    bytes,
+                    modified_ms,
                     thumbnail: thumbnail.clone(),
                     state,
                     project: Some(project),
@@ -65,6 +69,8 @@ fn finished(handle: &AppHandle, done: Finished) {
         handle,
         ThumbnailReady {
             file,
+            bytes,
+            modified_ms,
             thumbnail,
             state,
             project: None,

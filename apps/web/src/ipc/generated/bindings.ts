@@ -1534,10 +1534,14 @@ export type ThumbState =
 /**
  *  A model's thumbnail finished, or will not come from Blender (`state` is
  *  fallback, so the web view stores a snapshot of its own preview). With
- *  `project`, a Board asset now shows it.
+ *  `project`, a Board asset now shows it. `bytes` and `modified_ms` are the
+ *  file's as the render was asked for, so the web view can drop a late event
+ *  for an old file that shared the name.
  */
 export type ThumbnailReady = {
 	file: string,
+	bytes: number | null,
+	modifiedMs: number | null,
 	thumbnail: string | null,
 	state: ThumbState,
 	project: ProjectManifest | null,

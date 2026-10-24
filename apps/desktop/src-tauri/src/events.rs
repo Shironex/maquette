@@ -24,11 +24,15 @@ pub struct InboxChanged {
 
 /// A model's thumbnail finished, or will not come from Blender (`state` is
 /// fallback, so the web view stores a snapshot of its own preview). With
-/// `project`, a Board asset now shows it.
+/// `project`, a Board asset now shows it. `bytes` and `modified_ms` are the
+/// file's as the render was asked for, so the web view can drop a late event
+/// for an old file that shared the name.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 #[serde(rename_all = "camelCase")]
 pub struct ThumbnailReady {
     pub file: String,
+    pub bytes: Option<f64>,
+    pub modified_ms: Option<f64>,
     pub thumbnail: Option<String>,
     pub state: ThumbState,
     pub project: Option<ProjectManifest>,
