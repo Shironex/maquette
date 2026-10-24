@@ -84,70 +84,73 @@ function DirectionResults({ view, direction }: { view: LabView; direction: Direc
       aria-label={`${direction.name} concepts`}
       className="flex min-w-0 flex-1 flex-col gap-3.5 overflow-y-auto px-[22px] pt-[18px] pb-[18px]"
     >
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-screen-title">{direction.name}</h2>
-          <p className="mt-0.5 truncate text-fg-mute">{directionSummary(direction, view.jobs)}</p>
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2.5">
+        {/* The title takes the free width and wraps; the actions drop below it only when they must. */}
+        <div className="min-w-[min(100%,260px)] flex-1">
+          <h2 className="text-screen-title break-words">{direction.name}</h2>
+          <p className="mt-0.5 text-fg-mute">{directionSummary(direction, view.jobs)}</p>
         </div>
-        <IconButton
-          icon="squares-four"
-          variant="secondary"
-          label="Make a contact sheet of every image"
-          disabled={direction.images.length === 0 || busy === 'sheet'}
-          onClick={() => void contactSheet()}
-        />
-        <div className="relative flex gap-2">
-          <Button
-            icon="cube"
-            disabled={picked === 0 || busy === 'send'}
-            title={
-              picked === 0
-                ? 'Pick at least one concept first'
-                : unsent
-                  ? 'Sends the picks to Refs, then opens Send to 3D'
-                  : 'Opens Send to 3D with the picks'
-            }
-            aria-haspopup={known ? undefined : 'menu'}
-            onClick={to3d}
-          >
-            Send to 3D
-          </Button>
-          <Button
-            variant="primary"
-            iconRight="arrow-right"
-            loading={busy === 'send'}
-            disabled={picked === 0 || busy === 'send'}
-            title={
-              picked === 0
-                ? 'Pick at least one concept first'
-                : known
-                  ? `Copies the picks into refs/ and moves ${known.name} to Refs`
-                  : 'Copies the picks into refs/ and adds the asset at Refs'
-            }
-            aria-haspopup={known ? undefined : 'menu'}
-            onClick={send}
-          >
-            Send picks to Refs
-          </Button>
-          {kindMenu ? (
-            <Menu
-              label="Add the asset"
-              onClose={() => setKindMenu(null)}
-              className="absolute top-10 right-0 z-30 w-[240px]"
-              header={
-                <p className="px-2.5 pt-1.5 pb-1 text-meta text-fg-mute">
-                  {kindMenu === '3d'
-                    ? `Adds ${direction.name} at Refs, then opens Send to 3D`
-                    : `Adds ${direction.name} to the Board at Refs`}
-                </p>
+        <div className="ml-auto flex flex-none items-start gap-2">
+          <IconButton
+            icon="squares-four"
+            variant="secondary"
+            label="Make a contact sheet of every image"
+            disabled={direction.images.length === 0 || busy === 'sheet'}
+            onClick={() => void contactSheet()}
+          />
+          <div className="relative flex gap-2">
+            <Button
+              icon="cube"
+              disabled={picked === 0 || busy === 'send'}
+              title={
+                picked === 0
+                  ? 'Pick at least one concept first'
+                  : unsent
+                    ? 'Sends the picks to Refs, then opens Send to 3D'
+                    : 'Opens Send to 3D with the picks'
               }
-              items={KINDS.map(k => ({
-                id: k.id,
-                label: k.label,
-                onSelect: () => void (kindMenu === '3d' ? sendTo3d(k.id) : sendPicks(k.id)),
-              }))}
-            />
-          ) : null}
+              aria-haspopup={known ? undefined : 'menu'}
+              onClick={to3d}
+            >
+              Send to 3D
+            </Button>
+            <Button
+              variant="primary"
+              iconRight="arrow-right"
+              loading={busy === 'send'}
+              disabled={picked === 0 || busy === 'send'}
+              title={
+                picked === 0
+                  ? 'Pick at least one concept first'
+                  : known
+                    ? `Copies the picks into refs/ and moves ${known.name} to Refs`
+                    : 'Copies the picks into refs/ and adds the asset at Refs'
+              }
+              aria-haspopup={known ? undefined : 'menu'}
+              onClick={send}
+            >
+              Send picks to Refs
+            </Button>
+            {kindMenu ? (
+              <Menu
+                label="Add the asset"
+                onClose={() => setKindMenu(null)}
+                className="absolute top-10 right-0 z-30 w-[240px]"
+                header={
+                  <p className="px-2.5 pt-1.5 pb-1 text-meta text-fg-mute">
+                    {kindMenu === '3d'
+                      ? `Adds ${direction.name} at Refs, then opens Send to 3D`
+                      : `Adds ${direction.name} to the Board at Refs`}
+                  </p>
+                }
+                items={KINDS.map(k => ({
+                  id: k.id,
+                  label: k.label,
+                  onSelect: () => void (kindMenu === '3d' ? sendTo3d(k.id) : sendPicks(k.id)),
+                }))}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
       <ul className="grid list-none grid-cols-2 gap-3.5">
