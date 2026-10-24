@@ -7,6 +7,7 @@ pub mod commands;
 pub mod events;
 pub mod keychain;
 pub mod mcp;
+pub mod opener;
 pub mod session;
 
 use std::sync::Arc;

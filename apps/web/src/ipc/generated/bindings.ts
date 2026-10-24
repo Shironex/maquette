@@ -31,6 +31,11 @@ export const commands = {
 	projectScanImport: (path: string) => __TAURI_INVOKE<ImportScan>("project_scan_import", { path }),
 	dialogPickFolder: (title: string, start: string | null) => __TAURI_INVOKE<string | null>("dialog_pick_folder", { title, start }),
 	dialogPickFile: (title: string) => __TAURI_INVOKE<string | null>("dialog_pick_file", { title }),
+	/**
+	 *  Picks a model to bring back by hand: a GLB, or the zip a web studio
+	 *  downloads with one inside.
+	 */
+	dialogPickModel: (title: string) => __TAURI_INVOKE<string | null>("dialog_pick_model", { title }),
 	assetAdd: (project: string, asset: NewAsset) => __TAURI_INVOKE<ProjectManifest>("asset_add", { project, asset }),
 	assetMove: (project: string, id: string, stage: Stage) => __TAURI_INVOKE<ProjectManifest>("asset_move", { project, id, stage }),
 	/**
@@ -77,6 +82,12 @@ export const commands = {
 	labSendPicks: (project: string, direction: string, kind: AssetKind) => __TAURI_INVOKE<SentPicks>("lab_send_picks", { project, direction, kind }),
 	labImportRefs: (project: string, paths: string[]) => __TAURI_INVOKE<string[]>("lab_import_refs", { project, paths }),
 	labMoveDirection: (project: string, direction: string, to: string) => __TAURI_INVOKE<MovedDirection>("lab_move_direction", { project, direction, to }),
+	labMakeObjects: (request: NewObjectRefs) => __TAURI_INVOKE<LabView>("lab_make_objects", { request }),
+	/**
+	 *  Send picks for a direction of object refs: one asset per picked object,
+	 *  each with its own ref. `kind` overrides the direction's kind.
+	 */
+	labSendObjectPicks: (project: string, direction: string, kind: "prop" | "character" | "scene" | null) => __TAURI_INVOKE<SentObjects>("lab_send_object_picks", { project, direction, kind }),
 	/**
 	 *  Reads every model of the project, off the main thread: a large raw
 	 *  export takes a moment to measure.
@@ -95,6 +106,12 @@ export const commands = {
 	 *  no approval.
 	 */
 	providerSend: (request: SendRequest) => __TAURI_INVOKE<ProviderJob>("provider_send", { request }),
+	providerBatchOptions: (project: string, assets: string[]) => __TAURI_INVOKE<BatchOptions>("provider_batch_options", { project, assets }),
+	/**
+	 *  Sends several assets at once from the app. Pressing Send in the panel
+	 *  (after its one confirmation for API providers) is the approval.
+	 */
+	providerSendBatch: (request: BatchRequest) => __TAURI_INVOKE<BatchSent>("provider_send_batch", { request }),
 	providerJobs: (project: string | null) => __TAURI_INVOKE<ProviderJob[]>("provider_jobs", { project }),
 	/**  Meshy is asked over the network, so this runs off the main thread. */
 	providerCancel: (id: string) => __TAURI_INVOKE<ProviderJob>("provider_cancel", { id }),
@@ -103,6 +120,22 @@ export const commands = {
 	providerClearFinished: (project: string) => __TAURI_INVOKE<ProviderJob[]>("provider_clear_finished", { project }),
 	/**  Shows a By hand job's folder in Finder or Explorer. */
 	providerOpenHandoff: (id: string) => __TAURI_INVOKE<null>("provider_open_handoff", { id }),
+	/**
+	 *  Opens the service's web studio in the system browser. Only the two
+	 *  known sites open, never an address from the web view.
+	 */
+	providerOpenSite: (service: ProviderId) => __TAURI_INVOKE<null>("provider_open_site", { service }),
+	/**
+	 *  Shows one image of a By hand job selected in Finder or Explorer, ready
+	 *  to drag into the web studio's upload.
+	 */
+	providerRevealImage: (id: string, image: string) => __TAURI_INVOKE<null>("provider_reveal_image", { id, image }),
+	/**
+	 *  Looks for models in the Downloads folder (the OS known folder) that
+	 *  came after this project's handoffs. Reads only; each match is copied
+	 *  into the inbox once you confirm it with `provider_hand_back`.
+	 */
+	providerCheckDownloads: (project: string) => __TAURI_INVOKE<DownloadsScan>("provider_check_downloads", { project }),
 	providerKeys: () => __TAURI_INVOKE<KeyStatus[]>("provider_keys"),
 	/**  Saves a key in the keychain. Only its last four characters come back. */
 	providerKeySave: (service: ProviderId, key: string) => __TAURI_INVOKE<KeyStatus>("provider_key_save", { service, key }),
@@ -257,6 +290,24 @@ export type BatchItem = {
 	variant: PresetVariant,
 	/**  Relative to the project folder, front first, at most 4. */
 	images: string[],
+};
+
+/**  One asset of the batch panel: its refs and the preset it starts from. */
+export type BatchItemOptions = {
+	asset: Asset,
+	/**  Its own refs, front first; the batch sends these. */
+	suggested: string[],
+	variant: PresetVariant,
+};
+
+/**  Everything the batch Send to 3D panel needs. */
+export type BatchOptions = {
+	project: string,
+	/**  Absolute, for the image URLs. */
+	projectDir: string,
+	/**  In the order asked. */
+	items: BatchItemOptions[],
+	keys: KeyStatus[],
 };
 
 /**

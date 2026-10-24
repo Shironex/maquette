@@ -5,9 +5,10 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use maquette_core::concepts::jobs::Start;
+use maquette_core::concepts::jobs::{Lane, Start};
 use maquette_core::concepts::{
-    self, ConceptJob, Concepts, Direction, MovedDirection, NewConcepts, REFS_DIR, SentPicks, sheet,
+    self, ConceptJob, Concepts, Direction, MovedDirection, NewConcepts, NewObjectRefs, REFS_DIR,
+    SentObjects, SentPicks, sheet,
 };
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::providers::{JobState, ProviderJobs};
@@ -141,6 +142,59 @@ pub(crate) fn generate(
         request,
         timeout: Duration::from_secs(u64::from(config.lab.timeout_minutes) * 60),
     })?)
+}
+
+/// Queues one Codex job per object, with the source concept attached.
+/// Shared with the MCP server.
+pub(crate) fn make_objects(
+    session: &Session,
+    lab: &Concepts,
+    tools: &Toolbox,
+    request: &NewObjectRefs,
+) -> CommandResult<(Direction, Vec<ConceptJob>)> {
+    let (root, config, dir) = project_dir(session, &request.project)?;
+    let request = concepts::objects::clean(&dir, request)?;
+    lab.set_concurrency(config.lab.concurrency);
+    let cache = cache_dir(&root, &config);
+    let lane = Lane {
+        project_dir: &dir,
+        cache_dir: &cache,
+        tools,
+        timeout: Duration::from_secs(u64::from(config.lab.timeout_minutes) * 60),
+    };
+    Ok(lab.start_objects(&lane, &request)?)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn lab_make_objects(
+    session: State<'_, Session>,
+    lab: State<'_, Lab>,
+    request: NewObjectRefs,
+) -> CommandResult<LabView> {
+    let tools = super::toolchain::toolbox(&session).await?;
+    make_objects(&session, &lab.0, &tools, &request)?;
+    view(&session, &lab.0, &request.project)
+}
+
+/// Send picks for a direction of object refs: one asset per picked object,
+/// each with its own ref. `kind` overrides the direction's kind.
+#[tauri::command]
+#[specta::specta]
+pub fn lab_send_object_picks(
+    session: State<'_, Session>,
+    project: String,
+    direction: String,
+    kind: Option<AssetKind>,
+) -> CommandResult<SentObjects> {
+    let (root, config) = session.workspace()?;
+    Ok(concepts::send_object_picks(
+        &root,
+        &config.layout,
+        &project,
+        &direction,
+        kind,
+    )?)
 }
 
 #[tauri::command]
@@ -458,5 +512,59 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn object_refs_are_checked_and_need_codex() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join("ws");
+        let config = workspace::create(&root, &WorkspaceConfig::default()).expect("ws");
+        let session = Session::with_state(dir.path().join("cfg"), None, AppState::default());
+        session
+            .set_workspace(root.clone(), config.clone())
+            .expect("open");
+        let manifest = project::create(
+            &root,
+            &config.layout,
+            NewProject {
+                name: "Landing".into(),
+                template: ProjectTemplate::Room,
+                site_repo: None,
+                source_folder: None,
+            },
+        )
+        .expect("project");
+        let project_dir = project::dir(&root, &config.layout, &manifest.id).expect("dir");
+        std::fs::write(project_dir.join("refs/workbench.png"), b"png").expect("png");
+        let lab = Concepts::new(None, 2, |_| {});
+        let mut request = NewObjectRefs {
+            project: manifest.id.clone(),
+            source: "refs/workbench.png".into(),
+            source_name: "Workbench".into(),
+            objects: vec!["desk lamp".into()],
+            aspect: concepts::Aspect::Square,
+            kind: AssetKind::Prop,
+        };
+        let err = make_objects(&session, &lab, &Toolbox::default(), &request).expect_err("codex");
+        assert!(err.message.contains("Codex CLI"), "{}", err.message);
+        assert!(
+            view(&session, &lab, &manifest.id)
+                .expect("view")
+                .directions
+                .is_empty(),
+            "nothing written without Codex"
+        );
+        request.objects.clear();
+        let err = make_objects(&session, &lab, &Toolbox::default(), &request).expect_err("none");
+        assert!(
+            err.message.contains("at least one object"),
+            "{}",
+            err.message
+        );
+        request.objects = vec!["lamp".into()];
+        request.source = "../outside.png".into();
+        assert!(make_objects(&session, &lab, &Toolbox::default(), &request).is_err());
+        request.project = "nope".into();
+        assert!(make_objects(&session, &lab, &Toolbox::default(), &request).is_err());
     }
 }

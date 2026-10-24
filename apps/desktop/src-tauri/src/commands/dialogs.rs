@@ -43,3 +43,21 @@ pub async fn dialog_pick_file(app: AppHandle, title: String) -> CommandResult<Op
     .await
     .map_err(super::join_failed)
 }
+
+/// Picks a model to bring back by hand: a GLB, or the zip a web studio
+/// downloads with one inside.
+#[tauri::command]
+#[specta::specta]
+pub async fn dialog_pick_model(app: AppHandle, title: String) -> CommandResult<Option<String>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        to_string(
+            app.dialog()
+                .file()
+                .set_title(title)
+                .add_filter("GLB model or zip", &["glb", "zip"])
+                .blocking_pick_file(),
+        )
+    })
+    .await
+    .map_err(super::join_failed)
+}
