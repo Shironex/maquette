@@ -1,4 +1,5 @@
 import {
+  Button,
   Icon,
   SegmentedControl,
   Select,
@@ -59,9 +60,26 @@ export interface ModelPanelProps {
   onPickBudget: (stem: string) => void;
   /** Saves the model's preset row; null while presets cannot be saved. */
   onPreset: ((row: CompressPreset) => void) | null;
+  /** Re-exports the model through the export step; null where that cannot work. */
+  onExport?: ((model: InspectModel) => void) | null;
+  /** Export GLB is running for this model. */
+  exporting?: boolean;
 }
 
-export function ModelPanel({ view, model, thumb, onPickBudget, onPreset }: ModelPanelProps) {
+/** Models the pipeline's export step makes, so Export GLB can make them again. */
+function exportable(model: InspectModel): boolean {
+  return model.source === 'raw' || model.source === 'shipped';
+}
+
+export function ModelPanel({
+  view,
+  model,
+  thumb,
+  onPickBudget,
+  onPreset,
+  onExport,
+  exporting,
+}: ModelPanelProps) {
   const rows = budgetRows(view);
   const totalMb = num(view.scene.bytes) / 1e6;
   const sceneMb = num(view.limits.sceneMb);
@@ -139,6 +157,19 @@ export function ModelPanel({ view, model, thumb, onPickBudget, onPreset }: Model
                 ))}
               </div>
             )}
+            {onExport && exportable(model) ? (
+              <Button
+                size="sm"
+                icon="export"
+                loading={exporting}
+                disabled={exporting}
+                onClick={() => onExport(model)}
+                className="self-start"
+                title="Run the export step for this model only and replace its raw GLB"
+              >
+                {exporting ? 'Exporting' : 'Export GLB'}
+              </Button>
+            ) : null}
           </>
         ) : (
           <p className="text-fg-mute">

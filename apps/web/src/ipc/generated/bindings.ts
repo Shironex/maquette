@@ -77,6 +77,13 @@ export const commands = {
 	 *  export takes a moment to measure.
 	 */
 	inspectProject: (project: string) => __TAURI_INVOKE<InspectView>("inspect_project", { project }),
+	/**
+	 *  Export GLB for one model: the pipeline's export step runs on its own
+	 *  (as a run of its own, so it shows in the Pipeline log) into a scratch
+	 *  folder, and only this model's raw GLB is replaced. Compress picks it up
+	 *  on the next run.
+	 */
+	inspectExportGlb: (project: string, model: string) => __TAURI_INVOKE<ExportedModel>("inspect_export_glb", { project, model }),
 	providerSendOptions: (project: string, asset: string) => __TAURI_INVOKE<SendOptions>("provider_send_options", { project, asset }),
 	/**
 	 *  Starts a send from the app. You are the one pressing Send, so it needs
@@ -452,6 +459,14 @@ export type Direction = {
 export type ErrorPayload = {
 	code: string,
 	message: string,
+};
+
+/**  What Export GLB made. */
+export type ExportedModel = {
+	model: string,
+	/**  The raw file it replaced, relative to the project. */
+	file: string,
+	runNumber: number,
 };
 
 export type FingerWeights = {

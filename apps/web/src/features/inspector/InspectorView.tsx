@@ -417,6 +417,8 @@ function Inspector({ view }: { view: InspectView }) {
             if (found) store.select(found.id);
           }}
           onPreset={savePreset}
+          onExport={m => void store.exportGlb(m.model, m.label)}
+          exporting={Boolean(model && store.exporting === model.model)}
         />
       </main>
     </Shell>

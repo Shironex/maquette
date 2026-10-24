@@ -415,6 +415,10 @@ export function createBackend({
         config.budgets.trisPerModel
       );
     },
+    inspect_export_glb: ({ project: id, model }) => {
+      project(String(id));
+      return { model: String(model), file: `web/raw/${String(model)}.glb`, runNumber: 27 };
+    },
     inbox_list: () => ({
       dir: '~/Maquette/inbox',
       path: `${expand(DEFAULT_ROOT)}/inbox`,

@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { commands, errorMessage, type InspectView } from '@/ipc/client';
 import type { MaterialMode } from '@/features/viewer/materials';
+import { useAppStore } from './app-store';
 import { pushSample } from './inspector';
 
 export type InspectMode = Extract<MaterialMode, 'shaded' | 'wireframe' | 'lightmap'>;
@@ -30,6 +31,10 @@ interface InspectorStore {
   /** The camera moved by hand, so no stop is current any more. */
   leaveStop: () => void;
   sample: (ms: number, fps: number) => void;
+  /** The model stem Export GLB is running for. */
+  exporting: string | null;
+  /** Re-exports one model through the pipeline's export step. */
+  exportGlb: (model: string, label: string) => Promise<void>;
 }
 
 export const useInspectorStore = create<InspectorStore>((set, get) => ({
@@ -45,6 +50,7 @@ export const useInspectorStore = create<InspectorStore>((set, get) => ({
   stop: null,
   samples: [],
   fps: 0,
+  exporting: null,
 
   load: async project => {
     const same = get().project === project;
@@ -70,4 +76,24 @@ export const useInspectorStore = create<InspectorStore>((set, get) => ({
     if (get().stop) set({ stop: null });
   },
   sample: (ms, fps) => set(s => ({ samples: pushSample(s.samples, ms), fps })),
+
+  exportGlb: async (model, label) => {
+    const project = get().project;
+    if (!project || get().exporting) return;
+    const notify = useAppStore.getState().notify;
+    set({ exporting: model });
+    try {
+      const done = await commands.inspectExportGlb(project, model);
+      notify({
+        status: 'done',
+        title: `Exported ${label} again`,
+        detail: `Run ${done.runNumber} wrote ${done.file}. Compress picks it up on the next run.`,
+      });
+      await get().load(project);
+    } catch (error) {
+      notify({ status: 'failed', title: `Could not export ${label}`, detail: errorMessage(error) });
+    } finally {
+      set({ exporting: null });
+    }
+  },
 }));

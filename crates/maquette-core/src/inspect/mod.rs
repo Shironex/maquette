@@ -445,7 +445,7 @@ fn rel(base: &Path, path: &Path) -> String {
 }
 
 /// The raw and shipped folders: the compress step's, or `web/raw` and `web/dist`.
-fn folders(project_dir: &Path, def: &PipelineDef) -> (PathBuf, PathBuf) {
+pub fn folders(project_dir: &Path, def: &PipelineDef) -> (PathBuf, PathBuf) {
     let root = def.root_dir(project_dir);
     def.steps
         .iter()
