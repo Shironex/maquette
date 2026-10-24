@@ -1,3 +1,4 @@
+import { mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { inboxItems } from '@/ipc/mock/inbox-fixtures';
@@ -81,6 +82,23 @@ describe('switching projects', () => {
     await Promise.all([slow, lab]);
     expect(usePipelineStore.getState().view?.project).toBe('rooftop-cinema');
     expect(useLabStore.getState().view?.project).toBe('rooftop-cinema');
+  });
+
+  it('keeps a presets save for the project left out of the open one', async () => {
+    const handle = await openMockWorkspace();
+    // The save answers after the switch landed.
+    mockIPC(async (cmd, args) => {
+      if (cmd === 'pipeline_save_presets') await new Promise(r => setTimeout(r, 20));
+      return handle(cmd, (args ?? {}) as Record<string, unknown>);
+    });
+    await usePipelineStore.getState().load('moon-island');
+    const saving = usePipelineStore
+      .getState()
+      .savePresets(usePipelineStore.getState().view!.def.presets);
+    await useProjectsStore.getState().switchTo('rooftop-cinema');
+    await usePipelineStore.getState().load('rooftop-cinema');
+    expect(await saving).toBe(true);
+    expect(usePipelineStore.getState().view?.project).toBe('rooftop-cinema');
   });
 
   it('does not switch to the project already open', async () => {

@@ -97,9 +97,11 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
     if (!view) return false;
     try {
       const next = await commands.pipelineSavePresets(view.project, presets);
-      set({
-        view: { ...next, runs: get().view?.runs ?? next.runs, log: get().view?.log ?? next.log },
-      });
+      // Saved either way; only the open project's pipeline shows it.
+      if (get().view?.project === view.project)
+        set({
+          view: { ...next, runs: get().view?.runs ?? next.runs, log: get().view?.log ?? next.log },
+        });
       useAppStore.getState().notify({ status: 'done', title: 'Presets saved' });
       return true;
     } catch (error) {
