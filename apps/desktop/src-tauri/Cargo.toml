@@ -40,6 +40,13 @@ hex = { workspace = true }
 http-body-util = { workspace = true }
 tokio-util = { workspace = true }
 tower-service = { workspace = true }
+keyring-core = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-native-keyring-store = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
