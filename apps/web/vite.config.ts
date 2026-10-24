@@ -15,6 +15,25 @@ export default defineConfig({
     alias: {
       '@': resolve(import.meta.dirname, './src'),
     },
+    dedupe: ['react', 'react-dom'],
+  },
+  // The Inbox and Inspector are lazy routes. Without this, Vite only finds
+  // three and fiber when one first opens, re-bundles mid session and the page
+  // ends up with two copies of React (an invalid hook call in the Canvas).
+  optimizeDeps: {
+    entries: ['index.html', 'src/**/*.tsx', '!src/**/*.test.tsx'],
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'three',
+      '@react-three/fiber',
+      'three/examples/jsm/controls/OrbitControls.js',
+      'three/examples/jsm/libs/meshopt_decoder.module.js',
+      'three/examples/jsm/loaders/GLTFLoader.js',
+      'three/examples/jsm/loaders/KTX2Loader.js',
+      'three/examples/jsm/utils/SkeletonUtils.js',
+    ],
   },
   server: {
     port: PORT,
