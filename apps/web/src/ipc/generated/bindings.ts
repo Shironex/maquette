@@ -710,8 +710,13 @@ export type InboxItem = {
 	bytes: number | null,
 	modifiedMs: number | null,
 	kind: AssetKind,
-	/**  True until someone picks the kind. */
+	/**
+	 *  True while the kind is only a guess from the file: nobody picked
+	 *  it and no send says what it is.
+	 */
 	kindGuessed: boolean,
+	/**  True when the kind comes from the send this model was made for. */
+	kindFromSend: boolean,
 	state: InboxState,
 	report: GlbReport | null,
 	checks: Check[],

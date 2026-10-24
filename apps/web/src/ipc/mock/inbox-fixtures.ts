@@ -111,6 +111,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     modifiedMs: now - 4 * MIN,
     kind: 'character',
     kindGuessed: true,
+    kindFromSend: false,
     state: 'ready',
     report: report({
       bytes: 18.4e6,
@@ -176,6 +177,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     modifiedMs: now - 9 * MIN,
     kind: 'prop',
     kindGuessed: true,
+    kindFromSend: false,
     state: 'ready',
     report: report({
       bytes: 9.8e6,
@@ -209,14 +211,22 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     bytes: 6.1e6,
     modifiedMs: now - 15 * MIN,
     kind: 'prop',
-    kindGuessed: true,
+    kindGuessed: false,
+    kindFromSend: true,
     state: 'ready',
     report: report({
       bytes: 6.1e6,
       triangles: 28_416,
       vertices: 15_302,
-      textures: pbrTextures(4096, 4.2e6),
+      textures: pbrTextures(4096, 4.2e6).slice(0, 1),
       maxTexture: 4096,
+      pbr: {
+        baseColor: true,
+        metallicRoughness: false,
+        normal: false,
+        occlusion: false,
+        emissive: false,
+      },
       islands: { mesh: 'shrubs', islands: 41, groups: 3 },
     }),
     checks: [
@@ -224,15 +234,15 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
       c(
         'textures',
         'warning',
-        '3 textures, largest 4096 px',
-        '3 textures are over the 2048 px default: base_color, normal, orm. Compress resizes them, or set a per model size.'
+        '1 texture, largest 4096 px',
+        '1 texture is over the 2048 px default: base_color. It was sent with detailed textures. Compress resizes them, or set a per model size.'
       ),
       c('rig', 'pass', 'No rig, as expected'),
       c(
         'pbr',
         'pass',
-        'PBR maps present',
-        'Base color, metal and roughness, normal, plus occlusion.'
+        'PBR off, as sent',
+        'Sent with PBR off, so only a base color map is expected.'
       ),
       c(
         'merged',
@@ -245,7 +255,13 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     error: null,
     thumbnail: `${thumbs}/flower-shrubs.webp`,
     thumbnailState: 'ready',
-    link: null,
+    link: {
+      job: 'flower-shrubs-1',
+      project: 'moon-island',
+      asset: 'flower-shrubs',
+      assetName: 'Flower shrubs',
+      provider: 'tripo',
+    },
   };
   const spire: InboxItem = {
     id: 'far_spire.glb',
@@ -255,6 +271,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     modifiedMs: now - 1 * MIN,
     kind: 'prop',
     kindGuessed: true,
+    kindFromSend: false,
     state: 'failed',
     report: null,
     checks: [],

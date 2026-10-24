@@ -29,6 +29,7 @@ import {
   reviewPrompt,
   sentFor,
   sortChecks,
+  kindHint,
 } from '@/state/inbox';
 import { PROVIDER_LABEL } from '@/state/providers';
 import { KIND_ICON } from '@/state/thumbs';
@@ -298,9 +299,7 @@ function InboxDetail({ item }: { item: InboxItem }) {
           <div className="h-px bg-line" />
           <Select
             label="Kind"
-            hint={
-              item.kindGuessed ? 'A guess from the file. Pick one to change the checks.' : undefined
-            }
+            hint={kindHint(item)}
             options={KINDS}
             value={item.kind}
             onChange={kind => void setKind(item.id, kind)}

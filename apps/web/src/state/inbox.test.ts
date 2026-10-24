@@ -6,6 +6,7 @@ import {
   itemChip,
   itemMeta,
   itemTitle,
+  kindHint,
   madeBy,
   reviewPrompt,
   sortChecks,
@@ -82,5 +83,28 @@ describe('madeBy and itemTitle', () => {
     const clay = { ...base, id: 'clay-1.glb', name: 'Clay 1' };
     expect(itemTitle(clay)).toBe('Clay 1');
     expect(itemTitle({ ...clay, link })).toBe('Clay lantern');
+  });
+});
+
+describe('kindHint', () => {
+  it('says whether the kind came from the send, a guess, or a pick', () => {
+    const shrubs = byId('flower_shrubs.glb');
+    expect(shrubs.kindFromSend).toBe(true);
+    expect(kindHint(shrubs)).toBe('From the send. Pick one to change the checks.');
+    expect(kindHint(byId('character.glb'))).toBe(
+      'A guess from the file. Pick one to change the checks.'
+    );
+    expect(kindHint({ kindGuessed: false, kindFromSend: false })).toBeUndefined();
+  });
+
+  it('shows a send without PBR as a passing row, not a warning', () => {
+    const shrubs = byId('flower_shrubs.glb');
+    expect(shrubs.checks.find(c => c.id === 'pbr')).toMatchObject({
+      status: 'pass',
+      title: 'PBR off, as sent',
+    });
+    expect(reviewPrompt(shrubs)).toContain(
+      'Review the 2 warnings'.replace('2 warnings', '2 warnings')
+    );
   });
 });

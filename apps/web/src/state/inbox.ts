@@ -113,3 +113,12 @@ export function madeBy(item: InboxItem): string | null {
 export function itemTitle(item: InboxItem): string {
   return item.link?.assetName || item.name;
 }
+
+/** What the Kind picker says about where its value came from, if anything. */
+export function kindHint(
+  item: Pick<InboxItem, 'kindGuessed' | 'kindFromSend'>
+): string | undefined {
+  if (item.kindFromSend) return 'From the send. Pick one to change the checks.';
+  if (item.kindGuessed) return 'A guess from the file. Pick one to change the checks.';
+  return undefined;
+}

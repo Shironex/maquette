@@ -600,7 +600,7 @@ export function createBackend({
       items: inbox.map(i => ({
         ...i,
         kind: kinds.get(i.id) ?? i.kind,
-        kindGuessed: !kinds.has(i.id),
+        kindGuessed: !kinds.has(i.id) && !i.kindFromSend,
       })),
     }),
     inbox_reprocess: async ({ id }) => {
@@ -613,7 +613,7 @@ export function createBackend({
       const item = inbox.find(i => i.id === id);
       if (!item) fail('not-found', `${String(id)} in the inbox`);
       kinds.set(item.id, kind as AssetKind);
-      return { ...item, kind: kind as AssetKind, kindGuessed: false };
+      return { ...item, kind: kind as AssetKind, kindGuessed: false, kindFromSend: false };
     },
     inbox_accept: ({ request }) => {
       const req = request as AcceptRequest;
