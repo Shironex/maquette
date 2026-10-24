@@ -11,6 +11,7 @@ import type {
   PipelineView,
   RunRecord,
   Stage,
+  StarterStatus,
   StepDef,
 } from '@/ipc/client';
 
@@ -250,4 +251,33 @@ export { STAGE_LABEL };
 /** The bytes the shipped models add up to, or the raw ones before a compress. */
 export function estimatedTransfer(view: PipelineView): number {
   return view.models.reduce((sum, m) => sum + (m.shippedBytes ?? m.rawBytes ?? 0), 0);
+}
+
+/** `tools/bake_light.py` is `bake_light.py`. */
+export function fileName(path: string): string {
+  return path.split(/[\\/]/).pop() ?? path;
+}
+
+/** "bake_light.py, build_scene.py and render_stops.py" */
+export function listNames(paths: readonly string[]): string {
+  const names = paths.map(fileName);
+  if (names.length <= 1) return names[0] ?? '';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+export function starterToast(n: number): string {
+  return n === 1 ? 'Starter script updated' : `${n} starter scripts updated`;
+}
+
+/** What the Pipeline view offers for the project's starter scripts. */
+export function starterOffer(starters: readonly StarterStatus[]): {
+  /** Untouched old copies and missing ones: updated in one click. */
+  update: string[];
+  /** Edited by hand: only replaced one at a time, when asked. */
+  edited: string[];
+} {
+  return {
+    update: starters.filter(s => s.state === 'outdated' || s.state === 'missing').map(s => s.path),
+    edited: starters.filter(s => s.state === 'edited').map(s => s.path),
+  };
 }

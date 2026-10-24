@@ -9,7 +9,7 @@ import {
   type PipelineEvent,
   type PipelineView,
 } from '@/ipc/client';
-import { applyEvent } from './pipeline';
+import { applyEvent, fileName, starterToast } from './pipeline';
 import { useAppStore } from './app-store';
 
 interface PipelineStore {
@@ -22,6 +22,8 @@ interface PipelineStore {
   run: (options?: { from?: string | null; force?: boolean }) => Promise<void>;
   cancel: () => Promise<void>;
   savePresets: (presets: CompressPreset[]) => Promise<boolean>;
+  /** Updates starter scripts; `replace` also replaces edited ones (kept as .bak). */
+  updateStarters: (scripts: string[], replace: boolean) => Promise<boolean>;
   onEvent: (event: PipelineEvent) => void;
 }
 
@@ -94,6 +96,32 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
       useAppStore.getState().notify({
         status: 'failed',
         title: 'Presets not saved',
+        detail: errorMessage(error),
+      });
+      return false;
+    }
+  },
+
+  updateStarters: async (scripts, replace) => {
+    const view = get().view;
+    if (!view || scripts.length === 0) return false;
+    try {
+      const next = await commands.pipelineUpdateStarters(view.project, scripts, replace);
+      if (get().view?.project !== view.project) return false;
+      set({
+        view: { ...next, runs: get().view?.runs ?? next.runs, log: get().view?.log ?? next.log },
+      });
+      const backups = next.starters.flatMap(s => (s.backup ? [fileName(s.backup)] : []));
+      useAppStore.getState().notify({
+        status: 'done',
+        title: starterToast(scripts.length),
+        detail: backups.length ? `Your version is kept as ${backups.join(', ')}.` : undefined,
+      });
+      return true;
+    } catch (error) {
+      useAppStore.getState().notify({
+        status: 'failed',
+        title: 'The scripts were not updated',
         detail: errorMessage(error),
       });
       return false;

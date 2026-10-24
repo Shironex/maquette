@@ -15,6 +15,7 @@ import { estimatedTransfer, failedStep, runSummary, stageViews } from '@/state/p
 import { PipelineGraph } from './PipelineGraph';
 import { PresetsPanel } from './PresetsPanel';
 import { RunLog } from './RunLog';
+import { StartersBanner } from './StartersBanner';
 
 function clock(ms: number | null | undefined): string {
   if (!ms) return '';
@@ -145,6 +146,8 @@ export function PipelineView() {
             }
           />
         ) : null}
+
+        <StartersBanner view={view} busy={active || starting} />
 
         <PipelineGraph
           view={view}
