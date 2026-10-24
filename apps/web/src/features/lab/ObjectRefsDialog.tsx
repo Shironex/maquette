@@ -4,11 +4,21 @@
  * "<name> objects" direction. Opens from a Lab image and a Refs card.
  */
 import { useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react';
-import { Button, Icon, IconButton, SegmentedControl, cn } from '@maquette/ui';
+import { Button, Icon, IconButton, SegmentedControl, TextArea, TextField, cn } from '@maquette/ui';
 import { fileUrl } from '@/ipc/files';
 import { useTopEscape } from '@/lib/useTopEscape';
 import { useAppStore } from '@/state/app-store';
-import { ASPECTS, MAX_OBJECTS, addObjects, aspectCss, objectsDirectionName } from '@/state/lab';
+import {
+  ASPECTS,
+  MAX_NOTE_CHARS,
+  MAX_OBJECTS,
+  MAX_OBJECT_CHARS,
+  addObjects,
+  aspectCss,
+  editObject,
+  longestObject,
+  objectsDirectionName,
+} from '@/state/lab';
 import { useLabStore } from '@/state/lab-store';
 
 const KINDS = [
@@ -38,6 +48,7 @@ function Dialog() {
   const busy = useLabStore(s => s.busy === 'objects');
   const setView = useAppStore(s => s.setView);
   const [text, setText] = useState('');
+  const [editing, setEditing] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   useTopEscape(ref, close);
@@ -45,17 +56,30 @@ function Dialog() {
 
   const list = objects.objects;
   const full = list.length >= MAX_OBJECTS;
+  // A name is never cut: one over the limit stays in the field, with a counter.
+  const longest = longestObject(text);
+  const over = longest > MAX_OBJECT_CHARS;
   const commit = (value: string) => {
+    if (longestObject(value) > MAX_OBJECT_CHARS) {
+      setText(value);
+      return;
+    }
     const next = addObjects(list, value);
     if (next.length !== list.length) setObjects({ objects: next });
     setText('');
   };
-  const remove = (name: string) => setObjects({ objects: list.filter(o => o !== name) });
+  const remove = (name: string) => {
+    setObjects({
+      objects: list.filter(o => o !== name),
+      notes: Object.fromEntries(Object.entries(objects.notes).filter(([key]) => key !== name)),
+    });
+    if (editing === name) setEditing(null);
+  };
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if ((e.key === 'Enter' || e.key === ',') && text.trim()) {
       e.preventDefault();
       commit(text);
-    } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && list.length > 0) {
+    } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && list.length > 0 && !over) {
       e.preventDefault();
       void submit();
     } else if (e.key === 'Backspace' && !text && list.length > 0) {
@@ -72,6 +96,7 @@ function Dialog() {
   // Text still in the field counts, so Make never drops the last object.
   const pending = addObjects(list, text);
   const submit = async () => {
+    if (over) return;
     if (pending.length !== list.length) setObjects({ objects: pending });
     setText('');
     if (await make()) setView('lab');
@@ -156,9 +181,27 @@ function Dialog() {
                 {list.map(name => (
                   <span
                     key={name}
-                    className="inline-flex h-[26px] items-center gap-1 rounded-pill border border-clay-line bg-clay-soft pr-1 pl-2.5 text-[12.5px] text-fg"
+                    className={cn(
+                      'inline-flex h-[26px] max-w-full items-center gap-1 rounded-pill border bg-clay-soft pr-1 pl-1 text-[12.5px] text-fg',
+                      editing === name ? 'border-clay' : 'border-clay-line'
+                    )}
                   >
-                    {name}
+                    <button
+                      type="button"
+                      aria-label={`Edit ${name}`}
+                      aria-expanded={editing === name}
+                      title={objects.notes[name] ?? 'Edit the name and add notes'}
+                      onClick={e => {
+                        e.stopPropagation();
+                        setEditing(editing === name ? null : name);
+                      }}
+                      className="flex min-w-0 cursor-pointer items-center gap-1 rounded-pill px-1.5"
+                    >
+                      <span className="truncate">{name}</span>
+                      {objects.notes[name] ? (
+                        <Icon name="file-text" size={12} className="flex-none text-clay-text" />
+                      ) : null}
+                    </button>
                     <button
                       type="button"
                       aria-label={`Remove ${name}`}
@@ -185,10 +228,36 @@ function Dialog() {
                   className="h-[26px] min-w-[140px] flex-1 border-0 bg-transparent px-1 text-fg outline-none placeholder:text-fg-mute"
                 />
               </div>
-              <p className="text-meta text-fg-mute">
-                Name each object you want as its own model. Enter or a comma adds one; paste a list
-                with one per line.
-              </p>
+              {editing !== null && list.includes(editing) ? (
+                <ObjectEditor
+                  key={editing}
+                  name={editing}
+                  notes={objects.notes[editing] ?? ''}
+                  onSave={next => {
+                    const edited = editObject(list, objects.notes, editing, next);
+                    if (!edited) return false;
+                    setObjects(edited);
+                    setEditing(null);
+                    return true;
+                  }}
+                  onCancel={() => setEditing(null)}
+                />
+              ) : over || longest >= MAX_OBJECT_CHARS - 12 ? (
+                <p
+                  className={cn('text-meta tabular-nums', over ? 'text-danger' : 'text-fg-mute')}
+                  role={over ? 'alert' : undefined}
+                >
+                  {longest} of {MAX_OBJECT_CHARS} characters
+                  {over
+                    ? '. The name is the asset name: shorten it and put the rest in notes.'
+                    : ''}
+                </p>
+              ) : (
+                <p className="text-meta text-fg-mute">
+                  A short name per object; it names the asset. Enter or a comma adds one, a pasted
+                  list adds one per line. Click an object to add notes for Codex.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-3">
@@ -235,13 +304,99 @@ function Dialog() {
             variant="primary"
             icon="sparkle"
             loading={busy}
-            disabled={n === 0 || busy}
-            title={n === 0 ? 'Name at least one object' : undefined}
+            disabled={n === 0 || busy || over}
+            title={
+              over
+                ? 'Shorten the name in the field'
+                : n === 0
+                  ? 'Name at least one object'
+                  : undefined
+            }
             onClick={() => void submit()}
           >
             {n === 0 ? 'Make object refs' : `Make ${n} object ${n === 1 ? 'ref' : 'refs'}`}
           </Button>
         </footer>
+      </div>
+    </div>
+  );
+}
+
+/** Name and notes of one object. The name becomes the asset; the notes only go to Codex. */
+function ObjectEditor({
+  name,
+  notes,
+  onSave,
+  onCancel,
+}: {
+  name: string;
+  notes: string;
+  onSave: (next: { name: string; notes: string }) => boolean;
+  onCancel: () => void;
+}) {
+  const [draftName, setDraftName] = useState(name);
+  const [draftNotes, setDraftNotes] = useState(notes);
+  const [error, setError] = useState<string | null>(null);
+  const tooLong = draftName.trim().length > MAX_OBJECT_CHARS;
+  const save = () => {
+    if (!onSave({ name: draftName, notes: draftNotes })) {
+      setError(
+        draftName.trim() ? 'Another object already has that name.' : 'The object needs a name.'
+      );
+    }
+  };
+  return (
+    <div
+      role="group"
+      aria-label={`Edit ${name}`}
+      className="flex flex-col gap-3 rounded-card border border-line bg-raised p-3"
+      onKeyDown={e => {
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !tooLong) {
+          e.preventDefault();
+          e.stopPropagation();
+          save();
+        }
+      }}
+    >
+      <TextField
+        label="Name"
+        autoFocus
+        value={draftName}
+        onChange={e => {
+          setDraftName(e.target.value);
+          setError(null);
+        }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && !tooLong) {
+            e.preventDefault();
+            save();
+          }
+        }}
+        hint={`${draftName.trim().length} of ${MAX_OBJECT_CHARS} characters. It names the asset.`}
+        note={
+          tooLong
+            ? { tone: 'missing', text: `Keep the name to ${MAX_OBJECT_CHARS} characters.` }
+            : error
+              ? { tone: 'missing', text: error }
+              : undefined
+        }
+      />
+      <TextArea
+        label="Notes for Codex"
+        rows={3}
+        maxLength={MAX_NOTE_CHARS}
+        value={draftNotes}
+        placeholder="Painted stone and moss, no wireframe lines, nothing floating around it"
+        onChange={e => setDraftNotes(e.target.value)}
+        hint={`${draftNotes.length} of ${MAX_NOTE_CHARS} characters. Optional, not part of the name.`}
+      />
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button variant="primary" disabled={tooLong} onClick={save}>
+          Done
+        </Button>
       </div>
     </div>
   );

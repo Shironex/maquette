@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useLabStore } from '@/state/lab-store';
@@ -42,5 +42,58 @@ describe('Make object refs', () => {
       'Vending machine',
       'Paper lantern',
     ]);
+  });
+
+  it('keeps a long name whole, with a counter, and blocks Make until it is short', async () => {
+    await openMockWorkspace();
+    await useLabStore.getState().load('moon-island');
+    render(<ObjectRefsDialog />);
+    useLabStore.getState().openObjects({
+      project: 'moon-island',
+      source: 'concepts/moon-island-porch/moon-island-porch_01.png',
+      sourcePath: '/x/moon-island-porch_01.png',
+      sourceName: 'Moon island porch',
+    });
+    const field = await screen.findByRole('textbox', { name: 'Objects' });
+    const long = 'Finished island in painted stone and moss with no wireframe lines and no rocks';
+    await userEvent.type(field, `${long}{Enter}`);
+    expect(field).toHaveValue(long);
+    expect(screen.getByRole('alert')).toHaveTextContent(`${long.length} of 60 characters`);
+    expect(useLabStore.getState().objects?.objects).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Make object refs' })).toBeDisabled();
+
+    await userEvent.clear(field);
+    await userEvent.type(field, 'Island{Enter}');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('sends notes with an object but names the asset after the object only', async () => {
+    await openMockWorkspace();
+    await useLabStore.getState().load('moon-island');
+    render(<ObjectRefsDialog />);
+    useLabStore.getState().openObjects({
+      project: 'moon-island',
+      source: 'concepts/moon-island-porch/moon-island-porch_01.png',
+      sourcePath: '/x/moon-island-porch_01.png',
+      sourceName: 'Moon island porch',
+    });
+    const field = await screen.findByRole('textbox', { name: 'Objects' });
+    await userEvent.type(field, 'island,bench{Enter}');
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Island' }));
+    const editor = screen.getByRole('group', { name: 'Edit Island' });
+    const name = within(editor).getByRole('textbox', { name: 'Name' });
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Moon island');
+    await userEvent.type(
+      within(editor).getByRole('textbox', { name: 'Notes for Codex' }),
+      'Painted stone and moss, no wireframe lines'
+    );
+    await userEvent.click(within(editor).getByRole('button', { name: 'Done' }));
+    expect(useLabStore.getState().objects).toMatchObject({
+      objects: ['Moon island', 'Bench'],
+      notes: { 'Moon island': 'Painted stone and moss, no wireframe lines' },
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Moon island' }));
+    expect(useLabStore.getState().objects?.notes).toEqual({});
   });
 });

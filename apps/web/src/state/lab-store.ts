@@ -33,6 +33,8 @@ export interface ObjectsDraft {
   /** The direction or asset the concept belongs to. */
   sourceName: string;
   objects: string[];
+  /** Extra instructions for the prompt, by object name. Not part of the asset name. */
+  notes: Record<string, string>;
   aspect: Aspect;
   kind: 'prop' | 'character';
 }
@@ -75,7 +77,7 @@ interface LabStore {
   openObjects: (
     draft: Pick<ObjectsDraft, 'project' | 'source' | 'sourcePath' | 'sourceName'>
   ) => void;
-  setObjects: (patch: Partial<Pick<ObjectsDraft, 'objects' | 'aspect' | 'kind'>>) => void;
+  setObjects: (patch: Partial<Pick<ObjectsDraft, 'objects' | 'notes' | 'aspect' | 'kind'>>) => void;
   closeObjects: () => void;
   /** Queues one Codex job per object; resolves true when they started. */
   makeObjects: () => Promise<boolean>;
@@ -330,7 +332,8 @@ export const useLabStore = create<LabStore>((set, get) => ({
     }
   },
 
-  openObjects: draft => set({ objects: { ...draft, objects: [], aspect: '1:1', kind: 'prop' } }),
+  openObjects: draft =>
+    set({ objects: { ...draft, objects: [], notes: {}, aspect: '1:1', kind: 'prop' } }),
 
   setObjects: patch => {
     const objects = get().objects;
@@ -351,6 +354,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
         source: objects.source,
         sourceName: objects.sourceName,
         objects: objects.objects,
+        notes: objects.notes,
         aspect: objects.aspect,
         kind: objects.kind,
       });

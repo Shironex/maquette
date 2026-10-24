@@ -238,6 +238,8 @@ export function createFakeLab(options: FakeLabOptions) {
     const names = request.objects.map(o => o.trim()).filter(Boolean);
     if (names.length === 0) fail('invalid', 'Name at least one object.');
     if (names.length > 12) fail('invalid', 'Make 12 object refs at most in one go.');
+    const long = names.find(n => n.length > 60);
+    if (long) fail('invalid', `Keep each object to 60 characters or fewer: "${long}" is longer.`);
     if (request.kind === 'scene')
       fail('invalid', 'Object refs are props or characters, not scenes.');
     const base = request.sourceName.trim() || 'Concept';

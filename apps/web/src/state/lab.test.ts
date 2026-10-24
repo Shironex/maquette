@@ -3,6 +3,8 @@ import type { ConceptJob, Direction, LabView } from '@/ipc/client';
 import {
   MAX_OBJECTS,
   addObjects,
+  editObject,
+  longestObject,
   applyConceptEvent,
   coverImage,
   directionId,
@@ -150,9 +152,32 @@ describe('object refs', () => {
       'Brush cup',
       'Calipers',
     ]);
-    expect(addObjects([], 'x'.repeat(80))[0]).toHaveLength(60);
+    // A name over the limit is left out, never cut.
+    expect(addObjects([], 'x'.repeat(80))).toEqual([]);
+    expect(addObjects([], 'x'.repeat(60))[0]).toHaveLength(60);
+    expect(longestObject('desk lamp, ' + 'y'.repeat(70))).toBe(70);
     const many = Array.from({ length: 20 }, (_, i) => `thing ${i}`).join(',');
     expect(addObjects([], many)).toHaveLength(MAX_OBJECTS);
+  });
+
+  it('renames an object with its notes, or refuses', () => {
+    const notes = { 'Desk lamp': 'brass' };
+    expect(
+      editObject(['Desk lamp', 'Laptop'], notes, 'Desk lamp', { name: 'lamp', notes: ' warm ' })
+    ).toEqual({
+      objects: ['Lamp', 'Laptop'],
+      notes: { Lamp: 'warm' },
+    });
+    expect(
+      editObject(['Desk lamp'], notes, 'Desk lamp', { name: 'Desk lamp', notes: '' })?.notes
+    ).toEqual({});
+    expect(
+      editObject(['Desk lamp', 'Laptop'], notes, 'Laptop', { name: 'desk LAMP', notes: '' })
+    ).toBeNull();
+    expect(editObject(['Desk lamp'], notes, 'Desk lamp', { name: ' ', notes: '' })).toBeNull();
+    expect(
+      editObject(['Desk lamp'], notes, 'Desk lamp', { name: 'x'.repeat(61), notes: '' })
+    ).toBeNull();
   });
 
   it('names the direction and the tiles after the objects', () => {

@@ -38,7 +38,10 @@ export function tileLabel(item: Pick<ConceptImage, 'index' | 'title'>): string {
 
 /** The most objects one "Make object refs" takes; the core says the same. */
 export const MAX_OBJECTS = 12;
-const MAX_OBJECT_CHARS = 60;
+/** The longest object name, which is also the asset name; the core says the same. */
+export const MAX_OBJECT_CHARS = 60;
+/** The longest note on an object; the core says the same. */
+export const MAX_NOTE_CHARS = 400;
 
 /** True for a direction of object refs made from a concept. */
 export function isObjects(direction: Pick<Direction, 'source'>): boolean {
@@ -53,20 +56,54 @@ export function objectsDirectionName(sourceName: string): string {
 
 /**
  * Adds typed or pasted objects: one per line, comma or semicolon, trimmed,
- * starting with a capital, without repeats in any case, at most 12, each at
- * most 60 characters.
+ * starting with a capital, without repeats in any case, at most 12. A name
+ * over the limit is left out, never cut: see `longestObject`.
  */
 export function addObjects(current: readonly string[], text: string): string[] {
   const out = [...current];
-  for (const part of text.split(/[\n,;]/)) {
-    const words = part.split(/\s+/).filter(Boolean).join(' ').slice(0, MAX_OBJECT_CHARS);
+  for (const part of objectParts(text)) {
     // "desk lamp" names the asset "Desk lamp".
-    const name = words.charAt(0).toUpperCase() + words.slice(1);
-    if (!name || out.some(o => o.toLowerCase() === name.toLowerCase())) continue;
+    const name = part.charAt(0).toUpperCase() + part.slice(1);
+    if (name.length > MAX_OBJECT_CHARS) continue;
+    if (out.some(o => o.toLowerCase() === name.toLowerCase())) continue;
     if (out.length >= MAX_OBJECTS) break;
     out.push(name);
   }
   return out;
+}
+
+function objectParts(text: string): string[] {
+  return text
+    .split(/[\n,;]/)
+    .map(part => part.split(/\s+/).filter(Boolean).join(' '))
+    .filter(Boolean);
+}
+
+/** The length of the longest name in typed text, to show against the limit. */
+export function longestObject(text: string): number {
+  return Math.max(0, ...objectParts(text).map(part => part.length));
+}
+
+/**
+ * Renames an object and sets its notes. The notes follow the name; an empty
+ * note is dropped. Null when the new name is empty, too long or taken.
+ */
+export function editObject(
+  objects: readonly string[],
+  notes: Readonly<Record<string, string>>,
+  name: string,
+  next: { name: string; notes: string }
+): { objects: string[]; notes: Record<string, string> } | null {
+  const words = next.name.split(/\s+/).filter(Boolean).join(' ');
+  const renamed = words.charAt(0).toUpperCase() + words.slice(1);
+  const text = next.notes.trim();
+  if (!renamed || renamed.length > MAX_OBJECT_CHARS || text.length > MAX_NOTE_CHARS) return null;
+  if (objects.some(o => o !== name && o.toLowerCase() === renamed.toLowerCase())) return null;
+  const rest = Object.fromEntries(Object.entries(notes).filter(([key]) => key !== name));
+  return {
+    objects: objects.map(o => (o === name ? renamed : o)),
+    notes: text ? { ...rest, [renamed]: text } : rest,
+  };
 }
 
 /** "58s", "1m 04s", "12m 30s". */
