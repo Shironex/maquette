@@ -26,7 +26,7 @@ use super::presets::{
 };
 use super::secrets::SecretStore;
 use super::tripo::{self, Tripo};
-use crate::assets::{self, AssetKind, AssetStatus, Stage};
+use crate::assets::{self, Asset, AssetKind, AssetStatus, Stage};
 use crate::error::{CoreError, CoreResult};
 use crate::fs::write_atomic;
 use crate::inbox::{self, InboxItem, SendNotes, SentMaps};
@@ -1029,6 +1029,69 @@ impl ProviderJobs {
                 || e.stored.job.state == JobState::Inbox
         });
         persist(&self.shared, project);
+    }
+
+    /// Copies the finished send records of `asset` in project `from` to the
+    /// copy `copy` in project `to`, so its history comes along. Jobs still
+    /// running or waiting in the inbox stay where they are. `refs` maps old
+    /// image paths to where Copy to project put them. Returns how many.
+    pub fn copy_records(
+        &self,
+        from: &str,
+        asset: &str,
+        to: &str,
+        copy: &Asset,
+        refs: &[(String, String)],
+    ) -> usize {
+        let Some(workspace) = self.shared.workspace() else {
+            return 0;
+        };
+        let Ok(dir) = workspace.project_dir(to) else {
+            return 0;
+        };
+        let copied = {
+            let mut jobs = self.shared.jobs();
+            let sources: Vec<Stored> = jobs
+                .iter()
+                .filter(|e| e.stored.job.project == from && e.stored.job.asset == asset)
+                .filter(|e| {
+                    !e.stored.job.state.is_active() && e.stored.job.state != JobState::Inbox
+                })
+                .map(|e| e.stored.clone())
+                .collect();
+            for source in &sources {
+                let id = next_id(&jobs, &dir, to, &copy.id);
+                let mut job = source.job.clone();
+                job.id = id;
+                job.project = to.to_string();
+                job.asset.clone_from(&copy.id);
+                job.asset_name.clone_from(&copy.name);
+                job.batch = None;
+                job.images = job
+                    .images
+                    .iter()
+                    .map(|image| {
+                        refs.iter()
+                            .find(|(old, _)| old == image)
+                            .map_or_else(|| image.clone(), |(_, new)| new.clone())
+                    })
+                    .collect();
+                jobs.push(Entry {
+                    stored: Stored {
+                        job,
+                        chain: source.chain.clone(),
+                    },
+                    stop: Arc::new(StopFlag::default()),
+                    thread: false,
+                    cancelled: false,
+                });
+            }
+            sources.len()
+        };
+        if copied > 0 {
+            persist(&self.shared, to);
+        }
+        copied
     }
 
     /// Fills `link` on inbox items that came from a send, and moves a By

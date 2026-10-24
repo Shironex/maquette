@@ -1287,3 +1287,64 @@ fn test_key_uses_the_free_balance_calls() {
     assert_eq!(bad.count("GET", "/balance"), 1);
     assert_eq!(format_credits(900.0), "900");
 }
+
+#[test]
+fn a_copied_asset_takes_its_finished_sends_along() {
+    let world = World::new();
+    let server = FakeServer::start(|_, _| Reply::json(404, &json!({})));
+    let jobs = world.jobs(&server);
+    let mut request = world.request(Provider::ByHand, PresetVariant::Prop, &["front.png"]);
+    request.service = ProviderId::Meshy;
+    let stopped = jobs.send(&request, true, false).expect("send");
+    jobs.cancel(&stopped.id).expect("cancel");
+    let waiting = jobs.send(&request, true, false).expect("send again");
+    assert_eq!(waiting.state, JobState::Waiting);
+
+    let landing = project::create(
+        &world.root,
+        &world.config.layout,
+        NewProject {
+            name: "Maquette landing".into(),
+            template: ProjectTemplate::FloatingDiorama,
+            site_repo: None,
+            source_folder: None,
+        },
+    )
+    .expect("landing");
+    let copied = assets::copy::copy_to_project(
+        &world.root,
+        &world.config.layout,
+        &world.project,
+        &world.asset,
+        &landing.id,
+        &["refs/front.png".to_string()],
+    )
+    .expect("copy");
+    let refs = vec![("refs/front.png".to_string(), "refs/front.png".to_string())];
+    let count = jobs.copy_records(
+        &world.project,
+        &world.asset,
+        &landing.id,
+        &copied.asset,
+        &refs,
+    );
+    assert_eq!(count, 1, "the waiting send stays where it is");
+
+    let theirs = jobs.list(Some(&landing.id));
+    assert_eq!(theirs.len(), 1);
+    assert_eq!(theirs[0].id, "stone-lantern-1");
+    assert_eq!(theirs[0].asset, copied.asset.id);
+    assert_eq!(theirs[0].state, JobState::Cancelled);
+    assert_eq!(theirs[0].images, vec!["refs/front.png"]);
+    assert_eq!(jobs.list(Some(&world.project)).len(), 2);
+    let saved = fs::read_to_string(
+        project::dir(&world.root, &world.config.layout, &landing.id)
+            .expect("dir")
+            .join("providers.json"),
+    )
+    .expect("saved");
+    assert!(
+        saved.contains("\"project\": \"maquette-landing\""),
+        "{saved}"
+    );
+}
