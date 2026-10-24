@@ -219,6 +219,25 @@ pub fn move_to(manifest: &mut ProjectManifest, id: &str, stage: Stage) -> CoreRe
     Ok(asset.clone())
 }
 
+/// Changes the display name. The id, the files and the version records stay
+/// as they are, so refs, inbox matches and pipeline outputs keep working.
+/// A name another asset already answers to is refused, since a model accepted
+/// under that name would not know which asset it belongs to.
+pub fn rename(manifest: &mut ProjectManifest, id: &str, name: &str) -> CoreResult<Asset> {
+    let name = clean_name(name)?;
+    if find_by_name(manifest, &name).is_some_and(|a| a.id != id) {
+        return Err(CoreError::Invalid(format!(
+            "Another asset is already called {name}."
+        )));
+    }
+    let asset = find_mut(manifest, id)?;
+    if asset.name != name {
+        asset.name = name;
+        asset.updated_at = now_rfc3339();
+    }
+    Ok(asset.clone())
+}
+
 pub fn set_status(manifest: &mut ProjectManifest, id: &str, status: AssetStatus) -> CoreResult<()> {
     let asset = find_mut(manifest, id)?;
     asset.status = status;
@@ -226,11 +245,16 @@ pub fn set_status(manifest: &mut ProjectManifest, id: &str, status: AssetStatus)
     Ok(())
 }
 
-/// The asset whose name slugs to the same id, so a second Accept of
-/// "Sakura tree" becomes v2 of the same asset.
+/// The asset whose id or current name slugs to the same text, so a second
+/// Accept of "Sakura tree" becomes v2 of the same asset, also after the
+/// asset was renamed (its id keeps the first name).
 pub fn find_by_name<'a>(manifest: &'a ProjectManifest, name: &str) -> Option<&'a Asset> {
     let slug = slugify(name.trim());
-    manifest.assets.iter().find(|a| a.id == slug)
+    manifest
+        .assets
+        .iter()
+        .find(|a| a.id == slug)
+        .or_else(|| manifest.assets.iter().find(|a| slugify(&a.name) == slug))
 }
 
 /// Points the asset at `thumbnail` (relative to the project folder) when
@@ -276,8 +300,8 @@ pub fn set_ref_thumbnail(manifest: &mut ProjectManifest, id: &str, file: &str) -
 /// stage and gains the newcomer's picture when a ref may replace its own.
 /// Otherwise the asset is added under an id that is free here.
 pub fn adopt(manifest: &mut ProjectManifest, asset: Asset) -> Asset {
-    let slug = slugify(asset.name.trim());
-    if let Some(existing) = manifest.assets.iter_mut().find(|a| a.id == slug) {
+    let existing = find_by_name(manifest, &asset.name).map(|a| a.id.clone());
+    if let Some(existing) = existing.and_then(|id| find_mut(manifest, &id).ok()) {
         if asset.stage > existing.stage {
             existing.stage = asset.stage;
         }
@@ -379,6 +403,36 @@ mod tests {
         );
         set_status(&mut m, &a.id, AssetStatus::Done).expect("status");
         assert_eq!(find(&m, &a.id).expect("find").status, AssetStatus::Done);
+    }
+
+    #[test]
+    fn rename_changes_the_name_only() {
+        let mut m = manifest();
+        let a = add(&mut m, new_asset("Crate")).expect("a");
+        add(&mut m, new_asset("Barrel")).expect("b");
+        add_version(&mut m, &a.id, "models/crate_v1.glb".into(), None).expect("v1");
+        let renamed = rename(&mut m, &a.id, "  Old crate ").expect("rename");
+        assert_eq!(renamed.name, "Old crate");
+        assert_eq!(renamed.id, "crate");
+        assert_eq!(renamed.versions[0].file, "models/crate_v1.glb");
+        // The new name finds the asset, and so does the first one.
+        assert_eq!(
+            find_by_name(&m, "old CRATE").map(|a| a.id.as_str()),
+            Some("crate")
+        );
+        assert_eq!(
+            find_by_name(&m, "Crate").map(|a| a.id.as_str()),
+            Some("crate")
+        );
+        // The same name in another case is fine for the same asset.
+        assert!(rename(&mut m, &a.id, "OLD crate").is_ok());
+        assert!(rename(&mut m, &a.id, "barrel").is_err());
+        assert!(rename(&mut m, &a.id, "  ").is_err());
+        assert!(rename(&mut m, &a.id, &"x".repeat(81)).is_err());
+        assert_eq!(
+            rename(&mut m, "nope", "Thing").expect_err("missing").code(),
+            "not-found"
+        );
     }
 
     #[test]
