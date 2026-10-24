@@ -64,9 +64,11 @@ const handle = createBackend({
   pace: Number(params.get('pace') ?? 260),
   lab: params.get('lab'),
   conceptMs: Number(params.get('conceptMs') ?? 4000),
+  agents: params.get('agents'),
   emit: event => {
     if (event.name === 'pipeline') void events.pipelineUpdate.emit(event.payload);
     else if (event.name === 'concept') void events.conceptUpdate.emit(event.payload);
+    else if (event.name === 'mcp') void events.mcpUpdate.emit(event.payload);
     else void events.inboxChanged.emit({ paths: [] });
   },
   files: {

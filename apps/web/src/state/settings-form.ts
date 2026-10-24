@@ -75,12 +75,30 @@ export function mcpUrl(port: number): string {
   return `http://127.0.0.1:${port}/mcp`;
 }
 
-/** The snippet for Claude Code (`.mcp.json`) or Codex (`~/.codex/config.toml`). */
-export function mcpSnippet(agent: 'claude' | 'codex', port: number): string {
+export type McpAgent = 'claude' | 'codex';
+
+/**
+ * A working setup for Claude Code (a `claude mcp add` command) or Codex (a
+ * `~/.codex/config.toml` table), with the server's bearer token in it. The
+ * tool timeout gives run_pipeline and render_thumbnail room to wait.
+ */
+export function mcpSnippet(agent: McpAgent, port: number, token: string): string {
+  const url = mcpUrl(port);
   if (agent === 'codex') {
-    return `[mcp_servers.maquette]\nurl = "${mcpUrl(port)}"\n`;
+    return [
+      '[mcp_servers.maquette]',
+      `url = "${url}"`,
+      `http_headers = { Authorization = "Bearer ${token}" }`,
+      'tool_timeout_sec = 150',
+      '',
+    ].join('\n');
   }
-  return `${JSON.stringify({ mcpServers: { maquette: { type: 'http', url: mcpUrl(port) } } }, null, 2)}\n`;
+  return `claude mcp add --transport http maquette ${url} --header "Authorization: Bearer ${token}"\n`;
+}
+
+/** Shows the start and end of a token, enough to tell two apart. */
+export function maskToken(token: string): string {
+  return token.length > 12 ? `${token.slice(0, 6)}\u2026${token.slice(-4)}` : token;
 }
 
 /** Reads the port out of `4791` or `127.0.0.1:4791`; null when it is not a port. */

@@ -29,7 +29,13 @@ export function AgentsStep({ api }: { api: OnboardingApi }) {
             onChange={mcpEnabled => onChange(patchSection(config, 'agents', { mcpEnabled }))}
           />
         </div>
-        <McpControls config={config} onChange={onChange} errors={errors} />
+        <McpControls
+          config={config}
+          onChange={onChange}
+          errors={errors}
+          token={null}
+          showCopy={false}
+        />
         <McpSnippetPreview port={config.agents.mcpPort} />
       </section>
       <SectionLabel className="mt-7">Rules agents follow</SectionLabel>

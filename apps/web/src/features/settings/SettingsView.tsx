@@ -11,13 +11,8 @@ import {
 } from '@maquette/ui';
 import { commands, errorMessage, type WorkspaceConfig } from '@/ipc/client';
 import { PANEL_TITLE, Panel } from '@/features/common/Panel';
-import {
-  AgentRuleRows,
-  BudgetFields,
-  CompressionFields,
-  McpControls,
-  TripoFields,
-} from '@/features/config/ConfigFields';
+import { AgentsPanel } from '@/features/agents/AgentsPanel';
+import { BudgetFields, CompressionFields, TripoFields } from '@/features/config/ConfigFields';
 import { projectThumb } from '@/features/shell/projectArt';
 import { RecheckButton, ToolList } from '@/features/toolchain/ToolList';
 import { formatBytes, homePath } from '@/lib/format';
@@ -141,11 +136,7 @@ function SettingsScreen() {
               <Panel
                 id="settings-agents"
                 title="Agents"
-                help={
-                  draft.agents.mcpEnabled
-                    ? `Port ${draft.agents.mcpPort} reserved for Claude Code and Codex. The server starts in a later version.`
-                    : 'Built-in MCP server so Claude Code and Codex can drive Maquette'
-                }
+                help="Built-in MCP server so Claude Code and Codex can drive Maquette"
                 actions={
                   <Toggle
                     aria-label="MCP server"
@@ -155,8 +146,7 @@ function SettingsScreen() {
                 }
                 className={cn('gap-3 px-4 py-3.5', active === 'agents' && ACTIVE)}
               >
-                <McpControls {...props} />
-                <AgentRuleRows {...props} />
+                <AgentsPanel config={draft} onChange={c => setDraft(c)} errors={errors} />
               </Panel>
             </div>
           </div>

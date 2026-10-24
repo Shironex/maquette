@@ -5,7 +5,14 @@
 import { Button, NumberField, SegmentedControl, Select, Toggle, cn } from '@maquette/ui';
 import type { WorkspaceConfig } from '@/ipc/client';
 import { formatCount, formatK } from '@/lib/format';
-import { mcpSnippet, parsePort, patchSection, type ConfigErrors } from '@/state/settings-form';
+import {
+  mcpSnippet,
+  mcpUrl,
+  parsePort,
+  patchSection,
+  type ConfigErrors,
+  type McpAgent,
+} from '@/state/settings-form';
 import { useAppStore } from '@/state/app-store';
 import { CODEC, MESHOPT, RIG, TEXTURE, TOPOLOGY, modelOptions } from './options';
 
@@ -197,7 +204,9 @@ export function CompressionFields({ config, onChange }: ConfigFieldsProps) {
   );
 }
 
-async function copyText(text: string): Promise<boolean> {
+const NO_TOKEN = 'The token is made the first time the server starts';
+
+export async function copyText(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
     return true;
@@ -211,12 +220,20 @@ export function McpControls({
   onChange,
   errors = {},
   density = 'roomy',
-}: ConfigFieldsProps) {
+  token,
+  showCopy = true,
+}: ConfigFieldsProps & {
+  /** The server's bearer token; until it exists the copy buttons wait. */
+  token: string | null;
+  /** Onboarding has no token yet, so it shows a preview instead. */
+  showCopy?: boolean;
+}) {
   const notify = useAppStore(s => s.notify);
   const port = config.agents.mcpPort;
   const compact = density === 'compact';
-  const copy = async (agent: 'claude' | 'codex') => {
-    const ok = await copyText(mcpSnippet(agent, port));
+  const copy = async (agent: McpAgent) => {
+    if (!token) return;
+    const ok = await copyText(mcpSnippet(agent, port, token));
     const name = agent === 'claude' ? 'Claude Code' : 'Codex';
     notify(
       ok
@@ -225,8 +242,8 @@ export function McpControls({
             title: `${name} config copied`,
             detail:
               agent === 'claude'
-                ? 'Paste it into .mcp.json.'
-                : 'Paste it into ~/.codex/config.toml.',
+                ? 'Run it in a terminal. It holds the token, so keep it private.'
+                : 'Paste it into ~/.codex/config.toml. It holds the token, so keep it private.',
           }
         : {
             status: 'failed',
@@ -249,20 +266,28 @@ export function McpControls({
           onChange={mcpPort => onChange(patchSection(config, 'agents', { mcpPort }))}
           fieldClassName={compact ? 'w-[140px]' : 'w-[160px]'}
         />
-        <Button
-          icon={compact ? undefined : 'copy'}
-          className="h-[34px]"
-          onClick={() => void copy('claude')}
-        >
-          {compact ? 'Claude Code config' : 'Copy config for Claude Code'}
-        </Button>
-        <Button
-          icon={compact ? undefined : 'copy'}
-          className="h-[34px]"
-          onClick={() => void copy('codex')}
-        >
-          {compact ? 'Codex config' : 'Copy config for Codex'}
-        </Button>
+        {showCopy ? (
+          <>
+            <Button
+              icon={compact ? undefined : 'copy'}
+              className="h-[34px]"
+              disabled={!token}
+              title={token ? 'A claude mcp add command with the token' : NO_TOKEN}
+              onClick={() => void copy('claude')}
+            >
+              {compact ? 'Claude Code config' : 'Copy config for Claude Code'}
+            </Button>
+            <Button
+              icon={compact ? undefined : 'copy'}
+              className="h-[34px]"
+              disabled={!token}
+              title={token ? 'A ~/.codex/config.toml table with the token' : NO_TOKEN}
+              onClick={() => void copy('codex')}
+            >
+              {compact ? 'Codex config' : 'Copy config for Codex'}
+            </Button>
+          </>
+        ) : null}
       </div>
       <FieldError text={errors.mcpPort} />
     </div>
@@ -319,16 +344,14 @@ export function AgentRuleRows({ config, onChange, density = 'roomy' }: ConfigFie
   );
 }
 
-/** The literal snippet, with keys in clay as the canvas shows it. */
+/** The Claude Code command, with the token left out, as a preview. */
 export function McpSnippetPreview({ port }: { port: number }) {
-  const url = `http://127.0.0.1:${port}/mcp`;
   return (
     <pre className="m-0 overflow-x-auto rounded-[8px] border border-line bg-app px-3.5 py-3 font-mono text-[12px] leading-[19px] whitespace-pre text-fg-dim">
-      {'{\n  '}
-      <span className="text-clay-text">{'"mcpServers"'}</span>
-      {': {\n    '}
-      <span className="text-clay-text">{'"maquette"'}</span>
-      {`: { "type": "http", "url": "${url}" }\n  }\n}`}
+      <span className="text-clay-text">claude mcp add</span>
+      {` --transport http maquette ${mcpUrl(port)} \\\n  --header "Authorization: Bearer `}
+      <span className="text-fg-mute">{'<token from Settings > Agents>'}</span>
+      {'"'}
     </pre>
   );
 }

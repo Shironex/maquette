@@ -11,6 +11,8 @@
  *
  * `?pace=` sets the milliseconds between streamed log lines (default 260).
  * `?lab=running` holds two concept images of the porch direction mid job.
+ * `?agents=active` turns the MCP server on, with an agent's activity and a
+ * run waiting at Ship for approval.
  */
 import type {
   AcceptRequest,
@@ -19,6 +21,7 @@ import type {
   Bootstrap,
   CompressPreset,
   ErrorPayload,
+  McpStatus,
   ImportScan,
   InboxItem,
   NewAsset,
@@ -38,6 +41,7 @@ import { DEFAULT_ROOT, HOME, defaultConfig, moonIsland, toolReports } from './fi
 import { inboxItems } from './inbox-fixtures';
 import { inspectView } from './inspect-fixtures';
 import { dioramaPipeline, pipelineView, run24Log, runHistory } from './pipeline-fixtures';
+import { createFakeAgents } from './agents';
 import { createFakeLab } from './lab';
 import { createFakeRunner, type RunStore } from './runner';
 
@@ -55,7 +59,10 @@ export interface MockOptions {
       | { name: 'pipeline'; payload: PipelineEvent }
       | { name: 'inbox' }
       | { name: 'concept'; payload: ConceptEvent }
+      | { name: 'mcp'; payload: McpStatus }
   ) => void;
+  /** `active`: the MCP server is on, mid agent session. */
+  agents?: string | null;
   /** `running` holds two concept jobs mid way, for screenshots. */
   lab?: string | null;
   /** Milliseconds one fake concept image takes (default 4000). */
@@ -104,6 +111,7 @@ export function createBackend({
   files,
   lab: labState = null,
   conceptMs = 4000,
+  agents: agentsState = null,
 }: MockOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -112,6 +120,9 @@ export function createBackend({
   let cacheBytes = configured ? 2.3e9 : 0;
   const overrides = new Map<ToolId, string>();
   if (configured) config = { ...config, currentProject: 'moon-island' };
+  if (configured && agentsState === 'active') {
+    config = { ...config, agents: { ...config.agents, mcpEnabled: true } };
+  }
 
   const now = Date.now();
   const history = configured ? runHistory(now) : [];
@@ -207,8 +218,15 @@ export function createBackend({
     fail,
   });
 
+  const agents = createFakeAgents({
+    config: () => config,
+    active: agentsState === 'active',
+    emit: payload => emit?.({ name: 'mcp', payload }),
+  });
+
   const handlers: Record<string, (args: Args) => unknown> = {
     ...lab.handlers,
+    ...agents.handlers,
     app_bootstrap: (): Bootstrap => ({
       os: 'mac',
       version: '0.1.0',
@@ -250,6 +268,7 @@ export function createBackend({
       validate(next as WorkspaceConfig);
       config = next as WorkspaceConfig;
       lab.setConcurrency(config.lab.concurrency);
+      agents.changed();
       return config;
     },
     workspace_cache_size: () => ({ bytes: cacheBytes }),

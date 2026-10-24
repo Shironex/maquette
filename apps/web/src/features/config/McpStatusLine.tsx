@@ -1,10 +1,7 @@
 import { Icon, cn } from '@maquette/ui';
 import type { WorkspaceConfig } from '@/ipc/client';
 
-/**
- * The server line under "Built-in MCP server". The server itself is not
- * built yet, so this never claims it is running.
- */
+/** The server line in onboarding, before the workspace (and the token) exists. */
 export function McpStatusLine({
   config,
   className,
@@ -23,8 +20,8 @@ export function McpStatusLine({
     >
       <Icon name={mcpEnabled ? 'check-circle' : 'info'} size={14} />
       {mcpEnabled
-        ? `Port ${mcpPort} reserved. The server starts here in a later version.`
-        : 'Off. Turn it on to reserve a port for agents.'}
+        ? `Starts on 127.0.0.1:${mcpPort} once the workspace exists. Copy the config, with its token, from Settings > Agents.`
+        : 'Off. You can turn it on later in Settings > Agents.'}
     </p>
   );
 }

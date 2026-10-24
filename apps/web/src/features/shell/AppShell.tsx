@@ -4,11 +4,14 @@ import { events } from '@/ipc/generated/bindings';
 import { CHROME } from '@/ipc/runtime';
 import { formatAgo } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
+import { mcpStatusItem } from '@/state/agents';
+import { useAgentsStore } from '@/state/agents-store';
 import { useAppStore } from '@/state/app-store';
 import { useInboxStore } from '@/state/inbox-store';
 import { useLabStore } from '@/state/lab-store';
 import { runStatusLine, runSummary } from '@/state/pipeline';
 import { usePipelineStore } from '@/state/pipeline-store';
+import { ApprovalPrompt } from '@/features/agents/ApprovalPrompt';
 import { BoardView } from '@/features/board/BoardView';
 import { InboxView } from '@/features/inbox/InboxView';
 import { LabView } from '@/features/lab/LabView';
@@ -78,6 +81,7 @@ export function AppShell() {
         </div>
         <ShellStatusBar />
       </div>
+      <ApprovalPrompt />
     </div>
   );
 }
@@ -94,6 +98,11 @@ function useLiveData(projectId: string | null, root: string | null) {
   const onConcept = useLabStore(s => s.onEvent);
   const onThumbnail = useInboxStore(s => s.onThumbnail);
   const setProject = useAppStore(s => s.setProject);
+  const loadAgents = useAgentsStore(s => s.load);
+  const onAgents = useAgentsStore(s => s.onUpdate);
+  useEffect(() => {
+    if (root) void loadAgents();
+  }, [root, loadAgents]);
   useEffect(() => {
     if (projectId) void loadPipeline(projectId);
   }, [projectId, loadPipeline]);
@@ -112,11 +121,13 @@ function useLiveData(projectId: string | null, root: string | null) {
         onThumbnail(e.payload);
         if (e.payload.project) setProject(e.payload.project);
       }),
+      events.projectChanged.listen(e => setProject(e.payload.project)),
+      events.mcpUpdate.listen(e => onAgents(e.payload)),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
     };
-  }, [onEvent, loadInbox, onThumbnail, setProject, onConcept]);
+  }, [onEvent, loadInbox, onThumbnail, setProject, onConcept, onAgents]);
 }
 
 function CurrentView({ view }: { view: ViewId }) {
@@ -202,9 +213,11 @@ function ShellStatusBar() {
             },
           ]
         : [{ label: 'No runs yet', right: true }];
+  const mcp = mcpStatusItem(useAgentsStore(s => s.status));
   const items: StatusBarItem[] = [
     { label: 'Local worker connected', dot: 'ok' },
     blenderItem,
+    ...(mcp ? [mcp] : []),
     ...codexItems,
     ...(view === 'lab' ? [] : inboxItem),
     ...labItems,

@@ -1,0 +1,80 @@
+import { Button, Icon, cn } from '@maquette/ui';
+import type { Approval } from '@/ipc/client';
+import { formatAgo } from '@/lib/format';
+import { useNow } from '@/lib/useNow';
+import { approvalTitle } from '@/state/agents';
+import { useAgentsStore } from '@/state/agents-store';
+import { useAppStore } from '@/state/app-store';
+
+/**
+ * "Ask before shipping": a run an agent started stopped before Ship. Shown
+ * over every view until someone approves or denies it.
+ */
+export function ApprovalPrompt() {
+  const approvals = useAgentsStore(s => s.status?.approvals);
+  const view = useAppStore(s => s.view);
+  // Settings > Agents lists them in place.
+  if (!approvals?.length || view === 'settings') return null;
+  return (
+    <div className="pointer-events-none fixed top-[68px] right-5 z-40 flex w-[400px] flex-col gap-2.5">
+      {approvals.map(a => (
+        <ApprovalCard key={a.id} approval={a} floating />
+      ))}
+    </div>
+  );
+}
+
+export function ApprovalCard({ approval, floating }: { approval: Approval; floating?: boolean }) {
+  const decide = useAgentsStore(s => s.decide);
+  const deciding = useAgentsStore(s => s.deciding === approval.id);
+  const projects = useAppStore(s => s.workspace?.projects);
+  const site = projects?.find(p => p.id === approval.project);
+  const now = useNow(15_000);
+  const titleId = `${approval.id}-title`;
+  return (
+    <section
+      role="alertdialog"
+      aria-labelledby={titleId}
+      className={cn(
+        'pointer-events-auto flex flex-col gap-3 rounded-card border border-amber/40 bg-panel p-3.5',
+        floating && 'shadow-window'
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <span className="grid size-8 flex-none place-items-center rounded-[9px] bg-amber-soft text-amber">
+          <Icon name="rocket-launch" size={17} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id={titleId} className="text-emphasis leading-5 font-semibold">
+            Ship {approvalTitle(approval, site?.name)}?
+          </h2>
+          <p className="mt-0.5 text-meta text-fg-mute">
+            An agent started this run over MCP. Everything before {approval.step} is done;{' '}
+            {approval.step} writes to {site?.siteRepo ? 'the site repo' : 'the shipped folder'}.
+          </p>
+        </div>
+        <span className="flex-none text-meta text-fg-mute tabular-nums">
+          {formatAgo(approval.requestedAtMs ?? now, now)}
+        </span>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="secondary"
+          disabled={deciding}
+          onClick={() => void decide(approval.id, false)}
+        >
+          Deny
+        </Button>
+        <Button
+          variant="primary"
+          icon="check"
+          loading={deciding}
+          disabled={deciding}
+          onClick={() => void decide(approval.id, true)}
+        >
+          Approve and ship
+        </Button>
+      </div>
+    </section>
+  );
+}

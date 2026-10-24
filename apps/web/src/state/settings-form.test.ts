@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfig } from '@/ipc/mock/fixtures';
-import { mcpSnippet, parsePort, patchSection, saveStatus, validateConfig } from './settings-form';
+import {
+  maskToken,
+  mcpSnippet,
+  parsePort,
+  patchSection,
+  saveStatus,
+  validateConfig,
+} from './settings-form';
 
 describe('settings form', () => {
   it('patches one section and leaves the rest alone', () => {
@@ -31,13 +38,20 @@ describe('settings form', () => {
     expect(saveStatus(invalid, saved, flags)).toBe('invalid');
   });
 
-  it('builds the agent config snippets for a port', () => {
-    expect(JSON.parse(mcpSnippet('claude', 4791))).toEqual({
-      mcpServers: { maquette: { type: 'http', url: 'http://127.0.0.1:4791/mcp' } },
-    });
-    expect(mcpSnippet('codex', 5000)).toBe(
-      '[mcp_servers.maquette]\nurl = "http://127.0.0.1:5000/mcp"\n'
+  it('builds working agent setups with the token', () => {
+    expect(mcpSnippet('claude', 4791, 'abc123')).toBe(
+      'claude mcp add --transport http maquette http://127.0.0.1:4791/mcp --header "Authorization: Bearer abc123"\n'
     );
+    expect(mcpSnippet('codex', 5000, 'abc123')).toBe(
+      [
+        '[mcp_servers.maquette]',
+        'url = "http://127.0.0.1:5000/mcp"',
+        'http_headers = { Authorization = "Bearer abc123" }',
+        'tool_timeout_sec = 150',
+        '',
+      ].join('\n')
+    );
+    expect(maskToken('0123456789abcdef')).toBe('012345\u2026cdef');
   });
 
   it('reads a port with or without the localhost prefix', () => {
