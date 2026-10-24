@@ -11,11 +11,18 @@ import { fileURLToPath } from 'node:url';
 export const ICON_NAMES = [
   'arrow-bend-up-right',
   'arrow-clockwise',
+  'arrow-counter-clockwise',
+  'arrow-down',
   'arrow-left',
   'arrow-right',
   'arrow-square-out',
+  'arrow-u-up-left',
+  'arrow-u-up-right',
+  'arrow-up',
   'arrows-left-right',
+  'arrows-out-cardinal',
   'bell',
+  'bounding-box',
   'camera',
   'caret-down',
   'caret-up-down',
@@ -49,6 +56,7 @@ export const ICON_NAMES = [
   'gear-six',
   'git-branch',
   'globe',
+  'grid-four',
   'hand-pointing',
   'image',
   'images',
@@ -57,6 +65,7 @@ export const ICON_NAMES = [
   'list',
   'lock-simple',
   'magic-wand',
+  'magnet',
   'magnifying-glass',
   'minus',
   'mountains',
@@ -68,8 +77,10 @@ export const ICON_NAMES = [
   'note-pencil',
   'plus',
   'question',
+  'resize',
   'robot',
   'rocket-launch',
+  'ruler',
   'shield-check',
   'sidebar-simple',
   'sliders-horizontal',
@@ -78,11 +89,13 @@ export const ICON_NAMES = [
   'squares-four',
   'stack',
   'star',
+  'star-fill',
   'sun',
   'terminal-window',
   'trash',
   'tray',
   'upload-simple',
+  'video-camera',
   'warning',
   'warning-circle',
   'wrench',
@@ -95,7 +108,9 @@ const coreDir = resolve(root, 'node_modules/@phosphor-icons/core');
 const version = JSON.parse(readFileSync(resolve(coreDir, 'package.json'), 'utf8')).version;
 
 const entries = ICON_NAMES.map(name => {
-  const svg = readFileSync(resolve(coreDir, 'assets/regular', `${name}.svg`), 'utf8');
+  // `-fill` names come from the fill weight, the rest from regular.
+  const weight = name.endsWith('-fill') ? 'fill' : 'regular';
+  const svg = readFileSync(resolve(coreDir, 'assets', weight, `${name}.svg`), 'utf8');
   const paths = [...svg.matchAll(/<path d="([^"]+)"/g)].map(m => m[1]);
   if (paths.length !== 1) throw new Error(`${name}: expected one path, found ${paths.length}`);
   return `  '${name}': '${paths[0]}',`;
