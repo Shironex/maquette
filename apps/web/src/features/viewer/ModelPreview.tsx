@@ -2,7 +2,8 @@
  * A 3D preview of one GLB or glTF file in the studio (see `studio.ts`):
  * shaded, a wireframe over flat clay, a UV checker, or the skeleton drawn in
  * clay over a ghost of the mesh, with orbit and zoom. Reads meshopt geometry
- * and KTX2 textures. The Inbox uses it today and the Inspector will reuse it.
+ * and KTX2 textures. The Inbox uses it; the Inspector shares its studio and
+ * materials for the compare view.
  * Loaded lazily, so three.js stays out of the first bundle.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -19,6 +20,7 @@ import {
   studioRig,
   type Framing,
 } from './studio';
+import { applyMode, checkerTexture, originalsOf, type Originals } from './materials';
 
 export type PreviewMode = 'shaded' | 'wireframe' | 'uv' | 'bones';
 
@@ -33,35 +35,9 @@ export interface ModelPreviewProps {
   className?: string;
 }
 
-/** An 8 by 8 checker with a number per tile, so stretched UVs show. */
-function checkerTexture(): THREE.CanvasTexture {
-  const size = 512;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    const tile = size / 8;
-    for (let y = 0; y < 8; y += 1) {
-      for (let x = 0; x < 8; x += 1) {
-        ctx.fillStyle = (x + y) % 2 === 0 ? '#d9cbb8' : '#5d564d';
-        ctx.fillRect(x * tile, y * tile, tile, tile);
-        ctx.fillStyle = (x + y) % 2 === 0 ? '#5d564d' : '#d9cbb8';
-        ctx.font = '600 20px sans-serif';
-        ctx.fillText(`${String.fromCharCode(65 + x)}${y + 1}`, x * tile + 8, y * tile + 26);
-      }
-    }
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  return texture;
-}
-
 interface Loaded {
   scene: THREE.Group;
-  originals: Map<THREE.Mesh, THREE.Material | THREE.Material[]>;
+  originals: Originals;
   bones: THREE.Bone[];
 }
 
@@ -79,13 +55,9 @@ function useModel(url: string | null, onError?: (message: string) => void): Load
       gltf => {
         if (!alive) return;
         const scene = gltf.scene;
-        const originals = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+        const originals = originalsOf(scene);
         const bones: THREE.Bone[] = [];
         scene.traverse(obj => {
-          if ((obj as THREE.Mesh).isMesh) {
-            const mesh = obj as THREE.Mesh;
-            originals.set(mesh, mesh.material);
-          }
           if ((obj as THREE.Bone).isBone) bones.push(obj as THREE.Bone);
         });
         castShadows(scene);
@@ -128,82 +100,9 @@ function Controls({ turntable, target }: { turntable: boolean; target: THREE.Vec
   return null;
 }
 
-/** A copy of `mesh` drawn with `material`, deforming with it if it is skinned. */
-function overlayOf(mesh: THREE.Mesh, material: THREE.Material): THREE.Mesh {
-  if ((mesh as THREE.SkinnedMesh).isSkinnedMesh) {
-    const skinned = mesh as THREE.SkinnedMesh;
-    const copy = new THREE.SkinnedMesh(skinned.geometry, material);
-    copy.bindMode = skinned.bindMode;
-    copy.bind(skinned.skeleton, skinned.bindMatrix);
-    return copy;
-  }
-  return new THREE.Mesh(mesh.geometry, material);
-}
-
 function Model({ loaded, mode }: { loaded: Loaded; mode: PreviewMode }) {
   const checker = useMemo(() => checkerTexture(), []);
-  useEffect(() => {
-    const made: THREE.Material[] = [];
-    const overlays: THREE.Mesh[] = [];
-    const keep = <T extends THREE.Material>(m: T): T => {
-      made.push(m);
-      return m;
-    };
-    // Wireframe: flat clay pushed back a little, with the edges drawn over it.
-    const clay =
-      mode === 'wireframe'
-        ? keep(
-            new THREE.MeshStandardMaterial({
-              color: '#6b645a',
-              roughness: 0.95,
-              polygonOffset: true,
-              polygonOffsetFactor: 1,
-              polygonOffsetUnits: 1,
-            })
-          )
-        : null;
-    const wire =
-      mode === 'wireframe'
-        ? keep(
-            new THREE.MeshBasicMaterial({
-              color: '#f1e4d6',
-              wireframe: true,
-              transparent: true,
-              opacity: 0.38,
-            })
-          )
-        : null;
-    const ghost =
-      mode === 'bones'
-        ? keep(
-            new THREE.MeshStandardMaterial({
-              color: '#a39d93',
-              roughness: 0.9,
-              transparent: true,
-              opacity: 0.22,
-              depthWrite: false,
-            })
-          )
-        : null;
-    const uv =
-      mode === 'uv' ? keep(new THREE.MeshStandardMaterial({ map: checker, roughness: 0.9 })) : null;
-    for (const [mesh, original] of loaded.originals) {
-      const replacement = clay ?? ghost ?? uv;
-      mesh.material = replacement ?? original;
-      mesh.castShadow = mode !== 'bones';
-      if (wire) {
-        const overlay = overlayOf(mesh, wire);
-        overlay.castShadow = false;
-        mesh.add(overlay);
-        overlays.push(overlay);
-      }
-    }
-    return () => {
-      for (const overlay of overlays) overlay.removeFromParent();
-      for (const [mesh, original] of loaded.originals) mesh.material = original;
-      made.forEach(m => m.dispose());
-    };
-  }, [loaded, mode, checker]);
+  useEffect(() => applyMode(loaded.originals, mode, checker).undo, [loaded, mode, checker]);
   return <primitive object={loaded.scene} />;
 }
 
