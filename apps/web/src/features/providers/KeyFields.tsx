@@ -51,6 +51,16 @@ function KeyRow({ service }: { service: ProviderId }) {
     }
   };
   const onTest = async () => setResult(await test(service, showInput && draft ? draft : null));
+  // A test result speaks for the key it tested, so it goes with that key.
+  const onRemove = async () => {
+    setResult(null);
+    await remove(service);
+  };
+  const replace = (on: boolean) => {
+    setEditing(on);
+    setDraft('');
+    setResult(null);
+  };
 
   return (
     <div className="flex flex-col gap-2 rounded-[8px] border border-line bg-raised px-3 py-2.5">
@@ -93,7 +103,7 @@ function KeyRow({ service }: { service: ProviderId }) {
             Save
           </Button>
           {editing ? (
-            <Button variant="ghost" onClick={() => setEditing(false)}>
+            <Button variant="ghost" onClick={() => replace(false)}>
               Keep the old one
             </Button>
           ) : null}
@@ -109,14 +119,14 @@ function KeyRow({ service }: { service: ProviderId }) {
           >
             Test key
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+          <Button size="sm" variant="ghost" onClick={() => replace(true)}>
             Replace
           </Button>
           <Button
             size="sm"
             variant="ghost"
             disabled={busy}
-            onClick={() => void remove(service)}
+            onClick={() => void onRemove()}
             className="ml-auto text-fg-mute"
           >
             Remove
