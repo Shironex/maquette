@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use crate::error::{CoreError, CoreResult};
 use crate::project::{ProjectManifest, now_rfc3339, slugify};
 
+pub mod copy;
+
 pub const ASSET_NAME_MAX_CHARS: usize = 80;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]

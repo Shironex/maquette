@@ -71,7 +71,7 @@ fn free_direction_id(to_dir: &Path, id: &str) -> String {
 
 /// Copies the project relative file `rel` from one project's `refs/` to the
 /// other's and returns its new relative path. `None` when the file is gone.
-fn carry_ref(from_dir: &Path, to_dir: &Path, rel: &str) -> CoreResult<Option<String>> {
+pub(crate) fn carry_ref(from_dir: &Path, to_dir: &Path, rel: &str) -> CoreResult<Option<String>> {
     let source = from_dir.join(rel);
     if !source.is_file() {
         return Ok(None);
