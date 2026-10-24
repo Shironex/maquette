@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { inboxItems } from '@/ipc/mock/inbox-fixtures';
-import { checkSummary, firstToReview, itemChip, itemMeta, reviewPrompt, sortChecks } from './inbox';
+import {
+  checkSummary,
+  firstToReview,
+  itemChip,
+  itemMeta,
+  itemTitle,
+  madeBy,
+  reviewPrompt,
+  sortChecks,
+} from './inbox';
 
 const items = inboxItems('/w/inbox', 0);
 const byId = (id: string) => items.find(i => i.id === id)!;
@@ -39,5 +48,39 @@ describe('firstToReview', () => {
     expect(firstToReview(items)!.id).toBe('character.glb');
     expect(firstToReview([byId('far_spire.glb')])!.id).toBe('far_spire.glb');
     expect(firstToReview([])).toBeNull();
+  });
+});
+
+describe('madeBy and itemTitle', () => {
+  const base = byId('character.glb');
+  const made = (generator: string | null) =>
+    madeBy({ ...base, link: null, report: { ...base.report!, generator } });
+  const link = {
+    job: 'job-1',
+    project: 'moon-island',
+    asset: 'clay-lantern',
+    assetName: 'Clay lantern',
+    provider: 'meshy' as const,
+  };
+
+  it('names known generators instead of showing their URL', () => {
+    expect(made('https://tripo3d.ai')).toBe('Tripo');
+    expect(made('https://www.meshy.ai/')).toBe('Meshy');
+    expect(made('Khronos glTF Blender I/O v4.3.47')).toBe('Blender');
+    expect(made('https://www.example.com/exporter?v=2')).toBe('example.com');
+    expect(made('Sketchfab exporter')).toBe('Sketchfab exporter');
+    expect(made(null)).toBeNull();
+  });
+
+  it('prefers the provider a model was sent to', () => {
+    const sent = { ...base, link, report: { ...base.report!, generator: 'https://tripo3d.ai' } };
+    expect(madeBy(sent)).toBe('Meshy');
+    expect(madeBy({ ...sent, link: { ...link, provider: 'by-hand' } })).toBe('Tripo');
+  });
+
+  it('titles a sent model after its asset, not its file', () => {
+    const clay = { ...base, id: 'clay-1.glb', name: 'Clay 1' };
+    expect(itemTitle(clay)).toBe('Clay 1');
+    expect(itemTitle({ ...clay, link })).toBe('Clay lantern');
   });
 });

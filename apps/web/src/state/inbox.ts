@@ -2,6 +2,7 @@
 import type { Status } from '@maquette/ui';
 import type { Check, InboxItem } from '@/ipc/client';
 import { formatK } from '@/lib/format';
+import { PROVIDER_LABEL } from './providers';
 
 /** The chip a list row shows. */
 export function itemChip(item: InboxItem): { status: Status; label: string } {
@@ -84,4 +85,31 @@ export function sentFor(
       ? null
       : (projects.find(p => p.id === link.project)?.name ?? link.project);
   return other ? `${link.assetName} in ${other}, ${provider}` : `${link.assetName}, ${provider}`;
+}
+
+/** Generators glTF exporters write into `asset.generator`, by what they contain. */
+const KNOWN_GENERATORS: readonly (readonly [RegExp, string])[] = [
+  [/tripo3d\.ai|\btripo\b/i, 'Tripo'],
+  [/meshy\.ai|\bmeshy\b/i, 'Meshy'],
+  [/khronos gltf blender i\/o|\bblender\b/i, 'Blender'],
+];
+
+/**
+ * Who made the model, as a name: a send's provider first, then a known
+ * generator ("https://tripo3d.ai" is Tripo), else the generator as written,
+ * with a URL cut down to its host.
+ */
+export function madeBy(item: InboxItem): string | null {
+  if (item.link && item.link.provider !== 'by-hand') return PROVIDER_LABEL[item.link.provider];
+  const raw = item.report?.generator?.trim();
+  if (!raw) return null;
+  const known = KNOWN_GENERATORS.find(([pattern]) => pattern.test(raw));
+  if (known) return known[1];
+  const url = /^[a-z][a-z0-9+.-]*:\/\/([^/?#\s]+)/i.exec(raw);
+  return url ? url[1]!.replace(/^www\./i, '') : raw;
+}
+
+/** The title: the asset a send was for, else the name from the file. */
+export function itemTitle(item: InboxItem): string {
+  return item.link?.assetName || item.name;
 }

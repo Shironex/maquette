@@ -24,6 +24,8 @@ import {
   firstToReview,
   itemChip,
   itemMeta,
+  itemTitle,
+  madeBy,
   reviewPrompt,
   sentFor,
   sortChecks,
@@ -128,7 +130,7 @@ function InboxRow({
     >
       <RowThumb item={item} />
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="truncate font-semibold">{item.name}</span>
+        <span className="truncate font-semibold">{itemTitle(item)}</span>
         <span className="truncate font-mono text-[11.5px] leading-[14px] text-fg-mute">
           {itemMeta(item)}
         </span>
@@ -192,6 +194,7 @@ function InboxDetail({ item }: { item: InboxItem }) {
     : null;
   const { busy, reprocess, accept, openInBlender, setKind } = useInboxStore();
   const report = item.report;
+  const maker = madeBy(item);
   const checks = sortChecks(item.checks);
   const url = fileUrl(item.file);
   const isBusy = busy === item.id;
@@ -211,7 +214,7 @@ function InboxDetail({ item }: { item: InboxItem }) {
             mono: true,
           },
           { label: 'Materials', value: String(report.materials), mono: true },
-          ...(report.generator ? [{ label: 'Made by', value: report.generator }] : []),
+          ...(maker ? [{ label: 'Made by', value: maker }] : []),
         ]
       : []),
     { label: 'File', value: item.id, mono: true },
@@ -223,10 +226,9 @@ function InboxDetail({ item }: { item: InboxItem }) {
         <section className="flex min-w-0 flex-1 flex-col gap-3.5 px-6 pt-[18px] pb-5">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="truncate text-panel-title">{item.name}</h2>
+              <h2 className="truncate text-panel-title">{itemTitle(item)}</h2>
               <p className="mt-0.5 text-fg-mute">
-                {report?.generator ? `${report.generator} · ` : ''}arrived{' '}
-                {formatAgo(item.modifiedMs ?? now, now)}
+                {maker ? `${maker} · ` : ''}arrived {formatAgo(item.modifiedMs ?? now, now)}
               </p>
             </div>
             <SegmentedControl
