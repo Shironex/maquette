@@ -14,7 +14,11 @@ export const EXTRA_COLORS = [
     value: 'rgba(196,125,96,0.55)',
     usage: 'Clay outline on selected stages, rows and dashed drop targets.',
   },
-  { name: 'studio', value: '#97989c', usage: 'Graphite studio ground behind model thumbnails.' },
+  {
+    name: 'studio',
+    value: '#312f2b',
+    usage: 'Graphite studio ground behind model renders; Blender thumbnails use the same backdrop.',
+  },
 ];
 
 /** Raw token name to utility color name. */

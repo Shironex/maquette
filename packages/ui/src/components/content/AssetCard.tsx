@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '../../lib/cn';
+import { Icon, type IconName } from '../../icons/Icon';
 import { IconButton } from '../actions/IconButton';
 import { ProgressBar } from '../status/ProgressBar';
 import { StatusChip, type Status } from '../status/StatusChip';
@@ -13,10 +14,14 @@ export interface AssetCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   latest?: boolean;
   tris?: string;
   size?: string;
+  /** Replaces the tris and size line, for example "No model yet". */
+  meta?: string;
   status?: Status;
   progress?: number;
   progressLabel?: string;
   selected?: boolean;
+  /** What stands in while there is no thumbnail: a kind icon and a word. */
+  placeholder?: { icon: IconName; label?: string };
   onSelect?: () => void;
   /** Opens the card's menu from the dots button. */
   onMore?: () => void;
@@ -35,10 +40,12 @@ export function AssetCard({
   latest,
   tris,
   size,
+  meta,
   status,
   progress,
   progressLabel,
   selected,
+  placeholder,
   onSelect,
   onMore,
   moreOpen,
@@ -62,18 +69,30 @@ export function AssetCard({
         aria-pressed={selected}
         aria-label={`${name}${version !== undefined ? `, v${version}` : ''}`}
         onClick={onSelect}
-        className="relative block h-[116px] w-full cursor-pointer overflow-hidden rounded-t-card bg-studio"
+        className={cn(
+          'relative block h-[116px] w-full cursor-pointer overflow-hidden rounded-t-card',
+          thumb ? 'bg-studio' : 'border-b border-line bg-raised'
+        )}
       >
         {thumb ? (
           <img
             src={thumb}
             alt=""
+            draggable={false}
             className={cn(
               'block size-full',
-              fit === 'cover' ? 'object-cover' : 'object-contain brightness-[0.84] saturate-[1.04]'
+              fit === 'cover'
+                ? 'object-cover'
+                : // A studio render's floor fades into the studio fill at the sides.
+                  'object-contain [mask-image:linear-gradient(to_right,transparent,black_22%,black_78%,transparent)]'
             )}
           />
-        ) : null}
+        ) : (
+          <span className="flex size-full flex-col items-center justify-center gap-1.5 text-fg-mute">
+            <Icon name={placeholder?.icon ?? 'cube'} size={22} />
+            {placeholder?.label ? <span className="text-meta">{placeholder.label}</span> : null}
+          </span>
+        )}
         {version !== undefined ? (
           <span className="absolute top-2 right-2">
             <VersionBadge version={version} latest={latest} onImage />
@@ -93,7 +112,7 @@ export function AssetCard({
           />
         </div>
         <div className="font-mono text-[11.5px] leading-[15px] text-fg-mute">
-          {[tris ? `${tris} tris` : null, size].filter(Boolean).join(' · ')}
+          {meta ?? [tris ? `${tris} tris` : null, size].filter(Boolean).join(' · ')}
         </div>
         {running && progress !== undefined ? (
           <ProgressBar value={progress} label={progressLabel ?? 'Running'} className="mt-1" />
