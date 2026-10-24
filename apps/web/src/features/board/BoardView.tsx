@@ -1,13 +1,10 @@
 import { useState, type DragEvent } from 'react';
 import {
   AssetCard,
-  BudgetMeter,
   Button,
   Dropzone,
   Icon,
   SegmentedControl,
-  StageStepper,
-  TopBar,
   cn,
   type IconName,
 } from '@maquette/ui';
@@ -19,10 +16,10 @@ import { readFlag, writeFlag } from '@/lib/storage';
 import { useAppStore } from '@/state/app-store';
 import { assetCount, cardNumbers, columns, projectFile } from '@/state/board';
 import { TEMPLATE_LABEL } from '@/state/onboarding';
-import { STAGES, STAGE_LABEL, estimatedTransfer, stageViews } from '@/state/pipeline';
-import { usePipelineStore } from '@/state/pipeline-store';
+import { STAGES, STAGE_LABEL } from '@/state/pipeline';
 import { KIND_ICON } from '@/state/thumbs';
 import { Menu } from '@/features/common/Menu';
+import { ProjectTopBar } from '@/features/shell/ProjectTopBar';
 import { AddAssetForm } from './AddAssetForm';
 
 const TIPS_KEY = 'maquette.board.tipsHidden';
@@ -42,8 +39,6 @@ export function BoardView() {
   const setView = useAppStore(s => s.setView);
   const setProject = useAppStore(s => s.setProject);
   const notify = useAppStore(s => s.notify);
-  const pipeline = usePipelineStore(s => s.view);
-  const runPipeline = usePipelineStore(s => s.run);
   const [tipsHidden, setTipsHidden] = useState(() => readFlag(TIPS_KEY));
   const [adding, setAdding] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -51,8 +46,6 @@ export function BoardView() {
   const project = workspace?.project;
   const assets = project?.assets ?? [];
   const budget = workspace?.config.budgets.sceneMb ?? 3;
-  const latest = pipeline?.runs[0];
-  const running = Boolean(pipeline?.active);
   const byStage = columns(assets);
 
   const hideTips = () => {
@@ -93,40 +86,10 @@ export function BoardView() {
     const asset = assets.find(a => a.id === id);
     if (asset) void move(asset, stage);
   };
-  const run = () => {
-    void runPipeline();
-    setView('pipeline');
-  };
 
   return (
     <>
-      <TopBar
-        lead={<StageStepper stages={stageViews(assets, latest)} />}
-        right={
-          <>
-            <BudgetMeter
-              label="Scene budget"
-              value={pipeline ? estimatedTransfer(pipeline) / 1e6 : 0}
-              target={budget}
-              unit="MB"
-            />
-            {running ? (
-              <Button icon="flow-arrow" onClick={() => setView('pipeline')}>
-                Run in progress
-              </Button>
-            ) : (
-              <Button
-                icon="play"
-                disabled={!pipeline || pipeline.def.steps.length === 0}
-                title={pipeline ? 'Runs every step, skipping cached ones' : 'Loading the pipeline'}
-                onClick={run}
-              >
-                Run pipeline
-              </Button>
-            )}
-          </>
-        }
-      />
+      <ProjectTopBar />
       <main className="flex min-h-0 flex-1 flex-col gap-[18px] px-6 pt-[22px] pb-5">
         <div className="flex items-end gap-4">
           <div className="flex flex-col gap-1">
