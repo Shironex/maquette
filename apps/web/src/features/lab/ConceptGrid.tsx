@@ -1,0 +1,241 @@
+import { useState } from 'react';
+import { Button, EmptyState, Icon, IconButton, ProgressBar, StatusChip, cn } from '@maquette/ui';
+import type { Asset, AssetKind, ConceptImage, ConceptJob, Direction, LabView } from '@/ipc/client';
+import { fileUrl } from '@/ipc/files';
+import { useNow } from '@/lib/useNow';
+import { Menu } from '@/features/common/Menu';
+import { useAppStore } from '@/state/app-store';
+import {
+  aspectCss,
+  conceptLabel,
+  directionSummary,
+  formatElapsed,
+  inProject,
+  tiles,
+} from '@/state/lab';
+import { useLabStore } from '@/state/lab-store';
+
+const NO_ASSETS: readonly Asset[] = [];
+
+const KINDS: readonly { id: AssetKind; label: string }[] = [
+  { id: 'scene', label: 'As a scene' },
+  { id: 'prop', label: 'As a prop' },
+  { id: 'character', label: 'As a character' },
+];
+
+/** The middle column: the selected direction's images and the ones still generating. */
+export function ConceptGrid({ view }: { view: LabView }) {
+  const selected = useLabStore(s => s.selected);
+  const direction = view.directions.find(d => d.id === selected) ?? null;
+  if (!direction) {
+    return (
+      <section className="flex min-w-0 flex-1 items-center justify-center p-8">
+        <EmptyState
+          icon="flask"
+          title="No concepts yet"
+          body="Name a direction, describe it and press Generate. Codex makes each image in about a minute, a few at a time."
+          steps={[
+            {
+              title: 'Write the brief',
+              detail: 'A direction name, the prompt and any references.',
+            },
+            { title: 'Generate', detail: 'Images land in concepts/ inside the project.' },
+            { title: 'Star and pick', detail: 'Send the picks to Refs to start the asset.' },
+          ]}
+        />
+      </section>
+    );
+  }
+  return <DirectionResults view={view} direction={direction} />;
+}
+
+function DirectionResults({ view, direction }: { view: LabView; direction: Direction }) {
+  const busy = useLabStore(s => s.busy);
+  const contactSheet = useLabStore(s => s.contactSheet);
+  const sendPicks = useLabStore(s => s.sendPicks);
+  const assets = useAppStore(s => s.workspace?.project?.assets) ?? NO_ASSETS;
+  const [kindMenu, setKindMenu] = useState(false);
+  const cells = tiles(direction, view.jobs);
+  const picked = direction.images.filter(i => i.picked).length;
+  const known = assets.find(
+    a => a.name.trim().toLowerCase() === direction.name.trim().toLowerCase()
+  );
+
+  const send = () => {
+    if (known) void sendPicks(known.kind);
+    else setKindMenu(m => !m);
+  };
+
+  return (
+    <section
+      aria-label={`${direction.name} concepts`}
+      className="flex min-w-0 flex-1 flex-col gap-3.5 overflow-y-auto px-[22px] pt-[18px] pb-[18px]"
+    >
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-screen-title">{direction.name}</h2>
+          <p className="mt-0.5 truncate text-fg-mute">{directionSummary(direction, view.jobs)}</p>
+        </div>
+        <Button
+          icon="squares-four"
+          loading={busy === 'sheet'}
+          disabled={direction.images.length === 0 || busy === 'sheet'}
+          title="Tiles every image into contact_sheet.png next to the concepts"
+          onClick={() => void contactSheet()}
+        >
+          Contact sheet
+        </Button>
+        <div className="relative">
+          <Button
+            variant="primary"
+            iconRight="arrow-right"
+            loading={busy === 'send'}
+            disabled={picked === 0 || busy === 'send'}
+            title={
+              picked === 0
+                ? 'Pick at least one concept first'
+                : known
+                  ? `Copies the picks into refs/ and moves ${known.name} to Refs`
+                  : 'Copies the picks into refs/ and adds the asset at Refs'
+            }
+            aria-haspopup={known ? undefined : 'menu'}
+            onClick={send}
+          >
+            Send picks to Refs
+          </Button>
+          {kindMenu ? (
+            <Menu
+              label="Add the asset"
+              onClose={() => setKindMenu(false)}
+              className="absolute top-10 right-0 z-30 w-[220px]"
+              header={
+                <p className="px-2.5 pt-1.5 pb-1 text-meta text-fg-mute">
+                  {`Adds ${direction.name} to the Board at Refs`}
+                </p>
+              }
+              items={KINDS.map(k => ({
+                id: k.id,
+                label: k.label,
+                onSelect: () => void sendPicks(k.id),
+              }))}
+            />
+          ) : null}
+        </div>
+      </div>
+      <ul className="grid list-none grid-cols-2 gap-3.5">
+        {cells.map(cell => (
+          <li key={cell.key}>
+            {cell.kind === 'image' ? (
+              <ImageTile view={view} direction={direction} image={cell.image} />
+            ) : (
+              <JobTile direction={direction} job={cell.job} />
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ImageTile({
+  view,
+  direction,
+  image,
+}: {
+  view: LabView;
+  direction: Direction;
+  image: ConceptImage;
+}) {
+  const mark = useLabStore(s => s.mark);
+  const openLightbox = useLabStore(s => s.openLightbox);
+  const path = inProject(view.projectDir, image.file);
+  const url = fileUrl(path);
+  const label = conceptLabel(image.index);
+  return (
+    <figure className="group m-0 flex flex-col gap-[7px]">
+      <div
+        className={cn(
+          'relative overflow-hidden rounded-[10px] bg-raised',
+          image.picked
+            ? 'shadow-[0_0_0_2px_var(--color-clay)]'
+            : 'shadow-[0_0_0_1px_var(--color-line)]'
+        )}
+        style={{ aspectRatio: aspectCss(direction.aspect) }}
+      >
+        <button
+          type="button"
+          aria-label={`Open ${label}`}
+          onClick={() => openLightbox(path)}
+          className="block size-full cursor-zoom-in"
+        >
+          {url ? (
+            <img
+              src={url}
+              alt={`${direction.name}, ${label}`}
+              className="block size-full object-cover"
+            />
+          ) : null}
+        </button>
+        {image.picked ? (
+          <span className="pointer-events-none absolute top-2 left-2 inline-flex h-[22px] items-center gap-1 rounded-pill bg-clay px-2 text-[11.5px] font-semibold text-clay-ink">
+            <Icon name="check" size={12} />
+            Picked
+          </span>
+        ) : null}
+        <Button
+          size="sm"
+          variant={image.picked ? 'secondary' : 'primary'}
+          icon={image.picked ? 'x' : 'check'}
+          onClick={() => void mark(image.file, { picked: !image.picked })}
+          className="absolute top-2 right-2 opacity-0 transition-opacity duration-120 group-focus-within:opacity-100 group-hover:opacity-100"
+        >
+          {image.picked ? 'Unpick' : 'Pick'}
+        </Button>
+      </div>
+      <figcaption className="flex items-center justify-between gap-2">
+        <span className="font-medium">{label}</span>
+        <span className="flex items-center gap-1.5">
+          {image.refFile ? (
+            <span className="text-meta text-fg-mute" title={image.refFile}>
+              In Refs
+            </span>
+          ) : null}
+          <IconButton
+            icon={image.starred ? 'star-fill' : 'star'}
+            label={image.starred ? `Unstar ${label}` : `Star ${label}`}
+            aria-pressed={image.starred}
+            variant="ghost"
+            size="sm"
+            onClick={() => void mark(image.file, { starred: !image.starred })}
+            className={image.starred ? 'text-clay-text' : 'text-fg-mute'}
+          />
+        </span>
+      </figcaption>
+    </figure>
+  );
+}
+
+function JobTile({ direction, job }: { direction: Direction; job: ConceptJob }) {
+  const now = useNow(1000);
+  const running = job.state === 'running';
+  return (
+    <figure className="m-0 flex flex-col gap-[7px]">
+      <div
+        className="flex flex-col items-center justify-center gap-2.5 rounded-[10px] border border-line bg-raised"
+        style={{ aspectRatio: aspectCss(direction.aspect) }}
+      >
+        <StatusChip
+          status={running ? 'running' : 'queued'}
+          label={running ? 'generating' : 'waiting'}
+        />
+        {running ? <ProgressBar className="w-[140px]" /> : null}
+      </div>
+      <figcaption className="flex items-center justify-between">
+        <span className="text-fg-mute">{conceptLabel(job.index)}</span>
+        <span className={cn('text-meta tabular-nums', running ? 'text-amber' : 'text-fg-mute')}>
+          {running && job.startedAtMs !== null ? formatElapsed(now - job.startedAtMs) : 'in line'}
+        </span>
+      </figcaption>
+    </figure>
+  );
+}

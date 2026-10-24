@@ -1,0 +1,85 @@
+import { describe, expect, it } from 'vitest';
+import type { ConceptEvent, LabView, SentPicks } from '../client';
+import { createBackend } from './backend';
+
+function backend(lab: string | null = null) {
+  const events: ConceptEvent[] = [];
+  const handle = createBackend({
+    scenario: 'configured',
+    probeDelay: 0,
+    pace: 0,
+    conceptMs: 5,
+    lab,
+    emit: e => {
+      if (e.name === 'concept') events.push(e.payload);
+    },
+  });
+  return { handle, events };
+}
+
+async function settled(handle: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>) {
+  for (let i = 0; i < 200; i++) {
+    const view = (await handle('lab_get', { project: 'moon-island' })) as LabView;
+    if (view.jobs.every(j => j.state !== 'queued' && j.state !== 'running')) return view;
+    await new Promise(r => setTimeout(r, 5));
+  }
+  throw new Error('jobs did not finish');
+}
+
+describe('mock concept lab', () => {
+  it('generates a few at a time and files the images under the direction', async () => {
+    const { handle, events } = backend();
+    await handle('workspace_save_config', {
+      config: {
+        ...((await handle('app_bootstrap')) as { workspace: { config: object } }).workspace.config,
+        lab: { concurrency: 2, timeoutMinutes: 10 },
+      },
+    });
+    const started = (await handle('lab_generate', {
+      request: {
+        project: 'moon-island',
+        direction: 'Stone lantern',
+        prompt: 'A lantern',
+        refs: [],
+        aspect: '16:9',
+        count: 3,
+      },
+    })) as LabView;
+    expect(started.jobs.filter(j => j.state === 'running')).toHaveLength(2);
+    const view = await settled(handle);
+    const lantern = view.directions.find(d => d.id === 'stone-lantern');
+    expect(lantern?.images.map(i => i.index)).toEqual([1, 2, 3]);
+    expect(events.some(e => e.type === 'direction')).toBe(true);
+  });
+
+  it('marks, then sends picks to Refs and puts the asset on the Board', async () => {
+    const { handle } = backend();
+    const file = 'concepts/late-train/late-train_02.png';
+    await handle('lab_mark', {
+      project: 'moon-island',
+      direction: 'late-train',
+      file,
+      starred: true,
+      picked: true,
+    });
+    const sent = (await handle('lab_send_picks', {
+      project: 'moon-island',
+      direction: 'late-train',
+      kind: 'scene',
+    })) as SentPicks;
+    expect(sent.copied).toEqual(['refs/late-train_02.png']);
+    expect(sent.asset.stage).toBe('refs');
+    expect(sent.project.assets?.some(a => a.id === 'late-train')).toBe(true);
+    const view = (await handle('lab_get', { project: 'moon-island' })) as LabView;
+    expect(view.refs.some(r => r.file === 'refs/late-train_02.png')).toBe(true);
+  });
+
+  it('holds two porch jobs in the running scenario and cancels them', async () => {
+    const { handle } = backend('running');
+    const view = (await handle('lab_get', { project: 'moon-island' })) as LabView;
+    expect(view.jobs.filter(j => j.state === 'running')).toHaveLength(2);
+    expect(await handle('lab_cancel_all', { project: 'moon-island' })).toBe(2);
+    const after = (await handle('lab_get', { project: 'moon-island' })) as LabView;
+    expect(after.jobs.filter(j => j.state === 'cancelled')).toHaveLength(2);
+  });
+});

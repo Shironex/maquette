@@ -10,9 +10,11 @@
  * - `idle`: configured, the last run passed.
  *
  * `?pace=` sets the milliseconds between streamed log lines (default 260).
+ * `?lab=running` holds two concept images of the porch direction mid job.
  */
 import type {
   AcceptRequest,
+  ConceptEvent,
   AssetKind,
   Bootstrap,
   CompressPreset,
@@ -35,6 +37,7 @@ import type {
 import { DEFAULT_ROOT, HOME, defaultConfig, moonIsland, toolReports } from './fixtures';
 import { inboxItems } from './inbox-fixtures';
 import { dioramaPipeline, pipelineView, run24Log, runHistory } from './pipeline-fixtures';
+import { createFakeLab } from './lab';
 import { createFakeRunner, type RunStore } from './runner';
 
 type Args = Record<string, unknown>;
@@ -45,14 +48,25 @@ export interface MockOptions {
   probeDelay: number;
   /** Milliseconds between streamed log lines. */
   pace?: number;
-  /** Delivers runner and inbox events to the UI. */
-  emit?: (event: { name: 'pipeline'; payload: PipelineEvent } | { name: 'inbox' }) => void;
+  /** Delivers runner, inbox and concept events to the UI. */
+  emit?: (
+    event:
+      | { name: 'pipeline'; payload: PipelineEvent }
+      | { name: 'inbox' }
+      | { name: 'concept'; payload: ConceptEvent }
+  ) => void;
+  /** `running` holds two concept jobs mid way, for screenshots. */
+  lab?: string | null;
+  /** Milliseconds one fake concept image takes (default 4000). */
+  conceptMs?: number;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */
     alias: (path: string, from: string) => void;
     /** Serves `bytes` (a PNG) at `path`. */
     store: (path: string, bytes: Uint8Array) => void;
+    /** Tiles the images served at `sources` into one PNG served at `path`. */
+    sheet?: (path: string, sources: string[]) => Promise<void>;
   };
 }
 
@@ -81,7 +95,15 @@ function slugify(name: string): string {
   );
 }
 
-export function createBackend({ scenario, probeDelay, pace = 260, emit, files }: MockOptions) {
+export function createBackend({
+  scenario,
+  probeDelay,
+  pace = 260,
+  emit,
+  files,
+  lab: labState = null,
+  conceptMs = 4000,
+}: MockOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
   let root: string | null = configured ? expand(DEFAULT_ROOT) : null;
@@ -173,7 +195,19 @@ export function createBackend({ scenario, probeDelay, pace = 260, emit, files }:
       fail('invalid', 'The scene budget must be more than 0 MB and at most 1000 MB.');
   }
 
+  const lab = createFakeLab({
+    projectDir: id => `${expand(DEFAULT_ROOT)}/projects/${id}`,
+    project,
+    saveProject,
+    emit: payload => emit?.({ name: 'concept', payload }),
+    files,
+    jobMs: conceptMs,
+    state: labState,
+    fail,
+  });
+
   const handlers: Record<string, (args: Args) => unknown> = {
+    ...lab.handlers,
     app_bootstrap: (): Bootstrap => ({
       os: 'mac',
       version: '0.1.0',
@@ -214,6 +248,7 @@ export function createBackend({ scenario, probeDelay, pace = 260, emit, files }:
       snapshot();
       validate(next as WorkspaceConfig);
       config = next as WorkspaceConfig;
+      lab.setConcurrency(config.lab.concurrency);
       return config;
     },
     workspace_cache_size: () => ({ bytes: cacheBytes }),

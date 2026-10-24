@@ -6,10 +6,12 @@ import { formatAgo } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import { useAppStore } from '@/state/app-store';
 import { useInboxStore } from '@/state/inbox-store';
+import { useLabStore } from '@/state/lab-store';
 import { runStatusLine, runSummary } from '@/state/pipeline';
 import { usePipelineStore } from '@/state/pipeline-store';
 import { BoardView } from '@/features/board/BoardView';
 import { InboxView } from '@/features/inbox/InboxView';
+import { LabView } from '@/features/lab/LabView';
 import { PipelineView } from '@/features/pipeline/PipelineView';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { PlaceholderView } from '@/features/tools/PlaceholderView';
@@ -24,12 +26,15 @@ export function AppShell() {
   const projectId = project?.id ?? null;
   const inboxCount = useInboxStore(s => s.snapshot?.items.length ?? 0);
   const running = usePipelineStore(s => Boolean(s.view?.active));
+  const generating = useLabStore(s =>
+    (s.view?.jobs ?? []).some(j => j.state === 'running' || j.state === 'queued')
+  );
   useLiveData(projectId, workspace?.root ?? null);
 
   const items = TOOL_VIEWS.map(v =>
     v.id === 'inbox' && inboxCount > 0
       ? { ...v, badge: inboxCount }
-      : v.id === 'pipeline' && running
+      : (v.id === 'pipeline' && running) || (v.id === 'lab' && generating)
         ? { ...v, live: true }
         : v
   );
@@ -84,11 +89,16 @@ function useLiveData(projectId: string | null, root: string | null) {
   const loadPipeline = usePipelineStore(s => s.load);
   const onEvent = usePipelineStore(s => s.onEvent);
   const loadInbox = useInboxStore(s => s.load);
+  const loadLab = useLabStore(s => s.load);
+  const onConcept = useLabStore(s => s.onEvent);
   const onThumbnail = useInboxStore(s => s.onThumbnail);
   const setProject = useAppStore(s => s.setProject);
   useEffect(() => {
     if (projectId) void loadPipeline(projectId);
   }, [projectId, loadPipeline]);
+  useEffect(() => {
+    if (projectId) void loadLab(projectId);
+  }, [projectId, loadLab]);
   useEffect(() => {
     if (root) void loadInbox();
   }, [root, loadInbox]);
@@ -96,6 +106,7 @@ function useLiveData(projectId: string | null, root: string | null) {
     const stops = [
       events.pipelineUpdate.listen(e => onEvent(e.payload)),
       events.inboxChanged.listen(() => void loadInbox()),
+      events.conceptUpdate.listen(e => onConcept(e.payload)),
       events.thumbnailReady.listen(e => {
         onThumbnail(e.payload);
         if (e.payload.project) setProject(e.payload.project);
@@ -104,7 +115,7 @@ function useLiveData(projectId: string | null, root: string | null) {
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
     };
-  }, [onEvent, loadInbox, onThumbnail, setProject]);
+  }, [onEvent, loadInbox, onThumbnail, setProject, onConcept]);
 }
 
 function CurrentView({ view }: { view: ViewId }) {
@@ -115,6 +126,8 @@ function CurrentView({ view }: { view: ViewId }) {
       return <PipelineView />;
     case 'inbox':
       return <InboxView />;
+    case 'lab':
+      return <LabView />;
     case 'settings':
       return <SettingsView />;
     default:
@@ -126,6 +139,30 @@ function ShellStatusBar() {
   const workspace = useAppStore(s => s.workspace);
   const { reports, checking } = useAppStore(s => s.tools);
   const blender = reports.find(r => r.id === 'blender');
+  const codex = reports.find(r => r.id === 'codex');
+  const view = useAppStore(s => s.view);
+  const labJobs = useLabStore(s => s.view?.jobs) ?? [];
+  const generating = labJobs.filter(j => j.state === 'running').length;
+  const waiting = labJobs.filter(j => j.state === 'queued').length;
+  const codexItems: StatusBarItem[] =
+    view === 'lab' && codex
+      ? [
+          codex.status === 'found'
+            ? { label: 'Codex CLI, signed in', icon: 'terminal-window' }
+            : { label: 'Codex CLI not ready', dot: 'offline' },
+        ]
+      : [];
+  const labItems: StatusBarItem[] =
+    generating || waiting
+      ? [
+          {
+            label: generating
+              ? `${generating} ${generating === 1 ? 'image' : 'images'} generating${waiting ? `, ${waiting} waiting` : ''}`
+              : `${waiting} ${waiting === 1 ? 'image' : 'images'} waiting`,
+            dot: 'running',
+          },
+        ]
+      : [];
   const blenderItem: StatusBarItem = checking
     ? { label: 'Checking tools', dot: 'running' }
     : blender?.status === 'found'
@@ -165,7 +202,9 @@ function ShellStatusBar() {
   const items: StatusBarItem[] = [
     { label: 'Local worker connected', dot: 'ok' },
     blenderItem,
-    ...inboxItem,
+    ...codexItems,
+    ...(view === 'lab' ? [] : inboxItem),
+    ...labItems,
     ...runItems,
   ];
   return <StatusBar items={items} />;
