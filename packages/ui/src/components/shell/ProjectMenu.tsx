@@ -214,17 +214,17 @@ export function ProjectMenu({
               </span>
             )}
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-[13px] leading-4 font-semibold">{p.name}</span>
-              {p.meta || p.live ? (
-                <span className="flex min-w-0 items-center gap-1.5 text-[11.5px] leading-[15px] text-fg-mute">
-                  {p.meta ? <span className="truncate">{p.meta}</span> : null}
-                  {p.live ? (
-                    <span className="inline-flex flex-none items-center gap-1 text-amber">
-                      <span className="size-[6px] rounded-full bg-amber" />
-                      {p.live}
-                    </span>
-                  ) : null}
-                </span>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-[13px] leading-4 font-semibold">{p.name}</span>
+                {p.live ? (
+                  <span className="ml-auto inline-flex flex-none items-center gap-1 text-[11px] leading-4 text-amber">
+                    <span className="size-[6px] rounded-full bg-amber" />
+                    {p.live}
+                  </span>
+                ) : null}
+              </span>
+              {p.meta ? (
+                <span className="truncate text-[11.5px] leading-[15px] text-fg-mute">{p.meta}</span>
               ) : null}
             </span>
             {p.current ? (
