@@ -21,6 +21,8 @@ export function modelLabel(stem: string): string {
 /** One row per known model: its stored preset, or the workspace defaults. */
 export function presetRows(view: PipelineView): PresetRow[] {
   const stored = new Map(view.def.presets.map(p => [p.model, p]));
+  // An export of an asset version reads as the asset: "clay", not "Clay v1".
+  const named = new Map(view.models.map(m => [m.model, m.assetName]));
   const models = new Set([...view.models.map(m => m.model), ...stored.keys()]);
   return [...models].sort().map(model => {
     const preset = stored.get(model);
@@ -28,7 +30,7 @@ export function presetRows(view: PipelineView): PresetRow[] {
       ? { ...preset, custom: true }
       : {
           model,
-          label: modelLabel(model),
+          label: named.get(model) ?? modelLabel(model),
           textureSize: view.defaults.textureSize,
           codec: view.defaults.codec,
           meshopt: view.defaults.meshopt,

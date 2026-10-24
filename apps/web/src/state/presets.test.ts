@@ -6,6 +6,17 @@ import { modelLabel, presetRows, presetsToSave } from './presets';
 const view = pipelineView('moon-island', '/w', runHistory(0), []);
 
 describe('presets', () => {
+  it('labels an export of an asset version after the asset', () => {
+    const clay = {
+      ...view,
+      models: [
+        { model: 'clay_v1', assetName: 'clay', version: 1, rawBytes: 1, shippedBytes: null },
+      ],
+      def: { ...view.def, presets: [] },
+    };
+    expect(presetRows(clay).map(r => [r.model, r.label])).toEqual([['clay_v1', 'clay']]);
+  });
+
   it('labels model stems', () => {
     expect(modelLabel('sakura_large')).toBe('Sakura large');
     expect(modelLabel('shop-house')).toBe('Shop house');

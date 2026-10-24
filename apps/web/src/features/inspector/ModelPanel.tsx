@@ -19,6 +19,7 @@ import type {
 import { formatBytes } from '@/lib/format';
 import {
   budgetRows,
+  budgetTargetNote,
   formatMb,
   modelSubtitle,
   num,
@@ -255,6 +256,7 @@ export function ModelPanel({
               <button
                 key={row.model}
                 type="button"
+                title={budgetTargetNote(row, sceneMb)}
                 onClick={() => onPickBudget(row.model)}
                 aria-pressed={on}
                 className={cn(
@@ -270,8 +272,24 @@ export function ModelPanel({
                       row.over ? 'text-danger' : 'text-fg'
                     )}
                   >
-                    {formatMb(row.mb)}{' '}
-                    <span className="text-fg-mute">/ {formatMb(row.targetMb)} MB</span>
+                    {row.target === 'scene' ? (
+                      <>
+                        {formatMb(row.mb)} MB{' '}
+                        <span className="font-sans text-meta text-fg-mute">
+                          of the scene target
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        {formatMb(row.mb)}{' '}
+                        <span className="text-fg-mute">
+                          / {formatMb(row.targetMb)} MB
+                          {row.target === 'share' ? (
+                            <span className="font-sans text-meta"> share</span>
+                          ) : null}
+                        </span>
+                      </>
+                    )}
                   </span>
                 </span>
                 <span

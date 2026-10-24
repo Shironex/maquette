@@ -167,16 +167,34 @@ export interface BudgetRow {
   mb: number;
   targetMb: number;
   over: boolean;
+  /**
+   * Where the target comes from: the model's own row in budgets.json, an
+   * even share of the scene target, or (the only model without a row) the
+   * whole scene target, which the Scene total already shows.
+   */
+  target: 'model' | 'share' | 'scene';
 }
 
 export function budgetRows(view: InspectView): BudgetRow[] {
+  const open = view.budgets.filter(b => !b.explicit).length;
+  const named = view.budgets.length - open;
   return view.budgets.map(b => ({
     model: b.model,
     label: b.label,
     mb: num(b.bytes) / 1e6,
     targetMb: num(b.targetMb),
     over: num(b.bytes) / 1e6 > num(b.targetMb),
+    target: b.explicit ? 'model' : open === 1 && named === 0 ? 'scene' : 'share',
   }));
+}
+
+/** The tooltip that says which target a budget row is measured against. */
+export function budgetTargetNote(row: BudgetRow, sceneMb: number): string {
+  if (row.target === 'model')
+    return `Its own target in budgets.json: ${formatMb(row.targetMb)} MB.`;
+  if (row.target === 'share')
+    return `No target of its own: an even share of the ${formatMb(sceneMb)} MB scene target. Set one in budgets.json.`;
+  return `No target of its own, so the ${formatMb(sceneMb)} MB scene target applies (see Scene total). Set one in budgets.json.`;
 }
 
 /** "1.5" for megabytes in the budget rows, two decimals below 0.1. */

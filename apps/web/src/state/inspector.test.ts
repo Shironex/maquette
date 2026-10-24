@@ -7,6 +7,7 @@ import {
   FRAME_TARGET_MS,
   MAX_SAMPLES,
   budgetRows,
+  budgetTargetNote,
   easeInOutCubic,
   flight,
   formatMb,
@@ -119,6 +120,19 @@ describe('the stats panel', () => {
     const right = pickSides(v, null, null, null)!.right;
     expect(modelForBudget(v, right, 'character')?.id).toBe('shipped/character');
     expect(modelForBudget(v, right, 'nothing')).toBeNull();
+  });
+
+  it('says which target a budget row is measured against', () => {
+    const v = view();
+    const one = (explicit: boolean) => ({ ...v.budgets[0]!, explicit, targetMb: 3 });
+    const [single] = budgetRows({ ...v, budgets: [one(false)] });
+    expect(single!.target).toBe('scene');
+    expect(budgetTargetNote(single!, 3)).toMatch(/3\.0 MB scene target applies/);
+    const shared = budgetRows({ ...v, budgets: [one(false), { ...one(false), model: 'b' }] });
+    expect(shared.map(r => r.target)).toEqual(['share', 'share']);
+    expect(budgetTargetNote(shared[0]!, 3)).toMatch(/even share of the 3\.0 MB/);
+    const mixed = budgetRows({ ...v, budgets: [one(true), { ...one(false), model: 'b' }] });
+    expect(mixed.map(r => r.target)).toEqual(['model', 'share']);
   });
 });
 
