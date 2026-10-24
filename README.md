@@ -2,7 +2,7 @@
 
 A desktop studio that turns AI concept art into real-time 3D web scenes. One board follows each asset through the pipeline: Concept, Refs, Tripo, Blender, Web, Ship. Everything runs on this machine.
 
-So far: the app shell, onboarding, the toolchain check, workspace config and Settings, an asset Board, the pipeline runner and the model inbox. The Concept lab, the 3D inspector and the MCP server come later.
+So far: the app shell, onboarding, the toolchain check, workspace config and Settings, an asset Board, the pipeline runner, the model inbox, the Concept lab, the Inspector and a built in MCP server for agents.
 
 ## Pipeline runner
 
@@ -13,6 +13,7 @@ Each project keeps its steps in `pipeline.json` (new projects start from the Flo
 - A step is skipped when its input files, script, args and tool version hash to the same key as the last good run (kept under `cache/`). Run from here starts at a step; Ignore the cache reruns everything.
 - One run at a time per project; more runs queue. Runs and their logs (last 5) live in the project's cache folder.
 - The Compress step reads the per model presets (texture size, ETC1S or UASTC, meshopt level). A locked row keeps its values and says why.
+- A running node shows a progress bar when its tool reports how far it is: a script's `progress N/M` or `progress P%` line (with an optional `[tag] ` prefix), Cycles' `Sample N/M` inside the current item, or one finished call of several (Compress runs one chain per model). Otherwise the bar is indeterminate.
 
 ### Starter scripts
 
@@ -41,14 +42,57 @@ The preview stands every model in the same studio: a graphite backdrop, a soft f
 
 Inbox models get a 256 px thumbnail when they arrive, and Board assets get one on Accept and for each new version. A headless Blender job (always `blender -b`, never the GUI) renders the model in the studio above, on the runner's own `thumbnails` lane, so renders queue and never block the UI. Renders are cached by content hash in `cache/thumbs/` and copied to `<project>/thumbs/<asset>_v<n>.png`. When Blender is missing, or cannot read the file (KTX2 textures), the UI draws the model once offscreen with three.js in the same studio and stores that instead. While a render runs, cards and rows show the asset kind's icon.
 
+A compressed model is rendered from an uncompressed copy, because Blender reads neither KTX2 textures nor meshopt geometry. First match wins: the file itself when Blender reads it; else its uncompressed export (`../raw/<name>` next to a `dist` folder, then `raw/<name>`, then the project's `web/raw/<stem>.glb`); else the three.js snapshot above.
+
 Render thumbnails by hand with `cargo run -p maquette-core --example render_thumbnail -- <thumbs dir> <model>...`.
+
+## Concept lab
+
+The Lab turns a brief into concept images with the Codex CLI. A brief is a direction name, a prompt, up to 8 reference images (dropped in, picked from the project's `refs/`, or chosen from a file dialog), an aspect ratio and 1 to 12 images. Each image is one Codex job:
+
+```sh
+codex exec --skip-git-repo-check -s workspace-write -i <ref> -i <ref> -- -
+```
+
+The prompt goes on standard input, starts with "Generate an image." and ends by asking Codex to copy the result out of `~/.codex/generated_images/` to an exact path, `concepts/<direction>/<direction>_NN.png` in the project. `-i` takes several values, so `--` ends the list before the `-` that reads the prompt. Jobs run in the project folder on their own lane, 4 at a time by default (Settings, `lab.concurrency`, up to 8), and each is stopped after `lab.timeoutMinutes` (10). A job succeeds when the file appears. If Codex saved the image but not the copy, the newest image from that Codex session is picked up instead; otherwise the job fails with the last error line of its log.
+
+Results show per direction with Star and Pick and a lightbox (arrow keys, S, P, Escape). Contact sheet tiles every image with ffmpeg into `contact_sheet.png` next to them. Send picks to Refs copies the picked images into `refs/` and moves the asset with the direction's name to Refs on the Board, or adds it there. The brief and marks live in `concepts/<direction>/direction.json`.
+
+`cargo run -p maquette-core --example generate_concept -- <project dir> --direction "Stone lantern" --prompt "..." [--ref refs/a.png] [--count 1]` runs the same jobs from a terminal. Every image spends Codex usage.
+
+## Inspector
+
+The Inspector opens a project's models in the same studio as the preview, with a compare slider that splits one canvas down the middle: the raw export against the shipped build or the site's copy, or two versions of one asset. Both halves share the camera. Camera stops come from the first of these that has any: `stops.json` in the project (`{ "stops": [{ "name", "position": [x, y, z], "target": [x, y, z], "fov": 35 }] }`, glTF coordinates in metres), the `web/posters/stops.json` the Capture posters step writes, or cameras inside the models. The filmstrip eases the camera to a stop and shows its poster when there is one.
+
+The side panel lists the selected model's triangles, textures with size and codec, a GPU memory estimate, the transfer size and its compression preset with any lock note. Budget bars come from the workspace budgets and an optional `budgets.json` in the project (`{ "models": { "character": 1.0 } }`, in MB); models without a row share what is left of the scene budget. The frame time graph measures the renderer (waiting on the GPU every few frames) against the 60 fps line.
+
+## Agents (MCP)
+
+Settings > Agents runs a Model Context Protocol server inside the app, so Claude Code and Codex can drive Maquette. It is off by default, listens on `127.0.0.1` only (port 4791, configurable) at `/mcp` over Streamable HTTP, and wants `Authorization: Bearer <token>`. The token is made the first time the server starts and kept in the app state on this machine, never in the workspace. New token replaces it.
+
+Copy config gives a working setup:
+
+```sh
+claude mcp add --transport http maquette http://127.0.0.1:4791/mcp --header "Authorization: Bearer <token>"
+```
+
+```toml
+# ~/.codex/config.toml
+[mcp_servers.maquette]
+url = "http://127.0.0.1:4791/mcp"
+http_headers = { Authorization = "Bearer <token>" }
+tool_timeout_sec = 150
+```
+
+Tools: `list_projects`, `get_project`, `list_assets`, `get_pipeline`, `get_run` (status and log tail), `list_inbox`, `get_inbox_checks`, `run_pipeline` (optionally from a step, optionally ignoring the cache), `cancel_run`, `accept_inbox_model`, `render_thumbnail` and `start_concepts`. The agent rules hold by construction: Blender only runs headless, no tool opens its window, and there is no screenshot or screen capture tool. With Ask before shipping on, a run started over MCP stops before its Ship step and the app shows an Approve or Deny prompt; until then `run_pipeline` and `get_run` answer `waiting for approval`. Every call shows in the activity list under Settings > Agents.
 
 ## Stack
 
 - **Shell:** Tauri 2 (`apps/desktop`), macOS and Windows
 - **UI:** React 19, Vite, Tailwind CSS v4, zustand (`apps/web`)
 - **Kit:** typed components with a theme generated from `tokens.json`, Phosphor icons, Geist fonts bundled (`packages/ui`)
-- **Core:** Rust domain logic (`crates/maquette-core`): tool detection and `--version` parsing, the `maquette.json` workspace config, projects, assets, the pipeline runner and cache, GLB analysis and the inbox watcher
+- **Core:** Rust domain logic (`crates/maquette-core`): tool detection and `--version` parsing, the `maquette.json` workspace config, projects, assets, the pipeline runner and cache, GLB analysis, the inbox watcher, concept jobs and the inspector's numbers
+- **MCP:** rmcp (the official Rust SDK) served by hyper in the desktop shell
 - **Viewer:** three.js with react-three-fiber for the model preview
 - **IPC:** tauri-specta writes typed bindings to `apps/web/src/ipc/generated/bindings.ts` when `cargo test -p maquette-desktop` runs
 
@@ -73,6 +117,8 @@ Outside Tauri, a dev build answers every command from an in-memory backend (`app
 - `?scenario=no-blender`: Blender missing, so setup stops at the toolchain step
 - `?delay=700`: how long a toolchain check takes, in milliseconds
 - `?pace=260`: milliseconds between streamed log lines in a mock run
+- `?lab=running`: two concept images of the porch direction mid job; `?conceptMs=4000` sets how long a fake image takes
+- `?agents=active`: the MCP server on, with an agent's activity and a run waiting at Ship for approval
 
 The mock runner streams Blender style output and fails Capture posters once. The mock inbox lists a character, two props and a broken download. Its previews load real meshopt and KTX2 models, and the Board and Inbox show real studio thumbnails, all from `apps/web/src/assets/mock` (see the README there: that artwork is reserved and not covered by the repository license). For hand testing a real inbox, `cargo run -p maquette-core --example write_fixtures -- <dir>` writes small generated GLBs.
 
