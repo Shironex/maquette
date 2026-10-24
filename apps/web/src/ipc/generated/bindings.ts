@@ -72,6 +72,11 @@ export const commands = {
 	 */
 	labSendPicks: (project: string, direction: string, kind: AssetKind) => __TAURI_INVOKE<SentPicks>("lab_send_picks", { project, direction, kind }),
 	labImportRefs: (project: string, paths: string[]) => __TAURI_INVOKE<string[]>("lab_import_refs", { project, paths }),
+	/**
+	 *  Reads every model of the project, off the main thread: a large raw
+	 *  export takes a moment to measure.
+	 */
+	inspectProject: (project: string) => __TAURI_INVOKE<InspectView>("inspect_project", { project }),
 };
 
 /** Events */

@@ -8,7 +8,7 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    app, assets, dialogs, inbox, lab, pipeline, project, thumbs, toolchain, workspace,
+    app, assets, dialogs, inbox, inspect, lab, pipeline, project, thumbs, toolchain, workspace,
 };
 use crate::events::{ConceptUpdate, InboxChanged, PipelineUpdate, ThumbnailReady};
 
@@ -65,6 +65,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             lab::lab_contact_sheet,
             lab::lab_send_picks,
             lab::lab_import_refs,
+            inspect::inspect_project,
         ])
         .events(collect_events![
             PipelineUpdate,
@@ -109,6 +110,7 @@ mod tests {
             "thumbnailStore",
             "labGenerate",
             "labSendPicks",
+            "inspectProject",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }

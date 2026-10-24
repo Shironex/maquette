@@ -6,6 +6,7 @@ pub mod assets;
 mod blender;
 pub mod dialogs;
 pub mod inbox;
+pub mod inspect;
 pub mod lab;
 pub mod pipeline;
 pub mod project;
