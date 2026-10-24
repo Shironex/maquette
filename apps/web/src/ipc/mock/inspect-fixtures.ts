@@ -180,7 +180,7 @@ export function inspectView(
     comparisons: [{ id: 'scene', label: 'Scene', kind: 'scene', sides: [v6, v7] }],
     stops: { source: 'project-file', file: 'stops.json', stops: STOPS },
     budgets,
-    limits: { sceneMb, trisPerModel },
+    limits: { sceneMb, trisPerModel, firstViewMb: 3 },
     scene: {
       bytes: MEASURED.reduce((s, m) => s + m.bytes, 0),
       triangles: MEASURED.reduce((s, m) => s + m.triangles, 0),

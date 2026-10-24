@@ -11,6 +11,7 @@ import { DEFAULT_ROOT, HOME, MOCK_PROJECT_IDS } from './fixtures';
 import { PREVIEW_FILE, thumbsDir } from './inbox-fixtures';
 import { conceptFiles, OBJECT_REF_FILES, REF_FILES } from './lab-fixtures';
 import { INSPECT_FILES } from './inspect-fixtures';
+import { LAYOUT_FILES } from './layout';
 import { PROVIDER_REF_FILES } from './providers';
 
 const params = new URLSearchParams(window.location.search);
@@ -59,7 +60,7 @@ for (const [file, model] of Object.entries(PREVIEW_FILE)) {
   const url = models[`../../assets/mock/models/${model}`];
   if (url) registerMockFile(`${root}/inbox/${file}`, url);
 }
-for (const [file, model] of Object.entries(INSPECT_FILES)) {
+for (const [file, model] of Object.entries({ ...INSPECT_FILES, ...LAYOUT_FILES })) {
   const url = models[`../../assets/mock/models/${model}`];
   if (url) registerMockFile(`${root}/projects/moon-island/${file}`, url);
 }

@@ -23,7 +23,7 @@ export function defaultConfig(): WorkspaceConfig {
     version: 1,
     layout: { projects: 'projects', inbox: 'inbox', cache: 'cache' },
     providers: { tripo: tripoPresets(), meshy: meshyPresets() },
-    budgets: { sceneMb: 3, trisPerModel: 60000 },
+    budgets: { sceneMb: 3, trisPerModel: 60000, firstViewMb: 3 },
     compression: { textureSize: '2K', textureCodec: 'etc1s', meshopt: 'medium' },
     agents: {
       mcpEnabled: false,

@@ -7,6 +7,7 @@ import type {
   ProjectSummary,
   WorkspaceSnapshot,
   InspectView,
+  LayoutView,
   PipelineEvent,
   PipelineView,
   ProjectManifest,
@@ -350,5 +351,30 @@ describe('mock presets', () => {
     await expect(
       handle('pipeline_save_presets', { project: 'moon-island', presets: rows })
     ).resolves.toBeTruthy();
+  });
+
+  it('copies an asset under a free name and counts what the first stop sees', async () => {
+    const { handle } = backend('configured');
+    const first = (await handle('layout_get', { project: 'moon-island' })) as LayoutView;
+    expect(first.firstView.stop).toBe('Porch');
+    expect(first.firstView.models.length).toBeGreaterThan(0);
+    expect(first.firstView.targetMb).toBe(3);
+    const copy = async () =>
+      (await handle('asset_copy_to_project', {
+        project: 'moon-island',
+        id: 'character',
+        to: 'rooftop-cinema',
+      })) as { asset: { id: string; name: string; versions: { file: string }[] } };
+    const one = await copy();
+    const two = await copy();
+    expect(one.asset.id).toBe('character');
+    expect(two.asset).toMatchObject({ id: 'character-2', name: 'Character 2' });
+    expect(two.asset.versions[0]!.file).toMatch(/^models\/character_2_v\d+\.glb$/);
+    const source = (await handle('layout_get', { project: 'moon-island' })) as LayoutView;
+    expect(source.models.some(m => m.asset === 'character')).toBe(true);
+    const target = (await handle('layout_get', { project: 'rooftop-cinema' })) as LayoutView;
+    expect(target.models.map(m => m.asset)).toEqual(
+      expect.arrayContaining(['character', 'character-2'])
+    );
   });
 });

@@ -361,6 +361,7 @@ export function pipelineView(
       : [],
     defaults: { textureSize: 2048, codec: 'etc1s', meshopt: 'high' },
     starters: currentStarters(),
+    firstView: { stop: null, custom: false, models: [], bytes: 0, targetMb: 3 },
   };
 }
 

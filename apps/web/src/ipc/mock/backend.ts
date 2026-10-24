@@ -43,6 +43,7 @@ import type {
   StarterStatus,
   RepoInspection,
   RootInspection,
+  SceneLayout,
   ToolId,
   ToolReport,
   WorkspaceConfig,
@@ -68,6 +69,7 @@ import {
 } from './pipeline-fixtures';
 import { createFakeAgents } from './agents';
 import { createFakeLab, refMayReplace } from './lab';
+import { createFakeLayout } from './layout';
 import { createFakeProviders } from './providers';
 import { createFakeRunner, type RunStore } from './runner';
 
@@ -174,6 +176,12 @@ export function createBackend({
   let inbox: InboxItem[] = configured ? inboxItems(`${expand(DEFAULT_ROOT)}/inbox`, now) : [];
   const kinds = new Map<string, AssetKind>();
 
+  const layout = createFakeLayout({
+    project: id => project(id),
+    projectDir: id => `${root ?? expand(DEFAULT_ROOT)}/projects/${id}`,
+    firstViewMb: () => config.budgets.firstViewMb ?? 3,
+  });
+
   function project(id: string): ProjectManifest {
     const found = projects.find(p => p.id === id);
     if (!found) fail('not-found', `Could not find the project ${id}.`);
@@ -201,7 +209,13 @@ export function createBackend({
       runs,
       latest ? (store.logs.get(latest.number) ?? []) : []
     );
-    return { ...base, def, active: activeRun(p.id), starters: startersOf(p.id) };
+    return {
+      ...base,
+      def,
+      active: activeRun(p.id),
+      starters: startersOf(p.id),
+      firstView: layout.firstView(p.id),
+    };
   }
 
   /** Each project's starter scripts; the fixture Moon Island has old ones. */
@@ -528,6 +542,49 @@ export function createBackend({
       });
     },
     asset_open_in_blender: () => fail('unavailable', 'Mock mode does not open Blender.'),
+    asset_copy_to_project: ({ project: id, id: assetId, to }) => {
+      if (id === to) fail('invalid', 'Pick another project to copy the asset to.');
+      const from = project(String(id));
+      const target = project(String(to));
+      const source = (from.assets ?? []).find(a => a.id === assetId);
+      if (!source) fail('not-found', `Could not find the asset ${String(assetId)}.`);
+      const taken = (name: string) =>
+        (target.assets ?? []).some(
+          a => a.id === slugify(name) || slugify(a.name) === slugify(name)
+        );
+      let name = source.name;
+      for (let n = 2; taken(name); n++) name = `${source.name} ${n}`;
+      const newId = slugify(name);
+      const key = newId.replace(/-/g, '_');
+      const oldKey = source.id.replace(/-/g, '_');
+      const dir = (pid: string) => `${root ?? expand(DEFAULT_ROOT)}/projects/${pid}`;
+      const versions = source.versions.map(v => {
+        const file = `models/${key}_v${v.version}.glb`;
+        files?.alias(`${dir(target.id)}/${file}`, `${dir(from.id)}/${v.file}`);
+        return { ...v, file };
+      });
+      const thumbnail = source.thumbnail?.replace(oldKey, key) ?? null;
+      if (source.thumbnail && thumbnail) {
+        files?.alias(`${dir(target.id)}/${thumbnail}`, `${dir(from.id)}/${source.thumbnail}`);
+      }
+      const at = new Date().toISOString();
+      const asset = {
+        ...source,
+        id: newId,
+        name,
+        versions,
+        thumbnail,
+        createdAt: at,
+        updatedAt: at,
+      };
+      const next = saveProject({ ...target, assets: [...(target.assets ?? []), asset] });
+      return { asset, to: next, refs: [] };
+    },
+    layout_get: ({ project: id }) => layout.view(String(id)),
+    layout_save: ({ project: id, layout: next }) => {
+      project(String(id));
+      return layout.save(String(id), next as SceneLayout);
+    },
     pipeline_get: ({ project: id }) => view(String(id)),
     pipeline_run: ({ project: id, from, force }) => {
       const def = view(String(id)).def;
@@ -588,6 +645,7 @@ export function createBackend({
           limits: {
             sceneMb: config.budgets.sceneMb ?? 3,
             trisPerModel: config.budgets.trisPerModel,
+            firstViewMb: config.budgets.firstViewMb ?? 3,
           },
           scene: { bytes: 0, triangles: 0, models: 0 },
         };
