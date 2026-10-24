@@ -69,6 +69,8 @@ interface LabStore {
   /** Copies the picks into refs/; resolves to the asset's id, or null when it failed. */
   /** Copies the picks into refs/. `quiet` skips the toast, for when the Send to 3D panel opens next. */
   sendPicks: (kind: AssetKind, quiet?: boolean) => Promise<string | null>;
+  /** Takes the Pick mark off every picked concept of the selected direction. */
+  clearPicks: () => Promise<void>;
   /** Moves an earlier direction, with its refs and Board card, into another project. */
   moveDirection: (direction: string, to: string) => Promise<boolean>;
   openLightbox: (path: string | null) => void;
@@ -257,6 +259,23 @@ export const useLabStore = create<LabStore>((set, get) => ({
     }
   },
 
+  clearPicks: async () => {
+    const { view, selected } = get();
+    const direction = view?.directions.find(d => d.id === selected);
+    if (!view || !direction) return;
+    try {
+      // One at a time: each mark rewrites the direction's file.
+      for (const image of direction.images.filter(i => i.picked)) {
+        const next = await commands.labMark(view.project, direction.id, image.file, null, false);
+        const latest = get().view;
+        if (latest?.project !== view.project) return;
+        set({ view: withDirection(latest, next) });
+      }
+    } catch (error) {
+      notify('failed', 'Could not clear the picks', errorMessage(error));
+    }
+  },
+
   sendPicks: async (kind, quiet = false) => {
     const view = get().view;
     const selected = get().selected;
@@ -268,6 +287,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
       const latest = get().view;
       if (latest?.project === view.project) set({ view: withDirection(latest, sent.direction) });
       if (stillOn(view.project)) await get().load(view.project);
+      await get().clearPicks();
       const n = sent.copied.length;
       if (!quiet)
         notify(
@@ -389,6 +409,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
       const latest = get().view;
       if (latest?.project === view.project) set({ view: withDirection(latest, sent.direction) });
       if (stillOn(view.project)) await get().load(view.project);
+      await get().clearPicks();
       const n = sent.assets.length;
       if (!quiet)
         notify(
