@@ -1,4 +1,5 @@
-import type { ProjectManifest, ProjectTemplate } from '@/ipc/client';
+import type { ProjectManifest, ProjectSummary, ProjectTemplate } from '@/ipc/client';
+import { fileUrl } from '@/ipc/files';
 import diorama from '@/assets/moon-island.jpg';
 import room from '@/assets/template-room.jpg';
 import character from '@/assets/template-character.jpg';
@@ -10,9 +11,16 @@ const THUMB: Partial<Record<ProjectTemplate, string>> = {
   'character-showcase': character,
 };
 
-/** Until a project has a poster, its template picture stands in. */
-export function projectThumb(project: ProjectManifest): string | undefined {
-  return THUMB[project.template];
+/**
+ * The project's own picture (a poster or a card render) when the list has
+ * one, else its template picture.
+ */
+export function projectThumb(
+  project: Pick<ProjectManifest, 'template'>,
+  summary?: Pick<ProjectSummary, 'dir' | 'thumb'>
+): string | undefined {
+  const own = summary?.thumb ? fileUrl(`${summary.dir}/${summary.thumb}`) : null;
+  return own ?? THUMB[project.template];
 }
 
 /** The switcher subtitle: the site it ships to, else the template. */

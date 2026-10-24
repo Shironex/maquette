@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Logo, NavRail, StatusBar, TrafficLights, cn, type StatusBarItem } from '@maquette/ui';
 import { events } from '@/ipc/generated/bindings';
-import { CHROME } from '@/ipc/runtime';
+import { CHROME, PLATFORM } from '@/ipc/runtime';
+import { readFlag, writeFlag } from '@/lib/storage';
 import { formatAgo } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import { mcpStatusItem } from '@/state/agents';
@@ -12,6 +13,9 @@ import { useLabStore } from '@/state/lab-store';
 import { runStatusLine, runSummary } from '@/state/pipeline';
 import { usePipelineStore } from '@/state/pipeline-store';
 import { useProvidersStore } from '@/state/providers-store';
+import { isSwitcherShortcut, switcherShortcut } from '@/state/projects';
+import { useProjectsStore } from '@/state/projects-store';
+import { NewProjectDialog } from '@/features/project/NewProjectDialog';
 import { ApprovalPrompt } from '@/features/agents/ApprovalPrompt';
 import { BoardView } from '@/features/board/BoardView';
 import { InboxView } from '@/features/inbox/InboxView';
@@ -22,7 +26,11 @@ import { SendPanel } from '@/features/providers/SendPanel';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { PlaceholderView } from '@/features/tools/PlaceholderView';
 import { projectMeta, projectThumb } from './projectArt';
+import { ProjectSwitcherMenu } from './ProjectSwitcherMenu';
 import { SETTINGS_VIEW, TOOL_VIEWS, type ViewId } from './views';
+
+/** Remembers a collapsed rail on this machine. */
+const RAIL_COLLAPSED = 'maquette.rail.collapsed';
 
 export function AppShell() {
   const view = useAppStore(s => s.view);
@@ -36,6 +44,28 @@ export function AppShell() {
     (s.view?.jobs ?? []).some(j => j.state === 'running' || j.state === 'queued')
   );
   useLiveData(projectId, workspace?.root ?? null);
+  const switcher = useRef<HTMLButtonElement>(null);
+  const menuOpen = useProjectsStore(s => s.menuOpen);
+  const toggleMenu = useProjectsStore(s => s.toggleMenu);
+  const summary = useProjectsStore(s => s.list.find(p => p.id === projectId));
+  const [collapsed, setCollapsed] = useState(() => readFlag(RAIL_COLLAPSED));
+  const mac = PLATFORM === 'mac';
+  const shortcut = switcherShortcut(mac);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isSwitcherShortcut(e, mac)) return;
+      // Also keeps the web view from opening its print dialog.
+      e.preventDefault();
+      toggleMenu();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mac, toggleMenu]);
+  const toggleRail = () =>
+    setCollapsed(c => {
+      writeFlag(RAIL_COLLAPSED, !c);
+      return !c;
+    });
 
   const items = TOOL_VIEWS.map(v =>
     v.id === 'inbox' && inboxCount > 0
@@ -52,6 +82,8 @@ export function AppShell() {
         footer={SETTINGS_VIEW}
         value={view}
         onChange={setView}
+        collapsed={collapsed}
+        onToggleCollapsed={toggleRail}
         header={
           <div data-tauri-drag-region>
             <TrafficLights mode={CHROME} />
@@ -69,12 +101,18 @@ export function AppShell() {
         project={
           project
             ? {
+                ref: switcher,
                 name: project.name,
                 meta: projectMeta(project),
-                thumb: projectThumb(project),
-                onClick: () => setView('settings'),
+                thumb: projectThumb(project, summary),
+                expanded: menuOpen,
+                shortcut,
+                onClick: toggleMenu,
               }
             : undefined
+        }
+        projectMenu={
+          <ProjectSwitcherMenu anchorRef={switcher} collapsed={collapsed} shortcut={shortcut} />
         }
       />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -84,6 +122,7 @@ export function AppShell() {
         <ShellStatusBar />
       </div>
       <SendPanel />
+      <NewProjectDialog onClosed={() => switcher.current?.focus()} />
       <ApprovalPrompt />
     </div>
   );
@@ -106,6 +145,11 @@ function useLiveData(projectId: string | null, root: string | null) {
   const loadProviders = useProvidersStore(s => s.load);
   const onProvider = useProvidersStore(s => s.onEvent);
   const loadKeys = useProvidersStore(s => s.loadKeys);
+  const loadProjects = useProjectsStore(s => s.load);
+  useEffect(() => {
+    // The rail shows the open project's own picture from the list.
+    if (root) void loadProjects();
+  }, [root, projectId, loadProjects]);
   useEffect(() => {
     if (projectId) void loadProviders(projectId);
   }, [projectId, loadProviders]);
