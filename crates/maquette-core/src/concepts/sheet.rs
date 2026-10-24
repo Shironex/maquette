@@ -141,6 +141,7 @@ pub fn render(
             meshopt: MeshoptLevel::Medium,
         },
         vars: Default::default(),
+        shipped_names: Default::default(),
         from: None,
         force: true,
     })?;

@@ -518,12 +518,21 @@ pub fn inspect(src: &Sources<'_>) -> InspectView {
                 model: id.clone(),
                 position: [0.0; 3],
             });
+            // A shipped file of a renamed asset carries the new name; its
+            // preset row is still the model file's.
+            let renamed = (source == ModelSource::Shipped)
+                .then(|| crate::assets::for_shipped_stem(src.manifest, &stem))
+                .flatten();
             // An export of an asset version reads as the asset: "clay", v1.
-            let from_asset = crate::assets::for_model_stem(src.manifest, &stem);
+            let from_asset = renamed
+                .as_ref()
+                .map(|(asset, version, _)| (*asset, *version))
+                .or_else(|| crate::assets::for_model_stem(src.manifest, &stem));
+            let model = renamed.map_or_else(|| stem.clone(), |(_, _, raw)| raw);
             entries.push(Entry {
                 id,
-                label: from_asset.map_or_else(|| label_of(&stem), |(a, _)| a.name.clone()),
-                model: stem,
+                label: from_asset.map_or_else(|| label_of(&model), |(a, _)| a.name.clone()),
+                model,
                 source,
                 path: rel(&base, &file),
                 file,

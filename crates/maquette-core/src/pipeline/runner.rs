@@ -4,7 +4,7 @@
 //! Windows (with no console window), so Cancel kills the whole tree. Output
 //! lines stream to a [`RunSink`] as they arrive.
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::ffi::OsString;
 use std::fs;
 use std::io::{BufRead, BufReader, Read};
@@ -27,7 +27,7 @@ use super::history::{
 use super::presets::{compress_passes, resolve};
 use super::progress::Tracker;
 use super::tools::{ResolvedTool, Toolbox};
-use super::{CompressDefaults, PipelineDef, StepDef, StepKind};
+use super::{CompressDefaults, CompressSpec, PipelineDef, StepDef, StepKind};
 use crate::error::{CoreError, CoreResult};
 use crate::toolchain::ToolId;
 
@@ -41,6 +41,13 @@ const PROGRESS_EVERY: Duration = Duration::from_millis(250);
 const UNCHANGED_MESSAGE: &str = "Nothing changed since the last ship, so I did not ask again.";
 
 /// A step's resolved tool and calls, and its cache key.
+/// One model the compress step handles: its file, its stem, and the stem it ships under.
+struct CompressModel {
+    input: PathBuf,
+    stem: String,
+    shipped: String,
+}
+
 struct Prepared {
     tool: ResolvedTool,
     invocations: Vec<Invocation>,
@@ -80,6 +87,9 @@ pub struct RunSetup {
     /// Placeholder values besides `{script}`, `{root}` and `{project}`, for
     /// example `workspace` and `siteRepo`.
     pub vars: BTreeMap<String, String>,
+    /// Model file stem to the stem the compressed file ships under, from
+    /// [`crate::assets::shipped_names`]. A model not listed ships as it is.
+    pub shipped_names: BTreeMap<String, String>,
     pub from: Option<String>,
     pub force: bool,
 }
@@ -845,6 +855,9 @@ impl Execution {
         {
             return StepOutcome::Cached;
         }
+        let last: Vec<PathBuf> = cache::load_record(&self.setup.cache_dir, &step.id)
+            .map(|record| record.outputs.iter().map(|o| root.join(&o.path)).collect())
+            .unwrap_or_default();
         cache::forget(&self.setup.cache_dir, &step.id);
         let started = Instant::now();
         if let Some(spec) = &step.compress {
@@ -852,6 +865,7 @@ impl Execution {
             if let Err(err) = fs::create_dir_all(&dir) {
                 return StepOutcome::Failed(format!("Could not create {}. {err}", spec.to), None);
             }
+            self.drop_stale_outputs(spec, &root, &last);
             if !self.setup.tools.has(ToolId::Toktx) {
                 self.system(
                     Some(&step.id),
@@ -927,8 +941,9 @@ impl Execution {
     fn cache_extra(&self, step: &StepDef) -> Option<String> {
         step.compress.as_ref()?;
         let presets = serde_json::to_string(&self.setup.def.presets).unwrap_or_default();
+        let names = serde_json::to_string(&self.setup.shipped_names).unwrap_or_default();
         Some(format!(
-            "presets {presets} defaults {} {:?} {:?} toktx {}",
+            "presets {presets} defaults {} {:?} {:?} toktx {} names {names}",
             self.setup.defaults.texture_size,
             self.setup.defaults.codec,
             self.setup.defaults.meshopt,
@@ -945,10 +960,7 @@ impl Execution {
                 step.args.iter().map(|a| self.fill(a, step, root)).collect(),
             )]);
         };
-        let models = cache::expand(root, &[format!("{}/*.glb", spec.from)])
-            .into_iter()
-            .flat_map(|(_, files)| files)
-            .collect::<Vec<_>>();
+        let models = self.compress_models(spec, root);
         if models.is_empty() {
             return Err(format!(
                 "There are no GLB files in {} to compress.",
@@ -960,18 +972,83 @@ impl Execution {
         let toktx = self.setup.tools.has(ToolId::Toktx);
         let mut out = Vec::new();
         for model in models {
-            let stem = model
-                .file_stem()
-                .map(|s| s.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            let preset = resolve(&self.setup.def.presets, &stem, self.setup.defaults);
-            let output = root.join(&spec.to).join(format!("{stem}.glb"));
-            let tmp_file = tmp.join(format!("{stem}.tex.glb"));
-            for pass in compress_passes(&model, &output, &tmp_file, &preset, toktx) {
+            // The preset follows the model file; only the output is renamed.
+            let preset = resolve(&self.setup.def.presets, &model.stem, self.setup.defaults);
+            let output = root.join(&spec.to).join(format!("{}.glb", model.shipped));
+            let tmp_file = tmp.join(format!("{}.tex.glb", model.stem));
+            for pass in compress_passes(&model.input, &output, &tmp_file, &preset, toktx) {
                 out.push((Some(pass.label), pass.args));
             }
         }
         Ok(out)
+    }
+
+    /// The models the compress step reads, with the stem each ships under.
+    /// A name taken by another model or an earlier rename keeps the stem.
+    fn compress_models(&self, spec: &CompressSpec, root: &Path) -> Vec<CompressModel> {
+        let inputs: Vec<(PathBuf, String)> = cache::expand(root, &[format!("{}/*.glb", spec.from)])
+            .into_iter()
+            .flat_map(|(_, files)| files)
+            .map(|input| {
+                let stem = input
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                (input, stem)
+            })
+            .collect();
+        let mut taken: BTreeSet<String> =
+            inputs.iter().map(|(_, stem)| stem.to_lowercase()).collect();
+        inputs
+            .into_iter()
+            .map(|(input, stem)| {
+                let shipped = self
+                    .setup
+                    .shipped_names
+                    .get(&stem.to_lowercase())
+                    .filter(|name| taken.insert(name.to_lowercase()))
+                    .cloned()
+                    .unwrap_or_else(|| stem.clone());
+                CompressModel {
+                    input,
+                    stem,
+                    shipped,
+                }
+            })
+            .collect()
+    }
+
+    /// Removes the files an earlier run left under a name this run no longer
+    /// uses, so a renamed model does not ship twice. Only names the pipeline
+    /// could have written are touched: a model file's stem, a name from the
+    /// rename table, or a versioned stem the last run left behind (an asset
+    /// renamed twice).
+    fn drop_stale_outputs(&self, spec: &CompressSpec, root: &Path, last: &[PathBuf]) {
+        let models = self.compress_models(spec, root);
+        let wanted: BTreeSet<String> = models.iter().map(|m| m.shipped.to_lowercase()).collect();
+        let ours: BTreeSet<String> = models
+            .iter()
+            .map(|m| m.stem.to_lowercase())
+            .chain(self.setup.shipped_names.values().map(|n| n.to_lowercase()))
+            .collect();
+        let dir = root.join(&spec.to);
+        let Ok(read) = fs::read_dir(&dir) else { return };
+        for path in read.filter_map(Result::ok).map(|e| e.path()) {
+            let is_glb = path
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("glb"));
+            let stem = path
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
+            let versioned = stem
+                .rsplit_once("_v")
+                .is_some_and(|(_, n)| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()));
+            let left = versioned && last.contains(&path);
+            if is_glb && (ours.contains(&stem) || left) && !wanted.contains(&stem) {
+                let _ = fs::remove_file(&path);
+            }
+        }
     }
 
     fn spawn(
@@ -1174,7 +1251,7 @@ fn read_lines<R: Read + Send + 'static>(
 mod tests {
     use super::*;
     use crate::pipeline::template::character_preset;
-    use crate::pipeline::{CompressSpec, PIPELINE_VERSION};
+    use crate::pipeline::{CompressPreset, CompressSpec, PIPELINE_VERSION};
     use crate::toolchain::HostOs;
     use crate::workspace::{MeshoptLevel, TextureCodec};
 
@@ -1254,6 +1331,7 @@ mod tests {
                 meshopt: MeshoptLevel::High,
             },
             vars: BTreeMap::new(),
+            shipped_names: BTreeMap::new(),
             from: None,
             force: false,
         }
@@ -1795,9 +1873,9 @@ mod tests {
         assert_eq!(shipped, "shipped\nshipped\n");
     }
 
-    #[test]
-    fn compress_expands_presets_into_gltf_transform_calls() {
-        let dir = tempfile::tempdir().expect("tempdir");
+    /// A compress-only pipeline over `web/raw/<model>.glb` files, with a fake
+    /// gltf-transform that logs its args and copies input to output.
+    fn compress_setup(dir: &Path, models: &[&str]) -> RunSetup {
         let step = StepDef {
             id: "compress".into(),
             name: "Compress".into(),
@@ -1813,19 +1891,14 @@ mod tests {
                 to: "web/dist".into(),
             }),
         };
-        let mut s = setup(dir.path(), vec![step]);
-        s.def.presets = vec![character_preset()];
+        let mut s = setup(dir, vec![step]);
         let raw = s.project_dir.join("web/raw");
         fs::create_dir_all(&raw).expect("mkdir");
-        fs::write(raw.join("character.glb"), b"glb").expect("write");
-        fs::write(raw.join("bench.glb"), b"glb").expect("write");
-        // A fake gltf-transform: logs its args and copies input to output.
-        let fake = dir.path().join("gltf-transform");
+        for model in models {
+            fs::write(raw.join(format!("{model}.glb")), b"glb").expect("write");
+        }
+        let fake = dir.join("gltf-transform");
         fs::write(&fake, "#!/bin/sh\necho \"args: $*\"\ncp \"$2\" \"$3\"\n").expect("fake");
-        std::os::unix::fs::PermissionsExt::set_mode(
-            &mut fs::metadata(&fake).expect("meta").permissions(),
-            0o755,
-        );
         let mut perms = fs::metadata(&fake).expect("meta").permissions();
         std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
         fs::set_permissions(&fake, perms).expect("chmod");
@@ -1837,6 +1910,14 @@ mod tests {
                 version: "4.5.1".into(),
             },
         );
+        s
+    }
+
+    #[test]
+    fn compress_expands_presets_into_gltf_transform_calls() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut s = compress_setup(dir.path(), &["character", "bench"]);
+        s.def.presets = vec![character_preset()];
         let sink = Arc::new(Recorder::default());
         let run = PipelineRunner::new(sink.clone())
             .run_blocking(s.clone())
@@ -1859,5 +1940,53 @@ mod tests {
         assert!(calls[1].contains("character.glb") && calls[1].ends_with("--level medium"));
         assert!(lines.iter().any(|l| l.contains("toktx is missing")));
         assert!(s.project_dir.join("web/dist/character.glb").is_file());
+    }
+
+    #[test]
+    fn a_renamed_model_ships_under_its_new_name_and_the_old_file_goes() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut s = compress_setup(dir.path(), &["clay_v1", "bench", "plinth_v1"]);
+        s.def.presets = vec![CompressPreset {
+            model: "clay_v1".into(),
+            label: "Clay".into(),
+            texture_size: 512,
+            codec: TextureCodec::Uastc,
+            meshopt: MeshoptLevel::Low,
+            lock: None,
+        }];
+        // The asset behind clay_v1 is now called "Paper clay". The new name
+        // for plinth_v1 would land on the bench file, so it keeps its own.
+        s.shipped_names = BTreeMap::from([
+            ("clay_v1".to_string(), "paper_clay_v1".to_string()),
+            ("plinth_v1".to_string(), "bench".to_string()),
+        ]);
+        let dist = s.project_dir.join("web/dist");
+        fs::create_dir_all(&dist).expect("mkdir");
+        fs::write(dist.join("clay_v1.glb"), b"old").expect("old");
+        fs::write(dist.join("kept.glb"), b"not ours").expect("kept");
+        let sink = Arc::new(Recorder::default());
+        let runner = PipelineRunner::new(sink.clone());
+        let run = runner.run_blocking(s.clone()).expect("run");
+        assert_eq!(run.state, RunState::Done, "{:?}", sink.lines());
+        let present = |name: &str| dist.join(name).is_file();
+        assert!(present("paper_clay_v1.glb") && present("bench.glb") && present("plinth_v1.glb"));
+        assert!(!present("clay_v1.glb"), "the old name would ship twice");
+        assert!(present("kept.glb"));
+        // The preset still follows the model file.
+        let lines = sink.lines();
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("clay_v1 geometry quantized"))
+        );
+
+        // A rename changes the cache key, so the step runs again.
+        let again = runner.run_blocking(s.clone()).expect("again");
+        assert_eq!(again.steps[0].state, StepState::Cached);
+        s.shipped_names
+            .insert("clay_v1".into(), "tin_clay_v1".into());
+        let renamed = runner.run_blocking(s).expect("renamed");
+        assert_eq!(renamed.steps[0].state, StepState::Done);
+        assert!(present("tin_clay_v1.glb") && !present("paper_clay_v1.glb"));
     }
 }

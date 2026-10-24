@@ -148,6 +148,7 @@ pub(crate) fn view(
             }
         }
     }
+    let shipped_names = maquette_core::assets::shipped_names(&ctx.manifest);
     let mut models: BTreeMap<String, ModelFile> = BTreeMap::new();
     for spec in ctx.def.steps.iter().filter_map(|s| s.compress.as_ref()) {
         for (_, files) in cache::expand(&run_root, &[format!("{}/*.glb", spec.from)]) {
@@ -155,7 +156,13 @@ pub(crate) fn view(
                 let Some(stem) = file.file_stem().map(|s| s.to_string_lossy().into_owned()) else {
                     continue;
                 };
-                let shipped = run_root.join(&spec.to).join(format!("{stem}.glb"));
+                // A renamed asset ships under its new name once the step ran;
+                // until then the old file is what is built.
+                let named = shipped_names.get(&stem.to_lowercase());
+                let shipped = named
+                    .map(|name| run_root.join(&spec.to).join(format!("{name}.glb")))
+                    .filter(|path| path.is_file())
+                    .unwrap_or_else(|| run_root.join(&spec.to).join(format!("{stem}.glb")));
                 models.insert(
                     stem.clone(),
                     ModelFile {
@@ -234,6 +241,7 @@ pub(crate) fn setup(
         def: ctx.def,
         tools,
         vars,
+        shipped_names: maquette_core::assets::shipped_names(&ctx.manifest),
         from,
         force,
     })

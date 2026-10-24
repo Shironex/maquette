@@ -2,6 +2,8 @@
 //! stage it sits in on the Board and its versions. Lives in `project.json`
 //! next to the project manifest.
 
+use std::collections::{BTreeMap, BTreeSet};
+
 use serde::{Deserialize, Serialize};
 
 use crate::error::{CoreError, CoreResult};
@@ -129,6 +131,53 @@ pub fn for_model_stem<'a>(
             .find(|v| stem_of(&v.file).as_deref() == Some(wanted.as_str()))
             .map(|v| (asset, v.version))
     })
+}
+
+fn model_stem(file: &str) -> Option<String> {
+    std::path::Path::new(file)
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_lowercase())
+}
+
+/// What the compressed models ship as: the model file stem to the stem of
+/// the asset's current name plus the version (`lantern_v1` of an asset now
+/// called "Paper lantern" ships as `paper_lantern_v1`). Only versions whose
+/// shipped stem differs from their file stem appear, so a project nobody
+/// renamed ships exactly as before. The version files, the asset id and the
+/// pipeline's raw exports keep their names: cache keys, the presets and the
+/// inbox matches are built on them. A name that would land on another
+/// model's stem keeps the file stem.
+pub fn shipped_names(manifest: &ProjectManifest) -> BTreeMap<String, String> {
+    let versions: Vec<(&Asset, &AssetVersion, String)> = manifest
+        .assets
+        .iter()
+        .flat_map(|a| a.versions.iter().map(move |v| (a, v)))
+        .filter_map(|(a, v)| model_stem(&v.file).map(|stem| (a, v, stem)))
+        .collect();
+    let mut taken: BTreeSet<String> = versions.iter().map(|(_, _, stem)| stem.clone()).collect();
+    let mut out = BTreeMap::new();
+    for (asset, version, stem) in &versions {
+        // The same text the asset id and its version files are made of.
+        let base = slugify(&asset.name).replace('-', "_");
+        let shipped = format!("{base}_v{}", version.version);
+        if &shipped != stem && taken.insert(shipped.clone()) {
+            out.insert(stem.clone(), shipped);
+        }
+    }
+    out
+}
+
+/// The asset and version behind a shipped file stem, with the stem of the
+/// model file it was built from: the reverse of [`shipped_names`].
+pub fn for_shipped_stem<'a>(
+    manifest: &'a ProjectManifest,
+    stem: &str,
+) -> Option<(&'a Asset, u32, String)> {
+    let wanted = stem.to_lowercase();
+    let (model, _) = shipped_names(manifest)
+        .into_iter()
+        .find(|(_, shipped)| *shipped == wanted)?;
+    for_model_stem(manifest, &model).map(|(asset, version)| (asset, version, model))
 }
 
 impl Asset {
@@ -377,6 +426,60 @@ mod tests {
         assert!(add(&mut m, new_asset("  ")).is_err());
         assert!(add(&mut m, new_asset(&"x".repeat(81))).is_err());
         assert_eq!(m.assets.len(), 2);
+    }
+
+    fn with_version(m: &mut ProjectManifest, id: &str, n: u32) {
+        let file = format!("models/{}_v{n}.glb", id.replace('-', "_"));
+        add_version(m, id, file, None).expect("version");
+    }
+
+    #[test]
+    fn a_renamed_asset_ships_under_its_current_name() {
+        let mut m = manifest();
+        let lantern = add(&mut m, new_asset("Lantern")).expect("lantern").id;
+        let rock = add(&mut m, new_asset("Rock")).expect("rock").id;
+        for id in [&lantern, &rock] {
+            with_version(&mut m, id, 1);
+        }
+        with_version(&mut m, &lantern, 2);
+        // Nobody renamed anything: every file ships as it is.
+        assert!(shipped_names(&m).is_empty());
+
+        rename(&mut m, &lantern, "Paper lantern").expect("rename");
+        let names = shipped_names(&m);
+        assert_eq!(
+            names.get("lantern_v1").map(String::as_str),
+            Some("paper_lantern_v1")
+        );
+        assert_eq!(
+            names.get("lantern_v2").map(String::as_str),
+            Some("paper_lantern_v2")
+        );
+        assert!(!names.contains_key("rock_v1"));
+        let (asset, version, raw) = for_shipped_stem(&m, "Paper_Lantern_v2").expect("reverse");
+        assert_eq!(
+            (asset.id.as_str(), version, raw.as_str()),
+            ("lantern", 2, "lantern_v2")
+        );
+        assert!(for_shipped_stem(&m, "lantern_v2").is_none());
+
+        // A name that lands on another model's file keeps its own file name.
+        rename(&mut m, &rock, "Lantern").expect_err("the name is taken");
+        rename(&mut m, &lantern, "Rock").expect_err("the name is taken");
+    }
+
+    #[test]
+    fn a_new_name_never_takes_another_models_stem() {
+        let mut m = manifest();
+        let a = add(&mut m, new_asset("Plinth")).expect("a").id;
+        let b = add(&mut m, new_asset("Plinth base")).expect("b").id;
+        with_version(&mut m, &a, 1);
+        with_version(&mut m, &b, 1);
+        // "Plinth" stays "plinth_v1"; "Plinth base" already is "plinth_base_v1".
+        assert!(shipped_names(&m).is_empty());
+        // The second asset takes a name whose stem is the first one's file.
+        m.assets[1].name = "Plinth".into();
+        assert!(!shipped_names(&m).contains_key("plinth_base_v1"));
     }
 
     #[test]
