@@ -46,7 +46,7 @@ export function PipelineNode({
   return (
     <div
       className={cn(
-        'relative flex min-w-0 flex-col gap-2 rounded-card border border-line bg-raised px-3 pt-[11px] pb-3',
+        '@container relative flex min-w-0 flex-col gap-2 rounded-card border border-line bg-raised px-3 pt-[11px] pb-3',
         state === 'running' && 'border-amber/60 shadow-running',
         state === 'failed' && 'border-danger',
         className
@@ -62,8 +62,11 @@ export function PipelineNode({
         >
           {step}
         </span>
-        <span className="flex-1 truncate font-semibold">{name}</span>
-        {icon ? <Icon name={icon} className="text-fg-dim" /> : null}
+        <span title={name} className="flex-1 truncate font-semibold">
+          {name}
+        </span>
+        {/* A narrow node gives the step name the icon's room. */}
+        {icon ? <Icon name={icon} className="text-fg-dim @max-[11.5rem]:hidden" /> : null}
       </div>
       {script ? (
         <div
