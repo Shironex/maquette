@@ -60,6 +60,8 @@ pub struct InboxItem {
     /// The studio render of the file, once it exists (an absolute path).
     pub thumbnail: Option<String>,
     pub thumbnail_state: ThumbState,
+    /// The Send to 3D this model came from, when its name matches one.
+    pub link: Option<crate::providers::InboxLink>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -236,6 +238,8 @@ fn build_item(
         // The shell asks the thumbnail service; on its own the inbox has none.
         thumbnail: None,
         thumbnail_state: ThumbState::Fallback,
+        // The shell asks the provider jobs, which know the send ids.
+        link: None,
     })
 }
 

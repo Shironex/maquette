@@ -59,6 +59,18 @@ pub fn types() -> specta::Types {
         .register::<providers::PresetVariant>()
         .register::<providers::ModelOption>()
         .register::<providers::ProviderCatalog>()
+        .register::<providers::Provider>()
+        .register::<providers::JobState>()
+        .register::<providers::JobPhase>()
+        .register::<providers::CancelMode>()
+        .register::<providers::ProviderJob>()
+        .register::<providers::SendRequest>()
+        .register::<providers::InboxLink>()
+        .register::<providers::ProviderEvent>()
+        .register::<providers::CardRow>()
+        .register::<providers::HandoffCard>()
+        .register::<providers::KeyStatus>()
+        .register::<providers::KeyTest>()
         .register::<Budgets>()
         .register::<Compression>()
         .register::<TextureCodec>()
@@ -156,6 +168,18 @@ mod tests {
             "PresetVariant",
             "ModelOption",
             "ProviderCatalog",
+            "Provider",
+            "JobState",
+            "JobPhase",
+            "CancelMode",
+            "ProviderJob",
+            "SendRequest",
+            "InboxLink",
+            "ProviderEvent",
+            "CardRow",
+            "HandoffCard",
+            "KeyStatus",
+            "KeyTest",
             "Budgets",
             "Compression",
             "TextureCodec",

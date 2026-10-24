@@ -166,6 +166,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     error: null,
     thumbnail: `${thumbs}/character.webp`,
     thumbnailState: 'ready',
+    link: null,
   };
   const sakura: InboxItem = {
     id: 'sakura_large.glb',
@@ -199,6 +200,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     error: null,
     thumbnail: `${thumbs}/sakura-large.webp`,
     thumbnailState: 'ready',
+    link: null,
   };
   const shrubs: InboxItem = {
     id: 'flower_shrubs.glb',
@@ -243,6 +245,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     error: null,
     thumbnail: `${thumbs}/flower-shrubs.webp`,
     thumbnailState: 'ready',
+    link: null,
   };
   const spire: InboxItem = {
     id: 'far_spire.glb',
@@ -259,6 +262,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     error: 'This is not a glTF model. The file ends early; the download may still be running.',
     thumbnail: null,
     thumbnailState: 'fallback',
+    link: null,
   };
   return [spire, character, sakura, shrubs];
 }

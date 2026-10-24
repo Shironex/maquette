@@ -254,6 +254,25 @@ export type CameraStops = {
 	stops: CameraStopDef[],
 };
 
+/**  What Cancel would do, so the UI can say it before you press it. */
+export type CancelMode = 
+/**  Nothing was sent, so nothing is spent. */
+"free" | 
+/**  Meshy refunds a task that has not started; a started one refuses. */
+"provider" | 
+/**  By hand: stop waiting. */
+"stop-waiting" | 
+/**  Too late: Tripo has no cancel, or the job is over. */
+"none";
+
+/**  One line of the card. */
+export type CardRow = {
+	label: string,
+	value: string,
+	/**  A short hint, for example where the setting hides. */
+	note: string | null,
+};
+
 export type Check = {
 	id: string,
 	status: CheckStatus,
@@ -440,6 +459,20 @@ export type GlbReport = {
 	fingerWeights: FingerWeights | null,
 };
 
+/**  What the By hand panel shows, with a copy button per row. */
+export type HandoffCard = {
+	service: ProviderId,
+	/**  The web app to open. */
+	site: string,
+	/**  "Image to 3D" or "Multiview to 3D". */
+	mode: string,
+	rows: CardRow[],
+	/**  The images in the folder, in upload order (front first). */
+	images: string[],
+	/**  The name to give the GLB when saving it into the inbox. */
+	returnName: string,
+};
+
 export type HostOs = "mac" | "windows" | "linux";
 
 export type ImportScan = {
@@ -479,6 +512,17 @@ export type InboxItem = {
 	/**  The studio render of the file, once it exists (an absolute path). */
 	thumbnail: string | null,
 	thumbnailState: ThumbState,
+	/**  The Send to 3D this model came from, when its name matches one. */
+	link: InboxLink | null,
+};
+
+/**  An inbox model that came from a send. */
+export type InboxLink = {
+	job: string,
+	project: string,
+	asset: string,
+	assetName: string,
+	provider: Provider,
 };
 
 export type InboxSnapshot = {
@@ -541,9 +585,37 @@ export type Islands = {
 
 export type IssueLevel = "error" | "warning";
 
+/**  What the job is doing now. */
+export type JobPhase = "upload" | "generate" | "rig-check" | "rig" | "animate" | "download";
+
+export type JobState = 
+/**  An agent asked; it waits for you before spending credits. */
+"approval" | "queued" | "running" | 
+/**  By hand: waiting for your model. */
+"waiting" | 
+/**  The GLB is in the inbox, linked to the asset. */
+"inbox" | "accepted" | "failed" | "cancelled";
+
 export type JointCount = {
 	name: string,
 	vertices: number,
+};
+
+/**  What Settings shows for one key. */
+export type KeyStatus = {
+	service: ProviderId,
+	saved: boolean,
+	/**  The last four characters of the saved key. */
+	tail: string | null,
+};
+
+/**  What Test key found. */
+export type KeyTest = {
+	service: ProviderId,
+	ok: boolean,
+	/**  Credits left, when the key works. */
+	balance: number | null,
+	message: string,
 };
 
 /**  The Concept lab's Codex jobs. */
@@ -833,6 +905,9 @@ export type ProjectManifest = {
 
 export type ProjectTemplate = "floating-diorama" | "room" | "character-showcase" | "imported";
 
+/**  How a model gets made. */
+export type Provider = "tripo" | "meshy" | "by-hand";
+
 /**  Everything the send panel and Settings offer. */
 export type ProviderCatalog = {
 	tripoModels: ModelOption[],
@@ -842,8 +917,50 @@ export type ProviderCatalog = {
 	meshyModels: ModelOption[],
 };
 
+export type ProviderEvent = { type: "job"; job: ProviderJob } | 
+/**  An asset moved or changed status. */
+{ type: "project"; project: ProjectManifest };
+
 /**  The two services Maquette can call. */
 export type ProviderId = "tripo" | "meshy";
+
+export type ProviderJob = {
+	/**  `<asset id>-<n>`, also the handoff folder and the inbox file name. */
+	id: string,
+	project: string,
+	asset: string,
+	assetName: string,
+	provider: Provider,
+	/**  The service whose settings it uses (for By hand, whose web app). */
+	service: ProviderId,
+	variant: PresetVariant,
+	/**  Input images, relative to the project folder, front first. */
+	images: string[],
+	tripo: TripoPreset | null,
+	meshy: MeshyPreset | null,
+	state: JobState,
+	phase: JobPhase | null,
+	/**  0 to 1. */
+	progress: number | null,
+	/**  The provider's id of the current task. */
+	remoteId: string | null,
+	/**  Credits the provider reported, summed over the chain. */
+	credits: number | null,
+	createdAtMs: number | null,
+	startedAtMs: number | null,
+	finishedAtMs: number | null,
+	/**  Why it failed or stopped, or a note on how it went. */
+	message: string | null,
+	/**  The file name in the inbox once the model is there. */
+	inboxFile: string | null,
+	/**  By hand: the handoff folder (absolute). */
+	handoff: string | null,
+	card: HandoffCard | null,
+	/**  The asset version it became. */
+	version: number | null,
+	viaAgent: boolean,
+	cancel: CancelMode,
+};
 
 /**
  *  The "3D providers" section of the workspace config. The API keys are
@@ -908,6 +1025,21 @@ export type SceneTotal = {
 	bytes: number | null,
 	triangles: number,
 	models: number,
+};
+
+/**  What a Send to 3D asks for. */
+export type SendRequest = {
+	project: string,
+	asset: string,
+	provider: Provider,
+	/**  For By hand: whose web app and settings. Ignored otherwise. */
+	service: ProviderId,
+	variant: PresetVariant,
+	/**  Relative to the project folder, front first, at most 4. */
+	images: string[],
+	/**  This send's settings; `None` takes the saved preset. */
+	tripo: TripoPreset | null,
+	meshy: MeshyPreset | null,
 };
 
 /**  What Send picks to Refs did. */

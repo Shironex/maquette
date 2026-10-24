@@ -319,7 +319,7 @@ pub fn meshy_problem(preset: &MeshyPreset) -> Option<String> {
 }
 
 /// 20000 becomes "20,000".
-fn group(n: u32) -> String {
+pub(crate) fn group(n: u32) -> String {
     let digits = n.to_string();
     let mut out = String::new();
     for (i, c) in digits.chars().enumerate() {
