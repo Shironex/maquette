@@ -11,7 +11,10 @@ A camera is a stop when either is true:
 - its name starts with "stop_" or "Stop " (for example "stop_01_porch").
 Each stop renders to <out>/<camera name in snake case>.png at the scene's
 resolution, in Cycles by default. --out always gets stops.json listing the
-stops in order.
+stops in order; the posters the previous stops.json listed are removed
+first. The Build scene step makes these cameras from the stops of the scene
+layout; their "maquette_stop_name" property becomes the entry's "label", so
+the Inspector shows "3D model" rather than "3d model".
 
 A scene without stops still gets one poster: a temporary camera is fitted to
 the bounds of everything visible, at a three quarter view from above, and
@@ -36,6 +39,7 @@ import bpy
 from mathutils import Vector
 
 TAG = "maquette_stop"
+LABEL = "maquette_stop_name"
 
 
 def log(message):
@@ -167,12 +171,31 @@ def render(scene, camera, args, name):
     scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
     log(f"rendered {camera.name} to {os.path.join(args.out, name + '.png')}")
-    return {"camera": camera.name, "file": f"{name}.png", **view(camera, scene)}
+    entry = {"camera": camera.name, "file": f"{name}.png", **view(camera, scene)}
+    label = camera.get(LABEL)
+    if isinstance(label, str) and label.strip():
+        entry["label"] = label
+    return entry
+
+
+def remove_old_posters(out):
+    """Removes the posters the last run listed, so a renamed or removed stop leaves none behind."""
+    try:
+        with open(os.path.join(out, "stops.json"), encoding="utf-8") as fh:
+            old = json.load(fh).get("stops", [])
+    except (OSError, ValueError, AttributeError):
+        return
+    for entry in old:
+        name = entry.get("file") if isinstance(entry, dict) else None
+        path = os.path.join(out, name) if isinstance(name, str) else None
+        if path and os.path.basename(name) == name and name.endswith(".png") and os.path.isfile(path):
+            os.remove(path)
 
 
 def main():
     args = parse_args()
     os.makedirs(args.out, exist_ok=True)
+    remove_old_posters(args.out)
     scene = bpy.context.scene
     cameras = stops(scene)
     written = []

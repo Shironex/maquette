@@ -38,6 +38,10 @@ const OLDER: &[(&str, &str)] = &[
         "27e68367ae83272ee3f0e4336a1480163e5be43beb437e70f36e601086c6f604",
     ),
     (
+        "tools/build_scene.py",
+        "b8c2b636ab7cab77f608d05d1698bff31af8d583822bb27e05f078d989af2b6c",
+    ),
+    (
         "tools/export_character.py",
         "a450a138b62489b9bb6ffc848392de75bc3539460cd275a181f88e986b20e054",
     ),
@@ -52,6 +56,10 @@ const OLDER: &[(&str, &str)] = &[
     (
         "tools/render_stops.py",
         "3a2b36c2f21d269a6d106570f05accb637a07ebe69e42092258e76457f6e220e",
+    ),
+    (
+        "tools/render_stops.py",
+        "ecadad4a5df2499ade7cb3c5eb50a2f18669cc95a389cc171cb74ef4b7c396d1",
     ),
 ];
 
@@ -348,6 +356,21 @@ mod tests {
         assert!(text.contains("remove_camera(camera)"));
         // The temporary camera must not end up in the user's blend.
         assert!(!text.contains("save_mainfile") && !text.contains("save_as_mainfile"));
+    }
+
+    #[test]
+    fn the_build_places_models_from_the_layout_and_posters_keep_its_names() {
+        let build = BUILD_SCENE.text;
+        assert!(build.contains("--layout"));
+        assert!(build.contains("layout.json"));
+        assert!(build.contains("def place(collection, placement)"));
+        assert!(build.contains("def add_stops(scene, stops)"));
+        assert!(build.contains("\"maquette_stop_name\""));
+        // Cameras the user placed in the base blend win over the layout's.
+        assert!(build.contains("own_stops(scene)"));
+        let posters = RENDER_STOPS.text;
+        assert!(posters.contains("LABEL = \"maquette_stop_name\""));
+        assert!(posters.contains("entry[\"label\"]"));
     }
 
     #[test]
