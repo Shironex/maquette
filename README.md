@@ -4,6 +4,14 @@ A desktop studio that turns AI concept art into real-time 3D web scenes. One boa
 
 So far: the app shell, onboarding, the toolchain check, workspace config and Settings, an asset Board, the pipeline runner, the model inbox, the Concept lab, Send to 3D (Tripo, Meshy or by hand), the Inspector and a built in MCP server for agents.
 
+## Projects
+
+A workspace holds any number of projects. The project switcher at the top of the rail (or Cmd+P on macOS, Ctrl+P on Windows and Linux) opens a menu of them with their picture, template, asset count and age; the open one is checked, and a search field shows once there are more than six. Arrow keys move, Enter opens, Escape closes. New project opens the onboarding project form in a dialog (template, name, target site repo) and Import folder the import form. The open project is saved as `currentProject` in `maquette.json`.
+
+Switching starts every view of the new project clean: Board, Lab, Pipeline, Inspector, the 3D queue and the status bar. Runs, Lab images and provider jobs keep going in the project they belong to, and the menu says what is still running there. The Inbox is shared by the whole workspace: a model sent from another project names that project under Sent for, and Accept moves it into the project it was sent for. The rail collapses to icons (Collapse at its foot); the switcher and its menu work there too.
+
+In the Lab, an earlier direction's menu has Move to project..., which moves its folder (concepts, picks, stars and brief) into another project. The refs it sent and its Board card go along when the card has no model yet; a card with models, or one with a send under way, stays where it is.
+
 ## Pipeline runner
 
 Each project keeps its steps in `pipeline.json` (new projects start from the Floating diorama template: Build, Bake light, Export GLB, Compress, Capture posters, Ship). A step has an `id`, a `kind` (`blender`, `shell`, `gltf-transform`, `toktx`, `ffmpeg`), a script or command, an args array, `inputs` and `outputs` globs and `depends_on`.
@@ -12,12 +20,14 @@ Each project keeps its steps in `pipeline.json` (new projects start from the Flo
 - Blender always runs in the background: a `blender` step without `-b` is refused. The only time Maquette opens Blender's window is when you click Open in Blender.
 - A step is skipped when its input files, script, args and tool version hash to the same key as the last good run (kept under `cache/`). Run from here starts at a step; Ignore the cache reruns everything.
 - One run at a time per project; more runs queue. Runs and their logs (last 5) live in the project's cache folder.
-- The Compress step reads the per model presets (texture size, ETC1S or UASTC, meshopt level). A locked row keeps its values and says why.
+- The Compress step reads the per model presets (texture size, ETC1S or UASTC, meshopt level). A locked row keeps its values and says why. A scene project gets the locked character row only once it has a character asset; a Character showcase starts with it. Rows read as the asset a model was exported from (`clay_v1.glb` is "clay").
 - A running node shows a progress bar when its tool reports how far it is: a script's `progress N/M` or `progress P%` line (with an optional `[tag] ` prefix), Cycles' `Sample N/M` inside the current item, or one finished call of several (Compress runs one chain per model). Otherwise the bar is indeterminate.
 
 ### Starter scripts
 
-A new project gets small, commented scripts in its `tools/` folder when its pipeline is first written, so it runs end to end on day one. They read their paths from args and are the project's to edit; Maquette never writes over a file that exists.
+A new project gets small, commented scripts in its `tools/` folder when its pipeline is first written, so it runs end to end on day one. They read their paths from args and are the project's to edit; Maquette never writes over a file that exists on its own.
+
+`tools/.starter.json` records the hash of every starter Maquette wrote, so a later version can tell an untouched copy of an older starter from one you edited (scripts from before that record are matched against the known older starters). When newer starters ship, the Pipeline view says New starter scripts available and Update brings the untouched ones up to date in one go. An edited script is never overwritten silently: it shows as edited, with Replace with the new starter (your file is kept as `<name>.py.bak`) or Keep mine.
 
 - `build_scene.py`: opens `blender/scene.blend` when there is one (else an empty scene with a sun), imports each `models/*.glb` into its own collection under "Models", lays overlapping models out side by side and saves `blender/scene_built.blend`.
 - `bake_light.py`: gives every mesh outside "Studio" a second UV named `lightmap` (Smart UV Project when it is missing) and bakes Cycles diffuse light (direct and indirect, or the full look with `--type combined`) into one `blender/bake/<object>_light.png` per object, on the CPU. The defaults are quick (`--size 512 --samples 16`); raise them on the step's args for a final bake. Each map stores light divided by a scale of at least 1; `bake.json` lists every object's file, size and scale. It prints `progress N/M` per object and saves `blender/scene_baked.blend`. A scene without meshes writes `"baked": false` and passes.
@@ -96,7 +106,7 @@ http_headers = { Authorization = "Bearer <token>" }
 tool_timeout_sec = 150
 ```
 
-Tools: `list_projects`, `get_project`, `list_assets`, `get_pipeline`, `get_run` (status and log tail), `list_inbox`, `get_inbox_checks`, `run_pipeline` (optionally from a step, optionally ignoring the cache), `cancel_run`, `accept_inbox_model` (defaults to the asset the model was sent for), `render_thumbnail`, `start_concepts`, `get_concepts` (a direction's images, stars, picks and job states), `send_to_3d` and `get_provider_job`. The agent rules hold by construction: Blender only runs headless, no tool opens its window, and there is no screenshot or screen capture tool. With Ask before shipping on, a run started over MCP stops before its Ship step and the app shows an Approve or Deny prompt; until then `run_pipeline` and `get_run` answer `waiting for approval`. A run whose Ship step would come from the cache does not ask. `send_to_3d` to Tripo or Meshy always waits for Approve in the app before any credit is spent, whatever that setting says, and Deny cancels the job; By hand spends nothing, so it writes the handoff folder straight away. Settings overrides are checked by name and an unknown one is refused with the valid list. Every call shows in the activity list under Settings > Agents.
+Tools: `list_projects` (each project's id, name, template, site repo, created date, asset count, picture, what runs in it and which one is open in the app), `get_project`, `list_assets`, `get_pipeline`, `get_run` (status and log tail), `list_inbox`, `get_inbox_checks`, `run_pipeline` (optionally from a step, optionally ignoring the cache), `cancel_run`, `accept_inbox_model` (defaults to the asset the model was sent for), `render_thumbnail`, `start_concepts`, `get_concepts` (a direction's images, stars, picks and job states), `send_to_3d` and `get_provider_job`. The agent rules hold by construction: Blender only runs headless, no tool opens its window, and there is no screenshot or screen capture tool. With Ask before shipping on, a run started over MCP stops before its Ship step and the app shows an Approve or Deny prompt; until then `run_pipeline` and `get_run` answer `waiting for approval`. A run whose Ship step would come from the cache does not ask. `send_to_3d` to Tripo or Meshy always waits for Approve in the app before any credit is spent, whatever that setting says, and Deny cancels the job; By hand spends nothing, so it writes the handoff folder straight away. Settings overrides are checked by name and an unknown one is refused with the valid list. Tools that work on a project take its id as `project`; none of them changes the project open in the app. Every call shows in the activity list under Settings > Agents.
 
 ## Stack
 
@@ -131,6 +141,7 @@ Outside Tauri, a dev build answers every command from an in-memory backend (`app
 - `?pace=260`: milliseconds between streamed log lines in a mock run
 - `?lab=running`: two concept images of the porch direction mid job; `?conceptMs=4000` sets how long a fake image takes
 - `?agents=active`: the MCP server on, with an agent's activity, a run waiting at Ship and a Send to 3D waiting for approval
+- `?projects=many`: eight projects instead of three (Moon Island, Rooftop cinema, Lantern keeper), so the switcher shows its search field
 
 Configured scenarios also open with fake provider jobs: Sakura generating at Tripo, Stone lanterns waiting for a model by hand, Far spire failed at Meshy for credits, and Character accepted. Only the Tripo key is saved. New sends move along on timers; nothing is sent anywhere.
 
