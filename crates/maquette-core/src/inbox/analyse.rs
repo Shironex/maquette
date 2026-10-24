@@ -184,7 +184,14 @@ pub fn analyse_bytes(bytes: &[u8], base: &Path) -> CoreResult<GlbReport> {
                 _ => 0,
             };
             let bb = prim.bounding_box();
-            for corner in corners(bb.min, bb.max) {
+            // Quantized positions (KHR_mesh_quantization) store normalized
+            // integers, and their min and max are in those integer units.
+            let unit = prim
+                .get(&gltf::Semantic::Positions)
+                .filter(gltf::Accessor::normalized)
+                .map_or(1.0, |a| normalized_max(a.data_type()));
+            let scaled = |v: [f32; 3]| [v[0] / unit, v[1] / unit, v[2] / unit];
+            for corner in corners(scaled(bb.min), scaled(bb.max)) {
                 bounds.add(math::point(&world, corner));
             }
             if !compressed && prim.mode() == Mode::Triangles {
@@ -252,6 +259,19 @@ pub fn analyse_bytes(bytes: &[u8], base: &Path) -> CoreResult<GlbReport> {
         islands,
         finger_weights,
     })
+}
+
+/// The largest stored value of a normalized integer type, which reads 1.0.
+fn normalized_max(kind: gltf::accessor::DataType) -> f32 {
+    use gltf::accessor::DataType;
+    match kind {
+        DataType::I8 => 127.0,
+        DataType::U8 => 255.0,
+        DataType::I16 => 32767.0,
+        DataType::U16 => 65535.0,
+        DataType::U32 => 4_294_967_295.0,
+        DataType::F32 => 1.0,
+    }
 }
 
 fn count(n: usize) -> u32 {
@@ -736,6 +756,28 @@ mod tests {
 
     fn report(bytes: &[u8]) -> GlbReport {
         analyse_bytes(bytes, Path::new(".")).expect("analyse")
+    }
+
+    #[test]
+    fn quantized_positions_measure_in_metres() {
+        // A normalized int16 position accessor, as KHR_mesh_quantization
+        // writes it, on a node scaled by two: the bounds are 2 m wide.
+        let json = serde_json::json!({
+            "asset": { "version": "2.0" },
+            "extensionsUsed": ["KHR_mesh_quantization", "EXT_meshopt_compression"],
+            "scene": 0,
+            "scenes": [{ "nodes": [0] }],
+            "nodes": [{ "mesh": 0, "scale": [2.0, 2.0, 2.0] }],
+            "meshes": [{ "primitives": [{ "attributes": { "POSITION": 0 } }] }],
+            "accessors": [{
+                "componentType": 5122, "normalized": true, "count": 3, "type": "VEC3",
+                "min": [-16384, 0, 0], "max": [16384, 32767, 0],
+            }],
+        });
+        let r = report(&serde_json::to_vec(&json).expect("json"));
+        let [x, y, _] = r.size;
+        assert!((x - 2.0).abs() < 1e-3, "width {x}");
+        assert!((y - 2.0).abs() < 1e-3, "height {y}");
     }
 
     #[test]
