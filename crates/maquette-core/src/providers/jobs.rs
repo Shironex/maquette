@@ -468,6 +468,24 @@ impl ProviderJobs {
         pump(&self.shared);
     }
 
+    /// A saved config change (presets, folder names) for later sends.
+    pub fn set_config(&self, config: &WorkspaceConfig) {
+        if let Some(workspace) = self
+            .shared
+            .workspace
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .as_mut()
+        {
+            workspace.config = config.clone();
+        }
+    }
+
+    /// The open workspace's root, if any.
+    pub fn root(&self) -> Option<PathBuf> {
+        self.shared.workspace().map(|w| w.root)
+    }
+
     /// Stops every polling thread, keeping the saved state. For app exit
     /// and workspace switches.
     pub fn close(&self) {
