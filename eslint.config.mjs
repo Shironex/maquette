@@ -74,6 +74,7 @@ export default defineConfig(
       '**/generated/**',
       'apps/desktop/src-tauri/gen/**',
       'packages/ui/src/icons/paths.ts',
+      'apps/web/public/basis/**',
     ],
   }
 );

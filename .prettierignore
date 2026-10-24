@@ -14,3 +14,6 @@ apps/web/src/ipc/generated/
 packages/ui/src/icons/paths.ts
 packages/ui/src/styles/theme.css
 packages/ui/src/lib/theme-names.ts
+
+# three.js's Basis transcoder for KTX2 textures, copied as shipped.
+apps/web/public/basis/

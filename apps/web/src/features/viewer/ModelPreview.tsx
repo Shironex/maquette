@@ -1,15 +1,24 @@
 /**
- * A 3D preview of one GLB or glTF file: shaded, wireframe, a UV checker or
- * the skeleton, with orbit and zoom. The Inbox uses it today and the
- * Inspector will reuse it. Loaded lazily, so three.js stays out of the
- * first bundle.
+ * A 3D preview of one GLB or glTF file in the studio (see `studio.ts`):
+ * shaded, a wireframe over flat clay, a UV checker, or the skeleton drawn in
+ * clay over a ghost of the mesh, with orbit and zoom. Reads meshopt geometry
+ * and KTX2 textures. The Inbox uses it today and the Inspector will reuse it.
+ * Loaded lazily, so three.js stays out of the first bundle.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import {
+  BACKDROP,
+  CLAY,
+  castShadows,
+  frameCamera,
+  gltfLoader,
+  standOnFloor,
+  studioRig,
+  type Framing,
+} from './studio';
 
 export type PreviewMode = 'shaded' | 'wireframe' | 'uv' | 'bones';
 
@@ -53,10 +62,11 @@ function checkerTexture(): THREE.CanvasTexture {
 interface Loaded {
   scene: THREE.Group;
   originals: Map<THREE.Mesh, THREE.Material | THREE.Material[]>;
-  skeleton: THREE.SkeletonHelper | null;
+  bones: THREE.Bone[];
 }
 
 function useModel(url: string | null, onError?: (message: string) => void): Loaded | null {
+  const gl = useThree(s => s.gl);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   useEffect(() => {
     if (!url) {
@@ -64,25 +74,22 @@ function useModel(url: string | null, onError?: (message: string) => void): Load
       return;
     }
     let alive = true;
-    const loader = new GLTFLoader();
-    loader.setMeshoptDecoder(MeshoptDecoder);
-    loader.load(
+    gltfLoader(gl).load(
       url,
       gltf => {
         if (!alive) return;
         const scene = gltf.scene;
         const originals = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
-        let hasBones = false;
+        const bones: THREE.Bone[] = [];
         scene.traverse(obj => {
           if ((obj as THREE.Mesh).isMesh) {
             const mesh = obj as THREE.Mesh;
             originals.set(mesh, mesh.material);
-            mesh.castShadow = true;
           }
-          if ((obj as THREE.Bone).isBone) hasBones = true;
+          if ((obj as THREE.Bone).isBone) bones.push(obj as THREE.Bone);
         });
-        const skeleton = hasBones ? new THREE.SkeletonHelper(scene) : null;
-        setLoaded({ scene, originals, skeleton });
+        castShadows(scene);
+        setLoaded({ scene, originals, bones });
       },
       undefined,
       err => {
@@ -94,7 +101,7 @@ function useModel(url: string | null, onError?: (message: string) => void): Load
     };
     // onError is a callback prop; reloading on its identity would refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url]);
+  }, [url, gl]);
   return loaded;
 }
 
@@ -121,74 +128,219 @@ function Controls({ turntable, target }: { turntable: boolean; target: THREE.Vec
   return null;
 }
 
-function Fit({
-  object,
-  onFit,
-}: {
-  object: THREE.Object3D;
-  onFit: (target: THREE.Vector3) => void;
-}) {
-  const camera = useThree(s => s.camera) as THREE.PerspectiveCamera;
-  useEffect(() => {
-    const box = new THREE.Box3().setFromObject(object);
-    if (box.isEmpty()) return;
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    // Stand the model on the floor and centre it.
-    object.position.sub(new THREE.Vector3(center.x, box.min.y, center.z));
-    const radius = Math.max(size.x, size.y, size.z) * 0.5 || 1;
-    const distance = (radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.05;
-    camera.position.set(distance * 0.45, size.y * 0.55 + radius * 0.25, distance * 0.9);
-    camera.near = distance / 100;
-    camera.far = distance * 100;
-    camera.lookAt(0, size.y * 0.45, 0);
-    camera.updateProjectionMatrix();
-    onFit(new THREE.Vector3(0, size.y * 0.45, 0));
-  }, [object, camera, onFit]);
-  return null;
+/** A copy of `mesh` drawn with `material`, deforming with it if it is skinned. */
+function overlayOf(mesh: THREE.Mesh, material: THREE.Material): THREE.Mesh {
+  if ((mesh as THREE.SkinnedMesh).isSkinnedMesh) {
+    const skinned = mesh as THREE.SkinnedMesh;
+    const copy = new THREE.SkinnedMesh(skinned.geometry, material);
+    copy.bindMode = skinned.bindMode;
+    copy.bind(skinned.skeleton, skinned.bindMatrix);
+    return copy;
+  }
+  return new THREE.Mesh(mesh.geometry, material);
 }
 
-function Model({
-  loaded,
-  mode,
-  onFit,
-}: {
-  loaded: Loaded;
-  mode: PreviewMode;
-  onFit: (target: THREE.Vector3) => void;
-}) {
+function Model({ loaded, mode }: { loaded: Loaded; mode: PreviewMode }) {
   const checker = useMemo(() => checkerTexture(), []);
   useEffect(() => {
-    const swapped: THREE.Material[] = [];
+    const made: THREE.Material[] = [];
+    const overlays: THREE.Mesh[] = [];
+    const keep = <T extends THREE.Material>(m: T): T => {
+      made.push(m);
+      return m;
+    };
+    // Wireframe: flat clay pushed back a little, with the edges drawn over it.
+    const clay =
+      mode === 'wireframe'
+        ? keep(
+            new THREE.MeshStandardMaterial({
+              color: '#6b645a',
+              roughness: 0.95,
+              polygonOffset: true,
+              polygonOffsetFactor: 1,
+              polygonOffsetUnits: 1,
+            })
+          )
+        : null;
+    const wire =
+      mode === 'wireframe'
+        ? keep(
+            new THREE.MeshBasicMaterial({
+              color: '#f1e4d6',
+              wireframe: true,
+              transparent: true,
+              opacity: 0.38,
+            })
+          )
+        : null;
+    const ghost =
+      mode === 'bones'
+        ? keep(
+            new THREE.MeshStandardMaterial({
+              color: '#a39d93',
+              roughness: 0.9,
+              transparent: true,
+              opacity: 0.22,
+              depthWrite: false,
+            })
+          )
+        : null;
+    const uv =
+      mode === 'uv' ? keep(new THREE.MeshStandardMaterial({ map: checker, roughness: 0.9 })) : null;
     for (const [mesh, original] of loaded.originals) {
-      const list = Array.isArray(original) ? original : [original];
-      if (mode === 'shaded') {
-        mesh.material = original;
-        continue;
+      const replacement = clay ?? ghost ?? uv;
+      mesh.material = replacement ?? original;
+      mesh.castShadow = mode !== 'bones';
+      if (wire) {
+        const overlay = overlayOf(mesh, wire);
+        overlay.castShadow = false;
+        mesh.add(overlay);
+        overlays.push(overlay);
       }
-      const next = list.map(m => {
-        if (mode === 'uv') {
-          return new THREE.MeshStandardMaterial({ map: checker, roughness: 0.9 });
-        }
-        const copy = m.clone() as THREE.MeshStandardMaterial;
-        if (mode === 'wireframe') copy.wireframe = true;
-        if (mode === 'bones') {
-          copy.transparent = true;
-          copy.opacity = 0.35;
-          copy.depthWrite = false;
-        }
-        return copy;
-      });
-      swapped.push(...next);
-      mesh.material = Array.isArray(original) ? next : (next[0] ?? original);
     }
-    return () => swapped.forEach(m => m.dispose());
+    return () => {
+      for (const overlay of overlays) overlay.removeFromParent();
+      for (const [mesh, original] of loaded.originals) mesh.material = original;
+      made.forEach(m => m.dispose());
+    };
   }, [loaded, mode, checker]);
+  return <primitive object={loaded.scene} />;
+}
+
+/**
+ * The skeleton in clay: a tapered strut from each bone to its parent and a
+ * ball per joint, drawn over the ghosted mesh. Sized to the model so it reads
+ * at any scale, and re-posed every frame so it follows animation.
+ */
+function Skeleton({ bones, extent }: { bones: THREE.Bone[]; extent: number }) {
+  const { struts, joints, pairs } = useMemo(() => {
+    const pairs = bones.filter(b => (b.parent as THREE.Bone | null)?.isBone);
+    const material = new THREE.MeshBasicMaterial({
+      color: CLAY,
+      depthTest: false,
+      transparent: true,
+      opacity: 0.95,
+    });
+    const jointMaterial = new THREE.MeshBasicMaterial({
+      color: '#f3c9b3',
+      depthTest: false,
+      transparent: true,
+    });
+    // A unit strut along +Y from 0 to 1, wide at the parent end.
+    const strut = new THREE.CylinderGeometry(0.35, 1, 1, 6, 1);
+    strut.translate(0, 0.5, 0);
+    const struts = new THREE.InstancedMesh(strut, material, Math.max(pairs.length, 1));
+    const joints = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(1, 10, 8),
+      jointMaterial,
+      Math.max(bones.length, 1)
+    );
+    struts.count = pairs.length;
+    joints.count = bones.length;
+    struts.renderOrder = 10;
+    joints.renderOrder = 11;
+    struts.frustumCulled = false;
+    joints.frustumCulled = false;
+    return { struts, joints, pairs };
+  }, [bones]);
+  useEffect(
+    () => () => {
+      for (const o of [struts, joints]) {
+        o.geometry.dispose();
+        (o.material as THREE.Material).dispose();
+        o.dispose();
+      }
+    },
+    [struts, joints]
+  );
+  const scratch = useMemo(
+    () => ({
+      from: new THREE.Vector3(),
+      to: new THREE.Vector3(),
+      dir: new THREE.Vector3(),
+      up: new THREE.Vector3(0, 1, 0),
+      turn: new THREE.Quaternion(),
+      size: new THREE.Vector3(),
+      matrix: new THREE.Matrix4(),
+    }),
+    []
+  );
+  useFrame(() => {
+    const { from, to, dir, up, turn, size, matrix } = scratch;
+    const width = extent * 0.006;
+    pairs.forEach((bone, i) => {
+      (bone.parent as THREE.Object3D).getWorldPosition(from);
+      bone.getWorldPosition(to);
+      dir.subVectors(to, from);
+      const length = dir.length();
+      if (length > 1e-6) turn.setFromUnitVectors(up, dir.divideScalar(length));
+      size.set(width, length, width);
+      matrix.compose(from, turn, size);
+      struts.setMatrixAt(i, matrix);
+    });
+    struts.instanceMatrix.needsUpdate = true;
+    const r = extent * 0.007;
+    bones.forEach((bone, i) => {
+      bone.getWorldPosition(from);
+      matrix.compose(from, turn.identity(), size.set(r, r, r));
+      joints.setMatrixAt(i, matrix);
+    });
+    joints.instanceMatrix.needsUpdate = true;
+  });
   return (
     <>
-      <primitive object={loaded.scene} />
-      {mode === 'bones' && loaded.skeleton ? <primitive object={loaded.skeleton} /> : null}
-      <Fit object={loaded.scene} onFit={onFit} />
+      <primitive object={struts} />
+      <primitive object={joints} />
+    </>
+  );
+}
+
+function Studio({
+  url,
+  mode,
+  turntable,
+  onLoaded,
+  onError,
+}: Omit<ModelPreviewProps, 'className'> & { mode: PreviewMode; turntable: boolean }) {
+  const camera = useThree(s => s.camera) as THREE.PerspectiveCamera;
+  const loaded = useModel(url, onError);
+  const [framing, setFraming] = useState<Framing | null>(null);
+  const reported = useRef<Loaded | null>(null);
+  useEffect(() => {
+    if (!loaded) return;
+    const next = standOnFloor(loaded.scene);
+    if (!next) return;
+    frameCamera(camera, next);
+    setFraming(next);
+    if (reported.current !== loaded) {
+      reported.current = loaded;
+      onLoaded?.({ meshes: loaded.originals.size, bones: loaded.bones.length });
+    }
+    // onLoaded is a callback prop; reframing on its identity would jump the camera.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, camera]);
+  const rig = useMemo(() => (framing ? studioRig(framing) : null), [framing]);
+  useEffect(
+    () => () => {
+      rig?.traverse(o => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        mesh.geometry.dispose();
+        const material = mesh.material as THREE.MeshBasicMaterial;
+        material.map?.dispose();
+        material.dispose();
+      });
+    },
+    [rig]
+  );
+  return (
+    <>
+      {rig ? <primitive object={rig} /> : null}
+      {loaded ? <Model loaded={loaded} mode={mode} /> : null}
+      {loaded && framing && mode === 'bones' && loaded.bones.length > 0 ? (
+        <Skeleton bones={loaded.bones} extent={framing.extent} />
+      ) : null}
+      <Controls turntable={turntable} target={framing?.target ?? null} />
     </>
   );
 }
@@ -201,33 +353,17 @@ export default function ModelPreview({
   onError,
   className,
 }: ModelPreviewProps) {
-  const loaded = useModel(url, onError);
-  const [target, setTarget] = useState<THREE.Vector3 | null>(null);
-  const reported = useRef<Loaded | null>(null);
-  useEffect(() => {
-    if (!loaded || reported.current === loaded) return;
-    reported.current = loaded;
-    let bones = 0;
-    loaded.scene.traverse(o => {
-      if ((o as THREE.Bone).isBone) bones += 1;
-    });
-    onLoaded?.({ meshes: loaded.originals.size, bones });
-  }, [loaded, onLoaded]);
   return (
     <Canvas
       className={className}
-      camera={{ fov: 32, position: [2, 1.4, 3] }}
+      shadows
+      camera={{ fov: 30, position: [2, 1.4, 3] }}
       dpr={[1, 2]}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
       aria-label="Model preview"
     >
-      <color attach="background" args={['#7f8083']} />
-      <hemisphereLight args={['#f4efe6', '#4a463f', 1.4]} />
-      <directionalLight position={[3, 5, 4]} intensity={2.2} />
-      <directionalLight position={[-4, 2, -3]} intensity={0.6} />
-      <gridHelper args={[10, 20, '#6c6d70', '#76777a']} />
-      {loaded ? <Model loaded={loaded} mode={mode} onFit={setTarget} /> : null}
-      <Controls turntable={turntable} target={target} />
+      <color attach="background" args={[BACKDROP]} />
+      <Studio url={url} mode={mode} turntable={turntable} onLoaded={onLoaded} onError={onError} />
     </Canvas>
   );
 }
