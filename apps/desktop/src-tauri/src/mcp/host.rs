@@ -5,12 +5,14 @@ use maquette_core::ProjectManifest;
 use maquette_core::concepts::Concepts;
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::pipeline::tools::Toolbox;
+use maquette_core::providers::ProviderJobs;
 use maquette_core::thumbs::Thumbnails;
 use tauri::{AppHandle, Manager as _};
 use tauri_specta::Event as _;
 
 use crate::commands::lab::Lab;
 use crate::commands::pipeline::Pipelines;
+use crate::commands::providers::Studio;
 use crate::commands::thumbs::Thumbs;
 use crate::events::ProjectChanged;
 use crate::session::Session;
@@ -20,6 +22,8 @@ pub trait Host: Send + Sync + 'static {
     fn runner(&self) -> &PipelineRunner;
     fn concepts(&self) -> &Concepts;
     fn thumbs(&self) -> &Thumbnails;
+    /// Send to 3D: the provider jobs.
+    fn studio(&self) -> &ProviderJobs;
     /// The tools a job runs with. May probe them, so it blocks.
     fn toolbox(&self) -> Toolbox;
     /// Tells the windows that a tool changed a project, so the Board updates.
@@ -44,6 +48,10 @@ impl Host for AppHost {
 
     fn thumbs(&self) -> &Thumbnails {
         &self.0.state::<Thumbs>().inner().0
+    }
+
+    fn studio(&self) -> &ProviderJobs {
+        &self.0.state::<Studio>().inner().0
     }
 
     fn toolbox(&self) -> Toolbox {

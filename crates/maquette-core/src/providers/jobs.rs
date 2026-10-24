@@ -20,7 +20,7 @@ use super::handoff::{Handoff, HandoffCard};
 use super::http::{Api, ApiError, StopFlag, Timing};
 use super::meshy::{self, Meshy};
 use super::presets::{
-    MeshyPreset, PresetVariant, ProviderId, TripoPreset, meshy_problem, tripo_problem,
+    MeshyPreset, PresetVariant, ProviderId, TripoPreset, TripoRigSpec, meshy_problem, tripo_problem,
 };
 use super::secrets::SecretStore;
 use super::tripo::{self, Tripo};
@@ -157,6 +157,69 @@ pub struct ProviderJob {
     pub version: Option<u32>,
     pub via_agent: bool,
     pub cancel: CancelMode,
+}
+
+impl ProviderJob {
+    /// The settings in a few words, for an approval prompt: "Tripo H3.1,
+    /// 2 images as multi-view, rig with Mixamo, 2 animations".
+    pub fn summary(&self) -> String {
+        let images = match self.images.len() {
+            1 => "1 image".to_string(),
+            n => format!("{n} images"),
+        };
+        let mut parts = Vec::new();
+        match (self.provider, &self.tripo, &self.meshy) {
+            (Provider::Tripo, Some(t), _) => {
+                parts.push(format!("Tripo {}", super::catalog::tripo_label(&t.model)));
+                let multi = t.multi_view && self.images.len() >= 2;
+                parts.push(if multi {
+                    format!("{images} as multi-view")
+                } else {
+                    images
+                });
+                if t.face_limit > 0 {
+                    parts.push(format!("{} faces", super::presets::group(t.face_limit)));
+                }
+                if t.rig {
+                    parts.push(match t.rig_spec {
+                        TripoRigSpec::Mixamo => "rig with Mixamo".to_string(),
+                        TripoRigSpec::Tripo => "rig".to_string(),
+                    });
+                    match t.animations.len().min(5) {
+                        0 => {}
+                        1 => parts.push("1 animation".to_string()),
+                        n => parts.push(format!("{n} animations")),
+                    }
+                }
+            }
+            (Provider::Meshy, _, Some(m)) => {
+                parts.push(format!(
+                    "Meshy {}",
+                    super::catalog::meshy_label(&m.ai_model)
+                ));
+                let multi = m.multi_view && self.images.len() >= 2 && !m.smart_topology();
+                parts.push(if multi {
+                    format!("{images} as multi-view")
+                } else {
+                    images
+                });
+                if m.should_remesh || m.smart_topology() {
+                    parts.push(format!(
+                        "{} polygons",
+                        super::presets::group(m.target_polycount)
+                    ));
+                }
+                if m.rig {
+                    parts.push("rig".to_string());
+                }
+            }
+            (provider, _, _) => {
+                parts.push(provider.label().to_string());
+                parts.push(images);
+            }
+        }
+        parts.join(", ")
+    }
 }
 
 /// What a Send to 3D asks for.
@@ -607,6 +670,16 @@ impl ProviderJobs {
     /// Cancels a job where that is still possible, and says plainly when it
     /// is not. Meshy is asked over the network, so call it off the UI thread.
     pub fn cancel(&self, id: &str) -> CoreResult<ProviderJob> {
+        self.stop_job(id, false)
+    }
+
+    /// Turns down a send an agent asked for. Nothing was sent, so nothing
+    /// is spent.
+    pub fn deny(&self, id: &str) -> CoreResult<ProviderJob> {
+        self.stop_job(id, true)
+    }
+
+    fn stop_job(&self, id: &str, deny: bool) -> CoreResult<ProviderJob> {
         let (stored, stop) = {
             let jobs = self.shared.jobs();
             let entry = jobs
@@ -615,8 +688,14 @@ impl ProviderJobs {
                 .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
             (entry.stored.clone(), Arc::clone(&entry.stop))
         };
+        if deny && stored.job.state != JobState::Approval {
+            return Err(CoreError::Invalid(
+                "This send is not waiting for approval.".to_string(),
+            ));
+        }
         let mode = cancel_mode(&stored);
         let message = match mode {
+            CancelMode::Free if deny => "Denied in Maquette. Nothing was spent.".to_string(),
             CancelMode::Free => "Cancelled. Nothing was spent.".to_string(),
             CancelMode::StopWaiting => "Stopped waiting for this model.".to_string(),
             CancelMode::Provider => {

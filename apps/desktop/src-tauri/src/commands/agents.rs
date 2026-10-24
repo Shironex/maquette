@@ -1,5 +1,5 @@
 //! Settings > Agents: the MCP server's status, its activity list and the
-//! shipping approvals for runs an agent started.
+//! approvals for what an agent asked (shipping, sends to 3D).
 
 use tauri::{AppHandle, State};
 
@@ -13,7 +13,8 @@ pub fn mcp_status(session: State<'_, Session>, agents: State<'_, Agents>) -> Mcp
     agents.status(&session)
 }
 
-/// Approves or denies the Ship step of a run an agent started.
+/// Approves or denies what an agent asked: a run's Ship step, or a send to
+/// 3D that spends credits.
 #[tauri::command]
 #[specta::specta]
 pub fn mcp_decide(
@@ -23,7 +24,7 @@ pub fn mcp_decide(
     approve: bool,
 ) -> CommandResult<McpStatus> {
     if !agents.hub.decide(&approval_id, approve) {
-        return Err(invalid("That run is no longer waiting for approval."));
+        return Err(invalid("That request is no longer waiting for approval."));
     }
     Ok(agents.status(&session))
 }

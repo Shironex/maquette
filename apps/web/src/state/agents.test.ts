@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { McpStatus } from '@/ipc/client';
-import { approvalTitle, clockTime, mcpStatusItem, serverLine } from './agents';
+import type { Approval, McpStatus } from '@/ipc/client';
+import { approvalTitle, approvalsLabel, clockTime, mcpStatusItem, serverLine } from './agents';
 
 const base: McpStatus = {
   enabled: true,
@@ -14,13 +14,31 @@ const base: McpStatus = {
   approvals: [],
 };
 
-const approval = {
+const approval: Approval = {
   id: 'approval-1',
+  kind: 'ship',
   runId: 'moon-island-run-26',
   project: 'moon-island',
   runNumber: 26,
   step: 'Ship',
+  job: null,
+  assetName: null,
+  service: null,
+  detail: null,
   requestedAtMs: 0,
+};
+
+const send: Approval = {
+  ...approval,
+  id: 'approval-2',
+  kind: 'send-to-3d',
+  runId: null,
+  runNumber: null,
+  step: null,
+  job: 'stone-lantern-2',
+  assetName: 'Stone lantern',
+  service: 'Tripo',
+  detail: 'Tripo H3.1, 1 image',
 };
 
 describe('agents', () => {
@@ -47,7 +65,14 @@ describe('agents', () => {
 
   it('formats times and titles', () => {
     expect(clockTime(new Date(2026, 9, 24, 9, 5, 7).getTime())).toBe('09:05:07');
-    expect(approvalTitle(approval, 'Moon Island')).toBe('Moon Island, run 26');
-    expect(approvalTitle(approval)).toBe('moon-island, run 26');
+    expect(approvalTitle(approval, 'Moon Island')).toBe('Ship Moon Island, run 26?');
+    expect(approvalTitle(approval)).toBe('Ship moon-island, run 26?');
+    expect(approvalTitle(send)).toBe('Send Stone lantern to Tripo?');
+  });
+
+  it('counts approvals by kind', () => {
+    expect(approvalsLabel([approval])).toBe('1 run waits for approval');
+    expect(approvalsLabel([send, { ...send, id: 'approval-3' }])).toBe('2 sends wait for approval');
+    expect(approvalsLabel([approval, send])).toBe('2 requests wait for approval');
   });
 });

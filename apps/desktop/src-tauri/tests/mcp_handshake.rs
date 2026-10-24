@@ -1,6 +1,7 @@
 //! A real MCP client against the built in server: the handshake, the tool
 //! list, a read tool, and run_pipeline on a fixture project, including the
-//! pause before shipping until someone approves or denies it.
+//! pause before shipping until someone approves or denies it, and
+//! send_to_3d, which waits for a person before it could spend credits.
 
 use std::io::{Read as _, Write as _};
 use std::path::Path;
@@ -11,9 +12,16 @@ use maquette_core::concepts::Concepts;
 use maquette_core::pipeline::runner::{PipelineEvent, PipelineRunner, RunSink};
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::pipeline::{self, StepDef, StepKind};
+use maquette_core::providers::{
+    Endpoints, JobState, MemoryStore, Options, ProviderId, ProviderJobs, SecretStore as _,
+};
 use maquette_core::thumbs::Thumbnails;
-use maquette_core::{AppState, NewProject, ProjectTemplate, WorkspaceConfig, project, workspace};
+use maquette_core::{
+    AppState, AssetKind, NewAsset, NewProject, ProjectTemplate, Stage, WorkspaceConfig, assets,
+    project, workspace,
+};
 use maquette_desktop_lib::mcp::host::Host;
+use maquette_desktop_lib::mcp::hub::ApprovalKind;
 use maquette_desktop_lib::mcp::hub::Hub;
 use maquette_desktop_lib::mcp::{Agents, ensure_token};
 use maquette_desktop_lib::session::Session;
@@ -29,6 +37,28 @@ struct TestHost {
     runner: PipelineRunner,
     concepts: Concepts,
     thumbs: Thumbnails,
+    studio: ProviderJobs,
+}
+
+/// Provider jobs that can never reach Tripo or Meshy: both point at a
+/// closed local port, and the test never approves a send anyway.
+fn studio(session: &Session) -> ProviderJobs {
+    let secrets = Arc::new(MemoryStore::default());
+    secrets
+        .set(ProviderId::Tripo, "tsk_test_only_1234")
+        .expect("key");
+    let options = Options {
+        endpoints: Endpoints {
+            tripo: "http://127.0.0.1:9".into(),
+            meshy: "http://127.0.0.1:9".into(),
+        },
+        ..Options::default()
+    };
+    let jobs = ProviderJobs::new(secrets, options, |_| {});
+    if let Ok((root, config)) = session.workspace() {
+        jobs.open_workspace(&root, &config);
+    }
+    jobs
 }
 
 impl Host for TestHost {
@@ -43,6 +73,9 @@ impl Host for TestHost {
     }
     fn thumbs(&self) -> &Thumbnails {
         &self.thumbs
+    }
+    fn studio(&self) -> &ProviderJobs {
+        &self.studio
     }
     fn toolbox(&self) -> Toolbox {
         Toolbox::default()
@@ -97,7 +130,26 @@ fn fixture(dir: &Path) -> (Session, String, std::path::PathBuf) {
         },
     )
     .expect("project");
+    project::modify(&root, &config.layout, &manifest.id, |m| {
+        assets::add(
+            m,
+            NewAsset {
+                name: "Stone lantern".into(),
+                kind: AssetKind::Prop,
+                stage: Stage::Refs,
+            },
+        )
+        .map(|_| ())
+    })
+    .expect("asset");
     let project_dir = project::dir(&root, &config.layout, &manifest.id).expect("dir");
+    let refs = project_dir.join("refs");
+    std::fs::create_dir_all(&refs).expect("refs");
+    std::fs::write(
+        refs.join("stone_lantern_front.png"),
+        b"\x89PNG\r\n\x1a\nfake",
+    )
+    .expect("ref");
     let mut def = pipeline::ensure(&project_dir, &manifest).expect("pipeline");
     def.steps = vec![
         shell_step("build", "Build", "tools/build.sh", &[]),
@@ -170,6 +222,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     let (session, project_id, project_dir) = fixture(dir.path());
     let hub = Arc::new(Hub::new(|| {}));
     let host = Arc::new(TestHost {
+        studio: studio(&session),
         session,
         runner: PipelineRunner::new(Arc::new(HubSink(Arc::clone(&hub)))),
         concepts: Concepts::new(None, 1, |_| {}),
@@ -237,15 +290,18 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         [
             "accept_inbox_model",
             "cancel_run",
+            "get_concepts",
             "get_inbox_checks",
             "get_pipeline",
             "get_project",
+            "get_provider_job",
             "get_run",
             "list_assets",
             "list_inbox",
             "list_projects",
             "render_thumbnail",
             "run_pipeline",
+            "send_to_3d",
             "start_concepts",
         ]
     );
@@ -342,6 +398,85 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         "shipped once"
     );
 
+    // The Lab reads back, empty in the fixture.
+    let lab = call(&client, "get_concepts", json!({ "project": project_id })).await;
+    assert_eq!(lab["directions"], json!([]));
+
+    // A send to Tripo waits for a person before anything could be spent.
+    let sent = call(
+        &client,
+        "send_to_3d",
+        json!({
+            "project": project_id,
+            "asset": "stone-lantern",
+            "provider": "tripo",
+            "overrides": { "faceLimit": 20000 },
+        }),
+    )
+    .await;
+    assert_eq!(sent["status"], json!("waiting for approval"), "{sent}");
+    assert_eq!(sent["images"], json!(["refs/stone_lantern_front.png"]));
+    assert_eq!(sent["settings"], json!("Tripo H3.1, 1 image, 20,000 faces"));
+    let job_id = sent["id"].as_str().expect("job").to_string();
+    let approvals = hub.approvals();
+    assert_eq!(approvals.len(), 1, "the app shows the prompt");
+    assert_eq!(approvals[0].kind, ApprovalKind::SendTo3d);
+    assert_eq!(approvals[0].job.as_deref(), Some(job_id.as_str()));
+    assert_eq!(
+        host.studio.get(&job_id).expect("job").state,
+        JobState::Approval
+    );
+    // A preset setting that does not exist is refused before anything starts.
+    let mut params = CallToolRequestParams::new("send_to_3d".to_string());
+    if let Value::Object(map) = json!({
+        "project": project_id,
+        "asset": "stone-lantern",
+        "provider": "meshy",
+        "overrides": { "lowpoly": true },
+    }) {
+        params = params.with_arguments(map);
+    }
+    let refused = client.call_tool(params).await.expect("call");
+    assert_eq!(refused.is_error, Some(true));
+    assert!(text(&refused).contains("lowpoly"), "{}", text(&refused));
+
+    // Denied in the app: nothing was sent, nothing spent.
+    assert!(hub.decide(&approvals[0].id, false));
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let denied = loop {
+        let job = call(&client, "get_provider_job", json!({ "id": job_id })).await;
+        if job["status"] == json!("cancelled") || Instant::now() > deadline {
+            break job;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    };
+    assert_eq!(denied["status"], json!("cancelled"), "{denied}");
+    assert_eq!(
+        denied["message"],
+        json!("Denied in Maquette. Nothing was spent.")
+    );
+    assert!(hub.approvals().is_empty());
+
+    // By hand needs no approval: the handoff folder is there at once.
+    let by_hand = call(
+        &client,
+        "send_to_3d",
+        json!({ "project": project_id, "asset": "stone-lantern", "provider": "by-hand" }),
+    )
+    .await;
+    assert_eq!(by_hand["status"], json!("waiting"), "{by_hand}");
+    assert!(hub.approvals().is_empty());
+    let handoff = std::path::PathBuf::from(by_hand["handoff"].as_str().expect("handoff"));
+    assert!(handoff.join("settings.md").is_file());
+    assert!(handoff.join("front.png").is_file());
+    let listed = call(
+        &client,
+        "get_provider_job",
+        json!({ "project": project_id }),
+    )
+    .await;
+    assert_eq!(listed["jobs"].as_array().map(Vec::len), Some(2));
+
     // Every call is in the activity list, newest first.
     let calls = hub.calls();
     let tools_called: Vec<&str> = calls.iter().map(|c| c.tool.as_str()).collect();
@@ -391,8 +526,10 @@ fn the_app_server_follows_the_workspace_setting() {
     let dir = tempfile::tempdir().expect("temp dir");
     let (session, _, _) = fixture(dir.path());
     let hub = Arc::new(Hub::new(|| {}));
+    let other = Session::with_state(dir.path().join("cfg2"), None, AppState::default());
     let host = Arc::new(TestHost {
-        session: Session::with_state(dir.path().join("cfg2"), None, AppState::default()),
+        studio: studio(&other),
+        session: other,
         runner: PipelineRunner::new(Arc::new(HubSink(Arc::clone(&hub)))),
         concepts: Concepts::new(None, 1, |_| {}),
         thumbs: Thumbnails::new(|_| {}),

@@ -57,10 +57,15 @@ export function createFakeAgents({
     ? [
         {
           id: 'approval-1',
+          kind: 'ship',
           runId: 'moon-island-run-26',
           project: 'moon-island',
           runNumber: 26,
           step: 'Ship',
+          job: null,
+          assetName: null,
+          service: null,
+          detail: null,
           requestedAtMs: now - 12_000,
         },
       ]
@@ -90,7 +95,7 @@ export function createFakeAgents({
       const before = approvals.length;
       approvals = approvals.filter(a => a.id !== approvalId);
       if (approvals.length === before) {
-        throw { code: 'invalid', message: 'That run is no longer waiting for approval.' };
+        throw { code: 'invalid', message: 'That request is no longer waiting for approval.' };
       }
       return status();
     },

@@ -1,6 +1,7 @@
 /**
  * The built in MCP server as the app sees it: running or not, its token,
- * the activity list and the shipping approvals, kept fresh by `mcpUpdate`.
+ * the activity list and the approvals (shipping, sends to 3D), kept fresh
+ * by `mcpUpdate`.
  */
 import { create } from 'zustand';
 import { commands, errorMessage, type McpStatus } from '@/ipc/client';
@@ -39,7 +40,16 @@ export const useAgentsStore = create<AgentsStore>((set, get) => ({
     set({ deciding: approvalId });
     try {
       set({ status: await commands.mcpDecide(approvalId, approve) });
-      if (approval) {
+      if (approval?.kind === 'send-to-3d') {
+        const asset = approval.assetName ?? 'The asset';
+        notify(
+          approve ? 'done' : 'info',
+          approve ? `${asset} is on its way to ${approval.service}` : `${asset} was not sent`,
+          approve
+            ? 'Follow it in the 3D queue. The agent sees it on its next get_provider_job.'
+            : 'Nothing was spent. The agent is told it was denied.'
+        );
+      } else if (approval) {
         notify(
           approve ? 'done' : 'info',
           approve ? `Run ${approval.runNumber} is shipping` : `Run ${approval.runNumber} stopped`,

@@ -98,7 +98,10 @@ export const commands = {
 	/**  Tries a key with the free balance call. Without `key`, the saved one. */
 	providerKeyTest: (service: ProviderId, key: string | null) => __TAURI_INVOKE<KeyTest>("provider_key_test", { service, key }),
 	mcpStatus: () => __TAURI_INVOKE<McpStatus>("mcp_status"),
-	/**  Approves or denies the Ship step of a run an agent started. */
+	/**
+	 *  Approves or denies what an agent asked: a run's Ship step, or a send to
+	 *  3D that spends credits.
+	 */
 	mcpDecide: (approvalId: string, approve: boolean) => __TAURI_INVOKE<McpStatus>("mcp_decide", { approvalId, approve }),
 	mcpClearActivity: () => __TAURI_INVOKE<McpStatus>("mcp_clear_activity"),
 	/**  Makes a new token. Agents set up with the old one must be set up again. */
@@ -166,15 +169,29 @@ export type AppState = {
 	mcpToken?: string | null,
 };
 
-/**  A run an agent started that stopped before its Ship step. */
+/**  Something an agent asked for that waits for a yes or no in the app. */
 export type Approval = {
 	id: string,
-	runId: string,
+	kind: ApprovalKind,
 	project: string,
-	runNumber: number,
-	step: string,
+	/**  Ship: the run and the step it stopped before. */
+	runId: string | null,
+	runNumber: number | null,
+	step: string | null,
+	/**  Send to 3D: the provider job, its asset and settings in a few words. */
+	job: string | null,
+	assetName: string | null,
+	service: string | null,
+	detail: string | null,
 	requestedAtMs: number | null,
 };
+
+/**  What an agent asked that waits for a person. */
+export type ApprovalKind = 
+/**  A run an agent started stopped before its Ship step. */
+"ship" | 
+/**  An agent asked to send an asset to Tripo or Meshy, which spends credits. */
+"send-to-3d";
 
 /**  A file a step wrote. */
 export type Artifact = {

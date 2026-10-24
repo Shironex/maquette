@@ -7,8 +7,9 @@ import { useAgentsStore } from '@/state/agents-store';
 import { useAppStore } from '@/state/app-store';
 
 /**
- * "Ask before shipping": a run an agent started stopped before Ship. Shown
- * over every view until someone approves or denies it.
+ * What an agent asked that waits for a person: a run stopped before Ship
+ * ("Ask before shipping"), or a send to Tripo or Meshy that would spend
+ * credits. Shown over every view until someone approves or denies it.
  */
 export function ApprovalPrompt() {
   const approvals = useAgentsStore(s => s.status?.approvals);
@@ -31,6 +32,7 @@ export function ApprovalCard({ approval, floating }: { approval: Approval; float
   const site = projects?.find(p => p.id === approval.project);
   const now = useNow(15_000);
   const titleId = `${approval.id}-title`;
+  const send = approval.kind === 'send-to-3d';
   return (
     <section
       role="alertdialog"
@@ -42,16 +44,30 @@ export function ApprovalCard({ approval, floating }: { approval: Approval; float
     >
       <div className="flex items-start gap-3">
         <span className="grid size-8 flex-none place-items-center rounded-[9px] bg-amber-soft text-amber">
-          <Icon name="rocket-launch" size={17} />
+          <Icon name={send ? 'cube' : 'rocket-launch'} size={17} />
         </span>
         <div className="min-w-0 flex-1">
           <h2 id={titleId} className="text-emphasis leading-5 font-semibold">
-            Ship {approvalTitle(approval, site?.name)}?
+            {approvalTitle(approval, site?.name)}
           </h2>
-          <p className="mt-0.5 text-meta text-fg-mute">
-            An agent started this run over MCP. Everything before {approval.step} is done;{' '}
-            {approval.step} writes to {site?.siteRepo ? 'the site repo' : 'the shipped folder'}.
-          </p>
+          {send ? (
+            <>
+              <p className="mt-0.5 text-meta text-fg-mute">
+                An agent asked over MCP. This spends {approval.service} credits; nothing is sent
+                until you approve.
+              </p>
+              {approval.detail ? (
+                <p className="mt-1.5 rounded-[7px] bg-raised px-2 py-1.5 text-meta text-fg-dim">
+                  {approval.detail}
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p className="mt-0.5 text-meta text-fg-mute">
+              An agent started this run over MCP. Everything before {approval.step} is done;{' '}
+              {approval.step} writes to {site?.siteRepo ? 'the site repo' : 'the shipped folder'}.
+            </p>
+          )}
         </div>
         <span className="flex-none text-meta text-fg-mute tabular-nums">
           {formatAgo(approval.requestedAtMs ?? now, now)}
@@ -72,7 +88,7 @@ export function ApprovalCard({ approval, floating }: { approval: Approval; float
           disabled={deciding}
           onClick={() => void decide(approval.id, true)}
         >
-          Approve and ship
+          {send ? 'Approve and send' : 'Approve and ship'}
         </Button>
       </div>
     </section>

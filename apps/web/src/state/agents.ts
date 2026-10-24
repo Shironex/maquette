@@ -28,9 +28,23 @@ export function clockTime(ms: number): string {
   return `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
 }
 
-/** "Moon Island, run 26" for an approval, with the project's display name when known. */
+/**
+ * The approval's question: "Ship Moon Island, run 26?" with the project's
+ * display name when known, or "Send Stone lantern to Tripo?".
+ */
 export function approvalTitle(approval: Approval, projectName?: string): string {
-  return `${projectName ?? approval.project}, run ${approval.runNumber}`;
+  if (approval.kind === 'send-to-3d') {
+    return `Send ${approval.assetName ?? 'this asset'} to ${approval.service ?? '3D'}?`;
+  }
+  return `Ship ${projectName ?? approval.project}, run ${approval.runNumber ?? '?'}?`;
+}
+
+/** "1 run waits", "2 sends wait", "3 requests wait" for approval. */
+export function approvalsLabel(approvals: Approval[]): string {
+  const n = approvals.length;
+  const kinds = new Set(approvals.map(a => a.kind));
+  const noun = kinds.size > 1 ? 'request' : kinds.has('ship') ? 'run' : 'send';
+  return `${n} ${noun}${n === 1 ? ' waits' : 's wait'} for approval`;
 }
 
 /** The status bar line for the server, or null when it is off. */
@@ -39,8 +53,7 @@ export function mcpStatusItem(
 ): { label: string; dot: 'ok' | 'offline' | 'running' } | null {
   if (!status?.enabled) return null;
   if (status.approvals.length > 0) {
-    const n = status.approvals.length;
-    return { label: `${n} ${n === 1 ? 'run waits' : 'runs wait'} for approval`, dot: 'running' };
+    return { label: approvalsLabel(status.approvals), dot: 'running' };
   }
   if (status.running) return { label: `MCP on 127.0.0.1:${status.port}`, dot: 'ok' };
   return { label: status.error ? 'MCP server stopped' : 'MCP starting', dot: 'offline' };

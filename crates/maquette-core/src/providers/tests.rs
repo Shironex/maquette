@@ -806,6 +806,27 @@ fn approval_holds_the_job_until_released_and_cancel_before_send_is_free() {
         cancelled.message.as_deref(),
         Some("Cancelled. Nothing was spent.")
     );
+    let job = jobs
+        .send(
+            &world.request(
+                Provider::Tripo,
+                PresetVariant::Character,
+                &["front.png", "left.png"],
+            ),
+            true,
+            true,
+        )
+        .expect("send");
+    assert_eq!(
+        job.summary(),
+        "Tripo H3.1, 2 images as multi-view, 50,000 faces, rig with Mixamo, 2 animations"
+    );
+    let denied = jobs.deny(&job.id).expect("deny");
+    assert_eq!(denied.state, JobState::Cancelled);
+    assert_eq!(
+        denied.message.as_deref(),
+        Some("Denied in Maquette. Nothing was spent.")
+    );
 
     let job = jobs
         .send(
@@ -814,8 +835,13 @@ fn approval_holds_the_job_until_released_and_cancel_before_send_is_free() {
             true,
         )
         .expect("send");
-    assert_eq!(job.id, format!("{}-2", world.asset));
+    assert_eq!(job.id, format!("{}-3", world.asset));
+    assert_eq!(job.summary(), "Tripo H3.1, 1 image");
     jobs.approve(&job.id).expect("approve");
+    assert!(
+        jobs.deny(&job.id).is_err(),
+        "only a send waiting for approval"
+    );
     assert_eq!(finished(&jobs, &job.id).state, JobState::Inbox);
 }
 

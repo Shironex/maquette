@@ -1,5 +1,6 @@
 //! What the MCP server shares with the app: the activity list, the runs an
-//! agent can ask about, and the shipping approvals waiting for a person.
+//! agent can ask about, and the approvals (shipping, sends to 3D) waiting
+//! for a person.
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -9,6 +10,7 @@ use std::time::Duration;
 use maquette_core::pipeline::StepDef;
 use maquette_core::pipeline::history::{LogEntry, RunRecord, now_ms};
 use maquette_core::pipeline::runner::PipelineEvent;
+use maquette_core::providers::ProviderJob;
 use serde::{Deserialize, Serialize};
 
 /// How many calls the activity list keeps.
@@ -46,15 +48,33 @@ pub struct McpCall {
     pub duration_ms: f64,
 }
 
-/// A run an agent started that stopped before its Ship step.
+/// What an agent asked that waits for a person.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum ApprovalKind {
+    /// A run an agent started stopped before its Ship step.
+    Ship,
+    /// An agent asked to send an asset to Tripo or Meshy, which spends credits.
+    #[serde(rename = "send-to-3d")]
+    SendTo3d,
+}
+
+/// Something an agent asked for that waits for a yes or no in the app.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Approval {
     pub id: String,
-    pub run_id: String,
+    pub kind: ApprovalKind,
     pub project: String,
-    pub run_number: u32,
-    pub step: String,
+    /// Ship: the run and the step it stopped before.
+    pub run_id: Option<String>,
+    pub run_number: Option<u32>,
+    pub step: Option<String>,
+    /// Send to 3D: the provider job, its asset and settings in a few words.
+    pub job: Option<String>,
+    pub asset_name: Option<String>,
+    pub service: Option<String>,
+    pub detail: Option<String>,
     pub requested_at_ms: f64,
 }
 
@@ -178,28 +198,63 @@ impl Hub {
         self.lock()
             .approvals
             .iter()
-            .find(|a| a.run_id == run_id)
+            .find(|a| a.run_id.as_deref() == Some(run_id))
             .cloned()
     }
 
-    /// Records that `run` waits before `step` and returns the approval's id.
-    pub fn request_approval(&self, run: &RunRecord, step: &StepDef) -> String {
+    /// The approval a provider job waits for, if any.
+    pub fn pending_for_job(&self, job_id: &str) -> Option<Approval> {
+        self.lock()
+            .approvals
+            .iter()
+            .find(|a| a.job.as_deref() == Some(job_id))
+            .cloned()
+    }
+
+    fn push(&self, approval: impl FnOnce(String) -> Approval) -> String {
         let id = {
             let mut inner = self.lock();
             inner.next_approval += 1;
             let id = format!("approval-{}", inner.next_approval);
-            inner.approvals.push(Approval {
-                id: id.clone(),
-                run_id: run.id.clone(),
-                project: run.project.clone(),
-                run_number: run.number,
-                step: step.name.clone(),
-                requested_at_ms: now_ms(),
-            });
+            inner.approvals.push(approval(id.clone()));
             id
         };
         (self.on_change)();
         id
+    }
+
+    /// Records that `run` waits before `step` and returns the approval's id.
+    pub fn request_approval(&self, run: &RunRecord, step: &StepDef) -> String {
+        self.push(|id| Approval {
+            id,
+            kind: ApprovalKind::Ship,
+            project: run.project.clone(),
+            run_id: Some(run.id.clone()),
+            run_number: Some(run.number),
+            step: Some(step.name.clone()),
+            job: None,
+            asset_name: None,
+            service: None,
+            detail: None,
+            requested_at_ms: now_ms(),
+        })
+    }
+
+    /// Records that a send an agent asked for waits before spending credits.
+    pub fn request_send(&self, job: &ProviderJob) -> String {
+        self.push(|id| Approval {
+            id,
+            kind: ApprovalKind::SendTo3d,
+            project: job.project.clone(),
+            run_id: None,
+            run_number: None,
+            step: None,
+            job: Some(job.id.clone()),
+            asset_name: Some(job.asset_name.clone()),
+            service: Some(job.provider.label().to_string()),
+            detail: Some(job.summary()),
+            requested_at_ms: now_ms(),
+        })
     }
 
     /// Approves or denies. False when the approval is gone (decided already,
@@ -225,12 +280,17 @@ impl Hub {
     /// Blocks until the approval is decided. `None` when the run was
     /// cancelled first; the approval is then withdrawn.
     pub fn wait_decision(&self, approval_id: &str, cancelled: &AtomicBool) -> Option<bool> {
+        self.wait_until(approval_id, || cancelled.load(Ordering::SeqCst))
+    }
+
+    /// Like [`Hub::wait_decision`], with any test for "it went away first".
+    pub fn wait_until(&self, approval_id: &str, gone: impl Fn() -> bool) -> Option<bool> {
         let mut inner = self.lock();
         loop {
             if let Some(answer) = inner.decisions.remove(approval_id) {
                 return Some(answer);
             }
-            if cancelled.load(Ordering::SeqCst) {
+            if gone() {
                 inner.approvals.retain(|a| a.id != approval_id);
                 drop(inner);
                 (self.on_change)();

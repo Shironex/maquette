@@ -1,10 +1,12 @@
 //! The tools agents call. Read tools look at the workspace; act tools run
-//! pipelines, accept models, render thumbnails and start concepts.
+//! pipelines, accept models, render thumbnails, start concepts and send
+//! assets to 3D.
 //!
 //! The agent rules hold here by construction: Blender only ever runs
 //! headless (thumbnails and pipeline steps), no tool opens its window, and
 //! there is no screenshot or screen capture tool at all. Runs that would
-//! ship wait for a person when "Ask before shipping" is on.
+//! ship wait for a person when "Ask before shipping" is on, and a send to
+//! Tripo or Meshy always waits for a person before it spends credits.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -15,8 +17,12 @@ use maquette_core::inbox::{self, AcceptRequest};
 use maquette_core::pipeline::cache::project_cache_dir;
 use maquette_core::pipeline::history::{self, LogEntry, RunRecord, RunState};
 use maquette_core::pipeline::runner::{JobRunner as _, RunOptions, StepGate};
+use maquette_core::providers::{
+    JobState, MeshyPreset, PresetVariant, Provider, ProviderId, ProviderJob, SendRequest,
+    TripoPreset,
+};
 use maquette_core::thumbs::{self, Requested, ThumbTarget};
-use maquette_core::{ErrorPayload, project};
+use maquette_core::{ErrorPayload, concepts, project};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::tool::ToolCallContext;
 use rmcp::handler::server::wrapper::Parameters;
@@ -32,7 +38,7 @@ use serde_json::{Value, json};
 use super::gate::ShipGate;
 use super::host::Host;
 use super::hub::{CallOutcome, Hub};
-use crate::commands::{lab, pipeline};
+use crate::commands::{lab, pipeline, providers};
 
 /// The status a run reports while its Ship step waits for a person.
 pub const WAITING: &str = "waiting for approval";
@@ -41,8 +47,11 @@ const INSTRUCTIONS: &str = "Maquette turns concept art into real-time 3D web sce
 Start with list_projects, then get_pipeline or list_assets for a project. \
 run_pipeline runs a project's pipeline; when it reaches the Ship step it may answer \
 \"waiting for approval\": a person approves or denies shipping in the Maquette app, \
-so poll get_run instead of starting the run again. Blender always runs headless here; \
-there is no tool that opens Blender's window or captures the screen.";
+so poll get_run instead of starting the run again. send_to_3d sends an asset's refs to \
+Tripo or Meshy (it always waits for a person to approve the credits in the app; follow it \
+with get_provider_job) or writes a by hand handoff folder. get_concepts reads the Lab. \
+Blender always runs headless here; there is no tool that opens Blender's window or \
+captures the screen.";
 
 type Out = Result<CallToolResult, ErrorData>;
 
@@ -215,6 +224,73 @@ pub struct ConceptsArgs {
     pub aspect: Option<AspectArg>,
 }
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GetConceptsArgs {
+    /// The project id.
+    pub project: String,
+    /// One direction, by id or name. Without it, every direction.
+    pub direction: Option<String>,
+}
+
+/// Where a model gets made.
+#[derive(Debug, Clone, Copy, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProviderArg {
+    Tripo,
+    Meshy,
+    ByHand,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum ServiceArg {
+    Tripo,
+    Meshy,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum VariantArg {
+    Prop,
+    Character,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SendTo3dArgs {
+    /// The project id.
+    pub project: String,
+    /// The asset id, as list_assets returns it.
+    pub asset: String,
+    /// "tripo" or "meshy" spend credits and always wait for a person to approve
+    /// them in the app; "by-hand" writes a handoff folder and spends nothing.
+    pub provider: ProviderArg,
+    /// By hand only: whose web app the settings card is for, "tripo" by default.
+    pub service: Option<ServiceArg>,
+    /// "prop" or "character". By default from the asset's kind.
+    pub variant: Option<VariantArg>,
+    /// Images relative to the project folder (for example "refs/lantern_front.png"),
+    /// front first, at most 4. By default the asset's own refs.
+    #[serde(default)]
+    pub images: Vec<String>,
+    /// Preset fields to change for this send only, named as in the workspace preset,
+    /// for example {"faceLimit": 20000, "rig": false} for Tripo or
+    /// {"aiModel": "meshy-6", "targetPolycount": 30000} for Meshy.
+    pub overrides: Option<serde_json::Map<String, Value>>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderJobArgs {
+    /// The job id that send_to_3d returned, for example "stone-lantern-2".
+    pub id: Option<String>,
+    /// Without an id: every send in this project, newest last.
+    pub project: Option<String>,
+    /// With project: only this asset's sends.
+    pub asset: Option<String>,
+}
+
 /// One MCP session's view of the app.
 #[derive(Clone)]
 pub struct McpTools {
@@ -345,6 +421,149 @@ fn resolve_model(root: &Path, file: &str) -> Result<PathBuf, String> {
         return Err(format!("{} is not a .glb or .gltf model.", path.display()));
     }
     Ok(path)
+}
+
+/// A provider job as agents read it.
+fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
+    let approval = hub.pending_for_job(&job.id);
+    let status = if approval.is_some() {
+        WAITING.to_string()
+    } else {
+        to_value(job.state).as_str().unwrap_or_default().to_string()
+    };
+    let mut out = json!({
+        "status": status,
+        "id": job.id,
+        "project": job.project,
+        "asset": job.asset,
+        "assetName": job.asset_name,
+        "provider": to_value(job.provider),
+        "settings": job.summary(),
+        "images": job.images,
+        "phase": to_value(job.phase),
+        "progress": job.progress,
+        "credits": job.credits,
+        "message": job.message,
+        "inboxFile": job.inbox_file,
+        "handoff": job.handoff,
+        "version": job.version,
+        "cancel": to_value(job.cancel),
+    });
+    if let Some(approval) = approval {
+        out["approval"] = json!({
+            "id": approval.id,
+            "note": "A person approves or denies spending these credits in the Maquette app. Poll get_provider_job; do not send again.",
+        });
+    }
+    out
+}
+
+/// Lays `overrides` over a preset, refusing names the preset does not have.
+fn with_overrides<T: Serialize + serde::de::DeserializeOwned>(
+    base: &T,
+    overrides: Option<&serde_json::Map<String, Value>>,
+) -> Result<T, String> {
+    let Some(overrides) = overrides.filter(|o| !o.is_empty()) else {
+        return serde_json::from_value(to_value(base)).map_err(|e| e.to_string());
+    };
+    let mut value = to_value(base);
+    let Some(fields) = value.as_object_mut() else {
+        return Err("The preset could not be read.".to_string());
+    };
+    for (key, field) in overrides {
+        if !fields.contains_key(key) {
+            let mut known: Vec<&str> = fields.keys().map(String::as_str).collect();
+            known.sort_unstable();
+            return Err(format!(
+                "There is no preset setting {key:?}. The settings are {}.",
+                known.join(", ")
+            ));
+        }
+        fields.insert(key.clone(), field.clone());
+    }
+    serde_json::from_value(value).map_err(|e| format!("The overrides do not fit the preset. {e}"))
+}
+
+/// Builds the send an agent asked for, filling in what it left out.
+fn send_request(host: &dyn Host, args: &SendTo3dArgs) -> Result<SendRequest, String> {
+    let (_, config) = workspace(host)?;
+    let options =
+        providers::send_options(host.session(), host.studio(), &args.project, &args.asset)
+            .map_err(|e| e.message)?;
+    let variant = match args.variant {
+        Some(VariantArg::Prop) => PresetVariant::Prop,
+        Some(VariantArg::Character) => PresetVariant::Character,
+        None => options.variant,
+    };
+    let images = if args.images.is_empty() {
+        options.suggested.clone()
+    } else {
+        args.images.clone()
+    };
+    if images.is_empty() {
+        return Err(format!(
+            "{} has no refs of its own yet. Pass images, for example [\"refs/{}_front.png\"].",
+            options.asset.name,
+            options.asset.id.replace('-', "_")
+        ));
+    }
+    let (provider, service) = match args.provider {
+        ProviderArg::Tripo => (Provider::Tripo, ProviderId::Tripo),
+        ProviderArg::Meshy => (Provider::Meshy, ProviderId::Meshy),
+        ProviderArg::ByHand => (
+            Provider::ByHand,
+            match args.service {
+                Some(ServiceArg::Meshy) => ProviderId::Meshy,
+                _ => ProviderId::Tripo,
+            },
+        ),
+    };
+    let overrides = args.overrides.as_ref();
+    let (tripo, meshy): (Option<TripoPreset>, Option<MeshyPreset>) = match service {
+        ProviderId::Tripo => (
+            Some(with_overrides(config.providers.tripo(variant), overrides)?),
+            None,
+        ),
+        ProviderId::Meshy => (
+            None,
+            Some(with_overrides(config.providers.meshy(variant), overrides)?),
+        ),
+    };
+    Ok(SendRequest {
+        project: args.project.clone(),
+        asset: options.asset.id,
+        provider,
+        service,
+        variant,
+        images,
+        tripo,
+        meshy,
+    })
+}
+
+/// Waits for the person's answer on its own thread, then releases or drops
+/// the job. A job cancelled from the app's queue withdraws its approval.
+fn await_send_approval(host: Arc<dyn Host>, hub: Arc<Hub>, approval: String, job: String) {
+    let spawned = std::thread::Builder::new()
+        .name("send-approval".into())
+        .spawn(move || {
+            let gone = || {
+                host.studio()
+                    .get(&job)
+                    .is_none_or(|j| j.state != JobState::Approval)
+            };
+            let result = match hub.wait_until(&approval, gone) {
+                Some(true) => host.studio().approve(&job).map(|_| ()),
+                Some(false) => host.studio().deny(&job).map(|_| ()),
+                None => Ok(()),
+            };
+            if let Err(err) = result {
+                tracing::warn!(job, error = %err, "could not answer a send approval");
+            }
+        });
+    if let Err(err) = spawned {
+        tracing::warn!(error = %err, "could not wait for a send approval");
+    }
 }
 
 #[tool_router]
@@ -495,7 +714,8 @@ impl McpTools {
         let found = self
             .blocking(|host, _| {
                 let (root, config) = workspace(host)?;
-                let items = inbox::list(&root, &config).map_err(reason)?;
+                let mut items = inbox::list(&root, &config).map_err(reason)?;
+                host.studio().link_inbox(&mut items);
                 let items: Vec<Value> = items
                     .iter()
                     .map(|i| {
@@ -510,6 +730,12 @@ impl McpTools {
                             "triangles": i.report.as_ref().map(|r| r.triangles),
                             "maxTexture": i.report.as_ref().map(|r| r.max_texture),
                             "error": i.error,
+                            "sentFor": i.link.as_ref().map(|l| json!({
+                                "job": l.job,
+                                "project": l.project,
+                                "asset": l.asset,
+                                "assetName": l.asset_name,
+                            })),
                         })
                     })
                     .collect();
@@ -617,13 +843,21 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
+                // A model from a send goes to the asset it was sent for.
+                let mut item = inbox::item(&root, &config, &args.id).map_err(reason)?;
+                host.studio().link_inbox(std::slice::from_mut(&mut item));
+                let linked = item
+                    .link
+                    .filter(|l| l.project == args.project)
+                    .map(|l| l.asset);
                 let request = AcceptRequest {
                     item: args.id,
                     project: args.project.clone(),
-                    asset: args.asset,
+                    asset: args.asset.or(linked),
                     name: args.name,
                 };
                 let mut result = inbox::accept(&root, &config, &request).map_err(reason)?;
+                host.studio().accepted(&request.item, result.version.version);
                 let target = ThumbTarget {
                     project: args.project,
                     asset: result.asset.id.clone(),
@@ -723,6 +957,146 @@ impl McpTools {
                     "jobs": jobs,
                     "note": "Each file appears at its path, relative to the project folder, once Codex saves it.",
                 }))
+            })
+            .await;
+        respond(found)
+    }
+
+    #[tool(
+        description = "Read a project's Concept lab: each direction's prompt, refs and images (starred, picked, and the ref file a picked image became), plus the concept jobs still queued or running.",
+        annotations(read_only_hint = true)
+    )]
+    async fn get_concepts(&self, Parameters(args): Parameters<GetConceptsArgs>) -> Out {
+        let found = self
+            .blocking(move |host, _| {
+                let (root, config) = workspace(host)?;
+                let dir = project::dir(&root, &config.layout, &args.project).map_err(reason)?;
+                project::load(&root, &config.layout, &args.project).map_err(reason)?;
+                let wanted = args.direction.as_deref().map(str::trim);
+                let directions: Vec<Value> = concepts::list_directions(&dir)
+                    .into_iter()
+                    .filter(|d| {
+                        wanted.is_none_or(|w| d.id == w || d.name.trim().eq_ignore_ascii_case(w))
+                    })
+                    .map(|d| {
+                        let images: Vec<Value> = d
+                            .images
+                            .iter()
+                            .map(|i| {
+                                json!({
+                                    "file": i.file,
+                                    "index": i.index,
+                                    "width": i.width,
+                                    "height": i.height,
+                                    "starred": i.starred,
+                                    "picked": i.picked,
+                                    "refFile": i.ref_file,
+                                })
+                            })
+                            .collect();
+                        json!({
+                            "id": d.id,
+                            "name": d.name,
+                            "prompt": d.prompt,
+                            "aspect": d.aspect.ratio(),
+                            "refs": d.refs,
+                            "images": images,
+                        })
+                    })
+                    .collect();
+                if let (Some(w), true) = (wanted, directions.is_empty()) {
+                    return Err(format!("There is no direction {w:?} in {}.", args.project));
+                }
+                let jobs: Vec<Value> = host
+                    .concepts()
+                    .jobs(Some(&args.project))
+                    .iter()
+                    .filter(|j| !j.state.is_finished())
+                    .map(|j| {
+                        json!({
+                            "id": j.id,
+                            "direction": j.direction_name,
+                            "file": j.file,
+                            "state": to_value(j.state),
+                        })
+                    })
+                    .collect();
+                Ok(json!({
+                    "project": args.project,
+                    "directions": directions,
+                    "running": jobs,
+                }))
+            })
+            .await;
+        respond(found)
+    }
+
+    #[tool(
+        description = "Send an asset's refs to 3D. \"tripo\" or \"meshy\" spend credits, so the send always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back. Settings start from the workspace preset (prop or character) and overrides change them for this send only."
+    )]
+    async fn send_to_3d(&self, Parameters(args): Parameters<SendTo3dArgs>) -> Out {
+        let sent = self
+            .blocking(move |host, hub| {
+                let request = send_request(host, &args)?;
+                let approval = request.provider != Provider::ByHand;
+                let job = host
+                    .studio()
+                    .send(&request, approval, true)
+                    .map_err(reason)?;
+                let pending = (job.state == JobState::Approval).then(|| hub.request_send(&job));
+                Ok((job, pending))
+            })
+            .await;
+        let (job, pending) = match sent {
+            Ok(sent) => sent,
+            Err(message) => return failed(message),
+        };
+        if let Some(approval) = pending {
+            await_send_approval(
+                Arc::clone(&self.host),
+                Arc::clone(&self.hub),
+                approval,
+                job.id.clone(),
+            );
+        }
+        let mut out = job_value(&self.hub, &job);
+        if job.provider == Provider::ByHand {
+            out["note"] = json!(format!(
+                "Nothing is spent. A person makes the model in the {} web app with the settings card in the handoff folder, then drops the GLB on the asset's card in Maquette or saves it into the inbox as {}.glb.",
+                job.service.label(),
+                job.id
+            ));
+        }
+        json_result(&out)
+    }
+
+    #[tool(
+        description = "Get a send to 3D: its status (\"waiting for approval\", queued, running, waiting for a by hand model, inbox, accepted, failed or cancelled), phase, progress, credits spent and message. With project instead of id, every send in the project.",
+        annotations(read_only_hint = true)
+    )]
+    async fn get_provider_job(&self, Parameters(args): Parameters<ProviderJobArgs>) -> Out {
+        let found = self
+            .blocking(move |host, hub| {
+                if let Some(id) = args.id.as_deref() {
+                    let job = host
+                        .studio()
+                        .get(id.trim())
+                        .ok_or_else(|| format!("There is no send {id}."))?;
+                    return Ok(job_value(hub, &job));
+                }
+                let Some(project) = args.project.as_deref() else {
+                    return Err("Pass the job id, or a project to list its sends.".to_string());
+                };
+                let (root, config) = workspace(host)?;
+                project::load(&root, &config.layout, project).map_err(reason)?;
+                let jobs: Vec<Value> = host
+                    .studio()
+                    .list(Some(project))
+                    .iter()
+                    .filter(|j| args.asset.as_deref().is_none_or(|a| j.asset == a))
+                    .map(|j| job_value(hub, j))
+                    .collect();
+                Ok(json!({ "project": project, "jobs": jobs }))
             })
             .await;
         respond(found)
