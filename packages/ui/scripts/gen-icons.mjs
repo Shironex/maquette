@@ -9,6 +9,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ICON_NAMES = [
+  'arrow-bend-up-right',
   'arrow-clockwise',
   'arrow-left',
   'arrow-right',
@@ -17,6 +18,7 @@ export const ICON_NAMES = [
   'bell',
   'camera',
   'caret-down',
+  'caret-up-down',
   'caret-left',
   'caret-right',
   'check',
@@ -67,6 +69,7 @@ export const ICON_NAMES = [
   'robot',
   'rocket-launch',
   'shield-check',
+  'sidebar-simple',
   'sliders-horizontal',
   'sparkle',
   'square-split-horizontal',

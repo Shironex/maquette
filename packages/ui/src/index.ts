@@ -67,6 +67,12 @@ export {
 export { NavRail, type NavRailItem, type NavRailProps } from './components/shell/NavRail';
 export { ProjectSwitcher, type ProjectSwitcherProps } from './components/shell/ProjectSwitcher';
 export {
+  ProjectMenu,
+  type ProjectMenuAction,
+  type ProjectMenuProject,
+  type ProjectMenuProps,
+} from './components/shell/ProjectMenu';
+export {
   PIPELINE_STAGES,
   StageStepper,
   type Stage,

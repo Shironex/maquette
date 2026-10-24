@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   AssetCard,
   LogConsole,
+  NavRail,
+  ProjectMenu,
   PipelineNode,
   budgetScale,
   NumberField,
@@ -200,5 +202,126 @@ describe('TextArea', () => {
     expect(box.tagName).toBe('TEXTAREA');
     await userEvent.type(box, 'moon');
     expect(onChange).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('ProjectMenu', () => {
+  const three = [
+    { id: 'moon-island', name: 'Moon Island', meta: 'Floating diorama', current: true },
+    { id: 'rooftop-cinema', name: 'Rooftop cinema', meta: 'Room', live: 'Run 4 going' },
+    { id: 'lantern-keeper', name: 'Lantern keeper', meta: 'Character showcase' },
+  ];
+  const actions = (onNew = vi.fn()) => [
+    { id: 'new', label: 'New project', icon: 'plus' as const, onSelect: onNew },
+    { id: 'import', label: 'Import folder', icon: 'folder-open' as const, onSelect: vi.fn() },
+  ];
+
+  it('checks the open project, focuses it and walks the rows with the arrow keys', async () => {
+    const onSelect = vi.fn();
+    const onClose = vi.fn();
+    const onNew = vi.fn();
+    render(
+      <ProjectMenu
+        projects={three}
+        actions={actions(onNew)}
+        onSelect={onSelect}
+        onClose={onClose}
+        note="Run 25 keeps going in Moon Island."
+      />
+    );
+    const moon = screen.getByRole('menuitemradio', { name: /Moon Island/ });
+    expect(moon).toHaveAttribute('aria-checked', 'true');
+    expect(moon).toHaveFocus();
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(screen.getByText('Run 4 going')).toBeInTheDocument();
+    expect(screen.getByText('Run 25 keeps going in Moon Island.')).toBeInTheDocument();
+
+    await userEvent.keyboard('{ArrowDown}');
+    expect(screen.getByRole('menuitemradio', { name: /Rooftop cinema/ })).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    expect(onSelect).toHaveBeenCalledWith('rooftop-cinema');
+
+    await userEvent.keyboard('{End}');
+    expect(screen.getByRole('menuitem', { name: 'Import folder' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowDown}');
+    expect(moon).toHaveFocus();
+    await userEvent.keyboard('{ArrowUp}{ArrowUp}{Enter}');
+    expect(onNew).toHaveBeenCalledTimes(1);
+    await userEvent.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('searches once the list is long, from the field or by typing on a row', async () => {
+    const many = Array.from({ length: 8 }, (_, i) => ({
+      id: `p${i}`,
+      name: i === 5 ? 'Harbour lights' : `Project ${i}`,
+    }));
+    const onSelect = vi.fn();
+    render(
+      <ProjectMenu projects={many} actions={actions()} onSelect={onSelect} onClose={vi.fn()} />
+    );
+    const search = screen.getByRole('searchbox', { name: 'Find a project' });
+    expect(search).toHaveFocus();
+    await userEvent.keyboard('harb');
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(1);
+    await userEvent.keyboard('{Enter}');
+    expect(onSelect).toHaveBeenCalledWith('p5');
+    await userEvent.clear(search);
+    await userEvent.keyboard('{ArrowDown}');
+    expect(screen.getByRole('menuitemradio', { name: 'Project 0' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowUp}');
+    expect(search).toHaveFocus();
+    await userEvent.keyboard('{ArrowDown}zz');
+    expect(search).toHaveValue('zz');
+    expect(screen.getByText('No project matches "zz".')).toBeInTheDocument();
+  });
+
+  it('closes on a click outside but not on its anchor', async () => {
+    const onClose = vi.fn();
+    const anchor = { current: null as HTMLButtonElement | null };
+    render(
+      <div>
+        <button ref={el => void (anchor.current = el)}>Switcher</button>
+        <button>Elsewhere</button>
+        <ProjectMenu
+          projects={three}
+          actions={actions()}
+          onSelect={vi.fn()}
+          onClose={onClose}
+          anchorRef={anchor}
+        />
+      </div>
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Switcher' }));
+    expect(onClose).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Elsewhere' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('NavRail', () => {
+  it('keeps every tool reachable by name when collapsed', async () => {
+    const onToggle = vi.fn();
+    render(
+      <NavRail
+        items={[
+          { id: 'board', label: 'Board', icon: 'squares-four' },
+          { id: 'inbox', label: 'Inbox', icon: 'tray', badge: 3 },
+        ]}
+        footer={{ id: 'settings', label: 'Settings', icon: 'gear-six' }}
+        value="board"
+        onChange={vi.fn()}
+        project={{ name: 'Moon Island', meta: 'Floating diorama', expanded: false }}
+        collapsed
+        onToggleCollapsed={onToggle}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Inbox, 3 new' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Board' })).toHaveAttribute('aria-current', 'page');
+    const switcher = screen.getByRole('button', { name: 'Project: Moon Island' });
+    expect(switcher).toHaveAttribute('aria-haspopup', 'menu');
+    expect(screen.queryByText('Tools')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Expand the sidebar' }));
+    expect(onToggle).toHaveBeenCalled();
   });
 });
