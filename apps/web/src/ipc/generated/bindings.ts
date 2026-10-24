@@ -197,6 +197,23 @@ export type CacheInfo = {
 	bytes: number | null,
 };
 
+export type CameraStopDef = {
+	name: string,
+	position: [(number | null), (number | null), (number | null)],
+	target: [(number | null), (number | null), (number | null)],
+	/**  Vertical field of view in degrees. */
+	fov: number | null,
+	/**  An absolute path to the stop's poster render, when there is one. */
+	poster: string | null,
+};
+
+export type CameraStops = {
+	source: StopsSource,
+	/**  The file the stops were read from, relative to the project. */
+	file: string | null,
+	stops: CameraStopDef[],
+};
+
 export type CharacterPreset = {
 	quads: number,
 	multiView: boolean,
@@ -212,6 +229,25 @@ export type Check = {
 };
 
 export type CheckStatus = "pass" | "warning" | "fail";
+
+export type CompareKind = "scene" | "asset";
+
+export type CompareSide = {
+	id: string,
+	/**  What the badge says first: `v7`, `Raw`, `Shipped`. */
+	label: string,
+	/**  What it says after: "current", "on the site", a date. */
+	note: string | null,
+	members: SideMember[],
+};
+
+export type Comparison = {
+	id: string,
+	label: string,
+	kind: CompareKind,
+	/**  Oldest first; the slider opens on the last two. */
+	sides: CompareSide[],
+};
 
 export type CompressDefaultsView = {
 	textureSize: number,
@@ -418,6 +454,46 @@ export type InboxSnapshot = {
 
 export type InboxState = "ready" | "failed";
 
+export type InspectModel = {
+	/**  Unique in the view: `shipped/character`, `asset/character/v2`. */
+	id: string,
+	/**  The file stem presets and budgets use, for example `character`. */
+	model: string,
+	label: string,
+	source: ModelSource,
+	file: string,
+	/**  Relative to the project (or the site repo for site copies). */
+	path: string,
+	asset: string | null,
+	version: number | null,
+	modifiedAt: string | null,
+	bytes: number | null,
+	triangles: number,
+	vertices: number,
+	/**  The bounds in metres, x y z. */
+	size: [(number | null), (number | null), (number | null)],
+	materials: number,
+	joints: number,
+	animations: string[],
+	textures: TextureRow[],
+	gpuBytes: number | null,
+	meshopt: boolean,
+	ktx2: boolean,
+	preset: ModelPreset,
+	/**  Why the file could not be read, when it could not. */
+	error: string | null,
+};
+
+export type InspectView = {
+	project: string,
+	models: InspectModel[],
+	comparisons: Comparison[],
+	stops: CameraStops,
+	budgets: ModelBudget[],
+	limits: Budgets,
+	scene: SceneTotal,
+};
+
 export type Islands = {
 	/**  The primitive with the most groups. */
 	mesh: string,
@@ -472,12 +548,44 @@ export type LogStream = "stdout" | "stderr" |
 
 export type MeshoptLevel = "low" | "medium" | "high";
 
+export type ModelBudget = {
+	model: string,
+	label: string,
+	/**  The shipped size, or the raw export's before the first compress. */
+	bytes: number | null,
+	targetMb: number | null,
+	/**  True when `budgets.json` names the model. */
+	explicit: boolean,
+	triangles: number,
+};
+
 /**  A model the compress step will see, with its sizes before and after. */
 export type ModelFile = {
 	model: string,
 	rawBytes: number | null,
 	shippedBytes: number | null,
 };
+
+/**  The compression a model gets: its preset row, or the workspace defaults. */
+export type ModelPreset = {
+	textureSize: number,
+	codec: TextureCodec,
+	meshopt: MeshoptLevel,
+	/**  Why the row cannot change, from `pipeline.json`. */
+	lock: string | null,
+	/**  False when no row names the model and the defaults apply. */
+	hasRow: boolean,
+};
+
+export type ModelSource = 
+/**  The pipeline's uncompressed export. */
+"raw" | 
+/**  The compressed build that ships. */
+"shipped" | 
+/**  The copy in the site repo. */
+"site" | 
+/**  A version of a Board asset. */
+"version";
 
 /**  The numbers a card shows, taken from the model analysis. */
 export type ModelStats = {
@@ -645,6 +753,12 @@ export type RunRecord = {
 
 export type RunState = "queued" | "running" | "done" | "failed" | "cancelled";
 
+export type SceneTotal = {
+	bytes: number | null,
+	triangles: number,
+	models: number,
+};
+
 /**  What Send picks to Refs did. */
 export type SentPicks = {
 	direction: Direction,
@@ -653,6 +767,15 @@ export type SentPicks = {
 	copied: string[],
 	/**  The project with the asset added or moved, for the Board. */
 	project: ProjectManifest,
+};
+
+export type SideMember = {
+	model: string,
+	/**
+	 *  Where the model stands in the comparison, added to its own
+	 *  transform. Pipeline exports keep their place, so this is zero.
+	 */
+	position: [(number | null), (number | null), (number | null)],
 };
 
 /**  The Board columns, in pipeline order. */
@@ -716,6 +839,9 @@ export type StepState =
 /**  Not part of this run, or not reached because an earlier step failed. */
 "skipped" | "cancelled";
 
+/**  Where the stops came from, for the "From stops.json" line. */
+export type StopsSource = "project-file" | "posters" | "model-cameras" | "none";
+
 export type TextureCodec = "etc1s" | "uastc";
 
 export type TextureInfo = {
@@ -726,6 +852,18 @@ export type TextureInfo = {
 	bytes: number | null,
 	/**  Material slots that use it: "base color", "normal" and so on. */
 	uses: string[],
+};
+
+export type TextureRow = {
+	name: string,
+	/**  What the texture is for: "base color", "normal" and so on. */
+	uses: string[],
+	width: number | null,
+	height: number | null,
+	bytes: number | null,
+	/**  `KTX2 ETC1S`, `KTX2 UASTC`, `PNG`, `JPEG`, `WebP` or `Unknown`. */
+	codec: string,
+	gpuBytes: number | null,
 };
 
 export type TextureSize = "1K" | "2K" | "4K";

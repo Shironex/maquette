@@ -6,7 +6,7 @@ pub mod analyse;
 pub mod checks;
 pub mod fixture;
 pub(crate) mod images;
-mod math;
+pub(crate) mod math;
 pub mod watch;
 
 use std::collections::BTreeMap;

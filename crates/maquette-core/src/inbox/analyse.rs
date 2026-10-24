@@ -275,7 +275,7 @@ fn corners(min: Vec3, max: Vec3) -> [Vec3; 8] {
 }
 
 /// World matrices of every node, from the scene roots down.
-fn world_matrices(doc: &gltf::Document) -> Vec<Mat4> {
+pub(crate) fn world_matrices(doc: &gltf::Document) -> Vec<Mat4> {
     let mut out = vec![IDENTITY; doc.nodes().len()];
     let mut has_parent = vec![false; doc.nodes().len()];
     for node in doc.nodes() {

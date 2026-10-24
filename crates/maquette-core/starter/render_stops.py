@@ -13,15 +13,22 @@ Each stop renders to <out>/<camera name in snake case>.png at the scene's
 resolution, in Cycles by default. --out always gets stops.json listing the
 stops in order; a scene without stops gets an empty list and the step still
 passes, so a new project runs before it has any cameras.
+
+Each entry also carries the camera in glTF coordinates (Y up), so the
+Inspector can fly to it: "position", "target" (along the view axis, at the
+focus distance when depth of field is on, else as far as the world origin
+is ahead, at least a metre) and "fov", the vertical field of view in degrees.
 """
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
 
 import bpy
+from mathutils import Vector
 
 TAG = "maquette_stop"
 
@@ -58,6 +65,36 @@ def stops(scene):
     return [obj for _, _, obj in sorted(found, key=lambda t: (t[0], t[1]))]
 
 
+def gltf_xyz(v):
+    """Blender Z up to glTF Y up."""
+    return [round(v.x, 4), round(v.z, 4), round(-v.y, 4)]
+
+
+def view(camera, scene):
+    """Position, target and vertical field of view of a camera, in glTF terms."""
+    world = camera.matrix_world
+    position = world.translation.copy()
+    forward = (world.to_3x3() @ Vector((0.0, 0.0, -1.0))).normalized()
+    data = camera.data
+    depth = data.dof.focus_distance if data.dof.use_dof and data.dof.focus_distance > 0 else 0.0
+    if depth <= 0:
+        depth = max((Vector((0.0, 0.0, 0.0)) - position).dot(forward), 1.0)
+    width = scene.render.resolution_x * scene.render.pixel_aspect_x
+    height = scene.render.resolution_y * scene.render.pixel_aspect_y
+    aspect = width / height if height else 1.0
+    fit = data.sensor_fit
+    if fit == "VERTICAL" or (fit == "AUTO" and aspect < 1.0):
+        vfov = data.angle_y if fit == "VERTICAL" else data.angle
+    else:
+        hfov = data.angle_x if fit == "HORIZONTAL" else data.angle
+        vfov = 2.0 * math.atan(math.tan(hfov / 2.0) / aspect)
+    return {
+        "position": gltf_xyz(position),
+        "target": gltf_xyz(position + forward * depth),
+        "fov": round(math.degrees(vfov), 3),
+    }
+
+
 def main():
     args = parse_args()
     os.makedirs(args.out, exist_ok=True)
@@ -79,7 +116,7 @@ def main():
             scene.render.filepath = path
             bpy.ops.render.render(write_still=True)
             log(f"rendered {camera.name} to {os.path.join(args.out, name + '.png')}")
-            written.append({"camera": camera.name, "file": f"{name}.png"})
+            written.append({"camera": camera.name, "file": f"{name}.png", **view(camera, scene)})
     report = {
         "width": scene.render.resolution_x * scene.render.resolution_percentage // 100,
         "height": scene.render.resolution_y * scene.render.resolution_percentage // 100,

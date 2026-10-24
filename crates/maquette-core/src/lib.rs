@@ -8,6 +8,7 @@ pub mod concepts;
 pub mod error;
 pub mod fs;
 pub mod inbox;
+pub mod inspect;
 mod json;
 pub mod pipeline;
 pub mod project;
@@ -107,6 +108,7 @@ pub fn types() -> specta::Types {
         .register::<concepts::ConceptJobState>()
         .register::<concepts::ConceptJob>()
         .register::<concepts::ConceptEvent>()
+        .register::<inspect::InspectView>()
 }
 
 #[cfg(test)]
@@ -192,6 +194,9 @@ mod tests {
             "ConceptJobState",
             "ConceptJob",
             "ConceptEvent",
+            "InspectView",
+            "InspectModel",
+            "CameraStopDef",
         ] {
             assert!(names.iter().any(|n| n == expected), "missing {expected}");
         }
