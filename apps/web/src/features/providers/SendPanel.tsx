@@ -2,17 +2,8 @@
  * Send to 3D: pick the provider, the images and this send's settings,
  * then send. Opens from a picked concept in the Lab or an asset's card.
  */
-import { useEffect, useRef } from 'react';
-import {
-  Button,
-  Icon,
-  IconButton,
-  InlineBanner,
-  SegmentedControl,
-  StatusChip,
-  cn,
-} from '@maquette/ui';
-import type { Provider, ProviderId, RefImage, SendOptions } from '@/ipc/client';
+import { Button, Icon, InlineBanner, SegmentedControl, StatusChip, cn } from '@maquette/ui';
+import type { RefImage, SendOptions } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { formatBytes } from '@/lib/format';
 import { useAppStore } from '@/state/app-store';
@@ -42,109 +33,53 @@ import {
 import { useProvidersStore } from '@/state/providers-store';
 import { HandoffView } from './HandoffView';
 import { MeshyPresetFields, TripoPresetFields, useCatalog } from './PresetFields';
-
-const PROVIDERS: { value: Provider; label: string }[] = [
-  { value: 'tripo', label: 'Tripo' },
-  { value: 'meshy', label: 'Meshy' },
-  { value: 'by-hand', label: 'By hand' },
-];
-
-const SERVICES: { value: ProviderId; label: string }[] = [
-  { value: 'tripo', label: 'Tripo' },
-  { value: 'meshy', label: 'Meshy' },
-];
-
-const VARIANTS: { value: SendDraft['variant']; label: string }[] = [
-  { value: 'prop', label: 'Prop' },
-  { value: 'character', label: 'Character' },
-];
-
-function SectionTitle({ children, aside }: { children: string; aside?: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <h3 className="text-[11px] leading-[14px] font-medium tracking-[0.04em] text-fg-mute uppercase">
-        {children}
-      </h3>
-      {aside ? <span className="text-meta text-fg-mute">{aside}</span> : null}
-    </div>
-  );
-}
+import { PROVIDERS, SERVICES, VARIANTS } from './choices';
+import { SectionTitle, Sheet } from './Sheet';
 
 /** The sheet itself, shown while the store has a panel open. */
 export function SendPanel() {
   const panel = useProvidersStore(s => s.panel);
   const close = useProvidersStore(s => s.closePanel);
-  const sheet = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!panel) return;
-    sheet.current?.querySelector<HTMLButtonElement>('[data-close]')?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [panel, close]);
-
   if (!panel) return null;
   const name = panel.options?.asset.name ?? panel.handoff?.assetName ?? 'Asset';
   const handoff = panel.handoff;
   return (
-    <div
-      className="fixed inset-0 z-40 flex justify-end bg-[rgba(16,15,14,0.55)]"
-      onClick={e => {
-        if (e.target === e.currentTarget) close();
-      }}
+    <Sheet
+      id="send"
+      icon={handoff ? 'hand-pointing' : 'cube'}
+      title={handoff ? `${name}, by hand` : `Send ${name} to 3D`}
+      meta={
+        handoff
+          ? `${handoff.id} · ${SERVICE_LABEL[handoff.service]} settings`
+          : panel.options
+            ? `${panel.options.asset.kind} · ${panel.options.images.length} ${panel.options.images.length === 1 ? 'ref' : 'refs'} in the project`
+            : 'Reading the refs'
+      }
+      onClose={close}
     >
-      <div
-        ref={sheet}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="send-title"
-        className="flex h-full w-[520px] max-w-full flex-col border-l border-line-strong bg-panel shadow-window"
-      >
-        <header className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
-          <span className="grid size-9 flex-none place-items-center rounded-[10px] bg-clay-soft text-clay-text">
-            <Icon name={handoff ? 'hand-pointing' : 'cube'} size={18} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 id="send-title" className="truncate text-panel-title">
-              {handoff ? `${name}, by hand` : `Send ${name} to 3D`}
-            </h2>
-            <p className="truncate text-meta text-fg-mute">
-              {handoff
-                ? `${handoff.id} · ${SERVICE_LABEL[handoff.service]} settings`
-                : panel.options
-                  ? `${panel.options.asset.kind} · ${panel.options.images.length} ${panel.options.images.length === 1 ? 'ref' : 'refs'} in the project`
-                  : 'Reading the refs'}
-            </p>
+      {handoff ? (
+        <>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            <HandoffView job={handoff} />
           </div>
-          <IconButton data-close icon="x" label="Close" onClick={close} />
-        </header>
-        {handoff ? (
-          <>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              <HandoffView job={handoff} />
-            </div>
-            <footer className="flex justify-end gap-2 border-t border-line px-5 py-3">
-              <Button variant="primary" onClick={close}>
-                Done
-              </Button>
-            </footer>
-          </>
-        ) : panel.error ? (
-          <div className="p-5">
-            <InlineBanner tone="danger" title="Could not open Send to 3D" detail={panel.error} />
-          </div>
-        ) : panel.options && panel.draft ? (
-          <SendForm options={panel.options} draft={panel.draft} />
-        ) : (
-          <div className="flex flex-1 items-center justify-center gap-2 text-fg-mute">
-            <Icon name="circle-notch" spin size={16} /> Reading the refs
-          </div>
-        )}
-      </div>
-    </div>
+          <footer className="flex justify-end gap-2 border-t border-line px-5 py-3">
+            <Button variant="primary" onClick={close}>
+              Done
+            </Button>
+          </footer>
+        </>
+      ) : panel.error ? (
+        <div className="p-5">
+          <InlineBanner tone="danger" title="Could not open Send to 3D" detail={panel.error} />
+        </div>
+      ) : panel.options && panel.draft ? (
+        <SendForm options={panel.options} draft={panel.draft} />
+      ) : (
+        <div className="flex flex-1 items-center justify-center gap-2 text-fg-mute">
+          <Icon name="circle-notch" spin size={16} /> Reading the refs
+        </div>
+      )}
+    </Sheet>
   );
 }
 
