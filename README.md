@@ -14,6 +14,18 @@ Each project keeps its steps in `pipeline.json` (new projects start from the Flo
 - One run at a time per project; more runs queue. Runs and their logs (last 5) live in the project's cache folder.
 - The Compress step reads the per model presets (texture size, ETC1S or UASTC, meshopt level). A locked row keeps its values and says why.
 
+### Starter scripts
+
+A new project gets small, commented scripts in its `tools/` folder when its pipeline is first written, so it runs end to end on day one. They read their paths from args and are the project's to edit; Maquette never writes over a file that exists.
+
+- `build_scene.py`: opens `blender/scene.blend` when there is one (else an empty scene with a sun), imports each `models/*.glb` into its own collection under "Models", lays overlapping models out side by side and saves `blender/scene_built.blend`.
+- `bake_light.py`: a stub that bakes nothing yet. It saves `blender/scene_baked.blend` and writes `blender/bake/bake.json` saying so.
+- `export_web.py`: one GLB per model collection (and per other top level object) into `web/raw/`, named in snake case, uncompressed for the Compress step.
+- `render_stops.py`: one poster per camera stop, a camera with the `maquette_stop` custom property (its number sets the order) or a name starting with `stop_`. It always writes `web/posters/stops.json`, empty when there are no stops.
+- `ship.mjs`: copies `web/dist/*.glb` to `public/models` and the posters to `public/posters` in the project's site repo. Without a site repo it says so and passes.
+
+Character showcase projects get `export_character.py`, `render_stops.py` and `ship.mjs`; their pipeline starts from `blender/character.blend`, which you add.
+
 ## Model inbox
 
 Maquette watches the workspace `inbox/` folder for `.glb` and `.gltf` files. Each file is read in Rust: triangles, meshes, materials, textures and their sizes, skins and joints, animations. Checks compare that with the budgets: triangles, texture size, a Mixamo rig for characters, PBR maps, separate objects merged into one mesh, and hair or tail vertices weighted to finger bones. Accept to Blender moves the file into the project's `models/` folder as a new asset version.
@@ -58,7 +70,7 @@ The mock runner streams Blender style output and fails Capture posters once. The
 
 ### End to end check
 
-`cargo run -p maquette-core --example run_pipeline -- <project dir>` runs a real project's pipeline from the terminal with the same runner the app uses, and prints each step's state.
+`cargo run -p maquette-core --example new_project -- <workspace dir> <name> [--site <repo>]` creates a workspace (if needed) and a project with its pipeline and starter scripts, the way the app does. `cargo run -p maquette-core --example run_pipeline -- <project dir>` then runs a real project's pipeline from the terminal with the same runner the app uses, fills `{workspace}` and `{siteRepo}` like the app, and prints each step's state. A second run with nothing changed reports every step cached except Ship, which writes outside the project and always runs.
 
 ## Scripts
 
