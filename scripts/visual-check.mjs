@@ -66,10 +66,11 @@ await mkdir(outDir, { recursive: true });
 const browser = await chromium.launch();
 const saved = [];
 
-async function shot(page, name) {
-  await page.waitForTimeout(250);
+/** Shoots a page, or one element when given its locator. */
+async function shot(target, name) {
+  await (target.page?.() ?? target).waitForTimeout(250);
   const path = resolve(outDir, `${name}.png`);
-  await page.screenshot({ path });
+  await target.screenshot({ path });
   saved.push(path);
 }
 
@@ -348,6 +349,12 @@ async function coreShots() {
   const failed = await open('&scenario=configured', '#/pipeline');
   await failed.getByText('Run 24 failed at Capture posters').first().waitFor();
   await shot(failed, 'pipeline-failed');
+  // A tall window, so the whole log shows.
+  const logs = await open('&scenario=configured', '#/pipeline', { width: 1440, height: 1500 });
+  await logs.getByRole('log').getByText('Traceback').waitFor();
+  await shot(logs.getByRole('log'), 'pipeline-log');
+  await logs.getByText('Hide noise').click();
+  await shot(logs.getByRole('log'), 'pipeline-log-quiet');
 
   const idle = await open('&scenario=idle', '#/pipeline');
   await idle.getByRole('heading', { name: 'Pipeline runner' }).waitFor();
