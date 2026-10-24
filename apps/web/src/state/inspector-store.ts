@@ -89,7 +89,8 @@ export const useInspectorStore = create<InspectorStore>((set, get) => ({
         title: `Exported ${label} again`,
         detail: `Run ${done.runNumber} wrote ${done.file}. Compress picks it up on the next run.`,
       });
-      await get().load(project);
+      // Another project may be open by now; it keeps the Inspector.
+      if (get().project === project) await get().load(project);
     } catch (error) {
       notify({ status: 'failed', title: `Could not export ${label}`, detail: errorMessage(error) });
     } finally {
