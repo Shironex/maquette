@@ -11,12 +11,14 @@ import { useInboxStore } from '@/state/inbox-store';
 import { useLabStore } from '@/state/lab-store';
 import { runStatusLine, runSummary } from '@/state/pipeline';
 import { usePipelineStore } from '@/state/pipeline-store';
+import { useProvidersStore } from '@/state/providers-store';
 import { ApprovalPrompt } from '@/features/agents/ApprovalPrompt';
 import { BoardView } from '@/features/board/BoardView';
 import { InboxView } from '@/features/inbox/InboxView';
 import { LabView } from '@/features/lab/LabView';
 import { InspectorView } from '@/features/inspector/InspectorView';
 import { PipelineView } from '@/features/pipeline/PipelineView';
+import { SendPanel } from '@/features/providers/SendPanel';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { PlaceholderView } from '@/features/tools/PlaceholderView';
 import { projectMeta, projectThumb } from './projectArt';
@@ -81,6 +83,7 @@ export function AppShell() {
         </div>
         <ShellStatusBar />
       </div>
+      <SendPanel />
       <ApprovalPrompt />
     </div>
   );
@@ -100,6 +103,15 @@ function useLiveData(projectId: string | null, root: string | null) {
   const setProject = useAppStore(s => s.setProject);
   const loadAgents = useAgentsStore(s => s.load);
   const onAgents = useAgentsStore(s => s.onUpdate);
+  const loadProviders = useProvidersStore(s => s.load);
+  const onProvider = useProvidersStore(s => s.onEvent);
+  const loadKeys = useProvidersStore(s => s.loadKeys);
+  useEffect(() => {
+    if (projectId) void loadProviders(projectId);
+  }, [projectId, loadProviders]);
+  useEffect(() => {
+    if (root) void loadKeys();
+  }, [root, loadKeys]);
   useEffect(() => {
     if (root) void loadAgents();
   }, [root, loadAgents]);
@@ -123,11 +135,12 @@ function useLiveData(projectId: string | null, root: string | null) {
       }),
       events.projectChanged.listen(e => setProject(e.payload.project)),
       events.mcpUpdate.listen(e => onAgents(e.payload)),
+      events.providerUpdate.listen(e => onProvider(e.payload)),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
     };
-  }, [onEvent, loadInbox, onThumbnail, setProject, onConcept, onAgents]);
+  }, [onEvent, loadInbox, onThumbnail, setProject, onConcept, onAgents, onProvider]);
 }
 
 function CurrentView({ view }: { view: ViewId }) {
@@ -214,6 +227,20 @@ function ShellStatusBar() {
           ]
         : [{ label: 'No runs yet', right: true }];
   const mcp = mcpStatusItem(useAgentsStore(s => s.status));
+  const sends = useProvidersStore(s => s.jobs);
+  const sending = sends.filter(j => j.state === 'running' || j.state === 'queued').length;
+  const handWaiting = sends.filter(j => j.state === 'waiting').length;
+  const sendParts = [
+    sending ? `${sending} ${sending === 1 ? 'model' : 'models'} on the way` : null,
+    handWaiting ? `${handWaiting} by hand` : null,
+  ].filter(Boolean);
+  const sendItems: StatusBarItem[] = sendParts.length
+    ? [
+        sending
+          ? { label: sendParts.join(', '), dot: 'running' }
+          : { label: `${handWaiting} waiting for your model`, icon: 'hand-pointing' },
+      ]
+    : [];
   const items: StatusBarItem[] = [
     { label: 'Local worker connected', dot: 'ok' },
     blenderItem,
@@ -221,6 +248,7 @@ function ShellStatusBar() {
     ...codexItems,
     ...(view === 'lab' ? [] : inboxItem),
     ...labItems,
+    ...sendItems,
     ...runItems,
   ];
   return <StatusBar items={items} />;

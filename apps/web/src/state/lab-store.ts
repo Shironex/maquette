@@ -50,7 +50,9 @@ interface LabStore {
   clearFinished: () => Promise<void>;
   mark: (file: string, marks: { starred?: boolean; picked?: boolean }) => Promise<void>;
   contactSheet: () => Promise<void>;
-  sendPicks: (kind: AssetKind) => Promise<void>;
+  /** Copies the picks into refs/; resolves to the asset's id, or null when it failed. */
+  /** Copies the picks into refs/. `quiet` skips the toast, for when the Send to 3D panel opens next. */
+  sendPicks: (kind: AssetKind, quiet?: boolean) => Promise<string | null>;
   openLightbox: (path: string | null) => void;
   onEvent: (event: ConceptEvent) => void;
 }
@@ -203,10 +205,10 @@ export const useLabStore = create<LabStore>((set, get) => ({
     }
   },
 
-  sendPicks: async kind => {
+  sendPicks: async (kind, quiet = false) => {
     const view = get().view;
     const selected = get().selected;
-    if (!view || !selected) return;
+    if (!view || !selected) return null;
     set({ busy: 'send' });
     try {
       const sent = await commands.labSendPicks(view.project, selected, kind);
@@ -215,13 +217,16 @@ export const useLabStore = create<LabStore>((set, get) => ({
       if (latest) set({ view: withDirection(latest, sent.direction) });
       await get().load(view.project);
       const n = sent.copied.length;
-      notify(
-        'done',
-        `${n} ${n === 1 ? 'pick' : 'picks'} sent to Refs`,
-        `${sent.asset.name} is at Refs on the Board.`
-      );
+      if (!quiet)
+        notify(
+          'done',
+          `${n} ${n === 1 ? 'pick' : 'picks'} sent to Refs`,
+          `${sent.asset.name} is at Refs on the Board.`
+        );
+      return sent.asset.id;
     } catch (error) {
       notify('failed', 'Could not send the picks', errorMessage(error));
+      return null;
     } finally {
       set({ busy: null });
     }

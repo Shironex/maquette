@@ -13,17 +13,28 @@ import { commands, errorMessage, type Asset, type Stage } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { formatAgo } from '@/lib/format';
 import { readFlag, writeFlag } from '@/lib/storage';
+import { useNativeDrop } from '@/lib/useNativeDrop';
 import { useAppStore } from '@/state/app-store';
 import { assetCount, cardNumbers, columns, projectFile } from '@/state/board';
+import { cardState, isActive, latestJob } from '@/state/providers';
+import { useProvidersStore } from '@/state/providers-store';
 import { TEMPLATE_LABEL } from '@/state/onboarding';
 import { STAGES, STAGE_LABEL } from '@/state/pipeline';
 import { KIND_ICON } from '@/state/thumbs';
 import { Menu } from '@/features/common/Menu';
+import { ProviderQueue } from '@/features/providers/ProviderQueue';
 import { ProjectTopBar } from '@/features/shell/ProjectTopBar';
 import { AddAssetForm } from './AddAssetForm';
 
 const TIPS_KEY = 'maquette.board.tipsHidden';
 const DRAG_TYPE = 'application/x-maquette-asset';
+const GLB_FILE = /\.glb$/i;
+
+/** The By hand job of the card under a point, for native GLB drops. */
+function jobAt(x: number, y: number): string | null {
+  const card = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-drop-job]');
+  return card?.dataset.dropJob ?? null;
+}
 
 const STAGE_ICON: Record<Stage, IconName> = {
   concept: 'image',
@@ -43,8 +54,44 @@ export function BoardView() {
   const [adding, setAdding] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<Stage | null>(null);
+  const jobs = useProvidersStore(s => s.jobs);
+  const queueOpen = useProvidersStore(s => s.queueOpen);
+  const setQueueOpen = useProvidersStore(s => s.setQueueOpen);
+  const openPanel = useProvidersStore(s => s.openPanel);
+  const showHandoff = useProvidersStore(s => s.showHandoff);
+  const handBack = useProvidersStore(s => s.handBack);
+  const [dropJob, setDropJob] = useState<string | null>(null);
   const project = workspace?.project;
   const assets = project?.assets ?? [];
+  const activeJobs = jobs.filter(j => isActive(j.state)).length;
+  useNativeDrop({
+    onOver: ({ x, y }) => setDropJob(jobAt(x, y)),
+    onLeave: () => setDropJob(null),
+    onDrop: ({ x, y }, paths) => {
+      setDropJob(null);
+      const job = jobAt(x, y);
+      const glb = paths.find(p => GLB_FILE.test(p));
+      if (job && glb) void handBack(job, glb);
+      else if (job)
+        notify({
+          status: 'info',
+          title: 'Drop a .glb file',
+          detail: 'The card takes the GLB you made by hand.',
+        });
+    },
+  });
+  const pickGlb = async (job: string) => {
+    try {
+      const file = await commands.dialogPickFile('Choose the GLB you made');
+      if (file) void handBack(job, file);
+    } catch (error) {
+      notify({
+        status: 'failed',
+        title: 'Could not open the file picker',
+        detail: errorMessage(error),
+      });
+    }
+  };
   const budget = workspace?.config.budgets.sceneMb ?? 3;
   const byStage = columns(assets);
 
@@ -109,6 +156,23 @@ export function BoardView() {
               ]}
               defaultValue="board"
             />
+            <div className="relative">
+              <Button
+                icon="cube"
+                data-queue-toggle
+                aria-expanded={queueOpen}
+                disabled={!project}
+                onClick={() => setQueueOpen(!queueOpen)}
+              >
+                3D queue
+                {activeJobs > 0 ? (
+                  <span className="ml-0.5 rounded-pill bg-amber-soft px-1.5 font-mono text-[11px] leading-[18px] text-amber">
+                    {activeJobs}
+                  </span>
+                ) : null}
+              </Button>
+              {queueOpen ? <ProviderQueue onClose={() => setQueueOpen(false)} /> : null}
+            </div>
             <Button
               icon="plus"
               disabled={!project}
@@ -173,9 +237,19 @@ export function BoardView() {
                     const thumbPath =
                       asset.thumbnail && workspace ? projectFile(workspace, asset.thumbnail) : null;
                     const others = STAGES.filter(s => s !== asset.stage);
+                    const job = latestJob(jobs, asset.id);
+                    const sent = cardState(job);
+                    const waiting = job?.state === 'waiting' ? job : undefined;
                     return (
                       <AssetCard
                         key={asset.id}
+                        data-drop-job={waiting?.id}
+                        className={cn(
+                          waiting && 'border-dashed border-clay-line',
+                          dropJob &&
+                            dropJob === waiting?.id &&
+                            'border-solid border-clay bg-clay-soft/40'
+                        )}
                         name={asset.name}
                         thumb={fileUrl(thumbPath) ?? undefined}
                         placeholder={{
@@ -187,7 +261,11 @@ export function BoardView() {
                         latest={n.version !== undefined}
                         tris={n.tris}
                         size={n.size}
-                        status={n.status}
+                        status={sent?.status ?? n.status}
+                        statusLabel={sent?.label}
+                        statusIcon={sent?.icon}
+                        progress={sent?.progress}
+                        progressLabel={sent?.progressLabel}
                         draggable
                         onDragStart={e => {
                           e.dataTransfer.setData(DRAG_TYPE, asset.id);
@@ -200,6 +278,28 @@ export function BoardView() {
                             label={`${asset.name} actions`}
                             onClose={() => setMenuFor(null)}
                             items={[
+                              ...(waiting
+                                ? [
+                                    {
+                                      id: 'handoff',
+                                      label: 'Settings card',
+                                      icon: 'file-text' as const,
+                                      onSelect: () => showHandoff(waiting),
+                                    },
+                                    {
+                                      id: 'hand-back',
+                                      label: 'Choose the GLB',
+                                      icon: 'upload-simple' as const,
+                                      onSelect: () => void pickGlb(waiting.id),
+                                    },
+                                  ]
+                                : []),
+                              {
+                                id: 'send',
+                                label: 'Send to 3D',
+                                icon: 'cube',
+                                onSelect: () => void openPanel(project?.id ?? '', asset.id),
+                              },
                               ...others.map(s => ({
                                 id: `move-${s}`,
                                 label: `Move to ${STAGE_LABEL[s]}`,
@@ -250,9 +350,9 @@ const STEPS = [
     detail: 'Drag concept art onto the Concept column, or generate a few directions in the Lab.',
   },
   {
-    title: 'Send picks to Tripo',
+    title: 'Send picks to 3D',
     detail:
-      'Star the concepts you like. I export refs with your Tripo preset and check every model that comes back.',
+      'Pick the concepts you like and send them to Tripo, Meshy or by hand. I check every model that comes back.',
   },
   {
     title: 'Run the pipeline',

@@ -14,6 +14,7 @@ import {
   tiles,
 } from '@/state/lab';
 import { useLabStore } from '@/state/lab-store';
+import { useProvidersStore } from '@/state/providers-store';
 
 const NO_ASSETS: readonly Asset[] = [];
 
@@ -54,7 +55,9 @@ function DirectionResults({ view, direction }: { view: LabView; direction: Direc
   const contactSheet = useLabStore(s => s.contactSheet);
   const sendPicks = useLabStore(s => s.sendPicks);
   const assets = useAppStore(s => s.workspace?.project?.assets) ?? NO_ASSETS;
-  const [kindMenu, setKindMenu] = useState(false);
+  const openPanel = useProvidersStore(s => s.openPanel);
+  /** Which button opened the kind menu: Refs only, or Refs then 3D. */
+  const [kindMenu, setKindMenu] = useState<'refs' | '3d' | null>(null);
   const cells = tiles(direction, view.jobs);
   const picked = direction.images.filter(i => i.picked).length;
   const known = assets.find(
@@ -63,7 +66,17 @@ function DirectionResults({ view, direction }: { view: LabView; direction: Direc
 
   const send = () => {
     if (known) void sendPicks(known.kind);
-    else setKindMenu(m => !m);
+    else setKindMenu(m => (m === 'refs' ? null : 'refs'));
+  };
+  // Picks already in refs/ go straight to the panel; new ones are sent first.
+  const unsent = direction.images.some(i => i.picked && !i.refFile);
+  const sendTo3d = async (kind?: AssetKind) => {
+    const id = known && !unsent ? known.id : await sendPicks(kind ?? known?.kind ?? 'prop', true);
+    if (id) void openPanel(view.project, id);
+  };
+  const to3d = () => {
+    if (known) void sendTo3d();
+    else setKindMenu(m => (m === '3d' ? null : '3d'));
   };
 
   return (
@@ -76,16 +89,29 @@ function DirectionResults({ view, direction }: { view: LabView; direction: Direc
           <h2 className="truncate text-screen-title">{direction.name}</h2>
           <p className="mt-0.5 truncate text-fg-mute">{directionSummary(direction, view.jobs)}</p>
         </div>
-        <Button
+        <IconButton
           icon="squares-four"
-          loading={busy === 'sheet'}
+          variant="secondary"
+          label="Make a contact sheet of every image"
           disabled={direction.images.length === 0 || busy === 'sheet'}
-          title="Tiles every image into contact_sheet.png next to the concepts"
           onClick={() => void contactSheet()}
-        >
-          Contact sheet
-        </Button>
-        <div className="relative">
+        />
+        <div className="relative flex gap-2">
+          <Button
+            icon="cube"
+            disabled={picked === 0 || busy === 'send'}
+            title={
+              picked === 0
+                ? 'Pick at least one concept first'
+                : unsent
+                  ? 'Sends the picks to Refs, then opens Send to 3D'
+                  : 'Opens Send to 3D with the picks'
+            }
+            aria-haspopup={known ? undefined : 'menu'}
+            onClick={to3d}
+          >
+            Send to 3D
+          </Button>
           <Button
             variant="primary"
             iconRight="arrow-right"
@@ -106,17 +132,19 @@ function DirectionResults({ view, direction }: { view: LabView; direction: Direc
           {kindMenu ? (
             <Menu
               label="Add the asset"
-              onClose={() => setKindMenu(false)}
-              className="absolute top-10 right-0 z-30 w-[220px]"
+              onClose={() => setKindMenu(null)}
+              className="absolute top-10 right-0 z-30 w-[240px]"
               header={
                 <p className="px-2.5 pt-1.5 pb-1 text-meta text-fg-mute">
-                  {`Adds ${direction.name} to the Board at Refs`}
+                  {kindMenu === '3d'
+                    ? `Adds ${direction.name} at Refs, then opens Send to 3D`
+                    : `Adds ${direction.name} to the Board at Refs`}
                 </p>
               }
               items={KINDS.map(k => ({
                 id: k.id,
                 label: k.label,
-                onSelect: () => void sendPicks(k.id),
+                onSelect: () => void (kindMenu === '3d' ? sendTo3d(k.id) : sendPicks(k.id)),
               }))}
             />
           ) : null}

@@ -51,17 +51,10 @@ export function ApprovalCard({ approval, floating }: { approval: Approval; float
             {approvalTitle(approval, site?.name)}
           </h2>
           {send ? (
-            <>
-              <p className="mt-0.5 text-meta text-fg-mute">
-                An agent asked over MCP. This spends {approval.service} credits; nothing is sent
-                until you approve.
-              </p>
-              {approval.detail ? (
-                <p className="mt-1.5 rounded-[7px] bg-raised px-2 py-1.5 text-meta text-fg-dim">
-                  {approval.detail}
-                </p>
-              ) : null}
-            </>
+            <p className="mt-0.5 text-meta text-fg-mute">
+              An agent asked over MCP. This spends {approval.service} credits; nothing is sent until
+              you approve.
+            </p>
           ) : (
             <p className="mt-0.5 text-meta text-fg-mute">
               An agent started this run over MCP. Everything before {approval.step} is done;{' '}
@@ -73,6 +66,11 @@ export function ApprovalCard({ approval, floating }: { approval: Approval; float
           {formatAgo(approval.requestedAtMs ?? now, now)}
         </span>
       </div>
+      {send && approval.detail ? (
+        <p className="ml-11 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 text-meta text-fg-dim">
+          {approval.detail}
+        </p>
+      ) : null}
       <div className="flex justify-end gap-2">
         <Button
           variant="secondary"
