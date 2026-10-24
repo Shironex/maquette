@@ -177,3 +177,51 @@ fn labels_from_file_stems() {
     assert_eq!(model_label("island-rock"), "Island rock");
     assert_eq!(model_label("crate"), "Crate");
 }
+
+#[test]
+fn an_export_of_an_asset_version_reads_as_the_asset() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let project = dir.path();
+    write(&project.join("models/clay_v1.glb"), &fixture::clean_prop());
+    write(&project.join("web/raw/clay_v1.glb"), &fixture::clean_prop());
+    write(
+        &project.join("web/dist/clay_v1.glb"),
+        &fixture::clean_prop(),
+    );
+    let clay = Asset {
+        id: "clay".into(),
+        name: "clay".into(),
+        kind: AssetKind::Prop,
+        stage: Stage::Blender,
+        status: AssetStatus::Review,
+        versions: vec![AssetVersion {
+            version: 1,
+            file: "models/clay_v1.glb".into(),
+            created_at: "2026-10-24T19:14:19.000Z".into(),
+            stats: None,
+        }],
+        thumbnail: None,
+        created_at: "2026-10-24T19:00:00.000Z".into(),
+        updated_at: "2026-10-24T19:14:19.000Z".into(),
+    };
+    let def = for_template(ProjectTemplate::FloatingDiorama);
+    let manifest = manifest(vec![clay]);
+    let limits = Budgets::default();
+    let view = inspect(&Sources {
+        project_dir: project,
+        manifest: &manifest,
+        def: &def,
+        defaults: defaults(),
+        limits: &limits,
+    });
+    let shipped = view
+        .models
+        .iter()
+        .find(|m| m.id == "shipped/clay_v1")
+        .expect("shipped");
+    assert_eq!(shipped.label, "clay");
+    assert_eq!(shipped.version, Some(1));
+    assert_eq!(shipped.model, "clay_v1", "the file stem stays for presets");
+    assert!(shipped.path.ends_with("clay_v1.glb"));
+    assert_eq!(view.budgets[0].label, "clay");
+}

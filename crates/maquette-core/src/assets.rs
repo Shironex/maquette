@@ -106,6 +106,31 @@ pub struct Asset {
     pub updated_at: String,
 }
 
+/// The asset an exported model comes from, by its GLB file stem: the asset
+/// with a version file of that stem (`clay_v1` is the clay's v1), with the
+/// version. The pipeline names an export after the model file it built, so
+/// this is how "clay_v1.glb" reads as "clay" in the app. `None` for a model
+/// no asset version made.
+pub fn for_model_stem<'a>(
+    manifest: &'a crate::ProjectManifest,
+    stem: &str,
+) -> Option<(&'a Asset, u32)> {
+    let stem_of = |file: &str| {
+        std::path::Path::new(file)
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_lowercase())
+    };
+    let wanted = stem.to_lowercase();
+    manifest.assets.iter().find_map(|asset| {
+        asset
+            .versions
+            .iter()
+            .rev()
+            .find(|v| stem_of(&v.file).as_deref() == Some(wanted.as_str()))
+            .map(|v| (asset, v.version))
+    })
+}
+
 impl Asset {
     pub fn latest(&self) -> Option<&AssetVersion> {
         self.versions.last()

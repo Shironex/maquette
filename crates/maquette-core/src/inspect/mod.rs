@@ -518,15 +518,17 @@ pub fn inspect(src: &Sources<'_>) -> InspectView {
                 model: id.clone(),
                 position: [0.0; 3],
             });
+            // An export of an asset version reads as the asset: "clay", v1.
+            let from_asset = crate::assets::for_model_stem(src.manifest, &stem);
             entries.push(Entry {
                 id,
-                label: label_of(&stem),
+                label: from_asset.map_or_else(|| label_of(&stem), |(a, _)| a.name.clone()),
                 model: stem,
                 source,
                 path: rel(&base, &file),
                 file,
                 asset: None,
-                version: None,
+                version: from_asset.map(|(_, v)| v),
             });
         }
         scene_sides.push(CompareSide {
