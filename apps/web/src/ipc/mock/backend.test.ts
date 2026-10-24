@@ -127,6 +127,15 @@ describe('mock backend', () => {
     expect(snapshot.items.map(i => i.id)).not.toContain('sakura_large.glb');
   });
 
+  it('adds a version to the asset a model was sent for', async () => {
+    const { handle } = backend('configured');
+    const result = (await handle('inbox_accept', {
+      request: { item: 'sakura_large.glb', project: 'moon-island', asset: 'sakura' },
+    })) as AcceptResult;
+    expect(result.asset.id).toBe('sakura');
+    expect(result.version.file).toMatch(/^models\/sakura_v\d+\.glb$/);
+  });
+
   it('carries the inbox thumbnail onto the accepted version', async () => {
     const aliases: [string, string][] = [];
     const handle = createBackend({

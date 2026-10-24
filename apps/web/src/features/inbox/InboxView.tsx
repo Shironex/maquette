@@ -26,6 +26,7 @@ import {
   reviewPrompt,
   sortChecks,
 } from '@/state/inbox';
+import { PROVIDER_LABEL } from '@/state/providers';
 import { KIND_ICON } from '@/state/thumbs';
 import type { PreviewMode } from '@/features/viewer/ModelPreview';
 
@@ -192,6 +193,14 @@ function InboxDetail({ item }: { item: InboxItem }) {
       value: item.kind === 'character' ? 'Character' : item.kind === 'scene' ? 'Scene' : 'Prop',
     },
     { label: 'Size', value: formatBytes(item.bytes ?? 0), mono: true },
+    ...(item.link
+      ? [
+          {
+            label: 'Sent for',
+            value: `${item.link.assetName}, ${PROVIDER_LABEL[item.link.provider]}`,
+          },
+        ]
+      : []),
     ...(report
       ? [
           {
@@ -324,7 +333,13 @@ function InboxDetail({ item }: { item: InboxItem }) {
           variant="primary"
           icon="check"
           disabled={isBusy || !project || item.state === 'failed'}
-          title={project ? `Moves it into ${project.name}` : 'Create a project first'}
+          title={
+            !project
+              ? 'Create a project first'
+              : item.link && item.link.project === project.id
+                ? `Adds a version to ${item.link.assetName}`
+                : `Moves it into ${project.name}`
+          }
           onClick={() => project && void accept(item.id, project.id)}
         >
           Accept to Blender

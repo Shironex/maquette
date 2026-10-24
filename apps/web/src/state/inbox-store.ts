@@ -94,7 +94,10 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
   accept: async (id, project) => {
     set({ busy: id });
     try {
-      const result = await commands.inboxAccept({ item: id, project, asset: null, name: null });
+      // A model from a Send to 3D goes to the asset it was sent for.
+      const link = get().snapshot?.items.find(i => i.id === id)?.link;
+      const asset = link && link.project === project ? link.asset : null;
+      const result = await commands.inboxAccept({ item: id, project, asset, name: null });
       useAppStore.getState().notify({
         status: 'done',
         title: `${result.asset.name} v${result.version.version} accepted`,

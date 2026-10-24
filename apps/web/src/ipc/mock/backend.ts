@@ -465,7 +465,7 @@ export function createBackend({
       if (!item) fail('not-found', `${req.item} in the inbox`);
       const p = project(req.project);
       const assets = [...(p.assets ?? [])];
-      const assetId = slugify(item.name);
+      const assetId = req.asset ?? slugify(item.name);
       let target = assets.find(a => a.id === assetId);
       const at = new Date().toISOString();
       if (!target) {
