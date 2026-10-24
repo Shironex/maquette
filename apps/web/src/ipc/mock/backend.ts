@@ -554,10 +554,19 @@ export function createBackend({
     pipeline_save_presets: ({ project: id, presets: rows }) => {
       const next = rows as CompressPreset[];
       const locked = view(String(id)).def.presets.filter(p => p.lock);
+      // Field by field, as the core compares; a missing data map size is none.
+      const plain = (p: CompressPreset) =>
+        JSON.stringify([
+          p.label,
+          p.textureSize,
+          p.dataTextureSize ?? null,
+          p.codec,
+          p.meshopt,
+          p.lock,
+        ]);
       for (const old of locked) {
         const same = next.find(p => p.model === old.model);
-        if (!same || JSON.stringify(same) !== JSON.stringify(old))
-          fail('invalid', old.lock ?? 'That row is locked.');
+        if (!same || plain(same) !== plain(old)) fail('invalid', old.lock ?? 'That row is locked.');
       }
       presets.set(String(id), next);
       return view(String(id));

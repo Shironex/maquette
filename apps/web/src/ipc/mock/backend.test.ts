@@ -14,6 +14,7 @@ import type {
   RunRecord,
   SendOptions,
 } from '../client';
+import { presetRows, presetsToSave } from '@/state/presets';
 import { createBackend } from './backend';
 
 function backend(scenario = 'idle') {
@@ -340,5 +341,14 @@ describe('mock presets', () => {
       ((await handle('pipeline_get', { project })) as PipelineView).def.presets.map(p => p.model);
     expect(await presetsOf('moon-island')).toContain('character');
     expect(await presetsOf('rooftop-cinema')).toEqual([]);
+  });
+
+  it('takes the rows the panel saves back, the locked one included', async () => {
+    const handle = createBackend({ scenario: 'configured', probeDelay: 0, pace: 0 });
+    const view = (await handle('pipeline_get', { project: 'moon-island' })) as PipelineView;
+    const rows = presetsToSave(presetRows(view));
+    await expect(
+      handle('pipeline_save_presets', { project: 'moon-island', presets: rows })
+    ).resolves.toBeTruthy();
   });
 });
