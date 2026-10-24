@@ -45,4 +45,29 @@ describe('inbox snapshots', () => {
     await useInboxStore.getState().snapshotMissing();
     expect(snapshotModel).toHaveBeenCalledTimes(2);
   });
+
+  it('ignores a thumbnail event for older content under the same name', async () => {
+    await openMockWorkspace();
+    await useInboxStore.getState().load();
+    const item = useInboxStore.getState().snapshot!.items[0]!;
+    const event = {
+      file: item.file,
+      thumbnail: '/thumbs/old.png',
+      state: 'ready' as const,
+      project: null,
+    };
+    const thumbnail = () => useInboxStore.getState().snapshot!.items[0]!.thumbnail;
+    const before = thumbnail();
+
+    // A render of the file as it was before it was replaced.
+    useInboxStore
+      .getState()
+      .onThumbnail({ ...event, bytes: (item.bytes ?? 0) - 1, modifiedMs: item.modifiedMs });
+    expect(thumbnail()).toBe(before);
+
+    useInboxStore
+      .getState()
+      .onThumbnail({ ...event, bytes: item.bytes, modifiedMs: item.modifiedMs });
+    expect(thumbnail()).toBe('/thumbs/old.png');
+  });
 });

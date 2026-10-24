@@ -14,14 +14,34 @@ export function needsSnapshot(item: InboxItem): boolean {
   return item.state === 'ready' && !item.thumbnail && item.thumbnailState === 'fallback';
 }
 
-/** The inbox with a finished render (or a stored snapshot) folded in. */
+/** A file's size and modified time, as the render or snapshot was asked for it. */
+export type Stamp = Pick<ThumbnailReady, 'bytes' | 'modifiedMs'>;
+
+/**
+ * True when the inbox lists `file` with other content than `stamp` says:
+ * the result is for an older file that had the same name.
+ */
+export function isStale(snapshot: InboxSnapshot, file: string, stamp: Stamp): boolean {
+  const item = snapshot.items.find(i => i.file === file);
+  if (!item) return false;
+  const differs = (a: number | null | undefined, b: number | null | undefined) =>
+    a != null && b != null && a !== b;
+  return differs(item.bytes, stamp.bytes) || differs(item.modifiedMs, stamp.modifiedMs);
+}
+
+/**
+ * The inbox with a finished render (or a stored snapshot) folded in. A
+ * result made for other content than the listed file has (`stamp`) is left out.
+ */
 export function withThumbnail(
   snapshot: InboxSnapshot,
   file: string,
   thumbnail: string | null,
-  state: ThumbnailReady['state']
+  state: ThumbnailReady['state'],
+  stamp?: Stamp
 ): InboxSnapshot {
   if (!snapshot.items.some(i => i.file === file)) return snapshot;
+  if (stamp && isStale(snapshot, file, stamp)) return snapshot;
   return {
     ...snapshot,
     items: snapshot.items.map(i =>

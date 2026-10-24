@@ -11,7 +11,7 @@ import {
 import { fileUrl } from '@/ipc/files';
 import { useAppStore } from './app-store';
 import { contentKey, firstToReview } from './inbox';
-import { keepRenders, needsSnapshot, withThumbnail } from './thumbs';
+import { isStale, keepRenders, needsSnapshot, withThumbnail } from './thumbs';
 
 interface InboxStore {
   snapshot: InboxSnapshot | null;
@@ -137,6 +137,8 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
 
   onThumbnail: event => {
     const snapshot = get().snapshot;
+    // A late result for an older file of the same name must not land on the new one.
+    if (snapshot && isStale(snapshot, event.file, event)) return;
     if (snapshot) {
       set({ snapshot: withThumbnail(snapshot, event.file, event.thumbnail, event.state) });
     }
@@ -158,7 +160,10 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
         const png = await snapshotModel(url);
         const path = await commands.thumbnailStore(item.file, Array.from(png));
         const snapshot = get().snapshot;
-        if (snapshot) set({ snapshot: withThumbnail(snapshot, item.file, path, 'ready') });
+        // The file may have been replaced while its preview was drawn.
+        if (snapshot) {
+          set({ snapshot: withThumbnail(snapshot, item.file, path, 'ready', item) });
+        }
       } catch {
         // The row keeps its kind placeholder; the preview still shows the model.
       }

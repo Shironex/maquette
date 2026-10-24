@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InboxItem, InboxSnapshot } from '@/ipc/client';
-import { keepRenders, needsSnapshot, withThumbnail } from './thumbs';
+import { isStale, keepRenders, needsSnapshot, withThumbnail } from './thumbs';
 
 const item = (patch: Partial<InboxItem>): InboxItem =>
   ({
@@ -44,6 +44,34 @@ describe('thumbnails', () => {
       'fallback'
     );
     expect(next.items[0]).toMatchObject({ thumbnail: '/old.png', thumbnailState: 'fallback' });
+  });
+});
+
+describe('a late result for older content', () => {
+  const listed = {
+    items: [item({ bytes: 100, modifiedMs: 5_000, thumbnailState: 'rendering' })],
+  } as unknown as InboxSnapshot;
+  const file = '/w/inbox/a.glb';
+
+  it('is stale when the size or the modified time differ', () => {
+    expect(isStale(listed, file, { bytes: 90, modifiedMs: 5_000 })).toBe(true);
+    expect(isStale(listed, file, { bytes: 100, modifiedMs: 4_000 })).toBe(true);
+    expect(isStale(listed, file, { bytes: 100, modifiedMs: 5_000 })).toBe(false);
+  });
+
+  it('is never stale when either side does not know the file', () => {
+    expect(isStale(listed, file, { bytes: null, modifiedMs: null })).toBe(false);
+    expect(isStale(listed, '/w/inbox/other.glb', { bytes: 1, modifiedMs: 1 })).toBe(false);
+  });
+
+  it('is left out of the inbox', () => {
+    const old = { bytes: 90, modifiedMs: 5_000 };
+    expect(withThumbnail(listed, file, '/t/old.png', 'ready', old)).toBe(listed);
+    const now = withThumbnail(listed, file, '/t/new.png', 'ready', {
+      bytes: 100,
+      modifiedMs: 5_000,
+    });
+    expect(now.items[0]).toMatchObject({ thumbnail: '/t/new.png', thumbnailState: 'ready' });
   });
 });
 
