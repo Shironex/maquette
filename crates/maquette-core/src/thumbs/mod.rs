@@ -4,9 +4,12 @@
 //!
 //! Renders go through the same [`PipelineRunner`] as the pipeline, on a
 //! lane of their own, so they queue one at a time and never block a
-//! command. When Blender is missing, or a render fails (Blender cannot read
-//! KTX2 textures, for example), the item is marked [`ThumbState::Fallback`]
-//! and the web view stores a snapshot from its own model preview instead.
+//! command. Blender cannot read KTX2 textures or meshopt geometry, so a
+//! compressed model renders from its uncompressed export when there is one
+//! ([`source::pick`] has the order). When Blender is missing, nothing it can
+//! read exists, or a render fails, the item is marked
+//! [`ThumbState::Fallback`] and the web view stores a snapshot from its own
+//! model preview instead.
 
 use std::collections::HashMap;
 use std::fs;
@@ -14,6 +17,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
+
+pub mod source;
 
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::cache::FileHasher;
@@ -291,6 +296,11 @@ impl Thumbnails {
                 "Blender is not installed, so the preview stands in.".to_string(),
             ));
         }
+        let render_from = match source::pick(file) {
+            source::Source::Original => file.to_path_buf(),
+            source::Source::Uncompressed(raw) => raw,
+            source::Source::Snapshot(reason) => return Ok(Requested::Fallback(reason)),
+        };
         let script = dir.join(SCRIPT_FILE);
         if fs::read_to_string(&script).ok().as_deref() != Some(SCRIPT) {
             crate::fs::write_atomic(&script, SCRIPT.as_bytes())
@@ -304,7 +314,7 @@ impl Thumbnails {
             project: LANE.to_string(),
             project_dir: dir.to_path_buf(),
             cache_dir: dir.join("runs"),
-            def: render_def(file, &out),
+            def: render_def(&render_from, &out),
             tools: tools.clone(),
             defaults: CompressDefaults {
                 texture_size: 2048,
@@ -469,6 +479,73 @@ mod tests {
                 .expect("again"),
             Requested::Ready(saved)
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_compressed_model_renders_from_its_raw_export_or_falls_back() {
+        use crate::pipeline::tools::ResolvedTool;
+        use std::os::unix::fs::PermissionsExt;
+        use std::sync::mpsc;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        // A stand-in for Blender that only renders models under a raw folder.
+        let fake = dir.path().join("blender");
+        fs::write(
+            &fake,
+            "#!/bin/sh\nwhile [ \"$1\" != \"--model\" ]; do shift; done\nmodel=\"$2\"\nwhile [ \"$1\" != \"--out\" ]; do shift; done\ncase \"$model\" in */raw/*) printf '\\211PNG' > \"$2\";; *) exit 1;; esac\n",
+        )
+        .expect("fake");
+        fs::set_permissions(&fake, fs::Permissions::from_mode(0o755)).expect("chmod");
+        let mut tools = Toolbox {
+            path_env: std::env::var_os("PATH").unwrap_or_default(),
+            os: Some(crate::toolchain::HostOs::current()),
+            ..Toolbox::default()
+        };
+        tools.tools.insert(
+            ToolId::Blender,
+            ResolvedTool {
+                program: fake,
+                prefix: Vec::new(),
+                version: "test".into(),
+            },
+        );
+        let compressed = |path: &Path, ext: &[&str]| {
+            fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+            let json = serde_json::json!({"asset": {"version": "2.0"}, "extensionsUsed": ext});
+            fs::write(path, serde_json::to_vec(&json).expect("json")).expect("write");
+        };
+        let shipped = dir.path().join("web/dist/bench.gltf");
+        compressed(&shipped, &["KHR_texture_basisu"]);
+        let lonely = dir.path().join("elsewhere/lamp.gltf");
+        compressed(&lonely, &["EXT_meshopt_compression"]);
+        compressed(&dir.path().join("web/raw/bench.gltf"), &[]);
+
+        let (tx, rx) = mpsc::channel();
+        let tx = Mutex::new(tx);
+        let service = Thumbnails::new(move |done| {
+            let _ = tx.lock().expect("tx").send(done);
+        });
+        let thumbs_dir = dir.path().join("thumbs");
+        assert_eq!(
+            service
+                .request(&thumbs_dir, &shipped, None, &tools)
+                .expect("shipped"),
+            Requested::Rendering
+        );
+        let done = rx
+            .recv_timeout(std::time::Duration::from_secs(20))
+            .expect("finished");
+        assert_eq!(done.error, None, "rendered from web/raw");
+        assert_eq!(done.file, shipped);
+        match service
+            .request(&thumbs_dir, &lonely, None, &tools)
+            .expect("lonely")
+        {
+            Requested::Fallback(why) => assert!(why.contains("EXT_meshopt_compression")),
+            other => panic!("expected the preview to stand in, got {other:?}"),
+        }
+        service.wait();
     }
 
     #[cfg(unix)]
