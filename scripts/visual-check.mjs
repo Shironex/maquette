@@ -1,7 +1,7 @@
 /**
  * Renders mock mode in headless Chromium and saves a screenshot of every
- * onboarding step, the empty Board and Settings. It renders pages to files
- * and never captures the screen.
+ * onboarding step, the Board, Pipeline (idle, running, failed), the Inbox
+ * and Settings. It renders pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
@@ -123,6 +123,29 @@ try {
   const lab = await open('&scenario=configured', '#/lab');
   await lab.getByText('The Concept lab is on its way').waitFor();
   await shot(lab, 'lab-placeholder');
+
+  const board = await open('&scenario=configured', '#/board');
+  await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
+  await shot(board, 'board');
+
+  const failed = await open('&scenario=configured', '#/pipeline');
+  await failed.getByText('Run 24 failed at Capture posters').first().waitFor();
+  await shot(failed, 'pipeline-failed');
+
+  const idle = await open('&scenario=idle', '#/pipeline');
+  await idle.getByRole('heading', { name: 'Pipeline runner' }).waitFor();
+  await shot(idle, 'pipeline-idle');
+
+  const running = await open('&scenario=running&pace=60', '#/pipeline');
+  await running.getByText('Run 25 · step 3 of 6').first().waitFor();
+  await running.waitForTimeout(1200);
+  await shot(running, 'pipeline-running');
+
+  const inbox = await open('&scenario=configured', '#/inbox');
+  await inbox.getByRole('heading', { name: 'Automatic checks' }).waitFor();
+  // The preview loads its model lazily; give WebGL a moment.
+  await inbox.waitForTimeout(1500);
+  await shot(inbox, 'inbox');
 } finally {
   await browser.close();
   await vite?.close();
