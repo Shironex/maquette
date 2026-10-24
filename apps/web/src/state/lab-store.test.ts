@@ -54,4 +54,15 @@ describe('the picks after a send', () => {
     expect(ids?.length).toBeGreaterThan(0);
     expect(picked(objects!.id)).toEqual([]);
   });
+
+  it('leave the picks of a direction chosen while the send ran', async () => {
+    await openMockWorkspace();
+    await useLabStore.getState().load('moon-island');
+    useLabStore.setState({ selected: 'moon-island-porch' });
+    const sending = useLabStore.getState().sendPicks('prop', true);
+    useLabStore.getState().select('maquette-landing-studio');
+    expect(await sending).toBeTruthy();
+    expect(picked('moon-island-porch')).toEqual([]);
+    expect(picked('maquette-landing-studio')).toHaveLength(1);
+  });
 });

@@ -69,8 +69,8 @@ interface LabStore {
   /** Copies the picks into refs/; resolves to the asset's id, or null when it failed. */
   /** Copies the picks into refs/. `quiet` skips the toast, for when the Send to 3D panel opens next. */
   sendPicks: (kind: AssetKind, quiet?: boolean) => Promise<string | null>;
-  /** Takes the Pick mark off every picked concept of the selected direction. */
-  clearPicks: () => Promise<void>;
+  /** Takes the Pick mark off every picked concept of `direction`. */
+  clearPicks: (direction: string) => Promise<void>;
   /** Moves an earlier direction, with its refs and Board card, into another project. */
   moveDirection: (direction: string, to: string) => Promise<boolean>;
   openLightbox: (path: string | null) => void;
@@ -259,9 +259,10 @@ export const useLabStore = create<LabStore>((set, get) => ({
     }
   },
 
-  clearPicks: async () => {
-    const { view, selected } = get();
-    const direction = view?.directions.find(d => d.id === selected);
+  clearPicks: async id => {
+    // By id, not the selection: another direction may be on show by now.
+    const view = get().view;
+    const direction = view?.directions.find(d => d.id === id);
     if (!view || !direction) return;
     try {
       // One at a time: each mark rewrites the direction's file.
@@ -287,7 +288,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
       const latest = get().view;
       if (latest?.project === view.project) set({ view: withDirection(latest, sent.direction) });
       if (stillOn(view.project)) await get().load(view.project);
-      await get().clearPicks();
+      await get().clearPicks(selected);
       const n = sent.copied.length;
       if (!quiet)
         notify(
@@ -409,7 +410,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
       const latest = get().view;
       if (latest?.project === view.project) set({ view: withDirection(latest, sent.direction) });
       if (stillOn(view.project)) await get().load(view.project);
-      await get().clearPicks();
+      await get().clearPicks(direction.id);
       const n = sent.assets.length;
       if (!quiet)
         notify(
