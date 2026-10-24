@@ -102,10 +102,13 @@ pub(crate) fn key_statuses(studio: &ProviderJobs) -> CommandResult<Vec<KeyStatus
 }
 
 /// The refs an asset came with: images sent from the Lab direction of the
-/// same name or object refs titled like it, else files in `refs/` named
-/// after the asset.
+/// same name (or the name it was first made with, which its id keeps) or
+/// object refs titled like it, else files in `refs/` named after the asset.
 fn suggested(project_dir: &Path, asset: &Asset, images: &[RefImage]) -> Vec<String> {
-    let named = |text: &str| text.trim().eq_ignore_ascii_case(asset.name.trim());
+    let named = |text: &str| {
+        text.trim().eq_ignore_ascii_case(asset.name.trim())
+            || project::slugify(text.trim()) == asset.id
+    };
     let mut from_lab: Vec<String> = Vec::new();
     for d in concepts::list_directions(project_dir) {
         let whole = named(&d.name);

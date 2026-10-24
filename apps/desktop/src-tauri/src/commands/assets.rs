@@ -51,6 +51,29 @@ pub(crate) fn move_to(
     })?)
 }
 
+#[tauri::command]
+#[specta::specta]
+pub fn asset_rename(
+    session: State<'_, Session>,
+    project: String,
+    id: String,
+    name: String,
+) -> CommandResult<ProjectManifest> {
+    rename(&session, &project, &id, &name)
+}
+
+pub(crate) fn rename(
+    session: &Session,
+    project_id: &str,
+    id: &str,
+    name: &str,
+) -> CommandResult<ProjectManifest> {
+    let (root, config) = session.workspace()?;
+    Ok(project::modify(&root, &config.layout, project_id, |m| {
+        assets::rename(m, id, name).map(|_| ())
+    })?)
+}
+
 /// Opens the asset's latest file in Blender's window. Only ever from a
 /// click on Open in Blender.
 #[tauri::command]
@@ -116,5 +139,12 @@ mod tests {
                 .code,
             "not-found"
         );
+        let renamed =
+            rename(&session, &manifest.id, "stone-lantern", "Mossy lantern").expect("rename");
+        assert_eq!(renamed.assets[0].id, "stone-lantern");
+        assert_eq!(renamed.assets[0].name, "Mossy lantern");
+        let saved = project::load(&root, &config.layout, &manifest.id).expect("load");
+        assert_eq!(saved.assets[0].name, "Mossy lantern");
+        assert!(rename(&session, &manifest.id, "stone-lantern", " ").is_err());
     }
 }

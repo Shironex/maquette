@@ -38,6 +38,7 @@ export const commands = {
 	dialogPickModel: (title: string) => __TAURI_INVOKE<string | null>("dialog_pick_model", { title }),
 	assetAdd: (project: string, asset: NewAsset) => __TAURI_INVOKE<ProjectManifest>("asset_add", { project, asset }),
 	assetMove: (project: string, id: string, stage: Stage) => __TAURI_INVOKE<ProjectManifest>("asset_move", { project, id, stage }),
+	assetRename: (project: string, id: string, name: string) => __TAURI_INVOKE<ProjectManifest>("asset_rename", { project, id, name }),
 	/**
 	 *  Opens the asset's latest file in Blender's window. Only ever from a
 	 *  click on Open in Blender.
