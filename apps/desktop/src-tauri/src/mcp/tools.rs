@@ -234,8 +234,12 @@ pub struct ObjectRefsArgs {
     /// The concept to take the objects from, relative to the project folder, for example
     /// "concepts/workbench-hero/workbench-hero_01.png" or "refs/workbench.png".
     pub source: String,
-    /// One name per object, for example ["desk lamp", "plaster plinth with clay figure"]. At most 12.
+    /// One short name per object (60 characters at most), for example ["desk lamp", "clay figure"]. At most 12. The name becomes the asset name; put long descriptions in notes.
     pub objects: Vec<String>,
+    /// Optional extra instructions per object, keyed by the object's name, for example
+    /// {"island": "painted stone and moss, no wireframe lines"}. They go into the image prompt
+    /// only; the asset keeps the short object name. Up to 400 characters each.
+    pub notes: Option<std::collections::HashMap<String, String>>,
     /// "prop" (default) or "character": what the objects become on the Board.
     pub kind: Option<VariantArg>,
     /// The aspect ratio, 1:1 by default.
@@ -1308,6 +1312,7 @@ a project id; no tool changes which project the app has open.",
                     source: args.source,
                     source_name: name,
                     objects: args.objects,
+                    notes: args.notes.unwrap_or_default(),
                     aspect: args.aspect.map_or(Aspect::Square, Aspect::from),
                     kind: match args.kind {
                         Some(VariantArg::Character) => AssetKind::Character,

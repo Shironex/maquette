@@ -528,6 +528,7 @@ mod tests {
                 source: "refs/workbench.png".into(),
                 source_name: "Workbench".into(),
                 objects: vec!["Desk lamp".into(), "Clay figure".into()],
+                notes: Default::default(),
                 aspect: concepts::Aspect::Square,
                 kind: AssetKind::Prop,
             }

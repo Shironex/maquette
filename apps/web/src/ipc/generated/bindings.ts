@@ -1049,6 +1049,11 @@ export type NewObjectRefs = {
 	sourceName: string,
 	/**  One name per object, for example "desk lamp". */
 	objects: string[],
+	/**
+	 *  Extra instructions for the Codex prompt, by object name (any case).
+	 *  They steer the image only: the asset is named after the object.
+	 */
+	notes?: { [key in string]: string },
 	aspect: Aspect,
 	/**  What the objects become on the Board: props or characters. */
 	kind: AssetKind,
