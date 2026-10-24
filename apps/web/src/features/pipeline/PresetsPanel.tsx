@@ -46,7 +46,8 @@ export function PresetsPanel({
         </h2>
         <p className="text-meta mt-0.5 text-fg-mute">Per model overrides for this project</p>
       </div>
-      <div className="min-h-0 overflow-auto">
+      {/* Scrolls when the log beside it is short; the fade shows there is more. */}
+      <div className="min-h-0 flex-1 overflow-auto pb-4 [mask-image:linear-gradient(to_bottom,black_calc(100%-16px),transparent)]">
         <table className="w-full table-fixed border-collapse text-[12px]">
           <colgroup>
             <col />
@@ -123,13 +124,16 @@ export function PresetsPanel({
             })}
           </tbody>
         </table>
+        {locks.map(r => (
+          <p
+            key={r.model}
+            className="text-meta mt-2 rounded-[8px] bg-raised px-2.5 py-2 text-fg-dim"
+          >
+            {r.lock}
+          </p>
+        ))}
       </div>
-      {locks.map(r => (
-        <p key={r.model} className="text-meta rounded-[8px] bg-raised px-2.5 py-2 text-fg-dim">
-          {r.lock}
-        </p>
-      ))}
-      <div className="mt-auto flex items-center gap-3 border-t border-line pt-3">
+      <div className="flex items-center gap-3 border-t border-line pt-3">
         <div className="flex-1">
           <div className="text-meta text-fg-mute">Est. transfer after Compress</div>
           <div className="font-mono text-[15px] leading-5 tabular-nums">
