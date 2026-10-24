@@ -133,7 +133,12 @@ fn diorama() -> Vec<StepDef> {
                 "--out",
                 "blender/scene_built.blend",
             ],
-            &["blender/scene.blend", "models/*.glb", "models/*.gltf"],
+            &[
+                "blender/scene.blend",
+                "models/*.glb",
+                "models/*.gltf",
+                LAYOUT_INPUT,
+            ],
             &["blender/scene_built.blend"],
             &[],
         ),
@@ -246,6 +251,34 @@ pub fn for_template(template: ProjectTemplate) -> PipelineDef {
             Vec::new()
         },
     }
+}
+
+/// The scene layout the Build scene starter reads, so moving a model or a
+/// camera in the app rebuilds the scene.
+pub const LAYOUT_INPUT: &str = crate::layout::LAYOUT_FILE;
+const BUILD_SCRIPT: &str = "tools/build_scene.py";
+
+/// Adds the scene layout to the inputs of a step that runs the Build scene
+/// starter once that script reads it, so a project made before layouts
+/// rebuilds when its layout changes after its starters were updated.
+/// Returns true when `def` changed.
+pub fn fit_layout_input(def: &mut PipelineDef, project_dir: &Path) -> bool {
+    let root = def.root_dir(project_dir);
+    let mut changed = false;
+    for step in &mut def.steps {
+        if step.script.as_deref() != Some(BUILD_SCRIPT)
+            || step.inputs.iter().any(|i| i == LAYOUT_INPUT)
+        {
+            continue;
+        }
+        let reads = std::fs::read_to_string(root.join(BUILD_SCRIPT))
+            .is_ok_and(|text| text.contains(LAYOUT_INPUT));
+        if reads {
+            step.inputs.push(LAYOUT_INPUT.to_string());
+            changed = true;
+        }
+    }
+    changed
 }
 
 /// Keeps a scene project's character row in step with its assets. Without a
@@ -783,6 +816,30 @@ mod tests {
         assert!(compress.compress.is_some());
         assert!(def.presets.is_empty(), "no character, no character row");
         assert!(validate(&def).iter().all(|i| !i.is_error()));
+    }
+
+    #[test]
+    fn the_build_step_reads_the_layout_once_its_script_does() {
+        let def = for_template(ProjectTemplate::FloatingDiorama);
+        let build = def.step("build").expect("build");
+        assert!(build.inputs.iter().any(|i| i == LAYOUT_INPUT));
+
+        // A pipeline from before layouts, with an older build script.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut old = def.clone();
+        old.steps[0].inputs.retain(|i| i != LAYOUT_INPUT);
+        std::fs::create_dir_all(dir.path().join("tools")).expect("tools");
+        std::fs::write(dir.path().join(BUILD_SCRIPT), "print('no layouts here')\n").expect("old");
+        assert!(!fit_layout_input(&mut old, dir.path()));
+        // Updated to the starter that reads layout.json.
+        std::fs::write(
+            dir.path().join(BUILD_SCRIPT),
+            include_str!("../../starter/build_scene.py"),
+        )
+        .expect("new");
+        assert!(fit_layout_input(&mut old, dir.path()));
+        assert_eq!(old.steps[0].inputs, def.steps[0].inputs);
+        assert!(!fit_layout_input(&mut old, dir.path()), "only once");
     }
 
     #[test]

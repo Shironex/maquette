@@ -171,10 +171,12 @@ pub fn ensure(
     manifest: &crate::project::ProjectManifest,
 ) -> CoreResult<PipelineDef> {
     if let Some(mut def) = load(project_dir)? {
-        if template::fit_presets(&mut def, manifest) {
+        let presets = template::fit_presets(&mut def, manifest);
+        let layout = template::fit_layout_input(&mut def, project_dir);
+        if presets || layout {
             match save(project_dir, &def) {
-                Ok(()) => tracing::info!("fitted the character preset row to the assets"),
-                Err(err) => tracing::warn!(error = %err, "the fitted presets were not saved"),
+                Ok(()) => tracing::info!(presets, layout, "fitted the pipeline to the project"),
+                Err(err) => tracing::warn!(error = %err, "the fitted pipeline was not saved"),
             }
         }
         return Ok(def);
