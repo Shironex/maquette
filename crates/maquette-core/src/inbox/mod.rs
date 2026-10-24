@@ -26,7 +26,7 @@ use crate::assets::{
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use crate::project;
-use crate::thumbs::ThumbState;
+use crate::thumbs::{Fingerprint, ThumbState};
 use crate::workspace::{WorkspaceConfig, is_single_segment};
 
 const KINDS_FILE: &str = "kinds.json";
@@ -106,7 +106,7 @@ struct CachedReport {
     report: GlbReport,
 }
 
-fn stamp(meta: &fs::Metadata) -> (u64, u128) {
+pub(crate) fn stamp(meta: &fs::Metadata) -> (u64, u128) {
     let modified = meta
         .modified()
         .ok()
@@ -232,11 +232,7 @@ fn build_item(
         .as_ref()
         .map(|r| checks::run(r, kind, config, SendNotes::default()))
         .unwrap_or_default();
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "sizes and epoch ms stay far below 2^53"
-    )]
-    let (bytes, modified_ms) = (len as f64, (modified_ns / 1_000_000) as f64);
+    let Fingerprint { bytes, modified_ms } = Fingerprint::new(len, modified_ns);
     Ok(InboxItem {
         name: display_name(&id),
         file: path.display().to_string(),

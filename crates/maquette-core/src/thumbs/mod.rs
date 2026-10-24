@@ -86,10 +86,40 @@ impl Requested {
     }
 }
 
+/// A file's size and modified time as the inbox lists them. A render comes
+/// back with the one its file had when it was asked for, so a late result
+/// for an old file under the same name can be told from the new one.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Fingerprint {
+    pub bytes: f64,
+    pub modified_ms: f64,
+}
+
+impl Fingerprint {
+    pub fn new(len: u64, modified_ns: u128) -> Self {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "sizes and epoch ms stay far below 2^53"
+        )]
+        Self {
+            bytes: len as f64,
+            modified_ms: (modified_ns / 1_000_000) as f64,
+        }
+    }
+
+    /// None when the file cannot be read.
+    pub fn of(path: &Path) -> Option<Self> {
+        let (len, modified_ns) = crate::inbox::stamp(&fs::metadata(path).ok()?);
+        Some(Self::new(len, modified_ns))
+    }
+}
+
 /// A render that finished, with everyone who asked for it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Finished {
     pub file: PathBuf,
+    /// The file as it was when the render was asked for.
+    pub fingerprint: Option<Fingerprint>,
     pub png: Option<PathBuf>,
     pub error: Option<String>,
     pub targets: Vec<ThumbTarget>,
@@ -191,6 +221,7 @@ struct Pending {
     run_id: Option<String>,
     png: PathBuf,
     file: PathBuf,
+    fingerprint: Option<Fingerprint>,
     targets: Vec<ThumbTarget>,
 }
 
@@ -241,6 +272,7 @@ impl RunSink for Sink {
         });
         (self.0.on_done)(Finished {
             file: done.file,
+            fingerprint: done.fingerprint,
             png: ok.then_some(done.png),
             error,
             targets: done.targets,
@@ -332,6 +364,7 @@ impl Thumbnails {
                 run_id: None,
                 png: png.clone(),
                 file: file.to_path_buf(),
+                fingerprint: Fingerprint::of(file),
                 targets: target.into_iter().collect(),
             },
         );
@@ -607,6 +640,8 @@ mod tests {
         let png = done.png.expect("png");
         assert!(png.is_file());
         assert_eq!(done.targets, vec![target(1), target(2)]);
+        assert_eq!(done.fingerprint, Fingerprint::of(&model));
+        assert_eq!(done.fingerprint.map(|f| f.bytes), Some(3.0));
         assert!(thumbs_dir.join(SCRIPT_FILE).is_file());
         assert_eq!(
             service
@@ -614,5 +649,24 @@ mod tests {
                 .expect("cached"),
             Requested::Ready(png)
         );
+    }
+
+    #[test]
+    fn a_fingerprint_follows_the_size_and_the_modified_time() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let model = dir.path().join("crate.glb");
+        assert_eq!(Fingerprint::of(&model), None);
+        fs::write(&model, b"one").expect("one");
+        let first = Fingerprint::of(&model).expect("first");
+        assert_eq!(first.bytes, 3.0);
+        fs::write(&model, b"longer").expect("longer");
+        let second = Fingerprint::of(&model).expect("second");
+        assert_ne!(first, second);
+        assert_eq!(second.bytes, 6.0);
+        assert_eq!(
+            Fingerprint::new(7, 5_999_999),
+            Fingerprint::new(7, 5_000_000)
+        );
+        assert_eq!(Fingerprint::new(7, 6_000_000).modified_ms, 6.0);
     }
 }
