@@ -5,7 +5,8 @@
  * rest, so orbiting moves both at once. Reuses the preview studio (lights,
  * floor, framing) and its material modes.
  *
- * It also measures itself: every fourth frame waits for the GPU to finish,
+ * It also measures itself: every fourth frame, and the first of each
+ * sample, waits for the GPU to finish,
  * so its time covers updating and drawing both sides on the CPU and the
  * GPU; the samples average over 250 ms, next to the frame rate.
  * Loaded lazily, with three.js.
@@ -393,11 +394,12 @@ function Compare(props: Omit<CompareCanvasProps, 'className'>) {
     }
     gl.setScissorTest(false);
 
-    // Every few frames, wait for the GPU (a one pixel read) so the sample
-    // is the whole cost of the frame, not just the CPU handing work over.
+    // Every few frames (and at least once per sample), wait for the GPU (a
+    // one pixel read) so the sample is the whole cost of the frame, not just
+    // the CPU handing work over.
     const s = stats.current;
     s.frames += 1;
-    if (!shooting && s.frames % TIME_EVERY === 0) {
+    if (!shooting && (s.timed === 0 || s.frames % TIME_EVERY === 0)) {
       const ctx = gl.getContext();
       ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, pixel);
       s.work += performance.now() - start;
