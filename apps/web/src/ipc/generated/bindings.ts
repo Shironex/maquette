@@ -301,6 +301,12 @@ export type BatchItem = {
 	variant: PresetVariant,
 	/**  Relative to the project folder, front first, at most 4. */
 	images: string[],
+	/**
+	 *  This asset's own settings, already merged over the batch preset of
+	 *  its variant. `None` follows the batch preset.
+	 */
+	tripo: TripoPreset | null,
+	meshy: MeshyPreset | null,
 };
 
 /**  One asset of the batch panel: its refs and the preset it starts from. */
@@ -322,9 +328,9 @@ export type BatchOptions = {
 };
 
 /**
- *  Several assets to one provider with the same settings: one model per
- *  asset. The settings for each variant start from the saved preset;
- *  `Some` changes them for this batch only.
+ *  Several assets to one provider: one model per asset. The settings for
+ *  each variant start from the saved preset; `Some` changes them for this
+ *  batch only, and an item can carry its own on top.
  */
 export type BatchRequest = {
 	project: string,

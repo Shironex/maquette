@@ -541,11 +541,30 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         json!({
             "project": project_id,
             "provider": "by-hand",
-            "items": [{ "asset": "stone-lantern" }, { "asset": "desk-lamp" }],
+            "overrides": { "faceLimit": 10000 },
+            "items": [
+                { "asset": "stone-lantern" },
+                { "asset": "desk-lamp", "overrides": { "faceLimit": 2000 } },
+            ],
         }),
     )
     .await;
     assert_eq!(by_hand["status"], json!("started"), "{by_hand}");
+    let cards: Vec<String> = by_hand["jobs"]
+        .as_array()
+        .expect("jobs")
+        .iter()
+        .map(|j| {
+            let folder = std::path::PathBuf::from(j["handoff"].as_str().expect("handoff"));
+            std::fs::read_to_string(folder.join("settings.md")).expect("card")
+        })
+        .collect();
+    assert!(cards[0].contains("10,000"), "{}", cards[0]);
+    assert!(
+        cards[1].contains("2,000"),
+        "own overrides win: {}",
+        cards[1]
+    );
     for job in by_hand["jobs"].as_array().expect("jobs") {
         assert_eq!(job["status"], json!("waiting"));
         let folder = std::path::PathBuf::from(job["handoff"].as_str().expect("handoff"));

@@ -316,6 +316,9 @@ pub struct BatchItemArg {
     /// asset's own refs.
     #[serde(default)]
     pub images: Vec<String>,
+    /// Preset fields to change for this asset only, laid over the batch settings, for
+    /// example {"faceLimit": 2000, "pbr": false}.
+    pub overrides: Option<serde_json::Map<String, Value>>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -331,7 +334,8 @@ pub struct SendBatchArgs {
     /// One model per asset, at most 24.
     pub items: Vec<BatchItemArg>,
     /// Preset fields to change for this batch only, laid over both the prop and the
-    /// character preset, for example {"faceLimit": 20000}.
+    /// character preset, for example {"faceLimit": 20000}. An item's own overrides
+    /// go on top of these.
     pub overrides: Option<serde_json::Map<String, Value>>,
 }
 
@@ -605,12 +609,29 @@ fn variant(arg: Option<VariantArg>, fallback: PresetVariant) -> PresetVariant {
 }
 
 /// Builds the batch an agent asked for: each asset's own refs and kind
-/// unless given, one preset per variant with the overrides laid over both.
+/// unless given, one preset per variant with the overrides laid over both,
+/// and an asset's own overrides laid over its variant's preset.
 fn batch_request(host: &dyn Host, args: &SendBatchArgs) -> Result<BatchRequest, String> {
     let (_, config) = workspace(host)?;
     let ids: Vec<String> = args.items.iter().map(|i| i.asset.clone()).collect();
     let options = providers::batch_options(host.session(), host.studio(), &args.project, &ids)
         .map_err(|e| e.message)?;
+    let (provider, service) = match args.provider {
+        ProviderArg::Tripo => (Provider::Tripo, ProviderId::Tripo),
+        ProviderArg::Meshy => (Provider::Meshy, ProviderId::Meshy),
+        ProviderArg::ByHand => (
+            Provider::ByHand,
+            match args.service {
+                Some(ServiceArg::Meshy) => ProviderId::Meshy,
+                _ => ProviderId::Tripo,
+            },
+        ),
+    };
+    let overrides = args.overrides.as_ref();
+    let p = &config.providers;
+    let tripo = service == ProviderId::Tripo;
+    let tripo_for = |variant| with_overrides(p.tripo(variant), overrides);
+    let meshy_for = |variant| with_overrides(p.meshy(variant), overrides);
     let mut items = Vec::new();
     for arg in &args.items {
         let Some(found) = options.items.iter().find(|o| o.asset.id == arg.asset) else {
@@ -628,42 +649,40 @@ fn batch_request(host: &dyn Host, args: &SendBatchArgs) -> Result<BatchRequest, 
                 found.asset.id.replace('-', "_")
             ));
         }
+        let variant = variant(arg.variant, found.variant);
+        let own = arg.overrides.as_ref().filter(|o| !o.is_empty());
+        let name = &found.asset.name;
+        let tag = |err: String| format!("{name}: {err}");
         items.push(BatchItem {
             asset: found.asset.id.clone(),
-            variant: variant(arg.variant, found.variant),
+            variant,
             images,
+            tripo: own
+                .filter(|_| tripo)
+                .map(|o| with_overrides(&tripo_for(variant)?, Some(o)))
+                .transpose()
+                .map_err(tag)?,
+            meshy: own
+                .filter(|_| !tripo)
+                .map(|o| with_overrides(&meshy_for(variant)?, Some(o)))
+                .transpose()
+                .map_err(tag)?,
         });
     }
-    let (provider, service) = match args.provider {
-        ProviderArg::Tripo => (Provider::Tripo, ProviderId::Tripo),
-        ProviderArg::Meshy => (Provider::Meshy, ProviderId::Meshy),
-        ProviderArg::ByHand => (
-            Provider::ByHand,
-            match args.service {
-                Some(ServiceArg::Meshy) => ProviderId::Meshy,
-                _ => ProviderId::Tripo,
-            },
-        ),
-    };
-    let overrides = args.overrides.as_ref();
-    let p = &config.providers;
-    let tripo = service == ProviderId::Tripo;
     Ok(BatchRequest {
         project: args.project.clone(),
         provider,
         service,
         items,
-        tripo_prop: tripo
-            .then(|| with_overrides(p.tripo(PresetVariant::Prop), overrides))
-            .transpose()?,
+        tripo_prop: tripo.then(|| tripo_for(PresetVariant::Prop)).transpose()?,
         tripo_character: tripo
-            .then(|| with_overrides(p.tripo(PresetVariant::Character), overrides))
+            .then(|| tripo_for(PresetVariant::Character))
             .transpose()?,
         meshy_prop: (!tripo)
-            .then(|| with_overrides(p.meshy(PresetVariant::Prop), overrides))
+            .then(|| meshy_for(PresetVariant::Prop))
             .transpose()?,
         meshy_character: (!tripo)
-            .then(|| with_overrides(p.meshy(PresetVariant::Character), overrides))
+            .then(|| meshy_for(PresetVariant::Character))
             .transpose()?,
     })
 }
