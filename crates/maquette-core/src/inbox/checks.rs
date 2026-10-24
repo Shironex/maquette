@@ -270,7 +270,16 @@ pub fn run(report: &GlbReport, kind: AssetKind, config: &WorkspaceConfig) -> Vec
         }
     }
 
-    if !report.animations.is_empty() {
+    if report.animations.is_empty() {
+        if kind == AssetKind::Character && report.rig != RigKind::None {
+            out.push(check(
+                "animations",
+                CheckStatus::Warning,
+                "No animation clips yet",
+                "The rig is ready. Add clips in Blender after Accept.".to_string(),
+            ));
+        }
+    } else {
         out.push(check(
             "animations",
             CheckStatus::Pass,
@@ -374,6 +383,10 @@ mod tests {
 
         let clean = checks(&fixture::character(false), AssetKind::Character, &config);
         assert_eq!(status(&clean, "finger-weights"), Some(CheckStatus::Pass));
+        let mut still = analyse_bytes(&fixture::character(false), Path::new(".")).expect("analyse");
+        still.animations.clear();
+        let list = run(&still, AssetKind::Character, &config);
+        assert_eq!(status(&list, "animations"), Some(CheckStatus::Warning));
         // The same rig on a prop is suspicious; no rig on a character fails.
         let prop = checks(&fixture::character(false), AssetKind::Prop, &config);
         assert_eq!(status(&prop, "rig"), Some(CheckStatus::Warning));

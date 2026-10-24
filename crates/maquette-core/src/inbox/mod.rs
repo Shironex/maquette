@@ -76,6 +76,8 @@ pub struct AcceptResult {
     pub version: AssetVersion,
     /// Where the file went.
     pub file: String,
+    /// The project after the change, so the Board can update.
+    pub project: crate::project::ProjectManifest,
 }
 
 pub fn inbox_dir(root: &Path, config: &WorkspaceConfig) -> PathBuf {
@@ -379,8 +381,8 @@ pub fn accept(
         .extension()
         .map_or_else(|| "glb".to_string(), |e| e.to_string_lossy().to_lowercase());
     let stats = found.report.as_ref().map(stats_of);
-    let mut result: Option<AcceptResult> = None;
-    project::modify(root, &config.layout, &request.project, |manifest| {
+    let mut result: Option<(Asset, AssetVersion, String)> = None;
+    let manifest = project::modify(root, &config.layout, &request.project, |manifest| {
         let id = match &request.asset {
             Some(id) => assets::find(manifest, id)?.id.clone(),
             None => {
@@ -418,15 +420,22 @@ pub fn accept(
             assets::move_to(manifest, &id, Stage::Blender)?;
         }
         assets::set_status(manifest, &id, AssetStatus::Review)?;
-        result = Some(AcceptResult {
-            asset: assets::find(manifest, &id)?.clone(),
+        result = Some((
+            assets::find(manifest, &id)?.clone(),
             version,
-            file: target.display().to_string(),
-        });
+            target.display().to_string(),
+        ));
         Ok(())
     })?;
     let _ = fs::remove_file(cache_dir(root, config).join(format!("{}.json", request.item)));
-    result.ok_or_else(|| CoreError::Invalid("The model was not accepted.".to_string()))
+    let (asset, version, file) =
+        result.ok_or_else(|| CoreError::Invalid("The model was not accepted.".to_string()))?;
+    Ok(AcceptResult {
+        asset,
+        version,
+        file,
+        project: manifest,
+    })
 }
 
 /// The arguments that open `file` in Blender's window: a `.blend` opens as
