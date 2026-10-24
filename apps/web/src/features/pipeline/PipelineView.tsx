@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   BudgetMeter,
   Button,
@@ -29,6 +29,11 @@ export function PipelineView() {
   const { view, loading, error, starting, run, cancel, savePresets, load } = usePipelineStore();
   const [force, setForce] = useState(false);
   const [logStep, setLogStep] = useState('all');
+  // The log filter and the cache switch belong to the project they were set in.
+  useEffect(() => {
+    setForce(false);
+    setLogStep('all');
+  }, [project?.id]);
 
   if (!project) {
     return (
