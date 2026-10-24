@@ -5,6 +5,7 @@
 pub mod bindings;
 pub mod commands;
 pub mod events;
+pub mod keychain;
 pub mod mcp;
 pub mod session;
 
@@ -32,6 +33,7 @@ pub fn run() {
             ));
             app.manage(commands::thumbs::Thumbs::new(app.handle().clone()));
             app.manage(commands::lab::Lab::new(app.handle().clone()));
+            app.manage(commands::providers::Studio::new(app.handle().clone()));
             let host = Arc::new(mcp::host::AppHost(app.handle().clone()));
             app.manage(mcp::Agents::new(host, hub));
             Ok(())
@@ -39,10 +41,14 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("the Tauri runtime failed to start")
         .run(|handle, event| {
-            if let tauri::RunEvent::Exit = event
-                && let Some(agents) = handle.try_state::<mcp::Agents>()
-            {
-                agents.stop();
+            if let tauri::RunEvent::Exit = event {
+                if let Some(agents) = handle.try_state::<mcp::Agents>() {
+                    agents.stop();
+                }
+                // Running sends stop polling; they resume on the next start.
+                if let Some(studio) = handle.try_state::<commands::providers::Studio>() {
+                    studio.0.close();
+                }
             }
         });
 }

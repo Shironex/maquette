@@ -77,6 +77,26 @@ export const commands = {
 	 *  export takes a moment to measure.
 	 */
 	inspectProject: (project: string) => __TAURI_INVOKE<InspectView>("inspect_project", { project }),
+	providerSendOptions: (project: string, asset: string) => __TAURI_INVOKE<SendOptions>("provider_send_options", { project, asset }),
+	/**
+	 *  Starts a send from the app. You are the one pressing Send, so it needs
+	 *  no approval.
+	 */
+	providerSend: (request: SendRequest) => __TAURI_INVOKE<ProviderJob>("provider_send", { request }),
+	providerJobs: (project: string | null) => __TAURI_INVOKE<ProviderJob[]>("provider_jobs", { project }),
+	/**  Meshy is asked over the network, so this runs off the main thread. */
+	providerCancel: (id: string) => __TAURI_INVOKE<ProviderJob>("provider_cancel", { id }),
+	/**  By hand: a GLB dropped on the asset's card. */
+	providerHandBack: (id: string, file: string) => __TAURI_INVOKE<ProviderJob>("provider_hand_back", { id, file }),
+	providerClearFinished: (project: string) => __TAURI_INVOKE<ProviderJob[]>("provider_clear_finished", { project }),
+	/**  Shows a By hand job's folder in Finder or Explorer. */
+	providerOpenHandoff: (id: string) => __TAURI_INVOKE<null>("provider_open_handoff", { id }),
+	providerKeys: () => __TAURI_INVOKE<KeyStatus[]>("provider_keys"),
+	/**  Saves a key in the keychain. Only its last four characters come back. */
+	providerKeySave: (service: ProviderId, key: string) => __TAURI_INVOKE<KeyStatus>("provider_key_save", { service, key }),
+	providerKeyRemove: (service: ProviderId) => __TAURI_INVOKE<KeyStatus>("provider_key_remove", { service }),
+	/**  Tries a key with the free balance call. Without `key`, the saved one. */
+	providerKeyTest: (service: ProviderId, key: string | null) => __TAURI_INVOKE<KeyTest>("provider_key_test", { service, key }),
 	mcpStatus: () => __TAURI_INVOKE<McpStatus>("mcp_status"),
 	/**  Approves or denies the Ship step of a run an agent started. */
 	mcpDecide: (approvalId: string, approve: boolean) => __TAURI_INVOKE<McpStatus>("mcp_decide", { approvalId, approve }),
@@ -92,6 +112,7 @@ export const events = {
 	mcpUpdate: makeEvent<McpUpdate>("mcp-update"),
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
 	projectChanged: makeEvent<ProjectChanged>("project-changed"),
+	providerUpdate: makeEvent<ProviderUpdate>("provider-update"),
 	thumbnailReady: makeEvent<ThumbnailReady>("thumbnail-ready"),
 };
 
@@ -971,6 +992,9 @@ export type ProviderSettings = {
 	meshy: MeshyPresets,
 };
 
+/**  A Send to 3D job changed state or progress. */
+export type ProviderUpdate = ProviderEvent;
+
 /**  An image in the project's `refs/` folder. */
 export type RefImage = {
 	/**  Relative to the project folder. */
@@ -1025,6 +1049,23 @@ export type SceneTotal = {
 	bytes: number | null,
 	triangles: number,
 	models: number,
+};
+
+/**  Everything the Send to 3D panel needs for one asset. */
+export type SendOptions = {
+	project: string,
+	/**  Absolute, for the image URLs. */
+	projectDir: string,
+	asset: Asset,
+	/**  Every image in `refs/`. */
+	images: RefImage[],
+	/**  The asset's own refs, picked by default, front first. */
+	suggested: string[],
+	/**  From the asset's kind. */
+	variant: PresetVariant,
+	keys: KeyStatus[],
+	/**  This asset's sends, newest last. */
+	jobs: ProviderJob[],
 };
 
 /**  What a Send to 3D asks for. */

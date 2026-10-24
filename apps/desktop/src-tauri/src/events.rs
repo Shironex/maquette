@@ -4,6 +4,7 @@
 use maquette_core::ProjectManifest;
 use maquette_core::concepts::ConceptEvent;
 use maquette_core::pipeline::runner::{PipelineEvent, RunSink};
+use maquette_core::providers::ProviderEvent;
 use maquette_core::thumbs::ThumbState;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -37,6 +38,10 @@ pub struct ThumbnailReady {
 /// image.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 pub struct ConceptUpdate(pub ConceptEvent);
+
+/// A Send to 3D job changed state or progress.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+pub struct ProviderUpdate(pub ProviderEvent);
 
 /// An agent changed a project through the MCP server, for example by
 /// accepting an inbox model, so the Board shows the new state.

@@ -7,6 +7,7 @@ use maquette_core::thumbs::ThumbTarget;
 use serde::Serialize;
 use tauri::State;
 
+use super::providers::Studio;
 use super::thumbs::{self, Thumbs};
 use super::{CommandResult, blender, toolchain};
 use crate::session::Session;
@@ -42,13 +43,16 @@ async fn blocking<T: Send + 'static>(job: impl FnOnce() -> T + Send + 'static) -
 pub async fn inbox_list(
     session: State<'_, Session>,
     service: State<'_, Thumbs>,
+    studio: State<'_, Studio>,
 ) -> CommandResult<InboxSnapshot> {
     let (root, config) = session.workspace()?;
     let tools = toolchain::toolbox(&session).await?;
     let service = service.0.clone();
+    let studio = studio.0.clone();
     let items = blocking(move || {
         let mut items = inbox::list(&root, &config)?;
         thumbs::fill(&service, &root, &config, &tools, &mut items);
+        studio.link_inbox(&mut items);
         Ok::<_, maquette_core::CoreError>(items)
     })
     .await??;
@@ -74,11 +78,13 @@ fn snapshot_shell(session: &Session) -> CommandResult<InboxSnapshot> {
 pub async fn inbox_reprocess(
     session: State<'_, Session>,
     service: State<'_, Thumbs>,
+    studio: State<'_, Studio>,
     id: String,
 ) -> CommandResult<InboxItem> {
     let (root, config) = session.workspace()?;
     let tools = toolchain::toolbox(&session).await?;
     let service = service.0.clone();
+    let studio = studio.0.clone();
     Ok(blocking(move || {
         let mut item = inbox::reprocess(&root, &config, &id)?;
         thumbs::fill(
@@ -88,6 +94,7 @@ pub async fn inbox_reprocess(
             &tools,
             std::slice::from_mut(&mut item),
         );
+        studio.link_inbox(std::slice::from_mut(&mut item));
         Ok::<_, maquette_core::CoreError>(item)
     })
     .await??)
@@ -98,6 +105,7 @@ pub async fn inbox_reprocess(
 pub async fn inbox_set_kind(
     session: State<'_, Session>,
     service: State<'_, Thumbs>,
+    studio: State<'_, Studio>,
     id: String,
     kind: AssetKind,
 ) -> CommandResult<InboxItem> {
@@ -111,6 +119,7 @@ pub async fn inbox_set_kind(
         &tools,
         std::slice::from_mut(&mut item),
     );
+    studio.0.link_inbox(std::slice::from_mut(&mut item));
     Ok(item)
 }
 
@@ -119,11 +128,14 @@ pub async fn inbox_set_kind(
 pub async fn inbox_accept(
     session: State<'_, Session>,
     service: State<'_, Thumbs>,
+    studio: State<'_, Studio>,
     request: AcceptRequest,
 ) -> CommandResult<AcceptResult> {
     let (root, config) = session.workspace()?;
     let tools = toolchain::toolbox(&session).await?;
     let mut result = inbox::accept(&root, &config, &request)?;
+    // A model from a Send to 3D: its job is done now.
+    studio.0.accepted(&request.item, result.version.version);
     // The file kept its content, so a render made while it sat in the inbox
     // is reused at once; otherwise the Board gets it from ThumbnailReady.
     let target = ThumbTarget {

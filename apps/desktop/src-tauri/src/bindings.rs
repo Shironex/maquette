@@ -8,11 +8,12 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    agents, app, assets, dialogs, inbox, inspect, lab, pipeline, project, thumbs, toolchain,
-    workspace,
+    agents, app, assets, dialogs, inbox, inspect, lab, pipeline, project, providers, thumbs,
+    toolchain, workspace,
 };
 use crate::events::{
-    ConceptUpdate, InboxChanged, McpUpdate, PipelineUpdate, ProjectChanged, ThumbnailReady,
+    ConceptUpdate, InboxChanged, McpUpdate, PipelineUpdate, ProjectChanged, ProviderUpdate,
+    ThumbnailReady,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -69,6 +70,17 @@ pub fn builder() -> Builder<tauri::Wry> {
             lab::lab_send_picks,
             lab::lab_import_refs,
             inspect::inspect_project,
+            providers::provider_send_options,
+            providers::provider_send,
+            providers::provider_jobs,
+            providers::provider_cancel,
+            providers::provider_hand_back,
+            providers::provider_clear_finished,
+            providers::provider_open_handoff,
+            providers::provider_keys,
+            providers::provider_key_save,
+            providers::provider_key_remove,
+            providers::provider_key_test,
             agents::mcp_status,
             agents::mcp_decide,
             agents::mcp_clear_activity,
@@ -80,7 +92,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             ThumbnailReady,
             ConceptUpdate,
             ProjectChanged,
-            McpUpdate
+            McpUpdate,
+            ProviderUpdate
         ])
         .types(&maquette_core::types())
 }
@@ -122,6 +135,11 @@ mod tests {
             "inspectProject",
             "mcpStatus",
             "mcpDecide",
+            "providerSend",
+            "providerCancel",
+            "providerHandBack",
+            "providerKeySave",
+            "providerKeyTest",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }
@@ -132,6 +150,7 @@ mod tests {
             "conceptUpdate",
             "projectChanged",
             "mcpUpdate",
+            "providerUpdate",
         ] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }

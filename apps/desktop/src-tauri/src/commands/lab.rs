@@ -72,7 +72,7 @@ fn is_image(path: &Path) -> bool {
         .is_some_and(|e| IMAGE_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
 }
 
-fn list_refs(project_dir: &Path) -> Vec<RefImage> {
+pub(crate) fn list_refs(project_dir: &Path) -> Vec<RefImage> {
     let Ok(entries) = std::fs::read_dir(project_dir.join(REFS_DIR)) else {
         return Vec::new();
     };

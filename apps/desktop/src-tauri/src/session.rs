@@ -94,10 +94,23 @@ impl Session {
         let pointer = root.display().to_string();
         self.update_app_state(|state| state.last_workspace = Some(pointer))?;
         let watcher = self.watch_inbox(&root, &config);
-        let mut inner = self.lock();
-        inner.workspace = Some(OpenWorkspace { root, config });
-        // Replacing the watcher drops (stops) the previous workspace's one.
-        inner.watcher = watcher;
+        {
+            let mut inner = self.lock();
+            inner.workspace = Some(OpenWorkspace {
+                root: root.clone(),
+                config: config.clone(),
+            });
+            // Replacing the watcher drops (stops) the previous workspace's one.
+            inner.watcher = watcher;
+        }
+        // Send to 3D jobs of this workspace load, and running ones resume.
+        if let Some(studio) = self
+            .handle
+            .get()
+            .and_then(|h| h.try_state::<crate::commands::providers::Studio>())
+        {
+            studio.0.open_workspace(&root, &config);
+        }
         Ok(())
     }
 
@@ -140,6 +153,13 @@ impl Session {
     }
 
     pub fn set_config(&self, config: WorkspaceConfig) {
+        if let Some(studio) = self
+            .handle
+            .get()
+            .and_then(|h| h.try_state::<crate::commands::providers::Studio>())
+        {
+            studio.0.set_config(&config);
+        }
         if let Some(open) = self.lock().workspace.as_mut() {
             open.config = config;
         }
