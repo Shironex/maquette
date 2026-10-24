@@ -171,8 +171,8 @@ fn diorama() -> Vec<StepDef> {
     ]
 }
 
-/// Renders the tagged camera stops of `blend`. `stops.json` is always
-/// written, so a scene without stops still passes.
+/// Renders the tagged camera stops of `blend`, or one framed overview poster
+/// when it has none. `stops.json` is always written, so the step passes.
 fn posters(blend: &str) -> StepDef {
     blender(
         "posters",

@@ -134,6 +134,16 @@ mod tests {
     }
 
     #[test]
+    fn posters_frame_the_scene_when_it_has_no_stops_and_never_save_it() {
+        let text = RENDER_STOPS.text;
+        assert!(text.contains("def overview_camera(scene)"));
+        assert!(text.contains("one framed three quarter poster of the whole scene"));
+        assert!(text.contains("remove_camera(camera)"));
+        // The temporary camera must not end up in the user's blend.
+        assert!(!text.contains("save_mainfile") && !text.contains("save_as_mainfile"));
+    }
+
+    #[test]
     fn write_skips_files_that_exist() {
         let dir = tempfile::tempdir().expect("tempdir");
         let first = write(dir.path(), ProjectTemplate::FloatingDiorama).expect("write");
