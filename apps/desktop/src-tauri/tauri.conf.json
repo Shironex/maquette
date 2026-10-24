@@ -1,0 +1,61 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Maquette",
+  "version": "0.1.0",
+  "identifier": "com.shironex.maquette",
+  "build": {
+    "devUrl": "http://localhost:15190",
+    "frontendDist": "../../web/dist",
+    "beforeDevCommand": "pnpm -w run dev:web",
+    "beforeBuildCommand": "pnpm -w run build:web"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Maquette",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1120,
+        "minHeight": 720,
+        "resizable": true,
+        "center": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 18, "y": 23 },
+        "backgroundColor": "#1c1b19"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: asset: http://asset.localhost; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; form-action 'self'",
+      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:15190; style-src 'self' 'unsafe-inline'; font-src 'self' data: http://localhost:15190; img-src 'self' data: blob: asset: http://asset.localhost http://localhost:15190; connect-src 'self' ipc: http://ipc.localhost http://localhost:15190 ws://localhost:15190; object-src 'none'; base-uri 'self'; form-action 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "Shironex",
+    "copyright": "Copyright (c) 2026 Shironex. All rights reserved.",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "Turn concept art into real-time 3D scenes",
+    "longDescription": "Maquette is a local studio for one developer: concept art in, a compressed real-time 3D web scene out, with Blender, Tripo and Codex doing the heavy lifting on your own machine.",
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "signingIdentity": "-"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false,
+        "languages": ["English"]
+      }
+    }
+  }
+}

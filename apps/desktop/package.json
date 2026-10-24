@@ -1,0 +1,13 @@
+{
+  "name": "@maquette/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Maquette desktop shell (Tauri 2); the Rust side lives in src-tauri and crates/*",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.5"
+  }
+}

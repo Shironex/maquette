@@ -1,0 +1,38 @@
+[package]
+name = "maquette-desktop"
+description = "Maquette desktop shell (Tauri 2)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+default-run = "maquette-desktop"
+
+[lib]
+# The shell is a library so commands stay unit-testable; the binary is a
+# three-line entry point.
+name = "maquette_desktop_lib"
+crate-type = ["lib"]
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+maquette-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tauri = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+specta = { workspace = true }
+specta-serde = { workspace = true }
+specta-typescript = { workspace = true }
+tauri-specta = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true
