@@ -4,21 +4,26 @@
  * asks once before it spends credits; a By hand batch writes one handoff
  * folder per asset and opens the checklist.
  */
-import { useState } from 'react';
-import { Button, Icon, InlineBanner, SegmentedControl, cn } from '@maquette/ui';
+import { useState, type ReactNode } from 'react';
+import { Button, Icon, IconButton, InlineBanner, SegmentedControl, cn } from '@maquette/ui';
 import type { PresetVariant } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { useAppStore } from '@/state/app-store';
 import {
   batchBlocker,
   batchLabel,
+  batchLines,
+  batchProblem,
   batchSummary,
+  isCustom,
+  itemDiff,
+  itemMeshy,
+  itemTripo,
   variantsUsed,
   type BatchDraft,
   type BatchItemDraft,
 } from '@/state/batch';
 import { inProject } from '@/state/lab';
-import { meshyProblem, meshySummary, tripoProblem, tripoSummary } from '@/state/provider-presets';
 import { PROVIDER_LABEL, SERVICE_LABEL } from '@/state/providers';
 import { useProvidersStore } from '@/state/providers-store';
 import { PROVIDERS, SERVICES, VARIANTS } from './choices';
@@ -60,6 +65,7 @@ function BatchForm({ projectDir, draft }: { projectDir: string; draft: BatchDraf
   const setBatch = useProvidersStore(s => s.setBatch);
   const setItemVariant = useProvidersStore(s => s.setItemVariant);
   const setPreset = useProvidersStore(s => s.setBatchPreset);
+  const setItemPreset = useProvidersStore(s => s.setItemPreset);
   const reset = useProvidersStore(s => s.resetBatchPresets);
   const send = useProvidersStore(s => s.sendBatch);
   const sending = useProvidersStore(s => s.sending);
@@ -72,20 +78,13 @@ function BatchForm({ projectDir, draft }: { projectDir: string; draft: BatchDraf
   const [tab, setTab] = useState<PresetVariant>(used[0] ?? 'prop');
   const shown: PresetVariant = used.includes(tab) ? tab : (used[0] ?? 'prop');
   const service = draft.service;
-  const problem =
-    used
-      .map(v =>
-        service === 'tripo'
-          ? tripoProblem(draft.tripo[v], catalog.tripoModels)
-          : meshyProblem(draft.meshy[v], catalog.meshyModels)
-      )
-      .find(Boolean) ?? null;
+  const problem = batchProblem(draft, catalog);
   const blocker = batchBlocker(draft, keys, problem);
   const key = keys.find(k => k.service === draft.provider);
-  const summaryOf = (v: PresetVariant) =>
-    service === 'tripo'
-      ? tripoSummary(draft.tripo[v], catalog.tripoModels)
-      : meshySummary(draft.meshy[v], catalog.meshyModels);
+  const lines = batchLines(draft, catalog);
+  const [open, setOpen] = useState<readonly string[]>([]);
+  const toggle = (asset: string) =>
+    setOpen(now => (now.includes(asset) ? now.filter(a => a !== asset) : [...now, asset]));
   const api = draft.provider !== 'by-hand';
   const n = draft.items.length;
 
@@ -158,6 +157,27 @@ function BatchForm({ projectDir, draft }: { projectDir: string; draft: BatchDraf
                 item={item}
                 projectDir={projectDir}
                 onVariant={variant => setItemVariant(item.asset, variant)}
+                diff={isCustom(draft, item) ? itemDiff(draft, item, catalog) : null}
+                open={open.includes(item.asset)}
+                onToggle={() => toggle(item.asset)}
+                onClear={() => setItemPreset(item.asset, null)}
+                fields={
+                  service === 'tripo' ? (
+                    <TripoPresetFields
+                      compact
+                      preset={itemTripo(draft, item)}
+                      variant={item.variant}
+                      onChange={tripo => setItemPreset(item.asset, { tripo })}
+                    />
+                  ) : (
+                    <MeshyPresetFields
+                      compact
+                      preset={itemMeshy(draft, item)}
+                      variant={item.variant}
+                      onChange={meshy => setItemPreset(item.asset, { meshy })}
+                    />
+                  )
+                }
               />
             ))}
           </ul>
@@ -212,7 +232,7 @@ function BatchForm({ projectDir, draft }: { projectDir: string; draft: BatchDraf
           )}
           <p className="text-meta text-fg-mute">
             Changes here are for this batch only. The saved presets are in Settings &gt; 3D
-            providers.
+            providers. Each asset can change its own in the list above.
           </p>
         </section>
       </div>
@@ -229,8 +249,7 @@ function BatchForm({ projectDir, draft }: { projectDir: string; draft: BatchDraf
                 Send {n} {n === 1 ? 'asset' : 'assets'} to {PROVIDER_LABEL[draft.provider]}?
               </div>
               <p className="text-meta text-fg-dim">
-                {n} {n === 1 ? 'task' : 'tasks'} with{' '}
-                {used.map(v => `${VARIANT_LABEL[v].toLowerCase()}: ${summaryOf(v)}`).join('; ')}.
+                {n} {n === 1 ? 'task' : 'tasks'} with {lines.join('; ')}.
                 {draft.provider === 'tripo'
                   ? ' Tripo cannot cancel a task once it is sent.'
                   : ' You can cancel each one while Meshy has not started it.'}
@@ -240,9 +259,9 @@ function BatchForm({ projectDir, draft }: { projectDir: string; draft: BatchDraf
         ) : (
           <p
             className={cn('truncate text-meta', blocker ? 'text-amber' : 'text-fg-mute')}
-            title={blocker ?? used.map(v => `${VARIANT_LABEL[v]}: ${summaryOf(v)}`).join('\n')}
+            title={blocker ?? lines.join('\n')}
           >
-            {blocker ?? used.map(v => `${VARIANT_LABEL[v]}: ${summaryOf(v)}`).join(' · ')}
+            {blocker ?? lines.join(' · ')}
           </p>
         )}
         <div className="flex justify-end gap-2">
@@ -268,36 +287,94 @@ function ItemRow({
   item,
   projectDir,
   onVariant,
+  diff,
+  open,
+  onToggle,
+  onClear,
+  fields,
 }: {
   item: BatchItemDraft;
   projectDir: string;
   onVariant: (variant: PresetVariant) => void;
+  /** What the asset changes from the batch, or null when it follows it. */
+  diff: string | null;
+  open: boolean;
+  onToggle: () => void;
+  onClear: () => void;
+  fields: ReactNode;
 }) {
   const thumb = fileUrl(item.thumbnail ? inProject(projectDir, item.thumbnail) : null);
   const n = item.images.length;
+  const panel = `custom-${item.asset}`;
   return (
-    <li className="flex items-center gap-3 border-t border-line py-2 first:border-t-0">
-      <span className="grid size-10 flex-none place-items-center overflow-hidden rounded-control bg-studio">
-        {thumb ? (
-          <img src={thumb} alt="" className="size-full object-cover" />
-        ) : (
-          <Icon name="image" className="text-fg-mute" />
-        )}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium">{item.name}</div>
-        <div className={cn('truncate text-meta', n === 0 ? 'text-amber' : 'text-fg-mute')}>
-          {n === 0
-            ? 'No refs yet'
-            : `${n} ${n === 1 ? 'image' : 'images'}: ${item.images.map(i => i.slice(i.lastIndexOf('/') + 1)).join(', ')}`}
+    <li className="flex flex-col gap-2.5 border-t border-line py-2 first:border-t-0">
+      <div className="flex items-center gap-3">
+        <span className="grid size-10 flex-none place-items-center overflow-hidden rounded-control bg-studio">
+          {thumb ? (
+            <img src={thumb} alt="" className="size-full object-cover" />
+          ) : (
+            <Icon name="image" className="text-fg-mute" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate font-medium">{item.name}</span>
+            {diff !== null ? (
+              <span className="flex-none rounded-control border border-clay-line bg-clay-soft px-1.5 text-[11px] font-medium text-fg">
+                Custom
+              </span>
+            ) : null}
+          </div>
+          <div className={cn('truncate text-meta', n === 0 ? 'text-amber' : 'text-fg-mute')}>
+            {n === 0
+              ? 'No refs yet'
+              : `${n} ${n === 1 ? 'image' : 'images'}: ${item.images.map(i => i.slice(i.lastIndexOf('/') + 1)).join(', ')}`}
+          </div>
+          {diff !== null ? (
+            <div className="truncate text-meta text-fg-dim" title={diff}>
+              {diff}
+            </div>
+          ) : null}
         </div>
+        <SegmentedControl
+          label={`${item.name} kind`}
+          options={VARIANTS}
+          value={item.variant}
+          onChange={onVariant}
+        />
+        <IconButton
+          icon="sliders-horizontal"
+          size="sm"
+          variant={open || diff !== null ? 'secondary' : 'ghost'}
+          label={`Custom settings for ${item.name}`}
+          aria-expanded={open}
+          aria-controls={panel}
+          onClick={onToggle}
+        />
       </div>
-      <SegmentedControl
-        label={`${item.name} kind`}
-        options={VARIANTS}
-        value={item.variant}
-        onChange={onVariant}
-      />
+      {open ? (
+        <div
+          id={panel}
+          role="group"
+          aria-label={`${item.name} settings`}
+          className="flex flex-col gap-3 rounded-card border border-line bg-raised px-3 py-2.5"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-meta text-fg-dim">
+              Starts from the batch settings. Only the fields you change stay with this asset.
+            </span>
+            <button
+              type="button"
+              disabled={diff === null}
+              className="flex-none cursor-pointer text-meta text-fg-mute underline-offset-2 hover:text-fg hover:underline disabled:cursor-default disabled:opacity-45 disabled:no-underline"
+              onClick={onClear}
+            >
+              Use batch settings
+            </button>
+          </div>
+          {fields}
+        </div>
+      ) : null}
     </li>
   );
 }

@@ -86,4 +86,48 @@ describe('the batch send panel', () => {
       within(panel).getByText('Island has no refs yet. Send a pick to Refs first.')
     ).toBeInTheDocument();
   });
+
+  it('gives one asset its own settings and keeps the others on the batch', async () => {
+    const panel = await openBatch(['desk-lamp', 'calipers', 'brush-cup']);
+    await userEvent.click(
+      within(within(panel).getByRole('group', { name: 'Provider' })).getByRole('button', {
+        name: 'Tripo',
+      })
+    );
+    await userEvent.click(
+      within(panel).getByRole('button', { name: 'Custom settings for Calipers' })
+    );
+    const own = within(panel).getByRole('group', { name: 'Calipers settings' });
+    const faces = within(own).getByRole('textbox', { name: 'Face limit' });
+    await userEvent.clear(faces);
+    await userEvent.type(faces, '12000{Enter}');
+    await userEvent.click(within(own).getByRole('switch', { name: 'PBR' }));
+    expect(within(panel).getByText('Custom')).toBeInTheDocument();
+    expect(within(panel).getByText('12,000 faces, no PBR')).toBeInTheDocument();
+    expect(within(panel).getByText(/Calipers: 12,000 faces, no PBR/)).toBeInTheDocument();
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Send 3 to Tripo' }));
+    expect(within(panel).getByRole('alert')).toHaveTextContent('Calipers: 12,000 faces, no PBR');
+    await userEvent.click(within(panel).getByRole('button', { name: 'Yes, send 3' }));
+    await waitFor(() => expect(useProvidersStore.getState().batch).toBeNull());
+    const sent = useProvidersStore.getState().jobs.filter(j => j.batch);
+    const own3 = Object.fromEntries(
+      sent.map(j => [j.assetName, [j.tripo?.faceLimit, j.tripo?.pbr]])
+    );
+    expect(own3['Calipers']).toEqual([12_000, false]);
+    expect(own3['Desk lamp']?.[1]).toBe(true);
+    expect(own3['Desk lamp']?.[0]).not.toBe(12_000);
+  });
+
+  it('clears an asset back to the batch settings', async () => {
+    const panel = await openBatch(['desk-lamp', 'brush-cup']);
+    await userEvent.click(
+      within(panel).getByRole('button', { name: 'Custom settings for Desk lamp' })
+    );
+    const own = within(panel).getByRole('group', { name: 'Desk lamp settings' });
+    await userEvent.click(within(own).getByRole('switch', { name: 'Multi-view' }));
+    expect(within(panel).getByText('Custom')).toBeInTheDocument();
+    await userEvent.click(within(own).getByRole('button', { name: 'Use batch settings' }));
+    expect(within(panel).queryByText('Custom')).toBeNull();
+  });
 });
