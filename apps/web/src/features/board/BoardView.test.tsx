@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import { useAppStore } from '@/state/app-store';
 import { useLabStore } from '@/state/lab-store';
 import { useProjectsStore } from '@/state/projects-store';
 import { useProvidersStore } from '@/state/providers-store';
@@ -151,5 +152,18 @@ describe('the Board', () => {
     await act(() => useProjectsStore.getState().switchTo('rooftop-cinema'));
     expect(screen.queryByRole('dialog', { name: 'Rename asset' })).toBeNull();
     expect(screen.queryByRole('form', { name: 'Add asset' })).toBeNull();
+  });
+
+  it('copies a card to another project and keeps it here', async () => {
+    await renderBoard();
+    await userEvent.click(screen.getByRole('button', { name: 'More for Character' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Copy to project/ }));
+    const menu = await screen.findByRole('menu', { name: 'Copy Character to project' });
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Rooftop cinema' }));
+    await waitFor(() =>
+      expect(useAppStore.getState().notice?.title).toBe('Copied Character to Rooftop cinema')
+    );
+    expect(screen.queryByRole('menu', { name: 'Copy Character to project' })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Character, v2/ })).toBeInTheDocument();
   });
 });

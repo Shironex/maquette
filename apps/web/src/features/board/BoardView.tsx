@@ -20,6 +20,7 @@ import { MAX_BATCH, nextSelection, waitingByHand } from '@/state/batch';
 import { useLabStore } from '@/state/lab-store';
 import { cardState, isActive, latestJob } from '@/state/providers';
 import { useProvidersStore } from '@/state/providers-store';
+import { useProjectsStore } from '@/state/projects-store';
 import { TEMPLATE_LABEL } from '@/state/onboarding';
 import { STAGES, STAGE_LABEL } from '@/state/pipeline';
 import { KIND_ICON } from '@/state/thumbs';
@@ -56,6 +57,10 @@ export function BoardView() {
   const [tipsHidden, setTipsHidden] = useState(() => readFlag(TIPS_KEY));
   const [adding, setAdding] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  /** The card whose menu shows the projects to copy it to. */
+  const [copyFor, setCopyFor] = useState<string | null>(null);
+  const [copying, setCopying] = useState(false);
+  const loadProjects = useProjectsStore(s => s.load);
   const [renaming, setRenaming] = useState<Asset | null>(null);
   const [dropTarget, setDropTarget] = useState<Stage | null>(null);
   const jobs = useProvidersStore(s => s.jobs);
@@ -74,6 +79,7 @@ export function BoardView() {
   const [anchor, setAnchor] = useState<string | null>(null);
   const project = workspace?.project;
   const assets = project?.assets ?? [];
+  const otherProjects = (workspace?.projects ?? []).filter(p => p.id !== project?.id);
   const activeJobs = jobs.filter(j => isActive(j.state)).length;
   const byHand = jobs.some(j => j.provider === 'by-hand');
   const toMake = waitingByHand(jobs).length;
@@ -105,6 +111,7 @@ export function BoardView() {
     setRenaming(null);
     setAdding(false);
     setMenuFor(null);
+    setCopyFor(null);
   }, [project?.id]);
   // A confirmed Send to 3D hands the selection over, so the cards let go.
   const lastSent = useRef(batchesSent);
@@ -162,6 +169,36 @@ export function BoardView() {
         title: `Could not move ${asset.name}`,
         detail: errorMessage(error),
       });
+    }
+  };
+  const copyTo = async (asset: Asset, to: { id: string; name: string }) => {
+    if (!project || copying) return;
+    setCopying(true);
+    try {
+      const done = await commands.assetCopyToProject(project.id, asset.id, to.id);
+      const versions = done.asset.versions.length;
+      const what = [
+        done.refs.length > 0
+          ? `${done.refs.length} ${done.refs.length === 1 ? 'ref' : 'refs'}`
+          : null,
+        versions > 0 ? `${versions} ${versions === 1 ? 'version' : 'versions'}` : null,
+      ].filter(Boolean);
+      notify({
+        status: 'done',
+        title: `Copied ${asset.name} to ${to.name}`,
+        detail: `${done.asset.name} is on its Board${what.length ? ` with ${what.join(' and ')}` : ''}. The card stays here too.`,
+      });
+      void loadProjects();
+    } catch (error) {
+      notify({
+        status: 'failed',
+        title: `Could not copy ${asset.name}`,
+        detail: errorMessage(error),
+      });
+    } finally {
+      setCopying(false);
+      setMenuFor(null);
+      setCopyFor(null);
     }
   };
   const openInBlender = async (asset: Asset) => {
@@ -346,72 +383,112 @@ export function BoardView() {
                           e.dataTransfer.setData(DRAG_TYPE, asset.id);
                           e.dataTransfer.effectAllowed = 'move';
                         }}
-                        onMore={() => setMenuFor(m => (m === asset.id ? null : asset.id))}
+                        onMore={() => {
+                          setCopyFor(null);
+                          setMenuFor(m => (m === asset.id ? null : asset.id));
+                        }}
                         moreOpen={menuFor === asset.id}
                         menu={
-                          <Menu
-                            label={`${asset.name} actions`}
-                            onClose={() => setMenuFor(null)}
-                            items={[
-                              ...(waiting
-                                ? [
-                                    {
-                                      id: 'handoff',
-                                      label: 'Settings card',
-                                      icon: 'file-text' as const,
-                                      onSelect: () => showHandoff(waiting),
-                                    },
-                                    {
-                                      id: 'hand-back',
-                                      label: 'Add model...',
-                                      icon: 'upload-simple' as const,
-                                      onSelect: () => void addModel(waiting.id),
-                                    },
-                                  ]
-                                : []),
-                              {
-                                id: 'send',
-                                label: 'Send to 3D',
-                                icon: 'cube',
-                                onSelect: () => void openPanel(project?.id ?? '', asset.id),
-                              },
-                              ...(refPicture && workspace && project
-                                ? [
-                                    {
-                                      id: 'objects',
-                                      label: 'Make object refs...',
-                                      icon: 'cube-focus' as const,
-                                      onSelect: () =>
-                                        openObjects({
-                                          project: project.id,
-                                          source: refPicture,
-                                          sourcePath: projectFile(workspace, refPicture) ?? '',
-                                          sourceName: asset.name,
-                                        }),
-                                    },
-                                  ]
-                                : []),
-                              {
-                                id: 'rename',
-                                label: 'Rename...',
-                                icon: 'file-text',
-                                onSelect: () => setRenaming(asset),
-                              },
-                              ...others.map(s => ({
-                                id: `move-${s}`,
-                                label: `Move to ${STAGE_LABEL[s]}`,
-                                icon: STAGE_ICON[s],
-                                onSelect: () => void move(asset, s),
-                              })),
-                              {
-                                id: 'blender',
-                                label: 'Open in Blender',
-                                icon: 'arrow-square-out',
-                                disabled: asset.versions.length === 0,
-                                onSelect: () => void openInBlender(asset),
-                              },
-                            ]}
-                          />
+                          copyFor === asset.id ? (
+                            <Menu
+                              key="copy"
+                              label={`Copy ${asset.name} to project`}
+                              onClose={() => {
+                                setMenuFor(null);
+                                setCopyFor(null);
+                              }}
+                              className="w-[180px]"
+                              header={
+                                <p className="px-2.5 pt-1.5 pb-1 text-meta text-fg-mute">
+                                  <span className="mb-0.5 block text-caption tracking-[0.06em] uppercase">
+                                    Copy to project
+                                  </span>
+                                  {otherProjects.length === 0
+                                    ? 'There is no other project yet.'
+                                    : 'Refs, versions and sends go along. It stays here too.'}
+                                </p>
+                              }
+                              items={otherProjects.map(p => ({
+                                id: p.id,
+                                label: p.name,
+                                icon: 'folder-simple' as const,
+                                disabled: copying,
+                                onSelect: () => void copyTo(asset, p),
+                              }))}
+                            />
+                          ) : (
+                            <Menu
+                              key="actions"
+                              label={`${asset.name} actions`}
+                              onClose={() => setMenuFor(null)}
+                              items={[
+                                ...(waiting
+                                  ? [
+                                      {
+                                        id: 'handoff',
+                                        label: 'Settings card',
+                                        icon: 'file-text' as const,
+                                        onSelect: () => showHandoff(waiting),
+                                      },
+                                      {
+                                        id: 'hand-back',
+                                        label: 'Add model...',
+                                        icon: 'upload-simple' as const,
+                                        onSelect: () => void addModel(waiting.id),
+                                      },
+                                    ]
+                                  : []),
+                                {
+                                  id: 'send',
+                                  label: 'Send to 3D',
+                                  icon: 'cube',
+                                  onSelect: () => void openPanel(project?.id ?? '', asset.id),
+                                },
+                                ...(refPicture && workspace && project
+                                  ? [
+                                      {
+                                        id: 'objects',
+                                        label: 'Make object refs...',
+                                        icon: 'cube-focus' as const,
+                                        onSelect: () =>
+                                          openObjects({
+                                            project: project.id,
+                                            source: refPicture,
+                                            sourcePath: projectFile(workspace, refPicture) ?? '',
+                                            sourceName: asset.name,
+                                          }),
+                                      },
+                                    ]
+                                  : []),
+                                {
+                                  id: 'rename',
+                                  label: 'Rename...',
+                                  icon: 'file-text',
+                                  onSelect: () => setRenaming(asset),
+                                },
+                                {
+                                  id: 'copy',
+                                  label: 'Copy to project...',
+                                  icon: 'copy',
+                                  keepOpen: true,
+                                  onSelect: () => setCopyFor(asset.id),
+                                },
+                                ...others.map(s => ({
+                                  id: `move-${s}`,
+                                  label: `Move to ${STAGE_LABEL[s]}`,
+                                  icon: STAGE_ICON[s],
+                                  onSelect: () => void move(asset, s),
+                                })),
+                                {
+                                  id: 'blender',
+                                  label: 'Open in Blender',
+                                  icon: 'arrow-square-out',
+                                  disabled: asset.versions.length === 0,
+                                  onSelect: () => void openInBlender(asset),
+                                },
+                              ]}
+                            />
+                          )
                         }
                       />
                     );
