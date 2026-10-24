@@ -2,9 +2,14 @@
 //! the workspace that is open right now.
 
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
-use maquette_core::{AppState, CoreError, CoreResult, WorkspaceConfig, app_state};
+use maquette_core::inbox::{self, watch};
+use maquette_core::{AppState, CoreError, CoreResult, ToolReport, WorkspaceConfig, app_state};
+use tauri::{AppHandle, Manager as _};
+use tauri_specta::Event as _;
+
+use crate::events::InboxChanged;
 
 pub struct OpenWorkspace {
     pub root: PathBuf,
@@ -15,12 +20,17 @@ pub struct OpenWorkspace {
 struct Inner {
     app: AppState,
     workspace: Option<OpenWorkspace>,
+    /// The last tool check, reused by runs until a tool changes.
+    tools: Option<Vec<ToolReport>>,
+    watcher: Option<watch::InboxWatcher>,
 }
 
 pub struct Session {
     config_dir: PathBuf,
     home: Option<PathBuf>,
     inner: Mutex<Inner>,
+    /// Set once the window exists; tests run without one.
+    handle: OnceLock<AppHandle>,
 }
 
 impl Session {
@@ -35,9 +45,16 @@ impl Session {
             home,
             inner: Mutex::new(Inner {
                 app,
-                workspace: None,
+                ..Inner::default()
             }),
+            handle: OnceLock::new(),
         }
+    }
+
+    /// Gives the session the app, so opening a workspace can watch its
+    /// inbox and let the web view load its models.
+    pub fn attach(&self, handle: AppHandle) {
+        let _ = self.handle.set(handle);
     }
 
     pub fn home(&self) -> Option<&Path> {
@@ -76,8 +93,50 @@ impl Session {
     pub fn set_workspace(&self, root: PathBuf, config: WorkspaceConfig) -> CoreResult<()> {
         let pointer = root.display().to_string();
         self.update_app_state(|state| state.last_workspace = Some(pointer))?;
-        self.lock().workspace = Some(OpenWorkspace { root, config });
+        let watcher = self.watch_inbox(&root, &config);
+        let mut inner = self.lock();
+        inner.workspace = Some(OpenWorkspace { root, config });
+        // Replacing the watcher drops (stops) the previous workspace's one.
+        inner.watcher = watcher;
         Ok(())
+    }
+
+    /// Lets the web view read the workspace's files through the asset
+    /// protocol and starts the inbox watcher. Without an app (tests) this
+    /// does nothing.
+    fn watch_inbox(&self, root: &Path, config: &WorkspaceConfig) -> Option<watch::InboxWatcher> {
+        let handle = self.handle.get()?.clone();
+        if let Err(err) = handle.asset_protocol_scope().allow_directory(root, true) {
+            tracing::warn!(error = %err, "could not open the workspace to the asset protocol");
+        }
+        let dir = inbox::inbox_dir(root, config);
+        let emitter = handle.clone();
+        match watch::watch(&dir, watch::QUIET, move |paths| {
+            let paths = paths.iter().map(|p| p.display().to_string()).collect();
+            if let Err(err) = (InboxChanged { paths }).emit(&emitter) {
+                tracing::warn!(error = %err, "could not emit an inbox event");
+            }
+        }) {
+            Ok(watcher) => Some(watcher),
+            Err(err) => {
+                tracing::warn!(error = %err, "the inbox is not watched");
+                None
+            }
+        }
+    }
+
+    pub fn tools(&self) -> Option<Vec<ToolReport>> {
+        self.lock().tools.clone()
+    }
+
+    /// Remembers a tool check, or forgets it with `None` after a change.
+    pub fn set_tools(&self, reports: Option<Vec<ToolReport>>) {
+        self.lock().tools = reports;
+    }
+
+    /// True while the open workspace's inbox is watched.
+    pub fn inbox_watched(&self) -> bool {
+        self.lock().watcher.is_some()
     }
 
     pub fn set_config(&self, config: WorkspaceConfig) {

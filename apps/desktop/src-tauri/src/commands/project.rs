@@ -23,6 +23,8 @@ pub fn project_create(
         ..project
     };
     let manifest = project::create(&root, &config.layout, new)?;
+    let dir = project::dir(&root, &config.layout, &manifest.id)?;
+    maquette_core::pipeline::ensure(&dir, &manifest)?;
     config.current_project = Some(manifest.id);
     workspace::save(&root, &config)?;
     session.set_config(config.clone());

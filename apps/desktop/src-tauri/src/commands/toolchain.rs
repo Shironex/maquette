@@ -7,7 +7,7 @@ use tauri::State;
 use super::{CommandResult, invalid};
 use crate::session::Session;
 
-fn overrides(session: &Session, state: &AppState) -> BTreeMap<ToolId, PathBuf> {
+pub(crate) fn overrides(session: &Session, state: &AppState) -> BTreeMap<ToolId, PathBuf> {
     state
         .tool_overrides
         .iter()
@@ -27,8 +27,12 @@ async fn run_blocking<T: Send + 'static>(
 #[specta::specta]
 pub async fn toolchain_detect(session: State<'_, Session>) -> CommandResult<Vec<ToolReport>> {
     let overrides = overrides(&session, &session.app_state());
-    run_blocking(move || toolchain::detect_all(&ProbeEnv::from_system(), &overrides, &SystemRunner))
-        .await
+    let reports = run_blocking(move || {
+        toolchain::detect_all(&ProbeEnv::from_system(), &overrides, &SystemRunner)
+    })
+    .await?;
+    session.set_tools(Some(reports.clone()));
+    Ok(reports)
 }
 
 /// Points a tool at a file the user picked. The override is only saved when
@@ -60,6 +64,7 @@ pub async fn toolchain_locate(
     session.update_app_state(|state| {
         state.tool_overrides.insert(tool, stored);
     })?;
+    session.set_tools(None);
     Ok(report)
 }
 
@@ -72,6 +77,7 @@ pub async fn toolchain_reset(
     session.update_app_state(|state| {
         state.tool_overrides.remove(&tool);
     })?;
+    session.set_tools(None);
     run_blocking(move || toolchain::detect(tool, &ProbeEnv::from_system(), None, &SystemRunner))
         .await
 }

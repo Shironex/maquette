@@ -7,7 +7,6 @@ pub mod assets;
 pub mod error;
 pub mod fs;
 pub mod inbox;
-pub mod jobs;
 mod json;
 pub mod pipeline;
 pub mod project;
@@ -17,7 +16,6 @@ pub mod workspace;
 pub use app_state::AppState;
 pub use assets::{Asset, AssetKind, AssetStatus, AssetVersion, ModelStats, NewAsset, Stage};
 pub use error::{CoreError, CoreResult, ErrorPayload};
-pub use jobs::{JobKind, JobRunner, JobSpec, JobState, UnavailableRunner};
 pub use project::{
     BlendFile, ImportScan, NewProject, ProjectManifest, ProjectTemplate, RepoInspection,
 };
@@ -62,9 +60,6 @@ pub fn types() -> specta::Types {
         .register::<BlendFile>()
         .register::<ImportScan>()
         .register::<AppState>()
-        .register::<JobKind>()
-        .register::<JobState>()
-        .register::<JobSpec>()
         .register::<Asset>()
         .register::<AssetKind>()
         .register::<AssetStatus>()
@@ -140,9 +135,6 @@ mod tests {
             "BlendFile",
             "ImportScan",
             "AppState",
-            "JobKind",
-            "JobState",
-            "JobSpec",
             "Asset",
             "AssetKind",
             "AssetStatus",

@@ -37,7 +37,7 @@ notify = { version = "8.2.0", default-features = false, features = ["macos_fseve
 # (Windows), so cancel kills the whole tree.
 process-wrap = { version = "10.0.1", default-features = false, features = ["std", "process-group", "job-object", "creation-flags", "kill-on-drop"] }
 
-tauri = { version = "2.11", features = [] }
+tauri = { version = "2.11", features = ["protocol-asset"] }
 tauri-build = { version = "2", features = [] }
 tauri-plugin-dialog = "2.7"
 

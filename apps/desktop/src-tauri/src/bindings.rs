@@ -5,9 +5,10 @@
 use std::path::PathBuf;
 
 use specta_typescript::Typescript;
-use tauri_specta::{Builder, ErrorHandlingMode, collect_commands};
+use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
-use crate::commands::{app, dialogs, pipeline, project, toolchain, workspace};
+use crate::commands::{app, assets, dialogs, inbox, pipeline, project, toolchain, workspace};
+use crate::events::{InboxChanged, PipelineUpdate};
 
 /// Compile time path, so the export never depends on the working folder.
 pub const GENERATED_FILE: &str = concat!(
@@ -39,8 +40,21 @@ pub fn builder() -> Builder<tauri::Wry> {
             project::project_scan_import,
             dialogs::dialog_pick_folder,
             dialogs::dialog_pick_file,
-            pipeline::pipeline_submit,
+            assets::asset_add,
+            assets::asset_move,
+            assets::asset_open_in_blender,
+            pipeline::pipeline_get,
+            pipeline::pipeline_run,
+            pipeline::pipeline_cancel,
+            pipeline::pipeline_log,
+            pipeline::pipeline_save_presets,
+            inbox::inbox_list,
+            inbox::inbox_reprocess,
+            inbox::inbox_set_kind,
+            inbox::inbox_accept,
+            inbox::inbox_open_in_blender,
         ])
+        .events(collect_events![PipelineUpdate, InboxChanged])
         .types(&maquette_core::types())
 }
 
@@ -72,9 +86,14 @@ mod tests {
             "appBootstrap",
             "toolchainDetect",
             "workspaceSaveConfig",
-            "pipelineSubmit",
+            "pipelineRun",
+            "inboxAccept",
+            "assetMove",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
+        }
+        for event in ["pipelineUpdate", "inboxChanged"] {
+            assert!(text.contains(event), "bindings miss the {event} event");
         }
         let resolved = PathBuf::from(GENERATED_FILE)
             .canonicalize()

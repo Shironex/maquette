@@ -2,7 +2,10 @@
 //! generated TypeScript rejects with `{ code, message }` on failure.
 
 pub mod app;
+pub mod assets;
+mod blender;
 pub mod dialogs;
+pub mod inbox;
 pub mod pipeline;
 pub mod project;
 pub mod toolchain;

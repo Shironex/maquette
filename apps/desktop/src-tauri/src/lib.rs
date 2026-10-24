@@ -4,6 +4,7 @@
 
 pub mod bindings;
 pub mod commands;
+pub mod events;
 pub mod session;
 
 use tauri::Manager as _;
@@ -17,7 +18,13 @@ pub fn run() {
         .setup(move |app| {
             specta.mount_events(app);
             let config_dir = app.path().app_config_dir()?;
-            app.manage(session::Session::load(config_dir));
+            let session = session::Session::load(config_dir);
+            session.attach(app.handle().clone());
+            app.manage(session);
+            let sink = std::sync::Arc::new(events::TauriSink(app.handle().clone()));
+            app.manage(commands::pipeline::Pipelines(
+                maquette_core::pipeline::runner::PipelineRunner::new(sink),
+            ));
             Ok(())
         })
         .run(tauri::generate_context!())
