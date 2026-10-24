@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Button, IconButton } from '@maquette/ui';
 import type { LabView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
-import { conceptLabel, inProject } from '@/state/lab';
+import { inProject, tileLabel } from '@/state/lab';
 import { useLabStore } from '@/state/lab-store';
 
 /**
@@ -50,7 +50,7 @@ export function Lightbox({ view }: { view: LabView }) {
   if (!path) return null;
   const url = fileUrl(path);
   const name = path.slice(path.lastIndexOf('/') + 1);
-  const title = image ? `${direction?.name ?? ''} · ${conceptLabel(image.index)}` : name;
+  const title = image ? `${direction?.name ?? ''} · ${tileLabel(image)}` : name;
 
   return (
     <div

@@ -3,7 +3,7 @@ import type { ConceptJob, LabView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { useNow } from '@/lib/useNow';
 import {
-  conceptLabel,
+  tileLabel,
   formatElapsed,
   inProject,
   jobMeta,
@@ -71,7 +71,7 @@ function QueueRow({ job, projectDir, now }: { job: ConceptJob; projectDir: strin
   const thumb = job.state === 'done' ? fileUrl(path) : null;
   const live = job.state === 'running' || job.state === 'queued';
   const failed = job.state === 'failed' || job.state === 'cancelled';
-  const label = conceptLabel(job.index);
+  const label = tileLabel(job);
   return (
     <div className="group flex items-center gap-2.5 border-t border-line py-2.5 first:border-t-0">
       {thumb ? (

@@ -23,6 +23,20 @@ export interface Draft {
   count: number;
 }
 
+/** "Make object refs...": the concept to take objects from and what to make. */
+export interface ObjectsDraft {
+  project: string;
+  /** Relative to the project folder. */
+  source: string;
+  /** The same file, absolute, for the picture. */
+  sourcePath: string;
+  /** The direction or asset the concept belongs to. */
+  sourceName: string;
+  objects: string[];
+  aspect: Aspect;
+  kind: 'prop' | 'character';
+}
+
 const EMPTY_DRAFT: Draft = { name: '', prompt: '', refs: [], aspect: '16:9', count: 4 };
 
 interface LabStore {
@@ -33,7 +47,7 @@ interface LabStore {
   draft: Draft;
   /** The image open in the lightbox, as an absolute path. */
   lightbox: string | null;
-  /** What is running: `generate`, `sheet`, `send`, `move` or null. */
+  /** What is running: `generate`, `sheet`, `send`, `move`, `objects` or null. */
   busy: string | null;
   load: (project: string) => Promise<void>;
   select: (direction: string) => void;
@@ -57,6 +71,19 @@ interface LabStore {
   moveDirection: (direction: string, to: string) => Promise<boolean>;
   openLightbox: (path: string | null) => void;
   onEvent: (event: ConceptEvent) => void;
+  objects: ObjectsDraft | null;
+  openObjects: (
+    draft: Pick<ObjectsDraft, 'project' | 'source' | 'sourcePath' | 'sourceName'>
+  ) => void;
+  setObjects: (patch: Partial<Pick<ObjectsDraft, 'objects' | 'aspect' | 'kind'>>) => void;
+  closeObjects: () => void;
+  /** Queues one Codex job per object; resolves true when they started. */
+  makeObjects: () => Promise<boolean>;
+  /**
+   * Sends the picks of an objects direction to Refs, one asset per pick.
+   * Resolves to the new assets' ids, or null when it failed.
+   */
+  sendObjectPicks: (quiet?: boolean) => Promise<string[] | null>;
 }
 
 const notify = (status: 'done' | 'failed' | 'info', title: string, detail?: string) =>
@@ -74,6 +101,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
   draft: EMPTY_DRAFT,
   lightbox: null,
   busy: null,
+  objects: null,
 
   load: async project => {
     requested = project;
@@ -299,6 +327,77 @@ export const useLabStore = create<LabStore>((set, get) => ({
       event.job.project === view.project
     ) {
       notify('failed', `Concept ${event.job.index} failed`, event.job.message ?? undefined);
+    }
+  },
+
+  openObjects: draft => set({ objects: { ...draft, objects: [], aspect: '1:1', kind: 'prop' } }),
+
+  setObjects: patch => {
+    const objects = get().objects;
+    if (objects) set({ objects: { ...objects, ...patch } });
+  },
+
+  closeObjects: () => set({ objects: null }),
+
+  makeObjects: async () => {
+    const objects = get().objects;
+    if (!objects || get().busy) return false;
+    set({ busy: 'objects' });
+    // Job events can land before the answer, so the old jobs are read first.
+    const before = get().view?.jobs ?? [];
+    try {
+      const next = await commands.labMakeObjects({
+        project: objects.project,
+        source: objects.source,
+        sourceName: objects.sourceName,
+        objects: objects.objects,
+        aspect: objects.aspect,
+        kind: objects.kind,
+      });
+      const fresh = next.jobs.filter(j => !before.some(old => old.id === j.id));
+      // The Lab shows the new direction, also when this came from the Board.
+      requested = objects.project;
+      set({ view: next, selected: fresh[0]?.direction ?? get().selected, objects: null });
+      const n = objects.objects.length;
+      notify(
+        'info',
+        `${n} object ${n === 1 ? 'ref is' : 'refs are'} on the way`,
+        `Codex makes each one from ${objects.sourceName}. They land in ${fresh[0]?.directionName ?? 'the Lab'}.`
+      );
+      return true;
+    } catch (error) {
+      notify('failed', 'The object refs did not start', errorMessage(error));
+      return false;
+    } finally {
+      set({ busy: null });
+    }
+  },
+
+  sendObjectPicks: async (quiet = false) => {
+    const view = get().view;
+    const selected = get().selected;
+    const direction = view?.directions.find(d => d.id === selected);
+    if (!view || !direction) return null;
+    set({ busy: 'send' });
+    try {
+      const sent = await commands.labSendObjectPicks(view.project, direction.id, direction.kind);
+      useAppStore.getState().setProject(sent.project);
+      const latest = get().view;
+      if (latest?.project === view.project) set({ view: withDirection(latest, sent.direction) });
+      if (stillOn(view.project)) await get().load(view.project);
+      const n = sent.assets.length;
+      if (!quiet)
+        notify(
+          'done',
+          `${n} ${n === 1 ? 'object' : 'objects'} sent to Refs`,
+          `${n === 1 ? 'It is' : 'Each is its own asset'} at Refs on the Board, named after the object.`
+        );
+      return sent.assets.map(a => a.asset.id);
+    } catch (error) {
+      notify('failed', 'Could not send the picks', errorMessage(error));
+      return null;
+    } finally {
+      set({ busy: null });
     }
   },
 }));

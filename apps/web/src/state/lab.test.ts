@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ConceptJob, Direction, LabView } from '@/ipc/client';
 import {
+  MAX_OBJECTS,
+  addObjects,
   applyConceptEvent,
   coverImage,
   directionId,
@@ -10,6 +12,8 @@ import {
   jobMeta,
   queueFooter,
   queueSummary,
+  objectsDirectionName,
+  tileLabel,
   tiles,
 } from './lab';
 
@@ -135,5 +139,36 @@ describe('lab helpers', () => {
     expect(inProject('/w/moon/', 'concepts/a.png')).toBe('/w/moon/concepts/a.png');
     expect(inProject('C:\\w\\moon', 'concepts/a.png')).toBe('C:\\w\\moon\\concepts\\a.png');
     expect(inProject('/w/moon', '/abs/b.png')).toBe('/abs/b.png');
+  });
+});
+
+describe('object refs', () => {
+  it('adds typed and pasted objects once each, capitalised', () => {
+    expect(addObjects([], 'desk lamp')).toEqual(['Desk lamp']);
+    expect(addObjects(['Desk lamp'], 'brush  cup, DESK LAMP;\ncalipers\n\n')).toEqual([
+      'Desk lamp',
+      'Brush cup',
+      'Calipers',
+    ]);
+    expect(addObjects([], 'x'.repeat(80))[0]).toHaveLength(60);
+    const many = Array.from({ length: 20 }, (_, i) => `thing ${i}`).join(',');
+    expect(addObjects([], many)).toHaveLength(MAX_OBJECTS);
+  });
+
+  it('names the direction and the tiles after the objects', () => {
+    expect(objectsDirectionName('Workbench hero')).toBe('Workbench hero objects');
+    expect(objectsDirectionName('  ')).toBe('Concept objects');
+    expect(objectsDirectionName('x'.repeat(70))).toHaveLength(60);
+    expect(tileLabel({ index: 3, title: 'Desk lamp' })).toBe('Desk lamp');
+    expect(tileLabel({ index: 3, title: null })).toBe('Concept 03');
+  });
+
+  it('counts objects, not concepts, in an objects direction', () => {
+    const objects: Direction = {
+      ...direction,
+      source: 'concepts/porch/porch_01.png',
+      kind: 'prop',
+    };
+    expect(directionSummary(objects, [])).toMatch(/^2 objects/);
   });
 });

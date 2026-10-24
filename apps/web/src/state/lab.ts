@@ -31,6 +31,44 @@ export function conceptLabel(index: number): string {
   return `Concept ${String(index).padStart(2, '0')}`;
 }
 
+/** An object ref's own name, or "Concept 05". */
+export function tileLabel(item: Pick<ConceptImage, 'index' | 'title'>): string {
+  return item.title ?? conceptLabel(item.index);
+}
+
+/** The most objects one "Make object refs" takes; the core says the same. */
+export const MAX_OBJECTS = 12;
+const MAX_OBJECT_CHARS = 60;
+
+/** True for a direction of object refs made from a concept. */
+export function isObjects(direction: Pick<Direction, 'source'>): boolean {
+  return direction.source !== null;
+}
+
+/** "Workbench hero objects", the direction the object refs land in. */
+export function objectsDirectionName(sourceName: string): string {
+  const base = sourceName.trim() || 'Concept';
+  return `${base.slice(0, 60 - ' objects'.length).trimEnd()} objects`;
+}
+
+/**
+ * Adds typed or pasted objects: one per line, comma or semicolon, trimmed,
+ * starting with a capital, without repeats in any case, at most 12, each at
+ * most 60 characters.
+ */
+export function addObjects(current: readonly string[], text: string): string[] {
+  const out = [...current];
+  for (const part of text.split(/[\n,;]/)) {
+    const words = part.split(/\s+/).filter(Boolean).join(' ').slice(0, MAX_OBJECT_CHARS);
+    // "desk lamp" names the asset "Desk lamp".
+    const name = words.charAt(0).toUpperCase() + words.slice(1);
+    if (!name || out.some(o => o.toLowerCase() === name.toLowerCase())) continue;
+    if (out.length >= MAX_OBJECTS) break;
+    out.push(name);
+  }
+  return out;
+}
+
 /** "58s", "1m 04s", "12m 30s". */
 export function formatElapsed(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -102,7 +140,8 @@ export function directionSummary(direction: Direction, jobs: readonly ConceptJob
       !direction.images.some(i => i.file === j.file)
   ).length;
   const n = direction.images.length + going;
-  const parts = [`${n} ${n === 1 ? 'concept' : 'concepts'}`];
+  const noun = isObjects(direction) ? ['object', 'objects'] : ['concept', 'concepts'];
+  const parts = [`${n} ${n === 1 ? noun[0] : noun[1]}`];
   const starred = direction.images.filter(i => i.starred).length;
   const picked = direction.images.filter(i => i.picked).length;
   if (starred) parts.push(`${starred} starred`);

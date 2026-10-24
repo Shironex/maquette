@@ -7,10 +7,11 @@ import { Menu } from '@/features/common/Menu';
 import { useAppStore } from '@/state/app-store';
 import {
   aspectCss,
-  conceptLabel,
   directionSummary,
   formatElapsed,
   inProject,
+  isObjects,
+  tileLabel,
   tiles,
 } from '@/state/lab';
 import { useLabStore } from '@/state/lab-store';
@@ -54,8 +55,14 @@ function DirectionResults({ view, direction }: { view: LabView; direction: Direc
   const busy = useLabStore(s => s.busy);
   const contactSheet = useLabStore(s => s.contactSheet);
   const sendPicks = useLabStore(s => s.sendPicks);
+  const sendObjectPicks = useLabStore(s => s.sendObjectPicks);
   const assets = useAppStore(s => s.workspace?.project?.assets) ?? NO_ASSETS;
   const openPanel = useProvidersStore(s => s.openPanel);
+  const openBatch = useProvidersStore(s => s.openBatch);
+  const objects = isObjects(direction);
+  const from = objects
+    ? view.directions.find(d => d.images.some(i => i.file === direction.source))
+    : undefined;
   /** Which button opened the kind menu: Refs only, or Refs then 3D. */
   const [kindMenu, setKindMenu] = useState<'refs' | '3d' | null>(null);
   const cells = tiles(direction, view.jobs);
@@ -65,7 +72,8 @@ function DirectionResults({ view, direction }: { view: LabView; direction: Direc
   );
 
   const send = () => {
-    if (known) void sendPicks(known.kind);
+    if (objects) void sendObjectPicks();
+    else if (known) void sendPicks(known.kind);
     else setKindMenu(m => (m === 'refs' ? null : 'refs'));
   };
   // Picks already in refs/ go straight to the panel; new ones are sent first.
@@ -75,7 +83,12 @@ function DirectionResults({ view, direction }: { view: LabView; direction: Direc
     if (id) void openPanel(view.project, id);
   };
   const to3d = () => {
-    if (known) void sendTo3d();
+    if (objects) {
+      // One asset per object, then one batch for all of them.
+      void sendObjectPicks(true).then(ids => {
+        if (ids?.length) void openBatch(view.project, ids);
+      });
+    } else if (known) void sendTo3d();
     else setKindMenu(m => (m === '3d' ? null : '3d'));
   };
 
@@ -88,7 +101,10 @@ function DirectionResults({ view, direction }: { view: LabView; direction: Direc
         {/* The title takes the free width and wraps; the actions drop below it only when they must. */}
         <div className="min-w-[min(100%,260px)] flex-1">
           <h2 className="text-screen-title break-words">{direction.name}</h2>
-          <p className="mt-0.5 text-fg-mute">{directionSummary(direction, view.jobs)}</p>
+          <p className="mt-0.5 text-fg-mute">
+            {directionSummary(direction, view.jobs)}
+            {objects ? ` · from ${from?.name ?? direction.source}` : null}
+          </p>
         </div>
         <div className="ml-auto flex flex-none items-start gap-2">
           <IconButton
@@ -105,11 +121,13 @@ function DirectionResults({ view, direction }: { view: LabView; direction: Direc
               title={
                 picked === 0
                   ? 'Pick at least one concept first'
-                  : unsent
-                    ? 'Sends the picks to Refs, then opens Send to 3D'
-                    : 'Opens Send to 3D with the picks'
+                  : objects
+                    ? 'Makes one asset per pick, then sends them all in one batch'
+                    : unsent
+                      ? 'Sends the picks to Refs, then opens Send to 3D'
+                      : 'Opens Send to 3D with the picks'
               }
-              aria-haspopup={known ? undefined : 'menu'}
+              aria-haspopup={known || objects ? undefined : 'menu'}
               onClick={to3d}
             >
               Send to 3D
@@ -122,14 +140,18 @@ function DirectionResults({ view, direction }: { view: LabView; direction: Direc
               title={
                 picked === 0
                   ? 'Pick at least one concept first'
-                  : known
-                    ? `Copies the picks into refs/ and moves ${known.name} to Refs`
-                    : 'Copies the picks into refs/ and adds the asset at Refs'
+                  : objects
+                    ? 'Copies each pick into refs/ as its own asset, named after the object'
+                    : known
+                      ? `Copies the picks into refs/ and moves ${known.name} to Refs`
+                      : 'Copies the picks into refs/ and adds the asset at Refs'
               }
-              aria-haspopup={known ? undefined : 'menu'}
+              aria-haspopup={known || objects ? undefined : 'menu'}
               onClick={send}
             >
-              Send picks to Refs
+              {objects && picked > 0
+                ? `Send ${picked} ${picked === 1 ? 'pick' : 'picks'} to Refs`
+                : 'Send picks to Refs'}
             </Button>
             {kindMenu ? (
               <Menu
@@ -179,9 +201,10 @@ function ImageTile({
 }) {
   const mark = useLabStore(s => s.mark);
   const openLightbox = useLabStore(s => s.openLightbox);
+  const openObjects = useLabStore(s => s.openObjects);
   const path = inProject(view.projectDir, image.file);
   const url = fileUrl(path);
-  const label = conceptLabel(image.index);
+  const label = tileLabel(image);
   return (
     <figure className="group m-0 flex flex-col gap-[7px]">
       <div
@@ -231,6 +254,24 @@ function ImageTile({
               In Refs
             </span>
           ) : null}
+          {isObjects(direction) ? null : (
+            <IconButton
+              icon="cube-focus"
+              label={`Make object refs from ${label}`}
+              title="Make object refs..."
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                openObjects({
+                  project: view.project,
+                  source: image.file,
+                  sourcePath: path,
+                  sourceName: direction.name,
+                })
+              }
+              className="text-fg-mute"
+            />
+          )}
           <IconButton
             icon={image.starred ? 'star-fill' : 'star'}
             label={image.starred ? `Unstar ${label}` : `Star ${label}`}
@@ -262,7 +303,7 @@ function JobTile({ direction, job }: { direction: Direction; job: ConceptJob }) 
         {running ? <ProgressBar className="w-[140px]" /> : null}
       </div>
       <figcaption className="flex items-center justify-between">
-        <span className="text-fg-mute">{conceptLabel(job.index)}</span>
+        <span className="min-w-0 truncate text-fg-mute">{tileLabel(job)}</span>
         <span className={cn('text-meta tabular-nums', running ? 'text-amber' : 'text-fg-mute')}>
           {running && job.startedAtMs !== null ? formatElapsed(now - job.startedAtMs) : 'in line'}
         </span>
