@@ -495,6 +495,7 @@ impl Concepts {
                 index: p.index,
                 prompt: objects::object_prompt(
                     &p.object,
+                    &p.notes,
                     request.kind,
                     &request.source_name,
                     request.aspect,
@@ -854,6 +855,10 @@ esac
                 source: "concepts/workbench-hero/workbench-hero_01.png".into(),
                 source_name: "Workbench hero".into(),
                 objects: vec!["desk lamp".into(), "plaster plinth with clay figure".into()],
+                notes: std::collections::HashMap::from([(
+                    "Desk lamp".to_string(),
+                    "brass, warm bulb".to_string(),
+                )]),
                 aspect: Aspect::Square,
                 kind: crate::assets::AssetKind::Prop,
             },
@@ -892,6 +897,7 @@ esac
         let prompt = fs::read_to_string(first.with_extension("png.prompt")).expect("prompt");
         assert!(prompt.contains("the \"desk lamp\" from the attached concept image"));
         assert!(prompt.contains("plain light grey background"));
+        assert!(prompt.contains("Extra instructions for this object: brass, warm bulb"));
         let args = fs::read_to_string(first.with_extension("png.args")).expect("args");
         let args: Vec<&str> = args.lines().collect();
         assert_eq!(
@@ -907,6 +913,7 @@ esac
         )
         .expect("second prompt");
         assert!(second.contains("Show only the plaster plinth with clay figure, isolated"));
+        assert!(!second.contains("Extra instructions"));
     }
 
     #[test]

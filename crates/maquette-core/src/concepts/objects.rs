@@ -8,6 +8,7 @@
 //! object, each titled by its object. The prompt template lives here and
 //! nowhere else.
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -25,6 +26,7 @@ use crate::workspace::{FolderLayout, is_single_segment};
 /// The most objects one request makes, the same cap as a concept batch.
 pub const MAX_OBJECTS: usize = MAX_IMAGES_PER_BATCH as usize;
 const MAX_OBJECT_CHARS: usize = 60;
+const MAX_NOTE_CHARS: usize = 400;
 const MAX_DIRECTION_CHARS: usize = 60;
 const SUFFIX: &str = " objects";
 
@@ -41,6 +43,10 @@ pub struct NewObjectRefs {
     pub source_name: String,
     /// One name per object, for example "desk lamp".
     pub objects: Vec<String>,
+    /// Extra instructions for the Codex prompt, by object name (any case).
+    /// They steer the image only: the asset is named after the object.
+    #[serde(default)]
+    pub notes: HashMap<String, String>,
     pub aspect: Aspect,
     /// What the objects become on the Board: props or characters.
     pub kind: AssetKind,
@@ -133,26 +139,56 @@ pub fn clean(project_dir: &Path, new: &NewObjectRefs) -> CoreResult<NewObjectRef
             "Object refs are props or characters, not scenes.".to_string(),
         ));
     }
+    let notes = clean_notes(&objects, &new.notes)?;
     Ok(NewObjectRefs {
         project: new.project.clone(),
         source,
         source_name: new.source_name.trim().to_string(),
         objects,
+        notes,
         aspect: new.aspect,
         kind: new.kind,
     })
+}
+
+/// The notes that belong to a listed object, trimmed to one line and keyed
+/// by the object's own spelling. Notes for other names and empty ones drop.
+fn clean_notes(
+    objects: &[String],
+    notes: &HashMap<String, String>,
+) -> CoreResult<HashMap<String, String>> {
+    let mut out = HashMap::new();
+    for (key, text) in notes {
+        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        let key = key.trim();
+        let Some(object) = objects.iter().find(|o| o.eq_ignore_ascii_case(key)) else {
+            continue;
+        };
+        if text.is_empty() {
+            continue;
+        }
+        if text.chars().count() > MAX_NOTE_CHARS {
+            return Err(CoreError::Invalid(format!(
+                "Keep each note to {MAX_NOTE_CHARS} characters or fewer: the note for \"{object}\" is longer."
+            )));
+        }
+        out.insert(object.clone(), text);
+    }
+    Ok(out)
 }
 
 /// The prompt for one object. Codex gets the source concept as `-i`, so
 /// "the attached concept" is that image.
 pub fn object_prompt(
     object: &str,
+    notes: &str,
     kind: AssetKind,
     source_name: &str,
     aspect: Aspect,
     out: &Path,
 ) -> String {
     let object = object.trim();
+    let notes = notes.trim();
     let (what, pose) = match kind {
         AssetKind::Character => (
             "character",
@@ -168,6 +204,11 @@ pub fn object_prompt(
             source_name.trim()
         )
     };
+    let extra = if notes.is_empty() {
+        String::new()
+    } else {
+        format!("Extra instructions for this {what}: {notes}\n\n")
+    };
     format!(
         "Generate an image.\n\n\
          Make a clean reference image of one {what} for a 3D model: the \"{object}\" from {from}.\n\n\
@@ -176,7 +217,7 @@ pub fn object_prompt(
          and no cast shadow on the background. No other objects, no text, no labels, no watermark. \
          Match the source's materials, colours, proportions and style, so it reads as the same {what} \
          as in the concept.\n\n\
-         Use a {ratio} {shape} composition.\n\n{save}",
+         {extra}Use a {ratio} {shape} composition.\n\n{save}",
         ratio = aspect.ratio(),
         shape = aspect.shape(),
         save = save_instructions(out),
@@ -190,6 +231,8 @@ pub struct PlannedObject {
     /// Relative to the project folder.
     pub file: String,
     pub object: String,
+    /// Extra instructions for the prompt, empty for none.
+    pub notes: String,
 }
 
 /// Creates the objects direction (or adds to it) and returns it with the
@@ -226,6 +269,7 @@ pub fn prepare(
             index,
             file,
             object: object.clone(),
+            notes: new.notes.get(object).cloned().unwrap_or_default(),
         })
         .collect();
     Ok((direction, planned))
@@ -361,6 +405,7 @@ mod tests {
             source: "concepts/workbench-hero/workbench-hero_01.png".into(),
             source_name: "Workbench hero".into(),
             objects: objects.iter().map(|o| (*o).to_string()).collect(),
+            notes: HashMap::new(),
             aspect: Aspect::Square,
             kind: AssetKind::Prop,
         }
@@ -372,6 +417,7 @@ mod tests {
             Path::new("/w/landing/concepts/workbench-hero-objects/workbench-hero-objects_01.png");
         let text = object_prompt(
             "desk lamp",
+            "",
             AssetKind::Prop,
             "Workbench hero",
             Aspect::Square,
@@ -399,8 +445,11 @@ mod tests {
         assert!(text.trim_end().ends_with(&out.display().to_string()));
         assert!(!text.contains('\u{2014}') && !text.contains('\u{2013}'));
 
+        assert!(!text.contains("Extra instructions"));
+
         let figure = object_prompt(
             "clay figure",
+            "",
             AssetKind::Character,
             "",
             Aspect::Portrait,
@@ -411,6 +460,48 @@ mod tests {
         assert!(figure.contains("the whole character in frame"));
         assert!(figure.contains("from head to feet"));
         assert!(figure.contains("3:4 portrait"));
+    }
+
+    #[test]
+    fn notes_go_into_the_prompt_after_the_look_and_never_into_the_name() {
+        let out = Path::new("/w/landing/concepts/x/x_01.png");
+        let text = object_prompt(
+            "Island",
+            "  Painted stone and moss,\nno wireframe lines. ",
+            AssetKind::Prop,
+            "Hero",
+            Aspect::Square,
+            out,
+        );
+        assert!(text.contains("the \"Island\" from"));
+        assert!(text.contains(
+            "as in the concept.\n\nExtra instructions for this object: Painted stone and moss,\nno wireframe lines.\n\nUse a 1:1"
+        ));
+        assert!(!text.contains('\u{2014}'));
+    }
+
+    #[test]
+    fn notes_are_matched_to_objects_and_cleaned() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let src = dir.path().join("concepts/workbench-hero");
+        fs::create_dir_all(&src).expect("mkdir");
+        fs::write(src.join("workbench-hero_01.png"), b"png").expect("png");
+        let mut req = request(&["Desk lamp", "Laptop"]);
+        req.notes = HashMap::from([
+            ("desk LAMP".to_string(), "  brass,   warm bulb ".to_string()),
+            ("Laptop".to_string(), "   ".to_string()),
+            ("Stranger".to_string(), "dropped".to_string()),
+        ]);
+        let ok = clean(dir.path(), &req).expect("ok");
+        assert_eq!(
+            ok.notes,
+            HashMap::from([("Desk lamp".to_string(), "brass, warm bulb".to_string())])
+        );
+        req.notes = HashMap::from([("Laptop".to_string(), "n".repeat(401))]);
+        assert!(clean(dir.path(), &req).is_err());
+        let (_, planned) = prepare(dir.path(), &ok).expect("prep");
+        assert_eq!(planned[0].notes, "brass, warm bulb");
+        assert_eq!(planned[1].notes, "");
     }
 
     #[test]
@@ -475,11 +566,13 @@ mod tests {
                     index: 1,
                     file: "concepts/workbench-hero-objects/workbench-hero-objects_01.png".into(),
                     object: "desk lamp".into(),
+                    notes: String::new(),
                 },
                 PlannedObject {
                     index: 2,
                     file: "concepts/workbench-hero-objects/workbench-hero-objects_02.png".into(),
                     object: "laptop".into(),
+                    notes: String::new(),
                 },
             ]
         );
