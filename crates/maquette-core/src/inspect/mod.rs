@@ -74,6 +74,8 @@ pub struct TextureRow {
 #[serde(rename_all = "camelCase")]
 pub struct ModelPreset {
     pub texture_size: u32,
+    /// The smaller edge for metal, roughness, occlusion and normal maps.
+    pub data_texture_size: Option<u32>,
     pub codec: TextureCodec,
     pub meshopt: MeshoptLevel,
     /// Why the row cannot change, from `pipeline.json`.
@@ -306,6 +308,7 @@ fn preset_for(presets: &[CompressPreset], model: &str, defaults: CompressDefault
     match presets.iter().find(|p| p.model == model) {
         Some(p) => ModelPreset {
             texture_size: p.texture_size,
+            data_texture_size: p.data_texture_size.filter(|d| *d != p.texture_size),
             codec: p.codec,
             meshopt: p.meshopt,
             lock: p.lock.clone(),
@@ -313,6 +316,7 @@ fn preset_for(presets: &[CompressPreset], model: &str, defaults: CompressDefault
         },
         None => ModelPreset {
             texture_size: defaults.texture_size,
+            data_texture_size: None,
             codec: defaults.codec,
             meshopt: defaults.meshopt,
             lock: None,

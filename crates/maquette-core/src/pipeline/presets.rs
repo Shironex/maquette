@@ -21,6 +21,11 @@ pub struct CompressPreset {
     pub label: String,
     /// The longest texture edge after compression, in pixels.
     pub texture_size: u32,
+    /// An optional smaller edge for the metal, roughness, occlusion and
+    /// normal maps; base color (and emissive) keep `texture_size`. Without
+    /// it every map uses the one size.
+    #[serde(default)]
+    pub data_texture_size: Option<u32>,
     pub codec: TextureCodec,
     pub meshopt: MeshoptLevel,
     /// Why this row cannot change, for example "High spins her upper body".
@@ -42,6 +47,14 @@ impl CompressPreset {
                 self.label
             ));
         }
+        if let Some(size) = self.data_texture_size
+            && !(MIN_TEXTURE..=MAX_TEXTURE).contains(&size)
+        {
+            return Err(format!(
+                "{}: the data map size must be between {MIN_TEXTURE} and {MAX_TEXTURE} px.",
+                self.label
+            ));
+        }
         Ok(())
     }
 }
@@ -51,6 +64,8 @@ impl CompressPreset {
 pub struct ResolvedPreset {
     pub model: String,
     pub texture_size: u32,
+    /// Set only when it differs from `texture_size`.
+    pub data_texture_size: Option<u32>,
     pub codec: TextureCodec,
     pub meshopt: MeshoptLevel,
     pub locked: bool,
@@ -65,6 +80,7 @@ pub fn resolve(
         Some(p) => ResolvedPreset {
             model: model.to_string(),
             texture_size: p.texture_size,
+            data_texture_size: p.data_texture_size.filter(|d| *d != p.texture_size),
             codec: p.codec,
             meshopt: p.meshopt,
             locked: p.lock.is_some(),
@@ -72,12 +88,16 @@ pub fn resolve(
         None => ResolvedPreset {
             model: model.to_string(),
             texture_size: defaults.texture_size,
+            data_texture_size: None,
             codec: defaults.codec,
             meshopt: defaults.meshopt,
             locked: false,
         },
     }
 }
+
+/// The texture slots that keep the main size when a model splits its sizes.
+const COLOR_SLOTS: &str = "{baseColorTexture,emissiveTexture}";
 
 /// One gltf-transform invocation of the compress chain.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,7 +114,9 @@ fn arg(path: &Path) -> String {
 /// The gltf-transform passes for one model, in order:
 ///
 /// 1. `etc1s` or `uastc` with `--resize <size>` (skipped without toktx, so
-///    the textures stay PNG or JPEG),
+///    the textures stay PNG or JPEG). With a data map size it is two passes:
+///    base color and emissive at the size, then every other map at the
+///    data size,
 /// 2. `meshopt --level medium|high`, or `quantize` for the low level
 ///    (gltf-transform's meshopt has no low level, so low keeps the geometry
 ///    uncompressed and only quantises it).
@@ -108,28 +130,53 @@ pub fn compress_passes(
     toktx: bool,
 ) -> Vec<CompressPass> {
     let mut passes = Vec::new();
+    let data_tmp = tmp.with_extension("data.glb");
     let mut source = input;
     if toktx {
         let codec = match preset.codec {
             TextureCodec::Etc1s => "etc1s",
             TextureCodec::Uastc => "uastc",
         };
-        passes.push(CompressPass {
-            label: format!(
-                "{} textures to {} at {} px",
-                preset.model,
-                codec.to_uppercase(),
-                preset.texture_size
-            ),
-            args: vec![
+        let texture_pass = |from: &Path, to: &Path, size: u32, slots: Option<&str>, what: &str| {
+            let mut args = vec![
                 codec.to_string(),
-                arg(input),
-                arg(tmp),
+                arg(from),
+                arg(to),
                 "--resize".to_string(),
-                preset.texture_size.to_string(),
-            ],
-        });
-        source = tmp;
+                size.to_string(),
+            ];
+            if let Some(slots) = slots {
+                args.extend(["--slots".to_string(), slots.to_string()]);
+            }
+            CompressPass {
+                label: format!(
+                    "{} {what}textures to {} at {size} px",
+                    preset.model,
+                    codec.to_uppercase()
+                ),
+                args,
+            }
+        };
+        match preset.data_texture_size {
+            None => {
+                passes.push(texture_pass(input, tmp, preset.texture_size, None, ""));
+                source = tmp;
+            }
+            Some(data) => {
+                // Color maps first. A texture already encoded is skipped by
+                // the second pass, which takes the data maps and anything
+                // left over at the smaller size.
+                passes.push(texture_pass(
+                    input,
+                    tmp,
+                    preset.texture_size,
+                    Some(COLOR_SLOTS),
+                    "color ",
+                ));
+                passes.push(texture_pass(tmp, &data_tmp, data, None, "data map "));
+                source = &data_tmp;
+            }
+        }
     }
     let geometry = match preset.meshopt {
         MeshoptLevel::Low => CompressPass {
@@ -212,6 +259,7 @@ mod tests {
             model: model.into(),
             label: model.into(),
             texture_size: size,
+            data_texture_size: None,
             codec: TextureCodec::Etc1s,
             meshopt,
             lock: lock.map(str::to_string),
@@ -294,6 +342,73 @@ mod tests {
                 "web/dist/character.glb"
             ]]
         );
+    }
+
+    #[test]
+    fn a_data_map_size_splits_the_texture_pass_in_two() {
+        let input = PathBuf::from("raw/island.glb");
+        let output = PathBuf::from("dist/island.glb");
+        let tmp = PathBuf::from("tmp/island.tex.glb");
+        let mut split = row("island", 2048, MeshoptLevel::High, None);
+        split.data_texture_size = Some(1024);
+        let preset = resolve(&[split.clone()], "island", DEFAULTS);
+        assert_eq!(preset.data_texture_size, Some(1024));
+        let passes = compress_passes(&input, &output, &tmp, &preset, true);
+        assert_eq!(
+            args_of(&passes),
+            vec![
+                vec![
+                    "etc1s",
+                    "raw/island.glb",
+                    "tmp/island.tex.glb",
+                    "--resize",
+                    "2048",
+                    "--slots",
+                    "{baseColorTexture,emissiveTexture}"
+                ],
+                vec![
+                    "etc1s",
+                    "tmp/island.tex.glb",
+                    "tmp/island.tex.data.glb",
+                    "--resize",
+                    "1024"
+                ],
+                vec![
+                    "meshopt",
+                    "tmp/island.tex.data.glb",
+                    "dist/island.glb",
+                    "--level",
+                    "high"
+                ],
+            ]
+        );
+        assert!(passes[0].label.contains("color textures"));
+        assert!(passes[1].label.contains("data map textures"));
+
+        // The same size twice is no split, and no toktx means no texture pass.
+        split.data_texture_size = Some(2048);
+        let same = resolve(&[split.clone()], "island", DEFAULTS);
+        assert_eq!(same.data_texture_size, None);
+        assert_eq!(compress_passes(&input, &output, &tmp, &same, true).len(), 2);
+        let preset = resolve(&[row_with_data(1024)], "island", DEFAULTS);
+        assert_eq!(
+            compress_passes(&input, &output, &tmp, &preset, false).len(),
+            1
+        );
+
+        // The size is checked like the main one, and old files still load.
+        split.data_texture_size = Some(8);
+        assert!(split.check().is_err());
+        let old = r#"{"model":"a","label":"A","textureSize":1024,"codec":"etc1s","meshopt":"high","lock":null}"#;
+        let parsed: CompressPreset = serde_json::from_str(old).expect("old preset");
+        assert_eq!(parsed.data_texture_size, None);
+    }
+
+    fn row_with_data(data: u32) -> CompressPreset {
+        CompressPreset {
+            data_texture_size: Some(data),
+            ..row("island", 2048, MeshoptLevel::High, None)
+        }
     }
 
     #[test]

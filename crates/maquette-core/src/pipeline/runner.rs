@@ -1950,6 +1950,7 @@ mod tests {
             model: "clay_v1".into(),
             label: "Clay".into(),
             texture_size: 512,
+            data_texture_size: None,
             codec: TextureCodec::Uastc,
             meshopt: MeshoptLevel::Low,
             lock: None,

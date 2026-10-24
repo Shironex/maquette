@@ -106,6 +106,7 @@ pub fn character_preset() -> CompressPreset {
         model: "character".into(),
         label: "Character".into(),
         texture_size: 2048,
+        data_texture_size: None,
         codec: TextureCodec::Etc1s,
         meshopt: MeshoptLevel::Medium,
         lock: Some(CHARACTER_LOCK.into()),

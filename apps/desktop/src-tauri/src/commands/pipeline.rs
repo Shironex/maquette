@@ -519,6 +519,7 @@ mod tests {
             model: "bench".into(),
             label: "Bench".into(),
             texture_size: 1024,
+            data_texture_size: None,
             codec: maquette_core::TextureCodec::Uastc,
             meshopt: MeshoptLevel::High,
             lock: None,
