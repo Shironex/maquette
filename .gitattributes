@@ -1,0 +1,13 @@
+# Let git normalize line endings (LF in the repo, native on checkout).
+* text=auto
+
+# rustfmt.toml pins `newline_style = "Unix"`, so a CRLF checkout of Rust sources
+# would fail `cargo fmt --check` on Windows for changes nobody made.
+*.rs text eol=lf
+
+# Binary assets: never touch their bytes.
+*.png binary
+*.jpg binary
+*.icns binary
+*.ico binary
+*.woff2 binary

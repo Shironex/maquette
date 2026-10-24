@@ -1,0 +1,6 @@
+# Pinned exactly so every machine builds the same bytes. Bump deliberately, in
+# its own commit.
+[toolchain]
+channel = "1.94.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

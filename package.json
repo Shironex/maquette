@@ -1,0 +1,60 @@
+{
+  "name": "maquette",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Maquette, a desktop studio that turns concept art into real-time 3D web scenes",
+  "license": "UNLICENSED",
+  "type": "module",
+  "packageManager": "pnpm@10.34.5",
+  "scripts": {
+    "dev": "pnpm --filter @maquette/desktop dev",
+    "dev:web": "pnpm --filter @maquette/web dev",
+    "build": "pnpm --filter @maquette/desktop build",
+    "build:web": "pnpm --filter @maquette/web build",
+    "tauri": "pnpm --filter @maquette/desktop exec tauri",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "rust:fmt": "cargo fmt --all --check",
+    "rust:lint": "cargo clippy --workspace --all-targets -- -D warnings",
+    "rust:test": "cargo test --workspace",
+    "gate": "pnpm lint && pnpm typecheck && pnpm test && pnpm format:check && pnpm rust:fmt && pnpm rust:lint && pnpm rust:test",
+    "visual": "node scripts/visual-check.mjs",
+    "prepare": "husky"
+  },
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=10.16.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml,css,mjs}": [
+      "prettier --write"
+    ],
+    "*.rs": [
+      "rustfmt --edition 2024"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.3",
+    "@commitlint/config-conventional": "21.2.3",
+    "@eslint/js": "10.0.1",
+    "eslint": "10.11.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react": "7.37.5",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.12.0",
+    "husky": "9.1.7",
+    "lint-staged": "17.5.1",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1",
+    "vitest": "4.1.11"
+  }
+}

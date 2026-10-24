@@ -1,0 +1,4 @@
+# The MSRV clippy honours comes from `rust-version` in the workspace
+# Cargo.toml; declaring it here too only creates a second thing to drift.
+cognitive-complexity-threshold = 20
+too-many-arguments-threshold = 8

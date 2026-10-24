@@ -1,0 +1,56 @@
+# Maquette: Rust workspace.
+#
+# The domain crates under `crates/` own the backend logic, and
+# `apps/desktop/src-tauri` is a thin composition root that wires them into the
+# Tauri shell. Dependencies run one way: core -> desktop.
+
+[workspace]
+resolver = "3"
+members = ["crates/*", "apps/desktop/src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94.1"
+authors = ["Shironex"]
+license = "LicenseRef-Proprietary"
+publish = false
+
+[workspace.dependencies]
+maquette-core = { path = "crates/maquette-core" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+tempfile = "3"
+
+tauri = { version = "2.11", features = [] }
+tauri-build = { version = "2", features = [] }
+tauri-plugin-dialog = "2.7"
+
+# Exact pins: tauri-specta is pre-1.0, and a floating rc would resolve
+# differently between machines and break the regenerate-and-diff guard.
+specta = { version = "=2.0.0-rc.25", features = ["derive"] }
+specta-typescript = "=0.0.12"
+specta-serde = "=0.0.12"
+tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+await_holding_lock = "warn"
+unwrap_used = "warn"
+todo = "warn"
+dbg_macro = "warn"
+
+[profile.dev]
+incremental = true
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

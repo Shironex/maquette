@@ -1,0 +1,23 @@
+node_modules/
+dist/
+build/
+# Cargo build output. Cargo.lock is tracked.
+target/
+# Tauri regenerates these permission schemas from the plugin set on every build.
+apps/desktop/src-tauri/gen/
+*.log
+.env
+.env.local
+.DS_Store
+Thumbs.db
+.vscode/
+*.tsbuildinfo
+coverage/
+test-results/
+playwright-report/
+# Agent tooling stays out of this repo.
+.claude/
+CLAUDE.md
+
+# Visual check screenshots
+.visual/

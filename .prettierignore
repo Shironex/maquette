@@ -1,0 +1,16 @@
+# Cargo build output and Tauri's regenerated permission schemas.
+target/
+apps/desktop/src-tauri/gen/
+
+# Package managers own their lockfiles' formatting.
+Cargo.lock
+pnpm-lock.yaml
+
+# Emitted by `cargo test -p maquette-desktop` (specta). Formatting it would put
+# the formatter and the generator in a loop.
+apps/web/src/ipc/generated/
+
+# Generated from tokens.json and @phosphor-icons/core by scripts in packages/ui.
+packages/ui/src/icons/paths.ts
+packages/ui/src/styles/theme.css
+packages/ui/src/lib/theme-names.ts

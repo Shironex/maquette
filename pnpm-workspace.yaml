@@ -1,0 +1,10 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# The owner's global npm config sets a 7 day minimum release age; pnpm reads its
+# own copy of the gate from here (minutes). Never lower it.
+minimumReleaseAge: 10080
+
+onlyBuiltDependencies:
+  - esbuild
