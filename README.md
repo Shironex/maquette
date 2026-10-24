@@ -2,7 +2,7 @@
 
 A desktop studio that turns AI concept art into real-time 3D web scenes. One board follows each asset through the pipeline: Concept, Refs, Tripo, Blender, Web, Ship. Everything runs on this machine.
 
-So far: the app shell, onboarding, the toolchain check, workspace config and Settings, an asset Board, the pipeline runner, the model inbox, the Concept lab, the Inspector and a built in MCP server for agents.
+So far: the app shell, onboarding, the toolchain check, workspace config and Settings, an asset Board, the pipeline runner, the model inbox, the Concept lab, Send to 3D (Tripo, Meshy or by hand), the Inspector and a built in MCP server for agents.
 
 ## Pipeline runner
 
@@ -60,11 +60,23 @@ Results show per direction with Star and Pick and a lightbox (arrow keys, S, P, 
 
 `cargo run -p maquette-core --example generate_concept -- <project dir> --direction "Stone lantern" --prompt "..." [--ref refs/a.png] [--count 1]` runs the same jobs from a terminal. Every image spends Codex usage.
 
+## Send to 3D
+
+Send to 3D takes refs from a Board card (its menu) or the picked concepts of a Lab direction (the picks go to Refs first) to Tripo, Meshy or By hand. The panel starts from the Settings preset for the asset (the prop or the character variant, picked by asset kind), and every field can change for this send only. One image makes one model; with Multi-view on, up to four images go as front, left, back and right.
+
+- **Tripo** (REST v3): upload, image to model or multiview to model, poll, download. A character can add the rig chain: rig check, rig, then retarget the chosen animations. Tripo has no cancel, so a sent task always finishes and lands in the Inbox.
+- **Meshy** (REST v1): image to 3D or multi image to 3D (images go up as data URIs), poll, then rigging for characters. Cancel works while the task is still pending; once Meshy has started it answers 409 and the queue says so.
+- **By hand:** no API call and no credits. Maquette writes `projects/<p>/handoff/<asset>-<n>/` with the images named by view and a settings card (`settings.md` and `settings.json`) for the service's web app. The panel shows the same card with copy buttons and Open folder. The asset waits on the Board until the GLB comes back: drop it on the card, choose it from the card menu, or save it into the inbox as `<asset>-<n>.glb`.
+
+Provider jobs run on their own lane, four at a time, with 429 back off that honours `Retry-After`. Each job and its remote task ids are saved in `projects/<p>/providers.json`, so a job sent before the app closed resumes polling instead of paying again. The Board card shows a job's progress, and the 3D queue lists every send with its provider, credits and time. A finished model goes into the inbox linked to its asset, so Accept defaults to that asset. A 402 says the account is out of credits.
+
+API keys live in the OS keychain (macOS Keychain, Windows Credential Manager) under the service `com.shironex.maquette`, never in `maquette.json`, a project file or a log. Settings > 3D providers shows only the last four characters, and Test key calls the free balance endpoint. Presets live there too, per provider with a character variant.
+
 ## Inspector
 
 The Inspector opens a project's models in the same studio as the preview, with a compare slider that splits one canvas down the middle: the raw export against the shipped build or the site's copy, or two versions of one asset. Both halves share the camera. Camera stops come from the first of these that has any: `stops.json` in the project (`{ "stops": [{ "name", "position": [x, y, z], "target": [x, y, z], "fov": 35 }] }`, glTF coordinates in metres), the `web/posters/stops.json` the Capture posters step writes, or cameras inside the models. The filmstrip eases the camera to a stop and shows its poster when there is one.
 
-The side panel lists the selected model's triangles, textures with size and codec, a GPU memory estimate, the transfer size and its compression preset with any lock note. Budget bars come from the workspace budgets and an optional `budgets.json` in the project (`{ "models": { "character": 1.0 } }`, in MB); models without a row share what is left of the scene budget. The frame time graph measures the renderer (waiting on the GPU every few frames) against the 60 fps line.
+The side panel lists the selected model's triangles, textures with size and codec, a GPU memory estimate, the transfer size and its compression preset with any lock note. Budget bars come from the workspace budgets and an optional `budgets.json` in the project (`{ "models": { "character": 1.0 } }`, in MB); models without a row share what is left of the scene budget. The frame time graph measures the renderer (waiting on the GPU every few frames) against the 60 fps line. Export GLB re-exports the selected model alone: it runs the pipeline's Blender export step with its output pointed at a scratch folder, then copies that one file over the raw export.
 
 ## Agents (MCP)
 
@@ -84,14 +96,14 @@ http_headers = { Authorization = "Bearer <token>" }
 tool_timeout_sec = 150
 ```
 
-Tools: `list_projects`, `get_project`, `list_assets`, `get_pipeline`, `get_run` (status and log tail), `list_inbox`, `get_inbox_checks`, `run_pipeline` (optionally from a step, optionally ignoring the cache), `cancel_run`, `accept_inbox_model`, `render_thumbnail` and `start_concepts`. The agent rules hold by construction: Blender only runs headless, no tool opens its window, and there is no screenshot or screen capture tool. With Ask before shipping on, a run started over MCP stops before its Ship step and the app shows an Approve or Deny prompt; until then `run_pipeline` and `get_run` answer `waiting for approval`. Every call shows in the activity list under Settings > Agents.
+Tools: `list_projects`, `get_project`, `list_assets`, `get_pipeline`, `get_run` (status and log tail), `list_inbox`, `get_inbox_checks`, `run_pipeline` (optionally from a step, optionally ignoring the cache), `cancel_run`, `accept_inbox_model` (defaults to the asset the model was sent for), `render_thumbnail`, `start_concepts`, `get_concepts` (a direction's images, stars, picks and job states), `send_to_3d` and `get_provider_job`. The agent rules hold by construction: Blender only runs headless, no tool opens its window, and there is no screenshot or screen capture tool. With Ask before shipping on, a run started over MCP stops before its Ship step and the app shows an Approve or Deny prompt; until then `run_pipeline` and `get_run` answer `waiting for approval`. A run whose Ship step would come from the cache does not ask. `send_to_3d` to Tripo or Meshy always waits for Approve in the app before any credit is spent, whatever that setting says, and Deny cancels the job; By hand spends nothing, so it writes the handoff folder straight away. Settings overrides are checked by name and an unknown one is refused with the valid list. Every call shows in the activity list under Settings > Agents.
 
 ## Stack
 
 - **Shell:** Tauri 2 (`apps/desktop`), macOS and Windows
 - **UI:** React 19, Vite, Tailwind CSS v4, zustand (`apps/web`)
 - **Kit:** typed components with a theme generated from `tokens.json`, Phosphor icons, Geist fonts bundled (`packages/ui`)
-- **Core:** Rust domain logic (`crates/maquette-core`): tool detection and `--version` parsing, the `maquette.json` workspace config, projects, assets, the pipeline runner and cache, GLB analysis, the inbox watcher, concept jobs and the inspector's numbers
+- **Core:** Rust domain logic (`crates/maquette-core`): tool detection and `--version` parsing, the `maquette.json` workspace config, projects, assets, the pipeline runner and cache, GLB analysis, the inbox watcher, concept jobs, provider jobs for Tripo and Meshy (reqwest with rustls) and the inspector's numbers
 - **MCP:** rmcp (the official Rust SDK) served by hyper in the desktop shell
 - **Viewer:** three.js with react-three-fiber for the model preview
 - **IPC:** tauri-specta writes typed bindings to `apps/web/src/ipc/generated/bindings.ts` when `cargo test -p maquette-desktop` runs
@@ -118,7 +130,9 @@ Outside Tauri, a dev build answers every command from an in-memory backend (`app
 - `?delay=700`: how long a toolchain check takes, in milliseconds
 - `?pace=260`: milliseconds between streamed log lines in a mock run
 - `?lab=running`: two concept images of the porch direction mid job; `?conceptMs=4000` sets how long a fake image takes
-- `?agents=active`: the MCP server on, with an agent's activity and a run waiting at Ship for approval
+- `?agents=active`: the MCP server on, with an agent's activity, a run waiting at Ship and a Send to 3D waiting for approval
+
+Configured scenarios also open with fake provider jobs: Sakura generating at Tripo, Stone lanterns waiting for a model by hand, Far spire failed at Meshy for credits, and Character accepted. Only the Tripo key is saved. New sends move along on timers; nothing is sent anywhere.
 
 The mock runner streams Blender style output and fails Capture posters once. The mock inbox lists a character, two props and a broken download. Its previews load real meshopt and KTX2 models, and the Board and Inbox show real studio thumbnails, all from `apps/web/src/assets/mock` (see the README there: that artwork is reserved and not covered by the repository license). For hand testing a real inbox, `cargo run -p maquette-core --example write_fixtures -- <dir>` writes small generated GLBs.
 
