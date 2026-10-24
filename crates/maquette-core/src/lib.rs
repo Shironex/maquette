@@ -6,6 +6,7 @@ pub mod app_state;
 pub mod assets;
 pub mod error;
 pub mod fs;
+pub mod inbox;
 pub mod jobs;
 mod json;
 pub mod pipeline;
@@ -86,6 +87,19 @@ pub fn types() -> specta::Types {
         .register::<pipeline::history::LogStream>()
         .register::<pipeline::history::LogEntry>()
         .register::<pipeline::runner::PipelineEvent>()
+        .register::<inbox::analyse::RigKind>()
+        .register::<inbox::analyse::TextureInfo>()
+        .register::<inbox::analyse::PbrMaps>()
+        .register::<inbox::analyse::JointCount>()
+        .register::<inbox::analyse::FingerWeights>()
+        .register::<inbox::analyse::Islands>()
+        .register::<inbox::analyse::GlbReport>()
+        .register::<inbox::checks::CheckStatus>()
+        .register::<inbox::checks::Check>()
+        .register::<inbox::InboxState>()
+        .register::<inbox::InboxItem>()
+        .register::<inbox::AcceptRequest>()
+        .register::<inbox::AcceptResult>()
 }
 
 #[cfg(test)]
@@ -151,6 +165,19 @@ mod tests {
             "LogStream",
             "LogEntry",
             "PipelineEvent",
+            "RigKind",
+            "TextureInfo",
+            "PbrMaps",
+            "JointCount",
+            "FingerWeights",
+            "Islands",
+            "GlbReport",
+            "CheckStatus",
+            "Check",
+            "InboxState",
+            "InboxItem",
+            "AcceptRequest",
+            "AcceptResult",
         ] {
             assert!(names.iter().any(|n| n == expected), "missing {expected}");
         }
