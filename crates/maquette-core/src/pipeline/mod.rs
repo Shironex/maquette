@@ -6,6 +6,7 @@ pub mod cache;
 pub mod graph;
 pub mod history;
 pub mod presets;
+pub mod progress;
 pub mod runner;
 pub mod starter;
 pub mod template;

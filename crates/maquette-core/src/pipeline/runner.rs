@@ -25,6 +25,7 @@ use super::history::{
     self, LogEntry, LogLevel, LogStream, RunRecord, RunState, StepRecord, StepState, now_ms,
 };
 use super::presets::{compress_passes, resolve};
+use super::progress::Tracker;
 use super::tools::{ResolvedTool, Toolbox};
 use super::{CompressDefaults, PipelineDef, StepDef, StepKind};
 use crate::error::{CoreError, CoreResult};
@@ -34,6 +35,8 @@ const POLL: Duration = Duration::from_millis(40);
 /// How long to keep reading pipes after the process exits.
 const DRAIN_GRACE: Duration = Duration::from_secs(2);
 const MAX_LINE_CHARS: usize = 4000;
+/// Progress events are sent at most this often, unless a step finishes.
+const PROGRESS_EVERY: Duration = Duration::from_millis(250);
 
 /// What the runner reports while it works. The UI replaces its copy of the
 /// run on every `run` event and appends `log` lines.
@@ -178,6 +181,7 @@ fn initial_steps(def: &PipelineDef, plan: &[(usize, Planned)]) -> Vec<StepRecord
                 duration_ms: None,
                 exit_code: None,
                 message: (planned == Planned::Skip).then(|| "Not part of this run.".to_string()),
+                progress: None,
             }
         })
         .collect()
@@ -305,6 +309,8 @@ fn worker(inner: &Arc<Inner>, project: &str, job: (RunRecord, RunSetup), handles
             cancel,
             child,
             log: Vec::new(),
+            slot: 0,
+            progress_sent: None,
         };
         exec.run();
         let mut lanes = inner.lanes();
@@ -331,6 +337,10 @@ struct Execution {
     cancel: Arc<AtomicBool>,
     child: ChildSlot,
     log: Vec<LogEntry>,
+    /// The step record the running step reports into.
+    slot: usize,
+    /// When progress was last sent, so a chatty tool does not flood the UI.
+    progress_sent: Option<Instant>,
 }
 
 enum StepOutcome {
@@ -371,6 +381,25 @@ impl Execution {
 
     fn cancelled(&self) -> bool {
         self.cancel.load(Ordering::SeqCst)
+    }
+
+    /// Records how far the running step is and tells the UI, throttled.
+    fn report_progress(&mut self, tracker: &Tracker) {
+        let Some(value) = tracker.value() else {
+            return;
+        };
+        let rec = &mut self.record.steps[self.slot];
+        if rec.progress == Some(value) {
+            return;
+        }
+        rec.progress = Some(value);
+        let due = self
+            .progress_sent
+            .is_none_or(|at| at.elapsed() >= PROGRESS_EVERY);
+        if due || value >= 1.0 {
+            self.progress_sent = Some(Instant::now());
+            self.emit_run();
+        }
     }
 
     fn run(&mut self) {
@@ -430,6 +459,8 @@ impl Execution {
                 rec.state = StepState::Running;
                 rec.started_at_ms = Some(now_ms());
             }
+            self.slot = slot;
+            self.progress_sent = None;
             self.emit_run();
             let outcome = self.run_step(&step, *planned == Planned::Force, &mut hasher);
             let elapsed = started.elapsed();
@@ -437,6 +468,9 @@ impl Execution {
             let duration_ms = elapsed.as_millis() as f64;
             let rec = &mut self.record.steps[slot];
             rec.duration_ms = Some(duration_ms);
+            rec.progress = matches!(outcome, StepOutcome::Done | StepOutcome::Cached)
+                .then_some(1.0)
+                .or(rec.progress);
             match outcome {
                 StepOutcome::Done => rec.state = StepState::Done,
                 StepOutcome::Cached => rec.state = StepState::Cached,
@@ -615,13 +649,16 @@ impl Execution {
                 );
             }
         }
-        for (label, args) in &invocations {
+        let mut tracker = Tracker::new(invocations.len());
+        for (index, (label, args)) in invocations.iter().enumerate() {
             if let Some(label) = label {
                 self.system(Some(&step.id), LogLevel::Info, label.clone());
             }
+            tracker.start_call(index);
+            self.report_progress(&tracker);
             let mut full = tool.prefix.clone();
             full.extend(args.iter().cloned());
-            match self.spawn(step, &tool, &full, &root) {
+            match self.spawn(step, &tool, &full, &root, &mut tracker) {
                 Ok(0) => {}
                 Ok(code) => {
                     return StepOutcome::Failed(
@@ -720,6 +757,7 @@ impl Execution {
         tool: &ResolvedTool,
         args: &[String],
         root: &Path,
+        tracker: &mut Tracker,
     ) -> Result<i32, SpawnError> {
         let path_env: OsString = {
             let mut dirs: Vec<PathBuf> = tool
@@ -773,7 +811,11 @@ impl Execution {
             match rx.recv_timeout(POLL) {
                 Ok((stream, text)) => {
                     let level = history::classify(&text);
+                    let moved = tracker.line(&text);
                     self.log(Some(&step_id), stream, level, text);
+                    if moved {
+                        self.report_progress(tracker);
+                    }
                     continue;
                 }
                 Err(RecvTimeoutError::Disconnected) if exit.is_some() => break,
@@ -1026,6 +1068,37 @@ mod tests {
         assert_eq!(runs.len(), 5);
         assert_eq!(runs[0].number, 5);
         assert!(!history::load_log(&s.cache_dir, 5).is_empty());
+    }
+
+    #[test]
+    fn progress_lines_reach_the_step_record() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let s = setup(
+            dir.path(),
+            vec![shell_step("bake", "tools/bake.sh", &["out/x.txt"], &[])],
+        );
+        script(
+            &s,
+            "bake.sh",
+            "echo '[bake] progress 1/4 rock'\nsleep 0.3\necho '[bake] progress 3/4 tree'\nsleep 0.3\nmkdir -p out\necho x > out/x.txt\n",
+        );
+        let sink = Arc::new(Recorder::default());
+        let run = PipelineRunner::new(sink.clone())
+            .run_blocking(s)
+            .expect("run");
+        assert_eq!(run.state, RunState::Done);
+        assert_eq!(run.steps[0].progress, Some(1.0));
+        let seen: Vec<f64> = lock(&sink.events)
+            .iter()
+            .filter_map(|e| match e {
+                PipelineEvent::Run { run } if run.steps[0].state == StepState::Running => {
+                    run.steps[0].progress
+                }
+                _ => None,
+            })
+            .collect();
+        assert!(seen.contains(&0.25), "{seen:?}");
+        assert!(seen.contains(&0.75), "{seen:?}");
     }
 
     #[test]

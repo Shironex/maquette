@@ -556,6 +556,11 @@ export type StepRecord = {
 	exitCode: number | null,
 	/**  Why it failed or was skipped. */
 	message: string | null,
+	/**
+	 *  From 0 to 1 while the step runs, when its tool reports how far it
+	 *  is (see `pipeline::progress`). `None` draws an indeterminate bar.
+	 */
+	progress?: number | null,
 };
 
 export type StepState = 

@@ -63,6 +63,10 @@ pub struct StepRecord {
     pub exit_code: Option<i32>,
     /// Why it failed or was skipped.
     pub message: Option<String>,
+    /// From 0 to 1 while the step runs, when its tool reports how far it
+    /// is (see `pipeline::progress`). `None` draws an indeterminate bar.
+    #[serde(default)]
+    pub progress: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
