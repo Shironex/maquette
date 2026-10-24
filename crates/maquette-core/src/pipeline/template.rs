@@ -186,20 +186,41 @@ fn posters(blend: &str) -> StepDef {
     )
 }
 
+/// The "Character showcase" flow: build a lit, framed scene around the
+/// newest character model, export it with its rig and clips, compress it,
+/// render the poster stops, ship. Like the diorama, the build opens no
+/// blend, because `blender/character.blend` is optional.
 fn character_showcase() -> Vec<StepDef> {
     vec![
+        blender(
+            "build",
+            "Build character",
+            "tools/build_character.py",
+            None,
+            &[
+                "--base",
+                "blender/character.blend",
+                "--models",
+                "models",
+                "--out",
+                "blender/character_built.blend",
+            ],
+            &["blender/character.blend", "models/*.glb"],
+            &["blender/character_built.blend"],
+            &[],
+        ),
         blender(
             "export",
             "Export GLB",
             "tools/export_character.py",
-            Some("blender/character.blend"),
+            Some("blender/character_built.blend"),
             &["--out", "web/raw"],
-            &["blender/character.blend"],
+            &["blender/character_built.blend"],
             &["web/raw/*.glb"],
-            &[],
+            &["build"],
         ),
         compress("web/raw", "web/dist", &["export"]),
-        posters("blender/character.blend"),
+        posters("blender/character_built.blend"),
         ship(&["compress", "posters"]),
     ]
 }
@@ -696,6 +717,41 @@ mod tests {
         assert_eq!(def.presets, vec![character_preset()]);
         assert_eq!(def.presets[0].meshopt, MeshoptLevel::Medium);
         assert!(def.presets[0].lock.is_some());
+        assert!(validate(&def).iter().all(|i| !i.is_error()));
+    }
+
+    #[test]
+    fn character_showcase_builds_its_own_scene() {
+        let def = for_template(ProjectTemplate::CharacterShowcase);
+        assert_eq!(
+            names(&def),
+            [
+                "Build character",
+                "Export GLB",
+                "Compress",
+                "Capture posters",
+                "Ship"
+            ]
+        );
+        let ids: Vec<&str> = def.steps.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(ids, ["build", "export", "compress", "posters", "ship"]);
+        // A fresh project has only models: the build opens no blend and
+        // reads the optional base and the models as inputs.
+        let build = def.step("build").expect("build");
+        assert_eq!(build.args[4], "--python");
+        assert!(build.inputs.contains(&"models/*.glb".to_string()));
+        assert_eq!(build.outputs, s(&["blender/character_built.blend"]));
+        for id in ["export", "posters"] {
+            assert_eq!(
+                def.step(id).expect(id).args[4],
+                "blender/character_built.blend",
+                "{id}"
+            );
+        }
+        assert_eq!(
+            def.step("export").expect("export").depends_on,
+            s(&["build"])
+        );
         assert!(validate(&def).iter().all(|i| !i.is_error()));
     }
 

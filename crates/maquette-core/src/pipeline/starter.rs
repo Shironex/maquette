@@ -29,6 +29,10 @@ const EXPORT_WEB: StarterScript = StarterScript {
     path: "tools/export_web.py",
     text: include_str!("../../starter/export_web.py"),
 };
+const BUILD_CHARACTER: StarterScript = StarterScript {
+    path: "tools/build_character.py",
+    text: include_str!("../../starter/build_character.py"),
+};
 const EXPORT_CHARACTER: StarterScript = StarterScript {
     path: "tools/export_character.py",
     text: include_str!("../../starter/export_character.py"),
@@ -49,7 +53,9 @@ pub fn scripts(template: ProjectTemplate) -> &'static [StarterScript] {
         ProjectTemplate::FloatingDiorama | ProjectTemplate::Room => {
             &[BUILD_SCENE, BAKE_LIGHT, EXPORT_WEB, RENDER_STOPS, SHIP]
         }
-        ProjectTemplate::CharacterShowcase => &[EXPORT_CHARACTER, RENDER_STOPS, SHIP],
+        ProjectTemplate::CharacterShowcase => {
+            &[BUILD_CHARACTER, EXPORT_CHARACTER, RENDER_STOPS, SHIP]
+        }
         ProjectTemplate::Imported => &[],
     }
 }
@@ -132,6 +138,10 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let first = write(dir.path(), ProjectTemplate::FloatingDiorama).expect("write");
         assert_eq!(first.len(), 5);
+        let character = tempfile::tempdir().expect("tempdir");
+        let written = write(character.path(), ProjectTemplate::CharacterShowcase).expect("write");
+        assert_eq!(written.len(), 4);
+        assert!(written.contains(&"tools/build_character.py".to_string()));
         let edited = dir.path().join("tools/build_scene.py");
         fs::write(&edited, "print('mine')\n").expect("edit");
         let again = write(dir.path(), ProjectTemplate::FloatingDiorama).expect("again");

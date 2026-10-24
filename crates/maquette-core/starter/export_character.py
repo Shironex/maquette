@@ -3,11 +3,13 @@
 Maquette runs this headless, as the Export GLB step of the Character
 showcase template:
 
-    blender -b --factory-startup --python-exit-code 1 blender/character.blend \
+    blender -b --factory-startup --python-exit-code 1 blender/character_built.blend \
         --python tools/export_character.py -- --out web/raw
 
+The blend is the one the Build step (tools/build_character.py) writes.
 Writes <out>/character.glb (change it with --name) with every armature, mesh
-and action in the file. Cameras and lights stay out. Geometry stays
+and action in the file: the skin and every clip are kept. Cameras and lights
+stay out. Geometry stays
 uncompressed: the Compress step applies the "character" preset, which keeps
 meshopt on medium so skinned clips do not drift.
 """
