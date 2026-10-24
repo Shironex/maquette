@@ -15,6 +15,7 @@ import {
 } from '@/ipc/client';
 import { hashForView, viewFromHash, type ViewId } from '@/features/shell/views';
 import type { ToastStatus } from '@maquette/ui';
+import { useSettingsGuard } from './settings-guard';
 
 export type Phase = 'booting' | 'onboarding' | 'app' | 'failed';
 
@@ -48,7 +49,11 @@ interface AppStore {
   setConfig: (config: WorkspaceConfig) => void;
   /** Swaps in a changed project (new assets, a move) everywhere it shows. */
   setProject: (project: ProjectManifest) => void;
-  setView: (view: ViewId) => void;
+  /**
+   * Opens a view. Leaving Settings with an invalid draft asks first, unless
+   * `force` (a new workspace or project is not a way to leave).
+   */
+  setView: (view: ViewId, force?: boolean) => void;
   syncViewFromHash: () => void;
   detectTools: () => Promise<void>;
   locateTool: (tool: ToolId) => Promise<void>;
@@ -93,7 +98,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   enterApp: snapshot => {
     set({ workspace: snapshot, phase: 'app' });
-    get().setView('board');
+    get().setView('board', true);
   },
 
   setWorkspace: snapshot => set({ workspace: snapshot }),
@@ -115,7 +120,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
     });
   },
 
-  setView: view => {
+  setView: (view, force) => {
+    if (!force && get().view === 'settings' && view !== 'settings') {
+      const guard = useSettingsGuard.getState();
+      if (guard.problems.length > 0) {
+        guard.askLeave(view);
+        view = 'settings';
+      }
+    }
     set({ view });
     const hash = hashForView(view);
     if (typeof window !== 'undefined' && window.location.hash !== hash) {
@@ -123,7 +135,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
-  syncViewFromHash: () => set({ view: viewFromHash(currentHash()) }),
+  syncViewFromHash: () => get().setView(viewFromHash(currentHash())),
 
   detectTools: async () => {
     if (get().tools.checking) return;

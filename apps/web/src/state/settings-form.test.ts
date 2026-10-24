@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfig } from '@/ipc/mock/fixtures';
 import {
+  describeErrors,
+  dropInvalid,
   maskToken,
   mcpSnippet,
   parsePort,
@@ -77,5 +79,20 @@ describe('settings form', () => {
     expect(parsePort('127.0.0.1:4791')).toBe(4791);
     expect(parsePort(' 5000 ')).toBe(5000);
     expect(parsePort('example.com:80')).toBeNull();
+  });
+
+  it('names each bad field, and puts only those back to the saved value', () => {
+    const saved = defaultConfig();
+    let draft = patchSection(saved, 'agents', { mcpPort: 80 });
+    draft = patchSection(draft, 'budgets', { sceneMb: 0, trisPerModel: 70000 });
+    const errors = validateConfig(draft);
+    expect(describeErrors(errors)).toEqual([
+      expect.stringMatching(/^Scene target: /),
+      expect.stringMatching(/^Localhost port: /),
+    ]);
+    const kept = dropInvalid(draft, saved, errors);
+    expect(kept.agents.mcpPort).toBe(saved.agents.mcpPort);
+    expect(kept.budgets).toEqual({ sceneMb: saved.budgets.sceneMb, trisPerModel: 70000 });
+    expect(validateConfig(kept)).toEqual({});
   });
 });

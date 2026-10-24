@@ -78,7 +78,7 @@ export const useProjectsStore = create<ProjectsStore>((set, get) => ({
       const snapshot = await commands.projectCreate(newProjectRequest(fields));
       const app = useAppStore.getState();
       app.setWorkspace(snapshot);
-      app.setView('board');
+      app.setView('board', true);
       set({ dialog: null });
       app.notify({
         status: 'done',

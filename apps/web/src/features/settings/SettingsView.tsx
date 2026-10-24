@@ -10,6 +10,7 @@ import {
   type IconName,
 } from '@maquette/ui';
 import { commands, errorMessage, type WorkspaceConfig } from '@/ipc/client';
+import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 import { PANEL_TITLE, Panel } from '@/features/common/Panel';
 import { AgentsPanel } from '@/features/agents/AgentsPanel';
 import { BudgetFields, CompressionFields } from '@/features/config/ConfigFields';
@@ -19,6 +20,7 @@ import { projectThumb } from '@/features/shell/projectArt';
 import { RecheckButton, ToolList } from '@/features/toolchain/ToolList';
 import { formatBytes, homePath } from '@/lib/format';
 import { useAppStore } from '@/state/app-store';
+import { useSettingsGuard } from '@/state/settings-guard';
 import { SAVE_STATUS_LABEL, patchSection, type SaveStatus } from '@/state/settings-form';
 import { summarizeTools } from '@/state/toolchain';
 import { useAutosave } from './useAutosave';
@@ -48,7 +50,8 @@ export function SettingsView() {
 }
 
 function SettingsScreen() {
-  const { draft, setDraft, status, errors } = useAutosave();
+  const { draft, setDraft, status, errors, problems, discardInvalid } = useAutosave();
+  const leaveTo = useSettingsGuard(s => s.leaveTo);
   const [active, setActive] = useState<SectionId>('workspace');
   if (!draft) return null;
 
@@ -157,6 +160,36 @@ function SettingsScreen() {
           </div>
         </div>
       </main>
+      {leaveTo ? (
+        <ChoiceDialog
+          title="Some settings are not valid"
+          onDismiss={() => useSettingsGuard.getState().stay()}
+          choices={[
+            {
+              label: 'Discard',
+              variant: 'danger',
+              onClick: () => {
+                discardInvalid();
+                useAppStore.getState().setView(leaveTo, true);
+              },
+            },
+            {
+              label: 'Fix it',
+              variant: 'primary',
+              onClick: () => useSettingsGuard.getState().stay(),
+            },
+          ]}
+        >
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            {problems.map(line => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-meta text-fg-mute">
+            Discard puts those fields back to what is saved. Your other changes are kept.
+          </p>
+        </ChoiceDialog>
+      ) : null}
     </>
   );
 }

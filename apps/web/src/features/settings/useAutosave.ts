@@ -2,7 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { commands, errorMessage, type WorkspaceConfig } from '@/ipc/client';
 import { useCatalog } from '@/features/providers/PresetFields';
 import { useAppStore } from '@/state/app-store';
-import { hasErrors, sameConfig, saveStatus, validateConfig } from '@/state/settings-form';
+import { useSettingsGuard } from '@/state/settings-guard';
+import {
+  describeErrors,
+  dropInvalid,
+  hasErrors,
+  sameConfig,
+  saveStatus,
+  validateConfig,
+} from '@/state/settings-form';
 
 const DELAY_MS = 450;
 
@@ -58,6 +66,28 @@ export function useAutosave() {
     []
   );
 
+  // Leaving Settings while this fails validation asks first.
+  const blocking = draft ? describeErrors(validateConfig(draft)) : [];
+  const problems = blocking.join('\n');
+  useEffect(() => {
+    useSettingsGuard.getState().setProblems(problems ? problems.split('\n') : []);
+    return () => useSettingsGuard.setState({ problems: [], leaveTo: null });
+  }, [problems]);
+
+  /** Saves the valid edits and puts each invalid field back to its saved value. */
+  const discardInvalid = () => {
+    if (!draft || !saved) return;
+    const kept = dropInvalid(draft, saved, validateConfig(draft));
+    if (!sameConfig(kept, saved)) void write.current(kept);
+  };
+
   const status = draft && saved ? saveStatus(draft, saved, { saving, failed }) : 'saved';
-  return { draft, setDraft, status, errors: draft ? validateConfig(draft, catalog) : {} };
+  return {
+    draft,
+    setDraft,
+    status,
+    discardInvalid,
+    problems: blocking,
+    errors: draft ? validateConfig(draft, catalog) : {},
+  };
 }

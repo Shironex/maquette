@@ -51,6 +51,51 @@ export function validateConfig(
   return errors;
 }
 
+const FIELD_LABEL = {
+  sceneMb: 'Scene target',
+  trisPerModel: 'Tris per model',
+  mcpPort: 'Localhost port',
+  layout: 'Folder names',
+} as const;
+
+/** One line per problem for a dialog: the field, then what is wrong. */
+export function describeErrors(errors: ConfigErrors): string[] {
+  return (Object.entries(errors) as [ConfigField, string][]).map(([field, text]) => {
+    const preset = /^(tripo|meshy)-(prop|character)$/.exec(field);
+    const label = preset
+      ? `${preset[1] === 'tripo' ? 'Tripo' : 'Meshy'} ${preset[2]} preset`
+      : FIELD_LABEL[field as keyof typeof FIELD_LABEL];
+    return `${label}: ${text}`;
+  });
+}
+
+/**
+ * The draft with every invalid field put back to its saved value, so the
+ * valid edits next to it can still be kept.
+ */
+export function dropInvalid(
+  draft: WorkspaceConfig,
+  saved: WorkspaceConfig,
+  errors: ConfigErrors
+): WorkspaceConfig {
+  const next = structuredClone(draft);
+  for (const field of Object.keys(errors) as ConfigField[]) {
+    if (field === 'sceneMb' || field === 'trisPerModel') {
+      next.budgets[field] = saved.budgets[field] as never;
+    } else if (field === 'mcpPort') {
+      next.agents.mcpPort = saved.agents.mcpPort;
+    } else if (field === 'layout') {
+      next.layout = structuredClone(saved.layout);
+    } else {
+      const [service, variant] = field.split('-') as ['tripo' | 'meshy', 'prop' | 'character'];
+      next.providers[service][variant] = structuredClone(
+        saved.providers[service][variant]
+      ) as never;
+    }
+  }
+  return next;
+}
+
 export function hasErrors(errors: ConfigErrors): boolean {
   return Object.keys(errors).length > 0;
 }
