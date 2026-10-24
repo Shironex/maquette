@@ -1,6 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '@/state/app-store';
+import { useProjectsStore } from '@/state/projects-store';
 import { patchSection } from '@/state/settings-form';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { useAutosave } from './useAutosave';
@@ -30,5 +32,19 @@ describe('the settings autosave', () => {
     unmount();
     await new Promise(r => setTimeout(r, 600));
     expect(useAppStore.getState().workspace?.config.budgets.sceneMb).toBe(before.budgets.sceneMb);
+  });
+
+  it('does not write the config when only the open project changed', async () => {
+    const handle = await openMockWorkspace();
+    const calls: string[] = [];
+    mockIPC((cmd, args) => {
+      calls.push(cmd);
+      return handle(cmd, (args ?? {}) as Record<string, unknown>);
+    });
+    const { result } = renderHook(() => useAutosave());
+    await act(() => useProjectsStore.getState().switchTo('rooftop-cinema'));
+    expect(result.current.status).toBe('saved');
+    await new Promise(r => setTimeout(r, 600));
+    expect(calls).not.toContain('workspace_save_config');
   });
 });
