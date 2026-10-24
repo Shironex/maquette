@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AssetCard,
+  HelpMark,
+  Tip,
   LogConsole,
   NavRail,
   ProjectMenu,
@@ -347,5 +349,34 @@ describe('NavRail', () => {
     expect(screen.queryByText('Tools')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Expand the sidebar' }));
     expect(onToggle).toHaveBeenCalled();
+  });
+});
+
+describe('HelpMark', () => {
+  it('has a name, is reachable by keyboard, and carries the tip', async () => {
+    render(<HelpMark label="About objects" tip="Click an object to add notes." />);
+    await userEvent.tab();
+    const mark = screen.getByRole('button', { name: 'About objects' });
+    expect(mark).toHaveFocus();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Click an object to add notes.');
+  });
+});
+
+describe('Tip', () => {
+  it('runs its action and dismisses only when asked to', async () => {
+    const onAction = vi.fn();
+    const onDismiss = vi.fn();
+    const { rerender } = render(
+      <Tip action={{ label: 'Show me', onClick: onAction }} onDismiss={onDismiss}>
+        Click an object to add notes.
+      </Tip>
+    );
+    expect(screen.getByRole('note')).toHaveTextContent('Click an object to add notes.');
+    await userEvent.click(screen.getByRole('button', { name: 'Show me' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss tip' }));
+    expect(onAction).toHaveBeenCalledOnce();
+    expect(onDismiss).toHaveBeenCalledOnce();
+    rerender(<Tip>Plain hint</Tip>);
+    expect(screen.queryByRole('button')).toBeNull();
   });
 });

@@ -95,6 +95,8 @@ export {
   type InlineBannerProps,
 } from './components/feedback/InlineBanner';
 export { Tooltip, type TooltipProps } from './components/feedback/Tooltip';
+export { HelpMark, type HelpMarkProps } from './components/feedback/HelpMark';
+export { Tip, type TipProps } from './components/feedback/Tip';
 
 export {
   OnboardingStepper,
