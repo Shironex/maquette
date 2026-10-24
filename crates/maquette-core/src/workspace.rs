@@ -95,6 +95,8 @@ pub enum TextureSize {
 pub struct Budgets {
     pub scene_mb: f64,
     pub tris_per_model: u32,
+    /// What the first camera stop's models may weigh, in MB.
+    pub first_view_mb: f64,
 }
 
 impl Default for Budgets {
@@ -102,6 +104,7 @@ impl Default for Budgets {
         Self {
             scene_mb: 3.0,
             tris_per_model: 60_000,
+            first_view_mb: 3.0,
         }
     }
 }
@@ -413,6 +416,10 @@ pub fn validate(config: &WorkspaceConfig) -> CoreResult<()> {
     if !scene_mb.is_finite() || scene_mb <= 0.0 || scene_mb > 1000.0 {
         return invalid("The scene budget must be more than 0 MB and at most 1000 MB.");
     }
+    let first_view_mb = config.budgets.first_view_mb;
+    if !first_view_mb.is_finite() || first_view_mb <= 0.0 || first_view_mb > 1000.0 {
+        return invalid("The first view budget must be more than 0 MB and at most 1000 MB.");
+    }
     if config.budgets.tris_per_model == 0 {
         return invalid("The triangle budget per model must be more than 0.");
     }
@@ -467,6 +474,7 @@ mod tests {
             "\"rigSpec\":\"mixamo\"",
             "\"sceneMb\":3.0",
             "\"trisPerModel\":60000",
+            "\"firstViewMb\":3.0",
             "\"textureCodec\":\"etc1s\"",
             "\"meshopt\":\"medium\"",
             "\"mcpPort\":4791",
@@ -592,6 +600,12 @@ mod tests {
         config.budgets.scene_mb = 0.0;
         assert!(validate(&config).is_err());
         config.budgets.scene_mb = 1001.0;
+        assert!(validate(&config).is_err());
+
+        let mut config = WorkspaceConfig::default();
+        config.budgets.first_view_mb = 0.0;
+        assert!(validate(&config).is_err());
+        config.budgets.first_view_mb = f64::NAN;
         assert!(validate(&config).is_err());
 
         let mut config = WorkspaceConfig::default();
