@@ -35,6 +35,14 @@ Two checks are heuristics:
 - **Merged objects:** a mesh whose welded triangles form several islands far apart (gaps over 10% of the mesh size, each island at least 1% of it) probably holds objects that were separate. Scenes are exempt.
 - **Weighted to finger bones:** a vertex whose strongest joint is a finger bone, but which sits more than 15% of the model height away from that bone (or above the head joint), is counted. Draco or meshopt compressed geometry skips both checks.
 
+The preview stands every model in the same studio: a graphite backdrop, a soft floor with a contact shadow, a warm key, a warm fill and a cool rim light, and a three quarter camera framed to the bounds. Shaded, wireframe over clay, a numbered UV checker, and the skeleton drawn in clay over a ghost of the mesh. It reads meshopt geometry and KTX2 textures (the Basis transcoder ships in `apps/web/public/basis`).
+
+### Thumbnails
+
+Inbox models get a 256 px thumbnail when they arrive, and Board assets get one on Accept and for each new version. A headless Blender job (always `blender -b`, never the GUI) renders the model in the studio above, on the runner's own `thumbnails` lane, so renders queue and never block the UI. Renders are cached by content hash in `cache/thumbs/` and copied to `<project>/thumbs/<asset>_v<n>.png`. When Blender is missing, or cannot read the file (KTX2 textures), the UI draws the model once offscreen with three.js in the same studio and stores that instead. While a render runs, cards and rows show the asset kind's icon.
+
+Render thumbnails by hand with `cargo run -p maquette-core --example render_thumbnail -- <thumbs dir> <model>...`.
+
 ## Stack
 
 - **Shell:** Tauri 2 (`apps/desktop`), macOS and Windows
@@ -66,7 +74,7 @@ Outside Tauri, a dev build answers every command from an in-memory backend (`app
 - `?delay=700`: how long a toolchain check takes, in milliseconds
 - `?pace=260`: milliseconds between streamed log lines in a mock run
 
-The mock runner streams Blender style output and fails Capture posters once. The mock inbox lists a character, two props and a broken download, previewed from small GLB fixtures in `apps/web/src/ipc/mock/models` (regenerate with `cargo run -p maquette-core --example write_fixtures -- apps/web/src/ipc/mock/models`).
+The mock runner streams Blender style output and fails Capture posters once. The mock inbox lists a character, two props and a broken download. Its previews load real meshopt and KTX2 models, and the Board and Inbox show real studio thumbnails, all from `apps/web/src/assets/mock` (see the README there: that artwork is reserved and not covered by the repository license). For hand testing a real inbox, `cargo run -p maquette-core --example write_fixtures -- <dir>` writes small generated GLBs.
 
 ### End to end check
 

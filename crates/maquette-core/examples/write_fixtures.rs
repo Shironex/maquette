@@ -1,5 +1,5 @@
-//! Writes the generated test models to a folder, for the mock UI's preview
-//! and for dropping into a scratch inbox by hand.
+//! Writes the generated test models to a folder, for dropping into a scratch
+//! inbox by hand.
 //!
 //! ```text
 //! cargo run -p maquette-core --example write_fixtures -- <dir>
