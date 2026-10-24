@@ -78,7 +78,11 @@ def import_model(path, parent):
         log(f"{name} is already in the base scene, kept as placed")
         return None
     before = set(bpy.data.objects)
-    bpy.ops.import_scene.gltf(filepath=os.path.abspath(path))
+    try:
+        # No icosphere bone shapes for rigged models: they would export as a mesh.
+        bpy.ops.import_scene.gltf(filepath=os.path.abspath(path), disable_bone_shape=True)
+    except TypeError:  # an importer without the option
+        bpy.ops.import_scene.gltf(filepath=os.path.abspath(path))
     added = [o for o in bpy.data.objects if o not in before]
     target = bpy.data.collections.new(name)
     parent.children.link(target)
