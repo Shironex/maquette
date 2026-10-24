@@ -223,7 +223,8 @@ export function blenderLines(
         { text: 'Blender 4.3.2 (hash 32f5fdce0a0a built 2024-12-17)' },
         { text: 'Read blend: "blender/scene_baked.blend"' },
         { text: '15:02:22 | INFO: Starting glTF 2.0 export' },
-        { text: 'export_web.py 17 objects to glTF 2.0' },
+        { text: '[export_web] 17 objects to glTF 2.0' },
+        { text: '15:02:22 | WARNING: More than one shader node tex image used for a texture.' },
         { text: '15:02:23 | INFO: Extracting primitive: island_ground' },
         { text: '15:02:24 | INFO: Extracting primitive: shop_house' },
         { text: 'wrote web/raw/island.glb 4.6 MB' },
@@ -237,8 +238,10 @@ export function blenderLines(
       ];
     case 'compress':
       return [
+        { text: 'Draco compression is not available, using meshopt' },
         { text: 'island textures to ETC1S at 2048 px', stream: 'system' },
         { text: 'info: island.glb (4.6 MB) → island.tex.glb (2.1 MB)' },
+        { text: 'info: prune: Removed types... Accessor (5), Texture (1)' },
         { text: 'island geometry with meshopt high', stream: 'system' },
         { text: 'info: island.tex.glb (2.1 MB) → island.glb (1.1 MB)' },
         { text: 'character geometry with meshopt medium', stream: 'system' },
@@ -248,7 +251,7 @@ export function blenderLines(
       return [
         { text: 'Blender 4.3.2 (hash 32f5fdce0a0a built 2024-12-17)' },
         { text: 'Read blend: "blender/scene_baked.blend"' },
-        { text: 'render_stops.py 4 camera stops' },
+        { text: '[render_stops] 4 camera stops' },
         { text: 'Traceback (most recent call last):', level: 'error', stream: 'stderr' },
         {
           text: '  File "tools/render_stops.py", line 41, in <module>',

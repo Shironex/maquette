@@ -6,6 +6,10 @@ export interface LogLine {
   t: string;
   text: string;
   level?: 'info' | 'ok' | 'warn' | 'error';
+  /** Fades the line, for output nobody needs to read. */
+  dim?: boolean;
+  /** Replaces `text` when part of the line is styled on its own. */
+  node?: ReactNode;
 }
 
 export interface LogConsoleProps {
@@ -71,7 +75,9 @@ export function LogConsole({
         {lines.map((l, i) => (
           <div key={i} className="grid grid-cols-[64px_1fr] gap-3 whitespace-pre-wrap text-fg-dim">
             <span className="text-fg-mute tabular-nums">{l.t}</span>
-            <span className={l.level ? LEVEL[l.level] : undefined}>{l.text}</span>
+            <span className={l.dim ? 'text-fg-mute' : l.level ? LEVEL[l.level] : undefined}>
+              {l.node ?? l.text}
+            </span>
           </div>
         ))}
       </div>

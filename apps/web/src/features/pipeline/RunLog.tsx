@@ -3,8 +3,10 @@ import { Checkbox, IconButton, LogConsole, Select, Tabs } from '@maquette/ui';
 import type { PipelineView } from '@/ipc/client';
 import { formatDuration, logRows } from '@/state/pipeline';
 import { readFlag, writeFlag } from '@/lib/storage';
+import { styledLine } from './log-style';
 
 const SCROLL_KEY = 'maquette.pipeline.manualScroll';
+const NOISE_KEY = 'maquette.pipeline.hideNoise';
 
 /** The docked console: live lines per step, or the step timings. */
 export function RunLog({
@@ -18,7 +20,12 @@ export function RunLog({
 }) {
   const [tab, setTab] = useState('logs');
   const [auto, setAuto] = useState(() => !readFlag(SCROLL_KEY));
+  const [hideNoise, setHideNoise] = useState(() => readFlag(NOISE_KEY));
   const rows = useMemo(() => logRows(view.log, step), [view.log, step]);
+  const lines = useMemo(() => {
+    const styled = rows.map(styledLine);
+    return hideNoise ? styled.filter(l => !l.noise) : styled;
+  }, [rows, hideNoise]);
   const latest = view.runs[0];
   const live = latest?.state === 'running';
   const options = [
@@ -28,6 +35,10 @@ export function RunLog({
   const copy = () => {
     const text = rows.map(r => `${r.t} ${r.text}`).join('\n');
     void navigator.clipboard?.writeText(text).catch(() => undefined);
+  };
+  const toggleNoise = (on: boolean) => {
+    setHideNoise(on);
+    writeFlag(NOISE_KEY, on);
   };
   const toggleAuto = (on: boolean) => {
     setAuto(on);
@@ -66,10 +77,15 @@ export function RunLog({
               </span>
             ) : null}
             <Checkbox
+              checked={hideNoise}
+              onChange={toggleNoise}
+              label={<span className="text-meta text-fg-mute">Hide noise</span>}
+              className="ml-auto"
+            />
+            <Checkbox
               checked={auto}
               onChange={toggleAuto}
               label={<span className="text-meta text-fg-mute">Auto-scroll</span>}
-              className="ml-auto"
             />
             <IconButton icon="copy" size="sm" variant="ghost" label="Copy log" onClick={copy} />
           </>
@@ -77,7 +93,7 @@ export function RunLog({
       </div>
       {tab === 'logs' ? (
         <LogConsole
-          lines={rows}
+          lines={lines}
           autoScroll={auto}
           empty={
             latest
