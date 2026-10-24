@@ -21,7 +21,8 @@ pub use app_state::AppState;
 pub use assets::{Asset, AssetKind, AssetStatus, AssetVersion, ModelStats, NewAsset, Stage};
 pub use error::{CoreError, CoreResult, ErrorPayload};
 pub use project::{
-    BlendFile, ImportScan, NewProject, ProjectManifest, ProjectTemplate, RepoInspection,
+    BlendFile, ImportScan, NewProject, ProjectActivity, ProjectManifest, ProjectSummary,
+    ProjectTemplate, RepoInspection,
 };
 pub use toolchain::{
     CommandRunner, HostOs, ProbeEnv, SystemRunner, ToolId, ToolReport, ToolSource, ToolStatus,
@@ -81,6 +82,8 @@ pub fn types() -> specta::Types {
         .register::<RootInspection>()
         .register::<ProjectTemplate>()
         .register::<ProjectManifest>()
+        .register::<ProjectSummary>()
+        .register::<ProjectActivity>()
         .register::<NewProject>()
         .register::<RepoInspection>()
         .register::<BlendFile>()

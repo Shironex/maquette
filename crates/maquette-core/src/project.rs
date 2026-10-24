@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::assets::Asset;
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
-use crate::workspace::{FolderLayout, is_single_segment};
+use crate::workspace::{FolderLayout, WorkspaceConfig, is_single_segment};
 
 pub const PROJECT_FILE: &str = "project.json";
 pub const PROJECT_VERSION: u32 = 1;
@@ -247,6 +247,106 @@ pub fn list(workspace_root: &Path, layout: &FolderLayout) -> CoreResult<Vec<Proj
             .then_with(|| a.id.cmp(&b.id))
     });
     Ok(projects)
+}
+
+/// What runs in a project right now. Core leaves it empty; the shell fills
+/// it from its runner, the Lab and the provider queue.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectActivity {
+    /// The id of the pipeline run going now.
+    pub run: Option<String>,
+    /// Concept images queued or generating.
+    pub concepts: u32,
+    /// Send to 3D jobs on their way (By hand ones waiting count too).
+    pub sends: u32,
+}
+
+/// One row of the project switcher.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectSummary {
+    pub id: String,
+    pub name: String,
+    pub template: ProjectTemplate,
+    pub site_repo: Option<String>,
+    pub created_at: String,
+    pub asset_count: u32,
+    /// Absolute, so the UI can resolve `thumb`.
+    pub dir: String,
+    /// The picture the switcher shows, relative to the project folder: the
+    /// first poster, else a scene's thumbnail, else the newest card's.
+    /// `None` when the project has none yet.
+    pub thumb: Option<String>,
+    pub activity: ProjectActivity,
+}
+
+const POSTERS_DIR: &str = "web/posters";
+const PICTURE_EXTENSIONS: [&str; 4] = ["png", "jpg", "jpeg", "webp"];
+
+fn project_thumb(dir: &Path, manifest: &ProjectManifest) -> Option<String> {
+    let poster = sorted_children(&dir.join(POSTERS_DIR))
+        .into_iter()
+        .find(|(_, path)| path.is_file() && has_ext(path, &PICTURE_EXTENSIONS))
+        .map(|(name, _)| format!("{POSTERS_DIR}/{name}"));
+    if poster.is_some() {
+        return poster;
+    }
+    let mut pictured: Vec<&Asset> = manifest
+        .assets
+        .iter()
+        .filter(|a| a.thumbnail.as_ref().is_some_and(|t| dir.join(t).is_file()))
+        .collect();
+    // Scenes first, then the card that changed last.
+    pictured.sort_by(|a, b| {
+        let scene = |x: &Asset| x.kind != crate::assets::AssetKind::Scene;
+        scene(a)
+            .cmp(&scene(b))
+            .then_with(|| b.updated_at.cmp(&a.updated_at))
+    });
+    pictured.first().and_then(|a| a.thumbnail.clone())
+}
+
+pub fn summary(
+    workspace_root: &Path,
+    layout: &FolderLayout,
+    manifest: &ProjectManifest,
+) -> ProjectSummary {
+    let dir = projects_dir(workspace_root, layout).join(&manifest.id);
+    ProjectSummary {
+        id: manifest.id.clone(),
+        name: manifest.name.clone(),
+        template: manifest.template,
+        site_repo: manifest.site_repo.clone(),
+        created_at: manifest.created_at.clone(),
+        asset_count: u32::try_from(manifest.assets.len()).unwrap_or(u32::MAX),
+        thumb: project_thumb(&dir, manifest),
+        dir: dir.display().to_string(),
+        activity: ProjectActivity::default(),
+    }
+}
+
+/// Every readable project as the switcher lists it, oldest first.
+pub fn summaries(workspace_root: &Path, layout: &FolderLayout) -> CoreResult<Vec<ProjectSummary>> {
+    Ok(list(workspace_root, layout)?
+        .iter()
+        .map(|m| summary(workspace_root, layout, m))
+        .collect())
+}
+
+/// Makes `id` the current project and writes that to `maquette.json`, so
+/// it opens again after a restart. Fails, and changes nothing, when the
+/// project cannot be read.
+pub fn switch(
+    workspace_root: &Path,
+    config: &WorkspaceConfig,
+    id: &str,
+) -> CoreResult<(WorkspaceConfig, ProjectManifest)> {
+    let manifest = load(workspace_root, &config.layout, id)?;
+    let mut next = config.clone();
+    next.current_project = Some(manifest.id.clone());
+    crate::workspace::save(workspace_root, &next)?;
+    Ok((next, manifest))
 }
 
 pub fn update(
@@ -620,6 +720,97 @@ mod tests {
                 .expect("old")
                 .assets
                 .is_empty()
+        );
+    }
+
+    #[test]
+    fn summaries_count_assets_and_pick_a_picture() {
+        use crate::assets::{self, AssetKind, NewAsset, Stage};
+        let dir = tempfile::tempdir().expect("tempdir");
+        let layout = FolderLayout::default();
+        let moon = create(dir.path(), &layout, new_project("Moon Island")).expect("moon");
+        let mut room = new_project("Rooftop cinema");
+        room.template = ProjectTemplate::Room;
+        room.site_repo = Some("/sites/cinema".into());
+        let cinema = create(dir.path(), &layout, room).expect("cinema");
+
+        let empty = summaries(dir.path(), &layout).expect("list");
+        assert_eq!(empty.len(), 2);
+        assert_eq!(empty[0].id, moon.id);
+        assert_eq!(empty[0].asset_count, 0);
+        assert_eq!(empty[0].thumb, None);
+        assert_eq!(empty[0].activity, ProjectActivity::default());
+        assert_eq!(empty[1].template, ProjectTemplate::Room);
+        assert_eq!(empty[1].site_repo.as_deref(), Some("/sites/cinema"));
+        assert!(empty[1].dir.ends_with("rooftop-cinema"));
+        assert_eq!(empty[1].created_at, cinema.created_at);
+
+        let moon_dir = dir.path().join("projects").join("moon-island");
+        fs::create_dir_all(moon_dir.join("thumbs")).expect("mkdir");
+        fs::write(moon_dir.join("thumbs/torii_v1.png"), b"png").expect("thumb");
+        fs::write(moon_dir.join("thumbs/island_v7.png"), b"png").expect("thumb");
+        modify(dir.path(), &layout, &moon.id, |m| {
+            for (name, kind, thumb) in [
+                ("Torii", AssetKind::Prop, Some("thumbs/torii_v1.png")),
+                ("Island", AssetKind::Scene, Some("thumbs/island_v7.png")),
+                ("Lantern", AssetKind::Prop, Some("thumbs/gone.png")),
+                ("Bench", AssetKind::Prop, None),
+            ] {
+                let a = assets::add(
+                    m,
+                    NewAsset {
+                        name: name.into(),
+                        kind,
+                        stage: Stage::Blender,
+                    },
+                )?;
+                let slot = m.assets.iter_mut().find(|x| x.id == a.id).expect("asset");
+                slot.thumbnail = thumb.map(str::to_string);
+            }
+            Ok(())
+        })
+        .expect("assets");
+        let moon_row = summary(
+            dir.path(),
+            &layout,
+            &load(dir.path(), &layout, &moon.id).expect("load"),
+        );
+        assert_eq!(moon_row.asset_count, 4);
+        assert_eq!(moon_row.thumb.as_deref(), Some("thumbs/island_v7.png"));
+
+        fs::create_dir_all(moon_dir.join("web/posters")).expect("mkdir");
+        fs::write(moon_dir.join("web/posters/stops.json"), b"{}").expect("json");
+        fs::write(moon_dir.join("web/posters/stop_02.png"), b"png").expect("poster");
+        fs::write(moon_dir.join("web/posters/stop_01.png"), b"png").expect("poster");
+        let first = &summaries(dir.path(), &layout).expect("list")[0];
+        assert_eq!(first.thumb.as_deref(), Some("web/posters/stop_01.png"));
+    }
+
+    #[test]
+    fn switch_persists_the_current_project_and_refuses_unknown_ones() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = crate::workspace::create(dir.path(), &WorkspaceConfig::default()).expect("ws");
+        let moon = create(dir.path(), &config.layout, new_project("Moon Island")).expect("moon");
+        let cinema = create(dir.path(), &config.layout, new_project("Cinema")).expect("cinema");
+
+        let (next, manifest) = switch(dir.path(), &config, &cinema.id).expect("switch");
+        assert_eq!(manifest.id, cinema.id);
+        assert_eq!(next.current_project.as_deref(), Some("cinema"));
+        let reopened = crate::workspace::open(dir.path()).expect("reopen");
+        assert_eq!(reopened.current_project.as_deref(), Some("cinema"));
+
+        let (back, _) = switch(dir.path(), &reopened, &moon.id).expect("back");
+        assert_eq!(back.current_project.as_deref(), Some("moon-island"));
+
+        for bad in ["nope", "../moon-island", ""] {
+            assert!(switch(dir.path(), &back, bad).is_err(), "{bad:?}");
+        }
+        assert_eq!(
+            crate::workspace::open(dir.path())
+                .expect("reopen")
+                .current_project
+                .as_deref(),
+            Some("moon-island")
         );
     }
 
