@@ -97,7 +97,11 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
   keyBusy: null,
 
   load: async project => {
-    if (get().project !== project) set({ project, jobs: [] });
+    if (get().project !== project) {
+      // The Send to 3D panel belongs to the project it opened in.
+      const panel = get().panel;
+      set({ project, jobs: [], panel: panel && panel.project !== project ? null : panel });
+    }
     try {
       const jobs = await commands.providerJobs(project);
       if (get().project === project) set({ jobs });

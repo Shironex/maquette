@@ -25,6 +25,9 @@ interface PipelineStore {
   onEvent: (event: PipelineEvent) => void;
 }
 
+/** The project the latest load asked for; an older answer is dropped. */
+let requested: string | null = null;
+
 export const usePipelineStore = create<PipelineStore>((set, get) => ({
   view: null,
   loading: false,
@@ -32,12 +35,15 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
   starting: false,
 
   load: async project => {
+    requested = project;
+    // Another project's graph never shows under this one while it loads.
+    if (get().view?.project !== project) set({ view: null, starting: false });
     set({ loading: true, error: null });
     try {
       const view = await commands.pipelineGet(project);
-      set({ view, loading: false });
+      if (requested === project) set({ view, loading: false });
     } catch (error) {
-      set({ loading: false, error: errorMessage(error) });
+      if (requested === project) set({ loading: false, error: errorMessage(error) });
     }
   },
 

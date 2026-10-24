@@ -60,6 +60,11 @@ interface LabStore {
 const notify = (status: 'done' | 'failed' | 'info', title: string, detail?: string) =>
   useAppStore.getState().notify({ status, title, detail });
 
+/** The project the latest load asked for; an older answer is dropped. */
+let requested: string | null = null;
+/** False once a switch moved the lab on, so a late answer stays out. */
+const stillOn = (project: string) => requested === project;
+
 export const useLabStore = create<LabStore>((set, get) => ({
   view: null,
   loading: false,
@@ -69,9 +74,21 @@ export const useLabStore = create<LabStore>((set, get) => ({
   busy: null,
 
   load: async project => {
+    requested = project;
+    // A switch starts the lab clean: nothing selected, an empty composer.
+    if (get().view?.project !== project && get().view) {
+      set({
+        view: null,
+        selected: null,
+        draft: { ...EMPTY_DRAFT, count: get().draft.count },
+        lightbox: null,
+        busy: null,
+      });
+    }
     set({ loading: true });
     try {
       const view = await commands.labGet(project);
+      if (requested !== project) return;
       const selected = get().selected;
       const keep = view.directions.some(d => d.id === selected);
       const first = keep ? selected : (view.directions[0]?.id ?? null);
@@ -80,6 +97,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
       const { draft } = get();
       if (first && !draft.name && !draft.prompt && draft.refs.length === 0) get().reuse(first);
     } catch (error) {
+      if (requested !== project) return;
       set({ loading: false });
       notify('failed', 'Could not read the concepts', errorMessage(error));
     }
@@ -116,7 +134,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
       const inside = paths.filter(p => p.startsWith('refs/'));
       const refs = [...new Set([...get().draft.refs, ...inside, ...copied])];
       set({ draft: { ...get().draft, refs } });
-      if (copied.length) await get().load(view.project);
+      if (copied.length && stillOn(view.project)) await get().load(view.project);
     } catch (error) {
       notify('failed', 'Could not add the reference', errorMessage(error));
     }
@@ -140,7 +158,8 @@ export const useLabStore = create<LabStore>((set, get) => ({
         count: draft.count,
       });
       const fresh = next.jobs.filter(j => !view.jobs.some(old => old.id === j.id));
-      set({ view: next, selected: fresh[0]?.direction ?? get().selected });
+      if (stillOn(view.project))
+        set({ view: next, selected: fresh[0]?.direction ?? get().selected });
     } catch (error) {
       notify('failed', 'The concepts did not start', errorMessage(error));
     } finally {
@@ -170,7 +189,8 @@ export const useLabStore = create<LabStore>((set, get) => ({
     const view = get().view;
     if (!view) return;
     try {
-      set({ view: await commands.labClearFinished(view.project) });
+      const next = await commands.labClearFinished(view.project);
+      if (stillOn(view.project)) set({ view: next });
     } catch (error) {
       notify('failed', 'Could not clear the queue', errorMessage(error));
     }
@@ -183,7 +203,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
     try {
       const direction = await commands.labMark(view.project, selected, file, starred, picked);
       const latest = get().view;
-      if (latest) set({ view: withDirection(latest, direction) });
+      if (latest?.project === view.project) set({ view: withDirection(latest, direction) });
     } catch (error) {
       notify('failed', 'Could not mark the concept', errorMessage(error));
     }
@@ -214,8 +234,8 @@ export const useLabStore = create<LabStore>((set, get) => ({
       const sent = await commands.labSendPicks(view.project, selected, kind);
       useAppStore.getState().setProject(sent.project);
       const latest = get().view;
-      if (latest) set({ view: withDirection(latest, sent.direction) });
-      await get().load(view.project);
+      if (latest?.project === view.project) set({ view: withDirection(latest, sent.direction) });
+      if (stillOn(view.project)) await get().load(view.project);
       const n = sent.copied.length;
       if (!quiet)
         notify(

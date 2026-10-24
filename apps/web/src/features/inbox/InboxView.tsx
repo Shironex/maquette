@@ -12,23 +12,27 @@ import {
   cn,
   type IconName,
 } from '@maquette/ui';
-import type { AssetKind, InboxItem } from '@/ipc/client';
+import type { AssetKind, InboxItem, ProjectManifest } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { formatAgo, formatBytes } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import { useAppStore } from '@/state/app-store';
 import { useInboxStore } from '@/state/inbox-store';
 import {
+  acceptTarget,
   checkSummary,
   firstToReview,
   itemChip,
   itemMeta,
   reviewPrompt,
+  sentFor,
   sortChecks,
 } from '@/state/inbox';
 import { PROVIDER_LABEL } from '@/state/providers';
 import { KIND_ICON } from '@/state/thumbs';
 import type { PreviewMode } from '@/features/viewer/ModelPreview';
+
+const NO_PROJECTS: readonly ProjectManifest[] = [];
 
 const ModelPreview = lazy(() => import('@/features/viewer/ModelPreview'));
 
@@ -180,7 +184,12 @@ function InboxDetail({ item }: { item: InboxItem }) {
   const [mode, setMode] = useState<PreviewMode>('shaded');
   const [loadError, setLoadError] = useState<string | null>(null);
   const now = useNow(30_000);
-  const project = useAppStore(s => s.workspace?.project ?? null);
+  const current = useAppStore(s => s.workspace?.project ?? null);
+  const projects = useAppStore(s => s.workspace?.projects) ?? NO_PROJECTS;
+  const project = acceptTarget(item, projects, current);
+  const sentLabel = item.link
+    ? sentFor(item, projects, current?.id ?? null, PROVIDER_LABEL[item.link.provider])
+    : null;
   const { busy, reprocess, accept, openInBlender, setKind } = useInboxStore();
   const report = item.report;
   const checks = sortChecks(item.checks);
@@ -193,14 +202,7 @@ function InboxDetail({ item }: { item: InboxItem }) {
       value: item.kind === 'character' ? 'Character' : item.kind === 'scene' ? 'Scene' : 'Prop',
     },
     { label: 'Size', value: formatBytes(item.bytes ?? 0), mono: true },
-    ...(item.link
-      ? [
-          {
-            label: 'Sent for',
-            value: `${item.link.assetName}, ${PROVIDER_LABEL[item.link.provider]}`,
-          },
-        ]
-      : []),
+    ...(sentLabel ? [{ label: 'Sent for', value: sentLabel }] : []),
     ...(report
       ? [
           {

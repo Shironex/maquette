@@ -50,3 +50,38 @@ export function sortChecks(checks: readonly Check[]): Check[] {
 export function firstToReview(items: readonly InboxItem[]): InboxItem | null {
   return items.find(i => i.state !== 'failed') ?? items[0] ?? null;
 }
+
+interface NamedProject {
+  id: string;
+  name: string;
+}
+
+/**
+ * The project Accept moves a model into: the one it was sent for while that
+ * project still exists, else the open one. The Inbox is workspace wide, so
+ * a model sent from another project still goes home.
+ */
+export function acceptTarget<P extends NamedProject>(
+  item: InboxItem,
+  projects: readonly P[],
+  current: P | null
+): P | null {
+  const home = item.link ? projects.find(p => p.id === item.link?.project) : undefined;
+  return home ?? current;
+}
+
+/** "Lantern, Tripo", with the project named when it is not the open one. */
+export function sentFor(
+  item: InboxItem,
+  projects: readonly NamedProject[],
+  current: string | null,
+  provider: string
+): string | null {
+  const link = item.link;
+  if (!link) return null;
+  const other =
+    link.project === current
+      ? null
+      : (projects.find(p => p.id === link.project)?.name ?? link.project);
+  return other ? `${link.assetName} in ${other}, ${provider}` : `${link.assetName}, ${provider}`;
+}
