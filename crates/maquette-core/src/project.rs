@@ -7,6 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
+use crate::assets::Asset;
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use crate::workspace::{FolderLayout, is_single_segment};
@@ -26,7 +27,7 @@ pub enum ProjectTemplate {
     Imported,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectManifest {
     pub version: u32,
@@ -39,6 +40,9 @@ pub struct ProjectManifest {
     pub source_folder: Option<String>,
     /// RFC 3339 UTC with milliseconds, for example `2026-10-24T09:30:00.123Z`.
     pub created_at: String,
+    /// The Board's assets. Older files have none, so it defaults to empty.
+    #[serde(default)]
+    pub assets: Vec<Asset>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -113,6 +117,12 @@ fn projects_dir(workspace_root: &Path, layout: &FolderLayout) -> PathBuf {
     workspace_root.join(&layout.projects)
 }
 
+/// The folder of project `id`. Fails for anything that is not a plain id.
+pub fn dir(workspace_root: &Path, layout: &FolderLayout, id: &str) -> CoreResult<PathBuf> {
+    check_id(id)?;
+    Ok(projects_dir(workspace_root, layout).join(id))
+}
+
 fn clean_name(name: &str) -> CoreResult<String> {
     let name = name.trim();
     if name.is_empty() {
@@ -178,7 +188,8 @@ pub fn create(
         template: new.template,
         site_repo: clean_optional(new.site_repo),
         source_folder: clean_optional(new.source_folder),
-        created_at: rfc3339_utc(SystemTime::now()),
+        created_at: now_rfc3339(),
+        assets: Vec::new(),
     };
     write_json(&dir.join(PROJECT_FILE), &manifest)?;
     Ok(manifest)
@@ -245,12 +256,26 @@ pub fn update(
     name: String,
     site_repo: Option<String>,
 ) -> CoreResult<ProjectManifest> {
+    let name = clean_name(&name)?;
+    modify(workspace_root, layout, id, |manifest| {
+        manifest.name = name;
+        manifest.site_repo = clean_optional(site_repo);
+        Ok(())
+    })
+}
+
+/// Loads the manifest, applies `change` and writes it back atomically. The
+/// file is left alone when `change` fails. Callers that can race (the UI and
+/// the runner) serialise their calls; this function does not lock.
+pub fn modify<T>(
+    workspace_root: &Path,
+    layout: &FolderLayout,
+    id: &str,
+    change: impl FnOnce(&mut ProjectManifest) -> CoreResult<T>,
+) -> CoreResult<ProjectManifest> {
     let mut manifest = load(workspace_root, layout, id)?;
-    manifest.name = clean_name(&name)?;
-    manifest.site_repo = clean_optional(site_repo);
-    let path = projects_dir(workspace_root, layout)
-        .join(id)
-        .join(PROJECT_FILE);
+    change(&mut manifest)?;
+    let path = dir(workspace_root, layout, id)?.join(PROJECT_FILE);
     write_json(&path, &manifest)?;
     Ok(manifest)
 }
@@ -382,7 +407,12 @@ pub fn scan_import(folder: &Path) -> CoreResult<ImportScan> {
     })
 }
 
-fn rfc3339_utc(time: SystemTime) -> String {
+/// The current time as RFC 3339 UTC with milliseconds.
+pub fn now_rfc3339() -> String {
+    rfc3339_utc(SystemTime::now())
+}
+
+pub(crate) fn rfc3339_utc(time: SystemTime) -> String {
     let since = time.duration_since(UNIX_EPOCH).unwrap_or_default();
     let secs = since.as_secs();
     let millis = since.subsec_millis();
@@ -536,6 +566,56 @@ mod tests {
             "invalid"
         );
         assert!(update(dir.path(), &layout, "second", String::new(), None).is_err());
+    }
+
+    #[test]
+    fn modify_keeps_assets_and_old_files_load_without_them() {
+        use crate::assets::{self, AssetKind, NewAsset, Stage};
+        let dir = tempfile::tempdir().expect("tempdir");
+        let layout = FolderLayout::default();
+        let project = create(dir.path(), &layout, new_project("Moon Island")).expect("create");
+        modify(dir.path(), &layout, &project.id, |m| {
+            assets::add(
+                m,
+                NewAsset {
+                    name: "Torii".into(),
+                    kind: AssetKind::Prop,
+                    stage: Stage::Blender,
+                },
+            )
+        })
+        .expect("add asset");
+        let renamed =
+            update(dir.path(), &layout, &project.id, "Moon".into(), None).expect("update");
+        assert_eq!(renamed.assets.len(), 1);
+        assert_eq!(renamed.assets[0].id, "torii");
+
+        let failed = modify(dir.path(), &layout, &project.id, |m| {
+            m.assets.clear();
+            Err::<(), _>(CoreError::Invalid("no".into()))
+        });
+        assert!(failed.is_err());
+        assert_eq!(
+            load(dir.path(), &layout, &project.id)
+                .expect("load")
+                .assets
+                .len(),
+            1
+        );
+
+        let old = dir.path().join("projects").join("old");
+        fs::create_dir_all(&old).expect("mkdir");
+        fs::write(
+            old.join(PROJECT_FILE),
+            r#"{"version":1,"id":"old","name":"Old","template":"room","siteRepo":null,"sourceFolder":null,"createdAt":"2026-01-01T00:00:00.000Z"}"#,
+        )
+        .expect("write");
+        assert!(
+            load(dir.path(), &layout, "old")
+                .expect("old")
+                .assets
+                .is_empty()
+        );
     }
 
     #[test]

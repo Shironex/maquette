@@ -1,7 +1,8 @@
 //! Maquette domain logic: toolchain detection, the workspace config,
-//! projects, the per machine app state and the jobs seam.
+//! projects and their assets, the per machine app state and the jobs seam.
 
 pub mod app_state;
+pub mod assets;
 pub mod error;
 pub mod fs;
 pub mod jobs;
@@ -11,6 +12,7 @@ pub mod toolchain;
 pub mod workspace;
 
 pub use app_state::AppState;
+pub use assets::{Asset, AssetKind, AssetStatus, AssetVersion, ModelStats, NewAsset, Stage};
 pub use error::{CoreError, CoreResult, ErrorPayload};
 pub use jobs::{JobKind, JobRunner, JobSpec, JobState, UnavailableRunner};
 pub use project::{
@@ -60,6 +62,13 @@ pub fn types() -> specta::Types {
         .register::<JobKind>()
         .register::<JobState>()
         .register::<JobSpec>()
+        .register::<Asset>()
+        .register::<AssetKind>()
+        .register::<AssetStatus>()
+        .register::<AssetVersion>()
+        .register::<ModelStats>()
+        .register::<NewAsset>()
+        .register::<Stage>()
 }
 
 #[cfg(test)]
@@ -103,6 +112,13 @@ mod tests {
             "JobKind",
             "JobState",
             "JobSpec",
+            "Asset",
+            "AssetKind",
+            "AssetStatus",
+            "AssetVersion",
+            "ModelStats",
+            "NewAsset",
+            "Stage",
         ] {
             assert!(names.iter().any(|n| n == expected), "missing {expected}");
         }
