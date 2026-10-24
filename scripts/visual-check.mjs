@@ -1,7 +1,8 @@
 /**
  * Renders mock mode in headless Chromium and saves a screenshot of every
  * onboarding step, the Board, the fresh template project, Pipeline (idle,
- * running, failed), the Inbox in every preview mode and Settings. It renders pages to files and never captures the screen.
+ * running, failed), the Inbox in every preview mode, the Inspector (compare,
+ * a camera stop, budgets) and Settings. It renders pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
@@ -161,6 +162,27 @@ try {
   await inbox.getByRole('button', { name: /Sakura large/ }).click();
   await inbox.waitForTimeout(2500);
   await shot(inbox, 'inbox-prop');
+  const inspector = await open('&scenario=configured', '#/inspector');
+  await inspector.getByRole('heading', { name: 'Scene comparison' }).waitFor();
+  // Both sides load, the camera reaches the first stop and the strip fills in.
+  await inspector.getByText(/WebGL 2 · \d+ fps/).waitFor({ timeout: 30_000 });
+  await inspector.waitForTimeout(3500);
+  await shot(inspector, 'inspector-compare');
+  await inspector.getByRole('button', { name: 'Fly to Canopy' }).click();
+  await inspector.waitForTimeout(1800);
+  await shot(inspector, 'inspector-stop');
+  await inspector.getByRole('button', { name: 'Fly to Pullback' }).click();
+  await inspector.waitForTimeout(1600);
+  await inspector
+    .getByRole('group', { name: 'View mode' })
+    .getByRole('button', { name: 'Wireframe' })
+    .click();
+  await inspector.getByRole('button', { name: /^Flower shrubs/ }).click();
+  const slider = inspector.getByRole('slider', { name: 'Compare position' });
+  for (let i = 0; i < 3; i += 1) await slider.press('ArrowLeft');
+  await inspector.mouse.move(700, 880);
+  await inspector.waitForTimeout(1200);
+  await shot(inspector, 'inspector-budgets');
 } finally {
   await browser.close();
   await vite?.close();
