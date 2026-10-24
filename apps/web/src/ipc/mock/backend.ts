@@ -6,13 +6,24 @@
  * - `first-run` (default): no workspace yet, toktx missing.
  * - `configured`: a workspace with Moon Island is open.
  * - `no-blender`: like first-run, but Blender is missing.
+ * - `running`: configured, with run 25 live at Export GLB.
+ * - `idle`: configured, the last run passed.
+ *
+ * `?pace=` sets the milliseconds between streamed log lines (default 260).
  */
 import type {
+  AcceptRequest,
+  AssetKind,
   Bootstrap,
+  CompressPreset,
   ErrorPayload,
   ImportScan,
-  JobSpec,
+  InboxItem,
+  NewAsset,
   NewProject,
+  PipelineEvent,
+  PipelineView,
+  Stage,
   ProjectManifest,
   RepoInspection,
   RootInspection,
@@ -22,6 +33,9 @@ import type {
   WorkspaceSnapshot,
 } from '../client';
 import { DEFAULT_ROOT, HOME, defaultConfig, moonIsland, toolReports } from './fixtures';
+import { inboxItems } from './inbox-fixtures';
+import { dioramaPipeline, pipelineView, run24Log, runHistory } from './pipeline-fixtures';
+import { createFakeRunner, type RunStore } from './runner';
 
 type Args = Record<string, unknown>;
 
@@ -29,6 +43,10 @@ export interface MockOptions {
   scenario: string;
   /** Milliseconds a toolchain check takes, so the checking state is visible. */
   probeDelay: number;
+  /** Milliseconds between streamed log lines. */
+  pace?: number;
+  /** Delivers runner and inbox events to the UI. */
+  emit?: (event: { name: 'pipeline'; payload: PipelineEvent } | { name: 'inbox' }) => void;
 }
 
 function fail(code: string, message: string): never {
@@ -56,14 +74,55 @@ function slugify(name: string): string {
   );
 }
 
-export function createBackend({ scenario, probeDelay }: MockOptions) {
-  const configured = scenario === 'configured';
+export function createBackend({ scenario, probeDelay, pace = 260, emit }: MockOptions) {
+  const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
   let root: string | null = configured ? expand(DEFAULT_ROOT) : null;
   let projects: ProjectManifest[] = configured ? [moonIsland()] : [];
   let cacheBytes = configured ? 2.3e9 : 0;
   const overrides = new Map<ToolId, string>();
   if (configured) config = { ...config, currentProject: 'moon-island' };
+
+  const now = Date.now();
+  const history = configured ? runHistory(now) : [];
+  const store: RunStore = {
+    runs: scenario === 'idle' ? history.slice(1) : history,
+    logs: new Map(configured && scenario !== 'idle' ? [[24, run24Log(now)]] : []),
+  };
+  const presets = new Map<string, CompressPreset[]>();
+  const runner = createFakeRunner(store, {
+    emit: payload => emit?.({ name: 'pipeline', payload }),
+    pace,
+    holdAt: scenario === 'running' ? 'export' : undefined,
+    postersFail: scenario !== 'idle',
+  });
+  let inbox: InboxItem[] = configured ? inboxItems(`${expand(DEFAULT_ROOT)}/inbox`, now) : [];
+  const kinds = new Map<string, AssetKind>();
+
+  function project(id: string): ProjectManifest {
+    const found = projects.find(p => p.id === id);
+    if (!found) fail('not-found', `Could not find the project ${id}.`);
+    return found;
+  }
+
+  function saveProject(next: ProjectManifest): ProjectManifest {
+    projects = projects.map(p => (p.id === next.id ? next : p));
+    return next;
+  }
+
+  function view(id: string): PipelineView {
+    const p = project(id);
+    const def = { ...dioramaPipeline(), presets: presets.get(id) ?? dioramaPipeline().presets };
+    const runs = p.id === 'moon-island' ? store.runs : [];
+    const latest = runs[0];
+    const base = pipelineView(
+      p.id,
+      '~/Maquette/projects/' + p.id,
+      runs,
+      latest ? (store.logs.get(latest.number) ?? []) : []
+    );
+    return { ...base, def, active: runner.activeId };
+  }
 
   function snapshot(): WorkspaceSnapshot {
     if (!root) fail('invalid', 'No workspace is open yet.');
@@ -185,6 +244,7 @@ export function createBackend({ scenario, probeDelay }: MockOptions) {
         siteRepo: next.siteRepo ? expand(next.siteRepo) : null,
         sourceFolder: next.sourceFolder ? expand(next.sourceFolder) : null,
         createdAt: new Date().toISOString(),
+        assets: [],
       };
       projects = [...projects, manifest];
       config = { ...config, currentProject: id };
@@ -216,11 +276,148 @@ export function createBackend({ scenario, probeDelay }: MockOptions) {
     }),
     dialog_pick_folder: ({ start }) => (typeof start === 'string' && start ? start : DEFAULT_ROOT),
     dialog_pick_file: () => '/usr/local/bin/toktx',
-    pipeline_submit: (args: Args) => {
-      void (args.spec as JobSpec);
-      fail('unavailable', 'The pipeline runner arrives in a later version.');
+    asset_add: ({ project: id, asset }) => {
+      const p = project(String(id));
+      const next = asset as NewAsset;
+      const name = next.name.trim();
+      if (!name) fail('invalid', 'Give the asset a name.');
+      let assetId = slugify(name);
+      while ((p.assets ?? []).some(a => a.id === assetId)) assetId = `${assetId}-2`;
+      const at = new Date().toISOString();
+      return saveProject({
+        ...p,
+        assets: [
+          ...(p.assets ?? []),
+          {
+            id: assetId,
+            name,
+            kind: next.kind,
+            stage: next.stage,
+            status: 'queued',
+            versions: [],
+            thumbnail: null,
+            createdAt: at,
+            updatedAt: at,
+          },
+        ],
+      });
     },
+    asset_move: ({ project: id, id: assetId, stage }) => {
+      const p = project(String(id));
+      if (!(p.assets ?? []).some(a => a.id === assetId))
+        fail('not-found', `Could not find the asset ${String(assetId)}.`);
+      const at = new Date().toISOString();
+      return saveProject({
+        ...p,
+        assets: (p.assets ?? []).map(a =>
+          a.id === assetId ? { ...a, stage: stage as Stage, updatedAt: at } : a
+        ),
+      });
+    },
+    asset_open_in_blender: () => fail('unavailable', 'Mock mode does not open Blender.'),
+    pipeline_get: ({ project: id }) => view(String(id)),
+    pipeline_run: ({ project: id, from, force }) => {
+      const def = view(String(id)).def;
+      return runner.submit(String(id), def, (from as string | null) ?? null, Boolean(force));
+    },
+    pipeline_cancel: ({ runId }) => runner.cancel(String(runId)),
+    pipeline_log: ({ number }) => store.logs.get(Number(number)) ?? [],
+    pipeline_save_presets: ({ project: id, presets: rows }) => {
+      const next = rows as CompressPreset[];
+      const locked = view(String(id)).def.presets.filter(p => p.lock);
+      for (const old of locked) {
+        const same = next.find(p => p.model === old.model);
+        if (!same || JSON.stringify(same) !== JSON.stringify(old))
+          fail('invalid', old.lock ?? 'That row is locked.');
+      }
+      presets.set(String(id), next);
+      return view(String(id));
+    },
+    inbox_list: () => ({
+      dir: '~/Maquette/inbox',
+      path: `${expand(DEFAULT_ROOT)}/inbox`,
+      watching: Boolean(root),
+      items: inbox.map(i => ({
+        ...i,
+        kind: kinds.get(i.id) ?? i.kind,
+        kindGuessed: !kinds.has(i.id),
+      })),
+    }),
+    inbox_reprocess: async ({ id }) => {
+      await sleep(probeDelay / 2);
+      const item = inbox.find(i => i.id === id);
+      if (!item) fail('not-found', `${String(id)} in the inbox`);
+      return item;
+    },
+    inbox_set_kind: ({ id, kind }) => {
+      const item = inbox.find(i => i.id === id);
+      if (!item) fail('not-found', `${String(id)} in the inbox`);
+      kinds.set(item.id, kind as AssetKind);
+      return { ...item, kind: kind as AssetKind, kindGuessed: false };
+    },
+    inbox_accept: ({ request }) => {
+      const req = request as AcceptRequest;
+      const item = inbox.find(i => i.id === req.item);
+      if (!item) fail('not-found', `${req.item} in the inbox`);
+      const p = project(req.project);
+      const assets = [...(p.assets ?? [])];
+      const assetId = slugify(item.name);
+      let target = assets.find(a => a.id === assetId);
+      const at = new Date().toISOString();
+      if (!target) {
+        target = {
+          id: assetId,
+          name: item.name,
+          kind: kinds.get(item.id) ?? item.kind,
+          stage: 'tripo',
+          status: 'queued',
+          versions: [],
+          thumbnail: null,
+          createdAt: at,
+          updatedAt: at,
+        };
+        assets.push(target);
+      }
+      const number = target.versions.length + 1;
+      const version = {
+        version: number,
+        file: `models/${assetId.replace(/-/g, '_')}_v${number}.glb`,
+        createdAt: at,
+        stats: item.report
+          ? {
+              triangles: item.report.triangles,
+              bytes: item.report.bytes,
+              textures: item.report.textures.length,
+              maxTexture: item.report.maxTexture,
+              joints: item.report.joints,
+              animations: item.report.animations.length,
+            }
+          : null,
+      };
+      const updated = {
+        ...target,
+        versions: [...target.versions, version],
+        stage: 'blender' as Stage,
+        status: 'review' as const,
+        updatedAt: at,
+      };
+      const next = saveProject({ ...p, assets: assets.map(a => (a.id === assetId ? updated : a)) });
+      inbox = inbox.filter(i => i.id !== item.id);
+      emit?.({ name: 'inbox' });
+      return {
+        asset: updated,
+        version,
+        file: `${expand(DEFAULT_ROOT)}/projects/${p.id}/${version.file}`,
+        project: next,
+      };
+    },
+    inbox_open_in_blender: () => fail('unavailable', 'Mock mode does not open Blender.'),
   };
+
+  // The `running` scenario starts run 25 as soon as the app opens.
+  if (scenario === 'running') {
+    setTimeout(() => runner.submit('moon-island', view('moon-island').def, null, false), 50);
+  }
 
   return async function handle(cmd: string, args: Args = {}): Promise<unknown> {
     const handler = handlers[cmd];

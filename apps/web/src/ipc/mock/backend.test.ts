@@ -1,0 +1,99 @@
+import { describe, expect, it } from 'vitest';
+import type {
+  AcceptResult,
+  PipelineEvent,
+  PipelineView,
+  ProjectManifest,
+  RunRecord,
+} from '../client';
+import { createBackend } from './backend';
+
+function backend(scenario = 'idle') {
+  const events: PipelineEvent[] = [];
+  let inboxEvents = 0;
+  const handle = createBackend({
+    scenario,
+    probeDelay: 0,
+    pace: 0,
+    emit: e => (e.name === 'pipeline' ? events.push(e.payload) : inboxEvents++),
+  });
+  return { handle, events, inboxCount: () => inboxEvents };
+}
+
+async function finished(handle: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>) {
+  for (let i = 0; i < 200; i++) {
+    const view = (await handle('pipeline_get', { project: 'moon-island' })) as PipelineView;
+    if (!view.active) return view;
+    await new Promise(r => setTimeout(r, 5));
+  }
+  throw new Error('run did not finish');
+}
+
+describe('mock backend', () => {
+  it('runs the pipeline, fails at posters once, then passes from there', async () => {
+    const { handle, events } = backend('configured');
+    const run = (await handle('pipeline_run', {
+      project: 'moon-island',
+      from: null,
+      force: false,
+    })) as RunRecord;
+    expect(run.number).toBe(25);
+    let view = await finished(handle);
+    expect(view.runs[0]!.state).toBe('failed');
+    expect(view.runs[0]!.steps.find(s => s.id === 'build')!.state).toBe('cached');
+    expect(view.runs[0]!.steps.find(s => s.id === 'ship')!.state).toBe('skipped');
+    expect(events.some(e => e.type === 'log' && e.entry.level === 'error')).toBe(true);
+
+    await handle('pipeline_run', { project: 'moon-island', from: 'posters', force: false });
+    view = await finished(handle);
+    expect(view.runs[0]!.state).toBe('done');
+    expect(view.runs[0]!.steps.find(s => s.id === 'export')!.state).toBe('skipped');
+  });
+
+  it('passes every step in the idle scenario', async () => {
+    const { handle } = backend('idle');
+    await handle('pipeline_run', { project: 'moon-island', from: null, force: true });
+    const view = await finished(handle);
+    expect(view.runs[0]!).toMatchObject({ number: 24, state: 'done' });
+    expect(view.runs[0]!.steps.every(s => s.state === 'done')).toBe(true);
+  });
+
+  it('refuses edits to a locked preset row', async () => {
+    const { handle } = backend();
+    const view = (await handle('pipeline_get', { project: 'moon-island' })) as PipelineView;
+    const presets = view.def.presets.map(p => (p.lock ? { ...p, meshopt: 'high' } : p));
+    await expect(
+      handle('pipeline_save_presets', { project: 'moon-island', presets })
+    ).rejects.toMatchObject({
+      code: 'invalid',
+    });
+  });
+
+  it('adds and moves assets', async () => {
+    const { handle } = backend();
+    let project = (await handle('asset_add', {
+      project: 'moon-island',
+      asset: { name: 'Paper lamp', kind: 'prop', stage: 'concept' },
+    })) as ProjectManifest;
+    expect(project.assets!.find(a => a.id === 'paper-lamp')).toMatchObject({ stage: 'concept' });
+    project = (await handle('asset_move', {
+      project: 'moon-island',
+      id: 'paper-lamp',
+      stage: 'refs',
+    })) as ProjectManifest;
+    expect(project.assets!.find(a => a.id === 'paper-lamp')!.stage).toBe('refs');
+  });
+
+  it('accepts an inbox model into the project', async () => {
+    const { handle, inboxCount } = backend('configured');
+    const result = (await handle('inbox_accept', {
+      request: { item: 'sakura_large.glb', project: 'moon-island', asset: null },
+    })) as AcceptResult;
+    expect(result.version.file).toBe('models/sakura_large_v1.glb');
+    expect(result.asset).toMatchObject({ stage: 'blender', status: 'review' });
+    expect(result.project.assets!.some(a => a.id === result.asset.id)).toBe(true);
+    expect(inboxCount()).toBe(1);
+    const snapshot = (await handle('inbox_list')) as { items: { id: string }[] };
+    expect(snapshot.items.map(i => i.id)).not.toContain('sakura_large.glb');
+  });
+});

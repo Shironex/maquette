@@ -77,6 +77,8 @@ export type AcceptResult = {
 	version: AssetVersion,
 	/**  Where the file went. */
 	file: string,
+	/**  The project after the change, so the Board can update. */
+	project: ProjectManifest,
 };
 
 export type AgentRules = {
