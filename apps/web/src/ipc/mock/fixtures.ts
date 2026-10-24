@@ -214,6 +214,7 @@ export function moonIsland(withAssets = true): ProjectManifest {
 }
 
 const DAY = 86_400_000;
+const HOUR = 3_600_000;
 
 function stats(triangles: number, mb: number, joints = 0, animations = 0): ModelStats {
   return { triangles, bytes: mb * 1e6, textures: 3, maxTexture: 2048, joints, animations };
@@ -309,6 +310,18 @@ export function moonAssets(): Asset[] {
       },
       DAY * 1.5
     ),
+    // Sent to Refs by an older build, so it has no picture yet; opening the
+    // workspace gives it the newest ref its direction sent.
+    asset(
+      {
+        id: 'maquette-landing-studio',
+        name: 'Maquette landing studio',
+        kind: 'scene',
+        stage: 'refs',
+        status: 'queued',
+      },
+      HOUR * 2
+    ),
     asset(
       {
         id: 'far-spire',
@@ -322,3 +335,97 @@ export function moonAssets(): Asset[] {
     ),
   ];
 }
+
+/** A Room project a week older than Moon Island, two cards in. */
+export function rooftopCinema(): ProjectManifest {
+  return {
+    version: 1,
+    id: 'rooftop-cinema',
+    name: 'Rooftop cinema',
+    template: 'room',
+    siteRepo: null,
+    sourceFolder: null,
+    createdAt: new Date(Date.now() - 13 * DAY).toISOString(),
+    assets: [
+      asset(
+        {
+          id: 'vending',
+          name: 'Vending machine',
+          kind: 'prop',
+          stage: 'blender',
+          status: 'review',
+          versions: versions('vending', 1, stats(12_900, 0.4)),
+          thumbnail: 'thumbs/vending-machine.webp',
+        },
+        3 * DAY
+      ),
+      asset(
+        {
+          id: 'flower-shrubs',
+          name: 'Flower shrubs',
+          kind: 'prop',
+          stage: 'refs',
+          status: 'queued',
+        },
+        5 * DAY
+      ),
+    ],
+  };
+}
+
+/** A Character showcase with one rigged model. */
+export function lanternKeeper(): ProjectManifest {
+  return {
+    version: 1,
+    id: 'lantern-keeper',
+    name: 'Lantern keeper',
+    template: 'character-showcase',
+    siteRepo: `${HOME}/Documents/Projects/lantern-keeper-site`,
+    sourceFolder: null,
+    createdAt: new Date(Date.now() - 2 * DAY).toISOString(),
+    assets: [
+      asset(
+        {
+          id: 'character',
+          name: 'Character',
+          kind: 'character',
+          stage: 'web',
+          status: 'done',
+          versions: versions('character', 4, stats(94_612, 1.4, 65, 2)),
+          thumbnail: 'thumbs/character.webp',
+        },
+        DAY
+      ),
+    ],
+  };
+}
+
+const MORE_PROJECTS: readonly [string, ProjectManifest['template']][] = [
+  ['Late train', 'room'],
+  ['Kotatsu den', 'room'],
+  ['Night market', 'floating-diorama'],
+  ['Harbour lights', 'floating-diorama'],
+  ['Stone garden', 'floating-diorama'],
+];
+
+/** `?projects=many`: enough projects that the switcher shows its search. */
+export function moreProjects(): ProjectManifest[] {
+  return MORE_PROJECTS.map(([name, template], i) => ({
+    version: 1,
+    id: name.toLowerCase().replace(/\s+/g, '-'),
+    name,
+    template,
+    siteRepo: null,
+    sourceFolder: null,
+    createdAt: new Date(Date.now() - (20 + i * 4) * DAY).toISOString(),
+    assets: [],
+  }));
+}
+
+/** The projects a configured mock workspace opens with. */
+export function mockProjects(many = false): ProjectManifest[] {
+  return [moonIsland(), rooftopCinema(), lanternKeeper(), ...(many ? moreProjects() : [])];
+}
+
+/** Every project id mock mode knows, so its files can be served. */
+export const MOCK_PROJECT_IDS = mockProjects(true).map(p => p.id);

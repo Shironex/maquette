@@ -9,6 +9,10 @@
  * - `running`: configured, with run 25 live at Export GLB.
  * - `idle`: configured, the last run passed.
  *
+ * Configured workspaces hold Moon Island, Rooftop cinema (a Room) and
+ * Lantern keeper (a Character showcase); `?projects=many` adds five more so
+ * the project switcher shows its search.
+ *
  * `?pace=` sets the milliseconds between streamed log lines (default 260).
  * `?lab=running` holds two concept images of the porch direction mid job.
  * `?agents=active` turns the MCP server on, with an agent's activity, a
@@ -32,6 +36,7 @@ import type {
   ProviderEvent,
   Stage,
   ProjectManifest,
+  ProjectSummary,
   RepoInspection,
   RootInspection,
   ToolId,
@@ -43,7 +48,7 @@ import {
   DEFAULT_ROOT,
   HOME,
   defaultConfig,
-  moonIsland,
+  mockProjects,
   providerCatalog,
   toolReports,
 } from './fixtures';
@@ -51,7 +56,7 @@ import { inboxItems } from './inbox-fixtures';
 import { inspectView } from './inspect-fixtures';
 import { dioramaPipeline, pipelineView, run24Log, runHistory } from './pipeline-fixtures';
 import { createFakeAgents } from './agents';
-import { createFakeLab } from './lab';
+import { createFakeLab, refMayReplace } from './lab';
 import { createFakeProviders } from './providers';
 import { createFakeRunner, type RunStore } from './runner';
 
@@ -78,6 +83,8 @@ export interface MockOptions {
   lab?: string | null;
   /** Milliseconds one fake concept image takes (default 4000). */
   conceptMs?: number;
+  /** `many`: eight projects instead of three. */
+  projects?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */
@@ -123,11 +130,12 @@ export function createBackend({
   lab: labState = null,
   conceptMs = 4000,
   agents: agentsState = null,
+  projects: projectsState = null,
 }: MockOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
   let root: string | null = configured ? expand(DEFAULT_ROOT) : null;
-  let projects: ProjectManifest[] = configured ? [moonIsland()] : [];
+  let projects: ProjectManifest[] = configured ? mockProjects(projectsState === 'many') : [];
   let cacheBytes = configured ? 2.3e9 : 0;
   const overrides = new Map<ToolId, string>();
   if (configured) config = { ...config, currentProject: 'moon-island' };
@@ -165,7 +173,7 @@ export function createBackend({
   function view(id: string): PipelineView {
     const p = project(id);
     const def = { ...dioramaPipeline(), presets: presets.get(id) ?? dioramaPipeline().presets };
-    const runs = p.id === 'moon-island' ? store.runs : [];
+    const runs = store.runs.filter(r => r.project === p.id);
     const latest = runs[0];
     const base = pipelineView(
       p.id,
@@ -173,13 +181,56 @@ export function createBackend({
       runs,
       latest ? (store.logs.get(latest.number) ?? []) : []
     );
-    return { ...base, def, active: runner.activeId };
+    return { ...base, def, active: activeRun(p.id) };
+  }
+
+  /** The mock runner runs one at a time; this is its run when it belongs to `id`. */
+  function activeRun(id: string): string | null {
+    const active = runner.activeId;
+    return active?.startsWith(`${id}-run-`) ? active : null;
+  }
+
+  /** Cards an older Send picks to Refs left without a picture get the newest ref. */
+  function heal(p: ProjectManifest): ProjectManifest {
+    let changed = false;
+    const assets = (p.assets ?? []).map(a => {
+      if (a.thumbnail !== null || a.versions.length > 0) return a;
+      const newest = lab.sentFor(p.id, a.name).at(-1);
+      if (!newest || !refMayReplace(a.thumbnail)) return a;
+      changed = true;
+      return { ...a, thumbnail: newest };
+    });
+    return changed ? saveProject({ ...p, assets }) : p;
   }
 
   function snapshot(): WorkspaceSnapshot {
     if (!root) fail('invalid', 'No workspace is open yet.');
-    const project = projects.find(p => p.id === config.currentProject) ?? projects[0] ?? null;
+    const open = projects.find(p => p.id === config.currentProject) ?? projects[0] ?? null;
+    const project = open ? heal(open) : null;
     return { root, display: display(root), config, project, projects };
+  }
+
+  function summary(p: ProjectManifest): ProjectSummary {
+    const dir = `${expand(DEFAULT_ROOT)}/projects/${p.id}`;
+    const pictured = (p.assets ?? []).filter(a => a.thumbnail);
+    const thumb =
+      pictured.find(a => a.kind === 'scene')?.thumbnail ??
+      [...pictured].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.thumbnail ??
+      null;
+    const sends = (providers.jobs() ?? []).filter(
+      j => j.project === p.id && ['approval', 'queued', 'running', 'waiting'].includes(j.state)
+    ).length;
+    return {
+      id: p.id,
+      name: p.name,
+      template: p.template,
+      siteRepo: p.siteRepo,
+      createdAt: p.createdAt,
+      assetCount: (p.assets ?? []).length,
+      dir,
+      thumb,
+      activity: { run: activeRun(p.id), concepts: lab.activeJobs(p.id), sends },
+    };
   }
 
   function inspect(path: string): RootInspection {
@@ -227,6 +278,15 @@ export function createBackend({
     jobMs: conceptMs,
     state: labState,
     fail,
+    assetBusy: (project, asset) =>
+      providers
+        .jobs()
+        .some(
+          j =>
+            j.project === project &&
+            j.asset === asset &&
+            ['approval', 'queued', 'running', 'waiting', 'inbox'].includes(j.state)
+        ),
   });
 
   const providers = createFakeProviders({
@@ -285,14 +345,15 @@ export function createBackend({
         );
       }
       root = found.path;
-      projects = [moonIsland()];
+      projects = mockProjects(projectsState === 'many');
       config = { ...defaultConfig(), currentProject: 'moon-island' };
       return snapshot();
     },
     workspace_save_config: ({ config: next }) => {
       snapshot();
       validate(next as WorkspaceConfig);
-      config = next as WorkspaceConfig;
+      // The switcher owns the current project; a settings save never moves it.
+      config = { ...(next as WorkspaceConfig), currentProject: config.currentProject };
       lab.setConcurrency(config.lab.concurrency);
       agents.changed();
       return config;
@@ -336,6 +397,16 @@ export function createBackend({
       };
       projects = [...projects, manifest];
       config = { ...config, currentProject: id };
+      return snapshot();
+    },
+    project_list: () => {
+      snapshot();
+      return projects.map(summary);
+    },
+    project_switch: ({ id }) => {
+      snapshot();
+      project(String(id));
+      config = { ...config, currentProject: String(id) };
       return snapshot();
     },
     project_update: ({ id, name, siteRepo }) => {
@@ -424,6 +495,21 @@ export function createBackend({
     inspect_project: ({ project: id }) => {
       const p = project(String(id));
       const v = view(p.id);
+      // Only Moon Island has shipped models in mock mode.
+      if (p.id !== 'moon-island') {
+        return {
+          project: p.id,
+          models: [],
+          comparisons: [],
+          stops: { source: 'none', file: null, stops: [] },
+          budgets: [],
+          limits: {
+            sceneMb: config.budgets.sceneMb ?? 3,
+            trisPerModel: config.budgets.trisPerModel,
+          },
+          scene: { bytes: 0, triangles: 0, models: 0 },
+        };
+      }
       return inspectView(
         p.id,
         `${root ?? expand(DEFAULT_ROOT)}/projects/${p.id}`,

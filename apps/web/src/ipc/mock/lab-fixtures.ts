@@ -92,6 +92,7 @@ export function labDirections(running: boolean): Direction[] {
       0.2,
       { 1: { starred: true, picked: true }, 2: { starred: true } }
     ),
+    landingStudio(),
     direction(
       'late-train',
       'Late train',
@@ -116,8 +117,30 @@ export function labDirections(running: boolean): Direction[] {
   ];
 }
 
+/**
+ * A direction made for another site inside Moon Island, its fourth image
+ * picked and sent to Refs: the one to move into a project of its own.
+ */
+function landingStudio(): Direction {
+  const d = direction(
+    'maquette-landing-studio',
+    'Maquette landing studio',
+    'A small studio desk at night: a laptop showing a 3D island scene, concept prints pinned above, a desk lamp, a mug, warm and calm.',
+    ['kotatsu-den-a.webp', 'kotatsu-den-b.webp', 'rooftop-cinema-a.webp', 'rooftop-cinema-b.webp'],
+    2,
+    { 2: { starred: true }, 4: { starred: true, picked: true } }
+  );
+  return {
+    ...d,
+    images: d.images.map(i =>
+      i.index === 4 ? { ...i, refFile: 'refs/maquette-landing-studio_04.png' } : i
+    ),
+  };
+}
+
 /** Bundled images served from `refs/`. */
 export const REF_FILES: Record<string, string> = {
+  'refs/maquette-landing-studio_04.png': 'concepts/rooftop-cinema-b.webp',
   'refs/moon-island-concept.png': 'concepts/moon-island-a.webp',
   'refs/late-train-concept.png': 'concepts/late-train-a.webp',
   'refs/character-model.png': 'character.webp',

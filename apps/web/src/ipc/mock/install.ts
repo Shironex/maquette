@@ -7,7 +7,7 @@ import { mockIPC } from '@tauri-apps/api/mocks';
 import { events } from '../generated/bindings';
 import { fileUrl, registerMockFile } from '../files';
 import { createBackend } from './backend';
-import { DEFAULT_ROOT, HOME } from './fixtures';
+import { DEFAULT_ROOT, HOME, MOCK_PROJECT_IDS } from './fixtures';
 import { PREVIEW_FILE, thumbsDir } from './inbox-fixtures';
 import { conceptFiles, REF_FILES } from './lab-fixtures';
 import { INSPECT_FILES } from './inspect-fixtures';
@@ -51,7 +51,8 @@ for (const [file, source] of Object.entries(PROVIDER_REF_FILES)) {
   if (url) registerMockFile(`${projectDir}/${file}`, url);
 }
 for (const [path, url] of Object.entries(renders)) {
-  registerMockFile(`${root}/projects/moon-island/thumbs/${base(path)}`, url);
+  for (const id of MOCK_PROJECT_IDS)
+    registerMockFile(`${root}/projects/${id}/thumbs/${base(path)}`, url);
   registerMockFile(`${thumbsDir(`${root}/inbox`)}/${base(path)}`, url);
 }
 for (const [file, model] of Object.entries(PREVIEW_FILE)) {
@@ -70,6 +71,7 @@ const handle = createBackend({
   lab: params.get('lab'),
   conceptMs: Number(params.get('conceptMs') ?? 4000),
   agents: params.get('agents'),
+  projects: params.get('projects'),
   emit: event => {
     if (event.name === 'pipeline') void events.pipelineUpdate.emit(event.payload);
     else if (event.name === 'concept') void events.conceptUpdate.emit(event.payload);

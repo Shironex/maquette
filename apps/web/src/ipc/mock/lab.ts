@@ -9,6 +9,7 @@ import type {
   ConceptJob,
   Direction,
   LabView,
+  MovedDirection,
   NewConcepts,
   ProjectManifest,
   RefImage,
@@ -33,6 +34,8 @@ export interface FakeLabOptions {
   jobMs: number;
   /** `running`: the porch direction has two images generating that never finish. */
   state?: string | null;
+  /** True while a Send to 3D job still needs the asset where it is. */
+  assetBusy?: (project: string, asset: string) => boolean;
   fail: (code: string, message: string) => never;
 }
 
@@ -41,6 +44,12 @@ const slug = (name: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'project';
+
+const finished = (job: ConceptJob) => job.state !== 'queued' && job.state !== 'running';
+
+/** A ref may stand in as a card's picture: none yet, or an older ref. */
+export const refMayReplace = (thumbnail: string | null) =>
+  thumbnail === null || thumbnail.startsWith('refs/');
 
 export function createFakeLab(options: FakeLabOptions) {
   const { fail } = options;
@@ -248,6 +257,9 @@ export function createFakeLab(options: FakeLabOptions) {
         updatedAt: at,
       };
     }
+    // The card shows the first pick until a model render replaces it.
+    const first = copied[0];
+    if (first && refMayReplace(asset.thumbnail)) asset = { ...asset, thumbnail: first };
     const placed = asset;
     const saved = options.saveProject({
       ...manifest,
@@ -258,7 +270,83 @@ export function createFakeLab(options: FakeLabOptions) {
     return { direction: next, asset: placed, copied, project: saved };
   }
 
+  /** Mirrors `concepts::move_direction`: the folder, its refs and, when free, its card. */
+  function moveDirection(from: string, id: string, to: string): MovedDirection {
+    if (from === to) fail('invalid', 'The direction is already in this project.');
+    const fromProject = options.project(from);
+    options.project(to);
+    const direction = findDirection(from, id);
+    if (jobs.some(j => j.project === from && j.direction === id && !finished(j)))
+      fail(
+        'invalid',
+        'Images of this direction are still generating. Move it once they are done or cancelled.'
+      );
+    let newId = direction.id;
+    for (let n = 2; list(to).some(d => d.id === newId); n += 1) newId = `${direction.id}-${n}`;
+    const fromDir = options.projectDir(from);
+    const toDir = options.projectDir(to);
+    const moved: string[] = [];
+    const images = direction.images.map(image => {
+      const file = image.file.replace(`concepts/${direction.id}/`, `concepts/${newId}/`);
+      options.files?.alias(`${toDir}/${file}`, `${fromDir}/${image.file}`);
+      if (image.refFile) {
+        options.files?.alias(`${toDir}/${image.refFile}`, `${fromDir}/${image.refFile}`);
+        moved.push(image.refFile);
+      }
+      return { ...image, file };
+    });
+    for (const ref of direction.refs.filter(r => r.startsWith('refs/')))
+      options.files?.alias(`${toDir}/${ref}`, `${fromDir}/${ref}`);
+    const next: Direction = {
+      ...direction,
+      id: newId,
+      images,
+      updatedAt: new Date().toISOString(),
+    };
+    directions.set(
+      from,
+      list(from).filter(d => d.id !== direction.id)
+    );
+    directions.set(to, [next, ...list(to)]);
+    const carried = [...new Set([...moved, ...direction.refs.filter(r => r.startsWith('refs/'))])];
+    const toRefs = refs.get(to) ?? [];
+    refs.set(to, [
+      ...toRefs.filter(r => !carried.includes(r.file)),
+      ...carried.map(file => ({ file, name: file.slice(5), bytes: 2.2e6 })),
+    ]);
+    const asset = (fromProject.assets ?? []).find(a => a.id === slug(direction.name));
+    const takes =
+      asset && asset.versions.length === 0 && !options.assetBusy?.(from, asset.id) ? asset : null;
+    if (takes) {
+      refs.set(
+        from,
+        (refs.get(from) ?? []).filter(r => !moved.includes(r.file))
+      );
+      options.saveProject({
+        ...fromProject,
+        assets: (fromProject.assets ?? []).filter(a => a.id !== takes.id),
+      });
+      const target = options.project(to);
+      options.saveProject({
+        ...target,
+        assets: [
+          ...(target.assets ?? []).filter(a => a.id !== takes.id),
+          { ...takes, updatedAt: new Date().toISOString() },
+        ],
+      });
+    }
+    return {
+      direction: next,
+      from: options.project(from),
+      to: options.project(to),
+      asset: takes,
+      refs: moved,
+    };
+  }
+
   const handlers: Record<string, (args: Args) => unknown> = {
+    lab_move_direction: ({ project, direction, to }) =>
+      moveDirection(String(project), String(direction), String(to)),
     lab_get: ({ project }) => view(String(project)),
     lab_generate: ({ request }) => generate(request as NewConcepts),
     lab_cancel: ({ jobId }) => cancel(String(jobId)),
@@ -326,6 +414,8 @@ export function createFakeLab(options: FakeLabOptions) {
 
   return {
     handlers,
+    /** Concept images queued or generating in `project`. */
+    activeJobs: (project: string) => jobs.filter(j => j.project === project && !finished(j)).length,
     refs: (project: string) => refs.get(project) ?? [],
     sentFor: (project: string, assetName: string) =>
       list(project)

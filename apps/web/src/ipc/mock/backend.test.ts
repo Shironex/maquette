@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type {
   AcceptResult,
+  Bootstrap,
+  LabView,
+  MovedDirection,
+  ProjectSummary,
+  WorkspaceSnapshot,
   InspectView,
   PipelineEvent,
   PipelineView,
@@ -212,5 +217,56 @@ describe('mock backend', () => {
       message: string;
     };
     expect(tripo.message).toContain('Tripo cannot cancel');
+  });
+
+  it('lists three projects, switches between them and keeps the switch on a settings save', async () => {
+    const { handle } = backend('configured');
+    const list = (await handle('project_list')) as ProjectSummary[];
+    expect(list.map(p => [p.name, p.template])).toEqual([
+      ['Moon Island', 'floating-diorama'],
+      ['Rooftop cinema', 'room'],
+      ['Lantern keeper', 'character-showcase'],
+    ]);
+    expect(list[0]!.thumb).toBe('thumbs/island.webp');
+    const snap = (await handle('project_switch', { id: 'rooftop-cinema' })) as WorkspaceSnapshot;
+    expect(snap.project?.id).toBe('rooftop-cinema');
+    await handle('workspace_save_config', {
+      config: { ...snap.config, currentProject: 'moon-island' },
+    });
+    const boot = (await handle('app_bootstrap')) as Bootstrap;
+    expect(boot.workspace?.project?.id).toBe('rooftop-cinema');
+    await expect(handle('project_switch', { id: 'nope' })).rejects.toMatchObject({
+      code: 'not-found',
+    });
+    const pipeline = (await handle('pipeline_get', { project: 'rooftop-cinema' })) as PipelineView;
+    expect(pipeline.runs).toEqual([]);
+  });
+
+  it('gives the landing studio card its ref and moves the direction to a new project', async () => {
+    const { handle } = backend('configured');
+    const boot = (await handle('app_bootstrap')) as Bootstrap;
+    const card = boot.workspace?.project?.assets?.find(a => a.id === 'maquette-landing-studio');
+    expect(card?.thumbnail).toBe('refs/maquette-landing-studio_04.png');
+    await handle('project_create', {
+      project: {
+        name: 'Maquette landing',
+        template: 'floating-diorama',
+        siteRepo: null,
+        sourceFolder: null,
+      },
+    });
+    const moved = (await handle('lab_move_direction', {
+      project: 'moon-island',
+      direction: 'maquette-landing-studio',
+      to: 'maquette-landing',
+    })) as MovedDirection;
+    expect(moved.direction.images[3]).toMatchObject({ picked: true, starred: true });
+    expect(moved.asset?.thumbnail).toBe('refs/maquette-landing-studio_04.png');
+    expect((moved.from.assets ?? []).some(a => a.id === 'maquette-landing-studio')).toBe(false);
+    expect((moved.to.assets ?? []).map(a => a.id)).toEqual(['maquette-landing-studio']);
+    const moon = (await handle('lab_get', { project: 'moon-island' })) as LabView;
+    expect(moon.directions.some(d => d.id === 'maquette-landing-studio')).toBe(false);
+    const landing = (await handle('lab_get', { project: 'maquette-landing' })) as LabView;
+    expect(landing.directions.map(d => d.name)).toEqual(['Maquette landing studio']);
   });
 });
