@@ -167,10 +167,12 @@ export const useLabStore = create<LabStore>((set, get) => ({
       // Files from outside the project are copied into refs/ first.
       const outside = paths.filter(p => !p.startsWith('refs/'));
       const copied = outside.length ? await commands.labImportRefs(view.project, outside) : [];
+      // The composer of another project never takes them.
+      if (!stillOn(view.project)) return;
       const inside = paths.filter(p => p.startsWith('refs/'));
       const refs = [...new Set([...get().draft.refs, ...inside, ...copied])];
       set({ draft: { ...get().draft, refs } });
-      if (copied.length && stillOn(view.project)) await get().load(view.project);
+      if (copied.length) await get().load(view.project);
     } catch (error) {
       notify('failed', 'Could not add the reference', errorMessage(error));
     }
@@ -253,7 +255,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
     try {
       const path = await commands.labContactSheet(view.project, selected);
       notify('done', 'Contact sheet saved', 'contact_sheet.png sits next to the concepts.');
-      set({ lightbox: path });
+      if (stillOn(view.project)) set({ lightbox: path });
     } catch (error) {
       notify('failed', 'No contact sheet', errorMessage(error));
     } finally {

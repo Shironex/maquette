@@ -1,3 +1,4 @@
+import { mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '@/state/app-store';
 import { useLabStore } from '@/state/lab-store';
@@ -99,5 +100,23 @@ describe('Make object refs and a project switch', () => {
     expect(await useLabStore.getState().makeObjects()).toBe(true);
     expect(useLabStore.getState().view?.project).toBe('rooftop-cinema');
     expect(useLabStore.getState().objects).toBeNull();
+  });
+});
+
+describe('lab answers after a project switch', () => {
+  it('keep refs copied for the project left out of the new composer', async () => {
+    const handle = await openMockWorkspace();
+    mockIPC(async (cmd, args) => {
+      if (cmd === 'lab_import_refs') await new Promise(r => setTimeout(r, 20));
+      return handle(cmd, (args ?? {}) as Record<string, unknown>);
+    });
+    await useLabStore.getState().load('moon-island');
+    const adding = useLabStore.getState().addRefs(['/Users/me/Desktop/porch-sketch.png']);
+    await useProjectsStore.getState().switchTo('rooftop-cinema');
+    await useLabStore.getState().load('rooftop-cinema');
+    const refs = useLabStore.getState().draft.refs;
+    await adding;
+    expect(useLabStore.getState().view?.project).toBe('rooftop-cinema');
+    expect(useLabStore.getState().draft.refs).toEqual(refs);
   });
 });
