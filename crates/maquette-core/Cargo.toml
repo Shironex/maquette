@@ -10,6 +10,7 @@ publish.workspace = true
 
 [dependencies]
 base64 = { workspace = true }
+flate2 = { workspace = true }
 glob = { workspace = true }
 gltf = { workspace = true }
 hex = { workspace = true }
@@ -23,6 +24,7 @@ sha2 = { workspace = true }
 specta = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+zip = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 # Only for the CREATE_NO_WINDOW flag type process-wrap takes; the same
