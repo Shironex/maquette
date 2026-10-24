@@ -112,7 +112,9 @@ pub fn resolve(
 }
 
 /// The texture slots that keep the main size when a model splits its sizes.
-const COLOR_SLOTS: &str = "{baseColorTexture,emissiveTexture}";
+/// An extglob, because gltf-transform's argument parser splits a brace glob
+/// at its comma and then refuses the extra argument.
+const COLOR_SLOTS: &str = "@(baseColorTexture|emissiveTexture)";
 
 /// One gltf-transform invocation of the compress chain.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -386,7 +388,7 @@ mod tests {
                     "--resize",
                     "2048",
                     "--slots",
-                    "{baseColorTexture,emissiveTexture}"
+                    "@(baseColorTexture|emissiveTexture)"
                 ],
                 vec![
                     "etc1s",
