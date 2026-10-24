@@ -142,6 +142,30 @@ describe('AssetCard', () => {
     );
     expect(screen.getByRole('menu')).toHaveTextContent('Move');
   });
+
+  it('has a select box only when asked, and tells a shift click apart', async () => {
+    const onCheck = vi.fn();
+    const { rerender } = render(<AssetCard name="Desk lamp" />);
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    rerender(
+      <AssetCard
+        name="Desk lamp"
+        checked={false}
+        onCheck={onCheck}
+        actions={<button type="button">Add model...</button>}
+      />
+    );
+    const box = screen.getByRole('checkbox', { name: 'Select Desk lamp' });
+    expect(box).toHaveAttribute('aria-checked', 'false');
+    await userEvent.click(box);
+    expect(onCheck).toHaveBeenLastCalledWith(true, false);
+    const user = userEvent.setup();
+    await user.keyboard('{Shift>}');
+    await user.click(box);
+    await user.keyboard('{/Shift}');
+    expect(onCheck).toHaveBeenLastCalledWith(true, true);
+    expect(screen.getByRole('button', { name: 'Add model...' })).toBeInTheDocument();
+  });
 });
 
 describe('PipelineNode', () => {

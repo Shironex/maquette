@@ -33,6 +33,14 @@ export interface AssetCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   moreOpen?: boolean;
   /** The menu itself, placed under the dots button. */
   menu?: ReactNode;
+  /** Shows a select box on the picture when set; true while the card is in the selection. */
+  checked?: boolean;
+  /** The select box was clicked; `range` is true with Shift held. */
+  onCheck?: (checked: boolean, range: boolean) => void;
+  /** Keeps the select box on show, for while a selection is under way. */
+  selecting?: boolean;
+  /** Actions under the status, for example "Add model...". */
+  actions?: ReactNode;
   className?: string;
 }
 
@@ -56,16 +64,22 @@ export function AssetCard({
   onMore,
   moreOpen,
   menu,
+  checked,
+  onCheck,
+  selecting,
+  actions,
   className,
   ...rest
 }: AssetCardProps) {
   const running = status === 'running';
+  const selectable = checked !== undefined;
   return (
     <div
       {...rest}
       className={cn(
-        'relative flex flex-col rounded-card border border-line bg-raised transition-colors duration-120 hover:border-line-strong',
-        selected && 'border-clay-line',
+        'group/card relative flex flex-col rounded-card border border-line bg-raised transition-colors duration-120 hover:border-line-strong',
+        (selected || checked) && 'border-clay-line',
+        checked && 'ring-2 ring-clay/35',
         running && 'border-amber/50 shadow-running',
         className
       )}
@@ -105,6 +119,24 @@ export function AssetCard({
           </span>
         ) : null}
       </button>
+      {selectable ? (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={checked}
+          aria-label={`Select ${name}`}
+          onClick={e => onCheck?.(!checked, e.shiftKey)}
+          className={cn(
+            'absolute top-2 left-2 grid size-[22px] cursor-pointer place-items-center rounded-[6px] border-[1.5px] shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-opacity duration-120 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+            checked
+              ? 'border-clay-text bg-clay text-clay-ink'
+              : 'border-line-strong bg-panel/90 text-transparent hover:border-fg-mute',
+            checked || selecting ? 'opacity-100' : 'opacity-0 group-hover/card:opacity-100'
+          )}
+        >
+          <Icon name="check" size={13} />
+        </button>
+      ) : null}
       <div className="flex flex-col gap-1 px-2.5 pt-[9px] pb-2.5">
         <div className="flex items-center justify-between gap-1.5 font-semibold">
           <span className="truncate">{name}</span>
@@ -127,6 +159,7 @@ export function AssetCard({
             <StatusChip status={status} label={statusLabel} icon={statusIcon} />
           </div>
         ) : null}
+        {actions ? <div className="mt-1.5 flex flex-wrap gap-1.5">{actions}</div> : null}
       </div>
       {moreOpen && menu ? <div className="absolute top-full right-1 z-20 -mt-8">{menu}</div> : null}
     </div>
