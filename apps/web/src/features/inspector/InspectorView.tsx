@@ -29,6 +29,7 @@ import {
 import { useInspectorStore, type InspectMode } from '@/state/inspector-store';
 import { stageViews } from '@/state/pipeline';
 import { usePipelineStore } from '@/state/pipeline-store';
+import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import type { CompareModel } from './CompareCanvas';
 import { FrameTime } from './FrameTime';
 import { ModelPanel } from './ModelPanel';
@@ -281,28 +282,30 @@ function Inspector({ view }: { view: InspectView }) {
 
           {pick ? (
             <div className="relative min-h-[340px] flex-1 overflow-hidden rounded-window border border-line bg-[#141311]">
-              <Suspense fallback={null}>
-                <CompareCanvas
-                  className="absolute! inset-0"
-                  kind={kind}
-                  left={left}
-                  right={right}
-                  split={pick.left ? split : 0}
-                  mode={mode}
-                  turntable={turntable}
-                  stops={stops}
-                  stop={stop}
-                  onSample={store.sample}
-                  onPick={id => {
-                    if (id) store.select(id);
-                  }}
-                  onStopShots={setShots}
-                  onUserMove={store.leaveStop}
-                  onLightmaps={setLightmaps}
-                  onError={setLoadError}
-                  onReady={() => setReady(true)}
-                />
-              </Suspense>
+              <CanvasBoundary resetKey={`${pick.left?.id ?? ''}|${pick.right?.id ?? ''}`}>
+                <Suspense fallback={null}>
+                  <CompareCanvas
+                    className="absolute! inset-0"
+                    kind={kind}
+                    left={left}
+                    right={right}
+                    split={pick.left ? split : 0}
+                    mode={mode}
+                    turntable={turntable}
+                    stops={stops}
+                    stop={stop}
+                    onSample={store.sample}
+                    onPick={id => {
+                      if (id) store.select(id);
+                    }}
+                    onStopShots={setShots}
+                    onUserMove={store.leaveStop}
+                    onLightmaps={setLightmaps}
+                    onError={setLoadError}
+                    onReady={() => setReady(true)}
+                  />
+                </Suspense>
+              </CanvasBoundary>
               {pick.left ? <SplitHandle split={split} onChange={setSplit} /> : null}
               {pick.left ? (
                 <span className={cn(badge, 'top-3 left-3')}>

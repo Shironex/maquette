@@ -33,6 +33,7 @@ import {
 } from '@/state/inbox';
 import { PROVIDER_LABEL } from '@/state/providers';
 import { KIND_ICON } from '@/state/thumbs';
+import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import type { PreviewMode } from '@/features/viewer/ModelPreview';
 
 const NO_PROJECTS: readonly ProjectManifest[] = [];
@@ -241,14 +242,16 @@ function InboxDetail({ item }: { item: InboxItem }) {
           </div>
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-[14px] border border-line bg-studio">
             {url && item.state === 'ready' ? (
-              <Suspense fallback={null}>
-                <ModelPreview
-                  url={url}
-                  mode={mode}
-                  onError={setLoadError}
-                  className="absolute inset-0"
-                />
-              </Suspense>
+              <CanvasBoundary resetKey={item.id}>
+                <Suspense fallback={null}>
+                  <ModelPreview
+                    url={url}
+                    mode={mode}
+                    onError={setLoadError}
+                    className="absolute inset-0"
+                  />
+                </Suspense>
+              </CanvasBoundary>
             ) : null}
             {!url || loadError || item.state === 'failed' ? (
               <div className="absolute inset-0 grid place-items-center p-6">
