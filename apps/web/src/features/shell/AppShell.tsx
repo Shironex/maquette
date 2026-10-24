@@ -1,7 +1,16 @@
+import { useEffect } from 'react';
 import { Logo, NavRail, StatusBar, TrafficLights, cn, type StatusBarItem } from '@maquette/ui';
+import { events } from '@/ipc/generated/bindings';
 import { CHROME } from '@/ipc/runtime';
+import { formatAgo } from '@/lib/format';
+import { useNow } from '@/lib/useNow';
 import { useAppStore } from '@/state/app-store';
+import { useInboxStore } from '@/state/inbox-store';
+import { runStatusLine, runSummary } from '@/state/pipeline';
+import { usePipelineStore } from '@/state/pipeline-store';
 import { BoardView } from '@/features/board/BoardView';
+import { InboxView } from '@/features/inbox/InboxView';
+import { PipelineView } from '@/features/pipeline/PipelineView';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { PlaceholderView } from '@/features/tools/PlaceholderView';
 import { projectMeta, projectThumb } from './projectArt';
@@ -12,11 +21,23 @@ export function AppShell() {
   const setView = useAppStore(s => s.setView);
   const workspace = useAppStore(s => s.workspace);
   const project = workspace?.project ?? null;
+  const projectId = project?.id ?? null;
+  const inboxCount = useInboxStore(s => s.snapshot?.items.length ?? 0);
+  const running = usePipelineStore(s => Boolean(s.view?.active));
+  useLiveData(projectId, workspace?.root ?? null);
+
+  const items = TOOL_VIEWS.map(v =>
+    v.id === 'inbox' && inboxCount > 0
+      ? { ...v, badge: inboxCount }
+      : v.id === 'pipeline' && running
+        ? { ...v, live: true }
+        : v
+  );
 
   return (
     <div className="flex h-full min-h-0 bg-app text-fg">
       <NavRail<ViewId>
-        items={TOOL_VIEWS}
+        items={items}
         footer={SETTINGS_VIEW}
         value={view}
         onChange={setView}
@@ -55,10 +76,39 @@ export function AppShell() {
   );
 }
 
+/**
+ * Loads the pipeline and the inbox for the open project and keeps them
+ * fresh from the runner and the inbox watcher.
+ */
+function useLiveData(projectId: string | null, root: string | null) {
+  const loadPipeline = usePipelineStore(s => s.load);
+  const onEvent = usePipelineStore(s => s.onEvent);
+  const loadInbox = useInboxStore(s => s.load);
+  useEffect(() => {
+    if (projectId) void loadPipeline(projectId);
+  }, [projectId, loadPipeline]);
+  useEffect(() => {
+    if (root) void loadInbox();
+  }, [root, loadInbox]);
+  useEffect(() => {
+    const stops = [
+      events.pipelineUpdate.listen(e => onEvent(e.payload)),
+      events.inboxChanged.listen(() => void loadInbox()),
+    ];
+    return () => {
+      for (const stop of stops) void stop.then(fn => fn());
+    };
+  }, [onEvent, loadInbox]);
+}
+
 function CurrentView({ view }: { view: ViewId }) {
   switch (view) {
     case 'board':
       return <BoardView />;
+    case 'pipeline':
+      return <PipelineView />;
+    case 'inbox':
+      return <InboxView />;
     case 'settings':
       return <SettingsView />;
     default:
@@ -75,12 +125,42 @@ function ShellStatusBar() {
     : blender?.status === 'found'
       ? { label: `Blender ${blender.version ?? ''}, headless`.replace('  ', ' '), icon: 'cube' }
       : { label: 'Blender not found', dot: 'offline' };
-  const inbox = workspace ? `${workspace.display}/${workspace.config.layout.inbox}` : null;
+  const inbox = useInboxStore(s => s.snapshot);
+  const pipeline = usePipelineStore(s => s.view);
+  const now = useNow(15_000);
+  const latest = pipeline?.runs[0];
+  const inboxDir =
+    inbox?.dir ?? (workspace ? `${workspace.display}/${workspace.config.layout.inbox}` : null);
+  const inboxItem: StatusBarItem[] = inboxDir
+    ? [
+        {
+          label: `Inbox at ${inboxDir}${inbox?.watching ? ', watching' : ''}`,
+          ...(inbox?.watching ? { dot: 'ok' as const } : { icon: 'tray' as const }),
+        },
+      ]
+    : [];
+  const runItems: StatusBarItem[] =
+    latest && latest.state === 'running'
+      ? [
+          { label: runStatusLine(latest), dot: 'running' },
+          { label: runSummary(latest), right: true },
+        ]
+      : latest
+        ? [
+            ...(latest.state === 'failed'
+              ? [{ label: runStatusLine(latest), dot: 'offline' as const }]
+              : []),
+            {
+              label: `Last run ${formatAgo(latest.finishedAtMs ?? latest.queuedAtMs ?? now, now)}`,
+              right: true,
+            },
+          ]
+        : [{ label: 'No runs yet', right: true }];
   const items: StatusBarItem[] = [
     { label: 'Local worker connected', dot: 'ok' },
     blenderItem,
-    ...(inbox ? [{ label: `Inbox at ${inbox}`, icon: 'tray' as const }] : []),
-    { label: 'No runs yet', right: true },
+    ...inboxItem,
+    ...runItems,
   ];
   return <StatusBar items={items} />;
 }

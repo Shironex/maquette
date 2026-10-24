@@ -1,0 +1,87 @@
+import { useState, type FormEvent } from 'react';
+import { Button, Select, TextField } from '@maquette/ui';
+import {
+  commands,
+  errorMessage,
+  type AssetKind,
+  type ProjectManifest,
+  type Stage,
+} from '@/ipc/client';
+import { STAGES, STAGE_LABEL } from '@/state/pipeline';
+
+const KINDS: readonly { value: AssetKind; label: string }[] = [
+  { value: 'prop', label: 'Prop' },
+  { value: 'character', label: 'Character' },
+  { value: 'scene', label: 'Scene' },
+];
+
+/** The small form under Add asset: a name, a kind and the starting column. */
+export function AddAssetForm({
+  project,
+  onDone,
+  onCancel,
+}: {
+  project: string;
+  onDone: (project: ProjectManifest) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [kind, setKind] = useState<AssetKind>('prop');
+  const [stage, setStage] = useState<Stage>('concept');
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError('Give the asset a name.');
+      return;
+    }
+    setSaving(true);
+    try {
+      onDone(await commands.assetAdd(project, { name: name.trim(), kind, stage }));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <form
+      aria-label="Add asset"
+      onSubmit={e => void submit(e)}
+      onKeyDown={e => {
+        if (e.key === 'Escape') onCancel();
+      }}
+      className="absolute top-full right-0 z-30 mt-2 flex w-[300px] flex-col gap-3 rounded-card border border-line-strong bg-panel p-4 shadow-window"
+    >
+      <TextField
+        label="Name"
+        autoFocus
+        value={name}
+        placeholder="Stone lantern"
+        onChange={e => {
+          setName(e.target.value);
+          setError(null);
+        }}
+        note={error ? { tone: 'missing', text: error } : undefined}
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <Select label="Kind" options={KINDS} value={kind} onChange={setKind} />
+        <Select
+          label="Column"
+          options={STAGES.map(s => ({ value: s, label: STAGE_LABEL[s] }))}
+          value={stage}
+          onChange={setStage}
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" disabled={saving}>
+          Add asset
+        </Button>
+      </div>
+    </form>
+  );
+}

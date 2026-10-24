@@ -1,0 +1,113 @@
+/**
+ * The pipeline view of the current project, kept fresh by runner events.
+ */
+import { create } from 'zustand';
+import {
+  commands,
+  errorMessage,
+  type CompressPreset,
+  type PipelineEvent,
+  type PipelineView,
+} from '@/ipc/client';
+import { applyEvent } from './pipeline';
+import { useAppStore } from './app-store';
+
+interface PipelineStore {
+  view: PipelineView | null;
+  loading: boolean;
+  error: string | null;
+  /** True between pressing Run and the run's first event. */
+  starting: boolean;
+  load: (project: string) => Promise<void>;
+  run: (options?: { from?: string | null; force?: boolean }) => Promise<void>;
+  cancel: () => Promise<void>;
+  savePresets: (presets: CompressPreset[]) => Promise<boolean>;
+  onEvent: (event: PipelineEvent) => void;
+}
+
+export const usePipelineStore = create<PipelineStore>((set, get) => ({
+  view: null,
+  loading: false,
+  error: null,
+  starting: false,
+
+  load: async project => {
+    set({ loading: true, error: null });
+    try {
+      const view = await commands.pipelineGet(project);
+      set({ view, loading: false });
+    } catch (error) {
+      set({ loading: false, error: errorMessage(error) });
+    }
+  },
+
+  run: async ({ from = null, force = false } = {}) => {
+    const view = get().view;
+    if (!view) return;
+    set({ starting: true });
+    try {
+      const run = await commands.pipelineRun(view.project, from, force);
+      get().onEvent({ type: 'run', run });
+    } catch (error) {
+      useAppStore.getState().notify({
+        status: 'failed',
+        title: 'The run did not start',
+        detail: errorMessage(error),
+      });
+    } finally {
+      set({ starting: false });
+    }
+  },
+
+  cancel: async () => {
+    const view = get().view;
+    const id = view?.active ?? view?.queued[0]?.id;
+    if (!id) return;
+    try {
+      await commands.pipelineCancel(id);
+    } catch (error) {
+      useAppStore.getState().notify({
+        status: 'failed',
+        title: 'Could not stop the run',
+        detail: errorMessage(error),
+      });
+    }
+  },
+
+  savePresets: async presets => {
+    const view = get().view;
+    if (!view) return false;
+    try {
+      const next = await commands.pipelineSavePresets(view.project, presets);
+      set({
+        view: { ...next, runs: get().view?.runs ?? next.runs, log: get().view?.log ?? next.log },
+      });
+      useAppStore.getState().notify({ status: 'done', title: 'Presets saved' });
+      return true;
+    } catch (error) {
+      useAppStore.getState().notify({
+        status: 'failed',
+        title: 'Presets not saved',
+        detail: errorMessage(error),
+      });
+      return false;
+    }
+  },
+
+  onEvent: event => {
+    const view = get().view;
+    if (!view) return;
+    const next = applyEvent(view, event);
+    if (next !== view) set({ view: next });
+    // A finished run changed files on disk: refresh artifacts and sizes.
+    if (event.type === 'run' && ['done', 'failed', 'cancelled'].includes(event.run.state)) {
+      const project = view.project;
+      void commands.pipelineGet(project).then(
+        fresh => {
+          if (get().view?.project === project) set({ view: fresh });
+        },
+        () => undefined
+      );
+    }
+  },
+}));

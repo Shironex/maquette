@@ -7,6 +7,7 @@ import {
   commands,
   errorMessage,
   type Bootstrap,
+  type ProjectManifest,
   type ToolId,
   type ToolReport,
   type WorkspaceConfig,
@@ -45,6 +46,8 @@ interface AppStore {
   enterApp: (snapshot: WorkspaceSnapshot) => void;
   setWorkspace: (snapshot: WorkspaceSnapshot) => void;
   setConfig: (config: WorkspaceConfig) => void;
+  /** Swaps in a changed project (new assets, a move) everywhere it shows. */
+  setProject: (project: ProjectManifest) => void;
   setView: (view: ViewId) => void;
   syncViewFromHash: () => void;
   detectTools: () => Promise<void>;
@@ -98,6 +101,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setConfig: config => {
     const workspace = get().workspace;
     if (workspace) set({ workspace: { ...workspace, config } });
+  },
+
+  setProject: project => {
+    const workspace = get().workspace;
+    if (!workspace) return;
+    set({
+      workspace: {
+        ...workspace,
+        project: workspace.project?.id === project.id ? project : workspace.project,
+        projects: workspace.projects.map(p => (p.id === project.id ? project : p)),
+      },
+    });
   },
 
   setView: view => {

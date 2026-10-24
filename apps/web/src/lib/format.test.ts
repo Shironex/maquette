@@ -35,3 +35,10 @@ describe('homePath', () => {
     expect(homePath('/opt/x', null)).toBe('/opt/x');
   });
 });
+
+describe('formatAgo in days', () => {
+  it('switches to days after two days', () => {
+    expect(formatAgo(0, 47 * 3_600_000)).toBe('47 h ago');
+    expect(formatAgo(0, 144 * 3_600_000)).toBe('6 days ago');
+  });
+});

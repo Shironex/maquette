@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, type DragEvent } from 'react';
 import {
+  AssetCard,
   BudgetMeter,
   Button,
   Dropzone,
@@ -7,39 +8,51 @@ import {
   SegmentedControl,
   StageStepper,
   TopBar,
-  PIPELINE_STAGES,
+  cn,
   type IconName,
 } from '@maquette/ui';
 import appIcon from '@/assets/app-icon.png';
+import { commands, errorMessage, type Asset, type Stage } from '@/ipc/client';
+import { fileUrl } from '@/ipc/files';
 import { formatAgo } from '@/lib/format';
 import { readFlag, writeFlag } from '@/lib/storage';
 import { useAppStore } from '@/state/app-store';
+import { assetCount, cardNumbers, columns, projectFile } from '@/state/board';
 import { TEMPLATE_LABEL } from '@/state/onboarding';
+import { STAGES, STAGE_LABEL, estimatedTransfer, stageViews } from '@/state/pipeline';
+import { usePipelineStore } from '@/state/pipeline-store';
+import { Menu } from '@/features/common/Menu';
+import { AddAssetForm } from './AddAssetForm';
 
 const TIPS_KEY = 'maquette.board.tipsHidden';
+const DRAG_TYPE = 'application/x-maquette-asset';
 
-const COLUMNS: readonly { label: string; icon: IconName; slots: number[] }[] = [
-  { label: 'Concept', icon: 'image', slots: [88] },
-  { label: 'Refs', icon: 'images', slots: [88, 88] },
-  { label: 'Tripo', icon: 'cube', slots: [88, 88] },
-  { label: 'Blender', icon: 'cube-transparent', slots: [88, 88, 88] },
-  { label: 'Web', icon: 'globe', slots: [88, 88] },
-  { label: 'Ship', icon: 'rocket-launch', slots: [176] },
-];
-
-const STAGES = PIPELINE_STAGES.map((label, i) => ({
-  id: label.toLowerCase(),
-  label,
-  state: i === 0 ? ('current' as const) : ('todo' as const),
-}));
+const STAGE_ICON: Record<Stage, IconName> = {
+  concept: 'image',
+  refs: 'images',
+  tripo: 'cube',
+  blender: 'cube-transparent',
+  web: 'globe',
+  ship: 'rocket-launch',
+};
 
 export function BoardView() {
   const workspace = useAppStore(s => s.workspace);
   const setView = useAppStore(s => s.setView);
+  const setProject = useAppStore(s => s.setProject);
   const notify = useAppStore(s => s.notify);
+  const pipeline = usePipelineStore(s => s.view);
+  const runPipeline = usePipelineStore(s => s.run);
   const [tipsHidden, setTipsHidden] = useState(() => readFlag(TIPS_KEY));
+  const [adding, setAdding] = useState(false);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<Stage | null>(null);
   const project = workspace?.project;
+  const assets = project?.assets ?? [];
   const budget = workspace?.config.budgets.sceneMb ?? 3;
+  const latest = pipeline?.runs[0];
+  const running = Boolean(pipeline?.active);
+  const byStage = columns(assets);
 
   const hideTips = () => {
     setTipsHidden(true);
@@ -49,19 +62,67 @@ export function BoardView() {
     notify({
       status: 'info',
       title: `${what} arrives in a later version`,
-      detail: 'This build sets up the workspace and the toolchain.',
+      detail: 'This build runs the pipeline and checks models in the inbox.',
     });
+
+  const move = async (asset: Asset, stage: Stage) => {
+    if (!project || asset.stage === stage) return;
+    try {
+      setProject(await commands.assetMove(project.id, asset.id, stage));
+    } catch (error) {
+      notify({
+        status: 'failed',
+        title: `Could not move ${asset.name}`,
+        detail: errorMessage(error),
+      });
+    }
+  };
+  const openInBlender = async (asset: Asset) => {
+    if (!project) return;
+    try {
+      await commands.assetOpenInBlender(project.id, asset.id);
+    } catch (error) {
+      notify({ status: 'failed', title: 'Could not open Blender', detail: errorMessage(error) });
+    }
+  };
+  const onDrop = (stage: Stage) => (e: DragEvent) => {
+    e.preventDefault();
+    setDropTarget(null);
+    const id = e.dataTransfer.getData(DRAG_TYPE);
+    const asset = assets.find(a => a.id === id);
+    if (asset) void move(asset, stage);
+  };
+  const run = () => {
+    void runPipeline();
+    setView('pipeline');
+  };
 
   return (
     <>
       <TopBar
-        lead={<StageStepper stages={STAGES} />}
+        lead={<StageStepper stages={stageViews(assets, latest)} />}
         right={
           <>
-            <BudgetMeter label="Scene budget" value={0} target={budget} unit="MB" />
-            <Button icon="play" disabled title="Add assets first">
-              Run pipeline
-            </Button>
+            <BudgetMeter
+              label="Scene budget"
+              value={pipeline ? estimatedTransfer(pipeline) / 1e6 : 0}
+              target={budget}
+              unit="MB"
+            />
+            {running ? (
+              <Button icon="flow-arrow" onClick={() => setView('pipeline')}>
+                Run in progress
+              </Button>
+            ) : (
+              <Button
+                icon="play"
+                disabled={!pipeline || pipeline.def.steps.length === 0}
+                title={pipeline ? 'Runs every step, skipping cached ones' : 'Loading the pipeline'}
+                onClick={run}
+              >
+                Run pipeline
+              </Button>
+            )}
           </>
         }
       />
@@ -71,11 +132,11 @@ export function BoardView() {
             <h1 className="text-screen-title">{project?.name ?? 'No project'}</h1>
             <p className="text-fg-mute">
               {project
-                ? `No assets yet · ${TEMPLATE_LABEL[project.template]} · created ${formatAgo(Date.parse(project.createdAt), Date.now())}`
+                ? `${assetCount(assets.length)} · ${TEMPLATE_LABEL[project.template]} · created ${formatAgo(Date.parse(project.createdAt), Date.now())}`
                 : 'Create a project in Settings to start.'}
             </p>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="relative ml-auto flex items-center gap-2">
             <SegmentedControl
               label="Board layout"
               options={[
@@ -84,50 +145,123 @@ export function BoardView() {
               ]}
               defaultValue="board"
             />
-            <Button icon="plus" onClick={() => later('Adding assets')}>
+            <Button
+              icon="plus"
+              disabled={!project}
+              aria-expanded={adding}
+              onClick={() => setAdding(v => !v)}
+            >
               Add asset
             </Button>
+            {adding && project ? (
+              <AddAssetForm
+                project={project.id}
+                onDone={next => {
+                  setProject(next);
+                  setAdding(false);
+                }}
+                onCancel={() => setAdding(false)}
+              />
+            ) : null}
           </div>
         </div>
 
         <div className="relative min-h-0 flex-1">
           <div className="absolute inset-0 grid grid-cols-6 gap-3">
-            {COLUMNS.map(col => (
-              <section
-                key={col.label}
-                aria-label={`${col.label}, empty`}
-                className="flex flex-col gap-2 rounded-card border border-line bg-panel p-2"
-              >
-                <div className="flex items-center gap-2 px-1 pt-1 pb-0.5">
-                  <Icon name={col.icon} className="text-fg-mute" />
-                  <h2 className="text-[13px] leading-5 font-semibold tracking-[-0.01em]">
-                    {col.label}
-                  </h2>
-                  <span className="font-mono text-[11.5px] text-fg-mute">0</span>
-                </div>
-                {col.label === 'Concept' ? (
-                  <Dropzone
-                    title="Drop concept art"
-                    hint="PNG or JPG, any size"
-                    icon="image"
-                    className="h-[176px]"
-                    onFiles={() => later('Concept import')}
-                    onActivate={() => later('Concept import')}
-                  />
-                ) : null}
-                {col.slots.map((h, i) => (
-                  <div
-                    key={i}
-                    aria-hidden="true"
-                    className="rounded-card border border-dashed border-line-strong"
-                    style={{ height: h }}
-                  />
-                ))}
-              </section>
-            ))}
+            {STAGES.map(stage => {
+              const list = byStage[stage];
+              return (
+                <section
+                  key={stage}
+                  aria-label={`${STAGE_LABEL[stage]}, ${list.length} ${list.length === 1 ? 'asset' : 'assets'}`}
+                  onDragOver={e => {
+                    if (e.dataTransfer.types.includes(DRAG_TYPE)) {
+                      e.preventDefault();
+                      setDropTarget(stage);
+                    }
+                  }}
+                  onDragLeave={() => setDropTarget(t => (t === stage ? null : t))}
+                  onDrop={onDrop(stage)}
+                  className={cn(
+                    'flex min-h-0 flex-col gap-2 overflow-y-auto rounded-card border border-line bg-panel p-2',
+                    dropTarget === stage && 'border-clay-line bg-clay-soft/40'
+                  )}
+                >
+                  <div className="flex items-center gap-2 px-1 pt-1 pb-0.5">
+                    <Icon name={STAGE_ICON[stage]} className="text-fg-mute" />
+                    <h2 className="text-[13px] leading-5 font-semibold tracking-[-0.01em]">
+                      {STAGE_LABEL[stage]}
+                    </h2>
+                    <span className="font-mono text-[11.5px] text-fg-mute">{list.length}</span>
+                  </div>
+                  {stage === 'concept' && assets.length === 0 ? (
+                    <Dropzone
+                      title="Drop concept art"
+                      hint="PNG or JPG, any size"
+                      icon="image"
+                      className="h-[176px]"
+                      onFiles={() => later('Concept import')}
+                      onActivate={() => later('Concept import')}
+                    />
+                  ) : null}
+                  {list.map(asset => {
+                    const n = cardNumbers(asset);
+                    const thumbPath =
+                      asset.thumbnail && workspace ? projectFile(workspace, asset.thumbnail) : null;
+                    const others = STAGES.filter(s => s !== asset.stage);
+                    return (
+                      <AssetCard
+                        key={asset.id}
+                        name={asset.name}
+                        thumb={fileUrl(thumbPath) ?? undefined}
+                        version={n.version}
+                        latest={n.version !== undefined}
+                        tris={n.tris}
+                        size={n.size}
+                        status={n.status}
+                        draggable
+                        onDragStart={e => {
+                          e.dataTransfer.setData(DRAG_TYPE, asset.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onMore={() => setMenuFor(m => (m === asset.id ? null : asset.id))}
+                        moreOpen={menuFor === asset.id}
+                        menu={
+                          <Menu
+                            label={`${asset.name} actions`}
+                            onClose={() => setMenuFor(null)}
+                            items={[
+                              ...others.map(s => ({
+                                id: `move-${s}`,
+                                label: `Move to ${STAGE_LABEL[s]}`,
+                                icon: STAGE_ICON[s],
+                                onSelect: () => void move(asset, s),
+                              })),
+                              {
+                                id: 'blender',
+                                label: 'Open in Blender',
+                                icon: 'arrow-square-out',
+                                disabled: asset.versions.length === 0,
+                                onSelect: () => void openInBlender(asset),
+                              },
+                            ]}
+                          />
+                        }
+                      />
+                    );
+                  })}
+                  {list.length === 0 && !(stage === 'concept' && assets.length === 0) ? (
+                    <div
+                      aria-hidden="true"
+                      className="h-[88px] flex-none rounded-card border border-dashed border-line-strong"
+                    />
+                  ) : null}
+                </section>
+              );
+            })}
           </div>
 
-          {tipsHidden || !project ? null : (
+          {tipsHidden || !project || assets.length > 0 ? null : (
             <FirstRunCard
               name={project.name}
               budget={budget}

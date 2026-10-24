@@ -56,6 +56,16 @@ export default defineConfig(
     },
   },
   {
+    // react-three-fiber elements take three.js props the DOM rule does not know.
+    files: ['apps/web/src/features/viewer/**/*.tsx'],
+    rules: {
+      'react/no-unknown-property': [
+        'error',
+        { ignore: ['object', 'attach', 'args', 'position', 'intensity'] },
+      ],
+    },
+  },
+  {
     ignores: [
       '**/node_modules/**',
       '**/dist/**',

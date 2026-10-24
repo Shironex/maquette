@@ -12,14 +12,16 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(digits)} ${units[unit]}`;
 }
 
-/** "just now", "4 s ago", "2 min ago", "3 h ago". */
+/** "just now", "4 s ago", "2 min ago", "3 h ago", "6 days ago". */
 export function formatAgo(thenMs: number, nowMs: number): string {
   const s = Math.max(0, Math.round((nowMs - thenMs) / 1000));
   if (s < 3) return 'just now';
   if (s < 60) return `${s} s ago`;
   const m = Math.round(s / 60);
   if (m < 60) return `${m} min ago`;
-  return `${Math.round(m / 60)} h ago`;
+  const h = Math.round(m / 60);
+  if (h < 48) return `${h} h ago`;
+  return `${Math.round(h / 24)} days ago`;
 }
 
 /** "60,000" */
