@@ -33,7 +33,7 @@ interface LabStore {
   draft: Draft;
   /** The image open in the lightbox, as an absolute path. */
   lightbox: string | null;
-  /** What is running: `generate`, `sheet`, `send` or null. */
+  /** What is running: `generate`, `sheet`, `send`, `move` or null. */
   busy: string | null;
   load: (project: string) => Promise<void>;
   select: (direction: string) => void;
@@ -53,6 +53,8 @@ interface LabStore {
   /** Copies the picks into refs/; resolves to the asset's id, or null when it failed. */
   /** Copies the picks into refs/. `quiet` skips the toast, for when the Send to 3D panel opens next. */
   sendPicks: (kind: AssetKind, quiet?: boolean) => Promise<string | null>;
+  /** Moves an earlier direction, with its refs and Board card, into another project. */
+  moveDirection: (direction: string, to: string) => Promise<boolean>;
   openLightbox: (path: string | null) => void;
   onEvent: (event: ConceptEvent) => void;
 }
@@ -247,6 +249,39 @@ export const useLabStore = create<LabStore>((set, get) => ({
     } catch (error) {
       notify('failed', 'Could not send the picks', errorMessage(error));
       return null;
+    } finally {
+      set({ busy: null });
+    }
+  },
+
+  moveDirection: async (direction, to) => {
+    const view = get().view;
+    if (!view || get().busy) return false;
+    set({ busy: 'move' });
+    try {
+      const moved = await commands.labMoveDirection(view.project, direction, to);
+      const app = useAppStore.getState();
+      app.setProject(moved.from);
+      app.setProject(moved.to);
+      if (get().selected === direction) {
+        set({ selected: null, draft: { ...EMPTY_DRAFT, count: get().draft.count } });
+      }
+      if (stillOn(view.project)) await get().load(view.project);
+      const n = moved.direction.images.length;
+      notify(
+        'done',
+        `${moved.direction.name} moved to ${moved.to.name}`,
+        [
+          `Its ${n} ${n === 1 ? 'concept' : 'concepts'}, picks and stars went along.`,
+          moved.asset ? `${moved.asset.name} is on its Board.` : null,
+        ]
+          .filter(Boolean)
+          .join(' ')
+      );
+      return true;
+    } catch (error) {
+      notify('failed', 'Could not move the direction', errorMessage(error));
+      return false;
     } finally {
       set({ busy: null });
     }

@@ -16,8 +16,9 @@ import { IN_TAURI } from '@/ipc/runtime';
 import { useNativeDrop, type DropPoint } from '@/lib/useNativeDrop';
 import { Menu } from '@/features/common/Menu';
 import { useAppStore } from '@/state/app-store';
-import { ASPECTS, MAX_IMAGES, MAX_REFS, coverImage, directionId, inProject } from '@/state/lab';
+import { ASPECTS, MAX_IMAGES, MAX_REFS, directionId, inProject } from '@/state/lab';
 import { useLabStore } from '@/state/lab-store';
+import { EarlierDirections } from './EarlierDirections';
 
 const IMAGE_FILE = /\.(png|jpe?g|webp)$/i;
 
@@ -27,9 +28,7 @@ export function Composer({ view }: { view: LabView }) {
   const setDraft = useLabStore(s => s.setDraft);
   const generate = useLabStore(s => s.generate);
   const busy = useLabStore(s => s.busy);
-  const reuse = useLabStore(s => s.reuse);
   const newDraft = useLabStore(s => s.newDraft);
-  const selected = useLabStore(s => s.selected);
   const codex = useAppStore(s => s.tools.reports.find(r => r.id === 'codex'));
   const existing = view.directions.find(d => d.id === directionId(draft.name));
   const ready = draft.name.trim() !== '' && draft.prompt.trim() !== '';
@@ -86,44 +85,7 @@ export function Composer({ view }: { view: LabView }) {
           </div>
         </Field>
       </div>
-      {view.directions.length > 0 ? (
-        <div className="flex flex-col gap-1.5 border-t border-line pt-3.5">
-          <span className="mb-1 text-caption text-fg-mute uppercase">Earlier directions</span>
-          <ul className="flex list-none flex-col">
-            {view.directions.map(d => {
-              const cover = coverImage(d);
-              const url = cover ? fileUrl(inProject(view.projectDir, cover.file)) : null;
-              return (
-                <li key={d.id}>
-                  <button
-                    type="button"
-                    aria-current={d.id === selected ? 'true' : undefined}
-                    onClick={() => reuse(d.id)}
-                    className={cn(
-                      '-mx-1.5 flex w-[calc(100%+12px)] cursor-pointer items-center gap-2.5 rounded-control px-1.5 py-1 text-left hover:bg-hover',
-                      d.id === selected && 'bg-hover'
-                    )}
-                  >
-                    {url ? (
-                      <img
-                        src={url}
-                        alt=""
-                        className="h-7 w-11 flex-none rounded-[5px] object-cover"
-                      />
-                    ) : (
-                      <span className="h-7 w-11 flex-none rounded-[5px] bg-raised" />
-                    )}
-                    <span className="min-w-0 flex-1 truncate">{d.name}</span>
-                    <span className="text-meta text-fg-mute tabular-nums">
-                      {d.images.length} {d.images.length === 1 ? 'image' : 'images'}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
+      {view.directions.length > 0 ? <EarlierDirections view={view} /> : null}
       <div className="mt-auto flex flex-col gap-2 pt-1">
         <Button
           variant="primary"

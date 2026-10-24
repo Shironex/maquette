@@ -69,6 +69,29 @@ describe('switching projects', () => {
   });
 });
 
+describe('moving a lab direction', () => {
+  it('takes the landing studio and its Refs card to another project', async () => {
+    await openMockWorkspace();
+    await useLabStore.getState().load('moon-island');
+    useLabStore.getState().reuse('maquette-landing-studio');
+    expect(
+      await useLabStore.getState().moveDirection('maquette-landing-studio', 'rooftop-cinema')
+    ).toBe(true);
+    const lab = useLabStore.getState();
+    expect(lab.view?.directions.some(d => d.id === 'maquette-landing-studio')).toBe(false);
+    expect(lab.selected).not.toBe('maquette-landing-studio');
+    expect(lab.draft.name).not.toBe('Maquette landing studio');
+    const projects = useAppStore.getState().workspace!.projects;
+    const moon = projects.find(p => p.id === 'moon-island')!;
+    const rooftop = projects.find(p => p.id === 'rooftop-cinema')!;
+    expect((moon.assets ?? []).some(a => a.name === 'Maquette landing studio')).toBe(false);
+    const card = (rooftop.assets ?? []).find(a => a.name === 'Maquette landing studio');
+    expect(card?.stage).toBe('refs');
+    expect(card?.thumbnail).toMatch(/^refs\//);
+    expect(useAppStore.getState().workspace?.project?.id).toBe('moon-island');
+  });
+});
+
 describe('the workspace wide inbox', () => {
   const projects = [
     { id: 'moon-island', name: 'Moon Island' },

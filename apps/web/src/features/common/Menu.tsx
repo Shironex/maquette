@@ -6,6 +6,8 @@ export interface MenuItem {
   label: string;
   icon?: IconName;
   disabled?: boolean;
+  /** Leaves the menu open, for an item that leads to more choices. */
+  keepOpen?: boolean;
   onSelect: () => void;
 }
 
@@ -58,7 +60,7 @@ export function Menu({
           disabled={item.disabled}
           onClick={() => {
             item.onSelect();
-            onClose();
+            if (!item.keepOpen) onClose();
           }}
           className="flex w-full cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-left text-[13px] hover:bg-hover focus-visible:bg-hover focus-visible:outline-none disabled:cursor-default disabled:text-fg-mute disabled:hover:bg-transparent"
         >
