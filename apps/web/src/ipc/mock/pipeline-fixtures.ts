@@ -8,6 +8,8 @@ import type {
   PipelineDef,
   PipelineView,
   RunRecord,
+  StarterState,
+  StarterStatus,
   StepDef,
   StepRecord,
 } from '../client';
@@ -344,5 +346,33 @@ export function pipelineView(
         ]
       : [],
     defaults: { textureSize: 2048, codec: 'etc1s', meshopt: 'high' },
+    starters: currentStarters(),
   };
+}
+
+/** The diorama starters, as a project made today has them. */
+export const DIORAMA_STARTERS = [
+  'tools/build_scene.py',
+  'tools/bake_light.py',
+  'tools/export_web.py',
+  'tools/render_stops.py',
+  'tools/ship.mjs',
+] as const;
+
+export function currentStarters(): StarterStatus[] {
+  return DIORAMA_STARTERS.map(path => ({ path, state: 'current', backup: null }));
+}
+
+/**
+ * Moon Island was made before the starters grew up: three untouched old
+ * copies and one the user edited.
+ */
+export function oldStarters(): StarterStatus[] {
+  const state: Record<string, StarterState> = {
+    'tools/build_scene.py': 'outdated',
+    'tools/bake_light.py': 'outdated',
+    'tools/export_web.py': 'edited',
+    'tools/render_stops.py': 'outdated',
+  };
+  return DIORAMA_STARTERS.map(path => ({ path, state: state[path] ?? 'current', backup: null }));
 }

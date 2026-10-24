@@ -132,6 +132,8 @@ pub fn types() -> specta::Types {
         .register::<concepts::NewConcepts>()
         .register::<concepts::SentPicks>()
         .register::<concepts::MovedDirection>()
+        .register::<pipeline::starter::StarterState>()
+        .register::<pipeline::starter::StarterStatus>()
         .register::<concepts::ConceptJobState>()
         .register::<concepts::ConceptJob>()
         .register::<concepts::ConceptEvent>()

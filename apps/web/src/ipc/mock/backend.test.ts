@@ -270,3 +270,41 @@ describe('mock backend', () => {
     expect(landing.directions.map(d => d.name)).toEqual(['Maquette landing studio']);
   });
 });
+
+describe('mock starter scripts', () => {
+  it('updates untouched old starters and replaces an edited one only when asked', async () => {
+    const handle = createBackend({ scenario: 'configured', probeDelay: 0, pace: 0 });
+    const call = <T>(cmd: string, args: Record<string, unknown> = {}) => handle(cmd, args) as T;
+    type View = { starters: { path: string; state: string; backup: string | null }[] };
+    const before = await call<View>('pipeline_get', { project: 'moon-island' });
+    expect(before.starters.filter(s => s.state === 'outdated')).toHaveLength(3);
+    const all = before.starters.map(s => s.path);
+    const kept = await call<View>('pipeline_update_starters', {
+      project: 'moon-island',
+      scripts: all,
+      replace: false,
+    });
+    expect(kept.starters.map(s => s.state)).toEqual([
+      'current',
+      'current',
+      'edited',
+      'current',
+      'current',
+    ]);
+    const replaced = await call<View>('pipeline_update_starters', {
+      project: 'moon-island',
+      scripts: ['tools/export_web.py'],
+      replace: true,
+    });
+    expect(replaced.starters.find(s => s.path === 'tools/export_web.py')).toEqual({
+      path: 'tools/export_web.py',
+      state: 'current',
+      backup: 'tools/export_web.py.bak',
+    });
+    expect(
+      (await call<View>('pipeline_get', { project: 'rooftop-cinema' })).starters.every(
+        s => s.state === 'current'
+      )
+    ).toBe(true);
+  });
+});

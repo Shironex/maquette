@@ -8,6 +8,7 @@ use maquette_core::inbox::checks::texture_px;
 use maquette_core::pipeline::cache::{self, project_cache_dir};
 use maquette_core::pipeline::history::{LogEntry, RunRecord};
 use maquette_core::pipeline::runner::{JobRunner, PipelineRunner, RunSetup};
+use maquette_core::pipeline::starter::{self, StarterStatus};
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::pipeline::{
     self, CompressDefaults, CompressPreset, PipelineDef, PipelineIssue, history, presets,
@@ -66,6 +67,8 @@ pub struct PipelineView {
     pub artifacts: Vec<Artifact>,
     pub models: Vec<ModelFile>,
     pub defaults: CompressDefaultsView,
+    /// The template's starter scripts against the ones this build ships.
+    pub starters: Vec<StarterStatus>,
 }
 
 fn defaults(config: &WorkspaceConfig) -> CompressDefaults {
@@ -170,7 +173,9 @@ pub(crate) fn view(
     }
     let (active, queued) = runner.active(project_id);
     let d = defaults(&ctx.config);
+    let starters = starter::status(&ctx.project_dir, ctx.manifest.template);
     Ok(PipelineView {
+        starters,
         project: ctx.manifest.id.clone(),
         root: session.display(&run_root),
         issues: pipeline::validate(&ctx.def),
@@ -283,6 +288,38 @@ pub fn pipeline_save_presets(
     save_presets(&session, &runner.0, &project, presets)
 }
 
+/// Updates the starter scripts at `scripts`: untouched older copies and
+/// missing ones always, edited ones only with `replace` (the old file is kept
+/// as `<name>.bak`). Refused while the project's pipeline runs.
+pub(crate) fn update_starters(
+    session: &Session,
+    runner: &PipelineRunner,
+    project_id: &str,
+    scripts: &[String],
+    replace: bool,
+) -> CommandResult<PipelineView> {
+    if runner.active(project_id).0.is_some() {
+        return Err(super::invalid(
+            "The pipeline is running. Update the scripts once the run is done.",
+        ));
+    }
+    let ctx = context(session, project_id)?;
+    starter::update(&ctx.project_dir, ctx.manifest.template, scripts, replace)?;
+    view(session, runner, project_id)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn pipeline_update_starters(
+    session: State<'_, Session>,
+    runner: State<'_, Pipelines>,
+    project: String,
+    scripts: Vec<String>,
+    replace: bool,
+) -> CommandResult<PipelineView> {
+    update_starters(&session, &runner.0, &project, &scripts, replace)
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -312,6 +349,42 @@ mod tests {
         )
         .expect("project");
         (dir, session, manifest.id)
+    }
+
+    #[test]
+    fn old_starter_scripts_show_and_update_from_the_view() {
+        use maquette_core::pipeline::starter::StarterState;
+        let (_dir, session, id) = open();
+        let runner = PipelineRunner::new(Arc::new(NullSink));
+        let first = view(&session, &runner, &id).expect("view");
+        assert!(!first.starters.is_empty());
+        assert!(
+            first
+                .starters
+                .iter()
+                .all(|s| s.state == StarterState::Current)
+        );
+        let (root, config) = session.workspace().expect("ws");
+        let dir = project::dir(&root, &config.layout, &id).expect("dir");
+        std::fs::write(dir.join("tools/bake_light.py"), "print('mine')\n").expect("edit");
+        let edited = view(&session, &runner, &id).expect("view");
+        let bake = |v: &PipelineView| {
+            v.starters
+                .iter()
+                .find(|s| s.path == "tools/bake_light.py")
+                .expect("bake")
+                .clone()
+        };
+        assert_eq!(bake(&edited).state, StarterState::Edited);
+        let all = vec!["tools/bake_light.py".to_string()];
+        let kept = update_starters(&session, &runner, &id, &all, false).expect("update");
+        assert_eq!(bake(&kept).state, StarterState::Edited);
+        let replaced = update_starters(&session, &runner, &id, &all, true).expect("replace");
+        assert_eq!(bake(&replaced).state, StarterState::Current);
+        assert_eq!(
+            std::fs::read_to_string(dir.join("tools/bake_light.py.bak")).expect("bak"),
+            "print('mine')\n"
+        );
     }
 
     #[test]

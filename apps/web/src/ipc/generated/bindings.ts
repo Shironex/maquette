@@ -48,6 +48,7 @@ export const commands = {
 	pipelineLog: (project: string, number: number) => __TAURI_INVOKE<LogEntry[]>("pipeline_log", { project, number }),
 	/**  Saves the preset table. Locked rows must come back unchanged. */
 	pipelineSavePresets: (project: string, presets: CompressPreset[]) => __TAURI_INVOKE<PipelineView>("pipeline_save_presets", { project, presets }),
+	pipelineUpdateStarters: (project: string, scripts: string[], replace: boolean) => __TAURI_INVOKE<PipelineView>("pipeline_update_starters", { project, scripts, replace }),
 	/**  Analysis can take a moment on big models, so it runs off the main thread. */
 	inboxList: () => __TAURI_INVOKE<InboxSnapshot>("inbox_list"),
 	inboxReprocess: (id: string) => __TAURI_INVOKE<InboxItem>("inbox_reprocess", { id }),
@@ -945,6 +946,8 @@ export type PipelineView = {
 	artifacts: Artifact[],
 	models: ModelFile[],
 	defaults: CompressDefaultsView,
+	/**  The template's starter scripts against the ones this build ships. */
+	starters: StarterStatus[],
 };
 
 export type PoseMode = "none" | "a-pose" | "t-pose";
@@ -1189,6 +1192,25 @@ export type SideMember = {
 
 /**  The Board columns, in pipeline order. */
 export type Stage = "concept" | "refs" | "tripo" | "blender" | "web" | "ship";
+
+/**  How a project's copy of a starter compares with the one this build ships. */
+export type StarterState = 
+/**  The same as the shipped starter. */
+"current" | 
+/**  An untouched copy of an older starter: safe to update. */
+"outdated" | 
+/**  Changed by hand (or of unknown origin): only replaced when asked. */
+"edited" | 
+/**  Not in the project: an update writes it. */
+"missing";
+
+export type StarterStatus = {
+	/**  Relative to the project folder, for example `tools/bake_light.py`. */
+	path: string,
+	state: StarterState,
+	/**  Where the old file went when this update replaced an edited one. */
+	backup: string | null,
+};
 
 export type StepDef = {
 	/**  Unique within the pipeline, used by `dependsOn`. */

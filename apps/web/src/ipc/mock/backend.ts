@@ -37,6 +37,7 @@ import type {
   Stage,
   ProjectManifest,
   ProjectSummary,
+  StarterStatus,
   RepoInspection,
   RootInspection,
   ToolId,
@@ -54,7 +55,14 @@ import {
 } from './fixtures';
 import { inboxItems } from './inbox-fixtures';
 import { inspectView } from './inspect-fixtures';
-import { dioramaPipeline, pipelineView, run24Log, runHistory } from './pipeline-fixtures';
+import {
+  currentStarters,
+  dioramaPipeline,
+  oldStarters,
+  pipelineView,
+  run24Log,
+  runHistory,
+} from './pipeline-fixtures';
 import { createFakeAgents } from './agents';
 import { createFakeLab, refMayReplace } from './lab';
 import { createFakeProviders } from './providers';
@@ -181,7 +189,15 @@ export function createBackend({
       runs,
       latest ? (store.logs.get(latest.number) ?? []) : []
     );
-    return { ...base, def, active: activeRun(p.id) };
+    return { ...base, def, active: activeRun(p.id), starters: startersOf(p.id) };
+  }
+
+  /** Each project's starter scripts; Moon Island has old ones. */
+  const starters = new Map<string, StarterStatus[]>();
+  function startersOf(id: string): StarterStatus[] {
+    if (!starters.has(id))
+      starters.set(id, id === 'moon-island' ? oldStarters() : currentStarters());
+    return starters.get(id)!;
   }
 
   /** The mock runner runs one at a time; this is its run when it belongs to `id`. */
@@ -481,6 +497,25 @@ export function createBackend({
     },
     pipeline_cancel: ({ runId }) => runner.cancel(String(runId)),
     pipeline_log: ({ number }) => store.logs.get(Number(number)) ?? [],
+    pipeline_update_starters: ({ project: id, scripts, replace }) => {
+      const pid = String(id);
+      if (activeRun(pid))
+        fail('invalid', 'The pipeline is running. Update the scripts once the run is done.');
+      const asked = new Set(scripts as string[]);
+      starters.set(
+        pid,
+        startersOf(pid).map(s => {
+          if (!asked.has(s.path) || s.state === 'current') return s;
+          if (s.state === 'edited' && !replace) return s;
+          return {
+            ...s,
+            state: 'current',
+            backup: s.state === 'edited' ? `${s.path}.bak` : null,
+          };
+        })
+      );
+      return view(pid);
+    },
     pipeline_save_presets: ({ project: id, presets: rows }) => {
       const next = rows as CompressPreset[];
       const locked = view(String(id)).def.presets.filter(p => p.lock);
