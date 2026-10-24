@@ -224,10 +224,10 @@ function ImageTile({
         </Button>
       </div>
       <figcaption className="flex items-center justify-between gap-2">
-        <span className="font-medium">{label}</span>
-        <span className="flex items-center gap-1.5">
+        <span className="min-w-0 truncate font-medium">{label}</span>
+        <span className="flex flex-none items-center gap-1.5">
           {image.refFile ? (
-            <span className="text-meta text-fg-mute" title={image.refFile}>
+            <span className="text-meta whitespace-nowrap text-fg-mute" title={image.refFile}>
               In Refs
             </span>
           ) : null}
