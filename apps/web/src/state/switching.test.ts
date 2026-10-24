@@ -101,6 +101,25 @@ describe('switching projects', () => {
     expect(usePipelineStore.getState().view?.project).toBe('rooftop-cinema');
   });
 
+  it('keeps sends that answer after a switch out of the new queue', async () => {
+    const handle = await openMockWorkspace('configured', undefined, 'batch');
+    mockIPC(async (cmd, args) => {
+      if (cmd === 'provider_send_batch') await new Promise(r => setTimeout(r, 20));
+      return handle(cmd, (args ?? {}) as Record<string, unknown>);
+    });
+    await follow('moon-island');
+    const providers = useProvidersStore.getState();
+    await providers.openBatch('moon-island', ['desk-lamp', 'brush-cup']);
+    useProvidersStore.getState().setBatch({ provider: 'by-hand' });
+    const sending = useProvidersStore.getState().sendBatch();
+    await useProjectsStore.getState().switchTo('rooftop-cinema');
+    await follow('rooftop-cinema');
+    await sending;
+    expect(useProvidersStore.getState().jobs.filter(j => j.project !== 'rooftop-cinema')).toEqual(
+      []
+    );
+  });
+
   it('does not switch to the project already open', async () => {
     await openMockWorkspace();
     expect(await useProjectsStore.getState().switchTo('moon-island')).toBe(false);

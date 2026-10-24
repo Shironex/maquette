@@ -139,6 +139,11 @@ function upsert(jobs: readonly ProviderJob[], job: ProviderJob): ProviderJob[] {
   return next;
 }
 
+/** The queue with `job` in, when it belongs to the open project; an answer can land after a switch. */
+function foldIn(state: Pick<ProvidersStore, 'project' | 'jobs'>, job: ProviderJob): ProviderJob[] {
+  return job.project === state.project ? upsert(state.jobs, job) : state.jobs;
+}
+
 /** A draft from the saved presets, with the asset's own refs picked. */
 function draftFrom(options: SendOptions, provider: SendDraft['provider'] = 'tripo'): SendDraft {
   const providers = useAppStore.getState().workspace?.config.providers;
@@ -286,7 +291,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
         tripo: draft.service === 'tripo' ? draft.tripo : null,
         meshy: draft.service === 'meshy' ? draft.meshy : null,
       });
-      set(s => ({ jobs: upsert(s.jobs, job) }));
+      set(s => ({ jobs: foldIn(s, job) }));
       if (job.provider === 'by-hand') {
         set(s => ({ panel: s.panel ? { ...s.panel, handoff: job } : null }));
       } else {
@@ -322,7 +327,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
     set(s => ({ busy: [...s.busy, id] }));
     try {
       const job = await commands.providerCancel(id);
-      set(s => ({ jobs: upsert(s.jobs, job) }));
+      set(s => ({ jobs: foldIn(s, job) }));
       notify('info', `${job.assetName} cancelled`, job.message ?? undefined);
     } catch (error) {
       notify('failed', 'Could not cancel', errorMessage(error));
@@ -336,7 +341,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
     try {
       const job = await commands.providerHandBack(id, file);
       set(s => ({
-        jobs: upsert(s.jobs, job),
+        jobs: foldIn(s, job),
         panel: s.panel?.handoff?.id === id ? null : s.panel,
       }));
       notify(
@@ -363,7 +368,8 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
     const project = get().project;
     if (!project) return;
     try {
-      set({ jobs: await commands.providerClearFinished(project) });
+      const jobs = await commands.providerClearFinished(project);
+      if (get().project === project) set({ jobs });
     } catch (error) {
       notify('failed', 'Could not clear the queue', errorMessage(error));
     }
@@ -513,7 +519,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
     try {
       const sent = await commands.providerSendBatch(batchRequest(batch.project, draft));
       set(s => ({
-        jobs: sent.jobs.reduce(upsert, s.jobs),
+        jobs: sent.jobs.reduce((jobs, job) => foldIn({ ...s, jobs }, job), s.jobs),
         batch: null,
         batchesSent: sent.jobs.length > 0 ? s.batchesSent + 1 : s.batchesSent,
       }));
