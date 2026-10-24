@@ -164,6 +164,8 @@ fn raw_status(port: u16, request: &str) -> String {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[cfg_attr(windows, ignore = "the fixture pipeline runs sh scripts")]
 async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
+    // The MCP client below shares the app's reqwest build.
+    maquette_core::providers::http::ensure_crypto();
     let dir = tempfile::tempdir().expect("temp dir");
     let (session, project_id, project_dir) = fixture(dir.path());
     let hub = Arc::new(Hub::new(|| {}));

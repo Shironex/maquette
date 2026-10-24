@@ -11,7 +11,8 @@ import type {
 } from '@/ipc/client';
 import type { FieldTone } from '@maquette/ui';
 import { formatK, shortPath } from '@/lib/format';
-import { hasErrors, validateConfig } from './settings-form';
+import { modelLabel } from './provider-presets';
+import { NO_LISTS, hasErrors, validateConfig, type ModelLists } from './settings-form';
 import { MISSING_EFFECT, SHORT_NAME, summarizeTools } from './toolchain';
 
 export const STEPS = [
@@ -192,25 +193,29 @@ function upper(s: string) {
   return s.toUpperCase();
 }
 
-export function defaultsSummary(config: WorkspaceConfig): string {
-  const { tripo, budgets, compression } = config;
-  const tripoPart = [
-    `Tripo ${tripo.model}`,
-    tripo.hd ? 'HD' : null,
-    tripo.topology === 'triangle' ? 'Triangle' : 'Quad',
-    tripo.texture,
+export function defaultsSummary(config: WorkspaceConfig, lists: ModelLists = NO_LISTS): string {
+  const { providers, budgets, compression } = config;
+  const services = `${tripoLabel(providers.tripo.prop.model, lists)}, ${modelLabel(
+    lists.meshyModels,
+    providers.meshy.prop.aiModel
+  )}`;
+  const tripo = providers.tripo.character;
+  const character = [
+    `Characters: ${tripo.faceLimit ? `${formatK(tripo.faceLimit)} faces` : 'adaptive faces'}`,
+    tripo.multiView ? 'multi-view' : null,
+    tripo.rig ? `rig with ${tripo.rigSpec === 'mixamo' ? 'Mixamo' : 'Tripo'}` : null,
   ]
     .filter(Boolean)
     .join(', ');
-  const rig = tripo.character.rigPreset === 'mixamo' ? 'Mixamo' : 'Tripo';
-  const character = `Characters: ${formatK(tripo.character.quads)} quads${
-    tripo.character.autoRig ? `, Auto rig with ${rig}` : ''
-  }`;
   const mb = (budgets.sceneMb ?? 0).toFixed(1);
-  const web = `${mb}\u00a0MB scene, ${formatK(budgets.trisPerModel)}\u00a0tris, ${upper(
-    compression.textureCodec
-  )}, meshopt ${compression.meshopt}`;
-  return `${tripoPart}. ${character}. ${web}`;
+  const web = `${mb}\u00a0MB scene, ${formatK(budgets.trisPerModel)}\u00a0tris, ${
+    compression.textureSize
+  }, ${upper(compression.textureCodec)}, meshopt ${compression.meshopt}`;
+  return `${services}. ${character}. ${web}`;
+}
+
+function tripoLabel(model: string, lists: ModelLists): string {
+  return `Tripo ${modelLabel(lists.tripoModels, model)}`;
 }
 
 export function agentsSummary(config: WorkspaceConfig): { mono?: string; text: string } {
@@ -229,7 +234,11 @@ export function agentsSummary(config: WorkspaceConfig): { mono?: string; text: s
   };
 }
 
-export function readySummary(draft: Draft, tools: readonly ToolReport[]): ReadyRow[] {
+export function readySummary(
+  draft: Draft,
+  tools: readonly ToolReport[],
+  lists: ModelLists = NO_LISTS
+): ReadyRow[] {
   const summary = summarizeTools(tools);
   const optionalMissing = summary.missing.filter(id => !tools.find(t => t.id === id)?.required);
   const { layout } = draft.config;
@@ -253,7 +262,12 @@ export function readySummary(draft: Draft, tools: readonly ToolReport[]): ReadyR
       effect: missingEffect(tools),
       step: STEP.toolchain,
     },
-    { id: 'defaults', title: 'Defaults', text: defaultsSummary(draft.config), step: STEP.defaults },
+    {
+      id: 'defaults',
+      title: 'Defaults',
+      text: defaultsSummary(draft.config, lists),
+      step: STEP.defaults,
+    },
     { id: 'agents', title: 'Agents', ...agents, step: STEP.agents },
     {
       id: 'project',

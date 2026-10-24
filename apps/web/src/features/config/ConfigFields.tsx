@@ -4,7 +4,7 @@
  */
 import { Button, NumberField, SegmentedControl, Select, Toggle, cn } from '@maquette/ui';
 import type { WorkspaceConfig } from '@/ipc/client';
-import { formatCount, formatK } from '@/lib/format';
+import { formatCount } from '@/lib/format';
 import {
   mcpSnippet,
   mcpUrl,
@@ -14,7 +14,7 @@ import {
   type McpAgent,
 } from '@/state/settings-form';
 import { useAppStore } from '@/state/app-store';
-import { CODEC, MESHOPT, RIG, TEXTURE, TOPOLOGY, modelOptions } from './options';
+import { CODEC, MESHOPT, TEXTURE } from './options';
 
 export interface ConfigFieldsProps {
   config: WorkspaceConfig;
@@ -42,109 +42,6 @@ export function parseCount(text: string): number | null {
   if (!match) return null;
   const n = Number(match[1]) * (match[2] ? 1000 : 1);
   return Number.isFinite(n) ? Math.round(n) : null;
-}
-
-export function TripoFields({
-  config,
-  onChange,
-  errors = {},
-  density = 'roomy',
-}: ConfigFieldsProps) {
-  const { tripo } = config;
-  const set = (patch: Partial<WorkspaceConfig['tripo']>) =>
-    onChange(patchSection(config, 'tripo', patch));
-  const setCharacter = (patch: Partial<WorkspaceConfig['tripo']['character']>) =>
-    set({ character: { ...tripo.character, ...patch } });
-  const compact = density === 'compact';
-
-  return (
-    <>
-      <div className={cn('grid grid-cols-3', compact ? 'gap-2.5' : 'gap-3')}>
-        <Select
-          label="Model"
-          options={modelOptions(tripo.model)}
-          value={tripo.model}
-          onChange={model => set({ model })}
-        />
-        <Select
-          label="Topology"
-          options={TOPOLOGY}
-          value={tripo.topology}
-          onChange={topology => set({ topology })}
-        />
-        <Select
-          label="Texture"
-          options={TEXTURE}
-          value={tripo.texture}
-          onChange={texture => set({ texture })}
-        />
-      </div>
-      <FieldError text={errors.model} />
-      <div className={cn('flex flex-wrap', compact ? 'gap-[22px]' : 'gap-6')}>
-        <Toggle label="HD" checked={tripo.hd} onChange={hd => set({ hd })} />
-        <Toggle
-          label="Remove lighting"
-          checked={tripo.removeLighting}
-          onChange={removeLighting => set({ removeLighting })}
-        />
-        <Toggle label="PBR" checked={tripo.pbr} onChange={pbr => set({ pbr })} />
-      </div>
-      <div
-        className={cn(
-          'rounded-[8px] border border-line bg-raised',
-          compact
-            ? 'flex flex-col gap-[9px] px-3 py-2.5'
-            : 'flex items-center gap-[18px] px-3.5 py-3'
-        )}
-      >
-        <div className={cn(compact ? 'flex items-center gap-2' : 'w-[170px] flex-none')}>
-          <div className="font-semibold">Character preset</div>
-          <div className="text-meta text-fg-mute">
-            {compact ? 'used when a ref is tagged character' : 'when a ref is tagged character'}
-          </div>
-        </div>
-        <div
-          className={cn(
-            compact
-              ? 'grid grid-cols-2 items-center gap-x-4 gap-y-2.5'
-              : 'flex flex-1 flex-wrap items-center gap-[18px]'
-          )}
-        >
-          <NumberField
-            label="Quads"
-            inline
-            size="sm"
-            value={tripo.character.quads}
-            min={1}
-            format={formatK}
-            parse={parseCount}
-            onChange={quads => setCharacter({ quads })}
-            className={compact ? 'w-[76px]' : 'h-[30px] w-[72px]'}
-          />
-          <Toggle
-            label="Multi-view"
-            checked={tripo.character.multiView}
-            onChange={multiView => setCharacter({ multiView })}
-          />
-          <Toggle
-            label="Auto rig"
-            checked={tripo.character.autoRig}
-            onChange={autoRig => setCharacter({ autoRig })}
-          />
-          <Select
-            label={compact ? 'Rig preset' : 'Rig'}
-            inline
-            size="sm"
-            options={RIG}
-            value={tripo.character.rigPreset}
-            onChange={rigPreset => setCharacter({ rigPreset })}
-            className={compact ? 'w-[112px]' : 'h-[30px] w-[112px]'}
-          />
-        </div>
-      </div>
-      <FieldError text={errors.quads} />
-    </>
-  );
 }
 
 export function BudgetFields({ config, onChange, errors = {} }: ConfigFieldsProps) {
@@ -199,6 +96,12 @@ export function CompressionFields({ config, onChange }: ConfigFieldsProps) {
         options={MESHOPT}
         value={config.compression.meshopt}
         onChange={meshopt => set({ meshopt })}
+      />
+      <Select
+        label="Largest texture"
+        options={TEXTURE}
+        value={config.compression.textureSize}
+        onChange={textureSize => set({ textureSize })}
       />
     </>
   );

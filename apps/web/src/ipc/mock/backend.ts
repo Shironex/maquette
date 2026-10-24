@@ -37,7 +37,14 @@ import type {
   WorkspaceConfig,
   WorkspaceSnapshot,
 } from '../client';
-import { DEFAULT_ROOT, HOME, defaultConfig, moonIsland, toolReports } from './fixtures';
+import {
+  DEFAULT_ROOT,
+  HOME,
+  defaultConfig,
+  moonIsland,
+  providerCatalog,
+  toolReports,
+} from './fixtures';
 import { inboxItems } from './inbox-fixtures';
 import { inspectView } from './inspect-fixtures';
 import { dioramaPipeline, pipelineView, run24Log, runHistory } from './pipeline-fixtures';
@@ -233,6 +240,7 @@ export function createBackend({
       defaultRoot: DEFAULT_ROOT,
       home: HOME,
       defaultConfig: defaultConfig(),
+      catalog: providerCatalog(),
       workspace: root ? snapshot() : null,
       lastWorkspaceError: null,
     }),

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { commands, errorMessage, type WorkspaceConfig } from '@/ipc/client';
+import { useCatalog } from '@/features/providers/PresetFields';
 import { useAppStore } from '@/state/app-store';
 import { hasErrors, sameConfig, saveStatus, validateConfig } from '@/state/settings-form';
 
@@ -13,6 +14,7 @@ export function useAutosave() {
   const saved = useAppStore(s => s.workspace?.config);
   const setConfig = useAppStore(s => s.setConfig);
   const notify = useAppStore(s => s.notify);
+  const catalog = useCatalog();
   const [draft, setDraft] = useState<WorkspaceConfig | undefined>(saved);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -36,5 +38,5 @@ export function useAutosave() {
   }, [draft, saved, setConfig, notify]);
 
   const status = draft && saved ? saveStatus(draft, saved, { saving, failed }) : 'saved';
-  return { draft, setDraft, status, errors: draft ? validateConfig(draft) : {} };
+  return { draft, setDraft, status, errors: draft ? validateConfig(draft, catalog) : {} };
 }

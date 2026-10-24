@@ -14,7 +14,7 @@ describe('settings form', () => {
     const base = defaultConfig();
     const next = patchSection(base, 'budgets', { sceneMb: 4.5 });
     expect(next.budgets).toEqual({ sceneMb: 4.5, trisPerModel: 60000 });
-    expect(next.tripo).toBe(base.tripo);
+    expect(next.providers).toBe(base.providers);
     expect(base.budgets.sceneMb).toBe(3);
   });
 
@@ -23,14 +23,33 @@ describe('settings form', () => {
     let bad = patchSection(defaultConfig(), 'agents', { mcpPort: 80 });
     bad = patchSection(bad, 'budgets', { sceneMb: 0 });
     bad = patchSection(bad, 'layout', { inbox: 'Projects' });
-    expect(Object.keys(validateConfig(bad)).sort()).toEqual(['layout', 'mcpPort', 'sceneMb']);
+    bad = {
+      ...bad,
+      providers: {
+        ...bad.providers,
+        meshy: {
+          ...bad.providers.meshy,
+          character: {
+            ...bad.providers.meshy.character,
+            aiModel: 'meshy-t2',
+            targetPolycount: 20000,
+          },
+        },
+      },
+    };
+    const errors = validateConfig(bad, {
+      tripoModels: [],
+      meshyModels: [{ id: 'meshy-t2', label: 'Meshy T2', note: '' }],
+    });
+    expect(Object.keys(errors).sort()).toEqual(['layout', 'mcpPort', 'meshy-character', 'sceneMb']);
+    expect(errors['meshy-character']).toBe('Meshy T2 aims for 100 to 15,000 faces.');
   });
 
   it('reports what the autosave line should say', () => {
     const saved = defaultConfig();
     const flags = { saving: false, failed: false };
     expect(saveStatus(saved, saved, flags)).toBe('saved');
-    const edited = patchSection(saved, 'tripo', { hd: false });
+    const edited = patchSection(saved, 'compression', { textureSize: '4K' });
     expect(saveStatus(edited, saved, flags)).toBe('pending');
     expect(saveStatus(edited, saved, { saving: true, failed: false })).toBe('saving');
     expect(saveStatus(edited, saved, { saving: false, failed: true })).toBe('error');

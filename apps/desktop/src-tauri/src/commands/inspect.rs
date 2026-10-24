@@ -21,7 +21,7 @@ fn view(root: &Path, config: &WorkspaceConfig, project_id: &str) -> CommandResul
         manifest: &manifest,
         def: &def,
         defaults: CompressDefaults {
-            texture_size: texture_px(config.tripo.texture),
+            texture_size: texture_px(config.compression.texture_size),
             codec: config.compression.texture_codec,
             meshopt: config.compression.meshopt,
         },

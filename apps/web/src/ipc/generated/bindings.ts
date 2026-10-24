@@ -211,6 +211,8 @@ export type Bootstrap = {
 	home: string | null,
 	/**  The config a new workspace starts from, so the UI never keeps its own copy. */
 	defaultConfig: WorkspaceConfig,
+	/**  The Tripo and Meshy models the selects offer. */
+	catalog: ProviderCatalog,
 	workspace: WorkspaceSnapshot | null,
 	/**  Set when the remembered workspace could not be opened. */
 	lastWorkspaceError: string | null,
@@ -250,13 +252,6 @@ export type CameraStops = {
 	/**  The file the stops were read from, relative to the project. */
 	file: string | null,
 	stops: CameraStopDef[],
-};
-
-export type CharacterPreset = {
-	quads: number,
-	multiView: boolean,
-	autoRig: boolean,
-	rigPreset: RigPreset,
 };
 
 export type Check = {
@@ -320,6 +315,11 @@ export type CompressSpec = {
 };
 
 export type Compression = {
+	/**
+	 *  The largest texture a model may carry, checked in the Inbox and
+	 *  used by the compress step.
+	 */
+	textureSize: TextureSize,
 	textureCodec: TextureCodec,
 	meshopt: MeshoptLevel,
 };
@@ -621,6 +621,42 @@ export type McpUpdate = McpStatus;
 
 export type MeshoptLevel = "low" | "medium" | "high";
 
+/**  One Meshy preset. A character preset also rigs. */
+export type MeshyPreset = {
+	/**
+	 *  A Meshy model id from the catalog. `meshy-t2` and
+	 *  `meshy-t2.5` are Smart Topology models.
+	 */
+	aiModel: string,
+	shouldTexture: boolean,
+	enablePbr: boolean,
+	textureResolution: MeshyTexture,
+	/**  Remesh to `target_polycount` (standard models only). */
+	shouldRemesh: boolean,
+	topology: Topology,
+	/**
+	 *  The face count to aim for when remeshing, or the Smart Topology
+	 *  face count.
+	 */
+	targetPolycount: number,
+	poseMode: PoseMode,
+	/**  Takes effect with meshy-6 only; other models ignore it. */
+	removeLighting: boolean,
+	/**  Several images go to Multi-Image to 3D, front first. */
+	multiView: boolean,
+	/**  Rigs a humanoid after generating. */
+	rig: boolean,
+	/**  The character height the rig scales to, in metres. */
+	heightMeters: number | null,
+};
+
+export type MeshyPresets = {
+	prop: MeshyPreset,
+	character: MeshyPreset,
+};
+
+export type MeshyTexture = "2k" | "4k" | "8k";
+
 export type ModelBudget = {
 	model: string,
 	label: string,
@@ -637,6 +673,16 @@ export type ModelFile = {
 	model: string,
 	rawBytes: number | null,
 	shippedBytes: number | null,
+};
+
+/**  One choice in a model select. */
+export type ModelOption = {
+	/**  What the API takes. */
+	id: string,
+	/**  What the select shows. */
+	label: string,
+	/**  One line on when to pick it. */
+	note: string,
 };
 
 /**  The compression a model gets: its preset row, or the workspace defaults. */
@@ -755,6 +801,11 @@ export type PipelineView = {
 	defaults: CompressDefaultsView,
 };
 
+export type PoseMode = "none" | "a-pose" | "t-pose";
+
+/**  Which preset a send starts from. */
+export type PresetVariant = "prop" | "character";
+
 /**
  *  An agent changed a project through the MCP server, for example by
  *  accepting an inbox model, so the Board shows the new state.
@@ -782,6 +833,27 @@ export type ProjectManifest = {
 
 export type ProjectTemplate = "floating-diorama" | "room" | "character-showcase" | "imported";
 
+/**  Everything the send panel and Settings offer. */
+export type ProviderCatalog = {
+	tripoModels: ModelOption[],
+	tripoRigModels: ModelOption[],
+	/**  Biped preset animations Tripo can retarget onto a rig. */
+	tripoAnimations: ModelOption[],
+	meshyModels: ModelOption[],
+};
+
+/**  The two services Maquette can call. */
+export type ProviderId = "tripo" | "meshy";
+
+/**
+ *  The "3D providers" section of the workspace config. The API keys are
+ *  not here: they live in the OS keychain.
+ */
+export type ProviderSettings = {
+	tripo: TripoPresets,
+	meshy: MeshyPresets,
+};
+
 /**  An image in the project's `refs/` folder. */
 export type RefImage = {
 	/**  Relative to the project folder. */
@@ -798,8 +870,6 @@ export type RepoInspection = {
 };
 
 export type RigKind = "none" | "mixamo" | "other";
-
-export type RigPreset = "mixamo" | "tripo";
 
 export type RootInspection = {
 	/**  Expanded absolute path. */
@@ -998,22 +1068,53 @@ export type ToolStatus = "found" | "missing" |
 /**  A binary exists but `--version` failed or timed out. */
 "broken";
 
+/**  The mesh a provider makes: triangles or quads. */
 export type Topology = "triangle" | "quad";
 
-export type TripoDefaults = {
+export type TripoGeometryQuality = "standard" | "detailed";
+
+/**  One Tripo preset. A character preset also rigs and animates. */
+export type TripoPreset = {
+	/**  A Tripo model id from the catalog, for example `v3.1-20260211`. */
 	model: string,
-	hd: boolean,
-	topology: Topology,
-	texture: TextureSize,
-	removeLighting: boolean,
+	/**  The face budget; 0 lets Tripo pick (adaptive). */
+	faceLimit: number,
+	texture: boolean,
 	pbr: boolean,
-	character: CharacterPreset,
+	textureQuality: TripoTextureQuality,
+	/**  Ultra geometry. H3.0 and newer only. */
+	geometryQuality: TripoGeometryQuality,
+	/**  Clean hand made style low poly topology. H series only. */
+	smartLowPoly: boolean,
+	/**  Scales the model to real world size in metres. */
+	autoSize: boolean,
+	/**  Lets Tripo clean up the input image first. */
+	imageAutofix: boolean,
+	/**  Several images go to the multiview endpoint, front first. */
+	multiView: boolean,
+	/**  Rig check, then rig, then retarget the animations. */
+	rig: boolean,
+	/**  A Tripo rig model id from the catalog. */
+	rigModel: string,
+	rigSpec: TripoRigSpec,
+	/**  Preset animation ids, for example `preset:idle`. At most 5. */
+	animations: string[],
 };
+
+export type TripoPresets = {
+	prop: TripoPreset,
+	character: TripoPreset,
+};
+
+/**  The bone naming a Tripo rig uses. */
+export type TripoRigSpec = "mixamo" | "tripo";
+
+export type TripoTextureQuality = "standard" | "detailed" | "extreme";
 
 export type WorkspaceConfig = {
 	version: number,
 	layout: FolderLayout,
-	tripo: TripoDefaults,
+	providers: ProviderSettings,
 	budgets: Budgets,
 	compression: Compression,
 	agents: AgentSettings,

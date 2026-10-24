@@ -12,7 +12,8 @@ import {
 import { commands, errorMessage, type WorkspaceConfig } from '@/ipc/client';
 import { PANEL_TITLE, Panel } from '@/features/common/Panel';
 import { AgentsPanel } from '@/features/agents/AgentsPanel';
-import { BudgetFields, CompressionFields, TripoFields } from '@/features/config/ConfigFields';
+import { BudgetFields, CompressionFields } from '@/features/config/ConfigFields';
+import { ProviderPresetFields } from '@/features/providers/PresetFields';
 import { projectThumb } from '@/features/shell/projectArt';
 import { RecheckButton, ToolList } from '@/features/toolchain/ToolList';
 import { formatBytes, homePath } from '@/lib/format';
@@ -21,12 +22,12 @@ import { SAVE_STATUS_LABEL, patchSection, type SaveStatus } from '@/state/settin
 import { summarizeTools } from '@/state/toolchain';
 import { useAutosave } from './useAutosave';
 
-type SectionId = 'workspace' | 'toolchain' | 'tripo' | 'budgets' | 'agents' | 'project';
+type SectionId = 'workspace' | 'toolchain' | 'providers' | 'budgets' | 'agents' | 'project';
 
 const SECTIONS: readonly { id: SectionId; label: string; icon: IconName }[] = [
   { id: 'workspace', label: 'Workspace', icon: 'folder' },
   { id: 'toolchain', label: 'Toolchain', icon: 'wrench' },
-  { id: 'tripo', label: 'Tripo defaults', icon: 'cube' },
+  { id: 'providers', label: '3D providers', icon: 'cube' },
   { id: 'budgets', label: 'Budgets and compression', icon: 'gauge' },
   { id: 'agents', label: 'Agents', icon: 'robot' },
 ];
@@ -114,11 +115,12 @@ function SettingsScreen() {
             </div>
             <div className="flex flex-col gap-3.5">
               <Panel
-                id="settings-tripo"
-                title="Tripo defaults"
-                className={cn('gap-3 px-4 py-3.5', active === 'tripo' && ACTIVE)}
+                id="settings-providers"
+                title="3D providers"
+                help="Presets a Send to 3D starts from"
+                className={cn('gap-3 px-4 py-3.5', active === 'providers' && ACTIVE)}
               >
-                <TripoFields {...props} />
+                <ProviderPresetFields {...props} />
               </Panel>
               <Panel
                 id="settings-budgets"

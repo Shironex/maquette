@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use maquette_core::providers::{self, ProviderCatalog};
 use maquette_core::{HostOs, ProjectManifest, WorkspaceConfig, project as projects, workspace};
 use serde::Serialize;
 use tauri::State;
@@ -30,6 +31,8 @@ pub struct Bootstrap {
     pub home: Option<String>,
     /// The config a new workspace starts from, so the UI never keeps its own copy.
     pub default_config: WorkspaceConfig,
+    /// The Tripo and Meshy models the selects offer.
+    pub catalog: ProviderCatalog,
     pub workspace: Option<WorkspaceSnapshot>,
     /// Set when the remembered workspace could not be opened.
     pub last_workspace_error: Option<String>,
@@ -86,6 +89,7 @@ pub(crate) fn bootstrap_with(session: &Session, version: &str) -> Bootstrap {
         default_root,
         home: session.home().map(|h| h.display().to_string()),
         default_config: WorkspaceConfig::default(),
+        catalog: providers::catalog::catalog(),
         workspace,
         last_workspace_error,
     }

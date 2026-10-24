@@ -70,7 +70,7 @@ pub struct PipelineView {
 
 fn defaults(config: &WorkspaceConfig) -> CompressDefaults {
     CompressDefaults {
-        texture_size: texture_px(config.tripo.texture),
+        texture_size: texture_px(config.compression.texture_size),
         codec: config.compression.texture_codec,
         meshopt: config.compression.meshopt,
     }

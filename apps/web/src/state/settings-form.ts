@@ -2,7 +2,8 @@
  * Pure helpers for editing a workspace config: section updates, the same
  * checks the Rust side runs, and the MCP snippets agents paste.
  */
-import type { WorkspaceConfig } from '@/ipc/client';
+import type { ModelOption, WorkspaceConfig } from '@/ipc/client';
+import { presetProblems, type PresetKey } from './provider-presets';
 
 type Section = Exclude<keyof WorkspaceConfig, 'version' | 'currentProject'>;
 
@@ -15,21 +16,30 @@ export function patchSection<S extends Section>(
   return { ...config, [section]: { ...config[section], ...patch } };
 }
 
-export type ConfigField = 'model' | 'sceneMb' | 'trisPerModel' | 'quads' | 'mcpPort' | 'layout';
+export type ConfigField = PresetKey | 'sceneMb' | 'trisPerModel' | 'mcpPort' | 'layout';
 export type ConfigErrors = Partial<Record<ConfigField, string>>;
 
 const FOLDER_NAME = /^[^\\/:*?"<>|]+$/;
 
+/** The model lists, for the labels in preset messages. */
+export interface ModelLists {
+  tripoModels: readonly ModelOption[];
+  meshyModels: readonly ModelOption[];
+}
+
+export const NO_LISTS: ModelLists = { tripoModels: [], meshyModels: [] };
+
 /** Mirrors the checks in the Rust `workspace::validate`, field by field. */
-export function validateConfig(config: WorkspaceConfig): ConfigErrors {
-  const errors: ConfigErrors = {};
-  if (!config.tripo.model.trim()) errors.model = 'Pick a Tripo model.';
+export function validateConfig(
+  config: WorkspaceConfig,
+  lists: ModelLists = NO_LISTS
+): ConfigErrors {
+  const errors: ConfigErrors = presetProblems(config, lists);
   const mb = config.budgets.sceneMb;
   if (mb === null || !Number.isFinite(mb) || mb <= 0 || mb > 1000) {
     errors.sceneMb = 'Use more than 0 MB and at most 1000 MB.';
   }
   if (!(config.budgets.trisPerModel > 0)) errors.trisPerModel = 'Use more than 0 triangles.';
-  if (!(config.tripo.character.quads > 0)) errors.quads = 'Use more than 0 quads.';
   const port = config.agents.mcpPort;
   if (!Number.isInteger(port) || port < 1024 || port > 65535) {
     errors.mcpPort = 'Use a port between 1024 and 65535.';

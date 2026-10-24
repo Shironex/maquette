@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{CoreError, CoreResult};
 use crate::fs::{clear_dir_contents, collapse_home, dir_size, expand_home};
 use crate::json::{from_json_with_defaults, write_json};
+use crate::providers::{ProviderSettings, meshy_problem, tripo_problem};
 
 pub const CONFIG_FILE: &str = "maquette.json";
 pub const CONFIG_VERSION: u32 = 1;
@@ -22,7 +23,7 @@ const IGNORED_ENTRIES: [&str; 3] = [".DS_Store", "Thumbs.db", "desktop.ini"];
 pub struct WorkspaceConfig {
     pub version: u32,
     pub layout: FolderLayout,
-    pub tripo: TripoDefaults,
+    pub providers: ProviderSettings,
     pub budgets: Budgets,
     pub compression: Compression,
     pub agents: AgentSettings,
@@ -35,7 +36,7 @@ impl Default for WorkspaceConfig {
         Self {
             version: CONFIG_VERSION,
             layout: FolderLayout::default(),
-            tripo: TripoDefaults::default(),
+            providers: ProviderSettings::default(),
             budgets: Budgets::default(),
             compression: Compression::default(),
             agents: AgentSettings::default(),
@@ -69,32 +70,7 @@ impl FolderLayout {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct TripoDefaults {
-    pub model: String,
-    pub hd: bool,
-    pub topology: Topology,
-    pub texture: TextureSize,
-    pub remove_lighting: bool,
-    pub pbr: bool,
-    pub character: CharacterPreset,
-}
-
-impl Default for TripoDefaults {
-    fn default() -> Self {
-        Self {
-            model: "H3.1".to_string(),
-            hd: true,
-            topology: Topology::default(),
-            texture: TextureSize::default(),
-            remove_lighting: true,
-            pbr: true,
-            character: CharacterPreset::default(),
-        }
-    }
-}
-
+/// The mesh a provider makes: triangles or quads.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]
 pub enum Topology {
@@ -112,34 +88,6 @@ pub enum TextureSize {
     K2,
     #[serde(rename = "4K")]
     K4,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct CharacterPreset {
-    pub quads: u32,
-    pub multi_view: bool,
-    pub auto_rig: bool,
-    pub rig_preset: RigPreset,
-}
-
-impl Default for CharacterPreset {
-    fn default() -> Self {
-        Self {
-            quads: 50_000,
-            multi_view: true,
-            auto_rig: true,
-            rig_preset: RigPreset::default(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "kebab-case")]
-pub enum RigPreset {
-    #[default]
-    Mixamo,
-    Tripo,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -161,6 +109,9 @@ impl Default for Budgets {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Compression {
+    /// The largest texture a model may carry, checked in the Inbox and
+    /// used by the compress step.
+    pub texture_size: TextureSize,
     pub texture_codec: TextureCodec,
     pub meshopt: MeshoptLevel,
 }
@@ -351,12 +302,71 @@ pub fn open(root: &Path) -> CoreResult<WorkspaceConfig> {
             supported: CONFIG_VERSION,
         });
     }
+    let text = fold_legacy_tripo(&text).map_err(|e| CoreError::json(&path, e))?;
     let mut config: WorkspaceConfig =
         from_json_with_defaults(&text).map_err(|e| CoreError::json(&path, e))?;
     config.version = CONFIG_VERSION;
     validate(&config)?;
     ensure_layout(root, &config.layout)?;
     Ok(config)
+}
+
+/// Older configs kept one `tripo` block. Its values move to where they
+/// live now: the texture size to `compression`, the rest to the Tripo
+/// presets. A config with a `providers` block is left alone.
+fn fold_legacy_tripo(text: &str) -> Result<String, serde_json::Error> {
+    use serde_json::{Map, Value, json};
+
+    let mut root: Value = serde_json::from_str(text)?;
+    let Some(object) = root.as_object_mut() else {
+        return Ok(text.to_string());
+    };
+    let Some(Value::Object(tripo)) = object.remove("tripo") else {
+        return Ok(text.to_string());
+    };
+    if let Some(texture) = tripo.get("texture") {
+        let compression = object
+            .entry("compression")
+            .or_insert_with(|| Value::Object(Map::new()));
+        if let Some(compression) = compression.as_object_mut() {
+            compression
+                .entry("textureSize")
+                .or_insert_with(|| texture.clone());
+        }
+    }
+    if !object.contains_key("providers") {
+        let model = match tripo.get("model").and_then(Value::as_str) {
+            Some("H3.0") => "v3.0-20250812",
+            Some("v2.5") => "v2.5-20250123",
+            _ => crate::providers::catalog::TRIPO_DEFAULT_MODEL,
+        };
+        let pbr = tripo.get("pbr").cloned().unwrap_or(Value::Bool(true));
+        let character = tripo.get("character").and_then(Value::as_object);
+        let pick = |key: &str| character.and_then(|c| c.get(key)).cloned();
+        let mut tripo_character = json!({ "model": model, "pbr": pbr });
+        if let Some(faces) = pick("quads") {
+            tripo_character["faceLimit"] = faces;
+        }
+        if let Some(multi_view) = pick("multiView") {
+            tripo_character["multiView"] = multi_view;
+        }
+        if let Some(rig) = pick("autoRig") {
+            tripo_character["rig"] = rig;
+        }
+        if let Some(spec) = pick("rigPreset") {
+            tripo_character["rigSpec"] = spec;
+        }
+        object.insert(
+            "providers".to_string(),
+            json!({
+                "tripo": {
+                    "prop": { "model": model, "pbr": pbr },
+                    "character": tripo_character,
+                }
+            }),
+        );
+    }
+    serde_json::to_string(&root)
 }
 
 fn ensure_layout(root: &Path, layout: &FolderLayout) -> CoreResult<()> {
@@ -406,11 +416,16 @@ pub fn validate(config: &WorkspaceConfig) -> CoreResult<()> {
     if config.budgets.tris_per_model == 0 {
         return invalid("The triangle budget per model must be more than 0.");
     }
-    if config.tripo.character.quads == 0 {
-        return invalid("The character quad count must be more than 0.");
+    let providers = &config.providers;
+    for preset in [&providers.tripo.prop, &providers.tripo.character] {
+        if let Some(problem) = tripo_problem(preset) {
+            return Err(CoreError::Invalid(problem));
+        }
     }
-    if config.tripo.model.trim().is_empty() {
-        return invalid("Pick a Tripo model.");
+    for preset in [&providers.meshy.prop, &providers.meshy.character] {
+        if let Some(problem) = meshy_problem(preset) {
+            return Err(CoreError::Invalid(problem));
+        }
     }
     let names = config.layout.names();
     if names.iter().any(|name| !is_single_segment(name)) {
@@ -449,7 +464,7 @@ mod tests {
             "\"currentProject\":null",
             "\"removeLighting\":true",
             "\"multiView\":true",
-            "\"rigPreset\":\"mixamo\"",
+            "\"rigSpec\":\"mixamo\"",
             "\"sceneMb\":3.0",
             "\"trisPerModel\":60000",
             "\"textureCodec\":\"etc1s\"",
@@ -457,8 +472,8 @@ mod tests {
             "\"mcpPort\":4791",
             "\"blenderHeadlessOnly\":true",
             "\"topology\":\"triangle\"",
-            "\"texture\":\"2K\"",
-            "\"model\":\"H3.1\"",
+            "\"textureSize\":\"2K\"",
+            "\"model\":\"v3.1-20260211\"",
         ] {
             assert!(json.contains(needle), "missing {needle} in {json}");
         }
@@ -501,6 +516,37 @@ mod tests {
         for name in ["projects", "inbox", "cache"] {
             assert!(dir.path().join(name).is_dir());
         }
+    }
+
+    #[test]
+    fn legacy_tripo_block_folds_into_compression_and_presets() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        fs::write(
+            dir.path().join(CONFIG_FILE),
+            r#"{"version":1,"tripo":{"model":"H3.0","hd":true,"topology":"quad","texture":"4K","removeLighting":true,"pbr":false,"character":{"quads":40000,"multiView":false,"autoRig":true,"rigPreset":"tripo"}}}"#,
+        )
+        .expect("write");
+        let config = open(dir.path()).expect("open");
+        assert_eq!(config.compression.texture_size, TextureSize::K4);
+        let tripo = &config.providers.tripo;
+        assert_eq!(tripo.prop.model, "v3.0-20250812");
+        assert!(!tripo.prop.pbr);
+        assert_eq!(tripo.prop.face_limit, 0);
+        assert_eq!(tripo.character.face_limit, 40_000);
+        assert!(!tripo.character.multi_view);
+        assert!(tripo.character.rig);
+        assert_eq!(
+            tripo.character.rig_spec,
+            crate::providers::TripoRigSpec::Tripo
+        );
+        assert_eq!(
+            config.providers.meshy,
+            crate::providers::MeshyPresets::default()
+        );
+        save(dir.path(), &config).expect("save");
+        let text = fs::read_to_string(dir.path().join(CONFIG_FILE)).expect("read");
+        assert!(!text.contains("\"tripo\": {\n    \"model\": \"H3.0\""));
+        assert!(text.contains("\"providers\""));
     }
 
     #[test]
@@ -553,11 +599,15 @@ mod tests {
         assert!(validate(&config).is_err());
 
         let mut config = WorkspaceConfig::default();
-        config.tripo.character.quads = 0;
+        config.providers.tripo.character.face_limit = 3_000_000;
         assert!(validate(&config).is_err());
 
         let mut config = WorkspaceConfig::default();
-        config.tripo.model = " ".to_string();
+        config.providers.tripo.prop.model = " ".to_string();
+        assert!(validate(&config).is_err());
+
+        let mut config = WorkspaceConfig::default();
+        config.providers.meshy.character.height_meters = 0.0;
         assert!(validate(&config).is_err());
 
         let dir = tempfile::tempdir().expect("tempdir");

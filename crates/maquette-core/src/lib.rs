@@ -12,6 +12,7 @@ pub mod inspect;
 mod json;
 pub mod pipeline;
 pub mod project;
+pub mod providers;
 pub mod thumbs;
 pub mod toolchain;
 pub mod workspace;
@@ -26,9 +27,8 @@ pub use toolchain::{
     CommandRunner, HostOs, ProbeEnv, SystemRunner, ToolId, ToolReport, ToolSource, ToolStatus,
 };
 pub use workspace::{
-    AgentRules, AgentSettings, Budgets, CharacterPreset, Compression, FolderLayout, LabSettings,
-    MeshoptLevel, RigPreset, RootInspection, RootState, TextureCodec, TextureSize, Topology,
-    TripoDefaults, WorkspaceConfig,
+    AgentRules, AgentSettings, Budgets, Compression, FolderLayout, LabSettings, MeshoptLevel,
+    RootInspection, RootState, TextureCodec, TextureSize, Topology, WorkspaceConfig,
 };
 
 /// Every IPC facing type, so the shell can export them before any command
@@ -43,11 +43,22 @@ pub fn types() -> specta::Types {
         .register::<HostOs>()
         .register::<WorkspaceConfig>()
         .register::<FolderLayout>()
-        .register::<TripoDefaults>()
         .register::<Topology>()
         .register::<TextureSize>()
-        .register::<CharacterPreset>()
-        .register::<RigPreset>()
+        .register::<providers::ProviderSettings>()
+        .register::<providers::TripoPresets>()
+        .register::<providers::TripoPreset>()
+        .register::<providers::TripoTextureQuality>()
+        .register::<providers::TripoGeometryQuality>()
+        .register::<providers::TripoRigSpec>()
+        .register::<providers::MeshyPresets>()
+        .register::<providers::MeshyPreset>()
+        .register::<providers::MeshyTexture>()
+        .register::<providers::PoseMode>()
+        .register::<providers::ProviderId>()
+        .register::<providers::PresetVariant>()
+        .register::<providers::ModelOption>()
+        .register::<providers::ProviderCatalog>()
         .register::<Budgets>()
         .register::<Compression>()
         .register::<TextureCodec>()
@@ -129,11 +140,22 @@ mod tests {
             "HostOs",
             "WorkspaceConfig",
             "FolderLayout",
-            "TripoDefaults",
             "Topology",
             "TextureSize",
-            "CharacterPreset",
-            "RigPreset",
+            "ProviderSettings",
+            "TripoPresets",
+            "TripoPreset",
+            "TripoTextureQuality",
+            "TripoGeometryQuality",
+            "TripoRigSpec",
+            "MeshyPresets",
+            "MeshyPreset",
+            "MeshyTexture",
+            "PoseMode",
+            "ProviderId",
+            "PresetVariant",
+            "ModelOption",
+            "ProviderCatalog",
             "Budgets",
             "Compression",
             "TextureCodec",

@@ -1,4 +1,5 @@
 import { Button, Icon, type IconName } from '@maquette/ui';
+import { useCatalog } from '@/features/providers/PresetFields';
 import { useAppStore } from '@/state/app-store';
 import { readySummary, type ReadyRow } from '@/state/onboarding';
 import type { OnboardingApi } from '../useOnboarding';
@@ -13,7 +14,8 @@ const ICONS: Record<ReadyRow['id'], IconName> = {
 
 export function ReadyStep({ api }: { api: OnboardingApi }) {
   const tools = useAppStore(s => s.tools.reports);
-  const rows = readySummary(api.draft, tools);
+  const catalog = useCatalog();
+  const rows = readySummary(api.draft, tools, catalog);
   return (
     <section
       aria-label="Setup summary"

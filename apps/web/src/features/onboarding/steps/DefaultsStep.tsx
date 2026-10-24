@@ -1,22 +1,24 @@
 import { Panel } from '@/features/common/Panel';
-import { BudgetFields, CompressionFields, TripoFields } from '@/features/config/ConfigFields';
+import { BudgetFields, CompressionFields } from '@/features/config/ConfigFields';
+import { ProviderPresetFields, useCatalog } from '@/features/providers/PresetFields';
 import { validateConfig } from '@/state/settings-form';
 import type { OnboardingApi } from '../useOnboarding';
 
 export function DefaultsStep({ api }: { api: OnboardingApi }) {
   const config = api.draft.config;
+  const catalog = useCatalog();
   const onChange = (next: typeof config) => api.update({ config: next });
-  const errors = validateConfig(config);
+  const errors = validateConfig(config, catalog);
   const props = { config, onChange, errors };
   return (
     <div className="mt-7 grid grid-cols-2 gap-4">
       <Panel
-        title="Tripo preset"
-        help="for every ref you send to Tripo"
+        title="3D provider presets"
+        help="what a Send to 3D starts from, changeable per send"
         helpInline
         className="col-span-2"
       >
-        <TripoFields {...props} />
+        <ProviderPresetFields {...props} />
       </Panel>
       <Panel title="Web budgets" help="Over budget shows in red on the Board">
         <div className="grid grid-cols-2 gap-3">

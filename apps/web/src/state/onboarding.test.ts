@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RootInspection } from '@/ipc/client';
-import { defaultConfig, toolReports } from '@/ipc/mock/fixtures';
+import { defaultConfig, providerCatalog, toolReports } from '@/ipc/mock/fixtures';
 import { patchSection } from './settings-form';
 import {
   STEP,
@@ -83,7 +83,8 @@ describe('onboarding steps', () => {
         {},
         { inspection: inspection('empty'), siteRepo: '~/Documents/Projects/moon-island-site' }
       ).draft,
-      toolReports('first-run')
+      toolReports('first-run'),
+      providerCatalog()
     );
     const get = (id: string) => rows.find(r => r.id === id)!;
     expect(get('workspace')).toMatchObject({
@@ -96,7 +97,7 @@ describe('onboarding steps', () => {
       effect: 'textures stay PNG until it is installed',
     });
     expect(get('defaults').text).toBe(
-      'Tripo H3.1, HD, Triangle, 2K. Characters: 50k quads, Auto rig with Mixamo. 3.0\u00a0MB scene, 60k\u00a0tris, ETC1S, meshopt medium'
+      'Tripo H3.1, Meshy 7.1. Characters: 50k faces, multi-view, rig with Mixamo. 3.0\u00a0MB scene, 60k\u00a0tris, 2K, ETC1S, meshopt medium'
     );
     expect(get('agents').text).toBe(
       'MCP server off. Headless Blender, no screen capture, ask before shipping'

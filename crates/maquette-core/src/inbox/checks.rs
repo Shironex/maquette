@@ -92,7 +92,7 @@ pub fn run(report: &GlbReport, kind: AssetKind, config: &WorkspaceConfig) -> Vec
         },
     ));
 
-    let limit = texture_px(config.tripo.texture);
+    let limit = texture_px(config.compression.texture_size);
     if report.textures.is_empty() {
         out.push(check("textures", CheckStatus::Pass, "No textures", None));
     } else {
