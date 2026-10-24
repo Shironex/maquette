@@ -2,6 +2,7 @@
  * A fake MCP server for mock mode. It "runs" whenever the workspace setting
  * is on; `?agents=active` adds an activity list from an agent session, a
  * run waiting at Ship for approval and a send to Tripo waiting the same way.
+ * `?agents=batch` asks for three sends under one approval instead.
  */
 import type { Approval, McpCall, McpStatus, WorkspaceConfig } from '../client';
 
@@ -51,12 +52,15 @@ export function agentCalls(now: number): McpCall[] {
 export function createFakeAgents({
   config,
   active,
+  batch = false,
   emit,
   onSendDecision,
 }: {
   config: () => WorkspaceConfig;
   /** `active`: an agent session is under way, with a run waiting at Ship. */
   active: boolean;
+  /** The send waiting for approval is a batch of three. */
+  batch?: boolean;
   emit?: (status: McpStatus) => void;
   /** A send to 3D an agent asked for was approved or denied. */
   onSendDecision?: (job: string, approve: boolean) => void;
@@ -80,20 +84,39 @@ export function createFakeAgents({
           requestedAtMs: now - 12_000,
           items: [],
         },
-        {
-          id: 'approval-2',
-          kind: 'send-to-3d',
-          runId: null,
-          project: 'moon-island',
-          runNumber: null,
-          step: null,
-          job: 'far-spire-2',
-          assetName: 'Far spire',
-          service: 'Tripo',
-          detail: 'Tripo H3.1, 1 image',
-          requestedAtMs: now - 40_000,
-          items: [],
-        },
+        batch
+          ? {
+              id: 'approval-2',
+              kind: 'send-to-3d',
+              runId: null,
+              project: 'moon-island',
+              runNumber: null,
+              step: null,
+              job: null,
+              assetName: null,
+              service: 'Tripo',
+              detail: '3 models in total, one model per asset',
+              requestedAtMs: now - 40_000,
+              items: [
+                { job: 'far-spire-2', assetName: 'Far spire', detail: 'Tripo H3.1, 1 image' },
+                { job: 'sakura-2', assetName: 'Sakura', detail: 'Tripo H3.1, 1 image' },
+                { job: 'lanterns-2', assetName: 'Stone lanterns', detail: 'Tripo H3.1, 1 image' },
+              ],
+            }
+          : {
+              id: 'approval-2',
+              kind: 'send-to-3d',
+              runId: null,
+              project: 'moon-island',
+              runNumber: null,
+              step: null,
+              job: 'far-spire-2',
+              assetName: 'Far spire',
+              service: 'Tripo',
+              detail: 'Tripo H3.1, 1 image',
+              requestedAtMs: now - 40_000,
+              items: [],
+            },
       ]
     : [];
 
@@ -123,7 +146,8 @@ export function createFakeAgents({
         throw { code: 'invalid', message: 'That request is no longer waiting for approval.' };
       }
       approvals = approvals.filter(a => a.id !== approvalId);
-      if (found.job) onSendDecision?.(found.job, Boolean(approve));
+      const jobs = found.items.length ? found.items.map(i => i.job) : found.job ? [found.job] : [];
+      for (const job of jobs) onSendDecision?.(job, Boolean(approve));
       return status();
     },
     mcp_clear_activity: () => {

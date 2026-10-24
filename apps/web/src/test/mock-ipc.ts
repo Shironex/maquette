@@ -7,8 +7,19 @@ import { commands } from '@/ipc/client';
 import { createBackend } from '@/ipc/mock/backend';
 import { useAppStore } from '@/state/app-store';
 
-export async function openMockWorkspace(scenario = 'configured', projects?: string) {
-  const handle = createBackend({ scenario, probeDelay: 0, pace: 0, conceptMs: 60_000, projects });
+export async function openMockWorkspace(
+  scenario = 'configured',
+  projects?: string,
+  handoff?: string
+) {
+  const handle = createBackend({
+    scenario,
+    probeDelay: 0,
+    pace: 0,
+    conceptMs: 60_000,
+    projects,
+    handoff,
+  });
   mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>));
   const boot = await commands.appBootstrap();
   useAppStore.setState({ boot, workspace: boot.workspace, phase: 'app' });

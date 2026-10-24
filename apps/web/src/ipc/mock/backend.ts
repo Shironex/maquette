@@ -16,7 +16,10 @@
  * `?pace=` sets the milliseconds between streamed log lines (default 260).
  * `?lab=running` holds two concept images of the porch direction mid job.
  * `?agents=active` turns the MCP server on, with an agent's activity, a
- * run waiting at Ship for approval and a send to Tripo waiting the same way.
+ * run waiting at Ship for approval and a send to Tripo waiting the same way;
+ * `?agents=batch` makes that send a batch of three under one approval.
+ * `?handoff=batch` adds the landing workbench concept, six object refs made
+ * from it and a By hand batch of them in mixed states.
  * Configured scenarios also open with Send to 3D jobs (see `providers.ts`).
  */
 import type {
@@ -93,6 +96,8 @@ export interface MockOptions {
   conceptMs?: number;
   /** `many`: eight projects instead of three. */
   projects?: string | null;
+  /** `batch`: the workbench objects and their By hand batch. */
+  handoff?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */
@@ -139,6 +144,7 @@ export function createBackend({
   conceptMs = 4000,
   agents: agentsState = null,
   projects: projectsState = null,
+  handoff = null,
 }: MockOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -147,7 +153,8 @@ export function createBackend({
   let cacheBytes = configured ? 2.3e9 : 0;
   const overrides = new Map<ToolId, string>();
   if (configured) config = { ...config, currentProject: 'moon-island' };
-  if (configured && agentsState === 'active') {
+  const agentsOn = agentsState === 'active' || agentsState === 'batch';
+  if (configured && agentsOn) {
     config = { ...config, agents: { ...config.agents, mcpEnabled: true } };
   }
 
@@ -299,6 +306,7 @@ export function createBackend({
     files,
     jobMs: conceptMs,
     state: labState,
+    handoff,
     fail,
     assetBusy: (project, asset) =>
       providers
@@ -314,7 +322,9 @@ export function createBackend({
   const providers = createFakeProviders({
     config: () => config,
     configured,
-    agentsActive: agentsState === 'active',
+    agentsActive: agentsOn,
+    agentsBatch: agentsState === 'batch',
+    handoff,
     projectDir: id => `${expand(DEFAULT_ROOT)}/projects/${id}`,
     project,
     saveProject,
@@ -325,7 +335,8 @@ export function createBackend({
 
   const agents = createFakeAgents({
     config: () => config,
-    active: agentsState === 'active',
+    active: agentsOn,
+    batch: agentsState === 'batch',
     emit: payload => emit?.({ name: 'mcp', payload }),
     onSendDecision: providers.decide,
   });
@@ -457,6 +468,7 @@ export function createBackend({
     }),
     dialog_pick_folder: ({ start }) => (typeof start === 'string' && start ? start : DEFAULT_ROOT),
     dialog_pick_file: () => '/usr/local/bin/toktx',
+    dialog_pick_model: () => `${HOME}/Downloads/desk_lamp.glb`,
     asset_add: ({ project: id, asset }) => {
       const p = project(String(id));
       const next = asset as NewAsset;

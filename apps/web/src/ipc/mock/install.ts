@@ -9,7 +9,7 @@ import { fileUrl, registerMockFile } from '../files';
 import { createBackend } from './backend';
 import { DEFAULT_ROOT, HOME, MOCK_PROJECT_IDS } from './fixtures';
 import { PREVIEW_FILE, thumbsDir } from './inbox-fixtures';
-import { conceptFiles, REF_FILES } from './lab-fixtures';
+import { conceptFiles, OBJECT_REF_FILES, REF_FILES } from './lab-fixtures';
 import { INSPECT_FILES } from './inspect-fixtures';
 import { PROVIDER_REF_FILES } from './providers';
 
@@ -40,7 +40,7 @@ for (const [file, name] of Object.entries(conceptFiles())) {
 for (const path of Object.keys(concepts)) {
   registerMockFile(`${projectDir}/concepts/__pool/${base(path)}`, concepts[path] ?? '');
 }
-for (const [file, source] of Object.entries(REF_FILES)) {
+for (const [file, source] of Object.entries({ ...REF_FILES, ...OBJECT_REF_FILES })) {
   const url = source.startsWith('concepts/')
     ? conceptUrl(source.slice('concepts/'.length))
     : renders[`../../assets/mock/${source}`];
@@ -72,6 +72,7 @@ const handle = createBackend({
   conceptMs: Number(params.get('conceptMs') ?? 4000),
   agents: params.get('agents'),
   projects: params.get('projects'),
+  handoff: params.get('handoff'),
   emit: event => {
     if (event.name === 'pipeline') void events.pipelineUpdate.emit(event.payload);
     else if (event.name === 'concept') void events.conceptUpdate.emit(event.payload);

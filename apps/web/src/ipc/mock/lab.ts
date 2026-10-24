@@ -11,11 +11,22 @@ import type {
   LabView,
   MovedDirection,
   NewConcepts,
+  NewObjectRefs,
   ProjectManifest,
   RefImage,
+  SentObjects,
   SentPicks,
 } from '../client';
-import { GENERATED_POOL, labDirections, labRefs, runningJobs } from './lab-fixtures';
+import {
+  GENERATED_POOL,
+  WORKBENCH_OBJECTS,
+  labDirections,
+  labRefs,
+  objectRef,
+  objectRefs,
+  runningJobs,
+  workbenchDirections,
+} from './lab-fixtures';
 
 type Args = Record<string, unknown>;
 
@@ -34,6 +45,8 @@ export interface FakeLabOptions {
   jobMs: number;
   /** `running`: the porch direction has two images generating that never finish. */
   state?: string | null;
+  /** `batch`: the workbench concept and its six object refs are there too. */
+  handoff?: string | null;
   /** True while a Send to 3D job still needs the asset where it is. */
   assetBusy?: (project: string, asset: string) => boolean;
   fail: (code: string, message: string) => never;
@@ -54,8 +67,13 @@ export const refMayReplace = (thumbnail: string | null) =>
 export function createFakeLab(options: FakeLabOptions) {
   const { fail } = options;
   const running = options.state === 'running';
-  const directions = new Map<string, Direction[]>([['moon-island', labDirections(running)]]);
-  const refs = new Map<string, RefImage[]>([['moon-island', labRefs()]]);
+  const batch = options.handoff === 'batch';
+  const directions = new Map<string, Direction[]>([
+    ['moon-island', [...(batch ? workbenchDirections() : []), ...labDirections(running)]],
+  ]);
+  const refs = new Map<string, RefImage[]>([
+    ['moon-island', [...labRefs(), ...(batch ? objectRefs() : [])]],
+  ]);
   let jobs: ConceptJob[] = running ? runningJobs('moon-island', Date.now()) : [];
   let concurrency = 4;
   let pool = 0;
@@ -119,8 +137,14 @@ export function createFakeLab(options: FakeLabOptions) {
     timers.delete(id);
     const job = jobs.find(j => j.id === id);
     if (!job || job.state !== 'running') return;
-    const source = GENERATED_POOL[pool % GENERATED_POOL.length] ?? GENERATED_POOL[0];
-    pool += 1;
+    // An object ref of the workbench shows its crop; anything else the next pool image.
+    const crop = WORKBENCH_OBJECTS.find(
+      o => o.title.toLowerCase() === job.title?.toLowerCase()
+    )?.image;
+    const source = crop ?? GENERATED_POOL[pool % GENERATED_POOL.length] ?? GENERATED_POOL[0];
+    if (!crop) pool += 1;
+    const square = findDirection(job.project, job.direction).aspect === '1:1';
+    const [width, height] = square ? [1024, 1024] : [1672, 941];
     const dir = options.projectDir(job.project);
     options.files?.alias(`${dir}/${job.file}`, `${dir}/concepts/__pool/${source}`);
     const direction = findDirection(job.project, job.direction);
@@ -133,8 +157,8 @@ export function createFakeLab(options: FakeLabOptions) {
         {
           file: job.file,
           index: job.index,
-          width: 1672,
-          height: 941,
+          width,
+          height,
           starred: false,
           picked: false,
           refFile: null,
@@ -146,8 +170,8 @@ export function createFakeLab(options: FakeLabOptions) {
     update(job, {
       state: 'done',
       finishedAtMs: Date.now(),
-      width: 1672,
-      height: 941,
+      width,
+      height,
       logTail: [...job.logTail, `saved ${job.file}`],
     });
     emit({ type: 'direction', project: job.project, direction: next });
@@ -207,6 +231,112 @@ export function createFakeLab(options: FakeLabOptions) {
     }
     pump();
     return view(request.project);
+  }
+
+  /** Mirrors `concepts::objects`: one titled job per object, the concept attached. */
+  function makeObjects(request: NewObjectRefs) {
+    const names = request.objects.map(o => o.trim()).filter(Boolean);
+    if (names.length === 0) fail('invalid', 'Name at least one object.');
+    if (names.length > 12) fail('invalid', 'Make 12 object refs at most in one go.');
+    if (request.kind === 'scene')
+      fail('invalid', 'Object refs are props or characters, not scenes.');
+    const base = request.sourceName.trim() || 'Concept';
+    const name = `${base.slice(0, 52).trimEnd()} objects`;
+    const id = slug(name);
+    const at = new Date().toISOString();
+    const existing = list(request.project).find(d => d.id === id);
+    const direction = saveDirection(request.project, {
+      id,
+      name,
+      prompt: `One clean reference image of each object in ${base}.`,
+      refs: [request.source],
+      aspect: request.aspect,
+      images: existing?.images ?? [],
+      createdAt: existing?.createdAt ?? at,
+      updatedAt: at,
+      source: request.source,
+      kind: request.kind,
+    });
+    const taken = [
+      ...direction.images.map(i => i.index),
+      ...jobs.filter(j => j.direction === id).map(j => j.index),
+    ];
+    const first = Math.max(0, ...taken) + 1;
+    const stamp = Date.now().toString(16);
+    names.forEach((title, n) => {
+      const index = first + n;
+      const two = String(index).padStart(2, '0');
+      const job: ConceptJob = {
+        id: `${id}-${two}-${stamp}`,
+        runId: `concepts-run-${stamp}-${n}`,
+        project: request.project,
+        direction: id,
+        directionName: name,
+        index,
+        file: `concepts/${id}/${id}_${two}.png`,
+        title,
+        state: 'queued',
+        queuedAtMs: Date.now(),
+        startedAtMs: null,
+        finishedAtMs: null,
+        message: null,
+        width: null,
+        height: null,
+        logTail: [],
+      };
+      jobs = [...jobs, job];
+      emit({ type: 'job', job });
+    });
+    pump();
+    return view(request.project);
+  }
+
+  /** Mirrors `concepts::send_object_picks`: one asset per pick, named by its title. */
+  function sendObjectPicks(project: string, id: string, kind: AssetKind | null): SentObjects {
+    const direction = findDirection(project, id);
+    const picks = direction.images.filter(i => i.picked);
+    if (picks.length === 0) fail('invalid', 'Pick at least one object to send to Refs.');
+    const dir = options.projectDir(project);
+    const manifest = options.project(project);
+    let assets = [...(manifest.assets ?? [])];
+    const at = new Date().toISOString();
+    const sent: SentObjects['assets'] = [];
+    const copied: string[] = [];
+    const images = direction.images.map(image => {
+      if (!image.picked) return image;
+      const title = image.title ?? `${direction.name} ${image.index}`;
+      const ref = image.refFile ?? objectRef(title);
+      options.files?.alias(`${dir}/${ref}`, `${dir}/${image.file}`);
+      if (!image.refFile) copied.push(ref);
+      const assetId = slug(title);
+      const known = assets.find(a => a.id === assetId);
+      const asset = {
+        ...(known ?? {
+          id: assetId,
+          name: title,
+          kind: kind === 'character' ? ('character' as const) : ('prop' as const),
+          stage: 'refs' as const,
+          status: 'queued' as const,
+          versions: [],
+          createdAt: at,
+        }),
+        stage: known && known.stage !== 'concept' ? known.stage : ('refs' as const),
+        thumbnail: known && !refMayReplace(known.thumbnail) ? known.thumbnail : ref,
+        updatedAt: at,
+      };
+      assets = known ? assets.map(a => (a.id === assetId ? asset : a)) : [...assets, asset];
+      sent.push({ asset, refs: [ref] });
+      return { ...image, refFile: ref };
+    });
+    const next = saveDirection(project, { ...direction, updatedAt: at, images });
+    const known = refs.get(project) ?? [];
+    const files = sent.flatMap(s => s.refs);
+    refs.set(project, [
+      ...known.filter(r => !files.includes(r.file)),
+      ...files.map(file => ({ file, name: file.slice(5), bytes: 1.2e6 })),
+    ]);
+    const saved = options.saveProject({ ...manifest, assets });
+    return { direction: next, assets: sent, copied, project: saved };
   }
 
   function cancel(id: string) {
@@ -398,6 +528,9 @@ export function createFakeLab(options: FakeLabOptions) {
     },
     lab_send_picks: ({ project, direction, kind }) =>
       sendPicks(String(project), String(direction), kind as AssetKind),
+    lab_make_objects: ({ request }) => makeObjects(request as NewObjectRefs),
+    lab_send_object_picks: ({ project, direction, kind }) =>
+      sendObjectPicks(String(project), String(direction), (kind as AssetKind | null) ?? null),
     lab_import_refs: ({ project, paths }) => {
       const dir = options.projectDir(String(project));
       const out = (paths as string[]).map(path => {

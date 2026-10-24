@@ -10,6 +10,7 @@ const CONCEPT_FILES: Record<string, string> = {};
 /** Every fixture image, project relative, with the bundled file it shows. */
 export function conceptFiles(): Record<string, string> {
   labDirections(false);
+  workbenchDirections();
   return { ...CONCEPT_FILES };
 }
 
@@ -25,11 +26,14 @@ export const GENERATED_POOL = [
 
 const HOUR = 3_600_000;
 
+type Marks = Record<number, { starred?: boolean; picked?: boolean; refFile?: string }>;
+
 function images(
   id: string,
   sources: readonly string[],
-  marks: Record<number, { starred?: boolean; picked?: boolean }>,
-  at: string
+  marks: Marks,
+  at: string,
+  titles: readonly (string | null)[] = []
 ): ConceptImage[] {
   return sources.map((source, i) => {
     const index = i + 1;
@@ -42,9 +46,9 @@ function images(
       height: 941,
       starred: marks[index]?.starred ?? false,
       picked: marks[index]?.picked ?? false,
-      refFile: null,
+      refFile: marks[index]?.refFile ?? null,
       createdAt: at,
-      title: null,
+      title: titles[i] ?? null,
     };
   });
 }
@@ -55,7 +59,7 @@ function direction(
   prompt: string,
   sources: readonly string[],
   ageHours: number,
-  marks: Record<number, { starred?: boolean; picked?: boolean }> = {}
+  marks: Marks = {}
 ): Direction {
   const at = new Date(Date.now() - ageHours * HOUR).toISOString();
   return {
@@ -184,4 +188,80 @@ export function runningJobs(project: string, now: number): ConceptJob[] {
       logTail: done ? ['saved the image'] : ['Generating the image'],
     };
   });
+}
+
+/**
+ * `?handoff=batch`: the landing page workbench concept, and the six objects
+ * made from it, every one picked, sent to Refs and handed off by hand.
+ */
+export const WORKBENCH_OBJECTS = [
+  { title: 'Desk lamp', image: 'workbench-desk-lamp.webp' },
+  { title: 'Sculptor figure', image: 'workbench-sculptor-figure.webp' },
+  { title: 'Clay island', image: 'workbench-clay-island.webp' },
+  { title: 'Turntable island', image: 'workbench-turntable-island.webp' },
+  { title: 'Brush cup', image: 'workbench-brush-cup.webp' },
+  { title: 'Calipers', image: 'workbench-calipers.webp' },
+] as const;
+
+/** "Desk lamp" to "refs/desk_lamp.png", the way the core names an object ref. */
+export const objectRef = (title: string) =>
+  `refs/${title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')}.png`;
+
+/** Object refs in `refs/`, served from the bundled crops. */
+export const OBJECT_REF_FILES: Record<string, string> = Object.fromEntries(
+  WORKBENCH_OBJECTS.map(o => [objectRef(o.title), `concepts/${o.image}`])
+);
+
+export const WORKBENCH_SOURCE = 'concepts/workbench-hero/workbench-hero_01.png';
+
+export function workbenchDirections(): Direction[] {
+  const hero = direction(
+    'workbench-hero',
+    'Workbench hero',
+    'The landing page hero: a warm night workbench with a clay island maquette on a plaster plinth, the finished island on a turntable, a desk lamp, brushes and calipers.',
+    ['workbench-hero-a.webp'],
+    3,
+    { 1: { starred: true } }
+  );
+  const objects = direction(
+    'workbench-hero-objects',
+    'Workbench hero objects',
+    'One clean reference image of each object in the workbench hero.',
+    [],
+    1
+  );
+  const at = objects.createdAt;
+  return [
+    hero,
+    {
+      ...objects,
+      refs: [WORKBENCH_SOURCE],
+      aspect: '1:1',
+      source: WORKBENCH_SOURCE,
+      kind: 'prop',
+      images: images(
+        'workbench-hero-objects',
+        WORKBENCH_OBJECTS.map(o => o.image),
+        Object.fromEntries(
+          WORKBENCH_OBJECTS.map((o, i) => [
+            i + 1,
+            { picked: true, starred: i < 2, refFile: objectRef(o.title) },
+          ])
+        ),
+        at,
+        WORKBENCH_OBJECTS.map(o => o.title)
+      ).map(i => ({ ...i, width: 1024, height: 1024 })),
+    },
+  ];
+}
+
+export function objectRefs(): RefImage[] {
+  return Object.keys(OBJECT_REF_FILES).map(file => ({
+    file,
+    name: file.slice('refs/'.length),
+    bytes: 1.2e6,
+  }));
 }
