@@ -84,6 +84,8 @@ function useLiveData(projectId: string | null, root: string | null) {
   const loadPipeline = usePipelineStore(s => s.load);
   const onEvent = usePipelineStore(s => s.onEvent);
   const loadInbox = useInboxStore(s => s.load);
+  const onThumbnail = useInboxStore(s => s.onThumbnail);
+  const setProject = useAppStore(s => s.setProject);
   useEffect(() => {
     if (projectId) void loadPipeline(projectId);
   }, [projectId, loadPipeline]);
@@ -94,11 +96,15 @@ function useLiveData(projectId: string | null, root: string | null) {
     const stops = [
       events.pipelineUpdate.listen(e => onEvent(e.payload)),
       events.inboxChanged.listen(() => void loadInbox()),
+      events.thumbnailReady.listen(e => {
+        onThumbnail(e.payload);
+        if (e.payload.project) setProject(e.payload.project);
+      }),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
     };
-  }, [onEvent, loadInbox]);
+  }, [onEvent, loadInbox, onThumbnail, setProject]);
 }
 
 function CurrentView({ view }: { view: ViewId }) {

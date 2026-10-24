@@ -21,6 +21,7 @@ import { assetCount, cardNumbers, columns, projectFile } from '@/state/board';
 import { TEMPLATE_LABEL } from '@/state/onboarding';
 import { STAGES, STAGE_LABEL, estimatedTransfer, stageViews } from '@/state/pipeline';
 import { usePipelineStore } from '@/state/pipeline-store';
+import { KIND_ICON } from '@/state/thumbs';
 import { Menu } from '@/features/common/Menu';
 import { AddAssetForm } from './AddAssetForm';
 
@@ -214,6 +215,11 @@ export function BoardView() {
                         key={asset.id}
                         name={asset.name}
                         thumb={fileUrl(thumbPath) ?? undefined}
+                        placeholder={{
+                          icon: KIND_ICON[asset.kind],
+                          label: asset.versions.length > 0 ? 'No preview yet' : undefined,
+                        }}
+                        meta={asset.versions.length === 0 ? 'No model yet' : undefined}
                         version={n.version}
                         latest={n.version !== undefined}
                         tris={n.tris}
@@ -251,10 +257,9 @@ export function BoardView() {
                     );
                   })}
                   {list.length === 0 && !(stage === 'concept' && assets.length === 0) ? (
-                    <div
-                      aria-hidden="true"
-                      className="h-[88px] flex-none rounded-card border border-dashed border-line-strong"
-                    />
+                    <div className="grid h-[88px] flex-none place-items-center rounded-card border border-dashed border-line-strong text-meta text-fg-mute">
+                      Drag an asset here
+                    </div>
                   ) : null}
                 </section>
               );

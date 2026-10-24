@@ -10,6 +10,7 @@ import {
   StatusChip,
   TopBar,
   cn,
+  type IconName,
 } from '@maquette/ui';
 import type { AssetKind, InboxItem } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
@@ -25,6 +26,7 @@ import {
   reviewPrompt,
   sortChecks,
 } from '@/state/inbox';
+import { KIND_ICON } from '@/state/thumbs';
 import type { PreviewMode } from '@/features/viewer/ModelPreview';
 
 const ModelPreview = lazy(() => import('@/features/viewer/ModelPreview'));
@@ -35,6 +37,17 @@ const MODES: readonly { value: PreviewMode; label: string }[] = [
   { value: 'uv', label: 'UV' },
   { value: 'bones', label: 'Bones' },
 ];
+
+const MODE_ICON: Record<PreviewMode, IconName> = {
+  shaded: 'cube',
+  wireframe: 'cube-transparent',
+  uv: 'squares-four',
+  bones: 'person-simple',
+};
+
+/** A label laid over the viewport, as the canvas draws them. */
+const BADGE =
+  'pointer-events-none absolute flex h-[22px] items-center gap-[5px] rounded-[6px] bg-[rgba(28,27,25,0.78)] px-2 text-[11.5px] font-medium text-fg';
 
 const KINDS: readonly { value: AssetKind; label: string }[] = [
   { value: 'prop', label: 'Prop' },
@@ -56,7 +69,7 @@ export function InboxView() {
           className="flex w-[300px] flex-none flex-col border-r border-line bg-panel"
         >
           <div className="px-4 pt-[18px] pb-3">
-            <h2 className="text-screen-title">Model inbox</h2>
+            <h2 className="text-panel-title">Model inbox</h2>
             <p className="mt-0.5 text-fg-mute">
               {items.length === 0
                 ? 'Empty'
@@ -108,9 +121,7 @@ function InboxRow({
         selected ? 'bg-clay-soft shadow-[inset_0_0_0_1px_var(--clay-line)]' : 'hover:bg-hover'
       )}
     >
-      <span className="grid size-[52px] flex-none place-items-center rounded-[8px] bg-studio text-fg-mute">
-        <Icon name={item.kind === 'character' ? 'cube-focus' : 'cube'} size={22} />
-      </span>
+      <RowThumb item={item} />
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="truncate font-semibold">{item.name}</span>
         <span className="truncate font-mono text-[11.5px] leading-[14px] text-fg-mute">
@@ -121,6 +132,34 @@ function InboxRow({
         </span>
       </span>
     </button>
+  );
+}
+
+/** The studio render, or the kind icon while it renders (or for a file that cannot be read). */
+function RowThumb({ item }: { item: InboxItem }) {
+  const src = fileUrl(item.thumbnail);
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        draggable={false}
+        className="size-[52px] flex-none rounded-[8px] bg-studio object-cover"
+      />
+    );
+  }
+  const rendering = item.state === 'ready' && item.thumbnailState === 'rendering';
+  return (
+    <span
+      title={rendering ? 'Rendering a thumbnail' : undefined}
+      className="grid size-[52px] flex-none place-items-center rounded-[8px] border border-line bg-raised text-fg-mute"
+    >
+      <Icon
+        name={item.state === 'failed' ? 'warning-circle' : KIND_ICON[item.kind]}
+        size={20}
+        className={cn(rendering && 'animate-pulse motion-reduce:animate-none')}
+      />
+    </span>
   );
 }
 
@@ -164,7 +203,7 @@ function InboxDetail({ item }: { item: InboxItem }) {
           ...(report.generator ? [{ label: 'Made by', value: report.generator }] : []),
         ]
       : []),
-    { label: 'File', value: `inbox/${item.id}`, mono: true },
+    { label: 'File', value: item.id, mono: true },
   ];
 
   return (
@@ -173,9 +212,10 @@ function InboxDetail({ item }: { item: InboxItem }) {
         <section className="flex min-w-0 flex-1 flex-col gap-3.5 px-6 pt-[18px] pb-5">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="text-screen-title truncate">{item.name}</h2>
+              <h2 className="truncate text-panel-title">{item.name}</h2>
               <p className="mt-0.5 text-fg-mute">
-                arrived {formatAgo(item.modifiedMs ?? now, now)}
+                {report?.generator ? `${report.generator} · ` : ''}arrived{' '}
+                {formatAgo(item.modifiedMs ?? now, now)}
               </p>
             </div>
             <SegmentedControl
@@ -185,7 +225,7 @@ function InboxDetail({ item }: { item: InboxItem }) {
               onChange={setMode}
             />
           </div>
-          <div className="relative min-h-0 flex-1 overflow-hidden rounded-[14px] border border-line bg-[#7f8083]">
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-[14px] border border-line bg-studio">
             {url && item.state === 'ready' ? (
               <Suspense fallback={null}>
                 <ModelPreview
@@ -197,18 +237,24 @@ function InboxDetail({ item }: { item: InboxItem }) {
               </Suspense>
             ) : null}
             {!url || loadError || item.state === 'failed' ? (
-              <div className="absolute inset-0 grid place-items-center text-[#2a2926]">
-                <span className="rounded-full bg-black/10 px-3 py-1 text-meta">
-                  {loadError ?? item.error ?? 'No preview for this file'}
-                </span>
+              <div className="absolute inset-0 grid place-items-center p-6">
+                <EmptyState
+                  icon="warning-circle"
+                  title="No preview for this file"
+                  body={loadError ?? item.error ?? 'Reprocess it once the download has finished.'}
+                />
               </div>
             ) : null}
-            <span className="pointer-events-none absolute top-3 left-3 rounded-full bg-black/35 px-2.5 py-1 text-meta text-white/90">
+            <span className={cn(BADGE, 'top-3 left-3')}>
+              <Icon name={MODE_ICON[mode]} size={12} />
               {MODES.find(m => m.value === mode)?.label}
             </span>
-            <span className="pointer-events-none absolute right-3 bottom-3 rounded-full bg-black/35 px-2.5 py-1 text-meta text-white/90">
-              Drag to orbit · scroll to zoom
-            </span>
+            {url && item.state === 'ready' && !loadError ? (
+              <span className={cn(BADGE, 'right-3 bottom-3')}>
+                <Icon name="hand-pointing" size={12} />
+                Drag to orbit · scroll to zoom
+              </span>
+            ) : null}
           </div>
         </section>
         <aside
@@ -255,7 +301,18 @@ function InboxDetail({ item }: { item: InboxItem }) {
         </aside>
       </div>
       <div className="flex h-16 flex-none items-center gap-2.5 border-t border-line bg-panel pr-5 pl-6">
-        <span className="min-w-0 truncate">{reviewPrompt(item)}</span>
+        <Icon
+          name={
+            item.worst === 'pass' && item.state !== 'failed' ? 'check-circle' : 'warning-circle'
+          }
+          className={cn(
+            'flex-none',
+            item.worst === 'pass' && item.state !== 'failed' ? 'text-sage' : 'text-clay-text'
+          )}
+        />
+        <span className="min-w-0 truncate" title={reviewPrompt(item)}>
+          {reviewPrompt(item)}
+        </span>
         <span className="ml-auto" />
         <Button icon="arrow-clockwise" disabled={isBusy} onClick={() => void reprocess(item.id)}>
           Reprocess

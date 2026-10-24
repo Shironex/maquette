@@ -6,9 +6,12 @@ import {
   type AssetKind,
   type InboxItem,
   type InboxSnapshot,
+  type ThumbnailReady,
 } from '@/ipc/client';
+import { fileUrl } from '@/ipc/files';
 import { useAppStore } from './app-store';
 import { firstToReview } from './inbox';
+import { needsSnapshot, withThumbnail } from './thumbs';
 
 interface InboxStore {
   snapshot: InboxSnapshot | null;
@@ -22,7 +25,14 @@ interface InboxStore {
   setKind: (id: string, kind: AssetKind) => Promise<void>;
   accept: (id: string, project: string) => Promise<boolean>;
   openInBlender: (id: string) => Promise<void>;
+  /** Folds in a render that finished (from the `thumbnailReady` event). */
+  onThumbnail: (event: ThumbnailReady) => void;
+  /** Snapshots the preview of every model Blender will not render, one at a time. */
+  snapshotMissing: () => Promise<void>;
 }
+
+/** Files already snapshotted (or tried) this session, so a failure is not retried in a loop. */
+const snapshotted = new Set<string>();
 
 function replace(snapshot: InboxSnapshot, item: InboxItem): InboxSnapshot {
   return { ...snapshot, items: snapshot.items.map(i => (i.id === item.id ? item : i)) };
@@ -48,6 +58,7 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
         loading: false,
         selected: keep ? selected : (firstToReview(snapshot.items)?.id ?? null),
       });
+      void get().snapshotMissing();
     } catch (error) {
       set({ loading: false });
       fail('Could not read the inbox', error);
@@ -62,6 +73,7 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
       const item = await commands.inboxReprocess(id);
       const snapshot = get().snapshot;
       if (snapshot) set({ snapshot: replace(snapshot, item) });
+      void get().snapshotMissing();
     } catch (error) {
       fail('Reprocess failed', error);
     } finally {
@@ -104,6 +116,36 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
       await commands.inboxOpenInBlender(id);
     } catch (error) {
       fail('Could not open Blender', error);
+    }
+  },
+
+  onThumbnail: event => {
+    const snapshot = get().snapshot;
+    if (snapshot) {
+      set({ snapshot: withThumbnail(snapshot, event.file, event.thumbnail, event.state) });
+    }
+    if (event.state === 'fallback') void get().snapshotMissing();
+  },
+
+  snapshotMissing: async () => {
+    const waiting = (get().snapshot?.items ?? []).filter(
+      i => needsSnapshot(i) && !snapshotted.has(i.file)
+    );
+    if (waiting.length === 0) return;
+    const { snapshotModel } = await import('@/features/viewer/snapshot');
+    for (const item of waiting) {
+      if (snapshotted.has(item.file)) continue;
+      snapshotted.add(item.file);
+      const url = fileUrl(item.file);
+      if (!url) continue;
+      try {
+        const png = await snapshotModel(url);
+        const path = await commands.thumbnailStore(item.file, Array.from(png));
+        const snapshot = get().snapshot;
+        if (snapshot) set({ snapshot: withThumbnail(snapshot, item.file, path, 'ready') });
+      } catch {
+        // The row keeps its kind placeholder; the preview still shows the model.
+      }
     }
   },
 }));

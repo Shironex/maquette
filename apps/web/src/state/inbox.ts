@@ -37,7 +37,7 @@ export function reviewPrompt(item: InboxItem): string {
     fails ? `${fails} ${fails === 1 ? 'failure' : 'failures'}` : null,
     warns ? `${warns} ${warns === 1 ? 'warning' : 'warnings'}` : null,
   ].filter(Boolean);
-  return `Review the ${parts.join(' and ')} before sending this model to the build.`;
+  return `Review the ${parts.join(' and ')} before you accept it.`;
 }
 
 /** Fail first, then warnings, then passes, keeping the order within each. */
