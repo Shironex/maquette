@@ -1,0 +1,635 @@
+//! The workspace: one root folder holding `maquette.json`, projects, the
+//! inbox and the cache.
+
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+
+use crate::error::{CoreError, CoreResult};
+use crate::fs::{clear_dir_contents, collapse_home, dir_size, expand_home};
+use crate::json::{from_json_with_defaults, write_json};
+
+pub const CONFIG_FILE: &str = "maquette.json";
+pub const CONFIG_VERSION: u32 = 1;
+
+/// Files the OS drops into folders. They do not make a folder "not empty".
+const IGNORED_ENTRIES: [&str; 3] = [".DS_Store", "Thumbs.db", "desktop.ini"];
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceConfig {
+    pub version: u32,
+    pub layout: FolderLayout,
+    pub tripo: TripoDefaults,
+    pub budgets: Budgets,
+    pub compression: Compression,
+    pub agents: AgentSettings,
+    pub current_project: Option<String>,
+}
+
+impl Default for WorkspaceConfig {
+    fn default() -> Self {
+        Self {
+            version: CONFIG_VERSION,
+            layout: FolderLayout::default(),
+            tripo: TripoDefaults::default(),
+            budgets: Budgets::default(),
+            compression: Compression::default(),
+            agents: AgentSettings::default(),
+            current_project: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderLayout {
+    pub projects: String,
+    pub inbox: String,
+    pub cache: String,
+}
+
+impl Default for FolderLayout {
+    fn default() -> Self {
+        Self {
+            projects: "projects".to_string(),
+            inbox: "inbox".to_string(),
+            cache: "cache".to_string(),
+        }
+    }
+}
+
+impl FolderLayout {
+    fn names(&self) -> [&str; 3] {
+        [&self.projects, &self.inbox, &self.cache]
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct TripoDefaults {
+    pub model: String,
+    pub hd: bool,
+    pub topology: Topology,
+    pub texture: TextureSize,
+    pub remove_lighting: bool,
+    pub pbr: bool,
+    pub character: CharacterPreset,
+}
+
+impl Default for TripoDefaults {
+    fn default() -> Self {
+        Self {
+            model: "H3.1".to_string(),
+            hd: true,
+            topology: Topology::default(),
+            texture: TextureSize::default(),
+            remove_lighting: true,
+            pbr: true,
+            character: CharacterPreset::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum Topology {
+    #[default]
+    Triangle,
+    Quad,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub enum TextureSize {
+    #[serde(rename = "1K")]
+    K1,
+    #[default]
+    #[serde(rename = "2K")]
+    K2,
+    #[serde(rename = "4K")]
+    K4,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CharacterPreset {
+    pub quads: u32,
+    pub multi_view: bool,
+    pub auto_rig: bool,
+    pub rig_preset: RigPreset,
+}
+
+impl Default for CharacterPreset {
+    fn default() -> Self {
+        Self {
+            quads: 50_000,
+            multi_view: true,
+            auto_rig: true,
+            rig_preset: RigPreset::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum RigPreset {
+    #[default]
+    Mixamo,
+    Tripo,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Budgets {
+    pub scene_mb: f64,
+    pub tris_per_model: u32,
+}
+
+impl Default for Budgets {
+    fn default() -> Self {
+        Self {
+            scene_mb: 3.0,
+            tris_per_model: 60_000,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct Compression {
+    pub texture_codec: TextureCodec,
+    pub meshopt: MeshoptLevel,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum TextureCodec {
+    #[default]
+    Etc1s,
+    Uastc,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum MeshoptLevel {
+    Low,
+    #[default]
+    Medium,
+    High,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSettings {
+    pub mcp_enabled: bool,
+    /// u32 rather than u16 so an out of range value reaches `validate` and
+    /// gets a readable message instead of a JSON error.
+    pub mcp_port: u32,
+    pub rules: AgentRules,
+}
+
+impl Default for AgentSettings {
+    fn default() -> Self {
+        Self {
+            mcp_enabled: false,
+            mcp_port: 4317,
+            rules: AgentRules::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentRules {
+    pub blender_headless_only: bool,
+    pub never_capture_screen: bool,
+    pub ask_before_shipping: bool,
+}
+
+impl Default for AgentRules {
+    fn default() -> Self {
+        Self {
+            blender_headless_only: true,
+            never_capture_screen: true,
+            ask_before_shipping: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum RootState {
+    Missing,
+    Empty,
+    Workspace,
+    NotEmpty,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RootInspection {
+    /// Expanded absolute path.
+    pub path: String,
+    /// The path with the home folder shown as `~`.
+    pub display: String,
+    pub state: RootState,
+    /// Entries in the folder, not counting OS clutter such as `.DS_Store`.
+    pub entries: u32,
+}
+
+fn absolute(root: &Path, home: Option<&Path>) -> PathBuf {
+    let expanded = expand_home(&root.to_string_lossy(), home);
+    std::path::absolute(&expanded).unwrap_or(expanded)
+}
+
+pub fn inspect_root(root: &Path, home: Option<&Path>) -> CoreResult<RootInspection> {
+    let path = absolute(root, home);
+    let display = collapse_home(&path, home);
+    let inspection = |state, entries| RootInspection {
+        path: path.display().to_string(),
+        display: display.clone(),
+        state,
+        entries,
+    };
+
+    let meta = match fs::metadata(&path) {
+        Ok(meta) => meta,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => {
+            return Ok(inspection(RootState::Missing, 0));
+        }
+        Err(err) => return Err(CoreError::io(&path, err)),
+    };
+    if !meta.is_dir() {
+        return Err(CoreError::Invalid(
+            "This path is a file. Pick a folder.".to_string(),
+        ));
+    }
+
+    let mut entries = 0u32;
+    for entry in fs::read_dir(&path).map_err(|e| CoreError::io(&path, e))? {
+        let entry = entry.map_err(|e| CoreError::io(&path, e))?;
+        let name = entry.file_name();
+        if !IGNORED_ENTRIES.iter().any(|ignored| name == *ignored) {
+            entries = entries.saturating_add(1);
+        }
+    }
+    let state = if path.join(CONFIG_FILE).is_file() {
+        RootState::Workspace
+    } else if entries == 0 {
+        RootState::Empty
+    } else {
+        RootState::NotEmpty
+    };
+    Ok(inspection(state, entries))
+}
+
+/// Creates a workspace in a missing or empty folder, or opens the one that is
+/// already there.
+pub fn create(root: &Path, config: &WorkspaceConfig) -> CoreResult<WorkspaceConfig> {
+    match inspect_root(root, None)?.state {
+        RootState::Workspace => open(root),
+        RootState::NotEmpty => Err(CoreError::NotEmpty(root.to_path_buf())),
+        RootState::Missing | RootState::Empty => {
+            validate(config)?;
+            let mut config = config.clone();
+            config.version = CONFIG_VERSION;
+            fs::create_dir_all(root).map_err(|e| CoreError::io(root, e))?;
+            ensure_layout(root, &config.layout)?;
+            save(root, &config)?;
+            Ok(config)
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct VersionProbe {
+    #[serde(default)]
+    version: u32,
+}
+
+/// Reads the config, fills in defaults for anything missing and recreates
+/// missing layout folders.
+pub fn open(root: &Path) -> CoreResult<WorkspaceConfig> {
+    let path = root.join(CONFIG_FILE);
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => {
+            return Err(CoreError::NotAWorkspace(root.to_path_buf()));
+        }
+        Err(err) => return Err(CoreError::io(&path, err)),
+    };
+    let probe: VersionProbe = serde_json::from_str(&text).map_err(|e| CoreError::json(&path, e))?;
+    if probe.version > CONFIG_VERSION {
+        return Err(CoreError::UnsupportedVersion {
+            found: probe.version,
+            supported: CONFIG_VERSION,
+        });
+    }
+    let mut config: WorkspaceConfig =
+        from_json_with_defaults(&text).map_err(|e| CoreError::json(&path, e))?;
+    config.version = CONFIG_VERSION;
+    validate(&config)?;
+    ensure_layout(root, &config.layout)?;
+    Ok(config)
+}
+
+fn ensure_layout(root: &Path, layout: &FolderLayout) -> CoreResult<()> {
+    for name in layout.names() {
+        let dir = root.join(name);
+        fs::create_dir_all(&dir).map_err(|e| CoreError::io(&dir, e))?;
+    }
+    Ok(())
+}
+
+/// Validates, then writes pretty JSON atomically.
+pub fn save(root: &Path, config: &WorkspaceConfig) -> CoreResult<()> {
+    validate(config)?;
+    let path = root.join(CONFIG_FILE);
+    write_json(&path, config)
+}
+
+/// True when `name` is one plain folder name, safe to join onto a root.
+pub(crate) fn is_single_segment(name: &str) -> bool {
+    const FORBIDDEN: [char; 9] = ['/', '\\', ':', '*', '?', '"', '<', '>', '|'];
+    !name.trim().is_empty()
+        && name.trim() == name
+        && name != "."
+        && name != ".."
+        && !name.contains("..")
+        && !name.contains(FORBIDDEN)
+        && !name.chars().any(char::is_control)
+}
+
+pub fn validate(config: &WorkspaceConfig) -> CoreResult<()> {
+    let invalid = |msg: &str| Err(CoreError::Invalid(msg.to_string()));
+    if !(1024..=65535).contains(&config.agents.mcp_port) {
+        return invalid("The MCP port must be between 1024 and 65535.");
+    }
+    let scene_mb = config.budgets.scene_mb;
+    if !scene_mb.is_finite() || scene_mb <= 0.0 || scene_mb > 1000.0 {
+        return invalid("The scene budget must be more than 0 MB and at most 1000 MB.");
+    }
+    if config.budgets.tris_per_model == 0 {
+        return invalid("The triangle budget per model must be more than 0.");
+    }
+    if config.tripo.character.quads == 0 {
+        return invalid("The character quad count must be more than 0.");
+    }
+    if config.tripo.model.trim().is_empty() {
+        return invalid("Pick a Tripo model.");
+    }
+    let names = config.layout.names();
+    if names.iter().any(|name| !is_single_segment(name)) {
+        return invalid("Folder names must be plain names, without slashes or dots.");
+    }
+    let lowered: Vec<String> = names.iter().map(|n| n.to_lowercase()).collect();
+    if lowered[0] == lowered[1] || lowered[0] == lowered[2] || lowered[1] == lowered[2] {
+        return invalid("The projects, inbox and cache folders need three different names.");
+    }
+    Ok(())
+}
+
+pub fn cache_size(root: &Path, config: &WorkspaceConfig) -> u64 {
+    dir_size(&root.join(&config.layout.cache))
+}
+
+/// Empties the cache folder and returns the bytes freed.
+pub fn clear_cache(root: &Path, config: &WorkspaceConfig) -> CoreResult<u64> {
+    if !is_single_segment(&config.layout.cache) {
+        return Err(CoreError::Invalid(
+            "The cache folder name is not a plain name.".to_string(),
+        ));
+    }
+    let dir = root.join(&config.layout.cache);
+    clear_dir_contents(&dir).map_err(|e| CoreError::io(&dir, e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_json_uses_camel_case_and_enum_spellings() {
+        let json = serde_json::to_string(&WorkspaceConfig::default()).expect("json");
+        for needle in [
+            "\"currentProject\":null",
+            "\"removeLighting\":true",
+            "\"multiView\":true",
+            "\"rigPreset\":\"mixamo\"",
+            "\"sceneMb\":3.0",
+            "\"trisPerModel\":60000",
+            "\"textureCodec\":\"etc1s\"",
+            "\"meshopt\":\"medium\"",
+            "\"mcpPort\":4317",
+            "\"blenderHeadlessOnly\":true",
+            "\"topology\":\"triangle\"",
+            "\"texture\":\"2K\"",
+            "\"model\":\"H3.1\"",
+        ] {
+            assert!(json.contains(needle), "missing {needle} in {json}");
+        }
+        assert_eq!(
+            serde_json::to_string(&TextureSize::K4).expect("json"),
+            "\"4K\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TextureCodec::Uastc).expect("json"),
+            "\"uastc\""
+        );
+        assert_eq!(
+            serde_json::to_string(&RootState::NotEmpty).expect("json"),
+            "\"not-empty\""
+        );
+    }
+
+    #[test]
+    fn default_round_trip() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = WorkspaceConfig::default();
+        save(dir.path(), &config).expect("save");
+        let text = fs::read_to_string(dir.path().join(CONFIG_FILE)).expect("read");
+        assert!(text.ends_with("}\n"));
+        assert_eq!(open(dir.path()).expect("open"), config);
+    }
+
+    #[test]
+    fn partial_file_fills_defaults_and_ignores_unknown_keys() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        fs::write(
+            dir.path().join(CONFIG_FILE),
+            r#"{ "budgets": { "sceneMb": 5.5 }, "somethingNew": [1, 2] }"#,
+        )
+        .expect("write");
+        let config = open(dir.path()).expect("open");
+        let mut expected = WorkspaceConfig::default();
+        expected.budgets.scene_mb = 5.5;
+        assert_eq!(config, expected);
+        for name in ["projects", "inbox", "cache"] {
+            assert!(dir.path().join(name).is_dir());
+        }
+    }
+
+    #[test]
+    fn future_version_is_rejected() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        fs::write(
+            dir.path().join(CONFIG_FILE),
+            r#"{ "version": 2, "layout": 7 }"#,
+        )
+        .expect("write");
+        let err = open(dir.path()).expect_err("future");
+        assert_eq!(err.code(), "unsupported-version");
+    }
+
+    #[test]
+    fn corrupt_config_is_a_json_error() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        fs::write(dir.path().join(CONFIG_FILE), "{ nope").expect("write");
+        assert_eq!(open(dir.path()).expect_err("corrupt").code(), "json");
+    }
+
+    #[test]
+    fn validation_failures() {
+        let mut config = WorkspaceConfig::default();
+        config.agents.mcp_port = 80;
+        assert_eq!(validate(&config).expect_err("port").code(), "invalid");
+
+        let mut config = WorkspaceConfig::default();
+        config.agents.mcp_port = 70000;
+        assert!(validate(&config).is_err());
+
+        for bad in ["../x", "a/b", "a\\b", "", "..", " x"] {
+            let mut config = WorkspaceConfig::default();
+            config.layout.inbox = bad.to_string();
+            assert!(validate(&config).is_err(), "{bad:?} should fail");
+        }
+
+        let mut config = WorkspaceConfig::default();
+        config.layout.cache = "projects".to_string();
+        assert!(validate(&config).is_err());
+
+        let mut config = WorkspaceConfig::default();
+        config.budgets.scene_mb = 0.0;
+        assert!(validate(&config).is_err());
+        config.budgets.scene_mb = 1001.0;
+        assert!(validate(&config).is_err());
+
+        let mut config = WorkspaceConfig::default();
+        config.budgets.tris_per_model = 0;
+        assert!(validate(&config).is_err());
+
+        let mut config = WorkspaceConfig::default();
+        config.tripo.character.quads = 0;
+        assert!(validate(&config).is_err());
+
+        let mut config = WorkspaceConfig::default();
+        config.tripo.model = " ".to_string();
+        assert!(validate(&config).is_err());
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut config = WorkspaceConfig::default();
+        config.agents.mcp_port = 80;
+        assert!(save(dir.path(), &config).is_err());
+        assert!(!dir.path().join(CONFIG_FILE).exists());
+
+        assert!(validate(&WorkspaceConfig::default()).is_ok());
+    }
+
+    #[test]
+    fn create_on_missing_and_empty() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let missing = dir.path().join("new").join("Maquette");
+        let config = create(&missing, &WorkspaceConfig::default()).expect("create missing");
+        assert_eq!(config, WorkspaceConfig::default());
+        for name in ["projects", "inbox", "cache"] {
+            assert!(missing.join(name).is_dir());
+        }
+        assert!(missing.join(CONFIG_FILE).is_file());
+
+        let empty = dir.path().join("empty");
+        fs::create_dir(&empty).expect("mkdir");
+        fs::write(empty.join(".DS_Store"), b"x").expect("write");
+        create(&empty, &WorkspaceConfig::default()).expect("create empty");
+        assert!(empty.join(CONFIG_FILE).is_file());
+
+        let mut changed = WorkspaceConfig::default();
+        changed.budgets.tris_per_model = 1;
+        let reopened = create(&empty, &changed).expect("open existing");
+        assert_eq!(reopened.budgets.tris_per_model, 60_000);
+    }
+
+    #[test]
+    fn create_on_not_empty_fails() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        fs::write(dir.path().join("notes.txt"), b"x").expect("write");
+        let err = create(dir.path(), &WorkspaceConfig::default()).expect_err("not empty");
+        assert_eq!(err.code(), "not-empty");
+        assert!(!dir.path().join(CONFIG_FILE).exists());
+    }
+
+    #[test]
+    fn open_without_config_is_not_a_workspace() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        assert_eq!(
+            open(dir.path()).expect_err("no config").code(),
+            "not-a-workspace"
+        );
+    }
+
+    #[test]
+    fn inspect_root_states() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let home = dir.path();
+        let root = home.join("Maquette");
+
+        let missing = inspect_root(Path::new("~/Maquette"), Some(home)).expect("inspect");
+        assert_eq!(missing.state, RootState::Missing);
+        assert_eq!(missing.path, root.display().to_string());
+        assert_eq!(
+            missing.display,
+            format!("~{}Maquette", std::path::MAIN_SEPARATOR)
+        );
+
+        fs::create_dir(&root).expect("mkdir");
+        for junk in IGNORED_ENTRIES {
+            fs::write(root.join(junk), b"x").expect("write");
+        }
+        let empty = inspect_root(&root, Some(home)).expect("inspect");
+        assert_eq!(empty.state, RootState::Empty);
+        assert_eq!(empty.entries, 0);
+
+        fs::write(root.join("a.txt"), b"x").expect("write");
+        let not_empty = inspect_root(&root, Some(home)).expect("inspect");
+        assert_eq!(not_empty.state, RootState::NotEmpty);
+        assert_eq!(not_empty.entries, 1);
+
+        fs::write(root.join(CONFIG_FILE), b"{}").expect("write");
+        assert_eq!(
+            inspect_root(&root, Some(home)).expect("inspect").state,
+            RootState::Workspace
+        );
+
+        assert_eq!(
+            inspect_root(&root.join("a.txt"), Some(home))
+                .expect_err("file")
+                .code(),
+            "invalid"
+        );
+    }
+
+    #[test]
+    fn cache_size_and_clear() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = create(dir.path(), &WorkspaceConfig::default()).expect("create");
+        let cache = dir.path().join("cache");
+        fs::create_dir_all(cache.join("job")).expect("mkdir");
+        fs::write(cache.join("a.bin"), [0u8; 7]).expect("write");
+        fs::write(cache.join("job").join("b.bin"), [0u8; 3]).expect("write");
+        assert_eq!(cache_size(dir.path(), &config), 10);
+        assert_eq!(clear_cache(dir.path(), &config).expect("clear"), 10);
+        assert_eq!(cache_size(dir.path(), &config), 0);
+        assert!(cache.is_dir());
+    }
+}
