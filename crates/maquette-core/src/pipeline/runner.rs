@@ -75,6 +75,49 @@ pub struct RunSetup {
     pub force: bool,
 }
 
+/// Extra controls for one run, for jobs that are not project pipelines
+/// (the Concept lab's Codex jobs) and for runs an agent started.
+#[derive(Clone, Default)]
+pub struct RunOptions {
+    /// Written to each step's standard input, which is then closed. Without
+    /// it the input is empty.
+    pub stdin: Option<String>,
+    /// A step still running after this long is stopped and fails.
+    pub timeout: Option<Duration>,
+    /// Asked before each step whether it may run (see [`StepGate`]).
+    pub gate: Option<Arc<dyn StepGate>>,
+}
+
+impl std::fmt::Debug for RunOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RunOptions")
+            .field("stdin", &self.stdin.as_ref().map(String::len))
+            .field("timeout", &self.timeout)
+            .field("gate", &self.gate.is_some())
+            .finish()
+    }
+}
+
+/// What a [`StepGate`] decided.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GateDecision {
+    Allow,
+    /// The step and the rest of the run are cancelled with this reason.
+    Deny(String),
+}
+
+/// Holds a run before a step until someone decides, for example "ask
+/// before shipping" for runs an agent starts. `wait` blocks the run's
+/// worker thread; it should return [`GateDecision::Deny`] once `cancelled`
+/// turns true.
+pub trait StepGate: Send + Sync {
+    /// True when `step` needs a decision before it runs.
+    fn applies(&self, step: &StepDef) -> bool;
+    /// The line the step shows while it waits.
+    fn waiting_message(&self, step: &StepDef) -> String;
+    fn wait(&self, run: &RunRecord, step: &StepDef, cancelled: &AtomicBool) -> GateDecision;
+}
+
 /// Runs pipelines. [`PipelineRunner`] is the real one.
 pub trait JobRunner: Send + Sync {
     /// Queues a run and returns its record (queued, or running when the
@@ -92,11 +135,42 @@ struct Active {
     child: ChildSlot,
 }
 
-#[derive(Default)]
+type Job = (RunRecord, RunSetup, RunOptions);
+
 struct Lane {
-    active: Option<Active>,
-    queue: VecDeque<(RunRecord, RunSetup)>,
+    /// The runs going now, at most `limit`.
+    active: Vec<Active>,
+    queue: VecDeque<Job>,
     next_number: Option<u32>,
+    limit: usize,
+}
+
+impl Default for Lane {
+    fn default() -> Self {
+        Self {
+            active: Vec::new(),
+            queue: VecDeque::new(),
+            next_number: None,
+            limit: 1,
+        }
+    }
+}
+
+impl Lane {
+    /// Moves queued runs into free slots and returns them to start.
+    fn take_startable(&mut self) -> Vec<(Job, Handles)> {
+        let mut out = Vec::new();
+        while self.active.len() < self.limit {
+            let Some(job) = self.queue.pop_front() else {
+                break;
+            };
+            let active = Active::new(&job.0.id);
+            let handles = active.handles();
+            self.active.push(active);
+            out.push((job, handles));
+        }
+        out
+    }
 }
 
 struct Inner {
@@ -129,16 +203,114 @@ impl PipelineRunner {
         }
     }
 
-    /// The running and queued runs of `project`.
+    /// The running and queued runs of `project`. With more than one run at
+    /// a time ([`Self::set_limit`]) the first one that started is named.
     pub fn active(&self, project: &str) -> (Option<String>, Vec<RunRecord>) {
         let lanes = self.inner.lanes();
         match lanes.get(project) {
             Some(lane) => (
-                lane.active.as_ref().map(|a| a.run_id.clone()),
-                lane.queue.iter().map(|(r, _)| r.clone()).collect(),
+                lane.active.first().map(|a| a.run_id.clone()),
+                lane.queue.iter().map(|(r, _, _)| r.clone()).collect(),
             ),
             None => (None, Vec::new()),
         }
+    }
+
+    /// Every run going now on `project`'s lane.
+    pub fn running(&self, project: &str) -> Vec<String> {
+        self.inner
+            .lanes()
+            .get(project)
+            .map(|lane| lane.active.iter().map(|a| a.run_id.clone()).collect())
+            .unwrap_or_default()
+    }
+
+    /// How many runs `lane` may run at once (1 for pipelines, so a
+    /// project's steps never race). Raising it starts queued runs.
+    pub fn set_limit(&self, lane: &str, limit: usize) {
+        let start = {
+            let mut lanes = self.inner.lanes();
+            let entry = lanes.entry(lane.to_string()).or_default();
+            entry.limit = limit.max(1);
+            entry.take_startable()
+        };
+        for (job, handles) in start {
+            if let Err(err) = self.start(lane, job, handles) {
+                tracing::warn!(error = %err, "a queued run did not start");
+            }
+        }
+    }
+
+    /// Queues a run with extra controls.
+    ///
+    /// # Errors
+    ///
+    /// Fails when the pipeline does not plan (a cycle, an unknown step) or a
+    /// worker thread cannot start.
+    pub fn submit_with(&self, setup: RunSetup, options: RunOptions) -> CoreResult<RunRecord> {
+        let plan = graph::plan(&setup.def, setup.from.as_deref(), setup.force)?;
+        let mut lanes = self.inner.lanes();
+        let lane = lanes.entry(setup.project.clone()).or_default();
+        let number = match lane.next_number {
+            Some(n) => n,
+            None => {
+                history::load_runs(&setup.cache_dir)
+                    .iter()
+                    .map(|r| r.number)
+                    .max()
+                    .unwrap_or(0)
+                    + 1
+            }
+        };
+        lane.next_number = Some(number + 1);
+        let record = RunRecord {
+            id: format!("{}-run-{number}", setup.project),
+            number,
+            project: setup.project.clone(),
+            from: setup.from.clone(),
+            force: setup.force,
+            state: RunState::Queued,
+            queued_at_ms: now_ms(),
+            started_at_ms: None,
+            finished_at_ms: None,
+            steps: initial_steps(&setup.def, &plan),
+            message: None,
+        };
+        let project = setup.project.clone();
+        lane.queue.push_back((record.clone(), setup, options));
+        // A lane with a free slot starts right away; a busy one queues.
+        let start = lane.take_startable();
+        drop(lanes);
+        self.inner.sink.event(PipelineEvent::Run {
+            run: record.clone(),
+        });
+        for (job, handles) in start {
+            let id = job.0.id.clone();
+            if let Err(err) = self.start(&project, job, handles)
+                && id == record.id
+            {
+                return Err(err);
+            }
+        }
+        Ok(record)
+    }
+
+    fn start(&self, project: &str, job: Job, handles: Handles) -> CoreResult<()> {
+        let inner = Arc::clone(&self.inner);
+        let lane = project.to_string();
+        let run_id = job.0.id.clone();
+        let spawned = thread::Builder::new()
+            .name(format!("pipeline-{project}"))
+            .spawn(move || worker(&inner, &lane, job, handles));
+        if let Err(e) = spawned {
+            if let Some(lane) = self.inner.lanes().get_mut(project) {
+                lane.active.retain(|a| a.run_id != run_id);
+            }
+            return Err(CoreError::Unavailable(format!(
+                "Could not start the runner. {e}"
+            )));
+        }
+        Ok(())
     }
 
     /// Submits and blocks until the run finishes. For the CLI and tests.
@@ -152,7 +324,7 @@ impl PipelineRunner {
                 let lanes = self.inner.lanes();
                 lanes
                     .get(&project)
-                    .is_some_and(|l| l.active.is_some() || !l.queue.is_empty())
+                    .is_some_and(|l| !l.active.is_empty() || !l.queue.is_empty())
             };
             if !busy {
                 break;
@@ -189,79 +361,21 @@ fn initial_steps(def: &PipelineDef, plan: &[(usize, Planned)]) -> Vec<StepRecord
 
 impl JobRunner for PipelineRunner {
     fn submit(&self, setup: RunSetup) -> CoreResult<RunRecord> {
-        let plan = graph::plan(&setup.def, setup.from.as_deref(), setup.force)?;
-        let mut lanes = self.inner.lanes();
-        let lane = lanes.entry(setup.project.clone()).or_default();
-        let number = match lane.next_number {
-            Some(n) => n,
-            None => {
-                history::load_runs(&setup.cache_dir)
-                    .iter()
-                    .map(|r| r.number)
-                    .max()
-                    .unwrap_or(0)
-                    + 1
-            }
-        };
-        lane.next_number = Some(number + 1);
-        let record = RunRecord {
-            id: format!("{}-run-{number}", setup.project),
-            number,
-            project: setup.project.clone(),
-            from: setup.from.clone(),
-            force: setup.force,
-            state: RunState::Queued,
-            queued_at_ms: now_ms(),
-            started_at_ms: None,
-            finished_at_ms: None,
-            steps: initial_steps(&setup.def, &plan),
-            message: None,
-        };
-        // An idle project starts right away; a busy one queues behind its run.
-        let first = if lane.active.is_none() {
-            let active = Active::new(&record.id);
-            let handles = active.handles();
-            lane.active = Some(active);
-            Some(handles)
-        } else {
-            lane.queue.push_back((record.clone(), setup.clone()));
-            None
-        };
-        drop(lanes);
-        self.inner.sink.event(PipelineEvent::Run {
-            run: record.clone(),
-        });
-        if let Some(handles) = first {
-            let inner = Arc::clone(&self.inner);
-            let project = setup.project.clone();
-            let job = (record.clone(), setup);
-            let spawned = thread::Builder::new()
-                .name(format!("pipeline-{project}"))
-                .spawn(move || worker(&inner, &project, job, handles));
-            if let Err(e) = spawned {
-                if let Some(lane) = self.inner.lanes().get_mut(&record.project) {
-                    lane.active = None;
-                }
-                return Err(CoreError::Unavailable(format!(
-                    "Could not start the runner. {e}"
-                )));
-            }
-        }
-        Ok(record)
+        self.submit_with(setup, RunOptions::default())
     }
 
     fn cancel(&self, run_id: &str) -> CoreResult<()> {
         let mut lanes = self.inner.lanes();
         for lane in lanes.values_mut() {
-            if let Some(active) = lane.active.as_ref().filter(|a| a.run_id == run_id) {
+            if let Some(active) = lane.active.iter().find(|a| a.run_id == run_id) {
                 active.cancel.store(true, Ordering::SeqCst);
                 if let Some(child) = lock(&active.child).as_mut() {
                     let _ = child.start_kill();
                 }
                 return Ok(());
             }
-            if let Some(pos) = lane.queue.iter().position(|(r, _)| r.id == run_id) {
-                if let Some((mut record, setup)) = lane.queue.remove(pos) {
+            if let Some(pos) = lane.queue.iter().position(|(r, _, _)| r.id == run_id) {
+                if let Some((mut record, setup, _)) = lane.queue.remove(pos) {
                     drop(lanes);
                     record.state = RunState::Cancelled;
                     record.finished_at_ms = Some(now_ms());
@@ -297,35 +411,31 @@ impl Active {
     }
 }
 
-/// Runs `job`, then whatever queued behind it, and frees the lane when the
-/// queue is empty.
-fn worker(inner: &Arc<Inner>, project: &str, job: (RunRecord, RunSetup), handles: Handles) {
-    let mut next = Some((job.0, job.1, handles));
-    while let Some((record, setup, (cancel, child))) = next.take() {
+/// Runs `job`, then whatever queued behind it while its slot is free, and
+/// gives the slot back when the queue is empty.
+fn worker(inner: &Arc<Inner>, project: &str, job: Job, handles: Handles) {
+    let mut next = Some((job, handles));
+    while let Some(((record, setup, options), (cancel, child))) = next.take() {
+        let run_id = record.id.clone();
         let mut exec = Execution {
             sink: Arc::clone(&inner.sink),
             record,
             setup,
+            options,
             cancel,
             child,
             log: Vec::new(),
             slot: 0,
             progress_sent: None,
+            stop: None,
         };
         exec.run();
         let mut lanes = inner.lanes();
         let Some(lane) = lanes.get_mut(project) else {
             return;
         };
-        match lane.queue.pop_front() {
-            Some((record, setup)) => {
-                let active = Active::new(&record.id);
-                let handles = active.handles();
-                lane.active = Some(active);
-                next = Some((record, setup, handles));
-            }
-            None => lane.active = None,
-        }
+        lane.active.retain(|a| a.run_id != run_id);
+        next = lane.take_startable().into_iter().next();
     }
 }
 
@@ -334,6 +444,7 @@ struct Execution {
     sink: Arc<dyn RunSink>,
     record: RunRecord,
     setup: RunSetup,
+    options: RunOptions,
     cancel: Arc<AtomicBool>,
     child: ChildSlot,
     log: Vec<LogEntry>,
@@ -341,6 +452,8 @@ struct Execution {
     slot: usize,
     /// When progress was last sent, so a chatty tool does not flood the UI.
     progress_sent: Option<Instant>,
+    /// Why the run stopped early without a failure (a gate said no).
+    stop: Option<String>,
 }
 
 enum StepOutcome {
@@ -438,8 +551,8 @@ impl Execution {
                 continue;
             }
             let step = self.setup.def.steps[*index].clone();
-            if failure.is_some() || self.cancelled() {
-                let state = if self.cancelled() {
+            if failure.is_some() || self.cancelled() || self.stop.is_some() {
+                let state = if failure.is_none() {
                     StepState::Cancelled
                 } else {
                     StepState::Skipped
@@ -451,6 +564,9 @@ impl Execution {
                 } else {
                     "Not run, an earlier step failed.".to_string()
                 });
+                continue;
+            }
+            if !self.pass_gate(slot, &step) {
                 continue;
             }
             let started = Instant::now();
@@ -514,10 +630,44 @@ impl Execution {
         hasher.flush();
         if self.cancelled() {
             self.finish(RunState::Cancelled, Some("Cancelled.".to_string()));
+        } else if let Some(reason) = self.stop.clone() {
+            self.finish(RunState::Cancelled, Some(reason));
         } else if let Some(message) = failure {
             self.finish(RunState::Failed, Some(message));
         } else {
             self.finish(RunState::Done, None);
+        }
+    }
+
+    /// Asks the run's gate, if it has one for `step`, and waits for the
+    /// answer. False when the step must not run; the run then stops.
+    fn pass_gate(&mut self, slot: usize, step: &StepDef) -> bool {
+        let Some(gate) = self.options.gate.clone().filter(|g| g.applies(step)) else {
+            return true;
+        };
+        let waiting = gate.waiting_message(step);
+        self.record.steps[slot].message = Some(waiting.clone());
+        self.system(Some(&step.id), LogLevel::Warn, waiting);
+        self.emit_run();
+        match gate.wait(&self.record, step, &self.cancel) {
+            GateDecision::Allow => {
+                self.record.steps[slot].message = None;
+                self.system(
+                    Some(&step.id),
+                    LogLevel::Info,
+                    format!("{} approved", step.name),
+                );
+                true
+            }
+            GateDecision::Deny(reason) => {
+                let rec = &mut self.record.steps[slot];
+                rec.state = StepState::Cancelled;
+                rec.message = Some(reason.clone());
+                self.system(Some(&step.id), LogLevel::Error, reason.clone());
+                self.stop = Some(reason);
+                self.emit_run();
+                false
+            }
         }
     }
 
@@ -668,6 +818,15 @@ impl Execution {
                 }
                 Err(SpawnError::Cancelled) => return StepOutcome::Cancelled,
                 Err(SpawnError::Start(message)) => return StepOutcome::Failed(message, None),
+                Err(SpawnError::TimedOut(limit)) => {
+                    return StepOutcome::Failed(
+                        format!(
+                            "It ran longer than {} and was stopped.",
+                            human_duration(limit)
+                        ),
+                        None,
+                    );
+                }
             }
             if self.cancelled() {
                 return StepOutcome::Cancelled;
@@ -769,12 +928,18 @@ impl Execution {
             dirs.extend(std::env::split_paths(&self.setup.tools.path_env));
             std::env::join_paths(dirs).unwrap_or_else(|_| self.setup.tools.path_env.clone())
         };
+        let stdin_text = self.options.stdin.clone();
+        let timeout = self.options.timeout;
         let mut command = CommandWrap::with_new(&tool.program, |cmd| {
             cmd.args(args)
                 .current_dir(root)
                 .env("PATH", &path_env)
                 .env("PYTHONUNBUFFERED", "1")
-                .stdin(Stdio::null())
+                .stdin(if stdin_text.is_some() {
+                    Stdio::piped()
+                } else {
+                    Stdio::null()
+                })
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
         });
@@ -791,6 +956,16 @@ impl Execution {
         let mut child = command.spawn().map_err(|e| {
             SpawnError::Start(format!("Could not start {}. {e}", tool.program.display()))
         })?;
+        // The input goes in on its own thread, so a program that prints a
+        // lot before it reads never blocks on a full pipe.
+        if let (Some(text), Some(mut input)) = (stdin_text, child.stdin().take()) {
+            thread::spawn(move || {
+                use std::io::Write as _;
+                let _ = input.write_all(text.as_bytes());
+            });
+        }
+        let started = Instant::now();
+        let mut timed_out = false;
         let (tx, rx) = mpsc::channel::<(LogStream, String)>();
         let readers = [
             child
@@ -827,6 +1002,10 @@ impl Execution {
                     if self.cancel.load(Ordering::SeqCst) {
                         let _ = child.start_kill();
                     }
+                    if !timed_out && timeout.is_some_and(|limit| started.elapsed() > limit) {
+                        timed_out = true;
+                        let _ = child.start_kill();
+                    }
                     match child.try_wait() {
                         Ok(Some(status)) => {
                             exit = Some(status.code().unwrap_or(-1));
@@ -857,6 +1036,9 @@ impl Execution {
         if self.cancel.load(Ordering::SeqCst) {
             return Err(SpawnError::Cancelled);
         }
+        if let Some(limit) = timeout.filter(|_| timed_out) {
+            return Err(SpawnError::TimedOut(limit));
+        }
         Ok(exit.unwrap_or(-1))
     }
 }
@@ -867,6 +1049,18 @@ type Invocation = (Option<String>, Vec<String>);
 enum SpawnError {
     Start(String),
     Cancelled,
+    TimedOut(Duration),
+}
+
+/// "0.4s", "45s", "2m", "1m 30s".
+fn human_duration(d: Duration) -> String {
+    let secs = d.as_secs();
+    match (secs / 60, secs % 60) {
+        (0, _) if d.subsec_millis() > 0 => format!("{:.1}s", d.as_secs_f64()),
+        (0, s) => format!("{s}s"),
+        (m, 0) => format!("{m}m"),
+        (m, s) => format!("{m}m {s}s"),
+    }
 }
 
 fn program_name(tool: &ResolvedTool) -> String {
@@ -1298,6 +1492,180 @@ mod tests {
         assert_eq!(runs.len(), 2);
         assert!(runs.iter().all(|r| r.state == RunState::Done));
         assert_eq!((a.number, b.number), (1, 2));
+    }
+
+    #[test]
+    fn a_lane_runs_up_to_its_limit_at_once() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let s = setup(
+            dir.path(),
+            vec![shell_step("job", "tools/job.sh", &[], &[])],
+        );
+        // Each job notes when it starts and ends, sleeping in between.
+        script(
+            &s,
+            "job.sh",
+            "echo \"start $(date +%s%N)\" >> order.log\nsleep 0.6\necho \"end $(date +%s%N)\" >> order.log\n",
+        );
+        let runner = PipelineRunner::new(Arc::new(NullSink));
+        runner.set_limit("moon", 2);
+        let started = Instant::now();
+        let mut forced = s.clone();
+        forced.force = true;
+        let runs: Vec<RunRecord> = (0..3)
+            .map(|_| runner.submit(forced.clone()).expect("submit"))
+            .collect();
+        assert_eq!(runs[2].state, RunState::Queued);
+        thread::sleep(Duration::from_millis(200));
+        assert_eq!(runner.running("moon").len(), 2);
+        while !runner.running("moon").is_empty() || !runner.active("moon").1.is_empty() {
+            thread::sleep(Duration::from_millis(20));
+        }
+        // Two at a time: about two rounds of 0.6 s, not three.
+        let took = started.elapsed();
+        assert!(took < Duration::from_millis(1700), "{took:?}");
+        let log = fs::read_to_string(s.project_dir.join("order.log")).expect("log");
+        assert_eq!(log.lines().filter(|l| l.starts_with("start")).count(), 3);
+        let done = history::load_runs(&s.cache_dir);
+        assert!(done.iter().all(|r| r.state == RunState::Done), "{done:?}");
+    }
+
+    #[test]
+    fn stdin_reaches_the_program_and_timeouts_stop_it() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let s = setup(
+            dir.path(),
+            vec![shell_step(
+                "read",
+                "tools/read.sh",
+                &["out/prompt.txt"],
+                &[],
+            )],
+        );
+        script(
+            &s,
+            "read.sh",
+            "mkdir -p out\ncat > out/prompt.txt\necho \"got $(wc -l < out/prompt.txt) lines\"\n",
+        );
+        let runner = PipelineRunner::new(Arc::new(NullSink));
+        let options = RunOptions {
+            stdin: Some("Generate an image.\nA small island.\n".into()),
+            ..RunOptions::default()
+        };
+        let run = runner.submit_with(s.clone(), options).expect("submit");
+        while runner.active("moon").0.is_some() {
+            thread::sleep(Duration::from_millis(20));
+        }
+        let done = history::load_runs(&s.cache_dir);
+        assert_eq!(done[0].id, run.id);
+        assert_eq!(done[0].state, RunState::Done, "{:?}", done[0].message);
+        assert_eq!(
+            fs::read_to_string(s.project_dir.join("out/prompt.txt")).expect("prompt"),
+            "Generate an image.\nA small island.\n"
+        );
+
+        script(&s, "read.sh", "echo waiting\nsleep 30\n");
+        let mut forced = s.clone();
+        forced.force = true;
+        let options = RunOptions {
+            timeout: Some(Duration::from_millis(400)),
+            ..RunOptions::default()
+        };
+        let started = Instant::now();
+        runner.submit_with(forced, options).expect("submit");
+        while runner.active("moon").0.is_some() {
+            thread::sleep(Duration::from_millis(20));
+        }
+        assert!(started.elapsed() < Duration::from_secs(10));
+        let runs = history::load_runs(&s.cache_dir);
+        assert_eq!(runs[0].state, RunState::Failed);
+        assert!(
+            runs[0].steps[0]
+                .message
+                .as_deref()
+                .unwrap_or_default()
+                .contains("ran longer than 0.4s"),
+            "{:?}",
+            runs[0].steps[0].message
+        );
+    }
+
+    /// A gate on the "ship" step that answers from a channel.
+    struct Approval {
+        answer: Mutex<mpsc::Receiver<GateDecision>>,
+        asked: AtomicBool,
+    }
+
+    impl StepGate for Approval {
+        fn applies(&self, step: &StepDef) -> bool {
+            step.id == "ship"
+        }
+        fn waiting_message(&self, _step: &StepDef) -> String {
+            "Waiting for approval".into()
+        }
+        fn wait(&self, _run: &RunRecord, _step: &StepDef, cancelled: &AtomicBool) -> GateDecision {
+            self.asked.store(true, Ordering::SeqCst);
+            loop {
+                if cancelled.load(Ordering::SeqCst) {
+                    return GateDecision::Deny("Cancelled.".into());
+                }
+                if let Ok(answer) = lock(&self.answer).recv_timeout(Duration::from_millis(20)) {
+                    return answer;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_gate_holds_the_step_until_it_is_approved_or_denied() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let s = setup(
+            dir.path(),
+            vec![
+                shell_step("build", "tools/build.sh", &["out/build.txt"], &[]),
+                shell_step("ship", "tools/ship.sh", &[], &["build"]),
+            ],
+        );
+        script(&s, "build.sh", "mkdir -p out\necho b > out/build.txt\n");
+        script(&s, "ship.sh", "echo shipped >> shipped.log\n");
+        for (answer, state) in [
+            (GateDecision::Allow, RunState::Done),
+            (
+                GateDecision::Deny("Shipping was denied in Maquette.".into()),
+                RunState::Cancelled,
+            ),
+        ] {
+            let (tx, rx) = mpsc::channel();
+            let gate = Arc::new(Approval {
+                answer: Mutex::new(rx),
+                asked: AtomicBool::new(false),
+            });
+            let sink = Arc::new(Recorder::default());
+            let runner = PipelineRunner::new(sink.clone());
+            let options = RunOptions {
+                gate: Some(gate.clone()),
+                ..RunOptions::default()
+            };
+            runner.submit_with(s.clone(), options).expect("submit");
+            assert!(sink.wait_for_line("Waiting for approval", Duration::from_secs(10)));
+            assert!(gate.asked.load(Ordering::SeqCst));
+            tx.send(answer).expect("answer");
+            while runner.active("moon").0.is_some() {
+                thread::sleep(Duration::from_millis(20));
+            }
+            let run = history::load_runs(&s.cache_dir).remove(0);
+            assert_eq!(run.state, state, "{:?}", run.message);
+            if state == RunState::Cancelled {
+                assert_eq!(run.steps[1].state, StepState::Cancelled);
+                assert_eq!(
+                    run.message.as_deref(),
+                    Some("Shipping was denied in Maquette.")
+                );
+            }
+        }
+        // Shipped once: after the approval, never after the denial.
+        let shipped = fs::read_to_string(s.project_dir.join("shipped.log")).expect("log");
+        assert_eq!(shipped, "shipped\n");
     }
 
     #[test]
