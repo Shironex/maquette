@@ -10,7 +10,7 @@ import {
   type PipelineView,
 } from '@/ipc/client';
 import { applyEvent, fileName, starterToast } from './pipeline';
-import type { PresetEdits } from './presets';
+import { presetRows, presetsToSave, withEdits, type PresetEdits } from './presets';
 import { useAppStore } from './app-store';
 
 interface PipelineStore {
@@ -29,6 +29,12 @@ interface PipelineStore {
    */
   presetEdits: Readonly<Record<string, PresetEdits>>;
   setPresetEdits: (project: string, edits: PresetEdits) => void;
+  /**
+   * Saves the unapplied preset rows of every project, one after the other.
+   * Resolves to null when all are saved, else to what went wrong (the rest
+   * stay unapplied).
+   */
+  applyAllEdits: () => Promise<string | null>;
   /** Updates starter scripts; `replace` also replaces edited ones (kept as .bak). */
   updateStarters: (scripts: string[], replace: boolean) => Promise<boolean>;
   /** Reloads the open project's pipeline when `project` is it, for example after an agent saved presets. */
@@ -117,6 +123,31 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
   setPresetEdits: (project, edits) => {
     const { [project]: _old, ...rest } = get().presetEdits;
     set({ presetEdits: Object.keys(edits).length ? { ...rest, [project]: edits } : rest });
+  },
+
+  applyAllEdits: async () => {
+    for (const [project, edits] of Object.entries(get().presetEdits)) {
+      try {
+        const open = get().view;
+        const view = open?.project === project ? open : await commands.pipelineGet(project);
+        const rows = withEdits(presetRows(view), edits);
+        const next = await commands.pipelineSavePresets(project, presetsToSave(rows));
+        if (get().view?.project === project) {
+          set({
+            view: {
+              ...next,
+              runs: get().view?.runs ?? next.runs,
+              log: get().view?.log ?? next.log,
+            },
+          });
+        }
+        get().setPresetEdits(project, {});
+      } catch (error) {
+        const name = useAppStore.getState().workspace?.projects.find(p => p.id === project)?.name;
+        return `${name ?? project}: ${errorMessage(error)}`;
+      }
+    }
+    return null;
   },
 
   updateStarters: async (scripts, replace) => {

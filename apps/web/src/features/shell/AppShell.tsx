@@ -30,6 +30,7 @@ import { ObjectRefsDialog } from '@/features/lab/ObjectRefsDialog';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { PlaceholderView } from '@/features/tools/PlaceholderView';
 import { projectMeta, projectThumb } from './projectArt';
+import { QuitDialog, useQuitGuard } from './QuitDialog';
 import { ProjectSwitcherMenu } from './ProjectSwitcherMenu';
 import { SETTINGS_VIEW, TOOL_VIEWS, type ViewId } from './views';
 
@@ -48,6 +49,7 @@ export function AppShell() {
     (s.view?.jobs ?? []).some(j => j.state === 'running' || j.state === 'queued')
   );
   useLiveData(projectId, workspace?.root ?? null);
+  useQuitGuard();
   const switcher = useRef<HTMLButtonElement>(null);
   const menuOpen = useProjectsStore(s => s.menuOpen);
   const toggleMenu = useProjectsStore(s => s.toggleMenu);
@@ -132,6 +134,7 @@ export function AppShell() {
       <DownloadsMatches />
       <NewProjectDialog onClosed={() => switcher.current?.focus()} />
       <ApprovalPrompt />
+      <QuitDialog />
     </div>
   );
 }

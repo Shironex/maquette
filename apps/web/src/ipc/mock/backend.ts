@@ -345,6 +345,9 @@ export function createBackend({
     ...lab.handlers,
     ...agents.handlers,
     ...providers.handlers,
+    // Nothing closes in the browser, so the quit commands have nothing to do.
+    quit_set_unapplied: () => undefined,
+    quit_now: () => undefined,
     app_bootstrap: (): Bootstrap => ({
       os: 'mac',
       version: '0.1.0',
