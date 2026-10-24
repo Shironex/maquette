@@ -227,6 +227,25 @@ pub fn set_thumbnail(
     Ok(true)
 }
 
+/// True when a ref image may stand in as the card's picture: there is no
+/// thumbnail yet, or it is an older ref. A model render or a poster stays.
+pub fn ref_may_replace(thumbnail: Option<&str>) -> bool {
+    thumbnail.is_none_or(|t| t.starts_with("refs/"))
+}
+
+/// Shows the ref image `file` (relative to the project folder) on the
+/// asset's card unless it already shows a render or a poster. Returns
+/// whether it changed.
+pub fn set_ref_thumbnail(manifest: &mut ProjectManifest, id: &str, file: &str) -> CoreResult<bool> {
+    let asset = find_mut(manifest, id)?;
+    if !ref_may_replace(asset.thumbnail.as_deref()) || asset.thumbnail.as_deref() == Some(file) {
+        return Ok(false);
+    }
+    asset.thumbnail = Some(file.to_string());
+    asset.updated_at = now_rfc3339();
+    Ok(true)
+}
+
 /// Records a new version on an existing asset and returns it.
 pub fn add_version(
     manifest: &mut ProjectManifest,

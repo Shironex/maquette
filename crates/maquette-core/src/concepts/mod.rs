@@ -425,6 +425,12 @@ pub fn send_picks(
                 },
             )?,
         });
+        // The card shows the first pick until a model render replaces it.
+        if let (Some(placed), Some(first)) = (asset.as_mut(), copied.first())
+            && assets::set_ref_thumbnail(manifest, &placed.id, first)?
+        {
+            *placed = assets::find(manifest, &placed.id)?.clone();
+        }
         Ok(())
     })?;
     let asset = asset.ok_or_else(|| CoreError::Unavailable("The asset was not saved.".into()))?;
@@ -434,6 +440,57 @@ pub fn send_picks(
         copied,
         project: manifest,
     })
+}
+
+/// The newest ref copy of the direction named like `asset_id` that is
+/// still on disk, relative to the project folder.
+fn latest_sent_ref(project_dir: &Path, directions: &[Direction], asset_id: &str) -> Option<String> {
+    directions
+        .iter()
+        .filter(|d| slugify(d.name.trim()) == asset_id)
+        .flat_map(|d| d.images.iter())
+        .filter_map(|i| i.ref_file.as_ref().map(|r| (i.index, r)))
+        .filter(|(_, r)| project_dir.join(r).is_file())
+        .max_by_key(|(index, _)| *index)
+        .map(|(_, r)| r.clone())
+}
+
+/// Gives every asset without a picture and without a model the newest ref
+/// its direction sent, so a card made by an older Send picks to Refs shows
+/// its image. Returns the saved project when anything changed.
+pub fn heal_ref_thumbnails(
+    workspace_root: &Path,
+    layout: &FolderLayout,
+    project_id: &str,
+) -> CoreResult<Option<ProjectManifest>> {
+    let manifest = project::load(workspace_root, layout, project_id)?;
+    let waiting = |a: &Asset| a.thumbnail.is_none() && a.versions.is_empty();
+    if !manifest.assets.iter().any(waiting) {
+        return Ok(None);
+    }
+    let project_dir = project::dir(workspace_root, layout, project_id)?;
+    let directions = list_directions(&project_dir);
+    let found: Vec<(String, String)> = manifest
+        .assets
+        .iter()
+        .filter(|a| waiting(a))
+        .filter_map(|a| {
+            latest_sent_ref(&project_dir, &directions, &a.id).map(|r| (a.id.clone(), r))
+        })
+        .collect();
+    if found.is_empty() {
+        return Ok(None);
+    }
+    let saved = project::modify(workspace_root, layout, project_id, |m| {
+        for (id, file) in &found {
+            // Checked again under the write lock: a render may have landed.
+            if assets::find(m, id).is_ok_and(waiting) {
+                assets::set_ref_thumbnail(m, id, file)?;
+            }
+        }
+        Ok(())
+    })?;
+    Ok(Some(saved))
 }
 
 /// The prompt Codex gets on standard input. It starts with "Generate an
@@ -669,5 +726,135 @@ mod tests {
         assert_eq!(again.asset.id, sent.asset.id);
         let m = project::load(root.path(), &layout, &manifest.id).expect("load");
         assert_eq!(m.assets.len(), 1);
+    }
+
+    /// A project with a "Stone lantern" direction of two images on disk.
+    fn lantern_project() -> (
+        tempfile::TempDir,
+        FolderLayout,
+        String,
+        PathBuf,
+        Vec<String>,
+    ) {
+        let root = tempfile::tempdir().expect("tempdir");
+        let layout = FolderLayout::default();
+        let manifest = project::create(
+            root.path(),
+            &layout,
+            crate::project::NewProject {
+                name: "Moon".into(),
+                template: crate::project::ProjectTemplate::Room,
+                site_repo: None,
+                source_folder: None,
+            },
+        )
+        .expect("project");
+        let project_dir = project::dir(root.path(), &layout, &manifest.id).expect("dir");
+        let (_, files) = prepare(&project_dir, &request("Stone lantern", 2, vec![])).expect("prep");
+        let png = crate::inbox::images::write_png(2, 2, &[90; 12]);
+        for (index, file) in &files {
+            fs::write(project_dir.join(file), &png).expect("png");
+            add_image(&project_dir, "stone-lantern", *index, file).expect("add");
+        }
+        let files = files.into_iter().map(|(_, f)| f).collect();
+        (root, layout, manifest.id, project_dir, files)
+    }
+
+    #[test]
+    fn send_picks_shows_the_first_pick_on_the_card_but_never_over_a_render() {
+        let (root, layout, id, project_dir, files) = lantern_project();
+        for file in &files {
+            mark(&project_dir, "stone-lantern", file, None, Some(true)).expect("pick");
+        }
+        let sent =
+            send_picks(root.path(), &layout, &id, "stone-lantern", AssetKind::Prop).expect("send");
+        assert_eq!(
+            sent.asset.thumbnail.as_deref(),
+            Some("refs/stone-lantern_01.png")
+        );
+        assert_eq!(
+            sent.project.assets[0].thumbnail.as_deref(),
+            Some("refs/stone-lantern_01.png")
+        );
+
+        // A model render on the card stays when the picks go again.
+        project::modify(root.path(), &layout, &id, |m| {
+            m.assets[0].thumbnail = Some("thumbs/stone_lantern_v1.png".into());
+            Ok(())
+        })
+        .expect("render");
+        let again =
+            send_picks(root.path(), &layout, &id, "stone-lantern", AssetKind::Prop).expect("again");
+        assert_eq!(
+            again.asset.thumbnail.as_deref(),
+            Some("thumbs/stone_lantern_v1.png")
+        );
+    }
+
+    #[test]
+    fn heal_gives_a_stuck_refs_card_its_newest_ref() {
+        let (root, layout, id, project_dir, files) = lantern_project();
+        for file in &files {
+            mark(&project_dir, "stone-lantern", file, None, Some(true)).expect("pick");
+        }
+        send_picks(root.path(), &layout, &id, "stone-lantern", AssetKind::Prop).expect("send");
+        // What an older build left behind: the asset at Refs without a picture.
+        project::modify(root.path(), &layout, &id, |m| {
+            m.assets[0].thumbnail = None;
+            Ok(())
+        })
+        .expect("stuck");
+        // The first ref copy went missing, so the newest one that exists is used.
+        fs::remove_file(project_dir.join("refs/stone-lantern_01.png")).expect("rm");
+
+        let healed = heal_ref_thumbnails(root.path(), &layout, &id)
+            .expect("heal")
+            .expect("changed");
+        assert_eq!(
+            healed.assets[0].thumbnail.as_deref(),
+            Some("refs/stone-lantern_02.png")
+        );
+        let saved = project::load(root.path(), &layout, &id).expect("load");
+        assert_eq!(
+            saved.assets[0].thumbnail.as_deref(),
+            Some("refs/stone-lantern_02.png")
+        );
+        assert!(
+            heal_ref_thumbnails(root.path(), &layout, &id)
+                .expect("again")
+                .is_none(),
+            "nothing left to heal"
+        );
+    }
+
+    #[test]
+    fn heal_leaves_assets_with_models_or_without_sent_refs_alone() {
+        let (root, layout, id, _, _) = lantern_project();
+        project::modify(root.path(), &layout, &id, |m| {
+            let a = assets::add(
+                m,
+                NewAsset {
+                    name: "Stone lantern".into(),
+                    kind: AssetKind::Prop,
+                    stage: Stage::Refs,
+                },
+            )?;
+            assets::add_version(m, &a.id, "models/stone_lantern_v1.glb".into(), None)?;
+            assets::add(
+                m,
+                NewAsset {
+                    name: "Torii".into(),
+                    kind: AssetKind::Prop,
+                    stage: Stage::Refs,
+                },
+            )
+            .map(|_| ())
+        })
+        .expect("assets");
+        assert!(
+            heal_ref_thumbnails(root.path(), &layout, &id)
+                .expect("heal")
+                .is_none()
+        );
     }
 }
