@@ -69,7 +69,8 @@ fn lists_scene_folders_and_asset_versions_with_their_numbers() {
         &project.join("models/character_v2.glb"),
         &fixture::character(false),
     );
-    let def = for_template(ProjectTemplate::FloatingDiorama);
+    let mut def = for_template(ProjectTemplate::FloatingDiorama);
+    def.presets = vec![crate::pipeline::template::character_preset()];
     let manifest = manifest(vec![character_asset()]);
     let limits = Budgets::default();
     let view = inspect(&Sources {
@@ -117,7 +118,7 @@ fn lists_scene_folders_and_asset_versions_with_their_numbers() {
     assert!(!crate_model.meshopt && !crate_model.ktx2);
     assert!(!crate_model.preset.has_row);
 
-    // The character's preset row comes from the template, with its lock.
+    // The character's preset row, with its lock.
     let character = view
         .models
         .iter()

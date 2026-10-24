@@ -180,7 +180,12 @@ export function createBackend({
 
   function view(id: string): PipelineView {
     const p = project(id);
-    const def = { ...dioramaPipeline(), presets: presets.get(id) ?? dioramaPipeline().presets };
+    // Like the app: the character row only once the project has a character.
+    const character = (p.assets ?? []).some(a => a.kind === 'character');
+    const def = {
+      ...dioramaPipeline(),
+      presets: presets.get(id) ?? (character ? dioramaPipeline().presets : []),
+    };
     const runs = store.runs.filter(r => r.project === p.id);
     const latest = runs[0];
     const base = pipelineView(

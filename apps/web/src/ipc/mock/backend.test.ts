@@ -308,3 +308,13 @@ describe('mock starter scripts', () => {
     ).toBe(true);
   });
 });
+
+describe('mock presets', () => {
+  it('gives only projects with a character the character row', async () => {
+    const handle = createBackend({ scenario: 'configured', probeDelay: 0, pace: 0 });
+    const presetsOf = async (project: string) =>
+      ((await handle('pipeline_get', { project })) as PipelineView).def.presets.map(p => p.model);
+    expect(await presetsOf('moon-island')).toContain('character');
+    expect(await presetsOf('rooftop-cinema')).toEqual([]);
+  });
+});

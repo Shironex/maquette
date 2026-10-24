@@ -237,11 +237,77 @@ pub fn for_template(template: ProjectTemplate) -> PipelineDef {
         version: PIPELINE_VERSION,
         root: None,
         steps,
-        presets: if template == ProjectTemplate::Imported {
-            Vec::new()
-        } else {
+        // Only a character showcase starts with the character row; a scene
+        // gets one once it has a character (see [`fit_presets`]).
+        presets: if template == ProjectTemplate::CharacterShowcase {
             vec![character_preset()]
+        } else {
+            Vec::new()
         },
+    }
+}
+
+/// Keeps a scene project's character row in step with its assets. Without a
+/// character asset, the untouched template row (older projects all got one)
+/// is dropped, so no phantom `character.glb` shows; with one and no locked
+/// character row yet, the row is added for the character's export. Rows the
+/// user changed are left alone. Returns true when `def` changed.
+pub fn fit_presets(def: &mut PipelineDef, manifest: &ProjectManifest) -> bool {
+    if !matches!(
+        manifest.template,
+        ProjectTemplate::FloatingDiorama | ProjectTemplate::Room
+    ) {
+        return false;
+    }
+    let character = manifest
+        .assets
+        .iter()
+        .find(|a| a.kind == crate::AssetKind::Character);
+    let default = character_preset();
+    match character {
+        None => {
+            let before = def.presets.len();
+            def.presets.retain(|p| *p != default);
+            def.presets.len() != before
+        }
+        Some(asset) => {
+            // The export is named after the model file it was built from.
+            let stem = |file: &str| {
+                Path::new(file)
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+            };
+            let model = asset
+                .latest()
+                .and_then(|v| stem(&v.file))
+                .unwrap_or_else(|| default.model.clone());
+            let locked = def
+                .presets
+                .iter_mut()
+                .find(|p| p.lock.as_deref() == Some(CHARACTER_LOCK));
+            match locked {
+                // A newer version of the character: the row follows its export.
+                Some(row)
+                    if row.model != model
+                        && asset
+                            .versions
+                            .iter()
+                            .any(|v| stem(&v.file).as_deref() == Some(row.model.as_str())) =>
+                {
+                    row.model = model;
+                    true
+                }
+                Some(_) => false,
+                None => {
+                    def.presets.push(CompressPreset {
+                        model,
+                        label: asset.name.clone(),
+                        ..default
+                    });
+                    true
+                }
+            }
+        }
     }
 }
 
@@ -714,10 +780,83 @@ mod tests {
         let compress = def.step("compress").expect("compress");
         assert_eq!(compress.kind, StepKind::GltfTransform);
         assert!(compress.compress.is_some());
-        assert_eq!(def.presets, vec![character_preset()]);
-        assert_eq!(def.presets[0].meshopt, MeshoptLevel::Medium);
-        assert!(def.presets[0].lock.is_some());
+        assert!(def.presets.is_empty(), "no character, no character row");
         assert!(validate(&def).iter().all(|i| !i.is_error()));
+    }
+
+    #[test]
+    fn a_scene_gets_the_character_row_only_with_a_character() {
+        use crate::assets::{Asset, AssetKind, AssetStatus, AssetVersion, Stage};
+        let asset = |name: &str, kind: AssetKind, file: &str| Asset {
+            id: name.to_lowercase(),
+            name: name.into(),
+            kind,
+            stage: Stage::Blender,
+            status: AssetStatus::Review,
+            versions: vec![AssetVersion {
+                version: 1,
+                file: file.into(),
+                created_at: String::new(),
+                stats: None,
+            }],
+            thumbnail: None,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        let mut manifest = ProjectManifest {
+            version: 1,
+            id: "moon-island".into(),
+            name: "Moon Island".into(),
+            template: ProjectTemplate::FloatingDiorama,
+            site_repo: None,
+            source_folder: None,
+            created_at: String::new(),
+            assets: vec![asset("clay", AssetKind::Prop, "models/clay_v1.glb")],
+        };
+        // An older project: the template row, though it has no character.
+        let mut def = for_template(ProjectTemplate::FloatingDiorama);
+        def.presets = vec![character_preset()];
+        assert!(fit_presets(&mut def, &manifest));
+        assert!(def.presets.is_empty());
+        assert!(!fit_presets(&mut def, &manifest), "settled");
+
+        // A row the user changed stays.
+        let mut edited = def.clone();
+        edited.presets = vec![CompressPreset {
+            texture_size: 1024,
+            ..character_preset()
+        }];
+        assert!(!fit_presets(&mut edited, &manifest));
+        assert_eq!(edited.presets.len(), 1);
+
+        // A character arrives: its export gets the locked row.
+        manifest.assets.push(asset(
+            "Lantern keeper",
+            AssetKind::Character,
+            "models/lantern_keeper_v2.glb",
+        ));
+        assert!(fit_presets(&mut def, &manifest));
+        assert_eq!(def.presets.len(), 1);
+        assert_eq!(def.presets[0].model, "lantern_keeper_v2");
+        assert_eq!(def.presets[0].label, "Lantern keeper");
+        assert_eq!(def.presets[0].lock.as_deref(), Some(CHARACTER_LOCK));
+        assert!(!fit_presets(&mut def, &manifest));
+        // Its v3 is exported as lantern_keeper_v3: the row follows.
+        let keeper = manifest.assets.last_mut().expect("keeper");
+        keeper.versions.push(AssetVersion {
+            version: 3,
+            file: "models/lantern_keeper_v3.glb".into(),
+            created_at: String::new(),
+            stats: None,
+        });
+        assert!(fit_presets(&mut def, &manifest));
+        assert_eq!(def.presets[0].model, "lantern_keeper_v3");
+
+        // A character showcase keeps its own row as it is.
+        let mut showcase = for_template(ProjectTemplate::CharacterShowcase);
+        manifest.template = ProjectTemplate::CharacterShowcase;
+        assert!(!fit_presets(&mut showcase, &manifest));
+        assert_eq!(showcase.presets, vec![character_preset()]);
     }
 
     #[test]

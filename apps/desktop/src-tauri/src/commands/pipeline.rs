@@ -467,9 +467,38 @@ mod tests {
 
     #[test]
     fn locked_presets_refuse_edits() {
+        use maquette_core::{Asset, AssetKind, AssetStatus, AssetVersion, Stage};
         let (_dir, session, id) = open();
         let runner = PipelineRunner::new(Arc::new(NullSink));
+        // A scene without a character has no character row and no phantom model.
+        let first = view(&session, &runner, &id).expect("view");
+        assert!(first.def.presets.is_empty());
+        assert!(first.models.iter().all(|m| m.model != "character"));
+        let (root, config) = session.workspace().expect("ws");
+        project::modify(&root, &config.layout, &id, |m| {
+            m.assets.push(Asset {
+                id: "keeper".into(),
+                name: "Keeper".into(),
+                kind: AssetKind::Character,
+                stage: Stage::Blender,
+                status: AssetStatus::Review,
+                versions: vec![AssetVersion {
+                    version: 1,
+                    file: "models/keeper_v1.glb".into(),
+                    created_at: String::new(),
+                    stats: None,
+                }],
+                thumbnail: None,
+                created_at: String::new(),
+                updated_at: String::new(),
+            });
+            Ok(())
+        })
+        .expect("character");
         let mut rows = view(&session, &runner, &id).expect("view").def.presets;
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].model, "keeper_v1");
+        assert_eq!(rows[0].label, "Keeper");
         let locked = rows
             .iter()
             .position(|p| p.lock.is_some())

@@ -170,10 +170,17 @@ pub fn ensure(
     project_dir: &Path,
     manifest: &crate::project::ProjectManifest,
 ) -> CoreResult<PipelineDef> {
-    if let Some(def) = load(project_dir)? {
+    if let Some(mut def) = load(project_dir)? {
+        if template::fit_presets(&mut def, manifest) {
+            match save(project_dir, &def) {
+                Ok(()) => tracing::info!("fitted the character preset row to the assets"),
+                Err(err) => tracing::warn!(error = %err, "the fitted presets were not saved"),
+            }
+        }
         return Ok(def);
     }
-    let def = template::initial(manifest);
+    let mut def = template::initial(manifest);
+    template::fit_presets(&mut def, manifest);
     // A proposal with problems is still shown, so it can be fixed; it is
     // only written once it validates.
     match save(project_dir, &def) {
