@@ -81,6 +81,16 @@
   }
 }
 
+/* An indeterminate progress bar: a short fill that sweeps across the track. */
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

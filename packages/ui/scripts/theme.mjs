@@ -72,6 +72,7 @@ export function buildTheme(tokens) {
   for (const s of tokens.shadow.tokens) lines.push(`  --${s.name}: ${s.value};`);
   lines.push('  --animate-spin: spin 900ms linear infinite;');
   lines.push('  --animate-pulse: pulse 1.4s ease-in-out infinite;');
+  lines.push('  --animate-indeterminate: indeterminate 1.6s ease-in-out infinite;');
   lines.push('}');
   lines.push('');
   return lines.join('\n');

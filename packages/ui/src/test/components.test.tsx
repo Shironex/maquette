@@ -155,6 +155,19 @@ describe('PipelineNode', () => {
     expect(screen.getByText('failed in 24')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Run from here' })).toBeInTheDocument();
   });
+
+  it('draws a known fraction while running, and an indeterminate bar otherwise', () => {
+    const { rerender } = render(
+      <PipelineNode step={2} name="Bake light" state="running" progress={68} />
+    );
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '68');
+    rerender(<PipelineNode step={2} name="Bake light" state="running" />);
+    const bar = screen.getByRole('progressbar');
+    expect(bar).not.toHaveAttribute('aria-valuenow');
+    expect(bar).toHaveAttribute('aria-busy', 'true');
+    rerender(<PipelineNode step={2} name="Bake light" state="done" />);
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
 });
 
 describe('LogConsole', () => {

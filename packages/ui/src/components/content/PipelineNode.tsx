@@ -20,6 +20,7 @@ export interface PipelineNodeProps {
   icon?: IconName;
   script?: string;
   state?: NodeState;
+  /** From 0 to 100 while running; leave it out for an indeterminate bar. */
   progress?: number;
   duration?: string;
   detail?: string;
@@ -76,7 +77,7 @@ export function PipelineNode({
           {script}
         </div>
       ) : null}
-      {state === 'running' && progress !== undefined ? <ProgressBar value={progress} /> : null}
+      {state === 'running' ? <ProgressBar value={progress} /> : null}
       <div className="flex items-center justify-between gap-2">
         <StatusChip
           status={CHIP[state]}

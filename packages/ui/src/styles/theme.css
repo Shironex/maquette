@@ -100,4 +100,5 @@
   --shadow-running: 0 0 0 1px rgba(214,179,116,0.55), 0 0 22px rgba(214,179,116,0.16);
   --animate-spin: spin 900ms linear infinite;
   --animate-pulse: pulse 1.4s ease-in-out infinite;
+  --animate-indeterminate: indeterminate 1.6s ease-in-out infinite;
 }
