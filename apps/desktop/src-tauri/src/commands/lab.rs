@@ -7,9 +7,10 @@ use std::time::Duration;
 
 use maquette_core::concepts::jobs::Start;
 use maquette_core::concepts::{
-    self, ConceptJob, Concepts, Direction, NewConcepts, REFS_DIR, SentPicks, sheet,
+    self, ConceptJob, Concepts, Direction, MovedDirection, NewConcepts, REFS_DIR, SentPicks, sheet,
 };
 use maquette_core::pipeline::tools::Toolbox;
+use maquette_core::providers::{JobState, ProviderJobs};
 use maquette_core::toolchain::ProbeEnv;
 use maquette_core::{AssetKind, CoreError, WorkspaceConfig, project};
 use serde::{Deserialize, Serialize};
@@ -245,6 +246,57 @@ pub fn lab_send_picks(
     )?)
 }
 
+/// Moves a direction to another project of the workspace. Refused while
+/// its images are still generating; the asset of the same name stays put
+/// while a Send to 3D job still needs it there.
+pub(crate) fn move_direction(
+    session: &Session,
+    lab: &Concepts,
+    studio: &ProviderJobs,
+    project_id: &str,
+    direction_id: &str,
+    to: &str,
+) -> CommandResult<MovedDirection> {
+    let (root, config, dir) = project_dir(session, project_id)?;
+    let generating = lab
+        .jobs(Some(project_id))
+        .iter()
+        .any(|j| j.direction == direction_id && !j.state.is_finished());
+    if generating {
+        return Err(super::invalid(
+            "Images of this direction are still generating. Move it once they are done or cancelled.",
+        ));
+    }
+    let found = concepts::load_direction(&dir, direction_id)?
+        .ok_or_else(|| CoreError::NotFound(format!("the direction {direction_id}")))?;
+    let asset = project::slugify(found.name.trim());
+    let keep_asset = studio
+        .list(Some(project_id))
+        .iter()
+        .any(|j| j.asset == asset && (j.state.is_active() || j.state == JobState::Inbox));
+    Ok(concepts::move_direction(
+        &root,
+        &config.layout,
+        project_id,
+        direction_id,
+        to,
+        keep_asset,
+    )?)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn lab_move_direction(
+    session: State<'_, Session>,
+    lab: State<'_, Lab>,
+    studio: State<'_, super::providers::Studio>,
+    project: String,
+    direction: String,
+    to: String,
+) -> CommandResult<MovedDirection> {
+    move_direction(&session, &lab.0, &studio.0, &project, &direction, &to)
+}
+
 /// Copies images dropped on the composer into `refs/` (skipping ones that
 /// are already there) and returns their paths relative to the project.
 pub(crate) fn import_refs(
@@ -329,5 +381,82 @@ mod tests {
         assert_eq!(view.refs.len(), 1);
         assert_eq!(view.concurrency, 4);
         assert!(view.directions.is_empty() && view.jobs.is_empty());
+    }
+
+    #[test]
+    fn a_direction_moves_to_another_project() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join("ws");
+        let config = workspace::create(&root, &WorkspaceConfig::default()).expect("ws");
+        let session = Session::with_state(dir.path().join("cfg"), None, AppState::default());
+        session
+            .set_workspace(root.clone(), config.clone())
+            .expect("open");
+        for name in ["Moon Island", "Maquette landing"] {
+            project::create(
+                &root,
+                &config.layout,
+                NewProject {
+                    name: name.into(),
+                    template: ProjectTemplate::FloatingDiorama,
+                    site_repo: None,
+                    source_folder: None,
+                },
+            )
+            .expect("project");
+        }
+        let moon = project::dir(&root, &config.layout, "moon-island").expect("dir");
+        let request = NewConcepts {
+            project: "moon-island".into(),
+            direction: "Maquette landing studio".into(),
+            prompt: "A studio desk".into(),
+            refs: Vec::new(),
+            aspect: concepts::Aspect::Wide,
+            count: 1,
+        };
+        let (direction, files) = concepts::prepare(&moon, &request).expect("prepare");
+        std::fs::write(moon.join(&files[0].1), b"png").expect("png");
+        concepts::add_image(&moon, &direction.id, 1, &files[0].1).expect("add");
+
+        let lab = Concepts::new(None, 2, |_| {});
+        let studio = ProviderJobs::new(
+            std::sync::Arc::new(maquette_core::providers::MemoryStore::default()),
+            maquette_core::providers::Options::default(),
+            |_| {},
+        );
+        let moved = move_direction(
+            &session,
+            &lab,
+            &studio,
+            "moon-island",
+            "maquette-landing-studio",
+            "maquette-landing",
+        )
+        .expect("move");
+        assert_eq!(moved.to.id, "maquette-landing");
+        assert!(
+            view(&session, &lab, "moon-island")
+                .expect("moon")
+                .directions
+                .is_empty()
+        );
+        assert_eq!(
+            view(&session, &lab, "maquette-landing")
+                .expect("landing")
+                .directions
+                .len(),
+            1
+        );
+        assert!(
+            move_direction(
+                &session,
+                &lab,
+                &studio,
+                "moon-island",
+                "nope",
+                "maquette-landing"
+            )
+            .is_err()
+        );
     }
 }

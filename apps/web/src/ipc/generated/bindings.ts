@@ -23,6 +23,9 @@ export const commands = {
 	toolchainReset: (tool: ToolId) => __TAURI_INVOKE<ToolReport>("toolchain_reset", { tool }),
 	/**  Creates a project in the open workspace and makes it the current one. */
 	projectCreate: (project: NewProject) => __TAURI_INVOKE<WorkspaceSnapshot>("project_create", { project }),
+	/**  The projects for the switcher. */
+	projectList: () => __TAURI_INVOKE<ProjectSummary[]>("project_list"),
+	projectSwitch: (id: string) => __TAURI_INVOKE<WorkspaceSnapshot>("project_switch", { id }),
 	projectUpdate: (id: string, name: string, siteRepo: string | null) => __TAURI_INVOKE<ProjectManifest>("project_update", { id, name, siteRepo }),
 	projectInspectRepo: (path: string) => __TAURI_INVOKE<RepoInspection>("project_inspect_repo", { path }),
 	projectScanImport: (path: string) => __TAURI_INVOKE<ImportScan>("project_scan_import", { path }),
@@ -72,6 +75,7 @@ export const commands = {
 	 */
 	labSendPicks: (project: string, direction: string, kind: AssetKind) => __TAURI_INVOKE<SentPicks>("lab_send_picks", { project, direction, kind }),
 	labImportRefs: (project: string, paths: string[]) => __TAURI_INVOKE<string[]>("lab_import_refs", { project, paths }),
+	labMoveDirection: (project: string, direction: string, to: string) => __TAURI_INVOKE<MovedDirection>("lab_move_direction", { project, direction, to }),
 	/**
 	 *  Reads every model of the project, off the main thread: a large raw
 	 *  export takes a moment to measure.
@@ -843,6 +847,23 @@ export type ModelStats = {
 	animations: number,
 };
 
+/**  What Move to project did. */
+export type MovedDirection = {
+	/**
+	 *  The direction as it is now, in the other project. Its id changes
+	 *  only when that project already had one with the same id.
+	 */
+	direction: Direction,
+	/**  The project it left. */
+	from: ProjectManifest,
+	/**  The project it is in now. */
+	to: ProjectManifest,
+	/**  The Board asset that went along, when one did. */
+	asset: Asset | null,
+	/**  Its ref files in the other project's `refs/`, relative to that project. */
+	refs: string[],
+};
+
 export type NewAsset = {
 	name: string,
 	kind: AssetKind,
@@ -932,6 +953,19 @@ export type PoseMode = "none" | "a-pose" | "t-pose";
 export type PresetVariant = "prop" | "character";
 
 /**
+ *  What runs in a project right now. Core leaves it empty; the shell fills
+ *  it from its runner, the Lab and the provider queue.
+ */
+export type ProjectActivity = {
+	/**  The id of the pipeline run going now. */
+	run: string | null,
+	/**  Concept images queued or generating. */
+	concepts: number,
+	/**  Send to 3D jobs on their way (By hand ones waiting count too). */
+	sends: number,
+};
+
+/**
  *  An agent changed a project through the MCP server, for example by
  *  accepting an inbox model, so the Board shows the new state.
  */
@@ -954,6 +988,25 @@ export type ProjectManifest = {
 	createdAt: string,
 	/**  The Board's assets. Older files have none, so it defaults to empty. */
 	assets?: Asset[],
+};
+
+/**  One row of the project switcher. */
+export type ProjectSummary = {
+	id: string,
+	name: string,
+	template: ProjectTemplate,
+	siteRepo: string | null,
+	createdAt: string,
+	assetCount: number,
+	/**  Absolute, so the UI can resolve `thumb`. */
+	dir: string,
+	/**
+	 *  The picture the switcher shows, relative to the project folder: the
+	 *  first poster, else a scene's thumbnail, else the newest card's.
+	 *  `None` when the project has none yet.
+	 */
+	thumb: string | null,
+	activity: ProjectActivity,
 };
 
 export type ProjectTemplate = "floating-diorama" | "room" | "character-showcase" | "imported";
