@@ -18,4 +18,19 @@ describe('the Inspector store', () => {
     expect(useInspectorStore.getState().project).toBe('rooftop-cinema');
     expect(useInspectorStore.getState().view?.project).toBe('rooftop-cinema');
   });
+
+  it('starts the next project with nothing picked and no camera stop', async () => {
+    await openMockWorkspace();
+    await useInspectorStore.getState().load('moon-island');
+    const store = useInspectorStore.getState();
+    store.pick({ comparison: 'scene', left: 'v6', right: 'v7' });
+    store.flyTo(3);
+    await useInspectorStore.getState().load('rooftop-cinema');
+    expect(useInspectorStore.getState()).toMatchObject({
+      comparison: null,
+      left: null,
+      right: null,
+      stop: null,
+    });
+  });
 });

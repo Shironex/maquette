@@ -54,7 +54,16 @@ export const useInspectorStore = create<InspectorStore>((set, get) => ({
 
   load: async project => {
     const same = get().project === project;
-    set({ loading: true, error: null, ...(same ? {} : { view: null, project, selected: null }) });
+    // What was picked and where the camera stood belong to the project left.
+    const fresh = {
+      view: null,
+      project,
+      selected: null,
+      comparison: null,
+      left: null,
+      right: null,
+    };
+    set({ loading: true, error: null, ...(same ? {} : { ...fresh, stop: null }) });
     try {
       const view = await commands.inspectProject(project);
       if (get().project !== project) return;
