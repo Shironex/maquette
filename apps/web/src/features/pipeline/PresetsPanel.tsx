@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Button, Icon, IconButton, Select, cn } from '@maquette/ui';
+import { Button, Icon, Select, cn } from '@maquette/ui';
 import type { CompressPreset, MeshoptLevel, PipelineView, TextureCodec } from '@/ipc/client';
 import { formatBytes } from '@/lib/format';
 import { estimateTransfer, presetRows, presetsToSave, type PresetRow } from '@/state/presets';
@@ -90,15 +90,19 @@ export function PresetsPanel({
                     <td className="py-1 pr-1">
                       <span className="flex items-center gap-1.5">
                         <span className="truncate">{row.label}</span>
-                        <IconButton
-                          icon="sliders-horizontal"
-                          size="sm"
-                          variant={split ? 'secondary' : 'ghost'}
-                          label={`Texture sizes per map for ${row.label}`}
+                        <button
+                          type="button"
+                          aria-label={`Texture sizes per map for ${row.label}`}
                           aria-expanded={split}
                           disabled={locked}
                           onClick={() => toggle(row.model)}
-                        />
+                          className={cn(
+                            'grid size-5 flex-none cursor-pointer place-items-center rounded-control text-fg-mute hover:text-fg disabled:cursor-default disabled:opacity-45',
+                            split && 'bg-raised text-fg'
+                          )}
+                        >
+                          <Icon name="sliders-horizontal" size={12} />
+                        </button>
                         {locked ? (
                           <Icon
                             name="lock-simple"
