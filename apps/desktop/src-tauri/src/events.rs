@@ -2,6 +2,7 @@
 //! its event types are wrapped here.
 
 use maquette_core::ProjectManifest;
+use maquette_core::concepts::ConceptEvent;
 use maquette_core::pipeline::runner::{PipelineEvent, RunSink};
 use maquette_core::thumbs::ThumbState;
 use serde::{Deserialize, Serialize};
@@ -31,6 +32,11 @@ pub struct ThumbnailReady {
     pub state: ThumbState,
     pub project: Option<ProjectManifest>,
 }
+
+/// A concept job changed state or printed a line, or a direction got a new
+/// image.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+pub struct ConceptUpdate(pub ConceptEvent);
 
 /// Sends runner events to every window.
 pub struct TauriSink(pub AppHandle);

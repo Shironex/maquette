@@ -26,6 +26,7 @@ pub fn run() {
                 maquette_core::pipeline::runner::PipelineRunner::new(sink),
             ));
             app.manage(commands::thumbs::Thumbs::new(app.handle().clone()));
+            app.manage(commands::lab::Lab::new(app.handle().clone()));
             Ok(())
         })
         .run(tauri::generate_context!())

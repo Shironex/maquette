@@ -53,10 +53,30 @@ export const commands = {
 	/**  Opens the model in Blender's window, imported into an empty scene. */
 	inboxOpenInBlender: (id: string) => __TAURI_INVOKE<null>("inbox_open_in_blender", { id }),
 	thumbnailStore: (file: string, png: number[]) => __TAURI_INVOKE<string>("thumbnail_store", { file, png }),
+	labGet: (project: string) => __TAURI_INVOKE<LabView>("lab_get", { project }),
+	labGenerate: (request: NewConcepts) => __TAURI_INVOKE<LabView>("lab_generate", { request }),
+	labCancel: (jobId: string) => __TAURI_INVOKE<null>("lab_cancel", { jobId }),
+	/**  Stops every queued and running job of the project. */
+	labCancelAll: (project: string) => __TAURI_INVOKE<number>("lab_cancel_all", { project }),
+	labClearFinished: (project: string) => __TAURI_INVOKE<LabView>("lab_clear_finished", { project }),
+	/**  Stars or picks one image; `None` leaves that mark alone. */
+	labMark: (project: string, direction: string, file: string, starred: boolean | null, picked: boolean | null) => __TAURI_INVOKE<Direction>("lab_mark", { project, direction, file, starred, picked }),
+	/**
+	 *  Tiles the direction's images into `contact_sheet.png` next to them and
+	 *  returns its absolute path.
+	 */
+	labContactSheet: (project: string, direction: string) => __TAURI_INVOKE<string>("lab_contact_sheet", { project, direction }),
+	/**
+	 *  Copies the picks into `refs/` and puts the asset of the same name on
+	 *  the Board at Refs.
+	 */
+	labSendPicks: (project: string, direction: string, kind: AssetKind) => __TAURI_INVOKE<SentPicks>("lab_send_picks", { project, direction, kind }),
+	labImportRefs: (project: string, paths: string[]) => __TAURI_INVOKE<string[]>("lab_import_refs", { project, paths }),
 };
 
 /** Events */
 export const events = {
+	conceptUpdate: makeEvent<ConceptUpdate>("concept-update"),
 	inboxChanged: makeEvent<InboxChanged>("inbox-changed"),
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
 	thumbnailReady: makeEvent<ThumbnailReady>("thumbnail-ready"),
@@ -275,6 +295,12 @@ export type ConceptJob = {
 
 export type ConceptJobState = "queued" | "running" | "done" | "failed" | "cancelled";
 
+/**
+ *  A concept job changed state or printed a line, or a direction got a new
+ *  image.
+ */
+export type ConceptUpdate = ConceptEvent;
+
 export type Direction = {
 	/**  The folder name under `concepts/`. */
 	id: string,
@@ -417,6 +443,18 @@ export type LabSettings = {
 	timeoutMinutes: number,
 };
 
+export type LabView = {
+	project: string,
+	/**  Absolute, for the image URLs. */
+	projectDir: string,
+	/**  The most recently changed first. */
+	directions: Direction[],
+	/**  Oldest first. */
+	jobs: ConceptJob[],
+	refs: RefImage[],
+	concurrency: number,
+};
+
 export type LogEntry = {
 	runId: string,
 	step: string | null,
@@ -555,6 +593,14 @@ export type ProjectManifest = {
 
 export type ProjectTemplate = "floating-diorama" | "room" | "character-showcase" | "imported";
 
+/**  An image in the project's `refs/` folder. */
+export type RefImage = {
+	/**  Relative to the project folder. */
+	file: string,
+	name: string,
+	bytes: number | null,
+};
+
 export type RepoInspection = {
 	path: string,
 	exists: boolean,
@@ -605,6 +651,8 @@ export type SentPicks = {
 	asset: Asset,
 	/**  The new files in `refs/`, relative to the project folder. */
 	copied: string[],
+	/**  The project with the asset added or moved, for the Board. */
+	project: ProjectManifest,
 };
 
 /**  The Board columns, in pipeline order. */

@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::assets::{self, Asset, AssetKind, NewAsset, Stage};
 use crate::error::{CoreError, CoreResult};
 use crate::json::{from_json_with_defaults, write_json};
-use crate::project::{self, now_rfc3339, slugify};
+use crate::project::{self, ProjectManifest, now_rfc3339, slugify};
 use crate::workspace::FolderLayout;
 
 pub use jobs::{ConceptEvent, ConceptJob, ConceptJobState, Concepts};
@@ -127,6 +127,8 @@ pub struct SentPicks {
     pub asset: Asset,
     /// The new files in `refs/`, relative to the project folder.
     pub copied: Vec<String>,
+    /// The project with the asset added or moved, for the Board.
+    pub project: ProjectManifest,
 }
 
 /// Serialises writes to `direction.json` files: jobs finish on their own
@@ -407,7 +409,7 @@ pub fn send_picks(
         Ok(copied)
     })?;
     let mut asset = None;
-    project::modify(workspace_root, layout, project_id, |manifest| {
+    let manifest = project::modify(workspace_root, layout, project_id, |manifest| {
         let found = assets::find_by_name(manifest, &direction.name).cloned();
         asset = Some(match found {
             Some(existing) if existing.stage < Stage::Refs => {
@@ -430,6 +432,7 @@ pub fn send_picks(
         direction,
         asset,
         copied,
+        project: manifest,
     })
 }
 

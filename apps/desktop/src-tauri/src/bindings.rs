@@ -8,9 +8,9 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    app, assets, dialogs, inbox, pipeline, project, thumbs, toolchain, workspace,
+    app, assets, dialogs, inbox, lab, pipeline, project, thumbs, toolchain, workspace,
 };
-use crate::events::{InboxChanged, PipelineUpdate, ThumbnailReady};
+use crate::events::{ConceptUpdate, InboxChanged, PipelineUpdate, ThumbnailReady};
 
 /// Compile time path, so the export never depends on the working folder.
 pub const GENERATED_FILE: &str = concat!(
@@ -56,11 +56,21 @@ pub fn builder() -> Builder<tauri::Wry> {
             inbox::inbox_accept,
             inbox::inbox_open_in_blender,
             thumbs::thumbnail_store,
+            lab::lab_get,
+            lab::lab_generate,
+            lab::lab_cancel,
+            lab::lab_cancel_all,
+            lab::lab_clear_finished,
+            lab::lab_mark,
+            lab::lab_contact_sheet,
+            lab::lab_send_picks,
+            lab::lab_import_refs,
         ])
         .events(collect_events![
             PipelineUpdate,
             InboxChanged,
-            ThumbnailReady
+            ThumbnailReady,
+            ConceptUpdate
         ])
         .types(&maquette_core::types())
 }
@@ -97,10 +107,17 @@ mod tests {
             "inboxAccept",
             "assetMove",
             "thumbnailStore",
+            "labGenerate",
+            "labSendPicks",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }
-        for event in ["pipelineUpdate", "inboxChanged", "thumbnailReady"] {
+        for event in [
+            "pipelineUpdate",
+            "inboxChanged",
+            "thumbnailReady",
+            "conceptUpdate",
+        ] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }
         let resolved = PathBuf::from(GENERATED_FILE)
