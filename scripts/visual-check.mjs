@@ -1,8 +1,10 @@
 /**
  * Renders mock mode in headless Chromium and saves a screenshot of every
  * onboarding step, the Board, the fresh template project, Pipeline (idle,
- * running, failed), the Inbox in every preview mode, the Inspector (compare,
- * a camera stop, budgets) and Settings. It renders pages to files and never captures the screen.
+ * running, failed), the Concept lab (results, a new brief, images
+ * generating), the Inbox in every preview mode, the Inspector (compare, a
+ * camera stop, budgets), Settings, Settings > Agents with an agent's
+ * activity, and the shipping approval prompt. It renders pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
@@ -125,9 +127,30 @@ try {
   await blocked.getByText('Blender is required.').waitFor();
   await shot(blocked, 'onboarding-3-toolchain-no-blender');
 
-  const lab = await open('&scenario=configured', '#/lab');
-  await lab.getByText('The Concept lab is on its way').waitFor();
-  await shot(lab, 'lab-placeholder');
+  const lab = await open('&scenario=configured&conceptMs=60000', '#/lab');
+  await lab.getByRole('heading', { name: 'Moon island porch' }).waitFor();
+  await shot(lab, 'lab-results');
+  await lab.getByRole('button', { name: 'New', exact: true }).click();
+  await lab.getByLabel('Direction name').fill('Stone lantern');
+  await lab
+    .getByLabel('Prompt')
+    .fill('A weathered stone lantern on mossy steps, warm candle light, night, soft fog.');
+  await lab.getByRole('button', { name: 'Add reference image' }).click();
+  await lab.getByRole('button', { name: 'moon-island-concept.png' }).click();
+  await shot(lab, 'lab-idle');
+  const labRunning = await open('&scenario=configured&lab=running', '#/lab');
+  await labRunning.getByText('Image queue').waitFor();
+  await shot(labRunning, 'lab-running');
+
+  const agents = await open('&scenario=configured&agents=active', '#/settings');
+  await agents.getByRole('heading', { name: 'Tripo defaults' }).waitFor();
+  await agents.getByRole('button', { name: 'Agents', exact: true }).click();
+  await agents.getByText('Listening on http://127.0.0.1:4791/mcp', { exact: false }).waitFor();
+  await agents.waitForTimeout(600);
+  await shot(agents, 'settings-agents');
+  const prompt = await open('&scenario=configured&agents=active', '#/board');
+  await prompt.getByRole('alertdialog').waitFor();
+  await shot(prompt, 'agents-approval-prompt');
 
   const board = await open('&scenario=configured', '#/board');
   await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
