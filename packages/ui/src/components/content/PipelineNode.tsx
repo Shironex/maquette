@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
 import { ProgressBar } from '../status/ProgressBar';
@@ -22,6 +23,10 @@ export interface PipelineNodeProps {
   progress?: number;
   duration?: string;
   detail?: string;
+  /** Replaces the chip's word, for example "failed in 24". */
+  label?: string;
+  /** Small actions after the duration, for example Run from here. */
+  actions?: ReactNode;
   className?: string;
 }
 
@@ -34,6 +39,8 @@ export function PipelineNode({
   progress,
   duration,
   detail,
+  label,
+  actions,
   className,
 }: PipelineNodeProps) {
   return (
@@ -68,10 +75,18 @@ export function PipelineNode({
       ) : null}
       {state === 'running' && progress !== undefined ? <ProgressBar value={progress} /> : null}
       <div className="flex items-center justify-between gap-2">
-        <StatusChip status={CHIP[state]} label={state === 'waiting' ? 'Waiting' : undefined} />
-        {duration ? (
-          <span className="text-meta whitespace-nowrap text-fg-mute tabular-nums">{duration}</span>
-        ) : null}
+        <StatusChip
+          status={CHIP[state]}
+          label={label ?? (state === 'waiting' ? 'Waiting' : undefined)}
+        />
+        <span className="flex items-center gap-1">
+          {duration ? (
+            <span className="text-meta whitespace-nowrap text-fg-mute tabular-nums">
+              {duration}
+            </span>
+          ) : null}
+          {actions ?? null}
+        </span>
       </div>
       {detail ? <div className="text-meta text-danger">{detail}</div> : null}
     </div>

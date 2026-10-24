@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Icon } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
 
@@ -14,6 +14,10 @@ export interface LogConsoleProps {
   height?: number;
   actions?: ReactNode;
   lines: readonly LogLine[];
+  /** Keeps the newest line in view while lines arrive. */
+  autoScroll?: boolean;
+  /** Shown when there are no lines. */
+  empty?: ReactNode;
   className?: string;
 }
 
@@ -30,8 +34,15 @@ export function LogConsole({
   height,
   actions,
   lines,
+  autoScroll,
+  empty,
   className,
 }: LogConsoleProps) {
+  const body = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = body.current;
+    if (autoScroll && el) el.scrollTop = el.scrollHeight;
+  }, [autoScroll, lines]);
   return (
     <div
       className={cn(
@@ -51,10 +62,12 @@ export function LogConsole({
         {actions ?? null}
       </div>
       <div
+        ref={body}
         role="log"
-        className="overflow-auto px-3 py-2 font-mono text-[12px] leading-[19px]"
+        className="min-h-0 flex-1 overflow-auto px-3 py-2 font-mono text-[12px] leading-[19px]"
         style={height ? { height } : undefined}
       >
+        {lines.length === 0 && empty ? <div className="text-fg-mute">{empty}</div> : null}
         {lines.map((l, i) => (
           <div key={i} className="grid grid-cols-[64px_1fr] gap-3 whitespace-pre-wrap text-fg-dim">
             <span className="text-fg-mute tabular-nums">{l.t}</span>

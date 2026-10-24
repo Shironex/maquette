@@ -2,6 +2,9 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  AssetCard,
+  LogConsole,
+  PipelineNode,
   budgetScale,
   NumberField,
   SegmentedControl,
@@ -104,5 +107,73 @@ describe('StageStepper', () => {
     );
     expect(screen.getByText(', done')).toBeInTheDocument();
     expect(screen.getByText('Refs').closest('li')).toHaveAttribute('aria-current', 'step');
+  });
+});
+
+describe('AssetCard', () => {
+  it('opens its menu from the dots button', async () => {
+    const onMore = vi.fn();
+    const { rerender } = render(
+      <AssetCard
+        name="Island"
+        version={7}
+        status="done"
+        onMore={onMore}
+        menu={<div role="menu">Move</div>}
+      />
+    );
+    const dots = screen.getByRole('button', { name: 'More for Island' });
+    expect(dots).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(dots);
+    expect(onMore).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('menu')).toBeNull();
+    rerender(
+      <AssetCard
+        name="Island"
+        version={7}
+        status="done"
+        onMore={onMore}
+        moreOpen
+        menu={<div role="menu">Move</div>}
+      />
+    );
+    expect(screen.getByRole('menu')).toHaveTextContent('Move');
+  });
+});
+
+describe('PipelineNode', () => {
+  it('shows a custom chip label and actions', () => {
+    render(
+      <PipelineNode
+        step={5}
+        name="Capture posters"
+        state="waiting"
+        label="failed in 24"
+        actions={<button type="button">Run from here</button>}
+      />
+    );
+    expect(screen.getByText('failed in 24')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Run from here' })).toBeInTheDocument();
+  });
+});
+
+describe('LogConsole', () => {
+  it('shows the empty text and keeps the newest line in view', () => {
+    const { rerender } = render(
+      <LogConsole title="Log" lines={[]} empty="No output yet" autoScroll />
+    );
+    expect(screen.getByRole('log')).toHaveTextContent('No output yet');
+    const log = screen.getByRole('log');
+    Object.defineProperty(log, 'scrollHeight', { value: 900, configurable: true });
+    rerender(
+      <LogConsole
+        title="Log"
+        lines={[{ t: '15:02:31', text: 'Blender quit' }]}
+        empty="No output yet"
+        autoScroll
+      />
+    );
+    expect(log.scrollTop).toBe(900);
+    expect(log).not.toHaveTextContent('No output yet');
   });
 });
