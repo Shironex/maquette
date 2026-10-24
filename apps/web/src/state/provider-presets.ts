@@ -126,3 +126,58 @@ export function meshySummary(preset: MeshyPreset, models: readonly ModelOption[]
     .filter(Boolean)
     .join(', ');
 }
+
+/** "PBR" when on, "no PBR" when off. */
+const flag = (on: boolean, label: string) => (on ? label : `no ${label}`);
+
+const faces = (n: number) => (n ? `${formatCount(n)} faces` : 'adaptive faces');
+
+/**
+ * What changed fields of a Tripo preset say in a summary, in preset order:
+ * "12,000 faces", "no PBR". `next` is the preset with the changes laid over.
+ */
+export function tripoChanges(
+  changes: Partial<TripoPreset>,
+  next: TripoPreset,
+  models: readonly ModelOption[]
+): string[] {
+  const say: { [K in keyof TripoPreset]: () => string } = {
+    model: () => `Tripo ${modelLabel(models, next.model)}`,
+    faceLimit: () => faces(next.faceLimit),
+    texture: () => flag(next.texture, 'texture'),
+    pbr: () => flag(next.pbr, 'PBR'),
+    textureQuality: () => `${next.textureQuality} textures`,
+    geometryQuality: () => `${next.geometryQuality} geometry`,
+    smartLowPoly: () => flag(next.smartLowPoly, 'smart low poly'),
+    autoSize: () => flag(next.autoSize, 'real-world size'),
+    imageAutofix: () => flag(next.imageAutofix, 'image fix'),
+    multiView: () => flag(next.multiView, 'multi-view'),
+    rig: () => flag(next.rig, 'rig'),
+    rigModel: () => `rig model ${next.rigModel}`,
+    rigSpec: () => `${next.rigSpec} bones`,
+    animations: () => `${next.animations.length} animations`,
+  };
+  return (Object.keys(say) as (keyof TripoPreset)[]).filter(k => k in changes).map(k => say[k]());
+}
+
+export function meshyChanges(
+  changes: Partial<MeshyPreset>,
+  next: MeshyPreset,
+  models: readonly ModelOption[]
+): string[] {
+  const say: { [K in keyof MeshyPreset]: () => string } = {
+    aiModel: () => modelLabel(models, next.aiModel),
+    shouldTexture: () => flag(next.shouldTexture, 'texture'),
+    enablePbr: () => flag(next.enablePbr, 'PBR'),
+    textureResolution: () => `${next.textureResolution.toUpperCase()} textures`,
+    shouldRemesh: () => flag(next.shouldRemesh, 'remesh'),
+    topology: () => `${next.topology} topology`,
+    targetPolycount: () => faces(next.targetPolycount),
+    poseMode: () => `${next.poseMode} pose`,
+    removeLighting: () => flag(next.removeLighting, 'remove lighting'),
+    multiView: () => flag(next.multiView, 'multi-view'),
+    rig: () => flag(next.rig, 'rig'),
+    heightMeters: () => `${next.heightMeters} m tall`,
+  };
+  return (Object.keys(say) as (keyof MeshyPreset)[]).filter(k => k in changes).map(k => say[k]());
+}

@@ -553,15 +553,13 @@ export function createFakeProviders({
             images: item.images,
             tripo:
               service === 'tripo'
-                ? item.variant === 'character'
-                  ? req.tripoCharacter
-                  : req.tripoProp
+                ? (item.tripo ??
+                  (item.variant === 'character' ? req.tripoCharacter : req.tripoProp))
                 : null,
             meshy:
               service === 'meshy'
-                ? item.variant === 'character'
-                  ? req.meshyCharacter
-                  : req.meshyProp
+                ? (item.meshy ??
+                  (item.variant === 'character' ? req.meshyCharacter : req.meshyProp))
                 : null,
             createdAtMs: Date.now(),
             batch,

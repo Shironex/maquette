@@ -6,11 +6,16 @@ import {
   batchBlocker,
   batchDraft,
   batchLabel,
+  batchLines,
+  batchProblem,
   batchRequest,
   batchSummary,
   checklist,
   initialMatches,
+  isCustom,
+  itemTripo,
   nextSelection,
+  presetChanges,
   waitingByHand,
 } from './batch';
 
@@ -82,8 +87,20 @@ describe('a batch send', () => {
     expect(request.meshyCharacter).toBeNull();
     expect(request.tripoProp).toBeNull();
     expect(request.items).toEqual([
-      { asset: 'desk-lamp', variant: 'prop', images: ['refs/desk_lamp.png'] },
-      { asset: 'sculptor', variant: 'prop', images: ['refs/sculptor.png'] },
+      {
+        asset: 'desk-lamp',
+        variant: 'prop',
+        images: ['refs/desk_lamp.png'],
+        tripo: null,
+        meshy: null,
+      },
+      {
+        asset: 'sculptor',
+        variant: 'prop',
+        images: ['refs/sculptor.png'],
+        tripo: null,
+        meshy: null,
+      },
     ]);
     expect(batchLabel(props)).toBe('Send 2 to Meshy');
   });
@@ -101,6 +118,62 @@ describe('a batch send', () => {
     );
     expect(batchBlocker({ ...draft, items: [] }, keys, null)).toBe('Select at least one asset.');
     expect(batchBlocker(draft, keys, 'Pick a model.')).toBe('Pick a model.');
+  });
+});
+
+describe('per-asset overrides', () => {
+  const catalog = {
+    tripoModels: [{ id: 'v3.1-20260211', label: 'H3.1' }],
+    meshyModels: [],
+  } as unknown as Parameters<typeof batchLines>[1];
+  const draft = () => {
+    const d = batchDraft(options(), presets.tripo, presets.meshy, 'tripo');
+    return { ...d, items: d.items.map(i => ({ ...i, variant: 'prop' as const })) };
+  };
+
+  it('keeps only the changed fields', () => {
+    const base = presets.tripo.prop;
+    expect(presetChanges(base, base)).toEqual({});
+    expect(presetChanges(base, { ...base, faceLimit: 12_000, pbr: !base.pbr })).toEqual({
+      faceLimit: 12_000,
+      pbr: !base.pbr,
+    });
+    expect(presetChanges(base, { ...base, animations: [...base.animations] })).toEqual({});
+  });
+
+  it('lets batch edits flow into the fields an asset did not change', () => {
+    const d = draft();
+    d.items[0] = { ...d.items[0]!, tripo: { faceLimit: 12_000 } };
+    d.tripo = { ...d.tripo, prop: { ...d.tripo.prop, faceLimit: 5_000, pbr: false } };
+    expect(isCustom(d, d.items[0])).toBe(true);
+    expect(isCustom(d, d.items[1]!)).toBe(false);
+    expect(itemTripo(d, d.items[0])).toEqual({ ...d.tripo.prop, faceLimit: 12_000 });
+    expect(itemTripo(d, d.items[1]!).faceLimit).toBe(5_000);
+  });
+
+  it('sends the merged preset for custom assets only', () => {
+    const d = draft();
+    d.items[1] = { ...d.items[1]!, tripo: { faceLimit: 2_000 } };
+    const request = batchRequest('moon-island', d);
+    expect(request.items[0]?.tripo).toBeNull();
+    expect(request.items[1]?.tripo).toEqual({ ...presets.tripo.prop, faceLimit: 2_000 });
+    expect(request.items[1]?.meshy).toBeNull();
+  });
+
+  it('lists what each custom asset changes next to the batch settings', () => {
+    const d = draft();
+    d.items[1] = { ...d.items[1]!, tripo: { faceLimit: 2_000, pbr: false } };
+    expect(batchLines(d, catalog)).toEqual([
+      expect.stringMatching(/^Props: Tripo H3\.1/),
+      'Sculptor figure: 2,000 faces, no PBR',
+    ]);
+  });
+
+  it('names the asset whose own settings are wrong', () => {
+    const d = draft();
+    expect(batchProblem(d, catalog)).toBeNull();
+    d.items[1] = { ...d.items[1]!, tripo: { faceLimit: 99_000_000 } };
+    expect(batchProblem(d, catalog)).toMatch(/^Sculptor figure: Tripo/);
   });
 });
 

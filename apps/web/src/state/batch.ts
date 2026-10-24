@@ -11,9 +11,18 @@ import type {
   PresetVariant,
   Provider,
   ProviderId,
+  ModelOption,
   ProviderJob,
   TripoPreset,
 } from '@/ipc/client';
+import {
+  meshyChanges,
+  meshyProblem,
+  meshySummary,
+  tripoChanges,
+  tripoProblem,
+  tripoSummary,
+} from './provider-presets';
 import { PROVIDER_LABEL, SERVICE_LABEL } from './providers';
 
 /** The most assets one batch takes; the core says the same. */
@@ -50,6 +59,13 @@ export interface BatchItemDraft {
   variant: PresetVariant;
   images: string[];
   thumbnail: string | null;
+  /**
+   * Only the fields this asset changed, over the batch preset of its kind.
+   * Empty means it follows the batch, so a later edit of the batch settings
+   * still reaches every field it did not change.
+   */
+  tripo: Partial<TripoPreset>;
+  meshy: Partial<MeshyPreset>;
 }
 
 export interface BatchDraft {
@@ -76,6 +92,8 @@ export function batchDraft(
       variant: item.variant,
       images: item.suggested.slice(0, 4),
       thumbnail: item.asset.thumbnail,
+      tripo: {},
+      meshy: {},
     })),
     tripo: structuredClone(tripo),
     meshy: structuredClone(meshy),
@@ -88,6 +106,84 @@ export function variantsUsed(draft: Pick<BatchDraft, 'items'>): PresetVariant[] 
   return (['prop', 'character'] as const).filter(v => used.has(v));
 }
 
+/** The fields of `next` that differ from `base`. */
+export function presetChanges<T extends object>(base: T, next: T): Partial<T> {
+  const out: Partial<T> = {};
+  for (const key of Object.keys(base) as (keyof T)[]) {
+    if (JSON.stringify(base[key]) !== JSON.stringify(next[key])) out[key] = next[key];
+  }
+  return out;
+}
+
+/** The Tripo preset one asset sends with: its changes over the batch preset. */
+export function itemTripo(draft: BatchDraft, item: BatchItemDraft): TripoPreset {
+  return { ...draft.tripo[item.variant], ...item.tripo };
+}
+
+export function itemMeshy(draft: BatchDraft, item: BatchItemDraft): MeshyPreset {
+  return { ...draft.meshy[item.variant], ...item.meshy };
+}
+
+/** The changed fields of an asset for the draft's service. */
+function itemChanges(draft: BatchDraft, item: BatchItemDraft): object {
+  return draft.service === 'tripo' ? item.tripo : item.meshy;
+}
+
+/** True when the asset changes at least one setting of its own. */
+export function isCustom(draft: BatchDraft, item: BatchItemDraft): boolean {
+  return Object.keys(itemChanges(draft, item)).length > 0;
+}
+
+/** "12,000 faces, no PBR": what an asset changes from the batch. */
+export function itemDiff(
+  draft: BatchDraft,
+  item: BatchItemDraft,
+  catalog: Pick<Catalog, 'tripoModels' | 'meshyModels'>
+): string {
+  const changes =
+    draft.service === 'tripo'
+      ? tripoChanges(item.tripo, itemTripo(draft, item), catalog.tripoModels)
+      : meshyChanges(item.meshy, itemMeshy(draft, item), catalog.meshyModels);
+  return changes.join(', ');
+}
+
+type Catalog = { tripoModels: readonly ModelOption[]; meshyModels: readonly ModelOption[] };
+
+/** The first preset problem among the batch's presets and the assets' own. */
+export function batchProblem(draft: BatchDraft, catalog: Catalog): string | null {
+  const tripo = draft.service === 'tripo';
+  for (const item of draft.items) {
+    const custom = isCustom(draft, item);
+    const problem = tripo
+      ? tripoProblem(itemTripo(draft, item), catalog.tripoModels)
+      : meshyProblem(itemMeshy(draft, item), catalog.meshyModels);
+    if (problem) return custom ? `${item.name}: ${problem}` : problem;
+  }
+  return null;
+}
+
+/**
+ * The settings lines of a batch: one per kind with assets that follow the
+ * batch, then one per customised asset with just what it changes.
+ */
+export function batchLines(draft: BatchDraft, catalog: Catalog): string[] {
+  const label = { prop: 'Props', character: 'Characters' } as const;
+  const kinds = variantsUsed({
+    items: draft.items.filter(i => !isCustom(draft, i)),
+  }).map(
+    v =>
+      `${label[v]}: ${
+        draft.service === 'tripo'
+          ? tripoSummary(draft.tripo[v], catalog.tripoModels)
+          : meshySummary(draft.meshy[v], catalog.meshyModels)
+      }`
+  );
+  const own = draft.items
+    .filter(i => isCustom(draft, i))
+    .map(i => `${i.name}: ${itemDiff(draft, i, catalog)}`);
+  return [...kinds, ...own];
+}
+
 export function batchRequest(project: string, draft: BatchDraft): BatchRequest {
   const used = variantsUsed(draft);
   const tripo = draft.service === 'tripo';
@@ -97,7 +193,16 @@ export function batchRequest(project: string, draft: BatchDraft): BatchRequest {
     project,
     provider: draft.provider,
     service: draft.service,
-    items: draft.items.map(i => ({ asset: i.asset, variant: i.variant, images: i.images })),
+    items: draft.items.map(i => {
+      const own = isCustom(draft, i);
+      return {
+        asset: i.asset,
+        variant: i.variant,
+        images: i.images,
+        tripo: own && tripo ? itemTripo(draft, i) : null,
+        meshy: own && !tripo ? itemMeshy(draft, i) : null,
+      };
+    }),
     tripoProp: pick(tripo, 'prop', draft.tripo.prop),
     tripoCharacter: pick(tripo, 'character', draft.tripo.character),
     meshyProp: pick(!tripo, 'prop', draft.meshy.prop),

@@ -20,7 +20,7 @@ import {
 } from '@/ipc/client';
 import { useAppStore } from './app-store';
 import { PROVIDER_LABEL, SERVICE_LABEL, type SendDraft } from './providers';
-import { batchDraft, batchRequest, initialMatches, type BatchDraft } from './batch';
+import { batchDraft, batchRequest, initialMatches, presetChanges, type BatchDraft } from './batch';
 
 interface Panel {
   project: string;
@@ -91,6 +91,14 @@ interface ProvidersStore {
   setBatchPreset: (
     variant: PresetVariant,
     preset: { tripo?: TripoPreset; meshy?: MeshyPreset }
+  ) => void;
+  /**
+   * One asset's own settings: `preset` is what the form shows, and only
+   * its differences from the batch preset are kept. Null clears them.
+   */
+  setItemPreset: (
+    asset: string,
+    preset: { tripo?: TripoPreset; meshy?: MeshyPreset } | null
   ) => void;
   /** Starts the batch's presets over from the saved ones. */
   resetBatchPresets: () => void;
@@ -440,6 +448,22 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
     if (preset.tripo) draft.tripo = { ...draft.tripo, [variant]: preset.tripo };
     if (preset.meshy) draft.meshy = { ...draft.meshy, [variant]: preset.meshy };
     set({ batch: { ...batch, draft, confirming: false } });
+  },
+
+  setItemPreset: (asset, preset) => {
+    const batch = get().batch;
+    if (!batch?.draft) return;
+    const { draft } = batch;
+    const items = draft.items.map(item => {
+      if (item.asset !== asset) return item;
+      if (!preset) return { ...item, tripo: {}, meshy: {} };
+      return {
+        ...item,
+        ...(preset.tripo && { tripo: presetChanges(draft.tripo[item.variant], preset.tripo) }),
+        ...(preset.meshy && { meshy: presetChanges(draft.meshy[item.variant], preset.meshy) }),
+      };
+    });
+    set({ batch: { ...batch, draft: { ...draft, items }, confirming: false } });
   },
 
   resetBatchPresets: () => {
