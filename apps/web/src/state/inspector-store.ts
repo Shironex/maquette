@@ -6,8 +6,12 @@ import { useAppStore } from './app-store';
 import { pushSample } from './inspector';
 
 export type InspectMode = Extract<MaterialMode, 'shaded' | 'wireframe' | 'lightmap'>;
+/** Compare versions, or lay out the scene. */
+export type InspectorTab = 'compare' | 'layout';
 
 interface InspectorStore {
+  tab: InspectorTab;
+  setTab: (tab: InspectorTab) => void;
   view: InspectView | null;
   /** The project `view` belongs to. */
   project: string | null;
@@ -38,6 +42,8 @@ interface InspectorStore {
 }
 
 export const useInspectorStore = create<InspectorStore>((set, get) => ({
+  tab: 'compare',
+  setTab: tab => set({ tab }),
   view: null,
   project: null,
   loading: false,

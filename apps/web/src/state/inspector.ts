@@ -285,6 +285,8 @@ export function stopsHelp(view: InspectView): string {
   switch (s.source) {
     case 'project-file':
       return `From ${s.file ?? 'stops.json'} · click to fly`;
+    case 'layout':
+      return 'From the scene layout · click to fly';
     case 'posters':
       return 'From the poster cameras · click to fly';
     case 'model-cameras':
