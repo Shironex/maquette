@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+@import '@maquette/ui/theme.css';
+@import '@maquette/ui/base.css';
+
+/* The kit's components live in another package; Tailwind has to scan them too. */
+@source '../../../packages/ui/src';
