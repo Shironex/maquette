@@ -23,6 +23,7 @@ function image(index: number, marks: { starred?: boolean; picked?: boolean } = {
     picked: marks.picked ?? false,
     refFile: null,
     createdAt: '2026-10-24T10:00:00Z',
+    title: null,
   };
 }
 
@@ -35,6 +36,8 @@ const direction: Direction = {
   images: [image(2, { starred: true }), image(1, { starred: true, picked: true })],
   createdAt: '2026-10-24T10:00:00Z',
   updatedAt: '2026-10-24T10:00:00Z',
+  source: null,
+  kind: null,
 };
 
 function job(
@@ -48,6 +51,7 @@ function job(
     project: 'moon',
     direction: 'porch',
     directionName: 'Porch',
+    title: null,
     index,
     file: `concepts/porch/porch_${String(index).padStart(2, '0')}.png`,
     state,

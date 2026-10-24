@@ -181,7 +181,7 @@ mod tests {
         let (direction, files) = concepts::prepare(&project_dir, &request).expect("prepare");
         let (index, file) = files[0].clone();
         std::fs::write(project_dir.join(&file), b"png").expect("image");
-        concepts::add_image(&project_dir, &direction.id, index, &file).expect("add");
+        concepts::add_image(&project_dir, &direction.id, index, &file, None).expect("add");
         concepts::mark(&project_dir, &direction.id, &file, None, Some(true)).expect("pick");
         concepts::send_picks(
             &root,

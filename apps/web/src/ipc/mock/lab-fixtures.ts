@@ -44,6 +44,7 @@ function images(
       picked: marks[index]?.picked ?? false,
       refFile: null,
       createdAt: at,
+      title: null,
     };
   });
 }
@@ -69,6 +70,8 @@ function direction(
     images: images(id, sources, marks, at),
     createdAt: at,
     updatedAt: at,
+    source: null,
+    kind: null,
   };
 }
 
@@ -168,6 +171,7 @@ export function runningJobs(project: string, now: number): ConceptJob[] {
       project,
       direction: 'moon-island-porch',
       directionName: 'Moon island porch',
+      title: null,
       index,
       file: `concepts/moon-island-porch/moon-island-porch_${String(index).padStart(2, '0')}.png`,
       state: done ? 'done' : 'running',

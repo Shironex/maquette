@@ -291,7 +291,7 @@ mod tests {
         let (d, files) = prepare(project_dir, &request).expect("prepare");
         for (n, (index, file)) in files.iter().enumerate() {
             fs::write(project_dir.join(file), format!("png {name} {index}")).expect("png");
-            add_image(project_dir, &d.id, *index, file).expect("add");
+            add_image(project_dir, &d.id, *index, file, None).expect("add");
             if picks.contains(&n) {
                 mark(project_dir, &d.id, file, None, Some(true)).expect("pick");
             }

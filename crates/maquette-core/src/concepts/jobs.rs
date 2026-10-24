@@ -15,6 +15,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use serde::{Deserialize, Serialize};
 
+use super::objects::{self, NewObjectRefs};
 use super::{Direction, NewConcepts, add_image, codex_args, prepare, prompt};
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::{LogLevel, LogStream, RunRecord, RunState, now_ms};
@@ -62,6 +63,8 @@ pub struct ConceptJob {
     pub index: u32,
     /// Where the image goes, relative to the project folder.
     pub file: String,
+    /// Object refs: the object this image shows.
+    pub title: Option<String>,
     pub state: ConceptJobState,
     pub queued_at_ms: f64,
     pub started_at_ms: Option<f64>,
@@ -97,6 +100,22 @@ pub struct Start<'a> {
     /// Already checked with [`super::clean_request`].
     pub request: NewConcepts,
     pub timeout: Duration,
+}
+
+/// Where the jobs of a start run, shared by concepts and object refs.
+pub struct Lane<'a> {
+    pub project_dir: &'a Path,
+    pub cache_dir: &'a Path,
+    pub tools: &'a Toolbox,
+    pub timeout: Duration,
+}
+
+/// One planned image: where it goes, what Codex is told, its title.
+struct Planned {
+    index: u32,
+    file: String,
+    prompt: String,
+    title: Option<String>,
 }
 
 struct Entry {
@@ -332,7 +351,13 @@ fn finish(
         }
     }
     if is_image(&target) {
-        match add_image(project_dir, &job.direction, job.index, &job.file) {
+        match add_image(
+            project_dir,
+            &job.direction,
+            job.index,
+            &job.file,
+            job.title.as_deref(),
+        ) {
             Ok(direction) => {
                 job.state = ConceptJobState::Done;
                 if let Some(image) = direction.images.iter().find(|i| i.file == job.file) {
@@ -378,6 +403,14 @@ fn finish(
     None
 }
 
+fn codex_tool(tools: &Toolbox) -> CoreResult<&crate::pipeline::tools::ResolvedTool> {
+    tools.tools.get(&ToolId::Codex).ok_or_else(|| {
+        CoreError::Unavailable(
+            "Codex CLI is not installed or did not pass the tool check. Install it, run codex login, then check the tools in Settings.".into(),
+        )
+    })
+}
+
 /// The Concept lab's job service. Cheap to clone.
 #[derive(Clone)]
 pub struct Concepts {
@@ -415,26 +448,96 @@ impl Concepts {
     ///
     /// Fails when Codex CLI is missing or the direction cannot be written.
     pub fn start(&self, start: Start<'_>) -> CoreResult<(Direction, Vec<ConceptJob>)> {
-        let codex = start.tools.tools.get(&ToolId::Codex).ok_or_else(|| {
-            CoreError::Unavailable(
-                "Codex CLI is not installed or did not pass the tool check. Install it, run codex login, then check the tools in Settings.".into(),
-            )
-        })?;
+        codex_tool(start.tools)?;
         let request = &start.request;
         let (direction, files) = prepare(start.project_dir, request)?;
-        let args = codex_args(start.project_dir, &request.refs);
+        let planned = files
+            .into_iter()
+            .enumerate()
+            .map(|(n, (index, file))| {
+                #[expect(clippy::cast_possible_truncation, reason = "a batch is at most 12")]
+                let text = prompt(request, n as u32 + 1, &start.project_dir.join(&file));
+                Planned {
+                    index,
+                    file,
+                    prompt: text,
+                    title: None,
+                }
+            })
+            .collect();
+        let lane = Lane {
+            project_dir: start.project_dir,
+            cache_dir: start.cache_dir,
+            tools: start.tools,
+            timeout: start.timeout,
+        };
+        let jobs = self.queue(&lane, &request.project, &direction, &request.refs, planned)?;
+        Ok((direction, jobs))
+    }
+
+    /// Queues one Codex job per object, each with its own prompt and the
+    /// source concept attached. `request` is already checked with
+    /// [`objects::clean`].
+    ///
+    /// # Errors
+    ///
+    /// Fails when Codex CLI is missing or the direction cannot be written.
+    pub fn start_objects(
+        &self,
+        lane: &Lane<'_>,
+        request: &NewObjectRefs,
+    ) -> CoreResult<(Direction, Vec<ConceptJob>)> {
+        codex_tool(lane.tools)?;
+        let (direction, files) = objects::prepare(lane.project_dir, request)?;
+        let planned = files
+            .into_iter()
+            .map(|p| Planned {
+                index: p.index,
+                prompt: objects::object_prompt(
+                    &p.object,
+                    request.kind,
+                    &request.source_name,
+                    request.aspect,
+                    &lane.project_dir.join(&p.file),
+                ),
+                file: p.file,
+                title: Some(p.object),
+            })
+            .collect();
+        let refs = [request.source.clone()];
+        let jobs = self.queue(lane, &request.project, &direction, &refs, planned)?;
+        Ok((direction, jobs))
+    }
+
+    fn queue(
+        &self,
+        lane: &Lane<'_>,
+        project: &str,
+        direction: &Direction,
+        refs: &[String],
+        planned: Vec<Planned>,
+    ) -> CoreResult<Vec<ConceptJob>> {
+        let codex = codex_tool(lane.tools)?;
+        let args = codex_args(lane.project_dir, refs);
         let stamp = now_ms() as u64;
         let mut queued = Vec::new();
-        for (n, (index, file)) in files.into_iter().enumerate() {
+        for Planned {
+            index,
+            file,
+            prompt: text,
+            title,
+        } in planned
+        {
             let id = format!("{}-{index:02}-{stamp:x}", direction.id);
             let job = ConceptJob {
                 id: id.clone(),
                 run_id: None,
-                project: request.project.clone(),
+                project: project.to_string(),
                 direction: direction.id.clone(),
                 direction_name: direction.name.clone(),
                 index,
                 file: file.clone(),
+                title,
                 state: ConceptJobState::Queued,
                 queued_at_ms: now_ms(),
                 started_at_ms: None,
@@ -446,19 +549,16 @@ impl Concepts {
             };
             self.shared.jobs().push_back(Entry {
                 job: job.clone(),
-                project_dir: start.project_dir.to_path_buf(),
+                project_dir: lane.project_dir.to_path_buf(),
                 session: None,
                 last_error: None,
                 started: None,
                 last_emit: None,
             });
-            let out = start.project_dir.join(&file);
-            #[expect(clippy::cast_possible_truncation, reason = "a batch is at most 12")]
-            let text = prompt(request, n as u32 + 1, &out);
             let setup = RunSetup {
                 project: LANE.to_string(),
-                project_dir: start.project_dir.to_path_buf(),
-                cache_dir: start.cache_dir.to_path_buf(),
+                project_dir: lane.project_dir.to_path_buf(),
+                cache_dir: lane.cache_dir.to_path_buf(),
                 def: PipelineDef {
                     version: PIPELINE_VERSION,
                     root: None,
@@ -476,7 +576,7 @@ impl Concepts {
                     }],
                     presets: Vec::new(),
                 },
-                tools: start.tools.clone(),
+                tools: lane.tools.clone(),
                 defaults: CompressDefaults {
                     texture_size: 2048,
                     codec: TextureCodec::Etc1s,
@@ -488,7 +588,7 @@ impl Concepts {
             };
             let options = RunOptions {
                 stdin: Some(text),
-                timeout: Some(start.timeout),
+                timeout: Some(lane.timeout),
                 gate: None,
             };
             match self.runner.submit_with(setup, options) {
@@ -516,7 +616,7 @@ impl Concepts {
                 }
             }
         }
-        Ok((direction, queued))
+        Ok(queued)
     }
 
     /// Jobs of `project` (every project when `None`), oldest first.
@@ -601,6 +701,7 @@ echo "OpenAI Codex (fake)"
 echo "session id: 01fake-$$"
 case "{mode}" in
   ok) mkdir -p "$(dirname "$out")"; cp "{png}" "$out"; echo "saved $out";;
+  record) mkdir -p "$(dirname "$out")"; cp "{png}" "$out"; printf '%s\n' "$@" > "$out.args"; printf '%s\n' "$prompt" > "$out.prompt";;
   leave) mkdir -p "{home}/generated_images/01fake-$$"; cp "{png}" "{home}/generated_images/01fake-$$/exec-1.png"; echo "image ready";;
   nothing) echo "I could not make that.";;
   fail) echo "error: not signed in" >&2; exit 2;;
@@ -727,6 +828,85 @@ esac
         assert!(events.iter().any(
             |e| matches!(e, ConceptEvent::Job { job } if job.state == ConceptJobState::Running)
         ));
+    }
+
+    #[test]
+    fn object_refs_get_one_titled_job_per_object_with_the_source_attached() {
+        let r = rig();
+        let codex = fake_codex(&r.root, &r.png, &r.home, "record");
+        let source = r
+            .project
+            .join("concepts/workbench-hero/workbench-hero_01.png");
+        fs::create_dir_all(source.parent().expect("parent")).expect("mkdir");
+        fs::copy(&r.png, &source).expect("source");
+        let concepts = Concepts::new(Some(r.home.clone()), 2, |_| {});
+        let tools = toolbox(&codex);
+        let lane = Lane {
+            project_dir: &r.project,
+            cache_dir: &r.cache,
+            tools: &tools,
+            timeout: Duration::from_secs(20),
+        };
+        let request = objects::clean(
+            &r.project,
+            &NewObjectRefs {
+                project: "moon".into(),
+                source: "concepts/workbench-hero/workbench-hero_01.png".into(),
+                source_name: "Workbench hero".into(),
+                objects: vec!["desk lamp".into(), "plaster plinth with clay figure".into()],
+                aspect: Aspect::Square,
+                kind: crate::assets::AssetKind::Prop,
+            },
+        )
+        .expect("clean");
+        let (direction, jobs) = concepts.start_objects(&lane, &request).expect("start");
+        assert_eq!(direction.name, "Workbench hero objects");
+        assert_eq!(
+            jobs.iter().map(|j| j.title.as_deref()).collect::<Vec<_>>(),
+            vec![Some("desk lamp"), Some("plaster plinth with clay figure")]
+        );
+        concepts.wait();
+        let done = concepts.jobs(Some("moon"));
+        assert!(
+            done.iter().all(|j| j.state == ConceptJobState::Done),
+            "{done:#?}"
+        );
+        let stored = load_direction(&r.project, "workbench-hero-objects")
+            .expect("load")
+            .expect("direction");
+        assert_eq!(
+            stored
+                .images
+                .iter()
+                .map(|i| i.title.as_deref())
+                .collect::<Vec<_>>(),
+            vec![Some("desk lamp"), Some("plaster plinth with clay figure")]
+        );
+        assert_eq!(
+            stored.source.as_deref(),
+            Some("concepts/workbench-hero/workbench-hero_01.png")
+        );
+        let first = r
+            .project
+            .join("concepts/workbench-hero-objects/workbench-hero-objects_01.png");
+        let prompt = fs::read_to_string(first.with_extension("png.prompt")).expect("prompt");
+        assert!(prompt.contains("the \"desk lamp\" from the attached concept image"));
+        assert!(prompt.contains("plain light grey background"));
+        let args = fs::read_to_string(first.with_extension("png.args")).expect("args");
+        let args: Vec<&str> = args.lines().collect();
+        assert_eq!(
+            args[..4],
+            ["exec", "--skip-git-repo-check", "-s", "workspace-write"]
+        );
+        assert_eq!(args[4], "-i");
+        assert_eq!(args[5], source.display().to_string());
+        assert_eq!(args[6..], ["--", "-"]);
+        let second = fs::read_to_string(
+            r.project
+                .join("concepts/workbench-hero-objects/workbench-hero-objects_02.png.prompt"),
+        )
+        .expect("second prompt");
+        assert!(second.contains("Show only the plaster plinth with clay figure, isolated"));
     }
 
     #[test]

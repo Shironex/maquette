@@ -7,6 +7,7 @@
 //! image; the image counts as made when the file appears at its path.
 
 pub mod jobs;
+pub mod objects;
 pub mod sheet;
 pub mod transfer;
 
@@ -24,6 +25,7 @@ use crate::project::{self, ProjectManifest, now_rfc3339, slugify};
 use crate::workspace::FolderLayout;
 
 pub use jobs::{ConceptEvent, ConceptJob, ConceptJobState, Concepts};
+pub use objects::{NewObjectRefs, ObjectAsset, SentObjects, send_object_picks};
 pub use transfer::{MovedDirection, move_direction};
 
 pub const CONCEPTS_DIR: &str = "concepts";
@@ -82,6 +84,8 @@ pub struct ConceptImage {
     /// The copy in `refs/` once the image was sent there.
     pub ref_file: Option<String>,
     pub created_at: String,
+    /// The object it shows, in a direction of object refs.
+    pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -98,6 +102,18 @@ pub struct Direction {
     pub images: Vec<ConceptImage>,
     pub created_at: String,
     pub updated_at: String,
+    /// Object refs: the concept they were taken from, relative to the
+    /// project folder. `None` for an ordinary direction.
+    pub source: Option<String>,
+    /// Object refs: what the objects become on the Board.
+    pub kind: Option<AssetKind>,
+}
+
+impl Direction {
+    /// True for a direction of object refs, one titled image per object.
+    pub fn is_objects(&self) -> bool {
+        self.source.is_some()
+    }
 }
 
 impl Direction {
@@ -327,6 +343,7 @@ pub fn add_image(
     direction: &str,
     index: u32,
     file: &str,
+    title: Option<&str>,
 ) -> CoreResult<Direction> {
     let (width, height) = fs::read(project_dir.join(file))
         .ok()
@@ -343,6 +360,7 @@ pub fn add_image(
             picked: false,
             ref_file: None,
             created_at: now_rfc3339(),
+            title: title.map(str::to_string),
         });
         d.images.sort_by_key(|i| i.index);
         Ok(())
@@ -521,12 +539,17 @@ pub fn prompt(new: &NewConcepts, index_in_batch: u32, out: &Path) -> String {
         );
     }
     text.push_str("\n\n");
-    text.push_str(
-        "Generate exactly one image and do nothing else in this folder. When it is ready, copy it out of ~/.codex/generated_images/ and save it as a PNG at exactly this path, creating the folder if needed:\n",
-    );
-    text.push_str(&out.display().to_string());
-    text.push('\n');
+    text.push_str(&save_instructions(out));
     text
+}
+
+/// How every concept prompt ends: Codex keeps its images in its own
+/// folder and only copies one out when asked, to this exact path.
+pub(crate) fn save_instructions(out: &Path) -> String {
+    format!(
+        "Generate exactly one image and do nothing else in this folder. When it is ready, copy it out of ~/.codex/generated_images/ and save it as a PNG at exactly this path, creating the folder if needed:\n{}\n",
+        out.display()
+    )
 }
 
 /// The `codex exec` arguments. The prompt goes on standard input: `-i` takes
@@ -639,7 +662,7 @@ mod tests {
         );
         let png = crate::inbox::images::write_png(4, 2, &[200; 4 * 2 * 3]);
         fs::write(dir.path().join(&files[0].1), &png).expect("png");
-        let d = add_image(dir.path(), "porch-at-dusk", 1, &files[0].1).expect("add");
+        let d = add_image(dir.path(), "porch-at-dusk", 1, &files[0].1, None).expect("add");
         assert_eq!(d.images.len(), 1);
         assert_eq!((d.images[0].width, d.images[0].height), (Some(4), Some(2)));
         // Job 2 is still out, its file not there yet; a second batch must
@@ -678,7 +701,7 @@ mod tests {
         let png = crate::inbox::images::write_png(2, 2, &[90; 12]);
         for (index, file) in &files {
             fs::write(project_dir.join(file), &png).expect("png");
-            add_image(&project_dir, "stone-lantern", *index, file).expect("add");
+            add_image(&project_dir, "stone-lantern", *index, file, None).expect("add");
         }
         let none = send_picks(
             root.path(),
@@ -756,7 +779,7 @@ mod tests {
         let png = crate::inbox::images::write_png(2, 2, &[90; 12]);
         for (index, file) in &files {
             fs::write(project_dir.join(file), &png).expect("png");
-            add_image(&project_dir, "stone-lantern", *index, file).expect("add");
+            add_image(&project_dir, "stone-lantern", *index, file, None).expect("add");
         }
         let files = files.into_iter().map(|(_, f)| f).collect();
         (root, layout, manifest.id, project_dir, files)

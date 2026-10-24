@@ -209,8 +209,9 @@ mod tests {
         let mut direction = None;
         for (index, file) in &files {
             std::fs::write(dir.path().join(file), &png).expect("png");
-            direction =
-                Some(crate::concepts::add_image(dir.path(), "sheet", *index, file).expect("add"));
+            direction = Some(
+                crate::concepts::add_image(dir.path(), "sheet", *index, file, None).expect("add"),
+            );
         }
         let mut tools = Toolbox::default();
         tools.tools.insert(

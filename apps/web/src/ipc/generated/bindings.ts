@@ -412,6 +412,8 @@ export type ConceptImage = {
 	/**  The copy in `refs/` once the image was sent there. */
 	refFile: string | null,
 	createdAt: string,
+	/**  The object it shows, in a direction of object refs. */
+	title: string | null,
 };
 
 export type ConceptJob = {
@@ -424,6 +426,8 @@ export type ConceptJob = {
 	index: number,
 	/**  Where the image goes, relative to the project folder. */
 	file: string,
+	/**  Object refs: the object this image shows. */
+	title: string | null,
 	state: ConceptJobState,
 	queuedAtMs: number | null,
 	startedAtMs: number | null,
@@ -458,6 +462,13 @@ export type Direction = {
 	images: ConceptImage[],
 	createdAt: string,
 	updatedAt: string,
+	/**
+	 *  Object refs: the concept they were taken from, relative to the
+	 *  project folder. `None` for an ordinary direction.
+	 */
+	source: string | null,
+	/**  Object refs: what the objects become on the Board. */
+	kind: AssetKind | null,
 };
 
 /**  Serializable form of [`CoreError`] for IPC. */
@@ -890,11 +901,38 @@ export type NewConcepts = {
 	count: number,
 };
 
+/**  What "Make object refs" asks for. */
+export type NewObjectRefs = {
+	project: string,
+	/**
+	 *  The concept to take the objects from, relative to the project folder
+	 *  (`concepts/...` or `refs/...`).
+	 */
+	source: string,
+	/**
+	 *  The direction or asset the concept belongs to. The new direction is
+	 *  called "<source name> objects".
+	 */
+	sourceName: string,
+	/**  One name per object, for example "desk lamp". */
+	objects: string[],
+	aspect: Aspect,
+	/**  What the objects become on the Board: props or characters. */
+	kind: AssetKind,
+};
+
 export type NewProject = {
 	name: string,
 	template: ProjectTemplate,
 	siteRepo: string | null,
 	sourceFolder: string | null,
+};
+
+/**  One object asset that Send picks made or moved to Refs. */
+export type ObjectAsset = {
+	asset: Asset,
+	/**  Its ref in `refs/`, relative to the project folder. */
+	refs: string[],
 };
 
 export type PbrMaps = {
@@ -1174,6 +1212,15 @@ export type SendRequest = {
 	/**  This send's settings; `None` takes the saved preset. */
 	tripo: TripoPreset | null,
 	meshy: MeshyPreset | null,
+};
+
+/**  What Send picks did for a direction of object refs: one asset per pick. */
+export type SentObjects = {
+	direction: Direction,
+	assets: ObjectAsset[],
+	/**  The new files in `refs/`. */
+	copied: string[],
+	project: ProjectManifest,
 };
 
 /**  What Send picks to Refs did. */

@@ -416,7 +416,7 @@ mod tests {
         };
         let (direction, files) = concepts::prepare(&moon, &request).expect("prepare");
         std::fs::write(moon.join(&files[0].1), b"png").expect("png");
-        concepts::add_image(&moon, &direction.id, 1, &files[0].1).expect("add");
+        concepts::add_image(&moon, &direction.id, 1, &files[0].1, None).expect("add");
 
         let lab = Concepts::new(None, 2, |_| {});
         let studio = ProviderJobs::new(

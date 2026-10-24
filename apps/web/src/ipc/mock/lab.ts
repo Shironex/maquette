@@ -139,6 +139,7 @@ export function createFakeLab(options: FakeLabOptions) {
           picked: false,
           refFile: null,
           createdAt: at,
+          title: job.title,
         },
       ].sort((a, b) => a.index - b.index),
     });
@@ -171,6 +172,8 @@ export function createFakeLab(options: FakeLabOptions) {
       images: existing?.images ?? [],
       createdAt: existing?.createdAt ?? at,
       updatedAt: at,
+      source: existing?.source ?? null,
+      kind: existing?.kind ?? null,
     });
     const taken = [
       ...direction.images.map(i => i.index),
@@ -189,6 +192,7 @@ export function createFakeLab(options: FakeLabOptions) {
         directionName: name,
         index,
         file: `concepts/${id}/${id}_${two}.png`,
+        title: null,
         state: 'queued',
         queuedAtMs: Date.now(),
         startedAtMs: null,
