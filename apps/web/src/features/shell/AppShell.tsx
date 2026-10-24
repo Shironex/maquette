@@ -10,6 +10,7 @@ import { useAgentsStore } from '@/state/agents-store';
 import { useAppStore } from '@/state/app-store';
 import { useInboxStore } from '@/state/inbox-store';
 import { useLabStore } from '@/state/lab-store';
+import { useLayoutStore } from '@/state/layout-store';
 import { runStatusLine, runSummary } from '@/state/pipeline';
 import { usePipelineStore } from '@/state/pipeline-store';
 import { useProvidersStore } from '@/state/providers-store';
@@ -158,6 +159,7 @@ function useLiveData(projectId: string | null, root: string | null) {
   const onProvider = useProvidersStore(s => s.onEvent);
   const loadKeys = useProvidersStore(s => s.loadKeys);
   const loadProjects = useProjectsStore(s => s.load);
+  const onLayoutChanged = useLayoutStore(s => s.onChanged);
   useEffect(() => {
     // The rail shows the open project's own picture from the list.
     if (root) void loadProjects();
@@ -184,6 +186,10 @@ function useLiveData(projectId: string | null, root: string | null) {
     const stops = [
       events.pipelineUpdate.listen(e => onEvent(e.payload)),
       events.pipelineChanged.listen(e => void refreshPipeline(e.payload.project)),
+      events.layoutChanged.listen(e => {
+        void onLayoutChanged(e.payload.project);
+        void refreshPipeline(e.payload.project);
+      }),
       events.inboxChanged.listen(() => void loadInbox()),
       events.conceptUpdate.listen(e => onConcept(e.payload)),
       events.thumbnailReady.listen(e => {
@@ -206,6 +212,7 @@ function useLiveData(projectId: string | null, root: string | null) {
     onConcept,
     onAgents,
     onProvider,
+    onLayoutChanged,
   ]);
 }
 

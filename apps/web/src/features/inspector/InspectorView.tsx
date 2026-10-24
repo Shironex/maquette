@@ -1,12 +1,12 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BudgetMeter,
   Button,
   EmptyState,
   Icon,
   IconButton,
   SegmentedControl,
   StageStepper,
+  Tabs,
   TopBar,
   cn,
   type SegmentedOption,
@@ -26,12 +26,14 @@ import {
   vec3,
   versusLabel,
 } from '@/state/inspector';
-import { useInspectorStore, type InspectMode } from '@/state/inspector-store';
+import { useInspectorStore, type InspectMode, type InspectorTab } from '@/state/inspector-store';
 import { stageViews } from '@/state/pipeline';
 import { usePipelineStore } from '@/state/pipeline-store';
+import { SceneBudgetMeter } from '@/features/shell/SceneBudgetMeter';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import type { CompareModel } from './CompareCanvas';
 import { FrameTime } from './FrameTime';
+import { LayoutBarActions, LayoutEditor } from './LayoutEditor';
 import { ModelPanel } from './ModelPanel';
 
 const CompareCanvas = lazy(() => import('./CompareCanvas'));
@@ -44,6 +46,25 @@ const MODES: SegmentedOption<InspectMode>[] = [
 
 const badge =
   'absolute inline-flex h-[22px] items-center gap-[5px] rounded-[6px] bg-scrim px-2 text-[11.5px] font-medium text-fg';
+
+const TABS = [
+  { id: 'compare', label: 'Compare' },
+  { id: 'layout', label: 'Layout' },
+] as const;
+
+/** Compare versions, or lay out the scene. */
+function InspectorTabs() {
+  const tab = useInspectorStore(s => s.tab);
+  const setTab = useInspectorStore(s => s.setTab);
+  return (
+    <Tabs
+      tabs={TABS}
+      value={tab}
+      onChange={id => setTab(id as InspectorTab)}
+      className="-mt-1 flex-none"
+    />
+  );
+}
 
 function Shell({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   const project = useAppStore(s => s.workspace?.project ?? null);
@@ -67,7 +88,7 @@ function Shell({ children, right }: { children: React.ReactNode; right?: React.R
 
 export function InspectorView() {
   const project = useAppStore(s => s.workspace?.project ?? null);
-  const { view, loading, error, load } = useInspectorStore();
+  const { view, loading, error, load, tab } = useInspectorStore();
   const projectId = project?.id ?? null;
   const lastRun = usePipelineStore(s => s.view?.runs[0]?.finishedAtMs ?? null);
 
@@ -76,6 +97,13 @@ export function InspectorView() {
     // A finished run changes the shipped models, so it reloads too.
   }, [projectId, lastRun, load]);
 
+  if (project && tab === 'layout') {
+    return (
+      <Shell right={<LayoutBarActions />}>
+        <LayoutEditor project={project.id} tabs={<InspectorTabs />} />
+      </Shell>
+    );
+  }
   if (!project) {
     return (
       <Shell>
@@ -92,18 +120,21 @@ export function InspectorView() {
   if (!view || view.project !== project.id) {
     return (
       <Shell>
-        <main className="grid flex-1 place-items-center" aria-busy={loading}>
+        <main className="flex flex-1 flex-col px-6 py-[18px]" aria-busy={loading}>
+          <InspectorTabs />
           {error ? (
-            <EmptyState
-              icon="warning-circle"
-              title="The models could not be read"
-              body={error}
-              action={
-                <Button icon="arrow-clockwise" onClick={() => void load(project.id)}>
-                  Try again
-                </Button>
-              }
-            />
+            <div className="grid flex-1 place-items-center">
+              <EmptyState
+                icon="warning-circle"
+                title="The models could not be read"
+                body={error}
+                action={
+                  <Button icon="arrow-clockwise" onClick={() => void load(project.id)}>
+                    Try again
+                  </Button>
+                }
+              />
+            </div>
           ) : null}
         </main>
       </Shell>
@@ -213,12 +244,7 @@ function Inspector({ view }: { view: InspectView }) {
     <Shell
       right={
         <>
-          <BudgetMeter
-            label="Scene budget"
-            value={totalMb}
-            target={num(view.limits.sceneMb)}
-            unit="MB"
-          />
+          <SceneBudgetMeter value={totalMb} target={num(view.limits.sceneMb)} />
           <Button
             variant="primary"
             icon="play"
@@ -232,6 +258,7 @@ function Inspector({ view }: { view: InspectView }) {
     >
       <main className="flex min-h-0 flex-1">
         <section className="flex min-w-0 flex-1 flex-col gap-3.5 overflow-y-auto px-6 py-[18px]">
+          <InspectorTabs />
           <div className="flex items-center gap-3">
             <h1 className="text-panel-title">{title}</h1>
             {pick && menuItems.length > 0 ? (
