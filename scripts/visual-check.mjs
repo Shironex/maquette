@@ -10,10 +10,15 @@
  * providers with a tested key, the project switcher (open, with search, the
  * New project dialog, the collapsed rail, the Board after a switch), moving
  * a Lab direction, a long Lab title, a Refs card with its picture and the
- * starter scripts banner. It renders pages to files and never captures the
+ * starter scripts banner. The handoff set covers Make object refs, an
+ * objects direction, Board multi-select, the batch send panel (By hand and
+ * Tripo), the By hand checklist, Add model and Check Downloads, and a batch
+ * approval from an agent. It renders pages to files and never captures the
  * screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
+ *
+ * ONLY=handoff renders the handoff set alone; PORT picks the dev server port.
  *
  * PLAYWRIGHT defaults to the `playwright` package, which this repo does not
  * install; point it at any local copy. OUT_DIR defaults to `.visual/`.
@@ -82,7 +87,113 @@ async function open(query = '', hash = '', viewport = { width: 1440, height: 900
 const cont = page =>
   page.getByRole('button', { name: /^(Continue|Create project|Open .+)$/ }).click();
 
-try {
+/** Object refs, batch sends and the By hand hand-back, on the workbench fixture. */
+async function handoffShots() {
+  const fixture = '&scenario=configured&handoff=batch&conceptMs=60000';
+  const lab = await open(fixture, '#/lab');
+  await lab.getByText('Earlier directions').waitFor();
+  await lab.getByRole('button', { name: /^Workbench hero 1 image/ }).click();
+  await lab.getByRole('heading', { name: 'Workbench hero', exact: true }).waitFor();
+  await lab.getByRole('button', { name: 'Make object refs from Concept 01' }).click();
+  const field = lab.getByRole('textbox', { name: 'Objects' });
+  await field.fill('desk lamp, sculptor figure, clay island, turntable island, brush cup');
+  await field.press('Enter');
+  await field.fill('calipers');
+  await lab.getByRole('dialog', { name: 'Make object refs' }).waitFor();
+  await shot(lab, 'objects-dialog');
+
+  const porch = await open('&scenario=configured&conceptMs=60000', '#/lab');
+  await porch.getByRole('heading', { name: 'Moon island porch' }).waitFor();
+  await porch.getByRole('button', { name: 'Make object refs from Concept 01' }).click();
+  const names = porch.getByRole('textbox', { name: 'Objects' });
+  await names.fill('bench, vending machine, paper lantern, box sets');
+  await names.press('Enter');
+  await porch.getByRole('button', { name: 'Make 4 object refs' }).click();
+  await porch.getByRole('heading', { name: 'Moon island porch objects' }).waitFor();
+  await shot(porch, 'objects-generating');
+
+  const objects = await open(fixture, '#/lab');
+  await objects.getByText('Earlier directions').waitFor();
+  await objects.getByRole('button', { name: /^Workbench hero objects/ }).click();
+  await objects.getByRole('heading', { name: 'Workbench hero objects' }).waitFor();
+  await objects.waitForTimeout(400);
+  await shot(objects, 'objects-direction');
+  await objects.getByRole('button', { name: 'Send to 3D' }).click();
+  await objects.getByRole('dialog', { name: 'Send 6 assets to 3D' }).waitFor();
+  await objects.waitForTimeout(300);
+  await shot(objects, 'batch-by-hand');
+
+  const board = await open(fixture, '#/board');
+  await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
+  await board.getByRole('checkbox', { name: 'Select Turntable island' }).click();
+  await board
+    .getByRole('checkbox', { name: 'Select Vending machine' })
+    .click({ modifiers: ['Shift'] });
+  await board.getByRole('checkbox', { name: 'Select Island' }).click();
+  const selection = board.getByRole('toolbar', { name: 'Selected assets' });
+  await selection.waitFor();
+  await board.mouse.move(0, 0);
+  await shot(board, 'board-multi-select');
+  await selection.getByRole('button', { name: 'Clear' }).click();
+  await board.getByRole('checkbox', { name: 'Select Sakura' }).click();
+  await board
+    .getByRole('checkbox', { name: 'Select Stone lanterns' })
+    .click({ modifiers: ['Shift'] });
+  for (const name of ['Sculptor figure', 'Desk lamp'])
+    await board.getByRole('checkbox', { name: `Select ${name}` }).click();
+  await board
+    .getByRole('toolbar', { name: 'Selected assets' })
+    .getByRole('button', { name: 'Send to 3D' })
+    .click();
+  const batch = board.getByRole('dialog', { name: /^Send \d+ assets to 3D$/ });
+  await batch.waitFor();
+  await batch
+    .getByRole('group', { name: 'Provider' })
+    .getByRole('button', { name: 'Tripo' })
+    .click();
+  await board.waitForTimeout(300);
+  await shot(board, 'batch-tripo');
+  await batch.getByRole('button', { name: /^Send \d+ to Tripo$/ }).click();
+  await batch.getByRole('alert').waitFor();
+  await shot(board, 'batch-tripo-confirm');
+  await board.keyboard.press('Escape');
+
+  await board.getByRole('button', { name: /^By hand/ }).click();
+  await board.getByRole('dialog', { name: 'By hand checklist' }).waitFor();
+  await shot(board, 'handoff-checklist');
+  await board.getByRole('button', { name: 'Settings card' }).first().click();
+  await board.getByText('Bring the GLB back', { exact: true }).waitFor();
+  await shot(board, 'handoff-checklist-card');
+  await board
+    .getByRole('dialog', { name: 'By hand checklist' })
+    .getByRole('button', { name: 'Check Downloads' })
+    .first()
+    .click();
+  await board
+    .getByRole('dialog', { name: 'New models in Downloads' })
+    .getByText('model (3).glb')
+    .waitFor();
+  await shot(board, 'downloads-matches');
+
+  const card = await open(fixture, '#/board');
+  await card.getByRole('button', { name: /^Character, v2/ }).waitFor();
+  await card.getByRole('button', { name: 'More for Brush cup' }).click();
+  await card.getByRole('menu', { name: 'Brush cup actions' }).waitFor();
+  await shot(card, 'board-add-model');
+  await card.keyboard.press('Escape');
+  await card.getByRole('button', { name: 'Add model...' }).first().click();
+  await card.getByText('is in the Inbox', { exact: false }).first().waitFor();
+  await shot(card, 'board-model-added');
+
+  const approval = await open('&scenario=configured&agents=batch', '#/board');
+  await approval.getByRole('alertdialog', { name: 'Send 3 assets to Tripo?' }).waitFor();
+  await shot(approval, 'agents-batch-approval');
+}
+
+const only = process.env.ONLY;
+
+/** Every other view, from onboarding to the starter scripts banner. */
+async function coreShots() {
   const page = await open();
   await page.getByRole('button', { name: 'Set up' }).waitFor();
   await shot(page, 'onboarding-1-welcome');
@@ -298,6 +409,11 @@ try {
   const starters = await open('&scenario=configured', '#/pipeline');
   await starters.getByText('New starter scripts available').waitFor();
   await shot(starters, 'pipeline-starters');
+}
+
+try {
+  if (only !== 'handoff') await coreShots();
+  await handoffShots();
 } finally {
   await browser.close();
   await vite?.close();
