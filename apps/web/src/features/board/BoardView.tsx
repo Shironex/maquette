@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react';
 import {
   AssetCard,
   Button,
@@ -66,6 +66,7 @@ export function BoardView() {
   const handBack = useProvidersStore(s => s.handBack);
   const addModel = useProvidersStore(s => s.addModel);
   const openBatch = useProvidersStore(s => s.openBatch);
+  const batchesSent = useProvidersStore(s => s.batchesSent);
   const setChecklistOpen = useProvidersStore(s => s.setChecklistOpen);
   const openObjects = useLabStore(s => s.openObjects);
   const [dropJob, setDropJob] = useState<string | null>(null);
@@ -102,6 +103,14 @@ export function BoardView() {
     setSelected([]);
     setAnchor(null);
   }, [project?.id]);
+  // A confirmed Send to 3D hands the selection over, so the cards let go.
+  const lastSent = useRef(batchesSent);
+  useEffect(() => {
+    if (lastSent.current === batchesSent) return;
+    lastSent.current = batchesSent;
+    setSelected([]);
+    setAnchor(null);
+  }, [batchesSent]);
   useEffect(() => {
     if (selected.length === 0) return;
     const onKey = (e: KeyboardEvent) => {

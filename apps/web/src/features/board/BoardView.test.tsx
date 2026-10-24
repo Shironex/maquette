@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useLabStore } from '@/state/lab-store';
@@ -8,7 +8,13 @@ import { BoardView } from './BoardView';
 
 afterEach(() => {
   clearMocks();
-  useProvidersStore.setState({ project: null, jobs: [], batch: null, busy: [] });
+  useProvidersStore.setState({
+    project: null,
+    jobs: [],
+    batch: null,
+    batchesSent: 0,
+    busy: [],
+  });
   useLabStore.setState({ objects: null });
 });
 
@@ -47,6 +53,37 @@ describe('the Board', () => {
 
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('toolbar', { name: 'Selected assets' })).toBeNull();
+  });
+
+  it('clears the selection once the batch went out', async () => {
+    await renderBoard();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Desk lamp' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Brush cup' }));
+    const bar = screen.getByRole('toolbar', { name: 'Selected assets' });
+    await userEvent.click(within(bar).getByRole('button', { name: 'Send to 3D' }));
+    await waitFor(() => expect(useProvidersStore.getState().batch?.draft).toBeTruthy());
+    await act(() => useProvidersStore.getState().sendBatch());
+    expect(useProvidersStore.getState().batchesSent).toBe(1);
+    await waitFor(() =>
+      expect(screen.queryByRole('toolbar', { name: 'Selected assets' })).toBeNull()
+    );
+    expect(screen.getByRole('checkbox', { name: 'Select Desk lamp' })).toHaveAttribute(
+      'aria-checked',
+      'false'
+    );
+  });
+
+  it('keeps the selection when the batch is only closed', async () => {
+    await renderBoard();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Desk lamp' }));
+    await userEvent.click(
+      within(screen.getByRole('toolbar', { name: 'Selected assets' })).getByRole('button', {
+        name: 'Send to 3D',
+      })
+    );
+    await waitFor(() => expect(useProvidersStore.getState().batch?.draft).toBeTruthy());
+    await act(async () => useProvidersStore.getState().closeBatch());
+    expect(screen.getByRole('toolbar', { name: 'Selected assets' })).toBeInTheDocument();
   });
 
   it('takes the model back from a waiting card', async () => {
