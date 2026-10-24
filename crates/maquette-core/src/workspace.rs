@@ -26,6 +26,7 @@ pub struct WorkspaceConfig {
     pub budgets: Budgets,
     pub compression: Compression,
     pub agents: AgentSettings,
+    pub lab: LabSettings,
     pub current_project: Option<String>,
 }
 
@@ -38,6 +39,7 @@ impl Default for WorkspaceConfig {
             budgets: Budgets::default(),
             compression: Compression::default(),
             agents: AgentSettings::default(),
+            lab: LabSettings::default(),
             current_project: None,
         }
     }
@@ -218,6 +220,28 @@ impl Default for AgentRules {
     }
 }
 
+/// The Concept lab's Codex jobs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LabSettings {
+    /// How many images generate at once. Each Codex job takes about a
+    /// minute; six or seven in parallel work fine.
+    pub concurrency: u32,
+    /// A job still running after this many minutes is stopped.
+    pub timeout_minutes: u32,
+}
+
+impl Default for LabSettings {
+    fn default() -> Self {
+        Self {
+            concurrency: 4,
+            timeout_minutes: 10,
+        }
+    }
+}
+
+pub const LAB_MAX_CONCURRENCY: u32 = 8;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]
 pub enum RootState {
@@ -366,6 +390,14 @@ pub fn validate(config: &WorkspaceConfig) -> CoreResult<()> {
     let invalid = |msg: &str| Err(CoreError::Invalid(msg.to_string()));
     if !(1024..=65535).contains(&config.agents.mcp_port) {
         return invalid("The MCP port must be between 1024 and 65535.");
+    }
+    if !(1..=LAB_MAX_CONCURRENCY).contains(&config.lab.concurrency) {
+        return Err(CoreError::Invalid(format!(
+            "Run between 1 and {LAB_MAX_CONCURRENCY} concept jobs at a time."
+        )));
+    }
+    if !(1..=60).contains(&config.lab.timeout_minutes) {
+        return invalid("The concept job timeout must be between 1 and 60 minutes.");
     }
     let scene_mb = config.budgets.scene_mb;
     if !scene_mb.is_finite() || scene_mb <= 0.0 || scene_mb > 1000.0 {

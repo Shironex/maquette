@@ -35,6 +35,7 @@ export function defaultConfig(): WorkspaceConfig {
       mcpPort: 4791,
       rules: { blenderHeadlessOnly: true, neverCaptureScreen: true, askBeforeShipping: true },
     },
+    lab: { concurrency: 4, timeoutMinutes: 10 },
     currentProject: null,
   };
 }

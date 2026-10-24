@@ -5,7 +5,7 @@
 pub mod analyse;
 pub mod checks;
 pub mod fixture;
-mod images;
+pub(crate) mod images;
 mod math;
 pub mod watch;
 

@@ -114,6 +114,9 @@ export type Artifact = {
 	bytes: number | null,
 };
 
+/**  The aspect ratio asked for in the prompt. */
+export type Aspect = "16:9" | "3:2" | "1:1" | "3:4" | "9:16";
+
 export type Asset = {
 	/**  Unique within the project, derived from the name. */
 	id: string,
@@ -225,6 +228,67 @@ export type CompressSpec = {
 export type Compression = {
 	textureCodec: TextureCodec,
 	meshopt: MeshoptLevel,
+};
+
+/**  What the service reports to the UI. */
+export type ConceptEvent = { type: "job"; job: ConceptJob } | 
+/**  A direction changed (a new image arrived). */
+{ type: "direction"; project: string; direction: Direction };
+
+export type ConceptImage = {
+	/**
+	 *  Relative to the project folder, for example
+	 *  `concepts/porch-at-dusk/porch-at-dusk_03.png`.
+	 */
+	file: string,
+	index: number,
+	width: number | null,
+	height: number | null,
+	starred: boolean,
+	picked: boolean,
+	/**  The copy in `refs/` once the image was sent there. */
+	refFile: string | null,
+	createdAt: string,
+};
+
+export type ConceptJob = {
+	id: string,
+	runId: string | null,
+	project: string,
+	/**  The direction id (its folder name). */
+	direction: string,
+	directionName: string,
+	index: number,
+	/**  Where the image goes, relative to the project folder. */
+	file: string,
+	state: ConceptJobState,
+	queuedAtMs: number | null,
+	startedAtMs: number | null,
+	finishedAtMs: number | null,
+	/**  Why it failed or was stopped, or a note on how the image arrived. */
+	message: string | null,
+	width: number | null,
+	height: number | null,
+	/**  The last lines Codex printed. */
+	logTail: string[],
+};
+
+export type ConceptJobState = "queued" | "running" | "done" | "failed" | "cancelled";
+
+export type Direction = {
+	/**  The folder name under `concepts/`. */
+	id: string,
+	name: string,
+	prompt: string,
+	/**
+	 *  Reference images as given: relative to the project folder or
+	 *  absolute.
+	 */
+	refs: string[],
+	aspect: Aspect,
+	images: ConceptImage[],
+	createdAt: string,
+	updatedAt: string,
 };
 
 /**  Serializable form of [`CoreError`] for IPC. */
@@ -342,6 +406,17 @@ export type JointCount = {
 	vertices: number,
 };
 
+/**  The Concept lab's Codex jobs. */
+export type LabSettings = {
+	/**
+	 *  How many images generate at once. Each Codex job takes about a
+	 *  minute; six or seven in parallel work fine.
+	 */
+	concurrency: number,
+	/**  A job still running after this many minutes is stopped. */
+	timeoutMinutes: number,
+};
+
 export type LogEntry = {
 	runId: string,
 	step: string | null,
@@ -382,6 +457,20 @@ export type NewAsset = {
 	name: string,
 	kind: AssetKind,
 	stage: Stage,
+};
+
+/**  What the Lab's composer (or an agent) asks for. */
+export type NewConcepts = {
+	project: string,
+	/**
+	 *  The direction's name. An existing direction with the same name gets
+	 *  more images.
+	 */
+	direction: string,
+	prompt: string,
+	refs: string[],
+	aspect: Aspect,
+	count: number,
 };
 
 export type NewProject = {
@@ -509,6 +598,14 @@ export type RunRecord = {
 };
 
 export type RunState = "queued" | "running" | "done" | "failed" | "cancelled";
+
+/**  What Send picks to Refs did. */
+export type SentPicks = {
+	direction: Direction,
+	asset: Asset,
+	/**  The new files in `refs/`, relative to the project folder. */
+	copied: string[],
+};
 
 /**  The Board columns, in pipeline order. */
 export type Stage = "concept" | "refs" | "tripo" | "blender" | "web" | "ship";
@@ -653,6 +750,7 @@ export type WorkspaceConfig = {
 	budgets: Budgets,
 	compression: Compression,
 	agents: AgentSettings,
+	lab: LabSettings,
 	currentProject: string | null,
 };
 

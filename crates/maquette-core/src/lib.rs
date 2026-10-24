@@ -4,6 +4,7 @@
 
 pub mod app_state;
 pub mod assets;
+pub mod concepts;
 pub mod error;
 pub mod fs;
 pub mod inbox;
@@ -24,9 +25,9 @@ pub use toolchain::{
     CommandRunner, HostOs, ProbeEnv, SystemRunner, ToolId, ToolReport, ToolSource, ToolStatus,
 };
 pub use workspace::{
-    AgentRules, AgentSettings, Budgets, CharacterPreset, Compression, FolderLayout, MeshoptLevel,
-    RigPreset, RootInspection, RootState, TextureCodec, TextureSize, Topology, TripoDefaults,
-    WorkspaceConfig,
+    AgentRules, AgentSettings, Budgets, CharacterPreset, Compression, FolderLayout, LabSettings,
+    MeshoptLevel, RigPreset, RootInspection, RootState, TextureCodec, TextureSize, Topology,
+    TripoDefaults, WorkspaceConfig,
 };
 
 /// Every IPC facing type, so the shell can export them before any command
@@ -97,6 +98,15 @@ pub fn types() -> specta::Types {
         .register::<inbox::AcceptRequest>()
         .register::<inbox::AcceptResult>()
         .register::<thumbs::ThumbState>()
+        .register::<workspace::LabSettings>()
+        .register::<concepts::Aspect>()
+        .register::<concepts::ConceptImage>()
+        .register::<concepts::Direction>()
+        .register::<concepts::NewConcepts>()
+        .register::<concepts::SentPicks>()
+        .register::<concepts::ConceptJobState>()
+        .register::<concepts::ConceptJob>()
+        .register::<concepts::ConceptEvent>()
 }
 
 #[cfg(test)]
@@ -173,6 +183,15 @@ mod tests {
             "AcceptRequest",
             "AcceptResult",
             "ThumbState",
+            "LabSettings",
+            "Aspect",
+            "ConceptImage",
+            "Direction",
+            "NewConcepts",
+            "SentPicks",
+            "ConceptJobState",
+            "ConceptJob",
+            "ConceptEvent",
         ] {
             assert!(names.iter().any(|n| n == expected), "missing {expected}");
         }
