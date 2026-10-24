@@ -48,6 +48,11 @@ export function sortChecks(checks: readonly Check[]): Check[] {
 }
 
 /** The row to open first: the newest readable model, else the newest file. */
+/** Changes when the file under an inbox name changes, for state tied to its content. */
+export function contentKey(item: Pick<InboxItem, 'file' | 'bytes' | 'modifiedMs'>): string {
+  return `${item.file}:${item.bytes ?? ''}:${item.modifiedMs ?? ''}`;
+}
+
 export function firstToReview(items: readonly InboxItem[]): InboxItem | null {
   return items.find(i => i.state !== 'failed') ?? items[0] ?? null;
 }

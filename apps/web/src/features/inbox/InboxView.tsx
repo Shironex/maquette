@@ -21,6 +21,7 @@ import { useInboxStore } from '@/state/inbox-store';
 import {
   acceptTarget,
   checkSummary,
+  contentKey,
   firstToReview,
   itemChip,
   itemMeta,
@@ -104,7 +105,12 @@ export function InboxView() {
             </span>
           </div>
         </section>
-        {item ? <InboxDetail key={item.id} item={item} /> : <InboxEmpty dir={snapshot?.dir} />}
+        {/* A finished download or a new file under the same name starts the preview over. */}
+        {item ? (
+          <InboxDetail key={contentKey(item)} item={item} />
+        ) : (
+          <InboxEmpty dir={snapshot?.dir} />
+        )}
       </main>
     </>
   );
