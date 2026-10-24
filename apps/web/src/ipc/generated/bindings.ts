@@ -44,6 +44,14 @@ export const commands = {
 	 *  click on Open in Blender.
 	 */
 	assetOpenInBlender: (project: string, id: string) => __TAURI_INVOKE<null>("asset_open_in_blender", { project, id }),
+	/**
+	 *  Copies an asset with its refs, versions, thumbnails and finished sends
+	 *  to another project. The asset stays where it is.
+	 */
+	assetCopyToProject: (project: string, id: string, to: string) => __TAURI_INVOKE<CopiedAsset>("asset_copy_to_project", { project, id, to }),
+	layoutGet: (project: string) => __TAURI_INVOKE<LayoutView>("layout_get", { project }),
+	/**  Saves the whole layout and returns the view of it. */
+	layoutSave: (project: string, layout: SceneLayout) => __TAURI_INVOKE<LayoutView>("layout_save", { project, layout }),
 	pipelineGet: (project: string) => __TAURI_INVOKE<PipelineView>("pipeline_get", { project }),
 	/**
 	 *  Queues a run. `from` runs that step (always) and what depends on it;
@@ -162,6 +170,7 @@ export const commands = {
 export const events = {
 	conceptUpdate: makeEvent<ConceptUpdate>("concept-update"),
 	inboxChanged: makeEvent<InboxChanged>("inbox-changed"),
+	layoutChanged: makeEvent<LayoutChanged>("layout-changed"),
 	mcpUpdate: makeEvent<McpUpdate>("mcp-update"),
 	pipelineChanged: makeEvent<PipelineChanged>("pipeline-changed"),
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
@@ -385,6 +394,8 @@ export type Bootstrap = {
 export type Budgets = {
 	sceneMb: number | null,
 	trisPerModel: number,
+	/**  What the first camera stop's models may weigh, in MB. */
+	firstViewMb: number | null,
 };
 
 export type CacheInfo = {
@@ -568,6 +579,22 @@ export type ConceptJobState = "queued" | "running" | "done" | "failed" | "cancel
  */
 export type ConceptUpdate = ConceptEvent;
 
+/**  What Copy to project did. */
+export type CopiedAsset = {
+	/**  The copy, in the other project. */
+	asset: Asset,
+	/**  The other project as it is now. */
+	to: ProjectManifest,
+	/**  Each old ref path and where it landed, relative to the projects. */
+	refs: ([string, string])[],
+};
+
+/**  A plain slab the models stand on, so they cast their shadows somewhere. */
+export type Desk = {
+	/**  Width (X) and depth (Z) in metres. The top is at y = 0. */
+	size: [(number | null), (number | null)],
+};
+
 export type Direction = {
 	/**  The folder name under `concepts/`. */
 	id: string,
@@ -642,6 +669,24 @@ export type FingerWeights = {
 	joints: JointCount[],
 	/**  The distance used, in model units. */
 	reach: number | null,
+};
+
+/**  What the first camera stop sees and what that costs to load. */
+export type FirstView = {
+	/**  The first stop's name; `None` without stops. */
+	stop: string | null,
+	/**  True when the stop lists its models by hand. */
+	custom: boolean,
+	models: FirstViewModel[],
+	bytes: number | null,
+	targetMb: number | null,
+};
+
+export type FirstViewModel = {
+	asset: string,
+	name: string,
+	bytes: number | null,
+	measured: Measured,
 };
 
 export type FolderLayout = {
@@ -866,6 +911,55 @@ export type LabView = {
 	concurrency: number,
 };
 
+/**
+ *  An agent changed a project's scene layout through the MCP server, so
+ *  the Layout editor reloads it.
+ */
+export type LayoutChanged = {
+	project: string,
+};
+
+/**  A model the layout can place: an asset's newest version. */
+export type LayoutModel = {
+	asset: string,
+	name: string,
+	kind: AssetKind,
+	version: number,
+	/**  Absolute path of the model file. */
+	file: string,
+	/**  Relative to the project. */
+	path: string,
+	/**  Its bounds in its own frame, metres; `None` when it cannot be read. */
+	min: [(number | null), (number | null), (number | null)] | null,
+	max: [(number | null), (number | null), (number | null)] | null,
+	/**  Where it stands without a placement: the shift from its origin. */
+	fallback: [(number | null), (number | null), (number | null)],
+	/**  What it weighs on the page. */
+	bytes: number | null,
+	measured: Measured,
+};
+
+export type LayoutStop = {
+	/**  Stays the same when the stop is renamed or moved in the order. */
+	id: string,
+	name: string,
+	position: [(number | null), (number | null), (number | null)],
+	target: [(number | null), (number | null), (number | null)],
+	/**  Vertical field of view in degrees. */
+	fov: number | null,
+	/**  The assets this stop sees, set by hand. `None` measures the view. */
+	models: string[] | null,
+};
+
+export type LayoutView = {
+	project: string,
+	/**  True when `layout.json` exists. */
+	saved: boolean,
+	layout: SceneLayout,
+	models: LayoutModel[],
+	firstView: FirstView,
+};
+
 export type LogEntry = {
 	runId: string,
 	step: string | null,
@@ -915,6 +1009,15 @@ export type McpStatus = {
  *  agent waits for a shipping approval.
  */
 export type McpUpdate = McpStatus;
+
+/**  Which built file a model's size is read from. */
+export type Measured = 
+/**  The compressed build that ships. */
+"shipped" | 
+/**  The raw export, before the first Compress. */
+"raw" | 
+/**  The source model, before the first export. */
+"source";
 
 export type MeshoptLevel = "low" | "medium" | "high";
 
@@ -1162,6 +1265,17 @@ export type PipelineView = {
 	defaults: CompressDefaultsView,
 	/**  The template's starter scripts against the ones this build ships. */
 	starters: StarterStatus[],
+	/**  What the first camera stop loads, against its budget. */
+	firstView: FirstView,
+};
+
+export type Placement = {
+	/**  Metres. */
+	position: [(number | null), (number | null), (number | null)],
+	/**  Degrees, applied X, then Y, then Z. */
+	rotation: [(number | null), (number | null), (number | null)],
+	/**  Uniform. */
+	scale: number | null,
 };
 
 export type PoseMode = "none" | "a-pose" | "t-pose";
@@ -1355,6 +1469,15 @@ export type RunRecord = {
 
 export type RunState = "queued" | "running" | "done" | "failed" | "cancelled";
 
+export type SceneLayout = {
+	version: number,
+	/**  Asset id to where its newest model stands. */
+	models: { [key in string]: Placement },
+	/**  In tour order. The first one is the view the page opens on. */
+	stops: LayoutStop[],
+	desk: Desk | null,
+};
+
 export type SceneTotal = {
 	bytes: number | null,
 	triangles: number,
@@ -1502,7 +1625,7 @@ export type StepState =
 "skipped" | "cancelled";
 
 /**  Where the stops came from, for the "From stops.json" line. */
-export type StopsSource = "project-file" | "posters" | "model-cameras" | "none";
+export type StopsSource = "project-file" | "layout" | "posters" | "model-cameras" | "none";
 
 export type TextureCodec = "etc1s" | "uastc";
 

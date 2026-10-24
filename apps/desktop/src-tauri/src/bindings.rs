@@ -8,12 +8,12 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    agents, app, assets, dialogs, inbox, inspect, lab, pipeline, project, providers, quit, thumbs,
-    toolchain, workspace,
+    agents, app, assets, dialogs, inbox, inspect, lab, layout, pipeline, project, providers, quit,
+    thumbs, toolchain, workspace,
 };
 use crate::events::{
-    ConceptUpdate, InboxChanged, McpUpdate, PipelineChanged, PipelineUpdate, ProjectChanged,
-    ProviderUpdate, QuitRequested, ThumbnailReady,
+    ConceptUpdate, InboxChanged, LayoutChanged, McpUpdate, PipelineChanged, PipelineUpdate,
+    ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -53,6 +53,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             assets::asset_move,
             assets::asset_rename,
             assets::asset_open_in_blender,
+            assets::asset_copy_to_project,
+            layout::layout_get,
+            layout::layout_save,
             pipeline::pipeline_get,
             pipeline::pipeline_run,
             pipeline::pipeline_cancel,
@@ -111,7 +114,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             PipelineChanged,
             McpUpdate,
             ProviderUpdate,
-            QuitRequested
+            QuitRequested,
+            LayoutChanged
         ])
         .types(&maquette_core::types())
 }
@@ -174,6 +178,9 @@ mod tests {
             "providerKeyTest",
             "quitSetUnapplied",
             "quitNow",
+            "layoutGet",
+            "layoutSave",
+            "assetCopyToProject",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }
@@ -186,6 +193,7 @@ mod tests {
             "mcpUpdate",
             "providerUpdate",
             "quitRequested",
+            "layoutChanged",
         ] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }

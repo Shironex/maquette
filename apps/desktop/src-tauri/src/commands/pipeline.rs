@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use maquette_core::inbox::checks::texture_px;
+use maquette_core::layout::{self, FirstView};
 use maquette_core::pipeline::cache::{self, project_cache_dir};
 use maquette_core::pipeline::history::{LogEntry, RunRecord};
 use maquette_core::pipeline::runner::{JobRunner, PipelineRunner, RunSetup};
@@ -74,6 +75,8 @@ pub struct PipelineView {
     pub defaults: CompressDefaultsView,
     /// The template's starter scripts against the ones this build ships.
     pub starters: Vec<StarterStatus>,
+    /// What the first camera stop loads, against its budget.
+    pub first_view: FirstView,
 }
 
 fn defaults(config: &WorkspaceConfig) -> CompressDefaults {
@@ -199,8 +202,15 @@ pub(crate) fn view(
     let (active, queued) = runner.active(project_id);
     let d = defaults(&ctx.config);
     let starters = starter::status(&ctx.project_dir, ctx.manifest.template);
+    let first_view = layout::first_view_of(
+        &ctx.project_dir,
+        &ctx.manifest,
+        &ctx.def,
+        ctx.config.budgets.first_view_mb,
+    );
     Ok(PipelineView {
         starters,
+        first_view,
         project: ctx.manifest.id.clone(),
         root: session.display(&run_root),
         issues: pipeline::validate(&ctx.def),

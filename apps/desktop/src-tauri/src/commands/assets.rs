@@ -1,10 +1,13 @@
 //! The asset registry on the Board: add an asset, move it between stages.
 
+use maquette_core::assets::copy::{self, CopiedAsset};
+use maquette_core::providers::ProviderJobs;
 use maquette_core::{NewAsset, ProjectManifest, Stage, assets, project};
 use tauri::State;
 
 use super::CommandResult;
 use super::blender;
+use super::providers::Studio;
 use crate::session::Session;
 
 #[tauri::command]
@@ -72,6 +75,40 @@ pub(crate) fn rename(
     Ok(project::modify(&root, &config.layout, project_id, |m| {
         assets::rename(m, id, name).map(|_| ())
     })?)
+}
+
+/// Copies an asset with its refs, versions, thumbnails and finished sends
+/// to another project. The asset stays where it is.
+#[tauri::command]
+#[specta::specta]
+pub fn asset_copy_to_project(
+    session: State<'_, Session>,
+    studio: State<'_, Studio>,
+    project: String,
+    id: String,
+    to: String,
+) -> CommandResult<CopiedAsset> {
+    copy_to(&session, &studio.0, &project, &id, &to)
+}
+
+pub(crate) fn copy_to(
+    session: &Session,
+    jobs: &ProviderJobs,
+    project_id: &str,
+    id: &str,
+    to: &str,
+) -> CommandResult<CopiedAsset> {
+    let (root, config) = session.workspace()?;
+    let mut sent: Vec<String> = jobs
+        .list(Some(project_id))
+        .into_iter()
+        .filter(|j| j.asset == id)
+        .flat_map(|j| j.images)
+        .collect();
+    sent.dedup();
+    let copied = copy::copy_to_project(&root, &config.layout, project_id, id, to, &sent)?;
+    jobs.copy_records(project_id, id, to, &copied.asset, &copied.refs);
+    Ok(copied)
 }
 
 /// Opens the asset's latest file in Blender's window. Only ever from a

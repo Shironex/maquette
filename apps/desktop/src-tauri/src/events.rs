@@ -68,6 +68,14 @@ pub struct PipelineChanged {
     pub project: String,
 }
 
+/// An agent changed a project's scene layout through the MCP server, so
+/// the Layout editor reloads it.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutChanged {
+    pub project: String,
+}
+
 /// The MCP server started or stopped, took a call, or a run started by an
 /// agent waits for a shipping approval.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

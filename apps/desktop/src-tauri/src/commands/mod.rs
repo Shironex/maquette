@@ -9,6 +9,7 @@ pub mod dialogs;
 pub mod inbox;
 pub mod inspect;
 pub mod lab;
+pub mod layout;
 pub mod pipeline;
 pub mod project;
 pub mod providers;
