@@ -119,6 +119,8 @@ export const useLabStore = create<LabStore>((set, get) => ({
         busy: null,
       });
     }
+    // Make object refs reads a concept of the project it opened in.
+    if (get().objects && get().objects?.project !== project) set({ objects: null });
     set({ loading: true });
     try {
       const view = await commands.labGet(project);
@@ -380,9 +382,13 @@ export const useLabStore = create<LabStore>((set, get) => ({
         kind: objects.kind,
       });
       const fresh = next.jobs.filter(j => !before.some(old => old.id === j.id));
-      // The Lab shows the new direction, also when this came from the Board.
-      requested = objects.project;
-      set({ view: next, selected: fresh[0]?.direction ?? get().selected, objects: null });
+      // The Lab shows the new direction, also when this came from the Board,
+      // unless another project was opened meanwhile.
+      if (useAppStore.getState().workspace?.project?.id === objects.project) {
+        requested = objects.project;
+        set({ view: next, selected: fresh[0]?.direction ?? get().selected });
+      }
+      set({ objects: null });
       const n = objects.objects.length;
       notify(
         'info',

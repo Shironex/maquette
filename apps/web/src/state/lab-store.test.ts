@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { useAppStore } from '@/state/app-store';
 import { useLabStore } from '@/state/lab-store';
+import { useProjectsStore } from '@/state/projects-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 
 afterEach(() => {
@@ -64,5 +66,38 @@ describe('the picks after a send', () => {
     expect(await sending).toBeTruthy();
     expect(picked('moon-island-porch')).toEqual([]);
     expect(picked('maquette-landing-studio')).toHaveLength(1);
+  });
+});
+
+describe('Make object refs and a project switch', () => {
+  const source = {
+    project: 'moon-island',
+    source: 'concepts/moon-island-porch/moon-island-porch_01.png',
+    sourcePath: '/x/moon-island-porch_01.png',
+    sourceName: 'Moon island porch',
+  };
+
+  it('closes with the project it was opened in', async () => {
+    await openMockWorkspace();
+    await useLabStore.getState().load('moon-island');
+    useLabStore.getState().openObjects(source);
+    useLabStore.getState().setObjects({ objects: ['Bench'] });
+    expect(await useProjectsStore.getState().switchTo('rooftop-cinema')).toBe(true);
+    await useLabStore.getState().load('rooftop-cinema');
+    expect(useLabStore.getState().objects).toBeNull();
+  });
+
+  it('keeps the lab on the open project when the answer is for another', async () => {
+    await openMockWorkspace();
+    await useProjectsStore.getState().switchTo('rooftop-cinema');
+    await useLabStore.getState().load('rooftop-cinema');
+    expect(useAppStore.getState().workspace?.project?.id).toBe('rooftop-cinema');
+    // Opened for Moon Island just before the switch landed.
+    useLabStore.setState({
+      objects: { ...source, objects: ['Bench'], notes: {}, aspect: '1:1', kind: 'prop' },
+    });
+    expect(await useLabStore.getState().makeObjects()).toBe(true);
+    expect(useLabStore.getState().view?.project).toBe('rooftop-cinema');
+    expect(useLabStore.getState().objects).toBeNull();
   });
 });
