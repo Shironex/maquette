@@ -8,6 +8,7 @@ pub mod events;
 pub mod keychain;
 pub mod mcp;
 pub mod opener;
+pub mod quit;
 pub mod session;
 
 use std::sync::Arc;
@@ -19,9 +20,13 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .on_window_event(quit::on_window_event)
+        .on_menu_event(quit::on_menu_event)
         .invoke_handler(specta.invoke_handler())
         .setup(move |app| {
             specta.mount_events(app);
+            app.manage(quit::QuitGuard::default());
+            quit::route_quit_through_close(app.handle())?;
             let config_dir = app.path().app_config_dir()?;
             let session = session::Session::load(config_dir);
             session.attach(app.handle().clone());

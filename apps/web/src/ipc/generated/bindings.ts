@@ -152,6 +152,10 @@ export const commands = {
 	mcpClearActivity: () => __TAURI_INVOKE<McpStatus>("mcp_clear_activity"),
 	/**  Makes a new token. Agents set up with the old one must be set up again. */
 	mcpRenewToken: () => __TAURI_INVOKE<McpStatus>("mcp_renew_token"),
+	/**  Tells the shell whether the web view has work that is not applied yet. */
+	quitSetUnapplied: (unapplied: boolean) => __TAURI_INVOKE<void>("quit_set_unapplied", { unapplied }),
+	/**  Closes the window now, whatever is unapplied: the user answered. */
+	quitNow: () => __TAURI_INVOKE<void>("quit_now"),
 };
 
 /** Events */
@@ -163,6 +167,7 @@ export const events = {
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
 	projectChanged: makeEvent<ProjectChanged>("project-changed"),
 	providerUpdate: makeEvent<ProviderUpdate>("provider-update"),
+	quitRequested: makeEvent<QuitRequested>("quit-requested"),
 	thumbnailReady: makeEvent<ThumbnailReady>("thumbnail-ready"),
 };
 
@@ -1293,6 +1298,12 @@ export type ProviderSettings = {
 
 /**  A Send to 3D job changed state or progress. */
 export type ProviderUpdate = ProviderEvent;
+
+/**
+ *  The window was asked to close while the web view has unapplied work. The
+ *  close is held back until the web view answers with `quitNow`.
+ */
+export type QuitRequested = null;
 
 /**  An image in the project's `refs/` folder. */
 export type RefImage = {

@@ -8,12 +8,12 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    agents, app, assets, dialogs, inbox, inspect, lab, pipeline, project, providers, thumbs,
+    agents, app, assets, dialogs, inbox, inspect, lab, pipeline, project, providers, quit, thumbs,
     toolchain, workspace,
 };
 use crate::events::{
     ConceptUpdate, InboxChanged, McpUpdate, PipelineChanged, PipelineUpdate, ProjectChanged,
-    ProviderUpdate, ThumbnailReady,
+    ProviderUpdate, QuitRequested, ThumbnailReady,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -99,6 +99,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             agents::mcp_decide,
             agents::mcp_clear_activity,
             agents::mcp_renew_token,
+            quit::quit_set_unapplied,
+            quit::quit_now,
         ])
         .events(collect_events![
             PipelineUpdate,
@@ -108,7 +110,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             ProjectChanged,
             PipelineChanged,
             McpUpdate,
-            ProviderUpdate
+            ProviderUpdate,
+            QuitRequested
         ])
         .types(&maquette_core::types())
 }
@@ -169,6 +172,8 @@ mod tests {
             "dialogPickModel",
             "providerKeySave",
             "providerKeyTest",
+            "quitSetUnapplied",
+            "quitNow",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }
@@ -180,6 +185,7 @@ mod tests {
             "projectChanged",
             "mcpUpdate",
             "providerUpdate",
+            "quitRequested",
         ] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }

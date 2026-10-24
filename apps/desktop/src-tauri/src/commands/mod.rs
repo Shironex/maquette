@@ -12,6 +12,7 @@ pub mod lab;
 pub mod pipeline;
 pub mod project;
 pub mod providers;
+pub mod quit;
 pub mod thumbs;
 pub mod toolchain;
 pub mod workspace;

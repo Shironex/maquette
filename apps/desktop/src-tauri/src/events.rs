@@ -11,6 +11,11 @@ use specta::Type;
 use tauri::AppHandle;
 use tauri_specta::Event;
 
+/// The window was asked to close while the web view has unapplied work. The
+/// close is held back until the web view answers with `quitNow`.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+pub struct QuitRequested;
+
 /// A run changed state or printed a line.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 pub struct PipelineUpdate(pub PipelineEvent);
