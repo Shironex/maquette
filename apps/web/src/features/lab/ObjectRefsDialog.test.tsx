@@ -96,4 +96,37 @@ describe('Make object refs', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Remove Moon island' }));
     expect(useLabStore.getState().objects?.notes).toEqual({});
   });
+
+  it('explains the notes with a help mark, and a tip once there is a chip that stays dismissed', async () => {
+    window.localStorage.clear();
+    await openMockWorkspace();
+    await useLabStore.getState().load('moon-island');
+    const open = () =>
+      useLabStore.getState().openObjects({
+        project: 'moon-island',
+        source: 'concepts/moon-island-porch/moon-island-porch_01.png',
+        sourcePath: '/x/moon-island-porch_01.png',
+        sourceName: 'Moon island porch',
+      });
+    const view = render(<ObjectRefsDialog />);
+    open();
+    const field = await screen.findByRole('textbox', { name: 'Objects' });
+    expect(screen.getByRole('button', { name: 'About objects' })).toBeInTheDocument();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('never become the asset name');
+    expect(screen.queryByRole('note')).toBeNull();
+
+    await userEvent.type(field, 'bench{Enter}');
+    expect(screen.getByRole('note')).toHaveTextContent('click an object to add notes');
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss tip' }));
+    expect(screen.queryByRole('note')).toBeNull();
+
+    // A later open does not bring it back.
+    view.unmount();
+    useLabStore.getState().closeObjects();
+    render(<ObjectRefsDialog />);
+    open();
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Objects' }), 'lamp{Enter}');
+    expect(screen.queryByRole('note')).toBeNull();
+    window.localStorage.clear();
+  });
 });

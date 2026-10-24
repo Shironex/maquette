@@ -4,8 +4,19 @@
  * "<name> objects" direction. Opens from a Lab image and a Refs card.
  */
 import { useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react';
-import { Button, Icon, IconButton, SegmentedControl, TextArea, TextField, cn } from '@maquette/ui';
+import {
+  Button,
+  HelpMark,
+  Icon,
+  IconButton,
+  SegmentedControl,
+  TextArea,
+  TextField,
+  Tip,
+  cn,
+} from '@maquette/ui';
 import { fileUrl } from '@/ipc/files';
+import { useDismissedTip } from '@/lib/useTip';
 import { useTopEscape } from '@/lib/useTopEscape';
 import { useAppStore } from '@/state/app-store';
 import {
@@ -20,6 +31,9 @@ import {
   objectsDirectionName,
 } from '@/state/lab';
 import { useLabStore } from '@/state/lab-store';
+
+/** The id the notes tip is remembered under. */
+const NOTES_TIP = 'object-notes';
 
 const KINDS = [
   { value: 'prop' as const, label: 'Props' },
@@ -49,6 +63,7 @@ function Dialog() {
   const setView = useAppStore(s => s.setView);
   const [text, setText] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
+  const [tipDismissed, dismissTip] = useDismissedTip(NOTES_TIP);
   const ref = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   useTopEscape(ref, close);
@@ -165,9 +180,15 @@ function Dialog() {
           <div className="flex min-w-0 flex-1 flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <div className="flex items-baseline justify-between">
-                <label htmlFor="objects-input" className="font-medium">
-                  Objects
-                </label>
+                <span className="flex items-center gap-1.5">
+                  <label htmlFor="objects-input" className="font-medium">
+                    Objects
+                  </label>
+                  <HelpMark
+                    label="About objects"
+                    tip="Click an object to add notes for Codex. Notes guide the image but never become the asset name."
+                  />
+                </span>
                 <span className="text-meta text-fg-mute tabular-nums">
                   {n} of {MAX_OBJECTS}
                 </span>
@@ -182,7 +203,7 @@ function Dialog() {
                   <span
                     key={name}
                     className={cn(
-                      'inline-flex h-[26px] max-w-full items-center gap-1 rounded-pill border bg-clay-soft pr-1 pl-1 text-[12.5px] text-fg',
+                      'group/chip inline-flex h-[26px] max-w-full items-center gap-1 rounded-pill border bg-clay-soft pr-1 pl-1 text-[12.5px] text-fg',
                       editing === name ? 'border-clay' : 'border-clay-line'
                     )}
                   >
@@ -190,7 +211,7 @@ function Dialog() {
                       type="button"
                       aria-label={`Edit ${name}`}
                       aria-expanded={editing === name}
-                      title={objects.notes[name] ?? 'Edit the name and add notes'}
+                      title={objects.notes[name] ?? 'Add notes or rename'}
                       onClick={e => {
                         e.stopPropagation();
                         setEditing(editing === name ? null : name);
@@ -198,9 +219,16 @@ function Dialog() {
                       className="flex min-w-0 cursor-pointer items-center gap-1 rounded-pill px-1.5"
                     >
                       <span className="truncate">{name}</span>
-                      {objects.notes[name] ? (
-                        <Icon name="file-text" size={12} className="flex-none text-clay-text" />
-                      ) : null}
+                      <Icon
+                        name={objects.notes[name] ? 'file-text' : 'note-pencil'}
+                        size={12}
+                        className={cn(
+                          'flex-none',
+                          objects.notes[name]
+                            ? 'text-clay-text'
+                            : 'text-fg-mute opacity-60 group-hover/chip:opacity-100 group-focus-within/chip:opacity-100'
+                        )}
+                      />
                     </button>
                     <button
                       type="button"
@@ -255,9 +283,14 @@ function Dialog() {
               ) : (
                 <p className="text-meta text-fg-mute">
                   A short name per object; it names the asset. Enter or a comma adds one, a pasted
-                  list adds one per line. Click an object to add notes for Codex.
+                  list adds one per line.
                 </p>
               )}
+              {list.length > 0 && editing === null && !tipDismissed ? (
+                <Tip onDismiss={dismissTip}>
+                  Tip: click an object to add notes, like materials or what to leave out.
+                </Tip>
+              ) : null}
             </div>
 
             <div className="flex items-center justify-between gap-3">
