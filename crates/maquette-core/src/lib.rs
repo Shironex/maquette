@@ -72,6 +72,12 @@ pub fn types() -> specta::Types {
         .register::<providers::HandoffCard>()
         .register::<providers::KeyStatus>()
         .register::<providers::KeyTest>()
+        .register::<providers::BatchItem>()
+        .register::<providers::BatchRequest>()
+        .register::<providers::BatchFailure>()
+        .register::<providers::BatchSent>()
+        .register::<providers::DownloadMatch>()
+        .register::<providers::DownloadsScan>()
         .register::<Budgets>()
         .register::<Compression>()
         .register::<TextureCodec>()
@@ -187,6 +193,9 @@ mod tests {
             "ProviderEvent",
             "CardRow",
             "HandoffCard",
+            "BatchRequest",
+            "BatchSent",
+            "DownloadsScan",
             "KeyStatus",
             "KeyTest",
             "Budgets",

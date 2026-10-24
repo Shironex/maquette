@@ -2,6 +2,7 @@
 //! their REST APIs, or by hand through a handoff folder.
 
 pub mod catalog;
+pub mod handback;
 pub mod handoff;
 pub mod http;
 pub mod jobs;
@@ -18,10 +19,11 @@ mod tests;
 use serde::Serialize;
 
 pub use catalog::{ModelOption, ProviderCatalog};
+pub use handback::{DownloadMatch, DownloadsScan};
 pub use handoff::{CardRow, HandoffCard};
 pub use jobs::{
-    CancelMode, Endpoints, InboxLink, JobPhase, JobState, Options, Provider, ProviderEvent,
-    ProviderJob, ProviderJobs, SendRequest,
+    BatchFailure, BatchItem, BatchRequest, BatchSent, CancelMode, Endpoints, InboxLink, JobPhase,
+    JobState, MAX_BATCH, Options, Provider, ProviderEvent, ProviderJob, ProviderJobs, SendRequest,
 };
 pub use presets::{
     MeshyPreset, MeshyPresets, MeshyTexture, PoseMode, PresetVariant, ProviderId, ProviderSettings,

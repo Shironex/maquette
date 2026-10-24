@@ -993,6 +993,186 @@ fn a_model_saved_into_the_inbox_under_the_handoff_name_links_too() {
     assert!(stop.is_err(), "an arrived model has nothing to cancel");
 }
 
+/// Adds props named `names` at Refs, each with its own ref image.
+fn add_objects(world: &World, names: &[&str]) -> Vec<String> {
+    let refs = world.project_dir().join("refs");
+    let mut ids = Vec::new();
+    project::modify(&world.root, &world.config.layout, &world.project, |m| {
+        for name in names {
+            let asset = assets::add(
+                m,
+                NewAsset {
+                    name: (*name).into(),
+                    kind: AssetKind::Prop,
+                    stage: Stage::Refs,
+                },
+            )?;
+            fs::write(
+                refs.join(format!("{}.png", asset.id.replace('-', "_"))),
+                b"\x89PNG\r\n\x1a\nfake",
+            )
+            .map_err(|e| crate::CoreError::io(&refs, e))?;
+            ids.push(asset.id);
+        }
+        Ok(())
+    })
+    .expect("assets");
+    ids
+}
+
+fn batch(world: &World, provider: Provider, ids: &[String]) -> BatchRequest {
+    BatchRequest {
+        project: world.project.clone(),
+        provider,
+        service: ProviderId::Tripo,
+        items: ids
+            .iter()
+            .map(|id| BatchItem {
+                asset: id.clone(),
+                variant: PresetVariant::Prop,
+                images: vec![format!("refs/{}.png", id.replace('-', "_"))],
+            })
+            .collect(),
+        tripo_prop: None,
+        tripo_character: None,
+        meshy_prop: None,
+        meshy_character: None,
+    }
+}
+
+#[test]
+fn a_by_hand_batch_writes_one_handoff_per_asset() {
+    let world = World::new();
+    let server = FakeServer::start(|_, _| Reply::json(404, &json!({})));
+    let jobs = world.jobs(&server);
+    let ids = add_objects(&world, &["Desk lamp", "Plaster plinth", "Brush cup"]);
+    let mut request = batch(&world, Provider::ByHand, &ids);
+    request.items[2].variant = PresetVariant::Character;
+    let mut lowpoly = TripoPreset::prop();
+    lowpoly.face_limit = 12_000;
+    request.tripo_prop = Some(lowpoly);
+    let sent = jobs.send_batch(&request, true, false).expect("batch");
+    assert!(sent.failed.is_empty(), "{:?}", sent.failed);
+    assert_eq!(sent.jobs.len(), 3);
+    assert!(sent.batch.starts_with("batch-"));
+    let names: Vec<&str> = sent.jobs.iter().map(|j| j.asset_name.as_str()).collect();
+    assert_eq!(names, vec!["Desk lamp", "Plaster plinth", "Brush cup"]);
+    for job in &sent.jobs {
+        assert_eq!(job.state, JobState::Waiting, "By hand needs no approval");
+        assert_eq!(job.batch.as_deref(), Some(sent.batch.as_str()));
+        let folder = PathBuf::from(job.handoff.clone().expect("folder"));
+        assert_eq!(folder, world.project_dir().join("handoff").join(&job.id));
+        assert!(folder.join("front.png").is_file() && folder.join("settings.md").is_file());
+    }
+    let face = |job: &ProviderJob| job.tripo.as_ref().map(|t| t.face_limit);
+    assert_eq!(face(&sent.jobs[0]), Some(12_000), "the batch settings");
+    assert_eq!(sent.jobs[2].variant, PresetVariant::Character);
+    assert_eq!(
+        face(&sent.jobs[2]),
+        Some(
+            world
+                .config
+                .providers
+                .tripo(PresetVariant::Character)
+                .face_limit
+        ),
+        "a character starts from the character preset"
+    );
+    assert_eq!(jobs.batch(&sent.batch).len(), 3);
+    let m = project::load(&world.root, &world.config.layout, &world.project).expect("load");
+    for id in &ids {
+        let a = assets::find(&m, id).expect("asset");
+        assert_eq!((a.stage, a.status), (Stage::Tripo, AssetStatus::Queued));
+    }
+
+    // A zip from the web studio comes back for the second one.
+    let zip = world.root.join("tripo_download.zip");
+    {
+        use std::io::Write as _;
+        let mut writer = zip::ZipWriter::new(fs::File::create(&zip).expect("zip"));
+        writer
+            .start_file("model/plinth.glb", zip::write::SimpleFileOptions::default())
+            .expect("entry");
+        writer.write_all(&fixture::character(false)).expect("write");
+        writer.finish().expect("finish");
+    }
+    let back = jobs.hand_back(&sent.jobs[1].id, &zip).expect("zip back");
+    assert_eq!(back.state, JobState::Inbox);
+    assert_eq!(back.inbox_file.as_deref(), Some("plaster-plinth-1.glb"));
+    assert!(zip.is_file(), "the download stays where it was");
+    assert_eq!(
+        fs::read(world.inbox().join("plaster-plinth-1.glb")).expect("inbox"),
+        fixture::character(false)
+    );
+}
+
+#[test]
+fn an_api_batch_is_checked_whole_and_waits_for_one_approval() {
+    let world = World::new();
+    let (server, _) = tripo_server(TripoFake::new());
+    let jobs = world.jobs(&server);
+    let ids = add_objects(&world, &["Desk lamp", "Laptop"]);
+    let mut request = batch(&world, Provider::Tripo, &ids);
+    request.items[1].images = vec!["refs/missing.png".into()];
+    let err = jobs.send_batch(&request, true, true).expect_err("bad item");
+    assert!(err.to_string().starts_with("Laptop: "), "{err}");
+    assert!(jobs.list(None).is_empty(), "nothing went out");
+
+    let mut twice = batch(&world, Provider::Tripo, &ids);
+    twice.items.push(twice.items[0].clone());
+    assert!(jobs.send_batch(&twice, true, true).is_err());
+    assert!(
+        jobs.send_batch(&batch(&world, Provider::Tripo, &[]), true, true)
+            .is_err()
+    );
+
+    let sent = jobs
+        .send_batch(&batch(&world, Provider::Tripo, &ids), true, true)
+        .expect("batch");
+    assert_eq!(sent.jobs.len(), 2);
+    assert!(
+        sent.jobs
+            .iter()
+            .all(|j| j.state == JobState::Approval && j.via_agent)
+    );
+    std::thread::sleep(Duration::from_millis(50));
+    assert_eq!(server.requests().len(), 0, "nothing sent before approval");
+    for job in &sent.jobs {
+        jobs.approve(&job.id).expect("approve");
+    }
+    for job in &sent.jobs {
+        assert_eq!(finished(&jobs, &job.id).state, JobState::Inbox);
+    }
+}
+
+#[test]
+fn check_downloads_offers_the_waiting_sends_of_the_project() {
+    let world = World::new();
+    let server = FakeServer::start(|_, _| Reply::json(404, &json!({})));
+    let jobs = world.jobs(&server);
+    let ids = add_objects(&world, &["Desk lamp", "Brush cup"]);
+    let sent = jobs
+        .send_batch(&batch(&world, Provider::ByHand, &ids), false, false)
+        .expect("batch");
+    let downloads = world.root.join("fake-downloads");
+    fs::create_dir_all(&downloads).expect("downloads");
+    fs::write(downloads.join("desk_lamp_pbr.glb"), glb()).expect("glb");
+    let scan = jobs.check_downloads(&world.project, &downloads);
+    assert_eq!(scan.waiting.len(), 2);
+    assert_eq!(scan.files.len(), 1);
+    assert_eq!(scan.files[0].job.as_deref(), Some(sent.jobs[0].id.as_str()));
+    let back = jobs
+        .hand_back(&sent.jobs[0].id, std::path::Path::new(&scan.files[0].path))
+        .expect("confirm");
+    assert_eq!(back.state, JobState::Inbox);
+    assert!(
+        downloads.join("desk_lamp_pbr.glb").is_file(),
+        "copied, not moved"
+    );
+    let again = jobs.check_downloads(&world.project, &downloads);
+    assert_eq!(again.waiting.len(), 1);
+}
+
 #[test]
 fn test_key_uses_the_free_balance_calls() {
     let (server, _) = tripo_server(TripoFake::new());

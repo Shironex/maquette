@@ -41,6 +41,7 @@ const job = (patch: Partial<ProviderJob>): ProviderJob => ({
   version: null,
   viaAgent: false,
   cancel: 'none',
+  batch: null,
   ...patch,
 });
 

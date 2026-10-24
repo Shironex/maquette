@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
+use super::handback::{self, DownloadsScan};
 use super::handoff::{Handoff, HandoffCard};
 use super::http::{Api, ApiError, StopFlag, Timing};
 use super::meshy::{self, Meshy};
@@ -40,6 +41,8 @@ pub const LANE_LIMIT: usize = 4;
 /// Finished jobs kept per project for the queue.
 const KEEP_FINISHED: usize = 60;
 const MAX_IMAGES: usize = 4;
+/// The most assets one batch sends.
+pub const MAX_BATCH: usize = 24;
 
 /// How a model gets made.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -157,6 +160,8 @@ pub struct ProviderJob {
     pub version: Option<u32>,
     pub via_agent: bool,
     pub cancel: CancelMode,
+    /// The batch it was sent with, if any; one handoff checklist each.
+    pub batch: Option<String>,
 }
 
 impl ProviderJob {
@@ -237,6 +242,86 @@ pub struct SendRequest {
     /// This send's settings; `None` takes the saved preset.
     pub tripo: Option<TripoPreset>,
     pub meshy: Option<MeshyPreset>,
+}
+
+/// One asset of a batch send.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchItem {
+    pub asset: String,
+    /// Per item: a prop or a character.
+    pub variant: PresetVariant,
+    /// Relative to the project folder, front first, at most 4.
+    pub images: Vec<String>,
+}
+
+/// Several assets to one provider with the same settings: one model per
+/// asset. The settings for each variant start from the saved preset;
+/// `Some` changes them for this batch only.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchRequest {
+    pub project: String,
+    pub provider: Provider,
+    /// For By hand: whose web app and settings. Ignored otherwise.
+    pub service: ProviderId,
+    pub items: Vec<BatchItem>,
+    pub tripo_prop: Option<TripoPreset>,
+    pub tripo_character: Option<TripoPreset>,
+    pub meshy_prop: Option<MeshyPreset>,
+    pub meshy_character: Option<MeshyPreset>,
+}
+
+impl BatchRequest {
+    /// The single send an item makes.
+    pub fn send_request(&self, item: &BatchItem) -> SendRequest {
+        let service = self.provider.service().unwrap_or(self.service);
+        let character = item.variant == PresetVariant::Character;
+        SendRequest {
+            project: self.project.clone(),
+            asset: item.asset.clone(),
+            provider: self.provider,
+            service,
+            variant: item.variant,
+            images: item.images.clone(),
+            tripo: (service == ProviderId::Tripo)
+                .then(|| {
+                    if character {
+                        self.tripo_character.clone()
+                    } else {
+                        self.tripo_prop.clone()
+                    }
+                })
+                .flatten(),
+            meshy: (service == ProviderId::Meshy)
+                .then(|| {
+                    if character {
+                        self.meshy_character.clone()
+                    } else {
+                        self.meshy_prop.clone()
+                    }
+                })
+                .flatten(),
+        }
+    }
+}
+
+/// An item of a batch that did not go out.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchFailure {
+    pub asset: String,
+    pub message: String,
+}
+
+/// What a batch send started.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchSent {
+    pub batch: String,
+    /// In the order asked, one per asset.
+    pub jobs: Vec<ProviderJob>,
+    pub failed: Vec<BatchFailure>,
 }
 
 /// An inbox model that came from a send.
@@ -593,12 +678,115 @@ impl ProviderJobs {
         approval: bool,
         via_agent: bool,
     ) -> CoreResult<ProviderJob> {
+        self.send_in(request, approval, via_agent, None)
+    }
+
+    /// Sends several assets with the same provider and settings, one model
+    /// each. Every item is checked before any goes out, so a bad one stops
+    /// the batch while nothing is spent. With `approval`, the API jobs all
+    /// wait in Approval for one decision.
+    pub fn send_batch(
+        &self,
+        request: &BatchRequest,
+        approval: bool,
+        via_agent: bool,
+    ) -> CoreResult<BatchSent> {
+        let workspace = self
+            .shared
+            .workspace()
+            .ok_or_else(|| CoreError::Unavailable("Open a workspace first.".to_string()))?;
+        if request.items.is_empty() {
+            return Err(CoreError::Invalid(
+                "Choose at least one asset to send.".to_string(),
+            ));
+        }
+        if request.items.len() > MAX_BATCH {
+            return Err(CoreError::Invalid(format!(
+                "Send at most {MAX_BATCH} assets in one batch."
+            )));
+        }
+        for (n, item) in request.items.iter().enumerate() {
+            if request.items[..n].iter().any(|i| i.asset == item.asset) {
+                return Err(CoreError::Invalid(format!(
+                    "{} is in the batch twice.",
+                    item.asset
+                )));
+            }
+        }
+        for item in &request.items {
+            prepare(&self.shared, &workspace, &request.send_request(item)).map_err(|err| {
+                let name =
+                    project::load(&workspace.root, &workspace.config.layout, &request.project)
+                        .ok()
+                        .and_then(|m| assets::find(&m, &item.asset).ok().map(|a| a.name.clone()))
+                        .unwrap_or_else(|| item.asset.clone());
+                CoreError::Invalid(format!("{name}: {err}"))
+            })?;
+        }
+        let batch = {
+            let jobs = self.shared.jobs();
+            let stamp = now_ms() as u64;
+            (0u32..)
+                .map(|n| {
+                    if n == 0 {
+                        format!("batch-{stamp:x}")
+                    } else {
+                        format!("batch-{stamp:x}-{n}")
+                    }
+                })
+                .find(|id| {
+                    !jobs
+                        .iter()
+                        .any(|e| e.stored.job.batch.as_deref() == Some(id))
+                })
+                .unwrap_or_else(|| format!("batch-{stamp:x}"))
+        };
+        let mut sent = BatchSent {
+            batch: batch.clone(),
+            jobs: Vec::new(),
+            failed: Vec::new(),
+        };
+        for item in &request.items {
+            match self.send_in(
+                &request.send_request(item),
+                approval,
+                via_agent,
+                Some(&batch),
+            ) {
+                Ok(job) => sent.jobs.push(job),
+                Err(err) => sent.failed.push(BatchFailure {
+                    asset: item.asset.clone(),
+                    message: err.to_string(),
+                }),
+            }
+        }
+        Ok(sent)
+    }
+
+    /// Every job of a batch, in the order it was sent.
+    pub fn batch(&self, batch: &str) -> Vec<ProviderJob> {
+        self.shared
+            .jobs()
+            .iter()
+            .filter(|e| e.stored.job.batch.as_deref() == Some(batch))
+            .map(|e| snapshot(&e.stored))
+            .collect()
+    }
+
+    fn send_in(
+        &self,
+        request: &SendRequest,
+        approval: bool,
+        via_agent: bool,
+        batch: Option<&str>,
+    ) -> CoreResult<ProviderJob> {
         let workspace = self
             .shared
             .workspace()
             .ok_or_else(|| CoreError::Unavailable("Open a workspace first.".to_string()))?;
         let mut job = prepare(&self.shared, &workspace, request)?;
         job.via_agent = via_agent;
+        job.batch = batch.map(str::to_string);
         let project_dir = workspace.project_dir(&job.project)?;
         let status = if job.provider == Provider::ByHand {
             let images: Vec<PathBuf> = job.images.iter().map(|i| project_dir.join(i)).collect();
@@ -854,8 +1042,17 @@ impl ProviderJobs {
         })
     }
 
-    /// By hand: copies a GLB someone dropped on the asset's card into the
-    /// inbox under the job's name, so it goes through the usual checks.
+    /// Looks in `downloads` for models that came down after the project's
+    /// By hand sends were written, and offers a waiting send for each.
+    /// Reads only; nothing is copied until a match is confirmed with
+    /// [`ProviderJobs::hand_back`].
+    pub fn check_downloads(&self, project: &str, downloads: &Path) -> DownloadsScan {
+        handback::check_downloads(downloads, &self.list(Some(project)))
+    }
+
+    /// By hand: copies a GLB someone dropped on the asset's card (or the
+    /// one GLB inside a zip) into the inbox under the job's name, so it goes
+    /// through the usual checks. The original file is left alone.
     pub fn hand_back(&self, id: &str, file: &Path) -> CoreResult<ProviderJob> {
         let workspace = self
             .shared
@@ -864,13 +1061,9 @@ impl ProviderJobs {
         let job = self
             .get(id)
             .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
-        let bytes = fs::read(file).map_err(|e| CoreError::io(file, e))?;
-        if !is_glb(&bytes) {
-            return Err(CoreError::Invalid(
-                "That file is not a GLB. Download the model as .glb and drop it again.".to_string(),
-            ));
-        }
-        let name = write_inbox(&workspace, &job.id, &bytes)?;
+        // Read, never moved: the original stays where it was.
+        let model = handback::read_model(file)?;
+        let name = write_inbox(&workspace, &job.id, &model.bytes)?;
         if job.variant == PresetVariant::Character {
             let _ = inbox::set_kind(
                 &workspace.root,
@@ -1220,6 +1413,7 @@ fn prepare(
         version: None,
         via_agent: false,
         cancel: CancelMode::Free,
+        batch: None,
     })
 }
 

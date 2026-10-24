@@ -244,6 +244,46 @@ export type AssetVersion = {
 	stats: ModelStats | null,
 };
 
+/**  An item of a batch that did not go out. */
+export type BatchFailure = {
+	asset: string,
+	message: string,
+};
+
+/**  One asset of a batch send. */
+export type BatchItem = {
+	asset: string,
+	/**  Per item: a prop or a character. */
+	variant: PresetVariant,
+	/**  Relative to the project folder, front first, at most 4. */
+	images: string[],
+};
+
+/**
+ *  Several assets to one provider with the same settings: one model per
+ *  asset. The settings for each variant start from the saved preset;
+ *  `Some` changes them for this batch only.
+ */
+export type BatchRequest = {
+	project: string,
+	provider: Provider,
+	/**  For By hand: whose web app and settings. Ignored otherwise. */
+	service: ProviderId,
+	items: BatchItem[],
+	tripoProp: TripoPreset | null,
+	tripoCharacter: TripoPreset | null,
+	meshyProp: MeshyPreset | null,
+	meshyCharacter: MeshyPreset | null,
+};
+
+/**  What a batch send started. */
+export type BatchSent = {
+	batch: string,
+	/**  In the order asked, one per asset. */
+	jobs: ProviderJob[],
+	failed: BatchFailure[],
+};
+
 export type BlendFile = {
 	/**  Path relative to the scanned folder, with `/` separators. */
 	file: string,
@@ -469,6 +509,37 @@ export type Direction = {
 	source: string | null,
 	/**  Object refs: what the objects become on the Board. */
 	kind: AssetKind | null,
+};
+
+/**
+ *  A model file in the Downloads folder, with the send it most likely
+ *  belongs to.
+ */
+export type DownloadMatch = {
+	/**  Absolute. */
+	path: string,
+	name: string,
+	/**  The GLB inside, for a zip. */
+	inner: string | null,
+	bytes: number | null,
+	modifiedMs: number | null,
+	/**  The waiting send it matches, if any. You confirm every match. */
+	job: string | null,
+	assetName: string | null,
+	/**  Why it matched, in a few words. */
+	reason: string | null,
+};
+
+/**  What Check Downloads found. */
+export type DownloadsScan = {
+	/**  The folder that was read. */
+	folder: string,
+	/**  Files changed before this are left out: the oldest waiting handoff. */
+	sinceMs: number | null,
+	/**  Newest first. */
+	files: DownloadMatch[],
+	/**  The sends waiting for a model, for choosing a match by hand. */
+	waiting: ProviderJob[],
 };
 
 /**  Serializable form of [`CoreError`] for IPC. */
@@ -1112,6 +1183,8 @@ export type ProviderJob = {
 	version: number | null,
 	viaAgent: boolean,
 	cancel: CancelMode,
+	/**  The batch it was sent with, if any; one handoff checklist each. */
+	batch: string | null,
 };
 
 /**

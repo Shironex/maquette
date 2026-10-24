@@ -171,6 +171,7 @@ export function createFakeProviders({
       version: null,
       viaAgent: false,
       cancel: 'free',
+      batch: null,
       ...partial,
     };
   };
