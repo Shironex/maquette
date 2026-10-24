@@ -20,7 +20,14 @@ import {
 } from '@/ipc/client';
 import { useAppStore } from './app-store';
 import { PROVIDER_LABEL, SERVICE_LABEL, type SendDraft } from './providers';
-import { batchDraft, batchRequest, initialMatches, presetChanges, type BatchDraft } from './batch';
+import {
+  batchDraft,
+  batchRequest,
+  initialMatches,
+  presetChanges,
+  pruneItems,
+  type BatchDraft,
+} from './batch';
 
 interface Panel {
   project: string;
@@ -83,6 +90,8 @@ interface ProvidersStore {
   removeKey: (service: ProviderId) => Promise<void>;
   testKey: (service: ProviderId, key: string | null) => Promise<KeyTest | null>;
   batch: BatchPanel | null;
+  /** Counts the batches that went out, so the Board can drop its selection. */
+  batchesSent: number;
   openBatch: (project: string, assets: string[]) => Promise<void>;
   closeBatch: () => void;
   setBatch: (patch: Partial<Pick<BatchDraft, 'provider' | 'service'>>) => void;
@@ -164,6 +173,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
   busy: [],
   keyBusy: null,
   batch: null,
+  batchesSent: 0,
   checklistOpen: false,
   downloads: null,
 
@@ -438,7 +448,9 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
     const batch = get().batch;
     if (!batch?.draft) return;
     const items = batch.draft.items.map(i => (i.asset === asset ? { ...i, variant } : i));
-    set({ batch: { ...batch, draft: { ...batch.draft, items }, confirming: false } });
+    set({
+      batch: { ...batch, draft: pruneItems({ ...batch.draft, items }), confirming: false },
+    });
   },
 
   setBatchPreset: (variant, preset) => {
@@ -447,7 +459,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
     const draft = { ...batch.draft };
     if (preset.tripo) draft.tripo = { ...draft.tripo, [variant]: preset.tripo };
     if (preset.meshy) draft.meshy = { ...draft.meshy, [variant]: preset.meshy };
-    set({ batch: { ...batch, draft, confirming: false } });
+    set({ batch: { ...batch, draft: pruneItems(draft), confirming: false } });
   },
 
   setItemPreset: (asset, preset) => {
@@ -494,7 +506,11 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
     set({ sending: true });
     try {
       const sent = await commands.providerSendBatch(batchRequest(batch.project, draft));
-      set(s => ({ jobs: sent.jobs.reduce(upsert, s.jobs), batch: null }));
+      set(s => ({
+        jobs: sent.jobs.reduce(upsert, s.jobs),
+        batch: null,
+        batchesSent: sent.jobs.length > 0 ? s.batchesSent + 1 : s.batchesSent,
+      }));
       const n = sent.jobs.length;
       const failed = sent.failed.map(f => `${f.asset}: ${f.message}`).join(' ');
       if (draft.provider === 'by-hand') {

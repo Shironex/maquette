@@ -124,14 +124,37 @@ export function itemMeshy(draft: BatchDraft, item: BatchItemDraft): MeshyPreset 
   return { ...draft.meshy[item.variant], ...item.meshy };
 }
 
-/** The changed fields of an asset for the draft's service. */
-function itemChanges(draft: BatchDraft, item: BatchItemDraft): object {
-  return draft.service === 'tripo' ? item.tripo : item.meshy;
+/**
+ * The fields an asset really changes: the stored ones that still differ
+ * from the batch preset. A field the batch has since moved to the same
+ * value no longer counts.
+ */
+export function itemChanges<T extends object>(base: T, stored: Partial<T>): Partial<T> {
+  return presetChanges(base, { ...base, ...stored });
+}
+
+/** The asset's own changes for the draft's service. */
+function itemOwn(draft: BatchDraft, item: BatchItemDraft): object {
+  return draft.service === 'tripo'
+    ? itemChanges(draft.tripo[item.variant], item.tripo)
+    : itemChanges(draft.meshy[item.variant], item.meshy);
+}
+
+/** The draft with every stored override that now equals its batch preset dropped. */
+export function pruneItems(draft: BatchDraft): BatchDraft {
+  return {
+    ...draft,
+    items: draft.items.map(item => ({
+      ...item,
+      tripo: itemChanges(draft.tripo[item.variant], item.tripo),
+      meshy: itemChanges(draft.meshy[item.variant], item.meshy),
+    })),
+  };
 }
 
 /** True when the asset changes at least one setting of its own. */
 export function isCustom(draft: BatchDraft, item: BatchItemDraft): boolean {
-  return Object.keys(itemChanges(draft, item)).length > 0;
+  return Object.keys(itemOwn(draft, item)).length > 0;
 }
 
 /** "12,000 faces, no PBR": what an asset changes from the batch. */
@@ -142,8 +165,16 @@ export function itemDiff(
 ): string {
   const changes =
     draft.service === 'tripo'
-      ? tripoChanges(item.tripo, itemTripo(draft, item), catalog.tripoModels)
-      : meshyChanges(item.meshy, itemMeshy(draft, item), catalog.meshyModels);
+      ? tripoChanges(
+          itemChanges(draft.tripo[item.variant], item.tripo),
+          itemTripo(draft, item),
+          catalog.tripoModels
+        )
+      : meshyChanges(
+          itemChanges(draft.meshy[item.variant], item.meshy),
+          itemMeshy(draft, item),
+          catalog.meshyModels
+        );
   return changes.join(', ');
 }
 

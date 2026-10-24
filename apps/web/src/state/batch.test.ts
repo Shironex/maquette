@@ -13,7 +13,9 @@ import {
   checklist,
   initialMatches,
   isCustom,
+  itemDiff,
   itemTripo,
+  pruneItems,
   nextSelection,
   presetChanges,
   waitingByHand,
@@ -149,6 +151,20 @@ describe('per-asset overrides', () => {
     expect(isCustom(d, d.items[1]!)).toBe(false);
     expect(itemTripo(d, d.items[0])).toEqual({ ...d.tripo.prop, faceLimit: 12_000 });
     expect(itemTripo(d, d.items[1]!).faceLimit).toBe(5_000);
+  });
+
+  it('drops an override once the batch moves to the same value', () => {
+    const d = draft();
+    const base = d.tripo.prop;
+    d.items[0] = { ...d.items[0]!, tripo: { autoSize: !base.autoSize, faceLimit: 2_000 } };
+    d.tripo = { ...d.tripo, prop: { ...base, autoSize: !base.autoSize } };
+    expect(isCustom(d, d.items[0])).toBe(true);
+    expect(itemDiff(d, d.items[0], catalog)).toBe('2,000 faces');
+    expect(batchLines(d, catalog).at(-1)).toBe(`${d.items[0].name}: 2,000 faces`);
+    const only = { ...d, items: [{ ...d.items[0], tripo: { autoSize: !base.autoSize } }] };
+    expect(isCustom(only, only.items[0]!)).toBe(false);
+    expect(batchRequest('moon-island', only).items[0]?.tripo).toBeNull();
+    expect(pruneItems(d).items[0]?.tripo).toEqual({ faceLimit: 2_000 });
   });
 
   it('sends the merged preset for custom assets only', () => {
