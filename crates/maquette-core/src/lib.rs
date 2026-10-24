@@ -10,6 +10,7 @@ pub mod fs;
 pub mod inbox;
 pub mod inspect;
 mod json;
+pub mod layout;
 pub mod pipeline;
 pub mod project;
 pub mod providers;
@@ -147,6 +148,8 @@ pub fn types() -> specta::Types {
         .register::<concepts::ConceptJob>()
         .register::<concepts::ConceptEvent>()
         .register::<inspect::InspectView>()
+        .register::<layout::SceneLayout>()
+        .register::<layout::LayoutView>()
 }
 
 #[cfg(test)]
@@ -261,6 +264,14 @@ mod tests {
             "InspectView",
             "InspectModel",
             "CameraStopDef",
+            "SceneLayout",
+            "Placement",
+            "LayoutStop",
+            "Desk",
+            "LayoutView",
+            "LayoutModel",
+            "FirstView",
+            "Measured",
         ] {
             assert!(names.iter().any(|n| n == expected), "missing {expected}");
         }
