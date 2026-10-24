@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { useRef, useState, type DragEvent } from 'react';
 import {
   Button,
   Field,
@@ -13,6 +13,7 @@ import {
 import { commands, type Aspect, type LabView } from '@/ipc/client';
 import { fileUrl, registerMockFile } from '@/ipc/files';
 import { IN_TAURI } from '@/ipc/runtime';
+import { useNativeDrop, type DropPoint } from '@/lib/useNativeDrop';
 import { Menu } from '@/features/common/Menu';
 import { useAppStore } from '@/state/app-store';
 import { ASPECTS, MAX_IMAGES, MAX_REFS, coverImage, directionId, inProject } from '@/state/lab';
@@ -155,7 +156,11 @@ function References({ view }: { view: LabView }) {
   const [over, setOver] = useState(false);
   const zone = useRef<HTMLDivElement>(null);
   const full = draft.refs.length >= MAX_REFS;
-  useNativeDrop(zone, setOver, paths => void addRefs(paths.slice(0, MAX_REFS - draft.refs.length)));
+  useComposerDrop(
+    zone,
+    setOver,
+    paths => void addRefs(paths.slice(0, MAX_REFS - draft.refs.length))
+  );
 
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
@@ -304,49 +309,24 @@ function RefChip({
   );
 }
 
-/**
- * In the app, files dropped on the window arrive as a Tauri event with
- * their paths (the web view never sees them). Drops over `zone` count.
- */
-function useNativeDrop(
+/** Native file drops over the composer column add refs. */
+function useComposerDrop(
   zone: React.RefObject<HTMLDivElement | null>,
   setOver: (over: boolean) => void,
   onPaths: (paths: string[]) => void
 ) {
-  const latest = useRef(onPaths);
-  latest.current = onPaths;
-  useEffect(() => {
-    if (!IN_TAURI) return;
-    let stop: (() => void) | null = null;
-    let cancelled = false;
-    const inside = (x: number, y: number) => {
-      const rect = zone.current?.getBoundingClientRect();
-      if (!rect) return false;
-      const ratio = window.devicePixelRatio || 1;
-      const [px, py] = [x / ratio, y / ratio];
-      // The whole composer column accepts drops, not just the chips.
-      return px >= rect.left - 18 && px <= rect.right + 18 && py >= 0;
-    };
-    void import('@tauri-apps/api/webview').then(({ getCurrentWebview }) =>
-      getCurrentWebview()
-        .onDragDropEvent(event => {
-          const p = event.payload;
-          if (p.type === 'over') setOver(inside(p.position.x, p.position.y));
-          else if (p.type === 'leave') setOver(false);
-          else if (p.type === 'drop') {
-            setOver(false);
-            if (inside(p.position.x, p.position.y))
-              latest.current(p.paths.filter(path => IMAGE_FILE.test(path)));
-          }
-        })
-        .then(fn => {
-          if (cancelled) fn();
-          else stop = fn;
-        })
-    );
-    return () => {
-      cancelled = true;
-      stop?.();
-    };
-  }, [zone, setOver]);
+  const inside = ({ x, y }: DropPoint) => {
+    const rect = zone.current?.getBoundingClientRect();
+    if (!rect) return false;
+    // The whole composer column accepts drops, not just the chips.
+    return x >= rect.left - 18 && x <= rect.right + 18 && y >= 0;
+  };
+  useNativeDrop({
+    onOver: at => setOver(inside(at)),
+    onLeave: () => setOver(false),
+    onDrop: (at, paths) => {
+      setOver(false);
+      if (inside(at)) onPaths(paths.filter(path => IMAGE_FILE.test(path)));
+    },
+  });
 }
