@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type {
   AcceptResult,
+  InspectView,
   PipelineEvent,
   PipelineView,
   ProjectManifest,
@@ -30,6 +31,33 @@ async function finished(handle: (cmd: string, args?: Record<string, unknown>) =>
 }
 
 describe('mock backend', () => {
+  it('inspects the scene with the presets the pipeline stores', async () => {
+    const { handle } = backend('configured');
+    const view = (await handle('inspect_project', { project: 'moon-island' })) as InspectView;
+    expect(view.comparisons[0]!.sides.map(s => s.label)).toEqual(['v6', 'v7']);
+    expect(view.stops.stops).toHaveLength(5);
+    const character = view.models.find(m => m.model === 'character')!;
+    expect(character.preset.lock).toMatch(/medium/);
+    await handle('pipeline_save_presets', {
+      project: 'moon-island',
+      presets: [
+        ...((await handle('pipeline_get', { project: 'moon-island' })) as PipelineView).def.presets,
+        {
+          model: 'flower_shrubs',
+          label: 'Shrubs',
+          textureSize: 512,
+          codec: 'uastc',
+          meshopt: 'low',
+          lock: null,
+        },
+      ],
+    });
+    const after = (await handle('inspect_project', { project: 'moon-island' })) as InspectView;
+    const shrubs = after.models.find(m => m.model === 'flower_shrubs')!;
+    expect(shrubs.label).toBe('Shrubs');
+    expect(shrubs.preset).toMatchObject({ codec: 'uastc', meshopt: 'low', hasRow: true });
+  });
+
   it('runs the pipeline, fails at posters once, then passes from there', async () => {
     const { handle, events } = backend('configured');
     const run = (await handle('pipeline_run', {

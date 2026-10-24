@@ -36,6 +36,7 @@ import type {
 } from '../client';
 import { DEFAULT_ROOT, HOME, defaultConfig, moonIsland, toolReports } from './fixtures';
 import { inboxItems } from './inbox-fixtures';
+import { inspectView } from './inspect-fixtures';
 import { dioramaPipeline, pipelineView, run24Log, runHistory } from './pipeline-fixtures';
 import { createFakeLab } from './lab';
 import { createFakeRunner, type RunStore } from './runner';
@@ -374,6 +375,18 @@ export function createBackend({
       }
       presets.set(String(id), next);
       return view(String(id));
+    },
+    inspect_project: ({ project: id }) => {
+      const p = project(String(id));
+      const v = view(p.id);
+      return inspectView(
+        p.id,
+        `${root ?? expand(DEFAULT_ROOT)}/projects/${p.id}`,
+        v.def.presets,
+        v.defaults,
+        config.budgets.sceneMb ?? 3,
+        config.budgets.trisPerModel
+      );
     },
     inbox_list: () => ({
       dir: '~/Maquette/inbox',

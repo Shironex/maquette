@@ -12,6 +12,7 @@ import { usePipelineStore } from '@/state/pipeline-store';
 import { BoardView } from '@/features/board/BoardView';
 import { InboxView } from '@/features/inbox/InboxView';
 import { LabView } from '@/features/lab/LabView';
+import { InspectorView } from '@/features/inspector/InspectorView';
 import { PipelineView } from '@/features/pipeline/PipelineView';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { PlaceholderView } from '@/features/tools/PlaceholderView';
@@ -130,6 +131,8 @@ function CurrentView({ view }: { view: ViewId }) {
       return <LabView />;
     case 'settings':
       return <SettingsView />;
+    case 'inspector':
+      return <InspectorView />;
     default:
       return <PlaceholderView view={view} />;
   }

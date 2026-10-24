@@ -10,6 +10,7 @@ import { createBackend } from './backend';
 import { DEFAULT_ROOT, HOME } from './fixtures';
 import { PREVIEW_FILE, thumbsDir } from './inbox-fixtures';
 import { conceptFiles, REF_FILES } from './lab-fixtures';
+import { INSPECT_FILES } from './inspect-fixtures';
 
 const params = new URLSearchParams(window.location.search);
 const root = DEFAULT_ROOT.replace('~', HOME);
@@ -51,6 +52,10 @@ for (const [path, url] of Object.entries(renders)) {
 for (const [file, model] of Object.entries(PREVIEW_FILE)) {
   const url = models[`../../assets/mock/models/${model}`];
   if (url) registerMockFile(`${root}/inbox/${file}`, url);
+}
+for (const [file, model] of Object.entries(INSPECT_FILES)) {
+  const url = models[`../../assets/mock/models/${model}`];
+  if (url) registerMockFile(`${root}/projects/moon-island/${file}`, url);
 }
 
 const handle = createBackend({
