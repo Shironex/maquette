@@ -66,7 +66,28 @@ export function ApprovalCard({ approval, floating }: { approval: Approval; float
           {formatAgo(approval.requestedAtMs ?? now, now)}
         </span>
       </div>
-      {send && approval.detail ? (
+      {send && approval.items.length > 0 ? (
+        <div className="ml-11 rounded-[7px] border border-line bg-raised text-meta">
+          <ul className="m-0 flex max-h-[180px] list-none flex-col overflow-y-auto p-0">
+            {approval.items.map(item => (
+              <li
+                key={item.job}
+                className="flex items-baseline gap-2 border-t border-line px-2.5 py-1 first:border-t-0"
+              >
+                <span className="flex-none font-medium text-fg">{item.assetName}</span>
+                <span className="min-w-0 truncate text-fg-mute" title={item.detail}>
+                  {item.detail}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {approval.detail ? (
+            <p className="border-t border-line px-2.5 py-1.5 font-medium text-fg-dim">
+              {approval.detail}
+            </p>
+          ) : null}
+        </div>
+      ) : send && approval.detail ? (
         <p className="ml-11 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 text-meta text-fg-dim">
           {approval.detail}
         </p>
@@ -86,7 +107,11 @@ export function ApprovalCard({ approval, floating }: { approval: Approval; float
           disabled={deciding}
           onClick={() => void decide(approval.id, true)}
         >
-          {send ? 'Approve and send' : 'Approve and ship'}
+          {send
+            ? approval.items.length > 1
+              ? `Approve and send ${approval.items.length}`
+              : 'Approve and send'
+            : 'Approve and ship'}
         </Button>
       </div>
     </section>

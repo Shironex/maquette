@@ -69,6 +69,20 @@ describe('agents', () => {
     expect(approvalTitle(approval, 'Moon Island')).toBe('Ship Moon Island, run 26?');
     expect(approvalTitle(approval)).toBe('Ship moon-island, run 26?');
     expect(approvalTitle(send)).toBe('Send Stone lantern to Tripo?');
+    const batch: Approval = {
+      ...send,
+      job: null,
+      assetName: null,
+      detail: '2 models in total, one model per asset',
+      items: [
+        { job: 'desk-lamp-1', assetName: 'Desk lamp', detail: 'Tripo H3.1, 1 image' },
+        { job: 'brush-cup-1', assetName: 'Brush cup', detail: 'Tripo H3.1, 1 image' },
+      ],
+    };
+    expect(approvalTitle(batch)).toBe('Send 2 assets to Tripo?');
+    expect(approvalTitle({ ...batch, items: batch.items.slice(0, 1) })).toBe(
+      'Send Desk lamp to Tripo?'
+    );
   });
 
   it('counts approvals by kind', () => {

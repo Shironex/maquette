@@ -34,7 +34,9 @@ export function clockTime(ms: number): string {
  */
 export function approvalTitle(approval: Approval, projectName?: string): string {
   if (approval.kind === 'send-to-3d') {
-    return `Send ${approval.assetName ?? 'this asset'} to ${approval.service ?? '3D'}?`;
+    const n = approval.items.length;
+    const what = n > 1 ? `${n} assets` : (approval.assetName ?? approval.items[0]?.assetName);
+    return `Send ${what ?? 'this asset'} to ${approval.service ?? '3D'}?`;
   }
   return `Ship ${projectName ?? approval.project}, run ${approval.runNumber ?? '?'}?`;
 }

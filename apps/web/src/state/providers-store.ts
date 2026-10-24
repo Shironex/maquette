@@ -6,15 +6,21 @@ import { create } from 'zustand';
 import {
   commands,
   errorMessage,
+  type BatchOptions,
+  type DownloadsScan,
   type KeyStatus,
+  type MeshyPreset,
+  type PresetVariant,
   type KeyTest,
   type ProviderEvent,
   type ProviderId,
   type ProviderJob,
   type SendOptions,
+  type TripoPreset,
 } from '@/ipc/client';
 import { useAppStore } from './app-store';
 import { PROVIDER_LABEL, SERVICE_LABEL, type SendDraft } from './providers';
+import { batchDraft, batchRequest, initialMatches, type BatchDraft } from './batch';
 
 interface Panel {
   project: string;
@@ -24,6 +30,26 @@ interface Panel {
   /** A By hand send that just wrote its folder: the panel shows its card. */
   handoff: ProviderJob | null;
   error: string | null;
+}
+
+interface BatchPanel {
+  project: string;
+  assets: string[];
+  options: BatchOptions | null;
+  draft: BatchDraft | null;
+  /** An API batch asks once before it spends credits. */
+  confirming: boolean;
+  error: string | null;
+}
+
+interface Downloads {
+  project: string;
+  scan: DownloadsScan | null;
+  error: string | null;
+  /** File path to the send it goes to, as the user set it. */
+  choices: Record<string, string | null>;
+  /** Files already handed back. */
+  used: string[];
 }
 
 interface ProvidersStore {
@@ -56,6 +82,33 @@ interface ProvidersStore {
   saveKey: (service: ProviderId, key: string) => Promise<boolean>;
   removeKey: (service: ProviderId) => Promise<void>;
   testKey: (service: ProviderId, key: string | null) => Promise<KeyTest | null>;
+  batch: BatchPanel | null;
+  openBatch: (project: string, assets: string[]) => Promise<void>;
+  closeBatch: () => void;
+  setBatch: (patch: Partial<Pick<BatchDraft, 'provider' | 'service'>>) => void;
+  setItemVariant: (asset: string, variant: PresetVariant) => void;
+  /** This batch's copy of one preset; the saved presets stay. */
+  setBatchPreset: (
+    variant: PresetVariant,
+    preset: { tripo?: TripoPreset; meshy?: MeshyPreset }
+  ) => void;
+  /** Starts the batch's presets over from the saved ones. */
+  resetBatchPresets: () => void;
+  /** Sends the batch; an API batch first asks for a confirm. */
+  sendBatch: () => Promise<void>;
+  /** The By hand checklist sheet is open. */
+  checklistOpen: boolean;
+  setChecklistOpen: (open: boolean) => void;
+  downloads: Downloads | null;
+  checkDownloads: () => Promise<void>;
+  chooseMatch: (path: string, job: string | null) => void;
+  /** Copies the file into the inbox for its chosen send. The original stays. */
+  useDownload: (path: string) => Promise<void>;
+  closeDownloads: () => void;
+  /** Opens the file picker for a GLB or zip, then hands it back. */
+  addModel: (id: string) => Promise<void>;
+  openSite: (service: ProviderId) => Promise<void>;
+  revealImage: (id: string, image: string) => Promise<void>;
 }
 
 const notify = (status: 'done' | 'failed' | 'info', title: string, detail?: string) =>
@@ -86,6 +139,13 @@ function draftFrom(options: SendOptions, provider: SendDraft['provider'] = 'trip
   };
 }
 
+/** The saved presets, both variants, for a batch. */
+function savedPresets() {
+  const providers = useAppStore.getState().workspace?.config.providers;
+  if (!providers) throw new Error('Open a workspace first.');
+  return { tripo: providers.tripo, meshy: providers.meshy };
+}
+
 export const useProvidersStore = create<ProvidersStore>((set, get) => ({
   project: null,
   jobs: [],
@@ -95,6 +155,9 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
   sending: false,
   busy: [],
   keyBusy: null,
+  batch: null,
+  checklistOpen: false,
+  downloads: null,
 
   load: async project => {
     if (get().project !== project) {
@@ -330,6 +393,167 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
       return { service, ok: false, balance: null, message: errorMessage(error) };
     } finally {
       set({ keyBusy: null });
+    }
+  },
+
+  openBatch: async (project, assets) => {
+    set({
+      panel: null,
+      batch: { project, assets, options: null, draft: null, confirming: false, error: null },
+    });
+    try {
+      const options = await commands.providerBatchOptions(project, assets);
+      const current = get().batch;
+      if (current?.project !== project || current.assets !== assets) return;
+      const saved = savedPresets();
+      set({
+        keys: options.keys,
+        batch: { ...current, options, draft: batchDraft(options, saved.tripo, saved.meshy) },
+      });
+    } catch (error) {
+      const current = get().batch;
+      if (current?.assets === assets) set({ batch: { ...current, error: errorMessage(error) } });
+    }
+  },
+
+  closeBatch: () => set({ batch: null }),
+
+  setBatch: patch => {
+    const batch = get().batch;
+    if (!batch?.draft) return;
+    const draft = { ...batch.draft, ...patch };
+    if (patch.provider && patch.provider !== 'by-hand') draft.service = patch.provider;
+    set({ batch: { ...batch, draft, confirming: false } });
+  },
+
+  setItemVariant: (asset, variant) => {
+    const batch = get().batch;
+    if (!batch?.draft) return;
+    const items = batch.draft.items.map(i => (i.asset === asset ? { ...i, variant } : i));
+    set({ batch: { ...batch, draft: { ...batch.draft, items }, confirming: false } });
+  },
+
+  setBatchPreset: (variant, preset) => {
+    const batch = get().batch;
+    if (!batch?.draft) return;
+    const draft = { ...batch.draft };
+    if (preset.tripo) draft.tripo = { ...draft.tripo, [variant]: preset.tripo };
+    if (preset.meshy) draft.meshy = { ...draft.meshy, [variant]: preset.meshy };
+    set({ batch: { ...batch, draft, confirming: false } });
+  },
+
+  resetBatchPresets: () => {
+    const batch = get().batch;
+    if (!batch?.draft) return;
+    const saved = savedPresets();
+    set({
+      batch: {
+        ...batch,
+        draft: {
+          ...batch.draft,
+          tripo: structuredClone(saved.tripo),
+          meshy: structuredClone(saved.meshy),
+        },
+        confirming: false,
+      },
+    });
+  },
+
+  sendBatch: async () => {
+    const batch = get().batch;
+    const draft = batch?.draft;
+    if (!batch || !draft || get().sending) return;
+    if (draft.provider !== 'by-hand' && !batch.confirming) {
+      set({ batch: { ...batch, confirming: true } });
+      return;
+    }
+    set({ sending: true });
+    try {
+      const sent = await commands.providerSendBatch(batchRequest(batch.project, draft));
+      set(s => ({ jobs: sent.jobs.reduce(upsert, s.jobs), batch: null }));
+      const n = sent.jobs.length;
+      const failed = sent.failed.map(f => `${f.asset}: ${f.message}`).join(' ');
+      if (draft.provider === 'by-hand') {
+        set({ checklistOpen: true });
+        notify(
+          sent.failed.length ? 'failed' : 'done',
+          `${n} ${n === 1 ? 'handoff folder' : 'handoff folders'} written`,
+          failed || 'Make each model in the web app, then add it from the checklist.'
+        );
+      } else {
+        notify(
+          sent.failed.length ? 'failed' : 'done',
+          `${n} ${n === 1 ? 'asset is' : 'assets are'} on the way to ${PROVIDER_LABEL[draft.provider]}`,
+          failed || 'Follow them in the 3D queue. Each model lands in the Inbox.'
+        );
+      }
+    } catch (error) {
+      const current = get().batch;
+      if (current) set({ batch: { ...current, confirming: false } });
+      notify('failed', 'Could not send the batch', errorMessage(error));
+    } finally {
+      set({ sending: false });
+    }
+  },
+
+  setChecklistOpen: checklistOpen => set({ checklistOpen }),
+
+  checkDownloads: async () => {
+    const project = get().project;
+    if (!project) return;
+    set({ downloads: { project, scan: null, error: null, choices: {}, used: [] } });
+    try {
+      const scan = await commands.providerCheckDownloads(project);
+      if (get().downloads?.project !== project) return;
+      set({ downloads: { project, scan, error: null, choices: initialMatches(scan), used: [] } });
+    } catch (error) {
+      if (get().downloads?.project !== project) return;
+      set({
+        downloads: { project, scan: null, error: errorMessage(error), choices: {}, used: [] },
+      });
+    }
+  },
+
+  chooseMatch: (path, job) => {
+    const downloads = get().downloads;
+    if (!downloads) return;
+    set({ downloads: { ...downloads, choices: { ...downloads.choices, [path]: job } } });
+  },
+
+  useDownload: async path => {
+    const job = get().downloads?.choices[path];
+    if (!job) return;
+    await get().handBack(job, path);
+    // A failed hand-back keeps the job waiting; only a taken file is done.
+    if (get().jobs.find(j => j.id === job)?.state === 'waiting') return;
+    const downloads = get().downloads;
+    if (downloads) set({ downloads: { ...downloads, used: [...downloads.used, path] } });
+  },
+
+  closeDownloads: () => set({ downloads: null }),
+
+  addModel: async id => {
+    try {
+      const file = await commands.dialogPickModel('Choose the model you made');
+      if (file) await get().handBack(id, file);
+    } catch (error) {
+      notify('failed', 'Could not open the file picker', errorMessage(error));
+    }
+  },
+
+  openSite: async service => {
+    try {
+      await commands.providerOpenSite(service);
+    } catch (error) {
+      notify('failed', `Could not open ${SERVICE_LABEL[service]}`, errorMessage(error));
+    }
+  },
+
+  revealImage: async (id, image) => {
+    try {
+      await commands.providerRevealImage(id, image);
+    } catch (error) {
+      notify('failed', 'Could not show the image', errorMessage(error));
     }
   },
 }));
