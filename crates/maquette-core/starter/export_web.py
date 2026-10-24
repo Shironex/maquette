@@ -14,8 +14,21 @@ for example "Shop House" becomes web/raw/shop_house.glb. Cameras and lights
 are never exported. Geometry stays uncompressed (no Draco): the Compress
 step applies meshopt and KTX2 from the presets.
 
---bake is the Bake light folder. The starter export only logs what bake.json
-says; when you bake for real, hook the maps up to the materials here.
+Baked light: --bake is the Bake light folder. For every object listed in
+its bake.json the export
+- keeps the object's UV sets: the texture UV as TEXCOORD_0 and "lightmap"
+  as TEXCOORD_1;
+- adds the object's <name>_light.png as the emissive texture, sampled with
+  the "lightmap" UV (an Image Texture fed by a UV Map node into the
+  Principled BSDF's Emission Color, strength 1);
+- sets the material custom properties {"lightmap": <scale>, "lightmapUv":
+  1}, written as glTF material extras (export_extras is on).
+A web page that finds those extras swaps the material for an unlit one
+that shows albedo * emissive texture * lightmap, the baked light at its
+real brightness. Viewers that know nothing about it show the lightmap as a
+glow. Objects without a bake, and every object when bake.json says
+"baked": false, export as they are and are lit in real time. The blend is
+never saved, so these material edits only end up in the GLBs.
 """
 
 import argparse
@@ -79,6 +92,59 @@ def groups(scene):
     return found
 
 
+def load_bake(folder):
+    """The baked objects from bake.json, {} when there is no bake."""
+    path = os.path.join(folder, "bake.json")
+    if not os.path.isfile(path):
+        log(f"no {path}, materials export as they are")
+        return {}
+    with open(path, encoding="utf-8") as fh:
+        report = json.load(fh)
+    if not report.get("baked"):
+        log("no baked light, materials export as they are")
+        return {}
+    return report.get("objects", {})
+
+
+def principled(material):
+    if material is None or material.node_tree is None:
+        return None
+    return next((n for n in material.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+
+
+def hook_lightmap(obj, entry, folder):
+    """Puts the object's lightmap on its materials as the emissive texture."""
+    uvs = obj.data.uv_layers
+    index = uvs.find(entry.get("uv", "lightmap"))
+    path = os.path.join(folder, entry["file"])
+    if index < 0 or not os.path.isfile(path):
+        log(f"{obj.name}: no lightmap UV or no {path}, exported without baked light")
+        return False
+    image = bpy.data.images.load(os.path.abspath(path), check_existing=True)
+    hooked = 0
+    for slot in obj.material_slots:
+        material = slot.material
+        bsdf = principled(material)
+        if bsdf is None:
+            continue
+        tree = material.node_tree
+        uv = tree.nodes.new("ShaderNodeUVMap")
+        uv.uv_map = uvs[index].name
+        tex = tree.nodes.new("ShaderNodeTexImage")
+        tex.image = image
+        tree.links.new(uv.outputs["UV"], tex.inputs["Vector"])
+        tree.links.new(tex.outputs["Color"], bsdf.inputs["Emission Color"])
+        bsdf.inputs["Emission Strength"].default_value = 1.0
+        material["lightmap"] = float(entry["scale"])
+        material["lightmapUv"] = index
+        hooked += 1
+    log(
+        f"lightmap {entry['file']} on {obj.name}: {hooked} materials, "
+        f"scale {entry['scale']}, {len(uvs)} UV sets, lightmap is TEXCOORD_{index}"
+    )
+    return hooked > 0
+
+
 def export(path, objects):
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objects:
@@ -90,6 +156,7 @@ def export(path, objects):
         export_format="GLB",
         use_selection=True,
         export_apply=True,
+        export_extras=True,
         export_cameras=False,
         export_lights=False,
         export_yup=True,
@@ -98,12 +165,17 @@ def export(path, objects):
 
 def main():
     args = parse_args()
-    bake_report = os.path.join(args.bake, "bake.json")
-    if os.path.isfile(bake_report):
-        with open(bake_report, encoding="utf-8") as fh:
-            baked = json.load(fh).get("baked", False)
-        log("using baked light" if baked else "no baked light, materials export as they are")
     scene = bpy.context.scene
+    baked = load_bake(args.bake)
+    lit = 0
+    for name, entry in baked.items():
+        obj = bpy.data.objects.get(name)
+        if obj is None or obj.type != "MESH":
+            log(f"{name} is in bake.json but is no mesh in this blend, skipped")
+            continue
+        lit += hook_lightmap(obj, entry, args.bake)
+    if baked:
+        log(f"baked light on {lit} of {len(baked)} objects")
     found = groups(scene)
     if not found:
         log("nothing to export: add .glb files to models/ and run Build scene again")
