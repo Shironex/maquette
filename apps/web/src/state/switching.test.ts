@@ -21,7 +21,13 @@ afterEach(() => {
   clearMocks();
   useLabStore.setState({ view: null, selected: null, lightbox: null, busy: null });
   usePipelineStore.setState({ view: null });
-  useProvidersStore.setState({ project: null, jobs: [], panel: null });
+  useProvidersStore.setState({
+    project: null,
+    jobs: [],
+    panel: null,
+    batch: null,
+    downloads: null,
+  });
 });
 
 describe('switching projects', () => {
@@ -50,6 +56,20 @@ describe('switching projects', () => {
     expect(after.view?.directions.some(d => d.id === lab.selected)).toBe(false);
     expect(useProvidersStore.getState().project).toBe('rooftop-cinema');
     expect(useProvidersStore.getState().panel).toBeNull();
+  });
+
+  it('closes the batch sheet and the downloads of the project left', async () => {
+    await openMockWorkspace('configured', undefined, 'batch');
+    await follow('moon-island');
+    await useProvidersStore.getState().openBatch('moon-island', ['desk-lamp', 'brush-cup']);
+    await useProvidersStore.getState().checkDownloads();
+    expect(useProvidersStore.getState().batch?.project).toBe('moon-island');
+    expect(useProvidersStore.getState().downloads?.project).toBe('moon-island');
+
+    await useProjectsStore.getState().switchTo('rooftop-cinema');
+    await follow('rooftop-cinema');
+    expect(useProvidersStore.getState().batch).toBeNull();
+    expect(useProvidersStore.getState().downloads).toBeNull();
   });
 
   it('drops an answer for the project it just left', async () => {
