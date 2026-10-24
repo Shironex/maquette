@@ -10,7 +10,7 @@ use std::time::Duration;
 use maquette_core::pipeline::StepDef;
 use maquette_core::pipeline::history::{LogEntry, RunRecord, now_ms};
 use maquette_core::pipeline::runner::PipelineEvent;
-use maquette_core::providers::ProviderJob;
+use maquette_core::providers::{ProviderJob, format_credits};
 use serde::{Deserialize, Serialize};
 
 /// How many calls the activity list keeps.
@@ -59,6 +59,16 @@ pub enum ApprovalKind {
     SendTo3d,
 }
 
+/// One send of a batch approval.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ApprovalItem {
+    pub job: String,
+    pub asset_name: String,
+    /// Its settings in a few words.
+    pub detail: String,
+}
+
 /// Something an agent asked for that waits for a yes or no in the app.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -75,7 +85,20 @@ pub struct Approval {
     pub asset_name: Option<String>,
     pub service: Option<String>,
     pub detail: Option<String>,
+    /// A batch send: every send it holds, all approved or denied at once.
+    pub items: Vec<ApprovalItem>,
     pub requested_at_ms: f64,
+}
+
+impl Approval {
+    /// The provider jobs this approval releases.
+    pub fn jobs(&self) -> Vec<String> {
+        self.job
+            .iter()
+            .cloned()
+            .chain(self.items.iter().map(|i| i.job.clone()))
+            .collect()
+    }
 }
 
 #[derive(Default)]
@@ -207,7 +230,7 @@ impl Hub {
         self.lock()
             .approvals
             .iter()
-            .find(|a| a.job.as_deref() == Some(job_id))
+            .find(|a| a.job.as_deref() == Some(job_id) || a.items.iter().any(|i| i.job == job_id))
             .cloned()
     }
 
@@ -236,6 +259,7 @@ impl Hub {
             asset_name: None,
             service: None,
             detail: None,
+            items: Vec::new(),
             requested_at_ms: now_ms(),
         })
     }
@@ -253,8 +277,52 @@ impl Hub {
             asset_name: Some(job.asset_name.clone()),
             service: Some(job.provider.label().to_string()),
             detail: Some(job.summary()),
+            items: Vec::new(),
             requested_at_ms: now_ms(),
         })
+    }
+
+    /// Records one approval for a batch of sends an agent asked for. The
+    /// detail says the total: how many models, and the credits already
+    /// known (none before anything is sent, so it counts models).
+    pub fn request_batch(&self, jobs: &[ProviderJob]) -> Option<String> {
+        let first = jobs.first()?;
+        let models = match jobs.len() {
+            1 => "1 model".to_string(),
+            n => format!("{n} models"),
+        };
+        let credits: f64 = jobs.iter().filter_map(|j| j.credits).sum();
+        let detail = if credits > 0.0 {
+            format!(
+                "{models} in total, {} credits so far",
+                format_credits(credits)
+            )
+        } else {
+            format!("{models} in total, one model per asset")
+        };
+        Some(self.push(|id| {
+            Approval {
+                id,
+                kind: ApprovalKind::SendTo3d,
+                project: first.project.clone(),
+                run_id: None,
+                run_number: None,
+                step: None,
+                job: None,
+                asset_name: None,
+                service: Some(first.provider.label().to_string()),
+                detail: Some(detail),
+                items: jobs
+                    .iter()
+                    .map(|j| ApprovalItem {
+                        job: j.id.clone(),
+                        asset_name: j.asset_name.clone(),
+                        detail: j.summary(),
+                    })
+                    .collect(),
+                requested_at_ms: now_ms(),
+            }
+        }))
     }
 
     /// Approves or denies. False when the approval is gone (decided already,
@@ -379,5 +447,38 @@ mod tests {
         let id = hub.request_approval(&run("moon-run-4"), &ship());
         assert_eq!(hub.wait_decision(&id, &AtomicBool::new(true)), None);
         assert!(hub.approvals().is_empty());
+    }
+
+    #[test]
+    fn a_batch_approval_covers_every_job_of_it() {
+        let hub = Hub::new(|| {});
+        assert!(hub.request_batch(&[]).is_none());
+        let job = |id: &str, name: &str| {
+            let json = serde_json::json!({
+                "id": id, "project": "landing", "asset": id, "assetName": name,
+                "provider": "tripo", "service": "tripo", "variant": "prop",
+                "images": ["refs/a.png"], "tripo": null, "meshy": null, "state": "approval",
+                "phase": null, "progress": 0.0, "remoteId": null, "credits": null,
+                "createdAtMs": 0.0, "startedAtMs": null, "finishedAtMs": null, "message": null,
+                "inboxFile": null, "handoff": null, "card": null, "version": null,
+                "viaAgent": true, "cancel": "free", "batch": "batch-1"
+            });
+            serde_json::from_value::<ProviderJob>(json).expect("job")
+        };
+        let id = hub
+            .request_batch(&[job("lamp-1", "Desk lamp"), job("cup-1", "Brush cup")])
+            .expect("approval");
+        let pending = hub.pending_for_job("cup-1").expect("covered");
+        assert_eq!(pending.id, id);
+        assert_eq!(
+            pending.jobs(),
+            vec!["lamp-1".to_string(), "cup-1".to_string()]
+        );
+        assert_eq!(
+            pending.detail.as_deref(),
+            Some("2 models in total, one model per asset")
+        );
+        assert!(hub.decide(&id, true));
+        assert!(hub.pending_for_job("lamp-1").is_none());
     }
 }

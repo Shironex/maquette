@@ -12,17 +12,17 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use maquette_core::concepts::{Aspect, NewConcepts};
+use maquette_core::concepts::{Aspect, NewConcepts, NewObjectRefs};
 use maquette_core::inbox::{self, AcceptRequest};
 use maquette_core::pipeline::cache::project_cache_dir;
 use maquette_core::pipeline::history::{self, LogEntry, RunRecord, RunState};
 use maquette_core::pipeline::runner::{JobRunner as _, RunOptions, StepGate};
 use maquette_core::providers::{
-    JobState, MeshyPreset, PresetVariant, Provider, ProviderId, ProviderJob, SendRequest,
-    TripoPreset,
+    BatchItem, BatchRequest, JobState, MeshyPreset, PresetVariant, Provider, ProviderId,
+    ProviderJob, SendRequest, TripoPreset,
 };
 use maquette_core::thumbs::{self, Requested, ThumbTarget};
-use maquette_core::{ErrorPayload, concepts, project};
+use maquette_core::{AssetKind, ErrorPayload, concepts, project};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::tool::ToolCallContext;
 use rmcp::handler::server::wrapper::Parameters;
@@ -49,7 +49,9 @@ run_pipeline runs a project's pipeline; when it reaches the Ship step it may ans
 \"waiting for approval\": a person approves or denies shipping in the Maquette app, \
 so poll get_run instead of starting the run again. send_to_3d sends an asset's refs to \
 Tripo or Meshy (it always waits for a person to approve the credits in the app; follow it \
-with get_provider_job) or writes a by hand handoff folder. get_concepts reads the Lab. \
+with get_provider_job) or writes a by hand handoff folder; send_batch_to_3d sends several \
+assets at once under one approval. make_object_refs turns the objects of one concept into \
+one isolated image each. get_concepts reads the Lab. \
 Blender always runs headless here; there is no tool that opens Blender's window or \
 captures the screen.";
 
@@ -226,6 +228,25 @@ pub struct ConceptsArgs {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ObjectRefsArgs {
+    /// The project id.
+    pub project: String,
+    /// The concept to take the objects from, relative to the project folder, for example
+    /// "concepts/workbench-hero/workbench-hero_01.png" or "refs/workbench.png".
+    pub source: String,
+    /// One name per object, for example ["desk lamp", "plaster plinth with clay figure"]. At most 12.
+    pub objects: Vec<String>,
+    /// "prop" (default) or "character": what the objects become on the Board.
+    pub kind: Option<VariantArg>,
+    /// The aspect ratio, 1:1 by default.
+    pub aspect: Option<AspectArg>,
+    /// The new direction is called "<name> objects". By default the source's direction name,
+    /// or its file name.
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct GetConceptsArgs {
     /// The project id.
     pub project: String,
@@ -277,6 +298,36 @@ pub struct SendTo3dArgs {
     /// Preset fields to change for this send only, named as in the workspace preset,
     /// for example {"faceLimit": 20000, "rig": false} for Tripo or
     /// {"aiModel": "meshy-6", "targetPolycount": 30000} for Meshy.
+    pub overrides: Option<serde_json::Map<String, Value>>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchItemArg {
+    /// The asset id, as list_assets returns it.
+    pub asset: String,
+    /// "prop" or "character". By default from the asset's kind.
+    pub variant: Option<VariantArg>,
+    /// Images relative to the project folder, front first, at most 4. By default the
+    /// asset's own refs.
+    #[serde(default)]
+    pub images: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SendBatchArgs {
+    /// The project id.
+    pub project: String,
+    /// The same provider for every asset. "tripo" or "meshy" spend credits and wait for one
+    /// approval in the app for the whole batch; "by-hand" writes one handoff folder per asset.
+    pub provider: ProviderArg,
+    /// By hand only: whose web app the settings cards are for, "tripo" by default.
+    pub service: Option<ServiceArg>,
+    /// One model per asset, at most 24.
+    pub items: Vec<BatchItemArg>,
+    /// Preset fields to change for this batch only, laid over both the prop and the
+    /// character preset, for example {"faceLimit": 20000}.
     pub overrides: Option<serde_json::Map<String, Value>>,
 }
 
@@ -541,24 +592,118 @@ fn send_request(host: &dyn Host, args: &SendTo3dArgs) -> Result<SendRequest, Str
     })
 }
 
+fn variant(arg: Option<VariantArg>, fallback: PresetVariant) -> PresetVariant {
+    match arg {
+        Some(VariantArg::Prop) => PresetVariant::Prop,
+        Some(VariantArg::Character) => PresetVariant::Character,
+        None => fallback,
+    }
+}
+
+/// Builds the batch an agent asked for: each asset's own refs and kind
+/// unless given, one preset per variant with the overrides laid over both.
+fn batch_request(host: &dyn Host, args: &SendBatchArgs) -> Result<BatchRequest, String> {
+    let (_, config) = workspace(host)?;
+    let ids: Vec<String> = args.items.iter().map(|i| i.asset.clone()).collect();
+    let options = providers::batch_options(host.session(), host.studio(), &args.project, &ids)
+        .map_err(|e| e.message)?;
+    let mut items = Vec::new();
+    for arg in &args.items {
+        let Some(found) = options.items.iter().find(|o| o.asset.id == arg.asset) else {
+            return Err(format!("{} is in the batch twice.", arg.asset));
+        };
+        let images = if arg.images.is_empty() {
+            found.suggested.clone()
+        } else {
+            arg.images.clone()
+        };
+        if images.is_empty() {
+            return Err(format!(
+                "{} has no refs of its own yet. Pass its images, for example [\"refs/{}.png\"].",
+                found.asset.name,
+                found.asset.id.replace('-', "_")
+            ));
+        }
+        items.push(BatchItem {
+            asset: found.asset.id.clone(),
+            variant: variant(arg.variant, found.variant),
+            images,
+        });
+    }
+    let (provider, service) = match args.provider {
+        ProviderArg::Tripo => (Provider::Tripo, ProviderId::Tripo),
+        ProviderArg::Meshy => (Provider::Meshy, ProviderId::Meshy),
+        ProviderArg::ByHand => (
+            Provider::ByHand,
+            match args.service {
+                Some(ServiceArg::Meshy) => ProviderId::Meshy,
+                _ => ProviderId::Tripo,
+            },
+        ),
+    };
+    let overrides = args.overrides.as_ref();
+    let p = &config.providers;
+    let tripo = service == ProviderId::Tripo;
+    Ok(BatchRequest {
+        project: args.project.clone(),
+        provider,
+        service,
+        items,
+        tripo_prop: tripo
+            .then(|| with_overrides(p.tripo(PresetVariant::Prop), overrides))
+            .transpose()?,
+        tripo_character: tripo
+            .then(|| with_overrides(p.tripo(PresetVariant::Character), overrides))
+            .transpose()?,
+        meshy_prop: (!tripo)
+            .then(|| with_overrides(p.meshy(PresetVariant::Prop), overrides))
+            .transpose()?,
+        meshy_character: (!tripo)
+            .then(|| with_overrides(p.meshy(PresetVariant::Character), overrides))
+            .transpose()?,
+    })
+}
+
+/// The name an object refs direction starts with when the agent gives
+/// none: the source's direction, else its file name.
+fn source_name(project_dir: &Path, source: &str) -> String {
+    let clean = source.replace('\\', "/");
+    let mut parts = clean.split('/');
+    if parts.next() == Some(concepts::CONCEPTS_DIR)
+        && let Some(id) = parts.next()
+        && let Ok(Some(direction)) = concepts::load_direction(project_dir, id)
+    {
+        return direction.name;
+    }
+    Path::new(&clean)
+        .file_stem()
+        .map(|s| s.to_string_lossy().replace(['_', '-'], " "))
+        .unwrap_or_default()
+}
+
 /// Waits for the person's answer on its own thread, then releases or drops
-/// the job. A job cancelled from the app's queue withdraws its approval.
-fn await_send_approval(host: Arc<dyn Host>, hub: Arc<Hub>, approval: String, job: String) {
+/// every job it covers. Jobs cancelled from the app's queue withdraw the
+/// approval once none is left waiting.
+fn await_send_approval(host: Arc<dyn Host>, hub: Arc<Hub>, approval: String, jobs: Vec<String>) {
     let spawned = std::thread::Builder::new()
         .name("send-approval".into())
         .spawn(move || {
-            let gone = || {
+            let waiting = |id: &String| {
                 host.studio()
-                    .get(&job)
-                    .is_none_or(|j| j.state != JobState::Approval)
+                    .get(id)
+                    .is_some_and(|j| j.state == JobState::Approval)
             };
-            let result = match hub.wait_until(&approval, gone) {
-                Some(true) => host.studio().approve(&job).map(|_| ()),
-                Some(false) => host.studio().deny(&job).map(|_| ()),
-                None => Ok(()),
-            };
-            if let Err(err) = result {
-                tracing::warn!(job, error = %err, "could not answer a send approval");
+            let gone = || !jobs.iter().any(waiting);
+            let answer = hub.wait_until(&approval, gone);
+            for job in jobs.iter().filter(|j| waiting(j)) {
+                let result = match answer {
+                    Some(true) => host.studio().approve(job).map(|_| ()),
+                    Some(false) => host.studio().deny(job).map(|_| ()),
+                    None => Ok(()),
+                };
+                if let Err(err) = result {
+                    tracing::warn!(job, error = %err, "could not answer a send approval");
+                }
             }
         });
     if let Err(err) = spawned {
@@ -1009,6 +1154,7 @@ a project id; no tool changes which project the app has open.",
                                     "starred": i.starred,
                                     "picked": i.picked,
                                     "refFile": i.ref_file,
+                                    "title": i.title,
                                 })
                             })
                             .collect();
@@ -1018,6 +1164,8 @@ a project id; no tool changes which project the app has open.",
                             "prompt": d.prompt,
                             "aspect": d.aspect.ratio(),
                             "refs": d.refs,
+                            "source": d.source,
+                            "kind": to_value(d.kind),
                             "images": images,
                         })
                     })
@@ -1074,7 +1222,7 @@ a project id; no tool changes which project the app has open.",
                 Arc::clone(&self.host),
                 Arc::clone(&self.hub),
                 approval,
-                job.id.clone(),
+                vec![job.id.clone()],
             );
         }
         let mut out = job_value(&self.hub, &job);
@@ -1086,6 +1234,105 @@ a project id; no tool changes which project the app has open.",
             ));
         }
         json_result(&out)
+    }
+
+    #[tool(
+        description = "Send several assets to 3D at once, one model per asset, with the same provider and settings (each asset keeps its own refs and prop or character preset unless given). \"tripo\" or \"meshy\" spend credits, so the whole batch waits for one approval in the Maquette app that lists every asset; follow each job with get_provider_job. \"by-hand\" spends nothing and writes one handoff folder per asset. Every item is checked before any goes out."
+    )]
+    async fn send_batch_to_3d(&self, Parameters(args): Parameters<SendBatchArgs>) -> Out {
+        let sent = self
+            .blocking(move |host, hub| {
+                let request = batch_request(host, &args)?;
+                let approval = request.provider != Provider::ByHand;
+                let sent = host
+                    .studio()
+                    .send_batch(&request, approval, true)
+                    .map_err(reason)?;
+                let waiting: Vec<ProviderJob> = sent
+                    .jobs
+                    .iter()
+                    .filter(|j| j.state == JobState::Approval)
+                    .cloned()
+                    .collect();
+                let pending = hub.request_batch(&waiting);
+                let ids = waiting.into_iter().map(|j| j.id).collect::<Vec<_>>();
+                Ok((sent, pending, ids))
+            })
+            .await;
+        let (sent, pending, ids) = match sent {
+            Ok(sent) => sent,
+            Err(message) => return failed(message),
+        };
+        if let Some(approval) = pending {
+            await_send_approval(Arc::clone(&self.host), Arc::clone(&self.hub), approval, ids);
+        }
+        let jobs: Vec<Value> = sent.jobs.iter().map(|j| job_value(&self.hub, j)).collect();
+        let by_hand = sent
+            .jobs
+            .first()
+            .is_some_and(|j| j.provider == Provider::ByHand);
+        let status = if by_hand || sent.jobs.is_empty() {
+            "started"
+        } else {
+            WAITING
+        };
+        let mut out = json!({
+            "status": status,
+            "batch": sent.batch,
+            "jobs": jobs,
+            "failed": sent.failed.iter().map(|f| json!({ "asset": f.asset, "message": f.message })).collect::<Vec<_>>(),
+        });
+        out["note"] = json!(if by_hand {
+            "Nothing is spent. Each asset has its own handoff folder with its images and settings card; a person makes the models in the web app and brings each GLB back in Maquette."
+        } else {
+            "A person approves or denies the whole batch once in the Maquette app. Poll get_provider_job for each job; do not send again."
+        });
+        json_result(&out)
+    }
+
+    #[tool(
+        description = "Make object refs from one concept: for each object named, Codex makes one image of only that object (centered, whole, front three-quarter view, plain light grey background, soft light, no text), with the concept attached as the reference. The images land in a new Lab direction \"<name> objects\", each titled by its object; read them with get_concepts. Each image spends Codex usage."
+    )]
+    async fn make_object_refs(&self, Parameters(args): Parameters<ObjectRefsArgs>) -> Out {
+        let found = self
+            .blocking(move |host, _| {
+                let (root, config) = workspace(host)?;
+                let dir = project::dir(&root, &config.layout, &args.project).map_err(reason)?;
+                let name = args
+                    .name
+                    .clone()
+                    .filter(|n| !n.trim().is_empty())
+                    .unwrap_or_else(|| source_name(&dir, &args.source));
+                let request = NewObjectRefs {
+                    project: args.project,
+                    source: args.source,
+                    source_name: name,
+                    objects: args.objects,
+                    aspect: args.aspect.map_or(Aspect::Square, Aspect::from),
+                    kind: match args.kind {
+                        Some(VariantArg::Character) => AssetKind::Character,
+                        _ => AssetKind::Prop,
+                    },
+                };
+                let tools = host.toolbox();
+                let (direction, jobs) =
+                    lab::make_objects(host.session(), host.concepts(), &tools, &request)
+                        .map_err(|e| e.message)?;
+                let jobs: Vec<Value> = jobs
+                    .iter()
+                    .map(|j| {
+                        json!({ "id": j.id, "object": j.title, "file": j.file, "state": to_value(j.state) })
+                    })
+                    .collect();
+                Ok(json!({
+                    "status": "started",
+                    "direction": { "id": direction.id, "name": direction.name },
+                    "jobs": jobs,
+                    "note": "Each file appears at its path, relative to the project folder, once Codex saves it.",
+                }))
+            })
+            .await;
+        respond(found)
     }
 
     #[tool(

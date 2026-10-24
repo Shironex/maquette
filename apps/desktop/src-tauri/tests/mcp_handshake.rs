@@ -131,25 +131,25 @@ fn fixture(dir: &Path) -> (Session, String, std::path::PathBuf) {
     )
     .expect("project");
     project::modify(&root, &config.layout, &manifest.id, |m| {
-        assets::add(
-            m,
-            NewAsset {
-                name: "Stone lantern".into(),
-                kind: AssetKind::Prop,
-                stage: Stage::Refs,
-            },
-        )
-        .map(|_| ())
+        for name in ["Stone lantern", "Desk lamp"] {
+            assets::add(
+                m,
+                NewAsset {
+                    name: name.into(),
+                    kind: AssetKind::Prop,
+                    stage: Stage::Refs,
+                },
+            )?;
+        }
+        Ok(())
     })
     .expect("asset");
     let project_dir = project::dir(&root, &config.layout, &manifest.id).expect("dir");
     let refs = project_dir.join("refs");
     std::fs::create_dir_all(&refs).expect("refs");
-    std::fs::write(
-        refs.join("stone_lantern_front.png"),
-        b"\x89PNG\r\n\x1a\nfake",
-    )
-    .expect("ref");
+    for name in ["stone_lantern_front.png", "desk_lamp.png"] {
+        std::fs::write(refs.join(name), b"\x89PNG\r\n\x1a\nfake").expect("ref");
+    }
     let mut def = pipeline::ensure(&project_dir, &manifest).expect("pipeline");
     def.steps = vec![
         shell_step("build", "Build", "tools/build.sh", &[]),
@@ -299,8 +299,10 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "list_assets",
             "list_inbox",
             "list_projects",
+            "make_object_refs",
             "render_thumbnail",
             "run_pipeline",
+            "send_batch_to_3d",
             "send_to_3d",
             "start_concepts",
         ]
@@ -487,6 +489,82 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     )
     .await;
     assert_eq!(listed["jobs"].as_array().map(Vec::len), Some(2));
+
+    // A batch to Tripo waits for one approval that lists every asset.
+    let batch = call(
+        &client,
+        "send_batch_to_3d",
+        json!({
+            "project": project_id,
+            "provider": "tripo",
+            "items": [{ "asset": "stone-lantern" }, { "asset": "desk-lamp", "variant": "character" }],
+        }),
+    )
+    .await;
+    assert_eq!(batch["status"], json!("waiting for approval"), "{batch}");
+    let batch_jobs = batch["jobs"].as_array().expect("jobs").clone();
+    assert_eq!(batch_jobs.len(), 2);
+    assert_eq!(batch_jobs[1]["images"], json!(["refs/desk_lamp.png"]));
+    let approvals = hub.approvals();
+    assert_eq!(approvals.len(), 1, "one prompt for the whole batch");
+    let names: Vec<&str> = approvals[0]
+        .items
+        .iter()
+        .map(|i| i.asset_name.as_str())
+        .collect();
+    assert_eq!(names, vec!["Stone lantern", "Desk lamp"]);
+    assert_eq!(
+        approvals[0].detail.as_deref(),
+        Some("2 models in total, one model per asset")
+    );
+    assert!(approvals[0].items[1].detail.contains("rig"), "a character");
+    // Denied once, both are dropped without spending anything.
+    assert!(hub.decide(&approvals[0].id, false));
+    let deadline = Instant::now() + Duration::from_secs(5);
+    for job in &batch_jobs {
+        let id = job["id"].as_str().expect("id");
+        let denied = loop {
+            let job = call(&client, "get_provider_job", json!({ "id": id })).await;
+            if job["status"] == json!("cancelled") || Instant::now() > deadline {
+                break job;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        };
+        assert_eq!(denied["status"], json!("cancelled"), "{denied}");
+    }
+    assert!(hub.approvals().is_empty());
+
+    // A by hand batch writes one folder per asset straight away.
+    let by_hand = call(
+        &client,
+        "send_batch_to_3d",
+        json!({
+            "project": project_id,
+            "provider": "by-hand",
+            "items": [{ "asset": "stone-lantern" }, { "asset": "desk-lamp" }],
+        }),
+    )
+    .await;
+    assert_eq!(by_hand["status"], json!("started"), "{by_hand}");
+    for job in by_hand["jobs"].as_array().expect("jobs") {
+        assert_eq!(job["status"], json!("waiting"));
+        let folder = std::path::PathBuf::from(job["handoff"].as_str().expect("handoff"));
+        assert!(folder.join("settings.md").is_file());
+    }
+    assert!(hub.approvals().is_empty());
+
+    // Object refs need Codex, which this host does not have.
+    let mut params = CallToolRequestParams::new("make_object_refs".to_string());
+    if let Value::Object(map) = json!({
+        "project": project_id,
+        "source": "refs/desk_lamp.png",
+        "objects": ["desk lamp"],
+    }) {
+        params = params.with_arguments(map);
+    }
+    let no_codex = client.call_tool(params).await.expect("call");
+    assert_eq!(no_codex.is_error, Some(true));
+    assert!(text(&no_codex).contains("Codex CLI"), "{}", text(&no_codex));
 
     // Every call is in the activity list, newest first.
     let calls = hub.calls();

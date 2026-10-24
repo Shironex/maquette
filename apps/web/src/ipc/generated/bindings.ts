@@ -228,7 +228,17 @@ export type Approval = {
 	assetName: string | null,
 	service: string | null,
 	detail: string | null,
+	/**  A batch send: every send it holds, all approved or denied at once. */
+	items: ApprovalItem[],
 	requestedAtMs: number | null,
+};
+
+/**  One send of a batch approval. */
+export type ApprovalItem = {
+	job: string,
+	assetName: string,
+	/**  Its settings in a few words. */
+	detail: string,
 };
 
 /**  What an agent asked that waits for a person. */

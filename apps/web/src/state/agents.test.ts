@@ -26,6 +26,7 @@ const approval: Approval = {
   service: null,
   detail: null,
   requestedAtMs: 0,
+  items: [],
 };
 
 const send: Approval = {

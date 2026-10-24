@@ -78,6 +78,7 @@ export function createFakeAgents({
           service: null,
           detail: null,
           requestedAtMs: now - 12_000,
+          items: [],
         },
         {
           id: 'approval-2',
@@ -91,6 +92,7 @@ export function createFakeAgents({
           service: 'Tripo',
           detail: 'Tripo H3.1, 1 image',
           requestedAtMs: now - 40_000,
+          items: [],
         },
       ]
     : [];
