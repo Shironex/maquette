@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 
 use maquette_core::concepts::{Aspect, NewConcepts, NewObjectRefs};
 use maquette_core::inbox::{self, AcceptRequest};
+use maquette_core::layout::{Desk, LayoutPatch, PlacementPatch, StopPatch};
 use maquette_core::pipeline::cache::project_cache_dir;
 use maquette_core::pipeline::history::{self, LogEntry, RunRecord, RunState};
 use maquette_core::pipeline::presets::{self, CompressPreset};
@@ -39,7 +40,7 @@ use serde_json::{Value, json};
 use super::gate::ShipGate;
 use super::host::Host;
 use super::hub::{CallOutcome, Hub};
-use crate::commands::{lab, pipeline, providers};
+use crate::commands::{assets, lab, layout, pipeline, providers};
 
 /// The status a run reports while its Ship step waits for a person.
 pub const WAITING: &str = "waiting for approval";
@@ -55,6 +56,10 @@ assets at once under one approval. make_object_refs turns the objects of one con
 one isolated image each. get_concepts reads the Lab. \
 set_compression_presets changes the per model texture size, data map size, codec and \
 meshopt level that get_pipeline shows (it spends nothing; locked rows refuse). \
+get_layout reads where each model stands in the scene, the camera stops and the first view \
+budget; set_layout changes them (metres, y up, degrees) and the app updates live; the next \
+run_pipeline rebuilds the scene and its posters from it. copy_asset copies an asset with its refs and \
+versions to another project. \
 Blender always runs headless here; there is no tool that opens Blender's window or \
 captures the screen.";
 
@@ -82,6 +87,15 @@ fn respond(found: Result<Value, String>) -> Out {
 
 fn to_value(value: impl Serialize) -> Value {
     serde_json::to_value(value).unwrap_or(Value::Null)
+}
+
+/// [`to_value`] through text, so `f32` fields read as written (0.2, not
+/// 0.20000000298023224).
+fn to_short_value(value: impl Serialize) -> Value {
+    serde_json::to_string(&value)
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or(Value::Null)
 }
 
 /// A run state as agents read it.
@@ -148,6 +162,120 @@ pub struct SetPresetsArgs {
     pub project: String,
     /// The rows to change. Only the fields you give change; other models stay as they are.
     pub presets: Vec<PresetEdit>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlacementEdit {
+    /// The asset id, as get_layout lists it in `models`.
+    pub asset: String,
+    /// Where the model's origin stands, in metres: [x, y, z] with y up (glTF axes).
+    pub position: Option<[f32; 3]>,
+    /// Rotation in degrees about X, then Y, then Z.
+    pub rotation: Option<[f32; 3]>,
+    /// Uniform scale, 1 is the model's own size.
+    pub scale: Option<f32>,
+    /// Drop the placement, so the model stands side by side with the other unplaced ones.
+    #[serde(default)]
+    pub remove: bool,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct StopEdit {
+    /// An existing stop id changes that stop. Leave it out to add a stop, which then needs
+    /// name, position and target.
+    pub id: Option<String>,
+    pub name: Option<String>,
+    /// The camera position in metres, y up.
+    pub position: Option<[f32; 3]>,
+    /// The point the camera looks at, in metres.
+    pub target: Option<[f32; 3]>,
+    /// Vertical field of view in degrees, 35 when a new stop leaves it out.
+    pub fov: Option<f32>,
+    /// The asset ids this stop counts for the first view budget, set by hand. null goes back
+    /// to measuring what the camera sees.
+    #[serde(default, deserialize_with = "explicit")]
+    pub models: Option<Option<Vec<String>>>,
+    /// Remove the stop with this id.
+    #[serde(default)]
+    pub remove: bool,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DeskEdit {
+    /// Width along X in metres.
+    pub width: f32,
+    /// Depth along Z in metres.
+    pub depth: f32,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SetLayoutArgs {
+    /// The project id.
+    pub project: String,
+    /// Placements to change. Only the fields you give change.
+    #[serde(default)]
+    pub models: Vec<PlacementEdit>,
+    /// Camera stops to add, change or remove, in this order.
+    #[serde(default)]
+    pub stops: Vec<StopEdit>,
+    /// Every stop id in the new tour order. The first stop is the view the page opens on.
+    pub stop_order: Option<Vec<String>>,
+    /// The desk the models stand on (its top is at y = 0). null removes it.
+    #[serde(default, deserialize_with = "explicit")]
+    pub desk: Option<Option<DeskEdit>>,
+}
+
+impl SetLayoutArgs {
+    fn patch(&self) -> LayoutPatch {
+        LayoutPatch {
+            models: self
+                .models
+                .iter()
+                .map(|m| {
+                    let change = (!m.remove).then_some(PlacementPatch {
+                        position: m.position,
+                        rotation: m.rotation,
+                        scale: m.scale,
+                    });
+                    (m.asset.trim().to_string(), change)
+                })
+                .collect(),
+            stops: self
+                .stops
+                .iter()
+                .map(|s| StopPatch {
+                    id: s.id.as_ref().map(|id| id.trim().to_string()),
+                    name: s.name.clone(),
+                    position: s.position,
+                    target: s.target,
+                    fov: s.fov,
+                    models: s.models.clone(),
+                    remove: s.remove,
+                })
+                .collect(),
+            stop_order: self.stop_order.clone(),
+            desk: self.desk.as_ref().map(|d| {
+                d.as_ref().map(|d| Desk {
+                    size: [d.width, d.depth],
+                })
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CopyAssetArgs {
+    /// The project the asset is in.
+    pub project: String,
+    /// The asset id, as list_assets returns it.
+    pub asset: String,
+    /// The project id to copy it to.
+    pub to: String,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -1581,6 +1709,65 @@ a project id; no tool changes which project the app has open.",
                     .map(|j| job_value(hub, j))
                     .collect();
                 Ok(json!({ "project": project, "jobs": jobs }))
+            })
+            .await;
+        respond(found)
+    }
+    #[tool(
+        description = "Get a project's scene layout: where each model stands (position in metres with y up, rotation in degrees X then Y then Z, uniform scale), the camera stops in tour order, the desk, every placeable model with its bounds and size, and the first view (what the first stop loads against its budget). A model without a placement stands side by side with the others.",
+        annotations(read_only_hint = true)
+    )]
+    async fn get_layout(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
+        let found = self
+            .blocking(move |host, _| {
+                let view = layout::get(host.session(), &args.project).map_err(|e| e.message)?;
+                Ok(to_short_value(&view))
+            })
+            .await;
+        respond(found)
+    }
+
+    #[tool(
+        description = "Change a project's scene layout, as the Layout editor does. models changes placements per asset (only the fields you give change; remove drops one). stops adds a stop (name, position, target, optional fov and models), changes one by id, or removes one by id. stopOrder lists every stop id in the new order. desk sets the desk size or null removes it. Unknown assets or stops are refused and nothing changes. The open app updates live. The next Build scene and Render stops use it. Returns the layout like get_layout.",
+        annotations(idempotent_hint = true)
+    )]
+    async fn set_layout(&self, Parameters(args): Parameters<SetLayoutArgs>) -> Out {
+        let found = self
+            .blocking(move |host, _| {
+                let view = layout::patch(host.session(), &args.project, &args.patch())
+                    .map_err(|e| e.message)?;
+                host.layout_changed(&args.project);
+                Ok(to_short_value(&view))
+            })
+            .await;
+        respond(found)
+    }
+
+    #[tool(
+        description = "Copy an asset to another project of the workspace: its refs, every model version, their thumbnails and its finished sends come along under a name and id that are free there. The asset stays where it is. Returns the copy."
+    )]
+    async fn copy_asset(&self, Parameters(args): Parameters<CopyAssetArgs>) -> Out {
+        let found = self
+            .blocking(move |host, _| {
+                let copied = assets::copy_to(
+                    host.session(),
+                    host.studio(),
+                    &args.project,
+                    &args.asset,
+                    &args.to,
+                )
+                .map_err(|e| e.message)?;
+                host.project_changed(&copied.to);
+                Ok(json!({
+                    "project": copied.to.id,
+                    "asset": {
+                        "id": copied.asset.id,
+                        "name": copied.asset.name,
+                        "stage": to_value(copied.asset.stage),
+                        "versions": copied.asset.versions.len(),
+                    },
+                    "refs": copied.refs.iter().map(|(_, new)| new.clone()).collect::<Vec<_>>(),
+                }))
             })
             .await;
         respond(found)

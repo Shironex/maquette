@@ -40,6 +40,8 @@ struct TestHost {
     studio: ProviderJobs,
     /// How often a tool told the windows that a pipeline file changed.
     pipeline_changes: std::sync::atomic::AtomicUsize,
+    /// How often a tool told the windows that a scene layout changed.
+    layout_changes: std::sync::atomic::AtomicUsize,
 }
 
 /// Provider jobs that can never reach Tripo or Meshy: both point at a
@@ -84,6 +86,10 @@ impl Host for TestHost {
     }
     fn pipeline_changed(&self, _project: &str) {
         self.pipeline_changes
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }
+    fn layout_changed(&self, _project: &str) {
+        self.layout_changes
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
 }
@@ -234,6 +240,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         concepts: Concepts::new(None, 1, |_| {}),
         thumbs: Thumbnails::new(|_| {}),
         pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
+        layout_changes: std::sync::atomic::AtomicUsize::new(0),
     });
     // Port 0 so the test never collides with a running app; the app itself
     // listens on the configured 4791.
@@ -297,8 +304,10 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         [
             "accept_inbox_model",
             "cancel_run",
+            "copy_asset",
             "get_concepts",
             "get_inbox_checks",
+            "get_layout",
             "get_pipeline",
             "get_project",
             "get_provider_job",
@@ -312,6 +321,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "send_batch_to_3d",
             "send_to_3d",
             "set_compression_presets",
+            "set_layout",
             "start_concepts",
         ]
     );
@@ -713,6 +723,147 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn agents_lay_out_the_scene_and_copy_assets() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp dir");
+    let (session, project_id, project_dir) = fixture(dir.path());
+    let (root, config) = session.workspace().expect("ws");
+    std::fs::create_dir_all(project_dir.join("models")).expect("models");
+    std::fs::write(project_dir.join("models/desk_lamp_v1.glb"), b"glb").expect("glb");
+    project::modify(&root, &config.layout, &project_id, |m| {
+        assets::add_version(m, "desk-lamp", "models/desk_lamp_v1.glb".into(), None).map(|_| ())
+    })
+    .expect("version");
+    let landing = project::create(
+        &root,
+        &config.layout,
+        NewProject {
+            name: "Maquette landing".into(),
+            template: ProjectTemplate::FloatingDiorama,
+            site_repo: None,
+            source_folder: None,
+        },
+    )
+    .expect("landing");
+    let hub = Arc::new(Hub::new(|| {}));
+    let host = Arc::new(TestHost {
+        studio: studio(&session),
+        session,
+        runner: PipelineRunner::new(Arc::new(HubSink(Arc::clone(&hub)))),
+        concepts: Concepts::new(None, 1, |_| {}),
+        thumbs: Thumbnails::new(|_| {}),
+        pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
+        layout_changes: std::sync::atomic::AtomicUsize::new(0),
+    });
+    let token = ensure_token(&host.session).expect("token");
+    let server = maquette_desktop_lib::mcp::server::start(
+        0,
+        token.clone(),
+        host.clone() as Arc<dyn Host>,
+        Arc::clone(&hub),
+    )
+    .expect("start");
+    let url = format!("http://127.0.0.1:{}/mcp", server.port());
+    let transport = StreamableHttpClientTransport::from_config(
+        StreamableHttpClientTransportConfig::with_uri(url).auth_header(token),
+    );
+    let client = ClientConfig::default()
+        .serve(transport)
+        .await
+        .expect("initialize");
+
+    let empty = call(&client, "get_layout", json!({ "project": project_id })).await;
+    assert_eq!(empty["saved"], json!(false));
+    assert_eq!(empty["models"][0]["asset"], json!("desk-lamp"));
+    assert_eq!(empty["firstView"]["targetMb"], json!(3.0));
+
+    let set = call(
+        &client,
+        "set_layout",
+        json!({
+            "project": project_id,
+            "models": [{ "asset": "desk-lamp", "position": [0.5, 0.0, -0.2], "rotation": [0.0, 90.0, 0.0] }],
+            "stops": [{ "name": "Concept", "position": [0.0, 0.5, 1.4], "target": [0.0, 0.1, 0.0] }],
+            "desk": { "width": 1.6, "depth": 0.9 },
+        }),
+    )
+    .await;
+    assert_eq!(set["saved"], json!(true));
+    assert_eq!(
+        set["layout"]["models"]["desk-lamp"]["position"],
+        json!([0.5, 0.0, -0.2])
+    );
+    assert_eq!(set["layout"]["stops"][0]["id"], json!("concept"));
+    assert_eq!(set["layout"]["desk"]["size"], json!([1.6, 0.9]));
+    assert_eq!(
+        host.layout_changes
+            .load(std::sync::atomic::Ordering::SeqCst),
+        1,
+        "the app hears about it"
+    );
+
+    // Only what a change names moves; the rest stays.
+    let scaled = call(
+        &client,
+        "set_layout",
+        json!({
+            "project": project_id,
+            "models": [{ "asset": "desk-lamp", "scale": 0.5 }],
+            "stops": [{ "id": "concept", "fov": 30.0 }],
+            "desk": null,
+        }),
+    )
+    .await;
+    assert_eq!(
+        scaled["layout"]["models"]["desk-lamp"]["position"],
+        json!([0.5, 0.0, -0.2])
+    );
+    assert_eq!(scaled["layout"]["models"]["desk-lamp"]["scale"], json!(0.5));
+    assert_eq!(scaled["layout"]["stops"][0]["fov"], json!(30.0));
+    assert_eq!(scaled["layout"]["desk"], Value::Null);
+
+    // An unknown asset is refused with the valid ones, and nothing changes.
+    let mut params = CallToolRequestParams::new("set_layout".to_string());
+    params = params.with_arguments(
+        json!({ "project": project_id, "models": [{ "asset": "stone-lantern", "scale": 2.0 }] })
+            .as_object()
+            .expect("object")
+            .clone(),
+    );
+    let refused = client.call_tool(params).await.expect("call");
+    assert_eq!(refused.is_error, Some(true));
+    assert!(text(&refused).contains("desk-lamp"), "{}", text(&refused));
+    let after = call(&client, "get_layout", json!({ "project": project_id })).await;
+    assert_eq!(after["layout"]["models"]["desk-lamp"]["scale"], json!(0.5));
+    assert_eq!(
+        host.layout_changes
+            .load(std::sync::atomic::Ordering::SeqCst),
+        2
+    );
+
+    let copied = call(
+        &client,
+        "copy_asset",
+        json!({ "project": project_id, "asset": "desk-lamp", "to": landing.id }),
+    )
+    .await;
+    assert_eq!(copied["project"], json!(landing.id));
+    assert_eq!(copied["asset"]["id"], json!("desk-lamp"));
+    assert_eq!(copied["asset"]["versions"], json!(1));
+    assert_eq!(copied["refs"], json!(["refs/desk_lamp.png"]));
+    let landing_dir = project::dir(&root, &config.layout, &landing.id).expect("dir");
+    assert!(landing_dir.join("models/desk_lamp_v1.glb").is_file());
+    let source = project::load(&root, &config.layout, &project_id).expect("source");
+    assert!(
+        source.assets.iter().any(|a| a.id == "desk-lamp"),
+        "the source stays"
+    );
+
+    client.cancel().await.expect("close");
+    server.stop();
+}
+
 async fn wait_for(
     client: &RunningService<RoleClient, ClientConfig>,
     project: &str,
@@ -747,6 +898,7 @@ fn the_app_server_follows_the_workspace_setting() {
         concepts: Concepts::new(None, 1, |_| {}),
         thumbs: Thumbnails::new(|_| {}),
         pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
+        layout_changes: std::sync::atomic::AtomicUsize::new(0),
     });
     let agents = Agents::new(host, hub);
     // Off by default: nothing listens and there is no token yet.

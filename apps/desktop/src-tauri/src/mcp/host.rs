@@ -14,7 +14,7 @@ use crate::commands::lab::Lab;
 use crate::commands::pipeline::Pipelines;
 use crate::commands::providers::Studio;
 use crate::commands::thumbs::Thumbs;
-use crate::events::{PipelineChanged, ProjectChanged};
+use crate::events::{LayoutChanged, PipelineChanged, ProjectChanged};
 use crate::session::Session;
 
 pub trait Host: Send + Sync + 'static {
@@ -31,6 +31,9 @@ pub trait Host: Send + Sync + 'static {
     /// Tells the windows that a tool changed a project's pipeline file, so
     /// the Pipeline view reloads it.
     fn pipeline_changed(&self, _project: &str) {}
+    /// Tells the windows that a tool changed a project's scene layout, so
+    /// the Layout editor reloads it.
+    fn layout_changed(&self, _project: &str) {}
 }
 
 /// The app's own services.
@@ -76,6 +79,15 @@ impl Host for AppHost {
         };
         if let Err(err) = event.emit(&self.0) {
             tracing::warn!(error = %err, "could not emit a pipeline event");
+        }
+    }
+
+    fn layout_changed(&self, project: &str) {
+        let event = LayoutChanged {
+            project: project.to_string(),
+        };
+        if let Err(err) = event.emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit a layout event");
         }
     }
 }
