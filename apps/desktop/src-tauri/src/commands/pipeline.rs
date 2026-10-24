@@ -37,7 +37,12 @@ pub struct Artifact {
 #[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelFile {
+    /// The GLB file stem, for example `clay_v1`.
     pub model: String,
+    /// The asset it was exported from, for example `clay`, when one was.
+    pub asset_name: Option<String>,
+    /// That asset's version.
+    pub version: Option<u32>,
     pub raw_bytes: Option<f64>,
     pub shipped_bytes: Option<f64>,
 }
@@ -155,6 +160,8 @@ pub(crate) fn view(
                     stem.clone(),
                     ModelFile {
                         model: stem,
+                        asset_name: None,
+                        version: None,
                         raw_bytes: file_bytes(&file),
                         shipped_bytes: file_bytes(&shipped),
                     },
@@ -167,9 +174,20 @@ pub(crate) fn view(
             .entry(preset.model.clone())
             .or_insert_with(|| ModelFile {
                 model: preset.model.clone(),
+                asset_name: None,
+                version: None,
                 raw_bytes: None,
                 shipped_bytes: None,
             });
+    }
+    // An export of an asset version is labelled by the asset ("clay").
+    for model in models.values_mut() {
+        if let Some((asset, version)) =
+            maquette_core::assets::for_model_stem(&ctx.manifest, &model.model)
+        {
+            model.asset_name = Some(asset.name.clone());
+            model.version = Some(version);
+        }
     }
     let (active, queued) = runner.active(project_id);
     let d = defaults(&ctx.config);
@@ -349,6 +367,52 @@ mod tests {
         )
         .expect("project");
         (dir, session, manifest.id)
+    }
+
+    #[test]
+    fn exported_models_carry_the_name_of_their_asset() {
+        use maquette_core::{Asset, AssetKind, AssetStatus, AssetVersion, Stage};
+        let (_dir, session, id) = open();
+        let runner = PipelineRunner::new(Arc::new(NullSink));
+        let (root, config) = session.workspace().expect("ws");
+        let dir = project::dir(&root, &config.layout, &id).expect("dir");
+        std::fs::create_dir_all(dir.join("web/raw")).expect("raw");
+        std::fs::write(dir.join("web/raw/clay_v1.glb"), b"glb").expect("export");
+        std::fs::write(dir.join("web/raw/island.glb"), b"glb").expect("island");
+        project::modify(&root, &config.layout, &id, |m| {
+            m.assets.push(Asset {
+                id: "clay".into(),
+                name: "clay".into(),
+                kind: AssetKind::Prop,
+                stage: Stage::Blender,
+                status: AssetStatus::Review,
+                versions: vec![AssetVersion {
+                    version: 1,
+                    file: "models/clay_v1.glb".into(),
+                    created_at: "2026-10-24T19:14:19.000Z".into(),
+                    stats: None,
+                }],
+                thumbnail: None,
+                created_at: "2026-10-24T19:00:00.000Z".into(),
+                updated_at: "2026-10-24T19:14:19.000Z".into(),
+            });
+            Ok(())
+        })
+        .expect("asset");
+        let view = view(&session, &runner, &id).expect("view");
+        let clay = view
+            .models
+            .iter()
+            .find(|m| m.model == "clay_v1")
+            .expect("clay");
+        assert_eq!(clay.asset_name.as_deref(), Some("clay"));
+        assert_eq!(clay.version, Some(1));
+        let island = view
+            .models
+            .iter()
+            .find(|m| m.model == "island")
+            .expect("island");
+        assert_eq!(island.asset_name, None);
     }
 
     #[test]

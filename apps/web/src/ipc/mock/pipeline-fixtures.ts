@@ -5,6 +5,7 @@
 import type {
   CompressPreset,
   LogEntry,
+  ModelFile,
   PipelineDef,
   PipelineView,
   RunRecord,
@@ -316,6 +317,16 @@ export function run24Log(now: number): LogEntry[] {
   return out;
 }
 
+function model(
+  stem: string,
+  assetName: string | null,
+  version: number | null,
+  rawBytes: number,
+  shippedBytes: number
+): ModelFile {
+  return { model: stem, assetName, version, rawBytes, shippedBytes };
+}
+
 export function pipelineView(
   project: string,
   root: string,
@@ -339,10 +350,10 @@ export function pipelineView(
       : [],
     models: runs.length
       ? [
-          { model: 'island', rawBytes: 4.6e6, shippedBytes: 1.1e6 },
-          { model: 'shop_house', rawBytes: 2.4e6, shippedBytes: 0.9e6 },
-          { model: 'vending', rawBytes: 1.1e6, shippedBytes: 0.4e6 },
-          { model: 'character', rawBytes: 6.2e6, shippedBytes: 1.4e6 },
+          model('island', 'Island', 7, 4.6e6, 1.1e6),
+          model('shop_house', 'Shop house', 3, 2.4e6, 0.9e6),
+          model('vending', 'Vending machine', 2, 1.1e6, 0.4e6),
+          model('character', 'Character', 2, 6.2e6, 1.4e6),
         ]
       : [],
     defaults: { textureSize: 2048, codec: 'etc1s', meshopt: 'high' },

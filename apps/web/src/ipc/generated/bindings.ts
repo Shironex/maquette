@@ -800,7 +800,12 @@ export type ModelBudget = {
 
 /**  A model the compress step will see, with its sizes before and after. */
 export type ModelFile = {
+	/**  The GLB file stem, for example `clay_v1`. */
 	model: string,
+	/**  The asset it was exported from, for example `clay`, when one was. */
+	assetName: string | null,
+	/**  That asset's version. */
+	version: number | null,
 	rawBytes: number | null,
 	shippedBytes: number | null,
 };
