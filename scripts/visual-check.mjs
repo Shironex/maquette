@@ -1,7 +1,7 @@
 /**
  * Renders mock mode in headless Chromium and saves a screenshot of every
- * onboarding step, the Board, Pipeline (idle, running, failed), the Inbox
- * and Settings. It renders pages to files and never captures the screen.
+ * onboarding step, the Board, the fresh template project, Pipeline (idle,
+ * running, failed), the Inbox in every preview mode and Settings. It renders pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
@@ -108,6 +108,10 @@ try {
   await page.getByRole('heading', { name: 'Your first build in three steps' }).waitFor();
   await shot(page, 'board-empty');
 
+  await page.getByRole('button', { name: 'Pipeline', exact: true }).click();
+  await page.getByRole('heading', { name: 'Pipeline runner' }).waitFor();
+  await shot(page, 'template-pipeline');
+
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Tripo defaults' }).waitFor();
   await page.getByText('Changes save as you go').waitFor();
@@ -144,8 +148,19 @@ try {
   const inbox = await open('&scenario=configured', '#/inbox');
   await inbox.getByRole('heading', { name: 'Automatic checks' }).waitFor();
   // The preview loads its model lazily; give WebGL a moment.
-  await inbox.waitForTimeout(1500);
+  await inbox.waitForTimeout(2500);
   await shot(inbox, 'inbox');
+  for (const mode of ['Wireframe', 'UV', 'Bones']) {
+    await inbox
+      .getByRole('group', { name: 'Preview mode' })
+      .getByRole('button', { name: mode })
+      .click();
+    await inbox.waitForTimeout(800);
+    await shot(inbox, `inbox-${mode.toLowerCase()}`);
+  }
+  await inbox.getByRole('button', { name: /Sakura large/ }).click();
+  await inbox.waitForTimeout(2500);
+  await shot(inbox, 'inbox-prop');
 } finally {
   await browser.close();
   await vite?.close();
