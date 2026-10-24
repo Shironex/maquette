@@ -102,6 +102,21 @@ async function handoffShots() {
   await lab.getByRole('dialog', { name: 'Make object refs' }).waitFor();
   await shot(lab, 'objects-dialog');
 
+  // A long name stays whole with a counter; a chip opens its name and notes.
+  await field.fill(
+    'Finished island in painted stone and moss with no wireframe lines and no rocks'
+  );
+  await shot(lab, 'objects-long-name');
+  await field.fill('');
+  await lab.getByRole('button', { name: 'Edit Clay island' }).click();
+  const editor = lab.getByRole('group', { name: 'Edit Clay island' });
+  await editor
+    .getByRole('textbox', { name: 'Notes for Codex' })
+    .fill('Painted stone and moss, no wireframe lines, no loose floating rocks');
+  await shot(lab, 'objects-notes');
+  await editor.getByRole('button', { name: 'Done' }).click();
+  await shot(lab, 'objects-note-chip');
+
   const porch = await open('&scenario=configured&conceptMs=60000', '#/lab');
   await porch.getByRole('heading', { name: 'Moon island porch' }).waitFor();
   await porch.getByRole('button', { name: 'Make object refs from Concept 01' }).click();
@@ -125,6 +140,13 @@ async function handoffShots() {
 
   const board = await open(fixture, '#/board');
   await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
+  await board.getByRole('button', { name: 'More for Desk lamp' }).click();
+  await board.getByRole('menuitem', { name: 'Rename...' }).waitFor();
+  await shot(board, 'asset-rename-menu');
+  await board.getByRole('menuitem', { name: 'Rename...' }).click();
+  await board.getByRole('dialog', { name: 'Rename asset' }).waitFor();
+  await shot(board, 'asset-rename-dialog');
+  await board.keyboard.press('Escape');
   await board.getByRole('checkbox', { name: 'Select Turntable island' }).click();
   await board
     .getByRole('checkbox', { name: 'Select Vending machine' })
