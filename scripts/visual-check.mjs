@@ -7,8 +7,11 @@
  * agent's activity, the approval prompts (Ship and a send to 3D), Send to 3D
  * for Tripo, Meshy and by hand, the by hand settings card, the 3D queue, a
  * Board card waiting for a model, Send to 3D from the Lab and Settings > 3D
- * providers with a tested key. It renders pages to files and never captures
- * the screen.
+ * providers with a tested key, the project switcher (open, with search, the
+ * New project dialog, the collapsed rail, the Board after a switch), moving
+ * a Lab direction, a long Lab title, a Refs card with its picture and the
+ * starter scripts banner. It renders pages to files and never captures the
+ * screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
@@ -65,9 +68,9 @@ async function shot(page, name) {
   saved.push(path);
 }
 
-async function open(query = '', hash = '') {
+async function open(query = '', hash = '', viewport = { width: 1440, height: 900 }) {
   const context = await browser.newContext({
-    viewport: { width: 1440, height: 900 },
+    viewport,
     deviceScaleFactor: 1,
   });
   const page = await context.newPage();
@@ -244,6 +247,57 @@ try {
   await inspector.mouse.move(700, 880);
   await inspector.waitForTimeout(1200);
   await shot(inspector, 'inspector-budgets');
+
+  // The project switcher.
+  const switcher = await open('&scenario=running', '#/board');
+  const projectButton = switcher.locator('[aria-haspopup=menu]').first();
+  await projectButton.waitFor();
+  await shot(switcher, 'board-refs-card');
+  await switcher.keyboard.press(process.platform === 'darwin' ? 'Meta+p' : 'Control+p');
+  await switcher.getByRole('menu', { name: 'Projects' }).waitFor();
+  await switcher.getByText(/Character showcase · 1 asset/).waitFor();
+  await shot(switcher, 'switcher-open');
+  await switcher.getByRole('menuitem', { name: 'New project' }).click();
+  await switcher.getByRole('dialog', { name: 'New project' }).waitFor();
+  await switcher.getByLabel('Project name').fill('Maquette landing');
+  await shot(switcher, 'switcher-new-project');
+  await switcher.keyboard.press('Escape');
+  await projectButton.click();
+  await switcher.getByRole('menuitemradio', { name: /Rooftop cinema/ }).click();
+  await switcher.getByText('No runs yet').first().waitFor();
+  await shot(switcher, 'switcher-board-after');
+
+  const many = await open('&scenario=configured&projects=many', '#/board');
+  await many.locator('[aria-haspopup=menu]').first().click();
+  const search = many.getByRole('searchbox', { name: 'Find a project' });
+  await search.waitFor();
+  await search.fill('har');
+  await shot(many, 'switcher-search');
+
+  const rail = await open('&scenario=configured', '#/board');
+  await rail.getByRole('button', { name: 'Collapse' }).click();
+  await rail.locator('[aria-haspopup=menu]').first().click();
+  await rail.getByRole('menu', { name: 'Projects' }).waitFor();
+  await shot(rail, 'switcher-collapsed-rail');
+
+  const move = await open('&scenario=configured', '#/lab');
+  await move.getByText('Earlier directions').waitFor();
+  await move.getByRole('button', { name: /^Maquette landing studio/ }).click();
+  await move.getByRole('heading', { name: 'Maquette landing studio' }).waitFor();
+  await move.getByRole('button', { name: 'More for Maquette landing studio' }).click();
+  await move.getByRole('menuitem', { name: /Move to project/ }).click();
+  await move.getByRole('menu', { name: /Move Maquette landing studio/ }).waitFor();
+  await shot(move, 'lab-move-direction');
+
+  const narrow = await open('&scenario=configured', '#/lab', { width: 1180, height: 820 });
+  await narrow.getByText('Earlier directions').waitFor();
+  await narrow.getByRole('button', { name: /^Maquette landing studio/ }).click();
+  await narrow.getByRole('heading', { name: 'Maquette landing studio' }).waitFor();
+  await shot(narrow, 'lab-long-title');
+
+  const starters = await open('&scenario=configured', '#/pipeline');
+  await starters.getByText('New starter scripts available').waitFor();
+  await shot(starters, 'pipeline-starters');
 } finally {
   await browser.close();
   await vite?.close();
