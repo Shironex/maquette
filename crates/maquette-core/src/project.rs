@@ -264,15 +264,20 @@ pub fn update(
     })
 }
 
+/// Serialises manifest writes in this process: the UI, the runner and the
+/// provider jobs all change `project.json` from their own threads.
+static WRITES: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Loads the manifest, applies `change` and writes it back atomically. The
-/// file is left alone when `change` fails. Callers that can race (the UI and
-/// the runner) serialise their calls; this function does not lock.
+/// file is left alone when `change` fails. Writers in this process take
+/// turns, so two changes never overwrite each other.
 pub fn modify<T>(
     workspace_root: &Path,
     layout: &FolderLayout,
     id: &str,
     change: impl FnOnce(&mut ProjectManifest) -> CoreResult<T>,
 ) -> CoreResult<ProjectManifest> {
+    let _turn = WRITES.lock().unwrap_or_else(|p| p.into_inner());
     let mut manifest = load(workspace_root, layout, id)?;
     change(&mut manifest)?;
     let path = dir(workspace_root, layout, id)?.join(PROJECT_FILE);
