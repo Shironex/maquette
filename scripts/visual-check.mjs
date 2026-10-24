@@ -18,7 +18,8 @@
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
- * ONLY=handoff renders the handoff set alone; PORT picks the dev server port.
+ * ONLY=handoff renders the handoff set alone, ONLY=guards the questions asked
+ * before work is dropped; PORT picks the dev server port.
  *
  * PLAYWRIGHT defaults to the `playwright` package, which this repo does not
  * install; point it at any local copy. OUT_DIR defaults to `.visual/`.
@@ -226,6 +227,52 @@ async function handoffShots() {
   const approval = await open('&scenario=configured&agents=batch', '#/board');
   await approval.getByRole('alertdialog', { name: 'Send 3 assets to Tripo?' }).waitFor();
   await shot(approval, 'agents-batch-approval');
+}
+
+/** The questions asked before work is dropped: Send to 3D, Settings and quit. */
+async function guardShots() {
+  const board = await open('&scenario=configured', '#/board');
+  await board.getByRole('button', { name: 'More for Stone lanterns' }).click();
+  await board.getByRole('menuitem', { name: 'Send to 3D' }).click();
+  await board.getByRole('dialog', { name: /Send Stone lanterns to 3D/ }).waitFor();
+  await board.getByRole('switch', { name: 'PBR' }).click({ force: true });
+  await board.keyboard.press('Escape');
+  await board.getByRole('dialog', { name: 'Discard changes?' }).waitFor();
+  await shot(board, 'guard-send-discard');
+
+  const settings = await open('&scenario=configured', '#/settings');
+  const faces = settings.getByRole('textbox', { name: 'Face limit' }).first();
+  await faces.fill('30000');
+  await faces.press('Enter');
+  await settings.getByRole('combobox', { name: 'Model' }).first().selectOption('P1-20260311');
+  await settings.getByRole('button', { name: 'Board' }).first().click();
+  await settings.getByRole('dialog', { name: 'Some settings are not valid' }).waitFor();
+  await shot(settings, 'guard-settings-invalid');
+
+  const quit = await open('&scenario=configured', '#/pipeline');
+  await quit.getByRole('heading', { name: 'Compression presets' }).waitFor();
+  await quit.evaluate(async () => {
+    // The dev server shares its modules with the page, so the stores are reachable.
+    const { usePipelineStore } = await import('/src/state/pipeline-store.ts');
+    const { useQuitStore } = await import('/src/state/quit-store.ts');
+    const view = usePipelineStore.getState().view;
+    const model = view.models[0].model;
+    usePipelineStore.getState().setPresetEdits(view.project, {
+      [model]: {
+        model,
+        label: model,
+        textureSize: 512,
+        dataTextureSize: null,
+        codec: 'etc1s',
+        meshopt: 'low',
+        lock: null,
+        custom: true,
+      },
+    });
+    useQuitStore.getState().ask();
+  });
+  await quit.getByRole('dialog', { name: 'Apply the compression presets?' }).waitFor();
+  await shot(quit, 'guard-quit');
 }
 
 const only = process.env.ONLY;
@@ -456,8 +503,11 @@ async function coreShots() {
 }
 
 try {
-  if (only !== 'handoff') await coreShots();
-  await handoffShots();
+  if (only === 'guards') await guardShots();
+  else {
+    if (only !== 'handoff') await coreShots();
+    await handoffShots();
+  }
 } finally {
   await browser.close();
   await vite?.close();
