@@ -25,7 +25,7 @@ export function defaultConfig(): WorkspaceConfig {
     compression: { textureCodec: 'etc1s', meshopt: 'medium' },
     agents: {
       mcpEnabled: false,
-      mcpPort: 4317,
+      mcpPort: 4791,
       rules: { blenderHeadlessOnly: true, neverCaptureScreen: true, askBeforeShipping: true },
     },
     currentProject: null,

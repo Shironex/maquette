@@ -83,7 +83,7 @@ export function mcpSnippet(agent: 'claude' | 'codex', port: number): string {
   return `${JSON.stringify({ mcpServers: { maquette: { type: 'http', url: mcpUrl(port) } } }, null, 2)}\n`;
 }
 
-/** Reads the port out of `4317` or `127.0.0.1:4317`; null when it is not a port. */
+/** Reads the port out of `4791` or `127.0.0.1:4791`; null when it is not a port. */
 export function parsePort(text: string): number | null {
   const match = text.trim().match(/^(?:127\.0\.0\.1:|localhost:)?(\d{1,5})$/);
   return match ? Number(match[1]) : null;

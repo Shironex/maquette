@@ -194,7 +194,7 @@ impl Default for AgentSettings {
     fn default() -> Self {
         Self {
             mcp_enabled: false,
-            mcp_port: 4317,
+            mcp_port: 4791,
             rules: AgentRules::default(),
         }
     }
@@ -422,7 +422,7 @@ mod tests {
             "\"trisPerModel\":60000",
             "\"textureCodec\":\"etc1s\"",
             "\"meshopt\":\"medium\"",
-            "\"mcpPort\":4317",
+            "\"mcpPort\":4791",
             "\"blenderHeadlessOnly\":true",
             "\"topology\":\"triangle\"",
             "\"texture\":\"2K\"",

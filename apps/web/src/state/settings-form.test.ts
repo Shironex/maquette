@@ -32,8 +32,8 @@ describe('settings form', () => {
   });
 
   it('builds the agent config snippets for a port', () => {
-    expect(JSON.parse(mcpSnippet('claude', 4317))).toEqual({
-      mcpServers: { maquette: { type: 'http', url: 'http://127.0.0.1:4317/mcp' } },
+    expect(JSON.parse(mcpSnippet('claude', 4791))).toEqual({
+      mcpServers: { maquette: { type: 'http', url: 'http://127.0.0.1:4791/mcp' } },
     });
     expect(mcpSnippet('codex', 5000)).toBe(
       '[mcp_servers.maquette]\nurl = "http://127.0.0.1:5000/mcp"\n'
@@ -41,7 +41,7 @@ describe('settings form', () => {
   });
 
   it('reads a port with or without the localhost prefix', () => {
-    expect(parsePort('127.0.0.1:4317')).toBe(4317);
+    expect(parsePort('127.0.0.1:4791')).toBe(4791);
     expect(parsePort(' 5000 ')).toBe(5000);
     expect(parsePort('example.com:80')).toBeNull();
   });
