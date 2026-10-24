@@ -2,13 +2,15 @@
 
 A desktop studio that turns AI concept art into real-time 3D web scenes. One board follows each asset through the pipeline: Concept, Refs, Tripo, Blender, Web, Ship. Everything runs on this machine.
 
-So far: the app shell, onboarding, the toolchain check, workspace config and Settings, an asset Board, the pipeline runner, the model inbox, the Concept lab, Send to 3D (Tripo, Meshy or by hand), the Inspector and a built in MCP server for agents.
+So far: the app shell, onboarding, the toolchain check, workspace config and Settings, an asset Board, the pipeline runner, the model inbox, the Concept lab, Send to 3D (Tripo, Meshy or by hand), the Inspector with its scene layout editor and a built in MCP server for agents.
 
 ## Projects
 
 A workspace holds any number of projects. The project switcher at the top of the rail (or Cmd+P on macOS, Ctrl+P on Windows and Linux) opens a menu of them with their picture, template, asset count and age; the open one is checked, and a search field shows once there are more than six. Arrow keys move, Enter opens, Escape closes. New project opens the onboarding project form in a dialog (template, name, target site repo) and Import folder the import form. The open project is saved as `currentProject` in `maquette.json`.
 
 Switching starts every view of the new project clean: Board, Lab, Pipeline, Inspector, the 3D queue and the status bar. Runs, Lab images and provider jobs keep going in the project they belong to, and the menu says what is still running there. The Inbox is shared by the whole workspace: a model sent from another project names that project under Sent for, and Accept moves it into the project it was sent for. The rail collapses to icons (Collapse at its foot); the switcher and its menu work there too.
+
+Copy to project... in a Board card's menu copies the asset into another project and leaves it where it is: its refs, every model version, thumbnails and finished sends go along, renamed to the new id. When the other project already has an asset by that name the copy is called "Name 2". A send still running stays with the original.
 
 In the Lab, an earlier direction's menu has Move to project..., which moves its folder (concepts, picks, stars and brief) into another project. The refs it sent and its Board card go along when the card has no model yet; a card with models, or one with a send under way, stays where it is.
 
@@ -29,11 +31,13 @@ A new project gets small, commented scripts in its `tools/` folder when its pipe
 
 `tools/.starter.json` records the hash of every starter Maquette wrote, so a later version can tell an untouched copy of an older starter from one you edited (scripts from before that record are matched against the known older starters). When newer starters ship, the Pipeline view says New starter scripts available and Update brings the untouched ones up to date in one go. An edited script is never overwritten silently: it shows as edited, with Replace with the new starter (your file is kept as `<name>.py.bak`) or Keep mine.
 
-- `build_scene.py`: opens `blender/scene.blend` when there is one (else an empty scene with a sun), imports each `models/*.glb` into its own collection under "Models", lays overlapping models out side by side and saves `blender/scene_built.blend`.
-- `bake_light.py`: gives every mesh outside "Studio" a second UV named `lightmap` (Smart UV Project when it is missing) and bakes Cycles diffuse light (direct and indirect, or the full look with `--type combined`) into one `blender/bake/<object>_light.png` per object, on the CPU. The defaults are quick (`--size 512 --samples 16`); raise them on the step's args for a final bake. Each map stores light divided by a scale of at least 1; `bake.json` lists every object's file, size and scale. It prints `progress N/M` per object and saves `blender/scene_baked.blend`. A scene without meshes writes `"baked": false` and passes.
+- `build_scene.py`: opens `blender/scene.blend` when there is one (else an empty scene with a sun), imports each `models/*.glb` into its own collection under "Models", places them from the scene layout (`layout.json`, below) and saves `blender/scene_built.blend`. Models without a placement that overlap are laid out side by side. The layout's desk becomes a slab under the models, so they shadow it in the bake, and its camera stops become cameras in a "Stops" collection unless the base blend has stop cameras of its own.
+- `bake_light.py`: gives every mesh outside "Studio" a second UV named `lightmap` (Smart UV Project when it is missing) and bakes Cycles diffuse light (direct and indirect, or the full look with `--type combined`) into one `blender/bake/<object>_light.png` per object, on the CPU. The defaults are quick (`--size 512 --samples 16`); raise them on the step's args for a final bake. The whole scene bakes together, so every model shadows the others and the desk. Each map stores light divided by a scale of at least 1; `bake.json` lists every object's file, size and scale. It prints `progress N/M` per object and saves `blender/scene_baked.blend`. A scene without meshes writes `"baked": false` and passes.
 - `export_web.py`: one GLB per model collection (and per other top level object) into `web/raw/`, named in snake case, uncompressed for the Compress step. A baked object keeps both UV sets (`lightmap` is `TEXCOORD_1`), carries its lightmap as the emissive texture on that UV and has the material extras `{"lightmap": <scale>, "lightmapUv": 1}`, so a page can show albedo times lightmap times scale in an unlit material.
-- `render_stops.py`: one poster per camera stop, a camera with the `maquette_stop` custom property (its number sets the order) or a name starting with `stop_`. A scene without stops gets one framed three quarter poster of the whole scene instead (`overview.png`, from a temporary camera fitted to the scene bounds that is never saved into the blend), and the log says so. It always writes `web/posters/stops.json`.
+- `render_stops.py`: one poster per camera stop, a camera with the `maquette_stop` custom property (its number sets the order) or a name starting with `stop_`. A scene without stops gets one framed three quarter poster of the whole scene instead (`overview.png`, from a temporary camera fitted to the scene bounds that is never saved into the blend), and the log says so. It always writes `web/posters/stops.json`, with each stop's name from the layout as its `label`, and removes the posters the previous one listed.
 - `ship.mjs`: copies `web/dist/*.glb` to `public/models` and the posters to `public/posters` in the project's site repo. Without a site repo it says so and passes.
+
+Projects made before the layout editor get these `build_scene.py` and `render_stops.py` through the same Update banner when their copies are untouched; the Build scene step then reads `layout.json` too, so saving a layout reruns it.
 
 Character showcase projects get `build_character.py`, `export_character.py`, `render_stops.py` and `ship.mjs`. The build imports the newest `models/*.glb` (highest `_v<n>`, then newest file) with its rig and clips, on top of `blender/character.blend` when you add one, adds a key and fill light when the scene has none and a front camera stop `stop_01_front` when it has no stop, and saves `blender/character_built.blend`. Export GLB and Capture posters read that file, so the pipeline runs as soon as a character is in `models/`.
 
@@ -90,9 +94,39 @@ API keys live in the OS keychain (macOS Keychain, Windows Credential Manager) un
 
 ## Inspector
 
-The Inspector opens a project's models in the same studio as the preview, with a compare slider that splits one canvas down the middle: the raw export against the shipped build or the site's copy, or two versions of one asset. Both halves share the camera. Camera stops come from the first of these that has any: `stops.json` in the project (`{ "stops": [{ "name", "position": [x, y, z], "target": [x, y, z], "fov": 35 }] }`, glTF coordinates in metres), the `web/posters/stops.json` the Capture posters step writes, or cameras inside the models. The filmstrip eases the camera to a stop and shows its poster when there is one.
+The Inspector opens a project's models in the same studio as the preview, with a compare slider that splits one canvas down the middle: the raw export against the shipped build or the site's copy, or two versions of one asset. Both halves share the camera. Camera stops come from the first of these that has any: `stops.json` in the project (`{ "stops": [{ "name", "position": [x, y, z], "target": [x, y, z], "fov": 35 }] }`, glTF coordinates in metres), the stops of the scene layout, the `web/posters/stops.json` the Capture posters step writes, or cameras inside the models. The filmstrip eases the camera to a stop and shows its poster when there is one.
 
 The side panel lists the selected model's triangles, textures with size and codec, a GPU memory estimate, the transfer size and its compression preset with any lock note. Budget bars come from the workspace budgets and an optional `budgets.json` in the project (`{ "models": { "character": 1.0 } }`, in MB); models without a row share what is left of the scene budget. The frame time graph measures the renderer (waiting on the GPU every few frames) against the 60 fps line. Export GLB re-exports the selected model alone: it runs the pipeline's Blender export step with its output pointed at a scratch folder, then copies that one file over the raw export.
+
+### Scene layout
+
+The Layout tab places each asset's newest model and the camera stops in one 3D canvas. Click a model (or pick it in the list) and drag the gizmo: Move, Turn and Scale (W, E, R; scale stays uniform), snapping to 5 cm and 15 degrees unless the magnet is off. The side panel takes exact numbers (metres, degrees, scale), shows the size in centimetres, and has Drop to desk and Reset turn and scale. Undo and redo cover every change (Cmd+Z, Shift+Cmd+Z), F frames every model and Cmd+S saves.
+
+Camera stops are added where the editor camera stands, named, reordered, deleted, moved with the gizmo or Set from view, and each has its field of view. Look through flies the editor camera to a stop and dims what falls outside the 16:9 poster frame. An optional desk sets the slab the models stand on.
+
+Save layout writes `layout.json` in the project, with every model pinned where it stands:
+
+```json
+{
+  "version": 1,
+  "models": { "character": { "position": [1.6, 0, 3.2], "rotation": [0, -25, 0], "scale": 1 } },
+  "stops": [
+    {
+      "id": "porch",
+      "name": "Porch",
+      "position": [6.5, 2.4, 10.5],
+      "target": [1, 1.4, 2.6],
+      "fov": 36,
+      "models": null
+    }
+  ],
+  "desk": { "size": [1.6, 0.9] }
+}
+```
+
+Positions are glTF metres (Y up), rotations degrees applied X, then Y, then Z, keyed by asset id. Up to 24 stops. The next pipeline run builds the scene, bakes it and renders one poster per stop from it. When an agent changes the layout while you have unsaved edits, a banner offers their version instead of overwriting yours.
+
+The first view is what the first stop loads before the visitor moves: the models in its frame, or the ones ticked under Count what the camera sees (the stop's `models`). Its size is measured against its own budget, First view target under Settings > Budgets (3 MB by default), and shows in the Layout bar, the Pipeline view and the scene budget tooltip in the top bar.
 
 ## Agents (MCP)
 
@@ -112,7 +146,7 @@ http_headers = { Authorization = "Bearer <token>" }
 tool_timeout_sec = 150
 ```
 
-Tools: `list_projects` (each project's id, name, template, site repo, created date, asset count, picture, what runs in it and which one is open in the app), `get_project`, `list_assets`, `get_pipeline`, `set_compression_presets` (per model texture size, data map size, codec and meshopt; only the given fields change, locked rows refuse, the Pipeline view updates live and nothing is spent), `get_run` (status and log tail), `list_inbox`, `get_inbox_checks`, `run_pipeline` (optionally from a step, optionally ignoring the cache), `cancel_run`, `accept_inbox_model` (defaults to the asset the model was sent for), `render_thumbnail`, `start_concepts`, `get_concepts` (a direction's images, stars, picks and job states), `send_to_3d`, `send_batch_to_3d` (several assets under one approval), `make_object_refs` and `get_provider_job`. The agent rules hold by construction: Blender only runs headless, no tool opens its window, and there is no screenshot or screen capture tool. With Ask before shipping on, a run started over MCP stops before its Ship step and the app shows an Approve or Deny prompt; until then `run_pipeline` and `get_run` answer `waiting for approval`. A run whose Ship step would come from the cache does not ask. `send_to_3d` to Tripo or Meshy always waits for Approve in the app before any credit is spent, whatever that setting says, and Deny cancels the job; `send_batch_to_3d` shows one prompt that lists every asset with its settings and the total, and Approve or Deny covers them all; By hand spends nothing, so it writes the handoff folder straight away. Settings overrides are checked by name and an unknown one is refused with the valid list. Tools that work on a project take its id as `project`; none of them changes the project open in the app. Every call shows in the activity list under Settings > Agents.
+Tools: `list_projects` (each project's id, name, template, site repo, created date, asset count, picture, what runs in it and which one is open in the app), `get_project`, `list_assets`, `get_pipeline`, `set_compression_presets` (per model texture size, data map size, codec and meshopt; only the given fields change, locked rows refuse, the Pipeline view updates live and nothing is spent), `get_run` (status and log tail), `list_inbox`, `get_inbox_checks`, `run_pipeline` (optionally from a step, optionally ignoring the cache), `cancel_run`, `accept_inbox_model` (defaults to the asset the model was sent for), `render_thumbnail`, `start_concepts`, `get_concepts` (a direction's images, stars, picks and job states), `send_to_3d`, `send_batch_to_3d` (several assets under one approval), `make_object_refs`, `get_provider_job`, `get_layout` (the layout, every model with its bounds and size, and the first view), `set_layout` (changes only what it names: `models` as `{ asset, position?, rotation?, scale?, remove? }`, `stops` as `{ id?, name?, position?, target?, fov?, models?, remove? }`, with no `id` adding a stop, plus `stopOrder` and `desk`; the whole result is checked before anything is written and the app's Layout view updates live) and `copy_asset` (`{ project, asset, to }`, the same copy as Copy to project...). The agent rules hold by construction: Blender only runs headless, no tool opens its window, and there is no screenshot or screen capture tool. With Ask before shipping on, a run started over MCP stops before its Ship step and the app shows an Approve or Deny prompt; until then `run_pipeline` and `get_run` answer `waiting for approval`. A run whose Ship step would come from the cache does not ask. `send_to_3d` to Tripo or Meshy always waits for Approve in the app before any credit is spent, whatever that setting says, and Deny cancels the job; `send_batch_to_3d` shows one prompt that lists every asset with its settings and the total, and Approve or Deny covers them all; By hand spends nothing, so it writes the handoff folder straight away. Settings overrides are checked by name and an unknown one is refused with the valid list. Tools that work on a project take its id as `project`; none of them changes the project open in the app. Every call shows in the activity list under Settings > Agents.
 
 ## Stack
 
