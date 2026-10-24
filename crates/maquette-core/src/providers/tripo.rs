@@ -13,7 +13,10 @@ use super::catalog::is_tripo_p_series;
 use super::http::{Api, ApiError, ApiResult, StopFlag};
 use super::presets::{TripoGeometryQuality, TripoPreset, TripoRigSpec, TripoTextureQuality};
 
-pub const BASE_URL: &str = "https://openapi.tripo3d.com/v3";
+/// The international platform, where keys from platform.tripo3d.ai work.
+/// `tripo3d.com` is the China platform: its keys are separate, and an
+/// international key gets 401 "Invalid API key" there.
+pub const BASE_URL: &str = "https://openapi.tripo3d.ai/v3";
 pub const SERVICE: &str = "Tripo";
 
 /// The views Tripo's multiview endpoint takes, in the order Maquette sends
