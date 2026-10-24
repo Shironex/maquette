@@ -183,15 +183,7 @@ pub fn analyse_bytes(bytes: &[u8], base: &Path) -> CoreResult<GlbReport> {
                 Mode::TriangleStrip | Mode::TriangleFan => elements.saturating_sub(2),
                 _ => 0,
             };
-            let bb = prim.bounding_box();
-            // Quantized positions (KHR_mesh_quantization) store normalized
-            // integers, and their min and max are in those integer units.
-            let unit = prim
-                .get(&gltf::Semantic::Positions)
-                .filter(gltf::Accessor::normalized)
-                .map_or(1.0, |a| normalized_max(a.data_type()));
-            let scaled = |v: [f32; 3]| [v[0] / unit, v[1] / unit, v[2] / unit];
-            for corner in corners(scaled(bb.min), scaled(bb.max)) {
+            for corner in primitive_corners(&prim) {
                 bounds.add(math::point(&world, corner));
             }
             if !compressed && prim.mode() == Mode::Triangles {
@@ -259,6 +251,45 @@ pub fn analyse_bytes(bytes: &[u8], base: &Path) -> CoreResult<GlbReport> {
         islands,
         finger_weights,
     })
+}
+
+/// The corners of a primitive's position bounds in its node's frame.
+fn primitive_corners(prim: &gltf::Primitive<'_>) -> [Vec3; 8] {
+    let bb = prim.bounding_box();
+    // Quantized positions (KHR_mesh_quantization) store normalized
+    // integers, and their min and max are in those integer units.
+    let unit = prim
+        .get(&gltf::Semantic::Positions)
+        .filter(gltf::Accessor::normalized)
+        .map_or(1.0, |a| normalized_max(a.data_type()));
+    let scaled = |v: [f32; 3]| [v[0] / unit, v[1] / unit, v[2] / unit];
+    corners(scaled(bb.min), scaled(bb.max))
+}
+
+/// The min and max corners of every mesh in the model at `path`, in its own
+/// glTF frame (Y up, metres). `None` when it cannot be read or has no mesh.
+/// Reads only the JSON, so it stays quick for large files.
+pub fn bounds(path: &Path) -> Option<([f32; 3], [f32; 3])> {
+    let bytes = fs::read(path).ok()?;
+    catch_unwind(AssertUnwindSafe(|| {
+        let gltf = gltf::Gltf::from_slice_without_validation(&bytes).ok()?;
+        let doc = &gltf.document;
+        let worlds = world_matrices(doc);
+        let mut bounds = Aabb::EMPTY;
+        for node in doc.nodes() {
+            let Some(mesh) = node.mesh() else { continue };
+            let world = worlds.get(node.index()).copied().unwrap_or(IDENTITY);
+            for prim in mesh.primitives() {
+                for corner in primitive_corners(&prim) {
+                    bounds.add(math::point(&world, corner));
+                }
+            }
+        }
+        (!bounds.is_empty() && bounds.min.iter().chain(&bounds.max).all(|v| v.is_finite()))
+            .then_some((bounds.min, bounds.max))
+    }))
+    .ok()
+    .flatten()
 }
 
 /// The largest stored value of a normalized integer type, which reads 1.0.
@@ -778,6 +809,21 @@ mod tests {
         let [x, y, _] = r.size;
         assert!((x - 2.0).abs() < 1e-3, "width {x}");
         assert!((y - 2.0).abs() < 1e-3, "height {y}");
+    }
+
+    #[test]
+    fn bounds_read_the_corners_without_the_buffers() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("prop.glb");
+        fs::write(&file, fixture::clean_prop()).expect("write");
+        let (min, max) = bounds(&file).expect("bounds");
+        let size = report(&fixture::clean_prop()).size;
+        for k in 0..3 {
+            assert!((max[k] - min[k] - size[k]).abs() < 1e-5, "axis {k}");
+        }
+        fs::write(&file, b"not a model").expect("junk");
+        assert_eq!(bounds(&file), None);
+        assert_eq!(bounds(&dir.path().join("missing.glb")), None);
     }
 
     #[test]
