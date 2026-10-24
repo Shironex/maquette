@@ -47,6 +47,13 @@ export interface MockOptions {
   pace?: number;
   /** Delivers runner and inbox events to the UI. */
   emit?: (event: { name: 'pipeline'; payload: PipelineEvent } | { name: 'inbox' }) => void;
+  /** Serves files the backend "writes", since mock mode has no disk. */
+  files?: {
+    /** Serves whatever `from` serves at `path` too. */
+    alias: (path: string, from: string) => void;
+    /** Serves `bytes` (a PNG) at `path`. */
+    store: (path: string, bytes: Uint8Array) => void;
+  };
 }
 
 function fail(code: string, message: string): never {
@@ -74,7 +81,7 @@ function slugify(name: string): string {
   );
 }
 
-export function createBackend({ scenario, probeDelay, pace = 260, emit }: MockOptions) {
+export function createBackend({ scenario, probeDelay, pace = 260, emit, files }: MockOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
   let root: string | null = configured ? expand(DEFAULT_ROOT) : null;
@@ -394,8 +401,15 @@ export function createBackend({ scenario, probeDelay, pace = 260, emit }: MockOp
             }
           : null,
       };
+      // The service renders a thumbnail for the new version; mock mode reuses the inbox one.
+      let thumbnail = target.thumbnail;
+      if (item.thumbnail) {
+        thumbnail = `thumbs/${assetId.replace(/-/g, '_')}_v${number}.png`;
+        files?.alias(`${expand(DEFAULT_ROOT)}/projects/${p.id}/${thumbnail}`, item.thumbnail);
+      }
       const updated = {
         ...target,
+        thumbnail,
         versions: [...target.versions, version],
         stage: 'blender' as Stage,
         status: 'review' as const,
@@ -412,6 +426,16 @@ export function createBackend({ scenario, probeDelay, pace = 260, emit }: MockOp
       };
     },
     inbox_open_in_blender: () => fail('unavailable', 'Mock mode does not open Blender.'),
+    thumbnail_store: ({ file, png }) => {
+      const item = inbox.find(i => i.file === file);
+      if (!item) fail('not-found', `${String(file)} in the inbox`);
+      const path = `${expand(DEFAULT_ROOT)}/cache/thumbs/${item.id}.png`;
+      files?.store(path, Uint8Array.from(png as number[]));
+      inbox = inbox.map(i =>
+        i.id === item.id ? { ...i, thumbnail: path, thumbnailState: 'ready' as const } : i
+      );
+      return path;
+    },
   };
 
   // The `running` scenario starts run 25 as soon as the app opens.

@@ -139,7 +139,7 @@ function asset(
   return { versions: [], thumbnail: null, createdAt: at, updatedAt: at, ...partial };
 }
 
-/** The Board of a project a few days in. Thumbnails map to bundled images. */
+/** The Board of a project a few days in. Thumbnails map to the renders in `assets/mock`. */
 export function moonAssets(): Asset[] {
   return [
     asset(
@@ -150,7 +150,7 @@ export function moonAssets(): Asset[] {
         stage: 'web',
         status: 'done',
         versions: versions('island', 7, stats(412_000, 1.1)),
-        thumbnail: 'thumbs/island.jpg',
+        thumbnail: 'thumbs/island.webp',
       },
       2 * DAY
     ),
@@ -162,7 +162,7 @@ export function moonAssets(): Asset[] {
         stage: 'web',
         status: 'cached',
         versions: versions('shop_house', 3, stats(38_200, 0.9)),
-        thumbnail: 'thumbs/shop-house.jpg',
+        thumbnail: 'thumbs/shop-house.webp',
       },
       3 * DAY
     ),
@@ -174,7 +174,7 @@ export function moonAssets(): Asset[] {
         stage: 'blender',
         status: 'review',
         versions: versions('character', 2, stats(94_612, 1.4, 65, 2)),
-        thumbnail: 'thumbs/character.jpg',
+        thumbnail: 'thumbs/character.webp',
       },
       DAY / 3
     ),
@@ -186,16 +186,41 @@ export function moonAssets(): Asset[] {
         stage: 'blender',
         status: 'done',
         versions: versions('vending', 2, stats(12_900, 0.4)),
+        thumbnail: 'thumbs/vending-machine.webp',
       },
       4 * DAY
     ),
-    asset({ id: 'sakura', name: 'Sakura', kind: 'prop', stage: 'tripo', status: 'queued' }, DAY),
     asset(
-      { id: 'lanterns', name: 'Stone lanterns', kind: 'prop', stage: 'refs', status: 'review' },
+      {
+        id: 'sakura',
+        name: 'Sakura',
+        kind: 'prop',
+        stage: 'tripo',
+        status: 'queued',
+        thumbnail: 'thumbs/sakura-large.webp',
+      },
+      DAY
+    ),
+    asset(
+      {
+        id: 'lanterns',
+        name: 'Stone lanterns',
+        kind: 'prop',
+        stage: 'refs',
+        status: 'review',
+        thumbnail: 'thumbs/stone-lantern.webp',
+      },
       DAY * 1.5
     ),
     asset(
-      { id: 'far-spire', name: 'Far spire', kind: 'prop', stage: 'concept', status: 'queued' },
+      {
+        id: 'far-spire',
+        name: 'Far spire',
+        kind: 'prop',
+        stage: 'concept',
+        status: 'queued',
+        thumbnail: 'thumbs/far-spire.webp',
+      },
       DAY / 6
     ),
   ];

@@ -95,8 +95,14 @@ const c = (
   detail,
 });
 
+/** Where the thumbnail service caches renders, next to the inbox folder. */
+export function thumbsDir(inbox: string): string {
+  return `${inbox.replace(/\/inbox$/, '')}/cache/thumbs`;
+}
+
 export function inboxItems(dir: string, now: number): InboxItem[] {
   const joints = mixamoJoints();
+  const thumbs = thumbsDir(dir);
   const character: InboxItem = {
     id: 'character.glb',
     name: 'Character',
@@ -158,8 +164,8 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     ],
     worst: 'fail',
     error: null,
-    thumbnail: null,
-    thumbnailState: 'fallback',
+    thumbnail: `${thumbs}/character.webp`,
+    thumbnailState: 'ready',
   };
   const sakura: InboxItem = {
     id: 'sakura_large.glb',
@@ -191,8 +197,8 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     ],
     worst: 'pass',
     error: null,
-    thumbnail: null,
-    thumbnailState: 'fallback',
+    thumbnail: `${thumbs}/sakura-large.webp`,
+    thumbnailState: 'ready',
   };
   const shrubs: InboxItem = {
     id: 'flower_shrubs.glb',
@@ -235,8 +241,8 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     ],
     worst: 'warning',
     error: null,
-    thumbnail: null,
-    thumbnailState: 'fallback',
+    thumbnail: `${thumbs}/flower-shrubs.webp`,
+    thumbnailState: 'ready',
   };
   const spire: InboxItem = {
     id: 'far_spire.glb',
@@ -257,9 +263,9 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
   return [spire, character, sakura, shrubs];
 }
 
-/** Which bundled fixture GLB previews each mock item. */
+/** Which bundled model (under `assets/mock/models`) previews each mock item. */
 export const PREVIEW_FILE: Record<string, string> = {
-  'character.glb': 'character_tails.glb',
-  'sakura_large.glb': 'crate_clean.glb',
-  'flower_shrubs.glb': 'props_merged.glb',
+  'character.glb': 'character.glb',
+  'sakura_large.glb': 'sakura_tree_large.glb',
+  'flower_shrubs.glb': 'flower_shrubs.glb',
 };

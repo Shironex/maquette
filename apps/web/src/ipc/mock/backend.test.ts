@@ -96,4 +96,42 @@ describe('mock backend', () => {
     const snapshot = (await handle('inbox_list')) as { items: { id: string }[] };
     expect(snapshot.items.map(i => i.id)).not.toContain('sakura_large.glb');
   });
+
+  it('carries the inbox thumbnail onto the accepted version', async () => {
+    const aliases: [string, string][] = [];
+    const handle = createBackend({
+      scenario: 'configured',
+      probeDelay: 0,
+      pace: 0,
+      files: { alias: (path, from) => aliases.push([path, from]), store: () => {} },
+    });
+    const result = (await handle('inbox_accept', {
+      request: { item: 'sakura_large.glb', project: 'moon-island', asset: null },
+    })) as AcceptResult;
+    expect(result.asset.thumbnail).toBe('thumbs/sakura_large_v1.png');
+    expect(aliases).toHaveLength(1);
+    expect(aliases[0]![0]).toMatch(/projects\/moon-island\/thumbs\/sakura_large_v1\.png$/);
+    expect(aliases[0]![1]).toMatch(/cache\/thumbs\/sakura-large\.webp$/);
+  });
+
+  it('stores a snapshot thumbnail for an inbox model', async () => {
+    const stored: string[] = [];
+    const handle = createBackend({
+      scenario: 'configured',
+      probeDelay: 0,
+      pace: 0,
+      files: { alias: () => {}, store: path => stored.push(path) },
+    });
+    const snapshot = (await handle('inbox_list')) as { items: { file: string; id: string }[] };
+    const file = snapshot.items.find(i => i.id === 'character.glb')!.file;
+    const path = (await handle('thumbnail_store', { file, png: [137, 80, 78, 71] })) as string;
+    expect(stored).toEqual([path]);
+    const after = (await handle('inbox_list')) as {
+      items: { id: string; thumbnail: string | null; thumbnailState: string }[];
+    };
+    expect(after.items.find(i => i.id === 'character.glb')).toMatchObject({
+      thumbnail: path,
+      thumbnailState: 'ready',
+    });
+  });
 });
