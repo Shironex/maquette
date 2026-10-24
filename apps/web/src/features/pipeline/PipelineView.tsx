@@ -1,13 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  BudgetMeter,
-  Button,
-  Checkbox,
-  EmptyState,
-  InlineBanner,
-  StageStepper,
-  TopBar,
-} from '@maquette/ui';
+import { Button, Checkbox, EmptyState, InlineBanner, StageStepper, TopBar } from '@maquette/ui';
 import { formatBytes } from '@/lib/format';
 import { useAppStore } from '@/state/app-store';
 import { usePipelineStore } from '@/state/pipeline-store';
@@ -16,6 +8,7 @@ import { PipelineGraph } from './PipelineGraph';
 import { PresetsPanel } from './PresetsPanel';
 import { RunLog } from './RunLog';
 import { StartersBanner } from './StartersBanner';
+import { FirstViewBar, SceneBudgetMeter } from '@/features/shell/SceneBudgetMeter';
 
 function clock(ms: number | null | undefined): string {
   if (!ms) return '';
@@ -98,7 +91,7 @@ export function PipelineView() {
         lead={<StageStepper stages={stageViews(project.assets ?? [], latest)} />}
         right={
           <>
-            <BudgetMeter label="Scene budget" value={transfer / 1e6} target={budget} unit="MB" />
+            <SceneBudgetMeter value={transfer / 1e6} target={budget} />
             {active ? (
               <Button variant="danger" icon="x-circle" onClick={() => void cancel()}>
                 Stop run
@@ -122,6 +115,7 @@ export function PipelineView() {
             <h1 className="text-screen-title">Pipeline runner</h1>
             <p className="mt-0.5 truncate text-fg-mute">{subtitle}</p>
           </div>
+          <FirstViewBar className="mt-0.5 w-56 flex-none" />
           <Checkbox checked={force} onChange={setForce} label="Ignore the cache" className="mt-2" />
         </div>
 

@@ -16,7 +16,8 @@ export function patchSection<S extends Section>(
   return { ...config, [section]: { ...config[section], ...patch } };
 }
 
-export type ConfigField = PresetKey | 'sceneMb' | 'trisPerModel' | 'mcpPort' | 'layout';
+export type ConfigField =
+  PresetKey | 'sceneMb' | 'firstViewMb' | 'trisPerModel' | 'mcpPort' | 'layout';
 export type ConfigErrors = Partial<Record<ConfigField, string>>;
 
 const FOLDER_NAME = /^[^\\/:*?"<>|]+$/;
@@ -38,6 +39,10 @@ export function validateConfig(
   const mb = config.budgets.sceneMb;
   if (mb === null || !Number.isFinite(mb) || mb <= 0 || mb > 1000) {
     errors.sceneMb = 'Use more than 0 MB and at most 1000 MB.';
+  }
+  const first = config.budgets.firstViewMb;
+  if (first === null || !Number.isFinite(first) || first <= 0 || first > 1000) {
+    errors.firstViewMb = 'Use more than 0 MB and at most 1000 MB.';
   }
   if (!(config.budgets.trisPerModel > 0)) errors.trisPerModel = 'Use more than 0 triangles.';
   const port = config.agents.mcpPort;

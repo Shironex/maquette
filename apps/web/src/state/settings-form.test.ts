@@ -15,7 +15,7 @@ describe('settings form', () => {
   it('patches one section and leaves the rest alone', () => {
     const base = defaultConfig();
     const next = patchSection(base, 'budgets', { sceneMb: 4.5 });
-    expect(next.budgets).toEqual({ sceneMb: 4.5, trisPerModel: 60000 });
+    expect(next.budgets).toEqual({ sceneMb: 4.5, trisPerModel: 60000, firstViewMb: 3 });
     expect(next.providers).toBe(base.providers);
     expect(base.budgets.sceneMb).toBe(3);
   });
@@ -23,7 +23,7 @@ describe('settings form', () => {
   it('accepts the defaults and flags each bad field', () => {
     expect(validateConfig(defaultConfig())).toEqual({});
     let bad = patchSection(defaultConfig(), 'agents', { mcpPort: 80 });
-    bad = patchSection(bad, 'budgets', { sceneMb: 0 });
+    bad = patchSection(bad, 'budgets', { sceneMb: 0, firstViewMb: 0 });
     bad = patchSection(bad, 'layout', { inbox: 'Projects' });
     bad = {
       ...bad,
@@ -43,7 +43,13 @@ describe('settings form', () => {
       tripoModels: [],
       meshyModels: [{ id: 'meshy-t2', label: 'Meshy T2', note: '' }],
     });
-    expect(Object.keys(errors).sort()).toEqual(['layout', 'mcpPort', 'meshy-character', 'sceneMb']);
+    expect(Object.keys(errors).sort()).toEqual([
+      'firstViewMb',
+      'layout',
+      'mcpPort',
+      'meshy-character',
+      'sceneMb',
+    ]);
     expect(errors['meshy-character']).toBe('Meshy T2 aims for 100 to 15,000 faces.');
   });
 

@@ -60,6 +60,17 @@ export function BudgetFields({ config, onChange, errors = {} }: ConfigFieldsProp
         note={errorNote(errors.sceneMb)}
       />
       <NumberField
+        label="First view target"
+        unit="MB"
+        value={config.budgets.firstViewMb ?? 0}
+        min={0.1}
+        max={1000}
+        format={n => n.toFixed(1)}
+        onChange={firstViewMb => set({ firstViewMb })}
+        note={errorNote(errors.firstViewMb)}
+        hint={errors.firstViewMb ? undefined : 'What the first camera stop may load.'}
+      />
+      <NumberField
         label="Tris per model"
         unit="tris"
         value={config.budgets.trisPerModel}

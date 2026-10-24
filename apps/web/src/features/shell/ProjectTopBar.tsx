@@ -1,7 +1,8 @@
-import { BudgetMeter, Button, StageStepper, TopBar } from '@maquette/ui';
+import { Button, StageStepper, TopBar } from '@maquette/ui';
 import { useAppStore } from '@/state/app-store';
 import { estimatedTransfer, stageViews } from '@/state/pipeline';
 import { usePipelineStore } from '@/state/pipeline-store';
+import { SceneBudgetMeter } from './SceneBudgetMeter';
 
 /** The stage stepper, the scene budget and Run pipeline, as the Board and the Lab show them. */
 export function ProjectTopBar() {
@@ -22,11 +23,9 @@ export function ProjectTopBar() {
       lead={<StageStepper stages={stageViews(assets, latest)} />}
       right={
         <>
-          <BudgetMeter
-            label="Scene budget"
+          <SceneBudgetMeter
             value={pipeline ? estimatedTransfer(pipeline) / 1e6 : 0}
             target={budget}
-            unit="MB"
           />
           {running ? (
             <Button icon="flow-arrow" onClick={() => setView('pipeline')}>
