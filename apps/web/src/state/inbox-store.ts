@@ -10,7 +10,7 @@ import {
 } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { useAppStore } from './app-store';
-import { firstToReview } from './inbox';
+import { contentKey, firstToReview } from './inbox';
 import { keepRenders, needsSnapshot, withThumbnail } from './thumbs';
 
 interface InboxStore {
@@ -31,7 +31,10 @@ interface InboxStore {
   snapshotMissing: () => Promise<void>;
 }
 
-/** Files already snapshotted (or tried) this session, so a failure is not retried in a loop. */
+/**
+ * Files already snapshotted (or tried) this session, by content, so a failure
+ * is not retried in a loop but a new file under the same name still is.
+ */
 const snapshotted = new Set<string>();
 
 /** Counts inbox loads, so only the latest one lands. */
@@ -142,13 +145,13 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
 
   snapshotMissing: async () => {
     const waiting = (get().snapshot?.items ?? []).filter(
-      i => needsSnapshot(i) && !snapshotted.has(i.file)
+      i => needsSnapshot(i) && !snapshotted.has(contentKey(i))
     );
     if (waiting.length === 0) return;
     const { snapshotModel } = await import('@/features/viewer/snapshot');
     for (const item of waiting) {
-      if (snapshotted.has(item.file)) continue;
-      snapshotted.add(item.file);
+      if (snapshotted.has(contentKey(item))) continue;
+      snapshotted.add(contentKey(item));
       const url = fileUrl(item.file);
       if (!url) continue;
       try {
