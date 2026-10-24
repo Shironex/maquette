@@ -17,6 +17,10 @@ export interface AssetCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   /** Replaces the tris and size line, for example "No model yet". */
   meta?: string;
   status?: Status;
+  /** Overrides the status word, for example "Waiting for your model". */
+  statusLabel?: string;
+  /** Overrides the status icon. */
+  statusIcon?: IconName;
   progress?: number;
   progressLabel?: string;
   selected?: boolean;
@@ -42,6 +46,8 @@ export function AssetCard({
   size,
   meta,
   status,
+  statusLabel,
+  statusIcon,
   progress,
   progressLabel,
   selected,
@@ -118,7 +124,7 @@ export function AssetCard({
           <ProgressBar value={progress} label={progressLabel ?? 'Running'} className="mt-1" />
         ) : status ? (
           <div className="mt-1">
-            <StatusChip status={status} />
+            <StatusChip status={status} label={statusLabel} icon={statusIcon} />
           </div>
         ) : null}
       </div>
