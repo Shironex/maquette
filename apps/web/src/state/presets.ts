@@ -43,6 +43,35 @@ export function presetRows(view: PipelineView): PresetRow[] {
   });
 }
 
+/** Rows edited in the panel but not applied yet, by model. */
+export type PresetEdits = Readonly<Record<string, PresetRow>>;
+
+const sameRow = (a: PresetRow, b: PresetRow) =>
+  a.textureSize === b.textureSize &&
+  a.dataTextureSize === b.dataTextureSize &&
+  a.codec === b.codec &&
+  a.meshopt === b.meshopt;
+
+/** The saved rows with the edits laid over them; an edit for a model gone from the list drops. */
+export function withEdits(saved: readonly PresetRow[], edits: PresetEdits): PresetRow[] {
+  return saved.map(r => edits[r.model] ?? r);
+}
+
+/** The edits with `row` in; a row set back to its saved values is no edit. */
+export function editRow(saved: readonly PresetRow[], edits: PresetEdits, row: PresetRow) {
+  const { [row.model]: _old, ...rest } = edits;
+  const was = saved.find(r => r.model === row.model);
+  return was && sameRow(was, row) ? rest : { ...rest, [row.model]: row };
+}
+
+/** True when an edit still differs from what is saved. */
+export function hasEdits(saved: readonly PresetRow[], edits: PresetEdits): boolean {
+  return saved.some(r => {
+    const edit = edits[r.model];
+    return edit !== undefined && !sameRow(r, edit);
+  });
+}
+
 /** Stored and edited rows go back; untouched default rows stay implicit. */
 export function presetsToSave(rows: readonly PresetRow[]): CompressPreset[] {
   return rows

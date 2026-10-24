@@ -10,6 +10,7 @@ import {
   type PipelineView,
 } from '@/ipc/client';
 import { applyEvent, fileName, starterToast } from './pipeline';
+import type { PresetEdits } from './presets';
 import { useAppStore } from './app-store';
 
 interface PipelineStore {
@@ -22,6 +23,12 @@ interface PipelineStore {
   run: (options?: { from?: string | null; force?: boolean }) => Promise<void>;
   cancel: () => Promise<void>;
   savePresets: (presets: CompressPreset[]) => Promise<boolean>;
+  /**
+   * Preset rows edited in the panel and not applied yet, by project. They
+   * outlive the panel, so a run's events or another tab do not drop them.
+   */
+  presetEdits: Readonly<Record<string, PresetEdits>>;
+  setPresetEdits: (project: string, edits: PresetEdits) => void;
   /** Updates starter scripts; `replace` also replaces edited ones (kept as .bak). */
   updateStarters: (scripts: string[], replace: boolean) => Promise<boolean>;
   /** Reloads the open project's pipeline when `project` is it, for example after an agent saved presets. */
@@ -37,6 +44,7 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
   loading: false,
   error: null,
   starting: false,
+  presetEdits: {},
 
   load: async project => {
     requested = project;
@@ -102,6 +110,11 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
       });
       return false;
     }
+  },
+
+  setPresetEdits: (project, edits) => {
+    const { [project]: _old, ...rest } = get().presetEdits;
+    set({ presetEdits: Object.keys(edits).length ? { ...rest, [project]: edits } : rest });
   },
 
   updateStarters: async (scripts, replace) => {

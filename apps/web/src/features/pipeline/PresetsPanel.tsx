@@ -1,8 +1,17 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Button, Icon, Select, cn } from '@maquette/ui';
 import type { CompressPreset, MeshoptLevel, PipelineView, TextureCodec } from '@/ipc/client';
 import { formatBytes } from '@/lib/format';
-import { estimateTransfer, presetRows, presetsToSave, type PresetRow } from '@/state/presets';
+import {
+  editRow,
+  estimateTransfer,
+  hasEdits,
+  presetRows,
+  presetsToSave,
+  withEdits,
+  type PresetRow,
+} from '@/state/presets';
+import { usePipelineStore } from '@/state/pipeline-store';
 
 const SIZES = ['512', '1024', '2048', '4096'] as const;
 const SAME = 'same';
@@ -15,6 +24,7 @@ const CODECS: readonly { value: TextureCodec; label: string }[] = [
   { value: 'uastc', label: 'UASTC' },
 ];
 const MESHOPT: readonly MeshoptLevel[] = ['low', 'medium', 'high'];
+const NO_EDITS = {};
 
 /** Per model texture size, codec and meshopt level, feeding the compress step. */
 export function PresetsPanel({
@@ -25,7 +35,11 @@ export function PresetsPanel({
   onSave: (presets: CompressPreset[]) => Promise<boolean>;
 }) {
   const initial = useMemo(() => presetRows(view), [view]);
-  const [rows, setRows] = useState<PresetRow[]>(initial);
+  // Edits live in the store until applied: a run's events or a trip to
+  // another tab must not put the saved values back.
+  const edits = usePipelineStore(s => s.presetEdits[view.project]) ?? NO_EDITS;
+  const setEdits = usePipelineStore(s => s.setPresetEdits);
+  const rows = withEdits(initial, edits);
   const [saving, setSaving] = useState(false);
   // Rows with a split open their extra line; the others start folded.
   const [open, setOpen] = useState<readonly string[]>(() =>
@@ -33,14 +47,15 @@ export function PresetsPanel({
   );
   const toggle = (model: string) =>
     setOpen(now => (now.includes(model) ? now.filter(m => m !== model) : [...now, model]));
-  useEffect(() => setRows(initial), [initial]);
-  const dirty = JSON.stringify(rows) !== JSON.stringify(initial);
+  const dirty = hasEdits(initial, edits);
   const locks = rows.filter(r => r.lock);
-  const update = (model: string, patch: Partial<PresetRow>) =>
-    setRows(list => list.map(r => (r.model === model ? { ...r, ...patch, custom: true } : r)));
+  const update = (model: string, patch: Partial<PresetRow>) => {
+    const row = rows.find(r => r.model === model);
+    if (row) setEdits(view.project, editRow(initial, edits, { ...row, ...patch, custom: true }));
+  };
   const save = async () => {
     setSaving(true);
-    await onSave(presetsToSave(rows));
+    if (await onSave(presetsToSave(rows))) setEdits(view.project, {});
     setSaving(false);
   };
   const transfer = estimateTransfer(view, rows);
@@ -189,6 +204,11 @@ export function PresetsPanel({
             {transfer > 0 ? formatBytes(transfer) : 'not built yet'}
           </div>
         </div>
+        {dirty ? (
+          <span role="status" className="text-meta text-clay-text">
+            Not applied yet
+          </span>
+        ) : null}
         <Button variant="primary" disabled={!dirty || saving} onClick={() => void save()}>
           Apply presets
         </Button>
