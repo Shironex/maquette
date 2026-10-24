@@ -3,8 +3,12 @@
  * onboarding step, the Board, the fresh template project, Pipeline (idle,
  * running, failed), the Concept lab (results, a new brief, images
  * generating), the Inbox in every preview mode, the Inspector (compare, a
- * camera stop, budgets), Settings, Settings > Agents with an agent's
- * activity, and the shipping approval prompt. It renders pages to files and never captures the screen.
+ * camera stop, budgets, Export GLB), Settings, Settings > Agents with an
+ * agent's activity, the approval prompts (Ship and a send to 3D), Send to 3D
+ * for Tripo, Meshy and by hand, the by hand settings card, the 3D queue, a
+ * Board card waiting for a model, Send to 3D from the Lab and Settings > 3D
+ * providers with a tested key. It renders pages to files and never captures
+ * the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
@@ -116,7 +120,7 @@ try {
   await shot(page, 'template-pipeline');
 
   await page.getByRole('button', { name: 'Settings' }).click();
-  await page.getByRole('heading', { name: 'Tripo defaults' }).waitFor();
+  await page.getByRole('heading', { name: '3D providers' }).first().waitFor();
   await page.getByText('Changes save as you go').waitFor();
   await shot(page, 'settings');
 
@@ -143,18 +147,52 @@ try {
   await shot(labRunning, 'lab-running');
 
   const agents = await open('&scenario=configured&agents=active', '#/settings');
-  await agents.getByRole('heading', { name: 'Tripo defaults' }).waitFor();
+  await agents.getByRole('heading', { name: '3D providers' }).first().waitFor();
   await agents.getByRole('button', { name: 'Agents', exact: true }).click();
   await agents.getByText('Listening on http://127.0.0.1:4791/mcp', { exact: false }).waitFor();
   await agents.waitForTimeout(600);
   await shot(agents, 'settings-agents');
   const prompt = await open('&scenario=configured&agents=active', '#/board');
-  await prompt.getByRole('alertdialog').waitFor();
+  await prompt.getByRole('alertdialog', { name: 'Send Far spire to Tripo?' }).waitFor();
   await shot(prompt, 'agents-approval-prompt');
 
   const board = await open('&scenario=configured', '#/board');
   await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
   await shot(board, 'board');
+  await board.getByRole('button', { name: /3D queue/ }).click();
+  await board.getByRole('region', { name: '3D queue' }).waitFor();
+  await shot(board, 'provider-queue');
+  await board.keyboard.press('Escape');
+  await board.getByRole('button', { name: 'More for Stone lanterns' }).click();
+  await board.getByRole('menuitem', { name: 'Send to 3D' }).click();
+  await board.getByRole('dialog', { name: /Send Stone lanterns to 3D/ }).waitFor();
+  await board.getByText('1 of 4').waitFor();
+  await shot(board, 'send-tripo');
+  const providers = board.getByRole('group', { name: 'Provider' });
+  await providers.getByRole('button', { name: 'Meshy' }).click();
+  await shot(board, 'send-meshy');
+  await providers.getByRole('button', { name: 'By hand' }).click();
+  await board
+    .getByRole('group', { name: 'Settings card for' })
+    .getByRole('button', { name: 'Tripo' })
+    .click();
+  await shot(board, 'send-by-hand');
+  await board.getByRole('button', { name: 'Write the handoff folder' }).click();
+  await board.getByText('Bring the GLB back', { exact: true }).waitFor();
+  await shot(board, 'by-hand-card');
+
+  const labSend = await open('&scenario=configured', '#/lab');
+  await labSend.getByRole('button', { name: 'Send to 3D' }).click();
+  await labSend.getByRole('menuitem', { name: 'As a scene' }).click();
+  await labSend.getByRole('dialog', { name: /to 3D/ }).waitFor();
+  await labSend.waitForTimeout(400);
+  await shot(labSend, 'lab-send-to-3d');
+
+  const keys = await open('&scenario=configured', '#/settings');
+  await keys.getByRole('button', { name: '3D providers', exact: true }).click();
+  await keys.getByRole('button', { name: 'Test key' }).click();
+  await keys.getByText('The key works.', { exact: false }).waitFor();
+  await shot(keys, 'settings-providers');
 
   const failed = await open('&scenario=configured', '#/pipeline');
   await failed.getByText('Run 24 failed at Capture posters').first().waitFor();
