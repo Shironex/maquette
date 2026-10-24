@@ -7,6 +7,7 @@ pub mod graph;
 pub mod history;
 pub mod presets;
 pub mod runner;
+pub mod starter;
 pub mod template;
 pub mod tools;
 
@@ -156,7 +157,9 @@ pub fn save(project_dir: &Path, def: &PipelineDef) -> CoreResult<()> {
 }
 
 /// The project's pipeline, writing the starting one (its template, or the
-/// proposal for an imported folder) the first time.
+/// proposal for an imported folder) the first time. A template's starter
+/// scripts go into `tools/` at the same moment, skipping files that exist,
+/// so a new project runs end to end on day one.
 ///
 /// # Errors
 ///
@@ -171,8 +174,15 @@ pub fn ensure(
     let def = template::initial(manifest);
     // A proposal with problems is still shown, so it can be fixed; it is
     // only written once it validates.
-    if let Err(err) = save(project_dir, &def) {
-        tracing::warn!(error = %err, "the starting pipeline was not saved");
+    match save(project_dir, &def) {
+        Ok(()) => match starter::write(project_dir, manifest.template) {
+            Ok(written) if !written.is_empty() => {
+                tracing::info!(scripts = ?written, "wrote the starter scripts");
+            }
+            Ok(_) => {}
+            Err(err) => tracing::warn!(error = %err, "the starter scripts were not written"),
+        },
+        Err(err) => tracing::warn!(error = %err, "the starting pipeline was not saved"),
     }
     Ok(def)
 }
@@ -199,6 +209,33 @@ mod tests {
             save(dir.path(), &broken).expect_err("broken").code(),
             "invalid"
         );
+    }
+
+    #[test]
+    fn ensure_writes_the_starter_scripts_once() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let manifest = crate::project::ProjectManifest {
+            version: crate::project::PROJECT_VERSION,
+            id: "moon-island".into(),
+            name: "Moon Island".into(),
+            template: ProjectTemplate::FloatingDiorama,
+            site_repo: None,
+            source_folder: None,
+            created_at: "2026-10-24T09:30:00.000Z".into(),
+            assets: Vec::new(),
+        };
+        let def = ensure(dir.path(), &manifest).expect("ensure");
+        for script in def.steps.iter().filter_map(|s| s.script.as_deref()) {
+            assert!(dir.path().join(script).is_file(), "{script} missing");
+        }
+        // An edited script survives; a deleted one stays deleted, because
+        // the pipeline exists now and ensure only reads it.
+        let build = dir.path().join("tools/build_scene.py");
+        fs::write(&build, "print('mine')\n").expect("edit");
+        fs::remove_file(dir.path().join("tools/ship.mjs")).expect("remove");
+        ensure(dir.path(), &manifest).expect("again");
+        assert_eq!(fs::read_to_string(&build).expect("read"), "print('mine')\n");
+        assert!(!dir.path().join("tools/ship.mjs").exists());
     }
 
     #[test]

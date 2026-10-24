@@ -11,3 +11,7 @@
 *.icns binary
 *.ico binary
 *.woff2 binary
+
+# Starter scripts are embedded with include_str!, so every machine writes the
+# same bytes into new projects.
+crates/maquette-core/starter/** text eol=lf

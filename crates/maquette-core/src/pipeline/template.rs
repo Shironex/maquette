@@ -17,26 +17,22 @@ fn s(list: &[&str]) -> Vec<String> {
     list.iter().map(|v| v.to_string()).collect()
 }
 
+/// A headless Blender step. `blend` is the file Blender opens before the
+/// script; `None` starts from the factory scene and leaves loading to the
+/// script, which is how a step runs before its blend exists.
 fn blender(
     id: &str,
     name: &str,
     script: &str,
-    blend: &str,
+    blend: Option<&str>,
     extra: &[&str],
     inputs: &[&str],
     outputs: &[&str],
     deps: &[&str],
 ) -> StepDef {
-    let mut args = s(&[
-        "-b",
-        "--factory-startup",
-        "--python-exit-code",
-        "1",
-        blend,
-        "--python",
-        "{script}",
-        "--",
-    ]);
+    let mut args = s(&["-b", "--factory-startup", "--python-exit-code", "1"]);
+    args.extend(blend.map(str::to_string));
+    args.extend(s(&["--python", "{script}", "--"]));
     args.extend(s(extra));
     StepDef {
         id: id.into(),
@@ -70,6 +66,10 @@ fn compress(from: &str, to: &str, deps: &[&str]) -> StepDef {
     }
 }
 
+/// Copies the shipped models and posters into the site repo's public
+/// folder. Without a site repo in the project settings the script passes
+/// and says so. It writes outside the pipeline root, so it has no outputs
+/// and runs every time.
 fn ship(deps: &[&str]) -> StepDef {
     StepDef {
         id: "ship".into(),
@@ -79,11 +79,22 @@ fn ship(deps: &[&str]) -> StepDef {
         script: Some("tools/ship.mjs".into()),
         args: s(&[
             "{script}",
+            "--models",
             "web/dist",
+            "--posters",
             "web/posters",
-            "{siteRepo}/public/models",
+            "--site",
+            "{siteRepo}",
+            "--models-to",
+            "public/models",
+            "--posters-to",
+            "public/posters",
         ]),
-        inputs: s(&["web/dist/*.glb", "web/posters/*.png"]),
+        inputs: s(&[
+            "web/dist/*.glb",
+            "web/posters/*.png",
+            "web/posters/stops.json",
+        ]),
         outputs: Vec::new(),
         depends_on: s(deps),
         compress: None,
@@ -101,17 +112,27 @@ pub fn character_preset() -> CompressPreset {
     }
 }
 
-/// The "Floating diorama" flow: build the scene, bake its light, export one
-/// GLB per model, compress them, render the poster stops, ship to the site.
+/// The "Floating diorama" flow: build the scene from the models folder,
+/// bake its light, export one GLB per model, compress them, render the
+/// poster stops, ship to the site. The scripts in [`super::starter`] make
+/// it run on a new project; the build step opens no blend, because
+/// `blender/scene.blend` is optional.
 fn diorama() -> Vec<StepDef> {
     vec![
         blender(
             "build",
             "Build scene",
             "tools/build_scene.py",
-            "blender/scene.blend",
-            &["--out", "blender/scene_built.blend"],
-            &["blender/scene.blend", "models/*.glb"],
+            None,
+            &[
+                "--base",
+                "blender/scene.blend",
+                "--models",
+                "models",
+                "--out",
+                "blender/scene_built.blend",
+            ],
+            &["blender/scene.blend", "models/*.glb", "models/*.gltf"],
             &["blender/scene_built.blend"],
             &[],
         ),
@@ -119,7 +140,7 @@ fn diorama() -> Vec<StepDef> {
             "bake",
             "Bake light",
             "tools/bake_light.py",
-            "blender/scene_built.blend",
+            Some("blender/scene_built.blend"),
             &[
                 "--out-dir",
                 "blender/bake",
@@ -127,32 +148,38 @@ fn diorama() -> Vec<StepDef> {
                 "blender/scene_baked.blend",
             ],
             &["blender/scene_built.blend"],
-            &["blender/bake/*.png", "blender/scene_baked.blend"],
+            &["blender/bake/bake.json", "blender/scene_baked.blend"],
             &["build"],
         ),
         blender(
             "export",
             "Export GLB",
             "tools/export_web.py",
-            "blender/scene_baked.blend",
+            Some("blender/scene_baked.blend"),
             &["--bake", "blender/bake", "--out", "web/raw"],
-            &["blender/scene_baked.blend", "blender/bake/*.png"],
+            &["blender/scene_baked.blend", "blender/bake/*"],
             &["web/raw/*.glb"],
             &["bake"],
         ),
         compress("web/raw", "web/dist", &["export"]),
-        blender(
-            "posters",
-            "Capture posters",
-            "tools/render_stops.py",
-            "blender/scene_baked.blend",
-            &["--out", "web/posters"],
-            &["blender/scene_baked.blend"],
-            &["web/posters/*.png"],
-            &["compress"],
-        ),
+        posters("blender/scene_baked.blend"),
         ship(&["compress", "posters"]),
     ]
+}
+
+/// Renders the tagged camera stops of `blend`. `stops.json` is always
+/// written, so a scene without stops still passes.
+fn posters(blend: &str) -> StepDef {
+    blender(
+        "posters",
+        "Capture posters",
+        "tools/render_stops.py",
+        Some(blend),
+        &["--out", "web/posters"],
+        &[blend],
+        &["web/posters/stops.json"],
+        &["compress"],
+    )
 }
 
 fn character_showcase() -> Vec<StepDef> {
@@ -161,23 +188,14 @@ fn character_showcase() -> Vec<StepDef> {
             "export",
             "Export GLB",
             "tools/export_character.py",
-            "blender/character.blend",
+            Some("blender/character.blend"),
             &["--out", "web/raw"],
             &["blender/character.blend"],
             &["web/raw/*.glb"],
             &[],
         ),
         compress("web/raw", "web/dist", &["export"]),
-        blender(
-            "posters",
-            "Capture posters",
-            "tools/render_stops.py",
-            "blender/character.blend",
-            &["--out", "web/posters"],
-            &["blender/character.blend"],
-            &["web/posters/*.png"],
-            &["compress"],
-        ),
+        posters("blender/character.blend"),
         ship(&["compress", "posters"]),
     ]
 }
@@ -625,6 +643,49 @@ mod tests {
             assert_eq!(step.args[0], "-b", "{}", step.id);
             assert!(step.args.contains(&"{script}".to_string()));
         }
+        // A new project has no blend yet: the build opens none, and every
+        // step after it opens the blend the step before it wrote.
+        let build = def.step("build").expect("build");
+        assert_eq!(
+            build.args[..6],
+            s(&[
+                "-b",
+                "--factory-startup",
+                "--python-exit-code",
+                "1",
+                "--python",
+                "{script}"
+            ])
+        );
+        for (id, blend) in [
+            ("bake", "blender/scene_built.blend"),
+            ("export", "blender/scene_baked.blend"),
+            ("posters", "blender/scene_baked.blend"),
+        ] {
+            assert_eq!(def.step(id).expect(id).args[4], blend, "{id}");
+            assert!(
+                def.steps
+                    .iter()
+                    .any(|s| s.outputs.iter().any(|o| o == blend))
+            );
+        }
+        // Outputs every starter script always writes, even with nothing to do.
+        assert_eq!(
+            def.step("bake").expect("bake").outputs,
+            s(&["blender/bake/bake.json", "blender/scene_baked.blend"])
+        );
+        assert_eq!(
+            def.step("posters").expect("posters").outputs,
+            s(&["web/posters/stops.json"])
+        );
+        let ship = def.step("ship").expect("ship");
+        let site = ship
+            .args
+            .iter()
+            .position(|a| a == "--site")
+            .expect("--site");
+        assert_eq!(ship.args[site + 1], "{siteRepo}");
+        assert!(!ship.args.iter().any(|a| a.starts_with("{siteRepo}/")));
         let compress = def.step("compress").expect("compress");
         assert_eq!(compress.kind, StepKind::GltfTransform);
         assert!(compress.compress.is_some());
