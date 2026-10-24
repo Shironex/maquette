@@ -88,6 +88,13 @@ describe('nodeViews', () => {
     run.steps[2] = { ...run.steps[2]!, state: 'running' };
     const nodes = nodeViews(view([run, ...runHistory(NOW)]));
     expect(nodes.export).toEqual({ state: 'running', label: 'Running' });
+    run.steps[2] = { ...run.steps[2]!, progress: 0.684 };
+    expect(nodeViews(view([run, ...runHistory(NOW)])).export).toEqual({
+      state: 'running',
+      label: 'Running',
+      progress: 68,
+      duration: '68%',
+    });
     expect(nodes.posters).toEqual({ state: 'waiting', label: 'failed in 24' });
     expect(nodes.compress).toEqual({ state: 'waiting', duration: 'last 6.4s' });
   });

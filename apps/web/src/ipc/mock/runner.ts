@@ -87,6 +87,9 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
         l => rec.id !== 'posters' || postersFail || l.level !== 'error'
       );
       const hold = options.holdAt === rec.id;
+      // Blender steps report how far they are, like the starter scripts'
+      // `progress N/M` lines; the others stay indeterminate, as Ship does.
+      const reports = rec.id !== 'ship';
       for (const [i, line] of lines.entries()) {
         if (active?.cancelled) break;
         if (hold && i === lines.length - 4) {
@@ -96,6 +99,10 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
         }
         await sleep(options.pace);
         log(run, rec.id, line.text, line.level ?? 'info', line.stream ?? 'stdout');
+        if (reports) {
+          rec.progress = (i + 1) / lines.length;
+          publish(run);
+        }
       }
       rec.durationMs = Date.now() - started;
       if (active?.cancelled) {
@@ -166,6 +173,7 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
         durationMs: null,
         exitCode: null,
         message: fromIndex > i ? 'Not part of this run.' : null,
+        progress: null,
       }));
       const run: RunRecord = {
         id: `${project}-run-${number}`,

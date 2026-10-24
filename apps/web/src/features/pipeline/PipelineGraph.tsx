@@ -49,6 +49,7 @@ export function PipelineGraph({
               icon={KIND_ICON[step.kind]}
               script={stepCaption(step)}
               state={node.state}
+              progress={node.progress}
               label={node.label}
               duration={node.duration}
               detail={node.detail}

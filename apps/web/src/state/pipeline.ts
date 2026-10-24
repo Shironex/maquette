@@ -49,6 +49,8 @@ export function applyEvent(view: PipelineView, event: PipelineEvent): PipelineVi
 
 export interface NodeView {
   state: NodeState;
+  /** From 0 to 100 while running, when the step reports how far it is. */
+  progress?: number;
   label?: string;
   duration?: string;
   detail?: string;
@@ -77,9 +79,15 @@ export function nodeViews(view: PipelineView): Record<string, NodeView> {
       continue;
     }
     switch (record.state) {
-      case 'running':
-        out[step.id] = { state: 'running', label: 'Running' };
+      case 'running': {
+        const progress =
+          typeof record.progress === 'number' ? Math.round(record.progress * 100) : undefined;
+        out[step.id] =
+          progress === undefined
+            ? { state: 'running', label: 'Running' }
+            : { state: 'running', label: 'Running', progress, duration: `${progress}%` };
         break;
+      }
       case 'cached':
         out[step.id] = { state: 'cached', duration: formatDuration(record.durationMs) };
         break;
