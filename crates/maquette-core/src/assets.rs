@@ -208,6 +208,25 @@ pub fn find_by_name<'a>(manifest: &'a ProjectManifest, name: &str) -> Option<&'a
     manifest.assets.iter().find(|a| a.id == slug)
 }
 
+/// Points the asset at `thumbnail` (relative to the project folder) when
+/// `version` is still its latest, so a slow render of an older version never
+/// replaces a newer one. Returns whether it changed.
+pub fn set_thumbnail(
+    manifest: &mut ProjectManifest,
+    id: &str,
+    version: u32,
+    thumbnail: String,
+) -> CoreResult<bool> {
+    let asset = find_mut(manifest, id)?;
+    if asset.latest().map(|v| v.version) != Some(version)
+        || asset.thumbnail.as_deref() == Some(thumbnail.as_str())
+    {
+        return Ok(false);
+    }
+    asset.thumbnail = Some(thumbnail);
+    Ok(true)
+}
+
 /// Records a new version on an existing asset and returns it.
 pub fn add_version(
     manifest: &mut ProjectManifest,
@@ -291,6 +310,22 @@ mod tests {
         );
         set_status(&mut m, &a.id, AssetStatus::Done).expect("status");
         assert_eq!(find(&m, &a.id).expect("find").status, AssetStatus::Done);
+    }
+
+    #[test]
+    fn thumbnails_follow_the_latest_version_only() {
+        let mut m = manifest();
+        let a = add(&mut m, new_asset("Crate")).expect("add");
+        add_version(&mut m, &a.id, "models/crate_v1.glb".into(), None).expect("v1");
+        add_version(&mut m, &a.id, "models/crate_v2.glb".into(), None).expect("v2");
+        assert!(!set_thumbnail(&mut m, &a.id, 1, "thumbs/crate_v1.png".into()).expect("old"));
+        assert_eq!(find(&m, &a.id).expect("find").thumbnail, None);
+        assert!(set_thumbnail(&mut m, &a.id, 2, "thumbs/crate_v2.png".into()).expect("new"));
+        assert!(!set_thumbnail(&mut m, &a.id, 2, "thumbs/crate_v2.png".into()).expect("same"));
+        assert_eq!(
+            find(&m, &a.id).expect("find").thumbnail.as_deref(),
+            Some("thumbs/crate_v2.png")
+        );
     }
 
     #[test]

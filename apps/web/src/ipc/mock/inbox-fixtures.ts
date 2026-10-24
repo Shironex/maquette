@@ -158,6 +158,8 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     ],
     worst: 'fail',
     error: null,
+    thumbnail: null,
+    thumbnailState: 'fallback',
   };
   const sakura: InboxItem = {
     id: 'sakura_large.glb',
@@ -189,6 +191,8 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     ],
     worst: 'pass',
     error: null,
+    thumbnail: null,
+    thumbnailState: 'fallback',
   };
   const shrubs: InboxItem = {
     id: 'flower_shrubs.glb',
@@ -231,6 +235,8 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     ],
     worst: 'warning',
     error: null,
+    thumbnail: null,
+    thumbnailState: 'fallback',
   };
   const spire: InboxItem = {
     id: 'far_spire.glb',
@@ -245,6 +251,8 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     checks: [],
     worst: 'fail',
     error: 'This is not a glTF model. The file ends early; the download may still be running.',
+    thumbnail: null,
+    thumbnailState: 'fallback',
   };
   return [spire, character, sakura, shrubs];
 }

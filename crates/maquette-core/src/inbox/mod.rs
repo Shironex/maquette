@@ -26,6 +26,7 @@ use crate::assets::{
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use crate::project;
+use crate::thumbs::ThumbState;
 use crate::workspace::{WorkspaceConfig, is_single_segment};
 
 const KINDS_FILE: &str = "kinds.json";
@@ -56,6 +57,9 @@ pub struct InboxItem {
     pub checks: Vec<Check>,
     pub worst: CheckStatus,
     pub error: Option<String>,
+    /// The studio render of the file, once it exists (an absolute path).
+    pub thumbnail: Option<String>,
+    pub thumbnail_state: ThumbState,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -229,6 +233,9 @@ fn build_item(
         checks,
         error,
         id,
+        // The shell asks the thumbnail service; on its own the inbox has none.
+        thumbnail: None,
+        thumbnail_state: ThumbState::Fallback,
     })
 }
 

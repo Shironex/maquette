@@ -310,6 +310,9 @@ export type InboxItem = {
 	checks: Check[],
 	worst: CheckStatus,
 	error: string | null,
+	/**  The studio render of the file, once it exists (an absolute path). */
+	thumbnail: string | null,
+	thumbnailState: ThumbState,
 };
 
 export type InboxSnapshot = {
@@ -574,6 +577,18 @@ export type TextureInfo = {
 };
 
 export type TextureSize = "1K" | "2K" | "4K";
+
+/**  Where a model's thumbnail stands. */
+export type ThumbState = 
+/**  The PNG exists. */
+"ready" | 
+/**  A Blender render is queued or running. */
+"rendering" | 
+/**
+ *  No render will come (Blender is missing or the render failed): the
+ *  web view snapshots its own preview and stores that.
+ */
+"fallback";
 
 export type ToolId = "blender" | "codex" | "ffmpeg" | "toktx" | "gltf-transform" | "node";
 

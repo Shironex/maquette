@@ -11,7 +11,11 @@
 *.icns binary
 *.ico binary
 *.woff2 binary
+*.webp binary
+*.glb binary
+*.wasm binary
 
-# Starter scripts are embedded with include_str!, so every machine writes the
+# Starter and thumbnail scripts are embedded with include_str!, so every machine writes the
 # same bytes into new projects.
 crates/maquette-core/starter/** text eol=lf
+crates/maquette-core/src/thumbs/*.py text eol=lf

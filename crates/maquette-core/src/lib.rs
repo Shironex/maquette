@@ -1,6 +1,6 @@
 //! Maquette domain logic: toolchain detection, the workspace config,
-//! projects and their assets, the pipeline runner and the per machine app
-//! state.
+//! projects and their assets, the pipeline runner, model thumbnails and the
+//! per machine app state.
 
 pub mod app_state;
 pub mod assets;
@@ -10,6 +10,7 @@ pub mod inbox;
 mod json;
 pub mod pipeline;
 pub mod project;
+pub mod thumbs;
 pub mod toolchain;
 pub mod workspace;
 
@@ -95,6 +96,7 @@ pub fn types() -> specta::Types {
         .register::<inbox::InboxItem>()
         .register::<inbox::AcceptRequest>()
         .register::<inbox::AcceptResult>()
+        .register::<thumbs::ThumbState>()
 }
 
 #[cfg(test)]
@@ -170,6 +172,7 @@ mod tests {
             "InboxItem",
             "AcceptRequest",
             "AcceptResult",
+            "ThumbState",
         ] {
             assert!(names.iter().any(|n| n == expected), "missing {expected}");
         }
