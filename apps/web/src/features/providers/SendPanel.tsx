@@ -5,6 +5,7 @@
 import { Button, Icon, InlineBanner, SegmentedControl, StatusChip, cn } from '@maquette/ui';
 import type { RefImage, SendOptions } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
+import { deepEqual } from '@/lib/deepEqual';
 import { formatBytes } from '@/lib/format';
 import { useAppStore } from '@/state/app-store';
 import { inProject } from '@/state/lab';
@@ -56,6 +57,7 @@ export function SendPanel() {
             : 'Reading the refs'
       }
       onClose={close}
+      dirty={Boolean(panel.draft && !deepEqual(panel.draft, panel.initial))}
     >
       {handoff ? (
         <>

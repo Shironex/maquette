@@ -34,6 +34,8 @@ interface Panel {
   asset: string;
   options: SendOptions | null;
   draft: SendDraft | null;
+  /** The draft as the panel opened with it, to tell unsent edits. */
+  initial: SendDraft | null;
   /** A By hand send that just wrote its folder: the panel shows its card. */
   handoff: ProviderJob | null;
   error: string | null;
@@ -44,6 +46,8 @@ interface BatchPanel {
   assets: string[];
   options: BatchOptions | null;
   draft: BatchDraft | null;
+  /** The draft as the sheet opened with it, to tell unsent edits. */
+  initial: BatchDraft | null;
   /** An API batch asks once before it spends credits. */
   confirming: boolean;
   error: string | null;
@@ -230,15 +234,23 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
   },
 
   openPanel: async (project, asset) => {
-    set({ panel: { project, asset, options: null, draft: null, handoff: null, error: null } });
+    set({
+      panel: {
+        project,
+        asset,
+        options: null,
+        draft: null,
+        initial: null,
+        handoff: null,
+        error: null,
+      },
+    });
     try {
       const options = await commands.providerSendOptions(project, asset);
       const current = get().panel;
       if (current?.asset !== asset) return;
-      set({
-        keys: options.keys,
-        panel: { ...current, options, draft: draftFrom(options) },
-      });
+      const draft = draftFrom(options);
+      set({ keys: options.keys, panel: { ...current, options, draft, initial: draft } });
     } catch (error) {
       const current = get().panel;
       if (current?.asset === asset) set({ panel: { ...current, error: errorMessage(error) } });
@@ -316,6 +328,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
         asset: job.asset,
         options: null,
         draft: null,
+        initial: null,
         handoff: job,
         error: null,
       },
@@ -429,17 +442,23 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
   openBatch: async (project, assets) => {
     set({
       panel: null,
-      batch: { project, assets, options: null, draft: null, confirming: false, error: null },
+      batch: {
+        project,
+        assets,
+        options: null,
+        draft: null,
+        initial: null,
+        confirming: false,
+        error: null,
+      },
     });
     try {
       const options = await commands.providerBatchOptions(project, assets);
       const current = get().batch;
       if (current?.project !== project || current.assets !== assets) return;
       const saved = savedPresets();
-      set({
-        keys: options.keys,
-        batch: { ...current, options, draft: batchDraft(options, saved.tripo, saved.meshy) },
-      });
+      const draft = batchDraft(options, saved.tripo, saved.meshy);
+      set({ keys: options.keys, batch: { ...current, options, draft, initial: draft } });
     } catch (error) {
       const current = get().batch;
       if (current?.assets === assets) set({ batch: { ...current, error: errorMessage(error) } });

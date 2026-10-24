@@ -1,11 +1,12 @@
 /**
  * The right-hand sheet the Send to 3D panels open in: a dimmed backdrop,
  * a header with an icon and a close button, Escape and a backdrop click
- * to close.
+ * to close. A sheet with unsent changes asks before those close it.
  */
-import { useRef, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { Icon, IconButton, type IconName } from '@maquette/ui';
 import { useTopEscape } from '@/lib/useTopEscape';
+import { ChoiceDialog } from '../common/ChoiceDialog';
 
 export function SectionTitle({ children, aside }: { children: string; aside?: ReactNode }) {
   return (
@@ -24,6 +25,7 @@ export function Sheet({
   title,
   meta,
   onClose,
+  dirty = false,
   width = 520,
   children,
 }: {
@@ -33,19 +35,24 @@ export function Sheet({
   title: string;
   meta?: ReactNode;
   onClose: () => void;
+  /** Unsent changes: Escape, the backdrop and the close button ask first. */
+  dirty?: boolean;
   width?: number;
   children: ReactNode;
 }) {
   const sheet = useRef<HTMLDivElement>(null);
   const titleId = `${id}-title`;
 
-  useTopEscape(sheet, onClose);
+  const [asking, setAsking] = useState(false);
+  const dismiss = useCallback(() => (dirty ? setAsking(true) : onClose()), [dirty, onClose]);
+
+  useTopEscape(sheet, dismiss);
 
   return (
     <div
       className="fixed inset-0 z-40 flex justify-end bg-[rgba(16,15,14,0.55)]"
       onClick={e => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) dismiss();
       }}
     >
       <div
@@ -66,10 +73,22 @@ export function Sheet({
             </h2>
             {meta ? <p className="truncate text-meta text-fg-mute">{meta}</p> : null}
           </div>
-          <IconButton data-close icon="x" label="Close" onClick={onClose} />
+          <IconButton data-close icon="x" label="Close" onClick={dismiss} />
         </header>
         {children}
       </div>
+      {asking ? (
+        <ChoiceDialog
+          title="Discard changes?"
+          onDismiss={() => setAsking(false)}
+          choices={[
+            { label: 'Discard', variant: 'danger', onClick: onClose },
+            { label: 'Keep editing', variant: 'primary', onClick: () => setAsking(false) },
+          ]}
+        >
+          <p>Your settings for this send have not been sent. Closing drops them.</p>
+        </ChoiceDialog>
+      ) : null}
     </div>
   );
 }

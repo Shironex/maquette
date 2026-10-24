@@ -130,4 +130,63 @@ describe('the batch send panel', () => {
     await userEvent.click(within(own).getByRole('button', { name: 'Use batch settings' }));
     expect(within(panel).queryByText('Custom')).toBeNull();
   });
+  it('closes at once when nothing changed', async () => {
+    await openBatch(['desk-lamp', 'brush-cup']);
+    await userEvent.keyboard('{Escape}');
+    expect(useProvidersStore.getState().batch).toBeNull();
+  });
+
+  it('asks before Escape or a backdrop click drops edited settings', async () => {
+    const panel = await openBatch(['desk-lamp', 'brush-cup']);
+    await userEvent.click(
+      within(panel).getByRole('button', { name: 'Custom settings for Desk lamp' })
+    );
+    const own = within(panel).getByRole('group', { name: 'Desk lamp settings' });
+    await userEvent.click(within(own).getByRole('switch', { name: 'Multi-view' }));
+
+    await userEvent.keyboard('{Escape}');
+    const ask = await screen.findByRole('dialog', { name: 'Discard changes?' });
+    expect(useProvidersStore.getState().batch).not.toBeNull();
+    await userEvent.click(within(ask).getByRole('button', { name: 'Keep editing' }));
+    expect(screen.queryByRole('dialog', { name: 'Discard changes?' })).toBeNull();
+    expect(useProvidersStore.getState().batch).not.toBeNull();
+
+    await userEvent.click(panel.parentElement as HTMLElement);
+    await userEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Discard changes?' })).getByRole('button', {
+        name: 'Discard',
+      })
+    );
+    expect(useProvidersStore.getState().batch).toBeNull();
+  });
+
+  it('closes at once from Cancel even with edits', async () => {
+    const panel = await openBatch(['desk-lamp', 'brush-cup']);
+    await userEvent.click(
+      within(panel).getByRole('button', { name: 'Custom settings for Desk lamp' })
+    );
+    await userEvent.click(
+      within(within(panel).getByRole('group', { name: 'Desk lamp settings' })).getByRole('switch', {
+        name: 'Multi-view',
+      })
+    );
+    await userEvent.click(within(panel).getByRole('button', { name: 'Cancel' }));
+    expect(useProvidersStore.getState().batch).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Discard changes?' })).toBeNull();
+  });
+
+  it('does not ask after a successful send', async () => {
+    const panel = await openBatch(['desk-lamp', 'brush-cup']);
+    await userEvent.click(
+      within(panel).getByRole('button', { name: 'Custom settings for Desk lamp' })
+    );
+    await userEvent.click(
+      within(within(panel).getByRole('group', { name: 'Desk lamp settings' })).getByRole('switch', {
+        name: 'Multi-view',
+      })
+    );
+    await userEvent.click(within(panel).getByRole('button', { name: 'Write 2 handoff folders' }));
+    await waitFor(() => expect(useProvidersStore.getState().batch).toBeNull());
+    expect(screen.queryByRole('dialog', { name: 'Discard changes?' })).toBeNull();
+  });
 });

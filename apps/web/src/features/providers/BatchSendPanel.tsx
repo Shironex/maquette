@@ -8,6 +8,7 @@ import { useState, type ReactNode } from 'react';
 import { Button, Icon, IconButton, InlineBanner, SegmentedControl, cn } from '@maquette/ui';
 import type { PresetVariant } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
+import { deepEqual } from '@/lib/deepEqual';
 import { useAppStore } from '@/state/app-store';
 import {
   batchBlocker,
@@ -44,6 +45,7 @@ export function BatchSendPanel() {
       title={`Send ${n} ${n === 1 ? 'asset' : 'assets'} to 3D`}
       meta={batch.draft ? batchSummary(batch.draft) : 'Reading the refs'}
       onClose={close}
+      dirty={Boolean(batch.draft && !deepEqual(batch.draft, batch.initial))}
       width={560}
     >
       {batch.error ? (
