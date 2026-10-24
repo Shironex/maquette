@@ -135,8 +135,8 @@ export function inspectView(
       meshopt: true,
       ktx2: true,
       preset: row
-        ? { ...row, lock: row.lock, hasRow: true }
-        : { ...defaults, lock: null, hasRow: false },
+        ? { ...row, dataTextureSize: row.dataTextureSize ?? null, lock: row.lock, hasRow: true }
+        : { ...defaults, dataTextureSize: null, lock: null, hasRow: false },
       error: null,
     };
   });

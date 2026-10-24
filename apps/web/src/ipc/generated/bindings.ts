@@ -472,6 +472,12 @@ export type CompressPreset = {
 	label: string,
 	/**  The longest texture edge after compression, in pixels. */
 	textureSize: number,
+	/**
+	 *  An optional smaller edge for the metal, roughness, occlusion and
+	 *  normal maps; base color (and emissive) keep `texture_size`. Without
+	 *  it every map uses the one size.
+	 */
+	dataTextureSize?: number | null,
 	codec: TextureCodec,
 	meshopt: MeshoptLevel,
 	/**
@@ -978,6 +984,8 @@ export type ModelOption = {
 /**  The compression a model gets: its preset row, or the workspace defaults. */
 export type ModelPreset = {
 	textureSize: number,
+	/**  The smaller edge for metal, roughness, occlusion and normal maps. */
+	dataTextureSize: number | null,
 	codec: TextureCodec,
 	meshopt: MeshoptLevel,
 	/**  Why the row cannot change, from `pipeline.json`. */

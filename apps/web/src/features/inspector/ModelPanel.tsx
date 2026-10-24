@@ -92,6 +92,7 @@ export function ModelPanel({
       model: model.model,
       label: model.label,
       textureSize: p.textureSize,
+      dataTextureSize: p.dataTextureSize,
       codec: patch.codec ?? p.codec,
       meshopt: patch.meshopt ?? p.meshopt,
       lock: null,

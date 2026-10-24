@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Button, Icon, Select, cn } from '@maquette/ui';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Button, Icon, IconButton, Select, cn } from '@maquette/ui';
 import type { CompressPreset, MeshoptLevel, PipelineView, TextureCodec } from '@/ipc/client';
 import { formatBytes } from '@/lib/format';
-import { estimatedTransfer } from '@/state/pipeline';
-import { presetRows, presetsToSave, type PresetRow } from '@/state/presets';
+import { estimateTransfer, presetRows, presetsToSave, type PresetRow } from '@/state/presets';
 
 const SIZES = ['512', '1024', '2048', '4096'] as const;
+const SAME = 'same';
+const DATA_SIZES = [
+  { value: SAME, label: 'Same as base' },
+  ...SIZES.map(v => ({ value: v, label: `${v} px` })),
+];
 const CODECS: readonly { value: TextureCodec; label: string }[] = [
   { value: 'etc1s', label: 'ETC1S' },
   { value: 'uastc', label: 'UASTC' },
@@ -23,6 +27,12 @@ export function PresetsPanel({
   const initial = useMemo(() => presetRows(view), [view]);
   const [rows, setRows] = useState<PresetRow[]>(initial);
   const [saving, setSaving] = useState(false);
+  // Rows with a split open their extra line; the others start folded.
+  const [open, setOpen] = useState<readonly string[]>(() =>
+    initial.filter(r => r.dataTextureSize !== null).map(r => r.model)
+  );
+  const toggle = (model: string) =>
+    setOpen(now => (now.includes(model) ? now.filter(m => m !== model) : [...now, model]));
   useEffect(() => setRows(initial), [initial]);
   const dirty = JSON.stringify(rows) !== JSON.stringify(initial);
   const locks = rows.filter(r => r.lock);
@@ -33,7 +43,7 @@ export function PresetsPanel({
     await onSave(presetsToSave(rows));
     setSaving(false);
   };
-  const transfer = estimatedTransfer(view);
+  const transfer = estimateTransfer(view, rows);
 
   return (
     <section
@@ -73,53 +83,88 @@ export function PresetsPanel({
             ) : null}
             {rows.map(row => {
               const locked = Boolean(row.lock);
+              const split = open.includes(row.model);
               return (
-                <tr key={row.model} className="border-t border-line">
-                  <td className="py-1 pr-1">
-                    <span className="flex items-center gap-1.5">
-                      <span className="truncate">{row.label}</span>
-                      {locked ? (
-                        <Icon
-                          name="lock-simple"
-                          size={12}
-                          className="text-clay-text"
-                          title="Locked"
+                <Fragment key={row.model}>
+                  <tr className="border-t border-line">
+                    <td className="py-1 pr-1">
+                      <span className="flex items-center gap-1.5">
+                        <span className="truncate">{row.label}</span>
+                        <IconButton
+                          icon="sliders-horizontal"
+                          size="sm"
+                          variant={split ? 'secondary' : 'ghost'}
+                          label={`Texture sizes per map for ${row.label}`}
+                          aria-expanded={split}
+                          disabled={locked}
+                          onClick={() => toggle(row.model)}
                         />
-                      ) : null}
-                    </span>
-                  </td>
-                  <td className="py-1 pr-1">
-                    <Select
-                      aria-label={`${row.label} texture size`}
-                      size="sm"
-                      options={SIZES}
-                      value={String(row.textureSize) as (typeof SIZES)[number]}
-                      disabled={locked}
-                      onChange={v => update(row.model, { textureSize: Number(v) })}
-                    />
-                  </td>
-                  <td className="py-1 pr-1">
-                    <Select
-                      aria-label={`${row.label} codec`}
-                      size="sm"
-                      options={CODECS}
-                      value={row.codec}
-                      disabled={locked}
-                      onChange={v => update(row.model, { codec: v })}
-                    />
-                  </td>
-                  <td className="py-1">
-                    <Select
-                      aria-label={`${row.label} meshopt level`}
-                      size="sm"
-                      options={MESHOPT}
-                      value={row.meshopt}
-                      disabled={locked}
-                      className={cn(locked && 'text-clay-text')}
-                      onChange={v => update(row.model, { meshopt: v })}
-                    />
-                  </td>
-                </tr>
+                        {locked ? (
+                          <Icon
+                            name="lock-simple"
+                            size={12}
+                            className="text-clay-text"
+                            title="Locked"
+                          />
+                        ) : null}
+                      </span>
+                    </td>
+                    <td className="py-1 pr-1">
+                      <Select
+                        aria-label={`${row.label} texture size`}
+                        size="sm"
+                        options={SIZES}
+                        value={String(row.textureSize) as (typeof SIZES)[number]}
+                        disabled={locked}
+                        onChange={v => update(row.model, { textureSize: Number(v) })}
+                      />
+                    </td>
+                    <td className="py-1 pr-1">
+                      <Select
+                        aria-label={`${row.label} codec`}
+                        size="sm"
+                        options={CODECS}
+                        value={row.codec}
+                        disabled={locked}
+                        onChange={v => update(row.model, { codec: v })}
+                      />
+                    </td>
+                    <td className="py-1">
+                      <Select
+                        aria-label={`${row.label} meshopt level`}
+                        size="sm"
+                        options={MESHOPT}
+                        value={row.meshopt}
+                        disabled={locked}
+                        className={cn(locked && 'text-clay-text')}
+                        onChange={v => update(row.model, { meshopt: v })}
+                      />
+                    </td>
+                  </tr>
+                  {split ? (
+                    <tr>
+                      <td colSpan={4} className="pb-2">
+                        <div className="flex items-center justify-between gap-3 rounded-[8px] bg-raised px-2.5 py-2">
+                          <span className="text-meta text-fg-dim">
+                            Metal, roughness, occlusion and normal maps
+                          </span>
+                          <Select
+                            aria-label={`${row.label} data map size`}
+                            size="sm"
+                            options={DATA_SIZES}
+                            value={
+                              row.dataTextureSize === null ? SAME : String(row.dataTextureSize)
+                            }
+                            disabled={locked}
+                            onChange={v =>
+                              update(row.model, { dataTextureSize: v === SAME ? null : Number(v) })
+                            }
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               );
             })}
           </tbody>
