@@ -38,11 +38,26 @@ pub struct ThumbnailReady {
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 pub struct ConceptUpdate(pub ConceptEvent);
 
+/// An agent changed a project through the MCP server, for example by
+/// accepting an inbox model, so the Board shows the new state.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectChanged {
+    pub project: ProjectManifest,
+}
+
+/// The MCP server started or stopped, took a call, or a run started by an
+/// agent waits for a shipping approval.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+pub struct McpUpdate(pub crate::mcp::McpStatus);
+
 /// Sends runner events to every window.
-pub struct TauriSink(pub AppHandle);
+/// The MCP hub sees every event too, so agents can follow runs.
+pub struct TauriSink(pub AppHandle, pub std::sync::Arc<crate::mcp::hub::Hub>);
 
 impl RunSink for TauriSink {
     fn event(&self, event: PipelineEvent) {
+        self.1.observe(&event);
         if let Err(err) = PipelineUpdate(event).emit(&self.0) {
             tracing::warn!(error = %err, "could not emit a pipeline event");
         }

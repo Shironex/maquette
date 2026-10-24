@@ -77,13 +77,21 @@ export const commands = {
 	 *  export takes a moment to measure.
 	 */
 	inspectProject: (project: string) => __TAURI_INVOKE<InspectView>("inspect_project", { project }),
+	mcpStatus: () => __TAURI_INVOKE<McpStatus>("mcp_status"),
+	/**  Approves or denies the Ship step of a run an agent started. */
+	mcpDecide: (approvalId: string, approve: boolean) => __TAURI_INVOKE<McpStatus>("mcp_decide", { approvalId, approve }),
+	mcpClearActivity: () => __TAURI_INVOKE<McpStatus>("mcp_clear_activity"),
+	/**  Makes a new token. Agents set up with the old one must be set up again. */
+	mcpRenewToken: () => __TAURI_INVOKE<McpStatus>("mcp_renew_token"),
 };
 
 /** Events */
 export const events = {
 	conceptUpdate: makeEvent<ConceptUpdate>("concept-update"),
 	inboxChanged: makeEvent<InboxChanged>("inbox-changed"),
+	mcpUpdate: makeEvent<McpUpdate>("mcp-update"),
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
+	projectChanged: makeEvent<ProjectChanged>("project-changed"),
 	thumbnailReady: makeEvent<ThumbnailReady>("thumbnail-ready"),
 };
 
@@ -129,6 +137,22 @@ export type AppState = {
 	lastWorkspace: string | null,
 	/**  Keyed by tool id, for example `{"blender": "/Applications/Blender.app"}`. */
 	toolOverrides: Partial<{ [key in ToolId]: string }>,
+	/**
+	 *  The bearer token agents send to the built in MCP server. Made once on
+	 *  first use and kept here, per machine, so it never lands in a
+	 *  workspace or a repo.
+	 */
+	mcpToken?: string | null,
+};
+
+/**  A run an agent started that stopped before its Ship step. */
+export type Approval = {
+	id: string,
+	runId: string,
+	project: string,
+	runNumber: number,
+	step: string,
+	requestedAtMs: number | null,
 };
 
 /**  A file a step wrote. */
@@ -201,6 +225,15 @@ export type CacheInfo = {
 	/**  Bytes as a JS safe number. */
 	bytes: number | null,
 };
+
+/**  How an MCP call went, for the activity list. */
+export type CallOutcome = "ok" | 
+/**  The call returned while a run waits for a shipping approval. */
+"waiting" | 
+/**  The tool reported an error. */
+"error" | 
+/**  The request had no valid token, or asked for something not served. */
+"refused";
 
 export type CameraStopDef = {
 	name: string,
@@ -551,6 +584,41 @@ export type LogStream = "stdout" | "stderr" |
 /**  Lines the runner writes itself. */
 "system";
 
+/**  One line of the activity list in Settings > Agents. */
+export type McpCall = {
+	id: number,
+	atMs: number | null,
+	tool: string,
+	/**  The arguments in a few words, for example `moon-island, from compress`. */
+	detail: string,
+	outcome: CallOutcome,
+	message: string | null,
+	durationMs: number | null,
+};
+
+/**  Everything Settings > Agents shows. */
+export type McpStatus = {
+	/**  The workspace setting. */
+	enabled: boolean,
+	running: boolean,
+	port: number,
+	url: string,
+	/**  Made on first start and kept in the app state. */
+	token: string | null,
+	/**  Why the server is not running although it is on. */
+	error: string | null,
+	askBeforeShipping: boolean,
+	/**  Newest first. */
+	calls: McpCall[],
+	approvals: Approval[],
+};
+
+/**
+ *  The MCP server started or stopped, took a call, or a run started by an
+ *  agent waits for a shipping approval.
+ */
+export type McpUpdate = McpStatus;
+
 export type MeshoptLevel = "low" | "medium" | "high";
 
 export type ModelBudget = {
@@ -685,6 +753,14 @@ export type PipelineView = {
 	artifacts: Artifact[],
 	models: ModelFile[],
 	defaults: CompressDefaultsView,
+};
+
+/**
+ *  An agent changed a project through the MCP server, for example by
+ *  accepting an inbox model, so the Board shows the new state.
+ */
+export type ProjectChanged = {
+	project: ProjectManifest,
 };
 
 export type ProjectManifest = {

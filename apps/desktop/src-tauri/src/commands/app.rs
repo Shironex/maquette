@@ -93,8 +93,14 @@ pub(crate) fn bootstrap_with(session: &Session, version: &str) -> Bootstrap {
 
 #[tauri::command]
 #[specta::specta]
-pub fn app_bootstrap(app: tauri::AppHandle, session: State<'_, Session>) -> Bootstrap {
-    bootstrap_with(&session, &app.package_info().version.to_string())
+pub fn app_bootstrap(
+    app: tauri::AppHandle,
+    session: State<'_, Session>,
+    agents: State<'_, crate::mcp::Agents>,
+) -> Bootstrap {
+    let boot = bootstrap_with(&session, &app.package_info().version.to_string());
+    super::agents::sync(&app, &session, &agents);
+    boot
 }
 
 #[cfg(test)]

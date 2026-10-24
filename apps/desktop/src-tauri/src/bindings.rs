@@ -8,9 +8,12 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    app, assets, dialogs, inbox, inspect, lab, pipeline, project, thumbs, toolchain, workspace,
+    agents, app, assets, dialogs, inbox, inspect, lab, pipeline, project, thumbs, toolchain,
+    workspace,
 };
-use crate::events::{ConceptUpdate, InboxChanged, PipelineUpdate, ThumbnailReady};
+use crate::events::{
+    ConceptUpdate, InboxChanged, McpUpdate, PipelineUpdate, ProjectChanged, ThumbnailReady,
+};
 
 /// Compile time path, so the export never depends on the working folder.
 pub const GENERATED_FILE: &str = concat!(
@@ -66,12 +69,18 @@ pub fn builder() -> Builder<tauri::Wry> {
             lab::lab_send_picks,
             lab::lab_import_refs,
             inspect::inspect_project,
+            agents::mcp_status,
+            agents::mcp_decide,
+            agents::mcp_clear_activity,
+            agents::mcp_renew_token,
         ])
         .events(collect_events![
             PipelineUpdate,
             InboxChanged,
             ThumbnailReady,
-            ConceptUpdate
+            ConceptUpdate,
+            ProjectChanged,
+            McpUpdate
         ])
         .types(&maquette_core::types())
 }
@@ -111,6 +120,8 @@ mod tests {
             "labGenerate",
             "labSendPicks",
             "inspectProject",
+            "mcpStatus",
+            "mcpDecide",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }
@@ -119,6 +130,8 @@ mod tests {
             "inboxChanged",
             "thumbnailReady",
             "conceptUpdate",
+            "projectChanged",
+            "mcpUpdate",
         ] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }

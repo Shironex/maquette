@@ -16,6 +16,18 @@ pub(crate) fn overrides(session: &Session, state: &AppState) -> BTreeMap<ToolId,
         .collect()
 }
 
+/// [`toolbox`] for callers off the async runtime, such as the MCP server's
+/// blocking tasks.
+pub(crate) fn toolbox_blocking(session: &Session) -> Toolbox {
+    let reports = session.tools().unwrap_or_else(|| {
+        let overrides = overrides(session, &session.app_state());
+        let reports = toolchain::detect_all(&ProbeEnv::from_system(), &overrides, &SystemRunner);
+        session.set_tools(Some(reports.clone()));
+        reports
+    });
+    Toolbox::from_reports(&reports, &ProbeEnv::from_system())
+}
+
 /// The tools a job runs with: the last check, or a fresh one.
 pub(crate) async fn toolbox(session: &Session) -> CommandResult<Toolbox> {
     let reports = match session.tools() {

@@ -1,6 +1,7 @@
 //! The IPC surface. Every command returns `Result<_, ErrorPayload>` so the
 //! generated TypeScript rejects with `{ code, message }` on failure.
 
+pub mod agents;
 pub mod app;
 pub mod assets;
 mod blender;

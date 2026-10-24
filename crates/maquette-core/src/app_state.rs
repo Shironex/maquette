@@ -24,6 +24,11 @@ pub struct AppState {
     pub last_workspace: Option<String>,
     /// Keyed by tool id, for example `{"blender": "/Applications/Blender.app"}`.
     pub tool_overrides: BTreeMap<ToolId, String>,
+    /// The bearer token agents send to the built in MCP server. Made once on
+    /// first use and kept here, per machine, so it never lands in a
+    /// workspace or a repo.
+    #[serde(default)]
+    pub mcp_token: Option<String>,
 }
 
 impl Default for AppState {
@@ -32,6 +37,7 @@ impl Default for AppState {
             version: APP_STATE_VERSION,
             last_workspace: None,
             tool_overrides: BTreeMap::new(),
+            mcp_token: None,
         }
     }
 }

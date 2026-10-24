@@ -1,9 +1,10 @@
 use maquette_core::{RootInspection, WorkspaceConfig, workspace};
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use super::CommandResult;
 use super::app::{WorkspaceSnapshot, snapshot};
+use crate::mcp::Agents;
 use crate::session::Session;
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -38,37 +39,47 @@ pub fn workspace_inspect(
 #[tauri::command]
 #[specta::specta]
 pub fn workspace_create(
+    app: AppHandle,
     session: State<'_, Session>,
+    agents: State<'_, Agents>,
     root: String,
     config: WorkspaceConfig,
 ) -> CommandResult<WorkspaceSnapshot> {
     let root = session.expand(&root);
     let config = workspace::create(&root, &config)?;
     session.set_workspace(root.clone(), config.clone())?;
+    super::agents::sync(&app, &session, &agents);
     snapshot(&session, &root, &config)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn workspace_open(
+    app: AppHandle,
     session: State<'_, Session>,
+    agents: State<'_, Agents>,
     root: String,
 ) -> CommandResult<WorkspaceSnapshot> {
     let root = session.expand(&root);
     let config = workspace::open(&root)?;
     session.set_workspace(root.clone(), config.clone())?;
+    super::agents::sync(&app, &session, &agents);
     snapshot(&session, &root, &config)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn workspace_save_config(
+    app: AppHandle,
     session: State<'_, Session>,
+    agents: State<'_, Agents>,
     config: WorkspaceConfig,
 ) -> CommandResult<WorkspaceConfig> {
     let (root, _) = session.workspace()?;
     workspace::save(&root, &config)?;
     session.set_config(config.clone());
+    // Turning the server on or off, or a new port, takes effect at once.
+    super::agents::sync(&app, &session, &agents);
     Ok(config)
 }
 
