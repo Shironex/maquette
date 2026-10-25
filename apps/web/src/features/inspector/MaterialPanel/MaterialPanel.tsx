@@ -18,12 +18,16 @@ type Roughness = 'keep' | FactorMode;
 
 const ROUGHNESS: SegmentedOption<Roughness>[] = [
   { value: 'keep', label: 'Keep' },
-  { value: 'override', label: 'Set' },
-  { value: 'multiply', label: 'Multiply' },
+  { value: 'override', label: 'Set', hint: 'Replaces the metal and roughness map' },
+  { value: 'multiply', label: 'Multiply', hint: 'Scales the roughness and keeps the map' },
 ];
 const KEEP_SET: SegmentedOption<'keep' | 'set'>[] = [
   { value: 'keep', label: 'Keep' },
   { value: 'set', label: 'Set' },
+];
+const METAL: SegmentedOption<'keep' | 'set'>[] = [
+  KEEP_SET[0]!,
+  { value: 'set', label: 'Set', hint: 'Replaces the metal and roughness map' },
 ];
 /** Where a value starts when its field turns on. */
 const START = { override: 0.8, multiply: 1, metalness: 0, emissive: 1 } as const;
@@ -78,6 +82,7 @@ function Tint({
         size="sm"
         label="Clear the tint"
         disabled={value === null}
+        disabledReason="No tint set"
         onClick={() => onChange(null)}
       />
     </>
@@ -174,7 +179,7 @@ export default function MaterialPanel({ project, model }: MaterialPanelProps) {
         <SegmentedControl
           label="Metalness"
           tone="clay"
-          options={KEEP_SET}
+          options={METAL}
           value={tweak.metalness === null ? 'keep' : 'set'}
           onChange={m => edit({ metalness: m === 'keep' ? null : START.metalness })}
         />
@@ -206,13 +211,19 @@ export default function MaterialPanel({ project, model }: MaterialPanelProps) {
           : 'Multiply keeps the maps. The source model never changes; Compress writes the shipped copy.'}
       </p>
       <div className="flex items-center justify-end gap-2">
-        <Button size="sm" disabled={!p.canReset || p.saving} onClick={p.onReset}>
+        <Button
+          size="sm"
+          disabled={!p.canReset || p.saving}
+          disabledReason={p.saving ? 'Saving the tweaks' : 'No tweaks to drop'}
+          onClick={p.onReset}
+        >
           {p.resetLabel}
         </Button>
         <Button
           size="sm"
           variant="primary"
           disabled={!p.dirty || p.saving}
+          disabledReason="Nothing changed yet"
           loading={p.saving}
           onClick={p.onApply}
         >

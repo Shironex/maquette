@@ -27,7 +27,10 @@ describe('the material panel', () => {
   it('edits every material, marks the edit and applies it', async () => {
     render(<MaterialPanel project="moon-island" model={character} />);
     expect(screen.queryByRole('status')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Apply tweaks' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Apply tweaks' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
 
     const hex = screen.getByRole('textbox', { name: 'Tint hex' });
     await userEvent.type(hex, '6f7446{Enter}');
