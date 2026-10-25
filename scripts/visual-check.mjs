@@ -30,7 +30,7 @@
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo or ONLY=size
- * renders that set alone (size holds the Board list), ONLY=guards the questions asked before work is dropped; PORT
+ * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
  * PLAYWRIGHT defaults to the `playwright` package, which this repo does not
@@ -769,6 +769,58 @@ async function listShots() {
 }
 // End of the Board list shots.
 
+// Size group, real size and fix-ups: the Inbox controls, a fix on a check,
+// the preview numbers, the Board dialog and the Inspector's Fix-ups list.
+async function prepShots() {
+  const inbox = await open('&scenario=configured', '#/inbox', { width: 1440, height: 1300 });
+  await inbox.getByRole('heading', { name: 'Automatic checks' }).waitFor();
+  await inbox.getByRole('button', { name: /^Character/ }).click();
+  const checks = inbox.getByRole('complementary', { name: 'Automatic checks' });
+  await checks.getByRole('button', { name: 'Decimate to 60k' }).waitFor();
+  await inbox.mouse.move(0, 0);
+  await shot(checks, 'inbox-fix-on-check');
+  await checks.getByRole('button', { name: 'Decimate to 60k' }).click();
+  await checks.getByRole('button', { name: /^Suggested: 170 cm high/ }).click();
+  const prep = checks.getByRole('region', { name: 'Real size and fix-ups' });
+  await prep.getByText(/^Scaled/).waitFor();
+  await prep.scrollIntoViewIfNeeded();
+  await inbox.mouse.move(0, 0);
+  await shot(checks, 'inbox-real-size');
+  await prep.getByRole('button', { name: 'Preview the numbers' }).click();
+  await prep.getByRole('table', { name: 'Before and after the fix-ups' }).waitFor();
+  await prep.getByRole('table').scrollIntoViewIfNeeded();
+  await inbox.mouse.move(0, 0);
+  await shot(checks, 'inbox-fix-preview');
+  await shot(inbox, 'inbox-real-size-page');
+
+  const board = await open('&scenario=configured', '#/board');
+  await board.getByRole('button', { name: 'More for Character' }).click();
+  await board.getByRole('menuitem', { name: 'Real size and fix-ups...' }).click();
+  const dialog = board.getByRole('dialog', { name: 'Real size and fix-ups' });
+  await dialog.getByText(/^Measured/).waitFor();
+  await dialog.getByRole('button', { name: /^Suggested: 170 cm high/ }).click();
+  await dialog.getByRole('button', { name: 'Origin to bottom centre' }).click();
+  await board.mouse.move(0, 0);
+  await shot(board, 'board-real-size-dialog');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await dialog.waitFor({ state: 'detached' });
+
+  const page = await open('&scenario=configured', '#/inspector', { width: 1440, height: 1700 });
+  await page.getByRole('heading', { name: 'Scene comparison' }).waitFor();
+  const details = page.getByRole('complementary', { name: 'Model details' });
+  await details.getByRole('button', { name: /^Character/ }).click();
+  const panel = details.getByRole('region', { name: 'Real size and fix-ups' });
+  await panel.getByText(/^Measured/).waitFor();
+  await panel.getByRole('button', { name: 'Decimate' }).click();
+  await panel.getByRole('button', { name: 'Shrink textures' }).click();
+  await panel.getByRole('button', { name: 'Preview the numbers' }).click();
+  await panel.getByRole('table', { name: 'Before and after the fix-ups' }).waitFor();
+  await panel.scrollIntoViewIfNeeded();
+  await page.mouse.move(0, 0);
+  await shot(panel, 'inspector-fixups');
+  await shot(details, 'inspector-model-details');
+}
+
 try {
   if (only === 'guards') await guardShots();
   if (!only || only === 'ux') await uxShots();
@@ -778,6 +830,7 @@ try {
   if (!only || only === 'material') await materialShots();
   if (!only || only === 'redo') await redoShots();
   if (!only || only === 'size') await listShots();
+  if (!only || only === 'size') await prepShots();
 } finally {
   await browser.close();
   await vite?.close();
