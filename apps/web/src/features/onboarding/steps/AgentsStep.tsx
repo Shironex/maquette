@@ -1,7 +1,9 @@
 import { Icon, Toggle } from '@maquette/ui';
 import { PANEL_TITLE, SectionLabel } from '@/features/common/Panel';
 import { McpStatusLine } from '@/features/config/McpStatusLine';
-import { AgentRuleRows, McpControls, McpSnippetPreview } from '@/features/config/ConfigFields';
+import { AgentRuleRows } from '@/features/config/AgentRuleRows';
+import { McpControls } from '@/features/config/McpControls';
+import { McpSnippetPreview } from '@/features/config/McpSnippetPreview';
 import { patchSection, validateConfig } from '@/state/settings-form';
 import type { OnboardingApi } from '../useOnboarding';
 
@@ -29,13 +31,7 @@ export function AgentsStep({ api }: { api: OnboardingApi }) {
             onChange={mcpEnabled => onChange(patchSection(config, 'agents', { mcpEnabled }))}
           />
         </div>
-        <McpControls
-          config={config}
-          onChange={onChange}
-          errors={errors}
-          token={null}
-          showCopy={false}
-        />
+        <McpControls config={config} onChange={onChange} errors={errors} showCopy={false} />
         <McpSnippetPreview port={config.agents.mcpPort} />
       </section>
       <SectionLabel className="mt-7">Rules agents follow</SectionLabel>

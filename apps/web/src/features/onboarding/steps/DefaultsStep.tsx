@@ -1,5 +1,6 @@
 import { Panel } from '@/features/common/Panel';
-import { BudgetFields, CompressionFields } from '@/features/config/ConfigFields';
+import { BudgetFields } from '@/features/config/BudgetFields';
+import { CompressionFields } from '@/features/config/CompressionFields';
 import { ProviderPresetFields, useCatalog } from '@/features/providers/PresetFields';
 import { validateConfig } from '@/state/settings-form';
 import type { OnboardingApi } from '../useOnboarding';

@@ -13,7 +13,7 @@ import type {
   TripoPreset,
   WorkspaceConfig,
 } from '@/ipc/client';
-import { parseCount } from '@/features/config/ConfigFields';
+import { parseCount } from '@/features/config/parseCount';
 import {
   MESHY_TEXTURE,
   POSE,

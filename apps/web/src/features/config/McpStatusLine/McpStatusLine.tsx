@@ -1,14 +1,13 @@
 import { Icon, cn } from '@maquette/ui';
 import type { WorkspaceConfig } from '@/ipc/client';
 
-/** The server line in onboarding, before the workspace (and the token) exists. */
-export function McpStatusLine({
-  config,
-  className,
-}: {
+export interface McpStatusLineProps {
   config: WorkspaceConfig;
   className?: string;
-}) {
+}
+
+/** The server line in onboarding, before the workspace (and the token) exists. */
+export default function McpStatusLine({ config, className }: McpStatusLineProps) {
   const { mcpEnabled, mcpPort } = config.agents;
   return (
     <p

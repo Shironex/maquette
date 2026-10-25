@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Button, Icon, IconButton, cn } from '@maquette/ui';
 import type { CallOutcome, McpCall, McpStatus, WorkspaceConfig } from '@/ipc/client';
-import { AgentRuleRows, McpControls, copyText } from '@/features/config/ConfigFields';
+import { AgentRuleRows } from '@/features/config/AgentRuleRows';
+import { McpControls } from '@/features/config/McpControls';
+import { copyText } from '@/features/config/copyText';
 import { useNow } from '@/lib/useNow';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
@@ -22,13 +24,7 @@ export function AgentsPanel({ config, onChange, errors }: Props) {
   return (
     <>
       <ServerLine status={status} enabled={config.agents.mcpEnabled} />
-      <McpControls
-        config={config}
-        onChange={onChange}
-        errors={errors}
-        density="compact"
-        token={status?.token ?? null}
-      />
+      <McpControls config={config} onChange={onChange} errors={errors} density="compact" />
       {status?.token ? <TokenRow token={status.token} /> : null}
       <AgentRuleRows config={config} onChange={onChange} density="compact" />
       {status && status.approvals.length > 0 ? (
