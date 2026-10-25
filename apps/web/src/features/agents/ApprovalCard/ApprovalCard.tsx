@@ -1,38 +1,29 @@
 import { Button, Icon, cn } from '@maquette/ui';
 import type { Approval } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
-import { useNow } from '@/lib/useNow';
 import { approvalTitle } from '@/state/agents';
-import { useAgentsStore } from '@/state/use-agents-store';
-import { useAppStore } from '@/state/use-app-store';
+import { useApprovalCard } from './ApprovalCard.hooks';
 
-/**
- * What an agent asked that waits for a person: a run stopped before Ship
- * ("Ask before shipping"), or a send to Tripo or Meshy that would spend
- * credits. Shown over every view until someone approves or denies it.
- */
-export function ApprovalPrompt() {
-  const approvals = useAgentsStore(s => s.status?.approvals);
-  const view = useAppStore(s => s.view);
-  // Settings > Agents lists them in place.
-  if (!approvals?.length || view === 'settings') return null;
-  return (
-    <div className="pointer-events-none fixed top-[68px] right-5 z-40 flex w-[400px] flex-col gap-2.5">
-      {approvals.map(a => (
-        <ApprovalCard key={a.id} approval={a} floating />
-      ))}
-    </div>
-  );
+export interface ApprovalCardProps {
+  approval: Approval;
+  floating?: boolean;
 }
 
-export function ApprovalCard({ approval, floating }: { approval: Approval; floating?: boolean }) {
-  const decide = useAgentsStore(s => s.decide);
-  const deciding = useAgentsStore(s => s.deciding === approval.id);
-  const projects = useAppStore(s => s.workspace?.projects);
-  const site = projects?.find(p => p.id === approval.project);
-  const now = useNow(15_000);
+export default function ApprovalCard({ approval, floating }: ApprovalCardProps) {
+  const { decide, deciding, site, now } = useApprovalCard(approval);
   const titleId = `${approval.id}-title`;
   const send = approval.kind === 'send-to-3d';
+  const items = approval.items.map(item => (
+    <li
+      key={item.job}
+      className="flex items-baseline gap-2 border-t border-line px-2.5 py-1 first:border-t-0"
+    >
+      <span className="flex-none font-medium text-fg">{item.assetName}</span>
+      <span className="min-w-0 truncate text-fg-mute" title={item.detail}>
+        {item.detail}
+      </span>
+    </li>
+  ));
   return (
     <section
       role="alertdialog"
@@ -68,19 +59,7 @@ export function ApprovalCard({ approval, floating }: { approval: Approval; float
       </div>
       {send && approval.items.length > 0 ? (
         <div className="ml-11 rounded-[7px] border border-line bg-raised text-meta">
-          <ul className="m-0 flex max-h-[180px] list-none flex-col overflow-y-auto p-0">
-            {approval.items.map(item => (
-              <li
-                key={item.job}
-                className="flex items-baseline gap-2 border-t border-line px-2.5 py-1 first:border-t-0"
-              >
-                <span className="flex-none font-medium text-fg">{item.assetName}</span>
-                <span className="min-w-0 truncate text-fg-mute" title={item.detail}>
-                  {item.detail}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <ul className="m-0 flex max-h-[180px] list-none flex-col overflow-y-auto p-0">{items}</ul>
           {approval.detail ? (
             <p className="border-t border-line px-2.5 py-1.5 font-medium text-fg-dim">
               {approval.detail}
