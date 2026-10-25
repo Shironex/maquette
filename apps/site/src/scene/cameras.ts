@@ -54,18 +54,20 @@ export const STOPS: readonly CameraStop[] = [
     move: { dolly: 0.1 },
     copy: 'left',
   },
-  // Swoops down to the right, low over the tools, and turns back onto the
-  // paper sketch: a low dolly in that tilts further down.
+  // Swoops down to the right, low over the tools and past the plinth, then
+  // sweeps back left onto the paper sketch: a low dolly in that tilts
+  // further down.
   {
     id: 'concept',
-    position: [-0.08, 1.2, 0.64],
-    target: [-0.24, 0.92, 0.1],
+    position: [-0.72, 1.18, 0.6],
+    target: [-0.44, 0.9, 0.1],
     fov: 30,
     move: { dolly: 0.18, rise: 0.05 },
     via: [{ at: -0.55, position: [0.3, 1.07, 0.7], target: [-0.16, 0.93, 0.2] }],
-    copy: 'right',
+    copy: 'left',
   },
-  // Skims the paper, then trucks left along it to the pinned prints.
+  // Crosses back over the paper, low, then trucks left along it to the
+  // pinned prints with the book stack behind them.
   {
     id: 'refs',
     position: [-0.36, 1.03, 0.38],
