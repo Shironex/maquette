@@ -5,7 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use super::analyse::{GlbReport, RigKind};
 use crate::assets::AssetKind;
+use crate::prepare::{DEFAULT_LOOSE_SHARE, Fixup};
+
+mod shape;
 use crate::workspace::{TextureSize, WorkspaceConfig};
+use shape::shape_checks;
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, specta::Type,
@@ -17,13 +21,22 @@ pub enum CheckStatus {
     Fail,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Check {
     pub id: String,
     pub status: CheckStatus,
     pub title: String,
     pub detail: Option<String>,
+    /// One click fix-ups for what the check found, best first.
+    pub fixes: Vec<Fixup>,
+}
+
+impl Check {
+    fn with_fixes(mut self, fixes: Vec<Fixup>) -> Self {
+        self.fixes = fixes;
+        self
+    }
 }
 
 /// Which maps the send behind a model asked for.
@@ -58,6 +71,7 @@ fn check(
         status,
         title: title.into(),
         detail: detail.into(),
+        fixes: Vec::new(),
     }
 }
 
@@ -105,18 +119,25 @@ pub fn run(
     } else {
         CheckStatus::Fail
     };
-    out.push(check(
-        "triangles",
-        status,
-        format!("{} triangles", short_count(tris)),
-        match status {
-            CheckStatus::Pass => format!("Within the {} per model budget.", short_count(budget)),
-            _ => format!(
-                "Over the {} per model budget. Decimate in Blender or raise the budget in Settings.",
-                short_count(budget)
-            ),
-        },
-    ));
+    let decimate = (status != CheckStatus::Pass && budget >= crate::prepare::MIN_TRIANGLES)
+        .then_some(Fixup::Decimate { triangles: budget });
+    out.push(
+        check(
+            "triangles",
+            status,
+            format!("{} triangles", short_count(tris)),
+            match status {
+                CheckStatus::Pass => {
+                    format!("Within the {} per model budget.", short_count(budget))
+                }
+                _ => format!(
+                    "Over the {} per model budget. Decimate it here, or raise the budget in Settings.",
+                    short_count(budget)
+                ),
+            },
+        )
+        .with_fixes(decimate.into_iter().collect()),
+    );
 
     let limit = texture_px(config.compression.texture_size);
     if report.textures.is_empty() {
@@ -145,21 +166,24 @@ pub fn run(
                 format!("At or under the {limit} px default."),
             ));
         } else {
-            out.push(check(
-                "textures",
-                CheckStatus::Warning,
-                title,
-                format!(
-                    "{} over the {limit} px default: {}.{} Compress resizes them, or set a per model size.",
-                    plural(u32::try_from(over.len()).unwrap_or(u32::MAX), "texture is", "textures are"),
-                    over.join(", "),
-                    if notes.large_textures {
-                        " It was sent with detailed textures."
-                    } else {
-                        ""
-                    }
-                ),
-            ));
+            out.push(
+                check(
+                    "textures",
+                    CheckStatus::Warning,
+                    title,
+                    format!(
+                        "{} over the {limit} px default: {}.{} Compress resizes them, or set a per model size.",
+                        plural(u32::try_from(over.len()).unwrap_or(u32::MAX), "texture is", "textures are"),
+                        over.join(", "),
+                        if notes.large_textures {
+                            " It was sent with detailed textures."
+                        } else {
+                            ""
+                        }
+                    ),
+                )
+                .with_fixes(vec![Fixup::ShrinkTextures { max_size: limit }]),
+            );
         }
     }
 
@@ -254,16 +278,20 @@ pub fn run(
 
     if let Some(islands) = &report.islands {
         if islands.groups >= 2 && kind != AssetKind::Scene {
-            out.push(check(
-                "merged",
-                CheckStatus::Warning,
-                format!("Looks like {} objects in one mesh", islands.groups),
-                format!(
-                    "{} has {} far apart parts. Split them in Blender (Separate by loose parts) so each can move.",
-                    islands.mesh,
-                    islands.groups
-                ),
-            ));
+            out.push(
+                check(
+                    "merged",
+                    CheckStatus::Warning,
+                    format!("Looks like {} objects in one mesh", islands.groups),
+                    format!(
+                        "{} has {} far apart parts. Split them in Blender (Separate by loose parts) so each can move, or remove the small ones when they are stray bits.",
+                        islands.mesh, islands.groups
+                    ),
+                )
+                .with_fixes(vec![Fixup::RemoveLoose {
+                    min_share: DEFAULT_LOOSE_SHARE,
+                }]),
+            );
         } else {
             out.push(check(
                 "merged",
@@ -314,6 +342,8 @@ pub fn run(
             ));
         }
     }
+
+    out.extend(shape_checks(report, kind));
 
     if report.animations.is_empty() {
         if kind == AssetKind::Character && report.rig != RigKind::None {

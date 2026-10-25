@@ -131,6 +131,13 @@ pub struct GlbReport {
     pub animations: Vec<String>,
     /// Width, height and depth of the default scene.
     pub size: [f32; 3],
+    /// Its bounds, metres (Y up); zero without geometry.
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+    /// Nodes that draw a mesh.
+    pub objects: u32,
+    /// Of those, the ones whose transform is not the identity.
+    pub transformed: u32,
     pub pbr: PbrMaps,
     pub extensions: Vec<String>,
     /// False for meshopt or Draco compressed geometry, where the heuristics
@@ -184,9 +191,19 @@ pub fn analyse_bytes(bytes: &[u8], base: &Path) -> CoreResult<GlbReport> {
     let mut bounds = Aabb::EMPTY;
     let (mut triangles, mut vertices, mut primitives) = (0u64, 0u64, 0u32);
     let mut islands: Option<Islands> = None;
+    let (mut objects, mut transformed) = (0u32, 0u32);
     for node in doc.nodes() {
         let Some(mesh) = node.mesh() else { continue };
         let world = worlds.get(node.index()).copied().unwrap_or(IDENTITY);
+        objects += 1;
+        if world
+            .iter()
+            .flatten()
+            .zip(IDENTITY.iter().flatten())
+            .any(|(a, b)| (a - b).abs() > 1e-6)
+        {
+            transformed += 1;
+        }
         for prim in mesh.primitives() {
             primitives += 1;
             let count = prim
@@ -261,6 +278,18 @@ pub fn analyse_bytes(bytes: &[u8], base: &Path) -> CoreResult<GlbReport> {
             })
             .collect(),
         size: bounds.size(),
+        min: if bounds.is_empty() {
+            [0.0; 3]
+        } else {
+            bounds.min
+        },
+        max: if bounds.is_empty() {
+            [0.0; 3]
+        } else {
+            bounds.max
+        },
+        objects,
+        transformed,
         pbr,
         extensions,
         geometry_readable: !compressed,

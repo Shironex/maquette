@@ -181,6 +181,6 @@ mod tests {
         let snap = snapshot(&session).expect("snapshot");
         assert_eq!(snap.items.len(), 1);
         assert!(!snap.watching, "no app in tests, so no watcher");
-        assert_eq!(snap.items[0].checks.len(), 5);
+        assert_eq!(snap.items[0].checks.len(), 6);
     }
 }

@@ -145,3 +145,80 @@ fn detailed_textures_keep_the_warning_and_say_why() {
     assert!(detail.contains("sent with detailed textures"), "{detail}");
     assert!(detail.contains("Compress resizes them"));
 }
+
+fn fixes(list: &[Check], id: &str) -> Vec<Fixup> {
+    list.iter()
+        .find(|c| c.id == id)
+        .map(|c| c.fixes.clone())
+        .unwrap_or_default()
+}
+
+#[test]
+fn checks_offer_the_fixups_that_answer_them() {
+    let mut config = WorkspaceConfig::default();
+    config.budgets.tris_per_model = 5000;
+    let list = checks(&fixture::messy_prop(), AssetKind::Prop, &config);
+    assert_eq!(status(&list, "triangles"), Some(CheckStatus::Fail));
+    assert_eq!(
+        fixes(&list, "triangles"),
+        [Fixup::Decimate { triangles: 5000 }],
+        "decimate to the budget"
+    );
+    assert!(
+        fixes(&list, "textures").is_empty(),
+        "a 1024 px texture is under the 2K default, so no fix"
+    );
+    assert_eq!(status(&list, "origin"), Some(CheckStatus::Warning));
+    assert_eq!(fixes(&list, "origin"), [Fixup::OriginBottom]);
+    assert_eq!(
+        fixes(&list, "objects"),
+        [Fixup::Merge { by_material: false }, Fixup::ApplyTransforms],
+        "three objects under a scaled root"
+    );
+
+    config.compression.texture_size = crate::workspace::TextureSize::K1;
+    let mut report = analyse_bytes(&fixture::messy_prop(), Path::new(".")).expect("analyse");
+    report.textures[0].width = Some(2048);
+    let list = run(&report, AssetKind::Prop, &config, SendNotes::default());
+    assert_eq!(
+        fixes(&list, "textures"),
+        [Fixup::ShrinkTextures { max_size: 1024 }]
+    );
+
+    let clean = checks(
+        &fixture::clean_prop(),
+        AssetKind::Prop,
+        &WorkspaceConfig::default(),
+    );
+    assert!(clean.iter().all(|c| c.fixes.is_empty()), "{clean:#?}");
+    assert_eq!(status(&clean, "origin"), Some(CheckStatus::Pass));
+    assert!(status(&clean, "objects").is_none(), "one object, no row");
+
+    let merged = checks(
+        &fixture::merged_islands(),
+        AssetKind::Prop,
+        &WorkspaceConfig::default(),
+    );
+    assert!(matches!(
+        fixes(&merged, "merged").as_slice(),
+        [Fixup::RemoveLoose { .. }]
+    ));
+    let rigged = checks(
+        &fixture::character(false),
+        AssetKind::Character,
+        &WorkspaceConfig::default(),
+    );
+    assert!(
+        status(&rigged, "objects").is_none(),
+        "a rig keeps its meshes"
+    );
+    let scene = checks(
+        &fixture::messy_prop(),
+        AssetKind::Scene,
+        &WorkspaceConfig::default(),
+    );
+    assert!(
+        status(&scene, "origin").is_none(),
+        "scenes are left as they are"
+    );
+}
