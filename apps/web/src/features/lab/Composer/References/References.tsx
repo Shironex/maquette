@@ -1,4 +1,4 @@
-import { Field, Icon, cn } from '@maquette/ui';
+import { Field, Icon, Tooltip, cn } from '@maquette/ui';
 import type { LabView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { Menu } from '@/features/common/Menu';
@@ -71,16 +71,22 @@ export default function References({ view }: ReferencesProps) {
         {chips}
         {full ? null : (
           <div>
-            <button
-              type="button"
-              aria-label="Add reference image"
-              aria-haspopup="menu"
-              aria-expanded={menu}
-              onClick={() => setMenu(m => !m)}
-              className="grid h-[62px] w-full cursor-pointer place-items-center rounded-card border border-dashed border-line-strong bg-transparent text-fg-mute hover:border-clay-line hover:text-fg"
+            <Tooltip
+              label="Add a reference image"
+              detail="From refs/ or a file; dropping images here works too"
+              disabled={menu}
             >
-              <Icon name="plus" size={16} />
-            </button>
+              <button
+                type="button"
+                aria-label="Add reference image"
+                aria-haspopup="menu"
+                aria-expanded={menu}
+                onClick={() => setMenu(m => !m)}
+                className="grid h-[62px] w-full cursor-pointer place-items-center rounded-card border border-dashed border-line-strong bg-transparent text-fg-mute hover:border-clay-line hover:text-fg"
+              >
+                <Icon name="plus" size={16} />
+              </button>
+            </Tooltip>
             {menu ? (
               <Menu
                 label="Add a reference"

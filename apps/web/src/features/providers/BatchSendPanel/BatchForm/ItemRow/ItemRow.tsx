@@ -74,6 +74,7 @@ export default function ItemRow({
           size="sm"
           variant={open || diff !== null ? 'secondary' : 'ghost'}
           label={`Custom settings for ${item.name}`}
+          hint={diff === null ? 'Settings for this asset only' : diff}
           aria-expanded={open}
           aria-controls={panel}
           onClick={onToggle}

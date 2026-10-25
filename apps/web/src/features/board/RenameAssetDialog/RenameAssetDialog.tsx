@@ -1,6 +1,7 @@
 import { Button, Icon, IconButton, TextField } from '@maquette/ui';
 import { MAX_NAME_CHARS, useRenameAssetDialog } from './RenameAssetDialog.hooks';
 import type { RenameAssetDialogProps } from './RenameAssetDialog.types';
+import { KEYS } from '@/lib/keys';
 
 /**
  * Rename from a card's menu. Only the name on the card changes: the asset's
@@ -38,7 +39,7 @@ export default function RenameAssetDialog(props: RenameAssetDialogProps) {
               Its files and versions keep their names.
             </p>
           </div>
-          <IconButton data-close icon="x" label="Close" onClick={onClose} />
+          <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={onClose} />
         </header>
         <div className="px-5 py-4">
           <TextField

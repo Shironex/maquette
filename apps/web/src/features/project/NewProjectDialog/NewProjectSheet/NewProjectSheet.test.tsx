@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useProjectsStore } from '@/state/use-projects-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { NewProjectSheet } from '.';
+import { tooltipText } from '@/test/tooltipText';
 
 const initial = useProjectsStore.getState();
 
@@ -21,8 +22,8 @@ describe('the new project sheet', () => {
       screen.getByText('It opens when it is ready. Moon Island stays as it is.')
     ).toBeVisible();
     const create = screen.getByRole('button', { name: 'Create project' });
-    expect(create).toBeDisabled();
-    expect(create).toHaveAttribute('title', 'Name it first');
+    expect(create).toHaveAttribute('aria-disabled', 'true');
+    expect(await tooltipText(create)).toBe('Name it first');
     expect(screen.getByLabelText('Project name')).toHaveFocus();
   });
 
@@ -68,9 +69,8 @@ describe('the new project sheet', () => {
     await openMockWorkspace();
     render(<NewProjectSheet initialMode="import" />);
     expect(screen.getByLabelText('Folder to import')).toHaveFocus();
-    expect(screen.getByRole('button', { name: 'Import project' })).toHaveAttribute(
-      'title',
-      'Name it and pick a folder'
+    expect(await tooltipText(screen.getByRole('button', { name: 'Import project' }))).toBe(
+      'Name it and pick a folder first'
     );
   });
 });

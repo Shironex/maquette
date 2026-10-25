@@ -2,6 +2,7 @@ import { Button, Icon, IconButton } from '@maquette/ui';
 import type { ProjectFields } from '@/state/onboarding';
 import { ProjectForm } from '../../ProjectForm';
 import { useNewProjectSheet } from './NewProjectSheet.hooks';
+import { KEYS } from '@/lib/keys';
 
 export interface NewProjectSheetProps {
   initialMode: ProjectFields['mode'];
@@ -52,7 +53,7 @@ export default function NewProjectSheet({ initialMode, onClosed }: NewProjectShe
                 : 'It opens when it is ready.'}
             </p>
           </div>
-          <IconButton icon="x" label="Close" onClick={dismiss} />
+          <IconButton icon="x" label="Close" shortcut={KEYS.escape} onClick={dismiss} />
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <ProjectForm
@@ -73,7 +74,8 @@ export default function NewProjectSheet({ initialMode, onClosed }: NewProjectShe
             iconRight="arrow-right"
             loading={creating}
             disabled={!ready || creating}
-            title={ready ? undefined : importing ? 'Name it and pick a folder' : 'Name it first'}
+            disabledReason={importing ? 'Name it and pick a folder first' : 'Name it first'}
+            shortcut={KEYS.submit}
           >
             {importing ? 'Import project' : 'Create project'}
           </Button>

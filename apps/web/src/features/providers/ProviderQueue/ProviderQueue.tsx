@@ -6,6 +6,7 @@
 import { Button, Icon, IconButton } from '@maquette/ui';
 import { useDismissOutside, useQueueJobs } from './ProviderQueue.hooks';
 import { QueueRow } from './QueueRow';
+import { KEYS } from '@/lib/keys';
 
 export interface ProviderQueueProps {
   onClose: () => void;
@@ -25,10 +26,22 @@ export default function ProviderQueue({ onClose }: ProviderQueueProps) {
       <header className="flex items-center gap-2 border-b border-line px-3.5 py-2.5">
         <Icon name="cube" className="text-fg-mute" />
         <h2 className="flex-1 font-semibold">3D queue</h2>
-        <Button size="sm" variant="ghost" disabled={!finished} onClick={() => void clear()}>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={!finished}
+          disabledReason="Nothing has finished yet"
+          onClick={() => void clear()}
+        >
           Clear finished
         </Button>
-        <IconButton icon="x" label="Close the queue" size="sm" onClick={onClose} />
+        <IconButton
+          icon="x"
+          label="Close the queue"
+          shortcut={KEYS.escape}
+          size="sm"
+          onClick={onClose}
+        />
       </header>
       {sorted.length === 0 ? (
         <p className="px-3.5 py-6 text-center text-meta text-fg-mute">

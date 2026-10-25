@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ObjectChip } from '.';
+import { tooltipText } from '@/test/tooltipText';
 
 afterEach(cleanup);
 
@@ -13,21 +14,21 @@ describe('an object chip', () => {
       <ObjectChip
         name="Lantern"
         notes="Pink paper"
-        editing
+        editing={false}
         onToggle={onToggle}
         onRemove={onRemove}
       />
     );
     const edit = screen.getByRole('button', { name: 'Edit Lantern' });
-    expect(edit).toHaveAttribute('title', 'Pink paper');
-    expect(edit).toHaveAttribute('aria-expanded', 'true');
+    expect(await tooltipText(edit)).toBe('Notes for CodexPink paper');
+    expect(edit).toHaveAttribute('aria-expanded', 'false');
     await userEvent.click(edit);
     expect(onToggle).toHaveBeenCalledTimes(1);
     await userEvent.click(screen.getByRole('button', { name: 'Remove Lantern' }));
     expect(onRemove).toHaveBeenCalledTimes(1);
   });
 
-  it('invites notes when there are none', () => {
+  it('invites notes when there are none', async () => {
     render(
       <ObjectChip
         name="Bench"
@@ -37,8 +38,7 @@ describe('an object chip', () => {
         onRemove={vi.fn()}
       />
     );
-    expect(screen.getByRole('button', { name: 'Edit Bench' })).toHaveAttribute(
-      'title',
+    expect(await tooltipText(screen.getByRole('button', { name: 'Edit Bench' }))).toBe(
       'Add notes or rename'
     );
   });

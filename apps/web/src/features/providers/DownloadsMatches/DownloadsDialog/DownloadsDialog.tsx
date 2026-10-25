@@ -2,6 +2,7 @@ import { Button, Icon, IconButton, InlineBanner } from '@maquette/ui';
 import { formatAgo, homePath } from '@/lib/format';
 import { useDownloadsDialog } from './DownloadsDialog.hooks';
 import { MatchRow } from './MatchRow';
+import { KEYS } from '@/lib/keys';
 
 export interface DownloadsDialogProps {
   onClose: () => void;
@@ -60,7 +61,7 @@ export default function DownloadsDialog({ onClose }: DownloadsDialogProps) {
             </h2>
             <p className="truncate text-meta text-fg-mute">{summary}</p>
           </div>
-          <IconButton data-close icon="x" label="Close" onClick={onClose} />
+          <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={onClose} />
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {downloads.error ? (

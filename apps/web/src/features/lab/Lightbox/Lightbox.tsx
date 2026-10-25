@@ -3,6 +3,7 @@ import type { LabView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { tileLabel } from '@/state/lab';
 import { useLightbox } from './Lightbox.hooks';
+import { KEYS } from '@/lib/keys';
 
 export interface LightboxProps {
   view: LabView;
@@ -48,6 +49,7 @@ export default function Lightbox({ view }: LightboxProps) {
             <Button
               icon={image.starred ? 'star-fill' : 'star'}
               aria-pressed={image.starred}
+              shortcut="S"
               onClick={() => void mark(image.file, { starred: !image.starred })}
             >
               {image.starred ? 'Starred' : 'Star'}
@@ -56,13 +58,20 @@ export default function Lightbox({ view }: LightboxProps) {
               variant={image.picked ? 'secondary' : 'primary'}
               icon="check"
               aria-pressed={image.picked}
+              shortcut="P"
               onClick={() => void mark(image.file, { picked: !image.picked })}
             >
               {image.picked ? 'Picked' : 'Pick'}
             </Button>
           </>
         ) : null}
-        <IconButton data-close icon="x" label="Close" onClick={() => open(null)} />
+        <IconButton
+          data-close
+          icon="x"
+          label="Close"
+          shortcut={KEYS.escape}
+          onClick={() => open(null)}
+        />
       </header>
       <div
         className="relative flex min-h-0 flex-1 items-center justify-center px-16 pb-6"
@@ -72,6 +81,7 @@ export default function Lightbox({ view }: LightboxProps) {
           <IconButton
             icon="caret-left"
             label="Previous image"
+            shortcut="←"
             variant="secondary"
             className="absolute left-4"
             onClick={() => step(-1)}
@@ -90,6 +100,7 @@ export default function Lightbox({ view }: LightboxProps) {
           <IconButton
             icon="caret-right"
             label="Next image"
+            shortcut="→"
             variant="secondary"
             className="absolute right-4"
             onClick={() => step(1)}

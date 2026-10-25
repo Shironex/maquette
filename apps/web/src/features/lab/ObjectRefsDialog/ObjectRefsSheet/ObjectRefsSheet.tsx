@@ -11,6 +11,7 @@ import type { ObjectsDraft } from '@/state/use-lab-store';
 import { ObjectChip } from './ObjectChip';
 import { ObjectEditor } from './ObjectEditor';
 import { useNotesTip, useObjectRefsSheet } from './ObjectRefsSheet.hooks';
+import { KEYS } from '@/lib/keys';
 
 const KINDS = [
   { value: 'prop' as const, label: 'Props' },
@@ -101,7 +102,7 @@ export default function ObjectRefsSheet({ objects }: ObjectRefsSheetProps) {
               From {objects.sourceName} · one Codex image per object, with this concept attached
             </p>
           </div>
-          <IconButton data-close icon="x" label="Close" onClick={close} />
+          <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={close} />
         </header>
 
         <div className="flex min-h-0 flex-1 gap-5 overflow-y-auto px-5 py-4">
@@ -241,13 +242,8 @@ export default function ObjectRefsSheet({ objects }: ObjectRefsSheetProps) {
             icon="sparkle"
             loading={busy}
             disabled={n === 0 || busy || over}
-            title={
-              over
-                ? 'Shorten the name in the field'
-                : n === 0
-                  ? 'Name at least one object'
-                  : undefined
-            }
+            disabledReason={over ? 'Shorten the name in the field' : 'Name at least one object'}
+            shortcut={KEYS.submit}
             onClick={() => void submit()}
           >
             {n === 0 ? 'Make object refs' : `Make ${n} object ${n === 1 ? 'ref' : 'refs'}`}

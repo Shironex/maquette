@@ -7,6 +7,7 @@ import { Icon, IconButton } from '@maquette/ui';
 import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 import { useSheetDismiss } from './Sheet.hooks';
 import type { SheetProps } from './Sheet.types';
+import { KEYS } from '@/lib/keys';
 
 export default function Sheet({
   id,
@@ -46,7 +47,7 @@ export default function Sheet({
             </h2>
             {meta ? <p className="truncate text-meta text-fg-mute">{meta}</p> : null}
           </div>
-          <IconButton data-close icon="x" label="Close" onClick={dismiss} />
+          <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={dismiss} />
         </header>
         {children}
       </div>

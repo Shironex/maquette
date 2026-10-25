@@ -1,4 +1,4 @@
-import { Icon, cn } from '@maquette/ui';
+import { Icon, Tooltip, cn } from '@maquette/ui';
 
 export interface ObjectChipProps {
   name: string;
@@ -19,37 +19,44 @@ export default function ObjectChip({ name, notes, editing, onToggle, onRemove }:
         editing ? 'border-clay' : 'border-clay-line'
       )}
     >
-      <button
-        type="button"
-        aria-label={`Edit ${name}`}
-        aria-expanded={editing}
-        title={notes ?? 'Add notes or rename'}
-        onClick={e => {
-          e.stopPropagation();
-          onToggle();
-        }}
-        className="flex min-w-0 cursor-pointer items-center gap-1 rounded-pill px-1.5"
+      <Tooltip
+        label={notes ? 'Notes for Codex' : 'Add notes or rename'}
+        detail={notes}
+        disabled={editing}
       >
-        <span className="truncate">{name}</span>
-        <Icon
-          name={notes ? 'file-text' : 'note-pencil'}
-          size={12}
-          className={cn(
-            'flex-none',
-            notes
-              ? 'text-clay-text'
-              : 'text-fg-mute opacity-60 group-hover/chip:opacity-100 group-focus-within/chip:opacity-100'
-          )}
-        />
-      </button>
-      <button
-        type="button"
-        aria-label={`Remove ${name}`}
-        onClick={onRemove}
-        className="grid size-[18px] cursor-pointer place-items-center rounded-full text-fg-mute hover:bg-panel hover:text-fg"
-      >
-        <Icon name="x" size={11} />
-      </button>
+        <button
+          type="button"
+          aria-label={`Edit ${name}`}
+          aria-expanded={editing}
+          onClick={e => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          className="flex min-w-0 cursor-pointer items-center gap-1 rounded-pill px-1.5"
+        >
+          <span className="truncate">{name}</span>
+          <Icon
+            name={notes ? 'file-text' : 'note-pencil'}
+            size={12}
+            className={cn(
+              'flex-none',
+              notes
+                ? 'text-clay-text'
+                : 'text-fg-mute opacity-60 group-hover/chip:opacity-100 group-focus-within/chip:opacity-100'
+            )}
+          />
+        </button>
+      </Tooltip>
+      <Tooltip label="Remove">
+        <button
+          type="button"
+          aria-label={`Remove ${name}`}
+          onClick={onRemove}
+          className="grid size-[18px] cursor-pointer place-items-center rounded-full text-fg-mute hover:bg-panel hover:text-fg active:bg-line"
+        >
+          <Icon name="x" size={11} />
+        </button>
+      </Tooltip>
     </span>
   );
 }

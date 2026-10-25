@@ -65,7 +65,7 @@ export default function ImageTile({ view, direction, image }: ImageTileProps) {
             <IconButton
               icon="cube-focus"
               label={`Make object refs from ${label}`}
-              title="Make object refs..."
+              hint="One image per object, each with its own notes"
               variant="ghost"
               size="sm"
               onClick={() =>

@@ -2,6 +2,7 @@ import { Suspense, lazy, type ReactNode } from 'react';
 import {
   Button,
   EmptyState,
+  HelpMark,
   Icon,
   IconButton,
   InlineBanner,
@@ -16,13 +17,14 @@ import { badge } from '../badge';
 import { LayoutPanel } from '../LayoutPanel';
 import { Letterbox } from '../Letterbox';
 import { useLayoutEditor } from './LayoutEditor.hooks';
+import { KEYS } from '@/lib/keys';
 
 const LayoutCanvas = lazy(() => import('../LayoutCanvas'));
 
 const TOOLS: SegmentedOption<Tool>[] = [
-  { value: 'translate', label: 'Move', icon: 'arrows-out-cardinal' },
-  { value: 'rotate', label: 'Turn', icon: 'arrow-clockwise' },
-  { value: 'scale', label: 'Scale', icon: 'resize' },
+  { value: 'translate', label: 'Move', icon: 'arrows-out-cardinal', shortcut: 'W' },
+  { value: 'rotate', label: 'Turn', icon: 'arrow-clockwise', shortcut: 'E' },
+  { value: 'scale', label: 'Scale', icon: 'resize', shortcut: 'R' },
 ];
 
 export interface LayoutEditorProps {
@@ -80,6 +82,11 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
         {tabs}
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-panel-title">Scene layout</h1>
+          <HelpMark
+            label="About the layout keys"
+            tip="W, E and R switch between move, turn and scale. F frames every model, Escape clears the selection, and the magnet snaps to 5 cm and 15 degrees."
+            side="bottom"
+          />
           <span className="text-meta text-fg-mute">
             {view.saved ? 'layout.json' : 'Not saved yet · models stand side by side'}
             {dirty ? ' · unsaved changes' : ''}
@@ -96,6 +103,9 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
               size="sm"
               variant="secondary"
               label={store.snap ? 'Snapping to 5 cm and 15 degrees' : 'Snapping is off'}
+              hint={
+                store.snap ? undefined : 'Turn it on to move in 5 cm and turn in 15 degree steps'
+              }
               aria-pressed={store.snap}
               className={cn(store.snap && 'border-clay-line text-clay-text')}
               onClick={() => store.setSnap(!store.snap)}
@@ -115,7 +125,9 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
               size="sm"
               variant="secondary"
               label="Undo"
+              shortcut={KEYS.undo}
               disabled={!canUndo}
+              disabledReason="Nothing to undo yet"
               onClick={store.undo}
             />
             <IconButton
@@ -123,7 +135,9 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
               size="sm"
               variant="secondary"
               label="Redo"
+              shortcut={KEYS.redo}
               disabled={!canRedo}
+              disabledReason="Nothing to redo"
               onClick={store.redo}
             />
             <IconButton
@@ -131,6 +145,7 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
               size="sm"
               variant="secondary"
               label="Frame every model"
+              shortcut="F"
               onClick={() => {
                 store.lookThrough(null);
                 frameAll();

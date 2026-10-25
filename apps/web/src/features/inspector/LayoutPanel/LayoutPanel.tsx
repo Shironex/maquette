@@ -91,6 +91,7 @@ export default function LayoutPanel({ view, dirty }: LayoutPanelProps) {
           icon="eye"
           size="sm"
           label={looking ? 'Stop looking' : `Look through ${s.name}`}
+          hint={looking ? undefined : 'Shows what a visitor sees from this stop'}
           aria-pressed={looking}
           className={cn('ml-1', looking && 'text-clay-text')}
           onClick={() => store.lookThrough(looking ? null : s.id)}
