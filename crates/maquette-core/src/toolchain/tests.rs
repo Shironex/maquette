@@ -1,6 +1,10 @@
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
+use std::fs;
 use std::sync::Mutex;
 
+use super::detection::{BROKEN_HINT, CODEX_NOT_SIGNED_IN};
+use super::lookup::{APP_BINARY, candidates, known_dirs, known_files, version_key};
 use super::*;
 
 struct FakeRunner {
