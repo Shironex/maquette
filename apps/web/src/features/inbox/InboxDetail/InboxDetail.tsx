@@ -13,6 +13,8 @@ import {
 import { formatAgo } from '@/lib/format';
 import { checkSummary, itemTitle, kindHint, reviewPrompt } from '@/state/inbox';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
+import { CheckFixes } from '../CheckFixes';
+import { InboxPrep } from '../InboxPrep';
 import { BADGE, KINDS, MODE_ICON } from './constants';
 import { useInboxDetail, useInboxPreview } from './InboxDetail.hooks';
 import type { InboxDetailProps } from './InboxDetail.types';
@@ -40,7 +42,13 @@ export default function InboxDetail({ item }: InboxDetailProps) {
     useInboxPreview(item);
   const passed = item.worst === 'pass' && item.state !== 'failed';
   const checkRows = checks.map(c => (
-    <CheckRow key={c.id} status={c.status} title={c.title} detail={c.detail ?? undefined} />
+    <CheckRow
+      key={c.id}
+      status={c.status}
+      title={c.title}
+      detail={c.detail ?? undefined}
+      footer={c.fixes.length ? <CheckFixes item={item} check={c} /> : undefined}
+    />
   ));
 
   return (
@@ -121,6 +129,9 @@ export default function InboxDetail({ item }: InboxDetailProps) {
             value={item.kind}
             onChange={kind => void setKind(item.id, kind)}
           />
+          <div className="h-px bg-line" />
+          <InboxPrep item={item} project={project} />
+          <div className="h-px bg-line" />
           <div className="flex flex-col gap-2">
             <h3 className="text-[11px] font-semibold tracking-[0.04em] text-fg-mute uppercase">
               Source

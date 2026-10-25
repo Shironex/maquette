@@ -6,6 +6,7 @@ import { events } from '@/ipc/generated/bindings';
 import { emptyLook } from '@/state/materials';
 import { useMaterialsStore } from '@/state/use-materials-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
+import { usePrepareStore } from '@/state/use-prepare-store';
 import { useQuitStore } from '@/state/use-quit-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { QuitDialog, useQuitGuard } from '.';
@@ -16,6 +17,7 @@ afterEach(() => {
   clearMocks();
   usePipelineStore.setState({ view: null, presetEdits: {} });
   useMaterialsStore.setState({ saved: {}, edits: {}, saving: false });
+  usePrepareStore.setState({ drafts: {} });
   useQuitStore.setState({ asking: false, applying: false, error: null });
 });
 
@@ -71,6 +73,19 @@ describe('the quit guard', () => {
     act(() => useMaterialsStore.getState().reset('moon-island', 'sakura'));
     await waitFor(() => expect(sent().at(-1)).toEqual({ unapplied: false }));
   });
+
+  it('counts an Inbox real size or fix-ups that only Accept saves', async () => {
+    const calls = await record();
+    renderHook(() => useQuitGuard());
+    const sent = () => calls.filter(([c]) => c === 'quit_set_unapplied').map(([, a]) => a);
+    await waitFor(() => expect(sent()).toEqual([{ unapplied: false }]));
+    act(() =>
+      usePrepareStore
+        .getState()
+        .setDraft('character.glb', { size: null, fixups: [{ op: 'origin-bottom' }] })
+    );
+    await waitFor(() => expect(sent().at(-1)).toEqual({ unapplied: true }));
+  });
 });
 
 describe('the quit event', () => {
@@ -110,5 +125,21 @@ describe('the quit dialog', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Quit without applying' }));
     await waitFor(() => expect(calls.map(([c]) => c)).toContain('quit_now'));
     expect(calls.map(([c]) => c)).not.toContain('pipeline_save_presets');
+  });
+
+  it('only warns about Inbox drafts, since Accept is what saves them', async () => {
+    const calls = await record();
+    usePrepareStore
+      .getState()
+      .setDraft('character.glb', { size: null, fixups: [{ op: 'origin-bottom' }] });
+    render(<QuitDialog />);
+    act(() => useQuitStore.getState().ask());
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Quit before accepting the Inbox fix-ups?',
+    });
+    expect(within(dialog).getByText(/1 Inbox model has a real size or fix-ups/)).toBeVisible();
+    expect(within(dialog).queryByRole('button', { name: 'Apply and quit' })).toBeNull();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Quit anyway' }));
+    await waitFor(() => expect(calls.map(([c]) => c)).toContain('quit_now'));
   });
 });

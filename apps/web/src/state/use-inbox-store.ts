@@ -10,6 +10,7 @@ import {
 } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { useAppStore } from './use-app-store';
+import { usePrepareStore } from './use-prepare-store';
 import { contentKey, firstToReview } from './inbox';
 import { isStale, keepRenders, needsSnapshot, withThumbnail } from './thumbs';
 
@@ -126,11 +127,18 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
       // A model from a Send to 3D goes to the asset it was sent for.
       const link = get().snapshot?.items.find(i => i.id === id)?.link;
       const asset = link && link.project === project ? link.asset : null;
-      const result = await commands.inboxAccept({ item: id, project, asset, name: null });
+      // The Inbox draft replaces the asset's real size and fix-ups; without one it keeps them.
+      const prepare = usePrepareStore.getState();
+      const prep = prepare.drafts[id];
+      const result = await commands.inboxAccept({ item: id, project, asset, name: null, prep });
+      if (prep) prepare.setDraft(id, null);
+      const kept = prep
+        ? (result.note ?? 'Its real size and fix-ups apply on the next run.')
+        : null;
       useAppStore.getState().notify({
-        status: 'done',
+        status: result.note ? 'info' : 'done',
         title: `${result.asset.name} v${result.version.version} accepted`,
-        detail: `Moved to ${result.version.file}`,
+        detail: [`Moved to ${result.version.file}.`, kept].filter(Boolean).join(' '),
       });
       useAppStore.getState().setProject(result.project);
       await get().load();

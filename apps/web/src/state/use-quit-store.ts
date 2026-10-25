@@ -1,7 +1,8 @@
 /**
  * The question asked when the window is closed with Compression presets or
- * material tweaks not applied yet: apply and quit, quit without applying,
- * or stay.
+ * material tweaks not applied yet, or Inbox models holding a real size or
+ * fix-ups that only Accept saves: apply and quit, quit without applying, or
+ * stay.
  */
 import { create } from 'zustand';
 import { commands } from '@/ipc/client';
@@ -26,8 +27,9 @@ export const unappliedProjects = (...edits: Record<string, unknown>[]) => [
   ...new Set(edits.flatMap(e => Object.keys(e))),
 ];
 
-/** The dialog's title for what waits: presets, tweaks or both. */
-export function quitTitle(presets: boolean, tweaks: boolean): string {
+/** The dialog's title for what waits: presets, tweaks, both, or only Inbox drafts. */
+export function quitTitle(presets: boolean, tweaks: boolean, drafts = 0): string {
+  if (!presets && !tweaks && drafts > 0) return 'Quit before accepting the Inbox fix-ups?';
   if (presets && tweaks) return 'Apply the presets and material tweaks?';
   return tweaks ? 'Apply the material tweaks?' : 'Apply the compression presets?';
 }
