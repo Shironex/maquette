@@ -158,6 +158,8 @@ Tools: `list_projects` (each project's id, name, template, site repo, created da
 - **Viewer:** three.js with react-three-fiber for the model preview
 - **IPC:** tauri-specta writes typed bindings to `apps/web/src/ipc/generated/bindings.ts` when `cargo test -p maquette-desktop` runs
 
+[docs/architecture.md](docs/architecture.md) describes the layout: features with one folder per component, which features may import which, the lint tiers and the Rust lint policy.
+
 ## Development
 
 Needs Node 22.12 or newer, pnpm 10 and the Rust toolchain pinned in `rust-toolchain.toml`.
@@ -198,6 +200,7 @@ The mock runner streams Blender style output and fails Capture posters once. The
 | Script              | What it does                                                                                                                                                                                                                   |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `pnpm lint`         | ESLint over the workspace                                                                                                                                                                                                      |
+| `pnpm lint:meta`    | Whole repo checks: 400 line cap per TypeScript module and 400 code lines per Rust module, no inline lint suppressions, no ESLint rule at `warn`                                                                                |
 | `pnpm typecheck`    | TypeScript in every package                                                                                                                                                                                                    |
 | `pnpm test`         | Vitest for `apps/web` and `packages/ui`                                                                                                                                                                                        |
 | `pnpm format:check` | Prettier check (`pnpm format` writes)                                                                                                                                                                                          |
