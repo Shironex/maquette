@@ -1,6 +1,6 @@
 /**
  * The live workbench: the manifest's models under a warm lamp and cool
- * moonlight, a camera that eases between the tour's stops, the turntable
+ * moonlight, a camera that follows the scroll along the tour, the turntable
  * spin and the wireframe sweep. Drawn on demand: frames only render while
  * something moves.
  */

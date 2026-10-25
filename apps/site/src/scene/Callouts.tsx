@@ -1,12 +1,16 @@
 /**
  * Pins the hero's scene labels (plain DOM, `[data-callout]` in the stage) to
- * the objects they name. Only the hero frame shows them; the page's CSS
- * hides them on the other stops.
+ * the objects they name while the hero frame shows; the page fades them out
+ * as the tour leaves it.
  */
-import type { StopId } from './manifest';
 import { useCallouts } from './Callouts.hooks';
 
-export function Callouts({ stop }: { stop: React.RefObject<StopId> }) {
-  useCallouts(stop);
+export interface CalloutsProps {
+  progress: React.RefObject<number>;
+  reducedMotion: boolean;
+}
+
+export function Callouts({ progress, reducedMotion }: CalloutsProps) {
+  useCallouts(progress, reducedMotion);
   return null;
 }

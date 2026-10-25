@@ -1,7 +1,8 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { BENCH_TOP, type StopId } from './manifest';
+import { BENCH_TOP } from './manifest';
+import { presence } from './progress';
 
 const ANCHORS: Record<string, readonly [number, number, number]> = {
   concept: [-0.42, BENCH_TOP + 0.01, 0.27],
@@ -9,8 +10,8 @@ const ANCHORS: Record<string, readonly [number, number, number]> = {
   web: [0.5, BENCH_TOP + 0.01, 0.13],
 };
 
-/** Projects each `[data-callout]` label's anchor to the screen every hero frame. */
-export function useCallouts(stop: React.RefObject<StopId>) {
+/** Projects each `[data-callout]` label's anchor to the screen every frame the hero shows. */
+export function useCallouts(progress: React.RefObject<number>, reducedMotion: boolean) {
   const size = useThree(state => state.size);
   const labels = useMemo(
     () => Array.from(document.querySelectorAll<HTMLElement>('[data-callout]')),
@@ -19,7 +20,7 @@ export function useCallouts(stop: React.RefObject<StopId>) {
   const point = useMemo(() => new THREE.Vector3(), []);
 
   useFrame(({ camera }) => {
-    if (stop.current !== 'hero') return;
+    if (presence(progress.current, 0, reducedMotion) === 0) return;
     for (const label of labels) {
       const anchor = ANCHORS[label.dataset.callout ?? ''];
       if (!anchor) continue;

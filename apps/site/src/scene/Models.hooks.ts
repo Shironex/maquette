@@ -1,33 +1,46 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type * as THREE from 'three';
 import { buildModel, type BuiltModel } from './build';
 import { loadInOrder } from './loader';
-import { MODELS, loadOrder, type ModelEntry, type StopId } from './manifest';
+import { MODELS, STOP_IDS, loadOrder, type ModelEntry, type StopId } from './manifest';
+import { across, nearestStop, presence, smoothstep } from './progress';
 import { warm } from './warm';
 
-/** Spin speed of the turntable, radians per second. */
-const SPIN = 0.32;
-/** One pass of the wireframe sweep, then a short hold, in seconds. */
-const SWEEP_PASS = 2.6;
-const SWEEP_HOLD = 1.2;
+/**
+ * The turntable makes one full turn while progress is this many stops
+ * either side of its stop, so it faces the same way before and after.
+ */
+const TURN = 0.45;
+/** The wireframe sweep crosses the model while progress is this many stops either side of its stop. */
+const SWEEP = 0.3;
 
 export interface ModelsOptions {
-  stop: React.RefObject<StopId>;
+  /** Tour progress in stops. */
+  progress: React.RefObject<number>;
   reducedMotion: boolean;
   firstView: StopId;
   onReady: () => void;
   onFailed: (reason: string) => void;
 }
 
+const stopIndex = (id: StopId) => STOP_IDS.indexOf(id);
+
 /**
  * Loads, warms and places the manifest's models (the first view's first),
- * then drives the turntable spin and the wireframe sweep each frame.
+ * then sets the turntable's turn and the wireframe sweep from the tour
+ * progress each frame: both follow the scroll, and hold still with reduced
+ * motion.
  */
-export function useModels({ stop, reducedMotion, firstView, onReady, onFailed }: ModelsOptions) {
+export function useModels({
+  progress,
+  reducedMotion,
+  firstView,
+  onReady,
+  onFailed,
+}: ModelsOptions) {
   const { gl, camera, scene, invalidate } = useThree();
   const [built, setBuilt] = useState<BuiltModel[]>([]);
-  const sweepClock = useRef(0);
 
   useEffect(() => {
     let live = true;
@@ -77,27 +90,21 @@ export function useModels({ stop, reducedMotion, firstView, onReady, onFailed }:
     };
   }, [gl, camera, scene, firstView, invalidate, onReady, onFailed]);
 
-  useFrame((_, delta) => {
-    const at = stop.current;
-    let moving = false;
+  useFrame(() => {
+    const at = progress.current;
     for (const { entry, root, sweep } of built) {
-      if (entry.spinAt && !reducedMotion && entry.spinAt === at) {
-        root.rotation.y += delta * SPIN;
-        moving = true;
+      if (entry.spinAt) {
+        // Reduced motion holds the nearest stop's angle: it changes only on a cut.
+        const stop = stopIndex(entry.spinAt);
+        const turn = across(reducedMotion ? nearestStop(at) : at, stop - TURN, stop + TURN);
+        root.rotation.y = turn * Math.PI * 2;
       }
-      if (sweep) {
-        const on = entry.sweepAt === at;
-        sweep.setVisible(on);
-        if (on && reducedMotion) sweep.setProgress(0.55);
-        else if (on) {
-          sweepClock.current = (sweepClock.current + delta) % (SWEEP_PASS + SWEEP_HOLD);
-          const t = Math.min(1, sweepClock.current / SWEEP_PASS);
-          sweep.setProgress(t * t * (3 - 2 * t));
-          moving = true;
-        } else sweepClock.current = 0;
+      if (sweep && entry.sweepAt) {
+        const stop = stopIndex(entry.sweepAt);
+        sweep.setOpacity(presence(at, stop, reducedMotion));
+        sweep.setProgress(reducedMotion ? 0.55 : smoothstep(at, stop - SWEEP, stop + SWEEP));
       }
     }
-    if (moving) invalidate();
   });
 
   return built;

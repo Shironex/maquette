@@ -4,32 +4,32 @@ import { Environment } from './Environment';
 import { Lights } from './Lights';
 import { POSTER_CAMERAS, STOPS } from './manifest';
 import { Models } from './Models';
-import { useStop } from './Scene.hooks';
+import { useProgress } from './Scene.hooks';
 import type { SceneProps } from './Workbench.types';
 
 export function Scene(props: SceneProps) {
-  const stop = useStop(props.initialStop, props.subscribe);
+  const progress = useProgress(props.scroll, props.reducedMotion);
   return (
     <>
       <color attach="background" args={['#1a1917']} />
       <Environment />
       <Lights />
       <Models
-        stop={stop}
+        progress={progress}
         reducedMotion={props.reducedMotion}
         firstView={props.initialStop}
         onReady={props.onReady}
         onFailed={props.onFailed}
       />
       <CameraRig
-        stop={stop}
+        progress={progress}
         stops={STOPS}
         reducedMotion={props.reducedMotion}
         fixed={
           props.capture && props.capture !== 'stops' ? POSTER_CAMERAS[props.capture] : undefined
         }
       />
-      <Callouts stop={stop} />
+      <Callouts progress={progress} reducedMotion={props.reducedMotion} />
     </>
   );
 }

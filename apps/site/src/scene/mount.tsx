@@ -5,19 +5,14 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { PosterCamera, StopId } from './manifest';
-import { FAILED_EVENT, READY_EVENT, STOP_EVENT, type StopDetail } from './tour';
+import { FAILED_EVENT, READY_EVENT, type TourScroll } from './tour';
 import { Workbench } from './Workbench';
 
 export interface MountOptions {
   initialStop: StopId;
   reducedMotion: boolean;
+  scroll: TourScroll;
   capture?: PosterCamera | 'stops';
-}
-
-function subscribe(listener: (stop: StopId) => void): () => void {
-  const onStop = (event: Event) => listener((event as CustomEvent<StopDetail>).detail.id);
-  window.addEventListener(STOP_EVENT, onStop);
-  return () => window.removeEventListener(STOP_EVENT, onStop);
 }
 
 const ready = () => window.dispatchEvent(new Event(READY_EVENT));
@@ -31,7 +26,7 @@ export function mount(container: HTMLElement, options: MountOptions): () => void
       <Workbench
         initialStop={options.initialStop}
         reducedMotion={options.reducedMotion}
-        subscribe={subscribe}
+        scroll={options.scroll}
         onReady={ready}
         onFailed={failed}
         capture={options.capture}

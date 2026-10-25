@@ -1,8 +1,9 @@
 ---
 /**
  * The hero and the six stop tour. On desktop the stage sticks while the
- * section scrolls past; each step of the scroll picks a stop, and the 3D
- * island (or, without it, a poster per stop) follows. On phones the stage
+ * section scrolls past; the scroll moves the 3D island's camera along the
+ * bench from stop to stop and fades each stop's copy in and out with it
+ * (without the island, a poster per stop). On phones the stage
  * is a plain hero with one poster and the stops are left to the pipeline
  * section below.
  */
@@ -168,80 +169,104 @@ const total = TOUR.length;
 </section>
 
 <script>
+  import { LAST_STOP, nearestStop, presence } from '../scene/progress';
+  import { trackTour } from '../scene/scroll';
   import {
     DESKTOP_QUERY,
     FAILED_EVENT,
     READY_EVENT,
-    STOP_EVENT,
     prefersReducedMotion,
     stopAt,
     supportsWebGL2,
-    type StopDetail,
   } from '../scene/tour';
 
+  /** How far the copy drifts per stop of scroll, in pixels, as it fades. */
+  const DRIFT = 56;
+
   const tour = document.querySelector<HTMLElement>('[data-tour]');
-  const STOPS = 7;
+  const stage = tour?.querySelector<HTMLElement>('.stage');
   const touring = window.matchMedia('(min-width: 900px)');
+  // Reduced motion keeps whole stops: the camera cuts and the copy swaps.
+  const reduced = prefersReducedMotion();
+  const tracker = tour && stage ? trackTour(tour, stage, touring) : null;
   let current = -1;
   let live = false;
 
-  function progressStop(): number {
-    if (!tour || !touring.matches) return 0;
-    const span = tour.offsetHeight - window.innerHeight;
-    if (span <= 0) return 0;
-    const progress = (window.scrollY - tour.offsetTop) / span;
-    return Math.round(Math.min(1, Math.max(0, progress)) * (STOPS - 1));
+  const hero = tour?.querySelector<HTMLElement>('.hero');
+  const panels = [...(tour?.querySelectorAll<HTMLElement>('[data-panel]') ?? [])];
+  const grade = tour?.querySelector<HTMLElement>('.grade');
+  const callouts = tour?.querySelector<HTMLElement>('.callouts');
+  const fill = tour?.querySelector<HTMLElement>('[data-fill]');
+  const counter = tour?.querySelector('[data-counter]');
+  const buttons = [...(tour?.querySelectorAll<HTMLElement>('[data-goto]') ?? [])];
+  const posters = [...(tour?.querySelectorAll<HTMLImageElement>('[data-poster]') ?? [])];
+  if (tour && !reduced) tour.dataset.scrub = '';
+
+  function loadPoster(index: number) {
+    const img = posters[index];
+    if (img?.dataset.src && !img.getAttribute('src')) img.src = img.dataset.src;
   }
 
   function showPoster(index: number) {
-    if (live || !tour) return;
-    for (const img of tour.querySelectorAll<HTMLImageElement>('[data-poster]')) {
-      const on = Number(img.dataset.poster) === index;
-      if (on && img.dataset.src && !img.getAttribute('src')) img.src = img.dataset.src;
-      img.classList.toggle('is-shown', on);
-    }
+    if (live) return;
+    loadPoster(index);
+    for (const img of posters) img.classList.toggle('is-shown', Number(img.dataset.poster) === index);
   }
 
   function setStop(index: number) {
     if (!tour || index === current) return;
     current = index;
     tour.dataset.stop = String(index);
-    const counter = tour.querySelector('[data-counter]');
-    if (counter) counter.textContent = index === 0 ? `${STOPS - 1} stops` : `stop ${index} of ${STOPS - 1}`;
-    const fill = tour.querySelector<HTMLElement>('[data-fill]');
-    if (fill) fill.style.setProperty('--fill', String(index / (STOPS - 1)));
-    for (const button of tour.querySelectorAll<HTMLElement>('[data-goto]')) {
+    if (counter) counter.textContent = index === 0 ? `${LAST_STOP} stops` : `stop ${index} of ${LAST_STOP}`;
+    for (const button of buttons) {
       const at = Number(button.dataset.goto);
       button.dataset.state = at < index ? 'passed' : at === index ? 'current' : 'ahead';
       if (at === index) button.setAttribute('aria-current', 'step');
       else button.removeAttribute('aria-current');
     }
     showPoster(index);
-    const detail: StopDetail = { index, id: stopAt(index) };
-    window.dispatchEvent(new CustomEvent(STOP_EVENT, { detail }));
+  }
+
+  /** Fades and drifts one layer with its stop's presence; hidden copy takes no focus. */
+  function fade(el: HTMLElement, stop: number, progress: number) {
+    const shown = presence(progress, stop);
+    el.style.opacity = shown.toFixed(3);
+    el.style.visibility = shown < 0.01 ? 'hidden' : 'visible';
+    el.style.translate = `0 ${((stop - progress) * DRIFT).toFixed(1)}px`;
+  }
+
+  function render(progress: number) {
+    setStop(nearestStop(progress));
+    if (reduced) {
+      fill?.style.setProperty('--fill', String(current / LAST_STOP));
+      return;
+    }
+    fill?.style.setProperty('--fill', (progress / LAST_STOP).toFixed(4));
+    if (hero) fade(hero, 0, progress);
+    panels.forEach((panel, i) => fade(panel, i + 1, progress));
+    const heroShown = presence(progress, 0);
+    grade?.style.setProperty('--scrim-left', (0.82 - 0.27 * heroShown).toFixed(3));
+    if (callouts) callouts.style.opacity = heroShown.toFixed(3);
+    // The posters on either side of a move, so the next one is ready to fade in.
+    if (!live && progress > 0) {
+      loadPoster(Math.floor(progress));
+      loadPoster(Math.ceil(progress));
+    }
   }
 
   let queued = false;
-  const update = () => {
+  tracker?.subscribe(progress => {
+    if (current < 0) return render(progress);
     if (queued) return;
     queued = true;
     requestAnimationFrame(() => {
       queued = false;
-      setStop(progressStop());
+      render(tracker.read());
     });
-  };
-  window.addEventListener('scroll', update, { passive: true });
-  window.addEventListener('resize', update);
-  touring.addEventListener('change', update);
-  setStop(progressStop());
+  });
 
-  for (const button of tour?.querySelectorAll<HTMLElement>('[data-goto]') ?? []) {
-    button.addEventListener('click', () => {
-      if (!tour) return;
-      const span = tour.offsetHeight - window.innerHeight;
-      const top = tour.offsetTop + (span * Number(button.dataset.goto)) / (STOPS - 1);
-      window.scrollTo({ top, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
-    });
+  for (const button of buttons) {
+    button.addEventListener('click', () => tracker?.scrollToStop(Number(button.dataset.goto), !reduced));
   }
 
   // The 3D island: desktop class devices with WebGL 2 only, once the page has painted.
@@ -251,9 +276,9 @@ const total = TOUR.length;
   const capture = params.get('capture');
   if (capture) document.documentElement.classList.add('capture');
   const wantsScene =
-    canvas && window.matchMedia(DESKTOP_QUERY).matches && !params.has('poster');
+    canvas && tracker && window.matchMedia(DESKTOP_QUERY).matches && !params.has('poster');
 
-  if (canvas && wantsScene) {
+  if (canvas && tracker && wantsScene) {
     let unmount: (() => void) | null = null;
     window.addEventListener(READY_EVENT, () => {
       live = true;
@@ -273,7 +298,8 @@ const total = TOUR.length;
       return import('../scene/mount').then(({ mount }) => {
         unmount = mount(canvas, {
           initialStop: stopAt(current),
-          reducedMotion: prefersReducedMotion(),
+          reducedMotion: reduced,
+          scroll: tracker,
           capture: capture === 'mobile' ? 'mobile' : capture ? 'stops' : undefined,
         });
       });
@@ -291,8 +317,8 @@ const total = TOUR.length;
   .tour {
     position: relative;
     background: var(--wall);
-    /* One screen per stop and one for the hero; the stage sticks across them. */
-    height: calc(100svh * 7);
+    /* The stage, then 130 % of a screen of scroll per move between stops. */
+    height: calc(100svh + 6 * 130svh);
   }
   .stage {
     position: sticky;
@@ -350,7 +376,7 @@ const total = TOUR.length;
       ),
       radial-gradient(130% 100% at 60% 55%, rgba(0, 0, 0, 0) 55%, rgba(8, 7, 6, 0.55) 100%);
   }
-  .tour:not([data-stop='0']) .grade {
+  .tour:not([data-scrub]):not([data-stop='0']) .grade {
     --scrim-left: 0.82;
   }
 
@@ -384,7 +410,7 @@ const total = TOUR.length;
     flex-wrap: wrap;
     padding-top: 4px;
   }
-  .tour:not([data-stop='0']) .hero {
+  .tour:not([data-scrub]):not([data-stop='0']) .hero {
     opacity: 0;
     transform: translateY(-16px);
     visibility: hidden;
@@ -445,12 +471,13 @@ const total = TOUR.length;
     color: var(--text-dim);
     letter-spacing: 0;
   }
-  .tour[data-stop='1'] [data-panel='concept'],
-  .tour[data-stop='2'] [data-panel='refs'],
-  .tour[data-stop='3'] [data-panel='model'],
-  .tour[data-stop='4'] [data-panel='blender'],
-  .tour[data-stop='5'] [data-panel='web'],
-  .tour[data-stop='6'] [data-panel='ship'] {
+  /* Reduced motion: the copy swaps with the stop. */
+  .tour:not([data-scrub])[data-stop='1'] [data-panel='concept'],
+  .tour:not([data-scrub])[data-stop='2'] [data-panel='refs'],
+  .tour:not([data-scrub])[data-stop='3'] [data-panel='model'],
+  .tour:not([data-scrub])[data-stop='4'] [data-panel='blender'],
+  .tour:not([data-scrub])[data-stop='5'] [data-panel='web'],
+  .tour:not([data-scrub])[data-stop='6'] [data-panel='ship'] {
     opacity: 1;
     visibility: visible;
     transform: translateY(-50%);
@@ -458,6 +485,19 @@ const total = TOUR.length;
       opacity 500ms ease 150ms,
       transform 500ms ease 150ms,
       visibility 0s;
+  }
+
+  /* The scrub: the page script fades and drifts the copy with the scroll
+     progress (inline opacity, visibility and translate), so nothing eases on
+     its own time. */
+  [data-scrub] .hero,
+  [data-scrub] .panel,
+  [data-scrub] .callout,
+  [data-scrub] .fill {
+    transition: none;
+  }
+  [data-scrub] .panel {
+    transform: translateY(-50%);
   }
 
   .callouts {
@@ -485,7 +525,8 @@ const total = TOUR.length;
     flex-direction: row-reverse;
     translate: calc(-100% + 7px) 0;
   }
-  .is-live[data-stop='0'] .callout[data-placed] {
+  .is-live:not([data-scrub])[data-stop='0'] .callout[data-placed],
+  .is-live[data-scrub] .callout[data-placed] {
     opacity: 1;
   }
   .dot {

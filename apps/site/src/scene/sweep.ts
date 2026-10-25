@@ -8,7 +8,8 @@ import * as THREE from 'three';
 export interface Sweep {
   /** 0 hides the wire, 1 shows it everywhere. */
   setProgress(progress: number): void;
-  setVisible(visible: boolean): void;
+  /** 0 hides it, 1 shows it at full strength. */
+  setOpacity(opacity: number): void;
 }
 
 const WIRE = new THREE.Color('#e9e5dc');
@@ -19,6 +20,7 @@ export function addSweep(model: THREE.Object3D): Sweep {
     uFront: { value: -Infinity },
     uWire: { value: WIRE },
     uEdge: { value: EDGE },
+    uOpacity: { value: 1 },
   };
   const material = new THREE.MeshBasicMaterial({
     wireframe: true,
@@ -37,7 +39,7 @@ export function addSweep(model: THREE.Object3D): Sweep {
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
-        '#include <common>\nvarying float vSweepX;\nuniform float uFront;\nuniform vec3 uWire, uEdge;'
+        '#include <common>\nvarying float vSweepX;\nuniform float uFront, uOpacity;\nuniform vec3 uWire, uEdge;'
       )
       .replace(
         '#include <dithering_fragment>',
@@ -45,7 +47,7 @@ export function addSweep(model: THREE.Object3D): Sweep {
 float behind = uFront - vSweepX;
 if (behind < 0.0) discard;
 float edge = 1.0 - smoothstep(0.0, 0.012, behind);
-gl_FragColor = vec4(mix(uWire, uEdge, edge), mix(0.32, 0.95, edge));`
+gl_FragColor = vec4(mix(uWire, uEdge, edge), mix(0.32, 0.95, edge) * uOpacity);`
       );
   };
 
@@ -73,8 +75,9 @@ gl_FragColor = vec4(mix(uWire, uEdge, edge), mix(0.32, 0.95, edge));`
       }
       uniforms.uFront.value = span.from + span.width * progress;
     },
-    setVisible(visible) {
-      for (const wire of wires) wire.visible = visible;
+    setOpacity(opacity) {
+      uniforms.uOpacity.value = opacity;
+      for (const wire of wires) wire.visible = opacity > 0.001;
     },
   };
 }

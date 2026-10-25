@@ -1,12 +1,10 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { useRef } from 'react';
+import { useMemo } from 'react';
 import * as THREE from 'three';
-import type { CameraStop, StopId } from './manifest';
+import type { CameraStop } from './manifest';
+import { createPath, createShot, shotOf } from './path';
 
 const DESIGN_ASPECT = 16 / 10;
-/** Damping rate; higher settles faster. */
-const LAMBDA = 3.4;
-const SETTLED = 1e-4;
 
 function fitFov(fov: number, aspect: number): number {
   if (aspect >= DESIGN_ASPECT) return fov;
@@ -15,46 +13,26 @@ function fitFov(fov: number, aspect: number): number {
 }
 
 export interface CameraRigOptions {
-  stop: React.RefObject<StopId>;
+  /** Tour progress in stops, already eased (see useProgress). */
+  progress: React.RefObject<number>;
   stops: readonly CameraStop[];
   reducedMotion: boolean;
-  /** Holds this framing instead of following the stops (poster capture). */
+  /** Holds this framing instead of following the tour (poster capture). */
   fixed?: CameraStop;
 }
 
-/** Eases the camera toward the current stop each frame, redrawing until it settles. */
-export function useCameraRig({ stop, stops, reducedMotion, fixed }: CameraRigOptions) {
+/** Puts the camera on the tour's path at the current progress; reduced motion cuts between stops. */
+export function useCameraRig({ progress, stops, reducedMotion, fixed }: CameraRigOptions) {
   const camera = useThree(state => state.camera) as THREE.PerspectiveCamera;
-  const invalidate = useThree(state => state.invalidate);
-  const look = useRef<THREE.Vector3 | null>(null);
-  const goal = useRef({ position: new THREE.Vector3(), target: new THREE.Vector3() });
+  const path = useMemo(() => createPath(stops), [stops]);
+  const shot = useMemo(createShot, []);
 
-  useFrame((state, delta) => {
-    const shot = fixed ?? stops.find(s => s.id === stop.current) ?? stops[0];
-    if (!shot) return;
-    const { position, target } = goal.current;
-    position.set(...shot.position);
-    target.set(...shot.target);
-    const fov = fitFov(shot.fov, state.size.width / Math.max(1, state.size.height));
-
-    if (!look.current || reducedMotion) {
-      look.current = target.clone();
-      camera.position.copy(position);
-      camera.fov = fov;
-    } else {
-      // Frame rate independent exponential easing; capped so a stalled tab does not jump.
-      const t = 1 - Math.exp(-LAMBDA * Math.min(delta, 0.1));
-      camera.position.lerp(position, t);
-      look.current.lerp(target, t);
-      camera.fov += (fov - camera.fov) * t;
-    }
-    camera.lookAt(look.current);
+  useFrame(state => {
+    if (fixed) shotOf(fixed, shot);
+    else path.shotAt(progress.current, shot, reducedMotion);
+    camera.position.copy(shot.position);
+    camera.fov = fitFov(shot.fov, state.size.width / Math.max(1, state.size.height));
+    camera.lookAt(shot.target);
     camera.updateProjectionMatrix();
-
-    const left =
-      camera.position.distanceToSquared(position) +
-      look.current.distanceToSquared(target) +
-      (camera.fov - fov) ** 2 * 1e-4;
-    if (left > SETTLED) invalidate();
   });
 }
