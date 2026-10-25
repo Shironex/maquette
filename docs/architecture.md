@@ -118,6 +118,23 @@ so the checks are the same. After a change it tells the windows through `Host` (
 The integration tests in `apps/desktop/src-tauri/tests/` run a real client against a test `Host`;
 a new tool goes into the tool list in `mcp_handshake.rs`, the instructions and the README.
 
+`tools/built.rs` adds, rebuilds and lists built assets through `commands/built.rs`, the same
+helpers the Board's commands use. Builds go through one `maquette_core::built::Builder` for the
+whole app, so a build an agent starts and one from the Board queue behind each other, and
+`run_pipeline` without `from` calls the same `before_run` as the Run button.
+
+## Built assets
+
+`maquette_core::built` owns them. `add.rs` copies the script and helpers into `<project>/built/`
+and records the source in `built.json` (keyed by asset id, refused when written by a newer
+Maquette). `mod.rs` computes the build key and each asset's state (new, current, stale, failed,
+missing, building). `blender.rs` stages the files in a scratch folder under the workspace cache
+and runs `build_asset.py` (embedded in the crate) as a one step pipeline on the runner's `built`
+lane, the way the fix-up previews run. `build.rs` turns the GLB into the next version, runs the
+Inbox checks for warnings and keeps the last build on the record. The desktop side adds the
+thumbnail, the window events (`BuiltChanged`, `ProjectChanged`) and the pre run rebuild; the web
+side is `state/use-built-store.ts`, the Board card and `features/board/AddBuiltDialog`.
+
 ## Adding a feature
 
 1. Create `apps/web/src/features/<feature>/` with one folder per component, each with its test and
