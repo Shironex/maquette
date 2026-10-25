@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AssetCard,
+  CheckRow,
   HelpMark,
   Tip,
   LogConsole,
@@ -88,6 +89,21 @@ describe('Toggle', () => {
     expect(sw).toBeChecked();
     await userEvent.click(sw);
     expect(onChange).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('CheckRow', () => {
+  it('shows a footer under the detail, in the text column', () => {
+    render(
+      <CheckRow
+        status="warning"
+        title="94.6k triangles"
+        detail="Over the budget."
+        footer={<button type="button">Decimate to 60k</button>}
+      />
+    );
+    const fix = screen.getByRole('button', { name: 'Decimate to 60k' });
+    expect(screen.getByText('Over the budget.').parentElement).toContainElement(fix);
   });
 });
 

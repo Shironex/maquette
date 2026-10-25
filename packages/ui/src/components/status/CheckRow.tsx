@@ -13,10 +13,12 @@ export interface CheckRowProps {
   title: string;
   detail?: string;
   action?: ReactNode;
+  /** Under the detail, in the text column: for example the one click fixes. */
+  footer?: ReactNode;
   className?: string;
 }
 
-export function CheckRow({ status, title, detail, action, className }: CheckRowProps) {
+export function CheckRow({ status, title, detail, action, footer, className }: CheckRowProps) {
   return (
     <div
       className={cn(
@@ -35,6 +37,7 @@ export function CheckRow({ status, title, detail, action, className }: CheckRowP
         {detail ? (
           <div className="mt-0.5 text-[12px] leading-[17px] text-fg-dim">{detail}</div>
         ) : null}
+        {footer ? <div className="mt-2 flex flex-wrap gap-1.5">{footer}</div> : null}
       </div>
       {action ?? null}
     </div>
