@@ -2,6 +2,7 @@
 //! Blender files into the shipped web models, the compression presets, the
 //! content cache that skips unchanged steps and the runner that spawns them.
 
+pub mod bake;
 pub mod cache;
 pub mod export_one;
 pub mod graph;
