@@ -1,6 +1,6 @@
 //! The tools agents call. Read tools look at the workspace; act tools run
-//! pipelines, accept models, render thumbnails, start concepts and send
-//! assets to 3D.
+//! pipelines, accept models, render thumbnails, start, star and pick
+//! concepts and send assets to 3D.
 //!
 //! The agent rules hold here by construction: Blender only ever runs
 //! headless (thumbnails and pipeline steps), no tool opens its window, and
@@ -13,6 +13,7 @@ pub mod credits;
 pub mod handoffs;
 pub mod inbox;
 pub mod materials;
+pub mod picks;
 pub mod prepare;
 pub mod projects;
 pub mod runs;
@@ -54,7 +55,11 @@ reads the provider balances and the local ledger of paid sends (API spend and By
 subscription spend apart). list_handoffs lists the By hand sends waiting for a model made on \
 the provider's site, the export file name each waits for and what the Downloads watcher \
 matched; it reads only. make_object_refs turns the objects of one concept into \
-one isolated image each. get_concepts reads the Lab. \
+one isolated image each. get_concepts reads the Lab. pick_concepts puts concepts on the Board \
+as Send picks to Refs does: each image goes into refs/ and becomes or joins an asset at Refs \
+(named after its object for object refs, else after its direction), ready for send_to_3d; \
+picking an image again returns its asset. star_concepts stars or unstars them. Both spend \
+nothing and the app updates live. \
 set_compression_presets changes the per model texture size, data map size, codec and \
 meshopt level that get_pipeline shows (it spends nothing; locked rows refuse). \
 get_material_tweaks reads an asset's material names, tweaks and per map codecs; \
@@ -141,6 +146,7 @@ impl McpTools {
                 + Self::projects_router()
                 + Self::inbox_router()
                 + Self::concepts_router()
+                + Self::picks_router()
                 + Self::sending_router()
                 + Self::materials_router()
                 + Self::prepare_router()
