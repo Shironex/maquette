@@ -11,6 +11,8 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
   label: string;
   variant?: ButtonVariant;
   size?: 'sm' | 'md';
+  /** A second line in the tooltip, for what the name alone does not say. */
+  hint?: string;
   /** The keys that do the same, shown in the tooltip. */
   shortcut?: string | readonly string[];
   /** Why it is disabled: it stays focusable and the tooltip says why. */
@@ -23,6 +25,7 @@ export function IconButton({
   label,
   variant = 'ghost',
   size = 'md',
+  hint,
   shortcut,
   disabledReason,
   tooltipSide,
@@ -36,7 +39,7 @@ export function IconButton({
   return (
     <Tooltip
       label={label}
-      detail={explained ? disabledReason : undefined}
+      detail={explained ? disabledReason : hint}
       shortcut={shortcut}
       side={tooltipSide}
     >

@@ -102,7 +102,7 @@ export function Button({
   return (
     <Tooltip
       label={tip ?? children}
-      shortcut={shortcut}
+      shortcut={explained ? undefined : shortcut}
       side={tooltipSide}
       wrap
       disabled={!tip && !shortcut}

@@ -1,13 +1,14 @@
 import { Icon } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
 import { Tooltip } from './Tooltip';
+import type { TooltipSide } from './tooltipPlacement';
 
 export interface HelpMarkProps {
   /** The accessible name of the mark, for example "About objects". */
   label: string;
   /** The short explanation shown on hover and on keyboard focus. */
   tip: string;
-  side?: 'top' | 'bottom';
+  side?: TooltipSide;
   className?: string;
 }
 

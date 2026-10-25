@@ -1,11 +1,16 @@
 import { Icon, type IconName } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
 import { useControllable } from '../../lib/useControllable';
+import { Tooltip } from '../feedback/Tooltip';
 
 export interface SegmentedOption<T extends string> {
   value: T;
   label?: string;
   icon?: IconName;
+  /** The key that picks it, shown in a tooltip. */
+  shortcut?: string;
+  /** A tooltip line, for an icon-only option or one that needs a word more. */
+  hint?: string;
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -37,24 +42,27 @@ export function SegmentedControl<T extends string>({
   });
   const buttons = options.map(o => {
     const on = o.value === current;
+    const tip = o.hint ?? o.label;
     return (
-      <button
-        key={o.value}
-        type="button"
-        aria-pressed={on}
-        onClick={() => set(o.value)}
-        className={cn(
-          'inline-flex h-[26px] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-2.5 text-[12px] font-medium text-fg-dim transition-colors duration-120 hover:text-fg',
-          block && 'flex-1',
-          on &&
-            (tone === 'clay'
-              ? 'bg-clay-soft text-fg shadow-[inset_0_0_0_1px_var(--clay-line)]'
-              : 'bg-hover text-fg shadow-[inset_0_0_0_1px_var(--line-strong)]')
-        )}
-      >
-        {o.icon ? <Icon name={o.icon} size={14} /> : null}
-        {o.label}
-      </button>
+      <Tooltip key={o.value} label={tip} shortcut={o.shortcut} disabled={!o.shortcut && !o.hint}>
+        <button
+          type="button"
+          aria-pressed={on}
+          aria-label={o.label ? undefined : o.hint}
+          onClick={() => set(o.value)}
+          className={cn(
+            'inline-flex h-[26px] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-2.5 text-[12px] font-medium text-fg-dim transition-colors duration-120 hover:text-fg',
+            block && 'flex-1',
+            on &&
+              (tone === 'clay'
+                ? 'bg-clay-soft text-fg shadow-[inset_0_0_0_1px_var(--clay-line)]'
+                : 'bg-hover text-fg shadow-[inset_0_0_0_1px_var(--line-strong)]')
+          )}
+        >
+          {o.icon ? <Icon name={o.icon} size={14} /> : null}
+          {o.label}
+        </button>
+      </Tooltip>
     );
   });
   return (
