@@ -2,7 +2,7 @@
 //! managed state; the integration test builds its own, without a window.
 
 use maquette_core::ProjectManifest;
-use maquette_core::concepts::Concepts;
+use maquette_core::concepts::{ConceptEvent, Concepts, Direction};
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::providers::{Arrivals, ProviderJobs};
@@ -16,7 +16,7 @@ use crate::commands::pipeline::Pipelines;
 use crate::commands::providers::Studio;
 use crate::commands::thumbs::Thumbs;
 use crate::events::{
-    LayoutChanged, MaterialsChanged, PipelineChanged, PrepareChanged, ProjectChanged,
+    ConceptUpdate, LayoutChanged, MaterialsChanged, PipelineChanged, PrepareChanged, ProjectChanged,
 };
 use crate::session::Session;
 
@@ -47,6 +47,9 @@ pub trait Host: Send + Sync + 'static {
     /// Tells the windows that a tool changed a project's real sizes or
     /// fix-ups, so the Board, the Inbox and the Inspector reload them.
     fn prepare_changed(&self, _project: &str) {}
+    /// Tells the windows that a tool starred or picked concepts of a
+    /// direction, so the Lab shows its marks and refs.
+    fn concepts_changed(&self, _project: &str, _direction: &Direction) {}
 }
 
 /// The app's own services.
@@ -123,6 +126,16 @@ impl Host for AppHost {
         };
         if let Err(err) = event.emit(&self.0) {
             tracing::warn!(error = %err, "could not emit a prepare event");
+        }
+    }
+
+    fn concepts_changed(&self, project: &str, direction: &Direction) {
+        let event = ConceptUpdate(ConceptEvent::Direction {
+            project: project.to_string(),
+            direction: direction.clone(),
+        });
+        if let Err(err) = event.emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit a concept event");
         }
     }
 }
