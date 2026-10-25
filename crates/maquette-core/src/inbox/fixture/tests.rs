@@ -21,3 +21,19 @@ fn fixtures_parse_as_gltf() {
         assert_eq!(gltf.meshes().count(), 1);
     }
 }
+
+#[test]
+fn the_messy_prop_is_dense_scaled_and_has_a_speck() {
+    let bytes = messy_prop();
+    let report =
+        crate::inbox::analyse::analyse_bytes(&bytes, std::path::Path::new(".")).expect("analyse");
+    assert_eq!(report.triangles, 19_200 + 12 + 12);
+    assert_eq!(report.meshes, 3);
+    assert_eq!(report.max_texture, 1024);
+    // The root's half scale: the speck at x = 2 lands at 0.3 + 1.0.
+    assert!(
+        (report.size[0] - (1.0 + 0.25 + 0.0025)).abs() < 1e-3,
+        "{:?}",
+        report.size
+    );
+}

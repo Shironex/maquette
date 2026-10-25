@@ -222,6 +222,49 @@ pub fn character(bug: bool) -> Vec<u8> {
     b.finish(root)
 }
 
+/// A desk lamp the way a generator sends it: under a scaled and moved root
+/// node, a dense shade (19,200 triangles) with a 1024 px texture, a base,
+/// and a 1 cm speck two metres away. For the fix-ups: decimate, apply
+/// transforms, merge, remove loose parts, shrink textures, origin.
+pub fn messy_prop() -> Vec<u8> {
+    let mut b = Builder::default();
+    let mut shade = Mesh::default();
+    shade.dense_cuboid([0.0, 1.0, 0.0], [1.0, 0.8, 1.0], 40);
+    let mut base = Mesh::default();
+    base.cuboid([0.0, 0.2, 0.0], [0.6, 0.4, 0.6], 0);
+    let mut speck = Mesh::default();
+    speck.cuboid([2.0, 0.0, 0.0], [0.01, 0.01, 0.01], 0);
+    let (images, textures, mut materials) = pbr_material(&mut b, 1024, "Shade");
+    if let Some(list) = materials.as_array_mut() {
+        list.push(json!({ "name": "Metal", "pbrMetallicRoughness": { "metallicFactor": 1.0 } }));
+    }
+    let prims = [
+        b.primitive(&shade, 0, false),
+        b.primitive(&base, 1, false),
+        b.primitive(&speck, 1, false),
+    ];
+    let root = json!({
+        "scene": 0,
+        "scenes": [{ "nodes": [0] }],
+        "nodes": [
+            { "name": "Root", "translation": [0.3, 0.5, -0.2], "scale": [0.5, 0.5, 0.5], "children": [1, 2, 3] },
+            { "name": "Shade", "mesh": 0 },
+            { "name": "Base", "mesh": 1 },
+            { "name": "Speck", "mesh": 2 },
+        ],
+        "meshes": [
+            { "name": "Shade", "primitives": [prims[0].clone()] },
+            { "name": "Base", "primitives": [prims[1].clone()] },
+            { "name": "Speck", "primitives": [prims[2].clone()] },
+        ],
+        "materials": materials,
+        "images": images,
+        "textures": textures,
+        "samplers": [{}],
+    });
+    b.finish(root)
+}
+
 /// Every fixture with a file name, for the e2e run and the mock assets.
 pub fn all() -> Vec<(&'static str, Vec<u8>)> {
     vec![

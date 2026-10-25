@@ -46,6 +46,50 @@ impl Mesh {
     }
 }
 
+impl Mesh {
+    /// Appends a box whose faces are each split into `n` by `n` quads, so
+    /// it has `12 * n * n` triangles: a dense model to decimate.
+    pub(super) fn dense_cuboid(&mut self, center: [f32; 3], size: [f32; 3], n: u32) {
+        let h = [size[0] / 2.0, size[1] / 2.0, size[2] / 2.0];
+        let faces = [
+            (0, 1.0, 1, 2),
+            (0, -1.0, 2, 1),
+            (1, 1.0, 2, 0),
+            (1, -1.0, 0, 2),
+            (2, 1.0, 0, 1),
+            (2, -1.0, 1, 0),
+        ];
+        #[expect(clippy::cast_precision_loss, reason = "a fixture grid is tiny")]
+        let step = |i: u32| (i as f32 / n as f32) * 2.0 - 1.0;
+        for (axis, sign, u, v) in faces {
+            let base = u32::try_from(self.positions.len()).unwrap_or(u32::MAX);
+            for j in 0..=n {
+                for i in 0..=n {
+                    let mut p = center;
+                    p[axis] += sign * h[axis];
+                    p[u] += step(i) * h[u];
+                    p[v] += step(j) * h[v];
+                    let mut normal = [0.0; 3];
+                    normal[axis] = sign;
+                    self.positions.push(p);
+                    self.normals.push(normal);
+                    self.uvs
+                        .push([(step(i) + 1.0) / 2.0, (step(j) + 1.0) / 2.0]);
+                    self.joints.push([0; 4]);
+                }
+            }
+            let row = n + 1;
+            for j in 0..n {
+                for i in 0..n {
+                    let a = base + j * row + i;
+                    let (b, c, d) = (a + 1, a + row + 1, a + row);
+                    self.indices.extend_from_slice(&[a, b, c, a, c, d]);
+                }
+            }
+        }
+    }
+}
+
 #[derive(Default)]
 pub(super) struct Builder {
     pub(super) bin: Vec<u8>,
