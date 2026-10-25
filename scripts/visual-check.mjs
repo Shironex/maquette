@@ -16,12 +16,14 @@
  * approval from an agent. The scene set covers the Inspector's layout editor
  * (a selected model, a camera stop, looking through it), Copy to project on
  * a Board card, the first view in the Pipeline view and the first view
- * target in Settings. It renders pages to files and never captures the
- * screen.
+ * target in Settings. The ux set covers tooltips (the collapsed rail, a sheet's
+ * Close by the window edge, a gizmo key, a disabled Undo), help marks, a
+ * keyboard focus ring and a disabled menu item that says why. It renders
+ * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
- * ONLY=handoff or ONLY=scene renders that set alone, ONLY=guards the questions
+ * ONLY=handoff, ONLY=scene or ONLY=ux renders that set alone, ONLY=guards the questions
  * asked before work is dropped; PORT picks the dev server port.
  *
  * PLAYWRIGHT defaults to the `playwright` package, which this repo does not
@@ -284,6 +286,81 @@ async function guardShots() {
 }
 
 const only = process.env.ONLY;
+
+/** Hovers a control until its tooltip shows, then shoots the page. */
+async function hoverTip(page, target, name) {
+  await target.hover();
+  await page.getByRole('tooltip').waitFor();
+  await shot(page, name);
+  await page.mouse.move(0, 0);
+}
+
+/** Focuses a control from the keyboard (its ring and tooltip show), then shoots. */
+async function focusTip(page, target, name) {
+  await target.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await page.getByRole('tooltip').waitFor();
+  await shot(page, name);
+}
+
+/** Tooltips, help marks and the disabled with a reason state. */
+async function uxShots() {
+  const board = await open('&scenario=configured', '#/board');
+  await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
+  await hoverTip(board, board.getByRole('checkbox', { name: 'Select Island' }), 'ux-card-select');
+  await board.getByRole('button', { name: 'More for Stone lanterns' }).click();
+  await hoverTip(
+    board,
+    board.getByRole('menuitem', { name: 'Open in Blender' }),
+    'ux-menu-disabled-reason'
+  );
+  await board.keyboard.press('Escape');
+  await board.getByRole('button', { name: 'More for Stone lanterns' }).click();
+  await board.getByRole('menuitem', { name: 'Send to 3D' }).click();
+  const sheet = board.getByRole('dialog', { name: /Send Stone lanterns to 3D/ });
+  await sheet.waitFor();
+  await hoverTip(board, sheet.getByRole('button', { name: 'Close' }), 'ux-sheet-close-edge');
+
+  const rail = await open('&scenario=configured', '#/board');
+  await rail.getByRole('button', { name: 'Collapse' }).click();
+  await hoverTip(rail, rail.getByRole('button', { name: /^Inbox/ }), 'ux-rail-collapsed');
+
+  const fresh = await open('&scenario=running', '#/board');
+  await fresh.locator('[aria-haspopup=menu]').first().click();
+  await fresh.getByRole('menuitem', { name: 'New project' }).click();
+  const create = fresh.getByRole('button', { name: 'Create project' });
+  await create.waitFor();
+  await hoverTip(fresh, create, 'ux-disabled-reason');
+
+  const logs = await open('&scenario=configured', '#/pipeline');
+  await logs.getByRole('log').getByText('Traceback').waitFor();
+  await focusTip(logs, logs.getByRole('button', { name: 'About hiding noise' }), 'ux-help-noise');
+  await hoverTip(
+    logs,
+    logs.getByRole('button', { name: /^Texture sizes per map for/ }).first(),
+    'ux-preset-per-map'
+  );
+
+  const layout = await open('&scenario=configured', '#/inspector');
+  await layout.getByRole('tab', { name: 'Layout' }).click();
+  await layout.getByRole('heading', { name: 'Scene layout' }).waitFor();
+  await layout.getByText(/Loading \d+ models/).waitFor({ state: 'detached', timeout: 30_000 });
+  await layout.waitForTimeout(1500);
+  await hoverTip(layout, layout.getByRole('button', { name: 'Undo' }), 'ux-layout-undo-disabled');
+  const gizmo = layout.getByRole('group', { name: 'Gizmo' });
+  await hoverTip(layout, gizmo.getByRole('button', { name: 'Turn' }), 'ux-layout-gizmo-key');
+  await focusTip(
+    layout,
+    layout.getByRole('button', { name: 'Frame every model' }),
+    'ux-focus-ring'
+  );
+  await focusTip(
+    layout,
+    layout.getByRole('button', { name: 'About the layout keys' }),
+    'ux-help-layout-keys'
+  );
+}
 
 /** The layout editor, Copy to project and the first view. */
 async function sceneShots() {
@@ -553,6 +630,7 @@ async function coreShots() {
 
 try {
   if (only === 'guards') await guardShots();
+  if (!only || only === 'ux') await uxShots();
   if (!only) await coreShots();
   if (!only || only === 'handoff') await handoffShots();
   if (!only || only === 'scene') await sceneShots();
