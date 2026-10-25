@@ -1,10 +1,15 @@
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useId, type InputHTMLAttributes } from 'react';
 import { cn } from '../../lib/cn';
 import { Field, INPUT_INNER, INPUT_SHELL, type FieldProps } from './Field';
+import { useNumberText } from './NumberField.hooks';
 
-export interface NumberFieldProps {
-  label?: string;
-  hint?: ReactNode;
+export interface NumberFieldProps
+  extends
+    Pick<FieldProps, 'label' | 'hint' | 'note' | 'inline'>,
+    Omit<
+      InputHTMLAttributes<HTMLInputElement>,
+      'value' | 'onChange' | 'size' | 'min' | 'max' | 'prefix'
+    > {
   value: number;
   onChange: (value: number) => void;
   unit?: string;
@@ -17,10 +22,6 @@ export interface NumberFieldProps {
   size?: 'sm' | 'md';
   /** Fixed text before the value, such as `127.0.0.1:`. */
   prefix?: string;
-  inline?: boolean;
-  note?: FieldProps['note'];
-  id?: string;
-  className?: string;
   fieldClassName?: string;
 }
 
@@ -51,29 +52,18 @@ export function NumberField({
   id,
   className,
   fieldClassName,
+  ...rest
 }: NumberFieldProps) {
   const auto = useId();
   const inputId = id ?? auto;
-  const [text, setText] = useState(format(value));
-  const [editing, setEditing] = useState(false);
-
-  useEffect(() => {
-    if (!editing) setText(format(value));
-  }, [value, editing, format]);
-
-  function commit() {
-    setEditing(false);
-    const parsed = parse(text);
-    if (parsed === null) {
-      setText(format(value));
-      return;
-    }
-    let next = parsed;
-    if (min !== undefined) next = Math.max(min, next);
-    if (max !== undefined) next = Math.min(max, next);
-    setText(format(next));
-    if (next !== value) onChange(next);
-  }
+  const { text, setText, setEditing, commit } = useNumberText({
+    value,
+    onChange,
+    min,
+    max,
+    format,
+    parse,
+  });
 
   return (
     <Field
@@ -89,6 +79,7 @@ export function NumberField({
           <span className="font-mono text-[12.5px] tracking-[-0.01em] text-fg-mute">{prefix}</span>
         ) : null}
         <input
+          {...rest}
           id={inputId}
           inputMode="decimal"
           aria-describedby={note || hint ? `${inputId}-note` : undefined}

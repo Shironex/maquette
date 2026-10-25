@@ -1,13 +1,14 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type InputHTMLAttributes } from 'react';
 import { cn } from '../../lib/cn';
 import { Button } from '../actions/Button';
 import { IconButton } from '../actions/IconButton';
 import { Field, INPUT_INNER, INPUT_SHELL, type FieldProps } from './Field';
 
-export interface PathFieldProps {
-  label?: string;
+export interface PathFieldProps
+  extends
+    Pick<FieldProps, 'label' | 'hint' | 'note'>,
+    Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'size'> {
   value: string;
-  placeholder?: string;
   onChange?: (value: string) => void;
   /** Called on blur or Enter, for checks that should not run per keystroke. */
   onCommit?: (value: string) => void;
@@ -15,11 +16,7 @@ export interface PathFieldProps {
   browseLabel?: string;
   /** Shows only a folder icon for Browse; the label becomes its accessible name. */
   compactBrowse?: boolean;
-  note?: FieldProps['note'];
-  hint?: ReactNode;
   size?: 'md' | 'lg';
-  id?: string;
-  className?: string;
 }
 
 /** A path, its Browse button and the detection note under it. */
@@ -37,6 +34,7 @@ export function PathField({
   size = 'md',
   id,
   className,
+  ...rest
 }: PathFieldProps) {
   const auto = useId();
   const inputId = id ?? auto;
@@ -45,6 +43,7 @@ export function PathField({
       <div className="flex items-center gap-2">
         <span className={cn(INPUT_SHELL, size === 'lg' && 'h-10')}>
           <input
+            {...rest}
             id={inputId}
             value={value}
             placeholder={placeholder}
