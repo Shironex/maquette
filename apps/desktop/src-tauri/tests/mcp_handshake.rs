@@ -313,6 +313,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "cancel_run",
             "copy_asset",
             "get_concepts",
+            "get_credits",
             "get_inbox_checks",
             "get_layout",
             "get_material_tweaks",
@@ -324,6 +325,8 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "list_inbox",
             "list_projects",
             "make_object_refs",
+            "redo_inbox_model",
+            "redo_inbox_models",
             "render_thumbnail",
             "run_pipeline",
             "send_batch_to_3d",
@@ -1096,4 +1099,135 @@ fn the_app_server_follows_the_workspace_setting() {
     session.set_config(config);
     agents.sync(&session);
     assert!(!agents.status(&session).running);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn agents_redo_inbox_models_and_read_the_credits() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp dir");
+    let (session, project_id, _) = fixture(dir.path());
+    let (root, config) = session.workspace().expect("ws");
+    let hub = Arc::new(Hub::new(|| {}));
+    let host = Arc::new(TestHost {
+        studio: studio(&session),
+        session,
+        runner: PipelineRunner::new(Arc::new(HubSink(Arc::clone(&hub)))),
+        concepts: Concepts::new(None, 1, |_| {}),
+        thumbs: Thumbnails::new(|_| {}),
+        pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
+        layout_changes: std::sync::atomic::AtomicUsize::new(0),
+        materials_changes: std::sync::atomic::AtomicUsize::new(0),
+    });
+    let token = ensure_token(&host.session).expect("token");
+    let server = maquette_desktop_lib::mcp::server::start(
+        0,
+        token.clone(),
+        host.clone() as Arc<dyn Host>,
+        Arc::clone(&hub),
+    )
+    .expect("start");
+    let url = format!("http://127.0.0.1:{}/mcp", server.port());
+    let transport = StreamableHttpClientTransport::from_config(
+        StreamableHttpClientTransportConfig::with_uri(url).auth_header(token),
+    );
+    let client = ClientConfig::default()
+        .serve(transport)
+        .await
+        .expect("initialize");
+
+    // Two by hand sends whose models came back into the inbox.
+    let inbox = root.join(&config.layout.inbox);
+    std::fs::create_dir_all(&inbox).expect("inbox");
+    for asset in ["stone-lantern", "desk-lamp"] {
+        let sent = call(
+            &client,
+            "send_to_3d",
+            json!({
+                "project": project_id,
+                "asset": asset,
+                "provider": "by-hand",
+                "overrides": { "faceLimit": 12000 },
+            }),
+        )
+        .await;
+        let id = sent["id"].as_str().expect("id");
+        std::fs::write(inbox.join(format!("{id}.glb")), b"glTF not really").expect("model");
+    }
+
+    // A model that came from no send has nothing to repeat.
+    std::fs::write(inbox.join("loose.glb"), b"glTF").expect("loose");
+    let mut params = CallToolRequestParams::new("redo_inbox_model".to_string());
+    if let Value::Object(map) = json!({ "id": "loose.glb" }) {
+        params = params.with_arguments(map);
+    }
+    let refused = client.call_tool(params).await.expect("call");
+    assert_eq!(refused.is_error, Some(true));
+    assert!(
+        text(&refused).contains("did not come from a send"),
+        "{}",
+        text(&refused)
+    );
+
+    // A paid redo keeps the earlier settings, lays the overrides on top and
+    // waits for approval with its expected cost.
+    let redo = call(
+        &client,
+        "redo_inbox_model",
+        json!({
+            "id": "stone-lantern-1.glb",
+            "provider": "tripo",
+            "overrides": { "pbr": false },
+        }),
+    )
+    .await;
+    assert_eq!(redo["status"], json!("waiting for approval"), "{redo}");
+    assert_eq!(redo["redoes"], json!("stone-lantern-1"));
+    assert_eq!(redo["redoOf"], json!("stone-lantern-1"));
+    assert_eq!(redo["id"], json!("stone-lantern-2"));
+    assert_eq!(redo["settings"], json!("Tripo H3.1, 1 image, 12,000 faces"));
+    let job = host.studio.get("stone-lantern-2").expect("job");
+    assert_eq!(job.tripo.as_ref().map(|t| t.pbr), Some(false));
+    let approvals = hub.approvals();
+    assert_eq!(approvals.len(), 1);
+    assert_eq!(approvals[0].estimate, Some(30.0));
+    assert!(hub.decide(&approvals[0].id, false));
+
+    // By hand by default: a new handoff folder, the old model untouched.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while host.studio.get("stone-lantern-2").map(|j| j.state) == Some(JobState::Approval) {
+        assert!(Instant::now() < deadline, "the denial never landed");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let many = call(
+        &client,
+        "redo_inbox_models",
+        json!({ "ids": ["stone-lantern-1.glb", "desk-lamp-1.glb"] }),
+    )
+    .await;
+    assert_eq!(many["status"], json!("started"), "{many}");
+    let jobs = many["jobs"].as_array().expect("jobs");
+    assert_eq!(jobs.len(), 2);
+    for job in jobs {
+        assert_eq!(job["status"], json!("waiting"));
+        assert!(job["redoOf"].as_str().is_some_and(|r| r.ends_with("-1")));
+        let folder = std::path::PathBuf::from(job["handoff"].as_str().expect("handoff"));
+        let card = std::fs::read_to_string(folder.join("settings.md")).expect("card");
+        assert!(card.contains("12,000"), "the earlier settings: {card}");
+    }
+    assert!(
+        inbox.join("stone-lantern-1.glb").is_file(),
+        "kept to compare"
+    );
+
+    // Nothing was paid for, so the ledger is empty; Tripo cannot be reached
+    // here and Meshy has no key.
+    let credits = call(&client, "get_credits", json!({})).await;
+    assert_eq!(credits["spends"], json!([]));
+    assert_eq!(credits["totals"].as_array().map(Vec::len), Some(3));
+    assert_eq!(credits["balances"][0]["service"], json!("tripo"));
+    assert!(credits["balances"][0]["error"].is_string(), "{credits}");
+    assert_eq!(credits["balances"][1]["key"], json!(false));
+
+    client.cancel().await.expect("close");
+    server.stop();
 }

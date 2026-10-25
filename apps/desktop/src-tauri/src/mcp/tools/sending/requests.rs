@@ -13,7 +13,7 @@ use crate::mcp::host::Host;
 use crate::mcp::tools::{to_value, workspace};
 
 /// Lays `overrides` over a preset, refusing names the preset does not have.
-fn with_overrides<T: Serialize + serde::de::DeserializeOwned>(
+pub(super) fn with_overrides<T: Serialize + serde::de::DeserializeOwned>(
     base: &T,
     overrides: Option<&serde_json::Map<String, Value>>,
 ) -> Result<T, String> {
@@ -92,7 +92,7 @@ pub(super) fn send_request(host: &dyn Host, args: &SendTo3dArgs) -> Result<SendR
         images,
         tripo,
         meshy,
-        prompt: None,
+        prompt: args.prompt.clone(),
         redo_of: None,
     })
 }
@@ -164,7 +164,7 @@ pub(super) fn batch_request(host: &dyn Host, args: &SendBatchArgs) -> Result<Bat
                 .map(|o| with_overrides(&meshy_for(variant)?, Some(o)))
                 .transpose()
                 .map_err(tag)?,
-            prompt: None,
+            prompt: arg.prompt.clone(),
             redo_of: None,
         });
     }

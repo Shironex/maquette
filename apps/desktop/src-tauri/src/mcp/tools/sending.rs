@@ -12,6 +12,7 @@ use serde_json::{Value, json};
 use crate::mcp::host::Host;
 use crate::mcp::hub::Hub;
 
+mod redo;
 mod requests;
 
 use self::requests::{batch_request, send_request};
@@ -62,6 +63,8 @@ pub struct SendTo3dArgs {
     /// for example {"faceLimit": 20000, "rig": false} for Tripo or
     /// {"aiModel": "meshy-6", "targetPolycount": 30000} for Meshy.
     pub overrides: Option<serde_json::Map<String, Value>>,
+    /// Meshy only: text that guides the texture, at most 800 characters.
+    pub prompt: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -78,6 +81,8 @@ pub struct BatchItemArg {
     /// Preset fields to change for this asset only, laid over the batch settings, for
     /// example {"faceLimit": 2000, "pbr": false}.
     pub overrides: Option<serde_json::Map<String, Value>>,
+    /// Meshy only: text that guides this asset's texture, at most 800 characters.
+    pub prompt: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -129,6 +134,8 @@ fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
         "phase": to_value(job.phase),
         "progress": job.progress,
         "credits": job.credits,
+        "estimate": job.estimate,
+        "redoOf": job.redo_of,
         "message": job.message,
         "inboxFile": job.inbox_file,
         "handoff": job.handoff,
