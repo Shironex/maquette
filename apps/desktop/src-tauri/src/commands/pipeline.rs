@@ -247,6 +247,9 @@ pub(crate) fn setup(
         "siteRepo".to_string(),
         ctx.manifest.site_repo.clone().unwrap_or_default(),
     );
+    // The Ship step reads which file each asset shipped as from here.
+    let index = maquette_core::site::write_ship_index(&ctx.cache_dir, &ctx.manifest)?;
+    vars.insert("shipIndex".to_string(), index.display().to_string());
     let tweaks = materials::by_model_stem(&ctx.manifest, &materials::load(&ctx.project_dir)?);
     Ok(RunSetup {
         project: project_id.to_string(),
