@@ -8,6 +8,8 @@ copyright holder.
 ARTWORK
 The 3D models, textures and renders bundled for mock mode, including the
 character model (everything under apps/web/src/assets/mock/ and any copy or
+conversion of it), and the models, textures, posters and screenshots of the
+landing page (everything under apps/site/public/scene/ and any copy or
 conversion of it), are reserved artwork. They are not covered by this license
 or by any other license this repository may adopt in the future. You may NOT
 use, copy, modify, redistribute or sell them, or include them in any other
