@@ -24,12 +24,16 @@
  * the quit question for tweaks. The redo set covers Redo from the Inbox (a
  * row's menu, the send panel prefilled with a Meshy texture prompt and its
  * estimate, two models ticked, the batch redo and its confirm) and the
- * Credits sheet (all sends, filtered to Meshy). It renders pages to files
+ * Credits sheet (all sends, filtered to Meshy). The byhand set covers the
+ * By hand card with its subscription cost and export name, an export the
+ * Downloads watch copies in, one it asks about and the "Which asset is
+ * this?" picker, the watch in Settings and the Credits sheet's subscription
+ * sends. It renders pages to files
  * and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
- * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo or ONLY=size
+ * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -821,6 +825,62 @@ async function prepShots() {
   await shot(details, 'inspector-model-details');
 }
 
+/**
+ * The By hand flow: the settings card with its subscription cost and export
+ * name, an export the Downloads watch copies in by itself, one it asks about
+ * ("Which asset is this?"), the watch in Settings and the Credits sheet's
+ * subscription sends.
+ */
+async function byHandShots() {
+  const fixture = '&scenario=configured&handoff=batch';
+  const board = await open(fixture, '#/board');
+  await board.getByRole('button', { name: /^By hand \d+$/ }).click();
+  const checklist = board.getByRole('dialog', { name: 'By hand checklist' });
+  await checklist.getByRole('button', { name: 'Settings card' }).first().click();
+  await checklist.getByText('credits', { exact: false }).first().waitFor();
+  await shot(board, 'byhand-card');
+  await checklist.getByText('Bring the GLB back', { exact: true }).scrollIntoViewIfNeeded();
+  await shot(board, 'byhand-card-export-name');
+
+  const named = await open(`${fixture}&arrival=named`, '#/board');
+  await named.getByText('is in the Inbox', { exact: false }).first().waitFor();
+  await shot(named, 'byhand-arrival-imported');
+
+  const asking = await open(`${fixture}&arrival=unmatched`, '#/board');
+  await asking.getByText('A new model in Downloads').waitFor();
+  await shot(asking, 'byhand-arrival-asking');
+  await asking.getByRole('button', { name: 'Choose' }).click();
+  const picker = asking.getByRole('dialog', { name: 'Which asset is this?' });
+  await picker.getByText('model (3).glb').waitFor();
+  await shot(asking, 'byhand-picker');
+  const select = picker.getByRole('combobox', { name: 'Asset for model (3).glb' });
+  await select.selectOption({ index: 1 });
+  await shot(asking, 'byhand-picker-chosen');
+
+  const settings = await open(fixture, '#/settings');
+  const watch = settings.getByRole('switch', { name: /Watch for By hand exports/ });
+  await watch.scrollIntoViewIfNeeded();
+  await settings.getByText(/^Watching for \d+ By hand send/).waitFor();
+  await shot(settings.locator('#settings-providers'), 'byhand-settings-watch');
+  await watch.click({ force: true });
+  await settings.getByText(/^Off\. Use Add model/).waitFor();
+  await shot(settings.locator('#settings-providers'), 'byhand-settings-watch-off');
+
+  const credits = await open(fixture, '#/board');
+  await credits.getByRole('button', { name: /3D queue/ }).click();
+  await credits
+    .getByRole('region', { name: '3D queue' })
+    .getByRole('button', { name: 'Credits' })
+    .click();
+  const sheet = credits.getByRole('dialog', { name: 'Credits' });
+  await sheet
+    .getByRole('group', { name: 'Paid with' })
+    .getByRole('button', { name: 'Subscription' })
+    .click();
+  await sheet.getByText('Subscription credits are estimates', { exact: false }).waitFor();
+  await shot(credits, 'byhand-credits-subscription');
+}
+
 try {
   if (only === 'guards') await guardShots();
   if (!only || only === 'ux') await uxShots();
@@ -829,6 +889,7 @@ try {
   if (!only || only === 'scene') await sceneShots();
   if (!only || only === 'material') await materialShots();
   if (!only || only === 'redo') await redoShots();
+  if (!only || only === 'byhand') await byHandShots();
   if (!only || only === 'size') await listShots();
   if (!only || only === 'size') await prepShots();
 } finally {
