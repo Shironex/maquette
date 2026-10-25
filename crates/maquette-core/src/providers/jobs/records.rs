@@ -146,6 +146,7 @@ impl ProviderJobs {
                     asset: job.asset.clone(),
                     asset_name: job.asset_name.clone(),
                     provider: job.provider,
+                    redo_of: job.redo_of.clone(),
                 });
                 if let Some(config) = &config {
                     let kind = match job.variant {

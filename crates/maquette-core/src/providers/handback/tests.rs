@@ -55,6 +55,9 @@ fn job(id: &str, asset_name: &str, created_at_ms: f64) -> ProviderJob {
         via_agent: false,
         cancel: CancelMode::StopWaiting,
         batch: None,
+        prompt: None,
+        redo_of: None,
+        estimate: None,
     }
 }
 

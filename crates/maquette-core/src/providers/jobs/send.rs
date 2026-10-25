@@ -158,6 +158,7 @@ impl ProviderJobs {
                 images: &images,
                 tripo: job.tripo.as_ref(),
                 meshy: job.meshy.as_ref(),
+                prompt: job.prompt.as_deref(),
             }
             .write(&project_dir)?;
             job.handoff = Some(dir.display().to_string());
@@ -308,10 +309,23 @@ fn prepare(
             (None, Some(preset))
         }
     };
+    let prompt = check_prompt(service, request.prompt.as_deref())?;
     if let Some(service) = request.provider.service() {
         api_key(shared, service)?;
     }
     let jobs = shared.jobs();
+    if let Some(earlier) = &request.redo_of
+        && !jobs.iter().any(|e| {
+            e.stored.job.id == *earlier
+                && e.stored.job.project == request.project
+                && e.stored.job.asset == request.asset
+        })
+    {
+        return Err(CoreError::Invalid(format!(
+            "There is no send {earlier} of {} to redo.",
+            asset.name
+        )));
+    }
     if let Some(busy) = jobs.iter().find(|e| {
         e.stored.job.project == request.project
             && e.stored.job.asset == request.asset
@@ -329,6 +343,12 @@ fn prepare(
         )));
     }
     let id = next_id(&jobs, &project_dir, &request.project, &asset.id);
+    let estimate = crate::providers::pricing::estimate(
+        request.provider,
+        request.variant,
+        tripo.as_ref(),
+        meshy.as_ref(),
+    );
     Ok(ProviderJob {
         id,
         project: request.project.clone(),
@@ -356,5 +376,30 @@ fn prepare(
         via_agent: false,
         cancel: CancelMode::Free,
         batch: None,
+        prompt,
+        redo_of: request.redo_of.clone(),
+        estimate,
     })
+}
+
+/// The most characters Meshy takes in a texture prompt.
+const MAX_PROMPT: usize = 800;
+
+/// A trimmed prompt, `None` when blank. Only Meshy takes one.
+fn check_prompt(service: ProviderId, prompt: Option<&str>) -> CoreResult<Option<String>> {
+    let Some(text) = prompt.map(str::trim).filter(|t| !t.is_empty()) else {
+        return Ok(None);
+    };
+    if service != ProviderId::Meshy {
+        return Err(CoreError::Invalid(
+            "Only Meshy takes a texture prompt; Tripo makes the model from the images alone."
+                .to_string(),
+        ));
+    }
+    if text.chars().count() > MAX_PROMPT {
+        return Err(CoreError::Invalid(format!(
+            "Keep the texture prompt to {MAX_PROMPT} characters; Meshy refuses longer ones."
+        )));
+    }
+    Ok(Some(text.to_string()))
 }

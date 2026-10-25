@@ -237,6 +237,7 @@ pub(super) fn run_meshy(
     preset: &MeshyPreset,
     variant: PresetVariant,
     images: &[PathBuf],
+    prompt: Option<&str>,
 ) -> FlowResult<Outcome> {
     let rig = variant == PresetVariant::Character && preset.rig;
     let generate = if rig { (0.02, 0.8) } else { (0.02, 0.95) };
@@ -260,7 +261,7 @@ pub(super) fn run_meshy(
                 return Err(ApiError::Stopped.into());
             }
             run.save(|s| s.chain.sending = true);
-            let (kind, task) = client.generate(preset, &uris)?;
+            let (kind, task) = client.generate(preset, &uris, prompt)?;
             run.save(|s| {
                 s.chain.model_task = Some(task.clone());
                 s.chain.meshy_kind = Some(kind.path().to_string());

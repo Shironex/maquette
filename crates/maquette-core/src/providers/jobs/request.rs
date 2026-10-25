@@ -20,6 +20,12 @@ pub struct SendRequest {
     /// This send's settings; `None` takes the saved preset.
     pub tripo: Option<TripoPreset>,
     pub meshy: Option<MeshyPreset>,
+    /// Meshy only: text that guides the texture, at most 800 characters.
+    #[serde(default)]
+    pub prompt: Option<String>,
+    /// The earlier send of the same asset this one redoes.
+    #[serde(default)]
+    pub redo_of: Option<String>,
 }
 
 /// One asset of a batch send.
@@ -35,6 +41,12 @@ pub struct BatchItem {
     /// its variant. `None` follows the batch preset.
     pub tripo: Option<TripoPreset>,
     pub meshy: Option<MeshyPreset>,
+    /// Meshy only: text that guides this asset's texture.
+    #[serde(default)]
+    pub prompt: Option<String>,
+    /// The earlier send of this asset it redoes.
+    #[serde(default)]
+    pub redo_of: Option<String>,
 }
 
 /// Several assets to one provider: one model per asset. The settings for
@@ -88,6 +100,8 @@ impl BatchRequest {
                     })
                 })
                 .flatten(),
+            prompt: item.prompt.clone(),
+            redo_of: item.redo_of.clone(),
         }
     }
 }

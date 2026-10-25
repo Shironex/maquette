@@ -8,6 +8,7 @@ pub mod http;
 pub mod jobs;
 pub mod meshy;
 pub mod presets;
+pub mod pricing;
 pub mod secrets;
 pub mod tripo;
 

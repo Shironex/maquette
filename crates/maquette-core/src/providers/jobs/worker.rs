@@ -249,6 +249,7 @@ fn run_remote(
                 &preset,
                 job.variant,
                 &images,
+                job.prompt.as_deref(),
             )
         }
     }

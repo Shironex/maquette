@@ -129,6 +129,15 @@ pub struct ProviderJob {
     pub cancel: CancelMode,
     /// The batch it was sent with, if any; one handoff checklist each.
     pub batch: Option<String>,
+    /// Meshy only: the text that guides the texture.
+    #[serde(default)]
+    pub prompt: Option<String>,
+    /// The send this one redoes, from the Inbox.
+    #[serde(default)]
+    pub redo_of: Option<String>,
+    /// What the price lists say it should cost, before the provider reports.
+    #[serde(default)]
+    pub estimate: Option<f64>,
 }
 
 impl ProviderJob {
@@ -209,6 +218,9 @@ pub struct InboxLink {
     pub asset: String,
     pub asset_name: String,
     pub provider: Provider,
+    /// The send it redoes, when it came from a Redo.
+    #[serde(default)]
+    pub redo_of: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]

@@ -240,6 +240,8 @@ pub struct Handoff<'a> {
     pub images: &'a [PathBuf],
     pub tripo: Option<&'a TripoPreset>,
     pub meshy: Option<&'a MeshyPreset>,
+    /// Meshy only: the texture prompt, for the web app's prompt box.
+    pub prompt: Option<&'a str>,
 }
 
 impl Handoff<'_> {
@@ -271,6 +273,10 @@ impl Handoff<'_> {
                 )
             }
         };
+        let mut rows = rows;
+        if let Some(prompt) = self.prompt.filter(|_| self.service == ProviderId::Meshy) {
+            rows.push(row("Texture prompt", prompt));
+        }
         let names = view_names(self.images);
         let used = if mode == "Image to 3D" {
             1

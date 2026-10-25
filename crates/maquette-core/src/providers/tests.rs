@@ -115,6 +115,8 @@ impl World {
             images: images.iter().map(|i| format!("refs/{i}")).collect(),
             tripo: None,
             meshy: None,
+            prompt: None,
+            redo_of: None,
         }
     }
 
@@ -1102,6 +1104,8 @@ fn batch(world: &World, provider: Provider, ids: &[String]) -> BatchRequest {
                 images: vec![format!("refs/{}.png", id.replace('-', "_"))],
                 tripo: None,
                 meshy: None,
+                prompt: None,
+                redo_of: None,
             })
             .collect(),
         tripo_prop: None,
@@ -1346,5 +1350,90 @@ fn a_copied_asset_takes_its_finished_sends_along() {
     assert!(
         saved.contains("\"project\": \"maquette-landing\""),
         "{saved}"
+    );
+}
+
+#[test]
+fn a_redo_sends_the_asset_again_as_a_new_version_and_says_so() {
+    let world = World::new();
+    let (server, _) = tripo_server(TripoFake::new());
+    let jobs = world.jobs(&server);
+    let first = jobs
+        .send(
+            &world.request(Provider::Tripo, PresetVariant::Prop, &["front.png"]),
+            false,
+            false,
+        )
+        .expect("send");
+    assert_eq!(finished(&jobs, &first.id).state, JobState::Inbox);
+
+    let mut redo = world.request(Provider::Tripo, PresetVariant::Prop, &["front.png"]);
+    redo.redo_of = Some("stone-lantern-9".into());
+    let err = jobs.send(&redo, false, false).expect_err("unknown send");
+    assert!(err.to_string().contains("no send stone-lantern-9"), "{err}");
+
+    redo.redo_of = Some(first.id.clone());
+    let second = jobs.send(&redo, false, false).expect("redo");
+    assert_eq!(second.id, format!("{}-2", world.asset));
+    assert_eq!(second.redo_of.as_deref(), Some(first.id.as_str()));
+    assert_eq!(finished(&jobs, &second.id).state, JobState::Inbox);
+
+    // Both models wait side by side; the new one names the send it redid.
+    let mut items = inbox::list(&world.root, &world.config).expect("inbox");
+    jobs.link_inbox(&mut items);
+    assert_eq!(items.len(), 2);
+    let newer = items
+        .iter()
+        .find(|i| i.id == "stone-lantern-2.glb")
+        .expect("redo model");
+    assert_eq!(
+        newer.link.as_ref().and_then(|l| l.redo_of.as_deref()),
+        Some(first.id.as_str())
+    );
+}
+
+#[test]
+fn the_texture_prompt_goes_to_meshy_and_tripo_refuses_one() {
+    let world = World::new();
+    let (server, _) = meshy_server(false);
+    let jobs = world.jobs(&server);
+    let mut request = world.request(Provider::Meshy, PresetVariant::Prop, &["front.png"]);
+    request.prompt = Some("  weathered granite, moss in the cracks  ".into());
+    let job = jobs.send(&request, false, false).expect("send");
+    assert_eq!(
+        job.prompt.as_deref(),
+        Some("weathered granite, moss in the cracks")
+    );
+    assert_eq!(finished(&jobs, &job.id).state, JobState::Inbox);
+    let body = server.find("POST", "/image-to-3d").expect("create").json();
+    assert_eq!(
+        body["texture_prompt"],
+        "weathered granite, moss in the cracks"
+    );
+
+    request.prompt = Some("x".repeat(801));
+    let err = jobs.send(&request, false, false).expect_err("too long");
+    assert!(err.to_string().contains("800 characters"), "{err}");
+
+    let mut tripo = world.request(Provider::Tripo, PresetVariant::Prop, &["front.png"]);
+    tripo.prompt = Some("granite".into());
+    let err = jobs.send(&tripo, false, false).expect_err("tripo");
+    assert!(err.to_string().contains("Only Meshy"), "{err}");
+    tripo.prompt = Some("   ".into());
+    assert!(jobs.prepare(&tripo).is_ok(), "a blank prompt is no prompt");
+
+    // By hand for Meshy puts it on the settings card.
+    let mut by_hand = world.request(Provider::ByHand, PresetVariant::Prop, &["front.png"]);
+    by_hand.service = ProviderId::Meshy;
+    by_hand.prompt = Some("weathered granite".into());
+    let card = jobs
+        .send(&by_hand, false, false)
+        .expect("by hand")
+        .card
+        .expect("card");
+    assert!(
+        card.rows
+            .iter()
+            .any(|r| r.label == "Texture prompt" && r.value == "weathered granite")
     );
 }

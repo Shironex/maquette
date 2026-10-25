@@ -175,8 +175,17 @@ impl Meshy<'_> {
             .ok_or_else(|| ApiError::Malformed("no task id in the answer.".to_string()))
     }
 
-    pub fn generate(&self, preset: &MeshyPreset, images: &[String]) -> ApiResult<(Kind, String)> {
-        let (kind, body) = generation_request(preset, images);
+    /// Starts a generation. `prompt` guides the texture when there is one.
+    pub fn generate(
+        &self,
+        preset: &MeshyPreset,
+        images: &[String],
+        prompt: Option<&str>,
+    ) -> ApiResult<(Kind, String)> {
+        let (kind, mut body) = generation_request(preset, images);
+        if let Some(prompt) = prompt.filter(|p| preset.should_texture && !p.is_empty()) {
+            body["texture_prompt"] = json!(prompt);
+        }
         self.create(kind, &body).map(|id| (kind, id))
     }
 
