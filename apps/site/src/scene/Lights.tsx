@@ -3,36 +3,14 @@
  * caster, moonlight comes cool through the window behind, and a low warm
  * bounce keeps the front of the props from going black.
  */
-import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
 import { BENCH_TOP } from './manifest';
+import { useLights } from './Lights.hooks';
 
 /** Inside the lamp's shade, which hangs over the right of the bench. */
 export const LAMP_BULB: readonly [number, number, number] = [0.6, BENCH_TOP + 0.44, -0.2];
-const LAMP_AIM: readonly [number, number, number] = [-0.02, BENCH_TOP, 0.06];
 
 export function Lights() {
-  const lamp = useRef<THREE.SpotLight>(null);
-  const moon = useRef<THREE.DirectionalLight>(null);
-
-  useEffect(() => {
-    const spot = lamp.current;
-    if (spot) {
-      spot.target.position.set(...LAMP_AIM);
-      spot.target.updateMatrixWorld();
-      spot.shadow.mapSize.set(1024, 1024);
-      spot.shadow.camera.near = 0.1;
-      spot.shadow.camera.far = 3;
-      spot.shadow.bias = -0.0004;
-      spot.shadow.normalBias = 0.012;
-      spot.shadow.radius = 4;
-    }
-    const light = moon.current;
-    if (light) {
-      light.target.position.set(0, BENCH_TOP, 0);
-      light.target.updateMatrixWorld();
-    }
-  }, []);
+  const { lamp, moon } = useLights();
 
   return (
     <>

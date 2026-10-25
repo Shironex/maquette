@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import type { ModelEntry } from './manifest';
-import { prepareModel } from './materials';
+import { prepareModel } from './prepare-model';
 import { addSweep, type Sweep } from './sweep';
 
 export interface BuiltModel {
