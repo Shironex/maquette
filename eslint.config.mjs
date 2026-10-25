@@ -7,6 +7,50 @@ import eslintConfigPrettier from 'eslint-config-prettier/flat';
 import globals from 'globals';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
+import architecture from '@noctcore/eslint-plugin-architecture';
+import asyncSafety from '@noctcore/eslint-plugin-async-safety';
+import codeQuality from '@noctcore/eslint-plugin-code-quality';
+import contracts from '@noctcore/eslint-plugin-contracts';
+import monorepo from '@noctcore/eslint-plugin-monorepo';
+import observability from '@noctcore/eslint-plugin-observability';
+import noctcoreReact from '@noctcore/eslint-plugin-react';
+import security from '@noctcore/eslint-plugin-security';
+
+// The TypeScript the house presets cover: the React app and the UI kit.
+const APP_TS = ['apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'];
+const typescript = { files: APP_TS, languageOptions: { parser: tseslint.parser } };
+
+// Features every other feature may import: the shared dialogs and chrome, the
+// workspace config fields and the 3D studio.
+const SHARED_FEATURES = ['common', 'config', 'viewer'];
+
+// Composition roots assemble sibling features by design: the shell renders
+// every view and dialog, onboarding and Settings stack other features' fields.
+// They keep every rule except no-cross-feature-imports, which exists to keep
+// the leaf features decoupled.
+const COMPOSITION_ROOTS = ['shell', 'onboarding', 'settings'];
+
+// Adoption ledger. Areas listed here are held to the full rule set; the rest
+// keep the rules in DEFERRED_RULES off until they are migrated. One entry per
+// migration commit; this list, DEFERRED_RULES and the block that uses them are
+// deleted once every area is in.
+const MIGRATED = [];
+
+// Preset rules the unmigrated areas do not pass yet, with the count measured
+// when the presets went in (2026-10-25).
+const DEFERRED_RULES = {
+  'noctcore-react/no-state-in-component-body': 'off', // 446
+  'noctcore-react/no-jsx-computation': 'off', // 84
+  'noctcore-architecture/no-cross-feature-imports': 'off', // 63
+  'noctcore-code-quality/no-bare-date-now': 'off', // 57
+  'noctcore-code-quality/prefer-early-return': 'off', // 18
+  'noctcore-architecture/filename-matches-export': 'off', // 8
+  'noctcore-contracts/restrict-throw-to-taxonomy': 'off', // 6
+  'noctcore-react/max-props-per-component': 'off', // 5
+  'noctcore-react/component-props-naming': 'off', // 4
+  'noctcore-react/no-prop-drilling': 'off', // 1
+  'noctcore-code-quality/no-vacuous-expect': 'off', // 1
+};
 
 export default defineConfig(
   eslint.configs.recommended,
@@ -36,7 +80,7 @@ export default defineConfig(
     },
   },
   {
-    files: ['apps/web/**/*.{ts,tsx}', 'apps/site/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
+    files: [...APP_TS, 'apps/site/**/*.{ts,tsx}'],
     plugins: {
       react,
       'react-hooks': reactHooks,
@@ -64,6 +108,59 @@ export default defineConfig(
         { ignore: ['object', 'attach', 'args', 'position', 'intensity'] },
       ],
     },
+  },
+
+  // The house presets, every rule at error. Each is spread whole so a new
+  // preset rule arrives with the version bump instead of being missed.
+  { ...codeQuality.configs.recommended, ...typescript },
+  { ...asyncSafety.configs.recommended, ...typescript },
+  { ...contracts.configs.recommended, ...typescript },
+  { ...security.configs.recommended, ...typescript },
+  { ...observability.configs.recommended, ...typescript },
+  { ...noctcoreReact.configs.recommended, ...typescript },
+  { ...architecture.configs.recommended, ...typescript },
+  { ...monorepo.configs.recommended, ...typescript },
+  {
+    files: APP_TS,
+    rules: {
+      // Workspace packages are used through what their exports map publishes.
+      'noctcore-monorepo/no-unexported-subpath-import': ['error', { scopes: ['@maquette'] }],
+      'noctcore-monorepo/no-deep-package-imports': ['error', { scopes: ['@maquette'] }],
+    },
+  },
+  {
+    // apps/web is organised by feature under src/features.
+    files: ['apps/web/**/*.{ts,tsx}'],
+    rules: {
+      'noctcore-architecture/component-folder-structure': [
+        'error',
+        { componentRoot: 'features', requiredSiblings: ['.test.tsx', 'index.ts'] },
+      ],
+      'noctcore-architecture/no-cross-feature-imports': [
+        'error',
+        { featureRoot: 'features', alias: '@/features', sharedFeatures: SHARED_FEATURES },
+      ],
+      'noctcore-architecture/max-import-depth': ['error', { alias: { src: '@' } }],
+    },
+  },
+  {
+    files: COMPOSITION_ROOTS.map(f => `apps/web/src/features/${f}/**/*.{ts,tsx}`),
+    rules: {
+      'noctcore-architecture/no-cross-feature-imports': 'off',
+    },
+  },
+  {
+    // The UI kit groups primitives by kind (shell, status, inputs); a group is
+    // a shelf, not a feature, and primitives are built from each other.
+    files: ['packages/ui/**/*.{ts,tsx}'],
+    rules: {
+      'noctcore-architecture/no-cross-feature-imports': 'off',
+    },
+  },
+  {
+    files: APP_TS,
+    ignores: MIGRATED,
+    rules: DEFERRED_RULES,
   },
   {
     // The site's workbench lights take three.js props as well.
