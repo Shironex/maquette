@@ -18,7 +18,7 @@ use super::{
     Aspect, Direction, MAX_IMAGES_PER_BATCH, NewConcepts, REFS_DIR, load_direction,
     modify_direction, resolve_ref, save_instructions,
 };
-use crate::assets::{self, Asset, AssetKind, NewAsset, Stage};
+use crate::assets::{self, Asset, AssetKind};
 use crate::error::{CoreError, CoreResult};
 use crate::project::{self, ProjectManifest, slugify};
 use crate::workspace::{FolderLayout, is_single_segment};
@@ -93,7 +93,7 @@ pub fn split_objects(text: &str) -> Vec<String> {
     out
 }
 
-fn check_source(project_dir: &Path, source: &str) -> CoreResult<String> {
+pub(super) fn check_source(project_dir: &Path, source: &str) -> CoreResult<String> {
     let clean = source.trim().replace('\\', "/");
     let inside = !clean.is_empty()
         && !clean.starts_with('/')
@@ -277,7 +277,7 @@ pub fn prepare(
 
 /// `refs/desk_lamp.png`, or `refs/desk_lamp_2.png` when that name holds
 /// another file.
-fn ref_name(project_dir: &Path, title: &str, ext: &str) -> String {
+pub(super) fn ref_name(project_dir: &Path, title: &str, ext: &str) -> String {
     let stem = slugify(title).replace('-', "_");
     let stem = if stem.is_empty() { "object" } else { &stem };
     (1u32..)
@@ -293,7 +293,7 @@ fn ref_name(project_dir: &Path, title: &str, ext: &str) -> String {
 }
 
 /// The object an image shows: its title, else the direction and number.
-fn image_title(direction: &Direction, image: &super::ConceptImage) -> String {
+pub(super) fn image_title(direction: &Direction, image: &super::ConceptImage) -> String {
     image
         .title
         .clone()
@@ -363,21 +363,7 @@ pub fn send_object_picks(
     let manifest = project::modify(workspace_root, layout, project_id, |manifest| {
         placed.clear();
         for (title, rel) in &sent {
-            let found = assets::find_by_name(manifest, title).cloned();
-            let asset = match found {
-                Some(existing) if existing.stage < Stage::Refs => {
-                    assets::move_to(manifest, &existing.id, Stage::Refs)?
-                }
-                Some(existing) => existing,
-                None => assets::add(
-                    manifest,
-                    NewAsset {
-                        name: title.clone(),
-                        kind,
-                        stage: Stage::Refs,
-                    },
-                )?,
-            };
+            let asset = super::picks::place_at_refs(manifest, title, kind)?;
             assets::set_ref_thumbnail(manifest, &asset.id, rel)?;
             placed.push(ObjectAsset {
                 asset: assets::find(manifest, &asset.id)?.clone(),

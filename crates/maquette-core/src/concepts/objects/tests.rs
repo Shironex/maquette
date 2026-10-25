@@ -1,6 +1,7 @@
 //! Tests for object refs: one isolated image per object of a concept.
 
 use super::*;
+use crate::assets::Stage;
 use crate::concepts::{add_image, mark};
 
 fn request(objects: &[&str]) -> NewObjectRefs {

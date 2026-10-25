@@ -61,21 +61,7 @@ pub fn send_picks(
     })?;
     let mut asset = None;
     let manifest = project::modify(workspace_root, layout, project_id, |manifest| {
-        let found = assets::find_by_name(manifest, &direction.name).cloned();
-        asset = Some(match found {
-            Some(existing) if existing.stage < Stage::Refs => {
-                assets::move_to(manifest, &existing.id, Stage::Refs)?
-            }
-            Some(existing) => existing,
-            None => assets::add(
-                manifest,
-                NewAsset {
-                    name: direction.name.clone(),
-                    kind,
-                    stage: Stage::Refs,
-                },
-            )?,
-        });
+        asset = Some(place_at_refs(manifest, &direction.name, kind)?);
         // The card shows the first pick until a model render replaces it.
         if let (Some(placed), Some(first)) = (asset.as_mut(), copied.first())
             && assets::set_ref_thumbnail(manifest, &placed.id, first)?
@@ -91,6 +77,30 @@ pub fn send_picks(
         copied,
         project: manifest,
     })
+}
+
+/// The asset called `name` at Refs: an existing one as it is (moved up
+/// when it is still at Concept), else a new one of `kind`. Every way a pick
+/// reaches the Board goes through here.
+pub(super) fn place_at_refs(
+    manifest: &mut ProjectManifest,
+    name: &str,
+    kind: AssetKind,
+) -> CoreResult<Asset> {
+    match assets::find_by_name(manifest, name).cloned() {
+        Some(existing) if existing.stage < Stage::Refs => {
+            assets::move_to(manifest, &existing.id, Stage::Refs)
+        }
+        Some(existing) => Ok(existing),
+        None => assets::add(
+            manifest,
+            NewAsset {
+                name: name.to_string(),
+                kind,
+                stage: Stage::Refs,
+            },
+        ),
+    }
 }
 
 /// The newest ref copy of the direction named like `asset_id` that is
