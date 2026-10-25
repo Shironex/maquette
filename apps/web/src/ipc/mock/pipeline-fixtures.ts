@@ -44,6 +44,10 @@ function blender(
 export const CHARACTER_LOCK =
   'Character stays on medium. High meshopt quantisation makes her mesh spin at the camera stops.';
 
+/** The Ship starter's args, as the template writes them. */
+const SHIP_ARGS =
+  '{script} --models web/dist --posters web/posters --site {siteRepo} --index {shipIndex} --layout {project}/layout.json --materials {project}/materials.json';
+
 export function dioramaPipeline(): PipelineDef {
   return {
     version: 1,
@@ -107,21 +111,7 @@ export function dioramaPipeline(): PipelineDef {
         kind: 'shell',
         command: 'node',
         script: 'tools/ship.mjs',
-        args: [
-          '{script}',
-          '--models',
-          'web/dist',
-          '--posters',
-          'web/posters',
-          '--site',
-          '{siteRepo}',
-          '--index',
-          '{shipIndex}',
-          '--layout',
-          '{project}/layout.json',
-          '--materials',
-          '{project}/materials.json',
-        ],
+        args: SHIP_ARGS.split(' '),
         inputs: ['web/dist/*.glb', 'web/posters/*.png'],
         outputs: [],
         dependsOn: ['compress', 'posters'],
