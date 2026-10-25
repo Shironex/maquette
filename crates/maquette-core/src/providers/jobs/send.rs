@@ -38,6 +38,7 @@ impl ProviderJobs {
         approval: bool,
         via_agent: bool,
     ) -> CoreResult<ProviderJob> {
+        let _one = self.shared.sending();
         self.send_in(request, approval, via_agent, None)
     }
 
@@ -83,6 +84,7 @@ impl ProviderJobs {
                 CoreError::Invalid(format!("{name}: {err}"))
             })?;
         }
+        let _one = self.shared.sending();
         let batch = {
             let jobs = self.shared.jobs();
             let stamp = now_ms() as u64;
@@ -133,6 +135,8 @@ impl ProviderJobs {
             .collect()
     }
 
+    /// Checks and queues one send. The caller holds `sending`, so the
+    /// checks still hold when the job goes in.
     fn send_in(
         &self,
         request: &SendRequest,

@@ -146,6 +146,9 @@ type Callback = Box<dyn Fn(ProviderEvent) + Send + Sync>;
 
 struct Shared {
     jobs: Mutex<Vec<Entry>>,
+    /// Held from a send's checks until its job is in the queue, so two sends
+    /// at once cannot both pass the busy check or take the same id.
+    sending: Mutex<()>,
     workspace: Mutex<Option<Workspace>>,
     on_event: Callback,
     secrets: Arc<dyn SecretStore>,
@@ -155,6 +158,10 @@ struct Shared {
 impl Shared {
     fn jobs(&self) -> MutexGuard<'_, Vec<Entry>> {
         self.jobs.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn sending(&self) -> MutexGuard<'_, ()> {
+        self.sending.lock().unwrap_or_else(|p| p.into_inner())
     }
 
     fn workspace(&self) -> Option<Workspace> {
@@ -235,6 +242,7 @@ impl ProviderJobs {
         Self {
             shared: Arc::new(Shared {
                 jobs: Mutex::new(Vec::new()),
+                sending: Mutex::new(()),
                 workspace: Mutex::new(None),
                 on_event: Box::new(on_event),
                 secrets,

@@ -1581,3 +1581,44 @@ fn balances_ask_each_provider_that_has_a_key() {
     );
     assert_eq!(bad.requests().len(), 1);
 }
+
+#[test]
+fn sends_at_once_never_share_an_id_or_both_pass_the_busy_check() {
+    let world = World::new();
+    let (server, _) = tripo_server(TripoFake::new());
+    let jobs = world.jobs(&server);
+    let send = |provider| {
+        let request = world.request(provider, PresetVariant::Prop, &["front.png"]);
+        std::thread::scope(|scope| {
+            let runs: Vec<_> = (0..6)
+                .map(|_| scope.spawn(|| jobs.send(&request, true, true)))
+                .collect();
+            runs.into_iter()
+                .map(|run| run.join().expect("thread"))
+                .collect::<Vec<_>>()
+        })
+    };
+
+    // Six agents send the same asset to Tripo: one gets through, the rest
+    // hear it is on its way.
+    let tripo = send(Provider::Tripo);
+    assert_eq!(tripo.iter().filter(|r| r.is_ok()).count(), 1, "{tripo:?}");
+    assert!(
+        tripo
+            .iter()
+            .filter_map(|r| r.as_ref().err())
+            .all(|e| e.to_string().contains("already on its way"))
+    );
+
+    // By hand never counts as busy, so every send goes in, each with its own id.
+    let by_hand = send(Provider::ByHand);
+    let mut ids: Vec<String> = by_hand
+        .into_iter()
+        .map(|r| r.expect("by hand").id)
+        .collect();
+    ids.sort();
+    ids.dedup();
+    assert_eq!(ids.len(), 6, "{ids:?}");
+    assert_eq!(server.requests().len(), 0, "nothing approved, nothing sent");
+    jobs.close();
+}

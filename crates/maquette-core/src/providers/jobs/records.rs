@@ -78,6 +78,7 @@ impl ProviderJobs {
         let Ok(dir) = workspace.project_dir(to) else {
             return 0;
         };
+        let _one = self.shared.sending();
         let copied = {
             let mut jobs = self.shared.jobs();
             let sources: Vec<Stored> = jobs
