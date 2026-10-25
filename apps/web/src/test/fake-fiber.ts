@@ -34,6 +34,9 @@ function fakeRenderer() {
   domElement.width = WIDTH;
   domElement.height = HEIGHT;
   domElement.getBoundingClientRect = () => new DOMRect(0, 0, WIDTH, HEIGHT);
+  // Orbit and transform controls capture the pointer, which jsdom does not do.
+  domElement.setPointerCapture = () => {};
+  domElement.releasePointerCapture = () => {};
   const context = { RGBA: 0, UNSIGNED_BYTE: 0, readPixels: vi.fn() };
   return {
     domElement,

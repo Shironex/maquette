@@ -56,6 +56,7 @@ const MIGRATED = [
   'apps/web/src/features/pipeline/**',
   'apps/web/src/features/lab/**',
   'apps/web/src/features/viewer/**',
+  'apps/web/src/features/inspector/LayoutCanvas/**',
 ];
 
 // Preset rules the unmigrated areas do not pass yet, with the count measured

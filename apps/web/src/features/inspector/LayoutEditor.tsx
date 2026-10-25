@@ -244,16 +244,18 @@ export function LayoutEditor({ project, tabs }: { project: string; tabs: React.R
                   grid={grid}
                   preview={store.preview}
                   frame={frame}
-                  onSelect={store.select}
-                  onBeginDrag={store.beginDrag}
-                  onDragModel={store.dragModel}
-                  onDragStop={(id, position) => store.dragStop(id, { position })}
-                  onPose={store.setPose}
-                  onUserMove={() => {
-                    if (useLayoutStore.getState().preview) store.lookThrough(null);
+                  handlers={{
+                    onSelect: store.select,
+                    onBeginDrag: store.beginDrag,
+                    onDragModel: store.dragModel,
+                    onDragStop: (id, position) => store.dragStop(id, { position }),
+                    onPose: store.setPose,
+                    onUserMove: () => {
+                      if (useLayoutStore.getState().preview) store.lookThrough(null);
+                    },
+                    onError: setLoadError,
+                    onReady: () => setReady(true),
                   }}
-                  onError={setLoadError}
-                  onReady={() => setReady(true)}
                 />
               </Suspense>
             </CanvasBoundary>
