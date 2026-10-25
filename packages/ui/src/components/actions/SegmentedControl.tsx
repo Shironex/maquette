@@ -51,7 +51,7 @@ export function SegmentedControl<T extends string>({
           aria-label={o.label ? undefined : o.hint}
           onClick={() => set(o.value)}
           className={cn(
-            'inline-flex h-[26px] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-2.5 text-[12px] font-medium text-fg-dim transition-colors duration-120 hover:text-fg',
+            'inline-flex h-[26px] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-2.5 text-[12px] font-medium text-fg-dim transition-colors duration-120 hover:text-fg active:bg-raised',
             block && 'flex-1',
             on &&
               (tone === 'clay'

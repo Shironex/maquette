@@ -34,7 +34,7 @@ export interface NavRailProps<T extends string> {
 }
 
 const RAIL_BUTTON =
-  'group relative flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-control px-2.5 text-left font-medium text-fg-dim transition-colors duration-120 hover:bg-hover hover:text-fg';
+  'group relative flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-control px-2.5 text-left font-medium text-fg-dim transition-colors duration-120 hover:bg-hover hover:text-fg active:bg-line';
 
 function RailButton<T extends string>({
   item,

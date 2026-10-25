@@ -28,7 +28,7 @@ export function Tip({ children, action, onDismiss, className }: TipProps) {
       {action ? (
         <button
           type="button"
-          className="flex-none cursor-pointer text-clay-text underline-offset-2 hover:underline"
+          className="flex-none cursor-pointer text-clay-text underline-offset-2 hover:underline active:text-clay"
           onClick={action.onClick}
         >
           {action.label}

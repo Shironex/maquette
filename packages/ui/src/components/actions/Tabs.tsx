@@ -27,7 +27,7 @@ export function Tabs({ tabs, value, defaultValue, onChange, className }: TabsPro
         aria-selected={on}
         onClick={() => set(t.id)}
         className={cn(
-          'relative inline-flex h-9 cursor-pointer items-center gap-1.5 font-medium text-fg-dim hover:text-fg',
+          'relative inline-flex h-9 cursor-pointer items-center gap-1.5 font-medium text-fg-dim transition-colors duration-120 hover:text-fg active:text-fg-mute',
           on &&
             'text-fg after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-[2px] after:bg-clay'
         )}
