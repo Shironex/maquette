@@ -317,6 +317,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         names,
         [
             "accept_inbox_model",
+            "add_built_asset",
             "add_fixups",
             "cancel_run",
             "copy_asset",
@@ -331,6 +332,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "get_real_size",
             "get_run",
             "list_assets",
+            "list_built_assets",
             "list_fixups",
             "list_handoffs",
             "list_inbox",
@@ -338,6 +340,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "make_object_refs",
             "pick_concepts",
             "preview_fixups",
+            "rebuild_built_asset",
             "redo_inbox_model",
             "redo_inbox_models",
             "remove_fixups",

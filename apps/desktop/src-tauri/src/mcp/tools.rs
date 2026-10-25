@@ -8,6 +8,7 @@
 //! ship wait for a person when "Ask before shipping" is on, and a send to
 //! Tripo or Meshy always waits for a person before it spends credits.
 
+pub mod built;
 pub mod concepts;
 pub mod credits;
 pub mod handoffs;
@@ -75,6 +76,11 @@ get_layout reads where each model stands in the scene, the camera stops and the 
 budget; set_layout changes them (metres, y up, degrees) and the app updates live; the next \
 run_pipeline rebuilds the scene and its posters from it. copy_asset copies an asset with its refs and \
 versions to another project. \
+add_built_asset adds a built asset: a model a Blender script in the project makes. Its script \
+and helpers are copied into the project's built/ folder and it builds headless into the asset's \
+next version, with no credits and no approval; rebuild_built_asset builds one again (or all \
+whose files changed) and list_built_assets reads their state and last build. A full \
+run_pipeline rebuilds the changed ones first. \
 Blender always runs headless here; there is no tool that opens Blender's window or \
 captures the screen.";
 
@@ -152,7 +158,8 @@ impl McpTools {
                 + Self::prepare_router()
                 + Self::redo_router()
                 + Self::credits_router()
-                + Self::handoffs_router(),
+                + Self::handoffs_router()
+                + Self::built_router(),
         }
     }
 

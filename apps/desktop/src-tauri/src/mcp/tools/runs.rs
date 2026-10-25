@@ -376,7 +376,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. Waits up to waitSeconds, then answers with the run's status. If the run reaches the Ship step while \"Ask before shipping\" is on, it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run."
+        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. If the run reaches the Ship step while \"Ask before shipping\" is on, it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run."
     )]
     async fn run_pipeline(&self, Parameters(args): Parameters<RunPipelineArgs>) -> Out {
         let wait = Duration::from_secs(u64::from(args.wait_seconds.unwrap_or(20).min(120)));
@@ -385,6 +385,9 @@ impl McpTools {
             .blocking(move |host, _| {
                 let (_, config) = workspace(host)?;
                 let tools = host.toolbox();
+                if args.from.is_none() {
+                    super::built::rebuild_stale(host, &args.project, &tools)?;
+                }
                 let setup =
                     pipeline::setup(host.session(), &args.project, args.from, args.force, tools)
                         .map_err(|e| e.message)?;
