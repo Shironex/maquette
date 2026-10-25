@@ -4,7 +4,8 @@
  * is on screen and the poses the camera flies through on its way in from
  * the stop before (see ./path.ts). Same coordinates as the manifest.
  */
-import type { StopId, Vec3 } from './manifest';
+import type { Vec3 } from './manifest';
+import { STOP_IDS, type StopId } from './stops';
 
 /**
  * What the camera does across a stop, as the total change over the move.
@@ -42,48 +43,36 @@ export interface CameraStop {
   copy?: 'left' | 'right';
 }
 
+/** What the site adds to a stop's framing: its move, the flight in and the copy's side. */
+export type StopMotion = Pick<CameraStop, 'move' | 'via' | 'copy'>;
+
 /** The clay island over its plinth, at its eye height. */
 const CLAY: Vec3 = [-0.02, 1.14, -0.04];
 
-export const STOPS: readonly CameraStop[] = [
-  {
-    id: 'hero',
-    position: [-0.45, 1.35, 1.3],
-    target: [-0.3, 1.16, -0.05],
-    fov: 36,
-    move: { dolly: 0.1 },
-    copy: 'left',
-  },
+/**
+ * The framings come from the shipped layout (see ./manifest.ts); the site
+ * keeps how the camera moves through them, tuned to those framings.
+ */
+export const STOP_MOTION: Readonly<Record<StopId, StopMotion>> = {
+  hero: { move: { dolly: 0.1 }, copy: 'left' },
   // Swoops down to the right, low over the tools and past the plinth, then
   // sweeps back left onto the paper sketch: a low dolly in that tilts
   // further down.
-  {
-    id: 'concept',
-    position: [-0.72, 1.18, 0.6],
-    target: [-0.44, 0.9, 0.1],
-    fov: 30,
+  concept: {
     move: { dolly: 0.18, rise: 0.05 },
     via: [{ at: -0.55, position: [0.3, 1.07, 0.7], target: [-0.16, 0.93, 0.2] }],
     copy: 'left',
   },
   // Crosses back over the paper, low, then trucks left along it to the
   // pinned prints with the book stack behind them.
-  {
-    id: 'refs',
-    position: [-0.36, 1.03, 0.38],
-    target: [-0.6, 0.93, -0.1],
-    fov: 35,
+  refs: {
     move: { truck: [-0.22, 0, -0.02] },
     via: [{ at: -0.5, position: [-0.22, 1.05, 0.52], target: [-0.5, 0.91, 0.02] }],
     copy: 'right',
   },
   // Rises off the paper and swings across the front of the plinth, the clay
   // island passing close, then orbits it at its eye height.
-  {
-    id: 'model',
-    position: [0.33, 1.16, 0.46],
-    target: [-0.08, 1.12, -0.04],
-    fov: 35,
+  model: {
     move: { orbit: 20, pivot: CLAY },
     via: [
       { at: -0.6, position: [-0.42, 1.3, 0.72], target: [-0.3, 1.0, -0.04] },
@@ -93,37 +82,44 @@ export const STOPS: readonly CameraStop[] = [
   },
   // Cranes up and back over the plinth and holds on the clay island while
   // the wireframe sweep crosses it.
-  {
-    id: 'blender',
-    position: [-0.12, 1.5, 0.52],
-    target: [0.02, 1.1, -0.04],
-    fov: 40,
+  blender: {
     move: { dolly: 0.06 },
     via: [{ at: -0.5, position: [0.24, 1.36, 0.58], target: [-0.02, 1.12, -0.04] }],
     copy: 'right',
   },
   // Drops low past the calipers and turns onto the finished island: a push
   // in while the turntable turns.
-  {
-    id: 'web',
-    position: [0.8, 1.24, 0.46],
-    target: [0.28, 1.17, -0.08],
-    fov: 35,
+  web: {
     move: { dolly: 0.2 },
     via: [{ at: -0.5, position: [0.42, 1.02, 0.5], target: [0.3, 1.1, -0.06] }],
     copy: 'left',
   },
   // Pulls back and up to the whole bench, ending on this framing.
-  {
-    id: 'ship',
-    position: [-0.42, 1.5, 1.2],
-    target: [-0.24, 0.98, -0.1],
-    fov: 45,
+  ship: {
     move: { dolly: -0.3, rise: 0.12 },
     via: [{ at: -0.65, position: [0.5, 1.4, 0.95], target: [0.2, 1.08, -0.08] }],
     copy: 'left',
   },
-];
+};
+
+/** A whole bench view, for a layout that ships without stops. */
+const OVERVIEW: Omit<CameraStop, 'id'> = {
+  position: [-0.42, 1.5, 1.2],
+  target: [-0.24, 0.98, -0.1],
+  fov: 45,
+};
+
+/**
+ * One stop per site stop, in order: each framing from `framings` (a stop
+ * the layout lacks keeps the last framing it has, or the bench overview)
+ * with the site's motion.
+ */
+export function withMotion(framings: readonly CameraStop[]): CameraStop[] {
+  return STOP_IDS.map((id, index) => {
+    const { position, target, fov } = framings[index] ?? framings.at(-1) ?? OVERVIEW;
+    return { id, position, target, fov, ...STOP_MOTION[id] };
+  });
+}
 
 /**
  * Framings used only to render posters (see scripts/capture-posters.mjs).

@@ -1,6 +1,11 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loadOrder, MODELS, STOPS, type ModelEntry } from './manifest';
+import { loadOrder, MODELS, SHIPPED, STOPS, type ModelEntry } from './manifest';
+import { PROP_EXTRAS } from './props';
 import { STOP_IDS } from './stops';
+
+const MODELS_DIR = resolve(import.meta.dirname, '../../public/scene/models');
 
 const entry = (id: string, file: string, stops: ModelEntry['stops']): ModelEntry => ({
   id,
@@ -47,5 +52,15 @@ describe('manifest', () => {
       expect(model.stops.length).toBeGreaterThan(0);
       for (const stop of model.stops) expect(STOP_IDS).toContain(stop);
     }
+  });
+
+  it('has every file it loads', () => {
+    for (const model of MODELS) expect(existsSync(resolve(MODELS_DIR, model.file))).toBe(true);
+  });
+
+  it('places every shipped prop and keeps extras only for shipped ones', () => {
+    const ids = new Set(MODELS.map(model => model.id));
+    for (const asset of Object.keys(SHIPPED.models)) expect(ids).toContain(asset);
+    for (const asset of Object.keys(PROP_EXTRAS)) expect(SHIPPED.models).toHaveProperty([asset]);
   });
 });

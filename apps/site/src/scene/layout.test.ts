@@ -70,6 +70,28 @@ describe('fromLayout', () => {
     expect(fromLayout(layout({ stops: extra }), { assets: {} }).stops).toHaveLength(7);
   });
 
+  it('moves a model exported in place back by its placement and turns it there', () => {
+    const shipped: SiteExtras = { ...lamp, anchor: 'bottom-center', exportedInPlace: true };
+    const { models } = fromLayout(layout(), { assets: { 'desk-lamp': shipped }, lift: 0.9 });
+    expect(models[0]).toEqual({
+      file: 'desk_lamp.glb',
+      id: 'desk-lamp',
+      anchor: 'origin',
+      position: [0.42, 0.9, -0.1],
+      inPlace: [0.42, 0, -0.1],
+      stops: ['hero'],
+    });
+  });
+
+  it('keeps an unplaced model exported in place where its file has it', () => {
+    const { models } = fromLayout(layout({ models: {} }), {
+      assets: { lamp: { ...lamp, exportedInPlace: true }, island },
+      lift: 0.9,
+    });
+    expect(models).toHaveLength(1);
+    expect(models[0]).toMatchObject({ id: 'lamp', position: [0, 0.9, 0], inPlace: [0, 0, 0] });
+  });
+
   it('refuses a layout version it does not know', () => {
     expect(() => fromLayout(layout({ version: 2 }), { assets: {} })).toThrow(/version 2/);
   });

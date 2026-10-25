@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "models": "public/scene/models",
+  "posters": null,
+  "data": "src/scene/shipped.json",
+  "preview": {
+    "command": ["pnpm", "dev"],
+    "url": "http://localhost:15292/"
+  }
+}

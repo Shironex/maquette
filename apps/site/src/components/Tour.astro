@@ -10,13 +10,14 @@
  */
 import { Icon } from '@maquette/ui';
 import { TOUR } from '../content/copy';
-import { STOPS } from '../scene/cameras';
+import { STOP_MOTION } from '../scene/cameras';
+import { STOP_IDS } from '../scene/stops';
 import TourRail from './TourRail.astro';
 import TourStop from './TourStop.astro';
 
 const posters = ['stop-0', ...TOUR.map((_, i) => `stop-${i + 1}`)];
 const total = TOUR.length;
-const side = (index: number) => STOPS[index]?.copy ?? 'left';
+const side = (index: number) => STOP_MOTION[STOP_IDS[index] ?? 'hero'].copy ?? 'left';
 ---
 
 <section id="top" class="tour" data-tour aria-labelledby="hero-title">

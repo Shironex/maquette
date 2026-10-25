@@ -3,8 +3,8 @@
  *
  * The layout keys each placement by asset id and lists the camera stops in
  * tour order (the first one is the view the page opens on). The site adds
- * what the layout does not carry: the shipped file of each asset, material
- * overrides and extras like the laptop screen.
+ * what the layout does not carry: the shipped file of each asset and extras
+ * like the laptop screen.
  *
  * layout.json, as Maquette writes it (glTF coordinates, metres, degrees):
  *
@@ -23,7 +23,9 @@
  * A stop's `models` lists the asset ids it sees; `null` means it sees all.
  * Maquette's desk top is at y = 0, so `lift` raises everything onto the bench.
  */
-import { STOP_IDS, type CameraStop, type ModelEntry, type StopId, type Vec3 } from './manifest';
+import type { CameraStop } from './cameras';
+import type { ModelEntry, Vec3 } from './manifest';
+import { STOP_IDS, type StopId } from './stops';
 
 export interface LayoutPlacement {
   position: Vec3;
@@ -48,10 +50,25 @@ export interface SceneLayout {
 }
 
 /** What the site keeps per asset on top of its placement. */
-export type SiteExtras = Omit<ModelEntry, 'id' | 'position' | 'rotation' | 'scale' | 'stops'>;
+export type SiteExtras = Omit<
+  ModelEntry,
+  'id' | 'position' | 'rotation' | 'scale' | 'stops' | 'inPlace'
+> & {
+  /**
+   * The file already stands where the layout puts it, as Maquette's export
+   * writes every model: the site moves it back by its placement and turns it
+   * about that point instead of placing it again. Without a placement it
+   * stands where the file has it.
+   */
+  exportedInPlace?: boolean;
+};
 
 export interface FromLayoutOptions {
-  /** Asset id to its shipped file and site extras. Assets without one are skipped. */
+  /**
+   * Asset id to its shipped file and site extras, in the order the models
+   * load and draw. Assets without one are skipped, and so are assets the site
+   * places itself that the layout has no placement for.
+   */
   assets: Record<string, SiteExtras>;
   /** Metres added to every Y, model and camera alike. */
   lift?: number;
@@ -88,12 +105,18 @@ export function fromLayout(
     return seen.length ? seen : ['hero'];
   };
 
-  const models: ModelEntry[] = Object.entries(layout.models).flatMap(([asset, placement]) => {
-    const extras = assets[asset];
-    if (!extras) return [];
+  const models = Object.entries(assets).flatMap(([asset, extras]): ModelEntry[] => {
+    const placement = layout.models[asset];
+    const { exportedInPlace = false, ...rest } = extras;
+    if (exportedInPlace) {
+      const at = placement?.position ?? ([0, 0, 0] as const);
+      const entry = { ...rest, id: asset, anchor: 'origin' as const, position: up(at) };
+      return [{ ...entry, inPlace: at, stops: seenBy(asset) }];
+    }
+    if (!placement) return [];
     return [
       {
-        ...extras,
+        ...rest,
         id: asset,
         position: up(placement.position),
         rotation: placement.rotation,

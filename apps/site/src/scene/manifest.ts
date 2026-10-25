@@ -5,25 +5,22 @@
  * Coordinates are glTF: metres, Y up, the camera side is +Z. The floor is
  * y = 0 and the bench top is at y = 0.90 (see BENCH_TOP).
  *
- * Hand placed for now, to match the approved hero concept. Later it is
- * generated from the Maquette project (see `fromLayout` in ./layout.ts and
- * the README): each `layout.json` placement becomes a model entry with
- * `anchor: 'origin'`, and each layout stop becomes a camera stop. The site
- * only adds what the layout does not know: load priority (from `stops`),
- * material overrides and the laptop screen. The camera stops live in
- * ./cameras.ts.
+ * The props and the camera framings come from the Maquette project: its Ship
+ * step writes ./shipped.json, and `fromLayout` (./layout.ts) turns its
+ * layout into model entries and stops. The site adds what the layout does
+ * not know: the set pieces built for the bench, each prop's extras
+ * (./props.ts) and the camera's motion between stops (./cameras.ts).
  */
 
+import { withMotion, type CameraStop } from './cameras';
+import { fromLayout, type SiteExtras } from './layout';
+import { PROP_EXTRAS } from './props';
+import rawShipped from './shipped.json';
+import { parseShipped } from './shipped';
 import { STOP_IDS, type StopId } from './stops';
 
 export { STOP_IDS, type StopId };
-export {
-  POSTER_CAMERAS,
-  STOPS,
-  type CameraMove,
-  type CameraStop,
-  type PosterCamera,
-} from './cameras';
+export { POSTER_CAMERAS, type CameraMove, type CameraStop, type PosterCamera } from './cameras';
 
 export type Vec3 = readonly [number, number, number];
 
@@ -82,6 +79,12 @@ export interface ModelEntry {
   /** Uniform. */
   scale?: number;
   /**
+   * The point the file already stands at in its own coordinates (a model
+   * Maquette exported in place): it is moved back by it, so `position` is
+   * the point it turns about, and `rotation` and `scale` stay unset.
+   */
+  inPlace?: Vec3;
+  /**
    * 'origin' puts the model's own origin at `position` (layout.json's rule).
    * 'bottom-center' puts the bottom centre of its bounds there instead, for
    * models whose files still carry an offset from an earlier scene.
@@ -104,14 +107,12 @@ export interface ModelEntry {
 const ALL: readonly StopId[] = STOP_IDS;
 const TOP = BENCH_TOP;
 
-/** Where the finished island turns. */
-const TURNTABLE: Vec3 = [0.44, TOP, -0.08];
 /** The clay island hangs over the plinth. */
 const PLINTH: Vec3 = [-0.02, TOP, -0.04];
 const PLINTH_HEIGHT = 0.2658 * 0.3;
 
-export const MODELS: readonly ModelEntry[] = [
-  // Set pieces, built in Blender at real size, origin at the floor.
+/** Set pieces built in Blender for the bench at real size, origin at the floor. */
+const SET_PIECES: readonly ModelEntry[] = [
   {
     id: 'workbench',
     file: 'workbench_top.glb',
@@ -148,163 +149,10 @@ export const MODELS: readonly ModelEntry[] = [
     stops: ['hero', 'concept', 'refs', 'ship'],
     receiveShadow: true,
   },
+];
 
-  // The two heroes and what they stand on.
-  {
-    id: 'plaster-plinth',
-    file: 'plaster_plinth_v1.glb',
-    position: PLINTH,
-    rotation: [0, 4, 0],
-    scale: 0.3,
-    anchor: 'bottom-center',
-    stops: ['hero', 'model', 'blender', 'ship'],
-    castShadow: true,
-    receiveShadow: true,
-  },
-  {
-    id: 'clay-island',
-    file: 'clay_island_maquette_v1.glb',
-    position: [PLINTH[0], TOP + PLINTH_HEIGHT - 0.004, PLINTH[2]],
-    rotation: [0, 200, 0],
-    scale: 0.33,
-    anchor: 'bottom-center',
-    stops: ['hero', 'model', 'blender', 'ship'],
-    castShadow: true,
-    receiveShadow: true,
-    sweepAt: 'blender',
-  },
-  {
-    id: 'turntable',
-    file: 'turntable_v1.glb',
-    position: TURNTABLE,
-    scale: 0.42,
-    anchor: 'bottom-center',
-    stops: ['hero', 'web', 'ship'],
-    castShadow: true,
-    receiveShadow: true,
-    spinAt: 'web',
-    // The top glared white and the base read as wood: a matte top and an iron base.
-    material: {
-      roughness: 0.82,
-      metalness: 0,
-      flatSurface: true,
-      lower: { below: 0.62, color: '#26231f', roughness: 0.55, metalness: 0.75 },
-    },
-  },
-  {
-    id: 'finished-island',
-    file: 'finished_island_v1.glb',
-    position: [TURNTABLE[0], TOP + 0.126 + 0.004, TURNTABLE[2]],
-    rotation: [0, 200, 0],
-    scale: 0.32,
-    anchor: 'bottom-center',
-    stops: ['hero', 'web', 'ship'],
-    castShadow: true,
-    receiveShadow: true,
-    spinAt: 'web',
-  },
-
-  // Set dressing.
-  {
-    id: 'desk-lamp',
-    file: 'desk_lamp_v1.glb',
-    position: [0.7, TOP, -0.29],
-    rotation: [0, 200, 0],
-    scale: 1,
-    anchor: 'bottom-center',
-    stops: ['hero', 'web', 'ship'],
-    castShadow: true,
-  },
-  {
-    id: 'book-stack',
-    file: 'book_stack_v1.glb',
-    position: [-0.68, TOP, -0.27],
-    rotation: [0, 18, 0],
-    scale: 0.44,
-    anchor: 'bottom-center',
-    stops: ['hero', 'refs', 'ship'],
-    castShadow: true,
-    receiveShadow: true,
-  },
-  {
-    id: 'brush-cup',
-    file: 'brush_cup_v1.glb',
-    position: [0.78, TOP, -0.06],
-    scale: 1.15,
-    anchor: 'bottom-center',
-    stops: ['hero', 'web', 'ship'],
-    castShadow: true,
-    receiveShadow: true,
-  },
-  {
-    id: 'clay-bowl',
-    file: 'clay_bowl_v1.glb',
-    position: [0.7, TOP, 0.17],
-    scale: 0.47,
-    anchor: 'bottom-center',
-    stops: ['hero', 'web', 'ship'],
-    castShadow: true,
-    receiveShadow: true,
-  },
-  {
-    id: 'calipers',
-    file: 'calipers_v1.glb',
-    position: [0.38, TOP, 0.22],
-    rotation: [0, 75, 0],
-    scale: 0.15,
-    anchor: 'bottom-center',
-    stops: ['hero', 'web', 'ship'],
-    castShadow: true,
-    receiveShadow: true,
-    // Read as brass; calipers are dark steel.
-    material: { tint: '#5d6266', tintAmount: 1, metalness: 0.85, roughness: 0.42 },
-  },
-  {
-    id: 'loop-tool',
-    file: 'loop_tool_v1.glb',
-    position: [0.06, TOP, 0.25],
-    rotation: [0, 62, 0],
-    scale: 0.11,
-    anchor: 'bottom-center',
-    stops: ['hero', 'model', 'blender', 'ship'],
-    castShadow: true,
-    receiveShadow: true,
-  },
-  {
-    id: 'linen-cloth',
-    file: 'linen_cloth_v1.glb',
-    position: [0.8, TOP, 0.37],
-    rotation: [0, 30, 0],
-    scale: 0.12,
-    anchor: 'bottom-center',
-    stops: ['hero', 'ship'],
-    castShadow: true,
-    receiveShadow: true,
-    // Grey from Tripo; the concept's cloth is olive.
-    material: { tint: '#6f7446', tintAmount: 1, roughness: 0.95 },
-  },
-  {
-    id: 'laptop',
-    file: 'laptop_v1.glb',
-    position: [-0.36, TOP, -0.26],
-    rotation: [0, 22, 0],
-    scale: 1.2,
-    anchor: 'bottom-center',
-    stops: ['hero', 'ship'],
-    castShadow: true,
-    receiveShadow: true,
-    // Rendered as polished chrome: matte graphite instead.
-    material: { color: '#3a3936', metalness: 0.25, roughness: 0.62, flatSurface: true },
-    screen: {
-      texture: '/scene/laptop-screen.webp',
-      size: [0.27, 0.169],
-      position: [0, 0.135, -0.12],
-      rotation: [-14, 0, 0],
-    },
-    placeholder: 'The screen is a mock mode capture of the Board; swap in a real project capture.',
-  },
-
-  // Clay crumbs, one file reused at three sizes.
+/** Clay crumbs, one file reused at three sizes, drawn after the props. */
+const CRUMBS: readonly ModelEntry[] = [
   {
     id: 'crumbs-front',
     file: 'clay_crumbs.glb',
@@ -332,6 +180,33 @@ export const MODELS: readonly ModelEntry[] = [
     stops: ['hero', 'web', 'ship'],
   },
 ];
+
+/** What Maquette shipped: the props, their files and the layout. */
+export const SHIPPED = parseShipped(rawShipped);
+
+/** Each shipped model with its file and the site's extras for it. */
+function shippedAssets(): Record<string, SiteExtras> {
+  return Object.fromEntries(
+    Object.entries(SHIPPED.models).map(([asset, model]) => [
+      asset,
+      {
+        anchor: 'origin',
+        castShadow: true,
+        receiveShadow: true,
+        ...PROP_EXTRAS[asset],
+        file: model.file,
+        exportedInPlace: model.inPlace,
+      } satisfies SiteExtras,
+    ])
+  );
+}
+
+const shipped = fromLayout(SHIPPED.layout, { assets: shippedAssets(), lift: BENCH_TOP });
+
+export const MODELS: readonly ModelEntry[] = [...SET_PIECES, ...shipped.models, ...CRUMBS];
+
+/** The hero frame, then Concept to Ship: the shipped framings with the site's motion. */
+export const STOPS: readonly CameraStop[] = withMotion(shipped.stops);
 
 export function modelUrl(file: string): string {
   return `/scene/models/${file}`;

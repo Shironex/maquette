@@ -1,7 +1,8 @@
 /**
  * Builds one manifest entry into scene objects: an outer group at the
  * entry's position (the pivot it spins about) holding the rotated, scaled
- * model, offset so its anchor lands on that position.
+ * model, offset so its anchor lands on that position. A model exported in
+ * place is only moved back by the point it already stands at.
  */
 import * as THREE from 'three';
 import type { ModelEntry } from './manifest';
@@ -38,7 +39,10 @@ export function buildModel(entry: ModelEntry, scene: THREE.Object3D): BuiltModel
     receive: entry.receiveShadow ?? false,
   });
 
-  if (entry.anchor === 'bottom-center') {
+  if (entry.inPlace) {
+    const [x, y, z] = entry.inPlace;
+    inner.position.set(-x, -y, -z);
+  } else if (entry.anchor === 'bottom-center') {
     inner.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(inner);
     const center = box.getCenter(new THREE.Vector3());
