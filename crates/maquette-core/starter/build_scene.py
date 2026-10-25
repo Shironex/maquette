@@ -22,6 +22,10 @@ Maquette runs this headless, as the Build scene step:
   Board and the Inspector) are applied by fixups.py next to this script:
   the fix-ups, then a uniform scale to the real size. The layout comes
   after, so its "scale" stays a tweak on top of the real size.
+- An asset set to skip the bake ("skipBake": true in prepare.json, the
+  default for a model accepted from the Inbox) has every object tagged
+  "maquette_skip_bake": Bake light leaves it out, so it ships with its own
+  material lighting, no lightmap and no second UV set.
 - The scene layout (layout.json, written by the Inspector's Layout view)
   moves each asset's newest model to its place: "position" in metres,
   "rotation" in degrees (X, then Y, then Z) and a uniform "scale", all in
@@ -29,7 +33,10 @@ Maquette runs this headless, as the Build scene step:
   that overlap at the origin are laid out side by side along X.
 - Its "desk" becomes a plain slab named "desk" under "Models" (top at the
   floor, "size" is width and depth in metres), so the models cast their
-  shadows on it in the bake and it ships with them.
+  shadows on it in the bake and it ships with them. When a model already
+  has a floor there (it reaches below the desk top over most of the slab),
+  the slab is left out: a second surface at the same height would cover
+  that floor and bake it black.
 - Its "stops" become cameras in a "Stops" collection, named
   stop_01_<name> and tagged "maquette_stop" (the order) and
   "maquette_stop_name", which Capture posters renders. When the base blend
@@ -59,6 +66,12 @@ STUDIO = "Studio"
 STOPS = "Stops"
 DESK = "desk"
 DESK_THICKNESS = 0.04
+# A model that reaches this far below the desk top over this share of the
+# slab is a floor of its own.
+FLOOR_DEPTH = 0.005
+FLOOR_SHARE = 0.5
+SKIP_BAKE = "maquette_skip_bake"
+WORLD_GREY = 0.18
 TAG = "maquette_stop"
 SOURCE_NAME = "maquette_name"
 SUFFIX = re.compile(r"^(.*)\.\d{3,}$")
@@ -133,17 +146,33 @@ def load_fixups():
 
 
 def prepare_models(collections, owners, path):
-    """Applies each asset's fix-ups and real size to its newest model."""
+    """Applies each asset's fix-ups and real size to its newest model, and
+    tags the objects of an asset that skips the bake."""
     fixups = load_fixups()
-    entries = fixups.read_entries(path) if fixups else {}
+    entries = fixups.read_entries(path) if fixups else read_prepare(path)
+    skipped = 0
     for collection in collections:
         owner = owners.get(collection.name)
         entry = entries.get(owner[0]) if owner else None
         if not entry:
             continue
+        if entry.get("skipBake") is True:
+            for obj in collection.all_objects:
+                obj[SKIP_BAKE] = True
+            skipped += 1
+        if fixups is None:
+            continue
         say = lambda message, name=collection.name: log(f"{name} {message}")
         fixups.prepare(list(collection.all_objects), entry, say)
     bpy.context.view_layer.update()
+    if skipped:
+        log(f"{skipped} models skip the bake and keep their own material lighting")
+
+
+def read_prepare(path):
+    """prepare.json's entries when fixups.py is missing."""
+    found = read_json(path, "the preparation") or {}
+    return found.get("models") or {}
 
 
 def start_scene(base):
@@ -161,7 +190,13 @@ def start_scene(base):
     sun.rotation_euler = (0.9, 0.0, 0.8)
     studio.objects.link(sun)
     world = bpy.data.worlds.new("World")
-    world.color = (0.18, 0.18, 0.18)
+    world.color = (WORLD_GREY, WORLD_GREY, WORLD_GREY)
+    # Cycles and the bake read the world's nodes, not its viewport colour.
+    if world.node_tree is None:
+        world.use_nodes = True
+    background = next((n for n in world.node_tree.nodes if n.type == "BACKGROUND"), None)
+    if background is not None:
+        background.inputs["Color"].default_value = (WORLD_GREY, WORLD_GREY, WORLD_GREY, 1.0)
     scene.world = world
 
 
@@ -305,11 +340,38 @@ def blender_point(v):
     return (GLTF_TO_BLENDER @ Vector((v[0], v[1], v[2], 1.0))).to_3d()
 
 
+def covered_share(lo, hi, x, y):
+    """How much of the slab (-x..x, -y..y) a box from lo to hi covers."""
+    w = max(0.0, min(hi.x, x) - max(lo.x, -x))
+    d = max(0.0, min(hi.y, y) - max(lo.y, -y))
+    return (w * d) / (4 * x * y)
+
+
+def floor_under(parent, x, y):
+    """The name of a model mesh that is a floor at the desk top, or None:
+    it reaches below the top and up to it, over most of the slab."""
+    for obj in parent.all_objects:
+        if obj.type != "MESH":
+            continue
+        corners = [obj.matrix_world @ Vector(c) for c in obj.bound_box]
+        lo = Vector(map(min, *corners))
+        hi = Vector(map(max, *corners))
+        if lo.z > -FLOOR_DEPTH or hi.z < -FLOOR_DEPTH:
+            continue
+        if covered_share(lo, hi, x, y) >= FLOOR_SHARE:
+            return obj.name
+    return None
+
+
 def add_desk(parent, desk):
     if DESK in bpy.data.collections:
         log("the base scene already has a desk, kept as placed")
         return
     width, depth = desk.get("size", [1.6, 0.8])
+    floor = floor_under(parent, width / 2, depth / 2)
+    if floor is not None:
+        log(f"{floor} is already a floor at the desk top, so the layout's desk slab is left out")
+        return
     mesh = bpy.data.meshes.new(DESK)
     x, y, t = width / 2, depth / 2, DESK_THICKNESS
     verts = [(sx * x, sy * y, z) for z in (-t, 0.0) for sy in (-1, 1) for sx in (-1, 1)]

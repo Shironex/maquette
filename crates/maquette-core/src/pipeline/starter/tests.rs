@@ -285,3 +285,71 @@ fn unrecorded_scripts_match_the_known_older_starters() {
     .expect("crlf");
     assert_eq!(state(project, BUILD_SCENE.path), StarterState::Current);
 }
+
+#[test]
+fn assets_set_to_skip_the_bake_get_no_lightmap_and_no_second_uv() {
+    let tag = "SKIP_BAKE = \"maquette_skip_bake\"";
+    let build = BUILD_SCENE.text;
+    assert!(build.contains(tag), "Build scene tags them");
+    assert!(build.contains("entry.get(\"skipBake\") is True"));
+    let bake = BAKE_LIGHT.text;
+    assert!(
+        bake.contains("SKIP_TAG = \"maquette_skip_bake\""),
+        "the bake reads the same tag"
+    );
+    assert!(bake.contains("\"skip-bake\""));
+    // Skipped meshes never reach ensure_lightmap_uv: only targets do.
+    assert!(
+        bake.contains("for obj in targets)")
+            || bake.contains("ensure_lightmap_uv(obj) for obj in targets")
+    );
+    let export = EXPORT_WEB.text;
+    assert!(export.contains("def drop_lightmap_uv(obj)"));
+    assert!(export.contains("o.name not in lit"));
+}
+
+#[test]
+fn materials_that_glow_keep_their_emission() {
+    // Bake light and Export GLB decide "glows" the same way, so a sky the
+    // bake leaves out is also never given a lightmap on export.
+    let glows = |text: &str| -> String {
+        let start = text.find("def glows(material):").expect("glows");
+        let body = &text[start..];
+        let doc_end = body[3..]
+            .find("\"\"\"\n")
+            .map(|i| i + 3)
+            .expect("docstring");
+        let body = &body[doc_end..];
+        let doc_close = body.find('\n').expect("line") + 1;
+        let body = &body[doc_close..];
+        body[..body.find("\n\n\n").expect("end of glows")].to_string()
+    };
+    assert_eq!(glows(BAKE_LIGHT.text), glows(EXPORT_WEB.text));
+    assert!(BAKE_LIGHT.text.contains("\"glows\""));
+    assert!(EXPORT_WEB.text.contains("if glows(material):"));
+}
+
+#[test]
+fn the_bake_denoises_and_its_flags_match_the_bake_settings() {
+    let bake = BAKE_LIGHT.text;
+    assert!(bake.contains("\"--denoise\""));
+    assert!(bake.contains("argparse.BooleanOptionalAction"));
+    assert!(bake.contains("CompositorNodeDenoise"));
+    let d = crate::pipeline::bake::DEFAULT;
+    assert!(bake.contains(&format!("\"--size\", type=int, default={}", d.size)));
+    assert!(bake.contains(&format!("\"--samples\", type=int, default={}", d.samples)));
+    assert!(bake.contains("default=True,"), "denoise is on by default");
+    // The denoise scene is removed again, so it never lands in the blend.
+    let closed = bake.find("denoiser.close()").expect("close");
+    let saved = bake.rfind("save_blend(args.out_blend)").expect("save");
+    assert!(closed < saved);
+}
+
+#[test]
+fn the_desk_slab_stays_out_of_a_floor_and_the_world_is_lit() {
+    let build = BUILD_SCENE.text;
+    assert!(build.contains("def floor_under(parent, x, y):"));
+    assert!(build.contains("so the layout's desk slab is left out"));
+    // Blender 5 renders the world's nodes, not its viewport colour.
+    assert!(build.contains("background.inputs[\"Color\"].default_value"));
+}

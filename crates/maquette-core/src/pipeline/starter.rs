@@ -34,6 +34,10 @@ const OLDER: &[(&str, &str)] = &[
         "0395baa6ce1fd08a97f15c47bc3f6676c6fa763d8b2886d46790f380ecd37b55",
     ),
     (
+        "tools/bake_light.py",
+        "861b25a56504ec254b2bafa4a0d5080431ebd9b4be52eb80afaac09f807ebf98",
+    ),
+    (
         "tools/build_scene.py",
         "27e68367ae83272ee3f0e4336a1480163e5be43beb437e70f36e601086c6f604",
     ),
@@ -50,6 +54,10 @@ const OLDER: &[(&str, &str)] = &[
         "378d3527366f7c6a366a070e6e88d1a5d3738e5da9bf7456cd3aa3620593ff99",
     ),
     (
+        "tools/build_scene.py",
+        "6673c062e2592802c5a62268bdf2e3f456a63103958edf1509662930f4f9bfca",
+    ),
+    (
         "tools/export_character.py",
         "a450a138b62489b9bb6ffc848392de75bc3539460cd275a181f88e986b20e054",
     ),
@@ -60,6 +68,10 @@ const OLDER: &[(&str, &str)] = &[
     (
         "tools/export_web.py",
         "2fa35e389871a4dd8cac8a19d264aa20052bedb1de74aac2e739388dac943c22",
+    ),
+    (
+        "tools/export_web.py",
+        "fd77207200db5c9daa23784af02a2e18a315a325304f0b7756c54839a8c6f851",
     ),
     (
         "tools/render_stops.py",

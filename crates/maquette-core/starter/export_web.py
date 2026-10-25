@@ -21,17 +21,23 @@ Baked light: --bake is the Bake light folder. For every object listed in
 its bake.json the export
 - keeps the object's UV sets: the texture UV as TEXCOORD_0 and "lightmap"
   as TEXCOORD_1;
-- adds the object's <name>_light.png as the emissive texture, sampled with
-  the "lightmap" UV (an Image Texture fed by a UV Map node into the
-  Principled BSDF's Emission Color, strength 1);
+- adds the object's <name>_light.png as the emissive texture of each of its
+  materials that does not glow itself, sampled with the "lightmap" UV (an
+  Image Texture fed by a UV Map node into the Principled BSDF's Emission
+  Color, strength 1). A material with an emission of its own (a window's
+  sky, a screen) keeps it and gets no lightmap;
 - sets the material custom properties {"lightmap": <scale>, "lightmapUv":
-  1}, written as glTF material extras (export_extras is on).
-A web page that finds those extras swaps the material for an unlit one
-that shows albedo * emissive texture * lightmap, the baked light at its
-real brightness. Viewers that know nothing about it show the lightmap as a
-glow. Objects without a bake, and every object when bake.json says
-"baked": false, export as they are and are lit in real time. The blend is
-never saved, so these material edits only end up in the GLBs.
+  1} on those materials, written as glTF material extras (export_extras is
+  on).
+A web page that finds those extras moves the emissive texture to a light
+map: albedo * lightmap * scale, the baked light at its real brightness
+(three.js: lightMap = emissiveMap, lightMapIntensity = scale * PI, then
+clear the emissive). Viewers that know nothing about it show the lightmap
+as a glow. Objects without a bake (an asset set to skip the bake, a mesh
+that glows, every object when bake.json says "baked": false) export as
+they are, lit in real time, and a "lightmap" UV set left on them is
+dropped, so they ship no second UV set. The blend is never saved, so these
+edits only end up in the GLBs.
 """
 
 import argparse
@@ -116,8 +122,34 @@ def principled(material):
     return next((n for n in material.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
 
 
+def glows(material):
+    """True for a material that lights itself, as Bake light decides it: a
+    live emission on its Principled BSDF, or an unlit shader without one."""
+    if material is None or material.node_tree is None:
+        return False
+    bsdf = principled(material)
+    if bsdf is None:
+        return any(n.type in {"EMISSION", "BACKGROUND"} for n in material.node_tree.nodes)
+    strength = bsdf.inputs["Emission Strength"]
+    color = bsdf.inputs["Emission Color"]
+    strong = strength.is_linked or strength.default_value > 0.0
+    lit = color.is_linked or max(color.default_value[:3]) > 0.0
+    return strong and lit
+
+
+def drop_lightmap_uv(obj):
+    """Removes a "lightmap" UV set nothing samples, so it does not ship."""
+    uvs = obj.data.uv_layers
+    layer = uvs.get("lightmap")
+    if layer is None or len(uvs) < 2:
+        return False
+    uvs.remove(layer)
+    return True
+
+
 def hook_lightmap(obj, entry, folder):
-    """Puts the object's lightmap on its materials as the emissive texture."""
+    """Puts the object's lightmap on its materials as the emissive texture,
+    leaving every material that glows on its own as it is."""
     uvs = obj.data.uv_layers
     index = uvs.find(entry.get("uv", "lightmap"))
     path = os.path.join(folder, entry["file"])
@@ -126,10 +158,14 @@ def hook_lightmap(obj, entry, folder):
         return False
     image = bpy.data.images.load(os.path.abspath(path), check_existing=True)
     hooked = 0
+    kept = 0
     for slot in obj.material_slots:
         material = slot.material
         bsdf = principled(material)
         if bsdf is None:
+            continue
+        if glows(material):
+            kept += 1
             continue
         tree = material.node_tree
         uv = tree.nodes.new("ShaderNodeUVMap")
@@ -142,8 +178,9 @@ def hook_lightmap(obj, entry, folder):
         material["lightmap"] = float(entry["scale"])
         material["lightmapUv"] = index
         hooked += 1
+    glowing = f", {kept} keep their own glow" if kept else ""
     log(
-        f"lightmap {entry['file']} on {obj.name}: {hooked} materials, "
+        f"lightmap {entry['file']} on {obj.name}: {hooked} materials{glowing}, "
         f"scale {entry['scale']}, {len(uvs)} UV sets, lightmap is TEXCOORD_{index}"
     )
     return hooked > 0
@@ -211,15 +248,21 @@ def main():
     args = parse_args()
     scene = bpy.context.scene
     baked = load_bake(args.bake)
-    lit = 0
+    lit = set()
     for name, entry in baked.items():
         obj = bpy.data.objects.get(name)
         if obj is None or obj.type != "MESH":
             log(f"{name} is in bake.json but is no mesh in this blend, skipped")
             continue
-        lit += hook_lightmap(obj, entry, args.bake)
+        if hook_lightmap(obj, entry, args.bake):
+            lit.add(obj.name)
     if baked:
-        log(f"baked light on {lit} of {len(baked)} objects")
+        log(f"baked light on {len(lit)} of {len(baked)} objects")
+    dropped = sum(
+        drop_lightmap_uv(o) for o in scene.objects if o.type == "MESH" and o.name not in lit
+    )
+    if dropped:
+        log(f"dropped the unused lightmap UV set of {dropped} meshes without baked light")
     found = groups(scene)
     if not found:
         log("nothing to export: add .glb files to models/ and run Build scene again")
