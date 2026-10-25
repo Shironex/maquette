@@ -11,7 +11,7 @@ export interface KbdProps {
 const CAP = 'min-w-[18px] rounded-[5px] border px-1 text-center font-sans text-[11px] leading-4';
 
 const TONE = {
-  default: 'border-line text-fg-mute',
+  default: 'border-line leading-[18px] text-fg-mute',
   inverse: 'border-app/25 text-app/75',
 };
 
