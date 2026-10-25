@@ -95,6 +95,8 @@ describe('a batch send', () => {
         images: ['refs/desk_lamp.png'],
         tripo: null,
         meshy: null,
+        prompt: null,
+        redoOf: null,
       },
       {
         asset: 'sculptor',
@@ -102,9 +104,27 @@ describe('a batch send', () => {
         images: ['refs/sculptor.png'],
         tripo: null,
         meshy: null,
+        prompt: null,
+        redoOf: null,
       },
     ]);
     expect(batchLabel(props)).toBe('Send 2 to Meshy');
+  });
+
+  it('carries a Meshy texture prompt and the send a redo repeats', () => {
+    const draft = batchDraft(options(), presets.tripo, presets.meshy, 'meshy');
+    const [lamp, sculptor] = draft.items;
+    const items = [{ ...lamp!, prompt: '  Brass and soot  ', redoOf: 'desk-lamp-1' }, sculptor!];
+    const meshy = batchRequest('moon-island', { ...draft, items });
+    expect(meshy.items[0]).toMatchObject({ prompt: 'Brass and soot', redoOf: 'desk-lamp-1' });
+    expect(meshy.items[1]).toMatchObject({ prompt: null, redoOf: null });
+    // Tripo takes no prompt, so a batch switched to it drops the text.
+    const tripo = batchRequest('moon-island', { ...draft, service: 'tripo', items });
+    expect(tripo.items[0]).toMatchObject({ prompt: null, redoOf: 'desk-lamp-1' });
+    const long = { ...draft, items: [{ ...lamp!, prompt: 'x'.repeat(801) }] };
+    expect(batchProblem(long, { tripoModels: [], meshyModels: [] })).toMatch(
+      /^Desk lamp: Keep the texture prompt to 800 characters/
+    );
   });
 
   it('says what blocks it', () => {

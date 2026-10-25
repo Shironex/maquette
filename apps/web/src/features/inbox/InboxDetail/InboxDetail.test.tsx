@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InboxItem } from '@/ipc/client';
 import { useInboxStore } from '@/state/use-inbox-store';
+import { useProvidersStore } from '@/state/use-providers-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import InboxDetail from './InboxDetail';
 import { tooltipText } from '@/test/tooltipText';
@@ -17,6 +18,7 @@ beforeEach(async () => {
 afterEach(() => {
   clearMocks();
   useInboxStore.setState({ snapshot: null, selected: null });
+  useProvidersStore.setState({ panel: null, jobs: [] });
 });
 
 function inboxItem(id: string): InboxItem {
@@ -69,5 +71,43 @@ describe('InboxDetail', () => {
     const accept = screen.getByRole('button', { name: 'Accept to Blender' });
     expect(accept).toHaveAttribute('aria-disabled', 'true');
     expect(await tooltipText(accept)).toBe('This file could not be read');
+  });
+
+  it('redoes a model that came from a send, and says why one without cannot', async () => {
+    render(<InboxDetail item={inboxItem('flower_shrubs.glb')} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Redo...' }));
+    expect(useProvidersStore.getState().panel).toMatchObject({
+      asset: 'flower-shrubs',
+      project: 'moon-island',
+    });
+  });
+
+  it('keeps Redo off for a model that came from no send', async () => {
+    render(<InboxDetail item={inboxItem('sakura_large.glb')} />);
+    const redo = screen.getByRole('button', { name: 'Redo...' });
+    expect(redo).toHaveAttribute('aria-disabled', 'true');
+    expect(await tooltipText(redo)).toMatch(/did not come from a Send to 3D/);
+  });
+
+  it('notes a redo still on its way', () => {
+    const shrubs = inboxItem('flower_shrubs.glb');
+    useProvidersStore.setState({
+      jobs: [
+        {
+          ...useProvidersStore.getState().jobs[0],
+          id: 'flower-shrubs-2',
+          asset: 'flower-shrubs',
+          state: 'running',
+          progress: 0.5,
+          redoOf: 'flower-shrubs-1',
+        } as never,
+      ],
+    });
+    render(
+      <InboxDetail item={{ ...shrubs, link: { ...shrubs.link!, redoOf: 'flower-shrubs-0' } }} />
+    );
+    const checks = screen.getByRole('complementary', { name: 'Automatic checks' });
+    expect(checks).toHaveTextContent('Redo offlower-shrubs-0');
+    expect(checks).toHaveTextContent('flower-shrubs-2, 50%');
   });
 });

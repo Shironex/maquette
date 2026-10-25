@@ -4,6 +4,7 @@ import {
   CheckRow,
   EmptyState,
   Icon,
+  IconButton,
   KeyValueList,
   SegmentedControl,
   Select,
@@ -32,6 +33,8 @@ export default function InboxDetail({ item }: InboxDetailProps) {
     accept,
     openInBlender,
     setKind,
+    redoBlocked,
+    redo,
   } = useInboxDetail(item);
   const { mode, setMode, setLoadError, loadError, url, modes, modeLabel, noPreview, orbitHint } =
     useInboxPreview(item);
@@ -135,13 +138,23 @@ export default function InboxDetail({ item }: InboxDetailProps) {
           {reviewPrompt(item)}
         </span>
         <span className="ml-auto" />
-        <Button
+        <IconButton
           icon="arrow-clockwise"
+          variant="secondary"
+          label="Reprocess"
+          hint="Read the file again and rerun the checks"
           disabled={isBusy}
           disabledReason="Working on this model"
           onClick={() => void reprocess(item.id)}
+        />
+        <Button
+          icon="arrow-bend-up-right"
+          disabled={Boolean(redoBlocked)}
+          disabledReason={redoBlocked ?? undefined}
+          tooltip="Send it again with the same settings, changed where you like. This model stays here to compare."
+          onClick={redo}
         >
-          Reprocess
+          Redo...
         </Button>
         <Button variant="ghost" icon="arrow-square-out" onClick={() => void openInBlender(item.id)}>
           Open in Blender

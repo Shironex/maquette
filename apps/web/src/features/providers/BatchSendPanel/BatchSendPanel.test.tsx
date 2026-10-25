@@ -189,4 +189,22 @@ describe('the batch send panel', () => {
     await waitFor(() => expect(useProvidersStore.getState().batch).toBeNull());
     expect(screen.queryByRole('dialog', { name: 'Discard changes?' })).toBeNull();
   });
+
+  it('redoes several inbox models, each from its own send, and says what it costs', async () => {
+    await openMockWorkspace('configured', undefined, undefined, 'redo');
+    await useProvidersStore.getState().load('moon-island');
+    render(<BatchSendPanel />);
+    await useProvidersStore.getState().openBatchRedo('moon-island', [
+      { asset: 'character', job: 'character-3' },
+      { asset: 'sakura', job: 'sakura-2' },
+    ]);
+    const panel = await screen.findByRole('dialog', { name: 'Redo 2 models' });
+    expect(within(panel).getByText('Redo of 2 models from the Inbox')).toBeInTheDocument();
+    expect(within(panel).getByText('Redo of character-3')).toBeInTheDocument();
+    expect(within(panel).getByText('Redo of sakura-2')).toBeInTheDocument();
+    // A rigged character with detailed textures (85) and a textured prop (30).
+    expect(await within(panel).findByText('About 115 credits')).toBeInTheDocument();
+    await userEvent.click(within(panel).getByRole('button', { name: 'Send 2 to Tripo' }));
+    expect(within(panel).getByRole('alert')).toHaveTextContent('About 115 credits in all.');
+  });
 });

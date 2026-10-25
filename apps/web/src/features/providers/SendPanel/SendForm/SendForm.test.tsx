@@ -40,4 +40,17 @@ describe('the Send to 3D form', () => {
     expect(useAppStore.getState().view).toBe('settings');
     expect(useProvidersStore.getState().panel).toBeNull();
   });
+
+  it('opens a redo prefilled, with the Meshy prompt and what it should cost', async () => {
+    await openProviders(undefined, 'redo');
+    await useProvidersStore.getState().openRedo('moon-island', 'sakura', 'sakura-2');
+    const { options, draft } = useProvidersStore.getState().panel!;
+    render(<SendForm options={options!} draft={draft!} />);
+    expect(screen.getByText('Redo of sakura-2, sent to Meshy')).toBeInTheDocument();
+    expect(screen.getByLabelText('Texture prompt')).toHaveValue(
+      'Pale pink blossoms, dark wet bark, soft painted look'
+    );
+    expect(await screen.findByText('About 30 credits')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Redo with Meshy' })).toBeEnabled();
+  });
 });

@@ -8,12 +8,14 @@ import {
   toggleImage,
   type SendDraft,
 } from '@/state/providers';
+import { CostEstimate } from '../../CostEstimate';
 import { MeshyPresetFields, TripoPresetFields } from '../../PresetFields';
+import { PromptField } from '../../PromptField';
 import { SectionTitle } from '../../SectionTitle';
 import { PROVIDERS, SERVICES, VARIANTS } from '../../choices';
 import { EarlierSends } from './EarlierSends';
 import { ImageChoice } from './ImageChoice';
-import { useSendForm } from './SendForm.hooks';
+import { useSendEstimate, useSendForm } from './SendForm.hooks';
 
 export interface SendFormProps {
   options: SendOptions;
@@ -35,7 +37,9 @@ export default function SendForm({ options, draft }: SendFormProps) {
     key,
     earlier,
     label,
+    redo,
   } = useSendForm(options, draft);
+  const estimate = useSendEstimate(options, draft);
   const service = draft.service;
   const images = options.images.map(image => (
     <ImageChoice
@@ -52,6 +56,12 @@ export default function SendForm({ options, draft }: SendFormProps) {
   return (
     <>
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
+        {redo ? (
+          <InlineBanner
+            title={redo.line}
+            detail={`Prefilled from that send. Change what should differ; it goes out as the next version of ${redo.name}, and the earlier model stays in the Inbox so you can compare both and accept one.`}
+          />
+        ) : null}
         <section className="flex flex-col gap-2.5">
           <SectionTitle>Where</SectionTitle>
           <SegmentedControl
@@ -155,6 +165,9 @@ export default function SendForm({ options, draft }: SendFormProps) {
               onChange={meshy => setDraft({ meshy })}
             />
           )}
+          {service === 'meshy' ? (
+            <PromptField value={draft.prompt ?? ''} onChange={prompt => setDraft({ prompt })} />
+          ) : null}
           <p className="text-meta text-fg-mute">
             Changes here are for this send only. The saved presets are in Settings &gt; 3D
             providers.
@@ -171,7 +184,8 @@ export default function SendForm({ options, draft }: SendFormProps) {
         >
           {blocker ?? summary}
         </p>
-        <div className="flex justify-end gap-2">
+        <div className="flex items-center justify-end gap-2">
+          <CostEstimate credits={estimate} className="mr-auto" />
           <Button variant="secondary" onClick={close}>
             Cancel
           </Button>

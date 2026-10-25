@@ -24,6 +24,8 @@ export interface Panel {
   /** A By hand send that just wrote its folder: the panel shows its card. */
   handoff: ProviderJob | null;
   error: string | null;
+  /** A redo from the Inbox: the earlier send it repeats. */
+  redo?: ProviderJob | null;
 }
 
 export interface BatchPanel {
@@ -36,6 +38,8 @@ export interface BatchPanel {
   /** An API batch asks once before it spends credits. */
   confirming: boolean;
   error: string | null;
+  /** A redo from the Inbox: each asset starts from its earlier send. */
+  redo?: boolean;
 }
 
 export interface Downloads {
@@ -115,4 +119,13 @@ export interface ProvidersStore {
   addModel: (id: string) => Promise<void>;
   openSite: (service: ProviderId) => Promise<void>;
   revealImage: (id: string, image: string) => Promise<void>;
+  /** Opens the send panel prefilled from the earlier send `job` of `asset`. */
+  openRedo: (project: string, asset: string, job: string) => Promise<void>;
+  /** Opens the batch panel with each asset prefilled from its earlier send. */
+  openBatchRedo: (
+    project: string,
+    redo: readonly { asset: string; job: string }[]
+  ) => Promise<void>;
+  /** One asset's Meshy texture prompt in the batch. */
+  setItemPrompt: (asset: string, prompt: string) => void;
 }

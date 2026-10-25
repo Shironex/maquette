@@ -4,9 +4,11 @@ import { fileUrl } from '@/ipc/files';
 import type { PreviewMode } from '@/features/viewer/ModelPreview';
 import { useNow } from '@/lib/useNow';
 import { acceptTarget, madeBy, sentFor, sortChecks } from '@/state/inbox';
-import { PROVIDER_LABEL } from '@/state/providers';
+import { PROVIDER_LABEL, jobChip } from '@/state/providers';
+import { redoBlocker, redoUnderWay } from '@/state/redo';
 import { useAppStore } from '@/state/use-app-store';
 import { useInboxStore } from '@/state/use-inbox-store';
+import { useProvidersStore } from '@/state/use-providers-store';
 import { MODES } from './constants';
 import { sourceItems } from './sourceItems';
 
@@ -18,6 +20,11 @@ export function useInboxDetail(item: InboxItem) {
   const current = useAppStore(s => s.workspace?.project ?? null);
   const projects = useAppStore(s => s.workspace?.projects) ?? NO_PROJECTS;
   const { busy, reprocess, accept, openInBlender, setKind } = useInboxStore();
+  const openRedo = useProvidersStore(s => s.openRedo);
+  const pending = redoUnderWay(
+    useProvidersStore(s => s.jobs),
+    item
+  );
   const project = acceptTarget(item, projects, current);
   const sentLabel = item.link
     ? sentFor(item, projects, current?.id ?? null, PROVIDER_LABEL[item.link.provider])
@@ -33,7 +40,14 @@ export function useInboxDetail(item: InboxItem) {
     project,
     maker,
     checks: sortChecks(item.checks),
-    source: sourceItems(item, sentLabel, maker),
+    source: sourceItems(
+      item,
+      sentLabel,
+      maker,
+      pending ? `${pending.id}, ${jobChip(pending).label.toLowerCase()}` : null
+    ),
+    redoBlocked: redoBlocker(item),
+    redo: () => item.link && void openRedo(item.link.project, item.link.asset, item.link.job),
     isBusy: busy === item.id,
     acceptTitle,
     reprocess,

@@ -21,7 +21,8 @@ describe('an approval card', () => {
     render(<ApprovalCard approval={approval('approval-2')} />);
     const card = screen.getByRole('alertdialog');
     expect(within(card).getAllByRole('listitem')).toHaveLength(3);
-    expect(card).toHaveTextContent('3 models in total, one model per asset');
+    expect(card).toHaveTextContent('3 models in total, about 90 credits');
+    expect(card).toHaveTextContent('This spends about 90 Tripo credits');
     await userEvent.click(within(card).getByRole('button', { name: 'Approve and send 3' }));
     expect(calls).toContain('mcp_decide');
   });

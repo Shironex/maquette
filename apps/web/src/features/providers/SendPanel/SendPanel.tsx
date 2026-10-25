@@ -19,8 +19,8 @@ export default function SendPanel() {
   return (
     <Sheet
       id="send"
-      icon={handoff ? 'hand-pointing' : 'cube'}
-      title={handoff ? `${name}, by hand` : `Send ${name} to 3D`}
+      icon={handoff ? 'hand-pointing' : panel.redo ? 'arrow-bend-up-right' : 'cube'}
+      title={handoff ? `${name}, by hand` : panel.redo ? `Redo ${name}` : `Send ${name} to 3D`}
       meta={
         handoff
           ? `${handoff.id} · ${SERVICE_LABEL[handoff.service]} settings`

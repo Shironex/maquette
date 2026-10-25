@@ -7,11 +7,13 @@ import { commands, errorMessage } from '@/ipc/client';
 import { PROVIDER_LABEL, SERVICE_LABEL } from './providers';
 import { initialMatches } from './batch';
 import { createBatchSlice } from './create-batch-slice';
-import { draftFrom, foldIn, notify, upsert } from './providers-store-helpers';
+import { createRedoSlice } from './create-redo-slice';
+import { draftFrom, foldIn, notify, sendRequest, upsert } from './providers-store-helpers';
 import type { ProvidersStore } from './providers-store.types';
 
 export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
   ...createBatchSlice(set, get, api),
+  ...createRedoSlice(set, get, api),
   project: null,
   jobs: [],
   keys: [],
@@ -129,16 +131,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
     if (!panel || !draft || get().sending) return;
     set({ sending: true });
     try {
-      const job = await commands.providerSend({
-        project: panel.project,
-        asset: panel.asset,
-        provider: draft.provider,
-        service: draft.service,
-        variant: draft.variant,
-        images: draft.images,
-        tripo: draft.service === 'tripo' ? draft.tripo : null,
-        meshy: draft.service === 'meshy' ? draft.meshy : null,
-      });
+      const job = await commands.providerSend(sendRequest(panel, draft));
       set(s => ({ jobs: foldIn(s, job) }));
       if (job.provider === 'by-hand') {
         set(s => ({ panel: s.panel ? { ...s.panel, handoff: job } : null }));
@@ -147,7 +140,9 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
         notify(
           'done',
           `${job.assetName} is on its way to ${PROVIDER_LABEL[job.provider]}`,
-          'Follow it in the 3D queue. The model lands in the Inbox when it is done.'
+          job.redoOf
+            ? 'Follow it in the 3D queue. The earlier model stays in the Inbox, so you can compare both and accept one.'
+            : 'Follow it in the 3D queue. The model lands in the Inbox when it is done.'
         );
       }
     } catch (error) {

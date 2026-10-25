@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import type { PresetVariant } from '@/ipc/client';
+import { commands, type PresetVariant } from '@/ipc/client';
+import { useAsyncValue } from '@/lib/useAsyncValue';
 import {
   batchBlocker,
   batchLines,
   batchProblem,
+  batchRequest,
   variantsUsed,
   type BatchDraft,
 } from '@/state/batch';
@@ -17,6 +19,7 @@ export function useBatchActions() {
   const setItemVariant = useProvidersStore(s => s.setItemVariant);
   const setPreset = useProvidersStore(s => s.setBatchPreset);
   const setItemPreset = useProvidersStore(s => s.setItemPreset);
+  const setItemPrompt = useProvidersStore(s => s.setItemPrompt);
   const reset = useProvidersStore(s => s.resetBatchPresets);
   const send = useProvidersStore(s => s.sendBatch);
   const sending = useProvidersStore(s => s.sending);
@@ -32,6 +35,7 @@ export function useBatchActions() {
     setItemVariant,
     setPreset,
     setItemPreset,
+    setItemPrompt,
     reset,
     send,
     sending,
@@ -59,4 +63,14 @@ export function useBatchView(draft: BatchDraft) {
   const toggle = (asset: string) =>
     setOpen(now => (now.includes(asset) ? now.filter(a => a !== asset) : [...now, asset]));
   return { catalog, used, shown, setTab, blocker, key, lines, open, toggle };
+}
+
+/** What the whole batch should cost as it stands, from the price lists. */
+export function useBatchEstimate(draft: BatchDraft) {
+  const project = useProvidersStore(s => s.batch?.project ?? null);
+  const request =
+    project && draft.provider !== 'by-hand' && draft.items.length > 0
+      ? batchRequest(project, draft)
+      : null;
+  return useAsyncValue(commands.providerEstimateBatch, request);
 }

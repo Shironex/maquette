@@ -53,6 +53,14 @@ export default function ItemRow({
                 Custom
               </span>
             ) : null}
+            {item.redoOf ? (
+              <span
+                title={`Redo of ${item.redoOf}`}
+                className="flex-none rounded-control border border-line-strong bg-raised px-1.5 text-[11px] font-medium text-fg-dim"
+              >
+                Redo of {item.redoOf}
+              </span>
+            ) : null}
           </div>
           <div className={cn('truncate text-meta', n === 0 ? 'text-amber' : 'text-fg-mute')}>
             {refs}

@@ -3,14 +3,38 @@ import { contentKey } from '@/state/inbox';
 import { InboxDetail } from '../InboxDetail';
 import { InboxEmpty } from '../InboxEmpty';
 import { InboxRow } from '../InboxRow';
+import { RedoBar } from '../RedoBar';
 import { useInboxView } from './InboxView.hooks';
 
 /** The models waiting in the inbox folder, and the one on show with its checks. */
 export default function InboxView() {
-  const { snapshot, items, item, select } = useInboxView();
+  const {
+    snapshot,
+    items,
+    item,
+    select,
+    checked,
+    check,
+    clearChecked,
+    menuFor,
+    toggleMenu,
+    closeMenu,
+    redoBlocker,
+    redoChecked,
+  } = useInboxView();
   const rows = items.map(i => (
     <li key={i.id}>
-      <InboxRow item={i} selected={i.id === item?.id} onSelect={() => select(i.id)} />
+      <InboxRow
+        item={i}
+        selected={i.id === item?.id}
+        onSelect={() => select(i.id)}
+        checked={checked.includes(i.id)}
+        selecting={checked.length > 0}
+        onCheck={on => check(i.id, on)}
+        menuOpen={menuFor === i.id}
+        onMenu={() => toggleMenu(i.id)}
+        onCloseMenu={closeMenu}
+      />
     </li>
   ));
 
@@ -30,9 +54,17 @@ export default function InboxView() {
                 : `${items.length} ${items.length === 1 ? 'model' : 'models'} waiting`}
             </p>
           </div>
-          <ul className="flex min-h-0 flex-1 list-none flex-col gap-1 overflow-y-auto px-2">
+          <ul className="flex min-h-0 flex-1 list-none flex-col gap-1 overflow-y-auto px-2 pb-2">
             {rows}
           </ul>
+          {checked.length > 0 ? (
+            <RedoBar
+              count={checked.length}
+              blocker={redoBlocker}
+              onRedo={redoChecked}
+              onClear={clearChecked}
+            />
+          ) : null}
           <div className="flex items-center gap-2 border-t border-line px-4 py-3">
             <span
               className={cn('size-2 rounded-full', snapshot?.watching ? 'bg-sage' : 'bg-fg-mute')}

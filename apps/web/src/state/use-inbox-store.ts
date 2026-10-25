@@ -16,11 +16,15 @@ import { isStale, keepRenders, needsSnapshot, withThumbnail } from './thumbs';
 interface InboxStore {
   snapshot: InboxSnapshot | null;
   selected: string | null;
+  /** Models ticked for a batch redo, in list order. */
+  checked: string[];
   loading: boolean;
   /** The item an action is running for. */
   busy: string | null;
   load: () => Promise<void>;
   select: (id: string) => void;
+  check: (id: string, on: boolean) => void;
+  clearChecked: () => void;
   reprocess: (id: string) => Promise<void>;
   setKind: (id: string, kind: AssetKind) => Promise<void>;
   accept: (id: string, project: string) => Promise<boolean>;
@@ -50,6 +54,7 @@ const fail = (title: string, error: unknown) =>
 export const useInboxStore = create<InboxStore>((set, get) => ({
   snapshot: null,
   selected: null,
+  checked: [],
   loading: false,
   busy: null,
 
@@ -69,6 +74,7 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
         snapshot,
         loading: false,
         selected: keep ? selected : (firstToReview(snapshot.items)?.id ?? null),
+        checked: get().checked.filter(id => snapshot.items.some(i => i.id === id)),
       });
       void get().snapshotMissing();
     } catch (error) {
@@ -79,6 +85,16 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
   },
 
   select: id => set({ selected: id }),
+
+  check: (id, on) => {
+    const order = get().snapshot?.items.map(i => i.id) ?? [];
+    const next = new Set(get().checked);
+    if (on) next.add(id);
+    else next.delete(id);
+    set({ checked: order.filter(i => next.has(i)) });
+  },
+
+  clearChecked: () => set({ checked: [] }),
 
   reprocess: async id => {
     set({ busy: id });

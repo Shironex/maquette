@@ -218,6 +218,24 @@ export interface SendDraft {
   images: string[];
   tripo: TripoPreset;
   meshy: MeshyPreset;
+  /** Meshy only: text that guides the texture. */
+  prompt?: string;
+}
+
+/** Meshy refuses a texture prompt longer than this. */
+export const MAX_PROMPT = 800;
+
+/** Why the texture prompt cannot go, or null. */
+export function promptProblem(service: ProviderId, prompt: string | undefined): string | null {
+  if (service !== 'meshy' || (prompt?.trim().length ?? 0) <= MAX_PROMPT) return null;
+  return `Keep the texture prompt to ${MAX_PROMPT} characters; Meshy refuses longer ones.`;
+}
+
+/** The prompt a request carries: Meshy only, trimmed, null when blank. */
+export function promptFor(service: ProviderId, prompt: string | undefined): string | null {
+  if (service !== 'meshy') return null;
+  const text = prompt?.trim();
+  return text ? text : null;
 }
 
 /** Turns an image on or off, keeping the order and at most 4. */

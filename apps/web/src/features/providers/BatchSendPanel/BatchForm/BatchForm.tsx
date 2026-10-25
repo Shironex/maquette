@@ -8,24 +8,30 @@ import {
   type BatchDraft,
 } from '@/state/batch';
 import { PROVIDER_LABEL, SERVICE_LABEL } from '@/state/providers';
+import { formatCredits } from '@/state/credits';
+import { CostEstimate } from '../../CostEstimate';
 import { MeshyPresetFields, TripoPresetFields } from '../../PresetFields';
+import { PromptField } from '../../PromptField';
 import { SectionTitle } from '../../SectionTitle';
 import { PROVIDERS, SERVICES } from '../../choices';
-import { useBatchActions, useBatchView } from './BatchForm.hooks';
+import { useBatchActions, useBatchEstimate, useBatchView } from './BatchForm.hooks';
 import { ItemRow } from './ItemRow';
 import { VARIANT_LABEL } from './variantLabel';
 
 export interface BatchFormProps {
   projectDir: string;
   draft: BatchDraft;
+  /** A redo from the Inbox: each asset starts from its earlier send. */
+  redo?: boolean;
 }
 
-export default function BatchForm({ projectDir, draft }: BatchFormProps) {
+export default function BatchForm({ projectDir, draft, redo = false }: BatchFormProps) {
   const {
     setBatch,
     setItemVariant,
     setPreset,
     setItemPreset,
+    setItemPrompt,
     reset,
     send,
     sending,
@@ -33,6 +39,7 @@ export default function BatchForm({ projectDir, draft }: BatchFormProps) {
     close,
     openSettings,
   } = useBatchActions();
+  const estimate = useBatchEstimate(draft);
   const { catalog, used, shown, setTab, blocker, key, lines, open, toggle } = useBatchView(draft);
   const service = draft.service;
   const api = draft.provider !== 'by-hand';
@@ -58,12 +65,20 @@ export default function BatchForm({ projectDir, draft }: BatchFormProps) {
             onChange={tripo => setItemPreset(item.asset, { tripo })}
           />
         ) : (
-          <MeshyPresetFields
-            compact
-            preset={itemMeshy(draft, item)}
-            variant={item.variant}
-            onChange={meshy => setItemPreset(item.asset, { meshy })}
-          />
+          <>
+            <MeshyPresetFields
+              compact
+              preset={itemMeshy(draft, item)}
+              variant={item.variant}
+              onChange={meshy => setItemPreset(item.asset, { meshy })}
+            />
+            <PromptField
+              name={item.name}
+              rows={2}
+              value={item.prompt ?? ''}
+              onChange={prompt => setItemPrompt(item.asset, prompt)}
+            />
+          </>
         )
       }
     />
@@ -72,6 +87,12 @@ export default function BatchForm({ projectDir, draft }: BatchFormProps) {
   return (
     <>
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
+        {redo ? (
+          <InlineBanner
+            title={`Redo of ${n} ${n === 1 ? 'model' : 'models'} from the Inbox`}
+            detail="Each asset starts from the send it came from: its images, kind and settings. Each goes out as its asset's next version; the earlier models stay in the Inbox to compare."
+          />
+        ) : null}
         <section className="flex flex-col gap-2.5">
           <SectionTitle>Where</SectionTitle>
           <SegmentedControl
@@ -206,6 +227,7 @@ export default function BatchForm({ projectDir, draft }: BatchFormProps) {
               </div>
               <p className="text-meta text-fg-dim">
                 {n} {n === 1 ? 'task' : 'tasks'} with {lines.join('; ')}.
+                {estimate !== null ? ` About ${formatCredits(estimate)} credits in all.` : ''}
                 {draft.provider === 'tripo'
                   ? ' Tripo cannot cancel a task once it is sent.'
                   : ' You can cancel each one while Meshy has not started it.'}
@@ -220,7 +242,8 @@ export default function BatchForm({ projectDir, draft }: BatchFormProps) {
             {blocker ?? lines.join(' · ')}
           </p>
         )}
-        <div className="flex justify-end gap-2">
+        <div className="flex items-center justify-end gap-2">
+          <CostEstimate credits={estimate} className="mr-auto" />
           <Button variant="secondary" onClick={close}>
             Cancel
           </Button>

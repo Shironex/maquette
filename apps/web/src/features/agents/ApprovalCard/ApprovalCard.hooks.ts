@@ -1,5 +1,6 @@
 import type { Approval } from '@/ipc/client';
 import { useNow } from '@/lib/useNow';
+import { formatCredits } from '@/state/credits';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 
@@ -10,5 +11,10 @@ export function useApprovalCard(approval: Approval) {
   const projects = useAppStore(s => s.workspace?.projects);
   const site = projects?.find(p => p.id === approval.project);
   const now = useNow(15_000);
-  return { decide, deciding, site, now };
+  const estimate = approval.estimate;
+  const cost =
+    estimate === null || estimate === undefined
+      ? `${approval.service} credits`
+      : `about ${formatCredits(estimate)} ${approval.service} credits`;
+  return { decide, deciding, site, now, cost };
 }

@@ -1,7 +1,7 @@
-import type { ProviderJob, SendOptions } from '@/ipc/client';
+import type { ProviderJob, SendOptions, SendRequest } from '@/ipc/client';
 import { useAppStore } from './use-app-store';
-import type { SendDraft } from './providers';
-import type { ProvidersStore } from './providers-store.types';
+import { promptFor, type SendDraft } from './providers';
+import type { Panel, ProvidersStore } from './providers-store.types';
 
 export const notify = (status: 'done' | 'failed' | 'info', title: string, detail?: string) =>
   useAppStore.getState().notify({ status, title, detail });
@@ -47,4 +47,23 @@ export function savedPresets() {
   const providers = useAppStore.getState().workspace?.config.providers;
   if (!providers) throw new Error('Open a workspace first.');
   return { tripo: providers.tripo, meshy: providers.meshy };
+}
+
+/** The request the panel sends: only the service's own settings, and a redo's earlier send. */
+export function sendRequest(
+  panel: Pick<Panel, 'project' | 'asset' | 'redo'>,
+  draft: SendDraft
+): SendRequest {
+  return {
+    project: panel.project,
+    asset: panel.asset,
+    provider: draft.provider,
+    service: draft.service,
+    variant: draft.variant,
+    images: draft.images,
+    tripo: draft.service === 'tripo' ? draft.tripo : null,
+    meshy: draft.service === 'meshy' ? draft.meshy : null,
+    prompt: promptFor(draft.service, draft.prompt),
+    redoOf: panel.redo?.id ?? null,
+  };
 }

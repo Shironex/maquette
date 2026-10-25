@@ -140,7 +140,10 @@ export const createBatchSlice: StateCreator<ProvidersStore, [], [], BatchSlice> 
         notify(
           sent.failed.length ? 'failed' : 'done',
           `${n} ${n === 1 ? 'asset is' : 'assets are'} on the way to ${PROVIDER_LABEL[draft.provider]}`,
-          failed || 'Follow them in the 3D queue. Each model lands in the Inbox.'
+          failed ||
+            (batch.redo
+              ? 'Follow them in the 3D queue. The earlier models stay in the Inbox to compare.'
+              : 'Follow them in the 3D queue. Each model lands in the Inbox.')
         );
       }
     } catch (error) {

@@ -27,4 +27,41 @@ describe('InboxRow', () => {
     await userEvent.click(row);
     expect(onSelect).toHaveBeenCalledOnce();
   });
+
+  it('ticks the model for a batch redo and opens its menu', async () => {
+    const item = useInboxStore.getState().snapshot!.items.find(i => i.id === 'character.glb')!;
+    const onCheck = vi.fn();
+    const onMenu = vi.fn();
+    const { rerender } = render(
+      <InboxRow
+        item={item}
+        selected={false}
+        onSelect={() => {}}
+        onCheck={onCheck}
+        onMenu={onMenu}
+        onCloseMenu={() => {}}
+      />
+    );
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Character' }));
+    expect(onCheck).toHaveBeenCalledWith(true);
+    await userEvent.click(screen.getByRole('button', { name: 'More for Character' }));
+    expect(onMenu).toHaveBeenCalledOnce();
+    rerender(
+      <InboxRow
+        item={item}
+        selected={false}
+        onSelect={() => {}}
+        checked
+        onCheck={onCheck}
+        menuOpen
+        onMenu={onMenu}
+        onCloseMenu={() => {}}
+      />
+    );
+    expect(screen.getByRole('checkbox', { name: 'Select Character' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    expect(screen.getByRole('menu', { name: 'Character actions' })).toBeInTheDocument();
+  });
 });

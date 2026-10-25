@@ -1,4 +1,5 @@
-import type { SendOptions } from '@/ipc/client';
+import { commands, type SendOptions } from '@/ipc/client';
+import { useAsyncValue } from '@/lib/useAsyncValue';
 import {
   isSmartTopology,
   meshyProblem,
@@ -6,7 +7,15 @@ import {
   tripoProblem,
   tripoSummary,
 } from '@/state/provider-presets';
-import { PROVIDER_LABEL, sendBlocker, sortJobs, type SendDraft } from '@/state/providers';
+import {
+  PROVIDER_LABEL,
+  promptProblem,
+  sendBlocker,
+  sortJobs,
+  type SendDraft,
+} from '@/state/providers';
+import { sendRequest } from '@/state/providers-store-helpers';
+import { redoLine } from '@/state/redo';
 import { useAppStore } from '@/state/use-app-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useCatalog } from '../../PresetFields';
@@ -27,7 +36,12 @@ export function useSendForm(options: SendOptions, draft: SendDraft) {
     service === 'tripo'
       ? tripoProblem(draft.tripo, catalog.tripoModels)
       : meshyProblem(draft.meshy, catalog.meshyModels);
-  const blocker = sendBlocker(draft.provider, keys, draft.images, problem);
+  const blocker = sendBlocker(
+    draft.provider,
+    keys,
+    draft.images,
+    problem ?? promptProblem(service, draft.prompt)
+  );
   const multiView = service === 'tripo' ? draft.tripo.multiView : draft.meshy.multiView;
   const smart = service === 'meshy' && isSmartTopology(draft.meshy.aiModel);
   const summary =
@@ -36,10 +50,11 @@ export function useSendForm(options: SendOptions, draft: SendDraft) {
       : meshySummary(draft.meshy, catalog.meshyModels);
   const key = keys.find(k => k.service === draft.provider);
   const earlier = sortJobs(allJobs.filter(j => j.asset === options.asset.id)).slice(0, 4);
+  const redo = useProvidersStore(s => s.panel?.redo ?? null);
   const label =
     draft.provider === 'by-hand'
       ? 'Write the handoff folder'
-      : `Send to ${PROVIDER_LABEL[draft.provider]}`;
+      : `${redo ? 'Redo with' : 'Send to'} ${PROVIDER_LABEL[draft.provider]}`;
   const openSettings = () => {
     close();
     setView('settings');
@@ -58,5 +73,16 @@ export function useSendForm(options: SendOptions, draft: SendDraft) {
     key,
     earlier,
     label,
+    redo: redo ? { line: redoLine(redo), name: redo.assetName } : null,
   };
+}
+
+/** What the send should cost with the draft as it stands, from the price lists. */
+export function useSendEstimate(options: SendOptions, draft: SendDraft) {
+  const redo = useProvidersStore(s => s.panel?.redo ?? null);
+  const request =
+    draft.provider === 'by-hand'
+      ? null
+      : sendRequest({ project: options.project, asset: options.asset.id, redo }, draft);
+  return useAsyncValue(commands.providerEstimate, request);
 }

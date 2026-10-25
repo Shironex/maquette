@@ -23,7 +23,7 @@ import {
   tripoProblem,
   tripoSummary,
 } from './provider-presets';
-import { PROVIDER_LABEL, SERVICE_LABEL } from './providers';
+import { PROVIDER_LABEL, SERVICE_LABEL, promptFor, promptProblem } from './providers';
 
 /** The most assets one batch takes; the core says the same. */
 export const MAX_BATCH = 24;
@@ -66,6 +66,10 @@ export interface BatchItemDraft {
    */
   tripo: Partial<TripoPreset>;
   meshy: Partial<MeshyPreset>;
+  /** Meshy only: text that guides this asset's texture. */
+  prompt?: string;
+  /** A redo from the Inbox: the earlier send of this asset. */
+  redoOf?: string;
 }
 
 export interface BatchDraft {
@@ -189,6 +193,8 @@ export function batchProblem(draft: BatchDraft, catalog: Catalog): string | null
       ? tripoProblem(itemTripo(draft, item), catalog.tripoModels)
       : meshyProblem(itemMeshy(draft, item), catalog.meshyModels);
     if (problem) return custom ? `${item.name}: ${problem}` : problem;
+    const prompt = promptProblem(draft.service, item.prompt);
+    if (prompt) return `${item.name}: ${prompt}`;
   }
   return null;
 }
@@ -232,6 +238,8 @@ export function batchRequest(project: string, draft: BatchDraft): BatchRequest {
         images: i.images,
         tripo: own && tripo ? itemTripo(draft, i) : null,
         meshy: own && !tripo ? itemMeshy(draft, i) : null,
+        prompt: promptFor(draft.service, i.prompt),
+        redoOf: i.redoOf ?? null,
       };
     }),
     tripoProp: pick(tripo, 'prop', draft.tripo.prop),

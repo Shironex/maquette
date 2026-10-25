@@ -6,7 +6,9 @@ import { formatBytes } from '@/lib/format';
 export function sourceItems(
   item: InboxItem,
   sentLabel: string | null,
-  maker: string | null
+  maker: string | null,
+  /** A redo of this model still on its way. */
+  redoing: string | null = null
 ): KeyValueItem[] {
   const report = item.report;
   return [
@@ -16,6 +18,8 @@ export function sourceItems(
     },
     { label: 'Size', value: formatBytes(item.bytes ?? 0), mono: true },
     ...(sentLabel ? [{ label: 'Sent for', value: sentLabel }] : []),
+    ...(item.link?.redoOf ? [{ label: 'Redo of', value: item.link.redoOf, mono: true }] : []),
+    ...(redoing ? [{ label: 'Redo', value: redoing }] : []),
     ...(report
       ? [
           {

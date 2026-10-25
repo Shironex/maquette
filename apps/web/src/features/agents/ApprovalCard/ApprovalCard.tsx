@@ -2,6 +2,7 @@ import { Button, Icon, cn } from '@maquette/ui';
 import type { Approval } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { approvalTitle } from '@/state/agents';
+import { formatCredits } from '@/state/credits';
 import { useApprovalCard } from './ApprovalCard.hooks';
 
 export interface ApprovalCardProps {
@@ -10,7 +11,7 @@ export interface ApprovalCardProps {
 }
 
 export default function ApprovalCard({ approval, floating }: ApprovalCardProps) {
-  const { decide, deciding, site, now } = useApprovalCard(approval);
+  const { decide, deciding, site, now, cost } = useApprovalCard(approval);
   const titleId = `${approval.id}-title`;
   const send = approval.kind === 'send-to-3d';
   const items = approval.items.map(item => (
@@ -19,9 +20,12 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
       className="flex items-baseline gap-2 border-t border-line px-2.5 py-1 first:border-t-0"
     >
       <span className="flex-none font-medium text-fg">{item.assetName}</span>
-      <span className="min-w-0 truncate text-fg-mute" title={item.detail}>
+      <span className="min-w-0 flex-1 truncate text-fg-mute" title={item.detail}>
         {item.detail}
       </span>
+      {item.estimate !== null && item.estimate !== undefined ? (
+        <span className="flex-none text-fg-dim tabular-nums">{formatCredits(item.estimate)}</span>
+      ) : null}
     </li>
   ));
   return (
@@ -43,8 +47,7 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
           </h2>
           {send ? (
             <p className="mt-0.5 text-meta text-fg-mute">
-              An agent asked over MCP. This spends {approval.service} credits; nothing is sent until
-              you approve.
+              An agent asked over MCP. This spends {cost}; nothing is sent until you approve.
             </p>
           ) : (
             <p className="mt-0.5 text-meta text-fg-mute">
