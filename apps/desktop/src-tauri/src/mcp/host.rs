@@ -5,11 +5,12 @@ use maquette_core::ProjectManifest;
 use maquette_core::concepts::Concepts;
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::pipeline::tools::Toolbox;
-use maquette_core::providers::ProviderJobs;
+use maquette_core::providers::{Arrivals, ProviderJobs};
 use maquette_core::thumbs::Thumbnails;
 use tauri::{AppHandle, Manager as _};
 use tauri_specta::Event as _;
 
+use crate::commands::downloads::Watch;
 use crate::commands::lab::Lab;
 use crate::commands::pipeline::Pipelines;
 use crate::commands::providers::Studio;
@@ -28,6 +29,10 @@ pub trait Host: Send + Sync + 'static {
     fn studio(&self) -> &ProviderJobs;
     /// The tools a job runs with. May probe them, so it blocks.
     fn toolbox(&self) -> Toolbox;
+    /// The By hand Downloads watcher, when the app runs one.
+    fn arrivals(&self) -> Option<&Arrivals> {
+        None
+    }
     /// Tells the windows that a tool changed a project, so the Board updates.
     fn project_changed(&self, _project: &ProjectManifest) {}
     /// Tells the windows that a tool changed a project's pipeline file, so
@@ -70,6 +75,10 @@ impl Host for AppHost {
 
     fn toolbox(&self) -> Toolbox {
         crate::commands::toolchain::toolbox_blocking(self.session())
+    }
+
+    fn arrivals(&self) -> Option<&Arrivals> {
+        self.0.try_state::<Watch>().map(|w| &w.inner().0)
     }
 
     fn project_changed(&self, project: &ProjectManifest) {

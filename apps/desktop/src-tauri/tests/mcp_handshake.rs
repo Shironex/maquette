@@ -332,6 +332,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "get_run",
             "list_assets",
             "list_fixups",
+            "list_handoffs",
             "list_inbox",
             "list_projects",
             "make_object_refs",
@@ -1374,11 +1375,31 @@ async fn agents_redo_inbox_models_and_read_the_credits() {
         "kept to compare"
     );
 
-    // Nothing was paid for, so the ledger is empty; Tripo cannot be reached
-    // here and Meshy has no key.
+    // Nothing was paid for through an API: the ledger holds only the By
+    // hand sends, as subscription spend. Tripo cannot be reached here and
+    // Meshy has no key.
     let credits = call(&client, "get_credits", json!({})).await;
-    assert_eq!(credits["spends"], json!([]));
-    assert_eq!(credits["totals"].as_array().map(Vec::len), Some(3));
+    let spends = credits["spends"].as_array().expect("spends");
+    assert!(!spends.is_empty(), "{credits}");
+    assert!(
+        spends.iter().all(|s| s["source"] == json!("subscription")),
+        "{credits}"
+    );
+    assert_eq!(credits["totals"].as_array().map(Vec::len), Some(6));
+    assert_eq!(credits["totals"][2]["total"], json!(0.0), "no API spend");
+
+    // The waiting hand-offs, with the name each waits for. This host runs
+    // no Downloads watcher.
+    let handoffs = call(&client, "list_handoffs", json!({})).await;
+    let pending = handoffs["pending"].as_array().expect("pending");
+    assert!(!pending.is_empty(), "{handoffs}");
+    assert!(
+        pending.iter().all(|h| h["expectedName"]
+            .as_str()
+            .is_some_and(|n| n.starts_with("maq_"))),
+        "{handoffs}"
+    );
+    assert_eq!(handoffs["watcher"], Value::Null);
     assert_eq!(credits["balances"][0]["service"], json!("tripo"));
     assert!(credits["balances"][0]["error"].is_string(), "{credits}");
     assert_eq!(credits["balances"][1]["key"], json!(false));

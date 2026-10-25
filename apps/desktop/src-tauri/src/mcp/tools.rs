@@ -10,6 +10,7 @@
 
 pub mod concepts;
 pub mod credits;
+pub mod handoffs;
 pub mod inbox;
 pub mod materials;
 pub mod prepare;
@@ -49,7 +50,10 @@ Tripo or Meshy (it always waits for a person to approve the credits in the app; 
 with get_provider_job) or writes a by hand handoff folder; send_batch_to_3d sends several \
 assets at once under one approval. redo_inbox_model sends an inbox model's asset again \
 prefilled from its send (redo_inbox_models for several), under the same approval. get_credits \
-reads the provider balances and the local ledger of paid sends. make_object_refs turns the objects of one concept into \
+reads the provider balances and the local ledger of paid sends (API spend and By hand \
+subscription spend apart). list_handoffs lists the By hand sends waiting for a model made on \
+the provider's site, the export file name each waits for and what the Downloads watcher \
+matched; it reads only. make_object_refs turns the objects of one concept into \
 one isolated image each. get_concepts reads the Lab. \
 set_compression_presets changes the per model texture size, data map size, codec and \
 meshopt level that get_pipeline shows (it spends nothing; locked rows refuse). \
@@ -141,7 +145,8 @@ impl McpTools {
                 + Self::materials_router()
                 + Self::prepare_router()
                 + Self::redo_router()
-                + Self::credits_router(),
+                + Self::credits_router()
+                + Self::handoffs_router(),
         }
     }
 
