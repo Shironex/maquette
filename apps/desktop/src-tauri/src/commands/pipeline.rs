@@ -78,6 +78,9 @@ pub struct PipelineView {
     pub starters: Vec<StarterStatus>,
     /// What the first camera stop loads, against its budget.
     pub first_view: FirstView,
+    /// The Bake light step's size, samples and denoiser, when the pipeline
+    /// runs the starter bake.
+    pub bake: Option<pipeline::bake::BakeView>,
 }
 
 fn defaults(config: &WorkspaceConfig) -> CompressDefaults {
@@ -212,7 +215,9 @@ pub(crate) fn view(
         ctx.config.budgets.first_view_mb,
         Some(&previews),
     );
+    let bake = pipeline::bake::view(&ctx.project_dir, ctx.manifest.template, &ctx.def);
     Ok(PipelineView {
+        bake,
         starters,
         first_view,
         project: ctx.manifest.id.clone(),
@@ -384,6 +389,9 @@ pub fn pipeline_update_starters(
 ) -> CommandResult<PipelineView> {
     update_starters(&session, &runner.0, &project, &scripts, replace)
 }
+
+pub(crate) mod bake;
+pub(crate) use bake::save_bake;
 
 #[cfg(test)]
 mod tests;

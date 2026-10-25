@@ -74,6 +74,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             pipeline::pipeline_cancel,
             pipeline::pipeline_log,
             pipeline::pipeline_save_presets,
+            pipeline::bake::pipeline_save_bake,
             pipeline::pipeline_update_starters,
             site::site_preview,
             inbox::inbox_list,

@@ -8,6 +8,7 @@
 //! ship wait for a person when "Ask before shipping" is on, and a send to
 //! Tripo or Meshy always waits for a person before it spends credits.
 
+pub mod bake;
 pub mod built;
 pub mod concepts;
 pub mod credits;
@@ -72,6 +73,10 @@ sets the size its model is scaled to (height, width, depth or longest, cm or m);
 remove_fixups change its fix-ups (decimate, shrink textures, merge, apply transforms, remove loose \
 parts, origin to bottom centre), which the Build scene step applies headless on a copy of every \
 version; list_fixups lists them and preview_fixups shows their numbers before and after. \
+get_bake_settings reads the Bake light step's lightmap size, samples and denoiser and the \
+assets that skip the bake; set_bake_settings changes them and set_skip_bake sets assets to skip \
+the bake (they keep their own material lighting and ship no lightmap; models accepted from the \
+Inbox skip it by default). \
 get_layout reads where each model stands in the scene, the camera stops and the first view \
 budget; set_layout changes them (metres, y up, degrees) and the app updates live; the next \
 run_pipeline rebuilds the scene and its posters from it. copy_asset copies an asset with its refs and \
@@ -159,7 +164,8 @@ impl McpTools {
                 + Self::redo_router()
                 + Self::credits_router()
                 + Self::handoffs_router()
-                + Self::built_router(),
+                + Self::built_router()
+                + Self::bake_router(),
         }
     }
 

@@ -177,6 +177,7 @@ fn summary(found: &AssetPrep) -> Value {
         "sizeText": entry.size.map(|s| s.describe()),
         "fixups": to_short_value(&entry.fixups),
         "fixupText": entry.fixups.iter().map(Fixup::describe).collect::<Vec<_>>(),
+        "skipBake": entry.skips_bake(),
         "version": found.version,
         "measured": to_short_value(found.measured),
         "afterFixups": to_short_value(found.fixed),
@@ -209,7 +210,7 @@ fn change(host: &dyn Host, project_id: &str, wanted: &str, patch: &PrepPatch) ->
 #[tool_router(router = prepare_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Get an asset's real size and fix-ups: the size its model is scaled to (axis height, width, depth or longest; value; unit cm or m), the fix-ups applied to it before the scene is built, what its newest model measures in metres before and after them, the real size scale, a size suggested from its name and kind (never applied on its own), the defaults new fix-ups start from and the last preview's numbers.",
+        description = "Get an asset's real size and fix-ups: the size its model is scaled to (axis height, width, depth or longest; value; unit cm or m), the fix-ups applied to it before the scene is built, whether it skips the bake (skipBake, set with set_skip_bake), what its newest model measures in metres before and after them, the real size scale, a size suggested from its name and kind (never applied on its own), the defaults new fix-ups start from and the last preview's numbers.",
         annotations(read_only_hint = true)
     )]
     async fn get_real_size(&self, Parameters(args): Parameters<PrepArgs>) -> Out {
@@ -297,7 +298,7 @@ impl McpTools {
             .blocking(move |host, _| {
                 let id = asset_id(host, &args.project, &args.asset)?;
                 let found = view(host, &args.project, &id)?;
-                if found.entry.is_empty() {
+                if found.entry.size.is_none() && found.entry.fixups.is_empty() {
                     return Err(format!(
                         "{} has no real size or fix-ups to preview. Add some first.",
                         found.name
