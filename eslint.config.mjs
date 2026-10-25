@@ -30,51 +30,6 @@ const SHARED_FEATURES = ['common', 'config', 'viewer'];
 // the leaf features decoupled.
 const COMPOSITION_ROOTS = ['shell', 'onboarding', 'settings'];
 
-// Adoption ledger. Areas listed here are held to the full rule set; the rest
-// keep the rules in DEFERRED_RULES off until they are migrated. One entry per
-// migration commit; this list, DEFERRED_RULES and the block that uses them are
-// deleted once every area is in.
-const MIGRATED = [
-  'apps/web/src/state/**',
-  'apps/web/src/ipc/**',
-  'apps/web/src/lib/**',
-  'apps/web/src/test/**',
-  'apps/web/src/features/board/**',
-  'packages/ui/**',
-  'apps/web/src/features/inbox/**',
-  'apps/web/src/features/config/**',
-  'apps/web/src/features/agents/**',
-  'apps/web/src/features/providers/**',
-  'apps/web/src/features/common/**',
-  'apps/web/src/features/shell/**',
-  'apps/web/src/features/settings/**',
-  'apps/web/src/features/onboarding/**',
-  'apps/web/src/*.tsx',
-  'apps/web/src/features/tools/**',
-  'apps/web/src/features/toolchain/**',
-  'apps/web/src/features/project/**',
-  'apps/web/src/features/pipeline/**',
-  'apps/web/src/features/lab/**',
-  'apps/web/src/features/viewer/**',
-  'apps/web/src/features/inspector/**',
-];
-
-// Preset rules the unmigrated areas do not pass yet, with the count measured
-// when the presets went in (2026-10-25).
-const DEFERRED_RULES = {
-  'noctcore-react/no-state-in-component-body': 'off', // 446
-  'noctcore-react/no-jsx-computation': 'off', // 84
-  'noctcore-architecture/no-cross-feature-imports': 'off', // 63
-  'noctcore-code-quality/no-bare-date-now': 'off', // 57
-  'noctcore-code-quality/prefer-early-return': 'off', // 18
-  'noctcore-architecture/filename-matches-export': 'off', // 8
-  'noctcore-contracts/restrict-throw-to-taxonomy': 'off', // 6
-  'noctcore-react/max-props-per-component': 'off', // 5
-  'noctcore-react/component-props-naming': 'off', // 4
-  'noctcore-react/no-prop-drilling': 'off', // 1
-  'noctcore-code-quality/no-vacuous-expect': 'off', // 1
-};
-
 export default defineConfig(
   eslint.configs.recommended,
   tseslint.configs.recommended,
@@ -133,6 +88,29 @@ export default defineConfig(
     },
   },
 
+  {
+    // The site's workbench lights take three.js props as well.
+    files: ['apps/site/src/scene/**/*.tsx'],
+    rules: {
+      'react/no-unknown-property': [
+        'error',
+        {
+          ignore: [
+            'object',
+            'attach',
+            'args',
+            'position',
+            'intensity',
+            'castShadow',
+            'distance',
+            'decay',
+            'angle',
+            'penumbra',
+          ],
+        },
+      ],
+    },
+  },
   // The house presets, every rule at error. Each is spread whole so a new
   // preset rule arrives with the version bump instead of being missed.
   { ...codeQuality.configs.recommended, ...typescript },
@@ -179,14 +157,6 @@ export default defineConfig(
     },
   },
   {
-    // A component's `<Name>.hooks.ts` and `<Name>.types.ts` are named after the
-    // component, not after the one hook or type they may export.
-    files: ['apps/web/src/features/**/*.{hooks,types}.ts'],
-    rules: {
-      'noctcore-architecture/filename-matches-export': 'off',
-    },
-  },
-  {
     // The UI kit groups primitives by kind (shell, status, inputs); a group is
     // a shelf, not a feature, and primitives are built from each other.
     files: ['packages/ui/**/*.{ts,tsx}'],
@@ -204,34 +174,6 @@ export default defineConfig(
       'apps/web/src/state/quit.test.ts',
     ],
     rules: { 'noctcore-contracts/restrict-throw-to-taxonomy': 'off' },
-  },
-  {
-    files: APP_TS,
-    ignores: MIGRATED,
-    rules: DEFERRED_RULES,
-  },
-  {
-    // The site's workbench lights take three.js props as well.
-    files: ['apps/site/src/scene/**/*.tsx'],
-    rules: {
-      'react/no-unknown-property': [
-        'error',
-        {
-          ignore: [
-            'object',
-            'attach',
-            'args',
-            'position',
-            'intensity',
-            'castShadow',
-            'distance',
-            'decay',
-            'angle',
-            'penumbra',
-          ],
-        },
-      ],
-    },
   },
   {
     ignores: [
