@@ -5,6 +5,7 @@ import { AgentsPanel } from '@/features/agents/AgentsPanel';
 import { BudgetFields } from '@/features/config/BudgetFields';
 import { CompressionFields } from '@/features/config/CompressionFields';
 import { CreditsButton } from '@/features/providers/CreditsButton';
+import { DownloadsWatchFields } from '@/features/providers/DownloadsWatchFields';
 import { KeyFields } from '@/features/providers/KeyFields';
 import { ProviderPresetFields } from '@/features/providers/PresetFields';
 import { RecheckButton, ToolList } from '@/features/toolchain/ToolList';
@@ -89,13 +90,15 @@ export default function SettingsScreen() {
               <Panel
                 id="settings-providers"
                 title="3D providers"
-                help="API keys, and the presets a Send to 3D starts from"
+                help="API keys, the presets a Send to 3D starts from, and the Downloads watch for By hand"
                 actions={<CreditsButton />}
                 className={cn('gap-3 px-4 py-3.5', active === 'providers' && ACTIVE)}
               >
                 <KeyFields />
                 <div className="h-px bg-line" />
                 <ProviderPresetFields {...props} />
+                <div className="h-px bg-line" />
+                <DownloadsWatchFields />
               </Panel>
               <Panel
                 id="settings-budgets"
