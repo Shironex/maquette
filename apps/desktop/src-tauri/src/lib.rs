@@ -40,7 +40,11 @@ pub fn run() {
             app.manage(commands::thumbs::Thumbs::new(app.handle().clone()));
             app.manage(commands::site::Preview::default());
             app.manage(commands::lab::Lab::new(app.handle().clone()));
-            app.manage(commands::providers::Studio::new(app.handle().clone()));
+            let studio = commands::providers::Studio::new(app.handle().clone());
+            let watch = commands::downloads::Watch::new(app.handle().clone(), studio.0.clone());
+            app.manage(studio);
+            app.manage(watch);
+            commands::downloads::apply(app.handle());
             let host = Arc::new(mcp::host::AppHost(app.handle().clone()));
             app.manage(mcp::Agents::new(host, hub));
             Ok(())
@@ -54,6 +58,9 @@ pub fn run() {
                 }
                 if let Some(preview) = handle.try_state::<commands::site::Preview>() {
                     preview.0.stop();
+                }
+                if let Some(watch) = handle.try_state::<commands::downloads::Watch>() {
+                    watch.0.stop();
                 }
                 // Running sends stop polling; they resume on the next start.
                 if let Some(studio) = handle.try_state::<commands::providers::Studio>() {

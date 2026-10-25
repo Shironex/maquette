@@ -92,6 +92,11 @@ pub struct PrepareChanged {
     pub project: String,
 }
 
+/// The Downloads watcher took a look at a new model file: copied it into
+/// the inbox, or asks which asset it is.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+pub struct DownloadsArrival(pub maquette_core::providers::Arrival);
+
 /// The MCP server started or stopped, took a call, or a run started by an
 /// agent waits for a shipping approval.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

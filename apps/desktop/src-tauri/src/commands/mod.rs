@@ -7,6 +7,7 @@ pub mod assets;
 mod blender;
 pub mod credits;
 pub mod dialogs;
+pub mod downloads;
 pub mod inbox;
 pub mod inspect;
 pub mod lab;

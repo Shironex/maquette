@@ -167,7 +167,7 @@ export const commands = {
 	providerOpenHandoff: (id: string) => __TAURI_INVOKE<null>("provider_open_handoff", { id }),
 	/**
 	 *  Opens the service's web studio in the system browser. Only the two
-	 *  known sites open, never an address from the web view.
+	 *  allowlisted sites open, never an address from the web view.
 	 */
 	providerOpenSite: (service: ProviderId) => __TAURI_INVOKE<null>("provider_open_site", { service }),
 	/**
@@ -197,6 +197,16 @@ export const commands = {
 	creditsBalances: () => __TAURI_INVOKE<Balance[]>("credits_balances"),
 	/**  Asks where to save `csv` and writes it there. Null when cancelled. */
 	creditsSaveCsv: (csv: string, name: string) => __TAURI_INVOKE<string | null>("credits_save_csv", { csv, name }),
+	downloadsWatchStatus: () => __TAURI_INVOKE<WatchStatus>("downloads_watch_status"),
+	/**
+	 *  Turns the watch on or off and sets its folder (`None`: Downloads). A
+	 *  folder must exist; it is only ever read.
+	 */
+	downloadsWatchSet: (enabled: boolean, folder: string | null) => __TAURI_INVOKE<WatchStatus>("downloads_watch_set", { enabled, folder }),
+	/**  "Which asset is this?": copies a download into the inbox for `job`. */
+	downloadsAssign: (arrival: string, job: string) => __TAURI_INVOKE<Arrival>("downloads_assign", { arrival, job }),
+	/**  Leaves a download alone, and never asks about it again. */
+	downloadsDismiss: (arrival: string) => __TAURI_INVOKE<Arrival>("downloads_dismiss", { arrival }),
 	mcpStatus: () => __TAURI_INVOKE<McpStatus>("mcp_status"),
 	/**
 	 *  Approves or denies what an agent asked: a run's Ship step, or a send to
@@ -215,6 +225,7 @@ export const commands = {
 /** Events */
 export const events = {
 	conceptUpdate: makeEvent<ConceptUpdate>("concept-update"),
+	downloadsArrival: makeEvent<DownloadsArrival>("downloads-arrival"),
 	inboxChanged: makeEvent<InboxChanged>("inbox-changed"),
 	layoutChanged: makeEvent<LayoutChanged>("layout-changed"),
 	materialsChanged: makeEvent<MaterialsChanged>("materials-changed"),
@@ -283,6 +294,8 @@ export type AppState = {
 	 *  workspace or a repo.
 	 */
 	mcpToken?: string | null,
+	/**  The By hand Downloads watcher: per machine, since folders differ. */
+	downloadsWatch: DownloadsWatch,
 };
 
 /**  Something an agent asked for that waits for a yes or no in the app. */
@@ -322,6 +335,40 @@ export type ApprovalKind =
 "ship" | 
 /**  An agent asked to send an asset to Tripo or Meshy, which spends credits. */
 "send-to-3d";
+
+/**  One file the watcher took a look at. */
+export type Arrival = {
+	/**  The start of its content hash. */
+	id: string,
+	/**  Absolute. */
+	path: string,
+	name: string,
+	/**  The GLB inside, for a zip. */
+	inner: string | null,
+	bytes: number | null,
+	atMs: number | null,
+	state: ArrivalState,
+	job: string | null,
+	project: string | null,
+	assetName: string | null,
+	/**  Why it matched, or why it was not taken, in a few words. */
+	reason: string,
+	/**  The inbox file it became. */
+	inboxFile: string | null,
+};
+
+/**  Where a file the watcher saw ended up. */
+export type ArrivalState = 
+/**  Copied into the inbox for its send. */
+"imported" | 
+/**  Waiting for you to say which asset it is. */
+"unmatched" | 
+/**  An FBX: the inbox checks read GLB, so it was left alone. */
+"needs-glb" | 
+/**  Matched, but the file could not be read as a model. */
+"failed" | 
+/**  You said it is not a model for Maquette. */
+"dismissed";
 
 /**  A file a step wrote. */
 export type Artifact = {
@@ -750,6 +797,12 @@ export type DownloadMatch = {
 	reason: string | null,
 };
 
+/**
+ *  The Downloads watcher took a look at a new model file: copied it into
+ *  the inbox, or asks which asset it is.
+ */
+export type DownloadsArrival = Arrival;
+
 /**  What Check Downloads found. */
 export type DownloadsScan = {
 	/**  The folder that was read. */
@@ -760,6 +813,13 @@ export type DownloadsScan = {
 	files: DownloadMatch[],
 	/**  The sends waiting for a model, for choosing a match by hand. */
 	waiting: ProviderJob[],
+};
+
+/**  Whether the Downloads watcher runs, and on which folder. */
+export type DownloadsWatch = {
+	enabled: boolean,
+	/**  `None`: the system's Downloads folder. */
+	folder: string | null,
 };
 
 /**  Serializable form of [`CoreError`] for IPC. */
@@ -921,6 +981,17 @@ export type HandoffCard = {
 	images: string[],
 	/**  The name to give the GLB when saving it into the inbox. */
 	returnName: string,
+	/**
+	 *  The name to export as on the site, without an extension:
+	 *  `maq_<asset>_v<n>_<provider>`.
+	 */
+	exportName?: string,
+	/**  About what the site charges for it, from a subscription. */
+	credits?: number | null,
+	/**  What those credits buy, in the site's words: "textured image to 3D". */
+	creditsNote?: string | null,
+	/**  The text to paste into the site's prompt box, if the send has one. */
+	prompt?: string | null,
 };
 
 export type HostOs = "mac" | "windows" | "linux";
@@ -1484,6 +1555,22 @@ export type PbrMaps = {
 	emissive: boolean,
 };
 
+/**  A By hand send waiting for its model, as the watcher matches it. */
+export type PendingHandoff = {
+	job: string,
+	project: string,
+	asset: string,
+	assetName: string,
+	service: ProviderId,
+	/**  The export name it waits for, without an extension. */
+	expectedName: string,
+	/**  The handoff folder (absolute), with `send.json` in it. */
+	handoff: string | null,
+	/**  About what the site charges, from a subscription. */
+	credits: number | null,
+	createdAtMs: number | null,
+};
+
 /**
  *  An agent saved a project's compression presets through the MCP server,
  *  so the Pipeline view reloads them.
@@ -1878,9 +1965,11 @@ export type SentPicks = {
 	project: ProjectManifest,
 };
 
-/**  Totals for one service. */
+/**  Totals for one service and source. */
 export type ServiceTotals = {
 	service: ProviderId | null,
+	/**  API and subscription credits are different money, never summed. */
+	source: SpendSource,
 	/**  Sent in the last 7 days. */
 	week: number | null,
 	/**  Sent in the last 30 days. */
@@ -1934,6 +2023,7 @@ export type Spend = {
 	outcome: SpendOutcome,
 	redoOf: string | null,
 	viaAgent: boolean,
+	source: SpendSource,
 };
 
 /**  How a send that spent credits ended. */
@@ -1952,6 +2042,9 @@ export type SpendOutcome =
  *  else the price list's guess.
  */
 "cancelled";
+
+/**  Who was paid: the provider's API, or a web subscription by hand. */
+export type SpendSource = "api" | "subscription";
 
 /**  The Board columns, in pipeline order. */
 export type Stage = "concept" | "refs" | "tripo" | "blender" | "web" | "ship";
@@ -2165,6 +2258,22 @@ export type TripoPresets = {
 export type TripoRigSpec = "mixamo" | "tripo";
 
 export type TripoTextureQuality = "standard" | "detailed" | "extreme";
+
+/**  The watcher as Settings, the app and the agents see it. */
+export type WatchStatus = {
+	enabled: boolean,
+	/**  The folder watched (absolute), when one is set. */
+	folder: string | null,
+	/**  True when Settings picked the folder; false for the system Downloads. */
+	custom: boolean,
+	/**  True while the folder is watched. */
+	watching: boolean,
+	/**  Why it is not watched, when it should be. */
+	error: string | null,
+	pending: PendingHandoff[],
+	/**  Newest first. */
+	arrivals: Arrival[],
+};
 
 export type WorkspaceConfig = {
 	version: number,

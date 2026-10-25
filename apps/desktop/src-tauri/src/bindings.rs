@@ -8,12 +8,13 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    agents, app, assets, credits, dialogs, inbox, inspect, lab, layout, materials, pipeline,
-    prepare, project, providers, quit, site, thumbs, toolchain, workspace,
+    agents, app, assets, credits, dialogs, downloads, inbox, inspect, lab, layout, materials,
+    pipeline, prepare, project, providers, quit, site, thumbs, toolchain, workspace,
 };
 use crate::events::{
-    ConceptUpdate, InboxChanged, LayoutChanged, MaterialsChanged, McpUpdate, PipelineChanged,
-    PipelineUpdate, PrepareChanged, ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady,
+    ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged, MaterialsChanged, McpUpdate,
+    PipelineChanged, PipelineUpdate, PrepareChanged, ProjectChanged, ProviderUpdate, QuitRequested,
+    ThumbnailReady,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -111,6 +112,10 @@ pub fn builder() -> Builder<tauri::Wry> {
             credits::credits_ledger,
             credits::credits_balances,
             credits::credits_save_csv,
+            downloads::downloads_watch_status,
+            downloads::downloads_watch_set,
+            downloads::downloads_assign,
+            downloads::downloads_dismiss,
             agents::mcp_status,
             agents::mcp_decide,
             agents::mcp_clear_activity,
@@ -130,7 +135,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             QuitRequested,
             LayoutChanged,
             MaterialsChanged,
-            PrepareChanged
+            PrepareChanged,
+            DownloadsArrival
         ])
         .types(&maquette_core::types())
 }
@@ -207,6 +213,10 @@ mod tests {
             "creditsLedger",
             "creditsBalances",
             "creditsSaveCsv",
+            "downloadsWatchStatus",
+            "downloadsWatchSet",
+            "downloadsAssign",
+            "downloadsDismiss",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }
@@ -222,6 +232,7 @@ mod tests {
             "layoutChanged",
             "materialsChanged",
             "prepareChanged",
+            "downloadsArrival",
         ] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }
