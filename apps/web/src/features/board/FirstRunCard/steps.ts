@@ -12,6 +12,6 @@ export const STEPS = [
   {
     title: 'Run the pipeline',
     detail:
-      'Blender builds, bakes and exports the scene, then Compress fits it into the {budget} MB budget.',
+      'Blender builds, bakes and exports the scene, then Compress fits it into the {budget} MB budget.',
   },
 ];
