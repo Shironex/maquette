@@ -277,17 +277,37 @@ pub fn pipeline_get(
 }
 
 /// Queues a run. `from` runs that step (always) and what depends on it;
-/// `force` ignores the cache.
+/// `force` ignores the cache. A full run (no `from`) first rebuilds the
+/// built assets that are new or stale, and is refused when one fails.
 #[tauri::command]
 #[specta::specta]
 pub async fn pipeline_run(
+    app: tauri::AppHandle,
     session: State<'_, Session>,
     runner: State<'_, Pipelines>,
+    thumbs: State<'_, super::thumbs::Thumbs>,
     project: String,
     from: Option<String>,
     force: bool,
 ) -> CommandResult<RunRecord> {
     let tools = super::toolchain::toolbox(&session).await?;
+    // A full run first rebuilds the built assets whose scripts changed.
+    if from.is_none() {
+        let (project, tools, thumbs) = (project.clone(), tools.clone(), thumbs.0.clone());
+        tauri::async_runtime::spawn_blocking(move || {
+            use tauri::Manager as _;
+            let session = app.state::<Session>();
+            let env = super::built::BuildEnv {
+                session: session.inner(),
+                thumbs: &thumbs,
+                tools: &tools,
+                notify: &super::built::Windows(app.clone()),
+            };
+            super::built::before_run(&env, &project)
+        })
+        .await
+        .map_err(super::join_failed)??;
+    }
     let setup = setup(&session, &project, from, force, tools)?;
     Ok(runner.0.submit(setup)?)
 }

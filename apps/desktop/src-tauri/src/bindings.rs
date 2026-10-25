@@ -8,13 +8,13 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    agents, app, assets, credits, dialogs, downloads, inbox, inspect, lab, layout, materials,
-    pipeline, prepare, project, providers, quit, site, thumbs, toolchain, workspace,
+    agents, app, assets, built, credits, dialogs, downloads, inbox, inspect, lab, layout,
+    materials, pipeline, prepare, project, providers, quit, site, thumbs, toolchain, workspace,
 };
 use crate::events::{
-    ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged, MaterialsChanged, McpUpdate,
-    PipelineChanged, PipelineUpdate, PrepareChanged, ProjectChanged, ProviderUpdate, QuitRequested,
-    ThumbnailReady,
+    BuiltChanged, ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged, MaterialsChanged,
+    McpUpdate, PipelineChanged, PipelineUpdate, PrepareChanged, ProjectChanged, ProviderUpdate,
+    QuitRequested, ThumbnailReady,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -50,6 +50,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             dialogs::dialog_pick_folder,
             dialogs::dialog_pick_file,
             dialogs::dialog_pick_model,
+            dialogs::dialog_pick_script,
+            dialogs::dialog_pick_files,
             assets::asset_add,
             assets::asset_move,
             assets::asset_rename,
@@ -64,6 +66,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             prepare::prepare_save,
             prepare::prepare_suggest,
             prepare::prepare_preview,
+            built::built_list,
+            built::built_add,
+            built::built_rebuild,
             pipeline::pipeline_get,
             pipeline::pipeline_run,
             pipeline::pipeline_cancel,
@@ -136,6 +141,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             LayoutChanged,
             MaterialsChanged,
             PrepareChanged,
+            BuiltChanged,
             DownloadsArrival
         ])
         .types(&maquette_core::types())
@@ -217,6 +223,11 @@ mod tests {
             "downloadsWatchSet",
             "downloadsAssign",
             "downloadsDismiss",
+            "builtList",
+            "builtAdd",
+            "builtRebuild",
+            "dialogPickScript",
+            "dialogPickFiles",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }
@@ -233,6 +244,7 @@ mod tests {
             "materialsChanged",
             "prepareChanged",
             "downloadsArrival",
+            "builtChanged",
         ] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }

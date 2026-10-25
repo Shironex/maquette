@@ -61,3 +61,39 @@ pub async fn dialog_pick_model(app: AppHandle, title: String) -> CommandResult<O
     .await
     .map_err(super::join_failed)
 }
+
+/// Picks the Python script that builds a model.
+#[tauri::command]
+#[specta::specta]
+pub async fn dialog_pick_script(app: AppHandle, title: String) -> CommandResult<Option<String>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        to_string(
+            app.dialog()
+                .file()
+                .set_title(title)
+                .add_filter("Python script", &["py"])
+                .blocking_pick_file(),
+        )
+    })
+    .await
+    .map_err(super::join_failed)
+}
+
+/// Picks any number of files, for example the helpers a script imports.
+/// Empty when the user cancels.
+#[tauri::command]
+#[specta::specta]
+pub async fn dialog_pick_files(app: AppHandle, title: String) -> CommandResult<Vec<String>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .set_title(title)
+            .blocking_pick_files()
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|p| to_string(Some(p)))
+            .collect()
+    })
+    .await
+    .map_err(super::join_failed)
+}

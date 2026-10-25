@@ -16,7 +16,8 @@ use crate::commands::pipeline::Pipelines;
 use crate::commands::providers::Studio;
 use crate::commands::thumbs::Thumbs;
 use crate::events::{
-    ConceptUpdate, LayoutChanged, MaterialsChanged, PipelineChanged, PrepareChanged, ProjectChanged,
+    BuiltChanged, ConceptUpdate, LayoutChanged, MaterialsChanged, PipelineChanged, PrepareChanged,
+    ProjectChanged,
 };
 use crate::session::Session;
 
@@ -47,6 +48,9 @@ pub trait Host: Send + Sync + 'static {
     /// Tells the windows that a tool changed a project's real sizes or
     /// fix-ups, so the Board, the Inbox and the Inspector reload them.
     fn prepare_changed(&self, _project: &str) {}
+    /// Tells the windows that a project's built assets changed, so the
+    /// Board shows how they stand.
+    fn built_changed(&self, _project: &str) {}
     /// Tells the windows that a tool starred or picked concepts of a
     /// direction, so the Lab shows its marks and refs.
     fn concepts_changed(&self, _project: &str, _direction: &Direction) {}
@@ -129,6 +133,15 @@ impl Host for AppHost {
         }
     }
 
+    fn built_changed(&self, project: &str) {
+        let event = BuiltChanged {
+            project: project.to_string(),
+        };
+        if let Err(err) = event.emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit a built event");
+        }
+    }
+
     fn concepts_changed(&self, project: &str, direction: &Direction) {
         let event = ConceptUpdate(ConceptEvent::Direction {
             project: project.to_string(),
@@ -137,5 +150,18 @@ impl Host for AppHost {
         if let Err(err) = event.emit(&self.0) {
             tracing::warn!(error = %err, "could not emit a concept event");
         }
+    }
+}
+
+/// A build tells an agent's host, which tells the windows.
+pub(crate) struct HostNotify<'a>(pub &'a dyn Host);
+
+impl crate::commands::built::Notify for HostNotify<'_> {
+    fn project(&self, project: &ProjectManifest) {
+        self.0.project_changed(project);
+    }
+
+    fn built(&self, project: &str) {
+        self.0.built_changed(project);
     }
 }

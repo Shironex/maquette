@@ -60,6 +60,14 @@ pub struct ProjectChanged {
     pub project: ProjectManifest,
 }
 
+/// A project's built assets changed: one was added, started or finished
+/// building, so the Board reloads how they stand.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct BuiltChanged {
+    pub project: String,
+}
+
 /// An agent saved a project's compression presets through the MCP server,
 /// so the Pipeline view reloads them.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

@@ -36,6 +36,13 @@ export const commands = {
 	 *  downloads with one inside.
 	 */
 	dialogPickModel: (title: string) => __TAURI_INVOKE<string | null>("dialog_pick_model", { title }),
+	/**  Picks the Python script that builds a model. */
+	dialogPickScript: (title: string) => __TAURI_INVOKE<string | null>("dialog_pick_script", { title }),
+	/**
+	 *  Picks any number of files, for example the helpers a script imports.
+	 *  Empty when the user cancels.
+	 */
+	dialogPickFiles: (title: string) => __TAURI_INVOKE<string[]>("dialog_pick_files", { title }),
 	assetAdd: (project: string, asset: NewAsset) => __TAURI_INVOKE<ProjectManifest>("asset_add", { project, asset }),
 	assetMove: (project: string, id: string, stage: Stage) => __TAURI_INVOKE<ProjectManifest>("asset_move", { project, id, stage }),
 	assetRename: (project: string, id: string, name: string) => __TAURI_INVOKE<ProjectManifest>("asset_rename", { project, id, name }),
@@ -83,10 +90,22 @@ export const commands = {
 	 *  The model is only read. A plan that already ran answers at once.
 	 */
 	preparePreview: (request: PreviewRequest) => __TAURI_INVOKE<FixupReport>("prepare_preview", { request }),
+	builtList: (project: string) => __TAURI_INVOKE<BuiltAsset[]>("built_list", { project }),
+	/**
+	 *  Copies the script and helpers into the project's `built/` folder and
+	 *  puts the asset on the Board at Blender. Nothing is built yet.
+	 */
+	builtAdd: (project: string, request: NewBuilt) => __TAURI_INVOKE<BuiltAdded>("built_add", { project, request }),
+	/**
+	 *  Builds the asset headless. Without `force`, files that match the last
+	 *  good build answer at once.
+	 */
+	builtRebuild: (project: string, asset: string, force: boolean) => __TAURI_INVOKE<BuildOutcome>("built_rebuild", { project, asset, force }),
 	pipelineGet: (project: string) => __TAURI_INVOKE<PipelineView>("pipeline_get", { project }),
 	/**
 	 *  Queues a run. `from` runs that step (always) and what depends on it;
-	 *  `force` ignores the cache.
+	 *  `force` ignores the cache. A full run (no `from`) first rebuilds the
+	 *  built assets that are new or stale, and is refused when one fails.
 	 */
 	pipelineRun: (project: string, from: string | null, force: boolean) => __TAURI_INVOKE<RunRecord>("pipeline_run", { project, from, force }),
 	pipelineCancel: (runId: string) => __TAURI_INVOKE<null>("pipeline_cancel", { runId }),
@@ -224,6 +243,7 @@ export const commands = {
 
 /** Events */
 export const events = {
+	builtChanged: makeEvent<BuiltChanged>("built-changed"),
 	conceptUpdate: makeEvent<ConceptUpdate>("concept-update"),
 	downloadsArrival: makeEvent<DownloadsArrival>("downloads-arrival"),
 	inboxChanged: makeEvent<InboxChanged>("inbox-changed"),
@@ -542,6 +562,98 @@ export type Budgets = {
 	/**  What the first camera stop's models may weigh, in MB. */
 	firstViewMb: number | null,
 };
+
+export type BuildOutcome = {
+	result: BuildResult,
+	asset: Asset,
+	/**  The project after the build, so the Board can update. */
+	project: ProjectManifest,
+	/**  The version it made, with `built`. */
+	version: AssetVersion | null,
+	record: BuildRecord | null,
+	/**  The end of Blender's log when the build failed. */
+	log: string[],
+};
+
+/**  What the last build of an asset did. */
+export type BuildRecord = {
+	/**  The build key of the files it ran on. */
+	key: string,
+	/**  RFC 3339 UTC. */
+	at: string,
+	/**  The version it made, or the newest one when the GLB matched it. */
+	version: number | null,
+	/**  Why it failed, when it did. */
+	error: string | null,
+	/**  The exported object names, parents first. */
+	objects: string[],
+	materials: string[],
+	triangles: number,
+	/**  The titles of the Inbox checks that did not pass. */
+	warnings: string[],
+};
+
+/**  What a build did. */
+export type BuildResult = 
+/**  A new version. */
+"built" | 
+/**  Blender ran and made the newest version's exact bytes again. */
+"unchanged" | 
+/**  The files match the last good build; Blender did not run. */
+"up-to-date" | "failed";
+
+/**  What Add built asset made. */
+export type BuiltAdded = {
+	asset: Asset,
+	project: ProjectManifest,
+};
+
+/**  One built asset as the Board and agents read it. */
+export type BuiltAsset = {
+	asset: string,
+	name: string,
+	source: BuiltSource,
+	state: BuiltState,
+	/**  The files of `source` that are not in the project. */
+	missing: string[],
+};
+
+/**
+ *  A project's built assets changed: one was added, started or finished
+ *  building, so the Board reloads how they stand.
+ */
+export type BuiltChanged = {
+	project: string,
+};
+
+/**  One built asset's script and helpers. */
+export type BuiltSource = {
+	/**  Relative to the project folder, for example `built/laptop.py`. */
+	script: string,
+	/**  The same, for the files the script imports or reads. */
+	helpers: string[],
+	/**
+	 *  The object to export with its children. Without it, the object
+	 *  `build()` returns, else the whole scene.
+	 */
+	root: string | null,
+	last: BuildRecord | null,
+};
+
+/**  How a built asset stands against its files. */
+export type BuiltState = 
+/**  Never built. */
+"new" | 
+/**  The newest version comes from these exact files. */
+"current" | 
+/**  The script, a helper or the root changed since the last build. */
+"stale" | 
+/**  The last build of these exact files failed. */
+"failed" | 
+/**  The script or a helper is gone from `built/`. */
+"missing" | 
+/**  Building now. */
+"building";
 
 export type CacheInfo = {
 	/**  Bytes as a JS safe number. */
@@ -1492,6 +1604,23 @@ export type NewAsset = {
 	name: string,
 	kind: AssetKind,
 	stage: Stage,
+};
+
+/**  What Add built asset asks for. */
+export type NewBuilt = {
+	name: string,
+	kind: AssetKind,
+	/**  The script, an absolute path or one relative to the project folder. */
+	script: string,
+	/**  Files the script imports or reads, the same way. */
+	helpers: string[],
+	/**
+	 *  The object to export with its children, when `build()` does not
+	 *  return it.
+	 */
+	root: string | null,
+	/**  Overwrite files in `built/` that differ from these. */
+	replace: boolean,
 };
 
 /**  What the Lab's composer (or an agent) asks for. */
