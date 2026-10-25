@@ -96,12 +96,28 @@ export function createFakeAgents({
               job: null,
               assetName: null,
               service: 'Tripo',
-              detail: '3 models in total, one model per asset',
+              detail: '3 models in total, about 90 credits',
+              estimate: 90,
               requestedAtMs: now - 40_000,
               items: [
-                { job: 'far-spire-2', assetName: 'Far spire', detail: 'Tripo H3.1, 1 image' },
-                { job: 'sakura-2', assetName: 'Sakura', detail: 'Tripo H3.1, 1 image' },
-                { job: 'lanterns-2', assetName: 'Stone lanterns', detail: 'Tripo H3.1, 1 image' },
+                {
+                  job: 'far-spire-2',
+                  assetName: 'Far spire',
+                  detail: 'Tripo H3.1, 1 image',
+                  estimate: 30,
+                },
+                {
+                  job: 'sakura-2',
+                  assetName: 'Sakura',
+                  detail: 'Tripo H3.1, 1 image',
+                  estimate: 30,
+                },
+                {
+                  job: 'lanterns-2',
+                  assetName: 'Stone lanterns',
+                  detail: 'Tripo H3.1, 1 image',
+                  estimate: 30,
+                },
               ],
             }
           : {
@@ -115,6 +131,7 @@ export function createFakeAgents({
               assetName: 'Far spire',
               service: 'Tripo',
               detail: 'Tripo H3.1, 1 image',
+              estimate: 30,
               requestedAtMs: now - 40_000,
               items: [],
             },

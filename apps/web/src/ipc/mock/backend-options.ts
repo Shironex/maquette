@@ -34,6 +34,8 @@ export interface BackendOptions {
   projects?: string | null;
   /** `batch`: the workbench objects and their By hand batch. */
   handoff?: string | null;
+  /** `redo`: two inbox models linked to their sends, and both keys saved. */
+  inbox?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */

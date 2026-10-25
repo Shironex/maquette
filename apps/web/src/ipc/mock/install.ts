@@ -74,6 +74,7 @@ const handle = createBackend({
   agents: params.get('agents'),
   projects: params.get('projects'),
   handoff: params.get('handoff'),
+  inbox: params.get('inbox'),
   emit: event => {
     if (event.name === 'pipeline') void events.pipelineUpdate.emit(event.payload);
     else if (event.name === 'concept') void events.conceptUpdate.emit(event.payload);

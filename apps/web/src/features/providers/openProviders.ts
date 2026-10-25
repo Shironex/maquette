@@ -4,8 +4,8 @@ import type { ProviderJob } from '@/ipc/client';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { openMockWorkspace } from '@/test/mock-ipc';
 
-export async function openProviders(handoff?: string) {
-  const handle = await openMockWorkspace('configured', undefined, handoff);
+export async function openProviders(handoff?: string, inbox?: string) {
+  const handle = await openMockWorkspace('configured', undefined, handoff, inbox);
   const calls: [string, Record<string, unknown>][] = [];
   mockIPC((cmd, args) => {
     const payload = (args ?? {}) as Record<string, unknown>;

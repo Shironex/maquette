@@ -20,6 +20,10 @@
  * `?agents=batch` makes that send a batch of three under one approval.
  * `?handoff=batch` adds the landing workbench concept, six object refs made
  * from it and a By hand batch of them in mixed states.
+ * `?inbox=redo` links the large sakura and the character in the inbox to
+ * the sends they came from (Meshy with a texture prompt, rigged Tripo) and
+ * saves a Meshy key too, for Redo. The credits ledger holds the live sends
+ * and a month of earlier ones.
  * Configured scenarios also open with Send to 3D jobs (see `providers.ts`).
  */
 import type {
@@ -49,6 +53,8 @@ import { createFakeLab, refMayReplace } from './lab';
 import { createFakeLayout } from './layout';
 import { createMaterialHandlers } from './materials';
 import { createFakeProviders } from './providers';
+import { createCreditHandlers } from './create-credit-handlers';
+import { linkForRedo } from './redo-fixtures';
 import { createFakeRunner, type RunStore } from './runner';
 import { clock } from '@/lib/clock';
 import { createAssetHandlers } from './create-asset-handlers';
@@ -71,6 +77,7 @@ export function createBackend({
   agents: agentsState = null,
   projects: projectsState = null,
   handoff = null,
+  inbox: inboxState = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -96,7 +103,8 @@ export function createBackend({
     holdAt: scenario === 'running' ? 'export' : undefined,
     postersFail: scenario !== 'idle',
   });
-  let inbox: InboxItem[] = configured ? inboxItems(`${expand(DEFAULT_ROOT)}/inbox`, now) : [];
+  const listed = configured ? inboxItems(`${expand(DEFAULT_ROOT)}/inbox`, now) : [];
+  let inbox: InboxItem[] = inboxState === 'redo' ? linkForRedo(listed) : listed;
 
   const layout = createFakeLayout({
     project: id => project(id),
@@ -244,6 +252,8 @@ export function createBackend({
     agentsActive: agentsOn,
     agentsBatch: agentsState === 'batch',
     handoff,
+    inbox: inboxState,
+    keys: inboxState === 'redo' ? ['tripo', 'meshy'] : undefined,
     projectDir: id => `${expand(DEFAULT_ROOT)}/projects/${id}`,
     project,
     saveProject,
@@ -264,6 +274,12 @@ export function createBackend({
     ...lab.handlers,
     ...agents.handlers,
     ...providers.handlers,
+    ...createCreditHandlers({
+      config: () => config,
+      jobs: providers.jobs,
+      hasKey: providers.hasKey,
+      history: configured,
+    }),
     // Nothing closes in the browser, so the quit commands have nothing to do.
     quit_set_unapplied: () => undefined,
     quit_now: () => undefined,

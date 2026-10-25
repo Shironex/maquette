@@ -10,7 +10,8 @@ import { useAppStore } from '@/state/use-app-store';
 export async function openMockWorkspace(
   scenario = 'configured',
   projects?: string,
-  handoff?: string
+  handoff?: string,
+  inbox?: string
 ) {
   const handle = createBackend({
     scenario,
@@ -19,6 +20,7 @@ export async function openMockWorkspace(
     conceptMs: 60_000,
     projects,
     handoff,
+    inbox,
   });
   mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>));
   const boot = await commands.appBootstrap();

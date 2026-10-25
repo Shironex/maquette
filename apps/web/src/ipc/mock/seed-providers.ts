@@ -7,6 +7,8 @@ import type {
   WorkspaceConfig,
 } from '../client';
 import { handoffCard } from './handoff-card';
+import type { JobPartial } from './job-factory';
+import { redoJobs } from './redo-fixtures';
 import { WORKBENCH_OBJECTS, objectRef } from './lab-fixtures';
 
 /** The batch the `?handoff=batch` fixture wrote, and how far each object got. */
@@ -27,14 +29,14 @@ const slugOf = (name: string) =>
     .replace(/^-+|-+$/g, '');
 
 interface SeedContext {
-  base: (
-    partial: Partial<ProviderJob> & Pick<ProviderJob, 'id' | 'asset' | 'assetName' | 'provider'>
-  ) => ProviderJob;
+  base: (partial: JobPartial) => ProviderJob;
   config: () => WorkspaceConfig;
   now: number;
   agentsActive: boolean;
   agentsBatch: boolean;
   handoff: string | null;
+  /** `redo`: the sends behind two inbox models, for Redo. */
+  inbox?: string | null;
   handoffDir: (job: Pick<ProviderJob, 'project' | 'id'>) => string;
   project: (id: string) => ProjectManifest;
   saveProject: (next: ProjectManifest) => ProjectManifest;
@@ -48,6 +50,7 @@ export function seedProviders({
   agentsActive,
   agentsBatch,
   handoff,
+  inbox = null,
   handoffDir,
   project,
   saveProject,
@@ -146,6 +149,7 @@ export function seedProviders({
         })
       );
   }
+  if (inbox === 'redo') jobs.push(...redoJobs(base, config, now));
   if (handoff === 'batch') {
     const written = now - 52 * 60_000;
     WORKBENCH_OBJECTS.forEach((o, i) => {

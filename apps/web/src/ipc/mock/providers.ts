@@ -28,6 +28,7 @@ import { clock } from '@/lib/clock';
 import type { Args } from './backend-options';
 import { createKeyStore } from './create-key-store';
 import { handoffCard } from './handoff-card';
+import { jobFactory } from './job-factory';
 import { labRefs } from './lab-fixtures';
 import { PROVIDER_REF_FILES, refImages, suggestedRefs } from './provider-refs';
 import { seedProviders } from './seed-providers';
@@ -41,12 +42,14 @@ export function createFakeProviders({
   agentsActive,
   agentsBatch = false,
   handoff = null,
+  inbox = null,
   projectDir,
   project,
   saveProject,
   lab,
   emit,
   fail,
+  keys,
 }: {
   config: () => WorkspaceConfig;
   configured: boolean;
@@ -55,6 +58,8 @@ export function createFakeProviders({
   agentsBatch?: boolean;
   /** `batch`: the workbench objects batch. */
   handoff?: string | null;
+  /** `redo`: the sends behind two inbox models. */
+  inbox?: string | null;
   projectDir: (id: string) => string;
   project: (id: string) => ProjectManifest;
   saveProject: (next: ProjectManifest) => ProjectManifest;
@@ -65,43 +70,15 @@ export function createFakeProviders({
   };
   emit?: (event: ProviderEvent) => void;
   fail: (code: string, message: string) => never;
+  /** The services with a saved key; Tripo alone by default. */
+  keys?: readonly ProviderId[];
 }) {
   const now = clock.nowMs();
   const timers = new Map<string, ReturnType<typeof setInterval>>();
-  const keyStore = createKeyStore();
+  const keyStore = createKeyStore(keys);
   let jobs: ProviderJob[] = [];
 
-  const base = (
-    partial: Partial<ProviderJob> & Pick<ProviderJob, 'id' | 'asset' | 'assetName' | 'provider'>
-  ): ProviderJob => {
-    const presets = config().providers;
-    const service: ProviderId = partial.provider === 'meshy' ? 'meshy' : 'tripo';
-    return {
-      project: 'moon-island',
-      service,
-      variant: 'prop',
-      images: [],
-      tripo: service === 'tripo' ? structuredClone(presets.tripo.prop) : null,
-      meshy: service === 'meshy' ? structuredClone(presets.meshy.prop) : null,
-      state: 'queued',
-      phase: null,
-      progress: 0,
-      remoteId: null,
-      credits: null,
-      createdAtMs: now,
-      startedAtMs: null,
-      finishedAtMs: null,
-      message: null,
-      inboxFile: null,
-      handoff: null,
-      card: null,
-      version: null,
-      viaAgent: false,
-      cancel: 'free',
-      batch: null,
-      ...partial,
-    };
-  };
+  const base = jobFactory(config, now);
 
   const handoffDir = (job: Pick<ProviderJob, 'project' | 'id'>) =>
     `${projectDir(job.project)}/handoff/${job.id}`;
@@ -114,6 +91,7 @@ export function createFakeProviders({
       agentsActive,
       agentsBatch,
       handoff,
+      inbox,
       handoffDir,
       project,
       saveProject,
@@ -283,6 +261,8 @@ export function createFakeProviders({
                 : null,
             createdAtMs: clock.nowMs(),
             batch,
+            prompt: item.prompt ?? null,
+            redoOf: item.redoOf ?? null,
           })
         )
       );
@@ -311,6 +291,8 @@ export function createFakeProviders({
         tripo: req.service === 'tripo' ? req.tripo : null,
         meshy: req.service === 'meshy' ? req.meshy : null,
         createdAtMs: clock.nowMs(),
+        prompt: req.prompt ?? null,
+        redoOf: req.redoOf ?? null,
       });
       return start(job);
     },
@@ -388,5 +370,5 @@ export function createFakeProviders({
     }
   };
 
-  return { handlers, decide, jobs: () => jobs };
+  return { handlers, decide, jobs: () => jobs, hasKey: keyStore.has };
 }

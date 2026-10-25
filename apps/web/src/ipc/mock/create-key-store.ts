@@ -1,12 +1,12 @@
 import type { KeyStatus, KeyTest, ProviderId } from '../client';
 import { fail, type Args } from './backend-options';
 
-/** The fake key tails: Tripo has one saved, Meshy does not. */
-const TRIPO_TAIL = '9f2c';
+/** The fake key tails: Tripo has one saved, Meshy does not unless asked. */
+const TAILS: Record<ProviderId, string> = { tripo: '9f2c', meshy: '3a7e' };
 
 /** The saved API keys, as the status rows and the key commands see them. */
-export function createKeyStore() {
-  const keys = new Map<ProviderId, string>([['tripo', TRIPO_TAIL]]);
+export function createKeyStore(saved: readonly ProviderId[] = ['tripo']) {
+  const keys = new Map<ProviderId, string>(saved.map(s => [s, TAILS[s]]));
 
   const status = (service: ProviderId): KeyStatus => ({
     service,
