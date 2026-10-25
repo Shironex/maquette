@@ -1,6 +1,6 @@
 /**
  * The scene manifest: every model on the workbench, where it stands, which
- * camera stops see it and how its materials are adjusted.
+ * camera stops see it and what the site changes in its materials.
  *
  * Coordinates are glTF: metres, Y up, the camera side is +Z. The floor is
  * y = 0 and the bench top is at y = 0.90 (see BENCH_TOP).
@@ -36,16 +36,12 @@ export interface LowerBand {
   metalness: number;
 }
 
+/**
+ * What the site still changes in a model's materials at load. Colour,
+ * roughness, metal and glow tweaks are baked into the files by Maquette's
+ * Compress step; these are the scene's own needs.
+ */
 export interface MaterialOverride {
-  /** Replaces the base colour factor; the colour map stays and is multiplied by it. */
-  color?: string;
-  /** Mixes the base colour factor toward this colour by `tintAmount` (default 1). */
-  tint?: string;
-  tintAmount?: number;
-  roughness?: number;
-  metalness?: number;
-  /** Ignores the model's roughness and metal map so the factors above apply evenly. */
-  flatSurface?: boolean;
   /**
    * The pipeline bakes light into an emissive map on the second UV set. On
    * this bench the scene lights do the lighting, so by default that map

@@ -196,7 +196,56 @@
   },
   "materials": {
     "version": 1,
-    "models": {}
+    "models": {
+      "calipers": {
+        "all": {
+          "tint": "#5d6266",
+          "roughness": {
+            "mode": "override",
+            "value": 0.3
+          },
+          "metalness": 0.9,
+          "emissiveStrength": null
+        },
+        "materials": {}
+      },
+      "laptop": {
+        "all": {
+          "tint": "#3a3936",
+          "roughness": {
+            "mode": "override",
+            "value": 0.62
+          },
+          "metalness": 0.25,
+          "emissiveStrength": null
+        },
+        "materials": {}
+      },
+      "linen-cloth": {
+        "all": {
+          "tint": "#6f7446",
+          "roughness": {
+            "mode": "override",
+            "value": 0.95
+          },
+          "metalness": null,
+          "emissiveStrength": null
+        },
+        "materials": {}
+      },
+      "turntable": {
+        "all": {
+          "tint": null,
+          "roughness": {
+            "mode": "override",
+            "value": 0.82
+          },
+          "metalness": 0,
+          "emissiveStrength": null
+        },
+        "materials": {}
+      }
+    }
   },
   "posters": null
 }

@@ -1,6 +1,8 @@
 /**
- * Per model material fixes from the manifest. Every material is cloned
- * first, so a file used by two entries can be adjusted for one of them.
+ * Per model material fixes from the manifest: the baked light as ambient
+ * occlusion, the window's glow and the turntable's iron band. Every
+ * material is cloned first, so a file used by two entries can be adjusted
+ * for one of them.
  */
 import * as THREE from 'three';
 import type { LowerBand, MaterialOverride } from './manifest';
@@ -70,14 +72,6 @@ function adjust(material: Standard, override: MaterialOverride, bounds: THREE.Bo
     material.emissiveMap = null;
     material.emissive.set(0x000000);
   }
-  if (override.color) material.color.set(override.color);
-  if (override.tint) material.color.lerp(new THREE.Color(override.tint), override.tintAmount ?? 1);
-  if (override.flatSurface) {
-    material.roughnessMap = null;
-    material.metalnessMap = null;
-  }
-  if (override.roughness !== undefined) material.roughness = override.roughness;
-  if (override.metalness !== undefined) material.metalness = override.metalness;
   if (override.emissiveIntensity !== undefined && material.emissiveMap) {
     material.emissiveIntensity = override.emissiveIntensity;
   }

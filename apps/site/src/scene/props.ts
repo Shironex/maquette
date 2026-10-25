@@ -2,7 +2,8 @@
  * What the site adds to each prop Maquette ships, keyed by asset id: how its
  * file is anchored, which stop turns it or sweeps it, its shadows and the
  * laptop's screen. Where a prop stands and which stops see it come from the
- * shipped layout (see ./manifest.ts).
+ * shipped layout (see ./manifest.ts). Colours, roughness, metal and glow are
+ * the project's material tweaks, which the pipeline bakes into the files.
  */
 import type { SiteExtras } from './layout';
 
@@ -20,34 +21,20 @@ export const PROP_EXTRAS: Readonly<Record<string, PropExtras>> = {
   turntable: {
     ...BOTTOM,
     spinAt: 'web',
-    // The top glared white and the base read as wood: a matte top and an iron base.
-    material: {
-      roughness: 0.82,
-      metalness: 0,
-      flatSurface: true,
-      lower: { below: 0.62, color: '#26231f', roughness: 0.55, metalness: 0.75 },
-    },
+    // The base read as wood: an iron band up to the top. The matte top is
+    // the project's material tweak, baked into the shipped file.
+    material: { lower: { below: 0.62, color: '#26231f', roughness: 0.55, metalness: 0.75 } },
   },
   'finished-island-in-painted-stone-and-moss-with-no-wireframe': { ...BOTTOM, spinAt: 'web' },
   'desk-lamp': { ...BOTTOM, receiveShadow: false },
   'book-stack': BOTTOM,
   'brush-cup': BOTTOM,
   'clay-bowl': BOTTOM,
-  calipers: {
-    ...BOTTOM,
-    // Read as brass; calipers are dark steel.
-    material: { tint: '#5d6266', tintAmount: 1, metalness: 0.85, roughness: 0.42 },
-  },
+  calipers: BOTTOM,
   'loop-tool': BOTTOM,
-  'linen-cloth': {
-    ...BOTTOM,
-    // Grey from Tripo; the concept's cloth is olive.
-    material: { tint: '#6f7446', tintAmount: 1, roughness: 0.95 },
-  },
+  'linen-cloth': BOTTOM,
   laptop: {
     ...BOTTOM,
-    // Rendered as polished chrome: matte graphite instead.
-    material: { color: '#3a3936', metalness: 0.25, roughness: 0.62, flatSurface: true },
     screen: {
       texture: '/scene/laptop-screen.webp',
       size: [0.27, 0.169],
