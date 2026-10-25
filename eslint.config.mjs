@@ -36,7 +36,7 @@ export default defineConfig(
     },
   },
   {
-    files: ['apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
+    files: ['apps/web/**/*.{ts,tsx}', 'apps/site/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
     plugins: {
       react,
       'react-hooks': reactHooks,
@@ -66,6 +66,29 @@ export default defineConfig(
     },
   },
   {
+    // The site's workbench lights take three.js props as well.
+    files: ['apps/site/src/scene/**/*.tsx'],
+    rules: {
+      'react/no-unknown-property': [
+        'error',
+        {
+          ignore: [
+            'object',
+            'attach',
+            'args',
+            'position',
+            'intensity',
+            'castShadow',
+            'distance',
+            'decay',
+            'angle',
+            'penumbra',
+          ],
+        },
+      ],
+    },
+  },
+  {
     ignores: [
       '**/node_modules/**',
       '**/dist/**',
@@ -75,6 +98,7 @@ export default defineConfig(
       'apps/desktop/src-tauri/gen/**',
       'packages/ui/src/icons/paths.ts',
       'apps/web/public/basis/**',
+      'apps/site/.astro/**',
     ],
   }
 );
