@@ -69,7 +69,7 @@ pub struct CompressPreset {
     /// The codec of every map group the row does not set in `map_codecs`.
     pub codec: TextureCodec,
     /// Per map group codecs. Without it color and data maps use `codec` and
-    /// normal maps UASTC.
+    /// normal maps UASTC (a locked row's normal maps keep `codec`).
     #[serde(default)]
     pub map_codecs: Option<MapCodecs>,
     pub meshopt: MeshoptLevel,
@@ -79,6 +79,21 @@ pub struct CompressPreset {
 }
 
 impl CompressPreset {
+    /// What each map group of this row is encoded with. A locked row
+    /// without `map_codecs` keeps `codec` for its normal maps too, as it did
+    /// before normal maps defaulted to UASTC, so its output does not change
+    /// with no edit.
+    pub fn codecs(&self) -> CodecSet {
+        match self.map_codecs {
+            None if self.lock.is_some() => CodecSet {
+                color: self.codec,
+                normal: self.codec,
+                other: self.codec,
+            },
+            map_codecs => map_codecs.unwrap_or_default().resolve(self.codec),
+        }
+    }
+
     pub(crate) fn check(&self) -> Result<(), String> {
         if !is_single_segment(&self.model) {
             return Err(format!(
@@ -141,7 +156,7 @@ pub fn resolve(
             model: model.to_string(),
             texture_size: p.texture_size,
             data_texture_size: p.data_texture_size.filter(|d| *d != p.texture_size),
-            codecs: p.map_codecs.unwrap_or_default().resolve(p.codec),
+            codecs: p.codecs(),
             meshopt: p.meshopt,
             locked: p.lock.is_some(),
         },

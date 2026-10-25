@@ -17,8 +17,9 @@ afterEach(() => clearMocks());
 describe('the per map codec rows', () => {
   it("shows each group's codec and what its maps weigh as built", () => {
     render(<MapCodecRows model={character} onCodec={vi.fn()} />);
+    // The character's row is locked, so its normal maps keep the row's ETC1S.
     const normal = screen.getByRole('group', { name: 'Normal map codec' });
-    expect(within(normal).getByRole('button', { name: 'UASTC' })).toHaveAttribute(
+    expect(within(normal).getByRole('button', { name: 'ETC1S' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
@@ -43,8 +44,8 @@ describe('the per map codec rows', () => {
     const onCodec = vi.fn();
     const { unmount } = render(<MapCodecRows model={character} onCodec={onCodec} />);
     const normal = screen.getByRole('group', { name: 'Normal map codec' });
-    await userEvent.click(within(normal).getByRole('button', { name: 'ETC1S' }));
-    expect(onCodec).toHaveBeenCalledWith('normal', 'etc1s');
+    await userEvent.click(within(normal).getByRole('button', { name: 'UASTC' }));
+    expect(onCodec).toHaveBeenCalledWith('normal', 'uastc');
     unmount();
 
     render(<MapCodecRows model={character} onCodec={null} />);

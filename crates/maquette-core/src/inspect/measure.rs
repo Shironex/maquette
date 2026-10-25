@@ -126,7 +126,7 @@ pub(super) fn preset_for(
             data_texture_size: p.data_texture_size.filter(|d| *d != p.texture_size),
             codec: p.codec,
             map_codecs: p.map_codecs,
-            codecs: p.map_codecs.unwrap_or_default().resolve(p.codec),
+            codecs: p.codecs(),
             meshopt: p.meshopt,
             lock: p.lock.clone(),
             has_row: true,

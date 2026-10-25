@@ -546,7 +546,7 @@ export type CompressPreset = {
 	codec: TextureCodec,
 	/**
 	 *  Per map group codecs. Without it color and data maps use `codec` and
-	 *  normal maps UASTC.
+	 *  normal maps UASTC (a locked row's normal maps keep `codec`).
 	 */
 	mapCodecs?: MapCodecs | null,
 	meshopt: MeshoptLevel,

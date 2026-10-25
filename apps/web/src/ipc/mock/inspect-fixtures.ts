@@ -125,7 +125,8 @@ export function inspectView(
     const codec = row?.codec ?? defaults.codec;
     const codecs = {
       color: mapCodecs?.color ?? codec,
-      normal: mapCodecs?.normal ?? 'uastc',
+      // A locked row without map codecs keeps its codec for normal maps, as the core does.
+      normal: mapCodecs?.normal ?? (row?.lock && !mapCodecs ? codec : 'uastc'),
       other: mapCodecs?.other ?? codec,
     } as const;
     return {

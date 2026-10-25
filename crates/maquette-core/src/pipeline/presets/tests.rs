@@ -428,3 +428,36 @@ fn map_codecs_load_from_older_rows_and_round_trip() {
         row
     );
 }
+
+#[test]
+fn a_locked_row_keeps_its_codec_for_normal_maps() {
+    let locked = resolve(&[character()], "character", DEFAULTS);
+    assert_eq!(
+        locked.codecs,
+        CodecSet {
+            color: TextureCodec::Etc1s,
+            normal: TextureCodec::Etc1s,
+            other: TextureCodec::Etc1s,
+        },
+        "no edit, no change in output"
+    );
+    // One pass, as before normal maps defaulted to UASTC.
+    assert_eq!(texture_args(&locked, MapGroups::ALL).len(), 1);
+
+    // Map codecs set by hand in pipeline.json still apply, UASTC default included.
+    let picked = CompressPreset {
+        map_codecs: Some(MapCodecs {
+            color: Some(TextureCodec::Uastc),
+            ..MapCodecs::default()
+        }),
+        ..character()
+    };
+    let codecs = resolve(std::slice::from_ref(&picked), "character", DEFAULTS).codecs;
+    assert_eq!(codecs.color, TextureCodec::Uastc);
+    assert_eq!(codecs.normal, TextureCodec::Uastc);
+    assert_eq!(picked.codecs(), codecs);
+
+    // An unlocked row without map codecs gets the UASTC default.
+    let open = row("sakura", 1024, MeshoptLevel::High, None);
+    assert_eq!(open.codecs().normal, TextureCodec::Uastc);
+}
