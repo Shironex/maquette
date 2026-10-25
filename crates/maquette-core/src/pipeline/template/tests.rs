@@ -75,27 +75,31 @@ fn floating_diorama_matches_the_island_flow() {
 }
 
 #[test]
-fn the_build_step_reads_the_layout_once_its_script_does() {
+fn the_build_step_reads_the_layout_and_fixups_once_its_script_does() {
     let def = for_template(ProjectTemplate::FloatingDiorama);
     let build = def.step("build").expect("build");
-    assert!(build.inputs.iter().any(|i| i == LAYOUT_INPUT));
+    for input in [LAYOUT_INPUT, PREPARE_INPUT, FIXUPS_INPUT] {
+        assert!(build.inputs.iter().any(|i| i == input), "{input}");
+    }
 
     // A pipeline from before layouts, with an older build script.
     let dir = tempfile::tempdir().expect("tempdir");
     let mut old = def.clone();
-    old.steps[0].inputs.retain(|i| i != LAYOUT_INPUT);
+    old.steps[0]
+        .inputs
+        .retain(|i| ![LAYOUT_INPUT, PREPARE_INPUT, FIXUPS_INPUT].contains(&i.as_str()));
     std::fs::create_dir_all(dir.path().join("tools")).expect("tools");
     std::fs::write(dir.path().join(BUILD_SCRIPT), "print('no layouts here')\n").expect("old");
-    assert!(!fit_layout_input(&mut old, dir.path()));
+    assert!(!fit_build_inputs(&mut old, dir.path()));
     // Updated to the starter that reads layout.json.
     std::fs::write(
         dir.path().join(BUILD_SCRIPT),
         include_str!("../../../starter/build_scene.py"),
     )
     .expect("new");
-    assert!(fit_layout_input(&mut old, dir.path()));
+    assert!(fit_build_inputs(&mut old, dir.path()));
     assert_eq!(old.steps[0].inputs, def.steps[0].inputs);
-    assert!(!fit_layout_input(&mut old, dir.path()), "only once");
+    assert!(!fit_build_inputs(&mut old, dir.path()), "only once");
 }
 
 #[test]

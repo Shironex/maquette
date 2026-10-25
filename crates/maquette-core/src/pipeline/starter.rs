@@ -42,6 +42,10 @@ const OLDER: &[(&str, &str)] = &[
         "b8c2b636ab7cab77f608d05d1698bff31af8d583822bb27e05f078d989af2b6c",
     ),
     (
+        "tools/build_scene.py",
+        "beb41cd4353d00079f562545667c56cd2e3f267f6a04d087f430b96900657dd1",
+    ),
+    (
         "tools/export_character.py",
         "a450a138b62489b9bb6ffc848392de75bc3539460cd275a181f88e986b20e054",
     ),
@@ -126,6 +130,10 @@ const BUILD_SCENE: StarterScript = StarterScript {
     path: "tools/build_scene.py",
     text: include_str!("../../starter/build_scene.py"),
 };
+const FIXUPS: StarterScript = StarterScript {
+    path: crate::prepare::SCRIPT_PATH,
+    text: crate::prepare::SCRIPT,
+};
 const BAKE_LIGHT: StarterScript = StarterScript {
     path: "tools/bake_light.py",
     text: include_str!("../../starter/bake_light.py"),
@@ -155,9 +163,14 @@ const SHIP: StarterScript = StarterScript {
 /// own.
 pub fn scripts(template: ProjectTemplate) -> &'static [StarterScript] {
     match template {
-        ProjectTemplate::FloatingDiorama | ProjectTemplate::Room => {
-            &[BUILD_SCENE, BAKE_LIGHT, EXPORT_WEB, RENDER_STOPS, SHIP]
-        }
+        ProjectTemplate::FloatingDiorama | ProjectTemplate::Room => &[
+            BUILD_SCENE,
+            FIXUPS,
+            BAKE_LIGHT,
+            EXPORT_WEB,
+            RENDER_STOPS,
+            SHIP,
+        ],
         ProjectTemplate::CharacterShowcase => {
             &[BUILD_CHARACTER, EXPORT_CHARACTER, RENDER_STOPS, SHIP]
         }

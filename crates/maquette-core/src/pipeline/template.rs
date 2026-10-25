@@ -140,6 +140,8 @@ fn diorama() -> Vec<StepDef> {
                 "models/*.glb",
                 "models/*.gltf",
                 LAYOUT_INPUT,
+                PREPARE_INPUT,
+                FIXUPS_INPUT,
             ],
             &["blender/scene_built.blend"],
             &[],
@@ -258,26 +260,41 @@ pub fn for_template(template: ProjectTemplate) -> PipelineDef {
 /// The scene layout the Build scene starter reads, so moving a model or a
 /// camera in the app rebuilds the scene.
 pub const LAYOUT_INPUT: &str = crate::layout::LAYOUT_FILE;
+/// The real sizes and fix-ups it applies, and the script it imports for
+/// them, so changing either rebuilds the scene.
+pub const PREPARE_INPUT: &str = crate::prepare::PREPARE_FILE;
+pub const FIXUPS_INPUT: &str = crate::prepare::SCRIPT_PATH;
 const BUILD_SCRIPT: &str = "tools/build_scene.py";
 
-/// Adds the scene layout to the inputs of a step that runs the Build scene
-/// starter once that script reads it, so a project made before layouts
-/// rebuilds when its layout changes after its starters were updated.
-/// Returns true when `def` changed.
-pub fn fit_layout_input(def: &mut PipelineDef, project_dir: &Path) -> bool {
+/// Adds the files the Build scene starter reads to the inputs of a step
+/// that runs it, once the script reads them: the layout, then the
+/// preparation and the fix-up script. A project made before either
+/// rebuilds when they change after its starters were updated. Returns true
+/// when `def` changed.
+pub fn fit_build_inputs(def: &mut PipelineDef, project_dir: &Path) -> bool {
     let root = def.root_dir(project_dir);
     let mut changed = false;
     for step in &mut def.steps {
-        if step.script.as_deref() != Some(BUILD_SCRIPT)
-            || step.inputs.iter().any(|i| i == LAYOUT_INPUT)
-        {
+        if step.script.as_deref() != Some(BUILD_SCRIPT) {
             continue;
         }
-        let reads = std::fs::read_to_string(root.join(BUILD_SCRIPT))
-            .is_ok_and(|text| text.contains(LAYOUT_INPUT));
-        if reads {
-            step.inputs.push(LAYOUT_INPUT.to_string());
-            changed = true;
+        let Ok(text) = std::fs::read_to_string(root.join(BUILD_SCRIPT)) else {
+            continue;
+        };
+        let wanted: &[(&str, &[&str])] = &[
+            (LAYOUT_INPUT, &[LAYOUT_INPUT]),
+            (PREPARE_INPUT, &[PREPARE_INPUT, FIXUPS_INPUT]),
+        ];
+        for (marker, inputs) in wanted {
+            if !text.contains(marker) {
+                continue;
+            }
+            for input in *inputs {
+                if !step.inputs.iter().any(|i| i == input) {
+                    step.inputs.push((*input).to_string());
+                    changed = true;
+                }
+            }
         }
     }
     changed

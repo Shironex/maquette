@@ -68,10 +68,55 @@ fn the_build_places_models_from_the_layout_and_posters_keep_its_names() {
 }
 
 #[test]
+fn the_build_prepares_models_before_the_layout_places_them() {
+    let build = BUILD_SCENE.text;
+    assert!(build.contains("--prepare"));
+    assert!(build.contains("prepare.json"));
+    let prepared = build.find("prepare_models(added").expect("prepares");
+    let placed = build
+        .find("place(collection, placement)\n")
+        .expect("places");
+    assert!(
+        prepared < placed,
+        "real size first, the layout's scale on top"
+    );
+}
+
+#[test]
+fn the_fixup_script_applies_the_kinds_in_their_order() {
+    let text = FIXUPS.text;
+    let names: Vec<String> = crate::prepare::FixupKind::ALL
+        .iter()
+        .map(|k| serde_json::to_value(k).expect("kind"))
+        .filter_map(|v| v.as_str().map(str::to_string))
+        .collect();
+    let list = text
+        .split("ORDER = [")
+        .nth(1)
+        .and_then(|rest| rest.split(']').next())
+        .expect("ORDER");
+    let order: Vec<String> = list
+        .split(',')
+        .map(|item| item.trim().trim_matches('"').to_string())
+        .filter(|item| !item.is_empty())
+        .collect();
+    assert_eq!(order, names, "the script and FixupKind agree");
+    for name in &names {
+        assert!(
+            text.contains(&format!("\"{name}\": ")),
+            "{name} has a function"
+        );
+    }
+    // It reads its input and writes a copy; it never saves a blend.
+    assert!(!text.contains("save_mainfile") && !text.contains("save_as_mainfile"));
+    assert!(text.contains("export_scene.gltf(filepath=out"));
+}
+
+#[test]
 fn write_skips_files_that_exist() {
     let dir = tempfile::tempdir().expect("tempdir");
     let first = write(dir.path(), ProjectTemplate::FloatingDiorama).expect("write");
-    assert_eq!(first.len(), 5);
+    assert_eq!(first.len(), 6);
     let character = tempfile::tempdir().expect("tempdir");
     let written = write(character.path(), ProjectTemplate::CharacterShowcase).expect("write");
     assert_eq!(written.len(), 4);

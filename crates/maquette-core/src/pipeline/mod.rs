@@ -172,7 +172,7 @@ pub fn ensure(
 ) -> CoreResult<PipelineDef> {
     if let Some(mut def) = load(project_dir)? {
         let presets = template::fit_presets(&mut def, manifest);
-        let layout = template::fit_layout_input(&mut def, project_dir);
+        let layout = template::fit_build_inputs(&mut def, project_dir);
         if presets || layout {
             match save(project_dir, &def) {
                 Ok(()) => tracing::info!(presets, layout, "fitted the pipeline to the project"),

@@ -4,7 +4,7 @@ Maquette runs this headless, as the Build scene step:
 
     blender -b --factory-startup --python-exit-code 1 --python tools/build_scene.py -- \
         --base blender/scene.blend --models models --out blender/scene_built.blend \
-        [--layout layout.json] [--project project.json]
+        [--layout layout.json] [--project project.json] [--prepare prepare.json]
 
 - When the base blend exists it is the starting point (your cameras, lights
   and hand placed objects). Otherwise the scene starts empty, with a sun and
@@ -13,6 +13,10 @@ Maquette runs this headless, as the Build scene step:
   "Models", named after the file. A model whose collection is already in the
   base blend is left as you placed it. When project.json lists a file as an
   older version of an asset, only the newest version is imported.
+- Each asset's fix-ups and real size (prepare.json, set in the Inbox, the
+  Board and the Inspector) are applied by fixups.py next to this script:
+  the fix-ups, then a uniform scale to the real size. The layout comes
+  after, so its "scale" stays a tweak on top of the real size.
 - The scene layout (layout.json, written by the Inspector's Layout view)
   moves each asset's newest model to its place: "position" in metres,
   "rotation" in degrees (X, then Y, then Z) and a uniform "scale", all in
@@ -29,7 +33,8 @@ Maquette runs this headless, as the Build scene step:
 - The result is saved to --out. The base blend is never written.
 
 Edit freely: this file is yours. Maquette only reruns the step when this
-script, the base blend, a model or the layout changes.
+script, fixups.py, the base blend, a model, the layout or prepare.json
+changes.
 """
 
 import argparse
@@ -66,6 +71,7 @@ def parse_args():
     parser.add_argument("--out", required=True, help="where to save the built blend")
     parser.add_argument("--layout", default="layout.json", help="optional scene layout")
     parser.add_argument("--project", default="project.json", help="the project's assets")
+    parser.add_argument("--prepare", default="prepare.json", help="real sizes and fix-ups")
     return parser.parse_args(argv)
 
 
@@ -105,6 +111,31 @@ def asset_files(path):
             stem = os.path.splitext(os.path.basename(version.get("file", "")))[0]
             found[stem] = (asset.get("id"), i == len(versions) - 1)
     return found
+
+
+def load_fixups():
+    """fixups.py from this script's folder, or None when it is missing."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try:
+        import fixups
+    except ImportError as err:
+        log(f"fixups.py is missing, so real sizes and fix-ups are left out ({err})")
+        return None
+    return fixups
+
+
+def prepare_models(collections, owners, path):
+    """Applies each asset's fix-ups and real size to its newest model."""
+    fixups = load_fixups()
+    entries = fixups.read_entries(path) if fixups else {}
+    for collection in collections:
+        owner = owners.get(collection.name)
+        entry = entries.get(owner[0]) if owner else None
+        if not entry:
+            continue
+        say = lambda message, name=collection.name: log(f"{name} {message}")
+        fixups.prepare(list(collection.all_objects), entry, say)
+    bpy.context.view_layer.update()
 
 
 def start_scene(base):
@@ -302,6 +333,7 @@ def main():
         newest.append(path)
     added = [c for c in (import_model(f, parent) for f in newest) if c is not None]
     bpy.context.view_layer.update()
+    prepare_models(added, owners, args.prepare)
     unplaced = []
     placed = 0
     for collection in added:
