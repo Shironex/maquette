@@ -6,7 +6,7 @@
 import { Button, Icon, IconButton, InlineBanner, SegmentedControl, Select } from '@maquette/ui';
 import type { ProviderId } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
-import { formatCredits, shareText } from '@/state/credits';
+import { formatCredits, shareText, spendKey } from '@/state/credits';
 import { SectionTitle } from '../SectionTitle';
 import { Sheet } from '../Sheet';
 import { BalanceCard } from './BalanceCard';
@@ -51,7 +51,7 @@ export default function CreditsSheet() {
   ));
   const rows = spends.map(spend => (
     <SpendRow
-      key={spend.job}
+      key={spendKey(spend)}
       spend={spend}
       now={now}
       project={showProject ? nameOf(spend.project) : null}

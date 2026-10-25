@@ -28,6 +28,9 @@ export const OUTCOME_CHIP: Record<SpendOutcome, { status: Status; label: string 
   refunded: { status: 'cached', label: 'Refunded' },
 };
 
+/** A send's identity: job ids repeat across projects and once finished jobs are cleared. */
+export const spendKey = (s: Spend): string => `${s.project}/${s.job}/${s.task ?? ''}`;
+
 export interface CreditsFilter {
   project: string | null;
   service: ProviderId | null;

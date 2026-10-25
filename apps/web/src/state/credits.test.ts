@@ -10,6 +10,7 @@ import {
   formatCredits,
   ledgerProjects,
   shareText,
+  spendKey,
   spendsCsv,
 } from './credits';
 
@@ -58,6 +59,13 @@ describe('the ledger view', () => {
     spend({ job: 'old-1', sentAtMs: NOW - 90 * DAY_MS, credits: 50, estimated: true }),
     spend({ job: 'lamp-1', outcome: 'refunded', credits: 0 }),
   ];
+
+  it('keys a send by project, job and task, since job ids come back', () => {
+    const again = spend({ task: 'task-2' });
+    expect(spendKey(spend({}))).not.toBe(spendKey(again));
+    expect(spendKey(spend({ project: 'rooftop' }))).not.toBe(spendKey(spend({})));
+    expect(spendKey(spend({ task: null }))).toBe('moon-island/sakura-1/');
+  });
 
   it('filters by project and provider', () => {
     expect(filterSpends(spends, { project: 'rooftop', service: null }).map(s => s.job)).toEqual([

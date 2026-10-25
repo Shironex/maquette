@@ -160,3 +160,38 @@ fn summaries_count_the_week_the_month_and_the_redo_share() {
     assert!((all.redo_share - 30.0 / 115.0).abs() < 1e-9);
     assert_eq!(summarise(&[], NOW)[2].redo_share, 0.0);
 }
+
+#[test]
+fn a_job_id_used_again_is_a_new_send() {
+    // Clear finished frees `lantern-1`; the next send gets it again with a
+    // new provider task.
+    let first_sent = line(
+        "lantern-1",
+        LineEvent::Sent,
+        NOW - 90_000.0,
+        SpendOutcome::Pending,
+    );
+    let mut first_done = line(
+        "lantern-1",
+        LineEvent::Settled,
+        NOW - 80_000.0,
+        SpendOutcome::Succeeded,
+    );
+    first_done.credits = Some(40.0);
+    let mut again = line("lantern-1", LineEvent::Sent, NOW, SpendOutcome::Pending);
+    again.task = Some("task-second".into());
+    let ledger = fold(&[first_sent, first_done, again]);
+    assert_eq!(ledger.len(), 2);
+    assert_eq!(ledger[0].task.as_deref(), Some("task-second"));
+    assert_eq!(ledger[0].outcome, SpendOutcome::Pending);
+    assert_eq!(ledger[0].credits, 30.0);
+    assert_eq!(ledger[1].outcome, SpendOutcome::Succeeded);
+    assert_eq!(ledger[1].credits, 40.0);
+
+    // Lines without a task still fold by project and job.
+    let mut sent = line("lantern-2", LineEvent::Sent, NOW, SpendOutcome::Pending);
+    sent.task = None;
+    let mut settled = line("lantern-2", LineEvent::Settled, NOW, SpendOutcome::Failed);
+    settled.task = None;
+    assert_eq!(fold(&[sent, settled]).len(), 1);
+}

@@ -186,13 +186,16 @@ pub fn charged(outcome: SpendOutcome, reported: Option<f64>, estimate: Option<f6
     }
 }
 
-/// One spend per send, the later lines filling in the earlier ones.
+/// One spend per send, the later lines filling in the earlier ones. A send
+/// is its project, job and first task: job ids come back once finished jobs
+/// are cleared, but the provider's task id is new for every send. Lines
+/// without a task fold by project and job alone.
 pub fn fold(lines: &[LedgerLine]) -> Vec<Spend> {
     let mut spends: Vec<(Spend, Option<f64>, Option<f64>)> = Vec::new();
     for line in lines {
-        let at = spends
-            .iter()
-            .position(|(s, _, _)| s.project == line.project && s.job == line.job);
+        let at = spends.iter().position(|(s, _, _)| {
+            s.project == line.project && s.job == line.job && s.task == line.task
+        });
         let at = at.unwrap_or_else(|| {
             spends.push((
                 Spend {
@@ -201,7 +204,7 @@ pub fn fold(lines: &[LedgerLine]) -> Vec<Spend> {
                     asset: line.asset.clone(),
                     asset_name: line.asset_name.clone(),
                     service: line.service,
-                    task: None,
+                    task: line.task.clone(),
                     summary: String::new(),
                     sent_at_ms: line.at_ms,
                     settled_at_ms: None,
@@ -225,7 +228,6 @@ pub fn fold(lines: &[LedgerLine]) -> Vec<Spend> {
         if !line.summary.is_empty() {
             spend.summary.clone_from(&line.summary);
         }
-        spend.task = line.task.clone().or(spend.task.take());
         spend.redo_of = line.redo_of.clone().or(spend.redo_of.take());
         spend.via_agent |= line.via_agent;
         *reported = line.credits.or(*reported);
