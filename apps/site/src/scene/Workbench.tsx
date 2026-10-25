@@ -71,6 +71,34 @@ function Environment() {
   return null;
 }
 
+const nextFrame = () => new Promise<void>(done => requestAnimationFrame(() => done()));
+
+/**
+ * Gets a model ready before it joins the scene: its shaders compile in
+ * parallel where the driver allows it and its textures upload, one model per
+ * frame, so no single frame does every model's work at once.
+ */
+async function warm(
+  gl: THREE.WebGLRenderer,
+  root: THREE.Object3D,
+  camera: THREE.Camera,
+  scene: THREE.Scene
+): Promise<void> {
+  await gl.compileAsync(root, camera, scene);
+  await nextFrame();
+  root.traverse(object => {
+    if (!(object instanceof THREE.Mesh)) return;
+    const materials: THREE.Material[] = Array.isArray(object.material)
+      ? object.material
+      : [object.material];
+    for (const material of materials) {
+      for (const value of Object.values(material)) {
+        if (value instanceof THREE.Texture) gl.initTexture(value);
+      }
+    }
+  });
+}
+
 function Models({
   stop,
   reducedMotion,
@@ -84,7 +112,7 @@ function Models({
   onReady: () => void;
   onFailed: (reason: string) => void;
 }) {
-  const { gl, invalidate } = useThree();
+  const { gl, camera, scene, invalidate } = useThree();
   const [built, setBuilt] = useState<BuiltModel[]>([]);
   const sweepClock = useRef(0);
 
@@ -93,23 +121,38 @@ function Models({
     const needed = new Set(MODELS.filter(m => m.stops.includes(firstView)).map(m => m.file));
     const placed: BuiltModel[] = [];
     let readySent = false;
+    // Files finish loading in any order; they are warmed and placed one at a time.
+    let queue = Promise.resolve();
+    const place = async (file: string, scene3d: THREE.Object3D) => {
+      const entries = MODELS.filter((entry: ModelEntry) => entry.file === file);
+      for (const entry of entries) {
+        const model = buildModel(entry, scene3d);
+        await warm(gl, model.root, camera, scene);
+        if (!live) return;
+        placed.push(model);
+      }
+      // Keep manifest order so draw order is stable.
+      const order = (b: BuiltModel) => MODELS.indexOf(b.entry);
+      setBuilt([...placed].sort((a, b) => order(a) - order(b)));
+      needed.delete(file);
+      if (!readySent && needed.size === 0) {
+        readySent = true;
+        // Two frames: one to commit the last model, one to draw the first view.
+        requestAnimationFrame(() => requestAnimationFrame(() => live && onReady()));
+      }
+      invalidate();
+    };
     void loadInOrder(
       gl,
       loadOrder(MODELS, firstView),
       (file, gltf) => {
         if (!live) return;
-        const entries = MODELS.filter((entry: ModelEntry) => entry.file === file);
-        placed.push(...entries.map(entry => buildModel(entry, gltf.scene)));
-        // Keep manifest order so draw order is stable.
-        const order = (b: BuiltModel) => MODELS.indexOf(b.entry);
-        setBuilt([...placed].sort((a, b) => order(a) - order(b)));
-        needed.delete(file);
-        if (!readySent && needed.size === 0) {
-          readySent = true;
-          // Two frames: one to upload, one to draw the finished first view.
-          requestAnimationFrame(() => requestAnimationFrame(() => live && onReady()));
-        }
-        invalidate();
+        queue = queue
+          .then(() => (live ? place(file, gltf.scene) : undefined))
+          .catch((error: unknown) => {
+            console.error(`Could not place ${file}`, error);
+            if (live && needed.has(file)) onFailed(`place ${file}`);
+          });
       },
       (file, error) => {
         console.error(`Could not load ${file}`, error);
@@ -119,7 +162,7 @@ function Models({
     return () => {
       live = false;
     };
-  }, [gl, firstView, invalidate, onReady, onFailed]);
+  }, [gl, camera, scene, firstView, invalidate, onReady, onFailed]);
 
   useFrame((_, delta) => {
     const at = stop.current;
