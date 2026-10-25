@@ -336,6 +336,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "list_inbox",
             "list_projects",
             "make_object_refs",
+            "pick_concepts",
             "preview_fixups",
             "redo_inbox_model",
             "redo_inbox_models",
@@ -348,6 +349,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "set_layout",
             "set_material_tweaks",
             "set_real_size",
+            "star_concepts",
             "start_concepts",
         ]
     );
