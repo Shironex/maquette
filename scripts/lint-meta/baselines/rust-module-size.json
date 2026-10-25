@@ -15,7 +15,6 @@
   "crates/maquette-core/src/inbox/mod.rs": 591,
   "crates/maquette-core/src/inspect/mod.rs": 575,
   "crates/maquette-core/src/layout.rs": 728,
-  "crates/maquette-core/src/pipeline/runner.rs": 1783,
   "crates/maquette-core/src/project.rs": 777,
   "crates/maquette-core/src/providers/handback.rs": 542,
   "crates/maquette-core/src/providers/jobs.rs": 1880,
