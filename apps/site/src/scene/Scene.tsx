@@ -4,11 +4,14 @@ import { Environment } from './Environment';
 import { Lights } from './Lights';
 import { POSTER_CAMERAS, STOPS } from './manifest';
 import { Models } from './Models';
-import { useProgress } from './Scene.hooks';
+import { useLiveFrames, useProgress } from './Scene.hooks';
 import type { SceneProps } from './Workbench.types';
 
 export function Scene(props: SceneProps) {
-  const progress = useProgress(props.scroll, props.reducedMotion);
+  // Poster capture holds exact frames: no easing, breathing or idle motion.
+  const still = Boolean(props.capture);
+  const progress = useProgress(props.scroll, still);
+  useLiveFrames(still);
   return (
     <>
       <color attach="background" args={['#1a1917']} />
@@ -16,7 +19,6 @@ export function Scene(props: SceneProps) {
       <Lights />
       <Models
         progress={progress}
-        reducedMotion={props.reducedMotion}
         firstView={props.initialStop}
         onReady={props.onReady}
         onFailed={props.onFailed}
@@ -24,12 +26,12 @@ export function Scene(props: SceneProps) {
       <CameraRig
         progress={progress}
         stops={STOPS}
-        reducedMotion={props.reducedMotion}
+        still={still}
         fixed={
           props.capture && props.capture !== 'stops' ? POSTER_CAMERAS[props.capture] : undefined
         }
       />
-      <Callouts progress={progress} reducedMotion={props.reducedMotion} />
+      <Callouts progress={progress} />
     </>
   );
 }

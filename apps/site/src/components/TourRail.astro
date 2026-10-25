@@ -1,0 +1,147 @@
+---
+/**
+ * The stop rail along the bottom of the pinned stage: one mark per stop on a
+ * line that fills as the camera flies on, each a button that scrolls to its
+ * stop. The page script sets the fill and the current stop.
+ */
+import type { TourStop } from '../content/copy';
+
+interface Props {
+  stops: readonly TourStop[];
+}
+
+const { stops } = Astro.props;
+---
+
+<nav class="rail" aria-label="Camera stops">
+  <div class="wrap rail-inner">
+    <div class="track">
+      <div class="line" aria-hidden="true"><span class="fill" data-fill></span></div>
+      <ol class="stops">
+        {
+          stops.map((stop, i) => (
+            <li>
+              <button type="button" class="stop" data-goto={i + 1}>
+                <span class="node" aria-hidden="true" />
+                <span class="name">
+                  <span class="number">{stop.number}</span> {stop.title}
+                </span>
+              </button>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+    <p class="counter" aria-live="polite" data-counter>{stops.length} stops</p>
+  </div>
+</nav>
+
+<style>
+  .rail {
+    position: absolute;
+    inset: auto 0 0;
+  }
+  .rail-inner {
+    display: flex;
+    align-items: flex-end;
+    gap: 32px;
+    padding-block: 0 22px;
+  }
+  .track {
+    position: relative;
+    flex: 1;
+  }
+  .line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 5px;
+    height: 1px;
+    background: rgba(233, 229, 220, 0.18);
+  }
+  /* --fill runs 0 to 1 across the tour; the marks sit at the start of each column. */
+  .fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: calc(var(--fill, 0) * (100% - 100% / 6) + 6px);
+    background: var(--clay);
+  }
+  .stops {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .stop {
+    all: unset;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .stop:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 4px;
+  }
+  .node {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    box-sizing: border-box;
+    background: var(--wall);
+    border: 1.5px solid rgba(233, 229, 220, 0.45);
+    transition:
+      background-color 300ms ease,
+      border-color 300ms ease,
+      box-shadow 300ms ease;
+  }
+  .name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .number {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-mute);
+  }
+  .stop:hover .name {
+    color: var(--text);
+  }
+  .stop[data-state='passed'] .node {
+    background: var(--text-dim);
+    border-color: var(--text-dim);
+  }
+  .stop[data-state='current'] .node {
+    background: var(--clay);
+    border-color: var(--clay);
+    box-shadow: 0 0 0 4px var(--clay-soft);
+  }
+  .stop[data-state='current'] .name {
+    color: var(--clay-text);
+    font-weight: 600;
+  }
+  .counter {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-mute);
+    white-space: nowrap;
+  }
+  @media (max-width: 899px) {
+    .rail {
+      display: none;
+    }
+  }
+  /* Poster capture: the bare canvas. */
+  :global(.capture) .rail {
+    display: none;
+  }
+</style>

@@ -1,0 +1,111 @@
+---
+/**
+ * One stop of the tour: a screen tall section that scrolls over the pinned
+ * stage, its copy centred in it on the side the camera's subject leaves
+ * clear. A stop's camera framing is reached as its section's top meets the
+ * top of the window, with the copy centred on screen.
+ */
+interface Props {
+  index: number;
+  id: string;
+  side: 'left' | 'right';
+  labelledby: string;
+  /** The hero frame's section: wider copy for the page's headline. */
+  hero?: boolean;
+}
+
+const { index, id, side, labelledby, hero = false } = Astro.props;
+---
+
+<section
+  class="stop-section"
+  id={`stop-${id}`}
+  data-stop-section={index}
+  data-side={side}
+  aria-labelledby={labelledby}
+>
+  <div class="wrap stop-wrap">
+    <div class:list={['panel', { hero }]}>
+      <slot />
+    </div>
+  </div>
+</section>
+
+<style>
+  .stop-section {
+    position: relative;
+    height: 100svh;
+    min-height: 640px;
+    display: flex;
+    align-items: center;
+  }
+  .stop-wrap {
+    width: 100%;
+    display: flex;
+  }
+  [data-side='right'] .stop-wrap {
+    justify-content: flex-end;
+  }
+  .panel {
+    position: relative;
+    isolation: isolate;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .panel.hero {
+    max-width: 960px;
+    gap: 24px;
+  }
+  /* The hero's copy sits high, under the header, like the design's first frame. */
+  [data-stop-section='0'] {
+    align-items: flex-start;
+    padding-top: calc(72px + 88px);
+  }
+  /* A soft pool of shade behind the copy that travels with it, so the words
+     stay above 4.5:1 over any frame the camera passes. */
+  .panel::before {
+    content: '';
+    position: absolute;
+    inset: -200px -280px;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+      closest-side,
+      rgba(17, 16, 14, 0.8),
+      rgba(17, 16, 14, 0.6) 40%,
+      rgba(17, 16, 14, 0.22) 72%,
+      rgba(17, 16, 14, 0)
+    );
+  }
+
+  @media (max-height: 760px) and (min-width: 900px) {
+    [data-stop-section='0'] {
+      padding-top: calc(72px + 48px);
+    }
+  }
+  /* Phones: the stops are left to the pipeline section; the hero copy stacks
+     above the poster. */
+  @media (max-width: 899px) {
+    .stop-section {
+      display: none;
+    }
+    [data-stop-section='0'] {
+      display: block;
+      height: auto;
+      min-height: 0;
+      padding: 36px 20px 0;
+    }
+    .stop-wrap {
+      padding: 0;
+    }
+    .panel.hero {
+      gap: 16px;
+    }
+    .panel::before {
+      display: none;
+    }
+  }
+</style>

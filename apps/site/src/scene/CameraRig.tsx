@@ -1,8 +1,9 @@
 /**
- * Moves the camera along the tour as the page scrolls: each stop plays its
- * move and the path runs on into the next; with reduced motion it cuts from
- * stop to stop. Stops are framed for 16:10: on a narrower window the field
- * of view widens so the subject stays in frame.
+ * Flies the camera through the bench as the page scrolls: each stop's move
+ * plays while its copy is on screen and the path sweeps on to the next stop
+ * between them, with a slow breath at rest and a lean after the pointer.
+ * Stops are framed for 16:10: on a narrower window the field of view widens
+ * so the subject stays in frame.
  */
 import { useCameraRig, type CameraRigOptions } from './CameraRig.hooks';
 

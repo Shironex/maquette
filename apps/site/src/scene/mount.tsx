@@ -10,7 +10,6 @@ import { Workbench } from './Workbench';
 
 export interface MountOptions {
   initialStop: StopId;
-  reducedMotion: boolean;
   scroll: TourScroll;
   capture?: PosterCamera | 'stops';
 }
@@ -25,7 +24,6 @@ export function mount(container: HTMLElement, options: MountOptions): () => void
     <StrictMode>
       <Workbench
         initialStop={options.initialStop}
-        reducedMotion={options.reducedMotion}
         scroll={options.scroll}
         onReady={ready}
         onFailed={failed}

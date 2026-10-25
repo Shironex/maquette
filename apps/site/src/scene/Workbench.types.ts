@@ -4,7 +4,6 @@ import type { TourScroll } from './tour';
 export interface WorkbenchProps {
   /** The stop the page opened on: its models load first. */
   initialStop: StopId;
-  reducedMotion: boolean;
   /** The page's tour progress. */
   scroll: TourScroll;
   onReady: () => void;

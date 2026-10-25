@@ -1,338 +1,172 @@
 ---
 /**
- * The hero and the six stop tour. On desktop the stage sticks while the
- * section scrolls past; the scroll moves the 3D island's camera along the
- * bench from stop to stop and fades each stop's copy in and out with it
- * (without the island, a poster per stop). On phones the stage
- * is a plain hero with one poster and the stops are left to the pipeline
- * section below.
+ * The hero and the six stop tour. On desktop the stage (the 3D island, or a
+ * poster per stop without it) pins to the window while one screen tall
+ * section per stop scrolls over it; the scroll flies the camera through the
+ * bench from stop to stop and the copy travels with the page. After Ship
+ * the stage scrolls away with the last section. On phones the stage is a
+ * plain hero with one poster and the stops are left to the pipeline section
+ * below.
  */
 import { Icon } from '@maquette/ui';
 import { TOUR } from '../content/copy';
+import { STOPS } from '../scene/cameras';
+import TourRail from './TourRail.astro';
+import TourStop from './TourStop.astro';
 
 const posters = ['stop-0', ...TOUR.map((_, i) => `stop-${i + 1}`)];
 const total = TOUR.length;
+const side = (index: number) => STOPS[index]?.copy ?? 'left';
 ---
 
-<section id="top" class="tour" data-tour data-stop="0" aria-labelledby="hero-title">
+<section id="top" class="tour" data-tour aria-labelledby="hero-title">
   <div class="stage">
-    <div class="media">
-      <div
-        class="scene"
-        role="img"
-        aria-label="A sculptor's workbench at night: a clay island maquette on a plaster plinth, the finished island on a turntable, pencil sketches, tools and a laptop showing Maquette."
-      >
-        <picture>
-          <source
-            media="(max-width: 899px)"
-            srcset="/scene/posters/hero-mobile.webp"
-            width="780"
-            height="966"
-          />
-          <source
-            srcset="/scene/posters/stop-0-960.webp 960w, /scene/posters/stop-0-1920.webp 1920w"
-            sizes="100vw"
-          />
+    <div
+      class="scene"
+      role="img"
+      aria-label="A sculptor's workbench at night: a clay island maquette on a plaster plinth, the finished island on a turntable, pencil sketches, tools and a laptop showing Maquette."
+    >
+      <picture>
+        <source
+          media="(max-width: 899px)"
+          srcset="/scene/posters/hero-mobile.webp"
+          width="780"
+          height="966"
+        />
+        <source
+          srcset="/scene/posters/stop-0-960.webp 960w, /scene/posters/stop-0-1920.webp 1920w"
+          sizes="100vw"
+        />
+        <img
+          class="poster is-shown"
+          data-poster="0"
+          src="/scene/posters/stop-0-1920.webp"
+          width="1920"
+          height="912"
+          alt=""
+          fetchpriority="high"
+          decoding="async"
+        />
+      </picture>
+      {
+        posters.slice(1).map((name, i) => (
           <img
-            class="poster is-shown"
-            data-poster="0"
-            src="/scene/posters/stop-0-1920.webp"
+            class="poster later"
+            data-poster={i + 1}
+            data-src={`/scene/posters/${name}-1920.webp`}
             width="1920"
             height="912"
             alt=""
-            fetchpriority="high"
             decoding="async"
           />
-        </picture>
-        {
-          posters.slice(1).map((name, i) => (
-            <img
-              class="poster later"
-              data-poster={i + 1}
-              data-src={`/scene/posters/${name}-1920.webp`}
-              width="1920"
-              height="912"
-              alt=""
-              decoding="async"
-            />
-          ))
-        }
-        <div class="canvas" data-canvas></div>
-        <span class="poster-note">Poster frame · live 3D on desktop</span>
-      </div>
-      <div class="mobile-cta">
+        ))
+      }
+      <div class="canvas" data-canvas></div>
+      <span class="poster-note">Poster frame · live 3D on desktop</span>
+    </div>
+    <div class="grade" aria-hidden="true"></div>
+
+    <div class="callouts" aria-hidden="true">
+      <span class="callout" data-callout="concept"
+        ><span class="dot"></span><span class="leg"></span><span class="tag"
+          >01 Concept · sketch from the Lab</span
+        ></span
+      >
+      <span class="callout flip" data-callout="model"
+        ><span class="dot"></span><span class="leg"></span><span class="tag"
+          >03 3D model · clay_island_maquette_v1.glb</span
+        ></span
+      >
+      <span class="callout flip" data-callout="web"
+        ><span class="dot"></span><span class="leg"></span><span class="tag"
+          >05 Web · KTX2 + meshopt</span
+        ></span
+      >
+    </div>
+
+    <TourRail stops={TOUR} />
+  </div>
+
+  <div class="mobile-cta">
+    <a class="btn btn-primary" href="#download"
+      >Download for Mac<Icon name="download-simple" size={18} /></a
+    >
+    <a class="btn btn-secondary" href="#pipeline">See the pipeline</a>
+  </div>
+
+  <div class="stops">
+    <TourStop index={0} id="hero" side="left" labelledby="hero-title" hero>
+      <h1 class="display" id="hero-title">Turn concept art into real&#8209;time 3D scenes.</h1>
+      <p class="lead hero-lead">
+        From a Codex sketch to a compressed GLB in your site repo. Everything runs on your machine.
+      </p>
+      <div class="actions hero-actions">
         <a class="btn btn-primary" href="#download"
           >Download for Mac<Icon name="download-simple" size={18} /></a
         >
-        <a class="btn btn-secondary" href="#pipeline">See the pipeline</a>
-      </div>
-      <div class="grade" aria-hidden="true"></div>
-
-      <div class="callouts" aria-hidden="true">
-        <span class="callout" data-callout="concept"
-          ><span class="dot"></span><span class="leg"></span><span class="tag"
-            >01 Concept · sketch from the Lab</span
-          ></span
-        >
-        <span class="callout flip" data-callout="model"
-          ><span class="dot"></span><span class="leg"></span><span class="tag"
-            >03 3D model · clay_island_maquette_v1.glb</span
-          ></span
-        >
-        <span class="callout flip" data-callout="web"
-          ><span class="dot"></span><span class="leg"></span><span class="tag"
-            >05 Web · KTX2 + meshopt</span
-          ></span
+        <a class="btn btn-text see" href="#pipeline"
+          >See the pipeline<Icon name="arrow-right" size={18} /></a
         >
       </div>
-
-      <div class="hero wrap">
-        <h1 class="display" id="hero-title">Turn concept art into real&#8209;time 3D scenes.</h1>
-        <p class="lead hero-lead">
-          From a Codex sketch to a compressed GLB in your site repo. Everything runs on your
-          machine.
-        </p>
-        <div class="actions">
-          <a class="btn btn-primary" href="#download"
-            >Download for Mac<Icon name="download-simple" size={18} /></a
-          >
-          <a class="btn btn-text see" href="#pipeline"
-            >See the pipeline<Icon name="arrow-right" size={18} /></a
-          >
-        </div>
-      </div>
-
-      <div class="panels wrap">
-        <h2 class="sr-only">Six camera stops along the bench</h2>
-        {
-          TOUR.map(stop => (
-            <article class="panel" data-panel={stop.id} aria-labelledby={`stop-${stop.id}`}>
-              <p class="eyebrow">
-                Stop {stop.number} of 0{total}
-              </p>
-              <h3 class="panel-title" id={`stop-${stop.id}`}>
-                {stop.title}
-              </h3>
-              <p class="lead">{stop.line}</p>
-              {stop.id === 'web' && (
-                <p class="numbers">
-                  <span>
-                    830 <small>KB</small> to 483 <small>KB</small>
-                  </span>
-                  <span>
-                    about 3 <small>ms</small>
-                  </span>
-                </p>
-              )}
-              {stop.id === 'ship' && (
-                <div class="actions">
-                  <a class="btn btn-primary" href="#download">
-                    Download for Mac
-                    <Icon name="download-simple" size={18} />
-                  </a>
-                </div>
-              )}
-            </article>
-          ))
-        }
-      </div>
-    </div>
-
-    <nav class="timeline" aria-label="Camera stops">
-      <div class="wrap timeline-inner">
-        <div class="timeline-head">
-          <p class="eyebrow mute">Scroll moves the camera along the bench</p>
-          <p class="counter" aria-live="polite" data-counter>{total} stops</p>
-        </div>
-        <div class="track">
-          <div class="ticks" aria-hidden="true"></div>
-          <div class="rail" aria-hidden="true"><span class="fill" data-fill></span></div>
-          <ol class="stops">
-            {
-              TOUR.map((stop, i) => (
-                <li>
-                  <button type="button" class="stop" data-goto={i + 1}>
-                    <span class="node" aria-hidden="true" />
-                    <span class="name">
-                      {stop.number} {stop.title}
-                    </span>
-                    <span class="shot">{stop.shot}</span>
-                  </button>
-                </li>
-              ))
-            }
-          </ol>
-        </div>
-      </div>
-    </nav>
+    </TourStop>
+    {
+      TOUR.map((stop, i) => (
+        <TourStop index={i + 1} id={stop.id} side={side(i + 1)} labelledby={`stop-${stop.id}-title`}>
+          <p class="eyebrow">
+            Stop {stop.number} of 0{total}
+          </p>
+          <h2 class="stop-title" id={`stop-${stop.id}-title`}>
+            {stop.title}
+          </h2>
+          <p class="lead">{stop.line}</p>
+          {stop.id === 'web' && (
+            <p class="numbers">
+              <span>
+                830 <small>KB</small> to 483 <small>KB</small>
+              </span>
+              <span>
+                about 3 <small>ms</small>
+              </span>
+            </p>
+          )}
+          {stop.id === 'ship' && (
+            <div class="actions">
+              <a class="btn btn-primary" href="#download">
+                Download for Mac
+                <Icon name="download-simple" size={18} />
+              </a>
+            </div>
+          )}
+        </TourStop>
+      ))
+    }
   </div>
 </section>
 
 <script>
-  import { LAST_STOP, nearestStop, presence } from '../scene/progress';
-  import { trackTour } from '../scene/scroll';
-  import {
-    DESKTOP_QUERY,
-    FAILED_EVENT,
-    READY_EVENT,
-    prefersReducedMotion,
-    stopAt,
-    supportsWebGL2,
-  } from '../scene/tour';
-
-  /** How far the copy drifts per stop of scroll, in pixels, as it fades. */
-  const DRIFT = 56;
+  import { startTour } from '../scene/startTour';
 
   const tour = document.querySelector<HTMLElement>('[data-tour]');
-  const stage = tour?.querySelector<HTMLElement>('.stage');
-  const touring = window.matchMedia('(min-width: 900px)');
-  // Reduced motion keeps whole stops: the camera cuts and the copy swaps.
-  const reduced = prefersReducedMotion();
-  const tracker = tour && stage ? trackTour(tour, stage, touring) : null;
-  let current = -1;
-  let live = false;
-
-  const hero = tour?.querySelector<HTMLElement>('.hero');
-  const panels = [...(tour?.querySelectorAll<HTMLElement>('[data-panel]') ?? [])];
-  const grade = tour?.querySelector<HTMLElement>('.grade');
-  const callouts = tour?.querySelector<HTMLElement>('.callouts');
-  const fill = tour?.querySelector<HTMLElement>('[data-fill]');
-  const counter = tour?.querySelector('[data-counter]');
-  const buttons = [...(tour?.querySelectorAll<HTMLElement>('[data-goto]') ?? [])];
-  const posters = [...(tour?.querySelectorAll<HTMLImageElement>('[data-poster]') ?? [])];
-  if (tour && !reduced) tour.dataset.scrub = '';
-
-  function loadPoster(index: number) {
-    const img = posters[index];
-    if (img?.dataset.src && !img.getAttribute('src')) img.src = img.dataset.src;
-  }
-
-  function showPoster(index: number) {
-    if (live) return;
-    loadPoster(index);
-    for (const img of posters) img.classList.toggle('is-shown', Number(img.dataset.poster) === index);
-  }
-
-  function setStop(index: number) {
-    if (!tour || index === current) return;
-    current = index;
-    tour.dataset.stop = String(index);
-    if (counter) counter.textContent = index === 0 ? `${LAST_STOP} stops` : `stop ${index} of ${LAST_STOP}`;
-    for (const button of buttons) {
-      const at = Number(button.dataset.goto);
-      button.dataset.state = at < index ? 'passed' : at === index ? 'current' : 'ahead';
-      if (at === index) button.setAttribute('aria-current', 'step');
-      else button.removeAttribute('aria-current');
-    }
-    showPoster(index);
-  }
-
-  /** Fades and drifts one layer with its stop's presence; hidden copy takes no focus. */
-  function fade(el: HTMLElement, stop: number, progress: number) {
-    const shown = presence(progress, stop);
-    el.style.opacity = shown.toFixed(3);
-    el.style.visibility = shown < 0.01 ? 'hidden' : 'visible';
-    el.style.translate = `0 ${((stop - progress) * DRIFT).toFixed(1)}px`;
-  }
-
-  function render(progress: number) {
-    setStop(nearestStop(progress));
-    if (reduced) {
-      fill?.style.setProperty('--fill', String(current / LAST_STOP));
-      return;
-    }
-    fill?.style.setProperty('--fill', (progress / LAST_STOP).toFixed(4));
-    if (hero) fade(hero, 0, progress);
-    panels.forEach((panel, i) => fade(panel, i + 1, progress));
-    const heroShown = presence(progress, 0);
-    grade?.style.setProperty('--scrim-left', (0.82 - 0.27 * heroShown).toFixed(3));
-    if (callouts) callouts.style.opacity = heroShown.toFixed(3);
-    // The posters on either side of a move, so the next one is ready to fade in.
-    if (!live && progress > 0) {
-      loadPoster(Math.floor(progress));
-      loadPoster(Math.ceil(progress));
-    }
-  }
-
-  let queued = false;
-  tracker?.subscribe(progress => {
-    if (current < 0) return render(progress);
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      render(tracker.read());
-    });
-  });
-
-  for (const button of buttons) {
-    button.addEventListener('click', () => tracker?.scrollToStop(Number(button.dataset.goto), !reduced));
-  }
-
-  // The 3D island: desktop class devices with WebGL 2 only, once the page has painted.
-  const canvas = tour?.querySelector<HTMLElement>('[data-canvas]');
-  const params = new URLSearchParams(location.search);
-  // ?poster forces the poster version; ?capture=stops|mobile renders bare frames for the poster script.
-  const capture = params.get('capture');
-  if (capture) document.documentElement.classList.add('capture');
-  const wantsScene =
-    canvas && tracker && window.matchMedia(DESKTOP_QUERY).matches && !params.has('poster');
-
-  if (canvas && tracker && wantsScene) {
-    let unmount: (() => void) | null = null;
-    window.addEventListener(READY_EVENT, () => {
-      live = true;
-      tour?.classList.add('is-live');
-    });
-    window.addEventListener(FAILED_EVENT, () => {
-      live = false;
-      tour?.classList.remove('is-live');
-      unmount?.();
-      unmount = null;
-      showPoster(current);
-    });
-    // The WebGL probe waits for idle time too: making a context can start the
-    // GPU process, and first paint does not need it.
-    const start = () => {
-      if (!supportsWebGL2()) return Promise.resolve();
-      return import('../scene/mount').then(({ mount }) => {
-        unmount = mount(canvas, {
-          initialStop: stopAt(current),
-          reducedMotion: reduced,
-          scroll: tracker,
-          capture: capture === 'mobile' ? 'mobile' : capture ? 'stops' : undefined,
-        });
-      });
-    };
-    const idle = () =>
-      'requestIdleCallback' in window
-        ? window.requestIdleCallback(() => void start(), { timeout: 1500 })
-        : globalThis.setTimeout(() => void start(), 200);
-    if (document.readyState === 'complete') idle();
-    else window.addEventListener('load', idle, { once: true });
-  }
+  if (tour) startTour(tour);
 </script>
 
 <style>
   .tour {
+    --stage: max(100svh, 640px);
     position: relative;
     background: var(--wall);
-    /* The stage, then 130 % of a screen of scroll per move between stops. */
-    height: calc(100svh + 6 * 130svh);
   }
+  /* Pinned while the stop sections scroll over it; it lets go when the
+     last one (Ship) reaches the top and leaves with it. */
   .stage {
     position: sticky;
     top: 0;
-    height: 100svh;
-    min-height: 640px;
-    display: flex;
-    flex-direction: column;
+    height: var(--stage);
     overflow: hidden;
   }
-  .media {
+  .stops {
     position: relative;
-    flex: 1;
-    min-height: 0;
+    margin-top: calc(-1 * var(--stage));
   }
   .scene,
   .canvas,
@@ -362,35 +196,16 @@ const total = TOUR.length;
     visibility: hidden;
     transition: visibility 0s 700ms;
   }
-  /* The grade: the wall fades in from the header, a soft vignette, and a dark
-     band on the left that keeps the copy above 4.5:1 over any frame. */
+  /* The grade: the wall fades in from the header, a soft vignette, and a
+     dark floor under the stop rail. The copy carries its own shade. */
   .grade {
     pointer-events: none;
     background:
-      linear-gradient(180deg, var(--wall) 0, rgba(26, 25, 23, 0) 190px),
-      linear-gradient(0deg, rgba(28, 27, 25, 0.9) 0, rgba(28, 27, 25, 0) 90px),
-      linear-gradient(
-        90deg,
-        rgba(20, 19, 17, var(--scrim-left, 0.55)) 0,
-        rgba(20, 19, 17, 0) min(52%, 760px)
-      ),
-      radial-gradient(130% 100% at 60% 55%, rgba(0, 0, 0, 0) 55%, rgba(8, 7, 6, 0.55) 100%);
-  }
-  .tour:not([data-scrub]):not([data-stop='0']) .grade {
-    --scrim-left: 0.82;
+      linear-gradient(180deg, var(--wall) 0, rgba(26, 25, 23, 0) 150px),
+      linear-gradient(0deg, rgba(20, 19, 17, 0.92) 0, rgba(20, 19, 17, 0) 150px),
+      radial-gradient(130% 100% at 55% 50%, rgba(0, 0, 0, 0) 55%, rgba(8, 7, 6, 0.55) 100%);
   }
 
-  .hero {
-    position: relative;
-    padding-top: calc(72px + 88px);
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    align-items: flex-start;
-    transition:
-      opacity 500ms ease,
-      transform 500ms ease;
-  }
   .display {
     margin: 0;
     max-width: 960px;
@@ -410,49 +225,14 @@ const total = TOUR.length;
     flex-wrap: wrap;
     padding-top: 4px;
   }
-  .tour:not([data-scrub]):not([data-stop='0']) .hero {
-    opacity: 0;
-    transform: translateY(-16px);
-    visibility: hidden;
-    transition:
-      opacity 400ms ease,
-      transform 400ms ease,
-      visibility 0s 400ms;
-  }
-
-  .poster-note,
-  .mobile-cta {
-    display: none;
-  }
-  .panels {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-  .panel {
-    position: absolute;
-    top: 50%;
-    max-width: 420px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(calc(-50% + 14px));
-    transition:
-      opacity 450ms ease,
-      transform 450ms ease,
-      visibility 0s 450ms;
-    pointer-events: auto;
-  }
-  .panel-title {
+  .stop-title {
     margin: 0;
     font-size: var(--text-h2);
     line-height: var(--text-h2--line-height);
     font-weight: 600;
     letter-spacing: -0.03em;
   }
-  .panel .lead {
+  .stops .lead {
     color: var(--text);
   }
   .numbers {
@@ -470,34 +250,6 @@ const total = TOUR.length;
     font-size: 15px;
     color: var(--text-dim);
     letter-spacing: 0;
-  }
-  /* Reduced motion: the copy swaps with the stop. */
-  .tour:not([data-scrub])[data-stop='1'] [data-panel='concept'],
-  .tour:not([data-scrub])[data-stop='2'] [data-panel='refs'],
-  .tour:not([data-scrub])[data-stop='3'] [data-panel='model'],
-  .tour:not([data-scrub])[data-stop='4'] [data-panel='blender'],
-  .tour:not([data-scrub])[data-stop='5'] [data-panel='web'],
-  .tour:not([data-scrub])[data-stop='6'] [data-panel='ship'] {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(-50%);
-    transition:
-      opacity 500ms ease 150ms,
-      transform 500ms ease 150ms,
-      visibility 0s;
-  }
-
-  /* The scrub: the page script fades and drifts the copy with the scroll
-     progress (inline opacity, visibility and translate), so nothing eases on
-     its own time. */
-  [data-scrub] .hero,
-  [data-scrub] .panel,
-  [data-scrub] .callout,
-  [data-scrub] .fill {
-    transition: none;
-  }
-  [data-scrub] .panel {
-    transform: translateY(-50%);
   }
 
   .callouts {
@@ -518,15 +270,13 @@ const total = TOUR.length;
     color: var(--text);
     white-space: nowrap;
     opacity: 0;
-    transition: opacity 400ms ease;
   }
   /* Points left, for a label near the right edge. */
   .callout.flip {
     flex-direction: row-reverse;
     translate: calc(-100% + 7px) 0;
   }
-  .is-live:not([data-scrub])[data-stop='0'] .callout[data-placed],
-  .is-live[data-scrub] .callout[data-placed] {
+  .is-live .callout[data-placed] {
     opacity: 1;
   }
   .dot {
@@ -550,163 +300,63 @@ const total = TOUR.length;
     padding: 5px 10px;
   }
 
-  .timeline {
-    position: relative;
-    background: var(--bg-app);
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-  }
-  .timeline-inner {
-    padding-block: 22px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .timeline-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 16px;
-  }
-  .mute {
-    color: var(--text-mute);
-  }
-  .counter {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--text-mute);
-  }
-  .track {
-    position: relative;
-    padding-top: 6px;
-  }
-  .rail {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 26px;
-    height: 2px;
-    background: var(--line);
-  }
-  .fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: calc(var(--fill, 0) * (100% - 100% / 6) + 8px);
-    background: var(--clay);
-    transition: width 600ms ease;
-  }
-  .stops {
-    position: relative;
-    margin: 0;
-    padding: 2px 0 0;
-    list-style: none;
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 12px;
-  }
-  .stop {
-    all: unset;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 100%;
-    cursor: pointer;
-    border-radius: 4px;
-  }
-  .stop:focus-visible {
-    outline: 2px solid var(--focus);
-    outline-offset: 4px;
-  }
-  .node {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    box-sizing: border-box;
-    background: var(--bg-app);
-    border: 2px solid var(--line-strong);
-    transition:
-      background-color 300ms ease,
-      box-shadow 300ms ease;
-  }
-  .name {
-    font-size: 16px;
-    font-weight: 500;
-    color: var(--text-dim);
-  }
-  .shot {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--text-mute);
-  }
-  .stop:hover .name {
-    color: var(--text);
-  }
-  .stop[data-state='passed'] .node {
-    background: var(--text-dim);
-    border-color: var(--text-dim);
-  }
-  .stop[data-state='current'] .node {
-    background: var(--clay);
-    border-color: var(--clay);
-    box-shadow: 0 0 0 5px var(--clay-soft);
-  }
-  .stop[data-state='current'] .name {
-    font-weight: 600;
-    color: var(--clay-text);
-  }
-  .stop[data-state='current'] .shot {
-    color: var(--text-dim);
+  .poster-note,
+  .mobile-cta {
+    display: none;
   }
 
   @media (max-height: 760px) and (min-width: 900px) {
-    .hero {
-      padding-top: calc(72px + 48px);
-    }
     .display {
       font-size: 68px;
       line-height: 72px;
     }
-    .shot {
-      display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .poster,
+    .canvas {
+      transition: none;
     }
   }
 
   /* Poster capture: the bare canvas, nothing over it. */
   :global(.capture header),
   :global(.capture) .grade,
-  :global(.capture) .hero,
-  :global(.capture) .panels,
   :global(.capture) .callouts,
-  :global(.capture) .timeline,
   :global(.capture) .poster {
     display: none;
   }
   :global(.capture) .canvas {
     transition: none;
   }
+  /* Hidden but still laid out: the poster script scrolls to each section. */
+  :global(.capture) .stops {
+    visibility: hidden;
+  }
 
-  /* Phones and narrow windows: the poster version. */
+  /* Phones and narrow windows: the poster version, the hero copy over it. */
   @media (max-width: 899px) {
     .tour {
-      height: auto;
-    }
-    .stage {
-      position: relative;
-      height: auto;
-      min-height: 0;
-      overflow: visible;
-    }
-    .media {
       display: flex;
       flex-direction: column;
     }
-    .hero {
+    .stops {
       order: 1;
-      padding-top: 36px;
-      padding-inline: 20px;
-      gap: 16px;
+      margin-top: 0;
+    }
+    .stage {
+      order: 2;
+      position: relative;
+      height: auto;
+      overflow: visible;
+    }
+    .mobile-cta {
+      order: 3;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 24px 20px 32px;
+      background: var(--bg-app);
     }
     .display {
       font-size: 44px;
@@ -717,11 +367,10 @@ const total = TOUR.length;
       font-size: 16px;
       line-height: 25px;
     }
-    .hero .actions {
+    .hero-actions {
       display: none;
     }
     .scene {
-      order: 2;
       position: relative;
       margin-top: -12px;
       aspect-ratio: 390 / 483;
@@ -742,20 +391,10 @@ const total = TOUR.length;
       border-radius: 999px;
       padding: 5px 10px;
     }
-    .mobile-cta {
-      order: 3;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      padding: 24px 20px 32px;
-      background: var(--bg-app);
-    }
     .poster.later,
     .canvas,
     .grade,
-    .callouts,
-    .panels,
-    .timeline {
+    .callouts {
       display: none;
     }
   }

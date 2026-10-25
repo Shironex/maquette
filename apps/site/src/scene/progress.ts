@@ -1,6 +1,7 @@
 /**
  * The tour's scroll progress, counted in stops: 0 on the hero frame, 1 on
- * Concept, up to 6 on Ship, fractional in between. Pure maths shared by the
+ * Concept, up to 6 on Ship, fractional in between, measured from the
+ * stop sections that scroll over the pinned stage. Pure maths shared by the
  * page script and the island; no DOM and no three.js.
  */
 import { STOP_IDS } from './stops';
@@ -8,10 +9,10 @@ import { STOP_IDS } from './stops';
 /** Progress at the last stop (Ship). */
 export const LAST_STOP = STOP_IDS.length - 1;
 
-/** A stop's copy shows in full while progress is within this many stops of it. */
+/** A stop's effects (the hero callouts, the wireframe sweep) show in full within this many stops of it. */
 export const HOLD = 0.16;
 
-/** A stop's copy is gone by this many stops away from it. */
+/** A stop's effects are gone by this many stops away from it. */
 export const FADE = 0.42;
 
 export function clampProgress(progress: number, last = LAST_STOP): number {
@@ -19,15 +20,22 @@ export function clampProgress(progress: number, last = LAST_STOP): number {
   return Math.min(last, Math.max(0, progress));
 }
 
-/** Progress at scroll position `y` for a tour that starts at `top` and scrolls `span` pixels. */
-export function progressAt(y: number, top: number, span: number, last = LAST_STOP): number {
-  if (span <= 0) return 0;
-  return clampProgress(((y - top) / span) * last, last);
-}
-
-/** The scroll position that puts the tour on `stop`. */
-export function scrollFor(stop: number, top: number, span: number, last = LAST_STOP): number {
-  return top + (Math.max(0, span) * clampProgress(stop, last)) / last;
+/**
+ * Progress at scroll position `y` from the page positions of the stop
+ * sections: `edges` holds each section's top, then the last one's bottom.
+ * A stop's progress is reached as its section's top meets the top of the
+ * window, so its copy (centred in the section) is centred on screen.
+ */
+export function progressFromEdges(y: number, edges: readonly number[]): number {
+  const last = edges.length - 2;
+  if (last < 1) return 0;
+  for (let i = last; i >= 0; i--) {
+    const top = edges[i] ?? 0;
+    if (top > y) continue;
+    const height = (edges[i + 1] ?? top) - top;
+    return clampProgress(height > 0 ? i + (y - top) / height : i, last);
+  }
+  return 0;
 }
 
 /** The stop the page names as current: the nearest one. */
@@ -51,8 +59,8 @@ export function across(progress: number, from: number, to: number): number {
 
 /**
  * How present stop `stop` is, 0 to 1: full while the tour holds on it,
- * fading out by FADE stops away. With `cut` (reduced motion) it is all or
- * nothing on the nearest stop.
+ * fading out by FADE stops away. With `cut` it is all or nothing on the
+ * nearest stop.
  */
 export function presence(progress: number, stop: number, cut = false): number {
   if (cut) return nearestStop(progress) === stop ? 1 : 0;

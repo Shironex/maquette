@@ -4,7 +4,7 @@ import type * as THREE from 'three';
 import { buildModel, type BuiltModel } from './build';
 import { loadInOrder } from './loader';
 import { MODELS, STOP_IDS, loadOrder, type ModelEntry, type StopId } from './manifest';
-import { across, nearestStop, presence, smoothstep } from './progress';
+import { across, presence, smoothstep } from './progress';
 import { warm } from './warm';
 
 /**
@@ -13,12 +13,11 @@ import { warm } from './warm';
  */
 const TURN = 0.45;
 /** The wireframe sweep crosses the model while progress is this many stops either side of its stop. */
-const SWEEP = 0.3;
+const SWEEP = 0.34;
 
 export interface ModelsOptions {
   /** Tour progress in stops. */
   progress: React.RefObject<number>;
-  reducedMotion: boolean;
   firstView: StopId;
   onReady: () => void;
   onFailed: (reason: string) => void;
@@ -29,16 +28,9 @@ const stopIndex = (id: StopId) => STOP_IDS.indexOf(id);
 /**
  * Loads, warms and places the manifest's models (the first view's first),
  * then sets the turntable's turn and the wireframe sweep from the tour
- * progress each frame: both follow the scroll, and hold still with reduced
- * motion.
+ * progress each frame: both follow the scroll.
  */
-export function useModels({
-  progress,
-  reducedMotion,
-  firstView,
-  onReady,
-  onFailed,
-}: ModelsOptions) {
+export function useModels({ progress, firstView, onReady, onFailed }: ModelsOptions) {
   const { gl, camera, scene, invalidate } = useThree();
   const [built, setBuilt] = useState<BuiltModel[]>([]);
 
@@ -94,15 +86,13 @@ export function useModels({
     const at = progress.current;
     for (const { entry, root, sweep } of built) {
       if (entry.spinAt) {
-        // Reduced motion holds the nearest stop's angle: it changes only on a cut.
         const stop = stopIndex(entry.spinAt);
-        const turn = across(reducedMotion ? nearestStop(at) : at, stop - TURN, stop + TURN);
-        root.rotation.y = turn * Math.PI * 2;
+        root.rotation.y = across(at, stop - TURN, stop + TURN) * Math.PI * 2;
       }
       if (sweep && entry.sweepAt) {
         const stop = stopIndex(entry.sweepAt);
-        sweep.setOpacity(presence(at, stop, reducedMotion));
-        sweep.setProgress(reducedMotion ? 0.55 : smoothstep(at, stop - SWEEP, stop + SWEEP));
+        sweep.setOpacity(presence(at, stop));
+        sweep.setProgress(smoothstep(at, stop - SWEEP, stop + SWEEP));
       }
     }
   });

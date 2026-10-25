@@ -1,40 +1,41 @@
 /**
- * Tracks where the page is in the tour, for the page's copy and timeline and
- * for the island's camera. The tour's layout is measured once and again on
- * resize, late fonts and load, so a scroll is arithmetic on scrollY with no
- * layout reads. No three.js imports.
+ * Tracks where the page is in the tour, for the page's rail and posters and
+ * for the island's camera. The stop sections scroll over the pinned stage;
+ * their edges are measured once and again on resize, late fonts and load, so
+ * a scroll is arithmetic on scrollY with no layout reads. No three.js imports.
  */
-import { LAST_STOP, progressAt, scrollFor } from './progress';
+import { progressFromEdges } from './progress';
 import type { TourScroll } from './tour';
 
 export interface TourTracker extends TourScroll {
-  /** Scrolls the page to a stop. */
+  /** Scrolls the page to a stop's section. */
   scrollToStop(stop: number, smooth: boolean): void;
 }
 
 /**
- * Starts tracking `tour`, whose sticky `stage` stays on screen while it
- * scrolls. While `active` does not match (narrow windows) progress stays 0.
+ * Starts tracking `tour` and its stop `sections`, in order. While `active`
+ * does not match (narrow windows, where the stops stack) progress stays 0.
  */
 export function trackTour(
   tour: HTMLElement,
-  stage: HTMLElement,
+  sections: readonly HTMLElement[],
   active: MediaQueryList
 ): TourTracker {
   const listeners = new Set<(progress: number) => void>();
-  let top = 0;
-  let span = 0;
+  let edges: number[] = [];
   let progress = 0;
 
   const update = () => {
-    const next = active.matches ? progressAt(window.scrollY, top, span, LAST_STOP) : 0;
+    const next = active.matches ? progressFromEdges(window.scrollY, edges) : 0;
     if (next === progress) return;
     progress = next;
     for (const listener of listeners) listener(progress);
   };
   const measure = () => {
-    top = tour.getBoundingClientRect().top + window.scrollY;
-    span = tour.offsetHeight - stage.offsetHeight;
+    const y = window.scrollY;
+    edges = sections.map(section => section.getBoundingClientRect().top + y);
+    const last = sections.at(-1);
+    if (last) edges.push((edges.at(-1) ?? 0) + last.offsetHeight);
     update();
   };
 
@@ -43,7 +44,7 @@ export function trackTour(
   window.addEventListener('resize', measure, { passive: true });
   active.addEventListener('change', measure);
   new ResizeObserver(measure).observe(tour);
-  // Late fonts and images move the tour without always resizing it.
+  // Late fonts and images move the sections without always resizing the tour.
   void document.fonts?.ready.then(measure);
   if (document.readyState !== 'complete') window.addEventListener('load', measure, { once: true });
 
@@ -55,7 +56,8 @@ export function trackTour(
       return () => listeners.delete(listener);
     },
     scrollToStop(stop, smooth) {
-      window.scrollTo({ top: scrollFor(stop, top, span), behavior: smooth ? 'smooth' : 'auto' });
+      const top = edges[Math.max(0, Math.min(sections.length - 1, Math.round(stop)))] ?? 0;
+      window.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
     },
   };
 }

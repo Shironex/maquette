@@ -7,10 +7,9 @@ import { useCallouts } from './Callouts.hooks';
 
 export interface CalloutsProps {
   progress: React.RefObject<number>;
-  reducedMotion: boolean;
 }
 
-export function Callouts({ progress, reducedMotion }: CalloutsProps) {
-  useCallouts(progress, reducedMotion);
+export function Callouts({ progress }: CalloutsProps) {
+  useCallouts(progress);
   return null;
 }

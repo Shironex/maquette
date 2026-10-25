@@ -7,37 +7,37 @@ import {
   clampProgress,
   nearestStop,
   presence,
-  progressAt,
-  scrollFor,
+  progressFromEdges,
   smoothstep,
 } from './progress';
 
-describe('progressAt', () => {
-  const top = 100;
-  const span = 6000;
+describe('progressFromEdges', () => {
+  // Seven 900 px sections from the top of the page: the hero, then six stops.
+  const edges = Array.from({ length: 8 }, (_, i) => i * 900);
 
-  it('counts stops from the top of the tour to the end of its scroll', () => {
-    expect(progressAt(top, top, span)).toBe(0);
-    expect(progressAt(top + span / 2, top, span)).toBe(3);
-    expect(progressAt(top + span, top, span)).toBe(LAST_STOP);
-    expect(progressAt(top + span / 4, top, span)).toBeCloseTo(1.5);
+  it('reaches a stop as its section meets the top of the window', () => {
+    expect(progressFromEdges(0, edges)).toBe(0);
+    expect(progressFromEdges(900, edges)).toBe(1);
+    expect(progressFromEdges(1350, edges)).toBeCloseTo(1.5);
+    expect(progressFromEdges(5400, edges)).toBe(LAST_STOP);
   });
 
-  it('clamps above and below the tour', () => {
-    expect(progressAt(0, top, span)).toBe(0);
-    expect(progressAt(top + span * 2, top, span)).toBe(LAST_STOP);
+  it('clamps above the tour and past the last stop', () => {
+    expect(progressFromEdges(-200, edges)).toBe(0);
+    expect(progressFromEdges(6000, edges)).toBe(LAST_STOP);
+    expect(progressFromEdges(99_999, edges)).toBe(LAST_STOP);
   });
 
-  it('stays at 0 when the tour does not scroll', () => {
-    expect(progressAt(500, top, 0)).toBe(0);
-    expect(progressAt(500, top, -40)).toBe(0);
+  it('follows sections of uneven height', () => {
+    const uneven = [100, 1100, 1600, 2600];
+    expect(progressFromEdges(100, uneven)).toBe(0);
+    expect(progressFromEdges(1350, uneven)).toBeCloseTo(1.5);
+    expect(progressFromEdges(1600, uneven)).toBe(2);
   });
 
-  it('round trips with scrollFor', () => {
-    for (const stop of [0, 1, 2.5, 6]) {
-      expect(progressAt(scrollFor(stop, top, span), top, span)).toBeCloseTo(stop);
-    }
-    expect(scrollFor(9, top, span)).toBe(top + span);
+  it('stays at 0 without enough sections', () => {
+    expect(progressFromEdges(500, [])).toBe(0);
+    expect(progressFromEdges(500, [0, 900])).toBe(0);
   });
 });
 

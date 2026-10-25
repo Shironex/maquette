@@ -11,7 +11,7 @@ const ANCHORS: Record<string, readonly [number, number, number]> = {
 };
 
 /** Projects each `[data-callout]` label's anchor to the screen every frame the hero shows. */
-export function useCallouts(progress: React.RefObject<number>, reducedMotion: boolean) {
+export function useCallouts(progress: React.RefObject<number>) {
   const size = useThree(state => state.size);
   const labels = useMemo(
     () => Array.from(document.querySelectorAll<HTMLElement>('[data-callout]')),
@@ -20,7 +20,7 @@ export function useCallouts(progress: React.RefObject<number>, reducedMotion: bo
   const point = useMemo(() => new THREE.Vector3(), []);
 
   useFrame(({ camera }) => {
-    if (presence(progress.current, 0, reducedMotion) === 0) return;
+    if (presence(progress.current, 0) === 0) return;
     for (const label of labels) {
       const anchor = ANCHORS[label.dataset.callout ?? ''];
       if (!anchor) continue;
