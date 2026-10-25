@@ -44,6 +44,7 @@ const MIGRATED = [
   'apps/web/src/features/inbox/**',
   'apps/web/src/features/config/**',
   'apps/web/src/features/agents/**',
+  'apps/web/src/features/providers/**',
 ];
 
 // Preset rules the unmigrated areas do not pass yet, with the count measured

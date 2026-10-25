@@ -4,6 +4,5 @@
   "apps/web/src/features/inspector/LayoutCanvas.tsx": 622,
   "apps/web/src/features/inspector/LayoutPanel.tsx": 497,
   "apps/web/src/features/lab/ObjectRefsDialog.tsx": 436,
-  "apps/web/src/features/providers/PresetFields.tsx": 442,
   "apps/web/src/features/settings/SettingsView.tsx": 462
 }
