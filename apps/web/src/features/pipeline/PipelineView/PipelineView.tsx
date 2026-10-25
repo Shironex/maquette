@@ -5,6 +5,7 @@ import { FirstViewBar } from '@/features/common/FirstViewBar';
 import { SceneBudgetMeter } from '@/features/common/SceneBudgetMeter';
 import { PipelineGraph } from '../PipelineGraph';
 import { PresetsPanel } from '../PresetsPanel';
+import { PreviewSiteButton } from '../PreviewSiteButton';
 import { RunLog } from '../RunLog';
 import { StartersBanner } from '../StartersBanner';
 import { runOverview } from './runOverview';
@@ -87,6 +88,7 @@ export default function PipelineView() {
         right={
           <>
             <SceneBudgetMeter value={budgetMb} target={budget} />
+            <PreviewSiteButton />
             {active ? (
               <Button variant="danger" icon="x-circle" onClick={() => void cancel()}>
                 Stop run

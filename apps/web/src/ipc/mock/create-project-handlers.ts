@@ -70,6 +70,13 @@ export function createProjectHandlers({
       projects.set(projects.get().map(p => (p.id === id ? updated : p)));
       return updated;
     },
+    // The real command starts the site's dev server; the mock only answers.
+    site_preview: ({ project: id }) => {
+      if (!project(String(id)).siteRepo) {
+        fail('invalid', 'This project has no site repo yet. Pick one in Settings > Project.');
+      }
+      return 'http://localhost:15292/';
+    },
     project_inspect_repo: ({ path }): RepoInspection => {
       const full = expand(String(path));
       const known = /site|landing|web/i.test(full);
