@@ -1,8 +1,8 @@
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { usePipelineStore } from './pipeline-store';
-import { useQuitStore } from './quit-store';
+import { usePipelineStore } from './use-pipeline-store';
+import { useQuitStore } from './use-quit-store';
 import type { PresetEdits } from './presets';
 
 afterEach(() => {

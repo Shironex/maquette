@@ -3,7 +3,7 @@ import { Button, InlineBanner } from '@maquette/ui';
 import type { PipelineView } from '@/ipc/client';
 import { readFlag, writeFlag } from '@/lib/storage';
 import { fileName, listNames, starterOffer } from '@/state/pipeline';
-import { usePipelineStore } from '@/state/pipeline-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
 
 /** "Keep mine" for an edited script, remembered per project and script. */
 const keepKey = (project: string, path: string) => `maquette.starter.keep.${project}.${path}`;

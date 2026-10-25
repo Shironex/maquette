@@ -7,7 +7,7 @@ import type { RefImage, SendOptions } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { deepEqual } from '@/lib/deepEqual';
 import { formatBytes } from '@/lib/format';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { inProject } from '@/state/lab';
 import {
   isSmartTopology,
@@ -31,7 +31,7 @@ import {
   toggleImage,
   type SendDraft,
 } from '@/state/providers';
-import { useProvidersStore } from '@/state/providers-store';
+import { useProvidersStore } from '@/state/use-providers-store';
 import { HandoffView } from './HandoffView';
 import { MeshyPresetFields, TripoPresetFields, useCatalog } from './PresetFields';
 import { PROVIDERS, SERVICES, VARIANTS } from './choices';

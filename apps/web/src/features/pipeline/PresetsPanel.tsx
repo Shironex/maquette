@@ -11,7 +11,7 @@ import {
   withEdits,
   type PresetRow,
 } from '@/state/presets';
-import { usePipelineStore } from '@/state/pipeline-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
 
 const SIZES = ['512', '1024', '2048', '4096'] as const;
 const SAME = 'same';

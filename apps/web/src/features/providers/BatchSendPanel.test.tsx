@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import { useProvidersStore } from '@/state/providers-store';
+import { useProvidersStore } from '@/state/use-providers-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { BatchSendPanel } from './BatchSendPanel';
 import { HandoffChecklist } from './HandoffChecklist';

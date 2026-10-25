@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerMockFile } from '@/ipc/files';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { useInboxStore } from './inbox-store';
+import { useInboxStore } from './use-inbox-store';
 
 const snapshotModel = vi.fn(async () => new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
 vi.mock('@/features/viewer/snapshot', () => ({ snapshotModel }));

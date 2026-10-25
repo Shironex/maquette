@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Button, Checkbox, EmptyState, InlineBanner, StageStepper, TopBar } from '@maquette/ui';
 import { formatBytes } from '@/lib/format';
-import { useAppStore } from '@/state/app-store';
-import { usePipelineStore } from '@/state/pipeline-store';
+import { useAppStore } from '@/state/use-app-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
 import { estimatedTransfer, failedStep, runSummary, stageViews } from '@/state/pipeline';
 import { PipelineGraph } from './PipelineGraph';
 import { PresetsPanel } from './PresetsPanel';
 import { RunLog } from './RunLog';
 import { StartersBanner } from './StartersBanner';
-import { FirstViewBar, SceneBudgetMeter } from '@/features/shell/SceneBudgetMeter';
+import { FirstViewBar, SceneBudgetMeter } from '@/features/common/SceneBudgetMeter';
 
 function clock(ms: number | null | undefined): string {
   if (!ms) return '';

@@ -6,7 +6,7 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { Icon, IconButton, type IconName } from '@maquette/ui';
 import { useTopEscape } from '@/lib/useTopEscape';
-import { ChoiceDialog } from '../common/ChoiceDialog';
+import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 
 export function SectionTitle({ children, aside }: { children: string; aside?: ReactNode }) {
   return (

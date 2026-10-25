@@ -9,7 +9,7 @@ import { Button, Icon, IconButton, InlineBanner, SegmentedControl, cn } from '@m
 import type { PresetVariant } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { deepEqual } from '@/lib/deepEqual';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import {
   batchBlocker,
   batchLabel,
@@ -26,7 +26,7 @@ import {
 } from '@/state/batch';
 import { inProject } from '@/state/lab';
 import { PROVIDER_LABEL, SERVICE_LABEL } from '@/state/providers';
-import { useProvidersStore } from '@/state/providers-store';
+import { useProvidersStore } from '@/state/use-providers-store';
 import { PROVIDERS, SERVICES, VARIANTS } from './choices';
 import { MeshyPresetFields, TripoPresetFields, useCatalog } from './PresetFields';
 import { SectionTitle, Sheet } from './Sheet';

@@ -5,7 +5,7 @@
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { commands } from '@/ipc/client';
 import { createBackend } from '@/ipc/mock/backend';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 
 export async function openMockWorkspace(
   scenario = 'configured',

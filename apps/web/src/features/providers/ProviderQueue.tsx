@@ -8,10 +8,10 @@ import { Button, Icon, IconButton, ProgressBar, StatusChip, cn } from '@maquette
 import type { ProviderJob } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { useNow } from '@/lib/useNow';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { projectFile } from '@/state/board';
 import { isActive, jobChip, jobMeta, jobTitle, percent, sortJobs } from '@/state/providers';
-import { useProvidersStore } from '@/state/providers-store';
+import { useProvidersStore } from '@/state/use-providers-store';
 import { KIND_ICON } from '@/state/thumbs';
 
 const CANCEL_LABEL: Record<ProviderJob['cancel'], string | null> = {

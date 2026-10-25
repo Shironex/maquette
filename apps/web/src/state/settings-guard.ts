@@ -3,7 +3,7 @@
  * fails validation, and the view a blocked leave was headed for.
  */
 import { create } from 'zustand';
-import type { ViewId } from '@/features/shell/views';
+import type { ViewId } from '@/state/views';
 
 interface SettingsGuard {
   /** What is wrong in the Settings draft; empty when it can be saved. */

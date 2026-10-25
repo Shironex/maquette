@@ -5,7 +5,7 @@
  */
 import { create } from 'zustand';
 import { commands, errorMessage, type McpStatus } from '@/ipc/client';
-import { useAppStore } from './app-store';
+import { useAppStore } from './use-app-store';
 
 interface AgentsStore {
   status: McpStatus | null;

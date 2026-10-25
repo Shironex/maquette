@@ -4,7 +4,7 @@ import type { Asset, AssetKind, ConceptImage, ConceptJob, Direction, LabView } f
 import { fileUrl } from '@/ipc/files';
 import { useNow } from '@/lib/useNow';
 import { Menu } from '@/features/common/Menu';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import {
   aspectCss,
   directionSummary,
@@ -14,8 +14,8 @@ import {
   tileLabel,
   tiles,
 } from '@/state/lab';
-import { useLabStore } from '@/state/lab-store';
-import { useProvidersStore } from '@/state/providers-store';
+import { useLabStore } from '@/state/use-lab-store';
+import { useProvidersStore } from '@/state/use-providers-store';
 
 const NO_ASSETS: readonly Asset[] = [];
 

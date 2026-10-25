@@ -3,9 +3,9 @@ import { IconButton, cn } from '@maquette/ui';
 import type { Direction, LabView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { Menu } from '@/features/common/Menu';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { coverImage, inProject } from '@/state/lab';
-import { useLabStore } from '@/state/lab-store';
+import { useLabStore } from '@/state/use-lab-store';
 
 /** The composer's list of earlier directions: pick one to reuse its brief, or move it. */
 export function EarlierDirections({ view }: { view: LabView }) {

@@ -18,7 +18,7 @@ import {
   type SendOptions,
   type TripoPreset,
 } from '@/ipc/client';
-import { useAppStore } from './app-store';
+import { useAppStore } from './use-app-store';
 import { PROVIDER_LABEL, SERVICE_LABEL, type SendDraft } from './providers';
 import {
   batchDraft,

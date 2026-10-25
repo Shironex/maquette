@@ -7,7 +7,7 @@ import { Button, Icon, TextField, cn } from '@maquette/ui';
 import type { KeyTest, ProviderId } from '@/ipc/client';
 import { PLATFORM } from '@/ipc/runtime';
 import { SERVICE_LABEL } from '@/state/providers';
-import { useProvidersStore } from '@/state/providers-store';
+import { useProvidersStore } from '@/state/use-providers-store';
 
 const WHERE: Record<ProviderId, string> = {
   tripo: 'platform.tripo3d.ai, API keys',

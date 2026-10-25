@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { pipelineView, runHistory } from '@/ipc/mock/pipeline-fixtures';
-import { usePipelineStore } from '@/state/pipeline-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
 import { PresetsPanel } from './PresetsPanel';
 
 const view = pipelineView('moon-island', '/w', runHistory(0), []);

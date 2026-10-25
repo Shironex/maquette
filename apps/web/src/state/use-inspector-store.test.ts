@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { useInspectorStore } from './inspector-store';
+import { useInspectorStore } from './use-inspector-store';
 
 afterEach(() => {
   clearMocks();

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Button, EmptyState, Toast } from '@maquette/ui';
 import { AppShell } from '@/features/shell/AppShell';
 import { Onboarding } from '@/features/onboarding/Onboarding';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 
 export function App() {
   const phase = useAppStore(s => s.phase);

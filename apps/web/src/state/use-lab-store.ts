@@ -11,7 +11,7 @@ import {
   type ConceptEvent,
   type LabView,
 } from '@/ipc/client';
-import { useAppStore } from './app-store';
+import { useAppStore } from './use-app-store';
 import { applyConceptEvent, withDirection } from './lab';
 
 export interface Draft {

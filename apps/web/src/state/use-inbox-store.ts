@@ -9,7 +9,7 @@ import {
   type ThumbnailReady,
 } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
-import { useAppStore } from './app-store';
+import { useAppStore } from './use-app-store';
 import { contentKey, firstToReview } from './inbox';
 import { isStale, keepRenders, needsSnapshot, withThumbnail } from './thumbs';
 

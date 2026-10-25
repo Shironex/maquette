@@ -1,8 +1,8 @@
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
-import { useAppStore } from '@/state/app-store';
-import { useLabStore } from '@/state/lab-store';
-import { useProjectsStore } from '@/state/projects-store';
+import { useAppStore } from '@/state/use-app-store';
+import { useLabStore } from '@/state/use-lab-store';
+import { useProjectsStore } from '@/state/use-projects-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 
 afterEach(() => {

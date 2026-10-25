@@ -1,7 +1,7 @@
 import { Button, StageStepper, TopBar } from '@maquette/ui';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { estimatedTransfer, stageViews } from '@/state/pipeline';
-import { usePipelineStore } from '@/state/pipeline-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
 import { SceneBudgetMeter } from './SceneBudgetMeter';
 
 /** The stage stepper, the scene budget and Run pipeline, as the Board and the Lab show them. */

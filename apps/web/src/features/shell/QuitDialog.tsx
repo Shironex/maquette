@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { commands } from '@/ipc/client';
 import { events } from '@/ipc/generated/bindings';
-import { useAppStore } from '@/state/app-store';
-import { usePipelineStore } from '@/state/pipeline-store';
-import { unappliedProjects, useQuitStore } from '@/state/quit-store';
-import { ChoiceDialog } from '../common/ChoiceDialog';
+import { useAppStore } from '@/state/use-app-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
+import { unappliedProjects, useQuitStore } from '@/state/use-quit-store';
+import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 
 /**
  * Tells the shell whether presets wait to be applied, so a close only needs

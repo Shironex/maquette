@@ -6,16 +6,16 @@ import { readFlag, writeFlag } from '@/lib/storage';
 import { formatAgo } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import { mcpStatusItem } from '@/state/agents';
-import { useAgentsStore } from '@/state/agents-store';
-import { useAppStore } from '@/state/app-store';
-import { useInboxStore } from '@/state/inbox-store';
-import { useLabStore } from '@/state/lab-store';
-import { useLayoutStore } from '@/state/layout-store';
+import { useAgentsStore } from '@/state/use-agents-store';
+import { useAppStore } from '@/state/use-app-store';
+import { useInboxStore } from '@/state/use-inbox-store';
+import { useLabStore } from '@/state/use-lab-store';
+import { useLayoutStore } from '@/state/use-layout-store';
 import { runStatusLine, runSummary } from '@/state/pipeline';
-import { usePipelineStore } from '@/state/pipeline-store';
-import { useProvidersStore } from '@/state/providers-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
+import { useProvidersStore } from '@/state/use-providers-store';
 import { isSwitcherShortcut, switcherShortcut } from '@/state/projects';
-import { useProjectsStore } from '@/state/projects-store';
+import { useProjectsStore } from '@/state/use-projects-store';
 import { NewProjectDialog } from '@/features/project/NewProjectDialog';
 import { ApprovalPrompt } from '@/features/agents/ApprovalPrompt';
 import { BoardView } from '@/features/board/BoardView';
@@ -26,14 +26,15 @@ import { PipelineView } from '@/features/pipeline/PipelineView';
 import { BatchSendPanel } from '@/features/providers/BatchSendPanel';
 import { DownloadsMatches } from '@/features/providers/DownloadsMatches';
 import { HandoffChecklist } from '@/features/providers/HandoffChecklist';
+import { ProviderQueue } from '@/features/providers/ProviderQueue';
 import { SendPanel } from '@/features/providers/SendPanel';
 import { ObjectRefsDialog } from '@/features/lab/ObjectRefsDialog';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { PlaceholderView } from '@/features/tools/PlaceholderView';
-import { projectMeta, projectThumb } from './projectArt';
+import { projectMeta, projectThumb } from '@/features/common/projectArt';
 import { QuitDialog, useQuitGuard } from './QuitDialog';
 import { ProjectSwitcherMenu } from './ProjectSwitcherMenu';
-import { SETTINGS_VIEW, TOOL_VIEWS, type ViewId } from './views';
+import { SETTINGS_VIEW, TOOL_VIEWS, type ViewId } from '@/state/views';
 
 /** Remembers a collapsed rail on this machine. */
 const RAIL_COLLAPSED = 'maquette.rail.collapsed';
@@ -219,7 +220,7 @@ function useLiveData(projectId: string | null, root: string | null) {
 function CurrentView({ view }: { view: ViewId }) {
   switch (view) {
     case 'board':
-      return <BoardView />;
+      return <BoardView queue={onClose => <ProviderQueue onClose={onClose} />} />;
     case 'pipeline':
       return <PipelineView />;
     case 'inbox':

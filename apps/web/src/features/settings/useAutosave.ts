@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { commands, errorMessage, type WorkspaceConfig } from '@/ipc/client';
 import { useCatalog } from '@/features/providers/PresetFields';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { useSettingsGuard } from '@/state/settings-guard';
 import {
   describeErrors,

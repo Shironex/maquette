@@ -13,7 +13,7 @@ import {
   type WorkspaceConfig,
   type WorkspaceSnapshot,
 } from '@/ipc/client';
-import { hashForView, viewFromHash, type ViewId } from '@/features/shell/views';
+import { hashForView, viewFromHash, type ViewId } from '@/state/views';
 import type { ToastStatus } from '@maquette/ui';
 import { useSettingsGuard } from './settings-guard';
 

@@ -16,8 +16,8 @@ import type { AssetKind, InboxItem, ProjectManifest } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { formatAgo, formatBytes } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
-import { useAppStore } from '@/state/app-store';
-import { useInboxStore } from '@/state/inbox-store';
+import { useAppStore } from '@/state/use-app-store';
+import { useInboxStore } from '@/state/use-inbox-store';
 import {
   acceptTarget,
   checkSummary,

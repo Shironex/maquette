@@ -25,7 +25,7 @@ import {
   TRIPO_TEXTURE_QUALITY,
 } from '@/features/config/options';
 import { formatK } from '@/lib/format';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import {
   isSmartTopology,
   isTripoPSeries,

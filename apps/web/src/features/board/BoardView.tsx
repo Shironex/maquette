@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import {
   AssetCard,
   Button,
@@ -14,19 +21,18 @@ import { fileUrl } from '@/ipc/files';
 import { formatAgo } from '@/lib/format';
 import { readFlag, writeFlag } from '@/lib/storage';
 import { useNativeDrop } from '@/lib/useNativeDrop';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { assetCount, cardNumbers, columns, projectFile } from '@/state/board';
 import { MAX_BATCH, nextSelection, waitingByHand } from '@/state/batch';
-import { useLabStore } from '@/state/lab-store';
+import { useLabStore } from '@/state/use-lab-store';
 import { cardState, isActive, latestJob } from '@/state/providers';
-import { useProvidersStore } from '@/state/providers-store';
-import { useProjectsStore } from '@/state/projects-store';
+import { useProvidersStore } from '@/state/use-providers-store';
+import { useProjectsStore } from '@/state/use-projects-store';
 import { TEMPLATE_LABEL } from '@/state/onboarding';
 import { STAGES, STAGE_LABEL } from '@/state/pipeline';
 import { KIND_ICON } from '@/state/thumbs';
 import { Menu } from '@/features/common/Menu';
-import { ProviderQueue } from '@/features/providers/ProviderQueue';
-import { ProjectTopBar } from '@/features/shell/ProjectTopBar';
+import { ProjectTopBar } from '@/features/common/ProjectTopBar';
 import { AddAssetForm } from './AddAssetForm';
 import { RenameAssetDialog } from './RenameAssetDialog';
 
@@ -49,7 +55,12 @@ const STAGE_ICON: Record<Stage, IconName> = {
   ship: 'rocket-launch',
 };
 
-export function BoardView() {
+export interface BoardViewProps {
+  /** The 3D queue panel, supplied by the shell so the Board stays its own feature. */
+  queue: (onClose: () => void) => ReactNode;
+}
+
+export function BoardView({ queue }: BoardViewProps) {
   const workspace = useAppStore(s => s.workspace);
   const setView = useAppStore(s => s.setView);
   const setProject = useAppStore(s => s.setProject);
@@ -264,7 +275,7 @@ export function BoardView() {
                   </span>
                 ) : null}
               </Button>
-              {queueOpen ? <ProviderQueue onClose={() => setQueueOpen(false)} /> : null}
+              {queueOpen ? queue(() => setQueueOpen(false)) : null}
             </div>
             <Button
               icon="plus"

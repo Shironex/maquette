@@ -1,7 +1,7 @@
 import { EmptyState } from '@maquette/ui';
-import { useAppStore } from '@/state/app-store';
-import { useLabStore } from '@/state/lab-store';
-import { ProjectTopBar } from '@/features/shell/ProjectTopBar';
+import { useAppStore } from '@/state/use-app-store';
+import { useLabStore } from '@/state/use-lab-store';
+import { ProjectTopBar } from '@/features/common/ProjectTopBar';
 import { Composer } from './Composer';
 import { ConceptGrid } from './ConceptGrid';
 import { ImageQueue } from './ImageQueue';

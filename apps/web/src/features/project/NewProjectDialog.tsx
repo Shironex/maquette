@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Icon, IconButton } from '@maquette/ui';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { emptyProjectFields, projectFieldsReady, type ProjectFields } from '@/state/onboarding';
-import { useProjectsStore } from '@/state/projects-store';
+import { useProjectsStore } from '@/state/use-projects-store';
 import { ProjectForm } from './ProjectForm';
 import { useProjectFieldActions } from './useProjectFieldActions';
 

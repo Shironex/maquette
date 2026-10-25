@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { commands, errorMessage, type InspectView } from '@/ipc/client';
 import type { MaterialMode } from '@/features/viewer/materials';
-import { useAppStore } from './app-store';
+import { useAppStore } from './use-app-store';
 import { pushSample } from './inspector';
 
 export type InspectMode = Extract<MaterialMode, 'shaded' | 'wireframe' | 'lightmap'>;

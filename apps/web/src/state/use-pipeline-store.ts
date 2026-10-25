@@ -11,7 +11,7 @@ import {
 } from '@/ipc/client';
 import { applyEvent, fileName, starterToast } from './pipeline';
 import { presetRows, presetsToSave, withEdits, type PresetEdits } from './presets';
-import { useAppStore } from './app-store';
+import { useAppStore } from './use-app-store';
 
 interface PipelineStore {
   view: PipelineView | null;

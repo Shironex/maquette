@@ -1,5 +1,5 @@
 import { EmptyState, TopBar, type IconName } from '@maquette/ui';
-import { TOOL_VIEWS, type ViewId } from '@/features/shell/views';
+import { TOOL_VIEWS, type ViewId } from '@/state/views';
 
 const COPY: Partial<Record<ViewId, { icon: IconName; title: string; body: string }>> = {
   inbox: {

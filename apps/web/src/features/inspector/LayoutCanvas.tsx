@@ -22,7 +22,7 @@ import {
   type PlainStop,
   type Tool,
 } from '@/state/layout';
-import type { Selection } from '@/state/layout-store';
+import type { Selection } from '@/state/use-layout-store';
 import { BACKDROP, CLAY, castShadows, frameCamera, gltfLoader } from '@/features/viewer/studio';
 
 export interface LayoutCanvasProps {

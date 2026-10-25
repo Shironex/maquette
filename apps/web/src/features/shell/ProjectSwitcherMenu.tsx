@@ -1,10 +1,10 @@
 import type { RefObject } from 'react';
 import { ProjectMenu, cn } from '@maquette/ui';
 import { useNow } from '@/lib/useNow';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { activityLabel, projectMeta, switchNote } from '@/state/projects';
-import { useProjectsStore } from '@/state/projects-store';
-import { projectThumb } from './projectArt';
+import { useProjectsStore } from '@/state/use-projects-store';
+import { projectThumb } from '@/features/common/projectArt';
 
 /** The switcher's popover, under the switcher or beside it on a collapsed rail. */
 export function ProjectSwitcherMenu({

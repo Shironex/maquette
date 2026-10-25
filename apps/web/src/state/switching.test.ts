@@ -2,12 +2,12 @@ import { mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { inboxItems } from '@/ipc/mock/inbox-fixtures';
-import { useAppStore } from './app-store';
+import { useAppStore } from './use-app-store';
 import { acceptTarget, sentFor } from './inbox';
-import { useLabStore } from './lab-store';
-import { usePipelineStore } from './pipeline-store';
-import { useProjectsStore } from './projects-store';
-import { useProvidersStore } from './providers-store';
+import { useLabStore } from './use-lab-store';
+import { usePipelineStore } from './use-pipeline-store';
+import { useProjectsStore } from './use-projects-store';
+import { useProvidersStore } from './use-providers-store';
 
 /** What useLiveData does when the open project changes. */
 async function follow(project: string) {

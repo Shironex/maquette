@@ -3,7 +3,7 @@ import { Button, IconButton } from '@maquette/ui';
 import type { LabView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { inProject, tileLabel } from '@/state/lab';
-import { useLabStore } from '@/state/lab-store';
+import { useLabStore } from '@/state/use-lab-store';
 
 /**
  * One image at full size over the Lab. Arrow keys step through the

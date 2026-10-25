@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { commands } from '@/ipc/client';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { useLayoutStore } from './layout-store';
+import { useLayoutStore } from './use-layout-store';
 
 const EMPTY = { models: {}, stops: [], desk: null };
 

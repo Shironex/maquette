@@ -11,7 +11,7 @@ import {
   queueFooter,
   queueSummary,
 } from '@/state/lab';
-import { useLabStore } from '@/state/lab-store';
+import { useLabStore } from '@/state/use-lab-store';
 
 /** The right panel: every Codex job of this session, with its state. */
 export function ImageQueue({ view }: { view: LabView }) {

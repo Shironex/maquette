@@ -4,7 +4,7 @@
  */
 import { useCallback } from 'react';
 import { commands, errorMessage } from '@/ipc/client';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import type { ProjectFields } from '@/state/onboarding';
 
 export function useFolderPicker() {

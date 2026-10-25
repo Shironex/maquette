@@ -15,9 +15,9 @@ import { fileUrl, registerMockFile } from '@/ipc/files';
 import { IN_TAURI } from '@/ipc/runtime';
 import { useNativeDrop, type DropPoint } from '@/lib/useNativeDrop';
 import { Menu } from '@/features/common/Menu';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { ASPECTS, MAX_IMAGES, MAX_REFS, directionId, inProject } from '@/state/lab';
-import { useLabStore } from '@/state/lab-store';
+import { useLabStore } from '@/state/use-lab-store';
 import { EarlierDirections } from './EarlierDirections';
 
 const IMAGE_FILE = /\.(png|jpe?g|webp)$/i;

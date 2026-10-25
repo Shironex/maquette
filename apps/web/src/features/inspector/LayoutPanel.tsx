@@ -29,7 +29,7 @@ import {
   type PlainPlacement,
   type PlainStop,
 } from '@/state/layout';
-import { useLayoutStore, type Selection } from '@/state/layout-store';
+import { useLayoutStore, type Selection } from '@/state/use-layout-store';
 
 function SectionTitle({ children, aside }: { children: string; aside?: React.ReactNode }) {
   return (

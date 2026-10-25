@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { commands, errorMessage, type WorkspaceSnapshot } from '@/ipc/client';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { useFolderPicker, useProjectFieldActions } from '@/features/project/useProjectFieldActions';
 import {
   STEP,

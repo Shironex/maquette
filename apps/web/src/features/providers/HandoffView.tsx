@@ -7,9 +7,9 @@ import { Button, Icon, IconButton } from '@maquette/ui';
 import type { ProviderId, ProviderJob } from '@/ipc/client';
 import { copyText } from '@/features/config/ConfigFields';
 import { shortPath } from '@/lib/format';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { SERVICE_LABEL } from '@/state/providers';
-import { useProvidersStore } from '@/state/providers-store';
+import { useProvidersStore } from '@/state/use-providers-store';
 
 /** What the OS calls its file manager. */
 export function useFileManager(): string {

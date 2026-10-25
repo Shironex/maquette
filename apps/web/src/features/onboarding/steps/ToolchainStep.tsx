@@ -1,7 +1,7 @@
 import { Icon } from '@maquette/ui';
 import { PANEL_TITLE } from '@/features/common/Panel';
 import { RecheckButton, ToolList, useToolHeadline } from '@/features/toolchain/ToolList';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { summarizeTools } from '@/state/toolchain';
 
 export function ToolchainStep() {

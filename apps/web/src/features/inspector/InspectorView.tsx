@@ -14,7 +14,7 @@ import {
 import type { CompareSide, CompressPreset, InspectView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { Menu, type MenuItem } from '@/features/common/Menu';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { projectFile } from '@/state/board';
 import {
   modelForBudget,
@@ -26,10 +26,14 @@ import {
   vec3,
   versusLabel,
 } from '@/state/inspector';
-import { useInspectorStore, type InspectMode, type InspectorTab } from '@/state/inspector-store';
+import {
+  useInspectorStore,
+  type InspectMode,
+  type InspectorTab,
+} from '@/state/use-inspector-store';
 import { stageViews } from '@/state/pipeline';
-import { usePipelineStore } from '@/state/pipeline-store';
-import { SceneBudgetMeter } from '@/features/shell/SceneBudgetMeter';
+import { usePipelineStore } from '@/state/use-pipeline-store';
+import { SceneBudgetMeter } from '@/features/common/SceneBudgetMeter';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import type { CompareModel } from './CompareCanvas';
 import { FrameTime } from './FrameTime';

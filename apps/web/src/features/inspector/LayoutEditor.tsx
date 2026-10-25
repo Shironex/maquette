@@ -11,9 +11,9 @@ import {
   cn,
   type SegmentedOption,
 } from '@maquette/ui';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { firstViewLine, firstViewMb, type Tool } from '@/state/layout';
-import { useLayoutDirty, useLayoutStore } from '@/state/layout-store';
+import { useLayoutDirty, useLayoutStore } from '@/state/use-layout-store';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { LayoutPanel } from './LayoutPanel';
 

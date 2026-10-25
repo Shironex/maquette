@@ -9,8 +9,8 @@ import type { DownloadMatch, ProviderJob } from '@/ipc/client';
 import { formatAgo, formatBytes, homePath } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import { useTopEscape } from '@/lib/useTopEscape';
-import { useAppStore } from '@/state/app-store';
-import { useProvidersStore } from '@/state/providers-store';
+import { useAppStore } from '@/state/use-app-store';
+import { useProvidersStore } from '@/state/use-providers-store';
 
 const NONE = '';
 

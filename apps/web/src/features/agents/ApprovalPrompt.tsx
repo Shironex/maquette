@@ -3,8 +3,8 @@ import type { Approval } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import { approvalTitle } from '@/state/agents';
-import { useAgentsStore } from '@/state/agents-store';
-import { useAppStore } from '@/state/app-store';
+import { useAgentsStore } from '@/state/use-agents-store';
+import { useAppStore } from '@/state/use-app-store';
 
 /**
  * What an agent asked that waits for a person: a run stopped before Ship

@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import { useEffect } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerMockFile } from '@/ipc/files';
-import { useInboxStore } from '@/state/inbox-store';
+import { useInboxStore } from '@/state/use-inbox-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { InboxView } from './InboxView';
 

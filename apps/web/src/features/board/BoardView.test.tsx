@@ -1,10 +1,10 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import { useAppStore } from '@/state/app-store';
-import { useLabStore } from '@/state/lab-store';
-import { useProjectsStore } from '@/state/projects-store';
-import { useProvidersStore } from '@/state/providers-store';
+import { useAppStore } from '@/state/use-app-store';
+import { useLabStore } from '@/state/use-lab-store';
+import { useProjectsStore } from '@/state/use-projects-store';
+import { useProvidersStore } from '@/state/use-providers-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { BoardView } from './BoardView';
 
@@ -23,7 +23,7 @@ afterEach(() => {
 async function renderBoard() {
   await openMockWorkspace('configured', undefined, 'batch');
   await useProvidersStore.getState().load('moon-island');
-  render(<BoardView />);
+  render(<BoardView queue={() => null} />);
   await screen.findByRole('button', { name: /^Character, v2/ });
 }
 

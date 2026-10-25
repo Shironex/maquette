@@ -2,7 +2,7 @@ import { Button, ToolCheckRow } from '@maquette/ui';
 import type { ToolId } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import {
   SHORT_NAME,
   TOOL_ORDER,

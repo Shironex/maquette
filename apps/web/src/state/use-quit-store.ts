@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand';
 import { commands } from '@/ipc/client';
-import { usePipelineStore } from './pipeline-store';
+import { usePipelineStore } from './use-pipeline-store';
 
 interface QuitStore {
   /** The shell held a close back and the dialog is open. */

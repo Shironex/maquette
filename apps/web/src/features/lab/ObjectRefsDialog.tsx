@@ -16,9 +16,9 @@ import {
   cn,
 } from '@maquette/ui';
 import { fileUrl } from '@/ipc/files';
-import { useDismissedTip } from '@/lib/useTip';
+import { useDismissedTip } from '@/lib/useDismissedTip';
 import { useTopEscape } from '@/lib/useTopEscape';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import {
   ASPECTS,
   MAX_NOTE_CHARS,
@@ -30,7 +30,7 @@ import {
   longestObject,
   objectsDirectionName,
 } from '@/state/lab';
-import { useLabStore } from '@/state/lab-store';
+import { useLabStore } from '@/state/use-lab-store';
 
 /** The id the notes tip is remembered under. */
 const NOTES_TIP = 'object-notes';

@@ -17,7 +17,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { FLIGHT_MS, SAMPLE_EVERY_MS, flight, type CameraPose, type Stop } from '@/state/inspector';
-import type { InspectMode } from '@/state/inspector-store';
+import type { InspectMode } from '@/state/use-inspector-store';
 import {
   applyMode,
   checkerTexture,

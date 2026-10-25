@@ -1,6 +1,6 @@
 import { Button, Icon, type IconName } from '@maquette/ui';
 import { useCatalog } from '@/features/providers/PresetFields';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { readySummary, type ReadyRow } from '@/state/onboarding';
 import type { OnboardingApi } from '../useOnboarding';
 

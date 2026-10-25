@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand';
 import { commands, errorMessage, type ProjectSummary } from '@/ipc/client';
-import { useAppStore } from './app-store';
+import { useAppStore } from './use-app-store';
 import { newProjectRequest, type ProjectFields, type ProjectMode } from './onboarding';
 
 interface ProjectsStore {

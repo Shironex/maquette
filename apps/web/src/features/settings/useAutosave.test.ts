@@ -1,8 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
-import { useAppStore } from '@/state/app-store';
-import { useProjectsStore } from '@/state/projects-store';
+import { useAppStore } from '@/state/use-app-store';
+import { useProjectsStore } from '@/state/use-projects-store';
 import { patchSection } from '@/state/settings-form';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { useAutosave } from './useAutosave';

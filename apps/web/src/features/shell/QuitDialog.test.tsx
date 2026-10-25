@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import { events } from '@/ipc/generated/bindings';
-import { usePipelineStore } from '@/state/pipeline-store';
-import { useQuitStore } from '@/state/quit-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
+import { useQuitStore } from '@/state/use-quit-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { QuitDialog, useQuitGuard } from './QuitDialog';
 

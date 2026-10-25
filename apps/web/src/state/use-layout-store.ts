@@ -4,8 +4,8 @@
  */
 import { create } from 'zustand';
 import { commands, errorMessage, type LayoutView } from '@/ipc/client';
-import { useAppStore } from './app-store';
-import { usePipelineStore } from './pipeline-store';
+import { useAppStore } from './use-app-store';
+import { usePipelineStore } from './use-pipeline-store';
 import {
   addStop,
   fromLayout,

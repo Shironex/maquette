@@ -1,6 +1,6 @@
 import { BudgetBar, BudgetMeter, Tooltip } from '@maquette/ui';
 import { firstViewLine, firstViewMb } from '@/state/layout';
-import { usePipelineStore } from '@/state/pipeline-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
 
 /**
  * The scene budget for the top bar. Its tooltip says what the first camera

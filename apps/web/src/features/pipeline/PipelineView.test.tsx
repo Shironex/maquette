@@ -1,8 +1,8 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import { usePipelineStore } from '@/state/pipeline-store';
-import { useProjectsStore } from '@/state/projects-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
+import { useProjectsStore } from '@/state/use-projects-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { PipelineView } from './PipelineView';
 

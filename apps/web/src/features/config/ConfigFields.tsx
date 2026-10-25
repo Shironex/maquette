@@ -13,7 +13,7 @@ import {
   type ConfigErrors,
   type McpAgent,
 } from '@/state/settings-form';
-import { useAppStore } from '@/state/app-store';
+import { useAppStore } from '@/state/use-app-store';
 import { CODEC, MESHOPT, TEXTURE } from './options';
 
 export interface ConfigFieldsProps {
