@@ -199,9 +199,14 @@ impl PipelineRunner {
 
     /// Submits and blocks until the run finishes. For the CLI and tests.
     pub fn run_blocking(&self, setup: RunSetup) -> CoreResult<RunRecord> {
+        self.run_blocking_with(setup, RunOptions::default())
+    }
+
+    /// [`Self::run_blocking`] with extra controls, such as a timeout.
+    pub fn run_blocking_with(&self, setup: RunSetup, options: RunOptions) -> CoreResult<RunRecord> {
         let project = setup.project.clone();
         let cache_dir = setup.cache_dir.clone();
-        let queued = self.submit(setup)?;
+        let queued = self.submit_with(setup, options)?;
         loop {
             thread::sleep(POLL);
             let busy = {
