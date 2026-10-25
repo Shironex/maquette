@@ -11,7 +11,7 @@ export default {
     'scope-enum': [
       2,
       'always',
-      ['desktop', 'web', 'ui', 'core', 'workspace', 'deps', 'docs', 'scripts'],
+      ['desktop', 'web', 'site', 'ui', 'core', 'workspace', 'deps', 'docs', 'scripts'],
     ],
   },
 };
