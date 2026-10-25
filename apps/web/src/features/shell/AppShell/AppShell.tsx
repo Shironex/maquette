@@ -46,7 +46,7 @@ export default function AppShell() {
                 CHROME === 'native' ? 'pt-1' : 'pt-[18px]'
               )}
             >
-              <Logo size={24} />
+              <Logo size={24} wordmark={!collapsed} />
             </div>
           </div>
         }

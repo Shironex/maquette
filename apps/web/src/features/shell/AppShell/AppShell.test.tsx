@@ -42,6 +42,7 @@ describe('the app shell', () => {
     await userEvent.click(within(rail).getByRole('button', { name: 'Collapse the sidebar' }));
     expect(within(rail).getByRole('button', { name: 'Expand the sidebar' })).toBeVisible();
     expect(window.localStorage.getItem('maquette.rail.collapsed')).toBe('1');
+    expect(within(rail).queryByText('maquette')).toBeNull();
   });
 
   it('opens the project switcher from the keyboard', async () => {
