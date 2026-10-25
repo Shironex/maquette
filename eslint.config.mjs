@@ -16,8 +16,9 @@ import observability from '@noctcore/eslint-plugin-observability';
 import noctcoreReact from '@noctcore/eslint-plugin-react';
 import security from '@noctcore/eslint-plugin-security';
 
-// The TypeScript the house presets cover: the React app and the UI kit.
-const APP_TS = ['apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'];
+// The TypeScript the house presets cover: the React app, the UI kit and the
+// landing page's scripts and 3D island (its .astro files keep the base rules).
+const APP_TS = ['apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}', 'apps/site/**/*.{ts,tsx}'];
 const typescript = { files: APP_TS, languageOptions: { parser: tseslint.parser } };
 
 // Features every other feature may import: the shared dialogs and chrome, the
@@ -58,7 +59,7 @@ export default defineConfig(
     },
   },
   {
-    files: [...APP_TS, 'apps/site/**/*.{ts,tsx}'],
+    files: APP_TS,
     plugins: {
       react,
       'react-hooks': reactHooks,
