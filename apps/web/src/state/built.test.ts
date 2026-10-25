@@ -39,6 +39,6 @@ describe('built assets', () => {
       record: { error: null, warnings: [], objects: ['laptop', 'lid'], materials: ['screen'] },
     } as unknown as BuildOutcome;
     expect(outcomeNotice('Laptop', built).title).toBe('Built Laptop v2');
-    expect(outcomeNotice('Laptop', built).detail).toBe('2 objects, 1 materials.');
+    expect(outcomeNotice('Laptop', built).detail).toBe('2 objects, 1 material.');
   });
 });

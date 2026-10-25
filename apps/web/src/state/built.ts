@@ -48,6 +48,10 @@ export function builtMeta(item: BuiltAsset): string {
   return `Built from ${fileName(item.source.script)}`;
 }
 
+function count(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
+}
+
 /** The notice after a Rebuild. */
 export function outcomeNotice(name: string, outcome: BuildOutcome) {
   const record = outcome.record;
@@ -58,7 +62,7 @@ export function outcomeNotice(name: string, outcome: BuildOutcome) {
         title: `Built ${name} v${outcome.version?.version ?? record?.version ?? ''}`,
         detail: record?.warnings.length
           ? `Check: ${record.warnings.join(', ')}.`
-          : `${record?.objects.length ?? 0} objects, ${record?.materials.length ?? 0} materials.`,
+          : `${count(record?.objects.length ?? 0, 'object')}, ${count(record?.materials.length ?? 0, 'material')}.`,
       };
     case 'unchanged':
       return {
