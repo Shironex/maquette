@@ -4,7 +4,6 @@ import { events } from '@/ipc/generated/bindings';
 import { useAppStore } from '@/state/use-app-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { unappliedProjects, useQuitStore } from '@/state/use-quit-store';
-import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 
 /**
  * Tells the shell whether presets wait to be applied, so a close only needs
@@ -22,7 +21,8 @@ export function useQuitGuard() {
   }, [ask]);
 }
 
-export function QuitDialog() {
+/** The question's state and answers, and the projects whose presets wait. */
+export function useQuitDialog() {
   const { asking, applying, error } = useQuitStore();
   const cancel = useQuitStore(s => s.cancel);
   const applyAndQuit = useQuitStore(s => s.applyAndQuit);
@@ -30,28 +30,5 @@ export function QuitDialog() {
   const edits = usePipelineStore(s => s.presetEdits);
   const projects = useAppStore(s => s.workspace?.projects);
   const names = unappliedProjects(edits).map(id => projects?.find(p => p.id === id)?.name ?? id);
-  if (!asking) return null;
-  return (
-    <ChoiceDialog
-      title="Apply the compression presets?"
-      onDismiss={cancel}
-      choices={[
-        { label: 'Quit without applying', variant: 'danger', onClick: () => void quitWithout() },
-        { label: 'Cancel', onClick: cancel },
-        {
-          label: 'Apply and quit',
-          variant: 'primary',
-          loading: applying,
-          onClick: () => void applyAndQuit(),
-        },
-      ]}
-    >
-      <p>Not applied yet in {names.join(', ') || 'this workspace'}. Quitting drops those edits.</p>
-      {error ? (
-        <p role="alert" className="mt-2 text-danger">
-          Could not apply them, so Maquette is still open. {error}
-        </p>
-      ) : null}
-    </ChoiceDialog>
-  );
+  return { asking, applying, error, cancel, applyAndQuit, quitWithout, names };
 }

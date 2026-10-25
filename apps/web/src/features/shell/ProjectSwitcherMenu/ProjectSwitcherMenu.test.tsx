@@ -7,7 +7,7 @@ import { useAppStore } from '@/state/use-app-store';
 import { useProjectsStore } from '@/state/use-projects-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { NewProjectDialog } from '@/features/project/NewProjectDialog';
-import { ProjectSwitcherMenu } from './ProjectSwitcherMenu';
+import { ProjectSwitcherMenu } from '.';
 
 function renderMenu() {
   const anchor = createRef<HTMLButtonElement>();

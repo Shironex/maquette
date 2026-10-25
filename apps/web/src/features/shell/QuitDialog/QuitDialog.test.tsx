@@ -6,7 +6,7 @@ import { events } from '@/ipc/generated/bindings';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useQuitStore } from '@/state/use-quit-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { QuitDialog, useQuitGuard } from './QuitDialog';
+import { QuitDialog, useQuitGuard } from '.';
 
 afterEach(() => {
   // Unmount first: the listeners are removed through the mock.
