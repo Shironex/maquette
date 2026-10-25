@@ -20,6 +20,30 @@ pub fn open_url(url: &str) -> std::io::Result<()> {
     browser(url)
 }
 
+/// The provider web studios a By hand send may open: a plain link to the
+/// site, nothing typed in the web view, and nothing more than opening it.
+pub const PROVIDER_SITES: [&str; 2] = ["https://studio.tripo3d.ai", "https://www.meshy.ai"];
+
+/// True for one of [`PROVIDER_SITES`] or a page under it.
+pub fn is_provider_site(url: &str) -> bool {
+    PROVIDER_SITES.iter().any(|site| {
+        url.strip_prefix(site)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+    })
+}
+
+/// Opens a provider's web studio in the default browser, when the address
+/// is on the allowlist.
+pub fn open_provider_site(url: &str) -> std::io::Result<()> {
+    if !is_provider_site(url) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "only the Tripo and Meshy studios open from a handoff",
+        ));
+    }
+    open_url(url)
+}
+
 /// Opens an address on this machine (`http://localhost:15292/`) in the
 /// default browser: the site's preview server.
 pub fn open_local_url(url: &str) -> std::io::Result<()> {
@@ -93,6 +117,26 @@ mod tests {
             "javascript:x",
         ] {
             assert!(open_url(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn only_the_provider_studios_open_from_a_handoff() {
+        assert!(is_provider_site("https://studio.tripo3d.ai"));
+        assert!(is_provider_site("https://www.meshy.ai/workspace"));
+        for service in maquette_core::providers::ProviderId::ALL {
+            let site = maquette_core::providers::handoff::site(service);
+            assert!(is_provider_site(site), "{site}");
+        }
+        for bad in [
+            "https://studio.tripo3d.ai.example.com",
+            "https://www.meshy.ai@evil.example",
+            "http://www.meshy.ai",
+            "https://example.com",
+            "https://studio.tripo3d.aiX/",
+        ] {
+            assert!(!is_provider_site(bad), "{bad}");
+            assert!(open_provider_site(bad).is_err(), "{bad}");
         }
     }
 

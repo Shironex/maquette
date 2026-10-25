@@ -147,7 +147,11 @@ fn only_images_on_the_card_can_be_revealed() {
         mode: "Image to 3D".into(),
         rows: Vec::new(),
         images: vec!["front.png".into()],
-        return_name: "lamp-1.glb".into(),
+        return_name: "maq_lamp_v1_tripo.glb".into(),
+        export_name: "maq_lamp_v1_tripo".into(),
+        credits: Some(30.0),
+        credits_note: Some("textured image to 3D".into()),
+        prompt: None,
     };
     let json = serde_json::json!({
         "id": "lamp-1", "project": "p", "asset": "lamp", "assetName": "Lamp",

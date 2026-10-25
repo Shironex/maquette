@@ -327,12 +327,12 @@ pub fn provider_open_handoff(studio: State<'_, Studio>, id: String) -> CommandRe
 }
 
 /// Opens the service's web studio in the system browser. Only the two
-/// known sites open, never an address from the web view.
+/// allowlisted sites open, never an address from the web view.
 #[tauri::command]
 #[specta::specta]
 pub fn provider_open_site(service: ProviderId) -> CommandResult<()> {
     let url = handoff::site(service);
-    opener::open_url(url).map_err(|err| {
+    opener::open_provider_site(url).map_err(|err| {
         CoreError::Unavailable(format!("Could not open {url} in the browser. {err}")).payload()
     })
 }
