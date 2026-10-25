@@ -106,6 +106,25 @@ describe('the ledger view', () => {
     expect(csvName(NOW)).toBe('maquette-credits-2027-01-15.csv');
   });
 
+  it('keeps text a spreadsheet would run as a formula as plain text', () => {
+    const names = ['=HYPERLINK("x")', '+1', '-2+3', '@SUM(A1)', '\tTab', '\rReturn'];
+    const rows = spendsCsv(names.map((assetName, n) => spend({ assetName, sentAtMs: NOW + n })))
+      .trimEnd()
+      .split('\n')
+      .slice(1);
+    const asset = (row: string) => row.split(',')[2];
+    expect(rows.map(asset)).toEqual([
+      '"\'=HYPERLINK(""x"")"',
+      "'+1",
+      "'-2+3",
+      "'@SUM(A1)",
+      "'\tTab",
+      `"'\rReturn"`,
+    ]);
+    // Numbers stay numbers.
+    expect(spendsCsv([spend({ credits: 12.5 })])).toContain(',12.5,');
+  });
+
   it('reads a balance, a missing key and a failed ask', () => {
     expect(balanceView({ key: true, credits: 1240, held: 30, error: null }, false)).toEqual({
       value: '1,240',

@@ -115,9 +115,14 @@ const CSV_HEADER = [
   'via_agent',
 ];
 
-/** A cell quoted when it holds a comma, a quote or a line break. */
+/**
+ * A cell quoted when it holds a comma, a quote or a line break. Text that a
+ * spreadsheet would run as a formula (starting with =, +, -, @, a tab or a
+ * carriage return) gets a leading quote, so an asset name cannot run code.
+ */
 function cell(value: string | number | boolean | null | undefined): string {
-  const text = value === null || value === undefined ? '' : String(value);
+  const raw = value === null || value === undefined ? '' : String(value);
+  const text = typeof value === 'string' && /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
