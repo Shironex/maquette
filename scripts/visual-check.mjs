@@ -28,12 +28,13 @@
  * By hand card with its subscription cost and export name, an export the
  * Downloads watch copies in, one it asks about and the "Which asset is
  * this?" picker, the watch in Settings and the Credits sheet's subscription
- * sends. It renders pages to files
- * and never captures the screen.
+ * sends. The built set covers built assets on the Board (a stale and a
+ * current card, a rebuild, the card menu) and Add built asset. It renders
+ * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
- * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand or ONLY=size
+ * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -773,6 +774,38 @@ async function listShots() {
 }
 // End of the Board list shots.
 
+/** Built assets: a stale and a current card, a rebuild, the card menu and Add built asset. */
+async function builtShots() {
+  const board = await open('&scenario=configured&built=demo', '#/board');
+  await board.getByRole('button', { name: /^Newtons cradle, v1/ }).waitFor();
+  await board.getByText('Script changed').waitFor();
+  await board.mouse.move(0, 0);
+  await shot(board, 'built-board');
+  await board.getByRole('button', { name: 'Rebuild' }).click();
+  await board.getByText('Building').first().waitFor();
+  await shot(board, 'built-building');
+  await board.getByText('Built Newtons cradle v2').waitFor();
+  await board.mouse.move(0, 0);
+  await shot(board, 'built-rebuilt');
+  await board.getByRole('button', { name: 'More for Laptop' }).click();
+  await board.getByRole('menu', { name: 'Laptop actions' }).waitFor();
+  await shot(board, 'built-menu');
+  await board.keyboard.press('Escape');
+  await board.getByRole('button', { name: 'Built asset' }).click();
+  const dialog = board.getByRole('dialog', { name: 'Add built asset' });
+  await dialog.waitFor();
+  await shot(board, 'built-add-empty');
+  await dialog.getByRole('button', { name: 'Choose...' }).click();
+  await dialog.getByRole('button', { name: 'Add files...' }).click();
+  await dialog.getByRole('list', { name: 'Helpers' }).waitFor();
+  await shot(board, 'built-add-filled');
+  await dialog.getByRole('button', { name: 'Add and build' }).click();
+  await dialog.waitFor({ state: 'detached' });
+  await board.getByText('Built Desk v1').waitFor();
+  await board.mouse.move(0, 0);
+  await shot(board, 'built-added');
+}
+
 // Size group, real size and fix-ups: the Inbox controls, a fix on a check,
 // the preview numbers, the Board dialog and the Inspector's Fix-ups list.
 async function prepShots() {
@@ -892,6 +925,7 @@ try {
   if (!only || only === 'byhand') await byHandShots();
   if (!only || only === 'size') await listShots();
   if (!only || only === 'size') await prepShots();
+  if (!only || only === 'built') await builtShots();
 } finally {
   await browser.close();
   await vite?.close();
