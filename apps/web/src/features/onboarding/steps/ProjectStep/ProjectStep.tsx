@@ -1,7 +1,7 @@
 import { ProjectForm } from '@/features/project/ProjectForm';
-import type { OnboardingApi } from '../useOnboarding';
+import type { ProjectStepProps } from './ProjectStep.types';
 
-export function ProjectStep({ api }: { api: OnboardingApi }) {
+export default function ProjectStep({ api }: ProjectStepProps) {
   return (
     <ProjectForm
       value={api.draft}

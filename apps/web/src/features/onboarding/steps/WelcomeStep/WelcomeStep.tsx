@@ -2,9 +2,16 @@ import { Fragment } from 'react';
 import { Button, Icon, PIPELINE_STAGES } from '@maquette/ui';
 import appIcon from '@/assets/app-icon.png';
 import moonIsland from '@/assets/moon-island.jpg';
-import type { OnboardingApi } from '../useOnboarding';
+import type { WelcomeStepProps } from './WelcomeStep.types';
 
-export function WelcomeStep({ api }: { api: OnboardingApi }) {
+const stages = PIPELINE_STAGES.map((stage, i) => (
+  <Fragment key={stage}>
+    {i > 0 ? <Icon name="caret-right" size={12} /> : null}
+    <span className="text-fg-dim">{stage}</span>
+  </Fragment>
+));
+
+export default function WelcomeStep({ api }: WelcomeStepProps) {
   return (
     <div className="flex min-h-0 flex-1 items-center gap-14 overflow-y-auto px-[72px]">
       <div className="flex w-[440px] flex-none flex-col">
@@ -23,12 +30,7 @@ export function WelcomeStep({ api }: { api: OnboardingApi }) {
           className="mt-[26px] flex flex-wrap items-center gap-1.5 text-[12.5px] text-fg-mute"
           aria-label="Pipeline: Concept, Refs, Tripo, Blender, Web, Ship"
         >
-          {PIPELINE_STAGES.map((stage, i) => (
-            <Fragment key={stage}>
-              {i > 0 ? <Icon name="caret-right" size={12} /> : null}
-              <span className="text-fg-dim">{stage}</span>
-            </Fragment>
-          ))}
+          {stages}
         </div>
         <div className="mt-9 flex gap-2.5">
           <Button

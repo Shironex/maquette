@@ -3,9 +3,9 @@ import { BudgetFields } from '@/features/config/BudgetFields';
 import { CompressionFields } from '@/features/config/CompressionFields';
 import { ProviderPresetFields, useCatalog } from '@/features/providers/PresetFields';
 import { validateConfig } from '@/state/settings-form';
-import type { OnboardingApi } from '../useOnboarding';
+import type { DefaultsStepProps } from './DefaultsStep.types';
 
-export function DefaultsStep({ api }: { api: OnboardingApi }) {
+export default function DefaultsStep({ api }: DefaultsStepProps) {
   const config = api.draft.config;
   const catalog = useCatalog();
   const onChange = (next: typeof config) => api.update({ config: next });

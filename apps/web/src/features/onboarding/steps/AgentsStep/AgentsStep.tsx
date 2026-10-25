@@ -6,9 +6,9 @@ import { AgentRuleRows } from '@/features/config/AgentRuleRows';
 import { McpControls } from '@/features/config/McpControls';
 import { McpSnippetPreview } from '@/features/config/McpSnippetPreview';
 import { patchSection, validateConfig } from '@/state/settings-form';
-import type { OnboardingApi } from '../useOnboarding';
+import type { AgentsStepProps } from './AgentsStep.types';
 
-export function AgentsStep({ api }: { api: OnboardingApi }) {
+export default function AgentsStep({ api }: AgentsStepProps) {
   const config = api.draft.config;
   const onChange = (next: typeof config) => api.update({ config: next });
   const errors = validateConfig(config);

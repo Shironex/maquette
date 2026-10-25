@@ -48,6 +48,7 @@ const MIGRATED = [
   'apps/web/src/features/common/**',
   'apps/web/src/features/shell/**',
   'apps/web/src/features/settings/**',
+  'apps/web/src/features/onboarding/**',
 ];
 
 // Preset rules the unmigrated areas do not pass yet, with the count measured

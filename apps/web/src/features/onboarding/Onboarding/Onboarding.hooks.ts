@@ -128,18 +128,17 @@ export function useOnboarding() {
       });
       setSnapshot({ ...snapshot, config });
     }
-    if (step === STEP.project && snapshot.project) {
-      const project = await commands.projectUpdate(
-        snapshot.project.id,
-        draft.name.trim(),
-        draft.siteRepo.trim() || null
-      );
-      setSnapshot({
-        ...snapshot,
-        project,
-        projects: snapshot.projects.map(p => (p.id === project.id ? project : p)),
-      });
-    }
+    if (step !== STEP.project || !snapshot.project) return;
+    const project = await commands.projectUpdate(
+      snapshot.project.id,
+      draft.name.trim(),
+      draft.siteRepo.trim() || null
+    );
+    setSnapshot({
+      ...snapshot,
+      project,
+      projects: snapshot.projects.map(p => (p.id === project.id ? project : p)),
+    });
   }
 
   const next = async () => {

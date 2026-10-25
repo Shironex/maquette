@@ -3,14 +3,16 @@ import { Button, Icon, OnboardingStepper, WindowChrome, Wordmark } from '@maquet
 import appIcon from '@/assets/app-icon.png';
 import { CHROME } from '@/ipc/runtime';
 import { STEP, STEPS } from '@/state/onboarding';
-import { useOnboarding, type OnboardingApi } from './useOnboarding';
-import { WelcomeStep } from './steps/WelcomeStep';
-import { WorkspaceStep } from './steps/WorkspaceStep';
-import { ToolchainStep, ToolchainFootNote } from './steps/ToolchainStep';
-import { DefaultsStep } from './steps/DefaultsStep';
-import { AgentsStep } from './steps/AgentsStep';
-import { ProjectStep } from './steps/ProjectStep';
-import { ReadyStep } from './steps/ReadyStep';
+import { useOnboarding, type OnboardingApi } from './Onboarding.hooks';
+import { StepHeading } from '../StepHeading';
+import { WelcomeStep } from '../steps/WelcomeStep';
+import { WorkspaceStep } from '../steps/WorkspaceStep';
+import { ToolchainStep } from '../steps/ToolchainStep';
+import { ToolchainFootNote } from '../steps/ToolchainFootNote';
+import { DefaultsStep } from '../steps/DefaultsStep';
+import { AgentsStep } from '../steps/AgentsStep';
+import { ProjectStep } from '../steps/ProjectStep';
+import { ReadyStep } from '../steps/ReadyStep';
 
 const BODY: Record<number, (api: OnboardingApi) => ReactNode> = {
   [STEP.workspace]: api => <WorkspaceStep api={api} />,
@@ -21,9 +23,10 @@ const BODY: Record<number, (api: OnboardingApi) => ReactNode> = {
   [STEP.ready]: api => <ReadyStep api={api} />,
 };
 
-export function Onboarding() {
+export default function Onboarding() {
   const api = useOnboarding();
   const { step } = api;
+  const body = BODY[step]?.(api);
 
   return (
     <WindowChrome title="Set up Maquette" mode={CHROME} className="h-full">
@@ -47,7 +50,7 @@ export function Onboarding() {
             <div className="min-h-0 flex-1 overflow-y-auto px-[72px] pt-14 pb-6">
               <div className="mx-auto w-full max-w-[760px]">
                 <StepHeading step={step} name={api.draft.name} />
-                {BODY[step]?.(api)}
+                {body}
               </div>
             </div>
             <footer className="flex h-[72px] flex-none items-center border-t border-line px-[72px]">
@@ -73,48 +76,5 @@ export function Onboarding() {
         )}
       </main>
     </WindowChrome>
-  );
-}
-
-const HEADINGS: Record<number, { title: string; lead: string }> = {
-  [STEP.workspace]: {
-    title: 'Pick a home for your projects',
-    lead: 'I keep every project, the Tripo inbox and the build cache under one root folder. Pick an empty folder, or an existing Maquette workspace to pick up where you left off.',
-  },
-  [STEP.toolchain]: {
-    title: 'Check your tools',
-    lead: 'I run these on your machine and found most of them already. Blender is the only one I cannot work without.',
-  },
-  [STEP.defaults]: {
-    title: 'Set your defaults',
-    lead: 'I use these for every new model and build. A project can override any of them later.',
-  },
-  [STEP.agents]: {
-    title: 'Let your agents drive',
-    lead: 'Maquette runs a small MCP server on this machine, so Claude Code and Codex can read the board, start pipeline steps and check budgets. It only listens on localhost.',
-  },
-  [STEP.project]: {
-    title: 'Start your first project',
-    lead: 'Start from a template, or import a folder you already have. I detect versioned .blend files and tools/ scripts when importing.',
-  },
-  [STEP.ready]: {
-    title: '{name} is ready',
-    lead: 'Here is what I set up. Open the project and I will walk you through the first run on the Board.',
-  },
-};
-
-function StepHeading({ step, name }: { step: number; name: string }) {
-  const heading = HEADINGS[step];
-  if (!heading) return null;
-  return (
-    <>
-      <p className="font-mono text-[12px] leading-4 font-medium tracking-[0.02em] text-clay-text">
-        Step {step + 1} of {STEPS.length}
-      </p>
-      <h1 className="mt-2.5 text-onboarding-title">
-        {heading.title.replace('{name}', name.trim() || 'Your project')}
-      </h1>
-      <p className="mt-2.5 max-w-[600px] text-[15px] leading-[23px] text-fg-dim">{heading.lead}</p>
-    </>
   );
 }
