@@ -325,15 +325,17 @@ function Inspector({ view }: { view: InspectView }) {
                     turntable={turntable}
                     stops={stops}
                     stop={stop}
-                    onSample={store.sample}
-                    onPick={id => {
-                      if (id) store.select(id);
+                    handlers={{
+                      onSample: store.sample,
+                      onPick: id => {
+                        if (id) store.select(id);
+                      },
+                      onStopShots: setShots,
+                      onUserMove: store.leaveStop,
+                      onLightmaps: setLightmaps,
+                      onError: setLoadError,
+                      onReady: () => setReady(true),
                     }}
-                    onStopShots={setShots}
-                    onUserMove={store.leaveStop}
-                    onLightmaps={setLightmaps}
-                    onError={setLoadError}
-                    onReady={() => setReady(true)}
                   />
                 </Suspense>
               </CanvasBoundary>
