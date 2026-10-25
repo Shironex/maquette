@@ -78,16 +78,6 @@ export function editLook(
   return sameLook(was, look) ? rest : { ...rest, [asset]: look };
 }
 
-/** The whole file to save: what is saved with the edits laid over it. */
-export function withEdits(saved: SceneMaterials | null, edits: MaterialEdits): SceneMaterials {
-  const models: Record<string, ModelMaterials> = { ...(saved?.models ?? {}) };
-  for (const [asset, look] of Object.entries(edits)) {
-    if (isEmptyLook(look)) delete models[asset];
-    else models[asset] = cleanLook(look);
-  }
-  return { version: saved?.version ?? 1, models };
-}
-
 /** The tweak one Applies to choice edits: `all`, or a named material's own fields. */
 export function tweakOf(look: ModelMaterials, target: string): MaterialTweak {
   if (target === ALL_MATERIALS) return look.all;

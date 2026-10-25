@@ -410,3 +410,57 @@ fn a_patch_changes_only_what_it_names() {
     let cleared = apply_patch(&after, "turntable", &reset, &names).expect("reset");
     assert!(!cleared.models.contains_key("turntable"));
 }
+
+#[test]
+fn saving_looks_keeps_every_other_asset_on_disk() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let laptop = look(tweak(Some("#3a3936"), None, None));
+    save(dir.path(), &scene("laptop", laptop.clone())).expect("save");
+
+    // The panel only knows about the bench; the laptop on disk stays.
+    let bench = look(tweak(None, None, Some(0.5)));
+    let looks = BTreeMap::from([("bench".to_string(), bench.clone())]);
+    let stored = save_looks(dir.path(), &looks).expect("looks");
+    assert_eq!(stored.models.get("laptop"), Some(&laptop));
+    assert_eq!(stored.models.get("bench"), Some(&bench));
+    assert_eq!(load(dir.path()).expect("load"), stored);
+
+    // An empty look removes only that asset.
+    let cleared = BTreeMap::from([("bench".to_string(), ModelMaterials::default())]);
+    let stored = save_looks(dir.path(), &cleared).expect("clear");
+    assert_eq!(stored.models.keys().collect::<Vec<_>>(), vec!["laptop"]);
+
+    // Agents go through the same path.
+    let change: MaterialsPatch =
+        serde_json::from_value(json!({ "all": { "metalness": 0.25 } })).expect("patch");
+    let stored = update(dir.path(), |current| {
+        apply_patch(current, "bench", &change, &[])
+    })
+    .expect("patch");
+    assert_eq!(stored.models.get("laptop"), Some(&laptop));
+    assert_eq!(stored.models["bench"].all.metalness, Some(0.25));
+}
+
+#[test]
+fn a_newer_or_unreadable_file_on_disk_is_never_overwritten() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let looks = BTreeMap::from([(
+        "bench".to_string(),
+        look(tweak(Some("#ffffff"), None, None)),
+    )]);
+
+    let newer = r#"{ "version": 9, "models": { "laptop": {} } }"#;
+    fs::write(path(dir.path()), newer).expect("newer");
+    let err = save_looks(dir.path(), &looks).expect_err("newer");
+    assert_eq!(err.code(), "unsupported-version");
+    assert_eq!(fs::read_to_string(path(dir.path())).expect("read"), newer);
+
+    let broken = "{ not json";
+    fs::write(path(dir.path()), broken).expect("broken");
+    let err = save_looks(dir.path(), &looks).expect_err("broken");
+    assert!(
+        err.to_string().contains("nothing was saved over it"),
+        "{err}"
+    );
+    assert_eq!(fs::read_to_string(path(dir.path())).expect("read"), broken);
+}

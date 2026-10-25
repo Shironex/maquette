@@ -9,7 +9,7 @@ import { useMaterialsStore } from './use-materials-store';
 
 afterEach(() => {
   clearMocks();
-  useMaterialsStore.setState({ saved: {}, edits: {}, saving: false });
+  useMaterialsStore.setState({ root: null, saved: {}, edits: {}, failed: {}, saving: false });
 });
 
 const tinted = (tint: string): ModelMaterials => ({
@@ -58,10 +58,7 @@ describe('the material tweaks store', () => {
   it('drops an edit an agent already saved when it loads again', async () => {
     await setup();
     useMaterialsStore.getState().setLook('moon-island', 'sakura', tinted('#00ff00'));
-    await commands.materialsSave('moon-island', {
-      version: 1,
-      models: { sakura: tinted('#00ff00') },
-    });
+    await commands.materialsSave('moon-island', { sakura: tinted('#00ff00') });
     await useMaterialsStore.getState().load('moon-island');
     expect(useMaterialsStore.getState().edits).toEqual({});
   });
@@ -78,8 +75,44 @@ describe('the material tweaks store', () => {
   it('refuses a value out of range like the core does', async () => {
     await setup();
     const bad = { ...emptyLook(), all: { ...emptyLook().all, metalness: 3 } };
-    await expect(
-      commands.materialsSave('moon-island', { version: 1, models: { sakura: bad } })
-    ).rejects.toMatchObject({ message: expect.stringMatching(/metalness/) });
+    await expect(commands.materialsSave('moon-island', { sakura: bad })).rejects.toMatchObject({
+      message: expect.stringMatching(/metalness/),
+    });
+  });
+
+  it('Apply sends only the edited looks, so an unloaded file keeps the other assets', async () => {
+    await setup();
+    await commands.materialsSave('moon-island', { hut: tinted('#123456') });
+    // As if the load never finished or failed: nothing saved is known.
+    useMaterialsStore.setState({ saved: {} });
+    useMaterialsStore.getState().setLook('moon-island', 'sakura', tinted('#00ff00'));
+    expect(await useMaterialsStore.getState().apply('moon-island')).toBe(true);
+    const stored = await commands.materialsGet('moon-island');
+    expect(stored.models.hut?.all.tint).toBe('#123456');
+    expect(stored.models.sakura?.all.tint).toBe('#00ff00');
+    expect(useMaterialsStore.getState().saved['moon-island']).toEqual(stored);
+  });
+
+  it('drops what is saved and the edits when another workspace opens', async () => {
+    await setup();
+    const store = useMaterialsStore.getState();
+    store.setRoot('/work/one');
+    await useMaterialsStore.getState().load('moon-island');
+    useMaterialsStore.getState().setLook('moon-island', 'sakura', tinted('#00ff00'));
+    useMaterialsStore.getState().setRoot('/work/one');
+    expect(Object.keys(useMaterialsStore.getState().edits)).toEqual(['moon-island']);
+
+    const late = useMaterialsStore.getState().load('moon-island');
+    useMaterialsStore.getState().setRoot('/work/two');
+    await late;
+    expect(useMaterialsStore.getState().edits).toEqual({});
+    expect(useMaterialsStore.getState().saved).toEqual({});
+  });
+
+  it('remembers why the saved tweaks did not load', async () => {
+    await setup(cmd => cmd === 'materials_get');
+    await useMaterialsStore.getState().load('moon-island');
+    expect(useMaterialsStore.getState().failed['moon-island']).toBe('The disk is full.');
+    expect(useMaterialsStore.getState().saved['moon-island']).toBeUndefined();
   });
 });

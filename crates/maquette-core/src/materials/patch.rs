@@ -1,11 +1,19 @@
-//! Editing one asset's tweaks field by field, for agents: only what the
-//! patch names changes, and the result is checked whole before it is kept.
+//! Changing the saved tweaks without losing anyone else's: [`update`]
+//! reads `materials.json` on disk, applies one change and writes the result,
+//! so the app and agents only ever replace the assets they edit. Agents
+//! edit one asset field by field ([`apply_patch`]); the Material panel
+//! replaces the looks it edited whole ([`save_looks`]).
 
 use std::collections::BTreeMap;
+use std::path::Path;
+use std::sync::{Mutex, PoisonError};
 
 use serde::Deserialize;
 
-use super::{MaterialTweak, ModelMaterials, RoughnessTweak, SceneMaterials, normalized, validate};
+use super::{
+    MATERIALS_FILE, MaterialTweak, ModelMaterials, RoughnessTweak, SceneMaterials, load,
+    normalized, save, validate,
+};
 use crate::error::{CoreError, CoreResult};
 use crate::json::explicit;
 
@@ -91,4 +99,54 @@ pub fn apply_patch(
     next.models.insert(asset.to_string(), look);
     validate(&next)?;
     Ok(normalized(&next))
+}
+
+/// One read, change and write at a time, so the app and an agent saving
+/// together both land.
+static WRITES: Mutex<()> = Mutex::new(());
+
+/// Reads `materials.json` from disk, applies `change` to it and writes what
+/// comes back, checked and tidied. Returns what was written.
+///
+/// # Errors
+///
+/// Refuses, writing nothing, when the file on disk comes from a newer
+/// Maquette or cannot be read (so a broken file is never overwritten), and
+/// fails when `change` or [`validate`] refuses or the write fails.
+pub fn update(
+    project_dir: &Path,
+    change: impl FnOnce(&SceneMaterials) -> CoreResult<SceneMaterials>,
+) -> CoreResult<SceneMaterials> {
+    let _one = WRITES.lock().unwrap_or_else(PoisonError::into_inner);
+    let current = load(project_dir).map_err(|err| match err {
+        CoreError::UnsupportedVersion { .. } => err,
+        other => CoreError::Invalid(format!(
+            "{MATERIALS_FILE} could not be read, so nothing was saved over it. Fix or remove the file, then save again. {other}"
+        )),
+    })?;
+    save(project_dir, &change(&current)?)
+}
+
+/// Replaces the tweaks of each asset in `looks` in the file on disk; an
+/// empty look removes the asset's entry. Every other asset keeps what is
+/// saved. Returns the whole file as written.
+///
+/// # Errors
+///
+/// As [`update`].
+pub fn save_looks(
+    project_dir: &Path,
+    looks: &BTreeMap<String, ModelMaterials>,
+) -> CoreResult<SceneMaterials> {
+    update(project_dir, |current| {
+        let mut next = current.clone();
+        for (asset, look) in looks {
+            if look.is_empty() {
+                next.models.remove(asset);
+            } else {
+                next.models.insert(asset.clone(), look.clone());
+            }
+        }
+        Ok(next)
+    })
 }

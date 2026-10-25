@@ -222,8 +222,8 @@ export default function MaterialPanel({ project, model }: MaterialPanelProps) {
         <Button
           size="sm"
           variant="primary"
-          disabled={!p.dirty || p.saving}
-          disabledReason="Nothing changed yet"
+          disabled={!p.dirty || p.saving || p.applyBlocked !== null}
+          disabledReason={p.applyBlocked ?? 'Nothing changed yet'}
           loading={p.saving}
           onClick={p.onApply}
         >

@@ -22,6 +22,7 @@ export function useMaterialPanel(project: string, model: InspectModel) {
   const saved = useMaterialsStore(s => s.saved[project]) ?? null;
   const edits = useMaterialsStore(s => s.edits[project]);
   const saving = useMaterialsStore(s => s.saving);
+  const failed = useMaterialsStore(s => s.failed[project]);
   const setLook = useMaterialsStore(s => s.setLook);
   const reset = useMaterialsStore(s => s.reset);
   const apply = useMaterialsStore(s => s.apply);
@@ -45,6 +46,12 @@ export function useMaterialPanel(project: string, model: InspectModel) {
     edit,
     dirty,
     saving,
+    /** Why Apply waits: the saved tweaks are not in yet, so the edit is not judged against them. */
+    applyBlocked: saved
+      ? null
+      : failed
+        ? `The saved tweaks did not load. ${failed}`
+        : 'Loading the saved tweaks',
     /** Some material of the model loses its metal and roughness map. */
     dropsMap: dropsMap(look.all) || Object.values(look.materials).some(dropsMap),
     /** Reset drops the edits; with none, it clears what is saved. */

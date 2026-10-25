@@ -120,6 +120,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
   const loadProjects = useProjectsStore(s => s.load);
   const onLayoutChanged = useLayoutStore(s => s.onChanged);
   const loadMaterials = useMaterialsStore(s => s.load);
+  const setMaterialsRoot = useMaterialsStore(s => s.setRoot);
   useEffect(() => {
     // The rail shows the open project's own picture from the list.
     if (root) void loadProjects();
@@ -140,8 +141,10 @@ export function useLiveData(projectId: string | null, root: string | null) {
     if (projectId) void loadLab(projectId);
   }, [projectId, loadLab]);
   useEffect(() => {
+    // Before the load: another workspace drops the tweaks of this one.
+    setMaterialsRoot(root);
     if (projectId) void loadMaterials(projectId);
-  }, [projectId, loadMaterials]);
+  }, [root, projectId, setMaterialsRoot, loadMaterials]);
   useEffect(() => {
     if (root) void loadInbox();
   }, [root, loadInbox]);

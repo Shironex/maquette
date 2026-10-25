@@ -310,14 +310,11 @@ impl McpTools {
                     }
                     (None, _) => None,
                 };
-                let current =
-                    commands::get(host.session(), &args.project).map_err(|e| e.message)?;
-                // Checked whole before anything is written.
-                let next =
-                    materials::apply_patch(&current, &target.asset.id, &change, &target.names)
-                        .map_err(reason)?;
-                let saved =
-                    commands::save(host.session(), &args.project, &next).map_err(|e| e.message)?;
+                // Applied to the file on disk and checked whole before it is written.
+                let saved = commands::update(host.session(), &args.project, |current| {
+                    materials::apply_patch(current, &target.asset.id, &change, &target.names)
+                })
+                .map_err(|e| e.message)?;
                 host.materials_changed(&args.project);
                 if let Some(table) = table {
                     pipeline::save_presets(host.session(), host.runner(), &args.project, table)

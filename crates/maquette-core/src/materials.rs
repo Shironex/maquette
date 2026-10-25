@@ -43,7 +43,7 @@ mod glb;
 mod patch;
 
 pub use apply::{Applied, apply_file, apply_to_json, map_groups, material_names};
-pub use patch::{MaterialsPatch, TweakPatch, apply_patch};
+pub use patch::{MaterialsPatch, TweakPatch, apply_patch, save_looks, update};
 
 pub const MATERIALS_FILE: &str = "materials.json";
 pub const MATERIALS_VERSION: u32 = 1;
@@ -172,25 +172,26 @@ pub fn load(project_dir: &Path) -> CoreResult<SceneMaterials> {
         }
         Err(err) => return Err(CoreError::io(&file, err)),
     };
-    let found: SceneMaterials =
+    let value: serde_json::Value =
         serde_json::from_str(&text).map_err(|e| CoreError::json(&file, e))?;
-    if found.version > MATERIALS_VERSION {
+    // The version first, so a newer file whose shape changed says so.
+    let version = value.get("version").and_then(serde_json::Value::as_u64);
+    if let Some(found) = version.filter(|v| *v > u64::from(MATERIALS_VERSION)) {
         return Err(CoreError::UnsupportedVersion {
-            found: found.version,
+            found: u32::try_from(found).unwrap_or(u32::MAX),
             supported: MATERIALS_VERSION,
         });
     }
+    let found: SceneMaterials =
+        serde_json::from_value(value).map_err(|e| CoreError::json(&file, e))?;
     validate(&found)?;
     Ok(found)
 }
 
-/// Checks the tweaks, drops the empty ones and writes the file atomically.
-/// Returns what was written.
-///
-/// # Errors
-///
-/// Fails when [`validate`] refuses them or the file cannot be written.
-pub fn save(project_dir: &Path, materials: &SceneMaterials) -> CoreResult<SceneMaterials> {
+/// Checks the tweaks, drops the empty ones and writes the whole file
+/// atomically. Returns what was written. Callers go through [`update`],
+/// which reads the file on disk first so no other asset's tweaks are lost.
+fn save(project_dir: &Path, materials: &SceneMaterials) -> CoreResult<SceneMaterials> {
     validate(materials)?;
     let stored = normalized(materials);
     write_json(&path(project_dir), &stored)?;

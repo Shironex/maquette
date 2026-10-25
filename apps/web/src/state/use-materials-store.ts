@@ -2,19 +2,30 @@
  * Material tweaks per project: what `materials.json` holds and the edits
  * the Inspector's Material panel has not applied yet. Edits outlive the
  * panel, so switching models, tabs or projects keeps them until Apply,
- * Reset or quitting without applying.
+ * Reset or quitting without applying. Apply sends only the edited assets'
+ * looks; the backend lays them over the file on disk, so a load that failed
+ * or has not finished never wipes another asset's tweaks.
  */
 import { create } from 'zustand';
 import { commands, errorMessage, type ModelMaterials, type SceneMaterials } from '@/ipc/client';
-import { editLook, withEdits, type MaterialEdits } from './materials';
+import { editLook, type MaterialEdits } from './materials';
 import { useAppStore } from './use-app-store';
 
 interface MaterialsStore {
-  /** What is saved, by project. */
+  /** The workspace the projects below belong to. */
+  root: string | null;
+  /** What is saved, by project. Missing until it loads. */
   saved: Readonly<Record<string, SceneMaterials>>;
   /** Unapplied edits, by project and asset. */
   edits: Readonly<Record<string, MaterialEdits>>;
+  /** Why the saved tweaks did not load, by project. */
+  failed: Readonly<Record<string, string>>;
   saving: boolean;
+  /**
+   * Follows the open workspace. Project ids repeat across workspaces, so
+   * another root drops what is saved and the edits.
+   */
+  setRoot: (root: string | null) => void;
   /** Reads the saved tweaks; edits an agent's save made redundant drop. */
   load: (project: string) => Promise<void>;
   setLook: (project: string, asset: string, look: ModelMaterials) => void;
@@ -43,21 +54,32 @@ export const useMaterialsStore = create<MaterialsStore>((set, get) => {
     }));
 
   const save = async (project: string) => {
-    const next = withEdits(get().saved[project] ?? null, get().edits[project] ?? {});
-    const stored = await commands.materialsSave(project, next);
+    const stored = await commands.materialsSave(project, { ...get().edits[project] });
     set(s => ({ saved: { ...s.saved, [project]: stored } }));
     setEdits(project, {});
   };
 
   return {
+    root: null,
     saved: {},
     edits: {},
+    failed: {},
     saving: false,
 
+    setRoot: root => {
+      if (get().root !== root) set({ root, saved: {}, edits: {}, failed: {} });
+    },
+
     load: async project => {
+      const root = get().root;
       try {
         const stored = await commands.materialsGet(project);
-        set(s => ({ saved: { ...s.saved, [project]: stored } }));
+        // A load from a workspace closed meanwhile is not this project's.
+        if (get().root !== root) return;
+        set(s => ({
+          saved: { ...s.saved, [project]: stored },
+          failed: without(s.failed, project),
+        }));
         // An edit an agent's save now matches is no edit any more.
         const edits = Object.entries(get().edits[project] ?? {});
         setEdits(
@@ -68,6 +90,8 @@ export const useMaterialsStore = create<MaterialsStore>((set, get) => {
           )
         );
       } catch (error) {
+        if (get().root !== root) return;
+        set(s => ({ failed: { ...s.failed, [project]: errorMessage(error) } }));
         useAppStore.getState().notify({
           status: 'failed',
           title: 'Material tweaks did not load',
@@ -110,10 +134,6 @@ export const useMaterialsStore = create<MaterialsStore>((set, get) => {
     applyAll: async () => {
       for (const project of Object.keys(get().edits)) {
         try {
-          if (!get().saved[project]) {
-            const stored = await commands.materialsGet(project);
-            set(s => ({ saved: { ...s.saved, [project]: stored } }));
-          }
           await save(project);
         } catch (error) {
           const name = useAppStore.getState().workspace?.projects.find(p => p.id === project)?.name;

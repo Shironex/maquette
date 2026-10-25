@@ -65,9 +65,11 @@ export function createMaterialHandlers(
       project(String(id));
       return get(String(id));
     },
-    materials_save: ({ project: id, materials }) => {
+    // Lays the looks over what is stored, as the core does with the file on disk.
+    materials_save: ({ project: id, looks }) => {
       project(String(id));
-      const tidy = tidyMaterials(materials as SceneMaterials);
+      const models = { ...get(String(id)).models, ...(looks as Record<string, ModelMaterials>) };
+      const tidy = tidyMaterials({ version: 1, models });
       stored.set(String(id), tidy);
       return tidy;
     },

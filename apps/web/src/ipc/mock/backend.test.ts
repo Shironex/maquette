@@ -13,6 +13,7 @@ import type {
   ProjectManifest,
   ProviderJob,
   RunRecord,
+  SceneMaterials,
   SendOptions,
 } from '../client';
 import { presetRows, presetsToSave } from '@/state/presets';
@@ -385,18 +386,21 @@ describe('mock presets', () => {
     const none = { tint: null, roughness: null, metalness: null, emissiveStrength: null };
     const stored = await handle('materials_save', {
       project: 'moon-island',
-      materials: {
-        version: 1,
-        models: {
-          sakura: { all: { ...none, tint: '#FFC0CB' }, materials: { Leaves: none } },
-          hut: { all: none, materials: {} },
-        },
+      looks: {
+        sakura: { all: { ...none, tint: '#FFC0CB' }, materials: { Leaves: none } },
+        hut: { all: none, materials: {} },
       },
     });
     expect(stored).toEqual({
       version: 1,
       models: { sakura: { all: { ...none, tint: '#ffc0cb' }, materials: {} } },
     });
+    // Another asset's look lands beside the stored one.
+    const both = (await handle('materials_save', {
+      project: 'moon-island',
+      looks: { hut: { all: { ...none, metalness: 0.5 }, materials: {} } },
+    })) as SceneMaterials;
+    expect(Object.keys(both.models)).toEqual(['sakura', 'hut']);
     expect(await handle('materials_get', { project: 'rooftop-cinema' })).toEqual({
       version: 1,
       models: {},
@@ -404,11 +408,8 @@ describe('mock presets', () => {
     await expect(
       handle('materials_save', {
         project: 'moon-island',
-        materials: {
-          version: 1,
-          models: {
-            sakura: { all: { ...none, roughness: { mode: 'multiply', value: 3 } }, materials: {} },
-          },
+        looks: {
+          sakura: { all: { ...none, roughness: { mode: 'multiply', value: 3 } }, materials: {} },
         },
       })
     ).rejects.toMatchObject({ code: 'invalid' });

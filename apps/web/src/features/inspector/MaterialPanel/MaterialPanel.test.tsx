@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { commands, type InspectModel } from '@/ipc/client';
@@ -18,7 +18,7 @@ beforeEach(async () => {
 });
 afterEach(() => {
   clearMocks();
-  useMaterialsStore.setState({ saved: {}, edits: {}, saving: false });
+  useMaterialsStore.setState({ root: null, saved: {}, edits: {}, failed: {}, saving: false });
 });
 
 const edits = () => useMaterialsStore.getState().edits['moon-island']?.character;
@@ -61,12 +61,9 @@ describe('the material panel', () => {
 
   it('resets an edit, then clears what is saved', async () => {
     await commands.materialsSave('moon-island', {
-      version: 1,
-      models: {
-        character: {
-          all: { tint: '#5d6266', roughness: null, metalness: null, emissiveStrength: null },
-          materials: {},
-        },
+      character: {
+        all: { tint: '#5d6266', roughness: null, metalness: null, emissiveStrength: null },
+        materials: {},
       },
     });
     await useMaterialsStore.getState().load('moon-island');
@@ -83,6 +80,26 @@ describe('the material panel', () => {
       all: { tint: null, roughness: null, metalness: null, emissiveStrength: null },
       materials: {},
     });
+  });
+
+  it('waits for the saved tweaks before Apply, and says why when they did not load', async () => {
+    useMaterialsStore.setState({ saved: {} });
+    render(<MaterialPanel project="moon-island" model={character} />);
+    await userEvent.type(screen.getByRole('textbox', { name: 'Tint hex' }), '6f7446{Enter}');
+    const apply = screen.getByRole('button', { name: 'Apply tweaks' });
+    expect(apply).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.hover(apply);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Loading the saved tweaks');
+
+    act(() => useMaterialsStore.setState({ failed: { 'moon-island': 'The file is broken.' } }));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      /did not load\. The file is broken/
+    );
+
+    await act(() => useMaterialsStore.getState().load('moon-island'));
+    expect(screen.getByRole('button', { name: 'Apply tweaks' })).not.toHaveAttribute(
+      'aria-disabled'
+    );
   });
 
   it('says so when no asset makes the file', () => {

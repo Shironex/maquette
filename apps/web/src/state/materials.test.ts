@@ -15,7 +15,6 @@ import {
   parseHex,
   tweakFor,
   tweakOf,
-  withEdits,
   withGroupCodec,
   withTweak,
 } from './materials';
@@ -40,17 +39,11 @@ describe('material looks', () => {
     expect(editLook(null, {}, 'lamp', emptyLook())).toEqual({});
   });
 
-  it('lays edits over the file, tidied, and removes emptied assets', () => {
+  it('tidies a look the way the core stores it', () => {
     const named = { Lid: tweak({ metalness: 0.2 }), Base: emptyTweak() };
-    const file = withEdits(saved, {
-      crate: emptyLook(),
-      lamp: look({ tint: '#FFEE00' }, named),
-    });
-    expect(file).toEqual({
-      version: 1,
-      models: { lamp: look({ tint: '#ffee00' }, { Lid: tweak({ metalness: 0.2 }) }) },
-    });
-    expect(cleanLook(look({}, { Base: emptyTweak() })).materials).toEqual({});
+    expect(cleanLook(look({ tint: '#FFEE00' }, named))).toEqual(
+      look({ tint: '#ffee00' }, { Lid: tweak({ metalness: 0.2 }) })
+    );
   });
 
   it('edits every material or one by name, and a name gets all under its own fields', () => {

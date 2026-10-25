@@ -54,10 +54,12 @@ export const commands = {
 	layoutSave: (project: string, layout: SceneLayout) => __TAURI_INVOKE<LayoutView>("layout_save", { project, layout }),
 	materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>("materials_get", { project }),
 	/**
-	 *  Saves every asset's tweaks and returns what was written (empty entries
-	 *  dropped). They apply the next time Compress runs.
+	 *  Saves the looks of the assets the panel edited (an empty look clears
+	 *  the asset's tweaks) into `materials.json` as it is on disk, so every other
+	 *  asset keeps its tweaks. Returns the whole file as written. They apply the
+	 *  next time Compress runs.
 	 */
-	materialsSave: (project: string, materials: SceneMaterials) => __TAURI_INVOKE<SceneMaterials>("materials_save", { project, materials }),
+	materialsSave: (project: string, looks: { [key in string]: ModelMaterials }) => __TAURI_INVOKE<SceneMaterials>("materials_save", { project, looks }),
 	pipelineGet: (project: string) => __TAURI_INVOKE<PipelineView>("pipeline_get", { project }),
 	/**
 	 *  Queues a run. `from` runs that step (always) and what depends on it;
