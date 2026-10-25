@@ -1,21 +1,16 @@
-import type { ReactNode } from 'react';
 import { cn } from '@maquette/ui';
+import { PANEL_TITLE } from './panelTitle';
+import type { PanelProps } from './Panel.types';
 
-/** The canvas `title-m`: 15/20 semibold. */
-export const PANEL_TITLE = 'text-emphasis leading-5 font-semibold tracking-[-0.01em]';
-
-export interface PanelProps {
-  title?: string;
-  /** A short line next to or under the title. */
-  help?: string;
-  helpInline?: boolean;
-  actions?: ReactNode;
-  id?: string;
-  className?: string;
-  children: ReactNode;
-}
-
-export function Panel({ title, help, helpInline, actions, id, className, children }: PanelProps) {
+export default function Panel({
+  title,
+  help,
+  helpInline,
+  actions,
+  id,
+  className,
+  children,
+}: PanelProps) {
   const headingId = id ? `${id}-title` : undefined;
   return (
     <section
@@ -41,13 +36,5 @@ export function Panel({ title, help, helpInline, actions, id, className, childre
       ) : null}
       {children}
     </section>
-  );
-}
-
-export function SectionLabel({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <p className={cn('text-caption tracking-[0.04em] text-fg-mute uppercase', className)}>
-      {children}
-    </p>
   );
 }

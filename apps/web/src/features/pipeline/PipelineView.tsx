@@ -8,7 +8,8 @@ import { PipelineGraph } from './PipelineGraph';
 import { PresetsPanel } from './PresetsPanel';
 import { RunLog } from './RunLog';
 import { StartersBanner } from './StartersBanner';
-import { FirstViewBar, SceneBudgetMeter } from '@/features/common/SceneBudgetMeter';
+import { FirstViewBar } from '@/features/common/FirstViewBar';
+import { SceneBudgetMeter } from '@/features/common/SceneBudgetMeter';
 
 function clock(ms: number | null | undefined): string {
   if (!ms) return '';

@@ -1,34 +1,28 @@
-import { useRef, type ReactNode } from 'react';
-import { Button, type ButtonVariant } from '@maquette/ui';
-import { useTopEscape } from '@/lib/useTopEscape';
-
-export interface Choice {
-  label: string;
-  onClick: () => void;
-  variant?: ButtonVariant;
-  loading?: boolean;
-}
+import { Button } from '@maquette/ui';
+import { useChoiceDialog } from './ChoiceDialog.hooks';
+import type { ChoiceDialogProps } from './ChoiceDialog.types';
 
 /**
  * A small question over the screen with two or three answers. Escape and a
  * backdrop click give `onDismiss`, the answer that changes nothing. The
  * last choice is the one the focus starts on.
  */
-export function ChoiceDialog({
-  title,
-  children,
-  choices,
-  onDismiss,
-}: {
-  title: string;
-  children: ReactNode;
-  choices: Choice[];
-  onDismiss: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useTopEscape(ref, onDismiss);
+export default function ChoiceDialog({ title, children, choices, onDismiss }: ChoiceDialogProps) {
+  const ref = useChoiceDialog(onDismiss);
   const busy = choices.some(c => c.loading);
   const last = choices.length - 1;
+  const buttons = choices.map((choice, i) => (
+    <Button
+      key={choice.label}
+      variant={choice.variant ?? 'secondary'}
+      loading={choice.loading}
+      disabled={busy}
+      autoFocus={i === last}
+      onClick={choice.onClick}
+    >
+      {choice.label}
+    </Button>
+  ));
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-[rgba(16,15,14,0.55)] p-6"
@@ -50,18 +44,7 @@ export function ChoiceDialog({
           <div className="text-fg-dim">{children}</div>
         </div>
         <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">
-          {choices.map((choice, i) => (
-            <Button
-              key={choice.label}
-              variant={choice.variant ?? 'secondary'}
-              loading={choice.loading}
-              disabled={busy}
-              autoFocus={i === last}
-              onClick={choice.onClick}
-            >
-              {choice.label}
-            </Button>
-          ))}
+          {buttons}
         </footer>
       </div>
     </div>

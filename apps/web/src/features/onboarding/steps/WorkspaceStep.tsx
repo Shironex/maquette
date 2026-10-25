@@ -1,5 +1,6 @@
 import { Icon, PathField } from '@maquette/ui';
-import { Panel, SectionLabel } from '@/features/common/Panel';
+import { Panel } from '@/features/common/Panel';
+import { SectionLabel } from '@/features/common/SectionLabel';
 import { rootNote } from '@/state/onboarding';
 import type { OnboardingApi } from '../useOnboarding';
 

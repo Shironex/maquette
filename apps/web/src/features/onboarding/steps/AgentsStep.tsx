@@ -1,5 +1,6 @@
 import { Icon, Toggle } from '@maquette/ui';
-import { PANEL_TITLE, SectionLabel } from '@/features/common/Panel';
+import { PANEL_TITLE } from '@/features/common/Panel';
+import { SectionLabel } from '@/features/common/SectionLabel';
 import { McpStatusLine } from '@/features/config/McpStatusLine';
 import { AgentRuleRows } from '@/features/config/AgentRuleRows';
 import { McpControls } from '@/features/config/McpControls';
