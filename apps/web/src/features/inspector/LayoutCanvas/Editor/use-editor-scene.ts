@@ -4,7 +4,7 @@ import { DESK_THICKNESS, placementOf } from '@/state/layout';
 import { BACKDROP, CLAY } from '@/features/viewer/studio';
 import { disposeTree } from './dispose-tree';
 import type { EditorProps, EditorRig } from './Editor.types';
-import { applyPlacement } from './placement';
+import { applyPlacement, applyPrep } from './placement';
 import { stopGlyph } from './stop-glyph';
 
 const LINE = '#4d4a44';
@@ -44,7 +44,9 @@ export function useEditorScene(editor: EditorRig, props: EditorProps): number {
     if (!holders) return;
     for (const model of props.models) {
       const holder = holders.get(model.asset);
-      if (holder) applyPlacement(holder, placementOf(props.layout, model));
+      if (!holder) continue;
+      applyPrep(holder, model.prep);
+      applyPlacement(holder, placementOf(props.layout, model));
     }
   }, [holders, props.models, props.layout]);
 

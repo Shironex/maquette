@@ -129,6 +129,16 @@ describe('the Board', () => {
     expect(screen.queryByRole('dialog', { name: 'Rename asset' })).toBeNull();
   });
 
+  it('opens the real size and fix-ups of a card from its menu', async () => {
+    await renderBoard();
+    await userEvent.click(screen.getByRole('button', { name: 'More for Character' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Real size and fix-ups...' }));
+    const dialog = screen.getByRole('dialog', { name: 'Real size and fix-ups' });
+    expect(await within(dialog).findByText(/Measured 1.36 × 2 × 0.84 m/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Real size and fix-ups' })).toBeNull();
+  });
+
   it('keeps the rename dialog open with the reason when the name is taken', async () => {
     await renderBoard();
     await userEvent.click(screen.getByRole('button', { name: 'More for Desk lamp' }));

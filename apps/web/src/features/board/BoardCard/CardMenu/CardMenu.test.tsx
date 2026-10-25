@@ -28,7 +28,7 @@ describe('CardMenu', () => {
     expect(board.actions.move).toHaveBeenCalledWith(asset, 'web');
   });
 
-  it('opens Rename and Send to 3D for its card', async () => {
+  it('opens Rename, Real size and Send to 3D for its card', async () => {
     const openPanel = vi.fn(async () => {});
     useProvidersStore.setState({ openPanel });
     const board = fakeBoardEnv();
@@ -36,6 +36,8 @@ describe('CardMenu', () => {
     render(<CardMenu asset={asset} waiting={undefined} refPicture={null} board={board} />);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Rename...' }));
     expect(board.actions.setRenaming).toHaveBeenCalledWith(asset);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Real size and fix-ups...' }));
+    expect(board.actions.setSizing).toHaveBeenCalledWith(asset);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Send to 3D' }));
     expect(openPanel).toHaveBeenCalledWith('moon-island', 'character');
   });

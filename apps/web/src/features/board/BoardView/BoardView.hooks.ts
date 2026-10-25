@@ -121,10 +121,13 @@ export function useCardActions(project: ProjectManifest | null | undefined) {
   const [copyFor, setCopyFor] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
   const [renaming, setRenaming] = useState<Asset | null>(null);
+  /** The card whose real size and fix-ups are open. */
+  const [sizing, setSizing] = useState<Asset | null>(null);
 
   // An open menu or dialog belongs to the project it was opened in.
   useEffect(() => {
     setRenaming(null);
+    setSizing(null);
     setMenuFor(null);
     setCopyFor(null);
   }, [project?.id]);
@@ -205,6 +208,8 @@ export function useCardActions(project: ProjectManifest | null | undefined) {
     renaming,
     setRenaming,
     renamed,
+    sizing,
+    setSizing,
     later,
     move,
     dropOn,

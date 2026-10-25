@@ -69,6 +69,13 @@ export function useCardMenu({ asset, waiting, refPicture, board }: CardMenuProps
       onSelect: () => actions.setRenaming(asset),
     },
     {
+      id: 'size',
+      label: 'Real size and fix-ups...',
+      icon: 'ruler',
+      hint: 'How big it really is, and repairs made on a copy before the scene is built',
+      onSelect: () => actions.setSizing(asset),
+    },
+    {
       id: 'copy',
       label: 'Copy to project...',
       icon: 'copy',

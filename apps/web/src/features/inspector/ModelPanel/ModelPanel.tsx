@@ -33,6 +33,7 @@ import { withGroupCodec } from '@/state/materials';
 import { Hairline } from '../Hairline';
 import { MapCodecRows } from '../MapCodecRows';
 import { MaterialPanel } from '../MaterialPanel';
+import { PrepPanel } from '../PrepPanel';
 import { SectionTitle } from '../SectionTitle';
 
 const CODECS: SegmentedOption<TextureCodec>[] = [
@@ -302,6 +303,9 @@ export default function ModelPanel({
 
           <Hairline />
           <MaterialPanel project={view.project} model={model} />
+
+          <Hairline />
+          <PrepPanel project={view.project} model={model} />
 
           <Hairline />
           <div className="flex flex-col gap-2">

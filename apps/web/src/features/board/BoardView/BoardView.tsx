@@ -5,6 +5,7 @@ import { BoardColumn } from '../BoardColumn';
 import { BoardHeader } from '../BoardHeader';
 import { BoardList } from '../BoardList';
 import { FirstRunCard } from '../FirstRunCard';
+import { PrepDialog } from '../PrepDialog';
 import { RenameAssetDialog } from '../RenameAssetDialog';
 import { SelectionBar } from '../SelectionBar';
 import { useBoardData, useBoardSelection, useCardActions, useCardDrop } from './BoardView.hooks';
@@ -19,7 +20,7 @@ export default function BoardView({ queue }: BoardViewProps) {
   const dropJob = useCardDrop();
   const board: BoardEnv = { workspace, project, jobs, otherProjects, dropJob, selection, actions };
   const { present } = selection;
-  const { renaming } = actions;
+  const { renaming, sizing } = actions;
   const stageColumns = STAGES.map(stage => (
     <BoardColumn
       key={stage}
@@ -50,6 +51,15 @@ export default function BoardView({ queue }: BoardViewProps) {
               asset={renaming}
               onDone={actions.renamed}
               onClose={() => actions.setRenaming(null)}
+            />
+          ) : null}
+
+          {sizing && project ? (
+            <PrepDialog
+              key={sizing.id}
+              project={project.id}
+              asset={sizing}
+              onClose={() => actions.setSizing(null)}
             />
           ) : null}
 
