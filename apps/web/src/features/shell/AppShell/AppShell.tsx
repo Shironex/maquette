@@ -3,6 +3,7 @@ import { CHROME } from '@/ipc/runtime';
 import { NewProjectDialog } from '@/features/project/NewProjectDialog';
 import { ApprovalPrompt } from '@/features/agents/ApprovalPrompt';
 import { BatchSendPanel } from '@/features/providers/BatchSendPanel';
+import { CreditsSheet } from '@/features/providers/CreditsSheet';
 import { DownloadsMatches } from '@/features/providers/DownloadsMatches';
 import { HandoffChecklist } from '@/features/providers/HandoffChecklist';
 import { SendPanel } from '@/features/providers/SendPanel';
@@ -64,6 +65,7 @@ export default function AppShell() {
       <HandoffChecklist />
       <BatchSendPanel />
       <SendPanel />
+      <CreditsSheet />
       <ObjectRefsDialog />
       <DownloadsMatches />
       <NewProjectDialog onClosed={focusSwitcher} />

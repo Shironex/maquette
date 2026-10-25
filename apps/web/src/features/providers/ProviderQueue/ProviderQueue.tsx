@@ -4,6 +4,7 @@
  * allows it; a By hand send opens its card.
  */
 import { Button, Icon, IconButton } from '@maquette/ui';
+import { CreditsButton } from '../CreditsButton';
 import { useDismissOutside, useQueueJobs } from './ProviderQueue.hooks';
 import { QueueRow } from './QueueRow';
 import { KEYS } from '@/lib/keys';
@@ -13,7 +14,7 @@ export interface ProviderQueueProps {
 }
 
 export default function ProviderQueue({ onClose }: ProviderQueueProps) {
-  const { sorted, finished, clear, now } = useQueueJobs();
+  const { sorted, finished, clear, now, project } = useQueueJobs();
   const ref = useDismissOutside(onClose);
   const rows = sorted.map(job => <QueueRow key={job.id} job={job} now={now} />);
 
@@ -26,6 +27,7 @@ export default function ProviderQueue({ onClose }: ProviderQueueProps) {
       <header className="flex items-center gap-2 border-b border-line px-3.5 py-2.5">
         <Icon name="cube" className="text-fg-mute" />
         <h2 className="flex-1 font-semibold">3D queue</h2>
+        <CreditsButton project={project} onOpen={onClose} />
         <Button
           size="sm"
           variant="ghost"

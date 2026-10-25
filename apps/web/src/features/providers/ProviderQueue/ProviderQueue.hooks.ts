@@ -7,10 +7,11 @@ import { useProvidersStore } from '@/state/use-providers-store';
 export function useQueueJobs() {
   const jobs = useProvidersStore(s => s.jobs);
   const clear = useProvidersStore(s => s.clearFinished);
+  const project = useProvidersStore(s => s.project);
   const now = useNow(1_000);
   const sorted = sortJobs(jobs);
   const finished = jobs.some(j => !isActive(j.state) && j.state !== 'inbox');
-  return { sorted, finished, clear, now };
+  return { sorted, finished, clear, now, project };
 }
 
 /** Escape or a press outside the popover (and its toggle) closes it. */
