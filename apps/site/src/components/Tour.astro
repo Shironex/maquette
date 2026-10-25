@@ -251,7 +251,7 @@ const total = TOUR.length;
   const capture = params.get('capture');
   if (capture) document.documentElement.classList.add('capture');
   const wantsScene =
-    canvas && window.matchMedia(DESKTOP_QUERY).matches && !params.has('poster') && supportsWebGL2();
+    canvas && window.matchMedia(DESKTOP_QUERY).matches && !params.has('poster');
 
   if (canvas && wantsScene) {
     let unmount: (() => void) | null = null;
@@ -266,14 +266,18 @@ const total = TOUR.length;
       unmount = null;
       showPoster(current);
     });
-    const start = () =>
-      import('../scene/mount').then(({ mount }) => {
+    // The WebGL probe waits for idle time too: making a context can start the
+    // GPU process, and first paint does not need it.
+    const start = () => {
+      if (!supportsWebGL2()) return Promise.resolve();
+      return import('../scene/mount').then(({ mount }) => {
         unmount = mount(canvas, {
           initialStop: stopAt(current),
           reducedMotion: prefersReducedMotion(),
           capture: capture === 'mobile' ? 'mobile' : capture ? 'stops' : undefined,
         });
       });
+    };
     const idle = () =>
       'requestIdleCallback' in window
         ? window.requestIdleCallback(() => void start(), { timeout: 1500 })

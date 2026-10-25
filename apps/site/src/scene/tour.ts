@@ -35,8 +35,10 @@ export const DESKTOP_QUERY = '(min-width: 1024px) and (pointer: fine)';
 
 export function supportsWebGL2(): boolean {
   try {
-    const canvas = document.createElement('canvas');
-    return Boolean(canvas.getContext('webgl2'));
+    const gl = document.createElement('canvas').getContext('webgl2');
+    // Give the context back at once; the scene makes its own.
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return Boolean(gl);
   } catch {
     return false;
   }
