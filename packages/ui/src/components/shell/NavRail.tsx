@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
+import { Tooltip } from '../feedback/Tooltip';
 import { ProjectSwitcher, type ProjectSwitcherProps } from './ProjectSwitcher';
 
 export interface NavRailItem<T extends string = string> {
@@ -48,39 +49,40 @@ function RailButton<T extends string>({
 }) {
   const extra = item.badge ? `, ${item.badge} new` : item.live ? ', running' : '';
   return (
-    <button
-      type="button"
-      aria-current={current ? 'page' : undefined}
-      aria-label={collapsed ? `${item.label}${extra}` : undefined}
-      title={collapsed ? item.label : undefined}
-      onClick={() => onChange(item.id)}
-      className={cn(
-        RAIL_BUTTON,
-        collapsed && 'justify-center px-0',
-        current && 'bg-clay-soft text-fg hover:bg-clay-soft'
-      )}
-    >
-      <Icon
-        name={item.icon}
+    <Tooltip label={item.label} side="right" disabled={!collapsed}>
+      <button
+        type="button"
+        aria-current={current ? 'page' : undefined}
+        aria-label={collapsed ? `${item.label}${extra}` : undefined}
+        onClick={() => onChange(item.id)}
         className={cn(
-          'text-fg-mute group-hover:text-fg-dim',
-          current && 'text-clay-text group-hover:text-clay-text'
+          RAIL_BUTTON,
+          collapsed && 'justify-center px-0',
+          current && 'bg-clay-soft text-fg hover:bg-clay-soft'
         )}
-      />
-      {collapsed ? (
-        item.badge || item.live ? (
-          <span
-            aria-hidden="true"
-            className={cn(
-              'absolute top-1.5 right-2.5 size-[7px] rounded-full',
-              item.badge ? 'bg-clay' : 'bg-amber'
-            )}
-          />
-        ) : null
-      ) : (
-        <RailLabel item={item} />
-      )}
-    </button>
+      >
+        <Icon
+          name={item.icon}
+          className={cn(
+            'text-fg-mute group-hover:text-fg-dim',
+            current && 'text-clay-text group-hover:text-clay-text'
+          )}
+        />
+        {collapsed ? (
+          item.badge || item.live ? (
+            <span
+              aria-hidden="true"
+              className={cn(
+                'absolute top-1.5 right-2.5 size-[7px] rounded-full',
+                item.badge ? 'bg-clay' : 'bg-amber'
+              )}
+            />
+          ) : null
+        ) : (
+          <RailLabel item={item} />
+        )}
+      </button>
+    </Tooltip>
   );
 }
 
@@ -157,17 +159,18 @@ export function NavRail<T extends string>({
         onChange={onChange}
       />
       {onToggleCollapsed ? (
-        <button
-          type="button"
-          aria-label={toggle}
-          aria-expanded={!collapsed}
-          title={toggle}
-          onClick={onToggleCollapsed}
-          className={cn(RAIL_BUTTON, 'h-[30px] text-fg-mute', collapsed && 'justify-center px-0')}
-        >
-          <Icon name="sidebar-simple" className="text-fg-mute group-hover:text-fg-dim" />
-          {collapsed ? null : <span className="text-meta">Collapse</span>}
-        </button>
+        <Tooltip label={toggle} side="right" disabled={!collapsed}>
+          <button
+            type="button"
+            aria-label={toggle}
+            aria-expanded={!collapsed}
+            onClick={onToggleCollapsed}
+            className={cn(RAIL_BUTTON, 'h-[30px] text-fg-mute', collapsed && 'justify-center px-0')}
+          >
+            <Icon name="sidebar-simple" className="text-fg-mute group-hover:text-fg-dim" />
+            {collapsed ? null : <span className="text-meta">Collapse</span>}
+          </button>
+        </Tooltip>
       ) : null}
     </nav>
   );

@@ -1,5 +1,6 @@
 import { Icon } from '../../icons/Icon';
 import { useControllable } from '../../lib/useControllable';
+import { Tooltip } from '../feedback/Tooltip';
 
 export interface NumberStepperProps {
   label?: string;
@@ -39,15 +40,17 @@ export function NumberStepper({
       aria-label={label}
       className="inline-flex h-8 items-center rounded-control border border-line-strong bg-raised"
     >
-      <button
-        type="button"
-        aria-label="Decrease"
-        disabled={min !== undefined && current <= min}
-        onClick={() => nudge(-step)}
-        className={`${btn} rounded-l-[5px]`}
-      >
-        <Icon name="minus" size={14} />
-      </button>
+      <Tooltip label="Decrease">
+        <button
+          type="button"
+          aria-label="Decrease"
+          disabled={min !== undefined && current <= min}
+          onClick={() => nudge(-step)}
+          className={`${btn} rounded-l-[5px]`}
+        >
+          <Icon name="minus" size={14} />
+        </button>
+      </Tooltip>
       <span
         aria-live="polite"
         className="min-w-16 border-x border-line px-1.5 text-center leading-[30px] text-fg tabular-nums"
@@ -55,15 +58,17 @@ export function NumberStepper({
         {format(current)}
         {unit ? <small className="ml-[3px] text-[12px] text-fg-mute">{unit}</small> : null}
       </span>
-      <button
-        type="button"
-        aria-label="Increase"
-        disabled={max !== undefined && current >= max}
-        onClick={() => nudge(step)}
-        className={`${btn} rounded-r-[5px]`}
-      >
-        <Icon name="plus" size={14} />
-      </button>
+      <Tooltip label="Increase">
+        <button
+          type="button"
+          aria-label="Increase"
+          disabled={max !== undefined && current >= max}
+          onClick={() => nudge(step)}
+          className={`${btn} rounded-r-[5px]`}
+        >
+          <Icon name="plus" size={14} />
+        </button>
+      </Tooltip>
     </span>
   );
 }

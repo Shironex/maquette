@@ -2,6 +2,7 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 import { Icon, type IconName } from '../../icons/Icon';
 import { IconButton } from '../actions/IconButton';
+import { Tooltip } from '../feedback/Tooltip';
 import { ProgressBar } from '../status/ProgressBar';
 import { StatusChip, type Status } from '../status/StatusChip';
 import { VersionBadge } from '../status/VersionBadge';
@@ -147,22 +148,24 @@ export function AssetCard({
         ) : null}
       </button>
       {selectable ? (
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={checked}
-          aria-label={`Select ${name}`}
-          onClick={e => onCheck?.(!checked, e.shiftKey)}
-          className={cn(
-            'absolute top-2 left-2 grid size-[22px] cursor-pointer place-items-center rounded-[6px] border-[1.5px] shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-opacity duration-120 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
-            checked
-              ? 'border-clay-text bg-clay text-clay-ink'
-              : 'border-line-strong bg-panel/90 text-transparent hover:border-fg-mute',
-            checked || selecting ? 'opacity-100' : 'opacity-0 group-hover/card:opacity-100'
-          )}
-        >
-          <Icon name="check" size={13} />
-        </button>
+        <Tooltip label="Select for a batch" detail="Shift-click selects the cards between">
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={checked}
+            aria-label={`Select ${name}`}
+            onClick={e => onCheck?.(!checked, e.shiftKey)}
+            className={cn(
+              'absolute top-2 left-2 grid size-[22px] cursor-pointer place-items-center rounded-[6px] border-[1.5px] shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-opacity duration-120 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+              checked
+                ? 'border-clay-text bg-clay text-clay-ink'
+                : 'border-line-strong bg-panel/90 text-transparent hover:border-fg-mute',
+              checked || selecting ? 'opacity-100' : 'opacity-0 group-hover/card:opacity-100'
+            )}
+          >
+            <Icon name="check" size={13} />
+          </button>
+        </Tooltip>
       ) : null}
       <div className="flex flex-col gap-1 px-2.5 pt-[9px] pb-2.5">
         <div className="flex items-center justify-between gap-1.5 font-semibold">
