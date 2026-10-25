@@ -131,6 +131,12 @@ export default defineConfig(
       // Workspace packages are used through what their exports map publishes.
       'noctcore-monorepo/no-unexported-subpath-import': ['error', { scopes: ['@maquette'] }],
       'noctcore-monorepo/no-deep-package-imports': ['error', { scopes: ['@maquette'] }],
+      // A component's hooks and types files are named after the component they
+      // serve, not after the one hook or type they export.
+      'noctcore-architecture/filename-matches-export': [
+        'error',
+        { ignore: ['**/*.hooks.ts', '**/*.types.ts'] },
+      ],
     },
   },
   {
