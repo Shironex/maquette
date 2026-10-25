@@ -1,0 +1,162 @@
+use std::fs;
+
+use super::*;
+
+const NOW: f64 = 1_800_000_000_000.0;
+
+fn line(job: &str, event: LineEvent, at_ms: f64, outcome: SpendOutcome) -> LedgerLine {
+    let mut line = LedgerLine::new(event, at_ms, outcome);
+    line.project = "moon-island".into();
+    line.job = job.into();
+    line.asset = job.rsplit_once('-').map_or(job, |(a, _)| a).into();
+    line.asset_name = "Stone lantern".into();
+    line.task = Some(format!("task-{job}"));
+    line.summary = "Tripo H3.1, 1 image".into();
+    line.estimate = Some(30.0);
+    line
+}
+
+#[test]
+fn appended_lines_read_back_as_one_spend_per_send() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    assert_eq!(read(dir.path()).expect("empty"), Ledger::default());
+    append(
+        dir.path(),
+        &line(
+            "lantern-1",
+            LineEvent::Sent,
+            NOW - 60_000.0,
+            SpendOutcome::Pending,
+        ),
+    )
+    .expect("sent");
+    let mut settled = line(
+        "lantern-1",
+        LineEvent::Settled,
+        NOW,
+        SpendOutcome::Succeeded,
+    );
+    settled.credits = Some(40.0);
+    append(dir.path(), &settled).expect("settled");
+    let ledger = read(dir.path()).expect("read");
+    assert_eq!(ledger.skipped, 0);
+    assert_eq!(ledger.spends.len(), 1);
+    let spend = &ledger.spends[0];
+    assert_eq!(spend.outcome, SpendOutcome::Succeeded);
+    assert_eq!(spend.credits, 40.0);
+    assert!(!spend.estimated);
+    assert_eq!(spend.sent_at_ms, NOW - 60_000.0);
+    assert_eq!(spend.settled_at_ms, Some(NOW));
+    assert_eq!(spend.task.as_deref(), Some("task-lantern-1"));
+    // The file only grew: one line per event.
+    let text = fs::read_to_string(path(dir.path())).expect("file");
+    assert_eq!(text.lines().count(), 2);
+    assert!(text.lines().all(|l| l.contains("\"v\":1")));
+}
+
+#[test]
+fn the_price_list_stands_in_until_the_provider_reports() {
+    let pending = parse(
+        &serde_json::to_string(&line(
+            "lantern-1",
+            LineEvent::Sent,
+            NOW,
+            SpendOutcome::Pending,
+        ))
+        .expect("json"),
+    );
+    assert_eq!(pending.spends[0].credits, 30.0);
+    assert!(pending.spends[0].estimated);
+
+    assert_eq!(
+        charged(SpendOutcome::Succeeded, None, Some(30.0)),
+        (30.0, true)
+    );
+    assert_eq!(
+        charged(SpendOutcome::Succeeded, Some(25.0), Some(30.0)),
+        (25.0, false)
+    );
+    // Neither service charges a failed task; a refund is free.
+    assert_eq!(
+        charged(SpendOutcome::Failed, None, Some(30.0)),
+        (0.0, false)
+    );
+    assert_eq!(
+        charged(SpendOutcome::Failed, Some(30.0), Some(75.0)),
+        (30.0, false)
+    );
+    assert_eq!(
+        charged(SpendOutcome::Refunded, Some(20.0), Some(30.0)),
+        (0.0, false)
+    );
+    assert_eq!(charged(SpendOutcome::Pending, None, None), (0.0, false));
+}
+
+#[test]
+fn broken_and_newer_lines_are_skipped_not_fatal() {
+    let good = serde_json::to_string(&line(
+        "lantern-1",
+        LineEvent::Sent,
+        NOW,
+        SpendOutcome::Pending,
+    ))
+    .expect("json");
+    let mut newer = line("lantern-2", LineEvent::Sent, NOW, SpendOutcome::Pending);
+    newer.v = 99;
+    let newer = serde_json::to_string(&newer).expect("json");
+    let text = format!("{good}\n{{\"v\":1,\"atMs\":\n\nnot json at all\n{newer}\n{good}");
+    let ledger = parse(&text);
+    assert_eq!(ledger.skipped, 3);
+    assert_eq!(ledger.spends.len(), 1);
+    assert_eq!(ledger.spends[0].job, "lantern-1");
+}
+
+#[test]
+fn spends_list_newest_first_and_keep_projects_apart() {
+    let mut other = line("lantern-1", LineEvent::Sent, NOW, SpendOutcome::Pending);
+    other.project = "rooftop".into();
+    let lines = vec![
+        line(
+            "lantern-1",
+            LineEvent::Sent,
+            NOW - 5.0,
+            SpendOutcome::Pending,
+        ),
+        other,
+    ];
+    let spends = fold(&lines);
+    assert_eq!(spends.len(), 2);
+    assert_eq!(spends[0].project, "rooftop");
+}
+
+#[test]
+fn summaries_count_the_week_the_month_and_the_redo_share() {
+    let day = DAY_MS;
+    let mut spends = Vec::new();
+    let mut add = |job: &str, service, ago: f64, credits: f64, redo: bool| {
+        let mut l = line(job, LineEvent::Settled, NOW - ago, SpendOutcome::Succeeded);
+        l.service = service;
+        l.credits = Some(credits);
+        l.redo_of = redo.then(|| "lantern-1".to_string());
+        spends.push(l);
+    };
+    add("lantern-1", ProviderId::Tripo, 2.0 * day, 30.0, false);
+    add("lantern-2", ProviderId::Tripo, 1.0 * day, 30.0, true);
+    add("spire-1", ProviderId::Meshy, 20.0 * day, 20.0, false);
+    add("spire-2", ProviderId::Meshy, 90.0 * day, 35.0, false);
+    let totals = summarise(&fold(&spends), NOW);
+    assert_eq!(totals.len(), 3);
+    let tripo = &totals[0];
+    assert_eq!(tripo.service, Some(ProviderId::Tripo));
+    assert_eq!((tripo.week, tripo.month, tripo.total), (60.0, 60.0, 60.0));
+    assert_eq!(tripo.redos, 1);
+    assert_eq!(tripo.redo_share, 0.5);
+    let meshy = &totals[1];
+    assert_eq!((meshy.week, meshy.month, meshy.total), (0.0, 20.0, 55.0));
+    let all = &totals[2];
+    assert_eq!(all.service, None);
+    assert_eq!(all.sends, 4);
+    assert_eq!(all.total, 115.0);
+    assert!((all.redo_share - 30.0 / 115.0).abs() < 1e-9);
+    assert_eq!(summarise(&[], NOW)[2].redo_share, 0.0);
+}

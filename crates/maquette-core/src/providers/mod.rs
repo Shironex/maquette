@@ -1,11 +1,13 @@
 //! Sending a picked concept or ref to a 3D service: Tripo and Meshy over
 //! their REST APIs, or by hand through a handoff folder.
 
+pub mod balance;
 pub mod catalog;
 pub mod handback;
 pub mod handoff;
 pub mod http;
 pub mod jobs;
+pub mod ledger;
 pub mod meshy;
 pub mod presets;
 pub mod pricing;
@@ -19,6 +21,7 @@ mod tests;
 
 use serde::Serialize;
 
+pub use balance::Balance;
 pub use catalog::{ModelOption, ProviderCatalog};
 pub use handback::{DownloadMatch, DownloadsScan};
 pub use handoff::{CardRow, HandoffCard};
@@ -26,6 +29,7 @@ pub use jobs::{
     BatchFailure, BatchItem, BatchRequest, BatchSent, CancelMode, Endpoints, InboxLink, JobPhase,
     JobState, MAX_BATCH, Options, Provider, ProviderEvent, ProviderJob, ProviderJobs, SendRequest,
 };
+pub use ledger::{Ledger, ServiceTotals, Spend, SpendOutcome};
 pub use presets::{
     MeshyPreset, MeshyPresets, MeshyTexture, PoseMode, PresetVariant, ProviderId, ProviderSettings,
     TripoGeometryQuality, TripoPreset, TripoPresets, TripoRigSpec, TripoTextureQuality,

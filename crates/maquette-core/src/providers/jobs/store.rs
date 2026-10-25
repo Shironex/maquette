@@ -5,6 +5,7 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
+use super::spend;
 use super::{
     CLOSED_WHILE_SENDING, Entry, FILE_VERSION, JOBS_FILE, JobState, JobsFile, KEEP_FINISHED,
     ProviderEvent, Shared, Stored, snapshot,
@@ -116,19 +117,26 @@ pub(super) fn update(
     save: bool,
     change: impl FnOnce(&mut Stored) -> CoreResult<()>,
 ) -> CoreResult<()> {
-    let (job, project) = {
+    let (job, project, before, after) = {
         let mut jobs = shared.jobs();
         let entry = jobs
             .iter_mut()
             .find(|e| e.stored.job.id == id)
             .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
+        let before = spend::before(&entry.stored);
         change(&mut entry.stored)?;
-        (snapshot(&entry.stored), entry.stored.job.project.clone())
+        (
+            snapshot(&entry.stored),
+            entry.stored.job.project.clone(),
+            before,
+            entry.stored.clone(),
+        )
     };
     if save {
         persist(shared, &project);
     }
     shared.emit(ProviderEvent::Job { job: Box::new(job) });
+    spend::record(shared, &before, &after);
     Ok(())
 }
 

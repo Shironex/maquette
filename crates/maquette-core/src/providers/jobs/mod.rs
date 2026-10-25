@@ -8,11 +8,13 @@
 //! next time the workspace opens instead of paying again.
 
 mod cancel;
+mod credits;
 mod model;
 mod records;
 mod remote;
 mod request;
 mod send;
+mod spend;
 mod store;
 #[cfg(test)]
 mod tests;

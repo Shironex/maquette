@@ -1353,6 +1353,107 @@ fn a_copied_asset_takes_its_finished_sends_along() {
     );
 }
 
+/// The ledger once `n` sends in it are settled; the line lands just after
+/// the job's state does.
+fn settled(jobs: &ProviderJobs, n: usize) -> Ledger {
+    let end = std::time::Instant::now() + WAIT;
+    loop {
+        let ledger = jobs.ledger().expect("ledger");
+        let done = ledger
+            .spends
+            .iter()
+            .filter(|s| s.outcome != SpendOutcome::Pending)
+            .count();
+        if done >= n {
+            return ledger;
+        }
+        assert!(
+            std::time::Instant::now() < end,
+            "ledger never settled: {ledger:?}"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+#[test]
+fn a_paid_send_goes_into_the_credits_ledger_with_what_it_cost() {
+    let world = World::new();
+    let (server, _) = tripo_server(TripoFake::new());
+    let jobs = world.jobs(&server);
+    let request = world.request(Provider::Tripo, PresetVariant::Prop, &["front.png"]);
+    assert_eq!(jobs.estimate(&request).expect("estimate"), Some(30.0));
+    let job = jobs.send(&request, false, false).expect("send");
+    assert_eq!(job.estimate, Some(30.0));
+    assert_eq!(finished(&jobs, &job.id).state, JobState::Inbox);
+
+    // By hand spends nothing, so it is not written.
+    let by_hand = world.request(Provider::ByHand, PresetVariant::Prop, &["front.png"]);
+    jobs.send(&by_hand, false, false).expect("by hand");
+
+    let ledger = settled(&jobs, 1);
+    assert_eq!(ledger.spends.len(), 1, "{ledger:?}");
+    let spend = &ledger.spends[0];
+    assert_eq!(spend.job, job.id);
+    assert_eq!(spend.service, ProviderId::Tripo);
+    assert_eq!(spend.task.as_deref(), Some("task_model"));
+    assert_eq!(spend.outcome, SpendOutcome::Succeeded);
+    assert_eq!(spend.credits, 30.0);
+    assert!(!spend.estimated);
+    assert!(spend.summary.starts_with("Tripo H3.1"));
+    let text = fs::read_to_string(world.root.join(ledger::LEDGER_FILE)).expect("file");
+    assert_eq!(text.lines().count(), 2, "one sent and one settled line");
+    assert!(!text.contains("tsk_test_key"));
+}
+
+#[test]
+fn a_failed_or_refunded_send_is_charged_nothing() {
+    let world = World::new();
+    let mut fake = TripoFake::new();
+    fake.fail = Some("The image has no clear subject.");
+    let (server, _) = tripo_server(fake);
+    let jobs = world.jobs(&server);
+    let request = world.request(Provider::Tripo, PresetVariant::Prop, &["front.png"]);
+    let job = jobs.send(&request, false, false).expect("send");
+    assert_eq!(finished(&jobs, &job.id).state, JobState::Failed);
+    let spend = settled(&jobs, 1).spends[0].clone();
+    assert_eq!(spend.outcome, SpendOutcome::Failed);
+    assert_eq!(spend.credits, 0.0);
+    jobs.close();
+
+    let (server, _) = meshy_server(true);
+    let jobs = world.jobs(&server);
+    let request = world.request(Provider::Meshy, PresetVariant::Prop, &["front.png"]);
+    let job = jobs.send(&request, false, false).expect("send");
+    let end = std::time::Instant::now() + WAIT;
+    while jobs.get(&job.id).and_then(|j| j.remote_id).is_none() {
+        assert!(std::time::Instant::now() < end, "never sent");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    jobs.cancel(&job.id).expect("cancel");
+    let ledger = settled(&jobs, 2);
+    let spend = ledger
+        .spends
+        .iter()
+        .find(|s| s.job == job.id)
+        .expect("meshy spend");
+    assert_eq!(spend.outcome, SpendOutcome::Refunded);
+    assert_eq!(spend.credits, 0.0);
+    jobs.close();
+}
+
+#[test]
+fn an_approval_that_is_denied_never_reaches_the_ledger() {
+    let world = World::new();
+    let (server, _) = tripo_server(TripoFake::new());
+    let jobs = world.jobs(&server);
+    let request = world.request(Provider::Tripo, PresetVariant::Prop, &["front.png"]);
+    let job = jobs.send(&request, true, true).expect("send");
+    assert_eq!(job.state, JobState::Approval);
+    jobs.deny(&job.id).expect("deny");
+    assert!(jobs.ledger().expect("ledger").spends.is_empty());
+    assert_eq!(server.requests().len(), 0);
+}
+
 #[test]
 fn a_redo_sends_the_asset_again_as_a_new_version_and_says_so() {
     let world = World::new();
@@ -1390,6 +1491,10 @@ fn a_redo_sends_the_asset_again_as_a_new_version_and_says_so() {
         newer.link.as_ref().and_then(|l| l.redo_of.as_deref()),
         Some(first.id.as_str())
     );
+    let ledger = settled(&jobs, 2);
+    assert_eq!(ledger.spends.len(), 2);
+    assert_eq!(ledger.spends[0].redo_of.as_deref(), Some(first.id.as_str()));
+    assert_eq!(ledger.spends[1].redo_of, None);
 }
 
 #[test]
@@ -1436,4 +1541,43 @@ fn the_texture_prompt_goes_to_meshy_and_tripo_refuses_one() {
             .iter()
             .any(|r| r.label == "Texture prompt" && r.value == "weathered granite")
     );
+}
+
+#[test]
+fn balances_ask_each_provider_that_has_a_key() {
+    let server = FakeServer::start(|_, req| match req.path.as_str() {
+        "/account/balance" => tripo_data(json!({ "balance": 1240.5, "frozen": 30 })),
+        "/balance" => Reply::ok(&json!({ "balance": 380, "monthly_credits": 200 })),
+        _ => Reply::json(404, &json!({})),
+    });
+    let world = World::new();
+    let jobs = world.jobs(&server);
+    let found = jobs.balances();
+    assert_eq!(found.len(), 2);
+    assert_eq!(found[0].service, ProviderId::Tripo);
+    assert_eq!(found[0].credits, Some(1240.5));
+    assert_eq!(found[0].held, Some(30.0));
+    assert_eq!(found[1].credits, Some(380.0));
+    assert_eq!(found[1].held, None);
+    assert_eq!(
+        server
+            .find("GET", "/balance")
+            .and_then(|r| r.header("authorization").map(str::to_string)),
+        Some("Bearer msy_test_key_0002".to_string())
+    );
+
+    // No key: not called. A refused key: says why.
+    world.secrets.remove(ProviderId::Meshy).expect("remove");
+    let bad = FakeServer::start(|_, _| Reply::json(401, &json!({ "message": "bad key" })));
+    let jobs = world.jobs(&bad);
+    let found = jobs.balances();
+    assert!(!found[1].key);
+    assert_eq!(found[1].credits, None);
+    assert!(
+        found[0]
+            .error
+            .as_deref()
+            .is_some_and(|e| e.contains("did not accept the API key"))
+    );
+    assert_eq!(bad.requests().len(), 1);
 }
