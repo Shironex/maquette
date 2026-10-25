@@ -3,7 +3,7 @@
  * series table and Meshy's pricing page. Mirrors
  * crates/maquette-core/src/providers/pricing.rs.
  */
-import type { MeshyPreset, PresetVariant, Provider, TripoPreset } from '../client';
+import type { MeshyPreset, PresetVariant, Provider, ProviderId, TripoPreset } from '../client';
 
 export function tripoCredits(preset: TripoPreset, variant: PresetVariant): number {
   const legacy = preset.model.startsWith('v2');
@@ -39,6 +39,25 @@ export function meshyCredits(preset: MeshyPreset, variant: PresetVariant): numbe
       : 20;
   if (variant === 'character' && preset.rig) credits += 5;
   return credits;
+}
+
+/**
+ * What a By hand send costs on the provider's site, paid from a
+ * subscription. Mirrors crates/maquette-core/src/providers/subscription.rs.
+ */
+export function webCost(
+  service: ProviderId,
+  tripo: TripoPreset | null,
+  meshy: MeshyPreset | null
+): { credits: number; what: string } {
+  if (service === 'tripo') {
+    return (tripo?.texture ?? true)
+      ? { credits: 30, what: 'textured image to 3D' }
+      : { credits: 20, what: 'image to 3D, no texture' };
+  }
+  return meshy?.shouldTexture
+    ? { credits: 30, what: 'mesh and texture' }
+    : { credits: 20, what: 'mesh only' };
 }
 
 /** What a send should cost; null for By hand. */

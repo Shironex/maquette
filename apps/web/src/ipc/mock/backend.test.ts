@@ -260,7 +260,9 @@ describe('mock backend', () => {
     };
     const job = (await handle('provider_send', { request })) as ProviderJob;
     expect(job.state).toBe('waiting');
-    expect(job.card?.returnName).toBe(`${job.id}.glb`);
+    expect(job.card?.exportName).toBe(`maq_lanterns_v${job.id.slice('lanterns-'.length)}_tripo`);
+    expect(job.card?.returnName).toBe(`${job.card?.exportName}.glb`);
+    expect(job.card?.credits).toBe(30);
     await expect(
       handle('provider_hand_back', { id: job.id, file: '/tmp/a.png' })
     ).rejects.toMatchObject({

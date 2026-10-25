@@ -1,7 +1,8 @@
 /**
  * Credits for mock mode: estimates from the price lists, a ledger made of
- * the live sends plus a month of earlier ones, fake balances for the saved
- * keys and a CSV save that only says where it would have gone.
+ * the live sends plus a month of earlier ones (API spend, and By hand sends
+ * paid from a subscription), fake balances for the saved keys and a CSV
+ * save that only says where it would have gone.
  */
 import type {
   Balance,
@@ -85,6 +86,71 @@ function past(
     outcome,
     redoOf,
     viaAgent: job === 'island-2',
+    source: 'api',
+  };
+}
+
+/** Earlier By hand sends: [asset name, job, service, days ago, credits, what]. */
+const BY_HAND: readonly [string, string, ProviderId, number, number, string][] = [
+  ['Paper lantern', 'paper-lantern-1', 'meshy', 1.5, 20, 'mesh only'],
+  ['Bench', 'bench-2', 'tripo', 4.5, 30, 'textured image to 3D'],
+  ['Bench', 'bench-1', 'tripo', 8, 30, 'textured image to 3D'],
+];
+
+function pastByHand(
+  [assetName, job, service, days, credits, what]: (typeof BY_HAND)[number],
+  now: number
+): Spend {
+  const sent = now - days * DAY;
+  return {
+    project: 'moon-island',
+    job,
+    asset: job.replace(/-\d+$/, ''),
+    assetName,
+    service,
+    task: null,
+    summary: `By hand on the ${service === 'tripo' ? 'Tripo' : 'Meshy'} site, ${what}`,
+    sentAtMs: sent,
+    settledAtMs: sent + 40 * 60_000,
+    credits,
+    estimated: true,
+    outcome: 'succeeded',
+    redoOf: job === 'bench-2' ? 'bench-1' : null,
+    viaAgent: false,
+    source: 'subscription',
+  };
+}
+
+const BY_HAND_OUTCOME: Partial<Record<ProviderJob['state'], SpendOutcome>> = {
+  waiting: 'pending',
+  inbox: 'succeeded',
+  accepted: 'succeeded',
+  cancelled: 'cancelled',
+};
+
+/** A live By hand send as the ledger lists it: the site's estimate, settled on import. */
+function fromHandoff(job: ProviderJob): Spend | null {
+  const outcome = BY_HAND_OUTCOME[job.state];
+  const estimate = job.card?.credits;
+  if (job.provider !== 'by-hand' || !outcome || estimate === null || estimate === undefined)
+    return null;
+  const sent = job.createdAtMs ?? clock.nowMs();
+  return {
+    project: job.project,
+    job: job.id,
+    asset: job.asset,
+    assetName: job.assetName,
+    service: job.service,
+    task: null,
+    summary: `By hand on the ${job.service === 'tripo' ? 'Tripo' : 'Meshy'} site, ${job.card?.creditsNote ?? 'one model'}`,
+    sentAtMs: sent,
+    settledAtMs: outcome === 'pending' ? null : (job.finishedAtMs ?? sent),
+    credits: outcome === 'cancelled' ? 0 : estimate,
+    estimated: outcome !== 'cancelled',
+    outcome,
+    redoOf: job.redoOf ?? null,
+    viaAgent: job.viaAgent,
+    source: 'subscription',
   };
 }
 
@@ -123,6 +189,7 @@ function fromJob(job: ProviderJob): Spend | null {
     outcome,
     redoOf: job.redoOf ?? null,
     viaAgent: job.viaAgent,
+    source: 'api',
   };
 }
 
@@ -139,7 +206,9 @@ export function createCreditHandlers({
   history: boolean;
 }): Record<string, (args: Args) => unknown> {
   const now = clock.nowMs();
-  const saved: Spend[] = history ? HISTORY.map(p => past(p, now)) : [];
+  const saved: Spend[] = history
+    ? [...HISTORY.map(p => past(p, now)), ...BY_HAND.map(p => pastByHand(p, now))]
+    : [];
 
   const sendEstimate = (req: SendRequest): number | null => {
     const presets = config().providers;
@@ -174,7 +243,7 @@ export function createCreditHandlers({
     },
     credits_ledger: (): Ledger => {
       const live = jobs()
-        .map(fromJob)
+        .map(j => fromJob(j) ?? fromHandoff(j))
         .filter((s): s is Spend => s !== null);
       const spends = [...live, ...saved].sort((a, b) => (b.sentAtMs ?? 0) - (a.sentAtMs ?? 0));
       return { spends, skipped: history ? 1 : 0 };

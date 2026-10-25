@@ -23,7 +23,8 @@
  * `?inbox=redo` links the large sakura and the character in the inbox to
  * the sends they came from (Meshy with a texture prompt, rigged Tripo) and
  * saves a Meshy key too, for Redo. The credits ledger holds the live sends
- * and a month of earlier ones.
+ * and a month of earlier ones. `?arrival=named|unmatched` drops a download
+ * for the Downloads watcher (see `create-downloads-handlers.ts`).
  * Configured scenarios also open with Send to 3D jobs (see `providers.ts`).
  */
 import type {
@@ -34,7 +35,6 @@ import type {
   ProjectManifest,
   ProjectSummary,
   StarterStatus,
-  RootInspection,
   WorkspaceConfig,
   WorkspaceSnapshot,
 } from '../client';
@@ -55,6 +55,7 @@ import { createPrepareHandlers } from './prepare';
 import { createMaterialHandlers } from './materials';
 import { createFakeProviders } from './providers';
 import { createCreditHandlers } from './create-credit-handlers';
+import { createDownloadsHandlers } from './create-downloads-handlers';
 import { linkForRedo } from './redo-fixtures';
 import { createFakeRunner, type RunStore } from './runner';
 import { clock } from '@/lib/clock';
@@ -64,6 +65,7 @@ import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createProjectHandlers } from './create-project-handlers';
 import { createToolchainHandlers } from './create-toolchain-handlers';
 import { display, expand, fail, type Args, type BackendOptions } from './backend-options';
+import { inspect, validate } from './workspace-checks';
 
 export type MockOptions = BackendOptions;
 
@@ -79,6 +81,7 @@ export function createBackend({
   projects: projectsState = null,
   handoff = null,
   inbox: inboxState = null,
+  arrival = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -216,25 +219,6 @@ export function createBackend({
     };
   }
 
-  function inspect(path: string): RootInspection {
-    const full = expand(path.trim());
-    const base = { path: full, display: display(full) };
-    if (/existing/i.test(full)) return { ...base, state: 'workspace', entries: 4 };
-    if (/Documents$|Desktop$|Downloads$/.test(full) || full === HOME) {
-      return { ...base, state: 'not-empty', entries: 12 };
-    }
-    if (full === expand(DEFAULT_ROOT)) return { ...base, state: 'empty', entries: 0 };
-    return { ...base, state: 'missing', entries: 0 };
-  }
-
-  function validate(next: WorkspaceConfig) {
-    const port = next.agents.mcpPort;
-    if (port < 1024 || port > 65535)
-      fail('invalid', 'The MCP port must be between 1024 and 65535.');
-    if (!((next.budgets.sceneMb ?? 0) > 0))
-      fail('invalid', 'The scene budget must be more than 0 MB and at most 1000 MB.');
-  }
-
   const lab = createFakeLab({
     projectDir: id => `${expand(DEFAULT_ROOT)}/projects/${id}`,
     project,
@@ -289,6 +273,13 @@ export function createBackend({
       jobs: providers.jobs,
       hasKey: providers.hasKey,
       history: configured,
+    }),
+    ...createDownloadsHandlers({
+      jobs: providers.jobs,
+      handBack: args => providers.handlers.provider_hand_back?.(args),
+      emit: payload => emit?.({ name: 'downloads', payload }),
+      arrival,
+      ...(pace === 0 ? { delayMs: 0 } : {}),
     }),
     // Nothing closes in the browser, so the quit commands have nothing to do.
     quit_set_unapplied: () => undefined,

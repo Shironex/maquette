@@ -75,10 +75,12 @@ const handle = createBackend({
   projects: params.get('projects'),
   handoff: params.get('handoff'),
   inbox: params.get('inbox'),
+  arrival: params.get('arrival'),
   emit: event => {
     if (event.name === 'pipeline') void events.pipelineUpdate.emit(event.payload);
     else if (event.name === 'concept') void events.conceptUpdate.emit(event.payload);
     else if (event.name === 'mcp') void events.mcpUpdate.emit(event.payload);
+    else if (event.name === 'downloads') void events.downloadsArrival.emit(event.payload);
     else if (event.name === 'provider') {
       const payload = event.payload;
       if (payload.type === 'project') void events.projectChanged.emit({ project: payload.project });

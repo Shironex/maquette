@@ -1,4 +1,5 @@
 import type {
+  Arrival,
   ConceptEvent,
   ErrorPayload,
   McpStatus,
@@ -23,6 +24,7 @@ export interface BackendOptions {
       | { name: 'concept'; payload: ConceptEvent }
       | { name: 'mcp'; payload: McpStatus }
       | { name: 'provider'; payload: ProviderEvent }
+      | { name: 'downloads'; payload: Arrival }
   ) => void;
   /** `active`: the MCP server is on, mid agent session. */
   agents?: string | null;
@@ -36,6 +38,8 @@ export interface BackendOptions {
   handoff?: string | null;
   /** `redo`: two inbox models linked to their sends, and both keys saved. */
   inbox?: string | null;
+  /** `named` or `unmatched`: a download for the Downloads watcher. */
+  arrival?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */

@@ -59,7 +59,13 @@ describe('mock credits', () => {
     });
     expect(ledger.spends.find(s => s.job === 'far-spire-1')).toMatchObject({ credits: 0 });
     expect(jobs).toContain('character-3');
-    expect(jobs).not.toContain('lanterns-1');
+    // The By hand send is on the subscription, never with the API spend.
+    const api = ledger.spends.filter(s => s.source === 'api').map(s => s.job);
+    expect(api).not.toContain('lanterns-1');
+    expect(ledger.spends.find(s => s.job === 'lanterns-1')).toMatchObject({
+      source: 'subscription',
+      estimated: true,
+    });
     const times = ledger.spends.map(s => s.sentAtMs ?? 0);
     expect([...times].sort((a, b) => b - a)).toEqual(times);
   });

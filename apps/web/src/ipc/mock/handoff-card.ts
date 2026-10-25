@@ -1,4 +1,5 @@
 import type { CardRow, HandoffCard, MeshyPreset, ProviderJob, TripoPreset } from '../client';
+import { webCost } from './pricing';
 
 const onOff = (on: boolean) => (on ? 'On' : 'Off');
 
@@ -48,9 +49,18 @@ function meshyRows(p: MeshyPreset): CardRow[] {
 
 const VIEWS = ['front', 'left', 'back', 'right'];
 
+/** `maq_<asset>_v<n>_<provider>`, n from the job id `<asset>-<n>`. */
+export function exportName(job: Pick<ProviderJob, 'id' | 'asset' | 'service'>): string {
+  const n = job.id.startsWith(`${job.asset}-`) ? job.id.slice(job.asset.length + 1) : job.id;
+  return `maq_${job.asset}_v${n}_${job.service}`;
+}
+
 export function handoffCard(job: ProviderJob): HandoffCard {
   const tripo = job.service === 'tripo';
   const multi = job.images.length > 1;
+  const name = exportName(job);
+  const cost = webCost(job.service, job.tripo, job.meshy);
+  const prompt = !tripo && job.prompt ? job.prompt : null;
   return {
     service: job.service,
     site: tripo ? 'https://studio.tripo3d.ai' : 'https://www.meshy.ai/workspace',
@@ -61,8 +71,15 @@ export function handoffCard(job: ProviderJob): HandoffCard {
       : multi
         ? 'Multi-image to 3D'
         : 'Image to 3D',
-    rows: tripo && job.tripo ? tripoRows(job.tripo) : job.meshy ? meshyRows(job.meshy) : [],
+    rows: [
+      ...(tripo && job.tripo ? tripoRows(job.tripo) : job.meshy ? meshyRows(job.meshy) : []),
+      ...(prompt ? [{ label: 'Texture prompt', value: prompt, note: null }] : []),
+    ],
     images: job.images.map((_, i) => `${VIEWS[i] ?? `view_${i + 1}`}.png`),
-    returnName: `${job.id}.glb`,
+    returnName: `${name}.glb`,
+    exportName: name,
+    credits: cost.credits,
+    creditsNote: cost.what,
+    prompt,
   };
 }
