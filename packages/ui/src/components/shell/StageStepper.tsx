@@ -45,47 +45,48 @@ function Mark({ state }: { state: StageState }) {
 export function StageStepper({ stages, onSelect, className }: StageStepperProps) {
   const list: readonly Stage[] =
     stages ?? PIPELINE_STAGES.map(l => ({ id: l.toLowerCase(), label: l }));
+  const stageItems = list.map((st, i) => {
+    const state = st.state ?? 'todo';
+    const pill = cn(
+      'flex h-7 items-center gap-1.5 rounded-pill px-2.5 font-medium whitespace-nowrap text-fg-mute',
+      state === 'done' && 'text-fg-dim',
+      state === 'running' && 'text-amber',
+      state === 'failed' && 'text-danger',
+      state === 'current' && 'bg-clay-soft text-fg shadow-[inset_0_0_0_1px_var(--clay-line)]',
+      onSelect && 'cursor-pointer hover:text-fg'
+    );
+    const body = (
+      <>
+        <Mark state={state} />
+        {st.label}
+        <span className="sr-only">{`, ${WORD[state]}`}</span>
+      </>
+    );
+    return (
+      <Fragment key={st.id}>
+        {i > 0 ? (
+          <li aria-hidden="true" className="flex text-line-strong">
+            <Icon name="caret-right" size={12} />
+          </li>
+        ) : null}
+        <li aria-current={state === 'current' ? 'step' : undefined} className="flex">
+          {onSelect ? (
+            <button type="button" className={pill} onClick={() => onSelect(st.id)}>
+              {body}
+            </button>
+          ) : (
+            <span className={pill}>{body}</span>
+          )}
+        </li>
+      </Fragment>
+    );
+  });
   return (
     <ol
       aria-label="Pipeline stages"
       className={cn('m-0 flex list-none items-center gap-0.5 p-0', className)}
     >
-      {list.map((st, i) => {
-        const state = st.state ?? 'todo';
-        const pill = cn(
-          'flex h-7 items-center gap-1.5 rounded-pill px-2.5 font-medium whitespace-nowrap text-fg-mute',
-          state === 'done' && 'text-fg-dim',
-          state === 'running' && 'text-amber',
-          state === 'failed' && 'text-danger',
-          state === 'current' && 'bg-clay-soft text-fg shadow-[inset_0_0_0_1px_var(--clay-line)]',
-          onSelect && 'cursor-pointer hover:text-fg'
-        );
-        const body = (
-          <>
-            <Mark state={state} />
-            {st.label}
-            <span className="sr-only">{`, ${WORD[state]}`}</span>
-          </>
-        );
-        return (
-          <Fragment key={st.id}>
-            {i > 0 ? (
-              <li aria-hidden="true" className="flex text-line-strong">
-                <Icon name="caret-right" size={12} />
-              </li>
-            ) : null}
-            <li aria-current={state === 'current' ? 'step' : undefined} className="flex">
-              {onSelect ? (
-                <button type="button" className={pill} onClick={() => onSelect(st.id)}>
-                  {body}
-                </button>
-              ) : (
-                <span className={pill}>{body}</span>
-              )}
-            </li>
-          </Fragment>
-        );
-      })}
+      {stageItems}
     </ol>
   );
 }

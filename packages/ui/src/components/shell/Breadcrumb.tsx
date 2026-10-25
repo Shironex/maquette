@@ -8,6 +8,33 @@ export interface Crumb {
 }
 
 export function Breadcrumb({ items, className }: { items: readonly Crumb[]; className?: string }) {
+  const crumbs = items.map((it, i) => {
+    const last = i === items.length - 1;
+    return (
+      <Fragment key={`${i}-${it.label}`}>
+        {i > 0 ? (
+          <li aria-hidden="true" className="flex">
+            <Icon name="caret-right" size={11} />
+          </li>
+        ) : null}
+        <li>
+          {last ? (
+            <span aria-current="page" className="text-fg">
+              {it.label}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={it.onClick}
+              className="cursor-pointer text-fg-dim hover:text-fg"
+            >
+              {it.label}
+            </button>
+          )}
+        </li>
+      </Fragment>
+    );
+  });
   return (
     <ol
       aria-label="Breadcrumb"
@@ -16,33 +43,7 @@ export function Breadcrumb({ items, className }: { items: readonly Crumb[]; clas
         className
       )}
     >
-      {items.map((it, i) => {
-        const last = i === items.length - 1;
-        return (
-          <Fragment key={`${i}-${it.label}`}>
-            {i > 0 ? (
-              <li aria-hidden="true" className="flex">
-                <Icon name="caret-right" size={11} />
-              </li>
-            ) : null}
-            <li>
-              {last ? (
-                <span aria-current="page" className="text-fg">
-                  {it.label}
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={it.onClick}
-                  className="cursor-pointer text-fg-dim hover:text-fg"
-                >
-                  {it.label}
-                </button>
-              )}
-            </li>
-          </Fragment>
-        );
-      })}
+      {crumbs}
     </ol>
   );
 }

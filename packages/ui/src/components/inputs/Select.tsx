@@ -37,6 +37,14 @@ export function Select<T extends string>({
 }: SelectProps<T>) {
   const auto = useId();
   const selectId = id ?? auto;
+  const optionItems = options.map(o => {
+    const opt = typeof o === 'string' ? { value: o, label: o } : o;
+    return (
+      <option key={opt.value} value={opt.value}>
+        {opt.label}
+      </option>
+    );
+  });
   return (
     <Field id={selectId} label={label} hint={hint} inline={inline} className={fieldClassName}>
       <span
@@ -49,14 +57,7 @@ export function Select<T extends string>({
           className="h-full min-w-0 flex-1 cursor-pointer appearance-none border-0 bg-transparent p-0 text-inherit text-fg outline-none [&>option]:bg-panel"
           {...rest}
         >
-          {options.map(o => {
-            const opt = typeof o === 'string' ? { value: o, label: o } : o;
-            return (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            );
-          })}
+          {optionItems}
         </select>
         <Icon name="caret-down" size={14} className="pointer-events-none text-fg-mute" />
       </span>

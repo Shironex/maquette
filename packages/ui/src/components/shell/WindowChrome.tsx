@@ -12,23 +12,20 @@ export type ChromeMode = 'drawn' | 'overlay' | 'native';
 
 export function TrafficLights({ mode, className }: { mode: ChromeMode; className?: string }) {
   if (mode === 'native') return null;
+  const lights = ['#ff5f57', '#febc2e', '#28c840'].map(c => (
+    <i
+      key={c}
+      className="block size-3 rounded-full shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.25)]"
+      style={{ background: c }}
+    />
+  ));
   return (
     <div
       aria-hidden="true"
       data-tauri-drag-region
       className={cn('flex h-3.5 items-center gap-2', className)}
     >
-      {mode === 'drawn' ? (
-        ['#ff5f57', '#febc2e', '#28c840'].map(c => (
-          <i
-            key={c}
-            className="block size-3 rounded-full shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.25)]"
-            style={{ background: c }}
-          />
-        ))
-      ) : (
-        <span className="w-[52px]" />
-      )}
+      {mode === 'drawn' ? lights : <span className="w-[52px]" />}
     </div>
   );
 }

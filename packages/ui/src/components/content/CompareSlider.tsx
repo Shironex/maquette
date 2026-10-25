@@ -1,6 +1,7 @@
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import type { PointerEvent } from 'react';
 import { Icon } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
+import { useCompareSlider } from './CompareSlider.hooks';
 
 export interface CompareSliderProps {
   before: string;
@@ -19,17 +20,7 @@ export function CompareSlider({
   initial = 50,
   className,
 }: CompareSliderProps) {
-  const [pos, setPos] = useState(initial);
-  const ref = useRef<HTMLDivElement>(null);
-  function move(clientX: number) {
-    const r = ref.current?.getBoundingClientRect();
-    if (!r || r.width === 0) return;
-    setPos(Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100)));
-  }
-  function key(e: KeyboardEvent) {
-    if (e.key === 'ArrowLeft') setPos(p => Math.max(0, p - 5));
-    if (e.key === 'ArrowRight') setPos(p => Math.min(100, p + 5));
-  }
+  const { pos, ref, move, key } = useCompareSlider(initial);
   const tag =
     'absolute top-3 rounded-pill bg-scrim px-2 py-0.5 font-mono text-[11px] leading-4 text-fg';
   return (

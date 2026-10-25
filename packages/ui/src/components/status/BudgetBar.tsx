@@ -33,6 +33,7 @@ export function BudgetBar({
 }: BudgetBarProps) {
   const { over, fill, targetAt } = budgetScale(value, target);
   const suffix = unit ? ` ${unit}` : '';
+  const overNote = `${format(Math.round((value - target) * 100) / 100)}${suffix} over target`;
   return (
     <div className={cn('flex min-w-40 flex-col gap-1.5', className)}>
       <div className="flex items-baseline justify-between gap-3 text-meta">
@@ -63,7 +64,7 @@ export function BudgetBar({
       {over && showNote ? (
         <span className="inline-flex items-center gap-1 text-meta text-danger">
           <Icon name="warning" size={12} />
-          {`${format(Math.round((value - target) * 100) / 100)}${suffix} over target`}
+          {overNote}
         </span>
       ) : null}
     </div>

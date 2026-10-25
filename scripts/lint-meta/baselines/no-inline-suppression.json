@@ -2,6 +2,5 @@
   "apps/web/src/features/inspector/CompareCanvas.tsx": 2,
   "apps/web/src/features/inspector/LayoutCanvas.tsx": 3,
   "apps/web/src/features/inspector/LayoutEditor.tsx": 1,
-  "apps/web/src/features/viewer/ModelPreview.tsx": 2,
-  "packages/ui/src/components/shell/ProjectMenu.tsx": 1
+  "apps/web/src/features/viewer/ModelPreview.tsx": 2
 }

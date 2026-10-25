@@ -116,6 +116,15 @@ export function NavRail<T extends string>({
   className,
 }: NavRailProps<T>) {
   const toggle = collapsed ? 'Expand the sidebar' : 'Collapse the sidebar';
+  const itemButtons = items.map(it => (
+    <RailButton
+      key={it.id}
+      item={it}
+      current={it.id === value}
+      collapsed={collapsed}
+      onChange={onChange}
+    />
+  ));
   return (
     <nav
       aria-label={label}
@@ -139,15 +148,7 @@ export function NavRail<T extends string>({
           Tools
         </div>
       )}
-      {items.map(it => (
-        <RailButton
-          key={it.id}
-          item={it}
-          current={it.id === value}
-          collapsed={collapsed}
-          onChange={onChange}
-        />
-      ))}
+      {itemButtons}
       <div className="flex-1" />
       <RailButton
         item={footer}

@@ -1,6 +1,7 @@
-import { useState, type DragEvent } from 'react';
+import type { DragEvent } from 'react';
 import { Icon, type IconName } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
+import { useDragOver } from './Dropzone.hooks';
 
 export interface DropzoneProps {
   title?: string;
@@ -21,7 +22,7 @@ export function Dropzone({
   onActivate,
   className,
 }: DropzoneProps) {
-  const [over, setOver] = useState(false);
+  const [over, setOver] = useDragOver();
   const lit = active || over;
   return (
     <button

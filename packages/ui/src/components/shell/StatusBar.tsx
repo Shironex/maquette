@@ -25,6 +25,19 @@ export function StatusBar({
   items: readonly StatusBarItem[];
   className?: string;
 }) {
+  const statusItems = items.map((it, i) => (
+    <span
+      key={`${i}-${it.label}`}
+      className={cn('flex items-center gap-1.5 whitespace-nowrap', it.right && 'ml-auto')}
+    >
+      {it.dot ? (
+        <span aria-hidden="true" className={cn('size-[7px] flex-none rounded-full', DOT[it.dot])} />
+      ) : it.icon ? (
+        <Icon name={it.icon} size={12} />
+      ) : null}
+      {it.label}
+    </span>
+  ));
   return (
     <footer
       className={cn(
@@ -32,22 +45,7 @@ export function StatusBar({
         className
       )}
     >
-      {items.map((it, i) => (
-        <span
-          key={`${i}-${it.label}`}
-          className={cn('flex items-center gap-1.5 whitespace-nowrap', it.right && 'ml-auto')}
-        >
-          {it.dot ? (
-            <span
-              aria-hidden="true"
-              className={cn('size-[7px] flex-none rounded-full', DOT[it.dot])}
-            />
-          ) : it.icon ? (
-            <Icon name={it.icon} size={12} />
-          ) : null}
-          {it.label}
-        </span>
-      ))}
+      {statusItems}
     </footer>
   );
 }

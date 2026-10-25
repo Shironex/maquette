@@ -1,6 +1,7 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Icon } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
+import { useAutoScroll } from './LogConsole.hooks';
 
 export interface LogLine {
   t: string;
@@ -42,11 +43,15 @@ export function LogConsole({
   empty,
   className,
 }: LogConsoleProps) {
-  const body = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = body.current;
-    if (autoScroll && el) el.scrollTop = el.scrollHeight;
-  }, [autoScroll, lines]);
+  const body = useAutoScroll(autoScroll, lines);
+  const lineRows = lines.map((l, i) => (
+    <div key={i} className="grid grid-cols-[64px_1fr] gap-3 whitespace-pre-wrap text-fg-dim">
+      <span className="text-fg-mute tabular-nums">{l.t}</span>
+      <span className={l.dim ? 'text-fg-mute' : l.level ? LEVEL[l.level] : undefined}>
+        {l.node ?? l.text}
+      </span>
+    </div>
+  ));
   return (
     <div
       className={cn(
@@ -72,14 +77,7 @@ export function LogConsole({
         style={height ? { height } : undefined}
       >
         {lines.length === 0 && empty ? <div className="text-fg-mute">{empty}</div> : null}
-        {lines.map((l, i) => (
-          <div key={i} className="grid grid-cols-[64px_1fr] gap-3 whitespace-pre-wrap text-fg-dim">
-            <span className="text-fg-mute tabular-nums">{l.t}</span>
-            <span className={l.dim ? 'text-fg-mute' : l.level ? LEVEL[l.level] : undefined}>
-              {l.node ?? l.text}
-            </span>
-          </div>
-        ))}
+        {lineRows}
       </div>
     </div>
   );

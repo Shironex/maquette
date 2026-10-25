@@ -35,6 +35,28 @@ export function SegmentedControl<T extends string>({
   const [current, set] = useControllable<T | undefined>(value, defaultValue ?? first, next => {
     if (next !== undefined) onChange?.(next);
   });
+  const buttons = options.map(o => {
+    const on = o.value === current;
+    return (
+      <button
+        key={o.value}
+        type="button"
+        aria-pressed={on}
+        onClick={() => set(o.value)}
+        className={cn(
+          'inline-flex h-[26px] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-2.5 text-[12px] font-medium text-fg-dim transition-colors duration-120 hover:text-fg',
+          block && 'flex-1',
+          on &&
+            (tone === 'clay'
+              ? 'bg-clay-soft text-fg shadow-[inset_0_0_0_1px_var(--clay-line)]'
+              : 'bg-hover text-fg shadow-[inset_0_0_0_1px_var(--line-strong)]')
+        )}
+      >
+        {o.icon ? <Icon name={o.icon} size={14} /> : null}
+        {o.label}
+      </button>
+    );
+  });
   return (
     <div
       role="group"
@@ -45,28 +67,7 @@ export function SegmentedControl<T extends string>({
         className
       )}
     >
-      {options.map(o => {
-        const on = o.value === current;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            aria-pressed={on}
-            onClick={() => set(o.value)}
-            className={cn(
-              'inline-flex h-[26px] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-2.5 text-[12px] font-medium text-fg-dim transition-colors duration-120 hover:text-fg',
-              block && 'flex-1',
-              on &&
-                (tone === 'clay'
-                  ? 'bg-clay-soft text-fg shadow-[inset_0_0_0_1px_var(--clay-line)]'
-                  : 'bg-hover text-fg shadow-[inset_0_0_0_1px_var(--line-strong)]')
-            )}
-          >
-            {o.icon ? <Icon name={o.icon} size={14} /> : null}
-            {o.label}
-          </button>
-        );
-      })}
+      {buttons}
     </div>
   );
 }
