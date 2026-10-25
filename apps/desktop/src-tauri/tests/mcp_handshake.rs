@@ -42,6 +42,8 @@ struct TestHost {
     pipeline_changes: std::sync::atomic::AtomicUsize,
     /// How often a tool told the windows that a scene layout changed.
     layout_changes: std::sync::atomic::AtomicUsize,
+    /// How often a tool told the windows that material tweaks changed.
+    materials_changes: std::sync::atomic::AtomicUsize,
 }
 
 /// Provider jobs that can never reach Tripo or Meshy: both point at a
@@ -90,6 +92,10 @@ impl Host for TestHost {
     }
     fn layout_changed(&self, _project: &str) {
         self.layout_changes
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }
+    fn materials_changed(&self, _project: &str) {
+        self.materials_changes
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
 }
@@ -241,6 +247,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         thumbs: Thumbnails::new(|_| {}),
         pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
         layout_changes: std::sync::atomic::AtomicUsize::new(0),
+        materials_changes: std::sync::atomic::AtomicUsize::new(0),
     });
     // Port 0 so the test never collides with a running app; the app itself
     // listens on the configured 4791.
@@ -308,6 +315,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "get_concepts",
             "get_inbox_checks",
             "get_layout",
+            "get_material_tweaks",
             "get_pipeline",
             "get_project",
             "get_provider_job",
@@ -322,6 +330,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "send_to_3d",
             "set_compression_presets",
             "set_layout",
+            "set_material_tweaks",
             "start_concepts",
         ]
     );
@@ -370,6 +379,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         texture_size: 2048,
         data_texture_size: None,
         codec: maquette_core::TextureCodec::Etc1s,
+        map_codecs: None,
         meshopt: maquette_core::MeshoptLevel::High,
         lock: lock.map(str::to_string),
     };
@@ -755,6 +765,7 @@ async fn agents_lay_out_the_scene_and_copy_assets() {
         thumbs: Thumbnails::new(|_| {}),
         pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
         layout_changes: std::sync::atomic::AtomicUsize::new(0),
+        materials_changes: std::sync::atomic::AtomicUsize::new(0),
     });
     let token = ensure_token(&host.session).expect("token");
     let server = maquette_desktop_lib::mcp::server::start(
@@ -864,6 +875,153 @@ async fn agents_lay_out_the_scene_and_copy_assets() {
     server.stop();
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn agents_tweak_materials_and_pick_codecs_per_map() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp dir");
+    let (session, project_id, project_dir) = fixture(dir.path());
+    let (root, config) = session.workspace().expect("ws");
+    std::fs::create_dir_all(project_dir.join("models")).expect("models");
+    // A real GLB, so the tool can list its one material, "Crate".
+    std::fs::write(
+        project_dir.join("models/desk_lamp_v1.glb"),
+        maquette_core::inbox::fixture::clean_prop(),
+    )
+    .expect("glb");
+    project::modify(&root, &config.layout, &project_id, |m| {
+        assets::add_version(m, "desk-lamp", "models/desk_lamp_v1.glb".into(), None).map(|_| ())
+    })
+    .expect("version");
+    let hub = Arc::new(Hub::new(|| {}));
+    let host = Arc::new(TestHost {
+        studio: studio(&session),
+        session,
+        runner: PipelineRunner::new(Arc::new(HubSink(Arc::clone(&hub)))),
+        concepts: Concepts::new(None, 1, |_| {}),
+        thumbs: Thumbnails::new(|_| {}),
+        pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
+        layout_changes: std::sync::atomic::AtomicUsize::new(0),
+        materials_changes: std::sync::atomic::AtomicUsize::new(0),
+    });
+    let token = ensure_token(&host.session).expect("token");
+    let server = maquette_desktop_lib::mcp::server::start(
+        0,
+        token.clone(),
+        host.clone() as Arc<dyn Host>,
+        Arc::clone(&hub),
+    )
+    .expect("start");
+    let url = format!("http://127.0.0.1:{}/mcp", server.port());
+    let transport = StreamableHttpClientTransport::from_config(
+        StreamableHttpClientTransportConfig::with_uri(url).auth_header(token),
+    );
+    let client = ClientConfig::default()
+        .serve(transport)
+        .await
+        .expect("initialize");
+
+    let empty = call(
+        &client,
+        "get_material_tweaks",
+        json!({ "project": project_id, "asset": "Desk lamp" }),
+    )
+    .await;
+    assert_eq!(empty["asset"], json!("desk-lamp"));
+    assert_eq!(empty["materials"], json!(["Crate"]));
+    assert_eq!(empty["tweaks"]["all"]["tint"], Value::Null);
+    assert_eq!(empty["compression"]["model"], json!("desk_lamp_v1"));
+    assert_eq!(empty["compression"]["codecs"]["normal"], json!("uastc"));
+
+    let set = call(
+        &client,
+        "set_material_tweaks",
+        json!({
+            "project": project_id,
+            "asset": "desk-lamp",
+            "all": { "roughness": { "mode": "override", "value": 0.62 }, "metalness": 0.25 },
+            "materials": { "Crate": { "tint": "#3A3936" } },
+            "codecs": { "color": "uastc", "normal": "etc1s" },
+        }),
+    )
+    .await;
+    assert_eq!(set["tweaks"]["all"]["roughness"]["value"], json!(0.62));
+    assert_eq!(
+        set["tweaks"]["materials"]["Crate"]["tint"],
+        json!("#3a3936")
+    );
+    assert_eq!(set["compression"]["codecs"]["color"], json!("uastc"));
+    assert_eq!(set["compression"]["codecs"]["normal"], json!("etc1s"));
+    let stored = std::fs::read_to_string(project_dir.join("materials.json")).expect("file");
+    assert!(stored.contains("\"desk-lamp\""), "{stored}");
+    let def = pipeline::load(&project_dir)
+        .expect("load")
+        .expect("pipeline");
+    let row = def
+        .presets
+        .iter()
+        .find(|p| p.model == "desk_lamp_v1")
+        .expect("row");
+    assert_eq!(
+        row.map_codecs.and_then(|c| c.normal),
+        Some(maquette_core::TextureCodec::Etc1s)
+    );
+    let order = std::sync::atomic::Ordering::SeqCst;
+    assert_eq!(
+        host.materials_changes.load(order),
+        1,
+        "the app hears about it"
+    );
+    assert_eq!(host.pipeline_changes.load(order), 1);
+
+    // Only what a change names moves; null clears a field or a group.
+    let cleared = call(
+        &client,
+        "set_material_tweaks",
+        json!({
+            "project": project_id,
+            "asset": "desk-lamp",
+            "all": { "metalness": null },
+            "codecs": { "normal": null },
+        }),
+    )
+    .await;
+    assert_eq!(cleared["tweaks"]["all"]["metalness"], Value::Null);
+    assert_eq!(cleared["tweaks"]["all"]["roughness"]["value"], json!(0.62));
+    assert_eq!(cleared["compression"]["codecs"]["normal"], json!("uastc"));
+    assert_eq!(cleared["compression"]["codecs"]["color"], json!("uastc"));
+
+    // A material the model does not have is refused, and nothing changes.
+    let mut params = CallToolRequestParams::new("set_material_tweaks".to_string());
+    params = params.with_arguments(
+        json!({
+            "project": project_id,
+            "asset": "desk-lamp",
+            "materials": { "Lid": { "metalness": 1.0 } },
+            "codecs": { "other": "uastc" },
+        })
+        .as_object()
+        .expect("object")
+        .clone(),
+    );
+    let refused = client.call_tool(params).await.expect("call");
+    assert_eq!(refused.is_error, Some(true));
+    assert!(text(&refused).contains("Crate"), "{}", text(&refused));
+    let after = call(
+        &client,
+        "get_material_tweaks",
+        json!({ "project": project_id, "asset": "desk-lamp" }),
+    )
+    .await;
+    assert_eq!(after["compression"]["codecs"]["other"], json!("etc1s"));
+    assert_eq!(
+        after["tweaks"]["materials"]["Crate"]["tint"],
+        json!("#3a3936")
+    );
+
+    client.cancel().await.expect("close");
+    server.stop();
+}
+
 async fn wait_for(
     client: &RunningService<RoleClient, ClientConfig>,
     project: &str,
@@ -899,6 +1057,7 @@ fn the_app_server_follows_the_workspace_setting() {
         thumbs: Thumbnails::new(|_| {}),
         pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
         layout_changes: std::sync::atomic::AtomicUsize::new(0),
+        materials_changes: std::sync::atomic::AtomicUsize::new(0),
     });
     let agents = Agents::new(host, hub);
     // Off by default: nothing listens and there is no token yet.

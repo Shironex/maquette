@@ -14,7 +14,7 @@ use crate::commands::lab::Lab;
 use crate::commands::pipeline::Pipelines;
 use crate::commands::providers::Studio;
 use crate::commands::thumbs::Thumbs;
-use crate::events::{LayoutChanged, PipelineChanged, ProjectChanged};
+use crate::events::{LayoutChanged, MaterialsChanged, PipelineChanged, ProjectChanged};
 use crate::session::Session;
 
 pub trait Host: Send + Sync + 'static {
@@ -34,6 +34,9 @@ pub trait Host: Send + Sync + 'static {
     /// Tells the windows that a tool changed a project's scene layout, so
     /// the Layout editor reloads it.
     fn layout_changed(&self, _project: &str) {}
+    /// Tells the windows that a tool changed a project's material tweaks,
+    /// so the Inspector reloads them.
+    fn materials_changed(&self, _project: &str) {}
 }
 
 /// The app's own services.
@@ -88,6 +91,15 @@ impl Host for AppHost {
         };
         if let Err(err) = event.emit(&self.0) {
             tracing::warn!(error = %err, "could not emit a layout event");
+        }
+    }
+
+    fn materials_changed(&self, project: &str) {
+        let event = MaterialsChanged {
+            project: project.to_string(),
+        };
+        if let Err(err) = event.emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit a materials event");
         }
     }
 }

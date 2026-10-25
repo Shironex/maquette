@@ -10,6 +10,7 @@
 
 pub mod concepts;
 pub mod inbox;
+pub mod materials;
 pub mod projects;
 pub mod runs;
 pub mod sending;
@@ -48,6 +49,10 @@ assets at once under one approval. make_object_refs turns the objects of one con
 one isolated image each. get_concepts reads the Lab. \
 set_compression_presets changes the per model texture size, data map size, codec and \
 meshopt level that get_pipeline shows (it spends nothing; locked rows refuse). \
+get_material_tweaks reads an asset's material names, tweaks and per map codecs; \
+set_material_tweaks changes its tint, roughness, metalness and emissive strength (for every \
+material or one by name) and the ETC1S or UASTC codec of its color, normal and other maps; \
+Compress applies them to the shipped model on the next run. \
 get_layout reads where each model stands in the scene, the camera stops and the first view \
 budget; set_layout changes them (metres, y up, degrees) and the app updates live; the next \
 run_pipeline rebuilds the scene and its posters from it. copy_asset copies an asset with its refs and \
@@ -123,7 +128,8 @@ impl McpTools {
                 + Self::projects_router()
                 + Self::inbox_router()
                 + Self::concepts_router()
-                + Self::sending_router(),
+                + Self::sending_router()
+                + Self::materials_router(),
         }
     }
 

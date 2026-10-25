@@ -200,6 +200,7 @@ fn edited_presets(
                     texture_size: view.defaults.texture_size,
                     data_texture_size: None,
                     codec: view.defaults.codec,
+                    map_codecs: None,
                     meshopt: view.defaults.meshopt,
                     lock: None,
                 });
