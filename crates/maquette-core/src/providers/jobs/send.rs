@@ -5,6 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use super::ids::next_id;
 use super::{
     BatchFailure, BatchRequest, BatchSent, CancelMode, Chain, Entry, JobState, MAX_BATCH,
     MAX_IMAGES, Provider, ProviderEvent, ProviderJob, ProviderJobs, SendRequest, Shared, Stored,
@@ -258,21 +259,6 @@ fn check_image(project_dir: &Path, rel: &str) -> CoreResult<PathBuf> {
     Ok(path)
 }
 
-pub(super) fn next_id(jobs: &[Entry], project_dir: &Path, project: &str, asset: &str) -> String {
-    let taken = |id: &str| {
-        jobs.iter()
-            .any(|e| e.stored.job.project == project && e.stored.job.id == id)
-            || project_dir
-                .join(crate::providers::handoff::HANDOFF_DIR)
-                .join(id)
-                .exists()
-    };
-    (1u32..)
-        .map(|n| format!("{asset}-{n}"))
-        .find(|id| !taken(id))
-        .unwrap_or_else(|| format!("{asset}-x"))
-}
-
 fn prepare(
     shared: &Shared,
     workspace: &Workspace,
@@ -351,7 +337,7 @@ fn prepare(
             busy.stored.job.id
         )));
     }
-    let id = next_id(&jobs, &project_dir, &request.project, &asset.id);
+    let id = next_id(&jobs, &project_dir, &asset.id);
     let estimate = crate::providers::pricing::estimate(
         request.provider,
         request.variant,

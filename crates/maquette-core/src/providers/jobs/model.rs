@@ -92,7 +92,8 @@ pub enum CancelMode {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderJob {
-    /// `<asset id>-<n>`, also the handoff folder and the inbox file name.
+    /// `<asset id>-<n>`, unique across the workspace; also the handoff
+    /// folder and the inbox file name.
     pub id: String,
     pub project: String,
     pub asset: String,

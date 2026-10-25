@@ -19,6 +19,7 @@ use crate::project::{self, NewProject, ProjectTemplate};
 use crate::workspace::{self, WorkspaceConfig};
 
 mod connect;
+mod ids;
 
 const WAIT: Duration = Duration::from_secs(20);
 
@@ -1350,7 +1351,8 @@ fn a_copied_asset_takes_its_finished_sends_along() {
 
     let theirs = jobs.list(Some(&landing.id));
     assert_eq!(theirs.len(), 1);
-    assert_eq!(theirs[0].id, "stone-lantern-1");
+    // Ids are unique across the workspace: the copy takes the next free one.
+    assert_eq!(theirs[0].id, "stone-lantern-3");
     assert_eq!(theirs[0].asset, copied.asset.id);
     assert_eq!(theirs[0].state, JobState::Cancelled);
     assert_eq!(theirs[0].images, vec!["refs/front.png"]);

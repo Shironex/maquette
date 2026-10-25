@@ -1756,7 +1756,10 @@ export type ProviderEvent = { type: "job"; job: ProviderJob } |
 export type ProviderId = "tripo" | "meshy";
 
 export type ProviderJob = {
-	/**  `<asset id>-<n>`, also the handoff folder and the inbox file name. */
+	/**
+	 *  `<asset id>-<n>`, unique across the workspace; also the handoff
+	 *  folder and the inbox file name.
+	 */
 	id: string,
 	project: string,
 	asset: string,

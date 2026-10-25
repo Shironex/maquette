@@ -5,7 +5,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::send::next_id;
+use super::ids::next_id;
 use super::{
     Entry, InboxLink, JobState, ProviderJob, ProviderJobs, Stored, Workspace, persist, send_notes,
     touch_asset, update,
@@ -103,7 +103,7 @@ impl ProviderJobs {
                 .map(|e| e.stored.clone())
                 .collect();
             for source in &sources {
-                let id = next_id(&jobs, &dir, to, &copy.id);
+                let id = next_id(&jobs, &dir, &copy.id);
                 let mut job = source.job.clone();
                 job.id = id;
                 job.project = to.to_string();
@@ -145,9 +145,14 @@ impl ProviderJobs {
         {
             let jobs = self.shared.jobs();
             for item in items.iter_mut() {
-                let Some(id) =
+                // The file a job saved first, then its name.
+                let saved = jobs
+                    .iter()
+                    .find(|e| e.stored.job.inbox_file.as_deref() == Some(item.id.as_str()))
+                    .map(|e| e.stored.job.id.as_str());
+                let Some(id) = saved.or_else(|| {
                     job_for_file(&item.id, jobs.iter().map(|e| e.stored.job.id.as_str()))
-                else {
+                }) else {
                     continue;
                 };
                 let Some(entry) = jobs.iter().find(|e| e.stored.job.id == id) else {

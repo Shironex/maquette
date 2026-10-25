@@ -9,6 +9,7 @@
 
 mod cancel;
 mod credits;
+mod ids;
 mod model;
 mod records;
 mod remote;
@@ -275,25 +276,36 @@ impl ProviderJobs {
             .unwrap_or_else(|p| p.into_inner()) = Some(workspace.clone());
         let projects = project::list(root, &config.layout).unwrap_or_default();
         let mut touched = Vec::new();
-        {
-            let mut jobs = self.shared.jobs();
-            for manifest in &projects {
-                let Ok(dir) = workspace.project_dir(&manifest.id) else {
-                    continue;
-                };
-                for mut stored in load(&dir) {
-                    if resume_fixup(&mut stored) {
-                        touched.push(manifest.id.clone());
-                    }
-                    jobs.push(Entry {
-                        stored,
-                        stop: Arc::new(StopFlag::default()),
-                        thread: false,
-                        cancelled: false,
-                    });
+        let mut loaded = Vec::new();
+        for manifest in &projects {
+            let Ok(dir) = workspace.project_dir(&manifest.id) else {
+                continue;
+            };
+            for mut stored in load(&dir) {
+                // A job belongs to the project whose folder holds it, also
+                // in a project folder copied by hand.
+                let moved = stored.job.project != manifest.id;
+                stored.job.project.clone_from(&manifest.id);
+                if resume_fixup(&mut stored) || moved {
+                    touched.push(manifest.id.clone());
                 }
+                loaded.push(stored);
             }
         }
+        touched.extend(ids::make_unique(&mut loaded, |project, id| {
+            workspace
+                .project_dir(project)
+                .is_ok_and(|dir| dir.join(super::handoff::HANDOFF_DIR).join(id).exists())
+        }));
+        self.shared
+            .jobs()
+            .extend(loaded.into_iter().map(|stored| Entry {
+                stored,
+                stop: Arc::new(StopFlag::default()),
+                thread: false,
+                cancelled: false,
+            }));
+        touched.sort();
         touched.dedup();
         for project in touched {
             persist(&self.shared, &project);
