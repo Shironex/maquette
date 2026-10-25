@@ -1,7 +1,3 @@
 {
-  "apps/desktop/src-tauri/src/commands/lab.rs": 509,
-  "apps/desktop/src-tauri/src/commands/pipeline.rs": 497,
-  "apps/desktop/src-tauri/src/commands/providers.rs": 542,
-  "apps/desktop/src-tauri/src/mcp/hub.rs": 407,
   "apps/desktop/src-tauri/src/mcp/tools.rs": 1629
 }
