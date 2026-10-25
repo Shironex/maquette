@@ -1,13 +1,8 @@
-import { useState, type FormEvent } from 'react';
 import { Button, Select, TextField } from '@maquette/ui';
-import {
-  commands,
-  errorMessage,
-  type AssetKind,
-  type ProjectManifest,
-  type Stage,
-} from '@/ipc/client';
+import type { AssetKind } from '@/ipc/client';
 import { STAGES, STAGE_LABEL } from '@/state/pipeline';
+import { useAddAssetForm } from './AddAssetForm.hooks';
+import type { AddAssetFormProps } from './AddAssetForm.types';
 
 const KINDS: readonly { value: AssetKind; label: string }[] = [
   { value: 'prop', label: 'Prop' },
@@ -16,35 +11,11 @@ const KINDS: readonly { value: AssetKind; label: string }[] = [
 ];
 
 /** The small form under Add asset: a name, a kind and the starting column. */
-export function AddAssetForm({
-  project,
-  onDone,
-  onCancel,
-}: {
-  project: string;
-  onDone: (project: ProjectManifest) => void;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState('');
-  const [kind, setKind] = useState<AssetKind>('prop');
-  const [stage, setStage] = useState<Stage>('concept');
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      setError('Give the asset a name.');
-      return;
-    }
-    setSaving(true);
-    try {
-      onDone(await commands.assetAdd(project, { name: name.trim(), kind, stage }));
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  };
+export default function AddAssetForm({ project, onDone, onCancel }: AddAssetFormProps) {
+  const { name, rename, kind, setKind, stage, setStage, error, saving, submit } = useAddAssetForm({
+    project,
+    onDone,
+  });
   return (
     <form
       aria-label="Add asset"
@@ -59,10 +30,7 @@ export function AddAssetForm({
         autoFocus
         value={name}
         placeholder="Stone lantern"
-        onChange={e => {
-          setName(e.target.value);
-          setError(null);
-        }}
+        onChange={e => rename(e.target.value)}
         note={error ? { tone: 'missing', text: error } : undefined}
       />
       <div className="grid grid-cols-2 gap-2">

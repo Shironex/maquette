@@ -1,0 +1,84 @@
+import { Button, SegmentedControl } from '@maquette/ui';
+import { clock } from '@/lib/clock';
+import { formatAgo } from '@/lib/format';
+import { assetCount } from '@/state/board';
+import { TEMPLATE_LABEL } from '@/state/onboarding';
+import { AddAssetForm } from '../AddAssetForm';
+import { useBoardHeader } from './BoardHeader.hooks';
+import type { BoardHeaderProps } from './BoardHeader.types';
+
+/** The project name and what it holds, then the Board's buttons. */
+export default function BoardHeader({ queue }: BoardHeaderProps) {
+  const {
+    project,
+    adding,
+    setAdding,
+    added,
+    activeJobs,
+    byHand,
+    toMake,
+    queueOpen,
+    setQueueOpen,
+    setChecklistOpen,
+  } = useBoardHeader();
+  const subtitle = project
+    ? `${assetCount((project.assets ?? []).length)} · ${TEMPLATE_LABEL[project.template]} · created ${formatAgo(Date.parse(project.createdAt), clock.nowMs())}`
+    : 'Create a project in Settings to start.';
+
+  return (
+    <div className="flex items-end gap-4">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-screen-title">{project?.name ?? 'No project'}</h1>
+        <p className="text-fg-mute">{subtitle}</p>
+      </div>
+      <div className="relative ml-auto flex items-center gap-2">
+        <SegmentedControl
+          label="Board layout"
+          options={[
+            { value: 'board', label: 'Board', icon: 'squares-four' },
+            { value: 'list', label: 'List', icon: 'list' },
+          ]}
+          defaultValue="board"
+        />
+        {byHand ? (
+          <Button icon="hand-pointing" onClick={() => setChecklistOpen(true)}>
+            By hand
+            {toMake > 0 ? (
+              <span className="ml-0.5 rounded-pill bg-clay-soft px-1.5 font-mono text-[11px] leading-[18px] text-clay-text">
+                {toMake}
+              </span>
+            ) : null}
+          </Button>
+        ) : null}
+        <div className="relative">
+          <Button
+            icon="cube"
+            data-queue-toggle
+            aria-expanded={queueOpen}
+            disabled={!project}
+            onClick={() => setQueueOpen(!queueOpen)}
+          >
+            3D queue
+            {activeJobs > 0 ? (
+              <span className="ml-0.5 rounded-pill bg-amber-soft px-1.5 font-mono text-[11px] leading-[18px] text-amber">
+                {activeJobs}
+              </span>
+            ) : null}
+          </Button>
+          {queueOpen ? queue(() => setQueueOpen(false)) : null}
+        </div>
+        <Button
+          icon="plus"
+          disabled={!project}
+          aria-expanded={adding}
+          onClick={() => setAdding(v => !v)}
+        >
+          Add asset
+        </Button>
+        {adding && project ? (
+          <AddAssetForm project={project.id} onDone={added} onCancel={() => setAdding(false)} />
+        ) : null}
+      </div>
+    </div>
+  );
+}

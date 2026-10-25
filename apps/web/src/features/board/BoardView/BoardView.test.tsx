@@ -6,7 +6,7 @@ import { useLabStore } from '@/state/use-lab-store';
 import { useProjectsStore } from '@/state/use-projects-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { BoardView } from './BoardView';
+import BoardView from './BoardView';
 
 afterEach(() => {
   clearMocks();

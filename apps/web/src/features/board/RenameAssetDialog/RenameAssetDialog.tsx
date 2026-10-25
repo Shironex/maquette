@@ -1,51 +1,15 @@
-import { useRef, useState, type FormEvent } from 'react';
 import { Button, Icon, IconButton, TextField } from '@maquette/ui';
-import { commands, errorMessage, type Asset, type ProjectManifest } from '@/ipc/client';
-import { useTopEscape } from '@/lib/useTopEscape';
-
-/** The longest asset name; the core says the same. */
-const MAX_NAME_CHARS = 80;
+import { MAX_NAME_CHARS, useRenameAssetDialog } from './RenameAssetDialog.hooks';
+import type { RenameAssetDialogProps } from './RenameAssetDialog.types';
 
 /**
  * Rename from a card's menu. Only the name on the card changes: the asset's
  * id, files and versions stay, so refs and pipeline outputs keep working.
  */
-export function RenameAssetDialog({
-  project,
-  asset,
-  onDone,
-  onClose,
-}: {
-  project: string;
-  asset: Asset;
-  onDone: (project: ProjectManifest) => void;
-  onClose: () => void;
-}) {
-  const [name, setName] = useState(asset.name);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const ref = useRef<HTMLFormElement>(null);
-  useTopEscape(ref, onClose);
-  const trimmed = name.trim();
-  const tooLong = trimmed.length > MAX_NAME_CHARS;
-  const unchanged = trimmed === asset.name;
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!trimmed || tooLong || saving) return;
-    if (unchanged) {
-      onClose();
-      return;
-    }
-    setSaving(true);
-    try {
-      onDone(await commands.assetRename(project, asset.id, trimmed));
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  };
+export default function RenameAssetDialog(props: RenameAssetDialogProps) {
+  const { onClose } = props;
+  const { ref, name, rename, trimmed, tooLong, error, saving, submit } =
+    useRenameAssetDialog(props);
 
   return (
     <div
@@ -82,10 +46,7 @@ export function RenameAssetDialog({
             autoFocus
             value={name}
             onFocus={e => e.currentTarget.select()}
-            onChange={e => {
-              setName(e.target.value);
-              setError(null);
-            }}
+            onChange={e => rename(e.target.value)}
             hint={`${trimmed.length} of ${MAX_NAME_CHARS} characters`}
             note={
               tooLong
