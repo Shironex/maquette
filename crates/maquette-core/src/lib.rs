@@ -13,6 +13,7 @@ mod json;
 pub mod layout;
 pub mod materials;
 pub mod pipeline;
+pub mod prepare;
 pub mod project;
 pub mod providers;
 pub mod thumbs;
@@ -157,6 +158,10 @@ pub fn types() -> specta::Types {
         .register::<layout::SceneLayout>()
         .register::<layout::LayoutView>()
         .register::<materials::SceneMaterials>()
+        .register::<prepare::ScenePrep>()
+        .register::<prepare::preview::FixupReport>()
+        .register::<prepare::Suggestion>()
+        .register::<prepare::PrepFrame>()
 }
 
 #[cfg(test)]
