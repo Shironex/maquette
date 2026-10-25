@@ -5,7 +5,6 @@
   "apps/desktop/src-tauri/src/mcp/hub.rs": 407,
   "apps/desktop/src-tauri/src/mcp/tools.rs": 1629,
   "crates/maquette-core/src/assets.rs": 468,
-  "crates/maquette-core/src/inbox/checks.rs": 458,
   "crates/maquette-core/src/inbox/fixture.rs": 495,
   "crates/maquette-core/src/inbox/mod.rs": 591,
   "crates/maquette-core/src/inspect/mod.rs": 575,

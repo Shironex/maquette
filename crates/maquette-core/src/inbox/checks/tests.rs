@@ -1,0 +1,147 @@
+use std::path::Path;
+
+use super::*;
+use crate::inbox::{analyse::analyse_bytes, fixture};
+
+fn checks(bytes: &[u8], kind: AssetKind, config: &WorkspaceConfig) -> Vec<Check> {
+    run(
+        &analyse_bytes(bytes, Path::new(".")).expect("analyse"),
+        kind,
+        config,
+        SendNotes::default(),
+    )
+}
+
+fn status(list: &[Check], id: &str) -> Option<CheckStatus> {
+    list.iter().find(|c| c.id == id).map(|c| c.status)
+}
+
+#[test]
+fn counts_read_short() {
+    assert_eq!(short_count(94_600), "94.6k");
+    assert_eq!(short_count(60_000), "60k");
+    assert_eq!(short_count(812), "812");
+    assert_eq!(short_count(120_000), "120k");
+    assert_eq!(short_count(1_260_000), "1.3M");
+    assert_eq!(short_count(2_000_000), "2M");
+}
+
+#[test]
+fn a_clean_prop_passes_everything() {
+    let list = checks(
+        &fixture::clean_prop(),
+        AssetKind::Prop,
+        &WorkspaceConfig::default(),
+    );
+    assert!(
+        list.iter().all(|c| c.status == CheckStatus::Pass),
+        "{list:#?}"
+    );
+    assert_eq!(worst(&list), CheckStatus::Pass);
+}
+
+#[test]
+fn budgets_drive_the_triangle_and_texture_rows() {
+    let mut config = WorkspaceConfig::default();
+    config.budgets.tris_per_model = 10;
+    let list = checks(&fixture::clean_prop(), AssetKind::Prop, &config);
+    assert_eq!(status(&list, "triangles"), Some(CheckStatus::Warning));
+    config.budgets.tris_per_model = 5;
+    let list = checks(&fixture::clean_prop(), AssetKind::Prop, &config);
+    assert_eq!(status(&list, "triangles"), Some(CheckStatus::Fail));
+    let mut report = analyse_bytes(&fixture::clean_prop(), Path::new(".")).expect("analyse");
+    report.textures[0].width = Some(4096);
+    let list = run(
+        &report,
+        AssetKind::Prop,
+        &WorkspaceConfig::default(),
+        SendNotes::default(),
+    );
+    let row = list.iter().find(|c| c.id == "textures").expect("row");
+    assert_eq!(row.status, CheckStatus::Warning);
+    assert!(
+        row.detail
+            .as_deref()
+            .unwrap_or_default()
+            .contains("over the 2048 px default")
+    );
+}
+
+#[test]
+fn character_rows_cover_rig_and_finger_weights() {
+    let config = WorkspaceConfig::default();
+    let list = checks(&fixture::character(true), AssetKind::Character, &config);
+    assert_eq!(status(&list, "rig"), Some(CheckStatus::Pass));
+    let finger = list.iter().find(|c| c.id == "finger-weights").expect("row");
+    assert_eq!(finger.status, CheckStatus::Fail);
+    let detail = finger.detail.as_deref().unwrap_or_default();
+    assert!(detail.starts_with("48 vertices"), "{detail}");
+    assert!(detail.contains("LeftHandIndex1 (24)"));
+    assert_eq!(status(&list, "animations"), Some(CheckStatus::Pass));
+    assert_eq!(worst(&list), CheckStatus::Fail);
+
+    let clean = checks(&fixture::character(false), AssetKind::Character, &config);
+    assert_eq!(status(&clean, "finger-weights"), Some(CheckStatus::Pass));
+    let mut still = analyse_bytes(&fixture::character(false), Path::new(".")).expect("analyse");
+    still.animations.clear();
+    let list = run(&still, AssetKind::Character, &config, SendNotes::default());
+    assert_eq!(status(&list, "animations"), Some(CheckStatus::Warning));
+    // The same rig on a prop is suspicious; no rig on a character fails.
+    let prop = checks(&fixture::character(false), AssetKind::Prop, &config);
+    assert_eq!(status(&prop, "rig"), Some(CheckStatus::Warning));
+    let unrigged = checks(&fixture::clean_prop(), AssetKind::Character, &config);
+    assert_eq!(status(&unrigged, "rig"), Some(CheckStatus::Fail));
+}
+
+#[test]
+fn merged_objects_warn_except_in_scenes() {
+    let config = WorkspaceConfig::default();
+    let list = checks(&fixture::merged_islands(), AssetKind::Prop, &config);
+    assert_eq!(status(&list, "merged"), Some(CheckStatus::Warning));
+    assert_eq!(status(&list, "pbr"), Some(CheckStatus::Warning));
+    let scene = checks(&fixture::merged_islands(), AssetKind::Scene, &config);
+    assert_eq!(status(&scene, "merged"), Some(CheckStatus::Pass));
+}
+
+#[test]
+fn a_send_without_pbr_does_not_warn_about_missing_maps() {
+    let config = WorkspaceConfig::default();
+    let mut report = analyse_bytes(&fixture::merged_islands(), Path::new(".")).expect("analyse");
+    report.pbr.base_color = true;
+    let sent = |maps| {
+        let notes = SendNotes {
+            maps,
+            large_textures: false,
+        };
+        run(&report, AssetKind::Scene, &config, notes)
+    };
+    assert_eq!(
+        status(&sent(SentMaps::Any), "pbr"),
+        Some(CheckStatus::Warning)
+    );
+    let list = sent(SentMaps::NoPbr);
+    assert_eq!(status(&list, "pbr"), Some(CheckStatus::Pass));
+    let row = list.iter().find(|c| c.id == "pbr").expect("row");
+    assert_eq!(row.title, "PBR off, as sent");
+    assert_eq!(worst(&list), CheckStatus::Pass);
+    assert_eq!(
+        status(&sent(SentMaps::NoTexture), "pbr"),
+        Some(CheckStatus::Pass)
+    );
+}
+
+#[test]
+fn detailed_textures_keep_the_warning_and_say_why() {
+    let mut report = analyse_bytes(&fixture::clean_prop(), Path::new(".")).expect("analyse");
+    report.textures[0].width = Some(4096);
+    let notes = SendNotes {
+        large_textures: true,
+        ..SendNotes::default()
+    };
+    let list = run(&report, AssetKind::Prop, &WorkspaceConfig::default(), notes);
+    let row = list.iter().find(|c| c.id == "textures").expect("row");
+    assert_eq!(row.status, CheckStatus::Warning);
+    let detail = row.detail.as_deref().unwrap_or_default();
+    assert!(detail.contains("sent with detailed textures"), "{detail}");
+    assert!(detail.contains("Compress resizes them"));
+}
