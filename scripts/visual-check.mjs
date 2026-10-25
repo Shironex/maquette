@@ -21,14 +21,17 @@
  * keyboard focus ring and a disabled menu item that says why. The material
  * set covers the Inspector's Material panel (untouched, an edit previewing
  * on the model, one material by name, applied), the per map codec rows and
- * the quit question for tweaks. It renders pages to files and never
- * captures the screen.
+ * the quit question for tweaks. The redo set covers Redo from the Inbox (a
+ * row's menu, the send panel prefilled with a Meshy texture prompt and its
+ * estimate, two models ticked, the batch redo and its confirm) and the
+ * Credits sheet (all sends, filtered to Meshy). It renders pages to files
+ * and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
- * ONLY=handoff, ONLY=scene, ONLY=ux or ONLY=material renders that set alone,
- * ONLY=guards the questions asked before work is dropped; PORT picks the dev
- * server port.
+ * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material or ONLY=redo renders that
+ * set alone, ONLY=guards the questions asked before work is dropped; PORT
+ * picks the dev server port.
  *
  * PLAYWRIGHT defaults to the `playwright` package, which this repo does not
  * install; point it at any local copy. OUT_DIR defaults to `.visual/`.
@@ -684,6 +687,52 @@ async function coreShots() {
   await shot(starters, 'pipeline-starters');
 }
 
+/** Redo from the Inbox and the Credits sheet, on the redo fixture. */
+async function redoShots() {
+  const fixture = '&scenario=configured&inbox=redo';
+  const inbox = await open(fixture, '#/inbox');
+  await inbox.getByRole('heading', { name: 'Automatic checks' }).waitFor();
+  await inbox.getByRole('button', { name: /^Sakura/ }).click();
+  await inbox.waitForTimeout(2500);
+  await inbox.getByRole('button', { name: 'More for Sakura' }).click();
+  await inbox.getByRole('menu', { name: 'Sakura actions' }).waitFor();
+  await shot(inbox, 'redo-inbox-menu');
+  await inbox.getByRole('menuitem', { name: 'Redo...' }).click();
+  const panel = inbox.getByRole('dialog', { name: 'Redo Sakura' });
+  await panel.getByText('About 30 credits').waitFor();
+  await shot(inbox, 'redo-send-panel');
+  await panel.getByLabel('Texture prompt').scrollIntoViewIfNeeded();
+  await shot(inbox, 'redo-send-panel-prompt');
+  await panel.getByRole('button', { name: 'Close' }).click();
+
+  await inbox.getByRole('checkbox', { name: 'Select Character' }).click();
+  await inbox.getByRole('checkbox', { name: 'Select Sakura' }).click();
+  await inbox.getByRole('toolbar', { name: 'Selected models' }).waitFor();
+  await shot(inbox, 'redo-inbox-selected');
+  await inbox.getByRole('button', { name: 'Redo 2' }).click();
+  const batch = inbox.getByRole('dialog', { name: 'Redo 2 models' });
+  await batch.getByText('About 115 credits').waitFor();
+  await shot(inbox, 'redo-batch');
+  await batch.getByRole('button', { name: 'Send 2 to Tripo' }).click();
+  await batch.getByRole('alert').waitFor();
+  await shot(inbox, 'redo-batch-confirm');
+
+  const board = await open(fixture, '#/board');
+  await board.getByRole('button', { name: /3D queue/ }).click();
+  await board
+    .getByRole('region', { name: '3D queue' })
+    .getByRole('button', { name: 'Credits' })
+    .click();
+  const credits = board.getByRole('dialog', { name: 'Credits' });
+  await credits.getByText('1,240').waitFor();
+  await shot(board, 'credits');
+  await credits
+    .getByRole('group', { name: 'Provider' })
+    .getByRole('button', { name: 'Meshy' })
+    .click();
+  await shot(board, 'credits-meshy');
+}
+
 try {
   if (only === 'guards') await guardShots();
   if (!only || only === 'ux') await uxShots();
@@ -691,6 +740,7 @@ try {
   if (!only || only === 'handoff') await handoffShots();
   if (!only || only === 'scene') await sceneShots();
   if (!only || only === 'material') await materialShots();
+  if (!only || only === 'redo') await redoShots();
 } finally {
   await browser.close();
   await vite?.close();
