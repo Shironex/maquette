@@ -14,7 +14,11 @@ const COPY: Partial<Record<ViewId, { icon: IconName; title: string; body: string
   },
 };
 
-export function PlaceholderView({ view }: { view: ViewId }) {
+export interface PlaceholderViewProps {
+  view: ViewId;
+}
+
+export default function PlaceholderView({ view }: PlaceholderViewProps) {
   const copy = COPY[view];
   const label = TOOL_VIEWS.find(v => v.id === view)?.label ?? 'View';
   return (
