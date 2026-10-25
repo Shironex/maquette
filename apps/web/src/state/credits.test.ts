@@ -10,6 +10,7 @@ import {
   formatCredits,
   ledgerProjects,
   shareText,
+  OUTCOME_CHIP,
   spendKey,
   spendsCsv,
 } from './credits';
@@ -43,6 +44,7 @@ describe('credit numbers', () => {
     expect(estimateText(1)).toBe('About 1 credit');
     expect(estimateText(null)).toBeNull();
     expect(shareText(0.184)).toBe('18%');
+    expect(OUTCOME_CHIP.cancelled).toEqual({ status: 'failed', label: 'Cancelled' });
   });
 });
 

@@ -1738,7 +1738,12 @@ export type SpendOutcome =
  */
 "failed" | 
 /**  Cancelled while the provider could still give the credits back. */
-"refunded";
+"refunded" | 
+/**
+ *  Cancelled after the provider took the credits: what was reported,
+ *  else the price list's guess.
+ */
+"cancelled";
 
 /**  The Board columns, in pipeline order. */
 export type Stage = "concept" | "refs" | "tripo" | "blender" | "web" | "ship";

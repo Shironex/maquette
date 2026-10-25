@@ -38,6 +38,9 @@ pub enum SpendOutcome {
     Failed,
     /// Cancelled while the provider could still give the credits back.
     Refunded,
+    /// Cancelled after the provider took the credits: what was reported,
+    /// else the price list's guess.
+    Cancelled,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -179,8 +182,8 @@ pub fn charged(outcome: SpendOutcome, reported: Option<f64>, estimate: Option<f6
     match (outcome, reported) {
         (SpendOutcome::Refunded, _) => (0.0, false),
         (SpendOutcome::Failed, reported) => (reported.unwrap_or(0.0), false),
-        (SpendOutcome::Succeeded, Some(credits)) => (credits, false),
-        (SpendOutcome::Pending | SpendOutcome::Succeeded, _) => {
+        (SpendOutcome::Succeeded | SpendOutcome::Cancelled, Some(credits)) => (credits, false),
+        (SpendOutcome::Pending | SpendOutcome::Succeeded | SpendOutcome::Cancelled, _) => {
             (estimate.unwrap_or(0.0), estimate.is_some())
         }
     }

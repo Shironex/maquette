@@ -252,6 +252,9 @@ pub(super) struct Chain {
     pub(super) retarget_task: Option<String>,
     /// Credits per task id, so a resumed poll does not count twice.
     pub(super) credits: BTreeMap<String, f64>,
+    /// Cancelled on the provider before its model task was charged, so the
+    /// credits come back.
+    pub(super) refunded: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

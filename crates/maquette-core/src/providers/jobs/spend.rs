@@ -35,7 +35,10 @@ pub(super) fn line(before: &Before, after: &Stored, at_ms: f64) -> Option<Ledger
     let (event, outcome) = if !before.over && over(job.state) {
         let outcome = match job.state {
             JobState::Inbox | JobState::Accepted => SpendOutcome::Succeeded,
-            JobState::Cancelled => SpendOutcome::Refunded,
+            // Only a model task the provider called off gives the credits
+            // back; one cancelled later (a resumed job, the rig step) is spent.
+            JobState::Cancelled if after.chain.refunded => SpendOutcome::Refunded,
+            JobState::Cancelled => SpendOutcome::Cancelled,
             _ => SpendOutcome::Failed,
         };
         (LineEvent::Settled, outcome)

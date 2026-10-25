@@ -26,6 +26,7 @@ export const OUTCOME_CHIP: Record<SpendOutcome, { status: Status; label: string 
   succeeded: { status: 'done', label: 'Succeeded' },
   failed: { status: 'failed', label: 'Failed' },
   refunded: { status: 'cached', label: 'Refunded' },
+  cancelled: { status: 'failed', label: 'Cancelled' },
 };
 
 /** A send's identity: job ids repeat across projects and once finished jobs are cleared. */

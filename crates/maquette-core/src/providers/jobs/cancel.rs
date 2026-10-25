@@ -14,6 +14,29 @@ use crate::providers::http::{Api, ApiError, StopFlag};
 use crate::providers::meshy::{self, Meshy};
 use crate::providers::presets::ProviderId;
 
+/// What stopping a job in `mode` says, and whether the provider gives the
+/// credits back. It does only for a model task it called off before it
+/// started: a job that already has its model task on the provider (a
+/// resumed one, or a Meshy chain at its rig step) has spent them.
+pub(super) fn stopped(mode: CancelMode, deny: bool, stored: &Stored) -> (String, bool) {
+    let has_model = stored.chain.model_task.is_some();
+    let message = match mode {
+        CancelMode::Free if deny => "Denied in Maquette. Nothing was spent.",
+        CancelMode::Free if has_model => {
+            "Cancelled. The provider already has this model's task, so its credits are spent."
+        }
+        CancelMode::Free => "Cancelled. Nothing was spent.",
+        CancelMode::StopWaiting => "Stopped waiting for this model.",
+        CancelMode::Provider if stored.chain.rig_task.is_some() => {
+            "Cancelled the rig before Meshy started it. The model's credits are spent."
+        }
+        CancelMode::Provider => "Cancelled before Meshy started it. Meshy refunds the credits.",
+        CancelMode::None => "Cancelled.",
+    };
+    let refunded = mode == CancelMode::Provider && stored.chain.rig_task.is_none();
+    (message.to_string(), refunded)
+}
+
 impl ProviderJobs {
     /// Cancels a job where that is still possible, and says plainly when it
     /// is not. Meshy is asked over the network, so call it off the UI thread.
@@ -42,10 +65,7 @@ impl ProviderJobs {
             ));
         }
         let mode = cancel_mode(&stored);
-        let message = match mode {
-            CancelMode::Free if deny => "Denied in Maquette. Nothing was spent.".to_string(),
-            CancelMode::Free => "Cancelled. Nothing was spent.".to_string(),
-            CancelMode::StopWaiting => "Stopped waiting for this model.".to_string(),
+        match mode {
             CancelMode::Provider => {
                 // Marked first, so a poll that sees CANCELED does not fail it.
                 self.mark_cancelled(id, true);
@@ -53,7 +73,6 @@ impl ProviderJobs {
                     self.mark_cancelled(id, false);
                     return Err(err);
                 }
-                "Cancelled before Meshy started it. Meshy refunds the credits.".to_string()
             }
             CancelMode::None => {
                 return Err(CoreError::Invalid(match (stored.job.provider, stored.job.state) {
@@ -68,11 +87,14 @@ impl ProviderJobs {
                     _ => "This job is already over.".to_string(),
                 }));
             }
-        };
+            CancelMode::Free | CancelMode::StopWaiting => {}
+        }
+        let (message, refunded) = stopped(mode, deny, &stored);
         self.mark_cancelled(id, true);
         stop.stop();
         update(&self.shared, id, true, |stored| {
             stored.job.state = JobState::Cancelled;
+            stored.chain.refunded = refunded;
             stored.job.finished_at_ms = Some(now_ms());
             stored.job.message = Some(message.clone());
             Ok(())
