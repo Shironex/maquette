@@ -198,9 +198,14 @@ async function handoffShots() {
   await batch.getByRole('button', { name: /^Send \d+ to Tripo$/ }).click();
   await batch.getByRole('alert').waitFor();
   await shot(board, 'batch-tripo-confirm');
+  // The batch has unsent edits, so Escape asks before it drops them.
   await board.keyboard.press('Escape');
+  const discard = board.getByRole('dialog', { name: 'Discard changes?' });
+  await discard.getByRole('button', { name: 'Discard' }).click();
+  await batch.waitFor({ state: 'detached' });
 
-  await board.getByRole('button', { name: /^By hand/ }).click();
+  // The Board's By hand button carries its count; the panel's provider choice is gone.
+  await board.getByRole('button', { name: /^By hand \d+$/ }).click();
   await board.getByRole('dialog', { name: 'By hand checklist' }).waitFor();
   await shot(board, 'handoff-checklist');
   await board.getByRole('button', { name: 'Settings card' }).first().click();
