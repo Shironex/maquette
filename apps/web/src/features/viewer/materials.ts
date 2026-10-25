@@ -40,10 +40,9 @@ export type Originals = Map<THREE.Mesh, THREE.Material | THREE.Material[]>;
 export function originalsOf(scene: THREE.Object3D): Originals {
   const originals: Originals = new Map();
   scene.traverse(obj => {
-    if ((obj as THREE.Mesh).isMesh) {
-      const mesh = obj as THREE.Mesh;
-      originals.set(mesh, mesh.material);
-    }
+    if (!(obj as THREE.Mesh).isMesh) return;
+    const mesh = obj as THREE.Mesh;
+    originals.set(mesh, mesh.material);
   });
   return originals;
 }

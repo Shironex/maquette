@@ -18,7 +18,7 @@ interface CanvasBoundaryState {
  * could not start) from blanking the window: a small message with Reload
  * takes its place, and Reload mounts the canvas again.
  */
-export class CanvasBoundary extends Component<CanvasBoundaryProps, CanvasBoundaryState> {
+export default class CanvasBoundary extends Component<CanvasBoundaryProps, CanvasBoundaryState> {
   state: CanvasBoundaryState = { error: null, tries: 0, resetKey: this.props.resetKey };
 
   static getDerivedStateFromError(error: Error): Partial<CanvasBoundaryState> {
