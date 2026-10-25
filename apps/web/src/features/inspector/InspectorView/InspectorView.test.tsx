@@ -54,6 +54,9 @@ describe('the Inspector view', () => {
     useInspectorStore.setState({ tab: 'layout' });
     render(<InspectorView />);
     expect(await screen.findByRole('heading', { name: 'Scene layout' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save layout' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save layout' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 });

@@ -60,7 +60,10 @@ describe('Make object refs', () => {
     expect(field).toHaveValue(long);
     expect(screen.getByRole('alert')).toHaveTextContent(`${long.length} of 60 characters`);
     expect(useLabStore.getState().objects?.objects).toEqual([]);
-    expect(screen.getByRole('button', { name: 'Make object refs' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Make object refs' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
 
     await userEvent.clear(field);
     await userEvent.type(field, 'Island{Enter}');

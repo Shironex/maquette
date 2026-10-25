@@ -96,7 +96,10 @@ describe('the project switcher', () => {
     useProjectsStore.getState().openMenu();
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Import folder' }));
     expect(screen.getByRole('dialog', { name: 'Import a folder' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Import project' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Import project' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
   });

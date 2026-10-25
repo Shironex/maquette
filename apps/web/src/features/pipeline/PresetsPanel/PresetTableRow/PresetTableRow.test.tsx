@@ -45,6 +45,8 @@ describe('a preset row', () => {
   it('locks every control of a locked row', () => {
     renderRow({ ...island, lock: 'Kept on medium.' });
     expect(screen.getByRole('combobox', { name: 'Island meshopt level' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Texture sizes per map for Island' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Texture sizes per map for Island' })
+    ).toHaveAttribute('aria-disabled', 'true');
   });
 });

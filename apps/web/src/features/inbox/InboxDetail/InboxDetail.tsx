@@ -135,7 +135,12 @@ export default function InboxDetail({ item }: InboxDetailProps) {
           {reviewPrompt(item)}
         </span>
         <span className="ml-auto" />
-        <Button icon="arrow-clockwise" disabled={isBusy} onClick={() => void reprocess(item.id)}>
+        <Button
+          icon="arrow-clockwise"
+          disabled={isBusy}
+          disabledReason="Working on this model"
+          onClick={() => void reprocess(item.id)}
+        >
           Reprocess
         </Button>
         <Button variant="ghost" icon="arrow-square-out" onClick={() => void openInBlender(item.id)}>
@@ -145,7 +150,9 @@ export default function InboxDetail({ item }: InboxDetailProps) {
           variant="primary"
           icon="check"
           disabled={isBusy || !project || item.state === 'failed'}
-          title={acceptTitle}
+          loading={isBusy}
+          disabledReason={item.state === 'failed' ? 'This file could not be read' : acceptTitle}
+          tooltip={acceptTitle}
           onClick={() => project && void accept(item.id, project.id)}
         >
           Accept to Blender

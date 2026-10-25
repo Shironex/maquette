@@ -56,7 +56,7 @@ describe('a Downloads match row', () => {
         />
       </ul>
     );
-    expect(screen.getByRole('button', { name: 'Use' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Use' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual(['Not one of these']);
   });
 

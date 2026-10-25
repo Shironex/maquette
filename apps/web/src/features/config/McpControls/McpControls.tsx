@@ -35,7 +35,8 @@ export default function McpControls({
               icon={compact ? undefined : 'copy'}
               className="h-[34px]"
               disabled={!token}
-              title={token ? 'A claude mcp add command with the token' : NO_TOKEN}
+              disabledReason={NO_TOKEN}
+              tooltip="A claude mcp add command with the token"
               onClick={() => void copy('claude')}
             >
               {compact ? 'Claude Code config' : 'Copy config for Claude Code'}
@@ -44,7 +45,8 @@ export default function McpControls({
               icon={compact ? undefined : 'copy'}
               className="h-[34px]"
               disabled={!token}
-              title={token ? 'A ~/.codex/config.toml table with the token' : NO_TOKEN}
+              disabledReason={NO_TOKEN}
+              tooltip="A ~/.codex/config.toml table with the token"
               onClick={() => void copy('codex')}
             >
               {compact ? 'Codex config' : 'Copy config for Codex'}

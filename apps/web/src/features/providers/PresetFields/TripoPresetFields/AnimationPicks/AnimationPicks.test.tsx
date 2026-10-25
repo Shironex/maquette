@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { AnimationPicks } from '.';
+import { tooltipText } from '@/test/tooltipText';
 
 const options = ['idle', 'walk', 'run', 'jump', 'wave', 'dance'].map(id => ({
   id,
@@ -19,10 +20,12 @@ describe('the animation picks', () => {
     expect(onChange).toHaveBeenLastCalledWith([]);
   });
 
-  it('stop at five', () => {
+  it('stop at five, and say why', async () => {
     const five = ['idle', 'walk', 'run', 'jump', 'wave'];
     render(<AnimationPicks options={options} value={five} onChange={() => {}} />);
-    expect(screen.getByRole('button', { name: 'dance' })).toBeDisabled();
+    const dance = screen.getByRole('button', { name: 'dance' });
+    expect(dance).toHaveAttribute('aria-disabled', 'true');
+    expect(await tooltipText(dance)).toBe('Tripo retargets at most 5 at once');
     expect(screen.getByRole('button', { name: 'wave' })).toBeEnabled();
   });
 });

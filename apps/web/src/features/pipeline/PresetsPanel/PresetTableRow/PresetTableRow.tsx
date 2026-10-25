@@ -1,4 +1,4 @@
-import { Icon, Select, cn } from '@maquette/ui';
+import { Icon, Select, Tooltip, cn } from '@maquette/ui';
 import type { PresetRow } from '@/state/presets';
 import { CODECS, DATA_SIZES, MESHOPT, SAME, SIZES } from '../preset-options';
 
@@ -19,19 +19,30 @@ export default function PresetTableRow({ row, split, onToggle, onUpdate }: Prese
         <td className="py-1 pr-1">
           <span className="flex items-center gap-1.5">
             <span className="truncate">{row.label}</span>
-            <button
-              type="button"
-              aria-label={`Texture sizes per map for ${row.label}`}
-              aria-expanded={split}
-              disabled={locked}
-              onClick={() => onToggle(row.model)}
-              className={cn(
-                'grid size-5 flex-none cursor-pointer place-items-center rounded-control text-fg-mute hover:text-fg disabled:cursor-default disabled:opacity-45',
-                split && 'bg-raised text-fg'
-              )}
+            <Tooltip
+              label="Texture sizes per map"
+              detail={
+                locked
+                  ? 'Locked; the note below says why'
+                  : 'Gives the data maps (normal, roughness) a size of their own'
+              }
             >
-              <Icon name="sliders-horizontal" size={12} />
-            </button>
+              <button
+                type="button"
+                aria-label={`Texture sizes per map for ${row.label}`}
+                aria-expanded={split}
+                aria-disabled={locked || undefined}
+                onClick={() => {
+                  if (!locked) onToggle(row.model);
+                }}
+                className={cn(
+                  'grid size-5 flex-none cursor-pointer place-items-center rounded-control text-fg-mute hover:not-aria-disabled:text-fg active:not-aria-disabled:bg-line aria-disabled:cursor-default aria-disabled:opacity-45',
+                  split && 'bg-raised text-fg'
+                )}
+              >
+                <Icon name="sliders-horizontal" size={12} />
+              </button>
+            </Tooltip>
             {locked ? (
               <Icon name="lock-simple" size={12} className="text-clay-text" title="Locked" />
             ) : null}

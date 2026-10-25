@@ -5,6 +5,7 @@ import { useAppStore } from '@/state/use-app-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { ProjectTopBar } from '.';
+import { tooltipText } from '@/test/tooltipText';
 
 afterEach(() => {
   clearMocks();
@@ -16,8 +17,8 @@ describe('the project top bar', () => {
     await openMockWorkspace();
     render(<ProjectTopBar />);
     const run = screen.getByRole('button', { name: 'Run pipeline' });
-    expect(run).toBeDisabled();
-    expect(run).toHaveAttribute('title', 'Loading the pipeline');
+    expect(run).toHaveAttribute('aria-disabled', 'true');
+    expect(await tooltipText(run)).toBe('Loading the pipeline');
   });
 
   it('runs the pipeline and opens the Pipeline view', async () => {
@@ -26,7 +27,7 @@ describe('the project top bar', () => {
     useAppStore.setState({ view: 'board' });
     render(<ProjectTopBar />);
     const run = screen.getByRole('button', { name: 'Run pipeline' });
-    expect(run).toHaveAttribute('title', 'Runs every step, skipping cached ones');
+    expect(await tooltipText(run)).toBe('Runs every step, skipping cached ones');
     await userEvent.click(run);
     expect(useAppStore.getState().view).toBe('pipeline');
     expect(await screen.findByRole('button', { name: 'Run in progress' })).toBeVisible();

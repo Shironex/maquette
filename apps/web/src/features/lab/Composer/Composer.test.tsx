@@ -30,7 +30,7 @@ describe('the composer', () => {
     useLabStore.setState({ generate });
     render(<Composer view={{ ...view, directions: [] }} />);
     const button = screen.getByRole('button', { name: 'Generate 4 concepts' });
-    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-disabled', 'true');
     await userEvent.type(screen.getByLabelText('Direction name'), 'Harbour');
     await userEvent.type(screen.getByLabelText('Prompt'), 'A small harbour at dawn');
     expect(useLabStore.getState().draft).toMatchObject({ name: 'Harbour' });

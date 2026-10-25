@@ -74,7 +74,9 @@ export default function Composer({ view }: ComposerProps) {
           iconRight="arrow-right"
           loading={busy === 'generate'}
           disabled={!ready || busy === 'generate' || !codexReady}
-          title={ready ? undefined : 'Name the direction and write a prompt first'}
+          disabledReason={
+            ready ? 'Codex is not set up yet' : 'Name the direction and write a prompt first'
+          }
           onClick={() => void generate()}
         >
           {`Generate ${n} ${n === 1 ? 'concept' : 'concepts'}`}

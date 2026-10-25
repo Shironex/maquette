@@ -33,7 +33,7 @@ export default function StartersBanner({ view, busy }: StartersBannerProps) {
             size="sm"
             loading={working === path}
             disabled={busy || working !== null}
-            title={blocked}
+            disabledReason={blocked}
             onClick={() => void run(path, [path], true)}
           >
             Replace with the new starter
@@ -56,7 +56,7 @@ export default function StartersBanner({ view, busy }: StartersBannerProps) {
               variant="primary"
               loading={working === 'all'}
               disabled={busy || working !== null}
-              title={blocked}
+              disabledReason={blocked}
               onClick={() => void run('all', update, false)}
             >
               Update

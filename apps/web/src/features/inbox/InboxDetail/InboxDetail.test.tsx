@@ -5,6 +5,7 @@ import type { InboxItem } from '@/ipc/client';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import InboxDetail from './InboxDetail';
+import { tooltipText } from '@/test/tooltipText';
 
 vi.mock('@/features/viewer/ModelPreview', () => ({ default: () => null }));
 
@@ -49,23 +50,24 @@ describe('InboxDetail', () => {
     useInboxStore.setState({ accept });
     render(<InboxDetail item={inboxItem('sakura_large.glb')} />);
     const button = screen.getByRole('button', { name: 'Accept to Blender' });
-    expect(button).toHaveAttribute('title', 'Moves it into Moon Island');
+    expect(await tooltipText(button)).toBe('Moves it into Moon Island');
     await userEvent.click(button);
     expect(accept).toHaveBeenCalledWith('sakura_large.glb', 'moon-island');
   });
 
-  it('says a linked model adds a version to its card', () => {
+  it('says a linked model adds a version to its card', async () => {
     render(<InboxDetail item={inboxItem('flower_shrubs.glb')} />);
-    expect(screen.getByRole('button', { name: 'Accept to Blender' })).toHaveAttribute(
-      'title',
+    expect(await tooltipText(screen.getByRole('button', { name: 'Accept to Blender' }))).toBe(
       'Adds a version to Flower shrubs'
     );
   });
 
-  it('keeps a file it could not read out of the project', () => {
+  it('keeps a file it could not read out of the project', async () => {
     render(<InboxDetail item={inboxItem('far_spire.glb')} />);
     expect(screen.getByText('No preview for this file')).toBeInTheDocument();
     expect(screen.getByText('Could not read the file')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Accept to Blender' })).toBeDisabled();
+    const accept = screen.getByRole('button', { name: 'Accept to Blender' });
+    expect(accept).toHaveAttribute('aria-disabled', 'true');
+    expect(await tooltipText(accept)).toBe('This file could not be read');
   });
 });

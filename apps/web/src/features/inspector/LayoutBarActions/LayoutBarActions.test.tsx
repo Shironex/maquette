@@ -17,8 +17,11 @@ afterEach(() => {
 describe('the layout top bar actions', () => {
   it('has nothing to save or revert until the layout changes', () => {
     render(<LayoutBarActions />);
-    expect(screen.getByRole('button', { name: 'Save layout' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Revert' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save layout' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(screen.getByRole('button', { name: 'Revert' })).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('reverts an edit, and saves one', async () => {
@@ -29,6 +32,9 @@ describe('the layout top bar actions', () => {
     useLayoutStore.getState().setDesk([2, 1]);
     await userEvent.click(await screen.findByRole('button', { name: 'Save layout' }));
     await waitFor(() => expect(useLayoutStore.getState().saved.desk).toEqual([2, 1]));
-    expect(screen.getByRole('button', { name: 'Save layout' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save layout' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 });

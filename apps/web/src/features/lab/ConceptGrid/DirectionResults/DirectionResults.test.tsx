@@ -5,6 +5,7 @@ import type { LabView } from '@/ipc/client';
 import { labDirections } from '@/ipc/mock/lab-fixtures';
 import { useLabStore } from '@/state/use-lab-store';
 import { DirectionResults } from '.';
+import { tooltipText } from '@/test/tooltipText';
 
 const directions = labDirections(false);
 const porch = directions.find(d => d.id === 'moon-island-porch')!;
@@ -41,11 +42,13 @@ describe('the results of a direction', () => {
     expect(sendPicks).toHaveBeenCalledWith('prop');
   });
 
-  it('holds the send buttons until a concept is picked', () => {
+  it('holds the send buttons until a concept is picked', async () => {
     render(<DirectionResults view={view} direction={train} />);
-    expect(screen.getByRole('button', { name: 'Send picks to Refs' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Send to 3D' })).toHaveAttribute(
-      'title',
+    expect(screen.getByRole('button', { name: 'Send picks to Refs' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(await tooltipText(screen.getByRole('button', { name: 'Send to 3D' }))).toBe(
       'Pick at least one concept first'
     );
   });

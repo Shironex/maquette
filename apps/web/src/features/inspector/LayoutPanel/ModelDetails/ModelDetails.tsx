@@ -70,7 +70,7 @@ export default function ModelDetails({ model, layout }: ModelDetailsProps) {
           size="sm"
           icon="arrow-down"
           onClick={dropToDesk}
-          title="Moves the model so its lowest point rests on the desk"
+          tooltip="Moves the model so its lowest point rests on the desk"
         >
           Drop to desk
         </Button>

@@ -4,6 +4,7 @@ import type { PlainStop } from '@/state/layout';
 import { fixed } from '../fixed';
 import { Vec3Fields } from '../Vec3Fields';
 import { useStopDetails } from './StopDetails.hooks';
+import { KEYS } from '@/lib/keys';
 
 export interface StopDetailsProps {
   stop: PlainStop;
@@ -47,6 +48,7 @@ export default function StopDetails({ stop, index, count, models }: StopDetailsP
           label="Earlier in the tour"
           variant="secondary"
           disabled={index === 0}
+          disabledReason="Already the first stop"
           onClick={() => store.moveStop(stop.id, -1)}
         />
         <IconButton
@@ -54,6 +56,7 @@ export default function StopDetails({ stop, index, count, models }: StopDetailsP
           label="Later in the tour"
           variant="secondary"
           disabled={index === count - 1}
+          disabledReason="Already the last stop"
           onClick={() => store.moveStop(stop.id, 1)}
         />
       </div>
@@ -62,8 +65,9 @@ export default function StopDetails({ stop, index, count, models }: StopDetailsP
           size="sm"
           icon="video-camera"
           disabled={!store.pose}
+          disabledReason="The view is still loading"
           onClick={() => store.setStopFromView(stop.id)}
-          title="Puts the stop where the view's camera stands now"
+          tooltip="Puts the stop where the view's camera stands now"
         >
           Set from view
         </Button>
@@ -73,6 +77,8 @@ export default function StopDetails({ stop, index, count, models }: StopDetailsP
           aria-pressed={looking}
           className={cn(looking && 'border-clay-line text-clay-text')}
           onClick={() => store.lookThrough(looking ? null : stop.id)}
+          tooltip="Shows what a visitor sees from this stop. Orbiting or Escape ends it."
+          shortcut={looking ? KEYS.escape : undefined}
         >
           {looking ? 'Stop looking' : 'Look through'}
         </Button>

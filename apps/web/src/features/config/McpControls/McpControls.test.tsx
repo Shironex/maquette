@@ -36,7 +36,10 @@ describe('the MCP controls', () => {
   it('wait for the token before copying', async () => {
     await withToken(null);
     render(<McpControls config={defaultConfig()} onChange={() => {}} density="compact" />);
-    expect(screen.getByRole('button', { name: 'Codex config' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Codex config' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 
   it('hide the copy buttons and show the port error', async () => {

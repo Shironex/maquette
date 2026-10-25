@@ -53,8 +53,9 @@ export default function PipelineGraph({ view, busy, onRunFrom }: PipelineGraphPr
               size="sm"
               variant="ghost"
               label={`Run from ${step.name}`}
-              title="Run from here"
+              hint="Runs this step and every step after it"
               disabled={busy}
+              disabledReason="A run is in progress"
               onClick={() => onRunFrom(step.id)}
             />
           }

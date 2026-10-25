@@ -36,7 +36,10 @@ describe('the stop details', () => {
   it('names the first stop as the opening view and counts what it sees', () => {
     details(0);
     expect(screen.getByLabelText('Name · the view the page opens on')).toHaveValue('Porch');
-    expect(screen.getByRole('button', { name: 'Earlier in the tour' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Earlier in the tour' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
     expect(screen.getByRole('switch', { name: /Count what the camera sees/ })).toBeChecked();
     expect(screen.queryByRole('checkbox')).toBeNull();
   });
@@ -65,6 +68,9 @@ describe('the stop details', () => {
 
   it('cannot take the view until the camera has a pose', () => {
     details(1);
-    expect(screen.getByRole('button', { name: 'Set from view' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Set from view' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 });

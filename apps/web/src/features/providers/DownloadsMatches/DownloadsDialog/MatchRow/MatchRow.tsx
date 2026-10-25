@@ -63,6 +63,7 @@ export default function MatchRow({ file, waiting, choice, used, taken, now }: Ma
             size="sm"
             variant={choice ? 'primary' : 'secondary'}
             disabled={!choice || busy}
+            disabledReason="Pick the send it belongs to"
             loading={busy}
             onClick={() => void use(file.path)}
           >

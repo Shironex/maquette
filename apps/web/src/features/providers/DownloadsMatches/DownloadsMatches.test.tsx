@@ -44,7 +44,10 @@ describe('Check Downloads', () => {
     // Nothing is taken by looking.
     expect(state('brush-cup-1')).toBe('waiting');
     const stranger = rows[2]!;
-    expect(within(stranger).getByRole('button', { name: 'Use' })).toBeDisabled();
+    expect(within(stranger).getByRole('button', { name: 'Use' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
 
     const first = rows[0]!;
     const match = within(first).getByRole('combobox');

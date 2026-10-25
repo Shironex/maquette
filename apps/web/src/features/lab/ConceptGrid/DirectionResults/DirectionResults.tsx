@@ -70,20 +70,20 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
             variant="secondary"
             label="Make a contact sheet of every image"
             disabled={direction.images.length === 0 || busy === 'sheet'}
+            disabledReason={busy === 'sheet' ? 'Making the sheet' : 'No images yet'}
             onClick={() => void contactSheet()}
           />
           <div className="relative flex gap-2">
             <Button
               icon="cube"
               disabled={picked === 0 || busy === 'send'}
-              title={
-                picked === 0
-                  ? 'Pick at least one concept first'
-                  : objects
-                    ? 'Makes one asset per pick, then sends them all in one batch'
-                    : unsent
-                      ? 'Sends the picks to Refs, then opens Send to 3D'
-                      : 'Opens Send to 3D with the picks'
+              disabledReason={picked === 0 ? 'Pick at least one concept first' : undefined}
+              tooltip={
+                objects
+                  ? 'Makes one asset per pick, then sends them all in one batch'
+                  : unsent
+                    ? 'Sends the picks to Refs, then opens Send to 3D'
+                    : 'Opens Send to 3D with the picks'
               }
               aria-haspopup={known || objects ? undefined : 'menu'}
               onClick={to3d}
@@ -95,14 +95,13 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
               iconRight="arrow-right"
               loading={busy === 'send'}
               disabled={picked === 0 || busy === 'send'}
-              title={
-                picked === 0
-                  ? 'Pick at least one concept first'
-                  : objects
-                    ? 'Copies each pick into refs/ as its own asset, named after the object'
-                    : known
-                      ? `Copies the picks into refs/ and moves ${known.name} to Refs`
-                      : 'Copies the picks into refs/ and adds the asset at Refs'
+              disabledReason={picked === 0 ? 'Pick at least one concept first' : undefined}
+              tooltip={
+                objects
+                  ? 'Copies each pick into refs/ as its own asset, named after the object'
+                  : known
+                    ? `Copies the picks into refs/ and moves ${known.name} to Refs`
+                    : 'Copies the picks into refs/ and adds the asset at Refs'
               }
               aria-haspopup={known || objects ? undefined : 'menu'}
               onClick={send}

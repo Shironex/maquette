@@ -20,7 +20,8 @@ export default function ProjectTopBar() {
             <Button
               icon="play"
               disabled={!canRun}
-              title={loaded ? 'Runs every step, skipping cached ones' : 'Loading the pipeline'}
+              disabledReason={loaded ? undefined : 'Loading the pipeline'}
+              tooltip="Runs every step, skipping cached ones"
               onClick={run}
             >
               Run pipeline

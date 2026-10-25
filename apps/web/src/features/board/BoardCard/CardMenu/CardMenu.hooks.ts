@@ -20,6 +20,7 @@ export function useCardMenu({ asset, waiting, refPicture, board }: CardMenuProps
     label: p.name,
     icon: 'folder-simple' as const,
     disabled: actions.copying,
+    hint: actions.copying ? 'Copying' : undefined,
     onSelect: () => void actions.copyTo(asset, p),
   }));
   const items: MenuItem[] = [
@@ -71,6 +72,7 @@ export function useCardMenu({ asset, waiting, refPicture, board }: CardMenuProps
       id: 'copy',
       label: 'Copy to project...',
       icon: 'copy',
+      hint: 'Copies the card with its refs and versions; it stays here too',
       keepOpen: true,
       onSelect: () => actions.setCopyFor(asset.id),
     },
@@ -85,6 +87,7 @@ export function useCardMenu({ asset, waiting, refPicture, board }: CardMenuProps
       label: 'Open in Blender',
       icon: 'arrow-square-out',
       disabled: asset.versions.length === 0,
+      hint: asset.versions.length === 0 ? 'No model yet' : undefined,
       onSelect: () => void actions.openInBlender(asset),
     },
   ];

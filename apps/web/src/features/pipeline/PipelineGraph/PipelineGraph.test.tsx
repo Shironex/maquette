@@ -23,6 +23,9 @@ describe('the pipeline graph', () => {
 
   it('holds the run buttons while a run is busy', () => {
     render(<PipelineGraph view={view} busy onRunFrom={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Run from Build scene' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Run from Build scene' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 });
