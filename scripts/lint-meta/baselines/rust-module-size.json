@@ -21,6 +21,5 @@
   "crates/maquette-core/src/providers/handback.rs": 542,
   "crates/maquette-core/src/providers/jobs.rs": 1880,
   "crates/maquette-core/src/thumbs/mod.rs": 580,
-  "crates/maquette-core/src/toolchain/mod.rs": 742,
-  "crates/maquette-core/src/workspace.rs": 633
+  "crates/maquette-core/src/toolchain/mod.rs": 742
 }
