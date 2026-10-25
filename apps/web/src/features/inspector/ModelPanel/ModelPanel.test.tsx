@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { commands, type InspectModel, type InspectView } from '@/ipc/client';
@@ -54,7 +54,8 @@ describe('the model panel', () => {
     const free = view.models.find(m => !m.preset.lock && !m.error)!;
     const props = panel({ model: free });
     const other = free.preset.codec === 'etc1s' ? 'UASTC' : 'KTX2 ETC1S';
-    await userEvent.click(screen.getByRole('button', { name: other }));
+    const codec = screen.getByRole('group', { name: 'Texture codec' });
+    await userEvent.click(within(codec).getByRole('button', { name: other }));
     expect(props.onPreset).toHaveBeenCalledWith(
       expect.objectContaining({
         model: free.model,
@@ -62,6 +63,26 @@ describe('the model panel', () => {
         lock: null,
       })
     );
+  });
+
+  it('saves a map group codec into the row, keeping the others', async () => {
+    const sakura = view.models.find(m => m.model === 'sakura')!;
+    const props = panel({ model: sakura });
+    const normal = screen.getByRole('group', { name: 'Normal map codec' });
+    await userEvent.click(within(normal).getByRole('button', { name: 'ETC1S' }));
+    expect(props.onPreset).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'sakura',
+        codec: sakura.preset.codec,
+        mapCodecs: { color: null, normal: 'etc1s', other: null },
+      })
+    );
+  });
+
+  it('shows the material tweaks for the model', () => {
+    panel();
+    expect(screen.getByRole('heading', { name: 'Material' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Applies to' })).toBeInTheDocument();
   });
 
   it('picks a budget row and exports the model', async () => {

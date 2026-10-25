@@ -29,7 +29,10 @@ import {
   textureLine,
   textureTone,
 } from '@/state/inspector';
+import { withGroupCodec } from '@/state/materials';
 import { Hairline } from '../Hairline';
+import { MapCodecRows } from '../MapCodecRows';
+import { MaterialPanel } from '../MaterialPanel';
 import { SectionTitle } from '../SectionTitle';
 
 const CODECS: SegmentedOption<TextureCodec>[] = [
@@ -74,7 +77,7 @@ export default function ModelPanel({
   const totalMb = num(view.scene.bytes) / 1e6;
   const sceneMb = num(view.limits.sceneMb);
   const overTotal = totalMb > sceneMb;
-  const save = (patch: Partial<Pick<CompressPreset, 'codec' | 'meshopt'>>) => {
+  const save = (patch: Partial<Pick<CompressPreset, 'codec' | 'mapCodecs' | 'meshopt'>>) => {
     if (!model || !onPreset) return;
     const p = model.preset;
     onPreset({
@@ -83,6 +86,7 @@ export default function ModelPanel({
       textureSize: p.textureSize,
       dataTextureSize: p.dataTextureSize,
       codec: patch.codec ?? p.codec,
+      mapCodecs: patch.mapCodecs ?? p.mapCodecs,
       meshopt: patch.meshopt ?? p.meshopt,
       lock: null,
     });
@@ -282,10 +286,22 @@ export default function ModelPanel({
                 />
               </div>
             </div>
+            <MapCodecRows
+              model={model}
+              onCodec={
+                locked || !onPreset
+                  ? null
+                  : (group, codec) =>
+                      save({ mapCodecs: withGroupCodec(model.preset.mapCodecs, group, codec) })
+              }
+            />
             <p className="rounded-[8px] bg-raised px-2.5 py-2 text-meta text-fg-mute">
               {presetNote(model)}
             </p>
           </div>
+
+          <Hairline />
+          <MaterialPanel project={view.project} model={model} />
 
           <Hairline />
           <div className="flex flex-col gap-2">
