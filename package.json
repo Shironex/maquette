@@ -9,8 +9,10 @@
   "scripts": {
     "dev": "pnpm --filter @maquette/desktop dev",
     "dev:web": "pnpm --filter @maquette/web dev",
+    "dev:site": "pnpm --filter @maquette/site dev",
     "build": "pnpm --filter @maquette/desktop build",
     "build:web": "pnpm --filter @maquette/web build",
+    "build:site": "pnpm --filter @maquette/site build",
     "tauri": "pnpm --filter @maquette/desktop exec tauri",
     "lint": "eslint .",
     "typecheck": "pnpm -r --parallel typecheck",
@@ -21,7 +23,7 @@
     "rust:fmt": "cargo fmt --all --check",
     "rust:lint": "cargo clippy --workspace --all-targets -- -D warnings",
     "rust:test": "cargo test --workspace",
-    "gate": "pnpm lint && pnpm typecheck && pnpm test && pnpm format:check && pnpm rust:fmt && pnpm rust:lint && pnpm rust:test",
+    "gate": "pnpm lint && pnpm typecheck && pnpm test && pnpm build:site && pnpm format:check && pnpm rust:fmt && pnpm rust:lint && pnpm rust:test",
     "visual": "node scripts/visual-check.mjs",
     "prepare": "husky"
   },
