@@ -38,6 +38,7 @@ pub fn run() {
                 maquette_core::pipeline::runner::PipelineRunner::new(sink),
             ));
             app.manage(commands::thumbs::Thumbs::new(app.handle().clone()));
+            app.manage(commands::site::Preview::default());
             app.manage(commands::lab::Lab::new(app.handle().clone()));
             app.manage(commands::providers::Studio::new(app.handle().clone()));
             let host = Arc::new(mcp::host::AppHost(app.handle().clone()));
@@ -50,6 +51,9 @@ pub fn run() {
             if let tauri::RunEvent::Exit = event {
                 if let Some(agents) = handle.try_state::<mcp::Agents>() {
                     agents.stop();
+                }
+                if let Some(preview) = handle.try_state::<commands::site::Preview>() {
+                    preview.0.stop();
                 }
                 // Running sends stop polling; they resume on the next start.
                 if let Some(studio) = handle.try_state::<commands::providers::Studio>() {

@@ -9,7 +9,7 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 
 use crate::commands::{
     agents, app, assets, credits, dialogs, inbox, inspect, lab, layout, materials, pipeline,
-    prepare, project, providers, quit, thumbs, toolchain, workspace,
+    prepare, project, providers, quit, site, thumbs, toolchain, workspace,
 };
 use crate::events::{
     ConceptUpdate, InboxChanged, LayoutChanged, MaterialsChanged, McpUpdate, PipelineChanged,
@@ -69,6 +69,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             pipeline::pipeline_log,
             pipeline::pipeline_save_presets,
             pipeline::pipeline_update_starters,
+            site::site_preview,
             inbox::inbox_list,
             inbox::inbox_reprocess,
             inbox::inbox_set_kind,

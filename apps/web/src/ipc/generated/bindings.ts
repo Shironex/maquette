@@ -94,6 +94,11 @@ export const commands = {
 	/**  Saves the preset table. Locked rows must come back unchanged. */
 	pipelineSavePresets: (project: string, presets: CompressPreset[]) => __TAURI_INVOKE<PipelineView>("pipeline_save_presets", { project, presets }),
 	pipelineUpdateStarters: (project: string, scripts: string[], replace: boolean) => __TAURI_INVOKE<PipelineView>("pipeline_update_starters", { project, scripts, replace }),
+	/**
+	 *  Starts (or reuses) the site's preview server and opens it in the
+	 *  browser. Returns the address it opened.
+	 */
+	sitePreview: (project: string) => __TAURI_INVOKE<string>("site_preview", { project }),
 	/**  Analysis can take a moment on big models, so it runs off the main thread. */
 	inboxList: () => __TAURI_INVOKE<InboxSnapshot>("inbox_list"),
 	inboxReprocess: (id: string) => __TAURI_INVOKE<InboxItem>("inbox_reprocess", { id }),
@@ -1987,7 +1992,8 @@ export type StepDef = {
 	script: string | null,
 	/**
 	 *  One argument per entry, never joined into a shell string. Supports
-	 *  `{script}`, `{root}`, `{project}`, `{workspace}` and `{siteRepo}`.
+	 *  `{script}`, `{root}`, `{project}`, `{workspace}`, `{siteRepo}` and
+	 *  `{shipIndex}`.
 	 */
 	args: string[],
 	/**

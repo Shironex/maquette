@@ -1,7 +1,8 @@
-//! Opens things outside the app: a provider's web studio in the system
-//! browser, and a folder or file in Finder or Explorer. Only addresses the
-//! app knows (the provider sites) and paths it resolved itself get here;
-//! nothing typed in the web view is opened as is.
+//! Opens things outside the app: a provider's web studio or the site's
+//! local preview in the system browser, and a folder or file in Finder or
+//! Explorer. Only addresses the app knows (the provider sites, the preview
+//! server's local address) and paths it resolved itself get here; nothing
+//! typed in the web view is opened as is.
 //!
 //! The program is spawned with an args array, never through a shell.
 
@@ -16,6 +17,23 @@ pub fn open_url(url: &str) -> std::io::Result<()> {
             "only https addresses open in the browser",
         ));
     }
+    browser(url)
+}
+
+/// Opens an address on this machine (`http://localhost:15292/`) in the
+/// default browser: the site's preview server.
+pub fn open_local_url(url: &str) -> std::io::Result<()> {
+    if !maquette_core::site::preview::is_local_url(url) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "only addresses on this machine open as a preview",
+        ));
+    }
+    browser(url)
+}
+
+/// Hands an address the callers checked to the default browser.
+fn browser(url: &str) -> std::io::Result<()> {
     let mut command = if cfg!(target_os = "macos") {
         Command::new("open")
     } else if cfg!(windows) {
@@ -75,6 +93,18 @@ mod tests {
             "javascript:x",
         ] {
             assert!(open_url(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn only_addresses_on_this_machine_open_as_a_preview() {
+        for bad in [
+            "https://example.com/",
+            "http://localhost.example.com/",
+            "file:///etc/passwd",
+            "http://localhost:1/ x",
+        ] {
+            assert!(open_local_url(bad).is_err(), "{bad}");
         }
     }
 }
