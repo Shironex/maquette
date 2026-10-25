@@ -4,6 +4,7 @@ import type {
   InboxItem,
   ModelPrep,
   ProjectManifest,
+  ScenePrep,
   Stage,
 } from '../client';
 import { clock } from '@/lib/clock';
@@ -22,6 +23,8 @@ interface InboxContext {
   prepare: {
     check: (entry: ModelPrep, what: string) => void;
     saveEntry: (project: string, asset: string, entry: ModelPrep) => void;
+    /** The project's saved `prepare.json`. */
+    entries: (project: string) => ScenePrep;
     /** Remembers what the accepted file measures, for the prepare views. */
     remember: (file: string, item: InboxItem) => void;
   };
@@ -119,7 +122,11 @@ export function createInboxHandlers({
       const next = saveProject({ ...p, assets: assets.map(a => (a.id === assetId ? updated : a)) });
       inbox.set(inbox.get().filter(i => i.id !== item.id));
       prepare.remember(version.file, item);
-      if (req.prep) prepare.saveEntry(p.id, assetId, req.prep);
+      // Like the core: an Inbox model skips the bake unless someone chose.
+      const saved = prepare.entries(p.id).models[assetId];
+      const entry = req.prep ?? saved ?? { size: null, fixups: [], skipBake: null };
+      const skipBake = entry.skipBake ?? saved?.skipBake ?? true;
+      prepare.saveEntry(p.id, assetId, { ...entry, skipBake });
       emit?.({ name: 'inbox' });
       return {
         asset: updated,

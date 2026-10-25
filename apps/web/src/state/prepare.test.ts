@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { FixupReport } from '@/ipc/client';
 import {
   EMPTY_PREP,
+  hasNoPlan,
+  isEmptyPrep,
+  skipsBake,
+  withSkipBake,
   defaultFixup,
   describeFixup,
   describeSize,
@@ -65,5 +69,20 @@ describe('editing the fix-ups', () => {
       changed: true,
     });
     expect(rows.find(r => r.label === 'Triangles')?.changed).toBe(false);
+  });
+});
+
+describe('skipping the bake', () => {
+  it('bakes unless someone chose, except an Inbox model', () => {
+    expect(skipsBake(EMPTY_PREP)).toBe(false);
+    expect(skipsBake(EMPTY_PREP, true)).toBe(true);
+    expect(skipsBake(withSkipBake(EMPTY_PREP, false), true)).toBe(false);
+  });
+
+  it('keeps an entry that only skips the bake, though it has no size or fix-ups', () => {
+    const skip = withSkipBake(EMPTY_PREP, true);
+    expect(hasNoPlan(skip)).toBe(true);
+    expect(isEmptyPrep(skip)).toBe(false);
+    expect(isEmptyPrep(EMPTY_PREP)).toBe(true);
   });
 });

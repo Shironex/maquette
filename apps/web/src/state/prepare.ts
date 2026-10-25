@@ -19,7 +19,7 @@ import type {
 import { formatBytes, formatCount } from '@/lib/format';
 import { extentOf, formatDims, type Extent } from '@/lib/real-size';
 
-export const EMPTY_PREP: ModelPrep = { size: null, fixups: [] };
+export const EMPTY_PREP: ModelPrep = { size: null, fixups: [], skipBake: null };
 
 /** The kinds in the order they apply. */
 export const FIXUP_ORDER: readonly FixupKind[] = [
@@ -102,7 +102,22 @@ export function describeFixup(f: Fixup): string {
 }
 
 export const isEmptyPrep = (p: ModelPrep | null | undefined): boolean =>
-  !p || (p.size === null && p.fixups.length === 0);
+  !p || (p.size === null && p.fixups.length === 0 && (p.skipBake ?? null) === null);
+
+/** True when `prep` has nothing a preview runs: no size and no fix-ups. */
+export const hasNoPlan = (p: ModelPrep): boolean => p.size === null && p.fixups.length === 0;
+
+/**
+ * Whether the asset skips the bake. Null means nobody chose: it bakes,
+ * except a model the Inbox accepts, which skips it (`inboxDefault`).
+ */
+export const skipsBake = (p: ModelPrep, inboxDefault = false): boolean =>
+  p.skipBake ?? inboxDefault;
+
+export const withSkipBake = (prep: ModelPrep, skip: boolean): ModelPrep => ({
+  ...prep,
+  skipBake: skip,
+});
 
 const rank = (f: Fixup) => FIXUP_ORDER.indexOf(f.op);
 

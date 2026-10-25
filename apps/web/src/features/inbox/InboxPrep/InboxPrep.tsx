@@ -22,6 +22,7 @@ export default function InboxPrep({ item, project }: InboxPrepProps) {
         preview={prep.preview}
         onPreview={prep.onPreview}
         previewBlocked={item.state === 'failed' ? 'This file could not be read' : null}
+        skipBakeDefault
       />
       <p className="text-meta text-fg-mute">
         Saved with the new version on Accept. Every later version gets them too.

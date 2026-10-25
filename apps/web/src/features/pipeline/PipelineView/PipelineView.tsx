@@ -4,6 +4,7 @@ import { stageViews } from '@/state/pipeline';
 import { FirstViewBar } from '@/features/common/FirstViewBar';
 import { SceneBudgetMeter } from '@/features/common/SceneBudgetMeter';
 import { PipelineGraph } from '../PipelineGraph';
+import { BakePanel } from '../BakePanel';
 import { PresetsPanel } from '../PresetsPanel';
 import { PreviewSiteButton } from '../PreviewSiteButton';
 import { RunLog } from '../RunLog';
@@ -22,6 +23,7 @@ export default function PipelineView() {
     run,
     cancel,
     savePresets,
+    saveBake,
     load,
     force,
     setForce,
@@ -106,7 +108,7 @@ export default function PipelineView() {
           </>
         }
       />
-      <main className="flex min-h-0 flex-1 flex-col gap-3.5 px-6 pt-[18px] pb-[18px]">
+      <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-6 pt-[18px] pb-[18px]">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <h1 className="text-screen-title">Pipeline runner</h1>
@@ -145,11 +147,18 @@ export default function PipelineView() {
 
         <StartersBanner view={view} busy={active || starting} />
 
-        <PipelineGraph
-          view={view}
-          busy={active || starting}
-          onRunFrom={step => void run({ from: step, force })}
-        />
+        {/* The steps and the bake settings keep their height; the log row gives way, then the view scrolls. */}
+        <div className="flex-none">
+          <PipelineGraph
+            view={view}
+            busy={active || starting}
+            onRunFrom={step => void run({ from: step, force })}
+          />
+        </div>
+
+        {view.bake ? (
+          <BakePanel bake={view.bake} busy={active || starting} onSave={saveBake} />
+        ) : null}
 
         {view.artifacts.length > 0 ? (
           <section aria-labelledby="artifacts-title" className="flex flex-col gap-2">

@@ -31,6 +31,8 @@ import {
 import { FIXUP_LABEL, FIXUP_ORDER } from '@/state/prepare';
 import { fail, sleep, type Args } from './backend-options';
 
+export { createFakeBake } from './bake';
+
 type Bounds = { min: [number, number, number]; max: [number, number, number] };
 
 /** A few of the core's everyday sizes, for the suggestion. */
@@ -87,6 +89,7 @@ export function checkPrep(entry: ModelPrep, what: string): void {
 const tidy = (entry: ModelPrep): ModelPrep => ({
   size: entry.size,
   fixups: [...entry.fixups].sort((a, b) => FIXUP_ORDER.indexOf(a.op) - FIXUP_ORDER.indexOf(b.op)),
+  skipBake: entry.skipBake ?? null,
 });
 
 /** One fix-up's effect on the numbers, with the script's note. */
@@ -196,7 +199,7 @@ export function createPrepareHandlers(deps: PrepareDeps) {
 
   function view(projectId: string, assetId: string): AssetPrep {
     const { asset, latest } = latestOf(projectId, assetId);
-    const entry = get(projectId).models[asset.id] ?? { size: null, fixups: [] };
+    const entry = get(projectId).models[asset.id] ?? { size: null, fixups: [], skipBake: null };
     const n = numbers(projectId, asset.id);
     const measured = n?.min && n.max ? extentOf(n.min, n.max) : null;
     const report =
@@ -226,7 +229,8 @@ export function createPrepareHandlers(deps: PrepareDeps) {
   function saveEntry(projectId: string, asset: string, entry: ModelPrep): void {
     checkPrep(entry, asset);
     const models = { ...get(projectId).models };
-    if (entry.size || entry.fixups.length) models[asset] = tidy(entry);
+    if (entry.size || entry.fixups.length || (entry.skipBake ?? null) !== null)
+      models[asset] = tidy(entry);
     else delete models[asset];
     stored.set(projectId, { version: 1, models });
   }

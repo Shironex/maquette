@@ -112,6 +112,8 @@ export const commands = {
 	pipelineLog: (project: string, number: number) => __TAURI_INVOKE<LogEntry[]>("pipeline_log", { project, number }),
 	/**  Saves the preset table. Locked rows must come back unchanged. */
 	pipelineSavePresets: (project: string, presets: CompressPreset[]) => __TAURI_INVOKE<PipelineView>("pipeline_save_presets", { project, presets }),
+	/**  Changes the given bake settings; the next run bakes with them. */
+	pipelineSaveBake: (project: string, patch: BakePatch) => __TAURI_INVOKE<PipelineView>("pipeline_save_bake", { project, patch }),
 	pipelineUpdateStarters: (project: string, scripts: string[], replace: boolean) => __TAURI_INVOKE<PipelineView>("pipeline_update_starters", { project, scripts, replace }),
 	/**
 	 *  Starts (or reuses) the site's preview server and opens it in the
@@ -271,7 +273,9 @@ export type AcceptRequest = {
 	name: string | null,
 	/**
 	 *  The real size and fix-ups set in the Inbox: they replace the asset's
-	 *  in `prepare.json`. Left out, the asset keeps what it has.
+	 *  in `prepare.json`. Left out, the asset keeps what it has. Either
+	 *  way an asset nobody chose a bake for skips it from now on
+	 *  ([`prepare::SKIP_BAKE_FROM_INBOX`]): Inbox models are scans.
 	 */
 	prep?: ModelPrep | null,
 };
@@ -449,6 +453,33 @@ export type AssetVersion = {
 	file: string,
 	createdAt: string,
 	stats: ModelStats | null,
+};
+
+/**  A change: the fields left out keep what the step has. */
+export type BakePatch = {
+	size: number | null,
+	samples: number | null,
+	denoise: boolean | null,
+};
+
+export type BakeSettings = {
+	/**  The lightmap edge in pixels, one of [`SIZES`]. */
+	size: number,
+	/**  Cycles samples per lightmap. */
+	samples: number,
+	/**  Runs OpenImageDenoise over each lightmap. */
+	denoise: boolean,
+};
+
+/**  A project's bake settings as the app and agents read them. */
+export type BakeView = {
+	settings: BakeSettings,
+	/**  Whether the step's script takes the denoise flag. */
+	canDenoise: boolean,
+	/**  How the project's `tools/bake_light.py` compares with the shipped one. */
+	script: StarterState,
+	/**  The assets set to skip the bake, by id. */
+	skipped: string[],
 };
 
 /**  One service's balance, or why there is none. */
@@ -1542,6 +1573,11 @@ export type ModelPrep = {
 	size: RealSize | null,
 	/**  In the order they apply. */
 	fixups: Fixup[],
+	/**
+	 *  True leaves the asset out of the bake; false or null bakes it. Null
+	 *  means nobody chose, so an Inbox accept may fill in its default.
+	 */
+	skipBake?: boolean | null,
 };
 
 /**  The compression a model gets: its preset row, or the workspace defaults. */
@@ -1758,6 +1794,11 @@ export type PipelineView = {
 	starters: StarterStatus[],
 	/**  What the first camera stop loads, against its budget. */
 	firstView: FirstView,
+	/**
+	 *  The Bake light step's size, samples and denoiser, when the pipeline
+	 *  runs the starter bake.
+	 */
+	bake: BakeView | null,
 };
 
 export type Placement = {

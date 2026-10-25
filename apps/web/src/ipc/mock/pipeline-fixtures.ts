@@ -14,6 +14,7 @@ import type {
   StepDef,
   StepRecord,
 } from '../client';
+import { BAKE_DEFAULT } from './bake';
 
 const HEADLESS = ['-b', '--factory-startup', '--python-exit-code', '1'];
 
@@ -68,7 +69,7 @@ export function dioramaPipeline(): PipelineDef {
         'Bake light',
         'tools/bake_light.py',
         'blender/scene_built.blend',
-        ['--out-dir', 'blender/bake'],
+        ['--out-dir', 'blender/bake', '--size', '1024', '--samples', '32', '--denoise'],
         ['blender/scene_built.blend'],
         ['blender/bake/*.png', 'blender/scene_baked.blend'],
         ['build']
@@ -366,6 +367,7 @@ export function pipelineView(
     defaults: { textureSize: 2048, codec: 'etc1s', meshopt: 'high' },
     starters: currentStarters(),
     firstView: { stop: null, custom: false, models: [], bytes: 0, targetMb: 3 },
+    bake: { settings: BAKE_DEFAULT, canDenoise: true, script: 'current', skipped: [] },
   };
 }
 

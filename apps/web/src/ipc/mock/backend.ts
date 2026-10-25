@@ -53,7 +53,7 @@ import {
 import { createFakeAgents } from './agents';
 import { createFakeLab, refMayReplace } from './lab';
 import { createFakeLayout, layoutBounds } from './layout';
-import { createPrepareHandlers } from './prepare';
+import { createFakeBake, createPrepareHandlers } from './prepare';
 import { createMaterialHandlers } from './materials';
 import { createFakeProviders } from './providers';
 import { createCreditHandlers } from './create-credit-handlers';
@@ -121,6 +121,7 @@ export function createBackend({
     bounds: layoutBounds,
     probeDelay,
   });
+  const bake = createFakeBake(prepare.entries, id => startersOf(id));
   const layout = createFakeLayout({
     project: id => project(id),
     projectDir: id => `${root ?? expand(DEFAULT_ROOT)}/projects/${id}`,
@@ -162,6 +163,7 @@ export function createBackend({
       active: activeRun(p.id),
       starters: startersOf(p.id),
       firstView: layout.firstView(p.id),
+      bake: bake.view(p.id),
     };
   }
 
@@ -369,6 +371,7 @@ export function createBackend({
       view,
       startersOf,
       activeRun,
+      bake,
     }),
     ...createMaterialHandlers(project),
     ...createInboxHandlers({

@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import {
   commands,
   errorMessage,
+  type BakePatch,
   type CompressPreset,
   type PipelineEvent,
   type PipelineView,
@@ -23,6 +24,8 @@ interface PipelineStore {
   run: (options?: { from?: string | null; force?: boolean }) => Promise<void>;
   cancel: () => Promise<void>;
   savePresets: (presets: CompressPreset[]) => Promise<boolean>;
+  /** Saves the Bake light step's size, samples or denoiser. */
+  saveBake: (patch: BakePatch) => Promise<boolean>;
   /**
    * Preset rows edited in the panel and not applied yet, by project. They
    * outlive the panel, so a run's events or another tab do not drop them.
@@ -114,6 +117,31 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
       useAppStore.getState().notify({
         status: 'failed',
         title: 'Presets not saved',
+        detail: errorMessage(error),
+      });
+      return false;
+    }
+  },
+
+  saveBake: async patch => {
+    const view = get().view;
+    if (!view) return false;
+    try {
+      const next = await commands.pipelineSaveBake(view.project, patch);
+      if (get().view?.project === view.project)
+        set({
+          view: { ...next, runs: get().view?.runs ?? next.runs, log: get().view?.log ?? next.log },
+        });
+      useAppStore.getState().notify({
+        status: 'done',
+        title: 'Bake settings saved',
+        detail: 'The next run bakes the light again with them.',
+      });
+      return true;
+    } catch (error) {
+      useAppStore.getState().notify({
+        status: 'failed',
+        title: 'Bake settings not saved',
         detail: errorMessage(error),
       });
       return false;

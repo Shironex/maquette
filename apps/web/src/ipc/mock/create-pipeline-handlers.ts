@@ -1,4 +1,5 @@
 import type {
+  BakePatch,
   CompressPreset,
   PipelineView,
   ProjectManifest,
@@ -11,6 +12,7 @@ import { inspectView } from './inspect-fixtures';
 import { expand, fail, type Args } from './backend-options';
 import type { createFakeLayout } from './layout';
 import type { createFakeRunner, RunStore } from './runner';
+import type { createFakeBake } from './bake';
 
 interface PipelineContext {
   project: (id: string) => ProjectManifest;
@@ -24,6 +26,7 @@ interface PipelineContext {
   view: (id: string) => PipelineView;
   startersOf: (id: string) => StarterStatus[];
   activeRun: (id: string) => string | null;
+  bake: ReturnType<typeof createFakeBake>;
 }
 
 /** The layout, pipeline and inspect commands. */
@@ -39,6 +42,7 @@ export function createPipelineHandlers({
   view,
   startersOf,
   activeRun,
+  bake,
 }: PipelineContext): Record<string, (args: Args) => unknown> {
   return {
     layout_get: ({ project: id }) => layout.view(String(id)),
@@ -53,6 +57,10 @@ export function createPipelineHandlers({
     },
     pipeline_cancel: ({ runId }) => runner.cancel(String(runId)),
     pipeline_log: ({ number }) => store.logs.get(Number(number)) ?? [],
+    pipeline_save_bake: ({ project: id, patch }) => {
+      bake.save(String(id), patch as BakePatch);
+      return view(String(id));
+    },
     pipeline_update_starters: ({ project: id, scripts, replace }) => {
       const pid = String(id);
       if (activeRun(pid))

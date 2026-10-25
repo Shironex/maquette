@@ -75,4 +75,12 @@ describe('PrepEditor', () => {
     });
     expect(screen.getByRole('alert')).toHaveTextContent('Blender is not installed.');
   });
+
+  it('switches the bake off and on, starting from the Inbox default', async () => {
+    const { onChange } = setup({ skipBakeDefault: true });
+    const toggle = screen.getByRole('switch', { name: /Skip the bake/ });
+    expect(toggle).toBeChecked();
+    await userEvent.click(toggle);
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ skipBake: false }));
+  });
 });

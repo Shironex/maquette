@@ -5,10 +5,12 @@ import {
   FIXUP_ORDER,
   defaultFixup,
   describeSize,
-  isEmptyPrep,
+  hasNoPlan,
+  skipsBake,
   startSize,
   withFixup,
   withSize,
+  withSkipBake,
   withoutFixup,
 } from '@/state/prepare';
 import type { PrepEditorProps } from './PrepEditor.types';
@@ -19,6 +21,7 @@ export function usePrepEditor({
   onChange,
   suggestion,
   defaults,
+  skipBakeDefault = false,
   ...props
 }: PrepEditorProps) {
   const measured = props.measured ? vec3(props.measured) : null;
@@ -43,7 +46,9 @@ export function usePrepEditor({
     flat: Boolean(value.size && base && scale === null),
     suggested,
     missing: FIXUP_ORDER.filter(kind => !value.fixups.some(f => f.op === kind)),
-    empty: isEmptyPrep(value),
+    empty: hasNoPlan(value),
+    skipBake: skipsBake(value, skipBakeDefault),
+    setSkipBake: (skip: boolean) => onChange(withSkipBake(value, skip)),
     startSize: () => onChange(withSize(value, startSize(measured))),
     clearSize: () => onChange(withSize(value, null)),
     add: (kind: FixupKind) => onChange(withFixup(value, defaultFixup(kind, defaults))),

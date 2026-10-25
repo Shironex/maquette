@@ -6,7 +6,8 @@ import { usePipelineStore } from '@/state/use-pipeline-store';
 export function usePipelineView() {
   const project = useAppStore(s => s.workspace?.project ?? null);
   const budget = useAppStore(s => s.workspace?.config.budgets.sceneMb ?? 3);
-  const { view, loading, error, starting, run, cancel, savePresets, load } = usePipelineStore();
+  const { view, loading, error, starting, run, cancel, savePresets, saveBake, load } =
+    usePipelineStore();
   const [force, setForce] = useState(false);
   const [logStep, setLogStep] = useState('all');
   // The log filter and the cache switch belong to the project they were set in.
@@ -24,6 +25,7 @@ export function usePipelineView() {
     run,
     cancel,
     savePresets,
+    saveBake,
     load,
     force,
     setForce,

@@ -1,4 +1,4 @@
-import { Button, Icon, InlineBanner, Tooltip } from '@maquette/ui';
+import { Button, Icon, InlineBanner, Toggle, Tooltip } from '@maquette/ui';
 import { FIXUP_HINT, FIXUP_LABEL, withFixup } from '@/state/prepare';
 import { SectionLabel } from '../SectionLabel';
 import { FixupRow } from './FixupRow';
@@ -10,7 +10,7 @@ import { SizeRow } from './SizeRow';
 /**
  * An asset's real size and fix-ups: the size its model is scaled to and the
  * repairs made on a copy before the scene is built, with a headless preview
- * of the numbers before and after.
+ * of the numbers before and after, and whether the bake leaves it out.
  */
 export default function PrepEditor(props: PrepEditorProps) {
   const { value, onChange, preview, onPreview, previewBlocked, disabled } = props;
@@ -102,6 +102,17 @@ export default function PrepEditor(props: PrepEditorProps) {
           </p>
         )}
         {adds.length ? <div className="-ml-1.5 flex flex-wrap gap-0.5">{adds}</div> : null}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <SectionLabel>Baked light</SectionLabel>
+        <Toggle
+          label="Skip the bake"
+          description="Keeps the model’s own material lighting: no lightmap and no second UV set ship with it. Right for scans, whose many small UV islands bake into flat lit facets."
+          checked={editor.skipBake}
+          disabled={disabled}
+          onChange={editor.setSkipBake}
+        />
       </div>
 
       {onPreview ? (
