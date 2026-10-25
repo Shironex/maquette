@@ -1,7 +1,6 @@
 /**
  * The scene manifest: every model on the workbench, where it stands, which
- * camera stops see it and how its materials are adjusted, plus the six
- * camera stops of the tour and the hero frame before them.
+ * camera stops see it and how its materials are adjusted.
  *
  * Coordinates are glTF: metres, Y up, the camera side is +Z. The floor is
  * y = 0 and the bench top is at y = 0.90 (see BENCH_TOP).
@@ -11,25 +10,25 @@
  * the README): each `layout.json` placement becomes a model entry with
  * `anchor: 'origin'`, and each layout stop becomes a camera stop. The site
  * only adds what the layout does not know: load priority (from `stops`),
- * material overrides and the laptop screen.
+ * material overrides and the laptop screen. The camera stops live in
+ * ./cameras.ts.
  */
 
 import { STOP_IDS, type StopId } from './stops';
 
 export { STOP_IDS, type StopId };
+export {
+  POSTER_CAMERAS,
+  STOPS,
+  type CameraMove,
+  type CameraStop,
+  type PosterCamera,
+} from './cameras';
 
 export type Vec3 = readonly [number, number, number];
 
 /** Height of the bench top above the floor, in metres. */
 export const BENCH_TOP = 0.9;
-
-export interface CameraStop {
-  id: StopId;
-  position: Vec3;
-  target: Vec3;
-  /** Vertical field of view in degrees, framed for a 16:10 viewport. */
-  fov: number;
-}
 
 /** Recolours one band of a single mesh model, measured up from its bottom. */
 export interface LowerBand {
@@ -333,26 +332,6 @@ export const MODELS: readonly ModelEntry[] = [
     stops: ['hero', 'web', 'ship'],
   },
 ];
-
-export const STOPS: readonly CameraStop[] = [
-  { id: 'hero', position: [-0.45, 1.35, 1.3], target: [-0.3, 1.16, -0.05], fov: 36 },
-  { id: 'concept', position: [-0.1, 1.44, 0.8], target: [-0.82, 0.84, 0.06], fov: 32 },
-  { id: 'refs', position: [-0.42, 1.48, 0.66], target: [-0.96, 0.86, -0.04], fov: 34 },
-  { id: 'model', position: [0.32, 1.17, 0.68], target: [-0.2, 1.1, -0.04], fov: 35 },
-  { id: 'blender', position: [-0.3, 1.2, 0.62], target: [-0.2, 1.1, -0.04], fov: 40 },
-  { id: 'web', position: [0.62, 1.25, 0.66], target: [0.18, 1.16, -0.08], fov: 35 },
-  { id: 'ship', position: [-0.42, 1.5, 1.2], target: [-0.24, 0.98, -0.1], fov: 45 },
-];
-
-/**
- * Framings used only to render posters (see scripts/capture-posters.mjs).
- * The phone poster is portrait and sits close on the two islands.
- */
-export const POSTER_CAMERAS = {
-  mobile: { id: 'hero', position: [0.1, 1.3, 0.78], target: [0.2, 1.04, -0.06], fov: 40 },
-} as const satisfies Record<string, CameraStop>;
-
-export type PosterCamera = keyof typeof POSTER_CAMERAS;
 
 export function modelUrl(file: string): string {
   return `/scene/models/${file}`;
