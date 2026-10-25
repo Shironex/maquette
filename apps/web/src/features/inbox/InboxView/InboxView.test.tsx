@@ -1,22 +1,23 @@
 import { act, render, screen } from '@testing-library/react';
-import { useEffect } from 'react';
+import { Component } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerMockFile } from '@/ipc/files';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { InboxView } from './InboxView';
+import InboxView from './InboxView';
 
 /** The first file the preview opens fails, as a download still in flight does. */
 let failures = 1;
 vi.mock('@/features/viewer/ModelPreview', () => ({
-  default: function Preview({ onError }: { onError: (message: string) => void }) {
-    useEffect(() => {
-      if (failures > 0) {
-        failures -= 1;
-        onError('The file ends early.');
-      }
-    }, [onError]);
-    return null;
+  default: class Preview extends Component<{ onError: (message: string) => void }> {
+    componentDidMount() {
+      if (failures <= 0) return;
+      failures -= 1;
+      this.props.onError('The file ends early.');
+    }
+    render() {
+      return null;
+    }
   },
 }));
 
