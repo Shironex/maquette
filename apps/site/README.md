@@ -27,27 +27,26 @@ pnpm --filter @maquette/site typecheck # astro check
 
 ## Manifest
 
-`src/scene/manifest.ts` is the scene's single source: every model (file, position, rotation, scale, which stops see it, material override, extras); the camera of each stop and its move live beside it in `src/scene/cameras.ts`. Units are metres, Y is up and the bench top is at `BENCH_TOP` (0.9).
+`src/scene/manifest.ts` puts the scene together; units are metres, Y is up and the bench top is at `BENCH_TOP` (0.9).
 
-The placements and stops have the same shape as a Maquette project's `layout.json`, and `fromLayout()` in `src/scene/layout.ts` turns one into the manifest's `models` and `stops`:
+- The props and the camera framings come from the Maquette project. Its Ship step writes `src/scene/shipped.json` (where `maquette.site.json` points it): each asset's shipped file, the project's `layout.json` and `materials.json`. `fromLayout()` in `src/scene/layout.ts` turns the layout into model entries and stops: the layout's stops map in order onto the site's (the first is the hero frame, then Concept to Ship), a stop's `models` list says which stops see a model (`null` means every model), and `lift` raises everything from the layout's desk top (y = 0) onto the bench.
+- The site adds what the layout does not know: the set pieces built for the bench (workbench, back wall, paper, tracing sheets, crumbs) in `manifest.ts`, each prop's extras in `src/scene/props.ts` (anchor, spin, sweep, shadows, the laptop screen, the turntable's iron band) and the camera's motion between stops in `src/scene/cameras.ts` (move, the poses on the way in, the copy's side). A stop the layout lacks keeps the last framing it has.
+- Colours, roughness, metal and glow are the project's material tweaks. The pipeline bakes them into the shipped files, so the site never applies them again; `shipped.json` keeps a copy as a record.
+- A model Ship exports already stands where the layout puts it (`inPlace`): the site moves it back by its placement and turns it about that point. The props on the bench today were prepared by hand, so their entries say `"inPlace": false` and stand on the bottom centre of their bounds.
+- `shipped.json` is left as Ship writes it (JSON.stringify), so it is out of prettier. Ship refuses an empty layout, so set the layout in Maquette (the `layout` of this file is a valid `layout.json` in desk coordinates) before the first ship.
 
-- the layout's stops map in order onto the site's stops: the first is the hero frame, then Concept to Ship;
-- a stop's `models` list says which stops see a model (`null` means every model);
-- `assets` gives each asset id its shipped file and the site extras (anchor, material override, spin, sweep, screen);
-- `lift` raises everything from the layout's desk top (y = 0) onto the bench.
+## Shipping from Maquette
 
-The comment at the top of `layout.ts` documents the `layout.json` shape. To take a new layout from Maquette, read the project's `layout.json`, pass it through `fromLayout` with the assets the site ships, and replace `MODELS` and `STOPS` with the result (keep the set pieces and extras that are site only).
+Set the project's site repo to `apps/site` in Settings > Project and run the pipeline; the Ship step waits for approval in the app, then copies the models into `public/scene/models` and writes `src/scene/shipped.json`. **Preview on site** in the Pipeline view starts this site's dev server (`pnpm dev`, port 15292) and opens it. Then rebuild and render the posters again (below); deploying stays a separate step.
 
-## Updating models from Maquette
-
-The models live in `public/scene/models/`. Pipeline output (the project's `web/dist/*.glb`) is already compressed and copies over as is. A raw model goes through the same chain the pipeline uses:
+A raw model that does not come through the pipeline goes through the same chain the pipeline uses:
 
 ```sh
 npx @gltf-transform/cli@4.5.1 etc1s in.glb tmp.glb --resize 512
 npx @gltf-transform/cli@4.5.1 meshopt tmp.glb out.glb --level medium
 ```
 
-Use `--resize 1024` for the bench top and the back wall. Then set the entry's scale and position in the manifest, rebuild and render the posters again.
+Use `--resize 1024` for the bench top and the back wall.
 
 ## Posters
 
@@ -58,13 +57,14 @@ pnpm build:site
 PLAYWRIGHT=/path/to/playwright/index.mjs pnpm --filter @maquette/site posters
 ```
 
-The script opens the built page in headless Chromium with `?capture`, which hides everything but the canvas, holds the camera on each stop's exact framing (no breathing, pointer or idle motion) and encodes WebP in the page. Run it after any change to the stops, the manifest, the models or the lighting.
+The script opens the built page in headless Chromium with `?capture`, which hides everything but the canvas, holds the camera on each stop's exact framing (no breathing, pointer or idle motion) and encodes WebP in the page. Run it after any change to the stops, the manifest, the models or the lighting, and after a ship. The posters Maquette renders in Blender show the project's scene without the bench's set pieces, so `maquette.site.json` leaves them out (`"posters": null`) and the tour keeps its own.
 
 ## Placeholders
 
 - The laptop screen (`public/scene/laptop-screen.webp`) is a mock mode capture of the Board; swap in a capture of a real project.
 - The app screenshots in `public/scene/screens/` are mock mode captures too.
 - The download buttons point at `#download` and the section says "Not released yet": the links, version and file size come with the first build.
+- The props on the bench were prepared by hand (`"inPlace": false` in `shipped.json`) until the first ship from Maquette.
 - The finished island keeps its 2048 color texture (the Web stop is a close up of it); a 1024 copy would save about 0.5 MB.
 
 The artwork under `public/scene/` is reserved; see the ARTWORK section of the root LICENSE.
