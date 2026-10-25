@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button, IconButton, Kbd, Tooltip, tooltipPlacement } from '../index';
@@ -121,6 +121,23 @@ describe('Tooltip', () => {
     await userEvent.hover(redo);
     expect(screen.getAllByRole('tooltip')).toHaveLength(1);
     expect(screen.getByRole('tooltip')).toHaveTextContent('Redo');
+  });
+
+  it('hides when what holds it scrolls, but not for a scroll elsewhere', async () => {
+    render(
+      <>
+        <div data-testid="list">
+          <IconButton icon="copy" label="Copy log" />
+        </div>
+        <div data-testid="log" />
+      </>
+    );
+    await userEvent.tab();
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    fireEvent.scroll(screen.getByTestId('log'));
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    fireEvent.scroll(screen.getByTestId('list'));
+    expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
   it('renders the trigger alone when disabled', async () => {

@@ -48,7 +48,7 @@ interface TooltipOptions {
  * A tooltip's open state, its place in the window and the trigger's
  * handlers: it shows after a rest on hover (at once inside the delay
  * group) and on keyboard focus, and hides on leave, blur, a press,
- * Escape, scrolling and resizing.
+ * Escape, scrolling what holds the trigger, and resizing.
  */
 export function useTooltip({
   side,
@@ -100,12 +100,17 @@ export function useTooltip({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close();
     };
+    // Only a scroll that moves the trigger; a log scrolling beside it does not.
+    const onScroll = (e: Event) => {
+      const trigger = anchor.current?.firstElementChild;
+      if (trigger && e.target instanceof Node && e.target.contains(trigger)) close();
+    };
     window.addEventListener('keydown', onKey);
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', close);
     return () => {
       window.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', close);
     };
   }, [open, close]);
