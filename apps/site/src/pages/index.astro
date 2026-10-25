@@ -1,0 +1,57 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Tour from '../components/Tour.astro';
+import Pipeline from '../components/Pipeline.astro';
+import Inbox from '../components/Inbox.astro';
+import Inspector from '../components/Inspector.astro';
+import Agents from '../components/Agents.astro';
+import Local from '../components/Local.astro';
+import Download from '../components/Download.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Base
+  title="Maquette · Turn concept art into real-time 3D scenes"
+  description="Maquette is a desktop studio that takes concept art through refs, a 3D model, a headless Blender pipeline and web compression to GLBs in your site repo. Everything runs on your machine."
+>
+  <link
+    slot="head"
+    rel="preload"
+    as="image"
+    href="/scene/posters/stop-0-1920.webp"
+    imagesrcset="/scene/posters/stop-0-960.webp 960w, /scene/posters/stop-0-1920.webp 1920w"
+    imagesizes="100vw"
+    media="(min-width: 900px)"
+    fetchpriority="high"
+  />
+  <link
+    slot="head"
+    rel="preload"
+    as="image"
+    href="/scene/posters/hero-mobile.webp"
+    media="(max-width: 899px)"
+    fetchpriority="high"
+  />
+  <div class="page">
+    <Header />
+    <main id="main">
+      <Tour />
+      <Pipeline />
+      <Inbox />
+      <Inspector />
+      <Agents />
+      <Local />
+      <Download />
+    </main>
+    <Footer />
+  </div>
+</Base>
+
+<style>
+  .page {
+    position: relative;
+    min-width: 0;
+    overflow-x: clip;
+  }
+</style>

@@ -1,0 +1,146 @@
+---
+import Figure from './Figure.astro';
+import SectionHead from './SectionHead.astro';
+import { SHOTS } from '../content/copy';
+---
+
+<section class="inspector" aria-labelledby="inspector-title">
+  <div class="wrap inner">
+    <SectionHead eyebrow="Inspector" title="Know what you ship before it ships." id="inspector-title">
+      Split one canvas down the middle: the raw export against the shipped build, or two versions of
+      an asset, with one shared camera. Budgets, transfer size and frame time sit next to it.
+    </SectionHead>
+
+    <dl class="readouts">
+      <div class="readout">
+        <dt>Triangles</dt>
+        <dd class="v">9.9k</dd>
+        <dd class="d">A Tripo prop, under the 60k budget</dd>
+      </div>
+      <div class="readout">
+        <dt>Transfer</dt>
+        <dd class="v">830 <small>KB</small> <span class="arrow">to</span> 483 <small>KB</small></dd>
+        <dd class="d">Raw export to shipped, KTX2 and meshopt</dd>
+      </div>
+      <div class="readout">
+        <dt>Frame time</dt>
+        <dd class="v">3 <small>ms</small></dd>
+        <dd class="meter" aria-hidden="true"><span class="bar"></span><span class="line"></span></dd>
+        <dd class="d">About 3 ms against the 16.7 ms line for 60 fps</dd>
+      </div>
+    </dl>
+
+    <div class="shots">
+      <Figure shot={SHOTS.compare} />
+      <Figure shot={SHOTS.budgets} class="side" />
+    </div>
+  </div>
+</section>
+
+<style>
+  .inspector {
+    padding-block: 128px;
+  }
+  .inner {
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+  .readouts {
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 40px;
+  }
+  .readout {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-block: 20px;
+    border-top: 1px solid var(--line-strong);
+  }
+  dd {
+    margin: 0;
+  }
+  dt {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-mute);
+  }
+  .v {
+    font-family: var(--font-mono);
+    font-size: var(--text-readout);
+    line-height: var(--text-readout--line-height);
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .v small {
+    font-size: 18px;
+    color: var(--text-mute);
+    letter-spacing: 0;
+  }
+  .arrow {
+    font-size: 18px;
+    color: var(--text-mute);
+    letter-spacing: 0;
+  }
+  .d {
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+  .meter {
+    position: relative;
+    height: 8px;
+    margin-top: 4px;
+    border-radius: 999px;
+    background: var(--bg-hover);
+  }
+  .bar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 18%;
+    border-radius: 999px;
+    background: var(--sage);
+  }
+  .line {
+    position: absolute;
+    right: 0;
+    top: -4px;
+    width: 2px;
+    height: 16px;
+    background: var(--text-dim);
+  }
+  .shots {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+    gap: 32px;
+    align-items: start;
+  }
+  @media (max-width: 899px) {
+    .inspector {
+      padding-block: 48px;
+    }
+    .inner {
+      gap: 24px;
+    }
+    .readouts,
+    .shots {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+    }
+    .readout {
+      padding-block: 14px;
+      border-top-color: var(--line);
+    }
+    .v {
+      font-size: 30px;
+      line-height: 34px;
+    }
+    .meter,
+    .shots :global(.side) {
+      display: none;
+    }
+  }
+</style>

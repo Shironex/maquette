@@ -1,0 +1,35 @@
+---
+import type { Shot } from '../content/copy';
+
+interface Props {
+  shot: Shot;
+  class?: string;
+  sizes?: string;
+}
+
+const { shot, class: className, sizes } = Astro.props;
+---
+
+<figure class:list={['figure', className]}>
+  <img
+    class="frame-img"
+    src={shot.src}
+    width={shot.width}
+    height={shot.height}
+    alt={shot.alt}
+    loading="lazy"
+    decoding="async"
+    sizes={sizes}
+  />
+  <figcaption class="caption"><b>{shot.tool}</b> · {shot.caption}</figcaption>
+</figure>
+
+<style>
+  .figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+</style>

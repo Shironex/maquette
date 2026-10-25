@@ -1,0 +1,40 @@
+---
+interface Props {
+  eyebrow: string;
+  title: string;
+  id: string;
+}
+
+const { eyebrow, title, id } = Astro.props;
+---
+
+<div class="head">
+  <div class="title">
+    <p class="eyebrow">{eyebrow}</p>
+    <h2 class="h2" id={id}>{title}</h2>
+  </div>
+  <p class="lead"><slot /></p>
+</div>
+
+<style>
+  .head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 64px;
+    align-items: end;
+  }
+  .title {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  @media (max-width: 899px) {
+    .head {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+    }
+    .title {
+      gap: 16px;
+    }
+  }
+</style>

@@ -1,0 +1,134 @@
+---
+import { Icon } from '@maquette/ui';
+import { SHOTS } from '../content/copy';
+---
+
+<section id="download" class="download" aria-labelledby="download-title">
+  <div class="wrap head">
+    <p class="eyebrow">Download</p>
+    <h2 class="h2" id="download-title">Set up your workbench.</h2>
+    <p class="lead wide-only">
+      For macOS and Windows. Blender is the only tool it cannot work without; Codex CLI, ffmpeg,
+      toktx, gltf-transform and Node unlock the rest.
+    </p>
+    <p class="lead narrow-only">
+      A desktop app for macOS and Windows. Open this page on your computer to download.
+    </p>
+    <div class="buttons">
+      <a class="btn btn-primary" href="#download"
+        >Download for Mac<Icon name="download-simple" size={18} /></a
+      >
+      <a class="btn btn-secondary" href="#download"
+        >Download for Windows<Icon name="download-simple" size={18} /></a
+      >
+    </div>
+    <p class="release">Not released yet · version and file size come with the first build</p>
+  </div>
+  <div class="plinth">
+    <img
+      class="screen"
+      src={SHOTS.board.src}
+      width={SHOTS.board.width}
+      height={SHOTS.board.height}
+      alt={SHOTS.board.alt}
+      loading="lazy"
+      decoding="async"
+    />
+    <div class="slab" aria-hidden="true"></div>
+  </div>
+</section>
+
+<style>
+  .download {
+    position: relative;
+    padding-top: 120px;
+    background: var(--wall);
+    border-top: 1px solid var(--line);
+  }
+  .head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 24px;
+  }
+  .head .h2 {
+    max-width: 14em;
+  }
+  .head .lead {
+    max-width: 32em;
+  }
+  .buttons {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding-top: 8px;
+  }
+  .release {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-mute);
+  }
+  .plinth {
+    max-width: 1240px;
+    margin: 72px auto 0;
+    padding-inline: 24px;
+  }
+  .screen {
+    display: block;
+    width: 88%;
+    height: auto;
+    margin: 0 auto;
+    border-radius: 14px 14px 0 0;
+    border: 1px solid rgba(255, 250, 240, 0.08);
+    border-bottom: 0;
+    box-shadow:
+      0 -10px 80px rgba(214, 179, 116, 0.08),
+      0 30px 80px rgba(10, 9, 8, 0.6);
+  }
+  /* The plaster plinth the screen stands on: a lit top edge and a chipped face. */
+  .slab {
+    height: 86px;
+    border-radius: 3px 3px 0 0;
+    background:
+      linear-gradient(180deg, #e3dccf 0, #d9d2c4 22px, #b9b1a2 23px, #9b9385 100%);
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+  }
+  .narrow-only {
+    display: none;
+  }
+  @media (max-width: 899px) {
+    .download {
+      padding-top: 48px;
+    }
+    .head {
+      align-items: stretch;
+      text-align: left;
+      gap: 16px;
+      padding-inline: 20px;
+    }
+    .wide-only {
+      display: none;
+    }
+    .narrow-only {
+      display: block;
+    }
+    .buttons {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .plinth {
+      margin-top: 32px;
+      padding-inline: 16px;
+    }
+    .screen {
+      width: calc(100% - 24px);
+      border-radius: 10px 10px 0 0;
+    }
+    .slab {
+      height: 52px;
+    }
+  }
+</style>

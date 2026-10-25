@@ -1,0 +1,202 @@
+---
+import Figure from './Figure.astro';
+import SectionHead from './SectionHead.astro';
+import { STAGES } from '../content/copy';
+
+const total = String(STAGES.length).padStart(2, '0');
+---
+
+<section id="pipeline" class="pipeline" aria-labelledby="pipeline-title">
+  <div class="wrap">
+    <SectionHead eyebrow="The pipeline" title="One workbench. Every stage." id="pipeline-title">
+      <span class="wide-only"
+        >One board follows each asset through six stages. Each stage is a real tool on your
+        machine, and Maquette keeps the files, the logs and the cache in one project folder.</span
+      >
+      <span class="narrow-only"
+        >One board follows each asset through six stages, each a real tool on your machine.</span
+      >
+    </SectionHead>
+
+    <div class="stages">
+      {
+        STAGES.map((stage, i) => {
+          const number = String(i + 1).padStart(2, '0');
+          return (
+            <article class="stage" aria-labelledby={`stage-${stage.id}`}>
+              <div class="stage-copy">
+                <div class="stage-meta">
+                  <img
+                    src={`/scene/posters/stop-${i + 1}-thumb.webp`}
+                    width="192"
+                    height="108"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <span class="meta-text">
+                    <span class="stage-num">
+                      STAGE {number} / {total}
+                    </span>
+                    <span class="meta-stop">camera stop {number}</span>
+                  </span>
+                </div>
+                <h3 class="h3" id={`stage-${stage.id}`}>
+                  <span class="num-inline">{number}</span> {stage.title}
+                </h3>
+                <p class="copy body">{stage.body}</p>
+                <p class="copy short">{stage.short}</p>
+                {stage.note && <p class="note">{stage.note}</p>}
+                <div class="chips">
+                  {stage.chips.map(chip => (
+                    <span class="chip">{chip}</span>
+                  ))}
+                </div>
+              </div>
+              <div class:list={['shots', { pair: stage.shots.length > 1 }]}>
+                {stage.shots.map(shot => (
+                  <Figure shot={shot} />
+                ))}
+              </div>
+            </article>
+          );
+        })
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .pipeline {
+    padding-block: 128px 32px;
+  }
+  .stages {
+    padding-top: 72px;
+  }
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    gap: 64px;
+    padding-block: 72px;
+    border-top: 1px solid var(--line);
+  }
+  .stage-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    align-self: start;
+  }
+  .stage-meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .stage-meta img {
+    width: 96px;
+    height: 54px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--bg-panel);
+  }
+  .meta-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stage-num {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-mute);
+    letter-spacing: 0.04em;
+  }
+  .meta-stop {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-mute);
+  }
+  .note {
+    margin: 0;
+    font-size: 14px;
+    line-height: 22px;
+    color: var(--text-mute);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .shots {
+    min-width: 0;
+  }
+  .shots.pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 24px;
+  }
+  .num-inline,
+  .short,
+  .narrow-only {
+    display: none;
+  }
+
+  @media (max-width: 899px) {
+    .pipeline {
+      padding-block: 48px;
+      border-top: 1px solid var(--line);
+    }
+    .stages {
+      padding-top: 24px;
+    }
+    .stage {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+      padding-block: 16px;
+    }
+    .stage:last-child {
+      border-bottom: 1px solid var(--line);
+    }
+    .stage-copy {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      column-gap: 14px;
+      row-gap: 2px;
+    }
+    .stage-meta {
+      grid-row: span 2;
+    }
+    .stage-meta img {
+      width: 88px;
+      height: 50px;
+    }
+    .meta-text,
+    .body,
+    .note,
+    .chips,
+    .shots,
+    .shots.pair,
+    .wide-only {
+      display: none;
+    }
+    .h3 {
+      font-size: 16px;
+      line-height: 22px;
+      letter-spacing: 0;
+    }
+    .num-inline {
+      display: inline;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-mute);
+    }
+    .short,
+    .narrow-only {
+      display: block;
+    }
+    .short {
+      font-size: 14px;
+      line-height: 21px;
+    }
+  }
+</style>

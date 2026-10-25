@@ -1,0 +1,136 @@
+---
+import { Icon } from '@maquette/ui';
+import Brand from './Brand.astro';
+import { NAV } from '../content/copy';
+---
+
+<header class="header">
+  <nav class="wrap bar" aria-label="Main">
+    <Brand size={32} wordSize={22} />
+    <span class="grow"></span>
+    <ul class="links" id="site-menu">
+      {
+        NAV.map(item => (
+          <li>
+            <a href={item.href}>{item.label}</a>
+          </li>
+        ))
+      }
+    </ul>
+    <a class="btn btn-primary btn-sm cta" href="#download">
+      Download for Mac<Icon name="download-simple" size={16} />
+    </a>
+    <button
+      type="button"
+      class="menu"
+      aria-label="Open menu"
+      aria-expanded="false"
+      aria-controls="site-menu"
+      data-menu
+    >
+      <Icon name="list" size={18} />
+    </button>
+  </nav>
+</header>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>('[data-menu]');
+  const menu = document.getElementById('site-menu');
+  const setOpen = (open: boolean) => {
+    button?.setAttribute('aria-expanded', String(open));
+    button?.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    menu?.toggleAttribute('data-open', open);
+  };
+  button?.addEventListener('click', () => setOpen(button.getAttribute('aria-expanded') !== 'true'));
+  menu?.addEventListener('click', event => {
+    if ((event.target as HTMLElement).closest('a')) setOpen(false);
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && button?.getAttribute('aria-expanded') === 'true') {
+      setOpen(false);
+      button.focus();
+    }
+  });
+</script>
+
+<style>
+  .header {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 20;
+    background: var(--bg-app);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar {
+    height: 72px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+  .grow {
+    flex: 1;
+  }
+  .links {
+    display: flex;
+    gap: 32px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 15px;
+  }
+  .links a {
+    color: var(--text-dim);
+    text-decoration: none;
+  }
+  .links a:hover {
+    color: var(--text);
+  }
+  .menu {
+    display: none;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-raised);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-control);
+    color: var(--text);
+    cursor: pointer;
+  }
+  @media (max-width: 899px) {
+    .header {
+      position: relative;
+    }
+    .bar {
+      height: 60px;
+      gap: 10px;
+      padding-inline: 20px;
+    }
+    .cta {
+      display: none;
+    }
+    .menu {
+      display: inline-flex;
+    }
+    .links {
+      display: none;
+      position: absolute;
+      top: 60px;
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      gap: 0;
+      padding: 8px 20px 16px;
+      background: var(--bg-app);
+      border-bottom: 1px solid var(--line);
+    }
+    .links[data-open] {
+      display: flex;
+    }
+    .links a {
+      display: block;
+      padding-block: 12px;
+      font-size: 16px;
+    }
+  }
+</style>

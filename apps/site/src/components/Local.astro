@@ -1,0 +1,113 @@
+---
+import Figure from './Figure.astro';
+import { SHOTS } from '../content/copy';
+
+const ROWS = [
+  { k: 'Blender', b: 'Always headless.', t: 'A Blender step without ‑b is refused. The window only opens when you click Open in Blender.', short: true },
+  { k: 'Files', b: 'One workspace folder.', t: 'Projects, the inbox and the cache live in ~/Maquette or wherever you point it.', short: true },
+  { k: 'API keys', b: 'In the OS keychain.', t: 'macOS Keychain or Windows Credential Manager, never in a project file or a log. Settings shows the last four characters.', short: true },
+  { k: 'Processes', b: 'Spawned directly.', t: 'Every tool runs with an args array, never through a shell. Cancel ends the whole process tree.', short: false },
+  { k: 'Account', b: 'None.', t: 'Open the app, pick a folder, start a project.', short: true },
+];
+---
+
+<section id="docs" class="local" aria-labelledby="local-title">
+  <div class="wrap grid">
+    <div class="col">
+      <p class="eyebrow">Runs on your machine</p>
+      <h2 class="h2" id="local-title">Your bench, your files.</h2>
+      <p class="lead">
+        No account and no cloud project. Maquette calls the tools you already have and keeps
+        everything in one workspace folder.
+      </p>
+      <Figure shot={SHOTS.toolchain} class="first-run" />
+    </div>
+    <div class="col rows">
+      <dl>
+        {
+          ROWS.map(row => (
+            <div class:list={['spec-row', { 'wide-row': !row.short }]}>
+              <dt>{row.k}</dt>
+              <dd>
+                <b>{row.b}</b> <span class="t">{row.t}</span>
+              </dd>
+            </div>
+          ))
+        }
+      </dl>
+      <Figure shot={SHOTS.providers} class="small" />
+    </div>
+  </div>
+</section>
+
+<style>
+  .local {
+    padding-block: 128px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 72px;
+    align-items: start;
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    min-width: 0;
+  }
+  .col :global(.first-run) {
+    padding-top: 12px;
+  }
+  .rows {
+    padding-top: 8px;
+    gap: 40px;
+  }
+  dl {
+    margin: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  dt {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-mute);
+  }
+  dd {
+    margin: 0;
+    font-size: 16px;
+    line-height: 25px;
+    color: var(--text-dim);
+  }
+  dd b {
+    color: var(--text);
+    font-weight: 500;
+  }
+  .rows :global(.small) {
+    max-width: 420px;
+  }
+  @media (max-width: 899px) {
+    .local {
+      padding-block: 48px;
+    }
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+    }
+    .col {
+      gap: 12px;
+    }
+    .rows {
+      padding-top: 0;
+    }
+    .col :global(.figure),
+    .lead,
+    .t,
+    .wide-row {
+      display: none;
+    }
+    dd {
+      font-size: 15px;
+      line-height: 23px;
+    }
+  }
+</style>

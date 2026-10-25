@@ -1,0 +1,131 @@
+---
+import { Icon } from '@maquette/ui';
+import Figure from './Figure.astro';
+import SectionHead from './SectionHead.astro';
+import { SHOTS } from '../content/copy';
+
+const CHECKS = [
+  { ok: true, title: 'Triangles against the budget', text: '60k per model by default, set in Settings.' },
+  { ok: true, title: 'Texture sizes and PBR maps', text: 'Largest texture, base color, metal and roughness, normal.' },
+  { ok: true, title: 'A Mixamo rig for characters', text: 'Joints counted, clips listed.' },
+  { ok: false, title: 'Separate objects merged into one mesh', text: 'A heuristic: islands far apart in one mesh.' },
+  { ok: false, title: 'Hair or tail weighted to finger bones', text: 'A heuristic: vertices far from the bone that moves them.' },
+];
+---
+
+<section id="features" class="band" aria-labelledby="inbox-title">
+  <div class="wrap inner">
+    <SectionHead eyebrow="Model inbox" title="Checked before it reaches Blender." id="inbox-title">
+      <span class="wide-only"
+        >Drop a GLB in the inbox folder. Maquette reads it in Rust, compares it with your budgets and
+        shows it in one studio light, shaded, as wireframe over clay, on a UV checker or as a
+        skeleton.</span
+      >
+      <span class="narrow-only"
+        >Triangles, texture sizes, PBR maps, a Mixamo rig for characters, merged objects and hair
+        weighted to finger bones.</span
+      >
+    </SectionHead>
+    <div class="grid">
+      <Figure shot={SHOTS.inbox} />
+      <div class="checks">
+        <p class="eyebrow mute">Automatic checks</p>
+        <ul>
+          {
+            CHECKS.map(check => (
+              <li>
+                <Icon
+                  name={check.ok ? 'check' : 'warning'}
+                  size={18}
+                  className={check.ok ? 'text-sage' : 'text-amber'}
+                />
+                <div>
+                  <div class="t">{check.title}</div>
+                  <div class="d">{check.text}</div>
+                </div>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="after">Accept to Blender moves the file into the project as a new asset version.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .band {
+    padding-block: 128px;
+    background: var(--bg-panel);
+    border-block: 1px solid var(--line);
+  }
+  .inner {
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+    gap: 56px;
+    align-items: start;
+  }
+  .mute {
+    color: var(--text-mute);
+    padding-bottom: 12px;
+  }
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid var(--line);
+  }
+  li {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding-block: 14px;
+    border-top: 1px solid var(--line);
+  }
+  li :global(svg) {
+    margin-top: 3px;
+  }
+  .t {
+    font-size: 15px;
+    line-height: 22px;
+    font-weight: 500;
+  }
+  .d {
+    font-size: 14px;
+    line-height: 21px;
+    color: var(--text-dim);
+  }
+  .after {
+    margin: 0;
+    padding-top: 16px;
+    font-size: 14px;
+    line-height: 21px;
+    color: var(--text-mute);
+  }
+  .narrow-only {
+    display: none;
+  }
+  @media (max-width: 899px) {
+    .band {
+      padding-block: 48px;
+    }
+    .inner {
+      gap: 24px;
+    }
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .checks,
+    .wide-only {
+      display: none;
+    }
+    .narrow-only {
+      display: inline;
+    }
+  }
+</style>

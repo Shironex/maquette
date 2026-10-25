@@ -1,0 +1,53 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#1c1b19" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content="/scene/posters/stop-0-1920.webp" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/icon-64.png" sizes="64x64" type="image/png" />
+    <link rel="apple-touch-icon" href="/icon-256.png" />
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  .skip {
+    position: absolute;
+    left: 16px;
+    top: -60px;
+    z-index: 50;
+    padding: 10px 14px;
+    border-radius: var(--radius-control);
+    background: var(--clay);
+    color: var(--clay-ink);
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .skip:focus {
+    top: 12px;
+    color: var(--clay-ink);
+  }
+</style>

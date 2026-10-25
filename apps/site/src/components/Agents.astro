@@ -1,0 +1,143 @@
+---
+import { Icon } from '@maquette/ui';
+import Figure from './Figure.astro';
+import { SHOTS } from '../content/copy';
+
+const command =
+  'claude mcp add --transport http maquette http://127.0.0.1:4791/mcp --header "Authorization: Bearer <token>"';
+---
+
+<section class="band" aria-labelledby="agents-title">
+  <div class="wrap grid">
+    <div class="col">
+      <p class="eyebrow">Agents over MCP</p>
+      <h2 class="h2" id="agents-title">Let Claude Code or Codex drive it.</h2>
+      <p class="lead">
+        <span class="wide-only"
+          >Turn on the MCP server in Settings and an agent can list assets, start concepts, run the
+          pipeline and accept models. Nothing ships or spends credits until you approve it in the
+          app.</span
+        >
+        <span class="narrow-only"
+          >A local MCP server on 127.0.0.1. Nothing ships or spends credits until you approve it in
+          the app.</span
+        >
+      </p>
+      <code class="block">{command}</code>
+      <ul class="rules">
+        <li>
+          <Icon name="rocket-launch" size={18} className="text-clay-text" />
+          <span
+            ><b>Ship waits for you.</b> With Ask before shipping on, a run started by an agent stops before
+            Ship until you press Approve.</span
+          >
+        </li>
+        <li>
+          <Icon name="cube" size={18} className="text-clay-text" />
+          <span
+            ><b>Credits wait for you.</b> A send to Tripo or Meshy always waits for Approve. Deny cancels
+            it.</span
+          >
+        </li>
+        <li>
+          <Icon name="lock-simple" size={18} className="text-clay-text" />
+          <span
+            ><b>Local and scoped.</b> 127.0.0.1 only, a bearer token, Blender headless, and no screenshot
+            or screen capture tool.</span
+          >
+        </li>
+      </ul>
+    </div>
+    <div class="col shots">
+      <Figure shot={SHOTS.approvals} />
+      <Figure shot={SHOTS.agents} class="small" />
+    </div>
+  </div>
+</section>
+
+<style>
+  .band {
+    padding-block: 128px;
+    background: var(--bg-panel);
+    border-block: 1px solid var(--line);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 72px;
+    align-items: start;
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    min-width: 0;
+  }
+  .shots {
+    gap: 32px;
+  }
+  .shots :global(.small) {
+    max-width: 420px;
+    align-self: flex-end;
+  }
+  .block {
+    display: block;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 21px;
+    color: var(--text);
+    background: var(--bg-app);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    padding: 16px 18px;
+  }
+  .rules {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .rules li {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 12px;
+    padding-block: 14px;
+    border-top: 1px solid var(--line);
+    font-size: 15px;
+    line-height: 23px;
+    color: var(--text-dim);
+  }
+  .rules li :global(svg) {
+    margin-top: 2px;
+  }
+  .rules b {
+    color: var(--text);
+    font-weight: 500;
+  }
+  .narrow-only {
+    display: none;
+  }
+  @media (max-width: 899px) {
+    .band {
+      padding-block: 48px;
+    }
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 24px;
+    }
+    .col {
+      gap: 16px;
+    }
+    .wide-only,
+    .block,
+    .rules,
+    .shots :global(.small) {
+      display: none;
+    }
+    .narrow-only {
+      display: inline;
+    }
+  }
+</style>

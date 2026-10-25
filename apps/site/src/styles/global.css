@@ -1,0 +1,219 @@
+@import 'tailwindcss';
+@import '@maquette/ui/theme.css';
+@import '@maquette/ui/base.css';
+
+/* The kit's Icon component carries its own utility classes. */
+@source '../../../../packages/ui/src/icons';
+
+/* Site only tokens on top of the kit: the hero ground and the marketing type scale. */
+:root {
+  --wall: #1a1917;
+  --gutter: max(24px, env(safe-area-inset-left, 0px));
+}
+
+@theme {
+  --color-wall: var(--wall);
+  --text-display: 84px;
+  --text-display--line-height: 88px;
+  --text-display--letter-spacing: -0.04em;
+  --text-display--font-weight: 600;
+  --text-h2: 56px;
+  --text-h2--line-height: 60px;
+  --text-h2--letter-spacing: -0.03em;
+  --text-h2--font-weight: 600;
+  --text-h3: 28px;
+  --text-h3--line-height: 34px;
+  --text-h3--letter-spacing: -0.02em;
+  --text-h3--font-weight: 600;
+  --text-lead: 20px;
+  --text-lead--line-height: 30px;
+  --text-copy: 16px;
+  --text-copy--line-height: 26px;
+  --text-readout: 44px;
+  --text-readout--line-height: 48px;
+  --text-readout--letter-spacing: -0.02em;
+}
+
+@layer base {
+  html {
+    scroll-padding-top: 24px;
+  }
+  body {
+    font-size: 16px;
+    line-height: 26px;
+  }
+  a {
+    color: var(--clay-text);
+  }
+  a:hover {
+    color: var(--focus);
+  }
+  img {
+    max-width: 100%;
+  }
+}
+
+@layer components {
+  .wrap {
+    max-width: 1200px;
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+  }
+  .eyebrow {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--clay-text);
+  }
+  .h2 {
+    margin: 0;
+    font-size: var(--text-h2);
+    line-height: var(--text-h2--line-height);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+  .h3 {
+    margin: 0;
+    font-size: var(--text-h3);
+    line-height: var(--text-h3--line-height);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  .lead {
+    margin: 0;
+    max-width: 34em;
+    font-size: var(--text-lead);
+    line-height: var(--text-lead--line-height);
+    color: var(--text-dim);
+  }
+  .copy {
+    margin: 0;
+    max-width: 36em;
+    font-size: 16px;
+    line-height: 26px;
+    color: var(--text-dim);
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 52px;
+    padding: 0 24px;
+    border-radius: var(--radius-control);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    transition:
+      background-color 120ms ease-out,
+      color 120ms ease-out;
+  }
+  .btn-sm {
+    height: 40px;
+    padding: 0 16px;
+    font-size: 14px;
+  }
+  .btn-primary,
+  .btn-primary:hover {
+    color: var(--clay-ink);
+  }
+  .btn-primary {
+    background: var(--clay);
+  }
+  .btn-primary:hover {
+    background: var(--clay-hover);
+  }
+  .btn-secondary,
+  .btn-secondary:hover {
+    color: var(--text);
+  }
+  .btn-secondary {
+    background: var(--bg-raised);
+    border: 1px solid var(--line-strong);
+  }
+  .btn-secondary:hover {
+    background: var(--bg-hover);
+  }
+  .btn-text {
+    padding: 0 4px;
+    color: var(--text);
+  }
+  .btn-text:hover {
+    color: var(--clay-text);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .frame-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-card);
+    border: 1px solid var(--line);
+    background: var(--bg-panel);
+    box-shadow: 0 30px 80px rgba(10, 9, 8, 0.5);
+  }
+  .caption {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--text-mute);
+  }
+  .caption b {
+    font-weight: 500;
+    color: var(--text-dim);
+  }
+  .ticks {
+    height: 10px;
+    background-image: repeating-linear-gradient(
+      90deg,
+      var(--line-strong) 0 1px,
+      transparent 1px 12px
+    );
+  }
+  .spec-row {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 24px;
+    padding-block: 20px;
+    border-top: 1px solid var(--line);
+    align-items: baseline;
+  }
+}
+
+@media (max-width: 899px) {
+  :root {
+    --gutter: 20px;
+  }
+  .h2 {
+    font-size: 34px;
+    line-height: 38px;
+  }
+  .lead {
+    font-size: 17px;
+    line-height: 26px;
+  }
+  .spec-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    padding-block: 14px;
+  }
+}
