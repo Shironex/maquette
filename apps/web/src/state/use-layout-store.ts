@@ -27,6 +27,7 @@ import {
   type PlainStop,
   type Tool,
 } from './layout';
+import { clock } from '@/lib/clock';
 
 export type Selection = { kind: 'model'; id: string } | { kind: 'stop'; id: string } | null;
 
@@ -144,7 +145,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => {
     setTool: tool => set({ tool }),
     setSnap: snap => set({ snap }),
     setPose: pose => set({ pose }),
-    lookThrough: id => set({ preview: id ? { id, at: Date.now() } : null }),
+    lookThrough: id => set({ preview: id ? { id, at: clock.nowMs() } : null }),
 
     edit: change => {
       const before = get().draft;

@@ -215,21 +215,20 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
       jobs: upsert(s.jobs, job),
       panel: s.panel?.handoff?.id === job.id ? { ...s.panel, handoff: job } : s.panel,
     }));
-    if (before && before.state !== job.state) {
-      const name = `${job.assetName}`;
-      if (job.state === 'inbox') {
-        notify(
-          'done',
-          `${name} is in the Inbox`,
-          `${PROVIDER_LABEL[job.provider]} finished. Check the model and accept it.`
-        );
-      } else if (job.state === 'failed') {
-        notify(
-          'failed',
-          `${PROVIDER_LABEL[job.provider]} could not make ${name}`,
-          job.message ?? undefined
-        );
-      }
+    if (!before || before.state === job.state) return;
+    const name = `${job.assetName}`;
+    if (job.state === 'inbox') {
+      notify(
+        'done',
+        `${name} is in the Inbox`,
+        `${PROVIDER_LABEL[job.provider]} finished. Check the model and accept it.`
+      );
+    } else if (job.state === 'failed') {
+      notify(
+        'failed',
+        `${PROVIDER_LABEL[job.provider]} could not make ${name}`,
+        job.message ?? undefined
+      );
     }
   },
 

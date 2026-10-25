@@ -5,6 +5,7 @@
  */
 import type { LogEntry, PipelineDef, PipelineEvent, RunRecord, StepRecord } from '../client';
 import { blenderLines } from './pipeline-fixtures';
+import { clock } from '@/lib/clock';
 
 export interface FakeRunnerOptions {
   emit: (event: PipelineEvent) => void;
@@ -39,7 +40,7 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
     level: LogEntry['level'] = 'info',
     stream: LogEntry['stream'] = 'stdout'
   ) {
-    const entry: LogEntry = { runId: run.id, step, stream, level, text, atMs: Date.now() };
+    const entry: LogEntry = { runId: run.id, step, stream, level, text, atMs: clock.nowMs() };
     const list = store.logs.get(run.number) ?? [];
     list.push(entry);
     store.logs.set(run.number, list);
@@ -48,7 +49,7 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
 
   async function execute(run: RunRecord, def: PipelineDef) {
     run.state = 'running';
-    run.startedAtMs = Date.now();
+    run.startedAtMs = clock.nowMs();
     publish(run);
     const planned = run.steps.filter(s => s.state !== 'skipped').length;
     log(
@@ -70,7 +71,7 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
         rec.message = 'Not run, an earlier step failed.';
         continue;
       }
-      const started = Date.now();
+      const started = clock.nowMs();
       rec.state = 'running';
       rec.startedAtMs = started;
       publish(run);
@@ -78,7 +79,7 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
       if (!forced && (rec.id === 'build' || rec.id === 'bake')) {
         await sleep(options.pace);
         rec.state = 'cached';
-        rec.durationMs = Date.now() - started;
+        rec.durationMs = clock.nowMs() - started;
         log(run, rec.id, `${rec.name} inputs unchanged, cache hit`, 'ok', 'system');
         publish(run);
         continue;
@@ -104,7 +105,7 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
           publish(run);
         }
       }
-      rec.durationMs = Date.now() - started;
+      rec.durationMs = clock.nowMs() - started;
       if (active?.cancelled) {
         rec.state = 'cancelled';
         rec.message = 'Cancelled.';
@@ -132,7 +133,7 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
       publish(run);
     }
     void def;
-    run.finishedAtMs = Date.now();
+    run.finishedAtMs = clock.nowMs();
     if (active?.cancelled) {
       run.state = 'cancelled';
       run.message = 'Cancelled.';
@@ -182,7 +183,7 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
         from,
         force,
         state: 'queued',
-        queuedAtMs: Date.now(),
+        queuedAtMs: clock.nowMs(),
         startedAtMs: null,
         finishedAtMs: null,
         steps,

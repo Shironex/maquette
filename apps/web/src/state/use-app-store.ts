@@ -15,7 +15,8 @@ import {
 } from '@/ipc/client';
 import { hashForView, viewFromHash, type ViewId } from '@/state/views';
 import type { ToastStatus } from '@maquette/ui';
-import { useSettingsGuard } from './settings-guard';
+import { useSettingsGuard } from './use-settings-guard';
+import { clock } from '@/lib/clock';
 
 export type Phase = 'booting' | 'onboarding' | 'app' | 'failed';
 
@@ -142,7 +143,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(s => ({ tools: { ...s.tools, checking: true } }));
     try {
       const reports = await commands.toolchainDetect();
-      set(s => ({ tools: { ...s.tools, reports, checking: false, checkedAt: Date.now() } }));
+      set(s => ({ tools: { ...s.tools, reports, checking: false, checkedAt: clock.nowMs() } }));
     } catch (error) {
       set(s => ({ tools: { ...s.tools, checking: false } }));
       get().notify({

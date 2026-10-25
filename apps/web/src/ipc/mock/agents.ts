@@ -5,6 +5,7 @@
  * `?agents=batch` asks for three sends under one approval instead.
  */
 import type { Approval, McpCall, McpStatus, WorkspaceConfig } from '../client';
+import { clock } from '@/lib/clock';
 
 type Args = Record<string, unknown>;
 
@@ -65,7 +66,7 @@ export function createFakeAgents({
   /** A send to 3D an agent asked for was approved or denied. */
   onSendDecision?: (job: string, approve: boolean) => void;
 }) {
-  const now = Date.now();
+  const now = clock.nowMs();
   let token: string | null = active ? MOCK_TOKEN : null;
   let calls: McpCall[] = active ? agentCalls(now) : [];
   let approvals: Approval[] = active

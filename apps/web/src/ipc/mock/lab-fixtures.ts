@@ -3,6 +3,7 @@
  * bundled `assets/mock/concepts/*.webp`, served at these project paths.
  */
 import type { ConceptImage, ConceptJob, Direction, RefImage } from '../client';
+import { clock } from '@/lib/clock';
 
 /** Project relative file to the bundled image that stands in for it. */
 const CONCEPT_FILES: Record<string, string> = {};
@@ -61,7 +62,7 @@ function direction(
   ageHours: number,
   marks: Marks = {}
 ): Direction {
-  const at = new Date(Date.now() - ageHours * HOUR).toISOString();
+  const at = new Date(clock.nowMs() - ageHours * HOUR).toISOString();
   return {
     id,
     name,

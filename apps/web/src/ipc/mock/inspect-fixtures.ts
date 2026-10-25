@@ -14,6 +14,7 @@ import type {
   TextureCodec,
   TextureRow,
 } from '../client';
+import { clock } from '@/lib/clock';
 
 /** The files the mock scene serves, by the bundled model that previews them. */
 export const INSPECT_FILES: Record<string, string> = {
@@ -122,7 +123,7 @@ export function inspectView(
       path: `web/dist/${m.stem}.glb`,
       asset: m.stem === 'character' ? 'character' : m.stem === 'sakura' ? 'sakura' : null,
       version: null,
-      modifiedAt: new Date(Date.now() - 2 * 60_000).toISOString(),
+      modifiedAt: new Date(clock.nowMs() - 2 * 60_000).toISOString(),
       bytes: m.bytes,
       triangles: m.triangles,
       vertices: m.vertices,

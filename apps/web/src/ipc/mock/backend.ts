@@ -72,6 +72,7 @@ import { createFakeLab, refMayReplace } from './lab';
 import { createFakeLayout } from './layout';
 import { createFakeProviders } from './providers';
 import { createFakeRunner, type RunStore } from './runner';
+import { clock } from '@/lib/clock';
 
 type Args = Record<string, unknown>;
 
@@ -160,7 +161,7 @@ export function createBackend({
     config = { ...config, agents: { ...config.agents, mcpEnabled: true } };
   }
 
-  const now = Date.now();
+  const now = clock.nowMs();
   const history = configured ? runHistory(now) : [];
   const store: RunStore = {
     runs: scenario === 'idle' ? history.slice(1) : history,
@@ -442,7 +443,7 @@ export function createBackend({
         template: next.template,
         siteRepo: next.siteRepo ? expand(next.siteRepo) : null,
         sourceFolder: next.sourceFolder ? expand(next.sourceFolder) : null,
-        createdAt: new Date().toISOString(),
+        createdAt: clock.now().toISOString(),
         assets: [],
       };
       projects = [...projects, manifest];
@@ -493,7 +494,7 @@ export function createBackend({
       if (!name) fail('invalid', 'Give the asset a name.');
       let assetId = slugify(name);
       while ((p.assets ?? []).some(a => a.id === assetId)) assetId = `${assetId}-2`;
-      const at = new Date().toISOString();
+      const at = clock.now().toISOString();
       return saveProject({
         ...p,
         assets: [
@@ -516,7 +517,7 @@ export function createBackend({
       const p = project(String(id));
       if (!(p.assets ?? []).some(a => a.id === assetId))
         fail('not-found', `Could not find the asset ${String(assetId)}.`);
-      const at = new Date().toISOString();
+      const at = clock.now().toISOString();
       return saveProject({
         ...p,
         assets: (p.assets ?? []).map(a =>
@@ -535,7 +536,7 @@ export function createBackend({
       const slug = slugify(next);
       if (assets.some(a => a.id !== assetId && (a.id === slug || slugify(a.name) === slug)))
         fail('invalid', `Another asset is already called ${next}.`);
-      const at = new Date().toISOString();
+      const at = clock.now().toISOString();
       return saveProject({
         ...p,
         assets: assets.map(a => (a.id === assetId ? { ...a, name: next, updatedAt: at } : a)),
@@ -567,7 +568,7 @@ export function createBackend({
       if (source.thumbnail && thumbnail) {
         files?.alias(`${dir(target.id)}/${thumbnail}`, `${dir(from.id)}/${source.thumbnail}`);
       }
-      const at = new Date().toISOString();
+      const at = clock.now().toISOString();
       const asset = {
         ...source,
         id: newId,
@@ -693,7 +694,7 @@ export function createBackend({
       const assets = [...(p.assets ?? [])];
       const assetId = req.asset ?? slugify(item.name);
       let target = assets.find(a => a.id === assetId);
-      const at = new Date().toISOString();
+      const at = clock.now().toISOString();
       if (!target) {
         target = {
           id: assetId,

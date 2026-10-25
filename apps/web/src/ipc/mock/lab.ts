@@ -27,6 +27,7 @@ import {
   runningJobs,
   workbenchDirections,
 } from './lab-fixtures';
+import { clock } from '@/lib/clock';
 
 type Args = Record<string, unknown>;
 
@@ -74,7 +75,7 @@ export function createFakeLab(options: FakeLabOptions) {
   const refs = new Map<string, RefImage[]>([
     ['moon-island', [...labRefs(), ...(batch ? objectRefs() : [])]],
   ]);
-  let jobs: ConceptJob[] = running ? runningJobs('moon-island', Date.now()) : [];
+  let jobs: ConceptJob[] = running ? runningJobs('moon-island', clock.nowMs()) : [];
   let concurrency = 4;
   let pool = 0;
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -122,7 +123,7 @@ export function createFakeLab(options: FakeLabOptions) {
       free -= 1;
       const started = update(job, {
         state: 'running',
-        startedAtMs: Date.now(),
+        startedAtMs: clock.nowMs(),
         logTail: ['OpenAI Codex', 'session id: 01mock', 'Generating the image'],
       });
       const ms = options.jobMs * (0.75 + ((job.index * 37) % 50) / 100);
@@ -148,7 +149,7 @@ export function createFakeLab(options: FakeLabOptions) {
     const dir = options.projectDir(job.project);
     options.files?.alias(`${dir}/${job.file}`, `${dir}/concepts/__pool/${source}`);
     const direction = findDirection(job.project, job.direction);
-    const at = new Date().toISOString();
+    const at = clock.now().toISOString();
     const next = saveDirection(job.project, {
       ...direction,
       updatedAt: at,
@@ -169,7 +170,7 @@ export function createFakeLab(options: FakeLabOptions) {
     });
     update(job, {
       state: 'done',
-      finishedAtMs: Date.now(),
+      finishedAtMs: clock.nowMs(),
       width,
       height,
       logTail: [...job.logTail, `saved ${job.file}`],
@@ -185,7 +186,7 @@ export function createFakeLab(options: FakeLabOptions) {
     if (request.count < 1 || request.count > 12)
       fail('invalid', 'Ask for between 1 and 12 images.');
     const id = slug(name);
-    const at = new Date().toISOString();
+    const at = clock.now().toISOString();
     const existing = list(request.project).find(d => d.id === id);
     const direction = saveDirection(request.project, {
       id,
@@ -204,7 +205,7 @@ export function createFakeLab(options: FakeLabOptions) {
       ...jobs.filter(j => j.direction === id).map(j => j.index),
     ];
     const first = Math.max(0, ...taken) + 1;
-    const stamp = Date.now().toString(16);
+    const stamp = clock.nowMs().toString(16);
     for (let n = 0; n < request.count; n += 1) {
       const index = first + n;
       const two = String(index).padStart(2, '0');
@@ -218,7 +219,7 @@ export function createFakeLab(options: FakeLabOptions) {
         file: `concepts/${id}/${id}_${two}.png`,
         title: null,
         state: 'queued',
-        queuedAtMs: Date.now(),
+        queuedAtMs: clock.nowMs(),
         startedAtMs: null,
         finishedAtMs: null,
         message: null,
@@ -245,7 +246,7 @@ export function createFakeLab(options: FakeLabOptions) {
     const base = request.sourceName.trim() || 'Concept';
     const name = `${base.slice(0, 52).trimEnd()} objects`;
     const id = slug(name);
-    const at = new Date().toISOString();
+    const at = clock.now().toISOString();
     const existing = list(request.project).find(d => d.id === id);
     const direction = saveDirection(request.project, {
       id,
@@ -264,7 +265,7 @@ export function createFakeLab(options: FakeLabOptions) {
       ...jobs.filter(j => j.direction === id).map(j => j.index),
     ];
     const first = Math.max(0, ...taken) + 1;
-    const stamp = Date.now().toString(16);
+    const stamp = clock.nowMs().toString(16);
     names.forEach((title, n) => {
       const index = first + n;
       const two = String(index).padStart(2, '0');
@@ -278,7 +279,7 @@ export function createFakeLab(options: FakeLabOptions) {
         file: `concepts/${id}/${id}_${two}.png`,
         title,
         state: 'queued',
-        queuedAtMs: Date.now(),
+        queuedAtMs: clock.nowMs(),
         startedAtMs: null,
         finishedAtMs: null,
         message: null,
@@ -301,7 +302,7 @@ export function createFakeLab(options: FakeLabOptions) {
     const dir = options.projectDir(project);
     const manifest = options.project(project);
     let assets = [...(manifest.assets ?? [])];
-    const at = new Date().toISOString();
+    const at = clock.now().toISOString();
     const sent: SentObjects['assets'] = [];
     const copied: string[] = [];
     const images = direction.images.map(image => {
@@ -348,7 +349,7 @@ export function createFakeLab(options: FakeLabOptions) {
     const timer = timers.get(id);
     if (timer) clearTimeout(timer);
     timers.delete(id);
-    update(job, { state: 'cancelled', finishedAtMs: Date.now(), message: 'Cancelled.' });
+    update(job, { state: 'cancelled', finishedAtMs: clock.nowMs(), message: 'Cancelled.' });
     pump();
   }
 
@@ -363,7 +364,7 @@ export function createFakeLab(options: FakeLabOptions) {
     );
     const next = saveDirection(project, {
       ...direction,
-      updatedAt: new Date().toISOString(),
+      updatedAt: clock.now().toISOString(),
       images: direction.images.map(i =>
         i.picked ? { ...i, refFile: `refs/${i.file.slice(i.file.lastIndexOf('/') + 1)}` } : i
       ),
@@ -374,7 +375,7 @@ export function createFakeLab(options: FakeLabOptions) {
       ...copied.map(file => ({ file, name: file.slice(5), bytes: 2.2e6 })),
     ]);
     const manifest = options.project(project);
-    const at = new Date().toISOString();
+    const at = clock.now().toISOString();
     const assets = [...(manifest.assets ?? [])];
     const assetId = slug(direction.name);
     const order = ['concept', 'refs', 'tripo', 'blender', 'web', 'ship'];
@@ -437,7 +438,7 @@ export function createFakeLab(options: FakeLabOptions) {
       ...direction,
       id: newId,
       images,
-      updatedAt: new Date().toISOString(),
+      updatedAt: clock.now().toISOString(),
     };
     directions.set(
       from,
@@ -467,7 +468,7 @@ export function createFakeLab(options: FakeLabOptions) {
         ...target,
         assets: [
           ...(target.assets ?? []).filter(a => a.id !== takes.id),
-          { ...takes, updatedAt: new Date().toISOString() },
+          { ...takes, updatedAt: clock.now().toISOString() },
         ],
       });
     }
@@ -505,7 +506,7 @@ export function createFakeLab(options: FakeLabOptions) {
         fail('not-found', `Could not find the concept ${String(file)}.`);
       return saveDirection(String(project), {
         ...found,
-        updatedAt: new Date().toISOString(),
+        updatedAt: clock.now().toISOString(),
         images: found.images.map(i =>
           i.file === file
             ? {

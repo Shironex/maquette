@@ -348,9 +348,11 @@ describe('mock presets', () => {
     const handle = createBackend({ scenario: 'configured', probeDelay: 0, pace: 0 });
     const view = (await handle('pipeline_get', { project: 'moon-island' })) as PipelineView;
     const rows = presetsToSave(presetRows(view));
-    await expect(
-      handle('pipeline_save_presets', { project: 'moon-island', presets: rows })
-    ).resolves.toBeTruthy();
+    const saved = (await handle('pipeline_save_presets', {
+      project: 'moon-island',
+      presets: rows,
+    })) as PipelineView;
+    expect(saved.def.presets).toEqual(rows);
   });
 
   it('copies an asset under a free name and counts what the first stop sees', async () => {

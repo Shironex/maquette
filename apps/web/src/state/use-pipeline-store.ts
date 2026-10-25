@@ -191,15 +191,14 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
     if (!view) return;
     const next = applyEvent(view, event);
     if (next !== view) set({ view: next });
+    if (event.type !== 'run' || !['done', 'failed', 'cancelled'].includes(event.run.state)) return;
     // A finished run changed files on disk: refresh artifacts and sizes.
-    if (event.type === 'run' && ['done', 'failed', 'cancelled'].includes(event.run.state)) {
-      const project = view.project;
-      void commands.pipelineGet(project).then(
-        fresh => {
-          if (get().view?.project === project) set({ view: fresh });
-        },
-        () => undefined
-      );
-    }
+    const project = view.project;
+    void commands.pipelineGet(project).then(
+      fresh => {
+        if (get().view?.project === project) set({ view: fresh });
+      },
+      () => undefined
+    );
   },
 }));

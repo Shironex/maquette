@@ -4,6 +4,7 @@ import { commands, errorMessage, type InspectView } from '@/ipc/client';
 import type { MaterialMode } from '@/features/viewer/materials';
 import { useAppStore } from './use-app-store';
 import { pushSample } from './inspector';
+import { clock } from '@/lib/clock';
 
 export type InspectMode = Extract<MaterialMode, 'shaded' | 'wireframe' | 'lightmap'>;
 /** Compare versions, or lay out the scene. */
@@ -86,7 +87,7 @@ export const useInspectorStore = create<InspectorStore>((set, get) => ({
   pick: patch => set(patch),
   select: selected => set({ selected }),
   setMode: mode => set({ mode }),
-  flyTo: index => set({ stop: { index, at: Date.now() } }),
+  flyTo: index => set({ stop: { index, at: clock.nowMs() } }),
   leaveStop: () => {
     if (get().stop) set({ stop: null });
   },

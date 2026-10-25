@@ -13,6 +13,7 @@ import type {
   TripoPreset,
   WorkspaceConfig,
 } from '../client';
+import { clock } from '@/lib/clock';
 
 export const HOME = '/Users/maker';
 export const DEFAULT_ROOT = '~/Maquette';
@@ -208,7 +209,7 @@ export function moonIsland(withAssets = true): ProjectManifest {
     template: 'floating-diorama',
     siteRepo: `${HOME}/Documents/Projects/moon-island-site`,
     sourceFolder: null,
-    createdAt: new Date(Date.now() - 6 * 86_400_000).toISOString(),
+    createdAt: new Date(clock.nowMs() - 6 * 86_400_000).toISOString(),
     assets: withAssets ? moonAssets() : [],
   };
 }
@@ -224,7 +225,7 @@ function versions(stem: string, count: number, last: ModelStats | null): AssetVe
   return Array.from({ length: count }, (_, i) => ({
     version: i + 1,
     file: `models/${stem}_v${i + 1}.glb`,
-    createdAt: new Date(Date.now() - (count - i) * DAY).toISOString(),
+    createdAt: new Date(clock.nowMs() - (count - i) * DAY).toISOString(),
     stats: i === count - 1 ? last : null,
   }));
 }
@@ -233,7 +234,7 @@ function asset(
   partial: Partial<Asset> & Pick<Asset, 'id' | 'name' | 'kind' | 'stage' | 'status'>,
   age: number
 ): Asset {
-  const at = new Date(Date.now() - age).toISOString();
+  const at = new Date(clock.nowMs() - age).toISOString();
   return { versions: [], thumbnail: null, createdAt: at, updatedAt: at, ...partial };
 }
 
@@ -345,7 +346,7 @@ export function rooftopCinema(): ProjectManifest {
     template: 'room',
     siteRepo: null,
     sourceFolder: null,
-    createdAt: new Date(Date.now() - 13 * DAY).toISOString(),
+    createdAt: new Date(clock.nowMs() - 13 * DAY).toISOString(),
     assets: [
       asset(
         {
@@ -382,7 +383,7 @@ export function lanternKeeper(): ProjectManifest {
     template: 'character-showcase',
     siteRepo: `${HOME}/Documents/Projects/lantern-keeper-site`,
     sourceFolder: null,
-    createdAt: new Date(Date.now() - 2 * DAY).toISOString(),
+    createdAt: new Date(clock.nowMs() - 2 * DAY).toISOString(),
     assets: [
       asset(
         {
@@ -417,7 +418,7 @@ export function moreProjects(): ProjectManifest[] {
     template,
     siteRepo: null,
     sourceFolder: null,
-    createdAt: new Date(Date.now() - (20 + i * 4) * DAY).toISOString(),
+    createdAt: new Date(clock.nowMs() - (20 + i * 4) * DAY).toISOString(),
     assets: [],
   }));
 }

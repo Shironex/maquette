@@ -34,6 +34,7 @@ import type {
 } from '../client';
 import { HOME } from './fixtures';
 import { WORKBENCH_OBJECTS, labRefs, objectRef } from './lab-fixtures';
+import { clock } from '@/lib/clock';
 
 type Args = Record<string, unknown>;
 
@@ -171,7 +172,7 @@ export function createFakeProviders({
   emit?: (event: ProviderEvent) => void;
   fail: (code: string, message: string) => never;
 }) {
-  const now = Date.now();
+  const now = clock.nowMs();
   const keys = new Map<ProviderId, string>([['tripo', TRIPO_TAIL]]);
   const timers = new Map<string, ReturnType<typeof setInterval>>();
   let jobs: ProviderJob[] = [];
@@ -406,7 +407,7 @@ export function createFakeProviders({
 
   /** Moves a fake API job along: upload, generate, download, Inbox. */
   const run = (id: string) => {
-    const started = Date.now();
+    const started = clock.nowMs();
     const first = find(id);
     put({
       ...first,
@@ -435,7 +436,7 @@ export function createFakeProviders({
           phase: null,
           progress: 1,
           credits: job.provider === 'tripo' ? 30 : 20,
-          finishedAtMs: Date.now(),
+          finishedAtMs: clock.nowMs(),
           inboxFile: `${job.id}.glb`,
         });
         touch(job, 'review');
@@ -539,7 +540,7 @@ export function createFakeProviders({
         if (item.images.length === 0) fail('invalid', `${asset.name}: Pick at least one image.`);
         return { item, asset };
       });
-      const batch = `batch-${Date.now().toString(16)}`;
+      const batch = `batch-${clock.nowMs().toString(16)}`;
       const sent = items.map(({ item, asset }) =>
         start(
           base({
@@ -561,7 +562,7 @@ export function createFakeProviders({
                 ? (item.meshy ??
                   (item.variant === 'character' ? req.meshyCharacter : req.meshyProp))
                 : null,
-            createdAtMs: Date.now(),
+            createdAtMs: clock.nowMs(),
             batch,
           })
         )
@@ -573,7 +574,7 @@ export function createFakeProviders({
         j => j.project === id && j.provider === 'by-hand' && j.state === 'waiting'
       );
       const since = waiting.length ? Math.min(...waiting.map(j => j.createdAtMs ?? now)) : null;
-      const at = Date.now();
+      const at = clock.nowMs();
       const file = (
         name: string,
         inner: string | null,
@@ -636,7 +637,7 @@ export function createFakeProviders({
         images: req.images,
         tripo: req.service === 'tripo' ? req.tripo : null,
         meshy: req.service === 'meshy' ? req.meshy : null,
-        createdAtMs: Date.now(),
+        createdAtMs: clock.nowMs(),
       });
       return start(job);
     },
@@ -660,7 +661,7 @@ export function createFakeProviders({
       const next = put({
         ...job,
         state: 'cancelled',
-        finishedAtMs: Date.now(),
+        finishedAtMs: clock.nowMs(),
         message,
         cancel: 'none',
       });
@@ -675,7 +676,7 @@ export function createFakeProviders({
       const next = put({
         ...job,
         state: 'inbox',
-        finishedAtMs: Date.now(),
+        finishedAtMs: clock.nowMs(),
         inboxFile: `${job.id}.glb`,
         message: null,
         cancel: 'none',
@@ -727,7 +728,7 @@ export function createFakeProviders({
       put({
         ...job,
         state: 'cancelled',
-        finishedAtMs: Date.now(),
+        finishedAtMs: clock.nowMs(),
         message: 'Denied in Maquette. Nothing was spent.',
         cancel: 'none',
       });

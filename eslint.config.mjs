@@ -34,7 +34,12 @@ const COMPOSITION_ROOTS = ['shell', 'onboarding', 'settings'];
 // keep the rules in DEFERRED_RULES off until they are migrated. One entry per
 // migration commit; this list, DEFERRED_RULES and the block that uses them are
 // deleted once every area is in.
-const MIGRATED = [];
+const MIGRATED = [
+  'apps/web/src/state/**',
+  'apps/web/src/ipc/**',
+  'apps/web/src/lib/**',
+  'apps/web/src/test/**',
+];
 
 // Preset rules the unmigrated areas do not pass yet, with the count measured
 // when the presets went in (2026-10-25).
@@ -156,6 +161,17 @@ export default defineConfig(
     rules: {
       'noctcore-architecture/no-cross-feature-imports': 'off',
     },
+  },
+  {
+    // The mock backend rejects with the { code, message } payload the Tauri bridge
+    // sends (errorMessage reads it through isErrorPayload), not with an Error.
+    files: [
+      'apps/web/src/ipc/mock/agents.ts',
+      'apps/web/src/ipc/mock/layout.ts',
+      'apps/web/src/ipc/mock/runner.ts',
+      'apps/web/src/state/quit.test.ts',
+    ],
+    rules: { 'noctcore-contracts/restrict-throw-to-taxonomy': 'off' },
   },
   {
     files: APP_TS,
