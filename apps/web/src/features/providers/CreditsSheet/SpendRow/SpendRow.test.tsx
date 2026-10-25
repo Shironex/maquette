@@ -20,6 +20,7 @@ const spend: Spend = {
   outcome: 'pending',
   redoOf: 'sakura-2',
   viaAgent: true,
+  source: 'api',
 };
 
 describe('a spend row', () => {

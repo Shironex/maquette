@@ -1,12 +1,13 @@
 /**
  * Credits: what each provider says is left, what paid sends spent this
  * week and month, how much went on redos, and every spend of the
- * workspace's ledger, filterable and saved as CSV.
+ * workspace's ledger, filterable and saved as CSV. API spend and By hand
+ * subscription spend show one at a time, so their totals never mix.
  */
 import { Button, Icon, IconButton, InlineBanner, SegmentedControl, Select } from '@maquette/ui';
-import type { ProviderId } from '@/ipc/client';
+import type { ProviderId, SpendSource } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
-import { formatCredits, shareText, spendKey } from '@/state/credits';
+import { SOURCE_LABEL, formatCredits, shareText, spendKey } from '@/state/credits';
 import { SectionTitle } from '../SectionTitle';
 import { Sheet } from '../Sheet';
 import { BalanceCard } from './BalanceCard';
@@ -18,6 +19,16 @@ const SERVICES = [
   { value: 'tripo', label: 'Tripo' },
   { value: 'meshy', label: 'Meshy' },
 ] as const;
+
+const SOURCES = (['api', 'subscription'] as const).map(value => ({
+  value,
+  label: SOURCE_LABEL[value],
+}));
+
+const EMPTY: Record<SpendSource, string> = {
+  api: 'Sends to Tripo and Meshy land here with what they cost.',
+  subscription: 'By hand sends land here with what the site charges your plan, about.',
+};
 
 export default function CreditsSheet() {
   const {
@@ -101,21 +112,27 @@ export default function CreditsSheet() {
               </span>
             }
           >
-            Balance
+            API balance
           </SectionTitle>
           <div className="grid grid-cols-2 gap-2.5">{cards}</div>
         </section>
 
         <section className="flex min-h-0 flex-col gap-2.5">
           <SectionTitle>Spent</SectionTitle>
-          <div className="flex items-end gap-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <SegmentedControl
+              label="Paid with"
+              options={SOURCES}
+              value={filter.source}
+              onChange={v => setFilter({ source: v as SpendSource })}
+            />
             <Select
               label="Project"
               size="sm"
               options={projectOptions}
               value={filter.project ?? ''}
               onChange={project => setFilter({ project: project || null })}
-              fieldClassName="w-[220px]"
+              fieldClassName="w-[200px]"
             />
             <SegmentedControl
               label="Provider"
@@ -133,8 +150,9 @@ export default function CreditsSheet() {
             </p>
           ) : spends.length === 0 ? (
             <p className="rounded-card border border-dashed border-line-strong px-3 py-6 text-center text-meta text-fg-mute">
-              No paid sends{filter.project || filter.service ? ' for this filter' : ' yet'}. Sends
-              to Tripo and Meshy land here with what they cost.
+              No {filter.source === 'api' ? 'paid' : 'subscription'} sends
+              {filter.project || filter.service ? ' for this filter' : ' yet'}.{' '}
+              {EMPTY[filter.source]}
             </p>
           ) : (
             <div className="rounded-card border border-line">
@@ -148,7 +166,12 @@ export default function CreditsSheet() {
               <ul className="m-0 list-none p-0">{rows}</ul>
             </div>
           )}
-          {totals.estimated > 0 ? (
+          {filter.source === 'subscription' ? (
+            <p className="text-meta text-fg-mute">
+              Subscription credits are estimates from the table in Maquette, paid from your plan on
+              the Tripo or Meshy site, never from the API balance above.
+            </p>
+          ) : totals.estimated > 0 ? (
             <p className="text-meta text-fg-mute">
               <span className="font-medium text-fg-dim">est.</span> marks credits from the price
               list, for sends still running or that did not report a cost.

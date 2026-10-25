@@ -1,9 +1,11 @@
 /**
  * Words and numbers for the Credits view: the ledger of paid sends, the
- * week and month totals, the redo share and the CSV export.
+ * week and month totals, the redo share and the CSV export. API credits
+ * and By hand subscription credits are different money, so the view shows
+ * one source at a time and never sums them.
  */
 import type { Status } from '@maquette/ui';
-import type { Balance, ProviderId, Spend, SpendOutcome } from '@/ipc/client';
+import type { Balance, ProviderId, Spend, SpendOutcome, SpendSource } from '@/ipc/client';
 
 export const DAY_MS = 86_400_000;
 
@@ -29,17 +31,33 @@ export const OUTCOME_CHIP: Record<SpendOutcome, { status: Status; label: string 
   cancelled: { status: 'failed', label: 'Cancelled' },
 };
 
+/** The chip for a spend: a By hand send waits for a person, it is not running. */
+export function outcomeChip(spend: Pick<Spend, 'outcome' | 'source'>) {
+  if (spend.source === 'subscription' && spend.outcome === 'pending') {
+    return { status: 'queued' as const, label: 'Waiting' };
+  }
+  return OUTCOME_CHIP[spend.outcome];
+}
+
 /** A send's identity: job ids repeat across projects and once finished jobs are cleared. */
-export const spendKey = (s: Spend): string => `${s.project}/${s.job}/${s.task ?? ''}`;
+export const spendKey = (s: Spend): string => `${s.source}/${s.project}/${s.job}/${s.task ?? ''}`;
 
 export interface CreditsFilter {
   project: string | null;
   service: ProviderId | null;
+  /** API spend or By hand subscription spend, never both at once. */
+  source: SpendSource;
 }
+
+export const SOURCE_LABEL: Record<SpendSource, string> = {
+  api: 'API',
+  subscription: 'Subscription',
+};
 
 export function filterSpends(spends: readonly Spend[], filter: CreditsFilter): Spend[] {
   return spends.filter(
     s =>
+      s.source === filter.source &&
       (!filter.project || s.project === filter.project) &&
       (!filter.service || s.service === filter.service)
   );
@@ -106,6 +124,7 @@ const CSV_HEADER = [
   'asset',
   'job',
   'provider',
+  'source',
   'task',
   'settings',
   'credits',
@@ -137,6 +156,7 @@ export function spendsCsv(spends: readonly Spend[]): string {
         s.assetName,
         s.job,
         s.service,
+        s.source,
         s.task,
         s.summary,
         s.credits ?? 0,

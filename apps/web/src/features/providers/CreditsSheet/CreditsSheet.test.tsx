@@ -12,7 +12,7 @@ afterEach(() => {
     open: false,
     ledger: null,
     balances: null,
-    filter: { project: null, service: null },
+    filter: { project: null, service: null, source: 'api' },
   });
 });
 
@@ -51,5 +51,21 @@ describe('the Credits sheet', () => {
         detail: expect.stringMatching(/^\d+ sends in ~\/Downloads\/maquette-credits-/),
       })
     );
+  });
+
+  it('keeps By hand subscription sends apart from API spend', async () => {
+    const sheet = await openSheet();
+    await within(sheet).findAllByRole('listitem');
+    const api = within(sheet).getAllByRole('listitem').length;
+    await userEvent.click(
+      within(within(sheet).getByRole('group', { name: 'Paid with' })).getByRole('button', {
+        name: 'Subscription',
+      })
+    );
+    const rows = within(sheet).getAllByRole('listitem');
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.length).not.toBe(api);
+    expect(rows.every(r => r.textContent?.includes('By hand'))).toBe(true);
+    expect(sheet).toHaveTextContent('Subscription credits are estimates');
   });
 });

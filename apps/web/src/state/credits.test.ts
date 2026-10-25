@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Spend } from '@/ipc/client';
 import {
+  outcomeChip,
   DAY_MS,
   balanceView,
   creditTotals,
@@ -32,6 +33,7 @@ const spend = (patch: Partial<Spend>): Spend => ({
   outcome: 'succeeded',
   redoOf: null,
   viaAgent: false,
+  source: 'api',
   ...patch,
 });
 
@@ -66,15 +68,22 @@ describe('the ledger view', () => {
     const again = spend({ task: 'task-2' });
     expect(spendKey(spend({}))).not.toBe(spendKey(again));
     expect(spendKey(spend({ project: 'rooftop' }))).not.toBe(spendKey(spend({})));
-    expect(spendKey(spend({ task: null }))).toBe('moon-island/sakura-1/');
+    expect(spendKey(spend({ task: null }))).toBe('api/moon-island/sakura-1/');
+    expect(spendKey(spend({ source: 'subscription' }))).not.toBe(spendKey(spend({})));
   });
 
-  it('filters by project and provider', () => {
-    expect(filterSpends(spends, { project: 'rooftop', service: null }).map(s => s.job)).toEqual([
+  it('filters by project, provider and source', () => {
+    const api = { project: null, service: null, source: 'api' } as const;
+    expect(filterSpends(spends, { ...api, project: 'rooftop' }).map(s => s.job)).toEqual([
       'spire-1',
     ]);
-    expect(filterSpends(spends, { project: null, service: 'tripo' })).toHaveLength(3);
+    expect(filterSpends(spends, { ...api, service: 'tripo' })).toHaveLength(3);
     expect(ledgerProjects(spends)).toEqual(['moon-island', 'rooftop']);
+    const web = spend({ job: 'lamp-2', source: 'subscription', credits: 30 });
+    const mixed = [...spends, web];
+    expect(filterSpends(mixed, api)).toHaveLength(4);
+    expect(filterSpends(mixed, { ...api, source: 'subscription' })).toEqual([web]);
+    expect(creditTotals(filterSpends(mixed, api), NOW).total).toBe(100);
   });
 
   it('totals the last 7 and 30 days and the share that went on redos', () => {
@@ -98,9 +107,9 @@ describe('the ledger view', () => {
     ]);
     const [header, first, second] = csv.trimEnd().split('\n');
     expect(header).toBe(
-      'sent_at,project,asset,job,provider,task,settings,credits,estimated,outcome,redo_of,via_agent'
+      'sent_at,project,asset,job,provider,source,task,settings,credits,estimated,outcome,redo_of,via_agent'
     );
-    expect(first).toContain(',a-1,tripo,task-1,');
+    expect(first).toContain(',a-1,tripo,api,task-1,');
     expect(first).toMatch(/,30,true,succeeded,a-0,false$/);
     expect(second).toContain('"Meshy 6, ""4K"", PBR"');
     expect(csvName(NOW)).toBe('maquette-credits-2027-01-15.csv');
@@ -141,5 +150,13 @@ describe('the ledger view', () => {
       balanceView({ key: true, credits: null, held: null, error: 'Tripo refused the key.' }, false)
     ).toMatchObject({ value: 'Unknown', tone: 'error' });
     expect(balanceView(undefined, true).note).toBe('Asking');
+  });
+});
+
+describe('the outcome chip', () => {
+  it('says a By hand send waits for a person, and an API one runs', () => {
+    expect(outcomeChip({ outcome: 'pending', source: 'subscription' }).label).toBe('Waiting');
+    expect(outcomeChip({ outcome: 'pending', source: 'api' }).label).toBe('Running');
+    expect(outcomeChip({ outcome: 'succeeded', source: 'subscription' }).label).toBe('Succeeded');
   });
 });

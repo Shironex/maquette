@@ -38,7 +38,7 @@ export const useCreditsStore = create<CreditsStore>((set, get) => ({
   error: null,
   loading: false,
   checking: false,
-  filter: { project: null, service: null },
+  filter: { project: null, service: null, source: 'api' },
 
   openCredits: project => {
     set({ open: true, filter: { ...get().filter, project: project ?? null } });
