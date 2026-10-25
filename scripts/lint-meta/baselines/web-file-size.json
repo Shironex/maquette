@@ -6,7 +6,5 @@
   "apps/web/src/features/inspector/LayoutPanel.tsx": 497,
   "apps/web/src/features/lab/ObjectRefsDialog.tsx": 436,
   "apps/web/src/features/providers/PresetFields.tsx": 442,
-  "apps/web/src/features/settings/SettingsView.tsx": 461,
-  "apps/web/src/state/use-lab-store.ts": 437,
-  "apps/web/src/state/use-providers-store.ts": 630
+  "apps/web/src/features/settings/SettingsView.tsx": 461
 }
