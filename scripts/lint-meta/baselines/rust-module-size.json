@@ -7,7 +7,6 @@
   "crates/maquette-core/src/assets.rs": 468,
   "crates/maquette-core/src/concepts/jobs.rs": 918,
   "crates/maquette-core/src/concepts/mod.rs": 767,
-  "crates/maquette-core/src/concepts/objects.rs": 582,
   "crates/maquette-core/src/concepts/transfer.rs": 455,
   "crates/maquette-core/src/inbox/analyse.rs": 817,
   "crates/maquette-core/src/inbox/checks.rs": 458,
