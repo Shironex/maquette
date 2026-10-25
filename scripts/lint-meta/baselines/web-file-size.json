@@ -1,0 +1,16 @@
+{
+  "apps/web/src/features/board/BoardView.tsx": 662,
+  "apps/web/src/features/inspector/CompareCanvas.tsx": 437,
+  "apps/web/src/features/inspector/InspectorView.tsx": 493,
+  "apps/web/src/features/inspector/LayoutCanvas.tsx": 622,
+  "apps/web/src/features/inspector/LayoutPanel.tsx": 497,
+  "apps/web/src/features/lab/ObjectRefsDialog.tsx": 436,
+  "apps/web/src/features/providers/PresetFields.tsx": 442,
+  "apps/web/src/features/settings/SettingsView.tsx": 461,
+  "apps/web/src/ipc/mock/backend.ts": 774,
+  "apps/web/src/ipc/mock/fixtures.ts": 431,
+  "apps/web/src/ipc/mock/lab.ts": 568,
+  "apps/web/src/ipc/mock/providers.ts": 739,
+  "apps/web/src/state/use-lab-store.ts": 437,
+  "apps/web/src/state/use-providers-store.ts": 630
+}

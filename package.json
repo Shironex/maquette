@@ -15,6 +15,7 @@
     "build:site": "pnpm --filter @maquette/site build",
     "tauri": "pnpm --filter @maquette/desktop exec tauri",
     "lint": "eslint .",
+    "lint:meta": "node scripts/lint-meta.mjs",
     "typecheck": "pnpm -r --parallel typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -23,7 +24,7 @@
     "rust:fmt": "cargo fmt --all --check",
     "rust:lint": "cargo clippy --workspace --all-targets -- -D warnings",
     "rust:test": "cargo test --workspace",
-    "gate": "pnpm lint && pnpm typecheck && pnpm test && pnpm build:site && pnpm format:check && pnpm rust:fmt && pnpm rust:lint && pnpm rust:test",
+    "gate": "pnpm lint && pnpm lint:meta && pnpm typecheck && pnpm test && pnpm build:site && pnpm format:check && pnpm rust:fmt && pnpm rust:lint && pnpm rust:test",
     "visual": "node scripts/visual-check.mjs",
     "prepare": "husky"
   },
