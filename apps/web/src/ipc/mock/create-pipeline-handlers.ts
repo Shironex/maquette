@@ -82,6 +82,7 @@ export function createPipelineHandlers({
           p.textureSize,
           p.dataTextureSize ?? null,
           p.codec,
+          p.mapCodecs ?? null,
           p.meshopt,
           p.lock,
         ]);

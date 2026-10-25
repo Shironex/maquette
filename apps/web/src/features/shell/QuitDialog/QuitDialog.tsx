@@ -2,12 +2,13 @@ import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 import { useQuitDialog } from './QuitDialog.hooks';
 
 export default function QuitDialog() {
-  const { asking, applying, error, cancel, applyAndQuit, quitWithout, names } = useQuitDialog();
+  const { asking, applying, error, cancel, applyAndQuit, quitWithout, names, title } =
+    useQuitDialog();
   if (!asking) return null;
   const where = names.join(', ') || 'this workspace';
   return (
     <ChoiceDialog
-      title="Apply the compression presets?"
+      title={title}
       onDismiss={cancel}
       choices={[
         { label: 'Quit without applying', variant: 'danger', onClick: () => void quitWithout() },

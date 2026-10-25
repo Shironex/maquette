@@ -1,5 +1,11 @@
 /** The compression preset table: rows for every model, and what to save. */
-import type { CompressPreset, MeshoptLevel, PipelineView, TextureCodec } from '@/ipc/client';
+import type {
+  CompressPreset,
+  MapCodecs,
+  MeshoptLevel,
+  PipelineView,
+  TextureCodec,
+} from '@/ipc/client';
 
 export interface PresetRow {
   model: string;
@@ -8,6 +14,8 @@ export interface PresetRow {
   /** A smaller size for metal, roughness, occlusion and normal maps, or null for one size. */
   dataTextureSize: number | null;
   codec: TextureCodec;
+  /** Per map group codecs, which the Inspector sets; null follows `codec`. */
+  mapCodecs: MapCodecs | null;
   meshopt: MeshoptLevel;
   lock: string | null;
   /** True when the row is stored (or edited), not just the defaults. */
@@ -29,13 +37,19 @@ export function presetRows(view: PipelineView): PresetRow[] {
   return [...models].sort().map(model => {
     const preset = stored.get(model);
     return preset
-      ? { ...preset, dataTextureSize: preset.dataTextureSize ?? null, custom: true }
+      ? {
+          ...preset,
+          dataTextureSize: preset.dataTextureSize ?? null,
+          mapCodecs: preset.mapCodecs ?? null,
+          custom: true,
+        }
       : {
           model,
           label: named.get(model) ?? modelLabel(model),
           textureSize: view.defaults.textureSize,
           dataTextureSize: null,
           codec: view.defaults.codec,
+          mapCodecs: null,
           meshopt: view.defaults.meshopt,
           lock: null,
           custom: false,
@@ -52,9 +66,16 @@ const sameRow = (a: PresetRow, b: PresetRow) =>
   a.codec === b.codec &&
   a.meshopt === b.meshopt;
 
-/** The saved rows with the edits laid over them; an edit for a model gone from the list drops. */
+/**
+ * The saved rows with the edits laid over them; an edit for a model gone
+ * from the list drops. The table does not edit per map codecs, so those
+ * stay as saved, even when the Inspector changed them after the edit.
+ */
 export function withEdits(saved: readonly PresetRow[], edits: PresetEdits): PresetRow[] {
-  return saved.map(r => edits[r.model] ?? r);
+  return saved.map(r => {
+    const edit = edits[r.model];
+    return edit ? { ...edit, mapCodecs: r.mapCodecs } : r;
+  });
 }
 
 /** The edits with `row` in; a row set back to its saved values is no edit. */
@@ -76,12 +97,13 @@ export function hasEdits(saved: readonly PresetRow[], edits: PresetEdits): boole
 export function presetsToSave(rows: readonly PresetRow[]): CompressPreset[] {
   return rows
     .filter(r => r.custom)
-    .map(({ model, label, textureSize, dataTextureSize, codec, meshopt, lock }) => ({
+    .map(({ model, label, textureSize, dataTextureSize, codec, mapCodecs, meshopt, lock }) => ({
       model,
       label,
       textureSize,
       dataTextureSize,
       codec,
+      mapCodecs,
       meshopt,
       lock,
     }));

@@ -7,6 +7,7 @@ import { useAppStore } from '@/state/use-app-store';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useLayoutStore } from '@/state/use-layout-store';
+import { useMaterialsStore } from '@/state/use-materials-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { isSwitcherShortcut, switcherShortcut } from '@/state/projects';
@@ -99,8 +100,8 @@ export function useAppShell() {
 }
 
 /**
- * Loads the pipeline and the inbox for the open project and keeps them
- * fresh from the runner and the inbox watcher.
+ * Loads the pipeline, the inbox and the material tweaks for the open
+ * project and keeps them fresh from the runner, the inbox watcher and agents.
  */
 export function useLiveData(projectId: string | null, root: string | null) {
   const loadPipeline = usePipelineStore(s => s.load);
@@ -118,6 +119,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
   const loadKeys = useProvidersStore(s => s.loadKeys);
   const loadProjects = useProjectsStore(s => s.load);
   const onLayoutChanged = useLayoutStore(s => s.onChanged);
+  const loadMaterials = useMaterialsStore(s => s.load);
   useEffect(() => {
     // The rail shows the open project's own picture from the list.
     if (root) void loadProjects();
@@ -138,6 +140,9 @@ export function useLiveData(projectId: string | null, root: string | null) {
     if (projectId) void loadLab(projectId);
   }, [projectId, loadLab]);
   useEffect(() => {
+    if (projectId) void loadMaterials(projectId);
+  }, [projectId, loadMaterials]);
+  useEffect(() => {
     if (root) void loadInbox();
   }, [root, loadInbox]);
   useEffect(() => {
@@ -157,6 +162,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.projectChanged.listen(e => setProject(e.payload.project)),
       events.mcpUpdate.listen(e => onAgents(e.payload)),
       events.providerUpdate.listen(e => onProvider(e.payload)),
+      events.materialsChanged.listen(e => void loadMaterials(e.payload.project)),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
@@ -171,5 +177,6 @@ export function useLiveData(projectId: string | null, root: string | null) {
     onAgents,
     onProvider,
     onLayoutChanged,
+    loadMaterials,
   ]);
 }

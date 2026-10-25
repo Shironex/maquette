@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import { events } from '@/ipc/generated/bindings';
+import { emptyLook } from '@/state/materials';
+import { useMaterialsStore } from '@/state/use-materials-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useQuitStore } from '@/state/use-quit-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
@@ -13,6 +15,7 @@ afterEach(() => {
   cleanup();
   clearMocks();
   usePipelineStore.setState({ view: null, presetEdits: {} });
+  useMaterialsStore.setState({ saved: {}, edits: {}, saving: false });
   useQuitStore.setState({ asking: false, applying: false, error: null });
 });
 
@@ -36,6 +39,7 @@ const edit = {
     textureSize: 512,
     dataTextureSize: null,
     codec: 'etc1s' as const,
+    mapCodecs: null,
     meshopt: 'low' as const,
     lock: null,
     custom: true,
@@ -53,6 +57,18 @@ describe('the quit guard', () => {
     await waitFor(() => expect(sent().at(-1)).toEqual({ unapplied: true }));
 
     act(() => usePipelineStore.getState().setPresetEdits('moon-island', {}));
+    await waitFor(() => expect(sent().at(-1)).toEqual({ unapplied: false }));
+  });
+
+  it('counts unapplied material tweaks too', async () => {
+    const calls = await record();
+    renderHook(() => useQuitGuard());
+    const sent = () => calls.filter(([c]) => c === 'quit_set_unapplied').map(([, a]) => a);
+    await waitFor(() => expect(sent()).toEqual([{ unapplied: false }]));
+    const look = { ...emptyLook(), all: { ...emptyLook().all, metalness: 0.2 } };
+    act(() => useMaterialsStore.getState().setLook('moon-island', 'sakura', look));
+    await waitFor(() => expect(sent().at(-1)).toEqual({ unapplied: true }));
+    act(() => useMaterialsStore.getState().reset('moon-island', 'sakura'));
     await waitFor(() => expect(sent().at(-1)).toEqual({ unapplied: false }));
   });
 });

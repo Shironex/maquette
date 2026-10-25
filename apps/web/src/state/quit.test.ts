@@ -1,13 +1,16 @@
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
+import { emptyLook } from './materials';
+import { useMaterialsStore } from './use-materials-store';
 import { usePipelineStore } from './use-pipeline-store';
-import { useQuitStore } from './use-quit-store';
+import { quitTitle, unappliedProjects, useQuitStore } from './use-quit-store';
 import type { PresetEdits } from './presets';
 
 afterEach(() => {
   clearMocks();
   usePipelineStore.setState({ view: null, presetEdits: {} });
+  useMaterialsStore.setState({ saved: {}, edits: {}, saving: false });
   useQuitStore.setState({ asking: false, applying: false, error: null });
 });
 
@@ -36,6 +39,7 @@ function editFirstRow(): PresetEdits {
       textureSize: 512,
       dataTextureSize: null,
       codec: 'etc1s',
+      mapCodecs: null,
       meshopt: 'low',
       lock: null,
       custom: true,
@@ -79,5 +83,39 @@ describe('quitting with presets not applied', () => {
     await useQuitStore.getState().quitWithoutApplying();
     expect(calls).toContain('quit_now');
     expect(calls).not.toContain('pipeline_save_presets');
+  });
+});
+
+describe('quitting with material tweaks not applied', () => {
+  const tint = { ...emptyLook(), all: { ...emptyLook().all, tint: '#6f7446' } };
+
+  it('saves the tweaks after the presets, then closes', async () => {
+    const { calls } = await setup();
+    usePipelineStore.getState().setPresetEdits('moon-island', editFirstRow());
+    useMaterialsStore.getState().setLook('moon-island', 'sakura', tint);
+    useQuitStore.getState().ask();
+
+    await useQuitStore.getState().applyAndQuit();
+    const order = ['pipeline_save_presets', 'materials_save', 'quit_now'].map(c =>
+      calls.indexOf(c)
+    );
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(order[0]).toBeGreaterThanOrEqual(0);
+    expect(useMaterialsStore.getState().edits).toEqual({});
+  });
+
+  it('stays open when the tweaks do not save', async () => {
+    const { calls } = await setup(cmd => cmd === 'materials_save');
+    useMaterialsStore.getState().setLook('moon-island', 'sakura', tint);
+    await useQuitStore.getState().applyAndQuit();
+    expect(calls).not.toContain('quit_now');
+    expect(useQuitStore.getState().error).toMatch(/Moon Island.*The disk is full/);
+  });
+
+  it('names each project once and says what waits', () => {
+    expect(unappliedProjects({ a: 1, b: 1 }, { b: 1, c: 1 })).toEqual(['a', 'b', 'c']);
+    expect(quitTitle(true, false)).toBe('Apply the compression presets?');
+    expect(quitTitle(false, true)).toBe('Apply the material tweaks?');
+    expect(quitTitle(true, true)).toBe('Apply the presets and material tweaks?');
   });
 });

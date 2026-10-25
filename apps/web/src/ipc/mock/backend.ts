@@ -47,6 +47,7 @@ import {
 import { createFakeAgents } from './agents';
 import { createFakeLab, refMayReplace } from './lab';
 import { createFakeLayout } from './layout';
+import { createMaterialHandlers } from './materials';
 import { createFakeProviders } from './providers';
 import { createFakeRunner, type RunStore } from './runner';
 import { clock } from '@/lib/clock';
@@ -339,6 +340,7 @@ export function createBackend({
       startersOf,
       activeRun,
     }),
+    ...createMaterialHandlers(project),
     ...createInboxHandlers({
       project,
       saveProject,

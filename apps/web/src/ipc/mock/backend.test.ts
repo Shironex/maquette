@@ -379,4 +379,46 @@ describe('mock presets', () => {
       expect.arrayContaining(['character', 'character-2'])
     );
   });
+
+  it('keeps material tweaks per project, tidied, and refuses a locked map codec change', async () => {
+    const { handle } = backend('configured');
+    const none = { tint: null, roughness: null, metalness: null, emissiveStrength: null };
+    const stored = await handle('materials_save', {
+      project: 'moon-island',
+      materials: {
+        version: 1,
+        models: {
+          sakura: { all: { ...none, tint: '#FFC0CB' }, materials: { Leaves: none } },
+          hut: { all: none, materials: {} },
+        },
+      },
+    });
+    expect(stored).toEqual({
+      version: 1,
+      models: { sakura: { all: { ...none, tint: '#ffc0cb' }, materials: {} } },
+    });
+    expect(await handle('materials_get', { project: 'rooftop-cinema' })).toEqual({
+      version: 1,
+      models: {},
+    });
+    await expect(
+      handle('materials_save', {
+        project: 'moon-island',
+        materials: {
+          version: 1,
+          models: {
+            sakura: { all: { ...none, roughness: { mode: 'multiply', value: 3 } }, materials: {} },
+          },
+        },
+      })
+    ).rejects.toMatchObject({ code: 'invalid' });
+
+    const view = (await handle('pipeline_get', { project: 'moon-island' })) as PipelineView;
+    const rows = view.def.presets.map(p =>
+      p.lock ? { ...p, mapCodecs: { color: null, normal: 'etc1s', other: null } } : p
+    );
+    await expect(
+      handle('pipeline_save_presets', { project: 'moon-island', presets: rows })
+    ).rejects.toMatchObject({ code: 'invalid' });
+  });
 });

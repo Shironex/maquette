@@ -32,7 +32,9 @@ interface Measured {
   materials: number;
   joints: number;
   animations: string[];
-  textures: { name: string; use: string; px: number; bytes: number }[];
+  /** The material names inside the bundled file. */
+  materialNames: string[];
+  textures: { name: string; use: string; px: number; bytes: number; uastc?: boolean }[];
 }
 
 const MEASURED: Measured[] = [
@@ -45,6 +47,7 @@ const MEASURED: Measured[] = [
     materials: 1,
     joints: 0,
     animations: [],
+    materialNames: ['sakura_tree_large_web'],
     textures: [{ name: 'sakura_tree_large_web', use: 'base color', px: 512, bytes: 60_109 }],
   },
   {
@@ -56,6 +59,7 @@ const MEASURED: Measured[] = [
     materials: 1,
     joints: 0,
     animations: [],
+    materialNames: ['flower_shrubs_web'],
     textures: [{ name: 'flower_shrubs_web', use: 'base color', px: 512, bytes: 58_244 }],
   },
   {
@@ -67,14 +71,16 @@ const MEASURED: Measured[] = [
     materials: 2,
     joints: 75,
     animations: ['sitting_idle_hug', 'sitting_wave'],
+    materialNames: ['tripo_mat_ef8e5f4c', 'tripo_mat_90739555.001'],
     textures: [
       { name: 'Color', use: 'base color', px: 2048, bytes: 696_840 },
       { name: 'Gift boxes', use: 'base color', px: 512, bytes: 75_069 },
+      { name: 'Normal', use: 'normal', px: 1024, bytes: 412_336, uastc: true },
     ],
   },
 ];
 
-/** The same estimate the Rust side makes: ETC1S at half a byte per pixel plus mips. */
+/** The same estimate the Rust side makes: half a byte per pixel for ETC1S, one for UASTC, plus mips. */
 function gpu(m: Measured, rows: TextureRow[]): number {
   const geometry = m.vertices * (m.joints > 0 ? 48 : 32) + m.triangles * 12;
   return rows.reduce((sum, t) => sum + (t.gpuBytes ?? 0), 0) + geometry;
@@ -110,10 +116,18 @@ export function inspectView(
       width: t.px,
       height: t.px,
       bytes: t.bytes,
-      codec: 'KTX2 ETC1S',
-      gpuBytes: ((t.px * t.px) / 2) * (4 / 3),
+      codec: t.uastc ? 'KTX2 UASTC' : 'KTX2 ETC1S',
+      gpuBytes: ((t.px * t.px) / (t.uastc ? 1 : 2)) * (4 / 3),
     }));
     const row = presets.find(p => p.model === m.stem);
+    const asset = m.stem === 'character' ? 'character' : m.stem === 'sakura' ? 'sakura' : null;
+    const mapCodecs = row?.mapCodecs ?? null;
+    const codec = row?.codec ?? defaults.codec;
+    const codecs = {
+      color: mapCodecs?.color ?? codec,
+      normal: mapCodecs?.normal ?? 'uastc',
+      other: mapCodecs?.other ?? codec,
+    } as const;
     return {
       id: `shipped/${m.stem}`,
       model: m.stem,
@@ -121,7 +135,7 @@ export function inspectView(
       source: 'shipped',
       file: `${projectDir}/web/dist/${m.stem}.glb`,
       path: `web/dist/${m.stem}.glb`,
-      asset: m.stem === 'character' ? 'character' : m.stem === 'sakura' ? 'sakura' : null,
+      asset,
       version: null,
       modifiedAt: new Date(clock.nowMs() - 2 * 60_000).toISOString(),
       bytes: m.bytes,
@@ -131,13 +145,29 @@ export function inspectView(
       materials: m.materials,
       joints: m.joints,
       animations: m.animations,
+      materialNames: m.materialNames,
+      tweakAsset: asset,
       textures,
       gpuBytes: gpu(m, textures),
       meshopt: true,
       ktx2: true,
       preset: row
-        ? { ...row, dataTextureSize: row.dataTextureSize ?? null, lock: row.lock, hasRow: true }
-        : { ...defaults, dataTextureSize: null, lock: null, hasRow: false },
+        ? {
+            ...row,
+            dataTextureSize: row.dataTextureSize ?? null,
+            mapCodecs,
+            codecs,
+            lock: row.lock,
+            hasRow: true,
+          }
+        : {
+            ...defaults,
+            dataTextureSize: null,
+            mapCodecs: null,
+            codecs,
+            lock: null,
+            hasRow: false,
+          },
       error: null,
     };
   });
