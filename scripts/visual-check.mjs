@@ -256,8 +256,8 @@ async function guardShots() {
   await quit.getByRole('heading', { name: 'Compression presets' }).waitFor();
   await quit.evaluate(async () => {
     // The dev server shares its modules with the page, so the stores are reachable.
-    const { usePipelineStore } = await import('/src/state/pipeline-store.ts');
-    const { useQuitStore } = await import('/src/state/quit-store.ts');
+    const { usePipelineStore } = await import('/src/state/use-pipeline-store.ts');
+    const { useQuitStore } = await import('/src/state/use-quit-store.ts');
     const view = usePipelineStore.getState().view;
     const model = view.models[0].model;
     usePipelineStore.getState().setPresetEdits(view.project, {
