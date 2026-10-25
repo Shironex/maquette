@@ -135,6 +135,38 @@ Inbox checks for warnings and keeps the last build on the record. The desktop si
 thumbnail, the window events (`BuiltChanged`, `ProjectChanged`) and the pre run rebuild; the web
 side is `state/use-built-store.ts`, the Board card and `features/board/AddBuiltDialog`.
 
+## Baked light
+
+The Bake light step and what it hands the site, end to end:
+
+- **Settings.** `maquette_core::pipeline::bake` reads and writes the Bake light step's `--size`,
+  `--samples` and `--denoise` / `--no-denoise` args in `pipeline.json`; there is no second copy,
+  so the cache reruns the bake when they change. Only a step running `tools/bake_light.py` has
+  settings. An older or edited copy of that script cannot denoise, so the flag is only written
+  when the script is the current starter or the args already carry it. The desktop side is
+  `commands/pipeline/bake.rs` (`pipeline_save_bake`, and `bake` on the pipeline view) and the
+  MCP tools in `mcp/tools/bake.rs` (`get_bake_settings`, `set_bake_settings`, `set_skip_bake`).
+  The web side is the Pipeline view's `BakePanel` (`saveBake` in the pipeline store) and the
+  Skip the bake switch in `PrepEditor`.
+- **Skip bake.** `skipBake` on an asset's `prepare.json` entry (`ModelPrep::skip_bake`, null when
+  nobody chose). Build scene tags every object of a skipping asset `maquette_skip_bake`; the bake
+  leaves tagged meshes out (they still shadow the others), so they get no lightmap and no
+  `lightmap` UV, and the export drops a `lightmap` UV set nothing samples. An Inbox accept sets
+  `skipBake: true` when neither the Inbox nor the saved entry chose
+  (`prepare::SKIP_BAKE_FROM_INBOX`): Inbox models are provider scans, whose tiny UV islands bake
+  into flat lit facets. Built assets and models added by hand bake unless set.
+- **Glowing materials.** A material with a live emission (a Principled BSDF whose emission
+  strength and colour are both non zero or linked) or an unlit emission shader is never given
+  a lightmap: the bake skips a mesh whose every material glows, and the export leaves such a
+  material's emission alone. `glows()` is the same function in `bake_light.py` and
+  `export_web.py`, and a test holds them together.
+- **The contract with the site.** A baked material ships its lightmap as the glTF emissive
+  texture, sampled with `TEXCOORD_1`, and the material extras
+  `{ "lightmap": <scale>, "lightmapUv": 1 }`. The map stores light divided by the scale, sRGB
+  encoded. A page moves it to a light map: in three.js `lightMap = emissiveMap`,
+  `lightMapIntensity = scale * PI`, then clear `emissiveMap` and set `emissive` to black. A
+  material without the extras has no bake and is lit live; its emission is its own.
+
 ## Adding a feature
 
 1. Create `apps/web/src/features/<feature>/` with one folder per component, each with its test and
