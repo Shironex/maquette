@@ -9,6 +9,7 @@ page says why and how to work with them.
 | Path                     | What it is                                                              |
 | ------------------------ | ----------------------------------------------------------------------- |
 | `apps/web`               | The React UI, served by the Tauri shell or by Vite in mock mode         |
+| `apps/site`              | The landing page: Astro with a react-three-fiber island in `src/scene`  |
 | `apps/desktop/src-tauri` | The Tauri shell: a thin composition root that wires the core into Tauri |
 | `packages/ui`            | The UI kit: typed primitives and the theme                              |
 | `crates/maquette-core`   | The Rust domain logic                                                   |
@@ -74,8 +75,8 @@ including from a preset.
 
 1. **Base:** `@eslint/js` and `typescript-eslint` recommended, React and React Hooks (exhaustive deps
    at error), Prettier for formatting.
-2. **House presets** for `apps/web` and `packages/ui`, each spread whole so new preset rules arrive
-   with a version bump: `@noctcore/eslint-plugin-code-quality`, `-async-safety`, `-contracts`,
+2. **House presets** for the `.ts` and `.tsx` of `apps/web`, `apps/site` and `packages/ui`, each
+   spread whole so new preset rules arrive with a version bump: `@noctcore/eslint-plugin-code-quality`, `-async-safety`, `-contracts`,
    `-security`, `-observability`, `-react`, `-architecture` and `-monorepo` (the `@maquette` scope).
 3. **Project options:** the feature root, shared features and composition roots above, the `@/`
    alias for deep imports, and the trimmed sibling set (test and barrel required; hooks and types
@@ -83,9 +84,9 @@ including from a preset.
 4. **Scoped overrides:** a handful of `files: [...]` blocks, each with a one line reason. Inline
    `eslint-disable` and `@ts-ignore` are not allowed (lint-meta checks it).
 
-`pnpm lint:meta` adds the whole-repo checks: every TypeScript module in `apps/web/src` and
-`packages/ui/src` at or under 400 lines (tests excluded), every Rust module at or under 400 code lines,
-no inline suppressions, and no `warn` severities. Over-cap files can be frozen in
+`pnpm lint:meta` adds the whole-repo checks: every TypeScript module in `apps/web/src`,
+`apps/site/src` and `packages/ui/src` at or under 400 lines (tests excluded), every Rust module at or
+under 400 code lines, no inline suppressions, and no `warn` severities. Over-cap files can be frozen in
 `scripts/lint-meta/baselines/` while they are split; a frozen entry may only shrink, and one that is
 no longer needed fails until it is removed.
 

@@ -1,7 +1,7 @@
 /**
  * Whole-repo checks ESLint and clippy cannot make one file at a time:
  *
- * - every TypeScript module in the app and the UI kit stays at or under 400
+ * - every TypeScript module in the app, the site and the UI kit stays at or under 400
  *   lines (tests excluded);
  * - every Rust module stays at or under 400 code lines (comments and blank
  *   lines excluded, `tests.rs` test modules excluded);
@@ -119,7 +119,7 @@ const rustFiles = () =>
     .filter(f => !f.endsWith('/tests.rs') && !f.includes('/tests/'))
     .sort();
 
-const SOURCE_ROOTS = ['apps/web/src', 'packages/ui/src'];
+const SOURCE_ROOTS = ['apps/web/src', 'apps/site/src', 'packages/ui/src'];
 const sourceFiles = () =>
   SOURCE_ROOTS.flatMap(r => [...ctx.glob(`${r}/**/*.ts`), ...ctx.glob(`${r}/**/*.tsx`)])
     .filter(f => !f.includes('/generated/') && f !== 'packages/ui/src/icons/paths.ts')
@@ -133,6 +133,12 @@ const rules = [
     roots: ['apps/web/src'],
     cap: CAP,
     excludePrefixes: ['apps/web/src/ipc/generated/'],
+    baselineDir: BASELINE_DIR,
+  }),
+  createFileSizeRatchetRule({
+    id: 'site-file-size',
+    roots: ['apps/site/src'],
+    cap: CAP,
     baselineDir: BASELINE_DIR,
   }),
   createFileSizeRatchetRule({
@@ -173,6 +179,7 @@ function probeFiles() {
     'apps/web/src/__probe__.test.tsx',
     'apps/web/src/features/viewer/__Probe__/__Probe__.tsx',
     'apps/web/src/features/shell/__Probe__/__Probe__.tsx',
+    'apps/site/src/__probe__.tsx',
     'packages/ui/src/__probe__.tsx',
     'packages/ui/src/__probe__.test.tsx',
     'scripts/__probe__.mjs',
