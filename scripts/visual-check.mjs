@@ -18,13 +18,17 @@
  * a Board card, the first view in the Pipeline view and the first view
  * target in Settings. The ux set covers tooltips (the collapsed rail, a sheet's
  * Close by the window edge, a gizmo key, a disabled Undo), help marks, a
- * keyboard focus ring and a disabled menu item that says why. It renders
- * pages to files and never captures the screen.
+ * keyboard focus ring and a disabled menu item that says why. The material
+ * set covers the Inspector's Material panel (untouched, an edit previewing
+ * on the model, one material by name, applied), the per map codec rows and
+ * the quit question for tweaks. It renders pages to files and never
+ * captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
- * ONLY=handoff, ONLY=scene or ONLY=ux renders that set alone, ONLY=guards the questions
- * asked before work is dropped; PORT picks the dev server port.
+ * ONLY=handoff, ONLY=scene, ONLY=ux or ONLY=material renders that set alone,
+ * ONLY=guards the questions asked before work is dropped; PORT picks the dev
+ * server port.
  *
  * PLAYWRIGHT defaults to the `playwright` package, which this repo does not
  * install; point it at any local copy. OUT_DIR defaults to `.visual/`.
@@ -274,6 +278,7 @@ async function guardShots() {
         textureSize: 512,
         dataTextureSize: null,
         codec: 'etc1s',
+        mapCodecs: null,
         meshopt: 'low',
         lock: null,
         custom: true,
@@ -401,6 +406,57 @@ async function sceneShots() {
   await settings.getByLabel('First view target').waitFor();
   await settings.getByLabel('First view target').scrollIntoViewIfNeeded();
   await shot(settings, 'settings-first-view');
+}
+
+/** The Material panel and its live preview, the per map codecs and the quit question. */
+async function materialShots() {
+  const page = await open('&scenario=configured', '#/inspector', { width: 1440, height: 1500 });
+  await page.getByRole('heading', { name: 'Scene comparison' }).waitFor();
+  await page.getByText(/WebGL 2 · \d+ fps/).waitFor({ timeout: 30_000 });
+  await page.waitForTimeout(3500);
+  const details = page.getByRole('complementary', { name: 'Model details' });
+  await details.getByRole('button', { name: /^Character/ }).click();
+  await details.getByRole('heading', { name: 'Material' }).waitFor();
+  await page.waitForTimeout(600);
+  await shot(page, 'material-before');
+  await shot(details, 'material-panel');
+
+  const hex = details.getByRole('textbox', { name: 'Tint hex' });
+  await hex.fill('#5b7fd6');
+  await hex.press('Enter');
+  const set = (group, name) =>
+    details.getByRole('group', { name: group }).getByRole('button', { name, exact: true });
+  await set('Roughness', 'Set').click();
+  const roughness = details.getByRole('textbox', { name: 'Roughness value' });
+  await roughness.fill('0.25');
+  await roughness.press('Enter');
+  await set('Metalness', 'Set').click();
+  const metalness = details.getByRole('textbox', { name: 'Metalness value' });
+  await metalness.fill('0.6');
+  await metalness.press('Enter');
+  await details.getByText('Not applied yet').waitFor();
+  await page.waitForTimeout(800);
+  await shot(page, 'material-preview');
+  await shot(details, 'material-panel-edited');
+
+  await details
+    .getByRole('combobox', { name: 'Applies to' })
+    .selectOption('tripo_mat_90739555.001');
+  await set('Emissive', 'Set').click();
+  await page.waitForTimeout(400);
+  await shot(details, 'material-panel-named');
+
+  await page.evaluate(async () => {
+    const { useQuitStore } = await import('/src/state/use-quit-store.ts');
+    useQuitStore.getState().ask();
+  });
+  await page.getByRole('dialog', { name: 'Apply the material tweaks?' }).waitFor();
+  await shot(page, 'material-quit');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+
+  await details.getByRole('button', { name: 'Apply tweaks' }).click();
+  await page.getByText('Material tweaks saved').waitFor();
+  await shot(page, 'material-applied');
 }
 
 /** Every other view, from onboarding to the starter scripts banner. */
@@ -634,6 +690,7 @@ try {
   if (!only) await coreShots();
   if (!only || only === 'handoff') await handoffShots();
   if (!only || only === 'scene') await sceneShots();
+  if (!only || only === 'material') await materialShots();
 } finally {
   await browser.close();
   await vite?.close();
