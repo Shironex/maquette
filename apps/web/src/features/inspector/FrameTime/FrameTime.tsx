@@ -3,8 +3,13 @@ import { FRAME_TARGET_MS, average, graphPoints, targetY } from '@/state/inspecto
 const W = 560;
 const H = 44;
 
+export interface FrameTimeProps {
+  /** Frame times in milliseconds, four a second, newest last. */
+  samples: readonly number[];
+}
+
 /** The frame time card: the last second's average and 30 seconds of samples. */
-export function FrameTime({ samples }: { samples: readonly number[] }) {
+export default function FrameTime({ samples }: FrameTimeProps) {
   const recent = average(samples.slice(-4));
   const line = targetY(samples, H);
   const over = recent > FRAME_TARGET_MS;

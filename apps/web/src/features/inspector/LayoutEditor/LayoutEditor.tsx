@@ -1,117 +1,52 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, type ReactNode } from 'react';
 import {
-  BudgetMeter,
   Button,
   EmptyState,
   Icon,
   IconButton,
   InlineBanner,
   SegmentedControl,
-  Tooltip,
   cn,
   type SegmentedOption,
 } from '@maquette/ui';
-import { useAppStore } from '@/state/use-app-store';
-import { firstViewLine, firstViewMb, type Tool } from '@/state/layout';
-import { useLayoutDirty, useLayoutStore } from '@/state/use-layout-store';
+import type { Tool } from '@/state/layout';
+import { useLayoutStore } from '@/state/use-layout-store';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
-import { LayoutPanel } from './LayoutPanel';
+import { badge } from '../badge';
+import { LayoutPanel } from '../LayoutPanel';
+import { Letterbox } from '../Letterbox';
+import { useLayoutEditor } from './LayoutEditor.hooks';
 
-const LayoutCanvas = lazy(() => import('./LayoutCanvas'));
+const LayoutCanvas = lazy(() => import('../LayoutCanvas'));
 
 const TOOLS: SegmentedOption<Tool>[] = [
   { value: 'translate', label: 'Move', icon: 'arrows-out-cardinal' },
   { value: 'rotate', label: 'Turn', icon: 'arrow-clockwise' },
   { value: 'scale', label: 'Scale', icon: 'resize' },
 ];
-const KEYS: Record<string, Tool> = { w: 'translate', e: 'rotate', r: 'scale' };
 
-const badge =
-  'absolute inline-flex h-[22px] items-center gap-[5px] rounded-[6px] bg-scrim px-2 text-[11.5px] font-medium text-fg';
-
-function typing(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  return Boolean(el?.closest('input, textarea, select, [contenteditable="true"]'));
-}
-
-/** The first view meter, Revert and Save, for the top bar. */
-export function LayoutBarActions() {
-  const view = useLayoutStore(s => s.view);
-  const saving = useLayoutStore(s => s.saving);
-  const save = useLayoutStore(s => s.save);
-  const revert = useLayoutStore(s => s.revert);
-  const dirty = useLayoutDirty();
-  const fv = firstViewMb(view?.firstView);
-  return (
-    <>
-      <Tooltip label={firstViewLine(view?.firstView)} wrap side="bottom">
-        <span tabIndex={0} className="rounded-control">
-          <BudgetMeter label="First view" value={fv.value} target={fv.target} unit="MB" />
-        </span>
-      </Tooltip>
-      <Button icon="arrow-u-up-left" disabled={!dirty || saving} onClick={revert}>
-        Revert
-      </Button>
-      <Button
-        variant={dirty ? 'primary' : 'secondary'}
-        icon="check"
-        disabled={!view || !dirty || saving}
-        onClick={() => void save()}
-        title="Saves layout.json; the next pipeline run builds the scene and its posters from it"
-      >
-        {saving ? 'Saving…' : 'Save layout'}
-      </Button>
-    </>
-  );
+export interface LayoutEditorProps {
+  project: string;
+  /** The Inspector's tabs, shown above the editor. */
+  tabs: ReactNode;
 }
 
 /** Where the models stand, the camera stops and the desk, edited in 3D. */
-export function LayoutEditor({ project, tabs }: { project: string; tabs: React.ReactNode }) {
-  const store = useLayoutStore();
-  const setView = useAppStore(s => s.setView);
-  const dirty = useLayoutDirty();
+export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
+  const {
+    store,
+    setView,
+    dirty,
+    grid,
+    toggleGrid,
+    frame,
+    frameAll,
+    loadError,
+    setLoadError,
+    ready,
+    setReady,
+  } = useLayoutEditor(project);
   const { view, draft, error, loading } = store;
-  const [grid, setGrid] = useState(true);
-  const [frame, setFrame] = useState(0);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    void store.load(project);
-    setReady(false);
-    setLoadError(null);
-    // Only a new project loads again; agents' saves come as events.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (typing(e.target)) return;
-      const s = useLayoutStore.getState();
-      const mod = e.metaKey || e.ctrlKey;
-      const key = e.key.toLowerCase();
-      if (mod && key === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) s.redo();
-        else s.undo();
-      } else if (mod && key === 'y') {
-        e.preventDefault();
-        s.redo();
-      } else if (mod && key === 's') {
-        e.preventDefault();
-        void s.save();
-      } else if (!mod && KEYS[key]) {
-        s.setTool(KEYS[key]);
-      } else if (!mod && key === 'f') {
-        setFrame(n => n + 1);
-      } else if (key === 'escape') {
-        if (s.preview) s.lookThrough(null);
-        else s.select(null);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
 
   if (!view || view.project !== project) {
     return (
@@ -172,7 +107,7 @@ export function LayoutEditor({ project, tabs }: { project: string; tabs: React.R
               label={grid ? 'Hide the grid' : 'Show the grid'}
               aria-pressed={grid}
               className={cn(grid && 'border-clay-line text-clay-text')}
-              onClick={() => setGrid(g => !g)}
+              onClick={toggleGrid}
             />
             <span className="mx-1 h-5 w-px bg-line" />
             <IconButton
@@ -198,7 +133,7 @@ export function LayoutEditor({ project, tabs }: { project: string; tabs: React.R
               label="Frame every model"
               onClick={() => {
                 store.lookThrough(null);
-                setFrame(n => n + 1);
+                frameAll();
               }}
             />
           </div>
@@ -286,17 +221,5 @@ export function LayoutEditor({ project, tabs }: { project: string; tabs: React.R
       </section>
       <LayoutPanel view={view} dirty={dirty} />
     </main>
-  );
-}
-
-/** Dims what falls outside the 16:9 frame the posters render. */
-function Letterbox() {
-  return (
-    <div className="pointer-events-none absolute inset-0 grid place-items-center [container-type:size]">
-      <div
-        className="aspect-video rounded-[2px] shadow-[0_0_0_9999px_rgba(16,15,13,0.55)] outline outline-1 outline-clay-line"
-        style={{ width: 'min(100cqw, calc(100cqh * 16 / 9))' }}
-      />
-    </div>
   );
 }

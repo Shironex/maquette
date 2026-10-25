@@ -29,6 +29,8 @@ import {
   textureLine,
   textureTone,
 } from '@/state/inspector';
+import { Hairline } from '../Hairline';
+import { SectionTitle } from '../SectionTitle';
 
 const CODECS: SegmentedOption<TextureCodec>[] = [
   { value: 'etc1s', label: 'KTX2 ETC1S' },
@@ -39,19 +41,6 @@ const MESHOPT: SelectOption<MeshoptLevel>[] = [
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
 ];
-
-function SectionTitle({ children, aside }: { children: string; aside?: string }) {
-  return (
-    <div className="flex items-baseline justify-between">
-      <h2 className="text-[11px] leading-[14px] font-medium tracking-[0.04em] text-fg-mute uppercase">
-        {children}
-      </h2>
-      {aside ? <span className="text-meta text-fg-mute">{aside}</span> : null}
-    </div>
-  );
-}
-
-const hair = <div className="h-px flex-none bg-line" />;
 
 export interface ModelPanelProps {
   view: InspectView;
@@ -72,7 +61,7 @@ function exportable(model: InspectModel): boolean {
   return model.source === 'raw' || model.source === 'shipped';
 }
 
-export function ModelPanel({
+export default function ModelPanel({
   view,
   model,
   thumb,
@@ -99,6 +88,109 @@ export function ModelPanel({
     });
   };
   const locked = Boolean(model?.preset.lock);
+  const cards =
+    model && !model.error
+      ? statCards(model, view.limits.trisPerModel).map(card => (
+          <div key={card.label} className="rounded-card border border-line bg-raised px-2.5 py-2">
+            <div className="text-meta text-fg-mute">{card.label}</div>
+            <div
+              className={cn(
+                'font-mono text-[15px] leading-5 tabular-nums',
+                card.over && 'text-danger'
+              )}
+              title={
+                card.label === 'GPU memory'
+                  ? 'An estimate: textures as the GPU keeps them, with mipmaps, plus vertices and indices.'
+                  : card.over
+                    ? `Over the ${view.limits.trisPerModel.toLocaleString('en-US')} triangle budget per model`
+                    : undefined
+              }
+            >
+              {card.value}
+            </div>
+          </div>
+        ))
+      : null;
+  const textures = model
+    ? model.textures.map((t, i) => (
+        <div key={`${t.name}-${i}`} className="flex items-center gap-2.5">
+          <span
+            className="size-[22px] flex-none rounded-[5px]"
+            style={{ background: textureTone(t) }}
+          />
+          <span className="min-w-0 flex-1 truncate" title={`${t.name}, ${t.codec}`}>
+            {textureLabel(t, model.textures)}
+          </span>
+          <span className="font-mono text-[12px] whitespace-nowrap text-fg-mute">
+            {textureLine(t)}
+          </span>
+        </div>
+      ))
+    : null;
+  const budgets = rows.map(row => {
+    const scale = budgetScale(row.mb, row.targetMb);
+    const on = model?.model === row.model;
+    return (
+      <button
+        key={row.model}
+        type="button"
+        title={budgetTargetNote(row, sceneMb)}
+        onClick={() => onPickBudget(row.model)}
+        aria-pressed={on}
+        className={cn(
+          '-mx-2 flex cursor-pointer flex-col gap-[5px] rounded-control px-2 py-1 text-left hover:bg-hover',
+          on && 'bg-hover'
+        )}
+      >
+        <span className="flex w-full justify-between">
+          <span>{row.label}</span>
+          <span
+            className={cn(
+              'font-mono text-[12px] tabular-nums',
+              row.over ? 'text-danger' : 'text-fg'
+            )}
+          >
+            {row.target === 'scene' ? (
+              <>
+                {formatMb(row.mb)} MB{' '}
+                <span className="font-sans text-meta text-fg-mute">of the scene target</span>
+              </>
+            ) : (
+              <>
+                {formatMb(row.mb)}{' '}
+                <span className="text-fg-mute">
+                  / {formatMb(row.targetMb)} MB
+                  {row.target === 'share' ? (
+                    <span className="font-sans text-meta"> share</span>
+                  ) : null}
+                </span>
+              </>
+            )}
+          </span>
+        </span>
+        <span
+          role="meter"
+          aria-label={`${row.label} transfer`}
+          aria-valuenow={Math.round(row.mb * 100) / 100}
+          aria-valuemin={0}
+          aria-valuemax={row.targetMb}
+          className="relative block h-1 w-full rounded-pill bg-hover"
+        >
+          <span
+            className={cn(
+              'absolute inset-y-0 left-0 rounded-pill',
+              row.over ? 'bg-danger' : 'bg-sage'
+            )}
+            style={{ width: `${scale.fill}%` }}
+          />
+          <span
+            className="absolute -inset-y-1 -ml-px w-0.5 rounded-[1px] bg-fg shadow-[0_0_0_2px_var(--color-panel)]"
+            style={{ left: `${scale.targetAt}%` }}
+          />
+        </span>
+      </button>
+    );
+  });
   return (
     <aside
       aria-label="Model details"
@@ -133,31 +225,7 @@ export function ModelPanel({
                 {model.error}
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {statCards(model, view.limits.trisPerModel).map(card => (
-                  <div
-                    key={card.label}
-                    className="rounded-card border border-line bg-raised px-2.5 py-2"
-                  >
-                    <div className="text-meta text-fg-mute">{card.label}</div>
-                    <div
-                      className={cn(
-                        'font-mono text-[15px] leading-5 tabular-nums',
-                        card.over && 'text-danger'
-                      )}
-                      title={
-                        card.label === 'GPU memory'
-                          ? 'An estimate: textures as the GPU keeps them, with mipmaps, plus vertices and indices.'
-                          : card.over
-                            ? `Over the ${view.limits.trisPerModel.toLocaleString('en-US')} triangle budget per model`
-                            : undefined
-                      }
-                    >
-                      {card.value}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <div className="grid grid-cols-2 gap-2">{cards}</div>
             )}
             {onExport && exportable(model) ? (
               <Button
@@ -182,7 +250,7 @@ export function ModelPanel({
 
       {model && !model.error ? (
         <>
-          {hair}
+          <Hairline />
           <div className="flex flex-col gap-2.5">
             <SectionTitle>Compression</SectionTitle>
             <div className="flex items-center justify-between gap-3">
@@ -219,103 +287,21 @@ export function ModelPanel({
             </p>
           </div>
 
-          {hair}
+          <Hairline />
           <div className="flex flex-col gap-2">
             <SectionTitle>Textures</SectionTitle>
-            {model.textures.length === 0 ? (
-              <p className="text-fg-mute">No textures.</p>
-            ) : (
-              model.textures.map((t, i) => (
-                <div key={`${t.name}-${i}`} className="flex items-center gap-2.5">
-                  <span
-                    className="size-[22px] flex-none rounded-[5px]"
-                    style={{ background: textureTone(t) }}
-                  />
-                  <span className="min-w-0 flex-1 truncate" title={`${t.name}, ${t.codec}`}>
-                    {textureLabel(t, model.textures)}
-                  </span>
-                  <span className="font-mono text-[12px] whitespace-nowrap text-fg-mute">
-                    {textureLine(t)}
-                  </span>
-                </div>
-              ))
-            )}
+            {model.textures.length === 0 ? <p className="text-fg-mute">No textures.</p> : textures}
           </div>
         </>
       ) : null}
 
-      {hair}
+      <Hairline />
       <div className="flex flex-col gap-[9px]">
         <SectionTitle aside="transfer">Model budgets</SectionTitle>
         {rows.length === 0 ? (
           <p className="text-fg-mute">Run the pipeline to see what each model ships at.</p>
         ) : (
-          rows.map(row => {
-            const scale = budgetScale(row.mb, row.targetMb);
-            const on = model?.model === row.model;
-            return (
-              <button
-                key={row.model}
-                type="button"
-                title={budgetTargetNote(row, sceneMb)}
-                onClick={() => onPickBudget(row.model)}
-                aria-pressed={on}
-                className={cn(
-                  '-mx-2 flex cursor-pointer flex-col gap-[5px] rounded-control px-2 py-1 text-left hover:bg-hover',
-                  on && 'bg-hover'
-                )}
-              >
-                <span className="flex w-full justify-between">
-                  <span>{row.label}</span>
-                  <span
-                    className={cn(
-                      'font-mono text-[12px] tabular-nums',
-                      row.over ? 'text-danger' : 'text-fg'
-                    )}
-                  >
-                    {row.target === 'scene' ? (
-                      <>
-                        {formatMb(row.mb)} MB{' '}
-                        <span className="font-sans text-meta text-fg-mute">
-                          of the scene target
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        {formatMb(row.mb)}{' '}
-                        <span className="text-fg-mute">
-                          / {formatMb(row.targetMb)} MB
-                          {row.target === 'share' ? (
-                            <span className="font-sans text-meta"> share</span>
-                          ) : null}
-                        </span>
-                      </>
-                    )}
-                  </span>
-                </span>
-                <span
-                  role="meter"
-                  aria-label={`${row.label} transfer`}
-                  aria-valuenow={Math.round(row.mb * 100) / 100}
-                  aria-valuemin={0}
-                  aria-valuemax={row.targetMb}
-                  className="relative block h-1 w-full rounded-pill bg-hover"
-                >
-                  <span
-                    className={cn(
-                      'absolute inset-y-0 left-0 rounded-pill',
-                      row.over ? 'bg-danger' : 'bg-sage'
-                    )}
-                    style={{ width: `${scale.fill}%` }}
-                  />
-                  <span
-                    className="absolute -inset-y-1 -ml-px w-0.5 rounded-[1px] bg-fg shadow-[0_0_0_2px_var(--color-panel)]"
-                    style={{ left: `${scale.targetAt}%` }}
-                  />
-                </span>
-              </button>
-            );
-          })
+          budgets
         )}
       </div>
 
