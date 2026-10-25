@@ -52,6 +52,7 @@ const MIGRATED = [
   'apps/web/src/*.tsx',
   'apps/web/src/features/tools/**',
   'apps/web/src/features/toolchain/**',
+  'apps/web/src/features/project/**',
 ];
 
 // Preset rules the unmigrated areas do not pass yet, with the count measured
