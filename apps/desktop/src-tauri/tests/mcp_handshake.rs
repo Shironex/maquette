@@ -44,6 +44,8 @@ struct TestHost {
     layout_changes: std::sync::atomic::AtomicUsize,
     /// How often a tool told the windows that material tweaks changed.
     materials_changes: std::sync::atomic::AtomicUsize,
+    /// How often a tool told the windows that real sizes or fix-ups changed.
+    prepare_changes: std::sync::atomic::AtomicUsize,
 }
 
 /// Provider jobs that can never reach Tripo or Meshy: both point at a
@@ -96,6 +98,10 @@ impl Host for TestHost {
     }
     fn materials_changed(&self, _project: &str) {
         self.materials_changes
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }
+    fn prepare_changed(&self, _project: &str) {
+        self.prepare_changes
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
 }
@@ -248,6 +254,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
         layout_changes: std::sync::atomic::AtomicUsize::new(0),
         materials_changes: std::sync::atomic::AtomicUsize::new(0),
+        prepare_changes: std::sync::atomic::AtomicUsize::new(0),
     });
     // Port 0 so the test never collides with a running app; the app itself
     // listens on the configured 4791.
@@ -310,6 +317,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         names,
         [
             "accept_inbox_model",
+            "add_fixups",
             "cancel_run",
             "copy_asset",
             "get_concepts",
@@ -320,13 +328,17 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "get_pipeline",
             "get_project",
             "get_provider_job",
+            "get_real_size",
             "get_run",
             "list_assets",
+            "list_fixups",
             "list_inbox",
             "list_projects",
             "make_object_refs",
+            "preview_fixups",
             "redo_inbox_model",
             "redo_inbox_models",
+            "remove_fixups",
             "render_thumbnail",
             "run_pipeline",
             "send_batch_to_3d",
@@ -334,6 +346,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "set_compression_presets",
             "set_layout",
             "set_material_tweaks",
+            "set_real_size",
             "start_concepts",
         ]
     );
@@ -774,6 +787,7 @@ async fn agents_lay_out_the_scene_and_copy_assets() {
         pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
         layout_changes: std::sync::atomic::AtomicUsize::new(0),
         materials_changes: std::sync::atomic::AtomicUsize::new(0),
+        prepare_changes: std::sync::atomic::AtomicUsize::new(0),
     });
     let token = ensure_token(&host.session).expect("token");
     let server = maquette_desktop_lib::mcp::server::start(
@@ -910,6 +924,7 @@ async fn agents_tweak_materials_and_pick_codecs_per_map() {
         pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
         layout_changes: std::sync::atomic::AtomicUsize::new(0),
         materials_changes: std::sync::atomic::AtomicUsize::new(0),
+        prepare_changes: std::sync::atomic::AtomicUsize::new(0),
     });
     let token = ensure_token(&host.session).expect("token");
     let server = maquette_desktop_lib::mcp::server::start(
@@ -1030,6 +1045,144 @@ async fn agents_tweak_materials_and_pick_codecs_per_map() {
     server.stop();
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn agents_set_real_sizes_and_fixups_without_partial_writes() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp dir");
+    let (session, project_id, project_dir) = fixture(dir.path());
+    let (root, config) = session.workspace().expect("ws");
+    std::fs::create_dir_all(project_dir.join("models")).expect("models");
+    std::fs::write(
+        project_dir.join("models/desk_lamp_v1.glb"),
+        maquette_core::inbox::fixture::messy_prop(),
+    )
+    .expect("glb");
+    project::modify(&root, &config.layout, &project_id, |m| {
+        assets::add_version(m, "desk-lamp", "models/desk_lamp_v1.glb".into(), None).map(|_| ())
+    })
+    .expect("version");
+    let hub = Arc::new(Hub::new(|| {}));
+    let host = Arc::new(TestHost {
+        studio: studio(&session),
+        session,
+        runner: PipelineRunner::new(Arc::new(HubSink(Arc::clone(&hub)))),
+        concepts: Concepts::new(None, 1, |_| {}),
+        thumbs: Thumbnails::new(|_| {}),
+        pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
+        layout_changes: std::sync::atomic::AtomicUsize::new(0),
+        materials_changes: std::sync::atomic::AtomicUsize::new(0),
+        prepare_changes: std::sync::atomic::AtomicUsize::new(0),
+    });
+    let token = ensure_token(&host.session).expect("token");
+    let server = maquette_desktop_lib::mcp::server::start(
+        0,
+        token.clone(),
+        host.clone() as Arc<dyn Host>,
+        Arc::clone(&hub),
+    )
+    .expect("start");
+    let url = format!("http://127.0.0.1:{}/mcp", server.port());
+    let transport = StreamableHttpClientTransport::from_config(
+        StreamableHttpClientTransportConfig::with_uri(url).auth_header(token),
+    );
+    let client = ClientConfig::default()
+        .serve(transport)
+        .await
+        .expect("initialize");
+
+    let empty = call(
+        &client,
+        "get_real_size",
+        json!({ "project": project_id, "asset": "Desk lamp" }),
+    )
+    .await;
+    assert_eq!(empty["asset"], json!("desk-lamp"));
+    assert_eq!(empty["size"], Value::Null);
+    assert_eq!(empty["suggestion"]["size"]["value"], json!(45.0));
+    assert!(empty["measured"][0].as_f64().is_some_and(|w| w > 1.2));
+
+    let sized = call(
+        &client,
+        "set_real_size",
+        json!({ "project": project_id, "asset": "desk-lamp",
+                "size": { "axis": "Height", "value": 45, "unit": "cm" } }),
+    )
+    .await;
+    assert_eq!(sized["sizeText"], json!("45 cm high"));
+    assert!(sized["scale"].as_f64().is_some_and(|s| s > 0.0));
+
+    let fixed = call(
+        &client,
+        "add_fixups",
+        json!({ "project": project_id, "asset": "desk-lamp",
+                "fixups": [{ "op": "origin-bottom" }, { "op": "decimate", "triangles": 5000 }] }),
+    )
+    .await;
+    assert_eq!(
+        fixed["fixupText"],
+        json!(["Decimate to 5k", "Origin to bottom centre"]),
+        "kept in the order they apply"
+    );
+    let stored = std::fs::read_to_string(project_dir.join("prepare.json")).expect("file");
+    assert!(stored.contains("\"desk-lamp\""), "{stored}");
+
+    // One bad fix-up refuses the whole call, and nothing changes.
+    let mut params = CallToolRequestParams::new("add_fixups".to_string());
+    params = params.with_arguments(
+        json!({ "project": project_id, "asset": "desk-lamp",
+                "fixups": [{ "op": "merge" }, { "op": "decimate", "triangles": 3 }] })
+        .as_object()
+        .expect("object")
+        .clone(),
+    );
+    let refused = client.call_tool(params).await.expect("call");
+    assert_eq!(refused.is_error, Some(true));
+    let mut params = CallToolRequestParams::new("remove_fixups".to_string());
+    params = params.with_arguments(
+        json!({ "project": project_id, "asset": "desk-lamp", "ops": ["smooth"] })
+            .as_object()
+            .expect("object")
+            .clone(),
+    );
+    let unknown = client.call_tool(params).await.expect("call");
+    assert!(
+        text(&unknown).contains("origin-bottom"),
+        "{}",
+        text(&unknown)
+    );
+    let listed = call(
+        &client,
+        "list_fixups",
+        json!({ "project": project_id, "asset": "desk-lamp" }),
+    )
+    .await;
+    assert_eq!(listed["fixups"].as_array().map(Vec::len), Some(2));
+
+    let removed = call(
+        &client,
+        "remove_fixups",
+        json!({ "project": project_id, "asset": "desk-lamp", "ops": ["decimate"] }),
+    )
+    .await;
+    assert_eq!(removed["fixupText"], json!(["Origin to bottom centre"]));
+    let cleared = call(
+        &client,
+        "set_real_size",
+        json!({ "project": project_id, "asset": "desk-lamp", "size": null }),
+    )
+    .await;
+    assert_eq!(cleared["size"], Value::Null);
+    let order = std::sync::atomic::Ordering::SeqCst;
+    assert_eq!(
+        host.prepare_changes.load(order),
+        4,
+        "the app hears each save"
+    );
+
+    client.cancel().await.expect("close");
+    server.stop();
+}
+
 async fn wait_for(
     client: &RunningService<RoleClient, ClientConfig>,
     project: &str,
@@ -1066,6 +1219,7 @@ fn the_app_server_follows_the_workspace_setting() {
         pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
         layout_changes: std::sync::atomic::AtomicUsize::new(0),
         materials_changes: std::sync::atomic::AtomicUsize::new(0),
+        prepare_changes: std::sync::atomic::AtomicUsize::new(0),
     });
     let agents = Agents::new(host, hub);
     // Off by default: nothing listens and there is no token yet.
@@ -1117,6 +1271,7 @@ async fn agents_redo_inbox_models_and_read_the_credits() {
         pipeline_changes: std::sync::atomic::AtomicUsize::new(0),
         layout_changes: std::sync::atomic::AtomicUsize::new(0),
         materials_changes: std::sync::atomic::AtomicUsize::new(0),
+        prepare_changes: std::sync::atomic::AtomicUsize::new(0),
     });
     let token = ensure_token(&host.session).expect("token");
     let server = maquette_desktop_lib::mcp::server::start(

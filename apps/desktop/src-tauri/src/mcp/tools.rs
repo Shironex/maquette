@@ -12,6 +12,7 @@ pub mod concepts;
 pub mod credits;
 pub mod inbox;
 pub mod materials;
+pub mod prepare;
 pub mod projects;
 pub mod runs;
 pub mod sending;
@@ -56,6 +57,11 @@ get_material_tweaks reads an asset's material names, tweaks and per map codecs; 
 set_material_tweaks changes its tint, roughness, metalness and emissive strength (for every \
 material or one by name) and the ETC1S or UASTC codec of its color, normal and other maps; \
 Compress applies them to the shipped model on the next run. \
+get_real_size reads an asset's real size and fix-ups with what its model measures; set_real_size \
+sets the size its model is scaled to (height, width, depth or longest, cm or m); add_fixups and \
+remove_fixups change its fix-ups (decimate, shrink textures, merge, apply transforms, remove loose \
+parts, origin to bottom centre), which the Build scene step applies headless on a copy of every \
+version; list_fixups lists them and preview_fixups shows their numbers before and after. \
 get_layout reads where each model stands in the scene, the camera stops and the first view \
 budget; set_layout changes them (metres, y up, degrees) and the app updates live; the next \
 run_pipeline rebuilds the scene and its posters from it. copy_asset copies an asset with its refs and \
@@ -133,6 +139,7 @@ impl McpTools {
                 + Self::concepts_router()
                 + Self::sending_router()
                 + Self::materials_router()
+                + Self::prepare_router()
                 + Self::redo_router()
                 + Self::credits_router(),
         }

@@ -138,7 +138,10 @@ impl SetMaterialsArgs {
 }
 
 /// The asset an agent names: by id, else by name.
-fn find_asset<'a>(manifest: &'a ProjectManifest, wanted: &str) -> Result<&'a Asset, String> {
+pub(super) fn find_asset<'a>(
+    manifest: &'a ProjectManifest,
+    wanted: &str,
+) -> Result<&'a Asset, String> {
     let key = wanted.trim().to_lowercase();
     manifest
         .assets
