@@ -4,6 +4,7 @@ import { PLATFORM } from '@/ipc/runtime';
 import { readFlag, writeFlag } from '@/lib/storage';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
+import { useBuiltStore } from '@/state/use-built-store';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useLayoutStore } from '@/state/use-layout-store';
@@ -102,8 +103,9 @@ export function useAppShell() {
 }
 
 /**
- * Loads the pipeline, the inbox and the material tweaks for the open
- * project and keeps them fresh from the runner, the inbox watcher and agents.
+ * Loads the pipeline, the inbox, the material tweaks and the built assets
+ * for the open project and keeps them fresh from the runner, the inbox
+ * watcher, builds and agents.
  */
 export function useLiveData(projectId: string | null, root: string | null) {
   const loadPipeline = usePipelineStore(s => s.load);
@@ -127,6 +129,11 @@ export function useLiveData(projectId: string | null, root: string | null) {
   const reloadPrepare = usePrepareStore(s => s.reload);
   const loadDownloads = useDownloadsStore(s => s.load);
   const onArrival = useDownloadsStore(s => s.onArrival);
+  const loadBuilt = useBuiltStore(s => s.load);
+  const onBuilt = useBuiltStore(s => s.onChanged);
+  useEffect(() => {
+    if (projectId) void loadBuilt(projectId);
+  }, [root, projectId, loadBuilt]);
   useEffect(() => {
     // The watch is workspace wide, so a project switch needs no reload.
     if (root) void loadDownloads();
@@ -179,6 +186,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.materialsChanged.listen(e => void loadMaterials(e.payload.project)),
       events.prepareChanged.listen(e => void reloadPrepare(e.payload.project)),
       events.downloadsArrival.listen(e => onArrival(e.payload)),
+      events.builtChanged.listen(e => onBuilt(e.payload.project)),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
@@ -196,5 +204,6 @@ export function useLiveData(projectId: string | null, root: string | null) {
     loadMaterials,
     reloadPrepare,
     onArrival,
+    onBuilt,
   ]);
 }
