@@ -43,6 +43,19 @@ pub(super) fn match_job<'a>(stem: &str, ids: impl Iterator<Item = &'a str>) -> O
     .max_by_key(|id| id.len())
 }
 
+/// The job a model file is for: its export name (`maq_<asset>_v<n>_<provider>`)
+/// first, else [`match_job`] on its stem.
+pub(super) fn job_for_file<'a>(file: &str, ids: impl Iterator<Item = &'a str>) -> Option<&'a str> {
+    let ids: Vec<&'a str> = ids.collect();
+    if let Some(named) = crate::providers::naming::parse(file) {
+        let id = named.job_id();
+        if let Some(found) = ids.iter().copied().find(|i| *i == id) {
+            return Some(found);
+        }
+    }
+    match_job(&file_stem(file), ids.into_iter())
+}
+
 fn file_stem(file: &str) -> String {
     Path::new(file)
         .file_stem()
@@ -132,8 +145,8 @@ impl ProviderJobs {
         {
             let jobs = self.shared.jobs();
             for item in items.iter_mut() {
-                let stem = file_stem(&item.id);
-                let Some(id) = match_job(&stem, jobs.iter().map(|e| e.stored.job.id.as_str()))
+                let Some(id) =
+                    job_for_file(&item.id, jobs.iter().map(|e| e.stored.job.id.as_str()))
                 else {
                     continue;
                 };
@@ -230,11 +243,8 @@ impl ProviderJobs {
                 .find(|e| e.stored.job.inbox_file.as_deref() == Some(item))
                 .map(|e| e.stored.job.id.clone());
             by_file.or_else(|| {
-                match_job(
-                    &file_stem(item),
-                    jobs.iter().map(|e| e.stored.job.id.as_str()),
-                )
-                .map(str::to_string)
+                job_for_file(item, jobs.iter().map(|e| e.stored.job.id.as_str()))
+                    .map(str::to_string)
             })
         };
         if let Some(id) = id {

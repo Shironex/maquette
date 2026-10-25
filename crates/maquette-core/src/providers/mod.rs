@@ -9,9 +9,11 @@ pub mod http;
 pub mod jobs;
 pub mod ledger;
 pub mod meshy;
+pub mod naming;
 pub mod presets;
 pub mod pricing;
 pub mod secrets;
+pub mod subscription;
 pub mod tripo;
 
 #[cfg(test)]
@@ -29,7 +31,7 @@ pub use jobs::{
     BatchFailure, BatchItem, BatchRequest, BatchSent, CancelMode, Endpoints, InboxLink, JobPhase,
     JobState, MAX_BATCH, Options, Provider, ProviderEvent, ProviderJob, ProviderJobs, SendRequest,
 };
-pub use ledger::{Ledger, ServiceTotals, Spend, SpendOutcome};
+pub use ledger::{Ledger, ServiceTotals, Spend, SpendOutcome, SpendSource};
 pub use presets::{
     MeshyPreset, MeshyPresets, MeshyTexture, PoseMode, PresetVariant, ProviderId, ProviderSettings,
     TripoGeometryQuality, TripoPreset, TripoPresets, TripoRigSpec, TripoTextureQuality,

@@ -8,6 +8,11 @@
 //! mid write, a hand edit) is skipped and counted instead of losing the
 //! rest. Every line carries its version, so a newer Maquette can add
 //! fields without breaking an older one.
+//!
+//! By hand sends paid from a web subscription are written too, as their own
+//! source with the subscription table's estimate, settled once the model is
+//! imported. Their lines are version 2, which an older Maquette skips, so
+//! its API totals never take them in.
 
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write as _};
@@ -21,6 +26,9 @@ use crate::error::{CoreError, CoreResult};
 
 pub const LEDGER_FILE: &str = "credits.jsonl";
 const LINE_VERSION: u32 = 1;
+/// Subscription lines: an older reader skips them instead of counting them
+/// as API spend.
+const SUBSCRIPTION_VERSION: u32 = 2;
 const DAY_MS: f64 = 86_400_000.0;
 
 /// One writer at a time, so two jobs settling together never interleave.
@@ -41,6 +49,15 @@ pub enum SpendOutcome {
     /// Cancelled after the provider took the credits: what was reported,
     /// else the price list's guess.
     Cancelled,
+}
+
+/// Who was paid: the provider's API, or a web subscription by hand.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum SpendSource {
+    #[default]
+    Api,
+    Subscription,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,6 +92,9 @@ pub struct LedgerLine {
     /// The send this one redid, if it came from a Redo.
     pub redo_of: Option<String>,
     pub via_agent: bool,
+    /// Missing on lines written before subscriptions were kept: API.
+    #[serde(default)]
+    pub source: SpendSource,
 }
 
 impl LedgerLine {
@@ -95,6 +115,16 @@ impl LedgerLine {
             outcome,
             redo_of: None,
             via_agent: false,
+            source: SpendSource::Api,
+        }
+    }
+
+    /// A line for a By hand send paid from a web subscription.
+    pub fn subscription(event: LineEvent, at_ms: f64, outcome: SpendOutcome) -> Self {
+        Self {
+            v: SUBSCRIPTION_VERSION,
+            source: SpendSource::Subscription,
+            ..Self::new(event, at_ms, outcome)
         }
     }
 }
@@ -119,6 +149,7 @@ pub struct Spend {
     pub outcome: SpendOutcome,
     pub redo_of: Option<String>,
     pub via_agent: bool,
+    pub source: SpendSource,
 }
 
 /// The ledger as read: newest send first.
@@ -167,7 +198,7 @@ pub fn parse(text: &str) -> Ledger {
     let mut skipped = 0;
     for raw in text.lines().filter(|l| !l.trim().is_empty()) {
         match serde_json::from_str::<LedgerLine>(raw) {
-            Ok(line) if line.v <= LINE_VERSION => lines.push(line),
+            Ok(line) if line.v <= SUBSCRIPTION_VERSION => lines.push(line),
             _ => skipped += 1,
         }
     }
@@ -197,7 +228,10 @@ pub fn fold(lines: &[LedgerLine]) -> Vec<Spend> {
     let mut spends: Vec<(Spend, Option<f64>, Option<f64>)> = Vec::new();
     for line in lines {
         let at = spends.iter().position(|(s, _, _)| {
-            s.project == line.project && s.job == line.job && s.task == line.task
+            s.project == line.project
+                && s.job == line.job
+                && s.task == line.task
+                && s.source == line.source
         });
         let at = at.unwrap_or_else(|| {
             spends.push((
@@ -216,6 +250,7 @@ pub fn fold(lines: &[LedgerLine]) -> Vec<Spend> {
                     outcome: SpendOutcome::Pending,
                     redo_of: None,
                     via_agent: false,
+                    source: line.source,
                 },
                 None,
                 None,
@@ -247,11 +282,13 @@ pub fn fold(lines: &[LedgerLine]) -> Vec<Spend> {
     out
 }
 
-/// Totals for one service.
+/// Totals for one service and source.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ServiceTotals {
     pub service: Option<ProviderId>,
+    /// API and subscription credits are different money, never summed.
+    pub source: SpendSource,
     /// Sent in the last 7 days.
     pub week: f64,
     /// Sent in the last 30 days.
@@ -265,14 +302,16 @@ pub struct ServiceTotals {
     pub estimated: u32,
 }
 
-/// The whole ledger in a few numbers: one row per service, then the sum.
+/// The whole ledger in a few numbers: per source, one row per service,
+/// then that source's sum. API rows come first.
 pub fn summarise(spends: &[Spend], now_ms: f64) -> Vec<ServiceTotals> {
-    let totals = |service: Option<ProviderId>| {
+    let totals = |source: SpendSource, service: Option<ProviderId>| {
         let mine = spends
             .iter()
-            .filter(|s| service.is_none_or(|id| s.service == id));
+            .filter(|s| s.source == source && service.is_none_or(|id| s.service == id));
         let mut t = ServiceTotals {
             service,
+            source,
             ..ServiceTotals::default()
         };
         let mut redo_credits = 0.0;
@@ -299,10 +338,16 @@ pub fn summarise(spends: &[Spend], now_ms: f64) -> Vec<ServiceTotals> {
         };
         t
     };
-    ProviderId::ALL
+    [SpendSource::Api, SpendSource::Subscription]
         .iter()
-        .map(|&s| totals(Some(s)))
-        .chain([totals(None)])
+        .flat_map(|&source| {
+            ProviderId::ALL
+                .iter()
+                .map(move |&s| Some(s))
+                .chain([None])
+                .map(move |service| (source, service))
+        })
+        .map(|(source, service)| totals(source, service))
         .collect()
 }
 

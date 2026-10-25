@@ -1,8 +1,12 @@
 //! By hand: no API call. A send writes `projects/<p>/handoff/<id>/` with
 //! the input images named by view and a settings card (`settings.md` and
 //! `settings.json`) listing the exact values to enter in the service's web
-//! app. The model comes back as a GLB dropped on the asset's card, or saved
-//! into the inbox as `<id>.glb`.
+//! app, and `send.json`, a sidecar that names the send and the file name to
+//! export as (`maq_<asset>_v<n>_<provider>`, see [`super::naming`]). The
+//! model comes back through the Downloads watcher, Add model, a drop on the
+//! asset's card, or saved into the inbox under that name.
+
+pub mod sidecar;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -13,10 +17,12 @@ use serde_json::json;
 use super::catalog::{
     is_smart_topology, is_tripo_p_series, meshy_label, meshy_takes_remove_lighting, tripo_label,
 };
+use super::naming::export_stem;
 use super::presets::{
     MeshyPreset, MeshyTexture, PoseMode, PresetVariant, ProviderId, TripoGeometryQuality,
     TripoPreset, TripoRigSpec, TripoTextureQuality,
 };
+use super::subscription::web_cost;
 use super::tripo::VIEWS;
 use crate::error::{CoreError, CoreResult};
 use crate::fs::write_atomic;
@@ -36,7 +42,7 @@ pub struct CardRow {
 }
 
 /// What the By hand panel shows, with a copy button per row.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct HandoffCard {
     pub service: ProviderId,
@@ -49,6 +55,19 @@ pub struct HandoffCard {
     pub images: Vec<String>,
     /// The name to give the GLB when saving it into the inbox.
     pub return_name: String,
+    /// The name to export as on the site, without an extension:
+    /// `maq_<asset>_v<n>_<provider>`.
+    #[serde(default)]
+    pub export_name: String,
+    /// About what the site charges for it, from a subscription.
+    #[serde(default)]
+    pub credits: Option<f64>,
+    /// What those credits buy, in the site's words: "textured image to 3D".
+    #[serde(default)]
+    pub credits_note: Option<String>,
+    /// The text to paste into the site's prompt box, if the send has one.
+    #[serde(default)]
+    pub prompt: Option<String>,
 }
 
 pub fn site(service: ProviderId) -> &'static str {
@@ -234,6 +253,8 @@ pub fn view_names(images: &[PathBuf]) -> Vec<String> {
 
 pub struct Handoff<'a> {
     pub id: &'a str,
+    pub project: &'a str,
+    pub asset: &'a str,
     pub asset_name: &'a str,
     pub service: ProviderId,
     pub variant: PresetVariant,
@@ -274,9 +295,12 @@ impl Handoff<'_> {
             }
         };
         let mut rows = rows;
-        if let Some(prompt) = self.prompt.filter(|_| self.service == ProviderId::Meshy) {
+        let prompt = self.prompt.filter(|_| self.service == ProviderId::Meshy);
+        if let Some(prompt) = prompt {
             rows.push(row("Texture prompt", prompt));
         }
+        let export_name = export_stem(self.id, self.asset, self.service);
+        let cost = web_cost(self.service, self.tripo, self.meshy);
         let names = view_names(self.images);
         let used = if mode == "Image to 3D" {
             1
@@ -289,7 +313,11 @@ impl Handoff<'_> {
             mode: mode.to_string(),
             rows,
             images: names.into_iter().take(used).collect(),
-            return_name: format!("{}.glb", self.id),
+            return_name: format!("{export_name}.glb"),
+            export_name,
+            credits: cost.map(|c| c.credits),
+            credits_note: cost.map(|c| c.what.to_string()),
+            prompt: prompt.map(str::to_string),
         }
     }
 
@@ -316,8 +344,8 @@ impl Handoff<'_> {
             ));
         }
         text.push_str(&format!(
-            "\n4. Download the result as GLB.\n5. Drop it on the {} card on the Board, or save it into the inbox as `{}`.\n",
-            self.asset_name, card.return_name
+            "\n4. Download the result as GLB, named `{}`.\n5. Maquette picks it up from Downloads. Or drop it on the {} card on the Board, or save it into the inbox as `{}`.\n",
+            card.export_name, self.asset_name, card.return_name
         ));
         text
     }
@@ -351,6 +379,7 @@ impl Handoff<'_> {
                 "card": card,
             }),
         )?;
+        sidecar::write(&dir, self, &card)?;
         Ok((dir, card))
     }
 }

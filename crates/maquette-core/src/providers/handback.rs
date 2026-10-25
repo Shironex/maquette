@@ -20,7 +20,7 @@ use crate::error::{CoreError, CoreResult};
 pub const MAX_MODEL_BYTES: u64 = 512 * 1024 * 1024;
 /// Downloads only counts files changed this long before a handoff was
 /// written, for clocks that disagree a little.
-const SLACK_MS: f64 = 60_000.0;
+pub(crate) const SLACK_MS: f64 = 60_000.0;
 /// How many files a Downloads check lists at most, newest first.
 const MAX_FILES: usize = 40;
 /// Words in download names that say nothing about the object.
@@ -53,7 +53,7 @@ fn is_model_entry(name: &str) -> bool {
 }
 
 /// The GLB names inside a zip, in archive order.
-fn zip_models(file: &Path) -> CoreResult<Vec<String>> {
+pub(crate) fn zip_models(file: &Path) -> CoreResult<Vec<String>> {
     let reader = File::open(file).map_err(|e| CoreError::io(file, e))?;
     let archive = zip::ZipArchive::new(reader).map_err(|e| {
         CoreError::Invalid(format!("{} is not a zip I can read. {e}", file_name(file)))
@@ -202,7 +202,7 @@ struct Found {
     modified_ms: f64,
 }
 
-fn modified_ms(meta: &fs::Metadata) -> Option<f64> {
+pub(crate) fn modified_ms(meta: &fs::Metadata) -> Option<f64> {
     let at = meta.modified().ok()?.duration_since(UNIX_EPOCH).ok()?;
     #[expect(clippy::cast_precision_loss, reason = "milliseconds since 1970 fit")]
     Some(at.as_millis() as f64)
@@ -279,8 +279,14 @@ fn stem(name: &str) -> &str {
 /// How well a file name fits a send, 0 to 1: the share of the asset's
 /// words the name carries, or 1 for the exact return name.
 fn name_score(found: &Found, job: &ProviderJob) -> f64 {
-    let mut names = vec![stem(&found.name).to_string()];
-    if let Some(inner) = &found.inner {
+    name_fit(&found.name, found.inner.as_deref(), job)
+}
+
+/// How well a file (and the GLB inside, for a zip) is named for a send, 0
+/// to 1. See [`name_score`].
+pub(crate) fn name_fit(name: &str, inner: Option<&str>, job: &ProviderJob) -> f64 {
+    let mut names = vec![stem(name).to_string()];
+    if let Some(inner) = inner {
         names.push(stem(inner.rsplit('/').next().unwrap_or(inner)).to_string());
     }
     let exact = |n: &str| n.eq_ignore_ascii_case(&job.id);

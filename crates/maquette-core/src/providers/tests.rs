@@ -20,18 +20,18 @@ use crate::workspace::{self, WorkspaceConfig};
 
 const WAIT: Duration = Duration::from_secs(20);
 
-struct World {
+pub(super) struct World {
     _dir: tempfile::TempDir,
-    root: PathBuf,
-    config: WorkspaceConfig,
-    project: String,
-    asset: String,
+    pub(super) root: PathBuf,
+    pub(super) config: WorkspaceConfig,
+    pub(super) project: String,
+    pub(super) asset: String,
     secrets: Arc<MemoryStore>,
     events: Arc<Mutex<Vec<ProviderEvent>>>,
 }
 
 impl World {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path().join("ws");
         let config = workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
@@ -85,7 +85,7 @@ impl World {
         }
     }
 
-    fn jobs(&self, server: &FakeServer) -> ProviderJobs {
+    pub(super) fn jobs(&self, server: &FakeServer) -> ProviderJobs {
         let options = Options {
             endpoints: Endpoints {
                 tripo: server.url.clone(),
@@ -105,7 +105,12 @@ impl World {
         jobs
     }
 
-    fn request(&self, provider: Provider, variant: PresetVariant, images: &[&str]) -> SendRequest {
+    pub(super) fn request(
+        &self,
+        provider: Provider,
+        variant: PresetVariant,
+        images: &[&str],
+    ) -> SendRequest {
         SendRequest {
             project: self.project.clone(),
             asset: self.asset.clone(),
@@ -124,7 +129,7 @@ impl World {
         project::dir(&self.root, &self.config.layout, &self.project).expect("dir")
     }
 
-    fn inbox(&self) -> PathBuf {
+    pub(super) fn inbox(&self) -> PathBuf {
         inbox::inbox_dir(&self.root, &self.config)
     }
 
@@ -914,7 +919,8 @@ fn by_hand_writes_the_handoff_and_takes_the_model_back() {
     let md = fs::read_to_string(folder.join("settings.md")).expect("md");
     assert!(md.contains("https://www.meshy.ai/workspace"));
     assert!(md.contains("| AI model | Meshy 7.1 |"));
-    assert!(md.contains("stone-lantern-1.glb"));
+    assert!(md.contains("maq_stone-lantern_v1_meshy"));
+    assert!(folder.join("send.json").is_file());
     let card = job.card.clone().expect("card");
     assert_eq!(card.mode, "Multi-image to 3D");
     assert_eq!(card.images, vec!["front.png", "left.png", "back.png"]);
@@ -1066,7 +1072,7 @@ fn send_notes_read_the_pbr_and_texture_choices_of_either_service() {
 }
 
 /// Adds props named `names` at Refs, each with its own ref image.
-fn add_objects(world: &World, names: &[&str]) -> Vec<String> {
+pub(super) fn add_objects(world: &World, names: &[&str]) -> Vec<String> {
     let refs = world.project_dir().join("refs");
     let mut ids = Vec::new();
     project::modify(&world.root, &world.config.layout, &world.project, |m| {
@@ -1387,13 +1393,24 @@ fn a_paid_send_goes_into_the_credits_ledger_with_what_it_cost() {
     assert_eq!(job.estimate, Some(30.0));
     assert_eq!(finished(&jobs, &job.id).state, JobState::Inbox);
 
-    // By hand spends nothing, so it is not written.
+    // By hand is written as subscription spend, apart from the API's.
     let by_hand = world.request(Provider::ByHand, PresetVariant::Prop, &["front.png"]);
-    jobs.send(&by_hand, false, false).expect("by hand");
+    let hand = jobs.send(&by_hand, false, false).expect("by hand");
 
     let ledger = settled(&jobs, 1);
-    assert_eq!(ledger.spends.len(), 1, "{ledger:?}");
-    let spend = &ledger.spends[0];
+    assert_eq!(ledger.spends.len(), 2, "{ledger:?}");
+    let web = ledger
+        .spends
+        .iter()
+        .find(|s| s.source == SpendSource::Subscription)
+        .expect("subscription spend");
+    assert_eq!(web.job, hand.id);
+    assert_eq!((web.outcome, web.credits), (SpendOutcome::Pending, 30.0));
+    let spend = ledger
+        .spends
+        .iter()
+        .find(|s| s.source == SpendSource::Api)
+        .expect("api spend");
     assert_eq!(spend.job, job.id);
     assert_eq!(spend.service, ProviderId::Tripo);
     assert_eq!(spend.task.as_deref(), Some("task_model"));
@@ -1402,7 +1419,11 @@ fn a_paid_send_goes_into_the_credits_ledger_with_what_it_cost() {
     assert!(!spend.estimated);
     assert!(spend.summary.starts_with("Tripo H3.1"));
     let text = fs::read_to_string(world.root.join(ledger::LEDGER_FILE)).expect("file");
-    assert_eq!(text.lines().count(), 2, "one sent and one settled line");
+    assert_eq!(
+        text.lines().count(),
+        3,
+        "one sent and one settled line, and the By hand sent line"
+    );
     assert!(!text.contains("tsk_test_key"));
 }
 

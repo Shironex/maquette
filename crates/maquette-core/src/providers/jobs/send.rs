@@ -156,6 +156,8 @@ impl ProviderJobs {
             let images: Vec<PathBuf> = job.images.iter().map(|i| project_dir.join(i)).collect();
             let (dir, card) = Handoff {
                 id: &job.id,
+                project: &job.project,
+                asset: &job.asset,
                 asset_name: &job.asset_name,
                 service: job.service,
                 variant: job.variant,
@@ -189,6 +191,9 @@ impl ProviderJobs {
             cancelled: false,
         });
         persist(&self.shared, &job.project);
+        if job.provider == Provider::ByHand {
+            super::spend::record_by_hand(&self.shared, &stored);
+        }
         touch_asset(
             &self.shared,
             &job.project,
