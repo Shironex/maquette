@@ -7,10 +7,12 @@ import type {
   FirstView,
   LayoutModel,
   LayoutView,
+  ModelPrep,
   Placement,
   ProjectManifest,
   SceneLayout,
 } from '../client';
+import { frameOf, framed } from '@/lib/real-size';
 
 type Vec3 = [number, number, number];
 
@@ -28,6 +30,11 @@ const MEASURED: Record<string, { min: Vec3; max: Vec3; bytes: number }> = {
   'flower_shrubs.glb': { min: [-0.79, 0, -0.66], max: [0.79, 0.67, 0.66], bytes: 169_808 },
   'character.glb': { min: [-0.68, 0, -0.42], max: [0.68, 2.0, 0.42], bytes: 1_511_800 },
 };
+
+/** The bounds mock mode knows for a project file. */
+export function layoutBounds(file: string): { min: Vec3; max: Vec3 } | null {
+  return MEASURED[LAYOUT_FILES[file] ?? ''] ?? null;
+}
 
 function moonLayout(): SceneLayout {
   return {
@@ -119,6 +126,10 @@ export function createFakeLayout(deps: {
   project: (id: string) => ProjectManifest;
   projectDir: (id: string) => string;
   firstViewMb: () => number;
+  /** Bounds of a project file, when mock mode knows them. */
+  bounds: (file: string) => { min: Vec3; max: Vec3 } | null;
+  /** The asset's real size and fix-ups, which move and scale it. */
+  prep: (project: string, asset: string) => ModelPrep | null;
 }) {
   const layouts = new Map<string, SceneLayout>([['moon-island', moonLayout()]]);
 
@@ -127,7 +138,8 @@ export function createFakeLayout(deps: {
     const list = (p.assets ?? []).filter(a => a.versions.length > 0);
     return list.map((a, i) => {
       const latest = a.versions[a.versions.length - 1]!;
-      const stand = MEASURED[LAYOUT_FILES[latest.file] ?? ''];
+      const stand = deps.bounds(latest.file);
+      const prep = frameOf(deps.prep(id, a.id), stand?.min ?? null, stand?.max ?? null);
       return {
         asset: a.id,
         name: a.name,
@@ -135,10 +147,11 @@ export function createFakeLayout(deps: {
         version: latest.version,
         file: `${deps.projectDir(id)}/${latest.file}`,
         path: latest.file,
-        min: stand?.min ?? null,
-        max: stand?.max ?? null,
+        min: stand ? framed(prep, stand.min) : null,
+        max: stand ? framed(prep, stand.max) : null,
+        prep,
         fallback: [i * 1.5, 0, 0],
-        bytes: stand?.bytes ?? latest.stats?.bytes ?? 0,
+        bytes: MEASURED[LAYOUT_FILES[latest.file] ?? '']?.bytes ?? latest.stats?.bytes ?? 0,
         measured: 'raw',
       };
     });

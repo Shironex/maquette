@@ -55,6 +55,11 @@ interface LayoutStore {
   load: (project: string) => Promise<void>;
   /** An agent saved the layout of `project`. */
   onChanged: (project: string) => Promise<void>;
+  /**
+   * A real size or fix-up of `project` changed: the models measure and stand
+   * differently, the draft stays as it is.
+   */
+  refreshModels: (project: string) => Promise<void>;
   select: (selection: Selection) => void;
   setTool: (tool: Tool) => void;
   setSnap: (snap: boolean) => void;
@@ -139,6 +144,19 @@ export const useLayoutStore = create<LayoutStore>((set, get) => {
         return;
       }
       await get().load(project);
+    },
+
+    refreshModels: async project => {
+      if (get().project !== project || !get().view) return;
+      try {
+        const fresh = await commands.layoutGet(project);
+        const view = get().view;
+        if (get().project === project && view) {
+          set({ view: { ...view, models: fresh.models, firstView: fresh.firstView } });
+        }
+      } catch {
+        // The models keep their old measures until the next load.
+      }
     },
 
     select: selection => set({ selection }),

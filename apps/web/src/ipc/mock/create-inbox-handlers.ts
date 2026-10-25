@@ -1,4 +1,11 @@
-import type { AcceptRequest, AssetKind, InboxItem, ProjectManifest, Stage } from '../client';
+import type {
+  AcceptRequest,
+  AssetKind,
+  InboxItem,
+  ModelPrep,
+  ProjectManifest,
+  Stage,
+} from '../client';
 import { clock } from '@/lib/clock';
 import { DEFAULT_ROOT } from './fixtures';
 import { expand, fail, sleep, slugify, type Args, type BackendOptions } from './backend-options';
@@ -11,6 +18,13 @@ interface InboxContext {
   probeDelay: number;
   emit: BackendOptions['emit'];
   files: BackendOptions['files'];
+  /** Real size and fix-ups: checked before the move, saved after it. */
+  prepare: {
+    check: (entry: ModelPrep, what: string) => void;
+    saveEntry: (project: string, asset: string, entry: ModelPrep) => void;
+    /** Remembers what the accepted file measures, for the prepare views. */
+    remember: (file: string, item: InboxItem) => void;
+  };
 }
 
 /** The inbox commands, plus the thumbnail the viewer stores for an item. */
@@ -22,6 +36,7 @@ export function createInboxHandlers({
   probeDelay,
   emit,
   files,
+  prepare,
 }: InboxContext): Record<string, (args: Args) => unknown> {
   const kinds = new Map<string, AssetKind>();
   return {
@@ -51,6 +66,7 @@ export function createInboxHandlers({
       const req = request as AcceptRequest;
       const item = inbox.get().find(i => i.id === req.item);
       if (!item) fail('not-found', `${req.item} in the inbox`);
+      if (req.prep) prepare.check(req.prep, 'The real size and fix-ups');
       const p = project(req.project);
       const assets = [...(p.assets ?? [])];
       const assetId = req.asset ?? slugify(item.name);
@@ -102,12 +118,15 @@ export function createInboxHandlers({
       };
       const next = saveProject({ ...p, assets: assets.map(a => (a.id === assetId ? updated : a)) });
       inbox.set(inbox.get().filter(i => i.id !== item.id));
+      prepare.remember(version.file, item);
+      if (req.prep) prepare.saveEntry(p.id, assetId, req.prep);
       emit?.({ name: 'inbox' });
       return {
         asset: updated,
         version,
         file: `${expand(DEFAULT_ROOT)}/projects/${p.id}/${version.file}`,
         project: next,
+        note: null,
       };
     },
     inbox_open_in_blender: () => fail('unavailable', 'Mock mode does not open Blender.'),

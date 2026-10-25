@@ -50,7 +50,8 @@ import {
 } from './pipeline-fixtures';
 import { createFakeAgents } from './agents';
 import { createFakeLab, refMayReplace } from './lab';
-import { createFakeLayout } from './layout';
+import { createFakeLayout, layoutBounds } from './layout';
+import { createPrepareHandlers } from './prepare';
 import { createMaterialHandlers } from './materials';
 import { createFakeProviders } from './providers';
 import { createCreditHandlers } from './create-credit-handlers';
@@ -106,10 +107,19 @@ export function createBackend({
   const listed = configured ? inboxItems(`${expand(DEFAULT_ROOT)}/inbox`, now) : [];
   let inbox: InboxItem[] = inboxState === 'redo' ? linkForRedo(listed) : listed;
 
+  const prepare = createPrepareHandlers({
+    project: id => project(id),
+    config: () => config,
+    inbox: () => inbox,
+    bounds: layoutBounds,
+    probeDelay,
+  });
   const layout = createFakeLayout({
     project: id => project(id),
     projectDir: id => `${root ?? expand(DEFAULT_ROOT)}/projects/${id}`,
     firstViewMb: () => config.budgets.firstViewMb ?? 3,
+    bounds: prepare.bounds,
+    prep: (id, asset) => prepare.entries(id).models[asset] ?? null,
   });
 
   function project(id: string): ProjectManifest {
@@ -365,7 +375,9 @@ export function createBackend({
       probeDelay,
       emit,
       files,
+      prepare,
     }),
+    ...prepare.handlers,
   };
 
   // The `running` scenario starts run 25 as soon as the app opens.

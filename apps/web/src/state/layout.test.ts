@@ -36,6 +36,7 @@ function model(asset: string, over: Partial<LayoutModel> = {}): LayoutModel {
     path: `models/${asset}_v1.glb`,
     min: [-0.5, 0, -0.25],
     max: [0.5, 2, 0.25],
+    prep: { scale: 1, offset: [0, 0, 0] },
     fallback: [0, 0, 0],
     bytes: 1_000_000,
     measured: 'raw',

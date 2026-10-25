@@ -37,6 +37,7 @@ function model(asset: string): LayoutModel {
     path: `models/${asset}.glb`,
     min: [-0.2, 0, -0.2],
     max: [0.2, 0.4, 0.2],
+    prep: { scale: 1, offset: [0, 0, 0] },
     fallback: [0, 0, 0],
     bytes: 1000,
     measured: 'shipped',

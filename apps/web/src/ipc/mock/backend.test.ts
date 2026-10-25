@@ -14,6 +14,7 @@ import type {
   ProviderJob,
   RunRecord,
   SceneMaterials,
+  ScenePrep,
   SendOptions,
 } from '../client';
 import { presetRows, presetsToSave } from '@/state/presets';
@@ -166,6 +167,39 @@ describe('mock backend', () => {
     })) as AcceptResult;
     expect(result.asset.id).toBe('sakura');
     expect(result.version.file).toMatch(/^models\/sakura_v\d+\.glb$/);
+  });
+
+  it('saves the real size and fix-ups set before Accept, or refuses them before the move', async () => {
+    const { handle } = backend('configured');
+    await expect(
+      handle('inbox_accept', {
+        request: {
+          item: 'sakura_large.glb',
+          project: 'moon-island',
+          asset: null,
+          prep: { size: null, fixups: [{ op: 'decimate', triangles: 5 }] },
+        },
+      })
+    ).rejects.toMatchObject({ code: 'invalid' });
+    const listed = (await handle('inbox_list')) as { items: { id: string }[] };
+    expect(listed.items.map(i => i.id)).toContain('sakura_large.glb');
+
+    const prep = {
+      size: { axis: 'height', value: 6, unit: 'm' },
+      fixups: [{ op: 'origin-bottom' }, { op: 'merge', byMaterial: false }],
+    };
+    const result = (await handle('inbox_accept', {
+      request: { item: 'sakura_large.glb', project: 'moon-island', asset: null, prep },
+    })) as AcceptResult;
+    const saved = (await handle('prepare_get', { project: 'moon-island' })) as ScenePrep;
+    expect(saved.models[result.asset.id]?.fixups.map(f => f.op)).toEqual([
+      'merge',
+      'origin-bottom',
+    ]);
+    const layout = (await handle('layout_get', { project: 'moon-island' })) as LayoutView;
+    const placed = layout.models.find(m => m.asset === result.asset.id)!;
+    expect(placed.max?.[1]).toBeCloseTo(6);
+    expect(placed.min?.[1]).toBeCloseTo(0);
   });
 
   it('carries the inbox thumbnail onto the accepted version', async () => {

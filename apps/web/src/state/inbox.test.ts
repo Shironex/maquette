@@ -103,8 +103,6 @@ describe('kindHint', () => {
       status: 'pass',
       title: 'PBR off, as sent',
     });
-    expect(reviewPrompt(shrubs)).toContain(
-      'Review the 2 warnings'.replace('2 warnings', '2 warnings')
-    );
+    expect(reviewPrompt(shrubs)).toContain('Review the 3 warnings');
   });
 });

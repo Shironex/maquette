@@ -8,6 +8,7 @@ import { useInboxStore } from '@/state/use-inbox-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useLayoutStore } from '@/state/use-layout-store';
 import { useMaterialsStore } from '@/state/use-materials-store';
+import { usePrepareStore } from '@/state/use-prepare-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { isSwitcherShortcut, switcherShortcut } from '@/state/projects';
@@ -121,6 +122,8 @@ export function useLiveData(projectId: string | null, root: string | null) {
   const onLayoutChanged = useLayoutStore(s => s.onChanged);
   const loadMaterials = useMaterialsStore(s => s.load);
   const setMaterialsRoot = useMaterialsStore(s => s.setRoot);
+  const setPrepareRoot = usePrepareStore(s => s.setRoot);
+  const reloadPrepare = usePrepareStore(s => s.reload);
   useEffect(() => {
     // The rail shows the open project's own picture from the list.
     if (root) void loadProjects();
@@ -143,8 +146,9 @@ export function useLiveData(projectId: string | null, root: string | null) {
   useEffect(() => {
     // Before the load: another workspace drops the tweaks of this one.
     setMaterialsRoot(root);
+    setPrepareRoot(root);
     if (projectId) void loadMaterials(projectId);
-  }, [root, projectId, setMaterialsRoot, loadMaterials]);
+  }, [root, projectId, setMaterialsRoot, setPrepareRoot, loadMaterials]);
   useEffect(() => {
     if (root) void loadInbox();
   }, [root, loadInbox]);
@@ -166,6 +170,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.mcpUpdate.listen(e => onAgents(e.payload)),
       events.providerUpdate.listen(e => onProvider(e.payload)),
       events.materialsChanged.listen(e => void loadMaterials(e.payload.project)),
+      events.prepareChanged.listen(e => void reloadPrepare(e.payload.project)),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
@@ -181,5 +186,6 @@ export function useLiveData(projectId: string | null, root: string | null) {
     onProvider,
     onLayoutChanged,
     loadMaterials,
+    reloadPrepare,
   ]);
 }

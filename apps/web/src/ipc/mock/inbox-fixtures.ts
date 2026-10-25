@@ -4,7 +4,7 @@
  * Tripo auto rigged girl: 94.6k triangles, 65 Mixamo bones and twin tails
  * weighted to the index fingers.
  */
-import type { Check, GlbReport, InboxItem, TextureInfo } from '../client';
+import type { Check, Fixup, GlbReport, InboxItem, TextureInfo } from '../client';
 
 const MIN = 60_000;
 
@@ -51,8 +51,14 @@ function pbrTextures(size: number, bytes: number): TextureInfo[] {
   ];
 }
 
+/** The bounds of a model `size` big standing centred on the origin, unless `partial` says. */
 function report(partial: Partial<GlbReport>): GlbReport {
+  const [w, h, d] = (partial.size ?? [1, 1, 1]).map(v => v ?? 0) as [number, number, number];
   return {
+    min: [-w / 2, 0, -d / 2],
+    max: [w / 2, h, d / 2],
+    objects: 1,
+    transformed: 0,
     bytes: 0,
     generator: 'Tripo',
     triangles: 0,
@@ -87,12 +93,14 @@ const c = (
   id: string,
   status: Check['status'],
   title: string,
-  detail: string | null = null
+  detail: string | null = null,
+  fixes: Fixup[] = []
 ): Check => ({
   id,
   status,
   title,
   detail,
+  fixes,
 });
 
 /** Where the thumbnail service caches renders, next to the inbox folder. */
@@ -139,7 +147,8 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
         'triangles',
         'warning',
         '94.6k triangles',
-        'Over the 60k per model budget. Decimate in Blender or raise the budget in Settings.'
+        'Over the 60k per model budget. Decimate it here, or raise the budget in Settings.',
+        [{ op: 'decimate', triangles: 60_000 }]
       ),
       c('textures', 'pass', '3 textures, largest 2048 px', 'At or under the 2048 px default.'),
       c('rig', 'pass', 'Mixamo rig found', '65 joints, ready for Mixamo animations.'),
@@ -150,6 +159,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
         'Base color, metal and roughness, normal, plus occlusion.'
       ),
       c('merged', 'pass', 'One object per mesh'),
+      c('origin', 'pass', 'Origin at the bottom centre'),
       c(
         'finger-weights',
         'fail',
@@ -185,6 +195,10 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
       vertices: 28_840,
       textures: pbrTextures(2048, 1.8e6),
       maxTexture: 2048,
+      size: [11.68, 7.97, 7.63],
+      meshes: 3,
+      objects: 3,
+      transformed: 2,
     }),
     checks: [
       c('triangles', 'pass', '52.1k triangles', 'Within the 60k per model budget.'),
@@ -197,6 +211,14 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
         'Base color, metal and roughness, normal, plus occlusion.'
       ),
       c('merged', 'pass', 'One object per mesh'),
+      c('origin', 'pass', 'Origin at the bottom centre'),
+      c(
+        'objects',
+        'pass',
+        '3 objects',
+        'Merging them into one mesh saves draw calls when they never move apart.',
+        [{ op: 'merge', byMaterial: false }, { op: 'apply-transforms' }]
+      ),
     ],
     worst: 'pass',
     error: null,
@@ -228,6 +250,9 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
         emissive: false,
       },
       islands: { mesh: 'shrubs', islands: 41, groups: 3 },
+      size: [1.58, 0.67, 1.32],
+      min: [-0.2, 0.05, -0.66],
+      max: [1.38, 0.72, 0.66],
     }),
     checks: [
       c('triangles', 'pass', '28.4k triangles', 'Within the 60k per model budget.'),
@@ -235,7 +260,8 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
         'textures',
         'warning',
         '1 texture, largest 4096 px',
-        '1 texture is over the 2048 px default: base_color. It was sent with detailed textures. Compress resizes them, or set a per model size.'
+        '1 texture is over the 2048 px default: base_color. It was sent with detailed textures. Compress resizes them, or set a per model size.',
+        [{ op: 'shrink-textures', maxSize: 2048 }]
       ),
       c('rig', 'pass', 'No rig, as expected'),
       c(
@@ -248,7 +274,15 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
         'merged',
         'warning',
         'Looks like 3 objects in one mesh',
-        'shrubs has 3 far apart parts. Split them in Blender (Separate by loose parts) so each can move.'
+        'shrubs has 3 far apart parts. Split them in Blender (Separate by loose parts) so each can move, or remove the small ones when they are stray bits.',
+        [{ op: 'remove-loose', minShare: 0.02 }]
+      ),
+      c(
+        'origin',
+        'warning',
+        'Origin is off the bottom centre',
+        'Its bottom centre sits 59 cm from the origin, so it floats, sinks or swings wide when placed.',
+        [{ op: 'origin-bottom' }]
       ),
     ],
     worst: 'warning',

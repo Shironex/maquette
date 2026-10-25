@@ -31,7 +31,7 @@ describe('InboxDetail', () => {
   it('lists the checks and the source of a model', () => {
     render(<InboxDetail item={inboxItem('character.glb')} />);
     const checks = screen.getByRole('complementary', { name: 'Automatic checks' });
-    expect(checks).toHaveTextContent('4 passed · 3 to review');
+    expect(checks).toHaveTextContent('5 passed · 3 to review');
     expect(checks).toHaveTextContent('Character');
     expect(
       screen.getByText('Review the 1 failure and 2 warnings before you accept it.')

@@ -60,6 +60,29 @@ export const commands = {
 	 *  next time Compress runs.
 	 */
 	materialsSave: (project: string, looks: { [key in string]: ModelMaterials }) => __TAURI_INVOKE<SceneMaterials>("materials_save", { project, looks }),
+	prepareGet: (project: string) => __TAURI_INVOKE<ScenePrep>("prepare_get", { project }),
+	prepareAsset: (project: string, asset: string) => __TAURI_INVOKE<AssetPrep>("prepare_asset", { project, asset }),
+	/**
+	 *  Saves one asset's real size and fix-ups (an empty entry clears them) in
+	 *  `prepare.json` as it is on disk, so every other asset keeps its own. The
+	 *  next run of Build scene applies them.
+	 */
+	prepareSave: (project: string, asset: string, entry: ModelPrep) => __TAURI_INVOKE<AssetPrep>("prepare_save", { project, asset, entry }),
+	/**
+	 *  A suggested real size for a name and kind, from a small table of
+	 *  everyday objects.
+	 */
+	prepareSuggest: (name: string, kind: AssetKind) => __TAURI_INVOKE<{
+	size: RealSize,
+	/**  "desk lamp", or "character" for the kind. */
+	matched: string,
+} | null>("prepare_suggest", { name, kind }),
+	/**
+	 *  Runs the fix-ups and real size of `plan` on one model, always headless
+	 *  (`blender -b`), and returns the numbers before and after each fix-up.
+	 *  The model is only read. A plan that already ran answers at once.
+	 */
+	preparePreview: (request: PreviewRequest) => __TAURI_INVOKE<FixupReport>("prepare_preview", { request }),
 	pipelineGet: (project: string) => __TAURI_INVOKE<PipelineView>("pipeline_get", { project }),
 	/**
 	 *  Queues a run. `from` runs that step (always) and what depends on it;
@@ -193,6 +216,7 @@ export const events = {
 	mcpUpdate: makeEvent<McpUpdate>("mcp-update"),
 	pipelineChanged: makeEvent<PipelineChanged>("pipeline-changed"),
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
+	prepareChanged: makeEvent<PrepareChanged>("prepare-changed"),
 	projectChanged: makeEvent<ProjectChanged>("project-changed"),
 	providerUpdate: makeEvent<ProviderUpdate>("provider-update"),
 	quitRequested: makeEvent<QuitRequested>("quit-requested"),
@@ -209,6 +233,11 @@ export type AcceptRequest = {
 	 */
 	asset: string | null,
 	name: string | null,
+	/**
+	 *  The real size and fix-ups set in the Inbox: they replace the asset's
+	 *  in `prepare.json`. Left out, the asset keeps what it has.
+	 */
+	prep?: ModelPrep | null,
 };
 
 export type AcceptResult = {
@@ -218,6 +247,8 @@ export type AcceptResult = {
 	file: string,
 	/**  The project after the change, so the Board can update. */
 	project: ProjectManifest,
+	/**  Why the real size and fix-ups were not saved, when they were not. */
+	note: string | null,
 };
 
 export type AgentRules = {
@@ -314,6 +345,28 @@ export type Asset = {
 };
 
 export type AssetKind = "prop" | "character" | "scene";
+
+/**  One asset's real size and fix-ups, with what its newest model measures. */
+export type AssetPrep = {
+	project: string,
+	asset: string,
+	name: string,
+	kind: AssetKind,
+	entry: ModelPrep,
+	/**  The newest version, when the asset has a model. */
+	version: number | null,
+	/**  Width, height and depth of that model as it came, metres. */
+	measured: [(number | null), (number | null), (number | null)] | null,
+	/**  The same after the fix-ups, once a preview of them ran. */
+	fixed: [(number | null), (number | null), (number | null)] | null,
+	/**  The real size scale on the fixed (else measured) model. */
+	scale: number | null,
+	/**  A size from the name and kind, never applied on its own. */
+	suggestion: Suggestion | null,
+	/**  The last preview of the entry on the newest model, when one ran. */
+	report: FixupReport | null,
+	defaults: FixupDefaults,
+};
 
 /**  Mirrors the kit's status chips. */
 export type AssetStatus = "done" | "cached" | "running" | "failed" | "review" | "queued";
@@ -493,6 +546,8 @@ export type Check = {
 	status: CheckStatus,
 	title: string,
 	detail: string | null,
+	/**  One click fix-ups for what the check found, best first. */
+	fixes: Fixup[],
 };
 
 export type CheckStatus = "pass" | "warning" | "fail";
@@ -752,6 +807,61 @@ export type FirstViewModel = {
 	measured: Measured,
 };
 
+/**  One repair. Each kind appears at most once per asset. */
+export type Fixup = 
+/**  Bakes object transforms into the meshes (rigged meshes keep theirs). */
+{ op: "apply-transforms" } | 
+/**
+ *  Drops loose parts whose size is at most `minShare` of the model's
+ *  diagonal, 0 to 0.5.
+ */
+{ op: "remove-loose"; minShare: number | null } | 
+/**  Joins the meshes into one, or one per material. */
+{ op: "merge"; byMaterial: boolean } | 
+/**  Collapses the model down to about this many triangles. */
+{ op: "decimate"; triangles: number } | 
+/**  Scales every image down to this many pixels on its longest edge. */
+{ op: "shrink-textures"; maxSize: number } | 
+/**  Moves the model so its bottom centre is the origin, on the floor. */
+{ op: "origin-bottom" };
+
+/**  The numbers a new fix-up starts from: the workspace budgets. */
+export type FixupDefaults = {
+	/**  The per model triangle budget, for Decimate. */
+	triangles: number,
+	/**  The default texture size, for Shrink textures. */
+	maxTexture: number,
+	/**  For Remove loose parts. */
+	looseShare: number | null,
+};
+
+/**  The kinds of fix-up, in the order they are applied. */
+export type FixupKind = "apply-transforms" | "remove-loose" | "merge" | "decimate" | "shrink-textures" | "origin-bottom";
+
+/**  The fix-ups and real size of one plan on one model. */
+export type FixupReport = {
+	plan: ModelPrep,
+	before: ModelNumbers,
+	after: ModelNumbers,
+	steps: FixupStep[],
+	/**  The real size scale, when the plan has a size. */
+	scale: number | null,
+	/**  The file sizes of the model and of the fixed copy. */
+	bytesBefore: number | null,
+	bytesAfter: number | null,
+	/**  The fixed copy, an absolute path. */
+	output: string,
+};
+
+/**  What one fix-up did. */
+export type FixupStep = {
+	op: FixupKind,
+	before: ModelNumbers,
+	after: ModelNumbers,
+	/**  The script's one line summary, for example "ratio 0.260". */
+	note: string,
+};
+
 export type FolderLayout = {
 	projects: string,
 	inbox: string,
@@ -776,6 +886,13 @@ export type GlbReport = {
 	animations: string[],
 	/**  Width, height and depth of the default scene. */
 	size: [(number | null), (number | null), (number | null)],
+	/**  Its bounds, metres (Y up); zero without geometry. */
+	min: [(number | null), (number | null), (number | null)],
+	max: [(number | null), (number | null), (number | null)],
+	/**  Nodes that draw a mesh. */
+	objects: number,
+	/**  Of those, the ones whose transform is not the identity. */
+	transformed: number,
 	pbr: PbrMaps,
 	extensions: string[],
 	/**
@@ -1001,9 +1118,17 @@ export type LayoutModel = {
 	file: string,
 	/**  Relative to the project. */
 	path: string,
-	/**  Its bounds in its own frame, metres; `None` when it cannot be read. */
+	/**
+	 *  Its bounds in its own frame once prepared (fix-ups and real size),
+	 *  metres; `None` when it cannot be read.
+	 */
 	min: [(number | null), (number | null), (number | null)] | null,
 	max: [(number | null), (number | null), (number | null)] | null,
+	/**
+	 *  How preparing moves and scales the model file's points, so the
+	 *  editor draws it the way the Build scene step places it.
+	 */
+	prep: PrepFrame,
 	/**  Where it stands without a placement: the shift from its origin. */
 	fallback: [(number | null), (number | null), (number | null)],
 	/**  What it weighs on the page. */
@@ -1202,6 +1327,18 @@ export type ModelMaterials = {
 	materials: { [key in string]: MaterialTweak },
 };
 
+/**  A model's numbers at one point of the fix-ups. */
+export type ModelNumbers = {
+	triangles: number,
+	/**  Mesh objects. */
+	objects: number,
+	/**  The longest texture edge in pixels, 0 without textures. */
+	maxTexture: number,
+	/**  Bounds in glTF metres (Y up); `None` without meshes. */
+	min: [(number | null), (number | null), (number | null)] | null,
+	max: [(number | null), (number | null), (number | null)] | null,
+};
+
 /**  One choice in a model select. */
 export type ModelOption = {
 	/**  What the API takes. */
@@ -1210,6 +1347,13 @@ export type ModelOption = {
 	label: string,
 	/**  One line on when to pick it. */
 	note: string,
+};
+
+/**  One asset's preparation. */
+export type ModelPrep = {
+	size: RealSize | null,
+	/**  In the order they apply. */
+	fixups: Fixup[],
 };
 
 /**  The compression a model gets: its preset row, or the workspace defaults. */
@@ -1406,8 +1550,40 @@ export type Placement = {
 
 export type PoseMode = "none" | "a-pose" | "t-pose";
 
+/**
+ *  What preparing does to a model's points, before its placement:
+ *  `p' = scale * (p + offset)`.
+ */
+export type PrepFrame = {
+	/**  The real size scale, 1 without a real size. */
+	scale: number | null,
+	/**  The origin fix-up's shift, metres in the model's own frame. */
+	offset: [(number | null), (number | null), (number | null)],
+};
+
+/**
+ *  An agent changed a project's real sizes or fix-ups through the MCP
+ *  server, so the Board, the Inbox and the Inspector reload them.
+ */
+export type PrepareChanged = {
+	project: string,
+};
+
 /**  Which preset a send starts from. */
 export type PresetVariant = "prop" | "character";
+
+/**  What a preview runs on: an inbox model, or an asset's newest version. */
+export type PreviewRequest = {
+	/**
+	 *  The project whose fix-up script runs (an inbox model's target), and
+	 *  with `asset`, whose asset.
+	 */
+	project: string | null,
+	asset: string | null,
+	/**  An inbox model by id, instead of an asset. */
+	inbox: string | null,
+	plan: ModelPrep,
+};
 
 /**
  *  What runs in a project right now. Core leaves it empty; the shell fills
@@ -1551,6 +1727,14 @@ export type ProviderUpdate = ProviderEvent;
  */
 export type QuitRequested = null;
 
+/**  How big the real object is along one side. */
+export type RealSize = {
+	axis: SizeAxis,
+	/**  In `unit`. */
+	value: number | null,
+	unit: SizeUnit,
+};
+
 /**  An image in the project's `refs/` folder. */
 export type RefImage = {
 	/**  Relative to the project folder. */
@@ -1620,6 +1804,12 @@ export type SceneMaterials = {
 	version: number,
 	/**  Asset id to its tweaks. */
 	models: { [key in string]: ModelMaterials },
+};
+
+export type ScenePrep = {
+	version: number,
+	/**  Asset id to its preparation. */
+	models: { [key in string]: ModelPrep },
 };
 
 export type SceneTotal = {
@@ -1707,6 +1897,19 @@ export type SideMember = {
 	 */
 	position: [(number | null), (number | null), (number | null)],
 };
+
+/**  Which side of the model the real size measures. */
+export type SizeAxis = 
+/**  Y, up. */
+"height" | 
+/**  X. */
+"width" | 
+/**  Z. */
+"depth" | 
+/**  Whichever is the largest. */
+"longest";
+
+export type SizeUnit = "cm" | "m";
 
 /**  One send as the Credits view lists it: its lines folded together. */
 export type Spend = {
@@ -1827,6 +2030,13 @@ export type StepState =
 
 /**  Where the stops came from, for the "From stops.json" line. */
 export type StopsSource = "project-file" | "layout" | "posters" | "model-cameras" | "none";
+
+/**  A size from the table and the word of the name it matched. */
+export type Suggestion = {
+	size: RealSize,
+	/**  "desk lamp", or "character" for the kind. */
+	matched: string,
+};
 
 export type TextureCodec = "etc1s" | "uastc";
 
