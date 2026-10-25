@@ -97,7 +97,7 @@ pub(super) fn stem(file: &str) -> String {
 
 /// The assets with a model, newest version each, ordered the way the Build
 /// scene starter imports them (`.glb` files by name, then `.gltf`).
-pub(super) fn placeable(manifest: &ProjectManifest) -> Vec<&Asset> {
+pub(crate) fn placeable(manifest: &ProjectManifest) -> Vec<&Asset> {
     let mut list: Vec<&Asset> = manifest
         .assets
         .iter()

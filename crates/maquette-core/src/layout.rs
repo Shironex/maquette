@@ -48,6 +48,8 @@ pub use view::{
     known_assets, models, placement_of, view, view_of,
 };
 
+pub(crate) use view::placeable;
+
 pub use placement::{Bounds, Mat4, fallback_row, in_view, matrix, placed_bounds};
 
 pub use patch::{LayoutPatch, PlacementPatch, StopPatch, apply};

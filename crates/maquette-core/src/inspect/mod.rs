@@ -6,8 +6,9 @@
 //! the comparisons the compare slider offers:
 //!
 //! - **Scene**: the pipeline's raw export (`web/raw`), the shipped build
-//!   (`web/dist`) and the copy on the site (`<site repo>/public/models`), each
-//!   side being every model of that folder at its exported place.
+//!   (`web/dist`) and the copy on the site (its models folder, see
+//!   [`crate::site::models_dir`]), each side being every model of that
+//!   folder at its exported place.
 //! - **Asset**: the versions of one Board asset, oldest first.
 //!
 //! **Budgets.** The workspace sets a scene budget (MB) and a triangle budget
@@ -48,8 +49,6 @@ pub use stops::{CameraStopDef, CameraStops, StopsSource};
 
 /// The project's per model transfer budgets, relative to the project.
 pub const BUDGETS_FILE: &str = "budgets.json";
-/// Where the Ship step copies the models, inside the site repo.
-pub const SITE_MODELS: &str = "public/models";
 
 fn rel(base: &Path, path: &Path) -> String {
     path.strip_prefix(base)
@@ -84,7 +83,7 @@ pub fn inspect(src: &Sources<'_>) -> InspectView {
         .manifest
         .site_repo
         .as_deref()
-        .map(|repo| PathBuf::from(repo).join(SITE_MODELS));
+        .map(|repo| crate::site::models_dir(Path::new(repo)));
 
     let mut entries: Vec<Entry<'_>> = Vec::new();
     let mut scene_sides = Vec::new();

@@ -16,6 +16,7 @@ pub mod pipeline;
 pub mod prepare;
 pub mod project;
 pub mod providers;
+pub mod site;
 pub mod thumbs;
 pub mod toolchain;
 pub mod workspace;
