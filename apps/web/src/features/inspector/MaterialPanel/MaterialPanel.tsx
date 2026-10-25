@@ -207,7 +207,7 @@ export default function MaterialPanel({ project, model }: MaterialPanelProps) {
       </Row>
       <p className="rounded-[8px] bg-raised px-2.5 py-2 text-meta text-fg-mute">
         {p.dropsMap
-          ? 'Set roughness or metalness replaces the metal and roughness map, which holds both.'
+          ? 'Setting roughness or metalness replaces the metal and roughness map, which holds both.'
           : 'Multiply keeps the maps. The source model never changes; Compress writes the shipped copy.'}
       </p>
       <div className="flex items-center justify-end gap-2">
