@@ -610,7 +610,7 @@ async function coreShots() {
     await inbox.waitForTimeout(800);
     await shot(inbox, `inbox-${mode.toLowerCase()}`);
   }
-  await inbox.getByRole('button', { name: /Sakura large/ }).click();
+  await inbox.getByRole('button', { name: /^Sakura large/ }).click();
   await inbox.waitForTimeout(2500);
   await shot(inbox, 'inbox-prop');
   const inspector = await open('&scenario=configured', '#/inspector');
