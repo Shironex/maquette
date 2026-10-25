@@ -2,6 +2,7 @@ import { Logo, NavRail, TrafficLights, cn } from '@maquette/ui';
 import { CHROME } from '@/ipc/runtime';
 import { NewProjectDialog } from '@/features/project/NewProjectDialog';
 import { ApprovalPrompt } from '@/features/agents/ApprovalPrompt';
+import { ArrivalPicker } from '@/features/providers/ArrivalPicker';
 import { BatchSendPanel } from '@/features/providers/BatchSendPanel';
 import { CreditsSheet } from '@/features/providers/CreditsSheet';
 import { DownloadsMatches } from '@/features/providers/DownloadsMatches';
@@ -68,6 +69,7 @@ export default function AppShell() {
       <CreditsSheet />
       <ObjectRefsDialog />
       <DownloadsMatches />
+      <ArrivalPicker />
       <NewProjectDialog onClosed={focusSwitcher} />
       <ApprovalPrompt />
       <QuitDialog />

@@ -10,6 +10,7 @@ import { useLayoutStore } from '@/state/use-layout-store';
 import { useMaterialsStore } from '@/state/use-materials-store';
 import { usePrepareStore } from '@/state/use-prepare-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
+import { useDownloadsStore } from '@/state/use-downloads-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { isSwitcherShortcut, switcherShortcut } from '@/state/projects';
 import { useProjectsStore } from '@/state/use-projects-store';
@@ -124,6 +125,12 @@ export function useLiveData(projectId: string | null, root: string | null) {
   const setMaterialsRoot = useMaterialsStore(s => s.setRoot);
   const setPrepareRoot = usePrepareStore(s => s.setRoot);
   const reloadPrepare = usePrepareStore(s => s.reload);
+  const loadDownloads = useDownloadsStore(s => s.load);
+  const onArrival = useDownloadsStore(s => s.onArrival);
+  useEffect(() => {
+    // The watch is workspace wide, so a project switch needs no reload.
+    if (root) void loadDownloads();
+  }, [root, loadDownloads]);
   useEffect(() => {
     // The rail shows the open project's own picture from the list.
     if (root) void loadProjects();
@@ -171,6 +178,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.providerUpdate.listen(e => onProvider(e.payload)),
       events.materialsChanged.listen(e => void loadMaterials(e.payload.project)),
       events.prepareChanged.listen(e => void reloadPrepare(e.payload.project)),
+      events.downloadsArrival.listen(e => onArrival(e.payload)),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
@@ -187,5 +195,6 @@ export function useLiveData(projectId: string | null, root: string | null) {
     onLayoutChanged,
     loadMaterials,
     reloadPrepare,
+    onArrival,
   ]);
 }
