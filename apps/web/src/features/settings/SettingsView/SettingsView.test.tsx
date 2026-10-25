@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '@/state/use-app-store';
 import { useProjectsStore } from '@/state/use-projects-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { SettingsView } from './SettingsView';
+import { SettingsView } from '.';
 
 afterEach(() => clearMocks());
 
