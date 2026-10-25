@@ -4,6 +4,7 @@ import type {
   ErrorPayload,
   McpStatus,
   PipelineEvent,
+  ProjectManifest,
   ProviderEvent,
 } from '../client';
 import { HOME } from './fixtures';
@@ -25,6 +26,7 @@ export interface BackendOptions {
       | { name: 'mcp'; payload: McpStatus }
       | { name: 'provider'; payload: ProviderEvent }
       | { name: 'downloads'; payload: Arrival }
+      | { name: 'built'; project: string; manifest?: ProjectManifest }
   ) => void;
   /** `active`: the MCP server is on, mid agent session. */
   agents?: string | null;
@@ -40,6 +42,8 @@ export interface BackendOptions {
   inbox?: string | null;
   /** `named` or `unmatched`: a download for the Downloads watcher. */
   arrival?: string | null;
+  /** `demo`: two built assets on Moon Island, one current and one stale. */
+  built?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */

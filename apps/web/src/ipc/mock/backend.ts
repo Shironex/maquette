@@ -25,6 +25,8 @@
  * saves a Meshy key too, for Redo. The credits ledger holds the live sends
  * and a month of earlier ones. `?arrival=named|unmatched` drops a download
  * for the Downloads watcher (see `create-downloads-handlers.ts`).
+ * `?built=demo` adds two built assets to Moon Island (see
+ * `create-built-handlers.ts`).
  * Configured scenarios also open with Send to 3D jobs (see `providers.ts`).
  */
 import type {
@@ -60,6 +62,7 @@ import { linkForRedo } from './redo-fixtures';
 import { createFakeRunner, type RunStore } from './runner';
 import { clock } from '@/lib/clock';
 import { createAssetHandlers } from './create-asset-handlers';
+import { createBuiltHandlers } from './create-built-handlers';
 import { createInboxHandlers } from './create-inbox-handlers';
 import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createProjectHandlers } from './create-project-handlers';
@@ -82,6 +85,7 @@ export function createBackend({
   handoff = null,
   inbox: inboxState = null,
   arrival = null,
+  built: builtState = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -264,8 +268,17 @@ export function createBackend({
     onSendDecision: providers.decide,
   });
 
+  const built = createBuiltHandlers({
+    project,
+    saveProject,
+    emit: (id, manifest) => emit?.({ name: 'built', project: id, manifest }),
+    seed: configured ? builtState : null,
+    buildMs: pace === 0 ? 0 : 1400,
+  });
+
   const handlers: Record<string, (args: Args) => unknown> = {
     ...lab.handlers,
+    ...built.handlers,
     ...agents.handlers,
     ...providers.handlers,
     ...createCreditHandlers({
