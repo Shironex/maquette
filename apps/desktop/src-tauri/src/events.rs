@@ -76,6 +76,14 @@ pub struct LayoutChanged {
     pub project: String,
 }
 
+/// An agent changed a project's material tweaks through the MCP server, so
+/// the Inspector reloads them.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct MaterialsChanged {
+    pub project: String,
+}
+
 /// The MCP server started or stopped, took a call, or a run started by an
 /// agent waits for a shipping approval.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

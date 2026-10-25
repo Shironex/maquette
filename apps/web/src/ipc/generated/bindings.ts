@@ -52,6 +52,12 @@ export const commands = {
 	layoutGet: (project: string) => __TAURI_INVOKE<LayoutView>("layout_get", { project }),
 	/**  Saves the whole layout and returns the view of it. */
 	layoutSave: (project: string, layout: SceneLayout) => __TAURI_INVOKE<LayoutView>("layout_save", { project, layout }),
+	materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>("materials_get", { project }),
+	/**
+	 *  Saves every asset's tweaks and returns what was written (empty entries
+	 *  dropped). They apply the next time Compress runs.
+	 */
+	materialsSave: (project: string, materials: SceneMaterials) => __TAURI_INVOKE<SceneMaterials>("materials_save", { project, materials }),
 	pipelineGet: (project: string) => __TAURI_INVOKE<PipelineView>("pipeline_get", { project }),
 	/**
 	 *  Queues a run. `from` runs that step (always) and what depends on it;
@@ -171,6 +177,7 @@ export const events = {
 	conceptUpdate: makeEvent<ConceptUpdate>("concept-update"),
 	inboxChanged: makeEvent<InboxChanged>("inbox-changed"),
 	layoutChanged: makeEvent<LayoutChanged>("layout-changed"),
+	materialsChanged: makeEvent<MaterialsChanged>("materials-changed"),
 	mcpUpdate: makeEvent<McpUpdate>("mcp-update"),
 	pipelineChanged: makeEvent<PipelineChanged>("pipeline-changed"),
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
@@ -457,6 +464,13 @@ export type Check = {
 
 export type CheckStatus = "pass" | "warning" | "fail";
 
+/**  What each map group is encoded with. */
+export type CodecSet = {
+	color: TextureCodec,
+	normal: TextureCodec,
+	other: TextureCodec,
+};
+
 export type CompareKind = "scene" | "asset";
 
 export type CompareSide = {
@@ -495,7 +509,13 @@ export type CompressPreset = {
 	 *  it every map uses the one size.
 	 */
 	dataTextureSize?: number | null,
+	/**  The codec of every map group the row does not set in `map_codecs`. */
 	codec: TextureCodec,
+	/**
+	 *  Per map group codecs. Without it color and data maps use `codec` and
+	 *  normal maps UASTC.
+	 */
+	mapCodecs?: MapCodecs | null,
 	meshopt: MeshoptLevel,
 	/**
 	 *  Why this row cannot change, for example "High spins her upper body".
@@ -663,6 +683,16 @@ export type ExportedModel = {
 	runNumber: number,
 };
 
+/**  How a roughness tweak treats the model's own value. */
+export type FactorMode = 
+/**
+ *  Replaces it, and the metal and roughness map with it, so the value
+ *  applies evenly.
+ */
+"override" | 
+/**  Scales the factor; the map stays. */
+"multiply";
+
 export type FingerWeights = {
 	vertices: number,
 	/**  The finger and hand joints holding flagged vertices, most first. */
@@ -825,6 +855,13 @@ export type InspectModel = {
 	/**  The bounds in metres, x y z. */
 	size: [(number | null), (number | null), (number | null)],
 	materials: number,
+	/**  The materials' names, in file order, for per material tweaks. */
+	materialNames: string[],
+	/**
+	 *  The asset whose material tweaks the model takes: the asset of a
+	 *  version, and the asset a raw export or shipped build was made from.
+	 */
+	tweakAsset: string | null,
 	joints: number,
 	animations: string[],
 	textures: TextureRow[],
@@ -975,6 +1012,41 @@ export type LogStream = "stdout" | "stderr" |
 /**  Lines the runner writes itself. */
 "system";
 
+/**
+ *  The codec of each map group, where a model picks one. A group left
+ *  `None` follows the row's `codec`, except normal maps, which default to
+ *  UASTC: ETC1S blocks show as stripes and banding in the lighting.
+ */
+export type MapCodecs = {
+	/**  Base color and emissive. */
+	color: TextureCodec | null,
+	normal: TextureCodec | null,
+	/**  Metal and roughness, occlusion and anything else. */
+	other: TextureCodec | null,
+};
+
+/**  One material's changes. A `None` field leaves the model's value alone. */
+export type MaterialTweak = {
+	/**  Multiplies the base color, as `#rrggbb` in sRGB. The color map stays. */
+	tint: string | null,
+	roughness: RoughnessTweak | null,
+	/**
+	 *  Replaces the metalness, 0 to 1. Like a roughness override it drops
+	 *  the metal and roughness map, which holds both.
+	 */
+	metalness: number | null,
+	/**  The emissive strength (`KHR_materials_emissive_strength`), 0 to 50. */
+	emissiveStrength: number | null,
+};
+
+/**
+ *  An agent changed a project's material tweaks through the MCP server, so
+ *  the Inspector reloads them.
+ */
+export type MaterialsChanged = {
+	project: string,
+};
+
 /**  One line of the activity list in Settings > Agents. */
 export type McpCall = {
 	id: number,
@@ -1080,6 +1152,14 @@ export type ModelFile = {
 	shippedBytes: number | null,
 };
 
+/**  The tweaks of one asset's model. */
+export type ModelMaterials = {
+	/**  Applies to every material. */
+	all: MaterialTweak,
+	/**  By material name. A field set here wins over `all`. */
+	materials: { [key in string]: MaterialTweak },
+};
+
 /**  One choice in a model select. */
 export type ModelOption = {
 	/**  What the API takes. */
@@ -1096,6 +1176,10 @@ export type ModelPreset = {
 	/**  The smaller edge for metal, roughness, occlusion and normal maps. */
 	dataTextureSize: number | null,
 	codec: TextureCodec,
+	/**  The row's per map group codecs, as stored. */
+	mapCodecs: MapCodecs | null,
+	/**  What each map group is encoded with, the defaults filled in. */
+	codecs: CodecSet,
 	meshopt: MeshoptLevel,
 	/**  Why the row cannot change, from `pipeline.json`. */
 	lock: string | null,
@@ -1448,6 +1532,12 @@ export type RootInspection = {
 
 export type RootState = "missing" | "empty" | "workspace" | "not-empty";
 
+export type RoughnessTweak = {
+	mode: FactorMode,
+	/**  0 to 1 for an override, 0 to 2 for a multiplier. */
+	value: number | null,
+};
+
 export type RunRecord = {
 	/**  `<project>-run-<number>`, unique across projects. */
 	id: string,
@@ -1476,6 +1566,12 @@ export type SceneLayout = {
 	/**  In tour order. The first one is the view the page opens on. */
 	stops: LayoutStop[],
 	desk: Desk | null,
+};
+
+export type SceneMaterials = {
+	version: number,
+	/**  Asset id to its tweaks. */
+	models: { [key in string]: ModelMaterials },
 };
 
 export type SceneTotal = {

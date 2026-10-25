@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use maquette_core::inbox::checks::texture_px;
 use maquette_core::layout::{self, FirstView};
+use maquette_core::materials;
 use maquette_core::pipeline::cache::{self, project_cache_dir};
 use maquette_core::pipeline::history::{LogEntry, RunRecord};
 use maquette_core::pipeline::runner::{JobRunner, PipelineRunner, RunSetup};
@@ -243,6 +244,7 @@ pub(crate) fn setup(
         "siteRepo".to_string(),
         ctx.manifest.site_repo.clone().unwrap_or_default(),
     );
+    let tweaks = materials::by_model_stem(&ctx.manifest, &materials::load(&ctx.project_dir)?);
     Ok(RunSetup {
         project: project_id.to_string(),
         project_dir: ctx.project_dir,
@@ -252,6 +254,7 @@ pub(crate) fn setup(
         tools,
         vars,
         shipped_names: maquette_core::assets::shipped_names(&ctx.manifest),
+        materials: tweaks,
         from,
         force,
     })

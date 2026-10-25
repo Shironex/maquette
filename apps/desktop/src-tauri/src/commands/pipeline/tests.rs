@@ -171,6 +171,7 @@ fn locked_presets_refuse_edits() {
         texture_size: 1024,
         data_texture_size: None,
         codec: maquette_core::TextureCodec::Uastc,
+        map_codecs: None,
         meshopt: MeshoptLevel::High,
         lock: None,
     });

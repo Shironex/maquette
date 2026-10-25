@@ -8,12 +8,12 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    agents, app, assets, dialogs, inbox, inspect, lab, layout, pipeline, project, providers, quit,
-    thumbs, toolchain, workspace,
+    agents, app, assets, dialogs, inbox, inspect, lab, layout, materials, pipeline, project,
+    providers, quit, thumbs, toolchain, workspace,
 };
 use crate::events::{
-    ConceptUpdate, InboxChanged, LayoutChanged, McpUpdate, PipelineChanged, PipelineUpdate,
-    ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady,
+    ConceptUpdate, InboxChanged, LayoutChanged, MaterialsChanged, McpUpdate, PipelineChanged,
+    PipelineUpdate, ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -56,6 +56,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             assets::asset_copy_to_project,
             layout::layout_get,
             layout::layout_save,
+            materials::materials_get,
+            materials::materials_save,
             pipeline::pipeline_get,
             pipeline::pipeline_run,
             pipeline::pipeline_cancel,
@@ -115,7 +117,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             McpUpdate,
             ProviderUpdate,
             QuitRequested,
-            LayoutChanged
+            LayoutChanged,
+            MaterialsChanged
         ])
         .types(&maquette_core::types())
 }
@@ -181,6 +184,8 @@ mod tests {
             "layoutGet",
             "layoutSave",
             "assetCopyToProject",
+            "materialsGet",
+            "materialsSave",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }
@@ -194,6 +199,7 @@ mod tests {
             "providerUpdate",
             "quitRequested",
             "layoutChanged",
+            "materialsChanged",
         ] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }
