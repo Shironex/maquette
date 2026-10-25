@@ -13,6 +13,11 @@ Maquette runs this headless, as the Build scene step:
   "Models", named after the file. A model whose collection is already in the
   base blend is left as you placed it. When project.json lists a file as an
   older version of an asset, only the newest version is imported.
+- Blender keeps names unique, so a second model's "palette" material or
+  "lid" object comes in as "palette.001". Each renamed object and material
+  is tagged "maquette_name" with the name from its file, and Export GLB
+  writes that name back, so a pivot or a material an app looks up by name
+  ships as the model has it.
 - Each asset's fix-ups and real size (prepare.json, set in the Inbox, the
   Board and the Inspector) are applied by fixups.py next to this script:
   the fix-ups, then a uniform scale to the real size. The layout comes
@@ -43,6 +48,7 @@ import json
 import math
 import os
 import re
+import struct
 import sys
 
 import bpy
@@ -54,6 +60,8 @@ STOPS = "Stops"
 DESK = "desk"
 DESK_THICKNESS = 0.04
 TAG = "maquette_stop"
+SOURCE_NAME = "maquette_name"
+SUFFIX = re.compile(r"^(.*)\.\d{3,}$")
 LAYOUT_VERSION = 1
 # glTF (Y up) to Blender (Z up): x stays, y becomes z, z becomes -y.
 GLTF_TO_BLENDER = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
@@ -166,6 +174,51 @@ def child_collection(scene, name):
     return found
 
 
+def gltf_names(path):
+    """The node and material names a .glb or .gltf file gives."""
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+        if data[:4] == b"glTF":
+            length = struct.unpack_from("<I", data, 12)[0]
+            doc = json.loads(data[20 : 20 + length])
+        else:
+            doc = json.loads(data)
+    except (OSError, ValueError, struct.error):
+        return set(), set()
+    nodes = {n.get("name") for n in doc.get("nodes", []) if n.get("name")}
+    materials = {m.get("name") for m in doc.get("materials", []) if m.get("name")}
+    return nodes, materials
+
+
+def keep_source_names(path, objects):
+    """Tags what Blender renamed on import with the name from the file."""
+    nodes, materials = gltf_names(path)
+
+    def original(name, names):
+        if name in names:
+            return None
+        match = SUFFIX.match(name)
+        return match.group(1) if match and match.group(1) in names else None
+
+    tagged = 0
+    for obj in objects:
+        was = original(obj.name, nodes)
+        if was:
+            obj[SOURCE_NAME] = was
+            tagged += 1
+        for slot in getattr(obj, "material_slots", []):
+            material = slot.material
+            if material is None or SOURCE_NAME in material:
+                continue
+            was = original(material.name, materials)
+            if was:
+                material[SOURCE_NAME] = was
+                tagged += 1
+    if tagged:
+        log(f"{os.path.basename(path)}: {tagged} names taken, Export GLB writes the file's own back")
+
+
 def import_model(path, parent):
     """Imports one file into a new collection named after it."""
     name = os.path.splitext(os.path.basename(path))[0]
@@ -179,6 +232,7 @@ def import_model(path, parent):
     except TypeError:  # an importer without the option
         bpy.ops.import_scene.gltf(filepath=os.path.abspath(path))
     added = [o for o in bpy.data.objects if o not in before]
+    keep_source_names(path, added)
     target = bpy.data.collections.new(name)
     parent.children.link(target)
     for obj in added:

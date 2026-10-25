@@ -46,12 +46,20 @@ const OLDER: &[(&str, &str)] = &[
         "beb41cd4353d00079f562545667c56cd2e3f267f6a04d087f430b96900657dd1",
     ),
     (
+        "tools/build_scene.py",
+        "378d3527366f7c6a366a070e6e88d1a5d3738e5da9bf7456cd3aa3620593ff99",
+    ),
+    (
         "tools/export_character.py",
         "a450a138b62489b9bb6ffc848392de75bc3539460cd275a181f88e986b20e054",
     ),
     (
         "tools/export_web.py",
         "e67655bf5b32f480d84a53f0c7b4657c891576993dedbc1eff1585696a59d486",
+    ),
+    (
+        "tools/export_web.py",
+        "2fa35e389871a4dd8cac8a19d264aa20052bedb1de74aac2e739388dac943c22",
     ),
     (
         "tools/render_stops.py",

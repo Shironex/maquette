@@ -10,7 +10,10 @@ What becomes a file:
 - each other top level mesh, empty or armature outside "Models" and
   "Studio" is one GLB with its children.
 File names are the lowercase snake case of the collection or object name,
-for example "Shop House" becomes web/raw/shop_house.glb. Cameras and lights
+for example "Shop House" becomes web/raw/shop_house.glb. Objects and
+materials Build scene tagged "maquette_name" (Blender renamed them on
+import, "palette.001") export under the name their model file gives, so
+names an app looks up ("lid", "screen") ship as the model has them. Cameras and lights
 are never exported. Geometry stays uncompressed (no Draco): the Compress
 step applies meshopt and KTX2 from the presets.
 
@@ -42,6 +45,7 @@ import bpy
 MODELS = "Models"
 STUDIO = "Studio"
 EXPORTED_TYPES = {"MESH", "EMPTY", "ARMATURE", "CURVE", "SURFACE", "META", "FONT"}
+SOURCE_NAME = "maquette_name"
 
 
 def log(message):
@@ -145,6 +149,46 @@ def hook_lightmap(obj, entry, folder):
     return hooked > 0
 
 
+def take_source_names():
+    """The names Build scene kept from each model file, by datablock. The tags
+    come off, so they do not export as extras."""
+    found = {}
+    for pool in (bpy.data.objects, bpy.data.materials):
+        for item in pool:
+            if SOURCE_NAME in item:
+                found[item.as_pointer()] = str(item[SOURCE_NAME])
+                del item[SOURCE_NAME]
+    return found
+
+
+def own_names(objects, originals):
+    """Gives these objects and their materials their file's names for one
+    export, moving whoever holds a name aside. Returns how to undo it."""
+    items = list(objects)
+    for obj in objects:
+        for slot in getattr(obj, "material_slots", []):
+            if slot.material is not None and slot.material not in items:
+                items.append(slot.material)
+    undo = []
+    for item in items:
+        want = originals.get(item.as_pointer())
+        if not want or item.name == want:
+            continue
+        pool = bpy.data.objects if isinstance(item, bpy.types.Object) else bpy.data.materials
+        holder = pool.get(want)
+        if holder is not None:
+            undo.append((holder, holder.name))
+            holder.name = f"{want}.maquette_aside"
+        undo.append((item, item.name))
+        item.name = want
+    return undo
+
+
+def undo_names(undo):
+    for item, name in reversed(undo):
+        item.name = name
+
+
 def export(path, objects):
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objects:
@@ -185,6 +229,7 @@ def main():
     for old in os.listdir(args.out):
         if old.endswith(".glb"):
             os.remove(os.path.join(args.out, old))
+    originals = take_source_names()
     names = set()
     for name, objects in found:
         unique, n = name, 2
@@ -192,7 +237,11 @@ def main():
             unique, n = f"{name}_{n}", n + 1
         names.add(unique)
         path = os.path.join(args.out, f"{unique}.glb")
-        export(path, objects)
+        undo = own_names(objects, originals)
+        try:
+            export(path, objects)
+        finally:
+            undo_names(undo)
         log(f"wrote {path} ({len(objects)} objects, {os.path.getsize(path) // 1024} KB)")
     log(f"exported {len(names)} models to {args.out}")
 

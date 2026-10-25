@@ -43,6 +43,18 @@ fn starters_stay_plain_and_headless() {
 }
 
 #[test]
+fn names_blender_renamed_on_import_ship_as_the_model_has_them() {
+    let build = BUILD_SCENE.text;
+    assert!(build.contains("SOURCE_NAME = \"maquette_name\""));
+    assert!(build.contains("keep_source_names(path, added)"));
+    let export = EXPORT_WEB.text;
+    assert!(export.contains("SOURCE_NAME = \"maquette_name\""));
+    // The tags come off before any export, so they never ship as extras.
+    assert!(export.contains("del item[SOURCE_NAME]"));
+    assert!(export.contains("undo_names(undo)"));
+}
+
+#[test]
 fn posters_frame_the_scene_when_it_has_no_stops_and_never_save_it() {
     let text = RENDER_STOPS.text;
     assert!(text.contains("def overview_camera(scene)"));
