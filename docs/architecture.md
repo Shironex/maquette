@@ -105,6 +105,19 @@ function or group the arguments. `rust-toolchain.toml` pins the toolchain the re
 `rust-version` in the workspace states it. A module over 400 code lines is split into submodules,
 with its tests in a sibling `tests.rs`.
 
+## MCP tools
+
+The MCP server lives in `apps/desktop/src-tauri/src/mcp`: `server.rs` serves Streamable HTTP on
+127.0.0.1 behind the bearer token, `tools.rs` holds the server instructions and joins one
+`#[tool_router]` per file in `tools/` (`concepts.rs` starts and reads the Lab, `picks.rs` stars and
+picks concepts onto the Board, `sending.rs` sends to 3D, and so on). A tool does what the matching
+UI action does by calling the same `maquette-core` function or the shared command helper in
+`commands/` (`pick_concepts` and Send picks to Refs both end in `concepts::picks::place_at_refs`),
+so the checks are the same. After a change it tells the windows through `Host` (`project_changed`,
+`concepts_changed`, `layout_changed` and the rest), which emits the same events the UI listens to.
+The integration tests in `apps/desktop/src-tauri/tests/` run a real client against a test `Host`;
+a new tool goes into the tool list in `mcp_handshake.rs`, the instructions and the README.
+
 ## Adding a feature
 
 1. Create `apps/web/src/features/<feature>/` with one folder per component, each with its test and
