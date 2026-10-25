@@ -18,10 +18,11 @@ pnpm --filter @maquette/site typecheck # astro check
 ## How the page works
 
 - `src/pages/index.astro` puts the sections together; each lives in `src/components/`. The copy is in `src/content/copy.ts`.
-- The tour (`Tour.astro`) is a tall section with a sticky stage, 130 % of a screen of scroll per move between stops. `src/scene/scroll.ts` turns the scroll position into fractional progress (0 on the hero, 1 on Concept, up to 6 on Ship) from a layout it measures once and again on resize; the page fades and drifts each stop's copy and fills the timeline with it, and the stop timeline buttons scroll to a stop.
-- The island reads the same progress, eased a little behind the scroll, and puts the camera on one path through every stop (`src/scene/path.ts`): each stop plays its move from the design's camera board (`src/scene/cameras.ts`: dolly, truck, orbit, hold, push in, pull back) around its own framing, and the path runs on into the next stop. The turntable's turn and the wireframe sweep follow the scroll too.
-- The stage shows the poster of the current stop first. After the page has loaded, on a fine pointer at 1024 px wide or more with WebGL 2, the script imports `src/scene/mount.tsx`, which renders the scene. The poster stays until the scene says it is ready, and comes back if WebGL fails or the context is lost.
-- With reduced motion the camera cuts between stops, the copy swaps with them, nothing turns and the wireframe sweep holds still.
+- The tour (`Tour.astro`) pins a full window stage (the canvas, or a poster per stop without it) while one screen tall section per stop scrolls over it (`TourStop.astro`): the hero, then Concept to Ship, each stop's copy on the side its framing leaves clear. `src/scene/scroll.ts` measures the sections' edges once and again on resize and turns the scroll position into fractional progress (0 on the hero, 1 on Concept, up to 6 on Ship): a stop is reached as its section's top meets the top of the window, with its copy centred on screen. The copy scrolls with the page and dims only near the window's edges. After Ship the stage scrolls away with the last section. `src/scene/startTour.ts` runs the page side: the stop rail along the bottom of the stage (`TourRail.astro`, a button per stop), the posters and the island.
+- The island reads the same progress, eased a little behind the scroll, and flies the camera through the bench (`src/scene/path.ts`). Each stop in `src/scene/cameras.ts` has its framing, its move from the design's camera board (dolly, truck, orbit, push in, pull back) and the poses it flies through on the way in (`via`). One centripetal curve runs through every camera position and one through every look target (`track.ts`), and a monotone timing (`spline.ts`) walks both: slow through each stop's move while its copy is on screen, fast on the flights between, never stopping.
+- At rest the scene keeps living: the camera breathes a few millimetres and leans after a mouse pointer, the turntable idles round, the lamp's filament wavers and dust drifts in its light (`Motes.tsx`). Frames render continuously while the canvas is on screen and the tab is shown, and stop otherwise. The turntable's turn and the wireframe sweep also follow the scroll.
+- The stage shows the poster of the current stop first. After the page has loaded, on a fine pointer at 1024 px wide or more with WebGL 2 and without reduced motion, the script imports `src/scene/mount.tsx`, which renders the scene. The poster stays until the scene says it is ready, and comes back if WebGL fails or the context is lost.
+- With reduced motion, and on phones, there is no 3D download: reduced motion keeps the poster per stop, swapped without a fade as the sections pass; phones get the hero poster and the stops are left to the pipeline section.
 - Models load in the order the current stop needs them (`loadOrder` in the manifest), three at a time, through one GLTF loader with meshopt and KTX2. The Basis transcoder comes from the `three` package: the dev server serves it and the build writes it to `dist/basis/`.
 
 ## Manifest
@@ -57,7 +58,7 @@ pnpm build:site
 PLAYWRIGHT=/path/to/playwright/index.mjs pnpm --filter @maquette/site posters
 ```
 
-The script opens the built page in headless Chromium with `?capture`, which hides everything but the canvas, and encodes WebP in the page. Run it after any change to the manifest, the models or the lighting.
+The script opens the built page in headless Chromium with `?capture`, which hides everything but the canvas, holds the camera on each stop's exact framing (no breathing, pointer or idle motion) and encodes WebP in the page. Run it after any change to the stops, the manifest, the models or the lighting.
 
 ## Placeholders
 
