@@ -36,7 +36,7 @@ function BootFailure() {
 }
 
 function NoticeHost() {
-  const { notice, dismiss } = useNoticeHost();
+  const { notice, dismiss, act } = useNoticeHost();
   return (
     <div aria-live="polite" className="pointer-events-none fixed right-5 bottom-11 z-50">
       {notice ? (
@@ -45,6 +45,13 @@ function NoticeHost() {
           status={notice.status}
           title={notice.title}
           detail={notice.detail}
+          action={
+            notice.action ? (
+              <Button size="sm" onClick={act}>
+                {notice.action.label}
+              </Button>
+            ) : undefined
+          }
           onClose={dismiss}
           className="pointer-events-auto"
         />

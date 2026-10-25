@@ -48,4 +48,22 @@ describe('the app', () => {
     act(() => vi.advanceTimersByTime(1));
     expect(screen.queryByText('Cache cleared')).toBeNull();
   });
+
+  it('runs a notice button once and closes the notice', async () => {
+    await openMockWorkspace('first-run');
+    useAppStore.setState({ phase: 'booting' });
+    render(<App />);
+    await screen.findByRole('button', { name: 'Set up' });
+    const run = vi.fn();
+    act(() =>
+      useAppStore.getState().notify({
+        status: 'info',
+        title: 'A new model in Downloads',
+        action: { label: 'Choose', run },
+      })
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Choose' }));
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('A new model in Downloads')).toBeNull();
+  });
 });

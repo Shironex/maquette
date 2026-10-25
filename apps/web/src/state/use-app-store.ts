@@ -25,6 +25,8 @@ export interface Notice {
   status: ToastStatus;
   title: string;
   detail?: string;
+  /** One button on the notice, which also dismisses it. */
+  action?: { label: string; run: () => void };
 }
 
 export interface ToolsState {
