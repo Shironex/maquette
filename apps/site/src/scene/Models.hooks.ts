@@ -14,10 +14,14 @@ import { warm } from './warm';
 const TURN = 0.45;
 /** The wireframe sweep crosses the model while progress is this many stops either side of its stop. */
 const SWEEP = 0.34;
+/** The turntable's own slow turn at rest, in radians per second. */
+const IDLE_TURN = 0.14;
 
 export interface ModelsOptions {
   /** Tour progress in stops. */
   progress: React.RefObject<number>;
+  /** Poster capture: no idle turn, so every poster is the same frame. */
+  still: boolean;
   firstView: StopId;
   onReady: () => void;
   onFailed: (reason: string) => void;
@@ -28,9 +32,10 @@ const stopIndex = (id: StopId) => STOP_IDS.indexOf(id);
 /**
  * Loads, warms and places the manifest's models (the first view's first),
  * then sets the turntable's turn and the wireframe sweep from the tour
- * progress each frame: both follow the scroll.
+ * progress each frame: both follow the scroll, and the turntable also
+ * idles round on its own.
  */
-export function useModels({ progress, firstView, onReady, onFailed }: ModelsOptions) {
+export function useModels({ progress, still, firstView, onReady, onFailed }: ModelsOptions) {
   const { gl, camera, scene, invalidate } = useThree();
   const [built, setBuilt] = useState<BuiltModel[]>([]);
 
@@ -82,12 +87,13 @@ export function useModels({ progress, firstView, onReady, onFailed }: ModelsOpti
     };
   }, [gl, camera, scene, firstView, invalidate, onReady, onFailed]);
 
-  useFrame(() => {
+  useFrame(state => {
     const at = progress.current;
+    const idle = still ? 0 : state.clock.elapsedTime * IDLE_TURN;
     for (const { entry, root, sweep } of built) {
       if (entry.spinAt) {
         const stop = stopIndex(entry.spinAt);
-        root.rotation.y = across(at, stop - TURN, stop + TURN) * Math.PI * 2;
+        root.rotation.y = across(at, stop - TURN, stop + TURN) * Math.PI * 2 + idle;
       }
       if (sweep && entry.sweepAt) {
         const stop = stopIndex(entry.sweepAt);

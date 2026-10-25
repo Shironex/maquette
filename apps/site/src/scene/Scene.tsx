@@ -4,6 +4,7 @@ import { Environment } from './Environment';
 import { Lights } from './Lights';
 import { POSTER_CAMERAS, STOPS } from './manifest';
 import { Models } from './Models';
+import { Motes } from './Motes';
 import { useLiveFrames, useProgress } from './Scene.hooks';
 import type { SceneProps } from './Workbench.types';
 
@@ -16,13 +17,15 @@ export function Scene(props: SceneProps) {
     <>
       <color attach="background" args={['#1a1917']} />
       <Environment />
-      <Lights />
+      <Lights still={still} />
       <Models
         progress={progress}
+        still={still}
         firstView={props.initialStop}
         onReady={props.onReady}
         onFailed={props.onFailed}
       />
+      <Motes still={still} />
       <CameraRig
         progress={progress}
         stops={STOPS}
