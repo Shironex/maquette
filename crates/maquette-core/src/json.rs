@@ -2,8 +2,8 @@
 
 use std::path::Path;
 
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{CoreError, CoreResult};
@@ -45,6 +45,16 @@ fn merge(base: &mut Value, overlay: Value) {
         }
         (slot, value) => *slot = value,
     }
+}
+
+/// Tells a missing field (`None`) from an explicit null (`Some(None)`), for
+/// `#[serde(default, deserialize_with = "explicit")]` on patch fields.
+pub(crate) fn explicit<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(d).map(Some)
 }
 
 #[cfg(test)]

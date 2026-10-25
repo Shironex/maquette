@@ -41,6 +41,10 @@ pub struct ModelPreset {
     /// The smaller edge for metal, roughness, occlusion and normal maps.
     pub data_texture_size: Option<u32>,
     pub codec: TextureCodec,
+    /// The row's per map group codecs, as stored.
+    pub map_codecs: Option<MapCodecs>,
+    /// What each map group is encoded with, the defaults filled in.
+    pub codecs: CodecSet,
     pub meshopt: MeshoptLevel,
     /// Why the row cannot change, from `pipeline.json`.
     pub lock: Option<String>,
@@ -69,6 +73,11 @@ pub struct InspectModel {
     /// The bounds in metres, x y z.
     pub size: [f32; 3],
     pub materials: u32,
+    /// The materials' names, in file order, for per material tweaks.
+    pub material_names: Vec<String>,
+    /// The asset whose material tweaks the model takes: the asset of a
+    /// version, and the asset a raw export or shipped build was made from.
+    pub tweak_asset: Option<String>,
     pub joints: u32,
     pub animations: Vec<String>,
     pub textures: Vec<TextureRow>,

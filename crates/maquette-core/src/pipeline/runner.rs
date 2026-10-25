@@ -8,6 +8,7 @@ mod execution;
 mod queue;
 mod spawn;
 mod step;
+mod tweaks;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -62,6 +63,10 @@ pub struct RunSetup {
     /// Model file stem to the stem the compressed file ships under, from
     /// [`crate::assets::shipped_names`]. A model not listed ships as it is.
     pub shipped_names: BTreeMap<String, String>,
+    /// Material tweaks by model file stem (lowercase), from
+    /// [`crate::materials::by_model_stem`]. Compress applies them to a copy
+    /// of the raw export before its texture passes.
+    pub materials: BTreeMap<String, crate::materials::ModelMaterials>,
     pub from: Option<String>,
     pub force: bool,
 }

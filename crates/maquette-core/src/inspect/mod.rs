@@ -39,7 +39,7 @@ use std::path::{Path, PathBuf};
 
 use crate::assets::Asset;
 use crate::inbox::analyse::{self, GlbReport};
-use crate::pipeline::presets::CompressPreset;
+use crate::pipeline::presets::{CodecSet, CompressPreset, MapCodecs};
 use crate::pipeline::{CompressDefaults, PipelineDef};
 use crate::project::{ProjectManifest, rfc3339_utc};
 use crate::workspace::{Budgets, MeshoptLevel, TextureCodec};
@@ -152,6 +152,7 @@ pub fn inspect(src: &Sources<'_>) -> InspectView {
                 file,
                 asset: None,
                 version: from_asset.map(|(_, v)| v),
+                tweak_asset: from_asset.map(|(a, _)| a.id.clone()),
             });
         }
         scene_sides.push(CompareSide {
@@ -197,6 +198,7 @@ pub fn inspect(src: &Sources<'_>) -> InspectView {
                 file,
                 asset: Some(asset),
                 version: Some(version.version),
+                tweak_asset: Some(asset.id.clone()),
             });
             sides.push(CompareSide {
                 id: format!("{id}/side"),

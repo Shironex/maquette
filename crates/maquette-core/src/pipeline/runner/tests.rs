@@ -95,6 +95,7 @@ fn setup(dir: &Path, steps: Vec<StepDef>) -> RunSetup {
         },
         vars: BTreeMap::new(),
         shipped_names: BTreeMap::new(),
+        materials: Default::default(),
         from: None,
         force: false,
     }
@@ -713,6 +714,7 @@ fn a_renamed_model_ships_under_its_new_name_and_the_old_file_goes() {
         texture_size: 512,
         data_texture_size: None,
         codec: TextureCodec::Uastc,
+        map_codecs: None,
         meshopt: MeshoptLevel::Low,
         lock: None,
     }];
@@ -750,4 +752,66 @@ fn a_renamed_model_ships_under_its_new_name_and_the_old_file_goes() {
     let renamed = runner.run_blocking(s).expect("renamed");
     assert_eq!(renamed.steps[0].state, StepState::Done);
     assert!(present("tin_clay_v1.glb") && !present("paper_clay_v1.glb"));
+}
+
+#[test]
+fn compress_reads_a_tweaked_copy_and_reruns_when_the_tweaks_change() {
+    use crate::materials::{MaterialTweak, ModelMaterials};
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut s = compress_setup(dir.path(), &["bench"]);
+    let raw = s.project_dir.join("web/raw/crate_v1.glb");
+    let source = crate::inbox::fixture::clean_prop();
+    fs::write(&raw, &source).expect("fixture");
+    let matte = |metalness: f32| ModelMaterials {
+        all: MaterialTweak {
+            metalness: Some(metalness),
+            ..MaterialTweak::default()
+        },
+        materials: BTreeMap::new(),
+    };
+    s.materials = BTreeMap::from([("crate_v1".to_string(), matte(0.0))]);
+    let sink = Arc::new(Recorder::default());
+    let runner = PipelineRunner::new(sink.clone());
+    let run = runner.run_blocking(s.clone()).expect("run");
+    assert_eq!(run.state, RunState::Done, "{:?}", sink.lines());
+    let lines = sink.lines();
+    assert!(
+        lines.iter().any(|l| l.contains(
+            "crate_v1 material tweaks on 1 material, 1 metal and roughness map replaced"
+        )),
+        "{lines:?}"
+    );
+    let calls: Vec<&String> = lines.iter().filter(|l| l.starts_with("args: ")).collect();
+    let crate_call = calls
+        .iter()
+        .find(|l| l.contains("crate_v1"))
+        .expect("crate call");
+    assert!(crate_call.contains("crate_v1.look.glb"), "{crate_call}");
+    let bench_call = calls
+        .iter()
+        .find(|l| l.contains("bench"))
+        .expect("bench call");
+    assert!(
+        bench_call.contains("web/raw/bench.glb"),
+        "an untweaked model reads its raw file"
+    );
+    assert_eq!(
+        fs::read(&raw).expect("raw"),
+        source,
+        "the raw export never changes"
+    );
+    let shipped = fs::read(s.project_dir.join("web/dist/crate_v1.glb")).expect("shipped");
+    let gltf = gltf::Gltf::from_slice(&shipped).expect("glb");
+    let material = gltf.document.materials().next().expect("material");
+    assert!(material.pbr_metallic_roughness().metallic_factor().abs() < 1e-6);
+
+    assert_eq!(
+        runner.run_blocking(s.clone()).expect("again").steps[0].state,
+        StepState::Cached
+    );
+    s.materials.insert("crate_v1".into(), matte(0.5));
+    assert_eq!(
+        runner.run_blocking(s).expect("changed").steps[0].state,
+        StepState::Done
+    );
 }

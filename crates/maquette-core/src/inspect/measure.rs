@@ -125,6 +125,8 @@ pub(super) fn preset_for(
             texture_size: p.texture_size,
             data_texture_size: p.data_texture_size.filter(|d| *d != p.texture_size),
             codec: p.codec,
+            map_codecs: p.map_codecs,
+            codecs: p.map_codecs.unwrap_or_default().resolve(p.codec),
             meshopt: p.meshopt,
             lock: p.lock.clone(),
             has_row: true,
@@ -133,6 +135,8 @@ pub(super) fn preset_for(
             texture_size: defaults.texture_size,
             data_texture_size: None,
             codec: defaults.codec,
+            map_codecs: None,
+            codecs: MapCodecs::default().resolve(defaults.codec),
             meshopt: defaults.meshopt,
             lock: None,
             has_row: false,
@@ -149,6 +153,7 @@ pub(super) struct Entry<'a> {
     pub(super) path: String,
     pub(super) asset: Option<&'a Asset>,
     pub(super) version: Option<u32>,
+    pub(super) tweak_asset: Option<String>,
 }
 
 pub(super) fn measure(
@@ -177,6 +182,8 @@ pub(super) fn measure(
         vertices: 0,
         size: [0.0; 3],
         materials: 0,
+        material_names: Vec::new(),
+        tweak_asset: entry.tweak_asset,
         joints: 0,
         animations: Vec::new(),
         textures: Vec::new(),
@@ -195,6 +202,7 @@ pub(super) fn measure(
             model.vertices = report.vertices;
             model.size = report.size;
             model.materials = report.materials;
+            model.material_names = crate::materials::material_names(&entry.file);
             model.joints = report.joints;
             model.animations = report.animations;
             model.meshopt = report

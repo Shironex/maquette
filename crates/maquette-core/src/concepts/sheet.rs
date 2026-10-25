@@ -142,6 +142,7 @@ pub fn render(
         },
         vars: Default::default(),
         shipped_names: Default::default(),
+        materials: Default::default(),
         from: None,
         force: true,
     })?;

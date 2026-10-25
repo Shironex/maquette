@@ -8,6 +8,7 @@ use std::time::Instant;
 
 use super::execution::{Execution, StepOutcome};
 use super::spawn::{Invocation, SpawnError, human_duration, program_name};
+use crate::materials::map_groups;
 use crate::pipeline::cache::{self, CacheRecord, FileHasher, KeyParts};
 use crate::pipeline::graph::{BLENDER_HEADLESS_MESSAGE, blender_headless};
 use crate::pipeline::history::LogLevel;
@@ -18,10 +19,10 @@ use crate::pipeline::{CompressSpec, StepDef, StepKind};
 use crate::toolchain::ToolId;
 
 /// One model the compress step handles: its file, its stem, and the stem it ships under.
-struct CompressModel {
-    input: PathBuf,
-    stem: String,
-    shipped: String,
+pub(super) struct CompressModel {
+    pub(super) input: PathBuf,
+    pub(super) stem: String,
+    pub(super) shipped: String,
 }
 
 /// A step's resolved tool and calls, and its cache key.
@@ -152,6 +153,9 @@ impl Execution {
                 return StepOutcome::Failed(format!("Could not create {}. {err}", spec.to), None);
             }
             self.drop_stale_outputs(spec, &root, &last);
+            if let Err(message) = self.write_tweaked(step, spec, &root) {
+                return StepOutcome::Failed(message, None);
+            }
             if !self.setup.tools.has(ToolId::Toktx) {
                 self.system(
                     Some(&step.id),
@@ -223,13 +227,15 @@ impl Execution {
         step.outputs.clone()
     }
 
-    /// The presets and toktx availability, for the compress step's key.
+    /// The presets, material tweaks and toktx availability, for the
+    /// compress step's key.
     fn cache_extra(&self, step: &StepDef) -> Option<String> {
         step.compress.as_ref()?;
         let presets = serde_json::to_string(&self.setup.def.presets).unwrap_or_default();
         let names = serde_json::to_string(&self.setup.shipped_names).unwrap_or_default();
+        let materials = serde_json::to_string(&self.setup.materials).unwrap_or_default();
         Some(format!(
-            "presets {presets} defaults {} {:?} {:?} toktx {} names {names}",
+            "presets {presets} defaults {} {:?} {:?} toktx {} names {names} materials {materials}",
             self.setup.defaults.texture_size,
             self.setup.defaults.codec,
             self.setup.defaults.meshopt,
@@ -262,7 +268,9 @@ impl Execution {
             let preset = resolve(&self.setup.def.presets, &model.stem, self.setup.defaults);
             let output = root.join(&spec.to).join(format!("{}.glb", model.shipped));
             let tmp_file = tmp.join(format!("{}.tex.glb", model.stem));
-            for pass in compress_passes(&model.input, &output, &tmp_file, &preset, toktx) {
+            let input = self.tweaked_input(&model, &tmp);
+            let groups = map_groups(&model.input);
+            for pass in compress_passes(&input, &output, &tmp_file, &preset, toktx, groups) {
                 out.push((Some(pass.label), pass.args));
             }
         }
@@ -271,7 +279,7 @@ impl Execution {
 
     /// The models the compress step reads, with the stem each ships under.
     /// A name taken by another model or an earlier rename keeps the stem.
-    fn compress_models(&self, spec: &CompressSpec, root: &Path) -> Vec<CompressModel> {
+    pub(super) fn compress_models(&self, spec: &CompressSpec, root: &Path) -> Vec<CompressModel> {
         let inputs: Vec<(PathBuf, String)> = cache::expand(root, &[format!("{}/*.glb", spec.from)])
             .into_iter()
             .flat_map(|(_, files)| files)

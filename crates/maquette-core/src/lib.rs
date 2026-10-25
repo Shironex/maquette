@@ -11,6 +11,7 @@ pub mod inbox;
 pub mod inspect;
 mod json;
 pub mod layout;
+pub mod materials;
 pub mod pipeline;
 pub mod project;
 pub mod providers;
@@ -150,6 +151,7 @@ pub fn types() -> specta::Types {
         .register::<inspect::InspectView>()
         .register::<layout::SceneLayout>()
         .register::<layout::LayoutView>()
+        .register::<materials::SceneMaterials>()
 }
 
 #[cfg(test)]
@@ -272,6 +274,13 @@ mod tests {
             "LayoutModel",
             "FirstView",
             "Measured",
+            "SceneMaterials",
+            "ModelMaterials",
+            "MaterialTweak",
+            "RoughnessTweak",
+            "FactorMode",
+            "MapCodecs",
+            "CodecSet",
         ] {
             assert!(names.iter().any(|n| n == expected), "missing {expected}");
         }

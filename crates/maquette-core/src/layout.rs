@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::assets::{self, Asset, AssetKind};
 use crate::error::{CoreError, CoreResult};
-use crate::json::write_json;
+use crate::json::{explicit, write_json};
 use crate::pipeline::PipelineDef;
 use crate::project::{ProjectManifest, slugify};
 
@@ -305,15 +305,6 @@ pub fn stop_id(layout: &SceneLayout, name: &str) -> String {
         .map(|n| format!("{base}-{n}"))
         .find(|id| !taken(id))
         .unwrap_or(base)
-}
-
-/// Tells a missing field (`None`) from an explicit null (`Some(None)`).
-fn explicit<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Option::<T>::deserialize(d).map(Some)
 }
 
 #[cfg(test)]
