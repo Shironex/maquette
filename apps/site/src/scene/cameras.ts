@@ -1,7 +1,8 @@
 /**
  * The tour's camera: the hero frame, then the six stops of the design's
- * camera board, each with its framing and the move it plays while the page
- * scrolls across it (see ./path.ts). Same coordinates as the manifest.
+ * camera board. Each stop has its framing, the move it plays while its copy
+ * is on screen and the poses the camera flies through on its way in from
+ * the stop before (see ./path.ts). Same coordinates as the manifest.
  */
 import type { StopId, Vec3 } from './manifest';
 
@@ -22,6 +23,13 @@ export interface CameraMove {
   pivot?: Vec3;
 }
 
+/** A pose on the flight into a stop, `at` stops before it (a negative offset). */
+export interface Via {
+  at: number;
+  position: Vec3;
+  target: Vec3;
+}
+
 export interface CameraStop {
   id: StopId;
   position: Vec3;
@@ -29,46 +37,79 @@ export interface CameraStop {
   /** Vertical field of view in degrees, framed for a 16:10 viewport. */
   fov: number;
   move?: CameraMove;
+  via?: readonly Via[];
+  /** The side of the screen the stop's copy takes, the one its subject leaves clear (left by default). */
+  copy?: 'left' | 'right';
 }
 
 /** The clay island over its plinth, at its eye height. */
-const ISLAND: Vec3 = [-0.02, 1.1, -0.04];
+const CLAY: Vec3 = [-0.02, 1.14, -0.04];
 
 export const STOPS: readonly CameraStop[] = [
-  { id: 'hero', position: [-0.45, 1.35, 1.3], target: [-0.3, 1.16, -0.05], fov: 36 },
-  // Close on the paper sketch: a low dolly in that tilts a little further down.
+  {
+    id: 'hero',
+    position: [-0.45, 1.35, 1.3],
+    target: [-0.3, 1.16, -0.05],
+    fov: 36,
+    move: { dolly: 0.1 },
+    copy: 'left',
+  },
+  // Swoops down to the right, low over the tools, and turns back onto the
+  // paper sketch: a low dolly in that tilts further down.
   {
     id: 'concept',
-    position: [-0.1, 1.44, 0.8],
-    target: [-0.82, 0.84, 0.06],
+    position: [-0.08, 1.2, 0.64],
+    target: [-0.24, 0.92, 0.1],
     fov: 30,
-    move: { dolly: 0.14, rise: 0.04 },
+    move: { dolly: 0.18, rise: 0.05 },
+    via: [{ at: -0.55, position: [0.3, 1.07, 0.7], target: [-0.16, 0.93, 0.2] }],
+    copy: 'right',
   },
-  // The pinned prints: a truck left along the paper.
+  // Skims the paper, then trucks left along it to the pinned prints.
   {
     id: 'refs',
-    position: [-0.42, 1.48, 0.66],
-    target: [-0.96, 0.86, -0.04],
+    position: [-0.36, 1.03, 0.38],
+    target: [-0.6, 0.93, -0.1],
     fov: 35,
-    move: { truck: [-0.16, 0, -0.03] },
+    move: { truck: [-0.22, 0, -0.02] },
+    via: [{ at: -0.5, position: [-0.22, 1.05, 0.52], target: [-0.5, 0.91, 0.02] }],
+    copy: 'right',
   },
-  // The clay maquette: about 20 degrees of orbit around the plinth at its eye height.
+  // Rises off the paper and swings across the front of the plinth, the clay
+  // island passing close, then orbits it at its eye height.
   {
     id: 'model',
-    position: [0.32, 1.17, 0.68],
-    target: [-0.2, 1.1, -0.04],
+    position: [0.33, 1.16, 0.46],
+    target: [-0.08, 1.12, -0.04],
     fov: 35,
-    move: { orbit: -20, pivot: ISLAND },
+    move: { orbit: 20, pivot: CLAY },
+    via: [
+      { at: -0.6, position: [-0.42, 1.3, 0.72], target: [-0.3, 1.0, -0.04] },
+      { at: -0.35, position: [-0.06, 1.08, 0.42], target: [-0.04, 1.12, -0.04] },
+    ],
+    copy: 'left',
   },
-  // Holds on the clay island while the wireframe sweep crosses it.
-  { id: 'blender', position: [-0.3, 1.2, 0.62], target: [-0.2, 1.1, -0.04], fov: 40 },
-  // The finished island: a push in while the turntable turns.
+  // Cranes up and back over the plinth and holds on the clay island while
+  // the wireframe sweep crosses it.
+  {
+    id: 'blender',
+    position: [-0.12, 1.5, 0.52],
+    target: [0.02, 1.1, -0.04],
+    fov: 40,
+    move: { dolly: 0.06 },
+    via: [{ at: -0.5, position: [0.24, 1.36, 0.58], target: [-0.02, 1.12, -0.04] }],
+    copy: 'right',
+  },
+  // Drops low past the calipers and turns onto the finished island: a push
+  // in while the turntable turns.
   {
     id: 'web',
-    position: [0.62, 1.25, 0.66],
-    target: [0.18, 1.16, -0.08],
+    position: [0.8, 1.24, 0.46],
+    target: [0.28, 1.17, -0.08],
     fov: 35,
-    move: { dolly: 0.12 },
+    move: { dolly: 0.2 },
+    via: [{ at: -0.5, position: [0.42, 1.02, 0.5], target: [0.3, 1.1, -0.06] }],
+    copy: 'left',
   },
   // Pulls back and up to the whole bench, ending on this framing.
   {
@@ -77,6 +118,8 @@ export const STOPS: readonly CameraStop[] = [
     target: [-0.24, 0.98, -0.1],
     fov: 45,
     move: { dolly: -0.3, rise: 0.12 },
+    via: [{ at: -0.65, position: [0.5, 1.4, 0.95], target: [0.2, 1.08, -0.08] }],
+    copy: 'left',
   },
 ];
 
@@ -85,7 +128,12 @@ export const STOPS: readonly CameraStop[] = [
  * The phone poster is portrait and sits close on the two islands.
  */
 export const POSTER_CAMERAS = {
-  mobile: { id: 'hero', position: [0.1, 1.3, 0.78], target: [0.2, 1.04, -0.06], fov: 40 },
+  mobile: {
+    id: 'hero',
+    position: [0.1, 1.3, 0.78],
+    target: [0.2, 1.04, -0.06],
+    fov: 40,
+  },
 } as const satisfies Record<string, CameraStop>;
 
 export type PosterCamera = keyof typeof POSTER_CAMERAS;

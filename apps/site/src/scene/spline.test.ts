@@ -1,46 +1,42 @@
 import { describe, expect, it } from 'vitest';
-import { createSpline } from './spline';
+import { createMonotone } from './spline';
 
-const out: number[] = [];
-
-describe('createSpline', () => {
-  const spline = createSpline([0, 1, 2, 4], [[0], [1], [1], [3]]);
+describe('createMonotone', () => {
+  const spline = createMonotone([0, 1, 2, 4], [0, 1, 1, 3]);
 
   it('passes through every key and clamps outside them', () => {
-    expect(spline.at(0, out)).toEqual([0]);
-    expect(spline.at(1, out)[0]).toBeCloseTo(1);
-    expect(spline.at(4, out)[0]).toBeCloseTo(3);
-    expect(spline.at(-5, out)).toEqual([0]);
-    expect(spline.at(9, out)[0]).toBeCloseTo(3);
+    expect(spline.at(0)).toBe(0);
+    expect(spline.at(1)).toBeCloseTo(1);
+    expect(spline.at(4)).toBeCloseTo(3);
+    expect(spline.at(-5)).toBe(0);
+    expect(spline.at(9)).toBe(3);
   });
 
   it('holds perfectly still across a run of equal keys', () => {
-    for (const x of [1, 1.25, 1.5, 1.75, 2]) expect(spline.at(x, out)[0]).toBeCloseTo(1, 9);
+    for (const x of [1, 1.25, 1.5, 1.75, 2]) expect(spline.at(x)).toBeCloseTo(1, 9);
   });
 
-  it('starts and ends at rest', () => {
-    const e = 1e-4;
-    expect(spline.at(e, out)[0]).toBeLessThan(1e-3);
-    const end = spline.at(4 - e, out)[0] ?? 0;
-    expect(3 - end).toBeLessThan(1e-3);
+  it('never steps back or overshoots between rising keys', () => {
+    // A slow stretch next to a fast one, like a stop's move beside a flight.
+    const timing = createMonotone([0, 0.4, 1, 1.4], [0, 0.1, 2, 2.1]);
+    let previous = timing.at(0);
+    for (let x = 0.01; x <= 1.4; x += 0.01) {
+      const value = timing.at(x);
+      expect(value).toBeGreaterThanOrEqual(previous - 1e-12);
+      expect(value).toBeLessThanOrEqual(2.1 + 1e-12);
+      previous = value;
+    }
   });
 
-  it('keeps its speed through a key between moving segments', () => {
-    const line = createSpline([0, 1, 3, 4], [[0], [1], [3], [4]]);
-    const slope = (x: number) =>
-      ((line.at(x + 1e-4, out)[0] ?? 0) - (line.at(x - 1e-4, out)[0] ?? 0)) / 2e-4;
-    expect(slope(1)).toBeCloseTo(slope(3));
-    expect(slope(1 - 1e-3)).toBeCloseTo(slope(1 + 1e-3), 2);
+  it('keeps moving through a key between two moving stretches', () => {
+    const timing = createMonotone([0, 0.4, 1], [0, 0.1, 2]);
+    expect(timing.slope(0.4)).toBeGreaterThan(0);
+    expect(timing.slope(0.7)).toBeGreaterThan(timing.slope(0.4));
   });
 
-  it('interpolates every component', () => {
-    const pair = createSpline(
-      [0, 1],
-      [
-        [0, 10],
-        [2, 20],
-      ]
-    );
-    expect(pair.at(0.5, out)).toEqual([1, 15]);
+  it('has a slope that matches its values', () => {
+    const x = 0.83;
+    const numeric = (spline.at(x + 1e-5) - spline.at(x - 1e-5)) / 2e-5;
+    expect(spline.slope(x)).toBeCloseTo(numeric, 4);
   });
 });

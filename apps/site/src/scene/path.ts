@@ -1,17 +1,20 @@
 /**
- * The camera's path through the tour. Each stop plays its move (see
- * ./cameras.ts) across a window of the scroll around it: keyframes at the
- * move's start, the stop's own framing and the move's end. One spline runs
- * through every keyframe of every stop, so the camera never stops between
- * a move and the travel to the next stop; a stop without a move holds.
+ * The camera's flight through the tour. Every stop adds keyframes: the poses
+ * it flies through on its way in from the previous stop (`via`), then its
+ * move (see ./cameras.ts) played slowly across a short window around its
+ * own framing. One curve runs through every camera position and one through
+ * every look target, and a monotone timing walks both: slow through each
+ * stop's move, fast on the flights between, never stopping, so the camera
+ * keeps travelling as the page scrolls.
  */
 import * as THREE from 'three';
 import type { CameraMove, CameraStop } from './cameras';
 import { nearestStop } from './progress';
-import { createSpline } from './spline';
+import { createMonotone, type Spline } from './spline';
+import { createTrack, type Track } from './track';
 
-/** Half the scroll window, in stops, a stop's move plays across. */
-export const MOVE = 0.25;
+/** Half the window, in stops, a stop's move plays across. */
+export const MOVE = 0.2;
 
 export interface Shot {
   position: THREE.Vector3;
@@ -34,11 +37,11 @@ export function shotOf(stop: CameraStop, out: Shot): Shot {
 
 const UP = new THREE.Vector3(0, 1, 0);
 
-/** A stop's framing `t` of the way through its move (0 is the stop itself), as [position, target, fov]. */
-export function moved(stop: CameraStop, t: number): number[] {
+/** A stop's framing `t` of the way through its move (0 is the stop itself). */
+export function moved(stop: CameraStop, t: number, out = createShot()): Shot {
   const move: CameraMove = stop.move ?? {};
-  const position = new THREE.Vector3(...stop.position);
-  const target = new THREE.Vector3(...stop.target);
+  shotOf(stop, out);
+  const { position, target } = out;
   if (move.orbit) {
     const pivot = new THREE.Vector3(...(move.pivot ?? stop.target));
     const angle = THREE.MathUtils.degToRad(move.orbit * t);
@@ -54,14 +57,22 @@ export function moved(stop: CameraStop, t: number): number[] {
     position.add(slide);
     target.add(slide);
   }
-  return [...position.toArray(), ...target.toArray(), stop.fov];
+  return out;
+}
+
+interface Key {
+  /** Tour progress, in stops. */
+  at: number;
+  shot: Shot;
+  /** Whether this key sets the field of view (flight poses leave it to the stops). */
+  lens: boolean;
 }
 
 /**
- * Where each stop's keyframes sit (offset from the stop, in stops) and how
+ * Where a stop's move keyframes sit (offset from the stop, in stops) and how
  * far through its move each is: the first stop plays forward from its
- * framing, the last one ends on it (over half the window, so the travel
- * into it is not rushed), the rest are centred on it.
+ * framing, the last one ends on it after a longer move, the rest are centred
+ * on it.
  */
 function windowOf(index: number, last: number): (readonly [number, number])[] {
   if (index === 0)
@@ -71,8 +82,7 @@ function windowOf(index: number, last: number): (readonly [number, number])[] {
     ];
   if (index === last)
     return [
-      [-MOVE, -1],
-      [-MOVE / 2, -0.5],
+      [-1.5 * MOVE, -1],
       [0, 0],
     ];
   return [
@@ -82,39 +92,64 @@ function windowOf(index: number, last: number): (readonly [number, number])[] {
   ];
 }
 
+function keysOf(stops: readonly CameraStop[]): Key[] {
+  const last = stops.length - 1;
+  return stops.flatMap((stop, index) => {
+    const flight = (stop.via ?? []).map(via => ({
+      at: index + via.at,
+      shot: {
+        position: new THREE.Vector3(...via.position),
+        target: new THREE.Vector3(...via.target),
+        fov: stop.fov,
+      },
+      lens: false,
+    }));
+    const move = windowOf(index, last).map(([offset, t]) => ({
+      at: index + offset,
+      shot: moved(stop, t),
+      lens: true,
+    }));
+    return [...flight, ...move];
+  });
+}
+
+/** A curve through the keys' points, timed so each point is reached at its key's progress. */
+function timed(keys: readonly Key[], point: (key: Key) => THREE.Vector3) {
+  const track: Track = createTrack(keys.map(point));
+  const timing: Spline = createMonotone(
+    keys.map(key => key.at),
+    track.lengths
+  );
+  return (progress: number, out: THREE.Vector3) => track.pointAt(timing.at(progress), out);
+}
+
 export interface CameraPath {
   /**
    * The framing at tour progress `progress` (in stops), written into `out`.
-   * With `cut` (reduced motion) it is the nearest stop's framing.
+   * With `cut` (poster capture) it is the nearest stop's framing.
    */
   shotAt(progress: number, out: Shot, cut?: boolean): Shot;
 }
 
 export function createPath(stops: readonly CameraStop[]): CameraPath {
   const last = stops.length - 1;
-  const keys: number[] = [];
-  const values: number[][] = [];
-  stops.forEach((stop, index) => {
-    for (const [offset, t] of windowOf(index, last)) {
-      keys.push(index + offset);
-      values.push(moved(stop, t));
-    }
-  });
-  const spline = createSpline(keys, values);
-  const sample: number[] = [];
+  const keys = keysOf(stops);
+  const position = timed(keys, key => key.shot.position);
+  const target = timed(keys, key => key.shot.target);
+  const lenses = keys.filter(key => key.lens);
+  const fov = createMonotone(
+    lenses.map(key => key.at),
+    lenses.map(key => key.shot.fov)
+  );
 
   return {
     shotAt(progress, out, cut = false) {
       const first = stops[0];
       if (!first) return out;
       if (cut) return shotOf(stops[nearestStop(progress, last)] ?? first, out);
-      const [px = 0, py = 0, pz = 0, tx = 0, ty = 0, tz = 0, fov = first.fov] = spline.at(
-        progress,
-        sample
-      );
-      out.position.set(px, py, pz);
-      out.target.set(tx, ty, tz);
-      out.fov = fov;
+      position(progress, out.position);
+      target(progress, out.target);
+      out.fov = fov.at(progress);
       return out;
     },
   };
