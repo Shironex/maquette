@@ -122,9 +122,8 @@ describe('AssetCard', () => {
       <AssetCard
         name="Island"
         version={7}
-        status="done"
-        onMore={onMore}
-        menu={<div role="menu">Move</div>}
+        status={{ state: 'done' }}
+        more={{ onOpen: onMore, menu: <div role="menu">Move</div> }}
       />
     );
     const dots = screen.getByRole('button', { name: 'More for Island' });
@@ -136,10 +135,8 @@ describe('AssetCard', () => {
       <AssetCard
         name="Island"
         version={7}
-        status="done"
-        onMore={onMore}
-        moreOpen
-        menu={<div role="menu">Move</div>}
+        status={{ state: 'done' }}
+        more={{ onOpen: onMore, open: true, menu: <div role="menu">Move</div> }}
       />
     );
     expect(screen.getByRole('menu')).toHaveTextContent('Move');
@@ -152,8 +149,7 @@ describe('AssetCard', () => {
     rerender(
       <AssetCard
         name="Desk lamp"
-        checked={false}
-        onCheck={onCheck}
+        selection={{ checked: false, onCheck }}
         actions={<button type="button">Add model...</button>}
       />
     );

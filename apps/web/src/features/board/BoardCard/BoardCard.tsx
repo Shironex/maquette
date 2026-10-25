@@ -13,9 +13,11 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
   return (
     <AssetCard
       data-drop-job={waiting?.id}
-      checked={present.includes(asset.id)}
-      selecting={present.length > 0}
-      onCheck={(on, range) => selection.check(asset.id, on, range)}
+      selection={{
+        checked: present.includes(asset.id),
+        selecting: present.length > 0,
+        onCheck: (on, range) => selection.check(asset.id, on, range),
+      }}
       onClickCapture={selection.shiftClick(asset.id)}
       actions={
         waiting ? (
@@ -34,29 +36,37 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
         dropJob && dropJob === waiting?.id && 'border-solid border-clay bg-clay-soft/40'
       )}
       name={asset.name}
-      thumb={thumb}
-      placeholder={{
-        icon: KIND_ICON[asset.kind],
-        label: asset.versions.length > 0 ? 'No preview yet' : undefined,
+      picture={{
+        thumb,
+        placeholder: {
+          icon: KIND_ICON[asset.kind],
+          label: asset.versions.length > 0 ? 'No preview yet' : undefined,
+        },
       }}
-      meta={asset.versions.length === 0 ? 'No model yet' : undefined}
+      details={{
+        meta: asset.versions.length === 0 ? 'No model yet' : undefined,
+        tris: n.tris,
+        size: n.size,
+      }}
       version={n.version}
       latest={n.version !== undefined}
-      tris={n.tris}
-      size={n.size}
-      status={sent?.status ?? n.status}
-      statusLabel={sent?.label}
-      statusIcon={sent?.icon}
-      progress={sent?.progress}
-      progressLabel={sent?.progressLabel}
+      status={{
+        state: sent?.status ?? n.status,
+        label: sent?.label,
+        icon: sent?.icon,
+        progress: sent?.progress,
+        progressLabel: sent?.progressLabel,
+      }}
       draggable
       onDragStart={onDragStart}
-      onMore={() => {
-        actions.setCopyFor(null);
-        actions.setMenuFor(m => (m === asset.id ? null : asset.id));
+      more={{
+        onOpen: () => {
+          actions.setCopyFor(null);
+          actions.setMenuFor(m => (m === asset.id ? null : asset.id));
+        },
+        open: actions.menuFor === asset.id,
+        menu: <CardMenu asset={asset} waiting={waiting} refPicture={refPicture} board={board} />,
       }}
-      moreOpen={actions.menuFor === asset.id}
-      menu={<CardMenu asset={asset} waiting={waiting} refPicture={refPicture} board={board} />}
     />
   );
 }

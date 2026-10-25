@@ -42,7 +42,15 @@ export {
 } from './components/status/ProgressBar';
 export { CheckRow, type CheckRowProps, type CheckStatus } from './components/status/CheckRow';
 
-export { AssetCard, type AssetCardProps } from './components/content/AssetCard';
+export {
+  AssetCard,
+  type AssetCardDetails,
+  type AssetCardMore,
+  type AssetCardPicture,
+  type AssetCardProps,
+  type AssetCardSelection,
+  type AssetCardStatus,
+} from './components/content/AssetCard';
 export { JobRow, type JobRowProps } from './components/content/JobRow';
 export {
   PipelineNode,

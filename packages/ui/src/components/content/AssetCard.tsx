@@ -6,39 +6,64 @@ import { ProgressBar } from '../status/ProgressBar';
 import { StatusChip, type Status } from '../status/StatusChip';
 import { VersionBadge } from '../status/VersionBadge';
 
-export interface AssetCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSelect'> {
-  name: string;
+/** The picture: a thumbnail, or a kind icon and a word while there is none. */
+export interface AssetCardPicture {
   thumb?: string;
   fit?: 'contain' | 'cover';
-  version?: number | string;
-  latest?: boolean;
+  /** What stands in while there is no thumbnail: a kind icon and a word. */
+  placeholder?: { icon: IconName; label?: string };
+}
+
+/** The line under the name. */
+export interface AssetCardDetails {
   tris?: string;
   size?: string;
   /** Replaces the tris and size line, for example "No model yet". */
   meta?: string;
-  status?: Status;
+}
+
+/** The status chip, or the progress bar while running. */
+export interface AssetCardStatus {
+  state?: Status;
   /** Overrides the status word, for example "Waiting for your model". */
-  statusLabel?: string;
+  label?: string;
   /** Overrides the status icon. */
-  statusIcon?: IconName;
+  icon?: IconName;
   progress?: number;
   progressLabel?: string;
-  selected?: boolean;
-  /** What stands in while there is no thumbnail: a kind icon and a word. */
-  placeholder?: { icon: IconName; label?: string };
-  onSelect?: () => void;
+}
+
+/** The dots button and the menu it opens. */
+export interface AssetCardMore {
   /** Opens the card's menu from the dots button. */
-  onMore?: () => void;
+  onOpen?: () => void;
   /** True while that menu is open. */
-  moreOpen?: boolean;
+  open?: boolean;
   /** The menu itself, placed under the dots button. */
   menu?: ReactNode;
-  /** Shows a select box on the picture when set; true while the card is in the selection. */
-  checked?: boolean;
+}
+
+/** The select box on the picture, shown when this is set. */
+export interface AssetCardSelection {
+  /** True while the card is in the selection. */
+  checked: boolean;
   /** The select box was clicked; `range` is true with Shift held. */
   onCheck?: (checked: boolean, range: boolean) => void;
   /** Keeps the select box on show, for while a selection is under way. */
   selecting?: boolean;
+}
+
+export interface AssetCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSelect'> {
+  name: string;
+  picture?: AssetCardPicture;
+  version?: number | string;
+  latest?: boolean;
+  details?: AssetCardDetails;
+  status?: AssetCardStatus;
+  selected?: boolean;
+  onSelect?: () => void;
+  more?: AssetCardMore;
+  selection?: AssetCardSelection;
   /** Actions under the status, for example "Add model...". */
   actions?: ReactNode;
   className?: string;
@@ -46,33 +71,35 @@ export interface AssetCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
 
 export function AssetCard({
   name,
-  thumb,
-  fit = 'contain',
+  picture = {},
   version,
   latest,
-  tris,
-  size,
-  meta,
-  status,
-  statusLabel,
-  statusIcon,
-  progress,
-  progressLabel,
+  details = {},
+  status: statusInfo = {},
   selected,
-  placeholder,
   onSelect,
-  onMore,
-  moreOpen,
-  menu,
-  checked,
-  onCheck,
-  selecting,
+  more = {},
+  selection,
   actions,
   className,
   ...rest
 }: AssetCardProps) {
+  const { thumb, fit = 'contain', placeholder } = picture;
+  const { tris, size, meta } = details;
+  const {
+    state: status,
+    label: statusLabel,
+    icon: statusIcon,
+    progress,
+    progressLabel,
+  } = statusInfo;
+  const { onOpen: onMore, open: moreOpen, menu } = more;
+  const checked = selection?.checked;
+  const onCheck = selection?.onCheck;
+  const selecting = selection?.selecting;
+  const metaLine = meta ?? [tris ? `${tris} tris` : null, size].filter(Boolean).join(' · ');
   const running = status === 'running';
-  const selectable = checked !== undefined;
+  const selectable = selection !== undefined;
   return (
     <div
       {...rest}
@@ -149,9 +176,7 @@ export function AssetCard({
             onClick={onMore}
           />
         </div>
-        <div className="font-mono text-[11.5px] leading-[15px] text-fg-mute">
-          {meta ?? [tris ? `${tris} tris` : null, size].filter(Boolean).join(' · ')}
-        </div>
+        <div className="font-mono text-[11.5px] leading-[15px] text-fg-mute">{metaLine}</div>
         {running && progress !== undefined ? (
           <ProgressBar value={progress} label={progressLabel ?? 'Running'} className="mt-1" />
         ) : status ? (
