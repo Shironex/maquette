@@ -29,8 +29,8 @@
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
- * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material or ONLY=redo renders that
- * set alone, ONLY=guards the questions asked before work is dropped; PORT
+ * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo or ONLY=size
+ * renders that set alone (size holds the Board list), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
  * PLAYWRIGHT defaults to the `playwright` package, which this repo does not
@@ -733,6 +733,42 @@ async function redoShots() {
   await shot(board, 'credits-meshy');
 }
 
+// Size group, Board list: the list layout, sorted, and with a selection.
+async function listShots() {
+  const board = await open('&scenario=configured&handoff=batch', '#/board');
+  await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
+  await board
+    .getByRole('group', { name: 'Board layout' })
+    .getByRole('button', { name: 'List' })
+    .click();
+  const grid = board.getByRole('grid', { name: 'Assets' });
+  await grid.waitFor();
+  await board.mouse.move(0, 0);
+  await shot(board, 'board-list');
+  await board
+    .getByRole('columnheader', { name: /^Tris$/ })
+    .getByRole('button')
+    .click();
+  await board.getByRole('checkbox', { name: 'Select Character' }).click();
+  await board.getByRole('checkbox', { name: 'Select Shop house' }).click({ modifiers: ['Shift'] });
+  await board.getByRole('toolbar', { name: 'Selected assets' }).waitFor();
+  await grid.getByRole('row', { name: /^Vending machine$/ }).focus();
+  await board.mouse.move(0, 0);
+  await shot(board, 'board-list-selected');
+  await board.keyboard.press('Enter');
+  await board.getByRole('menu', { name: 'Vending machine actions' }).waitFor();
+  await shot(board, 'board-list-menu');
+  await board.keyboard.press('Escape');
+  await board
+    .getByRole('group', { name: 'Stage filter' })
+    .getByRole('button', { name: 'Tripo' })
+    .click();
+  await board.getByRole('searchbox', { name: 'Search assets' }).fill('cup');
+  await board.mouse.move(0, 0);
+  await shot(board, 'board-list-filtered');
+}
+// End of the Board list shots.
+
 try {
   if (only === 'guards') await guardShots();
   if (!only || only === 'ux') await uxShots();
@@ -741,6 +777,7 @@ try {
   if (!only || only === 'scene') await sceneShots();
   if (!only || only === 'material') await materialShots();
   if (!only || only === 'redo') await redoShots();
+  if (!only || only === 'size') await listShots();
 } finally {
   await browser.close();
   await vite?.close();
