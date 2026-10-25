@@ -98,7 +98,11 @@ describe('settings form', () => {
     ]);
     const kept = dropInvalid(draft, saved, errors);
     expect(kept.agents.mcpPort).toBe(saved.agents.mcpPort);
-    expect(kept.budgets).toEqual({ sceneMb: saved.budgets.sceneMb, trisPerModel: 70000 });
+    expect(kept.budgets).toEqual({
+      sceneMb: saved.budgets.sceneMb,
+      firstViewMb: saved.budgets.firstViewMb,
+      trisPerModel: 70000,
+    });
     expect(validateConfig(kept)).toEqual({});
   });
 });
