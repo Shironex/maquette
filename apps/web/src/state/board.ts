@@ -1,8 +1,14 @@
 /** Pure helpers for the Board: columns, card numbers, the subtitle. */
 import type { Status } from '@maquette/ui';
-import type { Asset, Stage, WorkspaceSnapshot } from '@/ipc/client';
+import type { Asset, AssetKind, Stage, WorkspaceSnapshot } from '@/ipc/client';
 import { formatBytes, formatK } from '@/lib/format';
 import { STAGES } from './pipeline';
+
+export const KIND_LABEL: Record<AssetKind, string> = {
+  prop: 'Prop',
+  character: 'Character',
+  scene: 'Scene',
+};
 
 export function columns(assets: readonly Asset[]): Record<Stage, Asset[]> {
   const out = Object.fromEntries(STAGES.map(s => [s, [] as Asset[]])) as Record<Stage, Asset[]>;
