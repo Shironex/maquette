@@ -12,34 +12,31 @@ const GONE = 'The send behind this model is no longer on record, so there is not
 
 export const createRedoSlice: StateCreator<ProvidersStore, [], [], RedoSlice> = (set, get) => ({
   openRedo: async (project, asset, of) => {
-    set({
-      batch: null,
-      panel: {
-        project,
-        asset,
-        options: null,
-        draft: null,
-        initial: null,
-        handoff: null,
-        error: null,
-        redo: null,
-      },
-    });
+    const opened = {
+      project,
+      asset,
+      options: null,
+      draft: null,
+      initial: null,
+      handoff: null,
+      error: null,
+      redo: null,
+    };
+    set({ batch: null, panel: opened });
     try {
       const options = await commands.providerSendOptions(project, asset);
-      const current = get().panel;
-      if (current?.asset !== asset) return;
+      // By identity: the plain Send panel for the same asset opened meanwhile is not a redo.
+      if (get().panel !== opened) return;
       const job = options.jobs.find(j => j.id === of);
       if (!job) {
-        set({ keys: options.keys, panel: { ...current, error: GONE } });
+        set({ keys: options.keys, panel: { ...opened, error: GONE } });
         return;
       }
       const fresh = draftFrom({ ...options, variant: job.variant }, job.provider);
       const draft = redoDraft(job, options, fresh);
-      set({ keys: options.keys, panel: { ...current, options, draft, initial: draft, redo: job } });
+      set({ keys: options.keys, panel: { ...opened, options, draft, initial: draft, redo: job } });
     } catch (error) {
-      const current = get().panel;
-      if (current?.asset === asset) set({ panel: { ...current, error: errorMessage(error) } });
+      if (get().panel === opened) set({ panel: { ...opened, error: errorMessage(error) } });
     }
   },
 

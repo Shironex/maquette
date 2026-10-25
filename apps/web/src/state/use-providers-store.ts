@@ -72,26 +72,24 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
   },
 
   openPanel: async (project, asset) => {
-    set({
-      panel: {
-        project,
-        asset,
-        options: null,
-        draft: null,
-        initial: null,
-        handoff: null,
-        error: null,
-      },
-    });
+    const opened = {
+      project,
+      asset,
+      options: null,
+      draft: null,
+      initial: null,
+      handoff: null,
+      error: null,
+    };
+    set({ panel: opened });
     try {
       const options = await commands.providerSendOptions(project, asset);
-      const current = get().panel;
-      if (current?.asset !== asset) return;
+      // By identity: a Redo of the same asset opened meanwhile keeps its own draft.
+      if (get().panel !== opened) return;
       const draft = draftFrom(options);
-      set({ keys: options.keys, panel: { ...current, options, draft, initial: draft } });
+      set({ keys: options.keys, panel: { ...opened, options, draft, initial: draft } });
     } catch (error) {
-      const current = get().panel;
-      if (current?.asset === asset) set({ panel: { ...current, error: errorMessage(error) } });
+      if (get().panel === opened) set({ panel: { ...opened, error: errorMessage(error) } });
     }
   },
 

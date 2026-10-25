@@ -88,4 +88,24 @@ describe('Redo from the Inbox', () => {
       'sakura-2',
     ]);
   });
+
+  it('a plain Send panel opened before a Redo loads stays a plain send, and the other way round', async () => {
+    await open();
+    const store = useProvidersStore.getState();
+    const redo = store.openRedo('moon-island', 'sakura', 'sakura-2');
+    const plain = store.openPanel('moon-island', 'sakura');
+    await Promise.all([redo, plain]);
+    let panel = useProvidersStore.getState().panel!;
+    expect(panel.redo ?? null).toBeNull();
+    expect(panel.draft?.prompt ?? null).not.toBe(
+      'Pale pink blossoms, dark wet bark, soft painted look'
+    );
+
+    const plainFirst = store.openPanel('moon-island', 'sakura');
+    const redoAfter = store.openRedo('moon-island', 'sakura', 'sakura-2');
+    await Promise.all([plainFirst, redoAfter]);
+    panel = useProvidersStore.getState().panel!;
+    expect(panel.redo?.id).toBe('sakura-2');
+    expect(panel.draft?.provider).toBe('meshy');
+  });
 });
