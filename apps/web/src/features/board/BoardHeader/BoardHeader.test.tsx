@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { forgetStoredPrefs, useBoardPrefsStore } from '@/state/use-board-prefs-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import BoardHeader from './BoardHeader';
@@ -13,6 +14,9 @@ beforeEach(async () => {
 afterEach(() => {
   clearMocks();
   useProvidersStore.setState({ project: null, jobs: [], queueOpen: false, busy: [] });
+  window.localStorage.clear();
+  forgetStoredPrefs();
+  useBoardPrefsStore.setState({ byProject: {} });
 });
 
 describe('BoardHeader', () => {
@@ -39,5 +43,18 @@ describe('BoardHeader', () => {
     expect(add).toHaveAttribute('aria-expanded', 'true');
     await userEvent.click(add);
     expect(screen.queryByRole('form', { name: 'Add asset' })).toBeNull();
+  });
+
+  it('switches the Board to the list and remembers it for the project', async () => {
+    render(<BoardHeader queue={() => null} />);
+    const layout = screen.getByRole('group', { name: 'Board layout' });
+    const list = within(layout).getByRole('button', { name: 'List' });
+    expect(within(layout).getByRole('button', { name: 'Board' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await userEvent.click(list);
+    expect(list).toHaveAttribute('aria-pressed', 'true');
+    expect(window.localStorage.getItem('maquette.board.moon-island')).toContain('"list"');
   });
 });

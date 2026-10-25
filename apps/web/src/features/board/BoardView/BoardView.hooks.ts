@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import { commands, errorMessage, type Asset, type ProjectManifest, type Stage } from '@/ipc/client';
+import {
+  commands,
+  errorMessage,
+  type Asset,
+  type ModelFile,
+  type ProjectManifest,
+  type Stage,
+} from '@/ipc/client';
 import { useNativeDrop } from '@/lib/useNativeDrop';
 import { columns } from '@/state/board';
+import { filterRows, listRow, sortRows } from '@/state/board-list';
 import { MAX_BATCH, nextSelection } from '@/state/batch';
 import { STAGES } from '@/state/pipeline';
 import { useAppStore } from '@/state/use-app-store';
+import { prefsOf, useBoardPrefsStore } from '@/state/use-board-prefs-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useProjectsStore } from '@/state/use-projects-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 
@@ -16,17 +26,38 @@ function jobAt(x: number, y: number): string | null {
   return card?.dataset.dropJob ?? null;
 }
 
-/** The open project, its assets by column and the order the cards read in. */
+const NO_MODELS: readonly ModelFile[] = [];
+
+/**
+ * The open project, its assets by column or as list rows (filtered and
+ * sorted as remembered), and the order the cards or rows read in.
+ */
 export function useBoardData() {
   const workspace = useAppStore(s => s.workspace);
   const jobs = useProvidersStore(s => s.jobs);
+  const byProject = useBoardPrefsStore(s => s.byProject);
   const project = workspace?.project;
+  const models = usePipelineStore(s =>
+    s.view && s.view.project === project?.id ? s.view.models : NO_MODELS
+  );
   const assets = project?.assets ?? [];
   const otherProjects = (workspace?.projects ?? []).filter(p => p.id !== project?.id);
+  const prefs = prefsOf(byProject, project?.id);
   const byStage = columns(assets);
-  const order = STAGES.flatMap(stage => byStage[stage].map(a => a.id));
+  const rows = sortRows(
+    filterRows(
+      assets.map(a => listRow(a, models)),
+      prefs.stage,
+      prefs.query
+    ),
+    prefs.sort
+  );
+  const order =
+    prefs.layout === 'list'
+      ? rows.map(r => r.asset.id)
+      : STAGES.flatMap(stage => byStage[stage].map(a => a.id));
   const budget = workspace?.config.budgets.sceneMb ?? 3;
-  return { workspace, project, assets, jobs, otherProjects, byStage, order, budget };
+  return { workspace, project, assets, jobs, otherProjects, prefs, byStage, rows, order, budget };
 }
 
 /** The cards picked for one batch, with Shift ranges, Escape and the send. */

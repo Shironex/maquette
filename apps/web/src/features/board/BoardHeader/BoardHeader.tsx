@@ -11,6 +11,8 @@ import type { BoardHeaderProps } from './BoardHeader.types';
 export default function BoardHeader({ queue }: BoardHeaderProps) {
   const {
     project,
+    layout,
+    setLayout,
     adding,
     setAdding,
     added,
@@ -35,10 +37,11 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
         <SegmentedControl
           label="Board layout"
           options={[
-            { value: 'board', label: 'Board', icon: 'squares-four' },
-            { value: 'list', label: 'List', icon: 'list' },
+            { value: 'board', label: 'Board', icon: 'squares-four', hint: 'One column per stage' },
+            { value: 'list', label: 'List', icon: 'list', hint: 'One sortable row per asset' },
           ]}
-          defaultValue="board"
+          value={layout}
+          onChange={setLayout}
         />
         {byHand ? (
           <Button icon="hand-pointing" onClick={() => setChecklistOpen(true)}>

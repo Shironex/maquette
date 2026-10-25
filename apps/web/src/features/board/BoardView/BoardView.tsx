@@ -3,6 +3,7 @@ import { STAGES } from '@/state/pipeline';
 import type { BoardEnv } from '../board.types';
 import { BoardColumn } from '../BoardColumn';
 import { BoardHeader } from '../BoardHeader';
+import { BoardList } from '../BoardList';
 import { FirstRunCard } from '../FirstRunCard';
 import { RenameAssetDialog } from '../RenameAssetDialog';
 import { SelectionBar } from '../SelectionBar';
@@ -11,7 +12,7 @@ import type { BoardViewProps } from './BoardView.types';
 
 /** The project's assets in one column per pipeline stage. */
 export default function BoardView({ queue }: BoardViewProps) {
-  const { workspace, project, assets, jobs, otherProjects, byStage, order, budget } =
+  const { workspace, project, assets, jobs, otherProjects, prefs, byStage, rows, order, budget } =
     useBoardData();
   const selection = useBoardSelection(project?.id, order);
   const actions = useCardActions(project);
@@ -36,7 +37,11 @@ export default function BoardView({ queue }: BoardViewProps) {
         <BoardHeader queue={queue} />
 
         <div className="relative min-h-0 flex-1">
-          <div className="absolute inset-0 grid grid-cols-6 gap-3">{stageColumns}</div>
+          {prefs.layout === 'list' && assets.length > 0 ? (
+            <BoardList rows={rows} total={assets.length} prefs={prefs} board={board} />
+          ) : (
+            <div className="absolute inset-0 grid grid-cols-6 gap-3">{stageColumns}</div>
+          )}
 
           {renaming && project ? (
             <RenameAssetDialog
