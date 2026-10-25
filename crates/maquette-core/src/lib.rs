@@ -4,6 +4,7 @@
 
 pub mod app_state;
 pub mod assets;
+pub mod built;
 pub mod concepts;
 pub mod error;
 pub mod fs;
@@ -164,6 +165,13 @@ pub fn types() -> specta::Types {
         .register::<prepare::preview::FixupReport>()
         .register::<prepare::Suggestion>()
         .register::<prepare::PrepFrame>()
+        .register::<built::BuiltSource>()
+        .register::<built::BuildRecord>()
+        .register::<built::BuiltState>()
+        .register::<built::BuiltAsset>()
+        .register::<built::NewBuilt>()
+        .register::<built::BuildResult>()
+        .register::<built::BuildOutcome>()
 }
 
 #[cfg(test)]
@@ -293,6 +301,13 @@ mod tests {
             "FactorMode",
             "MapCodecs",
             "CodecSet",
+            "BuiltSource",
+            "BuildRecord",
+            "BuiltState",
+            "BuiltAsset",
+            "NewBuilt",
+            "BuildResult",
+            "BuildOutcome",
         ] {
             assert!(names.iter().any(|n| n == expected), "missing {expected}");
         }
