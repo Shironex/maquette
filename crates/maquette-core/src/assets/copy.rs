@@ -27,13 +27,13 @@ pub struct CopiedAsset {
 }
 
 /// The file stem a version or a thumbnail of the asset `id` starts with.
-fn key(id: &str) -> String {
+pub(crate) fn key(id: &str) -> String {
     id.replace('-', "_")
 }
 
 /// True for a ref file of the asset: `clay_bowl.png` or `clay_bowl_02.png`
 /// belong to "clay-bowl", `clay_bowl_lid.png` does not.
-fn is_ref_of(stem: &str, key: &str) -> bool {
+pub(crate) fn is_ref_of(stem: &str, key: &str) -> bool {
     let stem = stem.to_lowercase().replace('-', "_");
     match stem.strip_prefix(key) {
         Some("") => true,

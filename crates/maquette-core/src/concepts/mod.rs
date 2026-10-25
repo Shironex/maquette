@@ -9,6 +9,7 @@
 mod codex;
 pub mod jobs;
 pub mod objects;
+pub mod pick;
 mod picks;
 pub mod sheet;
 pub mod transfer;
@@ -29,6 +30,7 @@ pub(crate) use codex::save_instructions;
 pub use codex::{codex_args, prompt};
 pub use jobs::{ConceptEvent, ConceptJob, ConceptJobState, Concepts};
 pub use objects::{NewObjectRefs, ObjectAsset, SentObjects, send_object_picks};
+pub use pick::{ImageRef, MAX_PICKS, PickRequest, Picked, PickedImage, pick_images, star_images};
 pub use picks::{SentPicks, heal_ref_thumbnails, send_picks};
 pub use transfer::{MovedDirection, move_direction};
 

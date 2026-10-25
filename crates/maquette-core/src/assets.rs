@@ -200,7 +200,7 @@ pub struct NewAsset {
     pub stage: Stage,
 }
 
-fn clean_name(name: &str) -> CoreResult<String> {
+pub(crate) fn clean_name(name: &str) -> CoreResult<String> {
     let name = name.trim();
     if name.is_empty() {
         return Err(CoreError::Invalid("Give the asset a name.".to_string()));
