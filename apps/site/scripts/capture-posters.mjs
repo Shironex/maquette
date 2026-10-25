@@ -69,7 +69,7 @@ async function encode(page, png, sizes) {
 }
 
 async function open(viewport, query) {
-  const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
+  const context = await browser.newContext({ viewport });
   const page = await context.newPage();
   page.on('pageerror', error => console.error('page error:', error.message));
   await page.goto(`${base}?capture=${query}`);
@@ -78,7 +78,7 @@ async function open(viewport, query) {
 }
 
 async function settle(page) {
-  // Reduced motion cuts the camera; give the demand loop a few frames to draw.
+  // Capture cuts the camera to the stop; give the demand loop a few frames to draw.
   await page.evaluate(
     () => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))
   );
@@ -95,14 +95,11 @@ async function save(name, base64) {
 try {
   const page = await open(WIDE, 'stops');
   for (let stop = 0; stop < STOPS; stop++) {
-    await page.evaluate(
-      ({ stop, stops }) => {
-        const tour = document.querySelector('[data-tour]');
-        const span = tour.offsetHeight - window.innerHeight;
-        window.scrollTo(0, tour.offsetTop + (span * stop) / (stops - 1));
-      },
-      { stop, stops: STOPS }
-    );
+    await page.evaluate(stop => {
+      // A stop's framing is reached as its section's top meets the window's.
+      const section = document.querySelectorAll('[data-stop-section]')[stop];
+      window.scrollTo(0, section.getBoundingClientRect().top + window.scrollY);
+    }, stop);
     await settle(page);
     const png = await page.locator('[data-canvas] canvas').screenshot({ type: 'png' });
     const [full, half, thumb] = await encode(page, png, [
