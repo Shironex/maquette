@@ -135,11 +135,12 @@ fn failure(cache_dir: &Path, record: &history::RunRecord) -> (String, Vec<String
     // The runner script's own line names the exception; a Python or
     // Blender error line comes next; the runner's summary last.
     let find = |wanted: &dyn Fn(&history::LogEntry) -> bool| {
-        lines
-            .iter()
-            .rev()
-            .find(|l| wanted(l))
-            .map(|l| l.text.trim().trim_start_matches("[built] ").to_string())
+        lines.iter().rev().find(|l| wanted(l)).map(|l| {
+            let text = l.text.trim();
+            text.strip_prefix("[built] Error: ")
+                .unwrap_or(text)
+                .to_string()
+        })
     };
     let last = find(&|l| l.text.contains("[built] Error"))
         .or_else(|| find(&|l| l.text.contains("Error") && l.step.is_some()))

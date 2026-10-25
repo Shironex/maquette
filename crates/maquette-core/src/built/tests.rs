@@ -357,7 +357,7 @@ mod building {
         assert_eq!(failed.result, BuildResult::Failed);
         assert_eq!(failed.asset.status, AssetStatus::Failed);
         let error = failed.record.and_then(|r| r.error).expect("error");
-        assert!(error.contains("NameError: boom"), "{error}");
+        assert_eq!(error, "NameError: boom");
         assert!(failed.log.iter().any(|l| l.contains("Traceback")));
         assert_eq!(state(&f), BuiltState::Failed);
         let manifest = project::load(&f.root, &f.config.layout, &f.project).expect("manifest");
