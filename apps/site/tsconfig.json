@@ -1,0 +1,21 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "allowImportingTsExtensions": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "types": ["node"]
+  },
+  "include": [
+    ".astro/types.d.ts",
+    "src/**/*",
+    "vite/**/*",
+    "vitest.config.ts",
+    "scripts/**/*",
+    "astro.config.ts"
+  ],
+  "exclude": ["dist"]
+}

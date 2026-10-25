@@ -1,0 +1,35 @@
+{
+  "name": "@maquette/site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Maquette landing page: a static Astro site with a three.js workbench tour",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "typecheck": "astro check",
+    "posters": "node scripts/capture-posters.mjs"
+  },
+  "dependencies": {
+    "@react-three/fiber": "9.8.2",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "@astrojs/react": "7.1.0",
+    "@maquette/ui": "workspace:*",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "astro": "7.4.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "vite": "8.3.4",
+    "vitest": "4.1.11"
+  }
+}

@@ -21,3 +21,6 @@ CLAUDE.md
 
 # Visual check screenshots
 .visual/
+
+# Astro writes generated types here.
+.astro/
