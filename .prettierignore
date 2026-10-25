@@ -17,3 +17,7 @@ packages/ui/src/lib/theme-names.ts
 
 # three.js's Basis transcoder for KTX2 textures, copied as shipped.
 apps/web/public/basis/
+
+# Written by Maquette's Ship step as it writes it (JSON.stringify), so a ship
+# leaves the formatter nothing to change.
+apps/site/src/scene/shipped.json
