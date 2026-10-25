@@ -5,6 +5,7 @@ pub mod agents;
 pub mod app;
 pub mod assets;
 mod blender;
+pub mod credits;
 pub mod dialogs;
 pub mod inbox;
 pub mod inspect;

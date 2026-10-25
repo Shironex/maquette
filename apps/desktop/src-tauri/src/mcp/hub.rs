@@ -67,6 +67,9 @@ pub struct ApprovalItem {
     pub asset_name: String,
     /// Its settings in a few words.
     pub detail: String,
+    /// What it should cost, from the price lists.
+    #[serde(default)]
+    pub estimate: Option<f64>,
 }
 
 /// Something an agent asked for that waits for a yes or no in the app.
@@ -88,6 +91,9 @@ pub struct Approval {
     /// A batch send: every send it holds, all approved or denied at once.
     pub items: Vec<ApprovalItem>,
     pub requested_at_ms: f64,
+    /// Send to 3D: the credits it should cost in all, from the price lists.
+    #[serde(default)]
+    pub estimate: Option<f64>,
 }
 
 impl Approval {
@@ -261,6 +267,7 @@ impl Hub {
             detail: None,
             items: Vec::new(),
             requested_at_ms: now_ms(),
+            estimate: None,
         })
     }
 
@@ -279,6 +286,7 @@ impl Hub {
             detail: Some(job.summary()),
             items: Vec::new(),
             requested_at_ms: now_ms(),
+            estimate: job.estimate.or_else(|| job.estimate()),
         })
     }
 
@@ -292,13 +300,17 @@ impl Hub {
             n => format!("{n} models"),
         };
         let credits: f64 = jobs.iter().filter_map(|j| j.credits).sum();
-        let detail = if credits > 0.0 {
-            format!(
+        let estimate: Option<f64> = jobs
+            .iter()
+            .map(|j| j.estimate.or_else(|| j.estimate()))
+            .sum();
+        let detail = match estimate {
+            _ if credits > 0.0 => format!(
                 "{models} in total, {} credits so far",
                 format_credits(credits)
-            )
-        } else {
-            format!("{models} in total, one model per asset")
+            ),
+            Some(total) => format!("{models} in total, about {} credits", format_credits(total)),
+            None => format!("{models} in total, one model per asset"),
         };
         Some(self.push(|id| {
             Approval {
@@ -318,9 +330,11 @@ impl Hub {
                         job: j.id.clone(),
                         asset_name: j.asset_name.clone(),
                         detail: j.summary(),
+                        estimate: j.estimate.or_else(|| j.estimate()),
                     })
                     .collect(),
                 requested_at_ms: now_ms(),
+                estimate,
             }
         }))
     }

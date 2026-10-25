@@ -640,7 +640,12 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     assert_eq!(names, vec!["Stone lantern", "Desk lamp"]);
     assert_eq!(
         approvals[0].detail.as_deref(),
-        Some("2 models in total, one model per asset")
+        Some("2 models in total, about 105 credits")
+    );
+    assert_eq!(
+        approvals[0].estimate,
+        Some(105.0),
+        "a prop and a rigged character"
     );
     assert!(approvals[0].items[1].detail.contains("rig"), "a character");
     // Denied once, both are dropped without spending anything.

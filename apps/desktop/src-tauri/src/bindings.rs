@@ -8,8 +8,8 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    agents, app, assets, dialogs, inbox, inspect, lab, layout, materials, pipeline, project,
-    providers, quit, thumbs, toolchain, workspace,
+    agents, app, assets, credits, dialogs, inbox, inspect, lab, layout, materials, pipeline,
+    project, providers, quit, thumbs, toolchain, workspace,
 };
 use crate::events::{
     ConceptUpdate, InboxChanged, LayoutChanged, MaterialsChanged, McpUpdate, PipelineChanged,
@@ -100,6 +100,11 @@ pub fn builder() -> Builder<tauri::Wry> {
             providers::provider_key_save,
             providers::provider_key_remove,
             providers::provider_key_test,
+            credits::provider_estimate,
+            credits::provider_estimate_batch,
+            credits::credits_ledger,
+            credits::credits_balances,
+            credits::credits_save_csv,
             agents::mcp_status,
             agents::mcp_decide,
             agents::mcp_clear_activity,
@@ -186,6 +191,10 @@ mod tests {
             "assetCopyToProject",
             "materialsGet",
             "materialsSave",
+            "providerEstimate",
+            "creditsLedger",
+            "creditsBalances",
+            "creditsSaveCsv",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }

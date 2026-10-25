@@ -157,6 +157,16 @@ export const commands = {
 	providerKeyRemove: (service: ProviderId) => __TAURI_INVOKE<KeyStatus>("provider_key_remove", { service }),
 	/**  Tries a key with the free balance call. Without `key`, the saved one. */
 	providerKeyTest: (service: ProviderId, key: string | null) => __TAURI_INVOKE<KeyTest>("provider_key_test", { service, key }),
+	/**  What a send should cost, from the price lists; null for By hand. */
+	providerEstimate: (request: SendRequest) => __TAURI_INVOKE<number | null>("provider_estimate", { request }),
+	/**  What a batch should cost in all; null for By hand. */
+	providerEstimateBatch: (request: BatchRequest) => __TAURI_INVOKE<number | null>("provider_estimate_batch", { request }),
+	/**  Every paid send of the open workspace, newest first. */
+	creditsLedger: () => __TAURI_INVOKE<Ledger>("credits_ledger"),
+	/**  Asks Tripo and Meshy for their balances with the saved keys. */
+	creditsBalances: () => __TAURI_INVOKE<Balance[]>("credits_balances"),
+	/**  Asks where to save `csv` and writes it there. Null when cancelled. */
+	creditsSaveCsv: (csv: string, name: string) => __TAURI_INVOKE<string | null>("credits_save_csv", { csv, name }),
 	mcpStatus: () => __TAURI_INVOKE<McpStatus>("mcp_status"),
 	/**
 	 *  Approves or denies what an agent asked: a run's Ship step, or a send to
@@ -254,6 +264,8 @@ export type Approval = {
 	/**  A batch send: every send it holds, all approved or denied at once. */
 	items: ApprovalItem[],
 	requestedAtMs: number | null,
+	/**  Send to 3D: the credits it should cost in all, from the price lists. */
+	estimate?: number | null,
 };
 
 /**  One send of a batch approval. */
@@ -262,6 +274,8 @@ export type ApprovalItem = {
 	assetName: string,
 	/**  Its settings in a few words. */
 	detail: string,
+	/**  What it should cost, from the price lists. */
+	estimate?: number | null,
 };
 
 /**  What an agent asked that waits for a person. */
@@ -310,6 +324,19 @@ export type AssetVersion = {
 	stats: ModelStats | null,
 };
 
+/**  One service's balance, or why there is none. */
+export type Balance = {
+	service: ProviderId,
+	/**  A key is saved for this service. */
+	key: boolean,
+	/**  Credits left to spend. */
+	credits: number | null,
+	/**  Tripo: credits held by tasks still running. */
+	held: number | null,
+	error: string | null,
+	checkedAtMs: number | null,
+};
+
 /**  An item of a batch that did not go out. */
 export type BatchFailure = {
 	asset: string,
@@ -329,6 +356,10 @@ export type BatchItem = {
 	 */
 	tripo: TripoPreset | null,
 	meshy: MeshyPreset | null,
+	/**  Meshy only: text that guides this asset's texture. */
+	prompt?: string | null,
+	/**  The earlier send of this asset it redoes. */
+	redoOf?: string | null,
 };
 
 /**  One asset of the batch panel: its refs and the preset it starts from. */
@@ -823,6 +854,8 @@ export type InboxLink = {
 	asset: string,
 	assetName: string,
 	provider: Provider,
+	/**  The send it redoes, when it came from a Redo. */
+	redoOf?: string | null,
 };
 
 export type InboxSnapshot = {
@@ -995,6 +1028,13 @@ export type LayoutView = {
 	layout: SceneLayout,
 	models: LayoutModel[],
 	firstView: FirstView,
+};
+
+/**  The ledger as read: newest send first. */
+export type Ledger = {
+	spends: Spend[],
+	/**  Lines that could not be read and were left out. */
+	skipped: number,
 };
 
 export type LogEntry = {
@@ -1483,6 +1523,12 @@ export type ProviderJob = {
 	cancel: CancelMode,
 	/**  The batch it was sent with, if any; one handoff checklist each. */
 	batch: string | null,
+	/**  Meshy only: the text that guides the texture. */
+	prompt?: string | null,
+	/**  The send this one redoes, from the Inbox. */
+	redoOf?: string | null,
+	/**  What the price lists say it should cost, before the provider reports. */
+	estimate?: number | null,
 };
 
 /**
@@ -1610,6 +1656,10 @@ export type SendRequest = {
 	/**  This send's settings; `None` takes the saved preset. */
 	tripo: TripoPreset | null,
 	meshy: MeshyPreset | null,
+	/**  Meshy only: text that guides the texture, at most 800 characters. */
+	prompt?: string | null,
+	/**  The earlier send of the same asset this one redoes. */
+	redoOf?: string | null,
 };
 
 /**  What Send picks did for a direction of object refs: one asset per pick. */
@@ -1631,6 +1681,22 @@ export type SentPicks = {
 	project: ProjectManifest,
 };
 
+/**  Totals for one service. */
+export type ServiceTotals = {
+	service: ProviderId | null,
+	/**  Sent in the last 7 days. */
+	week: number | null,
+	/**  Sent in the last 30 days. */
+	month: number | null,
+	total: number | null,
+	sends: number,
+	redos: number,
+	/**  Credits that went on redos, over all credits. */
+	redoShare: number | null,
+	/**  Sends whose credits are the price list's guess. */
+	estimated: number,
+};
+
 export type SideMember = {
 	model: string,
 	/**
@@ -1639,6 +1705,38 @@ export type SideMember = {
 	 */
 	position: [(number | null), (number | null), (number | null)],
 };
+
+/**  One send as the Credits view lists it: its lines folded together. */
+export type Spend = {
+	project: string,
+	job: string,
+	asset: string,
+	assetName: string,
+	service: ProviderId,
+	task: string | null,
+	summary: string,
+	sentAtMs: number | null,
+	settledAtMs: number | null,
+	/**  Charged, or held while pending. */
+	credits: number | null,
+	/**  True when `credits` comes from the price lists, not the provider. */
+	estimated: boolean,
+	outcome: SpendOutcome,
+	redoOf: string | null,
+	viaAgent: boolean,
+};
+
+/**  How a send that spent credits ended. */
+export type SpendOutcome = 
+/**  Still on the provider: the credits are held, not yet charged. */
+"pending" | "succeeded" | 
+/**
+ *  Neither service charges a failed task; a chain that failed after its
+ *  first task keeps what that task cost.
+ */
+"failed" | 
+/**  Cancelled while the provider could still give the credits back. */
+"refunded";
 
 /**  The Board columns, in pipeline order. */
 export type Stage = "concept" | "refs" | "tripo" | "blender" | "web" | "ship";

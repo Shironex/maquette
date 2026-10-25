@@ -92,6 +92,8 @@ pub(super) fn send_request(host: &dyn Host, args: &SendTo3dArgs) -> Result<SendR
         images,
         tripo,
         meshy,
+        prompt: None,
+        redo_of: None,
     })
 }
 
@@ -162,6 +164,8 @@ pub(super) fn batch_request(host: &dyn Host, args: &SendBatchArgs) -> Result<Bat
                 .map(|o| with_overrides(&meshy_for(variant)?, Some(o)))
                 .transpose()
                 .map_err(tag)?,
+            prompt: None,
+            redo_of: None,
         });
     }
     Ok(BatchRequest {
