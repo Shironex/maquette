@@ -203,11 +203,14 @@ pub(crate) fn view(
     let (active, queued) = runner.active(project_id);
     let d = defaults(&ctx.config);
     let starters = starter::status(&ctx.project_dir, ctx.manifest.template);
+    let previews =
+        maquette_core::prepare::preview::previews_dir(&ctx.root.join(&ctx.config.layout.cache));
     let first_view = layout::first_view_of(
         &ctx.project_dir,
         &ctx.manifest,
         &ctx.def,
         ctx.config.budgets.first_view_mb,
+        Some(&previews),
     );
     Ok(PipelineView {
         starters,

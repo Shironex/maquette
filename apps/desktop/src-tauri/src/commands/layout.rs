@@ -2,6 +2,7 @@
 //! desk, kept in the project's `layout.json`.
 
 use maquette_core::layout::{self, LayoutPatch, LayoutView, SceneLayout};
+use maquette_core::prepare::preview::previews_dir;
 use maquette_core::{pipeline, project};
 use tauri::State;
 
@@ -19,11 +20,13 @@ pub(crate) fn get(session: &Session, project_id: &str) -> CommandResult<LayoutVi
     let manifest = project::load(&root, &config.layout, project_id)?;
     let project_dir = project::dir(&root, &config.layout, project_id)?;
     let def = pipeline::ensure(&project_dir, &manifest)?;
+    let previews = previews_dir(&root.join(&config.layout.cache));
     Ok(layout::view(
         &project_dir,
         &manifest,
         &def,
         config.budgets.first_view_mb,
+        Some(&previews),
     )?)
 }
 

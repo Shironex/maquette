@@ -332,7 +332,7 @@ fn models_are_measured_and_the_unplaced_ones_get_their_row() {
     fs::write(dir.path().join("web/raw/bowl_v1.glb"), vec![0u8; 700]).expect("raw");
 
     let mut layout = SceneLayout::default();
-    let found = models(dir.path(), &manifest, &def, &layout);
+    let found = models(dir.path(), &manifest, &def, &layout, None);
     let ids: Vec<&str> = found.iter().map(|m| m.asset.as_str()).collect();
     assert_eq!(
         ids,
@@ -370,8 +370,62 @@ fn models_are_measured_and_the_unplaced_ones_get_their_row() {
             },
         );
     }
-    let found = models(dir.path(), &manifest, &def, &layout);
+    let found = models(dir.path(), &manifest, &def, &layout, None);
     assert_eq!(by(&found, "plinth").fallback, [0.0; 3]);
+}
+
+#[test]
+fn models_are_measured_at_their_real_size_after_the_fixups() {
+    use crate::prepare::{Fixup, ModelPrep, RealSize, SizeAxis, SizeUnit, save_entry};
+    let dir = tempfile::tempdir().expect("tempdir");
+    let manifest = project(dir.path());
+    let def = for_template(ProjectTemplate::FloatingDiorama);
+    // The crate is half a metre high; it stands for a box a metre high.
+    let entry = ModelPrep {
+        size: Some(RealSize {
+            axis: SizeAxis::Height,
+            value: 100.0,
+            unit: SizeUnit::Cm,
+        }),
+        fixups: vec![Fixup::OriginBottom],
+    };
+    save_entry(dir.path(), "lamp", &entry).expect("prepare");
+    let found = models(dir.path(), &manifest, &def, &SceneLayout::default(), None);
+    let lamp = found.iter().find(|m| m.asset == "lamp").expect("lamp");
+    assert!((lamp.prep.scale - 2.0).abs() < 1e-5, "{:?}", lamp.prep);
+    assert!(close(lamp.min.expect("min"), [-0.5, 0.0, -0.5]));
+    assert!(close(lamp.max.expect("max"), [0.5, 1.0, 0.5]));
+    let bowl = found.iter().find(|m| m.asset == "bowl").expect("bowl");
+    assert!(bowl.prep.is_identity(), "no entry, as it is");
+
+    // Once a preview ran, the bounds its fix-ups left are the ones scaled.
+    let previews = dir.path().join("previews");
+    let file = dir.path().join("models/lamp_v1.glb");
+    let script = crate::prepare::preview::script_for(Some(dir.path()));
+    let key = crate::prepare::preview::key(
+        &crate::pipeline::cache::hash_file(&file).expect("hash"),
+        &ModelPrep {
+            size: None,
+            fixups: entry.fixups.clone(),
+        },
+        &script,
+    );
+    fs::create_dir_all(previews.join("bounds")).expect("bounds");
+    fs::write(
+        previews.join("bounds").join(format!("{key}.json")),
+        r#"{ "triangles": 12, "objects": 1, "maxTexture": 64, "min": [-0.25, 0, -0.25], "max": [0.25, 0.25, 0.25] }"#,
+    )
+    .expect("fixed");
+    let found = models(
+        dir.path(),
+        &manifest,
+        &def,
+        &SceneLayout::default(),
+        Some(&previews),
+    );
+    let lamp = found.iter().find(|m| m.asset == "lamp").expect("lamp");
+    assert!((lamp.prep.scale - 4.0).abs() < 1e-5, "{:?}", lamp.prep);
+    assert!(close(lamp.max.expect("max"), [1.0, 1.0, 1.0]));
 }
 
 #[test]
@@ -380,7 +434,7 @@ fn the_first_view_counts_what_its_camera_sees_or_its_own_list() {
     let manifest = project(dir.path());
     let def = for_template(ProjectTemplate::FloatingDiorama);
     let mut layout = SceneLayout::default();
-    let none = first_view_of(dir.path(), &manifest, &def, 3.0);
+    let none = first_view_of(dir.path(), &manifest, &def, 3.0, None);
     assert_eq!((none.stop, none.bytes), (None, 0.0));
 
     let spots = BTreeMap::from([("lamp", -0.6), ("plinth", 0.0), ("bowl", 6.0)]);
@@ -400,7 +454,7 @@ fn the_first_view_counts_what_its_camera_sees_or_its_own_list() {
         .stops
         .push(stop("Ship", [6.0, 0.6, 2.5], [6.0, 0.25, 0.0]));
     save(dir.path(), &layout).expect("save");
-    let first = first_view_of(dir.path(), &manifest, &def, 3.0);
+    let first = first_view_of(dir.path(), &manifest, &def, 3.0, None);
     assert_eq!(first.stop.as_deref(), Some("Concept"));
     assert!(!first.custom);
     let seen: Vec<&str> = first.models.iter().map(|m| m.asset.as_str()).collect();
@@ -413,12 +467,12 @@ fn the_first_view_counts_what_its_camera_sees_or_its_own_list() {
 
     layout.stops[0].models = Some(vec!["bowl".into()]);
     save(dir.path(), &layout).expect("save");
-    let custom = first_view_of(dir.path(), &manifest, &def, 3.0);
+    let custom = first_view_of(dir.path(), &manifest, &def, 3.0, None);
     assert!(custom.custom);
     assert_eq!(custom.models.len(), 1);
     assert_eq!(custom.models[0].asset, "bowl");
 
-    let full = view(dir.path(), &manifest, &def, 3.0).expect("view");
+    let full = view(dir.path(), &manifest, &def, 3.0, None).expect("view");
     assert!(full.saved);
     assert_eq!(full.first_view, custom);
     assert_eq!(full.models.len(), 3);

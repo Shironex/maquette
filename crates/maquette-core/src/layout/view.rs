@@ -7,6 +7,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use super::*;
+use crate::prepare::{self, PrepFrame, ScenePrep, preview};
 
 /// Which built file a model's size is read from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -32,9 +33,13 @@ pub struct LayoutModel {
     pub file: String,
     /// Relative to the project.
     pub path: String,
-    /// Its bounds in its own frame, metres; `None` when it cannot be read.
+    /// Its bounds in its own frame once prepared (fix-ups and real size),
+    /// metres; `None` when it cannot be read.
     pub min: Option<[f32; 3]>,
     pub max: Option<[f32; 3]>,
+    /// How preparing moves and scales the model file's points, so the
+    /// editor draws it the way the Build scene step places it.
+    pub prep: PrepFrame,
     /// Where it stands without a placement: the shift from its origin.
     pub fallback: [f32; 3],
     /// What it weighs on the page.
@@ -113,22 +118,53 @@ pub fn known_assets(manifest: &ProjectManifest) -> Vec<String> {
     placeable(manifest).iter().map(|a| a.id.clone()).collect()
 }
 
-/// The models a layout places, measured: bounds from the model files and
-/// sizes from the shipped build (else the raw export, else the source).
+/// A model's bounds once prepared, and the frame that gets them there.
+/// The fix-ups' own bounds come from a preview that ran (`previews`), else
+/// the model file's.
+fn prepared(
+    project_dir: &Path,
+    previews: Option<&Path>,
+    prep: &ScenePrep,
+    asset: &str,
+    file: &Path,
+) -> (Option<Bounds>, PrepFrame) {
+    let source = crate::inbox::analyse::bounds(file);
+    let entry = prep.models.get(asset);
+    let fixed = match (entry, previews) {
+        (Some(entry), Some(root)) if !entry.fixups.is_empty() => {
+            let script = preview::script_for(Some(project_dir));
+            preview::fixed_bounds(root, file, entry, &script)
+        }
+        _ => None,
+    };
+    let base = fixed.or(source);
+    let frame = prepare::frame_of(entry, base);
+    (base.map(|b| frame.apply(b)), frame)
+}
+
+/// The models a layout places, measured: bounds from the model files (as
+/// the real size and fix-ups leave them) and sizes from the shipped build
+/// (else the raw export, else the source). `previews` is the fix-up preview
+/// folder, when the caller has the workspace.
 pub fn models(
     project_dir: &Path,
     manifest: &ProjectManifest,
     def: &PipelineDef,
     layout: &SceneLayout,
+    previews: Option<&Path>,
 ) -> Vec<LayoutModel> {
     let (raw_dir, dist_dir) = crate::inspect::folders(project_dir, def);
     let shipped_names = assets::shipped_names(manifest);
+    let prep = prepare::load(project_dir).unwrap_or_else(|err| {
+        tracing::warn!(error = %err, "unreadable model preparation");
+        ScenePrep::default()
+    });
     let mut out: Vec<LayoutModel> = placeable(manifest)
         .into_iter()
         .filter_map(|asset| {
             let version = asset.latest()?;
             let file = project_dir.join(&version.file);
-            let bounds = crate::inbox::analyse::bounds(&file);
+            let (bounds, frame) = prepared(project_dir, previews, &prep, &asset.id, &file);
             let model = stem(&version.file);
             let shipped_stem = shipped_names
                 .get(&model.to_lowercase())
@@ -149,6 +185,7 @@ pub fn models(
                 path: version.file.clone(),
                 min: bounds.map(|b| b.0),
                 max: bounds.map(|b| b.1),
+                prep: frame,
                 fallback: [0.0; 3],
                 bytes,
                 measured,
@@ -233,9 +270,17 @@ pub fn view(
     manifest: &ProjectManifest,
     def: &PipelineDef,
     first_view_mb: f64,
+    previews: Option<&Path>,
 ) -> CoreResult<LayoutView> {
     let layout = load(project_dir)?;
-    Ok(view_of(project_dir, manifest, def, layout, first_view_mb))
+    Ok(view_of(
+        project_dir,
+        manifest,
+        def,
+        layout,
+        first_view_mb,
+        previews,
+    ))
 }
 
 /// [`view`] for a layout in hand.
@@ -245,8 +290,9 @@ pub fn view_of(
     def: &PipelineDef,
     layout: SceneLayout,
     first_view_mb: f64,
+    previews: Option<&Path>,
 ) -> LayoutView {
-    let models = models(project_dir, manifest, def, &layout);
+    let models = models(project_dir, manifest, def, &layout, previews);
     LayoutView {
         project: manifest.id.clone(),
         saved: path(project_dir).is_file(),
@@ -263,11 +309,12 @@ pub fn first_view_of(
     manifest: &ProjectManifest,
     def: &PipelineDef,
     first_view_mb: f64,
+    previews: Option<&Path>,
 ) -> FirstView {
     let layout = load(project_dir).unwrap_or_else(|err| {
         tracing::warn!(error = %err, "unreadable scene layout");
         SceneLayout::default()
     });
-    let models = models(project_dir, manifest, def, &layout);
+    let models = models(project_dir, manifest, def, &layout, previews);
     first_view(&layout, &models, first_view_mb)
 }
