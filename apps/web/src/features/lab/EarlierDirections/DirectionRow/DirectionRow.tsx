@@ -1,61 +1,26 @@
-import { useState } from 'react';
 import { IconButton, cn } from '@maquette/ui';
 import type { Direction, LabView } from '@/ipc/client';
-import { fileUrl } from '@/ipc/files';
 import { Menu } from '@/features/common/Menu';
-import { useAppStore } from '@/state/use-app-store';
-import { coverImage, inProject } from '@/state/lab';
-import { useLabStore } from '@/state/use-lab-store';
+import { useDirectionRow } from './DirectionRow.hooks';
 
-/** The composer's list of earlier directions: pick one to reuse its brief, or move it. */
-export function EarlierDirections({ view }: { view: LabView }) {
-  const [menu, setMenu] = useState<string | null>(null);
-  return (
-    <div className="flex flex-col gap-1.5 border-t border-line pt-3.5">
-      <span className="mb-1 text-caption text-fg-mute uppercase">Earlier directions</span>
-      <ul className="flex list-none flex-col">
-        {view.directions.map(d => (
-          <DirectionRow
-            key={d.id}
-            view={view}
-            direction={d}
-            menuOpen={menu === d.id}
-            onMenu={open => setMenu(open ? d.id : null)}
-          />
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function DirectionRow({
-  view,
-  direction: d,
-  menuOpen,
-  onMenu,
-}: {
+export interface DirectionRowProps {
   view: LabView;
   direction: Direction;
   menuOpen: boolean;
   onMenu: (open: boolean) => void;
-}) {
-  const selected = useLabStore(s => s.selected);
-  const reuse = useLabStore(s => s.reuse);
-  const move = useLabStore(s => s.moveDirection);
-  const busy = useLabStore(s => s.busy);
-  const projects = useAppStore(s => s.workspace?.projects) ?? [];
-  const others = projects.filter(p => p.id !== view.project);
-  const generating = view.jobs.some(
-    j => j.direction === d.id && (j.state === 'queued' || j.state === 'running')
-  );
-  const cover = coverImage(d);
-  const url = cover ? fileUrl(inProject(view.projectDir, cover.file)) : null;
-  const current = d.id === selected;
-  const [stage, setStage] = useState<'actions' | 'move'>('actions');
-  const toggle = () => {
-    setStage('actions');
-    onMenu(!menuOpen);
-  };
+}
+
+/** One earlier direction: reuse its brief, or move it to another project. */
+export default function DirectionRow({ view, direction: d, menuOpen, onMenu }: DirectionRowProps) {
+  const { reuse, move, busy, others, generating, url, current, stage, setStage, toggle } =
+    useDirectionRow(view, d, menuOpen, onMenu);
+  const imageCount = d.images.length;
+  const moveItems = others.map(p => ({
+    id: p.id,
+    label: p.name,
+    disabled: generating || busy !== null,
+    onSelect: () => void move(d.id, p.id),
+  }));
 
   return (
     <li className="group relative">
@@ -75,7 +40,7 @@ function DirectionRow({
         )}
         <span className="min-w-0 flex-1 truncate">{d.name}</span>
         <span className="text-meta text-fg-mute tabular-nums">
-          {d.images.length} {d.images.length === 1 ? 'image' : 'images'}
+          {imageCount} {imageCount === 1 ? 'image' : 'images'}
         </span>
       </button>
       <span
@@ -128,12 +93,7 @@ function DirectionRow({
                   : 'Its concepts, picks, stars and Board card go along.'}
             </p>
           }
-          items={others.map(p => ({
-            id: p.id,
-            label: p.name,
-            disabled: generating || busy !== null,
-            onSelect: () => void move(d.id, p.id),
-          }))}
+          items={moveItems}
         />
       ) : null}
     </li>

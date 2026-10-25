@@ -54,6 +54,7 @@ const MIGRATED = [
   'apps/web/src/features/toolchain/**',
   'apps/web/src/features/project/**',
   'apps/web/src/features/pipeline/**',
+  'apps/web/src/features/lab/**',
 ];
 
 // Preset rules the unmigrated areas do not pass yet, with the count measured

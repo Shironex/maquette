@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useLabStore } from '@/state/use-lab-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { ObjectRefsDialog } from './ObjectRefsDialog';
+import { ObjectRefsDialog } from '.';
 
 afterEach(() => {
   clearMocks();

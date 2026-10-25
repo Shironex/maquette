@@ -1,16 +1,14 @@
 import { EmptyState } from '@maquette/ui';
-import { useAppStore } from '@/state/use-app-store';
-import { useLabStore } from '@/state/use-lab-store';
 import { ProjectTopBar } from '@/features/common/ProjectTopBar';
-import { Composer } from './Composer';
-import { ConceptGrid } from './ConceptGrid';
-import { ImageQueue } from './ImageQueue';
-import { Lightbox } from './Lightbox';
+import { Composer } from '../Composer';
+import { ConceptGrid } from '../ConceptGrid';
+import { ImageQueue } from '../ImageQueue';
+import { Lightbox } from '../Lightbox';
+import { useLabView } from './LabView.hooks';
 
 /** The Concept lab: the brief on the left, the results in the middle, the Codex queue on the right. */
-export function LabView() {
-  const project = useAppStore(s => s.workspace?.project ?? null);
-  const view = useLabStore(s => s.view);
+export default function LabView() {
+  const { project, view } = useLabView();
   const ready = view && project && view.project === project.id;
   return (
     <>

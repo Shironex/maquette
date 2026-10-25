@@ -2,6 +2,5 @@
   "apps/web/src/features/inspector/CompareCanvas.tsx": 437,
   "apps/web/src/features/inspector/InspectorView.tsx": 497,
   "apps/web/src/features/inspector/LayoutCanvas.tsx": 622,
-  "apps/web/src/features/inspector/LayoutPanel.tsx": 497,
-  "apps/web/src/features/lab/ObjectRefsDialog.tsx": 436
+  "apps/web/src/features/inspector/LayoutPanel.tsx": 497
 }
