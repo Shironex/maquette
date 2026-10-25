@@ -12,6 +12,5 @@
   "crates/maquette-core/src/inspect/mod.rs": 575,
   "crates/maquette-core/src/layout.rs": 728,
   "crates/maquette-core/src/project.rs": 777,
-  "crates/maquette-core/src/providers/jobs.rs": 1880,
   "crates/maquette-core/src/thumbs/mod.rs": 580
 }
