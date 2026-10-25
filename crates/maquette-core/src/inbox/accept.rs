@@ -6,8 +6,9 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use super::*;
+use crate::prepare::{self, ModelPrep, ScenePrep};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AcceptRequest {
     pub item: String,
@@ -16,6 +17,10 @@ pub struct AcceptRequest {
     /// `name` (or the item's name) is found or created.
     pub asset: Option<String>,
     pub name: Option<String>,
+    /// The real size and fix-ups set in the Inbox: they replace the asset's
+    /// in `prepare.json`. Left out, the asset keeps what it has.
+    #[serde(default)]
+    pub prep: Option<ModelPrep>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -27,6 +32,8 @@ pub struct AcceptResult {
     pub file: String,
     /// The project after the change, so the Board can update.
     pub project: crate::project::ProjectManifest,
+    /// Why the real size and fix-ups were not saved, when they were not.
+    pub note: Option<String>,
 }
 
 fn move_file(from: &Path, to: &Path) -> CoreResult<()> {
@@ -71,6 +78,12 @@ pub fn accept(
         ));
     }
     let project_dir = project::dir(root, &config.layout, &request.project)?;
+    // Checked before the file moves, so a bad size refuses the whole accept.
+    if let Some(prep) = &request.prep {
+        let mut check = ScenePrep::default();
+        check.models.insert("model".to_string(), prep.clone());
+        prepare::validate(&check)?;
+    }
     let models = project_dir.join("models");
     let ext = source
         .extension()
@@ -125,11 +138,19 @@ pub fn accept(
     let _ = fs::remove_file(cache_dir(root, config).join(format!("{}.json", request.item)));
     let (asset, version, file) =
         result.ok_or_else(|| CoreError::Invalid("The model was not accepted.".to_string()))?;
+    let note = request.prep.as_ref().and_then(|prep| {
+        prepare::save_entry(&project_dir, &asset.id, prep)
+            .err()
+            .map(|err| {
+                format!("The model is in, but its real size and fix-ups were not saved. {err}")
+            })
+    });
     Ok(AcceptResult {
         asset,
         version,
         file,
         project: manifest,
+        note,
     })
 }
 

@@ -960,6 +960,7 @@ fn by_hand_writes_the_handoff_and_takes_the_model_back() {
             project: world.project.clone(),
             asset: Some(world.asset.clone()),
             name: None,
+            prep: None,
         },
     )
     .expect("accept");

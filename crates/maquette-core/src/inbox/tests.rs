@@ -119,6 +119,7 @@ fn accept_moves_the_file_and_registers_versions() {
         project: manifest.id.clone(),
         asset: None,
         name: Some("Moon girl".into()),
+        prep: None,
     };
     let first = accept(root, &config, &request).expect("accept");
     assert_eq!(first.asset.id, "moon-girl");
@@ -190,4 +191,57 @@ fn open_in_blender_imports_models_and_opens_blends() {
         !args.iter().any(|a| a == "-b"),
         "this one opens the window on purpose"
     );
+}
+
+#[test]
+fn accept_saves_the_real_size_and_fixups_or_refuses_them_before_moving() {
+    use crate::prepare::{Fixup, ModelPrep, RealSize, SizeAxis, SizeUnit};
+    let (dir, config) = workspace();
+    let root = dir.path();
+    let manifest = project::create(
+        root,
+        &config.layout,
+        NewProject {
+            name: "Workbench".into(),
+            template: ProjectTemplate::FloatingDiorama,
+            site_repo: None,
+            source_folder: None,
+        },
+    )
+    .expect("project");
+    drop_in(root, &config, "desk_lamp.glb", &fixture::messy_prop());
+    let mut prep = ModelPrep {
+        size: Some(RealSize {
+            axis: SizeAxis::Height,
+            value: -4.0,
+            unit: SizeUnit::Cm,
+        }),
+        fixups: vec![Fixup::OriginBottom],
+    };
+    let mut request = AcceptRequest {
+        item: "desk_lamp.glb".into(),
+        project: manifest.id.clone(),
+        asset: None,
+        name: None,
+        prep: Some(prep.clone()),
+    };
+    assert!(accept(root, &config, &request).is_err(), "a bad size");
+    assert!(
+        inbox_dir(root, &config).join("desk_lamp.glb").is_file(),
+        "not moved"
+    );
+
+    prep.size = Some(RealSize {
+        axis: SizeAxis::Height,
+        value: 45.0,
+        unit: SizeUnit::Cm,
+    });
+    request.prep = Some(prep.clone());
+    let done = accept(root, &config, &request).expect("accept");
+    assert_eq!(done.note, None);
+    let project_dir = project::dir(root, &config.layout, &manifest.id).expect("dir");
+    let saved = crate::prepare::load(&project_dir).expect("prepare");
+    assert_eq!(saved.models[&done.asset.id], prep);
+    let report = done.version.stats.expect("stats");
+    assert_eq!(report.triangles, 19_224, "the source is kept as sent");
 }

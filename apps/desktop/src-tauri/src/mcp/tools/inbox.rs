@@ -153,6 +153,7 @@ impl McpTools {
                     project: args.project.clone(),
                     asset: args.asset.or(linked),
                     name: args.name,
+                    prep: None,
                 };
                 let mut result = inbox::accept(&root, &config, &request).map_err(reason)?;
                 host.studio().accepted(&request.item, result.version.version);
