@@ -4,6 +4,5 @@
   "apps/desktop/src-tauri/src/commands/providers.rs": 542,
   "apps/desktop/src-tauri/src/mcp/hub.rs": 407,
   "apps/desktop/src-tauri/src/mcp/tools.rs": 1629,
-  "crates/maquette-core/src/inspect/mod.rs": 575,
-  "crates/maquette-core/src/layout.rs": 728
+  "crates/maquette-core/src/inspect/mod.rs": 575
 }

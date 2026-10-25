@@ -4,6 +4,7 @@ use std::path::Path;
 
 use serde_json::json;
 
+use super::placement::transform;
 use super::*;
 use crate::assets::{AssetStatus, AssetVersion, Stage};
 use crate::inbox::fixture;
