@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { commands } from '@/ipc/client';
 import { pickSides, type SidePick } from '@/state/inspector';
 import { useInspectorStore } from '@/state/use-inspector-store';
+import { useMaterialsStore } from '@/state/use-materials-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import type { CompareCanvasProps } from '../CompareCanvas';
 import CompareStage, { type CompareStageProps } from './CompareStage';
@@ -25,6 +26,7 @@ beforeEach(async () => {
 afterEach(() => {
   clearMocks();
   canvas.props = null;
+  useMaterialsStore.setState({ saved: {}, edits: {} });
   useInspectorStore.setState({ fps: 0, mode: 'shaded', stop: null });
 });
 
@@ -51,6 +53,7 @@ function stage(over: Partial<CompareStageProps> = {}) {
       onError: vi.fn(),
       onReady: vi.fn(),
     },
+    project: 'moon-island',
     ...over,
   };
   return render(<CompareStage {...props} />);
@@ -98,5 +101,21 @@ describe('the compare stage', () => {
     act(() => useInspectorStore.setState({ mode: 'lightmap' }));
     expect(screen.getByText(/No baked lightmap in these models yet/)).toBeInTheDocument();
     expect(canvas.props?.mode).toBe('lightmap');
+  });
+
+  it("hands the canvas the project's tweaks, edits over what is saved", async () => {
+    const tweak = (tint: string) => ({
+      all: { tint, roughness: null, metalness: null, emissiveStrength: null },
+      materials: {},
+    });
+    useMaterialsStore.setState({
+      saved: {
+        'moon-island': { version: 1, models: { sakura: tweak('#ff0000'), hut: tweak('#00ff00') } },
+      },
+      edits: { 'moon-island': { sakura: tweak('#0000ff') } },
+    });
+    stage({ ready: true });
+    await screen.findByTestId('compare-canvas');
+    expect(canvas.props?.looks).toEqual({ sakura: tweak('#0000ff'), hut: tweak('#00ff00') });
   });
 });

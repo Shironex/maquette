@@ -21,6 +21,8 @@ export interface CompareStageProps {
   ready: boolean;
   loadError: string | null;
   handlers: CompareCanvasHandlers;
+  /** The project whose material tweaks the models preview. */
+  project: string;
 }
 
 /** The compare canvas with its split handle, the sides' labels, the camera and the frame rate. */
@@ -35,8 +37,9 @@ export default function CompareStage({
   ready,
   loadError,
   handlers,
+  project,
 }: CompareStageProps) {
-  const { split, setSplit, mode, stop, fps, activeStop } = useCompareStage(stops);
+  const { split, setSplit, mode, stop, fps, activeStop, looks } = useCompareStage(stops, project);
   const models = right.length + left.length;
   return (
     <div className="relative min-h-[340px] flex-1 overflow-hidden rounded-window border border-line bg-[#141311]">
@@ -53,6 +56,7 @@ export default function CompareStage({
             stops={stops}
             stop={stop}
             handlers={handlers}
+            looks={looks}
           />
         </Suspense>
       </CanvasBoundary>

@@ -99,6 +99,7 @@ export default function Inspector({ view }: InspectorProps) {
               ready={status.ready}
               loadError={status.loadError}
               handlers={status.handlers}
+              project={view.project}
             />
           ) : (
             <div className="grid min-h-[340px] flex-1 place-items-center rounded-window border border-line">

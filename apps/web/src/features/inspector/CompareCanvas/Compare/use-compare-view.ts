@@ -4,12 +4,13 @@ import { applyMode } from '@/features/viewer/materials';
 import { frameCamera, standOnFloor, studioRig, type Framing } from '@/features/viewer/studio';
 import { poseOf, setPose } from '../../camera-pose';
 import type { CompareProps, CompareRig, Side } from './Compare.types';
+import { applyLooks } from './apply-looks';
 import { disposeGroup } from './dispose-group';
 import { sceneFraming } from './scene-framing';
 
 /**
  * Both sides in their scenes with the studio's light, the first view, the
- * flights to stops, the orbit and the material modes.
+ * flights to stops, the orbit, the material modes and the tweak preview.
  */
 export function useCompareView(rig: CompareRig, props: CompareProps): void {
   const { camera, left, right, scenes, controls, checker, framing, setFraming } = rig;
@@ -108,4 +109,13 @@ export function useCompareView(rig: CompareRig, props: CompareProps): void {
     }
     return () => applied.forEach(a => a.undo());
   }, [left, right, props.mode, checker, live]);
+
+  // The material tweak preview, over the shaded look only. It runs after
+  // the modes, so it starts from the loaded materials they put back.
+  useEffect(() => {
+    const looks = props.looks;
+    if (props.mode !== 'shaded' || !looks) return;
+    const undo = [left, right].filter((s): s is Side => Boolean(s)).map(s => applyLooks(s, looks));
+    return () => undo.forEach(u => u());
+  }, [left, right, props.mode, props.looks]);
 }

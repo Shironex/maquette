@@ -52,6 +52,7 @@ export function useSide(models: CompareModel[], onError: (message: string) => vo
           const holder = new THREE.Group();
           holder.position.set(...model.position);
           holder.userData.modelId = model.id;
+          holder.userData.asset = model.asset ?? null;
           holder.add(scene);
           group.add(holder);
           const clip = gltf.animations[0];

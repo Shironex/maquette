@@ -34,8 +34,10 @@ export function useCompareSides(view: InspectView) {
       side
         ? side.members.flatMap(m => {
             const model = view.models.find(x => x.id === m.model);
-            const url = model && !model.error ? fileUrl(model.file) : null;
-            return url ? [{ id: m.model, url, position: vec3(m.position) }] : [];
+            if (!model || model.error) return [];
+            const url = fileUrl(model.file);
+            if (!url) return [];
+            return [{ id: m.model, url, position: vec3(m.position), asset: model.tweakAsset }];
           })
         : [],
     [view]

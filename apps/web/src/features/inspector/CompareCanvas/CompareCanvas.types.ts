@@ -1,3 +1,4 @@
+import type { ModelMaterials } from '@/ipc/client';
 import type { Stop } from '@/state/inspector';
 import type { InspectMode } from '@/state/use-inspector-store';
 
@@ -6,6 +7,8 @@ export interface CompareModel {
   id: string;
   url: string;
   position: [number, number, number];
+  /** The asset whose material tweaks the model previews, if any. */
+  asset?: string | null;
 }
 
 /** What the canvas tells the Inspector. */
@@ -32,5 +35,7 @@ export interface CompareCanvasProps {
   stops: Stop[];
   stop: { index: number; at: number } | null;
   handlers: CompareCanvasHandlers;
+  /** Material tweaks to preview, by asset id; shown in the shaded mode. */
+  looks?: Readonly<Record<string, ModelMaterials>>;
   className?: string;
 }
