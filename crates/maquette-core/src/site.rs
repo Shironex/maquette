@@ -225,4 +225,6 @@ pub fn write_ship_index(cache_dir: &Path, manifest: &ProjectManifest) -> CoreRes
 }
 
 #[cfg(test)]
+mod ship_script;
+#[cfg(test)]
 mod tests;

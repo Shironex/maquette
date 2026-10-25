@@ -330,3 +330,62 @@ fn import_without_blends_proposes_nothing_blender() {
     assert!(proposal.pipeline.steps.is_empty());
     assert_eq!(proposal.unused, ["build_room.py", "notes.sh"]);
 }
+
+#[test]
+fn the_ship_step_hands_the_script_the_index_layout_and_tweaks() {
+    let def = for_template(ProjectTemplate::FloatingDiorama);
+    let ship = def.step("ship").expect("ship");
+    let after = |flag: &str| {
+        let at = ship.args.iter().position(|a| a == flag).expect(flag);
+        ship.args[at + 1].clone()
+    };
+    assert_eq!(after("--index"), "{shipIndex}");
+    assert_eq!(after("--layout"), "{project}/layout.json");
+    assert_eq!(after("--materials"), "{project}/materials.json");
+    assert!(!ship.args.iter().any(|a| a == "--models-to"));
+}
+
+#[test]
+fn an_untouched_ship_step_gets_the_new_args_once_its_script_reads_them() {
+    let def = for_template(ProjectTemplate::FloatingDiorama);
+    let dir = tempfile::tempdir().expect("tempdir");
+    let legacy: Vec<String> = [
+        "{script}",
+        "--models",
+        "web/dist",
+        "--posters",
+        "web/posters",
+        "--site",
+        "{siteRepo}",
+        "--models-to",
+        "public/models",
+        "--posters-to",
+        "public/posters",
+    ]
+    .iter()
+    .map(|a| a.to_string())
+    .collect();
+    let mut old = def.clone();
+    let at = old.steps.iter().position(|s| s.id == "ship").expect("ship");
+    old.steps[at].args = legacy.clone();
+    let mut edited = old.clone();
+    edited.steps[at].args.push("--verbose".into());
+
+    std::fs::create_dir_all(dir.path().join("tools")).expect("tools");
+    std::fs::write(dir.path().join("tools/ship.mjs"), "// copies files\n").expect("old");
+    assert!(
+        !fit_ship_args(&mut old, dir.path()),
+        "the old script keeps its args"
+    );
+    assert_eq!(old.steps[at].args, legacy);
+
+    std::fs::write(
+        dir.path().join("tools/ship.mjs"),
+        include_str!("../../../starter/ship.mjs"),
+    )
+    .expect("new");
+    assert!(fit_ship_args(&mut old, dir.path()));
+    assert_eq!(old.steps[at].args, def.steps[at].args);
+    assert!(!fit_ship_args(&mut old, dir.path()), "only once");
+    assert!(!fit_ship_args(&mut edited, dir.path()), "edited args stay");
+}

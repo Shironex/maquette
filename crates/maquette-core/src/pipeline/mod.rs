@@ -75,7 +75,8 @@ pub struct StepDef {
     /// of the cache key and fills `{script}` in the args.
     pub script: Option<String>,
     /// One argument per entry, never joined into a shell string. Supports
-    /// `{script}`, `{root}`, `{project}`, `{workspace}` and `{siteRepo}`.
+    /// `{script}`, `{root}`, `{project}`, `{workspace}`, `{siteRepo}` and
+    /// `{shipIndex}`.
     pub args: Vec<String>,
     /// Globs relative to the pipeline root. Their contents are part of the
     /// cache key.
@@ -173,9 +174,12 @@ pub fn ensure(
     if let Some(mut def) = load(project_dir)? {
         let presets = template::fit_presets(&mut def, manifest);
         let layout = template::fit_build_inputs(&mut def, project_dir);
-        if presets || layout {
+        let ship = template::fit_ship_args(&mut def, project_dir);
+        if presets || layout || ship {
             match save(project_dir, &def) {
-                Ok(()) => tracing::info!(presets, layout, "fitted the pipeline to the project"),
+                Ok(()) => {
+                    tracing::info!(presets, layout, ship, "fitted the pipeline to the project");
+                }
                 Err(err) => tracing::warn!(error = %err, "the fitted pipeline was not saved"),
             }
         }

@@ -2,6 +2,7 @@
 //! the versioned scripts of an imported folder.
 
 mod proposal;
+mod ship;
 
 use std::path::Path;
 
@@ -10,6 +11,8 @@ use crate::project::{ProjectManifest, ProjectTemplate, scan_import};
 use crate::workspace::{MeshoptLevel, TextureCodec};
 
 pub use proposal::{ImportProposal, propose};
+pub use ship::fit_ship_args;
+use ship::ship;
 
 pub const CHARACTER_LOCK: &str =
     "Character stays on medium. High breaks her clips: the upper body spins further every frame.";
@@ -64,41 +67,6 @@ fn compress(from: &str, to: &str, deps: &[&str]) -> StepDef {
             from: from.into(),
             to: to.into(),
         }),
-    }
-}
-
-/// Copies the shipped models and posters into the site repo's public
-/// folder. Without a site repo in the project settings the script passes
-/// and says so. It writes outside the pipeline root, so it has no outputs
-/// and runs every time.
-fn ship(deps: &[&str]) -> StepDef {
-    StepDef {
-        id: "ship".into(),
-        name: "Ship".into(),
-        kind: StepKind::Shell,
-        command: Some("node".into()),
-        script: Some("tools/ship.mjs".into()),
-        args: s(&[
-            "{script}",
-            "--models",
-            "web/dist",
-            "--posters",
-            "web/posters",
-            "--site",
-            "{siteRepo}",
-            "--models-to",
-            "public/models",
-            "--posters-to",
-            "public/posters",
-        ]),
-        inputs: s(&[
-            "web/dist/*.glb",
-            "web/posters/*.png",
-            "web/posters/stops.json",
-        ]),
-        outputs: Vec::new(),
-        depends_on: s(deps),
-        compress: None,
     }
 }
 

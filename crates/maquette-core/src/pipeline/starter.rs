@@ -65,6 +65,10 @@ const OLDER: &[(&str, &str)] = &[
         "tools/render_stops.py",
         "ecadad4a5df2499ade7cb3c5eb50a2f18669cc95a389cc171cb74ef4b7c396d1",
     ),
+    (
+        "tools/ship.mjs",
+        "d92fddb54514a13dd7a8c2f6daa4f5e3cd4389b00180162eace6d8aeaec5ea23",
+    ),
 ];
 
 /// How a project's copy of a starter compares with the one this build ships.
