@@ -104,6 +104,7 @@ pub fn types() -> specta::Types {
         .register::<BlendFile>()
         .register::<ImportScan>()
         .register::<AppState>()
+        .register::<app_state::DownloadsWatch>()
         .register::<Asset>()
         .register::<AssetKind>()
         .register::<AssetStatus>()

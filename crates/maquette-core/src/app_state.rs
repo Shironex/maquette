@@ -29,6 +29,26 @@ pub struct AppState {
     /// workspace or a repo.
     #[serde(default)]
     pub mcp_token: Option<String>,
+    /// The By hand Downloads watcher: per machine, since folders differ.
+    pub downloads_watch: DownloadsWatch,
+}
+
+/// Whether the Downloads watcher runs, and on which folder.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadsWatch {
+    pub enabled: bool,
+    /// `None`: the system's Downloads folder.
+    pub folder: Option<String>,
+}
+
+impl Default for DownloadsWatch {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            folder: None,
+        }
+    }
 }
 
 impl Default for AppState {
@@ -38,6 +58,7 @@ impl Default for AppState {
             last_workspace: None,
             tool_overrides: BTreeMap::new(),
             mcp_token: None,
+            downloads_watch: DownloadsWatch::default(),
         }
     }
 }
@@ -121,6 +142,24 @@ mod tests {
         assert!(text.contains("\"blender\": \"/Applications/Blender.app\""));
         assert!(text.contains("\"gltf-transform\": \"/opt/gt\""));
         assert_eq!(load(&nested), state);
+    }
+
+    #[test]
+    fn the_downloads_watch_is_on_by_default_and_kept_when_changed() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        fs::write(dir.path().join(APP_STATE_FILE), r#"{"version": 1}"#).expect("old file");
+        let old = load(dir.path());
+        assert!(old.downloads_watch.enabled);
+        assert_eq!(old.downloads_watch.folder, None);
+        let state = AppState {
+            downloads_watch: DownloadsWatch {
+                enabled: false,
+                folder: Some("/Users/me/Exports".into()),
+            },
+            ..AppState::default()
+        };
+        save(dir.path(), &state).expect("save");
+        assert_eq!(load(dir.path()), state);
     }
 
     #[test]

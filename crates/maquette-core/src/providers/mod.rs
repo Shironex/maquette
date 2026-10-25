@@ -1,6 +1,7 @@
 //! Sending a picked concept or ref to a 3D service: Tripo and Meshy over
 //! their REST APIs, or by hand through a handoff folder.
 
+pub mod arrivals;
 pub mod balance;
 pub mod catalog;
 pub mod handback;
@@ -23,6 +24,7 @@ mod tests;
 
 use serde::Serialize;
 
+pub use arrivals::{Arrival, ArrivalState, Arrivals, PendingHandoff, WatchStatus, WatchTiming};
 pub use balance::Balance;
 pub use catalog::{ModelOption, ProviderCatalog};
 pub use handback::{DownloadMatch, DownloadsScan};
