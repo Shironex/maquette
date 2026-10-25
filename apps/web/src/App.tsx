@@ -1,29 +1,10 @@
-import { useEffect } from 'react';
 import { Button, EmptyState, Toast } from '@maquette/ui';
 import { AppShell } from '@/features/shell/AppShell';
 import { Onboarding } from '@/features/onboarding/Onboarding';
-import { useAppStore } from '@/state/use-app-store';
+import { useApp, useBootFailure, useNoticeHost } from './App.hooks';
 
 export function App() {
-  const phase = useAppStore(s => s.phase);
-  const init = useAppStore(s => s.init);
-  const syncView = useAppStore(s => s.syncViewFromHash);
-  const detectTools = useAppStore(s => s.detectTools);
-  const hasReports = useAppStore(s => s.tools.reports.length > 0);
-
-  useEffect(() => {
-    void init();
-  }, [init]);
-
-  useEffect(() => {
-    window.addEventListener('hashchange', syncView);
-    return () => window.removeEventListener('hashchange', syncView);
-  }, [syncView]);
-
-  // The shell shows Blender in the status bar and Settings lists every tool.
-  useEffect(() => {
-    if (phase === 'app' && !hasReports) void detectTools();
-  }, [phase, hasReports, detectTools]);
+  const phase = useApp();
 
   return (
     <div className="h-full">
@@ -37,8 +18,7 @@ export function App() {
 }
 
 function BootFailure() {
-  const error = useAppStore(s => s.bootError);
-  const init = useAppStore(s => s.init);
+  const { error, retry } = useBootFailure();
   return (
     <div className="grid h-full place-items-center bg-app">
       <EmptyState
@@ -46,7 +26,7 @@ function BootFailure() {
         title="Maquette could not start"
         body={error ?? 'The app backend did not answer.'}
         action={
-          <Button variant="primary" icon="arrow-clockwise" onClick={() => void init()}>
+          <Button variant="primary" icon="arrow-clockwise" onClick={retry}>
             Try again
           </Button>
         }
@@ -55,16 +35,8 @@ function BootFailure() {
   );
 }
 
-const NOTICE_MS = 5000;
-
 function NoticeHost() {
-  const notice = useAppStore(s => s.notice);
-  const dismiss = useAppStore(s => s.dismissNotice);
-  useEffect(() => {
-    if (!notice) return;
-    const timer = window.setTimeout(dismiss, NOTICE_MS);
-    return () => window.clearTimeout(timer);
-  }, [notice, dismiss]);
+  const { notice, dismiss } = useNoticeHost();
   return (
     <div aria-live="polite" className="pointer-events-none fixed right-5 bottom-11 z-50">
       {notice ? (
