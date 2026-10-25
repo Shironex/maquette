@@ -1,4 +1,4 @@
-import type { Asset, ProviderJob } from '@/ipc/client';
+import type { Asset, BuiltAsset, ProviderJob } from '@/ipc/client';
 import type { BoardEnv } from '../../board.types';
 
 export interface CardMenuProps {
@@ -7,5 +7,7 @@ export interface CardMenuProps {
   waiting: ProviderJob | undefined;
   /** The card's picture when it is a ref, for Make object refs. */
   refPicture: string | null;
+  /** How the card stands against its script, when a script builds it. */
+  built?: BuiltAsset;
   board: BoardEnv;
 }

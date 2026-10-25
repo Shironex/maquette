@@ -22,6 +22,7 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
     queueOpen,
     setQueueOpen,
     setChecklistOpen,
+    addBuilt,
   } = useBoardHeader();
   const subtitle = project
     ? `${assetCount((project.assets ?? []).length)} · ${TEMPLATE_LABEL[project.template]} · created ${formatAgo(Date.parse(project.createdAt), clock.nowMs())}`
@@ -70,6 +71,14 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
           </Button>
           {queueOpen ? queue(() => setQueueOpen(false)) : null}
         </div>
+        <Button
+          icon="wrench"
+          disabled={!project}
+          tooltip="A model a Blender script in the project makes"
+          onClick={addBuilt}
+        >
+          Built asset
+        </Button>
         <Button
           icon="plus"
           disabled={!project}

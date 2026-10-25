@@ -1,6 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { BuiltAsset } from '@/ipc/client';
+import { useBuiltStore } from '@/state/use-built-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
@@ -72,5 +74,26 @@ describe('CardMenu', () => {
       source: 'refs/desk_lamp.png',
       sourceName: 'Desk lamp',
     });
+  });
+
+  it('rebuilds a built asset instead of sending it to 3D', async () => {
+    const rebuild = vi.fn(async () => {});
+    useBuiltStore.setState({ rebuild });
+    const board = fakeBoardEnv();
+    const asset = mockAsset('Character');
+    const built: BuiltAsset = {
+      asset: 'character',
+      name: 'Character',
+      source: { script: 'built/character.py', helpers: [], root: null, last: null },
+      state: 'new',
+      missing: [],
+    };
+    render(
+      <CardMenu asset={asset} waiting={undefined} refPicture={null} built={built} board={board} />
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Send to 3D' })).toBeNull();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Rebuild' }));
+    expect(rebuild).toHaveBeenCalledWith('moon-island', 'character', true);
+    expect(board.actions.setMenuFor).toHaveBeenCalledWith(null);
   });
 });

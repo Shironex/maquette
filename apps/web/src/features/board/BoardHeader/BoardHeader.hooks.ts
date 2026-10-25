@@ -4,10 +4,11 @@ import { waitingByHand } from '@/state/batch';
 import { isActive } from '@/state/providers';
 import type { BoardLayout } from '@/state/board-list';
 import { useAppStore } from '@/state/use-app-store';
+import { useBuiltStore } from '@/state/use-built-store';
 import { prefsOf, useBoardPrefsStore } from '@/state/use-board-prefs-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 
-/** The Board's title row: the project, the By hand and 3D queue counts and Add asset. */
+/** The Board's title row: the project, the By hand and 3D queue counts, Built asset and Add asset. */
 export function useBoardHeader() {
   const project = useAppStore(s => s.workspace?.project);
   const setProject = useAppStore(s => s.setProject);
@@ -18,6 +19,7 @@ export function useBoardHeader() {
   const byProject = useBoardPrefsStore(s => s.byProject);
   const updatePrefs = useBoardPrefsStore(s => s.update);
   const [adding, setAdding] = useState(false);
+  const setAddingBuilt = useBuiltStore(s => s.setAdding);
 
   // The add form belongs to the project it was opened in.
   useEffect(() => {
@@ -49,5 +51,9 @@ export function useBoardHeader() {
     queueOpen,
     setQueueOpen,
     setChecklistOpen,
+    addBuilt: () => {
+      setAdding(false);
+      setAddingBuilt(true);
+    },
   };
 }

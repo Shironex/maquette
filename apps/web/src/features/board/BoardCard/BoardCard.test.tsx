@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useBuiltStore } from '@/state/use-built-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { fakeBoardEnv, mockAsset } from '../fakeBoardEnv';
@@ -44,5 +45,28 @@ describe('BoardCard', () => {
     expect(screen.getByText('Waiting for your model')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Add model...' }));
     expect(addModel).toHaveBeenCalledWith('brush-cup-1');
+  });
+});
+
+describe('BoardCard of a built asset', () => {
+  beforeEach(async () => {
+    await openMockWorkspace('configured', undefined, undefined, undefined, undefined, 'demo');
+    await useBuiltStore.getState().load('moon-island');
+  });
+  afterEach(() => useBuiltStore.setState({ project: null, items: [], adding: false }));
+
+  it('says its script changed and rebuilds from its button', async () => {
+    const rebuild = vi.fn(async () => {});
+    useBuiltStore.setState({ rebuild });
+    render(<BoardCard asset={mockAsset('Newtons cradle')} board={fakeBoardEnv()} />);
+    expect(screen.getByText('Script changed')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Rebuild' }));
+    expect(rebuild).toHaveBeenCalledWith('moon-island', 'newtons-cradle', true);
+  });
+
+  it('shows a current one as done, without a Rebuild button', () => {
+    render(<BoardCard asset={mockAsset('Laptop')} board={fakeBoardEnv()} />);
+    expect(screen.queryByText('Script changed')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Rebuild' })).toBeNull();
   });
 });

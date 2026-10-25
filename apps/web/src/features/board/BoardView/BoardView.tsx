@@ -1,6 +1,7 @@
 import { ProjectTopBar } from '@/features/common/ProjectTopBar';
 import { STAGES } from '@/state/pipeline';
 import type { BoardEnv } from '../board.types';
+import { AddBuiltDialog, useBuiltDialog } from '../AddBuiltDialog';
 import { BoardColumn } from '../BoardColumn';
 import { BoardHeader } from '../BoardHeader';
 import { BoardList } from '../BoardList';
@@ -21,6 +22,7 @@ export default function BoardView({ queue }: BoardViewProps) {
   const board: BoardEnv = { workspace, project, jobs, otherProjects, dropJob, selection, actions };
   const { present } = selection;
   const { renaming, sizing } = actions;
+  const builtDialog = useBuiltDialog();
   const stageColumns = STAGES.map(stage => (
     <BoardColumn
       key={stage}
@@ -61,6 +63,10 @@ export default function BoardView({ queue }: BoardViewProps) {
               asset={sizing}
               onClose={() => actions.setSizing(null)}
             />
+          ) : null}
+
+          {builtDialog.open && project ? (
+            <AddBuiltDialog project={project.id} onClose={builtDialog.close} />
           ) : null}
 
           {present.length > 0 ? (

@@ -1,12 +1,15 @@
 import { AssetCard, Button, cn } from '@maquette/ui';
+import { builtChip, builtMeta, wantsRebuild } from '@/state/built';
 import { KIND_ICON } from '@/state/thumbs';
 import { useBoardCard } from './BoardCard.hooks';
 import type { BoardCardProps } from './BoardCard.types';
 import { CardMenu } from './CardMenu';
 
-/** One asset on the Board: its picture, numbers, latest send and menu. */
+/** One asset on the Board: its picture, numbers, latest send or build, and menu. */
 export default function BoardCard({ asset, board }: BoardCardProps) {
-  const { n, thumb, sent, waiting, refPicture, addModel, onDragStart } = useBoardCard(asset, board);
+  const { n, thumb, sent, waiting, refPicture, addModel, onDragStart, built, rebuild } =
+    useBoardCard(asset, board);
+  const chip = built ? builtChip(built.state) : undefined;
   const { selection, actions, dropJob } = board;
   const { present } = selection;
 
@@ -29,6 +32,10 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
           >
             Add model...
           </Button>
+        ) : built && wantsRebuild(built.state) ? (
+          <Button size="sm" icon="arrow-clockwise" data-card-action onClick={rebuild}>
+            Rebuild
+          </Button>
         ) : undefined
       }
       className={cn(
@@ -44,16 +51,16 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
         },
       }}
       details={{
-        meta: asset.versions.length === 0 ? 'No model yet' : undefined,
+        meta: asset.versions.length > 0 ? undefined : built ? builtMeta(built) : 'No model yet',
         tris: n.tris,
         size: n.size,
       }}
       version={n.version}
       latest={n.version !== undefined}
       status={{
-        state: sent?.status ?? n.status,
-        label: sent?.label,
-        icon: sent?.icon,
+        state: chip?.state ?? sent?.status ?? n.status,
+        label: chip?.label ?? sent?.label,
+        icon: chip?.icon ?? sent?.icon,
         progress: sent?.progress,
         progressLabel: sent?.progressLabel,
       }}
@@ -65,7 +72,15 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
           actions.setMenuFor(m => (m === asset.id ? null : asset.id));
         },
         open: actions.menuFor === asset.id,
-        menu: <CardMenu asset={asset} waiting={waiting} refPicture={refPicture} board={board} />,
+        menu: (
+          <CardMenu
+            asset={asset}
+            waiting={waiting}
+            refPicture={refPicture}
+            built={built}
+            board={board}
+          />
+        ),
       }}
     />
   );
