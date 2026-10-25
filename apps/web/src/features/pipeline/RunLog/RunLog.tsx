@@ -1,52 +1,49 @@
-import { useMemo, useState } from 'react';
 import { Checkbox, IconButton, LogConsole, Select, Tabs } from '@maquette/ui';
 import type { PipelineView } from '@/ipc/client';
-import { formatDuration, logRows } from '@/state/pipeline';
-import { readFlag, writeFlag } from '@/lib/storage';
-import { styledLine } from './log-style';
+import { formatDuration } from '@/state/pipeline';
+import { useRunLog } from './RunLog.hooks';
 
-const SCROLL_KEY = 'maquette.pipeline.manualScroll';
-const NOISE_KEY = 'maquette.pipeline.hideNoise';
-
-/** The docked console: live lines per step, or the step timings. */
-export function RunLog({
-  view,
-  step,
-  onStep,
-}: {
+export interface RunLogProps {
   view: PipelineView;
   step: string;
   onStep: (step: string) => void;
-}) {
-  const [tab, setTab] = useState('logs');
-  const [auto, setAuto] = useState(() => !readFlag(SCROLL_KEY));
-  const [hideNoise, setHideNoise] = useState(() => readFlag(NOISE_KEY));
-  const rows = useMemo(() => logRows(view.log, step), [view.log, step]);
-  const lines = useMemo(() => {
-    const styled = rows.map(styledLine);
-    return hideNoise ? styled.filter(l => !l.noise) : styled;
-  }, [rows, hideNoise]);
+}
+
+/** The docked console: live lines per step, or the step timings. */
+export default function RunLog({ view, step, onStep }: RunLogProps) {
+  const { tab, setTab, auto, toggleAuto, hideNoise, toggleNoise, lines, copy } = useRunLog(
+    view,
+    step
+  );
   const latest = view.runs[0];
   const live = latest?.state === 'running';
   const options = [
     { value: 'all', label: 'All steps' },
     ...view.def.steps.map(s => ({ value: s.id, label: s.name })),
   ];
-  const copy = () => {
-    const text = rows.map(r => `${r.t} ${r.text}`).join('\n');
-    void navigator.clipboard?.writeText(text).catch(() => undefined);
-  };
-  const toggleNoise = (on: boolean) => {
-    setHideNoise(on);
-    writeFlag(NOISE_KEY, on);
-  };
-  const toggleAuto = (on: boolean) => {
-    setAuto(on);
-    writeFlag(SCROLL_KEY, !on);
-  };
-
   const timings = latest?.steps.filter(s => s.state !== 'skipped') ?? [];
   const longest = Math.max(1, ...timings.map(s => s.durationMs ?? 0));
+
+  const timingRows = timings.map(s => (
+    <li key={s.id} className="grid grid-cols-[150px_1fr_64px] items-center gap-3">
+      <span className="truncate">{s.name}</span>
+      <span className="h-1.5 rounded-full bg-hover">
+        <span
+          className={
+            s.state === 'cached'
+              ? 'block h-full rounded-full bg-fg-mute/50'
+              : s.state === 'failed'
+                ? 'block h-full rounded-full bg-danger'
+                : 'block h-full rounded-full bg-sage'
+          }
+          style={{ width: `${Math.max(2, ((s.durationMs ?? 0) / longest) * 100)}%` }}
+        />
+      </span>
+      <span className="text-right font-mono text-[12px] text-fg-mute tabular-nums">
+        {s.state === 'cached' ? 'cached' : (formatDuration(s.durationMs) ?? '')}
+      </span>
+    </li>
+  ));
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-card border border-line bg-[#181715]">
@@ -105,26 +102,7 @@ export function RunLog({
       ) : (
         <ol className="flex min-h-0 flex-1 list-none flex-col gap-2 overflow-auto p-3.5">
           {timings.length === 0 ? <li className="text-fg-mute">No timings yet.</li> : null}
-          {timings.map(s => (
-            <li key={s.id} className="grid grid-cols-[150px_1fr_64px] items-center gap-3">
-              <span className="truncate">{s.name}</span>
-              <span className="h-1.5 rounded-full bg-hover">
-                <span
-                  className={
-                    s.state === 'cached'
-                      ? 'block h-full rounded-full bg-fg-mute/50'
-                      : s.state === 'failed'
-                        ? 'block h-full rounded-full bg-danger'
-                        : 'block h-full rounded-full bg-sage'
-                  }
-                  style={{ width: `${Math.max(2, ((s.durationMs ?? 0) / longest) * 100)}%` }}
-                />
-              </span>
-              <span className="text-right font-mono text-[12px] text-fg-mute tabular-nums">
-                {s.state === 'cached' ? 'cached' : (formatDuration(s.durationMs) ?? '')}
-              </span>
-            </li>
-          ))}
+          {timingRows}
         </ol>
       )}
     </div>

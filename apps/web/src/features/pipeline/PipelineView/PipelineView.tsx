@@ -1,33 +1,32 @@
-import { useEffect, useState } from 'react';
 import { Button, Checkbox, EmptyState, InlineBanner, StageStepper, TopBar } from '@maquette/ui';
 import { formatBytes } from '@/lib/format';
-import { useAppStore } from '@/state/use-app-store';
-import { usePipelineStore } from '@/state/use-pipeline-store';
-import { estimatedTransfer, failedStep, runSummary, stageViews } from '@/state/pipeline';
-import { PipelineGraph } from './PipelineGraph';
-import { PresetsPanel } from './PresetsPanel';
-import { RunLog } from './RunLog';
-import { StartersBanner } from './StartersBanner';
+import { stageViews } from '@/state/pipeline';
 import { FirstViewBar } from '@/features/common/FirstViewBar';
 import { SceneBudgetMeter } from '@/features/common/SceneBudgetMeter';
+import { PipelineGraph } from '../PipelineGraph';
+import { PresetsPanel } from '../PresetsPanel';
+import { RunLog } from '../RunLog';
+import { StartersBanner } from '../StartersBanner';
+import { runOverview } from './runOverview';
+import { usePipelineView } from './PipelineView.hooks';
 
-function clock(ms: number | null | undefined): string {
-  if (!ms) return '';
-  const d = new Date(ms);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-export function PipelineView() {
-  const project = useAppStore(s => s.workspace?.project ?? null);
-  const budget = useAppStore(s => s.workspace?.config.budgets.sceneMb ?? 3);
-  const { view, loading, error, starting, run, cancel, savePresets, load } = usePipelineStore();
-  const [force, setForce] = useState(false);
-  const [logStep, setLogStep] = useState('all');
-  // The log filter and the cache switch belong to the project they were set in.
-  useEffect(() => {
-    setForce(false);
-    setLogStep('all');
-  }, [project?.id]);
+export default function PipelineView() {
+  const {
+    project,
+    budget,
+    view,
+    loading,
+    error,
+    starting,
+    run,
+    cancel,
+    savePresets,
+    load,
+    force,
+    setForce,
+    logStep,
+    setLogStep,
+  } = usePipelineView();
 
   if (!project) {
     return (
@@ -65,26 +64,21 @@ export function PipelineView() {
     );
   }
 
-  const latest = view.runs[0];
-  const active = view.active !== null || view.queued.length > 0;
-  const transfer = estimatedTransfer(view);
-  const failedAt = latest?.state === 'failed' ? failedStep(latest) : null;
-  const failedName = latest?.steps.find(s => s.id === failedAt)?.name;
-  const errors = view.issues.filter(i => i.level === 'error');
-  const subtitle = latest
-    ? [
-        `Run ${latest.number}`,
-        latest.force ? 'forced' : null,
-        latest.from
-          ? `from ${latest.steps.find(s => s.id === latest.from)?.name ?? latest.from}`
-          : null,
-        latest.startedAtMs ? `started ${clock(latest.startedAtMs)}` : null,
-        `${view.def.steps.length} steps`,
-        runSummary(latest),
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : `No runs yet · ${view.def.steps.length} steps · runs in ${view.root}`;
+  const { latest, active, transfer, failedAt, failedName, errors, subtitle } = runOverview(view);
+  const artifactCards = view.models.slice(0, 8).map(m => (
+    <div
+      key={m.model}
+      className="flex min-w-0 flex-col gap-0.5 rounded-card border border-line bg-raised px-3 py-2"
+    >
+      <span className="truncate font-mono text-[12px]">{m.model}.glb</span>
+      <span className="font-mono text-[11.5px] text-fg-mute">
+        {m.rawBytes ? formatBytes(m.rawBytes) : 'not exported'}
+        {m.shippedBytes ? ` → ${formatBytes(m.shippedBytes)}` : ''}
+      </span>
+    </div>
+  ));
+  const errorText = errors.map(e => e.message).join(' ');
+  const budgetMb = transfer / 1e6;
 
   return (
     <>
@@ -92,7 +86,7 @@ export function PipelineView() {
         lead={<StageStepper stages={stageViews(project.assets ?? [], latest)} />}
         right={
           <>
-            <SceneBudgetMeter value={transfer / 1e6} target={budget} />
+            <SceneBudgetMeter value={budgetMb} target={budget} />
             {active ? (
               <Button variant="danger" icon="x-circle" onClick={() => void cancel()}>
                 Stop run
@@ -124,7 +118,7 @@ export function PipelineView() {
           <InlineBanner
             tone="warning"
             title="pipeline.json needs a fix before it can run"
-            detail={errors.map(e => e.message).join(' ')}
+            detail={errorText}
           />
         ) : null}
         {latest?.state === 'failed' && !active ? (
@@ -166,20 +160,7 @@ export function PipelineView() {
               </h2>
               <span className="text-meta text-fg-mute">raw export to compressed</span>
             </div>
-            <div className="grid grid-cols-4 gap-2.5">
-              {view.models.slice(0, 8).map(m => (
-                <div
-                  key={m.model}
-                  className="flex min-w-0 flex-col gap-0.5 rounded-card border border-line bg-raised px-3 py-2"
-                >
-                  <span className="truncate font-mono text-[12px]">{m.model}.glb</span>
-                  <span className="font-mono text-[11.5px] text-fg-mute">
-                    {m.rawBytes ? formatBytes(m.rawBytes) : 'not exported'}
-                    {m.shippedBytes ? ` → ${formatBytes(m.shippedBytes)}` : ''}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <div className="grid grid-cols-4 gap-2.5">{artifactCards}</div>
           </section>
         ) : null}
 

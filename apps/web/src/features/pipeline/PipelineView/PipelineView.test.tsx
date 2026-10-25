@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useProjectsStore } from '@/state/use-projects-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { PipelineView } from './PipelineView';
+import { PipelineView } from '.';
 
 afterEach(() => {
   clearMocks();

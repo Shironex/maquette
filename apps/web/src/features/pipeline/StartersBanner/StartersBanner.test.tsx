@@ -3,14 +3,23 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { StartersBanner } from './StartersBanner';
+import { StartersBanner } from '.';
 
-function Harness() {
-  const view = usePipelineStore(s => s.view);
-  return view ? <StartersBanner view={view} busy={false} /> : null;
+let unsubscribe = () => {};
+
+/** Renders the banner for the store's view and follows the view as the store updates it. */
+function renderBanner() {
+  unsubscribe();
+  const view = usePipelineStore.getState().view!;
+  const result = render(<StartersBanner view={view} busy={false} />);
+  unsubscribe = usePipelineStore.subscribe(s => {
+    if (s.view) result.rerender(<StartersBanner view={s.view} busy={false} />);
+  });
+  return result;
 }
 
 afterEach(() => {
+  unsubscribe();
   clearMocks();
   usePipelineStore.setState({ view: null });
   localStorage.clear();
@@ -20,7 +29,7 @@ describe('the starter scripts banner', () => {
   it('updates the untouched old starters in one click and leaves the edited one', async () => {
     await openMockWorkspace();
     await usePipelineStore.getState().load('moon-island');
-    render(<Harness />);
+    renderBanner();
     expect(screen.getByText('New starter scripts available')).toBeInTheDocument();
     expect(
       screen.getByText(/build_scene\.py, bake_light\.py and render_stops\.py are untouched copies/)
@@ -36,12 +45,12 @@ describe('the starter scripts banner', () => {
   it('replaces an edited script only when asked, or keeps it', async () => {
     await openMockWorkspace();
     await usePipelineStore.getState().load('moon-island');
-    const { unmount } = render(<Harness />);
+    const { unmount } = renderBanner();
     await userEvent.click(screen.getByRole('button', { name: 'Keep mine' }));
     expect(screen.queryByText('export_web.py was edited')).toBeNull();
     unmount();
     localStorage.clear();
-    render(<Harness />);
+    renderBanner();
     await userEvent.click(screen.getByRole('button', { name: 'Replace with the new starter' }));
     await waitFor(() =>
       expect(
@@ -53,7 +62,7 @@ describe('the starter scripts banner', () => {
   it('shows nothing for a project with current starters', async () => {
     await openMockWorkspace();
     await usePipelineStore.getState().load('rooftop-cinema');
-    const { container } = render(<Harness />);
+    const { container } = renderBanner();
     expect(container).toBeEmptyDOMElement();
   });
 });
