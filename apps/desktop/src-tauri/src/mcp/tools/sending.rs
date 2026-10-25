@@ -108,7 +108,8 @@ pub struct SendBatchArgs {
 pub struct ProviderJobArgs {
     /// The job id that send_to_3d returned, for example "stone-lantern-2".
     pub id: Option<String>,
-    /// Without an id: every send in this project, newest last.
+    /// Without an id: every send in this project, newest last. With an id:
+    /// the project the send must belong to.
     pub project: Option<String>,
     /// With project: only this asset's sends.
     pub asset: Option<String>,
@@ -284,10 +285,16 @@ impl McpTools {
         let found = self
             .blocking(move |host, hub| {
                 if let Some(id) = args.id.as_deref() {
+                    // Ids are unique across the workspace; a project given
+                    // alongside must be the job's own.
                     let job = host
                         .studio()
                         .get(id.trim())
-                        .ok_or_else(|| format!("There is no send {id}."))?;
+                        .filter(|j| args.project.as_deref().is_none_or(|p| j.project == p))
+                        .ok_or_else(|| match args.project.as_deref() {
+                            Some(project) => format!("There is no send {id} in {project}."),
+                            None => format!("There is no send {id}."),
+                        })?;
                     return Ok(job_value(hub, &job));
                 }
                 let Some(project) = args.project.as_deref() else {
