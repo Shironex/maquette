@@ -24,7 +24,11 @@ describe('the by hand settings card', () => {
       'Use these settings',
       'Bring the GLB back',
     ]);
-    expect(screen.getByText(lanterns.card!.returnName)).toBeInTheDocument();
+    expect(screen.getByText(lanterns.card!.exportName ?? '')).toBeInTheDocument();
+    expect(lanterns.card!.exportName).toMatch(/^maq_lanterns_v\d+_tripo$/);
+    expect(screen.getByText('30 credits')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy The export name' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy prompt' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Add model...' })).toBeInTheDocument();
   });
 
@@ -39,6 +43,17 @@ describe('the by hand settings card', () => {
     expect(sent('provider_open_site')).toHaveLength(1);
     expect(sent('provider_open_handoff')).toHaveLength(1);
     expect(sent('provider_reveal_image')).toHaveLength(1);
+  });
+
+  it('copies the prompt in one click when the send has one', async () => {
+    const { job } = await openProviders();
+    const lanterns = job('lanterns-1');
+    const card = { ...lanterns.card!, prompt: 'Soft moss on old stone' };
+    const user = userEvent.setup();
+    render(<HandoffView job={{ ...lanterns, card }} />);
+    expect(screen.getByText('Soft moss on old stone')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Copy prompt' }));
+    expect(await navigator.clipboard.readText()).toBe('Soft moss on old stone');
   });
 
   it('renders nothing for a send without a card', async () => {

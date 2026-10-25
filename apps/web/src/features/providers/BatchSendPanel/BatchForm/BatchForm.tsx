@@ -106,8 +106,9 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
           {draft.provider === 'by-hand' ? (
             <div className="flex flex-col gap-2.5 rounded-card border border-line bg-raised px-3 py-2.5">
               <p className="text-meta text-fg-dim">
-                No API and nothing spent. I write one handoff folder per asset, each with its images
-                and a settings card, and list them all in a checklist while you make the models.
+                No API credits; your site plan pays. I write one handoff folder per asset, each with
+                its images and a settings card, and list them all in a checklist while you make the
+                models.
               </p>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-fg-dim">Settings cards for</span>

@@ -10,7 +10,8 @@ import { SERVICE_LABEL } from '@/state/providers';
 import { HandBackButtons } from '../HandBackButtons';
 import { siteLabel } from '../siteLabel';
 import { CopyButton } from './CopyButton';
-import { useFileManager, useHandoffActions } from './HandoffView.hooks';
+import { useFileManager, useHandoffActions, useWatchOn } from './HandoffView.hooks';
+import { PromptLine } from './PromptLine';
 import { Step } from './Step';
 
 export interface HandoffViewProps {
@@ -20,11 +21,13 @@ export interface HandoffViewProps {
 export default function HandoffView({ job }: HandoffViewProps) {
   const { openHandoff, openSite, revealImage } = useHandoffActions();
   const fileManager = useFileManager();
+  const watchOn = useWatchOn();
   const card = job.card;
   if (!card) return null;
   const service = SERVICE_LABEL[card.service];
   const folder = job.handoff ?? '';
   const waiting = job.state === 'waiting';
+  const exportName = card.exportName || card.returnName.replace(/\.glb$/i, '');
   const images = card.images.map(image => (
     <li
       key={image}
@@ -68,6 +71,13 @@ export default function HandoffView({ job }: HandoffViewProps) {
             No API call and no credits from me. You make the model in the {service} web app with
             these settings, then bring the GLB back.
           </p>
+          {card.credits !== null && card.credits !== undefined ? (
+            <p className="mt-1 text-meta text-fg-dim">
+              About <span className="font-semibold text-fg">{card.credits} credits</span> of your{' '}
+              {service} subscription{card.creditsNote ? ` (${card.creditsNote})` : ''}. The Credits
+              sheet keeps it apart from API spend.
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -105,6 +115,7 @@ export default function HandoffView({ job }: HandoffViewProps) {
               Open folder
             </Button>
           </div>
+          {card.prompt ? <PromptLine prompt={card.prompt} /> : null}
           <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">{images}</ul>
           <p className="text-meta text-fg-mute">
             Reveal shows the image in {fileManager}, ready to drag into the browser.
@@ -125,14 +136,19 @@ export default function HandoffView({ job }: HandoffViewProps) {
             </div>
           ) : null}
           <p className="text-meta text-fg-dim">
-            Add model takes a .glb, or the .zip the web app downloads. Check Downloads looks for new
-            models in your Downloads folder and asks before it takes one. You can also drop it on
-            the {job.assetName} card on the Board, or save it into the inbox as
+            Save the export from {service} with this name.{' '}
+            {watchOn
+              ? 'The Downloads watch sees it land and copies it in by itself.'
+              : 'Turn on the Downloads watch in Settings and it is copied in as it lands.'}
           </p>
           <div className="flex items-center gap-2 rounded-control border border-line bg-app px-2.5 py-1.5">
-            <code className="min-w-0 flex-1 truncate font-mono text-[12px]">{card.returnName}</code>
-            <CopyButton text={card.returnName} what="The file name" />
+            <code className="min-w-0 flex-1 truncate font-mono text-[12px]">{exportName}</code>
+            <CopyButton text={exportName} what="The export name" />
           </div>
+          <p className="text-meta text-fg-mute">
+            Add model also takes a .glb or the .zip the web app downloads, and Check Downloads asks
+            before it takes one. You can also drop it on the {job.assetName} card on the Board.
+          </p>
           <p className="text-meta text-fg-mute">
             Every way copies the model into the inbox, leaves your file where it is, links it to{' '}
             {job.assetName} and runs the Inbox checks.

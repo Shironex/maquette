@@ -1,4 +1,5 @@
 import { useAppStore } from '@/state/use-app-store';
+import { useDownloadsStore } from '@/state/use-downloads-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 
 /** What the OS calls its file manager. */
@@ -13,4 +14,9 @@ export function useHandoffActions() {
   const openSite = useProvidersStore(s => s.openSite);
   const revealImage = useProvidersStore(s => s.revealImage);
   return { openHandoff, openSite, revealImage };
+}
+
+/** True while the Downloads watch is on and would pick the export up by itself. */
+export function useWatchOn(): boolean {
+  return useDownloadsStore(s => Boolean(s.status?.enabled && s.status.watching));
 }

@@ -38,7 +38,7 @@ describe('the By hand checklist', () => {
     expect(
       within(sheet).getByRole('button', { name: 'Open the Desk lamp folder' })
     ).toBeInTheDocument();
-    expect(within(sheet).getByText('5 models to make · nothing spent')).toBeInTheDocument();
+    expect(within(sheet).getByText('5 models to make · no API credits')).toBeInTheDocument();
   });
 
   it('adds a model from the file picker and the send leaves the waiting list', async () => {

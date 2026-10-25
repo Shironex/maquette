@@ -75,8 +75,8 @@ export default function SendForm({ options, draft }: SendFormProps) {
           {draft.provider === 'by-hand' ? (
             <div className="flex flex-col gap-2.5 rounded-card border border-line bg-raised px-3 py-2.5">
               <p className="text-meta text-fg-dim">
-                No API and nothing spent. I write a handoff folder with the images and a settings
-                card for the web app, and the asset waits for your GLB.
+                No API credits; your site plan pays. I write a handoff folder with the images and a
+                settings card for the web app, and the asset waits for your GLB.
               </p>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-fg-dim">Settings card for</span>

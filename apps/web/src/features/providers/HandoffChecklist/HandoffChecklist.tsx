@@ -57,7 +57,7 @@ export default function HandoffChecklist() {
       title="By hand checklist"
       meta={
         waiting.length
-          ? `${waiting.length} ${waiting.length === 1 ? 'model' : 'models'} to make · nothing spent`
+          ? `${waiting.length} ${waiting.length === 1 ? 'model' : 'models'} to make · no API credits`
           : 'Every model is back'
       }
       onClose={close}
