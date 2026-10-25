@@ -14,13 +14,6 @@ import type {
   BatchOptions,
   BatchRequest,
   BatchSent,
-  CardRow,
-  DownloadMatch,
-  DownloadsScan,
-  HandoffCard,
-  KeyStatus,
-  KeyTest,
-  MeshyPreset,
   ProjectManifest,
   ProviderEvent,
   ProviderId,
@@ -29,117 +22,18 @@ import type {
   SendOptions,
   SendRequest,
   Stage,
-  TripoPreset,
   WorkspaceConfig,
 } from '../client';
-import { HOME } from './fixtures';
-import { WORKBENCH_OBJECTS, labRefs, objectRef } from './lab-fixtures';
 import { clock } from '@/lib/clock';
+import type { Args } from './backend-options';
+import { createKeyStore } from './create-key-store';
+import { handoffCard } from './handoff-card';
+import { labRefs } from './lab-fixtures';
+import { PROVIDER_REF_FILES, refImages, suggestedRefs } from './provider-refs';
+import { seedProviders } from './seed-providers';
+import { scanDownloads } from './scan-downloads';
 
-type Args = Record<string, unknown>;
-
-/** The fake key tails: Tripo has one saved, Meshy does not. */
-const TRIPO_TAIL = '9f2c';
-
-const onOff = (on: boolean) => (on ? 'On' : 'Off');
-
-function tripoRows(p: TripoPreset): CardRow[] {
-  return [
-    {
-      label: 'Model',
-      value: p.model.startsWith('v3.1') ? 'H3.1' : p.model,
-      note: `model id ${p.model}`,
-    },
-    {
-      label: 'Face limit',
-      value: p.faceLimit ? p.faceLimit.toLocaleString('en-US') : 'Adaptive',
-      note: null,
-    },
-    { label: 'Texture', value: onOff(p.texture), note: null },
-    { label: 'PBR', value: onOff(p.texture && p.pbr), note: null },
-    {
-      label: 'Texture quality',
-      value: p.textureQuality === 'detailed' ? 'Detailed' : 'Standard',
-      note: null,
-    },
-    {
-      label: 'Geometry',
-      value: p.geometryQuality === 'detailed' ? 'Ultra' : 'Standard',
-      note: null,
-    },
-    { label: 'Smart low poly', value: onOff(p.smartLowPoly), note: null },
-    { label: 'Real-world size', value: onOff(p.autoSize), note: null },
-    { label: 'Fix the image first', value: onOff(p.imageAutofix), note: null },
-  ];
-}
-
-function meshyRows(p: MeshyPreset): CardRow[] {
-  return [
-    { label: 'AI model', value: p.aiModel === 'latest' ? 'Meshy 7.1' : p.aiModel, note: null },
-    { label: 'Texture', value: onOff(p.shouldTexture), note: null },
-    { label: 'PBR', value: onOff(p.enablePbr), note: null },
-    { label: 'Remesh', value: onOff(p.shouldRemesh), note: null },
-    {
-      label: 'Target polycount',
-      value: p.targetPolycount.toLocaleString('en-US'),
-      note: p.shouldRemesh ? null : 'only with Remesh on',
-    },
-  ];
-}
-
-const VIEWS = ['front', 'left', 'back', 'right'];
-
-function card(job: ProviderJob): HandoffCard {
-  const tripo = job.service === 'tripo';
-  const multi = job.images.length > 1;
-  return {
-    service: job.service,
-    site: tripo ? 'https://studio.tripo3d.ai' : 'https://www.meshy.ai/workspace',
-    mode: tripo
-      ? multi
-        ? 'Multiview to 3D'
-        : 'Image to 3D'
-      : multi
-        ? 'Multi-image to 3D'
-        : 'Image to 3D',
-    rows: tripo && job.tripo ? tripoRows(job.tripo) : job.meshy ? meshyRows(job.meshy) : [],
-    images: job.images.map((_, i) => `${VIEWS[i] ?? `view_${i + 1}`}.png`),
-    returnName: `${job.id}.glb`,
-  };
-}
-
-/** Refs the provider fixtures send, served from the Board renders. */
-export const PROVIDER_REF_FILES: Record<string, string> = {
-  'refs/sakura_front.png': 'sakura-large.webp',
-  'refs/lanterns_front.png': 'stone-lantern.webp',
-  'refs/far_spire_front.png': 'far-spire.webp',
-};
-
-function refImages(lab: RefImage[]): RefImage[] {
-  const extra = Object.keys(PROVIDER_REF_FILES).map(file => ({
-    file,
-    name: file.slice('refs/'.length),
-    bytes: 1.6e6,
-  }));
-  return [...extra, ...lab.filter(r => !(r.file in PROVIDER_REF_FILES))];
-}
-
-/** The batch the `?handoff=batch` fixture wrote, and how far each object got. */
-const WORKBENCH_BATCH = 'batch-19a2f0c1e4b';
-const WORKBENCH_STATES: Record<string, { state: ProviderJob['state']; variant?: 'character' }> = {
-  'Desk lamp': { state: 'waiting' },
-  'Sculptor figure': { state: 'waiting', variant: 'character' },
-  'Clay island': { state: 'inbox' },
-  'Turntable island': { state: 'accepted' },
-  'Brush cup': { state: 'waiting' },
-  Calipers: { state: 'waiting' },
-};
-
-const slugOf = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+export { PROVIDER_REF_FILES };
 
 export function createFakeProviders({
   config,
@@ -173,8 +67,8 @@ export function createFakeProviders({
   fail: (code: string, message: string) => never;
 }) {
   const now = clock.nowMs();
-  const keys = new Map<ProviderId, string>([['tripo', TRIPO_TAIL]]);
   const timers = new Map<string, ReturnType<typeof setInterval>>();
+  const keyStore = createKeyStore();
   let jobs: ProviderJob[] = [];
 
   const base = (
@@ -213,173 +107,16 @@ export function createFakeProviders({
     `${projectDir(job.project)}/handoff/${job.id}`;
 
   if (configured) {
-    const lanterns = base({
-      id: 'lanterns-1',
-      asset: 'lanterns',
-      assetName: 'Stone lanterns',
-      provider: 'by-hand',
-      images: ['refs/lanterns_front.png'],
-      state: 'waiting',
-      createdAtMs: now - 26 * 60_000,
-      message: 'Waiting for your model',
-      cancel: 'stop-waiting',
-    });
-    lanterns.handoff = handoffDir(lanterns);
-    lanterns.card = card(lanterns);
-    jobs = [
-      base({
-        id: 'sakura-1',
-        asset: 'sakura',
-        assetName: 'Sakura',
-        provider: 'tripo',
-        images: ['refs/sakura_front.png'],
-        state: 'running',
-        phase: 'generate',
-        progress: 0.46,
-        remoteId: 'a1f0c3d2-tripo',
-        createdAtMs: now - 80_000,
-        startedAtMs: now - 72_000,
-        cancel: 'none',
-      }),
-      lanterns,
-      base({
-        id: 'far-spire-1',
-        asset: 'far-spire',
-        assetName: 'Far spire',
-        provider: 'meshy',
-        images: ['refs/far_spire_front.png'],
-        state: 'failed',
-        phase: 'generate',
-        createdAtMs: now - 3 * 3_600_000,
-        startedAtMs: now - 3 * 3_600_000 + 2_000,
-        finishedAtMs: now - 3 * 3_600_000 + 9_000,
-        message: 'Meshy says the account is out of credits. Top up, then send again.',
-        cancel: 'none',
-      }),
-      base({
-        id: 'character-2',
-        asset: 'character',
-        assetName: 'Character',
-        provider: 'tripo',
-        variant: 'character',
-        images: ['refs/character-model.png'],
-        tripo: structuredClone(config().providers.tripo.character),
-        state: 'accepted',
-        progress: 1,
-        credits: 70,
-        createdAtMs: now - 2 * 86_400_000,
-        startedAtMs: now - 2 * 86_400_000 + 1_000,
-        finishedAtMs: now - 2 * 86_400_000 + 4 * 60_000 + 12_000,
-        inboxFile: 'character-2.glb',
-        version: 2,
-        message: 'Rigged with Mixamo bones, 2 animations.',
-        cancel: 'none',
-      }),
-    ];
-    if (agentsActive) {
-      const asked = [
-        { id: 'far-spire-2', asset: 'far-spire', assetName: 'Far spire', image: 'far_spire_front' },
-        ...(agentsBatch
-          ? [
-              { id: 'sakura-2', asset: 'sakura', assetName: 'Sakura', image: 'sakura_front' },
-              {
-                id: 'lanterns-2',
-                asset: 'lanterns',
-                assetName: 'Stone lanterns',
-                image: 'lanterns_front',
-              },
-            ]
-          : []),
-      ];
-      for (const a of asked)
-        jobs.push(
-          base({
-            id: a.id,
-            asset: a.asset,
-            assetName: a.assetName,
-            provider: 'tripo',
-            images: [`refs/${a.image}.png`],
-            state: 'approval',
-            createdAtMs: now - 40_000,
-            message: 'Waiting for your approval before spending credits',
-            viaAgent: true,
-            batch: agentsBatch ? 'batch-agent-1' : null,
-          })
-        );
-    }
-    if (handoff === 'batch') {
-      const written = now - 52 * 60_000;
-      WORKBENCH_OBJECTS.forEach((o, i) => {
-        const spec = WORKBENCH_STATES[o.title] ?? { state: 'waiting' as const };
-        const variant = spec.variant ?? 'prop';
-        const back = spec.state !== 'waiting';
-        const job = base({
-          id: `${slugOf(o.title)}-1`,
-          asset: slugOf(o.title),
-          assetName: o.title,
-          provider: 'by-hand',
-          variant,
-          images: [objectRef(o.title)],
-          tripo: structuredClone(config().providers.tripo[variant]),
-          state: spec.state,
-          createdAtMs: written + i * 1_000,
-          finishedAtMs: back ? now - (30 - i * 4) * 60_000 : null,
-          message: back ? null : 'Waiting for your model',
-          inboxFile: back ? `${slugOf(o.title)}-1.glb` : null,
-          version: spec.state === 'accepted' ? 1 : null,
-          cancel: back ? 'none' : 'stop-waiting',
-          batch: WORKBENCH_BATCH,
-        });
-        job.handoff = handoffDir(job);
-        job.card = card(job);
-        jobs.push(job);
-      });
-    }
-    // The Board shows the sends: assets move to the Tripo column with their state.
-    const status: Record<string, [Stage, AssetStatus]> = {
-      sakura: ['tripo', 'running'],
-      lanterns: ['tripo', 'queued'],
-      'far-spire': ['tripo', agentsActive ? 'queued' : 'failed'],
-    };
-    const p = project('moon-island');
-    const at = new Date(now - 52 * 60_000).toISOString();
-    const objects: Asset[] =
-      handoff === 'batch'
-        ? WORKBENCH_OBJECTS.map(o => {
-            const spec = WORKBENCH_STATES[o.title];
-            const accepted = spec?.state === 'accepted';
-            return {
-              id: slugOf(o.title),
-              name: o.title,
-              kind: spec?.variant ?? 'prop',
-              stage: accepted ? 'blender' : 'tripo',
-              status:
-                spec?.state === 'inbox' ? 'review' : accepted ? 'done' : ('queued' as AssetStatus),
-              versions: accepted
-                ? [
-                    {
-                      version: 1,
-                      file: `models/${slugOf(o.title).replace(/-/g, '_')}_v1.glb`,
-                      createdAt: at,
-                      stats: null,
-                    },
-                  ]
-                : [],
-              thumbnail: objectRef(o.title),
-              createdAt: at,
-              updatedAt: at,
-            };
-          })
-        : [];
-    saveProject({
-      ...p,
-      assets: [
-        ...(p.assets ?? []).map(a => {
-          const next = status[a.id];
-          return next ? { ...a, stage: next[0], status: next[1] } : a;
-        }),
-        ...objects,
-      ],
+    jobs = seedProviders({
+      base,
+      config,
+      now,
+      agentsActive,
+      agentsBatch,
+      handoff,
+      handoffDir,
+      project,
+      saveProject,
     });
   }
 
@@ -452,24 +189,6 @@ export function createFakeProviders({
     return `${asset}-${used + 1}`;
   };
 
-  const status = (service: ProviderId): KeyStatus => ({
-    service,
-    saved: keys.has(service),
-    tail: keys.get(service) ?? null,
-  });
-
-  /** The asset's own refs, front first: what its direction sent, else refs named after it. */
-  const suggestedFor = (p: ProjectManifest, asset: Asset, images: RefImage[]): string[] => {
-    const slug = asset.id.replace(/-/g, '_');
-    const fromLab = (lab?.sentFor(p.id, asset.name) ?? []).filter(file =>
-      images.some(i => i.file === file)
-    );
-    const byName = images
-      .filter(i => i.name.toLowerCase().replace(/-/g, '_').startsWith(slug))
-      .map(i => i.file);
-    return (fromLab.length > 0 ? fromLab : byName).slice(0, 4);
-  };
-
   const assetOf = (p: ProjectManifest, assetId: string): Asset =>
     (p.assets ?? []).find(a => a.id === assetId) ??
     fail('not-found', `Could not find the asset ${assetId}.`);
@@ -481,7 +200,7 @@ export function createFakeProviders({
       job.message = 'Waiting for your model';
       job.cancel = 'stop-waiting';
       job.handoff = handoffDir(job);
-      job.card = card(job);
+      job.card = handoffCard(job);
       put(job);
       touch(job, 'queued');
       return job;
@@ -502,9 +221,9 @@ export function createFakeProviders({
         projectDir: projectDir(p.id),
         asset,
         images,
-        suggested: suggestedFor(p, asset, images),
+        suggested: suggestedRefs(lab, p, asset, images),
         variant: asset.kind === 'character' ? 'character' : 'prop',
-        keys: [status('tripo'), status('meshy')],
+        keys: [keyStore.status('tripo'), keyStore.status('meshy')],
         jobs: jobs.filter(j => j.asset === asset.id),
       };
     },
@@ -515,7 +234,7 @@ export function createFakeProviders({
         const asset = assetOf(p, assetId);
         return {
           asset,
-          suggested: suggestedFor(p, asset, images),
+          suggested: suggestedRefs(lab, p, asset, images),
           variant: asset.kind === 'character' ? 'character' : 'prop',
         };
       });
@@ -523,7 +242,7 @@ export function createFakeProviders({
         project: p.id,
         projectDir: projectDir(p.id),
         items,
-        keys: [status('tripo'), status('meshy')],
+        keys: [keyStore.status('tripo'), keyStore.status('meshy')],
       };
     },
     provider_send_batch: ({ request }): BatchSent => {
@@ -531,7 +250,7 @@ export function createFakeProviders({
       const p = project(req.project);
       if (req.items.length === 0) fail('invalid', 'Pick at least one asset to send.');
       if (req.items.length > 24) fail('invalid', 'A batch takes at most 24 assets.');
-      if (req.provider !== 'by-hand' && !keys.has(req.provider))
+      if (req.provider !== 'by-hand' && !keyStore.has(req.provider))
         fail('invalid', `Save a ${req.provider === 'tripo' ? 'Tripo' : 'Meshy'} API key first.`);
       const service: ProviderId = req.provider === 'by-hand' ? req.service : req.provider;
       // Checked whole before anything is written.
@@ -569,53 +288,7 @@ export function createFakeProviders({
       );
       return { batch, jobs: sent, failed: [] };
     },
-    provider_check_downloads: ({ project: id }): DownloadsScan => {
-      const waiting = jobs.filter(
-        j => j.project === id && j.provider === 'by-hand' && j.state === 'waiting'
-      );
-      const since = waiting.length ? Math.min(...waiting.map(j => j.createdAtMs ?? now)) : null;
-      const at = clock.nowMs();
-      const file = (
-        name: string,
-        inner: string | null,
-        bytes: number,
-        ago: number,
-        job: ProviderJob | undefined,
-        reason: string | null
-      ): DownloadMatch => ({
-        path: `${HOME}/Downloads/${name}`,
-        name,
-        inner,
-        bytes,
-        modifiedMs: at - ago * 60_000,
-        job: job?.id ?? null,
-        assetName: job?.assetName ?? null,
-        reason: job ? reason : null,
-      });
-      const [first, second] = waiting;
-      const slug = (j: ProviderJob) => j.assetName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-      const files = waiting.length
-        ? [
-            ...(first
-              ? [file(`${slug(first)}.glb`, null, 4.2e6, 3, first, `Named like ${first.assetName}`)]
-              : []),
-            ...(second
-              ? [
-                  file(
-                    `tripo_${slug(second)}_8c1f.zip`,
-                    `${slug(second)}.glb`,
-                    6.8e6,
-                    7,
-                    second,
-                    `Name close to ${second.assetName}`
-                  ),
-                ]
-              : []),
-            file('model (3).glb', null, 3.1e6, 12, undefined, null),
-          ]
-        : [];
-      return { folder: `${HOME}/Downloads`, sinceMs: since, files, waiting };
-    },
+    provider_check_downloads: ({ project: id }) => scanDownloads(jobs, id, now),
     provider_open_site: () => null,
     provider_reveal_image: () => null,
     provider_send: ({ request }) => {
@@ -623,7 +296,7 @@ export function createFakeProviders({
       const p = project(req.project);
       const asset = assetOf(p, req.asset);
       if (req.images.length === 0) fail('invalid', 'Pick at least one image.');
-      if (req.provider !== 'by-hand' && !keys.has(req.provider)) {
+      if (req.provider !== 'by-hand' && !keyStore.has(req.provider)) {
         fail('invalid', `Save a ${req.provider === 'tripo' ? 'Tripo' : 'Meshy'} API key first.`);
       }
       const job = base({
@@ -693,28 +366,7 @@ export function createFakeProviders({
       return jobs.filter(j => j.project === id);
     },
     provider_open_handoff: () => null,
-    provider_keys: () => [status('tripo'), status('meshy')],
-    provider_key_save: ({ service, key }) => {
-      const text = String(key).trim();
-      if (!text || /\s/.test(text)) fail('invalid', 'That does not look like an API key.');
-      keys.set(service as ProviderId, text.slice(-4));
-      return status(service as ProviderId);
-    },
-    provider_key_remove: ({ service }) => {
-      keys.delete(service as ProviderId);
-      return status(service as ProviderId);
-    },
-    provider_key_test: ({ service, key }): KeyTest => {
-      const id = service as ProviderId;
-      const name = id === 'tripo' ? 'Tripo' : 'Meshy';
-      if (!key && !keys.has(id)) fail('invalid', `Save a ${name} API key first.`);
-      return {
-        service: id,
-        ok: true,
-        balance: id === 'tripo' ? 1240 : 380,
-        message: `The key works. ${id === 'tripo' ? '1,240' : '380'} credits left.`,
-      };
-    },
+    ...keyStore.handlers,
   };
 
   /** An agent's send was approved or denied in the app. */

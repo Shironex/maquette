@@ -23,42 +23,19 @@
  * Configured scenarios also open with Send to 3D jobs (see `providers.ts`).
  */
 import type {
-  AcceptRequest,
-  ConceptEvent,
-  AssetKind,
   Bootstrap,
   CompressPreset,
-  ErrorPayload,
-  McpStatus,
-  ImportScan,
   InboxItem,
-  NewAsset,
-  NewProject,
-  PipelineEvent,
   PipelineView,
-  ProviderEvent,
-  Stage,
   ProjectManifest,
   ProjectSummary,
   StarterStatus,
-  RepoInspection,
   RootInspection,
-  SceneLayout,
-  ToolId,
-  ToolReport,
   WorkspaceConfig,
   WorkspaceSnapshot,
 } from '../client';
-import {
-  DEFAULT_ROOT,
-  HOME,
-  defaultConfig,
-  mockProjects,
-  providerCatalog,
-  toolReports,
-} from './fixtures';
+import { DEFAULT_ROOT, HOME, defaultConfig, mockProjects, providerCatalog } from './fixtures';
 import { inboxItems } from './inbox-fixtures';
-import { inspectView } from './inspect-fixtures';
 import {
   currentStarters,
   dioramaPipeline,
@@ -73,69 +50,14 @@ import { createFakeLayout } from './layout';
 import { createFakeProviders } from './providers';
 import { createFakeRunner, type RunStore } from './runner';
 import { clock } from '@/lib/clock';
+import { createAssetHandlers } from './create-asset-handlers';
+import { createInboxHandlers } from './create-inbox-handlers';
+import { createPipelineHandlers } from './create-pipeline-handlers';
+import { createProjectHandlers } from './create-project-handlers';
+import { createToolchainHandlers } from './create-toolchain-handlers';
+import { display, expand, fail, type Args, type BackendOptions } from './backend-options';
 
-type Args = Record<string, unknown>;
-
-export interface MockOptions {
-  scenario: string;
-  /** Milliseconds a toolchain check takes, so the checking state is visible. */
-  probeDelay: number;
-  /** Milliseconds between streamed log lines. */
-  pace?: number;
-  /** Delivers runner, inbox and concept events to the UI. */
-  emit?: (
-    event:
-      | { name: 'pipeline'; payload: PipelineEvent }
-      | { name: 'inbox' }
-      | { name: 'concept'; payload: ConceptEvent }
-      | { name: 'mcp'; payload: McpStatus }
-      | { name: 'provider'; payload: ProviderEvent }
-  ) => void;
-  /** `active`: the MCP server is on, mid agent session. */
-  agents?: string | null;
-  /** `running` holds two concept jobs mid way, for screenshots. */
-  lab?: string | null;
-  /** Milliseconds one fake concept image takes (default 4000). */
-  conceptMs?: number;
-  /** `many`: eight projects instead of three. */
-  projects?: string | null;
-  /** `batch`: the workbench objects and their By hand batch. */
-  handoff?: string | null;
-  /** Serves files the backend "writes", since mock mode has no disk. */
-  files?: {
-    /** Serves whatever `from` serves at `path` too. */
-    alias: (path: string, from: string) => void;
-    /** Serves `bytes` (a PNG) at `path`. */
-    store: (path: string, bytes: Uint8Array) => void;
-    /** Tiles the images served at `sources` into one PNG served at `path`. */
-    sheet?: (path: string, sources: string[]) => Promise<void>;
-  };
-}
-
-function fail(code: string, message: string): never {
-  const payload: ErrorPayload = { code, message };
-  throw payload;
-}
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-function expand(path: string): string {
-  return path.replace(/^~(?=$|\/)/, HOME);
-}
-
-function display(path: string): string {
-  return path.startsWith(HOME) ? `~${path.slice(HOME.length)}` : path;
-}
-
-function slugify(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'project'
-  );
-}
+export type MockOptions = BackendOptions;
 
 export function createBackend({
   scenario,
@@ -148,13 +70,12 @@ export function createBackend({
   agents: agentsState = null,
   projects: projectsState = null,
   handoff = null,
-}: MockOptions) {
+}: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
   let root: string | null = configured ? expand(DEFAULT_ROOT) : null;
   let projects: ProjectManifest[] = configured ? mockProjects(projectsState === 'many') : [];
   let cacheBytes = configured ? 2.3e9 : 0;
-  const overrides = new Map<ToolId, string>();
   if (configured) config = { ...config, currentProject: 'moon-island' };
   const agentsOn = agentsState === 'active' || agentsState === 'batch';
   if (configured && agentsOn) {
@@ -175,7 +96,6 @@ export function createBackend({
     postersFail: scenario !== 'idle',
   });
   let inbox: InboxItem[] = configured ? inboxItems(`${expand(DEFAULT_ROOT)}/inbox`, now) : [];
-  const kinds = new Map<string, AssetKind>();
 
   const layout = createFakeLayout({
     project: id => project(id),
@@ -288,23 +208,6 @@ export function createBackend({
     return { ...base, state: 'missing', entries: 0 };
   }
 
-  function tools(): ToolReport[] {
-    return toolReports(scenario).map(r => {
-      const path = overrides.get(r.id);
-      return path
-        ? {
-            ...r,
-            status: 'found',
-            source: 'override',
-            path,
-            version: r.version ?? '1.0.0',
-            detail: r.detail === 'not found on PATH' ? null : r.detail,
-            hint: null,
-          }
-        : r;
-    });
-  }
-
   function validate(next: WorkspaceConfig) {
     const port = next.agents.mcpPort;
     if (port < 1024 || port > 65535)
@@ -414,352 +317,37 @@ export function createBackend({
       cacheBytes = 0;
       return { bytes: 0 };
     },
-    toolchain_detect: async () => {
-      await sleep(probeDelay);
-      return tools();
-    },
-    toolchain_locate: async ({ tool, path }) => {
-      await sleep(probeDelay / 2);
-      overrides.set(tool as ToolId, String(path));
-      const found = tools().find(r => r.id === tool);
-      if (!found) fail('not-found', `Could not find ${String(tool)}.`);
-      return found;
-    },
-    toolchain_reset: ({ tool }) => {
-      overrides.delete(tool as ToolId);
-      return tools().find(r => r.id === tool);
-    },
-    project_create: ({ project }) => {
-      snapshot();
-      const next = project as NewProject;
-      const name = next.name.trim();
-      if (!name) fail('invalid', 'Give the project a name.');
-      let id = slugify(name);
-      while (projects.some(p => p.id === id)) id = `${id}-2`;
-      const manifest: ProjectManifest = {
-        version: 1,
-        id,
-        name,
-        template: next.template,
-        siteRepo: next.siteRepo ? expand(next.siteRepo) : null,
-        sourceFolder: next.sourceFolder ? expand(next.sourceFolder) : null,
-        createdAt: clock.now().toISOString(),
-        assets: [],
-      };
-      projects = [...projects, manifest];
-      config = { ...config, currentProject: id };
-      return snapshot();
-    },
-    project_list: () => {
-      snapshot();
-      return projects.map(summary);
-    },
-    project_switch: ({ id }) => {
-      snapshot();
-      project(String(id));
-      config = { ...config, currentProject: String(id) };
-      return snapshot();
-    },
-    project_update: ({ id, name, siteRepo }) => {
-      const current = projects.find(p => p.id === id);
-      if (!current) fail('not-found', `Could not find the project ${String(id)}.`);
-      const updated: ProjectManifest = {
-        ...current,
-        name: String(name).trim() || current.name,
-        siteRepo: siteRepo ? expand(String(siteRepo)) : null,
-      };
-      projects = projects.map(p => (p.id === id ? updated : p));
-      return updated;
-    },
-    project_inspect_repo: ({ path }): RepoInspection => {
-      const full = expand(String(path));
-      const known = /site|landing|web/i.test(full);
-      return { path: full, exists: known, isGit: known, hasPublicDir: known };
-    },
-    project_scan_import: ({ path }): ImportScan => ({
-      path: expand(String(path)),
-      blendFiles: [
-        { file: 'scenes/island_v3.blend', stem: 'island', version: 3 },
-        { file: 'scenes/island_v2.blend', stem: 'island', version: 2 },
-      ],
-      toolScripts: ['bake.py', 'export.py'],
+    ...createToolchainHandlers(scenario, probeDelay),
+    ...createProjectHandlers({
+      snapshot,
+      project,
+      summary,
+      projects: { get: () => projects, set: next => (projects = next) },
+      config: { get: () => config, set: next => (config = next) },
     }),
-    dialog_pick_folder: ({ start }) => (typeof start === 'string' && start ? start : DEFAULT_ROOT),
-    dialog_pick_file: () => '/usr/local/bin/toktx',
-    dialog_pick_model: () => `${HOME}/Downloads/desk_lamp.glb`,
-    asset_add: ({ project: id, asset }) => {
-      const p = project(String(id));
-      const next = asset as NewAsset;
-      const name = next.name.trim();
-      if (!name) fail('invalid', 'Give the asset a name.');
-      let assetId = slugify(name);
-      while ((p.assets ?? []).some(a => a.id === assetId)) assetId = `${assetId}-2`;
-      const at = clock.now().toISOString();
-      return saveProject({
-        ...p,
-        assets: [
-          ...(p.assets ?? []),
-          {
-            id: assetId,
-            name,
-            kind: next.kind,
-            stage: next.stage,
-            status: 'queued',
-            versions: [],
-            thumbnail: null,
-            createdAt: at,
-            updatedAt: at,
-          },
-        ],
-      });
-    },
-    asset_move: ({ project: id, id: assetId, stage }) => {
-      const p = project(String(id));
-      if (!(p.assets ?? []).some(a => a.id === assetId))
-        fail('not-found', `Could not find the asset ${String(assetId)}.`);
-      const at = clock.now().toISOString();
-      return saveProject({
-        ...p,
-        assets: (p.assets ?? []).map(a =>
-          a.id === assetId ? { ...a, stage: stage as Stage, updatedAt: at } : a
-        ),
-      });
-    },
-    asset_rename: ({ project: id, id: assetId, name }) => {
-      const p = project(String(id));
-      const next = String(name).trim();
-      if (!next) fail('invalid', 'Give the asset a name.');
-      if (next.length > 80) fail('invalid', 'Keep the asset name to 80 characters or fewer.');
-      const assets = p.assets ?? [];
-      if (!assets.some(a => a.id === assetId))
-        fail('not-found', `Could not find the asset ${String(assetId)}.`);
-      const slug = slugify(next);
-      if (assets.some(a => a.id !== assetId && (a.id === slug || slugify(a.name) === slug)))
-        fail('invalid', `Another asset is already called ${next}.`);
-      const at = clock.now().toISOString();
-      return saveProject({
-        ...p,
-        assets: assets.map(a => (a.id === assetId ? { ...a, name: next, updatedAt: at } : a)),
-      });
-    },
-    asset_open_in_blender: () => fail('unavailable', 'Mock mode does not open Blender.'),
-    asset_copy_to_project: ({ project: id, id: assetId, to }) => {
-      if (id === to) fail('invalid', 'Pick another project to copy the asset to.');
-      const from = project(String(id));
-      const target = project(String(to));
-      const source = (from.assets ?? []).find(a => a.id === assetId);
-      if (!source) fail('not-found', `Could not find the asset ${String(assetId)}.`);
-      const taken = (name: string) =>
-        (target.assets ?? []).some(
-          a => a.id === slugify(name) || slugify(a.name) === slugify(name)
-        );
-      let name = source.name;
-      for (let n = 2; taken(name); n++) name = `${source.name} ${n}`;
-      const newId = slugify(name);
-      const key = newId.replace(/-/g, '_');
-      const oldKey = source.id.replace(/-/g, '_');
-      const dir = (pid: string) => `${root ?? expand(DEFAULT_ROOT)}/projects/${pid}`;
-      const versions = source.versions.map(v => {
-        const file = `models/${key}_v${v.version}.glb`;
-        files?.alias(`${dir(target.id)}/${file}`, `${dir(from.id)}/${v.file}`);
-        return { ...v, file };
-      });
-      const thumbnail = source.thumbnail?.replace(oldKey, key) ?? null;
-      if (source.thumbnail && thumbnail) {
-        files?.alias(`${dir(target.id)}/${thumbnail}`, `${dir(from.id)}/${source.thumbnail}`);
-      }
-      const at = clock.now().toISOString();
-      const asset = {
-        ...source,
-        id: newId,
-        name,
-        versions,
-        thumbnail,
-        createdAt: at,
-        updatedAt: at,
-      };
-      const next = saveProject({ ...target, assets: [...(target.assets ?? []), asset] });
-      return { asset, to: next, refs: [] };
-    },
-    layout_get: ({ project: id }) => layout.view(String(id)),
-    layout_save: ({ project: id, layout: next }) => {
-      project(String(id));
-      return layout.save(String(id), next as SceneLayout);
-    },
-    pipeline_get: ({ project: id }) => view(String(id)),
-    pipeline_run: ({ project: id, from, force }) => {
-      const def = view(String(id)).def;
-      return runner.submit(String(id), def, (from as string | null) ?? null, Boolean(force));
-    },
-    pipeline_cancel: ({ runId }) => runner.cancel(String(runId)),
-    pipeline_log: ({ number }) => store.logs.get(Number(number)) ?? [],
-    pipeline_update_starters: ({ project: id, scripts, replace }) => {
-      const pid = String(id);
-      if (activeRun(pid))
-        fail('invalid', 'The pipeline is running. Update the scripts once the run is done.');
-      const asked = new Set(scripts as string[]);
-      starters.set(
-        pid,
-        startersOf(pid).map(s => {
-          if (!asked.has(s.path) || s.state === 'current') return s;
-          if (s.state === 'edited' && !replace) return s;
-          return {
-            ...s,
-            state: 'current',
-            backup: s.state === 'edited' ? `${s.path}.bak` : null,
-          };
-        })
-      );
-      return view(pid);
-    },
-    pipeline_save_presets: ({ project: id, presets: rows }) => {
-      const next = rows as CompressPreset[];
-      const locked = view(String(id)).def.presets.filter(p => p.lock);
-      // Field by field, as the core compares; a missing data map size is none.
-      const plain = (p: CompressPreset) =>
-        JSON.stringify([
-          p.label,
-          p.textureSize,
-          p.dataTextureSize ?? null,
-          p.codec,
-          p.meshopt,
-          p.lock,
-        ]);
-      for (const old of locked) {
-        const same = next.find(p => p.model === old.model);
-        if (!same || plain(same) !== plain(old)) fail('invalid', old.lock ?? 'That row is locked.');
-      }
-      presets.set(String(id), next);
-      return view(String(id));
-    },
-    inspect_project: ({ project: id }) => {
-      const p = project(String(id));
-      const v = view(p.id);
-      // Only Moon Island has shipped models in mock mode.
-      if (p.id !== 'moon-island') {
-        return {
-          project: p.id,
-          models: [],
-          comparisons: [],
-          stops: { source: 'none', file: null, stops: [] },
-          budgets: [],
-          limits: {
-            sceneMb: config.budgets.sceneMb ?? 3,
-            trisPerModel: config.budgets.trisPerModel,
-            firstViewMb: config.budgets.firstViewMb ?? 3,
-          },
-          scene: { bytes: 0, triangles: 0, models: 0 },
-        };
-      }
-      return inspectView(
-        p.id,
-        `${root ?? expand(DEFAULT_ROOT)}/projects/${p.id}`,
-        v.def.presets,
-        v.defaults,
-        config.budgets.sceneMb ?? 3,
-        config.budgets.trisPerModel
-      );
-    },
-    inspect_export_glb: ({ project: id, model }) => {
-      project(String(id));
-      return { model: String(model), file: `web/raw/${String(model)}.glb`, runNumber: 27 };
-    },
-    inbox_list: () => ({
-      dir: '~/Maquette/inbox',
-      path: `${expand(DEFAULT_ROOT)}/inbox`,
-      watching: Boolean(root),
-      items: inbox.map(i => ({
-        ...i,
-        kind: kinds.get(i.id) ?? i.kind,
-        kindGuessed: !kinds.has(i.id) && !i.kindFromSend,
-      })),
+    ...createAssetHandlers({ project, saveProject, root: () => root, files }),
+    ...createPipelineHandlers({
+      project,
+      config: () => config,
+      root: () => root,
+      layout,
+      runner,
+      store,
+      presets,
+      starters,
+      view,
+      startersOf,
+      activeRun,
     }),
-    inbox_reprocess: async ({ id }) => {
-      await sleep(probeDelay / 2);
-      const item = inbox.find(i => i.id === id);
-      if (!item) fail('not-found', `${String(id)} in the inbox`);
-      return item;
-    },
-    inbox_set_kind: ({ id, kind }) => {
-      const item = inbox.find(i => i.id === id);
-      if (!item) fail('not-found', `${String(id)} in the inbox`);
-      kinds.set(item.id, kind as AssetKind);
-      return { ...item, kind: kind as AssetKind, kindGuessed: false, kindFromSend: false };
-    },
-    inbox_accept: ({ request }) => {
-      const req = request as AcceptRequest;
-      const item = inbox.find(i => i.id === req.item);
-      if (!item) fail('not-found', `${req.item} in the inbox`);
-      const p = project(req.project);
-      const assets = [...(p.assets ?? [])];
-      const assetId = req.asset ?? slugify(item.name);
-      let target = assets.find(a => a.id === assetId);
-      const at = clock.now().toISOString();
-      if (!target) {
-        target = {
-          id: assetId,
-          name: item.name,
-          kind: kinds.get(item.id) ?? item.kind,
-          stage: 'tripo',
-          status: 'queued',
-          versions: [],
-          thumbnail: null,
-          createdAt: at,
-          updatedAt: at,
-        };
-        assets.push(target);
-      }
-      const number = target.versions.length + 1;
-      const version = {
-        version: number,
-        file: `models/${assetId.replace(/-/g, '_')}_v${number}.glb`,
-        createdAt: at,
-        stats: item.report
-          ? {
-              triangles: item.report.triangles,
-              bytes: item.report.bytes,
-              textures: item.report.textures.length,
-              maxTexture: item.report.maxTexture,
-              joints: item.report.joints,
-              animations: item.report.animations.length,
-            }
-          : null,
-      };
-      // The service renders a thumbnail for the new version; mock mode reuses the inbox one.
-      let thumbnail = target.thumbnail;
-      if (item.thumbnail) {
-        thumbnail = `thumbs/${assetId.replace(/-/g, '_')}_v${number}.png`;
-        files?.alias(`${expand(DEFAULT_ROOT)}/projects/${p.id}/${thumbnail}`, item.thumbnail);
-      }
-      const updated = {
-        ...target,
-        thumbnail,
-        versions: [...target.versions, version],
-        stage: 'blender' as Stage,
-        status: 'review' as const,
-        updatedAt: at,
-      };
-      const next = saveProject({ ...p, assets: assets.map(a => (a.id === assetId ? updated : a)) });
-      inbox = inbox.filter(i => i.id !== item.id);
-      emit?.({ name: 'inbox' });
-      return {
-        asset: updated,
-        version,
-        file: `${expand(DEFAULT_ROOT)}/projects/${p.id}/${version.file}`,
-        project: next,
-      };
-    },
-    inbox_open_in_blender: () => fail('unavailable', 'Mock mode does not open Blender.'),
-    thumbnail_store: ({ file, png }) => {
-      const item = inbox.find(i => i.file === file);
-      if (!item) fail('not-found', `${String(file)} in the inbox`);
-      const path = `${expand(DEFAULT_ROOT)}/cache/thumbs/${item.id}.png`;
-      files?.store(path, Uint8Array.from(png as number[]));
-      inbox = inbox.map(i =>
-        i.id === item.id ? { ...i, thumbnail: path, thumbnailState: 'ready' as const } : i
-      );
-      return path;
-    },
+    ...createInboxHandlers({
+      project,
+      saveProject,
+      root: () => root,
+      inbox: { get: () => inbox, set: next => (inbox = next) },
+      probeDelay,
+      emit,
+      files,
+    }),
   };
 
   // The `running` scenario starts run 25 as soon as the app opens.
