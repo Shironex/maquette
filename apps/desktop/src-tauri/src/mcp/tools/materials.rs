@@ -223,6 +223,12 @@ fn summary(
     }))
 }
 
+/// A preset table to write and the one it replaces, for putting it back.
+struct PresetChange {
+    next: Vec<CompressPreset>,
+    previous: Vec<CompressPreset>,
+}
+
 /// The preset table with the asset's map codecs changed, checked against
 /// the locks but not saved.
 fn with_codecs(
@@ -231,9 +237,10 @@ fn with_codecs(
     stem: &str,
     label: &str,
     edit: &CodecsEdit,
-) -> Result<Vec<CompressPreset>, String> {
+) -> Result<PresetChange, String> {
     let view = pipeline::view(host.session(), host.runner(), project_id).map_err(|e| e.message)?;
-    let mut table = view.def.presets.clone();
+    let previous = view.def.presets.clone();
+    let mut table = previous.clone();
     let index = table
         .iter()
         .position(|p| p.model == stem)
@@ -265,7 +272,27 @@ fn with_codecs(
         }
     }
     row.map_codecs = (!codecs.is_empty()).then_some(codecs);
-    presets::apply(&view.def.presets, table).map_err(reason)
+    let next = presets::apply(&previous, table).map_err(reason)?;
+    Ok(PresetChange { next, previous })
+}
+
+/// Writes the presets, then the tweaks; when the tweaks fail the previous
+/// presets go back, so a call changes both or neither.
+fn presets_then_tweaks<T>(
+    presets: Option<PresetChange>,
+    mut save_presets: impl FnMut(Vec<CompressPreset>) -> Result<(), String>,
+    save_tweaks: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    let Some(change) = presets else {
+        return save_tweaks();
+    };
+    save_presets(change.next)?;
+    save_tweaks().map_err(|err| match save_presets(change.previous) {
+        Ok(()) => err,
+        Err(undo) => format!(
+            "{err} The new codecs were saved and could not be put back ({undo}); check the asset's preset row."
+        ),
+    })
 }
 
 #[tool_router(router = materials_router, vis = "pub(super)")]
@@ -286,7 +313,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change an asset's material tweaks and texture codecs, as the Inspector's Material panel does. `all` changes every material; `materials` changes one by name (its fields win over all; null removes the entry). A tweak has tint (\"#rrggbb\", multiplies the base color), roughness ({ mode: override or multiply, value }), metalness (0 to 1, replaces it) and emissiveStrength (0 to 50); only the fields you give change and null clears one. An override of roughness or metalness drops the model's metal and roughness map, so the value applies evenly. `codecs` sets etc1s or uastc per map group (color, normal, other; normal maps default to uastc, null goes back to the default). Locked preset rows refuse codec changes, and nothing is written when any part is refused. The source model never changes: Compress applies the tweaks to the shipped GLB on the next run, and the open app updates live. Returns the result like get_material_tweaks.",
+        description = "Change an asset's material tweaks and texture codecs, as the Inspector's Material panel does. `all` changes every material; `materials` changes one by name (its fields win over all; null removes the entry). A tweak has tint (\"#rrggbb\", multiplies the base color), roughness ({ mode: override or multiply, value }), metalness (0 to 1, replaces it) and emissiveStrength (0 to 50); only the fields you give change and null clears one. An override of roughness or metalness drops the model's metal and roughness map, so the value applies evenly. `codecs` sets etc1s or uastc per map group (color, normal, other; normal maps default to uastc, null goes back to the default). Locked preset rows refuse codec changes, and nothing is written when any part is refused; when the tweaks cannot be written, the codecs go back as they were. The source model never changes: Compress applies the tweaks to the shipped GLB on the next run, and the open app updates live. Returns the result like get_material_tweaks.",
         annotations(idempotent_hint = true)
     )]
     async fn set_material_tweaks(&self, Parameters(args): Parameters<SetMaterialsArgs>) -> Out {
@@ -310,17 +337,37 @@ impl McpTools {
                     }
                     (None, _) => None,
                 };
-                // Applied to the file on disk and checked whole before it is written.
-                let saved = commands::update(host.session(), &args.project, |current| {
-                    materials::apply_patch(current, &target.asset.id, &change, &target.names)
-                })
-                .map_err(|e| e.message)?;
-                host.materials_changed(&args.project);
-                if let Some(table) = table {
-                    pipeline::save_presets(host.session(), host.runner(), &args.project, table)
-                        .map_err(|e| e.message)?;
+                // Both checked whole before anything is written.
+                let current =
+                    commands::get(host.session(), &args.project).map_err(|e| e.message)?;
+                materials::apply_patch(&current, &target.asset.id, &change, &target.names)
+                    .map_err(reason)?;
+                let codecs = table.is_some();
+                let saved = presets_then_tweaks(
+                    table,
+                    |rows| {
+                        pipeline::save_presets(host.session(), host.runner(), &args.project, rows)
+                            .map(drop)
+                            .map_err(|e| e.message)
+                    },
+                    || {
+                        // Applied to the file on disk, which the app may have
+                        // changed since the check.
+                        commands::update(host.session(), &args.project, |current| {
+                            materials::apply_patch(
+                                current,
+                                &target.asset.id,
+                                &change,
+                                &target.names,
+                            )
+                        })
+                        .map_err(|e| e.message)
+                    },
+                )?;
+                if codecs {
                     host.pipeline_changed(&args.project);
                 }
+                host.materials_changed(&args.project);
                 summary(host, &args.project, &target, &saved)
             })
             .await;
@@ -329,45 +376,4 @@ impl McpTools {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn edits_turn_into_core_patches_and_bad_words_are_refused() {
-        let args: SetMaterialsArgs = serde_json::from_value(json!({
-            "project": "bench",
-            "asset": "laptop",
-            "all": { "tint": "#3a3936", "roughness": { "mode": "Override", "value": 0.62 }, "emissiveStrength": null },
-            "materials": { "Screen": null }
-        }))
-        .expect("args");
-        let patch = args.patch().expect("patch");
-        let all = patch.all.expect("all");
-        assert_eq!(all.tint, Some(Some("#3a3936".to_string())));
-        assert_eq!(
-            all.roughness.flatten().map(|r| r.mode),
-            Some(FactorMode::Override)
-        );
-        assert_eq!(all.metalness, None, "left out stays");
-        assert_eq!(all.emissive_strength, Some(None), "null clears");
-        assert_eq!(patch.materials.get("Screen"), Some(&None));
-
-        let bad: SetMaterialsArgs = serde_json::from_value(json!({
-            "project": "bench",
-            "asset": "laptop",
-            "all": { "roughness": { "mode": "lerp", "value": 0.5 } }
-        }))
-        .expect("args");
-        assert!(
-            bad.patch()
-                .expect_err("mode")
-                .contains("override or multiply")
-        );
-        assert!(
-            parse_codec("normal", "bc7")
-                .expect_err("codec")
-                .contains("codecs.normal")
-        );
-        assert_eq!(parse_codec("color", "UASTC"), Ok(TextureCodec::Uastc));
-    }
-}
+mod tests;
