@@ -78,7 +78,16 @@ impl FakeServer {
     /// Starts a server; `handler` gets the base URL (for download links)
     /// and the request.
     pub(super) fn start(handler: impl Fn(&str, &Request) -> Reply + Send + Sync + 'static) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        Self::start_at("127.0.0.1:0", handler)
+    }
+
+    /// As [`FakeServer::start`], on a chosen address: a test can let a
+    /// client fail to connect first, then start the server where it looks.
+    pub(super) fn start_at(
+        addr: &str,
+        handler: impl Fn(&str, &Request) -> Reply + Send + Sync + 'static,
+    ) -> Self {
+        let listener = TcpListener::bind(addr).expect("bind");
         let url = format!("http://{}", listener.local_addr().expect("addr"));
         let log = Arc::new(Mutex::new(Vec::new()));
         let stop = Arc::new(AtomicBool::new(false));

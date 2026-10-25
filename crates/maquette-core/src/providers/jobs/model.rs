@@ -240,7 +240,8 @@ pub enum ProviderEvent {
 #[serde(rename_all = "camelCase", default)]
 pub(super) struct Chain {
     /// Set just before the create call. With no task id after a restart,
-    /// the create may or may not have reached the provider.
+    /// the create may or may not have reached the provider. Cleared again
+    /// when the create failed in a way that proves it made no task.
     pub(super) sending: bool,
     pub(super) model_task: Option<String>,
     /// Meshy: which endpoint the model task lives under.

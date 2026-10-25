@@ -18,6 +18,8 @@ use crate::inbox::fixture;
 use crate::project::{self, NewProject, ProjectTemplate};
 use crate::workspace::{self, WorkspaceConfig};
 
+mod connect;
+
 const WAIT: Duration = Duration::from_secs(20);
 
 pub(super) struct World {
@@ -86,13 +88,18 @@ impl World {
     }
 
     pub(super) fn jobs(&self, server: &FakeServer) -> ProviderJobs {
+        self.jobs_at(&server.url, Timing::instant())
+    }
+
+    /// Jobs whose providers both live at `url`, on `timing`.
+    pub(super) fn jobs_at(&self, url: &str, timing: Timing) -> ProviderJobs {
         let options = Options {
             endpoints: Endpoints {
-                tripo: server.url.clone(),
-                meshy: server.url.clone(),
+                tripo: url.to_string(),
+                meshy: url.to_string(),
             },
-            tripo: Timing::instant(),
-            meshy: Timing::instant(),
+            tripo: timing,
+            meshy: timing,
             limit: 4,
         };
         let events = Arc::clone(&self.events);

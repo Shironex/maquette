@@ -12,8 +12,30 @@ use crate::providers::tripo::{self, Tripo};
 
 /// Network blips while polling a paid task should not fail it.
 fn transient(error: &ApiError) -> bool {
-    matches!(error, ApiError::Network(_))
+    matches!(error, ApiError::Network(_) | ApiError::Unreachable(_))
         || matches!(error, ApiError::Status { status, .. } if *status >= 500)
+}
+
+/// True when a failed create leaves open that the provider made the task:
+/// the request went out but no clear answer came back.
+fn may_have_created(error: &ApiError) -> bool {
+    matches!(error, ApiError::Network(_) | ApiError::Malformed(_))
+}
+
+/// What a failed model create means for the job. Unless the task may
+/// exist, the chain stops saying a send is in flight, so a resume starts
+/// again instead of refusing with [`CLOSED_WHILE_SENDING`]; when it may,
+/// the message says to check before sending again.
+fn create_failed(run: &Run<'_>, service: &str, error: ApiError) -> Flow {
+    if may_have_created(&error) {
+        return Flow::Fail(format!(
+            "{} It may have reached {service} anyway: check its dashboard before sending again, \
+             so you do not pay twice.",
+            error.message(service)
+        ));
+    }
+    run.save(|s| s.chain.sending = false);
+    error.into()
 }
 
 fn poll_tripo(
@@ -130,7 +152,9 @@ pub(super) fn run_tripo(
                 return Err(ApiError::Stopped.into());
             }
             run.save(|s| s.chain.sending = true);
-            let task = client.generate(preset, &tokens)?;
+            let task = client
+                .generate(preset, &tokens)
+                .map_err(|e| create_failed(run, tripo::SERVICE, e))?;
             run.save(|s| {
                 s.chain.model_task = Some(task.clone());
                 s.job.remote_id = Some(task.clone());
@@ -261,7 +285,9 @@ pub(super) fn run_meshy(
                 return Err(ApiError::Stopped.into());
             }
             run.save(|s| s.chain.sending = true);
-            let (kind, task) = client.generate(preset, &uris, prompt)?;
+            let (kind, task) = client
+                .generate(preset, &uris, prompt)
+                .map_err(|e| create_failed(run, meshy::SERVICE, e))?;
             run.save(|s| {
                 s.chain.model_task = Some(task.clone());
                 s.chain.meshy_kind = Some(kind.path().to_string());

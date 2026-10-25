@@ -1,7 +1,10 @@
 //! The blocking HTTP client the provider calls share: bearer auth, an
 //! injectable base URL (the tests point it at a fake server), 429 back off
-//! that honours `Retry-After`, and sleeps a cancel or app exit can cut
-//! short.
+//! that honours `Retry-After`, a few more tries when no connection could be
+//! made (a Wi-Fi switch, a dropped link), and sleeps a cancel or app exit
+//! can cut short.
+
+mod detail;
 
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -37,6 +40,11 @@ pub struct Timing {
     pub max_retries: u32,
     /// The longest a request may take.
     pub request_timeout: Duration,
+    /// Tries again after a failed connect, before giving up. Safe for any
+    /// request, a create included: nothing was sent.
+    pub connect_retries: u32,
+    /// The first wait after a failed connect; each one after doubles.
+    pub connect_backoff: Duration,
 }
 
 impl Timing {
@@ -48,6 +56,9 @@ impl Timing {
         max_backoff: Duration::from_secs(120),
         max_retries: 8,
         request_timeout: Duration::from_secs(120),
+        // 2, 4, 8 and 16 s: half a minute, enough for a network switch.
+        connect_retries: 4,
+        connect_backoff: Duration::from_secs(2),
     };
 
     /// Meshy: every 5 s unless `Retry-After` says otherwise.
@@ -65,6 +76,8 @@ impl Timing {
             max_backoff: Duration::from_millis(50),
             max_retries: 3,
             request_timeout: Duration::from_secs(10),
+            connect_retries: 2,
+            connect_backoff: Duration::from_millis(5),
         }
     }
 
@@ -90,7 +103,11 @@ pub enum ApiError {
     Expired,
     /// Any other answer the provider gave.
     Status { status: u16, message: String },
-    /// No answer: offline, DNS, TLS or a timeout.
+    /// No connection could be made (DNS, TCP, TLS or a connect timeout),
+    /// so the request never left: the provider has not seen it.
+    Unreachable(String),
+    /// The connection broke or timed out after the request went out, so it
+    /// may have arrived.
     Network(String),
     /// The answer was not what the API documents.
     Malformed(String),
@@ -124,6 +141,10 @@ impl ApiError {
                     format!("{service} answered {status}: {message}")
                 }
             }
+            Self::Unreachable(detail) => format!(
+                "Could not reach {service}: no connection could be made ({detail}), so nothing \
+                 was sent. Check the network and try again."
+            ),
             Self::Network(detail) => format!("Could not reach {service}: {detail}"),
             Self::Malformed(detail) => {
                 format!("{service} sent an answer I could not read: {detail}")
@@ -174,14 +195,19 @@ pub struct Api {
     pub service: &'static str,
 }
 
+/// The longest opening a connection may take, so a link that went quiet
+/// fails as a connect error (and is tried again) instead of hanging.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+
 impl Api {
     pub fn new(service: &'static str, base: &str, key: &str, timing: Timing) -> ApiResult<Self> {
         ensure_crypto();
         let client = Client::builder()
             .timeout(timing.request_timeout)
+            .connect_timeout(CONNECT_TIMEOUT.min(timing.request_timeout))
             .user_agent(concat!("Maquette/", env!("CARGO_PKG_VERSION")))
             .build()
-            .map_err(|e| ApiError::Network(e.to_string()))?;
+            .map_err(detail::classify)?;
         Ok(Self {
             client,
             base: base.trim_end_matches('/').to_string(),
@@ -214,6 +240,42 @@ impl Api {
         self.client.delete(self.url(path)).bearer_auth(&self.key)
     }
 
+    /// Sends one request, trying again while no connection can be made.
+    /// Only a connect error is retried: it proves no byte of the request
+    /// went out, so even a paid create cannot happen twice.
+    fn dispatch(
+        &self,
+        stop: &StopFlag,
+        build: &impl Fn() -> ApiResult<RequestBuilder>,
+    ) -> ApiResult<Response> {
+        let mut failed = 0;
+        loop {
+            if stop.is_stopped() {
+                return Err(ApiError::Stopped);
+            }
+            let error = match build()?.send() {
+                Ok(response) => return Ok(response),
+                Err(error) => detail::classify(error),
+            };
+            let ApiError::Unreachable(cause) = &error else {
+                return Err(error);
+            };
+            if failed >= self.timing.connect_retries {
+                return Err(error);
+            }
+            failed += 1;
+            let wait = self.timing.connect_backoff * 2u32.saturating_pow(failed - 1);
+            tracing::info!(
+                service = self.service,
+                attempt = failed,
+                ?wait,
+                cause = %cause,
+                "no connection, trying again"
+            );
+            stop.sleep(wait)?;
+        }
+    }
+
     /// Sends a request built by `build`, retrying 429 answers after the
     /// wait the server asks for. `build` runs once per attempt because a
     /// multipart body cannot be sent twice.
@@ -224,12 +286,7 @@ impl Api {
     ) -> ApiResult<Response> {
         let mut attempt = 0;
         loop {
-            if stop.is_stopped() {
-                return Err(ApiError::Stopped);
-            }
-            let response = build()?
-                .send()
-                .map_err(|e| ApiError::Network(network_detail(e)))?;
+            let response = self.dispatch(stop, &build)?;
             if response.status() != StatusCode::TOO_MANY_REQUESTS {
                 return Ok(response);
             }
@@ -275,14 +332,7 @@ impl Api {
 
     /// Downloads a file, without the API key: result links are signed.
     pub fn download(&self, stop: &StopFlag, url: &str) -> ApiResult<Vec<u8>> {
-        if stop.is_stopped() {
-            return Err(ApiError::Stopped);
-        }
-        let response = self
-            .client
-            .get(url)
-            .send()
-            .map_err(|e| ApiError::Network(network_detail(e)))?;
+        let response = self.dispatch(stop, &|| Ok(self.client.get(url)))?;
         let status = response.status();
         if matches!(status.as_u16(), 403 | 404 | 410) {
             return Err(ApiError::Expired);
@@ -296,27 +346,8 @@ impl Api {
         response
             .bytes()
             .map(|b| b.to_vec())
-            .map_err(|e| ApiError::Network(network_detail(e)))
+            .map_err(detail::classify)
     }
-}
-
-/// The error chain without the URL, which can carry signed query strings.
-fn network_detail(error: reqwest::Error) -> String {
-    let error = error.without_url();
-    if error.is_timeout() {
-        return "the request timed out.".to_string();
-    }
-    if error.is_connect() {
-        return "the connection failed. Check the network.".to_string();
-    }
-    let mut text = error.to_string();
-    let mut source = std::error::Error::source(&error);
-    while let Some(inner) = source {
-        text.push_str(": ");
-        text.push_str(&inner.to_string());
-        source = inner.source();
-    }
-    text
 }
 
 /// Seconds from a `Retry-After` header. HTTP dates are not used by either
@@ -336,9 +367,7 @@ pub fn retry_after(response: &Response) -> Option<Duration> {
 
 fn read_json(response: Response) -> ApiResult<Value> {
     let status = response.status();
-    let text = response
-        .text()
-        .map_err(|e| ApiError::Network(network_detail(e)))?;
+    let text = response.text().map_err(detail::classify)?;
     let body: Option<Value> = serde_json::from_str(&text).ok();
     if status.is_success() {
         return body.ok_or_else(|| ApiError::Malformed("the answer was not JSON.".to_string()));
