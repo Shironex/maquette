@@ -173,6 +173,14 @@ export default defineConfig(
     },
   },
   {
+    // A component's `<Name>.hooks.ts` and `<Name>.types.ts` are named after the
+    // component, not after the one hook or type they may export.
+    files: ['apps/web/src/features/**/*.{hooks,types}.ts'],
+    rules: {
+      'noctcore-architecture/filename-matches-export': 'off',
+    },
+  },
+  {
     // The UI kit groups primitives by kind (shell, status, inputs); a group is
     // a shelf, not a feature, and primitives are built from each other.
     files: ['packages/ui/**/*.{ts,tsx}'],
