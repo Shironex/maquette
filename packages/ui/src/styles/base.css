@@ -100,3 +100,14 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* A tooltip fades in and slides a few pixels away from its trigger. */
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: translate(var(--tip-slide, 0px, 0px));
+  }
+}
+
+/* A control that takes input: not disabled, and not disabled with a reason (aria-disabled). */
+@custom-variant usable (&:enabled:not([aria-disabled='true']));

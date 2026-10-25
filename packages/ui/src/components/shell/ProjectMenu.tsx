@@ -2,6 +2,7 @@ import type { RefObject } from 'react';
 import { Icon, type IconName } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
 import { Monogram } from '../brand/Monogram';
+import { Kbd } from '../feedback/Kbd';
 import { useProjectMenu } from './ProjectMenu.hooks';
 
 export interface ProjectMenuProject {
@@ -134,11 +135,7 @@ export function ProjectMenu({
         <span className="text-caption tracking-[0.06em] text-fg-mute uppercase">
           {label} · {projects.length}
         </span>
-        {shortcut ? (
-          <kbd className="rounded-[5px] border border-line px-1.5 font-sans text-[11px] leading-[18px] text-fg-mute">
-            {shortcut}
-          </kbd>
-        ) : null}
+        {shortcut ? <Kbd keys={shortcut} /> : null}
       </div>
       {searching ? (
         <label className="mx-1 mb-1.5 flex h-8 items-center gap-2 rounded-control border border-line bg-raised px-2.5 focus-within:border-focus">

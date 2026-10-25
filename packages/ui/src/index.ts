@@ -7,6 +7,7 @@ export { Logo, Wordmark, type LogoProps } from './components/brand/Logo';
 
 export {
   Button,
+  blockClick,
   buttonClass,
   type ButtonProps,
   type ButtonSize,
@@ -103,6 +104,12 @@ export {
   type InlineBannerProps,
 } from './components/feedback/InlineBanner';
 export { Tooltip, type TooltipProps } from './components/feedback/Tooltip';
+export {
+  tooltipPlacement,
+  type TooltipPlacement,
+  type TooltipSide,
+} from './components/feedback/tooltipPlacement';
+export { Kbd, type KbdProps } from './components/feedback/Kbd';
 export { HelpMark, type HelpMarkProps } from './components/feedback/HelpMark';
 export { Tip, type TipProps } from './components/feedback/Tip';
 

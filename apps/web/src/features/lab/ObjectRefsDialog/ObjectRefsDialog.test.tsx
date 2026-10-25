@@ -111,8 +111,12 @@ describe('Make object refs', () => {
     const view = render(<ObjectRefsDialog />);
     open();
     const field = await screen.findByRole('textbox', { name: 'Objects' });
-    expect(screen.getByRole('button', { name: 'About objects' })).toBeInTheDocument();
-    expect(screen.getByRole('tooltip')).toHaveTextContent('never become the asset name');
+    const about = screen.getByRole('button', { name: 'About objects' });
+    await userEvent.hover(about);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('never become the asset name');
+    expect(about).toHaveAccessibleDescription(/never become the asset name/);
+    await userEvent.unhover(about);
+    expect(screen.queryByRole('tooltip')).toBeNull();
     expect(screen.queryByRole('note')).toBeNull();
 
     await userEvent.type(field, 'bench{Enter}');
