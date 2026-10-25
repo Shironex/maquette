@@ -9,11 +9,11 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 
 use crate::commands::{
     agents, app, assets, credits, dialogs, inbox, inspect, lab, layout, materials, pipeline,
-    project, providers, quit, thumbs, toolchain, workspace,
+    prepare, project, providers, quit, thumbs, toolchain, workspace,
 };
 use crate::events::{
     ConceptUpdate, InboxChanged, LayoutChanged, MaterialsChanged, McpUpdate, PipelineChanged,
-    PipelineUpdate, ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady,
+    PipelineUpdate, PrepareChanged, ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -58,6 +58,11 @@ pub fn builder() -> Builder<tauri::Wry> {
             layout::layout_save,
             materials::materials_get,
             materials::materials_save,
+            prepare::prepare_get,
+            prepare::prepare_asset,
+            prepare::prepare_save,
+            prepare::prepare_suggest,
+            prepare::prepare_preview,
             pipeline::pipeline_get,
             pipeline::pipeline_run,
             pipeline::pipeline_cancel,
@@ -123,7 +128,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             ProviderUpdate,
             QuitRequested,
             LayoutChanged,
-            MaterialsChanged
+            MaterialsChanged,
+            PrepareChanged
         ])
         .types(&maquette_core::types())
 }
@@ -191,6 +197,11 @@ mod tests {
             "assetCopyToProject",
             "materialsGet",
             "materialsSave",
+            "prepareGet",
+            "prepareAsset",
+            "prepareSave",
+            "prepareSuggest",
+            "preparePreview",
             "providerEstimate",
             "creditsLedger",
             "creditsBalances",
@@ -209,6 +220,7 @@ mod tests {
             "quitRequested",
             "layoutChanged",
             "materialsChanged",
+            "prepareChanged",
         ] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }

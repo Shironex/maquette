@@ -13,6 +13,7 @@ pub mod lab;
 pub mod layout;
 pub mod materials;
 pub mod pipeline;
+pub mod prepare;
 pub mod project;
 pub mod providers;
 pub mod quit;
