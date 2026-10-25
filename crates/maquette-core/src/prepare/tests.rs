@@ -12,6 +12,7 @@ fn size(axis: SizeAxis, value: f32, unit: SizeUnit) -> RealSize {
 
 fn lamp() -> ModelPrep {
     ModelPrep {
+        skip_bake: None,
         size: Some(size(SizeAxis::Height, 45.0, SizeUnit::Cm)),
         fixups: vec![Fixup::OriginBottom, Fixup::Decimate { triangles: 60_000 }],
     }
@@ -52,6 +53,7 @@ fn saving_one_asset_keeps_the_others_and_an_empty_entry_goes() {
     let dir = tempfile::tempdir().expect("tempdir");
     save_entry(dir.path(), "desk-lamp", &lamp()).expect("lamp");
     let mug = ModelPrep {
+        skip_bake: None,
         size: Some(size(SizeAxis::Height, 10.0, SizeUnit::Cm)),
         fixups: Vec::new(),
     };
@@ -78,6 +80,7 @@ fn a_newer_or_broken_file_is_never_written_over() {
 fn validation_refuses_sizes_and_numbers_out_of_range() {
     let mut prep = ScenePrep::default();
     let mut entry = ModelPrep {
+        skip_bake: None,
         size: Some(size(SizeAxis::Width, 0.05, SizeUnit::Cm)),
         fixups: Vec::new(),
     };
@@ -184,6 +187,7 @@ fn the_frame_moves_the_bottom_centre_to_the_origin_then_scales() {
     assert!((min[0] + max[0]).abs() < 1e-6, "centred");
 
     let only_size = ModelPrep {
+        skip_bake: None,
         size: lamp().size,
         fixups: Vec::new(),
     };
@@ -314,4 +318,40 @@ fn a_project_copy_of_the_script_wins_over_the_shipped_one() {
     fs::create_dir_all(dir.path().join("tools")).expect("tools");
     fs::write(dir.path().join(SCRIPT_PATH), "print('mine')\n").expect("mine");
     assert_eq!(preview::script_for(Some(dir.path())), "print('mine')\n");
+}
+
+#[test]
+fn skipping_the_bake_is_kept_on_its_own_and_a_null_forgets_it() {
+    let empty = ScenePrep::default();
+    let skip: PrepPatch = serde_json::from_str(r#"{ "skipBake": true }"#).expect("patch");
+    let next = apply_patch(&empty, "desk-globe", &skip).expect("skip");
+    let entry = &next.models["desk-globe"];
+    assert!(entry.skips_bake());
+    assert!(!entry.is_empty(), "a choice alone is worth keeping");
+    // Left out keeps the choice.
+    let size: PrepPatch =
+        serde_json::from_str(r#"{ "add": [{ "op": "origin-bottom" }] }"#).expect("patch");
+    let kept = apply_patch(&next, "desk-globe", &size).expect("fixup");
+    assert!(kept.models["desk-globe"].skips_bake());
+    // Null forgets it, and the then empty entry goes.
+    let forget: PrepPatch = serde_json::from_str(r#"{ "skipBake": null }"#).expect("patch");
+    let gone = apply_patch(&next, "desk-globe", &forget).expect("forget");
+    assert!(!gone.models.contains_key("desk-globe"));
+    // Older files without the field still load, as "nobody chose".
+    let old: ModelPrep = serde_json::from_str(r#"{ "size": null, "fixups": [] }"#).expect("old");
+    assert_eq!(old.skip_bake, None);
+    assert!(!old.skips_bake());
+}
+
+#[test]
+fn skipping_the_bake_leaves_the_preview_key_alone() {
+    let plan = lamp();
+    let skipped = ModelPrep {
+        skip_bake: Some(true),
+        ..lamp()
+    };
+    assert_eq!(
+        preview::key("abc", &plan, "script"),
+        preview::key("abc", &skipped, "script")
+    );
 }

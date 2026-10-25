@@ -211,6 +211,7 @@ fn accept_saves_the_real_size_and_fixups_or_refuses_them_before_moving() {
     .expect("project");
     drop_in(root, &config, "desk_lamp.glb", &fixture::messy_prop());
     let mut prep = ModelPrep {
+        skip_bake: None,
         size: Some(RealSize {
             axis: SizeAxis::Height,
             value: -4.0,
@@ -241,7 +242,29 @@ fn accept_saves_the_real_size_and_fixups_or_refuses_them_before_moving() {
     assert_eq!(done.note, None);
     let project_dir = project::dir(root, &config.layout, &manifest.id).expect("dir");
     let saved = crate::prepare::load(&project_dir).expect("prepare");
-    assert_eq!(saved.models[&done.asset.id], prep);
+    // Nobody chose a bake, so the scan skips it.
+    let want = ModelPrep {
+        skip_bake: Some(true),
+        ..prep.clone()
+    };
+    assert_eq!(saved.models[&done.asset.id], want);
     let report = done.version.stats.expect("stats");
     assert_eq!(report.triangles, 19_224, "the source is kept as sent");
+
+    // A choice the person made, in the Inbox or saved before, is kept.
+    crate::prepare::save_entry(
+        &project_dir,
+        &done.asset.id,
+        &ModelPrep {
+            skip_bake: Some(false),
+            ..ModelPrep::default()
+        },
+    )
+    .expect("bake it");
+    drop_in(root, &config, "desk_lamp.glb", &fixture::messy_prop());
+    request.asset = Some(done.asset.id.clone());
+    request.prep = None;
+    let again = accept(root, &config, &request).expect("second version");
+    let saved = crate::prepare::load(&project_dir).expect("prepare");
+    assert_eq!(saved.models[&again.asset.id].skip_bake, Some(false));
 }

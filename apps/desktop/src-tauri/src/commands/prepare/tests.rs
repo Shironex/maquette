@@ -73,6 +73,7 @@ fn an_asset_shows_its_size_suggestion_and_defaults_then_saves() {
     assert_eq!(view.defaults.triangles, 60_000);
 
     let entry = ModelPrep {
+        skip_bake: None,
         size: Some(RealSize {
             axis: SizeAxis::Height,
             value: 45.0,
@@ -98,6 +99,7 @@ fn an_asset_shows_its_size_suggestion_and_defaults_then_saves() {
 fn a_preview_needs_a_model_a_valid_plan_and_blender() {
     let w = world();
     let plan = ModelPrep {
+        skip_bake: None,
         size: None,
         fixups: vec![Fixup::Decimate { triangles: 5000 }],
     };
@@ -122,6 +124,7 @@ fn a_preview_needs_a_model_a_valid_plan_and_blender() {
     );
 
     let bad = ModelPrep {
+        skip_bake: None,
         size: None,
         fixups: vec![Fixup::Decimate { triangles: 1 }],
     };

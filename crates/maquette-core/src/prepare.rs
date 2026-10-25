@@ -14,11 +14,19 @@
 //!       "fixups": [
 //!         { "op": "decimate", "triangles": 60000 },
 //!         { "op": "origin-bottom" }
-//!       ]
+//!       ],
+//!       "skipBake": true
 //!     }
 //!   }
 //! }
 //! ```
+//!
+//! `skipBake` true leaves the asset out of the Bake light step: Build scene
+//! tags its objects and the bake gives them no lightmap and no second UV
+//! set, so the model ships with its own material lighting. A generated scan
+//! wants that (its many tiny UV islands bake into flat lit facets), so a
+//! model accepted from the Inbox skips the bake unless the person chose
+//! otherwise ([`SKIP_BAKE_FROM_INBOX`]). Left out or null, the asset bakes.
 //!
 //! The Build scene starter applies them in Blender (`tools/fixups.py`):
 //! the fix-ups in a fixed order ([`FixupKind`]), then a uniform scale that
@@ -60,6 +68,9 @@ pub const MIN_TRIANGLES: u32 = 100;
 pub const MAX_TRIANGLES: u32 = 10_000_000;
 pub const MIN_TEXTURE: u32 = 64;
 pub const MAX_TEXTURE: u32 = 16_384;
+/// What an asset accepted from the Inbox gets when nobody chose whether it
+/// bakes: Inbox models are provider scans, which the bake does not suit.
+pub const SKIP_BAKE_FROM_INBOX: bool = true;
 /// A loose part this share of the model's diagonal or smaller goes.
 pub const DEFAULT_LOOSE_SHARE: f32 = 0.02;
 pub const MAX_LOOSE_SHARE: f32 = 0.5;
@@ -239,11 +250,20 @@ pub struct ModelPrep {
     pub size: Option<RealSize>,
     /// In the order they apply.
     pub fixups: Vec<Fixup>,
+    /// True leaves the asset out of the bake; false or null bakes it. Null
+    /// means nobody chose, so an Inbox accept may fill in its default.
+    #[serde(default)]
+    pub skip_bake: Option<bool>,
 }
 
 impl ModelPrep {
     pub fn is_empty(&self) -> bool {
-        self.size.is_none() && self.fixups.is_empty()
+        self.size.is_none() && self.fixups.is_empty() && self.skip_bake.is_none()
+    }
+
+    /// Whether Bake light leaves this asset out.
+    pub fn skips_bake(&self) -> bool {
+        self.skip_bake == Some(true)
     }
 
     pub fn fixup(&self, kind: FixupKind) -> Option<&Fixup> {
@@ -323,6 +343,7 @@ pub fn normalized(prep: &ScenePrep) -> ScenePrep {
                 ModelPrep {
                     size: entry.size,
                     fixups,
+                    skip_bake: entry.skip_bake,
                 },
             )
         })

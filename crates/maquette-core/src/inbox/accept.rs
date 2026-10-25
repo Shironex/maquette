@@ -18,7 +18,9 @@ pub struct AcceptRequest {
     pub asset: Option<String>,
     pub name: Option<String>,
     /// The real size and fix-ups set in the Inbox: they replace the asset's
-    /// in `prepare.json`. Left out, the asset keeps what it has.
+    /// in `prepare.json`. Left out, the asset keeps what it has. Either
+    /// way an asset nobody chose a bake for skips it from now on
+    /// ([`prepare::SKIP_BAKE_FROM_INBOX`]): Inbox models are scans.
     #[serde(default)]
     pub prep: Option<ModelPrep>,
 }
@@ -138,13 +140,9 @@ pub fn accept(
     let _ = fs::remove_file(cache_dir(root, config).join(format!("{}.json", request.item)));
     let (asset, version, file) =
         result.ok_or_else(|| CoreError::Invalid("The model was not accepted.".to_string()))?;
-    let note = request.prep.as_ref().and_then(|prep| {
-        prepare::save_entry(&project_dir, &asset.id, prep)
-            .err()
-            .map(|err| {
-                format!("The model is in, but its real size and fix-ups were not saved. {err}")
-            })
-    });
+    let note = save_prep(&project_dir, &asset.id, request.prep.as_ref())
+        .err()
+        .map(|err| format!("The model is in, but its real size and fix-ups were not saved. {err}"));
     Ok(AcceptResult {
         asset,
         version,
@@ -152,6 +150,25 @@ pub fn accept(
         project: manifest,
         note,
     })
+}
+
+/// Saves the Inbox's real size and fix-ups for the asset (when it set any)
+/// and fills in the scan's bake default when neither the Inbox nor the
+/// saved entry chose one. An entry that already says nothing new is not
+/// written again.
+fn save_prep(project_dir: &Path, asset: &str, prep: Option<&ModelPrep>) -> CoreResult<()> {
+    prepare::update(project_dir, |current| {
+        let saved = current.models.get(asset).cloned().unwrap_or_default();
+        let mut entry = prep.cloned().unwrap_or_else(|| saved.clone());
+        entry.skip_bake = entry
+            .skip_bake
+            .or(saved.skip_bake)
+            .or(Some(prepare::SKIP_BAKE_FROM_INBOX));
+        let mut next = current.clone();
+        next.models.insert(asset.to_string(), entry);
+        Ok(next)
+    })
+    .map(|_| ())
 }
 
 /// The arguments that open `file` in Blender's window: a `.blend` opens as

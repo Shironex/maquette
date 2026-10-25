@@ -103,7 +103,13 @@ pub fn script_for(project_dir: Option<&Path>) -> String {
 
 /// The folder name for a model's content hash, a plan and a script.
 pub fn key(model_hash: &str, plan: &ModelPrep, script: &str) -> String {
-    let plan = serde_json::to_string(plan).unwrap_or_default();
+    // Only what the script reads: skipping the bake changes no preview, so
+    // it stays out of the key (and the keys of earlier previews still hold).
+    let plan = serde_json::to_string(&PlanKey {
+        size: &plan.size,
+        fixups: &plan.fixups,
+    })
+    .unwrap_or_default();
     let mut hasher = Sha256::new();
     for part in [model_hash, &plan, &script.replace("\r\n", "\n")] {
         hasher.update(part.as_bytes());
@@ -233,7 +239,15 @@ fn fixups_only(plan: &ModelPrep) -> ModelPrep {
     ModelPrep {
         size: None,
         fixups: plan.fixups.clone(),
+        skip_bake: None,
     }
+}
+
+/// The part of a plan a preview depends on, in the order the plan has it.
+#[derive(Serialize)]
+struct PlanKey<'a> {
+    size: &'a Option<super::RealSize>,
+    fixups: &'a [super::Fixup],
 }
 
 fn bounds_file(root: &Path, input: &Path, plan: &ModelPrep, script: &str) -> CoreResult<PathBuf> {

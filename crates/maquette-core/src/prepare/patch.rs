@@ -32,6 +32,10 @@ pub struct PrepPatch {
     /// Kinds of fix-up to remove.
     #[serde(default)]
     pub remove: Vec<FixupKind>,
+    /// Left out keeps the choice; true skips the bake, false bakes, null
+    /// forgets the choice.
+    #[serde(default, deserialize_with = "explicit")]
+    pub skip_bake: Option<Option<bool>>,
 }
 
 /// Applies `patch` to `asset` in `current`. Nothing changes when any part
@@ -44,6 +48,9 @@ pub fn apply_patch(current: &ScenePrep, asset: &str, patch: &PrepPatch) -> CoreR
     let mut entry = current.models.get(asset).cloned().unwrap_or_default();
     if let Some(size) = patch.size {
         entry.size = size;
+    }
+    if let Some(skip) = patch.skip_bake {
+        entry.skip_bake = skip;
     }
     if patch.clear_fixups {
         entry.fixups.clear();
