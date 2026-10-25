@@ -77,6 +77,9 @@ describe('the compression presets', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Not applied yet');
     await userEvent.selectOptions(select, saved === 'etc1s' ? 'ETC1S' : 'UASTC');
     expect(screen.queryByRole('status')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Apply presets' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Apply presets' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 });

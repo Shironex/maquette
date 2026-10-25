@@ -1,4 +1,4 @@
-import { Button, Icon, InlineBanner, SegmentedControl, cn } from '@maquette/ui';
+import { Button, HelpMark, Icon, InlineBanner, SegmentedControl, cn } from '@maquette/ui';
 import {
   batchLabel,
   isCustom,
@@ -38,6 +38,7 @@ export default function BatchForm({ projectDir, draft }: BatchFormProps) {
   const api = draft.provider !== 'by-hand';
   const n = draft.items.length;
   const asking = confirming && api && !blocker;
+  const assetsAside = `${n} ${n === 1 ? 'asset' : 'assets'}, one model each`;
   const items = draft.items.map(item => (
     <ItemRow
       key={item.asset}
@@ -121,7 +122,18 @@ export default function BatchForm({ projectDir, draft }: BatchFormProps) {
         </section>
 
         <section className="flex flex-col gap-1.5">
-          <SectionTitle aside={`${n} ${n === 1 ? 'asset' : 'assets'}, one model each`}>
+          <SectionTitle
+            aside={
+              <span className="inline-flex items-center gap-1.5">
+                {assetsAside}
+                <HelpMark
+                  label="About settings per asset"
+                  tip="The sliders button on a row gives that asset its own settings. Only the fields you change stay with it; the rest follow the batch."
+                  side="left"
+                />
+              </span>
+            }
+          >
             Assets
           </SectionTitle>
           <ul className="m-0 flex list-none flex-col p-0">{items}</ul>

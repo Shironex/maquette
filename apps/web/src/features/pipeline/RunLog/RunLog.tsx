@@ -1,4 +1,4 @@
-import { Checkbox, IconButton, LogConsole, Select, Tabs } from '@maquette/ui';
+import { Checkbox, HelpMark, IconButton, LogConsole, Select, Tabs } from '@maquette/ui';
 import type { PipelineView } from '@/ipc/client';
 import { formatDuration } from '@/state/pipeline';
 import { useRunLog } from './RunLog.hooks';
@@ -73,12 +73,18 @@ export default function RunLog({ view, step, onStep }: RunLogProps) {
                 Live
               </span>
             ) : null}
-            <Checkbox
-              checked={hideNoise}
-              onChange={toggleNoise}
-              label={<span className="text-meta text-fg-mute">Hide noise</span>}
-              className="ml-auto"
-            />
+            <span className="ml-auto inline-flex items-center gap-1">
+              <Checkbox
+                checked={hideNoise}
+                onChange={toggleNoise}
+                label={<span className="text-meta text-fg-mute">Hide noise</span>}
+              />
+              <HelpMark
+                label="About hiding noise"
+                tip="Hides the tools' routine chatter so errors, warnings and results stand out. Nothing is deleted; untick it to see every line."
+                side="bottom"
+              />
+            </span>
             <Checkbox
               checked={auto}
               onChange={toggleAuto}

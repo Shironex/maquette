@@ -98,6 +98,7 @@ export default function SettingsScreen() {
               <Panel
                 id="settings-budgets"
                 title="Budgets and compression"
+                help="What the scene may weigh, and the compression every model starts from"
                 className={cn('gap-3 px-4 py-3.5', active === 'budgets' && ACTIVE)}
               >
                 <div className="grid grid-cols-2 gap-2.5">
@@ -105,7 +106,7 @@ export default function SettingsScreen() {
                   <CompressionFields {...props} />
                 </div>
                 <p className="text-meta text-fg-mute">
-                  Per-model overrides will live in the Pipeline presets.
+                  A model can change its own compression in Pipeline &gt; Compression presets.
                 </p>
               </Panel>
               <Panel

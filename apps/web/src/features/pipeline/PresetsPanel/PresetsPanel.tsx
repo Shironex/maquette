@@ -1,4 +1,4 @@
-import { Button } from '@maquette/ui';
+import { Button, HelpMark } from '@maquette/ui';
 import type { CompressPreset, PipelineView } from '@/ipc/client';
 import { formatBytes } from '@/lib/format';
 import { PresetTableRow } from './PresetTableRow';
@@ -36,9 +36,16 @@ export default function PresetsPanel({ view, onSave }: PresetsPanelProps) {
       className="flex w-[380px] flex-none flex-col gap-3 rounded-card border border-line bg-panel px-4 pt-4 pb-3.5"
     >
       <div>
-        <h2 id="presets-title" className="text-[15px] leading-5 font-semibold">
-          Compression presets
-        </h2>
+        <div className="flex items-center gap-1.5">
+          <h2 id="presets-title" className="text-[15px] leading-5 font-semibold">
+            Compression presets
+          </h2>
+          <HelpMark
+            label="About compression presets"
+            tip="Each row sets the texture size, codec and meshopt level the Compress step uses for one model. The sliders button next to a name gives its data maps their own size."
+            side="bottom"
+          />
+        </div>
         <p className="text-meta mt-0.5 text-fg-mute">Per model overrides for this project</p>
       </div>
       {/* Scrolls when the log beside it is short; the fade shows there is more. */}
@@ -83,7 +90,13 @@ export default function PresetsPanel({ view, onSave }: PresetsPanelProps) {
             Not applied yet
           </span>
         ) : null}
-        <Button variant="primary" disabled={!dirty || saving} onClick={() => void save()}>
+        <Button
+          variant="primary"
+          loading={saving}
+          disabled={!dirty}
+          disabledReason="Nothing changed yet"
+          onClick={() => void save()}
+        >
           Apply presets
         </Button>
       </div>
