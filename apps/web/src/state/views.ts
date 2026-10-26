@@ -10,6 +10,7 @@ export type ViewId =
   | 'motion'
   | 'timeline'
   | 'page'
+  | 'library'
   | 'settings';
 
 export interface ViewDef {
@@ -27,6 +28,7 @@ export const TOOL_VIEWS: readonly ViewDef[] = [
   { id: 'motion', label: 'Motion', icon: 'person-simple-walk' },
   { id: 'timeline', label: 'Timeline', icon: 'film-strip' },
   { id: 'page', label: 'Page', icon: 'browser' },
+  { id: 'library', label: 'Library', icon: 'books' },
 ];
 
 /** Views a game project has no use for: it ships no web page. */

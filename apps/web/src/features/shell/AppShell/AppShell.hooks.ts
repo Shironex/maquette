@@ -6,6 +6,7 @@ import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useInboxStore } from '@/state/use-inbox-store';
+import { useLibraryStore } from '@/state/use-library-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useLayoutStore } from '@/state/use-layout-store';
 import { useMaterialsStore } from '@/state/use-materials-store';
@@ -174,6 +175,10 @@ export function useLiveData(projectId: string | null, root: string | null) {
     if (root) void loadInbox();
   }, [root, loadInbox]);
   useEffect(() => {
+    // The Board and Inspector show updates waiting, so the library loads with the workspace.
+    if (root) void useLibraryStore.getState().load();
+  }, [root]);
+  useEffect(() => {
     const stops = [
       events.pipelineUpdate.listen(e => onEvent(e.payload)),
       events.pipelineChanged.listen(e => void refreshPipeline(e.payload.project)),
@@ -190,7 +195,11 @@ export function useLiveData(projectId: string | null, root: string | null) {
         onThumbnail(e.payload);
         if (e.payload.project) setProject(e.payload.project);
       }),
-      events.projectChanged.listen(e => setProject(e.payload.project)),
+      events.projectChanged.listen(e => {
+        setProject(e.payload.project);
+        useLibraryStore.getState().onChanged();
+      }),
+      events.libraryChanged.listen(() => useLibraryStore.getState().onChanged()),
       events.mcpUpdate.listen(e => onAgents(e.payload)),
       events.providerUpdate.listen(e => onProvider(e.payload)),
       events.materialsChanged.listen(e => void loadMaterials(e.payload.project)),

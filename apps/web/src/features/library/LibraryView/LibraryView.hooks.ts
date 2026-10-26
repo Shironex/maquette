@@ -1,0 +1,28 @@
+import { useEffect } from 'react';
+import { filterItems, libraryStats, sortItems } from '@/state/library';
+import { useAppStore } from '@/state/use-app-store';
+import { useLibraryStore } from '@/state/use-library-store';
+
+/** The library's entries as the filters and sort leave them, and the one on show. */
+export function useLibraryView() {
+  const store = useLibraryStore();
+  const { view, filters, sort, selected, load } = store;
+  const workspace = useAppStore(s => s.workspace);
+  const items = view?.items ?? [];
+  const shown = sortItems(filterItems(items, filters), sort);
+  const item = items.find(i => i.entry.id === selected) ?? shown[0] ?? null;
+
+  useEffect(() => {
+    void load();
+  }, [load, workspace?.root]);
+
+  return {
+    ...store,
+    workspace,
+    items,
+    shown,
+    item,
+    stats: libraryStats(items),
+    loaded: view !== null,
+  };
+}

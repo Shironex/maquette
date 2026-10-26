@@ -27,6 +27,17 @@ describe('the shell status items', () => {
     expect(labels({ server: server('idle') }).some(l => l.startsWith('Site dev page'))).toBe(false);
   });
 
+  it('names the library folder and its models in the Library view', () => {
+    const workspace = {
+      display: '~/Maquette',
+      config: { layout: { inbox: 'inbox' } },
+    } as ShellStatus['workspace'];
+    expect(labels({ view: 'library', workspace, libraryModels: 8 })).toContain(
+      'Library at ~/Maquette/library, 8 models'
+    );
+    expect(labels({ workspace, libraryModels: 8 }).some(l => l.startsWith('Library'))).toBe(false);
+  });
+
   it('says Blender is missing and no run happened yet', () => {
     expect(labels({})).toEqual(['Local worker connected', 'Blender not found', 'No runs yet']);
   });

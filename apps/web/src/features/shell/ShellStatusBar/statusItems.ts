@@ -27,6 +27,8 @@ export interface ShellStatus {
   sends: readonly ProviderJob[];
   /** The site dev server the Page view and Preview on site share. */
   server?: ServerStatus | null;
+  /** How many models the library holds, once loaded. */
+  libraryModels?: number | null;
 }
 
 function codexItems(view: ViewId, codex: ToolReport | undefined): StatusBarItem[] {
@@ -70,6 +72,17 @@ function inboxItems(
     {
       label: `Inbox at ${inboxDir}${inbox?.watching ? ', watching' : ''}`,
       ...(inbox?.watching ? { dot: 'ok' as const } : { icon: 'tray' as const }),
+    },
+  ];
+}
+
+function libraryItems(s: ShellStatus): StatusBarItem[] {
+  if (s.view !== 'library' || !s.workspace || s.libraryModels == null) return [];
+  const n = s.libraryModels;
+  return [
+    {
+      label: `Library at ${s.workspace.display}/library, ${n} ${n === 1 ? 'model' : 'models'}`,
+      dot: 'ok',
     },
   ];
 }
@@ -119,7 +132,7 @@ function pageItems(server: ServerStatus | null | undefined): StatusBarItem[] {
   return [];
 }
 
-/** The status bar line, left to right: worker, tools, agents, inbox, Lab, sends, the site dev page, then the run. */
+/** The status bar line, left to right: worker, tools, agents, inbox, library, Lab, sends, the site dev page, then the run. */
 export function shellStatusItems(s: ShellStatus): StatusBarItem[] {
   return [
     { label: 'Local worker connected', dot: 'ok' },
@@ -133,6 +146,7 @@ export function shellStatusItems(s: ShellStatus): StatusBarItem[] {
       s.reports.find(r => r.id === 'codex')
     ),
     ...(s.view === 'lab' ? [] : inboxItems(s.inbox, s.workspace)),
+    ...libraryItems(s),
     ...labItems(s.labJobs),
     ...sendItems(s.sends),
     ...pageItems(s.server),

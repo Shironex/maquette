@@ -17,6 +17,7 @@ describe('views', () => {
     expect(viewFromHash(hashForView('pipeline'))).toBe('pipeline');
     expect(viewFromHash(hashForView('page'))).toBe('page');
     expect(viewFromHash(hashForView('timeline'))).toBe('timeline');
+    expect(viewFromHash(hashForView('library'))).toBe('library');
   });
 
   it('hides Page and Timeline for a game and keeps Motion', () => {
@@ -24,6 +25,7 @@ describe('views', () => {
     expect(game).not.toContain('page');
     expect(game).not.toContain('timeline');
     expect(game).toContain('motion');
+    expect(game).toContain('library');
     expect(toolViewsFor('website').map(v => v.id)).toContain('page');
     expect(showsView('game', 'page')).toBe(false);
     expect(showsView('website', 'page')).toBe(true);

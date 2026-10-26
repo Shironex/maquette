@@ -10,6 +10,7 @@ import { DownloadsMatches } from '@/features/providers/DownloadsMatches';
 import { HandoffChecklist } from '@/features/providers/HandoffChecklist';
 import { SendPanel } from '@/features/providers/SendPanel';
 import { ObjectRefsDialog } from '@/features/lab/ObjectRefsDialog';
+import { LibraryDialogs } from '@/features/common/LibraryDialogs';
 import { SETTINGS_VIEW, showsView, type ViewId } from '@/state/views';
 import { CurrentView } from '../CurrentView';
 import { ProjectSwitcherMenu } from '../ProjectSwitcherMenu';
@@ -76,6 +77,7 @@ export default function AppShell() {
       <ArrivalPicker />
       <NewProjectDialog onClosed={focusSwitcher} />
       <GameImportDialog />
+      <LibraryDialogs />
       <ApprovalPrompt />
       <QuitDialog />
     </div>

@@ -1,6 +1,7 @@
 import { BoardView } from '@/features/board/BoardView';
 import { InboxView } from '@/features/inbox/InboxView';
 import { LabView } from '@/features/lab/LabView';
+import { LibraryView } from '@/features/library/LibraryView';
 import { InspectorView } from '@/features/inspector/InspectorView';
 import { MotionView } from '@/features/motion/MotionView';
 import { PagePreview } from '@/features/page/PagePreview';
@@ -33,6 +34,8 @@ export default function CurrentView({ view }: CurrentViewProps) {
       return <TimelineView preview={<PagePreview />} />;
     case 'page':
       return <PageView />;
+    case 'library':
+      return <LibraryView />;
     default:
       return <PlaceholderView view={view} />;
   }
