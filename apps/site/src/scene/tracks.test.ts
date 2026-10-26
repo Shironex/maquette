@@ -20,14 +20,14 @@ function cabinet(): BuiltModel {
   model.add(part('Body', 0), part('Front door', 0.5));
   const root = new THREE.Group();
   root.add(model);
-  const entry = {
+  const entry: ModelEntry = {
     id: 'cabinet',
     file: 'cabinet.glb',
     position: [0, 0, 0],
     anchor: 'origin',
     stops: ['hero'],
   };
-  return { entry: entry as ModelEntry, root, model, sweep: null };
+  return { entry, root, model, sweep: null };
 }
 
 const timeline = (overrides: Partial<TimelineTracks> = {}): TimelineTracks => ({
