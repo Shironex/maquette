@@ -66,6 +66,10 @@ const OLDER: &[(&str, &str)] = &[
         "a450a138b62489b9bb6ffc848392de75bc3539460cd275a181f88e986b20e054",
     ),
     (
+        "tools/export_game.py",
+        "177147974d12310bda284f7c62b5cff1b2460a9414659147239014174713f79c",
+    ),
+    (
         "tools/export_web.py",
         "e67655bf5b32f480d84a53f0c7b4657c891576993dedbc1eff1585696a59d486",
     ),
@@ -88,6 +92,10 @@ const OLDER: &[(&str, &str)] = &[
     (
         "tools/fixups.py",
         "625c3b8886d307542425b36fd7436bfbe50472c57eda897d8f532a91087e5a12",
+    ),
+    (
+        "tools/game_export.mjs",
+        "8e4448c0a766841b4ec03e0216cee85f863920f2836a1df10d941b702e2747ed",
     ),
     (
         "tools/render_stops.py",

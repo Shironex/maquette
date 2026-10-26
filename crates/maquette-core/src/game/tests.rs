@@ -626,3 +626,45 @@ fn a_rigged_model_gets_no_decimate_but_still_shrinks_its_textures() {
         "only its triangles are over: reduced by hand"
     );
 }
+
+#[test]
+fn the_index_caps_each_model_at_its_folder_budget_and_the_export_cap_elsewhere() {
+    let (ws, manifest) = game_project(glb_game, GameFormat::Glb);
+    let picked = [
+        "props/brazier.glb".to_string(),
+        "characters/hero.glb".to_string(),
+    ];
+    let result = import_models(&ws.root, &ws.config.layout, &manifest.id, &picked).expect("import");
+    let project_dir = project::dir(&ws.root, &ws.config.layout, &manifest.id).expect("dir");
+    let mut settings = result.project.game.as_deref().expect("game").clone();
+    settings.export.texture_cap = 512;
+    for budget in &mut settings.budgets {
+        if budget.folder == "characters" {
+            budget.texture = 2048;
+        }
+    }
+    let cap = |s: &GameSettings, asset: &str| {
+        index::build(&project_dir, &result.project, s, &Default::default())
+            .models
+            .iter()
+            .find(|m| m.asset == asset)
+            .map(|m| m.texture_cap)
+    };
+    assert_eq!(cap(&settings, "hero"), Some(2048), "its folder allows 2048");
+    assert_eq!(cap(&settings, "brazier"), Some(1024));
+    settings.budgets.retain(|b| b.folder != "props");
+    assert_eq!(
+        cap(&settings, "brazier"),
+        Some(512),
+        "a folder with no budget takes the Game export cap"
+    );
+    let json = serde_json::to_value(index::build(
+        &project_dir,
+        &result.project,
+        &settings,
+        &Default::default(),
+    ))
+    .expect("json");
+    assert_eq!(json["textureCap"], 512);
+    assert_eq!(json["models"][1]["textureCap"], 2048, "{json}");
+}

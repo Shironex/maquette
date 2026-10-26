@@ -286,6 +286,7 @@ fn unrecorded_scripts_match_the_known_older_starters() {
             scripts(ProjectTemplate::FloatingDiorama)
                 .iter()
                 .chain(scripts(ProjectTemplate::CharacterShowcase))
+                .chain(scripts(ProjectTemplate::GameImport))
                 .any(|s| s.path == *path && text_hash(s.text) != *hash)
         }),
         "a known older hash is never the current starter"

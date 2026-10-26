@@ -17,7 +17,9 @@
 //
 // The checks, per .glb: no KTX2 (KHR_texture_basisu), no meshopt
 // (EXT_meshopt_compression) and no Draco, textures only PNG or JPG, and for
-// an exported model every texture within the index's "textureCap". An
+// an exported model every texture within its "textureCap" in the index (the
+// texture size of its folder's budget), or the index's top level
+// "textureCap" for a model without one. An
 // exported model that fails stops the step; an untouched import that does
 // is only reported, since it is the game's own file. --report lists every
 // file with its size and what the checks found.
@@ -170,7 +172,8 @@ for (const model of index.models ?? []) {
     continue;
   }
   const target = join(values.out, model.target);
-  const found = model.target.endsWith('.glb') ? problems(inspectGlb(target), cap) : [];
+  const modelCap = Number(model.textureCap ?? cap);
+  const found = model.target.endsWith('.glb') ? problems(inspectGlb(target), modelCap) : [];
   if (found.length && !model.asIs) failed += 1;
   const how = model.asIs ? 'the game file as it is' : 'exported';
   const bytes = statSync(target).size;
@@ -184,6 +187,7 @@ for (const model of index.models ?? []) {
     asIs: Boolean(model.asIs),
     files,
     bytes,
+    textureCap: modelCap,
     problems: found,
   });
 }
@@ -195,6 +199,6 @@ writeFileSync(
 );
 if (failed) fail(`${failed} models cannot ship to the game as they are; see the lines above`);
 log(
-  `${rows.length} models in ${values.out}: textures PNG or JPG, at most ${cap} px, ` +
-    'no KTX2, no meshopt'
+  `${rows.length} models in ${values.out}: textures PNG or JPG within each folder's budget ` +
+    `(${cap} px without one), no KTX2, no meshopt`
 );

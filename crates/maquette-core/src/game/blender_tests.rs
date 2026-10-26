@@ -140,7 +140,7 @@ fn prepared(
 fn a_glb_game_exports_plain_capped_png_textures_and_copies_untouched_imports() {
     let export = GameExport {
         textures: GameTextures::Png,
-        texture_cap: 32,
+        texture_cap: 4096,
     };
     let (ws, project_dir, manifest) = prepared(
         glb_game,
@@ -148,6 +148,17 @@ fn a_glb_game_exports_plain_capped_png_textures_and_copies_untouched_imports() {
         &["props/brazier.glb", "props/coffin.glb"],
         export,
     );
+    // The props budget caps the textures, not the larger Game export cap.
+    let manifest = project::modify(&ws.root, &ws.config.layout, &manifest.id, |m| {
+        if let Some(game) = m.game.as_mut() {
+            for budget in game.budgets.iter_mut().filter(|b| b.folder == "props") {
+                budget.texture = 32;
+            }
+        }
+        Ok(())
+    })
+    .expect("budget");
+    index::write(&project_dir, &manifest).expect("index");
     let Some(log) = run_chain(&project_dir, settings_of(&manifest).expect("game")) else {
         return;
     };
@@ -175,6 +186,7 @@ fn a_glb_game_exports_plain_capped_png_textures_and_copies_untouched_imports() {
         &fs::read_to_string(project_dir.join("web/raw/export.json")).expect("report"),
     )
     .expect("json");
+    assert_eq!(report["models"][0]["cap"], 32, "{report}");
     for texture in report["models"][0]["textures"]
         .as_array()
         .expect("textures")

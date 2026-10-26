@@ -16,8 +16,9 @@ for a target without one). The folder is emptied first.
   The rig and every animation clip export with the model.
 - .obj: Wavefront .obj with its .mtl, Y up, and each texture saved next to
   them as a .png or .jpg file the .mtl names without a folder.
-- --cap scales every texture down to that many pixels on its longest edge.
-  A smaller one stays as it is.
+- Each model's textures scale down to the "textureCap" the index gives it,
+  the texture size of its folder's budget, on their longest edge. --cap is
+  for a model the index gives none. A smaller texture stays as it is.
 - Objects and materials Build models tagged "maquette_name" export under
   the name their model file gives.
 - A model Build models moved apart for the bake goes back to where its
@@ -61,7 +62,9 @@ def parse_args():
     parser.add_argument("--out", required=True, help="folder for the model files")
     parser.add_argument("--format", choices=["glb", "obj"], default="glb")
     parser.add_argument("--textures", choices=["png", "jpg", "keep"], default="png")
-    parser.add_argument("--cap", type=int, default=1024, help="longest texture edge in px")
+    parser.add_argument(
+        "--cap", type=int, default=1024, help="longest texture edge in px, without a folder budget"
+    )
     parser.add_argument("--bake", default=None, help="the Bake light folder, when it ran")
     return parser.parse_args(argv)
 
@@ -305,8 +308,24 @@ def triangles(objects):
     return total
 
 
-def export_one(collection, args, originals):
+def caps_of(path, fallback):
+    """Each target's texture cap from the game index, its folder's budget."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            index = json.load(fh)
+    except (OSError, ValueError):
+        log(f"no {path}, every texture caps at {fallback} px")
+        return {}
+    return {
+        m["target"]: int(m.get("textureCap") or fallback)
+        for m in index.get("models") or []
+        if m.get("target")
+    }
+
+
+def export_one(collection, args, originals, caps):
     target = str(collection[TARGET])
+    cap = caps.get(target, args.cap)
     move = float(collection.get(OFFSET, 0.0))
     if move:
         for obj in collection.all_objects:
@@ -322,7 +341,7 @@ def export_one(collection, args, originals):
     path = os.path.abspath(os.path.join(args.out, target))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     images = images_of(objects)
-    capped = cap_images(images, args.cap, args.textures)
+    capped = cap_images(images, cap, args.textures)
     undo = own_names(
         [(bpy.data.objects, objects), (bpy.data.materials, materials_of(objects))], originals
     )
@@ -336,9 +355,9 @@ def export_one(collection, args, originals):
     finally:
         undo_names(undo)
     count = triangles(objects)
-    shrunk = f", {capped} textures to {args.cap} px" if capped else ""
+    shrunk = f", {capped} textures to {cap} px" if capped else ""
     log(f"wrote {target} ({count} triangles{shrunk}, {os.path.getsize(path) // 1024} KB)")
-    return {"asset": collection.name, "target": target, "triangles": count,
+    return {"asset": collection.name, "target": target, "triangles": count, "cap": cap,
             "textures": texture_rows(images)}
 
 
@@ -350,9 +369,10 @@ def main():
     if args.bake:
         hook_lightmaps(args.bake)
     originals = take_source_names()
+    caps = caps_of(args.index, args.cap)
     models = bpy.data.collections.get(MODELS)
     tagged = [c for c in (models.children if models else []) if TARGET in c]
-    written = [w for w in (export_one(c, args, originals) for c in tagged) if w]
+    written = [w for w in (export_one(c, args, originals, caps) for c in tagged) if w]
     report = {"version": 1, "format": args.format, "textures": args.textures,
               "cap": args.cap, "models": written}
     with open(os.path.join(args.out, "export.json"), "w", encoding="utf-8") as fh:

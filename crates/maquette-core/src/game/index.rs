@@ -11,10 +11,14 @@
 //!   "textureCap": 1024,
 //!   "models": [
 //!     { "asset": "brazier", "name": "Brazier", "source": "models/brazier_v2.glb",
-//!       "target": "props/brazier.glb", "asIs": false, "copy": [] }
+//!       "target": "props/brazier.glb", "asIs": false, "copy": [], "textureCap": 1024 }
 //!   ]
 //! }
 //! ```
+//!
+//! A model's `textureCap` is the texture size of its folder's budget, so a
+//! folder that allows 2048 px keeps 2048 px textures; the top level
+//! `textureCap` (the Game export setting) is for folders with no budget.
 //!
 //! `asIs` marks a model whose newest version is still the repo file it was
 //! imported from, with no fix-ups or real size: Build models leaves it out
@@ -26,7 +30,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use super::{GameFormat, GameSettings, GameTextures, file_of, settings_of};
+use super::{GameFormat, GameSettings, GameTextures, budget, file_of, settings_of};
 use crate::error::CoreResult;
 use crate::json::write_json;
 use crate::prepare::{self, ScenePrep};
@@ -47,6 +51,9 @@ pub struct IndexModel {
     pub as_is: bool,
     /// For an `asIs` model, the files to copy as they are.
     pub copy: Vec<String>,
+    /// The longest texture edge Export writes for it: its folder's budget,
+    /// or the Game export cap for a folder with no budget.
+    pub texture_cap: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -78,6 +85,13 @@ fn as_is_files(project_dir: &Path, source: &str) -> Vec<String> {
     files
 }
 
+/// The longest texture edge Game export writes for a model at `target`:
+/// the texture size of its folder's budget, or the Game export cap when
+/// the folder has none.
+pub fn texture_cap(settings: &GameSettings, target: &str) -> u32 {
+    budget::budget_for(settings, target).map_or(settings.export.texture_cap, |b| b.texture)
+}
+
 /// The index for the project as it is now.
 pub fn build(
     project_dir: &Path,
@@ -99,11 +113,13 @@ pub fn build(
                 .get(&asset.id)
                 .is_some_and(|p| p.size.is_some() || !p.fixups.is_empty());
             let as_is = imported == Some(latest.version) && !prepared;
+            let target = file_of(settings, asset);
             Some(IndexModel {
                 asset: asset.id.clone(),
                 name: asset.name.clone(),
                 source: latest.file.clone(),
-                target: file_of(settings, asset),
+                texture_cap: texture_cap(settings, &target),
+                target,
                 as_is,
                 copy: if as_is {
                     as_is_files(project_dir, &latest.file)
