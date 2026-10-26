@@ -9,6 +9,16 @@
 /** Every message either way carries `maquette: BRIDGE_VERSION`. */
 export const BRIDGE_VERSION = 1;
 
+declare global {
+  interface Window {
+    /**
+     * Set by a page's own bridge. Maquette's frame proxy adds its bridge
+     * shim to every page it frames; the shim reads this and stands down.
+     */
+    __maquetteBridge?: number;
+  }
+}
+
 /** Frames kept for the frame time numbers, about two seconds at 60 fps. */
 const FRAMES = 120;
 
@@ -61,6 +71,7 @@ export interface BridgeOptions {
 /** Starts answering Maquette when the page runs inside its frame. */
 export function startBridge(options: BridgeOptions): void {
   if (window.parent === window) return;
+  window.__maquetteBridge = BRIDGE_VERSION;
   const parent = window.parent;
   // Answers go back to whoever said hello; until then, nowhere.
   let origin: string | null = null;

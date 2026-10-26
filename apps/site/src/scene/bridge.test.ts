@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { frameStats, readMessage } from './bridge';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { BRIDGE_VERSION, frameStats, readMessage, startBridge } from './bridge';
 
 describe('readMessage', () => {
   it('reads hello and goto from Maquette', () => {
@@ -40,5 +40,34 @@ describe('frameStats', () => {
 
   it('has nothing to say before the first frame', () => {
     expect(frameStats([])).toBeNull();
+  });
+});
+
+describe('startBridge', () => {
+  const options = { stops: [], read: () => 0, subscribe: () => () => {}, goto: () => {} };
+
+  /** A window in a frame, or (`framed` false) one on its own. */
+  function stubWindow(framed: boolean): Partial<Window> {
+    const win: Partial<Window> = { addEventListener: vi.fn() };
+    Object.assign(win, { parent: framed ? { postMessage: vi.fn() } : win });
+    vi.stubGlobal('window', win);
+    return win;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("tells Maquette's shim to stand down when framed", () => {
+    const win = stubWindow(true);
+    startBridge(options);
+    expect(win.__maquetteBridge).toBe(BRIDGE_VERSION);
+  });
+
+  it('stays off outside a frame', () => {
+    const win = stubWindow(false);
+    startBridge(options);
+    expect(win.__maquetteBridge).toBeUndefined();
+    expect(win.addEventListener).not.toHaveBeenCalled();
   });
 });
