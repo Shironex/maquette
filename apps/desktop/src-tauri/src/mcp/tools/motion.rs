@@ -45,6 +45,17 @@ pub enum EasingEdit {
     EaseInOut,
 }
 
+impl EasingEdit {
+    pub(super) fn easing(self) -> Easing {
+        match self {
+            Self::Linear => Easing::Linear,
+            Self::EaseIn => Easing::EaseIn,
+            Self::EaseOut => Easing::EaseOut,
+            Self::EaseInOut => Easing::EaseInOut,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TransitionEdit {
@@ -156,12 +167,7 @@ fn object_states(edit: &StatesEdit) -> ObjectStates {
             to: state_id(&states, &t.to),
             duration: t.duration.unwrap_or(0.6),
             delay: t.delay.unwrap_or(0.0),
-            easing: match t.easing.unwrap_or(EasingEdit::EaseInOut) {
-                EasingEdit::Linear => Easing::Linear,
-                EasingEdit::EaseIn => Easing::EaseIn,
-                EasingEdit::EaseOut => Easing::EaseOut,
-                EasingEdit::EaseInOut => Easing::EaseInOut,
-            },
+            easing: t.easing.unwrap_or(EasingEdit::EaseInOut).easing(),
             stagger: t.stagger.unwrap_or(0.0),
         })
         .collect();

@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use crate::commands::{assets, layout};
 
 use super::motion::{ClipEdit, StatesEdit, clips_patch, states_patch};
+use super::timeline::{ExplodeEdit, explode_patch};
 use super::{
     McpTools, Out, ProjectArgs, explicit, reason, respond, to_short_value, to_value, workspace,
 };
@@ -84,6 +85,10 @@ pub struct SetLayoutArgs {
     /// Whether animation clips ship. ship false keeps a clip off the site.
     #[serde(default)]
     pub clips: Vec<ClipEdit>,
+    /// Explode tracks of the scroll timeline per asset: each entry replaces that asset's
+    /// track whole (remove drops it). Keys name camera stops that are in the layout.
+    #[serde(default)]
+    pub explode: Vec<ExplodeEdit>,
 }
 
 impl SetLayoutArgs {
@@ -122,6 +127,7 @@ impl SetLayoutArgs {
             }),
             states: states_patch(&self.states),
             clips: clips_patch(&self.clips),
+            explode: explode_patch(&self.explode),
         }
     }
 }
@@ -256,7 +262,7 @@ a project id; no tool changes which project the app has open.",
     }
 
     #[tool(
-        description = "Get a project's scene layout: where each model stands (position in metres with y up, rotation in degrees X then Y then Z, uniform scale), the camera stops in tour order, the desk, every placeable model with its bounds and size, the first view (what the first stop loads against its budget), the object states with their transitions and triggers, and the clips kept off the site (clips with no entry ship). A model without a placement stands side by side with the others.",
+        description = "Get a project's scene layout: where each model stands (position in metres with y up, rotation in degrees X then Y then Z, uniform scale), the camera stops in tour order, the desk, every placeable model with its bounds and size, the first view (what the first stop loads against its budget), the object states with their transitions and triggers, the clips kept off the site (clips with no entry ship) and the scroll timeline (layout.timeline.explode: per asset, how far its parts spread apart at each camera stop). A model without a placement stands side by side with the others.",
         annotations(read_only_hint = true)
     )]
     async fn get_layout(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
@@ -270,7 +276,7 @@ a project id; no tool changes which project the app has open.",
     }
 
     #[tool(
-        description = "Change a project's scene layout, as the Layout editor does. models changes placements per asset (only the fields you give change; remove drops one). stops adds a stop (name, position, target, optional fov and models), changes one by id, or removes one by id. stopOrder lists every stop id in the new order. desk sets the desk size or null removes it. states sets an asset's object states whole: states in order (the first is the rest pose; each moves named parts by a position offset in metres and a rotation in degrees from rest), transitions between two states (duration, delay and stagger in seconds, easing linear, ease-in, ease-out or ease-in-out) and triggers (stop with a stop id, scroll with start and end percent, click or hover with an optional part); remove drops them. clips sets whether a model's clip ships (ship false keeps it off the site from the next Build scene). Removing a stop drops the triggers that wait for it. Unknown assets or stops are refused and nothing changes. The open app updates live. The next Build scene and Render stops use it. Returns the layout like get_layout.",
+        description = "Change a project's scene layout, as the Layout editor does. models changes placements per asset (only the fields you give change; remove drops one). stops adds a stop (name, position, target, optional fov and models), changes one by id, or removes one by id. stopOrder lists every stop id in the new order. desk sets the desk size or null removes it. states sets an asset's object states whole: states in order (the first is the rest pose; each moves named parts by a position offset in metres and a rotation in degrees from rest), transitions between two states (duration, delay and stagger in seconds, easing linear, ease-in, ease-out or ease-in-out) and triggers (stop with a stop id, scroll with start and end percent, click or hover with an optional part); remove drops them. clips sets whether a model's clip ships (ship false keeps it off the site from the next Build scene). explode sets an asset's explode track whole: distance in metres, easing and keys of an amount from 0 (parts together) to 1 (spread the whole distance) at camera stop ids, eased between stops as the page scrolls; remove drops it. Removing a stop drops the triggers and explode keys that wait for it. Unknown assets or stops are refused and nothing changes. The open app updates live. The next Build scene and Render stops use it. Returns the layout like get_layout.",
         annotations(idempotent_hint = true)
     )]
     async fn set_layout(&self, Parameters(args): Parameters<SetLayoutArgs>) -> Out {

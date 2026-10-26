@@ -23,6 +23,7 @@ pub mod providers;
 pub mod quit;
 pub mod site;
 pub mod thumbs;
+pub mod timeline;
 pub mod toolchain;
 pub mod workspace;
 

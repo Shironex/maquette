@@ -24,6 +24,7 @@ pub mod projects;
 pub mod runs;
 pub mod sending;
 pub mod starters;
+pub mod timeline;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -90,7 +91,9 @@ the Pipeline view's Update banner does, for the project named in the call. \
 get_layout reads where each model stands in the scene, the camera stops and the first view \
 budget; set_layout changes them (metres, y up, degrees) and the app updates live; the next \
 run_pipeline rebuilds the scene and its posters from it. set_layout also sets a prop's \
-object states (poses of its parts, transitions and triggers) and whether a model's clips ship. \
+object states (poses of its parts, transitions and triggers), whether a model's clips ship \
+and the scroll timeline's explode tracks (how far a model's parts spread apart at each \
+camera stop; Ship sends them to the site with the rest of the layout). \
 get_motion reads every model's rig, clips and parts and what the clips weigh inside the scene \
 budget. copy_asset copies an asset with its refs and \
 versions to another project. \

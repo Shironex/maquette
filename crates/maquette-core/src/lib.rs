@@ -167,6 +167,8 @@ pub fn types() -> specta::Types {
         .register::<layout::LayoutView>()
         .register::<layout::ObjectStates>()
         .register::<motion::MotionView>()
+        .register::<layout::Timeline>()
+        .register::<timeline::TimelineView>()
         .register::<materials::SceneMaterials>()
         .register::<prepare::ScenePrep>()
         .register::<prepare::preview::FixupReport>()
@@ -317,6 +319,11 @@ mod tests {
             "MotionView",
             "MotionModel",
             "MotionBudget",
+            "Timeline",
+            "ExplodeTrack",
+            "ExplodeKey",
+            "TimelineView",
+            "TimelineModel",
             "Clip",
             "Rig",
             "BoneMap",

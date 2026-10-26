@@ -90,6 +90,7 @@ function moonLayout(): SceneLayout {
     desk: null,
     states: {},
     clips: {},
+    timeline: { explode: {} },
   };
 }
 
@@ -208,6 +209,7 @@ export function createFakeLayout(deps: {
         desk: null,
         states: {},
         clips: {},
+        timeline: { explode: {} },
       },
       models: models(id),
       firstView: firstView(id),
@@ -224,9 +226,14 @@ export function createFakeLayout(deps: {
     if (layout.stops.some(s => !s.name.trim())) {
       throw { code: 'invalid', message: 'Give every camera stop a name.' };
     }
-    // As the app does, the editor's save keeps the Motion view's states.
+    // As the app does, the editor's save keeps the Motion and Timeline views' parts.
     const kept = layouts.get(id);
-    layouts.set(id, { ...layout, states: kept?.states ?? {}, clips: kept?.clips ?? {} });
+    layouts.set(id, {
+      ...layout,
+      states: kept?.states ?? {},
+      clips: kept?.clips ?? {},
+      timeline: kept?.timeline ?? { explode: {} },
+    });
     return view(id);
   }
 

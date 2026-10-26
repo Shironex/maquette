@@ -70,7 +70,8 @@ export function fromLayout(layout: SceneLayout): PlainLayout {
 
 /**
  * The layout the editor saves. Object states and clip choices belong to the
- * Motion view; the app keeps the saved ones when the editor saves.
+ * Motion view and the timeline to the Timeline view; the app keeps the saved
+ * ones when the editor saves.
  */
 export function toLayout(layout: PlainLayout): SceneLayout {
   return {
@@ -80,6 +81,7 @@ export function toLayout(layout: PlainLayout): SceneLayout {
     desk: layout.desk ? { size: layout.desk } : null,
     states: {},
     clips: {},
+    timeline: { explode: {} },
   };
 }
 

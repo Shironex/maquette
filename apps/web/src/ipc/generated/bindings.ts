@@ -71,10 +71,11 @@ export const commands = {
     __TAURI_INVOKE<CopiedAsset>('asset_copy_to_project', { project, id, to }),
   layoutGet: (project: string) => __TAURI_INVOKE<LayoutView>('layout_get', { project }),
   /**
-   *  Saves the whole layout and returns the view of it. The states and clip
-   *  choices stay as the file has them: they belong to the Motion view, which
-   *  saves them with [`crate::commands::motion`]. Triggers that wait for a
-   *  stop this layout removes go with it.
+   *  Saves the whole layout and returns the view of it. The states, clip
+   *  choices and timeline stay as the file has them: they belong to the
+   *  Motion view ([`crate::commands::motion`]) and the Timeline view
+   *  ([`crate::commands::timeline`]). Triggers and explode keys that wait for
+   *  a stop this layout removes go with it.
    */
   layoutSave: (project: string, layout: SceneLayout) =>
     __TAURI_INVOKE<LayoutView>('layout_save', { project, layout }),
@@ -89,6 +90,18 @@ export const commands = {
     states: { [key in string]: ObjectStates },
     clipsOff: { [key in string]: string[] }
   ) => __TAURI_INVOKE<MotionView>('motion_save', { project, states, clipsOff }),
+  timelineGet: (project: string) => __TAURI_INVOKE<TimelineView>('timeline_get', { project }),
+  /**
+   *  Saves the stop and scroll triggers of each asset in `triggers` and the
+   *  whole timeline. The states, their transitions and the click and hover
+   *  triggers stay as the Motion view saved them; the models and camera stops
+   *  stay as they are.
+   */
+  timelineSave: (
+    project: string,
+    triggers: { [key in string]: StateTrigger[] },
+    timeline: Timeline
+  ) => __TAURI_INVOKE<TimelineView>('timeline_save', { project, triggers, timeline }),
   materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>('materials_get', { project }),
   /**
    *  Saves the looks of the assets the panel edited (an empty look clears
@@ -1176,6 +1189,24 @@ export type Easing =
 export type ErrorPayload = {
   code: string;
   message: string;
+};
+
+/**  How far a model's parts are spread apart at one camera stop. */
+export type ExplodeKey = {
+  /**  The camera stop's id. */
+  stop: string;
+  /**  0 together, 1 spread the whole distance. */
+  amount: number | null;
+};
+
+/**  One model's explode or build-up track. */
+export type ExplodeTrack = {
+  /**  Metres each part moves out at an amount of 1. */
+  distance: number | null;
+  /**  How the amount eases from one key to the next. */
+  easing: Easing;
+  /**  At most one per stop, in any order; the page sorts them by stop. */
+  keys: ExplodeKey[];
 };
 
 /**  What Export GLB made. */
@@ -2425,6 +2456,8 @@ export type SceneLayout = {
   states: { [key in string]: ObjectStates };
   /**  Asset id to its clip choices, by clip name. Clips left out ship. */
   clips: { [key in string]: { [key in string]: ClipSettings } };
+  /**  The Timeline view's tracks. */
+  timeline: Timeline;
 };
 
 export type SceneMaterials = {
@@ -2792,6 +2825,34 @@ export type ThumbnailReady = {
   thumbnail: string | null;
   state: ThumbState;
   project: ProjectManifest | null;
+};
+
+/**  The Timeline view's own tracks. */
+export type Timeline = {
+  /**  Asset id to how its parts spread apart along the scroll. */
+  explode: { [key in string]: ExplodeTrack };
+};
+
+/**  A model the timeline can move. */
+export type TimelineModel = {
+  asset: string;
+  name: string;
+  thumbnail: string | null;
+  /**
+   *  The nodes that draw a mesh, in file order: what an explode track
+   *  spreads apart. Empty when the model cannot be read.
+   */
+  parts: string[];
+};
+
+export type TimelineView = {
+  project: string;
+  /**  In tour order: the columns of the timeline. */
+  stops: LayoutStop[];
+  /**  Every model, in Build scene order. */
+  models: TimelineModel[];
+  states: { [key in string]: ObjectStates };
+  timeline: Timeline;
 };
 
 export type ToolId = 'blender' | 'codex' | 'ffmpeg' | 'toktx' | 'gltf-transform' | 'node';

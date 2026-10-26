@@ -935,6 +935,20 @@ async fn agents_lay_out_the_scene_and_copy_assets() {
         motion["states"]["desk-lamp"]["states"][0]["name"],
         json!("Down")
     );
+    // The scroll timeline's explode tracks go into the same layout file.
+    let spread = call(
+        &client,
+        "set_layout",
+        json!({
+            "project": project_id,
+            "explode": [{ "asset": "desk-lamp", "distance": 0.3,
+                "keys": [{ "stop": "concept", "amount": 1.0 }] }],
+        }),
+    )
+    .await;
+    let track = &spread["layout"]["timeline"]["explode"]["desk-lamp"];
+    assert_eq!(track["keys"][0]["stop"], json!("concept"));
+    assert_eq!(track["easing"], json!("ease-in-out"));
     let cleared = call(
         &client,
         "set_layout",
@@ -964,7 +978,7 @@ async fn agents_lay_out_the_scene_and_copy_assets() {
     assert_eq!(
         host.layout_changes
             .load(std::sync::atomic::Ordering::SeqCst),
-        4
+        5
     );
 
     let copied = call(
