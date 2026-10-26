@@ -69,9 +69,16 @@ fn a_server_starts_reports_its_address_and_stops() {
     assert_eq!(preview.status().state, ServerState::Running);
 
     let url = status.url.expect("url");
+    let frame = status.frame_url.expect("frame url");
+    assert_eq!(
+        again.frame_url.as_deref(),
+        Some(frame.as_str()),
+        "a reuse keeps the proxy"
+    );
     assert!(preview.release("moon-island", ServerOwner::Pipeline));
     assert_eq!(preview.status().state, ServerState::Idle);
     assert!(gone(&url), "the server stopped");
+    assert!(gone(&frame), "the frame proxy stopped");
 }
 
 #[test]
@@ -148,8 +155,32 @@ fn a_server_already_answering_is_reused_and_never_stopped() {
     assert_eq!(status.state, ServerState::Running);
     assert!(status.external);
     assert_eq!(status.url.as_deref(), Some(url.as_str()));
+    // The frame loads it through the frame proxy, which ends with it.
+    let frame = status.frame_url.expect("frame url");
+    assert_ne!(frame, url);
+    assert!(frame.starts_with("http://127.0.0.1:"), "{frame}");
+    assert!(answers(&frame));
     preview.stop();
+    assert_eq!(preview.status().frame_url, None);
+    assert!(gone(&frame), "the frame proxy stopped with the server");
     assert!(answers(&url), "the other program keeps running");
+}
+
+#[test]
+fn a_server_off_this_machine_shows_without_the_frame_proxy() {
+    let mut slot = Slot::default();
+    let old = slot.run_at("http://192.168.1.20:3000/".to_string());
+    assert!(old.is_none());
+    assert_eq!(slot.status.state, ServerState::Running);
+    assert_eq!(slot.status.frame_url, None);
+    assert!(
+        slot.status
+            .log
+            .iter()
+            .any(|l| l.contains("without its frame proxy")),
+        "{:?}",
+        slot.status.log
+    );
 }
 
 #[test]

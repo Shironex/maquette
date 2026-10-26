@@ -2515,6 +2515,13 @@ export type ServerStatus = {
   site: string | null;
   /**  Where it answers, once it does. */
   url: string | null;
+  /**
+   *  What the Page view's frame loads: Maquette's frame proxy in front of
+   *  `url`, which drops the headers that forbid framing. `None` while it
+   *  is not running, or when the proxy could not start (then the frame
+   *  loads `url`).
+   */
+  frameUrl: string | null;
   /**  The command as it ran, port filled in. */
   command: string | null;
   owner: ServerOwner | null;

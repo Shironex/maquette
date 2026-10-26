@@ -13,6 +13,12 @@
 //! macOS and Linux it also runs under a small `sh` watchdog that holds the
 //! read end of a pipe from the app: when the app goes away for any reason,
 //! even a crash, the pipe closes and the watchdog ends the group.
+//!
+//! **The frame.** Once the server answers, a [`FrameProxy`] starts in front
+//! of it and its address is the status's `frame_url`, what the Page view's
+//! iframe loads. It ends with the server: a stop, a failure or another
+//! start drops it. The next one tries the same port again, so the page
+//! keeps its storage across restarts of the server.
 
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::thread;
@@ -23,7 +29,7 @@ use serde::{Deserialize, Serialize};
 mod process;
 use process::{Proc, exit_message, read_output, spawn};
 
-use super::{PreviewPlan, answers};
+use super::{FrameProxy, PreviewPlan, answers};
 use crate::error::{CoreError, CoreResult};
 
 /// How long a server gets to answer after it starts.
@@ -63,6 +69,11 @@ pub struct ServerStatus {
     pub site: Option<String>,
     /// Where it answers, once it does.
     pub url: Option<String>,
+    /// What the Page view's frame loads: Maquette's frame proxy in front of
+    /// `url`, which drops the headers that forbid framing. `None` while it
+    /// is not running, or when the proxy could not start (then the frame
+    /// loads `url`).
+    pub frame_url: Option<String>,
     /// The command as it ran, port filled in.
     pub command: Option<String>,
     pub owner: Option<ServerOwner>,
@@ -87,6 +98,41 @@ struct Slot {
     found: Option<String>,
     /// New lines since the last notice.
     dirty: bool,
+    /// The frame proxy in front of the running server.
+    frame: Option<FrameProxy>,
+    /// The port the last frame proxy had, tried first by the next one.
+    frame_port: u16,
+}
+
+impl Slot {
+    /// Marks the server running at `url` with a frame proxy in front of it.
+    /// Returns the proxy it replaces, to drop outside the lock.
+    fn run_at(&mut self, url: String) -> Option<FrameProxy> {
+        let old = self.end_frame();
+        match FrameProxy::start(&url, self.frame_port) {
+            Ok(proxy) => {
+                self.frame_port = proxy.port();
+                self.status.frame_url = Some(proxy.url().to_string());
+                self.frame = Some(proxy);
+            }
+            Err(err) => {
+                self.status.log.push(format!(
+                    "Maquette shows {url} without its frame proxy: {err}"
+                ));
+                let extra = self.status.log.len().saturating_sub(LOG_LINES);
+                self.status.log.drain(..extra);
+            }
+        }
+        self.status.state = ServerState::Running;
+        self.status.url = Some(url);
+        old
+    }
+
+    /// Takes the frame proxy away, to drop outside the lock.
+    fn end_frame(&mut self) -> Option<FrameProxy> {
+        self.status.frame_url = None;
+        self.frame.take()
+    }
 }
 
 type Notify = Box<dyn Fn(&ServerStatus) + Send + Sync>;
@@ -158,7 +204,7 @@ impl SitePreview {
             self.shared.publish(&status);
             return status;
         }
-        let old = slot.proc_.take();
+        let old = (slot.proc_.take(), slot.end_frame());
         slot.generation += 1;
         let generation = slot.generation;
         slot.found = None;
@@ -174,13 +220,20 @@ impl SitePreview {
         drop(slot);
         drop(old);
         if let Some(url) = plan.url.as_deref().filter(|u| answers(u)) {
-            return self.settle(generation, |s| {
-                s.state = ServerState::Running;
-                s.url = Some(url.to_string());
-                s.external = true;
-                s.command = None;
-                s.log = vec![format!("{url} already answers; Maquette did not start it.")];
-            });
+            let mut slot = lock(&self.shared);
+            let mut old = None;
+            if slot.generation == generation {
+                slot.status.external = true;
+                slot.status.command = None;
+                slot.status.log =
+                    vec![format!("{url} already answers; Maquette did not start it.")];
+                old = slot.run_at(url.to_string());
+            }
+            let status = slot.status.clone();
+            drop(slot);
+            drop(old);
+            self.shared.publish(&status);
+            return status;
         }
         match spawn(plan) {
             Ok(mut proc_) => {
@@ -269,6 +322,7 @@ impl SitePreview {
     pub fn stop(&self) {
         let mut slot = lock(&self.shared);
         let proc_ = slot.proc_.take();
+        let frame = slot.end_frame();
         slot.generation += 1;
         let was = slot.status.state;
         slot.status.state = ServerState::Idle;
@@ -278,6 +332,7 @@ impl SitePreview {
         slot.status.message = None;
         let status = slot.status.clone();
         drop(slot);
+        drop(frame);
         if let Some(mut proc_) = proc_ {
             let _ = proc_.child.start_kill();
             let _ = proc_.child.wait();
@@ -301,8 +356,10 @@ impl SitePreview {
 
 impl Drop for SitePreview {
     fn drop(&mut self) {
-        let proc_ = lock(&self.shared).proc_.take();
-        drop(proc_);
+        let mut slot = lock(&self.shared);
+        let taken = (slot.proc_.take(), slot.end_frame());
+        drop(slot);
+        drop(taken);
     }
 }
 
@@ -322,12 +379,14 @@ fn watch(shared: &Shared, generation: u64, plan: &PreviewPlan) {
             .is_none_or(|p| !matches!(p.child.try_wait(), Ok(None)));
         if exited {
             slot.proc_ = None;
+            let frame = slot.end_frame();
             let early = slot.status.state == ServerState::Starting;
             slot.status.state = ServerState::Failed;
             slot.status.url = None;
             slot.status.message = Some(exit_message(early, &slot.status.log, plan));
             let status = slot.status.clone();
             drop(slot);
+            drop(frame);
             shared.publish(&status);
             return;
         }
@@ -344,9 +403,9 @@ fn watch(shared: &Shared, generation: u64, plan: &PreviewPlan) {
             if slot.generation != generation {
                 return;
             }
-            if up {
-                slot.status.state = ServerState::Running;
-                slot.status.url = candidate;
+            let mut old = None;
+            if let (true, Some(url)) = (up, candidate) {
+                old = slot.run_at(url);
             } else if started.elapsed() > START_TIMEOUT {
                 slot.proc_ = None;
                 slot.status.state = ServerState::Failed;
@@ -359,6 +418,7 @@ fn watch(shared: &Shared, generation: u64, plan: &PreviewPlan) {
             }
             let status = slot.status.clone();
             drop(slot);
+            drop(old);
             shared.publish(&status);
         } else if dirty {
             let status = slot.status.clone();

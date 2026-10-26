@@ -30,6 +30,7 @@ const IDLE: ServerStatus = {
   project: null,
   site: null,
   url: null,
+  frameUrl: null,
   command: null,
   owner: null,
   external: false,

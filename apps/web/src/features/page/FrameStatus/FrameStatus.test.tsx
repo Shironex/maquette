@@ -13,6 +13,7 @@ const STATUS: ServerStatus = {
   project: 'moon-island',
   site: '/sites/moon-island-site',
   url: null,
+  frameUrl: null,
   command: 'pnpm run dev --port 4321',
   owner: 'page',
   external: false,
