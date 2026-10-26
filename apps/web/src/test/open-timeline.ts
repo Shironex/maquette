@@ -5,7 +5,8 @@
 import { useTimelineStore } from '@/state/use-timeline-store';
 import { openMockWorkspace } from './mock-ipc';
 
-export async function openTimeline(timeline = 'demo') {
+/** `page` picks the mock page server's state, as `?page=` does. */
+export async function openTimeline(timeline = 'demo', page?: string) {
   useTimelineStore.setState(useTimelineStore.getInitialState(), true);
   await openMockWorkspace(
     'configured',
@@ -15,7 +16,7 @@ export async function openTimeline(timeline = 'demo') {
     undefined,
     undefined,
     undefined,
-    undefined,
+    page,
     timeline
   );
   await useTimelineStore.getState().load('moon-island');

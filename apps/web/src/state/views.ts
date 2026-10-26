@@ -1,7 +1,15 @@
 import type { IconName } from '@maquette/ui';
 
 export type ViewId =
-  'board' | 'inbox' | 'lab' | 'pipeline' | 'inspector' | 'motion' | 'page' | 'settings';
+  | 'board'
+  | 'inbox'
+  | 'lab'
+  | 'pipeline'
+  | 'inspector'
+  | 'motion'
+  | 'timeline'
+  | 'page'
+  | 'settings';
 
 export interface ViewDef {
   id: ViewId;
@@ -16,6 +24,7 @@ export const TOOL_VIEWS: readonly ViewDef[] = [
   { id: 'pipeline', label: 'Pipeline', icon: 'flow-arrow' },
   { id: 'inspector', label: 'Inspector', icon: 'cube-focus' },
   { id: 'motion', label: 'Motion', icon: 'person-simple-walk' },
+  { id: 'timeline', label: 'Timeline', icon: 'film-strip' },
   { id: 'page', label: 'Page', icon: 'browser' },
 ];
 

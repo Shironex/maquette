@@ -16,5 +16,6 @@ describe('views', () => {
   it('round trips', () => {
     expect(viewFromHash(hashForView('pipeline'))).toBe('pipeline');
     expect(viewFromHash(hashForView('page'))).toBe('page');
+    expect(viewFromHash(hashForView('timeline'))).toBe('timeline');
   });
 });
