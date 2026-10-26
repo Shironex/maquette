@@ -238,6 +238,6 @@ export const SHOTS = {
 export const NAV = [
   { href: '#features', label: 'Features' },
   { href: '#pipeline', label: 'Pipeline' },
-  { href: '#docs', label: 'Docs' },
+  { href: '/docs/', label: 'Docs' },
   { href: '#download', label: 'Download' },
 ] as const;

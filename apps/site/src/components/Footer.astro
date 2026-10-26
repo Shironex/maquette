@@ -1,19 +1,27 @@
 ---
 import Brand from './Brand.astro';
 import { NAV } from '../content/copy';
+
+interface Props {
+  /** Where the logo and the page links point: the docs pages sit off the landing page. */
+  home?: string;
+}
+
+const { home = '' } = Astro.props;
+const link = (href: string) => (href.startsWith('#') ? `${home}${href}` : href);
 ---
 
 <footer class="footer">
   <div class="wrap row">
-    <Brand size={28} wordSize={18} />
-    <p class="tag">A desktop studio for real-time 3D web scenes. Everything runs on your machine.</p>
+    <Brand size={28} wordSize={18} href={home ? home : undefined} />
+    <p class="tag">Real-time 3D for websites and games. Everything runs on your machine.</p>
     <span class="grow"></span>
     <nav aria-label="Footer">
       <ul>
         {
           NAV.map(item => (
             <li>
-              <a href={item.href}>{item.label}</a>
+              <a href={link(item.href)}>{item.label}</a>
             </li>
           ))
         }

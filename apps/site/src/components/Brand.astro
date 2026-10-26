@@ -2,12 +2,14 @@
 interface Props {
   size: number;
   wordSize: number;
+  /** Where the logo links to; the landing page scrolls to its top. */
+  href?: string;
 }
 
-const { size, wordSize } = Astro.props;
+const { size, wordSize, href = '#top' } = Astro.props;
 ---
 
-<a href="#top" class="brand" aria-label="maquette, back to the top">
+<a href={href} class="brand" aria-label={href === '#top' ? 'maquette, back to the top' : 'maquette, home'}>
   <img src="/icon-64.png" alt="" width={size} height={size} style={`border-radius: ${size / 4}px`} />
   <span style={`font-size: ${wordSize}px`}>maquette</span>
 </a>
