@@ -2,9 +2,11 @@
 //! page with the project's models: the site's dev command ([`command`]),
 //! run in the site folder in its own process group (job object on Windows)
 //! and stopped when another site starts, its owner lets go or the app
-//! quits ([`server`]). Nothing is built or deployed here.
+//! quits ([`server`]), with a frame proxy in front so the Page view can
+//! show it ([`frame`]). Nothing is built or deployed here.
 
 pub mod command;
+pub mod frame;
 pub mod server;
 
 use std::ffi::OsString;
@@ -13,6 +15,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 pub use command::{CommandSource, DevCommand};
+pub use frame::FrameProxy;
 pub use server::{START_TIMEOUT, ServerOwner, ServerState, ServerStatus, SitePreview};
 
 use crate::error::{CoreError, CoreResult};
