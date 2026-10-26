@@ -46,6 +46,8 @@ export interface LabStore {
   removeRef: (path: string) => void;
   generate: () => Promise<void>;
   cancel: (jobId: string) => Promise<void>;
+  /** Runs a failed or cancelled job again: the same prompt, refs and file. */
+  retry: (jobId: string) => Promise<void>;
   cancelAll: () => Promise<void>;
   clearFinished: () => Promise<void>;
   mark: (file: string, marks: { starred?: boolean; picked?: boolean }) => Promise<void>;

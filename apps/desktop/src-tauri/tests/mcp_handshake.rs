@@ -206,12 +206,20 @@ fn text(result: &CallToolResult) -> String {
         .unwrap_or_default()
 }
 
-async fn call(client: &RunningService<RoleClient, ClientConfig>, tool: &str, args: Value) -> Value {
+async fn raw_call(
+    client: &RunningService<RoleClient, ClientConfig>,
+    tool: &str,
+    args: Value,
+) -> CallToolResult {
     let mut params = CallToolRequestParams::new(tool.to_string());
     if let Value::Object(map) = args {
         params = params.with_arguments(map);
     }
-    let result = client.call_tool(params).await.expect("call");
+    client.call_tool(params).await.expect("call")
+}
+
+async fn call(client: &RunningService<RoleClient, ClientConfig>, tool: &str, args: Value) -> Value {
+    let result = raw_call(client, tool, args).await;
     assert_ne!(
         result.is_error,
         Some(true),
@@ -347,6 +355,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "redo_inbox_models",
             "remove_fixups",
             "render_thumbnail",
+            "retry_concept_jobs",
             "run_pipeline",
             "send_batch_to_3d",
             "send_to_3d",
@@ -567,6 +576,24 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     // The Lab reads back, empty in the fixture.
     let lab = call(&client, "get_concepts", json!({ "project": project_id })).await;
     assert_eq!(lab["directions"], json!([]));
+    assert_eq!(lab["failed"], json!([]));
+    // Nothing failed, so Retry has nothing to run, and an unknown job is refused.
+    let none = raw_call(
+        &client,
+        "retry_concept_jobs",
+        json!({ "project": project_id }),
+    )
+    .await;
+    assert_eq!(none.is_error, Some(true));
+    assert!(text(&none).contains("no failed Lab job"), "{}", text(&none));
+    let unknown = raw_call(
+        &client,
+        "retry_concept_jobs",
+        json!({ "project": project_id, "jobs": ["nope-01"] }),
+    )
+    .await;
+    assert_eq!(unknown.is_error, Some(true));
+    assert!(text(&unknown).contains("no Lab job"), "{}", text(&unknown));
 
     // A send to Tripo waits for a person before anything could be spent.
     let sent = call(

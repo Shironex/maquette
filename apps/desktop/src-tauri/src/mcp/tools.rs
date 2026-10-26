@@ -10,6 +10,7 @@
 
 pub mod bake;
 pub mod built;
+pub mod concept_jobs;
 pub mod concepts;
 pub mod credits;
 pub mod handoffs;
@@ -58,7 +59,9 @@ reads the provider balances and the local ledger of paid sends (API spend and By
 subscription spend apart). list_handoffs lists the By hand sends waiting for a model made on \
 the provider's site, the export file name each waits for and what the Downloads watcher \
 matched; it reads only. make_object_refs turns the objects of one concept into \
-one isolated image each. get_concepts reads the Lab. pick_concepts puts concepts on the Board \
+one isolated image each. get_concepts reads the Lab, with its failed jobs; a job Codex rate \
+limits runs again on its own a few times, and retry_concept_jobs runs failed ones again (same \
+prompt, refs and file, no new direction). pick_concepts puts concepts on the Board \
 as Send picks to Refs does: each image goes into refs/ and becomes or joins an asset at Refs \
 (named after its object for object refs, else after its direction), ready for send_to_3d; \
 picking an image again returns its asset. star_concepts stars or unstars them. Both spend \
@@ -162,6 +165,7 @@ impl McpTools {
                 + Self::projects_router()
                 + Self::inbox_router()
                 + Self::concepts_router()
+                + Self::concept_jobs_router()
                 + Self::picks_router()
                 + Self::sending_router()
                 + Self::materials_router()

@@ -36,7 +36,7 @@ function codexItems(view: ViewId, codex: ToolReport | undefined): StatusBarItem[
 
 function labItems(jobs: readonly ConceptJob[]): StatusBarItem[] {
   const generating = jobs.filter(j => j.state === 'running').length;
-  const waiting = jobs.filter(j => j.state === 'queued').length;
+  const waiting = jobs.filter(j => j.state === 'queued' || j.state === 'rate-limited').length;
   if (!generating && !waiting) return [];
   return [
     {

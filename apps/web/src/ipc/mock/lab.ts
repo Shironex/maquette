@@ -25,7 +25,7 @@ import {
 } from './lab-fixtures';
 import { clock } from '@/lib/clock';
 import { createLabSends } from './create-lab-sends';
-import { finished, refMayReplace, slug } from './lab-helpers';
+import { finished, importRefs, refMayReplace, retryable, slug } from './lab-helpers';
 
 export { refMayReplace };
 
@@ -55,7 +55,8 @@ export interface FakeLabOptions {
 
 export function createFakeLab(options: FakeLabOptions) {
   const { fail } = options;
-  const running = options.state === 'running';
+  const limited = options.state === 'limited';
+  const running = options.state === 'running' || limited;
   const batch = options.handoff === 'batch';
   const directions = new Map<string, Direction[]>([
     ['moon-island', [...(batch ? workbenchDirections() : []), ...labDirections(running)]],
@@ -63,7 +64,7 @@ export function createFakeLab(options: FakeLabOptions) {
   const refs = new Map<string, RefImage[]>([
     ['moon-island', [...labRefs(), ...(batch ? objectRefs() : [])]],
   ]);
-  let jobs: ConceptJob[] = running ? runningJobs('moon-island', clock.nowMs()) : [];
+  let jobs: ConceptJob[] = running ? runningJobs('moon-island', clock.nowMs(), limited) : [];
   let concurrency = 4;
   let pool = 0;
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -214,6 +215,8 @@ export function createFakeLab(options: FakeLabOptions) {
         width: null,
         height: null,
         logTail: [],
+        retryAtMs: null,
+        retries: 0,
       };
       jobs = [...jobs, job];
       emit({ type: 'job', job });
@@ -274,6 +277,8 @@ export function createFakeLab(options: FakeLabOptions) {
         width: null,
         height: null,
         logTail: [],
+        retryAtMs: null,
+        retries: 0,
       };
       jobs = [...jobs, job];
       emit({ type: 'job', job });
@@ -285,12 +290,32 @@ export function createFakeLab(options: FakeLabOptions) {
   function cancel(id: string) {
     const job = jobs.find(j => j.id === id);
     if (!job) return fail('not-found', `Could not find the concept job ${id}.`);
-    if (job.state !== 'queued' && job.state !== 'running') return;
+    if (finished(job)) return;
     const timer = timers.get(id);
     if (timer) clearTimeout(timer);
     timers.delete(id);
     update(job, { state: 'cancelled', finishedAtMs: clock.nowMs(), message: 'Cancelled.' });
     pump();
+  }
+
+  /** Like the core: the same job, prompt and file run again, no new direction. */
+  function retry(id: string) {
+    const job = jobs.find(j => j.id === id);
+    if (!job) return fail('not-found', `Could not find the concept job ${id}.`);
+    if (!retryable(job))
+      fail('invalid', `${job.file} is ${job.state}; only a failed job runs again.`);
+    const again = update(job, {
+      state: 'queued',
+      queuedAtMs: clock.nowMs(),
+      retries: 0,
+      retryAtMs: null,
+      startedAtMs: null,
+      finishedAtMs: null,
+      message: null,
+      logTail: [],
+    });
+    pump();
+    return jobs.find(j => j.id === id) ?? again;
   }
 
   const sends = createLabSends({
@@ -309,17 +334,14 @@ export function createFakeLab(options: FakeLabOptions) {
     lab_get: ({ project }) => view(String(project)),
     lab_generate: ({ request }) => generate(request as NewConcepts),
     lab_cancel: ({ jobId }) => cancel(String(jobId)),
+    lab_retry: ({ jobId }) => retry(String(jobId)),
     lab_cancel_all: ({ project }) => {
-      const live = jobs.filter(
-        j => j.project === project && (j.state === 'queued' || j.state === 'running')
-      );
+      const live = jobs.filter(j => j.project === project && !finished(j));
       for (const job of live) cancel(job.id);
       return live.length;
     },
     lab_clear_finished: ({ project }) => {
-      jobs = jobs.filter(
-        j => j.project !== project || j.state === 'queued' || j.state === 'running'
-      );
+      jobs = jobs.filter(j => j.project !== project || !finished(j));
       return view(String(project));
     },
     lab_mark: ({ project, direction, file, starred, picked }) => {
@@ -356,22 +378,8 @@ export function createFakeLab(options: FakeLabOptions) {
     lab_make_objects: ({ request }) => makeObjects(request as NewObjectRefs),
     lab_send_object_picks: ({ project, direction, kind }) =>
       sends.sendObjectPicks(String(project), String(direction), (kind as AssetKind | null) ?? null),
-    lab_import_refs: ({ project, paths }) => {
-      const dir = options.projectDir(String(project));
-      const out = (paths as string[]).map(path => {
-        const name = path.slice(path.lastIndexOf('/') + 1);
-        if (!/\.(png|jpe?g|webp)$/i.test(name))
-          fail('invalid', `${name} is not a PNG, JPEG or WebP image.`);
-        options.files?.alias(`${dir}/refs/${name}`, path);
-        return `refs/${name}`;
-      });
-      const known = refs.get(String(project)) ?? [];
-      refs.set(String(project), [
-        ...known.filter(r => !out.includes(r.file)),
-        ...out.map(file => ({ file, name: file.slice(5), bytes: 1.4e6 })),
-      ]);
-      return out;
-    },
+    lab_import_refs: ({ project, paths }) =>
+      importRefs(options, refs, String(project), paths as string[]),
   };
 
   return {

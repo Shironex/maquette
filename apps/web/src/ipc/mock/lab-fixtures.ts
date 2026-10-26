@@ -162,8 +162,43 @@ export function labRefs(): RefImage[] {
   }));
 }
 
-/** The running scenario's queue: four porch images done, two generating. */
-export function runningJobs(project: string, now: number): ConceptJob[] {
+/**
+ * The running scenario's queue: four porch images done, two generating.
+ * `limited` adds one waiting out a Codex rate limit and one that gave up.
+ */
+export function runningJobs(project: string, now: number, limited = false): ConceptJob[] {
+  const jobs = porchJobs(project, now);
+  if (!limited) return jobs;
+  const base = jobs[jobs.length - 1] as ConceptJob;
+  const at = (index: number) => ({
+    ...base,
+    id: `moon-island-porch-0${index}-mock`,
+    runId: `concepts-run-${index}`,
+    index,
+    file: `concepts/moon-island-porch/moon-island-porch_0${index}.png`,
+    startedAtMs: now - 90_000,
+    finishedAtMs: now - 86_000,
+    logTail: ['ERROR: exceeded retry limit, last status: 429 Too Many Requests'],
+  });
+  return [
+    ...jobs,
+    {
+      ...at(7),
+      state: 'rate-limited',
+      retries: 1,
+      retryAtMs: now + 3 * 60_000,
+      message: 'Rate limited by Codex. Trying again on its own (try 2 of 4).',
+    },
+    {
+      ...at(8),
+      state: 'failed',
+      retries: 3,
+      message: 'Rate limited by Codex, 4 times in a row. Try again in a few minutes with Retry.',
+    },
+  ];
+}
+
+function porchJobs(project: string, now: number): ConceptJob[] {
   const took = [64, 58, 71, 62];
   return [1, 2, 3, 4, 5, 6].map(index => {
     const done = index <= 4;
@@ -187,6 +222,8 @@ export function runningJobs(project: string, now: number): ConceptJob[] {
       width: done ? 1672 : null,
       height: done ? 941 : null,
       logTail: done ? ['saved the image'] : ['Generating the image'],
+      retryAtMs: null,
+      retries: 0,
     };
   });
 }

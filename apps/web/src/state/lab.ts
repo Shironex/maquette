@@ -9,6 +9,7 @@ import type {
   Direction,
   LabView,
 } from '@/ipc/client';
+import { formatClock } from '@/lib/format';
 
 export const ASPECTS: readonly { value: Aspect; label: string }[] = [
   { value: '16:9', label: '16:9' },
@@ -113,7 +114,19 @@ export function formatElapsed(ms: number): string {
   return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
 }
 
-const isLive = (state: ConceptJobState) => state === 'queued' || state === 'running';
+const isLive = (state: ConceptJobState) =>
+  state === 'queued' || state === 'running' || state === 'rate-limited';
+
+/** True for a job Retry runs again: failed, cancelled, or waiting out a rate limit. */
+export const canRetry = (job: Pick<ConceptJob, 'state'>): boolean =>
+  job.state === 'failed' || job.state === 'cancelled' || job.state === 'rate-limited';
+
+/** "Waiting, rate limited, retries at 09:05" */
+export function rateLimitedLine(job: Pick<ConceptJob, 'retryAtMs'>): string {
+  return job.retryAtMs === null
+    ? 'Waiting, rate limited'
+    : `Waiting, rate limited, retries at ${formatClock(job.retryAtMs)}`;
+}
 
 export function jobStatus(job: ConceptJob): Status {
   switch (job.state) {
@@ -145,6 +158,8 @@ export function jobMeta(job: ConceptJob, now: number): string {
     }
     case 'cancelled':
       return 'Cancelled';
+    case 'rate-limited':
+      return rateLimitedLine(job);
     default:
       return job.message ?? 'Failed';
   }
@@ -199,7 +214,7 @@ export function queueSummary(jobs: readonly ConceptJob[]): QueueSummary {
     done: jobs.filter(j => j.state === 'done').length,
     total: jobs.length,
     running: jobs.filter(j => j.state === 'running').length,
-    queued: jobs.filter(j => j.state === 'queued').length,
+    queued: jobs.filter(j => j.state === 'queued' || j.state === 'rate-limited').length,
     failed: jobs.filter(j => j.state === 'failed').length,
   };
 }

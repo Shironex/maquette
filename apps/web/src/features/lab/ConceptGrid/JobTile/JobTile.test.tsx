@@ -22,4 +22,13 @@ describe('a job tile', () => {
     expect(screen.getByText('in line')).toBeVisible();
     expect(screen.queryByRole('progressbar')).toBeNull();
   });
+
+  it('shows a rate limited job with the time it tries again', () => {
+    const at = new Date(2026, 9, 26, 9, 5).getTime();
+    render(
+      <JobTile direction={porch} job={{ ...running!, state: 'rate-limited', retryAtMs: at }} />
+    );
+    expect(screen.getByText('rate limited')).toBeVisible();
+    expect(screen.getByText('retries at 09:05')).toBeVisible();
+  });
 });

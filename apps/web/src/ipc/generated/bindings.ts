@@ -131,6 +131,12 @@ export const commands = {
 	labGet: (project: string) => __TAURI_INVOKE<LabView>("lab_get", { project }),
 	labGenerate: (request: NewConcepts) => __TAURI_INVOKE<LabView>("lab_generate", { request }),
 	labCancel: (jobId: string) => __TAURI_INVOKE<null>("lab_cancel", { jobId }),
+	/**
+	 *  Runs a failed or cancelled job again: the same prompt, refs and file
+	 *  under the same job, so no new direction. A job waiting out a rate limit
+	 *  runs at once.
+	 */
+	labRetry: (jobId: string) => __TAURI_INVOKE<ConceptJob>("lab_retry", { jobId }),
 	/**  Stops every queued and running job of the project. */
 	labCancelAll: (project: string) => __TAURI_INVOKE<number>("lab_cancel_all", { project }),
 	labClearFinished: (project: string) => __TAURI_INVOKE<LabView>("lab_clear_finished", { project }),
@@ -873,9 +879,15 @@ export type ConceptJob = {
 	height: number | null,
 	/**  The last lines Codex printed. */
 	logTail: string[],
+	/**  Rate limited: when it runs again, ms since the epoch. */
+	retryAtMs: number | null,
+	/**  How often it ran again on its own after a rate limit. */
+	retries: number,
 };
 
-export type ConceptJobState = "queued" | "running" | "done" | "failed" | "cancelled";
+export type ConceptJobState = "queued" | "running" | 
+/**  Codex rate limited it; it runs again on its own at `retry_at_ms`. */
+"rate-limited" | "done" | "failed" | "cancelled";
 
 /**
  *  A concept job changed state or printed a line, or a direction got a new

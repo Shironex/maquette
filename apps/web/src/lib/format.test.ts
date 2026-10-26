@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { formatAgo, formatBytes, formatCount, formatK, homePath, shortPath } from './format';
+import {
+  formatAgo,
+  formatBytes,
+  formatClock,
+  formatCount,
+  formatK,
+  homePath,
+  shortPath,
+} from './format';
 
 describe('format', () => {
   it('formats sizes with decimal units', () => {
@@ -7,6 +15,11 @@ describe('format', () => {
     expect(formatBytes(840_000)).toBe('840 KB');
     expect(formatBytes(2_300_000_000)).toBe('2.3 GB');
     expect(formatBytes(5_100_000)).toBe('5.1 MB');
+  });
+
+  it('formats a time of day as HH:MM in local time', () => {
+    expect(formatClock(new Date(2026, 9, 26, 9, 5, 40).getTime())).toBe('09:05');
+    expect(formatClock(new Date(2026, 9, 26, 23, 59).getTime())).toBe('23:59');
   });
 
   it('formats elapsed time the way the status bar reads', () => {

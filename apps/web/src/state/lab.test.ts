@@ -11,6 +11,7 @@ import {
   directionSummary,
   formatElapsed,
   inProject,
+  canRetry,
   jobMeta,
   queueFooter,
   queueSummary,
@@ -68,6 +69,8 @@ function job(
     width: null,
     height: null,
     logTail: [],
+    retryAtMs: null,
+    retries: 0,
     ...extra,
   };
 }
@@ -106,6 +109,14 @@ describe('lab helpers', () => {
       jobMeta(job(1, 'done', { startedAtMs: 0, finishedAtMs: 64_000, width: 1672, height: 941 }), 0)
     ).toBe('1672 × 941 · 1m 04s');
     expect(jobMeta(job(1, 'failed', { message: 'Codex stopped.' }), 0)).toBe('Codex stopped.');
+    const retryAt = new Date(2026, 9, 26, 9, 5).getTime();
+    expect(jobMeta(job(1, 'rate-limited', { retryAtMs: retryAt }), 0)).toBe(
+      'Waiting, rate limited, retries at 09:05'
+    );
+    expect(canRetry(job(1, 'failed'))).toBe(true);
+    expect(canRetry(job(1, 'rate-limited'))).toBe(true);
+    expect(canRetry(job(1, 'done'))).toBe(false);
+    expect(canRetry(job(1, 'running'))).toBe(false);
   });
 
   it('folds events into the view of the same project only', () => {

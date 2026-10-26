@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use maquette_core::concepts::{Aspect, NewConcepts, NewObjectRefs};
+use maquette_core::concepts::{Aspect, ConceptJob, ConceptJobState, NewConcepts, NewObjectRefs};
 use maquette_core::{AssetKind, concepts, project};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
@@ -92,6 +92,20 @@ pub struct GetConceptsArgs {
     pub direction: Option<String>,
 }
 
+/// One concept job as the tools report it.
+pub(super) fn job_value(job: &ConceptJob) -> Value {
+    json!({
+        "id": job.id,
+        "direction": job.direction_name,
+        "file": job.file,
+        "title": job.title,
+        "state": to_value(job.state),
+        "message": job.message,
+        "retryAtMs": job.retry_at_ms,
+        "retries": job.retries,
+    })
+}
+
 /// The name an object refs direction starts with when the agent gives
 /// none: the source's direction, else its file name.
 fn source_name(project_dir: &Path, source: &str) -> String {
@@ -145,7 +159,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read a project's Concept lab: each direction's prompt, refs and images (starred, picked, and the ref file a picked image became), plus the concept jobs still queued or running.",
+        description = "Read a project's Concept lab: each direction's prompt, refs and images (starred, picked, and the ref file a picked image became), plus the concept jobs still queued, running or waiting out a Codex rate limit (running, with retryAtMs for a waiting one) and the ones that failed or were cancelled (failed, with why), which retry_concept_jobs runs again.",
         annotations(read_only_hint = true)
     )]
     async fn get_concepts(&self, Parameters(args): Parameters<GetConceptsArgs>) -> Out {
@@ -192,24 +206,16 @@ impl McpTools {
                 if let (Some(w), true) = (wanted, directions.is_empty()) {
                     return Err(format!("There is no direction {w:?} in {}.", args.project));
                 }
-                let jobs: Vec<Value> = host
-                    .concepts()
-                    .jobs(Some(&args.project))
+                let jobs = host.concepts().jobs(Some(&args.project));
+                let (running, failed): (Vec<_>, Vec<_>) = jobs
                     .iter()
-                    .filter(|j| !j.state.is_finished())
-                    .map(|j| {
-                        json!({
-                            "id": j.id,
-                            "direction": j.direction_name,
-                            "file": j.file,
-                            "state": to_value(j.state),
-                        })
-                    })
-                    .collect();
+                    .filter(|j| j.state != ConceptJobState::Done)
+                    .partition(|j| !j.state.is_finished());
                 Ok(json!({
                     "project": args.project,
                     "directions": directions,
-                    "running": jobs,
+                    "running": running.into_iter().map(job_value).collect::<Vec<_>>(),
+                    "failed": failed.into_iter().map(job_value).collect::<Vec<_>>(),
                 }))
             })
             .await;

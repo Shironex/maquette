@@ -1,5 +1,5 @@
 //! Concept jobs against a fake `codex` script: arrival, object refs, copy out,
-//! failures, timeouts and cancelling.
+//! failures, timeouts, cancelling, rate limits and Retry.
 
 use super::sink::session_id;
 use super::*;
@@ -22,6 +22,9 @@ for last; do :; done
 [ "$last" = "-" ] || {{ echo "prompt not from stdin" >&2; exit 9; }}
 echo "OpenAI Codex (fake)"
 echo "session id: 01fake-$$"
+echo "hook: SessionStart" >&2
+mkdir -p "$(dirname "$out")"
+n=$(cat "$out.count" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$out.count"
 case "{mode}" in
   ok) mkdir -p "$(dirname "$out")"; cp "{png}" "$out"; echo "saved $out";;
   record) mkdir -p "$(dirname "$out")"; cp "{png}" "$out"; printf '%s\n' "$@" > "$out.args"; printf '%s\n' "$prompt" > "$out.prompt";;
@@ -29,6 +32,9 @@ case "{mode}" in
   nothing) echo "I could not make that.";;
   fail) echo "error: not signed in" >&2; exit 2;;
   slow) sleep 30;;
+  limited) echo "ERROR: exceeded retry limit, last status: 429 Too Many Requests" >&2; exit 1;;
+  limited-once) if [ "$n" = 1 ]; then echo "ERROR: exceeded retry limit, last status: 429 Too Many Requests" >&2; exit 1; fi; cp "{png}" "$out";;
+  flaky) if [ "$n" = 1 ]; then echo "error: not signed in" >&2; exit 2; fi; cp "{png}" "$out";;
 esac
 "#,
         mode = mode,
@@ -331,6 +337,167 @@ fn queued_jobs_can_be_cancelled() {
         })
         .expect_err("no codex");
     assert!(err.to_string().contains("Codex CLI"));
+}
+
+fn quick(tries: u32, first_ms: u64) -> Backoff {
+    Backoff {
+        first: Duration::from_millis(first_ms),
+        longest: Duration::from_secs(1),
+        tries,
+    }
+}
+
+fn start_one(concepts: &Concepts, r: &Rig, codex: &Path, direction: &str) -> ConceptJob {
+    let (_, jobs) = concepts
+        .start(Start {
+            project_dir: &r.project,
+            cache_dir: &r.cache,
+            tools: &toolbox(codex),
+            request: request(direction, 1),
+            timeout: Duration::from_secs(20),
+        })
+        .expect("start");
+    jobs.into_iter().next().expect("job")
+}
+
+#[test]
+fn a_rate_limited_job_waits_and_runs_again_on_its_own() {
+    let r = rig();
+    let codex = fake_codex(&r.root, &r.png, &r.home, "limited-once");
+    let (log, on_event) = events();
+    let concepts = Concepts::new(Some(r.home.clone()), 1, on_event);
+    concepts.set_backoff(quick(3, 50));
+    let first = start_one(&concepts, &r, &codex, "Lantern");
+    concepts.wait();
+    let job = &concepts.jobs(None)[0];
+    assert_eq!(job.id, first.id);
+    assert_eq!(job.state, ConceptJobState::Done, "{job:#?}");
+    assert_eq!(job.retries, 1);
+    assert!(
+        job.log_tail.iter().all(|l| !l.starts_with("hook:")),
+        "{job:#?}"
+    );
+    let events = log.lock().expect("events");
+    let waiting = events
+        .iter()
+        .find_map(|e| match e {
+            ConceptEvent::Job { job } if job.state == ConceptJobState::RateLimited => Some(job),
+            _ => None,
+        })
+        .expect("a waiting job");
+    assert!(waiting.retry_at_ms.is_some());
+    assert_eq!(
+        waiting.message.as_deref(),
+        Some("Rate limited by Codex. Trying again on its own (try 2 of 4).")
+    );
+    let stored = load_direction(&r.project, "lantern")
+        .expect("load")
+        .expect("direction");
+    assert_eq!(stored.images.len(), 1);
+}
+
+#[test]
+fn a_job_rate_limited_every_time_stops_after_its_tries_with_a_plain_message() {
+    let r = rig();
+    let codex = fake_codex(&r.root, &r.png, &r.home, "limited");
+    let concepts = Concepts::new(Some(r.home.clone()), 1, |_| {});
+    concepts.set_backoff(quick(2, 20));
+    start_one(&concepts, &r, &codex, "Lantern");
+    concepts.wait();
+    let job = &concepts.jobs(None)[0];
+    assert_eq!(job.state, ConceptJobState::Failed, "{job:#?}");
+    assert_eq!(job.retries, 2);
+    assert_eq!(job.retry_at_ms, None);
+    assert_eq!(
+        job.message.as_deref(),
+        Some("Rate limited by Codex, 3 times in a row. Try again in a few minutes with Retry.")
+    );
+    let count =
+        fs::read_to_string(r.project.join("concepts/lantern/lantern_01.png.count")).expect("count");
+    assert_eq!(count.trim(), "3");
+}
+
+#[test]
+fn retry_runs_a_failed_job_again_with_the_same_file_and_no_new_direction() {
+    let r = rig();
+    let codex = fake_codex(&r.root, &r.png, &r.home, "flaky");
+    let concepts = Concepts::new(Some(r.home.clone()), 1, |_| {});
+    let first = start_one(&concepts, &r, &codex, "Lantern");
+    concepts.wait();
+    let failed = &concepts.jobs(None)[0];
+    assert_eq!(failed.state, ConceptJobState::Failed, "{failed:#?}");
+    assert!(
+        failed
+            .message
+            .as_deref()
+            .is_some_and(|m| !m.contains("hook:"))
+    );
+    let again = concepts.retry(&first.id).expect("retry");
+    assert_eq!(again.id, first.id);
+    assert_eq!(again.file, first.file);
+    assert_ne!(again.state, ConceptJobState::Failed);
+    concepts.wait();
+    let jobs = concepts.jobs(None);
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0].state, ConceptJobState::Done, "{jobs:#?}");
+    assert_eq!(jobs[0].message, None);
+    let directions = fs::read_dir(r.project.join("concepts"))
+        .expect("concepts")
+        .count();
+    assert_eq!(directions, 1);
+    // A done job does not run again, and an unknown one is refused.
+    let done = concepts.retry(&first.id).expect_err("done");
+    assert!(done.to_string().contains("is done"), "{done}");
+    assert!(concepts.retry("nope").is_err());
+}
+
+#[test]
+fn a_job_waiting_out_a_rate_limit_can_be_cancelled() {
+    let r = rig();
+    let codex = fake_codex(&r.root, &r.png, &r.home, "limited");
+    let concepts = Concepts::new(Some(r.home.clone()), 1, |_| {});
+    concepts.set_backoff(quick(3, 60_000));
+    let first = start_one(&concepts, &r, &codex, "Lantern");
+    let second = start_one(&concepts, &r, &codex, "Porch");
+    let waiting = || {
+        concepts
+            .jobs(None)
+            .iter()
+            .filter(|j| j.state == ConceptJobState::RateLimited)
+            .count()
+    };
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while waiting() < 2 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(waiting(), 2, "{:#?}", concepts.jobs(None));
+    concepts.cancel(&first.id).expect("cancel");
+    assert_eq!(concepts.cancel_all("moon"), 1);
+    concepts.wait();
+    for job in concepts.jobs(None) {
+        assert_eq!(job.state, ConceptJobState::Cancelled, "{job:#?}");
+        assert_eq!(job.retry_at_ms, None);
+    }
+    // Retry runs a cancelled one again at once.
+    let again = concepts.retry(&second.id).expect("retry");
+    assert_eq!(again.retries, 0);
+    concepts.cancel(&second.id).expect("cancel again");
+    concepts.wait();
+}
+
+#[test]
+fn tells_rate_limits_and_hook_lines_apart_from_other_lines() {
+    use super::retry::{is_noise, says_rate_limited};
+    assert!(says_rate_limited(
+        "ERROR: exceeded retry limit, last status: 429 Too Many Requests"
+    ));
+    assert!(says_rate_limited(
+        "stream error: Rate limit reached for requests"
+    ));
+    assert!(!says_rate_limited("error: not signed in"));
+    assert!(!says_rate_limited("saved /tmp/a_429.png"));
+    assert!(is_noise("hook: SessionStart Completed"));
+    assert!(!is_noise("ERROR: hook failed"));
 }
 
 #[test]

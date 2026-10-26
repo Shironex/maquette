@@ -2,6 +2,7 @@ import { useLabStore } from '@/state/use-lab-store';
 
 export function useQueueRow() {
   const cancel = useLabStore(s => s.cancel);
+  const retry = useLabStore(s => s.retry);
   const openLightbox = useLabStore(s => s.openLightbox);
-  return { cancel, openLightbox };
+  return { cancel, retry, openLightbox };
 }

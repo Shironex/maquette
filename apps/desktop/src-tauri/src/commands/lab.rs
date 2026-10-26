@@ -225,6 +225,15 @@ pub fn lab_cancel(lab: State<'_, Lab>, job_id: String) -> CommandResult<()> {
     Ok(lab.0.cancel(&job_id)?)
 }
 
+/// Runs a failed or cancelled job again: the same prompt, refs and file
+/// under the same job, so no new direction. A job waiting out a rate limit
+/// runs at once.
+#[tauri::command]
+#[specta::specta]
+pub fn lab_retry(lab: State<'_, Lab>, job_id: String) -> CommandResult<ConceptJob> {
+    Ok(lab.0.retry(&job_id)?)
+}
+
 /// Stops every queued and running job of the project.
 #[tauri::command]
 #[specta::specta]

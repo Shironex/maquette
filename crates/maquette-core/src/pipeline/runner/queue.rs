@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::thread;
 
 use process_wrap::std::ChildWrapper;
@@ -77,7 +77,24 @@ pub struct PipelineRunner {
     inner: Arc<Inner>,
 }
 
+/// A runner handle that does not keep the runner alive, for a sink that
+/// submits runs of its own (a retry) without a reference cycle.
+#[derive(Clone)]
+pub struct WeakRunner(Weak<Inner>);
+
+impl WeakRunner {
+    /// The runner, while anything else still holds it.
+    pub fn upgrade(&self) -> Option<PipelineRunner> {
+        self.0.upgrade().map(|inner| PipelineRunner { inner })
+    }
+}
+
 impl PipelineRunner {
+    /// A handle that does not keep this runner alive.
+    pub fn downgrade(&self) -> WeakRunner {
+        WeakRunner(Arc::downgrade(&self.inner))
+    }
+
     pub fn new(sink: Arc<dyn RunSink>) -> Self {
         Self {
             inner: Arc::new(Inner {

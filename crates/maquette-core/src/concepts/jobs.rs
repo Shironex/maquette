@@ -6,7 +6,10 @@
 //! folder, the job looks in `<codex home>/generated_images/<session id>/`
 //! (the session id is in Codex's log header) for an image made during the
 //! job and copies that one. A job that runs past the timeout is stopped.
+//! A job Codex rate limits waits and runs again on its own a few times
+//! ([`Backoff`]); any failed job can run again with [`Concepts::retry`].
 
+mod retry;
 mod settle;
 mod sink;
 #[cfg(all(test, unix))]
@@ -14,7 +17,7 @@ mod tests;
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 
 use serde::{Deserialize, Serialize};
@@ -23,12 +26,13 @@ use super::objects::{self, NewObjectRefs};
 use super::{Direction, NewConcepts, codex_args, prepare, prompt};
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::now_ms;
-use crate::pipeline::runner::{JobRunner, PipelineRunner, RunOptions, RunSetup};
+use crate::pipeline::runner::{JobRunner, PipelineRunner, RunOptions, RunSetup, WeakRunner};
 use crate::pipeline::tools::Toolbox;
 use crate::pipeline::{CompressDefaults, PIPELINE_VERSION, PipelineDef, StepDef, StepKind};
 use crate::toolchain::ToolId;
 use crate::workspace::{MeshoptLevel, TextureCodec};
 
+pub use retry::Backoff;
 use sink::Sink;
 
 /// The runner lane every concept job shares.
@@ -44,6 +48,8 @@ const KEEP_FINISHED: usize = 120;
 pub enum ConceptJobState {
     Queued,
     Running,
+    /// Codex rate limited it; it runs again on its own at `retry_at_ms`.
+    RateLimited,
     Done,
     Failed,
     Cancelled,
@@ -79,6 +85,10 @@ pub struct ConceptJob {
     pub height: Option<u32>,
     /// The last lines Codex printed.
     pub log_tail: Vec<String>,
+    /// Rate limited: when it runs again, ms since the epoch.
+    pub retry_at_ms: Option<f64>,
+    /// How often it ran again on its own after a rate limit.
+    pub retries: u32,
 }
 
 /// What the service reports to the UI.
@@ -122,8 +132,18 @@ struct Planned {
     title: Option<String>,
 }
 
+/// What a job's run needs, kept so a retry runs the very same thing.
+#[derive(Clone)]
+struct Rerun {
+    setup: RunSetup,
+    options: RunOptions,
+}
+
 struct Entry {
     job: ConceptJob,
+    rerun: Rerun,
+    /// Counts the job's runs, so a stale retry timer knows to stand down.
+    generation: u64,
     project_dir: PathBuf,
     session: Option<String>,
     /// The last error Codex printed, for the failure message.
@@ -138,11 +158,18 @@ struct Shared {
     jobs: Mutex<VecDeque<Entry>>,
     on_event: Callback,
     codex_home: Option<PathBuf>,
+    /// The runner, for retries started from the sink.
+    runner: OnceLock<WeakRunner>,
+    backoff: Mutex<Backoff>,
 }
 
 impl Shared {
     fn jobs(&self) -> MutexGuard<'_, VecDeque<Entry>> {
         self.jobs.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn backoff(&self) -> MutexGuard<'_, Backoff> {
+        self.backoff.lock().unwrap_or_else(|p| p.into_inner())
     }
 
     fn emit(&self, event: ConceptEvent) {
@@ -177,8 +204,11 @@ impl Concepts {
             jobs: Mutex::new(VecDeque::new()),
             on_event: Box::new(on_event),
             codex_home,
+            runner: OnceLock::new(),
+            backoff: Mutex::new(Backoff::default()),
         });
         let runner = PipelineRunner::new(Arc::new(Sink(Arc::clone(&shared))));
+        let _ = shared.runner.set(runner.downgrade());
         let concepts = Self { shared, runner };
         concepts.set_concurrency(concurrency);
         concepts
@@ -294,77 +324,60 @@ impl Concepts {
                 width: None,
                 height: None,
                 log_tail: Vec::new(),
+                retry_at_ms: None,
+                retries: 0,
+            };
+            let rerun = Rerun {
+                setup: RunSetup {
+                    project: LANE.to_string(),
+                    project_dir: lane.project_dir.to_path_buf(),
+                    cache_dir: lane.cache_dir.to_path_buf(),
+                    def: PipelineDef {
+                        version: PIPELINE_VERSION,
+                        root: None,
+                        steps: vec![StepDef {
+                            id: id.clone(),
+                            name: format!("{} #{index}", direction.name),
+                            kind: StepKind::Shell,
+                            command: Some(codex.program.display().to_string()),
+                            script: None,
+                            args: args.clone(),
+                            inputs: Vec::new(),
+                            outputs: Vec::new(),
+                            depends_on: Vec::new(),
+                            compress: None,
+                        }],
+                        presets: Vec::new(),
+                    },
+                    tools: lane.tools.clone(),
+                    defaults: CompressDefaults {
+                        texture_size: 2048,
+                        codec: TextureCodec::Etc1s,
+                        meshopt: MeshoptLevel::Medium,
+                    },
+                    vars: Default::default(),
+                    shipped_names: Default::default(),
+                    materials: Default::default(),
+                    from: None,
+                    force: true,
+                },
+                options: RunOptions {
+                    stdin: Some(text),
+                    timeout: Some(lane.timeout),
+                    gate: None,
+                },
             };
             self.shared.jobs().push_back(Entry {
-                job: job.clone(),
+                job,
+                rerun,
+                generation: 0,
                 project_dir: lane.project_dir.to_path_buf(),
                 session: None,
                 last_error: None,
                 started: None,
                 last_emit: None,
             });
-            let setup = RunSetup {
-                project: LANE.to_string(),
-                project_dir: lane.project_dir.to_path_buf(),
-                cache_dir: lane.cache_dir.to_path_buf(),
-                def: PipelineDef {
-                    version: PIPELINE_VERSION,
-                    root: None,
-                    steps: vec![StepDef {
-                        id: id.clone(),
-                        name: format!("{} #{index}", direction.name),
-                        kind: StepKind::Shell,
-                        command: Some(codex.program.display().to_string()),
-                        script: None,
-                        args: args.clone(),
-                        inputs: Vec::new(),
-                        outputs: Vec::new(),
-                        depends_on: Vec::new(),
-                        compress: None,
-                    }],
-                    presets: Vec::new(),
-                },
-                tools: lane.tools.clone(),
-                defaults: CompressDefaults {
-                    texture_size: 2048,
-                    codec: TextureCodec::Etc1s,
-                    meshopt: MeshoptLevel::Medium,
-                },
-                vars: Default::default(),
-                shipped_names: Default::default(),
-                materials: Default::default(),
-                from: None,
-                force: true,
-            };
-            let options = RunOptions {
-                stdin: Some(text),
-                timeout: Some(lane.timeout),
-                gate: None,
-            };
-            match self.runner.submit_with(setup, options) {
-                Ok(record) => {
-                    let mut jobs = self.shared.jobs();
-                    if let Some(e) = jobs.iter_mut().find(|e| e.job.id == id) {
-                        e.job.run_id.get_or_insert(record.id);
-                        queued.push(e.job.clone());
-                    }
-                }
-                Err(err) => {
-                    let failed = {
-                        let mut jobs = self.shared.jobs();
-                        jobs.iter_mut().find(|e| e.job.id == id).map(|e| {
-                            e.job.state = ConceptJobState::Failed;
-                            e.job.finished_at_ms = Some(now_ms());
-                            e.job.message = Some(err.to_string());
-                            e.job.clone()
-                        })
-                    };
-                    if let Some(job) = failed {
-                        self.shared.emit(ConceptEvent::Job { job: job.clone() });
-                        queued.push(job);
-                    }
-                }
-            }
+            queued.extend(retry::submit(&self.shared, &self.runner, &id));
         }
         Ok(queued)
     }
@@ -389,6 +402,10 @@ impl Concepts {
             .map(|e| (e.job.run_id.clone(), e.job.state));
         match run {
             Some((_, state)) if state.is_finished() => Ok(()),
+            Some((_, ConceptJobState::RateLimited)) => {
+                self.cancel_waiting(job_id);
+                Ok(())
+            }
             Some((Some(run_id), _)) => self.runner.cancel(&run_id),
             _ => Err(CoreError::NotFound(format!("the concept job {job_id}"))),
         }
@@ -396,16 +413,23 @@ impl Concepts {
 
     /// Stops every unfinished job of `project`, returning how many.
     pub fn cancel_all(&self, project: &str) -> usize {
-        let runs: Vec<String> = self
+        let (waiting, runs): (Vec<_>, Vec<_>) = self
             .shared
             .jobs()
             .iter()
             .filter(|e| e.job.project == project && !e.job.state.is_finished())
-            .filter_map(|e| e.job.run_id.clone())
-            .collect();
-        runs.iter()
+            .map(|e| (e.job.id.clone(), e.job.run_id.clone(), e.job.state))
+            .partition(|(_, _, state)| *state == ConceptJobState::RateLimited);
+        let waited = waiting
+            .iter()
+            .filter(|(id, _, _)| self.cancel_waiting(id).is_some())
+            .count();
+        let stopped = runs
+            .iter()
+            .filter_map(|(_, run, _)| run.as_ref())
             .filter(|r| self.runner.cancel(r).is_ok())
-            .count()
+            .count();
+        waited + stopped
     }
 
     /// Drops finished jobs of `project` from the queue panel.

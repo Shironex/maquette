@@ -135,6 +135,17 @@ export const useLabStore = create<LabStore>((set, get) => ({
     }
   },
 
+  retry: async jobId => {
+    try {
+      const job = await commands.labRetry(jobId);
+      const view = get().view;
+      if (view && view.project === job.project)
+        set({ view: applyConceptEvent(view, { type: 'job', job }) });
+    } catch (error) {
+      notify('failed', 'The job did not run again', errorMessage(error));
+    }
+  },
+
   cancelAll: async () => {
     const view = get().view;
     if (!view) return;

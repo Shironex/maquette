@@ -1,7 +1,7 @@
 import { IconButton, ProgressBar, StatusChip, cn } from '@maquette/ui';
 import type { ConceptJob } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
-import { formatElapsed, inProject, jobMeta, jobStatus, tileLabel } from '@/state/lab';
+import { canRetry, formatElapsed, inProject, jobMeta, jobStatus, tileLabel } from '@/state/lab';
 import { useQueueRow } from './QueueRow.hooks';
 
 export interface QueueRowProps {
@@ -10,12 +10,16 @@ export interface QueueRowProps {
   now: number;
 }
 
-/** One Codex job: its thumbnail once done, its state, and Cancel while it is live. */
+/**
+ * One Codex job: its thumbnail once done, its state, Cancel while it is
+ * live and Retry once it failed or waits out a rate limit.
+ */
 export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
-  const { cancel, openLightbox } = useQueueRow();
+  const { cancel, retry, openLightbox } = useQueueRow();
   const path = inProject(projectDir, job.file);
   const thumb = job.state === 'done' ? fileUrl(path) : null;
-  const live = job.state === 'running' || job.state === 'queued';
+  const limited = job.state === 'rate-limited';
+  const live = job.state === 'running' || job.state === 'queued' || limited;
   const failed = job.state === 'failed' || job.state === 'cancelled';
   const label = tileLabel(job);
   const elapsed =
@@ -54,7 +58,7 @@ export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
           <span
             className={cn(
               'text-[11.5px] tabular-nums',
-              failed ? 'line-clamp-2 text-danger' : 'text-fg-mute'
+              failed ? 'line-clamp-2 text-danger' : limited ? 'text-amber' : 'text-fg-mute'
             )}
             title={failed ? job.logTail.slice(-6).join('\n') || undefined : undefined}
           >
@@ -62,6 +66,15 @@ export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
           </span>
         )}
       </div>
+      {canRetry(job) ? (
+        <IconButton
+          icon="arrow-clockwise"
+          label={limited ? `Retry ${label} now` : `Retry ${label}`}
+          size="sm"
+          variant="ghost"
+          onClick={() => void retry(job.id)}
+        />
+      ) : null}
       {live ? (
         <IconButton
           icon="x"
@@ -72,7 +85,8 @@ export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
           className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
         />
       ) : null}
-      {job.state === 'running' ? null : (
+      {/* A rate limited row says it in its own line, which needs the room. */}
+      {job.state === 'running' || limited ? null : (
         <StatusChip
           status={jobStatus(job)}
           label={

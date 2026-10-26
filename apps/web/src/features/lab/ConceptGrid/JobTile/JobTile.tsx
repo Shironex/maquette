@@ -1,5 +1,6 @@
 import { ProgressBar, StatusChip, cn } from '@maquette/ui';
 import type { ConceptJob, Direction } from '@/ipc/client';
+import { formatClock } from '@/lib/format';
 import { aspectCss, formatElapsed, tileLabel } from '@/state/lab';
 import { useJobTile } from './JobTile.hooks';
 
@@ -8,12 +9,17 @@ export interface JobTileProps {
   job: ConceptJob;
 }
 
-/** A concept still in the queue or generating, with its elapsed time. */
+/** A concept still in the queue, generating or waiting out a rate limit, with its time. */
 export default function JobTile({ direction, job }: JobTileProps) {
   const now = useJobTile();
   const running = job.state === 'running';
+  const limited = job.state === 'rate-limited';
   const elapsed =
-    running && job.startedAtMs !== null ? formatElapsed(now - job.startedAtMs) : 'in line';
+    running && job.startedAtMs !== null
+      ? formatElapsed(now - job.startedAtMs)
+      : limited && job.retryAtMs !== null
+        ? `retries at ${formatClock(job.retryAtMs)}`
+        : 'in line';
   return (
     <figure className="m-0 flex flex-col gap-[7px]">
       <div
@@ -22,13 +28,18 @@ export default function JobTile({ direction, job }: JobTileProps) {
       >
         <StatusChip
           status={running ? 'running' : 'queued'}
-          label={running ? 'generating' : 'waiting'}
+          label={running ? 'generating' : limited ? 'rate limited' : 'waiting'}
         />
         {running ? <ProgressBar className="w-[140px]" /> : null}
       </div>
       <figcaption className="flex items-center justify-between">
         <span className="min-w-0 truncate text-fg-mute">{tileLabel(job)}</span>
-        <span className={cn('text-meta tabular-nums', running ? 'text-amber' : 'text-fg-mute')}>
+        <span
+          className={cn(
+            'text-meta tabular-nums',
+            running || limited ? 'text-amber' : 'text-fg-mute'
+          )}
+        >
           {elapsed}
         </span>
       </figcaption>

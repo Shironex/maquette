@@ -86,6 +86,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             lab::lab_get,
             lab::lab_generate,
             lab::lab_cancel,
+            lab::lab_retry,
             lab::lab_cancel_all,
             lab::lab_clear_finished,
             lab::lab_mark,

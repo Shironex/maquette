@@ -24,6 +24,13 @@ export function formatAgo(thenMs: number, nowMs: number): string {
   return `${Math.round(h / 24)} days ago`;
 }
 
+/** "09:05", the local time of day of `ms`. */
+export function formatClock(ms: number): string {
+  const at = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+}
+
 /** "60,000" */
 export function formatCount(n: number): string {
   return Math.round(n).toLocaleString('en-US');

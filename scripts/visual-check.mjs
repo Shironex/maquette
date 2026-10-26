@@ -534,6 +534,9 @@ async function coreShots() {
   const labRunning = await open('&scenario=configured&lab=running', '#/lab');
   await labRunning.getByText('Image queue').waitFor();
   await shot(labRunning, 'lab-running');
+  const labLimited = await open('&scenario=configured&lab=limited', '#/lab');
+  await labLimited.getByText(/^Waiting, rate limited, retries at /).waitFor();
+  await shot(labLimited, 'lab-rate-limited');
 
   const agents = await open('&scenario=configured&agents=active', '#/settings');
   await agents.getByRole('heading', { name: '3D providers' }).first().waitFor();

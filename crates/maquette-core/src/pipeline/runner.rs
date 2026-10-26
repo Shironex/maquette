@@ -23,7 +23,7 @@ use super::tools::Toolbox;
 use super::{CompressDefaults, PipelineDef, StepDef};
 use crate::error::CoreResult;
 
-pub use queue::PipelineRunner;
+pub use queue::{PipelineRunner, WeakRunner};
 
 const POLL: Duration = Duration::from_millis(40);
 

@@ -1,12 +1,17 @@
 //! The runner sink: turns pipeline runs and log lines into concept job
-//! updates, and settles a job when its run ends.
+//! updates, and settles a job when its run ends. Codex's "hook: ..." lines
+//! are left out of the tail and the error, and a run Codex rate limited
+//! waits for its next try.
 
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime};
 
+use super::retry::{self, says_rate_limited};
 use super::settle::finish;
-use super::{ConceptEvent, ConceptJobState, EMIT_EVERY, Entry, KEEP_FINISHED, LOG_TAIL, Shared};
+use super::{
+    ConceptEvent, ConceptJob, ConceptJobState, EMIT_EVERY, Entry, KEEP_FINISHED, LOG_TAIL, Shared,
+};
 use crate::pipeline::history::{LogLevel, LogStream, RunRecord, RunState, now_ms};
 use crate::pipeline::runner::{PipelineEvent, RunSink};
 
@@ -18,6 +23,9 @@ impl RunSink for Sink {
             PipelineEvent::Run { run } => self.run(&run),
             PipelineEvent::Log { entry } => {
                 let text = entry.text.trim_end().to_string();
+                if retry::is_noise(&text) {
+                    return;
+                }
                 let update = {
                     let mut jobs = self.0.jobs();
                     let Some(e) = jobs
@@ -95,6 +103,8 @@ impl Sink {
             return;
         }
         let reason = step.message.clone().or_else(|| run.message.clone());
+        let limited = run.state == RunState::Failed
+            && rate_limited_run(&job, last_error.as_deref(), reason.as_deref());
         let direction = finish(
             &mut job,
             run.state,
@@ -106,12 +116,20 @@ impl Sink {
             started,
         );
         job.finished_at_ms = Some(now_ms());
-        {
+        let wait = (limited && job.state == ConceptJobState::Failed)
+            .then(|| retry::rate_limited(&mut job, &self.0.backoff()))
+            .flatten();
+        let generation = {
             let mut jobs = self.0.jobs();
-            if let Some(e) = jobs.iter_mut().find(|e| e.job.id == job.id) {
+            let generation = jobs.iter_mut().find(|e| e.job.id == job.id).map(|e| {
                 e.job = job.clone();
-            }
+                e.generation
+            });
             prune(&mut jobs);
+            generation
+        };
+        if let (Some(wait), Some(generation)) = (wait, generation) {
+            retry::schedule(Arc::clone(&self.0), job.id.clone(), generation, wait);
         }
         self.0.emit(ConceptEvent::Job { job: job.clone() });
         if let Some(direction) = direction {
@@ -121,6 +139,19 @@ impl Sink {
             });
         }
     }
+}
+
+/// True when the run's error, its reason or the last lines Codex printed
+/// say it was rate limited.
+fn rate_limited_run(job: &ConceptJob, last_error: Option<&str>, reason: Option<&str>) -> bool {
+    last_error.is_some_and(says_rate_limited)
+        || reason.is_some_and(says_rate_limited)
+        || job
+            .log_tail
+            .iter()
+            .rev()
+            .take(8)
+            .any(|l| says_rate_limited(l))
 }
 
 fn prune(jobs: &mut VecDeque<Entry>) {

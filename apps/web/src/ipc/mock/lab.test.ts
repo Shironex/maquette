@@ -82,4 +82,25 @@ describe('mock concept lab', () => {
     const after = (await handle('lab_get', { project: 'moon-island' })) as LabView;
     expect(after.jobs.filter(j => j.state === 'cancelled')).toHaveLength(2);
   });
+
+  it('runs a job that gave up on a rate limit again with Retry, under the same id', async () => {
+    const { handle } = backend('limited');
+    const view = (await handle('lab_get', { project: 'moon-island' })) as LabView;
+    const waiting = view.jobs.find(j => j.state === 'rate-limited');
+    const failed = view.jobs.find(j => j.state === 'failed');
+    expect(waiting?.retryAtMs).toBeGreaterThan(0);
+    const again = (await handle('lab_retry', { jobId: failed!.id })) as { id: string };
+    expect(again.id).toBe(failed!.id);
+    await expect(handle('lab_retry', { jobId: view.jobs[0]!.id })).rejects.toThrow(/only a failed/);
+    for (let i = 0; i < 200; i++) {
+      const now = (await handle('lab_get', { project: 'moon-island' })) as LabView;
+      if (now.jobs.find(j => j.id === failed!.id)?.state === 'done') break;
+      await new Promise(r => setTimeout(r, 5));
+    }
+    const after = (await handle('lab_get', { project: 'moon-island' })) as LabView;
+    expect(after.jobs.find(j => j.id === failed!.id)?.state).toBe('done');
+    expect(after.jobs).toHaveLength(view.jobs.length);
+    // Cancel all stops the one still waiting out the rate limit too.
+    expect(await handle('lab_cancel_all', { project: 'moon-island' })).toBe(3);
+  });
 });
