@@ -23,6 +23,7 @@ import {
   useInspectorPage,
   useSelectedModel,
 } from './Inspector.hooks';
+import { useGameLimits } from './useGameLimits';
 
 const MODES: SegmentedOption<InspectMode>[] = [
   { value: 'shaded', label: 'Shaded' },
@@ -40,6 +41,7 @@ export default function Inspector({ view }: InspectorProps) {
   const status = useCompareStatus(pick);
   const selected = useSelectedModel(view, pick);
   const page = useInspectorPage(view);
+  const gameLimits = useGameLimits(selected.model);
 
   const title = pick
     ? pick.comparison.kind === 'scene'
@@ -106,7 +108,7 @@ export default function Inspector({ view }: InspectorProps) {
               <EmptyState
                 icon="cube-focus"
                 title="Nothing to inspect yet"
-                body="Run the pipeline to export the scene, or accept a model from the Inbox. Both show up here to compare."
+                body={page.emptyBody}
                 action={
                   <Button icon="flow-arrow" onClick={() => page.setView('pipeline')}>
                     Open the pipeline
@@ -129,6 +131,7 @@ export default function Inspector({ view }: InspectorProps) {
           onPreset={page.savePreset}
           onExport={selected.onExport}
           exporting={selected.exporting}
+          game={gameLimits}
         />
       </main>
     </InspectorShell>

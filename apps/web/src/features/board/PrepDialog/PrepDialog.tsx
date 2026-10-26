@@ -10,8 +10,19 @@ import type { PrepDialogProps } from './PrepDialog.types';
  */
 export default function PrepDialog(props: PrepDialogProps) {
   const { asset, onClose } = props;
-  const { ref, found, failed, value, setDraft, saving, changed, preview, onPreview, submit } =
-    usePrepDialog(props);
+  const {
+    ref,
+    found,
+    failed,
+    value,
+    setDraft,
+    saving,
+    changed,
+    preview,
+    onPreview,
+    submit,
+    applied,
+  } = usePrepDialog(props);
   const version = found?.version ? `v${found.version}` : 'no model yet';
 
   return (
@@ -38,7 +49,7 @@ export default function PrepDialog(props: PrepDialogProps) {
               Real size and fix-ups
             </h2>
             <p className="truncate text-meta text-fg-mute">
-              {asset.name}, {version}. Applied when the scene is built.
+              {asset.name}, {version}. {applied}
             </p>
           </div>
           <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={onClose} />

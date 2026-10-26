@@ -59,6 +59,11 @@ export interface ModelPanelProps {
   onExport?: ((model: InspectModel) => void) | null;
   /** Export GLB is running for this model. */
   exporting?: boolean;
+  /**
+   * In a game: the selected model's folder budget in triangles (null when its
+   * folder has none). A game ships no compression and has no scene total.
+   */
+  game?: { triangles: number | null } | null;
 }
 
 /** Models the pipeline's export step makes, so Export GLB can make them again. */
@@ -74,7 +79,12 @@ export default function ModelPanel({
   onPreset,
   onExport,
   exporting,
+  game,
 }: ModelPanelProps) {
+  const trisLimit = game ? (game.triangles ?? Infinity) : view.limits.trisPerModel;
+  const trisWhy = game
+    ? `Over its folder's ${trisLimit.toLocaleString('en-US')} triangle budget`
+    : `Over the ${trisLimit.toLocaleString('en-US')} triangle budget per model`;
   const rows = budgetRows(view);
   const totalMb = num(view.scene.bytes) / 1e6;
   const sceneMb = num(view.limits.sceneMb);
@@ -96,7 +106,7 @@ export default function ModelPanel({
   const locked = Boolean(model?.preset.lock);
   const cards =
     model && !model.error
-      ? statCards(model, view.limits.trisPerModel).map(card => (
+      ? statCards(model, trisLimit).map(card => (
           <div key={card.label} className="rounded-card border border-line bg-raised px-2.5 py-2">
             <div className="text-meta text-fg-mute">{card.label}</div>
             <div
@@ -108,7 +118,7 @@ export default function ModelPanel({
                 card.label === 'GPU memory'
                   ? 'An estimate: textures as the GPU keeps them, with mipmaps, plus vertices and indices.'
                   : card.over
-                    ? `Over the ${view.limits.trisPerModel.toLocaleString('en-US')} triangle budget per model`
+                    ? trisWhy
                     : undefined
               }
             >
@@ -256,51 +266,55 @@ export default function ModelPanel({
 
       {model && !model.error ? (
         <>
-          <Hairline />
-          <div className="flex flex-col gap-2.5">
-            <SectionTitle>Compression</SectionTitle>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-fg-dim">Texture codec</span>
-              <SegmentedControl
-                label="Texture codec"
-                tone="clay"
-                options={CODECS}
-                value={model.preset.codec}
-                onChange={codec => {
-                  if (!locked && codec !== model.preset.codec) save({ codec });
-                }}
-                className={cn(locked && 'pointer-events-none opacity-60')}
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-fg-dim">Meshopt</span>
-              <div className="flex items-center gap-2">
-                {locked ? <Icon name="lock-simple" size={16} className="text-fg-mute" /> : null}
-                <Select
-                  aria-label="Meshopt level"
-                  size="sm"
-                  inline
-                  options={MESHOPT}
-                  value={model.preset.meshopt}
-                  disabled={locked || !onPreset}
-                  onChange={meshopt => save({ meshopt })}
-                  fieldClassName="w-[120px]"
+          {game ? null : (
+            <>
+              <Hairline />
+              <div className="flex flex-col gap-2.5">
+                <SectionTitle>Compression</SectionTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-fg-dim">Texture codec</span>
+                  <SegmentedControl
+                    label="Texture codec"
+                    tone="clay"
+                    options={CODECS}
+                    value={model.preset.codec}
+                    onChange={codec => {
+                      if (!locked && codec !== model.preset.codec) save({ codec });
+                    }}
+                    className={cn(locked && 'pointer-events-none opacity-60')}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-fg-dim">Meshopt</span>
+                  <div className="flex items-center gap-2">
+                    {locked ? <Icon name="lock-simple" size={16} className="text-fg-mute" /> : null}
+                    <Select
+                      aria-label="Meshopt level"
+                      size="sm"
+                      inline
+                      options={MESHOPT}
+                      value={model.preset.meshopt}
+                      disabled={locked || !onPreset}
+                      onChange={meshopt => save({ meshopt })}
+                      fieldClassName="w-[120px]"
+                    />
+                  </div>
+                </div>
+                <MapCodecRows
+                  model={model}
+                  onCodec={
+                    locked || !onPreset
+                      ? null
+                      : (group, codec) =>
+                          save({ mapCodecs: withGroupCodec(model.preset.mapCodecs, group, codec) })
+                  }
                 />
+                <p className="rounded-[8px] bg-raised px-2.5 py-2 text-meta text-fg-mute">
+                  {presetNote(model)}
+                </p>
               </div>
-            </div>
-            <MapCodecRows
-              model={model}
-              onCodec={
-                locked || !onPreset
-                  ? null
-                  : (group, codec) =>
-                      save({ mapCodecs: withGroupCodec(model.preset.mapCodecs, group, codec) })
-              }
-            />
-            <p className="rounded-[8px] bg-raised px-2.5 py-2 text-meta text-fg-mute">
-              {presetNote(model)}
-            </p>
-          </div>
+            </>
+          )}
 
           <Hairline />
           <MaterialPanel project={view.project} model={model} />
@@ -320,27 +334,36 @@ export default function ModelPanel({
       ) : null}
 
       <Hairline />
-      <div className="flex flex-col gap-[9px]">
-        <SectionTitle aside="transfer">Model budgets</SectionTitle>
-        {rows.length === 0 ? (
-          <p className="text-fg-mute">Run the pipeline to see what each model ships at.</p>
-        ) : (
-          budgets
-        )}
-      </div>
+      {game ? (
+        <p className="text-meta text-fg-mute">
+          Each model checks its triangles and texture size against its folder&apos;s budget in the
+          Budget tab. There is no scene total, and the game export keeps its own compression.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-col gap-[9px]">
+            <SectionTitle aside="transfer">Model budgets</SectionTitle>
+            {rows.length === 0 ? (
+              <p className="text-fg-mute">Run the pipeline to see what each model ships at.</p>
+            ) : (
+              budgets
+            )}
+          </div>
 
-      <div className="mt-auto flex items-center justify-between border-t border-line pt-3">
-        <span className="text-fg-dim">Scene total</span>
-        <span
-          className={cn(
-            'font-mono text-[13px] tabular-nums',
-            overTotal ? 'text-danger' : 'text-fg'
-          )}
-          title={`${view.scene.models} models, ${formatBytes(num(view.scene.bytes))}`}
-        >
-          {formatMb(totalMb)} <span className="text-fg-mute">/ {formatMb(sceneMb)} MB</span>
-        </span>
-      </div>
+          <div className="mt-auto flex items-center justify-between border-t border-line pt-3">
+            <span className="text-fg-dim">Scene total</span>
+            <span
+              className={cn(
+                'font-mono text-[13px] tabular-nums',
+                overTotal ? 'text-danger' : 'text-fg'
+              )}
+              title={`${view.scene.models} models, ${formatBytes(num(view.scene.bytes))}`}
+            >
+              {formatMb(totalMb)} <span className="text-fg-mute">/ {formatMb(sceneMb)} MB</span>
+            </span>
+          </div>
+        </>
+      )}
     </aside>
   );
 }

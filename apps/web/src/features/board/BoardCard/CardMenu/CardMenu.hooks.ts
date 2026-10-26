@@ -1,5 +1,6 @@
 import type { MenuItem } from '@/features/common/Menu';
 import { projectFile } from '@/state/board';
+import { isGame } from '@/state/game';
 import { STAGES } from '@/state/pipeline';
 import { useStageLabels } from '@/state/use-stage-labels';
 import { useBuiltStore } from '@/state/use-built-store';
@@ -99,7 +100,9 @@ export function useCardMenu({ asset, waiting, refPicture, built, board }: CardMe
       id: 'size',
       label: 'Real size and fix-ups...',
       icon: 'ruler',
-      hint: 'How big it really is, and repairs made on a copy before the scene is built',
+      hint: isGame(project)
+        ? 'How big it really is, and repairs made on a copy before the model is exported'
+        : 'How big it really is, and repairs made on a copy before the scene is built',
       onSelect: () => actions.setSizing(asset),
     },
     {

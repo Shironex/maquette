@@ -31,6 +31,16 @@ function panel(over: Partial<ModelPanelProps> = {}) {
 }
 
 describe('the model panel', () => {
+  it('checks a game model against its folder budget, with no compression or scene total', () => {
+    panel({ game: { triangles: 1_000 } });
+    const tris = screen.getByText('Triangles').nextElementSibling!;
+    expect(tris).toHaveAttribute('title', "Over its folder's 1,000 triangle budget");
+    expect(screen.queryByRole('heading', { name: 'Compression' })).toBeNull();
+    expect(screen.queryByText('Scene total')).toBeNull();
+    expect(screen.queryByText('Model budgets')).toBeNull();
+    expect(screen.getByText(/There is no scene total/)).toBeInTheDocument();
+  });
+
   it('asks for a model when none is picked', () => {
     panel({ model: null });
     expect(

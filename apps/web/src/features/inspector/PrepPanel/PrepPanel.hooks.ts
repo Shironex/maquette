@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { InspectModel, ModelPrep } from '@/ipc/client';
 import { previewKey } from '@/state/prepare';
+import { useIsGame } from '@/state/use-budget-check';
 import { assetKey, previewTarget, usePrepareStore } from '@/state/use-prepare-store';
 
 /**
@@ -8,6 +9,7 @@ import { assetKey, previewTarget, usePrepareStore } from '@/state/use-prepare-st
  * Build scene run applies them), with the preview on its newest version.
  */
 export function usePrepPanel(project: string, model: InspectModel) {
+  const game = useIsGame();
   const asset = model.tweakAsset;
   const key = asset ? assetKey(project, asset) : '';
   const found = usePrepareStore(s => s.assets[key]) ?? null;
@@ -23,6 +25,10 @@ export function usePrepPanel(project: string, model: InspectModel) {
     found ? s.previews[previewKey(previewTarget(target), found.entry)] : undefined
   );
   return {
+    /** When the fix-ups apply: a game builds each model, a website its scene. */
+    applied: game
+      ? 'Saved as you change them. Build models applies them on the next run.'
+      : 'Saved as you change them. The next run builds the scene with them.',
     asset,
     found,
     failed,

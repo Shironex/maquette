@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ModelPrep } from '@/ipc/client';
 import { useTopEscape } from '@/lib/useTopEscape';
 import { previewKey, samePrep } from '@/state/prepare';
+import { useIsGame } from '@/state/use-budget-check';
 import { assetKey, previewTarget, usePrepareStore } from '@/state/use-prepare-store';
 import type { PrepDialogProps } from './PrepDialog.types';
 
@@ -11,6 +12,7 @@ import type { PrepDialogProps } from './PrepDialog.types';
  * top dialog.
  */
 export function usePrepDialog({ project, asset, onClose }: PrepDialogProps) {
+  const game = useIsGame();
   const ref = useRef<HTMLFormElement>(null);
   useTopEscape(ref, onClose);
   const key = assetKey(project, asset.id);
@@ -37,6 +39,7 @@ export function usePrepDialog({ project, asset, onClose }: PrepDialogProps) {
     if (!changed || (await save(project, asset.id, value))) onClose();
   };
   return {
+    applied: game ? 'Applied when Build models runs.' : 'Applied when the scene is built.',
     ref,
     found,
     failed,

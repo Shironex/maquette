@@ -9,7 +9,10 @@ export interface PrepPanelProps {
 
 /** The selected model's real size and fix-ups, in the Inspector's model details. */
 export default function PrepPanel({ project, model }: PrepPanelProps) {
-  const { asset, found, failed, preview, onChange, onPreview } = usePrepPanel(project, model);
+  const { asset, found, failed, preview, onChange, onPreview, applied } = usePrepPanel(
+    project,
+    model
+  );
   if (!asset) return null;
   return (
     <section aria-label="Real size and fix-ups" className="flex flex-col gap-2.5">
@@ -29,9 +32,7 @@ export default function PrepPanel({ project, model }: PrepPanelProps) {
       ) : failed ? null : (
         <p className="text-fg-mute">Reading the saved real size and fix-ups.</p>
       )}
-      <p className="text-meta text-fg-mute">
-        Saved as you change them. The next run builds the scene with them.
-      </p>
+      <p className="text-meta text-fg-mute">{applied}</p>
     </section>
   );
 }

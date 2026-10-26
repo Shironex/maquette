@@ -10,6 +10,7 @@ import {
   vec3,
   type SidePick,
 } from '@/state/inspector';
+import { isGame } from '@/state/game';
 import { useAppStore } from '@/state/use-app-store';
 import { useInspectorStore } from '@/state/use-inspector-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
@@ -131,6 +132,7 @@ export function useSelectedModel(view: InspectView, pick: SidePick | null) {
  */
 export function useInspectorPage(view: InspectView) {
   const setView = useAppStore(s => s.setView);
+  const game = useAppStore(s => isGame(s.workspace?.project));
   const pipeline = usePipelineStore();
   const mode = useInspectorStore(s => s.mode);
   const setMode = useInspectorStore(s => s.setMode);
@@ -154,6 +156,10 @@ export function useInspectorPage(view: InspectView) {
 
   return {
     setView,
+    /** What the empty page asks for: a game has no scene to export. */
+    emptyBody: game
+      ? 'Import the models from the game repo, or accept a model from the Inbox. Both show up here to compare.'
+      : 'Run the pipeline to export the scene, or accept a model from the Inbox. Both show up here to compare.',
     mode,
     setMode,
     samples,

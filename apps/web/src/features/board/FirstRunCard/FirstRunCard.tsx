@@ -1,20 +1,19 @@
 import { Button } from '@maquette/ui';
 import appIcon from '@/assets/app-icon.png';
 import { useFirstRunCard } from './FirstRunCard.hooks';
-import { STEPS } from './steps';
 
 export interface FirstRunCardProps {
   /** The empty project's name. */
   name: string;
-  /** The scene budget in MB. */
+  /** The scene budget in MB; a game has none. */
   budget: number;
 }
 
 /** The tips over an empty Board, until they are hidden. */
 export default function FirstRunCard({ name, budget }: FirstRunCardProps) {
-  const { hidden, hide, setView } = useFirstRunCard();
+  const { hidden, hide, setView, steps: tips, importModels } = useFirstRunCard();
   if (hidden) return null;
-  const steps = STEPS.map((step, i) => (
+  const steps = tips.map((step, i) => (
     <li key={step.title} className="flex gap-3.5 border-t border-line py-3">
       <span className="grid size-7 flex-none place-items-center rounded-full border-[1.5px] border-clay-line font-mono text-[12px] leading-none font-semibold text-clay-text">
         {i + 1}
@@ -48,7 +47,7 @@ export default function FirstRunCard({ name, budget }: FirstRunCardProps) {
         <Button size="lg" variant="primary" icon="flask" onClick={() => setView('lab')}>
           Open Concept lab
         </Button>
-        <Button size="lg" icon="download-simple" onClick={() => setView('inbox')}>
+        <Button size="lg" icon="download-simple" onClick={importModels}>
           Import models
         </Button>
         <Button variant="ghost" className="ml-auto" onClick={hide}>
