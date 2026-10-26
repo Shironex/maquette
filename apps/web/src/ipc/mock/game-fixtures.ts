@@ -89,6 +89,17 @@ const CRYPT_MODELS: readonly RepoModel[] = [
   },
 ];
 
+/** A hand rigged heroine with a long clip list, for `?game=hero`. */
+export const HERO_MODEL: RepoModel = {
+  file: 'characters/heroine.glb',
+  triangles: 115_700,
+  textures: 1,
+  maxTexture: 2048,
+  mb: 15,
+  joints: 119,
+  clips: 187,
+};
+
 const MAZE_NAMES = [
   'stile',
   'gate',
@@ -250,6 +261,7 @@ export function scanned(
           maxTriangles: budget.triangles,
           texture: model.maxTexture,
           maxTexture: budget.texture,
+          rigged: (model.joints ?? 0) > 0,
           problems,
         }
       : null,

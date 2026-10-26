@@ -45,7 +45,7 @@ export async function openMockWorkspace(
 }
 
 /** The configured workspace with a game project open: `crypt`, `import` or `maze`. */
-export function openMockGame(game: 'crypt' | 'import' | 'maze') {
+export function openMockGame(game: 'crypt' | 'import' | 'maze' | 'hero') {
   return openMockWorkspace(
     'configured',
     undefined,

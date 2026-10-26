@@ -6,6 +6,8 @@
  *   before Ship.
  * - `import`: Crypt game is open with nothing imported yet.
  * - `maze`: Maze game, an .obj game, is open with 35 imported models.
+ * - `hero`: Crypt game with its rigged heroine imported too: 115.7k
+ *   triangles, 119 bones and 187 clips, no previews rendered yet.
  */
 import type {
   Approval,
@@ -20,9 +22,10 @@ import type {
   WorkspaceConfig,
 } from '../client';
 import { clock } from '@/lib/clock';
-import { budgetFor, checkAsset, fileOf, gameOf } from '@/state/game';
-import { fail, type Args } from './backend-options';
+import { autoFixes, budgetFor, checkAsset, fileOf, gameOf, isOver } from '@/state/game';
+import { fail, type Args, type BackendOptions } from './backend-options';
 import {
+  HERO_MODEL,
   assetIdOf,
   gameProject,
   importedAsset,
@@ -30,6 +33,7 @@ import {
   repoModels,
   scanned,
 } from './game-fixtures';
+import { createPreviewHandlers } from './create-preview-handlers';
 import type { RunStore } from './runner';
 import { gamePipeline, gameRuns } from './game-pipeline';
 import { BAKE_DEFAULT } from './bake';
@@ -48,9 +52,11 @@ export interface GameContext {
   saveProject: (next: ProjectManifest) => ProjectManifest;
   store: RunStore;
   state: string | null;
+  files: BackendOptions['files'];
 }
 
-export function createGameHandlers({ project, saveProject, store, state }: GameContext) {
+export function createGameHandlers({ project, saveProject, store, state, files }: GameContext) {
+  const previews = createPreviewHandlers({ project, saveProject, files });
   /** Files Ship wrote before, per project, so a second Ship finds them unchanged. */
   const shipped = new Set<string>();
   const waiting = new Map<string, string>();
@@ -62,8 +68,12 @@ export function createGameHandlers({ project, saveProject, store, state }: GameC
   }
 
   function seed(): ProjectManifest[] {
-    if (!state || !['crypt', 'import', 'maze'].includes(state)) return [];
+    if (!state || !['crypt', 'import', 'maze', 'hero'].includes(state)) return [];
     const p = gameProject(state === 'maze' ? 'maze' : 'crypt', state !== 'import');
+    if (state === 'hero') {
+      p.assets = [importedAsset(HERO_MODEL, true), ...(p.assets ?? [])];
+      p.game!.models[assetIdOf(HERO_MODEL.file)] = { file: HERO_MODEL.file, importedVersion: 1 };
+    }
     if (state === 'crypt') {
       // Three more made in Maquette, exported and new to the game.
       const made = ['candle-cluster', 'grave-marker', 'spider'].map(id => ({
@@ -137,7 +147,7 @@ export function createGameHandlers({ project, saveProject, store, state }: GameC
       const stats = asset.versions[asset.versions.length - 1]?.stats;
       const bytes = stats?.bytes ?? null;
       const before = game.models[asset.id];
-      const fixed = (check?.problems.length ?? 0) > 0;
+      const fixed = check ? autoFixes(check).length > 0 : false;
       const done = shipped.has(`${id}:${path}`);
       const change = done ? 'unchanged' : !before ? 'new' : fixed ? 'replaced' : 'unchanged';
       files.push({
@@ -149,6 +159,8 @@ export function createGameHandlers({ project, saveProject, store, state }: GameC
         beforeTriangles: before ? (stats?.triangles ?? null) : null,
         asset: asset.id,
         blocked: false,
+        // Nothing shipped over it yet, so the game still has the imported file.
+        imported: change === 'replaced' && Boolean(before?.importedVersion),
       });
     }
     const owned = new Set(Object.values(game.models).map(m => m.file));
@@ -171,6 +183,7 @@ export function createGameHandlers({ project, saveProject, store, state }: GameC
         beforeTriangles: null,
         asset: null,
         blocked: false,
+        imported: false,
       })),
       recordAfter: new Set([...owned, ...files.map(f => f.path)]).size,
       checks: [
@@ -185,6 +198,8 @@ export function createGameHandlers({ project, saveProject, store, state }: GameC
         },
         { ok: true, text: 'No KTX2 or meshopt in any file' },
       ],
+      // The game repo has work of its own in progress until a Ship lands.
+      uncommitted: shipped.size ? 0 : 3,
     };
   }
 
@@ -215,7 +230,10 @@ export function createGameHandlers({ project, saveProject, store, state }: GameC
       });
       const next = saveProject({ ...p, game, assets: [...(p.assets ?? []), ...added] });
       return {
-        project: next,
+        project: previews.withPreviews(
+          next,
+          added.map(a => a.id)
+        ).project,
         imported: added.map(a => a.id),
         skipped: [...picked]
           .filter(f => known.has(f))
@@ -246,11 +264,13 @@ export function createGameHandlers({ project, saveProject, store, state }: GameC
     game_add_budget_fixups: ({ project: id }) => {
       const p = project(String(id));
       const game = settings(p.id);
+      // A rigged model only over its triangles gets nothing: it is reduced by hand.
       return (p.assets ?? [])
-        .filter(a => (checkAsset(game, a)?.problems.length ?? 0) > 0)
+        .filter(a => isOver(game, a) && autoFixes(checkAsset(game, a)!).length > 0)
         .map(a => a.id);
     },
     game_ship_plan: ({ project: id }) => plan(String(id)),
+    ...previews.handlers,
   };
 
   return {

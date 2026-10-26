@@ -24,6 +24,7 @@ import type { Args } from './backend-options';
 import type { createFakeLayout } from './layout';
 import { LAYOUT_FILES } from './layout';
 import { MOTION_FIXTURES } from './motion-fixtures';
+import { importedMotion } from './game-motion';
 
 type FakeLayout = ReturnType<typeof createFakeLayout>;
 
@@ -158,7 +159,8 @@ export function createMotionHandlers(deps: {
     const layout = deps.layout.view(id);
     const assets = deps.project(id).assets ?? [];
     const models: MotionModel[] = layout.models.map(m => {
-      const fixture = MOTION_FIXTURES[files[m.path] ?? ''];
+      const fixture =
+        MOTION_FIXTURES[files[m.path] ?? ''] ?? importedMotion(assets.find(a => a.id === m.asset));
       const clips = fixture?.clips ?? [];
       return {
         asset: m.asset,

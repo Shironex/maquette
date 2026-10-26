@@ -102,6 +102,7 @@ export function createBackend({
     project: id => project(id),
     saveProject: next => saveProject(next),
     store,
+    files,
     state: configured ? gameState : null,
   });
   [projects, config] = game.seedInto(projects, config);
