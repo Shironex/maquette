@@ -4,7 +4,6 @@
  * and URL options are listed on `BackendOptions` (backend-options.ts).
  */
 import type {
-  Bootstrap,
   CompressPreset,
   InboxItem,
   PipelineView,
@@ -14,7 +13,7 @@ import type {
   WorkspaceConfig,
   WorkspaceSnapshot,
 } from '../client';
-import { DEFAULT_ROOT, HOME, defaultConfig, mockProjects, providerCatalog } from './fixtures';
+import { DEFAULT_ROOT, defaultConfig, mockProjects } from './fixtures';
 import { inboxItems } from './inbox-fixtures';
 import {
   currentStarters,
@@ -47,8 +46,8 @@ import { createGameHandlers } from './create-game-handlers';
 import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createProjectHandlers } from './create-project-handlers';
 import { createToolchainHandlers } from './create-toolchain-handlers';
+import { createWorkspaceHandlers } from './create-workspace-handlers';
 import { display, expand, fail, type Args, type BackendOptions } from './backend-options';
-import { inspect, validate } from './workspace-checks';
 
 export type MockOptions = BackendOptions;
 
@@ -78,7 +77,6 @@ export function createBackend({
   let projects: ProjectManifest[] = configured
     ? seedMotionProjects(mockProjects(projectsState === 'many'), motion)
     : [];
-  let cacheBytes = configured ? 2.3e9 : 0;
   if (configured) config = motionConfig({ ...config, currentProject: 'moon-island' }, motion);
   const agentsOn = agentsState === 'active' || agentsState === 'batch';
   if (configured && agentsOn) {
@@ -285,57 +283,18 @@ export function createBackend({
     // Nothing closes in the browser, so the quit commands have nothing to do.
     quit_set_unapplied: () => undefined,
     quit_now: () => undefined,
-    app_bootstrap: (): Bootstrap => ({
-      os: 'mac',
-      version: '0.1.0',
-      defaultRoot: DEFAULT_ROOT,
-      home: HOME,
-      defaultConfig: defaultConfig(),
-      catalog: providerCatalog(),
-      workspace: root ? snapshot() : null,
-      lastWorkspaceError: null,
+    ...createWorkspaceHandlers({
+      root: { get: () => root, set: next => (root = next) },
+      config: { get: () => config, set: next => (config = next) },
+      projects: { get: () => projects, set: next => (projects = next) },
+      many: projectsState === 'many',
+      cacheBytes: configured ? 2.3e9 : 0,
+      snapshot,
+      saved: next => {
+        lab.setConcurrency(next.lab.concurrency);
+        agents.changed();
+      },
     }),
-    workspace_inspect: ({ root: path }) => inspect(String(path)),
-    workspace_create: ({ root: path, config: next }) => {
-      const found = inspect(String(path));
-      if (found.state === 'not-empty') {
-        fail(
-          'not-empty',
-          'This folder is not empty. Pick an empty folder or an existing Maquette workspace.'
-        );
-      }
-      validate(next as WorkspaceConfig);
-      root = found.path;
-      config = { ...(next as WorkspaceConfig), version: 1 };
-      return snapshot();
-    },
-    workspace_open: ({ root: path }) => {
-      const found = inspect(String(path));
-      if (found.state !== 'workspace') {
-        fail(
-          'not-a-workspace',
-          'This folder is not a Maquette workspace. It has no maquette.json.'
-        );
-      }
-      root = found.path;
-      projects = mockProjects(projectsState === 'many');
-      config = { ...defaultConfig(), currentProject: 'moon-island' };
-      return snapshot();
-    },
-    workspace_save_config: ({ config: next }) => {
-      snapshot();
-      validate(next as WorkspaceConfig);
-      // The switcher owns the current project; a settings save never moves it.
-      config = { ...(next as WorkspaceConfig), currentProject: config.currentProject };
-      lab.setConcurrency(config.lab.concurrency);
-      agents.changed();
-      return config;
-    },
-    workspace_cache_size: () => ({ bytes: cacheBytes }),
-    workspace_clear_cache: () => {
-      cacheBytes = 0;
-      return { bytes: 0 };
-    },
     ...createToolchainHandlers(scenario, probeDelay),
     ...createProjectHandlers({
       snapshot,
