@@ -29,6 +29,11 @@ async function holdAt(page, frame) {
 
 export async function motionShots({ open, shot }) {
   const main = await motion(open, 'demo');
+  // The sets before this one leave their pages open, each with a live
+  // canvas; on a full run they starve these two canvas pages of GPU time.
+  for (const context of main.context().browser().contexts()) {
+    if (context !== main.context()) await context.close();
+  }
   await main.getByRole('button', { name: /^Walk loop/ }).click();
   await holdAt(main, 18);
   await main.getByText(/^Walk loop · frame 18$/).waitFor();
@@ -36,7 +41,8 @@ export async function motionShots({ open, shot }) {
 
   await main.getByRole('button', { name: /^Switch cabinet/ }).click();
   await main.getByText(/^Door open · end of the /).waitFor();
-  await main.waitForTimeout(1200);
+  // A new canvas: give it time to load the cabinet and frame it on a busy machine.
+  await main.waitForTimeout(3500);
   await shot(main, 'motion-states');
   await main.context().close();
 
