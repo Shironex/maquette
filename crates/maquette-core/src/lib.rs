@@ -117,6 +117,7 @@ pub fn types() -> specta::Types {
         .register::<game::FolderBudget>()
         .register::<game::GameModel>()
         .register::<GameSettings>()
+        .register::<game::GameSettingsChange>()
         .register::<game::NewGame>()
         .register::<game::GameRepoInspection>()
         .register::<game::BudgetCheck>()

@@ -478,3 +478,102 @@ fn a_new_asset_goes_to_the_folder_of_its_kind() {
     obj.budgets.clear();
     assert_eq!(file_of(&obj, &prop), "crypt_candelabra.obj");
 }
+
+#[test]
+fn saved_settings_are_checked_and_budget_fixups_bring_a_model_within_its_folder() {
+    let (ws, manifest) = game_project(glb_game, GameFormat::Glb);
+    import_models(
+        &ws.root,
+        &ws.config.layout,
+        &manifest.id,
+        &["props/brazier.glb".to_string()],
+    )
+    .expect("import");
+    let refused = save_settings(
+        &ws.root,
+        &ws.config.layout,
+        &manifest.id,
+        GameSettingsChange {
+            models_dir: Some("../elsewhere".into()),
+            ..GameSettingsChange::default()
+        },
+    );
+    assert!(refused.is_err(), "the model folder stays inside the repo");
+
+    let mut budgets = settings_of(&manifest).expect("game").budgets.clone();
+    let props = budgets
+        .iter_mut()
+        .find(|b| b.folder == "props")
+        .expect("props");
+    props.triangles = 100;
+    let saved = save_settings(
+        &ws.root,
+        &ws.config.layout,
+        &manifest.id,
+        GameSettingsChange {
+            bake: Some(true),
+            budgets: Some(budgets),
+            ..GameSettingsChange::default()
+        },
+    )
+    .expect("save");
+    let project_dir = project::dir(&ws.root, &ws.config.layout, &manifest.id).expect("dir");
+    let def = crate::pipeline::load(&project_dir)
+        .expect("load")
+        .expect("pipeline");
+    assert!(
+        def.steps.iter().any(|s| s.id == "bake"),
+        "Bake light follows the setting"
+    );
+
+    // The fixture is tiny; say its model holds more than the budget.
+    let saved = project::modify(&ws.root, &ws.config.layout, &manifest.id, |m| {
+        if let Some(stats) = m.assets[0].versions[0].stats.as_mut() {
+            stats.triangles = 500;
+        }
+        Ok(())
+    })
+    .expect("stats");
+    assert_eq!(saved.game.as_ref().map(|g| g.bake), Some(true));
+    let changed = add_budget_fixups(&project_dir, &saved).expect("fix-ups");
+    assert_eq!(changed, ["brazier"]);
+    let prep = crate::prepare::load(&project_dir).expect("prepare");
+    assert_eq!(
+        prep.models["brazier"].fixups,
+        [crate::prepare::Fixup::Decimate { triangles: 100 }]
+    );
+    let check = BudgetCheck {
+        folder: "props".into(),
+        triangles: 14_600,
+        max_triangles: 12_000,
+        texture: 1024,
+        max_texture: 1024,
+        problems: vec!["Over 12k triangles".into()],
+    };
+    assert_eq!(
+        settings::fixups_for(&check),
+        [crate::prepare::Fixup::Decimate { triangles: 12_000 }]
+    );
+    let website = project::create(
+        &ws.root,
+        &ws.config.layout,
+        NewProject {
+            name: "Site".into(),
+            template: ProjectTemplate::FloatingDiorama,
+            target: ProjectTarget::Website,
+            site_repo: None,
+            source_folder: None,
+            game: None,
+        },
+    )
+    .expect("website");
+    assert!(
+        save_settings(
+            &ws.root,
+            &ws.config.layout,
+            &website.id,
+            GameSettingsChange::default()
+        )
+        .is_err()
+    );
+}

@@ -28,12 +28,14 @@ pub mod import;
 pub mod index;
 mod obj;
 pub mod scan;
+pub mod settings;
 pub mod ship;
 
 pub use budget::{BudgetCheck, check_asset, default_budgets, folder_of};
 pub use detect::{GameRepoInspection, inspect_game_repo};
 pub use import::{ImportResult, import_models};
 pub use scan::{GameScan, ScannedModel, scan_models};
+pub use settings::{GameSettingsChange, add_budget_fixups, save_settings};
 pub use ship::{ShipChange, ShipFile, ShipPlan, plan as ship_plan};
 
 /// Where a project ships.
@@ -166,6 +168,12 @@ pub struct NewGame {
     pub models_dir: String,
 }
 
+/// The fewest triangles a folder budget allows, the floor of Decimate.
+pub const MIN_BUDGET_TRIANGLES: u32 = 100;
+/// The smallest texture size a folder budget allows, the floor of Shrink
+/// textures.
+pub const MIN_BUDGET_TEXTURE: u32 = 64;
+
 pub const DEFAULT_MODELS_DIR: &str = "assets/models";
 
 /// True for a relative path with `/` that cannot leave the folder it is
@@ -220,9 +228,9 @@ pub fn validate(settings: &GameSettings) -> CoreResult<()> {
         if !budget.folder.is_empty() && !stays_inside(&budget.folder) {
             return invalid(format!("{:?} is not a folder name.", budget.folder));
         }
-        if budget.triangles == 0 || budget.texture == 0 {
+        if budget.triangles < MIN_BUDGET_TRIANGLES || budget.texture < MIN_BUDGET_TEXTURE {
             return invalid(format!(
-                "The budget of {}/ needs triangles and a texture size above 0.",
+                "The budget of {}/ needs at least {MIN_BUDGET_TRIANGLES} triangles and a texture size of {MIN_BUDGET_TEXTURE} px or more.",
                 budget.folder
             ));
         }
