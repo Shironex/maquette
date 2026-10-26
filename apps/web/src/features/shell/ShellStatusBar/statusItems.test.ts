@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ConceptJob, ProviderJob, RunRecord, ToolReport } from '@/ipc/client';
+import type { ConceptJob, ProviderJob, RunRecord, ServerStatus, ToolReport } from '@/ipc/client';
 import { shellStatusItems, type ShellStatus } from './statusItems';
 
 const base: ShellStatus = {
@@ -18,6 +18,15 @@ const base: ShellStatus = {
 const labels = (s: Partial<ShellStatus>) => shellStatusItems({ ...base, ...s }).map(i => i.label);
 
 describe('the shell status items', () => {
+  it('names the site dev page while it runs', () => {
+    const server = (state: ServerStatus['state']) =>
+      ({ state, url: 'http://localhost:4321/' }) as ServerStatus;
+    expect(labels({ server: server('running') })).toContain('Site dev page on localhost:4321');
+    expect(labels({ server: server('starting') })).toContain('Site dev page starting');
+    expect(labels({ server: server('failed') })).toContain('Site dev page did not start');
+    expect(labels({ server: server('idle') }).some(l => l.startsWith('Site dev page'))).toBe(false);
+  });
+
   it('says Blender is missing and no run happened yet', () => {
     expect(labels({})).toEqual(['Local worker connected', 'Blender not found', 'No runs yet']);
   });

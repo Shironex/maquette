@@ -1,6 +1,7 @@
 import type { IconName } from '@maquette/ui';
 
-export type ViewId = 'board' | 'inbox' | 'lab' | 'pipeline' | 'inspector' | 'motion' | 'settings';
+export type ViewId =
+  'board' | 'inbox' | 'lab' | 'pipeline' | 'inspector' | 'motion' | 'page' | 'settings';
 
 export interface ViewDef {
   id: ViewId;
@@ -15,6 +16,7 @@ export const TOOL_VIEWS: readonly ViewDef[] = [
   { id: 'pipeline', label: 'Pipeline', icon: 'flow-arrow' },
   { id: 'inspector', label: 'Inspector', icon: 'cube-focus' },
   { id: 'motion', label: 'Motion', icon: 'person-simple-walk' },
+  { id: 'page', label: 'Page', icon: 'browser' },
 ];
 
 export const SETTINGS_VIEW: ViewDef = { id: 'settings', label: 'Settings', icon: 'gear-six' };

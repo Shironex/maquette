@@ -10,6 +10,7 @@ import { useLabStore } from '@/state/use-lab-store';
 import { useLayoutStore } from '@/state/use-layout-store';
 import { useMaterialsStore } from '@/state/use-materials-store';
 import { useMotionStore } from '@/state/use-motion-store';
+import { usePageStore } from '@/state/use-page-store';
 import { usePrepareStore } from '@/state/use-prepare-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useDownloadsStore } from '@/state/use-downloads-store';
@@ -132,6 +133,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
   const onArrival = useDownloadsStore(s => s.onArrival);
   const loadBuilt = useBuiltStore(s => s.load);
   const onBuilt = useBuiltStore(s => s.onChanged);
+  const onPageServer = usePageStore(s => s.onServer);
   useEffect(() => {
     if (projectId) void loadBuilt(projectId);
   }, [root, projectId, loadBuilt]);
@@ -192,6 +194,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       }),
       events.downloadsArrival.listen(e => onArrival(e.payload)),
       events.builtChanged.listen(e => onBuilt(e.payload.project)),
+      events.pageServerChanged.listen(e => onPageServer(e.payload)),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());
@@ -210,5 +213,6 @@ export function useLiveData(projectId: string | null, root: string | null) {
     reloadPrepare,
     onArrival,
     onBuilt,
+    onPageServer,
   ]);
 }

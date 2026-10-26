@@ -4,10 +4,12 @@ import type {
   InboxSnapshot,
   ProviderJob,
   RunRecord,
+  ServerStatus,
   ToolReport,
   WorkspaceSnapshot,
 } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
+import { shortAddress } from '@/state/page';
 import { runStatusLine, runSummary } from '@/state/pipeline';
 import type { ViewId } from '@/state/views';
 
@@ -23,6 +25,8 @@ export interface ShellStatus {
   now: number;
   mcp: StatusBarItem | null;
   sends: readonly ProviderJob[];
+  /** The site dev server the Page view and Preview on site share. */
+  server?: ServerStatus | null;
 }
 
 function codexItems(view: ViewId, codex: ToolReport | undefined): StatusBarItem[] {
@@ -104,7 +108,18 @@ function sendItems(sends: readonly ProviderJob[]): StatusBarItem[] {
   ];
 }
 
-/** The status bar line, left to right: worker, tools, agents, inbox, Lab, sends, then the run. */
+function pageItems(server: ServerStatus | null | undefined): StatusBarItem[] {
+  if (!server) return [];
+  if (server.state === 'running' && server.url) {
+    const host = shortAddress(server.url).replace(/\/$/, '');
+    return [{ label: `Site dev page on ${host}`, dot: 'ok' }];
+  }
+  if (server.state === 'starting') return [{ label: 'Site dev page starting', dot: 'running' }];
+  if (server.state === 'failed') return [{ label: 'Site dev page did not start', dot: 'offline' }];
+  return [];
+}
+
+/** The status bar line, left to right: worker, tools, agents, inbox, Lab, sends, the site dev page, then the run. */
 export function shellStatusItems(s: ShellStatus): StatusBarItem[] {
   return [
     { label: 'Local worker connected', dot: 'ok' },
@@ -120,6 +135,7 @@ export function shellStatusItems(s: ShellStatus): StatusBarItem[] {
     ...(s.view === 'lab' ? [] : inboxItems(s.inbox, s.workspace)),
     ...labItems(s.labJobs),
     ...sendItems(s.sends),
+    ...pageItems(s.server),
     ...runItems(s.latest, s.now),
   ];
 }
