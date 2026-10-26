@@ -14,6 +14,7 @@ mod json;
 pub mod layout;
 pub mod materials;
 pub mod motion;
+pub mod page;
 pub mod pipeline;
 pub mod prepare;
 pub mod project;
@@ -177,6 +178,14 @@ pub fn types() -> specta::Types {
         .register::<built::NewBuilt>()
         .register::<built::BuildResult>()
         .register::<built::BuildOutcome>()
+        .register::<page::PageSource>()
+        .register::<page::PageSettings>()
+        .register::<page::PageView>()
+        .register::<site::preview::CommandSource>()
+        .register::<site::preview::DevCommand>()
+        .register::<site::preview::ServerState>()
+        .register::<site::preview::ServerOwner>()
+        .register::<site::preview::ServerStatus>()
 }
 
 #[cfg(test)]

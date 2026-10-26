@@ -1,29 +1,24 @@
-//! The site's own preview server, started from the app so the person sees
-//! what Ship wrote: the site's dev command, run in the site folder in its
-//! own process group (job object on Windows), stopped when another site
-//! starts or the app quits. Nothing is built or deployed here.
+//! The site's own dev server, started from the app so the person sees the
+//! page with the project's models: the site's dev command ([`command`]),
+//! run in the site folder in its own process group (job object on Windows)
+//! and stopped when another site starts, its owner lets go or the app
+//! quits ([`server`]). Nothing is built or deployed here.
+
+pub mod command;
+pub mod server;
 
 use std::ffi::OsString;
-use std::io::{BufRead, BufReader, Read};
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
-use std::sync::{Arc, Mutex, MutexGuard};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use process_wrap::std::{ChildWrapper, CommandWrap};
+pub use command::{CommandSource, DevCommand};
+pub use server::{START_TIMEOUT, ServerOwner, ServerState, ServerStatus, SitePreview};
 
-use super::SiteConfig;
 use crate::error::{CoreError, CoreResult};
 use crate::toolchain::{ProbeEnv, find_on_path};
 
-/// How long a server gets to answer after it starts.
-pub const START_TIMEOUT: Duration = Duration::from_secs(90);
-const POLL: Duration = Duration::from_millis(250);
 const CONNECT_TIMEOUT: Duration = Duration::from_millis(300);
-/// Lines of output kept for the error when the server stops early.
-const TAIL_LINES: usize = 12;
 
 /// What runs and where.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,28 +28,45 @@ pub struct PreviewPlan {
     pub args: Vec<String>,
     /// From the site config; otherwise read from the output.
     pub url: Option<String>,
+    /// The port Maquette picked for the server, when it picked one.
+    pub port: Option<u16>,
     pub path_env: OsString,
+    /// The command with its port, as one line for the log.
+    pub line: String,
+}
+
+impl PreviewPlan {
+    /// Where the server answers when its output never says: the site
+    /// config's address, or the picked port on localhost.
+    pub fn expected_url(&self) -> Option<String> {
+        self.url
+            .clone()
+            .or_else(|| self.port.map(|p| format!("http://localhost:{p}/")))
+    }
 }
 
 /// The package manager that runs the site's scripts: the nearest lockfile
 /// from the site up (a site inside a monorepo has it at the root), npm
 /// without one.
 pub fn package_manager(site: &Path) -> &'static str {
-    const LOCKS: [(&str, &str); 5] = [
-        ("pnpm-lock.yaml", "pnpm"),
-        ("bun.lock", "bun"),
-        ("bun.lockb", "bun"),
-        ("yarn.lock", "yarn"),
-        ("package-lock.json", "npm"),
-    ];
-    site.ancestors()
-        .find_map(|dir| {
-            LOCKS
-                .iter()
-                .find(|(file, _)| dir.join(file).is_file())
-                .map(|(_, manager)| *manager)
-        })
-        .unwrap_or("npm")
+    command::lockfile(site).0
+}
+
+/// A port nothing on this machine listens on right now.
+///
+/// # Errors
+///
+/// Fails when the system has no free port to give.
+pub fn free_port() -> CoreResult<u16> {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|e| {
+        CoreError::Unavailable(format!(
+            "Could not find a free port for the dev server. {e}"
+        ))
+    })?;
+    listener
+        .local_addr()
+        .map(|a| a.port())
+        .map_err(|e| CoreError::Unavailable(format!("Could not read the free port. {e}")))
 }
 
 /// True for an `http://` or `https://` address on this machine:
@@ -101,47 +113,38 @@ pub fn find_local_url(line: &str) -> Option<String> {
     })
 }
 
-/// What `config` runs for `site`, with the program found on the child PATH.
+/// What `command` runs for `site`: the program found on the child PATH and
+/// a free port when the command wants one.
 ///
 /// # Errors
 ///
-/// Fails when the config names a path instead of a program, its address is
-/// not on this machine or the program is not on PATH.
-pub fn plan(site: &Path, config: &SiteConfig, env: &ProbeEnv) -> CoreResult<PreviewPlan> {
-    let preview = config.preview.clone().unwrap_or_default();
-    let mut command = preview.command;
-    if command.is_empty() {
-        command = vec![package_manager(site).into(), "run".into(), "dev".into()];
-    }
-    let program = command.remove(0);
-    if program.contains(['/', '\\']) {
-        return Err(CoreError::Invalid(format!(
-            "{}: the preview command must name a program on PATH, like pnpm, not {program}.",
-            super::CONFIG_FILE
-        )));
-    }
-    if let Some(url) = preview.url.as_deref()
-        && !is_local_url(url)
-    {
-        return Err(CoreError::Invalid(format!(
-            "{}: the preview url must be on this machine (localhost), not {url}.",
-            super::CONFIG_FILE
-        )));
-    }
+/// Fails when no port is free or the program is not on PATH.
+pub fn plan(site: &Path, command: &DevCommand, env: &ProbeEnv) -> CoreResult<PreviewPlan> {
+    let port = if command.wants_port() {
+        Some(free_port()?)
+    } else {
+        None
+    };
+    let mut argv = command::with_port(&command.argv, port);
+    let line = command::line(&argv);
+    let program = argv.remove(0);
+    command::check_program(&program, "The dev command")?;
     let path_env = env.child_path(None);
     let mut probe = env.clone();
     probe.path_dirs = std::env::split_paths(&path_env).collect();
     let found = find_on_path(&[program.as_str()], &probe).ok_or_else(|| {
         CoreError::Unavailable(format!(
-            "Could not find {program} on PATH to start the site's preview."
+            "Could not find {program} on PATH to start the site's dev server."
         ))
     })?;
     Ok(PreviewPlan {
         site: site.to_path_buf(),
         program: found,
-        args: command,
-        url: preview.url,
+        args: argv,
+        url: command.url.clone(),
+        port,
         path_env,
+        line,
     })
 }
 
@@ -160,162 +163,6 @@ pub fn answers(url: &str) -> bool {
     };
     target.to_socket_addrs().is_ok_and(|mut addrs| {
         addrs.any(|addr| TcpStream::connect_timeout(&addr, CONNECT_TIMEOUT).is_ok())
-    })
-}
-
-struct Running {
-    site: PathBuf,
-    child: Box<dyn ChildWrapper>,
-    url: Arc<Mutex<Option<String>>>,
-    tail: Arc<Mutex<Vec<String>>>,
-}
-
-impl Drop for Running {
-    /// A server never outlives the app that started it.
-    fn drop(&mut self) {
-        let _ = self.child.start_kill();
-    }
-}
-
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|p| p.into_inner())
-}
-
-fn read_output<R: Read + Send + 'static>(
-    stream: R,
-    url: Arc<Mutex<Option<String>>>,
-    tail: Arc<Mutex<Vec<String>>>,
-) {
-    thread::spawn(move || {
-        for line in BufReader::new(stream).lines().map_while(Result::ok) {
-            let mut found = lock(&url);
-            if found.is_none() {
-                *found = find_local_url(&line);
-            }
-            drop(found);
-            let mut kept = lock(&tail);
-            kept.push(line);
-            let extra = kept.len().saturating_sub(TAIL_LINES);
-            kept.drain(..extra);
-        }
-    });
-}
-
-/// The one preview server the app runs.
-#[derive(Default)]
-pub struct SitePreview {
-    running: Mutex<Option<Running>>,
-}
-
-impl SitePreview {
-    /// Starts the plan's server, or reuses one that already answers, and
-    /// returns its address once it accepts connections. Blocks up to
-    /// [`START_TIMEOUT`].
-    ///
-    /// # Errors
-    ///
-    /// Fails when the program cannot start, stops before it answers or does
-    /// not answer in time.
-    pub fn start(&self, plan: &PreviewPlan) -> CoreResult<String> {
-        if let Some(url) = plan.url.as_deref().filter(|u| answers(u)) {
-            return Ok(url.to_string());
-        }
-        let mut slot = lock(&self.running);
-        let reuse = slot
-            .as_mut()
-            .is_some_and(|r| r.site == plan.site && matches!(r.child.try_wait(), Ok(None)));
-        if !reuse {
-            // Dropping the old one stops it.
-            *slot = None;
-            *slot = Some(spawn(plan)?);
-        }
-        let (url, tail) = slot
-            .as_ref()
-            .map(|r| (Arc::clone(&r.url), Arc::clone(&r.tail)))
-            .ok_or_else(|| CoreError::Invalid("The preview did not start.".into()))?;
-        drop(slot);
-        self.wait(plan, &url, &tail)
-    }
-
-    fn wait(
-        &self,
-        plan: &PreviewPlan,
-        url: &Mutex<Option<String>>,
-        tail: &Mutex<Vec<String>>,
-    ) -> CoreResult<String> {
-        let started = Instant::now();
-        while started.elapsed() < START_TIMEOUT {
-            let address = plan.url.clone().or_else(|| lock(url).clone());
-            if let Some(address) = address.filter(|a| answers(a)) {
-                return Ok(address);
-            }
-            let exited = lock(&self.running)
-                .as_mut()
-                .is_none_or(|r| !matches!(r.child.try_wait(), Ok(None)));
-            if exited {
-                *lock(&self.running) = None;
-                let last = lock(tail).join("\n");
-                return Err(CoreError::Unavailable(format!(
-                    "The site's preview stopped before it answered.\n{last}"
-                )));
-            }
-            thread::sleep(POLL);
-        }
-        Err(CoreError::Unavailable(format!(
-            "The site's preview did not answer within {} seconds.",
-            START_TIMEOUT.as_secs()
-        )))
-    }
-
-    /// Stops the server the app started, if any.
-    pub fn stop(&self) {
-        if let Some(mut running) = lock(&self.running).take() {
-            let _ = running.child.start_kill();
-            let _ = running.child.wait();
-        }
-    }
-}
-
-fn spawn(plan: &PreviewPlan) -> CoreResult<Running> {
-    let mut command = CommandWrap::with_new(&plan.program, |cmd| {
-        cmd.args(&plan.args)
-            .current_dir(&plan.site)
-            .env("PATH", &plan.path_env)
-            .env("BROWSER", "none")
-            .env("NO_COLOR", "1")
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-    });
-    #[cfg(unix)]
-    {
-        command.wrap(process_wrap::std::ProcessGroup::leader());
-    }
-    #[cfg(windows)]
-    {
-        use windows::Win32::System::Threading::CREATE_NO_WINDOW;
-        command.wrap(process_wrap::std::CreationFlags(CREATE_NO_WINDOW));
-        command.wrap(process_wrap::std::JobObject);
-    }
-    let mut child = command.spawn().map_err(|e| {
-        CoreError::Unavailable(format!(
-            "Could not start {} for the site's preview. {e}",
-            plan.program.display()
-        ))
-    })?;
-    let url = Arc::new(Mutex::new(None));
-    let tail = Arc::new(Mutex::new(Vec::new()));
-    if let Some(out) = child.stdout().take() {
-        read_output(out, Arc::clone(&url), Arc::clone(&tail));
-    }
-    if let Some(err) = child.stderr().take() {
-        read_output(err, Arc::clone(&url), Arc::clone(&tail));
-    }
-    Ok(Running {
-        site: plan.site.clone(),
-        child,
-        url,
-        tail,
     })
 }
 

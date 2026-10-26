@@ -1,3 +1,4 @@
+use super::super::SiteConfig;
 use super::*;
 use crate::toolchain::HostOs;
 
@@ -72,24 +73,38 @@ fn executable(dir: &Path, name: &str, body: &str) -> PathBuf {
 
 #[cfg(unix)]
 #[test]
-fn the_plan_runs_the_configured_program_or_the_package_manager() {
+fn the_plan_finds_the_program_and_picks_a_port() {
     let bin = tempfile::tempdir().expect("bin");
     let site = tempfile::tempdir().expect("site");
     let pnpm = executable(bin.path(), "pnpm", "#!/bin/sh\n");
     std::fs::write(site.path().join("pnpm-lock.yaml"), "").expect("lock");
+    std::fs::write(
+        site.path().join("package.json"),
+        r#"{ "scripts": { "dev": "astro dev" } }"#,
+    )
+    .expect("package");
     let env = env_with(bin.path());
-    let plan = plan(site.path(), &SiteConfig::legacy(), &env).expect("plan");
+    let found = command::choose(site.path(), &SiteConfig::legacy(), None).expect("command");
+    let plan = plan(site.path(), &found, &env).expect("plan");
     assert_eq!(plan.program, pnpm);
-    assert_eq!(plan.args, vec!["run".to_string(), "dev".to_string()]);
+    let port = plan.port.expect("a picked port");
+    assert_eq!(plan.args, vec!["run", "dev", "--port", &port.to_string()]);
     assert_eq!(plan.url, None);
+    assert_eq!(
+        plan.expected_url(),
+        Some(format!("http://localhost:{port}/"))
+    );
+    assert_eq!(plan.line, format!("pnpm run dev --port {port}"));
 
     let mut config = SiteConfig::legacy();
     config.preview = Some(super::super::PreviewConfig {
         command: vec!["pnpm".into(), "dev".into()],
         url: Some("http://localhost:15292/".into()),
     });
-    let plan = super::plan(site.path(), &config, &env).expect("plan");
+    let found = command::choose(site.path(), &config, None).expect("command");
+    let plan = super::plan(site.path(), &found, &env).expect("plan");
     assert_eq!(plan.args, vec!["dev".to_string()]);
+    assert_eq!(plan.port, None);
     assert_eq!(plan.url.as_deref(), Some("http://localhost:15292/"));
 }
 
@@ -104,15 +119,17 @@ fn the_plan_refuses_paths_remote_addresses_and_missing_programs() {
         }),
         ..SiteConfig::legacy()
     };
-    let path = plan(site.path(), &with(&["./serve.sh"], None), &env);
+    let path = command::choose(site.path(), &with(&["./serve.sh"], None), None);
     assert_eq!(path.expect_err("path").code(), "invalid");
-    let remote = plan(
+    let remote = command::choose(
         site.path(),
         &with(&["pnpm"], Some("https://example.com/")),
-        &env,
+        None,
     );
     assert_eq!(remote.expect_err("remote").code(), "invalid");
-    let missing = plan(site.path(), &with(&["no-such-tool-here"], None), &env);
+    let found =
+        command::choose(site.path(), &with(&["no-such-tool-here"], None), None).expect("command");
+    let missing = plan(site.path(), &found, &env);
     assert_eq!(missing.expect_err("missing").code(), "unavailable");
 }
 
@@ -123,63 +140,4 @@ fn answers_only_when_something_listens() {
     assert!(answers(&format!("http://127.0.0.1:{port}/")));
     drop(listener);
     assert!(!answers(&format!("http://127.0.0.1:{port}/")));
-}
-
-#[cfg(unix)]
-#[test]
-fn a_server_starts_reports_its_address_and_stops() {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
-    let port = listener.local_addr().expect("addr").port();
-    drop(listener);
-    let bin = tempfile::tempdir().expect("bin");
-    let site = tempfile::tempdir().expect("site");
-    // A tiny server: prints its address, then listens with Python if there
-    // is one, else the test only checks the early exit below.
-    let python = ["python3", "python"]
-        .into_iter()
-        .find(|p| find_on_path(&[*p], &ProbeEnv::from_system()).is_some());
-    let Some(python) = python else { return };
-    let script = format!(
-        "#!/bin/sh\necho \"  Local  http://127.0.0.1:{port}/\"\nexec {python} -m http.server {port} --bind 127.0.0.1\n"
-    );
-    let program = executable(bin.path(), "fake-dev", &script);
-    let plan = PreviewPlan {
-        site: site.path().to_path_buf(),
-        program,
-        args: Vec::new(),
-        url: None,
-        path_env: std::env::var_os("PATH").unwrap_or_default(),
-    };
-    let preview = SitePreview::default();
-    let url = preview.start(&plan).expect("start");
-    assert_eq!(url, format!("http://127.0.0.1:{port}/"));
-    // A second start reuses the running server.
-    assert_eq!(preview.start(&plan).expect("again"), url);
-    preview.stop();
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while answers(&url) && Instant::now() < deadline {
-        thread::sleep(POLL);
-    }
-    assert!(!answers(&url), "the server stopped");
-}
-
-#[cfg(unix)]
-#[test]
-fn a_server_that_exits_early_says_why() {
-    let bin = tempfile::tempdir().expect("bin");
-    let site = tempfile::tempdir().expect("site");
-    let program = executable(
-        bin.path(),
-        "broken-dev",
-        "#!/bin/sh\necho 'no astro here' >&2\nexit 1\n",
-    );
-    let plan = PreviewPlan {
-        site: site.path().to_path_buf(),
-        program,
-        args: Vec::new(),
-        url: None,
-        path_env: std::env::var_os("PATH").unwrap_or_default(),
-    };
-    let err = SitePreview::default().start(&plan).expect_err("exits");
-    assert!(err.to_string().contains("no astro here"), "{err}");
 }
