@@ -34,24 +34,31 @@ export async function motionShots({ open, shot }) {
   await main.getByText(/^Walk loop · frame 18$/).waitFor();
   await shot(main, 'motion-main');
 
-  await main.getByRole('button', { name: 'Map bones' }).click();
-  await main.getByRole('dialog', { name: /^Retarget a library clip onto / }).waitFor();
-  await shot(main, 'motion-retarget');
-  await main.getByRole('button', { name: 'Cancel' }).click();
-
   await main.getByRole('button', { name: /^Switch cabinet/ }).click();
   await main.getByText(/^Door open · end of the /).waitFor();
   await main.waitForTimeout(1200);
   await shot(main, 'motion-states');
+  await main.context().close();
+
+  // The bone map on a page of its own, so its canvas is the second one there.
+  const map = await motion(open, 'demo');
+  await map.getByRole('button', { name: 'Map bones' }).click();
+  await map.getByRole('dialog', { name: /^Retarget a library clip onto / }).waitFor();
+  await map.getByLabel('Clay figure rig at rest').waitFor();
+  await map.waitForTimeout(2500);
+  await shot(map, 'motion-retarget');
+  await map.context().close();
 
   const rest = await motion(open, 'rest');
   await rest.getByText('No clips on Clay figure yet').waitFor();
   await rest.waitForTimeout(1200);
   await shot(rest, 'motion-no-clips');
+  await rest.context().close();
 
   const still = await motion(open, 'still');
   await still.getByText(/ could move$/).waitFor();
   await shot(still, 'motion-empty');
+  await still.context().close();
 
   const over = await motion(open, 'over');
   await over.getByRole('button', { name: /^Character\s*75 bones/ }).click();
@@ -61,4 +68,5 @@ export async function motionShots({ open, shot }) {
     .waitFor();
   await holdAt(over, 40);
   await shot(over, 'motion-over-budget');
+  await over.context().close();
 }
