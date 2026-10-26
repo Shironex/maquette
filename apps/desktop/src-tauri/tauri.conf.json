@@ -31,8 +31,8 @@
         "enable": true,
         "scope": []
       },
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: asset: http://asset.localhost; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost blob:; object-src 'none'; base-uri 'self'; form-action 'self'",
-      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' http://localhost:15190; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data: http://localhost:15190; img-src 'self' data: blob: asset: http://asset.localhost http://localhost:15190; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost blob: http://localhost:15190 ws://localhost:15190; object-src 'none'; base-uri 'self'; form-action 'self'"
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: asset: http://asset.localhost; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost blob:; frame-src http://localhost:* http://127.0.0.1:* asset: http://asset.localhost; object-src 'none'; base-uri 'self'; form-action 'self'",
+      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' http://localhost:15190; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data: http://localhost:15190; img-src 'self' data: blob: asset: http://asset.localhost http://localhost:15190; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost blob: http://localhost:15190 ws://localhost:15190; frame-src http://localhost:* http://127.0.0.1:* asset: http://asset.localhost; object-src 'none'; base-uri 'self'; form-action 'self'"
     }
   },
   "bundle": {
