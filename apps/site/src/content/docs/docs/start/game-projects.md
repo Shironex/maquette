@@ -28,11 +28,15 @@ A website repo with a `CMakeLists.txt` gets a hint to pick Game instead. A websi
 
 Right after you create the project, and from **Import models** on the Board, Maquette scans the model folder and lists every model with its folder, format, triangles, textures, size and its folder's budget check. Pick the ones Maquette should look after. Each becomes an asset whose version 1 is the repo file, and joins the ship record, so a later Ship may replace it. Models you leave out stay hand made: Ship never touches them. An import changes nothing in the game repo.
 
+Each imported model gets a preview render in the background, so the Board cards fill in as Blender finishes. A project imported before previews came with the import shows **Render N previews** in the Board header, which renders every model that has none.
+
 ## Budgets per folder
 
 Every model checks its triangles and its largest texture against the budget of the folder it lives in (`props/`, `enemies/`, the top level), or of the nearest folder above it. There is no scene total. A new game starts with 12k triangles and 1024 px for `props`, 40k and 2048 px for `enemies`, 60k and 2048 px for `characters`, and 20k and 1024 px for any other folder.
 
 The Board marks a model over its budget on its card and in the list, and the top bar counts the models over. The Inspector's **Budget** tab lists every model against its budget, lets you change each folder's numbers, and **Add the fix-ups** gives every model over budget a Decimate or Shrink textures fix-up. Build models applies them to a copy; the repo file stays version 1.
+
+A rigged model (one with bones) never gets Decimate, since it would tear the skin weights and shape keys. Over its triangle budget it reads **By hand**: reduce it in Blender yourself. Shrink textures still applies to it.
 
 ## The game pipeline
 
@@ -50,26 +54,28 @@ The **Game export** panel in the Pipeline view sets what the engine reads:
 
 - **Format**: `.glb` (binary glTF, textures inside) or `.obj` with its `.mtl` and texture files beside it.
 - **Textures**: PNG, JPG, or Keep each image's own format.
-- **Texture size cap**: 256 to 4096 px on the longest edge; smaller textures stay as they are.
+- **Texture size cap**: 256 to 4096 px on the longest edge; smaller textures stay as they are. A model in a folder with a budget exports at that budget's texture size instead, so `props/` at 1024 px caps its props at 1024 px. The cap covers the models in folders without a budget, and the panel lists each folder's size.
 - KTX2, meshopt and Draco are always off. Game export refuses an exported model that uses them, or a texture over the cap.
 
 Rigs and animation clips export with a `.glb`. LOD levels are shown in the panel but not built yet.
+
+A project made before the per folder cap keeps its own copies of `export_game.py` and `game_export.mjs`. The Pipeline view offers to update them; until then every model exports at the global cap.
 
 ## Ship to the game
 
 When a run reaches Ship, the Pipeline view opens the Ship diff and the run waits. The diff lists each file:
 
 - **New**: not in the game yet.
-- **Replaced**: a file Maquette wrote or imported before, now different.
+- **Replaced**: a file Maquette wrote or imported before, now different. When the file in the game is still the original Maquette imported, the row says it **replaces the imported original**, and the approval card counts them.
 - **Unchanged**: the same bytes, left as they are.
 - **Hand made, left alone**: not in the ship record, so Ship never touches it, also when an export would land on it.
 
-It also shows where Ship writes (game repo, model folder, branch), how many files the ship record lists after the run, and the checks before Ship. **Approve and ship** writes the files; **Deny** stops the run and nothing in the game repo changes. Ship never removes a file and never commits: review the change in git and commit it yourself. **What Ship changes** in the Pipeline view shows the same diff between runs.
+It also shows where Ship writes (game repo, model folder, branch), how many files the ship record lists after the run, and the checks before Ship. **Approve and ship** writes the files; **Deny** stops the run and nothing in the game repo changes. Ship never removes a file and never commits: review the change in git and commit it yourself. When git status lists uncommitted files in the game repo, the diff and the approval card suggest committing them first, so the Ship change is easy to review and undo. Maquette only reads git status; it never writes to the repo's git. **What Ship changes** in the Pipeline view shows the same diff between runs.
 
 ## Views
 
-Game projects hide the Page and Timeline views; Motion stays. The Inspector shows Compare and Budget, without Layout and Paths. Game preview, the model in the game's own lighting, is listed as planned and is not built yet.
+Game projects hide the Page and Timeline views; Motion stays. Every view's top bar shows the model budget (how many models are over their folder's budget) and the stages Concept, Refs, Tripo, Blender, Export and Ship, never a scene MB budget. Motion shows only the clips of each model: a game export keeps every clip in the model file, so there are no ship switches, states or scene budget, and the list marks the models over their folder's budget. Long clip names truncate with the full name on hover, and a model with eight clips or more gets a search box. The Inspector shows Compare and Budget, without Layout and Paths. Its model panel checks the selected model's triangles against its folder's budget and leaves out the website's compression and scene total. Game preview, the model in the game's own lighting, is listed as planned and is not built yet.
 
 ## Agents
 
-Over MCP, `get_game` reads a game project's settings and each model against its budget, `scan_game_models` and `import_game_models` scan and import the model folder, `set_game_settings` changes the format, model folder, export, bake and budgets, and `get_ship_plan` shows what Ship would change. `run_pipeline` runs the game pipeline; Ship waits for a person to approve it in the app, whoever started the run.
+Over MCP, `get_game` reads a game project's settings and each model against its budget, `scan_game_models` and `import_game_models` scan and import the model folder (an import asks for each model's preview), `set_game_settings` changes the format, model folder, export, bake and budgets, and `get_ship_plan` shows what Ship would change, which replaced files are imported originals, and how many files the game repo has uncommitted. `run_pipeline` runs the game pipeline; Ship waits for a person to approve it in the app, whoever started the run.

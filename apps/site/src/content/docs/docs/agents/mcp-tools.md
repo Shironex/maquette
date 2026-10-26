@@ -13,64 +13,64 @@ How to read the tables: **Spends** says whether a call costs anything. **Approva
 
 These look at the workspace and change nothing.
 
-| Tool                                          | What it returns                                                                                                                        | Spends  | Approval |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------- |
-| [`list_projects`](#list_projects)             | Every project: template, target (website or game), site or game repo, asset count, what runs in it and which is open in the app        | Nothing | No       |
-| `get_project`                                 | One project's manifest: name, template, site repo, source folder and its Board assets with every version                               | Nothing | No       |
-| `list_assets`                                 | A project's Board assets: kind, stage, status, version count and the latest version's file and stats. Takes an optional `stage` filter | Nothing | No       |
-| [`get_pipeline`](#get_pipeline)               | Steps, validation issues, compression presets, model sizes, the run in progress and the latest runs                                    | Nothing | No       |
-| [`get_run`](#get_run)                         | One run's status and the end of its log                                                                                                | Nothing | No       |
-| `list_inbox`                                  | The models waiting in the inbox, with kind, size, triangle count and worst check                                                       | Nothing | No       |
-| `get_inbox_checks`                            | The checks for one inbox model (triangles, textures, rig, scale, materials) and its analysis report                                    | Nothing | No       |
-| `get_concepts`                                | A direction's prompt, refs and images with stars and picks, plus queued, running, waiting and failed jobs                              | Nothing | No       |
-| `get_provider_job`                            | A send to 3D: status, phase, progress, credits spent and message. With `project` instead of `id`, every send in the project            | Nothing | No       |
-| [`get_credits`](#get_credits)                 | Each provider's balance, totals for 7 and 30 days and the latest paid sends                                                            | Nothing | No       |
-| `list_handoffs`                               | The By hand sends waiting for a model, the export file name each waits for, and what the Downloads watcher matched                     | Nothing | No       |
-| `get_real_size`                               | An asset's real size and fix-ups, what its model measures, and the defaults new fix-ups start from                                     | Nothing | No       |
-| `list_fixups`                                 | An asset's fix-ups in the order they apply, with the last preview's numbers                                                            | Nothing | No       |
-| [`get_material_tweaks`](#get_material_tweaks) | An asset's material names, tweaks and per map group codecs, with raw and shipped size                                                  | Nothing | No       |
-| `get_bake_settings`                           | Lightmap size, samples, denoiser, whether `bake_light.py` can denoise, and the assets that skip the bake                               | Nothing | No       |
-| `get_starters`                                | Each starter script in `tools/` as current, outdated, edited or missing                                                                | Nothing | No       |
-| `get_layout`                                  | Where each model stands, the camera stops, the desk, the first view, object states, explode tracks, paths and clips kept off the site  | Nothing | No       |
-| `get_motion`                                  | Every model's rig, clips and parts, and what the clips weigh inside the scene budget                                                   | Nothing | No       |
-| `list_built_assets`                           | Each built asset's script, helpers, state and last build                                                                               | Nothing | No       |
-| `get_page_preview`                            | The site dev server's state, address, command, who started it and its last log lines                                                   | Nothing | No       |
-| `get_game`                                    | A game project's settings and each model against its folder's budget                                                                   | Nothing | No       |
-| `scan_game_models`                            | Every model in a game project's model folder with its numbers, budget check and the asset it was imported as                           | Nothing | No       |
-| `get_ship_plan`                               | What Ship would write into the game: new, replaced, unchanged and hand made files, with the checks                                     | Nothing | No       |
-| [`list_library`](#list_library)               | The library's models, with their versions, tags and the projects that use them. Takes an optional `query`, `tag` and `project`         | Nothing | No       |
+| Tool                                          | What it returns                                                                                                                                                 | Spends  | Approval |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------- |
+| [`list_projects`](#list_projects)             | Every project: template, target (website or game), site or game repo, asset count, what runs in it and which is open in the app                                 | Nothing | No       |
+| `get_project`                                 | One project's manifest: name, template, site repo, source folder and its Board assets with every version                                                        | Nothing | No       |
+| `list_assets`                                 | A project's Board assets: kind, stage, status, version count and the latest version's file and stats. Takes an optional `stage` filter                          | Nothing | No       |
+| [`get_pipeline`](#get_pipeline)               | Steps, validation issues, compression presets, model sizes, the run in progress and the latest runs                                                             | Nothing | No       |
+| [`get_run`](#get_run)                         | One run's status and the end of its log                                                                                                                         | Nothing | No       |
+| `list_inbox`                                  | The models waiting in the inbox, with kind, size, triangle count and worst check                                                                                | Nothing | No       |
+| `get_inbox_checks`                            | The checks for one inbox model (triangles, textures, rig, scale, materials) and its analysis report                                                             | Nothing | No       |
+| `get_concepts`                                | A direction's prompt, refs and images with stars and picks, plus queued, running, waiting and failed jobs                                                       | Nothing | No       |
+| `get_provider_job`                            | A send to 3D: status, phase, progress, credits spent and message. With `project` instead of `id`, every send in the project                                     | Nothing | No       |
+| [`get_credits`](#get_credits)                 | Each provider's balance, totals for 7 and 30 days and the latest paid sends                                                                                     | Nothing | No       |
+| `list_handoffs`                               | The By hand sends waiting for a model, the export file name each waits for, and what the Downloads watcher matched                                              | Nothing | No       |
+| `get_real_size`                               | An asset's real size and fix-ups, what its model measures, and the defaults new fix-ups start from                                                              | Nothing | No       |
+| `list_fixups`                                 | An asset's fix-ups in the order they apply, with the last preview's numbers                                                                                     | Nothing | No       |
+| [`get_material_tweaks`](#get_material_tweaks) | An asset's material names, tweaks and per map group codecs, with raw and shipped size                                                                           | Nothing | No       |
+| `get_bake_settings`                           | Lightmap size, samples, denoiser, whether `bake_light.py` can denoise, and the assets that skip the bake                                                        | Nothing | No       |
+| `get_starters`                                | Each starter script in `tools/` as current, outdated, edited or missing                                                                                         | Nothing | No       |
+| `get_layout`                                  | Where each model stands, the camera stops, the desk, the first view, object states, explode tracks, paths and clips kept off the site                           | Nothing | No       |
+| `get_motion`                                  | Every model's rig, clips and parts, and what the clips weigh inside the scene budget                                                                            | Nothing | No       |
+| `list_built_assets`                           | Each built asset's script, helpers, state and last build                                                                                                        | Nothing | No       |
+| `get_page_preview`                            | The site dev server's state, address, command, who started it and its last log lines                                                                            | Nothing | No       |
+| `get_game`                                    | A game project's settings and each model against its folder's budget                                                                                            | Nothing | No       |
+| `scan_game_models`                            | Every model in a game project's model folder with its numbers, budget check and the asset it was imported as                                                    | Nothing | No       |
+| `get_ship_plan`                               | What Ship would write into the game: new, replaced (marked when an imported original), unchanged and hand made files, the checks and the uncommitted file count | Nothing | No       |
+| [`list_library`](#list_library)               | The library's models, with their versions, tags and the projects that use them. Takes an optional `query`, `tag` and `project`                                  | Nothing | No       |
 
 `preview_fixups` is read only too: it runs an asset's saved fix-ups headless on a copy and returns the numbers before and after each. It spends nothing.
 
 ## Changes the project, spends nothing
 
-| Tool                                                  | What it does                                                                           | Spends  | Approval |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------- | ------- | -------- |
-| [`set_compression_presets`](#set_compression_presets) | Changes the per model texture size, data map size, codec and meshopt level             | Nothing | No       |
-| [`set_material_tweaks`](#set_material_tweaks)         | Changes an asset's tint, roughness, metalness, emissive strength and map codecs        | Nothing | No       |
-| `set_bake_settings`                                   | Changes the lightmap size (256 to 4096), samples (1 to 4096) and denoise               | Nothing | No       |
-| `set_skip_bake`                                       | Sets one or more assets to skip the bake, or join it again                             | Nothing | No       |
-| `set_pad_edges`                                       | Pads an asset's texture edges before the textures shrink, or stops                     | Nothing | No       |
-| `set_real_size`                                       | Sets or clears the real size a model is scaled to                                      | Nothing | No       |
-| `add_fixups`                                          | Adds fix-ups to an asset; one of a kind already there is replaced                      | Nothing | No       |
-| `remove_fixups`                                       | Removes fix-ups by kind, or all of them                                                | Nothing | No       |
-| `update_starters`                                     | Brings outdated or missing starter scripts up to date, as the Update banner does       | Nothing | No       |
-| [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states, explode tracks, paths and clips | Nothing | No       |
-| [`pick_concepts`](#pick_concepts)                     | Puts Lab concepts on the Board at Refs                                                 | Nothing | No       |
-| `star_concepts`                                       | Stars or unstars Lab concepts                                                          | Nothing | No       |
-| [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                             | Nothing | No       |
-| `copy_asset`                                          | Copies an asset with its refs and versions to another project                          | Nothing | No       |
-| `import_game_models`                                  | Imports models from the game repo, each as an asset whose version 1 is the repo file   | Nothing | No       |
-| `set_game_settings`                                   | Changes a game's format, model folder, export, bake and folder budgets                 | Nothing | No       |
-| `add_built_asset`                                     | Adds a model a Blender script in the project makes, and builds it headless             | Nothing | No       |
-| `rebuild_built_asset`                                 | Builds one built asset again, or every new or stale one                                | Nothing | No       |
-| `render_thumbnail`                                    | Renders a studio thumbnail of a model with headless Blender and returns the PNG's path | Nothing | No       |
-| `start_page_preview`                                  | Starts the site dev server the Page view shows, or reuses the running one              | Nothing | No       |
-| `stop_page_preview`                                   | Stops that server, whoever started it                                                  | Nothing | No       |
-| `cancel_run`                                          | Cancels a queued or running run. A run waiting for approval is cancelled too           | Nothing | No       |
-| [`add_to_library`](#add_to_library)                   | Copies an asset's newest model into the library                                        | Nothing | No       |
-| [`use_from_library`](#use_from_library)               | Copies a library model into a project as a new asset                                   | Nothing | No       |
-| [`update_from_library`](#update_from_library)         | Adds a newer library version to an asset as its next version, or returns the plan      | Nothing | No       |
+| Tool                                                  | What it does                                                                                                      | Spends  | Approval |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------- | -------- |
+| [`set_compression_presets`](#set_compression_presets) | Changes the per model texture size, data map size, codec and meshopt level                                        | Nothing | No       |
+| [`set_material_tweaks`](#set_material_tweaks)         | Changes an asset's tint, roughness, metalness, emissive strength and map codecs                                   | Nothing | No       |
+| `set_bake_settings`                                   | Changes the lightmap size (256 to 4096), samples (1 to 4096) and denoise                                          | Nothing | No       |
+| `set_skip_bake`                                       | Sets one or more assets to skip the bake, or join it again                                                        | Nothing | No       |
+| `set_pad_edges`                                       | Pads an asset's texture edges before the textures shrink, or stops                                                | Nothing | No       |
+| `set_real_size`                                       | Sets or clears the real size a model is scaled to                                                                 | Nothing | No       |
+| `add_fixups`                                          | Adds fix-ups to an asset; one of a kind already there is replaced                                                 | Nothing | No       |
+| `remove_fixups`                                       | Removes fix-ups by kind, or all of them                                                                           | Nothing | No       |
+| `update_starters`                                     | Brings outdated or missing starter scripts up to date, as the Update banner does                                  | Nothing | No       |
+| [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states, explode tracks, paths and clips                            | Nothing | No       |
+| [`pick_concepts`](#pick_concepts)                     | Puts Lab concepts on the Board at Refs                                                                            | Nothing | No       |
+| `star_concepts`                                       | Stars or unstars Lab concepts                                                                                     | Nothing | No       |
+| [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                                                        | Nothing | No       |
+| `copy_asset`                                          | Copies an asset with its refs and versions to another project                                                     | Nothing | No       |
+| `import_game_models`                                  | Imports models from the game repo, each as an asset whose version 1 is the repo file, and asks for their previews | Nothing | No       |
+| `set_game_settings`                                   | Changes a game's format, model folder, export, bake and folder budgets                                            | Nothing | No       |
+| `add_built_asset`                                     | Adds a model a Blender script in the project makes, and builds it headless                                        | Nothing | No       |
+| `rebuild_built_asset`                                 | Builds one built asset again, or every new or stale one                                                           | Nothing | No       |
+| `render_thumbnail`                                    | Renders a studio thumbnail of a model with headless Blender and returns the PNG's path                            | Nothing | No       |
+| `start_page_preview`                                  | Starts the site dev server the Page view shows, or reuses the running one                                         | Nothing | No       |
+| `stop_page_preview`                                   | Stops that server, whoever started it                                                                             | Nothing | No       |
+| `cancel_run`                                          | Cancels a queued or running run. A run waiting for approval is cancelled too                                      | Nothing | No       |
+| [`add_to_library`](#add_to_library)                   | Copies an asset's newest model into the library                                                                   | Nothing | No       |
+| [`use_from_library`](#use_from_library)               | Copies a library model into a project as a new asset                                                              | Nothing | No       |
+| [`update_from_library`](#update_from_library)         | Adds a newer library version to an asset as its next version, or returns the plan                                 | Nothing | No       |
 
 ## Spends credits or Codex usage, or needs approval
 
