@@ -5,6 +5,7 @@ import { Lights } from './Lights';
 import { POSTER_CAMERAS, STOPS } from './manifest';
 import { Models } from './Models';
 import { Motes } from './Motes';
+import { PathTubes } from './PathTubes';
 import { useLiveFrames, useProgress } from './Scene.hooks';
 import type { SceneProps } from './Workbench.types';
 
@@ -25,6 +26,7 @@ export function Scene(props: SceneProps) {
         onReady={props.onReady}
         onFailed={props.onFailed}
       />
+      <PathTubes progress={progress} />
       <Motes still={still} />
       <CameraRig
         progress={progress}

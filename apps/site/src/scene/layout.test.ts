@@ -92,6 +92,29 @@ describe('fromLayout', () => {
     expect(models[0]).toMatchObject({ id: 'lamp', position: [0, 0.9, 0], inPlace: [0, 0, 0] });
   });
 
+  it('lifts the paths onto the bench, and an older layout has none', () => {
+    const cord = {
+      id: 'cord',
+      name: 'Cord',
+      curve: 'polyline' as const,
+      points: [
+        [0, 0, 0],
+        [0.4, 0.1, 0],
+      ] as [number, number, number][],
+      start: null,
+      end: 'desk-lamp',
+      width: 0.01,
+      color: '#3a3936',
+      glow: '#ffe08a',
+    };
+    const { paths } = fromLayout(layout({ paths: [cord] }), { assets: {}, lift: 0.9 });
+    expect(paths[0]?.points).toEqual([
+      [0, 0.9, 0],
+      [0.4, 1, 0],
+    ]);
+    expect(fromLayout(layout(), { assets: {} }).paths).toEqual([]);
+  });
+
   it('refuses a layout version it does not know', () => {
     expect(() => fromLayout(layout({ version: 2 }), { assets: {} })).toThrow(/version 2/);
   });

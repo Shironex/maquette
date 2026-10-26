@@ -21,10 +21,12 @@
  *   }
  *
  * A stop's `models` lists the asset ids it sees; `null` means it sees all.
+ * `paths` are curves the site draws as tubes (./paths.ts).
  * Maquette's desk top is at y = 0, so `lift` raises everything onto the bench.
  */
 import type { CameraStop } from './cameras';
 import type { ModelEntry, Vec3 } from './manifest';
+import { liftPaths, type ScenePath } from './paths';
 import { STOP_IDS, type StopId } from './stops';
 import type { ObjectStates, Timeline } from './timeline';
 
@@ -52,6 +54,8 @@ export interface SceneLayout {
   states?: Record<string, ObjectStates>;
   /** The Timeline view's tracks (./timeline.ts). Older layouts have neither. */
   timeline?: Timeline;
+  /** Curves through the scene the page lights up (./paths.ts). Older layouts have none. */
+  paths?: ScenePath[];
 }
 
 /** What the site keeps per asset on top of its placement. */
@@ -88,7 +92,7 @@ export const LAYOUT_VERSION = 1;
 export function fromLayout(
   layout: SceneLayout,
   { assets, lift = 0 }: FromLayoutOptions
-): { models: ModelEntry[]; stops: CameraStop[] } {
+): { models: ModelEntry[]; stops: CameraStop[]; paths: ScenePath[] } {
   if (layout.version !== LAYOUT_VERSION) {
     throw new Error(`layout.json version ${layout.version} is not ${LAYOUT_VERSION}`);
   }
@@ -131,5 +135,5 @@ export function fromLayout(
     ];
   });
 
-  return { models, stops };
+  return { models, stops, paths: liftPaths(layout.paths, lift) };
 }

@@ -21,7 +21,9 @@
  *   },
  *   "timeline": {
  *     "explode": { "switch-cabinet": { "distance": 0.3, "easing": "ease-in-out",
- *       "keys": [{ "stop": "canopy", "amount": 0 }, { "stop": "pullback", "amount": 1 }] } }
+ *       "keys": [{ "stop": "canopy", "amount": 0 }, { "stop": "pullback", "amount": 1 }] } },
+ *     "paths": { "main-feed": { "easing": "linear",
+ *       "keys": [{ "stop": "sakura", "amount": 0 }, { "stop": "canopy", "amount": 1 }] } }
  *   }
  *
  * Arriving at a stop plays the move once, timed by its transition; a scroll
@@ -75,8 +77,16 @@ export interface ExplodeTrack {
   keys: { stop: string; amount: number | null }[];
 }
 
+/** How much of a path is lit at each keyed stop (./paths.ts draws it). */
+export interface PathTrack {
+  easing: Easing;
+  keys: { stop: string; amount: number | null }[];
+}
+
 export interface Timeline {
   explode: Record<string, ExplodeTrack>;
+  /** Older layouts have none. */
+  paths?: Record<string, PathTrack>;
 }
 
 /** A part's offset from rest, plain numbers. */
@@ -276,6 +286,18 @@ export function stateAnimator(object: ObjectStates, stopIds: readonly string[]) 
  * the last.
  */
 export function explodeAt(track: ExplodeTrack, stopIds: readonly string[], progress: number) {
+  return keyedAt(track, stopIds, progress);
+}
+
+/**
+ * A keyed track's amount at tour progress `progress`, 0 to 1: eased between
+ * the keyed stops, held before the first and after the last, 0 without keys.
+ */
+export function keyedAt(
+  track: { easing: Easing; keys: readonly { stop: string; amount: number | null }[] },
+  stopIds: readonly string[],
+  progress: number
+): number {
   const keys = track.keys
     .map(k => ({ at: stopIds.indexOf(k.stop), amount: clamp(n(k.amount), 0, 1) }))
     .filter(k => k.at >= 0)

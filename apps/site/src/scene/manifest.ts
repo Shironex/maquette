@@ -18,6 +18,8 @@ import { PROP_EXTRAS } from './props';
 import rawShipped from './shipped.json';
 import { parseShipped } from './shipped';
 import { STOP_IDS, type StopId } from './stops';
+import type { ScenePath } from './paths';
+import type { PathTrack } from './timeline';
 import type { TimelineTracks } from './tracks';
 
 export { STOP_IDS, type StopId };
@@ -211,6 +213,12 @@ export const TIMELINE: TimelineTracks = {
   states: SHIPPED.layout.states ?? {},
   explode: SHIPPED.layout.timeline?.explode ?? {},
 };
+
+/** The paths Maquette shipped, lifted onto the bench, in the order they draw. */
+export const PATHS: readonly ScenePath[] = shipped.paths;
+
+/** How much of each path is lit at each keyed stop, by path id. */
+export const PATH_TRACKS: Record<string, PathTrack> = SHIPPED.layout.timeline?.paths ?? {};
 
 export function modelUrl(file: string): string {
   return `/scene/models/${file}`;
