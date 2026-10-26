@@ -376,7 +376,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. If the run reaches the Ship step while \"Ask before shipping\" is on, it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run."
+        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. If the run reaches the Ship step while \"Ask before shipping\" is on, or in a game project (whose Ship always asks), it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run."
     )]
     async fn run_pipeline(&self, Parameters(args): Parameters<RunPipelineArgs>) -> Out {
         let wait = Duration::from_secs(u64::from(args.wait_seconds.unwrap_or(20).min(120)));
@@ -391,11 +391,13 @@ impl McpTools {
                 let setup =
                     pipeline::setup(host.session(), &args.project, args.from, args.force, tools)
                         .map_err(|e| e.message)?;
-                let gate = config
-                    .agents
-                    .rules
-                    .ask_before_shipping
-                    .then(|| Arc::new(ShipGate(gate_hub)) as Arc<dyn StepGate>);
+                let gate =
+                    crate::commands::game::ship_gate(host.session(), &args.project, &gate_hub)
+                        .or_else(|| {
+                            config.agents.rules.ask_before_shipping.then(|| {
+                                Arc::new(ShipGate::for_agent(gate_hub)) as Arc<dyn StepGate>
+                            })
+                        });
                 host.runner()
                     .submit_with(
                         setup,

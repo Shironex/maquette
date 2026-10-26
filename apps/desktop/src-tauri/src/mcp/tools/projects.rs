@@ -165,7 +165,7 @@ pub struct ListAssetsArgs {
 #[tool_router(router = projects_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "List the projects in the open Maquette workspace: template, site repo, created, asset count, \
+        description = "List the projects in the open Maquette workspace: template, target (website or game), site repo (the game repo for a game), created, asset count, \
 the picture the app shows for it, what runs in it now and which one is open in the app. Every other tool takes \
 a project id; no tool changes which project the app has open.",
         annotations(read_only_hint = true)
@@ -195,6 +195,7 @@ a project id; no tool changes which project the app has open.",
                             "id": p.id,
                             "name": p.name,
                             "template": to_value(p.template),
+                            "target": to_value(p.target),
                             "siteRepo": p.site_repo,
                             "createdAt": p.created_at,
                             "assets": p.asset_count,
@@ -214,7 +215,7 @@ a project id; no tool changes which project the app has open.",
     }
 
     #[tool(
-        description = "Get one project's manifest: name, template, site repo, source folder and its Board assets with every version.",
+        description = "Get one project's manifest: name, template, target (website or game), site repo (the game repo for a game), source folder, the game settings of a game project and its Board assets with every version.",
         annotations(read_only_hint = true)
     )]
     async fn get_project(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {

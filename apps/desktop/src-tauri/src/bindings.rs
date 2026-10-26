@@ -8,7 +8,7 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    agents, app, assets, built, credits, dialogs, downloads, inbox, inspect, lab, layout,
+    agents, app, assets, built, credits, dialogs, downloads, game, inbox, inspect, lab, layout,
     materials, motion, page, paths, pipeline, prepare, project, providers, quit, site, thumbs,
     timeline, toolchain, workspace,
 };
@@ -48,6 +48,12 @@ pub fn builder() -> Builder<tauri::Wry> {
             project::project_update,
             project::project_inspect_repo,
             project::project_scan_import,
+            game::game_inspect_repo,
+            game::game_scan,
+            game::game_import,
+            game::game_save_settings,
+            game::game_add_budget_fixups,
+            game::game_ship_plan,
             dialogs::dialog_pick_folder,
             dialogs::dialog_pick_file,
             dialogs::dialog_pick_model,
@@ -254,6 +260,12 @@ mod tests {
             "pageServerStop",
             "pageServerRelease",
             "pageOpenInBrowser",
+            "gameInspectRepo",
+            "gameScan",
+            "gameImport",
+            "gameSaveSettings",
+            "gameAddBudgetFixups",
+            "gameShipPlan",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }

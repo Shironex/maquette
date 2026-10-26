@@ -35,6 +35,30 @@ export const commands = {
   projectInspectRepo: (path: string) =>
     __TAURI_INVOKE<RepoInspection>('project_inspect_repo', { path }),
   projectScanImport: (path: string) => __TAURI_INVOKE<ImportScan>('project_scan_import', { path }),
+  /**
+   *  What New project shows for a game repo: CMake, the model folder, the
+   *  format and the loader.
+   */
+  gameInspectRepo: (path: string) =>
+    __TAURI_INVOKE<GameRepoInspection>('game_inspect_repo', { path }),
+  /**  Every model in the game's model folder, with its numbers and budget. */
+  gameScan: (project: string) => __TAURI_INVOKE<GameScan>('game_scan', { project }),
+  /**
+   *  Imports the picked model files (relative to the model folder), each as
+   *  an asset whose v1 is the repo file.
+   */
+  gameImport: (project: string, files: string[]) =>
+    __TAURI_INVOKE<ImportResult>('game_import', { project, files }),
+  gameSaveSettings: (project: string, change: GameSettingsChange) =>
+    __TAURI_INVOKE<ProjectManifest>('game_save_settings', { project, change }),
+  /**
+   *  Adds Decimate and Shrink textures to every model over its folder's
+   *  budget. Returns the assets that changed.
+   */
+  gameAddBudgetFixups: (project: string) =>
+    __TAURI_INVOKE<string[]>('game_add_budget_fixups', { project }),
+  /**  What Ship would write into the game repo from the last Game export. */
+  gameShipPlan: (project: string) => __TAURI_INVOKE<ShipPlan>('game_ship_plan', { project }),
   dialogPickFolder: (title: string, start: string | null) =>
     __TAURI_INVOKE<string | null>('dialog_pick_folder', { title, start }),
   dialogPickFile: (title: string) => __TAURI_INVOKE<string | null>('dialog_pick_file', { title }),
@@ -730,6 +754,17 @@ export type Bootstrap = {
   lastWorkspaceError: string | null;
 };
 
+/**  One model against its folder's budget. */
+export type BudgetCheck = {
+  folder: string;
+  triangles: number;
+  maxTriangles: number;
+  texture: number;
+  maxTexture: number;
+  /**  What is over, as the list says it: "Over 12k triangles". */
+  problems: string[];
+};
+
 export type Budgets = {
   sceneMb: number | null;
   trisPerModel: number;
@@ -1318,11 +1353,117 @@ export type FixupStep = {
   note: string;
 };
 
+/**
+ *  The budget of every model in one folder of the model folder. Each model
+ *  checks on its own; a game has no scene total.
+ */
+export type FolderBudget = {
+  /**  Relative to the model folder, `props`; empty for its top level. */
+  folder: string;
+  triangles: number;
+  /**  The longest texture edge in pixels. */
+  texture: number;
+};
+
 export type FolderLayout = {
   projects: string;
   inbox: string;
   cache: string;
 };
+
+/**  What Game export writes: plain files, never KTX2 or meshopt. */
+export type GameExport = {
+  textures: GameTextures;
+  /**  The longest texture edge in pixels, one of [`TEXTURE_CAPS`]. */
+  textureCap: number;
+};
+
+/**  The model files a game engine reads. */
+export type GameFormat =
+  /**  Binary glTF, textures inside. */
+  | 'glb'
+  /**  Wavefront `.obj` with its `.mtl` and texture files. */
+  | 'obj';
+
+/**  Where an asset's model lives in the game. */
+export type GameModel = {
+  /**  Relative to the model folder, with `/`: `props/brazier.glb`. */
+  file: string;
+  /**
+   *  The version that is the repo file as it was imported, so Game
+   *  export copies it untouched until something changes it.
+   */
+  importedVersion: number | null;
+};
+
+export type GameRepoInspection = {
+  path: string;
+  exists: boolean;
+  isGit: boolean;
+  /**  The checked out branch, read from `.git/HEAD`. */
+  branch: string | null;
+  /**  `CMakeLists.txt` at the root. */
+  cmake: boolean;
+  /**  The executables it builds (`add_executable`), in file order. */
+  targets: string[];
+  /**  The first of [`MODEL_DIRS`] that exists, relative to the repo. */
+  modelsDir: string | null;
+  /**  The format most of its files are in; none without model files. */
+  format: GameFormat | null;
+  glbFiles: number;
+  objFiles: number;
+  /**  The folders under the model folder that hold models, sorted. */
+  folders: string[];
+  /**  The library the engine reads models with, when one is named. */
+  loader: string | null;
+  readsKtx2: boolean;
+  readsMeshopt: boolean;
+};
+
+export type GameScan = {
+  repo: string;
+  modelsDir: string;
+  models: ScannedModel[];
+  /**  How long the scan took. */
+  millis: number | null;
+};
+
+export type GameSettings = {
+  format: GameFormat;
+  /**  The folder of the game repo the models live in, `assets/models`. */
+  modelsDir: string;
+  export: GameExport;
+  /**  Optional, off for a new game: engines light at runtime. */
+  bake: boolean;
+  budgets: FolderBudget[];
+  /**  Asset id to its file in the model folder. */
+  models: { [key in string]: GameModel };
+};
+
+/**
+ *  What a person or an agent changes in a game project's settings. A field
+ *  left out keeps what is saved.
+ */
+export type GameSettingsChange = {
+  /**
+   *  The format of models made in Maquette. Imported models keep the
+   *  format of their file.
+   */
+  format?: GameFormat | null;
+  modelsDir?: string | null;
+  export?: GameExport | null;
+  /**  Whether the pipeline runs Bake light. */
+  bake?: boolean | null;
+  /**  The whole budget table, one row per folder. */
+  budgets?: FolderBudget[] | null;
+};
+
+/**  The image files Game export writes. */
+export type GameTextures =
+  | 'png'
+  | 'jpg'
+  /**  PNG stays PNG and JPG stays JPG. */
+  | 'keep';
 
 export type GlbReport = {
   bytes: number | null;
@@ -1386,6 +1527,14 @@ export type HandoffCard = {
 };
 
 export type HostOs = 'mac' | 'windows' | 'linux';
+
+export type ImportResult = {
+  project: ProjectManifest;
+  /**  The new assets, by id. */
+  imported: string[];
+  /**  Files left as they were, with the reason. */
+  skipped: SkippedFile[];
+};
 
 export type ImportScan = {
   path: string;
@@ -1987,6 +2136,12 @@ export type NewConcepts = {
   count: number;
 };
 
+/**  What New project asks for a game. */
+export type NewGame = {
+  format: GameFormat;
+  modelsDir: string;
+};
+
 /**  What "Make object refs" asks for. */
 export type NewObjectRefs = {
   project: string;
@@ -2015,8 +2170,12 @@ export type NewObjectRefs = {
 export type NewProject = {
   name: string;
   template: ProjectTemplate;
+  /**  Left out, a website. */
+  target?: ProjectTarget;
   siteRepo: string | null;
   sourceFolder: string | null;
+  /**  For a game: the format and the model folder New project found. */
+  game?: NewGame | null;
 };
 
 /**  One object asset that Send picks made or moved to Refs. */
@@ -2282,8 +2441,16 @@ export type ProjectManifest = {
   id: string;
   name: string;
   template: ProjectTemplate;
+  /**  Where it ships. Older files have none: they are websites. */
+  target?: ProjectTarget;
+  /**
+   *  The repo Ship writes to: the site of a website, the game repo of a
+   *  game.
+   */
   siteRepo: string | null;
   sourceFolder: string | null;
+  /**  A game project's settings; none for a website. */
+  game?: GameSettings | null;
   /**  RFC 3339 UTC with milliseconds, for example `2026-10-24T09:30:00.123Z`. */
   createdAt: string;
   /**  The Board's assets. Older files have none, so it defaults to empty. */
@@ -2295,6 +2462,7 @@ export type ProjectSummary = {
   id: string;
   name: string;
   template: ProjectTemplate;
+  target: ProjectTarget;
   siteRepo: string | null;
   createdAt: string;
   assetCount: number;
@@ -2309,7 +2477,23 @@ export type ProjectSummary = {
   activity: ProjectActivity;
 };
 
-export type ProjectTemplate = 'floating-diorama' | 'room' | 'character-showcase' | 'imported';
+/**  Where a project ships. */
+export type ProjectTarget =
+  /**  A web scene: Ship copies models, posters and scene data into a site. */
+  | 'website'
+  /**
+   *  Models for a person's own engine: Ship writes model files into a
+   *  folder of the game repo.
+   */
+  | 'game';
+
+export type ProjectTemplate =
+  | 'floating-diorama'
+  | 'room'
+  | 'character-showcase'
+  | 'imported'
+  /**  A game project, started from the models already in the game. */
+  | 'game-import';
 
 /**  How a model gets made. */
 export type Provider = 'tripo' | 'meshy' | 'by-hand';
@@ -2419,6 +2603,10 @@ export type RepoInspection = {
   exists: boolean;
   isGit: boolean;
   hasPublicDir: boolean;
+  /**  Where Ship writes in this site, from its `maquette.site.json`. */
+  site: SiteFolders;
+  /**  A `CMakeLists.txt` at the root: more likely a game than a site. */
+  looksLikeGame: boolean;
 };
 
 export type Rig = {
@@ -2476,6 +2664,20 @@ export type RunRecord = {
 };
 
 export type RunState = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+
+export type ScannedModel = {
+  /**  Relative to the model folder, with `/`: `props/brazier.glb`. */
+  file: string;
+  /**  `props`, or empty at the top level. */
+  folder: string;
+  format: GameFormat;
+  stats: ModelStats | null;
+  /**  Why the file could not be read, when it could not. */
+  error: string | null;
+  budget: BudgetCheck | null;
+  /**  The asset that already looks after it. */
+  asset: string | null;
+};
 
 export type SceneLayout = {
   version: number;
@@ -2642,6 +2844,51 @@ export type ServiceTotals = {
   estimated: number;
 };
 
+/**  How one file in the model folder changes. */
+export type ShipChange =
+  | 'new'
+  /**  The record lists it and its bytes differ. */
+  | 'replaced'
+  | 'unchanged'
+  /**  Not in the ship record: Ship never touches it. */
+  | 'hand-made';
+
+export type ShipCheck = {
+  ok: boolean;
+  text: string;
+};
+
+export type ShipFile = {
+  /**  Relative to the model folder, with `/`. */
+  path: string;
+  change: ShipChange;
+  /**  The file Ship writes; the game's own for a hand made file. */
+  bytes: number | null;
+  /**  The game's file now, when there is one. */
+  beforeBytes: number | null;
+  triangles: number | null;
+  beforeTriangles: number | null;
+  /**  The asset it comes from, by name. */
+  asset: string | null;
+  /**  An export that would land on a hand made file, so it is held back. */
+  blocked: boolean;
+};
+
+export type ShipPlan = {
+  repo: string | null;
+  modelsDir: string;
+  branch: string | null;
+  /**  False before the first Game export. */
+  exported: boolean;
+  /**  What the export holds, in path order. */
+  files: ShipFile[];
+  /**  The game's files the record does not list and no export touches. */
+  handMade: ShipFile[];
+  /**  How many files the record lists after this Ship. */
+  recordAfter: number;
+  checks: ShipCheck[];
+};
+
 export type SideMember = {
   model: string;
   /**
@@ -2649,6 +2896,19 @@ export type SideMember = {
    *  transform. Pipeline exports keep their place, so this is zero.
    */
   position: [number | null, number | null, number | null];
+};
+
+/**  The folders Ship writes in a site, as New project says them. */
+export type SiteFolders = {
+  /**  The site has a `maquette.site.json`. */
+  config: boolean;
+  models: string;
+  /**  None copies no posters. */
+  posters: string | null;
+  /**  None writes no scene data. */
+  data: string | null;
+  /**  Why the config could not be read, when it could not. */
+  error: string | null;
 };
 
 /**  Which side of the model the real size measures. */
@@ -2663,6 +2923,11 @@ export type SizeAxis =
   | 'longest';
 
 export type SizeUnit = 'cm' | 'm';
+
+export type SkippedFile = {
+  file: string;
+  reason: string;
+};
 
 /**  One send as the Credits view lists it: its lines folded together. */
 export type Spend = {

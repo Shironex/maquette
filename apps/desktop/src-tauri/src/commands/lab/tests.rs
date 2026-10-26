@@ -16,6 +16,8 @@ fn dropped_images_land_in_refs_and_show_in_the_view() {
         NewProject {
             name: "Moon".into(),
             template: ProjectTemplate::Room,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },
@@ -52,6 +54,8 @@ fn a_direction_moves_to_another_project() {
             NewProject {
                 name: name.into(),
                 template: ProjectTemplate::FloatingDiorama,
+                target: Default::default(),
+                game: None,
                 site_repo: None,
                 source_folder: None,
             },
@@ -128,6 +132,8 @@ fn object_refs_are_checked_and_need_codex() {
         NewProject {
             name: "Landing".into(),
             template: ProjectTemplate::Room,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },

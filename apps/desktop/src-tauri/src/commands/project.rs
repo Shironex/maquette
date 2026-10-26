@@ -151,6 +151,8 @@ mod tests {
         NewProject {
             name: name.into(),
             template,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         }

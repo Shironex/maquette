@@ -19,6 +19,8 @@ fn open() -> (tempfile::TempDir, Session, String) {
         NewProject {
             name: "Moon Island".into(),
             template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },
@@ -151,6 +153,8 @@ fn updating_starters_changes_the_named_project_and_only_it() {
         NewProject {
             name: "Study room".into(),
             template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },

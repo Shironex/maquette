@@ -9,6 +9,7 @@ pub mod built;
 pub mod credits;
 pub mod dialogs;
 pub mod downloads;
+pub mod game;
 pub mod inbox;
 pub mod inspect;
 pub mod lab;

@@ -77,6 +77,8 @@ fn fixture(dir: &Path) -> (Session, String, std::path::PathBuf) {
         NewProject {
             name: "Study room".into(),
             template: ProjectTemplate::Room,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },

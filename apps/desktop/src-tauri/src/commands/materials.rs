@@ -91,6 +91,8 @@ mod tests {
             NewProject {
                 name: "Workbench".into(),
                 template: ProjectTemplate::FloatingDiorama,
+                target: Default::default(),
+                game: None,
                 site_repo: None,
                 source_folder: None,
             },

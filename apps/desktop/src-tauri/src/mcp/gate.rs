@@ -17,7 +17,29 @@ pub fn is_ship(step: &StepDef) -> bool {
     step.id.trim().eq_ignore_ascii_case("ship") || step.name.trim().eq_ignore_ascii_case("ship")
 }
 
-pub struct ShipGate(pub Arc<Hub>);
+/// Why a run waits before Ship.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShipReason {
+    /// An agent started the run and "Ask before shipping" is on.
+    Agent,
+    /// A game project: Ship writes into the game repo, so it always asks.
+    Game,
+}
+
+pub struct ShipGate {
+    pub hub: Arc<Hub>,
+    pub reason: ShipReason,
+}
+
+impl ShipGate {
+    /// The gate for a run an agent starts.
+    pub fn for_agent(hub: Arc<Hub>) -> Self {
+        Self {
+            hub,
+            reason: ShipReason::Agent,
+        }
+    }
+}
 
 impl StepGate for ShipGate {
     fn applies(&self, step: &StepDef) -> bool {
@@ -25,15 +47,21 @@ impl StepGate for ShipGate {
     }
 
     fn waiting_message(&self, step: &StepDef) -> String {
-        format!(
-            "{} waits for approval in Maquette, because an agent started this run.",
-            step.name
-        )
+        match self.reason {
+            ShipReason::Agent => format!(
+                "{} waits for approval in Maquette, because an agent started this run.",
+                step.name
+            ),
+            ShipReason::Game => format!(
+                "{} waits for approval in Maquette, because it writes into the game repo.",
+                step.name
+            ),
+        }
     }
 
     fn wait(&self, run: &RunRecord, step: &StepDef, cancelled: &AtomicBool) -> GateDecision {
-        let id = self.0.request_approval(run, step);
-        match self.0.wait_decision(&id, cancelled) {
+        let id = self.hub.request_approval(run, step);
+        match self.hub.wait_decision(&id, cancelled) {
             Some(true) => GateDecision::Allow,
             Some(false) => GateDecision::Deny(DENIED.to_string()),
             None => GateDecision::Deny("Cancelled.".to_string()),

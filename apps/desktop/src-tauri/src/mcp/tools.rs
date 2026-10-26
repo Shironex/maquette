@@ -13,6 +13,7 @@ pub mod built;
 pub mod concept_jobs;
 pub mod concepts;
 pub mod credits;
+pub mod game;
 pub mod handoffs;
 pub mod inbox;
 pub mod materials;
@@ -105,6 +106,13 @@ and helpers are copied into the project's built/ folder and it builds headless i
 next version, with no credits and no approval; rebuild_built_asset builds one again (or all \
 whose files changed) and list_built_assets reads their state and last build. A full \
 run_pipeline rebuilds the changed ones first. \
+A project ships to a website or to a game (list_projects and get_project give its target). \
+For a game project, get_game reads the game repo, model format, model folder, Game export \
+settings, Bake light and the budget per folder with each asset's numbers against it; \
+set_game_settings changes them; scan_game_models lists the models in the game's model folder \
+and import_game_models imports picked ones, each as an asset with the repo file as v1. \
+get_ship_plan shows which files Ship would add or replace in the game; Ship never touches \
+hand made files and always waits for a person to approve it in the app. \
 start_page_preview starts a project's site dev server (its dev command in the site repo), the \
 one the app's Page view shows, and waits for it to answer; get_page_preview reads its state, \
 address, command and log, and stop_page_preview stops it. Nothing is deployed. \
@@ -191,7 +199,8 @@ impl McpTools {
                 + Self::built_router()
                 + Self::bake_router()
                 + Self::starters_router()
-                + Self::page_router(),
+                + Self::page_router()
+                + Self::game_router(),
         }
     }
 

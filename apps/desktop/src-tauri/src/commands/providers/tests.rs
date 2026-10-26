@@ -16,6 +16,8 @@ fn send_options_pick_the_assets_own_refs() {
         NewProject {
             name: "Moon".into(),
             template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },
@@ -66,6 +68,8 @@ fn batch_options_find_object_refs_by_title() {
         NewProject {
             name: "Landing".into(),
             template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },

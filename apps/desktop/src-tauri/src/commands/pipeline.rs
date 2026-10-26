@@ -254,6 +254,7 @@ pub(crate) fn setup(
     );
     // The Ship step reads which file each asset shipped as from here.
     let index = maquette_core::site::write_ship_index(&ctx.cache_dir, &ctx.manifest)?;
+    super::game::before_run(&ctx.project_dir, &ctx.manifest)?;
     vars.insert("shipIndex".to_string(), index.display().to_string());
     let tweaks = materials::by_model_stem(&ctx.manifest, &materials::load(&ctx.project_dir)?);
     Ok(RunSetup {
@@ -291,6 +292,7 @@ pub async fn pipeline_run(
     session: State<'_, Session>,
     runner: State<'_, Pipelines>,
     thumbs: State<'_, super::thumbs::Thumbs>,
+    agents: State<'_, crate::mcp::Agents>,
     project: String,
     from: Option<String>,
     force: bool,
@@ -314,7 +316,15 @@ pub async fn pipeline_run(
         .map_err(super::join_failed)??;
     }
     let setup = setup(&session, &project, from, force, tools)?;
-    Ok(runner.0.submit(setup)?)
+    // A game's Ship writes into the game repo, so it waits for approval.
+    let gate = super::game::ship_gate(&session, &project, &agents.hub);
+    Ok(runner.0.submit_with(
+        setup,
+        maquette_core::pipeline::runner::RunOptions {
+            gate,
+            ..Default::default()
+        },
+    )?)
 }
 
 #[tauri::command]
