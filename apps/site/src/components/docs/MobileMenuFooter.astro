@@ -1,0 +1,40 @@
+---
+import { NAV } from '../../content/copy';
+
+// The site's own links, which the header leaves out at phone width.
+const link = (href: string) => (href.startsWith('#') ? `/${href}` : href);
+---
+
+<nav class="site-links" aria-label="Site">
+  <ul>
+    {
+      NAV.map(item => (
+        <li>
+          <a href={link(item.href)}>{item.label}</a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>
+
+<style>
+  .site-links {
+    border-top: 1px solid var(--line);
+    padding-block: 8px 16px;
+  }
+  ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 20px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  a {
+    display: inline-block;
+    padding-block: 10px;
+    color: var(--text-dim);
+    font-size: 15px;
+    text-decoration: none;
+  }
+</style>

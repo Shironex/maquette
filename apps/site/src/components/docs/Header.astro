@@ -1,0 +1,80 @@
+---
+import { Icon } from '@maquette/ui';
+import Search from '@astrojs/starlight/components/Search.astro';
+import Brand from '../Brand.astro';
+import { NAV } from '../../content/copy';
+
+// The landing page's header on the docs pages: its links point back at the
+// page's sections, and Docs is the current one.
+const link = (href: string) => (href.startsWith('#') ? `/${href}` : href);
+---
+
+<div class="bar">
+  <Brand size={32} wordSize={22} href="/" />
+  <div class="search"><Search /></div>
+  <span class="grow"></span>
+  <ul class="links">
+    {
+      NAV.map(item => (
+        <li>
+          <a href={link(item.href)} aria-current={item.label === 'Docs' ? 'page' : undefined}>
+            {item.label}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+  <a class="btn btn-primary btn-sm cta" href="/#download">
+    Download for Mac<Icon name="download-simple" size={16} />
+  </a>
+</div>
+
+<style>
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    height: 100%;
+  }
+  .search {
+    width: 300px;
+    margin-inline-start: -8px;
+  }
+  .grow {
+    flex: 1;
+  }
+  .links {
+    display: flex;
+    gap: 32px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 15px;
+  }
+  .links a {
+    color: var(--text-dim);
+    text-decoration: none;
+  }
+  .links a:hover {
+    color: var(--text);
+  }
+  .links a[aria-current='page'] {
+    color: var(--text);
+    box-shadow: inset 0 -2px 0 var(--clay);
+    padding-block: 24px;
+  }
+  @media (max-width: 899px) {
+    .bar {
+      gap: 12px;
+    }
+    .search {
+      width: auto;
+      margin-inline-start: auto;
+    }
+    .grow,
+    .links,
+    .cta {
+      display: none;
+    }
+  }
+</style>

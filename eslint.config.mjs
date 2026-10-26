@@ -129,10 +129,19 @@ export default defineConfig(
       'noctcore-monorepo/no-unexported-subpath-import': ['error', { scopes: ['@maquette'] }],
       'noctcore-monorepo/no-deep-package-imports': ['error', { scopes: ['@maquette'] }],
       // A component's hooks and types files are named after the component they
-      // serve, not after the one hook or type they export.
+      // serve, not after the one hook or type they export. Astro names the
+      // export of a content config, an endpoint (GET) and a route middleware.
       'noctcore-architecture/filename-matches-export': [
         'error',
-        { ignore: ['**/*.hooks.ts', '**/*.types.ts'] },
+        {
+          ignore: [
+            '**/*.hooks.ts',
+            '**/*.types.ts',
+            '**/site/src/content.config.ts',
+            '**/site/src/pages/**',
+            '**/site/src/lib/docs-route.ts',
+          ],
+        },
       ],
     },
   },

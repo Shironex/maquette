@@ -1,0 +1,27 @@
+---
+import Default from '@astrojs/starlight/components/PageFrame.astro';
+import Footer from '../Footer.astro';
+
+const { hasSidebar } = Astro.locals.starlightRoute;
+---
+
+<Default>
+  <slot name="header" slot="header" />
+  {hasSidebar && <slot name="sidebar" slot="sidebar" />}
+  <slot />
+</Default>
+<div class:list={['foot', { 'with-sidebar': hasSidebar }]}>
+  <Footer home="/" />
+</div>
+
+<style>
+  .foot {
+    position: relative;
+    z-index: 1;
+  }
+  @media (min-width: 50em) {
+    .with-sidebar {
+      padding-inline-start: var(--sl-sidebar-width);
+    }
+  }
+</style>

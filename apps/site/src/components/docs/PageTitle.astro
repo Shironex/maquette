@@ -1,0 +1,114 @@
+---
+import CopyMarkdown from './CopyMarkdown.astro';
+import { DOCS_HOME, groupOf, markdownPath } from '../../lib/docs-nav';
+import { lastUpdated, versionLine } from '../../lib/docs-meta';
+
+const { entry } = Astro.locals.starlightRoute;
+const { title, description } = entry.data;
+const slug = entry.id.replace(/\/index$/, '');
+const home = slug === DOCS_HOME;
+const group = groupOf(slug);
+const meta = versionLine(lastUpdated(entry.filePath));
+---
+
+{
+  home ? (
+    <div class="head home">
+      <p class="eyebrow">Docs · {meta.split(' · ')[0]}</p>
+      <h1 id="_top" data-page-title>{title}</h1>
+      <p class="lead">{description}</p>
+    </div>
+  ) : (
+    <div class="head">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="/docs/">Docs</a>
+        {group && <span aria-hidden="true">/</span>}
+        {group && <span>{group.label}</span>}
+      </nav>
+      <h1 id="_top" data-page-title>{title}</h1>
+      <p class="lead">{description}</p>
+      <div class="meta">
+        <span class="version">{meta}</span>
+        <CopyMarkdown href={markdownPath(slug)} />
+      </div>
+    </div>
+  )
+}
+
+<style>
+  .head {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .crumbs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font: 13px/16px var(--font-mono);
+    color: var(--text-mute);
+  }
+  .crumbs a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .crumbs a:hover {
+    color: var(--text);
+  }
+  h1 {
+    margin: 0;
+    font-size: 44px;
+    line-height: 50px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    text-wrap: balance;
+  }
+  .lead {
+    margin: 0;
+    max-width: 34em;
+    font-size: 20px;
+    line-height: 30px;
+    color: var(--text-dim);
+  }
+  .eyebrow {
+    margin: 0;
+    font: 12px/16px var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--clay-text);
+  }
+  .home h1 {
+    font-size: 64px;
+    line-height: 68px;
+    letter-spacing: -0.04em;
+    max-width: 12em;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 20px;
+    padding-block: 14px;
+    border-block: 1px solid var(--line);
+  }
+  .version {
+    font: 12.5px/18px var(--font-mono);
+    color: var(--text-mute);
+  }
+  @media (max-width: 899px) {
+    h1 {
+      font-size: 32px;
+      line-height: 38px;
+      letter-spacing: -0.025em;
+    }
+    .home h1 {
+      font-size: 40px;
+      line-height: 44px;
+    }
+    .lead {
+      font-size: 17px;
+      line-height: 26px;
+    }
+  }
+</style>

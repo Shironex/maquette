@@ -1,0 +1,266 @@
+/*
+ * The docs pages. Starlight needs its own cascade layer order and a slim
+ * Tailwind import, so they get this entry file; the landing page keeps
+ * global.css. The tokens and fonts are the kit's, mapped onto Starlight's
+ * --sl-* variables below.
+ */
+@layer base, starlight, theme, components, utilities;
+
+@import '@maquette/ui/theme.css';
+@import '@maquette/ui/base.css';
+@import '@astrojs/starlight-tailwind';
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* The site is dark only: the light theme is the dark one. These sit outside every layer, so they win over the preset's. */
+:root,
+:root[data-theme='light'] {
+  --wall: #1a1917;
+  --code: #181715;
+  --gutter: max(24px, env(safe-area-inset-left, 0px));
+
+  --sl-font: 'Geist', system-ui, sans-serif;
+  --sl-font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+
+  --sl-color-white: var(--text);
+  --sl-color-gray-1: var(--text);
+  --sl-color-gray-2: var(--text-dim);
+  --sl-color-gray-3: var(--text-mute);
+  --sl-color-gray-4: var(--line-strong);
+  --sl-color-gray-5: var(--line);
+  --sl-color-gray-6: var(--bg-panel);
+  --sl-color-gray-7: var(--bg-raised);
+  --sl-color-black: var(--bg-app);
+  --sl-color-accent-low: var(--clay-soft);
+  --sl-color-accent: var(--clay);
+  --sl-color-accent-high: var(--clay-text);
+  --sl-color-text: var(--text-dim);
+  --sl-color-text-accent: var(--clay-text);
+  --sl-color-text-invert: var(--clay-ink);
+  --sl-color-bg: var(--bg-app);
+  --sl-color-bg-nav: var(--bg-app);
+  --sl-color-bg-sidebar: var(--bg-app);
+  --sl-color-bg-inline-code: var(--bg-raised);
+  --sl-color-bg-accent: var(--clay);
+  --sl-color-hairline-light: var(--line);
+  --sl-color-hairline: var(--line);
+  --sl-color-hairline-shade: var(--line);
+  --sl-color-backdrop-overlay: var(--scrim);
+
+  /* Note is neutral, caution is amber, tip is sage, danger is red. */
+  --sl-color-blue: var(--text-mute);
+  --sl-color-blue-low: var(--bg-panel);
+  --sl-color-blue-high: var(--text-dim);
+  --sl-color-orange: var(--amber);
+  --sl-color-orange-low: var(--amber-soft);
+  --sl-color-orange-high: var(--amber);
+  --sl-color-purple: var(--sage);
+  --sl-color-purple-low: var(--sage-soft);
+  --sl-color-purple-high: var(--sage);
+  --sl-color-red: var(--danger);
+  --sl-color-red-low: var(--danger-soft);
+  --sl-color-red-high: var(--danger);
+
+  --sl-nav-height: 4.5rem;
+  --sl-nav-pad-x: 1.5rem;
+  --sl-sidebar-width: 16rem;
+  --sl-content-width: 47.5rem;
+  --sl-line-height: 1.625;
+  --sl-text-h2: 1.75rem;
+  --sl-text-h3: 1.25rem;
+  --sl-text-h4: 1.0625rem;
+  --sl-text-code: 0.8125rem;
+}
+
+@media (max-width: 899px) {
+  :root,
+  :root[data-theme='light'] {
+    --sl-nav-height: 3.75rem;
+    --sl-nav-pad-x: 1.25rem;
+  }
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 26px;
+}
+
+/* The header and the page frame */
+.header {
+  border-bottom-color: var(--line) !important;
+}
+
+site-search button[data-open-modal] {
+  height: 40px;
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+  border-color: var(--line-strong);
+  color: var(--text-mute);
+}
+
+site-search button[data-open-modal]:hover {
+  border-color: var(--text-mute);
+  color: var(--text);
+}
+
+site-search kbd {
+  font: 500 11px/1 var(--font-mono);
+}
+
+.sl-markdown-content :is(h2, h3, h4) {
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.sl-markdown-content :not(a, strong, em, del, span, input, code, br) + :is(h2, h3, h4) {
+  margin-top: 2.5rem;
+}
+
+.sl-markdown-content strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.sl-markdown-content :is(code):not(pre code) {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 0.875em;
+  color: var(--text);
+}
+
+/* Callouts: the three the docs use. "Costs credits" is the clay one. */
+.starlight-aside {
+  border: 1px solid var(--line);
+  border-inline-start-width: 1px;
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--text-dim);
+}
+
+.starlight-aside--caution {
+  border-color: rgba(214, 179, 116, 0.4);
+}
+
+.starlight-aside__title {
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--text);
+}
+
+.starlight-aside[aria-label='Costs credits'] {
+  --sl-color-asides-text-accent: var(--clay-text);
+  background: var(--clay-soft);
+  border-color: var(--clay-line);
+}
+
+/* Tables */
+.sl-markdown-content table {
+  display: block;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.sl-markdown-content :is(th, td) {
+  padding: 12px 14px;
+  border-color: var(--line);
+}
+
+.sl-markdown-content th {
+  background: var(--bg-panel);
+  font: 500 11px/16px var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  white-space: nowrap;
+}
+
+.sl-markdown-content td:first-child code {
+  white-space: nowrap;
+}
+
+/* Code blocks take their frame from Expressive Code, set in astro.config.ts. */
+
+/* The docs home: lists wrapped in these read as cards and a strip of stages. */
+.start-cards > ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.start-cards > ul > li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--bg-panel);
+  font-size: 15px;
+  line-height: 23px;
+}
+
+.start-cards > ul > li:hover {
+  border-color: var(--line-strong);
+}
+
+.start-cards > ul > li > a:first-child {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.pipeline-strip > ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: stage;
+}
+
+.pipeline-strip > ol > li {
+  margin: 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--line-strong);
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--text-mute);
+  counter-increment: stage;
+}
+
+.pipeline-strip > ol > li::before {
+  content: counter(stage, decimal-leading-zero);
+  display: block;
+  margin-bottom: 6px;
+  font: 500 13px/1 var(--font-mono);
+  color: var(--clay-text);
+}
+
+.pipeline-strip > ol > li > a:first-child {
+  display: block;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
