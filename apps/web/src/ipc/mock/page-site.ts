@@ -4,7 +4,10 @@
  * The site page speaks the page bridge (see the root README, Page view):
  * it says its stops, scrolls to the one the scrubber asks for, reports
  * where it is and steady frame times, so screenshots read the same each
- * run. `#maquette-poster` stands in for the query a real dev server reads.
+ * run. Given the frame proxy's bridge shim instead (`?page=shim`), it has
+ * no bridge of its own and carries the shim, as the proxy serves a site
+ * without one. `#maquette-poster` stands in for the query a real dev
+ * server reads.
  */
 
 export interface SiteImages {
@@ -62,25 +65,34 @@ p{color:#b4bacb;margin:0 0 18px;max-width:380px}
 @media (max-width:600px){header span:not(.cta){display:none}h1{font-size:34px}h2{font-size:26px}section{padding:0 24px}.stage:after{background:linear-gradient(0deg,rgba(16,20,32,.95) 0,rgba(16,20,32,.5) 45%,rgba(16,20,32,0) 70%)}section{justify-content:flex-end;padding-bottom:70px}}
 `;
 
-/** The bridge, as a site would add it, with fixed numbers for the screenshots. */
-const script = (tour: SiteStop[]) => `
-const stops=${JSON.stringify(tour.map(s => ({ name: s.name })))};
+/** The page's own script: the picture for the section in view. */
+const PICTURES = `
 const sections=[...document.querySelectorAll('section')];
 const imgs=[...document.querySelectorAll('.stage img')];
 if(location.hash.includes('maquette-poster'))document.documentElement.classList.add('poster');
+const progress=()=>{const y=scrollY;let i=0;for(let k=0;k<sections.length;k++)if(sections[k].offsetTop<=y+1)i=k;const s=sections[i],h=s.offsetHeight||1;return Math.min(sections.length-1,i+Math.max(0,Math.min(1,(y-s.offsetTop)/h)))};
+const show=()=>{const n=Math.round(progress());imgs.forEach((im,k)=>im.classList.toggle('on',k===n))};
+addEventListener('scroll',show,{passive:true});show();
+`;
+
+/** The bridge, as a site would add it, with fixed numbers for the screenshots. */
+const bridge = (tour: SiteStop[]) => `
+const stops=${JSON.stringify(tour.map(s => ({ name: s.name })))};
 let origin=null;
 const send=m=>{if(origin)parent.postMessage(m,origin)};
-const progress=()=>{const y=scrollY;let i=0;for(let k=0;k<sections.length;k++)if(sections[k].offsetTop<=y+1)i=k;const s=sections[i],h=s.offsetHeight||1;return Math.min(sections.length-1,i+Math.max(0,Math.min(1,(y-s.offsetTop)/h)))};
-const show=()=>{const at=progress(),n=Math.round(at);imgs.forEach((im,k)=>im.classList.toggle('on',k===n));return at};
-const at=()=>{const p=show();send({maquette:1,type:'at',stop:Math.round(p*1000)/1000,scroll:{top:Math.round(scrollY),max:Math.max(0,document.documentElement.scrollHeight-innerHeight)}})};
-addEventListener('scroll',at,{passive:true});show();
+const at=()=>{const p=progress();send({maquette:1,type:'at',stop:Math.round(p*1000)/1000,scroll:{top:Math.round(scrollY),max:Math.max(0,document.documentElement.scrollHeight-innerHeight)}})};
+addEventListener('scroll',at,{passive:true});
 const stats=()=>{const phone=innerWidth<600,poster=document.documentElement.classList.contains('poster');if(poster)return;send({maquette:1,type:'stats',frameMs:phone?21.4:9.4,p95Ms:phone?38.2:12.1,drawCalls:phone?71:86})};
 addEventListener('message',e=>{if(e.source!==parent||!e.data||e.data.maquette!==1)return;origin=e.origin&&e.origin!=='null'?e.origin:'*';
 if(e.data.type==='hello'){send({maquette:1,type:'ready',stops,features:['goto','at','stats','poster']});at();stats();setInterval(stats,1000)}
 else if(e.data.type==='goto'&&typeof e.data.stop==='number'){const s=Math.max(0,Math.min(sections.length-1,e.data.stop)),i=Math.floor(s),sec=sections[i];const top=sec.offsetTop+(s-i)*sec.offsetHeight;scrollTo({top,behavior:e.data.smooth?'smooth':'auto'})}});
 `;
 
-export function mockSitePage(images: SiteImages, tour: SiteStop[] = STOPS): string {
+/**
+ * The mock site's landing page. With `shim` (the frame proxy's bridge
+ * shim) the page has no bridge and carries the shim instead.
+ */
+export function mockSitePage(images: SiteImages, tour: SiteStop[] = STOPS, shim?: string): string {
   const pics = tour
     .map((_, i) => images.stops[i % Math.max(1, images.stops.length)] ?? '')
     .map((src, i) => `<img src="${src}" alt=""${i === 0 ? ' class="on"' : ''}>`)
@@ -92,7 +104,7 @@ export function mockSitePage(images: SiteImages, tour: SiteStop[] = STOPS): stri
         : `<section><small>Stop ${i + 1}</small><h2>${s.name}</h2><p>${s.line}</p></section>`
     )
     .join('');
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Moon Island</title><style>${STYLE}</style></head><body><header><b>MOON ISLAND</b><span>The island</span><span>Making of</span><span>Journal</span><span class="cta">Plan a visit</span></header><div class="stage">${pics}</div><span class="still">Still image, no WebGL</span>${sections}<script>${script(tour)}</script></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Moon Island</title><style>${STYLE}</style></head><body><header><b>MOON ISLAND</b><span>The island</span><span>Making of</span><span>Journal</span><span class="cta">Plan a visit</span></header><div class="stage">${pics}</div><span class="still">Still image, no WebGL</span>${sections}<script>${PICTURES}${shim ? '' : bridge(tour)}</script>${shim ? `<script>${shim}</script>` : ''}</body></html>`;
 }
 
 /** A page concept from the Lab, without the bridge: the scrubber has nothing to drive. */

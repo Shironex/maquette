@@ -14,6 +14,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(import.meta.dirname, './src'),
+      // The Rust crates' own web files: the frame proxy's page bridge shim, for mock mode.
+      '@crates': resolve(import.meta.dirname, '../../crates'),
     },
     dedupe: ['react', 'react-dom'],
   },

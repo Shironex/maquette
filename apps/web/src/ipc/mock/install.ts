@@ -16,6 +16,7 @@ import { motionFiles } from './create-motion-handlers';
 import { PROVIDER_REF_FILES } from './providers';
 import { MOCK_SITE_URL, conceptPath, pageOption, posterPath } from './create-page-handlers';
 import { MANY_STOPS, mockConceptPage, mockSitePage } from './page-site';
+import bridgeShim from '@crates/maquette-core/src/site/preview/frame/shim.js?raw';
 
 const params = new URLSearchParams(window.location.search);
 const root = DEFAULT_ROOT.replace('~', HOME);
@@ -89,7 +90,9 @@ const stopPictures = [
   renders['../../assets/mock/island.webp'],
 ].map(absolute);
 const tour = params.get('page') === 'stops-10' ? MANY_STOPS : undefined;
-registerMockFile(MOCK_SITE_URL, htmlUrl(mockSitePage({ stops: stopPictures }, tour)));
+// `?page=shim`: a site without the bridge, carrying the shim the frame proxy adds.
+const shim = params.get('page') === 'shim' ? bridgeShim : undefined;
+registerMockFile(MOCK_SITE_URL, htmlUrl(mockSitePage({ stops: stopPictures }, tour, shim)));
 registerMockFile(conceptPath(projectDir), htmlUrl(mockConceptPage(stopPictures[0] ?? '')));
 stopPictures.forEach((url, i) => registerMockFile(posterPath(projectDir, i), url));
 

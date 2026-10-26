@@ -4,7 +4,8 @@
  *
  * `?page=` holds a state for screenshots: `starting` stays starting,
  * `failed` fails as a site without its packages does, `no-site` takes
- * Moon Island's site repo away, `stops-10` gives the page ten stops.
+ * Moon Island's site repo away, `stops-10` gives the page ten stops,
+ * `shim` takes the page's bridge away and gives it the frame proxy's shim.
  * `framed` (with `&site=` and `&frame=`) runs at a real dev server that
  * forbids framing, behind a real frame proxy, both started by the visual
  * check. Any `?page=` also puts the last ship on the site, so the Page view
