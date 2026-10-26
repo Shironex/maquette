@@ -25,6 +25,9 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
     addBuilt,
     game,
     importModels,
+    missing,
+    rendering,
+    renderPreviews,
   } = useBoardHeader();
   const subtitle = project
     ? `${assetCount((project.assets ?? []).length)} · ${game ? `game · .${game.format} in ${game.modelsDir}/` : TEMPLATE_LABEL[project.template]} · created ${formatAgo(Date.parse(project.createdAt), clock.nowMs())}`
@@ -73,6 +76,16 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
           </Button>
           {queueOpen ? queue(() => setQueueOpen(false)) : null}
         </div>
+        {missing > 0 ? (
+          <Button
+            icon="image"
+            loading={rendering}
+            tooltip="Renders each model without a preview, headless in Blender, one at a time"
+            onClick={renderPreviews}
+          >
+            {missing === 1 ? 'Render 1 preview' : `Render ${missing} previews`}
+          </Button>
+        ) : null}
         {game ? (
           <Button icon="download-simple" onClick={importModels}>
             Import models

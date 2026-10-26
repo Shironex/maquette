@@ -1,6 +1,12 @@
 /** Thumbnails in the UI: kind placeholders and folding in finished renders. */
 import type { IconName } from '@maquette/ui';
-import type { AssetKind, InboxItem, InboxSnapshot, ThumbnailReady } from '@/ipc/client';
+import type {
+  AssetKind,
+  InboxItem,
+  InboxSnapshot,
+  ProjectManifest,
+  ThumbnailReady,
+} from '@/ipc/client';
 
 /** What stands in for a model with no thumbnail yet. */
 export const KIND_ICON: Record<AssetKind, IconName> = {
@@ -8,6 +14,20 @@ export const KIND_ICON: Record<AssetKind, IconName> = {
   character: 'person-simple',
   scene: 'mountains',
 };
+
+const RENDERABLE = /\.(glb|gltf|obj|blend)$/i;
+
+/**
+ * The models on the Board whose card shows no render yet: nothing, or a
+ * ref image standing in. Render previews asks for these.
+ */
+export function missingPreviews(project: ProjectManifest | null | undefined): number {
+  return (project?.assets ?? []).filter(a => {
+    const latest = a.versions[a.versions.length - 1];
+    const shown = a.thumbnail && !a.thumbnail.startsWith('refs/');
+    return latest && RENDERABLE.test(latest.file) && !shown;
+  }).length;
+}
 
 /** True when Blender will not render this item, so the preview must snapshot it. */
 export function needsSnapshot(item: InboxItem): boolean {

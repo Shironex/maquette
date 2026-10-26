@@ -9,6 +9,7 @@ import { prefsOf, useBoardPrefsStore } from '@/state/use-board-prefs-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useGameStore } from '@/state/use-game-store';
 import { gameOf } from '@/state/game';
+import { missingPreviews } from '@/state/thumbs';
 
 /** The Board's title row: the project, the By hand and 3D queue counts, Built asset and Add asset. */
 export function useBoardHeader() {
@@ -23,6 +24,8 @@ export function useBoardHeader() {
   const [adding, setAdding] = useState(false);
   const setAddingBuilt = useBuiltStore(s => s.setAdding);
   const openImport = useGameStore(s => s.openImport);
+  const renderPreviews = useGameStore(s => s.renderPreviews);
+  const rendering = useGameStore(s => s.rendering);
 
   // The add form belongs to the project it was opened in.
   useEffect(() => {
@@ -57,6 +60,12 @@ export function useBoardHeader() {
     game: gameOf(project),
     importModels: () => {
       if (project) void openImport(project.id);
+    },
+    // Imported models from before previews came with the import.
+    missing: gameOf(project) ? missingPreviews(project) : 0,
+    rendering,
+    renderPreviews: () => {
+      if (project) void renderPreviews(project.id);
     },
     addBuilt: () => {
       setAdding(false);

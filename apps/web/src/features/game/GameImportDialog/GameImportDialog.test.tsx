@@ -38,4 +38,13 @@ describe('GameImportDialog', () => {
     expect(project?.game?.models.heroine).toBeUndefined();
     expect(useGameStore.getState().importFor).toBeNull();
   });
+
+  it('asks for a preview of every model it imports', async () => {
+    render(<GameImportDialog />);
+    await userEvent.click(screen.getByRole('button', { name: 'Import 16 models' }));
+    const assets = useAppStore.getState().workspace?.project?.assets ?? [];
+    expect(assets).toHaveLength(16);
+    expect(assets.every(a => a.thumbnail?.startsWith('thumbs/'))).toBe(true);
+    expect(useAppStore.getState().notice?.detail).toMatch(/preview/);
+  });
 });

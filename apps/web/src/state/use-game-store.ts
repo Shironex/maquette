@@ -23,6 +23,8 @@ interface GameStore {
   importing: boolean;
   plan: ShipPlan | null;
   saving: boolean;
+  /** Render previews is asking the thumbnail service. */
+  rendering: boolean;
   openImport: (project: string) => Promise<void>;
   closeImport: () => void;
   toggle: (file: string, on: boolean) => void;
@@ -31,6 +33,8 @@ interface GameStore {
   saveSettings: (project: string, change: GameSettingsChange) => Promise<boolean>;
   addBudgetFixups: (project: string) => Promise<void>;
   loadPlan: (project: string) => Promise<void>;
+  /** Asks for a preview of every model without one; the cards update as they finish. */
+  renderPreviews: (project: string) => Promise<void>;
 }
 
 const fail = (title: string, error: unknown) =>
@@ -47,6 +51,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   importing: false,
   plan: null,
   saving: false,
+  rendering: false,
 
   openImport: async project => {
     set({ importFor: project, scan: null, scanning: true, picked: [] });
@@ -82,7 +87,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         title: `${result.imported.length} ${result.imported.length === 1 ? 'model' : 'models'} imported`,
         detail: result.skipped.length
           ? `${result.skipped.length} skipped: ${result.skipped.map(s => `${s.file} (${s.reason})`).join(', ')}.`
-          : 'Each one is an asset with the repo file as v1. Ship may replace them later.',
+          : 'Each one is an asset with the repo file as v1. Their previews render in the background.',
       });
       return true;
     } catch (error) {
@@ -119,6 +124,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
       });
     } catch (error) {
       fail('Could not add the fix-ups', error);
+    }
+  },
+
+  renderPreviews: async project => {
+    if (get().rendering) return;
+    set({ rendering: true });
+    try {
+      const { asked, project: next } = await commands.thumbnailRenderMissing(project);
+      useAppStore.getState().setProject(next);
+      useAppStore.getState().notify({
+        status: 'done',
+        title: asked
+          ? `Rendering ${asked} ${asked === 1 ? 'preview' : 'previews'}`
+          : 'Every model has a preview',
+        detail: asked
+          ? 'Blender renders them one at a time; the cards update as each one is done.'
+          : undefined,
+      });
+    } catch (error) {
+      fail('Could not render the previews', error);
+    } finally {
+      set({ rendering: false });
     }
   },
 

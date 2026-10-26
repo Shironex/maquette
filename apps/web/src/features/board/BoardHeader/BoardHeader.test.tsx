@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { forgetStoredPrefs, useBoardPrefsStore } from '@/state/use-board-prefs-store';
 import { useProvidersStore } from '@/state/use-providers-store';
-import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
+import { useAppStore } from '@/state/use-app-store';
+import { clearMocks, openMockGame, openMockWorkspace } from '@/test/mock-ipc';
 import BoardHeader from './BoardHeader';
 
 beforeEach(async () => {
@@ -20,6 +21,19 @@ afterEach(() => {
 });
 
 describe('BoardHeader', () => {
+  it('renders a preview for each imported game model without one', async () => {
+    await openMockGame('crypt');
+    const without = () =>
+      useAppStore
+        .getState()
+        .workspace!.project!.assets!.filter(a => !a.thumbnail?.startsWith('thumbs/'));
+    expect(without().length).toBeGreaterThan(0);
+    render(<BoardHeader queue={() => null} />);
+    await userEvent.click(screen.getByRole('button', { name: /^Render \d+ previews?$/ }));
+    await vi.waitFor(() => expect(without()).toEqual([]));
+    expect(screen.queryByRole('button', { name: /^Render \d+ previews?$/ })).toBeNull();
+  });
+
   it('names the project and counts the By hand models still to make', () => {
     render(<BoardHeader queue={() => null} />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Moon Island');
