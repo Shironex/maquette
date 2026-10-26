@@ -238,9 +238,18 @@ The Page view shows the project's site, or an HTML page concept, with the models
   by hop headers and `X-Frame-Options` go, `frame-ancestors` leaves `Content-Security-Policy`
   and `-Report-Only` (a policy without it is left byte for byte, one with nothing else goes),
   and a `Location` on the dev server points at the proxy. Bodies stream through untouched, and
-  a `101` splices the two upgraded connections (Next, Vite and Astro HMR). The address bar, the
-  status bar and `page_open_in_browser` keep using `url`. The `frame_proxy` example runs one for
-  the visual check.
+  a `101` splices the two upgraded connections (Next, Vite and Astro HMR). The one exception is
+  a page load (`frame/inject.rs`): a `GET` whose `Sec-Fetch-Dest` is `document` or `iframe` (or,
+  without one, that accepts `text/html`) goes without `Accept-Encoding`, and a `text/html`
+  answer (decoded if it still comes gzip or deflate; brotli passes as it came) gets
+  `<script src="/__maquette/bridge.js" defer>` after `<head>` (else before `</head>`, else after
+  `<body>`, else nowhere within 256 KB). Only the bytes up to that spot are held back, so the
+  page still streams; its `Content-Length` and `Content-Encoding` go and it is sent chunked.
+  The proxy answers everything under `/__maquette/` itself and never forwards it: there it
+  serves `frame/shim.js`, the bridge shim, from its own origin, so a site CSP with
+  `script-src 'self'` runs it and no directive is loosened (a nonce or `'strict-dynamic'`
+  policy still blocks it). The address bar, the status bar and `page_open_in_browser` keep
+  using `url`. The `frame_proxy` example runs one for the visual check.
 - **The frame.** The page loads in an iframe (`features/page/PageFrame`), laid out at the
   device's CSS width and scaled down to fit, with `sandbox` that allows scripts but no top
   navigation or popups and no referrer. An iframe rather than a second native webview: Tauri 2
@@ -257,6 +266,17 @@ scroll: { top, max } }` as it scrolls and `{ type: "stats", frameMs, p95Ms, draw
   frame's own window and posts to `*`, so neither side depends on the page's origin, which is
   the proxy's. `?maquette-poster=1` asks the page for its no WebGL version.
   `apps/site/src/scene/bridge.ts` is the reference page side.
+- **The bridge shim.** `frame/shim.js` speaks bridge v1 for a page without a bridge. Hello
+  carries the project's camera stops, which the shim says back in `ready`; every message it
+  sends has `source: "shim"`. `goto` scrolls to the element whose id is the stop's slug or
+  whose `data-maquette-stop` is its name, slug or number, else to an even spread over the
+  scroll range (stop i of n at i/(n-1)); `at` maps the scroll back; `stats` are mean and p95
+  of requestAnimationFrame deltas over 120 frames, without draw calls (the readouts keep their
+  estimate). It answers only `window.parent`, 300 ms after `load`, and lives across client
+  side navigation. It stands down for good once `window.__maquetteBridge` is set, which the
+  site's own bridge does. The app keeps saying hello after a shim `ready`, takes the first
+  `ready` without `source: "shim"` over it (`use-page-store.ts` then ignores the shim for that
+  frame), and the scrubber hint and readouts say which one answered.
 - **Numbers.** Readouts come from the page (frame time, draw calls) and from the inspect data:
   the `site` source is the current ship, the `shipped` source this run. Device budgets
   (`DEVICE_BUDGETS` in `state/page-numbers.ts`) give the phone, laptop and desktop verdicts.
