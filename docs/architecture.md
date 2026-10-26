@@ -131,6 +131,10 @@ or its removal; the Timeline's stop and scroll changes go through the `states` e
 `energize` edits (a path's whole energize track or its removal), which `projects.rs` turns into the
 layout patch's `paths` and `pathTracks`.
 
+`tools/library.rs` holds `list_library`, `add_to_library`, `use_from_library` and
+`update_from_library`, which call the same `maquette_core::library` functions as the commands and
+emit `libraryChanged` and the project events.
+
 `tools/page.rs` reads, starts and stops the site dev server the Page view shows
 (`get_page_preview`, `start_page_preview`, `stop_page_preview`) through `commands/page.rs`, so an
 agent and the view share the one server and its state.
@@ -238,6 +242,35 @@ builds each path as one `TubeGeometry` (8 sides, a ring about every two widths, 
 with a shader that lights it from its first point by a `uAmount` uniform, and `scene/PathTubes.tsx`
 sets that uniform each frame from `energizeAt` (`scene/paths.ts`), the track's amount eased between
 its keyed stops by `keyedAt`. One draw call per path. Build scene and the posters do not draw them.
+
+## Library
+
+`maquette_core::library` owns it (`mod.rs`, `files.rs`, `source.rs`, `add.rs`, `use_in.rs`,
+`update.rs`, `view.rs`). It lives in `<workspace root>/library/`, outside every project. An entry
+is `library/<entry-id>/` with `entry.json` (name, kind, tags, refs, versions), `models/` (one
+`<key>_v<n>.glb` per version, or a folder for an `.obj` with its files), `thumbs/` and `refs/`. A
+version records the model file, stats, source, credits when known, a sha256 hash, the project,
+asset and version it came from, and a snapshot of the asset's prep (real size and fix-ups) and
+material tweaks.
+
+- **Origin.** The library copies and never links. A copied asset records `origin: { entry, version }`.
+  Uses are derived from the project assets' origins when the view is built, so they never go stale.
+- **Add.** The newest model of an asset is copied with its picture, refs and prep. The same hash adds
+  nothing; a newer model of an asset already in the entry adds the next version.
+- **Use.** A version is copied into the project as a new asset at v1 (Blender stage, done). A
+  website project refuses an `.obj`; a game project takes either and the next Game export writes
+  the game's format. No credits are spent.
+- **Update.** `update.rs` builds a plan: what carries over, and what is dropped with a reason
+  (Decimate when the new model has that many triangles or fewer, Shrink textures when no texture is
+  larger than the limit, tweaks for a material name the model lost). Applying it adds the library
+  version as the asset's next version.
+- **Path safety.** An entry id is a single path segment, and every recorded path must stay inside the
+  entry folder. A write lock serialises library writes.
+- **Edges.** The Tauri commands `library_get`, `library_add`, `library_use`, `library_update_plan`
+  and `library_update` are in `apps/desktop/src-tauri/src/commands/library.rs`. They emit
+  `libraryChanged`. The MCP tools are in `mcp/tools/library.rs`. The web state is
+  `apps/web/src/state/library.ts` and `use-library-store.ts`, and the view is
+  `apps/web/src/features/library`.
 
 ## Built assets
 
