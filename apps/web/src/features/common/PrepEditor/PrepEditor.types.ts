@@ -19,7 +19,10 @@ export interface PrepEditorProps {
   onPreview: (() => void) | null;
   /** Why the preview cannot run, shown on its button. */
   previewBlocked?: string | null;
-  /** What "Skip the bake" shows while nobody chose: on for an Inbox model. */
-  skipBakeDefault?: boolean;
+  /**
+   * An Inbox model (a scan): "Skip the bake" and "Pad texture edges" show
+   * on while nobody chose, as Accept saves them.
+   */
+  inboxDefaults?: boolean;
   disabled?: boolean;
 }

@@ -74,6 +74,8 @@ sets the size its model is scaled to (height, width, depth or longest, cm or m);
 remove_fixups change its fix-ups (decimate, shrink textures, merge, apply transforms, remove loose \
 parts, origin to bottom centre), which the Build scene step applies headless on a copy of every \
 version; list_fixups lists them and preview_fixups shows their numbers before and after. \
+set_pad_edges sets whether an asset's texture edges around its UV islands are padded before the \
+textures shrink (models accepted from the Inbox pad by default). \
 get_bake_settings reads the Bake light step's lightmap size, samples and denoiser and the \
 assets that skip the bake; set_bake_settings changes them and set_skip_bake sets assets to skip \
 the bake (they keep their own material lighting and ship no lightmap; models accepted from the \

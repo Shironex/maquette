@@ -20,7 +20,8 @@ pub struct AcceptRequest {
     /// The real size and fix-ups set in the Inbox: they replace the asset's
     /// in `prepare.json`. Left out, the asset keeps what it has. Either
     /// way an asset nobody chose a bake for skips it from now on
-    /// ([`prepare::SKIP_BAKE_FROM_INBOX`]): Inbox models are scans.
+    /// ([`prepare::SKIP_BAKE_FROM_INBOX`]) and pads its texture edges
+    /// ([`prepare::PAD_EDGES_FROM_INBOX`]): Inbox models are scans.
     #[serde(default)]
     pub prep: Option<ModelPrep>,
 }
@@ -153,8 +154,8 @@ pub fn accept(
 }
 
 /// Saves the Inbox's real size and fix-ups for the asset (when it set any)
-/// and fills in the scan's bake default when neither the Inbox nor the
-/// saved entry chose one. An entry that already says nothing new is not
+/// and fills in the scan's bake and edge padding defaults when neither the
+/// Inbox nor the saved entry chose them. An entry that already says nothing new is not
 /// written again.
 fn save_prep(project_dir: &Path, asset: &str, prep: Option<&ModelPrep>) -> CoreResult<()> {
     prepare::update(project_dir, |current| {
@@ -164,6 +165,10 @@ fn save_prep(project_dir: &Path, asset: &str, prep: Option<&ModelPrep>) -> CoreR
             .skip_bake
             .or(saved.skip_bake)
             .or(Some(prepare::SKIP_BAKE_FROM_INBOX));
+        entry.pad_edges = entry
+            .pad_edges
+            .or(saved.pad_edges)
+            .or(Some(prepare::PAD_EDGES_FROM_INBOX));
         let mut next = current.clone();
         next.models.insert(asset.to_string(), entry);
         Ok(next)

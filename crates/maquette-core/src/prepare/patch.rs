@@ -36,6 +36,10 @@ pub struct PrepPatch {
     /// forgets the choice.
     #[serde(default, deserialize_with = "explicit")]
     pub skip_bake: Option<Option<bool>>,
+    /// Left out keeps the choice; true pads the texture edges, false leaves
+    /// them, null forgets the choice.
+    #[serde(default, deserialize_with = "explicit")]
+    pub pad_edges: Option<Option<bool>>,
 }
 
 /// Applies `patch` to `asset` in `current`. Nothing changes when any part
@@ -51,6 +55,9 @@ pub fn apply_patch(current: &ScenePrep, asset: &str, patch: &PrepPatch) -> CoreR
     }
     if let Some(skip) = patch.skip_bake {
         entry.skip_bake = skip;
+    }
+    if let Some(pad) = patch.pad_edges {
+        entry.pad_edges = pad;
     }
     if patch.clear_fixups {
         entry.fixups.clear();

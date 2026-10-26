@@ -212,6 +212,7 @@ fn accept_saves_the_real_size_and_fixups_or_refuses_them_before_moving() {
     drop_in(root, &config, "desk_lamp.glb", &fixture::messy_prop());
     let mut prep = ModelPrep {
         skip_bake: None,
+        pad_edges: None,
         size: Some(RealSize {
             axis: SizeAxis::Height,
             value: -4.0,
@@ -242,9 +243,10 @@ fn accept_saves_the_real_size_and_fixups_or_refuses_them_before_moving() {
     assert_eq!(done.note, None);
     let project_dir = project::dir(root, &config.layout, &manifest.id).expect("dir");
     let saved = crate::prepare::load(&project_dir).expect("prepare");
-    // Nobody chose a bake, so the scan skips it.
+    // Nobody chose a bake or padding, so the scan skips the bake and pads.
     let want = ModelPrep {
         skip_bake: Some(true),
+        pad_edges: Some(true),
         ..prep.clone()
     };
     assert_eq!(saved.models[&done.asset.id], want);
@@ -257,6 +259,7 @@ fn accept_saves_the_real_size_and_fixups_or_refuses_them_before_moving() {
         &done.asset.id,
         &ModelPrep {
             skip_bake: Some(false),
+            pad_edges: Some(false),
             ..ModelPrep::default()
         },
     )
@@ -267,4 +270,5 @@ fn accept_saves_the_real_size_and_fixups_or_refuses_them_before_moving() {
     let again = accept(root, &config, &request).expect("second version");
     let saved = crate::prepare::load(&project_dir).expect("prepare");
     assert_eq!(saved.models[&again.asset.id].skip_bake, Some(false));
+    assert_eq!(saved.models[&again.asset.id].pad_edges, Some(false));
 }

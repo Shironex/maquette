@@ -112,7 +112,20 @@ fn the_fixup_script_applies_the_kinds_in_their_order() {
         .map(|item| item.trim().trim_matches('"').to_string())
         .filter(|item| !item.is_empty())
         .collect();
-    assert_eq!(order, names, "the script and FixupKind agree");
+    // Edge padding is the asset's padEdges switch, not a fix-up kind: it
+    // runs on the model's own UVs, before a decimate moves them.
+    let pad = order
+        .iter()
+        .position(|o| o == "pad-edges")
+        .expect("pad-edges");
+    assert_eq!(order[pad + 1], "decimate");
+    assert!(text.contains(r#"if entry.get("padEdges") is True:"#));
+    let kinds: Vec<String> = order
+        .iter()
+        .filter(|o| *o != "pad-edges")
+        .cloned()
+        .collect();
+    assert_eq!(kinds, names, "the script and FixupKind agree");
     for name in &names {
         assert!(
             text.contains(&format!("\"{name}\": ")),

@@ -115,6 +115,17 @@ export default function PrepEditor(props: PrepEditorProps) {
         />
       </div>
 
+      <div className="flex flex-col gap-2">
+        <SectionLabel>Textures</SectionLabel>
+        <Toggle
+          label="Pad texture edges"
+          description="Fills the texture around each UV island with the island’s own colours before the textures shrink, so small or distant models show no light seams along the island borders. Right for scans, whose textures are cut into many small islands."
+          checked={editor.padEdges}
+          disabled={disabled}
+          onChange={editor.setPadEdges}
+        />
+      </div>
+
       {onPreview ? (
         <div className="flex flex-col gap-2">
           <Button

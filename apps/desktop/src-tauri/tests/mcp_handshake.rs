@@ -354,6 +354,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "set_compression_presets",
             "set_layout",
             "set_material_tweaks",
+            "set_pad_edges",
             "set_real_size",
             "set_skip_bake",
             "star_concepts",

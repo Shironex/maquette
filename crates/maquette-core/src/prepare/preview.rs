@@ -103,8 +103,8 @@ pub fn script_for(project_dir: Option<&Path>) -> String {
 
 /// The folder name for a model's content hash, a plan and a script.
 pub fn key(model_hash: &str, plan: &ModelPrep, script: &str) -> String {
-    // Only what the script reads: skipping the bake changes no preview, so
-    // it stays out of the key (and the keys of earlier previews still hold).
+    // Only what the script reads: skipping the bake and padding the texture
+    // edges change no preview, so they stay out of the key (and the keys of earlier previews still hold).
     let plan = serde_json::to_string(&PlanKey {
         size: &plan.size,
         fixups: &plan.fixups,
@@ -240,6 +240,7 @@ fn fixups_only(plan: &ModelPrep) -> ModelPrep {
         size: None,
         fixups: plan.fixups.clone(),
         skip_bake: None,
+        pad_edges: None,
     }
 }
 
@@ -317,8 +318,14 @@ impl Previews {
         }
         let _one = self.one.lock().unwrap_or_else(PoisonError::into_inner);
         fs::create_dir_all(&dir).map_err(|e| CoreError::io(&dir, e))?;
+        // Edge padding changes texels the model never shows and no number,
+        // so the preview skips its few seconds.
+        let shown = ModelPrep {
+            pad_edges: None,
+            ..plan.clone()
+        };
         let plan_text =
-            serde_json::to_string_pretty(plan).map_err(|e| CoreError::Invalid(e.to_string()))?;
+            serde_json::to_string_pretty(&shown).map_err(|e| CoreError::Invalid(e.to_string()))?;
         for (name, text) in [(PLAN_FILE, plan_text.as_str()), (SCRIPT_FILE, script)] {
             let path = dir.join(name);
             crate::fs::write_atomic(&path, text.as_bytes()).map_err(|e| CoreError::io(&path, e))?;

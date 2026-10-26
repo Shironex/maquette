@@ -13,6 +13,7 @@ fn size(axis: SizeAxis, value: f32, unit: SizeUnit) -> RealSize {
 fn lamp() -> ModelPrep {
     ModelPrep {
         skip_bake: None,
+        pad_edges: None,
         size: Some(size(SizeAxis::Height, 45.0, SizeUnit::Cm)),
         fixups: vec![Fixup::OriginBottom, Fixup::Decimate { triangles: 60_000 }],
     }
@@ -54,6 +55,7 @@ fn saving_one_asset_keeps_the_others_and_an_empty_entry_goes() {
     save_entry(dir.path(), "desk-lamp", &lamp()).expect("lamp");
     let mug = ModelPrep {
         skip_bake: None,
+        pad_edges: None,
         size: Some(size(SizeAxis::Height, 10.0, SizeUnit::Cm)),
         fixups: Vec::new(),
     };
@@ -81,6 +83,7 @@ fn validation_refuses_sizes_and_numbers_out_of_range() {
     let mut prep = ScenePrep::default();
     let mut entry = ModelPrep {
         skip_bake: None,
+        pad_edges: None,
         size: Some(size(SizeAxis::Width, 0.05, SizeUnit::Cm)),
         fixups: Vec::new(),
     };
@@ -188,6 +191,7 @@ fn the_frame_moves_the_bottom_centre_to_the_origin_then_scales() {
 
     let only_size = ModelPrep {
         skip_bake: None,
+        pad_edges: None,
         size: lamp().size,
         fixups: Vec::new(),
     };
@@ -348,10 +352,40 @@ fn skipping_the_bake_leaves_the_preview_key_alone() {
     let plan = lamp();
     let skipped = ModelPrep {
         skip_bake: Some(true),
+        pad_edges: None,
         ..lamp()
     };
     assert_eq!(
         preview::key("abc", &plan, "script"),
         preview::key("abc", &skipped, "script")
+    );
+}
+
+#[test]
+fn edge_padding_is_a_choice_per_asset_that_a_patch_sets_and_forgets() {
+    let on: PrepPatch = serde_json::from_str(r#"{ "padEdges": true }"#).expect("patch");
+    let next = apply_patch(&ScenePrep::default(), "planner", &on).expect("on");
+    assert!(next.models["planner"].pads_edges());
+    let text = serde_json::to_string(&next.models["planner"]).expect("json");
+    assert!(text.contains(r#""padEdges":true"#), "{text}");
+    let off: PrepPatch = serde_json::from_str(r#"{ "padEdges": false }"#).expect("patch");
+    let next = apply_patch(&next, "planner", &off).expect("off");
+    assert_eq!(next.models["planner"].pad_edges, Some(false));
+    let forget: PrepPatch = serde_json::from_str(r#"{ "padEdges": null }"#).expect("patch");
+    let gone = apply_patch(&next, "planner", &forget).expect("forget");
+    assert!(
+        !gone.models.contains_key("planner"),
+        "an entry with no choice left goes"
+    );
+    let old: ModelPrep = serde_json::from_str(r#"{ "size": null, "fixups": [] }"#).expect("old");
+    assert!(!old.pads_edges(), "older files do not pad");
+    // Padding changes no bounds, so a preview keeps its key.
+    let padded = ModelPrep {
+        pad_edges: Some(true),
+        ..lamp()
+    };
+    assert_eq!(
+        preview::key("abc", &lamp(), "script"),
+        preview::key("abc", &padded, "script")
     );
 }

@@ -275,7 +275,8 @@ export type AcceptRequest = {
 	 *  The real size and fix-ups set in the Inbox: they replace the asset's
 	 *  in `prepare.json`. Left out, the asset keeps what it has. Either
 	 *  way an asset nobody chose a bake for skips it from now on
-	 *  ([`prepare::SKIP_BAKE_FROM_INBOX`]): Inbox models are scans.
+	 *  ([`prepare::SKIP_BAKE_FROM_INBOX`]) and pads its texture edges
+	 *  ([`prepare::PAD_EDGES_FROM_INBOX`]): Inbox models are scans.
 	 */
 	prep?: ModelPrep | null,
 };
@@ -1578,6 +1579,12 @@ export type ModelPrep = {
 	 *  means nobody chose, so an Inbox accept may fill in its default.
 	 */
 	skipBake?: boolean | null,
+	/**
+	 *  True pads the UV islands of its textures into the gaps around them
+	 *  before they shrink; false or null leaves them. Null means nobody
+	 *  chose, so an Inbox accept may fill in its default.
+	 */
+	padEdges?: boolean | null,
 };
 
 /**  The compression a model gets: its preset row, or the workspace defaults. */

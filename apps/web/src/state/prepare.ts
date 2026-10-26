@@ -19,7 +19,7 @@ import type {
 import { formatBytes, formatCount } from '@/lib/format';
 import { extentOf, formatDims, type Extent } from '@/lib/real-size';
 
-export const EMPTY_PREP: ModelPrep = { size: null, fixups: [], skipBake: null };
+export const EMPTY_PREP: ModelPrep = { size: null, fixups: [], skipBake: null, padEdges: null };
 
 /** The kinds in the order they apply. */
 export const FIXUP_ORDER: readonly FixupKind[] = [
@@ -102,7 +102,11 @@ export function describeFixup(f: Fixup): string {
 }
 
 export const isEmptyPrep = (p: ModelPrep | null | undefined): boolean =>
-  !p || (p.size === null && p.fixups.length === 0 && (p.skipBake ?? null) === null);
+  !p ||
+  (p.size === null &&
+    p.fixups.length === 0 &&
+    (p.skipBake ?? null) === null &&
+    (p.padEdges ?? null) === null);
 
 /** True when `prep` has nothing a preview runs: no size and no fix-ups. */
 export const hasNoPlan = (p: ModelPrep): boolean => p.size === null && p.fixups.length === 0;
@@ -117,6 +121,19 @@ export const skipsBake = (p: ModelPrep, inboxDefault = false): boolean =>
 export const withSkipBake = (prep: ModelPrep, skip: boolean): ModelPrep => ({
   ...prep,
   skipBake: skip,
+});
+
+/**
+ * Whether Build scene pads the texture edges of the asset's UV islands
+ * before the textures shrink. Null means nobody chose: only a model the
+ * Inbox accepts pads (`inboxDefault`).
+ */
+export const padsEdges = (p: ModelPrep, inboxDefault = false): boolean =>
+  p.padEdges ?? inboxDefault;
+
+export const withPadEdges = (prep: ModelPrep, pad: boolean): ModelPrep => ({
+  ...prep,
+  padEdges: pad,
 });
 
 const rank = (f: Fixup) => FIXUP_ORDER.indexOf(f.op);

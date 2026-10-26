@@ -39,7 +39,12 @@ describe('InboxPrep', () => {
       project: null,
       asset: null,
       inbox: 'desk_lamp.glb',
-      plan: { size: { axis: 'height', value: 45, unit: 'cm' }, fixups: [], skipBake: null },
+      plan: {
+        size: { axis: 'height', value: 45, unit: 'cm' },
+        fixups: [],
+        skipBake: null,
+        padEdges: null,
+      },
     });
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Blender is not installed.')

@@ -62,6 +62,7 @@ describe('mock bake settings', () => {
     const scan = await accept('sakura_large.glb', null);
     const prep = await call<ScenePrep>('prepare_get', { project: 'moon-island' });
     expect(prep.models[scan.asset.id]?.skipBake).toBe(true);
+    expect(prep.models[scan.asset.id]?.padEdges).toBe(true);
     expect((await bake()).skipped).toContain(scan.asset.id);
   });
 });

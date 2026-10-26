@@ -90,6 +90,7 @@ const tidy = (entry: ModelPrep): ModelPrep => ({
   size: entry.size,
   fixups: [...entry.fixups].sort((a, b) => FIXUP_ORDER.indexOf(a.op) - FIXUP_ORDER.indexOf(b.op)),
   skipBake: entry.skipBake ?? null,
+  padEdges: entry.padEdges ?? null,
 });
 
 /** One fix-up's effect on the numbers, with the script's note. */
@@ -229,8 +230,8 @@ export function createPrepareHandlers(deps: PrepareDeps) {
   function saveEntry(projectId: string, asset: string, entry: ModelPrep): void {
     checkPrep(entry, asset);
     const models = { ...get(projectId).models };
-    if (entry.size || entry.fixups.length || (entry.skipBake ?? null) !== null)
-      models[asset] = tidy(entry);
+    const chosen = (entry.skipBake ?? null) !== null || (entry.padEdges ?? null) !== null;
+    if (entry.size || entry.fixups.length || chosen) models[asset] = tidy(entry);
     else delete models[asset];
     stored.set(projectId, { version: 1, models });
   }

@@ -6,9 +6,20 @@ asset id. They are applied in this order, whatever order they were added in:
     apply-transforms   bake object transforms into the meshes
     remove-loose       drop loose parts smaller than "minShare" of the model
     merge              join the meshes into one ("byMaterial": one per material)
+    (pad edges)        with "padEdges": true, push each UV island's border
+                       colours out into the empty texels around it
     decimate           collapse down to "triangles"
     shrink-textures    scale images down to "maxSize" px on the longest edge
     origin-bottom      put the origin at the bottom centre, on the floor
+
+Edge padding is for scans: a Tripo or Meshy colour atlas is cut into
+hundreds of small UV islands with light texels between them. Once a texture
+is shrunk (here or by Compress) and the browser builds its mipmaps, those
+texels bleed over the seams as thin white lines. Padding fills every texel
+no island covers with the colour of the nearest islands, so no gap colour
+is left to bleed, at any size or mip level. It runs on the model's own UVs,
+before a decimate moves them, and only changes texels the model never
+shows.
 
 then the real size: a uniform scale so the model's "height", "width",
 "depth" or "longest" side measures "value" in "unit" (cm or m). The scene
@@ -41,6 +52,7 @@ import sys
 
 import bmesh
 import bpy
+import numpy as np
 from mathutils import Matrix, Vector
 
 PREPARE_VERSION = 1
@@ -48,6 +60,7 @@ ORDER = [
     "apply-transforms",
     "remove-loose",
     "merge",
+    "pad-edges",
     "decimate",
     "shrink-textures",
     "origin-bottom",
@@ -309,6 +322,200 @@ def shrink_textures(objects, fixup):
     return f"{shrunk} textures to {limit} px"
 
 
+# Edge padding. Triangles up to this many pixels across are rasterized
+# together; bigger ones one by one.
+SMALL_TRIANGLE_PX = 8
+# How much of an image the islands must cover before its gaps are filled:
+# less means the UVs do not describe the image (another UV set, a tiling
+# texture), and it is left alone.
+MIN_ISLAND_SHARE = 0.02
+# Exact neighbour steps before the smooth fill takes over.
+EXACT_STEPS = 4
+
+
+def image_users(objects, image):
+    """(mesh object, uv layer name, material indices) for every mesh whose
+    materials sample `image`."""
+    users = []
+    for obj in meshes(objects):
+        slots = []
+        layer = None
+        for index, slot in enumerate(obj.material_slots):
+            material = slot.material
+            if material is None or material.node_tree is None:
+                continue
+            for node in material.node_tree.nodes:
+                if node.type != "TEX_IMAGE" or node.image != image:
+                    continue
+                slots.append(index)
+                link = node.inputs["Vector"].links[0] if node.inputs["Vector"].links else None
+                if link is not None and link.from_node.type == "UVMAP" and link.from_node.uv_map:
+                    layer = link.from_node.uv_map
+        uvs = obj.data.uv_layers
+        if not slots or len(uvs) == 0:
+            continue
+        name = layer if layer and layer in uvs else next((u.name for u in uvs if u.active_render), uvs[0].name)
+        users.append((obj, name, slots))
+    return users
+
+
+def uv_triangles(obj, layer, slots, width, height):
+    """The UV triangles of the mesh's faces that use `slots`, in pixels."""
+    mesh = obj.data
+    mesh.calc_loop_triangles()
+    count = len(mesh.loop_triangles)
+    if count == 0:
+        return np.zeros((0, 3, 2), np.float64)
+    loops = np.empty(count * 3, np.int32)
+    mesh.loop_triangles.foreach_get("loops", loops)
+    material = np.empty(count, np.int32)
+    mesh.loop_triangles.foreach_get("material_index", material)
+    uv = np.empty(len(mesh.loops) * 2, np.float64)
+    mesh.uv_layers[layer].data.foreach_get("uv", uv)
+    tris = uv.reshape(-1, 2)[loops].reshape(-1, 3, 2)[np.isin(material, slots)]
+    # A triangle in a repeated tile lands on the image it samples.
+    tris = tris - np.floor(tris.mean(axis=1, keepdims=True))
+    return tris * np.array([width, height], np.float64)
+
+
+def inside(tris, px, py):
+    """Which pixel centres (px, py) lie in their triangle, either winding,
+    with a little slack so shared edges never leave a gap."""
+    a, b, c = (tris[:, i, None, :] for i in range(3))
+
+    def edge(p, q):
+        return (q[..., 0] - p[..., 0]) * (py - p[..., 1]) - (q[..., 1] - p[..., 1]) * (px - p[..., 0])
+
+    e0, e1, e2 = edge(a, b), edge(b, c), edge(c, a)
+    slack = -1e-6
+    return ((e0 >= slack) & (e1 >= slack) & (e2 >= slack)) | (
+        (e0 <= -slack) & (e1 <= -slack) & (e2 <= -slack)
+    )
+
+
+def rasterize(mask, tris):
+    """Marks the pixels the triangles cover, and each vertex's pixel, so a
+    triangle smaller than a pixel still counts."""
+    height, width = mask.shape
+    if len(tris) == 0:
+        return
+    vx = np.clip(tris[..., 0].astype(np.int64), 0, width - 1)
+    vy = np.clip(tris[..., 1].astype(np.int64), 0, height - 1)
+    mask[vy.ravel(), vx.ravel()] = True
+    lo = np.floor(tris.min(axis=1)).astype(np.int64)
+    hi = np.ceil(tris.max(axis=1)).astype(np.int64)
+    span = (hi - lo).max(axis=1)
+    small = span <= SMALL_TRIANGLE_PX
+    grid = np.arange(SMALL_TRIANGLE_PX + 1)
+    gx, gy = (g.ravel() for g in np.meshgrid(grid, grid))
+    picked = np.flatnonzero(small)
+    for start in range(0, len(picked), 20000):
+        chunk = picked[start : start + 20000]
+        x = lo[chunk, 0, None] + gx
+        y = lo[chunk, 1, None] + gy
+        hit = inside(tris[chunk], x + 0.5, y + 0.5)
+        hit &= (x >= 0) & (x < width) & (y >= 0) & (y < height)
+        mask[y[hit], x[hit]] = True
+    for i in np.flatnonzero(~small):
+        x0, y0 = np.maximum(lo[i], 0)
+        x1, y1 = np.minimum(hi[i], [width, height])
+        if x1 <= x0 or y1 <= y0:
+            continue
+        xs, ys = np.meshgrid(np.arange(x0, x1), np.arange(y0, y1))
+        hit = inside(tris[i : i + 1], xs.ravel()[None] + 0.5, ys.ravel()[None] + 0.5)[0]
+        mask[ys.ravel()[hit], xs.ravel()[hit]] = True
+
+
+def grow(mask):
+    """The mask one pixel wider in every direction."""
+    out = mask.copy()
+    out[1:, :] |= mask[:-1, :]
+    out[:-1, :] |= mask[1:, :]
+    out[:, 1:] |= out[:, :-1].copy()
+    out[:, :-1] |= out[:, 1:].copy()
+    return out
+
+
+def neighbour_step(pixels, known):
+    """Fills each unknown pixel that touches known ones with their mean."""
+    total = np.zeros_like(pixels)
+    count = np.zeros(known.shape, np.float32)
+    weight = known.astype(np.float32)
+    for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)):
+        shifted_w = np.roll(np.roll(weight, dy, 0), dx, 1)
+        total += np.roll(np.roll(pixels * weight[..., None], dy, 0), dx, 1)
+        count += shifted_w
+    fill = ~known & (count > 0)
+    pixels[fill] = total[fill] / count[fill, None]
+    return known | fill
+
+
+def pull_push(pixels, known):
+    """Fills every unknown pixel smoothly from the known ones around it: a
+    pyramid of mask weighted averages, read back from coarse to fine."""
+    levels = []
+    color = pixels * known[..., None]
+    weight = known.astype(np.float32)
+    while True:
+        levels.append((color, weight))
+        h, w = weight.shape
+        if h == 1 and w == 1:
+            break
+        ph, pw = h + h % 2, w + w % 2
+        color = np.pad(color, ((0, ph - h), (0, pw - w), (0, 0)))
+        weight = np.pad(weight, ((0, ph - h), (0, pw - w)))
+        color = color.reshape(ph // 2, 2, pw // 2, 2, -1).sum(axis=(1, 3))
+        weight = weight.reshape(ph // 2, 2, pw // 2, 2).sum(axis=(1, 3))
+    color, weight = levels[-1]
+    filled = color / np.maximum(weight, 1e-8)[..., None]
+    for color, weight in reversed(levels[:-1]):
+        h, w = weight.shape
+        up = filled.repeat(2, axis=0).repeat(2, axis=1)[:h, :w]
+        mean = color / np.maximum(weight, 1e-8)[..., None]
+        filled = np.where((weight > 0)[..., None], mean, up)
+    pixels[~known] = filled[~known]
+
+
+def pad_image(image, users):
+    """Pads one image; returns the share of it the islands cover, or None
+    when it was left alone."""
+    width, height = image.size
+    if width == 0 or height == 0:
+        return None
+    mask = np.zeros((height, width), bool)
+    for obj, layer, slots in users:
+        rasterize(mask, uv_triangles(obj, layer, slots, width, height))
+    # Bilinear filtering reads one texel past an island's edge.
+    mask = grow(mask)
+    share = float(mask.mean())
+    if share < MIN_ISLAND_SHARE or share >= 1.0:
+        return None
+    channels = image.channels
+    flat = np.empty(width * height * channels, np.float32)
+    image.pixels.foreach_get(flat)
+    pixels = flat.reshape(height, width, channels)
+    known = mask.copy()
+    for _ in range(EXACT_STEPS):
+        known = neighbour_step(pixels, known)
+    pull_push(pixels, known)
+    image.pixels.foreach_set(pixels.ravel())
+    # The exporter writes packed bytes as they are, so pack the new pixels.
+    image.pack()
+    return share
+
+
+def pad_edges(objects):
+    padded = []
+    for image in images(objects):
+        users = image_users(objects, image)
+        share = pad_image(image, users) if users else None
+        if share is not None:
+            padded.append(f"{image.name} ({share:.0%} islands)")
+    if not padded:
+        return "no texture with UV gaps to pad"
+    return f"padded {len(padded)} textures: {', '.join(padded)}"
+
+
 def origin_bottom(objects, _fixup):
     found = world_bounds(objects)
     if found is None:
@@ -325,6 +532,7 @@ OPS = {
     "remove-loose": remove_loose,
     "merge": merge,
     "decimate": decimate,
+    "pad-edges": lambda objects, _fixup: pad_edges(objects),
     "shrink-textures": shrink_textures,
     "origin-bottom": origin_bottom,
 }
@@ -353,6 +561,8 @@ def prepare(objects, entry, say=log):
     objects = live(objects)
     steps = []
     wanted = {f.get("op"): f for f in entry.get("fixups") or []}
+    if entry.get("padEdges") is True:
+        wanted["pad-edges"] = {"op": "pad-edges"}
     for op in ORDER:
         if op not in wanted:
             continue

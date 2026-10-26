@@ -122,11 +122,13 @@ export function createInboxHandlers({
       const next = saveProject({ ...p, assets: assets.map(a => (a.id === assetId ? updated : a)) });
       inbox.set(inbox.get().filter(i => i.id !== item.id));
       prepare.remember(version.file, item);
-      // Like the core: an Inbox model skips the bake unless someone chose.
+      // Like the core: an Inbox model skips the bake and pads its texture
+      // edges unless someone chose.
       const saved = prepare.entries(p.id).models[assetId];
-      const entry = req.prep ?? saved ?? { size: null, fixups: [], skipBake: null };
+      const entry = req.prep ?? saved ?? { size: null, fixups: [] };
       const skipBake = entry.skipBake ?? saved?.skipBake ?? true;
-      prepare.saveEntry(p.id, assetId, { ...entry, skipBake });
+      const padEdges = entry.padEdges ?? saved?.padEdges ?? true;
+      prepare.saveEntry(p.id, assetId, { ...entry, skipBake, padEdges });
       emit?.({ name: 'inbox' });
       return {
         asset: updated,

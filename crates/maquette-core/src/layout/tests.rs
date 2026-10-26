@@ -383,6 +383,7 @@ fn models_are_measured_at_their_real_size_after_the_fixups() {
     // The crate is half a metre high; it stands for a box a metre high.
     let entry = ModelPrep {
         skip_bake: None,
+        pad_edges: None,
         size: Some(RealSize {
             axis: SizeAxis::Height,
             value: 100.0,
@@ -407,6 +408,7 @@ fn models_are_measured_at_their_real_size_after_the_fixups() {
         &crate::pipeline::cache::hash_file(&file).expect("hash"),
         &ModelPrep {
             skip_bake: None,
+            pad_edges: None,
             size: None,
             fixups: entry.fixups.clone(),
         },

@@ -15,7 +15,8 @@
 //!         { "op": "decimate", "triangles": 60000 },
 //!         { "op": "origin-bottom" }
 //!       ],
-//!       "skipBake": true
+//!       "skipBake": true,
+//!       "padEdges": true
 //!     }
 //!   }
 //! }
@@ -27,6 +28,14 @@
 //! wants that (its many tiny UV islands bake into flat lit facets), so a
 //! model accepted from the Inbox skips the bake unless the person chose
 //! otherwise ([`SKIP_BAKE_FROM_INBOX`]). Left out or null, the asset bakes.
+//!
+//! `padEdges` true pads the asset's textures before they are shrunk: every
+//! texel no UV island covers takes the colour of the islands around it, so
+//! the light gaps of a scan's atlas cannot bleed over its seams as thin
+//! white lines once the texture is smaller and the browser mipmaps it. It
+//! runs before a decimate, on the model's own UVs. A model accepted from
+//! the Inbox pads unless the person chose otherwise
+//! ([`PAD_EDGES_FROM_INBOX`]). Left out or null, the textures stay as they are.
 //!
 //! The Build scene starter applies them in Blender (`tools/fixups.py`):
 //! the fix-ups in a fixed order ([`FixupKind`]), then a uniform scale that
@@ -47,6 +56,8 @@ use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 
 mod frame;
+#[cfg(test)]
+mod pad_tests;
 mod patch;
 pub mod preview;
 mod suggest;
@@ -71,6 +82,9 @@ pub const MAX_TEXTURE: u32 = 16_384;
 /// What an asset accepted from the Inbox gets when nobody chose whether it
 /// bakes: Inbox models are provider scans, which the bake does not suit.
 pub const SKIP_BAKE_FROM_INBOX: bool = true;
+/// What an asset accepted from the Inbox gets when nobody chose whether its
+/// texture edges are padded: a scan's atlas has gaps that bleed when shrunk.
+pub const PAD_EDGES_FROM_INBOX: bool = true;
 /// A loose part this share of the model's diagonal or smaller goes.
 pub const DEFAULT_LOOSE_SHARE: f32 = 0.02;
 pub const MAX_LOOSE_SHARE: f32 = 0.5;
@@ -254,11 +268,24 @@ pub struct ModelPrep {
     /// means nobody chose, so an Inbox accept may fill in its default.
     #[serde(default)]
     pub skip_bake: Option<bool>,
+    /// True pads the UV islands of its textures into the gaps around them
+    /// before they shrink; false or null leaves them. Null means nobody
+    /// chose, so an Inbox accept may fill in its default.
+    #[serde(default)]
+    pub pad_edges: Option<bool>,
 }
 
 impl ModelPrep {
     pub fn is_empty(&self) -> bool {
-        self.size.is_none() && self.fixups.is_empty() && self.skip_bake.is_none()
+        self.size.is_none()
+            && self.fixups.is_empty()
+            && self.skip_bake.is_none()
+            && self.pad_edges.is_none()
+    }
+
+    /// Whether Build scene pads its texture edges.
+    pub fn pads_edges(&self) -> bool {
+        self.pad_edges == Some(true)
     }
 
     /// Whether Bake light leaves this asset out.
@@ -344,6 +371,7 @@ pub fn normalized(prep: &ScenePrep) -> ScenePrep {
                     size: entry.size,
                     fixups,
                     skip_bake: entry.skip_bake,
+                    pad_edges: entry.pad_edges,
                 },
             )
         })

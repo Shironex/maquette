@@ -51,6 +51,18 @@ pub struct SetSizeArgs {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct PadEdgesArgs {
+    /// The project id.
+    pub project: String,
+    /// The asset id as list_assets returns it, or the asset's name.
+    pub asset: String,
+    /// true pads the texture edges of its UV islands, false leaves them, null forgets the
+    /// choice (then only Inbox accepts pad by default).
+    pub pad: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct FixupEdit {
     /// One of "apply-transforms", "remove-loose", "merge", "decimate", "shrink-textures",
     /// "origin-bottom".
@@ -178,6 +190,7 @@ fn summary(found: &AssetPrep) -> Value {
         "fixups": to_short_value(&entry.fixups),
         "fixupText": entry.fixups.iter().map(Fixup::describe).collect::<Vec<_>>(),
         "skipBake": entry.skips_bake(),
+        "padEdges": entry.pads_edges(),
         "version": found.version,
         "measured": to_short_value(found.measured),
         "afterFixups": to_short_value(found.fixed),
@@ -210,7 +223,7 @@ fn change(host: &dyn Host, project_id: &str, wanted: &str, patch: &PrepPatch) ->
 #[tool_router(router = prepare_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Get an asset's real size and fix-ups: the size its model is scaled to (axis height, width, depth or longest; value; unit cm or m), the fix-ups applied to it before the scene is built, whether it skips the bake (skipBake, set with set_skip_bake), what its newest model measures in metres before and after them, the real size scale, a size suggested from its name and kind (never applied on its own), the defaults new fix-ups start from and the last preview's numbers.",
+        description = "Get an asset's real size and fix-ups: the size its model is scaled to (axis height, width, depth or longest; value; unit cm or m), the fix-ups applied to it before the scene is built, whether it skips the bake (skipBake, set with set_skip_bake), whether its texture edges are padded (padEdges, set with set_pad_edges), what its newest model measures in metres before and after them, the real size scale, a size suggested from its name and kind (never applied on its own), the defaults new fix-ups start from and the last preview's numbers.",
         annotations(read_only_hint = true)
     )]
     async fn get_real_size(&self, Parameters(args): Parameters<PrepArgs>) -> Out {
@@ -233,6 +246,23 @@ impl McpTools {
                 let size = args.size.as_ref().map(SizeEdit::size).transpose()?;
                 let patch = PrepPatch {
                     size: Some(size),
+                    ..PrepPatch::default()
+                };
+                Ok(change(host, &args.project, &args.asset, &patch))
+            })
+            .await;
+        found.unwrap_or_else(|err| respond(Err(err)))
+    }
+
+    #[tool(
+        description = "Set whether the Build scene step pads an asset's texture edges: it fills the texture around each UV island with the island's own colours before the textures shrink, so the island borders show no light or dark seams once the textures are small or mipmapped. A model accepted from the Inbox (a Tripo or Meshy scan, many small islands) pads unless set otherwise. pad null forgets the choice. Build scene reruns on the next run_pipeline. Returns the result like get_real_size.",
+        annotations(idempotent_hint = true)
+    )]
+    async fn set_pad_edges(&self, Parameters(args): Parameters<PadEdgesArgs>) -> Out {
+        let found = self
+            .blocking(move |host, _| {
+                let patch = PrepPatch {
+                    pad_edges: Some(args.pad),
                     ..PrepPatch::default()
                 };
                 Ok(change(host, &args.project, &args.asset, &patch))

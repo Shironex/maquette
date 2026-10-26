@@ -77,10 +77,26 @@ describe('PrepEditor', () => {
   });
 
   it('switches the bake off and on, starting from the Inbox default', async () => {
-    const { onChange } = setup({ skipBakeDefault: true });
+    const { onChange } = setup({ inboxDefaults: true });
     const toggle = screen.getByRole('switch', { name: /Skip the bake/ });
     expect(toggle).toBeChecked();
     await userEvent.click(toggle);
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ skipBake: false }));
+  });
+
+  it('pads texture edges by default for an Inbox model only, and switches per asset', async () => {
+    const { onChange } = setup({ inboxDefaults: true });
+    const toggle = screen.getByRole('switch', { name: /Pad texture edges/ });
+    expect(toggle).toBeChecked();
+    await userEvent.click(toggle);
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ padEdges: false }));
+  });
+
+  it('leaves texture edges alone for a model nobody chose for outside the Inbox', async () => {
+    const { onChange } = setup({ value: { size: null, fixups: [], padEdges: null } });
+    const toggle = screen.getByRole('switch', { name: /Pad texture edges/ });
+    expect(toggle).not.toBeChecked();
+    await userEvent.click(toggle);
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ padEdges: true }));
   });
 });

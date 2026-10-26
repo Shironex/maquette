@@ -267,6 +267,26 @@ async fn agents_change_the_bake_settings_and_skip_assets() {
     )
     .await;
     assert_eq!(real["skipBake"], json!(true));
+    assert_eq!(real["padEdges"], json!(false));
+
+    // Pad the texture edges, then forget the choice.
+    let padded = call(
+        &client,
+        "set_pad_edges",
+        json!({ "project": project_id, "asset": "Desk globe", "pad": true }),
+    )
+    .await;
+    assert_eq!(padded["padEdges"], json!(true));
+    let saved = prepare::load(&project_dir).expect("prepare");
+    assert_eq!(saved.models["desk-globe"].pad_edges, Some(true));
+    call(
+        &client,
+        "set_pad_edges",
+        json!({ "project": project_id, "asset": "desk-globe", "pad": null }),
+    )
+    .await;
+    let saved = prepare::load(&project_dir).expect("prepare");
+    assert_eq!(saved.models["desk-globe"].pad_edges, None);
 
     // And back.
     call(
