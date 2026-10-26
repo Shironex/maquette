@@ -40,6 +40,7 @@ import { createBuiltHandlers } from './create-built-handlers';
 import { createInboxHandlers } from './create-inbox-handlers';
 import { createMotionHandlers, motionConfig, seedMotionProjects } from './create-motion-handlers';
 import { createPageHandlers } from './create-page-handlers';
+import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createProjectHandlers } from './create-project-handlers';
 import { createToolchainHandlers } from './create-toolchain-handlers';
@@ -64,6 +65,7 @@ export function createBackend({
   built: builtState = null,
   motion = null,
   page: pageState = null,
+  timeline = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -383,6 +385,7 @@ export function createBackend({
         startersOf(id).some(s => s.path === 'tools/build_scene.py' && s.state === 'current'),
       motion,
     }),
+    ...createTimelineHandlers({ layout, timeline: configured ? timeline : null }),
     ...page.handlers,
   };
   page.wrapInspect(handlers);

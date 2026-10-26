@@ -41,7 +41,8 @@ export type Args = Record<string, unknown>;
  * `?built=demo` adds two built assets to Moon Island (see
  * `create-built-handlers.ts`), `?motion=` models that move (see
  * `create-motion-handlers.ts`), `?page=` holds the Page view's dev server
- * (see `create-page-handlers.ts`). Configured scenarios also open with
+ * (see `create-page-handlers.ts`), `?timeline=` the Timeline view's tracks
+ * (see `create-timeline-handlers.ts`). Configured scenarios also open with
  * Send to 3D jobs (see `providers.ts`).
  */
 export interface BackendOptions {
@@ -82,6 +83,8 @@ export interface BackendOptions {
   motion?: string | null;
   /** `starting`, `failed` or `no-site` holds the Page view's dev server there. */
   page?: string | null;
+  /** `demo` or `empty`: the Timeline view's tracks (see create-timeline-handlers.ts). */
+  timeline?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */

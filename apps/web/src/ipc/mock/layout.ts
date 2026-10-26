@@ -11,6 +11,8 @@ import type {
   Placement,
   ProjectManifest,
   SceneLayout,
+  StateTrigger,
+  Timeline,
 } from '../client';
 import { frameOf, framed } from '@/lib/real-size';
 
@@ -268,5 +270,31 @@ export function createFakeLayout(deps: {
     layouts.set(id, { ...current, states: structuredClone(states), clips });
   }
 
-  return { view, save, firstView, motion, setMotion };
+  /**
+   * The Timeline view's save: each asset's stop and scroll triggers and the
+   * whole timeline, as the app writes them.
+   */
+  function setTimeline(
+    id: string,
+    triggers: Record<string, StateTrigger[]>,
+    timeline: Timeline
+  ): void {
+    const current = layouts.get(id) ?? view(id).layout;
+    const states = structuredClone(current.states);
+    for (const [asset, list] of Object.entries(triggers)) {
+      const object = states[asset];
+      if (!object) throw { code: 'invalid', message: `${asset} has no states yet.` };
+      const kept = object.triggers.filter(t => t.kind !== 'stop' && t.kind !== 'scroll');
+      states[asset] = { ...object, triggers: [...kept, ...structuredClone(list ?? [])] };
+    }
+    layouts.set(id, { ...current, states, timeline: structuredClone(timeline) });
+  }
+
+  /** `?timeline=empty`: the project has no camera stops. */
+  function clearStops(id: string): void {
+    const current = layouts.get(id) ?? view(id).layout;
+    layouts.set(id, { ...current, stops: [] });
+  }
+
+  return { view, save, firstView, motion, setMotion, setTimeline, clearStops };
 }

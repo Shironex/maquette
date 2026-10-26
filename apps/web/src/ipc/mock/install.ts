@@ -64,7 +64,8 @@ for (const [file, model] of Object.entries(PREVIEW_FILE)) {
   const url = models[`../../assets/mock/models/${model}`];
   if (url) registerMockFile(`${root}/inbox/${file}`, url);
 }
-const motion = params.get('motion');
+// `?timeline=` brings the motion demo models along.
+const motion = params.get('motion') ?? (params.get('timeline') ? 'demo' : null);
 for (const [file, model] of Object.entries({
   ...INSPECT_FILES,
   ...LAYOUT_FILES,
@@ -110,6 +111,7 @@ const handle = createBackend({
   built: params.get('built'),
   motion,
   page: pageOption(params),
+  timeline: params.get('timeline'),
   emit: event => {
     if (event.name === 'page') void events.pageServerChanged.emit(event.payload);
     else if (event.name === 'built') {
