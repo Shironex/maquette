@@ -9,7 +9,8 @@
     "build": "astro build && node scripts/check-docs.mjs",
     "preview": "astro preview",
     "typecheck": "astro check",
-    "posters": "node scripts/capture-posters.mjs"
+    "posters": "node scripts/capture-posters.mjs",
+    "check:dev-tour": "node scripts/check-dev-tour.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "9.8.2",
