@@ -9,6 +9,7 @@ import InspectorView from './InspectorView';
 
 vi.mock('@/features/inspector/CompareCanvas', () => ({ default: () => null }));
 vi.mock('@/features/inspector/LayoutCanvas', () => ({ default: () => null }));
+vi.mock('@/features/inspector/PathsCanvas', () => ({ default: () => null }));
 
 afterEach(() => {
   clearMocks();
@@ -58,5 +59,13 @@ describe('the Inspector view', () => {
       'aria-disabled',
       'true'
     );
+  });
+
+  it('draws the paths through the scene on the paths tab', async () => {
+    await openMockWorkspace();
+    useInspectorStore.setState({ tab: 'paths' });
+    render(<InspectorView />);
+    expect(await screen.findByRole('heading', { name: 'Scene paths' })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'Path details' })).toBeInTheDocument();
   });
 });

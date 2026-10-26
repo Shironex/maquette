@@ -4,9 +4,10 @@ import { InspectorShell } from '../InspectorShell';
 import { InspectorTabs } from '../InspectorTabs';
 import { LayoutBarActions } from '../LayoutBarActions';
 import { LayoutEditor } from '../LayoutEditor';
+import { PathsEditor } from '../PathsEditor';
 import { useInspectorView } from './InspectorView.hooks';
 
-/** The Inspector: compare the project's versions, or lay out its scene. */
+/** The Inspector: compare the project's versions, lay out its scene or draw its paths. */
 export default function InspectorView() {
   const { project, view, loading, error, load, tab } = useInspectorView();
 
@@ -14,6 +15,13 @@ export default function InspectorView() {
     return (
       <InspectorShell right={<LayoutBarActions />}>
         <LayoutEditor project={project.id} tabs={<InspectorTabs />} />
+      </InspectorShell>
+    );
+  }
+  if (project && tab === 'paths') {
+    return (
+      <InspectorShell>
+        <PathsEditor project={project.id} tabs={<InspectorTabs />} />
       </InspectorShell>
     );
   }

@@ -5,9 +5,10 @@ import { useInspectorTabs } from './InspectorTabs.hooks';
 const TABS = [
   { id: 'compare', label: 'Compare' },
   { id: 'layout', label: 'Layout' },
+  { id: 'paths', label: 'Paths' },
 ] as const;
 
-/** Compare versions, or lay out the scene. */
+/** Compare versions, lay out the scene, or draw paths through it. */
 export default function InspectorTabs() {
   const { tab, setTab } = useInspectorTabs();
   return (

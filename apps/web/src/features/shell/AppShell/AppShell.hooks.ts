@@ -11,6 +11,7 @@ import { useLayoutStore } from '@/state/use-layout-store';
 import { useMaterialsStore } from '@/state/use-materials-store';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useTimelineStore } from '@/state/use-timeline-store';
+import { usePathsStore } from '@/state/use-paths-store';
 import { usePageStore } from '@/state/use-page-store';
 import { usePrepareStore } from '@/state/use-prepare-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
@@ -179,6 +180,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
         void refreshPipeline(e.payload.project);
         void useMotionStore.getState().onChanged(e.payload.project);
         void useTimelineStore.getState().onChanged(e.payload.project);
+        void usePathsStore.getState().onChanged(e.payload.project);
       }),
       events.inboxChanged.listen(() => void loadInbox()),
       events.conceptUpdate.listen(e => onConcept(e.payload)),

@@ -13,5 +13,7 @@ describe('the Inspector tabs', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Layout' }));
     expect(useInspectorStore.getState().tab).toBe('layout');
     expect(screen.getByRole('tab', { name: 'Layout' })).toHaveAttribute('aria-selected', 'true');
+    await userEvent.click(screen.getByRole('tab', { name: 'Paths' }));
+    expect(useInspectorStore.getState().tab).toBe('paths');
   });
 });
