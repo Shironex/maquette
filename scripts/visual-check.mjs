@@ -97,11 +97,18 @@ async function shot(target, name) {
   saved.push(path);
 }
 
+/**
+ * Waits that hang on WebGL work (models loading, a click while a scene
+ * renders) get room for a busy machine, as when two suites run at once.
+ */
+const SLOW = 90_000;
+
 async function open(query = '', hash = '', viewport = { width: 1440, height: 900 }) {
   const context = await browser.newContext({
     viewport,
     deviceScaleFactor: 1,
   });
+  context.setDefaultTimeout(SLOW);
   const page = await context.newPage();
   page.on('pageerror', error => console.error(`page error: ${error.message}`));
   await page.goto(`${base}?delay=300${query}${hash}`);
@@ -363,7 +370,7 @@ async function uxShots() {
   const layout = await open('&scenario=configured', '#/inspector');
   await layout.getByRole('tab', { name: 'Layout' }).click();
   await layout.getByRole('heading', { name: 'Scene layout' }).waitFor();
-  await layout.getByText(/Loading \d+ models/).waitFor({ state: 'detached', timeout: 30_000 });
+  await layout.getByText(/Loading \d+ models/).waitFor({ state: 'detached', timeout: SLOW });
   await layout.waitForTimeout(1500);
   await hoverTip(layout, layout.getByRole('button', { name: 'Undo' }), 'ux-layout-undo-disabled');
   const gizmo = layout.getByRole('group', { name: 'Gizmo' });
@@ -385,7 +392,7 @@ async function sceneShots() {
   const layout = await open('&scenario=configured', '#/inspector');
   await layout.getByRole('tab', { name: 'Layout' }).click();
   await layout.getByRole('heading', { name: 'Scene layout' }).waitFor();
-  await layout.getByText(/Loading \d+ models/).waitFor({ state: 'detached', timeout: 30_000 });
+  await layout.getByText(/Loading \d+ models/).waitFor({ state: 'detached', timeout: SLOW });
   await layout.waitForTimeout(2500);
   await shot(layout, 'scene-layout');
   const details = layout.getByRole('complementary', { name: 'Layout details' });
@@ -425,7 +432,7 @@ async function sceneShots() {
 async function materialShots() {
   const page = await open('&scenario=configured', '#/inspector', { width: 1440, height: 1500 });
   await page.getByRole('heading', { name: 'Scene comparison' }).waitFor();
-  await page.getByText(/WebGL 2 · \d+ fps/).waitFor({ timeout: 30_000 });
+  await page.getByText(/WebGL 2 · \d+ fps/).waitFor({ timeout: SLOW });
   await page.waitForTimeout(3500);
   const details = page.getByRole('complementary', { name: 'Model details' });
   await details.getByRole('button', { name: /^Character/ }).click();
@@ -629,7 +636,7 @@ async function coreShots() {
   const inspector = await open('&scenario=configured', '#/inspector');
   await inspector.getByRole('heading', { name: 'Scene comparison' }).waitFor();
   // Both sides load, the camera reaches the first stop and the strip fills in.
-  await inspector.getByText(/WebGL 2 · \d+ fps/).waitFor({ timeout: 30_000 });
+  await inspector.getByText(/WebGL 2 · \d+ fps/).waitFor({ timeout: SLOW });
   await inspector.waitForTimeout(3500);
   await shot(inspector, 'inspector-compare');
   await inspector.getByRole('button', { name: 'Fly to Canopy' }).click();
