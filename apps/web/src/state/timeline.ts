@@ -24,7 +24,7 @@ export interface TimelineDraft {
   timeline: Timeline;
 }
 
-export const EMPTY_TIMELINE: TimelineDraft = { triggers: {}, timeline: { explode: {} } };
+export const EMPTY_TIMELINE: TimelineDraft = { triggers: {}, timeline: { explode: {}, paths: {} } };
 
 export type TimelineSelection =
   | { kind: 'state'; asset: string; index: number }

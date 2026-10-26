@@ -75,7 +75,8 @@ describe('the layout helpers', () => {
       desk: { size: [1.2, 0.6] },
       states: {},
       clips: {},
-      timeline: { explode: {} },
+      timeline: { explode: {}, paths: {} },
+      paths: [],
     };
     const plain = fromLayout(saved);
     expect(plain.stops[0]!.fov).toBe(35);

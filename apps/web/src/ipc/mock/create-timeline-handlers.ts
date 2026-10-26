@@ -41,6 +41,7 @@ const DEMO_TIMELINE: Timeline = {
       ],
     },
   },
+  paths: {},
 };
 
 export function createTimelineHandlers(deps: { layout: FakeLayout; timeline: string | null }) {
@@ -63,6 +64,7 @@ export function createTimelineHandlers(deps: { layout: FakeLayout; timeline: str
         parts: MOTION_FIXTURES[files[m.path] ?? '']?.parts ?? [m.name],
       })),
       states: structuredClone(layout.states),
+      paths: structuredClone(layout.paths),
       timeline: structuredClone(layout.timeline),
     };
   }

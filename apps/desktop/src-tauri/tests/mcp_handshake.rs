@@ -949,6 +949,32 @@ async fn agents_lay_out_the_scene_and_copy_assets() {
     let track = &spread["layout"]["timeline"]["explode"]["desk-lamp"];
     assert_eq!(track["keys"][0]["stop"], json!("concept"));
     assert_eq!(track["easing"], json!("ease-in-out"));
+    // Paths and their energize tracks too; the end anchored to the lamp follows it.
+    let wired = call(
+        &client,
+        "set_layout",
+        json!({
+            "project": project_id,
+            "paths": [{ "name": "Lamp cord", "curve": "polyline", "end": "desk-lamp",
+                "points": [[0.0, 0.0, 0.0], [0.1, 0.0, 0.0]] }],
+            "energize": [{ "path": "lamp-cord", "keys": [{ "stop": "concept", "amount": 1.0 }] }],
+        }),
+    )
+    .await;
+    assert_eq!(wired["layout"]["paths"][0]["id"], json!("lamp-cord"));
+    assert_eq!(wired["layout"]["paths"][0]["width"], json!(0.035));
+    assert_eq!(
+        wired["layout"]["timeline"]["paths"]["lamp-cord"]["easing"],
+        json!("linear")
+    );
+    let unwired = call(
+        &client,
+        "set_layout",
+        json!({ "project": project_id, "paths": [{ "id": "lamp-cord", "remove": true }] }),
+    )
+    .await;
+    assert_eq!(unwired["layout"]["paths"], json!([]));
+    assert_eq!(unwired["layout"]["timeline"]["paths"], json!({}));
     let cleared = call(
         &client,
         "set_layout",
@@ -978,7 +1004,7 @@ async fn agents_lay_out_the_scene_and_copy_assets() {
     assert_eq!(
         host.layout_changes
             .load(std::sync::atomic::Ordering::SeqCst),
-        5
+        7
     );
 
     let copied = call(

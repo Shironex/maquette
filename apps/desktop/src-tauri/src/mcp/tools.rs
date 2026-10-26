@@ -18,6 +18,7 @@ pub mod inbox;
 pub mod materials;
 pub mod motion;
 pub mod page;
+pub mod paths;
 pub mod picks;
 pub mod prepare;
 pub mod projects;
@@ -92,8 +93,10 @@ get_layout reads where each model stands in the scene, the camera stops and the 
 budget; set_layout changes them (metres, y up, degrees) and the app updates live; the next \
 run_pipeline rebuilds the scene and its posters from it. set_layout also sets a prop's \
 object states (poses of its parts, transitions and triggers), whether a model's clips ship \
-and the scroll timeline's explode tracks (how far a model's parts spread apart at each \
-camera stop; Ship sends them to the site with the rest of the layout). \
+the scroll timeline's explode tracks (how far a model's parts spread apart at each \
+camera stop), and paths: curves through the scene the site draws as tubes, with energize \
+tracks saying how much of each is lit at each camera stop (Ship sends them all to the site \
+with the rest of the layout). \
 get_motion reads every model's rig, clips and parts and what the clips weigh inside the scene \
 budget. copy_asset copies an asset with its refs and \
 versions to another project. \

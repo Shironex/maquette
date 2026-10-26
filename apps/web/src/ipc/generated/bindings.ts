@@ -72,10 +72,12 @@ export const commands = {
   layoutGet: (project: string) => __TAURI_INVOKE<LayoutView>('layout_get', { project }),
   /**
    *  Saves the whole layout and returns the view of it. The states, clip
-   *  choices and timeline stay as the file has them: they belong to the
-   *  Motion view ([`crate::commands::motion`]) and the Timeline view
-   *  ([`crate::commands::timeline`]). Triggers and explode keys that wait for
-   *  a stop this layout removes go with it.
+   *  choices, timeline and paths stay as the file has them: they belong to
+   *  the Motion view ([`crate::commands::motion`]), the Timeline view
+   *  ([`crate::commands::timeline`]) and the Paths editor
+   *  ([`crate::commands::paths`]). Triggers and keys that wait for a stop this
+   *  layout removes go with it, and path ends anchored to a model it moves
+   *  move with it.
    */
   layoutSave: (project: string, layout: SceneLayout) =>
     __TAURI_INVOKE<LayoutView>('layout_save', { project, layout }),
@@ -102,6 +104,13 @@ export const commands = {
     triggers: { [key in string]: StateTrigger[] },
     timeline: Timeline
   ) => __TAURI_INVOKE<TimelineView>('timeline_save', { project, triggers, timeline }),
+  /**
+   *  Saves every path and their energize tracks, replacing the ones the file
+   *  has; a track for a path that is gone goes too. The models, stops, states
+   *  and explode tracks stay as they are. Returns the layout view.
+   */
+  pathsSave: (project: string, paths: ScenePath[], tracks: { [key in string]: PathTrack }) =>
+    __TAURI_INVOKE<LayoutView>('paths_save', { project, paths, tracks }),
   materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>('materials_get', { project }),
   /**
    *  Saves the looks of the assets the panel edited (an empty look clears
@@ -2085,6 +2094,29 @@ export type PartPose = {
   rotation: [number | null, number | null, number | null];
 };
 
+/**  How the site joins a path's points. */
+export type PathCurve =
+  /**  Straight runs from point to point. */
+  | 'polyline'
+  /**  A smooth curve through every point. */
+  | 'catmull-rom';
+
+/**  How much of a path is lit at one camera stop. */
+export type PathKey = {
+  /**  The camera stop's id. */
+  stop: string;
+  /**  0 unlit, 1 lit from the start to the end. */
+  amount: number | null;
+};
+
+/**  One path's energize track. */
+export type PathTrack = {
+  /**  How the amount eases from one key to the next. */
+  easing: Easing;
+  /**  At most one per stop, in any order; the page sorts them by stop. */
+  keys: PathKey[];
+};
+
 export type PbrMaps = {
   baseColor: boolean;
   metallicRoughness: boolean;
@@ -2458,12 +2490,33 @@ export type SceneLayout = {
   clips: { [key in string]: { [key in string]: ClipSettings } };
   /**  The Timeline view's tracks. */
   timeline: Timeline;
+  /**  Curves through the scene the page can light up, in the order they draw. */
+  paths: ScenePath[];
 };
 
 export type SceneMaterials = {
   version: number;
   /**  Asset id to its tweaks. */
   models: { [key in string]: ModelMaterials };
+};
+
+export type ScenePath = {
+  /**  Stays the same when the path is renamed. */
+  id: string;
+  name: string;
+  curve: PathCurve;
+  /**  Metres, Y up, in order from the start. At least two. */
+  points: [number | null, number | null, number | null][];
+  /**  The asset whose placement the first point follows. */
+  start: string | null;
+  /**  The asset whose placement the last point follows. */
+  end: string | null;
+  /**  How thick the tube is, in metres. */
+  width: number | null;
+  /**  The tube's colour, `#rrggbb`. */
+  color: string;
+  /**  The colour the lit part glows, `#rrggbb`. */
+  glow: string;
 };
 
 export type ScenePrep = {
@@ -2831,6 +2884,8 @@ export type ThumbnailReady = {
 export type Timeline = {
   /**  Asset id to how its parts spread apart along the scroll. */
   explode: { [key in string]: ExplodeTrack };
+  /**  Path id to how much of it is lit along the scroll. */
+  paths: { [key in string]: PathTrack };
 };
 
 /**  A model the timeline can move. */
@@ -2852,6 +2907,8 @@ export type TimelineView = {
   /**  Every model, in Build scene order. */
   models: TimelineModel[];
   states: { [key in string]: ObjectStates };
+  /**  The layout's paths, whose energize tracks get a lane each. */
+  paths: ScenePath[];
   timeline: Timeline;
 };
 

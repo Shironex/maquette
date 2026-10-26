@@ -92,7 +92,8 @@ function moonLayout(): SceneLayout {
     desk: null,
     states: {},
     clips: {},
-    timeline: { explode: {} },
+    timeline: { explode: {}, paths: {} },
+    paths: [],
   };
 }
 
@@ -211,7 +212,8 @@ export function createFakeLayout(deps: {
         desk: null,
         states: {},
         clips: {},
-        timeline: { explode: {} },
+        timeline: { explode: {}, paths: {} },
+        paths: [],
       },
       models: models(id),
       firstView: firstView(id),
@@ -234,7 +236,8 @@ export function createFakeLayout(deps: {
       ...layout,
       states: kept?.states ?? {},
       clips: kept?.clips ?? {},
-      timeline: kept?.timeline ?? { explode: {} },
+      timeline: kept?.timeline ?? { explode: {}, paths: {} },
+      paths: kept?.paths ?? [],
     });
     return view(id);
   }

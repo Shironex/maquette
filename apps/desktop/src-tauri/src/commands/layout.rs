@@ -31,10 +31,12 @@ pub(crate) fn get(session: &Session, project_id: &str) -> CommandResult<LayoutVi
 }
 
 /// Saves the whole layout and returns the view of it. The states, clip
-/// choices and timeline stay as the file has them: they belong to the
-/// Motion view ([`crate::commands::motion`]) and the Timeline view
-/// ([`crate::commands::timeline`]). Triggers and explode keys that wait for
-/// a stop this layout removes go with it.
+/// choices, timeline and paths stay as the file has them: they belong to
+/// the Motion view ([`crate::commands::motion`]), the Timeline view
+/// ([`crate::commands::timeline`]) and the Paths editor
+/// ([`crate::commands::paths`]). Triggers and keys that wait for a stop this
+/// layout removes go with it, and path ends anchored to a model it moves
+/// move with it.
 #[tauri::command]
 #[specta::specta]
 pub fn layout_save(
@@ -57,8 +59,10 @@ pub(crate) fn save(
         states: current.states,
         clips: current.clips,
         timeline: current.timeline,
+        paths: current.paths,
         ..next.clone()
     };
+    layout::paths::follow(&current.models, &mut next);
     layout::prune_stops(&mut next);
     layout::save(&project_dir, &next)?;
     get(session, project_id)
