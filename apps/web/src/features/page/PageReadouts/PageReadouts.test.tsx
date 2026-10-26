@@ -20,6 +20,7 @@ describe('the page readouts', () => {
       undefined,
       undefined,
       undefined,
+      undefined,
       'running'
     );
     await usePageStore.getState().open('moon-island');

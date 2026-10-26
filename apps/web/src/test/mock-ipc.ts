@@ -14,7 +14,7 @@ export async function openMockWorkspace(
   inbox?: string,
   arrival?: string,
   built?: string,
-  motion?: string
+  motion?: string,
   page?: string
 ) {
   const handle = createBackend({

@@ -1,9 +1,7 @@
 /**
  * An in-memory stand-in for the Rust commands, keyed by the same snake_case
- * names and camelCase arguments the generated bindings send.
- *
- * The scenarios and the URL options that shape them are listed on
- * `BackendOptions` (backend-options.ts).
+ * names and camelCase arguments the generated bindings send. The scenarios
+ * and URL options are listed on `BackendOptions` (backend-options.ts).
  */
 import type {
   Bootstrap,

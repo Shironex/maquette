@@ -9,8 +9,7 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 
 use crate::commands::{
     agents, app, assets, built, credits, dialogs, downloads, inbox, inspect, lab, layout,
-    materials, motion, page, pipeline, prepare, project, providers, quit, site, thumbs,
-    toolchain,
+    materials, motion, page, pipeline, prepare, project, providers, quit, site, thumbs, toolchain,
     workspace,
 };
 use crate::events::{

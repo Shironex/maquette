@@ -20,6 +20,7 @@ async function open(page?: string) {
     undefined,
     undefined,
     undefined,
+    undefined,
     page
   );
   await usePageStore.getState().open('moon-island');
