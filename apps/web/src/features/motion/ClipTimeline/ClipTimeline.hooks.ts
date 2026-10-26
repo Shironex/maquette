@@ -1,12 +1,7 @@
 import { useEffect, useRef, type PointerEvent } from 'react';
 import { frameAt, n, readout, ticks, timeOfFrame, type Speed } from '@/state/motion';
 import { currentClip, useMotionStore } from '@/state/use-motion-store';
-
-/** True when a key press is meant for a text field, not the player. */
-function typing(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) return false;
-  return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
-}
+import { typing } from '@/lib/typing';
 
 /** The player's state for the selected clip, its controls and its keys. */
 export function useClipTimeline() {

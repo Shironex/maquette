@@ -2,13 +2,9 @@ import { useEffect, useState } from 'react';
 import type { Tool } from '@/state/layout';
 import { useAppStore } from '@/state/use-app-store';
 import { useLayoutDirty, useLayoutStore } from '@/state/use-layout-store';
+import { typing } from '@/lib/typing';
 
 const KEYS: Record<string, Tool> = { w: 'translate', e: 'rotate', r: 'scale' };
-
-function typing(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  return Boolean(el?.closest('input, textarea, select, [contenteditable="true"]'));
-}
 
 /**
  * The editor's store and view state: the grid, the frame counter, how the
