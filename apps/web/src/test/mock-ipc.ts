@@ -18,7 +18,8 @@ export async function openMockWorkspace(
   page?: string,
   timeline?: string,
   paths?: string,
-  game?: string
+  game?: string,
+  library?: string
 ) {
   const handle = createBackend({
     scenario,
@@ -35,6 +36,7 @@ export async function openMockWorkspace(
     timeline,
     paths: paths ?? (timeline === 'demo' ? 'demo' : undefined),
     game,
+    library,
   });
   mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>));
   const boot = await commands.appBootstrap();
@@ -56,6 +58,24 @@ export function openMockGame(game: 'crypt' | 'import' | 'maze') {
     undefined,
     undefined,
     game
+  );
+}
+
+/** The configured workspace with the library: `demo` entries, or empty without. */
+export function openMockLibrary(library?: 'demo') {
+  return openMockWorkspace(
+    'configured',
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    library
   );
 }
 

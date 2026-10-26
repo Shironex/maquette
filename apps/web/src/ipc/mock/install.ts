@@ -16,6 +16,7 @@ import { motionFiles } from './create-motion-handlers';
 import { PROVIDER_REF_FILES } from './providers';
 import { MOCK_SITE_URL, conceptPath, pageOption, posterPath } from './create-page-handlers';
 import { MANY_STOPS, mockConceptPage, mockSitePage } from './page-site';
+import { libraryFiles } from './library-fixtures';
 import bridgeShim from '@crates/maquette-core/src/site/preview/frame/shim.js?raw';
 
 const params = new URLSearchParams(window.location.search);
@@ -63,6 +64,10 @@ for (const [path, url] of Object.entries(renders)) {
 for (const [file, model] of Object.entries(PREVIEW_FILE)) {
   const url = models[`../../assets/mock/models/${model}`];
   if (url) registerMockFile(`${root}/inbox/${file}`, url);
+}
+for (const [file, render] of Object.entries(libraryFiles())) {
+  const url = renders[`../../assets/mock/${render}`];
+  if (url) registerMockFile(`${root}/library/${file}`, url);
 }
 // `?timeline=` brings the motion demo models along.
 const motion = params.get('motion') ?? (params.get('timeline') ? 'demo' : null);
@@ -113,6 +118,7 @@ const handle = createBackend({
   page: pageOption(params),
   timeline: params.get('timeline'),
   game: params.get('game'),
+  library: params.get('library'),
   // `?timeline=demo` lights the demo paths too, for its paths lane.
   paths: params.get('paths') ?? (params.get('timeline') === 'demo' ? 'demo' : null),
   emit: event => {

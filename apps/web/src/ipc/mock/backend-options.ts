@@ -44,7 +44,8 @@ export type Args = Record<string, unknown>;
  * (see `create-page-handlers.ts`), `?timeline=` the Timeline view's tracks
  * (see `create-timeline-handlers.ts`), `?paths=` the Paths editor's paths
  * (see `create-paths-handlers.ts`), `?game=` a game project (see
- * `create-game-handlers.ts`). Configured scenarios also open with
+ * `create-game-handlers.ts`), `?library=demo` the library's entries (see
+ * `create-library-handlers.ts`). Configured scenarios also open with
  * Send to 3D jobs (see `providers.ts`).
  */
 export interface BackendOptions {
@@ -91,6 +92,8 @@ export interface BackendOptions {
   paths?: string | null;
   /** `crypt`, `import` or `maze`: a game project is open (see create-game-handlers.ts). */
   game?: string | null;
+  /** `demo`: library entries, two of them with an update for a project (see library-fixtures.ts). */
+  library?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */

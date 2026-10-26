@@ -43,6 +43,7 @@ import { createPageHandlers } from './create-page-handlers';
 import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPathsHandlers } from './create-paths-handlers';
 import { createGameHandlers } from './create-game-handlers';
+import { createLibraryHandlers } from './create-library-handlers';
 import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createProjectHandlers } from './create-project-handlers';
 import { createToolchainHandlers } from './create-toolchain-handlers';
@@ -70,6 +71,7 @@ export function createBackend({
   timeline = null,
   paths = null,
   game: gameState = null,
+  library: libraryState = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -262,8 +264,20 @@ export function createBackend({
     startMs: pace === 0 ? 0 : 900,
   });
 
+  const library = createLibraryHandlers({
+    projects: () => projects,
+    project,
+    saveProject,
+    root: () => root ?? expand(DEFAULT_ROOT),
+    prep: (id, asset) => prepare.entries(id).models[asset] ?? null,
+    savePrep: (id, asset, entry) => prepare.handlers.prepare_save?.({ project: id, asset, entry }),
+    alias: (path, from) => files?.alias(path, from),
+    state: configured ? libraryState : null,
+  });
+
   const handlers: Record<string, (args: Args) => unknown> = {
     ...lab.handlers,
+    ...library.handlers,
     ...built.handlers,
     ...agents.handlers,
     ...providers.handlers,
