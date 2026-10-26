@@ -28,7 +28,8 @@ export default function StatesPanel() {
             <KeyValueList items={panel.items} />
             <p className="text-meta text-fg-mute">
               States are saved in layout.json next to the camera stops, and agents read and write
-              them with get_layout and set_layout. The site build does not play them yet.
+              them with get_layout and set_layout. The site plays the stop and scroll triggers as
+              the page scrolls; click and hover do not play there yet.
             </p>
           </section>
         </>

@@ -6,11 +6,11 @@ import StatesPanel from './StatesPanel';
 afterEach(() => clearMocks());
 
 describe('the states panel', () => {
-  it('says where states are kept and that the site does not play them yet', async () => {
+  it('says where states are kept and which triggers the site plays', async () => {
     await openMotion(undefined, 'switch-cabinet');
     render(<StatesPanel />);
     expect(screen.getByText('layout.json')).toBeInTheDocument();
-    expect(screen.getByText('Not yet')).toBeInTheDocument();
+    expect(screen.getByText('Stop and scroll triggers')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Transition' })).toBeInTheDocument();
   });
 

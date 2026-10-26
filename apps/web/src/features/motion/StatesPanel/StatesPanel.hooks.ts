@@ -22,7 +22,7 @@ export function useStatesPanel() {
         value: at.length > 0 ? at.join(', ') : 'none',
         mono: true,
       },
-      { label: 'Plays on the site', value: 'Not yet' },
+      { label: 'Plays on the site', value: 'Stop and scroll triggers' },
     ],
   };
 }
