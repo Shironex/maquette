@@ -1,11 +1,14 @@
 //! The services the MCP tools work with. The app hands them over from its
 //! managed state; the integration test builds its own, without a window.
 
+use std::sync::Arc;
+
 use maquette_core::ProjectManifest;
 use maquette_core::concepts::{ConceptEvent, Concepts, Direction};
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::providers::{Arrivals, ProviderJobs};
+use maquette_core::site::preview::SitePreview;
 use maquette_core::thumbs::Thumbnails;
 use tauri::{AppHandle, Manager as _};
 use tauri_specta::Event as _;
@@ -30,6 +33,11 @@ pub trait Host: Send + Sync + 'static {
     fn studio(&self) -> &ProviderJobs;
     /// The tools a job runs with. May probe them, so it blocks.
     fn toolbox(&self) -> Toolbox;
+    /// The site's dev server the Page view and Preview on site share, when
+    /// the host runs one.
+    fn site_preview(&self) -> Option<Arc<SitePreview>> {
+        None
+    }
     /// The By hand Downloads watcher, when the app runs one.
     fn arrivals(&self) -> Option<&Arrivals> {
         None
@@ -86,6 +94,12 @@ impl Host for AppHost {
 
     fn arrivals(&self) -> Option<&Arrivals> {
         self.0.try_state::<Watch>().map(|w| &w.inner().0)
+    }
+
+    fn site_preview(&self) -> Option<Arc<SitePreview>> {
+        self.0
+            .try_state::<crate::commands::site::Preview>()
+            .map(|p| Arc::clone(&p.inner().0))
     }
 
     fn project_changed(&self, project: &ProjectManifest) {

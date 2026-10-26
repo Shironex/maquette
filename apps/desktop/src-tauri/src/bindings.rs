@@ -9,13 +9,14 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 
 use crate::commands::{
     agents, app, assets, built, credits, dialogs, downloads, inbox, inspect, lab, layout,
-    materials, motion, pipeline, prepare, project, providers, quit, site, thumbs, toolchain,
+    materials, motion, page, pipeline, prepare, project, providers, quit, site, thumbs,
+    toolchain,
     workspace,
 };
 use crate::events::{
     BuiltChanged, ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged, MaterialsChanged,
-    McpUpdate, PipelineChanged, PipelineUpdate, PrepareChanged, ProjectChanged, ProviderUpdate,
-    QuitRequested, ThumbnailReady,
+    McpUpdate, PageServerChanged, PipelineChanged, PipelineUpdate, PrepareChanged, ProjectChanged,
+    ProviderUpdate, QuitRequested, ThumbnailReady,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -80,6 +81,12 @@ pub fn builder() -> Builder<tauri::Wry> {
             pipeline::bake::pipeline_save_bake,
             pipeline::pipeline_update_starters,
             site::site_preview,
+            page::page_get,
+            page::page_save,
+            page::page_server_start,
+            page::page_server_stop,
+            page::page_server_release,
+            page::page_open_in_browser,
             inbox::inbox_list,
             inbox::inbox_reprocess,
             inbox::inbox_set_kind,
@@ -147,7 +154,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             MaterialsChanged,
             PrepareChanged,
             BuiltChanged,
-            DownloadsArrival
+            DownloadsArrival,
+            PageServerChanged
         ])
         .types(&maquette_core::types())
 }
@@ -235,6 +243,12 @@ mod tests {
             "builtRebuild",
             "dialogPickScript",
             "dialogPickFiles",
+            "pageGet",
+            "pageSave",
+            "pageServerStart",
+            "pageServerStop",
+            "pageServerRelease",
+            "pageOpenInBrowser",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }
@@ -252,6 +266,7 @@ mod tests {
             "prepareChanged",
             "downloadsArrival",
             "builtChanged",
+            "pageServerChanged",
         ] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }

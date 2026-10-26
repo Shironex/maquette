@@ -105,6 +105,10 @@ pub struct PrepareChanged {
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 pub struct DownloadsArrival(pub maquette_core::providers::Arrival);
 
+/// The site's dev server changed state or printed, for the Page view.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+pub struct PageServerChanged(pub maquette_core::site::preview::ServerStatus);
+
 /// The MCP server started or stopped, took a call, or a run started by an
 /// agent waits for a shipping approval.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

@@ -15,6 +15,7 @@ pub mod lab;
 pub mod layout;
 pub mod materials;
 pub mod motion;
+pub mod page;
 pub mod pipeline;
 pub mod prepare;
 pub mod project;

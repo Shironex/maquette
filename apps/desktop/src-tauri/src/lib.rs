@@ -38,7 +38,7 @@ pub fn run() {
                 maquette_core::pipeline::runner::PipelineRunner::new(sink),
             ));
             app.manage(commands::thumbs::Thumbs::new(app.handle().clone()));
-            app.manage(commands::site::Preview::default());
+            app.manage(commands::site::Preview::new(app.handle().clone()));
             app.manage(commands::lab::Lab::new(app.handle().clone()));
             let studio = commands::providers::Studio::new(app.handle().clone());
             let watch = commands::downloads::Watch::new(app.handle().clone(), studio.0.clone());
