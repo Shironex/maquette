@@ -336,6 +336,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "get_layout",
             "get_material_tweaks",
             "get_motion",
+            "get_page_preview",
             "get_pipeline",
             "get_project",
             "get_provider_job",
@@ -369,6 +370,8 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "set_skip_bake",
             "star_concepts",
             "start_concepts",
+            "start_page_preview",
+            "stop_page_preview",
             "update_starters",
         ]
     );

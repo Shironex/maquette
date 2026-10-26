@@ -17,6 +17,7 @@ pub mod handoffs;
 pub mod inbox;
 pub mod materials;
 pub mod motion;
+pub mod page;
 pub mod picks;
 pub mod prepare;
 pub mod projects;
@@ -98,6 +99,9 @@ and helpers are copied into the project's built/ folder and it builds headless i
 next version, with no credits and no approval; rebuild_built_asset builds one again (or all \
 whose files changed) and list_built_assets reads their state and last build. A full \
 run_pipeline rebuilds the changed ones first. \
+start_page_preview starts a project's site dev server (its dev command in the site repo), the \
+one the app's Page view shows, and waits for it to answer; get_page_preview reads its state, \
+address, command and log, and stop_page_preview stops it. Nothing is deployed. \
 Blender always runs headless here; there is no tool that opens Blender's window or \
 captures the screen.";
 
@@ -180,7 +184,8 @@ impl McpTools {
                 + Self::handoffs_router()
                 + Self::built_router()
                 + Self::bake_router()
-                + Self::starters_router(),
+                + Self::starters_router()
+                + Self::page_router(),
         }
     }
 
