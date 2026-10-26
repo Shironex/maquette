@@ -7,6 +7,8 @@
   names, no toe bones) with three clips: "Walk loop" (32 frames at 30 fps,
   walking 1.4 m forward), "Idle breathe" (90 frames) and "Wave" (48 frames).
   Every box is weighted to one bone.
+- rest: the same figure and rig with no clips, as a model fresh from the
+  rigging step.
 - cabinet: a switch cabinet in parts and no clips: its body, a door hinged
   at its left edge and six breakers, the parts a state moves.
 - turntable: a round plate with one object clip, "Spin" (120 frames).
@@ -118,7 +120,7 @@ SHAPES = {
 }
 
 
-def figure(scene, out):
+def figure(scene, out, clips=True):
     arm_data = bpy.data.armatures.new("Armature")
     rig = link(bpy.data.objects.new("Armature", arm_data), scene)
     bpy.context.view_layer.objects.active = rig
@@ -229,11 +231,12 @@ def figure(scene, out):
                 "head": (0, 0, 8 * up),
             })
 
-    clip("Walk loop", walk)
-    clip("Idle breathe", idle)
-    clip("Wave", wave)
+    if clips:
+        clip("Walk loop", walk)
+        clip("Idle breathe", idle)
+        clip("Wave", wave)
     bpy.ops.object.select_all(action="DESELECT")
-    export(out)
+    export(out, use_animation=clips)
 
 
 def cabinet(scene, out):
@@ -284,7 +287,13 @@ def main():
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     which, out = argv[0], argv[1]
     scene = reset()
-    {"figure": figure, "cabinet": cabinet, "turntable": turntable}[which](scene, out)
+    makers = {
+        "figure": figure,
+        "rest": lambda scene, out: figure(scene, out, clips=False),
+        "cabinet": cabinet,
+        "turntable": turntable,
+    }
+    makers[which](scene, out)
     print(f"[motion_models] wrote {which} to {out}", flush=True)
 
 

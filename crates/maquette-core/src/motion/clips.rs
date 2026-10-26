@@ -166,11 +166,14 @@ fn same(a: &[f32], b: &[f32], rotation: bool) -> bool {
     close(1.0) || (rotation && close(-1.0))
 }
 
-/// The clips of a parsed model; `buffers` are its buffers in order.
+/// The clips of a parsed model; `buffers` are its buffers in order. Keys
+/// in compressed buffers (`readable` false) are not read, so root travel and
+/// looping stay unknown.
 pub(super) fn read(
     doc: &gltf::Document,
     buffers: &[Option<Vec<u8>>],
     bytes: &BTreeMap<String, f64>,
+    readable: bool,
 ) -> Vec<Clip> {
     let depth = depths(doc);
     doc.animations()
@@ -183,7 +186,7 @@ pub(super) fn read(
             // The translated node nearest the scene root carries the root motion.
             let mut root: Option<(usize, f32)> = None;
             let mut loops = true;
-            let mut readable = false;
+            let mut read_any = false;
             let channels = anim.channels().collect::<Vec<_>>();
             for channel in &channels {
                 let input = channel.sampler().input();
@@ -202,13 +205,13 @@ pub(super) fn read(
                 }
             }
             let mut travel = None;
-            for channel in &channels {
+            for channel in channels.iter().filter(|_| readable) {
                 let reader = channel.reader(|b| buffers.get(b.index()).and_then(Option::as_deref));
                 let cubic = channel.sampler().interpolation() == Interpolation::CubicSpline;
                 let Some((first, last)) = reader.read_outputs().and_then(|o| ends(o, cubic)) else {
                     continue;
                 };
-                readable = true;
+                read_any = true;
                 let property = channel.target().property();
                 let node = channel.target().node().index();
                 if property == Property::Translation && root.is_some_and(|(n, _)| n == node) {
@@ -247,7 +250,7 @@ pub(super) fn read(
                 channels: u32::try_from(channels.len()).unwrap_or(u32::MAX),
                 targets: u32::try_from(targets.len()).unwrap_or(u32::MAX),
                 root_travel: travel.filter(|t| *t >= 0.01),
-                loops: readable && loops,
+                loops: read_any.then_some(loops),
             }
         })
         .collect()

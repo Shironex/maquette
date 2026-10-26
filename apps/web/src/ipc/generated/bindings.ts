@@ -808,8 +808,11 @@ export type Clip = {
 	 *  last, in metres; `None` for a clip that plays in place.
 	 */
 	rootTravel: number | null,
-	/**  The last key matches the first (root travel aside). */
-	loops: boolean,
+	/**
+	 *  The last key matches the first (root travel aside); `None` when the
+	 *  keys are compressed and could not be read.
+	 */
+	loops: boolean | null,
 };
 
 /**  What the Motion view changed about one clip. */

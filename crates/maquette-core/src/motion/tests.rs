@@ -76,7 +76,7 @@ fn the_fixture_character_has_one_idle_clip_on_a_mixamo_rig() {
     // Three times and three positions, four bytes a number.
     assert!((idle.bytes - 48.0).abs() < f64::EPSILON, "{}", idle.bytes);
     assert_eq!(idle.root_travel, None, "the hips dip and come back");
-    assert!(idle.loops);
+    assert_eq!(idle.loops, Some(true));
     let rig = found.rig.expect("rig");
     assert_eq!(rig.kind, RigKind::Mixamo);
     assert!(rig.humanoid);
@@ -87,6 +87,27 @@ fn the_fixture_character_has_one_idle_clip_on_a_mixamo_rig() {
     );
     assert_eq!(rig.max_influences, Some(1));
     assert_eq!(found.parts, ["Body"]);
+}
+
+#[test]
+fn keys_packed_by_meshopt_leave_travel_and_looping_unknown() {
+    // The web app's mock character: a Mixamo rig with two clips, shipped packed.
+    let file = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../apps/web/src/assets/mock/models/character.glb");
+    let found = read_file(&file).expect("read");
+    assert_eq!(found.clips.len(), 2);
+    for clip in &found.clips {
+        assert_eq!(
+            (clip.loops, clip.root_travel),
+            (None, None),
+            "{}",
+            clip.name
+        );
+        assert!(clip.bytes > 0.0 && clip.duration > 4.0);
+    }
+    let rig = found.rig.expect("rig");
+    assert_eq!((rig.joints, rig.kind), (75, RigKind::Mixamo));
+    assert_eq!(rig.max_influences, None, "packed weights are not read");
 }
 
 #[test]
@@ -333,7 +354,7 @@ fn clips_rigs_and_parts_of_models_made_in_blender() {
     assert!((walk.fps - 30.0).abs() < f32::EPSILON);
     let travel = walk.root_travel.expect("walks");
     assert!((travel - 1.42).abs() < 0.02, "{travel}");
-    assert!(walk.loops, "the legs end where they start");
+    assert_eq!(walk.loops, Some(true), "the legs end where they start");
     assert_eq!(figure.clips[0].frames, 90);
     assert_eq!(figure.clips[0].root_travel, None);
     assert_eq!(figure.clips[2].frames, 48);
@@ -358,5 +379,5 @@ fn clips_rigs_and_parts_of_models_made_in_blender() {
     let turntable = make("turntable");
     let spin = &turntable.clips[0];
     assert_eq!((spin.name.as_str(), spin.frames), ("Spin", 120));
-    assert!(spin.loops, "a full turn ends where it starts");
+    assert_eq!(spin.loops, Some(true), "a full turn ends where it starts");
 }

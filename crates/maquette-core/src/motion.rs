@@ -66,8 +66,9 @@ pub struct Clip {
     /// How far the root moves over the ground from the first key to the
     /// last, in metres; `None` for a clip that plays in place.
     pub root_travel: Option<f32>,
-    /// The last key matches the first (root travel aside).
-    pub loops: bool,
+    /// The last key matches the first (root travel aside); `None` when the
+    /// keys are compressed and could not be read.
+    pub loops: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -147,9 +148,9 @@ fn parse(bytes: &[u8], base: &Path) -> CoreResult<FileMotion> {
         .collect();
     let json = clips::json_of(bytes).unwrap_or_default();
     let (sizes, _) = clips::clip_bytes(&json);
-    let compressed = doc
-        .extensions_used()
-        .any(|e| e.contains("meshopt") || e.contains("draco"));
+    // Meshopt packs any buffer, keys too; Draco only geometry.
+    let packed = doc.extensions_used().any(|e| e.contains("meshopt"));
+    let compressed = packed || doc.extensions_used().any(|e| e.contains("draco"));
     let mut joint_names: Vec<String> = Vec::new();
     for skin in doc.skins() {
         for joint in skin.joints() {
@@ -181,7 +182,7 @@ fn parse(bytes: &[u8], base: &Path) -> CoreResult<FileMotion> {
     }
     Ok(FileMotion {
         rig,
-        clips: clips::read(doc, &buffers, &sizes),
+        clips: clips::read(doc, &buffers, &sizes, !packed),
         parts,
     })
 }
