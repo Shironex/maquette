@@ -5,7 +5,7 @@ Maquette runs this headless, always with -b:
     blender -b --factory-startup --python-exit-code 1 [model.blend] \
         --python render_thumb.py -- --model <file> --out <png> [--size 256]
 
-A .glb or .gltf is imported into an empty scene. A .blend is opened by
+A .glb, .gltf or .obj is imported into an empty scene. A .blend is opened by
 Blender itself (it comes before --python) and its own lights, cameras and
 world are left out of the render; nothing is ever saved back.
 
@@ -67,8 +67,12 @@ def load(model):
     if ext in (".glb", ".gltf"):
         bpy.ops.wm.read_factory_settings(use_empty=True)
         bpy.ops.import_scene.gltf(filepath=model)
+    elif ext == ".obj":
+        # Its .mtl and textures sit beside it, where the importer looks.
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        bpy.ops.wm.obj_import(filepath=model)
     elif ext != ".blend":
-        raise SystemExit(f"Cannot render {model}: only .glb, .gltf and .blend files.")
+        raise SystemExit(f"Cannot render {model}: only .glb, .gltf, .obj and .blend files.")
     scene = bpy.context.scene
     # A .blend keeps its objects; its own lights and cameras stay out.
     for obj in scene.objects:

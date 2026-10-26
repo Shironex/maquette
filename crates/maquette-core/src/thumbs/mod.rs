@@ -1,5 +1,5 @@
-//! Model thumbnails: a square studio render of a `.glb`, `.gltf` or
-//! `.blend`, made by a headless Blender job and cached by the file's
+//! Model thumbnails: a square studio render of a `.glb`, `.gltf`, `.obj`
+//! or `.blend`, made by a headless Blender job and cached by the file's
 //! content hash as `<workspace cache>/thumbs/<hash>.png`.
 //!
 //! Renders go through the same [`PipelineRunner`] as the pipeline, on a
@@ -18,6 +18,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
 
+pub mod missing;
 pub mod source;
 
 use crate::error::{CoreError, CoreResult};
@@ -132,7 +133,7 @@ pub fn thumbs_dir(root: &Path, config: &WorkspaceConfig) -> PathBuf {
 /// True for the files a thumbnail can be made of.
 pub fn is_renderable(path: &Path) -> bool {
     path.extension().and_then(|e| e.to_str()).is_some_and(|e| {
-        ["glb", "gltf", "blend"]
+        ["glb", "gltf", "obj", "blend"]
             .iter()
             .any(|x| e.eq_ignore_ascii_case(x))
     })

@@ -732,3 +732,30 @@ fn uncommitted_counts_what_git_status_lists_and_skips_a_folder_without_git() {
     let maze = obj_game(dir.path());
     assert_eq!(detect::uncommitted(&maze, git, &dirty, path), None);
 }
+
+#[test]
+fn imported_models_are_listed_for_a_preview_until_they_have_one() {
+    let (ws, manifest) = game_project(glb_game, GameFormat::Glb);
+    let picked = [
+        "props/brazier.glb".to_string(),
+        "props/coffin.glb".to_string(),
+    ];
+    let result = import_models(&ws.root, &ws.config.layout, &manifest.id, &picked).expect("import");
+    let project_dir = project::dir(&ws.root, &ws.config.layout, &manifest.id).expect("dir");
+    let missing = crate::thumbs::missing::missing(&project_dir, &result.project, None);
+    let ids: Vec<&str> = missing.iter().map(|m| m.target.asset.as_str()).collect();
+    assert_eq!(ids, ["brazier", "coffin"]);
+    assert!(missing[0].file.ends_with("models/brazier_v1.glb"));
+    let only = ["coffin".to_string()];
+    assert_eq!(
+        crate::thumbs::missing::missing(&project_dir, &result.project, Some(&only)).len(),
+        1
+    );
+    let with_one = project::modify(&ws.root, &ws.config.layout, &manifest.id, |m| {
+        crate::assets::set_thumbnail(m, "brazier", 1, "thumbs/brazier_v1.png".into())?;
+        Ok(())
+    })
+    .expect("thumbnail");
+    let left = crate::thumbs::missing::missing(&project_dir, &with_one, None);
+    assert_eq!(left.len(), 1, "the rendered one is done");
+}
