@@ -35,13 +35,13 @@ export default function LibraryStats({ stats }: LibraryStatsProps) {
       <Stat
         label="Credits saved by reuse"
         value={formatK(stats.saved)}
-        note="by copies in other projects"
+        note="across projects"
         tone={stats.saved > 0 ? 'text-sage' : undefined}
       />
       <Stat
         label="Updates waiting"
         value={String(stats.updates)}
-        note={stats.updates === 1 ? 'copy on an older version' : 'copies on an older version'}
+        note={stats.updates === 1 ? 'copy behind' : 'copies behind'}
         tone={stats.updates > 0 ? 'text-clay-text' : undefined}
       />
     </div>

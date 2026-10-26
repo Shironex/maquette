@@ -74,7 +74,10 @@ export default function LibraryDetail({ item }: LibraryDetailProps) {
       aria-label="Selected model"
       className="flex w-[360px] flex-none flex-col gap-4 overflow-y-auto border-l border-line bg-panel p-[18px]"
     >
-      <LibraryPicture item={item} className="aspect-[4/3] w-full rounded-card border border-line" />
+      <LibraryPicture
+        item={item}
+        className="aspect-[4/3] w-full flex-none rounded-card border border-line"
+      />
       <div>
         <h2 className="text-panel-title">{entry.name}</h2>
         <p className="mt-0.5 text-meta text-fg-mute">{subtitle}</p>

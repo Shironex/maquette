@@ -7,6 +7,6 @@ describe('the library stats', () => {
     render(<LibraryStats stats={{ models: 8, shared: 2, saved: 70, updates: 1 }} />);
     expect(screen.getByText('2 shared')).toBeVisible();
     expect(screen.getByText('70')).toBeVisible();
-    expect(screen.getByText('copy on an older version')).toBeVisible();
+    expect(screen.getByText('copy behind')).toBeVisible();
   });
 });

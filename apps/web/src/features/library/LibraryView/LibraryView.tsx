@@ -133,7 +133,7 @@ export default function LibraryView() {
                 No model matches. Clear the search or pick All models.
               </p>
             ) : layout === 'grid' ? (
-              <ul className="grid list-none grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+              <ul className="grid list-none grid-cols-[repeat(auto-fill,minmax(172px,1fr))] gap-3">
                 {cards}
               </ul>
             ) : (

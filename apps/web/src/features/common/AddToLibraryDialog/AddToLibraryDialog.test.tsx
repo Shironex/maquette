@@ -35,7 +35,9 @@ describe('Add to library', () => {
     await openMockLibrary('demo');
     await useLibraryStore.getState().load();
     render(<AddToLibraryDialog target={{ project: 'moon-island', asset: 'shop-house' }} />);
-    expect(screen.getByText(/came from Shop house. A newer model adds a version/)).toBeVisible();
+    expect(
+      screen.getByText(/came from the library's Shop house. A newer model adds a version/)
+    ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add as a new version' })).toBeVisible();
   });
 

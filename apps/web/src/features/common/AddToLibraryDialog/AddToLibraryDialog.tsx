@@ -17,7 +17,7 @@ export default function AddToLibraryDialog({ target }: AddToLibraryDialogProps) 
   const projectOptions = f.projects.map(p => ({ value: p.id, label: p.name }));
   const assetOptions = f.withModel.map(a => ({ value: a.id, label: a.name }));
   const help = f.entry
-    ? `${f.asset?.name} came from ${f.entry.name}. A newer model adds a version to that entry.`
+    ? `It came from the library's ${f.entry.name}. A newer model adds a version there.`
     : 'Any project in this workspace can then use a copy of it, without spending credits again.';
 
   return (
