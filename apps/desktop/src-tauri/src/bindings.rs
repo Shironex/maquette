@@ -9,13 +9,13 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 
 use crate::commands::{
     agents, app, assets, built, credits, dialogs, downloads, game, inbox, inspect, lab, layout,
-    materials, motion, page, paths, pipeline, prepare, project, providers, quit, site, thumbs,
-    timeline, toolchain, workspace,
+    library, materials, motion, page, paths, pipeline, prepare, project, providers, quit, site,
+    thumbs, timeline, toolchain, workspace,
 };
 use crate::events::{
-    BuiltChanged, ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged, MaterialsChanged,
-    McpUpdate, PageServerChanged, PipelineChanged, PipelineUpdate, PrepareChanged, ProjectChanged,
-    ProviderUpdate, QuitRequested, ThumbnailReady,
+    BuiltChanged, ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged, LibraryChanged,
+    MaterialsChanged, McpUpdate, PageServerChanged, PipelineChanged, PipelineUpdate,
+    PrepareChanged, ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -64,6 +64,11 @@ pub fn builder() -> Builder<tauri::Wry> {
             assets::asset_rename,
             assets::asset_open_in_blender,
             assets::asset_copy_to_project,
+            library::library_get,
+            library::library_add,
+            library::library_use,
+            library::library_update_plan,
+            library::library_update,
             layout::layout_get,
             layout::layout_save,
             motion::motion_get,
@@ -163,7 +168,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             PrepareChanged,
             BuiltChanged,
             DownloadsArrival,
-            PageServerChanged
+            PageServerChanged,
+            LibraryChanged
         ])
         .types(&maquette_core::types())
 }
@@ -234,6 +240,11 @@ mod tests {
             "timelineSave",
             "pathsSave",
             "assetCopyToProject",
+            "libraryGet",
+            "libraryAdd",
+            "libraryUse",
+            "libraryUpdatePlan",
+            "libraryUpdate",
             "materialsGet",
             "materialsSave",
             "prepareGet",
@@ -284,6 +295,7 @@ mod tests {
             "downloadsArrival",
             "builtChanged",
             "pageServerChanged",
+            "libraryChanged",
         ] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }

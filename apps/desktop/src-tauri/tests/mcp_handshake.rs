@@ -329,6 +329,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "accept_inbox_model",
             "add_built_asset",
             "add_fixups",
+            "add_to_library",
             "cancel_run",
             "copy_asset",
             "get_bake_settings",
@@ -353,6 +354,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "list_fixups",
             "list_handoffs",
             "list_inbox",
+            "list_library",
             "list_projects",
             "make_object_refs",
             "pick_concepts",
@@ -379,7 +381,9 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "start_concepts",
             "start_page_preview",
             "stop_page_preview",
+            "update_from_library",
             "update_starters",
+            "use_from_library",
         ]
     );
     for tool in &tools {

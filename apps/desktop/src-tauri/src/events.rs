@@ -60,6 +60,11 @@ pub struct ProjectChanged {
     pub project: ProjectManifest,
 }
 
+/// The library changed: a tool added a model to it or used or updated one
+/// from it, so the Library view and the Board's update marks reload.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+pub struct LibraryChanged;
+
 /// A project's built assets changed: one was added, started or finished
 /// building, so the Board reloads how they stand.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

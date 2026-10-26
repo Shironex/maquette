@@ -93,6 +93,25 @@ export const commands = {
    */
   assetCopyToProject: (project: string, id: string, to: string) =>
     __TAURI_INVOKE<CopiedAsset>('asset_copy_to_project', { project, id, to }),
+  /**  Every library entry with the projects that use it. */
+  libraryGet: () => __TAURI_INVOKE<LibraryView>('library_get'),
+  /**
+   *  Copies an asset's newest model, picture, refs and settings into the
+   *  library, as a new entry or the next version of its entry.
+   */
+  libraryAdd: (request: AddToLibrary) => __TAURI_INVOKE<LibraryAdded>('library_add', { request }),
+  /**
+   *  Copies a library version (the newest without `version`) into a project
+   *  as a new asset that remembers where it came from.
+   */
+  libraryUse: (entry: string, version: number | null, project: string) =>
+    __TAURI_INVOKE<LibraryUsed>('library_use', { entry, version, project }),
+  /**  What updating the asset from the library would keep and drop. */
+  libraryUpdatePlan: (project: string, asset: string) =>
+    __TAURI_INVOKE<UpdatePlan>('library_update_plan', { project, asset }),
+  /**  Brings the library's newest version in as the asset's next version. */
+  libraryUpdate: (project: string, asset: string) =>
+    __TAURI_INVOKE<LibraryUpdated>('library_update', { project, asset }),
   layoutGet: (project: string) => __TAURI_INVOKE<LayoutView>('layout_get', { project }),
   /**
    *  Saves the whole layout and returns the view of it. The states, clip
@@ -400,6 +419,7 @@ export const events = {
   downloadsArrival: makeEvent<DownloadsArrival>('downloads-arrival'),
   inboxChanged: makeEvent<InboxChanged>('inbox-changed'),
   layoutChanged: makeEvent<LayoutChanged>('layout-changed'),
+  libraryChanged: makeEvent<LibraryChanged>('library-changed'),
   materialsChanged: makeEvent<MaterialsChanged>('materials-changed'),
   mcpUpdate: makeEvent<McpUpdate>('mcp-update'),
   pageServerChanged: makeEvent<PageServerChanged>('page-server-changed'),
@@ -441,6 +461,16 @@ export type AcceptResult = {
   project: ProjectManifest;
   /**  Why the real size and fix-ups were not saved, when they were not. */
   note: string | null;
+};
+
+/**  What Add to library asks for. */
+export type AddToLibrary = {
+  project: string;
+  asset: string;
+  /**  The entry's name; left out, the asset's (or the entry's, when it has one). */
+  name: string | null;
+  /**  Replaces the entry's tags; left out, they stay. */
+  tags: string[] | null;
 };
 
 export type AgentRules = {
@@ -570,9 +600,24 @@ export type Asset = {
   thumbnail: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   *  The library entry and version this asset was copied from, when it
+   *  came from the library. The project owns its copy either way; the
+   *  origin only says where to look for an update. Older files have none.
+   */
+  origin?: AssetOrigin | null;
 };
 
 export type AssetKind = 'prop' | 'character' | 'scene';
+
+/**
+ *  Where a Board asset came from in the library: the entry id and the
+ *  library version its newest model is.
+ */
+export type AssetOrigin = {
+  entry: string;
+  version: number;
+};
 
 /**  One asset's real size and fix-ups, with what its newest model measures. */
 export type AssetPrep = {
@@ -1785,6 +1830,125 @@ export type Ledger = {
   skipped: number;
 };
 
+/**  What Add to library did. */
+export type LibraryAdded = {
+  entry: LibraryEntry;
+  /**  The library version the asset's newest model is now. */
+  version: number;
+  /**  False when the library already had this exact model. */
+  added: boolean;
+  /**  The project, with the asset's origin set. */
+  project: ProjectManifest;
+};
+
+/**
+ *  The library changed: a tool added a model to it or used or updated one
+ *  from it, so the Library view and the Board's update marks reload.
+ */
+export type LibraryChanged = null;
+
+/**  `entry.json`. */
+export type LibraryEntry = {
+  version: number;
+  /**  The folder name. */
+  id: string;
+  name: string;
+  kind: AssetKind;
+  tags: string[];
+  /**  Ref images, relative to the entry folder. */
+  refs: string[];
+  /**  Oldest first. */
+  versions: LibraryVersion[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**  One entry as the Library view shows it. */
+export type LibraryItem = {
+  entry: LibraryEntry;
+  /**  The entry's folder, absolute, for its pictures. */
+  dir: string;
+  /**  The newest version's format, when Maquette knows it. */
+  format: GameFormat | null;
+  uses: LibraryUse[];
+  /**  Credits its versions cost to make, as far as the app knows. */
+  spent: number | null;
+  /**
+   *  Credits the copies saved: what the version each one uses cost, for
+   *  every use that is not the asset the version came from.
+   */
+  saved: number | null;
+};
+
+/**  What made a library model. */
+export type LibrarySource =
+  | 'tripo'
+  | 'meshy'
+  /**  Made on a provider's site and added by hand. */
+  | 'by-hand'
+  /**  A Blender script in the project made it. */
+  | 'built'
+  /**  A file brought in: a game repo's model or one added from disk. */
+  | 'imported';
+
+/**  What Update did. */
+export type LibraryUpdated = {
+  plan: UpdatePlan;
+  asset: Asset;
+  project: ProjectManifest;
+};
+
+/**  One project asset that came from an entry. */
+export type LibraryUse = {
+  project: string;
+  projectName: string;
+  target: ProjectTarget;
+  asset: string;
+  assetName: string;
+  /**  The library version it is on. */
+  version: number;
+  /**  True when the entry has a newer version. */
+  update: boolean;
+};
+
+/**  What Use in project did. */
+export type LibraryUsed = {
+  /**  The new asset. */
+  asset: Asset;
+  project: ProjectManifest;
+  /**  What the project's target does with it, in a sentence. */
+  note: string | null;
+  /**  True when its real size, fix-ups or material tweaks came along. */
+  settings: boolean;
+};
+
+/**  One model of an entry. */
+export type LibraryVersion = {
+  version: number;
+  /**  Relative to the entry folder, with `/` separators. */
+  file: string;
+  createdAt: string;
+  stats: ModelStats | null;
+  source: LibrarySource;
+  /**  The credits the send that made it cost, when the app knows. */
+  credits: number | null;
+  /**  The model file's SHA-256, so the same model is never added twice. */
+  hash: string;
+  from: VersionFrom;
+  /**  Its picture, relative to the entry folder. */
+  thumbnail: string | null;
+  /**  The real size and fix-ups it had where it came from. */
+  prep: ModelPrep | null;
+  /**  The material tweaks it had where it came from. */
+  materials: ModelMaterials | null;
+};
+
+export type LibraryView = {
+  /**  The library folder, absolute. */
+  dir: string;
+  items: LibraryItem[];
+};
+
 export type LogEntry = {
   runId: string;
   step: string | null;
@@ -2844,6 +3008,12 @@ export type ServiceTotals = {
   estimated: number;
 };
 
+/**  A setting an update drops, and why. */
+export type SettingChange = {
+  what: string;
+  why: string;
+};
+
 /**  How one file in the model folder changes. */
 export type ShipChange =
   | 'new'
@@ -3254,6 +3424,33 @@ export type TripoPresets = {
 export type TripoRigSpec = 'mixamo' | 'tripo';
 
 export type TripoTextureQuality = 'standard' | 'detailed' | 'extreme';
+
+/**  What Update would do, before it does it. */
+export type UpdatePlan = {
+  project: string;
+  asset: string;
+  name: string;
+  entry: string;
+  /**  The library version the asset is on now. */
+  from: number;
+  /**  The library's newest version. */
+  to: number;
+  /**  The asset version the new model becomes. */
+  nextVersion: number;
+  /**  Settings that stay as they are. */
+  kept: string[];
+  /**  Settings that no longer apply to the new model. */
+  dropped: SettingChange[];
+  /**  What the project's target does with it, for a game. */
+  note: string | null;
+};
+
+/**  The project asset version a library version was copied from. */
+export type VersionFrom = {
+  project: string;
+  asset: string;
+  version: number;
+};
 
 /**  The watcher as Settings, the app and the agents see it. */
 export type WatchStatus = {

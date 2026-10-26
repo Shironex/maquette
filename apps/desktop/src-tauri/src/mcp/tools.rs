@@ -16,6 +16,7 @@ pub mod credits;
 pub mod game;
 pub mod handoffs;
 pub mod inbox;
+pub mod library;
 pub mod materials;
 pub mod motion;
 pub mod page;
@@ -101,6 +102,12 @@ with the rest of the layout). \
 get_motion reads every model's rig, clips and parts and what the clips weigh inside the scene \
 budget. copy_asset copies an asset with its refs and \
 versions to another project. \
+The library keeps models outside any project (library/ at the workspace root). list_library \
+reads it; add_to_library copies an asset's newest model in (a newer model of an asset already \
+there becomes its entry's next version); use_from_library copies an entry into a project as a \
+new asset that remembers its origin; update_from_library brings a newer library version in as \
+the asset's next version, keeping the fix-ups that still apply. The library copies, never \
+links: nothing changes a project until someone updates it, and none of it spends credits. \
 add_built_asset adds a built asset: a model a Blender script in the project makes. Its script \
 and helpers are copied into the project's built/ folder and it builds headless into the asset's \
 next version, with no credits and no approval; rebuild_built_asset builds one again (or all \
@@ -200,7 +207,8 @@ impl McpTools {
                 + Self::bake_router()
                 + Self::starters_router()
                 + Self::page_router()
-                + Self::game_router(),
+                + Self::game_router()
+                + Self::library_router(),
         }
     }
 

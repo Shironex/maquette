@@ -19,8 +19,8 @@ use crate::commands::pipeline::Pipelines;
 use crate::commands::providers::Studio;
 use crate::commands::thumbs::Thumbs;
 use crate::events::{
-    BuiltChanged, ConceptUpdate, LayoutChanged, MaterialsChanged, PipelineChanged, PrepareChanged,
-    ProjectChanged,
+    BuiltChanged, ConceptUpdate, LayoutChanged, LibraryChanged, MaterialsChanged, PipelineChanged,
+    PrepareChanged, ProjectChanged,
 };
 use crate::session::Session;
 
@@ -62,6 +62,9 @@ pub trait Host: Send + Sync + 'static {
     /// Tells the windows that a tool starred or picked concepts of a
     /// direction, so the Lab shows its marks and refs.
     fn concepts_changed(&self, _project: &str, _direction: &Direction) {}
+    /// Tells the windows that a tool changed the library, so the Library
+    /// view and the update marks reload.
+    fn library_changed(&self) {}
 }
 
 /// The app's own services.
@@ -153,6 +156,12 @@ impl Host for AppHost {
         };
         if let Err(err) = event.emit(&self.0) {
             tracing::warn!(error = %err, "could not emit a built event");
+        }
+    }
+
+    fn library_changed(&self) {
+        if let Err(err) = LibraryChanged.emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit a library event");
         }
     }
 

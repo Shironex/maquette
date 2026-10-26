@@ -55,6 +55,7 @@ fn exported_models_carry_the_name_of_their_asset() {
             thumbnail: None,
             created_at: "2026-10-24T19:00:00.000Z".into(),
             updated_at: "2026-10-24T19:14:19.000Z".into(),
+            origin: None,
         });
         Ok(())
     })
@@ -259,6 +260,7 @@ fn locked_presets_refuse_edits() {
             thumbnail: None,
             created_at: String::new(),
             updated_at: String::new(),
+            origin: None,
         });
         Ok(())
     })
