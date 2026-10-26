@@ -4,12 +4,14 @@
  * their edges are measured once and again on resize, late fonts and load, so
  * a scroll is arithmetic on scrollY with no layout reads. No three.js imports.
  */
-import { progressFromEdges } from './progress';
+import { progressFromEdges, scrollForProgress } from './progress';
 import type { TourScroll } from './tour';
 
 export interface TourTracker extends TourScroll {
   /** Scrolls the page to a stop's section. */
   scrollToStop(stop: number, smooth: boolean): void;
+  /** Scrolls the page to fractional progress, for Maquette's scrubber. */
+  scrollToProgress(progress: number, smooth: boolean): void;
 }
 
 /**
@@ -57,6 +59,10 @@ export function trackTour(
     },
     scrollToStop(stop, smooth) {
       const top = edges[Math.max(0, Math.min(sections.length - 1, Math.round(stop)))] ?? 0;
+      window.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+    },
+    scrollToProgress(at, smooth) {
+      const top = scrollForProgress(at, edges);
       window.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
     },
   };

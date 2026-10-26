@@ -8,6 +8,7 @@ import {
   nearestStop,
   presence,
   progressFromEdges,
+  scrollForProgress,
   smoothstep,
 } from './progress';
 
@@ -90,5 +91,23 @@ describe('presence', () => {
     expect(presence(4.3, 4, true)).toBe(1);
     expect(presence(4.5, 4, true)).toBe(0);
     expect(presence(4.5, 5, true)).toBe(1);
+  });
+});
+
+describe('scrollForProgress', () => {
+  const edges = Array.from({ length: 8 }, (_, i) => i * 900);
+
+  it('is the inverse of progressFromEdges', () => {
+    for (const progress of [0, 0.5, 1, 2.25, 5.9, LAST_STOP]) {
+      expect(progressFromEdges(scrollForProgress(progress, edges), edges)).toBeCloseTo(progress);
+    }
+    const uneven = [100, 1100, 1600, 2600];
+    expect(scrollForProgress(1.5, uneven)).toBe(1350);
+  });
+
+  it('clamps outside the tour', () => {
+    expect(scrollForProgress(-1, edges)).toBe(0);
+    expect(scrollForProgress(99, edges)).toBe(scrollForProgress(LAST_STOP, edges));
+    expect(scrollForProgress(1, [])).toBe(0);
   });
 });

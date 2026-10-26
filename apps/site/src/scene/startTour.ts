@@ -4,6 +4,8 @@
  * starts the 3D island on desktop class devices once the page has loaded.
  * No three.js imports; the island comes in through a dynamic import.
  */
+import { TOUR } from '../content/copy';
+import { startBridge } from './bridge';
 import { LAST_STOP, nearestStop, presence, smoothstep } from './progress';
 import { trackTour } from './scroll';
 import {
@@ -87,13 +89,26 @@ export function startTour(tour: HTMLElement): void {
     );
   }
 
-  // ?poster forces the poster version; ?capture=stops|mobile renders bare
-  // frames for the poster script, whatever the device and its settings.
+  // Inside Maquette's Page view its scrubber drives the tour.
+  startBridge({
+    stops: [{ name: 'Hero' }, ...TOUR.map(stop => ({ name: stop.title }))],
+    read: tracker.read,
+    subscribe: tracker.subscribe,
+    goto: (stop, smooth) => tracker.scrollToProgress(stop, smooth && !reduced),
+  });
+
+  // ?poster (or Maquette's ?maquette-poster) forces the poster version;
+  // ?capture=stops|mobile renders bare frames for the poster script,
+  // whatever the device and its settings.
   const params = new URLSearchParams(location.search);
   const capture = params.get('capture');
   if (capture) document.documentElement.classList.add('capture');
   const canvas = tour.querySelector<HTMLElement>('[data-canvas]');
-  const desktop = window.matchMedia(DESKTOP_QUERY).matches && !reduced && !params.has('poster');
+  const desktop =
+    window.matchMedia(DESKTOP_QUERY).matches &&
+    !reduced &&
+    !params.has('poster') &&
+    !params.has('maquette-poster');
   if (!canvas || !(desktop || capture)) return;
 
   let unmount: (() => void) | null = null;

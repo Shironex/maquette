@@ -38,6 +38,21 @@ export function progressFromEdges(y: number, edges: readonly number[]): number {
   return 0;
 }
 
+/**
+ * The scroll position that reaches `progress`, the inverse of
+ * progressFromEdges: the top of its stop's section plus the share of the
+ * section's height the fraction asks for.
+ */
+export function scrollForProgress(progress: number, edges: readonly number[]): number {
+  const last = edges.length - 2;
+  if (last < 0) return 0;
+  const at = clampProgress(progress, Math.max(0, last));
+  const index = Math.min(last, Math.floor(at));
+  const top = edges[index] ?? 0;
+  const height = (edges[index + 1] ?? top) - top;
+  return top + (at - index) * height;
+}
+
 /** The stop the page names as current: the nearest one. */
 export function nearestStop(progress: number, last = LAST_STOP): number {
   return Math.round(clampProgress(progress, last));
