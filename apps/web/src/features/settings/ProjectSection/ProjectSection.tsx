@@ -1,11 +1,12 @@
 import { PathField, TextField, cn } from '@maquette/ui';
 import { Panel } from '@/features/common/Panel';
 import { ACTIVE } from '../sections';
-import { useProjectSection } from './ProjectSection.hooks';
+import { useDevCommand, useProjectSection } from './ProjectSection.hooks';
 import type { ProjectSectionProps } from './ProjectSection.types';
 
 export default function ProjectSection({ active }: ProjectSectionProps) {
   const { project, name, setName, repo, setRepo, save, browse } = useProjectSection();
+  const dev = useDevCommand(project?.id ?? null, project?.siteRepo ?? null);
   if (!project) return null;
 
   return (
@@ -37,6 +38,19 @@ export default function ProjectSection({ active }: ProjectSectionProps) {
           compactBrowse
         />
       </div>
+      <TextField
+        label="Site dev command"
+        value={dev.value}
+        placeholder={dev.placeholder}
+        disabled={!dev.ready}
+        mono
+        hint="The Page view runs it in the site repo. Leave it empty to use what the site names; {port} is the free port Maquette picks."
+        onChange={e => dev.setValue(e.target.value)}
+        onBlur={() => void dev.save()}
+        onKeyDown={e => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+        }}
+      />
     </Panel>
   );
 }

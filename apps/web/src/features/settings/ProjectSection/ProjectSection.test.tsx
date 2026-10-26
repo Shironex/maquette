@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import { commands } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { ProjectSection } from '.';
@@ -27,5 +28,19 @@ describe('the project settings', () => {
     useAppStore.setState({ workspace: { ...workspace, project: null } });
     const { container } = render(<ProjectSection active={false} />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('saves the dev command for the Page view', async () => {
+    await openMockWorkspace();
+    render(<ProjectSection active />);
+    const field = screen.getByRole('textbox', { name: 'Site dev command' });
+    await waitFor(() => expect(field).toBeEnabled());
+    expect(field).toHaveAttribute('placeholder', 'pnpm run dev --port {port}');
+    await userEvent.type(field, 'pnpm exec astro dev --port {{port}{Enter}');
+    await waitFor(async () =>
+      expect((await commands.pageGet('moon-island')).settings.devCommand).toBe(
+        'pnpm exec astro dev --port {port}'
+      )
+    );
   });
 });

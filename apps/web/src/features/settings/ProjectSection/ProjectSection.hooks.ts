@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { commands, errorMessage } from '@/ipc/client';
+import { commands, errorMessage, type PageSettings } from '@/ipc/client';
 import { homePath } from '@/lib/format';
 import { useAppStore } from '@/state/use-app-store';
 
@@ -55,5 +55,62 @@ export function useProjectSection() {
     setRepo,
     save,
     browse,
+  };
+}
+
+/**
+ * The project's own command for the site's dev server, saved with the
+ * page settings. Empty means Maquette reads it from the site, which the
+ * placeholder shows.
+ */
+export function useDevCommand(projectId: string | null, siteRepo: string | null) {
+  const notify = useAppStore(s => s.notify);
+  const [settings, setSettings] = useState<PageSettings | null>(null);
+  const [detected, setDetected] = useState<string | null>(null);
+  const [value, setValue] = useState('');
+
+  useEffect(() => {
+    if (!projectId) return;
+    let live = true;
+    commands
+      .pageGet(projectId)
+      .then(view => {
+        if (!live) return;
+        setSettings(view.settings);
+        setValue(view.settings.devCommand ?? '');
+        setDetected(
+          view.command && view.command.source !== 'settings' ? view.command.argv.join(' ') : null
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [projectId, siteRepo]);
+
+  const save = async () => {
+    if (!projectId || !settings) return;
+    const next = value.trim() || null;
+    if (next === settings.devCommand) return;
+    try {
+      const view = await commands.pageSave(projectId, { ...settings, devCommand: next });
+      setSettings(view.settings);
+      setValue(view.settings.devCommand ?? '');
+    } catch (error) {
+      setValue(settings.devCommand ?? '');
+      notify({
+        status: 'failed',
+        title: 'Could not save the dev command',
+        detail: errorMessage(error),
+      });
+    }
+  };
+
+  return {
+    ready: settings !== null,
+    value,
+    setValue,
+    save,
+    placeholder: detected ?? (siteRepo ? 'Read from the site' : 'Pick the site repo first'),
   };
 }
