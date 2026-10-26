@@ -24,10 +24,20 @@ describe('ShipView', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Ship to Crypt game' })
     ).toBeInTheDocument();
-    expect(screen.getByText(/Run 7 · waiting for you · 6 of/)).toBeInTheDocument();
-    expect(screen.getByText('3 new · 3 replaced · 0 removed')).toBeInTheDocument();
+    expect(screen.getByText(/Run 7 · waiting for you · 5 of/)).toBeInTheDocument();
+    expect(screen.getByText('3 new · 2 replaced · 0 removed')).toBeInTheDocument();
     expect(screen.getByTitle('characters/heroine.glb')).toBeInTheDocument();
     expect(screen.getByText(/Ship never commits/)).toBeInTheDocument();
+  });
+
+  it('says which replaced files are the imported originals and to commit first', async () => {
+    render(<ShipView project="crypt-game" onClose={vi.fn()} />);
+    await screen.findByRole('heading', { level: 1, name: 'Ship to Crypt game' });
+    expect(screen.getAllByText('replaces the imported original')).toHaveLength(2);
+    expect(screen.getByText(/2 replace the imported originals/)).toBeInTheDocument();
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'The game repo has 3 files not committed yet. Commit them first'
+    );
   });
 
   it('approves the ship in the app', async () => {
@@ -49,6 +59,7 @@ describe('ShipView', () => {
         beforeTriangles: 14_600,
         asset: 'brazier',
         blocked: false,
+        imported: true,
       })
     ).toEqual({ size: '1.2 MB → 910 KB', model: '14.6k → 11.8k tris' });
   });

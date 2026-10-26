@@ -1,6 +1,6 @@
 import { Button, EmptyState, Icon, cn } from '@maquette/ui';
 import type { ShipFile } from '@/ipc/client';
-import { shipCounts } from '@/state/game';
+import { commitFirstLine, originalsLine, shipCounts } from '@/state/game';
 import { shipCells, splitPath, useShipView } from './ShipView.hooks';
 
 export interface ShipViewProps {
@@ -77,12 +77,22 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
     approval ? `Run ${approval.runNumber} · waiting for you` : 'What the next Ship changes',
     `${changing} of ${total} files change`,
   ].join(' · ');
-  const rows = (files: ShipFile[], why?: string) =>
-    files.map(f => <FileRow key={f.path} file={f} why={why} />);
-  const added = rows(groups.added, 'new to the game');
-  const replaced = rows(groups.replaced, 'budget fix-ups');
+  const rows = (files: ShipFile[], why?: (f: ShipFile) => string) =>
+    files.map(f => <FileRow key={f.path} file={f} why={why?.(f)} />);
+  const added = rows(groups.added, () => 'new to the game');
+  const replaced = rows(groups.replaced, f =>
+    f.imported ? 'replaces the imported original' : 'budget fix-ups'
+  );
   const unchangedRows = rows(unchanged);
-  const blocked = rows(groups.blocked, 'left alone');
+  const blocked = rows(groups.blocked, () => 'left alone');
+  const originals = originalsLine(groups);
+  const commitFirst = commitFirstLine(plan);
+  const commitNote = commitFirst ? (
+    <p role="note" className="flex gap-1.5 text-meta text-amber">
+      <Icon name="git-branch" size={14} className="mt-0.5 flex-none" />
+      {commitFirst}
+    </p>
+  ) : null;
   const handMade = rows(groups.handMade);
   const more = groups.unchanged.length - UNCHANGED_SHOWN;
   const filesWord = changing === 1 ? 'file' : 'files';
@@ -121,9 +131,9 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
               <colgroup>
                 <col className="w-7" />
                 <col />
-                <col className="w-[170px]" />
-                <col className="w-[150px]" />
+                <col className="w-[160px]" />
                 <col className="w-[130px]" />
+                <col className="w-[200px]" />
               </colgroup>
               <thead className="sr-only">
                 <tr>
@@ -139,7 +149,7 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
               </Group>
               <Group
                 title="Replaced"
-                note="Maquette wrote these before"
+                note="Maquette wrote or imported these before"
                 count={groups.replaced.length}
               >
                 {replaced}
@@ -200,8 +210,14 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
             </div>
             <ul className="m-0 flex list-none flex-col gap-1 p-0 text-meta">
               <li>{shipCounts(groups)}</li>
+              {originals ? (
+                <li className="text-amber">
+                  {originals}: the game&apos;s own files as they were before Maquette.
+                </li>
+              ) : null}
               <li className="text-fg-mute">Hand made files stay as they are.</li>
             </ul>
+            {commitNote}
             <div className="flex justify-end gap-2">
               <Button variant="secondary" disabled={deciding} onClick={() => void answer(false)}>
                 Deny
@@ -235,6 +251,7 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
           <p className="text-meta text-fg-dim">
             Ship never commits. Review the change in git and commit it yourself.
           </p>
+          {approval ? null : commitNote}
         </section>
         <section className="flex flex-col gap-2 rounded-card border border-line bg-panel p-3.5">
           <h2 className="text-[13px] font-semibold">Checks before Ship</h2>

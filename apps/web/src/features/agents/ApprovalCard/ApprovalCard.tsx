@@ -11,7 +11,7 @@ export interface ApprovalCardProps {
 }
 
 export default function ApprovalCard({ approval, floating }: ApprovalCardProps) {
-  const { decide, deciding, site, now, cost } = useApprovalCard(approval);
+  const { decide, deciding, site, now, cost, notes } = useApprovalCard(approval);
   const titleId = `${approval.id}-title`;
   const send = approval.kind === 'send-to-3d';
   const items = approval.items.map(item => (
@@ -28,6 +28,7 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
       ) : null}
     </li>
   ));
+  const noteItems = notes.map(note => <li key={note}>{note}</li>);
   return (
     <section
       role="alertdialog"
@@ -78,6 +79,11 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
         <p className="ml-11 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 text-meta text-fg-dim">
           {approval.detail}
         </p>
+      ) : null}
+      {notes.length > 0 ? (
+        <ul className="m-0 ml-11 flex list-none flex-col gap-1 p-0 text-meta text-amber">
+          {noteItems}
+        </ul>
       ) : null}
       <div className="flex justify-end gap-2">
         <Button

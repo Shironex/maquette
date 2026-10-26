@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { clearMocks } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAgentsStore } from '@/state/use-agents-store';
+import { openMockGame } from '@/test/mock-ipc';
 import { openAgentSession } from '../openAgentSession';
 import { ApprovalCard } from '.';
 
@@ -33,5 +34,18 @@ describe('an approval card', () => {
     const card = screen.getByRole('alertdialog');
     expect(card).toHaveTextContent('Everything before Ship is done');
     expect(within(card).getByRole('button', { name: 'Approve and ship' })).toBeEnabled();
+  });
+
+  it('says a game ship replaces the imported originals and to commit first', async () => {
+    await openMockGame('crypt');
+    await useAgentsStore.getState().load();
+    const ship = useAgentsStore.getState().status!.approvals.find(a => a.project === 'crypt-game')!;
+    render(<ApprovalCard approval={ship} />);
+    const card = screen.getByRole('alertdialog');
+    expect(await within(card).findByText('2 replace the imported originals')).toBeInTheDocument();
+    expect(card).toHaveTextContent(
+      'The game repo has 3 files not committed yet. Commit them first, so the Ship change is ' +
+        'easy to review and undo.'
+    );
   });
 });
