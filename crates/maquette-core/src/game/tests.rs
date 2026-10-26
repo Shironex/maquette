@@ -506,7 +506,7 @@ fn saved_settings_are_checked_and_budget_fixups_bring_a_model_within_its_folder(
         .find(|b| b.folder == "props")
         .expect("props");
     props.triangles = 100;
-    let saved = save_settings(
+    let first = save_settings(
         &ws.root,
         &ws.config.layout,
         &manifest.id,
@@ -517,6 +517,7 @@ fn saved_settings_are_checked_and_budget_fixups_bring_a_model_within_its_folder(
         },
     )
     .expect("save");
+    assert_eq!(first.game.as_ref().map(|g| g.bake), Some(true));
     let project_dir = project::dir(&ws.root, &ws.config.layout, &manifest.id).expect("dir");
     let def = crate::pipeline::load(&project_dir)
         .expect("load")
