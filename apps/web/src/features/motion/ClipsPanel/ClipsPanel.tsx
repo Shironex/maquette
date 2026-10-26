@@ -27,27 +27,31 @@ export default function ClipsPanel() {
         title={row.clip.name}
         className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
       >
-        <Icon name="film-strip" size={14} className="flex-none text-fg-mute" />
-        <span
-          className={cn(
-            'min-w-0 flex-1 truncate text-[13px] leading-[18px] font-semibold',
-            !row.ship && 'text-fg-dim'
-          )}
-        >
-          {row.clip.name}
-        </span>
-        {row.over ? (
+        <Icon name="film-strip" size={14} className="flex-none self-start pt-0.5 text-fg-mute" />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span
-            title="Leaving it off brings the scene within its budget"
-            className="inline-flex flex-none items-center gap-1 rounded-pill bg-danger-soft px-1.5 text-[11.5px] leading-5 text-danger"
+            className={cn(
+              'truncate text-[13px] leading-[18px] font-semibold',
+              !row.ship && 'text-fg-dim'
+            )}
           >
-            <Icon name="x-circle" size={12} />
-            Over
+            {row.clip.name}
           </span>
-        ) : (
-          <span className="flex-none font-mono text-[11.5px] text-fg-mute">{row.meta}</span>
-        )}
-        <span className="flex-none font-mono text-[11.5px] text-fg">{row.size}</span>
+          <span className="flex items-center gap-2 font-mono text-[11.5px] leading-4">
+            {row.over ? (
+              <span
+                title="Leaving it off brings the scene within its budget"
+                className="inline-flex flex-none items-center gap-1 rounded-pill bg-danger-soft px-1.5 font-sans leading-4 text-danger"
+              >
+                <Icon name="x-circle" size={12} />
+                Over
+              </span>
+            ) : (
+              <span className="text-fg-mute">{row.meta}</span>
+            )}
+            <span className="ml-auto text-fg">{row.size}</span>
+          </span>
+        </span>
       </button>
       {panel.game ? null : (
         <Toggle

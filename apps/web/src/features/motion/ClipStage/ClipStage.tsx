@@ -37,6 +37,7 @@ export default function ClipStage() {
             options={clipOptions}
             value={clip?.name ?? ''}
             onChange={stage.selectClip}
+            title={clip?.name}
             fieldClassName="w-[150px]"
           />
         ) : (
