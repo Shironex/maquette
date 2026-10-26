@@ -1,13 +1,40 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useAppStore } from '@/state/use-app-store';
 import { useMotionStore } from '@/state/use-motion-store';
-import { clearMocks, openMotion } from '@/test/open-motion';
+import { clearMocks, openGameMotion, openMotion } from '@/test/open-motion';
 import ClipsPanel from './ClipsPanel';
 
 vi.mock('@react-three/fiber', () => import('@/test/fake-fiber'));
 
 afterEach(() => clearMocks());
+
+describe('the clips panel in a game', () => {
+  it('shows every clip name in full, with no scene budget or ship switches', async () => {
+    await openGameMotion();
+    render(<ClipsPanel />);
+    expect(screen.getByText('Clips · 187')).toBeInTheDocument();
+    const name = 'Combat_Run_Forward_Combat_Stance_01';
+    const row = screen.getByRole('button', { name: new RegExp(name) });
+    expect(row).toHaveAttribute('title', name);
+    expect(within(row).getByText(name)).toHaveClass('truncate');
+    expect(screen.queryByText('Over')).toBeNull();
+    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByText(/scene/i)).toBeNull();
+    expect(screen.getByText(/Game export keeps every clip in the model file/)).toBeInTheDocument();
+  });
+
+  it('finds clips by the words of their names', async () => {
+    await openGameMotion();
+    render(<ClipsPanel />);
+    const search = screen.getByRole('searchbox', { name: 'Search clips' });
+    fireEvent.change(search, { target: { value: 'combat_parry overhead 02' } });
+    expect(screen.getByText('Clips · 1 of 187')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Combat_Parry_Riposte_Overhead_02/ })).toBeVisible();
+    fireEvent.change(search, { target: { value: 'nothing like it' } });
+    expect(screen.getByText('No clip name has all of those words.')).toBeInTheDocument();
+  });
+});
 
 describe('the clips panel', () => {
   it('lists the clips with their ship switches and the rig check', async () => {

@@ -1,16 +1,16 @@
-import { Button, Icon, InlineBanner, Toggle, cn } from '@maquette/ui';
+import { Button, Icon, InlineBanner, TextField, Toggle, cn } from '@maquette/ui';
 import { Menu } from '@/features/common/Menu';
 import { SectionLabel } from '@/features/common/SectionLabel';
 import { BoneMapDialog } from '../BoneMapDialog';
 import { ClipDetails } from '../ClipDetails';
 import { OverBudget } from '../OverBudget';
 import { RigCheck } from '../RigCheck';
-import { useClipsPanel } from './ClipsPanel.hooks';
+import { SEARCH_FROM, useClipsPanel } from './ClipsPanel.hooks';
 
 /** The selected model's clips, what ships, the clip's numbers and the rig check. */
 export default function ClipsPanel() {
   const panel = useClipsPanel();
-  const { model, rows } = panel;
+  const { model, rows, total } = panel;
   if (!model) return null;
   const clipRows = rows.map(row => (
     <div
@@ -24,36 +24,39 @@ export default function ClipsPanel() {
         type="button"
         aria-pressed={row.clip.name === panel.selected}
         onClick={() => panel.selectClip(row.clip.name)}
+        title={row.clip.name}
         className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
       >
         <Icon name="film-strip" size={14} className="flex-none text-fg-mute" />
+        <span
+          className={cn(
+            'min-w-0 flex-1 truncate text-[13px] leading-[18px] font-semibold',
+            !row.ship && 'text-fg-dim'
+          )}
+        >
+          {row.clip.name}
+        </span>
         {row.over ? (
-          <span className="inline-flex flex-none items-center gap-1 rounded-pill bg-danger-soft px-1.5 text-[11.5px] leading-5 text-danger">
+          <span
+            title="Leaving it off brings the scene within its budget"
+            className="inline-flex flex-none items-center gap-1 rounded-pill bg-danger-soft px-1.5 text-[11.5px] leading-5 text-danger"
+          >
             <Icon name="x-circle" size={12} />
-            Over budget
-            <span className="sr-only">: {row.clip.name}</span>
+            Over
           </span>
         ) : (
-          <span
-            className={cn(
-              'min-w-0 truncate text-[13px] leading-[18px] font-semibold',
-              !row.ship && 'text-fg-dim'
-            )}
-          >
-            {row.clip.name}
-          </span>
+          <span className="flex-none font-mono text-[11.5px] text-fg-mute">{row.meta}</span>
         )}
-        <span className="ml-auto min-w-0 truncate font-mono text-[11.5px] text-fg-mute">
-          {row.meta}
-        </span>
         <span className="flex-none font-mono text-[11.5px] text-fg">{row.size}</span>
       </button>
-      <Toggle
-        aria-label={`Ship ${row.clip.name}`}
-        checked={row.ship}
-        disabled={!panel.supported}
-        onChange={ship => panel.setShip(row.clip.name, ship)}
-      />
+      {panel.game ? null : (
+        <Toggle
+          aria-label={`Ship ${row.clip.name}`}
+          checked={row.ship}
+          disabled={!panel.supported}
+          onChange={ship => panel.setShip(row.clip.name, ship)}
+        />
+      )}
     </div>
   ));
   return (
@@ -62,7 +65,9 @@ export default function ClipsPanel() {
       className="flex w-[344px] flex-none flex-col gap-3.5 overflow-y-auto border-l border-line bg-panel p-4"
     >
       <div className="relative flex items-center justify-between gap-2">
-        <SectionLabel>Clips · {rows.length}</SectionLabel>
+        <SectionLabel>
+          Clips · {rows.length === total ? total : `${rows.length} of ${total}`}
+        </SectionLabel>
         <Button
           size="sm"
           icon="plus"
@@ -102,14 +107,34 @@ export default function ClipsPanel() {
           />
         ) : null}
       </div>
-      {rows.length === 0 ? (
+      {total >= SEARCH_FROM ? (
+        <TextField
+          type="search"
+          icon="magnifying-glass"
+          aria-label="Search clips"
+          placeholder="Search clips by name"
+          value={panel.query}
+          maxLength={120}
+          onChange={e => panel.setQuery(e.target.value)}
+        />
+      ) : null}
+      {total === 0 ? (
         <p className="-mt-1.5 text-meta text-fg-mute">
-          Clips you add show here with their length and what they weigh on the site.
+          Clips you add show here with their length and what they weigh{' '}
+          {panel.game ? 'in the model' : 'on the site'}.
         </p>
+      ) : rows.length === 0 ? (
+        <p className="-mt-1.5 text-meta text-fg-mute">No clip name has all of those words.</p>
       ) : (
         <div className="flex flex-col gap-1.5">{clipRows}</div>
       )}
-      {rows.length > 0 && !panel.supported ? (
+      {panel.gameNote ? (
+        <p className="text-meta text-fg-mute">
+          Game export keeps every clip in the model file, so each one ships with it. Clips count
+          toward no budget here; the model&apos;s folder budget checks triangles and textures.
+        </p>
+      ) : null}
+      {panel.oldStarters ? (
         <InlineBanner
           tone="warning"
           title="Every clip ships for now"
@@ -121,7 +146,7 @@ export default function ClipsPanel() {
           }
         />
       ) : null}
-      {panel.over ? <OverBudget /> : rows.length > 0 ? <ClipDetails /> : null}
+      {panel.over ? <OverBudget /> : total > 0 ? <ClipDetails /> : null}
       <RigCheck />
       <BoneMapDialog />
     </aside>

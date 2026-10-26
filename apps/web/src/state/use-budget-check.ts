@@ -7,3 +7,8 @@ export function useBudgetCheck(asset: Asset): BudgetCheck | null {
   const game = useAppStore(s => gameOf(s.workspace?.project));
   return game ? checkAsset(game, asset) : null;
 }
+
+/** True while the open project is a game: its views drop the website's scene budget. */
+export function useIsGame(): boolean {
+  return useAppStore(s => gameOf(s.workspace?.project) !== null);
+}

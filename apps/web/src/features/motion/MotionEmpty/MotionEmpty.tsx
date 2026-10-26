@@ -19,10 +19,27 @@ const STEPS = [
   },
 ];
 
+/** A game has no states: its models move by their own clips. */
+const GAME_STEPS = [
+  {
+    title: 'Import a rigged model',
+    detail:
+      "Import models on the Board brings in the game's characters with their bones and clips.",
+  },
+  {
+    title: 'Or send a character to 3D with rigging on',
+    detail: 'The Inbox checks its bones before it reaches Blender.',
+  },
+  {
+    title: 'Ship it to the game',
+    detail: 'Game export keeps the rig and every clip in the model file.',
+  },
+];
+
 /** Nothing in the project moves yet: what makes a model show here. */
 export default function MotionEmpty() {
-  const { name, count, suggestion } = useMotionEmpty();
-  const steps = STEPS.map((step, i) => (
+  const { name, count, suggestion, game } = useMotionEmpty();
+  const steps = (game ? GAME_STEPS : STEPS).map((step, i) => (
     <li key={step.title} className="flex items-start gap-3 border-t border-line py-3">
       <span className="grid size-6 flex-none place-items-center rounded-full border-[1.5px] border-line-strong font-mono text-[11.5px] font-semibold text-fg-dim">
         {i + 1}
@@ -39,8 +56,8 @@ export default function MotionEmpty() {
         <Icon name="person-simple-walk" size={28} className="text-fg-dim" />
         <h1 className="mt-3.5 text-screen-title">Nothing in {name} moves yet</h1>
         <p className="mt-1.5 text-[14px] leading-[21px] text-fg-dim">
-          Motion lists the models that carry a rig, clips or states. {name} has {count}{' '}
-          {count === 1 ? 'model' : 'models'} and none of them do.
+          Motion lists the models that carry a rig, clips{game ? '' : ' or states'}. {name} has{' '}
+          {count} {count === 1 ? 'model' : 'models'} and none of them do.
         </p>
         <ol className="mt-[22px]">{steps}</ol>
         {suggestion ? (

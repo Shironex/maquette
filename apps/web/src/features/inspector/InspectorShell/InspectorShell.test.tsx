@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '@/state/use-app-store';
-import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
+import { SceneBudgetMeter } from '@/features/common/SceneBudgetMeter';
+import { clearMocks, openMockGame, openMockWorkspace } from '@/test/mock-ipc';
 import InspectorShell from './InspectorShell';
 
 afterEach(() => clearMocks());
@@ -23,5 +24,19 @@ describe('the Inspector shell', () => {
     useAppStore.setState({ workspace: null });
     render(<InspectorShell>page</InspectorShell>);
     expect(screen.getByRole('heading', { name: 'Inspector' })).toBeInTheDocument();
+  });
+
+  it('shows a game the model budget and the Export stage', async () => {
+    await openMockGame('hero');
+    render(
+      <InspectorShell right={<SceneBudgetMeter value={12} target={8} />}>
+        <main>page</main>
+      </InspectorShell>
+    );
+    expect(
+      screen.getByRole('meter', { name: /^Model budget, \d+ of \d+ models over$/ })
+    ).toBeVisible();
+    expect(screen.getByText('Export')).toBeInTheDocument();
+    expect(screen.queryByText('Web')).toBeNull();
   });
 });

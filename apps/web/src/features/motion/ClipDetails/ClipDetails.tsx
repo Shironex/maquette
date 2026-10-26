@@ -9,10 +9,10 @@ export default function ClipDetails() {
   return (
     <section aria-label="Clip details" className="flex flex-col gap-3 border-t border-line pt-3.5">
       <div className="flex items-center justify-between gap-2">
-        <SectionLabel className="truncate">{details.clip.name}</SectionLabel>
-        <span className="flex-none text-meta text-fg-mute">
-          {details.off ? 'kept off the site' : `ships as ${details.clip.name}`}
+        <span className="min-w-0 truncate" title={details.clip.name}>
+          <SectionLabel className="truncate">{details.clip.name}</SectionLabel>
         </span>
+        <span className="flex-none text-meta text-fg-mute">{details.status}</span>
       </div>
       <KeyValueList items={details.items} />
       <p className="text-meta text-fg-mute">

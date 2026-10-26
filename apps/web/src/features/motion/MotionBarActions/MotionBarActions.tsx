@@ -1,14 +1,18 @@
 import { BudgetMeter, Button, Tooltip } from '@maquette/ui';
+import { ModelBudgetMeter } from '@/features/common/ModelBudgetMeter';
 import { KEYS } from '@/lib/keys';
 import { useMotionBarActions } from './MotionBarActions.hooks';
 
 /**
  * The scene budget, Revert and Save motion, for the top bar. Motion has no
  * budget of its own: clips are bytes inside the models, so the meter is the
- * scene's, with the draft's clip choices in it.
+ * scene's, with the draft's clip choices in it. A game has no scene total
+ * and nothing here to save: its bar shows the models against their folder
+ * budgets, as the other views do.
  */
 export default function MotionBarActions() {
-  const { view, line, tip, saving, save, revert, dirty } = useMotionBarActions();
+  const { view, line, tip, saving, save, revert, dirty, models } = useMotionBarActions();
+  if (models) return <ModelBudgetMeter summary={models} />;
   return (
     <>
       <Tooltip label={tip} wrap side="bottom">

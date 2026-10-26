@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { moves } from '@/state/motion';
 import { stageViews } from '@/state/pipeline';
 import { useAppStore } from '@/state/use-app-store';
+import { isGame } from '@/state/game';
 import { useMotionStore } from '@/state/use-motion-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 
@@ -28,14 +29,15 @@ export function useMotionView() {
   const model = current?.models.find(m => m.asset === asset) ?? null;
   return {
     project,
-    stages: stageViews(project?.assets ?? [], latest),
+    stages: stageViews(project?.assets ?? [], latest, project?.target),
     view: current,
     loading,
     error,
     retry: () => (projectId ? void load(projectId) : undefined),
     moving: current ? current.models.filter(m => moves(m, draft)).length : 0,
     model,
-    tab,
+    // A game has no States tab.
+    tab: isGame(project) ? 'clips' : tab,
     hasStates: Boolean(model && draft.states[model.asset]),
   };
 }

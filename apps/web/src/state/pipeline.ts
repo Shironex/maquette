@@ -233,7 +233,8 @@ const STAGE_LABEL: Record<Stage, string> = {
 export function stageViews(
   assets: readonly Asset[],
   run: RunRecord | undefined,
-  target?: ProjectTarget
+  /** Required, so no view shows a game the website stage names. */
+  target: ProjectTarget | undefined
 ): StageView[] {
   const labels = stageLabels(target);
   const furthest = assets.reduce((max, a) => Math.max(max, STAGE_ORDER.indexOf(a.stage)), 0);

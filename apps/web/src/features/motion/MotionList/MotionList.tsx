@@ -36,7 +36,10 @@ function Row({ row, current, onSelect }: { row: ListRow; current: boolean; onSel
         <span className="truncate font-mono text-[11.5px] leading-4 text-fg-mute">{row.line}</span>
       </span>
       {row.over ? (
-        <span className="flex flex-none items-center gap-1 rounded-pill bg-danger-soft px-2 text-[11.5px] leading-5 text-danger">
+        <span
+          title={row.overWhy}
+          className="flex flex-none items-center gap-1 rounded-pill bg-danger-soft px-2 text-[11.5px] leading-5 text-danger"
+        >
           <Icon name="x-circle" size={12} />
           Over
         </span>

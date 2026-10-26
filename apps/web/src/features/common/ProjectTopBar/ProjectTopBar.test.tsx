@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '@/state/use-app-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
-import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
+import { clearMocks, openMockGame, openMockWorkspace } from '@/test/mock-ipc';
 import { ProjectTopBar } from '.';
 import { tooltipText } from '@/test/tooltipText';
 
@@ -31,6 +31,18 @@ describe('the project top bar', () => {
     await userEvent.click(run);
     expect(useAppStore.getState().view).toBe('pipeline');
     expect(await screen.findByRole('button', { name: 'Run in progress' })).toBeVisible();
+  });
+
+  it('shows a game the model budget and its stages, as the Board and Lab', async () => {
+    await openMockGame('hero');
+    render(<ProjectTopBar />);
+    expect(
+      screen.getByRole('meter', { name: /^Model budget, \d+ of \d+ models over$/ })
+    ).toBeVisible();
+    for (const label of ['Concept', 'Refs', 'Tripo', 'Blender', 'Export', 'Ship']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.queryByText('Web')).toBeNull();
   });
 
   it('shows the view action beside Run pipeline', async () => {

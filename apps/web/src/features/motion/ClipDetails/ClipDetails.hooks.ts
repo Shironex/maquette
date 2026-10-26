@@ -2,6 +2,7 @@ import type { KeyValueItem } from '@maquette/ui';
 import type { Clip } from '@/ipc/client';
 import { formatBytes } from '@/lib/format';
 import { isOff, n } from '@/state/motion';
+import { useIsGame } from '@/state/use-budget-check';
 import { currentClip, useMotionStore } from '@/state/use-motion-store';
 
 /** "Root motion, 1.42 m", "In place" or unknown for a packed clip. */
@@ -21,6 +22,7 @@ export function useClipDetails() {
   const clip = useMotionStore(currentClip);
   const asset = useMotionStore(s => s.asset);
   const draft = useMotionStore(s => s.draft);
+  const game = useIsGame();
   if (!clip || !asset) return null;
   const shipped = clip.shippedBytes;
   const items: KeyValueItem[] = [
@@ -32,10 +34,12 @@ export function useClipDetails() {
     { label: 'Loop', value: loopText(clip) },
     { label: 'In the source', value: formatBytes(n(clip.bytes)), mono: true },
     {
-      label: 'On the site',
+      label: game ? 'In the export' : 'On the site',
       value: shipped === null ? 'After the next run' : formatBytes(shipped),
       mono: true,
     },
   ];
-  return { clip, items, off: isOff(draft, asset, clip.name) };
+  const off = !game && isOff(draft, asset, clip.name);
+  const status = off ? 'kept off the site' : game ? 'ships in the model' : `ships as ${clip.name}`;
+  return { clip, items, off, status };
 }

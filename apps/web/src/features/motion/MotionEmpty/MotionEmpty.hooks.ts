@@ -1,6 +1,7 @@
 import { fileUrl } from '@/ipc/files';
 import { projectFile } from '@/state/board';
 import { useAppStore } from '@/state/use-app-store';
+import { isGame } from '@/state/game';
 import { useMotionStore } from '@/state/use-motion-store';
 
 /** The project's name and size, and the prop with the most parts, worth giving states. */
@@ -17,6 +18,11 @@ export function useMotionEmpty() {
   return {
     name: workspace?.project?.name ?? 'This project',
     count: models.length,
-    suggestion: prop ? { model: prop, thumb, give: () => giveStates(prop.asset) } : null,
+    game: isGame(workspace?.project),
+    // States are a website's: a game gets no prop to give them to.
+    suggestion:
+      prop && !isGame(workspace?.project)
+        ? { model: prop, thumb, give: () => giveStates(prop.asset) }
+        : null,
   };
 }

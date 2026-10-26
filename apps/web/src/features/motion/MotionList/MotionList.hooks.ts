@@ -3,6 +3,7 @@ import type { MotionModel } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { formatBytes } from '@/lib/format';
 import { projectFile } from '@/state/board';
+import { gameOf, isOver } from '@/state/game';
 import {
   STILL_ROWS,
   clipsToFit,
@@ -19,10 +20,12 @@ import { useMotionStore } from '@/state/use-motion-store';
 export interface ListRow {
   model: MotionModel;
   line: string;
-  /** What the model weighs on the page with the draft's clips. */
+  /** What the model weighs with the draft's clips. */
   size: string;
   thumb: string | null;
   over: boolean;
+  /** What the Over badge means, as its tooltip says it. */
+  overWhy: string;
 }
 
 /** The models that move and the ones that do not yet, filtered, with the selection. */
@@ -36,8 +39,16 @@ export function useMotionList() {
   const select = useMotionStore(s => s.select);
   const [expanded, setExpanded] = useState(false);
   const models = view?.models ?? [];
-  // Over marks the models whose clips would have to stay off for the scene to fit.
-  const fit = view ? clipsToFit(view, draft) : [];
+  const game = gameOf(workspace?.project);
+  // Over marks the models whose clips would have to stay off for the scene to fit;
+  // in a game, the models over their folder's budget.
+  const fit = view && !game ? clipsToFit(view, draft) : [];
+  const assets = workspace?.project?.assets ?? [];
+  const over = (model: MotionModel) => {
+    if (!game) return fit.some(f => f.model.asset === model.asset);
+    const asset = assets.find(a => a.id === model.asset);
+    return asset ? isOver(game, asset) : false;
+  };
   const row = (model: MotionModel): ListRow => {
     const bytes = n(model.bytes) - (n(model.motionBytes) - shippedMotion(model, draft));
     const path = model.thumbnail && workspace ? projectFile(workspace, model.thumbnail) : null;
@@ -46,7 +57,10 @@ export function useMotionList() {
       line: modelLine(model, draft),
       size: formatBytes(bytes),
       thumb: fileUrl(path),
-      over: fit.some(f => f.model.asset === model.asset),
+      over: over(model),
+      overWhy: game
+        ? "Over its folder's budget: see the Inspector's Budget tab"
+        : 'Its clips would have to stay off for the scene to fit its budget',
     };
   };
   const shown = models.filter(m => matchesFilter(m, filter));

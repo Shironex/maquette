@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useMotionStore } from '@/state/use-motion-store';
-import { clearMocks, openMotion } from '@/test/open-motion';
+import { clearMocks, openGameMotion, openMotion } from '@/test/open-motion';
 import MotionView from './MotionView';
 
 vi.mock('@react-three/fiber', () => import('@/test/fake-fiber'));
@@ -22,6 +22,20 @@ describe('the motion view', () => {
     render(<MotionView />);
     expect(await screen.findByRole('complementary', { name: 'State details' })).toBeInTheDocument();
     expect(useMotionStore.getState().tab).toBe('states');
+  });
+
+  it('shows a game the model budget and the game stages, with clips only', async () => {
+    await openGameMotion();
+    render(<MotionView />);
+    expect(
+      await screen.findByRole('meter', { name: /^Model budget, \d+ of \d+ models over$/ })
+    ).toBeVisible();
+    for (const label of ['Concept', 'Refs', 'Tripo', 'Blender', 'Export', 'Ship']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.queryByText('Web')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'States' })).toBeNull();
   });
 
   it('says nothing moves yet in a still project', async () => {

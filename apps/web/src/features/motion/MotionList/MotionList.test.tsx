@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useMotionStore } from '@/state/use-motion-store';
-import { clearMocks, openMotion } from '@/test/open-motion';
+import { clearMocks, openGameMotion, openMotion } from '@/test/open-motion';
 import MotionList from './MotionList';
 
 afterEach(() => clearMocks());
@@ -26,5 +26,16 @@ describe('the motion list', () => {
     await openMotion('over');
     render(<MotionList />);
     expect(screen.getAllByText('Over').length).toBeGreaterThan(0);
+  });
+
+  it("marks a game's characters over their folder budget, not a scene budget", async () => {
+    await openGameMotion();
+    render(<MotionList />);
+    const hero = screen.getByRole('button', { name: /Heroine/ });
+    expect(within(hero).getByText('Over')).toBeInTheDocument();
+    expect(within(hero).getByText('Over').closest('[title]')).toHaveAttribute(
+      'title',
+      "Over its folder's budget: see the Inspector's Budget tab"
+    );
   });
 });

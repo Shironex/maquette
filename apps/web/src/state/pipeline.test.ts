@@ -140,16 +140,23 @@ describe('stageViews', () => {
   const asset = (stage: Asset['stage']) => ({ stage }) as Asset;
 
   it('marks stages up to the furthest asset', () => {
-    const states = stageViews([asset('refs'), asset('blender')], undefined).map(s => s.state);
+    const states = stageViews([asset('refs'), asset('blender')], undefined, 'website').map(
+      s => s.state
+    );
     expect(states).toEqual(['done', 'done', 'done', 'current', 'todo', 'todo']);
   });
 
   it('shows a live or failed run on the Web stage', () => {
-    const running = stageViews([asset('blender')], newRun('running'));
+    const running = stageViews([asset('blender')], newRun('running'), 'website');
     expect(running.find(s => s.id === 'web')!.state).toBe('running');
-    const failed = stageViews([asset('web')], runHistory(NOW)[0]);
+    const failed = stageViews([asset('web')], runHistory(NOW)[0], 'website');
     expect(failed.find(s => s.id === 'web')!.state).toBe('failed');
-    const early = stageViews([asset('concept')], runHistory(NOW)[0]);
+    const early = stageViews([asset('concept')], runHistory(NOW)[0], 'website');
     expect(early.find(s => s.id === 'web')!.state).toBe('todo');
+  });
+
+  it('names the stages of a game, Export in place of Web', () => {
+    const labels = stageViews([asset('blender')], undefined, 'game').map(s => s.label);
+    expect(labels).toEqual(['Concept', 'Refs', 'Tripo', 'Blender', 'Export', 'Ship']);
   });
 });
