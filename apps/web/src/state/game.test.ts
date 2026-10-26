@@ -94,6 +94,7 @@ describe('game projects', () => {
       beforeTriangles: null,
       asset: null,
       blocked,
+      imported: false,
     });
     const plan: ShipPlan = {
       repo: '/game',
@@ -109,6 +110,7 @@ describe('game projects', () => {
       handMade: [file('e.glb', 'hand-made')],
       recordAfter: 3,
       checks: [],
+      uncommitted: null,
     };
     const groups = shipGroups(plan);
     expect(groups.added.map(f => f.path)).toEqual(['a.glb']);

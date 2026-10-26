@@ -85,8 +85,14 @@ export function checkAsset(settings: GameSettings, asset: Asset): BudgetCheck | 
     maxTriangles: budget.triangles,
     texture: stats.maxTexture,
     maxTexture: budget.texture,
+    rigged: stats.joints > 0,
     problems,
   };
+}
+
+/** The asset is over its folder's budget. */
+export function isOver(settings: GameSettings, asset: Asset): boolean {
+  return (checkAsset(settings, asset)?.problems.length ?? 0) > 0;
 }
 
 export interface BudgetSummary {
@@ -99,10 +105,7 @@ export function budgetSummary(project: ProjectManifest | null | undefined): Budg
   const settings = gameOf(project);
   if (!settings || !project) return null;
   const checked = (project.assets ?? []).filter(a => checkAsset(settings, a));
-  return {
-    models: checked.length,
-    over: checked.filter(a => (checkAsset(settings, a)?.problems.length ?? 0) > 0),
-  };
+  return { models: checked.length, over: checked.filter(a => isOver(settings, a)) };
 }
 
 /** "14.6k / 12k", the triangles against the budget. */
@@ -110,11 +113,30 @@ export function trianglesLine(check: BudgetCheck): string {
   return `${formatK(check.triangles)} / ${formatK(check.maxTriangles)}`;
 }
 
-/** The fix-up that brings the model within its budget, as the list names it. */
+/** Why a rigged model over its triangles is not decimated. */
+export const BY_HAND_REASON =
+  'Rigged: reduce by hand. Decimate would tear the skin weights and shape keys.';
+
+/** The model is over its triangles but rigged, so Decimate is not offered. */
+export function needsHand(check: BudgetCheck): boolean {
+  return check.rigged && check.triangles > check.maxTriangles;
+}
+
+/**
+ * The fix-ups "Add the fix-ups" gives the model, as the core's
+ * `fixups_for`: Decimate (never on a rigged model) and Shrink textures.
+ */
+export function autoFixes(check: BudgetCheck): ('Decimate' | 'Shrink')[] {
+  const out: ('Decimate' | 'Shrink')[] = [];
+  if (check.triangles > check.maxTriangles && !check.rigged) out.push('Decimate');
+  if (check.texture > check.maxTexture) out.push('Shrink');
+  return out;
+}
+
+/** What brings the model within its budget, as the list names it. */
 export function fixName(check: BudgetCheck): string | null {
-  if (check.triangles > check.maxTriangles) return 'Decimate';
-  if (check.texture > check.maxTexture) return 'Shrink';
-  return null;
+  if (needsHand(check)) return 'By hand';
+  return autoFixes(check)[0] ?? null;
 }
 
 export interface ShipGroups {
@@ -137,6 +159,26 @@ export function shipGroups(plan: ShipPlan): ShipGroups {
     blocked: plan.files.filter(f => f.blocked),
     handMade: plan.handMade,
   };
+}
+
+/** The replaced files that are still the game's own imported originals. */
+export function importedOriginals(groups: ShipGroups): ShipFile[] {
+  return groups.replaced.filter(f => f.imported);
+}
+
+/** "2 replace the imported originals", or null when none do. */
+export function originalsLine(groups: ShipGroups): string | null {
+  const n = importedOriginals(groups).length;
+  if (!n) return null;
+  return n === 1 ? '1 replaces the imported original' : `${n} replace the imported originals`;
+}
+
+/** The plain line about committing first, when the game repo has changes. */
+export function commitFirstLine(plan: ShipPlan): string | null {
+  const n = plan.uncommitted ?? 0;
+  if (!n) return null;
+  const files = n === 1 ? '1 file' : `${n} files`;
+  return `The game repo has ${files} not committed yet. Commit them first, so the Ship change is easy to review and undo.`;
 }
 
 /** "3 new · 3 replaced · 0 removed". */
