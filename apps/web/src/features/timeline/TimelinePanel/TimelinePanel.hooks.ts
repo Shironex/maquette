@@ -14,7 +14,7 @@ export function useTimelinePanel() {
     site: [
       { label: 'Ships in', value: 'layout.json', mono: true },
       { label: 'Tracks', value: `${lanes} ${lanes === 1 ? 'lane' : 'lanes'}, ${marks} marks` },
-      { label: 'Plays', value: 'Eased between the stops' },
+      { label: 'Plays', value: 'With the scroll' },
       { label: 'Reduced motion', value: 'Shows the posters' },
     ],
   };

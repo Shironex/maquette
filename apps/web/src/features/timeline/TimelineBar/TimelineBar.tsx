@@ -40,10 +40,12 @@ export default function TimelineBar() {
         Reading speed
         <Icon name="caret-down" size={12} className="text-fg-mute" />
       </Button>
-      <span className="ml-1.5 font-mono text-[12px] text-fg" aria-live="off">
+      <span
+        className="ml-1.5 min-w-0 flex-1 truncate font-mono text-[12px] whitespace-nowrap text-fg"
+        aria-live="off"
+      >
         {bar.percent} <span className="text-fg-mute">· {bar.detail}</span>
       </span>
-      <span className="flex-1" />
       <div className="relative">
         <Button
           size="sm"
@@ -59,7 +61,7 @@ export default function TimelineBar() {
             label="Add a track"
             items={bar.items}
             onClose={() => bar.setMenu(false)}
-            className="absolute top-full right-0 z-20 mt-1 w-[240px]"
+            className="absolute right-0 bottom-full z-20 mb-1 w-[240px]"
           />
         ) : null}
       </div>

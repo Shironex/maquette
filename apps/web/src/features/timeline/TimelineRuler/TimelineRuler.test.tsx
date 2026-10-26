@@ -35,4 +35,14 @@ describe('the timeline ruler', () => {
     expect(usePageStore.getState().target).toBe(2);
     expect(usePageStore.getState().smooth).toBe(true);
   });
+
+  it('steps on from the last key while the page has not answered yet', async () => {
+    await openTimeline();
+    render(<TimelineRuler />);
+    const slider = screen.getByRole('slider', { name: 'Playhead' });
+    fireEvent.keyDown(slider, { key: 'PageDown' });
+    fireEvent.keyDown(slider, { key: 'PageDown' });
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    expect(usePageStore.getState().target).toBeCloseTo(0.84);
+  });
 });

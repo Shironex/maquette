@@ -1,4 +1,4 @@
-import type { KeyboardEvent, PointerEvent } from 'react';
+import { useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import { stopPercent, type TimelineUnits } from '@/state/timeline';
 import { placeLine, unitLabel } from '@/state/timeline-checks';
 import { useTimelineStore } from '@/state/use-timeline-store';
@@ -27,6 +27,9 @@ export function rulerTicks(units: TimelineUnits, count: number, scrollMax: numbe
   });
 }
 
+/** How long a key press counts on from where it sent the page, before the page has answered. */
+const ANSWER_MS = 800;
+
 /** The ruler the playhead slides on, and the camera stops under it. */
 export function useTimelineRuler() {
   const stops = useTimelineStore(s => s.view?.stops ?? []);
@@ -40,13 +43,18 @@ export function useTimelineRuler() {
   const scrub = (e: PointerEvent<HTMLDivElement>) => {
     if (e.buttons === 1) seekPercent(percentUnder(e));
   };
+  // Keys pressed in a row step on from the last one, not from the page's lagging answer.
+  const sent = useRef<{ percent: number; at: number } | null>(null);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const last = sent.current;
+    const from = last && performance.now() - last.at < ANSWER_MS ? last.percent : percent;
     const by = { ArrowLeft: -1, ArrowRight: 1, PageUp: -10, PageDown: 10 }[e.key];
-    if (by !== undefined) seekPercent(percent + by);
-    else if (e.key === 'Home') seekPercent(0);
-    else if (e.key === 'End') seekPercent(100);
-    else return;
+    const to = by !== undefined ? from + by : e.key === 'Home' ? 0 : e.key === 'End' ? 100 : null;
+    if (to === null) return;
     e.preventDefault();
+    const next = Math.min(100, Math.max(0, to));
+    sent.current = { percent: next, at: performance.now() };
+    seekPercent(next);
   };
   const effectiveUnits = units === 'pixels' && !scrollMax ? 'percent' : units;
   return {
