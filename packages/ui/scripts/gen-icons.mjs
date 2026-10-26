@@ -61,6 +61,7 @@ export const ICON_NAMES = [
   'folder-open',
   'folder-simple',
   'frame-corners',
+  'game-controller',
   'gauge',
   'gear-six',
   'git-branch',

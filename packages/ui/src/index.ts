@@ -73,7 +73,12 @@ export {
   type ChromeMode,
   type WindowChromeProps,
 } from './components/shell/WindowChrome';
-export { NavRail, type NavRailItem, type NavRailProps } from './components/shell/NavRail';
+export {
+  NavRail,
+  type NavRailItem,
+  type NavRailPlanned,
+  type NavRailProps,
+} from './components/shell/NavRail';
 export { ProjectSwitcher, type ProjectSwitcherProps } from './components/shell/ProjectSwitcher';
 export {
   ProjectMenu,

@@ -14,8 +14,19 @@ export interface NavRailItem<T extends string = string> {
   live?: boolean;
 }
 
+/** A view that is not built yet: shown greyed out, never selectable. */
+export interface NavRailPlanned {
+  id: string;
+  label: string;
+  icon: IconName;
+  /** A short tag after the label, for example "later". */
+  tag?: string;
+}
+
 export interface NavRailProps<T extends string> {
   items: readonly NavRailItem<T>[];
+  /** Views that are not built yet, under a Planned heading. */
+  planned?: readonly NavRailPlanned[];
   /** The bottom item, Settings. */
   footer: NavRailItem<T>;
   value: T;
@@ -104,8 +115,36 @@ function RailLabel<T extends string>({ item }: { item: NavRailItem<T> }) {
   );
 }
 
+function PlannedRow({ item, collapsed }: { item: NavRailPlanned; collapsed?: boolean }) {
+  const label = item.tag ? `${item.label}, ${item.tag}` : item.label;
+  return (
+    <Tooltip label={`${label}: not built yet`} side="right">
+      <div
+        className={cn(
+          'flex h-[34px] w-full items-center gap-2.5 rounded-control px-2.5 font-medium text-fg-mute opacity-70',
+          collapsed && 'justify-center px-0'
+        )}
+      >
+        <Icon name={item.icon} className="text-fg-mute" />
+        <span className="sr-only">{collapsed ? `${label}, ` : ''}not built yet</span>
+        {collapsed ? null : (
+          <>
+            {item.label}
+            {item.tag ? (
+              <span className="ml-auto rounded-pill border border-line px-1.5 text-[11px] leading-[16px] text-fg-mute">
+                {item.tag}
+              </span>
+            ) : null}
+          </>
+        )}
+      </div>
+    </Tooltip>
+  );
+}
+
 export function NavRail<T extends string>({
   items,
+  planned,
   footer,
   value,
   onChange,
@@ -118,6 +157,7 @@ export function NavRail<T extends string>({
   className,
 }: NavRailProps<T>) {
   const toggle = collapsed ? 'Expand the sidebar' : 'Collapse the sidebar';
+  const plannedRows = planned?.map(p => <PlannedRow key={p.id} item={p} collapsed={collapsed} />);
   const itemButtons = items.map(it => (
     <RailButton
       key={it.id}
@@ -151,6 +191,18 @@ export function NavRail<T extends string>({
         </div>
       )}
       {itemButtons}
+      {planned?.length ? (
+        <>
+          {collapsed ? (
+            <div className="mx-2 mt-2 mb-1.5 border-t border-line" />
+          ) : (
+            <div className="px-2 pt-3 pb-1.5 text-caption tracking-[0.06em] text-fg-mute uppercase">
+              Planned
+            </div>
+          )}
+          {plannedRows}
+        </>
+      ) : null}
       <div className="flex-1" />
       <RailButton
         item={footer}
