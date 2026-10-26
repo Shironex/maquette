@@ -133,7 +133,7 @@ export default function PipelineView() {
               <h1 className="text-screen-title">Pipeline runner</h1>
               <p className="mt-0.5 truncate text-fg-mute">{subtitle}</p>
             </div>
-            <FirstViewBar className="mt-0.5 w-56 flex-none" />
+            {game ? null : <FirstViewBar className="mt-0.5 w-56 flex-none" />}
             <Checkbox
               checked={force}
               onChange={setForce}
