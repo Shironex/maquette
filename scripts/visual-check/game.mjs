@@ -2,7 +2,9 @@
  * Game projects' shots for scripts/visual-check.mjs (ONLY=game): New
  * project with the Game target and with a website's check line, the Import
  * models list, the game pipeline with its Game export panel, the per-folder
- * budget, the Ship diff with its approval, and the game project's rail.
+ * budget, the Ship diff with its approval and imported originals, the game
+ * project's rail, Motion with a rigged hero and 187 clips, the Board after
+ * Render previews, and the Budget tab with a rigged model.
  * Mock mode's `?game=` projects stand in for a game repo; nothing is read
  * from or written to a real one.
  */
@@ -48,8 +50,10 @@ export async function gameShots({ open, shot }) {
 
   const run = await open(`${GAME}crypt`, '#/pipeline');
   await run.getByRole('heading', { name: 'Ship to Crypt game' }).waitFor();
-  await run.getByText('3 new · 3 replaced · 0 removed').first().waitFor();
+  await run.getByText('3 new · 2 replaced · 0 removed').first().waitFor();
   await shot(run, 'game-ship-approval');
+  await run.getByText('replaces the imported original').first().scrollIntoViewIfNeeded();
+  await shot(run.getByRole('main'), 'game-ship-originals');
   await run.getByRole('button', { name: 'Back to the runner' }).click();
   await run.getByRole('region', { name: 'Game export' }).waitFor();
   await shot(run, 'game-pipeline');
@@ -63,6 +67,34 @@ export async function gameShots({ open, shot }) {
     .waitFor();
   await shot(budget, 'game-folder-budget');
   await budget.context().close();
+
+  const motion = await open(`${GAME}hero`, '#/motion');
+  await motion.getByRole('button', { name: /Heroine/ }).click();
+  await motion.getByText('Clips · 187').waitFor();
+  await motion.getByRole('meter', { name: /^Model budget/ }).waitFor();
+  await shot(motion, 'game-motion-hero');
+  await motion.getByRole('searchbox', { name: 'Search clips' }).fill('parry overhead');
+  await motion.getByText(/^Clips · \d+ of 187$/).waitFor();
+  await shot(motion, 'game-motion-search');
+  await motion.context().close();
+
+  const board = await open(`${GAME}crypt`, '#/board');
+  const render = board.getByRole('button', { name: /^Render \d+ previews?$/ });
+  await render.click();
+  await render.waitFor({ state: 'detached' });
+  await board.waitForLoadState('networkidle');
+  await shot(board, 'game-board-previews');
+  await board.context().close();
+
+  const rigged = await open(`${GAME}hero`, '#/inspector');
+  await rigged.getByRole('tab', { name: 'Budget' }).click();
+  await rigged
+    .getByRole('button', { name: /^Over budget/ })
+    .first()
+    .click();
+  await rigged.getByText('By hand').first().waitFor();
+  await shot(rigged, 'game-budget-rigged');
+  await rigged.context().close();
 
   const rail = await open(`${GAME}crypt`, '#/board');
   await rail.getByText('Game preview').waitFor();
