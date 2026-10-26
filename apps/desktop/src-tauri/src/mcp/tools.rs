@@ -16,6 +16,7 @@ pub mod credits;
 pub mod handoffs;
 pub mod inbox;
 pub mod materials;
+pub mod motion;
 pub mod picks;
 pub mod prepare;
 pub mod projects;
@@ -87,7 +88,10 @@ with the ones this Maquette ships, and update_starters brings the outdated ones 
 the Pipeline view's Update banner does, for the project named in the call. \
 get_layout reads where each model stands in the scene, the camera stops and the first view \
 budget; set_layout changes them (metres, y up, degrees) and the app updates live; the next \
-run_pipeline rebuilds the scene and its posters from it. copy_asset copies an asset with its refs and \
+run_pipeline rebuilds the scene and its posters from it. set_layout also sets a prop's \
+object states (poses of its parts, transitions and triggers) and whether a model's clips ship. \
+get_motion reads every model's rig, clips and parts and what the clips weigh inside the scene \
+budget. copy_asset copies an asset with its refs and \
 versions to another project. \
 add_built_asset adds a built asset: a model a Blender script in the project makes. Its script \
 and helpers are copied into the project's built/ folder and it builds headless into the asset's \
@@ -163,6 +167,7 @@ impl McpTools {
             hub,
             tool_router: Self::runs_router()
                 + Self::projects_router()
+                + Self::motion_router()
                 + Self::inbox_router()
                 + Self::concepts_router()
                 + Self::concept_jobs_router()

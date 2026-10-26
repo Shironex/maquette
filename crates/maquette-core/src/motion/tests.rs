@@ -244,6 +244,66 @@ fn unknown_parts_are_named_with_their_asset() {
     );
 }
 
+#[test]
+fn saving_motion_keeps_the_layout_and_refuses_unknown_parts() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let manifest = project(dir.path());
+    let mut layout = SceneLayout::default();
+    layout
+        .models
+        .insert("crate".into(), layout::Placement::default());
+    layout::save(dir.path(), &layout).expect("layout");
+    let rest = ObjectState {
+        id: "closed".into(),
+        name: "Closed".into(),
+        parts: BTreeMap::new(),
+    };
+    let mut parts = BTreeMap::new();
+    parts.insert("Crate".to_string(), PartPose::default());
+    let lifted = ObjectState {
+        id: "lifted".into(),
+        name: "Lifted".into(),
+        parts,
+    };
+    let states = BTreeMap::from([(
+        "crate".to_string(),
+        ObjectStates {
+            states: vec![rest, lifted.clone()],
+            ..ObjectStates::default()
+        },
+    )]);
+    let off = BTreeMap::from([("figure".to_string(), vec!["Idle".to_string()])]);
+    save(dir.path(), &manifest, states.clone(), &off).expect("save");
+    let back = layout::load(dir.path()).expect("load");
+    assert!(back.models.contains_key("crate"), "placements stay");
+    assert_eq!(back.states["crate"].states[1], lifted);
+    assert_eq!(layout::states::clips_off(&back, "figure"), ["Idle"]);
+
+    // Clips back on and the states emptied leave nothing behind.
+    let empty = BTreeMap::from([("crate".to_string(), ObjectStates::default())]);
+    save(dir.path(), &manifest, empty, &BTreeMap::new()).expect("save");
+    let back = layout::load(dir.path()).expect("load");
+    assert!(back.states.is_empty() && back.clips.is_empty());
+
+    let mut wrong = states;
+    if let Some(o) = wrong.get_mut("crate") {
+        o.states[1].parts.insert("Lid".into(), PartPose::default());
+    }
+    let err = save(dir.path(), &manifest, wrong, &BTreeMap::new())
+        .expect_err("lid")
+        .to_string();
+    assert!(err.contains("no part named Lid"), "{err}");
+    let err = save(
+        dir.path(),
+        &manifest,
+        BTreeMap::new(),
+        &BTreeMap::from([("nope".to_string(), vec![])]),
+    )
+    .expect_err("nope")
+    .to_string();
+    assert!(err.contains("no model for the asset nope"), "{err}");
+}
+
 /// The Blender made fixtures the mock UI shows, read back headless.
 #[test]
 fn clips_rigs_and_parts_of_models_made_in_blender() {

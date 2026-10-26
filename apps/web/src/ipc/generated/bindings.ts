@@ -64,6 +64,13 @@ export const commands = {
 	 *  stop this layout removes go with it.
 	 */
 	layoutSave: (project: string, layout: SceneLayout) => __TAURI_INVOKE<LayoutView>("layout_save", { project, layout }),
+	motionGet: (project: string) => __TAURI_INVOKE<MotionView>("motion_get", { project }),
+	/**
+	 *  Saves every asset's object states and the clips that stay off the site
+	 *  (asset to clip names), replacing the ones the layout had. The models and
+	 *  camera stops stay as they are.
+	 */
+	motionSave: (project: string, states: { [key in string]: ObjectStates }, clipsOff: { [key in string]: string[] }) => __TAURI_INVOKE<MotionView>("motion_save", { project, states, clipsOff }),
 	materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>("materials_get", { project }),
 	/**
 	 *  Saves the looks of the assets the panel edited (an empty look clears

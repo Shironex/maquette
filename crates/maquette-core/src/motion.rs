@@ -17,6 +17,7 @@
 
 mod clips;
 mod rig;
+mod save;
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -33,6 +34,7 @@ use crate::project::ProjectManifest;
 use crate::workspace::Budgets;
 
 pub use rig::{BoneMap, BoneMatch, Rig, WEB_INFLUENCES};
+pub use save::{check_parts, save, with_motion};
 
 /// The marker of a Build scene script that leaves clips set not to ship
 /// out of the model.

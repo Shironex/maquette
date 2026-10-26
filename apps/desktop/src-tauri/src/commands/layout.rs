@@ -73,6 +73,13 @@ pub(crate) fn patch(
     let project_dir = project::dir(&root, &config.layout, project_id)?;
     let current = layout::load(&project_dir)?;
     let next = layout::apply(&current, patch, &layout::known_assets(&manifest))?;
+    let changed = next
+        .states
+        .iter()
+        .filter(|(asset, _)| patch.states.contains_key(*asset))
+        .map(|(asset, set)| (asset.clone(), set.clone()))
+        .collect();
+    maquette_core::motion::check_parts(&project_dir, &manifest, &changed)?;
     layout::save(&project_dir, &next)?;
     get(session, project_id)
 }

@@ -335,6 +335,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "get_inbox_checks",
             "get_layout",
             "get_material_tweaks",
+            "get_motion",
             "get_pipeline",
             "get_project",
             "get_provider_job",
@@ -895,6 +896,55 @@ async fn agents_lay_out_the_scene_and_copy_assets() {
     assert_eq!(scaled["layout"]["stops"][0]["fov"], json!(30.0));
     assert_eq!(scaled["layout"]["desk"], Value::Null);
 
+    // Object states and clip choices go into the same layout file.
+    let moving = call(
+        &client,
+        "set_layout",
+        json!({
+            "project": project_id,
+            "states": [{
+                "asset": "desk-lamp",
+                "states": [{ "name": "Down" }, { "name": "Raised", "parts": { "Arm": { "rotation": [0.0, 0.0, 40.0] } } }],
+                "transitions": [{ "from": "Down", "to": "Raised", "duration": 0.8, "easing": "ease-out" }],
+                "triggers": [{ "kind": "stop", "to": "Raised", "stop": "concept" }],
+            }],
+            "clips": [{ "asset": "desk-lamp", "clip": "Flicker", "ship": false }],
+        }),
+    )
+    .await;
+    let lamp = &moving["layout"]["states"]["desk-lamp"];
+    assert_eq!(lamp["states"][1]["id"], json!("raised"));
+    assert_eq!(lamp["transitions"][0]["easing"], json!("ease-out"));
+    assert_eq!(lamp["triggers"][0]["stop"], json!("concept"));
+    assert_eq!(
+        moving["layout"]["clips"]["desk-lamp"]["Flicker"]["ship"],
+        json!(false)
+    );
+    assert_eq!(
+        moving["layout"]["models"]["desk-lamp"]["scale"],
+        json!(0.5),
+        "placements stay"
+    );
+    let motion = call(&client, "get_motion", json!({ "project": project_id })).await;
+    assert_eq!(motion["models"][0]["asset"], json!("desk-lamp"));
+    assert_eq!(motion["clipsOff"]["desk-lamp"], json!(["Flicker"]));
+    assert_eq!(
+        motion["states"]["desk-lamp"]["states"][0]["name"],
+        json!("Down")
+    );
+    let cleared = call(
+        &client,
+        "set_layout",
+        json!({
+            "project": project_id,
+            "states": [{ "asset": "desk-lamp", "remove": true }],
+            "clips": [{ "asset": "desk-lamp", "clip": "Flicker", "ship": true }],
+        }),
+    )
+    .await;
+    assert_eq!(cleared["layout"]["states"], json!({}));
+    assert_eq!(cleared["layout"]["clips"], json!({}));
+
     // An unknown asset is refused with the valid ones, and nothing changes.
     let mut params = CallToolRequestParams::new("set_layout".to_string());
     params = params.with_arguments(
@@ -911,7 +961,7 @@ async fn agents_lay_out_the_scene_and_copy_assets() {
     assert_eq!(
         host.layout_changes
             .load(std::sync::atomic::Ordering::SeqCst),
-        2
+        4
     );
 
     let copied = call(

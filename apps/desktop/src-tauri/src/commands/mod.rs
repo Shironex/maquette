@@ -14,6 +14,7 @@ pub mod inspect;
 pub mod lab;
 pub mod layout;
 pub mod materials;
+pub mod motion;
 pub mod pipeline;
 pub mod prepare;
 pub mod project;
