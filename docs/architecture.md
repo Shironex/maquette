@@ -224,19 +224,38 @@ The Page view shows the project's site, or an HTML page concept, with the models
   remount keeps it) and only stops it when it is still the owner, so Preview on site and
   agents keep theirs. Every change emits `PageServerChanged`, which the view, the status bar
   and `use-page-store.ts` follow.
+- **The frame proxy.** `site::preview::frame::FrameProxy`: once the server answers (started or
+  reused), `SitePreview` starts one in front of it on `127.0.0.1` and puts its address in the
+  status's `frame_url`; a stop, a failure or another start drops it, which closes every
+  connection. The next one tries the last port first, so the page keeps its storage. It runs
+  hyper on its own two thread tokio runtime (as the MCP server does) and opens one loopback
+  connection to the dev server per request. It forwards only to that loopback dev server, never
+  elsewhere: a target that is not plain `http` on this machine is refused (the frame then loads
+  `url` directly), the request's own target is cut to its path and query, and only loopback
+  addresses are dialled. `frame/headers.rs` holds what changes: on the way in the hop by hop
+  headers go, `Host` is the dev server's and an `Origin` or `Referer` of the proxy reads as the
+  dev server's (Next server actions and dev origin checks compare them); on the way out the hop
+  by hop headers and `X-Frame-Options` go, `frame-ancestors` leaves `Content-Security-Policy`
+  and `-Report-Only` (a policy without it is left byte for byte, one with nothing else goes),
+  and a `Location` on the dev server points at the proxy. Bodies stream through untouched, and
+  a `101` splices the two upgraded connections (Next, Vite and Astro HMR). The address bar, the
+  status bar and `page_open_in_browser` keep using `url`. The `frame_proxy` example runs one for
+  the visual check.
 - **The frame.** The page loads in an iframe (`features/page/PageFrame`), laid out at the
   device's CSS width and scaled down to fit, with `sandbox` that allows scripts but no top
   navigation or popups and no referrer. An iframe rather than a second native webview: Tauri 2
   child webviews need its `unstable` feature, sit above the DOM so they cannot be scaled, tiled
-  or overlaid, and break the compare board. The CSP's `frame-src` allows `localhost`,
-  `127.0.0.1` and the asset protocol (for a page concept) and nothing else.
+  or overlaid, and break the compare board. The frame loads the server's `frameUrl` (the frame
+  proxy), else its `url`. The CSP's `frame-src` allows `localhost`, `127.0.0.1` (the proxy) and
+  the asset protocol (for a page concept) and nothing else.
 - **The page bridge.** Window messages between the app and the page, all with `maquette: 1`.
   The app says `{ type: "hello" }` once the frame loads (again every 500 ms until the page
   answers) and `{ type: "goto", stop, smooth }` as the scrubber moves (`stop` is fractional);
   the page answers `{ type: "ready", stops: [{ name }], features }`, then `{ type: "at", stop,
 scroll: { top, max } }` as it scrolls and `{ type: "stats", frameMs, p95Ms, drawCalls? }`
   about once a second. The page answers the origin that said hello; the app hears only the
-  frame's own window. `?maquette-poster=1` asks the page for its no WebGL version.
+  frame's own window and posts to `*`, so neither side depends on the page's origin, which is
+  the proxy's. `?maquette-poster=1` asks the page for its no WebGL version.
   `apps/site/src/scene/bridge.ts` is the reference page side.
 - **Numbers.** Readouts come from the page (frame time, draw calls) and from the inspect data:
   the `site` source is the current ship, the `shipped` source this run. Device budgets
