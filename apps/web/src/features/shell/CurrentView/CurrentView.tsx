@@ -2,6 +2,7 @@ import { BoardView } from '@/features/board/BoardView';
 import { InboxView } from '@/features/inbox/InboxView';
 import { LabView } from '@/features/lab/LabView';
 import { InspectorView } from '@/features/inspector/InspectorView';
+import { MotionView } from '@/features/motion/MotionView';
 import { PipelineView } from '@/features/pipeline/PipelineView';
 import { ProviderQueue } from '@/features/providers/ProviderQueue';
 import { SettingsView } from '@/features/settings/SettingsView';
@@ -23,6 +24,8 @@ export default function CurrentView({ view }: CurrentViewProps) {
       return <SettingsView />;
     case 'inspector':
       return <InspectorView />;
+    case 'motion':
+      return <MotionView />;
     default:
       return <PlaceholderView view={view} />;
   }

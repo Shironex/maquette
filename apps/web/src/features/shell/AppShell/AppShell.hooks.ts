@@ -9,6 +9,7 @@ import { useInboxStore } from '@/state/use-inbox-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useLayoutStore } from '@/state/use-layout-store';
 import { useMaterialsStore } from '@/state/use-materials-store';
+import { useMotionStore } from '@/state/use-motion-store';
 import { usePrepareStore } from '@/state/use-prepare-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useDownloadsStore } from '@/state/use-downloads-store';
@@ -173,6 +174,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.layoutChanged.listen(e => {
         void onLayoutChanged(e.payload.project);
         void refreshPipeline(e.payload.project);
+        void useMotionStore.getState().onChanged(e.payload.project);
       }),
       events.inboxChanged.listen(() => void loadInbox()),
       events.conceptUpdate.listen(e => onConcept(e.payload)),
@@ -184,7 +186,10 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.mcpUpdate.listen(e => onAgents(e.payload)),
       events.providerUpdate.listen(e => onProvider(e.payload)),
       events.materialsChanged.listen(e => void loadMaterials(e.payload.project)),
-      events.prepareChanged.listen(e => void reloadPrepare(e.payload.project)),
+      events.prepareChanged.listen(e => {
+        void reloadPrepare(e.payload.project);
+        void useMotionStore.getState().onChanged(e.payload.project);
+      }),
       events.downloadsArrival.listen(e => onArrival(e.payload)),
       events.builtChanged.listen(e => onBuilt(e.payload.project)),
     ];
