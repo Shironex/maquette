@@ -159,11 +159,7 @@ export function createBackend({
     return starters.get(id)!;
   }
 
-  /** The mock runner runs one at a time; this is its run when it belongs to `id`. */
-  function activeRun(id: string): string | null {
-    const active = runner.activeId;
-    return active?.startsWith(`${id}-run-`) ? active : null;
-  }
+  const activeRun = (id: string) => runner.activeFor(id);
 
   /** Cards an older Send picks to Refs left without a picture get the newest ref. */
   function heal(p: ProjectManifest): ProjectManifest {

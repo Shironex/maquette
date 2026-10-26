@@ -158,8 +158,9 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
   }
 
   return {
-    get activeId() {
-      return active?.id ?? null;
+    /** It runs one at a time: this is its run when it belongs to `project`. */
+    activeFor(project: string): string | null {
+      return active?.id.startsWith(`${project}-run-`) ? active.id : null;
     },
     submit(project: string, def: PipelineDef, from: string | null, force: boolean): RunRecord {
       if (active)
