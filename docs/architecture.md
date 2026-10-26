@@ -126,6 +126,10 @@ whole app, so a build an agent starts and one from the Board queue behind each o
 `tools/motion.rs` holds `get_motion`, and the `states` and `clips` edits `set_layout` takes
 (`projects.rs` turns them into a layout patch, the same `apply` the Layout editor's save uses).
 
+`tools/page.rs` reads, starts and stops the site dev server the Page view shows
+(`get_page_preview`, `start_page_preview`, `stop_page_preview`) through `commands/page.rs`, so an
+agent and the view share the one server and its state.
+
 ## Motion
 
 `maquette_core::motion` reads what moves. `motion.rs` builds the view for a project: every model in
@@ -194,6 +198,49 @@ The Bake light step and what it hands the site, end to end:
   encoded. A page moves it to a light map: in three.js `lightMap = emissiveMap`,
   `lightMapIntensity = scale * PI`, then clear `emissiveMap` and set `emissive` to black. A
   material without the extras has no bake and is lit live; its emission is its own.
+
+## Page view
+
+The Page view shows the project's site, or an HTML page concept, with the models live in it.
+
+- **Settings.** `maquette_core::page` keeps `page.json` in the project: the source (`site` or
+  `concept`), the path on the site, the concept file (an `.html` inside the workspace) and the
+  project's own dev command. `commands/page.rs` adds `page_get`, `page_save`,
+  `page_server_start`, `page_server_stop`, `page_server_release` and `page_open_in_browser`.
+- **The dev command.** `maquette_core::site::preview::command` picks it: the project's dev
+  command, then the `preview` of `maquette.site.json`, then the first of the `dev`, `start` and
+  `serve` scripts in `package.json`, run by the manager of the nearest lockfile. A command is a
+  program and its args, never a shell line; a typed one is split into words and passed as it
+  is. `{port}` in an arg is the free port Maquette picks, a `package.json` command gets
+  `--port {port}` (`-- --port` for npm) unless the site config names its address, and `PORT`
+  is set too.
+- **The server.** `site::preview::server` runs one dev server for one site at a time, in its
+  own process group (a job object on Windows) under a small `sh` watchdog on macOS and Linux,
+  so a stop or the app going away, even by a crash, ends the dev tool and its children. A start
+  returns at once; a watcher marks it running once the address answers, failed when it exits
+  or after 90 seconds, and keeps the last 200 log lines. A server already answering at the
+  site's address is reused and never killed. Each start records an owner (the Page view, an
+  agent, or Preview on site); the view lets go of its server 400 ms after it closes (so a
+  remount keeps it) and only stops it when it is still the owner, so Preview on site and
+  agents keep theirs. Every change emits `PageServerChanged`, which the view, the status bar
+  and `use-page-store.ts` follow.
+- **The frame.** The page loads in an iframe (`features/page/PageFrame`), laid out at the
+  device's CSS width and scaled down to fit, with `sandbox` that allows scripts but no top
+  navigation or popups and no referrer. An iframe rather than a second native webview: Tauri 2
+  child webviews need its `unstable` feature, sit above the DOM so they cannot be scaled, tiled
+  or overlaid, and break the compare board. The CSP's `frame-src` allows `localhost`,
+  `127.0.0.1` and the asset protocol (for a page concept) and nothing else.
+- **The page bridge.** Window messages between the app and the page, all with `maquette: 1`.
+  The app says `{ type: "hello" }` once the frame loads (again every 500 ms until the page
+  answers) and `{ type: "goto", stop, smooth }` as the scrubber moves (`stop` is fractional);
+  the page answers `{ type: "ready", stops: [{ name }], features }`, then `{ type: "at", stop,
+scroll: { top, max } }` as it scrolls and `{ type: "stats", frameMs, p95Ms, drawCalls? }`
+  about once a second. The page answers the origin that said hello; the app hears only the
+  frame's own window. `?maquette-poster=1` asks the page for its no WebGL version.
+  `apps/site/src/scene/bridge.ts` is the reference page side.
+- **Numbers.** Readouts come from the page (frame time, draw calls) and from the inspect data:
+  the `site` source is the current ship, the `shipped` source this run. Device budgets
+  (`DEVICE_BUDGETS` in `state/page-numbers.ts`) give the phone, laptop and desktop verdicts.
 
 ## Adding a feature
 
