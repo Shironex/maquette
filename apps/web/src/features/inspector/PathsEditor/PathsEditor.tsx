@@ -68,6 +68,10 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
 
   const path = selection ? draft.paths.find(p => p.id === selection.path) : undefined;
   const point = selection?.point ?? null;
+  const hint =
+    store.tool === 'add' && path
+      ? 'Click a model or the ground to add a point · drag to orbit'
+      : 'Click a point or a path · drag a point to move it · F frames all';
   const loadingModels = !ready && !loadError && view.models.length > 0;
   const status = store.saving ? 'Saving' : store.saveError ? 'Not saved' : 'Saved to layout.json';
 
@@ -140,11 +144,9 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
               {point !== null ? ` · point ${point + 1}` : ''}
             </span>
           ) : null}
-          <span className={cn(badge, 'right-3 bottom-3 text-fg-dim')}>
-            {store.tool === 'add' && path
-              ? 'Click a model or the ground to add a point · drag to orbit'
-              : 'Click a point or a path · drag a point to move it · F frames all'}
-          </span>
+          {draft.paths.length > 0 ? (
+            <span className={cn(badge, 'right-3 bottom-3 text-fg-dim')}>{hint}</span>
+          ) : null}
           {draft.paths.length === 0 ? (
             <div className="absolute inset-0 grid place-items-center bg-scrim">
               <EmptyState

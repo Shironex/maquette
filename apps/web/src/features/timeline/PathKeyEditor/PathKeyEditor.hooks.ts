@@ -30,7 +30,7 @@ export function usePathKeyEditor() {
     easings: EASINGS,
     facts: [
       { label: 'Length', value: path ? `${pathLength(path).toFixed(1)} m` : 'Gone' },
-      { label: 'Lights', value: 'From its first point to its last' },
+      { label: 'Lights', value: 'First point to last' },
       { label: 'Between stops', value: 'Fills with the scroll' },
     ],
     setAmount: (percent: number) => edit(d => setPathKey(d, id, stop, percent / 100)),
