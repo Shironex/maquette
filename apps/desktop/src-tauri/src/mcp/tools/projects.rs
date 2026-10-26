@@ -112,6 +112,7 @@ impl SetLayoutArgs {
                     size: [d.width, d.depth],
                 })
             }),
+            ..LayoutPatch::default()
         }
     }
 }

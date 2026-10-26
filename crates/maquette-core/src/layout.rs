@@ -25,6 +25,10 @@
 //! becomes a camera there, which Capture posters renders. A stop's
 //! `models` lists what it sees by hand; `null` means whatever the camera's
 //! view holds ([`first_view`]).
+//!
+//! `states` and `clips` are the Motion view's: the poses a prop moves
+//! between and which animation clips ship (see [`states`]). Files written
+//! before they existed load with neither.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -35,12 +39,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::assets::{self, Asset, AssetKind};
 use crate::error::{CoreError, CoreResult};
-use crate::json::{explicit, write_json};
+use crate::json::{explicit, from_json_with_defaults, write_json};
 use crate::pipeline::PipelineDef;
 use crate::project::{ProjectManifest, slugify};
 
 mod patch;
 mod placement;
+pub mod states;
 mod view;
 
 pub use view::{
@@ -48,11 +53,16 @@ pub use view::{
     known_assets, models, placement_of, view, view_of,
 };
 
-pub(crate) use view::placeable;
+pub(crate) use view::{measured_file, placeable};
 
 pub use placement::{Bounds, Mat4, fallback_row, in_view, matrix, placed_bounds};
 
 pub use patch::{LayoutPatch, PlacementPatch, StopPatch, apply};
+
+pub use states::{
+    ClipSettings, Easing, ObjectState, ObjectStates, PartPose, StateTransition, StateTrigger,
+    TriggerKind,
+};
 
 pub const LAYOUT_FILE: &str = "layout.json";
 pub const LAYOUT_VERSION: u32 = 1;
@@ -122,6 +132,10 @@ pub struct SceneLayout {
     /// In tour order. The first one is the view the page opens on.
     pub stops: Vec<LayoutStop>,
     pub desk: Option<Desk>,
+    /// Asset id to the states its parts move between.
+    pub states: BTreeMap<String, ObjectStates>,
+    /// Asset id to its clip choices, by clip name. Clips left out ship.
+    pub clips: BTreeMap<String, BTreeMap<String, ClipSettings>>,
 }
 
 impl Default for SceneLayout {
@@ -131,6 +145,8 @@ impl Default for SceneLayout {
             models: BTreeMap::new(),
             stops: Vec::new(),
             desk: None,
+            states: BTreeMap::new(),
+            clips: BTreeMap::new(),
         }
     }
 }
@@ -152,7 +168,8 @@ pub fn load(project_dir: &Path) -> CoreResult<SceneLayout> {
         Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(SceneLayout::default()),
         Err(err) => return Err(CoreError::io(&file, err)),
     };
-    let layout: SceneLayout = serde_json::from_str(&text).map_err(|e| CoreError::json(&file, e))?;
+    let layout: SceneLayout =
+        from_json_with_defaults(&text).map_err(|e| CoreError::json(&file, e))?;
     if layout.version > LAYOUT_VERSION {
         return Err(CoreError::UnsupportedVersion {
             found: layout.version,
@@ -173,6 +190,7 @@ pub fn save(project_dir: &Path, layout: &SceneLayout) -> CoreResult<()> {
     validate(layout)?;
     let stored = SceneLayout {
         version: LAYOUT_VERSION,
+        clips: states::tidy_clips(&layout.clips),
         ..layout.clone()
     };
     write_json(&path(project_dir), &stored)
@@ -259,7 +277,8 @@ fn check_stop(stop: &LayoutStop) -> CoreResult<()> {
 
 /// Checks every value: finite numbers, a scale above zero, named stops with
 /// unique ids, a target away from the camera, a field of view between 1 and
-/// 170 degrees and a desk of sensible size.
+/// 170 degrees, a desk of sensible size, and states whose transitions and
+/// triggers name states and stops that are there.
 ///
 /// # Errors
 ///
@@ -293,7 +312,7 @@ pub fn validate(layout: &SceneLayout) -> CoreResult<()> {
             "Make the desk between 0.05 and 100 m wide and deep.",
         ));
     }
-    Ok(())
+    states::validate(layout)
 }
 
 /// A free stop id for `name`: its slug, else the slug with `-2`, `-3`.

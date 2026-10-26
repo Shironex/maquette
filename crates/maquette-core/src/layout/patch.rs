@@ -49,11 +49,18 @@ pub struct LayoutPatch {
     /// `Some(None)` (an explicit null) removes the desk.
     #[serde(default, deserialize_with = "explicit")]
     pub desk: Option<Option<Desk>>,
+    /// Asset id to its whole set of states; `None` removes them.
+    #[serde(default)]
+    pub states: BTreeMap<String, Option<ObjectStates>>,
+    /// Asset id to clip name to whether it ships.
+    #[serde(default)]
+    pub clips: BTreeMap<String, BTreeMap<String, ClipSettings>>,
 }
 
-/// Applies `patch` to `layout`. `known` are the asset ids a placement or a
-/// stop's model list may name (the assets with a model). Nothing changes
-/// when any part is refused.
+/// Applies `patch` to `layout`. `known` are the asset ids a placement, a
+/// stop's model list, states or clip choices may name (the assets with a
+/// model). Triggers that wait for a stop the patch removes go with it.
+/// Nothing changes when any part is refused.
 ///
 /// # Errors
 ///
@@ -181,6 +188,26 @@ pub fn apply(
     if let Some(desk) = patch.desk {
         next.desk = desk;
     }
+    states::prune_stops(&mut next);
+    for (id, change) in &patch.states {
+        match change {
+            None => {
+                next.states.remove(id);
+            }
+            Some(object) => {
+                check_asset(id)?;
+                next.states.insert(id.clone(), object.clone());
+            }
+        }
+    }
+    for (id, clips) in &patch.clips {
+        check_asset(id)?;
+        let list = next.clips.entry(id.clone()).or_default();
+        for (name, settings) in clips {
+            list.insert(name.clone(), *settings);
+        }
+    }
+    next.clips = states::tidy_clips(&next.clips);
     validate(&next)?;
     Ok(next)
 }

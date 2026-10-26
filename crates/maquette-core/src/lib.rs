@@ -162,6 +162,7 @@ pub fn types() -> specta::Types {
         .register::<inspect::InspectView>()
         .register::<layout::SceneLayout>()
         .register::<layout::LayoutView>()
+        .register::<layout::ObjectStates>()
         .register::<materials::SceneMaterials>()
         .register::<prepare::ScenePrep>()
         .register::<prepare::preview::FixupReport>()
@@ -293,6 +294,14 @@ mod tests {
             "LayoutStop",
             "Desk",
             "LayoutView",
+            "ObjectStates",
+            "ObjectState",
+            "PartPose",
+            "StateTransition",
+            "StateTrigger",
+            "TriggerKind",
+            "Easing",
+            "ClipSettings",
             "LayoutModel",
             "FirstView",
             "Measured",

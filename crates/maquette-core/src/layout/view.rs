@@ -142,6 +142,34 @@ fn prepared(
     (base.map(|b| frame.apply(b)), frame)
 }
 
+/// The file a model is weighed by: the shipped build, else the raw
+/// export, else the source model, with its size.
+pub(crate) fn measured_file(
+    (raw_dir, dist_dir): (&Path, &Path),
+    shipped_names: &BTreeMap<String, String>,
+    version_file: &str,
+    source: &Path,
+) -> (std::path::PathBuf, f64, Measured) {
+    let model = stem(version_file);
+    let shipped_stem = shipped_names
+        .get(&model.to_lowercase())
+        .cloned()
+        .unwrap_or_else(|| model.clone());
+    let shipped = dist_dir.join(format!("{shipped_stem}.glb"));
+    if let Some(bytes) = file_bytes(&shipped) {
+        return (shipped, bytes, Measured::Shipped);
+    }
+    let raw = raw_dir.join(format!("{model}.glb"));
+    if let Some(bytes) = file_bytes(&raw) {
+        return (raw, bytes, Measured::Raw);
+    }
+    (
+        source.to_path_buf(),
+        file_bytes(source).unwrap_or(0.0),
+        Measured::Source,
+    )
+}
+
 /// The models a layout places, measured: bounds from the model files (as
 /// the real size and fix-ups leave them) and sizes from the shipped build
 /// (else the raw export, else the source). `previews` is the fix-up preview
@@ -165,17 +193,8 @@ pub fn models(
             let version = asset.latest()?;
             let file = project_dir.join(&version.file);
             let (bounds, frame) = prepared(project_dir, previews, &prep, &asset.id, &file);
-            let model = stem(&version.file);
-            let shipped_stem = shipped_names
-                .get(&model.to_lowercase())
-                .cloned()
-                .unwrap_or_else(|| model.clone());
-            let (bytes, measured) = file_bytes(&dist_dir.join(format!("{shipped_stem}.glb")))
-                .map(|b| (b, Measured::Shipped))
-                .or_else(|| {
-                    file_bytes(&raw_dir.join(format!("{model}.glb"))).map(|b| (b, Measured::Raw))
-                })
-                .unwrap_or_else(|| (file_bytes(&file).unwrap_or(0.0), Measured::Source));
+            let (_, bytes, measured) =
+                measured_file((&raw_dir, &dist_dir), &shipped_names, &version.file, &file);
             Some(LayoutModel {
                 asset: asset.id.clone(),
                 name: asset.name.clone(),

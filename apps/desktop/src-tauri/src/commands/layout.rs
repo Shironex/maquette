@@ -30,7 +30,10 @@ pub(crate) fn get(session: &Session, project_id: &str) -> CommandResult<LayoutVi
     )?)
 }
 
-/// Saves the whole layout and returns the view of it.
+/// Saves the whole layout and returns the view of it. The states and clip
+/// choices stay as the file has them: they belong to the Motion view, which
+/// saves them with [`crate::commands::motion`]. Triggers that wait for a
+/// stop this layout removes go with it.
 #[tauri::command]
 #[specta::specta]
 pub fn layout_save(
@@ -48,7 +51,14 @@ pub(crate) fn save(
 ) -> CommandResult<LayoutView> {
     let (root, config) = session.workspace()?;
     let project_dir = project::dir(&root, &config.layout, project_id)?;
-    layout::save(&project_dir, next)?;
+    let current = layout::load(&project_dir).unwrap_or_default();
+    let mut next = SceneLayout {
+        states: current.states,
+        clips: current.clips,
+        ..next.clone()
+    };
+    layout::states::prune_stops(&mut next);
+    layout::save(&project_dir, &next)?;
     get(session, project_id)
 }
 
@@ -144,5 +154,18 @@ mod tests {
                 .code,
             "invalid"
         );
+
+        // The Layout editor's save keeps the states the Motion view wrote.
+        let with_states: LayoutPatch = serde_json::from_value(serde_json::json!({
+            "states": { "lamp": { "states": [{ "id": "off", "name": "Off", "parts": {} }],
+                "transitions": [], "triggers": [] } },
+            "clips": { "lamp": { "Spin": { "ship": false } } }
+        }))
+        .expect("patch");
+        patch(&session, &manifest.id, &with_states).expect("states");
+        let kept = save(&session, &manifest.id, &SceneLayout::default()).expect("save");
+        assert_eq!(kept.layout.states["lamp"].states[0].name, "Off");
+        assert!(!kept.layout.clips["lamp"]["Spin"].ship);
+        assert!(kept.layout.models.is_empty());
     }
 }
