@@ -549,6 +549,7 @@ fn saved_settings_are_checked_and_budget_fixups_bring_a_model_within_its_folder(
         max_triangles: 12_000,
         texture: 1024,
         max_texture: 1024,
+        rigged: false,
         problems: vec!["Over 12k triangles".into()],
     };
     assert_eq!(
@@ -576,5 +577,52 @@ fn saved_settings_are_checked_and_budget_fixups_bring_a_model_within_its_folder(
             GameSettingsChange::default()
         )
         .is_err()
+    );
+}
+
+#[test]
+fn a_rigged_model_gets_no_decimate_but_still_shrinks_its_textures() {
+    let (ws, manifest) = game_project(glb_game, GameFormat::Glb);
+    import_models(
+        &ws.root,
+        &ws.config.layout,
+        &manifest.id,
+        &["characters/hero.glb".to_string()],
+    )
+    .expect("import");
+    let project_dir = project::dir(&ws.root, &ws.config.layout, &manifest.id).expect("dir");
+    let over = |triangles: u32, max_texture: u32| {
+        project::modify(&ws.root, &ws.config.layout, &manifest.id, |m| {
+            if let Some(stats) = m.assets[0].versions[0].stats.as_mut() {
+                stats.triangles = triangles;
+                stats.max_texture = max_texture;
+            }
+            Ok(())
+        })
+        .expect("stats")
+    };
+    let saved = over(115_000, 4096);
+    let game = saved.game.as_ref().expect("game");
+    let check = check_asset(game, &saved.assets[0]).expect("check");
+    assert!(check.rigged && check.over(), "{check:?}");
+    assert_eq!(
+        add_budget_fixups(&project_dir, &saved).expect("fix-ups"),
+        ["hero"]
+    );
+    let prep = crate::prepare::load(&project_dir).expect("prepare");
+    assert_eq!(
+        prep.models["hero"].fixups,
+        [crate::prepare::Fixup::ShrinkTextures { max_size: 2048 }],
+        "Shrink textures, never Decimate, on a rigged model"
+    );
+
+    let saved = over(115_000, 1024);
+    let check = check_asset(saved.game.as_ref().expect("game"), &saved.assets[0]).expect("check");
+    assert!(settings::fixups_for(&check).is_empty());
+    assert!(
+        add_budget_fixups(&project_dir, &saved)
+            .expect("fix-ups")
+            .is_empty(),
+        "only its triangles are over: reduced by hand"
     );
 }

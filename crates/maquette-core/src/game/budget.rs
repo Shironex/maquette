@@ -82,6 +82,9 @@ pub struct BudgetCheck {
     pub max_triangles: u32,
     pub texture: u32,
     pub max_texture: u32,
+    /// The model has a skin or bones. Decimate would break its weights and
+    /// shape keys, so its triangles are reduced by hand.
+    pub rigged: bool,
     /// What is over, as the list says it: "Over 12k triangles".
     pub problems: Vec<String>,
 }
@@ -107,6 +110,7 @@ pub fn check_stats(budget: &FolderBudget, stats: &ModelStats) -> BudgetCheck {
         max_triangles: budget.triangles,
         texture: stats.max_texture,
         max_texture: budget.texture,
+        rigged: stats.joints > 0,
         problems,
     }
 }

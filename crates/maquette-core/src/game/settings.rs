@@ -72,10 +72,12 @@ pub fn save_settings(
 }
 
 /// The fix-ups that bring a model within `check`: Decimate to the folder's
-/// triangles, Shrink textures to its texture size.
+/// triangles, Shrink textures to its texture size. A rigged model gets no
+/// Decimate: it would tear its skin weights and shape keys, so its
+/// triangles are reduced by hand.
 pub fn fixups_for(check: &budget::BudgetCheck) -> Vec<Fixup> {
     let mut out = Vec::new();
-    if check.triangles > check.max_triangles {
+    if check.triangles > check.max_triangles && !check.rigged {
         out.push(Fixup::Decimate {
             triangles: check.max_triangles,
         });
@@ -90,7 +92,8 @@ pub fn fixups_for(check: &budget::BudgetCheck) -> Vec<Fixup> {
 
 /// Adds to every over budget asset the fix-ups that bring it within its
 /// folder's budget, replacing a fix-up of the same kind. Returns the ids
-/// of the assets that changed. Build models applies them on the next run.
+/// of the assets that changed; a rigged model only over its triangles is
+/// not one of them. Build models applies them on the next run.
 pub fn add_budget_fixups(
     project_dir: &Path,
     manifest: &ProjectManifest,
