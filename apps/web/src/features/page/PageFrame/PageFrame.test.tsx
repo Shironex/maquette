@@ -69,6 +69,30 @@ describe('the page frame', () => {
     expect(post).toHaveBeenCalledWith({ maquette: 1, type: 'goto', stop: 2.5, smooth: true }, '*');
   });
 
+  it("says hello with the camera stops and keeps on after the shim, until the site's bridge", () => {
+    vi.useFakeTimers();
+    usePageStore.setState({
+      inspect: {
+        stops: { source: 'project-file', file: 'stops.json', stops: [{ name: 'Porch' }] },
+      } as never,
+    });
+    const iframe = frame();
+    const post = vi.spyOn(iframe.contentWindow!, 'postMessage');
+    const hellos = () => post.mock.calls.filter(([m]) => (m as { type: string }).type === 'hello');
+    const hello = { maquette: 1, type: 'hello', stops: [{ name: 'Porch' }] };
+    act(() => vi.advanceTimersByTime(500));
+    expect(post).toHaveBeenCalledWith(hello, '*');
+    fromPage(iframe, { maquette: 1, source: 'shim', type: 'ready', stops: [{ name: 'Porch' }] });
+    const afterShim = hellos().length;
+    act(() => vi.advanceTimersByTime(1000));
+    expect(hellos().length).toBe(afterShim + 2);
+    fromPage(iframe, { maquette: 1, type: 'ready', stops: [{ name: 'Hero' }] });
+    act(() => vi.advanceTimersByTime(1000));
+    expect(hellos().length).toBe(afterShim + 2);
+    expect(usePageStore.getState().readings.main?.source).toBe('site');
+    vi.useRealTimers();
+  });
+
   it('shows its children while there is no page', () => {
     render(
       <PageFrame id="main" src={null} address="" badge="live" device="phone" label="No page">

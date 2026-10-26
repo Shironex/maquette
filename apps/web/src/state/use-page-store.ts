@@ -19,13 +19,21 @@ import {
   type ServerStatus,
 } from '@/ipc/client';
 import { useAppStore } from './use-app-store';
-import { type BridgeStop, type DeviceId, type FromPage, shouldAutoStart } from './page';
+import {
+  type BridgeSource,
+  type BridgeStop,
+  type DeviceId,
+  type FromPage,
+  shouldAutoStart,
+} from './page';
 
 export type CompareMode = 'one' | 'ship-run' | 'poster';
 export type PageTab = 'preview' | 'devices';
 
 /** What one frame's page said through the bridge. */
 export interface Reading {
+  /** Who answered: the site's own bridge or Maquette's shim. */
+  source: BridgeSource | null;
   /** The page's own stops, once it said ready. */
   stops: BridgeStop[] | null;
   at: number | null;
@@ -33,7 +41,13 @@ export interface Reading {
   stats: { frameMs: number; p95Ms: number; drawCalls: number | null } | null;
 }
 
-export const NO_READING: Reading = { stops: null, at: null, scroll: null, stats: null };
+export const NO_READING: Reading = {
+  source: null,
+  stops: null,
+  at: null,
+  scroll: null,
+  stats: null,
+};
 
 /** The frames whose page leads the scrubber, in order. */
 const LEADS = ['main', 'ship', 'desktop', 'laptop', 'phone'];
@@ -270,9 +284,13 @@ export const usePageStore = create<PageStore>((set, get) => {
     onMessage: (frame, message) =>
       set(s => {
         const before = s.readings[frame] ?? NO_READING;
+        // Once the site's own bridge answers, the shim is not heard again.
+        if (before.source === 'site' && message.source === 'shim') return s;
+        // A new source starts afresh: nothing the shim measured stays.
+        const fresh = message.type === 'ready' && before.source !== message.source;
         const next: Reading =
           message.type === 'ready'
-            ? { ...before, stops: message.stops }
+            ? { ...(fresh ? NO_READING : before), source: message.source, stops: message.stops }
             : message.type === 'at'
               ? { ...before, at: message.stop, scroll: message.scroll }
               : {

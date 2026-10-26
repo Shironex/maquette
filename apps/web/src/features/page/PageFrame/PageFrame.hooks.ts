@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
+  type BridgeSource,
   device,
   fitLabel,
   fitScale,
@@ -37,10 +38,11 @@ export function useBox<T extends HTMLElement>() {
 }
 
 /**
- * Speaks the page bridge with the page in `frame`: says hello once it
- * loads, hears only that frame's window, and sends every seek of the
- * scrubber. Messages carry no secrets, so they go to any origin: the frame
- * shows a local dev server or a file the person picked.
+ * Speaks the page bridge with the page in `frame`: says hello (with the
+ * project's camera stops, for the frame proxy's shim) once it loads, hears
+ * only that frame's window, and sends every seek of the scrubber. Messages
+ * carry no secrets, so they go to any origin: the frame shows a local dev
+ * server or a file the person picked.
  */
 export function usePageBridge(
   id: string,
@@ -57,16 +59,20 @@ export function usePageBridge(
     const el = frame.current;
     if (!el || !src) return;
     let timer: ReturnType<typeof setInterval> | undefined;
+    /** Who answered this load of the page. */
+    let answered: BridgeSource | null = null;
     const post = (message: unknown) => el.contentWindow?.postMessage(message, '*');
+    const sayHello = () => post(hello(usePageStore.getState().inspect?.stops.stops ?? []));
     const onLoad = () => {
       clearInterval(timer);
       forgetFrame(id);
+      answered = null;
       let tries = 0;
-      post(hello());
+      sayHello();
       timer = setInterval(() => {
         tries += 1;
         if (tries >= HELLO_TRIES) clearInterval(timer);
-        else post(hello());
+        else sayHello();
       }, HELLO_EVERY);
     };
     const onWindowMessage = (event: MessageEvent) => {
@@ -74,10 +80,13 @@ export function usePageBridge(
       const message = readPageMessage(event.data);
       if (!message) return;
       if (message.type === 'ready') {
-        clearInterval(timer);
+        // The shim answers first on a page whose own bridge starts late,
+        // so hello goes on until the site's bridge answers or the tries end.
+        if (message.source === 'site') clearInterval(timer);
         // A page that loads again (a reload, another device) meets the scrubber where it is.
         const { target } = usePageStore.getState();
-        if (target > 0) post(goto(target));
+        if (answered !== message.source && answered !== 'site' && target > 0) post(goto(target));
+        if (answered !== 'site') answered = message.source;
       }
       onMessage(id, message);
     };

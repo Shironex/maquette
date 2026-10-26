@@ -49,12 +49,17 @@ export function usePageReadouts() {
     },
   ];
   const at = lead.at === null ? null : Math.round(lead.at) + 1;
-  const where = `${at === null ? 'In the page' : `Measured in the page at stop ${at}`} on ${device(deviceId).label}.`;
+  const by = lead.source === 'shim' ? "by Maquette's shim" : "by the site's page bridge";
+  const where = `${at === null ? 'In the page' : `Measured ${by} at stop ${at}`} on ${device(deviceId).label}.`;
+  const shim =
+    lead.source === 'shim'
+      ? ' The site has no page bridge, so Maquette measures frame times; draw calls stay estimated.'
+      : '';
   const help =
     source === 'concept'
       ? `${where} The scene numbers are the site's models; a page concept shows whatever it holds.`
       : stats
-        ? `${where} The scene is what the site repo holds, the last ship; this run reaches the page when it ships.`
+        ? `${where}${shim} The scene is what the site repo holds, the last ship; this run reaches the page when it ships.`
         : `${where} The page sends no frame times yet; the page bridge adds them.`;
   return { cards, help, onSite: Boolean(site) };
 }

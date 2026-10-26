@@ -14,7 +14,7 @@ export default function StopScrubber() {
     stops,
     slots,
     count,
-    answered,
+    hint,
     at,
     position,
     line,
@@ -85,11 +85,7 @@ export default function StopScrubber() {
           {line.detail ? <span className="text-fg-mute"> · {line.detail}</span> : null}
         </span>
         <span className="flex-1" />
-        {answered ? null : (
-          <span className="truncate text-meta text-fg-mute">
-            The page has not answered yet: these are the project&apos;s camera stops
-          </span>
-        )}
+        {hint ? <span className="truncate text-meta text-fg-mute">{hint}</span> : null}
         <IconButton
           icon="caret-left"
           label="Previous stop"

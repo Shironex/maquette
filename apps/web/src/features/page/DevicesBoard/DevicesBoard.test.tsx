@@ -34,9 +34,13 @@ describe('the devices board', () => {
       expect(within(column).getByTitle(`The page at ${name} width`)).toBeInTheDocument();
     }
     act(() =>
-      usePageStore
-        .getState()
-        .onMessage('phone', { type: 'stats', frameMs: 21.4, p95Ms: 38.2, drawCalls: 71 })
+      usePageStore.getState().onMessage('phone', {
+        source: 'site',
+        type: 'stats',
+        frameMs: 21.4,
+        p95Ms: 38.2,
+        drawCalls: 71,
+      })
     );
     expect(
       within(screen.getByRole('region', { name: 'Phone' })).getByText('p95 38.2 ms')

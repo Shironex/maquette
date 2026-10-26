@@ -38,16 +38,49 @@ describe('the page readouts', () => {
     act(() => {
       const { onMessage } = usePageStore.getState();
       onMessage('main', {
+        source: 'site',
         type: 'ready',
         stops: [{ name: 'Porch' }, { name: 'Sakura' }],
         features: [],
       });
-      onMessage('main', { type: 'at', stop: 1, scroll: null });
-      onMessage('main', { type: 'stats', frameMs: 21.4, p95Ms: 38.2, drawCalls: 71 });
+      onMessage('main', { source: 'site', type: 'at', stop: 1, scroll: null });
+      onMessage('main', {
+        source: 'site',
+        type: 'stats',
+        frameMs: 21.4,
+        p95Ms: 38.2,
+        drawCalls: 71,
+      });
     });
     expect(screen.getByText('21.4 ms')).toHaveClass('text-danger');
     expect(screen.getByText('p95 38.2')).toBeVisible();
     expect(screen.getByText('Draw calls')).toBeVisible();
-    expect(screen.getByText(/Measured in the page at stop 2 on Phone/)).toBeVisible();
+    expect(screen.getByText(/Measured by the site's page bridge at stop 2 on Phone/)).toBeVisible();
+  });
+
+  it("says when Maquette's shim measures a page without a bridge", async () => {
+    await openMockWorkspace();
+    render(<PageReadouts />);
+    act(() => {
+      const { onMessage } = usePageStore.getState();
+      onMessage('main', {
+        source: 'shim',
+        type: 'ready',
+        stops: [{ name: 'Porch' }],
+        features: [],
+      });
+      onMessage('main', { source: 'shim', type: 'at', stop: 0, scroll: null });
+      onMessage('main', {
+        source: 'shim',
+        type: 'stats',
+        frameMs: 16.7,
+        p95Ms: 18.2,
+        drawCalls: null,
+      });
+    });
+    expect(screen.getByText('16.7 ms')).toBeVisible();
+    expect(screen.getByText('Draw calls, est.')).toBeVisible();
+    expect(screen.getByText(/Measured by Maquette's shim at stop 1 on Desktop/)).toBeVisible();
+    expect(screen.getByText(/the site has no page bridge/i)).toBeVisible();
   });
 });

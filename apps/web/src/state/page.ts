@@ -97,15 +97,28 @@ export interface BridgeStop {
   name: string;
 }
 
-export type FromPage =
+/**
+ * Who answers: the site's own bridge, or Maquette's shim, which the frame
+ * proxy adds to a page without one (it says `source: 'shim'`).
+ */
+export type BridgeSource = 'site' | 'shim';
+
+export type FromPage = { source: BridgeSource } & (
   | { type: 'ready'; stops: BridgeStop[]; features: string[] }
   | { type: 'at'; stop: number; scroll: { top: number; max: number } | null }
-  | { type: 'stats'; frameMs: number; p95Ms: number; drawCalls: number | null };
+  | { type: 'stats'; frameMs: number; p95Ms: number; drawCalls: number | null }
+);
 
 export type ToPage =
-  { maquette: 1; type: 'hello' } | { maquette: 1; type: 'goto'; stop: number; smooth: boolean };
+  | { maquette: 1; type: 'hello'; stops: BridgeStop[] }
+  | { maquette: 1; type: 'goto'; stop: number; smooth: boolean };
 
-export const hello = (): ToPage => ({ maquette: 1, type: 'hello' });
+/** Hello carries the project's camera stops: the shim has no stops of its own to say. */
+export const hello = (stops: readonly BridgeStop[] = []): ToPage => ({
+  maquette: 1,
+  type: 'hello',
+  stops: stops.map(s => ({ name: s.name })),
+});
 
 export const goto = (stop: number, smooth = false): ToPage => ({
   maquette: 1,
@@ -127,6 +140,7 @@ export function readPageMessage(data: unknown): FromPage | null {
   if (typeof data !== 'object' || data === null) return null;
   const m = data as Record<string, unknown>;
   if (m.maquette !== BRIDGE_VERSION) return null;
+  const source: BridgeSource = m.source === 'shim' ? 'shim' : 'site';
   if (m.type === 'ready' && Array.isArray(m.stops)) {
     const stops = m.stops
       .map(s => (typeof s === 'object' && s !== null ? (s as Record<string, unknown>).name : null))
@@ -136,13 +150,14 @@ export function readPageMessage(data: unknown): FromPage | null {
     const features = Array.isArray(m.features)
       ? m.features.filter((f): f is string => typeof f === 'string')
       : [];
-    return { type: 'ready', stops, features };
+    return { source, type: 'ready', stops, features };
   }
   if (m.type === 'at' && isNum(m.stop)) {
-    return { type: 'at', stop: Math.max(0, m.stop), scroll: readScroll(m.scroll) };
+    return { source, type: 'at', stop: Math.max(0, m.stop), scroll: readScroll(m.scroll) };
   }
   if (m.type === 'stats' && isNum(m.frameMs) && isNum(m.p95Ms)) {
     return {
+      source,
       type: 'stats',
       frameMs: m.frameMs,
       p95Ms: m.p95Ms,

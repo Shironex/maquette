@@ -106,10 +106,11 @@ describe('usePageStore', () => {
   it('keeps what each frame reports', async () => {
     await open();
     const { onMessage, forgetFrame } = usePageStore.getState();
-    onMessage('main', { type: 'ready', stops: [{ name: 'Porch' }], features: [] });
-    onMessage('main', { type: 'at', stop: 0.5, scroll: { top: 400, max: 3200 } });
-    onMessage('main', { type: 'stats', frameMs: 9.4, p95Ms: 12.1, drawCalls: 86 });
+    onMessage('main', { source: 'site', type: 'ready', stops: [{ name: 'Porch' }], features: [] });
+    onMessage('main', { source: 'site', type: 'at', stop: 0.5, scroll: { top: 400, max: 3200 } });
+    onMessage('main', { source: 'site', type: 'stats', frameMs: 9.4, p95Ms: 12.1, drawCalls: 86 });
     expect(usePageStore.getState().readings.main).toEqual({
+      source: 'site',
       stops: [{ name: 'Porch' }],
       at: 0.5,
       scroll: { top: 400, max: 3200 },
@@ -117,6 +118,24 @@ describe('usePageStore', () => {
     });
     forgetFrame('main');
     expect(usePageStore.getState().readings.main ?? NO_READING).toEqual(NO_READING);
+  });
+
+  it("takes the site's own bridge over Maquette's shim once it answers", async () => {
+    await open();
+    const { onMessage } = usePageStore.getState();
+    const stops = [{ name: 'Porch' }, { name: 'Sakura' }];
+    onMessage('main', { source: 'shim', type: 'ready', stops, features: [] });
+    onMessage('main', { source: 'shim', type: 'stats', frameMs: 16.7, p95Ms: 18, drawCalls: null });
+    expect(usePageStore.getState().readings.main?.source).toBe('shim');
+    onMessage('main', { source: 'site', type: 'ready', stops: [{ name: 'Hero' }], features: [] });
+    // Nothing the shim measured stays, and it is not heard again.
+    expect(usePageStore.getState().readings.main?.stats).toBeNull();
+    onMessage('main', { source: 'shim', type: 'at', stop: 1, scroll: null });
+    expect(usePageStore.getState().readings.main).toMatchObject({
+      source: 'site',
+      stops: [{ name: 'Hero' }],
+      at: null,
+    });
   });
 
   it('follows server events for this project and another', async () => {

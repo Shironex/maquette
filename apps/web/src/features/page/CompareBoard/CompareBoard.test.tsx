@@ -57,9 +57,13 @@ describe('the compare board', () => {
     act(() => usePageStore.getState().setMode('ship-run'));
     render(<CompareBoard />);
     act(() =>
-      usePageStore
-        .getState()
-        .onMessage('ship', { type: 'stats', frameMs: 9.4, p95Ms: 12.1, drawCalls: 86 })
+      usePageStore.getState().onMessage('ship', {
+        source: 'site',
+        type: 'stats',
+        frameMs: 9.4,
+        p95Ms: 12.1,
+        drawCalls: 86,
+      })
     );
     const ship = screen.getByRole('region', { name: 'Current ship' });
     expect(within(ship).getByText('12.1 ms')).toBeVisible();

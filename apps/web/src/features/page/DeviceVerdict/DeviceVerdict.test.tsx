@@ -42,9 +42,13 @@ describe('the device verdict', () => {
     await open();
     render(<DeviceVerdict />);
     act(() =>
-      usePageStore
-        .getState()
-        .onMessage('ship', { type: 'stats', frameMs: 21.4, p95Ms: 38.2, drawCalls: 71 })
+      usePageStore.getState().onMessage('ship', {
+        source: 'site',
+        type: 'stats',
+        frameMs: 21.4,
+        p95Ms: 38.2,
+        drawCalls: 71,
+      })
     );
     expect(screen.getByText('This run is over the phone budget')).toBeVisible();
     expect(screen.getByText(/Frame time, p95 38\.2 ms, the phone allows 33 ms/)).toBeVisible();

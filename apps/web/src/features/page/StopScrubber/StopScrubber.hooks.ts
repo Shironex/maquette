@@ -1,6 +1,20 @@
 import { useEffect } from 'react';
-import { scrollLine, share, stepStop, stopSlots, type BridgeStop } from '@/state/page';
+import {
+  scrollLine,
+  share,
+  stepStop,
+  stopSlots,
+  type BridgeSource,
+  type BridgeStop,
+} from '@/state/page';
 import { leadReading, usePageStore } from '@/state/use-page-store';
+
+/** What the scrubber says about who moves the page. */
+export function scrubberHint(source: BridgeSource | null): string {
+  if (source === 'site') return "The site's page bridge scrolls the page";
+  if (source === 'shim') return "Maquette's shim scrolls the page: the site has no page bridge";
+  return "The page has not answered yet: these are the project's camera stops";
+}
 
 /** Milliseconds Play spends on each stop: about the time it takes to read one. */
 export const STOP_MS = 4000;
@@ -32,8 +46,9 @@ export function useStopScrubber() {
   const setPlaying = usePageStore(s => s.setPlaying);
   const cameraStops = usePageStore(s => s.inspect?.stops.stops);
   const lead = leadReading(readings);
-  const answered = Boolean(lead.stops);
-  const stops: BridgeStop[] = lead.stops ?? (cameraStops ?? []).map(s => ({ name: s.name }));
+  const camera = (cameraStops ?? []).map(s => ({ name: s.name }));
+  // The shim says back the stops hello gave it, none while the project's were not in yet.
+  const stops: BridgeStop[] = lead.stops?.length ? lead.stops : camera;
   const count = stops.length;
   usePlayback(count);
   const at = Math.min(Math.max(0, count - 1), playing ? target : (lead.at ?? target));
@@ -43,7 +58,7 @@ export function useStopScrubber() {
     stops,
     slots: stopSlots(count),
     count,
-    answered,
+    hint: scrubberHint(lead.source),
     at,
     position,
     line,

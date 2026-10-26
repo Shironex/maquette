@@ -7,6 +7,7 @@ import {
   frameSource,
   frameState,
   goto,
+  hello,
   pageAddress,
   readPageMessage,
   scrollLine,
@@ -140,21 +141,49 @@ describe('the page bridge', () => {
         stops: [{ name: 'Hero' }, { name: '' }, 4, { name: 'Ship' }],
         features: ['goto', 3],
       })
-    ).toEqual({ type: 'ready', stops: [{ name: 'Hero' }, { name: 'Ship' }], features: ['goto'] });
+    ).toEqual({
+      source: 'site',
+      type: 'ready',
+      stops: [{ name: 'Hero' }, { name: 'Ship' }],
+      features: ['goto'],
+    });
     expect(
       readPageMessage({ maquette: 1, type: 'at', stop: 1.25, scroll: { top: 900, max: 5000 } })
-    ).toEqual({ type: 'at', stop: 1.25, scroll: { top: 900, max: 5000 } });
+    ).toEqual({ source: 'site', type: 'at', stop: 1.25, scroll: { top: 900, max: 5000 } });
     expect(readPageMessage({ maquette: 1, type: 'at', stop: 2, scroll: 'x' })).toEqual({
+      source: 'site',
       type: 'at',
       stop: 2,
       scroll: null,
     });
     expect(readPageMessage({ maquette: 1, type: 'stats', frameMs: 9.4, p95Ms: 12.1 })).toEqual({
+      source: 'site',
       type: 'stats',
       frameMs: 9.4,
       p95Ms: 12.1,
       drawCalls: null,
     });
+  });
+
+  it("tells Maquette's shim from the site's own bridge", () => {
+    const shim = { maquette: 1, source: 'shim', type: 'stats', frameMs: 16.7, p95Ms: 18.1 };
+    expect(readPageMessage(shim)).toEqual({
+      source: 'shim',
+      type: 'stats',
+      frameMs: 16.7,
+      p95Ms: 18.1,
+      drawCalls: null,
+    });
+    expect(readPageMessage({ ...shim, source: 'other' })?.source).toBe('site');
+  });
+
+  it('says hello with the camera stops', () => {
+    expect(hello([{ name: 'Porch' }, { name: 'Sakura' }])).toEqual({
+      maquette: 1,
+      type: 'hello',
+      stops: [{ name: 'Porch' }, { name: 'Sakura' }],
+    });
+    expect(hello()).toEqual({ maquette: 1, type: 'hello', stops: [] });
   });
 
   it('ignores other messages', () => {
