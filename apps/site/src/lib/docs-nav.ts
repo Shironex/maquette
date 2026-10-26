@@ -25,6 +25,7 @@ export const DOCS_GROUPS: readonly DocsGroup[] = [
       'docs/views/pipeline',
       'docs/views/inspector',
       'docs/views/motion',
+      'docs/views/timeline',
       'docs/views/page',
     ],
   },

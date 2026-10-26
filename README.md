@@ -265,7 +265,37 @@ Motion (the walking figure in the rail) lists the project's models that move: a 
 }
 ```
 
-Up to 16 states and 32 triggers per asset. Layouts written before Motion load as they are. The site build does not play states yet; they travel with `layout.json` (and with the site data Ship writes) for the page to read.
+Up to 16 states and 32 triggers per asset. Layouts written before Motion load as they are. The site plays the stop and scroll triggers as the page scrolls (see Timeline); click and hover travel with `layout.json` (and with the site data Ship writes) for a page to read, and the site does not play them yet.
+
+## Timeline
+
+The Timeline (the film strip in the rail) lays out what happens as the page scrolls. Its columns are the project's camera stops; the site's stop sections are one window high each, so stop `i` of `n` sits at `i / (n - 1)` of the page, and the ruler counts the page in percent, pixels (once the page answers the bridge with its scroll) or sections. Above the lanes is the Page view's frame, started the same way: drag the ruler, press `[` and `]` to jump a stop or `Space` to play at reading speed, and the page scrolls along through the page bridge. A project without camera stops shows where to add them.
+
+- **Camera.** A stop at each one's share of the page and the flight between them; click one to jump there.
+- **States.** Every prop with states in Motion gets a lane of its stop and scroll triggers: a pill where arriving at a stop plays the move once (its transition's duration, delay, easing and stagger), a block where a scroll range scrubs it. A plus at a stop adds a change there to the next state. The side panel switches a change between a camera stop and a scroll range, picks its state, stop or range, and removes it; a timed change shows as not built yet. Click and hover triggers are left as Motion has them.
+- **Explode.** Add track > Explode gives a model a track of amounts at camera stops, from 0 (together) to 1 (each part `distance` metres out from the model's centre), eased between the keyed stops and held outside them.
+- **Paths** come in the next view: the lane and the Add track item show that, and nothing is built for them.
+
+The checks warn about a change that changes nothing, two ranges of one prop that overlap and an explode track that never moves. Every edit saves into `layout.json` half a second later. The state changes stay the props' triggers, and the explode tracks go under `timeline`:
+
+```json
+{
+  "timeline": {
+    "explode": {
+      "switch-cabinet": {
+        "distance": 0.3,
+        "easing": "ease-in-out",
+        "keys": [
+          { "stop": "canopy", "amount": 0 },
+          { "stop": "pullback", "amount": 1 }
+        ]
+      }
+    }
+  }
+}
+```
+
+Ship copies the layout into the site whole, and `apps/site` plays it: `scene/timeline.ts` turns tour progress into each prop's pose and each track's amount, and `scene/tracks.ts` moves the model's nodes by the names in the file. With reduced motion the site shows its posters instead of the 3D scene. Agents set the tracks with `set_layout` (`explode`) and the changes with its `states`.
 
 ## Page view
 
@@ -354,6 +384,7 @@ Outside Tauri, a dev build answers every command from an in-memory backend (`app
 - `?inbox=redo`: the large sakura (a Meshy send with a texture prompt) and the character (a rigged Tripo send) in the inbox are linked to their sends for Redo, and a Meshy key is saved too
 - `?built=demo`: two built assets on Moon Island at Blender, a current Laptop and a Newtons cradle whose script changed; Rebuild and Built asset work on them
 - `?motion=demo`: Moon Island gains a clay figure on a 20 bone rig with three clips, a switch cabinet with three states and a turntable with one clip; `?motion=rest` has the figure without clips, `?motion=over` a scene budget the clips push it over, and `?motion=still` opens Rooftop cinema, where nothing moves yet
+- `?timeline=demo`: the `?motion=demo` models, with the switch cabinet opening its door at Sakura, turning its breakers on from 55 to 70 percent and spreading apart from Canopy to Pullback; `?timeline=empty` takes Moon Island's camera stops away
 - `?page=running`: the Page view's dev server starts as usual and the site holds the last ship, so Compare has a current ship; `?page=starting` keeps the server starting, `?page=failed` fails it as a site without its packages does, with its log, `?page=no-site` takes Moon Island's site repo away, `?page=stops-10` gives the page ten stops, and `?page=shim` takes the page's own bridge away and gives it the frame proxy's bridge shim. `?page=framed&site=<dev server>&frame=<frame proxy>` shows a real dev server behind a real frame proxy (the visual check starts both). The mock dev page is a small page of its own that speaks the page bridge
 - `?projects=many`: eight projects instead of three (Moon Island, Rooftop cinema, Lantern keeper), so the switcher shows its search field
 

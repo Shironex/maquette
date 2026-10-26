@@ -23,4 +23,4 @@ Motion has no budget of its own. Clips are bytes inside the models, so they coun
 
 A prop's states are poses of its parts. The first state is the model at rest. Every other state moves named parts by an offset in metres and degrees. Between two states a transition has a duration, delay, easing and stagger. Triggers say what starts a move on the site: arriving at a camera stop, a scroll range, a click or a hover. Up to 16 states and 32 triggers per asset.
 
-Save motion writes the states and clip choices into `layout.json`, next to the camera stops. The site build does not play states yet: they travel with `layout.json` for the page to read.
+Save motion writes the states and clip choices into `layout.json`, next to the camera stops. The site plays the stop and scroll triggers as the page scrolls; click and hover do not play there yet. The [Timeline](/docs/views/timeline/) places the stop and scroll triggers along the page.

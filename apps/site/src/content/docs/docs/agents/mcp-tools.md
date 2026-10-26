@@ -31,7 +31,7 @@ These look at the workspace and change nothing.
 | [`get_material_tweaks`](#get_material_tweaks) | An asset's material names, tweaks and per map group codecs, with raw and shipped size                                                  | Nothing | No       |
 | `get_bake_settings`                           | Lightmap size, samples, denoiser, whether `bake_light.py` can denoise, and the assets that skip the bake                               | Nothing | No       |
 | `get_starters`                                | Each starter script in `tools/` as current, outdated, edited or missing                                                                | Nothing | No       |
-| `get_layout`                                  | Where each model stands, the camera stops, the desk, the first view, object states and clips kept off the site                         | Nothing | No       |
+| `get_layout`                                  | Where each model stands, the camera stops, the desk, the first view, object states, explode tracks and clips kept off the site         | Nothing | No       |
 | `get_motion`                                  | Every model's rig, clips and parts, and what the clips weigh inside the scene budget                                                   | Nothing | No       |
 | `list_built_assets`                           | Each built asset's script, helpers, state and last build                                                                               | Nothing | No       |
 | `get_page_preview`                            | The site dev server's state, address, command, who started it and its last log lines                                                   | Nothing | No       |
@@ -51,7 +51,7 @@ These look at the workspace and change nothing.
 | `add_fixups`                                          | Adds fix-ups to an asset; one of a kind already there is replaced                      | Nothing | No       |
 | `remove_fixups`                                       | Removes fix-ups by kind, or all of them                                                | Nothing | No       |
 | `update_starters`                                     | Brings outdated or missing starter scripts up to date, as the Update banner does       | Nothing | No       |
-| [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states and which clips ship             | Nothing | No       |
+| [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states, explode tracks and clips        | Nothing | No       |
 | [`pick_concepts`](#pick_concepts)                     | Puts Lab concepts on the Board at Refs                                                 | Nothing | No       |
 | `star_concepts`                                       | Stars or unstars Lab concepts                                                          | Nothing | No       |
 | [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                             | Nothing | No       |
@@ -214,9 +214,28 @@ Changes a project's scene layout, as the Layout editor does. Only what you name 
 | `desk`      | object or null | no       | The desk size, or `null` to remove it.                                                             |
 | `states`    | object[]       | no       | `{ asset, states, transitions?, triggers?, remove? }`. Sets an asset's object states whole.        |
 | `clips`     | object[]       | no       | `{ asset, clip, ship }`. `ship: false` keeps a clip off the site.                                  |
+| `explode`   | object[]       | no       | `{ asset, distance?, easing?, keys, remove? }`. Sets an asset's explode track whole.               |
 
 ```json
 { "project": "moon-island", "models": [{ "asset": "bench", "rotation": [0, 90, 0] }] }
+```
+
+The Timeline view's tracks go through `set_layout` too. Its state changes are an asset's stop and scroll `triggers` in `states`. An explode track's `keys` are `{ stop, amount }`, at most one per camera stop, with `amount` 0 (together) to 1 (spread `distance` metres, 0.25 when left out) and `easing` between them (`ease-in-out` when left out).
+
+```json
+{
+  "project": "moon-island",
+  "explode": [
+    {
+      "asset": "switch-cabinet",
+      "distance": 0.3,
+      "keys": [
+        { "stop": "canopy", "amount": 0 },
+        { "stop": "pullback", "amount": 1 }
+      ]
+    }
+  ]
+}
 ```
 
 ### pick_concepts

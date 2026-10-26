@@ -125,6 +125,8 @@ whole app, so a build an agent starts and one from the Board queue behind each o
 
 `tools/motion.rs` holds `get_motion`, and the `states` and `clips` edits `set_layout` takes
 (`projects.rs` turns them into a layout patch, the same `apply` the Layout editor's save uses).
+`tools/timeline.rs` holds the `explode` edits `set_layout` takes, each asset's whole explode track
+or its removal; the Timeline's stop and scroll changes go through the `states` edits.
 
 `tools/page.rs` reads, starts and stops the site dev server the Page view shows
 (`get_page_preview`, `start_page_preview`, `stop_page_preview`) through `commands/page.rs`, so an
@@ -154,6 +156,32 @@ timeline and list rules) and `state/motion-states.ts` (state edits, easing and p
 components in `features/motion`, and the canvas in `features/viewer/MotionStage` with
 `viewer/motion-pose.ts` (clip seek, part offsets, the root trail). The shell reloads the store on
 `layout_changed` and `prepare_changed`.
+
+## Timeline
+
+The Timeline view edits two things in `layout.json`. Its state changes are the props' stop and
+scroll triggers in `states`, the same ones Motion lists, so there is one copy of them. Its explode
+tracks live under `timeline.explode` (`layout/timeline.rs`): per asset a `distance` in metres, an
+`easing` and at most one `{ stop, amount }` key per camera stop, amount 0 to 1. `layout::validate`
+checks them with the rest of the layout, `layout::prune_stops` drops the keys and stop triggers of
+a removed stop, and older layouts load with no tracks.
+
+`maquette_core::timeline` builds the view (the stops, every model with its parts from
+`motion::parts`, the states and the tracks) and saves it: `with_timeline` replaces only the stop and
+scroll triggers of the assets the view names, keeps their click and hover triggers, and refuses an
+asset without states. `commands/timeline.rs` reads and saves it, and the Layout editor's save keeps
+the timeline as it is.
+
+The web side is `state/use-timeline-store.ts` (the draft, saved half a second after each edit),
+`state/timeline.ts` (positions along the page, marks, edits) and `state/timeline-checks.ts`, the
+components in `features/timeline`, and `features/page/PagePreview`, which the shell passes in as
+the preview. The playhead is the Page view's: a seek goes to the page through the page bridge and
+the page's answers move it. The shell reloads the store on `layout_changed` and `prepare_changed`.
+
+The site plays it: `apps/site/src/scene/timeline.ts` turns tour progress into each prop's pose
+(scroll ranges scrubbed, stop changes timed by their transition) and each track's amount, and
+`scene/tracks.ts` moves the built model's nodes, found by their names in the file, from their rest
+transforms. A part spreads straight out from the model's centre.
 
 ## Built assets
 
