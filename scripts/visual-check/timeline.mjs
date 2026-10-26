@@ -1,9 +1,10 @@
 /**
  * The Timeline view's shots for scripts/visual-check.mjs (ONLY=timeline):
  * the switch cabinet's lanes with a scroll range selected and the page
- * preview scrolled to the playhead, an explode key selected, Add track
- * with paths still to come, and a project without camera stops. Mock
- * mode's `?timeline=demo` cabinet and its dev page serve them.
+ * preview scrolled to the playhead, an explode key selected, the lantern
+ * cable's energize lane with a key selected, Add track offering a path's
+ * energize track, and a project without camera stops. Mock mode's
+ * `?timeline=demo` cabinet and paths and its dev page serve them.
  */
 
 const RUNNING = '&scenario=configured&page=running&timeline=';
@@ -38,11 +39,14 @@ export async function timelineShots({ open, shot }) {
   await main.getByRole('heading', { name: 'Switch cabinet · explode at Pullback' }).waitFor();
   await shot(main, 'timeline-explode');
 
-  await main.getByRole('button', { name: 'Add track' }).click();
-  const path = main.getByRole('menuitem', { name: 'Path' });
-  await path.hover();
-  await main.getByRole('tooltip').filter({ hasText: 'Paths come in the next view' }).waitFor();
+  await main.getByRole('button', { name: 'Lantern cable lit at Canopy' }).click();
+  await main.getByRole('heading', { name: 'Lantern cable · energize at Canopy' }).waitFor();
   await shot(main, 'timeline-paths');
+
+  await main.getByRole('button', { name: 'Add track' }).click();
+  await main.getByRole('menuitem', { name: 'Energize Spare run' }).hover();
+  await main.getByRole('tooltip').filter({ hasText: 'Lights it from its first point' }).waitFor();
+  await shot(main, 'timeline-add-track');
   await main.context().close();
 
   const empty = await open('&scenario=configured&timeline=empty', '#/timeline');

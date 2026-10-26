@@ -31,14 +31,15 @@
  * sends. The built set covers built assets on the Board (a stale and a
  * current card, a rebuild, the card menu) and Add built asset. The motion
  * set (scripts/visual-check/motion.mjs) covers the Motion view, the timeline
- * set (scripts/visual-check/timeline.mjs) the Timeline view and the page set
- * (scripts/visual-check/page.mjs) the Page view. It renders
+ * set (scripts/visual-check/timeline.mjs) the Timeline view, the paths set
+ * (scripts/visual-check/paths.mjs) the Inspector's Paths editor and the page
+ * set (scripts/visual-check/page.mjs) the Page view. It renders
  * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=page or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=page or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -50,6 +51,7 @@ import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { motionShots } from './visual-check/motion.mjs';
 import { pageShots } from './visual-check/page.mjs';
+import { pathsShots } from './visual-check/paths.mjs';
 import { timelineShots } from './visual-check/timeline.mjs';
 
 const root = resolve(import.meta.dirname, '..');
@@ -945,6 +947,7 @@ try {
   if (!only || only === 'built') await builtShots();
   if (!only || only === 'motion') await motionShots({ open, shot });
   if (!only || only === 'timeline') await timelineShots({ open, shot });
+  if (!only || only === 'paths') await pathsShots({ open, shot });
   if (!only || only === 'page') await pageShots({ open, shot });
 } finally {
   await browser.close();
