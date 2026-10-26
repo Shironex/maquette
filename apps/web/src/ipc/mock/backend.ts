@@ -27,6 +27,7 @@ import {
 import { createFakeAgents } from './agents';
 import { createFakeLab, refMayReplace } from './lab';
 import { createFakeLayout, layoutBounds } from './layout';
+import { projectSummary } from './project-summary';
 import { createFakeBake, createPrepareHandlers } from './prepare';
 import { createMaterialHandlers } from './materials';
 import { createFakeProviders } from './providers';
@@ -181,28 +182,12 @@ export function createBackend({
     return { root, display: display(root), config, project, projects };
   }
 
-  function summary(p: ProjectManifest): ProjectSummary {
-    const dir = `${expand(DEFAULT_ROOT)}/projects/${p.id}`;
-    const pictured = (p.assets ?? []).filter(a => a.thumbnail);
-    const thumb =
-      pictured.find(a => a.kind === 'scene')?.thumbnail ??
-      [...pictured].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.thumbnail ??
-      null;
-    const sends = (providers.jobs() ?? []).filter(
-      j => j.project === p.id && ['approval', 'queued', 'running', 'waiting'].includes(j.state)
-    ).length;
-    return {
-      id: p.id,
-      name: p.name,
-      template: p.template,
-      siteRepo: p.siteRepo,
-      createdAt: p.createdAt,
-      assetCount: (p.assets ?? []).length,
-      dir,
-      thumb,
-      activity: { run: activeRun(p.id), concepts: lab.activeJobs(p.id), sends },
-    };
-  }
+  const summary = (p: ProjectManifest): ProjectSummary =>
+    projectSummary(p, {
+      activeRun,
+      concepts: id => lab.activeJobs(id),
+      jobs: () => providers.jobs(),
+    });
 
   const lab = createFakeLab({
     projectDir: id => `${expand(DEFAULT_ROOT)}/projects/${id}`,
