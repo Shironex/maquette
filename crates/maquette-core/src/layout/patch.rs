@@ -1,5 +1,5 @@
-//! Editing the layout: patches for placements, stops and the desk, applied
-//! and validated as a whole.
+//! Editing the layout: patches for placements, stops, the desk, states,
+//! tracks and paths, applied and validated as a whole.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -58,12 +58,19 @@ pub struct LayoutPatch {
     /// Asset id to its whole explode track; `None` removes it.
     #[serde(default)]
     pub explode: BTreeMap<String, Option<ExplodeTrack>>,
+    /// Paths to add, change or remove, in order.
+    #[serde(default)]
+    pub paths: Vec<PathPatch>,
+    /// Path id to its whole energize track; `None` removes it.
+    #[serde(default)]
+    pub path_tracks: BTreeMap<String, Option<PathTrack>>,
 }
 
 /// Applies `patch` to `layout`. `known` are the asset ids a placement, a
 /// stop's model list, states or clip choices may name (the assets with a
 /// model). Triggers and explode keys that wait for a stop the patch
-/// removes go with it.
+/// removes go with it, and a path end anchored to a model the patch moves
+/// moves with it.
 /// Nothing changes when any part is refused.
 ///
 /// # Errors
@@ -223,6 +230,9 @@ pub fn apply(
             }
         }
     }
+    paths::follow(&layout.models, &mut next);
+    paths::apply_patch(&mut next, &patch.paths, &patch.path_tracks, known)?;
+    prune_stops(&mut next);
     validate(&next)?;
     Ok(next)
 }

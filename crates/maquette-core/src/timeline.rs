@@ -2,8 +2,8 @@
 //!
 //! [`view`] gathers what the view lays out: the camera stops in tour
 //! order, every model with its parts, the object states (whose stop and
-//! scroll triggers the view places on the rows) and the explode tracks of
-//! [`crate::layout::timeline`]. [`save`] writes back the stop and scroll
+//! scroll triggers the view places on the rows), the paths and the explode
+//! and energize tracks of [`crate::layout::timeline`]. [`save`] writes back the stop and scroll
 //! triggers of the assets the view changed and the whole timeline; the
 //! states themselves, their transitions and the click and hover triggers
 //! stay as the Motion view saved them.
@@ -15,7 +15,7 @@ use serde::Serialize;
 
 use crate::error::{CoreError, CoreResult};
 use crate::layout::{
-    self, LayoutStop, ObjectStates, SceneLayout, StateTrigger, Timeline, TriggerKind,
+    self, LayoutStop, ObjectStates, SceneLayout, ScenePath, StateTrigger, Timeline, TriggerKind,
 };
 use crate::project::ProjectManifest;
 
@@ -40,6 +40,8 @@ pub struct TimelineView {
     /// Every model, in Build scene order.
     pub models: Vec<TimelineModel>,
     pub states: BTreeMap<String, ObjectStates>,
+    /// The layout's paths, whose energize tracks get a lane each.
+    pub paths: Vec<ScenePath>,
     pub timeline: Timeline,
 }
 
@@ -74,6 +76,7 @@ fn view_of(project_dir: &Path, manifest: &ProjectManifest, layout: SceneLayout) 
         stops: layout.stops,
         models,
         states: layout.states,
+        paths: layout.paths,
         timeline: layout.timeline,
     }
 }

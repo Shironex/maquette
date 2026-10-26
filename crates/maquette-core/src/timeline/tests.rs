@@ -110,6 +110,7 @@ fn a_save_replaces_the_scroll_driven_triggers_and_keeps_the_rest() {
                 ..ExplodeTrack::default()
             },
         )]),
+        ..Timeline::default()
     };
     let saved = save(dir.path(), &manifest, &triggers, timeline).expect("save");
     let kinds: Vec<TriggerKind> = saved.states["crate"]

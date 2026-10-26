@@ -22,11 +22,15 @@
 //! one key to the next as it scrolls between their stops and holds it
 //! before the first key and after the last. A build-up is the same track
 //! run the other way: 1 first, then 0.
+//!
+//! `paths` holds the energize tracks of the layout's paths, keyed by path
+//! id, keyed and eased the same way (see [`super::paths`]).
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+use super::paths::PathTrack;
 use super::{Easing, MAX_STOPS, SceneLayout, invalid};
 use crate::error::CoreResult;
 
@@ -71,6 +75,39 @@ impl Default for ExplodeTrack {
 pub struct Timeline {
     /// Asset id to how its parts spread apart along the scroll.
     pub explode: BTreeMap<String, ExplodeTrack>,
+    /// Path id to how much of it is lit along the scroll.
+    pub paths: BTreeMap<String, PathTrack>,
+}
+
+/// Checks a track's keys: at stops that are there, one per stop, amounts
+/// from 0 to 1. `what` names the track in the messages.
+pub(super) fn check_keys<'a>(
+    what: &str,
+    keys: impl ExactSizeIterator<Item = (&'a str, f32)>,
+    stops: &BTreeSet<&str>,
+) -> CoreResult<()> {
+    if keys.len() > MAX_STOPS {
+        return Err(invalid(format!(
+            "{what} has more keys than there can be stops."
+        )));
+    }
+    let mut seen = BTreeSet::new();
+    for (stop, amount) in keys {
+        if !stops.contains(stop) {
+            return Err(invalid(format!(
+                "{what} has a key at the camera stop {stop}, which is not in the layout."
+            )));
+        }
+        if !seen.insert(stop) {
+            return Err(invalid(format!("{what} has two keys at the stop {stop}.")));
+        }
+        if !(amount.is_finite() && (0.0..=1.0).contains(&amount)) {
+            return Err(invalid(format!(
+                "{what} has an amount of {amount} at {stop}. Use 0 to 1."
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn check_track(asset: &str, track: &ExplodeTrack, stops: &BTreeSet<&str>) -> CoreResult<()> {
@@ -80,33 +117,8 @@ fn check_track(asset: &str, track: &ExplodeTrack, stops: &BTreeSet<&str>) -> Cor
             track.distance
         )));
     }
-    if track.keys.len() > MAX_STOPS {
-        return Err(invalid(format!(
-            "The explode track of {asset} has more keys than there can be stops."
-        )));
-    }
-    let mut seen = BTreeSet::new();
-    for key in &track.keys {
-        if !stops.contains(key.stop.as_str()) {
-            return Err(invalid(format!(
-                "The explode track of {asset} has a key at the camera stop {}, which is not in the layout.",
-                key.stop
-            )));
-        }
-        if !seen.insert(key.stop.as_str()) {
-            return Err(invalid(format!(
-                "The explode track of {asset} has two keys at the stop {}.",
-                key.stop
-            )));
-        }
-        if !(key.amount.is_finite() && (0.0..=1.0).contains(&key.amount)) {
-            return Err(invalid(format!(
-                "The explode track of {asset} has an amount of {} at {}. Use 0 to 1.",
-                key.amount, key.stop
-            )));
-        }
-    }
-    Ok(())
+    let keys = track.keys.iter().map(|k| (k.stop.as_str(), k.amount));
+    check_keys(&format!("The explode track of {asset}"), keys, stops)
 }
 
 /// Checks the timeline of `layout` against its camera stops.

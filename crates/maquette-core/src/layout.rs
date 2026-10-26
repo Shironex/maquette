@@ -29,8 +29,9 @@
 //! `states` and `clips` are the Motion view's: the poses a prop moves
 //! between and which animation clips ship (see [`states`]). `timeline` is
 //! the Timeline view's: how far each model's parts spread apart at each
-//! stop (see [`timeline`]). Files written before they existed load without
-//! them.
+//! stop and how much of each path is lit (see [`timeline`]). `paths` are
+//! the Paths editor's curves through the scene (see [`paths`]). Files
+//! written before they existed load without them.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -46,6 +47,7 @@ use crate::pipeline::PipelineDef;
 use crate::project::{ProjectManifest, slugify};
 
 mod patch;
+pub mod paths;
 mod placement;
 pub mod states;
 pub mod timeline;
@@ -68,6 +70,8 @@ pub use states::{
 };
 
 pub use timeline::{ExplodeKey, ExplodeTrack, Timeline};
+
+pub use paths::{PathCurve, PathKey, PathPatch, PathTrack, ScenePath};
 
 pub const LAYOUT_FILE: &str = "layout.json";
 pub const LAYOUT_VERSION: u32 = 1;
@@ -143,6 +147,8 @@ pub struct SceneLayout {
     pub clips: BTreeMap<String, BTreeMap<String, ClipSettings>>,
     /// The Timeline view's tracks.
     pub timeline: Timeline,
+    /// Curves through the scene the page can light up, in the order they draw.
+    pub paths: Vec<ScenePath>,
 }
 
 impl Default for SceneLayout {
@@ -155,6 +161,7 @@ impl Default for SceneLayout {
             states: BTreeMap::new(),
             clips: BTreeMap::new(),
             timeline: Timeline::default(),
+            paths: Vec::new(),
         }
     }
 }
@@ -286,8 +293,8 @@ fn check_stop(stop: &LayoutStop) -> CoreResult<()> {
 /// Checks every value: finite numbers, a scale above zero, named stops with
 /// unique ids, a target away from the camera, a field of view between 1 and
 /// 170 degrees, a desk of sensible size, states whose transitions and
-/// triggers name states and stops that are there, and explode keys at
-/// stops that are there.
+/// triggers name states and stops that are there, explode keys at stops
+/// that are there, and paths with named, finite points and their tracks.
 ///
 /// # Errors
 ///
@@ -322,13 +329,14 @@ pub fn validate(layout: &SceneLayout) -> CoreResult<()> {
         ));
     }
     states::validate(layout)?;
-    timeline::validate(layout)
+    timeline::validate(layout)?;
+    paths::validate(layout)
 }
 
-/// Drops the triggers and explode keys that wait for a camera stop the
-/// layout no longer has. Returns how many went.
+/// Drops the triggers, explode keys and path keys that wait for a camera
+/// stop the layout no longer has. Returns how many went.
 pub fn prune_stops(layout: &mut SceneLayout) -> usize {
-    states::prune_stops(layout) + timeline::prune_stops(layout)
+    states::prune_stops(layout) + timeline::prune_stops(layout) + paths::prune_stops(layout)
 }
 
 /// A free stop id for `name`: its slug, else the slug with `-2`, `-3`.

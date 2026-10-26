@@ -62,7 +62,12 @@ fn layout(placed: bool) -> Value {
                     "fov": 35, "models": null }],
         "desk": null,
         "timeline": { "explode": { "desk-lamp": { "distance": 0.2, "easing": "ease-in-out",
-                      "keys": [{ "stop": "hero", "amount": 1 }] } } }
+                      "keys": [{ "stop": "hero", "amount": 1 }] } },
+                      "paths": { "cord": { "easing": "linear",
+                      "keys": [{ "stop": "hero", "amount": 0.5 }] } } },
+        "paths": [{ "id": "cord", "name": "Cord", "curve": "polyline",
+                    "points": [[0, 0, 0], [0.4, 0, 0]], "start": null, "end": "desk-lamp",
+                    "width": 0.01, "color": "#3a3936", "glow": "#ffe08a" }]
     })
 }
 
