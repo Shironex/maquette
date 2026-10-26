@@ -20,6 +20,7 @@ pub mod prepare;
 pub mod projects;
 pub mod runs;
 pub mod sending;
+pub mod starters;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -76,7 +77,9 @@ version; list_fixups lists them and preview_fixups shows their numbers before an
 get_bake_settings reads the Bake light step's lightmap size, samples and denoiser and the \
 assets that skip the bake; set_bake_settings changes them and set_skip_bake sets assets to skip \
 the bake (they keep their own material lighting and ship no lightmap; models accepted from the \
-Inbox skip it by default). \
+Inbox skip it by default). get_starters compares a project's starter scripts in tools/ \
+with the ones this Maquette ships, and update_starters brings the outdated ones up to date, as \
+the Pipeline view's Update banner does, for the project named in the call. \
 get_layout reads where each model stands in the scene, the camera stops and the first view \
 budget; set_layout changes them (metres, y up, degrees) and the app updates live; the next \
 run_pipeline rebuilds the scene and its posters from it. copy_asset copies an asset with its refs and \
@@ -165,7 +168,8 @@ impl McpTools {
                 + Self::credits_router()
                 + Self::handoffs_router()
                 + Self::built_router()
-                + Self::bake_router(),
+                + Self::bake_router()
+                + Self::starters_router(),
         }
     }
 

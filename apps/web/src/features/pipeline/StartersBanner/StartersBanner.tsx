@@ -14,7 +14,7 @@ export interface StartersBannerProps {
  * asked, one at a time, with the old file kept as `<name>.bak`.
  */
 export default function StartersBanner({ view, busy }: StartersBannerProps) {
-  const { update, shown, working, run, keep } = useStartersBanner(view);
+  const { update, shown, working, run, keep, projectName } = useStartersBanner(view);
   if (update.length === 0 && shown.length === 0) return null;
 
   const blocked = busy ? 'Wait for the run to finish' : undefined;
@@ -22,7 +22,7 @@ export default function StartersBanner({ view, busy }: StartersBannerProps) {
     <InlineBanner
       key={path}
       tone="info"
-      title={`${fileName(path)} was edited`}
+      title={`${fileName(path)} in ${projectName} was edited`}
       detail={`A newer starter exists. Your version stays as it is unless you replace it; the old file is kept as ${fileName(path)}.bak.`}
       actions={
         <>
@@ -48,8 +48,8 @@ export default function StartersBanner({ view, busy }: StartersBannerProps) {
       {update.length > 0 ? (
         <InlineBanner
           tone="info"
-          title="New starter scripts available"
-          detail={`${listNames(update)} ${update.length === 1 ? 'is an untouched copy' : 'are untouched copies'} of an older starter. Updating brings in what newer starters do, for example a real light bake.`}
+          title={`New starter scripts for ${projectName}`}
+          detail={`${listNames(update)} in ${projectName}'s tools folder ${update.length === 1 ? 'is an untouched copy' : 'are untouched copies'} of an older starter. Updating brings in what newer starters do, for example a real light bake.`}
           actions={
             <Button
               size="sm"

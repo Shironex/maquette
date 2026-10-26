@@ -332,6 +332,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "get_provider_job",
             "get_real_size",
             "get_run",
+            "get_starters",
             "list_assets",
             "list_built_assets",
             "list_fixups",
@@ -357,6 +358,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "set_skip_bake",
             "star_concepts",
             "start_concepts",
+            "update_starters",
         ]
     );
     for tool in &tools {

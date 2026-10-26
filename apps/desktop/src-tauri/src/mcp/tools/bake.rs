@@ -86,7 +86,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Set a project's bake settings, as the Pipeline view's Bake settings do: size (256, 512, 1024, 2048 or 4096 px), samples (1 to 4096) and denoise. Only the given fields change. Denoise on an older tools/bake_light.py is refused until the script is updated. It spends nothing; the next run bakes with them. Returns the settings like get_bake_settings.",
+        description = "Set a project's bake settings, as the Pipeline view's Bake settings do: size (256, 512, 1024, 2048 or 4096 px), samples (1 to 4096) and denoise. Only the given fields change. Denoise on an older tools/bake_light.py is refused until the script is updated (update_starters does that). It spends nothing; the next run bakes with them. Returns the settings like get_bake_settings.",
         annotations(idempotent_hint = true)
     )]
     async fn set_bake_settings(&self, Parameters(args): Parameters<SetBakeArgs>) -> Out {

@@ -265,8 +265,11 @@ export function listNames(paths: readonly string[]): string {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
-export function starterToast(n: number): string {
-  return n === 1 ? 'Starter script updated' : `${n} starter scripts updated`;
+/** "3 starter scripts updated in Lantern Bay": the project is named, since the banner acts on the open one. */
+export function starterToast(n: number, project: string): string {
+  return n === 1
+    ? `Starter script updated in ${project}`
+    : `${n} starter scripts updated in ${project}`;
 }
 
 /** What the Pipeline view offers for the project's starter scripts. */

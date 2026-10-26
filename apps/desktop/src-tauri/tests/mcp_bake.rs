@@ -135,6 +135,20 @@ async fn call(client: &RunningService<RoleClient, ClientConfig>, tool: &str, arg
     serde_json::from_str(&text(&result)).expect("json")
 }
 
+/// Makes tools/bake_light.py an untouched copy of an older starter, as an
+/// older Maquette would have written and recorded it.
+fn age_bake_script(project_dir: &Path) {
+    use sha2::{Digest, Sha256};
+    let old = "print('an older bake')\n";
+    std::fs::write(project_dir.join("tools/bake_light.py"), old).expect("old copy");
+    let path = project_dir.join("tools/.starter.json");
+    let mut record: Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).expect("record")).expect("json");
+    record["scripts"]["tools/bake_light.py"] =
+        Value::String(format!("{:x}", Sha256::digest(old.as_bytes())));
+    std::fs::write(&path, record.to_string()).expect("save record");
+}
+
 fn bake_args(project_dir: &Path) -> Vec<String> {
     let def = pipeline::load(project_dir)
         .expect("load")
@@ -270,6 +284,46 @@ async fn agents_change_the_bake_settings_and_skip_assets() {
     assert_eq!(after["skipped"], json!([]));
     let saved = prepare::load(&project_dir).expect("prepare");
     assert_eq!(saved.models["desk-globe"].skip_bake, Some(false));
+
+    // An untouched older bake script: the agent updates it itself.
+    age_bake_script(&project_dir);
+    let starters = call(&client, "get_starters", json!({ "project": project_id })).await;
+    let bake_state = |v: &Value| {
+        v["starters"]
+            .as_array()
+            .expect("starters")
+            .iter()
+            .find(|s| s["path"] == "tools/bake_light.py")
+            .map(|s| s["state"].clone())
+            .expect("bake script")
+    };
+    assert_eq!(bake_state(&starters), json!("outdated"));
+    let changes = host.pipeline_changes.load(Ordering::SeqCst);
+    let updated = call(&client, "update_starters", json!({ "project": project_id })).await;
+    assert_eq!(bake_state(&updated), json!("current"));
+    assert_eq!(host.pipeline_changes.load(Ordering::SeqCst), changes + 1);
+    let settings = call(
+        &client,
+        "get_bake_settings",
+        json!({ "project": project_id }),
+    )
+    .await;
+    assert_eq!(settings["script"], json!("current"));
+    // Nothing left to update says so instead of passing quietly.
+    let nothing = raw_call(&client, "update_starters", json!({ "project": project_id })).await;
+    assert_eq!(nothing.is_error, Some(true));
+    let unknown = raw_call(
+        &client,
+        "update_starters",
+        json!({ "project": project_id, "scripts": ["tools/bake.py"] }),
+    )
+    .await;
+    assert_eq!(unknown.is_error, Some(true));
+    assert!(
+        text(&unknown).contains("tools/bake.py"),
+        "{}",
+        text(&unknown)
+    );
 
     client.cancel().await.expect("close");
     server.stop();

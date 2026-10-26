@@ -288,18 +288,26 @@ fn backup_path(path: &Path) -> PathBuf {
 
 /// Brings the starters at `paths` up to date. Outdated and missing ones are
 /// written; an edited one only when `replace_edited` is set, after moving it
-/// to `<name>.bak`. Current ones and paths that are not starters of the
-/// template are left alone. Returns the status after the update.
+/// to `<name>.bak`. Current ones are left alone. Returns the status after
+/// the update.
 ///
 /// # Errors
 ///
-/// Fails when a script or its backup cannot be written.
+/// Refuses, writing nothing, a path that is not a starter of the template.
+/// Fails when a script or its backup cannot be written, and when a script
+/// it should have written is still not current afterwards.
 pub fn update(
     project_dir: &Path,
     template: ProjectTemplate,
     paths: &[String],
     replace_edited: bool,
 ) -> CoreResult<Vec<StarterStatus>> {
+    let known = scripts(template);
+    if let Some(unknown) = paths.iter().find(|p| !known.iter().any(|s| s.path == *p)) {
+        return Err(CoreError::Invalid(format!(
+            "{unknown} is not a starter script of this project's template."
+        )));
+    }
     let mut record = load_record(project_dir);
     let mut backups = BTreeMap::new();
     for script in scripts(template)
@@ -333,6 +341,18 @@ pub fn update(
     }
     save_record(project_dir, &record)?;
     let mut after = status(project_dir, template);
+    let stuck: Vec<&str> = after
+        .iter()
+        .filter(|s| paths.contains(&s.path) && s.state != StarterState::Current)
+        .filter(|s| replace_edited || s.state != StarterState::Edited)
+        .map(|s| s.path.as_str())
+        .collect();
+    if !stuck.is_empty() {
+        return Err(CoreError::Invalid(format!(
+            "{} did not update: the file on disk still differs from the starter.",
+            stuck.join(", ")
+        )));
+    }
     for entry in &mut after {
         entry.backup = backups.get(entry.path.as_str()).cloned();
     }

@@ -10,7 +10,7 @@ import {
   type PipelineEvent,
   type PipelineView,
 } from '@/ipc/client';
-import { applyEvent, fileName, starterToast } from './pipeline';
+import { applyEvent, fileName, listNames, starterToast } from './pipeline';
 import { presetRows, presetsToSave, withEdits, type PresetEdits } from './presets';
 import { useAppStore } from './use-app-store';
 
@@ -44,6 +44,10 @@ interface PipelineStore {
   refresh: (project: string) => Promise<void>;
   onEvent: (event: PipelineEvent) => void;
 }
+
+/** A project's name for messages, its id when the workspace does not list it. */
+const projectName = (id: string) =>
+  useAppStore.getState().workspace?.projects.find(p => p.id === id)?.name ?? id;
 
 /** The project the latest load asked for; an older answer is dropped. */
 let requested: string | null = null;
@@ -180,24 +184,35 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
 
   updateStarters: async (scripts, replace) => {
     const view = get().view;
-    if (!view || scripts.length === 0) return false;
+    const notify = useAppStore.getState().notify;
+    if (!view || scripts.length === 0) {
+      notify({
+        status: 'failed',
+        title: 'The scripts were not updated',
+        detail: view ? 'No script was picked to update.' : 'The pipeline is not loaded yet.',
+      });
+      return false;
+    }
+    const name = projectName(view.project);
     try {
       const next = await commands.pipelineUpdateStarters(view.project, scripts, replace);
-      if (get().view?.project !== view.project) return false;
-      set({
-        view: { ...next, runs: get().view?.runs ?? next.runs, log: get().view?.log ?? next.log },
-      });
+      // Updated on disk either way; only the open project's banner shows it.
+      if (get().view?.project === view.project)
+        set({
+          view: { ...next, runs: get().view?.runs ?? next.runs, log: get().view?.log ?? next.log },
+        });
       const backups = next.starters.flatMap(s => (s.backup ? [fileName(s.backup)] : []));
-      useAppStore.getState().notify({
+      const kept = backups.length ? ` Your version is kept as ${backups.join(', ')}.` : '';
+      notify({
         status: 'done',
-        title: starterToast(scripts.length),
-        detail: backups.length ? `Your version is kept as ${backups.join(', ')}.` : undefined,
+        title: starterToast(scripts.length, name),
+        detail: `Now current: ${listNames(scripts)}.${kept}`,
       });
       return true;
     } catch (error) {
-      useAppStore.getState().notify({
+      notify({
         status: 'failed',
-        title: 'The scripts were not updated',
+        title: `The scripts in ${name} were not updated`,
         detail: errorMessage(error),
       });
       return false;

@@ -353,3 +353,39 @@ fn the_desk_slab_stays_out_of_a_floor_and_the_world_is_lit() {
     // Blender 5 renders the world's nodes, not its viewport colour.
     assert!(build.contains("background.inputs[\"Color\"].default_value"));
 }
+
+#[test]
+fn an_update_refuses_paths_that_are_not_starters_and_writes_nothing() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let project = dir.path();
+    let old_bake = "print('old bake')\n";
+    fs::create_dir_all(project.join("tools")).expect("tools");
+    fs::write(project.join(BAKE_LIGHT.path), old_bake).expect("bake");
+    let mut record = Record::default();
+    record
+        .scripts
+        .insert(BAKE_LIGHT.path.into(), text_hash(old_bake));
+    save_record(project, &record).expect("record");
+
+    let asked = vec![
+        BAKE_LIGHT.path.to_string(),
+        "tools/bake.py".to_string(), // a typo, or a path from another template
+    ];
+    let err = update(project, ProjectTemplate::FloatingDiorama, &asked, false)
+        .expect_err("an unknown path is refused");
+    assert!(err.to_string().contains("tools/bake.py"), "{err}");
+    assert_eq!(
+        fs::read_to_string(project.join(BAKE_LIGHT.path)).expect("read"),
+        old_bake,
+        "nothing is written when a path is refused"
+    );
+    // A character project has no bake starter at all.
+    let err = update(
+        project,
+        ProjectTemplate::CharacterShowcase,
+        &[BAKE_LIGHT.path.to_string()],
+        false,
+    )
+    .expect_err("not a starter of this template");
+    assert!(err.to_string().contains("not a starter"), "{err}");
+}

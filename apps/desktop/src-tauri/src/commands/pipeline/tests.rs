@@ -109,6 +109,112 @@ fn old_starter_scripts_show_and_update_from_the_view() {
     );
 }
 
+/// Makes three of a project's starters untouched copies of an older starter,
+/// recorded in tools/.starter.json the way an older Maquette wrote them.
+fn age_starters(dir: &std::path::Path) {
+    let scripts = [
+        "tools/bake_light.py",
+        "tools/build_scene.py",
+        "tools/export_web.py",
+    ];
+    let mut record: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(dir.join("tools/.starter.json")).expect("record"),
+    )
+    .expect("json");
+    for path in scripts {
+        let old = format!("print('an older {path}')\n");
+        std::fs::write(dir.join(path), &old).expect("old copy");
+        let hash = sha256_hex(&old);
+        record["scripts"][path] = serde_json::Value::String(hash);
+    }
+    std::fs::write(
+        dir.join("tools/.starter.json"),
+        serde_json::to_string_pretty(&record).expect("text"),
+    )
+    .expect("save record");
+}
+
+fn sha256_hex(text: &str) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(text.as_bytes()))
+}
+
+#[test]
+fn updating_starters_changes_the_named_project_and_only_it() {
+    use maquette_core::pipeline::starter::StarterState;
+    let (_dir, session, open_id) = open();
+    let runner = PipelineRunner::new(Arc::new(NullSink));
+    let (root, config) = session.workspace().expect("ws");
+    let other = project::create(
+        &root,
+        &config.layout,
+        NewProject {
+            name: "Study room".into(),
+            template: ProjectTemplate::FloatingDiorama,
+            site_repo: None,
+            source_folder: None,
+        },
+    )
+    .expect("second project");
+    let open_dir = project::dir(&root, &config.layout, &open_id).expect("dir");
+    let other_dir = project::dir(&root, &config.layout, &other.id).expect("dir");
+    // Both views write their pipeline and starters first.
+    view(&session, &runner, &open_id).expect("view");
+    view(&session, &runner, &other.id).expect("view");
+    age_starters(&open_dir);
+    age_starters(&other_dir);
+
+    let before = view(&session, &runner, &other.id).expect("view");
+    let outdated: Vec<String> = before
+        .starters
+        .iter()
+        .filter(|s| s.state == StarterState::Outdated)
+        .map(|s| s.path.clone())
+        .collect();
+    assert_eq!(outdated.len(), 3, "{:?}", before.starters);
+
+    let after = update_starters(&session, &runner, &other.id, &outdated, false).expect("update");
+    assert!(
+        after
+            .starters
+            .iter()
+            .all(|s| s.state == StarterState::Current),
+        "{:?}",
+        after.starters
+    );
+    assert_eq!(
+        after.project, other.id,
+        "the view that comes back is the named project's"
+    );
+    assert!(
+        std::fs::read_to_string(other_dir.join("tools/bake_light.py"))
+            .expect("read")
+            .contains("bake"),
+    );
+    // The project open in the app is not touched by an update of another.
+    let untouched = view(&session, &runner, &open_id).expect("view");
+    assert_eq!(
+        untouched
+            .starters
+            .iter()
+            .filter(|s| s.state == StarterState::Outdated)
+            .count(),
+        3
+    );
+    // A second Update of the same list is a no op, not an error.
+    update_starters(&session, &runner, &other.id, &outdated, false).expect("again");
+    // A path that is no starter is refused, not silently skipped.
+    let err = update_starters(
+        &session,
+        &runner,
+        &other.id,
+        &["tools/bake.py".to_string()],
+        false,
+    )
+    .expect_err("unknown");
+    assert!(err.message.contains("tools/bake.py"), "{}", err.message);
+}
+
 #[test]
 fn the_view_writes_the_template_and_reports_no_runs() {
     let (_dir, session, id) = open();

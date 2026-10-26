@@ -66,6 +66,9 @@ export function createPipelineHandlers({
       if (activeRun(pid))
         fail('invalid', 'The pipeline is running. Update the scripts once the run is done.');
       const asked = new Set(scripts as string[]);
+      const unknown = [...asked].find(path => !startersOf(pid).some(s => s.path === path));
+      if (unknown)
+        fail('invalid', `${unknown} is not a starter script of this project's template.`);
       starters.set(
         pid,
         startersOf(pid).map(s => {

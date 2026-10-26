@@ -688,7 +688,7 @@ async function coreShots() {
   await shot(narrow, 'lab-long-title');
 
   const starters = await open('&scenario=configured', '#/pipeline');
-  await starters.getByText('New starter scripts available').waitFor();
+  await starters.getByText(/^New starter scripts for /).waitFor();
   await shot(starters, 'pipeline-starters');
 }
 

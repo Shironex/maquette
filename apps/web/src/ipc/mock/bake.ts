@@ -45,7 +45,7 @@ export function createFakeBake(
     if (next.denoise && !now.canDenoise)
       fail(
         'invalid',
-        `${SCRIPT} is an older or edited copy that cannot denoise. Update it from the Pipeline view's starter banner first, or leave denoise off.`
+        `${SCRIPT} is an older or edited copy that cannot denoise. Update it from the Pipeline view's starter banner (or update_starters over MCP) first, or leave denoise off.`
       );
     saved.set(id, next);
   }

@@ -161,7 +161,7 @@ pub fn write_args(
     validate(settings)?;
     if settings.denoise && !can_denoise {
         return Err(CoreError::Invalid(format!(
-            "{SCRIPT} is an older or edited copy that cannot denoise. Update it from the Pipeline view's starter banner first, or leave denoise off."
+            "{SCRIPT} is an older or edited copy that cannot denoise. Update it from the Pipeline view's starter banner (or update_starters over MCP) first, or leave denoise off."
         )));
     }
     set_value(args, "--size", settings.size);
