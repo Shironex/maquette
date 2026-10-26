@@ -42,7 +42,8 @@ export type Args = Record<string, unknown>;
  * `create-built-handlers.ts`), `?motion=` models that move (see
  * `create-motion-handlers.ts`), `?page=` holds the Page view's dev server
  * (see `create-page-handlers.ts`), `?timeline=` the Timeline view's tracks
- * (see `create-timeline-handlers.ts`). Configured scenarios also open with
+ * (see `create-timeline-handlers.ts`), `?paths=` the Paths editor's paths
+ * (see `create-paths-handlers.ts`). Configured scenarios also open with
  * Send to 3D jobs (see `providers.ts`).
  */
 export interface BackendOptions {
@@ -85,6 +86,8 @@ export interface BackendOptions {
   page?: string | null;
   /** `demo` or `empty`: the Timeline view's tracks (see create-timeline-handlers.ts). */
   timeline?: string | null;
+  /** `demo` or `empty`: the Paths editor's paths (see create-paths-handlers.ts). */
+  paths?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */

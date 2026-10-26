@@ -112,6 +112,8 @@ const handle = createBackend({
   motion,
   page: pageOption(params),
   timeline: params.get('timeline'),
+  // `?timeline=demo` lights the demo paths too, for its paths lane.
+  paths: params.get('paths') ?? (params.get('timeline') === 'demo' ? 'demo' : null),
   emit: event => {
     if (event.name === 'page') void events.pageServerChanged.emit(event.payload);
     else if (event.name === 'built') {

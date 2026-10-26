@@ -9,12 +9,15 @@ import type {
   LayoutView,
   ModelPrep,
   Placement,
+  PathTrack,
   ProjectManifest,
+  ScenePath,
   SceneLayout,
   StateTrigger,
   Timeline,
 } from '../client';
 import { frameOf, framed } from '@/lib/real-size';
+import { follow } from '@/state/paths';
 
 type Vec3 = [number, number, number];
 
@@ -230,14 +233,15 @@ export function createFakeLayout(deps: {
     if (layout.stops.some(s => !s.name.trim())) {
       throw { code: 'invalid', message: 'Give every camera stop a name.' };
     }
-    // As the app does, the editor's save keeps the Motion and Timeline views' parts.
+    // As the app does, the editor's save keeps the Motion, Timeline and Paths views' parts
+    // and moves the path ends anchored to a model it moves.
     const kept = layouts.get(id);
     layouts.set(id, {
       ...layout,
       states: kept?.states ?? {},
       clips: kept?.clips ?? {},
       timeline: kept?.timeline ?? { explode: {}, paths: {} },
-      paths: kept?.paths ?? [],
+      paths: follow(kept?.paths ?? [], kept?.models ?? {}, layout.models),
     });
     return view(id);
   }
@@ -293,11 +297,20 @@ export function createFakeLayout(deps: {
     layouts.set(id, { ...current, states, timeline: structuredClone(timeline) });
   }
 
+  /** The Paths editor's save: every path and their energize tracks. */
+  function setPaths(id: string, paths: ScenePath[], tracks: Record<string, PathTrack>): void {
+    const current = layouts.get(id) ?? view(id).layout;
+    const ids = new Set(paths.map(p => p.id));
+    const kept = Object.fromEntries(Object.entries(tracks).filter(([path]) => ids.has(path)));
+    const timeline = { ...current.timeline, paths: structuredClone(kept) };
+    layouts.set(id, { ...current, paths: structuredClone(paths), timeline });
+  }
+
   /** `?timeline=empty`: the project has no camera stops. */
   function clearStops(id: string): void {
     const current = layouts.get(id) ?? view(id).layout;
     layouts.set(id, { ...current, stops: [] });
   }
 
-  return { view, save, firstView, motion, setMotion, setTimeline, clearStops };
+  return { view, save, firstView, motion, setMotion, setTimeline, setPaths, clearStops };
 }

@@ -16,7 +16,8 @@ export async function openMockWorkspace(
   built?: string,
   motion?: string,
   page?: string,
-  timeline?: string
+  timeline?: string,
+  paths?: string
 ) {
   const handle = createBackend({
     scenario,
@@ -31,6 +32,7 @@ export async function openMockWorkspace(
     motion: motion ?? (timeline ? 'demo' : undefined),
     page,
     timeline,
+    paths: paths ?? (timeline === 'demo' ? 'demo' : undefined),
   });
   mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>));
   const boot = await commands.appBootstrap();

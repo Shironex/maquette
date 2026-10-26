@@ -42,6 +42,7 @@ import { createInboxHandlers } from './create-inbox-handlers';
 import { createMotionHandlers, motionConfig, seedMotionProjects } from './create-motion-handlers';
 import { createPageHandlers } from './create-page-handlers';
 import { createTimelineHandlers } from './create-timeline-handlers';
+import { createPathsHandlers } from './create-paths-handlers';
 import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createProjectHandlers } from './create-project-handlers';
 import { createToolchainHandlers } from './create-toolchain-handlers';
@@ -67,6 +68,7 @@ export function createBackend({
   motion = null,
   page: pageState = null,
   timeline = null,
+  paths = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -367,6 +369,7 @@ export function createBackend({
       motion,
     }),
     ...createTimelineHandlers({ layout, timeline: configured ? timeline : null }),
+    ...createPathsHandlers({ layout, paths: configured ? paths : null }),
     ...page.handlers,
   };
   page.wrapInspect(handlers);
