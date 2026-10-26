@@ -242,7 +242,7 @@ export function serverLine(status: ServerStatus): string {
   }
 }
 
-/** What a frame loads for the view's source, and the address bar's text. */
+/** What a frame loads for the view's source, and the address bar's text (the dev server's own). */
 export function frameSource(
   view: PageView | null,
   options: { poster?: boolean } = {}
@@ -254,7 +254,10 @@ export function frameSource(
     return { src: fileUrl(concept), address: name };
   }
   const running = view.server.state === 'running' ? view.server.url : null;
-  const address = pageAddress(running, view.settings.path, options);
+  // The frame loads the frame proxy in front of the server (it drops the
+  // headers that forbid framing); the address bar names the server itself.
+  const framed = running ? (view.server.frameUrl ?? running) : null;
+  const address = pageAddress(framed, view.settings.path, options);
   const shown = pageAddress(running, view.settings.path);
   return {
     src: frameUrl(address),

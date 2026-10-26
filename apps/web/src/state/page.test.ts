@@ -101,6 +101,20 @@ describe('the frame source', () => {
     });
   });
 
+  it('loads the frame proxy when there is one, and still shows the dev server', () => {
+    const framed = view(
+      { settings: { version: 1, devCommand: null, concept: null, source: 'site', path: '/a' } },
+      { state: 'running', url: 'http://localhost:3010/', frameUrl: 'http://127.0.0.1:52011/' }
+    );
+    expect(frameSource(framed)).toEqual({
+      src: 'http://127.0.0.1:52011/a',
+      address: 'localhost:3010/a',
+    });
+    expect(frameSource(framed, { poster: true }).src).toBe(
+      'http://127.0.0.1:52011/a?maquette-poster=1'
+    );
+  });
+
   it('names a page concept by its file', () => {
     const concept = view({
       settings: {
