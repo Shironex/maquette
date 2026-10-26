@@ -22,6 +22,12 @@ extras. Cameras and lights
 are never exported. Geometry stays uncompressed (no Draco): the Compress
 step applies meshopt and KTX2 from the presets.
 
+Motion: a model's armature and skin export with it, and so does every
+animation clip on its objects (their actions, active or in NLA tracks),
+each as one glTF animation under its own name, sampled at the scene's
+frame rate. Build scene has already removed the clips the Motion view
+keeps off the site.
+
 Baked light: --bake is the Bake light folder. For every object listed in
 its bake.json the export
 - keeps the object's UV sets: the texture UV as TEXCOORD_0 and "lightmap"
@@ -288,7 +294,18 @@ def export(path, objects):
         export_cameras=False,
         export_lights=False,
         export_yup=True,
+        export_skins=True,
+        export_animations=True,
+        export_animation_mode="ACTIONS",
     )
+
+
+def clip_count(path):
+    """How many animations a written GLB holds, for the log."""
+    with open(path, "rb") as fh:
+        data = fh.read()
+    length = int.from_bytes(data[12:16], "little")
+    return len(json.loads(data[20 : 20 + length]).get("animations", []))
 
 
 def main():
@@ -333,7 +350,9 @@ def main():
             export(path, objects)
         finally:
             undo_names(undo)
-        log(f"wrote {path} ({len(objects)} objects, {os.path.getsize(path) // 1024} KB)")
+        clips = clip_count(path)
+        moving = f", {clips} clip{'s' if clips != 1 else ''}" if clips else ""
+        log(f"wrote {path} ({len(objects)} objects{moving}, {os.path.getsize(path) // 1024} KB)")
     log(f"exported {len(names)} models to {args.out}")
 
 

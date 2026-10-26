@@ -58,6 +58,10 @@ const OLDER: &[(&str, &str)] = &[
         "6673c062e2592802c5a62268bdf2e3f456a63103958edf1509662930f4f9bfca",
     ),
     (
+        "tools/build_scene.py",
+        "e4bcebdf223d63af804879b3a1f96b233328d0271ec0722e8c2296d38d522323",
+    ),
+    (
         "tools/export_character.py",
         "a450a138b62489b9bb6ffc848392de75bc3539460cd275a181f88e986b20e054",
     ),
@@ -76,6 +80,10 @@ const OLDER: &[(&str, &str)] = &[
     (
         "tools/export_web.py",
         "983da9e6089c66ecc51e6e92e7069be7f0c5d9bafb0d6903f1c3c9117f05a838",
+    ),
+    (
+        "tools/export_web.py",
+        "8d436335faf4548e381c56149d6d11bff814dd48a997305cd17c2ef6abf50106",
     ),
     (
         "tools/fixups.py",

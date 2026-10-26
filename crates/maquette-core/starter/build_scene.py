@@ -37,6 +37,10 @@ Maquette runs this headless, as the Build scene step:
   has a floor there (it reaches below the desk top over most of the slab),
   the slab is left out: a second surface at the same height would cover
   that floor and bake it black.
+- Its "clips" say which animation clips of a model stay off the site
+  ({"<asset>": {"<clip>": {"ship": false}}}, set in the Motion view): each
+  such clip is removed from the model's objects, so Export GLB leaves it
+  out. Every other clip ships.
 - Its "stops" become cameras in a "Stops" collection, named
   stop_01_<name> and tagged "maquette_stop" (the order) and
   "maquette_stop_name", which Capture posters renders. When the base blend
@@ -278,6 +282,42 @@ def import_model(path, parent):
     return target
 
 
+def drop_clips(collection, names):
+    """Removes the named clips (glTF animations, which import as actions and
+    NLA tracks of the same name) from a model's objects, so the export
+    leaves them out. Returns the names it found."""
+    wanted = set(names)
+    gone = set()
+    actions = set()
+
+    def named(action):
+        if action is None:
+            return False
+        match = SUFFIX.match(action.name)
+        return (match.group(1) if match else action.name) in wanted
+
+    for obj in collection.all_objects:
+        data = obj.animation_data
+        if data is None:
+            continue
+        if named(data.action):
+            actions.add(data.action)
+            data.action = None
+        for track in list(data.nla_tracks):
+            for strip in list(track.strips):
+                if named(strip.action) or track.name in wanted:
+                    if strip.action is not None:
+                        actions.add(strip.action)
+                    track.strips.remove(strip)
+            if len(track.strips) == 0:
+                data.nla_tracks.remove(track)
+    for action in actions:
+        match = SUFFIX.match(action.name)
+        gone.add(match.group(1) if match else action.name)
+        bpy.data.actions.remove(action)
+    return gone
+
+
 def bounds(collection):
     """World space min and max corners of the meshes in a collection."""
     lo = Vector((float("inf"),) * 3)
@@ -450,6 +490,14 @@ def main():
     added = [c for c in (import_model(f, parent) for f in newest) if c is not None]
     bpy.context.view_layer.update()
     prepare_models(added, owners, args.prepare)
+    for collection in added:
+        owner = owners.get(collection.name)
+        choices = (layout.get("clips") or {}).get(owner[0], {}) if owner else {}
+        off = [name for name, choice in choices.items() if choice.get("ship") is False]
+        if off:
+            gone = drop_clips(collection, off)
+            left = sorted(set(off) - gone)
+            log(f"{collection.name}: left {len(gone)} clips off the site" + (f", no clip named {', '.join(left)}" if left else ""))
     unplaced = []
     placed = 0
     for collection in added:
