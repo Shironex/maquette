@@ -146,18 +146,25 @@ the events that carry a manifest stay small). `maquette-core/src/game/` holds th
 reads a game repo, `scan.rs` and `import.rs` turn its models into assets (version 1 is the repo
 file, recorded in `game.models`), `budget.rs` checks models against their folder's budget,
 `index.rs` writes `web/game-index.json` before every run (each model's target path, whether it is
-still the untouched import, the export settings), `ship.rs` plans what Ship would change against
-`web/ship-record.json`, and `settings.rs` saves a settings change and re-ensures the pipeline. The
+still the untouched import, its `textureCap` from its folder budget with the global cap as the
+fallback, the export settings), `ship.rs` plans what Ship would change against
+`web/ship-record.json` (a replaced file whose game copy is still the imported one is `imported`;
+`detect::uncommitted` counts `git --no-optional-locks status --porcelain`, read only), and `settings.rs` saves a settings change and re-ensures the pipeline. Budget fix-ups never give a
+rigged model (`BudgetCheck.rigged`, any joints) Decimate, only Shrink textures. The
 game template is `pipeline/template/game.rs` with its starters in `starter/` (`export_game.py`,
 `game_export.mjs`, `ship_game.mjs`).
 
 The desktop side is `commands/game.rs` (Tauri commands, `before_run` and `ship_gate`) and
-`mcp/tools/game.rs`. A game's Ship is gated in every run: `ship_gate` returns a `ShipGate` with
+`mcp/tools/game.rs`. Import asks the thumbnail service for each new model through
+`commands/thumbs.rs::render_missing` (`thumbs::missing` lists the models with no render), and
+`thumbnail_render_missing` does the same for a whole project. A game's Ship is gated in every run: `ship_gate` returns a `ShipGate` with
 `ShipReason::Game`, so the run started from the Run button waits in the same approvals list as an
 agent's. In the web app, `state/game.ts` mirrors the core's rules (stage names, file and budget per
 asset, Ship plan groups), `state/views.ts` hides the website only views, and the game UI lives in
 `features/game` (Import models), `features/inspector/BudgetPanel` and
-`features/pipeline/{GameExportPanel,ShipView}`.
+`features/pipeline/{GameExportPanel,ShipView}`. `stageViews` takes the target, so every top bar
+names the game stages, and `SceneBudgetMeter` turns into `ModelBudgetMeter` in a game. Motion in a
+game shows clips only, with no scene budget or ship switches.
 
 ## Motion
 
