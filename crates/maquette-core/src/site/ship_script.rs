@@ -60,7 +60,9 @@ fn layout(placed: bool) -> Value {
         "models": models,
         "stops": [{ "id": "hero", "name": "Hero", "position": [0, 1, 2], "target": [0, 0, 0],
                     "fov": 35, "models": null }],
-        "desk": null
+        "desk": null,
+        "timeline": { "explode": { "desk-lamp": { "distance": 0.2, "easing": "ease-in-out",
+                      "keys": [{ "stop": "hero", "amount": 1 }] } } }
     })
 }
 

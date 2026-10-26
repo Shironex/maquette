@@ -55,11 +55,15 @@ pub struct LayoutPatch {
     /// Asset id to clip name to whether it ships.
     #[serde(default)]
     pub clips: BTreeMap<String, BTreeMap<String, ClipSettings>>,
+    /// Asset id to its whole explode track; `None` removes it.
+    #[serde(default)]
+    pub explode: BTreeMap<String, Option<ExplodeTrack>>,
 }
 
 /// Applies `patch` to `layout`. `known` are the asset ids a placement, a
 /// stop's model list, states or clip choices may name (the assets with a
-/// model). Triggers that wait for a stop the patch removes go with it.
+/// model). Triggers and explode keys that wait for a stop the patch
+/// removes go with it.
 /// Nothing changes when any part is refused.
 ///
 /// # Errors
@@ -188,7 +192,7 @@ pub fn apply(
     if let Some(desk) = patch.desk {
         next.desk = desk;
     }
-    states::prune_stops(&mut next);
+    prune_stops(&mut next);
     for (id, change) in &patch.states {
         match change {
             None => {
@@ -208,6 +212,17 @@ pub fn apply(
         }
     }
     next.clips = states::tidy_clips(&next.clips);
+    for (id, change) in &patch.explode {
+        match change {
+            None => {
+                next.timeline.explode.remove(id);
+            }
+            Some(track) => {
+                check_asset(id)?;
+                next.timeline.explode.insert(id.clone(), track.clone());
+            }
+        }
+    }
     validate(&next)?;
     Ok(next)
 }

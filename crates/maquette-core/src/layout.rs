@@ -27,8 +27,10 @@
 //! view holds ([`first_view`]).
 //!
 //! `states` and `clips` are the Motion view's: the poses a prop moves
-//! between and which animation clips ship (see [`states`]). Files written
-//! before they existed load with neither.
+//! between and which animation clips ship (see [`states`]). `timeline` is
+//! the Timeline view's: how far each model's parts spread apart at each
+//! stop (see [`timeline`]). Files written before they existed load without
+//! them.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -46,6 +48,7 @@ use crate::project::{ProjectManifest, slugify};
 mod patch;
 mod placement;
 pub mod states;
+pub mod timeline;
 mod view;
 
 pub use view::{
@@ -63,6 +66,8 @@ pub use states::{
     ClipSettings, Easing, ObjectState, ObjectStates, PartPose, StateTransition, StateTrigger,
     TriggerKind,
 };
+
+pub use timeline::{ExplodeKey, ExplodeTrack, Timeline};
 
 pub const LAYOUT_FILE: &str = "layout.json";
 pub const LAYOUT_VERSION: u32 = 1;
@@ -136,6 +141,8 @@ pub struct SceneLayout {
     pub states: BTreeMap<String, ObjectStates>,
     /// Asset id to its clip choices, by clip name. Clips left out ship.
     pub clips: BTreeMap<String, BTreeMap<String, ClipSettings>>,
+    /// The Timeline view's tracks.
+    pub timeline: Timeline,
 }
 
 impl Default for SceneLayout {
@@ -147,6 +154,7 @@ impl Default for SceneLayout {
             desk: None,
             states: BTreeMap::new(),
             clips: BTreeMap::new(),
+            timeline: Timeline::default(),
         }
     }
 }
@@ -277,8 +285,9 @@ fn check_stop(stop: &LayoutStop) -> CoreResult<()> {
 
 /// Checks every value: finite numbers, a scale above zero, named stops with
 /// unique ids, a target away from the camera, a field of view between 1 and
-/// 170 degrees, a desk of sensible size, and states whose transitions and
-/// triggers name states and stops that are there.
+/// 170 degrees, a desk of sensible size, states whose transitions and
+/// triggers name states and stops that are there, and explode keys at
+/// stops that are there.
 ///
 /// # Errors
 ///
@@ -312,7 +321,14 @@ pub fn validate(layout: &SceneLayout) -> CoreResult<()> {
             "Make the desk between 0.05 and 100 m wide and deep.",
         ));
     }
-    states::validate(layout)
+    states::validate(layout)?;
+    timeline::validate(layout)
+}
+
+/// Drops the triggers and explode keys that wait for a camera stop the
+/// layout no longer has. Returns how many went.
+pub fn prune_stops(layout: &mut SceneLayout) -> usize {
+    states::prune_stops(layout) + timeline::prune_stops(layout)
 }
 
 /// A free stop id for `name`: its slug, else the slug with `-2`, `-3`.

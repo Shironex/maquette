@@ -23,6 +23,7 @@ pub mod site;
 #[cfg(test)]
 mod test_blender;
 pub mod thumbs;
+pub mod timeline;
 pub mod toolchain;
 pub mod workspace;
 
