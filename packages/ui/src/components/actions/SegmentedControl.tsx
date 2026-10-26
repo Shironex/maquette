@@ -11,6 +11,11 @@ export interface SegmentedOption<T extends string> {
   shortcut?: string;
   /** A tooltip line, for an icon-only option or one that needs a word more. */
   hint?: string;
+  /**
+   * Shown but not chosen. It stays focusable, so the keyboard reaches its
+   * hint, which says why.
+   */
+  disabled?: boolean;
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -49,9 +54,13 @@ export function SegmentedControl<T extends string>({
           type="button"
           aria-pressed={on}
           aria-label={o.label ? undefined : o.hint}
-          onClick={() => set(o.value)}
+          aria-disabled={o.disabled || undefined}
+          onClick={() => {
+            if (!o.disabled) set(o.value);
+          }}
           className={cn(
             'inline-flex h-[26px] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-2.5 text-[12px] font-medium text-fg-dim transition-colors duration-120 hover:text-fg active:bg-raised',
+            o.disabled && 'cursor-default text-fg-mute hover:text-fg-mute active:bg-transparent',
             block && 'flex-1',
             on &&
               (tone === 'clay'

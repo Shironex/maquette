@@ -79,6 +79,25 @@ describe('SegmentedControl', () => {
     await userEvent.click(screen.getByRole('button', { name: 'UASTC' }));
     expect(onChange).toHaveBeenCalledWith('uastc');
   });
+
+  it('shows a disabled option without choosing it', async () => {
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl
+        label="Units"
+        options={[
+          { value: 'percent', label: 'Scroll %' },
+          { value: 'pixels', label: 'Pixels', disabled: true, hint: 'Once the page answers' },
+        ]}
+        value="percent"
+        onChange={onChange}
+      />
+    );
+    const pixels = screen.getByRole('button', { name: 'Pixels' });
+    expect(pixels).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(pixels);
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
 
 describe('Toggle', () => {
