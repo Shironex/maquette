@@ -1,6 +1,7 @@
 import { Logo, NavRail, TrafficLights, cn } from '@maquette/ui';
 import { CHROME } from '@/ipc/runtime';
 import { NewProjectDialog } from '@/features/project/NewProjectDialog';
+import { GameImportDialog } from '@/features/game/GameImportDialog';
 import { ApprovalPrompt } from '@/features/agents/ApprovalPrompt';
 import { ArrivalPicker } from '@/features/providers/ArrivalPicker';
 import { BatchSendPanel } from '@/features/providers/BatchSendPanel';
@@ -9,7 +10,7 @@ import { DownloadsMatches } from '@/features/providers/DownloadsMatches';
 import { HandoffChecklist } from '@/features/providers/HandoffChecklist';
 import { SendPanel } from '@/features/providers/SendPanel';
 import { ObjectRefsDialog } from '@/features/lab/ObjectRefsDialog';
-import { SETTINGS_VIEW, type ViewId } from '@/state/views';
+import { SETTINGS_VIEW, showsView, type ViewId } from '@/state/views';
 import { CurrentView } from '../CurrentView';
 import { ProjectSwitcherMenu } from '../ProjectSwitcherMenu';
 import { QuitDialog } from '../QuitDialog';
@@ -21,6 +22,8 @@ export default function AppShell() {
     view,
     setView,
     items,
+    planned,
+    target,
     collapsed,
     toggleRail,
     switcher,
@@ -33,6 +36,7 @@ export default function AppShell() {
     <div className="flex h-full min-h-0 bg-app text-fg">
       <NavRail<ViewId>
         items={items}
+        planned={planned}
         footer={SETTINGS_VIEW}
         value={view}
         onChange={setView}
@@ -59,7 +63,7 @@ export default function AppShell() {
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
-          <CurrentView view={view} />
+          <CurrentView view={showsView(target, view) ? view : 'board'} />
         </div>
         <ShellStatusBar />
       </div>
@@ -71,6 +75,7 @@ export default function AppShell() {
       <DownloadsMatches />
       <ArrivalPicker />
       <NewProjectDialog onClosed={focusSwitcher} />
+      <GameImportDialog />
       <ApprovalPrompt />
       <QuitDialog />
     </div>

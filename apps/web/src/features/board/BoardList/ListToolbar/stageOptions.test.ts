@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { STAGE_OPTIONS } from './stageOptions';
+import { stageLabels } from '@/state/game';
+import { stageOptions } from './stageOptions';
 
 describe('the stage filter', () => {
   it('offers every stage after All', () => {
-    expect(STAGE_OPTIONS.map(o => o.value)).toEqual([
+    expect(stageOptions(stageLabels('website')).map(o => o.value)).toEqual([
       'all',
       'concept',
       'refs',
@@ -12,5 +13,9 @@ describe('the stage filter', () => {
       'web',
       'ship',
     ]);
+  });
+
+  it('names the Web stage Export in a game', () => {
+    expect(stageOptions(stageLabels('game')).find(o => o.value === 'web')?.label).toBe('Export');
   });
 });

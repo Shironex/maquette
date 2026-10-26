@@ -5,6 +5,7 @@
  */
 import { create } from 'zustand';
 import { commands, errorMessage, type McpStatus } from '@/ipc/client';
+import { isGame } from './game';
 import { useAppStore } from './use-app-store';
 
 interface AgentsStore {
@@ -48,6 +49,17 @@ export const useAgentsStore = create<AgentsStore>((set, get) => ({
           approve
             ? 'Follow it in the 3D queue. The agent sees it on its next get_provider_job.'
             : 'Nothing was spent. The agent is told it was denied.'
+        );
+      } else if (
+        approval &&
+        isGame(useAppStore.getState().workspace?.projects.find(p => p.id === approval.project))
+      ) {
+        notify(
+          approve ? 'done' : 'info',
+          approve ? `Run ${approval.runNumber} is shipping` : `Run ${approval.runNumber} stopped`,
+          approve
+            ? 'Ship never commits. Review the change in git and commit it yourself.'
+            : 'Ship did not run. Nothing in the game repo changed.'
         );
       } else if (approval) {
         notify(

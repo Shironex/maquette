@@ -17,6 +17,7 @@ export default function NewProjectSheet({ initialMode, onClosed }: NewProjectShe
     sheet,
     ready,
     importing,
+    game,
     creating,
     current,
     dismiss,
@@ -74,7 +75,13 @@ export default function NewProjectSheet({ initialMode, onClosed }: NewProjectShe
             iconRight="arrow-right"
             loading={creating}
             disabled={!ready || creating}
-            disabledReason={importing ? 'Name it and pick a folder first' : 'Name it first'}
+            disabledReason={
+              game
+                ? 'Name it and pick a game repo first'
+                : importing
+                  ? 'Name it and pick a folder first'
+                  : 'Name it first'
+            }
             shortcut={KEYS.submit}
           >
             {importing ? 'Import project' : 'Create project'}

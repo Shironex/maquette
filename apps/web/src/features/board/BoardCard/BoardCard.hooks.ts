@@ -3,6 +3,8 @@ import type { Asset } from '@/ipc/client';
 import { cardNumbers } from '@/state/board';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useProvidersStore } from '@/state/use-providers-store';
+import { useBudgetCheck } from '@/state/use-budget-check';
+import { trianglesLine } from '@/state/game';
 import { assetView } from '../assetView';
 import type { BoardEnv } from '../board.types';
 import { DRAG_TYPE } from '../constants';
@@ -15,12 +17,16 @@ export function useBoardCard(asset: Asset, board: BoardEnv) {
   const addModel = useProvidersStore(s => s.addModel);
   const built = useBuiltStore(s => s.items.find(b => b.asset === asset.id));
   const rebuild = useBuiltStore(s => s.rebuild);
+  const budget = useBudgetCheck(asset);
   const onDragStart = (e: DragEvent) => {
     e.dataTransfer.setData(DRAG_TYPE, asset.id);
     e.dataTransfer.effectAllowed = 'move';
   };
+  const n = cardNumbers(asset);
   return {
-    n: cardNumbers(asset),
+    // A game card reads its triangles against its folder's budget; the size would wrap.
+    n: budget ? { ...n, tris: trianglesLine(budget), size: undefined } : n,
+    over: budget?.problems.length ? budget.problems.join(', ') : null,
     ...assetView(asset, board),
     addModel,
     onDragStart,

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { commands, errorMessage, type PageSettings } from '@/ipc/client';
 import { homePath } from '@/lib/format';
 import { useAppStore } from '@/state/use-app-store';
+import { useGameStore } from '@/state/use-game-store';
 
 /** The open project's name and site repo fields, saved on commit. */
 export function useProjectSection() {
@@ -41,7 +42,12 @@ export function useProjectSection() {
   };
 
   const browse = async () => {
-    const picked = await commands.dialogPickFolder('Pick the site repo', repo).catch(() => null);
+    const picked = await commands
+      .dialogPickFolder(
+        project?.target === 'game' ? 'Pick the game repo' : 'Pick the site repo',
+        repo
+      )
+      .catch(() => null);
     if (!picked) return;
     setRepo(picked);
     await save(name, picked);
@@ -113,4 +119,17 @@ export function useDevCommand(projectId: string | null, siteRepo: string | null)
     save,
     placeholder: detected ?? (siteRepo ? 'Read from the site' : 'Pick the site repo first'),
   };
+}
+
+/** A game project's model folder, saved on commit. */
+export function useModelFolder(project: string | null, saved: string) {
+  const saveSettings = useGameStore(s => s.saveSettings);
+  const [value, setValue] = useState(saved);
+  useEffect(() => setValue(saved), [project, saved]);
+  const save = async () => {
+    const next = value.trim();
+    if (!project || next === saved) return;
+    if (!next || !(await saveSettings(project, { modelsDir: next }))) setValue(saved);
+  };
+  return { value, setValue, save };
 }

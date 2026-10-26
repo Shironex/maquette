@@ -43,6 +43,7 @@ import { createMotionHandlers, motionConfig, seedMotionProjects } from './create
 import { createPageHandlers } from './create-page-handlers';
 import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPathsHandlers } from './create-paths-handlers';
+import { createGameHandlers } from './create-game-handlers';
 import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createProjectHandlers } from './create-project-handlers';
 import { createToolchainHandlers } from './create-toolchain-handlers';
@@ -69,6 +70,7 @@ export function createBackend({
   page: pageState = null,
   timeline = null,
   paths = null,
+  game: gameState = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -96,6 +98,13 @@ export function createBackend({
     holdAt: scenario === 'running' ? 'export' : undefined,
     postersFail: scenario !== 'idle',
   });
+  const game = createGameHandlers({
+    project: id => project(id),
+    saveProject: next => saveProject(next),
+    store,
+    state: configured ? gameState : null,
+  });
+  [projects, config] = game.seedInto(projects, config);
   const listed = configured ? inboxItems(`${expand(DEFAULT_ROOT)}/inbox`, now) : [];
   let inbox: InboxItem[] = inboxState === 'redo' ? linkForRedo(listed) : listed;
 
@@ -145,10 +154,11 @@ export function createBackend({
     return {
       ...base,
       def,
-      active: activeRun(p.id),
+      active: activeRun(p.id) ?? game.waitingRun(p.id),
       starters: startersOf(p.id),
       firstView: layout.firstView(p.id),
       bake: bake.view(p.id),
+      ...game.override(p),
     };
   }
 
@@ -234,6 +244,7 @@ export function createBackend({
     batch: agentsState === 'batch',
     emit: payload => emit?.({ name: 'mcp', payload }),
     onSendDecision: providers.decide,
+    games: game,
   });
 
   const built = createBuiltHandlers({
@@ -371,6 +382,7 @@ export function createBackend({
     ...createTimelineHandlers({ layout, timeline: configured ? timeline : null }),
     ...createPathsHandlers({ layout, paths: configured ? paths : null }),
     ...page.handlers,
+    ...game.handlers,
   };
   page.wrapInspect(handlers);
 

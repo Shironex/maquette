@@ -11,7 +11,7 @@ export function useProjectTopBar() {
   const assets = workspace?.project?.assets ?? [];
   const latest = pipeline?.runs[0];
   return {
-    stages: stageViews(assets, latest),
+    stages: stageViews(assets, latest, workspace?.project?.target),
     budget: workspace?.config.budgets.sceneMb ?? 3,
     sceneMb: pipeline ? estimatedTransfer(pipeline) / 1e6 : 0,
     loaded: Boolean(pipeline),

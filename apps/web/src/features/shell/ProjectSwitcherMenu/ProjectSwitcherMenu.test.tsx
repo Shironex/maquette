@@ -127,6 +127,7 @@ describe('switcher helpers', () => {
       id: 'moon-island',
       name: 'Moon Island',
       template: 'floating-diorama' as const,
+      target: 'website' as const,
       siteRepo: null,
       createdAt: '',
       assetCount: 0,

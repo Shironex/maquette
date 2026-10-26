@@ -9,11 +9,13 @@ import type {
   LogEntry,
   PipelineEvent,
   PipelineView,
+  ProjectTarget,
   RunRecord,
   Stage,
   StarterStatus,
   StepDef,
 } from '@/ipc/client';
+import { stageLabels } from './game';
 
 /** Lines kept in memory for the live log. */
 export const MAX_LOG_LINES = 4000;
@@ -228,7 +230,12 @@ const STAGE_LABEL: Record<Stage, string> = {
  * is current, and while a run is going (or after it failed) the Web stage
  * shows it.
  */
-export function stageViews(assets: readonly Asset[], run: RunRecord | undefined): StageView[] {
+export function stageViews(
+  assets: readonly Asset[],
+  run: RunRecord | undefined,
+  target?: ProjectTarget
+): StageView[] {
+  const labels = stageLabels(target);
   const furthest = assets.reduce((max, a) => Math.max(max, STAGE_ORDER.indexOf(a.stage)), 0);
   return STAGE_ORDER.map((id, i) => {
     let state: StageState = i < furthest ? 'done' : i === furthest ? 'current' : 'todo';
@@ -241,7 +248,7 @@ export function stageViews(assets: readonly Asset[], run: RunRecord | undefined)
     ) {
       state = 'failed';
     }
-    return { id, label: STAGE_LABEL[id], state };
+    return { id, label: labels[id], state };
   });
 }
 

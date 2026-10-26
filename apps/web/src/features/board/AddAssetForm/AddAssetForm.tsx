@@ -1,6 +1,7 @@
 import { Button, Select, TextField } from '@maquette/ui';
 import type { AssetKind } from '@/ipc/client';
-import { STAGES, STAGE_LABEL } from '@/state/pipeline';
+import { STAGES } from '@/state/pipeline';
+import { useStageLabels } from '@/state/use-stage-labels';
 import { useAddAssetForm } from './AddAssetForm.hooks';
 import type { AddAssetFormProps } from './AddAssetForm.types';
 
@@ -12,6 +13,7 @@ const KINDS: readonly { value: AssetKind; label: string }[] = [
 
 /** The small form under Add asset: a name, a kind and the starting column. */
 export default function AddAssetForm({ project, onDone, onCancel }: AddAssetFormProps) {
+  const STAGE_LABEL = useStageLabels();
   const { name, rename, kind, setKind, stage, setStage, error, saving, submit } = useAddAssetForm({
     project,
     onDone,

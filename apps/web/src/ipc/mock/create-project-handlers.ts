@@ -10,6 +10,8 @@ import type {
 import { clock } from '@/lib/clock';
 import { DEFAULT_ROOT, HOME } from './fixtures';
 import { expand, fail, slugify, type Args } from './backend-options';
+import { cryptBudgets, inspectGameRepo, mazeBudgets } from './game-fixtures';
+import { LEGACY_SITE } from '@/state/repo-lines';
 
 interface ProjectContext {
   snapshot: () => WorkspaceSnapshot;
@@ -40,6 +42,18 @@ export function createProjectHandlers({
         id,
         name,
         template: next.template,
+        target: next.target ?? 'website',
+        game:
+          next.target === 'game' && next.game
+            ? {
+                format: next.game.format,
+                modelsDir: next.game.modelsDir,
+                export: { textures: 'png', textureCap: 1024 },
+                bake: false,
+                budgets: next.game.format === 'obj' ? mazeBudgets() : cryptBudgets(),
+                models: {},
+              }
+            : null,
         siteRepo: next.siteRepo ? expand(next.siteRepo) : null,
         sourceFolder: next.sourceFolder ? expand(next.sourceFolder) : null,
         createdAt: clock.now().toISOString(),
@@ -80,7 +94,15 @@ export function createProjectHandlers({
     project_inspect_repo: ({ path }): RepoInspection => {
       const full = expand(String(path));
       const known = /site|landing|web/i.test(full);
-      return { path: full, exists: known, isGit: known, hasPublicDir: known };
+      const game = inspectGameRepo(full).cmake;
+      return {
+        path: full,
+        exists: known || game,
+        isGit: known || game,
+        hasPublicDir: known,
+        site: LEGACY_SITE,
+        looksLikeGame: game,
+      };
     },
     project_scan_import: ({ path }): ImportScan => ({
       path: expand(String(path)),

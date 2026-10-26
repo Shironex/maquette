@@ -56,6 +56,7 @@ export function createFakeAgents({
   batch = false,
   emit,
   onSendDecision,
+  games,
 }: {
   config: () => WorkspaceConfig;
   /** `active`: an agent session is under way, with a run waiting at Ship. */
@@ -65,6 +66,8 @@ export function createFakeAgents({
   emit?: (status: McpStatus) => void;
   /** A send to 3D an agent asked for was approved or denied. */
   onSendDecision?: (job: string, approve: boolean) => void;
+  /** Ship approvals runs of game projects ask for, whoever started them. */
+  games?: { approvals: () => Approval[]; decide: (a: Approval, approve: boolean) => void };
 }) {
   const now = clock.nowMs();
   let token: string | null = active ? MOCK_TOKEN : null;
@@ -150,7 +153,7 @@ export function createFakeAgents({
       error: null,
       askBeforeShipping: agents.rules.askBeforeShipping,
       calls,
-      approvals,
+      approvals: [...approvals, ...(games?.approvals() ?? [])],
     };
   };
 
@@ -159,6 +162,11 @@ export function createFakeAgents({
   const handlers: Record<string, (args: Args) => unknown> = {
     mcp_status: () => status(),
     mcp_decide: ({ approvalId, approve }) => {
+      const game = games?.approvals().find(a => a.id === approvalId);
+      if (game) {
+        games?.decide(game, Boolean(approve));
+        return status();
+      }
       const found = approvals.find(a => a.id === approvalId);
       if (!found) {
         throw { code: 'invalid', message: 'That request is no longer waiting for approval.' };

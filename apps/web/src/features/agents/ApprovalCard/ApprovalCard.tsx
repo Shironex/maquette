@@ -49,6 +49,11 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
             <p className="mt-0.5 text-meta text-fg-mute">
               An agent asked over MCP. This spends {cost}; nothing is sent until you approve.
             </p>
+          ) : site?.target === 'game' ? (
+            <p className="mt-0.5 text-meta text-fg-mute">
+              Everything before {approval.step} is done. {approval.step} writes into the game repo
+              and only replaces files it wrote. Review the change in the Pipeline view.
+            </p>
           ) : (
             <p className="mt-0.5 text-meta text-fg-mute">
               An agent started this run over MCP. Everything before {approval.step} is done;{' '}

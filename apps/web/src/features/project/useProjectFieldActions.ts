@@ -1,5 +1,5 @@
 /**
- * The folder pickers and the site repo check behind the project form, for
+ * The folder pickers and the site or game repo check behind the project form, for
  * onboarding and for New project in the switcher.
  */
 import { useCallback } from 'react';
@@ -33,11 +33,24 @@ export function useProjectFieldActions(
   const notify = useAppStore(s => s.notify);
   const pickFolder = useFolderPicker();
 
-  const checkRepo = async (path: string) => {
-    update({ siteRepo: path, repo: null });
+  /** Checks the repo the way the target needs: a site, or a game and its models. */
+  const checkRepo = async (path: string, target = fields.target) => {
+    // Leaving the field after a check (to click Create) keeps what it found.
+    const found = target === 'game' ? fields.game : fields.repo;
+    if (found && path === fields.siteRepo) return;
+    update({ siteRepo: path, repo: null, game: null });
     if (!path.trim()) return;
     try {
-      update({ repo: await commands.projectInspectRepo(path) });
+      if (target === 'game') {
+        const game = await commands.gameInspectRepo(path);
+        update({
+          game,
+          gameFormat: game.format ?? fields.gameFormat,
+          modelsDir: game.modelsDir ?? fields.modelsDir,
+        });
+      } else {
+        update({ repo: await commands.projectInspectRepo(path) });
+      }
     } catch (error) {
       notify({
         status: 'failed',
@@ -48,7 +61,8 @@ export function useProjectFieldActions(
   };
 
   const browseRepo = async () => {
-    const picked = await pickFolder('Pick the site repo', fields.siteRepo);
+    const title = fields.target === 'game' ? 'Pick the game repo' : 'Pick the site repo';
+    const picked = await pickFolder(title, fields.siteRepo);
     if (picked) await checkRepo(picked);
   };
 

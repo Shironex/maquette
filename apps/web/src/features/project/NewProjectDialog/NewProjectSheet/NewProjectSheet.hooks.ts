@@ -25,7 +25,8 @@ export function useNewProjectSheet(initialMode: ProjectFields['mode'], onClosed?
   const actions = useProjectFieldActions(fields, update);
   const sheet = useRef<HTMLFormElement>(null);
   const ready = projectFieldsReady(fields);
-  const importing = fields.mode === 'import';
+  const game = fields.target === 'game';
+  const importing = !game && fields.mode === 'import';
 
   const dismiss = () => {
     close();
@@ -70,6 +71,7 @@ export function useNewProjectSheet(initialMode: ProjectFields['mode'], onClosed?
     sheet,
     ready,
     importing,
+    game,
     creating,
     current,
     dismiss,

@@ -23,9 +23,11 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
     setQueueOpen,
     setChecklistOpen,
     addBuilt,
+    game,
+    importModels,
   } = useBoardHeader();
   const subtitle = project
-    ? `${assetCount((project.assets ?? []).length)} · ${TEMPLATE_LABEL[project.template]} · created ${formatAgo(Date.parse(project.createdAt), clock.nowMs())}`
+    ? `${assetCount((project.assets ?? []).length)} · ${game ? `game · .${game.format} in ${game.modelsDir}/` : TEMPLATE_LABEL[project.template]} · created ${formatAgo(Date.parse(project.createdAt), clock.nowMs())}`
     : 'Create a project in Settings to start.';
 
   return (
@@ -71,6 +73,11 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
           </Button>
           {queueOpen ? queue(() => setQueueOpen(false)) : null}
         </div>
+        {game ? (
+          <Button icon="download-simple" onClick={importModels}>
+            Import models
+          </Button>
+        ) : null}
         <Button
           icon="wrench"
           disabled={!project}

@@ -73,4 +73,23 @@ describe('the new project sheet', () => {
       'Name it and pick a folder first'
     );
   });
+
+  it('creates a game project only once the game repo check found it', async () => {
+    await openMockWorkspace();
+    const create = vi.fn(async () => true);
+    useProjectsStore.setState({ create });
+    render(<NewProjectSheet initialMode="template" />);
+    await userEvent.type(screen.getByLabelText('Project name'), 'Crypt game');
+    await userEvent.click(screen.getByRole('button', { name: /^Game/ }));
+    await userEvent.type(
+      screen.getByLabelText('Game repo'),
+      '~/Documents/Projects/crypt-game{Enter}'
+    );
+    expect(create).not.toHaveBeenCalled();
+    expect(await screen.findByText('CMake project found.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Create project' }));
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ target: 'game', modelsDir: 'assets/models', gameFormat: 'glb' })
+    );
+  });
 });

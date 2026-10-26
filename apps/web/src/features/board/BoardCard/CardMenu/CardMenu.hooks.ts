@@ -1,6 +1,7 @@
 import type { MenuItem } from '@/features/common/Menu';
 import { projectFile } from '@/state/board';
-import { STAGES, STAGE_LABEL } from '@/state/pipeline';
+import { STAGES } from '@/state/pipeline';
+import { useStageLabels } from '@/state/use-stage-labels';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useProvidersStore } from '@/state/use-providers-store';
@@ -9,6 +10,7 @@ import type { CardMenuProps } from './CardMenu.types';
 
 /** The items of a card's menu, and of its Copy to project list. */
 export function useCardMenu({ asset, waiting, refPicture, built, board }: CardMenuProps) {
+  const STAGE_LABEL = useStageLabels();
   const openPanel = useProvidersStore(s => s.openPanel);
   const rebuild = useBuiltStore(s => s.rebuild);
   const showHandoff = useProvidersStore(s => s.showHandoff);

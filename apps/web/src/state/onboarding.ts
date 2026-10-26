@@ -3,7 +3,10 @@
  * Continue works, what it says and where it goes are tested without React.
  */
 import type {
+  GameFormat,
+  GameRepoInspection,
   NewProject,
+  ProjectTarget,
   ProjectTemplate,
   RepoInspection,
   RootInspection,
@@ -51,12 +54,36 @@ export interface Draft {
   siteRepo: string;
   sourceFolder: string;
   repo: RepoInspection | null;
+  /** Where the project ships: a website, or a game repo. */
+  target: ProjectTarget;
+  /** What New project found in the game repo (siteRepo). */
+  game: GameRepoInspection | null;
+  gameFormat: GameFormat;
+  modelsDir: string;
 }
+
+export const DEFAULT_MODELS_DIR = 'assets/models';
+
+const NO_GAME = {
+  target: 'website',
+  game: null,
+  gameFormat: 'glb',
+  modelsDir: DEFAULT_MODELS_DIR,
+} as const;
 
 /** The fields of the first project step, shared with New project in the switcher. */
 export type ProjectFields = Pick<
   Draft,
-  'mode' | 'template' | 'name' | 'siteRepo' | 'sourceFolder' | 'repo'
+  | 'mode'
+  | 'template'
+  | 'name'
+  | 'siteRepo'
+  | 'sourceFolder'
+  | 'repo'
+  | 'target'
+  | 'game'
+  | 'gameFormat'
+  | 'modelsDir'
 >;
 
 export function emptyProjectFields(name = ''): ProjectFields {
@@ -67,21 +94,34 @@ export function emptyProjectFields(name = ''): ProjectFields {
     siteRepo: '',
     sourceFolder: '',
     repo: null,
+    ...NO_GAME,
   };
 }
 
-/** A name, and a folder when importing. */
+/** A name, a folder when importing, and for a game a game repo the check found. */
 export function projectFieldsReady(fields: ProjectFields): boolean {
-  return (
-    nameError(fields.name) === null &&
-    (fields.mode === 'template' || fields.sourceFolder.trim() !== '')
-  );
+  if (nameError(fields.name) !== null) return false;
+  if (fields.target === 'game') {
+    return fields.game?.exists === true && fields.modelsDir.trim() !== '';
+  }
+  return fields.mode === 'template' || fields.sourceFolder.trim() !== '';
 }
 
 export function newProjectRequest(fields: ProjectFields): NewProject {
+  if (fields.target === 'game') {
+    return {
+      name: fields.name.trim(),
+      template: 'game-import',
+      target: 'game',
+      siteRepo: fields.siteRepo.trim() || null,
+      sourceFolder: null,
+      game: { format: fields.gameFormat, modelsDir: fields.modelsDir.trim() },
+    };
+  }
   return {
     name: fields.name.trim(),
     template: fields.mode === 'import' ? 'imported' : fields.template,
+    target: 'website',
     siteRepo: fields.siteRepo.trim() || null,
     sourceFolder: fields.mode === 'import' ? fields.sourceFolder.trim() : null,
   };
@@ -108,6 +148,7 @@ export function initialDraft(root: string, config: WorkspaceConfig): Draft {
     siteRepo: '',
     sourceFolder: '',
     repo: null,
+    ...NO_GAME,
   };
 }
 
@@ -183,30 +224,12 @@ export function rootNote(
   }
 }
 
-export function repoNote(
-  repo: RepoInspection | null
-): { tone: FieldTone; text: string; detail?: string } | null {
-  if (!repo) return null;
-  if (!repo.exists) return { tone: 'missing', text: 'Folder not found.' };
-  if (!repo.isGit) {
-    return {
-      tone: 'warning',
-      text: 'Not a git repo.',
-      detail: 'Ship still writes there, without a commit.',
-    };
-  }
-  return {
-    tone: 'found',
-    text: 'Git repo found.',
-    detail: 'Ship writes models and posters to public/island/ in this repo.',
-  };
-}
-
 export const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
   'floating-diorama': 'Floating diorama',
   room: 'Room',
   'character-showcase': 'Character showcase',
   imported: 'Imported folder',
+  'game-import': 'Game models',
 };
 
 export interface ReadyRow {
@@ -304,11 +327,14 @@ export function readySummary(
     {
       id: 'project',
       title: 'First project',
-      text: `${project}, ${TEMPLATE_LABEL[draft.mode === 'import' ? 'imported' : draft.template]}${
-        draft.siteRepo.trim()
-          ? `, ships to ${shortPath(draft.siteRepo.trim(), 2)}`
-          : ', no site repo yet'
-      }`,
+      text:
+        draft.target === 'game'
+          ? `${project}, a game, ships to ${shortPath(draft.siteRepo.trim(), 2)}`
+          : `${project}, ${TEMPLATE_LABEL[draft.mode === 'import' ? 'imported' : draft.template]}${
+              draft.siteRepo.trim()
+                ? `, ships to ${shortPath(draft.siteRepo.trim(), 2)}`
+                : ', no site repo yet'
+            }`,
       step: STEP.project,
     },
   ];

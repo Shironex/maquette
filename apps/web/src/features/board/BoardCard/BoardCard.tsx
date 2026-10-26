@@ -7,9 +7,13 @@ import { CardMenu } from './CardMenu';
 
 /** One asset on the Board: its picture, numbers, latest send or build, and menu. */
 export default function BoardCard({ asset, board }: BoardCardProps) {
-  const { n, thumb, sent, waiting, refPicture, addModel, onDragStart, built, rebuild } =
+  const { n, over, thumb, sent, waiting, refPicture, addModel, onDragStart, built, rebuild } =
     useBoardCard(asset, board);
-  const chip = built ? builtChip(built.state) : undefined;
+  const chip = built
+    ? builtChip(built.state)
+    : over && !sent
+      ? { state: 'review' as const, label: over, icon: 'warning' as const }
+      : undefined;
   const { selection, actions, dropJob } = board;
   const { present } = selection;
 

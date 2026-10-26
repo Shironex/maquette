@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emptyProjectFields, type ProjectFields } from '@/state/onboarding';
+import { LEGACY_SITE } from '@/state/repo-lines';
 import { ProjectForm } from '.';
 
 afterEach(cleanup);
@@ -52,7 +53,14 @@ describe('the project form', () => {
   it('shows what the site repo check found', () => {
     renderForm({
       siteRepo: '~/site',
-      repo: { path: '/site', exists: true, isGit: false, hasPublicDir: true },
+      repo: {
+        path: '/site',
+        exists: true,
+        isGit: false,
+        hasPublicDir: true,
+        site: LEGACY_SITE,
+        looksLikeGame: false,
+      },
     });
     expect(screen.getByText('Not a git repo.')).toBeVisible();
     expect(screen.getByText(/Ship still writes there/)).toBeVisible();

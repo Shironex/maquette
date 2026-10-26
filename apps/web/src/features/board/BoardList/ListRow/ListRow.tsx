@@ -85,7 +85,12 @@ export default function ListRow(props: ListRowProps) {
           <span className="text-meta text-fg-mute">No model</span>
         )}
       </td>
-      <td className={cn(CELL, 'text-right font-mono text-[12px] text-fg-dim')}>{n.tris}</td>
+      <td
+        className={cn(CELL, 'text-right font-mono text-[12px] text-fg-dim', v.over && 'text-amber')}
+        title={v.over ?? undefined}
+      >
+        {v.budgetLine ?? n.tris}
+      </td>
       <td className={cn(CELL, 'text-right font-mono text-[12px] whitespace-nowrap text-fg-dim')}>
         {row.size}
         {v.sizeNote ? (
@@ -96,7 +101,11 @@ export default function ListRow(props: ListRowProps) {
         {v.progress !== undefined ? (
           <ProgressBar value={v.progress} label={v.sent?.progressLabel ?? 'Running'} />
         ) : (
-          <StatusChip status={v.status} label={v.sent?.label} icon={v.sent?.icon} />
+          <StatusChip
+            status={v.over && !v.sent ? 'review' : v.status}
+            label={v.over && !v.sent ? 'Over budget' : v.sent?.label}
+            icon={v.over && !v.sent ? 'warning' : v.sent?.icon}
+          />
         )}
       </td>
       <td className={cn(CELL, 'text-meta whitespace-nowrap text-fg-mute')}>{v.changed}</td>

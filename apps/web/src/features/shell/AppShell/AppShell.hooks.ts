@@ -19,7 +19,7 @@ import { useDownloadsStore } from '@/state/use-downloads-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { isSwitcherShortcut, switcherShortcut } from '@/state/projects';
 import { useProjectsStore } from '@/state/use-projects-store';
-import { TOOL_VIEWS } from '@/state/views';
+import { plannedViewsFor, toolViewsFor } from '@/state/views';
 import { projectMeta, projectThumb } from '@/features/common/projectArt';
 import { useQuitGuard } from '../QuitDialog';
 
@@ -74,7 +74,7 @@ export function useAppShell() {
   const shortcut = switcherShortcut(mac);
   useSwitcherShortcut(mac, toggleMenu);
 
-  const items = TOOL_VIEWS.map(v =>
+  const items = toolViewsFor(project?.target).map(v =>
     v.id === 'inbox' && inboxCount > 0
       ? { ...v, badge: inboxCount }
       : (v.id === 'pipeline' && running) || (v.id === 'lab' && generating)
@@ -97,6 +97,8 @@ export function useAppShell() {
     view,
     setView,
     items,
+    planned: plannedViewsFor(project?.target),
+    target: project?.target,
     collapsed,
     toggleRail,
     switcher,

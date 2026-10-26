@@ -1,7 +1,12 @@
 import { Icon, PathField, SegmentedControl, TextField, cn } from '@maquette/ui';
-import { NAME_MAX, repoNote, type ProjectFields, type ProjectMode } from '@/state/onboarding';
+import type { ProjectTarget } from '@/ipc/client';
+import { NAME_MAX, type ProjectFields, type ProjectMode } from '@/state/onboarding';
+import { gameRepoLines, siteRepoLines } from '@/state/repo-lines';
 import type { ProjectFieldActions } from '../useProjectFieldActions';
+import { GameFields } from './GameFields';
 import { ImportPicker } from './ImportPicker';
+import { RepoLines } from './RepoLines';
+import { TargetPicker } from './TargetPicker';
 import { TemplateGrid } from './TemplateGrid';
 import { useProjectForm } from './ProjectForm.hooks';
 
@@ -14,7 +19,7 @@ export interface ProjectFormProps {
   value: ProjectFields;
   onChange: (patch: Partial<ProjectFields>) => void;
   actions: ProjectFieldActions;
-  /** The project exists: only its name and site repo can change. */
+  /** The project exists: only its name and repo can change. */
   locked?: boolean;
   /** Smaller template cards and stacked fields, for the New project dialog. */
   compact?: boolean;
@@ -22,7 +27,7 @@ export interface ProjectFormProps {
   autoFocusName?: boolean;
 }
 
-/** A template or a folder to import, the name and the target site repo. */
+/** Where it ships, a template or a folder to import, the name and the repo Ship writes to. */
 export default function ProjectForm({
   value,
   onChange,
@@ -31,40 +36,53 @@ export default function ProjectForm({
   compact,
   autoFocusName,
 }: ProjectFormProps) {
-  const repo = repoNote(value.repo);
+  const game = value.target === 'game';
+  const lines = game
+    ? gameRepoLines(value.game, value.gameFormat, value.modelsDir)
+    : siteRepoLines(value.repo);
   const { nameProblem, touchName } = useProjectForm(value.name);
   const size = compact ? 'md' : 'lg';
+  const pickTarget = (target: ProjectTarget) => {
+    if (target === value.target) return;
+    onChange({ target });
+    if (value.siteRepo.trim()) void actions.checkRepo(value.siteRepo, target);
+  };
 
   return (
     <>
       {locked ? (
         <p className="mt-7 flex items-center gap-1.5 text-meta text-fg-mute">
           <Icon name="info" size={14} />
-          The project exists. You can still rename it or change its site repo.
+          The project exists. You can still rename it or change its repo.
         </p>
       ) : (
         <>
-          <SegmentedControl
-            label="How to start"
-            options={MODES}
-            value={value.mode}
-            onChange={(mode: ProjectMode) => onChange({ mode })}
-            block
-            className={compact ? 'w-full' : 'mt-7 w-[320px]'}
-          />
-          {value.mode === 'template' ? (
-            <TemplateGrid
-              value={value.template}
-              compact={compact}
-              onChange={template => onChange({ template })}
-            />
-          ) : (
-            <ImportPicker
-              folder={value.sourceFolder}
-              size={size}
-              onChange={sourceFolder => onChange({ sourceFolder })}
-              onBrowse={() => void actions.browseSource()}
-            />
+          <TargetPicker value={value.target} compact={compact} onChange={pickTarget} />
+          {game ? null : (
+            <>
+              <SegmentedControl
+                label="How to start"
+                options={MODES}
+                value={value.mode}
+                onChange={(mode: ProjectMode) => onChange({ mode })}
+                block
+                className={compact ? 'mt-4 w-full' : 'mt-6 w-[320px]'}
+              />
+              {value.mode === 'template' ? (
+                <TemplateGrid
+                  value={value.template}
+                  compact={compact}
+                  onChange={template => onChange({ template })}
+                />
+              ) : (
+                <ImportPicker
+                  folder={value.sourceFolder}
+                  size={size}
+                  onChange={sourceFolder => onChange({ sourceFolder })}
+                  onBrowse={() => void actions.browseSource()}
+                />
+              )}
+            </>
           )}
         </>
       )}
@@ -85,42 +103,22 @@ export default function ProjectForm({
           note={nameProblem ? { tone: 'missing', text: nameProblem } : undefined}
         />
         <PathField
-          label="Target site repo"
+          label={game ? 'Game repo' : 'Target site repo'}
           size={size}
-          placeholder="Optional, a web repo Ship writes to"
+          placeholder={
+            game ? 'The game repo Ship writes models into' : 'Optional, a web repo Ship writes to'
+          }
           value={value.siteRepo}
-          onChange={siteRepo => onChange({ siteRepo, repo: null })}
+          onChange={siteRepo => onChange({ siteRepo, repo: null, game: null })}
           onCommit={path => void actions.checkRepo(path)}
           onBrowse={() => void actions.browseRepo()}
         />
       </div>
-      {repo ? (
-        <p className="mt-2 flex items-center gap-1.5 text-meta text-fg-mute">
-          <span
-            className={cn(
-              'inline-flex items-center gap-1.5',
-              repo.tone === 'found'
-                ? 'text-sage'
-                : repo.tone === 'warning'
-                  ? 'text-amber'
-                  : 'text-danger'
-            )}
-          >
-            <Icon
-              name={
-                repo.tone === 'found'
-                  ? 'check-circle'
-                  : repo.tone === 'warning'
-                    ? 'warning'
-                    : 'warning-circle'
-              }
-              size={14}
-            />
-            {repo.text}
-          </span>
-          {repo.detail}
-        </p>
-      ) : null}
+      <RepoLines
+        lines={lines}
+        label={game ? 'What the game repo holds' : 'What the site repo holds'}
+      />
+      {game && !locked ? <GameFields value={value} size={size} onChange={onChange} /> : null}
     </>
   );
 }

@@ -1,16 +1,18 @@
 import { SegmentedControl, TextField } from '@maquette/ui';
 import type { ListToolbarProps } from './ListToolbar.types';
-import { STAGE_OPTIONS } from './stageOptions';
+import { useStageLabels } from '@/state/use-stage-labels';
+import { stageOptions } from './stageOptions';
 
 /** The list's stage filter and search, with how many rows they leave. */
 export default function ListToolbar({ prefs, shown, total, onChange }: ListToolbarProps) {
+  const labels = useStageLabels();
   const count =
     shown === total ? `${total} ${total === 1 ? 'asset' : 'assets'}` : `${shown} of ${total}`;
   return (
     <div className="flex flex-none items-center gap-3">
       <SegmentedControl
         label="Stage filter"
-        options={STAGE_OPTIONS}
+        options={stageOptions(labels)}
         value={prefs.stage}
         onChange={stage => onChange({ stage })}
       />

@@ -7,6 +7,8 @@ import { useAppStore } from '@/state/use-app-store';
 import { useBuiltStore } from '@/state/use-built-store';
 import { prefsOf, useBoardPrefsStore } from '@/state/use-board-prefs-store';
 import { useProvidersStore } from '@/state/use-providers-store';
+import { useGameStore } from '@/state/use-game-store';
+import { gameOf } from '@/state/game';
 
 /** The Board's title row: the project, the By hand and 3D queue counts, Built asset and Add asset. */
 export function useBoardHeader() {
@@ -20,6 +22,7 @@ export function useBoardHeader() {
   const updatePrefs = useBoardPrefsStore(s => s.update);
   const [adding, setAdding] = useState(false);
   const setAddingBuilt = useBuiltStore(s => s.setAdding);
+  const openImport = useGameStore(s => s.openImport);
 
   // The add form belongs to the project it was opened in.
   useEffect(() => {
@@ -51,6 +54,10 @@ export function useBoardHeader() {
     queueOpen,
     setQueueOpen,
     setChecklistOpen,
+    game: gameOf(project),
+    importModels: () => {
+      if (project) void openImport(project.id);
+    },
     addBuilt: () => {
       setAdding(false);
       setAddingBuilt(true);

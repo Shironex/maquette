@@ -17,7 +17,8 @@ export async function openMockWorkspace(
   motion?: string,
   page?: string,
   timeline?: string,
-  paths?: string
+  paths?: string,
+  game?: string
 ) {
   const handle = createBackend({
     scenario,
@@ -33,11 +34,29 @@ export async function openMockWorkspace(
     page,
     timeline,
     paths: paths ?? (timeline === 'demo' ? 'demo' : undefined),
+    game,
   });
   mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>));
   const boot = await commands.appBootstrap();
   useAppStore.setState({ boot, workspace: boot.workspace, phase: 'app' });
   return handle;
+}
+
+/** The configured workspace with a game project open: `crypt`, `import` or `maze`. */
+export function openMockGame(game: 'crypt' | 'import' | 'maze') {
+  return openMockWorkspace(
+    'configured',
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    game
+  );
 }
 
 export { clearMocks };

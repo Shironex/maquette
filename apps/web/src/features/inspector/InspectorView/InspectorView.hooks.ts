@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { isGame } from '@/state/game';
 import { useAppStore } from '@/state/use-app-store';
 import { useInspectorStore } from '@/state/use-inspector-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
@@ -22,5 +23,14 @@ export function useInspectorView() {
     // A finished run changes the shipped models, so it reloads too.
   }, [projectId, lastRun, load]);
 
-  return { project, view, loading, error, load, tab };
+  // A game has no Layout or Paths; a website has no Budget.
+  const game = isGame(project);
+  const shown = game
+    ? tab === 'budget'
+      ? 'budget'
+      : 'compare'
+    : tab === 'budget'
+      ? 'compare'
+      : tab;
+  return { project, view, loading, error, load, tab: shown };
 }

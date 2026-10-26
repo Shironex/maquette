@@ -6,6 +6,6 @@ import { usePipelineStore } from '@/state/use-pipeline-store';
 export function useInspectorShell() {
   const project = useAppStore(s => s.workspace?.project ?? null);
   const latest = usePipelineStore(s => s.view?.runs[0]);
-  const stages = project ? stageViews(project.assets ?? [], latest) : null;
+  const stages = project ? stageViews(project.assets ?? [], latest, project.target) : null;
   return { stages };
 }

@@ -5,12 +5,23 @@ import { InspectorTabs } from '../InspectorTabs';
 import { LayoutBarActions } from '../LayoutBarActions';
 import { LayoutEditor } from '../LayoutEditor';
 import { PathsEditor } from '../PathsEditor';
+import { BudgetPanel } from '../BudgetPanel';
 import { useInspectorView } from './InspectorView.hooks';
 
 /** The Inspector: compare the project's versions, lay out its scene or draw its paths. */
 export default function InspectorView() {
   const { project, view, loading, error, load, tab } = useInspectorView();
 
+  if (project && tab === 'budget') {
+    return (
+      <InspectorShell>
+        <main className="flex min-h-0 flex-1 flex-col gap-3.5 px-6 py-[18px]">
+          <InspectorTabs />
+          <BudgetPanel />
+        </main>
+      </InspectorShell>
+    );
+  }
   if (project && tab === 'layout') {
     return (
       <InspectorShell right={<LayoutBarActions />}>

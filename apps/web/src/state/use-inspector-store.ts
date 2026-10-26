@@ -7,8 +7,8 @@ import { pushSample } from './inspector';
 import { clock } from '@/lib/clock';
 
 export type InspectMode = Extract<MaterialMode, 'shaded' | 'wireframe' | 'lightmap'>;
-/** Compare versions, lay out the scene, or draw paths through it. */
-export type InspectorTab = 'compare' | 'layout' | 'paths';
+/** Compare versions, lay out the scene, or draw paths through it; a game checks budgets. */
+export type InspectorTab = 'compare' | 'layout' | 'paths' | 'budget';
 
 interface InspectorStore {
   tab: InspectorTab;

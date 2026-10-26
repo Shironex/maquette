@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { commands, errorMessage, type ProjectSummary } from '@/ipc/client';
 import { useAppStore } from './use-app-store';
+import { useGameStore } from './use-game-store';
 import { newProjectRequest, type ProjectFields, type ProjectMode } from './onboarding';
 
 interface ProjectsStore {
@@ -80,6 +81,11 @@ export const useProjectsStore = create<ProjectsStore>((set, get) => ({
       app.setWorkspace(snapshot);
       app.setView('board', true);
       set({ dialog: null });
+      if (snapshot.project?.target === 'game') {
+        // A game starts from its own models.
+        void useGameStore.getState().openImport(snapshot.project.id);
+        return true;
+      }
       app.notify({
         status: 'done',
         title: `${snapshot.project?.name ?? 'The project'} is ready`,

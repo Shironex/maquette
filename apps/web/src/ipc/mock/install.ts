@@ -112,6 +112,7 @@ const handle = createBackend({
   motion,
   page: pageOption(params),
   timeline: params.get('timeline'),
+  game: params.get('game'),
   // `?timeline=demo` lights the demo paths too, for its paths lane.
   paths: params.get('paths') ?? (params.get('timeline') === 'demo' ? 'demo' : null),
   emit: event => {

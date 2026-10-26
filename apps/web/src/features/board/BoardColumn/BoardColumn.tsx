@@ -1,5 +1,5 @@
 import { Dropzone, Icon, cn } from '@maquette/ui';
-import { STAGE_LABEL } from '@/state/pipeline';
+import { useStageLabels } from '@/state/use-stage-labels';
 import { BoardCard } from '../BoardCard';
 import { STAGE_ICON } from '../constants';
 import { useColumnDrop } from './BoardColumn.hooks';
@@ -9,6 +9,7 @@ import type { BoardColumnProps } from './BoardColumn.types';
 export default function BoardColumn({ stage, assets, boardEmpty, board }: BoardColumnProps) {
   const { over, onDragOver, onDragLeave, onDrop } = useColumnDrop(stage, board.actions.dropOn);
   const { later } = board.actions;
+  const STAGE_LABEL = useStageLabels();
   const dropzone = stage === 'concept' && boardEmpty;
   const label = `${STAGE_LABEL[stage]}, ${assets.length} ${assets.length === 1 ? 'asset' : 'assets'}`;
   const cards = assets.map(asset => <BoardCard key={asset.id} asset={asset} board={board} />);

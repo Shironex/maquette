@@ -1,4 +1,5 @@
-import type { IconName } from '@maquette/ui';
+import type { IconName, NavRailPlanned } from '@maquette/ui';
+import type { ProjectTarget } from '@/ipc/client';
 
 export type ViewId =
   | 'board'
@@ -27,6 +28,26 @@ export const TOOL_VIEWS: readonly ViewDef[] = [
   { id: 'timeline', label: 'Timeline', icon: 'film-strip' },
   { id: 'page', label: 'Page', icon: 'browser' },
 ];
+
+/** Views a game project has no use for: it ships no web page. */
+const WEB_ONLY: readonly ViewId[] = ['timeline', 'page'];
+
+/** The rail's views for a project that ships to `target`. */
+export function toolViewsFor(target: ProjectTarget | undefined): readonly ViewDef[] {
+  return target === 'game' ? TOOL_VIEWS.filter(v => !WEB_ONLY.includes(v.id)) : TOOL_VIEWS;
+}
+
+/** Whether a project that ships to `target` shows `view`. */
+export function showsView(target: ProjectTarget | undefined, view: ViewId): boolean {
+  return target !== 'game' || !WEB_ONLY.includes(view);
+}
+
+/** What the rail lists as planned for a game project. */
+export function plannedViewsFor(target: ProjectTarget | undefined): readonly NavRailPlanned[] {
+  return target === 'game'
+    ? [{ id: 'game-preview', label: 'Game preview', icon: 'game-controller', tag: 'later' }]
+    : [];
+}
 
 export const SETTINGS_VIEW: ViewDef = { id: 'settings', label: 'Settings', icon: 'gear-six' };
 
