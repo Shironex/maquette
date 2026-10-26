@@ -3,9 +3,11 @@
  * dev page running at a stop, starting, failed, a project without a site
  * repo, a phone, the Devices tab, a page concept, and the compare board
  * (ship against this run on desktop, then with the poster on a phone),
- * a tour of ten stops on the scrubber, and a site that forbids framing
- * shown through the real frame proxy. Except for that last one, the dev
- * server and its page are mock mode's own.
+ * a tour of ten stops on the scrubber, the mock site with the bridge shim
+ * instead of its own bridge, and a site that forbids framing and has no
+ * bridge, shown through the real frame proxy and driven by its shim.
+ * Except for that last one, the dev server and its page are mock mode's
+ * own.
  */
 import { checkHeaders, startForbiddingSite, startFrameProxy } from './framed-site.mjs';
 
@@ -85,7 +87,30 @@ export async function pageShots({ open, shot }) {
   await noSite.context().close();
 
   await manyStopsShots({ open, shot });
+  await shimShots({ open, shot });
   await framedShots({ open, shot });
+}
+
+const SHIM_HINT = "Maquette's shim scrolls the page: the site has no page bridge";
+
+/** The page in the main frame, by the address it loaded. */
+function pageFrame(page, prefix) {
+  const frame = page.frames().find(f => f.url().startsWith(prefix));
+  if (!frame) throw new Error(`no frame at ${prefix}`);
+  return frame;
+}
+
+/** Mock mode's site without its bridge, carrying the shim: it answers as the shim. */
+async function shimShots({ open, shot }) {
+  const shimmed = await open('&scenario=configured&page=shim', '#/page');
+  await answered(shimmed);
+  await shimmed.getByText(SHIM_HINT).waitFor();
+  await shimmed.getByText(/Measured by Maquette's shim/).waitFor();
+  await shimmed.getByRole('button', { name: /^Jump to stop 4, / }).click();
+  await shimmed.getByText(/ · stop 4, /).waitFor();
+  await shimmed.waitForTimeout(800);
+  await shot(shimmed, 'page-shim');
+  await shimmed.context().close();
 }
 
 /** Ten stops with long names: every label keeps to its slot. */
@@ -101,8 +126,10 @@ async function manyStopsShots({ open, shot }) {
 }
 
 /**
- * A dev server that sends frame-ancestors 'none' and X-Frame-Options: DENY,
- * behind the frame proxy: the page, its stops and its HMR socket show.
+ * A dev server that sends frame-ancestors 'none' and X-Frame-Options: DENY
+ * and has no page bridge, behind the frame proxy: the page and its HMR
+ * socket show, the shim fills the frame time, a stop click scrolls the
+ * page, and scrolling the page moves the scrubber.
  */
 async function framedShots({ open, shot }) {
   const site = await startForbiddingSite();
@@ -119,7 +146,18 @@ async function framedShots({ open, shot }) {
       .getByText(/^HMR socket: connected through 127\.0\.0\.1:/)
       .waitFor();
     await framed.getByText(site.url.replace('http://', '').replace(/\/$/, '')).first().waitFor();
+    await framed.getByText(SHIM_HINT).waitFor();
+    await framed.getByText(/Measured by Maquette's shim/).waitFor();
+    const page = pageFrame(framed, proxy.url);
+    // Five full height sections spread evenly: stop 3 is two screens down.
+    await framed.getByRole('button', { name: /^Jump to stop 3, / }).click();
+    await page.waitForFunction(() => Math.abs(scrollY - 2 * innerHeight) < 2);
+    await framed.getByText(/ · stop 3, /).waitFor();
     await shot(framed, 'page-framed');
+    await page.evaluate(() => scrollTo({ top: innerHeight * 3.25, behavior: 'instant' }));
+    await framed.getByText(/^81% · /).waitFor();
+    await framed.getByText(/ · stop 4, /).waitFor();
+    await shot(framed, 'page-framed-scrolled');
     await framed.context().close();
   } finally {
     await proxy?.stop();

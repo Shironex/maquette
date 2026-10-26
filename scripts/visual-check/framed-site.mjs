@@ -1,12 +1,14 @@
 /**
  * A dev server that forbids framing, as most production sites do, and the
- * real frame proxy in front of it, for the Page view's framed shot
+ * real frame proxy in front of it, for the Page view's framed shots
  * (scripts/visual-check/page.mjs). The server sends
- * `Content-Security-Policy: ...; frame-ancestors 'none'` and
- * `X-Frame-Options: DENY` on every response, speaks the page bridge and
- * opens an HMR style WebSocket, so the shot shows the page, its stops and
- * the socket all coming through the proxy. The proxy is the
- * `frame_proxy` example of maquette-core, run with cargo; no shell.
+ * `Content-Security-Policy: ...; frame-ancestors 'none'` with
+ * `script-src 'self'` (no inline script) and `X-Frame-Options: DENY` on
+ * every response, opens an HMR style WebSocket from its own script, and
+ * does not speak the page bridge: the proxy's bridge shim does, so the
+ * shots show the page, the socket and the scrubber driving the page all
+ * coming through the proxy. The proxy is the `frame_proxy` example of
+ * maquette-core, run with cargo; no shell.
  */
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -16,7 +18,11 @@ import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '../..');
 
 export const FORBIDDING_CSP =
-  "default-src 'self' 'unsafe-inline'; frame-ancestors 'none'; img-src 'self' data:; connect-src 'self' ws:";
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; img-src 'self' data:; connect-src 'self' ws:";
+
+/** The tag the frame proxy adds to a page, and where it serves the shim. */
+export const SHIM_TAG = '<script src="/__maquette/bridge.js" defer></script>';
+const SHIM_PATH = '__maquette/bridge.js';
 
 const STOPS = ['Arrival', 'Courtyard', 'Reading room', 'Garden', 'Contact'];
 
@@ -37,23 +43,14 @@ p{color:#b4bacb;max-width:520px}code{font:13px ui-monospace,monospace;color:#f0c
 <main>${STOPS.map((name, i) =>
   i === 0
     ? `<section><small>Stop 1</small><h1>This site forbids framing.</h1><p>Every response carries <code>frame-ancestors 'none'</code> and <code>X-Frame-Options: DENY</code>. Maquette's frame proxy drops only those, so the page shows here unchanged.</p><span class="socket" id="socket">HMR socket: connecting</span></section>`
-    : `<section><small>Stop ${i + 1}</small><h2>${name}</h2><p>Scroll and the scrubber follows, through the page bridge.</p></section>`
+    : `<section><small>Stop ${i + 1}</small><h2>${name}</h2><p>This page has no page bridge: Maquette's shim scrolls it and follows its scroll.</p></section>`
 ).join('')}</main>
-<script>
-const stops=${JSON.stringify(STOPS.map(name => ({ name })))};
-const sections=[...document.querySelectorAll('section')];
-let origin=null;
-const send=m=>{if(origin)parent.postMessage(m,origin)};
-const progress=()=>{const y=scrollY;let i=0;for(let k=0;k<sections.length;k++)if(sections[k].offsetTop<=y+1)i=k;const s=sections[i],h=s.offsetHeight||1;return Math.min(sections.length-1,i+Math.max(0,Math.min(1,(y-s.offsetTop)/h)))};
-const at=()=>send({maquette:1,type:'at',stop:Math.round(progress()*1000)/1000,scroll:{top:Math.round(scrollY),max:Math.max(0,document.documentElement.scrollHeight-innerHeight)}});
-addEventListener('scroll',at,{passive:true});
-const stats=()=>send({maquette:1,type:'stats',frameMs:8.3,p95Ms:11.6,drawCalls:42});
-addEventListener('message',e=>{if(e.source!==parent||!e.data||e.data.maquette!==1)return;origin=e.origin&&e.origin!=='null'?e.origin:'*';
-if(e.data.type==='hello'){send({maquette:1,type:'ready',stops,features:['goto','at','stats']});at();stats();setInterval(stats,1000)}
-else if(e.data.type==='goto'&&typeof e.data.stop==='number'){const s=Math.max(0,Math.min(sections.length-1,e.data.stop)),i=Math.floor(s),sec=sections[i];scrollTo({top:sec.offsetTop+(s-i)*sec.offsetHeight,behavior:'auto'})}});
-const socket=new WebSocket('ws://'+location.host+'/hmr');
+<script src="/app.js" defer></script></body></html>`;
+
+/** The page's own script: only its HMR socket, no page bridge. */
+const APP = `const socket=new WebSocket('ws://'+location.host+'/hmr');
 socket.onmessage=e=>{const el=document.getElementById('socket');el.textContent='HMR socket: '+e.data+' through '+location.host;el.classList.add('on')};
-</script></body></html>`;
+`;
 
 /** One unmasked text frame, as a server sends it. */
 function textFrame(text) {
@@ -66,8 +63,9 @@ export function startForbiddingSite() {
   const server = createServer((req, res) => {
     res.setHeader('Content-Security-Policy', FORBIDDING_CSP);
     res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.end(PAGE);
+    const script = req.url === '/app.js';
+    res.setHeader('Content-Type', script ? 'text/javascript' : 'text/html; charset=utf-8');
+    res.end(script ? APP : PAGE);
   });
   // Upgraded sockets leave the server's books, so a stop ends them itself.
   const sockets = new Set();
@@ -132,12 +130,26 @@ export function startFrameProxy(upstream) {
   });
 }
 
-/** Fails unless `url` sends both headers and `proxy` sends neither. */
+/**
+ * Fails unless `url` sends both headers and `proxy` sends neither, and the
+ * proxy adds the shim's tag to the page once and serves the shim itself.
+ */
 export async function checkHeaders(url, proxy) {
-  const direct = await fetch(url);
-  const framed = await fetch(proxy);
+  const asPage = { headers: { Accept: 'text/html' } };
+  const direct = await fetch(url, asPage);
+  const framed = await fetch(proxy, asPage);
+  const shim = await fetch(`${proxy}${SHIM_PATH}`);
   const csp = framed.headers.get('content-security-policy');
+  const [directHtml, framedHtml, shimJs] = await Promise.all([
+    direct.text(),
+    framed.text(),
+    shim.text(),
+  ]);
   const problems = [
+    directHtml.includes(SHIM_TAG) && 'the site itself has the shim tag',
+    framedHtml.split(SHIM_TAG).length !== 2 && 'the proxy did not add the shim tag once',
+    framedHtml.replace(SHIM_TAG, '') !== directHtml && 'the proxy changed the page',
+    (!shim.ok || !shimJs.includes("source: 'shim'")) && 'the proxy did not serve the shim',
     direct.headers.get('x-frame-options') !== 'DENY' && 'the site does not send X-Frame-Options',
     !direct.headers.get('content-security-policy')?.includes('frame-ancestors') &&
       'the site does not send frame-ancestors',
