@@ -45,7 +45,8 @@ pub struct SetGameSettingsArgs {
     pub models_dir: Option<String>,
     /// "png", "jpg" or "keep": the texture format Game export writes.
     pub textures: Option<String>,
-    /// The longest texture edge Game export writes: 256, 512, 1024, 2048 or 4096 px.
+    /// The longest texture edge Game export writes for models in a folder with no budget:
+    /// 256, 512, 1024, 2048 or 4096 px. A folder's budget texture size wins for its models.
     pub texture_cap: Option<u32>,
     /// Whether the pipeline runs Bake light (off by default for games).
     pub bake: Option<bool>,
@@ -150,13 +151,20 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Import models from a game project's model folder: each file becomes an asset whose version 1 is the repo file, and joins the ship record so a later Ship may replace it. Over budget models import as they are. Files left out stay hand made and Ship never touches them. Nothing in the game repo changes. Returns the imported asset ids and the skipped files with why."
+        description = "Import models from a game project's model folder: each file becomes an asset whose version 1 is the repo file, and joins the ship record so a later Ship may replace it. Over budget models import as they are, and each new model gets a preview rendered headless in the background. Files left out stay hand made and Ship never touches them. Nothing in the game repo changes. Returns the imported asset ids and the skipped files with why."
     )]
     async fn import_game_models(&self, Parameters(args): Parameters<ImportGameArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let result = commands::import(host.session(), &args.project, &args.files)
-                    .map_err(|e| e.message)?;
+                let tools = host.toolbox();
+                let result = commands::import(
+                    host.session(),
+                    &args.project,
+                    &args.files,
+                    host.thumbs(),
+                    &tools,
+                )
+                .map_err(|e| e.message)?;
                 host.project_changed(&result.project);
                 host.pipeline_changed(&args.project);
                 Ok(json!({
@@ -198,7 +206,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Show what Ship would write into a game project's model folder from the last Game export: each file as new, replaced (Maquette wrote or imported it before), unchanged or hand made (not in the ship record, so Ship leaves it alone), with sizes and triangles before and after, the branch, the ship record size after the run and the checks (budgets, no KTX2 or meshopt). Reads only; Ship runs from run_pipeline and waits for a person in the app.",
+        description = "Show what Ship would write into a game project's model folder from the last Game export: each file as new, replaced (Maquette wrote or imported it before; imported is true when the game's file is still the imported original), unchanged or hand made (not in the ship record, so Ship leaves it alone), with sizes and triangles before and after, the branch, the ship record size after the run, the checks (budgets, no KTX2 or meshopt) and uncommitted, how many files git status lists in the game repo. Reads only; Ship runs from run_pipeline and waits for a person in the app.",
         annotations(read_only_hint = true)
     )]
     async fn get_ship_plan(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {

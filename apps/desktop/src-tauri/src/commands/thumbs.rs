@@ -1,17 +1,20 @@
 //! Model thumbnails: the shell side of `maquette_core::thumbs`. Inbox rows
-//! ask for one when they are listed, Accept asks for the new version's, and
-//! finished renders reach the web view as `ThumbnailReady` events.
+//! ask for one when they are listed, Accept and Import models ask for the
+//! new versions', the Board's Render previews for every model without one,
+//! and finished renders reach the web view as `ThumbnailReady` events.
 
 use std::path::{Path, PathBuf};
 
-use maquette_core::WorkspaceConfig;
 use maquette_core::inbox::InboxItem;
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::thumbs::{self, Finished, Requested, ThumbState, ThumbTarget, Thumbnails};
+use maquette_core::{ProjectManifest, WorkspaceConfig, project};
 use tauri::{AppHandle, Manager as _, State};
 use tauri_specta::Event as _;
 
-use super::CommandResult;
+use serde::Serialize;
+
+use super::{CommandResult, toolchain};
 use crate::events::ThumbnailReady;
 use crate::session::Session;
 
@@ -120,6 +123,63 @@ pub(crate) fn for_version(
             None
         }
     }
+}
+
+/// What Render previews asked for.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewsAsked {
+    /// Models that had no preview and were asked for one.
+    pub asked: u32,
+    /// The project, with the previews a cached render gave at once.
+    pub project: ProjectManifest,
+}
+
+/// Asks for the thumbnail of every model in the project whose card shows
+/// none, or of the assets in `only`. A cached render is applied at once;
+/// the others arrive as `ThumbnailReady` while Blender works through them.
+pub(crate) fn render_missing(
+    service: &Thumbnails,
+    root: &Path,
+    config: &WorkspaceConfig,
+    tools: &Toolbox,
+    project_id: &str,
+    only: Option<&[String]>,
+) -> CommandResult<PreviewsAsked> {
+    let manifest = project::load(root, &config.layout, project_id)?;
+    let dir = project::dir(root, &config.layout, project_id)?;
+    let missing = thumbs::missing::missing(&dir, &manifest, only);
+    let mut latest = manifest;
+    for item in &missing {
+        if let Some(changed) = for_version(
+            service,
+            root,
+            config,
+            tools,
+            &item.file,
+            item.target.clone(),
+        ) {
+            latest = changed;
+        }
+    }
+    Ok(PreviewsAsked {
+        asked: u32::try_from(missing.len()).unwrap_or(u32::MAX),
+        project: latest,
+    })
+}
+
+/// Renders a preview for every model on the Board that has none, in the
+/// background: the cards update as each render finishes.
+#[tauri::command]
+#[specta::specta]
+pub async fn thumbnail_render_missing(
+    session: State<'_, Session>,
+    service: State<'_, Thumbs>,
+    project: String,
+) -> CommandResult<PreviewsAsked> {
+    let (root, config) = session.workspace()?;
+    let tools = toolchain::toolbox(&session).await?;
+    render_missing(&service.0, &root, &config, &tools, &project, None)
 }
 
 /// Keeps a PNG the web view rendered from its preview (when Blender cannot)

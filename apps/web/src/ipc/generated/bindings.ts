@@ -53,11 +53,14 @@ export const commands = {
     __TAURI_INVOKE<ProjectManifest>('game_save_settings', { project, change }),
   /**
    *  Adds Decimate and Shrink textures to every model over its folder's
-   *  budget. Returns the assets that changed.
+   *  budget; a rigged model gets no Decimate. Returns the assets that changed.
    */
   gameAddBudgetFixups: (project: string) =>
     __TAURI_INVOKE<string[]>('game_add_budget_fixups', { project }),
-  /**  What Ship would write into the game repo from the last Game export. */
+  /**
+   *  What Ship would write into the game repo from the last Game export,
+   *  and how many files the game repo has not committed yet.
+   */
   gameShipPlan: (project: string) => __TAURI_INVOKE<ShipPlan>('game_ship_plan', { project }),
   dialogPickFolder: (title: string, start: string | null) =>
     __TAURI_INVOKE<string | null>('dialog_pick_folder', { title, start }),
@@ -256,6 +259,12 @@ export const commands = {
   inboxOpenInBlender: (id: string) => __TAURI_INVOKE<null>('inbox_open_in_blender', { id }),
   thumbnailStore: (file: string, png: number[]) =>
     __TAURI_INVOKE<string>('thumbnail_store', { file, png }),
+  /**
+   *  Renders a preview for every model on the Board that has none, in the
+   *  background: the cards update as each render finishes.
+   */
+  thumbnailRenderMissing: (project: string) =>
+    __TAURI_INVOKE<PreviewsAsked>('thumbnail_render_missing', { project }),
   labGet: (project: string) => __TAURI_INVOKE<LabView>('lab_get', { project }),
   labGenerate: (request: NewConcepts) => __TAURI_INVOKE<LabView>('lab_generate', { request }),
   labCancel: (jobId: string) => __TAURI_INVOKE<null>('lab_cancel', { jobId }),
@@ -806,6 +815,11 @@ export type BudgetCheck = {
   maxTriangles: number;
   texture: number;
   maxTexture: number;
+  /**
+   *  The model has a skin or bones. Decimate would break its weights and
+   *  shape keys, so its triangles are reduced by hand.
+   */
+  rigged: boolean;
   /**  What is over, as the list says it: "Over 12k triangles". */
   problems: string[];
 };
@@ -2575,6 +2589,14 @@ export type PreviewRequest = {
   plan: ModelPrep;
 };
 
+/**  What Render previews asked for. */
+export type PreviewsAsked = {
+  /**  Models that had no preview and were asked for one. */
+  asked: number;
+  /**  The project, with the previews a cached render gave at once. */
+  project: ProjectManifest;
+};
+
 /**
  *  What runs in a project right now. Core leaves it empty; the shell fills
  *  it from its runner, the Lab and the provider queue.
@@ -3042,6 +3064,11 @@ export type ShipFile = {
   asset: string | null;
   /**  An export that would land on a hand made file, so it is held back. */
   blocked: boolean;
+  /**
+   *  The game's file is still the original this project imported from
+   *  it, byte for byte: this Ship replaces the imported original.
+   */
+  imported: boolean;
 };
 
 export type ShipPlan = {
@@ -3057,6 +3084,11 @@ export type ShipPlan = {
   /**  How many files the record lists after this Ship. */
   recordAfter: number;
   checks: ShipCheck[];
+  /**
+   *  Changed or new files `git status` lists in the game repo; none when
+   *  it was not asked or git could not tell.
+   */
+  uncommitted: number | null;
 };
 
 export type SideMember = {

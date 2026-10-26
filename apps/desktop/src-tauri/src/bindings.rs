@@ -106,6 +106,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             inbox::inbox_accept,
             inbox::inbox_open_in_blender,
             thumbs::thumbnail_store,
+            thumbs::thumbnail_render_missing,
             lab::lab_get,
             lab::lab_generate,
             lab::lab_cancel,
