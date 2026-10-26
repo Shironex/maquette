@@ -2,13 +2,16 @@
 //! and the format its files are in, the library that reads them and
 //! whether the engine can decode KTX2 or meshopt. It only reads.
 
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
 use super::GameFormat;
 use crate::project::{has_ext, sorted_children};
+use crate::toolchain::CommandRunner;
 
 /// Where engines keep their models, in the order they are tried.
 pub const MODEL_DIRS: [&str; 5] = [
@@ -82,6 +85,37 @@ pub(crate) fn branch(repo: &Path) -> Option<String> {
     head.trim()
         .strip_prefix("ref: refs/heads/")
         .map(str::to_string)
+}
+
+/// How long `git status` may take before Ship's diff stops waiting for it.
+const GIT_STATUS_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// How many changed or new files `git status` lists in `repo`. It runs with
+/// `--no-optional-locks`, so git writes nothing there, not even its index.
+/// None for a folder that is not a git repo, or when git cannot tell.
+pub fn uncommitted(
+    repo: &Path,
+    git: &Path,
+    runner: &dyn CommandRunner,
+    path_env: &OsStr,
+) -> Option<u32> {
+    if !repo.join(".git").exists() {
+        return None;
+    }
+    let repo_arg = repo.to_string_lossy();
+    let args = [
+        "-C",
+        repo_arg.as_ref(),
+        "--no-optional-locks",
+        "status",
+        "--porcelain",
+    ];
+    let out = runner
+        .run(git, &args, path_env, GIT_STATUS_TIMEOUT)
+        .ok()
+        .filter(|o| o.status_ok)?;
+    let lines = out.stdout.lines().filter(|l| !l.trim().is_empty()).count();
+    Some(u32::try_from(lines).unwrap_or(u32::MAX))
 }
 
 /// The names after `add_executable(` in a CMake file.

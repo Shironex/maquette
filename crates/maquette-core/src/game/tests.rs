@@ -668,3 +668,67 @@ fn the_index_caps_each_model_at_its_folder_budget_and_the_export_cap_elsewhere()
     assert_eq!(json["textureCap"], 512);
     assert_eq!(json["models"][1]["textureCap"], 2048, "{json}");
 }
+
+#[test]
+fn the_ship_plan_says_which_replaced_files_are_the_imported_originals() {
+    let (ws, manifest) = game_project(glb_game, GameFormat::Glb);
+    let picked = [
+        "props/brazier.glb".to_string(),
+        "props/coffin.glb".to_string(),
+    ];
+    let result = import_models(&ws.root, &ws.config.layout, &manifest.id, &picked).expect("import");
+    let project_dir = project::dir(&ws.root, &ws.config.layout, &manifest.id).expect("dir");
+    let export = project_dir.join(ship::EXPORT_DIR);
+    write(&export.join("props/brazier.glb"), b"fixed brazier");
+    write(&export.join("props/coffin.glb"), b"fixed coffin");
+    // A Ship before wrote the coffin, so the game's file is no longer the import.
+    write(
+        &ws.repo.join("assets/models/props/coffin.glb"),
+        b"shipped coffin",
+    );
+    let plan = ship_plan(&project_dir, &result.project).expect("plan");
+    let file = |path: &str| plan.files.iter().find(|f| f.path == path).expect(path);
+    assert_eq!(file("props/brazier.glb").change, ShipChange::Replaced);
+    assert!(
+        file("props/brazier.glb").imported,
+        "the repo still holds the original"
+    );
+    assert_eq!(file("props/coffin.glb").change, ShipChange::Replaced);
+    assert!(!file("props/coffin.glb").imported);
+    assert_eq!(plan.uncommitted, None, "the plan alone does not run git");
+}
+
+struct FakeGit(&'static str);
+
+impl crate::CommandRunner for FakeGit {
+    fn run(
+        &self,
+        _program: &Path,
+        args: &[&str],
+        _path_env: &std::ffi::OsStr,
+        _timeout: std::time::Duration,
+    ) -> Result<crate::toolchain::ProbeOutput, crate::toolchain::ProbeError> {
+        assert!(
+            args.contains(&"--no-optional-locks"),
+            "git writes nothing: {args:?}"
+        );
+        Ok(crate::toolchain::ProbeOutput {
+            status_ok: true,
+            stdout: self.0.to_string(),
+            stderr: String::new(),
+        })
+    }
+}
+
+#[test]
+fn uncommitted_counts_what_git_status_lists_and_skips_a_folder_without_git() {
+    let dir = tempfile::tempdir().expect("dir");
+    let repo = glb_game(dir.path());
+    let git = Path::new("git");
+    let path = std::ffi::OsStr::new("");
+    let dirty = FakeGit(" M src/main.cpp\n?? notes.txt\n");
+    assert_eq!(detect::uncommitted(&repo, git, &dirty, path), Some(2));
+    assert_eq!(detect::uncommitted(&repo, git, &FakeGit(""), path), Some(0));
+    let maze = obj_game(dir.path());
+    assert_eq!(detect::uncommitted(&maze, git, &dirty, path), None);
+}

@@ -102,6 +102,9 @@ pub struct ShipFile {
     pub asset: Option<String>,
     /// An export that would land on a hand made file, so it is held back.
     pub blocked: bool,
+    /// The game's file is still the original this project imported from
+    /// it, byte for byte: this Ship replaces the imported original.
+    pub imported: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -126,6 +129,9 @@ pub struct ShipPlan {
     /// How many files the record lists after this Ship.
     pub record_after: u32,
     pub checks: Vec<ShipCheck>,
+    /// Changed or new files `git status` lists in the game repo; none when
+    /// it was not asked or git could not tell.
+    pub uncommitted: Option<u32>,
 }
 
 /// Every file under `dir`, relative to it with `/`, sorted.
@@ -182,6 +188,37 @@ fn asset_for(settings: &GameSettings, manifest: &ProjectManifest, path: &str) ->
         .map(|a| a.name.clone())
 }
 
+/// The project's copy of a file it imported from `path` in the model
+/// folder: the version file of an imported `.glb` or `.obj`, or an `.mtl`
+/// or texture copied into an `.obj`'s version folder.
+fn imported_copy(
+    project_dir: &Path,
+    settings: &GameSettings,
+    manifest: &ProjectManifest,
+    path: &str,
+) -> Option<std::path::PathBuf> {
+    manifest.assets.iter().find_map(|asset| {
+        let model = settings.models.get(&asset.id)?;
+        let version = model.imported_version?;
+        let file = &asset.versions.iter().find(|v| v.version == version)?.file;
+        if model.file == path {
+            return Some(project_dir.join(file));
+        }
+        if GameFormat::of(&model.file) != Some(GameFormat::Obj) {
+            return None;
+        }
+        let folder = super::folder_of(&model.file);
+        let rel = if folder.is_empty() {
+            path
+        } else {
+            path.strip_prefix(&format!("{folder}/"))?
+        };
+        let (version_dir, _) = file.rsplit_once('/')?;
+        let copy = project_dir.join(version_dir).join(rel);
+        copy.is_file().then_some(copy)
+    })
+}
+
 fn same_bytes(a: &Path, b: &Path) -> bool {
     match (fs::read(a), fs::read(b)) {
         (Ok(x), Ok(y)) => x == y,
@@ -217,6 +254,11 @@ pub fn plan(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<ShipPl
             _ => ShipChange::New,
         };
         let before = target.as_ref().filter(|_| exists);
+        let imported = change == ShipChange::Replaced
+            && before.is_some_and(|t| {
+                imported_copy(project_dir, settings, manifest, path)
+                    .is_some_and(|c| same_bytes(&c, t))
+            });
         files.push(ShipFile {
             path: path.clone(),
             change,
@@ -228,6 +270,7 @@ pub fn plan(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<ShipPl
                 .and_then(|t| model_numbers(t).0),
             asset: asset_for(settings, manifest, path),
             blocked: change == ShipChange::HandMade,
+            imported,
         });
     }
     let hand_made = game_dir
@@ -248,6 +291,7 @@ pub fn plan(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<ShipPl
             before_triangles: None,
             asset: None,
             blocked: false,
+            imported: false,
         })
         .collect();
     let mut after: BTreeSet<String> = owned;
@@ -289,5 +333,6 @@ pub fn plan(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<ShipPl
         hand_made,
         record_after: u32::try_from(after.len()).unwrap_or(u32::MAX),
         checks,
+        uncommitted: None,
     })
 }
