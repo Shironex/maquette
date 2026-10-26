@@ -5,10 +5,13 @@
 //!
 //! It forwards every request to the one loopback dev server it was made
 //! for, never anywhere else: the request's own target is cut to its path
-//! and query. Bodies stream through untouched in both directions, WebSocket
-//! upgrades (the HMR of Next, Vite and Astro) are spliced through, and
-//! [`headers`] says which headers change. It runs on its own small tokio
-//! runtime, and dropping it stops it and closes every connection.
+//! and query. Bodies stream through untouched in both directions, except
+//! that a page gets the page bridge shim's script tag ([`inject`]), which
+//! the proxy serves itself under `/__maquette/` and never forwards.
+//! WebSocket upgrades (the HMR of Next, Vite and Astro) are spliced
+//! through, and [`headers`] says which headers change. It runs on its own
+//! small tokio runtime, and dropping it stops it and closes every
+//! connection.
 
 use std::convert::Infallible;
 use std::io;
@@ -18,18 +21,20 @@ use std::time::Duration;
 
 use http_body_util::{Either, Full};
 use hyper::body::{Bytes, Incoming};
-use hyper::header::{CONTENT_TYPE, HeaderValue};
-use hyper::{Request, Response, StatusCode, Uri};
+use hyper::header::{CACHE_CONTROL, CONTENT_TYPE, HeaderValue, X_CONTENT_TYPE_OPTIONS};
+use hyper::{Method, Request, Response, StatusCode, Uri};
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpStream;
 
 mod headers;
+mod inject;
 pub use headers::Upstream;
 use headers::{fix_request, fix_response, wants_upgrade};
+use inject::Injected;
 
 use crate::error::{CoreError, CoreResult};
 
-type Body = Either<Incoming, Full<Bytes>>;
+type Body = Either<Incoming, Either<Full<Bytes>, Injected>>;
 
 /// How long a stop waits for open connections to end.
 const STOP_TIMEOUT: Duration = Duration::from_millis(500);
@@ -161,9 +166,16 @@ async fn accept(listener: tokio::net::TcpListener, route: Arc<Route>) {
 
 /// Sends `req` to the dev server and hands back its answer, fixed.
 async fn forward(mut req: Request<Incoming>, route: &Route) -> Response<Body> {
+    if req.uri().path().starts_with(inject::RESERVED) {
+        return reserved(&req);
+    }
     let upgrade = wants_upgrade(req.headers());
     let from_frame = upgrade.then(|| hyper::upgrade::on(&mut req));
+    let page = inject::wants_page(req.method(), req.headers());
     fix_request(req.headers_mut(), &route.upstream, &route.origin, upgrade);
+    if page {
+        inject::fix_page_request(req.headers_mut());
+    }
     // Only the path and query go on: the target is always the dev server.
     let target = req
         .uri()
@@ -191,7 +203,48 @@ async fn forward(mut req: Request<Incoming>, route: &Route) -> Response<Body> {
         });
     }
     fix_response(res.headers_mut(), &route.upstream, &route.origin, switched);
+    if let Some(decode) = page
+        .then(|| inject::page_body(res.status(), res.headers()))
+        .flatten()
+    {
+        inject::fix_page_response(res.headers_mut());
+        return res.map(|body| Either::Right(Either::Right(Injected::new(body, decode))));
+    }
     res.map(Either::Left)
+}
+
+/// What the proxy answers itself under `/__maquette/`: the shim, else 404.
+fn reserved(req: &Request<Incoming>) -> Response<Body> {
+    let shim = req.uri().path() == inject::SHIM_PATH
+        && matches!(*req.method(), Method::GET | Method::HEAD);
+    let (status, body, kind) = if shim {
+        (
+            StatusCode::OK,
+            inject::SHIM,
+            "text/javascript; charset=utf-8",
+        )
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            "Not found.",
+            "text/plain; charset=utf-8",
+        )
+    };
+    let mut response = plain(status, body.to_string(), kind);
+    let headers = response.headers_mut();
+    // Each app update may bring a new shim.
+    headers.insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    headers.insert(X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+    response
+}
+
+fn plain(status: StatusCode, text: String, kind: &'static str) -> Response<Body> {
+    let mut response = Response::new(Either::Right(Either::Left(Full::new(Bytes::from(text)))));
+    *response.status_mut() = status;
+    response
+        .headers_mut()
+        .insert(CONTENT_TYPE, HeaderValue::from_static(kind));
+    response
 }
 
 /// A fresh connection to the dev server, at a loopback address only.
@@ -232,13 +285,7 @@ fn unreachable(upstream: &Upstream, why: &str) -> Response<Body> {
         "Maquette could not reach the dev server at {}. {why}",
         upstream.origin()
     );
-    let mut response = Response::new(Either::Right(Full::new(Bytes::from(text))));
-    *response.status_mut() = StatusCode::BAD_GATEWAY;
-    response.headers_mut().insert(
-        CONTENT_TYPE,
-        HeaderValue::from_static("text/plain; charset=utf-8"),
-    );
-    response
+    plain(StatusCode::BAD_GATEWAY, text, "text/plain; charset=utf-8")
 }
 
 #[cfg(test)]

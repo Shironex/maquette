@@ -11,6 +11,7 @@ use hyper::header::{HOST, LOCATION, ORIGIN};
 use tokio::sync::mpsc;
 
 use super::headers::without_frame_ancestors;
+use super::inject::{SHIM, TAG, spot};
 use super::*;
 
 type UpBody = BoxBody<Bytes, Infallible>;
@@ -45,6 +46,17 @@ struct Fake {
 struct Seen {
     host: Option<String>,
     origin: Option<String>,
+    path: Option<String>,
+    accept_encoding: Option<String>,
+}
+
+const PAGE: &str = "<!doctype html><html lang=\"en\"><head><title>A site</title></head>\
+<body><header>Nav</header><p>the page</p></body></html>";
+
+fn gzip(text: &str) -> Bytes {
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+    encoder.write_all(text.as_bytes()).expect("gzip");
+    Bytes::from(encoder.finish().expect("gzip"))
 }
 
 fn fake(seen: Arc<Mutex<Seen>>) -> Fake {
@@ -106,11 +118,19 @@ async fn answer(
     *seen.lock().expect("seen") = Seen {
         host: header(HOST),
         origin: header(ORIGIN),
+        path: Some(req.uri().path().to_string()),
+        accept_encoding: header(hyper::header::ACCEPT_ENCODING),
     };
-    let mut res = match req.uri().path() {
-        "/stream" => {
+    let path = req.uri().path().to_string();
+    let mut res = match path.as_str() {
+        "/stream" | "/stream-page" => {
             let (tx, rx) = mpsc::unbounded_channel();
-            let _ = tx.send(Bytes::from_static(b"first-half "));
+            let first: &'static [u8] = if path == "/stream" {
+                b"first-half "
+            } else {
+                b"<!doctype html><html><head><title>first-half</title>"
+            };
+            let _ = tx.send(Bytes::from_static(first));
             if let Some(mut later) = held.lock().await.take() {
                 tokio::spawn(async move {
                     while let Some(chunk) = later.recv().await {
@@ -118,7 +138,28 @@ async fn answer(
                     }
                 });
             }
-            Response::new(Chunks(rx).boxed())
+            let mut res = Response::new(Chunks(rx).boxed());
+            if path == "/stream-page" {
+                res.headers_mut()
+                    .insert("content-type", HeaderValue::from_static("text/html"));
+            }
+            res
+        }
+        "/page" | "/page.gz" | "/app.js" => {
+            let (body, kind) = match path.as_str() {
+                "/app.js" => (full("<head>not a page</head>"), "text/javascript"),
+                "/page.gz" => (Full::new(gzip(PAGE)).boxed(), "text/html; charset=utf-8"),
+                _ => (full(PAGE), "text/html; charset=utf-8"),
+            };
+            let mut res = Response::new(body);
+            res.headers_mut()
+                .insert("content-type", HeaderValue::from_static(kind));
+            if path == "/page.gz" {
+                // Sent gzip whatever the request asked for.
+                res.headers_mut()
+                    .insert("content-encoding", HeaderValue::from_static("gzip"));
+            }
+            res
         }
         "/redirect" => {
             let mut res = Response::new(full(""));
@@ -204,6 +245,31 @@ fn header_of<'a>(response: &'a str, name: &str) -> Vec<&'a str> {
         .map(|(_, v)| v.trim())
         .collect()
 }
+
+/// The body of a raw response, its chunks joined when it came chunked.
+fn body_of(response: &str) -> String {
+    let (_, body) = response.split_once("\r\n\r\n").unwrap_or_default();
+    let chunked = header_of(response, "transfer-encoding")
+        .iter()
+        .any(|v| v.eq_ignore_ascii_case("chunked"));
+    if !chunked {
+        return body.to_string();
+    }
+    let mut out = String::new();
+    let mut rest = body;
+    while let Some((size, after)) = rest.split_once("\r\n") {
+        let size = usize::from_str_radix(size.trim(), 16).expect("chunk size");
+        if size == 0 {
+            break;
+        }
+        out.push_str(&after[..size]);
+        rest = &after[size + 2..];
+    }
+    out
+}
+
+/// A page load in the frame, as a browser asks for one.
+const FRAME_LOAD: &str = "Sec-Fetch-Dest: iframe\r\nAccept-Encoding: gzip, br\r\n";
 
 fn proxied() -> (Fake, FrameProxy, Arc<Mutex<Seen>>) {
     let seen = Arc::new(Mutex::new(Seen::default()));
@@ -368,4 +434,122 @@ fn knows_the_dev_server_under_each_loopback_name() {
     assert_eq!(up.rest_of("/relative"), None);
     let v6 = Upstream::parse("http://[::1]:5173").expect("v6");
     assert_eq!(v6.lookup_host(), "::1");
+}
+
+#[test]
+fn puts_the_shim_tag_in_a_page_once_right_after_its_head() {
+    let (_fake, proxy, seen) = proxied();
+    let res = get(proxy.port(), "/page", FRAME_LOAD);
+    assert!(res.starts_with("HTTP/1.1 200"), "{res}");
+    let body = body_of(&res);
+    assert_eq!(body.matches(TAG).count(), 1, "{body}");
+    assert!(body.contains(&format!("<head>{TAG}<title>")), "{body}");
+    assert_eq!(body.replace(TAG, ""), PAGE);
+    // The length it came with is gone, so nothing reads a stale one.
+    assert!(header_of(&res, "content-length").is_empty(), "{res}");
+    assert_eq!(header_of(&res, "transfer-encoding"), ["chunked"]);
+    // The page was asked for plain.
+    assert_eq!(seen.lock().expect("seen").accept_encoding, None);
+    // Only frame-ancestors leaves the policy; nothing is added to it.
+    assert_eq!(
+        header_of(&res, "content-security-policy"),
+        ["default-src 'self'; img-src * data:"]
+    );
+}
+
+#[test]
+fn reads_a_page_that_comes_gzip_anyway() {
+    let (_fake, proxy, _) = proxied();
+    let res = get(proxy.port(), "/page.gz", FRAME_LOAD);
+    assert!(header_of(&res, "content-encoding").is_empty(), "{res}");
+    assert_eq!(
+        body_of(&res),
+        PAGE.replace("<head>", &format!("<head>{TAG}"))
+    );
+}
+
+#[test]
+fn leaves_everything_but_a_page_load_as_it_came() {
+    let (_fake, proxy, seen) = proxied();
+    // A script, even one asked for like a page.
+    let script = get(proxy.port(), "/app.js", FRAME_LOAD);
+    assert_eq!(header_of(&script, "content-length"), ["23"]);
+    assert_eq!(body_of(&script), "<head>not a page</head>");
+    // HTML a script fetches is not a page load.
+    let fetched = get(
+        proxy.port(),
+        "/page",
+        "Sec-Fetch-Dest: empty\r\nAccept-Encoding: gzip\r\n",
+    );
+    assert_eq!(body_of(&fetched), PAGE);
+    assert_eq!(
+        header_of(&fetched, "content-length"),
+        [PAGE.len().to_string().as_str()]
+    );
+    assert_eq!(
+        seen.lock().expect("seen").accept_encoding.as_deref(),
+        Some("gzip")
+    );
+    // Without Sec-Fetch-Dest, a request that accepts HTML is a page load.
+    let older = get(proxy.port(), "/page", "Accept: text/html,*/*\r\n");
+    assert_eq!(body_of(&older).matches(TAG).count(), 1);
+}
+
+#[test]
+fn streams_a_page_once_its_head_is_in() {
+    let (fake, proxy, _) = proxied();
+    let request =
+        format!("GET /stream-page HTTP/1.1\r\nHost: x\r\n{FRAME_LOAD}Connection: close\r\n\r\n");
+    // The rest of the page is only sent once its start came through.
+    let (mut stream, first) = exchange(proxy.port(), &request, |s| s.contains("first-half"));
+    assert!(
+        first.contains(&format!("<head>{TAG}<title>first-half")),
+        "{first}"
+    );
+    fake.release
+        .send(Bytes::from_static(
+            b"</head><body>second-half</body></html>",
+        ))
+        .expect("release");
+    drop(fake.release);
+    let rest = read_until(&mut stream, |s| s.ends_with("0\r\n\r\n"));
+    assert!(rest.contains("second-half"), "{rest}");
+    assert_eq!(format!("{first}{rest}").matches(TAG).count(), 1);
+    drop(fake.runtime);
+}
+
+#[test]
+fn serves_the_shim_itself_and_never_forwards_its_path() {
+    let (_fake, proxy, seen) = proxied();
+    let res = get(proxy.port(), "/__maquette/bridge.js?v=1", "");
+    assert!(res.starts_with("HTTP/1.1 200"), "{res}");
+    assert_eq!(
+        header_of(&res, "content-type"),
+        ["text/javascript; charset=utf-8"]
+    );
+    assert_eq!(header_of(&res, "cache-control"), ["no-store"]);
+    assert_eq!(body_of(&res), SHIM);
+    let other = get(proxy.port(), "/__maquette/anything", "");
+    assert!(other.starts_with("HTTP/1.1 404"), "{other}");
+    assert!(seen.lock().expect("seen").path.is_none());
+}
+
+#[test]
+fn finds_where_the_tag_goes() {
+    // Each page start, and what follows the tag in it (None: not yet known).
+    let cases = [
+        (
+            "<!doctype html><html><head><meta charset=utf-8>",
+            Some("<meta charset=utf-8>"),
+        ),
+        ("<html><HEAD lang=\"en\">\n<title>", Some("\n<title>")),
+        ("<html><header>a</header></head>x", Some("</head>x")),
+        ("<html><body class=\"a\"><p>", Some("<p>")),
+        ("<html><head", None),
+        ("<html><head data-x=\"1\"", None),
+        ("<p>no structure at all</p>", None),
+    ];
+    for (html, after) in cases {
+        assert_eq!(spot(html.as_bytes()).map(|i| &html[i..]), after, "{html}");
+    }
 }
