@@ -14,8 +14,8 @@ import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
 import { motionFiles } from './create-motion-handlers';
 import { PROVIDER_REF_FILES } from './providers';
-import { MOCK_SITE_URL, conceptPath, posterPath } from './create-page-handlers';
-import { mockConceptPage, mockSitePage } from './page-site';
+import { MOCK_SITE_URL, conceptPath, pageOption, posterPath } from './create-page-handlers';
+import { MANY_STOPS, mockConceptPage, mockSitePage } from './page-site';
 
 const params = new URLSearchParams(window.location.search);
 const root = DEFAULT_ROOT.replace('~', HOME);
@@ -88,7 +88,8 @@ const stopPictures = [
   conceptUrl('moon-island-b.webp'),
   renders['../../assets/mock/island.webp'],
 ].map(absolute);
-registerMockFile(MOCK_SITE_URL, htmlUrl(mockSitePage({ stops: stopPictures })));
+const tour = params.get('page') === 'stops-10' ? MANY_STOPS : undefined;
+registerMockFile(MOCK_SITE_URL, htmlUrl(mockSitePage({ stops: stopPictures }, tour)));
 registerMockFile(conceptPath(projectDir), htmlUrl(mockConceptPage(stopPictures[0] ?? '')));
 stopPictures.forEach((url, i) => registerMockFile(posterPath(projectDir, i), url));
 
@@ -105,7 +106,7 @@ const handle = createBackend({
   arrival: params.get('arrival'),
   built: params.get('built'),
   motion,
-  page: params.get('page'),
+  page: pageOption(params),
   emit: event => {
     if (event.name === 'page') void events.pageServerChanged.emit(event.payload);
     else if (event.name === 'built') {

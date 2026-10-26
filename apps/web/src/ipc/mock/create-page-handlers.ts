@@ -4,8 +4,11 @@
  *
  * `?page=` holds a state for screenshots: `starting` stays starting,
  * `failed` fails as a site without its packages does, `no-site` takes
- * Moon Island's site repo away. Any `?page=` also puts the last ship on the
- * site, so the Page view has a current ship to compare this run with.
+ * Moon Island's site repo away, `stops-10` gives the page ten stops.
+ * `framed` (with `&site=` and `&frame=`) runs at a real dev server that
+ * forbids framing, behind a real frame proxy, both started by the visual
+ * check. Any `?page=` also puts the last ship on the site, so the Page view
+ * has a current ship to compare this run with.
  */
 import type {
   DevCommand,
@@ -21,6 +24,20 @@ import { fail, type Args } from './backend-options';
 
 /** Where the mock dev server answers. */
 export const MOCK_SITE_URL = 'http://localhost:4321/';
+
+/** `?page=`, with the framed state's two addresses folded in: `framed <site> <frame>`. */
+export function pageOption(params: URLSearchParams): string | null {
+  const page = params.get('page');
+  if (page !== 'framed') return page;
+  return `framed ${params.get('site') ?? MOCK_SITE_URL} ${params.get('frame') ?? ''}`;
+}
+
+/** The dev server and the frame proxy in front of it, for the state. */
+function addresses(state: string | null): { url: string; frameUrl: string | null } {
+  const [kind, site, frame] = (state ?? '').split(' ');
+  if (kind !== 'framed' || !site) return { url: MOCK_SITE_URL, frameUrl: null };
+  return { url: site, frameUrl: frame || null };
+}
 
 /** The HTML page concept the mock file picker returns, inside the workspace. */
 export const conceptPath = (projectDir: string) => `${projectDir}/concepts/home_v2.html`;
@@ -121,6 +138,7 @@ export function withShip(view: InspectView, siteRepo: string, projectDir: string
 }
 
 export function createPageHandlers(ctx: PageContext) {
+  const at = addresses(ctx.state);
   const settings = new Map<string, PageSettings>();
   let server: ServerStatus = IDLE;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -207,8 +225,8 @@ export function createPageHandlers(ctx: PageContext) {
       change({
         ...server,
         state: 'running',
-        url: MOCK_SITE_URL,
-        log: [...log, '', `  Local    ${MOCK_SITE_URL}`, '  Network  use --host to expose'],
+        ...at,
+        log: [...log, '', `  Local    ${at.url}`, '  Network  use --host to expose'],
       });
     }, ctx.startMs);
   }
@@ -250,7 +268,7 @@ export function createPageHandlers(ctx: PageContext) {
       if (server.project !== String(project) || server.state !== 'running') {
         fail('invalid', "The site's dev server is not running yet.");
       }
-      return `${MOCK_SITE_URL.replace(/\/$/, '')}${String(path)}`;
+      return `${at.url.replace(/\/$/, '')}${String(path)}`;
     },
     dialog_pick_file: ({ title }) =>
       /html/i.test(String(title))

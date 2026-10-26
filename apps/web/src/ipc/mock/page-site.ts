@@ -8,17 +8,36 @@
  */
 
 export interface SiteImages {
-  /** One picture per stop, in tour order. */
+  /** One picture per stop, in tour order; a longer tour reuses them. */
   stops: string[];
   logo?: string;
 }
 
-const STOPS = [
+interface SiteStop {
+  name: string;
+  line: string;
+}
+
+const STOPS: SiteStop[] = [
   { name: 'Porch', line: 'A moonlit island, one porch and a tree in bloom.' },
   { name: 'Sakura', line: 'The sakura was a concept sketch on Monday.' },
   { name: 'Shrubs', line: 'Every shrub shipped compressed, under budget.' },
   { name: 'Canopy', line: 'Look up: the canopy is one draw.' },
   { name: 'Pullback', line: 'The whole island, ready for the web.' },
+];
+
+/** A long tour (`?page=stops-10`), with long names side by side at the end. */
+export const MANY_STOPS: SiteStop[] = [
+  { name: 'Porch', line: 'A moonlit island, one porch and a tree in bloom.' },
+  { name: 'Sakura in full bloom', line: 'The sakura was a concept sketch on Monday.' },
+  { name: 'Lantern path', line: 'Paper lanterns light the way down.' },
+  { name: 'Shrubs under the moon', line: 'Every shrub shipped compressed, under budget.' },
+  { name: 'Canopy', line: 'Look up: the canopy is one draw.' },
+  { name: 'Tide pools', line: 'The water is a single plane and a normal map.' },
+  { name: 'Workshop', line: 'Where the models were made.' },
+  { name: 'Night market stalls', line: 'Twelve stalls, one material each.' },
+  { name: 'Testimonials', line: 'What visitors said on the way out.' },
+  { name: 'Contact', line: 'Plan a visit to the island.' },
 ];
 
 const STYLE = `
@@ -44,8 +63,8 @@ p{color:#b4bacb;margin:0 0 18px;max-width:380px}
 `;
 
 /** The bridge, as a site would add it, with fixed numbers for the screenshots. */
-const SCRIPT = `
-const stops=${JSON.stringify(STOPS.map(s => ({ name: s.name })))};
+const script = (tour: SiteStop[]) => `
+const stops=${JSON.stringify(tour.map(s => ({ name: s.name })))};
 const sections=[...document.querySelectorAll('section')];
 const imgs=[...document.querySelectorAll('.stage img')];
 if(location.hash.includes('maquette-poster'))document.documentElement.classList.add('poster');
@@ -61,16 +80,19 @@ if(e.data.type==='hello'){send({maquette:1,type:'ready',stops,features:['goto','
 else if(e.data.type==='goto'&&typeof e.data.stop==='number'){const s=Math.max(0,Math.min(sections.length-1,e.data.stop)),i=Math.floor(s),sec=sections[i];const top=sec.offsetTop+(s-i)*sec.offsetHeight;scrollTo({top,behavior:e.data.smooth?'smooth':'auto'})}});
 `;
 
-export function mockSitePage(images: SiteImages): string {
-  const pics = images.stops
+export function mockSitePage(images: SiteImages, tour: SiteStop[] = STOPS): string {
+  const pics = tour
+    .map((_, i) => images.stops[i % Math.max(1, images.stops.length)] ?? '')
     .map((src, i) => `<img src="${src}" alt=""${i === 0 ? ' class="on"' : ''}>`)
     .join('');
-  const sections = STOPS.map((s, i) =>
-    i === 0
-      ? `<section><small>Moon Island</small><h1>An island you can scroll through.</h1><p>${s.line}</p><div class="btns"><span>Visit the island</span><span>How it was made</span></div><span class="hint">Scroll to follow the path</span></section>`
-      : `<section><small>Stop ${i + 1}</small><h2>${s.name}</h2><p>${s.line}</p></section>`
-  ).join('');
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Moon Island</title><style>${STYLE}</style></head><body><header><b>MOON ISLAND</b><span>The island</span><span>Making of</span><span>Journal</span><span class="cta">Plan a visit</span></header><div class="stage">${pics}</div><span class="still">Still image, no WebGL</span>${sections}<script>${SCRIPT}</script></body></html>`;
+  const sections = tour
+    .map((s, i) =>
+      i === 0
+        ? `<section><small>Moon Island</small><h1>An island you can scroll through.</h1><p>${s.line}</p><div class="btns"><span>Visit the island</span><span>How it was made</span></div><span class="hint">Scroll to follow the path</span></section>`
+        : `<section><small>Stop ${i + 1}</small><h2>${s.name}</h2><p>${s.line}</p></section>`
+    )
+    .join('');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Moon Island</title><style>${STYLE}</style></head><body><header><b>MOON ISLAND</b><span>The island</span><span>Making of</span><span>Journal</span><span class="cta">Plan a visit</span></header><div class="stage">${pics}</div><span class="still">Still image, no WebGL</span>${sections}<script>${script(tour)}</script></body></html>`;
 }
 
 /** A page concept from the Lab, without the bridge: the scrubber has nothing to drive. */
