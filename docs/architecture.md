@@ -135,6 +135,26 @@ layout patch's `paths` and `pathTracks`.
 (`get_page_preview`, `start_page_preview`, `stop_page_preview`) through `commands/page.rs`, so an
 agent and the view share the one server and its state.
 
+## Game projects
+
+`ProjectManifest.target` is `website` or `game`; a game keeps `GameSettings` in `game` (boxed, so
+the events that carry a manifest stay small). `maquette-core/src/game/` holds the rules: `detect.rs`
+reads a game repo, `scan.rs` and `import.rs` turn its models into assets (version 1 is the repo
+file, recorded in `game.models`), `budget.rs` checks models against their folder's budget,
+`index.rs` writes `web/game-index.json` before every run (each model's target path, whether it is
+still the untouched import, the export settings), `ship.rs` plans what Ship would change against
+`web/ship-record.json`, and `settings.rs` saves a settings change and re-ensures the pipeline. The
+game template is `pipeline/template/game.rs` with its starters in `starter/` (`export_game.py`,
+`game_export.mjs`, `ship_game.mjs`).
+
+The desktop side is `commands/game.rs` (Tauri commands, `before_run` and `ship_gate`) and
+`mcp/tools/game.rs`. A game's Ship is gated in every run: `ship_gate` returns a `ShipGate` with
+`ShipReason::Game`, so the run started from the Run button waits in the same approvals list as an
+agent's. In the web app, `state/game.ts` mirrors the core's rules (stage names, file and budget per
+asset, Ship plan groups), `state/views.ts` hides the website only views, and the game UI lives in
+`features/game` (Import models), `features/inspector/BudgetPanel` and
+`features/pipeline/{GameExportPanel,ShipView}`.
+
 ## Motion
 
 `maquette_core::motion` reads what moves. `motion.rs` builds the view for a project: every model in
