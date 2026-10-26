@@ -8,6 +8,7 @@ pub mod built;
 pub mod concepts;
 pub mod error;
 pub mod fs;
+pub mod game;
 pub mod inbox;
 pub mod inspect;
 mod json;
@@ -30,9 +31,10 @@ pub mod workspace;
 pub use app_state::AppState;
 pub use assets::{Asset, AssetKind, AssetStatus, AssetVersion, ModelStats, NewAsset, Stage};
 pub use error::{CoreError, CoreResult, ErrorPayload};
+pub use game::{GameFormat, GameSettings, ProjectTarget};
 pub use project::{
     BlendFile, ImportScan, NewProject, ProjectActivity, ProjectManifest, ProjectSummary,
-    ProjectTemplate, RepoInspection,
+    ProjectTemplate, RepoInspection, SiteFolders,
 };
 pub use toolchain::{
     CommandRunner, HostOs, ProbeEnv, SystemRunner, ToolId, ToolReport, ToolSource, ToolStatus,
@@ -107,6 +109,25 @@ pub fn types() -> specta::Types {
         .register::<ProjectActivity>()
         .register::<NewProject>()
         .register::<RepoInspection>()
+        .register::<SiteFolders>()
+        .register::<ProjectTarget>()
+        .register::<GameFormat>()
+        .register::<game::GameTextures>()
+        .register::<game::GameExport>()
+        .register::<game::FolderBudget>()
+        .register::<game::GameModel>()
+        .register::<GameSettings>()
+        .register::<game::NewGame>()
+        .register::<game::GameRepoInspection>()
+        .register::<game::BudgetCheck>()
+        .register::<game::ScannedModel>()
+        .register::<game::GameScan>()
+        .register::<game::ImportResult>()
+        .register::<game::import::SkippedFile>()
+        .register::<game::ShipChange>()
+        .register::<game::ShipFile>()
+        .register::<game::ship::ShipCheck>()
+        .register::<game::ShipPlan>()
         .register::<BlendFile>()
         .register::<ImportScan>()
         .register::<AppState>()

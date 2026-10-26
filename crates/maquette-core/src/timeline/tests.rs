@@ -16,6 +16,8 @@ fn manifest(dir: &Path) -> ProjectManifest {
         id: "maquette".into(),
         name: "Maquette".into(),
         template: ProjectTemplate::FloatingDiorama,
+        target: Default::default(),
+        game: None,
         site_repo: None,
         source_folder: None,
         created_at: at.clone(),

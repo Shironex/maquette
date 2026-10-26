@@ -18,6 +18,8 @@ fn manifest(assets: Vec<Asset>) -> ProjectManifest {
         id: "moon-island".into(),
         name: "Moon Island".into(),
         template: ProjectTemplate::FloatingDiorama,
+        target: Default::default(),
+        game: None,
         site_repo: None,
         source_folder: None,
         created_at: "2026-10-20T10:00:00.000Z".into(),

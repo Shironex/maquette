@@ -173,6 +173,14 @@ pub fn ensure(
     manifest: &crate::project::ProjectManifest,
 ) -> CoreResult<PipelineDef> {
     if let Some(mut def) = load(project_dir)? {
+        if let Ok(settings) = crate::game::settings_of(manifest) {
+            if template::fit_game(&mut def, settings)
+                && let Err(err) = save(project_dir, &def)
+            {
+                tracing::warn!(error = %err, "the fitted game pipeline was not saved");
+            }
+            return Ok(def);
+        }
         let presets = template::fit_presets(&mut def, manifest);
         let layout = template::fit_build_inputs(&mut def, project_dir);
         let ship = template::fit_ship_args(&mut def, project_dir);
@@ -235,6 +243,8 @@ mod tests {
             id: "moon-island".into(),
             name: "Moon Island".into(),
             template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
             created_at: "2026-10-24T09:30:00.000Z".into(),

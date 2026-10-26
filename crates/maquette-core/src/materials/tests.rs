@@ -332,6 +332,8 @@ fn every_version_of_an_asset_with_tweaks_is_found_by_its_stem() {
         id: "bench".into(),
         name: "Bench".into(),
         template: crate::ProjectTemplate::FloatingDiorama,
+        target: Default::default(),
+        game: None,
         site_repo: None,
         source_folder: None,
         created_at: "2026-10-25T08:00:00.000Z".into(),

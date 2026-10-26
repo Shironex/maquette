@@ -15,6 +15,40 @@ pub struct RepoInspection {
     pub exists: bool,
     pub is_git: bool,
     pub has_public_dir: bool,
+    /// Where Ship writes in this site, from its `maquette.site.json`.
+    pub site: SiteFolders,
+    /// A `CMakeLists.txt` at the root: more likely a game than a site.
+    pub looks_like_game: bool,
+}
+
+/// The folders Ship writes in a site, as New project says them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SiteFolders {
+    /// The site has a `maquette.site.json`.
+    pub config: bool,
+    pub models: String,
+    /// None copies no posters.
+    pub posters: Option<String>,
+    /// None writes no scene data.
+    pub data: Option<String>,
+    /// Why the config could not be read, when it could not.
+    pub error: Option<String>,
+}
+
+fn site_folders(path: &Path) -> SiteFolders {
+    let config = path.join(crate::site::CONFIG_FILE).is_file();
+    let (found, error) = match crate::site::load_config(path) {
+        Ok(found) => (found, None),
+        Err(err) => (crate::site::SiteConfig::legacy(), Some(err.to_string())),
+    };
+    SiteFolders {
+        config,
+        models: found.models,
+        posters: found.posters,
+        data: found.data,
+        error,
+    }
 }
 
 pub fn inspect_site_repo(path: &Path) -> RepoInspection {
@@ -24,6 +58,8 @@ pub fn inspect_site_repo(path: &Path) -> RepoInspection {
         // `.git` is a file in worktrees and submodules.
         is_git: path.join(".git").exists(),
         has_public_dir: path.join("public").is_dir(),
+        site: site_folders(path),
+        looks_like_game: path.join("CMakeLists.txt").is_file(),
     }
 }
 
@@ -83,13 +119,13 @@ pub struct ImportScan {
     pub tool_scripts: Vec<String>,
 }
 
-pub(super) fn has_ext(path: &Path, exts: &[&str]) -> bool {
+pub(crate) fn has_ext(path: &Path, exts: &[&str]) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| exts.iter().any(|x| e.eq_ignore_ascii_case(x)))
 }
 
-pub(super) fn sorted_children(dir: &Path) -> Vec<(String, PathBuf)> {
+pub(crate) fn sorted_children(dir: &Path) -> Vec<(String, PathBuf)> {
     let mut out: Vec<(String, PathBuf)> = fs::read_dir(dir)
         .map(|entries| {
             entries

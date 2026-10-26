@@ -103,6 +103,8 @@ fn accept_moves_the_file_and_registers_versions() {
         NewProject {
             name: "Moon Island".into(),
             template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },
@@ -204,6 +206,8 @@ fn accept_saves_the_real_size_and_fixups_or_refuses_them_before_moving() {
         NewProject {
             name: "Workbench".into(),
             template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },

@@ -9,13 +9,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::assets::Asset;
 use crate::error::{CoreError, CoreResult};
+use crate::game::{GameSettings, NewGame, ProjectTarget};
 use crate::json::write_json;
 use crate::workspace::{FolderLayout, WorkspaceConfig, is_single_segment};
 
 mod import;
 
-pub use import::{BlendFile, ImportScan, RepoInspection, inspect_site_repo, scan_import};
-use import::{has_ext, sorted_children};
+pub use import::{
+    BlendFile, ImportScan, RepoInspection, SiteFolders, inspect_site_repo, scan_import,
+};
+pub(crate) use import::{has_ext, sorted_children};
 
 pub const PROJECT_FILE: &str = "project.json";
 pub const PROJECT_VERSION: u32 = 1;
@@ -30,6 +33,8 @@ pub enum ProjectTemplate {
     Room,
     CharacterShowcase,
     Imported,
+    /// A game project, started from the models already in the game.
+    GameImport,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -41,8 +46,16 @@ pub struct ProjectManifest {
     pub id: String,
     pub name: String,
     pub template: ProjectTemplate,
+    /// Where it ships. Older files have none: they are websites.
+    #[serde(default)]
+    pub target: ProjectTarget,
+    /// The repo Ship writes to: the site of a website, the game repo of a
+    /// game.
     pub site_repo: Option<String>,
     pub source_folder: Option<String>,
+    /// A game project's settings; none for a website.
+    #[serde(default)]
+    pub game: Option<Box<GameSettings>>,
     /// RFC 3339 UTC with milliseconds, for example `2026-10-24T09:30:00.123Z`.
     pub created_at: String,
     /// The Board's assets. Older files have none, so it defaults to empty.
@@ -55,8 +68,14 @@ pub struct ProjectManifest {
 pub struct NewProject {
     pub name: String,
     pub template: ProjectTemplate,
+    /// Left out, a website.
+    #[serde(default)]
+    pub target: ProjectTarget,
     pub site_repo: Option<String>,
     pub source_folder: Option<String>,
+    /// For a game: the format and the model folder New project found.
+    #[serde(default)]
+    pub game: Option<NewGame>,
 }
 
 /// `"Moon Island"` becomes `"moon-island"`. Common accented Latin letters are
@@ -161,6 +180,24 @@ pub fn create(
     new: NewProject,
 ) -> CoreResult<ProjectManifest> {
     let name = clean_name(&new.name)?;
+    let site_repo = clean_optional(new.site_repo);
+    let (template, game) = match new.target {
+        ProjectTarget::Website if new.template == ProjectTemplate::GameImport => {
+            return Err(CoreError::Invalid(
+                "A website project starts from a template or a folder.".to_string(),
+            ));
+        }
+        ProjectTarget::Website => (new.template, None),
+        ProjectTarget::Game => {
+            let wanted = new.game.unwrap_or(NewGame {
+                format: crate::game::GameFormat::Glb,
+                models_dir: crate::game::DEFAULT_MODELS_DIR.to_string(),
+            });
+            let repo = site_repo.as_deref().map(Path::new);
+            let settings = crate::game::new_settings(&wanted, repo)?;
+            (ProjectTemplate::GameImport, Some(Box::new(settings)))
+        }
+    };
     let base = slugify(&name);
     let parent = projects_dir(workspace_root, layout);
     fs::create_dir_all(&parent).map_err(|e| CoreError::io(&parent, e))?;
@@ -190,9 +227,11 @@ pub fn create(
         version: PROJECT_VERSION,
         id,
         name,
-        template: new.template,
-        site_repo: clean_optional(new.site_repo),
+        template,
+        target: new.target,
+        site_repo,
         source_folder: clean_optional(new.source_folder),
+        game,
         created_at: now_rfc3339(),
         assets: Vec::new(),
     };
@@ -274,6 +313,7 @@ pub struct ProjectSummary {
     pub id: String,
     pub name: String,
     pub template: ProjectTemplate,
+    pub target: ProjectTarget,
     pub site_repo: Option<String>,
     pub created_at: String,
     pub asset_count: u32,
@@ -322,6 +362,7 @@ pub fn summary(
         id: manifest.id.clone(),
         name: manifest.name.clone(),
         template: manifest.template,
+        target: manifest.target,
         site_repo: manifest.site_repo.clone(),
         created_at: manifest.created_at.clone(),
         asset_count: u32::try_from(manifest.assets.len()).unwrap_or(u32::MAX),

@@ -5,6 +5,8 @@ fn new_project(name: &str) -> NewProject {
     NewProject {
         name: name.to_string(),
         template: ProjectTemplate::FloatingDiorama,
+        target: Default::default(),
+        game: None,
         site_repo: None,
         source_folder: None,
     }

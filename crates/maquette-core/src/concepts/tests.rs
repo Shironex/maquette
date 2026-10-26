@@ -123,6 +123,8 @@ fn send_picks_copies_into_refs_and_advances_the_asset() {
         crate::project::NewProject {
             name: "Moon".into(),
             template: crate::project::ProjectTemplate::Room,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },
@@ -201,6 +203,8 @@ fn lantern_project() -> (
         crate::project::NewProject {
             name: "Moon".into(),
             template: crate::project::ProjectTemplate::Room,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },

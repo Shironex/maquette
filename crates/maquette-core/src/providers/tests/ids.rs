@@ -12,6 +12,8 @@ fn second_project(world: &World) -> String {
         NewProject {
             name: "Lantern Bay".into(),
             template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },

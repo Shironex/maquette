@@ -20,6 +20,8 @@ fn new_project(root: &Path, layout: &FolderLayout, name: &str) -> PathBuf {
         NewProject {
             name: name.into(),
             template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },

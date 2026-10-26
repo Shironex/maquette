@@ -1,6 +1,7 @@
 //! Starting pipelines: one per project template, and a proposal built from
 //! the versioned scripts of an imported folder.
 
+pub mod game;
 mod proposal;
 mod ship;
 
@@ -10,6 +11,7 @@ use super::{CompressPreset, CompressSpec, PIPELINE_VERSION, PipelineDef, StepDef
 use crate::project::{ProjectManifest, ProjectTemplate, scan_import};
 use crate::workspace::{MeshoptLevel, TextureCodec};
 
+pub use game::fit_game;
 pub use proposal::{ImportProposal, propose};
 pub use ship::fit_ship_args;
 use ship::ship;
@@ -211,7 +213,8 @@ pub fn for_template(template: ProjectTemplate) -> PipelineDef {
     let steps = match template {
         ProjectTemplate::FloatingDiorama | ProjectTemplate::Room => diorama(),
         ProjectTemplate::CharacterShowcase => character_showcase(),
-        ProjectTemplate::Imported => Vec::new(),
+        // Imported folders start from a proposal, games from their settings.
+        ProjectTemplate::Imported | ProjectTemplate::GameImport => Vec::new(),
     };
     PipelineDef {
         version: PIPELINE_VERSION,
@@ -337,6 +340,14 @@ pub fn fit_presets(def: &mut PipelineDef, manifest: &ProjectManifest) -> bool {
 /// The pipeline a project starts with: its template, or for an imported
 /// project the proposal from its source folder (empty if the folder is gone).
 pub fn initial(manifest: &ProjectManifest) -> PipelineDef {
+    if let Ok(settings) = crate::game::settings_of(manifest) {
+        return PipelineDef {
+            version: PIPELINE_VERSION,
+            root: None,
+            steps: game::steps(settings),
+            presets: Vec::new(),
+        };
+    }
     match (manifest.template, manifest.source_folder.as_deref()) {
         (ProjectTemplate::Imported, Some(source)) => match scan_import(Path::new(source)) {
             Ok(scan) => propose(&scan, Path::new(source)).pipeline,

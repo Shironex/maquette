@@ -126,6 +126,8 @@ fn a_scene_gets_the_character_row_only_with_a_character() {
         id: "moon-island".into(),
         name: "Moon Island".into(),
         template: ProjectTemplate::FloatingDiorama,
+        target: Default::default(),
+        game: None,
         site_repo: None,
         source_folder: None,
         created_at: String::new(),

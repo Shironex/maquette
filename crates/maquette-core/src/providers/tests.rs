@@ -44,6 +44,8 @@ impl World {
             NewProject {
                 name: "Moon Island".into(),
                 template: ProjectTemplate::FloatingDiorama,
+                target: Default::default(),
+                game: None,
                 site_repo: None,
                 source_folder: None,
             },
@@ -1325,6 +1327,8 @@ fn a_copied_asset_takes_its_finished_sends_along() {
         NewProject {
             name: "Maquette landing".into(),
             template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },

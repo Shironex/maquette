@@ -202,9 +202,26 @@ const SHIP: StarterScript = StarterScript {
     path: "tools/ship.mjs",
     text: include_str!("../../starter/ship.mjs"),
 };
+const BUILD_MODELS: StarterScript = StarterScript {
+    path: super::template::game::BUILD_SCRIPT,
+    text: include_str!("../../starter/build_models.py"),
+};
+const EXPORT_GAME: StarterScript = StarterScript {
+    path: super::template::game::EXPORT_SCRIPT,
+    text: include_str!("../../starter/export_game.py"),
+};
+const GAME_EXPORT: StarterScript = StarterScript {
+    path: super::template::game::GAME_EXPORT_SCRIPT,
+    text: include_str!("../../starter/game_export.mjs"),
+};
+const SHIP_GAME: StarterScript = StarterScript {
+    path: super::template::game::SHIP_SCRIPT,
+    text: include_str!("../../starter/ship_game.mjs"),
+};
 
 /// The scripts a template's steps reference. Imported projects bring their
-/// own.
+/// own. A game gets the bake starter too, so turning Bake light on later
+/// finds it.
 pub fn scripts(template: ProjectTemplate) -> &'static [StarterScript] {
     match template {
         ProjectTemplate::FloatingDiorama | ProjectTemplate::Room => &[
@@ -219,6 +236,14 @@ pub fn scripts(template: ProjectTemplate) -> &'static [StarterScript] {
             &[BUILD_CHARACTER, EXPORT_CHARACTER, RENDER_STOPS, SHIP]
         }
         ProjectTemplate::Imported => &[],
+        ProjectTemplate::GameImport => &[
+            BUILD_MODELS,
+            FIXUPS,
+            BAKE_LIGHT,
+            EXPORT_GAME,
+            GAME_EXPORT,
+            SHIP_GAME,
+        ],
     }
 }
 

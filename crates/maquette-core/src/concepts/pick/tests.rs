@@ -28,6 +28,8 @@ fn lab() -> Lab {
         NewProject {
             name: "Moon".into(),
             template: ProjectTemplate::Room,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },

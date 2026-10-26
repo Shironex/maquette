@@ -192,6 +192,8 @@ fn send_object_picks_makes_one_asset_per_object() {
         crate::project::NewProject {
             name: "Landing".into(),
             template: crate::project::ProjectTemplate::Room,
+            target: Default::default(),
+            game: None,
             site_repo: None,
             source_folder: None,
         },

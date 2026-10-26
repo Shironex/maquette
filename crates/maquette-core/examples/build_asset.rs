@@ -57,6 +57,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             NewProject {
                 name: project_name.clone(),
                 template: ProjectTemplate::FloatingDiorama,
+                target: Default::default(),
+                game: None,
                 site_repo: None,
                 source_folder: None,
             },
