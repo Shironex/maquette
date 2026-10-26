@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 49 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 58 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -38,6 +38,7 @@ These look at the workspace and change nothing.
 | `get_game`                                    | A game project's settings and each model against its folder's budget                                                                   | Nothing | No       |
 | `scan_game_models`                            | Every model in a game project's model folder with its numbers, budget check and the asset it was imported as                           | Nothing | No       |
 | `get_ship_plan`                               | What Ship would write into the game: new, replaced, unchanged and hand made files, with the checks                                     | Nothing | No       |
+| [`list_library`](#list_library)               | The library's models, with their versions, tags and the projects that use them. Takes an optional `query`, `tag` and `project`         | Nothing | No       |
 
 `preview_fixups` is read only too: it runs an asset's saved fix-ups headless on a copy and returns the numbers before and after each. It spends nothing.
 
@@ -67,6 +68,9 @@ These look at the workspace and change nothing.
 | `start_page_preview`                                  | Starts the site dev server the Page view shows, or reuses the running one              | Nothing | No       |
 | `stop_page_preview`                                   | Stops that server, whoever started it                                                  | Nothing | No       |
 | `cancel_run`                                          | Cancels a queued or running run. A run waiting for approval is cancelled too           | Nothing | No       |
+| [`add_to_library`](#add_to_library)                   | Copies an asset's newest model into the library                                        | Nothing | No       |
+| [`use_from_library`](#use_from_library)               | Copies a library model into a project as a new asset                                   | Nothing | No       |
+| [`update_from_library`](#update_from_library)         | Adds a newer library version to an asset as its next version, or returns the plan      | Nothing | No       |
 
 ## Spends credits or Codex usage, or needs approval
 
@@ -312,3 +316,56 @@ Reads each provider's balance (a free call, skipped without a saved key), totals
 | `project` | string  | no       | Only this project's spends.                                 |
 | `limit`   | number  | no       | How many recent spends to list. 20 by default, 200 at most. |
 | `balance` | boolean | no       | Ask Tripo and Meshy for the balance. `true` by default.     |
+
+### list_library
+
+`read only`
+
+Lists the models in the [Library](/docs/views/library/): name, kind, tags, versions and the projects that use each. With `project`, it also lists that project's assets that have an update waiting.
+
+| Parameter | Type   | Required | Notes                                                   |
+| --------- | ------ | -------- | ------------------------------------------------------- |
+| `query`   | string | no       | Matches a model's name, tag or project.                 |
+| `tag`     | string | no       | Only models with this tag.                              |
+| `project` | string | no       | Also list this project's assets with an update waiting. |
+
+### add_to_library
+
+`changes the library`
+
+Copies an asset's newest model, picture, refs, real size, fix-ups and material tweaks into the library, as Add to library does. The same model again (the same hash) adds nothing, and a newer model of an asset already there adds the next version. It spends nothing and the app updates live.
+
+| Parameter | Type     | Required | Notes                                       |
+| --------- | -------- | -------- | ------------------------------------------- |
+| `project` | string   | yes      | The project id.                             |
+| `asset`   | string   | yes      | The asset id or name.                       |
+| `name`    | string   | no       | The entry's name.                           |
+| `tags`    | string[] | no       | Lowercased, at most 16, 32 characters each. |
+
+```json
+{ "project": "moon-island", "asset": "bench", "tags": ["furniture"] }
+```
+
+### use_from_library
+
+`changes the project`
+
+Copies a library model into a project as a new asset at v1, with its picture, refs, real size, fix-ups and material tweaks. A name already taken gets a number. A website project refuses an `.obj` entry with the reason. It spends nothing.
+
+| Parameter | Type   | Required | Notes                                       |
+| --------- | ------ | -------- | ------------------------------------------- |
+| `entry`   | string | yes      | The entry id, as `list_library` returns it. |
+| `project` | string | yes      | The project id.                             |
+| `version` | number | no       | The version to copy. The newest by default. |
+
+### update_from_library
+
+`changes the project`
+
+Adds the library's newer version to an asset copied from it, as the asset's next version. Older versions stay. Real size, fix-ups and material tweaks carry over except what no longer applies. With `dryRun`, it returns that plan and copies nothing. It spends nothing.
+
+| Parameter | Type    | Required | Notes                             |
+| --------- | ------- | -------- | --------------------------------- |
+| `project` | string  | yes      | The project id.                   |
+| `asset`   | string  | yes      | The asset id or name.             |
+| `dryRun`  | boolean | no       | Return the plan and copy nothing. |

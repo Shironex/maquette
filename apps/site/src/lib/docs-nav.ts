@@ -33,6 +33,7 @@ export const DOCS_GROUPS: readonly DocsGroup[] = [
       'docs/views/motion',
       'docs/views/timeline',
       'docs/views/page',
+      'docs/views/library',
     ],
   },
   {
