@@ -1,7 +1,9 @@
 /**
  * An in-memory stand-in for the Rust commands, keyed by the same snake_case
- * names and camelCase arguments the generated bindings send. The scenarios
- * and URL options are listed on `BackendOptions`.
+ * names and camelCase arguments the generated bindings send.
+ *
+ * The scenarios and the URL options that shape them are listed on
+ * `BackendOptions` (backend-options.ts).
  */
 import type {
   Bootstrap,
@@ -39,6 +41,7 @@ import { createAssetHandlers } from './create-asset-handlers';
 import { createBuiltHandlers } from './create-built-handlers';
 import { createInboxHandlers } from './create-inbox-handlers';
 import { createMotionHandlers, motionConfig, seedMotionProjects } from './create-motion-handlers';
+import { createPageHandlers } from './create-page-handlers';
 import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createProjectHandlers } from './create-project-handlers';
 import { createToolchainHandlers } from './create-toolchain-handlers';
@@ -62,6 +65,7 @@ export function createBackend({
   arrival = null,
   built: builtState = null,
   motion = null,
+  page: pageState = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -257,6 +261,15 @@ export function createBackend({
     buildMs: pace === 0 ? 0 : 1400,
   });
 
+  const page = createPageHandlers({
+    project,
+    saveProject,
+    projectDir: id => `${root ?? expand(DEFAULT_ROOT)}/projects/${id}`,
+    emit: payload => emit?.({ name: 'page', payload }),
+    state: configured ? pageState : null,
+    startMs: pace === 0 ? 0 : 900,
+  });
+
   const handlers: Record<string, (args: Args) => unknown> = {
     ...lab.handlers,
     ...built.handlers,
@@ -372,7 +385,9 @@ export function createBackend({
         startersOf(id).some(s => s.path === 'tools/build_scene.py' && s.state === 'current'),
       motion,
     }),
+    ...page.handlers,
   };
+  page.wrapInspect(handlers);
 
   // The `running` scenario starts run 25 as soon as the app opens.
   if (scenario === 'running') {

@@ -14,6 +14,8 @@ import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
 import { motionFiles } from './create-motion-handlers';
 import { PROVIDER_REF_FILES } from './providers';
+import { MOCK_SITE_URL, conceptPath } from './create-page-handlers';
+import { mockConceptPage, mockSitePage } from './page-site';
 
 const params = new URLSearchParams(window.location.search);
 const root = DEFAULT_ROOT.replace('~', HOME);
@@ -76,6 +78,19 @@ for (const [file, model] of Object.entries(motion === 'still' ? motionFiles(moti
   if (url) registerMockFile(`${root}/projects/rooftop-cinema/${file}`, url);
 }
 
+// The Page view's dev server and page concept, as pages of their own.
+const absolute = (url: string | undefined) => new URL(url ?? '', window.location.href).href;
+const htmlUrl = (html: string) => URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+const stopPictures = [
+  conceptUrl('moon-island-a.webp'),
+  renders['../../assets/mock/sakura-large.webp'],
+  renders['../../assets/mock/flower-shrubs.webp'],
+  conceptUrl('moon-island-b.webp'),
+  renders['../../assets/mock/island.webp'],
+].map(absolute);
+registerMockFile(MOCK_SITE_URL, htmlUrl(mockSitePage({ stops: stopPictures })));
+registerMockFile(conceptPath(projectDir), htmlUrl(mockConceptPage(stopPictures[0] ?? '')));
+
 const handle = createBackend({
   scenario: params.get('scenario') ?? 'first-run',
   probeDelay: Number(params.get('delay') ?? 700),
@@ -89,8 +104,10 @@ const handle = createBackend({
   arrival: params.get('arrival'),
   built: params.get('built'),
   motion,
+  page: params.get('page'),
   emit: event => {
-    if (event.name === 'built') {
+    if (event.name === 'page') void events.pageServerChanged.emit(event.payload);
+    else if (event.name === 'built') {
       if (event.manifest) void events.projectChanged.emit({ project: event.manifest });
       void events.builtChanged.emit({ project: event.project });
     } else if (event.name === 'pipeline') void events.pipelineUpdate.emit(event.payload);

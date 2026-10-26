@@ -6,15 +6,16 @@ import type {
   PipelineEvent,
   ProjectManifest,
   ProviderEvent,
+  ServerStatus,
 } from '../client';
 import { HOME } from './fixtures';
 
 export type Args = Record<string, unknown>;
 
 /**
- * What mock mode opens with.
+ * What shapes the mock backend, read from the URL by `install.ts`.
  *
- * Scenarios (`?scenario=` in the URL):
+ * Scenarios (`?scenario=`):
  * - `first-run` (default): no workspace yet, toktx missing.
  * - `configured`: a workspace with Moon Island is open.
  * - `no-blender`: like first-run, but Blender is missing.
@@ -39,8 +40,9 @@ export type Args = Record<string, unknown>;
  * for the Downloads watcher (see `create-downloads-handlers.ts`).
  * `?built=demo` adds two built assets to Moon Island (see
  * `create-built-handlers.ts`), `?motion=` models that move (see
- * `create-motion-handlers.ts`).
- * Configured scenarios also open with Send to 3D jobs (see `providers.ts`).
+ * `create-motion-handlers.ts`), `?page=` holds the Page view's dev server
+ * (see `create-page-handlers.ts`). Configured scenarios also open with
+ * Send to 3D jobs (see `providers.ts`).
  */
 export interface BackendOptions {
   scenario: string;
@@ -58,6 +60,7 @@ export interface BackendOptions {
       | { name: 'provider'; payload: ProviderEvent }
       | { name: 'downloads'; payload: Arrival }
       | { name: 'built'; project: string; manifest?: ProjectManifest }
+      | { name: 'page'; payload: ServerStatus }
   ) => void;
   /** `active`: the MCP server is on, mid agent session. */
   agents?: string | null;
@@ -77,6 +80,8 @@ export interface BackendOptions {
   built?: string | null;
   /** `demo`, `rest`, `over` or `still`: models that move (see create-motion-handlers.ts). */
   motion?: string | null;
+  /** `starting`, `failed` or `no-site` holds the Page view's dev server there. */
+  page?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */

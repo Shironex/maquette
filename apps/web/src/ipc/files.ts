@@ -17,3 +17,19 @@ export function fileUrl(path: string | null | undefined): string | null {
   if (IN_TAURI) return convertFileSrc(path);
   return mockFiles.get(path) ?? null;
 }
+
+/**
+ * Where a page frame loads `address`: as it is in the app; mock mode
+ * serves its own page for the mock dev server's address.
+ */
+export function frameUrl(address: string | null): string | null {
+  if (!address || IN_TAURI) return address;
+  try {
+    const url = new URL(address);
+    const page = mockFiles.get(`${url.origin}/`);
+    if (!page) return address;
+    return url.searchParams.has('maquette-poster') ? `${page}#maquette-poster` : page;
+  } catch {
+    return address;
+  }
+}
