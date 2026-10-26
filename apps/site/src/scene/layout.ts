@@ -26,6 +26,7 @@
 import type { CameraStop } from './cameras';
 import type { ModelEntry, Vec3 } from './manifest';
 import { STOP_IDS, type StopId } from './stops';
+import type { ObjectStates, Timeline } from './timeline';
 
 export interface LayoutPlacement {
   position: Vec3;
@@ -47,6 +48,10 @@ export interface SceneLayout {
   models: Record<string, LayoutPlacement>;
   stops: LayoutStop[];
   desk?: { size: readonly [number, number] } | null;
+  /** Asset id to its object states; the site plays their stop and scroll triggers. */
+  states?: Record<string, ObjectStates>;
+  /** The Timeline view's tracks (./timeline.ts). Older layouts have neither. */
+  timeline?: Timeline;
 }
 
 /** What the site keeps per asset on top of its placement. */

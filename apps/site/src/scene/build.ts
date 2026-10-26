@@ -12,6 +12,8 @@ import { addSweep, type Sweep } from './sweep';
 export interface BuiltModel {
   entry: ModelEntry;
   root: THREE.Group;
+  /** The model itself inside `root`, as the file has it. */
+  model: THREE.Object3D;
   sweep: Sweep | null;
 }
 
@@ -75,5 +77,5 @@ export function buildModel(entry: ModelEntry, scene: THREE.Object3D): BuiltModel
   }
 
   const sweep = entry.sweepAt ? addSweep(inner) : null;
-  return { entry, root, sweep };
+  return { entry, root, model: inner, sweep };
 }

@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import type * as THREE from 'three';
 import { buildModel, type BuiltModel } from './build';
 import { loadInOrder } from './loader';
-import { MODELS, STOP_IDS, loadOrder, type ModelEntry, type StopId } from './manifest';
+import { MODELS, STOP_IDS, TIMELINE, loadOrder, type ModelEntry, type StopId } from './manifest';
 import { across, presence, smoothstep } from './progress';
+import { rigTracks, type Tracks } from './tracks';
 import { warm } from './warm';
 
 /**
@@ -29,20 +30,23 @@ export interface ModelsOptions {
 
 const stopIndex = (id: StopId) => STOP_IDS.indexOf(id);
 
+/** A placed model with the scroll timeline's tracks, when it has any. */
+export type PlacedModel = BuiltModel & { tracks: Tracks | null };
+
 /**
  * Loads, warms and places the manifest's models (the first view's first),
- * then sets the turntable's turn and the wireframe sweep from the tour
- * progress each frame: both follow the scroll, and the turntable also
- * idles round on its own.
+ * then sets the turntable's turn, the wireframe sweep and the scroll
+ * timeline's tracks from the tour progress each frame: they follow the
+ * scroll, and the turntable also idles round on its own.
  */
 export function useModels({ progress, still, firstView, onReady, onFailed }: ModelsOptions) {
   const { gl, camera, scene, invalidate } = useThree();
-  const [built, setBuilt] = useState<BuiltModel[]>([]);
+  const [built, setBuilt] = useState<PlacedModel[]>([]);
 
   useEffect(() => {
     let live = true;
     const needed = new Set(MODELS.filter(m => m.stops.includes(firstView)).map(m => m.file));
-    const placed: BuiltModel[] = [];
+    const placed: PlacedModel[] = [];
     let readySent = false;
     // Files finish loading in any order; they are warmed and placed one at a time.
     let queue = Promise.resolve();
@@ -52,7 +56,7 @@ export function useModels({ progress, still, firstView, onReady, onFailed }: Mod
         const model = buildModel(entry, scene3d);
         await warm(gl, model.root, camera, scene);
         if (!live) return;
-        placed.push(model);
+        placed.push({ ...model, tracks: rigTracks(model, TIMELINE) });
       }
       // Keep manifest order so draw order is stable.
       const order = (b: BuiltModel) => MODELS.indexOf(b.entry);
@@ -89,8 +93,11 @@ export function useModels({ progress, still, firstView, onReady, onFailed }: Mod
 
   useFrame(state => {
     const at = progress.current;
-    const idle = still ? 0 : state.clock.elapsedTime * IDLE_TURN;
-    for (const { entry, root, sweep } of built) {
+    const now = state.clock.elapsedTime;
+    const idle = still ? 0 : now * IDLE_TURN;
+    let moving = false;
+    for (const { entry, root, sweep, tracks } of built) {
+      if (tracks?.apply(at, now)) moving = true;
       if (entry.spinAt) {
         const stop = stopIndex(entry.spinAt);
         root.rotation.y = across(at, stop - TURN, stop + TURN) * Math.PI * 2 + idle;
@@ -101,6 +108,8 @@ export function useModels({ progress, still, firstView, onReady, onFailed }: Mod
         sweep.setProgress(smoothstep(at, stop - SWEEP, stop + SWEEP));
       }
     }
+    // A stop change plays over time, so it asks for the frames it needs.
+    if (moving) state.invalidate();
   });
 
   return built;

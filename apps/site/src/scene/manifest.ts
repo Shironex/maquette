@@ -18,6 +18,7 @@ import { PROP_EXTRAS } from './props';
 import rawShipped from './shipped.json';
 import { parseShipped } from './shipped';
 import { STOP_IDS, type StopId } from './stops';
+import type { TimelineTracks } from './tracks';
 
 export { STOP_IDS, type StopId };
 export { POSTER_CAMERAS, type CameraMove, type CameraStop, type PosterCamera } from './cameras';
@@ -203,6 +204,13 @@ export const MODELS: readonly ModelEntry[] = [...SET_PIECES, ...shipped.models, 
 
 /** The hero frame, then Concept to Ship: the shipped framings with the site's motion. */
 export const STOPS: readonly CameraStop[] = withMotion(shipped.stops);
+
+/** The scroll timeline Maquette shipped: the stops it counts in, each prop's states and explode tracks. */
+export const TIMELINE: TimelineTracks = {
+  stopIds: SHIPPED.layout.stops.slice(0, STOP_IDS.length).map(stop => stop.id),
+  states: SHIPPED.layout.states ?? {},
+  explode: SHIPPED.layout.timeline?.explode ?? {},
+};
 
 export function modelUrl(file: string): string {
   return `/scene/models/${file}`;
