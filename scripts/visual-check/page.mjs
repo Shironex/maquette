@@ -2,9 +2,12 @@
  * The Page view's shots for scripts/visual-check.mjs (ONLY=page): the site
  * dev page running at a stop, starting, failed, a project without a site
  * repo, a phone, the Devices tab, a page concept, and the compare board
- * (ship against this run on desktop, then with the poster on a phone).
- * The dev server and its page are mock mode's own.
+ * (ship against this run on desktop, then with the poster on a phone),
+ * a tour of ten stops on the scrubber, and a site that forbids framing
+ * shown through the real frame proxy. Except for that last one, the dev
+ * server and its page are mock mode's own.
  */
+import { checkHeaders, startForbiddingSite, startFrameProxy } from './framed-site.mjs';
 
 const RUNNING = '&scenario=configured&page=running';
 
@@ -80,4 +83,46 @@ export async function pageShots({ open, shot }) {
   await noSite.getByRole('heading', { name: 'No site repo yet' }).waitFor();
   await shot(noSite, 'page-no-site');
   await noSite.context().close();
+
+  await manyStopsShots({ open, shot });
+  await framedShots({ open, shot });
+}
+
+/** Ten stops with long names: every label keeps to its slot. */
+async function manyStopsShots({ open, shot }) {
+  const many = await open('&scenario=configured&page=stops-10', '#/page');
+  await answered(many);
+  await many.getByRole('button', { name: /^Jump to stop 10, Contact$/ }).waitFor();
+  await many.getByRole('button', { name: /^Jump to stop 9, / }).click();
+  await many.getByText(/stop 9, Testimonials/).waitFor();
+  await shot(many, 'page-stops-10');
+  await shot(many.getByRole('region', { name: 'Scroll scrubber' }), 'page-stops-10-scrubber');
+  await many.context().close();
+}
+
+/**
+ * A dev server that sends frame-ancestors 'none' and X-Frame-Options: DENY,
+ * behind the frame proxy: the page, its stops and its HMR socket show.
+ */
+async function framedShots({ open, shot }) {
+  const site = await startForbiddingSite();
+  let proxy = null;
+  try {
+    proxy = await startFrameProxy(site.url);
+    await checkHeaders(site.url, proxy.url);
+    const query = new URLSearchParams({ site: site.url, frame: proxy.url });
+    const framed = await open(`&scenario=configured&page=framed&${query}`, '#/page');
+    await answered(framed);
+    await framed
+      .frameLocator('iframe[title]')
+      .first()
+      .getByText(/^HMR socket: connected through 127\.0\.0\.1:/)
+      .waitFor();
+    await framed.getByText(site.url.replace('http://', '').replace(/\/$/, '')).first().waitFor();
+    await shot(framed, 'page-framed');
+    await framed.context().close();
+  } finally {
+    await proxy?.stop();
+    await site.stop();
+  }
 }
