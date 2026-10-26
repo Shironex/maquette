@@ -127,13 +127,18 @@ export function startTour(tour: HTMLElement): void {
   // GPU process, and first paint does not need it.
   const start = () => {
     if (!supportsWebGL2()) return Promise.resolve();
-    return import('./mount').then(({ mount }) => {
-      unmount = mount(canvas, {
-        initialStop: stopAt(current),
-        scroll: tracker,
-        capture: capture === 'mobile' ? 'mobile' : capture ? 'stops' : undefined,
+    const ready = import.meta.env.DEV
+      ? import('./installReactPreamble').then(({ installReactPreamble }) => installReactPreamble())
+      : Promise.resolve();
+    return ready
+      .then(() => import('./mount'))
+      .then(({ mount }) => {
+        unmount = mount(canvas, {
+          initialStop: stopAt(current),
+          scroll: tracker,
+          capture: capture === 'mobile' ? 'mobile' : capture ? 'stops' : undefined,
+        });
       });
-    });
   };
   const idle = () =>
     'requestIdleCallback' in window
