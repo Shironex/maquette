@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { scrollLine, share, stepStop, type BridgeStop } from '@/state/page';
+import { scrollLine, share, stepStop, stopSlots, type BridgeStop } from '@/state/page';
 import { leadReading, usePageStore } from '@/state/use-page-store';
 
 /** Milliseconds Play spends on each stop: about the time it takes to read one. */
@@ -41,6 +41,7 @@ export function useStopScrubber() {
   const position = share(at, count);
   return {
     stops,
+    slots: stopSlots(count),
     count,
     answered,
     at,

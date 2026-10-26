@@ -15,6 +15,7 @@ import {
   shouldAutoStart,
   siteName,
   stepStop,
+  stopSlots,
 } from './page';
 
 const IDLE: ServerStatus = {
@@ -235,5 +236,26 @@ describe('the frame state', () => {
     );
     expect(serverLine({ ...IDLE, state: 'starting' })).toBe('starting');
     expect(serverLine(IDLE)).toBe('stopped');
+  });
+});
+
+describe('the stop slots', () => {
+  it('gives each label the gap to the next mark and splits the last gap', () => {
+    expect(stopSlots(0)).toEqual([]);
+    expect(stopSlots(1)).toEqual([{ left: 0, width: 1, end: false }]);
+    expect(stopSlots(3)).toEqual([
+      { left: 0, width: 0.5, end: false },
+      { left: 0.5, width: 0.25, end: false },
+      { left: 1, width: 0.25, end: true },
+    ]);
+  });
+
+  it('never lets two labels overlap, even with ten stops', () => {
+    const slots = stopSlots(10);
+    for (let i = 0; i < slots.length - 2; i += 1) {
+      expect(slots[i]!.left + slots[i]!.width).toBeCloseTo(slots[i + 1]!.left);
+    }
+    const [before, last] = slots.slice(-2);
+    expect(before!.left + before!.width).toBeCloseTo(last!.left - last!.width);
   });
 });

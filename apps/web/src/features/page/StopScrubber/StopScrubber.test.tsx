@@ -69,4 +69,33 @@ describe('the stop scrubber', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Pause' }));
     expect(usePageStore.getState().playing).toBe(false);
   });
+
+  it('keeps ten stops apart, each cut to its slot with its full name on hover', () => {
+    const names = [
+      'Hero',
+      'Lesson plans',
+      'Subject chemistry',
+      'Subject physics',
+      'Exam prep',
+      'Study room',
+      'Pricing',
+      'Tutors',
+      'Testimonials',
+      'Contact',
+    ];
+    const { onMessage } = usePageStore.getState();
+    render(<StopScrubber />);
+    act(() =>
+      onMessage('main', { type: 'ready', stops: names.map(name => ({ name })), features: [] })
+    );
+    const marks = names.map((name, i) =>
+      screen.getByRole('button', { name: `Jump to stop ${i + 1}, ${name}` })
+    );
+    expect(marks.map(m => m.getAttribute('title'))).toEqual(names);
+    expect(marks[2]!.style.width).toBe('calc(11.11% - 6px)');
+    expect(marks[8]!.style.width).toBe('calc(5.56% - 6px)');
+    expect(marks[9]!.className).toContain('right-0');
+    expect(marks[9]!.style.width).toBe('calc(5.56% + 5px)');
+    expect(marks[9]!.querySelector('.truncate')).toHaveTextContent('Contact');
+  });
 });

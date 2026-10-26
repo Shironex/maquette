@@ -5,11 +5,14 @@ const pct = (share: number) => `${(share * 100).toFixed(2)}%`;
 
 /**
  * The page's scroll as a strip of camera stops: drag or step through them
- * and every frame's page scrolls along, through the page bridge.
+ * and every frame's page scrolls along, through the page bridge. Each
+ * label keeps to its own slot and cuts off with an ellipsis, its full name
+ * in a tooltip, so many stops never print over each other.
  */
 export default function StopScrubber() {
   const {
     stops,
+    slots,
     count,
     answered,
     at,
@@ -27,7 +30,8 @@ export default function StopScrubber() {
   const segments = stops.map((stop, i) => (
     <div
       key={`${i}-${stop.name}`}
-      className="absolute top-0 bottom-0 overflow-hidden border-l border-line px-2 py-[5px] text-[11px] whitespace-nowrap text-fg-mute first:border-l-0"
+      title={stop.name}
+      className="absolute top-0 bottom-0 truncate border-l border-line px-2 py-[5px] text-[11px] text-fg-mute first:border-l-0"
       style={{ left: pct(i / last), width: pct(i === count - 1 ? 0 : 1 / last) }}
     >
       {stop.name}
@@ -35,31 +39,35 @@ export default function StopScrubber() {
   ));
   const marks = stops.map((stop, i) => {
     const on = i === current;
+    const slot = slots[i] ?? { left: 0, width: 1, end: false };
     return (
       <button
         key={`${i}-${stop.name}`}
         type="button"
+        title={stop.name}
         aria-label={`Jump to stop ${i + 1}, ${stop.name}`}
         aria-current={on ? 'step' : undefined}
         onClick={() => jump(i)}
         className={cn(
-          'absolute top-[26px] flex cursor-pointer items-center gap-[5px] border-0 bg-transparent p-0 text-[11.5px] font-medium whitespace-nowrap',
+          'absolute top-[26px] flex min-w-[22px] cursor-pointer items-center gap-[5px] border-0 bg-transparent p-0 text-[11.5px] font-medium',
           on ? 'text-fg' : 'text-fg-dim hover:text-fg',
-          i === count - 1 && count > 1
-            ? '-translate-x-full flex-row-reverse'
-            : '-translate-x-[11px]'
+          slot.end && count > 1 ? 'right-0 flex-row-reverse' : '-translate-x-[11px]'
         )}
-        style={{ left: pct(i / last) }}
+        style={
+          slot.end && count > 1
+            ? { width: `calc(${pct(slot.width)} + 5px)` }
+            : { left: pct(slot.left), width: `calc(${pct(slot.width)} - 6px)` }
+        }
       >
         <span
           className={cn(
-            'grid size-[22px] place-items-center rounded-full font-mono text-[10.5px] font-bold',
+            'grid size-[22px] flex-none place-items-center rounded-full font-mono text-[10.5px] font-bold',
             on ? 'bg-focus text-app' : 'border border-line-strong bg-hover text-fg-dim'
           )}
         >
           {i + 1}
         </span>
-        {stop.name}
+        <span className="min-w-0 truncate">{stop.name}</span>
       </button>
     );
   });

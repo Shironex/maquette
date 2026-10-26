@@ -166,6 +166,32 @@ export function share(at: number, count: number): number {
   return Math.min(1, Math.max(0, at / (count - 1)));
 }
 
+/** Where a stop's label may sit on the scrubber, as shares of its width. */
+export interface StopSlot {
+  /** Where its mark is. */
+  left: number;
+  /** How much room its label has. */
+  width: number;
+  /** The last stop: its label ends at its mark instead of starting there. */
+  end: boolean;
+}
+
+/**
+ * The room each stop's label has: from its mark to the next one, except
+ * that the last two split the last gap, since the last label reads leftward
+ * from the end. So no label ever runs into its neighbour, however many stops.
+ */
+export function stopSlots(count: number): StopSlot[] {
+  if (count <= 0) return [];
+  if (count === 1) return [{ left: 0, width: 1, end: false }];
+  const gap = 1 / (count - 1);
+  return Array.from({ length: count }, (_, i) => ({
+    left: i * gap,
+    width: i >= count - 2 ? gap / 2 : gap,
+    end: i === count - 1,
+  }));
+}
+
 /** "31%", "1,850 of 5,960 px", "stop 2, Services". */
 export function scrollLine(
   at: number,
