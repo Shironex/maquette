@@ -26,8 +26,14 @@
 // The models are exported in place, so each is marked "inPlace". It is only
 // written from a layout with placed models and camera stops: shipping an
 // empty layout would wipe the site's scene, so the step stops first and
-// copies nothing. Files are copied, never moved, and files the site already
-// has with other names are left alone.
+// copies nothing. With a data file only the models it lists are copied, so
+// a leftover in --models never reaches the site. Files are copied, never
+// moved.
+//
+// --record (web/ship-record.json) remembers which model files this project
+// shipped into each site folder. A file shipped last time that this Ship
+// no longer ships is removed from the site, and logged; every other file in
+// the site is left alone, whoever put it there.
 
 import {
   copyFileSync,
@@ -36,14 +42,16 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 const CONFIG_FILE = 'maquette.site.json';
 const DATA_VERSION = 1;
+const RECORD_VERSION = 1;
 
 const { values } = parseArgs({
   options: {
@@ -53,6 +61,7 @@ const { values } = parseArgs({
     index: { type: 'string', default: '' },
     layout: { type: 'string', default: 'layout.json' },
     materials: { type: 'string', default: 'materials.json' },
+    record: { type: 'string', default: 'web/ship-record.json' },
     'models-to': { type: 'string', default: 'public/models' },
     'posters-to': { type: 'string', default: 'public/posters' },
   },
@@ -172,18 +181,60 @@ function writeData(path, data) {
   log(`wrote ${Object.keys(data.models).length} models and the layout to ${path}`);
 }
 
+/** The model files this project shipped into each site folder, by absolute path. */
+function readRecord() {
+  const record = readJson(values.record, null);
+  if (!record || typeof record.targets !== 'object' || (record.version ?? 1) > RECORD_VERSION) {
+    return { version: RECORD_VERSION, targets: {} };
+  }
+  return record;
+}
+
+/** Removes the files this project shipped to `to` last time and no longer ships. */
+function dropStale(record, to, files) {
+  const before = Array.isArray(record.targets[to]) ? record.targets[to] : [];
+  let removed = 0;
+  for (const name of before) {
+    // Only plain file names it wrote itself, never a path.
+    if (files.includes(name) || name !== basename(name) || !name.endsWith('.glb')) continue;
+    const path = join(to, name);
+    if (!existsSync(path)) continue;
+    rmSync(path);
+    removed += 1;
+    log(`removed ${path}: shipped last time, no longer in the scene`);
+  }
+  return removed;
+}
+
+function writeRecord(record, to, files) {
+  record.targets[to] = [...files].sort();
+  mkdirSync(dirname(values.record), { recursive: true });
+  writeFileSync(values.record, `${JSON.stringify(record, null, 2)}\n`);
+}
+
 const config = siteConfig();
-const shipped = filesIn(values.models, ['.glb']);
-if (shipped.length === 0) fail(`there are no .glb files in ${values.models} to ship`);
+const built = filesIn(values.models, ['.glb']);
+if (built.length === 0) fail(`there are no .glb files in ${values.models} to ship`);
 // Everything is checked before anything is copied.
 const modelsTo = inside(config.models);
 const postersTo = config.posters ? inside(config.posters) : null;
 const dataTo = config.data ? inside(config.data) : null;
-const data = dataTo ? sceneData(config, shipped) : null;
+const data = dataTo ? sceneData(config, built) : null;
+// With scene data the site gets exactly the models the data lists.
+const shipped = data ? [...new Set(Object.values(data.models).map(m => m.file))] : built;
+for (const name of built.filter(name => !shipped.includes(name))) {
+  log(`${join(values.models, name)} is in no shipped asset, not copied`);
+}
 
+const record = readRecord();
+const stale = dropStale(record, modelsTo, shipped);
 const models = copyAll(values.models, modelsTo, shipped);
+writeRecord(record, modelsTo, shipped);
 const posters = postersTo
   ? copyAll(values.posters, postersTo, filesIn(values.posters, ['.png', '.jpg', '.json']))
   : 0;
 if (dataTo && data) writeData(dataTo, data);
-log(`shipped ${models} models and ${posters} poster files to ${site}`);
+log(
+  `shipped ${models} models and ${posters} poster files to ${site}` +
+    (stale ? `, removed ${stale} it shipped before` : '')
+);

@@ -205,3 +205,62 @@ fn ship_refuses_a_folder_outside_the_site() {
     assert!(!out.status.success());
     assert!(String::from_utf8_lossy(&out.stderr).contains("outside the site repo"));
 }
+
+#[test]
+fn ship_copies_only_the_models_its_data_lists_and_drops_the_ones_it_shipped_before() {
+    let s = scratch();
+    fs::write(s.project.join("layout.json"), layout(true).to_string()).expect("layout");
+    site_config(
+        &s.site,
+        &json!({ "version": 1, "models": "public/scene/models", "data": "src/scene/shipped.json" }),
+    );
+    // An old export of a layout entry that is gone, still in the build.
+    fs::write(s.project.join("web/dist/desk.glb"), b"stale").expect("stale");
+    let models = s.site.join("public/scene/models");
+    fs::create_dir_all(&models).expect("models");
+    fs::write(models.join("logo.glb"), b"the site's own").expect("site file");
+    let Some(out) = ship(&s) else { return };
+    let log = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(models.join("desk_lamp_v1.glb").is_file());
+    assert!(
+        !models.join("desk.glb").exists(),
+        "only the models in the data ship"
+    );
+    assert!(
+        log.contains("desk.glb is in no shipped asset, not copied"),
+        "{log}"
+    );
+    assert!(log.contains("shipped 1 models"), "{log}");
+    let record = read(&s.project.join("web/ship-record.json"));
+    assert_eq!(record["version"], 1);
+
+    // The lamp leaves the scene: Ship removes the file it shipped, and only it.
+    let index = json!({ "version": 1, "project": "bench", "models": {
+        "rock": { "name": "Rock", "file": "rock_v1.glb", "version": 1 } } });
+    fs::write(s.project.join("index.json"), index.to_string()).expect("index");
+    fs::write(s.project.join("web/dist/rock_v1.glb"), b"glb").expect("rock");
+    let Some(out) = ship(&s) else { return };
+    let log = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(models.join("rock_v1.glb").is_file());
+    assert!(!models.join("desk_lamp_v1.glb").exists(), "{log}");
+    assert!(
+        log.contains("removed") && log.contains("desk_lamp_v1.glb"),
+        "{log}"
+    );
+    assert!(
+        models.join("logo.glb").is_file(),
+        "a file Ship never shipped stays"
+    );
+    let data = read(&s.site.join("src/scene/shipped.json"));
+    assert_eq!(data["models"].as_object().map(|m| m.len()), Some(1));
+}

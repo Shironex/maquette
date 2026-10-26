@@ -140,11 +140,11 @@ impl Execution {
             && let Some(record) = cache::load_record(&self.setup.cache_dir, &step.id)
             && cache::is_fresh(&record, &key, &root, &self.outputs_of(step))
         {
+            if let Some(spec) = &step.compress {
+                self.drop_stale_outputs(step, spec, &root);
+            }
             return StepOutcome::Cached;
         }
-        let last: Vec<PathBuf> = cache::load_record(&self.setup.cache_dir, &step.id)
-            .map(|record| record.outputs.iter().map(|o| root.join(&o.path)).collect())
-            .unwrap_or_default();
         cache::forget(&self.setup.cache_dir, &step.id);
         let started = Instant::now();
         if let Some(spec) = &step.compress {
@@ -152,7 +152,7 @@ impl Execution {
             if let Err(err) = fs::create_dir_all(&dir) {
                 return StepOutcome::Failed(format!("Could not create {}. {err}", spec.to), None);
             }
-            self.drop_stale_outputs(spec, &root, &last);
+            self.drop_stale_outputs(step, spec, &root);
             if let Err(message) = self.write_tweaked(step, spec, &root) {
                 return StepOutcome::Failed(message, None);
             }
@@ -312,35 +312,65 @@ impl Execution {
             .collect()
     }
 
-    /// Removes the files an earlier run left under a name this run no longer
-    /// uses, so a renamed model does not ship twice. Only names the pipeline
-    /// could have written are touched: a model file's stem, a name from the
-    /// rename table, or a versioned stem the last run left behind (an asset
-    /// renamed twice).
-    fn drop_stale_outputs(&self, spec: &CompressSpec, root: &Path, last: &[PathBuf]) {
-        let models = self.compress_models(spec, root);
-        let wanted: BTreeSet<String> = models.iter().map(|m| m.shipped.to_lowercase()).collect();
-        let ours: BTreeSet<String> = models
+    /// Removes every model in the compress output folder that this run does
+    /// not write: a renamed model's old file, or a model a layout entry or an
+    /// asset that is gone used to make. The folder is the pipeline's own
+    /// output, so whatever is left there would ship; a folder outside the
+    /// pipeline root is left alone. Logs each file.
+    fn drop_stale_outputs(&mut self, step: &StepDef, spec: &CompressSpec, root: &Path) {
+        let wanted: BTreeSet<String> = self
+            .compress_models(spec, root)
             .iter()
-            .map(|m| m.stem.to_lowercase())
-            .chain(self.setup.shipped_names.values().map(|n| n.to_lowercase()))
+            .map(|m| m.shipped.to_lowercase())
             .collect();
-        let dir = root.join(&spec.to);
-        let Ok(read) = fs::read_dir(&dir) else { return };
-        for path in read.filter_map(Result::ok).map(|e| e.path()) {
-            let is_glb = path
-                .extension()
-                .is_some_and(|e| e.eq_ignore_ascii_case("glb"));
-            let stem = path
-                .file_stem()
-                .map(|s| s.to_string_lossy().to_lowercase())
-                .unwrap_or_default();
-            let versioned = stem
-                .rsplit_once("_v")
-                .is_some_and(|(_, n)| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()));
-            let left = versioned && last.contains(&path);
-            if is_glb && (ours.contains(&stem) || left) && !wanted.contains(&stem) {
-                let _ = fs::remove_file(&path);
+        // Only a folder inside the pipeline root is the pipeline's own.
+        let inside = Path::new(&spec.to).components().all(|c| {
+            matches!(
+                c,
+                std::path::Component::Normal(_) | std::path::Component::CurDir
+            )
+        });
+        let Ok(read) = fs::read_dir(root.join(&spec.to)) else {
+            return;
+        };
+        if !inside {
+            return;
+        }
+        let mut stale: Vec<PathBuf> = read
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|path| {
+                path.extension()
+                    .is_some_and(|e| e.eq_ignore_ascii_case("glb"))
+            })
+            .filter(|path| {
+                let stem = path
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
+                !wanted.contains(&stem)
+            })
+            .collect();
+        stale.sort();
+        for path in stale {
+            let shown = format!(
+                "{}/{}",
+                spec.to.trim_end_matches('/'),
+                path.file_name()
+                    .map(|n| n.to_string_lossy())
+                    .unwrap_or_default()
+            );
+            match fs::remove_file(&path) {
+                Ok(()) => self.system(
+                    Some(&step.id),
+                    LogLevel::Info,
+                    format!("Removed {shown}: no model in the scene makes it any more."),
+                ),
+                Err(err) => self.system(
+                    Some(&step.id),
+                    LogLevel::Warn,
+                    format!("Could not remove the stale {shown}, so it may ship. {err}"),
+                ),
             }
         }
     }

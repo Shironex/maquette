@@ -727,7 +727,8 @@ fn a_renamed_model_ships_under_its_new_name_and_the_old_file_goes() {
     let dist = s.project_dir.join("web/dist");
     fs::create_dir_all(&dist).expect("mkdir");
     fs::write(dist.join("clay_v1.glb"), b"old").expect("old");
-    fs::write(dist.join("kept.glb"), b"not ours").expect("kept");
+    // A model from a layout entry that is gone: it would ship on every Ship.
+    fs::write(dist.join("desk.glb"), b"stale").expect("stale");
     let sink = Arc::new(Recorder::default());
     let runner = PipelineRunner::new(sink.clone());
     let run = runner.run_blocking(s.clone()).expect("run");
@@ -735,7 +736,17 @@ fn a_renamed_model_ships_under_its_new_name_and_the_old_file_goes() {
     let present = |name: &str| dist.join(name).is_file();
     assert!(present("paper_clay_v1.glb") && present("bench.glb") && present("plinth_v1.glb"));
     assert!(!present("clay_v1.glb"), "the old name would ship twice");
-    assert!(present("kept.glb"));
+    assert!(
+        !present("desk.glb"),
+        "a model nothing makes any more is removed"
+    );
+    assert!(
+        sink.lines()
+            .iter()
+            .any(|l| l.contains("Removed web/dist/desk.glb")),
+        "{:?}",
+        sink.lines()
+    );
     // The preset still follows the model file.
     let lines = sink.lines();
     assert!(
@@ -745,8 +756,11 @@ fn a_renamed_model_ships_under_its_new_name_and_the_old_file_goes() {
     );
 
     // A rename changes the cache key, so the step runs again.
+    // A stale file is cleared even when the step comes from the cache.
+    fs::write(dist.join("desk.glb"), b"stale").expect("stale");
     let again = runner.run_blocking(s.clone()).expect("again");
     assert_eq!(again.steps[0].state, StepState::Cached);
+    assert!(!present("desk.glb"));
     s.shipped_names
         .insert("clay_v1".into(), "tin_clay_v1".into());
     let renamed = runner.run_blocking(s).expect("renamed");
