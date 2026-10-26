@@ -1,0 +1,56 @@
+---
+title: Concept art in, real-time 3D out.
+description: Maquette is a desktop studio that takes one asset from a concept image to a compressed model in your website repo. Everything runs on your machine. These docs cover the app, each pipeline step and the MCP tools.
+template: splash
+tableOfContents: false
+---
+
+import StartCards from '../../../components/docs/StartCards.astro';
+import PipelineStrip from '../../../components/docs/PipelineStrip.astro';
+
+## Start here
+
+<StartCards>
+
+- [Install](/docs/start/install/)
+  Get the app and pass the toolchain check: Blender, Codex CLI, ffmpeg, toktx, gltf-transform and Node.
+- [Your first project](/docs/start/first-project/)
+  One asset from a concept image to Ship, through all six stages.
+- [Website projects](/docs/start/website-projects/)
+  Scenes for a site repo: baked light, camera stops, posters and scene data.
+- [MCP for agents](/docs/agents/connect/)
+  Let Claude Code or Codex drive Maquette over a local MCP server.
+
+</StartCards>
+
+Game projects: planned.
+
+## The pipeline
+
+Six stages. Each asset moves along them on the Board.
+
+<PipelineStrip>
+
+1. [Concept](/docs/views/lab/)
+   Codex CLI image jobs
+2. [Refs](/docs/views/board/)
+   picks copied into refs/
+3. [3D model](/docs/start/first-project/#03-3d-model)
+   Tripo, Meshy or by hand
+4. [Blender](/docs/pipeline/build-scene/)
+   headless build, bake, export
+5. [Web](/docs/pipeline/compress/)
+   Compress
+6. [Ship](/docs/pipeline/ship/)
+   into your site repo
+
+</PipelineStrip>
+
+## Reading this with an AI agent?
+
+Every page has a Markdown twin. Point the agent at one file and it has the whole set.
+
+- [/llms.txt](/llms.txt): an index with one line per page.
+- [/llms-full.txt](/llms-full.txt): every page in one file.
+
+[How to use them](/docs/agents/llms/).

@@ -1,0 +1,104 @@
+---
+title: 'Your first project: from concept to Ship'
+description: One asset, all six stages. You start with a brief in the Lab and end with a compressed model in your site repo.
+sidebar:
+  label: Your first project
+---
+
+import Costs from '../../../../components/docs/Costs.astro';
+
+You start with a brief in the Lab and end with a compressed model in your site repo. A site repo is optional: without one, Ship says so and passes.
+
+## Before you start
+
+You need the toolchain check to pass and a folder for the project.
+
+1. Open Maquette and finish the [toolchain check](/docs/start/install/).
+2. Open the project switcher at the top of the rail (Cmd+P on macOS, Ctrl+P on Windows) and choose New project.
+3. Pick a template (Floating diorama, Room or Character showcase), name it, and pick your site repo if you have one. Choose Create project.
+
+## 01 Concept
+
+Open the Lab. Write a brief: a direction name, a prompt, up to 8 reference images, an aspect ratio and how many images you want, 1 to 12. Each image is one Codex CLI job, and four run at a time by default.
+
+Star the good ones. Select the keepers and choose Send picks to Refs. See [Lab](/docs/views/lab/).
+
+## 02 Refs
+
+Each pick is copied into the project's `refs/` folder and its card moves to Refs on the [Board](/docs/views/board/). Cards show where each asset stands.
+
+## 03 3D model
+
+Open the card and choose Send to 3D. Pick Tripo or Meshy, or By hand to make the model on the provider's site yourself.
+
+<Costs>
+  Tripo and Meshy spend credits. Maquette shows the estimate and waits for you to approve every paid
+  send. By hand spends nothing: it writes a folder with the images and a settings card, then waits
+  for the GLB.
+</Costs>
+
+The finished model lands in the [Inbox](/docs/views/inbox/). Fix what its checks flag, set its real size, then choose Accept to Blender.
+
+## 04 Blender
+
+Choose Run pipeline in the [Pipeline view](/docs/views/pipeline/). Blender always runs headless. [Build scene](/docs/pipeline/build-scene/) places the models, [Bake light](/docs/pipeline/bake-light/) bakes a lightmap per object and [Export GLB](/docs/pipeline/export-glb/) writes one file per model. A step whose inputs did not change comes from the cache.
+
+Each step is an entry in the project's `pipeline.json`. This is the Bake light step of a new Floating diorama project:
+
+```json title="pipeline.json"
+{
+  "id": "bake",
+  "name": "Bake light",
+  "kind": "blender",
+  "script": "tools/bake_light.py",
+  "args": [
+    "-b",
+    "--factory-startup",
+    "--python-exit-code",
+    "1",
+    "blender/scene_built.blend",
+    "--python",
+    "{script}",
+    "--",
+    "--out-dir",
+    "blender/bake",
+    "--out-blend",
+    "blender/scene_baked.blend",
+    "--size",
+    "1024",
+    "--samples",
+    "32",
+    "--denoise"
+  ],
+  "inputs": ["blender/scene_built.blend"],
+  "outputs": ["blender/bake/bake.json", "blender/scene_baked.blend"],
+  "dependsOn": ["build"]
+}
+```
+
+The Baked light panel in the Pipeline view edits `--size`, `--samples` and the denoiser in these same args. A change reruns the bake.
+
+## 05 Web
+
+[Compress](/docs/pipeline/compress/) turns each model into a small web file: KTX2 textures in ETC1S or UASTC, and meshopt geometry, from the presets per model. Open the [Inspector](/docs/views/inspector/) to check the frame time and the scene budget.
+
+## 06 Ship
+
+[Capture posters](/docs/pipeline/capture-posters/) renders one poster per camera stop. Then [Ship](/docs/pipeline/ship/) copies the compressed models and posters into your site repo. The site says where they go in a file at its root, `maquette.site.json`:
+
+```json title="maquette.site.json"
+{
+  "version": 1,
+  "models": "public/scene/models",
+  "posters": null,
+  "data": "src/scene/shipped.json"
+}
+```
+
+:::caution[Ship writes into your repo]
+Ship removes only files it shipped before, leaves every other file alone and never commits. With Ask before shipping on, a run an agent started waits for you to approve.
+:::
+
+## What next
+
+Point the site at the shipped data with [Website projects](/docs/start/website-projects/), or hand the whole flow to an agent with [Connect an agent](/docs/agents/connect/).
