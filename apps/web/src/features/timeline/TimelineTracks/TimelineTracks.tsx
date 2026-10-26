@@ -1,9 +1,10 @@
-import { Icon, Kbd, cn } from '@maquette/ui';
+import { Kbd } from '@maquette/ui';
 import { ExplodeLane } from '../ExplodeLane';
+import { PathLane } from '../PathLane';
 import { StateLane } from '../StateLane';
 import { TimelineBar } from '../TimelineBar';
 import { TimelineRuler } from '../TimelineRuler';
-import { LANE, LANE_NAME, NAMES } from '../lanes';
+import { NAMES } from '../lanes';
 import { useTimelineTracks } from './TimelineTracks.hooks';
 
 const HINTS: readonly [readonly string[], string][] = [
@@ -13,11 +14,11 @@ const HINTS: readonly [readonly string[], string][] = [
 
 /**
  * The page from top to bottom with a lane per track: the camera, each
- * prop's states, each explode track, and paths, which come in the next
- * view. The playhead is where the page preview is scrolled to.
+ * prop's states, each explode track and each path's energize track. The
+ * playhead is where the page preview is scrolled to.
  */
 export default function TimelineTracks() {
-  const { states, explode, playhead } = useTimelineTracks();
+  const { states, explode, paths, playhead } = useTimelineTracks();
   const hints = HINTS.map(([keys, what]) => {
     const kbds = keys.map(k => <Kbd key={k} keys={k} />);
     return (
@@ -29,6 +30,7 @@ export default function TimelineTracks() {
   });
   const stateLanes = states.map(m => <StateLane key={m.asset} asset={m.asset} />);
   const explodeLanes = explode.map(m => <ExplodeLane key={m.asset} asset={m.asset} />);
+  const pathLanes = paths.map(p => <PathLane key={p.id} path={p.id} />);
   return (
     <section
       aria-label="Scroll timeline"
@@ -39,17 +41,7 @@ export default function TimelineTracks() {
         <TimelineRuler />
         {stateLanes}
         {explodeLanes}
-        <div className={cn(LANE_NAME, 'text-fg-mute')}>
-          <Icon name="path" size={14} />
-          Paths
-        </div>
-        <div
-          className={cn(LANE, 'flex items-center px-3 text-meta text-fg-mute')}
-          aria-label="Paths"
-          role="group"
-        >
-          Paths come in the next view
-        </div>
+        {pathLanes}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute top-0 bottom-0 -ml-px w-0.5 bg-clay-text"

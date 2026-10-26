@@ -1,10 +1,11 @@
 import { InlineBanner, KeyValueList } from '@maquette/ui';
 import { SectionLabel } from '@/features/common/SectionLabel';
 import { ExplodeKeyEditor } from '../ExplodeKeyEditor';
+import { PathKeyEditor } from '../PathKeyEditor';
 import { StateKeyEditor } from '../StateKeyEditor';
 import { useTimelinePanel } from './TimelinePanel.hooks';
 
-/** The selected change or explode key, what to look at again, and what ships. */
+/** The selected change, explode or energize key, what to look at again, and what ships. */
 export default function TimelinePanel() {
   const panel = useTimelinePanel();
   if (!panel) return null;
@@ -20,10 +21,12 @@ export default function TimelinePanel() {
         <StateKeyEditor />
       ) : panel.selection === 'explode' ? (
         <ExplodeKeyEditor />
+      ) : panel.selection === 'path' ? (
+        <PathKeyEditor />
       ) : (
         <p className="text-meta text-fg-mute">
-          Pick a change or an explode key on the timeline to edit it. A plus on a lane adds one at
-          that camera stop.
+          Pick a change, an explode key or an energize key on the timeline to edit it. A plus on a
+          lane adds one at that camera stop.
         </p>
       )}
       <section aria-label="Checks" className="flex flex-col gap-2.5 border-t border-line pt-3.5">

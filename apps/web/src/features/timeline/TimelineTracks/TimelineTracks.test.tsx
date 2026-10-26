@@ -24,11 +24,11 @@ describe('the timeline tracks', () => {
     expect(usePageStore.getState().playing).toBe(true);
   });
 
-  it('shows the paths lane as one that comes later', async () => {
+  it('gives each energized path a lane', async () => {
     await openTimeline();
     render(<TimelineTracks />);
-    expect(screen.getByRole('group', { name: 'Paths' })).toHaveTextContent(
-      'Paths come in the next view'
-    );
+    expect(screen.getByRole('group', { name: 'Lantern cable energize' })).toBeVisible();
+    expect(screen.getByRole('group', { name: 'Root glow energize' })).toBeVisible();
+    expect(screen.queryByRole('group', { name: 'Spare run energize' })).toBeNull();
   });
 });

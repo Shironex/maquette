@@ -75,5 +75,6 @@ export function useTimelineTracks() {
   }, []);
   const states = (view?.models ?? []).filter(m => view?.states[m.asset]);
   const explode = (view?.models ?? []).filter(m => draft.timeline.explode[m.asset]);
-  return { view, states, explode, playhead };
+  const paths = (view?.paths ?? []).filter(p => draft.timeline.paths[p.id]);
+  return { view, states, explode, paths, playhead };
 }

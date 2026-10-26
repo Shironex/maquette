@@ -1,10 +1,17 @@
 /**
  * What the Timeline view warns about and what it says about the site: the
  * changes that do nothing, ranges of one prop that fight over its parts,
- * explode tracks that never move, and what ships.
+ * explode and energize tracks that never move, and what ships.
  */
 import type { LayoutStop, TimelineView } from '@/ipc/client';
-import { explodeMarks, stateAt, stateMarks, stopIndex, type TimelineDraft } from './timeline';
+import {
+  explodeMarks,
+  pathMarks,
+  stateAt,
+  stateMarks,
+  stopIndex,
+  type TimelineDraft,
+} from './timeline';
 
 export interface TimelineCheck {
   key: string;
@@ -72,15 +79,36 @@ function explodeChecks(view: TimelineView, draft: TimelineDraft): TimelineCheck[
   });
 }
 
+function pathChecks(view: TimelineView, draft: TimelineDraft): TimelineCheck[] {
+  return Object.entries(draft.timeline.paths).flatMap(([id, track]) => {
+    if (!track || track.keys.length !== 1 || pathMarks(track, view.stops).spans.length > 0) {
+      return [];
+    }
+    const name = view.paths.find(p => p.id === id)?.name ?? id;
+    const amount = track.keys[0]?.amount ?? 0;
+    if (amount >= 1) return [];
+    return [
+      {
+        key: `dark-${id}`,
+        title: `${name} never fills`,
+        detail: 'Give its energize track a second stop with a different amount.',
+      },
+    ];
+  });
+}
+
 export function timelineChecks(view: TimelineView, draft: TimelineDraft): TimelineCheck[] {
-  return [...stateChecks(view, draft), ...explodeChecks(view, draft)];
+  return [...stateChecks(view, draft), ...explodeChecks(view, draft), ...pathChecks(view, draft)];
 }
 
 /** How many lanes and changes the site gets. */
 export function siteSummary(view: TimelineView, draft: TimelineDraft) {
   const stateLanes = Object.keys(draft.triggers).filter(a => view.states[a]);
   const changes = stateLanes.reduce((sum, a) => sum + (draft.triggers[a]?.length ?? 0), 0);
-  const tracks = Object.values(draft.timeline.explode).filter(Boolean);
+  const tracks = [
+    ...Object.values(draft.timeline.explode),
+    ...Object.values(draft.timeline.paths),
+  ].filter(Boolean);
   const keys = tracks.reduce((sum, t) => sum + (t?.keys.length ?? 0), 0);
   return {
     lanes: stateLanes.length + tracks.length,

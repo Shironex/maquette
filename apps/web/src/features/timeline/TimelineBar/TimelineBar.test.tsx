@@ -25,11 +25,12 @@ describe('the timeline toolbar', () => {
     expect(usePageStore.getState().target).toBe(0);
   });
 
-  it('adds an explode track and offers paths only as coming next', async () => {
+  it('adds an explode track, and an energize track for a path without one', async () => {
     await openTimeline();
     render(<TimelineBar />);
     await userEvent.click(screen.getByRole('button', { name: 'Add track' }));
-    expect(screen.getByRole('menuitem', { name: 'Path' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByRole('menuitem', { name: 'Energize Lantern cable' })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'New path...' })).toBeVisible();
     expect(screen.queryByRole('menuitem', { name: 'Explode Switch cabinet' })).toBeNull();
     const items = screen
       .getAllByRole('menuitem')
@@ -38,6 +39,20 @@ describe('the timeline toolbar', () => {
     expect(open).toBeDefined();
     await userEvent.click(open!);
     expect(useTimelineStore.getState().selection?.kind).toBe('explode');
+  });
+
+  it('energizes a path from the menu', async () => {
+    await openTimeline();
+    render(<TimelineBar />);
+    await userEvent.click(screen.getByRole('button', { name: 'Add track' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Energize Spare run' }));
+    const track = useTimelineStore.getState().draft.timeline.paths['spare-run'];
+    expect(track?.keys.map(k => k.amount)).toEqual([0, 1]);
+    expect(useTimelineStore.getState().selection).toEqual({
+      kind: 'path',
+      path: 'spare-run',
+      stop: 'porch',
+    });
   });
 
   it('keeps Pixels off until the page answers with its scroll', async () => {

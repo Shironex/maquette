@@ -2,18 +2,24 @@ import { describe, expect, it } from 'vitest';
 import type { LayoutStop, ObjectStates, TimelineView } from '@/ipc/client';
 import {
   addExplode,
+  addPathTrack,
   addStopMark,
   amountLabel,
   asKind,
   draftOf,
   explodeMarks,
+  litLabel,
   nextState,
+  pathMarks,
   percentToStop,
+  removePathTrack,
   removeTrigger,
   sameDraft,
   scrollRange,
   setExplode,
   setExplodeKey,
+  setPathEasing,
+  setPathKey,
   stateAt,
   stateMarks,
   stopPercent,
@@ -119,6 +125,42 @@ describe('the timeline rules', () => {
       '40% apart',
       'Apart',
     ]);
+  });
+});
+
+describe('the energize tracks', () => {
+  it('adds a track dark at the first stop and lit at the last, then keys and eases it', () => {
+    let draft = addPathTrack(draftOf(view()), 'cable', STOPS);
+    expect(draft.timeline.paths.cable).toEqual({
+      easing: 'linear',
+      keys: [
+        { stop: 'porch', amount: 0 },
+        { stop: 'pullback', amount: 1 },
+      ],
+    });
+    draft = setPathKey(draft, 'cable', 'shrubs', 1.4);
+    draft = setPathEasing(draft, 'cable', 'ease-out');
+    const { keys, spans } = pathMarks(draft.timeline.paths.cable!, STOPS);
+    expect(keys.map(k => [k.at, k.amount])).toEqual([
+      [0, 0],
+      [50, 1],
+      [100, 1],
+    ]);
+    expect(spans).toEqual([{ from: 0, to: 50, label: 'Lights up' }]);
+    expect(draft.timeline.paths.cable!.easing).toBe('ease-out');
+    draft = setPathKey(draft, 'cable', 'porch', null);
+    expect(draft.timeline.paths.cable!.keys).toHaveLength(2);
+    expect(removePathTrack(draft, 'cable').timeline.paths.cable).toBeUndefined();
+    expect([0, 0.4, 1].map(litLabel)).toEqual(['Dark', '40% lit', 'Lit']);
+  });
+
+  it('warns about a track that never fills and counts path lanes for the site', () => {
+    const draft = draftOf(view());
+    draft.timeline.paths.cable = { easing: 'linear', keys: [{ stop: 'porch', amount: 0.3 }] };
+    draft.timeline.paths.glow = { easing: 'linear', keys: [{ stop: 'porch', amount: 1 }] };
+    const v = { ...view(), paths: [] };
+    expect(timelineChecks(v, draft).map(c => c.title)).toEqual(['cable never fills']);
+    expect(siteSummary(v, draft)).toEqual({ lanes: 3, marks: 4 });
   });
 });
 

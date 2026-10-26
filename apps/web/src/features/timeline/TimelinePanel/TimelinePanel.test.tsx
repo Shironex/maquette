@@ -11,9 +11,9 @@ describe('the timeline panel', () => {
   it('asks for a pick and says what the site gets', async () => {
     await openTimeline();
     render(<TimelinePanel />);
-    expect(screen.getByText(/^Pick a change or an explode key/)).toBeVisible();
+    expect(screen.getByText(/^Pick a change, an explode key or an energize key/)).toBeVisible();
     expect(screen.getByText('Checks · 0')).toBeVisible();
-    expect(screen.getByText('2 lanes, 4 marks')).toBeVisible();
+    expect(screen.getByText('4 lanes, 7 marks')).toBeVisible();
   });
 
   it('warns about an explode track that never moves', async () => {

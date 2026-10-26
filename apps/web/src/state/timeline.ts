@@ -2,8 +2,9 @@
  * The Timeline view's rules: the page as it scrolls, one column per camera
  * stop. A stop sits at its share of the page (the site's stop sections are
  * one window high each, so stop i of n is at i / (n - 1)); a prop's states
- * change there through its stop and scroll triggers, and an explode track
- * spreads a model's parts by an amount at each stop. Pure data in, data out.
+ * change there through its stop and scroll triggers, an explode track
+ * spreads a model's parts by an amount at each stop, and a path's energize
+ * track lights that much of it. Pure data in, data out.
  */
 import type {
   Easing,
@@ -11,6 +12,8 @@ import type {
   ExplodeTrack,
   LayoutStop,
   ObjectStates,
+  PathKey,
+  PathTrack,
   StateTrigger,
   Timeline,
   TimelineView,
@@ -18,7 +21,7 @@ import type {
 import { deepEqual } from '@/lib/deepEqual';
 import { n } from './motion';
 
-/** What the view edits: the scroll driven triggers per asset and the explode tracks. */
+/** What the view edits: the scroll driven triggers per asset, the explode and energize tracks. */
 export interface TimelineDraft {
   triggers: Record<string, StateTrigger[]>;
   timeline: Timeline;
@@ -29,6 +32,7 @@ export const EMPTY_TIMELINE: TimelineDraft = { triggers: {}, timeline: { explode
 export type TimelineSelection =
   | { kind: 'state'; asset: string; index: number }
   | { kind: 'explode'; asset: string; stop: string }
+  | { kind: 'path'; path: string; stop: string }
   | null;
 
 export type TimelineUnits = 'percent' | 'pixels' | 'stops';
@@ -202,12 +206,14 @@ export interface ExplodeSpan {
   label: string;
 }
 
-/** A track's keys in stop order, with the moves between them. */
-export function explodeMarks(
-  track: ExplodeTrack,
-  stops: readonly LayoutStop[]
+/** Keys in stop order, with the moves between them labelled `up` or `down`. */
+function keyMarks(
+  list: readonly { stop: string; amount: number | null }[],
+  stops: readonly LayoutStop[],
+  up: string,
+  down: string
 ): { keys: ExplodeMark[]; spans: ExplodeSpan[] } {
-  const keys = track.keys
+  const keys = list
     .map(k => ({ stop: k.stop, index: stopIndex(stops, k.stop), amount: n(k.amount) }))
     .filter(k => k.index >= 0)
     .sort((a, b) => a.index - b.index)
@@ -215,10 +221,17 @@ export function explodeMarks(
   const spans = keys.slice(1).flatMap((k, i) => {
     const before = keys[i]!;
     if (k.amount === before.amount) return [];
-    const label = k.amount > before.amount ? 'Spreads apart' : 'Comes together';
-    return [{ from: before.at, to: k.at, label }];
+    return [{ from: before.at, to: k.at, label: k.amount > before.amount ? up : down }];
   });
   return { keys, spans };
+}
+
+/** A track's keys in stop order, with the moves between them. */
+export function explodeMarks(
+  track: ExplodeTrack,
+  stops: readonly LayoutStop[]
+): { keys: ExplodeMark[]; spans: ExplodeSpan[] } {
+  return keyMarks(track.keys, stops, 'Spreads apart', 'Comes together');
 }
 
 /** "Apart", "Together" or "40% apart". */
@@ -277,4 +290,65 @@ export function setExplodeKey(
   const rest = track.keys.filter(k => k.stop !== stop);
   const keys = amount === null ? rest : [...rest, { stop, amount: clamp(amount, 0, 1) }];
   return withTrack(draft, asset, { ...track, keys });
+}
+
+// Energize tracks: how much of a path is lit at each stop.
+
+/** An energize track's keys in stop order, with the fills between them. */
+export function pathMarks(
+  track: PathTrack,
+  stops: readonly LayoutStop[]
+): { keys: ExplodeMark[]; spans: ExplodeSpan[] } {
+  return keyMarks(track.keys, stops, 'Lights up', 'Goes dark');
+}
+
+/** "Lit", "Dark" or "40% lit". */
+export function litLabel(amount: number): string {
+  if (amount >= 1) return 'Lit';
+  if (amount <= 0) return 'Dark';
+  return `${Math.round(amount * 100)}% lit`;
+}
+
+const withPathTrack = (draft: TimelineDraft, path: string, track: PathTrack | null) => {
+  const paths = { ...draft.timeline.paths };
+  if (track) paths[path] = track;
+  else delete paths[path];
+  return { ...draft, timeline: { ...draft.timeline, paths } };
+};
+
+/** A new energize track: dark at the first stop, lit at the last. */
+export function addPathTrack(
+  draft: TimelineDraft,
+  path: string,
+  stops: readonly LayoutStop[]
+): TimelineDraft {
+  const first = stops[0];
+  const last = stops.at(-1);
+  const keys: PathKey[] = [];
+  if (first) keys.push({ stop: first.id, amount: 0 });
+  if (last && last !== first) keys.push({ stop: last.id, amount: 1 });
+  return withPathTrack(draft, path, { easing: 'linear', keys });
+}
+
+export function removePathTrack(draft: TimelineDraft, path: string): TimelineDraft {
+  return withPathTrack(draft, path, null);
+}
+
+export function setPathEasing(draft: TimelineDraft, path: string, easing: Easing): TimelineDraft {
+  const track = draft.timeline.paths[path];
+  return track ? withPathTrack(draft, path, { ...track, easing }) : draft;
+}
+
+/** Sets how much is lit at a stop, adding the key; null removes it. */
+export function setPathKey(
+  draft: TimelineDraft,
+  path: string,
+  stop: string,
+  amount: number | null
+): TimelineDraft {
+  const track = draft.timeline.paths[path];
+  if (!track) return draft;
+  const rest = track.keys.filter(k => k.stop !== stop);
+  const keys = amount === null ? rest : [...rest, { stop, amount: clamp(amount, 0, 1) }];
+  return withPathTrack(draft, path, { ...track, keys });
 }
