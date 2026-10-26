@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Asset, BudgetCheck, FolderBudget } from '@/ipc/client';
-import { checkAsset, fileOf, fixName, folderOf, gameOf } from '@/state/game';
+import { autoFixes, checkAsset, fileOf, fixName, folderOf, gameOf, needsHand } from '@/state/game';
 import { useAppStore } from '@/state/use-app-store';
 import { useGameStore } from '@/state/use-game-store';
 
@@ -10,6 +10,8 @@ export interface BudgetRow {
   folder: string;
   check: BudgetCheck | null;
   fix: string | null;
+  /** Rigged and over its triangles: no Decimate, reduced by hand. */
+  byHand: boolean;
 }
 
 /** 'all', 'over', or a folder name. */
@@ -33,10 +35,14 @@ export function useBudgetPanel() {
     ? (project?.assets ?? []).map(asset => {
         const file = fileOf(game, asset);
         const check = checkAsset(game, asset);
-        return { asset, file, folder: folderOf(file), check, fix: check ? fixName(check) : null };
+        const fix = check ? fixName(check) : null;
+        const byHand = check ? needsHand(check) : false;
+        return { asset, file, folder: folderOf(file), check, fix, byHand };
       })
     : [];
   const over = rows.filter(r => r.fix);
+  // What "Add the fix-ups" changes: a rigged model only over its triangles gets none.
+  const fixable = over.filter(r => r.check && autoFixes(r.check).length > 0);
   const shown = rows.filter(r =>
     filter === 'all' ? true : filter === 'over' ? Boolean(r.fix) : r.folder === filter
   );
@@ -51,6 +57,7 @@ export function useBudgetPanel() {
     rows: shown,
     total: rows.length,
     over,
+    fixable: fixable.length,
     filter,
     setFilter,
     folders: (game?.budgets ?? []).map(b => b.folder).filter(Boolean),

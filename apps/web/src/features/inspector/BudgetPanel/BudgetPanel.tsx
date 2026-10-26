@@ -1,5 +1,6 @@
 import { Button, EmptyState, Icon, NumberField, SegmentedControl, cn } from '@maquette/ui';
 import { formatBytes, formatK } from '@/lib/format';
+import { BY_HAND_REASON } from '@/state/game';
 import { useStageLabels } from '@/state/use-stage-labels';
 import { useBudgetPanel } from './BudgetPanel.hooks';
 
@@ -39,7 +40,10 @@ export default function BudgetPanel() {
         <td className="px-2 py-1.5 text-right font-mono text-fg-dim tabular-nums">
           {stats?.bytes ? formatBytes(stats.bytes) : '-'}
         </td>
-        <td className={cn('py-1.5 pr-3 pl-2', r.fix ? 'text-amber' : 'text-sage')}>
+        <td
+          className={cn('truncate py-1.5 pr-3 pl-2', r.fix ? 'text-amber' : 'text-sage')}
+          title={r.byHand ? BY_HAND_REASON : undefined}
+        >
           {r.check ? (r.fix ?? 'fits') : <span className="text-fg-mute">no model</span>}
         </td>
       </tr>
@@ -77,9 +81,17 @@ export default function BudgetPanel() {
     </div>
   ));
   const overRows = b.over.map(r => (
-    <li key={r.asset.id} className="flex justify-between gap-2">
-      <span className="truncate text-fg">{r.asset.name}</span>
-      <span className="flex-none text-amber">{r.check?.problems.join(', ')}</span>
+    <li key={r.asset.id} className="flex flex-col gap-0.5">
+      <span className="flex justify-between gap-2">
+        <span className="truncate text-fg">{r.asset.name}</span>
+        <span className="flex-none text-amber">{r.check?.problems.join(', ')}</span>
+      </span>
+      {r.byHand ? (
+        <span className="flex items-start gap-1 text-fg-mute">
+          <Icon name="person-simple-walk" size={12} className="mt-0.5 flex-none" />
+          {BY_HAND_REASON}
+        </span>
+      ) : null}
     </li>
   ));
   return (
@@ -159,14 +171,17 @@ export default function BudgetPanel() {
           )}
           <Button
             icon="wrench"
-            disabled={!b.over.length}
-            disabledReason="Nothing is over budget"
+            disabled={!b.fixable}
+            disabledReason={
+              b.over.length ? 'Rigged models are reduced by hand' : 'Nothing is over budget'
+            }
             onClick={b.addFixups}
           >
-            {b.over.length === 1 ? 'Add the fix-up' : `Add the ${b.over.length} fix-ups`}
+            {b.fixable === 1 ? 'Add the fix-up' : `Add the ${b.fixable} fix-ups`}
           </Button>
           <p className="text-meta text-fg-mute">
             Decimate or Shrink textures, applied by Build models on a copy. The repo file stays v1.
+            Rigged models never get Decimate, only Shrink textures.
           </p>
         </div>
       </aside>
