@@ -19,6 +19,18 @@ export function draftOf(settings: GameSettings): GameExportDraft {
   };
 }
 
+/**
+ * Which cap each folder's models export at: a folder with a budget keeps its
+ * own texture size, the cap is for the rest.
+ */
+export function capLine(settings: GameSettings): string {
+  const rows = settings.budgets.map(
+    b => `${b.folder ? `${b.folder}/` : 'top level'} ${b.texture} px`
+  );
+  if (!rows.length) return 'Every model exports at this cap: no folder has a budget.';
+  return `Folders with a budget export at its texture size: ${rows.join(', ')}. This cap is for models in folders without one.`;
+}
+
 /** The change Apply saves: only what differs from the saved settings. */
 export function exportChange(saved: GameSettings, draft: GameExportDraft): GameSettingsChange {
   const exportChanged =

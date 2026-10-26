@@ -1,7 +1,7 @@
 import { Button, HelpMark, SegmentedControl, Select, Toggle } from '@maquette/ui';
 import type { GameSettings, GameSettingsChange } from '@/ipc/client';
 import { formatBytes } from '@/lib/format';
-import { TEXTURE_CAPS, useGameExportPanel } from './GameExportPanel.hooks';
+import { TEXTURE_CAPS, capLine, useGameExportPanel } from './GameExportPanel.hooks';
 
 export interface GameExportPanelProps {
   settings: GameSettings;
@@ -73,14 +73,17 @@ export default function GameExportPanel({ settings, onDisk, busy, onSave }: Game
             onChange={textures => update({ textures })}
           />
         </div>
-        <Select
-          label="Texture size cap"
-          size="sm"
-          options={CAP_OPTIONS}
-          value={String(draft.textureCap)}
-          onChange={value => update({ textureCap: Number(value) })}
-          disabled={busy}
-        />
+        <div className="flex flex-col gap-1">
+          <Select
+            label="Texture size cap"
+            size="sm"
+            options={CAP_OPTIONS}
+            value={String(draft.textureCap)}
+            onChange={value => update({ textureCap: Number(value) })}
+            disabled={busy}
+          />
+          <p className="text-meta text-fg-mute">{capLine(settings)}</p>
+        </div>
         <div className="flex flex-col gap-1.5">
           <span className={label}>LOD levels</span>
           <ul className="m-0 flex list-none flex-col rounded-[7px] border border-line bg-raised p-0 text-meta">
