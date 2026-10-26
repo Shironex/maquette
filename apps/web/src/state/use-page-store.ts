@@ -35,6 +35,18 @@ export interface Reading {
 
 export const NO_READING: Reading = { stops: null, at: null, scroll: null, stats: null };
 
+/** The frames whose page leads the scrubber, in order. */
+const LEADS = ['main', 'ship', 'desktop', 'laptop', 'phone'];
+
+/** The reading of the frame that leads: the one page the scrubber follows. */
+export function leadReading(readings: Record<string, Reading>): Reading {
+  for (const id of LEADS) {
+    const r = readings[id];
+    if (r?.stops) return r;
+  }
+  return NO_READING;
+}
+
 /** A release waits this long, so a remount (a quick switch back) keeps the server. */
 const RELEASE_DELAY = 400;
 
@@ -194,7 +206,6 @@ export const usePageStore = create<PageStore>((set, get) => {
     start: async () => {
       const project = get().project;
       if (!project) return;
-      set({ readings: {} });
       try {
         await apply(project, () => commands.pageServerStart(project));
       } catch (error) {
@@ -218,7 +229,6 @@ export const usePageStore = create<PageStore>((set, get) => {
       if (!project || !view) return false;
       try {
         await apply(project, () => commands.pageSave(project, { ...view.settings, ...patch }));
-        set({ readings: {} });
         return true;
       } catch (error) {
         fail('Could not save the page settings', error);
@@ -245,11 +255,11 @@ export const usePageStore = create<PageStore>((set, get) => {
       }
     },
 
-    setDevice: device => set({ device, readings: {} }),
+    setDevice: device => set({ device }),
     setMode: mode => set({ mode }),
     setTab: tab => set({ tab }),
     setShowStops: showStops => set({ showStops }),
-    setPoster: poster => set({ poster, readings: {} }),
+    setPoster: poster => set({ poster }),
     reload: () => set(s => ({ reloadKey: s.reloadKey + 1, readings: {} })),
 
     seek: (stop, smooth = false) =>

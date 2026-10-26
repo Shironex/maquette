@@ -6,6 +6,7 @@
  */
 import type { IconName } from '@maquette/ui';
 import type { PageView, ServerStatus } from '@/ipc/client';
+import { fileUrl, frameUrl } from '@/ipc/files';
 import { formatCount } from '@/lib/format';
 
 export type DeviceId = 'phone' | 'laptop' | 'desktop';
@@ -239,4 +240,24 @@ export function serverLine(status: ServerStatus): string {
     default:
       return 'stopped';
   }
+}
+
+/** What a frame loads for the view's source, and the address bar's text. */
+export function frameSource(
+  view: PageView | null,
+  options: { poster?: boolean } = {}
+): { src: string | null; address: string } {
+  if (!view) return { src: null, address: '' };
+  if (view.settings.source === 'concept') {
+    const concept = view.settings.concept;
+    const name = concept ? (concept.split(/[\\/]/).pop() ?? concept) : 'No page concept';
+    return { src: fileUrl(concept), address: name };
+  }
+  const running = view.server.state === 'running' ? view.server.url : null;
+  const address = pageAddress(running, view.settings.path, options);
+  const shown = pageAddress(running, view.settings.path);
+  return {
+    src: frameUrl(address),
+    address: shown ? shortAddress(shown) : `${siteName(view.siteRepo)} dev server`,
+  };
 }

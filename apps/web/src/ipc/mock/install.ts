@@ -14,7 +14,7 @@ import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
 import { motionFiles } from './create-motion-handlers';
 import { PROVIDER_REF_FILES } from './providers';
-import { MOCK_SITE_URL, conceptPath } from './create-page-handlers';
+import { MOCK_SITE_URL, conceptPath, posterPath } from './create-page-handlers';
 import { mockConceptPage, mockSitePage } from './page-site';
 
 const params = new URLSearchParams(window.location.search);
@@ -90,6 +90,7 @@ const stopPictures = [
 ].map(absolute);
 registerMockFile(MOCK_SITE_URL, htmlUrl(mockSitePage({ stops: stopPictures })));
 registerMockFile(conceptPath(projectDir), htmlUrl(mockConceptPage(stopPictures[0] ?? '')));
+stopPictures.forEach((url, i) => registerMockFile(posterPath(projectDir, i), url));
 
 const handle = createBackend({
   scenario: params.get('scenario') ?? 'first-run',

@@ -88,8 +88,15 @@ function startLog(command: string): string[] {
   ];
 }
 
-/** The site's last ship: older builds of the same models, before the character. */
-export function withShip(view: InspectView, siteRepo: string): InspectView {
+/** Where this run's stop posters are, as the Posters step writes them. */
+export const posterPath = (projectDir: string, stop: number) =>
+  `${projectDir}/web/posters/stop${stop}.webp`;
+
+/**
+ * The site's last ship (older builds of the same models, before the
+ * character) and this run's stop posters.
+ */
+export function withShip(view: InspectView, siteRepo: string, projectDir: string): InspectView {
   const older: Record<string, number> = { sakura: 1.27, flower_shrubs: 1.18 };
   const site: InspectModel[] = view.models
     .filter(m => m.source === 'shipped' && older[m.model] !== undefined)
@@ -108,7 +115,8 @@ export function withShip(view: InspectView, siteRepo: string): InspectView {
         materials: m.materials + 1,
       };
     });
-  return { ...view, models: [...view.models, ...site] };
+  const stops = view.stops.stops.map((stop, i) => ({ ...stop, poster: posterPath(projectDir, i) }));
+  return { ...view, models: [...view.models, ...site], stops: { ...view.stops, stops } };
 }
 
 export function createPageHandlers(ctx: PageContext) {
@@ -253,9 +261,10 @@ export function createPageHandlers(ctx: PageContext) {
     const inspect = all.inspect_project;
     if (!ctx.state || !inspect) return;
     all.inspect_project = args => {
-      const site = ctx.project(String(args.project)).siteRepo;
+      const id = String(args.project);
+      const site = ctx.project(id).siteRepo;
       const found = inspect(args) as InspectView;
-      return site && found.models.length ? withShip(found, site) : found;
+      return site && found.models.length ? withShip(found, site, ctx.projectDir(id)) : found;
     };
   }
 

@@ -4,6 +4,7 @@ import {
   device,
   fitLabel,
   fitScale,
+  frameSource,
   frameState,
   goto,
   pageAddress,
@@ -79,6 +80,38 @@ describe('page addresses', () => {
     expect(siteName('/Users/maker/Projects/moon-island-site/')).toBe('moon-island-site');
     expect(siteName('C:\\Sites\\moon')).toBe('moon');
     expect(siteName(null)).toBe('No site');
+  });
+});
+
+describe('the frame source', () => {
+  it('loads the running dev server at the path, and names the server until then', () => {
+    expect(frameSource(view())).toEqual({ src: null, address: 'moon-island-site dev server' });
+    const running = view(
+      { settings: { version: 1, devCommand: null, concept: null, source: 'site', path: '/a' } },
+      { state: 'running', url: 'http://localhost:5173/' }
+    );
+    expect(frameSource(running)).toEqual({
+      src: 'http://localhost:5173/a',
+      address: 'localhost:5173/a',
+    });
+    expect(frameSource(running, { poster: true })).toEqual({
+      src: 'http://localhost:5173/a?maquette-poster=1',
+      address: 'localhost:5173/a',
+    });
+  });
+
+  it('names a page concept by its file', () => {
+    const concept = view({
+      settings: {
+        version: 1,
+        devCommand: null,
+        concept: '/ws/concepts/home_v2.html',
+        source: 'concept',
+        path: '/',
+      },
+    });
+    expect(frameSource(concept).address).toBe('home_v2.html');
+    expect(frameSource(null)).toEqual({ src: null, address: '' });
   });
 });
 
