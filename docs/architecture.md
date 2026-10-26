@@ -123,6 +123,34 @@ helpers the Board's commands use. Builds go through one `maquette_core::built::B
 whole app, so a build an agent starts and one from the Board queue behind each other, and
 `run_pipeline` without `from` calls the same `before_run` as the Run button.
 
+`tools/motion.rs` holds `get_motion`, and the `states` and `clips` edits `set_layout` takes
+(`projects.rs` turns them into a layout patch, the same `apply` the Layout editor's save uses).
+
+## Motion
+
+`maquette_core::motion` reads what moves. `motion.rs` builds the view for a project: every model in
+Build scene order with its rig (`rig.rs`: joints, kind, the humanoid bone map and most influences
+per vertex), its clips (`clips.rs` reads each glTF animation's keys from the GLB: frames, key rate,
+channels, keyframe bytes, root travel and looping; keys packed by meshopt are counted but not read,
+so travel and looping come back unknown) and its parts (the nodes that draw a mesh). Clip bytes are
+weighed in the file the model is weighed by, so `budget` is the scene budget with the motion share
+in it and in the first view; motion has no budget of its own. `save.rs` checks the parts a state
+names against the models and writes the states and clip choices with `layout::apply`.
+
+Object states and clip choices live in `layout.json` (`layout/states.rs`): `states` keyed by asset
+id (states, transitions, triggers) and `clips` keyed by asset then clip name (`{ "ship": false }`,
+a clip with no entry ships). `layout::validate` checks them with the rest of the layout: at most 16
+states and 32 triggers, transitions and triggers that name states and stops that are there, poses
+within reach. Older layouts load with both empty. The starter `build_scene.py` removes the clips
+kept off before Export GLB writes the animations; `clips_off_supported` is false for a project
+whose copy has no such step, and the web side says the clips all ship.
+
+The web side is `state/use-motion-store.ts` (the draft and the player), `state/motion.ts` (budget,
+timeline and list rules) and `state/motion-states.ts` (state edits, easing and posing), the
+components in `features/motion`, and the canvas in `features/viewer/MotionStage` with
+`viewer/motion-pose.ts` (clip seek, part offsets, the root trail). The shell reloads the store on
+`layout_changed` and `prepare_changed`.
+
 ## Built assets
 
 `maquette_core::built` owns them. `add.rs` copies the script and helpers into `<project>/built/`
