@@ -57,7 +57,12 @@ export const commands = {
 	 */
 	assetCopyToProject: (project: string, id: string, to: string) => __TAURI_INVOKE<CopiedAsset>("asset_copy_to_project", { project, id, to }),
 	layoutGet: (project: string) => __TAURI_INVOKE<LayoutView>("layout_get", { project }),
-	/**  Saves the whole layout and returns the view of it. */
+	/**
+	 *  Saves the whole layout and returns the view of it. The states and clip
+	 *  choices stay as the file has them: they belong to the Motion view, which
+	 *  saves them with [`crate::commands::motion`]. Triggers that wait for a
+	 *  stop this layout removes go with it.
+	 */
 	layoutSave: (project: string, layout: SceneLayout) => __TAURI_INVOKE<LayoutView>("layout_save", { project, layout }),
 	materialsGet: (project: string) => __TAURI_INVOKE<SceneMaterials>("materials_get", { project }),
 	/**
@@ -577,6 +582,20 @@ export type BlendFile = {
 	version: number | null,
 };
 
+export type BoneMap = {
+	/**  The humanoid (Mixamo) name. */
+	bone: string,
+	/**  The rig's bone it maps to. */
+	joint: string | null,
+	how: BoneMatch,
+};
+
+export type BoneMatch = 
+/**  The rig uses the humanoid name itself. */
+"exact" | 
+/**  A name other rigs use for that bone. */
+"by-name" | "missing";
+
 /**  Everything the UI needs before its first paint. */
 export type Bootstrap = {
 	os: HostOs,
@@ -753,6 +772,44 @@ export type Check = {
 };
 
 export type CheckStatus = "pass" | "warning" | "fail";
+
+export type Clip = {
+	/**  The animation's name in the file, or "Animation 2" without one. */
+	name: string,
+	/**  Its place among the file's animations. */
+	index: number,
+	/**  Seconds from the first key to the last. */
+	duration: number | null,
+	/**  Keys on its longest channel. */
+	keys: number,
+	/**  Frames from the first key to the last, at `fps`. */
+	frames: number,
+	/**  The rate its keys were sampled at. */
+	fps: number | null,
+	channels: number,
+	/**  How many nodes it moves. */
+	targets: number,
+	/**  Keyframe bytes in the source model. */
+	bytes: number | null,
+	/**
+	 *  Keyframe bytes in the file the model is weighed by, when that is a
+	 *  build (shipped or raw); `None` when the build has no such clip yet.
+	 */
+	shippedBytes: number | null,
+	/**
+	 *  How far the root moves over the ground from the first key to the
+	 *  last, in metres; `None` for a clip that plays in place.
+	 */
+	rootTravel: number | null,
+	/**  The last key matches the first (root travel aside). */
+	loops: boolean,
+};
+
+/**  What the Motion view changed about one clip. */
+export type ClipSettings = {
+	/**  False leaves the clip out of the shipped model. */
+	ship: boolean,
+};
 
 /**  What each map group is encoded with. */
 export type CodecSet = {
@@ -977,6 +1034,12 @@ export type DownloadsWatch = {
 	/**  `None`: the system's Downloads folder. */
 	folder: string | null,
 };
+
+export type Easing = "linear" | 
+/**  Cubic, slow at the start. */
+"ease-in" | 
+/**  Cubic, slow at the end. */
+"ease-out" | "ease-in-out";
 
 /**  Serializable form of [`CoreError`] for IPC. */
 export type ErrorPayload = {
@@ -1638,6 +1701,59 @@ export type ModelStats = {
 	animations: number,
 };
 
+export type MotionBudget = {
+	/**  Every model's bytes, against the scene budget. */
+	sceneBytes: number | null,
+	sceneTargetMb: number | null,
+	/**  Of those, the bytes of clips. */
+	motionBytes: number | null,
+	firstView: FirstView,
+	/**  Clip bytes among what the first view loads. */
+	firstViewMotion: number | null,
+};
+
+export type MotionModel = {
+	asset: string,
+	name: string,
+	kind: AssetKind,
+	version: number,
+	/**  Absolute path of the newest model file. */
+	file: string,
+	/**  Relative to the project. */
+	path: string,
+	thumbnail: string | null,
+	/**  When the newest version was added. */
+	addedAt: string,
+	/**  What the whole model weighs on the page. */
+	bytes: number | null,
+	measured: Measured,
+	rig: Rig | null,
+	clips: Clip[],
+	/**  The bytes its clips add, in the file it is weighed by. */
+	motionBytes: number | null,
+	/**  The nodes that draw a mesh, in file order: the parts states move. */
+	parts: string[],
+	/**  Why the file could not be read, when it could not. */
+	error: string | null,
+};
+
+export type MotionView = {
+	project: string,
+	/**  Every model, moving or not, in Build scene order. */
+	models: MotionModel[],
+	states: { [key in string]: ObjectStates },
+	/**  Asset id to the clips that stay off the site. */
+	clipsOff: { [key in string]: string[] },
+	/**  The layout's camera stops, which stop triggers name. */
+	stops: LayoutStop[],
+	budget: MotionBudget,
+	/**
+	 *  The project's Build scene leaves clips set not to ship out. False
+	 *  for an older or edited copy without that, or another template.
+	 */
+	clipsOffSupported: boolean,
+};
+
 /**  What Move to project did. */
 export type MovedDirection = {
 	/**
@@ -1729,6 +1845,33 @@ export type ObjectAsset = {
 	asset: Asset,
 	/**  Its ref in `refs/`, relative to the project folder. */
 	refs: string[],
+};
+
+export type ObjectState = {
+	/**  Stays the same when the state is renamed. */
+	id: string,
+	name: string,
+	/**
+	 *  Part (the node name in the model file) to how it moves. Parts left
+	 *  out stay at rest.
+	 */
+	parts: { [key in string]: PartPose },
+};
+
+/**  One asset's states, transitions and triggers. */
+export type ObjectStates = {
+	/**  The first is the rest pose. */
+	states: ObjectState[],
+	transitions: StateTransition[],
+	triggers: StateTrigger[],
+};
+
+/**  How far one part moves from its rest pose in a state. */
+export type PartPose = {
+	/**  Metres added to the part's own position, glTF axes (y up). */
+	position: [(number | null), (number | null), (number | null)],
+	/**  Degrees added to its own rotation, X, then Y, then Z. */
+	rotation: [(number | null), (number | null), (number | null)],
 };
 
 export type PbrMaps = {
@@ -2034,6 +2177,21 @@ export type RepoInspection = {
 	hasPublicDir: boolean,
 };
 
+export type Rig = {
+	joints: number,
+	jointNames: string[],
+	kind: RigKind,
+	/**  Enough bones map onto the humanoid skeleton for its clips to play. */
+	humanoid: boolean,
+	/**  Every humanoid bone and what it maps to, for the bone map. */
+	map: BoneMap[],
+	/**
+	 *  Most bones one vertex weighs on; `None` when the weights cannot be
+	 *  read (compressed geometry).
+	 */
+	maxInfluences: number | null,
+};
+
 export type RigKind = "none" | "mixamo" | "other";
 
 export type RootInspection = {
@@ -2082,6 +2240,10 @@ export type SceneLayout = {
 	/**  In tour order. The first one is the view the page opens on. */
 	stops: LayoutStop[],
 	desk: Desk | null,
+	/**  Asset id to the states its parts move between. */
+	states: { [key in string]: ObjectStates },
+	/**  Asset id to its clip choices, by clip name. Clips left out ship. */
+	clips: { [key in string]: { [key in string]: ClipSettings } },
 };
 
 export type SceneMaterials = {
@@ -2260,6 +2422,31 @@ export type StarterStatus = {
 	backup: string | null,
 };
 
+export type StateTransition = {
+	from: string,
+	to: string,
+	/**  Seconds. */
+	duration: number | null,
+	/**  Seconds before the move starts. */
+	delay: number | null,
+	easing: Easing,
+	/**  Seconds between one part starting and the next; 0 moves them together. */
+	stagger: number | null,
+};
+
+export type StateTrigger = {
+	kind: TriggerKind,
+	/**  The state it goes to. */
+	to: string,
+	/**  For a stop trigger: the camera stop's id. */
+	stop: string | null,
+	/**  For a click or hover: the part it listens on; `None` is the whole model. */
+	part: string | null,
+	/**  For a scroll trigger: where the move starts and ends, percent of the page. */
+	start: number | null,
+	end: number | null,
+};
+
 export type StepDef = {
 	/**  Unique within the pipeline, used by `dependsOn`. */
 	id: string,
@@ -2410,6 +2597,12 @@ export type ToolStatus = "found" | "missing" |
 
 /**  The mesh a provider makes: triangles or quads. */
 export type Topology = "triangle" | "quad";
+
+export type TriggerKind = 
+/**  Arriving at a camera stop. */
+"stop" | 
+/**  Scrolling through a share of the page, scrubbed with the scroll. */
+"scroll" | "click" | "hover";
 
 export type TripoGeometryQuality = "standard" | "detailed";
 

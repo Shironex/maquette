@@ -68,12 +68,18 @@ export function fromLayout(layout: SceneLayout): PlainLayout {
   };
 }
 
+/**
+ * The layout the editor saves. Object states and clip choices belong to the
+ * Motion view; the app keeps the saved ones when the editor saves.
+ */
 export function toLayout(layout: PlainLayout): SceneLayout {
   return {
     version: LAYOUT_VERSION,
     models: layout.models,
     stops: layout.stops,
     desk: layout.desk ? { size: layout.desk } : null,
+    states: {},
+    clips: {},
   };
 }
 

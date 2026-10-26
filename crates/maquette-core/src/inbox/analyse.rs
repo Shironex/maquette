@@ -40,7 +40,8 @@ use fingers::finger_weights;
 use geometry::primitive_corners;
 use islands::primitive_islands;
 use rig::rig_kind;
-use source::{load_uri, textures};
+pub(crate) use source::load_uri;
+use source::textures;
 
 /// Islands closer than this share of the primitive's diagonal are grouped.
 pub const GROUP_GAP: f32 = 0.1;

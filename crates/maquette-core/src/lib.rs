@@ -13,6 +13,7 @@ pub mod inspect;
 mod json;
 pub mod layout;
 pub mod materials;
+pub mod motion;
 pub mod pipeline;
 pub mod prepare;
 pub mod project;
@@ -163,6 +164,7 @@ pub fn types() -> specta::Types {
         .register::<layout::SceneLayout>()
         .register::<layout::LayoutView>()
         .register::<layout::ObjectStates>()
+        .register::<motion::MotionView>()
         .register::<materials::SceneMaterials>()
         .register::<prepare::ScenePrep>()
         .register::<prepare::preview::FixupReport>()
@@ -302,6 +304,13 @@ mod tests {
             "TriggerKind",
             "Easing",
             "ClipSettings",
+            "MotionView",
+            "MotionModel",
+            "MotionBudget",
+            "Clip",
+            "Rig",
+            "BoneMap",
+            "BoneMatch",
             "LayoutModel",
             "FirstView",
             "Measured",
