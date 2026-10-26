@@ -11,6 +11,37 @@ import { HOME } from './fixtures';
 
 export type Args = Record<string, unknown>;
 
+/**
+ * What mock mode opens with.
+ *
+ * Scenarios (`?scenario=` in the URL):
+ * - `first-run` (default): no workspace yet, toktx missing.
+ * - `configured`: a workspace with Moon Island is open.
+ * - `no-blender`: like first-run, but Blender is missing.
+ * - `running`: configured, with run 25 live at Export GLB.
+ * - `idle`: configured, the last run passed.
+ *
+ * Configured workspaces hold Moon Island, Rooftop cinema (a Room) and
+ * Lantern keeper (a Character showcase); `?projects=many` adds five more so
+ * the project switcher shows its search.
+ *
+ * `?pace=` sets the milliseconds between streamed log lines (default 260).
+ * `?lab=running` holds two concept images of the porch direction mid job.
+ * `?agents=active` turns the MCP server on, with an agent's activity, a
+ * run waiting at Ship for approval and a send to Tripo waiting the same way;
+ * `?agents=batch` makes that send a batch of three under one approval.
+ * `?handoff=batch` adds the landing workbench concept, six object refs made
+ * from it and a By hand batch of them in mixed states.
+ * `?inbox=redo` links the large sakura and the character in the inbox to
+ * the sends they came from (Meshy with a texture prompt, rigged Tripo) and
+ * saves a Meshy key too, for Redo. The credits ledger holds the live sends
+ * and a month of earlier ones. `?arrival=named|unmatched` drops a download
+ * for the Downloads watcher (see `create-downloads-handlers.ts`).
+ * `?built=demo` adds two built assets to Moon Island (see
+ * `create-built-handlers.ts`), `?motion=` models that move (see
+ * `create-motion-handlers.ts`).
+ * Configured scenarios also open with Send to 3D jobs (see `providers.ts`).
+ */
 export interface BackendOptions {
   scenario: string;
   /** Milliseconds a toolchain check takes, so the checking state is visible. */
@@ -44,6 +75,8 @@ export interface BackendOptions {
   arrival?: string | null;
   /** `demo`: two built assets on Moon Island, one current and one stale. */
   built?: string | null;
+  /** `demo`, `rest`, `over` or `still`: models that move (see create-motion-handlers.ts). */
+  motion?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */

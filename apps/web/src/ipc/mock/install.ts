@@ -12,6 +12,7 @@ import { PREVIEW_FILE, thumbsDir } from './inbox-fixtures';
 import { conceptFiles, OBJECT_REF_FILES, REF_FILES } from './lab-fixtures';
 import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
+import { motionFiles } from './create-motion-handlers';
 import { PROVIDER_REF_FILES } from './providers';
 
 const params = new URLSearchParams(window.location.search);
@@ -60,9 +61,19 @@ for (const [file, model] of Object.entries(PREVIEW_FILE)) {
   const url = models[`../../assets/mock/models/${model}`];
   if (url) registerMockFile(`${root}/inbox/${file}`, url);
 }
-for (const [file, model] of Object.entries({ ...INSPECT_FILES, ...LAYOUT_FILES })) {
+const motion = params.get('motion');
+for (const [file, model] of Object.entries({
+  ...INSPECT_FILES,
+  ...LAYOUT_FILES,
+  ...motionFiles(motion),
+})) {
   const url = models[`../../assets/mock/models/${model}`];
   if (url) registerMockFile(`${root}/projects/moon-island/${file}`, url);
+}
+// `?motion=still` puts its prop in Rooftop cinema.
+for (const [file, model] of Object.entries(motion === 'still' ? motionFiles(motion) : {})) {
+  const url = models[`../../assets/mock/models/${model}`];
+  if (url) registerMockFile(`${root}/projects/rooftop-cinema/${file}`, url);
 }
 
 const handle = createBackend({
@@ -77,6 +88,7 @@ const handle = createBackend({
   inbox: params.get('inbox'),
   arrival: params.get('arrival'),
   built: params.get('built'),
+  motion,
   emit: event => {
     if (event.name === 'built') {
       if (event.manifest) void events.projectChanged.emit({ project: event.manifest });

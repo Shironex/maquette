@@ -15,13 +15,21 @@ character.
 - `models/*.glb`: the models the Inbox preview loads. They use meshopt
   geometry and KTX2 textures, so they also exercise the decoders the preview
   sets up.
+- `models/clay_figure.glb`, `clay_figure_rest.glb`, `switch_cabinet.glb` and
+  `turntable.glb`: plain primitives for the Motion view's `?motion=` demo
+  (a rigged figure with three clips and without, a cabinet whose door and
+  breakers states move, a turntable with one clip). They are generated
+  headless with
+  `crates/maquette-core/src/motion/fixtures/motion_models.py` and are not part of
+  the reserved artwork below.
 
 `src/ipc/mock/install.ts` registers every file here under the mock workspace
 paths, so new renders only need the right file name.
 
 ## License
 
-These images and models are reserved artwork. All rights are kept by their
+Apart from the generated Motion demo models above, these images and models
+are reserved artwork. All rights are kept by their
 author. They are bundled only so mock mode looks like a real workspace, and
 they are not covered by the license of this repository or by any open license
 it may adopt in the future. Do not reuse, redistribute or train on them.

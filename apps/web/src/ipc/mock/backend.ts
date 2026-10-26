@@ -1,33 +1,7 @@
 /**
  * An in-memory stand-in for the Rust commands, keyed by the same snake_case
- * names and camelCase arguments the generated bindings send.
- *
- * Scenarios (`?scenario=` in the URL):
- * - `first-run` (default): no workspace yet, toktx missing.
- * - `configured`: a workspace with Moon Island is open.
- * - `no-blender`: like first-run, but Blender is missing.
- * - `running`: configured, with run 25 live at Export GLB.
- * - `idle`: configured, the last run passed.
- *
- * Configured workspaces hold Moon Island, Rooftop cinema (a Room) and
- * Lantern keeper (a Character showcase); `?projects=many` adds five more so
- * the project switcher shows its search.
- *
- * `?pace=` sets the milliseconds between streamed log lines (default 260).
- * `?lab=running` holds two concept images of the porch direction mid job.
- * `?agents=active` turns the MCP server on, with an agent's activity, a
- * run waiting at Ship for approval and a send to Tripo waiting the same way;
- * `?agents=batch` makes that send a batch of three under one approval.
- * `?handoff=batch` adds the landing workbench concept, six object refs made
- * from it and a By hand batch of them in mixed states.
- * `?inbox=redo` links the large sakura and the character in the inbox to
- * the sends they came from (Meshy with a texture prompt, rigged Tripo) and
- * saves a Meshy key too, for Redo. The credits ledger holds the live sends
- * and a month of earlier ones. `?arrival=named|unmatched` drops a download
- * for the Downloads watcher (see `create-downloads-handlers.ts`).
- * `?built=demo` adds two built assets to Moon Island (see
- * `create-built-handlers.ts`).
- * Configured scenarios also open with Send to 3D jobs (see `providers.ts`).
+ * names and camelCase arguments the generated bindings send. The scenarios
+ * and URL options are listed on `BackendOptions`.
  */
 import type {
   Bootstrap,
@@ -64,6 +38,7 @@ import { clock } from '@/lib/clock';
 import { createAssetHandlers } from './create-asset-handlers';
 import { createBuiltHandlers } from './create-built-handlers';
 import { createInboxHandlers } from './create-inbox-handlers';
+import { createMotionHandlers, motionConfig, seedMotionProjects } from './create-motion-handlers';
 import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createProjectHandlers } from './create-project-handlers';
 import { createToolchainHandlers } from './create-toolchain-handlers';
@@ -86,13 +61,16 @@ export function createBackend({
   inbox: inboxState = null,
   arrival = null,
   built: builtState = null,
+  motion = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
   let root: string | null = configured ? expand(DEFAULT_ROOT) : null;
-  let projects: ProjectManifest[] = configured ? mockProjects(projectsState === 'many') : [];
+  let projects: ProjectManifest[] = configured
+    ? seedMotionProjects(mockProjects(projectsState === 'many'), motion)
+    : [];
   let cacheBytes = configured ? 2.3e9 : 0;
-  if (configured) config = { ...config, currentProject: 'moon-island' };
+  if (configured) config = motionConfig({ ...config, currentProject: 'moon-island' }, motion);
   const agentsOn = agentsState === 'active' || agentsState === 'batch';
   if (configured && agentsOn) {
     config = { ...config, agents: { ...config.agents, mcpEnabled: true } };
@@ -170,8 +148,9 @@ export function createBackend({
   /** Each project's starter scripts; the fixture Moon Island has old ones. */
   const starters = new Map<string, StarterStatus[]>();
   function startersOf(id: string): StarterStatus[] {
-    // The fixture Moon Island is older than its starters; a new project is not.
-    const old = id === 'moon-island' && (project(id).assets ?? []).length > 0;
+    // The fixture Moon Island is older than its starters, unless `?motion=`
+    // shows it with clips kept off the site; a new project is not.
+    const old = id === 'moon-island' && !motion && (project(id).assets ?? []).length > 0;
     if (!starters.has(id)) starters.set(id, old ? oldStarters() : currentStarters());
     return starters.get(id)!;
   }
@@ -385,6 +364,14 @@ export function createBackend({
       prepare,
     }),
     ...prepare.handlers,
+    ...createMotionHandlers({
+      project,
+      layout,
+      config: () => config,
+      clipsSupported: id =>
+        startersOf(id).some(s => s.path === 'tools/build_scene.py' && s.state === 'current'),
+      motion,
+    }),
   };
 
   // The `running` scenario starts run 25 as soon as the app opens.

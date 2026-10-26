@@ -230,5 +230,36 @@ export function createFakeLayout(deps: {
     return view(id);
   }
 
-  return { view, save, firstView };
+  /** The Motion view's part of the layout. */
+  function motion(id: string) {
+    const layout = layouts.get(id);
+    const clipsOff: Record<string, string[]> = {};
+    for (const [asset, clips] of Object.entries(layout?.clips ?? {})) {
+      const off = Object.entries(clips ?? {}).filter(([, c]) => c && !c.ship);
+      if (off.length > 0) clipsOff[asset] = off.map(([name]) => name).sort();
+    }
+    return { states: structuredClone(layout?.states ?? {}), clipsOff };
+  }
+
+  function setMotion(
+    id: string,
+    states: SceneLayout['states'],
+    clipsOff: Record<string, string[]>
+  ): void {
+    const known = new Set(models(id).map(m => m.asset));
+    for (const asset of [...Object.keys(states), ...Object.keys(clipsOff)]) {
+      if (!known.has(asset)) {
+        throw { code: 'invalid', message: `There is no model for the asset ${asset}.` };
+      }
+    }
+    const current = layouts.get(id) ?? view(id).layout;
+    const clips = Object.fromEntries(
+      Object.entries(clipsOff)
+        .filter(([, names]) => names.length > 0)
+        .map(([asset, names]) => [asset, Object.fromEntries(names.map(c => [c, { ship: false }]))])
+    );
+    layouts.set(id, { ...current, states: structuredClone(states), clips });
+  }
+
+  return { view, save, firstView, motion, setMotion };
 }
