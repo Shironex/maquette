@@ -127,6 +127,9 @@ whole app, so a build an agent starts and one from the Board queue behind each o
 (`projects.rs` turns them into a layout patch, the same `apply` the Layout editor's save uses).
 `tools/timeline.rs` holds the `explode` edits `set_layout` takes, each asset's whole explode track
 or its removal; the Timeline's stop and scroll changes go through the `states` edits.
+`tools/paths.rs` holds the `paths` edits (add, change or remove a path, anchor its ends) and the
+`energize` edits (a path's whole energize track or its removal), which `projects.rs` turns into the
+layout patch's `paths` and `pathTracks`.
 
 `tools/page.rs` reads, starts and stops the site dev server the Page view shows
 (`get_page_preview`, `start_page_preview`, `stop_page_preview`) through `commands/page.rs`, so an
@@ -182,6 +185,39 @@ The site plays it: `apps/site/src/scene/timeline.ts` turns tour progress into ea
 (scroll ranges scrubbed, stop changes timed by their transition) and each track's amount, and
 `scene/tracks.ts` moves the built model's nodes, found by their names in the file, from their rest
 transforms. A part spreads straight out from the model's centre.
+
+## Paths
+
+Paths are curves through the scene that the site draws as tubes and lights as the page scrolls.
+They live in `layout.json` (`layout/paths.rs`): `paths` is a list of `{ id, name, curve, points,
+start, end, width, color, glow }`, points in the layout's space (metres, y up), `curve` either
+`polyline` or `catmull-rom`, and `start` and `end` the asset ids the ends follow. Their energize
+tracks live under `timeline.paths`, keyed by path id, with an `easing` and at most one
+`{ stop, amount }` key per camera stop, amount 0 to 1, checked by the same `check_keys` as the
+explode tracks. `layout::validate` checks both (at most 32 paths of 2 to 128 points, widths from
+1 mm to 1 m, `#rrggbb` colours, tracks of paths that are there), `layout::prune_stops` drops the
+keys of a removed stop, and older layouts load with none.
+
+An anchored end is stored where it is, not as an offset. `paths::follow` moves it by as much as its
+model's placement position moved, and runs wherever placements change: in `layout::apply` (the
+patches agents and Motion send) and in `commands/layout.rs`, whose save keeps the paths the file
+has and follows them. Only the position follows; a turn or a scale does not. `paths::with_paths`
+replaces every path and track at once for the editor (`commands/paths.rs`, `paths_save`), and the
+editor reads them with the rest of the layout (`layout_get`).
+
+The web side is `state/use-paths-store.ts` (the draft, saved half a second after each edit, and
+the selection), `state/paths.ts` (point, anchor and look edits, lengths, the tube's triangles and
+what a path adds to `layout.json`), the Inspector's Paths tab in `features/inspector` (`PathsEditor`,
+`PointsTable`, `PathsPanel` and `PathsCanvas`, which reuses the Layout editor's model loading and
+placement and three's transform gizmo on a point handle) and the Timeline's `PathLane` and
+`PathKeyEditor`, which edit `timeline.paths` through the Timeline store. The shell reloads the store
+on `layout_changed`, and the editor loads the layout again when it opens.
+
+The site draws them: `fromLayout` lifts the points with the rest of the layout, `scene/path-mesh.ts`
+builds each path as one `TubeGeometry` (8 sides, a ring about every two widths, 16 to 256 rings)
+with a shader that lights it from its first point by a `uAmount` uniform, and `scene/PathTubes.tsx`
+sets that uniform each frame from `energizeAt` (`scene/paths.ts`), the track's amount eased between
+its keyed stops by `keyedAt`. One draw call per path. Build scene and the posters do not draw them.
 
 ## Built assets
 

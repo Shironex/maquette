@@ -22,3 +22,7 @@ The Layout tab places each asset's newest model and the camera stops in one 3D c
 Camera stops are added where the editor camera stands, named, reordered, deleted, and each has a field of view. Up to 24 stops. Save layout writes `layout.json` in the project. The next pipeline run builds the scene, bakes it and renders one poster per stop from it.
 
 The first view is what the first stop loads before the visitor moves. Its size is measured against its own budget, First view target under Settings (3 MB by default).
+
+## Paths
+
+The Paths tab draws cables, pipes and trails through the scene, anchored to models if you like, that the site lights up as the page scrolls. See [Paths](/docs/views/paths/).

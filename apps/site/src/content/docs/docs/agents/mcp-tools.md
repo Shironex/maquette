@@ -31,7 +31,7 @@ These look at the workspace and change nothing.
 | [`get_material_tweaks`](#get_material_tweaks) | An asset's material names, tweaks and per map group codecs, with raw and shipped size                                                  | Nothing | No       |
 | `get_bake_settings`                           | Lightmap size, samples, denoiser, whether `bake_light.py` can denoise, and the assets that skip the bake                               | Nothing | No       |
 | `get_starters`                                | Each starter script in `tools/` as current, outdated, edited or missing                                                                | Nothing | No       |
-| `get_layout`                                  | Where each model stands, the camera stops, the desk, the first view, object states, explode tracks and clips kept off the site         | Nothing | No       |
+| `get_layout`                                  | Where each model stands, the camera stops, the desk, the first view, object states, explode tracks, paths and clips kept off the site  | Nothing | No       |
 | `get_motion`                                  | Every model's rig, clips and parts, and what the clips weigh inside the scene budget                                                   | Nothing | No       |
 | `list_built_assets`                           | Each built asset's script, helpers, state and last build                                                                               | Nothing | No       |
 | `get_page_preview`                            | The site dev server's state, address, command, who started it and its last log lines                                                   | Nothing | No       |
@@ -51,7 +51,7 @@ These look at the workspace and change nothing.
 | `add_fixups`                                          | Adds fix-ups to an asset; one of a kind already there is replaced                      | Nothing | No       |
 | `remove_fixups`                                       | Removes fix-ups by kind, or all of them                                                | Nothing | No       |
 | `update_starters`                                     | Brings outdated or missing starter scripts up to date, as the Update banner does       | Nothing | No       |
-| [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states, explode tracks and clips        | Nothing | No       |
+| [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states, explode tracks, paths and clips | Nothing | No       |
 | [`pick_concepts`](#pick_concepts)                     | Puts Lab concepts on the Board at Refs                                                 | Nothing | No       |
 | `star_concepts`                                       | Stars or unstars Lab concepts                                                          | Nothing | No       |
 | [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                             | Nothing | No       |
@@ -205,16 +205,18 @@ A tweak takes `tint` (`"#rrggbb"`, multiplied into the base color), `roughness` 
 
 Changes a project's scene layout, as the Layout editor does. Only what you name changes, and the whole result is checked before anything is written. Unknown assets or stops are refused. The open app updates live, and the next Build scene and Capture posters use it. Returns the layout like `get_layout`.
 
-| Parameter   | Type           | Required | Notes                                                                                              |
-| ----------- | -------------- | -------- | -------------------------------------------------------------------------------------------------- |
-| `project`   | string         | yes      | The project id.                                                                                    |
-| `models`    | object[]       | no       | `{ asset, position?, rotation?, scale?, remove? }`. Position in metres, y up. Rotation in degrees. |
-| `stops`     | object[]       | no       | `{ id?, name?, position?, target?, fov?, models?, remove? }`. Without an `id`, it adds a stop.     |
-| `stopOrder` | string[]       | no       | Every stop id in the new tour order.                                                               |
-| `desk`      | object or null | no       | The desk size, or `null` to remove it.                                                             |
-| `states`    | object[]       | no       | `{ asset, states, transitions?, triggers?, remove? }`. Sets an asset's object states whole.        |
-| `clips`     | object[]       | no       | `{ asset, clip, ship }`. `ship: false` keeps a clip off the site.                                  |
-| `explode`   | object[]       | no       | `{ asset, distance?, easing?, keys, remove? }`. Sets an asset's explode track whole.               |
+| Parameter   | Type           | Required | Notes                                                                                                             |
+| ----------- | -------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `project`   | string         | yes      | The project id.                                                                                                   |
+| `models`    | object[]       | no       | `{ asset, position?, rotation?, scale?, remove? }`. Position in metres, y up. Rotation in degrees.                |
+| `stops`     | object[]       | no       | `{ id?, name?, position?, target?, fov?, models?, remove? }`. Without an `id`, it adds a stop.                    |
+| `stopOrder` | string[]       | no       | Every stop id in the new tour order.                                                                              |
+| `desk`      | object or null | no       | The desk size, or `null` to remove it.                                                                            |
+| `states`    | object[]       | no       | `{ asset, states, transitions?, triggers?, remove? }`. Sets an asset's object states whole.                       |
+| `clips`     | object[]       | no       | `{ asset, clip, ship }`. `ship: false` keeps a clip off the site.                                                 |
+| `explode`   | object[]       | no       | `{ asset, distance?, easing?, keys, remove? }`. Sets an asset's explode track whole.                              |
+| `paths`     | object[]       | no       | `{ id?, name?, curve?, points?, start?, end?, width?, color?, glow?, remove? }`. Adds, changes or removes a path. |
+| `energize`  | object[]       | no       | `{ path, easing?, keys, remove? }`. Sets a path's energize track whole.                                           |
 
 ```json
 { "project": "moon-island", "models": [{ "asset": "bench", "rotation": [0, 90, 0] }] }
@@ -232,6 +234,36 @@ The Timeline view's tracks go through `set_layout` too. Its state changes are an
       "keys": [
         { "stop": "canopy", "amount": 0 },
         { "stop": "pullback", "amount": 1 }
+      ]
+    }
+  ]
+}
+```
+
+A path is a list of 2 to 128 `points` in metres, y up. Without an `id`, or with one that is new, it adds a path, which needs a `name` and `points`; `curve` is `catmull-rom` (smooth, the default) or `polyline`, `width` is in metres (0.035 when left out) and `color` and `glow` are `#rrggbb`. `start` and `end` name the asset that end follows from then on, and `null` lets it go: when that model's placement moves, the end moves by as much. An energize track's `keys` are `{ stop, amount }`, at most one per camera stop, with `amount` 0 (dark) to 1 (lit from the first point to the last) and `easing` between them (`linear` when left out). Removing a path drops its track.
+
+```json
+{
+  "project": "moon-island",
+  "paths": [
+    {
+      "name": "Lantern cable",
+      "points": [
+        [-3.2, 0, 3.4],
+        [0, 0.05, 5.2],
+        [3.6, 0, 1.2]
+      ],
+      "start": "shop-house",
+      "end": "vending",
+      "width": 0.06
+    }
+  ],
+  "energize": [
+    {
+      "path": "lantern-cable",
+      "keys": [
+        { "stop": "sakura", "amount": 0 },
+        { "stop": "canopy", "amount": 1 }
       ]
     }
   ]
