@@ -32,4 +32,11 @@ describe('the project top bar', () => {
     expect(useAppStore.getState().view).toBe('pipeline');
     expect(await screen.findByRole('button', { name: 'Run in progress' })).toBeVisible();
   });
+
+  it('shows the view action beside Run pipeline', async () => {
+    await openMockWorkspace();
+    render(<ProjectTopBar extra={<button type="button">Open in browser</button>} />);
+    expect(screen.getByRole('button', { name: 'Open in browser' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Run pipeline' })).toBeVisible();
+  });
 });
