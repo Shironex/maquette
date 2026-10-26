@@ -7,8 +7,9 @@ import { CardMenu } from './CardMenu';
 
 /** One asset on the Board: its picture, numbers, latest send or build, and menu. */
 export default function BoardCard({ asset, board }: BoardCardProps) {
-  const { n, over, thumb, sent, waiting, refPicture, addModel, onDragStart, built, rebuild } =
-    useBoardCard(asset, board);
+  const card = useBoardCard(asset, board);
+  const { n, over, thumb, sent, waiting, refPicture, addModel, onDragStart, built, rebuild } = card;
+  const update = card.libraryUpdate;
   const chip = built
     ? builtChip(built.state)
     : over && !sent
@@ -39,6 +40,16 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
         ) : built && wantsRebuild(built.state) ? (
           <Button size="sm" icon="arrow-clockwise" data-card-action onClick={rebuild}>
             Rebuild
+          </Button>
+        ) : update ? (
+          <Button
+            size="sm"
+            icon="arrow-up"
+            data-card-action
+            tooltip={`Update available: the library has v${update.to} of ${update.entry.entry.name}, this is on v${update.from}`}
+            onClick={card.openUpdate}
+          >
+            Update to v{update.to}
           </Button>
         ) : undefined
       }

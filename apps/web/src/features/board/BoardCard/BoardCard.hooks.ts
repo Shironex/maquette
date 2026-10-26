@@ -5,6 +5,8 @@ import { useBuiltStore } from '@/state/use-built-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useBudgetCheck } from '@/state/use-budget-check';
 import { trianglesLine } from '@/state/game';
+import { updateFor } from '@/state/library';
+import { useLibraryStore } from '@/state/use-library-store';
 import { assetView } from '../assetView';
 import type { BoardEnv } from '../board.types';
 import { DRAG_TYPE } from '../constants';
@@ -18,6 +20,8 @@ export function useBoardCard(asset: Asset, board: BoardEnv) {
   const built = useBuiltStore(s => s.items.find(b => b.asset === asset.id));
   const rebuild = useBuiltStore(s => s.rebuild);
   const budget = useBudgetCheck(asset);
+  const library = useLibraryStore(s => s.view);
+  const openUpdate = useLibraryStore(s => s.openUpdate);
   const onDragStart = (e: DragEvent) => {
     e.dataTransfer.setData(DRAG_TYPE, asset.id);
     e.dataTransfer.effectAllowed = 'move';
@@ -31,6 +35,10 @@ export function useBoardCard(asset: Asset, board: BoardEnv) {
     addModel,
     onDragStart,
     built,
+    libraryUpdate: updateFor(library, asset),
+    openUpdate: () => {
+      if (board.project) void openUpdate({ project: board.project.id, asset: asset.id });
+    },
     rebuild: () => {
       if (board.project) void rebuild(board.project.id, asset.id, true);
     },

@@ -5,7 +5,8 @@ import type { BuiltAsset } from '@/ipc/client';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useProvidersStore } from '@/state/use-providers-store';
-import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
+import { useLibraryStore } from '@/state/use-library-store';
+import { clearMocks, openMockLibrary, openMockWorkspace } from '@/test/mock-ipc';
 import { fakeBoardEnv, mockAsset } from '../../fakeBoardEnv';
 import CardMenu from './CardMenu';
 
@@ -95,5 +96,23 @@ describe('CardMenu', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Rebuild' }));
     expect(rebuild).toHaveBeenCalledWith('moon-island', 'character', true);
     expect(board.actions.setMenuFor).toHaveBeenCalledWith(null);
+  });
+
+  it('adds the asset to the library, and offers the update waiting there', async () => {
+    await openMockLibrary('demo');
+    await useLibraryStore.getState().load();
+    const asset = mockAsset('Character');
+    render(<CardMenu asset={asset} waiting={undefined} refPicture={null} board={fakeBoardEnv()} />);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Update to library v3...' }));
+    expect(useLibraryStore.getState().updating).toEqual({
+      project: 'moon-island',
+      asset: 'character',
+    });
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Add to library...' }));
+    expect(useLibraryStore.getState().adding).toEqual({
+      project: 'moon-island',
+      asset: 'character',
+    });
+    useLibraryStore.setState({ view: null, adding: null, updating: null, plan: null });
   });
 });

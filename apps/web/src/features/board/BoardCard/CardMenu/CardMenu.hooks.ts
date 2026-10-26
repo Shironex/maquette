@@ -4,6 +4,8 @@ import { STAGES } from '@/state/pipeline';
 import { useStageLabels } from '@/state/use-stage-labels';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useLabStore } from '@/state/use-lab-store';
+import { updateFor } from '@/state/library';
+import { useLibraryStore } from '@/state/use-library-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { STAGE_ICON } from '../../constants';
 import type { CardMenuProps } from './CardMenu.types';
@@ -16,6 +18,8 @@ export function useCardMenu({ asset, waiting, refPicture, built, board }: CardMe
   const showHandoff = useProvidersStore(s => s.showHandoff);
   const addModel = useProvidersStore(s => s.addModel);
   const openObjects = useLabStore(s => s.openObjects);
+  const { view: library, openAdd, openUpdate } = useLibraryStore();
+  const waitingUpdate = updateFor(library, asset);
   const { workspace, project, otherProjects, actions } = board;
   const others = STAGES.filter(s => s !== asset.stage);
 
@@ -106,6 +110,28 @@ export function useCardMenu({ asset, waiting, refPicture, built, board }: CardMe
       keepOpen: true,
       onSelect: () => actions.setCopyFor(asset.id),
     },
+    {
+      id: 'library-add',
+      label: 'Add to library...',
+      icon: 'books',
+      disabled: asset.versions.length === 0,
+      hint:
+        asset.versions.length === 0
+          ? 'No model yet'
+          : 'Copies its newest model so other projects can use it without spending credits',
+      onSelect: () => project && openAdd({ project: project.id, asset: asset.id }),
+    },
+    ...(waitingUpdate && project
+      ? [
+          {
+            id: 'library-update',
+            label: `Update to library v${waitingUpdate.to}...`,
+            icon: 'arrow-up' as const,
+            hint: `It is on v${waitingUpdate.from} of ${waitingUpdate.entry.entry.name}`,
+            onSelect: () => void openUpdate({ project: project.id, asset: asset.id }),
+          },
+        ]
+      : []),
     ...others.map(s => ({
       id: `move-${s}`,
       label: `Move to ${STAGE_LABEL[s]}`,

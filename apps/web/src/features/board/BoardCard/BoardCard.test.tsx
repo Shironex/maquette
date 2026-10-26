@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useProvidersStore } from '@/state/use-providers-store';
-import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
+import { useLibraryStore } from '@/state/use-library-store';
+import { clearMocks, openMockLibrary, openMockWorkspace } from '@/test/mock-ipc';
 import { fakeBoardEnv, mockAsset } from '../fakeBoardEnv';
 import BoardCard from './BoardCard';
 
@@ -68,5 +69,17 @@ describe('BoardCard of a built asset', () => {
     render(<BoardCard asset={mockAsset('Laptop')} board={fakeBoardEnv()} />);
     expect(screen.queryByText('Script changed')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Rebuild' })).toBeNull();
+  });
+
+  it('shows an update waiting in the library and opens its plan', async () => {
+    await openMockLibrary('demo');
+    await useLibraryStore.getState().load();
+    render(<BoardCard asset={mockAsset('Character')} board={fakeBoardEnv()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Update to v3' }));
+    expect(useLibraryStore.getState().updating).toEqual({
+      project: 'moon-island',
+      asset: 'character',
+    });
+    useLibraryStore.setState({ view: null, updating: null, plan: null });
   });
 });
