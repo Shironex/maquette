@@ -13,7 +13,12 @@ File names are the lowercase snake case of the collection or object name,
 for example "Shop House" becomes web/raw/shop_house.glb. Objects and
 materials Build scene tagged "maquette_name" (Blender renamed them on
 import, "palette.001") export under the name their model file gives, so
-names an app looks up ("lid", "screen") ship as the model has them. Cameras and lights
+names an app looks up ("lid", "screen") ship as the model has them. When
+several of one model's materials want the same name (the bake gives each
+baked object its own copy of a shared material) the first keeps it and the
+others ship as "<name>_2", "<name>_3". The pipeline's own custom properties
+("maquette_skip_bake" and the like) are removed, so no file carries them as
+extras. Cameras and lights
 are never exported. Geometry stays uncompressed (no Draco): the Compress
 step applies meshopt and KTX2 from the presets.
 
@@ -52,6 +57,8 @@ MODELS = "Models"
 STUDIO = "Studio"
 EXPORTED_TYPES = {"MESH", "EMPTY", "ARMATURE", "CURVE", "SURFACE", "META", "FONT"}
 SOURCE_NAME = "maquette_name"
+# The pipeline's own tags start with this; none of them ships.
+TAG_PREFIX = "maquette_"
 
 
 def log(message):
@@ -198,31 +205,71 @@ def take_source_names():
     return found
 
 
+def shipped_names(items, originals):
+    """What each item ships as: its file's name, or its own when it has
+    none. Blender keeps names unique, so when several items of one export
+    want the same name (the bake gives every baked object its own copy of a
+    shared material) the first keeps it and the others get "_2", "_3"."""
+    taken = set()
+    names = []
+    for item in items:
+        base = originals.get(item.as_pointer()) or item.name
+        name, n = base, 2
+        while name in taken:
+            name, n = f"{base}_{n}", n + 1
+        taken.add(name)
+        names.append(name)
+    return names
+
+
 def own_names(objects, originals):
-    """Gives these objects and their materials their file's names for one
-    export, moving whoever holds a name aside. Returns how to undo it."""
-    items = list(objects)
+    """Gives these objects and their materials the names they ship with for
+    one export. A datablock outside the export that holds one of those
+    names steps aside under a name that never ships. Returns how to undo
+    it."""
+    materials = []
     for obj in objects:
         for slot in getattr(obj, "material_slots", []):
-            if slot.material is not None and slot.material not in items:
-                items.append(slot.material)
+            if slot.material is not None and slot.material not in materials:
+                materials.append(slot.material)
     undo = []
-    for item in items:
-        want = originals.get(item.as_pointer())
-        if not want or item.name == want:
-            continue
-        pool = bpy.data.objects if isinstance(item, bpy.types.Object) else bpy.data.materials
-        holder = pool.get(want)
-        if holder is not None:
-            undo.append((holder, holder.name))
-            holder.name = f"{want}.maquette_aside"
-        undo.append((item, item.name))
-        item.name = want
+    for pool, items in ((bpy.data.objects, list(objects)), (bpy.data.materials, materials)):
+        wanted = shipped_names(items, originals)
+        moving = [(item, name) for item, name in zip(items, wanted) if item.name != name]
+        # First every mover lets go of its name, so the names can swap.
+        for i, (item, _) in enumerate(moving):
+            undo.append((item, item.name))
+            item.name = f"export_tmp_{i}"
+        inside = set(items)
+        for _, name in moving:
+            holder = pool.get(name)
+            if holder is not None and holder not in inside:
+                undo.append((holder, holder.name))
+                holder.name = f"{name}.held"
+        for item, name in moving:
+            item.name = name
     return undo
 
 
+def drop_tags():
+    """Removes the pipeline's own custom properties ("maquette_skip_bake"
+    and the like) from every object and material, so they do not ship as
+    glTF extras."""
+    for pool in (bpy.data.objects, bpy.data.materials):
+        for item in pool:
+            for key in [k for k in item.keys() if k.startswith(TAG_PREFIX)]:
+                del item[key]
+
+
 def undo_names(undo):
-    for item, name in reversed(undo):
+    """Puts every name back. All of them let go first, so none collides."""
+    first = {}
+    for item, name in undo:
+        first.setdefault(item.as_pointer(), (item, name))
+    restore = list(first.values())
+    for i, (item, _) in enumerate(restore):
+        item.name = f"export_undo_{i}"
+    for item, name in restore:
         item.name = name
 
 
@@ -273,6 +320,7 @@ def main():
         if old.endswith(".glb"):
             os.remove(os.path.join(args.out, old))
     originals = take_source_names()
+    drop_tags()
     names = set()
     for name, objects in found:
         unique, n = name, 2

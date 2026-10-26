@@ -18,6 +18,8 @@ pub mod prepare;
 pub mod project;
 pub mod providers;
 pub mod site;
+#[cfg(test)]
+mod test_blender;
 pub mod thumbs;
 pub mod toolchain;
 pub mod workspace;

@@ -74,6 +74,10 @@ const OLDER: &[(&str, &str)] = &[
         "fd77207200db5c9daa23784af02a2e18a315a325304f0b7756c54839a8c6f851",
     ),
     (
+        "tools/export_web.py",
+        "983da9e6089c66ecc51e6e92e7069be7f0c5d9bafb0d6903f1c3c9117f05a838",
+    ),
+    (
         "tools/render_stops.py",
         "25e9477fc998ed5aa290bf095d91b9faf3e667cadc5a11145231290ea04fd153",
     ),
@@ -359,5 +363,7 @@ pub fn update(
     Ok(after)
 }
 
+#[cfg(test)]
+mod export_tests;
 #[cfg(test)]
 mod tests;
