@@ -120,6 +120,7 @@ fn a_scene_gets_the_character_row_only_with_a_character() {
         thumbnail: None,
         created_at: String::new(),
         updated_at: String::new(),
+        origin: None,
     };
     let mut manifest = ProjectManifest {
         version: 1,

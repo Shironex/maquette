@@ -36,6 +36,7 @@ fn manifest(dir: &Path) -> ProjectManifest {
             thumbnail: None,
             created_at: at.clone(),
             updated_at: at,
+            origin: None,
         }],
     }
 }

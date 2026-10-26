@@ -27,6 +27,7 @@ fn asset(id: &str, file: &str) -> Asset {
         thumbnail: None,
         created_at: "2026-10-24T09:30:00.000Z".into(),
         updated_at: "2026-10-24T09:30:00.000Z".into(),
+        origin: None,
     }
 }
 

@@ -13,6 +13,7 @@ pub mod inbox;
 pub mod inspect;
 mod json;
 pub mod layout;
+pub mod library;
 pub mod materials;
 pub mod motion;
 pub mod page;
@@ -29,7 +30,9 @@ pub mod toolchain;
 pub mod workspace;
 
 pub use app_state::AppState;
-pub use assets::{Asset, AssetKind, AssetStatus, AssetVersion, ModelStats, NewAsset, Stage};
+pub use assets::{
+    Asset, AssetKind, AssetOrigin, AssetStatus, AssetVersion, ModelStats, NewAsset, Stage,
+};
 pub use error::{CoreError, CoreResult, ErrorPayload};
 pub use game::{GameFormat, GameSettings, ProjectTarget};
 pub use project::{
@@ -137,6 +140,20 @@ pub fn types() -> specta::Types {
         .register::<AssetKind>()
         .register::<AssetStatus>()
         .register::<AssetVersion>()
+        .register::<AssetOrigin>()
+        .register::<library::LibrarySource>()
+        .register::<library::VersionFrom>()
+        .register::<library::LibraryVersion>()
+        .register::<library::LibraryEntry>()
+        .register::<library::LibraryUse>()
+        .register::<library::LibraryItem>()
+        .register::<library::LibraryView>()
+        .register::<library::AddToLibrary>()
+        .register::<library::LibraryAdded>()
+        .register::<library::LibraryUsed>()
+        .register::<library::SettingChange>()
+        .register::<library::UpdatePlan>()
+        .register::<library::LibraryUpdated>()
         .register::<ModelStats>()
         .register::<NewAsset>()
         .register::<Stage>()
@@ -281,6 +298,11 @@ mod tests {
             "AssetKind",
             "AssetStatus",
             "AssetVersion",
+            "AssetOrigin",
+            "LibrarySource",
+            "LibraryEntry",
+            "LibraryView",
+            "UpdatePlan",
             "ModelStats",
             "NewAsset",
             "Stage",

@@ -108,6 +108,20 @@ pub struct Asset {
     pub thumbnail: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    /// The library entry and version this asset was copied from, when it
+    /// came from the library. The project owns its copy either way; the
+    /// origin only says where to look for an update. Older files have none.
+    #[serde(default)]
+    pub origin: Option<AssetOrigin>,
+}
+
+/// Where a Board asset came from in the library: the entry id and the
+/// library version its newest model is.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetOrigin {
+    pub entry: String,
+    pub version: u32,
 }
 
 /// The asset an exported model comes from, by its GLB file stem: the asset
@@ -256,6 +270,7 @@ pub fn add(manifest: &mut ProjectManifest, new: NewAsset) -> CoreResult<Asset> {
         thumbnail: None,
         created_at: now.clone(),
         updated_at: now,
+        origin: None,
     };
     manifest.assets.push(asset.clone());
     Ok(asset)

@@ -46,7 +46,7 @@ pub(crate) fn is_ref_of(stem: &str, key: &str) -> bool {
 
 /// The asset's refs in `project_dir`: the ones it was sent with, its card
 /// picture and the files named after it, each once.
-fn refs_of(project_dir: &Path, asset: &Asset, sent: &[String]) -> Vec<String> {
+pub(crate) fn refs_of(project_dir: &Path, asset: &Asset, sent: &[String]) -> Vec<String> {
     let mut refs: Vec<String> = sent.to_vec();
     refs.extend(asset.thumbnail.iter().cloned());
     let wanted = key(&asset.id);
@@ -82,13 +82,17 @@ fn renamed_version(file: &str, id: &str, version: u32) -> String {
     format!("{dir}/{}_v{version}.{ext}", key(id))
 }
 
-fn thumb_of(id: &str, version: u32) -> String {
+pub(crate) fn thumb_of(id: &str, version: u32) -> String {
     format!("thumbs/{}_v{version}.png", key(id))
 }
 
 /// A name and id free in `manifest` whose model files and thumbnails are
 /// free on disk too: the name itself, else "Clay bowl 2", "Clay bowl 3".
-fn free_name(manifest: &ProjectManifest, to_dir: &Path, asset: &Asset) -> (String, String) {
+pub(crate) fn free_name(
+    manifest: &ProjectManifest,
+    to_dir: &Path,
+    asset: &Asset,
+) -> (String, String) {
     let taken = |name: &str| {
         let id = slugify(name);
         manifest
@@ -113,7 +117,7 @@ fn free_name(manifest: &ProjectManifest, to_dir: &Path, asset: &Asset) -> (Strin
     (name, id)
 }
 
-fn copy_file(from: &Path, to: &Path) -> CoreResult<()> {
+pub(crate) fn copy_file(from: &Path, to: &Path) -> CoreResult<()> {
     if let Some(parent) = to.parent() {
         fs::create_dir_all(parent).map_err(|e| CoreError::io(parent, e))?;
     }
