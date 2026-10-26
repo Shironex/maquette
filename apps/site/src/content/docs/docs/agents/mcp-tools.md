@@ -15,7 +15,7 @@ These look at the workspace and change nothing.
 
 | Tool                                          | What it returns                                                                                                                        | Spends  | Approval |
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------- |
-| [`list_projects`](#list_projects)             | Every project: template, site repo, asset count, what runs in it and which is open in the app                                          | Nothing | No       |
+| [`list_projects`](#list_projects)             | Every project: template, target (website or game), site or game repo, asset count, what runs in it and which is open in the app        | Nothing | No       |
 | `get_project`                                 | One project's manifest: name, template, site repo, source folder and its Board assets with every version                               | Nothing | No       |
 | `list_assets`                                 | A project's Board assets: kind, stage, status, version count and the latest version's file and stats. Takes an optional `stage` filter | Nothing | No       |
 | [`get_pipeline`](#get_pipeline)               | Steps, validation issues, compression presets, model sizes, the run in progress and the latest runs                                    | Nothing | No       |
@@ -35,6 +35,9 @@ These look at the workspace and change nothing.
 | `get_motion`                                  | Every model's rig, clips and parts, and what the clips weigh inside the scene budget                                                   | Nothing | No       |
 | `list_built_assets`                           | Each built asset's script, helpers, state and last build                                                                               | Nothing | No       |
 | `get_page_preview`                            | The site dev server's state, address, command, who started it and its last log lines                                                   | Nothing | No       |
+| `get_game`                                    | A game project's settings and each model against its folder's budget                                                                   | Nothing | No       |
+| `scan_game_models`                            | Every model in a game project's model folder with its numbers, budget check and the asset it was imported as                           | Nothing | No       |
+| `get_ship_plan`                               | What Ship would write into the game: new, replaced, unchanged and hand made files, with the checks                                     | Nothing | No       |
 
 `preview_fixups` is read only too: it runs an asset's saved fix-ups headless on a copy and returns the numbers before and after each. It spends nothing.
 
@@ -56,6 +59,8 @@ These look at the workspace and change nothing.
 | `star_concepts`                                       | Stars or unstars Lab concepts                                                          | Nothing | No       |
 | [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                             | Nothing | No       |
 | `copy_asset`                                          | Copies an asset with its refs and versions to another project                          | Nothing | No       |
+| `import_game_models`                                  | Imports models from the game repo, each as an asset whose version 1 is the repo file   | Nothing | No       |
+| `set_game_settings`                                   | Changes a game's format, model folder, export, bake and folder budgets                 | Nothing | No       |
 | `add_built_asset`                                     | Adds a model a Blender script in the project makes, and builds it headless             | Nothing | No       |
 | `rebuild_built_asset`                                 | Builds one built asset again, or every new or stale one                                | Nothing | No       |
 | `render_thumbnail`                                    | Renders a studio thumbnail of a model with headless Blender and returns the PNG's path | Nothing | No       |
@@ -65,16 +70,16 @@ These look at the workspace and change nothing.
 
 ## Spends credits or Codex usage, or needs approval
 
-| Tool                            | What it does                                                        | Spends                                              | Approval                                         |
-| ------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------ |
-| [`run_pipeline`](#run_pipeline) | Runs a project's pipeline, optionally from a step                   | Nothing                                             | At the Ship step, when Ask before shipping is on |
-| [`send_to_3d`](#send_to_3d)     | Sends an asset's refs to Tripo or Meshy, or writes a By hand folder | Credits for Tripo and Meshy. By hand spends nothing | Always, for Tripo and Meshy                      |
-| `send_batch_to_3d`              | Sends up to 24 assets at once with the same provider                | Credits for Tripo and Meshy                         | One approval for the whole batch                 |
-| `redo_inbox_model`              | Sends an inbox model's asset again, prefilled from its send         | Credits for Tripo and Meshy                         | Always, for Tripo and Meshy                      |
-| `redo_inbox_models`             | Redoes several inbox models from one project as one batch           | Credits for Tripo and Meshy                         | One approval for the whole batch                 |
-| `start_concepts`                | Starts concept image jobs in the Lab                                | Codex usage                                         | No                                               |
-| `make_object_refs`              | Makes one isolated image per object of a concept                    | Codex usage                                         | No                                               |
-| `retry_concept_jobs`            | Runs failed or cancelled Lab jobs again                             | Codex usage                                         | No                                               |
+| Tool                            | What it does                                                        | Spends                                              | Approval                                                                  |
+| ------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
+| [`run_pipeline`](#run_pipeline) | Runs a project's pipeline, optionally from a step                   | Nothing                                             | At the Ship step, when Ask before shipping is on or the project is a game |
+| [`send_to_3d`](#send_to_3d)     | Sends an asset's refs to Tripo or Meshy, or writes a By hand folder | Credits for Tripo and Meshy. By hand spends nothing | Always, for Tripo and Meshy                                               |
+| `send_batch_to_3d`              | Sends up to 24 assets at once with the same provider                | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
+| `redo_inbox_model`              | Sends an inbox model's asset again, prefilled from its send         | Credits for Tripo and Meshy                         | Always, for Tripo and Meshy                                               |
+| `redo_inbox_models`             | Redoes several inbox models from one project as one batch           | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
+| `start_concepts`                | Starts concept image jobs in the Lab                                | Codex usage                                         | No                                                                        |
+| `make_object_refs`              | Makes one isolated image per object of a concept                    | Codex usage                                         | No                                                                        |
+| `retry_concept_jobs`            | Runs failed or cancelled Lab jobs again                             | Codex usage                                         | No                                                                        |
 
 ## The main tools
 
@@ -104,7 +109,7 @@ Reads a project's steps and their dependencies, validation issues, the compressi
 
 Runs a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no `from`) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails. It waits up to `waitSeconds`, then answers with the run's status. The run carries on either way.
 
-With Ask before shipping on, the run stops before Ship and answers `waiting for approval` until you approve or deny it in the app. Poll [`get_run`](#get_run) instead of starting the run again.
+With Ask before shipping on, and always in a [game project](/docs/start/game-projects/), the run stops before Ship and answers `waiting for approval` until you approve or deny it in the app. Poll [`get_run`](#get_run) instead of starting the run again.
 
 | Parameter     | Type    | Required | Notes                                                                 |
 | ------------- | ------- | -------- | --------------------------------------------------------------------- |

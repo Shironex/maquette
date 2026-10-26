@@ -26,3 +26,7 @@ Compression presets sets the texture size, codec and meshopt level per model, as
 ## Starter scripts
 
 A new project gets small, commented scripts in `tools/`, so it runs end to end on day one. They are the project's to edit, and Maquette never writes over a file that exists on its own. When newer starters ship, the view says "New starter scripts available" and Update brings the untouched ones up to date. An edited script is never overwritten silently: choose Replace with the new starter (your file is kept as `<name>.py.bak`) or Keep mine.
+
+## Game projects
+
+A [game project](/docs/start/game-projects/) runs Build models, Bake light (off by default), Export, Game export and Ship. The Game export panel takes the place of the compression presets, and when Ship waits the view opens the Ship diff with Approve and ship and Deny.

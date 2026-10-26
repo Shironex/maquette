@@ -14,7 +14,12 @@ export const DOCS_HOME = 'docs';
 export const DOCS_GROUPS: readonly DocsGroup[] = [
   {
     label: 'Start',
-    slugs: ['docs/start/install', 'docs/start/first-project', 'docs/start/website-projects'],
+    slugs: [
+      'docs/start/install',
+      'docs/start/first-project',
+      'docs/start/website-projects',
+      'docs/start/game-projects',
+    ],
   },
   {
     label: 'Views',

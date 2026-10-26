@@ -26,3 +26,7 @@ The first view is what the first stop loads before the visitor moves. Its size i
 ## Paths
 
 The Paths tab draws cables, pipes and trails through the scene, anchored to models if you like, that the site lights up as the page scrolls. See [Paths](/docs/views/paths/).
+
+## Game projects
+
+A [game project](/docs/start/game-projects/) has no scene to lay out, so its Inspector shows Compare and Budget instead of Layout and Paths. Budget lists every model against its folder's budget, changes each folder's numbers and adds the fix-ups for the models over.
