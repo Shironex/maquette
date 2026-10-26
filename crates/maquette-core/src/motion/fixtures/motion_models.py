@@ -250,7 +250,8 @@ def cabinet(scene, out):
         scene,
     )
     door.data.materials.append(metal)
-    door.location = (-0.29, -0.215, 0.6)
+    # The door closes in front of the breakers, which stand a little proud of the body.
+    door.location = (-0.29, -0.26, 0.6)
     for i in range(6):
         row, col = divmod(i, 3)
         part = bpy.data.objects.new(
@@ -258,7 +259,7 @@ def cabinet(scene, out):
             box_data(f"Breaker {i + 1}", (0.08, 0.06, 0.16)),
         )
         part.data.materials.append(cream)
-        part.location = (-0.15 + col * 0.15, -0.17, 0.9 - row * 0.3)
+        part.location = (-0.15 + col * 0.15, -0.21, 0.9 - row * 0.3)
         link(part, scene)
     export(out, use_animation=False)
 
