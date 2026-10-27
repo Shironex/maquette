@@ -102,6 +102,8 @@ export interface BudgetSummary {
   overTriangles: number;
   /** How many are over their folder's texture size (a model can be both). */
   overTextures: number;
+  /** The game's budget per folder, which the counts are against. */
+  folders: FolderBudget[];
 }
 
 /** How many models the folder budgets check, which are over, and on what. */
@@ -118,6 +120,7 @@ export function budgetSummary(project: ProjectManifest | null | undefined): Budg
     over: over.map(c => c.asset),
     overTriangles: over.filter(c => c.check.triangles > c.check.maxTriangles).length,
     overTextures: over.filter(c => c.check.texture > c.check.maxTexture).length,
+    folders: settings.budgets,
   };
 }
 

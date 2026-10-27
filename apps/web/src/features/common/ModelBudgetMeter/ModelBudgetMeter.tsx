@@ -1,4 +1,5 @@
 import { Tooltip, cn } from '@maquette/ui';
+import { formatK } from '@/lib/format';
 import type { BudgetSummary } from '@/state/game';
 
 export interface ModelBudgetMeterProps {
@@ -13,18 +14,20 @@ export interface ModelBudgetMeterProps {
 export default function ModelBudgetMeter({ summary }: ModelBudgetMeterProps) {
   const over = summary.over.length;
   const names = summary.over.map(a => a.name).join(', ');
-  const limits =
-    'The limits are per folder (props start at 12k triangles and 1024 px), not the Tris per model setting the Inbox check reads. Change them in Inspector > Budget.';
+  const folders = summary.folders
+    .map(f => `${f.folder || 'top level'} ${formatK(f.triangles)} triangles, ${f.texture} px`)
+    .join('; ');
+  const limits = `The game's folder budgets: ${folders}. The Inbox check reads the Tris per model setting instead. Add the fix-ups (Decimate, Shrink textures) in Inspector > Budget to bring models under.`;
   const label = over
-    ? `${over} of ${summary.models} models are over their folder's budget: ${summary.overTriangles} on triangles, ${summary.overTextures} on texture size (${names}). ${limits}`
-    : `Every model fits its folder's budget. ${limits}`;
+    ? `Over the game budget: ${over} of ${summary.models} models, ${summary.overTriangles} on triangles and ${summary.overTextures} on texture size (${names}). ${limits}`
+    : `Every model fits the game budget. ${limits}`;
   const fill = summary.models ? ((summary.models - over) / summary.models) * 100 : 0;
   return (
     <Tooltip label={label} wrap side="bottom">
       <span tabIndex={0} className="rounded-control">
         <div className="flex min-w-42 flex-col gap-[5px]">
           <div className="flex items-baseline justify-between gap-3 text-[12px] leading-[14px] text-fg-mute">
-            <span>Folder budgets</span>
+            <span>Game budget</span>
             <span className={cn('font-mono text-[12px]', over ? 'text-amber' : 'text-fg')}>
               {over} over{' '}
               <span className="text-fg-mute">
@@ -34,7 +37,7 @@ export default function ModelBudgetMeter({ summary }: ModelBudgetMeterProps) {
           </div>
           <div
             role="meter"
-            aria-label={`Folder budgets, ${over} of ${summary.models} models over`}
+            aria-label={`Game budget, ${over} of ${summary.models} models over`}
             aria-valuenow={summary.models - over}
             aria-valuemin={0}
             aria-valuemax={summary.models}
