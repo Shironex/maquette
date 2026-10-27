@@ -12,6 +12,7 @@
  * (./props.ts) and the camera's motion between stops (./cameras.ts).
  */
 
+import { withBase } from '../lib/with-base';
 import { withMotion, type CameraStop } from './cameras';
 import { fromLayout, type SiteExtras } from './layout';
 import { PROP_EXTRAS } from './props';
@@ -221,7 +222,7 @@ export const PATHS: readonly ScenePath[] = shipped.paths;
 export const PATH_TRACKS: Record<string, PathTrack> = SHIPPED.layout.timeline?.paths ?? {};
 
 export function modelUrl(file: string): string {
-  return `/scene/models/${file}`;
+  return withBase(`/scene/models/${file}`);
 }
 
 /**

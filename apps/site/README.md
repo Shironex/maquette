@@ -7,13 +7,15 @@ Astro builds it to static HTML. The 3D scene is one React island (React Three Fi
 ## Run and build
 
 ```sh
-pnpm dev:site                          # http://localhost:15292
+pnpm dev:site                          # http://localhost:15292/maquette/
 pnpm build:site                        # static output in apps/site/dist
 pnpm --filter @maquette/site preview   # serve the build
 pnpm --filter @maquette/site typecheck # astro check
 ```
 
 `pnpm test` at the root runs the site tests with the others, and `pnpm gate` builds the site.
+
+GitHub Pages serves the site under `/maquette/`, the path of `SITE_URL` (`src/lib/site-url.ts`), so that is the `base` in dev and preview too. A root path in a page or the scene goes through `withBase` (`src/lib/with-base.ts`); the docs Markdown keeps root links (`/docs/...`) and `src/lib/base-links.ts` puts them under the base. `.github/workflows/pages.yml` builds and deploys the site on a push to `main`.
 
 ## How the page works
 
@@ -24,7 +26,7 @@ pnpm --filter @maquette/site typecheck # astro check
 - The stage shows the poster of the current stop first. After the page has loaded, on a fine pointer at 1024 px wide or more with WebGL 2 and without reduced motion, the script imports `src/scene/mount.tsx`, which renders the scene. The poster stays until the scene says it is ready, and comes back if WebGL fails or the context is lost.
 - With reduced motion, and on phones, there is no 3D download: reduced motion keeps the poster per stop, swapped without a fade as the sections pass; phones get the hero poster and the stops are left to the pipeline section.
 - In Maquette's Page view, `src/scene/bridge.ts` follows the stop scrubber: after the app says hello it answers with the stops (the hero, then the tour), scrolls to a fractional stop on `goto` with `scrollForProgress` (`src/scene/progress.ts`), reports where the scroll is and the frame time about once a second. `?maquette-poster=1` keeps the poster version. The messages are listed in the root README under Page view; outside a frame the bridge stays off.
-- Models load in the order the current stop needs them (`loadOrder` in the manifest), three at a time, through one GLTF loader with meshopt and KTX2. The Basis transcoder comes from the `three` package: the dev server serves it and the build writes it to `dist/basis/`.
+- Models load in the order the current stop needs them (`loadOrder` in the manifest), three at a time, through one GLTF loader with meshopt and KTX2. The Basis transcoder comes from the `three` package: the dev server serves it and the build writes it to `dist/basis/`, both under the base.
 
 ## Manifest
 

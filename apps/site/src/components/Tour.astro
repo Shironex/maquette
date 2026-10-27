@@ -1,4 +1,5 @@
 ---
+import { withBase } from '../lib/with-base';
 /**
  * The hero and the six stop tour. On desktop the stage (the 3D island, or a
  * poster per stop without it) pins to the window while one screen tall
@@ -30,18 +31,18 @@ const side = (index: number) => STOP_MOTION[STOP_IDS[index] ?? 'hero'].copy ?? '
       <picture>
         <source
           media="(max-width: 899px)"
-          srcset="/scene/posters/hero-mobile.webp"
+          srcset={withBase('/scene/posters/hero-mobile.webp')}
           width="780"
           height="966"
         />
         <source
-          srcset="/scene/posters/stop-0-960.webp 960w, /scene/posters/stop-0-1920.webp 1920w"
+          srcset={`${withBase('/scene/posters/stop-0-960.webp')} 960w, ${withBase('/scene/posters/stop-0-1920.webp')} 1920w`}
           sizes="100vw"
         />
         <img
           class="poster is-shown"
           data-poster="0"
-          src="/scene/posters/stop-0-1920.webp"
+          src={withBase('/scene/posters/stop-0-1920.webp')}
           width="1920"
           height="912"
           alt=""
@@ -54,7 +55,7 @@ const side = (index: number) => STOP_MOTION[STOP_IDS[index] ?? 'hero'].copy ?? '
           <img
             class="poster later"
             data-poster={i + 1}
-            data-src={`/scene/posters/${name}-1920.webp`}
+            data-src={withBase(`/scene/posters/${name}-1920.webp`)}
             width="1920"
             height="912"
             alt=""

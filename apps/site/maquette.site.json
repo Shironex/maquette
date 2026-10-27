@@ -5,6 +5,6 @@
   "data": "src/scene/shipped.json",
   "preview": {
     "command": ["pnpm", "dev"],
-    "url": "http://localhost:15292/"
+    "url": "http://localhost:15292/maquette/"
   }
 }

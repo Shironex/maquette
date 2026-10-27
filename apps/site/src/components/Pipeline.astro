@@ -1,4 +1,5 @@
 ---
+import { withBase } from '../lib/with-base';
 import Figure from './Figure.astro';
 import SectionHead from './SectionHead.astro';
 import { STAGES } from '../content/copy';
@@ -27,7 +28,7 @@ const total = String(STAGES.length).padStart(2, '0');
               <div class="stage-copy">
                 <div class="stage-meta">
                   <img
-                    src={`/scene/posters/stop-${i + 1}-thumb.webp`}
+                    src={withBase(`/scene/posters/stop-${i + 1}-thumb.webp`)}
                     width="192"
                     height="108"
                     alt=""

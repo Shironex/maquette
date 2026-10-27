@@ -2,6 +2,7 @@
  * The page's words, kept apart from layout so the tour panels, the timeline
  * and the pipeline section stay in step. Plain and short; no dashes.
  */
+import { withBase } from '../lib/with-base';
 import type { StopId } from '../scene/manifest';
 
 export interface TourStop {
@@ -68,7 +69,7 @@ export interface Shot {
 }
 
 const screen = (name: string, width = 1440, height = 900) => ({
-  src: `/scene/screens/${name}.webp`,
+  src: withBase(`/scene/screens/${name}.webp`),
   width,
   height,
 });

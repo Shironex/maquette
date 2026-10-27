@@ -1,9 +1,9 @@
 /**
- * Serves three's Basis transcoder at /basis/ in dev and emits it there in
- * the build, straight from the installed three package, so the site keeps
- * no copy of its own and the transcoder always matches the loader. The
- * loader's bundled default URLs are blanked by the web app's plugin, so the
- * build ships one copy only.
+ * Serves three's Basis transcoder at basis/ under the site's base in dev and
+ * emits it there in the build, straight from the installed three package, so
+ * the site keeps no copy of its own and the transcoder always matches the
+ * loader. The loader's bundled default URLs are blanked by the web app's
+ * plugin, so the build ships one copy only.
  */
 import { createReadStream, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -33,12 +33,15 @@ export function basisTranscoder(): Plugin[] {
   const serve: Plugin = {
     name: 'maquette-site:basis-transcoder',
     configureServer(server) {
-      server.middlewares.use('/basis/', (req, res, next) => {
-        const name = (req.url ?? '').split('?')[0]?.replace(/^\//, '') ?? '';
-        if (!isTranscoderFile(name)) return next();
-        res.setHeader('Content-Type', FILES[name]);
-        createReadStream(resolve(dir, name)).pipe(res);
-      });
+      server.middlewares.use(
+        `${server.config.base.replace(/\/+$/, '')}/basis/`,
+        (req, res, next) => {
+          const name = (req.url ?? '').split('?')[0]?.replace(/^\//, '') ?? '';
+          if (!isTranscoderFile(name)) return next();
+          res.setHeader('Content-Type', FILES[name]);
+          createReadStream(resolve(dir, name)).pipe(res);
+        }
+      );
     },
     generateBundle(options) {
       // Astro also runs a server build; only the client build needs the files.

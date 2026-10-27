@@ -11,6 +11,7 @@
 import { mkdir } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { SITE_URL } from '../src/lib/site-url.ts';
 
 const root = resolve(import.meta.dirname, '..');
 const importable = spec => (isAbsolute(spec) ? pathToFileURL(spec).href : spec);
@@ -22,7 +23,8 @@ if (shots) await mkdir(shots, { recursive: true });
 
 // Port 0 asks for a free one, so a running dev server is left alone.
 const server = await dev({ root, logLevel: 'error', server: { port: 0 } });
-const base = `http://localhost:${server.address.port}/`;
+// The site lives under the path of SITE_URL, astro.config's base.
+const base = `http://localhost:${server.address.port}${new URL(SITE_URL).pathname}/`;
 const browser = await chromium.launch({
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });

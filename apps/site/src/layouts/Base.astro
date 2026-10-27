@@ -1,4 +1,6 @@
 ---
+import { withBase } from '../lib/with-base';
+import { absoluteUrl } from '../lib/site-url';
 import '../styles/global.css';
 
 interface Props {
@@ -21,10 +23,10 @@ const { title, description } = Astro.props;
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content="/scene/posters/stop-0-1920.webp" />
+    <meta property="og:image" content={absoluteUrl('/scene/posters/stop-0-1920.webp')} />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="icon" href="/icon-64.png" sizes="64x64" type="image/png" />
-    <link rel="apple-touch-icon" href="/icon-256.png" />
+    <link rel="icon" href={withBase('/icon-64.png')} sizes="64x64" type="image/png" />
+    <link rel="apple-touch-icon" href={withBase('/icon-256.png')} />
     <slot name="head" />
   </head>
   <body>

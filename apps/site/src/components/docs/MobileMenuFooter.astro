@@ -1,8 +1,9 @@
 ---
+import { withBase } from '../../lib/with-base';
 import { NAV } from '../../content/copy';
 
 // The site's own links, which the header leaves out at phone width.
-const link = (href: string) => (href.startsWith('#') ? `/${href}` : href);
+const link = (href: string) => withBase(href.startsWith('#') ? `/${href}` : href);
 ---
 
 <nav class="site-links" aria-label="Site">

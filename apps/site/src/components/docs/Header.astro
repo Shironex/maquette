@@ -1,4 +1,5 @@
 ---
+import { withBase } from '../../lib/with-base';
 import { Icon } from '@maquette/ui';
 import Search from '@astrojs/starlight/components/Search.astro';
 import Brand from '../Brand.astro';
@@ -6,11 +7,11 @@ import { NAV } from '../../content/copy';
 
 // The landing page's header on the docs pages: its links point back at the
 // page's sections, and Docs is the current one.
-const link = (href: string) => (href.startsWith('#') ? `/${href}` : href);
+const link = (href: string) => withBase(href.startsWith('#') ? `/${href}` : href);
 ---
 
 <div class="bar">
-  <Brand size={32} wordSize={22} href="/" />
+  <Brand size={32} wordSize={22} href={withBase('/')} />
   <div class="search"><Search /></div>
   <span class="grow"></span>
   <ul class="links">
@@ -24,7 +25,7 @@ const link = (href: string) => (href.startsWith('#') ? `/${href}` : href);
       ))
     }
   </ul>
-  <a class="btn btn-primary btn-sm cta" href="/#download">
+  <a class="btn btn-primary btn-sm cta" href={withBase('/#download')}>
     Download for Mac<Icon name="download-simple" size={16} />
   </a>
 </div>

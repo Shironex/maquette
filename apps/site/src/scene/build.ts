@@ -5,6 +5,7 @@
  * place is only moved back by the point it already stands at.
  */
 import * as THREE from 'three';
+import { withBase } from '../lib/with-base';
 import type { ModelEntry } from './manifest';
 import { prepareModel } from './prepare-model';
 import { addSweep, type Sweep } from './sweep';
@@ -23,7 +24,7 @@ const textures = new Map<string, THREE.Texture>();
 function screenTexture(path: string): THREE.Texture {
   let texture = textures.get(path);
   if (!texture) {
-    texture = new THREE.TextureLoader().load(path);
+    texture = new THREE.TextureLoader().load(withBase(path));
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 4;
     textures.set(path, texture);

@@ -1,7 +1,6 @@
 /**
- * The public URL of the site, with its path. The site is served from the root
- * of its dev server and `maquette.site.json` ships into root paths, so no
- * `base` is set; links that must be absolute are built from this instead.
+ * The public URL of the site, with its path. astro.config sets that path
+ * (/maquette/) as `base`; links that must be absolute are built from this.
  */
 export const SITE_URL = 'https://shironex.github.io/maquette';
 

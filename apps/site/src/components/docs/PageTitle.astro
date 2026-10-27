@@ -1,4 +1,5 @@
 ---
+import { withBase } from '../../lib/with-base';
 import CopyMarkdown from './CopyMarkdown.astro';
 import { DOCS_HOME, groupOf, markdownPath } from '../../lib/docs-nav';
 import { lastUpdated, versionLine } from '../../lib/docs-meta';
@@ -7,6 +8,7 @@ const { entry } = Astro.locals.starlightRoute;
 const { title, description } = entry.data;
 const slug = entry.id.replace(/\/index$/, '');
 const home = slug === DOCS_HOME;
+// The 404 page has no Markdown twin.
 const group = groupOf(slug);
 const meta = versionLine(lastUpdated(entry.filePath));
 ---
@@ -21,7 +23,7 @@ const meta = versionLine(lastUpdated(entry.filePath));
   ) : (
     <div class="head">
       <nav class="crumbs" aria-label="Breadcrumb">
-        <a href="/docs/">Docs</a>
+        <a href={withBase('/docs/')}>Docs</a>
         {group && <span aria-hidden="true">/</span>}
         {group && <span>{group.label}</span>}
       </nav>
@@ -29,7 +31,7 @@ const meta = versionLine(lastUpdated(entry.filePath));
       <p class="lead">{description}</p>
       <div class="meta">
         <span class="version">{meta}</span>
-        <CopyMarkdown href={markdownPath(slug)} />
+        {slug.startsWith(DOCS_HOME) && <CopyMarkdown href={withBase(markdownPath(slug))} />}
       </div>
     </div>
   )

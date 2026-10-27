@@ -1,11 +1,12 @@
 ---
+import { withBase } from '../../lib/with-base';
 import Default from '@astrojs/starlight/components/Sidebar.astro';
 ---
 
 <Default />
 <div class="agents">
-  <a href="/llms.txt">/llms.txt</a>
-  <a href="/llms-full.txt">/llms-full.txt</a>
+  <a href={withBase('/llms.txt')}>/llms.txt</a>
+  <a href={withBase('/llms-full.txt')}>/llms-full.txt</a>
 </div>
 
 <style>

@@ -1,21 +1,25 @@
 import { defineConfig } from 'astro/config';
+import { satteri } from '@astrojs/markdown-satteri';
 import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
 import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 import { basisTranscoder } from './vite/basis-transcoder.ts';
 import { DOCS_GROUPS } from './src/lib/docs-nav.ts';
+import { baseLinks } from './src/lib/base-links.ts';
 import { SITE_URL } from './src/lib/site-url.ts';
 
 // Next to the web app's 15190 and its worktree ports; preview uses the same.
 const PORT = 15292;
 
-// The site is served from the root of its dev server, so there is no `base`,
-// and the sitemap would lose the path of SITE_URL without this.
-const withSitePath = (url: string) => url.replace(new URL(SITE_URL).origin, SITE_URL);
+// GitHub Pages serves the site under the path of SITE_URL (/maquette/), so
+// that path is the base in dev and preview too. The trailing slash keeps the
+// sitemap from listing the home page twice.
+const BASE = `${new URL(SITE_URL).pathname.replace(/\/+$/, '')}/`;
 
 export default defineConfig({
   site: SITE_URL,
+  base: BASE,
   output: 'static',
   integrations: [
     react(),
@@ -52,10 +56,11 @@ export default defineConfig({
         },
       },
     }),
-    sitemap({ serialize: item => ({ ...item, url: withSitePath(item.url) }) }),
+    sitemap(),
   ],
   server: { port: PORT },
   build: { inlineStylesheets: 'auto' },
+  markdown: { processor: satteri({ hastPlugins: [baseLinks(BASE)] }) },
   vite: {
     plugins: [tailwindcss(), ...basisTranscoder()],
     server: { fs: { allow: ['../..'] } },

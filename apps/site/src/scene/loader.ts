@@ -1,14 +1,15 @@
 /**
  * Loads the shipped GLBs the way the Maquette app does: meshopt geometry and
- * KTX2 textures through three's Basis transcoder, served at /basis/ (see
- * build/basis-transcoder.ts). Each file loads once; entries that reuse a
- * file get their own clone. Teardown frees the landed files and aborts the
- * fetches still running.
+ * KTX2 textures through three's Basis transcoder, served at basis/ under the
+ * site's base (see vite/basis-transcoder.ts). Each file loads once; entries
+ * that reuse a file get their own clone. Teardown frees the landed files and
+ * aborts the fetches still running.
  */
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { withBase } from '../lib/with-base';
 import { disposeFile, fileGeometries } from './dispose';
 import { modelUrl } from './manifest';
 
@@ -22,7 +23,7 @@ const landed = new Map<string, GLTF>();
 function loader(renderer: THREE.WebGLRenderer): GLTFLoader {
   if (!gltf) {
     manager = new THREE.LoadingManager();
-    ktx2 = new KTX2Loader(manager).setTranscoderPath('/basis/').detectSupport(renderer);
+    ktx2 = new KTX2Loader(manager).setTranscoderPath(withBase('/basis/')).detectSupport(renderer);
     gltf = new GLTFLoader(manager).setMeshoptDecoder(MeshoptDecoder).setKTX2Loader(ktx2);
   }
   return gltf;

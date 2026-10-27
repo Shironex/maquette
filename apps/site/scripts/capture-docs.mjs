@@ -14,6 +14,7 @@
 import { mkdir } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { SITE_URL } from '../src/lib/site-url.ts';
 
 const root = resolve(import.meta.dirname, '..');
 const out = resolve(process.env.OUT_DIR ?? resolve(root, '../../.visual'));
@@ -37,7 +38,8 @@ const PAGES = [
 
 await mkdir(out, { recursive: true });
 const server = await preview({ root, logLevel: 'error', server: { port } });
-const base = `http://localhost:${server.port}`;
+// The site lives under the path of SITE_URL, astro.config's base.
+const base = `http://localhost:${server.port}${new URL(SITE_URL).pathname}`;
 const browser = await chromium.launch();
 
 try {
