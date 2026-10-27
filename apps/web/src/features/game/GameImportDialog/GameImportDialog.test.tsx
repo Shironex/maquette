@@ -21,7 +21,9 @@ describe('GameImportDialog', () => {
     render(<GameImportDialog />);
     const dialog = screen.getByRole('dialog', { name: /Import models from Crypt game/ });
     expect(within(dialog).getByTitle('props/iron_gate.glb')).toHaveTextContent('iron_gate.glb');
-    expect(within(dialog).getByTitle('Over 12k triangles')).toBeInTheDocument();
+    expect(
+      within(dialog).getByTitle('Over 12k triangles, Texture over 1024 px')
+    ).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Import 16 models' })).toBeInTheDocument();
   });
 

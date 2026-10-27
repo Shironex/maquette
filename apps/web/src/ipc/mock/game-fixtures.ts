@@ -39,7 +39,7 @@ const CRYPT_MODELS: readonly RepoModel[] = [
   { file: 'props/chain.glb', triangles: 900, textures: 1, maxTexture: 512, mb: 0.3 },
   { file: 'props/chest.glb', triangles: 5_200, textures: 2, maxTexture: 1024, mb: 1.7 },
   { file: 'props/coffin.glb', triangles: 4_100, textures: 2, maxTexture: 1024, mb: 1.6 },
-  { file: 'props/iron_gate.glb', triangles: 14_600, textures: 2, maxTexture: 1024, mb: 2.2 },
+  { file: 'props/iron_gate.glb', triangles: 14_600, textures: 2, maxTexture: 2048, mb: 2.2 },
   { file: 'props/skull_lamp.glb', triangles: 2_600, textures: 2, maxTexture: 1024, mb: 1.1 },
   { file: 'props/torch.glb', triangles: 1_200, textures: 1, maxTexture: 512, mb: 0.4 },
   {
