@@ -107,10 +107,11 @@ impl Execution {
         self.record.state = RunState::Running;
         self.record.started_at_ms = Some(now_ms());
         self.emit_run();
-        let plan = graph::plan(
+        let plan = graph::plan_run(
             &self.setup.def,
             self.setup.from.as_deref(),
             self.setup.force,
+            self.setup.build_only,
         );
         let planned = match plan {
             Ok(p) => p,
@@ -131,6 +132,11 @@ impl Execution {
                 .unwrap_or_default(),
             if self.setup.force { " · forced" } else { "" }
         );
+        let header = if self.setup.build_only {
+            format!("{header} · build only, stops before Ship")
+        } else {
+            header
+        };
         self.system(None, LogLevel::Info, header);
         let mut hasher = FileHasher::with_memo(&self.setup.cache_dir);
         let mut failure: Option<String> = None;

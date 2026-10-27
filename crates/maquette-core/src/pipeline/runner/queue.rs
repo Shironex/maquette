@@ -149,7 +149,12 @@ impl PipelineRunner {
     /// Fails when the pipeline does not plan (a cycle, an unknown step) or a
     /// worker thread cannot start.
     pub fn submit_with(&self, setup: RunSetup, options: RunOptions) -> CoreResult<RunRecord> {
-        let plan = graph::plan(&setup.def, setup.from.as_deref(), setup.force)?;
+        let plan = graph::plan_run(
+            &setup.def,
+            setup.from.as_deref(),
+            setup.force,
+            setup.build_only,
+        )?;
         let mut lanes = self.inner.lanes();
         let lane = lanes.entry(setup.project.clone()).or_default();
         let number = match lane.next_number {
@@ -170,11 +175,12 @@ impl PipelineRunner {
             project: setup.project.clone(),
             from: setup.from.clone(),
             force: setup.force,
+            build_only: setup.build_only,
             state: RunState::Queued,
             queued_at_ms: now_ms(),
             started_at_ms: None,
             finished_at_ms: None,
-            steps: initial_steps(&setup.def, &plan),
+            steps: initial_steps(&setup.def, &plan, setup.build_only),
             message: None,
         };
         let project = setup.project.clone();
@@ -243,7 +249,11 @@ impl PipelineRunner {
     }
 }
 
-fn initial_steps(def: &PipelineDef, plan: &[(usize, Planned)]) -> Vec<StepRecord> {
+fn initial_steps(
+    def: &PipelineDef,
+    plan: &[(usize, Planned)],
+    build_only: bool,
+) -> Vec<StepRecord> {
     plan.iter()
         .map(|&(i, planned)| {
             let step = &def.steps[i];
@@ -258,7 +268,13 @@ fn initial_steps(def: &PipelineDef, plan: &[(usize, Planned)]) -> Vec<StepRecord
                 started_at_ms: None,
                 duration_ms: None,
                 exit_code: None,
-                message: (planned == Planned::Skip).then(|| "Not part of this run.".to_string()),
+                message: (planned == Planned::Skip).then(|| {
+                    if build_only && super::super::is_ship_step(step) {
+                        "Left out: this run builds only.".to_string()
+                    } else {
+                        "Not part of this run.".to_string()
+                    }
+                }),
                 progress: None,
             }
         })

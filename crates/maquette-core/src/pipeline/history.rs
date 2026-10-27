@@ -80,6 +80,9 @@ pub struct RunRecord {
     /// The step "Run from here" started at.
     pub from: Option<String>,
     pub force: bool,
+    /// The run stopped before Ship.
+    #[serde(default)]
+    pub build_only: bool,
     pub state: RunState,
     pub queued_at_ms: f64,
     pub started_at_ms: Option<f64>,
@@ -221,6 +224,7 @@ mod tests {
             project: "moon".into(),
             from: None,
             force: false,
+            build_only: false,
             state: RunState::Done,
             queued_at_ms: 1.0,
             started_at_ms: Some(2.0),

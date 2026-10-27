@@ -325,6 +325,24 @@ pub enum Planned {
     Skip,
 }
 
+/// [`plan`], with every Ship step skipped when `build_only` is set.
+pub fn plan_run(
+    def: &PipelineDef,
+    from: Option<&str>,
+    force: bool,
+    build_only: bool,
+) -> CoreResult<Vec<(usize, Planned)>> {
+    let mut planned = plan(def, from, force)?;
+    if build_only {
+        for (index, p) in &mut planned {
+            if super::is_ship_step(&def.steps[*index]) {
+                *p = Planned::Skip;
+            }
+        }
+    }
+    Ok(planned)
+}
+
 /// The run plan in dependency order. Without `from`, every step runs. With
 /// `from`, that step is forced and everything that depends on it (directly
 /// or not) runs; other steps are skipped. `force` forces every planned step.

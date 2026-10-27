@@ -202,3 +202,25 @@ fn placeholders_paths_and_kinds() {
     c.kind = StepKind::GltfTransform;
     assert!(errors(&def(vec![c])).is_empty());
 }
+
+#[test]
+fn a_build_only_run_leaves_the_ship_step_out() {
+    let d = def(vec![
+        step("build", &[]),
+        step("ship", &["build"]),
+        step("after", &["ship"]),
+    ]);
+    let full = plan_run(&d, None, false, false).expect("plan");
+    assert!(full.iter().all(|(_, p)| *p == Planned::Run));
+    let built = plan_run(&d, None, false, true).expect("plan");
+    let ship = built
+        .iter()
+        .find(|(i, _)| d.steps[*i].id == "ship")
+        .expect("ship");
+    assert_eq!(ship.1, Planned::Skip);
+    let after = built
+        .iter()
+        .find(|(i, _)| d.steps[*i].id == "after")
+        .expect("after");
+    assert_eq!(after.1, Planned::Run, "only Ship itself is left out");
+}
