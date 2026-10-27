@@ -37,6 +37,7 @@ import { linkForRedo } from './redo-fixtures';
 import { createFakeRunner, type RunStore } from './runner';
 import { clock } from '@/lib/clock';
 import { createAssetHandlers } from './create-asset-handlers';
+import { createTrashHandlers } from './create-trash-handlers';
 import { createBuiltHandlers } from './create-built-handlers';
 import { createInboxHandlers } from './create-inbox-handlers';
 import { createMotionHandlers, motionConfig, seedMotionProjects } from './create-motion-handlers';
@@ -332,6 +333,13 @@ export function createBackend({
       config: { get: () => config, set: next => (config = next) },
     }),
     ...createAssetHandlers({ project, saveProject, root: () => root, files }),
+    ...createTrashHandlers({
+      project,
+      saveProject,
+      jobs: providers.jobs,
+      stopJob: id => providers.handlers.provider_cancel?.({ id }),
+      activeRun,
+    }),
     ...createPipelineHandlers({
       project,
       config: () => config,
