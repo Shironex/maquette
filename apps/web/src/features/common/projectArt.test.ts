@@ -13,12 +13,15 @@ async function project() {
 }
 
 describe('the project art', () => {
-  it('names the site repo folder, else the template', async () => {
+  it('names the site repo folder, else its saved name, else the template', async () => {
     const p = await project();
     expect(projectMeta({ ...p, siteRepo: '/Users/me/sites/moon_island-site/' })).toBe(
       'moon island site'
     );
-    expect(projectMeta({ ...p, siteRepo: null })).toBe(TEMPLATE_LABEL[p.template]);
+    expect(projectMeta({ ...p, siteRepo: null, siteRepoName: 'studio-site' })).toBe('studio site');
+    expect(projectMeta({ ...p, siteRepo: null, siteRepoName: null })).toBe(
+      TEMPLATE_LABEL[p.template]
+    );
   });
 
   it('prefers the project picture from the list over the template picture', async () => {

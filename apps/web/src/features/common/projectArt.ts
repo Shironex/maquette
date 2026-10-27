@@ -25,8 +25,9 @@ export function projectThumb(
 
 /** The switcher subtitle: the site it ships to, else the template. */
 export function projectMeta(project: ProjectManifest): string {
-  if (project.siteRepo) {
-    const parts = project.siteRepo.split(/[\\/]+/).filter(Boolean);
+  const repo = project.siteRepo ?? project.siteRepoName;
+  if (repo) {
+    const parts = repo.split(/[\\/]+/).filter(Boolean);
     return parts[parts.length - 1]?.replace(/[-_]+/g, ' ') ?? TEMPLATE_LABEL[project.template];
   }
   return TEMPLATE_LABEL[project.template];

@@ -27,16 +27,16 @@ export function conflictKey(conflicts: readonly SyncConflict[]): string {
  */
 export function stignore(cache: string): string {
   return [
-    '// Maquette: rebuilt on each computer, never worth syncing',
+    '// Rebuilt on each computer',
     `/${cache}`,
-    '// Half written files from a save in progress',
+    '// Files caught mid save',
     '(?d).*.tmp',
-    '// What macOS and Windows leave in folders',
+    '// Folder clutter from macOS and Windows',
     '(?d).DS_Store',
     '(?d)._*',
     '(?d)Thumbs.db',
     '(?d)desktop.ini',
-    '// Keep .maquette-lock.json synced: it tells the other computer this one has the workspace open.',
+    '// .maquette-lock.json stays synced on purpose',
     '',
   ].join('\n');
 }
