@@ -26,6 +26,7 @@ pub mod prepare;
 pub mod projects;
 pub mod runs;
 pub mod sending;
+pub mod ship;
 pub mod starters;
 pub mod timeline;
 pub mod trash;
@@ -124,6 +125,13 @@ set_game_settings changes them; scan_game_models lists the models in the game's 
 and import_game_models imports picked ones, each as an asset with the repo file as v1. \
 get_ship_plan shows which files Ship would add or replace in the game; Ship never touches \
 hand made files and always waits for a person to approve it in the app. \
+For a website, get_ship_settings reads how it ships: the style (scene, or models for a \
+hand-built site that loads one file per model at its own origin under a stable name), the \
+texture format (ktx2, webp or avif), each asset's choice (auto, never, always) and file name, \
+the site's models folder and a dry run plan of the next Ship; set_ship_settings changes them \
+(the folders go into the site's maquette.site.json), and get_ship_plan returns the same plan. \
+get_size_report compares each model as it came in with what ships, in bytes and triangles, \
+with CSV and Markdown copies. run_pipeline with buildOnly stops before Ship. \
 start_page_preview starts a project's site dev server (its dev command in the site repo), the \
 one the app's Page view shows, and waits for it to answer; get_page_preview reads its state, \
 address, command and log, and stop_page_preview stops it. Nothing is deployed. \
@@ -212,6 +220,7 @@ impl McpTools {
                 + Self::starters_router()
                 + Self::page_router()
                 + Self::game_router()
+                + Self::ship_router()
                 + Self::library_router()
                 + Self::trash_router(),
         }

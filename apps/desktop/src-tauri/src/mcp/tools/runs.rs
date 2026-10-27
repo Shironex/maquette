@@ -4,57 +4,25 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use maquette_core::pipeline::history::{self, LogEntry, RunRecord, RunState};
-use maquette_core::pipeline::presets::{self, CompressPreset};
 use maquette_core::pipeline::runner::{JobRunner as _, RunOptions, StepGate};
-use maquette_core::{MeshoptLevel, TextureCodec};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::commands::pipeline;
+
+mod presets;
 use crate::mcp::gate::ShipGate;
 use crate::mcp::host::Host;
 use crate::mcp::hub::Hub;
+use presets::edited_presets;
+pub use presets::{PresetEdit, SetPresetsArgs};
 
 use super::{
-    McpTools, Out, ProjectArgs, WAITING, cache_dir, explicit, failed, json_result, reason, respond,
-    to_value, workspace,
+    McpTools, Out, ProjectArgs, WAITING, cache_dir, failed, json_result, reason, respond, to_value,
+    workspace,
 };
-
-/// The texture sizes the Pipeline view offers, in pixels.
-const PRESET_SIZES: [u32; 4] = [512, 1024, 2048, 4096];
-
-const PRESET_CODECS: &str = "etc1s, uastc";
-
-const PRESET_MESHOPT: &str = "low, medium, high";
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct PresetEdit {
-    /// The model as get_pipeline lists it in `models` (the GLB file stem, for example
-    /// "clay_v1"), or the asset's name when it has one model.
-    pub model: String,
-    /// The longest texture edge in pixels: 512, 1024, 2048 or 4096.
-    pub texture_size: Option<u32>,
-    /// A smaller edge for the metal, roughness, occlusion and normal maps: 512, 1024,
-    /// 2048 or 4096. null clears the split, so every map uses textureSize.
-    #[serde(default, deserialize_with = "explicit")]
-    pub data_texture_size: Option<Option<u32>>,
-    /// The texture codec: "etc1s" or "uastc".
-    pub codec: Option<String>,
-    /// The meshopt level: "low", "medium" or "high".
-    pub meshopt: Option<String>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct SetPresetsArgs {
-    /// The project id.
-    pub project: String,
-    /// The rows to change. Only the fields you give change; other models stay as they are.
-    pub presets: Vec<PresetEdit>,
-}
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -79,6 +47,10 @@ pub struct RunPipelineArgs {
     /// Ignore the cache and run every step.
     #[serde(default)]
     pub force: bool,
+    /// Stop before Ship: build, compress and capture, but write nothing to the site
+    /// and ask no approval.
+    #[serde(default)]
+    pub build_only: bool,
     /// Seconds to wait for the run before answering, 20 by default and 120 at most.
     /// The run carries on either way; follow it with get_run.
     pub wait_seconds: Option<u32>,
@@ -107,127 +79,6 @@ fn log_line(entry: &LogEntry) -> String {
         Some(step) => format!("[{step}] {}", entry.text),
         None => entry.text.clone(),
     }
-}
-
-fn check_size(what: &str, size: u32) -> Result<u32, String> {
-    if PRESET_SIZES.contains(&size) {
-        Ok(size)
-    } else {
-        Err(format!(
-            "{what} must be one of 512, 1024, 2048 or 4096, not {size}."
-        ))
-    }
-}
-
-fn parse_codec(word: &str) -> Result<TextureCodec, String> {
-    serde_json::from_value(json!(word.to_lowercase()))
-        .map_err(|_| format!("codec must be one of {PRESET_CODECS}, not {word:?}."))
-}
-
-fn parse_meshopt(word: &str) -> Result<MeshoptLevel, String> {
-    serde_json::from_value(json!(word.to_lowercase()))
-        .map_err(|_| format!("meshopt must be one of {PRESET_MESHOPT}, not {word:?}."))
-}
-
-/// The model an edit names: a stem, or an asset name with one model.
-fn preset_target<'a>(models: &'a [pipeline::ModelFile], name: &str) -> Result<&'a str, String> {
-    let wanted = name.to_lowercase();
-    let stem = models.iter().find(|m| m.model.to_lowercase() == wanted);
-    let named: Vec<_> = models
-        .iter()
-        .filter(|m| {
-            m.asset_name
-                .as_ref()
-                .is_some_and(|n| n.to_lowercase() == wanted)
-        })
-        .collect();
-    match (stem, named.as_slice()) {
-        (Some(m), _) => Ok(&m.model),
-        (None, [m]) => Ok(&m.model),
-        (None, [_, ..]) => Err(format!(
-            "{name:?} has several models ({}). Use the model name.",
-            named
-                .iter()
-                .map(|m| m.model.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
-        )),
-        (None, []) => Err(format!(
-            "Unknown model {name:?}. Models: {}.",
-            models
-                .iter()
-                .map(|m| m.model.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
-        )),
-    }
-}
-
-/// The stored table with the edits applied. A model without a row starts from
-/// the workspace defaults, the way the Pipeline view's table does.
-fn edited_presets(
-    view: &pipeline::PipelineView,
-    edits: &[PresetEdit],
-) -> Result<Vec<CompressPreset>, String> {
-    let mut table = view.def.presets.clone();
-    let mut touched = Vec::new();
-    for edit in edits {
-        let model = preset_target(&view.models, &edit.model)
-            .or_else(|err| {
-                // A stored row can name a model that has no build yet.
-                let stored = table
-                    .iter()
-                    .find(|p| p.model.eq_ignore_ascii_case(&edit.model));
-                stored.map(|p| p.model.as_str()).ok_or(err)
-            })?
-            .to_string();
-        if touched.contains(&model) {
-            return Err(format!("{model} appears twice. Give each model one entry."));
-        }
-        let index = table
-            .iter()
-            .position(|p| p.model == model)
-            .unwrap_or_else(|| {
-                let label = view
-                    .models
-                    .iter()
-                    .find(|m| m.model == model)
-                    .and_then(|m| m.asset_name.clone())
-                    .unwrap_or_else(|| presets::model_label(&model));
-                table.push(CompressPreset {
-                    label,
-                    model: model.clone(),
-                    texture_size: view.defaults.texture_size,
-                    data_texture_size: None,
-                    codec: view.defaults.codec,
-                    map_codecs: None,
-                    meshopt: view.defaults.meshopt,
-                    lock: None,
-                });
-                table.len() - 1
-            });
-        let row = &mut table[index];
-        if let Some(reason) = &row.lock {
-            return Err(format!("{} is locked: {reason}", row.label));
-        }
-        let name = |what: &str| format!("{}: {what}", row.label);
-        if let Some(size) = edit.texture_size {
-            row.texture_size = check_size(&name("textureSize"), size)?;
-        }
-        if let Some(data) = edit.data_texture_size {
-            row.data_texture_size = data
-                .map(|size| check_size(&name("dataTextureSize"), size))
-                .transpose()?;
-        }
-        if let Some(word) = &edit.codec {
-            row.codec = parse_codec(word).map_err(|e| name(&e))?;
-        }
-        if let Some(word) = &edit.meshopt {
-            row.meshopt = parse_meshopt(word).map_err(|e| name(&e))?;
-        }
-        touched.push(model);
-    }
-    Ok(table)
 }
 
 /// The run an agent asked for: live from the runner, or from history.
@@ -281,6 +132,7 @@ fn run_summary(hub: &Hub, run: &RunRecord) -> Value {
         "project": run.project,
         "from": run.from,
         "force": run.force,
+        "buildOnly": run.build_only,
         "message": run.message,
         "steps": steps,
     });
@@ -376,7 +228,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. If the run reaches the Ship step while \"Ask before shipping\" is on, or in a game project (whose Ship always asks), it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run."
+        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. buildOnly true stops before Ship: the run never writes to the site and never waits for approval. If the run reaches the Ship step while \"Ask before shipping\" is on, or in a game project (whose Ship always asks), it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run."
     )]
     async fn run_pipeline(&self, Parameters(args): Parameters<RunPipelineArgs>) -> Out {
         let wait = Duration::from_secs(u64::from(args.wait_seconds.unwrap_or(20).min(120)));
@@ -388,9 +240,17 @@ impl McpTools {
                 if args.from.is_none() {
                     super::built::rebuild_stale(host, &args.project, &tools)?;
                 }
-                let setup =
-                    pipeline::setup(host.session(), &args.project, args.from, args.force, tools)
-                        .map_err(|e| e.message)?;
+                let setup = pipeline::setup(
+                    host.session(),
+                    &args.project,
+                    pipeline::RunAsk {
+                        from: args.from,
+                        force: args.force,
+                        build_only: args.build_only,
+                    },
+                    tools,
+                )
+                .map_err(|e| e.message)?;
                 let gate =
                     crate::commands::game::ship_gate(host.session(), &args.project, &gate_hub)
                         .or_else(|| {

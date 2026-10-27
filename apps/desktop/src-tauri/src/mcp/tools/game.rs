@@ -206,12 +206,20 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Show what Ship would write into a game project's model folder from the last Game export: each file as new, replaced (Maquette wrote or imported it before; imported is true when the game's file is still the imported original), unchanged or hand made (not in the ship record, so Ship leaves it alone), with sizes and triangles before and after, the branch, the ship record size after the run, the checks (budgets, no KTX2 or meshopt) and uncommitted, how many files git status lists in the game repo. Reads only; Ship runs from run_pipeline and waits for a person in the app.",
+        description = "Show what Ship would write. For a website: the same plan get_ship_settings returns (each file new, replaced, unchanged or hand made, whether it ships or why it is held back, sizes and triangles before and after, the site files left alone or removed). For a game: what it would write into the model folder from the last Game export: each file as new, replaced (Maquette wrote or imported it before; imported is true when the game's file is still the imported original), unchanged or hand made (not in the ship record, so Ship leaves it alone), with sizes and triangles before and after, the branch, the ship record size after the run, the checks (budgets, no KTX2 or meshopt) and uncommitted, how many files git status lists in the game repo. Reads only; Ship runs from run_pipeline and waits for a person in the app.",
         annotations(read_only_hint = true)
     )]
     async fn get_ship_plan(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
+                let (root, config) = workspace(host)?;
+                let manifest =
+                    project::load(&root, &config.layout, &args.project).map_err(reason)?;
+                if game::settings_of(&manifest).is_err() {
+                    let view = crate::commands::ship::view(host.session(), &args.project)
+                        .map_err(|e| e.message)?;
+                    return Ok(to_value(&view.plan));
+                }
                 let plan =
                     commands::ship_plan(host.session(), &args.project).map_err(|e| e.message)?;
                 Ok(to_value(&plan))
