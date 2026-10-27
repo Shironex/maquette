@@ -1,9 +1,10 @@
 /**
  * Run by hand, not in the gate: starts `astro dev` in this process, loads the
  * page in headless Chromium and checks that the 3D tour mounts in dev (no
- * React preamble error, `is-live` set), stays live while scrolling, and that
- * a software renderer gets the poster instead. Screenshots go to SHOTS when
- * it is set. It never captures the screen.
+ * React preamble error, `is-live` set), stays live while scrolling with a
+ * clean console (see ALLOWED), and that a software renderer gets the poster
+ * instead. Screenshots go to SHOTS when it is set. It never captures the
+ * screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs [SHOTS=dir] pnpm --filter @maquette/site check:dev-tour
  */
@@ -26,6 +27,18 @@ const browser = await chromium.launch({
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 
+/**
+ * Console warnings the check lets through, each for a cause outside this
+ * code. R3F 9.8 makes a THREE.Clock for `state.clock`, and three r183+
+ * deprecates Clock; the scene keeps reading `state.clock`. Check again on
+ * each R3F bump. The second is Chromium's own driver note for the
+ * SwiftShader GL this check runs on, not a page message.
+ */
+const ALLOWED = [
+  /^THREE\.Clock: This module has been deprecated/,
+  /GL Driver Message \(OpenGL, Performance, \w+, High\): GPU stall due to ReadPixels/,
+];
+
 const problems = [];
 const check = (ok, what) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
@@ -35,8 +48,16 @@ const check = (ok, what) => {
 try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
   const errors = [];
-  page.on('console', m => m.type() === 'error' && errors.push(m.text()));
-  page.on('pageerror', e => errors.push(String(e)));
+  const noise = [];
+  page.on('console', m => {
+    if (m.type() === 'error') errors.push(m.text());
+    if ((m.type() === 'error' || m.type() === 'warning') && !ALLOWED.some(a => a.test(m.text())))
+      noise.push(`${m.type()}: ${m.text()}`);
+  });
+  page.on('pageerror', e => {
+    errors.push(String(e));
+    noise.push(`pageerror: ${e}`);
+  });
   await page.goto(base, { waitUntil: 'load' });
 
   const live = () => page.locator('.is-live').count();
@@ -59,7 +80,8 @@ try {
     if (shots && i === 2) await page.screenshot({ path: `${shots}/stop-2.png`, timeout: 180_000 });
   }
   check(!errors.some(e => /preamble/i.test(e)), 'still no preamble error after scrolling');
-  if (errors.length) console.log('console errors:\n' + errors.join('\n'));
+  check(noise.length === 0, 'no console errors or warnings past the allowed ones');
+  if (noise.length) console.log('console:\n' + noise.join('\n'));
 } finally {
   await browser.close();
 }
