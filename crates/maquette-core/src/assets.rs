@@ -312,6 +312,16 @@ pub fn set_status(manifest: &mut ProjectManifest, id: &str, status: AssetStatus)
     Ok(())
 }
 
+/// The status an asset shows when no job drives it: Review once it has a
+/// model (what a fresh accept sets), else Queued like a new refs-only card.
+pub fn resting_status(asset: &Asset) -> AssetStatus {
+    if asset.versions.is_empty() {
+        AssetStatus::Queued
+    } else {
+        AssetStatus::Review
+    }
+}
+
 /// The asset whose id or current name slugs to the same text, so a second
 /// Accept of "Sakura tree" becomes v2 of the same asset, also after the
 /// asset was renamed (its id keeps the first name).

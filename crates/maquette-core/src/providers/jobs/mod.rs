@@ -15,6 +15,7 @@ mod records;
 mod remote;
 mod request;
 mod send;
+mod settle;
 mod spend;
 mod store;
 #[cfg(test)]
@@ -314,6 +315,9 @@ impl ProviderJobs {
         touched.dedup();
         for project in touched {
             persist(&self.shared, &project);
+        }
+        for manifest in &projects {
+            settle::heal_stuck(&self.shared, &manifest.id);
         }
         pump(&self.shared);
     }

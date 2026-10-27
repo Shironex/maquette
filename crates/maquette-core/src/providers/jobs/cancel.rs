@@ -5,9 +5,8 @@ use std::sync::Arc;
 
 use super::{
     CancelMode, JobState, Provider, ProviderJob, ProviderJobs, Stored, api_key, cancel_mode, pump,
-    touch_asset, update,
+    settle, update,
 };
-use crate::assets::AssetStatus;
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::now_ms;
 use crate::providers::http::{Api, ApiError, StopFlag};
@@ -102,13 +101,7 @@ impl ProviderJobs {
         let job = self
             .get(id)
             .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))?;
-        touch_asset(
-            &self.shared,
-            &job.project,
-            &job.asset,
-            None,
-            AssetStatus::Queued,
-        );
+        settle::settle_asset(&self.shared, &job.project, &job.asset);
         pump(&self.shared);
         Ok(job)
     }

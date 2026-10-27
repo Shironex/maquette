@@ -22,6 +22,7 @@ mod connect;
 mod handoff_paths;
 mod ids;
 mod remove;
+mod stopped_cards;
 
 const WAIT: Duration = Duration::from_secs(20);
 
