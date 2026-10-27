@@ -114,6 +114,36 @@ fn directions_keep_their_images_marks_and_numbering() {
 }
 
 #[test]
+fn batches_prepared_at_the_same_moment_get_distinct_files() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let gate = std::sync::Barrier::new(4);
+    let batches: Vec<Vec<(u32, String)>> = std::thread::scope(|s| {
+        let calls: Vec<_> = (0..4)
+            .map(|_| {
+                s.spawn(|| {
+                    gate.wait();
+                    prepare(dir.path(), &request("Porch at dusk", 2, vec![]))
+                        .expect("prepare")
+                        .1
+                })
+            })
+            .collect();
+        calls
+            .into_iter()
+            .map(|c| c.join().expect("thread"))
+            .collect()
+    });
+    let mut files: Vec<String> = batches.into_iter().flatten().map(|(_, f)| f).collect();
+    files.sort();
+    files.dedup();
+    assert_eq!(files.len(), 8, "{files:#?}");
+    // A direction made afresh numbers from 1 again.
+    fs::remove_dir_all(dir.path().join("concepts/porch-at-dusk")).expect("remove");
+    let (_, again) = prepare(dir.path(), &request("Porch at dusk", 1, vec![])).expect("again");
+    assert_eq!(again[0].0, 1);
+}
+
+#[test]
 fn send_picks_copies_into_refs_and_advances_the_asset() {
     let root = tempfile::tempdir().expect("tempdir");
     let layout = FolderLayout::default();

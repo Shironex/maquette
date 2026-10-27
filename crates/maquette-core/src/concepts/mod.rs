@@ -14,6 +14,7 @@ mod picks;
 pub mod sheet;
 pub mod transfer;
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -151,6 +152,12 @@ fn write_lock() -> std::sync::MutexGuard<'static, ()> {
     WRITES.lock().unwrap_or_else(|p| p.into_inner())
 }
 
+/// The highest image index handed out per direction folder. A batch's
+/// files only appear once Codex saves them, so two batches prepared before
+/// either lands would otherwise both start at the same index and one image
+/// would overwrite the other. Only touched under the write lock.
+static RESERVED: Mutex<BTreeMap<PathBuf, u32>> = Mutex::new(BTreeMap::new());
+
 pub fn concepts_dir(project_dir: &Path) -> PathBuf {
     project_dir.join(CONCEPTS_DIR)
 }
@@ -281,16 +288,19 @@ pub fn resolve_ref(project_dir: &Path, reference: &str) -> PathBuf {
 
 /// Creates the direction, or refreshes the brief of an existing one with
 /// the same name, and returns it with the files the new images go to
-/// (relative to the project folder) and their indexes.
+/// (relative to the project folder) and their indexes. The indexes are
+/// reserved, so a batch prepared at the same moment gets the next ones.
 pub fn prepare(
     project_dir: &Path,
     new: &NewConcepts,
 ) -> CoreResult<(Direction, Vec<(u32, String)>)> {
     let id = slugify(&new.direction);
-    check_direction_id(&id)?;
+    let folder = direction_dir(project_dir, &id)?;
     let _guard = write_lock();
     let now = now_rfc3339();
-    let mut direction = load_direction(project_dir, &id)?.unwrap_or_else(|| Direction {
+    let existing = load_direction(project_dir, &id)?;
+    let fresh = existing.is_none();
+    let mut direction = existing.unwrap_or_else(|| Direction {
         id: id.clone(),
         created_at: now.clone(),
         ..Direction::default()
@@ -301,9 +311,18 @@ pub fn prepare(
     direction.aspect = new.aspect;
     direction.updated_at = now;
     save_direction(project_dir, &direction)?;
+    let mut reserved = RESERVED.lock().unwrap_or_else(|p| p.into_inner());
+    // A direction made afresh numbers from 1 again.
+    let taken = if fresh {
+        0
+    } else {
+        reserved.get(&folder).copied().unwrap_or(0)
+    };
     let first = direction
         .next_index()
-        .max(next_free_index(project_dir, &id));
+        .max(next_free_index(project_dir, &id))
+        .max(taken + 1);
+    reserved.insert(folder, first + new.count - 1);
     let files = (first..first + new.count)
         .map(|index| (index, format!("{CONCEPTS_DIR}/{id}/{id}_{index:02}.png")))
         .collect();

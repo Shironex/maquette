@@ -247,6 +247,74 @@ fn object_refs_get_one_titled_job_per_object_with_the_source_attached() {
 }
 
 #[test]
+fn object_refs_started_at_the_same_moment_never_share_a_file() {
+    let r = rig();
+    let codex = fake_codex(&r.root, &r.png, &r.home, "record");
+    let source = r
+        .project
+        .join("concepts/workbench-hero/workbench-hero_01.png");
+    fs::create_dir_all(source.parent().expect("parent")).expect("mkdir");
+    fs::copy(&r.png, &source).expect("source");
+    let concepts = Concepts::new(Some(r.home.clone()), 4, |_| {});
+    let tools = toolbox(&codex);
+    let lane = Lane {
+        project_dir: &r.project,
+        cache_dir: &r.cache,
+        tools: &tools,
+        timeout: Duration::from_secs(20),
+    };
+    let ask = |object: &str| NewObjectRefs {
+        project: "moon".into(),
+        source: "concepts/workbench-hero/workbench-hero_01.png".into(),
+        source_name: "Workbench hero".into(),
+        objects: vec![object.into()],
+        notes: Default::default(),
+        aspect: Aspect::Square,
+        kind: crate::assets::AssetKind::Prop,
+    };
+    let gate = std::sync::Barrier::new(2);
+    let started: Vec<Vec<ConceptJob>> = std::thread::scope(|s| {
+        let calls: Vec<_> = ["armillary sphere", "brass astrolabe"]
+            .into_iter()
+            .map(|object| {
+                let (gate, lane, concepts, request) = (&gate, &lane, &concepts, ask(object));
+                s.spawn(move || {
+                    gate.wait();
+                    concepts.start_objects(lane, &request).expect("start").1
+                })
+            })
+            .collect();
+        calls
+            .into_iter()
+            .map(|c| c.join().expect("thread"))
+            .collect()
+    });
+    let files: Vec<&str> = started.iter().flatten().map(|j| j.file.as_str()).collect();
+    assert_eq!(files.len(), 2);
+    assert_ne!(files[0], files[1], "both calls got {}", files[0]);
+    concepts.wait();
+    let stored = load_direction(&r.project, "workbench-hero-objects")
+        .expect("load")
+        .expect("direction");
+    let mut titles: Vec<_> = stored
+        .images
+        .iter()
+        .filter_map(|i| i.title.clone())
+        .collect();
+    titles.sort();
+    assert_eq!(titles, ["armillary sphere", "brass astrolabe"]);
+    for job in started.iter().flatten() {
+        let prompt =
+            fs::read_to_string(r.project.join(format!("{}.prompt", job.file))).expect("prompt");
+        let object = job.title.as_deref().expect("title");
+        assert!(
+            prompt.contains(&format!("the \"{object}\" from")),
+            "{prompt}"
+        );
+    }
+}
+
+#[test]
 fn an_image_left_in_codex_home_is_copied_out() {
     let r = rig();
     let codex = fake_codex(&r.root, &r.png, &r.home, "leave");
