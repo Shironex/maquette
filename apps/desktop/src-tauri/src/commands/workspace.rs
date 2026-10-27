@@ -52,6 +52,9 @@ pub fn workspace_create(
     snapshot(&session, &root, &config)
 }
 
+/// Opens a workspace. While another computer has it open (a fresh lock)
+/// it answers `workspace-in-use` with the warning to show, unless `force`
+/// (the person chose Open anyway).
 #[tauri::command]
 #[specta::specta]
 pub fn workspace_open(
@@ -59,9 +62,13 @@ pub fn workspace_open(
     session: State<'_, Session>,
     agents: State<'_, Agents>,
     root: String,
+    force: bool,
 ) -> CommandResult<WorkspaceSnapshot> {
     let root = session.expand(&root);
     let config = workspace::open(&root)?;
+    if !force && let Some(lock) = crate::workspace_lock::held_elsewhere(&session, &root) {
+        return Err(crate::workspace_lock::in_use(&lock));
+    }
     session.set_workspace(root.clone(), config.clone())?;
     super::agents::sync(&app, &session, &agents);
     snapshot(&session, &root, &config)

@@ -36,6 +36,18 @@ pub struct Bootstrap {
     pub workspace: Option<WorkspaceSnapshot>,
     /// Set when the remembered workspace could not be opened.
     pub last_workspace_error: Option<String>,
+    /// Set when the remembered workspace is open on another computer right
+    /// now: it was not opened, and the UI asks before it is.
+    pub workspace_in_use: Option<WorkspaceInUse>,
+}
+
+/// A workspace another computer has open, and the warning to show.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceInUse {
+    pub root: String,
+    pub host: String,
+    pub message: String,
 }
 
 pub(crate) fn snapshot(
@@ -86,8 +98,17 @@ pub(crate) fn bootstrap_with(session: &Session, version: &str) -> Bootstrap {
         .unwrap_or_else(|| "Maquette".to_string());
 
     let mut last_workspace_error = None;
+    let mut workspace_in_use = None;
     let workspace = session.app_state().last_workspace.and_then(|pointer| {
         let root = session.expand(&pointer);
+        if let Some(lock) = crate::workspace_lock::held_elsewhere(session, &root) {
+            workspace_in_use = Some(WorkspaceInUse {
+                root: root.display().to_string(),
+                message: crate::workspace_lock::in_use_message(&lock),
+                host: lock.host,
+            });
+            return None;
+        }
         let opened = workspace::open(&root)
             .map_err(|e| e.payload())
             .and_then(|config| {
@@ -112,6 +133,7 @@ pub(crate) fn bootstrap_with(session: &Session, version: &str) -> Bootstrap {
         catalog: providers::catalog::catalog(),
         workspace,
         last_workspace_error,
+        workspace_in_use,
     }
 }
 
@@ -148,6 +170,36 @@ mod tests {
         assert_eq!(
             boot.workspace.expect("opened").root,
             root.display().to_string()
+        );
+    }
+
+    #[test]
+    fn bootstrap_waits_while_another_computer_has_the_workspace_open() {
+        use maquette_core::workspace::lock::{self, Holder};
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join("ws");
+        workspace::create(&root, &WorkspaceConfig::default()).expect("create");
+        let other = Holder {
+            host: "Studio PC".into(),
+            machine: "another".into(),
+            os: "windows".into(),
+            app_version: "0.1.0".into(),
+            pid: 4,
+        };
+        lock::claim(&root, &other, maquette_core::pipeline::history::now_ms()).expect("claim");
+        let state = AppState {
+            last_workspace: Some(root.display().to_string()),
+            ..AppState::default()
+        };
+        let session = Session::with_state(dir.path().join("cfg"), None, state);
+        let boot = bootstrap_with(&session, "0.1.0");
+        assert!(boot.workspace.is_none(), "not opened");
+        let in_use = boot.workspace_in_use.expect("asks first");
+        assert_eq!(in_use.host, "Studio PC");
+        assert_eq!(
+            lock::read(&root).expect("lock").host,
+            "Studio PC",
+            "untouched"
         );
     }
 

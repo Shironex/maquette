@@ -32,6 +32,8 @@ pub struct Session {
     inner: Mutex<Inner>,
     /// Set once the window exists; tests run without one.
     handle: OnceLock<AppHandle>,
+    /// This computer's name, read once.
+    host_name: OnceLock<String>,
 }
 
 impl Session {
@@ -49,7 +51,23 @@ impl Session {
                 ..Inner::default()
             }),
             handle: OnceLock::new(),
+            host_name: OnceLock::new(),
         }
+    }
+
+    /// The computer's name, as the workspace lock shows it.
+    pub fn host_name(&self) -> String {
+        self.host_name
+            .get_or_init(maquette_core::workspace::lock::host_name)
+            .clone()
+    }
+
+    /// This app's version, as the workspace lock records it.
+    pub fn app_version(&self) -> String {
+        self.handle.get().map_or_else(
+            || env!("CARGO_PKG_VERSION").to_string(),
+            |h| h.package_info().version.to_string(),
+        )
     }
 
     /// Gives the session the app, so opening a workspace can watch its
@@ -94,6 +112,12 @@ impl Session {
     pub fn set_workspace(&self, root: PathBuf, config: WorkspaceConfig) -> CoreResult<()> {
         let pointer = root.display().to_string();
         self.update_app_state(|state| state.last_workspace = Some(pointer))?;
+        if let Ok((previous, _)) = self.workspace()
+            && previous != root
+        {
+            crate::workspace_lock::release(self, &previous);
+        }
+        crate::workspace_lock::claim(self, &root);
         self.load_repos(&root, &config);
         let watcher = self.watch_inbox(&root, &config);
         {

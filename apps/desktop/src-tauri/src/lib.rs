@@ -10,6 +10,7 @@ pub mod mcp;
 pub mod opener;
 pub mod quit;
 pub mod session;
+pub mod workspace_lock;
 
 use std::sync::Arc;
 
@@ -48,6 +49,7 @@ pub fn run() {
             commands::downloads::apply(app.handle());
             let host = Arc::new(mcp::host::AppHost(app.handle().clone()));
             app.manage(mcp::Agents::new(host, hub));
+            workspace_lock::start_heartbeat(app.handle().clone());
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -67,6 +69,7 @@ pub fn run() {
                 if let Some(studio) = handle.try_state::<commands::providers::Studio>() {
                     studio.0.close();
                 }
+                workspace_lock::release_open(handle);
             }
         });
 }
