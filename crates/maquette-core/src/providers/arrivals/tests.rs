@@ -36,7 +36,8 @@ fn rig() -> Rig {
         quiet: Duration::from_millis(250),
         give_up: Duration::from_secs(30),
     };
-    let arrivals = Arrivals::new(jobs.clone(), timing, move |a| {
+    let seen_dir = world.root.parent().expect("parent").join("app-data");
+    let arrivals = Arrivals::new(jobs.clone(), timing, seen_dir, move |a| {
         sink.lock().expect("lock").push(a.clone());
     });
     let downloads = world.root.parent().expect("parent").join("Downloads");

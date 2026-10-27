@@ -28,7 +28,7 @@ pub fn run() {
             app.manage(quit::QuitGuard::default());
             quit::route_quit_through_close(app.handle())?;
             let config_dir = app.path().app_config_dir()?;
-            let session = session::Session::load(config_dir);
+            let session = session::Session::load(config_dir.clone());
             session.attach(app.handle().clone());
             app.manage(session);
             let emitter = app.handle().clone();
@@ -41,7 +41,8 @@ pub fn run() {
             app.manage(commands::site::Preview::new(app.handle().clone()));
             app.manage(commands::lab::Lab::new(app.handle().clone()));
             let studio = commands::providers::Studio::new(app.handle().clone());
-            let watch = commands::downloads::Watch::new(app.handle().clone(), studio.0.clone());
+            let watch =
+                commands::downloads::Watch::new(app.handle().clone(), studio.0.clone(), config_dir);
             app.manage(studio);
             app.manage(watch);
             commands::downloads::apply(app.handle());

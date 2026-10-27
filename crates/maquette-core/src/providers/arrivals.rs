@@ -129,6 +129,8 @@ struct State {
 struct Inner {
     studio: ProviderJobs,
     timing: WatchTiming,
+    /// Where `downloads-seen.json` lives: the app's data folder.
+    seen_dir: PathBuf,
     state: Mutex<State>,
     on_arrival: Callback,
 }
@@ -183,15 +185,18 @@ fn is_fbx(path: &Path) -> bool {
 }
 
 impl Arrivals {
+    /// `seen_dir` keeps the downloads already taken, per computer.
     pub fn new(
         studio: ProviderJobs,
         timing: WatchTiming,
+        seen_dir: PathBuf,
         on_arrival: impl Fn(&Arrival) + Send + Sync + 'static,
     ) -> Self {
         Self {
             inner: Arc::new(Inner {
                 studio,
                 timing,
+                seen_dir,
                 state: Mutex::new(State::default()),
                 on_arrival: Box::new(on_arrival),
             }),
@@ -268,16 +273,24 @@ impl Arrivals {
         arrival
     }
 
+    /// The folder of the seen list, after taking over an open workspace's
+    /// older one.
+    fn seen_dir(&self) -> &Path {
+        if let Some(root) = self.inner.studio.root()
+            && let Err(err) = seen::adopt(&root, &self.inner.seen_dir)
+        {
+            tracing::warn!(error = %err, "could not move the older downloads list");
+        }
+        &self.inner.seen_dir
+    }
+
     fn mark_seen(&self, hash: &str, job: Option<&str>) {
-        let Some(root) = self.inner.studio.root() else {
-            return;
-        };
         let entry = seen::Entry {
             hash: hash.to_string(),
             job: job.map(str::to_string),
             at_ms: now_ms(),
         };
-        if let Err(err) = seen::add(&root, entry) {
+        if let Err(err) = seen::add(self.seen_dir(), entry) {
             tracing::warn!(error = %err, "could not remember a download");
         }
     }
@@ -330,12 +343,12 @@ impl Arrivals {
         if modified + SLACK_MS < oldest {
             return None;
         }
-        let root = self.inner.studio.root()?;
+        self.inner.studio.root()?;
         let hash = seen::hash_file(path).ok()?;
         let id = hash[..ID_LEN].to_string();
         // Asked about already, or failed once: the same bytes fare no better.
         let asked = self.inner.state().arrivals.iter().any(|a| a.id == id);
-        if asked || seen::contains(&root, &hash) {
+        if asked || seen::contains(self.seen_dir(), &hash) {
             return None;
         }
         let name = path

@@ -1,7 +1,9 @@
 //! Files the watcher already took or was told to leave, by content hash, so
 //! the same download is never imported twice: not when the browser touches
 //! it again, not when it is saved a second time under another name, and not
-//! after a restart. Kept per workspace in `downloads-seen.json`.
+//! after a restart. Kept per computer in `downloads-seen.json` in the app's
+//! data folder, since every computer has its own Downloads. Older versions
+//! kept it in the workspace root; [`adopt`] moves that file over once.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -31,8 +33,8 @@ struct SeenFile {
     entries: Vec<Entry>,
 }
 
-fn path(root: &Path) -> PathBuf {
-    root.join(SEEN_FILE)
+fn path(dir: &Path) -> PathBuf {
+    dir.join(SEEN_FILE)
 }
 
 /// The SHA-256 of a file, as the pipeline cache hashes it.
@@ -40,10 +42,10 @@ pub(super) fn hash_file(file: &Path) -> CoreResult<String> {
     crate::pipeline::cache::hash_file(file).map_err(|e| CoreError::io(file, e))
 }
 
-/// Every hash seen in the workspace at `root`. A missing or unreadable
-/// file is an empty list.
-pub(super) fn load(root: &Path) -> Vec<Entry> {
-    let Ok(text) = fs::read_to_string(path(root)) else {
+/// Every hash seen, from the file in `dir`. A missing or unreadable file
+/// is an empty list.
+pub(super) fn load(dir: &Path) -> Vec<Entry> {
+    let Ok(text) = fs::read_to_string(path(dir)) else {
         return Vec::new();
     };
     serde_json::from_str::<SeenFile>(&text)
@@ -53,26 +55,55 @@ pub(super) fn load(root: &Path) -> Vec<Entry> {
         .unwrap_or_default()
 }
 
-pub(super) fn contains(root: &Path, hash: &str) -> bool {
-    load(root).iter().any(|e| e.hash == hash)
+pub(super) fn contains(dir: &Path, hash: &str) -> bool {
+    load(dir).iter().any(|e| e.hash == hash)
 }
 
 /// Adds a hash, keeping the newest [`KEEP`].
-pub(super) fn add(root: &Path, entry: Entry) -> CoreResult<()> {
-    let mut entries = load(root);
+pub(super) fn add(dir: &Path, entry: Entry) -> CoreResult<()> {
+    let mut entries = load(dir);
     entries.retain(|e| e.hash != entry.hash);
     entries.push(entry);
+    save(dir, entries)
+}
+
+fn save(dir: &Path, mut entries: Vec<Entry>) -> CoreResult<()> {
     if entries.len() > KEEP {
         let drop = entries.len() - KEEP;
         entries.drain(..drop);
     }
+    fs::create_dir_all(dir).map_err(|e| CoreError::io(dir, e))?;
     write_json(
-        &path(root),
+        &path(dir),
         &SeenFile {
             version: VERSION,
             entries,
         },
     )
+}
+
+/// Moves an older workspace's `downloads-seen.json` at `root` into the one
+/// in `dir`: its hashes join this computer's list (oldest first, without
+/// duplicates), and only once that is saved is the workspace copy removed.
+/// Without the file it does nothing, so it can run on every look.
+pub(super) fn adopt(root: &Path, dir: &Path) -> CoreResult<()> {
+    let old = path(root);
+    if !old.is_file() || root == dir {
+        return Ok(());
+    }
+    let mut entries = load(root);
+    entries.sort_by(|a, b| a.at_ms.total_cmp(&b.at_ms));
+    let mut merged = Vec::new();
+    for entry in entries.into_iter().chain(load(dir)) {
+        merged.retain(|e: &Entry| e.hash != entry.hash);
+        merged.push(entry);
+    }
+    save(dir, merged)?;
+    match fs::remove_file(&old) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(CoreError::io(&old, err)),
+    }
 }
 
 #[cfg(test)]
@@ -119,5 +150,46 @@ mod tests {
         assert!(contains(dir.path(), &format!("h{}", KEEP + 4)));
         fs::write(dir.path().join(SEEN_FILE), "not json").expect("corrupt");
         assert!(load(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn an_older_workspace_list_moves_to_the_app_data_once() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().join("ws");
+        let data = dir.path().join("app-data");
+        fs::create_dir_all(&root).expect("ws");
+        // The workspace file as an older Maquette wrote it.
+        fs::write(
+            root.join(SEEN_FILE),
+            r#"{"version":1,"entries":[{"hash":"old1","job":"lamp-1","atMs":5.0},{"hash":"both","job":null,"atMs":6.0}]}"#,
+        )
+        .expect("old file");
+        add(&data, entry("both")).expect("add");
+        add(&data, entry("mine")).expect("add");
+
+        adopt(&root, &data).expect("adopt");
+        assert!(!root.join(SEEN_FILE).exists(), "the workspace copy went");
+        let hashes: Vec<String> = load(&data).into_iter().map(|e| e.hash).collect();
+        assert_eq!(hashes, ["old1", "both", "mine"]);
+        assert!(contains(&data, "old1"));
+
+        adopt(&root, &data).expect("again");
+        assert_eq!(load(&data).len(), 3, "nothing changes the second time");
+    }
+
+    #[test]
+    fn a_failed_move_keeps_the_workspace_copy() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().join("ws");
+        fs::create_dir_all(&root).expect("ws");
+        fs::write(root.join(SEEN_FILE), r#"{"version":1,"entries":[]}"#).expect("old");
+        // The app data folder cannot be made: a file stands where it goes.
+        let blocked = dir.path().join("blocked");
+        fs::write(&blocked, "file").expect("file");
+        assert!(adopt(&root, &blocked.join("data")).is_err());
+        assert!(
+            root.join(SEEN_FILE).is_file(),
+            "kept until the copy is saved"
+        );
     }
 }

@@ -19,12 +19,19 @@ use crate::session::Session;
 pub struct Watch(pub Arrivals);
 
 impl Watch {
-    pub fn new(handle: AppHandle, studio: ProviderJobs) -> Self {
-        Self(Arrivals::new(studio, WatchTiming::APP, move |arrival| {
-            if let Err(err) = DownloadsArrival(arrival.clone()).emit(&handle) {
-                tracing::warn!(error = %err, "could not emit a downloads event");
-            }
-        }))
+    /// `data_dir` is the app's per computer folder, where the list of
+    /// downloads already taken is kept.
+    pub fn new(handle: AppHandle, studio: ProviderJobs, data_dir: PathBuf) -> Self {
+        Self(Arrivals::new(
+            studio,
+            WatchTiming::APP,
+            data_dir,
+            move |arrival| {
+                if let Err(err) = DownloadsArrival(arrival.clone()).emit(&handle) {
+                    tracing::warn!(error = %err, "could not emit a downloads event");
+                }
+            },
+        ))
     }
 }
 
