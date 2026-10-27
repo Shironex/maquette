@@ -40,7 +40,7 @@ describe('the references', () => {
     render(<References view={view} />);
     await userEvent.click(screen.getByRole('button', { name: 'Add reference image' }));
     expect(screen.getByText('From refs/')).toBeVisible();
-    await userEvent.click(screen.getByTitle(refs[1]!.name));
+    await userEvent.click(screen.getByRole('button', { name: refs[1]!.name }));
     expect(addRefs).toHaveBeenCalledWith([refs[1]!.file]);
     expect(screen.queryByText('From refs/')).toBeNull();
   });

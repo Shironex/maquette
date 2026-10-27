@@ -27,7 +27,8 @@ describe('an image choice', () => {
   it('toggles an unpicked image, unless the send is full', async () => {
     const { onToggle } = choice(-1);
     const button = screen.getByRole('button', { pressed: false });
-    expect(button).toHaveAttribute('title', 'lamp_side.png, 2 KB');
+    await userEvent.hover(button);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Send lamp_side.png, 2 KB');
     await userEvent.click(button);
     expect(onToggle).toHaveBeenCalledOnce();
   });

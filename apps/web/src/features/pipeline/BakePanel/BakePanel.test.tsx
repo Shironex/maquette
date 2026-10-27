@@ -20,7 +20,7 @@ describe('the bake settings', () => {
       screen.getByText('2 models skip the bake and keep their own lighting.')
     ).toBeInTheDocument();
     const apply = screen.getByRole('button', { name: 'Apply to the bake' });
-    expect(apply).toBeDisabled();
+    expect(apply).toHaveAttribute('aria-disabled', 'true');
 
     await userEvent.selectOptions(
       screen.getByRole('combobox', { name: 'Lightmap size' }),

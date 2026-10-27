@@ -81,7 +81,10 @@ describe('the batch send panel', () => {
   it('will not send an asset without refs', async () => {
     const panel = await openBatch(['desk-lamp', 'island']);
     expect(within(panel).getByText('No refs yet')).toBeInTheDocument();
-    expect(within(panel).getByRole('button', { name: 'Write 2 handoff folders' })).toBeDisabled();
+    expect(within(panel).getByRole('button', { name: 'Write 2 handoff folders' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
     expect(
       within(panel).getByText('Island has no refs yet. Send a pick to Refs first.')
     ).toBeInTheDocument();

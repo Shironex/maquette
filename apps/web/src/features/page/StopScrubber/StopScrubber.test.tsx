@@ -102,7 +102,7 @@ describe('the stop scrubber', () => {
     expect(usePageStore.getState().playing).toBe(false);
   });
 
-  it('keeps ten stops apart, each cut to its slot with its full name on hover', () => {
+  it('keeps ten stops apart, each cut to its slot with its full name on hover', async () => {
     const names = [
       'Hero',
       'Lesson plans',
@@ -128,7 +128,8 @@ describe('the stop scrubber', () => {
     const marks = names.map((name, i) =>
       screen.getByRole('button', { name: `Jump to stop ${i + 1}, ${name}` })
     );
-    expect(marks.map(m => m.getAttribute('title'))).toEqual(names);
+    await userEvent.hover(marks[2]!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Jump to Subject chemistry');
     expect(marks[2]!.style.width).toBe('calc(11.11% - 6px)');
     expect(marks[8]!.style.width).toBe('calc(5.56% - 6px)');
     expect(marks[9]!.className).toContain('right-0');

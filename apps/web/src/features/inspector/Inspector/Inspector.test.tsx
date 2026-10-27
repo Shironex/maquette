@@ -66,6 +66,9 @@ describe('the Inspector', () => {
 
   it('cannot run the pipeline before it is read', () => {
     render(<Inspector view={view} />);
-    expect(screen.getByRole('button', { name: 'Run pipeline' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Run pipeline' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 });

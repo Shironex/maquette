@@ -27,7 +27,7 @@ describe('the workspace settings', () => {
     await userEvent.click(clear);
     await waitFor(() => expect(useAppStore.getState().notice?.title).toBe('Cache cleared'));
     expect(within(section).getByText('0 B')).toBeVisible();
-    expect(clear).toBeDisabled();
+    expect(clear).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('says so when the picked folder is not a workspace', async () => {
