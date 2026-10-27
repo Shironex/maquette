@@ -22,5 +22,8 @@ CLAUDE.md
 # Visual check screenshots
 .visual/
 
+# Raw showcase captures; the framed images in assets/showcase are tracked.
+showcase-out/
+
 # Astro writes generated types here.
 .astro/

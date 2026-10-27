@@ -26,6 +26,8 @@
     "rust:test": "cargo test --workspace",
     "gate": "pnpm lint && pnpm lint:meta && pnpm typecheck && pnpm test && pnpm build:site && pnpm format:check && pnpm rust:fmt && pnpm rust:lint && pnpm rust:test",
     "visual": "node scripts/visual-check.mjs",
+    "showcase": "showcase all && showcase hero",
+    "showcase:hero": "showcase hero",
     "prepare": "husky"
   },
   "engines": {

@@ -52,8 +52,8 @@
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
- * PLAYWRIGHT defaults to the `playwright` package, which this repo does not
- * install; point it at any local copy. OUT_DIR defaults to `.visual/`.
+ * PLAYWRIGHT defaults to the `playwright` package (a dev dependency); point it
+ * at another local copy to use that one. OUT_DIR defaults to `.visual/`.
  */
 import { mkdir } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
