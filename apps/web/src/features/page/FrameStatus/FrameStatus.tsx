@@ -37,10 +37,21 @@ export default function FrameStatus({ state, site, command }: FrameStatusProps) 
             detail={state.status.message ?? 'It stopped before it answered.'}
           />
           <div className="flex gap-2">
-            <Button size="sm" variant="primary" icon="arrow-clockwise" onClick={start}>
+            <Button
+              size="sm"
+              variant="primary"
+              icon="arrow-clockwise"
+              tooltip="Starts the site's dev server again"
+              onClick={start}
+            >
               Try again
             </Button>
-            <Button size="sm" icon="gear-six" onClick={openSettings}>
+            <Button
+              size="sm"
+              icon="gear-six"
+              tooltip="Opens Settings, where the dev command is set"
+              onClick={openSettings}
+            >
               Change the dev command
             </Button>
           </div>
@@ -60,10 +71,19 @@ export default function FrameStatus({ state, site, command }: FrameStatusProps) 
           body="Pick the project's site repo in Settings > Project and the Page view runs its dev server here, with your models in it. Or show an HTML page concept instead."
           action={
             <div className="flex gap-2">
-              <Button variant="primary" icon="gear-six" onClick={openSettings}>
+              <Button
+                variant="primary"
+                icon="gear-six"
+                tooltip="Opens Settings, where the site repo is picked"
+                onClick={openSettings}
+              >
                 Open Settings
               </Button>
-              <Button icon="file-text" onClick={pickConcept}>
+              <Button
+                icon="file-text"
+                tooltip="Shows an HTML page from the workspace here, with no dev server"
+                onClick={pickConcept}
+              >
                 Use a page concept
               </Button>
             </div>
@@ -77,7 +97,11 @@ export default function FrameStatus({ state, site, command }: FrameStatusProps) 
           title="No dev command found"
           body={state.message}
           action={
-            <Button icon="gear-six" onClick={openSettings}>
+            <Button
+              icon="gear-six"
+              tooltip="Opens Settings, where the dev command is set"
+              onClick={openSettings}
+            >
               Set the dev command
             </Button>
           }
@@ -90,7 +114,12 @@ export default function FrameStatus({ state, site, command }: FrameStatusProps) 
           title={`The dev server serves ${projectName(state.project)}`}
           body="One site dev server runs at a time. Running this project's site stops that one."
           action={
-            <Button variant="primary" icon="play" onClick={start}>
+            <Button
+              variant="primary"
+              icon="play"
+              tooltip="Stops the other site's dev server and starts this one"
+              onClick={start}
+            >
               Run this project&apos;s site
             </Button>
           }
@@ -104,10 +133,20 @@ export default function FrameStatus({ state, site, command }: FrameStatusProps) 
           body="A page concept is an .html file inside the workspace, for example one the Lab made. It shows here as it is, with no dev server."
           action={
             <div className="flex gap-2">
-              <Button variant="primary" icon="folder-open" onClick={pickConcept}>
+              <Button
+                variant="primary"
+                icon="folder-open"
+                tooltip="Choose an HTML file in the workspace to show here"
+                onClick={pickConcept}
+              >
                 Pick a page concept
               </Button>
-              <Button onClick={showSite}>Show the site instead</Button>
+              <Button
+                tooltip="Shows the site's dev server instead of a page concept"
+                onClick={showSite}
+              >
+                Show the site instead
+              </Button>
             </div>
           }
         />
@@ -119,7 +158,12 @@ export default function FrameStatus({ state, site, command }: FrameStatusProps) 
           title="The dev server is stopped"
           body={`Start it to see ${site} here. Maquette runs ${command ?? 'its dev command'} on a free port.`}
           action={
-            <Button variant="primary" icon="play" onClick={start}>
+            <Button
+              variant="primary"
+              icon="play"
+              tooltip="Runs the site's dev command on a free port"
+              onClick={start}
+            >
               Start the dev server
             </Button>
           }

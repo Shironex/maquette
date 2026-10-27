@@ -49,7 +49,11 @@ export default function PageView() {
               title="The page settings could not be read"
               body={v.error}
               action={
-                <Button icon="arrow-clockwise" onClick={v.retry}>
+                <Button
+                  icon="arrow-clockwise"
+                  tooltip="Reads the page settings again"
+                  onClick={v.retry}
+                >
                   Try again
                 </Button>
               }

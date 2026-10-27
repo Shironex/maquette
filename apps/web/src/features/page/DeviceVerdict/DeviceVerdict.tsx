@@ -60,10 +60,18 @@ export default function DeviceVerdict() {
       </section>
       <span className="flex-1" />
       <div className="flex items-center justify-between gap-2">
-        <Button icon="cube-focus" onClick={openInspector}>
+        <Button
+          icon="cube-focus"
+          tooltip="Goes to the Inspector, where the scene is checked"
+          onClick={openInspector}
+        >
           Open Inspector
         </Button>
-        <Button icon="flow-arrow" onClick={openPipeline}>
+        <Button
+          icon="flow-arrow"
+          tooltip="Goes to the Pipeline, where the scene is built and shipped"
+          onClick={openPipeline}
+        >
           Open Pipeline
         </Button>
       </div>

@@ -30,7 +30,12 @@ export default function ShipTable() {
         >
           Current ship vs this run
         </h2>
-        <Button size="sm" icon="columns" onClick={compare}>
+        <Button
+          size="sm"
+          icon="columns"
+          tooltip="Compares the site's models with this run's"
+          onClick={compare}
+        >
           Compare
         </Button>
       </div>

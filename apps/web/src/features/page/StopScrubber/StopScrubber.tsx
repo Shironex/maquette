@@ -1,4 +1,4 @@
-import { IconButton, cn } from '@maquette/ui';
+import { IconButton, Tooltip, cn } from '@maquette/ui';
 import { useStopScrubber } from './StopScrubber.hooks';
 
 const pct = (share: number) => `${(share * 100).toFixed(2)}%`;
@@ -41,34 +41,34 @@ export default function StopScrubber() {
     const on = i === current;
     const slot = slots[i] ?? { left: 0, width: 1, end: false };
     return (
-      <button
-        key={`${i}-${stop.name}`}
-        type="button"
-        title={stop.name}
-        aria-label={`Jump to stop ${i + 1}, ${stop.name}`}
-        aria-current={on ? 'step' : undefined}
-        onClick={() => jump(i)}
-        className={cn(
-          'absolute top-[26px] flex min-w-[22px] cursor-pointer items-center gap-[5px] border-0 bg-transparent p-0 text-[11.5px] font-medium',
-          on ? 'text-fg' : 'text-fg-dim hover:text-fg',
-          slot.end && count > 1 ? 'right-0 flex-row-reverse' : '-translate-x-[11px]'
-        )}
-        style={
-          slot.end && count > 1
-            ? { width: `calc(${pct(slot.width)} + 5px)` }
-            : { left: pct(slot.left), width: `calc(${pct(slot.width)} - 6px)` }
-        }
-      >
-        <span
+      <Tooltip key={`${i}-${stop.name}`} label={`Jump to ${stop.name}`}>
+        <button
+          type="button"
+          aria-label={`Jump to stop ${i + 1}, ${stop.name}`}
+          aria-current={on ? 'step' : undefined}
+          onClick={() => jump(i)}
           className={cn(
-            'grid size-[22px] flex-none place-items-center rounded-full font-mono text-[10.5px] font-bold',
-            on ? 'bg-focus text-app' : 'border border-line-strong bg-hover text-fg-dim'
+            'absolute top-[26px] flex min-w-[22px] cursor-pointer items-center gap-[5px] border-0 bg-transparent p-0 text-[11.5px] font-medium',
+            on ? 'text-fg' : 'text-fg-dim hover:text-fg',
+            slot.end && count > 1 ? 'right-0 flex-row-reverse' : '-translate-x-[11px]'
           )}
+          style={
+            slot.end && count > 1
+              ? { width: `calc(${pct(slot.width)} + 5px)` }
+              : { left: pct(slot.left), width: `calc(${pct(slot.width)} - 6px)` }
+          }
         >
-          {i + 1}
-        </span>
-        <span className="min-w-0 truncate">{stop.name}</span>
-      </button>
+          <span
+            className={cn(
+              'grid size-[22px] flex-none place-items-center rounded-full font-mono text-[10.5px] font-bold',
+              on ? 'bg-focus text-app' : 'border border-line-strong bg-hover text-fg-dim'
+            )}
+          >
+            {i + 1}
+          </span>
+          <span className="min-w-0 truncate">{stop.name}</span>
+        </button>
+      </Tooltip>
     );
   });
   return (

@@ -1,4 +1,12 @@
-import { Button, Icon, SegmentedControl, TextField, cn, type IconName } from '@maquette/ui';
+import {
+  Button,
+  Icon,
+  SegmentedControl,
+  TextField,
+  Tooltip,
+  cn,
+  type IconName,
+} from '@maquette/ui';
 import { MODES, usePageToolbar } from './PageToolbar.hooks';
 
 interface ToggleChipProps {
@@ -11,21 +19,22 @@ interface ToggleChipProps {
 
 function ToggleChip({ icon, label, pressed, onClick, hint }: ToggleChipProps) {
   return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      title={hint}
-      onClick={onClick}
-      className={cn(
-        'inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-control border px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors duration-120',
-        pressed
-          ? 'border-line-strong bg-hover text-fg [&>svg]:text-clay-text'
-          : 'border-line bg-transparent text-fg-dim hover:text-fg'
-      )}
-    >
-      <Icon name={icon} size={14} />
-      {label}
-    </button>
+    <Tooltip label={hint}>
+      <button
+        type="button"
+        aria-pressed={pressed}
+        onClick={onClick}
+        className={cn(
+          'inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-control border px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors duration-120',
+          pressed
+            ? 'border-line-strong bg-hover text-fg [&>svg]:text-clay-text'
+            : 'border-line bg-transparent text-fg-dim hover:text-fg'
+        )}
+      >
+        <Icon name={icon} size={14} />
+        {label}
+      </button>
+    </Tooltip>
   );
 }
 
@@ -54,7 +63,7 @@ export default function PageToolbar() {
             mono
             className="h-[26px] w-[180px]"
           />
-          <Button size="sm" type="submit">
+          <Button size="sm" type="submit" tooltip="Shows this path of the site in the frames">
             Show
           </Button>
         </form>

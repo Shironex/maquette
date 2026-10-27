@@ -55,7 +55,13 @@ export default function PageSource() {
           Source
         </h2>
         {hasConcept ? (
-          <Button size="sm" variant="ghost" icon="folder-open" onClick={changeConcept}>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="folder-open"
+            tooltip="Choose a different HTML page concept"
+            onClick={changeConcept}
+          >
             Other concept
           </Button>
         ) : null}
