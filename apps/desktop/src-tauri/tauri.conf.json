@@ -46,7 +46,7 @@
       "icons/icon.ico"
     ],
     "publisher": "Shironex",
-    "copyright": "Copyright (c) 2026 Shironex. All rights reserved.",
+    "copyright": "Copyright (c) 2026 Shironex. Licensed under AGPL-3.0-only.",
     "category": "GraphicsAndDesign",
     "shortDescription": "Turn concept art into real-time 3D scenes",
     "longDescription": "Maquette is a local studio for one developer: concept art in, a compressed real-time 3D web scene out, with Blender, Tripo and Codex doing the heavy lifting on your own machine.",
