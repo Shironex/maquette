@@ -47,3 +47,14 @@ export function useBakePanel(bake: BakeView, onSave: (patch: BakePatch) => Promi
   };
   return { draft, dirty, update, save, saving, reset: () => setDraft(saved) };
 }
+
+/** Whether a card that folds shows its settings, opened on demand; edits keep it open. */
+export function useBakeFold(fold: string | null, dirty: boolean) {
+  const [expanded, setExpanded] = useState(false);
+  return {
+    folded: fold !== null && !expanded && !dirty,
+    canFold: fold !== null,
+    expand: () => setExpanded(true),
+    collapse: () => setExpanded(false),
+  };
+}

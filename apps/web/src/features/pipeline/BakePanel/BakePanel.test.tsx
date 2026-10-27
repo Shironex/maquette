@@ -57,4 +57,16 @@ describe('the bake settings', () => {
       denoise: false,
     });
   });
+
+  it('folds to one line when it has a reason, opens on demand and folds again', async () => {
+    const fold = 'All 2 models skip the bake, so this step bakes nothing.';
+    render(<BakePanel bake={bake} busy={false} onSave={vi.fn()} fold={fold} />);
+    expect(screen.getByText(fold)).toBeInTheDocument();
+    expect(screen.getByText('1024 px · 32 samples · denoise')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Lightmap size' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Bake settings' }));
+    expect(screen.getByRole('combobox', { name: 'Lightmap size' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Hide settings' }));
+    expect(screen.queryByRole('combobox', { name: 'Lightmap size' })).toBeNull();
+  });
 });
