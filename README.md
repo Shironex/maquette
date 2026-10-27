@@ -25,6 +25,9 @@
 
 ---
 
+> [!WARNING]
+> Maquette is in early development. Expect breaking changes and bugs, and the workspace format may change between versions. Back up your workspace before you update.
+
 Maquette is a desktop studio I built to take one asset from a concept image to a small, compressed model in a website or game repo. One Board follows every asset through the stages, Blender does the heavy lifting headless in the background, and the numbers that decide whether a page stays fast (triangles, texture memory, transfer size, frame time) sit next to the model the whole way.
 
 There is no account and no cloud project: a workspace is a folder on your disk, the app spawns the tools you already have, and API keys live in the OS keychain.
@@ -46,8 +49,8 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
 
 <table>
   <tr>
-    <td width="50%"><img src="assets/showcase/board.webp" alt="Maquette: the Board of the Moon Island sample project, with assets in the Refs, Tripo, Blender and Web columns" /></td>
-    <td width="50%"><img src="assets/showcase/lab.webp" alt="Maquette: the Lab with six concept images of a moonlit island porch, one picked and two starred" /></td>
+    <td width="50%"><img src="assets/showcase/board.webp" alt="Maquette: the Board of the Frostveil sample project, with an asset in every column from Concept to Ship" /></td>
+    <td width="50%"><img src="assets/showcase/lab.webp" alt="Maquette: the Lab with six concept images of a frozen lake arena at night, one picked and two starred" /></td>
   </tr>
   <tr>
     <td align="center"><sub>Board: every asset of a project on its way from concept to ship.</sub></td>
@@ -61,7 +64,7 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
 
 <table>
   <tr>
-    <td width="50%"><img src="assets/showcase/inbox.webp" alt="Maquette: the Inbox previewing a rigged character, with its automatic checks on the right" /></td>
+    <td width="50%"><img src="assets/showcase/inbox.webp" alt="Maquette: the Inbox previewing Elsheria, a rigged character from Frostveil, with its automatic checks on the right" /></td>
     <td width="50%"><img src="assets/showcase/pipeline.webp" alt="Maquette: the Pipeline view mid run, with six steps, the bake settings, the generated artifacts, a live log and the compression presets" /></td>
   </tr>
   <tr>
@@ -76,8 +79,8 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
 
 <table>
   <tr>
-    <td width="50%"><img src="assets/showcase/inspector.webp" alt="Maquette: the Inspector comparing two versions of a cherry tree scene with a split slider, the camera stops below and the selected model's numbers on the right" /></td>
-    <td width="50%"><img src="assets/showcase/page.webp" alt="Maquette: the Page view showing the sample site's dev page with the island scene, its readouts and the current ship against this run" /></td>
+    <td width="50%"><img src="assets/showcase/inspector.webp" alt="Maquette: the Inspector comparing two versions of a scene with a veil gate, ice crystals and a character, with a split slider, the camera stops below and the selected model's numbers on the right" /></td>
+    <td width="50%"><img src="assets/showcase/page.webp" alt="Maquette: the Page view showing the sample site's dev page with the frozen lake scene, its readouts and the current ship against this run" /></td>
   </tr>
   <tr>
     <td align="center"><sub>Inspector: two versions of the scene side by side, with each model's numbers and compression.</sub></td>
@@ -89,7 +92,7 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
 
 <table>
   <tr>
-    <td width="50%"><img src="assets/showcase/motion.webp" alt="Maquette: the Motion view playing a sitting clip on a rigged character, with its clips and rig check" /></td>
+    <td width="50%"><img src="assets/showcase/motion.webp" alt="Maquette: the Motion view with a sword draw clip on a rigged character and its skeleton, with its clips and rig check" /></td>
     <td width="50%"><img src="assets/showcase/timeline.webp" alt="Maquette: the scroll Timeline with camera, object state, explode and energize lanes under a preview of the site" /></td>
   </tr>
   <tr>
@@ -102,7 +105,7 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
 
 <table>
   <tr>
-    <td width="50%"><img src="assets/showcase/library.webp" alt="Maquette: the Library grid with eight reusable models, filters by tag, source, format and project, and a character's versions" /></td>
+    <td width="50%"><img src="assets/showcase/library.webp" alt="Maquette: the Library grid with eight reusable models, filters by tag, source, format and project, and a crystal lantern's versions" /></td>
     <td width="50%"><img src="assets/showcase/agents.webp" alt="Maquette: the Board with two approval prompts from an agent, one to ship the project and one to send an asset to Tripo" /></td>
   </tr>
   <tr>
@@ -125,6 +128,23 @@ Numbers from scenes I made with Maquette, raw source models against what the pag
 | An island scene                            | 45 MB         | 6.3 MB  | about 7x   |
 
 One prop from the listening corner: an armchair went from 3.56 MB and 19k triangles to 121 KB and 4k triangles.
+
+The same room before and after the ship, from the site's own camera stops:
+
+<table>
+  <tr>
+    <td><img src="assets/showcase/case-room.webp" alt="The room at the first camera stop before (left) and after (right) the ship: desk, window, shelf and a seated mascot look the same" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>The first camera stop, before (left) and after (right). The desk, window and shelf models went through the pipeline again and look the same.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="assets/showcase/case-radio.webp" alt="The radio up close before (left) and after (right) the ship, with the same grille, dial and knobs" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>The radio up close: 130 KB before, 135 KB after, the same look.</sub></td>
+  </tr>
+</table>
 
 <!-- More before and after numbers and pictures go here. -->
 
@@ -189,28 +209,28 @@ pnpm gate       # lint, types, tests, the docs site build, formatting, clippy an
 Outside Tauri, a dev build answers every command from an in-memory backend (`apps/web/src/ipc/mock`), so the whole UI runs in a plain browser at `http://localhost:15190`. Pick a scenario with a query parameter:
 
 - `?scenario=first-run` (default): no workspace yet, toktx missing
-- `?scenario=configured`: a workspace with Moon Island open, its last run failed at Capture posters
+- `?scenario=configured`: a workspace with Frostveil open, its last run failed at Capture posters
 - `?scenario=running`: like configured, with run 25 streaming and held at Export GLB
 - `?scenario=idle`: like configured, the last run passed
 - `?scenario=no-blender`: Blender missing, so setup stops at the toolchain step
 - `?delay=700`: how long a toolchain check takes, in milliseconds
 - `?pace=260`: milliseconds between streamed log lines in a mock run
-- `?lab=running`: two concept images of the porch direction mid job; `?conceptMs=4000` sets how long a fake image takes
+- `?lab=running`: two concept images of the frozen lake arena direction mid job; `?conceptMs=4000` sets how long a fake image takes
 - `?agents=active`: the MCP server on, with an agent's activity, a run waiting at Ship and a Send to 3D waiting for approval
 - `?agents=batch`: like `active`, with three sends to Tripo waiting under one approval
-- `?handoff=batch`: adds the landing workbench concept, the six object refs made from it (an objects direction) and a By hand batch of them in mixed states; Check Downloads finds two matches and a stranger
+- `?handoff=batch`: adds the veil gate props concept, the six object refs made from it (an objects direction) and a By hand batch of them in mixed states; Check Downloads finds two matches and a stranger
 - `?arrival=named`: a moment after opening, an export named for the first waiting By hand send lands in the fake Downloads and is copied in; `?arrival=unmatched` drops `model (3).glb`, which asks "Which asset is this?"
-- `?inbox=redo`: the large sakura (a Meshy send with a texture prompt) and the character (a rigged Tripo send) in the inbox are linked to their sends for Redo, and a Meshy key is saved too
-- `?built=demo`: two built assets on Moon Island at Blender, a current Laptop and a Newtons cradle whose script changed; Rebuild and Built asset work on them
-- `?motion=demo`: Moon Island gains a clay figure on a 20 bone rig with three clips, a switch cabinet with three states and a turntable with one clip; `?motion=rest` has the figure without clips, `?motion=over` a scene budget the clips push it over, and `?motion=still` opens Rooftop cinema, where nothing moves yet
-- `?timeline=demo`: the `?motion=demo` models, with the switch cabinet opening its door at Sakura, turning its breakers on from 55 to 70 percent and spreading apart from Canopy to Pullback; `?timeline=empty` takes Moon Island's camera stops away
-- `?page=running`: the Page view's dev server starts as usual and the site holds the last ship, so Compare has a current ship; `?page=starting` keeps the server starting, `?page=failed` fails it as a site without its packages does, with its log, `?page=no-site` takes Moon Island's site repo away, `?page=stops-10` gives the page ten stops, and `?page=shim` takes the page's own bridge away and gives it the frame proxy's bridge shim. `?page=framed&site=<dev server>&frame=<frame proxy>` shows a real dev server behind a real frame proxy (the visual check starts both). The mock dev page is a small page of its own that speaks the page bridge
-- `?game=crypt`: Crypt game, a CMake game with `.glb` models in `props/`, `enemies/` and `characters/`, is open with 15 imported models (3 over their folder's budget) and 3 made in Maquette, run 7 waits for approval before Ship, and the Inbox's flower shrubs came back for Candle cluster, so they check against the props budget; `?game=import` opens it with nothing imported yet, `?game=maze` opens Maze game, an `.obj` game with 35 imported models
-- `?projects=many`: eight projects instead of three (Moon Island, Rooftop cinema, Lantern keeper), so the switcher shows its search field
+- `?inbox=redo`: the veil gate (a Meshy send with a texture prompt) and Elsheria (a rigged Tripo send) in the inbox are linked to their sends for Redo, and a Meshy key is saved too
+- `?built=demo`: two built assets on Frostveil at Blender, a current Laptop and a Newtons cradle whose script changed; Rebuild and Built asset work on them
+- `?motion=demo`: Frostveil gains a clay figure on a 20 bone rig with three clips, a switch cabinet with three states and a turntable with one clip; `?motion=rest` has the figure without clips, `?motion=over` a scene budget the clips push it over, and `?motion=still` opens Frost cathedral, where nothing moves yet
+- `?timeline=demo`: the `?motion=demo` models, with the switch cabinet opening its door at Veil gate, turning its breakers on from 55 to 70 percent and spreading apart from Keystone to Pullback; `?timeline=empty` takes Frostveil's camera stops away
+- `?page=running`: the Page view's dev server starts as usual and the site holds the last ship, so Compare has a current ship; `?page=starting` keeps the server starting, `?page=failed` fails it as a site without its packages does, with its log, `?page=no-site` takes Frostveil's site repo away, `?page=stops-10` gives the page ten stops, and `?page=shim` takes the page's own bridge away and gives it the frame proxy's bridge shim. `?page=framed&site=<dev server>&frame=<frame proxy>` shows a real dev server behind a real frame proxy (the visual check starts both). The mock dev page is a small page of its own that speaks the page bridge
+- `?game=crypt`: Crypt game, a CMake game with `.glb` models in `props/`, `enemies/` and `characters/`, is open with 15 imported models (3 over their folder's budget) and 3 made in Maquette, run 7 waits for approval before Ship, and the Inbox's ice crystals came back for Candle cluster, so they check against the props budget; `?game=import` opens it with nothing imported yet, `?game=maze` opens Maze game, an `.obj` game with 35 imported models
+- `?projects=many`: eight projects instead of three (Frostveil, Frost cathedral, Elsheria showcase), so the switcher shows its search field
 
-Configured scenarios also open with fake provider jobs: Sakura generating at Tripo, Stone lanterns waiting for a model by hand, Far spire failed at Meshy for credits, and Character accepted. Only the Tripo key is saved. The credits ledger holds those sends and a month of earlier ones. New sends move along on timers; nothing is sent anywhere.
+Configured scenarios also open with fake provider jobs: Veil gate generating at Tripo, Guardian statues waiting for a model by hand, Rune obelisk failed at Meshy for credits, and Elsheria accepted. Only the Tripo key is saved. The credits ledger holds those sends and a month of earlier ones. New sends move along on timers; nothing is sent anywhere.
 
-The mock runner streams Blender style output and fails Capture posters once. The mock inbox lists a character, two props and a broken download. Its previews load real meshopt and KTX2 models, and the Board and Inbox show real studio thumbnails, all from `apps/web/src/assets/mock` (see the README there: that artwork is reserved and not covered by the repository license). For hand testing a real inbox, `cargo run -p maquette-core --example write_fixtures -- <dir>` writes small generated GLBs.
+The mock runner streams Blender style output and fails Capture posters once. The mock inbox lists Elsheria, two props and a broken download. The sample content is Frostveil, my own game: its previews load real meshopt and KTX2 models, and the Board and Inbox show real studio thumbnails, all from `apps/web/src/assets/mock` (see the README there: that artwork is reserved and not covered by the repository license). For hand testing a real inbox, `cargo run -p maquette-core --example write_fixtures -- <dir>` writes small generated GLBs.
 
 </details>
 
@@ -484,11 +504,11 @@ Save layout writes `layout.json` in the project, with every model pinned where i
 ```json
 {
   "version": 1,
-  "models": { "character": { "position": [1.6, 0, 3.2], "rotation": [0, -25, 0], "scale": 1 } },
+  "models": { "elsheria": { "position": [1.6, 0, 3.2], "rotation": [0, -25, 0], "scale": 1 } },
   "stops": [
     {
-      "id": "porch",
-      "name": "Porch",
+      "id": "arrival",
+      "name": "Arrival",
       "position": [6.5, 2.4, 10.5],
       "target": [1, 1.4, 2.6],
       "fov": 36,
@@ -513,28 +533,28 @@ Either end can follow a model: anchored, it moves by as much as the model's plac
 {
   "paths": [
     {
-      "id": "lantern-cable",
-      "name": "Lantern cable",
+      "id": "rune-line",
+      "name": "Rune line",
       "curve": "catmull-rom",
       "points": [
         [-3.2, 0, 3.4],
         [0, 0.05, 5.2],
         [3.6, 0, 1.2]
       ],
-      "start": "shop-house",
-      "end": "vending",
+      "start": "observatory-arch",
+      "end": "crystal-lantern",
       "width": 0.06,
-      "color": "#f2c230",
-      "glow": "#ffe08a"
+      "color": "#b89cff",
+      "glow": "#e2d6ff"
     }
   ],
   "timeline": {
     "paths": {
-      "lantern-cable": {
+      "rune-line": {
         "easing": "linear",
         "keys": [
-          { "stop": "sakura", "amount": 0 },
-          { "stop": "canopy", "amount": 1 }
+          { "stop": "veil-gate", "amount": 0 },
+          { "stop": "keystone", "amount": 1 }
         ]
       }
     }
