@@ -66,7 +66,8 @@ subscription spend apart). list_handoffs lists the By hand sends waiting for a m
 the provider's site, the export file name each waits for and what the Downloads watcher \
 matched; it reads only. make_object_refs turns the objects of one concept into \
 one isolated image each. get_concepts reads the Lab, with its failed jobs; a job Codex rate \
-limits runs again on its own a few times, and retry_concept_jobs runs failed ones again (same \
+limits runs again on its own a few times, a job that meets the Codex usage limit waits with \
+the rest of the queue until it lifts (usageLimit, retryAtMs), and retry_concept_jobs runs failed ones again (same \
 prompt, refs and file, no new direction). pick_concepts puts concepts on the Board \
 as Send picks to Refs does: each image goes into refs/ and becomes or joins an asset at Refs \
 (named after its object for object refs, else after its direction), ready for send_to_3d; \

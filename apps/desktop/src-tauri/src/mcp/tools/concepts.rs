@@ -103,6 +103,7 @@ pub(super) fn job_value(job: &ConceptJob) -> Value {
         "message": job.message,
         "retryAtMs": job.retry_at_ms,
         "retries": job.retries,
+        "usageLimit": job.usage_limit,
     })
 }
 
@@ -159,7 +160,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read a project's Concept lab: each direction's prompt, refs and images (starred, picked, and the ref file a picked image became), plus the concept jobs still queued, running or waiting out a Codex rate limit (running, with retryAtMs for a waiting one) and the ones that failed or were cancelled (failed, with why), which retry_concept_jobs runs again.",
+        description = "Read a project's Concept lab: each direction's prompt, refs and images (starred, picked, and the ref file a picked image became), plus the concept jobs still queued, running or waiting out a Codex rate limit or usage limit (running, state rate-limited with retryAtMs for a waiting one, and usageLimit true while it waits for the usage limit to lift) and the ones that failed or were cancelled (failed, with why), which retry_concept_jobs runs again.",
         annotations(read_only_hint = true)
     )]
     async fn get_concepts(&self, Parameters(args): Parameters<GetConceptsArgs>) -> Out {
