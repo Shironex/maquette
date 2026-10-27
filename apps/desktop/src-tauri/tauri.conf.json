@@ -61,5 +61,12 @@
         "languages": ["English"]
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/Shironex/maquette/releases/latest/download/latest.json"],
+      "pubkey": "",
+      "windows": { "installMode": "passive" }
+    }
   }
 }

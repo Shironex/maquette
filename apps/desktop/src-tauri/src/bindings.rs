@@ -8,14 +8,14 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    agents, app, assets, built, credits, dialogs, downloads, game, inbox, inspect, lab, layout,
-    library, materials, motion, page, paths, pipeline, prepare, project, providers, quit, ship,
-    site, thumbs, timeline, toolchain, trash, workspace,
+    about, agents, app, assets, built, credits, dialogs, downloads, game, inbox, inspect, lab,
+    layout, library, materials, motion, page, paths, pipeline, prepare, project, providers, quit,
+    ship, site, thumbs, timeline, toolchain, trash, updater, workspace,
 };
 use crate::events::{
     BuiltChanged, ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged, LibraryChanged,
     MaterialsChanged, McpUpdate, PageServerChanged, PipelineChanged, PipelineUpdate,
-    PrepareChanged, ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady,
+    PrepareChanged, ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady, UpdaterUpdate,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -33,6 +33,12 @@ pub fn builder() -> Builder<tauri::Wry> {
         .error_handling(ErrorHandlingMode::Throw)
         .commands(collect_commands![
             app::app_bootstrap,
+            about::app_about,
+            about::app_open_link,
+            updater::updater_status,
+            updater::updater_check,
+            updater::updater_download,
+            updater::updater_install,
             workspace::workspace_inspect,
             workspace::workspace_create,
             workspace::workspace_open,
@@ -177,7 +183,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             BuiltChanged,
             DownloadsArrival,
             PageServerChanged,
-            LibraryChanged
+            LibraryChanged,
+            UpdaterUpdate
         ])
         .types(&maquette_core::types())
 }
@@ -288,6 +295,12 @@ mod tests {
             "gameSaveSettings",
             "gameAddBudgetFixups",
             "gameShipPlan",
+            "appAbout",
+            "appOpenLink",
+            "updaterStatus",
+            "updaterCheck",
+            "updaterDownload",
+            "updaterInstall",
         ] {
             assert!(text.contains(command), "bindings miss {command}");
         }
@@ -307,6 +320,7 @@ mod tests {
             "builtChanged",
             "pageServerChanged",
             "libraryChanged",
+            "updaterUpdate",
         ] {
             assert!(text.contains(event), "bindings miss the {event} event");
         }

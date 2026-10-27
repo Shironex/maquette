@@ -1,6 +1,7 @@
 //! The IPC surface. Every command returns `Result<_, ErrorPayload>` so the
 //! generated TypeScript rejects with `{ code, message }` on failure.
 
+pub mod about;
 pub mod agents;
 pub mod app;
 pub mod assets;
@@ -30,6 +31,7 @@ pub mod thumbs;
 pub mod timeline;
 pub mod toolchain;
 pub mod trash;
+pub mod updater;
 pub mod workspace;
 
 use maquette_core::{CoreError, ErrorPayload};

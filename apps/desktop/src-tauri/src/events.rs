@@ -119,6 +119,11 @@ pub struct PageServerChanged(pub maquette_core::site::preview::ServerStatus);
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 pub struct McpUpdate(pub crate::mcp::McpStatus);
 
+/// A step of an app update: a check, its answer, download progress, or an
+/// update ready to install.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+pub struct UpdaterUpdate(pub crate::updater::UpdaterEvent);
+
 /// Sends runner events to every window.
 /// The MCP hub sees every event too, so agents can follow runs.
 pub struct TauriSink(pub AppHandle, pub std::sync::Arc<crate::mcp::hub::Hub>);

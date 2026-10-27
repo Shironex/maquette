@@ -39,6 +39,11 @@ impl QuitGuard {
         self.unapplied.store(unapplied, Ordering::SeqCst);
     }
 
+    /// Whether the web view said it holds work that is not applied yet.
+    pub fn has_unapplied(&self) -> bool {
+        self.unapplied.load(Ordering::SeqCst)
+    }
+
     /// The user answered: the next close request goes through.
     pub fn approve(&self) {
         self.approved.store(true, Ordering::SeqCst);

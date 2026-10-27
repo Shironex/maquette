@@ -8,6 +8,26 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 /** Commands */
 export const commands = {
 	appBootstrap: () => __TAURI_INVOKE<Bootstrap>("app_bootstrap"),
+	appAbout: () => __TAURI_INVOKE<AboutInfo>("app_about"),
+	/**
+	 *  Opens one of the project's own pages (the repo, its releases and issue
+	 *  forms, the docs site) in the browser. Anything else is refused.
+	 */
+	appOpenLink: (url: string) => __TAURI_INVOKE<null>("app_open_link", { url }),
+	/**  Whether this build updates itself, and what the last check found. */
+	updaterStatus: () => __TAURI_INVOKE<UpdaterStatus>("updater_status"),
+	/**
+	 *  Checks the feed now. Answers with the step it ended on: an update,
+	 *  current, pending (no release out yet) or a failure.
+	 */
+	updaterCheck: () => __TAURI_INVOKE<UpdaterEvent>("updater_check"),
+	/**  Downloads the update the last check found; progress goes out as events. */
+	updaterDownload: () => __TAURI_INVOKE<UpdateInfo>("updater_download"),
+	/**
+	 *  Installs the downloaded update and restarts into it, unless work is
+	 *  running that a restart would cut off.
+	 */
+	updaterInstall: () => __TAURI_INVOKE<null>("updater_install"),
 	workspaceInspect: (root: string) => __TAURI_INVOKE<RootInspection>("workspace_inspect", { root }),
 	workspaceCreate: (root: string, config: WorkspaceConfig) => __TAURI_INVOKE<WorkspaceSnapshot>("workspace_create", { root, config }),
 	/**
@@ -379,9 +399,29 @@ export const events = {
 	providerUpdate: makeEvent<ProviderUpdate>("provider-update"),
 	quitRequested: makeEvent<QuitRequested>("quit-requested"),
 	thumbnailReady: makeEvent<ThumbnailReady>("thumbnail-ready"),
+	updaterUpdate: makeEvent<UpdaterUpdate>("updater-update"),
 };
 
 /* Types */
+/**  The build, the machine and the updater, for Settings > About. */
+export type AboutInfo = {
+	name: string,
+	version: string,
+	/**  The short commit hash, or "dev" for a development build. */
+	commit: string,
+	/**  `YYYY-MM-DD`, or "dev" for a development build. */
+	buildDate: string,
+	os: HostOs,
+	/**  For example "15.2" on macOS or "10.0.26100" on Windows, when known. */
+	osVersion: string | null,
+	/**  The CPU architecture, for example "aarch64" or "x86_64". */
+	arch: string,
+	tauriVersion: string,
+	/**  The Blender version from the last toolchain check, if one ran. */
+	blender: string | null,
+	updater: UpdaterStatus,
+};
+
 export type AcceptRequest = {
 	item: string,
 	project: string,
@@ -3721,6 +3761,15 @@ export type TripoRigSpec = "mixamo" | "tripo";
 
 export type TripoTextureQuality = "standard" | "detailed" | "extreme";
 
+/**  A release the feed offers. */
+export type UpdateInfo = {
+	version: string,
+	/**  The release notes the feed carries, as written. */
+	notes: string | null,
+	/**  The day it was published, `YYYY-MM-DD`. */
+	date: string | null,
+};
+
 /**  What Update would do, before it does it. */
 export type UpdatePlan = {
 	project: string,
@@ -3740,6 +3789,57 @@ export type UpdatePlan = {
 	/**  What the project's target does with it, for a game. */
 	note: string | null,
 };
+
+/**  One step of an update, as the web view hears it. */
+export type UpdaterEvent = 
+/**  A check started. */
+{ type: "checking" } | 
+/**  A newer version is out. */
+{ type: "available"; update: UpdateInfo } | 
+/**  This is the newest version. */
+{ type: "current" } | 
+/**  No release is out for this machine yet (see [`is_release_pending`]). */
+{ type: "pending" } | 
+/**
+ *  Bytes of the update arrived. `total` is unknown when the server did
+ *  not say.
+ */
+{ type: "progress"; downloaded: number | null; total: number | null } | 
+/**  The update is downloaded and checked, ready to install. */
+{ type: "ready"; update: UpdateInfo } | 
+/**  A check, download or install failed. */
+{ type: "failed"; message: string };
+
+/**  Whether this build updates itself, and why not when it does not. */
+export type UpdaterMode = 
+/**  Checks run, and an update can be downloaded and installed. */
+"on" | 
+/**
+ *  No update key is configured yet: updates start with the first
+ *  public release.
+ */
+"unreleased" | 
+/**  A development build, which never replaces itself. */
+"dev-build" | 
+/**  Turned off for this run with `MAQUETTE_NO_UPDATER`. */
+"turned-off";
+
+/**  What the About section shows about updates before any check. */
+export type UpdaterStatus = {
+	mode: UpdaterMode,
+	/**  The feed address, when one is configured. */
+	endpoint: string | null,
+	/**  The update found by the last check, if any. */
+	available: UpdateInfo | null,
+	/**  True once an update is downloaded and waits for a restart. */
+	ready: boolean,
+};
+
+/**
+ *  A step of an app update: a check, its answer, download progress, or an
+ *  update ready to install.
+ */
+export type UpdaterUpdate = UpdaterEvent;
 
 /**  The project asset version a library version was copied from. */
 export type VersionFrom = {

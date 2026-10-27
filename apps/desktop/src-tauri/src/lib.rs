@@ -10,6 +10,7 @@ pub mod mcp;
 pub mod opener;
 pub mod quit;
 pub mod session;
+pub mod updater;
 pub mod workspace_lock;
 
 use std::sync::Arc;
@@ -18,9 +19,18 @@ use tauri::Manager as _;
 
 pub fn run() {
     let specta = bindings::builder();
+    let context = tauri::generate_context!();
+    let feed = updater::FeedConfig::from_plugin_config(context.config().plugins.0.get("updater"));
+    let mode = updater::mode_for(&feed);
+    tracing::info!(?mode, "updater");
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
+    // The updater plugin is only registered when it is on: with no key it
+    // could only fail later, and an app start must never fail over updates.
+    if mode.is_on() {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+    builder
         .on_window_event(quit::on_window_event)
         .on_menu_event(quit::on_menu_event)
         .invoke_handler(specta.invoke_handler())
@@ -50,26 +60,36 @@ pub fn run() {
             let host = Arc::new(mcp::host::AppHost(app.handle().clone()));
             app.manage(mcp::Agents::new(host, hub));
             workspace_lock::start_heartbeat(app.handle().clone());
+            let updates = updater::Updates::new(mode, feed.endpoint.clone());
+            updater::schedule(app.handle(), &updates);
+            app.manage(updates);
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("the Tauri runtime failed to start")
         .run(|handle, event| {
             if let tauri::RunEvent::Exit = event {
-                if let Some(agents) = handle.try_state::<mcp::Agents>() {
-                    agents.stop();
-                }
-                if let Some(preview) = handle.try_state::<commands::site::Preview>() {
-                    preview.0.stop();
-                }
-                if let Some(watch) = handle.try_state::<commands::downloads::Watch>() {
-                    watch.0.stop();
-                }
-                // Running sends stop polling; they resume on the next start.
-                if let Some(studio) = handle.try_state::<commands::providers::Studio>() {
-                    studio.0.close();
-                }
-                workspace_lock::release_open(handle);
+                shutdown(handle);
             }
         });
+}
+
+/// Stops what must not outlive the app: the MCP server, the preview server,
+/// the Downloads watcher and provider polling, and lets go of the workspace.
+/// Runs on exit and before an update restarts the app.
+pub(crate) fn shutdown(handle: &tauri::AppHandle) {
+    if let Some(agents) = handle.try_state::<mcp::Agents>() {
+        agents.stop();
+    }
+    if let Some(preview) = handle.try_state::<commands::site::Preview>() {
+        preview.0.stop();
+    }
+    if let Some(watch) = handle.try_state::<commands::downloads::Watch>() {
+        watch.0.stop();
+    }
+    // Running sends stop polling; they resume on the next start.
+    if let Some(studio) = handle.try_state::<commands::providers::Studio>() {
+        studio.0.close();
+    }
+    workspace_lock::release_open(handle);
 }

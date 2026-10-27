@@ -44,6 +44,33 @@ pub fn open_provider_site(url: &str) -> std::io::Result<()> {
     open_url(url)
 }
 
+/// The project's own pages About may open: the repo (releases, issue forms,
+/// source) and the docs site.
+pub const PROJECT_LINKS: [&str; 2] = [
+    "https://github.com/Shironex/maquette",
+    "https://shironex.github.io/maquette",
+];
+
+/// True for one of [`PROJECT_LINKS`] or a page under it.
+pub fn is_project_link(url: &str) -> bool {
+    PROJECT_LINKS.iter().any(|base| {
+        url.strip_prefix(base)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+    })
+}
+
+/// Opens one of the project's pages in the default browser, when the
+/// address is on the allowlist.
+pub fn open_project_link(url: &str) -> std::io::Result<()> {
+    if !is_project_link(url) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "only the Maquette repo and docs open from About",
+        ));
+    }
+    open_url(url)
+}
+
 /// Opens an address on this machine (`http://localhost:15292/`) in the
 /// default browser: the site's preview server.
 pub fn open_local_url(url: &str) -> std::io::Result<()> {
@@ -137,6 +164,26 @@ mod tests {
         ] {
             assert!(!is_provider_site(bad), "{bad}");
             assert!(open_provider_site(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn only_the_project_pages_open_from_about() {
+        assert!(is_project_link("https://github.com/Shironex/maquette"));
+        assert!(is_project_link(
+            "https://github.com/Shironex/maquette/issues/new?template=bug_report.yml&version=0.1.0"
+        ));
+        assert!(is_project_link("https://shironex.github.io/maquette/"));
+        for bad in [
+            "https://github.com/Shironex/maquette-fork",
+            "https://github.com/Shironex/other",
+            "https://github.com/Shironex/maquette@evil.example",
+            "http://github.com/Shironex/maquette",
+            "https://shironex.github.io/maquettes",
+            "https://example.com/",
+        ] {
+            assert!(!is_project_link(bad), "{bad}");
+            assert!(open_project_link(bad).is_err(), "{bad}");
         }
     }
 
