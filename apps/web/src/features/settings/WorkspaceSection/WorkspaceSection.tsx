@@ -46,7 +46,14 @@ export default function WorkspaceSection({ active, config }: WorkspaceSectionPro
           Cache
           <span className="ml-1.5 font-mono text-[12px] text-fg-mute">{cacheSize}</span>
         </div>
-        <Button size="sm" loading={clearing} disabled={!cache} onClick={() => void clear()}>
+        <Button
+          size="sm"
+          loading={clearing}
+          disabled={!cache}
+          disabledReason="The cache is empty"
+          tooltip="Deletes the cached step results; the next run builds them again"
+          onClick={() => void clear()}
+        >
           Clear cache
         </Button>
       </div>

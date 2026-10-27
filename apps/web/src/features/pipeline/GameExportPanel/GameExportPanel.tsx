@@ -128,7 +128,12 @@ export default function GameExportPanel({ settings, onDisk, busy, onSave }: Game
           </div>
         </div>
         {dirty ? (
-          <Button size="sm" variant="ghost" onClick={reset}>
+          <Button
+            size="sm"
+            variant="ghost"
+            tooltip="Puts the settings back as last saved"
+            onClick={reset}
+          >
             Undo
           </Button>
         ) : null}
@@ -137,6 +142,7 @@ export default function GameExportPanel({ settings, onDisk, busy, onSave }: Game
           loading={saving}
           disabled={!dirty || busy}
           disabledReason={blocked}
+          tooltip="Saves these export settings for the next run"
           onClick={() => void save()}
         >
           Apply

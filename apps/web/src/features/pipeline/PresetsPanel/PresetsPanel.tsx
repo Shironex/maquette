@@ -95,6 +95,7 @@ export default function PresetsPanel({ view, onSave }: PresetsPanelProps) {
           loading={saving}
           disabled={!dirty}
           disabledReason="Nothing changed yet"
+          tooltip="Saves the presets; Compress uses them on the next run"
           onClick={() => void save()}
         >
           Apply presets

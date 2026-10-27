@@ -19,7 +19,7 @@ function skippedText(count: number): string {
 /** The Bake light step's lightmap size, samples and denoiser for this project. */
 export default function BakePanel({ bake, busy, onSave }: BakePanelProps) {
   const { draft, dirty, update, save, saving, reset } = useBakePanel(bake, onSave);
-  const blocked = busy ? 'Wait for the run to finish' : undefined;
+  const blocked = busy ? 'Wait for the run to finish' : 'Nothing changed yet';
   const denoiseNote = bake.canDenoise
     ? 'OpenImageDenoise cleans the sample noise out of each lightmap.'
     : 'This project’s bake_light.py is older and cannot denoise. Update it from the starter banner.';
@@ -75,7 +75,12 @@ export default function BakePanel({ bake, busy, onSave }: BakePanelProps) {
           {costText(draft)}
         </span>
         {dirty ? (
-          <Button size="sm" variant="ghost" onClick={reset}>
+          <Button
+            size="sm"
+            variant="ghost"
+            tooltip="Puts the settings back as last saved"
+            onClick={reset}
+          >
             Undo
           </Button>
         ) : null}
@@ -85,6 +90,7 @@ export default function BakePanel({ bake, busy, onSave }: BakePanelProps) {
           loading={saving}
           disabled={!dirty || busy}
           disabledReason={blocked}
+          tooltip="Saves these bake settings for the next run"
           onClick={() => void save()}
         >
           Apply to the bake

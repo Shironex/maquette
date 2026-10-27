@@ -102,13 +102,23 @@ export default function PipelineView() {
               <Button
                 variant={ship.waits ? 'primary' : 'secondary'}
                 icon="rocket-launch"
+                tooltip={
+                  ship.waits
+                    ? 'Shows what Ship will write to the game repo, for you to approve'
+                    : 'Shows what Ship writes to the game repo'
+                }
                 onClick={() => ship.setOpen(true)}
               >
                 {ship.waits ? 'Review Ship' : 'What Ship changes'}
               </Button>
             )}
             {active ? (
-              <Button variant="danger" icon="x-circle" onClick={() => void cancel()}>
+              <Button
+                variant="danger"
+                icon="x-circle"
+                tooltip="Stops the run that is going"
+                onClick={() => void cancel()}
+              >
                 Stop run
               </Button>
             ) : (
@@ -116,6 +126,18 @@ export default function PipelineView() {
                 variant="primary"
                 icon="play"
                 disabled={starting || errors.length > 0 || view.def.steps.length === 0}
+                disabledReason={
+                  errors.length > 0
+                    ? 'Fix the pipeline errors first'
+                    : view.def.steps.length === 0
+                      ? 'The pipeline has no steps'
+                      : 'Starting the run'
+                }
+                tooltip={
+                  force
+                    ? 'Runs every step again, ignoring the cache'
+                    : 'Runs every step, skipping cached ones'
+                }
                 onClick={() => void run({ force })}
               >
                 Run pipeline
@@ -156,11 +178,20 @@ export default function PipelineView() {
               detail={latest.message ?? undefined}
               actions={
                 <>
-                  <Button size="sm" variant="ghost" onClick={() => setLogStep(failedAt ?? 'all')}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    tooltip="Opens the log of the step that failed"
+                    onClick={() => setLogStep(failedAt ?? 'all')}
+                  >
                     View logs
                   </Button>
                   {failedAt ? (
-                    <Button size="sm" onClick={() => void run({ from: failedAt, force })}>
+                    <Button
+                      size="sm"
+                      tooltip="Runs again from the step that failed, keeping the steps before it"
+                      onClick={() => void run({ from: failedAt, force })}
+                    >
                       Re-run from here
                     </Button>
                   ) : null}

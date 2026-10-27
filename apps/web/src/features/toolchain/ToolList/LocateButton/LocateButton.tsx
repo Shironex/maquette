@@ -24,6 +24,7 @@ export default function LocateButton({
       variant={quiet ? 'ghost' : 'secondary'}
       disabled={disabled}
       aria-label={`Locate ${label}`}
+      tooltip={`Pick where ${label} is installed on this computer`}
       className={fixedWidth ? 'w-[72px]' : undefined}
       onClick={() => void onLocate(tool)}
     >

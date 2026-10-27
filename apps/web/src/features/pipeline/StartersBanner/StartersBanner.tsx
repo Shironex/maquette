@@ -26,7 +26,12 @@ export default function StartersBanner({ view, busy }: StartersBannerProps) {
       detail={`A newer starter exists. Your version stays as it is unless you replace it; the old file is kept as ${fileName(path)}.bak.`}
       actions={
         <>
-          <Button size="sm" variant="ghost" onClick={() => keep(path)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            tooltip="Leaves your edited file as it is and hides this notice"
+            onClick={() => keep(path)}
+          >
             Keep mine
           </Button>
           <Button
@@ -34,6 +39,7 @@ export default function StartersBanner({ view, busy }: StartersBannerProps) {
             loading={working === path}
             disabled={busy || working !== null}
             disabledReason={blocked}
+            tooltip="Overwrites your edited file with the new starter; your version is kept as a .bak"
             onClick={() => void run(path, [path], true)}
           >
             Replace with the new starter
@@ -57,6 +63,7 @@ export default function StartersBanner({ view, busy }: StartersBannerProps) {
               loading={working === 'all'}
               disabled={busy || working !== null}
               disabledReason={blocked}
+              tooltip="Replaces the untouched starter scripts with the newer ones"
               onClick={() => void run('all', update, false)}
             >
               Update

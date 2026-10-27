@@ -115,7 +115,12 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
             <h1 className="text-screen-title">Ship to {name}</h1>
             <p className="mt-0.5 truncate text-fg-mute">{subtitle}</p>
           </div>
-          <Button variant="ghost" icon="arrow-left" onClick={onClose}>
+          <Button
+            variant="ghost"
+            icon="arrow-left"
+            tooltip="Closes this and shows the pipeline runner again"
+            onClick={onClose}
+          >
             Back to the runner
           </Button>
         </div>
@@ -219,7 +224,12 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
             </ul>
             {commitNote}
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" disabled={deciding} onClick={() => void answer(false)}>
+              <Button
+                variant="secondary"
+                disabled={deciding}
+                tooltip="Does not ship; nothing is written to the game repo"
+                onClick={() => void answer(false)}
+              >
                 Deny
               </Button>
               <Button
@@ -227,6 +237,7 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
                 icon="check"
                 loading={deciding}
                 disabled={deciding}
+                tooltip="Writes these files to the game repo"
                 onClick={() => void answer(true)}
               >
                 Approve and ship
