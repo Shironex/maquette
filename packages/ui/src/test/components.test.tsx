@@ -199,6 +199,25 @@ describe('AssetCard', () => {
     expect(onCheck).toHaveBeenLastCalledWith(true, true);
     expect(screen.getByRole('button', { name: 'Add model...' })).toBeInTheDocument();
   });
+  it('shows a long status whole in a tooltip, and a note under it', async () => {
+    const warning = 'Over 20k triangles, Texture over 1024 px';
+    render(
+      <AssetCard
+        name="Crate"
+        status={{
+          state: 'review',
+          label: warning,
+          tooltip: warning,
+          note: <code>maq_crate_v1_tripo</code>,
+        }}
+      />
+    );
+    const chip = screen.getByText(warning);
+    expect(chip).toHaveClass('truncate');
+    await userEvent.hover(chip);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(warning);
+    expect(screen.getByText('maq_crate_v1_tripo')).toBeInTheDocument();
+  });
 });
 
 describe('PipelineNode', () => {

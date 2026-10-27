@@ -32,6 +32,10 @@ export interface AssetCardStatus {
   icon?: IconName;
   progress?: number;
   progressLabel?: string;
+  /** The whole status in a tooltip on the chip, for a word that may not fit. */
+  tooltip?: string;
+  /** A small line under the chip, for example the name a By hand send waits for. */
+  note?: ReactNode;
 }
 
 /** The dots button and the menu it opens. */
@@ -93,6 +97,8 @@ export function AssetCard({
     icon: statusIcon,
     progress,
     progressLabel,
+    tooltip: statusTooltip,
+    note,
   } = statusInfo;
   const { onOpen: onMore, open: moreOpen, menu } = more;
   const checked = selection?.checked;
@@ -183,10 +189,13 @@ export function AssetCard({
         {running && progress !== undefined ? (
           <ProgressBar value={progress} label={progressLabel ?? 'Running'} className="mt-1" />
         ) : status ? (
-          <div className="mt-1">
-            <StatusChip status={status} label={statusLabel} icon={statusIcon} />
+          <div className="mt-1 min-w-0">
+            <Tooltip label={statusTooltip} wrap disabled={!statusTooltip}>
+              <StatusChip status={status} label={statusLabel} icon={statusIcon} />
+            </Tooltip>
           </div>
         ) : null}
+        {note ? <div className="min-w-0">{note}</div> : null}
         {actions ? <div className="mt-1.5 flex flex-wrap gap-1.5">{actions}</div> : null}
       </div>
       {moreOpen && menu ? <div className="absolute top-full right-1 z-20 -mt-8">{menu}</div> : null}

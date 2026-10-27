@@ -24,22 +24,30 @@ export interface StatusChipProps {
   className?: string;
 }
 
-/** State is never colour alone: every chip carries a word and, by default, an icon. */
+/**
+ * State is never colour alone: every chip carries a word and, by default, an
+ * icon. A word longer than the space ends in an ellipsis.
+ */
 export function StatusChip({ status, label, icon, className }: StatusChipProps) {
   const c = CHIP[status];
   return (
     <span
       className={cn(
-        'inline-flex h-5 items-center gap-[5px] rounded-pill pr-2 pl-1.5 text-[11.5px] leading-none font-medium whitespace-nowrap',
+        'inline-flex h-5 max-w-full items-center gap-[5px] rounded-pill pr-2 pl-1.5 text-[11.5px] leading-none font-medium whitespace-nowrap',
         icon === false && 'pl-2',
         c.tone,
         className
       )}
     >
       {icon === false ? null : (
-        <Icon name={icon ?? c.icon} size={12} spin={icon === undefined && c.spin} />
+        <Icon
+          name={icon ?? c.icon}
+          size={12}
+          spin={icon === undefined && c.spin}
+          className="flex-none"
+        />
       )}
-      {label ?? c.label}
+      <span className="min-w-0 truncate">{label ?? c.label}</span>
     </span>
   );
 }
