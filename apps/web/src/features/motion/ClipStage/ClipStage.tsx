@@ -49,6 +49,7 @@ export default function ClipStage() {
         <PressToggle
           icon="bone"
           label="Skeleton"
+          tooltip="Shows the bones over the model"
           pressed={overlays.skeleton && Boolean(model.rig)}
           disabled={!model.rig}
           title={model.rig ? undefined : 'This model has no rig'}
@@ -57,12 +58,14 @@ export default function ClipStage() {
         <PressToggle
           icon="path"
           label="Root trail"
+          tooltip="Draws the line the model's root travels along"
           pressed={overlays.trail}
           onChange={overlays.setTrail}
         />
         <PressToggle
           icon="arrows-clockwise"
           label="Turntable"
+          tooltip="Turns the model slowly so you can see all sides"
           pressed={overlays.turntable}
           onChange={overlays.setTurntable}
         />

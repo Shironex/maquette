@@ -33,7 +33,7 @@ export default function MotionView() {
               title="The models could not be read"
               body={error}
               action={
-                <Button icon="arrow-clockwise" onClick={retry}>
+                <Button icon="arrow-clockwise" tooltip="Reads the models again" onClick={retry}>
                   Try again
                 </Button>
               }

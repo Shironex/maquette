@@ -37,6 +37,7 @@ export default function StatesStage() {
         <PressToggle
           icon="selection"
           label="Show parts"
+          tooltip="Outlines each separate part of the model"
           pressed={stage.showParts}
           disabled={!object}
           onChange={stage.setShowParts}
@@ -83,6 +84,7 @@ export default function StatesStage() {
               variant="ghost"
               icon="play"
               onClick={player.play}
+              tooltip="Plays the model from one state to the next"
               disabled={player.playing}
             >
               Play the move
@@ -111,7 +113,12 @@ export default function StatesStage() {
             title={`${model.name} has no states yet`}
             body="A state is a pose of its parts: a door open, a lamp on. The first one is the model as its file has it."
             action={
-              <Button variant="primary" icon="plus" onClick={stage.give}>
+              <Button
+                variant="primary"
+                icon="plus"
+                tooltip="Adds an at rest state and a moved state to this model"
+                onClick={stage.give}
+              >
                 Give it states
               </Button>
             }

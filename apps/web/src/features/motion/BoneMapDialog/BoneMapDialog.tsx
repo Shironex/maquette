@@ -158,6 +158,7 @@ export default function BoneMapDialog() {
             icon="arrows-left-right"
             disabled
             disabledReason="There is no library clip to retarget yet"
+            tooltip="Maps the library clip onto this rig"
           >
             Retarget
           </Button>

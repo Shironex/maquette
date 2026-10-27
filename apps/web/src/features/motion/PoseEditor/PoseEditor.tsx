@@ -49,7 +49,13 @@ export default function PoseEditor() {
     <section aria-label="Pose" className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <SectionLabel>Pose in {state.name}</SectionLabel>
-        <Button size="sm" variant="ghost" icon="trash" onClick={editor.remove}>
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="trash"
+          tooltip="Deletes this state"
+          onClick={editor.remove}
+        >
           Remove state
         </Button>
       </div>

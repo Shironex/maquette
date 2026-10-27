@@ -142,6 +142,7 @@ export default function MotionList() {
               size="sm"
               icon="caret-down"
               className="justify-start"
+              tooltip="Shows the rest of the models in the list"
               onClick={list.expand}
             >
               Show {list.hidden} more

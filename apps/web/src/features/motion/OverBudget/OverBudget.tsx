@@ -29,6 +29,7 @@ export default function OverBudget() {
           size="sm"
           disabled={!over.supported}
           disabledReason="Update the starter scripts first"
+          tooltip="Leaves this clip out of the shipped scene so it fits the budget"
           onClick={way.apply}
         >
           Leave it off
@@ -58,7 +59,11 @@ export default function OverBudget() {
           title="Pack the keys with meshopt"
           detail="The Compress step packs animation keys too. Turn it up per model in the Pipeline view."
           action={
-            <Button size="sm" onClick={over.openPipeline}>
+            <Button
+              size="sm"
+              tooltip="Goes to the Pipeline, where Compress is set per model"
+              onClick={over.openPipeline}
+            >
               Open Pipeline
             </Button>
           }

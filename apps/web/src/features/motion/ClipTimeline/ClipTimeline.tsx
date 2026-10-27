@@ -1,5 +1,5 @@
 import type { PointerEvent } from 'react';
-import { Icon, IconButton, Kbd, Select } from '@maquette/ui';
+import { Icon, IconButton, Kbd, Select, Tooltip } from '@maquette/ui';
 import { SPEEDS, type Speed } from '@/state/motion';
 import { frameUnder, useClipTimeline } from './ClipTimeline.hooks';
 
@@ -59,15 +59,21 @@ export default function ClipTimeline() {
     </span>
   ));
   const handles = (['in', 'out'] as const).map(end => (
-    <button
+    <Tooltip
       key={end}
-      type="button"
-      aria-label={end === 'in' ? `In, frame ${from}` : `Out, frame ${to}`}
-      onPointerDown={e => e.currentTarget.setPointerCapture?.(e.pointerId)}
-      onPointerMove={drag(end)}
-      className="absolute top-[3px] h-7 w-2 -translate-x-1/2 cursor-ew-resize rounded-[3px] bg-fg"
-      style={{ left: at(end === 'in' ? from : to, frames) }}
-    />
+      label={
+        end === 'in' ? 'Drag to set where the preview loop starts' : 'Drag to set where it ends'
+      }
+    >
+      <button
+        type="button"
+        aria-label={end === 'in' ? `In, frame ${from}` : `Out, frame ${to}`}
+        onPointerDown={e => e.currentTarget.setPointerCapture?.(e.pointerId)}
+        onPointerMove={drag(end)}
+        className="absolute top-[3px] h-7 w-2 -translate-x-1/2 cursor-ew-resize rounded-[3px] bg-fg"
+        style={{ left: at(end === 'in' ? from : to, frames) }}
+      />
+    </Tooltip>
   ));
   const hints = HINTS.map(([keys, what]) => {
     const kbds = keys.map(k => <Kbd key={k} keys={k} />);

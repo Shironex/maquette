@@ -78,7 +78,12 @@ export default function MotionEmpty() {
                 first prop with states: at rest and moved.
               </p>
             </div>
-            <Button variant="primary" icon="plus" onClick={suggestion.give}>
+            <Button
+              variant="primary"
+              icon="plus"
+              tooltip="Adds an at rest state and a moved state to this model"
+              onClick={suggestion.give}
+            >
               Give it states
             </Button>
           </div>

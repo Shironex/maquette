@@ -61,6 +61,7 @@ export default function StatesStrip() {
           onClick={strip.add}
           disabled={strip.full}
           disabledReason="Sixteen states at most"
+          tooltip="Adds a state to pose this model in"
         >
           Add state
         </Button>

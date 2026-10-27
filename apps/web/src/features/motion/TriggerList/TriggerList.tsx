@@ -27,6 +27,7 @@ export default function TriggerList() {
           aria-expanded={list.menu}
           disabled={!list.target}
           disabledReason="Add a second state first"
+          tooltip="Adds something that moves the model between states"
           onClick={() => list.setMenu(!list.menu)}
         >
           Add

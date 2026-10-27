@@ -59,6 +59,7 @@ export default function NoClipsOptions() {
               icon="arrows-left-right"
               disabled={!rigged}
               disabledReason="Needs a rig"
+              tooltip="Maps a library clip onto this rig"
               onClick={retarget}
             >
               Retarget a clip
@@ -70,7 +71,11 @@ export default function NoClipsOptions() {
           title="From a .glb or .blend"
           body="Clips you animated yourself: export them in the model and drop it in the Inbox as its next version. Every action keeps its name."
           action={
-            <Button icon="tray" onClick={openInbox}>
+            <Button
+              icon="tray"
+              tooltip="Goes to the Inbox, where a model file can come in"
+              onClick={openInbox}
+            >
               Open the Inbox
             </Button>
           }
@@ -80,7 +85,11 @@ export default function NoClipsOptions() {
           title="Bake with a Blender script"
           body="A script poses the rig and bakes the result headless, as a built asset on the Board."
           action={
-            <Button icon="plus" onClick={addScript}>
+            <Button
+              icon="plus"
+              tooltip="Adds a built asset on the Board that a Blender script makes"
+              onClick={addScript}
+            >
               Add script
             </Button>
           }

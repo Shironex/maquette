@@ -14,7 +14,12 @@ export default function RigCheck() {
       detail={line.detail}
       footer={
         line.map ? (
-          <Button size="sm" icon="bone" onClick={openMap}>
+          <Button
+            size="sm"
+            icon="bone"
+            tooltip="Matches this rig's bones to the humanoid names library clips use"
+            onClick={openMap}
+          >
             Map bones
           </Button>
         ) : undefined

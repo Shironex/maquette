@@ -77,6 +77,7 @@ export default function ClipsPanel() {
           icon="plus"
           iconRight="caret-down"
           aria-expanded={panel.menu}
+          tooltip="Add a clip from the motion library, a file or a Blender script"
           onClick={() => panel.setMenu(!panel.menu)}
         >
           Add clip
@@ -144,7 +145,12 @@ export default function ClipsPanel() {
           title="Every clip ships for now"
           detail="This project's Build scene script is older than the one that leaves clips out. Update the starter scripts in the Pipeline view."
           actions={
-            <Button size="sm" icon="flow-arrow" onClick={panel.actions.pipeline}>
+            <Button
+              size="sm"
+              icon="flow-arrow"
+              tooltip="Goes to the Pipeline, where the starter scripts are updated"
+              onClick={panel.actions.pipeline}
+            >
               Open Pipeline
             </Button>
           }
