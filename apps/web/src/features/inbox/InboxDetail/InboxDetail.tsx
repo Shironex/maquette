@@ -167,7 +167,12 @@ export default function InboxDetail({ item }: InboxDetailProps) {
         >
           Redo...
         </Button>
-        <Button variant="ghost" icon="arrow-square-out" onClick={() => void openInBlender(item.id)}>
+        <Button
+          variant="ghost"
+          icon="arrow-square-out"
+          tooltip="Opens this model in Blender to look at or fix it"
+          onClick={() => void openInBlender(item.id)}
+        >
           Open in Blender
         </Button>
         <Button

@@ -30,7 +30,7 @@ export default function RedoBar({ count, blocker, onRedo, onClear }: RedoBarProp
       >
         Redo {count}
       </Button>
-      <Button size="sm" variant="ghost" onClick={onClear}>
+      <Button size="sm" variant="ghost" tooltip="Clears the selection" onClick={onClear}>
         Clear
       </Button>
     </div>
