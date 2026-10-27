@@ -42,13 +42,15 @@
  * card with several budget warnings, and the sync set
  * (scripts/visual-check/sync.mjs) a workspace shared with another computer:
  * the lock question, the repo question, the conflict warning and the
- * Settings help. It renders
+ * Settings help, and the about set (scripts/visual-check/about.mjs)
+ * Settings > About and the app updater: inert, the header pill, an update
+ * downloading and ready. It renders
  * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=page, ONLY=game, ONLY=library, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=page, ONLY=game, ONLY=library, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -58,6 +60,7 @@
 import { mkdir } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { aboutShots } from './visual-check/about.mjs';
 import { boardShots } from './visual-check/board.mjs';
 import { gameShots } from './visual-check/game.mjs';
 import { libraryShots } from './visual-check/library.mjs';
@@ -985,6 +988,7 @@ try {
   if (!only || only === 'compare') await compareShots({ open, shot });
   if (!only || only === 'ship') await shipShots({ open, shot, hoverTip });
   if (!only || only === 'sync') await syncShots({ open, shot });
+  if (!only || only === 'about') await aboutShots({ open, shot });
 } finally {
   await browser.close();
   await vite?.close();
