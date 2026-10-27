@@ -1,4 +1,5 @@
 import { Icon, cn } from '@maquette/ui';
+import { MENU_ROW } from '@/features/common/Menu';
 import { optionDomId, type CompareGroup, type CompareOption } from '../../compare-options';
 
 export interface CompareSectionProps {
@@ -25,7 +26,7 @@ export default function CompareSection({ group, listId, active, onPick }: Compar
         if (!option.current) onPick(option);
       }}
       className={cn(
-        'flex cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-[13px] hover:bg-hover',
+        MENU_ROW,
         option === active && 'bg-hover',
         option.current && 'cursor-default text-fg-mute hover:bg-transparent'
       )}
