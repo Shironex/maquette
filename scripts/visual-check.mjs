@@ -36,13 +36,15 @@
  * set (scripts/visual-check/page.mjs) the Page view and the game set
  * (scripts/visual-check/game.mjs) game projects and the library set
  * (scripts/visual-check/library.mjs) the Library view, Add to library and
- * Update from library. It renders
+ * Update from library, and the board set (scripts/visual-check/board.mjs)
+ * a card waiting for a By hand model, its grouped menu and Move to submenu,
+ * the header's tooltips and a card with several budget warnings. It renders
  * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=page, ONLY=game, ONLY=library or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=page, ONLY=game, ONLY=library, ONLY=board or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -52,6 +54,7 @@
 import { mkdir } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { boardShots } from './visual-check/board.mjs';
 import { gameShots } from './visual-check/game.mjs';
 import { libraryShots } from './visual-check/library.mjs';
 import { motionShots } from './visual-check/motion.mjs';
@@ -344,17 +347,20 @@ async function uxShots() {
   await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
   await hoverTip(board, board.getByRole('checkbox', { name: 'Select Island' }), 'ux-card-select');
   await board.getByRole('button', { name: 'More for Stone lanterns' }).click();
-  await hoverTip(
-    board,
-    board.getByRole('menuitem', { name: 'Open in Blender' }),
-    'ux-menu-disabled-reason'
-  );
-  await board.keyboard.press('Escape');
-  await board.getByRole('button', { name: 'More for Stone lanterns' }).click();
   await board.getByRole('menuitem', { name: 'Send to 3D' }).click();
   const sheet = board.getByRole('dialog', { name: /Send Stone lanterns to 3D/ });
   await sheet.waitFor();
   await hoverTip(board, sheet.getByRole('button', { name: 'Close' }), 'ux-sheet-close-edge');
+
+  // An Inbox model that did not come from a send has nothing to redo.
+  const inbox = await open('&scenario=configured', '#/inbox');
+  await inbox.getByRole('heading', { name: 'Automatic checks' }).waitFor();
+  await inbox.getByRole('button', { name: 'More for Character' }).click();
+  await hoverTip(
+    inbox,
+    inbox.getByRole('menuitem', { name: 'Redo...' }),
+    'ux-menu-disabled-reason'
+  );
 
   const rail = await open('&scenario=configured', '#/board');
   await rail.getByRole('button', { name: 'Collapse' }).click();
@@ -950,6 +956,7 @@ try {
   if (!only || only === 'size') await listShots();
   if (!only || only === 'size') await prepShots();
   if (!only || only === 'built') await builtShots();
+  if (!only || only === 'board') await boardShots({ open, shot });
   if (!only || only === 'motion') await motionShots({ open, shot });
   if (!only || only === 'timeline') await timelineShots({ open, shot });
   if (!only || only === 'paths') await pathsShots({ open, shot });
