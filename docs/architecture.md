@@ -142,6 +142,15 @@ through `commands/trash.rs` like the Board's Remove from project and Recently re
 (`get_page_preview`, `start_page_preview`, `stop_page_preview`) through `commands/page.rs`, so an
 agent and the view share the one server and its state.
 
+`site/preview` keeps that one server. A plan carries `port_in_args` (the command names `{port}`) and
+`key` (the command line before the port is filled in). The address shown is the configured `url`,
+else the one the server prints, else the expected port, but that last only when the port is in the
+args or after a grace of 8 s, since a server given only `PORT` may ignore it. A server running at a
+guessed address that later prints another one moves to it, and a changed `key` starts afresh. On the
+web side `use-page-store` holds the server for every view: `features/page/ServerControls` (the
+frame's Stop), `features/pipeline/PreviewSiteButton` and `features/shell/SiteServerItem` (the status
+bar menu) all stop it through `stopServer`, with `common/StopServerButton` shared.
+
 ## Game projects
 
 `ProjectManifest.target` is `website` or `game`; a game keeps `GameSettings` in `game` (boxed, so
