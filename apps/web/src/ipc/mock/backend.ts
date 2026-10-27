@@ -50,7 +50,7 @@ import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createProjectHandlers } from './create-project-handlers';
 import { createToolchainHandlers } from './create-toolchain-handlers';
 import { createWorkspaceHandlers } from './create-workspace-handlers';
-import { syncProjects } from './create-sync-handlers';
+import { createSyncHandlers, syncProjects } from './create-sync-handlers';
 import { display, expand, fail, type Args, type BackendOptions } from './backend-options';
 
 export type MockOptions = BackendOptions;
@@ -323,6 +323,7 @@ export function createBackend({
       },
     }),
     ...createToolchainHandlers(scenario, probeDelay),
+    ...createSyncHandlers(sync),
     ...createProjectHandlers({
       snapshot,
       project,

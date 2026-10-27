@@ -16,6 +16,7 @@ import { CurrentView } from '../CurrentView';
 import { ProjectSwitcherMenu } from '../ProjectSwitcherMenu';
 import { QuitDialog } from '../QuitDialog';
 import { ShellStatusBar } from '../ShellStatusBar';
+import { SyncConflictBanner } from '../SyncConflictBanner';
 import { useAppShell } from './AppShell.hooks';
 
 export default function AppShell() {
@@ -63,6 +64,7 @@ export default function AppShell() {
         }
       />
       <div className="flex min-w-0 flex-1 flex-col">
+        <SyncConflictBanner />
         <div className="flex min-h-0 flex-1 flex-col">
           <CurrentView view={showsView(target, view) ? view : 'board'} />
         </div>
