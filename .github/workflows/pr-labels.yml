@@ -1,0 +1,92 @@
+# Labels every pull request: area labels from the paths it touches
+# (.github/labeler.yml), and the labels of the issue it closes, so the PR
+# carries the issue's type, priority and areas.
+#
+# SAFETY: `pull_request_target`, because a PR from a fork gets a read-only
+# token under `pull_request` and could not be labelled at all. The price is a
+# writable token, so:
+#
+#   This workflow must never check out, build or run anything from the PR.
+#
+# There is no `actions/checkout` here and there must never be one.
+# actions/labeler reads .github/labeler.yml over the API at `github.sha`,
+# which under this trigger is the base commit, so a PR cannot change the
+# configuration that labels it. The mirror job only reads labels over the API.
+
+name: pr-labels
+
+on:
+  pull_request_target:
+    # `edited` for the mirror: adding `Closes #N` to the body is an edit.
+    # Never `labeled`/`unlabeled`: this workflow writes labels, and those
+    # types would trigger it again.
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: pr-labels-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  areas:
+    name: area labels
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # An edit changes no files, so it needs no new area labels.
+    if: github.event.action != 'edited'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
+        with:
+          # Add only: a label applied by hand is never taken off.
+          sync-labels: false
+
+  mirror:
+    name: issue labels
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: read
+      pull-requests: write
+    steps:
+      - name: Copy the labels of the issues this PR closes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          NAME: ${{ github.event.repository.name }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # Triage labels describe the issue, not the change, so they stay there.
+          skip='^(question|needs repro|good first issue|help wanted|duplicate|invalid|wontfix)$'
+          # The $variables in the query are GraphQL's, not the shell's.
+          # shellcheck disable=SC2016
+          labels=$(gh api graphql \
+            -F owner="$OWNER" -F name="$NAME" -F pr="$PR" \
+            -f query='
+              query($owner: String!, $name: String!, $pr: Int!) {
+                repository(owner: $owner, name: $name) {
+                  pullRequest(number: $pr) {
+                    closingIssuesReferences(first: 10) {
+                      nodes { number labels(first: 50) { nodes { name } } }
+                    }
+                  }
+                }
+              }' \
+            --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].labels.nodes[].name' \
+            | sort -u | { grep -Ev "$skip" || true; })
+          if [ -z "$labels" ]; then
+            echo "No closing issue with labels to copy."
+            exit 0
+          fi
+          # The issues endpoint adds labels to a PR as well, and needs only
+          # pull-requests: write for it.
+          args=()
+          while IFS= read -r label; do args+=(-f "labels[]=$label"); done <<< "$labels"
+          gh api --method POST "repos/$GH_REPO/issues/$PR/labels" "${args[@]}" --silent
+          echo "Copied to #$PR: $(paste -sd, - <<< "$labels")"

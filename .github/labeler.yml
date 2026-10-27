@@ -1,6 +1,6 @@
 # Path based auto labels for pull requests (actions/labeler v5+ syntax).
-# Label names match .github/labels.yml. The workflow that runs this is added
-# with the CI slice.
+# Label names match .github/labels.yml. .github/workflows/pr-labels.yml runs
+# it, reading this file from the base branch.
 
 area:desktop:
   - changed-files:
