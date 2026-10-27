@@ -34,6 +34,7 @@ case "{mode}" in
   slow) sleep 30;;
   limited) echo "ERROR: exceeded retry limit, last status: 429 Too Many Requests" >&2; exit 1;;
   limited-once) if [ "$n" = 1 ]; then echo "ERROR: exceeded retry limit, last status: 429 Too Many Requests" >&2; exit 1; fi; cp "{png}" "$out";;
+  usage) if [ ! -f "{home}/lifted" ]; then echo "ERROR: You’ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro) or try again later." >&2; exit 1; fi; cp "{png}" "$out";;
   flaky) if [ "$n" = 1 ]; then echo "error: not signed in" >&2; exit 2; fi; cp "{png}" "$out";;
 esac
 "#,
@@ -551,6 +552,65 @@ fn a_job_waiting_out_a_rate_limit_can_be_cancelled() {
     assert_eq!(again.retries, 0);
     concepts.cancel(&second.id).expect("cancel again");
     concepts.wait();
+}
+
+#[test]
+fn a_usage_limit_holds_the_whole_queue_until_it_lifts() {
+    let r = rig();
+    fs::create_dir_all(&r.home).expect("home");
+    let codex = fake_codex(&r.root, &r.png, &r.home, "usage");
+    let (log, on_event) = events();
+    let concepts = Concepts::new(Some(r.home.clone()), 1, on_event);
+    // No time in the message: the rate limit backoff decides the wait.
+    concepts.set_backoff(quick(3, 1000));
+    let (_, jobs) = concepts
+        .start(Start {
+            project_dir: &r.project,
+            cache_dir: &r.cache,
+            tools: &toolbox(&codex),
+            request: request("Lantern", 3),
+            timeout: Duration::from_secs(20),
+        })
+        .expect("start");
+    let usage_waiting = || {
+        concepts
+            .jobs(None)
+            .iter()
+            .filter(|j| j.state == ConceptJobState::RateLimited && j.usage_limit)
+            .count()
+    };
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while usage_waiting() < 2 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(usage_waiting() >= 2, "{:#?}", concepts.jobs(None));
+    // A job started while the limit holds waits for it too.
+    let late = start_one(&concepts, &r, &codex, "Porch");
+    assert_eq!(late.state, ConceptJobState::RateLimited, "{late:#?}");
+    assert!(late.usage_limit);
+    fs::write(r.home.join("lifted"), "").expect("lift");
+    concepts.wait();
+    for job in concepts.jobs(None) {
+        assert_eq!(job.state, ConceptJobState::Done, "{job:#?}");
+        assert!(!job.usage_limit);
+    }
+    // The last queued job never ran into the limit: it waited, then ran once.
+    let last = &jobs[2];
+    let count = fs::read_to_string(r.project.join(format!("{}.count", last.file))).expect("count");
+    assert_eq!(count.trim(), "1");
+    let waiting = log
+        .lock()
+        .expect("events")
+        .iter()
+        .find_map(|e| match e {
+            ConceptEvent::Job { job } if job.usage_limit => job.message.clone(),
+            _ => None,
+        })
+        .expect("a usage wait");
+    assert!(
+        waiting.starts_with("Waiting for the Codex usage limit until about "),
+        "{waiting}"
+    );
 }
 
 #[test]

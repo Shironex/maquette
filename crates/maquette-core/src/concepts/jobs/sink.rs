@@ -1,7 +1,8 @@
 //! The runner sink: turns pipeline runs and log lines into concept job
 //! updates, and settles a job when its run ends. Codex's "hook: ..." lines
-//! are left out of the tail and the error, and a run Codex rate limited
-//! waits for its next try.
+//! are left out of the tail and the error, a run Codex rate limited waits
+//! for its next try, and a run that hit Codex's usage limit waits, with
+//! the rest of the queue, until the limit lifts.
 
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -9,6 +10,7 @@ use std::time::{Instant, SystemTime};
 
 use super::retry::{self, says_rate_limited};
 use super::settle::finish;
+use super::usage::{self, says_usage_limited};
 use super::{
     ConceptEvent, ConceptJob, ConceptJobState, EMIT_EVERY, Entry, KEEP_FINISHED, LOG_TAIL, Shared,
 };
@@ -74,7 +76,12 @@ impl Sink {
             let Some(e) = jobs.iter_mut().find(|e| e.job.id == step.id) else {
                 return;
             };
-            if e.job.state.is_finished() {
+            // A waiting job has no run; this is one it left (a queued run
+            // paused for the usage limit, cancelled).
+            if e.job.state.is_finished()
+                || e.job.state == ConceptJobState::RateLimited
+                || e.job.run_id.as_ref().is_some_and(|id| *id != run.id)
+            {
                 return;
             }
             e.job.run_id = Some(run.id.clone());
@@ -103,7 +110,12 @@ impl Sink {
             return;
         }
         let reason = step.message.clone().or_else(|| run.message.clone());
-        let limited = run.state == RunState::Failed
+        let failed = run.state == RunState::Failed;
+        let usage_text = failed
+            .then(|| usage_limited_text(&job, last_error.as_deref(), reason.as_deref()))
+            .flatten();
+        let limited = failed
+            && usage_text.is_none()
             && rate_limited_run(&job, last_error.as_deref(), reason.as_deref());
         let direction = finish(
             &mut job,
@@ -116,9 +128,23 @@ impl Sink {
             started,
         );
         job.finished_at_ms = Some(now_ms());
-        let wait = (limited && job.state == ConceptJobState::Failed)
-            .then(|| retry::rate_limited(&mut job, &self.0.backoff()))
-            .flatten();
+        let mut pause = None;
+        let wait = match (&usage_text, job.state) {
+            (Some(text), ConceptJobState::Failed) => {
+                let until = usage::resume_at_ms(text);
+                let wait = retry::usage_limited(&mut job, until, &self.0.backoff(), now_ms());
+                pause = job.retry_at_ms.filter(|_| wait.is_some());
+                wait
+            }
+            (None, ConceptJobState::Failed) if limited => {
+                retry::rate_limited(&mut job, &self.0.backoff())
+            }
+            (_, ConceptJobState::Done) => {
+                retry::usage_lifted(&self.0);
+                None
+            }
+            _ => None,
+        };
         let generation = {
             let mut jobs = self.0.jobs();
             let generation = jobs.iter_mut().find(|e| e.job.id == job.id).map(|e| {
@@ -130,6 +156,9 @@ impl Sink {
         };
         if let (Some(wait), Some(generation)) = (wait, generation) {
             retry::schedule(Arc::clone(&self.0), job.id.clone(), generation, wait);
+        }
+        if let Some(until) = pause {
+            retry::pause_queue(&self.0, until);
         }
         self.0.emit(ConceptEvent::Job { job: job.clone() });
         if let Some(direction) = direction {
@@ -152,6 +181,20 @@ fn rate_limited_run(job: &ConceptJob, last_error: Option<&str>, reason: Option<&
             .rev()
             .take(8)
             .any(|l| says_rate_limited(l))
+}
+
+/// The run's error, its reason and the last lines Codex printed, joined,
+/// when they say Codex's usage limit is hit; the time it lifts is read
+/// from them.
+fn usage_limited_text(
+    job: &ConceptJob,
+    last_error: Option<&str>,
+    reason: Option<&str>,
+) -> Option<String> {
+    let tail = job.log_tail.iter().rev().take(8).rev().map(String::as_str);
+    let lines: Vec<&str> = last_error.into_iter().chain(reason).chain(tail).collect();
+    let text = lines.join("\n");
+    says_usage_limited(&text).then_some(text)
 }
 
 fn prune(jobs: &mut VecDeque<Entry>) {

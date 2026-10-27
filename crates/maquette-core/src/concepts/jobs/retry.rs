@@ -1,15 +1,17 @@
 //! Running a concept job again: on its own after Codex rate limited it
-//! (with a growing wait and a capped number of tries), or when someone
-//! asks for it with Retry. A retry reruns the same prompt, refs and target
-//! file under the same job, so it never makes a new direction.
+//! (with a growing wait and a capped number of tries), once Codex's usage
+//! limit lifts, or when someone asks for it with Retry. A retry reruns the
+//! same prompt, refs and target file under the same job, so it never makes
+//! a new direction.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use super::usage;
 use super::{ConceptEvent, ConceptJob, ConceptJobState, Concepts, Shared};
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::now_ms;
-use crate::pipeline::runner::PipelineRunner;
+use crate::pipeline::runner::{JobRunner, PipelineRunner};
 
 /// How long a rate limited job waits before it runs again, and how often.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,6 +102,88 @@ pub(super) fn rate_limited(job: &mut ConceptJob, backoff: &Backoff) -> Option<Du
     Some(wait)
 }
 
+/// Turns a failed job Codex usage limited into one waiting until
+/// `until_ms`, the time Codex named. That wait spends no try, since the
+/// job runs again only once the limit lifts. Without a time it waits like
+/// a rate limited job ([`rate_limited`]), with a usage limit message.
+/// Returns the wait, `None` once the tries are used up.
+pub(super) fn usage_limited(
+    job: &mut ConceptJob,
+    until_ms: Option<f64>,
+    backoff: &Backoff,
+    now_ms: f64,
+) -> Option<Duration> {
+    let Some(until) = until_ms else {
+        let wait = rate_limited(job, backoff);
+        job.usage_limit = wait.is_some();
+        job.message = Some(match job.retry_at_ms {
+            Some(at) => usage::waiting_message(at),
+            None => format!(
+                "Codex's usage limit is hit, {} times in a row. Try again later with Retry.",
+                job.retries + 1
+            ),
+        });
+        return wait;
+    };
+    wait_for_usage(job, until);
+    Some(Duration::from_secs_f64(
+        ((until - now_ms) / 1000.0).max(0.0),
+    ))
+}
+
+/// Puts a job in the usage limit wait until `until_ms`.
+fn wait_for_usage(job: &mut ConceptJob, until_ms: f64) {
+    job.state = ConceptJobState::RateLimited;
+    job.usage_limit = true;
+    job.retry_at_ms = Some(until_ms);
+    job.message = Some(usage::waiting_message(until_ms));
+}
+
+/// The usage limit is still on: it lifts more than a moment from now.
+fn usage_holds(shared: &Shared) -> Option<f64> {
+    shared
+        .usage_until()
+        .filter(|until| *until - now_ms() > 100.0)
+}
+
+/// Codex's usage limit holds until `until_ms`: it holds for every job, so
+/// the jobs still queued wait for it too instead of each running into it.
+/// Their runs leave the runner; jobs already running settle on their own.
+pub(super) fn pause_queue(shared: &Arc<Shared>, until_ms: f64) {
+    {
+        let mut until = shared.usage_until();
+        *until = Some(until.map_or(until_ms, |u| u.max(until_ms)));
+    }
+    let paused: Vec<_> = {
+        let mut jobs = shared.jobs();
+        jobs.iter_mut()
+            .filter(|e| e.job.state == ConceptJobState::Queued)
+            .map(|e| {
+                e.generation += 1;
+                let run = e.job.run_id.take();
+                wait_for_usage(&mut e.job, until_ms);
+                (e.job.clone(), e.generation, run)
+            })
+            .collect()
+    };
+    let runner = shared.runner.get().and_then(|r| r.upgrade());
+    let wait = Duration::from_secs_f64(((until_ms - now_ms()) / 1000.0).max(0.0));
+    for (job, generation, run) in paused {
+        if let (Some(runner), Some(run)) = (&runner, run) {
+            // The run's own cancelled event finds the job waiting and is
+            // left out (see the sink).
+            let _ = runner.cancel(&run);
+        }
+        schedule(Arc::clone(shared), job.id.clone(), generation, wait);
+        shared.emit(ConceptEvent::Job { job });
+    }
+}
+
+/// A job finished well, so the usage limit has lifted.
+pub(super) fn usage_lifted(shared: &Shared) {
+    *shared.usage_until() = None;
+}
+
 /// Waits out `wait` on its own thread, then runs the job again, unless it
 /// was cancelled, retried by hand or dropped in the meantime.
 pub(super) fn schedule(shared: Arc<Shared>, id: String, generation: u64, wait: Duration) {
@@ -123,7 +207,7 @@ pub(super) fn schedule(shared: Arc<Shared>, id: String, generation: u64, wait: D
             if still_waiting(&shared)
                 && let Some(runner) = shared.runner.get().and_then(|r| r.upgrade())
             {
-                submit(&shared, &runner, &id);
+                submit(&shared, &runner, &id, false);
             }
         });
     if let Err(err) = spawned {
@@ -132,8 +216,16 @@ pub(super) fn schedule(shared: Arc<Shared>, id: String, generation: u64, wait: D
 }
 
 /// Queues the job's run (again): the same prompt, refs and file, a fresh
-/// log. Returns the job as it is now, or `None` when it is gone.
-pub(super) fn submit(shared: &Shared, runner: &PipelineRunner, id: &str) -> Option<ConceptJob> {
+/// log. While Codex's usage limit holds the job waits for it instead,
+/// unless `now` (Retry by hand runs it at once). Returns the job as it is
+/// now, or `None` when it is gone.
+pub(super) fn submit(
+    shared: &Arc<Shared>,
+    runner: &PipelineRunner,
+    id: &str,
+    now: bool,
+) -> Option<ConceptJob> {
+    let hold = if now { None } else { usage_holds(shared) };
     let rerun = {
         let mut jobs = shared.jobs();
         let e = jobs.iter_mut().find(|e| e.job.id == id)?;
@@ -152,8 +244,20 @@ pub(super) fn submit(shared: &Shared, runner: &PipelineRunner, id: &str) -> Opti
         job.width = None;
         job.height = None;
         job.log_tail.clear();
+        job.usage_limit = false;
         if job.retries == 0 {
             job.message = None;
+        }
+        if let Some(until) = hold {
+            wait_for_usage(job, until);
+            let waiting = (job.clone(), e.generation);
+            drop(jobs);
+            let wait = Duration::from_secs_f64(((until - now_ms()) / 1000.0).max(0.0));
+            schedule(Arc::clone(shared), waiting.0.id.clone(), waiting.1, wait);
+            shared.emit(ConceptEvent::Job {
+                job: waiting.0.clone(),
+            });
+            return Some(waiting.0);
         }
         e.rerun.clone()
     };
@@ -219,7 +323,7 @@ impl Concepts {
                 }
             }
         }
-        submit(&self.shared, &self.runner, job_id)
+        submit(&self.shared, &self.runner, job_id, true)
             .ok_or_else(|| CoreError::NotFound(format!("the concept job {job_id}")))
     }
 
@@ -234,7 +338,11 @@ impl Concepts {
             e.job.state = ConceptJobState::Cancelled;
             e.job.finished_at_ms = Some(now_ms());
             e.job.retry_at_ms = None;
-            e.job.message = Some("Cancelled while waiting out the rate limit.".into());
+            e.job.message = Some(if e.job.usage_limit {
+                "Cancelled while waiting for the Codex usage limit.".into()
+            } else {
+                "Cancelled while waiting out the rate limit.".into()
+            });
             e.job.clone()
         };
         self.shared.emit(ConceptEvent::Job { job: job.clone() });

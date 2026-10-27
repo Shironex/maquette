@@ -7,13 +7,16 @@
 //! (the session id is in Codex's log header) for an image made during the
 //! job and copies that one. A job that runs past the timeout is stopped.
 //! A job Codex rate limits waits and runs again on its own a few times
-//! ([`Backoff`]); any failed job can run again with [`Concepts::retry`].
+//! ([`Backoff`]). When Codex says its usage limit is hit, the job and every
+//! queued one wait until the time Codex names and then run on their own.
+//! Any failed job can run again with [`Concepts::retry`].
 
 mod retry;
 mod settle;
 mod sink;
 #[cfg(all(test, unix))]
 mod tests;
+mod usage;
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
@@ -48,7 +51,8 @@ const KEEP_FINISHED: usize = 120;
 pub enum ConceptJobState {
     Queued,
     Running,
-    /// Codex rate limited it; it runs again on its own at `retry_at_ms`.
+    /// Codex rate limited it, or its usage limit is hit (`usage_limit`);
+    /// it runs again on its own at `retry_at_ms`.
     RateLimited,
     Done,
     Failed,
@@ -89,6 +93,8 @@ pub struct ConceptJob {
     pub retry_at_ms: Option<f64>,
     /// How often it ran again on its own after a rate limit.
     pub retries: u32,
+    /// Waiting: the wait is Codex's usage limit, not a rate limit.
+    pub usage_limit: bool,
 }
 
 /// What the service reports to the UI.
@@ -161,6 +167,9 @@ struct Shared {
     /// The runner, for retries started from the sink.
     runner: OnceLock<WeakRunner>,
     backoff: Mutex<Backoff>,
+    /// Codex's usage limit holds until then (ms since the epoch); jobs
+    /// queued meanwhile wait for it instead of running.
+    usage_until: Mutex<Option<f64>>,
 }
 
 impl Shared {
@@ -170,6 +179,10 @@ impl Shared {
 
     fn backoff(&self) -> MutexGuard<'_, Backoff> {
         self.backoff.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn usage_until(&self) -> MutexGuard<'_, Option<f64>> {
+        self.usage_until.lock().unwrap_or_else(|p| p.into_inner())
     }
 
     fn emit(&self, event: ConceptEvent) {
@@ -206,6 +219,7 @@ impl Concepts {
             codex_home,
             runner: OnceLock::new(),
             backoff: Mutex::new(Backoff::default()),
+            usage_until: Mutex::new(None),
         });
         let runner = PipelineRunner::new(Arc::new(Sink(Arc::clone(&shared))));
         let _ = shared.runner.set(runner.downgrade());
@@ -326,6 +340,7 @@ impl Concepts {
                 log_tail: Vec::new(),
                 retry_at_ms: None,
                 retries: 0,
+                usage_limit: false,
             };
             let rerun = Rerun {
                 setup: RunSetup {
@@ -377,7 +392,7 @@ impl Concepts {
                 started: None,
                 last_emit: None,
             });
-            queued.extend(retry::submit(&self.shared, &self.runner, &id));
+            queued.extend(retry::submit(&self.shared, &self.runner, &id, false));
         }
         Ok(queued)
     }
