@@ -57,9 +57,10 @@ pnpm gate
 ```
 
 `pnpm gate` is the whole local gate and has to exit 0 before you open a pull request. In order:
-ESLint, the repo's own meta lint (`scripts/lint-meta.mjs`), typecheck, Vitest, the site build,
-Prettier, `cargo fmt --check`, clippy with warnings denied, and `cargo test`. Husky runs lint-staged
-on commit and commitlint on the message. Architecture rules (folder per component, one way
+ESLint, the repo's own meta lint (`scripts/lint-meta.mjs`), typecheck, Vitest, the release scripts'
+tests (`pnpm test:scripts`), the site build, Prettier, `cargo fmt --check`, clippy with warnings
+denied, and `cargo test`. Husky runs lint-staged on commit and commitlint on the message. CI runs
+the same checks on every pull request, with the Rust ones on both macOS and Windows. Architecture rules (folder per component, one way
 dependencies, file size limits) are in [docs/architecture.md](docs/architecture.md).
 
 For any change you can see, also run:
@@ -97,7 +98,7 @@ fix(core): keep the lock file out of the sync ignore list
 | `docs`      | documentation and `.github` community files   |
 | `scripts`   | `scripts/` and tooling                        |
 
-Types are the usual ones: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`, `build`.
+Types are the usual ones: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`, `build`, `perf`.
 
 ## Pull requests
 
