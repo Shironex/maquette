@@ -15,7 +15,8 @@ const BADGES: Record<FrameBadge, { label: string; icon?: IconName }> = {
  * keeps it from navigating the app or opening windows.
  */
 export default function PageFrame(props: PageFrameProps) {
-  const { src, address, badge, compact, label, showStop, image, children, className } = props;
+  const { src, address, badge, label, showStop, image, actions, children, className } = props;
+  const compact = props.layout === 'tile' || props.layout === 'column';
   const { frame, viewport, d, scale, fitText, reloadKey, reload, pin } = usePageFrame(props);
   const shown = BADGES[badge];
   const width = d.width * scale;
@@ -23,7 +24,7 @@ export default function PageFrame(props: PageFrameProps) {
   const stopPin = showStop && src ? pin : null;
   const hasPage = Boolean(src || image);
   const showFit = !compact && hasPage;
-  const byWidth = props.fit === 'width';
+  const byWidth = props.layout === 'column';
   return (
     <figure
       aria-label={label}
@@ -57,6 +58,7 @@ export default function PageFrame(props: PageFrameProps) {
             {shown.label}
           </span>
         ) : null}
+        {actions}
         <IconButton
           icon="arrow-clockwise"
           label="Reload the page"

@@ -110,7 +110,7 @@ export function usePageBridge(
 }
 
 /** The frame's scale, its badge line, the stop pin and Reload. */
-export function usePageFrame({ id, src, device: deviceId, fit = 'contain' }: PageFrameProps) {
+export function usePageFrame({ id, src, device: deviceId, layout }: PageFrameProps) {
   const frame = useRef<HTMLIFrameElement>(null);
   const viewport = useBox<HTMLDivElement>();
   const reloadKey = usePageStore(s => s.reloadKey);
@@ -119,7 +119,7 @@ export function usePageFrame({ id, src, device: deviceId, fit = 'contain' }: Pag
   const reading = usePageStore(s => s.readings[id]);
   const d = device(deviceId);
   const scale =
-    fit === 'width' ? Math.min(1, viewport.box.width / d.width) : fitScale(d, viewport.box);
+    layout === 'column' ? Math.min(1, viewport.box.width / d.width) : fitScale(d, viewport.box);
   const stops = reading?.stops ?? [];
   const at = reading?.at ?? null;
   const index = at === null ? null : nearestStop(at, stops.length);

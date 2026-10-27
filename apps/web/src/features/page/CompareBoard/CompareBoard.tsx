@@ -63,8 +63,7 @@ function CompareColumn({ column, device }: CompareColumnProps) {
         address={column.address}
         badge={column.badge}
         device={device}
-        fit="width"
-        compact
+        layout="column"
         label={`${column.title}, ${column.sub}`}
         className="flex-initial"
       >

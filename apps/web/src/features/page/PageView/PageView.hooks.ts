@@ -61,6 +61,7 @@ export function usePageView() {
     site: siteName(view?.siteRepo ?? null),
     command: view?.command?.argv.join(' ') ?? null,
     canOpen: running && !concept,
+    concept,
     openInBrowser: () => void openInBrowser(),
     label: concept
       ? 'The page concept'

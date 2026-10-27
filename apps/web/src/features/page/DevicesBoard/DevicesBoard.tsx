@@ -26,7 +26,7 @@ export default function DevicesBoard() {
         address={address}
         badge={badge}
         device={d.id}
-        compact
+        layout="tile"
         showStop={showStops}
         label={`The page at ${d.label} width`}
         className="flex-1"

@@ -16,7 +16,7 @@ export default function PagePreview() {
       badge={p.badge}
       device={p.device}
       label={p.label}
-      compact
+      layout="tile"
       className="size-full"
     >
       {p.status ? <FrameStatus state={p.status} site={p.site} command={p.command} /> : null}

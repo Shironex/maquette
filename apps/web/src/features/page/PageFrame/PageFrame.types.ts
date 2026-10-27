@@ -13,15 +13,20 @@ export interface PageFrameProps {
   address: string;
   badge: FrameBadge;
   device: DeviceId;
-  /** `contain` fits the whole viewport; `width` fills the frame's width and crops below. */
-  fit?: 'contain' | 'width';
-  compact?: boolean;
+  /**
+   * `main` (the default) fits the whole viewport with the fit label; `tile`
+   * does the same in a tighter bar without it; `column` fills the frame's
+   * width and crops below, as the compare board's columns do.
+   */
+  layout?: 'main' | 'tile' | 'column';
   /** Names the page for screen readers: "the home page from the site dev page". */
   label: string;
   /** Shows the current stop on the page. */
   showStop?: boolean;
   /** A still image instead of a page, for this run's poster. */
   image?: string | null;
+  /** Controls at the end of the address bar, before Reload: the main frame's Stop. */
+  actions?: ReactNode;
   /** Shown in the viewport while there is no page: the server's state. */
   children?: ReactNode;
   className?: string;

@@ -8,6 +8,7 @@ import { PageFrame } from '../PageFrame';
 import { PageReadouts } from '../PageReadouts';
 import { PageSource } from '../PageSource';
 import { PageToolbar } from '../PageToolbar';
+import { ServerControls } from '../ServerControls';
 import { ShipTable } from '../ShipTable';
 import { StopScrubber } from '../StopScrubber';
 import { usePageView } from './PageView.hooks';
@@ -98,6 +99,7 @@ export default function PageView() {
               device={v.device}
               showStop={v.showStops}
               label={v.label}
+              actions={v.concept ? null : <ServerControls />}
               className="flex-1"
             >
               {status ? <FrameStatus state={status} site={v.site} command={v.command} /> : null}
