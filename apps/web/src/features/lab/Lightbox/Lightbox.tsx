@@ -49,6 +49,11 @@ export default function Lightbox({ view }: LightboxProps) {
             <Button
               icon={image.starred ? 'star-fill' : 'star'}
               aria-pressed={image.starred}
+              tooltip={
+                image.starred
+                  ? 'Takes the star off this concept'
+                  : 'Stars this concept to find it later'
+              }
               shortcut="S"
               onClick={() => void mark(image.file, { starred: !image.starred })}
             >
@@ -58,6 +63,11 @@ export default function Lightbox({ view }: LightboxProps) {
               variant={image.picked ? 'secondary' : 'primary'}
               icon="check"
               aria-pressed={image.picked}
+              tooltip={
+                image.picked
+                  ? 'Takes this concept off the picked list'
+                  : 'Marks this concept to send to Refs'
+              }
               shortcut="P"
               onClick={() => void mark(image.file, { picked: !image.picked })}
             >

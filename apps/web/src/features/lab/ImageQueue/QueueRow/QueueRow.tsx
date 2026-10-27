@@ -1,4 +1,4 @@
-import { IconButton, ProgressBar, StatusChip, cn } from '@maquette/ui';
+import { IconButton, ProgressBar, StatusChip, Tooltip, cn } from '@maquette/ui';
 import type { ConceptJob } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { canRetry, formatElapsed, inProject, jobMeta, jobStatus, tileLabel } from '@/state/lab';
@@ -29,14 +29,16 @@ export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
   return (
     <div className="group flex items-center gap-2.5 border-t border-line py-2.5 first:border-t-0">
       {thumb ? (
-        <button
-          type="button"
-          aria-label={`Open ${label}`}
-          onClick={() => openLightbox(path)}
-          className="h-9 w-14 flex-none cursor-zoom-in overflow-hidden rounded-control"
-        >
-          <img src={thumb} alt="" className="size-full object-cover" />
-        </button>
+        <Tooltip label="Opens it large">
+          <button
+            type="button"
+            aria-label={`Open ${label}`}
+            onClick={() => openLightbox(path)}
+            className="h-9 w-14 flex-none cursor-zoom-in overflow-hidden rounded-control"
+          >
+            <img src={thumb} alt="" className="size-full object-cover" />
+          </button>
+        </Tooltip>
       ) : (
         <span
           className={cn(

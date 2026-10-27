@@ -26,7 +26,13 @@ export default function Composer({ view }: ComposerProps) {
           {existing ? 'Add to direction' : 'New direction'}
         </h1>
         {existing ? (
-          <Button size="sm" variant="ghost" icon="plus" onClick={newDraft}>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="plus"
+            tooltip="Starts a fresh direction instead of adding to this one"
+            onClick={newDraft}
+          >
             New
           </Button>
         ) : null}
@@ -77,6 +83,7 @@ export default function Composer({ view }: ComposerProps) {
           disabledReason={
             ready ? 'Codex is not set up yet' : 'Name the direction and write a prompt first'
           }
+          tooltip="Sends the prompt to Codex to draw the concepts"
           onClick={() => void generate()}
         >
           {`Generate ${n} ${n === 1 ? 'concept' : 'concepts'}`}

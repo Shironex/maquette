@@ -45,11 +45,25 @@ export default function ImageQueue({ view }: ImageQueueProps) {
       <div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-3">
         <span className="text-meta text-fg-mute">{queueFooter(summary, view.concurrency)}</span>
         {live > 0 ? (
-          <Button size="sm" variant="ghost" onClick={() => void cancelAll()}>
+          <Button
+            size="sm"
+            variant="ghost"
+            tooltip={
+              summary.running
+                ? 'Stops the image being drawn and drops the ones waiting'
+                : 'Drops every image waiting in the queue'
+            }
+            onClick={() => void cancelAll()}
+          >
             {summary.running ? 'Cancel running' : 'Cancel all'}
           </Button>
         ) : finished > 0 ? (
-          <Button size="sm" variant="ghost" onClick={() => void clearFinished()}>
+          <Button
+            size="sm"
+            variant="ghost"
+            tooltip="Removes the finished and failed rows from the queue"
+            onClick={() => void clearFinished()}
+          >
             Clear
           </Button>
         ) : null}

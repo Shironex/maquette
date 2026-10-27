@@ -39,19 +39,19 @@ export default function References({ view }: ReferencesProps) {
   const unusedButtons = unused.map(r => {
     const url = fileUrl(inProject(view.projectDir, r.file));
     return (
-      <button
-        key={r.file}
-        type="button"
-        title={r.name}
-        onClick={() => pick(r.file)}
-        className="h-12 cursor-pointer overflow-hidden rounded-control bg-raised ring-clay hover:ring-2"
-      >
-        {url ? (
-          <img src={url} alt={r.name} className="size-full object-cover" />
-        ) : (
-          <span className="text-meta">{r.name}</span>
-        )}
-      </button>
+      <Tooltip key={r.file} label={`Adds ${r.name} as a reference`}>
+        <button
+          type="button"
+          onClick={() => pick(r.file)}
+          className="h-12 cursor-pointer overflow-hidden rounded-control bg-raised ring-clay hover:ring-2"
+        >
+          {url ? (
+            <img src={url} alt={r.name} className="size-full object-cover" />
+          ) : (
+            <span className="text-meta">{r.name}</span>
+          )}
+        </button>
+      </Tooltip>
     );
   });
 

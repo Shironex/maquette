@@ -1,4 +1,4 @@
-import { Button, Icon, IconButton, cn } from '@maquette/ui';
+import { Button, Icon, IconButton, Tooltip, cn } from '@maquette/ui';
 import type { ConceptImage, Direction, LabView } from '@/ipc/client';
 import { aspectCss, isObjects } from '@/state/lab';
 import { useImageTile } from './ImageTile.hooks';
@@ -23,20 +23,22 @@ export default function ImageTile({ view, direction, image }: ImageTileProps) {
         )}
         style={{ aspectRatio: aspectCss(direction.aspect) }}
       >
-        <button
-          type="button"
-          aria-label={`Open ${label}`}
-          onClick={() => openLightbox(path)}
-          className="block size-full cursor-zoom-in"
-        >
-          {url ? (
-            <img
-              src={url}
-              alt={`${direction.name}, ${label}`}
-              className="block size-full object-cover"
-            />
-          ) : null}
-        </button>
+        <Tooltip label="Opens it large" side="bottom">
+          <button
+            type="button"
+            aria-label={`Open ${label}`}
+            onClick={() => openLightbox(path)}
+            className="block size-full cursor-zoom-in"
+          >
+            {url ? (
+              <img
+                src={url}
+                alt={`${direction.name}, ${label}`}
+                className="block size-full object-cover"
+              />
+            ) : null}
+          </button>
+        </Tooltip>
         {image.picked ? (
           <span className="pointer-events-none absolute top-2 left-2 inline-flex h-[22px] items-center gap-1 rounded-pill bg-clay px-2 text-[11.5px] font-semibold text-clay-ink">
             <Icon name="check" size={12} />
@@ -47,6 +49,11 @@ export default function ImageTile({ view, direction, image }: ImageTileProps) {
           size="sm"
           variant={image.picked ? 'secondary' : 'primary'}
           icon={image.picked ? 'x' : 'check'}
+          tooltip={
+            image.picked
+              ? 'Takes this concept off the picked list'
+              : 'Marks this concept to send to Refs'
+          }
           onClick={() => void mark(image.file, { picked: !image.picked })}
           className="absolute top-2 right-2 opacity-0 transition-opacity duration-120 group-focus-within:opacity-100 group-hover:opacity-100"
         >
