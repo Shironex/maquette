@@ -3,7 +3,9 @@
  * waiting for a By hand model with its export name line, its menu with the
  * By hand section first and the Move to submenu open (by hover and from the
  * keyboard), a right-click on a card, the header's tooltips and a game card
- * whose budget warnings run longer than the card, with the chip's tooltip.
+ * whose budget warnings run longer than the card, with the chip's tooltip,
+ * and the card menu in a short window: on the leftmost column's first card,
+ * and on the bottom card of a column, where it flips up and stays inside.
  */
 
 export async function boardShots({ open, shot }) {
@@ -62,4 +64,22 @@ export async function boardShots({ open, shot }) {
   await game.getByRole('tooltip').waitFor();
   await shot(game, 'board-card-warnings-tooltip');
   await game.context().close();
+
+  const short = await open('&scenario=configured', '#/board', { width: 1280, height: 620 });
+  await short.getByRole('button', { name: /^Character, v2/ }).waitFor();
+  const more = short.getByRole('button', { name: /^More for / });
+  await more.first().click();
+  await short.getByRole('menu').waitFor();
+  await short.mouse.move(0, 0);
+  await shot(short, 'board-card-menu-leftmost');
+  await short.keyboard.press('Escape');
+  const last = more.last();
+  await last.scrollIntoViewIfNeeded();
+  await last.click();
+  await short.getByRole('menu').waitFor();
+  await short.getByRole('menuitem', { name: 'Move to' }).hover();
+  await short.getByRole('menu', { name: 'Move to' }).waitFor();
+  await shot(short, 'board-card-menu-bottom');
+  await short.keyboard.press('Escape');
+  await short.context().close();
 }
