@@ -14,4 +14,4 @@ The Page view shows the project's website with its models live in it, the way a 
 - **Devices:** the same page at all three widths at once, each following the scrubber with its own frame time.
 - **Page concept:** an `.html` file inside the workspace, such as one the Lab made, shown as it is with no dev server.
 
-Open in browser opens the page on the dev server itself. Without a site repo, with no dev script, or when the server fails, the frame says why and offers Settings, Try again or a page concept.
+Open in browser opens the page on the dev server itself. **Stop** in the frame's address bar stops the dev server, and the bar says who started it when it was not the Page view (Preview on site or an agent). It is the same server Preview on site and the status bar show, so stopping it in any of them updates the others. Without a site repo, with no dev script, or when the server fails, the frame says why and offers Settings, Try again or a page concept.

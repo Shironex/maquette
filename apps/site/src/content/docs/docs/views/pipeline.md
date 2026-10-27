@@ -19,9 +19,11 @@ A step has an `id`, a `kind` (`blender`, `shell`, `gltf-transform`, `toktx` or `
 
 ## Panels
 
-Compression presets sets the texture size, codec and meshopt level per model, as [Compress](/docs/pipeline/compress/) reads them. Baked light sets the lightmap size, samples and denoiser, as [Bake light](/docs/pipeline/bake-light/) reads them.
+Compression presets sets the texture size, data map size, codec and meshopt level per model, as [Compress](/docs/pipeline/compress/) reads them. Each row also shows what the last run made of that model, its raw export and the size it ships at, and the line above the table adds them up for every model. Sort the table by name, shipped size or raw size. **Size report** opens Ship settings at the size report, with the budgets and the dry run plan. Drag the edge between the log and the presets (or focus it and use the arrow keys) to give either more room; double click puts it back.
 
-**Preview on site** starts the site's dev server and opens it in the browser. See [Website projects](/docs/start/website-projects/).
+Baked light sets the lightmap size, samples and denoiser, as [Bake light](/docs/pipeline/bake-light/) reads them. When every model skips the bake, or the project ships to a hand-built site, the card folds to one line that says why. **Bake settings** opens it again.
+
+**Preview on site** starts the site's dev server and opens it in the browser. While the server runs the button splits into **Open preview** and **Stop**, and the status bar item opens a menu to open it, show it in the Page view or stop it. See [Website projects](/docs/start/website-projects/).
 
 ## Starter scripts
 

@@ -58,7 +58,9 @@ A material without the extras has no bake and is lit live.
 
 The [Page view](/docs/views/page/) shows the site with its models live in it. It runs the site's dev server itself on a free port. The command comes from Settings (Site dev command, where `{port}` stands for the port Maquette picks), else from `maquette.site.json`, else from the site's `package.json` scripts (`dev`, `start` or `serve`) run by the manager of the nearest lockfile. It runs as a program with its args, never through a shell.
 
-**Preview on site** in the Pipeline view starts the same server and opens it in the browser. Nothing is built or deployed.
+A command without `{port}` only gets the port as the `PORT` environment variable, which many dev servers (Vite and Astro among them) ignore. So Maquette shows the address the server prints, such as `Local http://localhost:3000/`, over the port it picked, and moves to a printed address that turns up later. Changing the dev command starts the server afresh instead of reusing the old one.
+
+**Preview on site** in the Pipeline view starts the same server and opens it in the browser. Nothing is built or deployed. There is one site dev server, and the Page view, Preview on site and the status bar all show it: each says who started it (the Page view, Preview on site or an agent) and each can stop it, so stopping it in one place stops it everywhere.
 
 ## The frame proxy
 
