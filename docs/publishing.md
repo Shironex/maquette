@@ -104,6 +104,114 @@ Maquette is a desktop app, so a release is one version for the whole app.
 
 - [ ] The first public release is drafted and not published until the installers are attached.
 
+## Updates and signing
+
+The app updates itself through `tauri-plugin-updater` (see `apps/desktop/src-tauri/src/updater/`).
+It reads `latest.json` from the latest GitHub release and installs only files signed with the app's
+own minisign key. Until a public key is set, the updater is off: the plugin is not even registered,
+no check runs, and Settings > About says updates arrive with the first public release.
+
+### Generate the key, once, by hand
+
+Do this on one machine, yourself. An agent never generates, reads or commits the key.
+
+```sh
+pnpm tauri signer generate -w ~/.maquette-keys/updater.key
+```
+
+It asks for a password; use a long one. It writes `updater.key` (the private key) and
+`updater.key.pub` (the public key), and prints both.
+
+- [ ] Store the private key file and its password in the password manager.
+- [ ] Keep one more copy offline (an encrypted USB stick or a printed copy of the key text).
+- [ ] Never commit the private key, never paste it into an issue or a chat, and never reuse it for
+      another app.
+
+**Losing the private key means installed copies can never be updated again.** Every install trusts
+only this key, and a new key reaches users only through an update signed with the old one. Rotating
+works only while the old key is still at hand: ship one release signed with the old key whose config
+carries the new public key, then sign with the new key from the next release on.
+
+### Turn updates on
+
+1. Put the whole content of `updater.key.pub` (one base64 line, as printed) into `pubkey` under
+   `plugins.updater` in `apps/desktop/src-tauri/tauri.conf.json`. The endpoint is already there:
+   `https://github.com/Shironex/maquette/releases/latest/download/latest.json`. That one value is
+   the whole switch; a debug build and `MAQUETTE_NO_UPDATER=1` still keep it off.
+2. The test `the_shipped_config_has_the_feed_and_no_key_yet` in
+   `apps/desktop/src-tauri/src/updater/tests.rs` pins the empty key on purpose. Change its last
+   assertion to expect `UpdaterMode::On` in the same commit.
+
+### Build the signed update files
+
+`bundle.createUpdaterArtifacts` is left out of `tauri.conf.json` on purpose. With it on and the
+public key set, the Tauri CLI stops a build that has no private key ("A public key has been found,
+but no private key"), and a local `pnpm tauri build` should never need the key. The release build
+turns it on with a config overlay and gives it the key through the environment:
+
+```sh
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.maquette-keys/updater.key)"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="..."
+pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":true}}'
+```
+
+On Windows PowerShell, set the two variables with `$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content
+-Raw $HOME\.maquette-keys\updater.key` and `$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "..."`.
+
+That writes, next to the installers, `Maquette.app.tar.gz` and its `.sig` on macOS, and the NSIS
+`*-setup.exe` and its `.sig` on Windows. The `.sig` content goes into `latest.json`:
+
+```json
+{
+  "version": "0.2.0",
+  "notes": "The release notes, as plain text or Markdown.",
+  "pub_date": "2026-11-03T12:00:00Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "<content of the .app.tar.gz.sig>",
+      "url": "https://github.com/Shironex/maquette/releases/download/v0.2.0/Maquette_0.2.0_aarch64.app.tar.gz"
+    },
+    "windows-x86_64": {
+      "signature": "<content of the -setup.exe.sig>",
+      "url": "https://github.com/Shironex/maquette/releases/download/v0.2.0/Maquette_0.2.0_x64-setup.exe"
+    }
+  }
+}
+```
+
+Upload `latest.json` as an asset of the release. The app reads `notes` as the release notes it
+shows in About. Renaming an artifact keeps its signature valid (it covers the bytes, not the name).
+
+Release builds stamp the commit and build date into About from git; CI can pass them as
+`MAQUETTE_COMMIT` and `MAQUETTE_BUILD_DATE` instead.
+
+### CI secrets, for the release workflow
+
+The release workflow is a later slice. When it exists, it reads these from a GitHub environment
+named `release`, limited to `v*` tags with you as the required reviewer:
+
+| Secret                               | Value                          |
+| ------------------------------------ | ------------------------------ |
+| `TAURI_SIGNING_PRIVATE_KEY`          | The full text of `updater.key` |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Its password                   |
+
+- [ ] Environment `release` created, deployment tags `v*`, required reviewer set.
+- [ ] Both secrets added to that environment (not to the repository secrets).
+
+### The first release with updates
+
+- [ ] The repository is public: release assets of a private repo answer 404, which the app treats
+      as "no release yet".
+- [ ] The public key is in `tauri.conf.json` before the first installer is built. An install
+      without the key can never update itself; its users must reinstall by hand once.
+- [ ] macOS is ad-hoc signed as a whole bundle (`signingIdentity: "-"`, already set); Windows
+      ships unsigned for now. The first install shows Gatekeeper's "Open Anyway" or SmartScreen
+      once; updates through the app do not.
+- [ ] Publish the release (not a draft, not a pre-release): `releases/latest` ignores both.
+- [ ] Prove it: install version N, release N+1, and check that the installed app offers it,
+      downloads it, restarts into it, and keeps the workspace and the keychain keys.
+- [ ] Never re-release the same version number; bump it for every fix users must get.
+
 ## Last look
 
 - [ ] Open the repo in a signed out browser: README renders, the issue chooser shows the forms and

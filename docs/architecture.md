@@ -443,6 +443,26 @@ scroll: { top, max } }` as it scrolls and `{ type: "stats", frameMs, p95Ms, draw
   the `site` source is the current ship, the `shipped` source this run. Device budgets
   (`DEVICE_BUDGETS` in `state/page-numbers.ts`) give the phone, laptop and desktop verdicts.
 
+## About and updates
+
+Settings > About reads `app_about` (`commands/about.rs`): the version, the commit and build date
+`build.rs` stamps into a release build ("dev" otherwise), the OS and its version, the arch, the
+Tauri version and the Blender version of the last toolchain check. Its links open through
+`app_open_link`, which only opens the repo and docs addresses in `opener::PROJECT_LINKS`. The copy
+block and the prefilled bug report address are built in `apps/web/src/state/about.ts`; nothing is
+sent anywhere.
+
+The updater (`src/updater/`) drives `tauri-plugin-updater` from Rust. `updater::mode` decides at
+launch: no `plugins.updater.pubkey` (today), a debug build or `MAQUETTE_NO_UPDATER=1` keep it off,
+and only `on` registers the plugin and schedules the checks (10 s after launch, then every 6 h).
+`updater_check`, `updater_download` and `updater_install` hold the found update and the downloaded
+bytes between the user's clicks, and every step also goes out as the `UpdaterUpdate` event. A 404
+or a platform missing from `latest.json` reads as `pending`, not as an error. Install refuses while
+the runner has work (`PipelineRunner::any_active`) or the web view holds unapplied changes, and
+runs the same `shutdown` as an exit before the restart. The web side is `state/updater.ts` (the
+state machine), `state/use-updater-store.ts`, `features/shell/UpdatePill` and
+`features/settings/AboutSection`. Release signing is in `docs/publishing.md`.
+
 ## Adding a feature
 
 1. Create `apps/web/src/features/<feature>/` with one folder per component, each with its test and
