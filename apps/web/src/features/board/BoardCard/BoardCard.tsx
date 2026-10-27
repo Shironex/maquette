@@ -11,7 +11,7 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
   const card = useBoardCard(asset, board);
   const { n, over, thumb, sent, waiting, refPicture, addModel, onDragStart, built, rebuild } = card;
   const update = card.libraryUpdate;
-  // Budget warnings can run long: the chip ends in an ellipsis and its tooltip has them all.
+  // A chip word can run past the card: it ends in an ellipsis and its tooltip has it whole.
   const warning = !built && over && !sent ? over : undefined;
   const chip = built
     ? builtChip(built.state)
@@ -89,7 +89,7 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
         icon: chip?.icon ?? sent?.icon,
         progress: sent?.progress,
         progressLabel: sent?.progressLabel,
-        tooltip: warning,
+        tooltip: warning ?? sent?.label,
         note: card.exportName ? <ExportName name={card.exportName} /> : undefined,
       }}
       draggable
