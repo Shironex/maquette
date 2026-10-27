@@ -3,6 +3,9 @@
 # compromised version, is never proposed the day it lands (the workspace
 # already refuses packages younger than that on install).
 #
+# The commit prefixes give `ci(deps): ...` and `build(deps): ...` titles, which
+# pass the PR title check (.github/workflows/pr-title.yml) as they are.
+#
 # Groups only batch minor and patch updates. A major version arrives as its own
 # pull request, because each one usually needs its own migration and must be
 # judged alone.
@@ -55,7 +58,7 @@ updates:
       - dependency-name: '@types/node'
         update-types: [version-update:semver-major]
     commit-message:
-      prefix: 'chore(deps)'
+      prefix: 'build(deps)'
 
   - package-ecosystem: cargo
     directory: /
@@ -74,4 +77,4 @@ updates:
       rust-dependencies:
         update-types: [minor, patch]
     commit-message:
-      prefix: 'chore(deps)'
+      prefix: 'build(deps)'
