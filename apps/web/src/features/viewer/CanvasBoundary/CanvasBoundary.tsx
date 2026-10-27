@@ -48,6 +48,7 @@ export default class CanvasBoundary extends Component<CanvasBoundaryProps, Canva
           action={
             <Button
               icon="arrow-clockwise"
+              tooltip="Draws the 3D preview again"
               onClick={() => this.setState(s => ({ error: null, tries: s.tries + 1 }))}
             >
               Reload

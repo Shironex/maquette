@@ -243,6 +243,7 @@ export default function ObjectRefsSheet({ objects }: ObjectRefsSheetProps) {
             loading={busy}
             disabled={n === 0 || busy || over}
             disabledReason={over ? 'Shorten the name in the field' : 'Name at least one object'}
+            tooltip="Draws each named object on its own as an image, with Codex"
             shortcut={KEYS.submit}
             onClick={() => void submit()}
           >
