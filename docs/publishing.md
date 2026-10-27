@@ -134,13 +134,13 @@ carries the new public key, then sign with the new key from the next release on.
 
 ### Turn updates on
 
-1. Put the whole content of `updater.key.pub` (one base64 line, as printed) into `pubkey` under
-   `plugins.updater` in `apps/desktop/src-tauri/tauri.conf.json`. The endpoint is already there:
-   `https://github.com/Shironex/maquette/releases/latest/download/latest.json`. That one value is
-   the whole switch; a debug build and `MAQUETTE_NO_UPDATER=1` still keep it off.
-2. The test `the_shipped_config_has_the_feed_and_no_key_yet` in
-   `apps/desktop/src-tauri/src/updater/tests.rs` pins the empty key on purpose. Change its last
-   assertion to expect `UpdaterMode::On` in the same commit.
+Done on 2026-10-27: `pubkey` under `plugins.updater` in `apps/desktop/src-tauri/tauri.conf.json`
+holds the whole content of `updater.key.pub` (one base64 line, key id DDAA4D2DC9F23829), next to
+the endpoint `https://github.com/Shironex/maquette/releases/latest/download/latest.json`. Release
+builds now check the feed; a debug build and `MAQUETTE_NO_UPDATER=1` still keep it off. Until the
+first public release the feed answers 404, which About shows as no release out yet. The test
+`the_shipped_config_has_the_feed_and_the_key` in `apps/desktop/src-tauri/src/updater/tests.rs` pins
+it. A new key means changing both in one commit, and only through the rotation above.
 
 ### Build the signed update files
 

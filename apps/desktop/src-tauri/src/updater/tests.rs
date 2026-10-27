@@ -34,7 +34,7 @@ fn the_variable_reads_like_a_switch() {
 }
 
 #[test]
-fn the_shipped_config_has_the_feed_and_no_key_yet() {
+fn the_shipped_config_has_the_feed_and_the_key() {
     let conf: serde_json::Value =
         serde_json::from_str(include_str!("../../tauri.conf.json")).expect("tauri.conf.json");
     let feed = FeedConfig::from_plugin_config(conf.pointer("/plugins/updater"));
@@ -42,8 +42,8 @@ fn the_shipped_config_has_the_feed_and_no_key_yet() {
         feed.endpoint.as_deref(),
         Some("https://github.com/Shironex/maquette/releases/latest/download/latest.json")
     );
-    // Wiring updates on is setting this one value; until then the app is inert.
-    assert_eq!(mode(&feed.pubkey, false, false), UpdaterMode::Unreleased);
+    // The key is set, so a release build checks the feed.
+    assert_eq!(mode(&feed.pubkey, false, false), UpdaterMode::On);
 }
 
 #[test]

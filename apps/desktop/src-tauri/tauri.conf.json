@@ -65,7 +65,7 @@
   "plugins": {
     "updater": {
       "endpoints": ["https://github.com/Shironex/maquette/releases/latest/download/latest.json"],
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEREQUE0RDJEQzlGMjM4MjkKUldRcE9QTEpMVTJxM2FidTVGWWdzSy9BWnBTUFBTaVJVb2dpd0EyQW93MXp4VEhsTkVZbEJkYWEK",
       "windows": { "installMode": "passive" }
     }
   }

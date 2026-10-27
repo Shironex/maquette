@@ -9,7 +9,7 @@ Maquette checks for a newer version of itself, downloads it when you say so, and
 
 ## Until the first release
 
-The updater ships in the app but stays off. There is no public release to update to yet, and the key that signs updates is not set in the app, so there is nothing it could trust. Settings > About says so: "Updates arrive with the first public release". Until then, run a new version from source as in [Install](/docs/start/install/).
+The app carries the key that signs updates, so a release build already checks for them. There is no public release to update to yet: until the first one, a check finds nothing and Settings > About says no release is out for this computer yet. Until then, run a new version from source as in [Install](/docs/start/install/).
 
 ## How it works once it is on
 
@@ -31,12 +31,12 @@ A check is one plain request for `latest.json` to GitHub, and a download fetches
 
 ## When it is off
 
-| Case                               | Why                                      |
-| ---------------------------------- | ---------------------------------------- |
-| No signing key set in the app      | Before the first public release          |
-| A development build (`pnpm dev`)   | It never replaces itself                 |
-| `MAQUETTE_NO_UPDATER=1` in the env | Turned off for one run, for scripted use |
-| Mock mode (`pnpm dev:web`)         | There is no app to update                |
+| Case                               | Why                                        |
+| ---------------------------------- | ------------------------------------------ |
+| No signing key set in the app      | A build made without the key in its config |
+| A development build (`pnpm dev`)   | It never replaces itself                   |
+| `MAQUETTE_NO_UPDATER=1` in the env | Turned off for one run, for scripted use   |
+| Mock mode (`pnpm dev:web`)         | There is no app to update                  |
 
 ## macOS and Windows
 
