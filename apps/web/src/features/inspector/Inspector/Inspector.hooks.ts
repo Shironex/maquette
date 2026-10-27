@@ -98,7 +98,7 @@ export function useCompareStatus(pick: SidePick | null) {
 
 /**
  * The model the panel shows: the one selected, else the right side's
- * character, else its first; with its thumbnail and export.
+ * first rigged model (a character), else its first; with its thumbnail and export.
  */
 export function useSelectedModel(view: InspectView, pick: SidePick | null) {
   const workspace = useAppStore(s => s.workspace);
@@ -109,7 +109,7 @@ export function useSelectedModel(view: InspectView, pick: SidePick | null) {
   const rightModels = sideModels(view, pick?.right ?? null);
   const model =
     view.models.find(m => m.id === selected) ??
-    rightModels.find(m => m.model === 'character') ??
+    rightModels.find(m => m.joints > 0) ??
     rightModels[0] ??
     null;
   const asset = model?.asset ? workspace?.project?.assets?.find(a => a.id === model.asset) : null;
