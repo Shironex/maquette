@@ -37,7 +37,11 @@ export default function LibraryUpdateDialog() {
       onSubmit={() => void update()}
       footer={
         <>
-          <Button variant="ghost" onClick={closeUpdate}>
+          <Button
+            variant="ghost"
+            tooltip="Closes this and keeps the model as it is"
+            onClick={closeUpdate}
+          >
             Keep v{plan?.from ?? ''}
           </Button>
           <Button
@@ -46,6 +50,8 @@ export default function LibraryUpdateDialog() {
             icon="arrow-up"
             loading={busy}
             disabled={!plan || busy}
+            disabledReason={busy ? 'Working on it' : 'Reading what the update changes'}
+            tooltip="Brings in the newer library model without spending credits"
           >
             Update, no credits
           </Button>

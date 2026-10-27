@@ -32,7 +32,18 @@ export default function AddToLibraryDialog({ target }: AddToLibraryDialogProps) 
           <Button variant="ghost" onClick={f.close}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" loading={f.busy} disabled={f.busy || !f.asset}>
+          <Button
+            type="submit"
+            variant="primary"
+            loading={f.busy}
+            disabled={f.busy || !f.asset}
+            disabledReason={f.busy ? 'Working on it' : 'Pick a model first'}
+            tooltip={
+              f.entry
+                ? 'Saves this model as the next version of the library entry'
+                : 'Saves this model to the library to use in other projects'
+            }
+          >
             {f.entry ? 'Add as a new version' : 'Add to library'}
           </Button>
         </>

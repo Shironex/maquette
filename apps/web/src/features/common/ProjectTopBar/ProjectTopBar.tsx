@@ -18,7 +18,11 @@ export default function ProjectTopBar({ extra }: ProjectTopBarProps) {
           <SceneBudgetMeter value={sceneMb} target={budget} />
           {extra}
           {running ? (
-            <Button icon="flow-arrow" onClick={showPipeline}>
+            <Button
+              icon="flow-arrow"
+              tooltip="Goes to the Pipeline to watch the run"
+              onClick={showPipeline}
+            >
               Run in progress
             </Button>
           ) : (

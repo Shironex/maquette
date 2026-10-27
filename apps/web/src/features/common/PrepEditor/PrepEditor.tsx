@@ -61,6 +61,7 @@ export default function PrepEditor(props: PrepEditorProps) {
             size="sm"
             icon="ruler"
             disabled={disabled}
+            tooltip="Scales this model to a real size in the scene"
             onClick={editor.startSize}
             className="self-start"
           >
@@ -76,16 +77,20 @@ export default function PrepEditor(props: PrepEditorProps) {
           </p>
         ) : null}
         {editor.suggested ? (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={editor.suggested.use}
-            className="flex cursor-pointer items-center gap-1.5 self-start rounded-pill border border-dashed border-line-strong px-2.5 py-1 text-meta text-fg-dim hover:bg-hover hover:text-fg disabled:cursor-default"
-            title={`A ${editor.suggested.matched} is usually about this size. It applies only when you pick it.`}
+          <Tooltip
+            label={`A ${editor.suggested.matched} is usually about this size. It applies only when you pick it.`}
+            wrap
           >
-            <Icon name="sparkle" size={12} className="text-clay-text" />
-            Suggested: {editor.suggested.text}
-          </button>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={editor.suggested.use}
+              className="flex cursor-pointer items-center gap-1.5 self-start rounded-pill border border-dashed border-line-strong px-2.5 py-1 text-meta text-fg-dim hover:bg-hover hover:text-fg disabled:cursor-default"
+            >
+              <Icon name="sparkle" size={12} className="text-clay-text" />
+              Suggested: {editor.suggested.text}
+            </button>
+          </Tooltip>
         ) : null}
       </div>
 
