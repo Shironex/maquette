@@ -2,6 +2,7 @@ import { Button, PathField, cn } from '@maquette/ui';
 import { formatBytes } from '@/lib/format';
 import { Panel } from '@/features/common/Panel';
 import { ACTIVE } from '../sections';
+import { SyncHelp } from './SyncHelp';
 import { useWorkspaceCache, useWorkspaceRoot } from './WorkspaceSection.hooks';
 import type { WorkspaceSectionProps } from './WorkspaceSection.types';
 
@@ -57,6 +58,7 @@ export default function WorkspaceSection({ active, config }: WorkspaceSectionPro
           Clear cache
         </Button>
       </div>
+      <SyncHelp cache={layout.cache} />
     </Panel>
   );
 }
