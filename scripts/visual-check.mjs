@@ -38,13 +38,16 @@
  * (scripts/visual-check/library.mjs) the Library view, Add to library and
  * Update from library, and the board set (scripts/visual-check/board.mjs)
  * a card waiting for a By hand model, its grouped menu and Move to submenu,
- * the header's tooltips and a card with several budget warnings. It renders
+ * the header's tooltips and a card with several budget warnings, and the
+ * sync set (scripts/visual-check/sync.mjs) a workspace shared with another
+ * computer: the lock question, the repo question, the conflict warning and
+ * the Settings help. It renders
  * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=page, ONLY=game, ONLY=library, ONLY=board, ONLY=compare or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=page, ONLY=game, ONLY=library, ONLY=board, ONLY=compare, ONLY=sync or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -61,6 +64,7 @@ import { compareShots } from './visual-check/compare.mjs';
 import { motionShots } from './visual-check/motion.mjs';
 import { pageShots } from './visual-check/page.mjs';
 import { pathsShots } from './visual-check/paths.mjs';
+import { syncShots } from './visual-check/sync.mjs';
 import { timelineShots } from './visual-check/timeline.mjs';
 
 const root = resolve(import.meta.dirname, '..');
@@ -977,6 +981,7 @@ try {
   if (!only || only === 'game') await gameShots({ open, shot });
   if (!only || only === 'library') await libraryShots({ open, shot });
   if (!only || only === 'compare') await compareShots({ open, shot });
+  if (!only || only === 'sync') await syncShots({ open, shot });
 } finally {
   await browser.close();
   await vite?.close();
