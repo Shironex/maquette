@@ -21,12 +21,12 @@ export async function shipShots({ open, shot, hoverTip }) {
     'ship-run-build-only'
   );
   await runner.getByRole('button', { name: 'Ship settings' }).click();
-  await runner.getByRole('heading', { name: "Ship to Moon Island's site" }).waitFor();
+  await runner.getByRole('heading', { name: "Ship to Frostveil's site" }).waitFor();
   await runner.mouse.move(0, 0);
   await shot(runner, 'ship-settings-scene');
   await hoverTip(
     runner,
-    runner.getByRole('combobox', { name: 'Ship shop_house.glb' }),
+    runner.getByRole('combobox', { name: 'Ship observatory_arch.glb' }),
     'ship-choice-tip'
   );
   await runner.context().close();
@@ -41,7 +41,7 @@ export async function shipShots({ open, shot, hoverTip }) {
     'ship-codec-disabled-reason'
   );
   await built.getByRole('button', { name: 'Ship settings' }).click();
-  await built.getByRole('heading', { name: "Ship to Moon Island's site" }).waitFor();
+  await built.getByRole('heading', { name: "Ship to Frostveil's site" }).waitFor();
   await built.mouse.move(0, 0);
   await shot(built, 'ship-settings-hand-built');
   await hoverTip(
