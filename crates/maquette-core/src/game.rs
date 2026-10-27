@@ -31,7 +31,7 @@ pub mod scan;
 pub mod settings;
 pub mod ship;
 
-pub use budget::{BudgetCheck, check_asset, default_budgets, folder_of};
+pub use budget::{BudgetCheck, asset_budget, check_asset, default_budgets, folder_of};
 pub use detect::{GameRepoInspection, inspect_game_repo};
 pub use import::{ImportResult, import_models};
 pub use scan::{GameScan, ScannedModel, scan_models};

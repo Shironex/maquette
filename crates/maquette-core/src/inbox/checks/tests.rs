@@ -9,6 +9,7 @@ fn checks(bytes: &[u8], kind: AssetKind, config: &WorkspaceConfig) -> Vec<Check>
         kind,
         config,
         SendNotes::default(),
+        None,
     )
 }
 
@@ -56,6 +57,7 @@ fn budgets_drive_the_triangle_and_texture_rows() {
         AssetKind::Prop,
         &WorkspaceConfig::default(),
         SendNotes::default(),
+        None,
     );
     let row = list.iter().find(|c| c.id == "textures").expect("row");
     assert_eq!(row.status, CheckStatus::Warning);
@@ -91,7 +93,13 @@ fn character_rows_cover_rig_and_finger_weights() {
     assert_eq!(status(&cuffs, "finger-weights"), Some(CheckStatus::Pass));
     let mut still = analyse_bytes(&fixture::character(false), Path::new(".")).expect("analyse");
     still.animations.clear();
-    let list = run(&still, AssetKind::Character, &config, SendNotes::default());
+    let list = run(
+        &still,
+        AssetKind::Character,
+        &config,
+        SendNotes::default(),
+        None,
+    );
     assert_eq!(status(&list, "animations"), Some(CheckStatus::Warning));
     // The same rig on a prop is suspicious; no rig on a character fails.
     let prop = checks(&fixture::character(false), AssetKind::Prop, &config);
@@ -120,7 +128,7 @@ fn a_send_without_pbr_does_not_warn_about_missing_maps() {
             maps,
             ..SendNotes::default()
         };
-        run(&report, AssetKind::Scene, &config, notes)
+        run(&report, AssetKind::Scene, &config, notes, None)
     };
     assert_eq!(
         status(&sent(SentMaps::Any), "pbr"),
@@ -147,7 +155,7 @@ fn a_by_hand_tripo_character_with_base_color_only_gets_a_note() {
         by_hand_tripo: true,
         ..SendNotes::default()
     };
-    let list = run(&report, AssetKind::Character, &config, by_hand);
+    let list = run(&report, AssetKind::Character, &config, by_hand, None);
     let row = list.iter().find(|c| c.id == "pbr").expect("row");
     assert_eq!(row.status, CheckStatus::Pass);
     assert_eq!(
@@ -159,7 +167,7 @@ fn a_by_hand_tripo_character_with_base_color_only_gets_a_note() {
         (AssetKind::Prop, by_hand),
         (AssetKind::Character, SendNotes::default()),
     ] {
-        let list = run(&report, kind, &config, notes);
+        let list = run(&report, kind, &config, notes, None);
         let row = list.iter().find(|c| c.id == "pbr").expect("row");
         assert_eq!(row.status, CheckStatus::Warning);
         assert!(
@@ -171,7 +179,7 @@ fn a_by_hand_tripo_character_with_base_color_only_gets_a_note() {
     }
     // Without even a base color map it still warns.
     report.pbr.base_color = false;
-    let list = run(&report, AssetKind::Character, &config, by_hand);
+    let list = run(&report, AssetKind::Character, &config, by_hand, None);
     assert_eq!(status(&list, "pbr"), Some(CheckStatus::Warning));
 }
 
@@ -183,7 +191,13 @@ fn detailed_textures_keep_the_warning_and_say_why() {
         large_textures: true,
         ..SendNotes::default()
     };
-    let list = run(&report, AssetKind::Prop, &WorkspaceConfig::default(), notes);
+    let list = run(
+        &report,
+        AssetKind::Prop,
+        &WorkspaceConfig::default(),
+        notes,
+        None,
+    );
     let row = list.iter().find(|c| c.id == "textures").expect("row");
     assert_eq!(row.status, CheckStatus::Warning);
     let detail = row.detail.as_deref().unwrap_or_default();
@@ -224,7 +238,13 @@ fn checks_offer_the_fixups_that_answer_them() {
     config.compression.texture_size = crate::workspace::TextureSize::K1;
     let mut report = analyse_bytes(&fixture::messy_prop(), Path::new(".")).expect("analyse");
     report.textures[0].width = Some(2048);
-    let list = run(&report, AssetKind::Prop, &config, SendNotes::default());
+    let list = run(
+        &report,
+        AssetKind::Prop,
+        &config,
+        SendNotes::default(),
+        None,
+    );
     assert_eq!(
         fixes(&list, "textures"),
         [Fixup::ShrinkTextures { max_size: 1024 }]
@@ -265,5 +285,86 @@ fn checks_offer_the_fixups_that_answer_them() {
     assert!(
         status(&scene, "origin").is_none(),
         "scenes are left as they are"
+    );
+}
+
+#[test]
+fn a_game_folder_budget_replaces_the_flat_one_and_is_named() {
+    let mut report = analyse_bytes(&fixture::clean_prop(), Path::new(".")).expect("analyse");
+    let config = WorkspaceConfig::default();
+    let props = FolderBudget {
+        folder: "props".into(),
+        triangles: 12_000,
+        texture: 1024,
+    };
+    let list = run(
+        &report,
+        AssetKind::Prop,
+        &config,
+        SendNotes::default(),
+        Some(&props),
+    );
+    let tris = list.iter().find(|c| c.id == "triangles").expect("tris");
+    assert_eq!(tris.status, CheckStatus::Pass);
+    assert_eq!(
+        tris.detail.as_deref(),
+        Some("Within the props budget, 12k tris.")
+    );
+
+    // 14.6k triangles: inside the flat 60k, over the props 12k.
+    report.triangles = 14_600;
+    report.textures[0].width = Some(2048);
+    let flat = run(
+        &report,
+        AssetKind::Prop,
+        &config,
+        SendNotes::default(),
+        None,
+    );
+    assert_eq!(status(&flat, "triangles"), Some(CheckStatus::Pass));
+    assert_eq!(status(&flat, "textures"), Some(CheckStatus::Pass));
+    let list = run(
+        &report,
+        AssetKind::Prop,
+        &config,
+        SendNotes::default(),
+        Some(&props),
+    );
+    let tris = list.iter().find(|c| c.id == "triangles").expect("tris");
+    assert_eq!(tris.status, CheckStatus::Warning);
+    assert!(
+        tris.detail
+            .as_deref()
+            .is_some_and(|d| d.starts_with("Over the props budget, 12k tris.")),
+        "{tris:#?}"
+    );
+    assert_eq!(tris.fixes, vec![Fixup::Decimate { triangles: 12_000 }]);
+    let tex = list.iter().find(|c| c.id == "textures").expect("textures");
+    assert_eq!(tex.status, CheckStatus::Warning);
+    assert!(
+        tex.detail
+            .as_deref()
+            .is_some_and(|d| d.contains("over the props budget, 1024 px")),
+        "{tex:#?}"
+    );
+    assert_eq!(tex.fixes, vec![Fixup::ShrinkTextures { max_size: 1024 }]);
+
+    // The model folder's top level reads as such.
+    let top = FolderBudget {
+        folder: String::new(),
+        triangles: 20_000,
+        texture: 1024,
+    };
+    let list = run(
+        &report,
+        AssetKind::Prop,
+        &config,
+        SendNotes::default(),
+        Some(&top),
+    );
+    let tris = list.iter().find(|c| c.id == "triangles").expect("tris");
+    assert_eq!(
+        tris.detail.as_deref(),
+        Some("Within the model folder's budget, 20k tris.")
     );
 }

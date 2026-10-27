@@ -1,6 +1,7 @@
 //! Where models come back: linking inbox files to their sends, By hand
 //! models handed back, accepted models, and copying records between projects.
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
@@ -13,8 +14,10 @@ use super::{
 use crate::assets::{Asset, AssetKind, AssetStatus};
 use crate::error::{CoreError, CoreResult};
 use crate::fs::write_atomic;
+use crate::game::{self, FolderBudget};
 use crate::inbox::{self, InboxItem};
 use crate::pipeline::history::now_ms;
+use crate::project;
 use crate::providers::handback::{self, DownloadsScan};
 use crate::providers::http::StopFlag;
 use crate::providers::presets::PresetVariant;
@@ -141,7 +144,9 @@ impl ProviderJobs {
     /// hand job whose model showed up in the inbox to the Inbox state.
     pub fn link_inbox(&self, items: &mut [InboxItem]) {
         let mut arrived = Vec::new();
-        let config = self.shared.workspace().map(|w| w.config);
+        let workspace = self.shared.workspace();
+        // A game project's folder budget for each asset, read once per call.
+        let mut budgets: HashMap<(String, String), Option<FolderBudget>> = HashMap::new();
         {
             let jobs = self.shared.jobs();
             for item in items.iter_mut() {
@@ -167,12 +172,25 @@ impl ProviderJobs {
                     provider: job.provider,
                     redo_of: job.redo_of.clone(),
                 });
-                if let Some(config) = &config {
+                if let Some(workspace) = &workspace {
                     let kind = match job.variant {
                         PresetVariant::Character => AssetKind::Character,
                         PresetVariant::Prop => AssetKind::Prop,
                     };
-                    inbox::apply_send(item, kind, send_notes(job), config);
+                    let folder = budgets
+                        .entry((job.project.clone(), job.asset.clone()))
+                        .or_insert_with(|| {
+                            project::load(&workspace.root, &workspace.config.layout, &job.project)
+                                .ok()
+                                .and_then(|m| game::asset_budget(&m, &job.asset))
+                        });
+                    inbox::apply_send(
+                        item,
+                        kind,
+                        send_notes(job),
+                        &workspace.config,
+                        folder.as_ref(),
+                    );
                 }
                 if job.state == JobState::Waiting {
                     arrived.push((job.id.clone(), item.id.clone()));

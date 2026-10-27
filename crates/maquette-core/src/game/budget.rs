@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::{FolderBudget, GameSettings, file_of};
 use crate::assets::{Asset, ModelStats};
 use crate::inbox::checks::short_count;
+use crate::project::ProjectManifest;
 
 /// What a new game gets per folder, by the folder's name.
 const KNOWN: &[(&str, u32, u32)] = &[
@@ -113,6 +114,16 @@ pub fn check_stats(budget: &FolderBudget, stats: &ModelStats) -> BudgetCheck {
         rigged: stats.joints > 0,
         problems,
     }
+}
+
+/// The budget an asset's models check against in a game project: that of
+/// the folder its model maps to. `None` for a website project and for an
+/// asset the project does not have. The Inbox checks a model sent for the
+/// asset against it, so the Inbox and the top bar agree.
+pub fn asset_budget(manifest: &ProjectManifest, asset_id: &str) -> Option<FolderBudget> {
+    let settings = super::settings_of(manifest).ok()?;
+    let asset = manifest.assets.iter().find(|a| a.id == asset_id)?;
+    budget_for(settings, &file_of(settings, asset)).cloned()
 }
 
 /// The asset's newest model against the budget of its folder, when both

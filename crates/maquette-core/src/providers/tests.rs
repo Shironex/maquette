@@ -1053,6 +1053,54 @@ fn a_linked_model_takes_its_kind_and_map_choices_from_the_send() {
 }
 
 #[test]
+fn a_game_projects_inbox_checks_use_the_folder_budget_of_the_asset() {
+    let world = World::new();
+    let server = FakeServer::start(|_, _| Reply::json(404, &json!({})));
+    let jobs = world.jobs(&server);
+    let job = jobs
+        .send(
+            &world.request(Provider::ByHand, PresetVariant::Prop, &["front.png"]),
+            false,
+            false,
+        )
+        .expect("send");
+    fs::write(world.inbox().join(format!("{}.glb", job.id)), glb()).expect("write");
+    let triangles_detail = || {
+        let mut items = inbox::list(&world.root, &world.config).expect("inbox");
+        jobs.link_inbox(&mut items);
+        items[0]
+            .checks
+            .iter()
+            .find(|c| c.id == "triangles")
+            .and_then(|c| c.detail.clone())
+            .expect("triangles row")
+    };
+    // A website keeps the flat Tris per model.
+    assert!(
+        triangles_detail().contains("60k per model budget"),
+        "{}",
+        triangles_detail()
+    );
+    project::modify(&world.root, &world.config.layout, &world.project, |m| {
+        m.target = crate::game::ProjectTarget::Game;
+        let mut settings = crate::game::new_settings(
+            &crate::game::NewGame {
+                format: crate::game::GameFormat::Glb,
+                models_dir: "assets/models".into(),
+            },
+            None,
+        )?;
+        settings.budgets = crate::game::default_budgets(&["props".into(), "characters".into()]);
+        m.game = Some(Box::new(settings));
+        Ok(())
+    })
+    .expect("game");
+    // The prop maps to props/, so its budget is the props one.
+    let detail = triangles_detail();
+    assert_eq!(detail, "Within the props budget, 12k tris.");
+}
+
+#[test]
 fn send_notes_read_the_pbr_and_texture_choices_of_either_service() {
     let world = World::new();
     let server = FakeServer::start(|_, _| Reply::json(404, &json!({})));

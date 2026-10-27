@@ -1,10 +1,12 @@
 //! Turns a [`GlbReport`] into the pass, warning and fail rows the Inbox
-//! shows, against the workspace budgets.
+//! shows, against the workspace budgets, or in a game project against the
+//! budget of the folder the model's asset maps to.
 
 use serde::{Deserialize, Serialize};
 
 use super::analyse::{GlbReport, RigKind};
 use crate::assets::AssetKind;
+use crate::game::FolderBudget;
 use crate::prepare::{DEFAULT_LOOSE_SHARE, Fixup};
 
 mod shape;
@@ -105,15 +107,27 @@ fn plural(n: u32, one: &str, many: &str) -> String {
     format!("{n} {}", if n == 1 { one } else { many })
 }
 
-/// The rows for one model, in display order.
+/// "the props budget", "the model folder's budget" for its top level.
+fn folder_label(folder: &FolderBudget) -> String {
+    if folder.folder.is_empty() {
+        "the model folder's budget".to_string()
+    } else {
+        format!("the {} budget", folder.folder)
+    }
+}
+
+/// The rows for one model, in display order. `folder` is the game folder
+/// budget of the asset the model was sent for, in a game project; without
+/// it the workspace's Tris per model and texture size apply.
 pub fn run(
     report: &GlbReport,
     kind: AssetKind,
     config: &WorkspaceConfig,
     notes: SendNotes,
+    folder: Option<&FolderBudget>,
 ) -> Vec<Check> {
     let mut out = Vec::new();
-    let budget = config.budgets.tris_per_model;
+    let budget = folder.map_or(config.budgets.tris_per_model, |f| f.triangles);
     let tris = report.triangles;
     let status = if tris <= budget {
         CheckStatus::Pass
@@ -129,12 +143,22 @@ pub fn run(
             "triangles",
             status,
             format!("{} triangles", short_count(tris)),
-            match status {
-                CheckStatus::Pass => {
+            match (status, folder) {
+                (CheckStatus::Pass, None) => {
                     format!("Within the {} per model budget.", short_count(budget))
                 }
-                _ => format!(
+                (CheckStatus::Pass, Some(f)) => format!(
+                    "Within {}, {} tris.",
+                    folder_label(f),
+                    short_count(budget)
+                ),
+                (_, None) => format!(
                     "Over the {} per model budget. Decimate it here, or raise the budget in Settings.",
+                    short_count(budget)
+                ),
+                (_, Some(f)) => format!(
+                    "Over {}, {} tris. Decimate it here, or raise the folder's budget in Inspector > Budget.",
+                    folder_label(f),
                     short_count(budget)
                 ),
             },
@@ -142,7 +166,14 @@ pub fn run(
         .with_fixes(decimate.into_iter().collect()),
     );
 
-    let limit = texture_px(config.compression.texture_size);
+    let limit = folder.map_or_else(
+        || texture_px(config.compression.texture_size),
+        |f| f.texture,
+    );
+    let against = folder.map_or_else(
+        || format!("the {limit} px default"),
+        |f| format!("{}, {limit} px", folder_label(f)),
+    );
     if report.textures.is_empty() {
         out.push(check("textures", CheckStatus::Pass, "No textures", None));
     } else {
@@ -166,7 +197,7 @@ pub fn run(
                 "textures",
                 CheckStatus::Pass,
                 title,
-                format!("At or under the {limit} px default."),
+                format!("At or under {against}."),
             ));
         } else {
             out.push(
@@ -175,8 +206,12 @@ pub fn run(
                     CheckStatus::Warning,
                     title,
                     format!(
-                        "{} over the {limit} px default: {}.{} Compress resizes them, or set a per model size.",
-                        plural(u32::try_from(over.len()).unwrap_or(u32::MAX), "texture is", "textures are"),
+                        "{} over {against}: {}.{} Compress resizes them, or set a per model size.",
+                        plural(
+                            u32::try_from(over.len()).unwrap_or(u32::MAX),
+                            "texture is",
+                            "textures are"
+                        ),
                         over.join(", "),
                         if notes.large_textures {
                             " It was sent with detailed textures."

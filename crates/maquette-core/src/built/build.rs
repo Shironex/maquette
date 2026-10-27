@@ -104,7 +104,7 @@ fn warnings(
     let Ok(report) = analyse(output) else {
         return (Vec::new(), None);
     };
-    let found = checks::run(&report, asset.kind, config, SendNotes::default())
+    let found = checks::run(&report, asset.kind, config, SendNotes::default(), None)
         .into_iter()
         .filter(|c| c.status != CheckStatus::Pass && !SKIPPED_CHECKS.contains(&c.id.as_str()))
         .map(|c| c.title)

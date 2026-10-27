@@ -28,6 +28,7 @@ use crate::assets::{
     self, Asset, AssetKind, AssetStatus, AssetVersion, ModelStats, NewAsset, Stage,
 };
 use crate::error::{CoreError, CoreResult};
+use crate::game::FolderBudget;
 use crate::json::write_json;
 use crate::project;
 use crate::thumbs::{Fingerprint, ThumbState};
@@ -123,12 +124,14 @@ pub fn display_name(file: &str) -> String {
 
 /// Takes what the send record says: its kind, unless someone picked one,
 /// and the maps and texture size it asked for. The checks run again, so a
-/// choice made on purpose does not show as a warning.
+/// choice made on purpose does not show as a warning. `folder` is the game
+/// folder budget of the asset it was sent for, in a game project.
 pub fn apply_send(
     item: &mut InboxItem,
     kind: AssetKind,
     notes: SendNotes,
     config: &WorkspaceConfig,
+    folder: Option<&FolderBudget>,
 ) {
     if item.kind_guessed {
         item.kind = kind;
@@ -136,7 +139,7 @@ pub fn apply_send(
         item.kind_from_send = true;
     }
     if let Some(report) = &item.report {
-        item.checks = checks::run(report, item.kind, config, notes);
+        item.checks = checks::run(report, item.kind, config, notes, folder);
         item.worst = checks::worst(&item.checks);
     }
 }
@@ -212,7 +215,7 @@ fn build_item(
     let kind = picked.unwrap_or_else(|| guess_kind(report.as_ref(), &id));
     let checks = report
         .as_ref()
-        .map(|r| checks::run(r, kind, config, SendNotes::default()))
+        .map(|r| checks::run(r, kind, config, SendNotes::default(), None))
         .unwrap_or_default();
     let Fingerprint { bytes, modified_ms } = Fingerprint::new(len, modified_ns);
     Ok(InboxItem {
