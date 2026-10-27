@@ -32,7 +32,7 @@ fn removing_an_asset_stops_its_waiting_by_hand_send() {
     let done = remove(&world, &jobs);
     let out = &done.outcomes[0];
     assert_eq!(out.state, RemoveState::Removed, "{out:?}");
-    assert_eq!(out.stopped, [waiting.id.clone()]);
+    assert_eq!(out.stopped, std::slice::from_ref(&waiting.id));
     let stopped = jobs.get(&waiting.id).expect("job");
     assert_eq!(stopped.state, JobState::Cancelled);
     assert_eq!(
