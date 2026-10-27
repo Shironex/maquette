@@ -25,7 +25,7 @@ describe('the settings nav', () => {
     const onSelect = vi.fn();
     render(<SectionNav active="workspace" onSelect={onSelect} />);
     expect(screen.getByText('This project')).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Moon Island' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Frostveil' }));
     expect(onSelect).toHaveBeenCalledWith('project');
   });
 });

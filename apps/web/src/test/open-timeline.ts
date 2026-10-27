@@ -1,6 +1,6 @@
 /**
  * Opens the mock workspace with the Timeline demo (`?timeline=` in the
- * browser) and loads Moon Island into the Timeline store.
+ * browser) and loads Frostveil into the Timeline store.
  */
 import { useTimelineStore } from '@/state/use-timeline-store';
 import { openMockWorkspace } from './mock-ipc';
@@ -19,7 +19,7 @@ export async function openTimeline(timeline = 'demo', page?: string) {
     page,
     timeline
   );
-  await useTimelineStore.getState().load('moon-island');
+  await useTimelineStore.getState().load('frostveil');
   return useTimelineStore.getState();
 }
 

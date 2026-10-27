@@ -24,21 +24,21 @@ function inboxItem(id: string): InboxItem {
 
 describe('RowThumb', () => {
   it('shows the studio render once there is one', () => {
-    const item = inboxItem('sakura_large.glb');
-    registerMockFile(item.thumbnail ?? '', '/mock/sakura.webp');
+    const item = inboxItem('veil_gate.glb');
+    registerMockFile(item.thumbnail ?? '', '/mock/veil-gate.webp');
     const { container } = render(<RowThumb item={item} />);
-    expect(container.querySelector('img')).toHaveAttribute('src', '/mock/sakura.webp');
+    expect(container.querySelector('img')).toHaveAttribute('src', '/mock/veil-gate.webp');
   });
 
   it('pulses the kind icon while the render is on its way', () => {
-    const item = { ...inboxItem('character.glb'), thumbnail: null, thumbnailState: 'rendering' };
+    const item = { ...inboxItem('elsheria.glb'), thumbnail: null, thumbnailState: 'rendering' };
     const { container } = render(<RowThumb item={item as InboxItem} />);
     expect(container.firstElementChild).toHaveAttribute('title', 'Rendering a thumbnail');
     expect(container.querySelector('svg')).toHaveClass('animate-pulse');
   });
 
   it('shows no render state for a file that cannot be read', () => {
-    const { container } = render(<RowThumb item={inboxItem('far_spire.glb')} />);
+    const { container } = render(<RowThumb item={inboxItem('rune_obelisk.glb')} />);
     expect(container.querySelector('img')).toBeNull();
     expect(container.firstElementChild).not.toHaveAttribute('title');
   });

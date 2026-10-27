@@ -13,7 +13,7 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
-async function open(sync: string | null, picked: string | null = '/Users/me/moon-island-site') {
+async function open(sync: string | null, picked: string | null = '/Users/me/frostveil-site') {
   const handle = createBackend({ scenario: 'configured', probeDelay: 0, pace: 0, sync });
   mockIPC((cmd, args) => {
     if (cmd === 'dialog_pick_folder') return picked;
@@ -36,12 +36,12 @@ describe('the repo location prompt', () => {
     await open('repo');
     render(<RepoPrompt />);
     const dialog = screen.getByRole('dialog', { name: question });
-    expect(dialog).toHaveTextContent('(moon-island-site) was picked on another computer');
+    expect(dialog).toHaveTextContent('(frostveil-site) was picked on another computer');
     expect(screen.getByRole('button', { name: 'Choose folder' })).toHaveFocus();
     await userEvent.click(screen.getByRole('button', { name: 'Choose folder' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     const project = useAppStore.getState().workspace?.project;
-    expect(project?.siteRepo).toBe('/Users/me/moon-island-site');
+    expect(project?.siteRepo).toBe('/Users/me/frostveil-site');
     expect(project?.siteRepoState).toBe('here');
   });
 

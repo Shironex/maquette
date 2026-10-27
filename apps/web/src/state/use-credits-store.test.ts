@@ -22,12 +22,12 @@ async function recorded() {
 describe('the credits store', () => {
   it('reads the ledger and the balances when the sheet opens', async () => {
     await recorded();
-    useCreditsStore.getState().openCredits('moon-island');
+    useCreditsStore.getState().openCredits('frostveil');
     await useCreditsStore.getState().load();
     await useCreditsStore.getState().checkBalances();
     const { open, filter, ledger, balances } = useCreditsStore.getState();
     expect(open).toBe(true);
-    expect(filter.project).toBe('moon-island');
+    expect(filter.project).toBe('frostveil');
     expect(ledger!.spends.length).toBeGreaterThan(5);
     expect(balances!.map(b => [b.service, b.key, b.credits])).toEqual([
       ['tripo', true, 1240],

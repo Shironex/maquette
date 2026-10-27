@@ -5,8 +5,8 @@ import type { BatchItemDraft } from '@/state/batch';
 import { ItemRow } from '.';
 
 const item: BatchItemDraft = {
-  asset: 'desk-lamp',
-  name: 'Desk lamp',
+  asset: 'lantern-post',
+  name: 'Lantern post',
   variant: 'prop',
   images: ['refs/lamp_front.png', 'refs/lamp_side.png'],
   thumbnail: null,
@@ -37,7 +37,7 @@ describe('a batch item row', () => {
     const { onVariant } = row();
     expect(screen.getByText('2 images: lamp_front.png, lamp_side.png')).toBeInTheDocument();
     await userEvent.click(
-      within(screen.getByRole('group', { name: 'Desk lamp kind' })).getByRole('button', {
+      within(screen.getByRole('group', { name: 'Lantern post kind' })).getByRole('button', {
         name: 'Character',
       })
     );

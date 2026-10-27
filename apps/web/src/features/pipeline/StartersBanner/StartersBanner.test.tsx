@@ -29,36 +29,34 @@ afterEach(() => {
 describe('the starter scripts banner', () => {
   it('updates the untouched old starters in one click and leaves the edited one', async () => {
     await openMockWorkspace();
-    await usePipelineStore.getState().load('moon-island');
+    await usePipelineStore.getState().load('frostveil');
     renderBanner();
     // The banner names the project it updates: Update acts on the open one.
-    expect(screen.getByText('New starter scripts for Moon Island')).toBeInTheDocument();
+    expect(screen.getByText('New starter scripts for Frostveil')).toBeInTheDocument();
     expect(
       screen.getByText(
-        /build_scene\.py, bake_light\.py and render_stops\.py in Moon Island's tools folder are untouched copies/
+        /build_scene\.py, bake_light\.py and render_stops\.py in Frostveil's tools folder are untouched copies/
       )
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Update' }));
-    await waitFor(() =>
-      expect(screen.queryByText('New starter scripts for Moon Island')).toBeNull()
-    );
+    await waitFor(() => expect(screen.queryByText('New starter scripts for Frostveil')).toBeNull());
     expect(useAppStore.getState().notice).toMatchObject({
       status: 'done',
-      title: '3 starter scripts updated in Moon Island',
+      title: '3 starter scripts updated in Frostveil',
       detail: 'Now current: build_scene.py, bake_light.py and render_stops.py.',
     });
     const starters = usePipelineStore.getState().view!.starters;
     expect(starters.find(s => s.path === 'tools/bake_light.py')?.state).toBe('current');
     expect(starters.find(s => s.path === 'tools/export_web.py')?.state).toBe('edited');
-    expect(screen.getByText('export_web.py in Moon Island was edited')).toBeInTheDocument();
+    expect(screen.getByText('export_web.py in Frostveil was edited')).toBeInTheDocument();
   });
 
   it('replaces an edited script only when asked, or keeps it', async () => {
     await openMockWorkspace();
-    await usePipelineStore.getState().load('moon-island');
+    await usePipelineStore.getState().load('frostveil');
     const { unmount } = renderBanner();
     await userEvent.click(screen.getByRole('button', { name: 'Keep mine' }));
-    expect(screen.queryByText('export_web.py in Moon Island was edited')).toBeNull();
+    expect(screen.queryByText('export_web.py in Frostveil was edited')).toBeNull();
     unmount();
     localStorage.clear();
     renderBanner();
@@ -72,12 +70,12 @@ describe('the starter scripts banner', () => {
 
   it('says so when the update is refused instead of passing quietly', async () => {
     await openMockWorkspace();
-    await usePipelineStore.getState().load('moon-island');
+    await usePipelineStore.getState().load('frostveil');
     const ok = await usePipelineStore.getState().updateStarters(['tools/bake.py'], false);
     expect(ok).toBe(false);
     expect(useAppStore.getState().notice).toMatchObject({
       status: 'failed',
-      title: 'The scripts in Moon Island were not updated',
+      title: 'The scripts in Frostveil were not updated',
       detail: "tools/bake.py is not a starter script of this project's template.",
     });
     expect(await usePipelineStore.getState().updateStarters([], false)).toBe(false);
@@ -86,7 +84,7 @@ describe('the starter scripts banner', () => {
 
   it('shows nothing for a project with current starters', async () => {
     await openMockWorkspace();
-    await usePipelineStore.getState().load('rooftop-cinema');
+    await usePipelineStore.getState().load('frost-cathedral');
     const { container } = renderBanner();
     expect(container).toBeEmptyDOMElement();
   });

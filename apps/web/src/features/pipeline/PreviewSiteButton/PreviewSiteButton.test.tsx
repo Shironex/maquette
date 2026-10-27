@@ -24,7 +24,7 @@ describe('Preview on site', () => {
 
   it('waits for a site repo and says where to pick one', async () => {
     await openMockWorkspace();
-    await useProjectsStore.getState().switchTo('rooftop-cinema');
+    await useProjectsStore.getState().switchTo('frost-cathedral');
     render(<PreviewSiteButton />);
     const button = screen.getByRole('button', { name: 'Preview on site' });
     expect(button).toHaveAttribute('aria-disabled', 'true');

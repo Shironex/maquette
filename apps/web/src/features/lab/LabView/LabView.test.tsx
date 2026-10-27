@@ -25,7 +25,7 @@ describe('the Lab view', () => {
     await openMockWorkspace();
     render(<LabView />);
     expect(screen.getByText('Loading the concepts')).toBeVisible();
-    await useLabStore.getState().load('moon-island');
+    await useLabStore.getState().load('frostveil');
     expect(await screen.findByRole('region', { name: 'New direction' })).toBeVisible();
     expect(screen.getByRole('complementary', { name: 'Image queue' })).toBeVisible();
   });

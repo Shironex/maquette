@@ -113,13 +113,13 @@ export function createProjectHandlers({
     project_scan_import: ({ path }): ImportScan => ({
       path: expand(String(path)),
       blendFiles: [
-        { file: 'scenes/island_v3.blend', stem: 'island', version: 3 },
-        { file: 'scenes/island_v2.blend', stem: 'island', version: 2 },
+        { file: 'scenes/veil_platform_v3.blend', stem: 'veil_platform', version: 3 },
+        { file: 'scenes/veil_platform_v2.blend', stem: 'veil_platform', version: 2 },
       ],
       toolScripts: ['bake.py', 'export.py'],
     }),
     dialog_pick_folder: ({ start }) => (typeof start === 'string' && start ? start : DEFAULT_ROOT),
     dialog_pick_file: () => '/usr/local/bin/toktx',
-    dialog_pick_model: () => `${HOME}/Downloads/desk_lamp.glb`,
+    dialog_pick_model: () => `${HOME}/Downloads/lantern_post.glb`,
   };
 }

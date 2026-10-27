@@ -12,9 +12,9 @@ afterEach(() => {
 describe('the paths store', () => {
   it('reads the demo paths and their tracks and picks the first path', async () => {
     const s = await openPaths();
-    expect(s.draft.paths.map(p => p.id)).toEqual(['lantern-cable', 'root-glow', 'spare-run']);
-    expect(Object.keys(s.draft.tracks)).toEqual(['lantern-cable', 'root-glow']);
-    expect(s.selection).toEqual({ path: 'lantern-cable', point: null });
+    expect(s.draft.paths.map(p => p.id)).toEqual(['rune-line', 'root-glow', 'spare-run']);
+    expect(Object.keys(s.draft.tracks)).toEqual(['rune-line', 'root-glow']);
+    expect(s.selection).toEqual({ path: 'rune-line', point: null });
   });
 
   it('saves an edit a moment later into the layout', async () => {

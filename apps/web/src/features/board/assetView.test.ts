@@ -7,7 +7,7 @@ import { mockAsset } from './fakeBoardEnv';
 
 beforeEach(async () => {
   await openMockWorkspace('configured', undefined, 'batch');
-  await useProvidersStore.getState().load('moon-island');
+  await useProvidersStore.getState().load('frostveil');
 });
 
 afterEach(() => {
@@ -21,12 +21,12 @@ describe('assetView', () => {
       workspace: useAppStore.getState().workspace,
       jobs: useProvidersStore.getState().jobs,
     };
-    const cup = assetView(mockAsset('Brush cup'), env);
-    expect(cup.waiting?.id).toBe('brush-cup-1');
+    const cup = assetView(mockAsset('Sigil door'), env);
+    expect(cup.waiting?.id).toBe('sigil-door-1');
     expect(cup.sent?.label).toBe('Waiting for your model');
-    const lamp = assetView(mockAsset('Desk lamp'), env);
-    expect(lamp.refPicture).toBe('refs/desk_lamp.png');
-    expect(assetView(mockAsset('Character'), { workspace: null, jobs: [] })).toMatchObject({
+    const lamp = assetView(mockAsset('Lantern post'), env);
+    expect(lamp.refPicture).toBe('refs/lantern_post.png');
+    expect(assetView(mockAsset('Elsheria'), { workspace: null, jobs: [] })).toMatchObject({
       thumb: undefined,
       sent: null,
       waiting: undefined,

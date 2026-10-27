@@ -1,6 +1,6 @@
 /**
  * Opens the mock workspace with the Motion demo models (`?motion=` in the
- * browser) and loads Moon Island, or Rooftop cinema for `still`, into the
+ * browser) and loads Frostveil, or Frost cathedral for `still`, into the
  * Motion store.
  */
 import { useMotionStore } from '@/state/use-motion-store';
@@ -17,7 +17,7 @@ export async function openMotion(motion = 'demo', asset?: string) {
     undefined,
     motion
   );
-  await useMotionStore.getState().load(motion === 'still' ? 'rooftop-cinema' : 'moon-island');
+  await useMotionStore.getState().load(motion === 'still' ? 'frost-cathedral' : 'frostveil');
   if (asset) useMotionStore.getState().select(asset);
   return useMotionStore.getState();
 }

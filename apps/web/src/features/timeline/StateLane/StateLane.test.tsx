@@ -25,7 +25,7 @@ describe('a state lane', () => {
   it('adds a change at a free stop', async () => {
     await openTimeline();
     render(<StateLane asset="switch-cabinet" />);
-    expect(screen.queryByRole('button', { name: 'Change Switch cabinet at Sakura' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Change Switch cabinet at Veil gate' })).toBeNull();
     await userEvent.click(
       screen.getByRole('button', { name: 'Change Switch cabinet at Pullback' })
     );

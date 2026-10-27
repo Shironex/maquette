@@ -6,8 +6,8 @@ import { useLabStore } from '@/state/use-lab-store';
 import { ConceptGrid } from '.';
 
 const view: LabView = {
-  project: 'moon-island',
-  projectDir: '/w/moon-island',
+  project: 'frostveil',
+  projectDir: '/w/frostveil',
   directions: labDirections(false),
   jobs: [],
   refs: [],
@@ -28,8 +28,8 @@ describe('the concept grid', () => {
   });
 
   it('shows the selected direction', () => {
-    useLabStore.setState({ selected: 'late-train' });
+    useLabStore.setState({ selected: 'veil-gate-kit' });
     render(<ConceptGrid view={view} />);
-    expect(screen.getByRole('region', { name: 'Late train concepts' })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Veil gate kit concepts' })).toBeVisible();
   });
 });

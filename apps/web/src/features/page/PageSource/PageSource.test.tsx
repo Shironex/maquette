@@ -15,7 +15,7 @@ afterEach(() => {
 describe('the page source', () => {
   it('shows the site dev page and switches to a page concept', async () => {
     await openMockWorkspace();
-    await usePageStore.getState().open('moon-island');
+    await usePageStore.getState().open('frostveil');
     render(<PageSource />);
     expect(screen.getByRole('radio', { name: /Site dev page/ })).toBeChecked();
     await userEvent.click(screen.getByRole('radio', { name: /HTML concept/ }));

@@ -109,8 +109,8 @@ export function createPipelineHandlers({
     inspect_project: ({ project: id }) => {
       const p = project(String(id));
       const v = view(p.id);
-      // Only Moon Island has shipped models in mock mode.
-      if (p.id !== 'moon-island') {
+      // Only Frostveil has shipped models in mock mode.
+      if (p.id !== 'frostveil') {
         return {
           project: p.id,
           models: [],

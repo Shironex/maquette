@@ -8,8 +8,8 @@ import { BoardView } from '../BoardView';
 
 beforeEach(async () => {
   await openMockWorkspace('configured', undefined, 'batch');
-  await useProvidersStore.getState().load('moon-island');
-  useBoardPrefsStore.getState().update('moon-island', {
+  await useProvidersStore.getState().load('frostveil');
+  useBoardPrefsStore.getState().update('frostveil', {
     layout: 'list',
     sort: { key: 'name', ascending: true },
   });
@@ -39,15 +39,15 @@ async function renderList() {
 describe('the Board list', () => {
   it('shows one row per asset with its numbers, sorted by a heading', async () => {
     await renderList();
-    expect(names()[0]).toBe('Brush cup');
-    const character = row('Character');
-    expect(character).toHaveTextContent('Character');
+    expect(names()[0]).toBe('Academy landing');
+    const character = row('Elsheria');
+    expect(character).toHaveTextContent('Elsheria');
     expect(character).toHaveTextContent('v2');
-    expect(character).toHaveTextContent('94.6k');
+    expect(character).toHaveTextContent('115.7k');
     expect(character).toHaveTextContent('Needs review');
 
     await userEvent.click(screen.getByRole('button', { name: /^Tris/ }));
-    expect(names()[0]).toBe('Island');
+    expect(names()[0]).toBe('Veil platform');
     expect(screen.getByRole('columnheader', { name: /^Tris/ })).toHaveAttribute(
       'aria-sort',
       'descending'
@@ -57,7 +57,7 @@ describe('the Board list', () => {
       'aria-sort',
       'ascending'
     );
-    expect(useBoardPrefsStore.getState().byProject['moon-island']?.sort).toEqual({
+    expect(useBoardPrefsStore.getState().byProject['frostveil']?.sort).toEqual({
       key: 'tris',
       ascending: true,
     });
@@ -67,12 +67,12 @@ describe('the Board list', () => {
     await renderList();
     const filter = screen.getByRole('group', { name: 'Stage filter' });
     await userEvent.click(within(filter).getByRole('button', { name: 'Blender' }));
-    expect(names()).toEqual(['Character', 'Turntable island', 'Vending machine']);
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Search assets' }), 'vend');
-    expect(names()).toEqual(['Vending machine']);
-    expect(useBoardPrefsStore.getState().byProject['moon-island']).toMatchObject({
+    expect(names()).toEqual(['Crystal lantern', 'Elsheria', 'Orb shrine']);
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search assets' }), 'lant');
+    expect(names()).toEqual(['Crystal lantern']);
+    expect(useBoardPrefsStore.getState().byProject['frostveil']).toMatchObject({
       stage: 'blender',
-      query: 'vend',
+      query: 'lant',
     });
     await userEvent.click(within(filter).getByRole('button', { name: 'All' }));
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search assets' }), 'zzz');
@@ -84,15 +84,15 @@ describe('the Board list', () => {
 
   it('selects rows with their boxes and Shift, then sends them as one batch', async () => {
     await renderList();
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Character' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Elsheria' }));
     const user = userEvent.setup();
     await user.keyboard('{Shift>}');
-    await user.click(screen.getByRole('checkbox', { name: 'Select Far spire' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select Rune obelisk' }));
     await user.keyboard('{/Shift}');
     const bar = screen.getByRole('toolbar', { name: 'Selected assets' });
-    const between = names().slice(names().indexOf('Character'), names().indexOf('Far spire') + 1);
+    const between = names().slice(names().indexOf('Elsheria'), names().indexOf('Rune obelisk') + 1);
     expect(bar).toHaveTextContent(`${between.length} assets selected`);
-    expect(row('Character')).toHaveAttribute('aria-selected', 'true');
+    expect(row('Elsheria')).toHaveAttribute('aria-selected', 'true');
     await userEvent.click(within(bar).getByRole('button', { name: 'Send to 3D' }));
     await waitFor(() =>
       expect(useProvidersStore.getState().batch?.draft?.items.map(i => i.name)).toEqual(between)
@@ -101,7 +101,7 @@ describe('the Board list', () => {
 
   it('moves with the arrows, toggles with Space, extends with Shift and opens the menu on Enter', async () => {
     await renderList();
-    const first = row('Brush cup');
+    const first = row('Academy landing');
     expect(first).toHaveAttribute('tabindex', '0');
     first.focus();
     await userEvent.keyboard('{ArrowDown}');
@@ -129,7 +129,7 @@ describe('the Board list', () => {
 
   it('has the card menu on every row', async () => {
     await renderList();
-    await userEvent.click(screen.getByRole('button', { name: 'More for Desk lamp' }));
+    await userEvent.click(screen.getByRole('button', { name: 'More for Lantern post' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Rename...' }));
     expect(screen.getByRole('dialog', { name: 'Rename asset' })).toBeInTheDocument();
   });

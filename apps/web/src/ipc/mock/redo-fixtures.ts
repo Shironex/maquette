@@ -1,6 +1,6 @@
 /**
  * `?inbox=redo`: two inbox models that came from sends, ready for Redo. The
- * large sakura came from a Meshy send with a texture prompt, the character
+ * veil gate came from a Meshy send with a texture prompt, Elsheria
  * from a rigged Tripo send with detailed textures; both keys are saved.
  */
 import type { InboxItem, ProviderJob, WorkspaceConfig } from '../client';
@@ -17,13 +17,13 @@ export function redoJobs(
   const presets = config().providers;
   return [
     base({
-      id: 'sakura-2',
-      asset: 'sakura',
-      assetName: 'Sakura',
+      id: 'veil-gate-2',
+      asset: 'veil-gate',
+      assetName: 'Veil gate',
       provider: 'meshy',
-      images: ['refs/sakura_front.png'],
+      images: ['refs/veil_gate_front.png'],
       meshy: { ...structuredClone(presets.meshy.prop), textureResolution: '4k' },
-      prompt: 'Pale pink blossoms, dark wet bark, soft painted look',
+      prompt: 'Pale frosted stone, violet rune glow, soft painted look',
       state: 'inbox',
       progress: 1,
       credits: 30,
@@ -31,16 +31,16 @@ export function redoJobs(
       createdAtMs: now - 14 * MIN,
       startedAtMs: now - 14 * MIN + 2_000,
       finishedAtMs: now - 9 * MIN,
-      inboxFile: 'sakura_large.glb',
+      inboxFile: 'veil_gate.glb',
       cancel: 'none',
     }),
     base({
-      id: 'character-3',
-      asset: 'character',
-      assetName: 'Character',
+      id: 'elsheria-3',
+      asset: 'elsheria',
+      assetName: 'Elsheria',
       provider: 'tripo',
       variant: 'character',
-      images: ['refs/character-model.png'],
+      images: ['refs/elsheria-model.png'],
       tripo: { ...structuredClone(presets.tripo.character), textureQuality: 'detailed' },
       state: 'inbox',
       progress: 1,
@@ -49,28 +49,28 @@ export function redoJobs(
       createdAtMs: now - 8 * MIN,
       startedAtMs: now - 8 * MIN + 1_000,
       finishedAtMs: now - 3 * MIN,
-      inboxFile: 'character.glb',
+      inboxFile: 'elsheria.glb',
       message: 'Rigged with Mixamo bones, 2 animations.',
       cancel: 'none',
     }),
   ];
 }
 
-/** The inbox with the sakura and the character linked to their sends. */
+/** The inbox with the veil gate and Elsheria linked to their sends. */
 export function linkForRedo(items: InboxItem[]): InboxItem[] {
   const links: Record<string, InboxItem['link']> = {
-    'sakura_large.glb': {
-      job: 'sakura-2',
-      project: 'moon-island',
-      asset: 'sakura',
-      assetName: 'Sakura',
+    'veil_gate.glb': {
+      job: 'veil-gate-2',
+      project: 'frostveil',
+      asset: 'veil-gate',
+      assetName: 'Veil gate',
       provider: 'meshy',
     },
-    'character.glb': {
-      job: 'character-3',
-      project: 'moon-island',
-      asset: 'character',
-      assetName: 'Character',
+    'elsheria.glb': {
+      job: 'elsheria-3',
+      project: 'frostveil',
+      asset: 'elsheria',
+      assetName: 'Elsheria',
       provider: 'tripo',
     },
   };

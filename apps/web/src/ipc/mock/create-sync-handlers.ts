@@ -2,7 +2,7 @@
  * A workspace shared with another computer, in mock mode (`?sync=`):
  * - `held`: the other computer has the workspace open right now, so the
  *   app asks before it opens it (see create-workspace-handlers.ts).
- * - `repo`: Moon Island's site repo was picked on the other computer, so
+ * - `repo`: Frostveil's site repo was picked on the other computer, so
  *   this one asks where it is.
  * - `conflict`: the sync tool kept conflict copies of two data files.
  */
@@ -17,19 +17,19 @@ const STAMP = 'sync-conflict-20261027-101500-PCSTUDIO';
 export function mockConflicts(): SyncConflict[] {
   return [
     {
-      path: `projects/moon-island/project.${STAMP}.json`,
-      original: 'projects/moon-island/project.json',
+      path: `projects/frostveil/project.${STAMP}.json`,
+      original: 'projects/frostveil/project.json',
     },
     { path: `maquette.${STAMP}.json`, original: 'maquette.json' },
   ];
 }
 
-/** Moon Island as another computer left it: its repo is not here. */
+/** Frostveil as another computer left it: its repo is not here. */
 export function syncProjects(projects: ProjectManifest[], sync: string | null): ProjectManifest[] {
   if (sync !== 'repo') return projects;
   return projects.map(p =>
-    p.id === 'moon-island'
-      ? { ...p, siteRepo: null, siteRepoName: 'moon-island-site', siteRepoState: 'elsewhere' }
+    p.id === 'frostveil'
+      ? { ...p, siteRepo: null, siteRepoName: 'frostveil-site', siteRepoState: 'elsewhere' }
       : p
   );
 }

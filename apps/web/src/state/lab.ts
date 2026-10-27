@@ -49,7 +49,7 @@ export function isObjects(direction: Pick<Direction, 'source'>): boolean {
   return direction.source !== null;
 }
 
-/** "Workbench hero objects", the direction the object refs land in. */
+/** "Veil gate props objects", the direction the object refs land in. */
 export function objectsDirectionName(sourceName: string): string {
   const base = sourceName.trim() || 'Concept';
   return `${base.slice(0, 60 - ' objects'.length).trimEnd()} objects`;
@@ -63,7 +63,7 @@ export function objectsDirectionName(sourceName: string): string {
 export function addObjects(current: readonly string[], text: string): string[] {
   const out = [...current];
   for (const part of objectParts(text)) {
-    // "desk lamp" names the asset "Desk lamp".
+    // "lantern post" names the asset "Lantern post".
     const name = part.charAt(0).toUpperCase() + part.slice(1);
     if (name.length > MAX_OBJECT_CHARS) continue;
     if (out.some(o => o.toLowerCase() === name.toLowerCase())) continue;
@@ -273,7 +273,7 @@ export function coverImage(direction: Direction): ConceptImage | null {
   );
 }
 
-/** "Moon Island porch" and "moon island porch" are the same direction, as the Rust slug sees it. */
+/** "Frozen lake arena" and "frozen lake arena" are the same direction, as the Rust slug sees it. */
 export function directionId(name: string): string {
   return (
     name

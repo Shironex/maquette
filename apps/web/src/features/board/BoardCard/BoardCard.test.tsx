@@ -10,7 +10,7 @@ import BoardCard from './BoardCard';
 
 beforeEach(async () => {
   await openMockWorkspace('configured', undefined, 'batch');
-  await useProvidersStore.getState().load('moon-island');
+  await useProvidersStore.getState().load('frostveil');
 });
 
 afterEach(() => {
@@ -21,53 +21,53 @@ afterEach(() => {
 describe('BoardCard', () => {
   it('shows the asset with its latest version and checks its box', async () => {
     const board = fakeBoardEnv();
-    render(<BoardCard asset={mockAsset('Character')} board={board} />);
-    expect(screen.getByRole('button', { name: 'Character, v2' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Character' }));
-    expect(board.selection.check).toHaveBeenCalledWith('character', true, false);
+    render(<BoardCard asset={mockAsset('Elsheria')} board={board} />);
+    expect(screen.getByRole('button', { name: 'Elsheria, v2' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Elsheria' }));
+    expect(board.selection.check).toHaveBeenCalledWith('elsheria', true, false);
   });
 
   it('opens its menu from the dots, closing any copy list', async () => {
     const board = fakeBoardEnv();
-    const { rerender } = render(<BoardCard asset={mockAsset('Character')} board={board} />);
-    await userEvent.click(screen.getByRole('button', { name: 'More for Character' }));
+    const { rerender } = render(<BoardCard asset={mockAsset('Elsheria')} board={board} />);
+    await userEvent.click(screen.getByRole('button', { name: 'More for Elsheria' }));
     expect(board.actions.setCopyFor).toHaveBeenCalledWith(null);
     expect(board.actions.setMenuFor).toHaveBeenCalledOnce();
     expect(screen.queryByRole('menu')).toBeNull();
-    const open = fakeBoardEnv({ actions: { ...board.actions, menuFor: 'character' } });
-    rerender(<BoardCard asset={mockAsset('Character')} board={open} />);
-    expect(screen.getByRole('menu', { name: 'Character actions' })).toBeInTheDocument();
+    const open = fakeBoardEnv({ actions: { ...board.actions, menuFor: 'elsheria' } });
+    rerender(<BoardCard asset={mockAsset('Elsheria')} board={open} />);
+    expect(screen.getByRole('menu', { name: 'Elsheria actions' })).toBeInTheDocument();
   });
 
   it('asks for the model of a waiting By hand card', async () => {
     const addModel = vi.fn(async () => {});
     useProvidersStore.setState({ addModel });
-    render(<BoardCard asset={mockAsset('Brush cup')} board={fakeBoardEnv()} />);
+    render(<BoardCard asset={mockAsset('Sigil door')} board={fakeBoardEnv()} />);
     expect(screen.getByText('Waiting for your model')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Add model...' }));
-    expect(addModel).toHaveBeenCalledWith('brush-cup-1');
+    expect(addModel).toHaveBeenCalledWith('sigil-door-1');
   });
 
   it('shows the export name a waiting card wants, with its copy button', () => {
-    render(<BoardCard asset={mockAsset('Brush cup')} board={fakeBoardEnv()} />);
-    const name = useProvidersStore.getState().jobs.find(j => j.id === 'brush-cup-1')
+    render(<BoardCard asset={mockAsset('Sigil door')} board={fakeBoardEnv()} />);
+    const name = useProvidersStore.getState().jobs.find(j => j.id === 'sigil-door-1')
       ?.card?.exportName;
-    expect(name).toMatch(/^maq_brush-cup_v1_/);
+    expect(name).toMatch(/^maq_sigil-door_v1_/);
     expect(screen.getByText(name!)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy export name' })).toBeInTheDocument();
   });
 
   it('has no export name line without a waiting send', () => {
-    render(<BoardCard asset={mockAsset('Character')} board={fakeBoardEnv()} />);
+    render(<BoardCard asset={mockAsset('Elsheria')} board={fakeBoardEnv()} />);
     expect(screen.queryByRole('button', { name: 'Copy export name' })).toBeNull();
   });
 
   it('opens its menu on a right-click', () => {
     const board = fakeBoardEnv();
-    render(<BoardCard asset={mockAsset('Character')} board={board} />);
-    const card = screen.getByRole('button', { name: 'Character, v2' });
+    render(<BoardCard asset={mockAsset('Elsheria')} board={board} />);
+    const card = screen.getByRole('button', { name: 'Elsheria, v2' });
     expect(fireEvent.contextMenu(card)).toBe(false);
-    expect(board.actions.setMenuFor).toHaveBeenCalledWith('character');
+    expect(board.actions.setMenuFor).toHaveBeenCalledWith('elsheria');
     expect(board.actions.setCopyFor).toHaveBeenCalledWith(null);
   });
 });
@@ -75,7 +75,7 @@ describe('BoardCard', () => {
 describe('BoardCard of a built asset', () => {
   beforeEach(async () => {
     await openMockWorkspace('configured', undefined, undefined, undefined, undefined, 'demo');
-    await useBuiltStore.getState().load('moon-island');
+    await useBuiltStore.getState().load('frostveil');
   });
   afterEach(() => useBuiltStore.setState({ project: null, items: [], adding: false }));
 
@@ -85,7 +85,7 @@ describe('BoardCard of a built asset', () => {
     render(<BoardCard asset={mockAsset('Newtons cradle')} board={fakeBoardEnv()} />);
     expect(screen.getByText('Script changed')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Rebuild' }));
-    expect(rebuild).toHaveBeenCalledWith('moon-island', 'newtons-cradle', true);
+    expect(rebuild).toHaveBeenCalledWith('frostveil', 'newtons-cradle', true);
   });
 
   it('shows a current one as done, without a Rebuild button', () => {
@@ -97,11 +97,11 @@ describe('BoardCard of a built asset', () => {
   it('shows an update waiting in the library and opens its plan', async () => {
     await openMockLibrary('demo');
     await useLibraryStore.getState().load();
-    render(<BoardCard asset={mockAsset('Character')} board={fakeBoardEnv()} />);
+    render(<BoardCard asset={mockAsset('Elsheria')} board={fakeBoardEnv()} />);
     await userEvent.click(screen.getByRole('button', { name: 'Update to v3' }));
     expect(useLibraryStore.getState().updating).toEqual({
-      project: 'moon-island',
-      asset: 'character',
+      project: 'frostveil',
+      asset: 'elsheria',
     });
     useLibraryStore.setState({ view: null, updating: null, plan: null });
   });

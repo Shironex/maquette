@@ -64,8 +64,8 @@ describe('the layout helpers', () => {
       },
       stops: [
         {
-          id: 'porch',
-          name: 'Porch',
+          id: 'arrival',
+          name: 'Arrival',
           position: [0, 1, 5],
           target: [0, 1, 0],
           fov: null,
@@ -133,7 +133,7 @@ describe('the layout helpers', () => {
   });
 
   it('names, adds, orders and removes camera stops', () => {
-    expect(stopId([stop('porch')], 'Porch')).toBe('porch-2');
+    expect(stopId([stop('arrival')], 'Arrival')).toBe('arrival-2');
     expect(stopId([], '  ')).toBe('stop');
     expect(nextStopName([stop('a', { name: 'Stop 2' })])).toBe('Stop 3');
 
@@ -183,14 +183,14 @@ describe('the layout helpers', () => {
 
   it('says what the first view loads', () => {
     const view: FirstView = {
-      stop: 'Porch',
+      stop: 'Arrival',
       custom: false,
       models: [{ asset: 'a', name: 'A', bytes: 1_500_000, measured: 'raw' }],
       bytes: 1_500_000,
       targetMb: 3,
     };
     expect(firstViewLine(view)).toMatch(
-      /^First view \(Porch\): 1 model in its frame, 1\.5 MB of 3 MB\.$/
+      /^First view \(Arrival\): 1 model in its frame, 1\.5 MB of 3 MB\.$/
     );
     expect(firstViewLine({ ...view, custom: true, models: [] })).toMatch(/0 models picked by hand/);
     expect(firstViewLine({ ...view, stop: null })).toMatch(/Add a camera stop/);

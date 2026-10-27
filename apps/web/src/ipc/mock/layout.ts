@@ -1,6 +1,6 @@
 /**
- * The scene layout in mock mode: Moon Island's models stand on the ground
- * around the sakura with five camera stops, each project keeps its own
+ * The scene layout in mock mode: Frostveil's models stand on the ground
+ * around the veil gate with five camera stops, each project keeps its own
  * layout in memory, and the first view counts what the first stop sees.
  */
 import type {
@@ -21,19 +21,19 @@ import { follow } from '@/state/paths';
 
 type Vec3 = [number, number, number];
 
-/** The bundled model that stands in for each Moon Island model file. */
+/** The bundled model that stands in for each Frostveil model file. */
 export const LAYOUT_FILES: Record<string, string> = {
-  'models/island_v7.glb': 'sakura_tree_large.glb',
-  'models/shop_house_v3.glb': 'flower_shrubs.glb',
-  'models/character_v2.glb': 'character.glb',
-  'models/vending_v2.glb': 'flower_shrubs.glb',
+  'models/veil_platform_v7.glb': 'veil_gate.glb',
+  'models/observatory_arch_v3.glb': 'ice_crystals.glb',
+  'models/elsheria_v2.glb': 'elsheria.glb',
+  'models/crystal_lantern_v2.glb': 'ice_crystals.glb',
 };
 
 /** What the Rust side measures for those files: bounds in metres and bytes. */
 const MEASURED: Record<string, { min: Vec3; max: Vec3; bytes: number }> = {
-  'sakura_tree_large.glb': { min: [-5.84, 0, -3.82], max: [5.84, 7.97, 3.81], bytes: 330_444 },
-  'flower_shrubs.glb': { min: [-0.79, 0, -0.66], max: [0.79, 0.67, 0.66], bytes: 169_808 },
-  'character.glb': { min: [-0.68, 0, -0.42], max: [0.68, 2.0, 0.42], bytes: 1_511_800 },
+  'veil_gate.glb': { min: [-2.93, 0, -2.32], max: [2.93, 6.5, 2.32], bytes: 412_928 },
+  'ice_crystals.glb': { min: [-0.49, 0, -0.41], max: [0.49, 1.3, 0.41], bytes: 249_800 },
+  'elsheria.glb': { min: [-0.47, 0, -0.32], max: [0.47, 1.7, 0.12], bytes: 1_066_688 },
 };
 
 /** The bounds mock mode knows for a project file. */
@@ -41,43 +41,43 @@ export function layoutBounds(file: string): { min: Vec3; max: Vec3 } | null {
   return MEASURED[LAYOUT_FILES[file] ?? ''] ?? null;
 }
 
-function moonLayout(): SceneLayout {
+function frostveilLayout(): SceneLayout {
   return {
     version: 1,
     models: {
-      island: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 1 },
-      'shop-house': { position: [-3.2, 0, 3.4], rotation: [0, 20, 0], scale: 1.2 },
-      character: { position: [1.6, 0, 3.2], rotation: [0, -25, 0], scale: 1 },
-      vending: { position: [3.6, 0, 1.2], rotation: [0, -60, 0], scale: 0.8 },
+      'veil-platform': { position: [0, 0, 0], rotation: [0, 0, 0], scale: 1 },
+      'observatory-arch': { position: [-3.2, 0, 3.4], rotation: [0, 20, 0], scale: 1.2 },
+      elsheria: { position: [1.6, 0, 3.2], rotation: [0, -25, 0], scale: 1 },
+      'crystal-lantern': { position: [3.6, 0, 1.2], rotation: [0, -60, 0], scale: 0.8 },
     },
     stops: [
       {
-        id: 'porch',
-        name: 'Porch',
+        id: 'arrival',
+        name: 'Arrival',
         position: [6.5, 2.4, 10.5],
         target: [1, 1.4, 2.6],
         fov: 36,
         models: null,
       },
       {
-        id: 'sakura',
-        name: 'Sakura',
+        id: 'veil-gate',
+        name: 'Veil gate',
         position: [-9, 3.5, 12],
         target: [0, 4, 0],
         fov: 40,
         models: null,
       },
       {
-        id: 'shrubs',
-        name: 'Shrubs',
+        id: 'crystals',
+        name: 'Crystals',
         position: [-2.4, 1.1, 9.8],
         target: [-2.8, 0.5, 3.4],
         fov: 30,
         models: null,
       },
       {
-        id: 'canopy',
-        name: 'Canopy',
+        id: 'keystone',
+        name: 'Keystone',
         position: [3.4, 1.4, 5.6],
         target: [0, 5.6, -0.6],
         fov: 58,
@@ -140,7 +140,7 @@ export function createFakeLayout(deps: {
   /** The asset's real size and fix-ups, which move and scale it. */
   prep: (project: string, asset: string) => ModelPrep | null;
 }) {
-  const layouts = new Map<string, SceneLayout>([['moon-island', moonLayout()]]);
+  const layouts = new Map<string, SceneLayout>([['frostveil', frostveilLayout()]]);
 
   function models(id: string): LayoutModel[] {
     const p = deps.project(id);
@@ -173,7 +173,7 @@ export function createFakeLayout(deps: {
   }
 
   function firstView(id: string): FirstView {
-    const layout = layouts.get(id) ?? moonLayout();
+    const layout = layouts.get(id) ?? frostveilLayout();
     const all = models(id);
     const stop = layout.stops[0];
     const target = deps.firstViewMb();

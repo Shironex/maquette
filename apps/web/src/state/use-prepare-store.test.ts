@@ -25,25 +25,25 @@ beforeEach(async () => {
 });
 afterEach(() => clearMocks());
 
-const key = assetKey('moon-island', 'character');
+const key = assetKey('frostveil', 'elsheria');
 
 describe('the prepare store', () => {
   it('loads an asset, saves its entry and shows it at once', async () => {
-    await usePrepareStore.getState().load('moon-island', 'character');
-    expect(usePrepareStore.getState().assets[key]?.measured).toEqual([1.36, 2, 0.84]);
+    await usePrepareStore.getState().load('frostveil', 'elsheria');
+    expect(usePrepareStore.getState().assets[key]?.measured).toEqual([0.94, 1.7, 0.44]);
     const saving = usePrepareStore
       .getState()
-      .save('moon-island', 'character', { size: null, fixups: [{ op: 'origin-bottom' }] });
+      .save('frostveil', 'elsheria', { size: null, fixups: [{ op: 'origin-bottom' }] });
     expect(usePrepareStore.getState().assets[key]?.entry.fixups).toEqual([{ op: 'origin-bottom' }]);
     expect(await saving).toBe(true);
     expect(calls).toContain('prepare_save');
   });
 
   it('puts the saved entry back and says why when a save is refused', async () => {
-    await usePrepareStore.getState().load('moon-island', 'character');
+    await usePrepareStore.getState().load('frostveil', 'elsheria');
     const ok = await usePrepareStore
       .getState()
-      .save('moon-island', 'character', { size: null, fixups: [{ op: 'decimate', triangles: 3 }] });
+      .save('frostveil', 'elsheria', { size: null, fixups: [{ op: 'decimate', triangles: 3 }] });
     expect(ok).toBe(false);
     expect(usePrepareStore.getState().assets[key]?.entry.fixups).toEqual([]);
     expect(useAppStore.getState().notice?.title).toBe('Real size and fix-ups not saved');
@@ -51,7 +51,7 @@ describe('the prepare store', () => {
 
   it('runs a preview once per plan and model', async () => {
     const plan = { size: null, fixups: [{ op: 'decimate' as const, triangles: 50_000 }] };
-    const request = { project: null, asset: null, inbox: 'character.glb', plan };
+    const request = { project: null, asset: null, inbox: 'elsheria.glb', plan };
     const report = await usePrepareStore.getState().preview(request);
     expect(report?.after.triangles).toBe(50_000);
     await usePrepareStore.getState().preview(request);

@@ -5,10 +5,10 @@ import { useLabStore, type ObjectsDraft } from '@/state/use-lab-store';
 import { ObjectRefsSheet } from '.';
 
 const draft: ObjectsDraft = {
-  project: 'moon-island',
-  source: 'concepts/moon-island-porch/moon-island-porch_01.png',
-  sourcePath: '/x/moon-island-porch_01.png',
-  sourceName: 'Moon island porch',
+  project: 'frostveil',
+  source: 'concepts/frozen-lake-arena/frozen-lake-arena_01.png',
+  sourcePath: '/x/frozen-lake-arena_01.png',
+  sourceName: 'Frozen lake arena',
   objects: ['Bench', 'Lantern'],
   notes: { Lantern: 'Pink paper' },
   aspect: '1:1',
@@ -28,7 +28,7 @@ describe('the object refs sheet', () => {
     expect(screen.getByRole('dialog', { name: 'Make object refs' })).toBeVisible();
     expect(screen.getByText(draft.source)).toBeVisible();
     expect(screen.getByText('2 of 12')).toBeVisible();
-    expect(screen.getByText('Moon island porch objects')).toBeVisible();
+    expect(screen.getByText('Frozen lake arena objects')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Make 2 object refs' })).toBeEnabled();
   });
 
@@ -37,8 +37,8 @@ describe('the object refs sheet', () => {
     useLabStore.setState({ setObjects });
     render(<ObjectRefsSheet objects={draft} />);
     const field = screen.getByRole('textbox', { name: 'Objects' });
-    await userEvent.type(field, 'desk lamp,');
-    expect(setObjects).toHaveBeenLastCalledWith({ objects: ['Bench', 'Lantern', 'Desk lamp'] });
+    await userEvent.type(field, 'lantern post,');
+    expect(setObjects).toHaveBeenLastCalledWith({ objects: ['Bench', 'Lantern', 'Lantern post'] });
     await userEvent.type(field, '{Backspace}');
     expect(setObjects).toHaveBeenLastCalledWith({ objects: ['Bench'], notes: {} });
   });

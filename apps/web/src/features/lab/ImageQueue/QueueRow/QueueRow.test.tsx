@@ -6,7 +6,7 @@ import { runningJobs } from '@/ipc/mock/lab-fixtures';
 import { useLabStore } from '@/state/use-lab-store';
 import { QueueRow } from '.';
 
-const [done, , , , running] = runningJobs('moon-island', 0);
+const [done, , , , running] = runningJobs('frostveil', 0);
 const lab = useLabStore.getState();
 
 afterEach(() => {
@@ -47,7 +47,7 @@ describe('a queue row', () => {
   });
 
   it('says when a rate limited job tries again, and offers Cancel and Retry now', () => {
-    const [, , , , , , limited, gaveUp] = runningJobs('moon-island', 0, 'rate');
+    const [, , , , , , limited, gaveUp] = runningJobs('frostveil', 0, 'rate');
     const at = new Date(2026, 9, 26, 9, 5).getTime();
     render(<QueueRow job={{ ...limited!, retryAtMs: at }} projectDir="/w" now={0} />);
     expect(screen.getByText('Waiting, rate limited, retries at 09:05')).toBeVisible();

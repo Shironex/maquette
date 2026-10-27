@@ -20,7 +20,7 @@ describe('the inbox redo bar', () => {
     render(
       <RedoBar
         count={1}
-        blocker="Sakura did not come from a Send to 3D"
+        blocker="Veil gate did not come from a Send to 3D"
         onRedo={onRedo}
         onClear={() => {}}
       />

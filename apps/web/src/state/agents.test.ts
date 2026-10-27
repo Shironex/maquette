@@ -17,8 +17,8 @@ const base: McpStatus = {
 const approval: Approval = {
   id: 'approval-1',
   kind: 'ship',
-  runId: 'moon-island-run-26',
-  project: 'moon-island',
+  runId: 'frostveil-run-26',
+  project: 'frostveil',
   runNumber: 26,
   step: 'Ship',
   job: null,
@@ -36,8 +36,8 @@ const send: Approval = {
   runId: null,
   runNumber: null,
   step: null,
-  job: 'stone-lantern-2',
-  assetName: 'Stone lantern',
+  job: 'guardian-statue-2',
+  assetName: 'Guardian statue',
   service: 'Tripo',
   detail: 'Tripo H3.1, 1 image',
 };
@@ -66,22 +66,22 @@ describe('agents', () => {
 
   it('formats times and titles', () => {
     expect(clockTime(new Date(2026, 9, 24, 9, 5, 7).getTime())).toBe('09:05:07');
-    expect(approvalTitle(approval, 'Moon Island')).toBe('Ship Moon Island, run 26?');
-    expect(approvalTitle(approval)).toBe('Ship moon-island, run 26?');
-    expect(approvalTitle(send)).toBe('Send Stone lantern to Tripo?');
+    expect(approvalTitle(approval, 'Frostveil')).toBe('Ship Frostveil, run 26?');
+    expect(approvalTitle(approval)).toBe('Ship frostveil, run 26?');
+    expect(approvalTitle(send)).toBe('Send Guardian statue to Tripo?');
     const batch: Approval = {
       ...send,
       job: null,
       assetName: null,
       detail: '2 models in total, one model per asset',
       items: [
-        { job: 'desk-lamp-1', assetName: 'Desk lamp', detail: 'Tripo H3.1, 1 image' },
-        { job: 'brush-cup-1', assetName: 'Brush cup', detail: 'Tripo H3.1, 1 image' },
+        { job: 'lantern-post-1', assetName: 'Lantern post', detail: 'Tripo H3.1, 1 image' },
+        { job: 'sigil-door-1', assetName: 'Sigil door', detail: 'Tripo H3.1, 1 image' },
       ],
     };
     expect(approvalTitle(batch)).toBe('Send 2 assets to Tripo?');
     expect(approvalTitle({ ...batch, items: batch.items.slice(0, 1) })).toBe(
-      'Send Desk lamp to Tripo?'
+      'Send Lantern post to Tripo?'
     );
   });
 

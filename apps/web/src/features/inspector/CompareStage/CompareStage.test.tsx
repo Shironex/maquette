@@ -21,7 +21,7 @@ let pick: SidePick;
 
 beforeEach(async () => {
   await openMockWorkspace();
-  pick = pickSides(await commands.inspectProject('moon-island'), null, null, null)!;
+  pick = pickSides(await commands.inspectProject('frostveil'), null, null, null)!;
 });
 afterEach(() => {
   clearMocks();
@@ -53,7 +53,7 @@ function stage(over: Partial<CompareStageProps> = {}) {
       onError: vi.fn(),
       onReady: vi.fn(),
     },
-    project: 'moon-island',
+    project: 'frostveil',
     ...over,
   };
   return render(<CompareStage {...props} />);
@@ -85,11 +85,11 @@ describe('the compare stage', () => {
     useInspectorStore.setState({ fps: 59.6, stop: { index: 0, at: 1 } });
     stage({
       loadError: 'The file ends early.',
-      stops: [{ name: 'Porch', position: [0, 1, 4], target: [0, 1, 0], fov: 36, poster: null }],
+      stops: [{ name: 'Arrival', position: [0, 1, 4], target: [0, 1, 0], fov: 36, poster: null }],
     });
     await screen.findByTestId('compare-canvas');
     expect(screen.getByText('WebGL 2 · 60 fps')).toBeInTheDocument();
-    expect(screen.getByText('Porch · perspective')).toBeInTheDocument();
+    expect(screen.getByText('Arrival · perspective')).toBeInTheDocument();
     expect(screen.getByText('The file ends early.')).toBeInTheDocument();
     expect(screen.queryByText(/Loading/)).toBeNull();
   });
@@ -110,12 +110,12 @@ describe('the compare stage', () => {
     });
     useMaterialsStore.setState({
       saved: {
-        'moon-island': { version: 1, models: { sakura: tweak('#ff0000'), hut: tweak('#00ff00') } },
+        frostveil: { version: 1, models: { 'veil-gate': tweak('#ff0000'), hut: tweak('#00ff00') } },
       },
-      edits: { 'moon-island': { sakura: tweak('#0000ff') } },
+      edits: { frostveil: { 'veil-gate': tweak('#0000ff') } },
     });
     stage({ ready: true });
     await screen.findByTestId('compare-canvas');
-    expect(canvas.props?.looks).toEqual({ sakura: tweak('#0000ff'), hut: tweak('#00ff00') });
+    expect(canvas.props?.looks).toEqual({ 'veil-gate': tweak('#0000ff'), hut: tweak('#00ff00') });
   });
 });

@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { usePageStore } from '@/state/use-page-store';
+import { removeExplode } from '@/state/timeline';
 import { useTimelineStore } from '@/state/use-timeline-store';
 import { clearMocks, openTimeline } from '@/test/open-timeline';
 import { TimelineBar } from '.';
@@ -18,7 +19,7 @@ describe('the timeline toolbar', () => {
     await openTimeline();
     usePageStore.getState().seek(1.5);
     render(<TimelineBar />);
-    expect(screen.getByRole('toolbar')).toHaveTextContent('38% · between Sakura and Shrubs');
+    expect(screen.getByRole('toolbar')).toHaveTextContent('38% · between Veil gate and Crystals');
     await userEvent.click(screen.getByRole('button', { name: 'Play the scroll at reading speed' }));
     expect(usePageStore.getState().playing).toBe(true);
     await userEvent.click(screen.getByRole('button', { name: 'Go to the top' }));
@@ -27,18 +28,24 @@ describe('the timeline toolbar', () => {
 
   it('adds an explode track, and an energize track for a path without one', async () => {
     await openTimeline();
+    // The cabinet is the one model with parts to spread, and it has its track already.
+    act(() => useTimelineStore.getState().edit(d => removeExplode(d, 'switch-cabinet')));
     render(<TimelineBar />);
     await userEvent.click(screen.getByRole('button', { name: 'Add track' }));
-    expect(screen.queryByRole('menuitem', { name: 'Energize Lantern cable' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Energize Rune line' })).toBeNull();
     expect(screen.getByRole('menuitem', { name: 'New path...' })).toBeVisible();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Explode Switch cabinet' }));
+    expect(useTimelineStore.getState().selection).toMatchObject({
+      kind: 'explode',
+      asset: 'switch-cabinet',
+    });
+  });
+
+  it('offers no explode track for a model that has one', async () => {
+    await openTimeline();
+    render(<TimelineBar />);
+    await userEvent.click(screen.getByRole('button', { name: 'Add track' }));
     expect(screen.queryByRole('menuitem', { name: 'Explode Switch cabinet' })).toBeNull();
-    const items = screen
-      .getAllByRole('menuitem')
-      .filter(i => /^Explode /.test(i.textContent ?? ''));
-    const open = items.find(i => !i.hasAttribute('aria-disabled') && !i.hasAttribute('disabled'));
-    expect(open).toBeDefined();
-    await userEvent.click(open!);
-    expect(useTimelineStore.getState().selection?.kind).toBe('explode');
   });
 
   it('energizes a path from the menu', async () => {
@@ -51,7 +58,7 @@ describe('the timeline toolbar', () => {
     expect(useTimelineStore.getState().selection).toEqual({
       kind: 'path',
       path: 'spare-run',
-      stop: 'porch',
+      stop: 'arrival',
     });
   });
 

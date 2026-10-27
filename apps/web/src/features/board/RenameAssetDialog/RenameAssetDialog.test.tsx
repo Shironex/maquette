@@ -17,8 +17,8 @@ function renderDialog() {
   const onClose = vi.fn();
   render(
     <RenameAssetDialog
-      project="moon-island"
-      asset={mockAsset('Island')}
+      project="frostveil"
+      asset={mockAsset('Veil platform')}
       onDone={onDone}
       onClose={onClose}
     />
@@ -29,7 +29,7 @@ function renderDialog() {
 describe('RenameAssetDialog', () => {
   it('renames the asset', async () => {
     const { onDone, field } = renderDialog();
-    expect(field).toHaveValue('Island');
+    expect(field).toHaveValue('Veil platform');
     await userEvent.clear(field);
     await userEvent.type(field, 'Floating island');
     await userEvent.click(screen.getByRole('button', { name: 'Rename' }));

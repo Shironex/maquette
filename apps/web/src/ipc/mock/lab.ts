@@ -17,12 +17,12 @@ import type {
 import {
   GENERATED_POOL,
   type LabLimit,
-  WORKBENCH_OBJECTS,
+  VEIL_GATE_OBJECTS,
   labDirections,
   labRefs,
   objectRefs,
   runningJobs,
-  workbenchDirections,
+  veilGateDirections,
 } from './lab-fixtures';
 import { clock } from '@/lib/clock';
 import { createLabSends } from './create-lab-sends';
@@ -54,12 +54,12 @@ export interface FakeLabOptions {
   /** How long one fake image takes. */
   jobMs: number;
   /**
-   * `running`: the porch direction has two images generating that never
+   * `running`: the arena direction has two images generating that never
    * finish; `limited` adds a rate limited job, `usage` three waiting for the
    * Codex usage limit.
    */
   state?: string | null;
-  /** `batch`: the workbench concept and its six object refs are there too. */
+  /** `batch`: the veil gate props concept and its six object refs are there too. */
   handoff?: string | null;
   /** True while a Send to 3D job still needs the asset where it is. */
   assetBusy?: (project: string, asset: string) => boolean;
@@ -73,12 +73,12 @@ export function createFakeLab(options: FakeLabOptions) {
   const running = options.state === 'running' || limit !== undefined;
   const batch = options.handoff === 'batch';
   const directions = new Map<string, Direction[]>([
-    ['moon-island', [...(batch ? workbenchDirections() : []), ...labDirections(running)]],
+    ['frostveil', [...(batch ? veilGateDirections() : []), ...labDirections(running)]],
   ]);
   const refs = new Map<string, RefImage[]>([
-    ['moon-island', [...labRefs(), ...(batch ? objectRefs() : [])]],
+    ['frostveil', [...labRefs(), ...(batch ? objectRefs() : [])]],
   ]);
-  let jobs: ConceptJob[] = running ? runningJobs('moon-island', clock.nowMs(), limit) : [];
+  let jobs: ConceptJob[] = running ? runningJobs('frostveil', clock.nowMs(), limit) : [];
   let concurrency = 4;
   let pool = 0;
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -141,8 +141,8 @@ export function createFakeLab(options: FakeLabOptions) {
     timers.delete(id);
     const job = jobs.find(j => j.id === id);
     if (!job || job.state !== 'running') return;
-    // An object ref of the workbench shows its crop; anything else the next pool image.
-    const crop = WORKBENCH_OBJECTS.find(
+    // An object ref of the veil gate props shows its crop; anything else the next pool image.
+    const crop = VEIL_GATE_OBJECTS.find(
       o => o.title.toLowerCase() === job.title?.toLowerCase()
     )?.image;
     const source = crop ?? GENERATED_POOL[pool % GENERATED_POOL.length] ?? GENERATED_POOL[0];

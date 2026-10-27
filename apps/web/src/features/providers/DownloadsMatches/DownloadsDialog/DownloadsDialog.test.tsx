@@ -11,7 +11,7 @@ afterEach(() => {
   useProvidersStore.setState({ project: null, jobs: [], downloads: null });
 });
 
-const fresh = { project: 'moon-island', choices: {}, used: [] };
+const fresh = { project: 'frostveil', choices: {}, used: [] };
 
 describe('the Downloads dialog', () => {
   it('offers a retry when the folder could not be read', async () => {

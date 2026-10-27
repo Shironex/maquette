@@ -18,9 +18,7 @@ describe('the new project sheet', () => {
   it('names the open project and waits for a name', async () => {
     await openMockWorkspace();
     render(<NewProjectSheet initialMode="template" />);
-    expect(
-      screen.getByText('It opens when it is ready. Moon Island stays as it is.')
-    ).toBeVisible();
+    expect(screen.getByText('It opens when it is ready. Frostveil stays as it is.')).toBeVisible();
     const create = screen.getByRole('button', { name: 'Create project' });
     expect(create).toHaveAttribute('aria-disabled', 'true');
     expect(await tooltipText(create)).toBe('Name it first');

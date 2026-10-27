@@ -5,9 +5,9 @@ import { StepHeading } from '.';
 
 describe('the step heading', () => {
   it('counts the step and names the project on Ready', () => {
-    render(<StepHeading step={STEP.ready} name="  Moon Island " />);
+    render(<StepHeading step={STEP.ready} name="  Frostveil " />);
     expect(screen.getByText('Step 7 of 7')).toBeVisible();
-    expect(screen.getByRole('heading', { level: 1, name: 'Moon Island is ready' })).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: 'Frostveil is ready' })).toBeVisible();
   });
 
   it('falls back to Your project without a name', () => {
@@ -16,7 +16,7 @@ describe('the step heading', () => {
   });
 
   it('shows nothing for the welcome', () => {
-    const { container } = render(<StepHeading step={STEP.welcome} name="Moon Island" />);
+    const { container } = render(<StepHeading step={STEP.welcome} name="Frostveil" />);
     expect(container).toBeEmptyDOMElement();
   });
 });

@@ -19,10 +19,10 @@ import {
 const NOW = 1_800_000_000_000;
 
 const spend = (patch: Partial<Spend>): Spend => ({
-  project: 'moon-island',
-  job: 'sakura-1',
-  asset: 'sakura',
-  assetName: 'Sakura',
+  project: 'frostveil',
+  job: 'veil-gate-1',
+  asset: 'veil-gate',
+  assetName: 'Veil gate',
   service: 'tripo',
   task: 'task-1',
   summary: 'Tripo H3.1, 1 image',
@@ -52,7 +52,7 @@ describe('credit numbers', () => {
 
 describe('the ledger view', () => {
   const spends = [
-    spend({ job: 'sakura-2', redoOf: 'sakura-1', credits: 30 }),
+    spend({ job: 'veil-gate-2', redoOf: 'veil-gate-1', credits: 30 }),
     spend({
       job: 'spire-1',
       service: 'meshy',
@@ -68,7 +68,7 @@ describe('the ledger view', () => {
     const again = spend({ task: 'task-2' });
     expect(spendKey(spend({}))).not.toBe(spendKey(again));
     expect(spendKey(spend({ project: 'rooftop' }))).not.toBe(spendKey(spend({})));
-    expect(spendKey(spend({ task: null }))).toBe('api/moon-island/sakura-1/');
+    expect(spendKey(spend({ task: null }))).toBe('api/frostveil/veil-gate-1/');
     expect(spendKey(spend({ source: 'subscription' }))).not.toBe(spendKey(spend({})));
   });
 
@@ -78,7 +78,7 @@ describe('the ledger view', () => {
       'spire-1',
     ]);
     expect(filterSpends(spends, { ...api, service: 'tripo' })).toHaveLength(3);
-    expect(ledgerProjects(spends)).toEqual(['moon-island', 'rooftop']);
+    expect(ledgerProjects(spends)).toEqual(['frostveil', 'rooftop']);
     const web = spend({ job: 'lamp-2', source: 'subscription', credits: 30 });
     const mixed = [...spends, web];
     expect(filterSpends(mixed, api)).toHaveLength(4);

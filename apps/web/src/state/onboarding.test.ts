@@ -68,7 +68,7 @@ describe('onboarding steps', () => {
       true
     );
     expect(continueLabel(STEP.project, flow())).toBe('Create project');
-    expect(continueLabel(STEP.ready, flow())).toBe('Open Moon Island');
+    expect(continueLabel(STEP.ready, flow())).toBe('Open Frostveil');
   });
 
   it('returns to Ready after editing a step once things exist', () => {
@@ -79,10 +79,8 @@ describe('onboarding steps', () => {
 
   it('summarizes the setup for the Ready step', () => {
     const rows = readySummary(
-      flow(
-        {},
-        { inspection: inspection('empty'), siteRepo: '~/Documents/Projects/moon-island-site' }
-      ).draft,
+      flow({}, { inspection: inspection('empty'), siteRepo: '~/Documents/Projects/frostveil-site' })
+        .draft,
       toolReports('first-run'),
       providerCatalog()
     );
@@ -103,7 +101,7 @@ describe('onboarding steps', () => {
       'MCP server off. Headless Blender, no screen capture, ask before shipping'
     );
     expect(get('project').text).toBe(
-      'Moon Island, Floating diorama, ships to Projects/moon-island-site'
+      'Frostveil, Floating diorama, ships to Projects/frostveil-site'
     );
     expect(canContinue(STEP.ready, flow({ busy: true }))).toBe(false);
   });

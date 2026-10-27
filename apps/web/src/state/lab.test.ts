@@ -35,8 +35,8 @@ function image(index: number, marks: { starred?: boolean; picked?: boolean } = {
 }
 
 const direction: Direction = {
-  id: 'porch',
-  name: 'Porch',
+  id: 'arrival',
+  name: 'Arrival',
   prompt: 'A porch',
   refs: [],
   aspect: '16:9',
@@ -56,8 +56,8 @@ function job(
     id: `porch-${index}`,
     runId: null,
     project: 'moon',
-    direction: 'porch',
-    directionName: 'Porch',
+    direction: 'arrival',
+    directionName: 'Arrival',
     title: null,
     index,
     file: `concepts/porch/porch_${String(index).padStart(2, '0')}.png`,
@@ -155,7 +155,7 @@ describe('lab helpers', () => {
 
   it('picks a cover and builds paths', () => {
     expect(coverImage(direction)?.index).toBe(1);
-    expect(directionId('Moon Island porch!')).toBe('moon-island-porch');
+    expect(directionId('Frozen lake arena!')).toBe('frozen-lake-arena');
     expect(inProject('/w/moon/', 'concepts/a.png')).toBe('/w/moon/concepts/a.png');
     expect(inProject('C:\\w\\moon', 'concepts/a.png')).toBe('C:\\w\\moon\\concepts\\a.png');
     expect(inProject('/w/moon', '/abs/b.png')).toBe('/abs/b.png');
@@ -164,45 +164,51 @@ describe('lab helpers', () => {
 
 describe('object refs', () => {
   it('adds typed and pasted objects once each, capitalised', () => {
-    expect(addObjects([], 'desk lamp')).toEqual(['Desk lamp']);
-    expect(addObjects(['Desk lamp'], 'brush  cup, DESK LAMP;\ncalipers\n\n')).toEqual([
-      'Desk lamp',
-      'Brush cup',
-      'Calipers',
+    expect(addObjects([], 'lantern post')).toEqual(['Lantern post']);
+    expect(addObjects(['Lantern post'], 'sigil  door, LANTERN POST;\nstep ring\n\n')).toEqual([
+      'Lantern post',
+      'Sigil door',
+      'Step ring',
     ]);
     // A name over the limit is left out, never cut.
     expect(addObjects([], 'x'.repeat(80))).toEqual([]);
     expect(addObjects([], 'x'.repeat(60))[0]).toHaveLength(60);
-    expect(longestObject('desk lamp, ' + 'y'.repeat(70))).toBe(70);
+    expect(longestObject('lantern post, ' + 'y'.repeat(70))).toBe(70);
     const many = Array.from({ length: 20 }, (_, i) => `thing ${i}`).join(',');
     expect(addObjects([], many)).toHaveLength(MAX_OBJECTS);
   });
 
   it('renames an object with its notes, or refuses', () => {
-    const notes = { 'Desk lamp': 'brass' };
+    const notes = { 'Lantern post': 'brass' };
     expect(
-      editObject(['Desk lamp', 'Laptop'], notes, 'Desk lamp', { name: 'lamp', notes: ' warm ' })
+      editObject(['Lantern post', 'Laptop'], notes, 'Lantern post', {
+        name: 'lamp',
+        notes: ' warm ',
+      })
     ).toEqual({
       objects: ['Lamp', 'Laptop'],
       notes: { Lamp: 'warm' },
     });
     expect(
-      editObject(['Desk lamp'], notes, 'Desk lamp', { name: 'Desk lamp', notes: '' })?.notes
+      editObject(['Lantern post'], notes, 'Lantern post', { name: 'Lantern post', notes: '' })
+        ?.notes
     ).toEqual({});
     expect(
-      editObject(['Desk lamp', 'Laptop'], notes, 'Laptop', { name: 'desk LAMP', notes: '' })
+      editObject(['Lantern post', 'Laptop'], notes, 'Laptop', { name: 'lantern POST', notes: '' })
     ).toBeNull();
-    expect(editObject(['Desk lamp'], notes, 'Desk lamp', { name: ' ', notes: '' })).toBeNull();
     expect(
-      editObject(['Desk lamp'], notes, 'Desk lamp', { name: 'x'.repeat(61), notes: '' })
+      editObject(['Lantern post'], notes, 'Lantern post', { name: ' ', notes: '' })
+    ).toBeNull();
+    expect(
+      editObject(['Lantern post'], notes, 'Lantern post', { name: 'x'.repeat(61), notes: '' })
     ).toBeNull();
   });
 
   it('names the direction and the tiles after the objects', () => {
-    expect(objectsDirectionName('Workbench hero')).toBe('Workbench hero objects');
+    expect(objectsDirectionName('Veil gate props')).toBe('Veil gate props objects');
     expect(objectsDirectionName('  ')).toBe('Concept objects');
     expect(objectsDirectionName('x'.repeat(70))).toHaveLength(60);
-    expect(tileLabel({ index: 3, title: 'Desk lamp' })).toBe('Desk lamp');
+    expect(tileLabel({ index: 3, title: 'Lantern post' })).toBe('Lantern post');
     expect(tileLabel({ index: 3, title: null })).toBe('Concept 03');
   });
 

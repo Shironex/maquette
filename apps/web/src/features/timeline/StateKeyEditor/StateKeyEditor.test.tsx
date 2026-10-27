@@ -16,7 +16,7 @@ describe('the state change editor', () => {
     select(0);
     render(<StateKeyEditor />);
     expect(screen.getByRole('heading', { name: 'Switch cabinet · Door open' })).toBeVisible();
-    expect(screen.getByLabelText('At the stop')).toHaveValue('sakura');
+    expect(screen.getByLabelText('At the stop')).toHaveValue('veil-gate');
     expect(screen.getByText('Plays once, 0.6 s, when the camera arrives')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Time' })).toHaveAttribute('aria-disabled', 'true');
   });

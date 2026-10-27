@@ -3,7 +3,7 @@
  * scenarios open with a Tripo job generating, a By hand send waiting for
  * its model and a Meshy job that ran out of credits; `?agents=active`
  * adds a send an agent asked for, waiting for approval (`?agents=batch`:
- * three of them under one approval). `?handoff=batch` adds the workbench
+ * three of them under one approval). `?handoff=batch` adds the veil gate
  * objects, handed off by hand in one batch and back in mixed states. New
  * sends move along on timers and land in the Inbox.
  */
@@ -56,7 +56,7 @@ export function createFakeProviders({
   agentsActive: boolean;
   /** Three agent sends wait under one approval instead of one. */
   agentsBatch?: boolean;
-  /** `batch`: the workbench objects batch. */
+  /** `batch`: the veil gate objects batch. */
   handoff?: string | null;
   /** `redo`: the sends behind two inbox models. */
   inbox?: string | null;

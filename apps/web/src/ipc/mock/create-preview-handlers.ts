@@ -11,18 +11,20 @@ import { DEFAULT_ROOT } from './fixtures';
 import { thumbsDir } from './inbox-fixtures';
 
 const PROP_RENDERS = [
-  'stone-lantern',
-  'vending-machine',
-  'shop-house',
-  'far-spire',
-  'flower-shrubs',
-  'sakura-large',
-  'island',
+  'guardian-statue',
+  'crystal-lantern',
+  'observatory-arch',
+  'rune-obelisk',
+  'ice-crystals',
+  'veil-gate',
+  'veil-platform',
 ];
 
 function renderFor(asset: Asset, i: number): string {
   const name =
-    asset.kind === 'character' ? 'character' : (PROP_RENDERS[i % PROP_RENDERS.length] ?? 'island');
+    asset.kind === 'character'
+      ? 'elsheria'
+      : (PROP_RENDERS[i % PROP_RENDERS.length] ?? 'veil-platform');
   return `${thumbsDir(`${expand(DEFAULT_ROOT)}/inbox`)}/${name}.webp`;
 }
 

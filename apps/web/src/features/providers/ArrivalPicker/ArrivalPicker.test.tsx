@@ -25,7 +25,7 @@ async function openPicker() {
 }
 
 const jobState = async (id: string) => {
-  await useProvidersStore.getState().load('moon-island');
+  await useProvidersStore.getState().load('frostveil');
   return useProvidersStore.getState().jobs.find(j => j.id === id)?.state;
 };
 

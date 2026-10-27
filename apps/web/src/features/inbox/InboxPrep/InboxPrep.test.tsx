@@ -6,8 +6,8 @@ import { usePrepareStore } from '@/state/use-prepare-store';
 import { InboxPrep } from '.';
 
 const item = {
-  id: 'desk_lamp.glb',
-  name: 'Desk lamp',
+  id: 'lantern_post.glb',
+  name: 'Lantern post',
   kind: 'prop',
   state: 'ready',
   report: { size: [1.25, 0.7, 0.5] },
@@ -18,7 +18,7 @@ describe('InboxPrep', () => {
     usePrepareStore.setState({ drafts: {}, suggestions: {}, previews: {} });
     vi.spyOn(commands, 'prepareSuggest').mockResolvedValue({
       size: { axis: 'height', value: 45, unit: 'cm' },
-      matched: 'desk lamp',
+      matched: 'lantern post',
     });
   });
 
@@ -29,7 +29,7 @@ describe('InboxPrep', () => {
     });
     render(<InboxPrep item={item} project={null} />);
     await userEvent.click(await screen.findByRole('button', { name: /Suggested: 45 cm high/ }));
-    expect(usePrepareStore.getState().drafts['desk_lamp.glb']?.size).toEqual({
+    expect(usePrepareStore.getState().drafts['lantern_post.glb']?.size).toEqual({
       axis: 'height',
       value: 45,
       unit: 'cm',
@@ -38,7 +38,7 @@ describe('InboxPrep', () => {
     expect(preview).toHaveBeenCalledWith({
       project: null,
       asset: null,
-      inbox: 'desk_lamp.glb',
+      inbox: 'lantern_post.glb',
       plan: {
         size: { axis: 'height', value: 45, unit: 'cm' },
         fixups: [],

@@ -17,9 +17,9 @@ afterEach(() => {
 
 describe('FirstRunCard', () => {
   it('teaches three steps with the scene budget', () => {
-    render(<FirstRunCard name="Moon Island" budget={3} />);
+    render(<FirstRunCard name="Frostveil" budget={3} />);
     const card = screen.getByRole('region', { name: 'Your first build in three steps' });
-    expect(card).toHaveTextContent('Moon Island is empty.');
+    expect(card).toHaveTextContent('Frostveil is empty.');
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
     expect(card).toHaveTextContent('fits it into the 3.0 MB budget');
   });
@@ -37,17 +37,17 @@ describe('FirstRunCard', () => {
   });
 
   it('opens the Lab', async () => {
-    render(<FirstRunCard name="Moon Island" budget={3} />);
+    render(<FirstRunCard name="Frostveil" budget={3} />);
     await userEvent.click(screen.getByRole('button', { name: 'Open Concept lab' }));
     expect(useAppStore.getState().view).toBe('lab');
   });
 
   it('hides the tips for good', async () => {
-    const { rerender } = render(<FirstRunCard name="Moon Island" budget={3} />);
+    const { rerender } = render(<FirstRunCard name="Frostveil" budget={3} />);
     await userEvent.click(screen.getByRole('button', { name: 'Hide tips' }));
     expect(screen.queryByRole('region')).toBeNull();
     expect(readFlag(TIPS_KEY)).toBe(true);
-    rerender(<FirstRunCard name="Moon Island" budget={3} />);
+    rerender(<FirstRunCard name="Frostveil" budget={3} />);
     expect(screen.queryByRole('region')).toBeNull();
   });
 });

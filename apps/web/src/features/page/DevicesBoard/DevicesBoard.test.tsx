@@ -23,7 +23,7 @@ describe('the devices board', () => {
       undefined,
       'running'
     );
-    await usePageStore.getState().open('moon-island');
+    await usePageStore.getState().open('frostveil');
     await vi.waitFor(async () => {
       await usePageStore.getState().refresh();
       expect(usePageStore.getState().view?.server.state).toBe('running');

@@ -7,7 +7,7 @@ import LayoutPanel from './LayoutPanel';
 
 beforeEach(async () => {
   await openMockWorkspace();
-  await useLayoutStore.getState().load('moon-island');
+  await useLayoutStore.getState().load('frostveil');
 });
 afterEach(() => {
   clearMocks();
@@ -29,13 +29,13 @@ describe('the layout panel', () => {
   it('lists the models, marking those in the first view, and the stops', () => {
     const aside = panel();
     expect(
-      within(aside).getByRole('button', { name: 'Island, in the first view' })
+      within(aside).getByRole('button', { name: 'Veil platform, in the first view' })
     ).toBeInTheDocument();
     const stops = within(aside)
       .getAllByRole('listitem')
       .filter(li => li.closest('ol'));
     expect(stops).toHaveLength(5);
-    expect(within(stops[0]!).getByText('Porch')).toBeInTheDocument();
+    expect(within(stops[0]!).getByText('Arrival')).toBeInTheDocument();
     expect(within(stops[0]!).getByText('36°')).toBeInTheDocument();
     expect(within(aside).getByText('5 of 24')).toBeInTheDocument();
   });
@@ -43,19 +43,19 @@ describe('the layout panel', () => {
   it('selects a model and a stop from the lists', async () => {
     const aside = panel();
     await userEvent.click(
-      within(aside).getByRole('button', { name: 'Vending machine, in the first view' })
+      within(aside).getByRole('button', { name: 'Crystal lantern, in the first view' })
     );
-    expect(useLayoutStore.getState().selection).toEqual({ kind: 'model', id: 'vending' });
+    expect(useLayoutStore.getState().selection).toEqual({ kind: 'model', id: 'crystal-lantern' });
     expect(within(aside).getByRole('heading', { name: 'Selected model' })).toBeInTheDocument();
-    await userEvent.click(within(aside).getByText('Sakura'));
-    expect(useLayoutStore.getState().selection).toEqual({ kind: 'stop', id: 'sakura' });
+    await userEvent.click(within(aside).getByText('Veil gate'));
+    expect(useLayoutStore.getState().selection).toEqual({ kind: 'stop', id: 'veil-gate' });
     expect(within(aside).getByRole('heading', { name: 'Selected stop' })).toBeInTheDocument();
   });
 
   it('looks through a stop from its row', async () => {
     const aside = panel();
-    await userEvent.click(within(aside).getByRole('button', { name: 'Look through Canopy' }));
-    expect(useLayoutStore.getState().preview?.id).toBe('canopy');
+    await userEvent.click(within(aside).getByRole('button', { name: 'Look through Keystone' }));
+    expect(useLayoutStore.getState().preview?.id).toBe('keystone');
     expect(within(aside).getByRole('button', { name: 'Stop looking' })).toHaveAttribute(
       'aria-pressed',
       'true'

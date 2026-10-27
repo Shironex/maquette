@@ -10,8 +10,8 @@ const INITIAL = usePageStore.getState();
 
 const STATUS: ServerStatus = {
   state: 'starting',
-  project: 'moon-island',
-  site: '/sites/moon-island-site',
+  project: 'frostveil',
+  site: '/sites/frostveil-site',
   url: null,
   frameUrl: null,
   command: 'pnpm run dev --port 4321',
@@ -31,7 +31,7 @@ describe('the frame status', () => {
     render(
       <FrameStatus
         state={{ kind: 'starting', status: STATUS }}
-        site="moon-island-site"
+        site="frostveil-site"
         command="pnpm run dev"
       />
     );
@@ -48,7 +48,7 @@ describe('the frame status', () => {
           kind: 'failed',
           status: { ...STATUS, state: 'failed', message: 'It stopped (exit code 1).' },
         }}
-        site="moon-island-site"
+        site="frostveil-site"
         command={null}
       />
     );
@@ -66,10 +66,10 @@ describe('the frame status', () => {
 
   it('offers to take the server over from another project', () => {
     render(
-      <FrameStatus state={{ kind: 'busy', project: 'lantern-keeper' }} site="s" command={null} />
+      <FrameStatus state={{ kind: 'busy', project: 'elsheria-showcase' }} site="s" command={null} />
     );
     expect(
-      screen.getByRole('heading', { name: 'The dev server serves lantern-keeper' })
+      screen.getByRole('heading', { name: 'The dev server serves elsheria-showcase' })
     ).toBeVisible();
     expect(screen.getByRole('button', { name: "Run this project's site" })).toBeVisible();
   });

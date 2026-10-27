@@ -7,7 +7,7 @@ import LayoutBarActions from './LayoutBarActions';
 
 beforeEach(async () => {
   await openMockWorkspace();
-  await useLayoutStore.getState().load('moon-island');
+  await useLayoutStore.getState().load('frostveil');
 });
 afterEach(() => {
   clearMocks();

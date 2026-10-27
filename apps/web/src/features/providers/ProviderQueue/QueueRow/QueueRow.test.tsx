@@ -22,7 +22,7 @@ function row(job: Parameters<typeof QueueRow>[0]['job']) {
 describe('a queue row', () => {
   it('warns that a running Tripo send cannot be cancelled', async () => {
     const { job } = await openProviders();
-    row(job('sakura-1'));
+    row(job('veil-gate-1'));
     expect(
       screen.getByText(
         'Tripo cannot cancel a sent task, so this one finishes and lands in the Inbox.'
@@ -33,10 +33,10 @@ describe('a queue row', () => {
 
   it('opens the settings card of a by hand send and stops waiting through the backend', async () => {
     const { job, sent } = await openProviders();
-    row(job('lanterns-1'));
+    row(job('guardian-statues-1'));
     await userEvent.click(screen.getByRole('button', { name: 'Settings card' }));
-    expect(useProvidersStore.getState().panel?.handoff?.id).toBe('lanterns-1');
+    expect(useProvidersStore.getState().panel?.handoff?.id).toBe('guardian-statues-1');
     await userEvent.click(screen.getByRole('button', { name: 'Stop waiting' }));
-    expect(sent('provider_cancel')).toEqual([{ id: 'lanterns-1' }]);
+    expect(sent('provider_cancel')).toEqual([{ id: 'guardian-statues-1' }]);
   });
 });

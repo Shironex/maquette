@@ -18,7 +18,7 @@ afterEach(() => {
 
 async function openChecklist() {
   await openMockWorkspace('configured', undefined, 'batch');
-  await useProvidersStore.getState().load('moon-island');
+  await useProvidersStore.getState().load('frostveil');
   render(<HandoffChecklist />);
   useProvidersStore.getState().setChecklistOpen(true);
   return screen.findByRole('dialog', { name: 'By hand checklist' });
@@ -38,16 +38,16 @@ describe('the By hand checklist', () => {
       within(batch).getAllByText(/^Tripo Image to 3D · Tab HD Model · AI Model H3\.1/).length
     ).toBe(6);
     expect(
-      within(sheet).getByRole('button', { name: 'Open the Desk lamp folder' })
+      within(sheet).getByRole('button', { name: 'Open the Lantern post folder' })
     ).toBeInTheDocument();
     expect(within(sheet).getByText('5 models to make · no API credits')).toBeInTheDocument();
   });
 
   it('adds a model from the file picker and the send leaves the waiting list', async () => {
     const sheet = await openChecklist();
-    const lamp = within(sheet).getByText('Desk lamp').closest('li')!;
+    const lamp = within(sheet).getByText('Lantern post').closest('li')!;
     await userEvent.click(within(lamp).getByRole('button', { name: 'Add model...' }));
-    await waitFor(() => expect(state('desk-lamp-1')).toBe('inbox'));
+    await waitFor(() => expect(state('lantern-post-1')).toBe('inbox'));
     expect(within(lamp).queryByRole('button', { name: 'Add model...' })).toBeNull();
     expect(within(sheet).getByText('3 of 6 back')).toBeInTheDocument();
   });

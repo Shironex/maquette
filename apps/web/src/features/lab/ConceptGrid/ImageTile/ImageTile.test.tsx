@@ -7,11 +7,11 @@ import { useLabStore } from '@/state/use-lab-store';
 import { ImageTile } from '.';
 
 const directions = labDirections(false);
-const porch = directions.find(d => d.id === 'moon-island-porch')!;
-const first = porch.images.find(i => i.index === 1)!;
+const arena = directions.find(d => d.id === 'frozen-lake-arena')!;
+const first = arena.images.find(i => i.index === 1)!;
 const view: LabView = {
-  project: 'moon-island',
-  projectDir: '/w/moon-island',
+  project: 'frostveil',
+  projectDir: '/w/frostveil',
   directions,
   jobs: [],
   refs: [],
@@ -28,7 +28,7 @@ describe('an image tile', () => {
   it('unpicks and unstars a picked, starred concept', async () => {
     const mark = vi.fn(async () => {});
     useLabStore.setState({ mark });
-    render(<ImageTile view={view} direction={porch} image={first} />);
+    render(<ImageTile view={view} direction={arena} image={first} />);
     expect(screen.getByText('Picked')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Unpick' }));
     expect(mark).toHaveBeenCalledWith(first.file, { picked: false });
@@ -40,16 +40,16 @@ describe('an image tile', () => {
     const openLightbox = vi.fn();
     const openObjects = vi.fn();
     useLabStore.setState({ openLightbox, openObjects });
-    render(<ImageTile view={view} direction={porch} image={first} />);
-    const path = `/w/moon-island/${first.file}`;
+    render(<ImageTile view={view} direction={arena} image={first} />);
+    const path = `/w/frostveil/${first.file}`;
     await userEvent.click(screen.getByRole('button', { name: 'Open Concept 01' }));
     expect(openLightbox).toHaveBeenCalledWith(path);
     await userEvent.click(screen.getByRole('button', { name: 'Make object refs from Concept 01' }));
     expect(openObjects).toHaveBeenCalledWith({
-      project: 'moon-island',
+      project: 'frostveil',
       source: first.file,
       sourcePath: path,
-      sourceName: 'Moon island porch',
+      sourceName: 'Frozen lake arena',
     });
   });
 });

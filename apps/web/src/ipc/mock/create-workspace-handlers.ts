@@ -80,7 +80,7 @@ export function createWorkspaceHandlers(ctx: WorkspaceContext) {
       if (reopening) return ctx.snapshot();
       root.set(found.path);
       projects.set(mockProjects(ctx.many));
-      config.set({ ...defaultConfig(), currentProject: 'moon-island' });
+      config.set({ ...defaultConfig(), currentProject: 'frostveil' });
       return ctx.snapshot();
     },
     workspace_save_config: ({ config: next }: Args) => {

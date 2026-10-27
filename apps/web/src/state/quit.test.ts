@@ -23,7 +23,7 @@ async function setup(fail?: (cmd: string) => boolean) {
     if (fail?.(cmd)) throw { code: 'io', message: 'The disk is full.' };
     return handle(cmd, (args ?? {}) as Record<string, unknown>);
   });
-  await usePipelineStore.getState().load('moon-island');
+  await usePipelineStore.getState().load('frostveil');
   const view = usePipelineStore.getState().view!;
   return { calls, view };
 }
@@ -50,7 +50,7 @@ function editFirstRow(): PresetEdits {
 describe('quitting with presets not applied', () => {
   it('saves every unapplied project, clears the edits, and only then closes', async () => {
     const { calls } = await setup();
-    usePipelineStore.getState().setPresetEdits('moon-island', editFirstRow());
+    usePipelineStore.getState().setPresetEdits('frostveil', editFirstRow());
     useQuitStore.getState().ask();
 
     await useQuitStore.getState().applyAndQuit();
@@ -62,19 +62,19 @@ describe('quitting with presets not applied', () => {
 
   it('stays open with the error when the save fails', async () => {
     const { calls } = await setup(cmd => cmd === 'pipeline_save_presets');
-    usePipelineStore.getState().setPresetEdits('moon-island', editFirstRow());
+    usePipelineStore.getState().setPresetEdits('frostveil', editFirstRow());
     useQuitStore.getState().ask();
 
     await useQuitStore.getState().applyAndQuit();
     expect(calls).not.toContain('quit_now');
     expect(useQuitStore.getState().asking).toBe(true);
-    expect(useQuitStore.getState().error).toMatch(/Moon Island.*The disk is full/);
-    expect(Object.keys(usePipelineStore.getState().presetEdits)).toEqual(['moon-island']);
+    expect(useQuitStore.getState().error).toMatch(/Frostveil.*The disk is full/);
+    expect(Object.keys(usePipelineStore.getState().presetEdits)).toEqual(['frostveil']);
   });
 
   it('quits without saving, and Cancel only closes the question', async () => {
     const { calls } = await setup();
-    usePipelineStore.getState().setPresetEdits('moon-island', editFirstRow());
+    usePipelineStore.getState().setPresetEdits('frostveil', editFirstRow());
     useQuitStore.getState().ask();
     useQuitStore.getState().cancel();
     expect(useQuitStore.getState().asking).toBe(false);
@@ -91,8 +91,8 @@ describe('quitting with material tweaks not applied', () => {
 
   it('saves the tweaks after the presets, then closes', async () => {
     const { calls } = await setup();
-    usePipelineStore.getState().setPresetEdits('moon-island', editFirstRow());
-    useMaterialsStore.getState().setLook('moon-island', 'sakura', tint);
+    usePipelineStore.getState().setPresetEdits('frostveil', editFirstRow());
+    useMaterialsStore.getState().setLook('frostveil', 'veil-gate', tint);
     useQuitStore.getState().ask();
 
     await useQuitStore.getState().applyAndQuit();
@@ -106,10 +106,10 @@ describe('quitting with material tweaks not applied', () => {
 
   it('stays open when the tweaks do not save', async () => {
     const { calls } = await setup(cmd => cmd === 'materials_save');
-    useMaterialsStore.getState().setLook('moon-island', 'sakura', tint);
+    useMaterialsStore.getState().setLook('frostveil', 'veil-gate', tint);
     await useQuitStore.getState().applyAndQuit();
     expect(calls).not.toContain('quit_now');
-    expect(useQuitStore.getState().error).toMatch(/Moon Island.*The disk is full/);
+    expect(useQuitStore.getState().error).toMatch(/Frostveil.*The disk is full/);
   });
 
   it('names each project once and says what waits', () => {

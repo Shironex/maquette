@@ -1,10 +1,10 @@
 /**
- * The Paths editor in mock mode: Moon Island's paths kept in the fake
+ * The Paths editor in mock mode: Frostveil's paths kept in the fake
  * layout, saved whole with their energize tracks as the app saves them.
  *
  * `?paths=` in the URL (`?timeline=demo` brings `demo` along):
- * - `demo`: a lantern cable from the shop house to the vending machine
- *   that lights up between Sakura and Canopy, a root glow up the sakura
+ * - `demo`: a rune line from the observatory arch to the crystal lantern
+ *   that lights up between Veil gate and Keystone, a root glow up the veil gate
  *   that is always lit, and a draft path with no track.
  * - `empty`: no paths yet.
  */
@@ -18,8 +18,8 @@ const look = { width: 0.06, color: '#f2c230', glow: '#ffe08a' };
 
 export const DEMO_PATHS: ScenePath[] = [
   {
-    id: 'lantern-cable',
-    name: 'Lantern cable',
+    id: 'rune-line',
+    name: 'Rune line',
     curve: 'catmull-rom',
     points: [
       [-3.2, 0, 3.4],
@@ -28,8 +28,8 @@ export const DEMO_PATHS: ScenePath[] = [
       [2.4, 0.05, 4.2],
       [3.6, 0, 1.2],
     ],
-    start: 'shop-house',
-    end: 'vending',
+    start: 'observatory-arch',
+    end: 'crystal-lantern',
     ...look,
   },
   {
@@ -64,19 +64,19 @@ export const DEMO_PATHS: ScenePath[] = [
 ];
 
 export const DEMO_TRACKS: Record<string, PathTrack> = {
-  'lantern-cable': {
+  'rune-line': {
     easing: 'linear',
     keys: [
-      { stop: 'sakura', amount: 0 },
-      { stop: 'canopy', amount: 1 },
+      { stop: 'veil-gate', amount: 0 },
+      { stop: 'keystone', amount: 1 },
     ],
   },
-  'root-glow': { easing: 'linear', keys: [{ stop: 'porch', amount: 1 }] },
+  'root-glow': { easing: 'linear', keys: [{ stop: 'arrival', amount: 1 }] },
 };
 
 export function createPathsHandlers(deps: { layout: FakeLayout; paths: string | null }) {
-  if (deps.paths === 'demo') deps.layout.setPaths('moon-island', DEMO_PATHS, DEMO_TRACKS);
-  if (deps.paths === 'empty') deps.layout.setPaths('moon-island', [], {});
+  if (deps.paths === 'demo') deps.layout.setPaths('frostveil', DEMO_PATHS, DEMO_TRACKS);
+  if (deps.paths === 'empty') deps.layout.setPaths('frostveil', [], {});
 
   return {
     paths_save: ({ project, paths, tracks }: Args) => {

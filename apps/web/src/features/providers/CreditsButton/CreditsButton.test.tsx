@@ -14,12 +14,12 @@ describe('the Credits button', () => {
   it('closes what it sits in, then opens the sheet for the project', async () => {
     await openMockWorkspace();
     const onOpen = vi.fn();
-    render(<CreditsButton project="moon-island" onOpen={onOpen} />);
+    render(<CreditsButton project="frostveil" onOpen={onOpen} />);
     await userEvent.click(screen.getByRole('button', { name: 'Credits' }));
     expect(onOpen).toHaveBeenCalledOnce();
     expect(useCreditsStore.getState()).toMatchObject({
       open: true,
-      filter: { project: 'moon-island' },
+      filter: { project: 'frostveil' },
     });
   });
 });

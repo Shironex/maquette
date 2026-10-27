@@ -4,11 +4,11 @@
  * the scene budget, with the states and clip choices the fake layout keeps.
  *
  * `?motion=` in the URL:
- * - `demo`: Moon Island gains a clay figure with three clips, a switch
+ * - `demo`: Frostveil gains a clay figure with three clips, a switch
  *   cabinet with three states and a turntable with one clip.
  * - `rest`: like demo, but the clay figure is fresh from rigging, no clips.
  * - `over`: like demo, with a scene budget the models and clips go over.
- * - `still`: opens Rooftop cinema, where nothing moves yet; it gains the
+ * - `still`: opens Frost cathedral, where nothing moves yet; it gains the
  *   switch cabinet without states, the prop the empty view suggests.
  */
 import type {
@@ -72,7 +72,7 @@ function demoAsset(id: string, name: string, kind: Asset['kind'], file: string, 
   return asset;
 }
 
-/** Moon Island with the demo models, when `?motion=` asks for them. */
+/** Frostveil with the demo models, when `?motion=` asks for them. */
 export function seedMotionProjects(
   projects: ProjectManifest[],
   motion: string | null
@@ -82,7 +82,7 @@ export function seedMotionProjects(
     demoAsset('switch-cabinet', 'Switch cabinet', 'prop', 'models/switch_cabinet_v1.glb', 10);
   if (motion === 'still') {
     return projects.map(p =>
-      p.id === 'rooftop-cinema' ? { ...p, assets: [cabinet(), ...(p.assets ?? [])] } : p
+      p.id === 'frost-cathedral' ? { ...p, assets: [cabinet(), ...(p.assets ?? [])] } : p
     );
   }
   const extra = [
@@ -91,14 +91,14 @@ export function seedMotionProjects(
     demoAsset('turntable', 'Turntable', 'prop', 'models/turntable_v1.glb', 8),
   ];
   return projects.map(p =>
-    p.id === 'moon-island' ? { ...p, assets: [...extra, ...(p.assets ?? [])] } : p
+    p.id === 'frostveil' ? { ...p, assets: [...extra, ...(p.assets ?? [])] } : p
   );
 }
 
-/** `over` tightens the scene budget; `still` opens Rooftop cinema. */
+/** `over` tightens the scene budget; `still` opens Frost cathedral. */
 export function motionConfig(config: WorkspaceConfig, motion: string | null): WorkspaceConfig {
-  if (motion === 'over') return { ...config, budgets: { ...config.budgets, sceneMb: 2.25 } };
-  if (motion === 'still') return { ...config, currentProject: 'rooftop-cinema' };
+  if (motion === 'over') return { ...config, budgets: { ...config.budgets, sceneMb: 2.06 } };
+  if (motion === 'still') return { ...config, currentProject: 'frost-cathedral' };
   return config;
 }
 
@@ -135,7 +135,7 @@ export function cabinetStates(): ObjectStates {
       },
     ],
     triggers: [
-      { kind: 'stop', to: 'door-open', stop: 'porch', part: null, start: null, end: null },
+      { kind: 'stop', to: 'door-open', stop: 'arrival', part: null, start: null, end: null },
       { kind: 'scroll', to: 'breakers-on', stop: null, part: null, start: 40, end: 55 },
       { kind: 'click', to: 'breakers-on', stop: null, part: 'Breaker 1', start: null, end: null },
     ],
@@ -152,7 +152,7 @@ export function createMotionHandlers(deps: {
 }) {
   const files = { ...LAYOUT_FILES, ...motionFiles(deps.motion) };
   if (deps.motion && deps.motion !== 'still') {
-    deps.layout.setMotion('moon-island', { 'switch-cabinet': cabinetStates() }, {});
+    deps.layout.setMotion('frostveil', { 'switch-cabinet': cabinetStates() }, {});
   }
 
   function view(id: string): MotionView {

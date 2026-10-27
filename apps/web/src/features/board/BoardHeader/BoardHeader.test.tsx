@@ -11,7 +11,7 @@ import BoardHeader from './BoardHeader';
 
 beforeEach(async () => {
   await openMockWorkspace('configured', undefined, 'batch');
-  await useProvidersStore.getState().load('moon-island');
+  await useProvidersStore.getState().load('frostveil');
 });
 
 afterEach(() => {
@@ -108,7 +108,7 @@ describe('BoardHeader', () => {
       render(<BoardHeader queue={() => null} />);
       const button = screen.getByRole('button', { name: 'Render 2 previews' });
       await userEvent.click(button);
-      expect(asked).toHaveBeenCalledWith('moon-island');
+      expect(asked).toHaveBeenCalledWith('frostveil');
       // The renders are still queued in Blender, so the button waits for them.
       await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'true'));
     });
@@ -136,7 +136,7 @@ describe('BoardHeader', () => {
 
   it('names the project and counts the By hand models still to make', () => {
     render(<BoardHeader queue={() => null} />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Moon Island');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Frostveil');
     expect(screen.getByRole('button', { name: /By hand/ })).toHaveTextContent('By hand5');
   });
 
@@ -169,6 +169,6 @@ describe('BoardHeader', () => {
     );
     await userEvent.click(list);
     expect(list).toHaveAttribute('aria-pressed', 'true');
-    expect(window.localStorage.getItem('maquette.board.moon-island')).toContain('"list"');
+    expect(window.localStorage.getItem('maquette.board.frostveil')).toContain('"list"');
   });
 });

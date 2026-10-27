@@ -14,8 +14,8 @@ afterEach(() => {
 describe('the earlier sends', () => {
   it('show each send with its message and status', async () => {
     const { job } = await openProviders();
-    render(<EarlierSends jobs={[job('lanterns-1')]} />);
-    const lanterns = job('lanterns-1');
+    render(<EarlierSends jobs={[job('guardian-statues-1')]} />);
+    const lanterns = job('guardian-statues-1');
     const row = screen.getByRole('listitem');
     expect(within(row).getByText(jobTitle(lanterns))).toBeInTheDocument();
     // The message line and the status chip.

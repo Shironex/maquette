@@ -7,7 +7,7 @@ import AddBuiltDialog from './AddBuiltDialog';
 
 beforeEach(async () => {
   await openMockWorkspace();
-  await useBuiltStore.getState().load('moon-island');
+  await useBuiltStore.getState().load('frostveil');
 });
 
 afterEach(() => {
@@ -18,7 +18,7 @@ afterEach(() => {
 describe('AddBuiltDialog', () => {
   it('names the asset after the picked script and adds it with its helpers', async () => {
     const onClose = vi.fn();
-    render(<AddBuiltDialog project="moon-island" onClose={onClose} />);
+    render(<AddBuiltDialog project="frostveil" onClose={onClose} />);
     const dialog = screen.getByRole('dialog', { name: 'Add built asset' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Choose...' }));
     expect(within(dialog).getByRole('textbox', { name: 'Name' })).toHaveValue('Desk');
@@ -33,7 +33,7 @@ describe('AddBuiltDialog', () => {
   });
 
   it('keeps a typed name and asks for a script first', async () => {
-    render(<AddBuiltDialog project="moon-island" onClose={vi.fn()} />);
+    render(<AddBuiltDialog project="frostveil" onClose={vi.fn()} />);
     await userEvent.click(screen.getByRole('button', { name: 'Add and build' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Pick the script that builds the model.');
     await userEvent.type(screen.getByRole('textbox', { name: 'Name' }), 'Writing desk');
@@ -42,7 +42,7 @@ describe('AddBuiltDialog', () => {
   });
 
   it('shows why a script is refused', async () => {
-    render(<AddBuiltDialog project="moon-island" onClose={vi.fn()} />);
+    render(<AddBuiltDialog project="frostveil" onClose={vi.fn()} />);
     await userEvent.type(screen.getByRole('textbox', { name: 'Script' }), '/tmp/notes.txt');
     await userEvent.click(screen.getByRole('button', { name: 'Add and build' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('notes.txt is not a Python script.');

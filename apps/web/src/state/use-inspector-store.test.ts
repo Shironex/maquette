@@ -10,22 +10,22 @@ afterEach(() => {
 describe('the Inspector store', () => {
   it('stays on the project opened while an export ran', async () => {
     await openMockWorkspace();
-    await useInspectorStore.getState().load('moon-island');
+    await useInspectorStore.getState().load('frostveil');
     const model = useInspectorStore.getState().view!.models[0]!.id;
     const exporting = useInspectorStore.getState().exportGlb(model, 'Island');
-    const switched = useInspectorStore.getState().load('rooftop-cinema');
+    const switched = useInspectorStore.getState().load('frost-cathedral');
     await Promise.all([exporting, switched]);
-    expect(useInspectorStore.getState().project).toBe('rooftop-cinema');
-    expect(useInspectorStore.getState().view?.project).toBe('rooftop-cinema');
+    expect(useInspectorStore.getState().project).toBe('frost-cathedral');
+    expect(useInspectorStore.getState().view?.project).toBe('frost-cathedral');
   });
 
   it('starts the next project with nothing picked and no camera stop', async () => {
     await openMockWorkspace();
-    await useInspectorStore.getState().load('moon-island');
+    await useInspectorStore.getState().load('frostveil');
     const store = useInspectorStore.getState();
     store.pick({ comparison: 'scene', left: 'v6', right: 'v7' });
     store.flyTo(3);
-    await useInspectorStore.getState().load('rooftop-cinema');
+    await useInspectorStore.getState().load('frost-cathedral');
     expect(useInspectorStore.getState()).toMatchObject({
       comparison: null,
       left: null,

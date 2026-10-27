@@ -10,25 +10,25 @@ afterEach(clearMocks);
 describe('a path lane', () => {
   it('shows the keys and the fill between them', async () => {
     await openTimeline();
-    render(<PathLane path="lantern-cable" />);
-    expect(screen.getByRole('button', { name: 'Lantern cable dark at Sakura' })).toBeVisible();
+    render(<PathLane path="rune-line" />);
+    expect(screen.getByRole('button', { name: 'Rune line dark at Veil gate' })).toBeVisible();
     expect(screen.getByText('Lights up')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Lantern cable lit at Canopy' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Rune line lit at Keystone' }));
     expect(useTimelineStore.getState().selection).toEqual({
       kind: 'path',
-      path: 'lantern-cable',
-      stop: 'canopy',
+      path: 'rune-line',
+      stop: 'keystone',
     });
   });
 
   it('keys a free stop', async () => {
     await openTimeline();
-    render(<PathLane path="lantern-cable" />);
+    render(<PathLane path="rune-line" />);
     await userEvent.click(
-      screen.getByRole('button', { name: 'Key Lantern cable energize at Porch' })
+      screen.getByRole('button', { name: 'Key Rune line energize at Arrival' })
     );
-    const keys = useTimelineStore.getState().draft.timeline.paths['lantern-cable']?.keys;
-    expect(keys).toContainEqual({ stop: 'porch', amount: 1 });
+    const keys = useTimelineStore.getState().draft.timeline.paths['rune-line']?.keys;
+    expect(keys).toContainEqual({ stop: 'arrival', amount: 1 });
   });
 
   it('draws nothing for a path without a track', async () => {

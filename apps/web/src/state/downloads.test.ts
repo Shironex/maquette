@@ -44,9 +44,13 @@ const status = (over: Partial<WatchStatus> = {}): WatchStatus => ({
 describe('Downloads watcher words', () => {
   it('says quietly when a model is in, and asks when it cannot tell', () => {
     const imported = arrivalNotice(
-      arrival({ state: 'imported', assetName: 'Stone lantern', reason: 'Named for Stone lantern' })
+      arrival({
+        state: 'imported',
+        assetName: 'Guardian statue',
+        reason: 'Named for Guardian statue',
+      })
     );
-    expect(imported).toMatchObject({ status: 'done', title: 'Stone lantern is in the Inbox' });
+    expect(imported).toMatchObject({ status: 'done', title: 'Guardian statue is in the Inbox' });
     expect(imported?.ask).toBe(false);
     const unmatched = arrivalNotice(arrival());
     expect(unmatched?.ask).toBe(true);
@@ -68,13 +72,13 @@ describe('Downloads watcher words', () => {
   });
 
   it('names sends by asset, with the project when there are several', () => {
-    const name = (id: string) => (id === 'moon' ? 'Moon Island' : 'Rooftop');
+    const name = (id: string) => (id === 'moon' ? 'Frostveil' : 'Rooftop');
     const one = [pending('lantern-1', 'moon', 'Lantern'), pending('cup-2', 'moon', 'Cup')];
     expect(sendOptions(one, name).map(o => o.label)).toEqual(['Lantern', 'Cup']);
     const two = [...one, pending('chair-1', 'roof', 'Chair')];
     expect(sendOptions(two, name).map(o => o.label)).toEqual([
-      'Lantern (Moon Island)',
-      'Cup (Moon Island)',
+      'Lantern (Frostveil)',
+      'Cup (Frostveil)',
       'Chair (Rooftop)',
     ]);
   });

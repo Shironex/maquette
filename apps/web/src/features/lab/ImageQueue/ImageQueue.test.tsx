@@ -7,10 +7,10 @@ import { useLabStore } from '@/state/use-lab-store';
 import { ImageQueue } from '.';
 
 const view: LabView = {
-  project: 'moon-island',
-  projectDir: '/w/moon-island',
+  project: 'frostveil',
+  projectDir: '/w/frostveil',
   directions: [],
-  jobs: runningJobs('moon-island', 0),
+  jobs: runningJobs('frostveil', 0),
   refs: [],
   concurrency: 4,
 };

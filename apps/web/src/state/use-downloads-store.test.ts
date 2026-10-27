@@ -12,17 +12,17 @@ afterEach(() => {
 
 const arrival = (over: Partial<Arrival>): Arrival => ({
   id: 'a1',
-  path: '/Users/maker/Downloads/maq_lanterns_v1_tripo.glb',
-  name: 'maq_lanterns_v1_tripo.glb',
+  path: '/Users/maker/Downloads/maq_guardian-statues_v1_tripo.glb',
+  name: 'maq_guardian-statues_v1_tripo.glb',
   inner: null,
   bytes: 1000,
   atMs: 0,
   state: 'imported',
-  job: 'lanterns-1',
-  project: 'moon-island',
+  job: 'guardian-statues-1',
+  project: 'frostveil',
   assetName: 'Lanterns',
   reason: 'Named for Lanterns',
-  inboxFile: 'lanterns-1.glb',
+  inboxFile: 'guardian-statues-1.glb',
   ...over,
 });
 

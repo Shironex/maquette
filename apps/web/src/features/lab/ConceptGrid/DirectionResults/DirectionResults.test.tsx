@@ -8,11 +8,11 @@ import { DirectionResults } from '.';
 import { tooltipText } from '@/test/tooltipText';
 
 const directions = labDirections(false);
-const porch = directions.find(d => d.id === 'moon-island-porch')!;
-const train = directions.find(d => d.id === 'late-train')!;
+const arena = directions.find(d => d.id === 'frozen-lake-arena')!;
+const train = directions.find(d => d.id === 'veil-gate-kit')!;
 const view: LabView = {
-  project: 'moon-island',
-  projectDir: '/w/moon-island',
+  project: 'frostveil',
+  projectDir: '/w/frostveil',
   directions,
   jobs: [],
   refs: [],
@@ -27,17 +27,17 @@ afterEach(() => {
 
 describe('the results of a direction', () => {
   it('sums up the direction and shows a tile per image', () => {
-    render(<DirectionResults view={view} direction={porch} />);
+    render(<DirectionResults view={view} direction={arena} />);
     expect(screen.getByText('6 concepts · 2 starred · 1 picked')).toBeVisible();
     expect(screen.getAllByRole('listitem')).toHaveLength(6);
   });
 
   it('asks what the asset is before sending the picks to Refs', async () => {
-    const sendPicks = vi.fn(async () => 'moon-island-porch');
+    const sendPicks = vi.fn(async () => 'frozen-lake-arena');
     useLabStore.setState({ sendPicks });
-    render(<DirectionResults view={view} direction={porch} />);
+    render(<DirectionResults view={view} direction={arena} />);
     await userEvent.click(screen.getByRole('button', { name: 'Send picks to Refs' }));
-    expect(screen.getByText('Adds Moon island porch to the Board at Refs')).toBeVisible();
+    expect(screen.getByText('Adds Frozen lake arena to the Board at Refs')).toBeVisible();
     await userEvent.click(screen.getByRole('menuitem', { name: 'As a prop' }));
     expect(sendPicks).toHaveBeenCalledWith('prop');
   });

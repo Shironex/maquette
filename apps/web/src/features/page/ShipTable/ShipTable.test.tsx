@@ -23,7 +23,7 @@ async function open(page?: string) {
     undefined,
     page
   );
-  await usePageStore.getState().open('moon-island');
+  await usePageStore.getState().open('frostveil');
   await vi.waitFor(() => expect(usePageStore.getState().inspect).not.toBeNull());
 }
 
@@ -32,9 +32,9 @@ describe('the ship table', () => {
     await open('running');
     render(<ShipTable />);
     const size = screen.getByRole('row', { name: /Scene size/ });
-    expect(within(size).getByText('0.6 MB')).toBeVisible();
-    expect(within(size).getByText('2.0 MB')).toBeVisible();
-    expect(within(size).getByText('+1.4 MB')).toHaveClass('text-danger');
+    expect(within(size).getByText('0.8 MB')).toBeVisible();
+    expect(within(size).getByText('1.7 MB')).toBeVisible();
+    expect(within(size).getByText('+0.9 MB')).toHaveClass('text-danger');
   });
 
   it('says when nothing is on the site yet', async () => {

@@ -10,7 +10,7 @@ export function jobFactory(config: () => WorkspaceConfig, now: number) {
     const presets = config().providers;
     const service: ProviderId = partial.provider === 'meshy' ? 'meshy' : 'tripo';
     const job: ProviderJob = {
-      project: 'moon-island',
+      project: 'frostveil',
       service,
       variant: 'prop',
       images: [],

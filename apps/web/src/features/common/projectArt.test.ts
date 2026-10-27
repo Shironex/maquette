@@ -15,8 +15,8 @@ async function project() {
 describe('the project art', () => {
   it('names the site repo folder, else its saved name, else the template', async () => {
     const p = await project();
-    expect(projectMeta({ ...p, siteRepo: '/Users/me/sites/moon_island-site/' })).toBe(
-      'moon island site'
+    expect(projectMeta({ ...p, siteRepo: '/Users/me/sites/frostveil-site/' })).toBe(
+      'frostveil site'
     );
     expect(projectMeta({ ...p, siteRepo: null, siteRepoName: 'studio-site' })).toBe('studio site');
     expect(projectMeta({ ...p, siteRepo: null, siteRepoName: null })).toBe(

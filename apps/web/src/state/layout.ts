@@ -181,7 +181,7 @@ export function normalDeg(deg: number): number {
   return d === -180 ? 180 : d;
 }
 
-/** "Moon island" to "moon-island", as the app names ids. */
+/** "Frostveil" to "frostveil", as the app names ids. */
 export function slugify(name: string): string {
   return name
     .normalize('NFKD')

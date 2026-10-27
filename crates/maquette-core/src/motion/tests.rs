@@ -96,9 +96,9 @@ fn the_fixture_character_has_one_idle_clip_on_a_mixamo_rig() {
 
 #[test]
 fn keys_packed_by_meshopt_leave_travel_and_looping_unknown() {
-    // The web app's mock character: a Mixamo rig with two clips, shipped packed.
+    // The web app's mock Elsheria: a Mixamo rig with two clips, shipped packed.
     let file = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../apps/web/src/assets/mock/models/character.glb");
+        .join("../../apps/web/src/assets/mock/models/elsheria.glb");
     let found = read_file(&file).expect("read");
     assert_eq!(found.clips.len(), 2);
     for clip in &found.clips {
@@ -108,10 +108,10 @@ fn keys_packed_by_meshopt_leave_travel_and_looping_unknown() {
             "{}",
             clip.name
         );
-        assert!(clip.bytes > 0.0 && clip.duration > 4.0);
+        assert!(clip.bytes > 0.0 && clip.duration >= 0.5);
     }
     let rig = found.rig.expect("rig");
-    assert_eq!((rig.joints, rig.kind), (75, RigKind::Mixamo));
+    assert_eq!((rig.joints, rig.kind), (119, RigKind::Mixamo));
     assert_eq!(rig.max_influences, None, "packed weights are not read");
 }
 

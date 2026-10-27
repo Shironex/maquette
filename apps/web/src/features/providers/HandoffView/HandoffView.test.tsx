@@ -14,7 +14,7 @@ afterEach(() => {
 describe('the by hand settings card', () => {
   it('walks through the four steps for a waiting send', async () => {
     const { job } = await openProviders();
-    const lanterns = job('lanterns-1');
+    const lanterns = job('guardian-statues-1');
     render(<HandoffView job={lanterns} />);
     expect(screen.getByText('Waiting for your model')).toBeInTheDocument();
     const steps = screen.getAllByRole('listitem').filter(li => li.parentElement?.tagName === 'OL');
@@ -28,7 +28,7 @@ describe('the by hand settings card', () => {
     expect(screen.getAllByText(lanterns.card!.exportName ?? '')).toHaveLength(2);
     expect(screen.getByText('Ultra Mesh Quality')).toBeInTheDocument();
     expect(screen.queryByText('Face limit')).toBeNull();
-    expect(lanterns.card!.exportName).toMatch(/^maq_lanterns_v\d+_tripo$/);
+    expect(lanterns.card!.exportName).toMatch(/^maq_guardian-statues_v\d+_tripo$/);
     expect(screen.getByText('30 credits')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy The export name' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Copy prompt' })).toBeNull();
@@ -37,7 +37,7 @@ describe('the by hand settings card', () => {
 
   it('opens the web app, the folder and an image through the backend', async () => {
     const { job, sent } = await openProviders();
-    const lanterns = job('lanterns-1');
+    const lanterns = job('guardian-statues-1');
     render(<HandoffView job={lanterns} />);
     await userEvent.click(screen.getByRole('button', { name: 'Open Tripo studio' }));
     await userEvent.click(screen.getByRole('button', { name: 'Open folder' }));
@@ -50,7 +50,7 @@ describe('the by hand settings card', () => {
 
   it('copies the prompt in one click when the send has one', async () => {
     const { job } = await openProviders();
-    const lanterns = job('lanterns-1');
+    const lanterns = job('guardian-statues-1');
     const card = { ...lanterns.card!, prompt: 'Soft moss on old stone' };
     const user = userEvent.setup();
     render(<HandoffView job={{ ...lanterns, card }} />);
@@ -61,7 +61,7 @@ describe('the by hand settings card', () => {
 
   it('renders nothing for a send without a card', async () => {
     const { job } = await openProviders();
-    const { container } = render(<HandoffView job={job('sakura-1')} />);
+    const { container } = render(<HandoffView job={job('veil-gate-1')} />);
     expect(container).toBeEmptyDOMElement();
   });
 });

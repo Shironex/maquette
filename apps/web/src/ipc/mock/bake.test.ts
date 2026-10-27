@@ -6,7 +6,7 @@ function backend() {
   const handle = createBackend({ scenario: 'configured', probeDelay: 0, pace: 0 });
   const call = <T>(cmd: string, args: Record<string, unknown> = {}) =>
     handle(cmd, args) as Promise<T>;
-  const bake = async (project = 'moon-island') =>
+  const bake = async (project = 'frostveil') =>
     (await call<PipelineView>('pipeline_get', { project })).bake!;
   return { call, bake };
 }
@@ -20,13 +20,13 @@ describe('mock bake settings', () => {
     expect(before.settings).toEqual({ size: 512, samples: 16, denoise: false });
     await expect(
       call('pipeline_save_bake', {
-        project: 'moon-island',
+        project: 'frostveil',
         patch: { size: null, samples: null, denoise: true },
       })
     ).rejects.toMatchObject({ code: 'invalid' });
 
     await call('pipeline_update_starters', {
-      project: 'moon-island',
+      project: 'frostveil',
       scripts: ['tools/bake_light.py'],
       replace: false,
     });
@@ -37,7 +37,7 @@ describe('mock bake settings', () => {
 
   it('changes only the given fields and refuses sizes and samples the core refuses', async () => {
     const { call, bake } = backend();
-    const project = 'rooftop-cinema';
+    const project = 'frost-cathedral';
     const saved = await call<PipelineView>('pipeline_save_bake', {
       project,
       patch: { size: 2048, samples: null, denoise: null },
@@ -57,10 +57,10 @@ describe('mock bake settings', () => {
     const { call, bake } = backend();
     const accept = (item: string, prep: unknown) =>
       call<AcceptResult>('inbox_accept', {
-        request: { item, project: 'moon-island', asset: null, prep },
+        request: { item, project: 'frostveil', asset: null, prep },
       });
-    const scan = await accept('sakura_large.glb', null);
-    const prep = await call<ScenePrep>('prepare_get', { project: 'moon-island' });
+    const scan = await accept('veil_gate.glb', null);
+    const prep = await call<ScenePrep>('prepare_get', { project: 'frostveil' });
     expect(prep.models[scan.asset.id]?.skipBake).toBe(true);
     expect(prep.models[scan.asset.id]?.padEdges).toBe(true);
     expect((await bake()).skipped).toContain(scan.asset.id);

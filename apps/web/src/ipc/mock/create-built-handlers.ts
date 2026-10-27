@@ -1,6 +1,6 @@
 /**
  * Built assets in mock mode: models a Blender script in the project makes.
- * `?built=demo` puts two on Moon Island at Blender, a laptop that is current
+ * `?built=demo` puts two on Frostveil at Blender, a laptop that is current
  * and a Newton's cradle whose script changed since its last build. Rebuild
  * takes a moment, then makes the next version, as the app does headless.
  */
@@ -100,18 +100,18 @@ export function createBuiltHandlers({ project, saveProject, emit, seed, buildMs 
   };
 
   if (seed === 'demo') {
-    const moon = project('moon-island');
+    const moon = project('frostveil');
     const assets = SEED.map(s => seedAsset(s.id, s.name));
     saveProject({ ...moon, assets: [...(moon.assets ?? []), ...assets] });
     for (const s of SEED) {
-      of('moon-island').set(s.id, {
+      of('frostveil').set(s.id, {
         script: `built/${s.script}`,
         helpers: ['built/common.py'],
         root: null,
         last: record(1, s.objects, ['palette', ...(s.id === 'laptop' ? ['screen'] : [])]),
       });
     }
-    stale.add('moon-island/newtons-cradle');
+    stale.add('frostveil/newtons-cradle');
   }
 
   function list(id: string): BuiltAsset[] {

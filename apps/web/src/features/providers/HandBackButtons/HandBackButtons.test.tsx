@@ -14,14 +14,14 @@ afterEach(() => {
 describe('the hand back buttons', () => {
   it('check Downloads for the waiting sends', async () => {
     const { job, sent } = await openProviders();
-    render(<HandBackButtons job={job('lanterns-1')} />);
+    render(<HandBackButtons job={job('guardian-statues-1')} />);
     await userEvent.click(screen.getByRole('button', { name: 'Check Downloads' }));
     expect(sent('provider_check_downloads')).toHaveLength(1);
   });
 
   it('leave Check Downloads out when asked', async () => {
     const { job } = await openProviders();
-    render(<HandBackButtons job={job('lanterns-1')} downloads={false} />);
+    render(<HandBackButtons job={job('guardian-statues-1')} downloads={false} />);
     expect(screen.getByRole('button', { name: 'Add model...' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Check Downloads' })).toBeNull();
   });

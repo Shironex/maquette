@@ -32,7 +32,11 @@ const stop = (id: string, name: string): LayoutStop => ({
   models: null,
 });
 
-const STOPS = [stop('porch', 'Porch'), stop('sakura', 'Sakura'), stop('canopy', 'Canopy')];
+const STOPS = [
+  stop('arrival', 'Arrival'),
+  stop('veil-gate', 'Veil gate'),
+  stop('keystone', 'Keystone'),
+];
 
 const cable = (): ScenePath => ({
   id: 'cable',
@@ -44,7 +48,7 @@ const cable = (): ScenePath => ({
     [3, 4, 0],
   ],
   start: 'shop',
-  end: 'vending',
+  end: 'crystal-lantern',
   width: 0.04,
   color: '#f2c230',
   glow: '#ffe08a',
@@ -52,7 +56,7 @@ const cable = (): ScenePath => ({
 
 const wired = (): PathsDraft => ({
   paths: [cable()],
-  tracks: { cable: { easing: 'linear', keys: [{ stop: 'porch', amount: 1 }] } },
+  tracks: { cable: { easing: 'linear', keys: [{ stop: 'arrival', amount: 1 }] } },
 });
 
 describe('the paths rules', () => {
@@ -68,7 +72,7 @@ describe('the paths rules', () => {
     const added = addPoint(wired(), 'cable', [3, 4, 2], 1);
     expect(added.index).toBe(2);
     expect(added.draft.paths[0]?.points[2]).toEqual([3, 4, 2]);
-    expect(added.draft.paths[0]?.end).toBe('vending');
+    expect(added.draft.paths[0]?.end).toBe('crystal-lantern');
 
     const past = addPoint(wired(), 'cable', [5, 4, 0]);
     expect(past.index).toBe(3);
@@ -97,7 +101,11 @@ describe('the paths rules', () => {
       rotation: [0, 0, 0] as [number, number, number],
       scale: 1,
     });
-    const [after] = follow([cable()], { vending: place(1) }, { vending: place(2), shop: place(5) });
+    const [after] = follow(
+      [cable()],
+      { 'crystal-lantern': place(1) },
+      { 'crystal-lantern': place(2), shop: place(5) }
+    );
     expect(after?.points[2]).toEqual([4, 4, 0]);
     expect(after?.points[0]).toEqual([0, 0, 0]);
   });
@@ -122,10 +130,10 @@ describe('the paths rules', () => {
   it('energizes from unlit at the first stop to lit at the last, and says so', () => {
     const lit = addEnergize(EMPTY_PATHS, 'cable', STOPS);
     expect(lit.tracks.cable?.keys).toEqual([
-      { stop: 'porch', amount: 0 },
-      { stop: 'canopy', amount: 1 },
+      { stop: 'arrival', amount: 0 },
+      { stop: 'keystone', amount: 1 },
     ]);
-    expect(energizeLine(lit.tracks.cable, STOPS)).toBe('0% at Porch, 100% at Canopy');
+    expect(energizeLine(lit.tracks.cable, STOPS)).toBe('0% at Arrival, 100% at Keystone');
     expect(energizeLine(undefined, STOPS)).toMatch(/stays unlit/);
     expect(removeEnergize(lit, 'cable').tracks).toEqual({});
   });

@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 async function editor() {
-  render(<LayoutEditor project="moon-island" tabs={<nav>tabs</nav>} />);
+  render(<LayoutEditor project="frostveil" tabs={<nav>tabs</nav>} />);
   await screen.findByTestId('layout-canvas');
   return canvas.props!;
 }
@@ -69,7 +69,7 @@ describe('the layout editor', () => {
     const before = useLayoutStore.getState().draft.stops[0]!.position;
     act(() => {
       props.handlers.onBeginDrag();
-      props.handlers.onDragStop('porch', [1, 1, 1]);
+      props.handlers.onDragStop('arrival', [1, 1, 1]);
     });
     expect(useLayoutStore.getState().draft.stops[0]!.position).toEqual([1, 1, 1]);
     expect(screen.getByText(/unsaved changes/)).toBeInTheDocument();

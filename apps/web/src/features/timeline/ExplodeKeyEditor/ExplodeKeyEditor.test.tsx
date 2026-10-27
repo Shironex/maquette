@@ -32,9 +32,11 @@ describe('the explode key editor', () => {
 
   it('says a stop is not keyed yet and removes the track', async () => {
     await openTimeline();
-    select('shrubs');
+    select('crystals');
     render(<ExplodeKeyEditor />);
-    expect(screen.getByText('Not keyed at Shrubs yet. Set how far apart to key it.')).toBeVisible();
+    expect(
+      screen.getByText('Not keyed at Crystals yet. Set how far apart to key it.')
+    ).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Remove the track' }));
     expect(track()).toBeUndefined();
   });

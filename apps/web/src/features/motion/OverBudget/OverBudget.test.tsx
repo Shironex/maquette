@@ -16,13 +16,13 @@ describe('the over budget board', () => {
   it('says how far over the scene is and leaves the heaviest clip off', async () => {
     await openMotion('over');
     render(<OverBudget />);
-    expect(screen.getByRole('alert')).toHaveTextContent(/over its 2.25 MB budget/);
-    expect(screen.getByText('Keep sitting_wave off the site')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/over its 2.06 MB budget/);
+    expect(screen.getByText('Keep spellblade_idle off the site')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open Pipeline' })).toBeInTheDocument();
     for (const button of screen.getAllByRole('button', { name: 'Leave it off' })) {
       fireEvent.click(button);
     }
-    expect(useMotionStore.getState().draft.clipsOff.character).toEqual(['sitting_wave']);
+    expect(useMotionStore.getState().draft.clipsOff.elsheria).toEqual(['spellblade_idle']);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

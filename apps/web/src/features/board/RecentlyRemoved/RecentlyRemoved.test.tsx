@@ -19,21 +19,21 @@ afterEach(() => {
 describe('RecentlyRemoved', () => {
   it('shows nothing while the trash is empty', async () => {
     const { container } = render(<RecentlyRemoved />);
-    await vi.waitFor(() => expect(useTrashStore.getState().project).toBe('moon-island'));
+    await vi.waitFor(() => expect(useTrashStore.getState().project).toBe('frostveil'));
     expect(container).toBeEmptyDOMElement();
   });
 
   it('lists a removed asset and restores it', async () => {
-    await useTrashStore.getState().remove('moon-island', ['character']);
+    await useTrashStore.getState().remove('frostveil', ['elsheria']);
     render(<RecentlyRemoved />);
     const button = await screen.findByRole('button', { name: /Removed/ });
     expect(button).toHaveTextContent('1');
     await userEvent.click(button);
-    const item = screen.getByRole('menuitem', { name: 'Character' });
+    const item = screen.getByRole('menuitem', { name: 'Elsheria' });
     await userEvent.click(item);
     await vi.waitFor(() =>
       expect(
-        (useAppStore.getState().workspace?.project?.assets ?? []).some(a => a.id === 'character')
+        (useAppStore.getState().workspace?.project?.assets ?? []).some(a => a.id === 'elsheria')
       ).toBe(true)
     );
     await vi.waitFor(() => expect(screen.queryByRole('button', { name: /Removed/ })).toBeNull());

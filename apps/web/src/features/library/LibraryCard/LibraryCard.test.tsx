@@ -10,14 +10,14 @@ afterEach(() => clearMocks());
 describe('a library card', () => {
   it('shows the version, source, tags, uses and what reuse saved', async () => {
     await openMockLibrary('demo');
-    const item = (await commands.libraryGet()).items.find(i => i.entry.id === 'character')!;
+    const item = (await commands.libraryGet()).items.find(i => i.entry.id === 'elsheria')!;
     const onSelect = vi.fn();
     render(<LibraryCard item={item} selected={false} onSelect={onSelect} />);
     expect(screen.getByText('v3 · Meshy, rigged')).toBeVisible();
     expect(screen.getByText('characters')).toBeVisible();
     expect(screen.getByText('2 projects')).toBeVisible();
     expect(screen.getByText('40 saved by reuse')).toHaveClass('text-sage');
-    await userEvent.click(screen.getByRole('button', { name: 'Character' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Elsheria' }));
     expect(onSelect).toHaveBeenCalled();
   });
 });

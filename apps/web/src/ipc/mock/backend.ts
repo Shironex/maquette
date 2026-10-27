@@ -89,7 +89,7 @@ export function createBackend({
   let projects: ProjectManifest[] = configured
     ? syncProjects(seedMotionProjects(mockProjects(projectsState === 'many'), motion), sync)
     : [];
-  if (configured) config = motionConfig({ ...config, currentProject: 'moon-island' }, motion);
+  if (configured) config = motionConfig({ ...config, currentProject: 'frostveil' }, motion);
   const agentsOn = agentsState === 'active' || agentsState === 'batch';
   if (configured && agentsOn) {
     config = { ...config, agents: { ...config.agents, mcpEnabled: true } };
@@ -117,7 +117,7 @@ export function createBackend({
   });
   [projects, config] = game.seedInto(projects, config);
   if (configured && inspectState === 'many') {
-    projects = projects.map(p => (p.id === 'moon-island' ? withManyAssets(p) : p));
+    projects = projects.map(p => (p.id === 'frostveil' ? withManyAssets(p) : p));
   }
   const listed = configured ? inboxItems(`${expand(DEFAULT_ROOT)}/inbox`, now) : [];
   let inbox: InboxItem[] = linkGameInbox(
@@ -179,12 +179,12 @@ export function createBackend({
     };
   }
 
-  /** Each project's starter scripts; the fixture Moon Island has old ones. */
+  /** Each project's starter scripts; the fixture Frostveil has old ones. */
   const starters = new Map<string, StarterStatus[]>();
   function startersOf(id: string): StarterStatus[] {
-    // The fixture Moon Island is older than its starters, unless `?motion=`
+    // The fixture Frostveil is older than its starters, unless `?motion=`
     // shows it with clips kept off the site; a new project is not.
-    const old = id === 'moon-island' && !motion && (project(id).assets ?? []).length > 0;
+    const old = id === 'frostveil' && !motion && (project(id).assets ?? []).length > 0;
     if (!starters.has(id)) starters.set(id, old ? oldStarters() : currentStarters());
     return starters.get(id)!;
   }
@@ -387,7 +387,7 @@ export function createBackend({
 
   // The `running` scenario starts run 25 as soon as the app opens.
   if (scenario === 'running') {
-    setTimeout(() => runner.submit('moon-island', view('moon-island').def, null, false), 50);
+    setTimeout(() => runner.submit('frostveil', view('frostveil').def, null, false), 50);
   }
 
   return async function handle(cmd: string, args: Args = {}): Promise<unknown> {

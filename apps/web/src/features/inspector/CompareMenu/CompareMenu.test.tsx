@@ -11,7 +11,7 @@ let view: InspectView;
 
 beforeEach(async () => {
   await openMockWorkspace();
-  view = await commands.inspectProject('moon-island');
+  view = await commands.inspectProject('frostveil');
 });
 afterEach(() => {
   clearMocks();

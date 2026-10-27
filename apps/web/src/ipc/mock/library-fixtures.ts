@@ -1,8 +1,8 @@
 /**
- * The mock library's entries (`?library=demo`): models from Moon Island,
- * Rooftop cinema, Lantern keeper and a game, with their origins on the
- * projects. Moon Island's character is on v2 of an entry at v3 and Rooftop
- * cinema's vending machine on v1 of one at v2, so both show an update.
+ * The mock library's entries (`?library=demo`): models from Frostveil,
+ * Frost cathedral, Elsheria showcase and a game, with their origins on the
+ * projects. Frostveil's Elsheria is on v2 of an entry at v3 and Frost
+ * cathedral's crystal lantern on v1 of one at v2, so both show an update.
  */
 import type {
   AssetKind,
@@ -36,79 +36,79 @@ interface Seed {
 
 const SEEDS: readonly Seed[] = [
   {
-    id: 'vending-machine',
-    name: 'Vending machine',
+    id: 'crystal-lantern',
+    name: 'Crystal lantern',
     kind: 'prop',
-    tags: ['props', 'street'],
-    render: 'vending-machine.webp',
+    tags: ['props', 'lights'],
+    render: 'crystal-lantern.webp',
     versions: [
-      { source: 'tripo', credits: 30, from: ['moon-island', 'vending', 1] },
-      { source: 'tripo', credits: 30, from: ['moon-island', 'vending', 2] },
+      { source: 'tripo', credits: 30, from: ['frostveil', 'crystal-lantern', 1] },
+      { source: 'tripo', credits: 30, from: ['frostveil', 'crystal-lantern', 2] },
     ],
     stats: stats(12_900, 0.4),
     days: 4,
   },
   {
-    id: 'character',
-    name: 'Character',
+    id: 'elsheria',
+    name: 'Elsheria',
     kind: 'character',
     tags: ['characters'],
-    render: 'character.webp',
+    render: 'elsheria.webp',
     versions: [
-      { source: 'tripo', credits: 40, from: ['lantern-keeper', 'character', 1] },
-      { source: 'tripo', credits: 40, from: ['lantern-keeper', 'character', 2] },
-      { source: 'meshy', credits: 20, from: ['lantern-keeper', 'character', 4] },
+      { source: 'tripo', credits: 40, from: ['elsheria-showcase', 'elsheria', 1] },
+      { source: 'tripo', credits: 40, from: ['elsheria-showcase', 'elsheria', 2] },
+      { source: 'meshy', credits: 20, from: ['elsheria-showcase', 'elsheria', 4] },
     ],
-    stats: stats(48_200, 1.2, 65),
+    stats: stats(34_700, 1.1, 119),
     days: 1,
   },
   {
-    id: 'shop-house',
-    name: 'Shop house',
+    id: 'observatory-arch',
+    name: 'Observatory arch',
     kind: 'prop',
-    tags: ['buildings', 'street'],
-    render: 'shop-house.webp',
-    versions: [{ source: 'tripo', credits: 30, from: ['moon-island', 'shop-house', 3] }],
+    tags: ['buildings', 'lights'],
+    render: 'observatory-arch.webp',
+    versions: [{ source: 'tripo', credits: 30, from: ['frostveil', 'observatory-arch', 3] }],
     stats: stats(38_200, 0.9),
     days: 3,
   },
   {
-    id: 'island',
-    name: 'Island',
+    id: 'veil-platform',
+    name: 'Veil platform',
     kind: 'scene',
     tags: ['scenes'],
-    render: 'island.webp',
-    versions: [{ source: 'built', credits: null, from: ['moon-island', 'island', 7] }],
+    render: 'veil-platform.webp',
+    versions: [{ source: 'built', credits: null, from: ['frostveil', 'veil-platform', 7] }],
     stats: stats(412_000, 1.1),
     days: 2,
   },
   {
-    id: 'stone-lantern',
-    name: 'Stone lantern',
+    id: 'guardian-statue',
+    name: 'Guardian statue',
     kind: 'prop',
-    tags: ['props', 'garden'],
-    render: 'stone-lantern.webp',
-    versions: [{ source: 'by-hand', credits: null, from: ['moon-island', 'lanterns', 1] }],
+    tags: ['props', 'statues'],
+    render: 'guardian-statue.webp',
+    versions: [{ source: 'by-hand', credits: null, from: ['frostveil', 'guardian-statues', 1] }],
     stats: stats(8_400, 0.3),
     days: 6,
   },
   {
-    id: 'sakura-tree',
-    name: 'Sakura tree',
+    id: 'veil-gate',
+    name: 'Veil gate',
     kind: 'prop',
-    tags: ['garden', 'trees'],
-    render: 'sakura-large.webp',
-    versions: [{ source: 'meshy', credits: 20, from: ['moon-island', 'sakura', 1] }],
+    tags: ['statues', 'gates'],
+    render: 'veil-gate.webp',
+    versions: [{ source: 'meshy', credits: 20, from: ['frostveil', 'veil-gate', 1] }],
     stats: stats(61_000, 1.6),
     days: 5,
   },
   {
-    id: 'far-spire',
-    name: 'Far spire',
+    id: 'rune-obelisk',
+    name: 'Rune obelisk',
     kind: 'prop',
     tags: ['buildings'],
-    render: 'far-spire.webp',
-    versions: [{ source: 'tripo', credits: 30, from: ['moon-island', 'far-spire', 1] }],
+    render: 'rune-obelisk.webp',
+    versions: [{ source: 'tripo', credits: 30, from: ['frostveil', 'rune-obelisk', 1] }],
     stats: stats(22_700, 0.6),
     days: 7,
   },
@@ -117,6 +117,7 @@ const SEEDS: readonly Seed[] = [
     name: 'Crypt brazier',
     kind: 'prop',
     tags: ['props', 'game'],
+    render: 'crypt-brazier.webp',
     ext: 'obj',
     versions: [{ source: 'imported', credits: null, from: ['crypt-game', 'brazier', 1] }],
     stats: stats(3_100, 0.2),
@@ -164,14 +165,14 @@ export function libraryEntries(): LibraryEntry[] {
 
 /** Which project assets came from which entry and version. */
 export const LIBRARY_ORIGINS: Record<string, Record<string, AssetOrigin>> = {
-  'moon-island': {
-    vending: { entry: 'vending-machine', version: 2 },
-    character: { entry: 'character', version: 2 },
-    'shop-house': { entry: 'shop-house', version: 1 },
-    island: { entry: 'island', version: 1 },
+  frostveil: {
+    'crystal-lantern': { entry: 'crystal-lantern', version: 2 },
+    elsheria: { entry: 'elsheria', version: 2 },
+    'observatory-arch': { entry: 'observatory-arch', version: 1 },
+    'veil-platform': { entry: 'veil-platform', version: 1 },
   },
-  'rooftop-cinema': { vending: { entry: 'vending-machine', version: 1 } },
-  'lantern-keeper': { character: { entry: 'character', version: 3 } },
+  'frost-cathedral': { 'crystal-lantern': { entry: 'crystal-lantern', version: 1 } },
+  'elsheria-showcase': { elsheria: { entry: 'elsheria', version: 3 } },
 };
 
 /** Each entry picture's path under the library folder, to the render it shows. */

@@ -157,7 +157,11 @@ export default function ObjectRefsSheet({ objects }: ObjectRefsSheetProps) {
                   disabled={full}
                   autoFocus
                   placeholder={
-                    full ? 'That is the most for one go' : list.length ? 'Add another' : 'desk lamp'
+                    full
+                      ? 'That is the most for one go'
+                      : list.length
+                        ? 'Add another'
+                        : 'lantern post'
                   }
                   onChange={e => setText(e.target.value)}
                   onKeyDown={onKey}

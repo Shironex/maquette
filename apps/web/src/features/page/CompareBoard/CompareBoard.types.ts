@@ -10,7 +10,7 @@ export interface CompareRowView {
 export interface CompareColumnView {
   id: string;
   title: string;
-  /** "moon-island-site · shipped 3 days ago". */
+  /** "frostveil-site · shipped 3 days ago". */
   sub: string;
   /** The clay title and the "Ships next" mark of this run. */
   next?: boolean;

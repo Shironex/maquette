@@ -9,17 +9,17 @@ import type {
 import { handoffCard } from './handoff-card';
 import type { JobPartial } from './job-factory';
 import { redoJobs } from './redo-fixtures';
-import { WORKBENCH_OBJECTS, objectRef } from './lab-fixtures';
+import { VEIL_GATE_OBJECTS, objectRef } from './lab-fixtures';
 
 /** The batch the `?handoff=batch` fixture wrote, and how far each object got. */
-const WORKBENCH_BATCH = 'batch-19a2f0c1e4b';
-const WORKBENCH_STATES: Record<string, { state: ProviderJob['state']; variant?: 'character' }> = {
-  'Desk lamp': { state: 'waiting' },
-  'Sculptor figure': { state: 'waiting', variant: 'character' },
-  'Clay island': { state: 'inbox' },
-  'Turntable island': { state: 'accepted' },
-  'Brush cup': { state: 'waiting' },
-  Calipers: { state: 'waiting' },
+const VEIL_GATE_BATCH = 'batch-19a2f0c1e4b';
+const VEIL_GATE_STATES: Record<string, { state: ProviderJob['state']; variant?: 'character' }> = {
+  'Lantern post': { state: 'waiting' },
+  'Hooded guardian': { state: 'waiting', variant: 'character' },
+  'Ice shards': { state: 'inbox' },
+  'Orb shrine': { state: 'accepted' },
+  'Sigil door': { state: 'waiting' },
+  'Step ring': { state: 'waiting' },
 };
 
 const slugOf = (name: string) =>
@@ -55,26 +55,26 @@ export function seedProviders({
   project,
   saveProject,
 }: SeedContext): ProviderJob[] {
-  const lanterns = base({
-    id: 'lanterns-1',
-    asset: 'lanterns',
-    assetName: 'Stone lanterns',
+  const guardians = base({
+    id: 'guardian-statues-1',
+    asset: 'guardian-statues',
+    assetName: 'Guardian statues',
     provider: 'by-hand',
-    images: ['refs/lanterns_front.png'],
+    images: ['refs/guardian_statues_front.png'],
     state: 'waiting',
     createdAtMs: now - 26 * 60_000,
     message: 'Waiting for your model',
     cancel: 'stop-waiting',
   });
-  lanterns.handoff = handoffDir(lanterns);
-  lanterns.card = handoffCard(lanterns);
+  guardians.handoff = handoffDir(guardians);
+  guardians.card = handoffCard(guardians);
   const jobs: ProviderJob[] = [
     base({
-      id: 'sakura-1',
-      asset: 'sakura',
-      assetName: 'Sakura',
+      id: 'veil-gate-1',
+      asset: 'veil-gate',
+      assetName: 'Veil gate',
       provider: 'tripo',
-      images: ['refs/sakura_front.png'],
+      images: ['refs/veil_gate_front.png'],
       state: 'running',
       phase: 'generate',
       progress: 0.46,
@@ -83,13 +83,13 @@ export function seedProviders({
       startedAtMs: now - 72_000,
       cancel: 'none',
     }),
-    lanterns,
+    guardians,
     base({
-      id: 'far-spire-1',
-      asset: 'far-spire',
-      assetName: 'Far spire',
+      id: 'rune-obelisk-1',
+      asset: 'rune-obelisk',
+      assetName: 'Rune obelisk',
       provider: 'meshy',
-      images: ['refs/far_spire_front.png'],
+      images: ['refs/rune_obelisk_front.png'],
       state: 'failed',
       phase: 'generate',
       createdAtMs: now - 3 * 3_600_000,
@@ -99,12 +99,12 @@ export function seedProviders({
       cancel: 'none',
     }),
     base({
-      id: 'character-2',
-      asset: 'character',
-      assetName: 'Character',
+      id: 'elsheria-2',
+      asset: 'elsheria',
+      assetName: 'Elsheria',
       provider: 'tripo',
       variant: 'character',
-      images: ['refs/character-model.png'],
+      images: ['refs/elsheria-model.png'],
       tripo: structuredClone(config().providers.tripo.character),
       state: 'accepted',
       progress: 1,
@@ -112,7 +112,7 @@ export function seedProviders({
       createdAtMs: now - 2 * 86_400_000,
       startedAtMs: now - 2 * 86_400_000 + 1_000,
       finishedAtMs: now - 2 * 86_400_000 + 4 * 60_000 + 12_000,
-      inboxFile: 'character-2.glb',
+      inboxFile: 'elsheria-2.glb',
       version: 2,
       message: 'Rigged with Mixamo bones, 2 animations.',
       cancel: 'none',
@@ -120,15 +120,25 @@ export function seedProviders({
   ];
   if (agentsActive) {
     const asked = [
-      { id: 'far-spire-2', asset: 'far-spire', assetName: 'Far spire', image: 'far_spire_front' },
+      {
+        id: 'rune-obelisk-2',
+        asset: 'rune-obelisk',
+        assetName: 'Rune obelisk',
+        image: 'rune_obelisk_front',
+      },
       ...(agentsBatch
         ? [
-            { id: 'sakura-2', asset: 'sakura', assetName: 'Sakura', image: 'sakura_front' },
             {
-              id: 'lanterns-2',
-              asset: 'lanterns',
-              assetName: 'Stone lanterns',
-              image: 'lanterns_front',
+              id: 'veil-gate-2',
+              asset: 'veil-gate',
+              assetName: 'Veil gate',
+              image: 'veil_gate_front',
+            },
+            {
+              id: 'guardian-statues-2',
+              asset: 'guardian-statues',
+              assetName: 'Guardian statues',
+              image: 'guardian_statues_front',
             },
           ]
         : []),
@@ -152,8 +162,8 @@ export function seedProviders({
   if (inbox === 'redo') jobs.push(...redoJobs(base, config, now));
   if (handoff === 'batch') {
     const written = now - 52 * 60_000;
-    WORKBENCH_OBJECTS.forEach((o, i) => {
-      const spec = WORKBENCH_STATES[o.title] ?? { state: 'waiting' as const };
+    VEIL_GATE_OBJECTS.forEach((o, i) => {
+      const spec = VEIL_GATE_STATES[o.title] ?? { state: 'waiting' as const };
       const variant = spec.variant ?? 'prop';
       const back = spec.state !== 'waiting';
       const job = base({
@@ -171,7 +181,7 @@ export function seedProviders({
         inboxFile: back ? `${slugOf(o.title)}-1.glb` : null,
         version: spec.state === 'accepted' ? 1 : null,
         cancel: back ? 'none' : 'stop-waiting',
-        batch: WORKBENCH_BATCH,
+        batch: VEIL_GATE_BATCH,
       });
       job.handoff = handoffDir(job);
       job.card = handoffCard(job);
@@ -180,16 +190,16 @@ export function seedProviders({
   }
   // The Board shows the sends: assets move to the Tripo column with their state.
   const status: Record<string, [Stage, AssetStatus]> = {
-    sakura: ['tripo', 'running'],
-    lanterns: ['tripo', 'queued'],
-    'far-spire': ['tripo', agentsActive ? 'queued' : 'failed'],
+    'veil-gate': ['tripo', 'running'],
+    'guardian-statues': ['tripo', 'queued'],
+    'rune-obelisk': ['tripo', agentsActive ? 'queued' : 'failed'],
   };
-  const p = project('moon-island');
+  const p = project('frostveil');
   const at = new Date(now - 52 * 60_000).toISOString();
   const objects: Asset[] =
     handoff === 'batch'
-      ? WORKBENCH_OBJECTS.map(o => {
-          const spec = WORKBENCH_STATES[o.title];
+      ? VEIL_GATE_OBJECTS.map(o => {
+          const spec = VEIL_GATE_STATES[o.title];
           const accepted = spec?.state === 'accepted';
           return {
             id: slugOf(o.title),

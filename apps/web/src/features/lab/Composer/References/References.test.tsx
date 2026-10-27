@@ -8,8 +8,8 @@ import { References } from '.';
 
 const refs = labRefs();
 const view: LabView = {
-  project: 'moon-island',
-  projectDir: '/w/moon-island',
+  project: 'frostveil',
+  projectDir: '/w/frostveil',
   directions: [],
   jobs: [],
   refs,

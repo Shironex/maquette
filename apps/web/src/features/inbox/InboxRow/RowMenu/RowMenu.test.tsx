@@ -23,30 +23,30 @@ const item = (id: string) => useInboxStore.getState().snapshot!.items.find(i => 
 describe('an inbox row menu', () => {
   it('redoes a model from its send', async () => {
     const onClose = vi.fn();
-    render(<RowMenu item={item('sakura_large.glb')} onClose={onClose} />);
+    render(<RowMenu item={item('veil_gate.glb')} onClose={onClose} />);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Redo...' }));
     expect(onClose).toHaveBeenCalled();
     expect(useProvidersStore.getState().panel).toMatchObject({
-      project: 'moon-island',
-      asset: 'sakura',
+      project: 'frostveil',
+      asset: 'veil-gate',
     });
   });
 
   it('says why a model that came from no send cannot be redone', async () => {
-    render(<RowMenu item={item('far_spire.glb')} onClose={() => {}} />);
+    render(<RowMenu item={item('rune_obelisk.glb')} onClose={() => {}} />);
     const redo = screen.getByRole('menuitem', { name: 'Redo...' });
     expect(redo).toHaveAttribute('aria-disabled', 'true');
     expect(await tooltipText(redo)).toMatch(/did not come from a Send to 3D/);
   });
 
   it('redoes the ticked models as one batch', async () => {
-    useInboxStore.getState().check('character.glb', true);
-    useInboxStore.getState().check('sakura_large.glb', true);
-    render(<RowMenu item={item('character.glb')} onClose={() => {}} />);
+    useInboxStore.getState().check('elsheria.glb', true);
+    useInboxStore.getState().check('veil_gate.glb', true);
+    render(<RowMenu item={item('elsheria.glb')} onClose={() => {}} />);
     expect(screen.getByRole('menuitem', { name: 'Deselect' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('menuitem', { name: 'Redo 2 selected...' }));
     expect(useProvidersStore.getState().batch).toMatchObject({
-      assets: ['character', 'sakura'],
+      assets: ['elsheria', 'veil-gate'],
       redo: true,
     });
     expect(useInboxStore.getState().checked).toEqual([]);

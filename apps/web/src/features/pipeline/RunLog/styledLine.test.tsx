@@ -10,7 +10,7 @@ describe('styledLine', () => {
   });
 
   it('keeps the tag of a script line in clay and the final size in bold', () => {
-    const line = styledLine(row('[compress] island.glb 4.6 MB → 1.1 MB'));
+    const line = styledLine(row('[compress] veil_platform.glb 4.6 MB → 1.1 MB'));
     expect(line.noise).toBe(false);
     const { container } = render(<>{line.node}</>);
     expect(container.querySelector('.text-clay-text')).toHaveTextContent('[compress]');

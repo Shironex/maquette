@@ -24,7 +24,7 @@ async function open() {
     undefined,
     'running'
   );
-  await usePageStore.getState().open('moon-island');
+  await usePageStore.getState().open('frostveil');
   await vi.waitFor(() => expect(usePageStore.getState().inspect).not.toBeNull());
   act(() => usePageStore.getState().setDevice('phone'));
 }
@@ -35,7 +35,7 @@ describe('the device verdict', () => {
     render(<DeviceVerdict />);
     expect(screen.getByRole('heading', { name: 'Phone verdict' })).toBeVisible();
     expect(screen.getByText('33 ms, 30 fps')).toBeVisible();
-    expect(screen.getByText('Character is new')).toBeVisible();
+    expect(screen.getByText('Elsheria is new')).toBeVisible();
   });
 
   it('says when the page runs over the budget', async () => {

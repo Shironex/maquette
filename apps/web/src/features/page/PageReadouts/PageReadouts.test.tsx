@@ -23,7 +23,7 @@ describe('the page readouts', () => {
       undefined,
       'running'
     );
-    await usePageStore.getState().open('moon-island');
+    await usePageStore.getState().open('frostveil');
     await vi.waitFor(() => expect(usePageStore.getState().inspect).not.toBeNull());
     render(<PageReadouts />);
     expect(screen.getByText('not sent')).toBeVisible();
@@ -40,7 +40,7 @@ describe('the page readouts', () => {
       onMessage('main', {
         source: 'site',
         type: 'ready',
-        stops: [{ name: 'Porch' }, { name: 'Sakura' }],
+        stops: [{ name: 'Arrival' }, { name: 'Veil gate' }],
         features: [],
       });
       onMessage('main', { source: 'site', type: 'at', stop: 1, scroll: null });
@@ -66,7 +66,7 @@ describe('the page readouts', () => {
       onMessage('main', {
         source: 'shim',
         type: 'ready',
-        stops: [{ name: 'Porch' }],
+        stops: [{ name: 'Arrival' }],
         features: [],
       });
       onMessage('main', { source: 'shim', type: 'at', stop: 0, scroll: null });

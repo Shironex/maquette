@@ -8,8 +8,8 @@ import { useLabStore } from '@/state/use-lab-store';
 import { Composer } from '.';
 
 const view: LabView = {
-  project: 'moon-island',
-  projectDir: '/w/moon-island',
+  project: 'frostveil',
+  projectDir: '/w/frostveil',
   directions: labDirections(false),
   jobs: [],
   refs: labRefs(),
@@ -40,7 +40,7 @@ describe('the composer', () => {
   });
 
   it('adds to an earlier direction with the same name', () => {
-    act(() => useLabStore.getState().setDraft({ name: 'Late train' }));
+    act(() => useLabStore.getState().setDraft({ name: 'Veil gate kit' }));
     render(<Composer view={view} />);
     expect(screen.getByRole('heading', { name: 'Add to direction' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'New' })).toBeVisible();

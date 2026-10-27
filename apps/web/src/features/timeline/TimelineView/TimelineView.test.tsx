@@ -19,10 +19,12 @@ describe('the timeline view', () => {
     render(<TimelineView preview={<p>The page</p>} />);
     expect(await screen.findByRole('heading', { name: 'Scroll timeline' })).toBeVisible();
     expect(screen.getByText('The page')).toBeVisible();
-    expect(screen.getByRole('button', { name: /^Camera stop 2, Sakura, at 25%$/ })).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: /^Camera stop 2, Veil gate, at 25%$/ })
+    ).toBeVisible();
     expect(screen.getByRole('group', { name: 'Switch cabinet states' })).toBeVisible();
     expect(screen.getByRole('group', { name: 'Switch cabinet explode' })).toBeVisible();
-    expect(screen.getByRole('group', { name: 'Lantern cable energize' })).toBeVisible();
+    expect(screen.getByRole('group', { name: 'Rune line energize' })).toBeVisible();
     expect(screen.getByText('Saved to layout.json as you go')).toBeVisible();
   });
 

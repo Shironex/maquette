@@ -194,11 +194,11 @@ export function toolReports(scenario: string): ToolReport[] {
 
 export {
   MOCK_PROJECT_IDS,
-  lanternKeeper,
+  elsheriaShowcase,
   mockProjects,
-  moonAssets,
-  moonIsland,
+  frostveilAssets,
+  frostveilProject,
   moreProjects,
-  rooftopCinema,
+  frostCathedral,
 } from './project-fixtures';
 export { DEFAULT_ROOT, HOME, SITE_REPO } from './mock-paths';

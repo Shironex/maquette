@@ -14,7 +14,7 @@ afterEach(() => {
 describe('the Pipeline view', () => {
   it('drops the log filter, Build only and Ignore the cache on a project switch', async () => {
     await openMockWorkspace();
-    await usePipelineStore.getState().load('moon-island');
+    await usePipelineStore.getState().load('frostveil');
     render(<PipelineView />);
     const filter = screen.getByRole('combobox', { name: 'Show the log of' }) as HTMLSelectElement;
     const step = usePipelineStore.getState().view!.def.steps.at(-1)!;
@@ -24,8 +24,8 @@ describe('the Pipeline view', () => {
     expect(filter.value).toBe(step.id);
 
     await act(async () => {
-      await useProjectsStore.getState().switchTo('rooftop-cinema');
-      await usePipelineStore.getState().load('rooftop-cinema');
+      await useProjectsStore.getState().switchTo('frost-cathedral');
+      await usePipelineStore.getState().load('frost-cathedral');
     });
     expect(
       (screen.getByRole('combobox', { name: 'Show the log of' }) as HTMLSelectElement).value

@@ -275,7 +275,7 @@ export function removeEnergize(draft: PathsDraft, id: string): PathsDraft {
   return { ...draft, tracks };
 }
 
-/** "0% at Porch, 100% at Pullback", or what an unlit path does. */
+/** "0% at Arrival, 100% at Pullback", or what an unlit path does. */
 export function energizeLine(track: PathTrack | undefined, stops: readonly LayoutStop[]): string {
   const keys = (track?.keys ?? [])
     .map(k => ({ ...k, at: stops.findIndex(s => s.id === k.stop) }))

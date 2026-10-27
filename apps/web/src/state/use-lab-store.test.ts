@@ -20,34 +20,34 @@ const picked = (id: string) =>
 describe('the picks after a send', () => {
   it('drop their marks once they reached Refs', async () => {
     await openMockWorkspace();
-    await useLabStore.getState().load('moon-island');
-    useLabStore.setState({ selected: 'moon-island-porch' });
-    expect(picked('moon-island-porch')).toHaveLength(1);
+    await useLabStore.getState().load('frostveil');
+    useLabStore.setState({ selected: 'frozen-lake-arena' });
+    expect(picked('frozen-lake-arena')).toHaveLength(1);
 
     const id = await useLabStore.getState().sendPicks('prop', true);
     expect(id).toBeTruthy();
-    expect(picked('moon-island-porch')).toEqual([]);
+    expect(picked('frozen-lake-arena')).toEqual([]);
     // The send is remembered on the image, not by the mark.
     const sent = useLabStore
       .getState()
-      .view?.directions.find(d => d.id === 'moon-island-porch')
+      .view?.directions.find(d => d.id === 'frozen-lake-arena')
       ?.images.filter(i => i.refFile);
     expect(sent).toHaveLength(1);
   });
 
   it('keep their marks when the send failed', async () => {
     await openMockWorkspace();
-    await useLabStore.getState().load('moon-island');
-    useLabStore.setState({ selected: 'late-train' });
+    await useLabStore.getState().load('frostveil');
+    useLabStore.setState({ selected: 'veil-gate-kit' });
     // Nothing is picked there, so the send is refused.
     expect(await useLabStore.getState().sendPicks('prop', true)).toBeNull();
-    useLabStore.setState({ selected: 'moon-island-porch' });
-    expect(picked('moon-island-porch')).toHaveLength(1);
+    useLabStore.setState({ selected: 'frozen-lake-arena' });
+    expect(picked('frozen-lake-arena')).toHaveLength(1);
   });
 
   it('drop the marks of an objects direction after its send', async () => {
     await openMockWorkspace('configured', undefined, 'batch');
-    await useLabStore.getState().load('moon-island');
+    await useLabStore.getState().load('frostveil');
     const objects = useLabStore.getState().view!.directions.find(d => d.source);
     expect(objects).toBeTruthy();
     useLabStore.setState({ selected: objects!.id });
@@ -60,45 +60,45 @@ describe('the picks after a send', () => {
 
   it('leave the picks of a direction chosen while the send ran', async () => {
     await openMockWorkspace();
-    await useLabStore.getState().load('moon-island');
-    useLabStore.setState({ selected: 'moon-island-porch' });
+    await useLabStore.getState().load('frostveil');
+    useLabStore.setState({ selected: 'frozen-lake-arena' });
     const sending = useLabStore.getState().sendPicks('prop', true);
-    useLabStore.getState().select('maquette-landing-studio');
+    useLabStore.getState().select('academy-landing');
     expect(await sending).toBeTruthy();
-    expect(picked('moon-island-porch')).toEqual([]);
-    expect(picked('maquette-landing-studio')).toHaveLength(1);
+    expect(picked('frozen-lake-arena')).toEqual([]);
+    expect(picked('academy-landing')).toHaveLength(1);
   });
 });
 
 describe('Make object refs and a project switch', () => {
   const source = {
-    project: 'moon-island',
-    source: 'concepts/moon-island-porch/moon-island-porch_01.png',
-    sourcePath: '/x/moon-island-porch_01.png',
-    sourceName: 'Moon island porch',
+    project: 'frostveil',
+    source: 'concepts/frozen-lake-arena/frozen-lake-arena_01.png',
+    sourcePath: '/x/frozen-lake-arena_01.png',
+    sourceName: 'Frozen lake arena',
   };
 
   it('closes with the project it was opened in', async () => {
     await openMockWorkspace();
-    await useLabStore.getState().load('moon-island');
+    await useLabStore.getState().load('frostveil');
     useLabStore.getState().openObjects(source);
     useLabStore.getState().setObjects({ objects: ['Bench'] });
-    expect(await useProjectsStore.getState().switchTo('rooftop-cinema')).toBe(true);
-    await useLabStore.getState().load('rooftop-cinema');
+    expect(await useProjectsStore.getState().switchTo('frost-cathedral')).toBe(true);
+    await useLabStore.getState().load('frost-cathedral');
     expect(useLabStore.getState().objects).toBeNull();
   });
 
   it('keeps the lab on the open project when the answer is for another', async () => {
     await openMockWorkspace();
-    await useProjectsStore.getState().switchTo('rooftop-cinema');
-    await useLabStore.getState().load('rooftop-cinema');
-    expect(useAppStore.getState().workspace?.project?.id).toBe('rooftop-cinema');
-    // Opened for Moon Island just before the switch landed.
+    await useProjectsStore.getState().switchTo('frost-cathedral');
+    await useLabStore.getState().load('frost-cathedral');
+    expect(useAppStore.getState().workspace?.project?.id).toBe('frost-cathedral');
+    // Opened for Frostveil just before the switch landed.
     useLabStore.setState({
       objects: { ...source, objects: ['Bench'], notes: {}, aspect: '1:1', kind: 'prop' },
     });
     expect(await useLabStore.getState().makeObjects()).toBe(true);
-    expect(useLabStore.getState().view?.project).toBe('rooftop-cinema');
+    expect(useLabStore.getState().view?.project).toBe('frost-cathedral');
     expect(useLabStore.getState().objects).toBeNull();
   });
 });
@@ -110,13 +110,13 @@ describe('lab answers after a project switch', () => {
       if (cmd === 'lab_import_refs') await new Promise(r => setTimeout(r, 20));
       return handle(cmd, (args ?? {}) as Record<string, unknown>);
     });
-    await useLabStore.getState().load('moon-island');
+    await useLabStore.getState().load('frostveil');
     const adding = useLabStore.getState().addRefs(['/Users/me/Desktop/porch-sketch.png']);
-    await useProjectsStore.getState().switchTo('rooftop-cinema');
-    await useLabStore.getState().load('rooftop-cinema');
+    await useProjectsStore.getState().switchTo('frost-cathedral');
+    await useLabStore.getState().load('frost-cathedral');
     const refs = useLabStore.getState().draft.refs;
     await adding;
-    expect(useLabStore.getState().view?.project).toBe('rooftop-cinema');
+    expect(useLabStore.getState().view?.project).toBe('frost-cathedral');
     expect(useLabStore.getState().draft.refs).toEqual(refs);
   });
 });

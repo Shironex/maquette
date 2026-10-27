@@ -3,7 +3,7 @@ import { errorMessage } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
 import { useLibraryStore, type AssetRef } from '@/state/use-library-store';
 
-/** Splits "props, Desk lamp" into tags; the core lowercases and trims them again. */
+/** Splits "props, Lantern post" into tags; the core lowercases and trims them again. */
 export function parseTags(text: string): string[] {
   return text
     .split(',')

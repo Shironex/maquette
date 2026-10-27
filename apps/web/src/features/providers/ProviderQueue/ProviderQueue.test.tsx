@@ -16,7 +16,7 @@ describe('the 3D queue', () => {
     const { sent } = await openProviders();
     render(<ProviderQueue onClose={() => {}} />);
     const queue = screen.getByRole('region', { name: '3D queue' });
-    expect(within(queue).getByText('Sakura')).toBeInTheDocument();
+    expect(within(queue).getByText('Veil gate')).toBeInTheDocument();
     await userEvent.click(within(queue).getByRole('button', { name: 'Clear finished' }));
     expect(sent('provider_clear_finished')).toHaveLength(1);
   });

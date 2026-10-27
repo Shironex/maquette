@@ -28,10 +28,10 @@ describe('the timeline ruler', () => {
     await openTimeline();
     render(<TimelineRuler />);
     const slider = screen.getByRole('slider', { name: 'Playhead' });
-    expect(slider).toHaveAttribute('aria-valuetext', '0%, at Porch');
+    expect(slider).toHaveAttribute('aria-valuetext', '0%, at Arrival');
     fireEvent.keyDown(slider, { key: 'End' });
     expect(usePageStore.getState().target).toBe(4);
-    await userEvent.click(screen.getByRole('button', { name: /^Camera stop 3, Shrubs/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Camera stop 3, Crystals/ }));
     expect(usePageStore.getState().target).toBe(2);
     expect(usePageStore.getState().smooth).toBe(true);
   });

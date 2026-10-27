@@ -17,7 +17,7 @@ async function open(page?: string) {
     undefined,
     page
   );
-  await usePageStore.getState().open('moon-island');
+  await usePageStore.getState().open('frostveil');
 }
 
 /** Lets the mock server answer, then reads the view again as an event would. */
@@ -55,22 +55,22 @@ describe('usePageStore', () => {
     await open();
     await settle();
     vi.useFakeTimers();
-    usePageStore.getState().close('moon-island');
+    usePageStore.getState().close('frostveil');
     await vi.advanceTimersByTimeAsync(500);
     vi.useRealTimers();
-    expect((await commands.pageGet('moon-island')).server.state).toBe('idle');
+    expect((await commands.pageGet('frostveil')).server.state).toBe('idle');
   });
 
   it('keeps the server when the view comes back quickly', async () => {
     await open();
     await settle();
     vi.useFakeTimers();
-    usePageStore.getState().close('moon-island');
+    usePageStore.getState().close('frostveil');
     await vi.advanceTimersByTimeAsync(100);
-    await usePageStore.getState().open('moon-island');
+    await usePageStore.getState().open('frostveil');
     await vi.advanceTimersByTimeAsync(1000);
     vi.useRealTimers();
-    expect((await commands.pageGet('moon-island')).server.state).toBe('running');
+    expect((await commands.pageGet('frostveil')).server.state).toBe('running');
   });
 
   it('says why a failed server stopped', async () => {
@@ -106,12 +106,17 @@ describe('usePageStore', () => {
   it('keeps what each frame reports', async () => {
     await open();
     const { onMessage, forgetFrame } = usePageStore.getState();
-    onMessage('main', { source: 'site', type: 'ready', stops: [{ name: 'Porch' }], features: [] });
+    onMessage('main', {
+      source: 'site',
+      type: 'ready',
+      stops: [{ name: 'Arrival' }],
+      features: [],
+    });
     onMessage('main', { source: 'site', type: 'at', stop: 0.5, scroll: { top: 400, max: 3200 } });
     onMessage('main', { source: 'site', type: 'stats', frameMs: 9.4, p95Ms: 12.1, drawCalls: 86 });
     expect(usePageStore.getState().readings.main).toEqual({
       source: 'site',
-      stops: [{ name: 'Porch' }],
+      stops: [{ name: 'Arrival' }],
       at: 0.5,
       scroll: { top: 400, max: 3200 },
       stats: { frameMs: 9.4, p95Ms: 12.1, drawCalls: 86 },
@@ -123,7 +128,7 @@ describe('usePageStore', () => {
   it("takes the site's own bridge over Maquette's shim once it answers", async () => {
     await open();
     const { onMessage } = usePageStore.getState();
-    const stops = [{ name: 'Porch' }, { name: 'Sakura' }];
+    const stops = [{ name: 'Arrival' }, { name: 'Veil gate' }];
     onMessage('main', { source: 'shim', type: 'ready', stops, features: [] });
     onMessage('main', { source: 'shim', type: 'stats', frameMs: 16.7, p95Ms: 18, drawCalls: null });
     expect(usePageStore.getState().readings.main?.source).toBe('shim');
@@ -142,8 +147,8 @@ describe('usePageStore', () => {
     await open();
     await settle();
     const view = usePageStore.getState().view!;
-    usePageStore.getState().onServer({ ...view.server, project: 'lantern-keeper' });
-    expect(usePageStore.getState().view?.busyWith).toBe('lantern-keeper');
+    usePageStore.getState().onServer({ ...view.server, project: 'elsheria-showcase' });
+    expect(usePageStore.getState().view?.busyWith).toBe('elsheria-showcase');
     expect(usePageStore.getState().view?.server.state).toBe('idle');
     usePageStore.getState().onServer({ ...view.server, state: 'idle', project: null });
     expect(usePageStore.getState().view?.busyWith).toBeNull();

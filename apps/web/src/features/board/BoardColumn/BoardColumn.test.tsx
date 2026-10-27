@@ -21,14 +21,14 @@ describe('BoardColumn', () => {
     render(
       <BoardColumn
         stage="blender"
-        assets={[mockAsset('Character'), mockAsset('Vending machine')]}
+        assets={[mockAsset('Elsheria'), mockAsset('Crystal lantern')]}
         boardEmpty={false}
         board={fakeBoardEnv()}
       />
     );
     const column = screen.getByRole('region', { name: 'Blender, 2 assets' });
-    expect(column).toHaveTextContent('Character');
-    expect(column).toHaveTextContent('Vending machine');
+    expect(column).toHaveTextContent('Elsheria');
+    expect(column).toHaveTextContent('Crystal lantern');
     expect(screen.queryByText('Drag an asset here')).toBeNull();
   });
 
@@ -48,10 +48,10 @@ describe('BoardColumn', () => {
     const board = fakeBoardEnv();
     render(<BoardColumn stage="web" assets={[]} boardEmpty={false} board={board} />);
     const column = screen.getByRole('region', { name: 'Web, 0 assets' });
-    fireEvent.dragOver(column, { dataTransfer: dragData('character') });
+    fireEvent.dragOver(column, { dataTransfer: dragData('elsheria') });
     expect(column).toHaveClass('border-clay-line');
-    fireEvent.drop(column, { dataTransfer: dragData('character') });
+    fireEvent.drop(column, { dataTransfer: dragData('elsheria') });
     expect(column).not.toHaveClass('border-clay-line');
-    expect(board.actions.dropOn).toHaveBeenCalledWith('web', 'character');
+    expect(board.actions.dropOn).toHaveBeenCalledWith('web', 'elsheria');
   });
 });

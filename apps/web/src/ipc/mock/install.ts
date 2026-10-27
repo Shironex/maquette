@@ -36,8 +36,13 @@ const concepts = import.meta.glob<string>('../../assets/mock/concepts/*.webp', {
   eager: true,
   import: 'default',
 });
+// The landing page hero the mock site shows at its first stop.
+const site = import.meta.glob<string>('../../assets/mock/site/*.webp', {
+  eager: true,
+  import: 'default',
+});
 const base = (path: string) => path.slice(path.lastIndexOf('/') + 1);
-const projectDir = `${root}/projects/moon-island`;
+const projectDir = `${root}/projects/frostveil`;
 const conceptUrl = (name: string) => concepts[`../../assets/mock/concepts/${name}`];
 for (const [file, name] of Object.entries(conceptFiles())) {
   const url = conceptUrl(name);
@@ -77,23 +82,23 @@ for (const [file, model] of Object.entries({
   ...motionFiles(motion),
 })) {
   const url = models[`../../assets/mock/models/${model}`];
-  if (url) registerMockFile(`${root}/projects/moon-island/${file}`, url);
+  if (url) registerMockFile(`${root}/projects/frostveil/${file}`, url);
 }
-// `?motion=still` puts its prop in Rooftop cinema.
+// `?motion=still` puts its prop in Frost cathedral.
 for (const [file, model] of Object.entries(motion === 'still' ? motionFiles(motion) : {})) {
   const url = models[`../../assets/mock/models/${model}`];
-  if (url) registerMockFile(`${root}/projects/rooftop-cinema/${file}`, url);
+  if (url) registerMockFile(`${root}/projects/frost-cathedral/${file}`, url);
 }
 
 // The Page view's dev server and page concept, as pages of their own.
 const absolute = (url: string | undefined) => new URL(url ?? '', window.location.href).href;
 const htmlUrl = (html: string) => URL.createObjectURL(new Blob([html], { type: 'text/html' }));
 const stopPictures = [
-  conceptUrl('moon-island-a.webp'),
-  renders['../../assets/mock/sakura-large.webp'],
-  renders['../../assets/mock/flower-shrubs.webp'],
-  conceptUrl('moon-island-b.webp'),
-  renders['../../assets/mock/island.webp'],
+  site['../../assets/mock/site/hero.webp'],
+  conceptUrl('frozen-lake-a.webp'),
+  conceptUrl('frozen-lake-f.webp'),
+  conceptUrl('frozen-lake-c.webp'),
+  conceptUrl('frozen-lake-d.webp'),
 ].map(absolute);
 const tour = params.get('page') === 'stops-10' ? MANY_STOPS : undefined;
 // `?page=shim`: a site without the bridge, carrying the shim the frame proxy adds.

@@ -44,7 +44,7 @@ describe('the motion store', () => {
   it('holds the draft when the layout changes under it', async () => {
     await openMotion();
     useMotionStore.getState().setShip('clay-figure', 'Wave', false);
-    await useMotionStore.getState().onChanged('moon-island');
+    await useMotionStore.getState().onChanged('frostveil');
     expect(useMotionStore.getState().outside).toBe(true);
   });
 

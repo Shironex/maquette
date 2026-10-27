@@ -40,12 +40,12 @@ describe('the sync conflict warning', () => {
     render(<SyncConflictBanner />);
     const banner = await screen.findByRole('status');
     expect(banner).toHaveTextContent('Syncthing kept 2 conflict copies of Maquette files');
-    expect(banner).toHaveTextContent('projects/moon-island/project.json has a copy');
+    expect(banner).toHaveTextContent('projects/frostveil/project.json has a copy');
     expect(banner).toHaveTextContent('maquette.json has a copy');
     const shows = screen.getAllByRole('button', { name: 'Reveal copy in Finder' });
     await userEvent.click(shows[0]!);
     expect(revealed).toEqual([
-      'projects/moon-island/project.sync-conflict-20261027-101500-PCSTUDIO.json',
+      'projects/frostveil/project.sync-conflict-20261027-101500-PCSTUDIO.json',
     ]);
     await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(screen.queryByRole('status')).toBeNull();

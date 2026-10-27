@@ -25,7 +25,7 @@ async function setup(fail?: (cmd: string) => boolean) {
     if (fail?.(cmd)) mockFail('io', 'The disk is full.');
     return handle(cmd, (args ?? {}) as Record<string, unknown>);
   });
-  await useMaterialsStore.getState().load('moon-island');
+  await useMaterialsStore.getState().load('frostveil');
   return calls;
 }
 
@@ -33,76 +33,78 @@ describe('the material tweaks store', () => {
   it('keeps edits per project until Apply saves them', async () => {
     const calls = await setup();
     const store = useMaterialsStore.getState();
-    store.setLook('moon-island', 'sakura', tinted('#FFC0CB'));
-    expect(Object.keys(useMaterialsStore.getState().edits)).toEqual(['moon-island']);
+    store.setLook('frostveil', 'veil-gate', tinted('#FFC0CB'));
+    expect(Object.keys(useMaterialsStore.getState().edits)).toEqual(['frostveil']);
 
-    expect(await useMaterialsStore.getState().apply('moon-island')).toBe(true);
+    expect(await useMaterialsStore.getState().apply('frostveil')).toBe(true);
     expect(calls).toContain('materials_save');
     expect(useMaterialsStore.getState().edits).toEqual({});
-    expect(useMaterialsStore.getState().saved['moon-island']?.models.sakura).toEqual(
+    expect(useMaterialsStore.getState().saved['frostveil']?.models['veil-gate']).toEqual(
       tinted('#ffc0cb')
     );
-    expect((await commands.materialsGet('moon-island')).models.sakura?.all.tint).toBe('#ffc0cb');
+    expect((await commands.materialsGet('frostveil')).models['veil-gate']?.all.tint).toBe(
+      '#ffc0cb'
+    );
   });
 
   it('Reset drops the edit, and an edit back at the saved look is none', async () => {
     await setup();
     const store = useMaterialsStore.getState();
-    store.setLook('moon-island', 'sakura', tinted('#ff0000'));
-    store.reset('moon-island', 'sakura');
+    store.setLook('frostveil', 'veil-gate', tinted('#ff0000'));
+    store.reset('frostveil', 'veil-gate');
     expect(useMaterialsStore.getState().edits).toEqual({});
-    store.setLook('moon-island', 'sakura', emptyLook());
+    store.setLook('frostveil', 'veil-gate', emptyLook());
     expect(useMaterialsStore.getState().edits).toEqual({});
   });
 
   it('drops an edit an agent already saved when it loads again', async () => {
     await setup();
-    useMaterialsStore.getState().setLook('moon-island', 'sakura', tinted('#00ff00'));
-    await commands.materialsSave('moon-island', { sakura: tinted('#00ff00') });
-    await useMaterialsStore.getState().load('moon-island');
+    useMaterialsStore.getState().setLook('frostveil', 'veil-gate', tinted('#00ff00'));
+    await commands.materialsSave('frostveil', { 'veil-gate': tinted('#00ff00') });
+    await useMaterialsStore.getState().load('frostveil');
     expect(useMaterialsStore.getState().edits).toEqual({});
   });
 
   it('keeps the edits and says why when the save fails', async () => {
     await setup(cmd => cmd === 'materials_save');
-    useMaterialsStore.getState().setLook('moon-island', 'sakura', tinted('#00ff00'));
-    expect(await useMaterialsStore.getState().apply('moon-island')).toBe(false);
-    expect(Object.keys(useMaterialsStore.getState().edits)).toEqual(['moon-island']);
+    useMaterialsStore.getState().setLook('frostveil', 'veil-gate', tinted('#00ff00'));
+    expect(await useMaterialsStore.getState().apply('frostveil')).toBe(false);
+    expect(Object.keys(useMaterialsStore.getState().edits)).toEqual(['frostveil']);
     expect(useAppStore.getState().notice?.title).toBe('Material tweaks not saved');
-    expect(await useMaterialsStore.getState().applyAll()).toMatch(/Moon Island: The disk is full/);
+    expect(await useMaterialsStore.getState().applyAll()).toMatch(/Frostveil: The disk is full/);
   });
 
   it('refuses a value out of range like the core does', async () => {
     await setup();
     const bad = { ...emptyLook(), all: { ...emptyLook().all, metalness: 3 } };
-    await expect(commands.materialsSave('moon-island', { sakura: bad })).rejects.toMatchObject({
+    await expect(commands.materialsSave('frostveil', { 'veil-gate': bad })).rejects.toMatchObject({
       message: expect.stringMatching(/metalness/),
     });
   });
 
   it('Apply sends only the edited looks, so an unloaded file keeps the other assets', async () => {
     await setup();
-    await commands.materialsSave('moon-island', { hut: tinted('#123456') });
+    await commands.materialsSave('frostveil', { hut: tinted('#123456') });
     // As if the load never finished or failed: nothing saved is known.
     useMaterialsStore.setState({ saved: {} });
-    useMaterialsStore.getState().setLook('moon-island', 'sakura', tinted('#00ff00'));
-    expect(await useMaterialsStore.getState().apply('moon-island')).toBe(true);
-    const stored = await commands.materialsGet('moon-island');
+    useMaterialsStore.getState().setLook('frostveil', 'veil-gate', tinted('#00ff00'));
+    expect(await useMaterialsStore.getState().apply('frostveil')).toBe(true);
+    const stored = await commands.materialsGet('frostveil');
     expect(stored.models.hut?.all.tint).toBe('#123456');
-    expect(stored.models.sakura?.all.tint).toBe('#00ff00');
-    expect(useMaterialsStore.getState().saved['moon-island']).toEqual(stored);
+    expect(stored.models['veil-gate']?.all.tint).toBe('#00ff00');
+    expect(useMaterialsStore.getState().saved['frostveil']).toEqual(stored);
   });
 
   it('drops what is saved and the edits when another workspace opens', async () => {
     await setup();
     const store = useMaterialsStore.getState();
     store.setRoot('/work/one');
-    await useMaterialsStore.getState().load('moon-island');
-    useMaterialsStore.getState().setLook('moon-island', 'sakura', tinted('#00ff00'));
+    await useMaterialsStore.getState().load('frostveil');
+    useMaterialsStore.getState().setLook('frostveil', 'veil-gate', tinted('#00ff00'));
     useMaterialsStore.getState().setRoot('/work/one');
-    expect(Object.keys(useMaterialsStore.getState().edits)).toEqual(['moon-island']);
+    expect(Object.keys(useMaterialsStore.getState().edits)).toEqual(['frostveil']);
 
-    const late = useMaterialsStore.getState().load('moon-island');
+    const late = useMaterialsStore.getState().load('frostveil');
     useMaterialsStore.getState().setRoot('/work/two');
     await late;
     expect(useMaterialsStore.getState().edits).toEqual({});
@@ -111,8 +113,8 @@ describe('the material tweaks store', () => {
 
   it('remembers why the saved tweaks did not load', async () => {
     await setup(cmd => cmd === 'materials_get');
-    await useMaterialsStore.getState().load('moon-island');
-    expect(useMaterialsStore.getState().failed['moon-island']).toBe('The disk is full.');
-    expect(useMaterialsStore.getState().saved['moon-island']).toBeUndefined();
+    await useMaterialsStore.getState().load('frostveil');
+    expect(useMaterialsStore.getState().failed['frostveil']).toBe('The disk is full.');
+    expect(useMaterialsStore.getState().saved['frostveil']).toBeUndefined();
   });
 });

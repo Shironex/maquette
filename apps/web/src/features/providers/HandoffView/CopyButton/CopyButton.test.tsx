@@ -9,9 +9,9 @@ afterEach(() => useAppStore.setState({ notice: null }));
 describe('a copy button', () => {
   it('copies its text and says what was copied', async () => {
     const user = userEvent.setup();
-    render(<CopyButton text="lanterns-1.glb" what="The file name" />);
+    render(<CopyButton text="guardian-statues-1.glb" what="The file name" />);
     await user.click(screen.getByRole('button', { name: 'Copy The file name' }));
-    expect(await navigator.clipboard.readText()).toBe('lanterns-1.glb');
+    expect(await navigator.clipboard.readText()).toBe('guardian-statues-1.glb');
     expect(useAppStore.getState().notice?.title).toBe('The file name copied');
   });
 });

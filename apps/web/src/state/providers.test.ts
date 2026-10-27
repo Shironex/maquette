@@ -17,14 +17,14 @@ import {
 } from './providers';
 
 const job = (patch: Partial<ProviderJob>): ProviderJob => ({
-  id: 'sakura-1',
-  project: 'moon-island',
-  asset: 'sakura',
-  assetName: 'Sakura',
+  id: 'veil-gate-1',
+  project: 'frostveil',
+  asset: 'veil-gate',
+  assetName: 'Veil gate',
   provider: 'tripo',
   service: 'tripo',
   variant: 'prop',
-  images: ['refs/sakura_front.png'],
+  images: ['refs/veil_gate_front.png'],
   tripo: null,
   meshy: null,
   state: 'running',
@@ -82,11 +82,11 @@ describe('provider jobs', () => {
   });
 
   it('puts active jobs first and finds the newest per asset', () => {
-    const done = job({ id: 'sakura-1', state: 'inbox', createdAtMs: 5 });
-    const running = job({ id: 'sakura-2', createdAtMs: 1 });
-    expect(sortJobs([done, running]).map(j => j.id)).toEqual(['sakura-2', 'sakura-1']);
-    expect(latestJob([done, running], 'sakura')?.id).toBe('sakura-1');
-    expect(latestJob([done], 'lanterns')).toBeUndefined();
+    const done = job({ id: 'veil-gate-1', state: 'inbox', createdAtMs: 5 });
+    const running = job({ id: 'veil-gate-2', createdAtMs: 1 });
+    expect(sortJobs([done, running]).map(j => j.id)).toEqual(['veil-gate-2', 'veil-gate-1']);
+    expect(latestJob([done, running], 'veil-gate')?.id).toBe('veil-gate-1');
+    expect(latestJob([done], 'guardian-statues')).toBeUndefined();
   });
 });
 

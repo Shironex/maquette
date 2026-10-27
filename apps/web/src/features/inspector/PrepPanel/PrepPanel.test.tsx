@@ -6,12 +6,12 @@ import { usePrepareStore } from '@/state/use-prepare-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import PrepPanel from './PrepPanel';
 
-let character: InspectModel;
+let elsheria: InspectModel;
 
 beforeEach(async () => {
   await openMockWorkspace();
-  const view = await commands.inspectProject('moon-island');
-  character = view.models.find(m => m.model === 'character')!;
+  const view = await commands.inspectProject('frostveil');
+  elsheria = view.models.find(m => m.model === 'elsheria')!;
 });
 afterEach(() => {
   clearMocks();
@@ -20,12 +20,12 @@ afterEach(() => {
 
 describe('the real size panel', () => {
   it('saves a fix-up at once and previews it on the newest version', async () => {
-    render(<PrepPanel project="moon-island" model={character} />);
+    render(<PrepPanel project="frostveil" model={elsheria} />);
     const panel = await screen.findByRole('region', { name: 'Real size and fix-ups' });
     await within(panel).findByText(/Measured/);
     await userEvent.click(within(panel).getByRole('button', { name: 'Decimate' }));
     await waitFor(async () =>
-      expect((await commands.prepareGet('moon-island')).models.character?.fixups).toEqual([
+      expect((await commands.prepareGet('frostveil')).models.elsheria?.fixups).toEqual([
         { op: 'decimate', triangles: 60_000 },
       ])
     );

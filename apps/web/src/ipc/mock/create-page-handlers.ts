@@ -4,7 +4,7 @@
  *
  * `?page=` holds a state for screenshots: `starting` stays starting,
  * `failed` fails as a site without its packages does, `no-site` takes
- * Moon Island's site repo away, `stops-10` gives the page ten stops,
+ * Frostveil's site repo away, `stops-10` gives the page ten stops,
  * `shim` takes the page's bridge away and gives it the frame proxy's shim.
  * `framed` (with `&site=` and `&frame=`) runs at a real dev server that
  * forbids framing, behind a real frame proxy, both started by the visual
@@ -100,7 +100,7 @@ function startLog(command: string): string[] {
   return [
     `$ ${command}`,
     '',
-    '> moon-island-site@0.3.0 dev',
+    '> frostveil-site@0.3.0 dev',
     '> astro dev --port 4321',
     '',
     '  astro  v5.14.1 ready in 812 ms',
@@ -112,11 +112,11 @@ export const posterPath = (projectDir: string, stop: number) =>
   `${projectDir}/web/posters/stop${stop}.webp`;
 
 /**
- * The site's last ship (older builds of the same models, before the
- * character) and this run's stop posters.
+ * The site's last ship (older builds of the same models, before
+ * Elsheria) and this run's stop posters.
  */
 export function withShip(view: InspectView, siteRepo: string, projectDir: string): InspectView {
-  const older: Record<string, number> = { sakura: 1.27, flower_shrubs: 1.18 };
+  const older: Record<string, number> = { veil_gate: 1.27, ice_crystals: 1.18 };
   const site: InspectModel[] = view.models
     .filter(m => m.source === 'shipped' && older[m.model] !== undefined)
     .map(m => {
@@ -146,7 +146,7 @@ export function createPageHandlers(ctx: PageContext) {
 
   if (ctx.state === 'no-site') {
     try {
-      ctx.saveProject({ ...ctx.project('moon-island'), siteRepo: null });
+      ctx.saveProject({ ...ctx.project('frostveil'), siteRepo: null });
     } catch {
       // No workspace in this scenario.
     }
@@ -273,7 +273,7 @@ export function createPageHandlers(ctx: PageContext) {
     },
     dialog_pick_file: ({ title }) =>
       /html/i.test(String(title))
-        ? conceptPath(ctx.projectDir(String(ctx.project('moon-island').id)))
+        ? conceptPath(ctx.projectDir(String(ctx.project('frostveil').id)))
         : '/usr/local/bin/toktx',
   };
   /** With `?page=` the site holds the last ship, for the Page view's compare. */

@@ -41,7 +41,7 @@ export default function Composer({ view }: ComposerProps) {
         label="Direction name"
         value={draft.name}
         maxLength={60}
-        placeholder="Moon island porch"
+        placeholder="Frozen lake arena"
         onChange={e => setDraft({ name: e.target.value })}
       />
       <TextArea

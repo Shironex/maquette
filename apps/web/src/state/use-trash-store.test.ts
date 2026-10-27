@@ -6,7 +6,7 @@ import { useTrashStore } from './use-trash-store';
 
 beforeEach(async () => {
   await openMockWorkspace();
-  await useProvidersStore.getState().load('moon-island');
+  await useProvidersStore.getState().load('frostveil');
 });
 
 afterEach(() => {
@@ -20,32 +20,32 @@ const board = () => (useAppStore.getState().workspace?.project?.assets ?? []).ma
 
 describe('useTrashStore', () => {
   it('removes assets, stops their waiting sends and undoes it', async () => {
-    expect(board()).toContain('lanterns');
-    const done = await useTrashStore.getState().remove('moon-island', ['lanterns', 'nope']);
+    expect(board()).toContain('guardian-statues');
+    const done = await useTrashStore.getState().remove('frostveil', ['guardian-statues', 'nope']);
     expect(done.outcomes.map(o => o.state)).toEqual(['removed', 'not-found']);
-    expect(done.outcomes[0]?.stopped).toEqual(['lanterns-1']);
-    expect(board()).not.toContain('lanterns');
-    expect(useTrashStore.getState().entries.map(e => e.name)).toEqual(['Stone lanterns']);
+    expect(done.outcomes[0]?.stopped).toEqual(['guardian-statues-1']);
+    expect(board()).not.toContain('guardian-statues');
+    expect(useTrashStore.getState().entries.map(e => e.name)).toEqual(['Guardian statues']);
     const notice = useAppStore.getState().notice;
-    expect(notice?.title).toBe('Removed Stone lanterns');
+    expect(notice?.title).toBe('Removed Guardian statues');
     expect(notice?.detail).toContain('1 was already gone.');
     await waitForStoppedSend();
 
     notice?.action?.run();
-    await vi.waitFor(() => expect(board()).toContain('lanterns'));
+    await vi.waitFor(() => expect(board()).toContain('guardian-statues'));
     await vi.waitFor(() =>
-      expect(useAppStore.getState().notice?.title).toBe('Restored Stone lanterns')
+      expect(useAppStore.getState().notice?.title).toBe('Restored Guardian statues')
     );
     expect(useTrashStore.getState().entries).toEqual([]);
   });
 
   it('keeps an asset whose paid send is being made', async () => {
-    const done = await useTrashStore.getState().remove('moon-island', ['sakura']);
+    const done = await useTrashStore.getState().remove('frostveil', ['veil-gate']);
     expect(done.outcomes[0]?.state).toBe('refused');
-    expect(board()).toContain('sakura');
+    expect(board()).toContain('veil-gate');
     expect(useAppStore.getState().notice).toMatchObject({
       status: 'failed',
-      title: 'Could not remove Sakura',
+      title: 'Could not remove Veil gate',
     });
     expect(useAppStore.getState().notice?.action).toBeUndefined();
   });
@@ -54,7 +54,7 @@ describe('useTrashStore', () => {
 /** The stopped send shows as cancelled once the queue reloads. */
 async function waitForStoppedSend() {
   await vi.waitFor(() =>
-    expect(useProvidersStore.getState().jobs.find(j => j.id === 'lanterns-1')?.state).toBe(
+    expect(useProvidersStore.getState().jobs.find(j => j.id === 'guardian-statues-1')?.state).toBe(
       'cancelled'
     )
   );

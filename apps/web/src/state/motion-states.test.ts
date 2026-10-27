@@ -64,11 +64,18 @@ describe('object states', () => {
 
   it('describes triggers', () => {
     const stops = [
-      { id: 'porch', name: 'Porch', position: [0, 0, 0], target: [0, 0, 0], fov: 36, models: null },
+      {
+        id: 'arrival',
+        name: 'Arrival',
+        position: [0, 0, 0],
+        target: [0, 0, 0],
+        fov: 36,
+        models: null,
+      },
     ] as unknown as Parameters<typeof triggerText>[2];
     const o = cabinet();
     expect(triggerText(o, newTrigger('stop', 'door-open', stops), stops)).toEqual({
-      title: 'Camera stop 1, Porch',
+      title: 'Camera stop 1, Arrival',
       detail: 'Goes to Door open on arrival',
     });
     expect(triggerText(o, newTrigger('scroll', 'door-open', stops), stops).title).toBe(

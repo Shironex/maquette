@@ -29,15 +29,8 @@ import {
 } from './inspector';
 
 function view(): InspectView {
-  const p = pipelineView('moon-island', '/w/projects/moon-island', [], []);
-  return inspectView(
-    'moon-island',
-    '/w/projects/moon-island',
-    p.def.presets,
-    p.defaults,
-    3,
-    60_000
-  );
+  const p = pipelineView('frostveil', '/w/projects/frostveil', [], []);
+  return inspectView('frostveil', '/w/projects/frostveil', p.def.presets, p.defaults, 3, 60_000);
 }
 
 const texture = (over: Partial<TextureRow>): TextureRow => ({
@@ -57,11 +50,11 @@ describe('pickSides', () => {
     const pick = pickSides(v, null, null, null)!;
     expect(versusLabel(pick)).toBe('v6 vs v7');
     expect(sideModels(v, pick.right).map(m => m.model)).toEqual([
-      'sakura',
-      'flower_shrubs',
-      'flower_shrubs',
-      'flower_shrubs',
-      'character',
+      'veil_gate',
+      'ice_crystals',
+      'ice_crystals',
+      'ice_crystals',
+      'elsheria',
     ]);
     const swapped = pickSides(v, 'scene', 'scene/v7', 'scene/v6')!;
     expect(swapped.left?.id).toBe('scene/v7');
@@ -96,14 +89,14 @@ describe('the stats panel', () => {
     expect(textureLabel(color, [color, boxes])).toBe('Base color, Color');
     expect(textureLabel(texture({ uses: [], name: 'lightmap' }))).toBe('lightmap');
 
-    const character = view().models.find(m => m.model === 'character')!;
-    expect(modelSubtitle(character)).toBe('character.glb · 2 clips');
+    const character = view().models.find(m => m.model === 'elsheria')!;
+    expect(modelSubtitle(character)).toBe('elsheria.glb · 2 clips');
     const cards = statCards(character, 30_000);
     expect(cards.map(c => c.label)).toEqual(['Triangles', 'Textures', 'GPU memory', 'Transfer']);
-    expect(cards[0]).toMatchObject({ value: '39.6k', over: true });
-    expect(cards[3]!.value).toBe('1.5 MB');
-    expect(presetNote(character)).toMatch(/^Locked: Character stays on medium/);
-    const shrubs = view().models.find(m => m.model === 'flower_shrubs')!;
+    expect(cards[0]).toMatchObject({ value: '34.7k', over: true });
+    expect(cards[3]!.value).toBe('1.1 MB');
+    expect(presetNote(character)).toMatch(/^Locked: Elsheria stays on medium/);
+    const shrubs = view().models.find(m => m.model === 'ice_crystals')!;
     expect(presetNote(shrubs)).toMatch(/workspace defaults/);
   });
 
@@ -111,14 +104,14 @@ describe('the stats panel', () => {
     const v = view();
     const rows = budgetRows(v);
     expect(rows.map(r => [r.model, r.targetMb, r.over])).toEqual([
-      ['sakura', 1, false],
-      ['flower_shrubs', 1, false],
-      ['character', 1, true],
+      ['veil_gate', 1, false],
+      ['ice_crystals', 1, false],
+      ['elsheria', 1, true],
     ]);
-    expect(formatMb(rows[2]!.mb)).toBe('1.5');
+    expect(formatMb(rows[2]!.mb)).toBe('1.1');
     expect(formatMb(0.04)).toBe('0.04');
     const right = pickSides(v, null, null, null)!.right;
-    expect(modelForBudget(v, right, 'character')?.id).toBe('shipped/character');
+    expect(modelForBudget(v, right, 'elsheria')?.id).toBe('shipped/elsheria');
     expect(modelForBudget(v, right, 'nothing')).toBeNull();
   });
 
@@ -179,8 +172,8 @@ describe('camera stops', () => {
     const v = view();
     expect(stopsHelp(v)).toBe('From stops.json · click to fly');
     expect(
-      stopsHelp({ ...v, stops: { source: 'model-cameras', file: 'island.glb', stops: [] } })
-    ).toBe('From the cameras in island.glb · click to fly');
+      stopsHelp({ ...v, stops: { source: 'model-cameras', file: 'veil_platform.glb', stops: [] } })
+    ).toBe('From the cameras in veil_platform.glb · click to fly');
     expect(stopsHelp({ ...v, stops: { source: 'none', file: null, stops: [] } })).toBe(
       'No stops yet'
     );

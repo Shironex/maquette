@@ -18,8 +18,8 @@ describe('the library dialogs', () => {
     expect(screen.getByRole('dialog', { name: 'Add to library' })).toBeVisible();
     act(() => useLibraryStore.getState().closeAdd());
     await act(() =>
-      useLibraryStore.getState().openUpdate({ project: 'moon-island', asset: 'character' })
+      useLibraryStore.getState().openUpdate({ project: 'frostveil', asset: 'elsheria' })
     );
-    expect(screen.getByRole('dialog', { name: 'Update Character to library v3' })).toBeVisible();
+    expect(screen.getByRole('dialog', { name: 'Update Elsheria to library v3' })).toBeVisible();
   });
 });

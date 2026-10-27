@@ -10,8 +10,8 @@ let shop: LayoutModel;
 
 beforeEach(async () => {
   await openMockWorkspace();
-  await useLayoutStore.getState().load('moon-island');
-  shop = useLayoutStore.getState().view!.models.find(m => m.asset === 'shop-house')!;
+  await useLayoutStore.getState().load('frostveil');
+  shop = useLayoutStore.getState().view!.models.find(m => m.asset === 'observatory-arch')!;
 });
 afterEach(() => {
   clearMocks();
@@ -25,8 +25,8 @@ function details() {
 describe('the model details', () => {
   it('names the model with its size at its scale and how it was measured', () => {
     details();
-    expect(screen.getByText('Shop house')).toBeInTheDocument();
-    expect(screen.getByText(/190 × 80\.4 × 158 cm/)).toBeInTheDocument();
+    expect(screen.getByText('Observatory arch')).toBeInTheDocument();
+    expect(screen.getByText(/118 × 156 × 98\.4 cm/)).toBeInTheDocument();
     expect(screen.getByText('Uniform. Measured from the raw export.')).toBeInTheDocument();
     expect(screen.getByLabelText(/^Scale/)).toHaveValue('1.200');
   });
@@ -34,7 +34,7 @@ describe('the model details', () => {
   it('moves it and resets its turn and scale', async () => {
     const { rerender } = details();
     await userEvent.click(screen.getByRole('button', { name: 'Reset turn and scale' }));
-    expect(useLayoutStore.getState().draft.models['shop-house']).toMatchObject({
+    expect(useLayoutStore.getState().draft.models['observatory-arch']).toMatchObject({
       rotation: [0, 0, 0],
       scale: 1,
     });
@@ -42,12 +42,12 @@ describe('the model details', () => {
     const x = screen.getAllByLabelText('X')[0]!;
     await userEvent.clear(x);
     await userEvent.type(x, '-1{Enter}');
-    expect(useLayoutStore.getState().draft.models['shop-house']?.position[0]).toBe(-1);
+    expect(useLayoutStore.getState().draft.models['observatory-arch']?.position[0]).toBe(-1);
   });
 
   it('drops it onto the desk', async () => {
     details();
     await userEvent.click(screen.getByRole('button', { name: 'Drop to desk' }));
-    expect(useLayoutStore.getState().draft.models['shop-house']?.position[1]).toBeCloseTo(0);
+    expect(useLayoutStore.getState().draft.models['observatory-arch']?.position[1]).toBeCloseTo(0);
   });
 });

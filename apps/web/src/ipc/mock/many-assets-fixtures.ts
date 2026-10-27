@@ -8,7 +8,7 @@ const DAY = 86_400_000;
 const NAMES: Record<AssetKind, string[]> = {
   character: [
     'Hooded wanderer',
-    'Lantern keeper',
+    'Ice warden',
     'fox spirit',
     'Stone guardian',
     'tea house cat',
@@ -19,11 +19,11 @@ const NAMES: Record<AssetKind, string[]> = {
   prop: [
     'Brazier',
     'armillary sphere',
-    'Stone lanterns',
+    'Guardian statues',
     'bamboo fence',
     'Wooden bridge',
     'prayer wheel',
-    'Paper umbrella',
+    'Frost banner',
     'koi pond',
     'Shrine gate',
     'bronze bell',
@@ -38,10 +38,10 @@ const NAMES: Record<AssetKind, string[]> = {
     'Fishing net',
     'rope coil',
     'Clay jar',
-    'bonsai tree',
+    'frozen pine',
     'Straw hat',
     'iron kettle',
-    'Wall lantern',
+    'Wall sconce',
     'rice sack',
     'Stepping stones',
     'cherry branch',
@@ -56,7 +56,7 @@ const NAMES: Record<AssetKind, string[]> = {
     'Garden shears',
     'lotus pad',
   ],
-  scene: ['Island', 'courtyard', 'Harbour'],
+  scene: ['Platform', 'courtyard', 'Harbour'],
 };
 
 function slug(name: string): string {
@@ -119,7 +119,7 @@ export function wrapManyInspect(
   if (!inspect) return;
   all.inspect_project = args => {
     const found = inspect(args) as InspectView;
-    if (found.project !== 'moon-island') return found;
+    if (found.project !== 'frostveil') return found;
     const assets = (project(found.project).assets ?? []).filter(a => a.versions.length > 0);
     return { ...found, comparisons: [...found.comparisons, ...assets.map(assetComparison)] };
   };

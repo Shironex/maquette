@@ -11,7 +11,9 @@ describe('an explode lane', () => {
   it('shows the keys and the spread between them', async () => {
     await openTimeline();
     render(<ExplodeLane asset="switch-cabinet" />);
-    expect(screen.getByRole('button', { name: 'Switch cabinet together at Canopy' })).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Switch cabinet together at Keystone' })
+    ).toBeVisible();
     expect(screen.getByText('Spreads apart')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Switch cabinet apart at Pullback' }));
     expect(useTimelineStore.getState().selection).toEqual({
@@ -25,10 +27,10 @@ describe('an explode lane', () => {
     await openTimeline();
     render(<ExplodeLane asset="switch-cabinet" />);
     await userEvent.click(
-      screen.getByRole('button', { name: 'Key Switch cabinet explode at Shrubs' })
+      screen.getByRole('button', { name: 'Key Switch cabinet explode at Crystals' })
     );
     const keys = useTimelineStore.getState().draft.timeline.explode['switch-cabinet']?.keys;
-    expect(keys).toContainEqual({ stop: 'shrubs', amount: 1 });
+    expect(keys).toContainEqual({ stop: 'crystals', amount: 1 });
   });
 
   it('draws nothing for a model without a track', async () => {

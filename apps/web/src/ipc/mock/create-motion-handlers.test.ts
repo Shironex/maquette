@@ -19,7 +19,7 @@ describe('motion in mock mode', () => {
     expect(figure.clips.map(c => c.name)).toEqual(['Idle breathe', 'Walk loop', 'Wave']);
     expect(s.view!.budget.motionBytes).toBeGreaterThan(0);
     expect(s.view!.states['switch-cabinet']).toEqual(cabinetStates());
-    const saved = await commands.motionSave('moon-island', {}, { 'clay-figure': ['Wave'] });
+    const saved = await commands.motionSave('frostveil', {}, { 'clay-figure': ['Wave'] });
     expect(saved.states).toEqual({});
     expect(saved.clipsOff).toEqual({ 'clay-figure': ['Wave'] });
     expect(saved.clipsOffSupported).toBe(true);
@@ -27,6 +27,6 @@ describe('motion in mock mode', () => {
 
   it('tightens the scene budget for over', async () => {
     const s = await openMotion('over');
-    expect(s.view!.budget.sceneTargetMb).toBe(2.25);
+    expect(s.view!.budget.sceneTargetMb).toBe(2.06);
   });
 });

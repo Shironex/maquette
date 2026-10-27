@@ -23,7 +23,7 @@ describe('the project top bar', () => {
 
   it('runs the pipeline and opens the Pipeline view', async () => {
     await openMockWorkspace();
-    await usePipelineStore.getState().load('moon-island');
+    await usePipelineStore.getState().load('frostveil');
     useAppStore.setState({ view: 'board' });
     render(<ProjectTopBar />);
     const run = screen.getByRole('button', { name: 'Run pipeline' });

@@ -5,50 +5,60 @@ import { commands, type InspectModel } from '@/ipc/client';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import MapCodecRows from './MapCodecRows';
 
-let character: InspectModel;
+let elsheria: InspectModel;
+let gate: InspectModel;
 
 beforeEach(async () => {
   await openMockWorkspace();
-  const view = await commands.inspectProject('moon-island');
-  character = view.models.find(m => m.model === 'character')!;
+  const view = await commands.inspectProject('frostveil');
+  elsheria = view.models.find(m => m.model === 'elsheria')!;
+  gate = view.models.find(m => m.model === 'veil_gate')!;
 });
 afterEach(() => clearMocks());
 
 describe('the per map codec rows', () => {
   it("shows each group's codec and what its maps weigh as built", () => {
-    render(<MapCodecRows model={character} onCodec={vi.fn()} />);
-    // The character's row is locked, so its normal maps keep the row's ETC1S.
+    render(<MapCodecRows model={gate} onCodec={vi.fn()} />);
+    expect(screen.getByText('1 map, 190 KB ETC1S')).toBeInTheDocument();
+    expect(screen.getByText('1 map, 23 KB ETC1S')).toBeInTheDocument();
+    expect(screen.getByText('1 map, 39 KB ETC1S')).toBeInTheDocument();
+  });
+
+  it("keeps a locked row's normal maps on its codec, and says which maps a model lacks", () => {
+    render(<MapCodecRows model={elsheria} onCodec={vi.fn()} />);
+    // Elsheria's row is locked, so her normal maps keep the row's ETC1S.
     const normal = screen.getByRole('group', { name: 'Normal map codec' });
     expect(within(normal).getByRole('button', { name: 'ETC1S' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
-    expect(screen.getByText('2 maps, 772 KB ETC1S')).toBeInTheDocument();
-    expect(screen.getByText('1 map, 412 KB UASTC')).toBeInTheDocument();
-    expect(screen.getByText('none in this model')).toBeInTheDocument();
+    expect(screen.getByText('1 map, 225 KB ETC1S')).toBeInTheDocument();
+    expect(screen.getAllByText('none in this model')).toHaveLength(2);
   });
 
   it('marks a group whose built maps a run would change', () => {
-    const model = {
-      ...character,
-      preset: { ...character.preset, codecs: { ...character.preset.codecs, normal: 'etc1s' } },
-    } satisfies InspectModel;
-    render(<MapCodecRows model={model} onCodec={vi.fn()} />);
-    expect(screen.getByText('1 map, 412 KB UASTC')).toHaveAttribute(
+    // The gate's row is not locked, so its normal maps go to UASTC on the next run.
+    expect(gate.preset.codecs.normal).toBe('uastc');
+    render(<MapCodecRows model={gate} onCodec={vi.fn()} />);
+    expect(screen.getByText('1 map, 23 KB ETC1S')).toHaveAttribute(
       'title',
-      'Built as UASTC. Compress encodes them as ETC1S on the next run.'
+      'Built as ETC1S. Compress encodes them as UASTC on the next run.'
+    );
+    expect(screen.getByText('1 map, 190 KB ETC1S')).toHaveAttribute(
+      'title',
+      'Built as ETC1S, as chosen.'
     );
   });
 
   it('saves a group codec, and does nothing while the row is locked', async () => {
     const onCodec = vi.fn();
-    const { unmount } = render(<MapCodecRows model={character} onCodec={onCodec} />);
+    const { unmount } = render(<MapCodecRows model={gate} onCodec={onCodec} />);
     const normal = screen.getByRole('group', { name: 'Normal map codec' });
-    await userEvent.click(within(normal).getByRole('button', { name: 'UASTC' }));
-    expect(onCodec).toHaveBeenCalledWith('normal', 'uastc');
+    await userEvent.click(within(normal).getByRole('button', { name: 'ETC1S' }));
+    expect(onCodec).toHaveBeenCalledWith('normal', 'etc1s');
     unmount();
 
-    render(<MapCodecRows model={character} onCodec={null} />);
+    render(<MapCodecRows model={elsheria} onCodec={null} />);
     expect(screen.getByRole('group', { name: 'Color map codec' })).toHaveClass(
       'pointer-events-none'
     );

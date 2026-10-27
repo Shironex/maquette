@@ -13,9 +13,9 @@ afterEach(() => {
 describe('Update from library', () => {
   it('shows what carries over and what no longer applies, then updates', async () => {
     await openMockLibrary('demo');
-    await useLibraryStore.getState().openUpdate({ project: 'moon-island', asset: 'character' });
+    await useLibraryStore.getState().openUpdate({ project: 'frostveil', asset: 'elsheria' });
     render(<LibraryUpdateDialog />);
-    expect(screen.getByRole('dialog', { name: 'Update Character to library v3' })).toBeVisible();
+    expect(screen.getByRole('dialog', { name: 'Update Elsheria to library v3' })).toBeVisible();
     expect(screen.getByText('Origin to bottom centre')).toBeVisible();
     expect(screen.getByText('Decimate to 60k')).toBeVisible();
     expect(screen.getByText(/already at or under 60k/)).toBeVisible();
@@ -25,7 +25,7 @@ describe('Update from library', () => {
 
   it('closes without changing anything', async () => {
     await openMockLibrary('demo');
-    await useLibraryStore.getState().openUpdate({ project: 'moon-island', asset: 'character' });
+    await useLibraryStore.getState().openUpdate({ project: 'frostveil', asset: 'elsheria' });
     render(<LibraryUpdateDialog />);
     await userEvent.click(screen.getByRole('button', { name: 'Keep v2' }));
     expect(useLibraryStore.getState().updating).toBeNull();

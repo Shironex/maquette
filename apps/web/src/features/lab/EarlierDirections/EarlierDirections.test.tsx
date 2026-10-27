@@ -7,8 +7,8 @@ import { useLabStore } from '@/state/use-lab-store';
 import { EarlierDirections } from '.';
 
 const view: LabView = {
-  project: 'moon-island',
-  projectDir: '/w/moon-island',
+  project: 'frostveil',
+  projectDir: '/w/frostveil',
   directions: labDirections(false),
   jobs: [],
   refs: [],
@@ -27,19 +27,19 @@ describe('the earlier directions', () => {
     useLabStore.setState({ reuse });
     render(<EarlierDirections view={view} />);
     expect(screen.getAllByRole('listitem')).toHaveLength(view.directions.length);
-    await userEvent.click(screen.getByRole('button', { name: /^Late train/ }));
-    expect(reuse).toHaveBeenCalledWith('late-train');
+    await userEvent.click(screen.getByRole('button', { name: /^Veil gate kit/ }));
+    expect(reuse).toHaveBeenCalledWith('veil-gate-kit');
   });
 
   it('keeps one menu open at a time', async () => {
     render(<EarlierDirections view={view} />);
-    await userEvent.click(screen.getByRole('button', { name: 'More for Late train' }));
-    expect(screen.getByRole('button', { name: 'More for Late train' })).toHaveAttribute(
+    await userEvent.click(screen.getByRole('button', { name: 'More for Veil gate kit' }));
+    expect(screen.getByRole('button', { name: 'More for Veil gate kit' })).toHaveAttribute(
       'aria-expanded',
       'true'
     );
-    await userEvent.click(screen.getByRole('button', { name: 'More for Kotatsu den' }));
-    expect(screen.getByRole('button', { name: 'More for Late train' })).toHaveAttribute(
+    await userEvent.click(screen.getByRole('button', { name: 'More for Elsheria sheets' }));
+    expect(screen.getByRole('button', { name: 'More for Veil gate kit' })).toHaveAttribute(
       'aria-expanded',
       'false'
     );

@@ -19,7 +19,7 @@ let view: InspectView;
 
 beforeEach(async () => {
   await openMockWorkspace();
-  view = await commands.inspectProject('moon-island');
+  view = await commands.inspectProject('frostveil');
 });
 afterEach(() => {
   clearMocks();
@@ -33,7 +33,7 @@ describe('the Inspector', () => {
     expect(screen.getByRole('heading', { name: 'Scene comparison' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /v6\s*vs\s*v7/ })).toBeInTheDocument();
     expect(useInspectorStore.getState().stop?.index).toBe(0);
-    expect(await screen.findByRole('button', { name: 'Fly to Porch' })).toHaveAttribute(
+    expect(await screen.findByRole('button', { name: 'Fly to Arrival' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
@@ -58,10 +58,10 @@ describe('the Inspector', () => {
   it("shows the right side's character first, and another model from its budget row", async () => {
     render(<Inspector view={view} />);
     const panel = screen.getByRole('complementary', { name: 'Model details' });
-    expect(within(panel).getByText('Character', { selector: 'span.truncate' })).toBeInTheDocument();
-    await userEvent.click(within(panel).getByRole('button', { name: /^Sakura/ }));
-    expect(useInspectorStore.getState().selected).toBe('shipped/sakura');
-    expect(within(panel).getByText('Sakura', { selector: 'span.truncate' })).toBeInTheDocument();
+    expect(within(panel).getByText('Elsheria', { selector: 'span.truncate' })).toBeInTheDocument();
+    await userEvent.click(within(panel).getByRole('button', { name: /^Veil gate/ }));
+    expect(useInspectorStore.getState().selected).toBe('shipped/veil_gate');
+    expect(within(panel).getByText('Veil gate', { selector: 'span.truncate' })).toBeInTheDocument();
   });
 
   it('cannot run the pipeline before it is read', () => {

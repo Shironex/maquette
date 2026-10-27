@@ -1,7 +1,7 @@
 /**
  * Mock inbox: four Tripo downloads with the analysis and the check rows the
- * Rust side produces for them. The character carries the real numbers of a
- * Tripo auto rigged girl: 94.6k triangles, 65 Mixamo bones and twin tails
+ * Rust side produces for them. Elsheria carries the numbers of a Tripo auto
+ * rigged swordswoman: 115.7k triangles and 119 bones, with long hair
  * weighted to the index fingers.
  */
 import type { Check, Fixup, GlbReport, InboxItem, TextureInfo } from '../client';
@@ -111,27 +111,34 @@ export function thumbsDir(inbox: string): string {
 export function inboxItems(dir: string, now: number): InboxItem[] {
   const joints = mixamoJoints();
   const thumbs = thumbsDir(dir);
-  const character: InboxItem = {
-    id: 'character.glb',
-    name: 'Character',
-    file: `${dir}/character.glb`,
-    bytes: 18.4e6,
+  const elsheria: InboxItem = {
+    id: 'elsheria.glb',
+    name: 'Elsheria',
+    file: `${dir}/elsheria.glb`,
+    bytes: 15.0e6,
     modifiedMs: now - 4 * MIN,
     kind: 'character',
     kindGuessed: true,
     kindFromSend: false,
     state: 'ready',
     report: report({
-      bytes: 18.4e6,
-      triangles: 94_612,
-      vertices: 51_870,
-      textures: pbrTextures(2048, 2.1e6),
+      bytes: 15.0e6,
+      triangles: 115_673,
+      vertices: 92_342,
+      textures: pbrTextures(2048, 2.1e6).slice(0, 1),
       maxTexture: 2048,
+      pbr: {
+        baseColor: true,
+        metallicRoughness: false,
+        normal: false,
+        occlusion: false,
+        emissive: false,
+      },
       skins: 1,
-      joints: 65,
+      joints: 119,
       jointNames: joints,
       rig: 'mixamo',
-      size: [0.62, 1.58, 0.31],
+      size: [0.94, 1.7, 0.44],
       islands: { mesh: 'tripo_node', islands: 3, groups: 1 },
       fingerWeights: {
         vertices: 1284,
@@ -146,24 +153,24 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
       c(
         'triangles',
         'warning',
-        '94.6k triangles',
+        '115.7k triangles',
         'Over the 60k per model budget. Decimate it here, or raise the budget in Settings.',
         [{ op: 'decimate', triangles: 60_000 }]
       ),
-      c('textures', 'pass', '3 textures, largest 2048 px', 'At or under the 2048 px default.'),
-      c('rig', 'pass', 'Mixamo rig found', '65 joints, ready for Mixamo animations.'),
+      c('textures', 'pass', '1 texture, largest 2048 px', 'At or under the 2048 px default.'),
+      c('rig', 'pass', 'Mixamo rig found', '119 joints, ready for Mixamo animations.'),
       c(
         'pbr',
         'pass',
-        'PBR maps present',
-        'Base color, metal and roughness, normal, plus occlusion.'
+        'Base color only, as exported',
+        "Base color only, as Tripo's Smart Mesh exports it."
       ),
       c('merged', 'pass', 'One object per mesh'),
       c('origin', 'pass', 'Origin at the bottom centre'),
       c(
         'finger-weights',
         'fail',
-        'Hair or tail vertices weighted to finger bones',
+        'Hair vertices weighted to finger bones',
         '1284 vertices far from the hands follow LeftHandIndex1 (652), RightHandIndex1 (632). Reweight them to the head in Blender.'
       ),
       c(
@@ -175,14 +182,14 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     ],
     worst: 'fail',
     error: null,
-    thumbnail: `${thumbs}/character.webp`,
+    thumbnail: `${thumbs}/elsheria.webp`,
     thumbnailState: 'ready',
     link: null,
   };
-  const sakura: InboxItem = {
-    id: 'sakura_large.glb',
-    name: 'Sakura large',
-    file: `${dir}/sakura_large.glb`,
+  const gate: InboxItem = {
+    id: 'veil_gate.glb',
+    name: 'Veil gate',
+    file: `${dir}/veil_gate.glb`,
     bytes: 9.8e6,
     modifiedMs: now - 9 * MIN,
     kind: 'prop',
@@ -195,7 +202,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
       vertices: 28_840,
       textures: pbrTextures(2048, 1.8e6),
       maxTexture: 2048,
-      size: [11.68, 7.97, 7.63],
+      size: [5.86, 6.5, 4.64],
       meshes: 3,
       objects: 3,
       transformed: 2,
@@ -222,14 +229,14 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     ],
     worst: 'pass',
     error: null,
-    thumbnail: `${thumbs}/sakura-large.webp`,
+    thumbnail: `${thumbs}/veil-gate.webp`,
     thumbnailState: 'ready',
     link: null,
   };
-  const shrubs: InboxItem = {
-    id: 'flower_shrubs.glb',
-    name: 'Flower shrubs',
-    file: `${dir}/flower_shrubs.glb`,
+  const crystals: InboxItem = {
+    id: 'ice_crystals.glb',
+    name: 'Ice crystals',
+    file: `${dir}/ice_crystals.glb`,
     bytes: 6.1e6,
     modifiedMs: now - 15 * MIN,
     kind: 'prop',
@@ -249,10 +256,10 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
         occlusion: false,
         emissive: false,
       },
-      islands: { mesh: 'shrubs', islands: 41, groups: 3 },
-      size: [1.58, 0.67, 1.32],
-      min: [-0.2, 0.05, -0.66],
-      max: [1.38, 0.72, 0.66],
+      islands: { mesh: 'crystals', islands: 41, groups: 3 },
+      size: [0.98, 1.3, 0.82],
+      min: [0.1, 0.05, -0.41],
+      max: [1.08, 1.35, 0.41],
     }),
     checks: [
       c('triangles', 'pass', '28.4k triangles', 'Within the 60k per model budget.'),
@@ -274,7 +281,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
         'merged',
         'warning',
         'Looks like 3 objects in one mesh',
-        'shrubs has 3 far apart parts. Split them in Blender (Separate by loose parts) so each can move, or remove the small ones when they are stray bits.',
+        'crystals has 3 far apart parts. Split them in Blender (Separate by loose parts) so each can move, or remove the small ones when they are stray bits.',
         [{ op: 'remove-loose', minShare: 0.02 }]
       ),
       c(
@@ -287,20 +294,20 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     ],
     worst: 'warning',
     error: null,
-    thumbnail: `${thumbs}/flower-shrubs.webp`,
+    thumbnail: `${thumbs}/ice-crystals.webp`,
     thumbnailState: 'ready',
     link: {
-      job: 'flower-shrubs-1',
-      project: 'moon-island',
-      asset: 'flower-shrubs',
-      assetName: 'Flower shrubs',
+      job: 'ice-crystals-1',
+      project: 'frostveil',
+      asset: 'ice-crystals',
+      assetName: 'Ice crystals',
       provider: 'tripo',
     },
   };
-  const spire: InboxItem = {
-    id: 'far_spire.glb',
-    name: 'Far spire',
-    file: `${dir}/far_spire.glb`,
+  const obelisk: InboxItem = {
+    id: 'rune_obelisk.glb',
+    name: 'Rune obelisk',
+    file: `${dir}/rune_obelisk.glb`,
     bytes: 31e6,
     modifiedMs: now - 1 * MIN,
     kind: 'prop',
@@ -315,12 +322,12 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     thumbnailState: 'fallback',
     link: null,
   };
-  return [spire, character, sakura, shrubs];
+  return [obelisk, elsheria, gate, crystals];
 }
 
 /** Which bundled model (under `assets/mock/models`) previews each mock item. */
 export const PREVIEW_FILE: Record<string, string> = {
-  'character.glb': 'character.glb',
-  'sakura_large.glb': 'sakura_tree_large.glb',
-  'flower_shrubs.glb': 'flower_shrubs.glb',
+  'elsheria.glb': 'elsheria.glb',
+  'veil_gate.glb': 'veil_gate.glb',
+  'ice_crystals.glb': 'ice_crystals.glb',
 };

@@ -33,12 +33,12 @@ describe('mock credits', () => {
 
   it('estimates a send from its settings, or the saved preset, and nothing by hand', async () => {
     const request: SendRequest = {
-      project: 'moon-island',
-      asset: 'sakura',
+      project: 'frostveil',
+      asset: 'veil-gate',
       provider: 'tripo',
       service: 'tripo',
       variant: 'prop',
-      images: ['refs/sakura_front.png'],
+      images: ['refs/veil_gate_front.png'],
       tripo: null,
       meshy: null,
     };
@@ -52,17 +52,17 @@ describe('mock credits', () => {
     const ledger = (await handle('credits_ledger', {})) as Ledger;
     const jobs = ledger.spends.map(s => s.job);
     // The running Tripo send holds its estimate; the failed Meshy one is free.
-    expect(ledger.spends.find(s => s.job === 'sakura-1')).toMatchObject({
+    expect(ledger.spends.find(s => s.job === 'veil-gate-1')).toMatchObject({
       outcome: 'pending',
       estimated: true,
       credits: 30,
     });
-    expect(ledger.spends.find(s => s.job === 'far-spire-1')).toMatchObject({ credits: 0 });
-    expect(jobs).toContain('character-3');
+    expect(ledger.spends.find(s => s.job === 'rune-obelisk-1')).toMatchObject({ credits: 0 });
+    expect(jobs).toContain('elsheria-3');
     // The By hand send is on the subscription, never with the API spend.
     const api = ledger.spends.filter(s => s.source === 'api').map(s => s.job);
-    expect(api).not.toContain('lanterns-1');
-    expect(ledger.spends.find(s => s.job === 'lanterns-1')).toMatchObject({
+    expect(api).not.toContain('guardian-statues-1');
+    expect(ledger.spends.find(s => s.job === 'guardian-statues-1')).toMatchObject({
       source: 'subscription',
       estimated: true,
     });
@@ -84,8 +84,11 @@ describe('mock credits', () => {
   });
 
   it('links the redo fixture inbox models to their sends', async () => {
-    const jobs = (await handle('provider_jobs', { project: 'moon-island' })) as ProviderJob[];
-    expect(jobs.find(j => j.id === 'sakura-2')).toMatchObject({ provider: 'meshy', estimate: 30 });
-    expect(jobs.find(j => j.id === 'character-3')).toMatchObject({ variant: 'character' });
+    const jobs = (await handle('provider_jobs', { project: 'frostveil' })) as ProviderJob[];
+    expect(jobs.find(j => j.id === 'veil-gate-2')).toMatchObject({
+      provider: 'meshy',
+      estimate: 30,
+    });
+    expect(jobs.find(j => j.id === 'elsheria-3')).toMatchObject({ variant: 'character' });
   });
 });

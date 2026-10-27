@@ -105,7 +105,7 @@ export function redoUnderWay(
   return jobs.find(j => j.redoOf === of && isActive(j.state));
 }
 
-/** "Redo of sakura-1, Tripo": the panel's line about what it repeats. */
+/** "Redo of veil-gate-1, Tripo": the panel's line about what it repeats. */
 export function redoLine(job: Pick<ProviderJob, 'id' | 'provider'>): string {
   return `Redo of ${job.id}, sent to ${PROVIDER_LABEL[job.provider]}`;
 }

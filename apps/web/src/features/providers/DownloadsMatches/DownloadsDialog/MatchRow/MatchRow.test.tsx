@@ -17,8 +17,8 @@ const file: DownloadMatch = {
   inner: 'lantern.glb',
   bytes: 2_000_000,
   modifiedMs: 0,
-  job: 'lanterns-1',
-  assetName: 'Stone lanterns',
+  job: 'guardian-statues-1',
+  assetName: 'Guardian statues',
   reason: 'Named after the asset',
 };
 
@@ -29,8 +29,8 @@ describe('a Downloads match row', () => {
       <ul>
         <MatchRow
           file={file}
-          waiting={[job('lanterns-1')]}
-          choice="lanterns-1"
+          waiting={[job('guardian-statues-1')]}
+          choice="guardian-statues-1"
           used={false}
           taken={[]}
           now={0}
@@ -48,10 +48,10 @@ describe('a Downloads match row', () => {
       <ul>
         <MatchRow
           file={file}
-          waiting={[job('lanterns-1')]}
+          waiting={[job('guardian-statues-1')]}
           choice={null}
           used={false}
-          taken={['lanterns-1']}
+          taken={['guardian-statues-1']}
           now={0}
         />
       </ul>
@@ -66,15 +66,15 @@ describe('a Downloads match row', () => {
       <ul>
         <MatchRow
           file={file}
-          waiting={[job('lanterns-1')]}
-          choice="lanterns-1"
+          waiting={[job('guardian-statues-1')]}
+          choice="guardian-statues-1"
           used
           taken={[]}
           now={0}
         />
       </ul>
     );
-    expect(screen.getByText(/Copied for Stone lanterns/)).toBeInTheDocument();
+    expect(screen.getByText(/Copied for Guardian statues/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Use' })).toBeNull();
   });
 });

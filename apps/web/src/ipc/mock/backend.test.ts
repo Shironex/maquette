@@ -34,7 +34,7 @@ function backend(scenario = 'idle') {
 
 async function finished(handle: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>) {
   for (let i = 0; i < 200; i++) {
-    const view = (await handle('pipeline_get', { project: 'moon-island' })) as PipelineView;
+    const view = (await handle('pipeline_get', { project: 'frostveil' })) as PipelineView;
     if (!view.active) return view;
     await new Promise(r => setTimeout(r, 5));
   }
@@ -44,18 +44,18 @@ async function finished(handle: (cmd: string, args?: Record<string, unknown>) =>
 describe('mock backend', () => {
   it('inspects the scene with the presets the pipeline stores', async () => {
     const { handle } = backend('configured');
-    const view = (await handle('inspect_project', { project: 'moon-island' })) as InspectView;
+    const view = (await handle('inspect_project', { project: 'frostveil' })) as InspectView;
     expect(view.comparisons[0]!.sides.map(s => s.label)).toEqual(['v6', 'v7']);
     expect(view.stops.stops).toHaveLength(5);
-    const character = view.models.find(m => m.model === 'character')!;
+    const character = view.models.find(m => m.model === 'elsheria')!;
     expect(character.preset.lock).toMatch(/medium/);
     await handle('pipeline_save_presets', {
-      project: 'moon-island',
+      project: 'frostveil',
       presets: [
-        ...((await handle('pipeline_get', { project: 'moon-island' })) as PipelineView).def.presets,
+        ...((await handle('pipeline_get', { project: 'frostveil' })) as PipelineView).def.presets,
         {
-          model: 'flower_shrubs',
-          label: 'Shrubs',
+          model: 'ice_crystals',
+          label: 'Crystals',
           textureSize: 512,
           codec: 'uastc',
           meshopt: 'low',
@@ -63,16 +63,16 @@ describe('mock backend', () => {
         },
       ],
     });
-    const after = (await handle('inspect_project', { project: 'moon-island' })) as InspectView;
-    const shrubs = after.models.find(m => m.model === 'flower_shrubs')!;
-    expect(shrubs.label).toBe('Shrubs');
+    const after = (await handle('inspect_project', { project: 'frostveil' })) as InspectView;
+    const shrubs = after.models.find(m => m.model === 'ice_crystals')!;
+    expect(shrubs.label).toBe('Crystals');
     expect(shrubs.preset).toMatchObject({ codec: 'uastc', meshopt: 'low', hasRow: true });
   });
 
   it('runs the pipeline, fails at posters once, then passes from there', async () => {
     const { handle, events } = backend('configured');
     const run = (await handle('pipeline_run', {
-      project: 'moon-island',
+      project: 'frostveil',
       ask: { from: null, force: false },
     })) as RunRecord;
     expect(run.number).toBe(25);
@@ -82,7 +82,7 @@ describe('mock backend', () => {
     expect(view.runs[0]!.steps.find(s => s.id === 'ship')!.state).toBe('skipped');
     expect(events.some(e => e.type === 'log' && e.entry.level === 'error')).toBe(true);
 
-    await handle('pipeline_run', { project: 'moon-island', ask: { from: 'posters' } });
+    await handle('pipeline_run', { project: 'frostveil', ask: { from: 'posters' } });
     view = await finished(handle);
     expect(view.runs[0]!.state).toBe('done');
     expect(view.runs[0]!.steps.find(s => s.id === 'export')!.state).toBe('skipped');
@@ -90,7 +90,7 @@ describe('mock backend', () => {
 
   it('passes every step in the idle scenario', async () => {
     const { handle } = backend('idle');
-    await handle('pipeline_run', { project: 'moon-island', ask: { force: true } });
+    await handle('pipeline_run', { project: 'frostveil', ask: { force: true } });
     const view = await finished(handle);
     expect(view.runs[0]!).toMatchObject({ number: 24, state: 'done' });
     expect(view.runs[0]!.steps.every(s => s.state === 'done')).toBe(true);
@@ -98,7 +98,7 @@ describe('mock backend', () => {
 
   it('leaves Ship out of a build only run', async () => {
     const { handle } = backend('idle');
-    await handle('pipeline_run', { project: 'moon-island', ask: { force: true, buildOnly: true } });
+    await handle('pipeline_run', { project: 'frostveil', ask: { force: true, buildOnly: true } });
     const view = await finished(handle);
     const ship = view.runs[0]!.steps.find(s => s.id === 'ship')!;
     expect(view.runs[0]!).toMatchObject({ state: 'done', buildOnly: true });
@@ -107,10 +107,10 @@ describe('mock backend', () => {
 
   it('refuses edits to a locked preset row', async () => {
     const { handle } = backend();
-    const view = (await handle('pipeline_get', { project: 'moon-island' })) as PipelineView;
+    const view = (await handle('pipeline_get', { project: 'frostveil' })) as PipelineView;
     const presets = view.def.presets.map(p => (p.lock ? { ...p, meshopt: 'high' } : p));
     await expect(
-      handle('pipeline_save_presets', { project: 'moon-island', presets })
+      handle('pipeline_save_presets', { project: 'frostveil', presets })
     ).rejects.toMatchObject({
       code: 'invalid',
     });
@@ -119,12 +119,12 @@ describe('mock backend', () => {
   it('adds and moves assets', async () => {
     const { handle } = backend();
     let project = (await handle('asset_add', {
-      project: 'moon-island',
+      project: 'frostveil',
       asset: { name: 'Paper lamp', kind: 'prop', stage: 'concept' },
     })) as ProjectManifest;
     expect(project.assets!.find(a => a.id === 'paper-lamp')).toMatchObject({ stage: 'concept' });
     project = (await handle('asset_move', {
-      project: 'moon-island',
+      project: 'frostveil',
       id: 'paper-lamp',
       stage: 'refs',
     })) as ProjectManifest;
@@ -134,47 +134,47 @@ describe('mock backend', () => {
   it('renames an asset and keeps its id', async () => {
     const { handle } = backend();
     await handle('asset_add', {
-      project: 'moon-island',
+      project: 'frostveil',
       asset: { name: 'Paper lamp', kind: 'prop', stage: 'concept' },
     });
     await handle('asset_add', {
-      project: 'moon-island',
+      project: 'frostveil',
       asset: { name: 'Stone bench', kind: 'prop', stage: 'concept' },
     });
     const project = (await handle('asset_rename', {
-      project: 'moon-island',
+      project: 'frostveil',
       id: 'paper-lamp',
       name: ' Hanging lamp ',
     })) as ProjectManifest;
     expect(project.assets!.find(a => a.id === 'paper-lamp')!.name).toBe('Hanging lamp');
     await expect(
-      handle('asset_rename', { project: 'moon-island', id: 'paper-lamp', name: 'stone bench' })
+      handle('asset_rename', { project: 'frostveil', id: 'paper-lamp', name: 'stone bench' })
     ).rejects.toMatchObject({ code: 'invalid' });
     await expect(
-      handle('asset_rename', { project: 'moon-island', id: 'nope', name: 'x' })
+      handle('asset_rename', { project: 'frostveil', id: 'nope', name: 'x' })
     ).rejects.toMatchObject({ code: 'not-found' });
   });
 
   it('accepts an inbox model into the project', async () => {
     const { handle, inboxCount } = backend('configured');
     const result = (await handle('inbox_accept', {
-      request: { item: 'sakura_large.glb', project: 'moon-island', asset: null },
+      request: { item: 'veil_gate.glb', project: 'frostveil', asset: null },
     })) as AcceptResult;
-    expect(result.version.file).toBe('models/sakura_large_v1.glb');
+    expect(result.version.file).toBe('models/veil_gate_v1.glb');
     expect(result.asset).toMatchObject({ stage: 'blender', status: 'review' });
     expect(result.project.assets!.some(a => a.id === result.asset.id)).toBe(true);
     expect(inboxCount()).toBe(1);
     const snapshot = (await handle('inbox_list')) as { items: { id: string }[] };
-    expect(snapshot.items.map(i => i.id)).not.toContain('sakura_large.glb');
+    expect(snapshot.items.map(i => i.id)).not.toContain('veil_gate.glb');
   });
 
   it('adds a version to the asset a model was sent for', async () => {
     const { handle } = backend('configured');
     const result = (await handle('inbox_accept', {
-      request: { item: 'sakura_large.glb', project: 'moon-island', asset: 'sakura' },
+      request: { item: 'veil_gate.glb', project: 'frostveil', asset: 'veil-gate' },
     })) as AcceptResult;
-    expect(result.asset.id).toBe('sakura');
-    expect(result.version.file).toMatch(/^models\/sakura_v\d+\.glb$/);
+    expect(result.asset.id).toBe('veil-gate');
+    expect(result.version.file).toMatch(/^models\/veil_gate_v\d+\.glb$/);
   });
 
   it('saves the real size and fix-ups set before Accept, or refuses them before the move', async () => {
@@ -182,29 +182,29 @@ describe('mock backend', () => {
     await expect(
       handle('inbox_accept', {
         request: {
-          item: 'sakura_large.glb',
-          project: 'moon-island',
+          item: 'veil_gate.glb',
+          project: 'frostveil',
           asset: null,
           prep: { size: null, fixups: [{ op: 'decimate', triangles: 5 }] },
         },
       })
     ).rejects.toMatchObject({ code: 'invalid' });
     const listed = (await handle('inbox_list')) as { items: { id: string }[] };
-    expect(listed.items.map(i => i.id)).toContain('sakura_large.glb');
+    expect(listed.items.map(i => i.id)).toContain('veil_gate.glb');
 
     const prep = {
       size: { axis: 'height', value: 6, unit: 'm' },
       fixups: [{ op: 'origin-bottom' }, { op: 'merge', byMaterial: false }],
     };
     const result = (await handle('inbox_accept', {
-      request: { item: 'sakura_large.glb', project: 'moon-island', asset: null, prep },
+      request: { item: 'veil_gate.glb', project: 'frostveil', asset: null, prep },
     })) as AcceptResult;
-    const saved = (await handle('prepare_get', { project: 'moon-island' })) as ScenePrep;
+    const saved = (await handle('prepare_get', { project: 'frostveil' })) as ScenePrep;
     expect(saved.models[result.asset.id]?.fixups.map(f => f.op)).toEqual([
       'merge',
       'origin-bottom',
     ]);
-    const layout = (await handle('layout_get', { project: 'moon-island' })) as LayoutView;
+    const layout = (await handle('layout_get', { project: 'frostveil' })) as LayoutView;
     const placed = layout.models.find(m => m.asset === result.asset.id)!;
     expect(placed.max?.[1]).toBeCloseTo(6);
     expect(placed.min?.[1]).toBeCloseTo(0);
@@ -219,12 +219,12 @@ describe('mock backend', () => {
       files: { alias: (path, from) => aliases.push([path, from]), store: () => {} },
     });
     const result = (await handle('inbox_accept', {
-      request: { item: 'sakura_large.glb', project: 'moon-island', asset: null },
+      request: { item: 'veil_gate.glb', project: 'frostveil', asset: null },
     })) as AcceptResult;
-    expect(result.asset.thumbnail).toBe('thumbs/sakura_large_v1.png');
+    expect(result.asset.thumbnail).toBe('thumbs/veil_gate_v1.png');
     expect(aliases).toHaveLength(1);
-    expect(aliases[0]![0]).toMatch(/projects\/moon-island\/thumbs\/sakura_large_v1\.png$/);
-    expect(aliases[0]![1]).toMatch(/cache\/thumbs\/sakura-large\.webp$/);
+    expect(aliases[0]![0]).toMatch(/projects\/frostveil\/thumbs\/veil_gate_v1\.png$/);
+    expect(aliases[0]![1]).toMatch(/cache\/thumbs\/veil-gate\.webp$/);
   });
 
   it('stores a snapshot thumbnail for an inbox model', async () => {
@@ -236,13 +236,13 @@ describe('mock backend', () => {
       files: { alias: () => {}, store: path => stored.push(path) },
     });
     const snapshot = (await handle('inbox_list')) as { items: { file: string; id: string }[] };
-    const file = snapshot.items.find(i => i.id === 'character.glb')!.file;
+    const file = snapshot.items.find(i => i.id === 'elsheria.glb')!.file;
     const path = (await handle('thumbnail_store', { file, png: [137, 80, 78, 71] })) as string;
     expect(stored).toEqual([path]);
     const after = (await handle('inbox_list')) as {
       items: { id: string; thumbnail: string | null; thumbnailState: string }[];
     };
-    expect(after.items.find(i => i.id === 'character.glb')).toMatchObject({
+    expect(after.items.find(i => i.id === 'elsheria.glb')).toMatchObject({
       thumbnail: path,
       thumbnailState: 'ready',
     });
@@ -251,14 +251,14 @@ describe('mock backend', () => {
   it('sends by hand, takes the model back and refuses a send without a key', async () => {
     const { handle } = backend('configured');
     const options = (await handle('provider_send_options', {
-      project: 'moon-island',
-      asset: 'lanterns',
+      project: 'frostveil',
+      asset: 'guardian-statues',
     })) as SendOptions;
-    expect(options.suggested).toEqual(['refs/lanterns_front.png']);
+    expect(options.suggested).toEqual(['refs/guardian_statues_front.png']);
     expect(options.keys.find(k => k.service === 'meshy')?.saved).toBe(false);
     const request = {
-      project: 'moon-island',
-      asset: 'lanterns',
+      project: 'frostveil',
+      asset: 'guardian-statues',
       provider: 'by-hand',
       service: 'tripo',
       variant: 'prop',
@@ -268,7 +268,9 @@ describe('mock backend', () => {
     };
     const job = (await handle('provider_send', { request })) as ProviderJob;
     expect(job.state).toBe('waiting');
-    expect(job.card?.exportName).toBe(`maq_lanterns_v${job.id.slice('lanterns-'.length)}_tripo`);
+    expect(job.card?.exportName).toBe(
+      `maq_guardian-statues_v${job.id.slice('guardian-statues-'.length)}_tripo`
+    );
     expect(job.card?.returnName).toBe(`${job.card?.exportName}.glb`);
     expect(job.card?.credits).toBe(30);
     await expect(
@@ -284,7 +286,7 @@ describe('mock backend', () => {
     await expect(
       handle('provider_send', { request: { ...request, provider: 'meshy', service: 'meshy' } })
     ).rejects.toMatchObject({ code: 'invalid' });
-    const tripo = (await handle('provider_cancel', { id: 'sakura-1' }).catch(e => e)) as {
+    const tripo = (await handle('provider_cancel', { id: 'veil-gate-1' }).catch(e => e)) as {
       message: string;
     };
     expect(tripo.message).toContain('Tripo cannot cancel');
@@ -294,30 +296,30 @@ describe('mock backend', () => {
     const { handle } = backend('configured');
     const list = (await handle('project_list')) as ProjectSummary[];
     expect(list.map(p => [p.name, p.template])).toEqual([
-      ['Moon Island', 'floating-diorama'],
-      ['Rooftop cinema', 'room'],
-      ['Lantern keeper', 'character-showcase'],
+      ['Frostveil', 'floating-diorama'],
+      ['Frost cathedral', 'room'],
+      ['Elsheria showcase', 'character-showcase'],
     ]);
-    expect(list[0]!.thumb).toBe('thumbs/island.webp');
-    const snap = (await handle('project_switch', { id: 'rooftop-cinema' })) as WorkspaceSnapshot;
-    expect(snap.project?.id).toBe('rooftop-cinema');
+    expect(list[0]!.thumb).toBe('thumbs/veil-platform.webp');
+    const snap = (await handle('project_switch', { id: 'frost-cathedral' })) as WorkspaceSnapshot;
+    expect(snap.project?.id).toBe('frost-cathedral');
     await handle('workspace_save_config', {
-      config: { ...snap.config, currentProject: 'moon-island' },
+      config: { ...snap.config, currentProject: 'frostveil' },
     });
     const boot = (await handle('app_bootstrap')) as Bootstrap;
-    expect(boot.workspace?.project?.id).toBe('rooftop-cinema');
+    expect(boot.workspace?.project?.id).toBe('frost-cathedral');
     await expect(handle('project_switch', { id: 'nope' })).rejects.toMatchObject({
       code: 'not-found',
     });
-    const pipeline = (await handle('pipeline_get', { project: 'rooftop-cinema' })) as PipelineView;
+    const pipeline = (await handle('pipeline_get', { project: 'frost-cathedral' })) as PipelineView;
     expect(pipeline.runs).toEqual([]);
   });
 
   it('gives the landing studio card its ref and moves the direction to a new project', async () => {
     const { handle } = backend('configured');
     const boot = (await handle('app_bootstrap')) as Bootstrap;
-    const card = boot.workspace?.project?.assets?.find(a => a.id === 'maquette-landing-studio');
-    expect(card?.thumbnail).toBe('refs/maquette-landing-studio_04.png');
+    const card = boot.workspace?.project?.assets?.find(a => a.id === 'academy-landing');
+    expect(card?.thumbnail).toBe('refs/academy-landing_04.png');
     await handle('project_create', {
       project: {
         name: 'Maquette landing',
@@ -327,18 +329,18 @@ describe('mock backend', () => {
       },
     });
     const moved = (await handle('lab_move_direction', {
-      project: 'moon-island',
-      direction: 'maquette-landing-studio',
+      project: 'frostveil',
+      direction: 'academy-landing',
       to: 'maquette-landing',
     })) as MovedDirection;
     expect(moved.direction.images[3]).toMatchObject({ picked: true, starred: true });
-    expect(moved.asset?.thumbnail).toBe('refs/maquette-landing-studio_04.png');
-    expect((moved.from.assets ?? []).some(a => a.id === 'maquette-landing-studio')).toBe(false);
-    expect((moved.to.assets ?? []).map(a => a.id)).toEqual(['maquette-landing-studio']);
-    const moon = (await handle('lab_get', { project: 'moon-island' })) as LabView;
-    expect(moon.directions.some(d => d.id === 'maquette-landing-studio')).toBe(false);
+    expect(moved.asset?.thumbnail).toBe('refs/academy-landing_04.png');
+    expect((moved.from.assets ?? []).some(a => a.id === 'academy-landing')).toBe(false);
+    expect((moved.to.assets ?? []).map(a => a.id)).toEqual(['academy-landing']);
+    const moon = (await handle('lab_get', { project: 'frostveil' })) as LabView;
+    expect(moon.directions.some(d => d.id === 'academy-landing')).toBe(false);
     const landing = (await handle('lab_get', { project: 'maquette-landing' })) as LabView;
-    expect(landing.directions.map(d => d.name)).toEqual(['Maquette landing studio']);
+    expect(landing.directions.map(d => d.name)).toEqual(['Academy landing']);
   });
 });
 
@@ -347,11 +349,11 @@ describe('mock starter scripts', () => {
     const handle = createBackend({ scenario: 'configured', probeDelay: 0, pace: 0 });
     const call = <T>(cmd: string, args: Record<string, unknown> = {}) => handle(cmd, args) as T;
     type View = { starters: { path: string; state: string; backup: string | null }[] };
-    const before = await call<View>('pipeline_get', { project: 'moon-island' });
+    const before = await call<View>('pipeline_get', { project: 'frostveil' });
     expect(before.starters.filter(s => s.state === 'outdated')).toHaveLength(3);
     const all = before.starters.map(s => s.path);
     const kept = await call<View>('pipeline_update_starters', {
-      project: 'moon-island',
+      project: 'frostveil',
       scripts: all,
       replace: false,
     });
@@ -363,7 +365,7 @@ describe('mock starter scripts', () => {
       'current',
     ]);
     const replaced = await call<View>('pipeline_update_starters', {
-      project: 'moon-island',
+      project: 'frostveil',
       scripts: ['tools/export_web.py'],
       replace: true,
     });
@@ -373,7 +375,7 @@ describe('mock starter scripts', () => {
       backup: 'tools/export_web.py.bak',
     });
     expect(
-      (await call<View>('pipeline_get', { project: 'rooftop-cinema' })).starters.every(
+      (await call<View>('pipeline_get', { project: 'frost-cathedral' })).starters.every(
         s => s.state === 'current'
       )
     ).toBe(true);
@@ -385,16 +387,16 @@ describe('mock presets', () => {
     const handle = createBackend({ scenario: 'configured', probeDelay: 0, pace: 0 });
     const presetsOf = async (project: string) =>
       ((await handle('pipeline_get', { project })) as PipelineView).def.presets.map(p => p.model);
-    expect(await presetsOf('moon-island')).toContain('character');
-    expect(await presetsOf('rooftop-cinema')).toEqual([]);
+    expect(await presetsOf('frostveil')).toContain('elsheria');
+    expect(await presetsOf('frost-cathedral')).toEqual([]);
   });
 
   it('takes the rows the panel saves back, the locked one included', async () => {
     const handle = createBackend({ scenario: 'configured', probeDelay: 0, pace: 0 });
-    const view = (await handle('pipeline_get', { project: 'moon-island' })) as PipelineView;
+    const view = (await handle('pipeline_get', { project: 'frostveil' })) as PipelineView;
     const rows = presetsToSave(presetRows(view));
     const saved = (await handle('pipeline_save_presets', {
-      project: 'moon-island',
+      project: 'frostveil',
       presets: rows,
     })) as PipelineView;
     expect(saved.def.presets).toEqual(rows);
@@ -402,26 +404,26 @@ describe('mock presets', () => {
 
   it('copies an asset under a free name and counts what the first stop sees', async () => {
     const { handle } = backend('configured');
-    const first = (await handle('layout_get', { project: 'moon-island' })) as LayoutView;
-    expect(first.firstView.stop).toBe('Porch');
+    const first = (await handle('layout_get', { project: 'frostveil' })) as LayoutView;
+    expect(first.firstView.stop).toBe('Arrival');
     expect(first.firstView.models.length).toBeGreaterThan(0);
     expect(first.firstView.targetMb).toBe(3);
     const copy = async () =>
       (await handle('asset_copy_to_project', {
-        project: 'moon-island',
-        id: 'character',
-        to: 'rooftop-cinema',
+        project: 'frostveil',
+        id: 'elsheria',
+        to: 'frost-cathedral',
       })) as { asset: { id: string; name: string; versions: { file: string }[] } };
     const one = await copy();
     const two = await copy();
-    expect(one.asset.id).toBe('character');
-    expect(two.asset).toMatchObject({ id: 'character-2', name: 'Character 2' });
-    expect(two.asset.versions[0]!.file).toMatch(/^models\/character_2_v\d+\.glb$/);
-    const source = (await handle('layout_get', { project: 'moon-island' })) as LayoutView;
-    expect(source.models.some(m => m.asset === 'character')).toBe(true);
-    const target = (await handle('layout_get', { project: 'rooftop-cinema' })) as LayoutView;
+    expect(one.asset.id).toBe('elsheria');
+    expect(two.asset).toMatchObject({ id: 'elsheria-2', name: 'Elsheria 2' });
+    expect(two.asset.versions[0]!.file).toMatch(/^models\/elsheria_2_v\d+\.glb$/);
+    const source = (await handle('layout_get', { project: 'frostveil' })) as LayoutView;
+    expect(source.models.some(m => m.asset === 'elsheria')).toBe(true);
+    const target = (await handle('layout_get', { project: 'frost-cathedral' })) as LayoutView;
     expect(target.models.map(m => m.asset)).toEqual(
-      expect.arrayContaining(['character', 'character-2'])
+      expect.arrayContaining(['elsheria', 'elsheria-2'])
     );
   });
 
@@ -429,41 +431,44 @@ describe('mock presets', () => {
     const { handle } = backend('configured');
     const none = { tint: null, roughness: null, metalness: null, emissiveStrength: null };
     const stored = await handle('materials_save', {
-      project: 'moon-island',
+      project: 'frostveil',
       looks: {
-        sakura: { all: { ...none, tint: '#FFC0CB' }, materials: { Leaves: none } },
+        'veil-gate': { all: { ...none, tint: '#FFC0CB' }, materials: { Leaves: none } },
         hut: { all: none, materials: {} },
       },
     });
     expect(stored).toEqual({
       version: 1,
-      models: { sakura: { all: { ...none, tint: '#ffc0cb' }, materials: {} } },
+      models: { 'veil-gate': { all: { ...none, tint: '#ffc0cb' }, materials: {} } },
     });
     // Another asset's look lands beside the stored one.
     const both = (await handle('materials_save', {
-      project: 'moon-island',
+      project: 'frostveil',
       looks: { hut: { all: { ...none, metalness: 0.5 }, materials: {} } },
     })) as SceneMaterials;
-    expect(Object.keys(both.models)).toEqual(['sakura', 'hut']);
-    expect(await handle('materials_get', { project: 'rooftop-cinema' })).toEqual({
+    expect(Object.keys(both.models)).toEqual(['veil-gate', 'hut']);
+    expect(await handle('materials_get', { project: 'frost-cathedral' })).toEqual({
       version: 1,
       models: {},
     });
     await expect(
       handle('materials_save', {
-        project: 'moon-island',
+        project: 'frostveil',
         looks: {
-          sakura: { all: { ...none, roughness: { mode: 'multiply', value: 3 } }, materials: {} },
+          'veil-gate': {
+            all: { ...none, roughness: { mode: 'multiply', value: 3 } },
+            materials: {},
+          },
         },
       })
     ).rejects.toMatchObject({ code: 'invalid' });
 
-    const view = (await handle('pipeline_get', { project: 'moon-island' })) as PipelineView;
+    const view = (await handle('pipeline_get', { project: 'frostveil' })) as PipelineView;
     const rows = view.def.presets.map(p =>
       p.lock ? { ...p, mapCodecs: { color: null, normal: 'etc1s', other: null } } : p
     );
     await expect(
-      handle('pipeline_save_presets', { project: 'moon-island', presets: rows })
+      handle('pipeline_save_presets', { project: 'frostveil', presets: rows })
     ).rejects.toMatchObject({ code: 'invalid' });
   });
 });

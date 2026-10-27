@@ -15,7 +15,7 @@ const SHIM = readFileSync(
 );
 
 const VIEW = 800;
-const STOPS = ['Porch', 'Sakura', 'Shrubs', 'Canopy', 'Pullback'].map(name => ({ name }));
+const STOPS = ['Arrival', 'Veil gate', 'Crystals', 'Keystone', 'Pullback'].map(name => ({ name }));
 
 type Listener = (event: unknown) => void;
 
@@ -128,11 +128,11 @@ describe('the page bridge shim', () => {
 
   it('scrolls to the element that names a stop, by id or data-maquette-stop', () => {
     document.body.innerHTML =
-      '<section id="sakura"></section><section data-maquette-stop="Canopy"></section>';
+      '<section id="veil-gate"></section><section data-maquette-stop="Keystone"></section>';
     const win = framed(4000);
-    const [sakura, canopy] = [...document.querySelectorAll('section')];
-    sakura!.getBoundingClientRect = () => ({ top: 500 - win.scrollY }) as DOMRect;
-    canopy!.getBoundingClientRect = () => ({ top: 2000 - win.scrollY }) as DOMRect;
+    const [gate, keystone] = [...document.querySelectorAll('section')];
+    gate!.getBoundingClientRect = () => ({ top: 500 - win.scrollY }) as DOMRect;
+    keystone!.getBoundingClientRect = () => ({ top: 2000 - win.scrollY }) as DOMRect;
     win.hello();
     vi.advanceTimersByTime(300);
     goto(win, 1);

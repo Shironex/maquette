@@ -19,19 +19,19 @@ afterEach(() => {
 
 describe('the selected library model', () => {
   it('lists its versions, the projects that use it and what reuse saved', () => {
-    render(<LibraryDetail item={item('vending-machine')} />);
+    render(<LibraryDetail item={item('crystal-lantern')} />);
     expect(screen.getByText('Versions · 2')).toBeVisible();
-    expect(screen.getByText('Rooftop cinema')).toBeVisible();
+    expect(screen.getByText('Frost cathedral')).toBeVisible();
     expect(screen.getByText('current')).toBeVisible();
     expect(screen.getByText('30 (1 reuse)')).toBeVisible();
   });
 
   it('opens the update plan for a copy on an older version', async () => {
-    render(<LibraryDetail item={item('vending-machine')} />);
+    render(<LibraryDetail item={item('crystal-lantern')} />);
     await userEvent.click(screen.getByRole('button', { name: 'Update to v2' }));
     expect(useLibraryStore.getState().updating).toEqual({
-      project: 'rooftop-cinema',
-      asset: 'vending',
+      project: 'frost-cathedral',
+      asset: 'crystal-lantern',
     });
   });
 

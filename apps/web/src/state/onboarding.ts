@@ -144,7 +144,7 @@ export function initialDraft(root: string, config: WorkspaceConfig): Draft {
     config,
     mode: 'template',
     template: 'floating-diorama',
-    name: 'Moon Island',
+    name: 'Frostveil',
     siteRepo: '',
     sourceFolder: '',
     repo: null,

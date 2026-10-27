@@ -15,14 +15,14 @@ import type { SendDraft } from './providers';
 const presets = defaultConfig().providers;
 
 const job = (patch: Partial<ProviderJob>): ProviderJob => ({
-  id: 'sakura-2',
-  project: 'moon-island',
-  asset: 'sakura',
-  assetName: 'Sakura',
+  id: 'veil-gate-2',
+  project: 'frostveil',
+  asset: 'veil-gate',
+  assetName: 'Veil gate',
   provider: 'meshy',
   service: 'meshy',
   variant: 'prop',
-  images: ['refs/sakura_front.png', 'refs/gone.png'],
+  images: ['refs/veil_gate_front.png', 'refs/gone.png'],
   tripo: null,
   meshy: { ...presets.meshy.prop, textureResolution: '4k' },
   state: 'inbox',
@@ -34,7 +34,7 @@ const job = (patch: Partial<ProviderJob>): ProviderJob => ({
   startedAtMs: 2,
   finishedAtMs: 3,
   message: null,
-  inboxFile: 'sakura_large.glb',
+  inboxFile: 'veil_gate.glb',
   handoff: null,
   card: null,
   version: null,
@@ -46,8 +46,8 @@ const job = (patch: Partial<ProviderJob>): ProviderJob => ({
 });
 
 const options = {
-  images: [{ file: 'refs/sakura_front.png', name: 'sakura_front.png', bytes: 1 }],
-  suggested: ['refs/sakura_front.png'],
+  images: [{ file: 'refs/veil_gate_front.png', name: 'veil_gate_front.png', bytes: 1 }],
+  suggested: ['refs/veil_gate_front.png'],
 } as unknown as SendOptions;
 
 const fresh: SendDraft = {
@@ -59,7 +59,7 @@ const fresh: SendDraft = {
   meshy: structuredClone(presets.meshy.prop),
 };
 
-const link = (job: string, asset: string, project = 'moon-island') => ({
+const link = (job: string, asset: string, project = 'frostveil') => ({
   job,
   project,
   asset,
@@ -74,7 +74,7 @@ describe('a redo of one send', () => {
     const draft = redoDraft(job({}), options, fresh);
     expect(draft).toMatchObject({ provider: 'meshy', service: 'meshy', variant: 'prop' });
     // An image gone from refs/ is dropped.
-    expect(draft.images).toEqual(['refs/sakura_front.png']);
+    expect(draft.images).toEqual(['refs/veil_gate_front.png']);
     expect(draft.meshy.textureResolution).toBe('4k');
     expect(draft.tripo).toEqual(fresh.tripo);
     expect(draft.prompt).toBe('Pale pink blossoms');
@@ -88,15 +88,15 @@ describe('a redo of one send', () => {
 
   it('needs a send to repeat', () => {
     expect(redoBlocker({ link: null })).toMatch(/did not come from a Send to 3D/);
-    expect(redoBlocker({ link: link('sakura-2', 'sakura') })).toBeNull();
-    expect(redoLine(job({}))).toBe('Redo of sakura-2, sent to Meshy');
+    expect(redoBlocker({ link: link('veil-gate-2', 'veil-gate') })).toBeNull();
+    expect(redoLine(job({}))).toBe('Redo of veil-gate-2, sent to Meshy');
   });
 
   it('finds a redo still on its way', () => {
-    const redo = job({ id: 'sakura-3', state: 'running', redoOf: 'sakura-2' });
-    const done = job({ id: 'sakura-4', state: 'inbox', redoOf: 'sakura-2' });
-    const linked = { link: link('sakura-2', 'sakura') };
-    expect(redoUnderWay([done, redo], linked)?.id).toBe('sakura-3');
+    const redo = job({ id: 'veil-gate-3', state: 'running', redoOf: 'veil-gate-2' });
+    const done = job({ id: 'veil-gate-4', state: 'inbox', redoOf: 'veil-gate-2' });
+    const linked = { link: link('veil-gate-2', 'veil-gate') };
+    expect(redoUnderWay([done, redo], linked)?.id).toBe('veil-gate-3');
     expect(redoUnderWay([done], linked)).toBeUndefined();
     expect(redoUnderWay([redo], { link: null })).toBeUndefined();
   });
@@ -105,17 +105,17 @@ describe('a redo of one send', () => {
 describe('a batch redo', () => {
   const base = batchDraft(
     {
-      project: 'moon-island',
+      project: 'frostveil',
       projectDir: '/w',
       keys: [],
       items: [
         {
-          asset: { id: 'character', name: 'Character', thumbnail: null },
+          asset: { id: 'elsheria', name: 'Elsheria', thumbnail: null },
           suggested: [],
           variant: 'prop',
         },
         {
-          asset: { id: 'sakura', name: 'Sakura', thumbnail: null },
+          asset: { id: 'veil-gate', name: 'Veil gate', thumbnail: null },
           suggested: [],
           variant: 'prop',
         },
@@ -126,12 +126,12 @@ describe('a batch redo', () => {
     presets.meshy
   );
   const character = job({
-    id: 'character-3',
-    asset: 'character',
+    id: 'elsheria-3',
+    asset: 'elsheria',
     provider: 'tripo',
     service: 'tripo',
     variant: 'character',
-    images: ['refs/character-model.png'],
+    images: ['refs/elsheria-model.png'],
     tripo: { ...presets.tripo.character, textureQuality: 'detailed' },
     meshy: null,
     prompt: null,
@@ -146,22 +146,22 @@ describe('a batch redo', () => {
     meshy: null,
     prompt: null,
   });
-  const sakura = job({});
+  const gate = job({});
 
   it('goes to the provider most of them went to, each asset from its own send', () => {
-    const draft = redoBatchDraft(base, { character, sakura, lamp });
+    const draft = redoBatchDraft(base, { elsheria: character, 'veil-gate': gate, lamp });
     expect(draft).toMatchObject({ provider: 'tripo', service: 'tripo' });
     // Each kind's batch preset is the first send of that kind.
     expect(draft.tripo.character.textureQuality).toBe('detailed');
     expect(draft.tripo.prop.faceLimit).toBe(12_000);
     const [c, s, l] = draft.items;
-    expect(c).toMatchObject({ variant: 'character', redoOf: 'character-3', tripo: {} });
-    expect(c!.images).toEqual(['refs/character-model.png']);
+    expect(c).toMatchObject({ variant: 'character', redoOf: 'elsheria-3', tripo: {} });
+    expect(c!.images).toEqual(['refs/elsheria-model.png']);
     // The Meshy send keeps its images and prompt, and follows the Tripo batch preset.
-    expect(s).toMatchObject({ redoOf: 'sakura-2', prompt: 'Pale pink blossoms', tripo: {} });
+    expect(s).toMatchObject({ redoOf: 'veil-gate-2', prompt: 'Pale pink blossoms', tripo: {} });
     expect(l).toMatchObject({ redoOf: 'lamp-1', tripo: {} });
-    const request = batchRequest('moon-island', draft);
-    expect(request.items.map(i => i.redoOf)).toEqual(['character-3', 'sakura-2', 'lamp-1']);
+    const request = batchRequest('frostveil', draft);
+    expect(request.items.map(i => i.redoOf)).toEqual(['elsheria-3', 'veil-gate-2', 'lamp-1']);
     expect(request.items.every(i => i.prompt === null)).toBe(true);
   });
 
@@ -169,13 +169,13 @@ describe('a batch redo', () => {
     const other = job({
       ...lamp,
       id: 'lamp-2',
-      asset: 'sakura',
+      asset: 'veil-gate',
       tripo: { ...presets.tripo.prop, pbr: false },
     });
-    const draft = redoBatchDraft(base, { lamp, sakura: other });
-    // The sakura comes first in the list, so its settings are the props' batch preset.
+    const draft = redoBatchDraft(base, { lamp, 'veil-gate': other });
+    // The gate comes first in the list, so its settings are the props' batch preset.
     expect(draft.tripo.prop.pbr).toBe(false);
-    expect(draft.items.find(i => i.asset === 'sakura')!.tripo).toEqual({});
+    expect(draft.items.find(i => i.asset === 'veil-gate')!.tripo).toEqual({});
     expect(draft.items.find(i => i.asset === 'lamp')!.tripo).toEqual({
       faceLimit: 12_000,
       pbr: true,
@@ -184,17 +184,17 @@ describe('a batch redo', () => {
 
   it('plans one batch of linked models from one project', () => {
     const items = [
-      item('a.glb', link('sakura-2', 'sakura')),
-      item('b.glb', link('character-3', 'character')),
+      item('a.glb', link('veil-gate-2', 'veil-gate')),
+      item('b.glb', link('elsheria-3', 'elsheria')),
       item('c.glb', null),
-      item('d.glb', link('vending-1', 'vending', 'rooftop-cinema')),
-      item('e.glb', link('sakura-1', 'sakura')),
+      item('d.glb', link('crystal-lantern-1', 'crystal-lantern', 'frost-cathedral')),
+      item('e.glb', link('veil-gate-1', 'veil-gate')),
     ];
     expect(batchRedoPlan(items, ['a.glb', 'b.glb'])).toEqual({
-      project: 'moon-island',
+      project: 'frostveil',
       redo: [
-        { asset: 'sakura', job: 'sakura-2' },
-        { asset: 'character', job: 'character-3' },
+        { asset: 'veil-gate', job: 'veil-gate-2' },
+        { asset: 'elsheria', job: 'elsheria-3' },
       ],
       blocker: null,
     });

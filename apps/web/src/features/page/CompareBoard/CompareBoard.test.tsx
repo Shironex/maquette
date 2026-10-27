@@ -22,7 +22,7 @@ async function open() {
     undefined,
     'running'
   );
-  await usePageStore.getState().open('moon-island');
+  await usePageStore.getState().open('frostveil');
   await vi.waitFor(() => expect(usePageStore.getState().inspect).not.toBeNull());
   await vi.waitFor(async () => {
     await usePageStore.getState().refresh();
@@ -39,7 +39,7 @@ describe('the compare board', () => {
     expect(within(ship).getByTitle(/^Current ship, /)).toBeInTheDocument();
     const run = screen.getByRole('region', { name: 'This run' });
     expect(within(run).getByText('Ships next')).toBeVisible();
-    expect(within(run).getByText('+1.4 MB')).toBeVisible();
+    expect(within(run).getByText('+0.9 MB')).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Poster fallback' })).toBeNull();
   });
 

@@ -9,7 +9,7 @@ let view: LayoutView;
 
 beforeEach(async () => {
   await openMockWorkspace();
-  await useLayoutStore.getState().load('moon-island');
+  await useLayoutStore.getState().load('frostveil');
   view = useLayoutStore.getState().view!;
 });
 afterEach(() => {
@@ -25,15 +25,17 @@ describe('the selected item', () => {
 
   it("shows a model's placement fields", () => {
     const layout = useLayoutStore.getState().draft;
-    render(<Selected view={view} layout={layout} selection={{ kind: 'model', id: 'island' }} />);
-    expect(screen.getByText('Island')).toBeInTheDocument();
+    render(
+      <Selected view={view} layout={layout} selection={{ kind: 'model', id: 'veil-platform' }} />
+    );
+    expect(screen.getByText('Veil platform')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Position in m' })).toBeInTheDocument();
   });
 
   it("shows a stop's camera fields, and the hint for one that is gone", () => {
     const layout = useLayoutStore.getState().draft;
     const { rerender } = render(
-      <Selected view={view} layout={layout} selection={{ kind: 'stop', id: 'sakura' }} />
+      <Selected view={view} layout={layout} selection={{ kind: 'stop', id: 'veil-gate' }} />
     );
     expect(screen.getByRole('group', { name: 'Looks at in m' })).toBeInTheDocument();
     rerender(<Selected view={view} layout={layout} selection={{ kind: 'stop', id: 'gone' }} />);

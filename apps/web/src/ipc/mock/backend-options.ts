@@ -18,30 +18,30 @@ export type Args = Record<string, unknown>;
  *
  * Scenarios (`?scenario=`):
  * - `first-run` (default): no workspace yet, toktx missing.
- * - `configured`: a workspace with Moon Island is open.
+ * - `configured`: a workspace with Frostveil is open.
  * - `no-blender`: like first-run, but Blender is missing.
  * - `running`: configured, with run 25 live at Export GLB.
  * - `idle`: configured, the last run passed.
  *
- * Configured workspaces hold Moon Island, Rooftop cinema (a Room) and
- * Lantern keeper (a Character showcase); `?projects=many` adds five more so
+ * Configured workspaces hold Frostveil, Frost cathedral (a Room) and
+ * Elsheria showcase (a Character showcase); `?projects=many` adds five more so
  * the project switcher shows its search.
  *
  * `?pace=` sets the milliseconds between streamed log lines (default 260).
- * `?lab=running` holds two concept images of the porch direction mid job;
+ * `?lab=running` holds two concept images of the arena direction mid job;
  * `?lab=limited` adds a rate limited job and `?lab=usage` three waiting for
  * the Codex usage limit.
  * `?agents=active` turns the MCP server on, with an agent's activity, a
  * run waiting at Ship for approval and a send to Tripo waiting the same way;
  * `?agents=batch` makes that send a batch of three under one approval.
- * `?handoff=batch` adds the landing workbench concept, six object refs made
+ * `?handoff=batch` adds the veil gate props concept, six object refs made
  * from it and a By hand batch of them in mixed states.
- * `?inbox=redo` links the large sakura and the character in the inbox to
+ * `?inbox=redo` links the veil gate and Elsheria in the inbox to
  * the sends they came from (Meshy with a texture prompt, rigged Tripo) and
  * saves a Meshy key too, for Redo. The credits ledger holds the live sends
  * and a month of earlier ones. `?arrival=named|unmatched` drops a download
  * for the Downloads watcher (see `create-downloads-handlers.ts`).
- * `?built=demo` adds two built assets to Moon Island (see
+ * `?built=demo` adds two built assets to Frostveil (see
  * `create-built-handlers.ts`), `?motion=` models that move (see
  * `create-motion-handlers.ts`), `?page=` holds the Page view's dev server
  * (see `create-page-handlers.ts`), `?timeline=` the Timeline view's tracks
@@ -81,13 +81,13 @@ export interface BackendOptions {
   conceptMs?: number;
   /** `many`: eight projects instead of three. */
   projects?: string | null;
-  /** `batch`: the workbench objects and their By hand batch. */
+  /** `batch`: the veil gate objects and their By hand batch. */
   handoff?: string | null;
   /** `redo`: two inbox models linked to their sends, and both keys saved. */
   inbox?: string | null;
   /** `named` or `unmatched`: a download for the Downloads watcher. */
   arrival?: string | null;
-  /** `demo`: two built assets on Moon Island, one current and one stale. */
+  /** `demo`: two built assets on Frostveil, one current and one stale. */
   built?: string | null;
   /** `demo`, `rest`, `over` or `still`: models that move (see create-motion-handlers.ts). */
   motion?: string | null;
@@ -101,7 +101,7 @@ export interface BackendOptions {
   game?: string | null;
   /** `demo`: library entries, two of them with an update for a project (see library-fixtures.ts). */
   library?: string | null;
-  /** `many`: Moon Island gets 49 more versioned assets, so the Inspector's compare menu is long. */
+  /** `many`: Frostveil gets 49 more versioned assets, so the Inspector's compare menu is long. */
   inspect?: string | null;
   /** `hand-built`: Moon Island ships as a hand-built site (see create-ship-handlers.ts). */
   ship?: string | null;

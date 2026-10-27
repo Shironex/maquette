@@ -67,7 +67,7 @@ export default function AddToLibraryDialog({ target }: AddToLibraryDialogProps) 
       <TextField
         label="Name in the library"
         value={f.name}
-        placeholder="Desk lamp"
+        placeholder="Lantern post"
         onChange={e => f.setName(e.target.value)}
       />
       <TextField

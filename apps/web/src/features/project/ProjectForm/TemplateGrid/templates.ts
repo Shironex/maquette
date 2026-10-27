@@ -1,5 +1,5 @@
 import type { ProjectTemplate } from '@/ipc/client';
-import diorama from '@/assets/moon-island.jpg';
+import diorama from '@/assets/template-diorama.jpg';
 import room from '@/assets/template-room.jpg';
 import character from '@/assets/template-character.jpg';
 

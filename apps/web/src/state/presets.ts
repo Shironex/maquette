@@ -22,7 +22,7 @@ export interface PresetRow {
   custom: boolean;
 }
 
-/** "sakura_large" reads as "Sakura large". */
+/** "veil_gate" reads as "Veil gate". */
 export function modelLabel(stem: string): string {
   const words = stem.replace(/[_-]+/g, ' ').trim().toLowerCase();
   return words ? words[0]!.toUpperCase() + words.slice(1) : stem;

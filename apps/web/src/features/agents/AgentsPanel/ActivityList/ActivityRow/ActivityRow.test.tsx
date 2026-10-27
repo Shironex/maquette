@@ -17,9 +17,9 @@ function row(call: McpCall) {
 
 describe('an activity row', () => {
   it('shows the detail for a call that went through', () => {
-    const item = row({ ...first!, tool: 'run_pipeline', outcome: 'ok', detail: 'moon-island' });
+    const item = row({ ...first!, tool: 'run_pipeline', outcome: 'ok', detail: 'frostveil' });
     expect(item).toHaveTextContent('run_pipeline');
-    expect(item).toHaveTextContent('moon-island');
+    expect(item).toHaveTextContent('frostveil');
     expect(item).toHaveTextContent(/ok$/);
   });
 

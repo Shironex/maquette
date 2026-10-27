@@ -16,14 +16,14 @@ import {
 const NOW = 1_800_000_000_000;
 
 function view(runs = runHistory(NOW)) {
-  return pipelineView('moon-island', '/w/projects/moon-island', runs, []);
+  return pipelineView('frostveil', '/w/projects/frostveil', runs, []);
 }
 
 function newRun(state: RunRecord['state']): RunRecord {
   const [latest] = runHistory(NOW);
   return {
     ...latest!,
-    id: 'moon-island-run-25',
+    id: 'frostveil-run-25',
     number: 25,
     state,
     message: null,
@@ -42,10 +42,10 @@ describe('applyEvent', () => {
     expect(v.queued.map(r => r.number)).toEqual([25]);
     v = applyEvent(v, { type: 'run', run: newRun('running') });
     expect(v.queued).toEqual([]);
-    expect(v.active).toBe('moon-island-run-25');
+    expect(v.active).toBe('frostveil-run-25');
     expect(v.runs[0]!.number).toBe(25);
     expect(v.log).toEqual([]);
-    v = applyEvent(v, { type: 'log', entry: entry('moon-island-run-25', 'Blender 5.2') });
+    v = applyEvent(v, { type: 'log', entry: entry('frostveil-run-25', 'Blender 5.2') });
     expect(v.log).toHaveLength(1);
     v = applyEvent(v, { type: 'run', run: newRun('done') });
     expect(v.active).toBeNull();
@@ -56,16 +56,16 @@ describe('applyEvent', () => {
   it('ignores other projects and logs of older runs', () => {
     const v = view();
     expect(applyEvent(v, { type: 'run', run: { ...newRun('running'), project: 'other' } })).toBe(v);
-    expect(applyEvent(v, { type: 'log', entry: entry('moon-island-run-23', 'old') })).toBe(v);
+    expect(applyEvent(v, { type: 'log', entry: entry('frostveil-run-23', 'old') })).toBe(v);
   });
 
   it('caps the live log', () => {
     let v = applyEvent(view(), { type: 'run', run: newRun('running') });
     v = {
       ...v,
-      log: Array.from({ length: MAX_LOG_LINES }, (_, i) => entry('moon-island-run-25', String(i))),
+      log: Array.from({ length: MAX_LOG_LINES }, (_, i) => entry('frostveil-run-25', String(i))),
     };
-    v = applyEvent(v, { type: 'log', entry: entry('moon-island-run-25', 'last') });
+    v = applyEvent(v, { type: 'log', entry: entry('frostveil-run-25', 'last') });
     expect(v.log).toHaveLength(MAX_LOG_LINES);
     expect(v.log.at(-1)!.text).toBe('last');
     expect(v.log[0]!.text).toBe('1');

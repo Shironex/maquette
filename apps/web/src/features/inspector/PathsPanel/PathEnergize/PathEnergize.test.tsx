@@ -18,8 +18,8 @@ const PATH: ScenePath = {
   glow: '#ffe08a',
 };
 const STOP: LayoutStop = {
-  id: 'porch',
-  name: 'Porch',
+  id: 'arrival',
+  name: 'Arrival',
   position: [0, 1, 2],
   target: [0, 0, 0],
   fov: 35,
@@ -34,9 +34,9 @@ describe('the energize section', () => {
   });
 
   it('says where the fill is keyed and keeps the unbuilt drivers off', () => {
-    const track = { easing: 'linear' as const, keys: [{ stop: 'porch', amount: 0.5 }] };
+    const track = { easing: 'linear' as const, keys: [{ stop: 'arrival', amount: 0.5 }] };
     render(<PathEnergize path={PATH} track={track} stops={[STOP]} change={vi.fn()} />);
-    expect(screen.getByText('50% at Porch')).toBeInTheDocument();
+    expect(screen.getByText('50% at Arrival')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Scroll range/ })).toHaveAttribute(
       'aria-disabled',
       'true'

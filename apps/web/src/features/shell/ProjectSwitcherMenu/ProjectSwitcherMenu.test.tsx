@@ -33,7 +33,7 @@ describe('the project switcher', () => {
     await openMockWorkspace();
     const anchor = renderMenu();
     useProjectsStore.getState().openMenu();
-    const moon = await screen.findByRole('menuitemradio', { name: /Moon Island/ });
+    const moon = await screen.findByRole('menuitemradio', { name: /Frostveil/ });
     expect(moon).toHaveAttribute('aria-checked', 'true');
     await waitFor(() =>
       expect(screen.getByText(/Character showcase · 1 asset/)).toBeInTheDocument()
@@ -42,9 +42,9 @@ describe('the project switcher', () => {
 
     await userEvent.keyboard('{ArrowDown}{Enter}');
     await waitFor(() =>
-      expect(useAppStore.getState().workspace?.project?.id).toBe('rooftop-cinema')
+      expect(useAppStore.getState().workspace?.project?.id).toBe('frost-cathedral')
     );
-    expect(useAppStore.getState().workspace?.config.currentProject).toBe('rooftop-cinema');
+    expect(useAppStore.getState().workspace?.config.currentProject).toBe('frost-cathedral');
     expect(screen.queryByRole('menu')).toBeNull();
     expect(anchor.current).toHaveFocus();
   });
@@ -57,7 +57,7 @@ describe('the project switcher', () => {
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('menu')).toBeNull();
     expect(anchor.current).toHaveFocus();
-    expect(useAppStore.getState().workspace?.project?.id).toBe('moon-island');
+    expect(useAppStore.getState().workspace?.project?.id).toBe('frostveil');
   });
 
   it('searches once there are more than six projects', async () => {
@@ -66,9 +66,9 @@ describe('the project switcher', () => {
     useProjectsStore.getState().openMenu();
     const search = await screen.findByRole('searchbox', { name: 'Find a project' });
     await waitFor(() => expect(screen.getAllByRole('menuitemradio')).toHaveLength(8));
-    await userEvent.type(search, 'harbour{Enter}');
+    await userEvent.type(search, 'sentinel{Enter}');
     await waitFor(() =>
-      expect(useAppStore.getState().workspace?.project?.id).toBe('harbour-lights')
+      expect(useAppStore.getState().workspace?.project?.id).toBe('sentinel-hall')
     );
   });
 
@@ -124,8 +124,8 @@ describe('switcher helpers', () => {
 
   it('says in one line what keeps running', () => {
     const base = {
-      id: 'moon-island',
-      name: 'Moon Island',
+      id: 'frostveil',
+      name: 'Frostveil',
       template: 'floating-diorama' as const,
       target: 'website' as const,
       siteRepo: null,
@@ -138,10 +138,10 @@ describe('switcher helpers', () => {
     };
     expect(switchNote({ ...base, activity: { run: null, concepts: 0, sends: 0 } })).toBeNull();
     expect(
-      switchNote({ ...base, activity: { run: 'moon-island-run-25', concepts: 0, sends: 0 } })
-    ).toBe('Run 25 keeps going in Moon Island while you switch.');
+      switchNote({ ...base, activity: { run: 'frostveil-run-25', concepts: 0, sends: 0 } })
+    ).toBe('Run 25 keeps going in Frostveil while you switch.');
     expect(
-      switchNote({ ...base, activity: { run: 'moon-island-run-25', concepts: 2, sends: 1 } })
-    ).toBe('Run 25, 2 images and 1 send keep going in Moon Island while you switch.');
+      switchNote({ ...base, activity: { run: 'frostveil-run-25', concepts: 2, sends: 1 } })
+    ).toBe('Run 25, 2 images and 1 send keep going in Frostveil while you switch.');
   });
 });

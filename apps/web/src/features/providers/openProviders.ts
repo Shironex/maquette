@@ -12,7 +12,7 @@ export async function openProviders(handoff?: string, inbox?: string) {
     calls.push([cmd, payload]);
     return handle(cmd, payload);
   });
-  await useProvidersStore.getState().load('moon-island');
+  await useProvidersStore.getState().load('frostveil');
   const job = (id: string): ProviderJob => {
     const found = useProvidersStore.getState().jobs.find(j => j.id === id);
     if (!found) throw new Error(`No mock send ${id}`);

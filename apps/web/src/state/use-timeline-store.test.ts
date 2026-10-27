@@ -13,10 +13,10 @@ describe('the timeline store', () => {
   it('reads the stops, the cabinet lane and its explode track', async () => {
     const s = await openTimeline();
     expect(s.view?.stops.map(x => x.id)).toEqual([
-      'porch',
-      'sakura',
-      'shrubs',
-      'canopy',
+      'arrival',
+      'veil-gate',
+      'crystals',
+      'keystone',
       'pullback',
     ]);
     expect(s.draft.triggers['switch-cabinet']?.map(t => t.kind)).toEqual(['stop', 'scroll']);
@@ -30,7 +30,7 @@ describe('the timeline store', () => {
     const object = view!.states['switch-cabinet']!;
     useTimelineStore
       .getState()
-      .edit(d => addStopMark(d, 'switch-cabinet', object, view!.stops, 'canopy')!.draft, {
+      .edit(d => addStopMark(d, 'switch-cabinet', object, view!.stops, 'keystone')!.draft, {
         kind: 'state',
         asset: 'switch-cabinet',
         index: 2,

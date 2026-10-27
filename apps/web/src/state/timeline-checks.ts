@@ -116,7 +116,7 @@ export function siteSummary(view: TimelineView, draft: TimelineDraft) {
   };
 }
 
-/** "Between Porch and Sakura", "At Porch", for the playhead's place among the stops. */
+/** "Between Arrival and Veil gate", "At Arrival", for the playhead's place among the stops. */
 export function placeLine(at: number, stops: readonly LayoutStop[]): string {
   if (stops.length === 0) return '';
   const index = Math.min(stops.length - 1, Math.max(0, at));

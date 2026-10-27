@@ -13,26 +13,26 @@ afterEach(() => {
 
 async function openForm(assets: string[]) {
   await openProviders('batch');
-  await useProvidersStore.getState().openBatch('moon-island', assets);
+  await useProvidersStore.getState().openBatch('frostveil', assets);
   const batch = useProvidersStore.getState().batch!;
   return render(<BatchForm projectDir={batch.options!.projectDir} draft={batch.draft!} />);
 }
 
 describe('the batch form', () => {
   it('opens the custom settings of one asset', async () => {
-    await openForm(['desk-lamp', 'brush-cup']);
-    const custom = screen.getByRole('button', { name: 'Custom settings for Desk lamp' });
+    await openForm(['lantern-post', 'sigil-door']);
+    const custom = screen.getByRole('button', { name: 'Custom settings for Lantern post' });
     await userEvent.click(custom);
     expect(custom).toHaveAttribute('aria-expanded', 'true');
-    const group = screen.getByRole('group', { name: 'Desk lamp settings' });
+    const group = screen.getByRole('group', { name: 'Lantern post settings' });
     expect(within(group).getByRole('button', { name: 'Use batch settings' })).toBeDisabled();
   });
 
   it('offers a tab per kind once the batch mixes them', async () => {
-    await openForm(['desk-lamp', 'brush-cup']);
+    await openForm(['lantern-post', 'sigil-door']);
     expect(screen.queryByRole('group', { name: 'Preset to edit' })).toBeNull();
     await userEvent.click(
-      within(screen.getByRole('group', { name: 'Brush cup kind' })).getByRole('button', {
+      within(screen.getByRole('group', { name: 'Sigil door kind' })).getByRole('button', {
         name: 'Character',
       })
     );

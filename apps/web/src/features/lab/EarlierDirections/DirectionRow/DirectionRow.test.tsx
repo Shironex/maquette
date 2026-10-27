@@ -8,10 +8,10 @@ import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { DirectionRow } from '.';
 
 const directions = labDirections(false);
-const train = directions.find(d => d.id === 'late-train')!;
+const train = directions.find(d => d.id === 'veil-gate-kit')!;
 const view: LabView = {
-  project: 'moon-island',
-  projectDir: '/w/moon-island',
+  project: 'frostveil',
+  projectDir: '/w/frostveil',
   directions,
   jobs: [],
   refs: [],
@@ -36,9 +36,9 @@ function renderRow(menuOpen: boolean, onMenu = vi.fn(), at = view) {
 
 describe('an earlier direction', () => {
   it('counts its images and marks the selected one', () => {
-    useLabStore.setState({ selected: 'late-train' });
+    useLabStore.setState({ selected: 'veil-gate-kit' });
     renderRow(false);
-    expect(screen.getByRole('button', { name: /^Late train/ })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /^Veil gate kit/ })).toHaveAttribute(
       'aria-current',
       'true'
     );
@@ -47,7 +47,7 @@ describe('an earlier direction', () => {
 
   it('opens its menu through onMenu', async () => {
     const onMenu = renderRow(false);
-    await userEvent.click(screen.getByRole('button', { name: 'More for Late train' }));
+    await userEvent.click(screen.getByRole('button', { name: 'More for Veil gate kit' }));
     expect(onMenu).toHaveBeenCalledWith(true);
   });
 
@@ -58,12 +58,12 @@ describe('an earlier direction', () => {
     renderRow(true);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Move to project…' }));
     expect(screen.getByText('Its concepts, picks, stars and Board card go along.')).toBeVisible();
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Rooftop cinema' }));
-    expect(moveDirection).toHaveBeenCalledWith('late-train', 'rooftop-cinema');
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Frost cathedral' }));
+    expect(moveDirection).toHaveBeenCalledWith('veil-gate-kit', 'frost-cathedral');
   });
 
   it('holds the move while its images are generating', async () => {
-    const job = { direction: 'late-train', state: 'running' } as LabView['jobs'][number];
+    const job = { direction: 'veil-gate-kit', state: 'running' } as LabView['jobs'][number];
     renderRow(true, vi.fn(), { ...view, jobs: [job] });
     await userEvent.click(screen.getByRole('menuitem', { name: 'Move to project…' }));
     expect(screen.getByText(/still generating/)).toBeVisible();

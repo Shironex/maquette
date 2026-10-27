@@ -23,8 +23,8 @@ const zip: Arrival = {
 };
 
 const options = [
-  { value: 'lanterns-1', label: 'Lanterns' },
-  { value: 'brush-cup-1', label: 'Brush cup' },
+  { value: 'guardian-statues-1', label: 'Lanterns' },
+  { value: 'sigil-door-1', label: 'Sigil door' },
 ];
 
 describe('a download asking for its asset', () => {
@@ -41,9 +41,9 @@ describe('a download asking for its asset', () => {
     expect(add).toHaveAttribute('aria-disabled', 'true');
     await userEvent.selectOptions(
       screen.getByRole('combobox', { name: 'Asset for tripo_model.zip' }),
-      'brush-cup-1'
+      'sigil-door-1'
     );
-    expect(useDownloadsStore.getState().choices).toEqual({ a1: 'brush-cup-1' });
+    expect(useDownloadsStore.getState().choices).toEqual({ a1: 'sigil-door-1' });
     expect(screen.getByRole('button', { name: 'Add to inbox' })).not.toHaveAttribute(
       'aria-disabled',
       'true'

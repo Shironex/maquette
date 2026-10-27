@@ -17,48 +17,48 @@ const byId = (id: string) => items.find(i => i.id === id)!;
 
 describe('inbox helpers', () => {
   it('chips rows by their worst check', () => {
-    expect(itemChip(byId('far_spire.glb'))).toEqual({ status: 'failed', label: 'unreadable' });
-    expect(itemChip(byId('sakura_large.glb'))).toEqual({ status: 'done', label: 'checks passed' });
-    expect(itemChip(byId('character.glb'))).toEqual({ status: 'review', label: 'needs review' });
+    expect(itemChip(byId('rune_obelisk.glb'))).toEqual({ status: 'failed', label: 'unreadable' });
+    expect(itemChip(byId('veil_gate.glb'))).toEqual({ status: 'done', label: 'checks passed' });
+    expect(itemChip(byId('elsheria.glb'))).toEqual({ status: 'review', label: 'needs review' });
   });
 
   it('describes the character the way the real analysis does', () => {
-    const character = byId('character.glb');
-    expect(itemMeta(character)).toMatch(/^94\.6k tris · \d+ textures?$/);
-    expect(character.report!.joints).toBe(65);
+    const character = byId('elsheria.glb');
+    expect(itemMeta(character)).toMatch(/^115\.7k tris · \d+ textures?$/);
+    expect(character.report!.joints).toBe(119);
     const fingers = character.checks.find(c => c.id === 'finger-weights')!;
     expect(fingers.status).toBe('fail');
     expect(fingers.detail).toMatch(/1,?284/);
   });
 
   it('puts failures first and summarises', () => {
-    const character = byId('character.glb');
+    const character = byId('elsheria.glb');
     const sorted = sortChecks(character.checks);
     expect(sorted[0]!.status).toBe('fail');
     expect(sorted.at(-1)!.status).toBe('pass');
     expect(checkSummary([])).toBe('No checks');
-    expect(checkSummary(byId('sakura_large.glb').checks)).toMatch(/^\d+ passed$/);
+    expect(checkSummary(byId('veil_gate.glb').checks)).toMatch(/^\d+ passed$/);
     expect(reviewPrompt(character)).toMatch(/^Review the 1 failure/);
-    expect(reviewPrompt(byId('far_spire.glb'))).toContain('Reprocess');
-    expect(itemMeta(byId('far_spire.glb'))).toContain('not a glTF model');
+    expect(reviewPrompt(byId('rune_obelisk.glb'))).toContain('Reprocess');
+    expect(itemMeta(byId('rune_obelisk.glb'))).toContain('not a glTF model');
   });
 });
 
 describe('firstToReview', () => {
   it('skips files that could not be read', () => {
-    expect(firstToReview(items)!.id).toBe('character.glb');
-    expect(firstToReview([byId('far_spire.glb')])!.id).toBe('far_spire.glb');
+    expect(firstToReview(items)!.id).toBe('elsheria.glb');
+    expect(firstToReview([byId('rune_obelisk.glb')])!.id).toBe('rune_obelisk.glb');
     expect(firstToReview([])).toBeNull();
   });
 });
 
 describe('madeBy and itemTitle', () => {
-  const base = byId('character.glb');
+  const base = byId('elsheria.glb');
   const made = (generator: string | null) =>
     madeBy({ ...base, link: null, report: { ...base.report!, generator } });
   const link = {
     job: 'job-1',
-    project: 'moon-island',
+    project: 'frostveil',
     asset: 'clay-lantern',
     assetName: 'Clay lantern',
     provider: 'meshy' as const,
@@ -88,17 +88,17 @@ describe('madeBy and itemTitle', () => {
 
 describe('kindHint', () => {
   it('says whether the kind came from the send, a guess, or a pick', () => {
-    const shrubs = byId('flower_shrubs.glb');
+    const shrubs = byId('ice_crystals.glb');
     expect(shrubs.kindFromSend).toBe(true);
     expect(kindHint(shrubs)).toBe('From the send. Pick one to change the checks.');
-    expect(kindHint(byId('character.glb'))).toBe(
+    expect(kindHint(byId('elsheria.glb'))).toBe(
       'A guess from the file. Pick one to change the checks.'
     );
     expect(kindHint({ kindGuessed: false, kindFromSend: false })).toBeUndefined();
   });
 
   it('shows a send without PBR as a passing row, not a warning', () => {
-    const shrubs = byId('flower_shrubs.glb');
+    const shrubs = byId('ice_crystals.glb');
     expect(shrubs.checks.find(c => c.id === 'pbr')).toMatchObject({
       status: 'pass',
       title: 'PBR off, as sent',

@@ -3,7 +3,7 @@ import type { ProjectActivity, ProjectSummary } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { TEMPLATE_LABEL } from './onboarding';
 
-/** `moon-island-run-25` is Run 25. */
+/** `frostveil-run-25` is Run 25. */
 export function runNumber(runId: string): number | null {
   const match = /-run-(\d+)$/.exec(runId);
   return match ? Number(match[1]) : null;

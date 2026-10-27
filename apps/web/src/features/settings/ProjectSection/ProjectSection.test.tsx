@@ -13,12 +13,12 @@ describe('the project settings', () => {
     await openMockWorkspace();
     render(<ProjectSection active />);
     const section = screen.getByRole('region', { name: /Project/ });
-    expect(section).toHaveTextContent('Moon Island only');
+    expect(section).toHaveTextContent('Frostveil only');
     const name = within(section).getByRole('textbox', { name: 'Name' });
     await userEvent.clear(name);
-    await userEvent.type(name, 'Moon Island at dusk{Enter}');
+    await userEvent.type(name, 'Frostveil at dusk{Enter}');
     await waitFor(() =>
-      expect(useAppStore.getState().workspace?.project?.name).toBe('Moon Island at dusk')
+      expect(useAppStore.getState().workspace?.project?.name).toBe('Frostveil at dusk')
     );
   });
 
@@ -38,7 +38,7 @@ describe('the project settings', () => {
     expect(field).toHaveAttribute('placeholder', 'pnpm run dev --port {port}');
     await userEvent.type(field, 'pnpm exec astro dev --port {{port}{Enter}');
     await waitFor(async () =>
-      expect((await commands.pageGet('moon-island')).settings.devCommand).toBe(
+      expect((await commands.pageGet('frostveil')).settings.devCommand).toBe(
         'pnpm exec astro dev --port {port}'
       )
     );

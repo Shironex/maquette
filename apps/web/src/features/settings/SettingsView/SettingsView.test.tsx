@@ -21,17 +21,17 @@ describe('the project settings', () => {
     const section = screen.getByRole('region', { name: /Project/ });
     const field = within(section).getByRole('textbox', { name: 'Name' });
     await userEvent.clear(field);
-    await userEvent.type(field, 'Moon Island night');
+    await userEvent.type(field, 'Frostveil night');
     fireEvent.blur(field);
 
-    await act(() => useProjectsStore.getState().switchTo('rooftop-cinema'));
+    await act(() => useProjectsStore.getState().switchTo('frost-cathedral'));
     await act(async () => release());
     await waitFor(() =>
-      expect(
-        useAppStore.getState().workspace?.projects.find(p => p.id === 'moon-island')?.name
-      ).toBe('Moon Island night')
+      expect(useAppStore.getState().workspace?.projects.find(p => p.id === 'frostveil')?.name).toBe(
+        'Frostveil night'
+      )
     );
-    expect(useAppStore.getState().workspace?.project?.id).toBe('rooftop-cinema');
+    expect(useAppStore.getState().workspace?.project?.id).toBe('frost-cathedral');
   });
 });
 

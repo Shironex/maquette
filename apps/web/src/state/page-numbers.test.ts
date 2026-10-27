@@ -23,11 +23,11 @@ function model(
 }
 
 const MODELS = [
-  model('site', 'sakura', 420_000, { triangles: 30_000 }),
+  model('site', 'gate', 420_000, { triangles: 30_000 }),
   model('site', 'lantern', 90_000),
-  model('shipped', 'sakura', 330_000, { triangles: 28_000 }),
+  model('shipped', 'gate', 330_000, { triangles: 28_000 }),
   model('shipped', 'character', 1_500_000, { materials: 2, gpuBytes: 60e6 }),
-  model('raw', 'sakura', 4_000_000),
+  model('raw', 'gate', 4_000_000),
 ];
 
 describe('scene numbers', () => {
@@ -66,7 +66,7 @@ describe('scene numbers', () => {
   it('lists what changed per model, the biggest first', () => {
     expect(modelChanges(MODELS)).toEqual([
       { title: 'Character is new', detail: 'Adds 1.5 MB to the scene' },
-      { title: 'Sakura', detail: '90 KB lighter, 2,000 triangles fewer' },
+      { title: 'Gate', detail: '90 KB lighter, 2,000 triangles fewer' },
       { title: 'Lantern leaves', detail: 'Saves 90 KB' },
     ]);
   });

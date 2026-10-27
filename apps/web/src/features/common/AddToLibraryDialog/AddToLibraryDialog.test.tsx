@@ -15,12 +15,12 @@ afterEach(() => {
 describe('Add to library', () => {
   it('adds a fixed asset with its name and tags', async () => {
     await openMockLibrary();
-    useLibraryStore.setState({ adding: { project: 'moon-island', asset: 'island' } });
-    render(<AddToLibraryDialog target={{ project: 'moon-island', asset: 'island' }} />);
-    expect(screen.getByRole('dialog', { name: 'Add Island to the library' })).toBeVisible();
+    useLibraryStore.setState({ adding: { project: 'frostveil', asset: 'veil-platform' } });
+    render(<AddToLibraryDialog target={{ project: 'frostveil', asset: 'veil-platform' }} />);
+    expect(screen.getByRole('dialog', { name: 'Add Veil platform to the library' })).toBeVisible();
     await userEvent.type(screen.getByLabelText('Tags'), 'scenes, Night');
     await userEvent.click(screen.getByRole('button', { name: 'Add to library' }));
-    expect(useAppStore.getState().notice?.title).toBe('Added Island v1 to the library');
+    expect(useAppStore.getState().notice?.title).toBe('Added Veil platform v1 to the library');
     expect(useLibraryStore.getState().view?.items[0]?.entry.tags).toEqual(['scenes', 'night']);
   });
 
@@ -28,15 +28,15 @@ describe('Add to library', () => {
     await openMockLibrary();
     render(<AddToLibraryDialog target="pick" />);
     expect(screen.getByRole('dialog', { name: 'Add to library' })).toBeVisible();
-    expect(screen.getByLabelText('Name in the library')).toHaveValue('Island');
+    expect(screen.getByLabelText('Name in the library')).toHaveValue('Veil platform');
   });
 
   it('says a newer model of a library asset becomes a new version', async () => {
     await openMockLibrary('demo');
     await useLibraryStore.getState().load();
-    render(<AddToLibraryDialog target={{ project: 'moon-island', asset: 'shop-house' }} />);
+    render(<AddToLibraryDialog target={{ project: 'frostveil', asset: 'observatory-arch' }} />);
     expect(
-      screen.getByText(/came from the library's Shop house. A newer model adds a version/)
+      screen.getByText(/came from the library's Observatory arch. A newer model adds a version/)
     ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add as a new version' })).toBeVisible();
   });

@@ -37,12 +37,12 @@ type Bounds = { min: [number, number, number]; max: [number, number, number] };
 
 /** A few of the core's everyday sizes, for the suggestion. */
 const TABLE: [string, Suggestion['size']][] = [
-  ['desk lamp', { axis: 'height', value: 45, unit: 'cm' }],
+  ['lantern post', { axis: 'height', value: 2.2, unit: 'm' }],
   ['laptop', { axis: 'width', value: 32, unit: 'cm' }],
   ['mug', { axis: 'height', value: 10, unit: 'cm' }],
-  ['vending', { axis: 'height', value: 1.8, unit: 'm' }],
-  ['sakura', { axis: 'height', value: 6, unit: 'm' }],
-  ['shrubs', { axis: 'height', value: 60, unit: 'cm' }],
+  ['crystal lantern', { axis: 'height', value: 1.8, unit: 'm' }],
+  ['gate', { axis: 'height', value: 6, unit: 'm' }],
+  ['crystals', { axis: 'height', value: 1.2, unit: 'm' }],
   ['lantern', { axis: 'height', value: 1.2, unit: 'm' }],
 ];
 

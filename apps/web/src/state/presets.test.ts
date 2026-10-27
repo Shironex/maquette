@@ -3,7 +3,7 @@ import { CHARACTER_LOCK, pipelineView, runHistory } from '@/ipc/mock/pipeline-fi
 import { estimatedTransfer } from './pipeline';
 import { estimateTransfer, modelLabel, presetRows, presetsToSave, splitSize } from './presets';
 
-const view = pipelineView('moon-island', '/w', runHistory(0), []);
+const view = pipelineView('frostveil', '/w', runHistory(0), []);
 
 describe('presets', () => {
   it('labels an export of an asset version after the asset', () => {
@@ -18,22 +18,22 @@ describe('presets', () => {
   });
 
   it('labels model stems', () => {
-    expect(modelLabel('sakura_large')).toBe('Sakura large');
-    expect(modelLabel('shop-house')).toBe('Shop house');
+    expect(modelLabel('veil_gate')).toBe('Veil gate');
+    expect(modelLabel('observatory-arch')).toBe('Observatory arch');
   });
 
   it('lists every model with stored rows or the defaults', () => {
     const rows = presetRows(view);
     expect(rows.map(r => r.model)).toEqual([
-      'character',
-      'island',
-      'sakura',
-      'shop_house',
-      'vending',
+      'crystal_lantern',
+      'elsheria',
+      'observatory_arch',
+      'veil_gate',
+      'veil_platform',
     ]);
-    const character = rows.find(r => r.model === 'character')!;
-    expect(character).toMatchObject({ meshopt: 'medium', lock: CHARACTER_LOCK, custom: true });
-    expect(rows.find(r => r.model === 'island')).toMatchObject({
+    const elsheria = rows.find(r => r.model === 'elsheria')!;
+    expect(elsheria).toMatchObject({ meshopt: 'medium', lock: CHARACTER_LOCK, custom: true });
+    expect(rows.find(r => r.model === 'veil_platform')).toMatchObject({
       textureSize: 2048,
       codec: 'etc1s',
       meshopt: 'high',
@@ -43,27 +43,34 @@ describe('presets', () => {
 
   it('saves stored and edited rows only, keeping locks', () => {
     const rows = presetRows(view).map(r =>
-      r.model === 'island' ? { ...r, textureSize: 1024, custom: true } : r
+      r.model === 'veil_platform' ? { ...r, textureSize: 1024, custom: true } : r
     );
     const saved = presetsToSave(rows);
-    expect(saved.map(p => p.model)).toEqual(['character', 'island', 'sakura', 'vending']);
-    expect(saved.find(p => p.model === 'island')!.textureSize).toBe(1024);
-    expect(saved.find(p => p.model === 'character')!.lock).toBe(CHARACTER_LOCK);
+    expect(saved.map(p => p.model)).toEqual([
+      'crystal_lantern',
+      'elsheria',
+      'veil_gate',
+      'veil_platform',
+    ]);
+    expect(saved.find(p => p.model === 'veil_platform')!.textureSize).toBe(1024);
+    expect(saved.find(p => p.model === 'elsheria')!.lock).toBe(CHARACTER_LOCK);
     expect(Object.keys(saved[0]!)).not.toContain('custom');
   });
 
   it('adds up shipped bytes', () => {
-    expect(estimatedTransfer(view)).toBeCloseTo(3.8e6);
+    expect(estimatedTransfer(view)).toBeCloseTo(3.47e6);
   });
 
   it('keeps one size by default and saves a split only when set', () => {
     const rows = presetRows(view);
     expect(rows.every(r => r.dataTextureSize === null)).toBe(true);
     const saved = presetsToSave(
-      rows.map(r => (r.model === 'island' ? { ...r, dataTextureSize: 1024, custom: true } : r))
+      rows.map(r =>
+        r.model === 'veil_platform' ? { ...r, dataTextureSize: 1024, custom: true } : r
+      )
     );
-    expect(saved.find(p => p.model === 'island')!.dataTextureSize).toBe(1024);
-    expect(saved.find(p => p.model === 'sakura')!.dataTextureSize).toBeNull();
+    expect(saved.find(p => p.model === 'veil_platform')!.dataTextureSize).toBe(1024);
+    expect(saved.find(p => p.model === 'veil_gate')!.dataTextureSize).toBeNull();
     expect(splitSize({ textureSize: 2048, dataTextureSize: 1024 })).toBe(1024);
     expect(splitSize({ textureSize: 1024, dataTextureSize: 2048 })).toBeNull();
     expect(splitSize({ textureSize: 1024, dataTextureSize: null })).toBeNull();
@@ -73,9 +80,9 @@ describe('presets', () => {
     const rows = presetRows(view);
     expect(estimateTransfer(view, rows)).toBeCloseTo(estimatedTransfer(view));
     const split = rows.map(r =>
-      r.model === 'island' ? { ...r, dataTextureSize: 512, custom: true } : r
+      r.model === 'veil_platform' ? { ...r, dataTextureSize: 512, custom: true } : r
     );
-    const island = view.models.find(m => m.model === 'island')!;
+    const island = view.models.find(m => m.model === 'veil_platform')!;
     const base = island.shippedBytes ?? island.rawBytes ?? 0;
     const estimate = estimateTransfer(view, split);
     expect(estimate).toBeLessThan(estimatedTransfer(view));

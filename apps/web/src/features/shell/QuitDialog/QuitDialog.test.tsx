@@ -35,9 +35,9 @@ async function record() {
 }
 
 const edit = {
-  'sakura-tree': {
-    model: 'sakura-tree',
-    label: 'Sakura tree',
+  'veil-gate': {
+    model: 'veil-gate',
+    label: 'Veil gate',
     textureSize: 512,
     dataTextureSize: null,
     codec: 'etc1s' as const,
@@ -55,10 +55,10 @@ describe('the quit guard', () => {
     const sent = () => calls.filter(([c]) => c === 'quit_set_unapplied').map(([, a]) => a);
     await waitFor(() => expect(sent()).toEqual([{ unapplied: false }]));
 
-    act(() => usePipelineStore.getState().setPresetEdits('moon-island', edit));
+    act(() => usePipelineStore.getState().setPresetEdits('frostveil', edit));
     await waitFor(() => expect(sent().at(-1)).toEqual({ unapplied: true }));
 
-    act(() => usePipelineStore.getState().setPresetEdits('moon-island', {}));
+    act(() => usePipelineStore.getState().setPresetEdits('frostveil', {}));
     await waitFor(() => expect(sent().at(-1)).toEqual({ unapplied: false }));
   });
 
@@ -68,9 +68,9 @@ describe('the quit guard', () => {
     const sent = () => calls.filter(([c]) => c === 'quit_set_unapplied').map(([, a]) => a);
     await waitFor(() => expect(sent()).toEqual([{ unapplied: false }]));
     const look = { ...emptyLook(), all: { ...emptyLook().all, metalness: 0.2 } };
-    act(() => useMaterialsStore.getState().setLook('moon-island', 'sakura', look));
+    act(() => useMaterialsStore.getState().setLook('frostveil', 'veil-gate', look));
     await waitFor(() => expect(sent().at(-1)).toEqual({ unapplied: true }));
-    act(() => useMaterialsStore.getState().reset('moon-island', 'sakura'));
+    act(() => useMaterialsStore.getState().reset('frostveil', 'veil-gate'));
     await waitFor(() => expect(sent().at(-1)).toEqual({ unapplied: false }));
   });
 
@@ -82,7 +82,7 @@ describe('the quit guard', () => {
     act(() =>
       usePrepareStore
         .getState()
-        .setDraft('character.glb', { size: null, fixups: [{ op: 'origin-bottom' }] })
+        .setDraft('elsheria.glb', { size: null, fixups: [{ op: 'origin-bottom' }] })
     );
     await waitFor(() => expect(sent().at(-1)).toEqual({ unapplied: true }));
   });
@@ -105,12 +105,12 @@ describe('the quit event', () => {
 describe('the quit dialog', () => {
   it('names the project and offers apply, quit and cancel', async () => {
     const calls = await record();
-    usePipelineStore.getState().setPresetEdits('moon-island', edit);
+    usePipelineStore.getState().setPresetEdits('frostveil', edit);
     render(<QuitDialog />);
     expect(screen.queryByRole('dialog')).toBeNull();
     act(() => useQuitStore.getState().ask());
     const dialog = await screen.findByRole('dialog', { name: 'Apply the compression presets?' });
-    expect(within(dialog).getByText(/Not applied yet in Moon Island/)).toBeVisible();
+    expect(within(dialog).getByText(/Not applied yet in Frostveil/)).toBeVisible();
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -119,7 +119,7 @@ describe('the quit dialog', () => {
 
   it('closes after Quit without applying', async () => {
     const calls = await record();
-    usePipelineStore.getState().setPresetEdits('moon-island', edit);
+    usePipelineStore.getState().setPresetEdits('frostveil', edit);
     render(<QuitDialog />);
     act(() => useQuitStore.getState().ask());
     await userEvent.click(await screen.findByRole('button', { name: 'Quit without applying' }));
@@ -131,7 +131,7 @@ describe('the quit dialog', () => {
     const calls = await record();
     usePrepareStore
       .getState()
-      .setDraft('character.glb', { size: null, fixups: [{ op: 'origin-bottom' }] });
+      .setDraft('elsheria.glb', { size: null, fixups: [{ op: 'origin-bottom' }] });
     render(<QuitDialog />);
     act(() => useQuitStore.getState().ask());
     const dialog = await screen.findByRole('dialog', {

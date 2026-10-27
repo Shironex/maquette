@@ -6,7 +6,7 @@ import { pipelineView, runHistory } from '@/ipc/mock/pipeline-fixtures';
 import { RunLog } from '.';
 
 const entry = (text: string, step: string | null = 'export'): LogEntry => ({
-  runId: 'moon-island-run-24',
+  runId: 'frostveil-run-24',
   step,
   stream: 'stdout',
   level: 'info',
@@ -14,8 +14,8 @@ const entry = (text: string, step: string | null = 'export'): LogEntry => ({
   atMs: null,
 });
 
-const log = [entry('Blender 4.2.0'), entry('[export] wrote island.glb')];
-const view = pipelineView('moon-island', '/w', runHistory(0), log);
+const log = [entry('Blender 4.2.0'), entry('[export] wrote veil_platform.glb')];
+const view = pipelineView('frostveil', '/w', runHistory(0), log);
 
 afterEach(() => {
   cleanup();

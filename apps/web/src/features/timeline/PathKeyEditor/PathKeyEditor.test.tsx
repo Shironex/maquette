@@ -13,32 +13,30 @@ afterEach(() => {
 });
 
 const select = (stop: string) =>
-  useTimelineStore.getState().select({ kind: 'path', path: 'lantern-cable', stop });
+  useTimelineStore.getState().select({ kind: 'path', path: 'rune-line', stop });
 
-const track = () => useTimelineStore.getState().draft.timeline.paths['lantern-cable'];
+const track = () => useTimelineStore.getState().draft.timeline.paths['rune-line'];
 
 describe('the energize key editor', () => {
   it('sets how much of the path is lit at the stop and the easing', async () => {
     await openTimeline();
-    select('canopy');
+    select('keystone');
     render(<PathKeyEditor />);
-    expect(
-      screen.getByRole('heading', { name: 'Lantern cable · energize at Canopy' })
-    ).toBeVisible();
-    const amount = screen.getByLabelText('Lit at Canopy');
+    expect(screen.getByRole('heading', { name: 'Rune line · energize at Keystone' })).toBeVisible();
+    const amount = screen.getByLabelText('Lit at Keystone');
     await userEvent.clear(amount);
     await userEvent.type(amount, '60{Enter}');
-    expect(track()?.keys).toContainEqual({ stop: 'canopy', amount: 0.6 });
+    expect(track()?.keys).toContainEqual({ stop: 'keystone', amount: 0.6 });
     await userEvent.selectOptions(screen.getByLabelText('Easing'), 'ease-in-out');
     expect(track()?.easing).toBe('ease-in-out');
   });
 
   it('says a stop is not keyed yet, opens the path and removes the track', async () => {
     await openTimeline();
-    select('porch');
+    select('arrival');
     render(<PathKeyEditor />);
     expect(
-      screen.getByText('Not keyed at Porch yet. Set how much is lit to key it.')
+      screen.getByText('Not keyed at Arrival yet. Set how much is lit to key it.')
     ).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Edit the path' }));
     expect(useInspectorStore.getState().tab).toBe('paths');

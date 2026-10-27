@@ -53,16 +53,16 @@ function options(): BatchOptions {
     updatedAt: '2026-10-24T10:00:00Z',
   });
   return {
-    project: 'moon-island',
-    projectDir: '/w/projects/moon-island',
+    project: 'frostveil',
+    projectDir: '/w/projects/frostveil',
     items: [
       {
-        asset: asset('desk-lamp', 'Desk lamp', 'prop'),
-        suggested: ['refs/desk_lamp.png'],
+        asset: asset('lantern-post', 'Lantern post', 'prop'),
+        suggested: ['refs/lantern_post.png'],
         variant: 'prop',
       },
       {
-        asset: asset('sculptor', 'Sculptor figure', 'character'),
+        asset: asset('sculptor', 'Hooded guardian', 'character'),
         suggested: ['refs/sculptor.png'],
         variant: 'character',
       },
@@ -83,16 +83,16 @@ describe('a batch send', () => {
   it('sends only the presets the items use, for the chosen service', () => {
     const draft = batchDraft(options(), presets.tripo, presets.meshy, 'meshy');
     const props = { ...draft, items: draft.items.map(i => ({ ...i, variant: 'prop' as const })) };
-    const request = batchRequest('moon-island', props);
+    const request = batchRequest('frostveil', props);
     expect(request.service).toBe('meshy');
     expect(request.meshyProp).toEqual(presets.meshy.prop);
     expect(request.meshyCharacter).toBeNull();
     expect(request.tripoProp).toBeNull();
     expect(request.items).toEqual([
       {
-        asset: 'desk-lamp',
+        asset: 'lantern-post',
         variant: 'prop',
-        images: ['refs/desk_lamp.png'],
+        images: ['refs/lantern_post.png'],
         tripo: null,
         meshy: null,
         prompt: null,
@@ -114,16 +114,16 @@ describe('a batch send', () => {
   it('carries a Meshy texture prompt and the send a redo repeats', () => {
     const draft = batchDraft(options(), presets.tripo, presets.meshy, 'meshy');
     const [lamp, sculptor] = draft.items;
-    const items = [{ ...lamp!, prompt: '  Brass and soot  ', redoOf: 'desk-lamp-1' }, sculptor!];
-    const meshy = batchRequest('moon-island', { ...draft, items });
-    expect(meshy.items[0]).toMatchObject({ prompt: 'Brass and soot', redoOf: 'desk-lamp-1' });
+    const items = [{ ...lamp!, prompt: '  Brass and soot  ', redoOf: 'lantern-post-1' }, sculptor!];
+    const meshy = batchRequest('frostveil', { ...draft, items });
+    expect(meshy.items[0]).toMatchObject({ prompt: 'Brass and soot', redoOf: 'lantern-post-1' });
     expect(meshy.items[1]).toMatchObject({ prompt: null, redoOf: null });
     // Tripo takes no prompt, so a batch switched to it drops the text.
-    const tripo = batchRequest('moon-island', { ...draft, service: 'tripo', items });
-    expect(tripo.items[0]).toMatchObject({ prompt: null, redoOf: 'desk-lamp-1' });
+    const tripo = batchRequest('frostveil', { ...draft, service: 'tripo', items });
+    expect(tripo.items[0]).toMatchObject({ prompt: null, redoOf: 'lantern-post-1' });
     const long = { ...draft, items: [{ ...lamp!, prompt: 'x'.repeat(801) }] };
     expect(batchProblem(long, { tripoModels: [], meshyModels: [] })).toMatch(
-      /^Desk lamp: Keep the texture prompt to 800 characters/
+      /^Lantern post: Keep the texture prompt to 800 characters/
     );
   });
 
@@ -136,7 +136,7 @@ describe('a batch send', () => {
     expect(batchBlocker(draft, keys, null)).toBeNull();
     const bare = { ...draft, items: [{ ...draft.items[0]!, images: [] }] };
     expect(batchBlocker(bare, keys, null)).toBe(
-      'Desk lamp has no refs yet. Send a pick to Refs first.'
+      'Lantern post has no refs yet. Send a pick to Refs first.'
     );
     expect(batchBlocker({ ...draft, items: [] }, keys, null)).toBe('Select at least one asset.');
     expect(batchBlocker(draft, keys, 'Pick a model.')).toBe('Pick a model.');
@@ -183,14 +183,14 @@ describe('per-asset overrides', () => {
     expect(batchLines(d, catalog).at(-1)).toBe(`${d.items[0].name}: 2,000 faces`);
     const only = { ...d, items: [{ ...d.items[0], tripo: { autoSize: !base.autoSize } }] };
     expect(isCustom(only, only.items[0]!)).toBe(false);
-    expect(batchRequest('moon-island', only).items[0]?.tripo).toBeNull();
+    expect(batchRequest('frostveil', only).items[0]?.tripo).toBeNull();
     expect(pruneItems(d).items[0]?.tripo).toEqual({ faceLimit: 2_000 });
   });
 
   it('sends the merged preset for custom assets only', () => {
     const d = draft();
     d.items[1] = { ...d.items[1]!, tripo: { faceLimit: 2_000 } };
-    const request = batchRequest('moon-island', d);
+    const request = batchRequest('frostveil', d);
     expect(request.items[0]?.tripo).toBeNull();
     expect(request.items[1]?.tripo).toEqual({ ...presets.tripo.prop, faceLimit: 2_000 });
     expect(request.items[1]?.meshy).toBeNull();
@@ -201,7 +201,7 @@ describe('per-asset overrides', () => {
     d.items[1] = { ...d.items[1]!, tripo: { faceLimit: 2_000, pbr: false } };
     expect(batchLines(d, catalog)).toEqual([
       expect.stringMatching(/^Props: Tripo H3\.1/),
-      'Sculptor figure: 2,000 faces, no PBR',
+      'Hooded guardian: 2,000 faces, no PBR',
     ]);
   });
 
@@ -209,13 +209,13 @@ describe('per-asset overrides', () => {
     const d = draft();
     expect(batchProblem(d, catalog)).toBeNull();
     d.items[1] = { ...d.items[1]!, tripo: { faceLimit: 99_000_000 } };
-    expect(batchProblem(d, catalog)).toMatch(/^Sculptor figure: Tripo/);
+    expect(batchProblem(d, catalog)).toMatch(/^Hooded guardian: Tripo/);
   });
 });
 
 const job = (patch: Partial<ProviderJob>): ProviderJob => ({
   id: 'x-1',
-  project: 'moon-island',
+  project: 'frostveil',
   asset: 'x',
   assetName: 'X',
   provider: 'by-hand',
@@ -246,15 +246,21 @@ const job = (patch: Partial<ProviderJob>): ProviderJob => ({
 describe('the By hand checklist', () => {
   it('groups sends by batch, newest first, and counts what came back', () => {
     const jobs = [
-      job({ id: 'lamp-1', assetName: 'Desk lamp', batch: 'b1', createdAtMs: 5_000 }),
-      job({ id: 'cup-1', assetName: 'Brush cup', batch: 'b1', state: 'inbox', createdAtMs: 5_000 }),
+      job({ id: 'lamp-1', assetName: 'Lantern post', batch: 'b1', createdAtMs: 5_000 }),
+      job({
+        id: 'cup-1',
+        assetName: 'Sigil door',
+        batch: 'b1',
+        state: 'inbox',
+        createdAtMs: 5_000,
+      }),
       job({ id: 'old-1', assetName: 'Old', createdAtMs: 1_000 }),
       job({ id: 'gone-1', assetName: 'Gone', state: 'cancelled', createdAtMs: 9_000 }),
       job({ id: 'api-1', provider: 'tripo', createdAtMs: 9_000 }),
     ];
     const groups = checklist(jobs);
     expect(groups.map(g => g.batch)).toEqual(['b1', null]);
-    expect(groups[0]!.jobs.map(j => j.assetName)).toEqual(['Brush cup', 'Desk lamp']);
+    expect(groups[0]!.jobs.map(j => j.assetName)).toEqual(['Lantern post', 'Sigil door']);
     expect(backLabel(groups[0]!)).toBe('1 of 2 back');
     expect(backLabel({ jobs: [job({ state: 'accepted' })], back: 1 })).toBe('All 1 back');
     expect(waitingByHand(jobs).map(j => j.id)).toEqual(['lamp-1', 'old-1']);
@@ -267,14 +273,14 @@ describe('the By hand checklist', () => {
       waiting: [],
       files: [
         {
-          path: '/d/desk_lamp.glb',
-          name: 'desk_lamp.glb',
+          path: '/d/lantern_post.glb',
+          name: 'lantern_post.glb',
           inner: null,
           bytes: 1,
           modifiedMs: 2_000,
           job: 'lamp-1',
-          assetName: 'Desk lamp',
-          reason: 'Named like Desk lamp',
+          assetName: 'Lantern post',
+          reason: 'Named like Lantern post',
         },
         {
           path: '/d/model.glb',
@@ -288,6 +294,6 @@ describe('the By hand checklist', () => {
         },
       ],
     };
-    expect(initialMatches(scan)).toEqual({ '/d/desk_lamp.glb': 'lamp-1', '/d/model.glb': null });
+    expect(initialMatches(scan)).toEqual({ '/d/lantern_post.glb': 'lamp-1', '/d/model.glb': null });
   });
 });

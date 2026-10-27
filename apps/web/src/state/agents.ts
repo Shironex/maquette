@@ -29,8 +29,8 @@ export function clockTime(ms: number): string {
 }
 
 /**
- * The approval's question: "Ship Moon Island, run 26?" with the project's
- * display name when known, or "Send Stone lantern to Tripo?".
+ * The approval's question: "Ship Frostveil, run 26?" with the project's
+ * display name when known, or "Send Guardian statue to Tripo?".
  */
 export function approvalTitle(approval: Approval, projectName?: string): string {
   if (approval.kind === 'send-to-3d') {

@@ -52,7 +52,7 @@ export function createLibraryHandlers(ctx: LibraryContext) {
         assets: (p.assets ?? []).map(a => (origins[a.id] ? { ...a, origin: origins[a.id] } : a)),
       });
     }
-    ctx.savePrep('moon-island', 'character', {
+    ctx.savePrep('frostveil', 'elsheria', {
       size: { axis: 'height', value: 170, unit: 'cm' },
       fixups: [{ op: 'decimate', triangles: 60_000 }, { op: 'origin-bottom' }],
       skipBake: true,

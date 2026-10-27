@@ -35,8 +35,8 @@ const IDLE: ServerStatus = {
 
 function view(patch: Partial<PageView> = {}, server: Partial<ServerStatus> = {}): PageView {
   return {
-    project: 'moon-island',
-    siteRepo: '/Users/maker/Projects/moon-island-site',
+    project: 'frostveil',
+    siteRepo: '/Users/maker/Projects/frostveil-site',
     settings: { version: 1, devCommand: null, concept: null, source: 'site', path: '/' },
     command: null,
     commandError: null,
@@ -80,7 +80,7 @@ describe('page addresses', () => {
     expect(shortAddress('asset://localhost/%2Fws%2Fconcepts%2Fhome_v2.html')).toBe(
       '/ws/concepts/home_v2.html'
     );
-    expect(siteName('/Users/maker/Projects/moon-island-site/')).toBe('moon-island-site');
+    expect(siteName('/Users/maker/Projects/frostveil-site/')).toBe('frostveil-site');
     expect(siteName('C:\\Sites\\moon')).toBe('moon');
     expect(siteName(null)).toBe('No site');
   });
@@ -88,7 +88,7 @@ describe('page addresses', () => {
 
 describe('the frame source', () => {
   it('loads the running dev server at the path, and names the server until then', () => {
-    expect(frameSource(view())).toEqual({ src: null, address: 'moon-island-site dev server' });
+    expect(frameSource(view())).toEqual({ src: null, address: 'frostveil-site dev server' });
     const running = view(
       { settings: { version: 1, devCommand: null, concept: null, source: 'site', path: '/a' } },
       { state: 'running', url: 'http://localhost:5173/' }
@@ -178,10 +178,10 @@ describe('the page bridge', () => {
   });
 
   it('says hello with the camera stops', () => {
-    expect(hello([{ name: 'Porch' }, { name: 'Sakura' }])).toEqual({
+    expect(hello([{ name: 'Arrival' }, { name: 'Veil gate' }])).toEqual({
       maquette: 1,
       type: 'hello',
-      stops: [{ name: 'Porch' }, { name: 'Sakura' }],
+      stops: [{ name: 'Arrival' }, { name: 'Veil gate' }],
     });
     expect(hello()).toEqual({ maquette: 1, type: 'hello', stops: [] });
   });
@@ -231,9 +231,9 @@ describe('the frame state', () => {
       kind: 'no-command',
       message: 'No dev script',
     });
-    expect(frameState(view({ busyWith: 'lantern-keeper' }), null)).toEqual({
+    expect(frameState(view({ busyWith: 'elsheria-showcase' }), null)).toEqual({
       kind: 'busy',
-      project: 'lantern-keeper',
+      project: 'elsheria-showcase',
     });
     const concept = view({
       settings: {
@@ -251,7 +251,7 @@ describe('the frame state', () => {
   it('starts the server on open only when nothing else uses it', () => {
     expect(shouldAutoStart(view())).toBe(true);
     expect(shouldAutoStart(view({ siteRepo: null }))).toBe(false);
-    expect(shouldAutoStart(view({ busyWith: 'lantern-keeper' }))).toBe(false);
+    expect(shouldAutoStart(view({ busyWith: 'elsheria-showcase' }))).toBe(false);
     expect(shouldAutoStart(view({ commandError: 'none' }))).toBe(false);
     expect(shouldAutoStart(view({}, { state: 'failed' }))).toBe(false);
   });

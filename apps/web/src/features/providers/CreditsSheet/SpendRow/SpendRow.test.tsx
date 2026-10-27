@@ -6,10 +6,10 @@ import { SpendRow } from '.';
 const NOW = 1_800_000_000_000;
 
 const spend: Spend = {
-  project: 'moon-island',
-  job: 'sakura-3',
-  asset: 'sakura',
-  assetName: 'Sakura',
+  project: 'frostveil',
+  job: 'veil-gate-3',
+  asset: 'veil-gate',
+  assetName: 'Veil gate',
   service: 'meshy',
   task: 'task-1',
   summary: 'Meshy 6, 1 image, 4K PBR',
@@ -18,7 +18,7 @@ const spend: Spend = {
   credits: 30,
   estimated: true,
   outcome: 'pending',
-  redoOf: 'sakura-2',
+  redoOf: 'veil-gate-2',
   viaAgent: true,
   source: 'api',
 };
@@ -27,13 +27,13 @@ describe('a spend row', () => {
   it('shows a running redo with its estimated credits', () => {
     render(
       <ul>
-        <SpendRow spend={spend} now={NOW} project="Moon Island" />
+        <SpendRow spend={spend} now={NOW} project="Frostveil" />
       </ul>
     );
     const row = screen.getByRole('listitem');
     expect(row).toHaveTextContent('2 h ago');
-    expect(row).toHaveTextContent('Moon Island · Meshy · by an agent');
-    expect(screen.getByTitle('Redo of sakura-2')).toHaveTextContent('Redo');
+    expect(row).toHaveTextContent('Frostveil · Meshy · by an agent');
+    expect(screen.getByTitle('Redo of veil-gate-2')).toHaveTextContent('Redo');
     expect(row).toHaveTextContent('Running');
     expect(row).toHaveTextContent('est.30');
   });

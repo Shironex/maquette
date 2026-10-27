@@ -46,7 +46,7 @@ describe('classifyLog', () => {
     expect(kind('info: book_stack_v1.glb (1.27 MB) → book_stack_v1.tex.glb (653.13 KB)')).toBe(
       'result'
     );
-    expect(kind('wrote web/raw/island.glb 4.6 MB')).toBe('result');
+    expect(kind('wrote web/raw/veil_platform.glb 4.6 MB')).toBe('result');
     expect(kind('Saved web/posters/hero.webp')).toBe('result');
   });
 
@@ -67,7 +67,7 @@ describe('classifyLog', () => {
 
   it('leaves other lines plain', () => {
     expect(kind('Read blend: "blender/scene_baked.blend"')).toBe('plain');
-    expect(kind('island geometry with meshopt high', 'info')).toBe('plain');
+    expect(kind('veil_platform geometry with meshopt high', 'info')).toBe('plain');
   });
 });
 
@@ -83,7 +83,7 @@ describe('sizeChange', () => {
   });
 
   it('gives nothing without an arrow or a size', () => {
-    expect(sizeChange('wrote web/raw/island.glb 4.6 MB')).toBeNull();
+    expect(sizeChange('wrote web/raw/veil_platform.glb 4.6 MB')).toBeNull();
     expect(sizeChange('a → b')).toBeNull();
   });
 });

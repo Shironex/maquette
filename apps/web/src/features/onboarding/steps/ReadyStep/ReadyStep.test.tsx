@@ -24,7 +24,7 @@ describe('the ready step', () => {
     render(<Harness />);
     const summary = screen.getByRole('region', { name: 'Setup summary' });
     expect(summary).toHaveTextContent('Workspace');
-    expect(summary).toHaveTextContent('Moon Island, ');
+    expect(summary).toHaveTextContent('Frostveil, ');
     await userEvent.click(screen.getByRole('button', { name: 'Edit defaults' }));
     expect(screen.getByLabelText('step')).toHaveTextContent('3');
   });

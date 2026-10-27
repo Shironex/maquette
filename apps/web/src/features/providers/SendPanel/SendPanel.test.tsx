@@ -12,10 +12,10 @@ afterEach(() => {
 
 async function openPanel() {
   await openMockWorkspace('configured', undefined, 'batch');
-  await useProvidersStore.getState().load('moon-island');
+  await useProvidersStore.getState().load('frostveil');
   render(<SendPanel />);
-  await useProvidersStore.getState().openPanel('moon-island', 'desk-lamp');
-  return screen.findByRole('dialog', { name: 'Send Desk lamp to 3D' });
+  await useProvidersStore.getState().openPanel('frostveil', 'lantern-post');
+  return screen.findByRole('dialog', { name: 'Send Lantern post to 3D' });
 }
 
 const ASK = { name: 'Discard changes?' };

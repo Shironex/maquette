@@ -33,7 +33,7 @@ describe('the app', () => {
     expect(useAppStore.getState().phase).toBe('onboarding');
     await userEvent.click(screen.getByRole('button', { name: 'Open anyway' }));
     await vi.waitFor(() => expect(useAppStore.getState().phase).toBe('app'));
-    expect(useAppStore.getState().workspace?.project?.id).toBe('moon-island');
+    expect(useAppStore.getState().workspace?.project?.id).toBe('frostveil');
     // The shell stops listening before the IPC mock goes.
     unmount();
   });

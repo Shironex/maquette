@@ -20,7 +20,7 @@ describe('the paths panel', () => {
     await panel();
     const list = screen.getAllByRole('list')[0]!;
     expect(within(list).getAllByRole('button')).toHaveLength(3);
-    expect(within(list).getByText(/0% at Sakura, 100% at Canopy/)).toBeInTheDocument();
+    expect(within(list).getByText(/0% at Veil gate, 100% at Keystone/)).toBeInTheDocument();
     expect(within(list).getByText(/unlit/)).toBeInTheDocument();
     await userEvent.click(within(list).getByRole('button', { name: /Root glow/ }));
     expect(usePathsStore.getState().selection).toEqual({ path: 'root-glow', point: null });
@@ -51,12 +51,10 @@ describe('the paths panel', () => {
     await panel();
     const toggle = screen.getByRole('switch', { name: /Light it as the page scrolls/ });
     await userEvent.click(toggle);
-    expect(draft().tracks['lantern-cable']).toBeUndefined();
+    expect(draft().tracks['rune-line']).toBeUndefined();
     await userEvent.click(toggle);
-    expect(draft().tracks['lantern-cable']!.keys.map(k => k.amount)).toEqual([0, 1]);
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Edit Lantern cable in the Timeline' })
-    );
+    expect(draft().tracks['rune-line']!.keys.map(k => k.amount)).toEqual([0, 1]);
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Rune line in the Timeline' }));
     expect(useAppStore.getState().view).toBe('timeline');
   });
 
@@ -64,7 +62,7 @@ describe('the paths panel', () => {
     await panel();
     await userEvent.click(screen.getByRole('button', { name: 'Remove path' }));
     expect(draft().paths.map(p => p.id)).toEqual(['root-glow', 'spare-run']);
-    expect(draft().tracks['lantern-cable']).toBeUndefined();
+    expect(draft().tracks['rune-line']).toBeUndefined();
     expect(usePathsStore.getState().selection?.path).toBe('root-glow');
   });
 });

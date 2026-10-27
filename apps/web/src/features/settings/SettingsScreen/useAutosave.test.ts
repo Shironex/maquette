@@ -42,7 +42,7 @@ describe('the settings autosave', () => {
       return handle(cmd, (args ?? {}) as Record<string, unknown>);
     });
     const { result } = renderHook(() => useAutosave());
-    await act(() => useProjectsStore.getState().switchTo('rooftop-cinema'));
+    await act(() => useProjectsStore.getState().switchTo('frost-cathedral'));
     expect(result.current.status).toBe('saved');
     await new Promise(r => setTimeout(r, 600));
     expect(calls).not.toContain('workspace_save_config');

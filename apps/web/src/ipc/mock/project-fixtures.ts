@@ -3,16 +3,16 @@ import type { Asset, AssetVersion, ModelStats, ProjectManifest } from '../client
 import { clock } from '@/lib/clock';
 import { HOME } from './mock-paths';
 
-export function moonIsland(withAssets = true): ProjectManifest {
+export function frostveilProject(withAssets = true): ProjectManifest {
   return {
     version: 1,
-    id: 'moon-island',
-    name: 'Moon Island',
+    id: 'frostveil',
+    name: 'Frostveil',
     template: 'floating-diorama',
-    siteRepo: `${HOME}/Documents/Projects/moon-island-site`,
+    siteRepo: `${HOME}/Documents/Projects/frostveil-site`,
     sourceFolder: null,
     createdAt: new Date(clock.nowMs() - 6 * 86_400_000).toISOString(),
-    assets: withAssets ? moonAssets() : [],
+    assets: withAssets ? frostveilAssets() : [],
   };
 }
 
@@ -41,75 +41,75 @@ function asset(
 }
 
 /** The Board of a project a few days in. Thumbnails map to the renders in `assets/mock`. */
-export function moonAssets(): Asset[] {
+export function frostveilAssets(): Asset[] {
   return [
     asset(
       {
-        id: 'island',
-        name: 'Island',
+        id: 'veil-platform',
+        name: 'Veil platform',
         kind: 'scene',
-        stage: 'web',
+        stage: 'ship',
         status: 'done',
-        versions: versions('island', 7, stats(412_000, 1.1)),
-        thumbnail: 'thumbs/island.webp',
+        versions: versions('veil_platform', 7, stats(412_000, 1.1)),
+        thumbnail: 'thumbs/veil-platform.webp',
       },
       2 * DAY
     ),
     asset(
       {
-        id: 'shop-house',
-        name: 'Shop house',
+        id: 'observatory-arch',
+        name: 'Observatory arch',
         kind: 'prop',
         stage: 'web',
         status: 'cached',
-        versions: versions('shop_house', 3, stats(38_200, 0.9)),
-        thumbnail: 'thumbs/shop-house.webp',
+        versions: versions('observatory_arch', 3, stats(38_200, 0.9)),
+        thumbnail: 'thumbs/observatory-arch.webp',
       },
       3 * DAY
     ),
     asset(
       {
-        id: 'character',
-        name: 'Character',
+        id: 'elsheria',
+        name: 'Elsheria',
         kind: 'character',
         stage: 'blender',
         status: 'review',
-        versions: versions('character', 2, stats(94_612, 1.4, 65, 2)),
-        thumbnail: 'thumbs/character.webp',
+        versions: versions('elsheria', 2, stats(115_673, 1.1, 119, 2)),
+        thumbnail: 'thumbs/elsheria.webp',
       },
       DAY / 3
     ),
     asset(
       {
-        id: 'vending',
-        name: 'Vending machine',
+        id: 'crystal-lantern',
+        name: 'Crystal lantern',
         kind: 'prop',
         stage: 'blender',
         status: 'done',
-        versions: versions('vending', 2, stats(12_900, 0.4)),
-        thumbnail: 'thumbs/vending-machine.webp',
+        versions: versions('crystal_lantern', 2, stats(12_900, 0.4)),
+        thumbnail: 'thumbs/crystal-lantern.webp',
       },
       4 * DAY
     ),
     asset(
       {
-        id: 'sakura',
-        name: 'Sakura',
+        id: 'veil-gate',
+        name: 'Veil gate',
         kind: 'prop',
         stage: 'tripo',
         status: 'queued',
-        thumbnail: 'thumbs/sakura-large.webp',
+        thumbnail: 'thumbs/veil-gate.webp',
       },
       DAY
     ),
     asset(
       {
-        id: 'lanterns',
-        name: 'Stone lanterns',
+        id: 'guardian-statues',
+        name: 'Guardian statues',
         kind: 'prop',
         stage: 'refs',
         status: 'review',
-        thumbnail: 'thumbs/stone-lantern.webp',
+        thumbnail: 'thumbs/guardian-statue.webp',
       },
       DAY * 1.5
     ),
@@ -117,8 +117,8 @@ export function moonAssets(): Asset[] {
     // workspace gives it the newest ref its direction sent.
     asset(
       {
-        id: 'maquette-landing-studio',
-        name: 'Maquette landing studio',
+        id: 'academy-landing',
+        name: 'Academy landing',
         kind: 'scene',
         stage: 'refs',
         status: 'queued',
@@ -127,24 +127,35 @@ export function moonAssets(): Asset[] {
     ),
     asset(
       {
-        id: 'far-spire',
-        name: 'Far spire',
+        id: 'rune-obelisk',
+        name: 'Rune obelisk',
         kind: 'prop',
         stage: 'concept',
         status: 'queued',
-        thumbnail: 'thumbs/far-spire.webp',
+        thumbnail: 'thumbs/rune-obelisk.webp',
       },
       DAY / 6
+    ),
+    asset(
+      {
+        id: 'frozen-angel',
+        name: 'Frozen angel',
+        kind: 'prop',
+        stage: 'concept',
+        status: 'queued',
+        thumbnail: 'thumbs/frozen-angel.webp',
+      },
+      HOUR * 5
     ),
   ];
 }
 
-/** A Room project a week older than Moon Island, two cards in. */
-export function rooftopCinema(): ProjectManifest {
+/** A Room project a week older than Frostveil, two cards in. */
+export function frostCathedral(): ProjectManifest {
   return {
     version: 1,
-    id: 'rooftop-cinema',
-    name: 'Rooftop cinema',
+    id: 'frost-cathedral',
+    name: 'Frost cathedral',
     template: 'room',
     siteRepo: null,
     sourceFolder: null,
@@ -152,20 +163,20 @@ export function rooftopCinema(): ProjectManifest {
     assets: [
       asset(
         {
-          id: 'vending',
-          name: 'Vending machine',
+          id: 'crystal-lantern',
+          name: 'Crystal lantern',
           kind: 'prop',
           stage: 'blender',
           status: 'review',
-          versions: versions('vending', 1, stats(12_900, 0.4)),
-          thumbnail: 'thumbs/vending-machine.webp',
+          versions: versions('crystal_lantern', 1, stats(12_900, 0.4)),
+          thumbnail: 'thumbs/crystal-lantern.webp',
         },
         3 * DAY
       ),
       asset(
         {
-          id: 'flower-shrubs',
-          name: 'Flower shrubs',
+          id: 'ice-crystals',
+          name: 'Ice crystals',
           kind: 'prop',
           stage: 'refs',
           status: 'queued',
@@ -177,25 +188,25 @@ export function rooftopCinema(): ProjectManifest {
 }
 
 /** A Character showcase with one rigged model. */
-export function lanternKeeper(): ProjectManifest {
+export function elsheriaShowcase(): ProjectManifest {
   return {
     version: 1,
-    id: 'lantern-keeper',
-    name: 'Lantern keeper',
+    id: 'elsheria-showcase',
+    name: 'Elsheria showcase',
     template: 'character-showcase',
-    siteRepo: `${HOME}/Documents/Projects/lantern-keeper-site`,
+    siteRepo: `${HOME}/Documents/Projects/elsheria-showcase-site`,
     sourceFolder: null,
     createdAt: new Date(clock.nowMs() - 2 * DAY).toISOString(),
     assets: [
       asset(
         {
-          id: 'character',
-          name: 'Character',
+          id: 'elsheria',
+          name: 'Elsheria',
           kind: 'character',
           stage: 'web',
           status: 'done',
-          versions: versions('character', 4, stats(94_612, 1.4, 65, 2)),
-          thumbnail: 'thumbs/character.webp',
+          versions: versions('elsheria', 4, stats(115_673, 1.1, 119, 2)),
+          thumbnail: 'thumbs/elsheria.webp',
         },
         DAY
       ),
@@ -204,11 +215,11 @@ export function lanternKeeper(): ProjectManifest {
 }
 
 const MORE_PROJECTS: readonly [string, ProjectManifest['template']][] = [
-  ['Late train', 'room'],
-  ['Kotatsu den', 'room'],
-  ['Night market', 'floating-diorama'],
-  ['Harbour lights', 'floating-diorama'],
-  ['Stone garden', 'floating-diorama'],
+  ['Starlit observatory', 'room'],
+  ['Crypt of bells', 'room'],
+  ['Frozen lake', 'floating-diorama'],
+  ['Sentinel hall', 'floating-diorama'],
+  ['Shore ruins', 'floating-diorama'],
 ];
 
 /** `?projects=many`: enough projects that the switcher shows its search. */
@@ -227,7 +238,12 @@ export function moreProjects(): ProjectManifest[] {
 
 /** The projects a configured mock workspace opens with. */
 export function mockProjects(many = false): ProjectManifest[] {
-  return [moonIsland(), rooftopCinema(), lanternKeeper(), ...(many ? moreProjects() : [])];
+  return [
+    frostveilProject(),
+    frostCathedral(),
+    elsheriaShowcase(),
+    ...(many ? moreProjects() : []),
+  ];
 }
 
 /** Every project id mock mode knows, so its files can be served. */

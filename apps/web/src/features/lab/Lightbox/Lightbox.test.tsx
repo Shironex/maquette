@@ -8,15 +8,15 @@ import { Lightbox } from '.';
 
 const directions = labDirections(false);
 const view: LabView = {
-  project: 'moon-island',
+  project: 'frostveil',
   projectDir: '/w',
   directions,
   jobs: [],
   refs: [],
   concurrency: 4,
 };
-const porch = directions.find(d => d.id === 'moon-island-porch')!;
-const file = (index: number) => porch.images.find(i => i.index === index)!.file;
+const arena = directions.find(d => d.id === 'frozen-lake-arena')!;
+const file = (index: number) => arena.images.find(i => i.index === index)!.file;
 const lab = useLabStore.getState();
 
 afterEach(() => {
@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 function openOn(index: number) {
-  useLabStore.setState({ selected: 'moon-island-porch', lightbox: `/w/${file(index)}` });
+  useLabStore.setState({ selected: 'frozen-lake-arena', lightbox: `/w/${file(index)}` });
 }
 
 describe('the lightbox', () => {
@@ -37,7 +37,7 @@ describe('the lightbox', () => {
   it('steps through the direction with the arrows and closes on Escape', async () => {
     openOn(1);
     render(<Lightbox view={view} />);
-    expect(screen.getByRole('dialog', { name: 'Moon island porch · Concept 01' })).toBeVisible();
+    expect(screen.getByRole('dialog', { name: 'Frozen lake arena · Concept 01' })).toBeVisible();
     expect(screen.getByText('1 of 6')).toBeVisible();
     await userEvent.keyboard('{ArrowRight}');
     expect(screen.getByText('2 of 6')).toBeVisible();

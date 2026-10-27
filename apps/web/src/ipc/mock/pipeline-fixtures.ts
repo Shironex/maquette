@@ -43,7 +43,7 @@ function blender(
 }
 
 export const CHARACTER_LOCK =
-  'Character stays on medium. High meshopt quantisation makes her mesh spin at the camera stops.';
+  'Elsheria stays on medium. High meshopt quantisation makes her mesh spin at the camera stops.';
 
 /** The Ship starter's args, as the template writes them. */
 const SHIP_ARGS =
@@ -126,24 +126,24 @@ export function dioramaPipeline(): PipelineDef {
 function presets(): CompressPreset[] {
   return [
     {
-      model: 'vending',
-      label: 'Vending',
+      model: 'crystal_lantern',
+      label: 'Crystal lantern',
       textureSize: 1024,
       codec: 'etc1s',
       meshopt: 'medium',
       lock: null,
     },
     {
-      model: 'sakura',
-      label: 'Sakura',
+      model: 'veil_gate',
+      label: 'Veil gate',
       textureSize: 1024,
       codec: 'etc1s',
       meshopt: 'high',
       lock: null,
     },
     {
-      model: 'character',
-      label: 'Character',
+      model: 'elsheria',
+      label: 'Elsheria',
       textureSize: 2048,
       codec: 'etc1s',
       meshopt: 'medium',
@@ -175,9 +175,9 @@ function step(
 /** Run 23 done, run 24 failed at Capture posters. Newest first. */
 export function runHistory(now: number): RunRecord[] {
   const r23: RunRecord = {
-    id: 'moon-island-run-23',
+    id: 'frostveil-run-23',
     number: 23,
-    project: 'moon-island',
+    project: 'frostveil',
     from: null,
     force: false,
     state: 'done',
@@ -195,9 +195,9 @@ export function runHistory(now: number): RunRecord[] {
     message: null,
   };
   const r24: RunRecord = {
-    id: 'moon-island-run-24',
+    id: 'frostveil-run-24',
     number: 24,
-    project: 'moon-island',
+    project: 'frostveil',
     from: null,
     force: false,
     state: 'failed',
@@ -230,27 +230,27 @@ export function blenderLines(
         { text: '15:02:22 | INFO: Starting glTF 2.0 export' },
         { text: '[export_web] 17 objects to glTF 2.0' },
         { text: '15:02:22 | WARNING: More than one shader node tex image used for a texture.' },
-        { text: '15:02:23 | INFO: Extracting primitive: island_ground' },
-        { text: '15:02:24 | INFO: Extracting primitive: shop_house' },
-        { text: 'wrote web/raw/island.glb 4.6 MB' },
-        { text: 'wrote web/raw/shop_house.glb 2.4 MB' },
-        { text: 'wrote web/raw/vending.glb 1.1 MB' },
-        { text: 'exporting character.glb, 2 clips' },
-        { text: '15:02:31 | INFO: Animation Idle: 120 frames' },
-        { text: '15:02:33 | INFO: Animation Wave: 64 frames' },
-        { text: 'wrote web/raw/character.glb 6.2 MB' },
+        { text: '15:02:23 | INFO: Extracting primitive: platform_ground' },
+        { text: '15:02:24 | INFO: Extracting primitive: observatory_arch' },
+        { text: 'wrote web/raw/veil_platform.glb 4.6 MB' },
+        { text: 'wrote web/raw/observatory_arch.glb 2.4 MB' },
+        { text: 'wrote web/raw/crystal_lantern.glb 1.1 MB' },
+        { text: 'exporting elsheria.glb, 2 clips' },
+        { text: '15:02:31 | INFO: Animation spellblade_idle: 62 frames' },
+        { text: '15:02:33 | INFO: Animation draw_sword_1: 16 frames' },
+        { text: 'wrote web/raw/elsheria.glb 6.2 MB' },
         { text: 'Blender quit' },
       ];
     case 'compress':
       return [
         { text: 'Draco compression is not available, using meshopt' },
-        { text: 'island textures to ETC1S at 2048 px', stream: 'system' },
-        { text: 'info: island.glb (4.6 MB) → island.tex.glb (2.1 MB)' },
+        { text: 'veil_platform textures to ETC1S at 2048 px', stream: 'system' },
+        { text: 'info: veil_platform.glb (4.6 MB) → veil_platform.tex.glb (2.1 MB)' },
         { text: 'info: prune: Removed types... Accessor (5), Texture (1)' },
-        { text: 'island geometry with meshopt high', stream: 'system' },
-        { text: 'info: island.tex.glb (2.1 MB) → island.glb (1.1 MB)' },
-        { text: 'character geometry with meshopt medium', stream: 'system' },
-        { text: 'info: character.tex.glb (2.8 MB) → character.glb (1.4 MB)' },
+        { text: 'veil_platform geometry with meshopt high', stream: 'system' },
+        { text: 'info: veil_platform.tex.glb (2.1 MB) → veil_platform.glb (1.1 MB)' },
+        { text: 'elsheria geometry with meshopt medium', stream: 'system' },
+        { text: 'info: elsheria.tex.glb (2.8 MB) → elsheria.glb (1.1 MB)' },
       ];
     case 'posters':
       return [
@@ -284,7 +284,7 @@ export function run24Log(now: number): LogEntry[] {
     level: LogEntry['level'] = 'info',
     stream: LogEntry['stream'] = 'stdout'
   ): LogEntry => ({
-    runId: 'moon-island-run-24',
+    runId: 'frostveil-run-24',
     step,
     stream,
     level,
@@ -352,16 +352,16 @@ export function pipelineView(
     log,
     artifacts: runs.length
       ? [
-          { step: 'export', path: 'web/raw/island.glb', bytes: 4.6e6 },
-          { step: 'compress', path: 'web/dist/island.glb', bytes: 1.1e6 },
+          { step: 'export', path: 'web/raw/veil_platform.glb', bytes: 4.6e6 },
+          { step: 'compress', path: 'web/dist/veil_platform.glb', bytes: 1.1e6 },
         ]
       : [],
     models: runs.length
       ? [
-          model('island', 'Island', 7, 4.6e6, 1.1e6),
-          model('shop_house', 'Shop house', 3, 2.4e6, 0.9e6),
-          model('vending', 'Vending machine', 2, 1.1e6, 0.4e6),
-          model('character', 'Character', 2, 6.2e6, 1.4e6),
+          model('veil_platform', 'Veil platform', 7, 4.6e6, 1.1e6),
+          model('observatory_arch', 'Observatory arch', 3, 2.4e6, 0.9e6),
+          model('crystal_lantern', 'Crystal lantern', 2, 1.1e6, 0.4e6),
+          model('elsheria', 'Elsheria', 2, 6.2e6, 1.07e6),
         ]
       : [],
     defaults: { textureSize: 2048, codec: 'etc1s', meshopt: 'high' },
@@ -385,7 +385,7 @@ export function currentStarters(): StarterStatus[] {
 }
 
 /**
- * Moon Island was made before the starters grew up: three untouched old
+ * Frostveil was made before the starters grew up: three untouched old
  * copies and one the user edited.
  */
 export function oldStarters(): StarterStatus[] {

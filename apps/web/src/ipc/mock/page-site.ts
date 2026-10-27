@@ -1,5 +1,5 @@
 /**
- * The pages mock mode shows in the Page view: Moon Island's landing page,
+ * The pages mock mode shows in the Page view: Frostveil's landing page,
  * as its dev server would serve it, and an HTML page concept beside it.
  * The site page speaks the page bridge (see the root README, Page view):
  * it says its stops, scrolls to the one the scrubber asks for, reports
@@ -22,43 +22,43 @@ interface SiteStop {
 }
 
 const STOPS: SiteStop[] = [
-  { name: 'Porch', line: 'A moonlit island, one porch and a tree in bloom.' },
-  { name: 'Sakura', line: 'The sakura was a concept sketch on Monday.' },
-  { name: 'Shrubs', line: 'Every shrub shipped compressed, under budget.' },
-  { name: 'Canopy', line: 'Look up: the canopy is one draw.' },
-  { name: 'Pullback', line: 'The whole island, ready for the web.' },
+  { name: 'Arrival', line: 'A frozen lake under the aurora, and one swordswoman at its heart.' },
+  { name: 'Veil gate', line: 'The gate was a concept sheet on Monday.' },
+  { name: 'Crystals', line: 'Every crystal shipped compressed, under budget.' },
+  { name: 'Keystone', line: 'Look up: the keystone is one draw.' },
+  { name: 'Pullback', line: 'The whole arena, ready for the web.' },
 ];
 
 /** A long tour (`?page=stops-10`), with long names side by side at the end. */
 export const MANY_STOPS: SiteStop[] = [
-  { name: 'Porch', line: 'A moonlit island, one porch and a tree in bloom.' },
-  { name: 'Sakura in full bloom', line: 'The sakura was a concept sketch on Monday.' },
-  { name: 'Lantern path', line: 'Paper lanterns light the way down.' },
-  { name: 'Shrubs under the moon', line: 'Every shrub shipped compressed, under budget.' },
-  { name: 'Canopy', line: 'Look up: the canopy is one draw.' },
-  { name: 'Tide pools', line: 'The water is a single plane and a normal map.' },
-  { name: 'Workshop', line: 'Where the models were made.' },
-  { name: 'Night market stalls', line: 'Twelve stalls, one material each.' },
-  { name: 'Testimonials', line: 'What visitors said on the way out.' },
-  { name: 'Contact', line: 'Plan a visit to the island.' },
+  { name: 'Arrival', line: 'A frozen lake under the aurora, and one swordswoman at its heart.' },
+  { name: 'Veil gate at moonrise', line: 'The gate was a concept sheet on Monday.' },
+  { name: 'Lantern path', line: 'Crystal lanterns light the way across the ice.' },
+  { name: 'Crystals under the moon', line: 'Every crystal shipped compressed, under budget.' },
+  { name: 'Keystone', line: 'Look up: the keystone is one draw.' },
+  { name: 'Rune circle', line: 'The circle is a single plane and an emissive map.' },
+  { name: 'Academy', line: 'Where the models were made.' },
+  { name: 'Guardian statues in a row', line: 'Twelve statues, one material each.' },
+  { name: 'Testimonials', line: 'What players said after the first night.' },
+  { name: 'Contact', line: 'Join the next playtest.' },
 ];
 
 const STYLE = `
 *{box-sizing:border-box}html,body{margin:0;background:#101420;color:#eef0f6;font:15px/1.5 system-ui,sans-serif}
 header{position:fixed;inset:0 0 auto 0;z-index:3;display:flex;align-items:center;gap:22px;padding:16px 28px;background:rgba(16,20,32,.86);border-bottom:1px solid #232a3d;font-size:13px;color:#c3c8d6}
 header b{font-size:14px;letter-spacing:.14em;color:#fff;margin-right:auto}
-header .cta{background:#f0b6c8;color:#1a1420;padding:8px 13px;border-radius:7px;font-weight:600}
+header .cta{background:#c9b8f5;color:#16122a;padding:8px 13px;border-radius:7px;font-weight:600}
 .stage{position:fixed;inset:0;z-index:0}
 .stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .45s}
 .stage img.on{opacity:1}
 .stage:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(16,20,32,.92) 0,rgba(16,20,32,.55) 38%,rgba(16,20,32,0) 62%)}
 section{position:relative;z-index:1;height:100vh;display:flex;flex-direction:column;justify-content:center;padding:0 7vw;max-width:620px}
-small{font:600 11px/1 ui-monospace,monospace;letter-spacing:.16em;color:#f0b6c8;text-transform:uppercase}
+small{font:600 11px/1 ui-monospace,monospace;letter-spacing:.16em;color:#c9b8f5;text-transform:uppercase}
 h1{font-size:46px;line-height:1.05;letter-spacing:-.03em;margin:14px 0 12px}
 h2{font-size:32px;line-height:1.1;letter-spacing:-.02em;margin:12px 0 10px}
 p{color:#b4bacb;margin:0 0 18px;max-width:380px}
 .btns{display:flex;gap:10px}.btns span{padding:10px 15px;border-radius:7px;font-weight:600;font-size:13px}
-.btns span:first-child{background:#f0b6c8;color:#1a1420}.btns span:last-child{border:1px solid #3b4460}
+.btns span:first-child{background:#c9b8f5;color:#16122a}.btns span:last-child{border:1px solid #3b4460}
 .hint{position:absolute;bottom:26px;left:7vw;font:500 11px/1 ui-monospace,monospace;color:#7d8499}
 .still{position:fixed;top:72px;left:16px;z-index:4;display:none;background:rgba(0,0,0,.7);color:#fff;font-size:11px;padding:5px 9px;border-radius:6px}
 .poster .still{display:block}
@@ -100,14 +100,14 @@ export function mockSitePage(images: SiteImages, tour: SiteStop[] = STOPS, shim?
   const sections = tour
     .map((s, i) =>
       i === 0
-        ? `<section><small>Moon Island</small><h1>An island you can scroll through.</h1><p>${s.line}</p><div class="btns"><span>Visit the island</span><span>How it was made</span></div><span class="hint">Scroll to follow the path</span></section>`
+        ? `<section><small>Frostveil</small><h1>A frozen lake you can scroll through.</h1><p>${s.line}</p><div class="btns"><span>Play the demo</span><span>How it was made</span></div><span class="hint">Scroll to follow the path</span></section>`
         : `<section><small>Stop ${i + 1}</small><h2>${s.name}</h2><p>${s.line}</p></section>`
     )
     .join('');
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Moon Island</title><style>${STYLE}</style></head><body><header><b>MOON ISLAND</b><span>The island</span><span>Making of</span><span>Journal</span><span class="cta">Plan a visit</span></header><div class="stage">${pics}</div><span class="still">Still image, no WebGL</span>${sections}<script>${PICTURES}${shim ? '' : bridge(tour)}</script>${shim ? `<script>${shim}</script>` : ''}</body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Frostveil</title><style>${STYLE}</style></head><body><header><b>FROSTVEIL</b><span>The world</span><span>Making of</span><span>Journal</span><span class="cta">Wishlist</span></header><div class="stage">${pics}</div><span class="still">Still image, no WebGL</span>${sections}<script>${PICTURES}${shim ? '' : bridge(tour)}</script>${shim ? `<script>${shim}</script>` : ''}</body></html>`;
 }
 
 /** A page concept from the Lab, without the bridge: the scrubber has nothing to drive. */
 export function mockConceptPage(image: string): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Home v2</title><style>body{margin:0;font:15px/1.5 system-ui,sans-serif;background:#f4efe6;color:#2a2520}header{display:flex;justify-content:space-between;padding:18px 28px;font-weight:700;letter-spacing:.12em}main{display:grid;grid-template-columns:1fr 1.2fr;gap:28px;padding:40px 28px;align-items:center}h1{font-size:42px;line-height:1.05;margin:0 0 14px}img{width:100%;border-radius:14px}p{color:#6b6257}@media (max-width:600px){main{grid-template-columns:1fr}}</style></head><body><header><span>MOON ISLAND</span><span>Concept v2</span></header><main><div><h1>Spend a night on the island.</h1><p>A page concept: the hero frames the porch and the copy sits on the dark side.</p></div><img src="${image}" alt="The island at night"></main></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Home v2</title><style>body{margin:0;font:15px/1.5 system-ui,sans-serif;background:#16132a;color:#ece8ff}header{display:flex;justify-content:space-between;padding:18px 28px;font-weight:700;letter-spacing:.12em}main{display:grid;grid-template-columns:1fr 1.2fr;gap:28px;padding:40px 28px;align-items:center}h1{font-size:42px;line-height:1.05;margin:0 0 14px}img{width:100%;border-radius:14px}p{color:#a9a3c9}@media (max-width:600px){main{grid-template-columns:1fr}}</style></head><body><header><span>FROSTVEIL</span><span>Concept v2</span></header><main><div><h1>Spend a night on the frozen lake.</h1><p>A page concept: the hero frames the arena and the copy sits on the dark side.</p></div><img src="${image}" alt="The frozen lake at night"></main></body></html>`;
 }

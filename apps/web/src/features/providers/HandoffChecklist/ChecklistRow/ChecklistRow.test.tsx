@@ -16,7 +16,7 @@ describe('a checklist row', () => {
     const { job, sent } = await openProviders();
     render(
       <ul>
-        <ChecklistRow job={job('lanterns-1')} />
+        <ChecklistRow job={job('guardian-statues-1')} />
       </ul>
     );
     const toggle = screen.getByRole('button', { name: 'Settings card' });
@@ -25,7 +25,7 @@ describe('a checklist row', () => {
     expect(screen.getByText('Use these settings')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Hide the settings card' }));
     expect(screen.queryByText('Use these settings')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Open the Stone lanterns folder' }));
-    expect(sent('provider_open_handoff')).toEqual([{ id: 'lanterns-1' }]);
+    await userEvent.click(screen.getByRole('button', { name: 'Open the Guardian statues folder' }));
+    expect(sent('provider_open_handoff')).toEqual([{ id: 'guardian-statues-1' }]);
   });
 });

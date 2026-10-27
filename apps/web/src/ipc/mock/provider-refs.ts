@@ -2,9 +2,9 @@ import type { Asset, ProjectManifest, RefImage } from '../client';
 
 /** Refs the provider fixtures send, served from the Board renders. */
 export const PROVIDER_REF_FILES: Record<string, string> = {
-  'refs/sakura_front.png': 'sakura-large.webp',
-  'refs/lanterns_front.png': 'stone-lantern.webp',
-  'refs/far_spire_front.png': 'far-spire.webp',
+  'refs/veil_gate_front.png': 'veil-gate.webp',
+  'refs/guardian_statues_front.png': 'guardian-statue.webp',
+  'refs/rune_obelisk_front.png': 'rune-obelisk.webp',
 };
 
 export function refImages(lab: RefImage[]): RefImage[] {

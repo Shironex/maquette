@@ -78,7 +78,7 @@ export function shortAddress(url: string | null): string {
   }
 }
 
-/** The site's folder name, for the path button: "moon-island-site". */
+/** The site's folder name, for the path button: "frostveil-site". */
 export function siteName(repo: string | null): string {
   if (!repo) return 'No site';
   return (

@@ -4,9 +4,9 @@
  * object states and the explode tracks.
  *
  * `?timeline=` in the URL (it brings the `?motion=demo` models along):
- * - `demo`: the switch cabinet opens its door at Sakura, turns its
+ * - `demo`: the switch cabinet opens its door at Veil gate, turns its
  *   breakers on from 55 to 70 percent and spreads apart into Pullback.
- * - `empty`: like demo, but Moon Island has no camera stops yet.
+ * - `empty`: like demo, but Frostveil has no camera stops yet.
  */
 import type { ObjectStates, StateTrigger, Timeline, TimelineView } from '../client';
 import { fail, type Args } from './backend-options';
@@ -23,7 +23,7 @@ export function demoCabinet(): ObjectStates {
   return {
     ...states,
     triggers: [
-      { kind: 'stop', to: 'door-open', stop: 'sakura', part: null, start: null, end: null },
+      { kind: 'stop', to: 'door-open', stop: 'veil-gate', part: null, start: null, end: null },
       { kind: 'scroll', to: 'breakers-on', stop: null, part: null, start: 55, end: 70 },
       { kind: 'click', to: 'breakers-on', stop: null, part: 'Breaker 1', start: null, end: null },
     ],
@@ -36,7 +36,7 @@ const DEMO_TIMELINE: Timeline = {
       distance: 0.3,
       easing: 'ease-in-out',
       keys: [
-        { stop: 'canopy', amount: 0 },
+        { stop: 'keystone', amount: 0 },
         { stop: 'pullback', amount: 1 },
       ],
     },
@@ -47,10 +47,10 @@ const DEMO_TIMELINE: Timeline = {
 export function createTimelineHandlers(deps: { layout: FakeLayout; timeline: string | null }) {
   const files = { ...LAYOUT_FILES, ...motionFiles(deps.timeline ? 'demo' : null) };
   if (deps.timeline) {
-    deps.layout.setMotion('moon-island', { 'switch-cabinet': demoCabinet() }, {});
-    deps.layout.setTimeline('moon-island', {}, DEMO_TIMELINE);
+    deps.layout.setMotion('frostveil', { 'switch-cabinet': demoCabinet() }, {});
+    deps.layout.setTimeline('frostveil', {}, DEMO_TIMELINE);
   }
-  if (deps.timeline === 'empty') deps.layout.clearStops('moon-island');
+  if (deps.timeline === 'empty') deps.layout.clearStops('frostveil');
 
   function view(id: string): TimelineView {
     const { layout, models } = deps.layout.view(id);

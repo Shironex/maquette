@@ -31,7 +31,7 @@ export default function AddAssetForm({ project, onDone, onCancel }: AddAssetForm
         label="Name"
         autoFocus
         value={name}
-        placeholder="Stone lantern"
+        placeholder="Guardian statue"
         onChange={e => rename(e.target.value)}
         note={error ? { tone: 'missing', text: error } : undefined}
       />

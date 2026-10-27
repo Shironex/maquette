@@ -14,7 +14,7 @@ afterEach(() => {
 
 describe('useBuiltStore', () => {
   it('lists how each built asset stands', async () => {
-    await useBuiltStore.getState().load('moon-island');
+    await useBuiltStore.getState().load('frostveil');
     const items = useBuiltStore.getState().items;
     expect(items.map(b => [b.asset, b.state])).toEqual([
       ['laptop', 'current'],
@@ -23,8 +23,8 @@ describe('useBuiltStore', () => {
   });
 
   it('rebuilds a stale asset into its next version', async () => {
-    await useBuiltStore.getState().load('moon-island');
-    await useBuiltStore.getState().rebuild('moon-island', 'newtons-cradle', false);
+    await useBuiltStore.getState().load('frostveil');
+    await useBuiltStore.getState().rebuild('frostveil', 'newtons-cradle', false);
     expect(useBuiltStore.getState().items.find(b => b.asset === 'newtons-cradle')?.state).toBe(
       'current'
     );
@@ -36,15 +36,15 @@ describe('useBuiltStore', () => {
   });
 
   it('says a current asset is up to date without a build', async () => {
-    await useBuiltStore.getState().load('moon-island');
-    await useBuiltStore.getState().rebuild('moon-island', 'laptop', false);
+    await useBuiltStore.getState().load('frostveil');
+    await useBuiltStore.getState().rebuild('frostveil', 'laptop', false);
     expect(useAppStore.getState().notice?.title).toBe('Laptop is up to date');
   });
 
   it('adds one and builds it', async () => {
-    await useBuiltStore.getState().load('moon-island');
+    await useBuiltStore.getState().load('frostveil');
     useBuiltStore.setState({ adding: true });
-    await useBuiltStore.getState().add('moon-island', {
+    await useBuiltStore.getState().add('frostveil', {
       name: 'Desk',
       kind: 'prop',
       script: '/Users/maker/room/desk.py',

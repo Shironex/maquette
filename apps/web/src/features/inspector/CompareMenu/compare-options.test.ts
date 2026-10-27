@@ -17,7 +17,7 @@ const view = {
     scene,
     asset('brazier', 'Brazier', 3),
     asset('armillary', 'armillary sphere', 1),
-    asset('keeper', 'Lantern keeper', 2),
+    asset('keeper', 'Elsheria showcase', 2),
     asset('stray', 'Stray', 1),
   ],
 } as unknown as InspectView;
@@ -53,7 +53,7 @@ describe('compareGroups', () => {
 describe('filterGroups', () => {
   it('keeps the matches in any case and drops empty groups', () => {
     const groups = compareGroups(view, pick, kinds, vi.fn());
-    const found = filterGroups(groups, 'LANT');
+    const found = filterGroups(groups, 'ELSH');
     expect(found.map(g => g.title)).toEqual(['Characters']);
   });
 });

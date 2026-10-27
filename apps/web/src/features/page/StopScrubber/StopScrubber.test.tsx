@@ -53,13 +53,13 @@ describe('the stop scrubber', () => {
         stops: {
           source: 'project-file',
           file: 'stops.json',
-          stops: [{ name: 'Porch' }, { name: 'Sakura' }],
+          stops: [{ name: 'Arrival' }, { name: 'Veil gate' }],
         },
       } as never,
     });
     render(<StopScrubber />);
     expect(screen.getByText(/has not answered yet/)).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Jump to stop 2, Sakura' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Jump to stop 2, Veil gate' })).toBeVisible();
   });
 
   it('says which bridge moves the page', () => {
@@ -67,7 +67,12 @@ describe('the stop scrubber', () => {
     render(<StopScrubber />);
     expect(screen.getByText(/has not answered yet/)).toBeVisible();
     act(() =>
-      onMessage('main', { source: 'shim', type: 'ready', stops: [{ name: 'Porch' }], features: [] })
+      onMessage('main', {
+        source: 'shim',
+        type: 'ready',
+        stops: [{ name: 'Arrival' }],
+        features: [],
+      })
     );
     expect(
       screen.getByText("Maquette's shim scrolls the page: the site has no page bridge")
@@ -81,7 +86,7 @@ describe('the stop scrubber', () => {
   it('keeps the camera stops while the shim has none to say back', () => {
     usePageStore.setState({
       inspect: {
-        stops: { source: 'project-file', file: 'stops.json', stops: [{ name: 'Porch' }] },
+        stops: { source: 'project-file', file: 'stops.json', stops: [{ name: 'Arrival' }] },
       } as never,
     });
     render(<StopScrubber />);
@@ -90,7 +95,7 @@ describe('the stop scrubber', () => {
         .getState()
         .onMessage('main', { source: 'shim', type: 'ready', stops: [], features: [] })
     );
-    expect(screen.getByRole('button', { name: 'Jump to stop 1, Porch' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Jump to stop 1, Arrival' })).toBeVisible();
   });
 
   it('plays and pauses', async () => {

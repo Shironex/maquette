@@ -27,7 +27,7 @@ describe('the timeline tracks', () => {
   it('gives each energized path a lane', async () => {
     await openTimeline();
     render(<TimelineTracks />);
-    expect(screen.getByRole('group', { name: 'Lantern cable energize' })).toBeVisible();
+    expect(screen.getByRole('group', { name: 'Rune line energize' })).toBeVisible();
     expect(screen.getByRole('group', { name: 'Root glow energize' })).toBeVisible();
     expect(screen.queryByRole('group', { name: 'Spare run energize' })).toBeNull();
   });

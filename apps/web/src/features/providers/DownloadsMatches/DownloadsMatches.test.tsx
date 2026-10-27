@@ -19,7 +19,7 @@ afterEach(() => {
 
 async function openChecklist() {
   await openMockWorkspace('configured', undefined, 'batch');
-  await useProvidersStore.getState().load('moon-island');
+  await useProvidersStore.getState().load('frostveil');
   render(
     <>
       <HandoffChecklist />
@@ -42,7 +42,7 @@ describe('Check Downloads', () => {
     const rows = within(dialog).getAllByRole('listitem');
     expect(rows).toHaveLength(3);
     // Nothing is taken by looking.
-    expect(state('brush-cup-1')).toBe('waiting');
+    expect(state('sigil-door-1')).toBe('waiting');
     const stranger = rows[2]!;
     expect(within(stranger).getByRole('button', { name: 'Use' })).toHaveAttribute(
       'aria-disabled',

@@ -24,7 +24,7 @@ async function open() {
     undefined,
     'running'
   );
-  await usePageStore.getState().open('moon-island');
+  await usePageStore.getState().open('frostveil');
 }
 
 describe('pageTitle', () => {

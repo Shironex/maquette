@@ -10,7 +10,7 @@ import ListRow from './ListRow';
 
 beforeEach(async () => {
   await openMockWorkspace('configured', undefined, 'batch');
-  await useProvidersStore.getState().load('moon-island');
+  await useProvidersStore.getState().load('frostveil');
 });
 
 afterEach(() => {
@@ -40,25 +40,25 @@ function renderRow(name: string, board = fakeBoardEnv()) {
 
 describe('ListRow', () => {
   it('shows the asset and checks its box, with Shift for a range', async () => {
-    const { board } = renderRow('Character');
-    const row = screen.getByRole('row', { name: 'Character' });
+    const { board } = renderRow('Elsheria');
+    const row = screen.getByRole('row', { name: 'Elsheria' });
     expect(row).toHaveTextContent('Blender');
-    expect(row).toHaveTextContent('1.4 MB');
+    expect(row).toHaveTextContent('1.1 MB');
     expect(row).toHaveTextContent('source');
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Character' }));
-    expect(board.selection.check).toHaveBeenCalledWith('character', true, false);
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Elsheria' }));
+    expect(board.selection.check).toHaveBeenCalledWith('elsheria', true, false);
   });
 
   it('opens its menu from the dots', async () => {
-    const { onToggleMenu } = renderRow('Character');
-    await userEvent.click(screen.getByRole('button', { name: 'More for Character' }));
-    expect(onToggleMenu).toHaveBeenCalledWith('character');
+    const { onToggleMenu } = renderRow('Elsheria');
+    await userEvent.click(screen.getByRole('button', { name: 'More for Elsheria' }));
+    expect(onToggleMenu).toHaveBeenCalledWith('elsheria');
   });
 
   it('shows the card menu while it is open, and a waiting send by hand', () => {
     const board = fakeBoardEnv();
-    renderRow('Brush cup', { ...board, actions: { ...board.actions, menuFor: 'brush-cup' } });
-    expect(screen.getByRole('row', { name: 'Brush cup' })).toHaveTextContent(
+    renderRow('Sigil door', { ...board, actions: { ...board.actions, menuFor: 'sigil-door' } });
+    expect(screen.getByRole('row', { name: 'Sigil door' })).toHaveTextContent(
       'Waiting for your model'
     );
     expect(screen.getByRole('menuitem', { name: 'Add model...' })).toBeInTheDocument();

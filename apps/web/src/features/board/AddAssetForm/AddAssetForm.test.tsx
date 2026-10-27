@@ -14,7 +14,7 @@ afterEach(() => clearMocks());
 describe('AddAssetForm', () => {
   it('asks for a name before adding', async () => {
     const onDone = vi.fn();
-    render(<AddAssetForm project="moon-island" onDone={onDone} onCancel={vi.fn()} />);
+    render(<AddAssetForm project="frostveil" onDone={onDone} onCancel={vi.fn()} />);
     await userEvent.click(screen.getByRole('button', { name: 'Add asset' }));
     expect(screen.getByText('Give the asset a name.')).toBeInTheDocument();
     expect(onDone).not.toHaveBeenCalled();
@@ -24,19 +24,19 @@ describe('AddAssetForm', () => {
 
   it('adds the asset with its kind and column', async () => {
     const onDone = vi.fn<(project: ProjectManifest) => void>();
-    render(<AddAssetForm project="moon-island" onDone={onDone} onCancel={vi.fn()} />);
-    await userEvent.type(screen.getByRole('textbox', { name: 'Name' }), '  Stone lantern ');
+    render(<AddAssetForm project="frostveil" onDone={onDone} onCancel={vi.fn()} />);
+    await userEvent.type(screen.getByRole('textbox', { name: 'Name' }), '  Guardian statue ');
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Kind' }), 'scene');
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Column' }), 'refs');
     await userEvent.click(screen.getByRole('button', { name: 'Add asset' }));
     await vi.waitFor(() => expect(onDone).toHaveBeenCalledOnce());
-    const added = onDone.mock.calls[0]?.[0].assets?.find(a => a.name === 'Stone lantern');
+    const added = onDone.mock.calls[0]?.[0].assets?.find(a => a.name === 'Guardian statue');
     expect(added).toMatchObject({ kind: 'scene', stage: 'refs' });
   });
 
   it('cancels on Escape', async () => {
     const onCancel = vi.fn();
-    render(<AddAssetForm project="moon-island" onDone={vi.fn()} onCancel={onCancel} />);
+    render(<AddAssetForm project="frostveil" onDone={vi.fn()} onCancel={onCancel} />);
     await userEvent.type(screen.getByRole('textbox', { name: 'Name' }), '{Escape}');
     expect(onCancel).toHaveBeenCalledOnce();
   });

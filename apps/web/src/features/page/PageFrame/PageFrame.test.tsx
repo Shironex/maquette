@@ -45,11 +45,11 @@ describe('the page frame', () => {
     fromPage(iframe, {
       maquette: 1,
       type: 'ready',
-      stops: [{ name: 'Porch' }, { name: 'Sakura' }],
+      stops: [{ name: 'Arrival' }, { name: 'Veil gate' }],
     });
     fromPage(iframe, { maquette: 1, type: 'at', stop: 0.9, scroll: { top: 700, max: 3000 } });
     expect(usePageStore.getState().readings.main?.at).toBe(0.9);
-    expect(screen.getByText('Sakura')).toBeVisible();
+    expect(screen.getByText('Veil gate')).toBeVisible();
   });
 
   it('hears only its own page', () => {
@@ -73,16 +73,16 @@ describe('the page frame', () => {
     vi.useFakeTimers();
     usePageStore.setState({
       inspect: {
-        stops: { source: 'project-file', file: 'stops.json', stops: [{ name: 'Porch' }] },
+        stops: { source: 'project-file', file: 'stops.json', stops: [{ name: 'Arrival' }] },
       } as never,
     });
     const iframe = frame();
     const post = vi.spyOn(iframe.contentWindow!, 'postMessage');
     const hellos = () => post.mock.calls.filter(([m]) => (m as { type: string }).type === 'hello');
-    const hello = { maquette: 1, type: 'hello', stops: [{ name: 'Porch' }] };
+    const hello = { maquette: 1, type: 'hello', stops: [{ name: 'Arrival' }] };
     act(() => vi.advanceTimersByTime(500));
     expect(post).toHaveBeenCalledWith(hello, '*');
-    fromPage(iframe, { maquette: 1, source: 'shim', type: 'ready', stops: [{ name: 'Porch' }] });
+    fromPage(iframe, { maquette: 1, source: 'shim', type: 'ready', stops: [{ name: 'Arrival' }] });
     const afterShim = hellos().length;
     act(() => vi.advanceTimersByTime(1000));
     expect(hellos().length).toBe(afterShim + 2);

@@ -11,7 +11,7 @@ let view: InspectView;
 
 beforeEach(async () => {
   await openMockWorkspace();
-  view = await commands.inspectProject('moon-island');
+  view = await commands.inspectProject('frostveil');
 });
 afterEach(() => {
   clearMocks();
@@ -21,20 +21,20 @@ afterEach(() => {
 describe('the camera stops', () => {
   it('shows each stop with its live render, or a camera while there is none', () => {
     const { container } = render(
-      <CameraStops view={view} stops={stopsOf(view)} shots={{ 1: 'data:image/jpeg;sakura' }} />
+      <CameraStops view={view} stops={stopsOf(view)} shots={{ 1: 'data:image/jpeg;gate' }} />
     );
     expect(screen.getByRole('heading', { name: 'Camera stops' })).toBeInTheDocument();
     expect(screen.getByText(/click to fly/)).toBeInTheDocument();
     const images = container.querySelectorAll('img');
-    expect([...images].map(i => i.getAttribute('src'))).toEqual(['data:image/jpeg;sakura']);
+    expect([...images].map(i => i.getAttribute('src'))).toEqual(['data:image/jpeg;gate']);
     expect(screen.getAllByRole('button')).toHaveLength(5);
   });
 
   it('flies to the stop clicked and rings it', async () => {
     render(<CameraStops view={view} stops={stopsOf(view)} shots={{}} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Fly to Canopy' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Fly to Keystone' }));
     expect(useInspectorStore.getState().stop?.index).toBe(3);
-    expect(screen.getByRole('button', { name: 'Fly to Canopy' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Fly to Keystone' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );

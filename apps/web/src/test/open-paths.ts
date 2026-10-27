@@ -1,6 +1,6 @@
 /**
  * Opens the mock workspace with the Paths demo (`?paths=` in the browser)
- * and loads Moon Island into the Paths store.
+ * and loads Frostveil into the Paths store.
  */
 import { usePathsStore } from '@/state/use-paths-store';
 import { openMockWorkspace } from './mock-ipc';
@@ -19,7 +19,7 @@ export async function openPaths(paths = 'demo') {
     undefined,
     paths
   );
-  await usePathsStore.getState().load('moon-island');
+  await usePathsStore.getState().load('frostveil');
   return usePathsStore.getState();
 }
 

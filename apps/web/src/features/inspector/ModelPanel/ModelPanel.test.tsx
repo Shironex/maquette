@@ -6,19 +6,19 @@ import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import ModelPanel, { type ModelPanelProps } from './ModelPanel';
 
 let view: InspectView;
-let character: InspectModel;
+let elsheria: InspectModel;
 
 beforeEach(async () => {
   await openMockWorkspace();
-  view = await commands.inspectProject('moon-island');
-  character = view.models.find(m => m.model === 'character')!;
+  view = await commands.inspectProject('frostveil');
+  elsheria = view.models.find(m => m.model === 'elsheria')!;
 });
 afterEach(() => clearMocks());
 
 function panel(over: Partial<ModelPanelProps> = {}) {
   const props: ModelPanelProps = {
     view,
-    model: character,
+    model: elsheria,
     thumb: null,
     onPickBudget: vi.fn(),
     onPreset: vi.fn(),
@@ -54,7 +54,7 @@ describe('the model panel', () => {
     expect(screen.getByRole('heading', { name: 'Compression' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Textures' })).toBeInTheDocument();
     expect(screen.getAllByRole('meter')).toHaveLength(view.models.length);
-    expect(screen.getByRole('button', { name: /^Character/ })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /^Elsheria/ })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
@@ -76,14 +76,14 @@ describe('the model panel', () => {
   });
 
   it('saves a map group codec into the row, keeping the others', async () => {
-    const sakura = view.models.find(m => m.model === 'sakura')!;
-    const props = panel({ model: sakura });
+    const gate = view.models.find(m => m.model === 'veil_gate')!;
+    const props = panel({ model: gate });
     const normal = screen.getByRole('group', { name: 'Normal map codec' });
     await userEvent.click(within(normal).getByRole('button', { name: 'ETC1S' }));
     expect(props.onPreset).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'sakura',
-        codec: sakura.preset.codec,
+        model: 'veil_gate',
+        codec: gate.preset.codec,
         mapCodecs: { color: null, normal: 'etc1s', other: null },
       })
     );
@@ -97,9 +97,9 @@ describe('the model panel', () => {
 
   it('picks a budget row and exports the model', async () => {
     const props = panel();
-    await userEvent.click(screen.getByRole('button', { name: /^Sakura/ }));
-    expect(props.onPickBudget).toHaveBeenCalledWith('sakura');
+    await userEvent.click(screen.getByRole('button', { name: /^Veil gate/ }));
+    expect(props.onPickBudget).toHaveBeenCalledWith('veil_gate');
     await userEvent.click(screen.getByRole('button', { name: 'Export GLB' }));
-    expect(props.onExport).toHaveBeenCalledWith(character);
+    expect(props.onExport).toHaveBeenCalledWith(elsheria);
   });
 });

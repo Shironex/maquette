@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { pipelineView, runHistory } from '@/ipc/mock/pipeline-fixtures';
 import { PipelineGraph } from '.';
 
-const view = pipelineView('moon-island', '/w', runHistory(0), []);
+const view = pipelineView('frostveil', '/w', runHistory(0), []);
 
 afterEach(cleanup);
 

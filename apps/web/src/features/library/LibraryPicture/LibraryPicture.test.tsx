@@ -12,9 +12,11 @@ describe('a library picture', () => {
   it('shows the newest render, or the kind icon without one', async () => {
     await openMockLibrary('demo');
     const { items } = await commands.libraryGet();
-    const island = items.find(i => i.entry.id === 'island')!;
-    const brazier = items.find(i => i.entry.id === 'crypt-brazier')!;
-    registerMockFile(pictureOf(island)!, '/mock/island.webp');
+    const island = items.find(i => i.entry.id === 'veil-platform')!;
+    const found = items.find(i => i.entry.id === 'crypt-brazier')!;
+    const bare = found.entry.versions.map(v => ({ ...v, thumbnail: null }));
+    const brazier = { ...found, entry: { ...found.entry, versions: bare, refs: [] } };
+    registerMockFile(pictureOf(island)!, '/mock/veil-platform.webp');
     const { container, rerender } = render(<LibraryPicture item={island} />);
     expect(container.querySelector('img')).not.toBeNull();
     rerender(<LibraryPicture item={brazier} />);

@@ -31,7 +31,7 @@ describe('the page view', () => {
     await show();
     expect(await screen.findByText("Starting the site's dev server")).toBeVisible();
     expect(
-      await screen.findByTitle('The moon-island-site page from the site dev page', undefined, {
+      await screen.findByTitle('The frostveil-site page from the site dev page', undefined, {
         timeout: 4000,
       })
     ).toBeInTheDocument();
@@ -61,7 +61,7 @@ describe('the page view', () => {
 
   it('opens the compare board with the device verdict', async () => {
     await show('running');
-    await screen.findByTitle('The moon-island-site page from the site dev page', undefined, {
+    await screen.findByTitle('The frostveil-site page from the site dev page', undefined, {
       timeout: 4000,
     });
     await userEvent.click(screen.getByRole('button', { name: 'Compare' }));

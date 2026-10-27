@@ -11,21 +11,21 @@ afterEach(() => {
 
 describe('the Board prefs', () => {
   it('remembers the layout, sort and filter per project', () => {
-    useBoardPrefsStore.getState().update('moon-island', { layout: 'list', stage: 'web' });
-    expect(JSON.parse(window.localStorage.getItem(prefsKey('moon-island'))!)).toMatchObject({
+    useBoardPrefsStore.getState().update('frostveil', { layout: 'list', stage: 'web' });
+    expect(JSON.parse(window.localStorage.getItem(prefsKey('frostveil'))!)).toMatchObject({
       layout: 'list',
       stage: 'web',
     });
-    expect(prefsOf(useBoardPrefsStore.getState().byProject, 'rooftop-cinema')).toEqual(
+    expect(prefsOf(useBoardPrefsStore.getState().byProject, 'frost-cathedral')).toEqual(
       DEFAULT_PREFS
     );
     // A fresh start reads what was stored.
     useBoardPrefsStore.setState({ byProject: {} });
     forgetStoredPrefs();
-    const back = prefsOf({}, 'moon-island');
+    const back = prefsOf({}, 'frostveil');
     expect(back).toMatchObject({ layout: 'list', stage: 'web' });
     // The same object every time, so a selector stays stable.
-    expect(prefsOf({}, 'moon-island')).toBe(back);
+    expect(prefsOf({}, 'frostveil')).toBe(back);
   });
 
   it('starts from the defaults when storage throws', () => {
@@ -35,8 +35,8 @@ describe('the Board prefs', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('blocked');
     });
-    expect(prefsOf({}, 'moon-island')).toEqual(DEFAULT_PREFS);
-    useBoardPrefsStore.getState().update('moon-island', { layout: 'list' });
-    expect(prefsOf(useBoardPrefsStore.getState().byProject, 'moon-island').layout).toBe('list');
+    expect(prefsOf({}, 'frostveil')).toEqual(DEFAULT_PREFS);
+    useBoardPrefsStore.getState().update('frostveil', { layout: 'list' });
+    expect(prefsOf(useBoardPrefsStore.getState().byProject, 'frostveil').layout).toBe('list');
   });
 });

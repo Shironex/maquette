@@ -13,46 +13,46 @@ afterEach(() => {
 describe('Make object refs', () => {
   it('takes a list of objects and queues one titled job each in a new direction', async () => {
     await openMockWorkspace();
-    await useLabStore.getState().load('moon-island');
+    await useLabStore.getState().load('frostveil');
     render(<ObjectRefsDialog />);
     useLabStore.getState().openObjects({
-      project: 'moon-island',
-      source: 'concepts/moon-island-porch/moon-island-porch_01.png',
-      sourcePath: '/x/moon-island-porch_01.png',
-      sourceName: 'Moon island porch',
+      project: 'frostveil',
+      source: 'concepts/frozen-lake-arena/frozen-lake-arena_01.png',
+      sourcePath: '/x/frozen-lake-arena_01.png',
+      sourceName: 'Frozen lake arena',
     });
     const field = await screen.findByRole('textbox', { name: 'Objects' });
-    await userEvent.type(field, 'bench,vending machine{Enter}');
+    await userEvent.type(field, 'bench,crystal lantern{Enter}');
     await userEvent.type(field, 'paper lantern');
-    expect(screen.getByRole('button', { name: 'Remove Vending machine' })).toBeInTheDocument();
-    expect(screen.getByText('Moon island porch objects')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove Crystal lantern' })).toBeInTheDocument();
+    expect(screen.getByText('Frozen lake arena objects')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Make 3 object refs' }));
 
     await waitFor(() => expect(useLabStore.getState().objects).toBeNull());
     const { view, selected } = useLabStore.getState();
-    expect(selected).toBe('moon-island-porch-objects');
+    expect(selected).toBe('frozen-lake-arena-objects');
     const direction = view!.directions.find(d => d.id === selected)!;
     expect(direction).toMatchObject({
       aspect: '1:1',
       kind: 'prop',
-      source: 'concepts/moon-island-porch/moon-island-porch_01.png',
+      source: 'concepts/frozen-lake-arena/frozen-lake-arena_01.png',
     });
     expect(view!.jobs.filter(j => j.direction === selected).map(j => j.title)).toEqual([
       'Bench',
-      'Vending machine',
+      'Crystal lantern',
       'Paper lantern',
     ]);
   });
 
   it('keeps a long name whole, with a counter, and blocks Make until it is short', async () => {
     await openMockWorkspace();
-    await useLabStore.getState().load('moon-island');
+    await useLabStore.getState().load('frostveil');
     render(<ObjectRefsDialog />);
     useLabStore.getState().openObjects({
-      project: 'moon-island',
-      source: 'concepts/moon-island-porch/moon-island-porch_01.png',
-      sourcePath: '/x/moon-island-porch_01.png',
-      sourceName: 'Moon island porch',
+      project: 'frostveil',
+      source: 'concepts/frozen-lake-arena/frozen-lake-arena_01.png',
+      sourcePath: '/x/frozen-lake-arena_01.png',
+      sourceName: 'Frozen lake arena',
     });
     const field = await screen.findByRole('textbox', { name: 'Objects' });
     const long = 'Finished island in painted stone and moss with no wireframe lines and no rocks';
@@ -72,13 +72,13 @@ describe('Make object refs', () => {
 
   it('sends notes with an object but names the asset after the object only', async () => {
     await openMockWorkspace();
-    await useLabStore.getState().load('moon-island');
+    await useLabStore.getState().load('frostveil');
     render(<ObjectRefsDialog />);
     useLabStore.getState().openObjects({
-      project: 'moon-island',
-      source: 'concepts/moon-island-porch/moon-island-porch_01.png',
-      sourcePath: '/x/moon-island-porch_01.png',
-      sourceName: 'Moon island porch',
+      project: 'frostveil',
+      source: 'concepts/frozen-lake-arena/frozen-lake-arena_01.png',
+      sourcePath: '/x/frozen-lake-arena_01.png',
+      sourceName: 'Frozen lake arena',
     });
     const field = await screen.findByRole('textbox', { name: 'Objects' });
     await userEvent.type(field, 'island,bench{Enter}');
@@ -86,30 +86,30 @@ describe('Make object refs', () => {
     const editor = screen.getByRole('group', { name: 'Edit Island' });
     const name = within(editor).getByRole('textbox', { name: 'Name' });
     await userEvent.clear(name);
-    await userEvent.type(name, 'Moon island');
+    await userEvent.type(name, 'Frostveil');
     await userEvent.type(
       within(editor).getByRole('textbox', { name: 'Notes for Codex' }),
       'Painted stone and moss, no wireframe lines'
     );
     await userEvent.click(within(editor).getByRole('button', { name: 'Done' }));
     expect(useLabStore.getState().objects).toMatchObject({
-      objects: ['Moon island', 'Bench'],
-      notes: { 'Moon island': 'Painted stone and moss, no wireframe lines' },
+      objects: ['Frostveil', 'Bench'],
+      notes: { Frostveil: 'Painted stone and moss, no wireframe lines' },
     });
-    await userEvent.click(screen.getByRole('button', { name: 'Remove Moon island' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Frostveil' }));
     expect(useLabStore.getState().objects?.notes).toEqual({});
   });
 
   it('explains the notes with a help mark, and a tip once there is a chip that stays dismissed', async () => {
     window.localStorage.clear();
     await openMockWorkspace();
-    await useLabStore.getState().load('moon-island');
+    await useLabStore.getState().load('frostveil');
     const open = () =>
       useLabStore.getState().openObjects({
-        project: 'moon-island',
-        source: 'concepts/moon-island-porch/moon-island-porch_01.png',
-        sourcePath: '/x/moon-island-porch_01.png',
-        sourceName: 'Moon island porch',
+        project: 'frostveil',
+        source: 'concepts/frozen-lake-arena/frozen-lake-arena_01.png',
+        sourcePath: '/x/frozen-lake-arena_01.png',
+        sourceName: 'Frozen lake arena',
       });
     const view = render(<ObjectRefsDialog />);
     open();

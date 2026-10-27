@@ -13,7 +13,9 @@ describe('the import picker', () => {
     await openMockWorkspace();
     render(<ImportPicker folder="~/scene" size="md" onChange={vi.fn()} onBrowse={vi.fn()} />);
     expect(
-      await screen.findByText('2 .blend files, latest scenes/island_v3.blend. 2 tools/ scripts.')
+      await screen.findByText(
+        '2 .blend files, latest scenes/veil_platform_v3.blend. 2 tools/ scripts.'
+      )
     ).toBeVisible();
   });
 

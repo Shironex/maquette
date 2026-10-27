@@ -40,25 +40,45 @@ type Past = [
 ];
 const HISTORY: readonly Past[] = [
   [
-    'moon-island',
-    'Shop house',
-    'shop-house-2',
+    'frostveil',
+    'Observatory arch',
+    'observatory-arch-2',
     'tripo',
     2.2,
     40,
     'succeeded',
-    'shop-house-1',
+    'observatory-arch-1',
     false,
   ],
-  ['moon-island', 'Vending machine', 'vending-2', 'meshy', 3.5, 30, 'succeeded', null, false],
-  ['rooftop-cinema', 'Vending machine', 'vending-1', 'tripo', 4.1, 30, 'succeeded', null, false],
-  ['moon-island', 'Island', 'island-3', 'tripo', 5.8, 50, 'refunded', null, false],
-  ['moon-island', 'Island', 'island-2', 'tripo', 6.2, 50, 'succeeded', 'island-1', false],
-  ['rooftop-cinema', 'Flower shrubs', 'flower-shrubs-0', 'meshy', 9.4, 20, 'failed', null, false],
-  ['moon-island', 'Island', 'island-1', 'tripo', 12, 50, 'succeeded', null, false],
-  ['moon-island', 'Shop house', 'shop-house-1', 'tripo', 16, 40, 'succeeded', null, true],
-  ['lantern-keeper', 'Character', 'character-1', 'tripo', 24, 70, 'succeeded', null, false],
-  ['moon-island', 'Sakura', 'sakura-0', 'meshy', 41, 30, 'succeeded', null, false],
+  ['frostveil', 'Crystal lantern', 'crystal-lantern-2', 'meshy', 3.5, 30, 'succeeded', null, false],
+  [
+    'frost-cathedral',
+    'Crystal lantern',
+    'crystal-lantern-1',
+    'tripo',
+    4.1,
+    30,
+    'succeeded',
+    null,
+    false,
+  ],
+  ['frostveil', 'Veil platform', 'veil-platform-3', 'tripo', 5.8, 50, 'refunded', null, false],
+  [
+    'frostveil',
+    'Veil platform',
+    'veil-platform-2',
+    'tripo',
+    6.2,
+    50,
+    'succeeded',
+    'veil-platform-1',
+    false,
+  ],
+  ['frost-cathedral', 'Ice crystals', 'ice-crystals-0', 'meshy', 9.4, 20, 'failed', null, false],
+  ['frostveil', 'Veil platform', 'veil-platform-1', 'tripo', 12, 50, 'succeeded', null, false],
+  ['frostveil', 'Observatory arch', 'observatory-arch-1', 'tripo', 16, 40, 'succeeded', null, true],
+  ['elsheria-showcase', 'Elsheria', 'elsheria-1', 'tripo', 24, 70, 'succeeded', null, false],
+  ['frostveil', 'Veil gate', 'veil-gate-0', 'meshy', 41, 30, 'succeeded', null, false],
 ];
 
 const SUMMARY: Record<ProviderId, string> = {
@@ -85,16 +105,16 @@ function past(
     estimated,
     outcome,
     redoOf,
-    viaAgent: job === 'island-2',
+    viaAgent: job === 'veil-platform-2',
     source: 'api',
   };
 }
 
 /** Earlier By hand sends: [asset name, job, service, days ago, credits, what]. */
 const BY_HAND: readonly [string, string, ProviderId, number, number, string][] = [
-  ['Paper lantern', 'paper-lantern-1', 'meshy', 1.5, 20, 'mesh only'],
-  ['Bench', 'bench-2', 'tripo', 4.5, 30, 'textured image to 3D'],
-  ['Bench', 'bench-1', 'tripo', 8, 30, 'textured image to 3D'],
+  ['Rune lantern', 'rune-lantern-1', 'meshy', 1.5, 20, 'mesh only'],
+  ['Observatory bench', 'observatory-bench-2', 'tripo', 4.5, 30, 'textured image to 3D'],
+  ['Observatory bench', 'observatory-bench-1', 'tripo', 8, 30, 'textured image to 3D'],
 ];
 
 function pastByHand(
@@ -103,7 +123,7 @@ function pastByHand(
 ): Spend {
   const sent = now - days * DAY;
   return {
-    project: 'moon-island',
+    project: 'frostveil',
     job,
     asset: job.replace(/-\d+$/, ''),
     assetName,
@@ -115,7 +135,7 @@ function pastByHand(
     credits,
     estimated: true,
     outcome: 'succeeded',
-    redoOf: job === 'bench-2' ? 'bench-1' : null,
+    redoOf: job === 'observatory-bench-2' ? 'observatory-bench-1' : null,
     viaAgent: false,
     source: 'subscription',
   };

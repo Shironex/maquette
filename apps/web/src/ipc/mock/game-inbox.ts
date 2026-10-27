@@ -56,7 +56,7 @@ export function withFolderBudget(item: InboxItem, budget: FolderBudget): InboxIt
 }
 
 /**
- * The `crypt` game's Inbox: the flower shrubs came back from a Tripo send
+ * The `crypt` game's Inbox: the ice crystals came back from a Tripo send
  * for Candle cluster, a prop, so they check against the props budget.
  */
 export function linkGameInbox(items: InboxItem[], project: ProjectManifest | null): InboxItem[] {
@@ -74,6 +74,6 @@ export function linkGameInbox(items: InboxItem[], project: ProjectManifest | nul
     redoOf: null,
   };
   return items.map(item =>
-    item.id === 'flower_shrubs.glb' ? withFolderBudget({ ...item, link }, budget) : item
+    item.id === 'ice_crystals.glb' ? withFolderBudget({ ...item, link }, budget) : item
   );
 }

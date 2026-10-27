@@ -25,20 +25,21 @@ describe('the Library view', () => {
     const models = await screen.findByRole('region', { name: 'Models' });
     expect(await within(models).findByText('8 models · most used first')).toBeVisible();
     const cards = within(models).getAllByRole('listitem');
-    expect(within(cards[1]!).getByRole('button')).toHaveAccessibleName('Vending machine');
+    // Two projects each use Crystal lantern and Elsheria; a tie goes by name.
+    expect(within(cards[1]!).getByRole('button')).toHaveAccessibleName('Elsheria');
     expect(within(cards[0]!).getByRole('button', { pressed: true })).toHaveAccessibleName(
-      'Character'
+      'Crystal lantern'
     );
     const side = screen.getByRole('complementary', { name: 'Selected model' });
-    expect(within(side).getByRole('heading', { name: 'Character' })).toBeVisible();
-    expect(within(side).getByRole('button', { name: 'Update to v3' })).toBeVisible();
+    expect(within(side).getByRole('heading', { name: 'Crystal lantern' })).toBeVisible();
+    expect(within(side).getByRole('button', { name: 'Update to v2' })).toBeVisible();
   });
 
   it('searches and filters, and says when nothing matches', async () => {
     await openMockLibrary('demo');
     render(<LibraryView />);
     const filters = await screen.findByRole('region', { name: 'Filters' });
-    await userEvent.click(await within(filters).findByRole('button', { name: /^garden/ }));
+    await userEvent.click(await within(filters).findByRole('button', { name: /^statues/ }));
     const models = screen.getByRole('region', { name: 'Models' });
     expect(within(models).getByText('2 of 8 models · most used first')).toBeVisible();
     await userEvent.type(
@@ -60,11 +61,11 @@ describe('the Library view', () => {
     await openMockLibrary('demo');
     render(<LibraryView />);
     const models = await screen.findByRole('region', { name: 'Models' });
-    await userEvent.click(await within(models).findByRole('button', { name: 'Stone lantern' }));
+    await userEvent.click(await within(models).findByRole('button', { name: 'Guardian statue' }));
     const side = screen.getByRole('complementary', { name: 'Selected model' });
     await userEvent.click(within(side).getByRole('button', { name: 'Add, no credits' }));
     expect(useAppStore.getState().notice?.title).toBe(
-      'Added Stone lantern to Moon Island, no credits'
+      'Added Guardian statue to Frostveil, no credits'
     );
   });
 
