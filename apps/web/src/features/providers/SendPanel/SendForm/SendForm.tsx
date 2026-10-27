@@ -105,7 +105,11 @@ export default function SendForm({ options, draft }: SendFormProps) {
               title={`No ${PROVIDER_LABEL[draft.provider]} key yet`}
               detail="Keys live in the keychain. Add one in Settings > 3D providers, or send by hand."
               actions={
-                <Button size="sm" onClick={openSettings}>
+                <Button
+                  size="sm"
+                  tooltip="Closes this and opens Settings, where the key is added"
+                  onClick={openSettings}
+                >
                   Open Settings
                 </Button>
               }
@@ -194,6 +198,12 @@ export default function SendForm({ options, draft }: SendFormProps) {
             icon={draft.provider === 'by-hand' ? 'folder' : 'cube'}
             loading={sending}
             disabled={Boolean(blocker) || sending}
+            disabledReason={blocker ?? undefined}
+            tooltip={
+              draft.provider === 'by-hand'
+                ? "Writes a folder with the images and settings to use on the provider's site; no credits are spent"
+                : 'Sends the images to the provider; this spends the credits estimated here'
+            }
             onClick={() => void send()}
           >
             {label}

@@ -64,6 +64,7 @@ export default function ChecklistRow({ job }: ChecklistRowProps) {
             variant="ghost"
             icon="file-text"
             aria-expanded={expanded}
+            tooltip="The settings to choose on the site, and the prompt to paste"
             onClick={toggleExpanded}
           >
             {expanded ? 'Hide the settings card' : 'Settings card'}

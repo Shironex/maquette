@@ -16,7 +16,13 @@ export default function HandoffChecklist() {
     useHandoffChecklist();
   if (!open) return null;
   const siteButtons = (services.length ? services : (['tripo'] as const)).map(service => (
-    <Button key={service} size="sm" icon="arrow-square-out" onClick={() => void openSite(service)}>
+    <Button
+      key={service}
+      size="sm"
+      icon="arrow-square-out"
+      tooltip={`Opens ${siteLabel(service)} in your browser to make the models`}
+      onClick={() => void openSite(service)}
+    >
       {siteLabel(service)}
     </Button>
   ));
@@ -69,6 +75,8 @@ export default function HandoffChecklist() {
           size="sm"
           icon="download-simple"
           disabled={waiting.length === 0}
+          disabledReason="No model is waiting"
+          tooltip="Looks in your Downloads folder for the models you made"
           onClick={() => void checkDownloads()}
         >
           Check Downloads

@@ -135,7 +135,11 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
               title={`No ${PROVIDER_LABEL[draft.provider]} key yet`}
               detail="Keys live in the keychain. Add one in Settings > 3D providers, or send by hand."
               actions={
-                <Button size="sm" onClick={openSettings}>
+                <Button
+                  size="sm"
+                  tooltip="Closes this and opens Settings, where the key is added"
+                  onClick={openSettings}
+                >
                   Open Settings
                 </Button>
               }
@@ -253,6 +257,12 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
             icon={api ? 'cube' : 'folder'}
             loading={sending}
             disabled={Boolean(blocker) || sending}
+            disabledReason={blocker ?? undefined}
+            tooltip={
+              api
+                ? 'Sends every image set in this batch to the provider; this spends the credits estimated here'
+                : "Writes a handoff folder per asset to use on the provider's site; no credits are spent"
+            }
             onClick={() => void send()}
           >
             {confirming && api ? `Yes, send ${n}` : batchLabel(draft)}

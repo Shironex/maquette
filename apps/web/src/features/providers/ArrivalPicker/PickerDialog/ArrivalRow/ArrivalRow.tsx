@@ -53,7 +53,12 @@ export default function ArrivalRow({ arrival, options, now }: ArrivalRowProps) {
           onChange={value => choose(arrival.id, value)}
           fieldClassName="min-w-0 flex-1"
         />
-        <Button size="sm" variant="ghost" onClick={() => void dismiss(arrival.id)}>
+        <Button
+          size="sm"
+          variant="ghost"
+          tooltip="Hides this file; it is not added to the Inbox"
+          onClick={() => void dismiss(arrival.id)}
+        >
           Not a Maquette model
         </Button>
         <Button
@@ -61,6 +66,7 @@ export default function ArrivalRow({ arrival, options, now }: ArrivalRowProps) {
           variant={choice ? 'primary' : 'secondary'}
           disabled={!choice || busy}
           disabledReason="Pick the asset it belongs to"
+          tooltip="Puts this file in the Inbox as a model for that asset"
           loading={busy}
           onClick={() => void assign(arrival.id)}
         >

@@ -66,12 +66,14 @@ export default function KeyRow({ service }: KeyRowProps) {
             variant="primary"
             loading={busy}
             disabled={!draft.trim() || busy}
+            disabledReason={busy ? 'Working on it' : 'Paste the key first'}
+            tooltip="Saves the key on this computer"
             onClick={() => void onSave()}
           >
             Save
           </Button>
           {editing ? (
-            <Button variant="ghost" onClick={() => replace(false)}>
+            <Button variant="ghost" tooltip="Keeps the key you have" onClick={() => replace(false)}>
               Keep the old one
             </Button>
           ) : null}
@@ -83,17 +85,24 @@ export default function KeyRow({ service }: KeyRowProps) {
             icon="plugs-connected"
             loading={busy}
             disabled={busy}
+            tooltip="Checks the saved key with the provider"
             onClick={() => void onTest()}
           >
             Test key
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => replace(true)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            tooltip="Paste a new key in place of the saved one"
+            onClick={() => replace(true)}
+          >
             Replace
           </Button>
           <Button
             size="sm"
             variant="ghost"
             disabled={busy}
+            tooltip="Deletes the saved key from this computer"
             onClick={() => void onRemove()}
             className="ml-auto text-fg-mute"
           >

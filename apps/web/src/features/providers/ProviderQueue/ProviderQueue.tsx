@@ -33,6 +33,7 @@ export default function ProviderQueue({ onClose }: ProviderQueueProps) {
           variant="ghost"
           disabled={!finished}
           disabledReason="Nothing has finished yet"
+          tooltip="Removes the finished and failed sends from this list"
           onClick={() => void clear()}
         >
           Clear finished

@@ -39,6 +39,7 @@ export default function HandoffView({ job }: HandoffViewProps) {
         size="sm"
         variant="ghost"
         icon="image"
+        tooltip="Shows this image in your file manager"
         onClick={() => void revealImage(job.id, image)}
       >
         Reveal image
@@ -91,6 +92,7 @@ export default function HandoffView({ job }: HandoffViewProps) {
               size="sm"
               variant="primary"
               icon="arrow-square-out"
+              tooltip={`Opens ${siteLabel(card.service)} in your browser`}
               onClick={() => void openSite(card.service)}
             >
               {siteLabel(card.service)}
@@ -114,7 +116,12 @@ export default function HandoffView({ job }: HandoffViewProps) {
             >
               {shortPath(folder, 4)}
             </code>
-            <Button size="sm" icon="folder-open" onClick={() => void openHandoff(job.id)}>
+            <Button
+              size="sm"
+              icon="folder-open"
+              tooltip="Shows the handoff folder in your file manager"
+              onClick={() => void openHandoff(job.id)}
+            >
               Open folder
             </Button>
           </div>

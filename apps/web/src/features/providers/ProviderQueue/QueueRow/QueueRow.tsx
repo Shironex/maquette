@@ -2,7 +2,7 @@ import { Button, Icon, ProgressBar, StatusChip, cn } from '@maquette/ui';
 import type { ProviderJob } from '@/ipc/client';
 import { isActive, jobChip, jobMeta, jobTitle, percent } from '@/state/providers';
 import { KIND_ICON } from '@/state/thumbs';
-import { CANCEL_LABEL } from './cancelLabel';
+import { CANCEL_HINT, CANCEL_LABEL } from './cancelLabel';
 import { useQueueRow } from './QueueRow.hooks';
 
 export interface QueueRowProps {
@@ -53,7 +53,12 @@ export default function QueueRow({ job, now }: QueueRowProps) {
         {cancelLabel || job.provider === 'by-hand' ? (
           <div className="mt-0.5 flex gap-1.5">
             {job.provider === 'by-hand' && job.card ? (
-              <Button size="sm" icon="file-text" onClick={() => showHandoff(job)}>
+              <Button
+                size="sm"
+                icon="file-text"
+                tooltip="The settings to choose on the site, and the prompt to paste"
+                onClick={() => showHandoff(job)}
+              >
                 Settings card
               </Button>
             ) : null}
@@ -63,6 +68,7 @@ export default function QueueRow({ job, now }: QueueRowProps) {
                 variant="ghost"
                 loading={busy}
                 disabled={busy}
+                tooltip={CANCEL_HINT[job.cancel] ?? undefined}
                 onClick={() => void cancel(job.id)}
               >
                 {cancelLabel}

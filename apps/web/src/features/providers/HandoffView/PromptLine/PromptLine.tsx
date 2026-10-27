@@ -13,7 +13,13 @@ export default function PromptLine({ prompt }: PromptLineProps) {
       <p className="min-w-0 flex-1 truncate text-[12.5px] text-fg-dim" title={prompt}>
         {prompt}
       </p>
-      <Button size="sm" variant="secondary" icon="copy" onClick={copy}>
+      <Button
+        size="sm"
+        variant="secondary"
+        icon="copy"
+        tooltip="Copies the prompt to paste on the site"
+        onClick={copy}
+      >
         Copy prompt
       </Button>
     </div>

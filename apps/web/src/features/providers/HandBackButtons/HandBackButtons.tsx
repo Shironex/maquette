@@ -20,12 +20,18 @@ export default function HandBackButtons({ job, size, downloads = true }: HandBac
         icon="upload-simple"
         loading={busy}
         disabled={busy}
+        tooltip="Choose the GLB, or the .zip the site downloads, that you made for this send"
         onClick={() => void addModel(job.id)}
       >
         Add model...
       </Button>
       {downloads ? (
-        <Button size={size} icon="download-simple" onClick={() => void checkDownloads()}>
+        <Button
+          size={size}
+          icon="download-simple"
+          tooltip="Looks in your Downloads folder for the models you made"
+          onClick={() => void checkDownloads()}
+        >
           Check Downloads
         </Button>
       ) : null}

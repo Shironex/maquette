@@ -33,7 +33,13 @@ export default function DownloadsWatchFields() {
         hint={tone ? undefined : line.text}
       />
       {status?.custom ? (
-        <Button size="sm" variant="ghost" className="self-start" onClick={resetFolder}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="self-start"
+          tooltip="Goes back to watching your usual Downloads folder"
+          onClick={resetFolder}
+        >
           Use Downloads
         </Button>
       ) : null}

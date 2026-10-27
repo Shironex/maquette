@@ -189,6 +189,7 @@ export default function CreditsSheet() {
           icon="download-simple"
           disabled={spends.length === 0}
           disabledReason="Nothing to save for this filter"
+          tooltip="Saves the sends listed here as a spreadsheet file"
           onClick={() => void exportCsv()}
         >
           Export CSV

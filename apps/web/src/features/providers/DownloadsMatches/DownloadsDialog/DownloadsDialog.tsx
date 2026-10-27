@@ -98,7 +98,11 @@ export default function DownloadsDialog({ onClose }: DownloadsDialogProps) {
           <p className="min-w-0 flex-1 text-meta text-fg-mute">
             I copy each file you use into the inbox. The original stays in Downloads.
           </p>
-          <Button variant="secondary" onClick={() => void retry()}>
+          <Button
+            variant="secondary"
+            tooltip="Looks in your Downloads folder again"
+            onClick={() => void retry()}
+          >
             Check again
           </Button>
           <Button variant="primary" onClick={onClose}>

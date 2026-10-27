@@ -64,6 +64,7 @@ export default function MatchRow({ file, waiting, choice, used, taken, now }: Ma
             variant={choice ? 'primary' : 'secondary'}
             disabled={!choice || busy}
             disabledReason="Pick the send it belongs to"
+            tooltip="Puts this file in the Inbox as the model for that send"
             loading={busy}
             onClick={() => void use(file.path)}
           >
