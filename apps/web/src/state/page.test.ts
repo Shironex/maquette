@@ -301,11 +301,11 @@ describe('who keeps the dev server going', () => {
   });
 
   it('reads the host and whether it is up for a project', () => {
-    const status = { state: 'starting', project: 'moon-island', url: null } as ServerStatus;
+    const status = { state: 'starting', project: 'frostveil', url: null } as ServerStatus;
     expect(serverHost(status)).toBeNull();
     expect(serverHost({ url: 'http://localhost:3000/' })).toBe('localhost:3000');
-    expect(serverLive(status, 'moon-island')).toBe(true);
+    expect(serverLive(status, 'frostveil')).toBe(true);
     expect(serverLive(status, 'rooftop-cinema')).toBe(false);
-    expect(serverLive({ ...status, state: 'failed' }, 'moon-island')).toBe(false);
+    expect(serverLive({ ...status, state: 'failed' }, 'frostveil')).toBe(false);
   });
 });

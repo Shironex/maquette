@@ -6,7 +6,7 @@ import { ServerControls } from '.';
 
 const server: ServerStatus = {
   state: 'running',
-  project: 'moon-island',
+  project: 'frostveil',
   site: '/site',
   url: 'http://localhost:3000/',
   frameUrl: null,
@@ -19,7 +19,7 @@ const server: ServerStatus = {
 };
 
 const view = (status: ServerStatus) =>
-  ({ project: 'moon-island', server: status, settings: { source: 'site' } }) as PageView;
+  ({ project: 'frostveil', server: status, settings: { source: 'site' } }) as PageView;
 
 afterEach(() => usePageStore.setState({ server: null, view: null }));
 

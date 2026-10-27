@@ -92,20 +92,22 @@ describe('the compression presets', () => {
   it('shows what each model shipped at, sorts by size and links to the size report', async () => {
     const onSizeReport = vi.fn();
     render(<PresetsPanel view={view} onSave={vi.fn()} onSizeReport={onSizeReport} />);
-    expect(screen.getByText('4 models · 14.3 MB → 3.8 MB')).toBeInTheDocument();
+    expect(screen.getByText('4 models · 14.3 MB → 3.5 MB')).toBeInTheDocument();
     const names = () =>
       screen
         .getAllByRole('button', { name: /^Texture sizes per map for / })
         .map(b => b.getAttribute('aria-label')!.replace('Texture sizes per map for ', ''));
-    expect(names()[0]).toBe('Character');
+    expect(names()[0]).toBe('Crystal lantern');
     await userEvent.selectOptions(
       screen.getByRole('combobox', { name: 'Sort the models by' }),
       'By raw size'
     );
-    expect(names().slice(0, 2)).toEqual(['Character', 'Island']);
-    expect(names().at(-1)).toBe('Sakura');
-    const island = screen.getByRole('button', { name: 'Texture sizes per map for Island' });
-    expect(within(island.closest('tr')!).getByText('1.1 MB')).toBeInTheDocument();
+    expect(names().slice(0, 2)).toEqual(['Elsheria', 'Veil platform']);
+    expect(names().at(-1)).toBe('Veil gate');
+    const platform = screen.getByRole('button', {
+      name: 'Texture sizes per map for Veil platform',
+    });
+    expect(within(platform.closest('tr')!).getByText('1.1 MB')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Size report' }));
     expect(onSizeReport).toHaveBeenCalledOnce();
   });

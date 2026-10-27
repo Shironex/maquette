@@ -105,7 +105,7 @@ export function openMockShip(ship?: 'hand-built') {
   );
 }
 
-/** The configured workspace with Moon Island's runner listing 24 models that skip the bake. */
+/** The configured workspace with Frostveil's runner listing 24 models that skip the bake. */
 export function openMockPipeline(pipeline: 'many') {
   return openMockWorkspace(
     'configured',

@@ -106,7 +106,7 @@ export interface BackendOptions {
   inspect?: string | null;
   /** `hand-built`: Frostveil ships as a hand-built site (see create-ship-handlers.ts). */
   ship?: string | null;
-  /** `many`: Moon Island's runner lists 24 models that all skip the bake (see pipeline-many.ts). */
+  /** `many`: Frostveil's runner lists 24 models that all skip the bake (see pipeline-many.ts). */
   pipeline?: string | null;
   /** `held`, `repo` or `conflict`: a workspace shared with another computer (see create-sync-handlers.ts). */
   sync?: string | null;

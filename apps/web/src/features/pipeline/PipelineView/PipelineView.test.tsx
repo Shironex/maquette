@@ -66,7 +66,7 @@ describe('the Pipeline view', () => {
 
   it('folds the Baked light card when every model skips it, and lists results in the presets', async () => {
     await openMockPipeline('many');
-    await usePipelineStore.getState().load('moon-island');
+    await usePipelineStore.getState().load('frostveil');
     render(<PipelineView />);
     expect(
       screen.getByText(/^All \d+ models skip the bake, so this step bakes nothing\.$/)
@@ -76,13 +76,13 @@ describe('the Pipeline view', () => {
     expect(screen.getByText(/^24 models · /)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Size report' }));
     expect(
-      await screen.findByRole('heading', { level: 1, name: "Ship to Moon Island's site" })
+      await screen.findByRole('heading', { level: 1, name: "Ship to Frostveil's site" })
     ).toBeInTheDocument();
   });
 
   it('keeps the Baked light card open while some model bakes', async () => {
     await openMockWorkspace();
-    await usePipelineStore.getState().load('moon-island');
+    await usePipelineStore.getState().load('frostveil');
     render(<PipelineView />);
     expect(screen.getByRole('combobox', { name: 'Lightmap size' })).toBeInTheDocument();
   });

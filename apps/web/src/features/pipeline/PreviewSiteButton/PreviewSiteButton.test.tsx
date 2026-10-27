@@ -50,7 +50,7 @@ describe('Preview on site', () => {
     usePageStore.setState({
       server: {
         state: 'running',
-        project: 'moon-island',
+        project: 'frostveil',
         site: '/site',
         url: 'http://localhost:3000/',
         frameUrl: null,

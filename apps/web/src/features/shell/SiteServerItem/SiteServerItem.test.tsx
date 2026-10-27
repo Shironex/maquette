@@ -9,7 +9,7 @@ import { SiteServerItem } from '.';
 
 const running: ServerStatus = {
   state: 'running',
-  project: 'moon-island',
+  project: 'frostveil',
   site: '/site',
   url: 'http://localhost:3000/',
   frameUrl: null,
@@ -33,7 +33,7 @@ describe("the status bar's site dev server", () => {
     render(<SiteServerItem label="Site dev page on localhost:3000" dot="ok" />);
     await userEvent.click(screen.getByRole('button', { name: /Site dev page on localhost:3000/ }));
     const menu = screen.getByRole('menu', { name: 'Site dev server' });
-    expect(menu).toHaveTextContent('Moon Island, started by an agent');
+    expect(menu).toHaveTextContent('Frostveil, started by an agent');
     expect(menu).toHaveTextContent('pnpm run dev:landing');
     await userEvent.click(screen.getByRole('menuitem', { name: 'Stop the dev server' }));
     expect(screen.queryByRole('menu')).toBeNull();

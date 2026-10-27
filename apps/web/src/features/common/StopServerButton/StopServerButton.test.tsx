@@ -8,7 +8,7 @@ import { StopServerButton } from '.';
 
 const running: ServerStatus = {
   state: 'running',
-  project: 'moon-island',
+  project: 'frostveil',
   site: '/site',
   url: 'http://localhost:3000/',
   frameUrl: null,
@@ -30,18 +30,18 @@ describe('Stop for the site dev server', () => {
     usePageStore.setState({ server: running });
     const { rerender } = render(<StopServerButton project="rooftop-cinema" />);
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
-    rerender(<StopServerButton project="moon-island" />);
+    rerender(<StopServerButton project="frostveil" />);
     expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
     usePageStore.setState({ server: { ...running, state: 'idle' } });
-    rerender(<StopServerButton project="moon-island" />);
+    rerender(<StopServerButton project="frostveil" />);
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
   });
 
   it('says where and who, and stops the server', async () => {
     await openMockWorkspace();
-    await usePageStore.getState().open('moon-island');
+    await usePageStore.getState().open('frostveil');
     usePageStore.setState({ server: running });
-    render(<StopServerButton project="moon-island" />);
+    render(<StopServerButton project="frostveil" />);
     const stop = screen.getByRole('button', { name: 'Stop' });
     await userEvent.hover(stop);
     expect((await screen.findByRole('tooltip')).textContent).toContain(
@@ -54,7 +54,7 @@ describe('Stop for the site dev server', () => {
 
   it('only forgets a server Maquette did not start', async () => {
     usePageStore.setState({ server: { ...running, external: true } });
-    render(<StopServerButton project="moon-island" compact />);
+    render(<StopServerButton project="frostveil" compact />);
     await userEvent.hover(screen.getByRole('button', { name: "Stop the site's dev server" }));
     expect((await screen.findByRole('tooltip')).textContent).toContain(
       'Maquette did not start it, so Stop only forgets it.'

@@ -3,7 +3,7 @@
  * 1440x900: a 24 model project after a build only run (the Baked light card
  * folded because every model skips the bake, the presets sorted by shipped
  * size, a data map line open, the bake settings opened again), the short
- * Moon Island project, Preview on site running with Stop beside it and the
+ * Frostveil project, Preview on site running with Stop beside it and the
  * status bar's dev server menu, Stop from there, the Page view showing who
  * started the server, the Size report link, a
  * failed run, the log, idle, running and the starter scripts banner.
@@ -17,7 +17,7 @@ export async function pipelineShots({ open, shot, hoverTip }) {
   await many
     .getByRole('combobox', { name: 'Sort the models by' })
     .selectOption({ label: 'By shipped size' });
-  await many.getByRole('button', { name: 'Texture sizes per map for Island' }).click();
+  await many.getByRole('button', { name: 'Texture sizes per map for Veil platform' }).click();
   await shot(many, 'pipeline-presets-sorted');
   await many.getByRole('button', { name: 'Bake settings' }).click();
   await many.getByRole('combobox', { name: 'Lightmap size' }).waitFor();
