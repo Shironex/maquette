@@ -195,6 +195,9 @@ named `release`, limited to `v*` tags with you as the required reviewer:
 | `TAURI_SIGNING_PRIVATE_KEY`          | The full text of `updater.key` |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Its password                   |
 
+`scripts/github/setup-release-env.sh` does both steps below (and is safe to run again): it reads
+the key from `~/.maquette-keys/updater.key` and asks for the password without printing either.
+
 - [ ] Environment `release` created, deployment tags `v*`, required reviewer set.
 - [ ] Both secrets added to that environment (not to the repository secrets).
 
