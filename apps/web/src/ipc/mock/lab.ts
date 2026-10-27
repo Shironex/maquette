@@ -26,7 +26,15 @@ import {
 } from './lab-fixtures';
 import { clock } from '@/lib/clock';
 import { createLabSends } from './create-lab-sends';
-import { finished, importRefs, refMayReplace, retryable, slug } from './lab-helpers';
+import {
+  finished,
+  importRefs,
+  objectsDirectionName,
+  queuedJob,
+  refMayReplace,
+  retryable,
+  slug,
+} from './lab-helpers';
 
 export { refMayReplace };
 
@@ -204,7 +212,7 @@ export function createFakeLab(options: FakeLabOptions) {
     for (let n = 0; n < request.count; n += 1) {
       const index = first + n;
       const two = String(index).padStart(2, '0');
-      const job: ConceptJob = {
+      const job = queuedJob({
         id: `${id}-${two}-${stamp}`,
         runId: `concepts-run-${stamp}-${n}`,
         project: request.project,
@@ -213,18 +221,7 @@ export function createFakeLab(options: FakeLabOptions) {
         index,
         file: `concepts/${id}/${id}_${two}.png`,
         title: null,
-        state: 'queued',
-        queuedAtMs: clock.nowMs(),
-        startedAtMs: null,
-        finishedAtMs: null,
-        message: null,
-        width: null,
-        height: null,
-        logTail: [],
-        retryAtMs: null,
-        usageLimit: false,
-        retries: 0,
-      };
+      });
       jobs = [...jobs, job];
       emit({ type: 'job', job });
     }
@@ -242,19 +239,7 @@ export function createFakeLab(options: FakeLabOptions) {
     if (request.kind === 'scene')
       fail('invalid', 'Object refs are props or characters, not scenes.');
     const base = request.sourceName.trim() || 'Concept';
-    // Another source, or another kind, with the same name gets its own
-    // direction: "... objects 2", "... objects 3".
-    const numbered = (n: number) => {
-      const suffix = n === 1 ? ' objects' : ` objects ${n}`;
-      return `${base.slice(0, 60 - suffix.length).trimEnd()}${suffix}`;
-    };
-    const fits = (n: number) => {
-      const found = list(request.project).find(d => d.id === slug(numbered(n)));
-      return !found || (found.source === request.source && found.kind === request.kind);
-    };
-    let n = 1;
-    while (!fits(n)) n += 1;
-    const name = numbered(n);
+    const name = objectsDirectionName(list(request.project), request);
     const id = slug(name);
     const at = clock.now().toISOString();
     const existing = list(request.project).find(d => d.id === id);
@@ -279,7 +264,7 @@ export function createFakeLab(options: FakeLabOptions) {
     names.forEach((title, n) => {
       const index = first + n;
       const two = String(index).padStart(2, '0');
-      const job: ConceptJob = {
+      const job = queuedJob({
         id: `${id}-${two}-${stamp}`,
         runId: `concepts-run-${stamp}-${n}`,
         project: request.project,
@@ -287,19 +272,8 @@ export function createFakeLab(options: FakeLabOptions) {
         directionName: name,
         index,
         file: `concepts/${id}/${id}_${two}.png`,
-        title,
-        state: 'queued',
-        queuedAtMs: clock.nowMs(),
-        startedAtMs: null,
-        finishedAtMs: null,
-        message: null,
-        width: null,
-        height: null,
-        logTail: [],
-        retryAtMs: null,
-        usageLimit: false,
-        retries: 0,
-      };
+        title: title,
+      });
       jobs = [...jobs, job];
       emit({ type: 'job', job });
     });

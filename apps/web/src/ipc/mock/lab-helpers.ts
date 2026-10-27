@@ -1,11 +1,33 @@
-import type { ConceptJob, RefImage } from '../client';
+import type { ConceptJob, Direction, NewObjectRefs, RefImage } from '../client';
 import type { FakeLabOptions } from './lab';
+import { clock } from '@/lib/clock';
 
 export const slug = (name: string) =>
   name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'project';
+
+/** A new job waiting for a slot, with what it was given. */
+export const queuedJob = (
+  given: Pick<
+    ConceptJob,
+    'id' | 'runId' | 'project' | 'direction' | 'directionName' | 'index' | 'file' | 'title'
+  >
+): ConceptJob => ({
+  ...given,
+  state: 'queued',
+  queuedAtMs: clock.nowMs(),
+  startedAtMs: null,
+  finishedAtMs: null,
+  message: null,
+  width: null,
+  height: null,
+  logTail: [],
+  retryAtMs: null,
+  usageLimit: false,
+  retries: 0,
+});
 
 export const finished = (job: ConceptJob) =>
   job.state !== 'queued' && job.state !== 'running' && job.state !== 'rate-limited';
@@ -39,4 +61,26 @@ export function importRefs(
     ...out.map(file => ({ file, name: file.slice(5), bytes: 1.4e6 })),
   ]);
   return out;
+}
+
+/**
+ * Where object refs land, as the core names it: "<source> objects", or
+ * "... objects 2", "... objects 3" when another source or kind has the name.
+ */
+export function objectsDirectionName(
+  directions: readonly Direction[],
+  request: Pick<NewObjectRefs, 'sourceName' | 'source' | 'kind'>
+): string {
+  const base = request.sourceName.trim() || 'Concept';
+  const numbered = (n: number) => {
+    const suffix = n === 1 ? ' objects' : ` objects ${n}`;
+    return `${base.slice(0, 60 - suffix.length).trimEnd()}${suffix}`;
+  };
+  const fits = (n: number) => {
+    const found = directions.find(d => d.id === slug(numbered(n)));
+    return !found || (found.source === request.source && found.kind === request.kind);
+  };
+  let n = 1;
+  while (!fits(n)) n += 1;
+  return numbered(n);
 }
