@@ -24,7 +24,10 @@ describe('the by hand settings card', () => {
       'Use these settings',
       'Bring the GLB back',
     ]);
-    expect(screen.getByText(lanterns.card!.exportName ?? '')).toBeInTheDocument();
+    // In the Export row of the settings and again in step 4.
+    expect(screen.getAllByText(lanterns.card!.exportName ?? '')).toHaveLength(2);
+    expect(screen.getByText('Ultra Mesh Quality')).toBeInTheDocument();
+    expect(screen.queryByText('Face limit')).toBeNull();
     expect(lanterns.card!.exportName).toMatch(/^maq_lanterns_v\d+_tripo$/);
     expect(screen.getByText('30 credits')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy The export name' })).toBeInTheDocument();

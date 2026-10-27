@@ -3,33 +3,54 @@ import { webCost } from './pricing';
 
 const onOff = (on: boolean) => (on ? 'On' : 'Off');
 
-function tripoRows(p: TripoPreset): CardRow[] {
+const TEXTURE_QUALITY: Record<TripoPreset['textureQuality'], string> = {
+  standard: '2K',
+  detailed: '4K',
+  extreme: '8K',
+};
+
+/** The Tripo card in Tripo Studio's words, as `handoff/studio.rs` writes it. */
+function tripoRows(p: TripoPreset, character: boolean, name: string): CardRow[] {
+  const recommended = 'recommended';
+  const skeleton = p.rigSpec === 'tripo' ? 'Tripo skeleton' : 'Mixamo skeleton';
   return [
+    { label: 'Tab', value: p.smartLowPoly ? 'Smart Mesh' : 'HD Model', note: null },
     {
-      label: 'Model',
+      label: 'AI Model',
       value: p.model.startsWith('v3.1') ? 'H3.1' : p.model,
       note: `model id ${p.model}`,
     },
     {
-      label: 'Face limit',
-      value: p.faceLimit ? p.faceLimit.toLocaleString('en-US') : 'Adaptive',
+      label: 'Ultra Mesh Quality',
+      value: onOff(p.geometryQuality === 'detailed'),
       note: null,
     },
+    { label: 'AI Complete', value: 'On', note: recommended },
     { label: 'Texture', value: onOff(p.texture), note: null },
+    ...(p.texture
+      ? [
+          { label: 'Texture Quality', value: TEXTURE_QUALITY[p.textureQuality], note: null },
+          { label: 'Remove Lighting', value: 'On', note: recommended },
+        ]
+      : []),
     { label: 'PBR', value: onOff(p.texture && p.pbr), note: null },
+    { label: 'Topology', value: 'Triangle', note: 'quads export FBX only' },
     {
-      label: 'Texture quality',
-      value: p.textureQuality === 'detailed' ? 'Detailed' : 'Standard',
-      note: null,
+      label: 'Polycount',
+      value: String(p.faceLimit || 20_000),
+      note: p.faceLimit ? null : 'Studio has no adaptive',
     },
-    {
-      label: 'Geometry',
-      value: p.geometryQuality === 'detailed' ? 'Ultra' : 'Standard',
-      note: null,
-    },
-    { label: 'Smart low poly', value: onOff(p.smartLowPoly), note: null },
-    { label: 'Real-world size', value: onOff(p.autoSize), note: null },
-    { label: 'Fix the image first', value: onOff(p.imageAutofix), note: null },
+    { label: 'Generate in Parts', value: 'Off', note: recommended },
+    ...(character && p.rig
+      ? [
+          {
+            label: 'Rig',
+            value: `${skeleton}, export GLB (or FBX) with Export Skeleton on, Texture Resolution 2K`,
+            note: `rig model ${p.rigModel}`,
+          },
+        ]
+      : []),
+    { label: 'Export', value: name, note: 'GLB, with this file name' },
   ];
 }
 
@@ -72,7 +93,11 @@ export function handoffCard(job: ProviderJob): HandoffCard {
         ? 'Multi-image to 3D'
         : 'Image to 3D',
     rows: [
-      ...(tripo && job.tripo ? tripoRows(job.tripo) : job.meshy ? meshyRows(job.meshy) : []),
+      ...(tripo && job.tripo
+        ? tripoRows(job.tripo, job.variant === 'character', name)
+        : job.meshy
+          ? meshyRows(job.meshy)
+          : []),
       ...(prompt ? [{ label: 'Texture prompt', value: prompt, note: null }] : []),
     ],
     images: job.images.map((_, i) => `${VIEWS[i] ?? `view_${i + 1}`}.png`),

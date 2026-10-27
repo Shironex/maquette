@@ -34,7 +34,9 @@ describe('the By hand checklist', () => {
     expect(within(batch).getAllByRole('listitem')).toHaveLength(6);
     expect(within(batch).getByText('In the Inbox')).toBeInTheDocument();
     expect(within(batch).getByText('Accepted as v1')).toBeInTheDocument();
-    expect(within(batch).getAllByText(/^Tripo Image to 3D · Model H3\.1/).length).toBe(6);
+    expect(
+      within(batch).getAllByText(/^Tripo Image to 3D · Tab HD Model · AI Model H3\.1/).length
+    ).toBe(6);
     expect(
       within(sheet).getByRole('button', { name: 'Open the Desk lamp folder' })
     ).toBeInTheDocument();
