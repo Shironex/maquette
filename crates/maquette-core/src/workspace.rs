@@ -12,6 +12,8 @@ use crate::fs::{clear_dir_contents, collapse_home, dir_size, expand_home};
 use crate::json::{from_json_with_defaults, write_json};
 use crate::providers::{ProviderSettings, meshy_problem, tripo_problem};
 
+pub mod lock;
+
 pub const CONFIG_FILE: &str = "maquette.json";
 pub const CONFIG_VERSION: u32 = 1;
 
