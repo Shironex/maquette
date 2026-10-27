@@ -17,7 +17,7 @@ The Material section tweaks the selected model per asset: a tint, roughness (set
 
 ## Scene layout
 
-The Layout tab places each asset's newest model and the camera stops in one 3D canvas. Click a model and drag the gizmo: Move, Turn and Scale (W, E, R), snapping to 5 cm and 15 degrees unless the magnet is off. The side panel takes exact numbers. Undo and redo cover every change, F frames every model and Cmd+S saves.
+The Layout tab places each asset's newest model and the camera stops in one 3D canvas. Click a model and drag the gizmo: Move, Turn and Scale (W, E, R), snapping to 5 cm and 15 degrees unless the magnet is off. The side panel takes exact numbers. Undo and redo cover every change, F frames every model and Cmd+S saves. All keys are on the [shortcuts](/docs/views/shortcuts/) page.
 
 Camera stops are added where the editor camera stands, named, reordered, deleted, and each has a field of view. Up to 24 stops. Save layout writes `layout.json` in the project. The next pipeline run builds the scene, bakes it and renders one poster per stop from it.
 

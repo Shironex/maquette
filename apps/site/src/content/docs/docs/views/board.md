@@ -15,7 +15,7 @@ A column heading sorts by it, and again flips the order. The stage filter and th
 
 ## Selecting and sending
 
-Tick the boxes on cards (Shift selects a range) and press Send to 3D in the selection bar to send several assets in one batch. With a row focused in the list, the arrow keys move, Shift and an arrow extends the selection, Space ticks the row and Enter opens its menu.
+Tick the boxes on cards (Shift selects a range) and press Send to 3D in the selection bar to send several assets in one batch. With a row focused in the list, the arrow keys move, Shift and an arrow extends the selection, Space ticks the row and Enter opens its menu. See all [keyboard shortcuts](/docs/views/shortcuts/).
 
 A card's menu has Send to 3D, Real size and fix-ups, Rename and Copy to project. Rename changes only the name on the card: the asset's id, files and versions keep their names. Copy to project copies the asset with its refs, every model version, thumbnails and finished sends, and leaves the original where it is.
 

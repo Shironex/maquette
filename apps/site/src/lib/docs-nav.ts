@@ -49,7 +49,7 @@ export const DOCS_GROUPS: readonly DocsGroup[] = [
   },
   {
     label: 'Reference',
-    slugs: ['docs/pipeline/pipeline-json'],
+    slugs: ['docs/pipeline/pipeline-json', 'docs/views/shortcuts'],
   },
   {
     label: 'Agents',
