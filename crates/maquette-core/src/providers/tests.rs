@@ -1076,9 +1076,13 @@ fn send_notes_read_the_pbr_and_texture_choices_of_either_service() {
     assert_eq!(notes.maps, inbox::SentMaps::NoPbr);
     assert!(!notes.large_textures);
 
+    assert!(!notes.by_hand_tripo, "by hand on Meshy's site");
+
     let plain = world.request(Provider::ByHand, PresetVariant::Prop, &["front.png"]);
     let job = jobs.send(&plain, false, false).expect("send");
-    assert_eq!(super::jobs::send_notes(&job).maps, inbox::SentMaps::Any);
+    let notes = super::jobs::send_notes(&job);
+    assert_eq!(notes.maps, inbox::SentMaps::Any);
+    assert!(notes.by_hand_tripo);
 }
 
 /// Adds props named `names` at Refs, each with its own ref image.

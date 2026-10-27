@@ -85,6 +85,7 @@ pub(super) fn send_notes(job: &ProviderJob) -> SendNotes {
     SendNotes {
         maps,
         large_textures: large_textures && texture,
+        by_hand_tripo: job.provider == Provider::ByHand && job.service == ProviderId::Tripo,
     }
 }
 

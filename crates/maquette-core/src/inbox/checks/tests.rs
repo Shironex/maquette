@@ -118,7 +118,7 @@ fn a_send_without_pbr_does_not_warn_about_missing_maps() {
     let sent = |maps| {
         let notes = SendNotes {
             maps,
-            large_textures: false,
+            ..SendNotes::default()
         };
         run(&report, AssetKind::Scene, &config, notes)
     };
@@ -135,6 +135,44 @@ fn a_send_without_pbr_does_not_warn_about_missing_maps() {
         status(&sent(SentMaps::NoTexture), "pbr"),
         Some(CheckStatus::Pass)
     );
+}
+
+#[test]
+fn a_by_hand_tripo_character_with_base_color_only_gets_a_note() {
+    let config = WorkspaceConfig::default();
+    let mut report = analyse_bytes(&fixture::character(false), Path::new(".")).expect("analyse");
+    report.pbr.metallic_roughness = false;
+    report.pbr.normal = false;
+    let by_hand = SendNotes {
+        by_hand_tripo: true,
+        ..SendNotes::default()
+    };
+    let list = run(&report, AssetKind::Character, &config, by_hand);
+    let row = list.iter().find(|c| c.id == "pbr").expect("row");
+    assert_eq!(row.status, CheckStatus::Pass);
+    assert_eq!(
+        row.detail.as_deref(),
+        Some("Base color only, as Tripo's Smart Mesh exports it.")
+    );
+    // A prop by hand, or a character over the API, keeps the advice.
+    for (kind, notes) in [
+        (AssetKind::Prop, by_hand),
+        (AssetKind::Character, SendNotes::default()),
+    ] {
+        let list = run(&report, kind, &config, notes);
+        let row = list.iter().find(|c| c.id == "pbr").expect("row");
+        assert_eq!(row.status, CheckStatus::Warning);
+        assert!(
+            row.detail
+                .as_deref()
+                .unwrap_or_default()
+                .contains("Turn on PBR in the Tripo settings")
+        );
+    }
+    // Without even a base color map it still warns.
+    report.pbr.base_color = false;
+    let list = run(&report, AssetKind::Character, &config, by_hand);
+    assert_eq!(status(&list, "pbr"), Some(CheckStatus::Warning));
 }
 
 #[test]

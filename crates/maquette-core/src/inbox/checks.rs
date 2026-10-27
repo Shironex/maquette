@@ -58,6 +58,9 @@ pub struct SendNotes {
     pub maps: SentMaps,
     /// Sent with a texture quality above the standard one.
     pub large_textures: bool,
+    /// Made by hand on Tripo's site, where a Smart Mesh character exports
+    /// base color only whatever the PBR setting.
+    pub by_hand_tripo: bool,
 }
 
 fn check(
@@ -256,6 +259,13 @@ pub fn run(
             CheckStatus::Pass,
             "PBR off, as sent",
             "Sent with PBR off, so only a base color map is expected.".to_string(),
+        ));
+    } else if notes.by_hand_tripo && kind == AssetKind::Character && p.base_color {
+        out.push(check(
+            "pbr",
+            CheckStatus::Pass,
+            "Base color only, as exported",
+            "Base color only, as Tripo's Smart Mesh exports it.".to_string(),
         ));
     } else if notes.maps == SentMaps::NoTexture {
         out.push(check(
