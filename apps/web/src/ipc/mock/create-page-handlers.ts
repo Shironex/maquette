@@ -256,6 +256,19 @@ export function createPageHandlers(ctx: PageContext) {
       start(String(project), 'page');
       return view(String(project));
     },
+    // Preview on site: the same server, owned by the pipeline, answering at once.
+    site_preview: ({ project }) => {
+      const id = String(project);
+      start(id, 'pipeline');
+      if (ctx.state === 'failed') fail('unavailable', "The site's dev server did not start.");
+      if (timer) clearTimeout(timer);
+      timer = null;
+      const log = server.log.some(l => l.includes('Local'))
+        ? server.log
+        : [...server.log, '', `  Local    ${at.url}`];
+      change({ ...server, state: 'running', ...at, owner: 'pipeline', log });
+      return at.url;
+    },
     page_server_stop: ({ project }) => {
       if (server.project === String(project)) stopServer();
       return view(String(project));
