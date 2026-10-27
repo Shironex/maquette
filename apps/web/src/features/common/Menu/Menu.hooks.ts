@@ -38,9 +38,14 @@ export function useMenu(onClose: () => void) {
     };
     window.addEventListener('keydown', onKey);
     window.addEventListener('pointerdown', onDown);
-    window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onClose);
+    // A scroll that brought the trigger into view is still queued when the menu
+    // opens, so the scroll listener waits two frames.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => window.addEventListener('scroll', onScroll, true));
+    });
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('pointerdown', onDown);
       window.removeEventListener('scroll', onScroll, true);
