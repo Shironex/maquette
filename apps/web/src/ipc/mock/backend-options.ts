@@ -48,7 +48,8 @@ export type Args = Record<string, unknown>;
  * (see `create-paths-handlers.ts`), `?game=` a game project (see
  * `create-game-handlers.ts`), `?library=demo` the library's entries (see
  * `create-library-handlers.ts`), `?inspect=many` a long compare menu (see
- * `many-assets-fixtures.ts`). Configured scenarios also open with
+ * `many-assets-fixtures.ts`), `?ship=hand-built` the website Ship settings
+ * (see `create-ship-handlers.ts`). Configured scenarios also open with
  * Send to 3D jobs (see `providers.ts`).
  */
 export interface BackendOptions {
@@ -99,6 +100,8 @@ export interface BackendOptions {
   library?: string | null;
   /** `many`: Moon Island gets 49 more versioned assets, so the Inspector's compare menu is long. */
   inspect?: string | null;
+  /** `hand-built`: Moon Island ships as a hand-built site (see create-ship-handlers.ts). */
+  ship?: string | null;
   /** `held`, `repo` or `conflict`: a workspace shared with another computer (see create-sync-handlers.ts). */
   sync?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */

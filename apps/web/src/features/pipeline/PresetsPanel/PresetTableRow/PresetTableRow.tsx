@@ -6,12 +6,20 @@ export interface PresetTableRowProps {
   row: PresetRow;
   /** The extra line with the data map size is open. */
   split: boolean;
+  /** Why the codec cannot be picked, when the textures are not KTX2. */
+  codecOff?: string | null;
   onToggle: (model: string) => void;
   onUpdate: (model: string, patch: Partial<PresetRow>) => void;
 }
 
 /** One model's texture size, codec and meshopt level, with its data map line. */
-export default function PresetTableRow({ row, split, onToggle, onUpdate }: PresetTableRowProps) {
+export default function PresetTableRow({
+  row,
+  split,
+  codecOff,
+  onToggle,
+  onUpdate,
+}: PresetTableRowProps) {
   const locked = Boolean(row.lock);
   return (
     <>
@@ -59,14 +67,16 @@ export default function PresetTableRow({ row, split, onToggle, onUpdate }: Prese
           />
         </td>
         <td className="py-1 pr-1">
-          <Select
-            aria-label={`${row.label} codec`}
-            size="sm"
-            options={CODECS}
-            value={row.codec}
-            disabled={locked}
-            onChange={v => onUpdate(row.model, { codec: v })}
-          />
+          <Tooltip label="Codec" detail={codecOff ?? undefined} disabled={!codecOff}>
+            <Select
+              aria-label={`${row.label} codec`}
+              size="sm"
+              options={CODECS}
+              value={row.codec}
+              disabled={locked || Boolean(codecOff)}
+              onChange={v => onUpdate(row.model, { codec: v })}
+            />
+          </Tooltip>
         </td>
         <td className="py-1">
           <Select

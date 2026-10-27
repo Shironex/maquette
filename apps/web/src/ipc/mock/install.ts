@@ -121,6 +121,7 @@ const handle = createBackend({
   library: params.get('library'),
   inspect: params.get('inspect'),
   sync: params.get('sync'),
+  ship: params.get('ship'),
   // `?timeline=demo` lights the demo paths too, for its paths lane.
   paths: params.get('paths') ?? (params.get('timeline') === 'demo' ? 'demo' : null),
   emit: event => {

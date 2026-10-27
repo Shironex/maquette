@@ -19,7 +19,8 @@ export async function openMockWorkspace(
   timeline?: string,
   paths?: string,
   game?: string,
-  library?: string
+  library?: string,
+  ship?: string
 ) {
   const handle = createBackend({
     scenario,
@@ -37,6 +38,7 @@ export async function openMockWorkspace(
     paths: paths ?? (timeline === 'demo' ? 'demo' : undefined),
     game,
     library,
+    ship,
   });
   mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>));
   const boot = await commands.appBootstrap();
@@ -76,6 +78,25 @@ export function openMockLibrary(library?: 'demo') {
     undefined,
     undefined,
     library
+  );
+}
+
+/** The configured workspace, with Moon Island set to ship as a hand-built site or not. */
+export function openMockShip(ship?: 'hand-built') {
+  return openMockWorkspace(
+    'configured',
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    ship
   );
 }
 

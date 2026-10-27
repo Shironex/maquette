@@ -1,4 +1,12 @@
-import { Button, Checkbox, EmptyState, InlineBanner, StageStepper, TopBar } from '@maquette/ui';
+import {
+  Button,
+  Checkbox,
+  EmptyState,
+  InlineBanner,
+  StageStepper,
+  Tooltip,
+  TopBar,
+} from '@maquette/ui';
 import { formatBytes } from '@/lib/format';
 import { stageViews } from '@/state/pipeline';
 import { FirstViewBar } from '@/features/common/FirstViewBar';
@@ -11,6 +19,7 @@ import { PreviewSiteButton } from '../PreviewSiteButton';
 import { RunLog } from '../RunLog';
 import { StartersBanner } from '../StartersBanner';
 import { ShipView } from '../ShipView';
+import { SiteShipView } from '../SiteShipView';
 import { runOverview } from './runOverview';
 import { usePipelineView } from './PipelineView.hooks';
 
@@ -27,8 +36,8 @@ export default function PipelineView() {
     savePresets,
     saveBake,
     load,
-    force,
-    setForce,
+    switches: { force, setForce, buildOnly, setBuildOnly },
+    textures,
     logStep,
     setLogStep,
     game,
@@ -96,9 +105,19 @@ export default function PipelineView() {
         right={
           <>
             <SceneBudgetMeter value={budgetMb} target={budget} />
-            {!game ? (
-              <PreviewSiteButton />
-            ) : ship.open ? null : (
+            {ship.open ? null : !game ? (
+              <>
+                <PreviewSiteButton />
+                <Button
+                  variant="secondary"
+                  icon="rocket-launch"
+                  tooltip="Sets how Ship writes to the site and shows what it would change"
+                  onClick={() => ship.setOpen(true)}
+                >
+                  Ship settings
+                </Button>
+              </>
+            ) : (
               <Button
                 variant={ship.waits ? 'primary' : 'secondary'}
                 icon="rocket-launch"
@@ -133,12 +152,13 @@ export default function PipelineView() {
                       ? 'The pipeline has no steps'
                       : 'Starting the run'
                 }
-                tooltip={
+                tooltip={[
                   force
                     ? 'Runs every step again, ignoring the cache'
-                    : 'Runs every step, skipping cached ones'
-                }
-                onClick={() => void run({ force })}
+                    : 'Runs every step, skipping cached ones',
+                  buildOnly ? ', and stops before Ship' : '',
+                ].join('')}
+                onClick={() => void run({ force, buildOnly })}
               >
                 Run pipeline
               </Button>
@@ -148,6 +168,8 @@ export default function PipelineView() {
       />
       {game && ship.open ? (
         <ShipView project={project.id} onClose={() => ship.setOpen(false)} />
+      ) : ship.open ? (
+        <SiteShipView project={project.id} onClose={() => ship.setOpen(false)} />
       ) : (
         <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-6 pt-[18px] pb-[18px]">
           <div className="flex items-start gap-3">
@@ -156,6 +178,14 @@ export default function PipelineView() {
               <p className="mt-0.5 truncate text-fg-mute">{subtitle}</p>
             </div>
             {game ? null : <FirstViewBar className="mt-0.5 w-56 flex-none" />}
+            <Tooltip
+              label="Build only"
+              detail="Runs every step up to Ship and stops there; nothing is written to the site"
+            >
+              <span className="mt-2">
+                <Checkbox checked={buildOnly} onChange={setBuildOnly} label="Build only" />
+              </span>
+            </Tooltip>
             <Checkbox
               checked={force}
               onChange={setForce}
@@ -190,7 +220,7 @@ export default function PipelineView() {
                     <Button
                       size="sm"
                       tooltip="Runs again from the step that failed, keeping the steps before it"
-                      onClick={() => void run({ from: failedAt, force })}
+                      onClick={() => void run({ from: failedAt, force, buildOnly })}
                     >
                       Re-run from here
                     </Button>
@@ -207,7 +237,7 @@ export default function PipelineView() {
             <PipelineGraph
               view={view}
               busy={active || starting}
-              onRunFrom={step => void run({ from: step, force })}
+              onRunFrom={step => void run({ from: step, force, buildOnly })}
             />
           </div>
 
@@ -240,7 +270,7 @@ export default function PipelineView() {
                 onSave={saveGame}
               />
             ) : (
-              <PresetsPanel view={view} onSave={savePresets} />
+              <PresetsPanel view={view} textures={textures} onSave={savePresets} />
             )}
           </div>
         </main>

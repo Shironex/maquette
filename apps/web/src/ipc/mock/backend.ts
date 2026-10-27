@@ -48,6 +48,7 @@ import { createGameHandlers } from './create-game-handlers';
 import { withManyAssets, wrapManyInspect } from './many-assets-fixtures';
 import { createLibraryHandlers } from './create-library-handlers';
 import { createPipelineHandlers } from './create-pipeline-handlers';
+import { createShipHandlers } from './create-ship-handlers';
 import { createProjectHandlers } from './create-project-handlers';
 import { createToolchainHandlers } from './create-toolchain-handlers';
 import { createWorkspaceHandlers } from './create-workspace-handlers';
@@ -78,6 +79,7 @@ export function createBackend({
   library: libraryState = null,
   inspect: inspectState = null,
   sync = null,
+  ship: shipState = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -354,6 +356,7 @@ export function createBackend({
       activeRun,
       bake,
     }),
+    ...createShipHandlers({ project, view, state: shipState }),
     ...createMaterialHandlers(project),
     ...createInboxHandlers({
       project,

@@ -1,16 +1,22 @@
 import { Button, HelpMark } from '@maquette/ui';
-import type { CompressPreset, PipelineView } from '@/ipc/client';
+import type { CompressPreset, PipelineView, TextureFormat } from '@/ipc/client';
 import { formatBytes } from '@/lib/format';
 import { PresetTableRow } from './PresetTableRow';
 import { usePresetsPanel } from './PresetsPanel.hooks';
 
 export interface PresetsPanelProps {
   view: PipelineView;
+  /** How the project's textures ship; WebP and AVIF have no codec choice. */
+  textures?: TextureFormat | null;
   onSave: (presets: CompressPreset[]) => Promise<boolean>;
 }
 
 /** Per model texture size, codec and meshopt level, feeding the compress step. */
-export default function PresetsPanel({ view, onSave }: PresetsPanelProps) {
+export default function PresetsPanel({ view, textures, onSave }: PresetsPanelProps) {
+  const image = textures === 'webp' ? 'WebP' : textures === 'avif' ? 'AVIF' : null;
+  const codecOff = image
+    ? `The textures ship as ${image}, so the KTX2 codec is not used. Change it in Ship settings`
+    : null;
   const { rows, open, toggle, dirty, locks, update, save, saving, transfer } = usePresetsPanel(
     view,
     onSave
@@ -20,6 +26,7 @@ export default function PresetsPanel({ view, onSave }: PresetsPanelProps) {
       key={row.model}
       row={row}
       split={open.includes(row.model)}
+      codecOff={codecOff}
       onToggle={toggle}
       onUpdate={update}
     />
@@ -77,6 +84,11 @@ export default function PresetsPanel({ view, onSave }: PresetsPanelProps) {
           </tbody>
         </table>
         {lockNotes}
+        {image ? (
+          <p className="text-meta mt-2 rounded-[8px] bg-raised px-2.5 py-2 text-fg-dim">
+            Textures ship as {image}: sizes still apply, the codec column does not.
+          </p>
+        ) : null}
       </div>
       <div className="flex items-center gap-3 border-t border-line pt-3">
         <div className="flex-1">
