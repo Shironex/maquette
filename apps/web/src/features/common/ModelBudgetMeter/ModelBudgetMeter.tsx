@@ -9,7 +9,7 @@ export interface ModelBudgetMeterProps {
 /**
  * The top bar's figure for a game: how many models are over their folder's
  * budget (triangles or texture size, set per folder in Inspector > Budget).
- * It is not the Tris per model setting the Inbox check reads.
+ * The Inbox checks a model sent for an asset against the same budget.
  */
 export default function ModelBudgetMeter({ summary }: ModelBudgetMeterProps) {
   const over = summary.over.length;
@@ -17,7 +17,7 @@ export default function ModelBudgetMeter({ summary }: ModelBudgetMeterProps) {
   const folders = summary.folders
     .map(f => `${f.folder || 'top level'} ${formatK(f.triangles)} triangles, ${f.texture} px`)
     .join('; ');
-  const limits = `The game's folder budgets: ${folders}. The Inbox check reads the Tris per model setting instead. Add the fix-ups (Decimate, Shrink textures) in Inspector > Budget to bring models under.`;
+  const limits = `The game's folder budgets: ${folders}. The Inbox checks a model sent for an asset against its folder's budget too. Add the fix-ups (Decimate, Shrink textures) in Inspector > Budget to bring models under.`;
   const label = over
     ? `Over the game budget: ${over} of ${summary.models} models, ${summary.overTriangles} on triangles and ${summary.overTextures} on texture size (${names}). ${limits}`
     : `Every model fits the game budget. ${limits}`;

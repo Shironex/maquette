@@ -15,6 +15,7 @@ import type {
 } from '../client';
 import { DEFAULT_ROOT, defaultConfig, mockProjects } from './fixtures';
 import { inboxItems } from './inbox-fixtures';
+import { linkGameInbox } from './game-inbox';
 import {
   currentStarters,
   dioramaPipeline,
@@ -112,7 +113,10 @@ export function createBackend({
     projects = projects.map(p => (p.id === 'moon-island' ? withManyAssets(p) : p));
   }
   const listed = configured ? inboxItems(`${expand(DEFAULT_ROOT)}/inbox`, now) : [];
-  let inbox: InboxItem[] = inboxState === 'redo' ? linkForRedo(listed) : listed;
+  let inbox: InboxItem[] = linkGameInbox(
+    inboxState === 'redo' ? linkForRedo(listed) : listed,
+    gameState === 'crypt' ? (projects.find(p => p.id === 'crypt-game') ?? null) : null
+  );
 
   const prepare = createPrepareHandlers({
     project: id => project(id),

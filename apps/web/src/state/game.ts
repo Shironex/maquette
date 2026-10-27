@@ -2,6 +2,13 @@
  * Game projects in the app: their stage names, where each asset's model
  * goes in the game, its numbers against its folder's budget, and the Ship
  * plan grouped as the Ship panel shows it. The rules mirror the core's.
+ *
+ * The folder budgets themselves have one source: the core writes them into
+ * project.json (`game.budgets`, from `game::default_budgets`) and this file
+ * only reads them. The check of a model against its budget is mirrored
+ * here rather than asked of the core, because it runs on the manifest the
+ * app already holds, on every edit, with no round trip; the core's
+ * `game::check_asset` and `inbox::checks` word it the same way.
  */
 import type {
   Asset,

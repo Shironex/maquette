@@ -150,6 +150,7 @@ export function repoModels(format: GameFormat): readonly RepoModel[] {
   return format === 'obj' ? MAZE_MODELS : CRYPT_MODELS;
 }
 
+/** The core's defaults for these folders (`game::default_budgets`). */
 export function cryptBudgets(): FolderBudget[] {
   return [
     { folder: 'props', triangles: 12_000, texture: 1024 },
