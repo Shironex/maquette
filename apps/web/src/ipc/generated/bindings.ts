@@ -191,10 +191,11 @@ export const commands = {
 	pipelineGet: (project: string) => __TAURI_INVOKE<PipelineView>("pipeline_get", { project }),
 	/**
 	 *  Queues a run. `from` runs that step (always) and what depends on it;
-	 *  `force` ignores the cache. A full run (no `from`) first rebuilds the
-	 *  built assets that are new or stale, and is refused when one fails.
+	 *  `force` ignores the cache; `buildOnly` leaves the Ship step out. A full
+	 *  run (no `from`) first rebuilds the built assets that are new or stale,
+	 *  and is refused when one fails.
 	 */
-	pipelineRun: (project: string, from: string | null, force: boolean) => __TAURI_INVOKE<RunRecord>("pipeline_run", { project, from, force }),
+	pipelineRun: (project: string, ask: RunAsk) => __TAURI_INVOKE<RunRecord>("pipeline_run", { project, ask }),
 	pipelineCancel: (runId: string) => __TAURI_INVOKE<null>("pipeline_cancel", { runId }),
 	pipelineLog: (project: string, number: number) => __TAURI_INVOKE<LogEntry[]>("pipeline_log", { project, number }),
 	/**  Saves the preset table. Locked rows must come back unchanged. */
@@ -202,6 +203,10 @@ export const commands = {
 	/**  Changes the given bake settings; the next run bakes with them. */
 	pipelineSaveBake: (project: string, patch: BakePatch) => __TAURI_INVOKE<PipelineView>("pipeline_save_bake", { project, patch }),
 	pipelineUpdateStarters: (project: string, scripts: string[], replace: boolean) => __TAURI_INVOKE<PipelineView>("pipeline_update_starters", { project, scripts, replace }),
+	/**  The ship settings, the plan of the next Ship and the size report. */
+	shipGet: (project: string) => __TAURI_INVOKE<ShipView_Serialize>("ship_get", { project }),
+	/**  Saves the ship settings and, with a target, the site's folders. */
+	shipSave: (project: string, change: ShipSave_Deserialize) => __TAURI_INVOKE<ShipView_Serialize>("ship_save", { project, change }),
 	/**
 	 *  Starts (or reuses) the site's dev server and opens it in the browser.
 	 *  Returns the address it opened.
@@ -608,6 +613,20 @@ export type AssetRestored = {
 	stopped: string[],
 	/**  What could not be put back; the asset is back all the same. */
 	warnings: string[],
+};
+
+export type AssetShip = AssetShip_Serialize | AssetShip_Deserialize;
+
+export type AssetShip_Deserialize = {
+	choice?: ShipChoice,
+	/**  The stem the model ships as, without `.glb`. */
+	file?: string | null,
+};
+
+export type AssetShip_Serialize = {
+	choice: ShipChoice,
+	/**  The stem the model ships as, without `.glb`. */
+	file?: string | null,
 };
 
 /**  Mirrors the kit's status chips. */
@@ -2827,6 +2846,16 @@ export type RoughnessTweak = {
 	value: number | null,
 };
 
+/**  What a run is asked to do besides its steps. */
+export type RunAsk = {
+	/**  Start at this step. */
+	from?: string | null,
+	/**  Ignore the cache. */
+	force?: boolean,
+	/**  Stop before Ship. */
+	buildOnly?: boolean,
+};
+
 export type RunRecord = {
 	/**  `<project>-run-<number>`, unique across projects. */
 	id: string,
@@ -2836,6 +2865,8 @@ export type RunRecord = {
 	/**  The step "Run from here" started at. */
 	from: string | null,
 	force: boolean,
+	/**  The run stopped before Ship. */
+	buildOnly?: boolean,
 	state: RunState,
 	queuedAtMs: number | null,
 	startedAtMs: number | null,
@@ -3045,6 +3076,18 @@ export type ShipCheck = {
 	text: string,
 };
 
+/**  Whether Ship writes one asset's model. */
+export type ShipChoice = 
+/**
+ *  Written unless the site's file is not Maquette's (or is smaller, for
+ *  the models style).
+ */
+"auto" | 
+/**  Never written; the site's file is left alone. */
+"never" | 
+/**  Written over whatever the site has. */
+"always";
+
 export type ShipFile = {
 	/**  Relative to the model folder, with `/`. */
 	path: string,
@@ -3086,6 +3129,112 @@ export type ShipPlan = {
 	uncommitted: number | null,
 };
 
+/**
+ *  A save from the Ship view or an agent: settings, and the site's folders
+ *  when they change.
+ */
+export type ShipSave = ShipSave_Serialize | ShipSave_Deserialize;
+
+/**
+ *  A save from the Ship view or an agent: settings, and the site's folders
+ *  when they change.
+ */
+export type ShipSave_Deserialize = {
+	settings?: ShipSettingsChange_Deserialize,
+	/**  Written into the site's `maquette.site.json`. */
+	target?: SiteTarget | null,
+};
+
+/**
+ *  A save from the Ship view or an agent: settings, and the site's folders
+ *  when they change.
+ */
+export type ShipSave_Serialize = {
+	settings: ShipSettingsChange_Serialize,
+	/**  Written into the site's `maquette.site.json`. */
+	target: SiteTarget | null,
+};
+
+export type ShipSettings = ShipSettings_Serialize | ShipSettings_Deserialize;
+
+/**  A change from the app or an agent. Every field left out stays. */
+export type ShipSettingsChange = ShipSettingsChange_Serialize | ShipSettingsChange_Deserialize;
+
+/**  A change from the app or an agent. Every field left out stays. */
+export type ShipSettingsChange_Deserialize = {
+	style?: ShipStyle | null,
+	textures?: TextureFormat | null,
+	quality?: number | null,
+	/**  Asset id to its new entry. An entry replaces the old one whole. */
+	assets?: { [key in string]: AssetShip_Deserialize },
+};
+
+/**  A change from the app or an agent. Every field left out stays. */
+export type ShipSettingsChange_Serialize = {
+	style: ShipStyle | null,
+	textures: TextureFormat | null,
+	quality: number | null,
+	/**  Asset id to its new entry. An entry replaces the old one whole. */
+	assets: { [key in string]: AssetShip_Serialize },
+};
+
+export type ShipSettings_Deserialize = {
+	version: number,
+	style?: ShipStyle,
+	textures?: TextureFormat,
+	quality?: number,
+	/**  Asset id to its choice and file name. */
+	assets?: { [key in string]: AssetShip_Deserialize },
+};
+
+export type ShipSettings_Serialize = {
+	version: number,
+	style: ShipStyle,
+	textures: TextureFormat,
+	quality: number,
+	/**  Asset id to its choice and file name. */
+	assets: { [key in string]: AssetShip_Serialize },
+};
+
+/**  What the site does with the models. */
+export type ShipStyle = 
+/**  Maquette builds the scene: placed exports, versioned names. */
+"scene" | 
+/**  A hand-built site: one file per model, own origin, stable names. */
+"models";
+
+/**  Where Ship writes in the site. */
+export type ShipTarget = {
+	/**  The site repo on this computer, when the project has one. */
+	repo: string | null,
+	/**  The site's folders, from `maquette.site.json` or the legacy ones. */
+	models: string,
+	posters: string | null,
+	data: string | null,
+	/**  True when the site has a `maquette.site.json`. */
+	configured: boolean,
+	/**  True when the models folder is already in the site. */
+	modelsExist: boolean,
+	/**  Why the site config could not be read. */
+	error: string | null,
+};
+
+export type ShipView = ShipView_Serialize | ShipView_Deserialize;
+
+export type ShipView_Deserialize = {
+	project: string,
+	settings: ShipSettings_Deserialize,
+	plan: SiteShipPlan,
+	report: SizeReport,
+};
+
+export type ShipView_Serialize = {
+	project: string,
+	settings: ShipSettings_Serialize,
+	plan: SiteShipPlan,
+	report: SizeReport,
+};
+
 export type SideMember = {
 	model: string,
 	/**
@@ -3108,6 +3257,33 @@ export type SiteFolders = {
 	error: string | null,
 };
 
+/**  A site file this Ship does not write. */
+export type SiteLeftFile = {
+	file: string,
+	bytes: number | null,
+	/**  True when Maquette shipped it before, so this Ship removes it. */
+	removed: boolean,
+};
+
+export type SitePlanFile = {
+	/**  The file name in the models folder, `desk.glb`. */
+	file: string,
+	/**  The asset it comes from. */
+	asset: string | null,
+	assetName: string | null,
+	change: ShipChange,
+	choice: ShipChoice,
+	/**  False when Ship holds it back; `held` says why. */
+	ships: boolean,
+	held: string | null,
+	/**  The file Ship writes. */
+	bytes: number | null,
+	/**  The site's file now. */
+	beforeBytes: number | null,
+	triangles: number | null,
+	beforeTriangles: number | null,
+};
+
 /**  Whether this computer knows where a project's repo is. */
 export type SiteRepoState = 
 /**  No repo was ever picked. */
@@ -3119,6 +3295,36 @@ export type SiteRepoState =
 /**  Another computer picked one; this one has not been told where it is. */
 "elsewhere";
 
+export type SiteShipPlan = {
+	target: ShipTarget,
+	style: ShipStyle,
+	textures: TextureFormat,
+	/**  False before Compress first wrote anything. */
+	exported: boolean,
+	/**  What Compress made, in file order. */
+	files: SitePlanFile[],
+	/**  The site's other `.glb` files. */
+	left: SiteLeftFile[],
+	checks: ShipCheck[],
+	/**
+	 *  True when `tools/ship.mjs` honours the choices; an older copy ships
+	 *  every file it finds.
+	 */
+	scriptReady: boolean,
+	/**  True when Build scene and Export GLB can export at the own origin. */
+	originReady: boolean,
+};
+
+/**  Where Ship writes in a site, as the app and agents set it. */
+export type SiteTarget = {
+	/**  Relative to the site, for example `apps/landing/public/room/models`. */
+	models: string,
+	/**  `None` copies no posters. */
+	posters: string | null,
+	/**  `None` writes no scene data. */
+	data: string | null,
+};
+
 /**  Which side of the model the real size measures. */
 export type SizeAxis = 
 /**  Y, up. */
@@ -3129,6 +3335,40 @@ export type SizeAxis =
 "depth" | 
 /**  Whichever is the largest. */
 "longest";
+
+export type SizeReport = {
+	project: string,
+	textures: TextureFormat,
+	rows: SizeRow[],
+	totals: SizeTotals,
+	/**  The rows as CSV, bytes and triangles as plain numbers. */
+	csv: string,
+	/**  The rows as a Markdown table, sizes in KB. */
+	markdown: string,
+};
+
+export type SizeRow = {
+	asset: string,
+	name: string,
+	version: number,
+	/**  The model the asset's newest version came in as. */
+	sourceFile: string,
+	sourceBytes: number | null,
+	sourceTriangles: number | null,
+	/**  The compressed file Ship copies; none before Compress made it. */
+	shippedFile: string,
+	shippedBytes: number | null,
+	shippedTriangles: number | null,
+};
+
+export type SizeTotals = {
+	/**  Only rows with both sides measured count, so the two compare. */
+	models: number,
+	sourceBytes: number | null,
+	shippedBytes: number | null,
+	sourceTriangles: number | null,
+	shippedTriangles: number | null,
+};
 
 export type SizeUnit = "cm" | "m";
 
@@ -3243,7 +3483,7 @@ export type StepDef = {
 	/**
 	 *  One argument per entry, never joined into a shell string. Supports
 	 *  `{script}`, `{root}`, `{project}`, `{workspace}`, `{siteRepo}` and
-	 *  `{shipIndex}`.
+	 *  `{shipIndex}` and `{exportOrigin}`.
 	 */
 	args: string[],
 	/**
@@ -3303,6 +3543,9 @@ export type SyncConflict = {
 };
 
 export type TextureCodec = "etc1s" | "uastc";
+
+/**  The format Compress encodes textures in. */
+export type TextureFormat = "ktx2" | "webp" | "avif";
 
 export type TextureInfo = {
 	name: string,
