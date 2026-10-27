@@ -1,6 +1,6 @@
 /**
  * Screenshots of the built docs in headless Chromium, at desktop and phone
- * width: the home, the first project guide, Compress, the MCP tools, the
+ * width: the home, the first project guide, Compress, the MCP tools, the pipeline.json and shortcuts references, the
  * search results and the phone menu drawer. It renders pages to files and
  * never captures the screen.
  *
@@ -31,6 +31,8 @@ const PAGES = [
   ['guide', '/docs/start/first-project/'],
   ['compress', '/docs/pipeline/compress/'],
   ['mcp-tools', '/docs/agents/mcp-tools/'],
+  ['pipeline-json', '/docs/pipeline/pipeline-json/'],
+  ['shortcuts', '/docs/views/shortcuts/'],
 ];
 
 await mkdir(out, { recursive: true });

@@ -21,7 +21,11 @@
       const mod = this.querySelector('[data-mod]');
       if (mod && /Mac|iPhone|iPad/.test(navigator.platform)) mod.textContent = '⌘';
       this.querySelector('button')?.addEventListener('click', () => {
-        document.querySelector<HTMLButtonElement>('site-search button[data-open-modal]')?.click();
+        // Starlight closes its dialog on any click outside it, including the one
+        // that is still bubbling from this button, so the open waits a tick.
+        setTimeout(() => {
+          document.querySelector<HTMLButtonElement>('site-search button[data-open-modal]')?.click();
+        }, 0);
       });
     }
   }
@@ -58,10 +62,17 @@
   }
   .keys {
     display: flex;
+    align-items: center;
     gap: 4px;
   }
   kbd {
-    padding: 3px 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 20px;
+    min-width: 20px;
+    margin: 0;
+    padding: 0 6px;
     border: 1px solid var(--line-strong);
     border-radius: 5px;
     font: 500 11px/1 var(--font-mono);
