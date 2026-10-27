@@ -1,0 +1,77 @@
+# Keeps pinned GitHub Actions, the pnpm lockfile and the Cargo lockfile current.
+# A 7 day cooldown means a freshly published release, the usual window for a
+# compromised version, is never proposed the day it lands (the workspace
+# already refuses packages younger than that on install).
+#
+# Groups only batch minor and patch updates. A major version arrives as its own
+# pull request, because each one usually needs its own migration and must be
+# judged alone.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - github_actions
+      - area:build
+    groups:
+      actions:
+        patterns: ['*']
+        update-types: [minor, patch]
+    commit-message:
+      prefix: 'ci(deps)'
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 15
+    labels:
+      - dependencies
+      - javascript
+    groups:
+      types:
+        patterns: ['@types/*']
+        update-types: [minor, patch]
+      dev-dependencies:
+        dependency-type: development
+        exclude-patterns: ['@types/*']
+        update-types: [minor, patch]
+      production-dependencies:
+        dependency-type: production
+        update-types: [minor, patch]
+    ignore:
+      # TypeScript majors need a tsconfig migration; bump by hand.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      # @types/node follows the oldest Node the repo supports (engines), not the newest.
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
+    commit-message:
+      prefix: 'chore(deps)'
+
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - rust
+    groups:
+      # The Tauri crates and plugins share an API version and move together.
+      tauri:
+        patterns: ['tauri', 'tauri-*', 'specta', 'specta-*', 'tauri-specta']
+      rust-dependencies:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: 'chore(deps)'
