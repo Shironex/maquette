@@ -224,7 +224,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Make object refs from one concept: for each object named, Codex makes one image of only that object (centered, whole, front three-quarter view, plain light grey background, soft light, no text), with the concept attached as the reference. The images land in a new Lab direction \"<name> objects\", each titled by its object; read them with get_concepts. Each image spends Codex usage."
+        description = "Make object refs from one concept: for each object named, Codex makes one image of only that object (centered, whole, front three-quarter view, plain light grey background, soft light, no text), with the concept attached as the reference. The images land in a new Lab direction \"<name> objects\" (\"<name> objects 2\" and so on when another source or kind already has that name), each titled by its object; read them with get_concepts. Each image spends Codex usage."
     )]
     async fn make_object_refs(&self, Parameters(args): Parameters<ObjectRefsArgs>) -> Out {
         let found = self
