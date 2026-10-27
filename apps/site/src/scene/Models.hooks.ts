@@ -1,5 +1,5 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type * as THREE from 'three';
 import { buildModel, disposeScreens, type BuiltModel } from './build';
 import { disposeBuilt, fileGeometries } from './dispose';
@@ -40,10 +40,23 @@ export type PlacedModel = BuiltModel & { tracks: Tracks | null };
  * timeline's tracks from the tour progress each frame: they follow the
  * scroll, and the turntable also idles round on its own. On unmount it frees
  * the files, the clones and the loaders.
+ *
+ * Shadow maps only render on frames where a model that casts moved (or one
+ * was placed): three would otherwise redraw them every frame. Only the
+ * manifest's models cast shadows, and the lights stand still.
  */
 export function useModels({ progress, still, firstView, onReady, onFailed }: ModelsOptions) {
   const { gl, camera, scene, invalidate } = useThree();
   const [built, setBuilt] = useState<PlacedModel[]>([]);
+  const last = useRef({ built, at: Number.NaN, playing: false });
+
+  useEffect(() => {
+    gl.shadowMap.autoUpdate = false;
+    gl.shadowMap.needsUpdate = true;
+    return () => {
+      gl.shadowMap.autoUpdate = true;
+    };
+  }, [gl]);
 
   useEffect(() => {
     let live = true;
@@ -106,11 +119,21 @@ export function useModels({ progress, still, firstView, onReady, onFailed }: Mod
     const now = state.clock.elapsedTime;
     const idle = still ? 0 : now * IDLE_TURN;
     let moving = false;
+    let shadows = built !== last.current.built;
+    // Scrubbed poses follow the progress; a timed move still poses the frame after it ends.
+    const posed = at !== last.current.at || last.current.playing;
     for (const { entry, root, sweep, tracks } of built) {
-      if (tracks?.apply(at, now)) moving = true;
+      const casts = entry.castShadow ?? false;
+      if (tracks) {
+        const playing = tracks.apply(at, now);
+        if (playing) moving = true;
+        if (casts && (playing || posed)) shadows = true;
+      }
       if (entry.spinAt) {
         const stop = stopIndex(entry.spinAt);
-        root.rotation.y = across(at, stop - TURN, stop + TURN) * Math.PI * 2 + idle;
+        const turn = across(at, stop - TURN, stop + TURN) * Math.PI * 2 + idle;
+        if (casts && turn !== root.rotation.y) shadows = true;
+        root.rotation.y = turn;
       }
       if (sweep && entry.sweepAt) {
         const stop = stopIndex(entry.sweepAt);
@@ -118,6 +141,8 @@ export function useModels({ progress, still, firstView, onReady, onFailed }: Mod
         sweep.setProgress(smoothstep(at, stop - SWEEP, stop + SWEEP));
       }
     }
+    last.current = { built, at, playing: moving };
+    if (shadows) gl.shadowMap.needsUpdate = true;
     // A stop change plays over time, so it asks for the frames it needs.
     if (moving) state.invalidate();
   });
