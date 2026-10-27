@@ -23,7 +23,8 @@ export async function openMockWorkspace(
   paths?: string,
   game?: string,
   library?: string,
-  ship?: string
+  ship?: string,
+  pipeline?: string
 ) {
   const handle = createBackend({
     scenario,
@@ -42,6 +43,7 @@ export async function openMockWorkspace(
     game,
     library,
     ship,
+    pipeline,
   });
   mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>));
   const boot = await commands.appBootstrap();
@@ -100,6 +102,26 @@ export function openMockShip(ship?: 'hand-built') {
     undefined,
     undefined,
     ship
+  );
+}
+
+/** The configured workspace with Moon Island's runner listing 24 models that skip the bake. */
+export function openMockPipeline(pipeline: 'many') {
+  return openMockWorkspace(
+    'configured',
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    pipeline
   );
 }
 

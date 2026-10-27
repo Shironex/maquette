@@ -46,6 +46,7 @@ import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPathsHandlers } from './create-paths-handlers';
 import { createGameHandlers } from './create-game-handlers';
 import { withManyAssets, wrapManyInspect } from './many-assets-fixtures';
+import { manyPipeline, seedManyPipeline } from './pipeline-many';
 import { createLibraryHandlers } from './create-library-handlers';
 import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createShipHandlers } from './create-ship-handlers';
@@ -82,6 +83,7 @@ export function createBackend({
   sync = null,
   ship: shipState = null,
   updater = null,
+  pipeline: pipelineState = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -119,6 +121,7 @@ export function createBackend({
   if (configured && inspectState === 'many') {
     projects = projects.map(p => (p.id === 'frostveil' ? withManyAssets(p) : p));
   }
+  if (configured) projects = projects.map(p => seedManyPipeline(p, pipelineState));
   const listed = configured ? inboxItems(`${expand(DEFAULT_ROOT)}/inbox`, now) : [];
   let inbox: InboxItem[] = linkGameInbox(
     inboxState === 'redo' ? linkForRedo(listed) : listed,
@@ -161,14 +164,9 @@ export function createBackend({
       presets: presets.get(id) ?? (character ? dioramaPipeline().presets : []),
     };
     const runs = store.runs.filter(r => r.project === p.id);
-    const latest = runs[0];
-    const base = pipelineView(
-      p.id,
-      '~/Maquette/projects/' + p.id,
-      runs,
-      latest ? (store.logs.get(latest.number) ?? []) : []
-    );
-    return {
+    const log = runs[0] ? (store.logs.get(runs[0].number) ?? []) : [];
+    const base = pipelineView(p.id, '~/Maquette/projects/' + p.id, runs, log);
+    const full: PipelineView = {
       ...base,
       def,
       active: activeRun(p.id) ?? game.waitingRun(p.id),
@@ -177,6 +175,7 @@ export function createBackend({
       bake: bake.view(p.id),
       ...game.override(p),
     };
+    return manyPipeline(full, p, pipelineState);
   }
 
   /** Each project's starter scripts; the fixture Frostveil has old ones. */

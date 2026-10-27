@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { bakeFold } from '../BakePanel';
+import { useSideWidth } from '../PanelResizer';
 import { useShipApproval } from '../ShipView/ShipView.hooks';
 import type { GameSettingsChange } from '@/ipc/client';
 import { gameOf } from '@/state/game';
@@ -30,9 +32,16 @@ export function usePipelineView() {
   useEffect(() => {
     if (projectId && !isGame) void loadShip(projectId);
   }, [projectId, isGame, loadShip]);
-  const textures = useShipStore(s =>
-    s.view && s.view.project === project?.id ? s.view.settings.textures : null
+  const shipSettings = useShipStore(s =>
+    s.view && s.view.project === project?.id ? s.view.settings : null
   );
+  const textures = shipSettings?.textures ?? null;
+  // Ship settings can open at the size report, which the presets link to.
+  const [shipFocus, setShipFocus] = useState<'report' | null>(null);
+  const side = useSideWidth();
+  const modelAssets = (project?.assets ?? []).filter(a => a.versions.length > 0).map(a => a.id);
+  const bake = view?.bake ?? null;
+  const fold = bake ? bakeFold(bake, modelAssets, shipSettings?.style) : null;
   const onDisk = (project?.assets ?? []).reduce(
     (sum, a) => sum + (a.versions[a.versions.length - 1]?.stats?.bytes ?? 0),
     0
@@ -64,6 +73,20 @@ export function usePipelineView() {
     game,
     onDisk,
     saveGame,
-    ship: { open: shipOpen, setOpen: setShipOpen, waits: shipWaits },
+    ship: {
+      open: shipOpen,
+      setOpen: (open: boolean) => {
+        setShipFocus(null);
+        setShipOpen(open);
+      },
+      openReport: () => {
+        setShipFocus('report');
+        setShipOpen(true);
+      },
+      focus: shipFocus,
+      waits: shipWaits,
+    },
+    // The runner's layout: the presets panel's width and why the bake card folds.
+    panels: { side, fold },
   };
 }

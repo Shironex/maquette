@@ -51,7 +51,8 @@ export type Args = Record<string, unknown>;
  * `create-library-handlers.ts`), `?inspect=many` a long compare menu (see
  * `many-assets-fixtures.ts`), `?ship=hand-built` the website Ship settings
  * (see `create-ship-handlers.ts`), `?updater=` the app updater turned on (see
- * `create-app-handlers.ts`). Configured scenarios also open with
+ * `create-app-handlers.ts`), `?pipeline=many` a runner with 24 models (see
+ * `pipeline-many.ts`). Configured scenarios also open with
  * Send to 3D jobs (see `providers.ts`).
  */
 export interface BackendOptions {
@@ -105,6 +106,8 @@ export interface BackendOptions {
   inspect?: string | null;
   /** `hand-built`: Frostveil ships as a hand-built site (see create-ship-handlers.ts). */
   ship?: string | null;
+  /** `many`: Moon Island's runner lists 24 models that all skip the bake (see pipeline-many.ts). */
+  pipeline?: string | null;
   /** `held`, `repo` or `conflict`: a workspace shared with another computer (see create-sync-handlers.ts). */
   sync?: string | null;
   /** `available`, `ready`, `current` or `pending`: the updater is on (see create-app-handlers.ts). */

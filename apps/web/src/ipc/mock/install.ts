@@ -128,6 +128,7 @@ const handle = createBackend({
   sync: params.get('sync'),
   ship: params.get('ship'),
   updater: params.get('updater'),
+  pipeline: params.get('pipeline'),
   // `?timeline=demo` lights the demo paths too, for its paths lane.
   paths: params.get('paths') ?? (params.get('timeline') === 'demo' ? 'demo' : null),
   emit: event => {

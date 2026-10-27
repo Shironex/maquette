@@ -3,7 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useProjectsStore } from '@/state/use-projects-store';
-import { clearMocks, openMockGame, openMockShip, openMockWorkspace } from '@/test/mock-ipc';
+import {
+  clearMocks,
+  openMockGame,
+  openMockPipeline,
+  openMockShip,
+  openMockWorkspace,
+} from '@/test/mock-ipc';
 import { PipelineView } from '.';
 
 afterEach(() => {
@@ -56,5 +62,28 @@ describe('the Pipeline view', () => {
     expect(screen.getByText('Export')).toBeInTheDocument();
     expect(screen.queryByText('Web')).toBeNull();
     expect(screen.queryByText(/ MB of /)).toBeNull();
+  });
+
+  it('folds the Baked light card when every model skips it, and lists results in the presets', async () => {
+    await openMockPipeline('many');
+    await usePipelineStore.getState().load('moon-island');
+    render(<PipelineView />);
+    expect(
+      screen.getByText(/^All \d+ models skip the bake, so this step bakes nothing\.$/)
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Lightmap size' })).toBeNull();
+    expect(screen.queryByText('Generated artifacts')).toBeNull();
+    expect(screen.getByText(/^24 models · /)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Size report' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: "Ship to Moon Island's site" })
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the Baked light card open while some model bakes', async () => {
+    await openMockWorkspace();
+    await usePipelineStore.getState().load('moon-island');
+    render(<PipelineView />);
+    expect(screen.getByRole('combobox', { name: 'Lightmap size' })).toBeInTheDocument();
   });
 });

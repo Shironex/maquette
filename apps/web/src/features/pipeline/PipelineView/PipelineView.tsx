@@ -7,13 +7,13 @@ import {
   Tooltip,
   TopBar,
 } from '@maquette/ui';
-import { formatBytes } from '@/lib/format';
 import { stageViews } from '@/state/pipeline';
 import { FirstViewBar } from '@/features/common/FirstViewBar';
 import { SceneBudgetMeter } from '@/features/common/SceneBudgetMeter';
 import { PipelineGraph } from '../PipelineGraph';
 import { BakePanel } from '../BakePanel';
 import { GameExportPanel } from '../GameExportPanel';
+import { PanelResizer } from '../PanelResizer';
 import { PresetsPanel } from '../PresetsPanel';
 import { PreviewSiteButton } from '../PreviewSiteButton';
 import { RunLog } from '../RunLog';
@@ -44,6 +44,7 @@ export default function PipelineView() {
     onDisk,
     saveGame,
     ship,
+    panels: { side, fold },
   } = usePipelineView();
 
   if (!project) {
@@ -83,18 +84,6 @@ export default function PipelineView() {
   }
 
   const { latest, active, transfer, failedAt, failedName, errors, subtitle } = runOverview(view);
-  const artifactCards = view.models.slice(0, 8).map(m => (
-    <div
-      key={m.model}
-      className="flex min-w-0 flex-col gap-0.5 rounded-card border border-line bg-raised px-3 py-2"
-    >
-      <span className="truncate font-mono text-[12px]">{m.model}.glb</span>
-      <span className="font-mono text-[11.5px] text-fg-mute">
-        {m.rawBytes ? formatBytes(m.rawBytes) : 'not exported'}
-        {m.shippedBytes ? ` → ${formatBytes(m.shippedBytes)}` : ''}
-      </span>
-    </div>
-  ));
   const errorText = errors.map(e => e.message).join(' ');
   const budgetMb = transfer / 1e6;
 
@@ -169,7 +158,7 @@ export default function PipelineView() {
       {game && ship.open ? (
         <ShipView project={project.id} onClose={() => ship.setOpen(false)} />
       ) : ship.open ? (
-        <SiteShipView project={project.id} onClose={() => ship.setOpen(false)} />
+        <SiteShipView project={project.id} focus={ship.focus} onClose={() => ship.setOpen(false)} />
       ) : (
         <main className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-6 pt-[18px] pb-[18px]">
           <div className="flex items-start gap-3">
@@ -186,12 +175,14 @@ export default function PipelineView() {
                 <Checkbox checked={buildOnly} onChange={setBuildOnly} label="Build only" />
               </span>
             </Tooltip>
-            <Checkbox
-              checked={force}
-              onChange={setForce}
+            <Tooltip
               label="Ignore the cache"
-              className="mt-2"
-            />
+              detail="Runs every step again, even the ones whose inputs did not change"
+            >
+              <span className="mt-2">
+                <Checkbox checked={force} onChange={setForce} label="Ignore the cache" />
+              </span>
+            </Tooltip>
           </div>
 
           {errors.length > 0 ? (
@@ -232,7 +223,7 @@ export default function PipelineView() {
 
           <StartersBanner view={view} busy={active || starting} />
 
-          {/* The steps and the bake settings keep their height; the log row gives way, then the view scrolls. */}
+          {/* The steps and the bake card keep their height; the log row takes the rest, then the view scrolls. */}
           <div className="flex-none">
             <PipelineGraph
               view={view}
@@ -242,35 +233,37 @@ export default function PipelineView() {
           </div>
 
           {view.bake ? (
-            <BakePanel bake={view.bake} busy={active || starting} onSave={saveBake} />
+            <BakePanel bake={view.bake} busy={active || starting} onSave={saveBake} fold={fold} />
           ) : null}
 
-          {view.artifacts.length > 0 ? (
-            <section aria-labelledby="artifacts-title" className="flex flex-col gap-2">
-              <div className="flex items-baseline justify-between">
-                <h2
-                  id="artifacts-title"
-                  className="text-[11px] font-semibold tracking-[0.04em] text-fg-mute uppercase"
-                >
-                  Generated artifacts
-                </h2>
-                <span className="text-meta text-fg-mute">raw export to compressed</span>
-              </div>
-              <div className="grid grid-cols-4 gap-2.5">{artifactCards}</div>
-            </section>
-          ) : null}
-
-          <div className="flex min-h-[220px] flex-1 gap-3.5">
+          {/* The log takes the height that is left; the presets beside it can be made wider. */}
+          <div data-resize-row className="flex min-h-[300px] flex-1">
             <RunLog view={view} step={logStep} onStep={setLogStep} />
             {game ? (
-              <GameExportPanel
-                settings={game}
-                onDisk={onDisk}
-                busy={active || starting}
-                onSave={saveGame}
-              />
+              <div className="ml-3.5 flex">
+                <GameExportPanel
+                  settings={game}
+                  onDisk={onDisk}
+                  busy={active || starting}
+                  onSave={saveGame}
+                />
+              </div>
             ) : (
-              <PresetsPanel view={view} textures={textures} onSave={savePresets} />
+              <>
+                <PanelResizer
+                  width={side.width}
+                  onChange={side.setWidth}
+                  onReset={side.reset}
+                  label="Compression presets"
+                />
+                <PresetsPanel
+                  view={view}
+                  textures={textures}
+                  onSave={savePresets}
+                  onSizeReport={ship.openReport}
+                  style={{ width: side.width }}
+                />
+              </>
             )}
           </div>
         </main>
