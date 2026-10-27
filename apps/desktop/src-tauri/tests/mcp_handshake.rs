@@ -330,6 +330,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "add_built_asset",
             "add_fixups",
             "add_to_library",
+            "cancel_provider_jobs",
             "cancel_run",
             "copy_asset",
             "get_bake_settings",
@@ -684,6 +685,90 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     )
     .await;
     assert_eq!(listed["jobs"].as_array().map(Vec::len), Some(2));
+
+    // cancel_provider_jobs: a by hand send stops waiting, an unknown id
+    // reports its error, and one failure leaves the others alone.
+    let by_hand_id = by_hand["id"].as_str().expect("by hand id").to_string();
+    let stopped = call(
+        &client,
+        "cancel_provider_jobs",
+        json!({ "ids": [by_hand_id] }),
+    )
+    .await;
+    assert_eq!(stopped["stopped"], json!(1), "{stopped}");
+    assert_eq!(stopped["results"][0]["ok"], json!(true), "{stopped}");
+    assert_eq!(stopped["results"][0]["status"], json!("cancelled"));
+    assert_eq!(
+        stopped["results"][0]["message"],
+        json!("Stopped waiting for this model.")
+    );
+    assert_eq!(
+        host.studio.get(&by_hand_id).expect("job").state,
+        JobState::Cancelled
+    );
+    let unknown = call(
+        &client,
+        "cancel_provider_jobs",
+        json!({ "ids": ["no-such-job-9"] }),
+    )
+    .await;
+    assert_eq!(unknown["refused"], json!(1), "{unknown}");
+    assert_eq!(unknown["results"][0]["ok"], json!(false));
+    assert!(
+        unknown["results"][0]["error"]
+            .as_str()
+            .is_some_and(|e| e.contains("no-such-job-9")),
+        "{unknown}"
+    );
+    // A send waiting for approval is the person's to deny.
+    let waiting = call(
+        &client,
+        "send_to_3d",
+        json!({ "project": project_id, "asset": "stone-lantern", "provider": "tripo" }),
+    )
+    .await;
+    let waiting_id = waiting["id"].as_str().expect("job").to_string();
+    let by_hand_again = call(
+        &client,
+        "send_to_3d",
+        json!({ "project": project_id, "asset": "desk-lamp", "provider": "by-hand" }),
+    )
+    .await;
+    let again_id = by_hand_again["id"].as_str().expect("job").to_string();
+    let mixed = call(
+        &client,
+        "cancel_provider_jobs",
+        json!({ "ids": [waiting_id, "no-such-job-9", again_id, again_id] }),
+    )
+    .await;
+    assert_eq!(mixed["stopped"], json!(1), "{mixed}");
+    assert_eq!(mixed["refused"], json!(2), "{mixed}");
+    let results = mixed["results"].as_array().expect("results");
+    assert_eq!(results.len(), 3, "a repeated id is answered once");
+    assert_eq!(results[0]["ok"], json!(false));
+    assert!(
+        results[0]["error"]
+            .as_str()
+            .is_some_and(|e| e.contains("denies it in the Maquette app")),
+        "{mixed}"
+    );
+    assert_eq!(results[1]["ok"], json!(false));
+    assert_eq!(results[2]["status"], json!("cancelled"));
+    assert_eq!(
+        host.studio.get(&waiting_id).expect("job").state,
+        JobState::Approval,
+        "the agent did not deny it"
+    );
+    for ids in [
+        json!([]),
+        json!((0..51).map(|i| format!("job-{i}")).collect::<Vec<_>>()),
+    ] {
+        let bad = raw_call(&client, "cancel_provider_jobs", json!({ "ids": ids })).await;
+        assert_eq!(bad.is_error, Some(true));
+    }
+    let approvals = hub.approvals();
+    assert_eq!(approvals.len(), 1);
+    assert!(hub.decide(&approvals[0].id, false));
 
     // A batch to Tripo waits for one approval that lists every asset.
     let batch = call(

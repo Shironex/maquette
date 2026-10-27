@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use maquette_core::project;
-use maquette_core::providers::{JobState, Provider, ProviderJob};
+use maquette_core::providers::{JobState, Provider, ProviderJob, ProviderJobs};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
@@ -114,6 +114,17 @@ pub struct ProviderJobArgs {
     /// With project: only this asset's sends.
     pub asset: Option<String>,
 }
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelJobsArgs {
+    /// The job ids that send_to_3d, send_batch_to_3d or the redo tools
+    /// returned, 1 to 50.
+    pub ids: Vec<String>,
+}
+
+/// Most ids one cancel_provider_jobs call takes.
+const MAX_CANCEL_IDS: usize = 50;
 
 /// A provider job as agents read it.
 fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
@@ -313,5 +324,61 @@ impl McpTools {
             })
             .await;
         respond(found)
+    }
+
+    #[tool(
+        description = "Stop sends to 3D that are still in flight: ids is 1 to 50 job ids. Each id is stopped on its own and answers with its new status and message, or the reason it could not be stopped, so one failure never stops the others. A by hand send that waits for a model becomes cancelled (\"Stop waiting\"), a Tripo or Meshy send that has not started is cancelled for free, and Meshy gives the credits back when the task is called off before it starts. A send that cannot be stopped (Tripo once sent, a model that is downloading, a job that is over) is refused with why. A send waiting for approval is refused: a person approves or denies those in the Maquette app."
+    )]
+    async fn cancel_provider_jobs(&self, Parameters(args): Parameters<CancelJobsArgs>) -> Out {
+        let mut ids: Vec<String> = Vec::new();
+        for id in args.ids.iter().map(|id| id.trim()) {
+            if id.is_empty() {
+                return failed("Job ids cannot be empty.");
+            }
+            if !ids.iter().any(|seen| seen == id) {
+                ids.push(id.to_string());
+            }
+        }
+        if ids.is_empty() || ids.len() > MAX_CANCEL_IDS {
+            return failed(format!(
+                "Pass 1 to {MAX_CANCEL_IDS} job ids, got {}.",
+                ids.len()
+            ));
+        }
+        let found = self
+            .blocking(move |host, hub| {
+                let results: Vec<Value> = ids
+                    .iter()
+                    .map(|id| cancel_one(host.studio(), hub, id))
+                    .collect();
+                let stopped = results.iter().filter(|r| r["ok"] == json!(true)).count();
+                Ok(json!({ "stopped": stopped, "refused": results.len() - stopped, "results": results }))
+            })
+            .await;
+        respond(found)
+    }
+}
+
+/// Stops one job for [`cancel_provider_jobs`]. A send that waits for approval
+/// is left to the person, so an agent cannot deny its own sends.
+fn cancel_one(jobs: &ProviderJobs, hub: &Hub, id: &str) -> Value {
+    let refuse = |error: String| json!({ "id": id, "ok": false, "error": error });
+    let Some(job) = jobs.get(id) else {
+        return refuse(format!("There is no send {id}."));
+    };
+    if job.state == JobState::Approval || hub.pending_for_job(id).is_some() {
+        return refuse(
+            "This send is waiting for approval. A person denies it in the Maquette app; an agent cannot deny its own sends."
+                .to_string(),
+        );
+    }
+    match jobs.cancel(id) {
+        Ok(job) => json!({
+            "id": id,
+            "ok": true,
+            "status": to_value(job.state),
+            "message": job.message,
+        }),
+        Err(err) => refuse(reason(err)),
     }
 }

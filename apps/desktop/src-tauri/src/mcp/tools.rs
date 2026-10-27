@@ -64,7 +64,7 @@ prefilled from its send (redo_inbox_models for several), under the same approval
 reads the provider balances and the local ledger of paid sends (API spend and By hand \
 subscription spend apart). list_handoffs lists the By hand sends waiting for a model made on \
 the provider's site, the export file name each waits for and what the Downloads watcher \
-matched; it reads only. make_object_refs turns the objects of one concept into \
+matched; it reads only. cancel_provider_jobs stops sends by id (a by hand send stops waiting, a send not yet started is cancelled, one that cannot be stopped says why), but a send waiting for approval is only denied by a person in the app. make_object_refs turns the objects of one concept into \
 one isolated image each. get_concepts reads the Lab, with its failed jobs; a job Codex rate \
 limits runs again on its own a few times, a job that meets the Codex usage limit waits with \
 the rest of the queue until it lifts (usageLimit, retryAtMs), and retry_concept_jobs runs failed ones again (same \
