@@ -1,4 +1,4 @@
-import { Icon, Tooltip, cn } from '@maquette/ui';
+import { Icon, Tooltip } from '@maquette/ui';
 import type { MenuItem } from '../Menu.types';
 import { startsSection } from '../menuKeys';
 import { MENU_PANEL, MENU_ROW, MENU_SEPARATOR } from '../menuStyles';
@@ -14,7 +14,7 @@ export interface MenuRowProps {
 export default function MenuRow({ item, onClose }: MenuRowProps) {
   const explained = Boolean(item.disabled && item.hint);
   const blocked = Boolean(item.disabled);
-  const sub = useSubmenu(Boolean(item.submenu) && !blocked);
+  const sub = useSubmenu(Boolean(item.submenu) && !blocked, item.submenu?.length ?? 0);
   const button = (
     <Tooltip label={item.hint} side="right" disabled={!item.hint || sub.open}>
       <button
@@ -56,9 +56,16 @@ export default function MenuRow({ item, onClose }: MenuRowProps) {
     >
       {button}
       {sub.open ? (
-        // The padding bridges the gap, so the pointer can cross to the submenu.
+        // Fixed, so a scrolling column cannot clip it; the padding bridges the
+        // gap, so the pointer can cross to it.
         <div
-          className={cn('absolute -top-1 z-30', sub.flip ? 'right-full pr-1' : 'left-full pl-1')}
+          className="fixed z-30"
+          style={{
+            top: sub.place.top,
+            left: sub.place.left,
+            paddingLeft: sub.place.padLeft,
+            paddingRight: sub.place.padRight,
+          }}
         >
           <div
             ref={sub.menu}
