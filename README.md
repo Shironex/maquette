@@ -380,6 +380,14 @@ With `?maquette-poster=1` in its address the page shows its no WebGL version. `a
 
 The Library (the books icon in the rail, for website and game projects) keeps finished models outside every project, in `library/` in the workspace root (`~/Maquette/library` by default). Each entry is a folder with `entry.json` (name, kind, tags, refs, versions), `models/` (one file per version), `thumbs/` and `refs/`. Add to library (a Board card's menu, the Inspector, or Add from a project in the view) copies an asset's newest model, picture, refs, real size, fix-ups and material tweaks; the same hash adds nothing and a newer model adds the next version. Use in project copies a version into a project as a new asset at v1 and spends no credits; a website project refuses an `.obj`, and a game project takes either and writes the game's format on the next Game export. The library copies and offers updates, it never links: an asset copied from an older version shows Update to vN, and the dialog lists what carries over and what no longer applies before anything changes. The view searches, filters by tag, source, format and project, and shows the credits reuse saved.
 
+## Sync with another computer
+
+A workspace can live in a Syncthing folder shared by two computers, for example a Mac and a Windows PC. What belongs to one computer stays in its app data: settings, API keys, the Downloads watch's seen list and where each project's site or game repo is. `project.json` keeps only the repo's folder name, so the other computer asks once "Where is this project's repo on this computer?". Handoff folders and page concepts are saved relative to the workspace.
+
+While Maquette has a workspace open it keeps `.maquette-lock.json` in it (host, OS, app version, a heartbeat every minute) and removes it on a clean exit. Opening a workspace whose lock another computer refreshed in the last three minutes asks first; an older lock is taken over without a word. Every scan skips Syncthing's own files, and when Syncthing keeps a `*.sync-conflict-*` copy of a Maquette data file the app names it and merges nothing.
+
+Settings > Workspace > Sync with another computer has the recommended `.stignore` (the cache and OS clutter, never the lock file, which is how the other computer knows) and a copy button. Turn on staggered file versioning for the folder, and use Maquette on one computer at a time.
+
 ## Agents (MCP)
 
 Settings > Agents runs a Model Context Protocol server inside the app, so Claude Code and Codex can drive Maquette. It is off by default, listens on `127.0.0.1` only (port 4791, configurable) at `/mcp` over Streamable HTTP, and wants `Authorization: Bearer <token>`. The token is made the first time the server starts and kept in the app state on this machine, never in the workspace. New token replaces it.
