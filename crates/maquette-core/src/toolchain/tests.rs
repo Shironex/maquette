@@ -4,7 +4,7 @@ use std::fs;
 use std::sync::Mutex;
 
 use super::detection::{BROKEN_HINT, CODEX_NOT_SIGNED_IN};
-use super::lookup::{APP_BINARY, candidates, known_dirs, known_files, version_key};
+use super::lookup::{APP_BINARY, known_dirs, known_files, version_key};
 use super::*;
 
 struct FakeRunner {
@@ -510,6 +510,7 @@ fn broken_copy_falls_through_to_next_working_one() {
 #[cfg(unix)]
 #[test]
 fn symlinked_duplicates_are_probed_once() {
+    use super::lookup::candidates;
     let dir = tempfile::tempdir().expect("tempdir");
     let real = dir.path().join("real");
     let link = dir.path().join("link");

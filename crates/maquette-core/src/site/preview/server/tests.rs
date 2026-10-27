@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use super::process::{exit_message, spawn};
+use super::process::exit_message;
 use super::*;
 use crate::site::preview::free_port;
 use crate::toolchain::{ProbeEnv, find_on_path};
@@ -296,6 +296,7 @@ fn a_start_for_another_site_stops_the_first() {
 #[cfg(unix)]
 #[test]
 fn the_watchdog_ends_the_server_when_the_app_end_of_the_pipe_closes() {
+    use super::process::spawn;
     let Some(node) = node() else { return };
     let site = tempfile::tempdir().expect("site");
     let plan = node_plan(site.path(), &node, SERVE);
