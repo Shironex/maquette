@@ -759,9 +759,9 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             std::fs::read_to_string(folder.join("settings.md")).expect("card")
         })
         .collect();
-    assert!(cards[0].contains("10,000"), "{}", cards[0]);
+    assert!(cards[0].contains("| Polycount | 10000 |"), "{}", cards[0]);
     assert!(
-        cards[1].contains("2,000"),
+        cards[1].contains("| Polycount | 2000 |"),
         "own overrides win: {}",
         cards[1]
     );
@@ -1512,7 +1512,10 @@ async fn agents_redo_inbox_models_and_read_the_credits() {
         assert!(job["redoOf"].as_str().is_some_and(|r| r.ends_with("-1")));
         let folder = std::path::PathBuf::from(job["handoff"].as_str().expect("handoff"));
         let card = std::fs::read_to_string(folder.join("settings.md")).expect("card");
-        assert!(card.contains("12,000"), "the earlier settings: {card}");
+        assert!(
+            card.contains("| Polycount | 12000 |"),
+            "the earlier settings: {card}"
+        );
     }
     assert!(
         inbox.join("stone-lantern-1.glb").is_file(),

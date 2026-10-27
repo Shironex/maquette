@@ -7,6 +7,7 @@
 //! asset's card, or saved into the inbox under that name.
 
 pub mod sidecar;
+pub mod studio;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -14,14 +15,9 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::catalog::{
-    is_smart_topology, is_tripo_p_series, meshy_label, meshy_takes_remove_lighting, tripo_label,
-};
+use super::catalog::{is_smart_topology, meshy_label, meshy_takes_remove_lighting};
 use super::naming::export_stem;
-use super::presets::{
-    MeshyPreset, MeshyTexture, PoseMode, PresetVariant, ProviderId, TripoGeometryQuality,
-    TripoPreset, TripoRigSpec, TripoTextureQuality,
-};
+use super::presets::{MeshyPreset, MeshyTexture, PoseMode, PresetVariant, ProviderId, TripoPreset};
 use super::subscription::web_cost;
 use super::tripo::VIEWS;
 use crate::error::{CoreError, CoreResult};
@@ -106,78 +102,6 @@ fn animation_label(id: &str) -> String {
     chars.next().map_or_else(String::new, |first| {
         first.to_uppercase().chain(chars).collect()
     })
-}
-
-pub fn tripo_rows(preset: &TripoPreset, variant: PresetVariant, images: usize) -> Vec<CardRow> {
-    let p_series = is_tripo_p_series(&preset.model);
-    let legacy = preset.model.starts_with("v2");
-    let mut rows = vec![
-        row_note(
-            "Model",
-            tripo_label(&preset.model),
-            &format!("model id {}", preset.model),
-        ),
-        row(
-            "Face limit",
-            if preset.face_limit == 0 {
-                "Adaptive".to_string()
-            } else {
-                count(preset.face_limit)
-            },
-        ),
-        row("Texture", on_off(preset.texture)),
-        row("PBR", on_off(preset.texture && preset.pbr)),
-    ];
-    if preset.texture && !legacy {
-        rows.push(row(
-            "Texture quality",
-            match preset.texture_quality {
-                TripoTextureQuality::Standard => "Standard",
-                TripoTextureQuality::Detailed => "Detailed",
-                TripoTextureQuality::Extreme => "Extreme",
-            },
-        ));
-    }
-    if !p_series && !legacy {
-        rows.push(row(
-            "Geometry",
-            match preset.geometry_quality {
-                TripoGeometryQuality::Standard => "Standard",
-                TripoGeometryQuality::Detailed => "Ultra",
-            },
-        ));
-        rows.push(row("Smart low poly", on_off(preset.smart_low_poly)));
-    }
-    if !legacy {
-        rows.push(row("Real-world size", on_off(preset.auto_size)));
-    }
-    if images < 2 || !preset.multi_view {
-        rows.push(row("Fix the image first", on_off(preset.image_autofix)));
-    }
-    rows.push(row_note("Quad mesh", "Off", "quads export FBX only"));
-    if variant == PresetVariant::Character && preset.rig {
-        rows.push(row_note(
-            "Auto rig",
-            match preset.rig_spec {
-                TripoRigSpec::Mixamo => "Mixamo bones",
-                TripoRigSpec::Tripo => "Tripo bones",
-            },
-            &format!("rig model {}", preset.rig_model),
-        ));
-        if !preset.animations.is_empty() {
-            let names: Vec<String> = preset
-                .animations
-                .iter()
-                .map(|a| animation_label(a))
-                .collect();
-            rows.push(row_note(
-                "Animations",
-                names.join(", "),
-                "retarget them onto the rig",
-            ));
-        }
-    }
-    rows
 }
 
 pub fn meshy_rows(preset: &MeshyPreset, variant: PresetVariant) -> Vec<CardRow> {
@@ -268,12 +192,13 @@ pub struct Handoff<'a> {
 impl Handoff<'_> {
     pub fn card(&self) -> HandoffCard {
         let multi = self.images.len() >= 2;
+        let export_name = export_stem(self.id, self.asset, self.service);
         let (rows, mode) = match self.service {
             ProviderId::Tripo => {
                 let preset = self.tripo.cloned().unwrap_or_else(TripoPreset::prop);
                 let multi = multi && preset.multi_view;
                 (
-                    tripo_rows(&preset, self.variant, self.images.len()),
+                    studio::tripo_rows(&preset, self.variant, &export_name),
                     if multi {
                         "Multiview to 3D"
                     } else {
@@ -299,7 +224,6 @@ impl Handoff<'_> {
         if let Some(prompt) = prompt {
             rows.push(row("Texture prompt", prompt));
         }
-        let export_name = export_stem(self.id, self.asset, self.service);
         let cost = web_cost(self.service, self.tripo, self.meshy);
         let names = view_names(self.images);
         let used = if mode == "Image to 3D" {
@@ -387,32 +311,104 @@ impl Handoff<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::providers::presets::{TripoGeometryQuality, TripoTextureQuality};
+
+    fn value(rows: &[CardRow], label: &str) -> Option<String> {
+        rows.iter()
+            .find(|r| r.label == label)
+            .map(|r| r.value.clone())
+    }
 
     #[test]
-    fn the_card_lists_the_preset_in_web_app_words() {
-        let rows = tripo_rows(&TripoPreset::character(), PresetVariant::Character, 2);
-        let get = |label: &str| {
-            rows.iter()
-                .find(|r| r.label == label)
-                .map(|r| r.value.clone())
-        };
-        assert_eq!(get("Model").as_deref(), Some("H3.1"));
-        assert_eq!(get("Face limit").as_deref(), Some("50,000"));
-        assert_eq!(get("Auto rig").as_deref(), Some("Mixamo bones"));
+    fn the_tripo_card_speaks_studio_words() {
+        let rows = studio::tripo_rows(
+            &TripoPreset::character(),
+            PresetVariant::Character,
+            "maq_hero_v1_tripo",
+        );
+        let get = |label: &str| value(&rows, label);
+        assert_eq!(get("Tab").as_deref(), Some("HD Model"));
+        assert_eq!(get("AI Model").as_deref(), Some("H3.1"));
+        assert_eq!(get("Ultra Mesh Quality").as_deref(), Some("Off"));
+        assert_eq!(get("Texture Quality").as_deref(), Some("2K"));
+        assert_eq!(get("Topology").as_deref(), Some("Triangle"));
+        assert_eq!(get("Polycount").as_deref(), Some("50000"));
+        assert_eq!(get("AI Complete").as_deref(), Some("On"));
+        assert_eq!(get("Remove Lighting").as_deref(), Some("On"));
+        assert_eq!(get("Generate in Parts").as_deref(), Some("Off"));
         assert_eq!(get("Animations").as_deref(), Some("Idle, Walk"));
-        assert_eq!(get("Fix the image first"), None, "multiview has no autofix");
+        assert_eq!(get("Export").as_deref(), Some("maq_hero_v1_tripo"));
+        assert!(get("Rig").is_some_and(|r| r.starts_with("Mixamo skeleton, export GLB")));
+        for api in [
+            "Model",
+            "Face limit",
+            "Geometry",
+            "Smart low poly",
+            "Quad mesh",
+        ] {
+            assert_eq!(get(api), None, "{api} is an API name");
+        }
+        for gone in ["Real-world size", "Fix the image first"] {
+            assert_eq!(get(gone), None, "Studio has no {gone}");
+        }
+
+        let mut prop = TripoPreset::prop();
+        prop.smart_low_poly = true;
+        prop.geometry_quality = TripoGeometryQuality::Detailed;
+        prop.texture_quality = TripoTextureQuality::Detailed;
+        let rows = studio::tripo_rows(&prop, PresetVariant::Prop, "maq_cup_v2_tripo");
+        let get = |label: &str| value(&rows, label);
+        assert_eq!(get("Tab").as_deref(), Some("Smart Mesh"));
+        assert_eq!(get("Ultra Mesh Quality").as_deref(), Some("On"));
+        assert_eq!(get("Texture Quality").as_deref(), Some("4K"));
+        assert_eq!(get("Polycount").as_deref(), Some("20000"), "adaptive");
+        assert_eq!(get("Rig"), None, "a prop has no rig");
 
         let mut p1 = TripoPreset::prop();
         p1.model = "P1-20260311".into();
-        let rows = tripo_rows(&p1, PresetVariant::Prop, 1);
-        assert!(rows.iter().all(|r| r.label != "Smart low poly"));
+        let rows = studio::tripo_rows(&p1, PresetVariant::Prop, "maq_cup_v3_tripo");
+        assert!(rows.iter().all(|r| r.label != "Tab"));
+    }
 
-        let rows = meshy_rows(&MeshyPreset::character(), PresetVariant::Character);
-        let get = |label: &str| {
-            rows.iter()
-                .find(|r| r.label == label)
-                .map(|r| r.value.clone())
+    #[test]
+    fn settings_md_lists_the_studio_rows_and_the_export_name() {
+        let dir = tempfile::tempdir().expect("dir");
+        let image = dir.path().join("lamp.png");
+        fs::write(&image, b"png").expect("image");
+        let preset = TripoPreset::prop();
+        let handoff = Handoff {
+            id: "iron-street-lamp-1",
+            project: "p",
+            asset: "iron-street-lamp",
+            asset_name: "Iron street lamp",
+            service: ProviderId::Tripo,
+            variant: PresetVariant::Prop,
+            images: std::slice::from_ref(&image),
+            tripo: Some(&preset),
+            meshy: None,
+            prompt: None,
         };
+        let (folder, card) = handoff.write(dir.path()).expect("write");
+        assert_eq!(card.export_name, "maq_iron-street-lamp_v1_tripo");
+        let md = fs::read_to_string(folder.join("settings.md")).expect("md");
+        for line in [
+            "| Tab | HD Model |  |",
+            "| Ultra Mesh Quality | Off |  |",
+            "| Texture Quality | 2K |  |",
+            "| Polycount | 20000 | Studio has no adaptive |",
+            "| Topology | Triangle | quads export FBX only |",
+            "| Generate in Parts | Off | recommended |",
+            "| Export | maq_iron-street-lamp_v1_tripo | GLB, with this file name |",
+        ] {
+            assert!(md.contains(line), "{line} in {md}");
+        }
+        assert!(!md.contains("Face limit") && !md.contains("Real-world size"));
+    }
+
+    #[test]
+    fn the_meshy_card_keeps_its_words() {
+        let rows = meshy_rows(&MeshyPreset::character(), PresetVariant::Character);
+        let get = |label: &str| value(&rows, label);
         assert_eq!(get("AI model").as_deref(), Some("Meshy 7.1"));
         assert_eq!(get("Remesh").as_deref(), Some("50,000 triangles"));
         assert_eq!(get("Pose").as_deref(), Some("A-pose"));
