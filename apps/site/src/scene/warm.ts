@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { materialTextures } from './dispose';
 
 const nextFrame = () => new Promise<void>(done => requestAnimationFrame(() => done()));
 
@@ -21,9 +22,7 @@ export async function warm(
       ? object.material
       : [object.material];
     for (const material of materials) {
-      for (const value of Object.values(material)) {
-        if (value instanceof THREE.Texture) gl.initTexture(value);
-      }
+      for (const texture of materialTextures(material)) gl.initTexture(texture);
     }
   });
 }

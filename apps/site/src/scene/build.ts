@@ -31,6 +31,12 @@ function screenTexture(path: string): THREE.Texture {
   return texture;
 }
 
+/** Frees the screen textures the built models share. */
+export function disposeScreens(): void {
+  for (const texture of textures.values()) texture.dispose();
+  textures.clear();
+}
+
 export function buildModel(entry: ModelEntry, scene: THREE.Object3D): BuiltModel {
   const inner = scene.clone(true);
   const [rx, ry, rz] = entry.rotation ?? [0, 0, 0];

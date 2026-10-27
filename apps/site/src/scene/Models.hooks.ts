@@ -1,8 +1,9 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useState } from 'react';
 import type * as THREE from 'three';
-import { buildModel, type BuiltModel } from './build';
-import { loadInOrder } from './loader';
+import { buildModel, disposeScreens, type BuiltModel } from './build';
+import { disposeBuilt, fileGeometries } from './dispose';
+import { disposeFiles, disposeLoaders, loadInOrder } from './loader';
 import { MODELS, STOP_IDS, TIMELINE, loadOrder, type ModelEntry, type StopId } from './manifest';
 import { across, presence, smoothstep } from './progress';
 import { rigTracks, type Tracks } from './tracks';
@@ -37,7 +38,8 @@ export type PlacedModel = BuiltModel & { tracks: Tracks | null };
  * Loads, warms and places the manifest's models (the first view's first),
  * then sets the turntable's turn, the wireframe sweep and the scroll
  * timeline's tracks from the tour progress each frame: they follow the
- * scroll, and the turntable also idles round on its own.
+ * scroll, and the turntable also idles round on its own. On unmount it frees
+ * the files, the clones and the loaders.
  */
 export function useModels({ progress, still, firstView, onReady, onFailed }: ModelsOptions) {
   const { gl, camera, scene, invalidate } = useThree();
@@ -55,7 +57,8 @@ export function useModels({ progress, still, firstView, onReady, onFailed }: Mod
       for (const entry of entries) {
         const model = buildModel(entry, scene3d);
         await warm(gl, model.root, camera, scene);
-        if (!live) return;
+        // Torn down while it warmed: its file is already freed, the clone is not.
+        if (!live) return disposeBuilt(model.root, fileGeometries(scene3d));
         placed.push({ ...model, tracks: rigTracks(model, TIMELINE) });
       }
       // Keep manifest order so draw order is stable.
@@ -84,10 +87,17 @@ export function useModels({ progress, still, firstView, onReady, onFailed }: Mod
       (file, error) => {
         console.error('Could not load a model', { file, error });
         if (live && needed.has(file)) onFailed(`load ${file}`);
-      }
+      },
+      () => live
     );
     return () => {
       live = false;
+      // Each file once (its geometries and textures), then the clones' own
+      // materials, then the loaders. A clone never frees a shared texture.
+      const shared = disposeFiles();
+      for (const model of placed) disposeBuilt(model.root, shared);
+      disposeScreens();
+      disposeLoaders();
     };
   }, [gl, camera, scene, firstView, invalidate, onReady, onFailed]);
 
