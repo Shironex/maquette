@@ -15,11 +15,13 @@ use crate::error::{CoreError, CoreResult};
 /// How long a path must stay quiet before it is reported.
 pub const QUIET: Duration = Duration::from_millis(700);
 
-/// True for `.glb` and `.gltf` files.
+/// True for `.glb` and `.gltf` files, but not a sync tool's temp file or
+/// conflict copy of one.
 pub fn is_model(path: &Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| e.eq_ignore_ascii_case("glb") || e.eq_ignore_ascii_case("gltf"))
+        && !crate::workspace::sync::is_sync_path(path)
 }
 
 /// Collects paths and hands each back once it has been quiet for `quiet`.

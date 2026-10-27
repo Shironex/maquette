@@ -29,7 +29,9 @@ pub(super) fn glbs(dir: &Path) -> Vec<PathBuf> {
                 .filter_map(Result::ok)
                 .map(|e| e.path())
                 .filter(|p| {
-                    p.is_file() && p.extension().is_some_and(|e| e.eq_ignore_ascii_case("glb"))
+                    p.is_file()
+                        && p.extension().is_some_and(|e| e.eq_ignore_ascii_case("glb"))
+                        && !crate::workspace::sync::is_sync_path(p)
                 })
                 .collect()
         })

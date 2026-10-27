@@ -131,6 +131,7 @@ pub(crate) fn sorted_children(dir: &Path) -> Vec<(String, PathBuf)> {
             entries
                 .filter_map(Result::ok)
                 .map(|e| (e.file_name().to_string_lossy().into_owned(), e.path()))
+                .filter(|(name, _)| !crate::workspace::sync::is_sync_name(name))
                 .collect()
         })
         .unwrap_or_default();

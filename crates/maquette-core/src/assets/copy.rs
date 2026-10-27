@@ -56,6 +56,9 @@ pub(crate) fn refs_of(project_dir: &Path, asset: &Asset, sent: &[String]) -> Vec
             .filter(|e| e.path().is_file())
             .filter_map(|e| {
                 let name = e.file_name().to_string_lossy().into_owned();
+                if crate::workspace::sync::is_sync_name(&name) {
+                    return None;
+                }
                 let stem = Path::new(&name).file_stem()?.to_string_lossy().into_owned();
                 is_ref_of(&stem, &wanted).then(|| format!("{REFS_DIR}/{name}"))
             })

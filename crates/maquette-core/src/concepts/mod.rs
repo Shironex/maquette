@@ -219,6 +219,9 @@ pub fn list_directions(project_dir: &Path) -> Vec<Direction> {
         .filter(|e| e.path().is_dir())
         .filter_map(|e| {
             let id = e.file_name().to_string_lossy().into_owned();
+            if crate::workspace::sync::is_sync_name(&id) {
+                return None;
+            }
             load_direction(project_dir, &id).ok().flatten()
         })
         .collect();

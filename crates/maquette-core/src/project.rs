@@ -276,10 +276,10 @@ pub fn list(workspace_root: &Path, layout: &FolderLayout) -> CoreResult<Vec<Proj
     let mut projects = Vec::new();
     for entry in entries.filter_map(Result::ok) {
         let path = entry.path();
-        if !path.join(PROJECT_FILE).is_file() {
+        let id = entry.file_name().to_string_lossy().into_owned();
+        if crate::workspace::sync::is_sync_name(&id) || !path.join(PROJECT_FILE).is_file() {
             continue;
         }
-        let id = entry.file_name().to_string_lossy().into_owned();
         match load(workspace_root, layout, &id) {
             Ok(manifest) => projects.push(manifest),
             Err(err) => tracing::warn!(project = %id, error = %err, "skipping unreadable project"),

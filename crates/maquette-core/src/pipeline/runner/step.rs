@@ -342,6 +342,7 @@ impl Execution {
             .filter(|path| {
                 path.extension()
                     .is_some_and(|e| e.eq_ignore_ascii_case("glb"))
+                    && !crate::workspace::sync::is_sync_path(path)
             })
             .filter(|path| {
                 let stem = path

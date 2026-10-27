@@ -81,7 +81,7 @@ pub(crate) fn list_refs(project_dir: &Path) -> Vec<RefImage> {
     let mut out: Vec<RefImage> = entries
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.is_file() && is_image(p))
+        .filter(|p| p.is_file() && is_image(p) && !maquette_core::workspace::sync::is_sync_path(p))
         .filter_map(|p| {
             let name = p.file_name()?.to_string_lossy().into_owned();
             #[expect(clippy::cast_precision_loss, reason = "image sizes stay small")]

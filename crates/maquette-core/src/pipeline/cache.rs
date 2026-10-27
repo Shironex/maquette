@@ -80,7 +80,7 @@ pub fn expand(root: &Path, patterns: &[String]) -> Vec<(String, Vec<PathBuf>)> {
                 .map(|paths| {
                     paths
                         .filter_map(Result::ok)
-                        .filter(|p| p.is_file())
+                        .filter(|p| p.is_file() && !crate::workspace::sync::is_sync_path(p))
                         .collect()
                 })
                 .unwrap_or_default();

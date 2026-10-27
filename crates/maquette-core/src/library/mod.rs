@@ -209,10 +209,10 @@ pub fn list(root: &Path) -> CoreResult<Vec<LibraryEntry>> {
     };
     let mut entries = Vec::new();
     for found in read.filter_map(Result::ok) {
-        if !found.path().join(ENTRY_FILE).is_file() {
+        let id = found.file_name().to_string_lossy().into_owned();
+        if crate::workspace::sync::is_sync_name(&id) || !found.path().join(ENTRY_FILE).is_file() {
             continue;
         }
-        let id = found.file_name().to_string_lossy().into_owned();
         match load(root, &id) {
             Ok(entry) => entries.push(entry),
             Err(err) => {

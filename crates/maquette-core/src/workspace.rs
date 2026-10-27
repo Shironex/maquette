@@ -13,6 +13,7 @@ use crate::json::{from_json_with_defaults, write_json};
 use crate::providers::{ProviderSettings, meshy_problem, tripo_problem};
 
 pub mod lock;
+pub mod sync;
 
 pub const CONFIG_FILE: &str = "maquette.json";
 pub const CONFIG_VERSION: u32 = 1;
@@ -215,7 +216,8 @@ pub struct RootInspection {
     /// The path with the home folder shown as `~`.
     pub display: String,
     pub state: RootState,
-    /// Entries in the folder, not counting OS clutter such as `.DS_Store`.
+    /// Entries in the folder, not counting OS clutter such as `.DS_Store`
+    /// or a sync tool's own files.
     pub entries: u32,
 }
 
@@ -251,7 +253,8 @@ pub fn inspect_root(root: &Path, home: Option<&Path>) -> CoreResult<RootInspecti
     for entry in fs::read_dir(&path).map_err(|e| CoreError::io(&path, e))? {
         let entry = entry.map_err(|e| CoreError::io(&path, e))?;
         let name = entry.file_name();
-        if !IGNORED_ENTRIES.iter().any(|ignored| name == *ignored) {
+        let synced = name.to_str().is_some_and(sync::is_sync_name);
+        if !synced && !IGNORED_ENTRIES.iter().any(|ignored| name == *ignored) {
             entries = entries.saturating_add(1);
         }
     }
