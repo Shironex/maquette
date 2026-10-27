@@ -71,7 +71,7 @@ export async function gameShots({ open, shot }) {
   const motion = await open(`${GAME}hero`, '#/motion');
   await motion.getByRole('button', { name: /Heroine/ }).click();
   await motion.getByText('Clips · 187').waitFor();
-  await motion.getByRole('meter', { name: /^Model budget/ }).waitFor();
+  await motion.getByRole('meter', { name: /^Game budget/ }).waitFor();
   await shot(motion, 'game-motion-hero');
   await motion.getByRole('searchbox', { name: 'Search clips' }).fill('parry overhead');
   await motion.getByText(/^Clips · \d+ of 187$/).waitFor();
