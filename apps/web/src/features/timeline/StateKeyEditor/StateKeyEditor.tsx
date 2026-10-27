@@ -65,7 +65,12 @@ export default function StateKeyEditor() {
         The move&apos;s easing and length are set in the Motion view.
       </p>
       <div>
-        <Button size="sm" icon="trash" onClick={e.remove}>
+        <Button
+          size="sm"
+          icon="trash"
+          tooltip="Removes this change from the timeline"
+          onClick={e.remove}
+        >
           Remove this change
         </Button>
       </div>

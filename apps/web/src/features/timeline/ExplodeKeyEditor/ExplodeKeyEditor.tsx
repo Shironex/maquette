@@ -41,10 +41,22 @@ export default function ExplodeKeyEditor() {
         </p>
       ) : null}
       <div className="flex gap-2">
-        <Button size="sm" icon="trash" disabled={!e.keyed} onClick={e.removeKey}>
+        <Button
+          size="sm"
+          icon="trash"
+          disabled={!e.keyed}
+          disabledReason="Nothing is keyed at this stop"
+          tooltip="Removes the key at this stop"
+          onClick={e.removeKey}
+        >
           Remove this key
         </Button>
-        <Button size="sm" variant="ghost" onClick={e.removeTrack}>
+        <Button
+          size="sm"
+          variant="ghost"
+          tooltip="Removes every key of this explode track"
+          onClick={e.removeTrack}
+        >
           Remove the track
         </Button>
       </div>

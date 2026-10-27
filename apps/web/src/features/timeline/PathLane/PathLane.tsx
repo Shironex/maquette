@@ -1,4 +1,4 @@
-import { Icon, cn } from '@maquette/ui';
+import { Icon, Tooltip, cn } from '@maquette/ui';
 import { BLOCK, KEY, LANE, LANE_NAME, pct } from '../lanes';
 import { usePathLane } from './PathLane.hooks';
 
@@ -29,33 +29,33 @@ export default function PathLane({ path }: PathLaneProps) {
     </button>
   ));
   const keys = lane.keys.map(k => (
-    <button
-      key={k.stop}
-      type="button"
-      aria-pressed={k.selected}
-      aria-label={k.label}
-      title={k.label}
-      onClick={() => lane.select(k.stop)}
-      className={cn(
-        KEY,
-        'rotate-0 rounded-full',
-        k.selected ? 'bg-clay-text shadow-[0_0_0_3px_var(--color-clay-soft)]' : 'bg-amber'
-      )}
-      style={{ left: pct(k.at) }}
-    />
+    <Tooltip key={k.stop} label={k.label}>
+      <button
+        type="button"
+        aria-pressed={k.selected}
+        aria-label={k.label}
+        onClick={() => lane.select(k.stop)}
+        className={cn(
+          KEY,
+          'rotate-0 rounded-full',
+          k.selected ? 'bg-clay-text shadow-[0_0_0_3px_var(--color-clay-soft)]' : 'bg-amber'
+        )}
+        style={{ left: pct(k.at) }}
+      />
+    </Tooltip>
   ));
   const adds = lane.free.map(stop => (
-    <button
-      key={stop.id}
-      type="button"
-      aria-label={`Key ${lane.name} energize at ${stop.name}`}
-      title={`Key ${lane.name} energize at ${stop.name}`}
-      onClick={() => lane.add(stop.id)}
-      className="absolute top-[9px] grid size-4 -translate-x-1/2 cursor-pointer place-items-center rounded-full border border-dashed border-line-strong bg-transparent p-0 text-fg-mute hover:border-fg-dim hover:text-fg"
-      style={{ left: pct(stop.at) }}
-    >
-      <Icon name="plus" size={10} />
-    </button>
+    <Tooltip key={stop.id} label={`Key ${lane.name} energize at ${stop.name}`}>
+      <button
+        type="button"
+        aria-label={`Key ${lane.name} energize at ${stop.name}`}
+        onClick={() => lane.add(stop.id)}
+        className="absolute top-[9px] grid size-4 -translate-x-1/2 cursor-pointer place-items-center rounded-full border border-dashed border-line-strong bg-transparent p-0 text-fg-mute hover:border-fg-dim hover:text-fg"
+        style={{ left: pct(stop.at) }}
+      >
+        <Icon name="plus" size={10} />
+      </button>
+    </Tooltip>
   ));
   return (
     <>

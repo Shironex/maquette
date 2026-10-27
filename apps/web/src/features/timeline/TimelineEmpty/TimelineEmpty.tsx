@@ -23,7 +23,12 @@ export default function TimelineEmpty() {
         body="The timeline runs along the page from one camera stop to the next."
         steps={STEPS}
         action={
-          <Button variant="primary" icon="cube-focus" onClick={openInspector}>
+          <Button
+            variant="primary"
+            icon="cube-focus"
+            tooltip="Goes to the Inspector, where camera stops are added"
+            onClick={openInspector}
+          >
             Open the Inspector
           </Button>
         }

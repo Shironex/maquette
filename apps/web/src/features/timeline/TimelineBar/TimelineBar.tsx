@@ -36,6 +36,7 @@ export default function TimelineBar() {
         size="sm"
         disabled
         disabledReason="Not built yet: Play spends about 4 seconds on each stop"
+        tooltip="How fast Play scrolls the page"
       >
         Reading speed
         <Icon name="caret-down" size={12} className="text-fg-mute" />
@@ -50,6 +51,7 @@ export default function TimelineBar() {
         <Button
           size="sm"
           icon="plus"
+          tooltip="Add a track for a prop's explode, a path's fill or a prop's states"
           aria-expanded={bar.menu}
           onClick={() => bar.setMenu(!bar.menu)}
         >

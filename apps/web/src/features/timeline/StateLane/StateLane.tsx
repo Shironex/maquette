@@ -1,4 +1,4 @@
-import { Icon, cn } from '@maquette/ui';
+import { Icon, Tooltip, cn } from '@maquette/ui';
 import { BLOCK, LANE, LANE_NAME, pct } from '../lanes';
 import { useStateLane } from './StateLane.hooks';
 
@@ -54,17 +54,17 @@ export default function StateLane({ asset }: StateLaneProps) {
   );
   const adds = lane.canAdd
     ? lane.free.map(stop => (
-        <button
-          key={stop.id}
-          type="button"
-          aria-label={`Change ${lane.name} at ${stop.name}`}
-          title={`Change ${lane.name} at ${stop.name}`}
-          onClick={() => lane.add(stop.id)}
-          className="absolute top-[9px] grid size-4 -translate-x-1/2 cursor-pointer place-items-center rounded-full border border-dashed border-line-strong bg-transparent p-0 text-fg-mute hover:border-fg-dim hover:text-fg"
-          style={{ left: pct(stop.at) }}
-        >
-          <Icon name="plus" size={10} />
-        </button>
+        <Tooltip key={stop.id} label={`Change ${lane.name} at ${stop.name}`}>
+          <button
+            type="button"
+            aria-label={`Change ${lane.name} at ${stop.name}`}
+            onClick={() => lane.add(stop.id)}
+            className="absolute top-[9px] grid size-4 -translate-x-1/2 cursor-pointer place-items-center rounded-full border border-dashed border-line-strong bg-transparent p-0 text-fg-mute hover:border-fg-dim hover:text-fg"
+            style={{ left: pct(stop.at) }}
+          >
+            <Icon name="plus" size={10} />
+          </button>
+        </Tooltip>
       ))
     : null;
   return (

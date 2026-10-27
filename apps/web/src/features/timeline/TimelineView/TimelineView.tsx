@@ -21,7 +21,11 @@ export default function TimelineView({ preview }: TimelineViewProps) {
   const bar = (
     <ProjectTopBar
       extra={
-        <Button icon="browser" onClick={v.openPage}>
+        <Button
+          icon="browser"
+          tooltip="Shows the site in the Page view, scrolled to the playhead"
+          onClick={v.openPage}
+        >
           Preview on page
         </Button>
       }
@@ -52,7 +56,7 @@ export default function TimelineView({ preview }: TimelineViewProps) {
               title="The timeline could not be read"
               body={v.error}
               action={
-                <Button icon="arrow-clockwise" onClick={v.retry}>
+                <Button icon="arrow-clockwise" tooltip="Reads the timeline again" onClick={v.retry}>
                   Try again
                 </Button>
               }
@@ -96,6 +100,7 @@ export default function TimelineView({ preview }: TimelineViewProps) {
             <Button
               size="sm"
               icon="browser"
+              tooltip="Shows the site in the Page view, scrolled to the playhead"
               onClick={v.openPage}
               className="absolute right-3 bottom-3"
             >

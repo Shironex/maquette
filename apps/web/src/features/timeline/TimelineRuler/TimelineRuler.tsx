@@ -1,4 +1,4 @@
-import { Icon, cn } from '@maquette/ui';
+import { Icon, Tooltip, cn } from '@maquette/ui';
 import { KEY, LANE, LANE_NAME, pct } from '../lanes';
 import { useTimelineRuler } from './TimelineRuler.hooks';
 
@@ -42,18 +42,20 @@ export default function TimelineRuler() {
     const next = r.stops[i + 1];
     return (
       <span key={stop.id}>
-        <button
-          type="button"
-          aria-label={`Camera stop ${i + 1}, ${stop.name}, at ${Math.round(stop.at)}%`}
-          aria-current={i === r.current ? 'step' : undefined}
-          onClick={() => r.jump(i)}
-          className={cn(
-            KEY,
-            'bg-focus',
-            i === r.current && 'shadow-[0_0_0_3px_var(--color-clay-soft)]'
-          )}
-          style={{ left: pct(stop.at) }}
-        />
+        <Tooltip label={`Jump to ${stop.name}, at ${Math.round(stop.at)}%`}>
+          <button
+            type="button"
+            aria-label={`Camera stop ${i + 1}, ${stop.name}, at ${Math.round(stop.at)}%`}
+            aria-current={i === r.current ? 'step' : undefined}
+            onClick={() => r.jump(i)}
+            className={cn(
+              KEY,
+              'bg-focus',
+              i === r.current && 'shadow-[0_0_0_3px_var(--color-clay-soft)]'
+            )}
+            style={{ left: pct(stop.at) }}
+          />
+        </Tooltip>
         {next ? (
           <span
             aria-hidden="true"

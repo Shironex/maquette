@@ -29,13 +29,31 @@ export default function PathKeyEditor() {
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" icon="trash" disabled={!e.keyed} onClick={e.removeKey}>
+        <Button
+          size="sm"
+          icon="trash"
+          disabled={!e.keyed}
+          disabledReason="Nothing is keyed at this stop"
+          tooltip="Removes the key at this stop"
+          onClick={e.removeKey}
+        >
           Remove this key
         </Button>
-        <Button size="sm" variant="ghost" onClick={e.removeTrack}>
+        <Button
+          size="sm"
+          variant="ghost"
+          tooltip="Removes every key of this path's fill"
+          onClick={e.removeTrack}
+        >
           Remove the track
         </Button>
-        <Button size="sm" variant="ghost" icon="path" onClick={e.openPath}>
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="path"
+          tooltip="Goes to the Inspector's Paths tab to change the path itself"
+          onClick={e.openPath}
+        >
           Edit the path
         </Button>
       </div>
