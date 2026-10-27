@@ -1,0 +1,101 @@
+# Path based auto labels for pull requests (actions/labeler v5+ syntax).
+# Label names match .github/labels.yml. The workflow that runs this is added
+# with the CI slice.
+
+area:desktop:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/desktop/**
+
+area:web:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/web/**
+
+area:ui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/ui/**
+
+area:core:
+  - changed-files:
+      - any-glob-to-any-file:
+          - crates/**
+          - Cargo.toml
+          - Cargo.lock
+
+area:pipeline:
+  - changed-files:
+      - any-glob-to-any-file:
+          - crates/maquette-core/src/pipeline/**
+          - crates/maquette-core/src/prepare/**
+          - crates/maquette-core/src/prepare.rs
+          - crates/maquette-core/src/timeline/**
+          - crates/maquette-core/src/site/**
+          - crates/maquette-core/src/game/**
+          - apps/web/src/features/pipeline/**
+
+area:providers:
+  - changed-files:
+      - any-glob-to-any-file:
+          - crates/maquette-core/src/providers/**
+          - crates/maquette-core/src/concepts/**
+          - apps/web/src/features/providers/**
+          - apps/web/src/features/lab/**
+          - apps/desktop/src-tauri/src/keychain.rs
+
+area:blender:
+  - changed-files:
+      - any-glob-to-any-file:
+          - crates/maquette-core/starter/**
+          - crates/maquette-core/src/built/**
+          - crates/maquette-core/src/thumbs/**
+          - crates/maquette-core/src/test_blender.rs
+
+area:mcp:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/desktop/src-tauri/src/mcp/**
+          - apps/web/src/features/agents/**
+
+area:workspace-sync:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/desktop/src-tauri/src/workspace_lock.rs
+          - crates/maquette-core/src/workspace/**
+          - crates/maquette-core/src/workspace.rs
+
+area:site:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/site/**
+
+area:docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - docs/**
+
+area:build:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - scripts/**
+          - .husky/**
+          - eslint.config.mjs
+          - commitlint.config.mjs
+          - tsconfig.base.json
+          - rust-toolchain.toml
+          - rustfmt.toml
+          - clippy.toml
+          - .nvmrc
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - package.json
+          - pnpm-lock.yaml
+          - pnpm-workspace.yaml
+          - apps/*/package.json
+          - packages/*/package.json
+          - Cargo.lock
