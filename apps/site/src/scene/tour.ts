@@ -29,9 +29,16 @@ export function prefersReducedMotion(): boolean {
 /** Desktop class: a fine pointer and a wide window. Phones never get the 3D. */
 export const DESKTOP_QUERY = '(min-width: 1024px) and (pointer: fine)';
 
+/**
+ * Context attributes the probe and the scene's renderer share. A software
+ * renderer still makes a WebGL 2 context but draws the scene at a few frames
+ * a second; with the caveat flag it refuses, and the page keeps its posters.
+ */
+export const GPU_CONTEXT: WebGLContextAttributes = { failIfMajorPerformanceCaveat: true };
+
 export function supportsWebGL2(): boolean {
   try {
-    const gl = document.createElement('canvas').getContext('webgl2');
+    const gl = document.createElement('canvas').getContext('webgl2', GPU_CONTEXT);
     // Give the context back at once; the scene makes its own.
     gl?.getExtension('WEBGL_lose_context')?.loseContext();
     return Boolean(gl);

@@ -8,6 +8,7 @@ import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { STOPS } from './manifest';
 import { Scene } from './Scene';
+import { GPU_CONTEXT } from './tour';
 import type { WorkbenchProps } from './Workbench.types';
 
 export type { WorkbenchProps } from './Workbench.types';
@@ -20,7 +21,7 @@ export function Workbench(props: WorkbenchProps) {
       dpr={[1, 1.5]}
       shadows="percentage"
       camera={{ fov: start?.fov ?? 36, near: 0.05, far: 30, position: start?.position }}
-      gl={{ antialias: true, powerPreference: 'high-performance', stencil: false }}
+      gl={{ antialias: true, powerPreference: 'high-performance', stencil: false, ...GPU_CONTEXT }}
       onCreated={({ gl }) => {
         if (props.capture) Object.assign(window, { __maquetteRenderer: gl });
         gl.toneMapping = THREE.ACESFilmicToneMapping;

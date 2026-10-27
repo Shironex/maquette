@@ -1,8 +1,9 @@
 /**
  * Run by hand, not in the gate: starts `astro dev` in this process, loads the
  * page in headless Chromium and checks that the 3D tour mounts in dev (no
- * React preamble error, `is-live` set), and stays live while scrolling.
- * Screenshots go to SHOTS when it is set. It never captures the screen.
+ * React preamble error, `is-live` set), stays live while scrolling, and that
+ * a software renderer gets the poster instead. Screenshots go to SHOTS when
+ * it is set. It never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs [SHOTS=dir] pnpm --filter @maquette/site check:dev-tour
  */
@@ -61,6 +62,34 @@ try {
   if (errors.length) console.log('console errors:\n' + errors.join('\n'));
 } finally {
   await browser.close();
+}
+
+// Chromium's own software GL reports a major performance caveat, so the
+// island must stay off and the page keep its poster.
+const software = await chromium.launch({ args: ['--use-gl=swiftshader'] });
+try {
+  const page = await software.newPage({ viewport: { width: 1600, height: 900 } });
+  await page.goto(base, { waitUntil: 'load' });
+  const caveat = await page.evaluate(
+    () =>
+      !document.createElement('canvas').getContext('webgl2', { failIfMajorPerformanceCaveat: true })
+  );
+  if (!caveat) {
+    console.log('skip software GL: this Chromium reports no caveat for it');
+  } else {
+    // The island starts after idle time (at most 1.5 s); give it longer than that.
+    await page.waitForTimeout(4000);
+    check((await page.locator('.is-live').count()) === 0, 'software GL: tour stays on posters');
+    check((await page.locator('canvas').count()) === 0, 'software GL: no canvas');
+    const poster = await page.evaluate(() => {
+      const img = document.querySelector('[data-poster].is-shown');
+      return img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0;
+    });
+    check(poster, 'software GL: the stop poster is shown');
+    if (shots) await page.screenshot({ path: `${shots}/software-gl.png` });
+  }
+} finally {
+  await software.close();
   await server.stop();
 }
 process.exit(problems.length ? 1 : 0);
