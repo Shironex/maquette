@@ -10,10 +10,11 @@ import {
   type PresetRow,
 } from '@/state/presets';
 import { usePipelineStore } from '@/state/use-pipeline-store';
+import { modelResults, modelsLine, sortRows, type ModelSort } from './modelResults';
 
 const NO_EDITS = {};
 
-/** The preset rows with the edits not applied yet, the open splits and Apply. */
+/** The preset rows with the edits not applied yet, the open splits, the sort and Apply. */
 export function usePresetsPanel(
   view: PipelineView,
   onSave: (presets: CompressPreset[]) => Promise<boolean>
@@ -43,5 +44,22 @@ export function usePresetsPanel(
     setSaving(false);
   };
   const transfer = estimateTransfer(view, rows);
-  return { rows, open, toggle, dirty, locks, update, save, saving, transfer };
+  const [sort, setSort] = useState<ModelSort>('name');
+  const results = useMemo(() => modelResults(view), [view]);
+  const shown = sortRows(rows, results, sort);
+  return {
+    rows: shown,
+    results,
+    summary: modelsLine(view),
+    sort,
+    setSort,
+    open,
+    toggle,
+    dirty,
+    locks,
+    update,
+    save,
+    saving,
+    transfer,
+  };
 }

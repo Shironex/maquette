@@ -14,14 +14,15 @@ describe('the compression presets', () => {
     const onSave = vi.fn().mockResolvedValue(true);
     render(<PresetsPanel view={view} onSave={onSave} />);
     expect(screen.queryByRole('combobox', { name: 'Veil platform data map size' })).toBeNull();
-    const before = screen.getByText(/B$/, { selector: '.font-mono' }).textContent;
+    const transfer = () => screen.getByText('Est. transfer after Compress').nextElementSibling;
+    const before = transfer()!.textContent;
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Texture sizes per map for Veil platform' })
     );
     const data = screen.getByRole('combobox', { name: 'Veil platform data map size' });
     await userEvent.selectOptions(data, '512 px');
-    expect(screen.getByText(/B$/, { selector: '.font-mono' }).textContent).not.toBe(before);
+    expect(transfer()!.textContent).not.toBe(before);
 
     await userEvent.click(screen.getByRole('button', { name: 'Apply presets' }));
     const saved = onSave.mock.calls[0]![0] as { model: string; dataTextureSize: number | null }[];
@@ -86,5 +87,26 @@ describe('the compression presets', () => {
       'aria-disabled',
       'true'
     );
+  });
+
+  it('shows what each model shipped at, sorts by size and links to the size report', async () => {
+    const onSizeReport = vi.fn();
+    render(<PresetsPanel view={view} onSave={vi.fn()} onSizeReport={onSizeReport} />);
+    expect(screen.getByText('4 models · 14.3 MB → 3.8 MB')).toBeInTheDocument();
+    const names = () =>
+      screen
+        .getAllByRole('button', { name: /^Texture sizes per map for / })
+        .map(b => b.getAttribute('aria-label')!.replace('Texture sizes per map for ', ''));
+    expect(names()[0]).toBe('Character');
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Sort the models by' }),
+      'By raw size'
+    );
+    expect(names().slice(0, 2)).toEqual(['Character', 'Island']);
+    expect(names().at(-1)).toBe('Sakura');
+    const island = screen.getByRole('button', { name: 'Texture sizes per map for Island' });
+    expect(within(island.closest('tr')!).getByText('1.1 MB')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Size report' }));
+    expect(onSizeReport).toHaveBeenCalledOnce();
   });
 });

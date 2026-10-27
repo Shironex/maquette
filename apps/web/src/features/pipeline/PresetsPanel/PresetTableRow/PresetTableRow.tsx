@@ -1,9 +1,13 @@
 import { Icon, Select, Tooltip, cn } from '@maquette/ui';
-import type { PresetRow } from '@/state/presets';
+import { formatBytes } from '@/lib/format';
+import { splitSize, type PresetRow } from '@/state/presets';
+import { resultText, type ModelResult } from '../modelResults';
 import { CODECS, DATA_SIZES, MESHOPT, SAME, SIZES } from '../preset-options';
 
 export interface PresetTableRowProps {
   row: PresetRow;
+  /** What the model weighed raw and shipped at in the last run. */
+  result?: ModelResult;
   /** The extra line with the data map size is open. */
   split: boolean;
   /** Why the codec cannot be picked, when the textures are not KTX2. */
@@ -12,27 +16,61 @@ export interface PresetTableRowProps {
   onUpdate: (model: string, patch: Partial<PresetRow>) => void;
 }
 
-/** One model's texture size, codec and meshopt level, with its data map line. */
+function ResultCell({ result }: { result?: ModelResult }) {
+  const text = resultText(result);
+  const detail = result?.raw
+    ? result.shipped
+      ? `${formatBytes(result.raw)} raw export, ${formatBytes(result.shipped)} after Compress`
+      : `${formatBytes(result.raw)} raw export; Compress has not run on it yet`
+    : 'Export GLB has not written it yet';
+  return (
+    <Tooltip label="Last run" detail={detail}>
+      <span
+        tabIndex={0}
+        className={cn(
+          'block truncate rounded-control text-right font-mono text-[11.5px] tabular-nums',
+          result?.shipped ? 'text-fg' : 'text-fg-mute'
+        )}
+      >
+        {result?.raw && result.shipped ? (
+          <span className="text-fg-mute">{formatBytes(result.raw)} → </span>
+        ) : null}
+        {text}
+      </span>
+    </Tooltip>
+  );
+}
+
+/** One model's texture size, codec and meshopt level, its result, and its data map line. */
 export default function PresetTableRow({
   row,
+  result,
   split,
   codecOff,
   onToggle,
   onUpdate,
 }: PresetTableRowProps) {
   const locked = Boolean(row.lock);
+  const data = splitSize(row);
   return (
     <>
-      <tr className="border-t border-line">
-        <td className="py-1 pr-1">
-          <span className="flex items-center gap-1.5">
-            <span className="truncate">{row.label}</span>
+      <tr className={cn('border-t border-line', split && 'bg-raised/40')}>
+        <td className="py-1 pr-2">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate" title={row.label}>
+              {row.label}
+            </span>
+            {data !== null && !split ? (
+              <span className="flex-none rounded-control bg-raised px-1.5 font-mono text-[10.5px] leading-[18px] text-fg-dim">
+                data {data}
+              </span>
+            ) : null}
             <Tooltip
               label="Texture sizes per map"
               detail={
                 locked
                   ? 'Locked; the note below says why'
-                  : 'Gives the data maps (normal, roughness) a size of their own'
+                  : 'Gives the data maps (metal, roughness, occlusion, normal) a size of their own'
               }
             >
               <button
@@ -44,7 +82,7 @@ export default function PresetTableRow({
                   if (!locked) onToggle(row.model);
                 }}
                 className={cn(
-                  'grid size-5 flex-none cursor-pointer place-items-center rounded-control text-fg-mute hover:not-aria-disabled:text-fg active:not-aria-disabled:bg-line aria-disabled:cursor-default aria-disabled:opacity-45',
+                  'ml-auto grid size-5 flex-none cursor-pointer place-items-center rounded-control text-fg-mute hover:not-aria-disabled:text-fg active:not-aria-disabled:bg-line aria-disabled:cursor-default aria-disabled:opacity-45',
                   split && 'bg-raised text-fg'
                 )}
               >
@@ -78,7 +116,7 @@ export default function PresetTableRow({
             />
           </Tooltip>
         </td>
-        <td className="py-1">
+        <td className="py-1 pr-2">
           <Select
             aria-label={`${row.label} meshopt level`}
             size="sm"
@@ -89,13 +127,22 @@ export default function PresetTableRow({
             onChange={v => onUpdate(row.model, { meshopt: v })}
           />
         </td>
+        <td className="py-1">
+          <ResultCell result={result} />
+        </td>
       </tr>
       {split ? (
-        <tr>
-          <td colSpan={4} className="pb-2">
-            <div className="flex items-center justify-between gap-3 rounded-[8px] bg-raised px-2.5 py-2">
-              <span className="text-meta text-fg-dim">
-                Metal, roughness, occlusion and normal maps
+        <tr className="bg-raised/40">
+          <td colSpan={5} className="pb-2">
+            <div className="ml-2 flex items-center gap-3 border-l-2 border-line-strong py-1 pl-3">
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-[12px] text-fg">
+                  Data maps
+                  <span className="text-fg-mute"> · base color stays {row.textureSize} px</span>
+                </span>
+                <span className="text-meta truncate text-fg-mute">
+                  Metal, roughness, occlusion and normal
+                </span>
               </span>
               <Select
                 aria-label={`${row.label} data map size`}
@@ -106,6 +153,7 @@ export default function PresetTableRow({
                 onChange={v =>
                   onUpdate(row.model, { dataTextureSize: v === SAME ? null : Number(v) })
                 }
+                className="w-[132px]"
               />
             </div>
           </td>

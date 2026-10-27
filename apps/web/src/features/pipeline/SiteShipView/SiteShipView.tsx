@@ -6,13 +6,15 @@ import { useSiteShipView } from './SiteShipView.hooks';
 
 export interface SiteShipViewProps {
   project: string;
+  /** Opens scrolled to this part, as the presets' Size report link asks. */
+  focus?: 'report' | null;
   /** Back to the runner. */
   onClose: () => void;
 }
 
 /** A website's Ship settings, the dry-run plan and the size report. */
-export default function SiteShipView({ project, onClose }: SiteShipViewProps) {
-  const ship = useSiteShipView(project);
+export default function SiteShipView({ project, focus = null, onClose }: SiteShipViewProps) {
+  const ship = useSiteShipView(project, focus);
   const { view } = ship;
   const back = (
     <Button
@@ -78,7 +80,9 @@ export default function SiteShipView({ project, onClose }: SiteShipViewProps) {
             body="Run the pipeline, or run it with Build only, to see what Ship would write."
           />
         )}
-        <SizeReportTable report={report} />
+        <div ref={ship.reportRef} className="scroll-mt-4">
+          <SizeReportTable report={report} />
+        </div>
       </div>
       <ShipSettingsPanel
         settings={settings}

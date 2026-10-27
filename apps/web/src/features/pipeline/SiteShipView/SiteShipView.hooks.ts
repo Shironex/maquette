@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type {
   ShipChoice,
   ShipSettingsChange_Deserialize as SettingsChange,
@@ -10,7 +10,7 @@ import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useShipStore } from '@/state/use-ship-store';
 
 /** The website Ship view of `project`: settings, plan and size report, fresh after each run. */
-export function useSiteShipView(project: string) {
+export function useSiteShipView(project: string, focus: 'report' | null = null) {
   const { view, loading, saving, error, load, save } = useShipStore();
   const home = useAppStore(s => s.boot?.home);
   const name = useAppStore(s => s.workspace?.project?.name ?? project);
@@ -24,6 +24,12 @@ export function useSiteShipView(project: string) {
   }, [project, runKey, load]);
 
   const ours = view?.project === project ? view : null;
+  // Opened from the presets' Size report link: scroll there once it is drawn.
+  const reportRef = useRef<HTMLDivElement>(null);
+  const drawn = ours !== null;
+  useEffect(() => {
+    if (focus === 'report' && drawn) reportRef.current?.scrollIntoView({ block: 'start' });
+  }, [focus, drawn]);
   const saveSettings = (settings: SettingsChange) => save(project, { settings });
   const saveTarget = (target: SiteTarget) => save(project, { target });
   /** Sets one asset's choice, keeping its file name. */
@@ -38,6 +44,7 @@ export function useSiteShipView(project: string) {
   const repo = ours?.plan.target.repo ? homePath(ours.plan.target.repo, home) : null;
   return {
     view: ours,
+    reportRef,
     loading,
     saving,
     error,
