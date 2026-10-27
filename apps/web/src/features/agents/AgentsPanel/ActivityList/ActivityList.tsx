@@ -17,7 +17,12 @@ export default function ActivityList({ status }: ActivityListProps) {
           Activity
         </h3>
         {calls.length ? (
-          <Button size="sm" variant="ghost" onClick={() => void clear()}>
+          <Button
+            size="sm"
+            variant="ghost"
+            tooltip="Clears the list of tool calls"
+            onClick={() => void clear()}
+          >
             Clear
           </Button>
         ) : null}

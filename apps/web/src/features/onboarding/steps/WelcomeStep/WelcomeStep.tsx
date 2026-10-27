@@ -45,6 +45,7 @@ export default function WelcomeStep({ api }: WelcomeStepProps) {
             size="lg"
             icon="folder-open"
             disabled={api.flow.busy}
+            tooltip="Skips setup and opens a workspace folder you already have"
             onClick={() => void api.openExistingFromWelcome()}
           >
             Open existing workspace

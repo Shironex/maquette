@@ -89,6 +89,7 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
         <Button
           variant="secondary"
           disabled={deciding}
+          tooltip={send ? 'Sends nothing and spends no credits' : 'Ships nothing'}
           onClick={() => void decide(approval.id, false)}
         >
           Deny
@@ -98,6 +99,11 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
           icon="check"
           loading={deciding}
           disabled={deciding}
+          tooltip={
+            send
+              ? 'Sends it to the provider, which spends credits'
+              : 'Writes the files to the game repo'
+          }
           onClick={() => void decide(approval.id, true)}
         >
           {send

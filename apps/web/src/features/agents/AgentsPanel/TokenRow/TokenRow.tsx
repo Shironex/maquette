@@ -25,7 +25,7 @@ export default function TokenRow() {
       <Button
         size="sm"
         variant="ghost"
-        title="Agents set up with the old token stop working"
+        tooltip="Makes a new token; agents set up with the old one stop working"
         onClick={() => void renew()}
       >
         New token

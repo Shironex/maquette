@@ -39,6 +39,7 @@ export default function ReadyStep({ api }: ReadyStepProps) {
         variant="ghost"
         className="mt-[3px]"
         aria-label={`Edit ${row.title.toLowerCase()}`}
+        tooltip="Goes back to this step"
         onClick={() => api.setStep(row.step)}
       >
         Edit

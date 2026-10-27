@@ -143,7 +143,7 @@ export default function GameImportDialog() {
           </p>
         </div>
         <footer className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-          <Button variant="ghost" onClick={d.close}>
+          <Button variant="ghost" tooltip="Closes this without importing" onClick={d.close}>
             Back
           </Button>
           <Button
@@ -153,6 +153,7 @@ export default function GameImportDialog() {
             loading={d.importing}
             disabled={!d.picked.size || d.importing}
             disabledReason="Pick at least one model"
+            tooltip="Adds the picked models to the Board and the ship record"
           >
             Import {d.counts.selected} {d.picked.size === 1 ? 'model' : 'models'}
           </Button>
