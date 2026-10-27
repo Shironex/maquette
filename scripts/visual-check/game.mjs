@@ -4,7 +4,9 @@
  * models list, the game pipeline with its Game export panel, the per-folder
  * budget, the Ship diff with its approval and imported originals, the game
  * project's rail, Motion with a rigged hero and 187 clips, the Board after
- * Render previews, and the Budget tab with a rigged model.
+ * Render previews, the Budget tab with a rigged model, and the Inbox
+ * checking a sent model against its folder's budget with the top bar's
+ * budget tooltip.
  * Mock mode's `?game=` projects stand in for a game repo; nothing is read
  * from or written to a real one.
  */
@@ -100,4 +102,24 @@ export async function gameShots({ open, shot }) {
   await rail.getByText('Game preview').waitFor();
   await shot(rail, 'game-project-rail');
   await rail.context().close();
+
+  // A model sent for a prop checks against the props budget in the Inbox,
+  // the same budget the top bar counts against.
+  const inbox = await open(`${GAME}crypt`, '#/inbox');
+  // The waiting Ship approval floats over the checks; deny it out of the way.
+  await inbox.getByRole('alertdialog').getByRole('button', { name: 'Deny' }).click();
+  await inbox.getByRole('alertdialog').waitFor({ state: 'detached' });
+  await inbox
+    .getByRole('button', { name: /^Candle cluster/ })
+    .first()
+    .click();
+  await inbox.getByText(/^Over the props budget, 12k tris\./).waitFor();
+  await shot(inbox, 'game-inbox-folder-budget');
+  await inbox.context().close();
+  const top = await open(`${GAME}crypt`, '#/motion');
+  const meter = top.getByRole('meter', { name: /^Game budget/ });
+  await meter.hover();
+  await top.getByRole('tooltip').waitFor();
+  await shot(top, 'game-budget-tooltip');
+  await top.context().close();
 }
