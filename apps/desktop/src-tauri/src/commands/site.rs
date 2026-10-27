@@ -51,7 +51,7 @@ pub(crate) fn dev_plan(session: &Session, project_id: &str) -> CommandResult<Pre
     let repo = site_dir(session, project_id)?;
     let (root, config) = session.workspace()?;
     let dir = project::dir(&root, &config.layout, project_id)?;
-    let settings = page::load(&dir)?;
+    let settings = page::load(&dir, &root)?;
     let repo_text = repo.to_string_lossy();
     let command = page::dev_command(Some(&repo_text), &settings)?;
     Ok(preview::plan(&repo, &command, &ProbeEnv::from_system())?)

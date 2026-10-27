@@ -63,20 +63,22 @@ impl Default for PageSettings {
     }
 }
 
-/// The project's page settings, or the defaults without `page.json`.
+/// The project's page settings, or the defaults without `page.json`. The
+/// concept comes back as a path on this computer: the file keeps it
+/// relative to the workspace (older files have it absolute).
 ///
 /// # Errors
 ///
 /// Fails when the file cannot be read, is not JSON or comes from a newer
 /// Maquette.
-pub fn load(project_dir: &Path) -> CoreResult<PageSettings> {
+pub fn load(project_dir: &Path, workspace_root: &Path) -> CoreResult<PageSettings> {
     let file = project_dir.join(PAGE_FILE);
     let text = match fs::read_to_string(&file) {
         Ok(text) => text,
         Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(PageSettings::default()),
         Err(err) => return Err(CoreError::io(&file, err)),
     };
-    let settings: PageSettings =
+    let mut settings: PageSettings =
         from_json_with_defaults(&text).map_err(|e| CoreError::json(&file, e))?;
     if settings.version > PAGE_VERSION {
         return Err(CoreError::UnsupportedVersion {
@@ -84,6 +86,11 @@ pub fn load(project_dir: &Path) -> CoreResult<PageSettings> {
             supported: PAGE_VERSION,
         });
     }
+    settings.concept = settings.concept.map(|c| {
+        crate::fs::from_workspace(workspace_root, &c)
+            .display()
+            .to_string()
+    });
     Ok(settings)
 }
 
@@ -176,7 +183,14 @@ pub fn save(
     settings: &PageSettings,
 ) -> CoreResult<PageSettings> {
     let next = validate(settings, workspace_root)?;
-    write_json(&project_dir.join(PAGE_FILE), &next)?;
+    let stored = PageSettings {
+        concept: next
+            .concept
+            .as_deref()
+            .map(|c| crate::fs::to_workspace(workspace_root, Path::new(c))),
+        ..next.clone()
+    };
+    write_json(&project_dir.join(PAGE_FILE), &stored)?;
     Ok(next)
 }
 

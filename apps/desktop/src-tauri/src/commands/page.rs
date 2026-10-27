@@ -24,7 +24,7 @@ pub(crate) fn view(
     let (root, config) = session.workspace()?;
     let manifest = project::load(&root, &config.layout, project_id)?;
     let dir = project::dir(&root, &config.layout, project_id)?;
-    let settings = page::load(&dir)?;
+    let settings = page::load(&dir, &root)?;
     Ok(page::view(
         project_id,
         manifest.site_repo.as_deref(),

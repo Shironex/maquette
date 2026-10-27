@@ -9,8 +9,8 @@ fn workspace() -> (tempfile::TempDir, std::path::PathBuf) {
 
 #[test]
 fn a_project_without_page_json_gets_the_defaults() {
-    let (_dir, project) = workspace();
-    let settings = load(&project).expect("load");
+    let (dir, project) = workspace();
+    let settings = load(&project, dir.path()).expect("load");
     assert_eq!(settings, PageSettings::default());
     assert_eq!(settings.path, "/");
     assert_eq!(settings.source, PageSource::Site);
@@ -35,7 +35,20 @@ fn settings_round_trip_tidied() {
     .expect("save");
     assert_eq!(saved.dev_command.as_deref(), Some("pnpm dev --port {port}"));
     assert_eq!(saved.path, "/pricing");
-    assert_eq!(load(&project).expect("load"), saved);
+    assert_eq!(load(&project, dir.path()).expect("load"), saved);
+    let text = std::fs::read_to_string(project.join(PAGE_FILE)).expect("read");
+    assert!(
+        text.contains(r#""concept": "projects/moon-island/concepts/home_v2.html""#),
+        "kept relative to the workspace: {text}"
+    );
+
+    // An older file with the concept's absolute path still reads.
+    let old = text.replace(
+        "projects/moon-island/concepts/home_v2.html",
+        &concept.to_string_lossy().replace('\\', "\\\\"),
+    );
+    std::fs::write(project.join(PAGE_FILE), old).expect("old");
+    assert_eq!(load(&project, dir.path()).expect("old"), saved);
 
     // A blank command goes back to the site's own and a blank path to /.
     let cleared = save(
@@ -111,14 +124,14 @@ fn bad_settings_are_refused_and_nothing_is_written() {
 
 #[test]
 fn a_file_from_a_newer_maquette_is_refused() {
-    let (_dir, project) = workspace();
+    let (dir, project) = workspace();
     std::fs::write(project.join(PAGE_FILE), r#"{ "version": 9 }"#).expect("write");
     assert_eq!(
-        load(&project).expect_err("newer").code(),
+        load(&project, dir.path()).expect_err("newer").code(),
         "unsupported-version"
     );
     std::fs::write(project.join(PAGE_FILE), r#"{ "version": 1, "path": "/x" }"#).expect("old");
-    let partial = load(&project).expect("partial");
+    let partial = load(&project, dir.path()).expect("partial");
     assert_eq!(partial.path, "/x");
     assert_eq!(partial.source, PageSource::Site);
 }

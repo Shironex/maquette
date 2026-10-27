@@ -38,7 +38,64 @@ fn write_and_rename(tmp: &Path, path: &Path, bytes: &[u8]) -> io::Result<()> {
     file.write_all(bytes)?;
     file.sync_data()?;
     drop(file);
-    fs::rename(tmp, path)
+    rename_retrying(tmp, path)
+}
+
+/// `fs::rename`, tried a few more times on Windows while the target is
+/// held open: a sync tool, a virus scanner or the search indexer reading
+/// the old file makes the replace fail with "access denied" for a moment.
+fn rename_retrying(from: &Path, to: &Path) -> io::Result<()> {
+    const WAITS_MS: [u64; 5] = [20, 50, 100, 200, 400];
+    let mut result = fs::rename(from, to);
+    for wait in WAITS_MS {
+        match &result {
+            Err(err) if cfg!(windows) && err.kind() == io::ErrorKind::PermissionDenied => {
+                std::thread::sleep(std::time::Duration::from_millis(wait));
+                result = fs::rename(from, to);
+            }
+            _ => break,
+        }
+    }
+    result
+}
+
+/// True for a path written on any computer as absolute: `/Users/me`,
+/// `\\server\share` or `C:\Users\me`. A path from macOS is not absolute to
+/// Windows' own check, so this looks at the text.
+pub fn looks_absolute(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    let drive = bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && (bytes[2] == b'/' || bytes[2] == b'\\');
+    text.starts_with('/') || text.starts_with('\\') || drive
+}
+
+/// How a workspace file records `path`: relative to `root` with `/` between
+/// folders when it is inside, so the file reads the same on every computer
+/// the workspace syncs to, else the absolute path as it is.
+pub fn to_workspace(root: &Path, path: &Path) -> String {
+    match path.strip_prefix(root) {
+        Ok(rel) if !rel.as_os_str().is_empty() => rel
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join("/"),
+        _ => path.display().to_string(),
+    }
+}
+
+/// A path a workspace file recorded, on this computer: a relative one under
+/// `root` (never above it), an absolute one as it is.
+pub fn from_workspace(root: &Path, recorded: &str) -> PathBuf {
+    if looks_absolute(recorded) {
+        PathBuf::from(recorded)
+    } else {
+        recorded
+            .split(['/', '\\'])
+            .filter(|part| !part.is_empty() && *part != "." && *part != "..")
+            .fold(root.to_path_buf(), |path, part| path.join(part))
+    }
 }
 
 /// Expands a leading `~` to the home folder. Anything else is returned as is.
@@ -182,6 +239,37 @@ mod tests {
         assert_eq!(dir_size(&copy), 3);
         assert!(move_tree(&to, &copy).is_err(), "c exists");
         assert!(to.join("one.txt").is_file(), "nothing moved");
+    }
+
+    #[test]
+    fn workspace_paths_are_relative_inside_and_absolute_outside() {
+        let root = Path::new("/ws");
+        assert_eq!(
+            to_workspace(root, &root.join("projects").join("studio").join("handoff")),
+            "projects/studio/handoff"
+        );
+        assert_eq!(
+            to_workspace(root, Path::new("/elsewhere/x")),
+            "/elsewhere/x"
+        );
+        assert_eq!(
+            from_workspace(root, "projects/studio/handoff"),
+            root.join("projects").join("studio").join("handoff")
+        );
+        assert_eq!(
+            from_workspace(root, "projects\\studio"),
+            root.join("projects").join("studio")
+        );
+        assert_eq!(
+            from_workspace(root, "/Users/me/x"),
+            PathBuf::from("/Users/me/x")
+        );
+        for absolute in ["/Users/me", "C:\\Users\\me", "d:/ws", "\\\\server\\share"] {
+            assert!(looks_absolute(absolute), "{absolute}");
+        }
+        for relative in ["projects/a", "C:", "a:b", ""] {
+            assert!(!looks_absolute(relative), "{relative}");
+        }
     }
 
     #[test]

@@ -282,7 +282,11 @@ impl ProviderJobs {
             let Ok(dir) = workspace.project_dir(&manifest.id) else {
                 continue;
             };
-            for mut stored in load(&dir) {
+            let (saved, older) = load(root, &dir);
+            if older {
+                touched.push(manifest.id.clone());
+            }
+            for mut stored in saved {
                 // A job belongs to the project whose folder holds it, also
                 // in a project folder copied by hand.
                 let moved = stored.job.project != manifest.id;

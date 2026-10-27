@@ -48,7 +48,40 @@ pub(super) fn resume_fixup(stored: &mut Stored) -> bool {
     }
 }
 
-pub(super) fn load(project_dir: &Path) -> Vec<Stored> {
+/// A project's saved jobs, with each By hand folder as a path on this
+/// computer.
+/// True as well when a folder was saved the older way, as an absolute
+/// path, so the file is written again in the new form.
+pub(super) fn load(root: &Path, project_dir: &Path) -> (Vec<Stored>, bool) {
+    let mut jobs = read(project_dir);
+    let mut older = false;
+    for stored in &mut jobs {
+        let job = &mut stored.job;
+        if let Some(recorded) = job.handoff.take() {
+            older |= crate::fs::looks_absolute(&recorded);
+            job.handoff = Some(handoff_here(root, project_dir, &job.id, &recorded));
+        }
+    }
+    (jobs, older)
+}
+
+/// Where a recorded handoff folder is on this computer. Files save it
+/// relative to the workspace; an older file's absolute path is used as it
+/// is when it is inside this workspace or still there, and otherwise (a
+/// path from another computer) the job's own folder stands in for it when
+/// that is here.
+fn handoff_here(root: &Path, project_dir: &Path, job: &str, recorded: &str) -> String {
+    let path = crate::fs::from_workspace(root, recorded);
+    if !crate::fs::looks_absolute(recorded) || path.starts_with(root) || path.is_dir() {
+        return path.display().to_string();
+    }
+    let own = project_dir
+        .join(super::super::handoff::HANDOFF_DIR)
+        .join(job);
+    if own.is_dir() { own } else { path }.display().to_string()
+}
+
+fn read(project_dir: &Path) -> Vec<Stored> {
     let path = project_dir.join(JOBS_FILE);
     let text = match fs::read_to_string(&path) {
         Ok(text) => text,
@@ -80,15 +113,21 @@ pub(super) fn persist(shared: &Shared, project: &str) {
         return;
     };
     let jobs = shared.jobs();
-    write_project(&dir, &jobs, project);
+    write_project(&workspace.root, &dir, &jobs, project);
 }
 
-fn write_project(dir: &Path, jobs: &[Entry], project: &str) {
+fn write_project(root: &Path, dir: &Path, jobs: &[Entry], project: &str) {
     let mut mine: Vec<Stored> = jobs
         .iter()
         .filter(|e| e.stored.job.project == project)
         .map(|e| e.stored.clone())
         .collect();
+    // Saved relative to the workspace, so the file reads on every computer.
+    for stored in &mut mine {
+        if let Some(folder) = stored.job.handoff.as_deref() {
+            stored.job.handoff = Some(crate::fs::to_workspace(root, Path::new(folder)));
+        }
+    }
     let finished = mine.iter().filter(|s| !s.job.state.is_active()).count();
     if finished > KEEP_FINISHED {
         let mut drop = finished - KEEP_FINISHED;
