@@ -1,6 +1,6 @@
 /**
- * The Paths editor's shots for scripts/visual-check.mjs (ONLY=paths): Moon
- * Island's lantern cable selected with its points, a point picked with the
+ * The Paths editor's shots for scripts/visual-check.mjs (ONLY=paths):
+ * Frostveil's rune line selected with its points, a point picked with the
  * gizmo on it, Add points with its hint, and a project without paths. Mock
  * mode's `?paths=demo` and `?paths=empty` serve them.
  */
@@ -27,7 +27,7 @@ export async function pathsShots({ open, shot }) {
   await shot(main, 'paths-main');
 
   await main.getByRole('button', { name: 'Pick point 3' }).click();
-  await main.getByText(/Lantern cable · 5 points · [\d.]+ m · point 3/).waitFor();
+  await main.getByText(/Rune line · 5 points · [\d.]+ m · point 3/).waitFor();
   await main.waitForTimeout(600);
   await shot(main, 'paths-point');
 

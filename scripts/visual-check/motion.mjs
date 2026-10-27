@@ -67,7 +67,7 @@ export async function motionShots({ open, shot }) {
   await still.context().close();
 
   const over = await motion(open, 'over');
-  await over.getByRole('button', { name: /^Character\s*75 bones/ }).click();
+  await over.getByRole('button', { name: /^Elsheria\s*119 bones/ }).click();
   await over
     .getByRole('alert')
     .filter({ hasText: /over its .+ budget/ })

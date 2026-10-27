@@ -23,7 +23,7 @@ export async function pageShots({ open, shot }) {
   const running = await open(RUNNING, '#/page');
   await answered(running);
   await running.getByRole('button', { name: /^Jump to stop 2, / }).click();
-  await running.getByText(/stop 2, Sakura/).waitFor();
+  await running.getByText(/stop 2, Veil gate/).waitFor();
   await shot(running, 'page-running');
 
   await running

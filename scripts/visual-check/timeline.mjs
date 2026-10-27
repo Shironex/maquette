@@ -39,8 +39,8 @@ export async function timelineShots({ open, shot }) {
   await main.getByRole('heading', { name: 'Switch cabinet · explode at Pullback' }).waitFor();
   await shot(main, 'timeline-explode');
 
-  await main.getByRole('button', { name: 'Lantern cable lit at Canopy' }).click();
-  await main.getByRole('heading', { name: 'Lantern cable · energize at Canopy' }).waitFor();
+  await main.getByRole('button', { name: 'Rune line lit at Keystone' }).click();
+  await main.getByRole('heading', { name: 'Rune line · energize at Keystone' }).waitFor();
   await shot(main, 'timeline-paths');
 
   await main.getByRole('button', { name: 'Add track' }).click();

@@ -140,50 +140,50 @@ async function open(query = '', hash = '', viewport = { width: 1440, height: 900
 const cont = page =>
   page.getByRole('button', { name: /^(Continue|Create project|Open .+)$/ }).click();
 
-/** Object refs, batch sends and the By hand hand-back, on the workbench fixture. */
+/** Object refs, batch sends and the By hand hand-back, on the veil gate fixture. */
 async function handoffShots() {
   const fixture = '&scenario=configured&handoff=batch&conceptMs=60000';
   const lab = await open(fixture, '#/lab');
   await lab.getByText('Earlier directions').waitFor();
-  await lab.getByRole('button', { name: /^Workbench hero 1 image/ }).click();
-  await lab.getByRole('heading', { name: 'Workbench hero', exact: true }).waitFor();
+  await lab.getByRole('button', { name: /^Veil gate props 1 image/ }).click();
+  await lab.getByRole('heading', { name: 'Veil gate props', exact: true }).waitFor();
   await lab.getByRole('button', { name: 'Make object refs from Concept 01' }).click();
   const field = lab.getByRole('textbox', { name: 'Objects' });
-  await field.fill('desk lamp, sculptor figure, clay island, turntable island, brush cup');
+  await field.fill('lantern post, hooded guardian, ice shards, orb shrine, sigil door');
   await field.press('Enter');
-  await field.fill('calipers');
+  await field.fill('step ring');
   await lab.getByRole('dialog', { name: 'Make object refs' }).waitFor();
   await shot(lab, 'objects-dialog');
 
   // A long name stays whole with a counter; a chip opens its name and notes.
   await field.fill(
-    'Finished island in painted stone and moss with no wireframe lines and no rocks'
+    'Floating ice shards in pale frosted glass with violet rune light and no wireframe'
   );
   await shot(lab, 'objects-long-name');
   await field.fill('');
-  await lab.getByRole('button', { name: 'Edit Clay island' }).click();
-  const editor = lab.getByRole('group', { name: 'Edit Clay island' });
+  await lab.getByRole('button', { name: 'Edit Ice shards' }).click();
+  const editor = lab.getByRole('group', { name: 'Edit Ice shards' });
   await editor
     .getByRole('textbox', { name: 'Notes for Codex' })
-    .fill('Painted stone and moss, no wireframe lines, no loose floating rocks');
+    .fill('Frosted glass with violet rune light, no wireframe lines, no loose fragments');
   await shot(lab, 'objects-notes');
   await editor.getByRole('button', { name: 'Done' }).click();
   await shot(lab, 'objects-note-chip');
 
-  const porch = await open('&scenario=configured&conceptMs=60000', '#/lab');
-  await porch.getByRole('heading', { name: 'Moon island porch' }).waitFor();
-  await porch.getByRole('button', { name: 'Make object refs from Concept 01' }).click();
-  const names = porch.getByRole('textbox', { name: 'Objects' });
-  await names.fill('bench, vending machine, paper lantern, box sets');
+  const arena = await open('&scenario=configured&conceptMs=60000', '#/lab');
+  await arena.getByRole('heading', { name: 'Frozen lake arena' }).waitFor();
+  await arena.getByRole('button', { name: 'Make object refs from Concept 01' }).click();
+  const names = arena.getByRole('textbox', { name: 'Objects' });
+  await names.fill('rune pillar, crystal lantern, ice shard, sword');
   await names.press('Enter');
-  await porch.getByRole('button', { name: 'Make 4 object refs' }).click();
-  await porch.getByRole('heading', { name: 'Moon island porch objects' }).waitFor();
-  await shot(porch, 'objects-generating');
+  await arena.getByRole('button', { name: 'Make 4 object refs' }).click();
+  await arena.getByRole('heading', { name: 'Frozen lake arena objects' }).waitFor();
+  await shot(arena, 'objects-generating');
 
   const objects = await open(fixture, '#/lab');
   await objects.getByText('Earlier directions').waitFor();
-  await objects.getByRole('button', { name: /^Workbench hero objects/ }).click();
-  await objects.getByRole('heading', { name: 'Workbench hero objects' }).waitFor();
+  await objects.getByRole('button', { name: /^Veil gate props objects/ }).click();
+  await objects.getByRole('heading', { name: 'Veil gate props objects' }).waitFor();
   await objects.waitForTimeout(400);
   await shot(objects, 'objects-direction');
   await objects.getByRole('button', { name: 'Send to 3D' }).click();
@@ -192,29 +192,29 @@ async function handoffShots() {
   await shot(objects, 'batch-by-hand');
 
   const board = await open(fixture, '#/board');
-  await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
-  await board.getByRole('button', { name: 'More for Desk lamp' }).click();
+  await board.getByRole('button', { name: /^Elsheria, v2/ }).waitFor();
+  await board.getByRole('button', { name: 'More for Lantern post' }).click();
   await board.getByRole('menuitem', { name: 'Rename...' }).waitFor();
   await shot(board, 'asset-rename-menu');
   await board.getByRole('menuitem', { name: 'Rename...' }).click();
   await board.getByRole('dialog', { name: 'Rename asset' }).waitFor();
   await shot(board, 'asset-rename-dialog');
   await board.keyboard.press('Escape');
-  await board.getByRole('checkbox', { name: 'Select Turntable island' }).click();
+  await board.getByRole('checkbox', { name: 'Select Orb shrine' }).click();
   await board
-    .getByRole('checkbox', { name: 'Select Vending machine' })
+    .getByRole('checkbox', { name: 'Select Crystal lantern' })
     .click({ modifiers: ['Shift'] });
-  await board.getByRole('checkbox', { name: 'Select Island' }).click();
+  await board.getByRole('checkbox', { name: 'Select Veil platform' }).click();
   const selection = board.getByRole('toolbar', { name: 'Selected assets' });
   await selection.waitFor();
   await board.mouse.move(0, 0);
   await shot(board, 'board-multi-select');
   await selection.getByRole('button', { name: 'Clear' }).click();
-  await board.getByRole('checkbox', { name: 'Select Sakura' }).click();
+  await board.getByRole('checkbox', { name: 'Select Veil gate' }).click();
   await board
-    .getByRole('checkbox', { name: 'Select Stone lanterns' })
+    .getByRole('checkbox', { name: 'Select Guardian statues' })
     .click({ modifiers: ['Shift'] });
-  for (const name of ['Sculptor figure', 'Desk lamp'])
+  for (const name of ['Hooded guardian', 'Lantern post'])
     await board.getByRole('checkbox', { name: `Select ${name}` }).click();
   await board
     .getByRole('toolbar', { name: 'Selected assets' })
@@ -228,21 +228,21 @@ async function handoffShots() {
     .click();
   await board.waitForTimeout(300);
   await shot(board, 'batch-tripo');
-  await batch.getByRole('button', { name: 'Custom settings for Desk lamp' }).click();
-  const own = batch.getByRole('group', { name: 'Desk lamp settings' });
+  await batch.getByRole('button', { name: 'Custom settings for Lantern post' }).click();
+  const own = batch.getByRole('group', { name: 'Lantern post settings' });
   const faces = own.getByRole('textbox', { name: 'Face limit' });
   await faces.fill('12000');
   await faces.press('Enter');
   await own.getByText('PBR', { exact: true }).click();
-  await batch.getByRole('button', { name: 'Custom settings for Sculptor figure' }).click();
-  const sculptor = batch.getByRole('group', { name: 'Sculptor figure settings' });
+  await batch.getByRole('button', { name: 'Custom settings for Hooded guardian' }).click();
+  const sculptor = batch.getByRole('group', { name: 'Hooded guardian settings' });
   const sculptFaces = sculptor.getByRole('textbox', { name: 'Face limit' });
   await sculptFaces.fill('2000');
   await sculptFaces.press('Enter');
   await board.waitForTimeout(300);
   await shot(board, 'batch-custom-settings');
   await sculptor.getByRole('button', { name: 'Use batch settings' }).click();
-  await batch.getByRole('button', { name: 'Custom settings for Sculptor figure' }).click();
+  await batch.getByRole('button', { name: 'Custom settings for Hooded guardian' }).click();
   await batch.getByRole('button', { name: /^Send \d+ to Tripo$/ }).click();
   await batch.getByRole('alert').waitFor();
   await shot(board, 'batch-tripo-confirm');
@@ -271,9 +271,9 @@ async function handoffShots() {
   await shot(board, 'downloads-matches');
 
   const card = await open(fixture, '#/board');
-  await card.getByRole('button', { name: /^Character, v2/ }).waitFor();
-  await card.getByRole('button', { name: 'More for Brush cup' }).click();
-  await card.getByRole('menu', { name: 'Brush cup actions' }).waitFor();
+  await card.getByRole('button', { name: /^Elsheria, v2/ }).waitFor();
+  await card.getByRole('button', { name: 'More for Sigil door' }).click();
+  await card.getByRole('menu', { name: 'Sigil door actions' }).waitFor();
   await shot(card, 'board-add-model');
   await card.keyboard.press('Escape');
   await card.getByRole('button', { name: 'Add model...' }).first().click();
@@ -288,9 +288,9 @@ async function handoffShots() {
 /** The questions asked before work is dropped: Send to 3D, Settings and quit. */
 async function guardShots() {
   const board = await open('&scenario=configured', '#/board');
-  await board.getByRole('button', { name: 'More for Stone lanterns' }).click();
+  await board.getByRole('button', { name: 'More for Guardian statues' }).click();
   await board.getByRole('menuitem', { name: 'Send to 3D' }).click();
-  await board.getByRole('dialog', { name: /Send Stone lanterns to 3D/ }).waitFor();
+  await board.getByRole('dialog', { name: /Send Guardian statues to 3D/ }).waitFor();
   await board.getByRole('switch', { name: 'PBR' }).click({ force: true });
   await board.keyboard.press('Escape');
   await board.getByRole('dialog', { name: 'Discard changes?' }).waitFor();
@@ -354,18 +354,22 @@ async function focusTip(page, target, name) {
 /** Tooltips, help marks and the disabled with a reason state. */
 async function uxShots() {
   const board = await open('&scenario=configured', '#/board');
-  await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
-  await hoverTip(board, board.getByRole('checkbox', { name: 'Select Island' }), 'ux-card-select');
-  await board.getByRole('button', { name: 'More for Stone lanterns' }).click();
+  await board.getByRole('button', { name: /^Elsheria, v2/ }).waitFor();
+  await hoverTip(
+    board,
+    board.getByRole('checkbox', { name: 'Select Veil platform' }),
+    'ux-card-select'
+  );
+  await board.getByRole('button', { name: 'More for Guardian statues' }).click();
   await board.getByRole('menuitem', { name: 'Send to 3D' }).click();
-  const sheet = board.getByRole('dialog', { name: /Send Stone lanterns to 3D/ });
+  const sheet = board.getByRole('dialog', { name: /Send Guardian statues to 3D/ });
   await sheet.waitFor();
   await hoverTip(board, sheet.getByRole('button', { name: 'Close' }), 'ux-sheet-close-edge');
 
   // An Inbox model that did not come from a send has nothing to redo.
   const inbox = await open('&scenario=configured', '#/inbox');
   await inbox.getByRole('heading', { name: 'Automatic checks' }).waitFor();
-  await inbox.getByRole('button', { name: 'More for Character' }).click();
+  await inbox.getByRole('button', { name: 'More for Elsheria' }).click();
   await hoverTip(
     inbox,
     inbox.getByRole('menuitem', { name: 'Redo...' }),
@@ -427,13 +431,13 @@ async function sceneShots() {
   await layout.waitForTimeout(2500);
   await shot(layout, 'scene-layout');
   const details = layout.getByRole('complementary', { name: 'Layout details' });
-  await details.getByRole('button', { name: /^Character/ }).click();
+  await details.getByRole('button', { name: /^Elsheria/ }).click();
   await layout.waitForTimeout(800);
   await shot(layout, 'scene-layout-model');
   await layout.keyboard.press('e');
   await layout.waitForTimeout(500);
   await shot(layout, 'scene-layout-rotate');
-  await details.getByRole('button', { name: /^1 Porch/ }).click();
+  await details.getByRole('button', { name: /^1 Arrival/ }).click();
   await layout.waitForTimeout(600);
   await shot(layout, 'scene-layout-stop');
   await details.getByRole('button', { name: 'Look through', exact: true }).click();
@@ -441,16 +445,16 @@ async function sceneShots() {
   await shot(layout, 'scene-layout-look');
 
   const board = await open('&scenario=configured', '#/board');
-  await board.getByRole('button', { name: 'More for Character' }).click();
+  await board.getByRole('button', { name: 'More for Elsheria' }).click();
   await board.getByRole('menuitem', { name: 'Copy to project...' }).click();
-  await board.getByRole('menu', { name: 'Copy Character to project' }).waitFor();
+  await board.getByRole('menu', { name: 'Copy Elsheria to project' }).waitFor();
   await shot(board, 'board-copy-to-project');
-  await board.getByRole('menuitem', { name: 'Rooftop cinema' }).click();
-  await board.getByText('Copied Character to Rooftop cinema').waitFor();
+  await board.getByRole('menuitem', { name: 'Frost cathedral' }).click();
+  await board.getByText('Copied Elsheria to Frost cathedral').waitFor();
   await shot(board, 'board-copied');
 
   const pipeline = await open('&scenario=idle', '#/pipeline');
-  await pipeline.getByText('First view · Porch').waitFor();
+  await pipeline.getByText('First view · Arrival').waitFor();
   await shot(pipeline, 'pipeline-first-view');
 
   const settings = await open('&scenario=configured', '#/settings');
@@ -466,7 +470,7 @@ async function materialShots() {
   await page.getByText(/WebGL 2 · \d+ fps/).waitFor({ timeout: SLOW });
   await page.waitForTimeout(3500);
   const details = page.getByRole('complementary', { name: 'Model details' });
-  await details.getByRole('button', { name: /^Character/ }).click();
+  await details.getByRole('button', { name: /^Elsheria/ }).click();
   await details.getByRole('heading', { name: 'Material' }).waitFor();
   await page.waitForTimeout(600);
   await shot(page, 'material-before');
@@ -534,13 +538,13 @@ async function coreShots() {
 
   await cont(page);
   const repo = page.getByLabel('Target site repo');
-  await repo.fill('~/Documents/Projects/moon-island-site');
+  await repo.fill('~/Documents/Projects/frostveil-site');
   await repo.press('Enter');
   await page.getByText('Git repo found.').waitFor();
   await shot(page, 'onboarding-6-project');
 
   await cont(page);
-  await page.getByRole('heading', { name: 'Moon Island is ready' }).waitFor();
+  await page.getByRole('heading', { name: 'Frostveil is ready' }).waitFor();
   await shot(page, 'onboarding-7-ready');
 
   await cont(page);
@@ -564,15 +568,15 @@ async function coreShots() {
   await shot(blocked, 'onboarding-3-toolchain-no-blender');
 
   const lab = await open('&scenario=configured&conceptMs=60000', '#/lab');
-  await lab.getByRole('heading', { name: 'Moon island porch' }).waitFor();
+  await lab.getByRole('heading', { name: 'Frozen lake arena' }).waitFor();
   await shot(lab, 'lab-results');
   await lab.getByRole('button', { name: 'New', exact: true }).click();
-  await lab.getByLabel('Direction name').fill('Stone lantern');
+  await lab.getByLabel('Direction name').fill('Guardian statue');
   await lab
     .getByLabel('Prompt')
-    .fill('A weathered stone lantern on mossy steps, warm candle light, night, soft fog.');
+    .fill('A weathered guardian statue on mossy steps, warm candle light, night, soft fog.');
   await lab.getByRole('button', { name: 'Add reference image' }).click();
-  await lab.getByRole('button', { name: 'moon-island-concept.png' }).click();
+  await lab.getByRole('button', { name: 'frozen-lake-concept.png' }).click();
   await shot(lab, 'lab-idle');
   const labRunning = await open('&scenario=configured&lab=running', '#/lab');
   await labRunning.getByText('Image queue').waitFor();
@@ -594,19 +598,19 @@ async function coreShots() {
   await agents.waitForTimeout(600);
   await shot(agents, 'settings-agents');
   const prompt = await open('&scenario=configured&agents=active', '#/board');
-  await prompt.getByRole('alertdialog', { name: 'Send Far spire to Tripo?' }).waitFor();
+  await prompt.getByRole('alertdialog', { name: 'Send Rune obelisk to Tripo?' }).waitFor();
   await shot(prompt, 'agents-approval-prompt');
 
   const board = await open('&scenario=configured', '#/board');
-  await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
+  await board.getByRole('button', { name: /^Elsheria, v2/ }).waitFor();
   await shot(board, 'board');
   await board.getByRole('button', { name: /3D queue/ }).click();
   await board.getByRole('region', { name: '3D queue' }).waitFor();
   await shot(board, 'provider-queue');
   await board.keyboard.press('Escape');
-  await board.getByRole('button', { name: 'More for Stone lanterns' }).click();
+  await board.getByRole('button', { name: 'More for Guardian statues' }).click();
   await board.getByRole('menuitem', { name: 'Send to 3D' }).click();
-  await board.getByRole('dialog', { name: /Send Stone lanterns to 3D/ }).waitFor();
+  await board.getByRole('dialog', { name: /Send Guardian statues to 3D/ }).waitFor();
   await board.getByText('1 of 4').waitFor();
   await shot(board, 'send-tripo');
   const providers = board.getByRole('group', { name: 'Provider' });
@@ -667,7 +671,7 @@ async function coreShots() {
     await inbox.waitForTimeout(800);
     await shot(inbox, `inbox-${mode.toLowerCase()}`);
   }
-  await inbox.getByRole('button', { name: /^Sakura large/ }).click();
+  await inbox.getByRole('button', { name: /^Veil gate/ }).click();
   await inbox.waitForTimeout(2500);
   await shot(inbox, 'inbox-prop');
   const inspector = await open('&scenario=configured', '#/inspector');
@@ -676,7 +680,7 @@ async function coreShots() {
   await inspector.getByText(/WebGL 2 · \d+ fps/).waitFor({ timeout: SLOW });
   await inspector.waitForTimeout(3500);
   await shot(inspector, 'inspector-compare');
-  await inspector.getByRole('button', { name: 'Fly to Canopy' }).click();
+  await inspector.getByRole('button', { name: 'Fly to Keystone' }).click();
   await inspector.waitForTimeout(1800);
   await shot(inspector, 'inspector-stop');
   await inspector.getByRole('button', { name: 'Fly to Pullback' }).click();
@@ -685,7 +689,7 @@ async function coreShots() {
     .getByRole('group', { name: 'View mode' })
     .getByRole('button', { name: 'Wireframe' })
     .click();
-  await inspector.getByRole('button', { name: /^Flower shrubs/ }).click();
+  await inspector.getByRole('button', { name: /^Ice crystals/ }).click();
   const slider = inspector.getByRole('slider', { name: 'Compare position' });
   for (let i = 0; i < 3; i += 1) await slider.press('ArrowLeft');
   await inspector.mouse.move(700, 880);
@@ -707,7 +711,7 @@ async function coreShots() {
   await shot(switcher, 'switcher-new-project');
   await switcher.keyboard.press('Escape');
   await projectButton.click();
-  await switcher.getByRole('menuitemradio', { name: /Rooftop cinema/ }).click();
+  await switcher.getByRole('menuitemradio', { name: /Frost cathedral/ }).click();
   await switcher.getByText('No runs yet').first().waitFor();
   await shot(switcher, 'switcher-board-after');
 
@@ -726,17 +730,17 @@ async function coreShots() {
 
   const move = await open('&scenario=configured', '#/lab');
   await move.getByText('Earlier directions').waitFor();
-  await move.getByRole('button', { name: /^Maquette landing studio/ }).click();
-  await move.getByRole('heading', { name: 'Maquette landing studio' }).waitFor();
-  await move.getByRole('button', { name: 'More for Maquette landing studio' }).click();
+  await move.getByRole('button', { name: /^Academy landing/ }).click();
+  await move.getByRole('heading', { name: 'Academy landing' }).waitFor();
+  await move.getByRole('button', { name: 'More for Academy landing' }).click();
   await move.getByRole('menuitem', { name: /Move to project/ }).click();
-  await move.getByRole('menu', { name: /Move Maquette landing studio/ }).waitFor();
+  await move.getByRole('menu', { name: /Move Academy landing/ }).waitFor();
   await shot(move, 'lab-move-direction');
 
   const narrow = await open('&scenario=configured', '#/lab', { width: 1180, height: 820 });
   await narrow.getByText('Earlier directions').waitFor();
-  await narrow.getByRole('button', { name: /^Maquette landing studio/ }).click();
-  await narrow.getByRole('heading', { name: 'Maquette landing studio' }).waitFor();
+  await narrow.getByRole('button', { name: /^Academy landing/ }).click();
+  await narrow.getByRole('heading', { name: 'Academy landing' }).waitFor();
   await shot(narrow, 'lab-long-title');
 
   const starters = await open('&scenario=configured', '#/pipeline');
@@ -749,21 +753,21 @@ async function redoShots() {
   const fixture = '&scenario=configured&inbox=redo';
   const inbox = await open(fixture, '#/inbox');
   await inbox.getByRole('heading', { name: 'Automatic checks' }).waitFor();
-  await inbox.getByRole('button', { name: /^Sakura/ }).click();
+  await inbox.getByRole('button', { name: /^Veil gate/ }).click();
   await inbox.waitForTimeout(2500);
-  await inbox.getByRole('button', { name: 'More for Sakura' }).click();
-  await inbox.getByRole('menu', { name: 'Sakura actions' }).waitFor();
+  await inbox.getByRole('button', { name: 'More for Veil gate' }).click();
+  await inbox.getByRole('menu', { name: 'Veil gate actions' }).waitFor();
   await shot(inbox, 'redo-inbox-menu');
   await inbox.getByRole('menuitem', { name: 'Redo...' }).click();
-  const panel = inbox.getByRole('dialog', { name: 'Redo Sakura' });
+  const panel = inbox.getByRole('dialog', { name: 'Redo Veil gate' });
   await panel.getByText('About 30 credits').waitFor();
   await shot(inbox, 'redo-send-panel');
   await panel.getByLabel('Texture prompt').scrollIntoViewIfNeeded();
   await shot(inbox, 'redo-send-panel-prompt');
   await panel.getByRole('button', { name: 'Close' }).click();
 
-  await inbox.getByRole('checkbox', { name: 'Select Character' }).click();
-  await inbox.getByRole('checkbox', { name: 'Select Sakura' }).click();
+  await inbox.getByRole('checkbox', { name: 'Select Elsheria' }).click();
+  await inbox.getByRole('checkbox', { name: 'Select Veil gate' }).click();
   await inbox.getByRole('toolbar', { name: 'Selected models' }).waitFor();
   await shot(inbox, 'redo-inbox-selected');
   await inbox.getByRole('button', { name: 'Redo 2' }).click();
@@ -793,7 +797,7 @@ async function redoShots() {
 // Size group, Board list: the list layout, sorted, and with a selection.
 async function listShots() {
   const board = await open('&scenario=configured&handoff=batch', '#/board');
-  await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
+  await board.getByRole('button', { name: /^Elsheria, v2/ }).waitFor();
   await board
     .getByRole('group', { name: 'Board layout' })
     .getByRole('button', { name: 'List' })
@@ -806,14 +810,16 @@ async function listShots() {
     .getByRole('columnheader', { name: /^Tris$/ })
     .getByRole('button')
     .click();
-  await board.getByRole('checkbox', { name: 'Select Character' }).click();
-  await board.getByRole('checkbox', { name: 'Select Shop house' }).click({ modifiers: ['Shift'] });
+  await board.getByRole('checkbox', { name: 'Select Elsheria' }).click();
+  await board
+    .getByRole('checkbox', { name: 'Select Observatory arch' })
+    .click({ modifiers: ['Shift'] });
   await board.getByRole('toolbar', { name: 'Selected assets' }).waitFor();
-  await grid.getByRole('row', { name: /^Vending machine$/ }).focus();
+  await grid.getByRole('row', { name: /^Crystal lantern$/ }).focus();
   await board.mouse.move(0, 0);
   await shot(board, 'board-list-selected');
   await board.keyboard.press('Enter');
-  await board.getByRole('menu', { name: 'Vending machine actions' }).waitFor();
+  await board.getByRole('menu', { name: 'Crystal lantern actions' }).waitFor();
   await shot(board, 'board-list-menu');
   await board.keyboard.press('Escape');
   await board
@@ -863,7 +869,7 @@ async function builtShots() {
 async function prepShots() {
   const inbox = await open('&scenario=configured', '#/inbox', { width: 1440, height: 1300 });
   await inbox.getByRole('heading', { name: 'Automatic checks' }).waitFor();
-  await inbox.getByRole('button', { name: /^Character/ }).click();
+  await inbox.getByRole('button', { name: /^Elsheria/ }).click();
   const checks = inbox.getByRole('complementary', { name: 'Automatic checks' });
   await checks.getByRole('button', { name: 'Decimate to 60k' }).waitFor();
   await inbox.mouse.move(0, 0);
@@ -883,7 +889,7 @@ async function prepShots() {
   await shot(inbox, 'inbox-real-size-page');
 
   const board = await open('&scenario=configured', '#/board');
-  await board.getByRole('button', { name: 'More for Character' }).click();
+  await board.getByRole('button', { name: 'More for Elsheria' }).click();
   await board.getByRole('menuitem', { name: 'Real size and fix-ups...' }).click();
   const dialog = board.getByRole('dialog', { name: 'Real size and fix-ups' });
   await dialog.getByText(/^Measured/).waitFor();
@@ -897,7 +903,7 @@ async function prepShots() {
   const page = await open('&scenario=configured', '#/inspector', { width: 1440, height: 1700 });
   await page.getByRole('heading', { name: 'Scene comparison' }).waitFor();
   const details = page.getByRole('complementary', { name: 'Model details' });
-  await details.getByRole('button', { name: /^Character/ }).click();
+  await details.getByRole('button', { name: /^Elsheria/ }).click();
   const panel = details.getByRole('region', { name: 'Real size and fix-ups' });
   await panel.getByText(/^Measured/).waitFor();
   await panel.getByRole('button', { name: 'Decimate' }).click();

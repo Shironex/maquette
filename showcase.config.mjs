@@ -3,7 +3,7 @@
 //
 // The capture runs the React UI alone, without Tauri, Blender or any provider:
 // outside Tauri a dev build answers every command from the in-memory backend
-// in apps/web/src/ipc/mock, so the views show the Moon Island sample workspace
+// in apps/web/src/ipc/mock, so the views show the Frostveil sample workspace
 // that `pnpm dev:web` and `pnpm visual` use. Each shot opens one mock scenario
 // (`?scenario=idle&library=demo` and so on) in a fresh page load.
 //
@@ -92,7 +92,7 @@ export default defineConfig({
       id: 'lab',
       title: 'Lab',
       caption: 'Lab: concept images from the Codex CLI, starred and picked as refs.',
-      nav: view('scenario=idle', 'lab', 'Moon island porch'),
+      nav: view('scenario=idle', 'lab', 'Frozen lake arena'),
       delayMs: 1200,
     },
     {
@@ -123,8 +123,8 @@ export default defineConfig({
       id: 'motion',
       title: 'Motion',
       caption: 'Motion: rigs, clips and what each one weighs on the page.',
-      nav: view('scenario=idle&motion=demo', 'motion', '75 bones · 2 clips', async page => {
-        await page.getByText('75 bones · 2 clips').click();
+      nav: view('scenario=idle&motion=demo', 'motion', '119 bones · 2 clips', async page => {
+        await page.getByText('119 bones · 2 clips').click();
         // Stop the clip on its first frame, so the pose is the same every run.
         await page.getByRole('button', { name: 'Pause' }).click();
         await page.getByRole('button', { name: 'Go to In' }).click();
@@ -149,14 +149,14 @@ export default defineConfig({
       id: 'library',
       title: 'Library',
       caption: 'Library: finished models reused across projects, no credits spent.',
-      nav: view('scenario=idle&library=demo', 'library', 'Versions · 3'),
+      nav: view('scenario=idle&library=demo', 'library', 'Versions · 2'),
       delayMs: 1200,
     },
     {
       id: 'agents',
       title: 'Agents',
       caption: 'Agents: Claude Code or Codex over MCP, with paid steps waiting for you.',
-      nav: view('scenario=idle&agents=active', 'board', 'Send Far spire to Tripo?'),
+      nav: view('scenario=idle&agents=active', 'board', 'Send Rune obelisk to Tripo?'),
       delayMs: 1200,
     },
   ],

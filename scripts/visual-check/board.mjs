@@ -12,18 +12,18 @@
  */
 
 async function removeShots(board, shot) {
-  await board.getByRole('button', { name: 'More for Stone lanterns' }).click();
+  await board.getByRole('button', { name: 'More for Guardian statues' }).click();
   const remove = board.getByRole('menuitem', { name: 'Remove from project...' });
   await remove.hover();
   await board.getByRole('tooltip').filter({ hasText: 'workspace trash' }).waitFor();
   await shot(board, 'board-card-menu-remove');
   await remove.click();
-  const dialog = board.getByRole('dialog', { name: 'Remove Stone lanterns from the project?' });
+  const dialog = board.getByRole('dialog', { name: 'Remove Guardian statues from the project?' });
   await dialog.waitFor();
   await board.mouse.move(0, 0);
   await shot(board, 'board-remove-dialog');
   await dialog.getByRole('button', { name: 'Remove' }).click();
-  await board.getByText('Removed Stone lanterns').waitFor();
+  await board.getByText('Removed Guardian statues').waitFor();
   await shot(board, 'board-removed-notice');
   await board.getByRole('button', { name: /^Removed/ }).click();
   await board.getByRole('menu', { name: 'Recently removed' }).waitFor();
@@ -31,9 +31,9 @@ async function removeShots(board, shot) {
   await shot(board, 'board-recently-removed');
   await board.keyboard.press('Escape');
 
-  await board.getByRole('checkbox', { name: 'Select Sakura' }).click();
-  await board.getByRole('checkbox', { name: 'Select Character' }).click();
-  await board.getByRole('checkbox', { name: 'Select Far spire' }).click();
+  await board.getByRole('checkbox', { name: 'Select Veil gate' }).click();
+  await board.getByRole('checkbox', { name: 'Select Elsheria' }).click();
+  await board.getByRole('checkbox', { name: 'Select Rune obelisk' }).click();
   await board
     .getByRole('toolbar', { name: 'Selected assets' })
     .getByRole('button', { name: 'Remove...' })
@@ -46,8 +46,8 @@ async function removeShots(board, shot) {
 
 export async function boardShots({ open, shot }) {
   const board = await open('&scenario=configured', '#/board');
-  await board.getByRole('button', { name: /^Character, v2/ }).waitFor();
-  const lanterns = board.getByRole('button', { name: 'More for Stone lanterns' });
+  await board.getByRole('button', { name: /^Elsheria, v2/ }).waitFor();
+  const lanterns = board.getByRole('button', { name: 'More for Guardian statues' });
   const card = lanterns.locator('xpath=ancestor::div[contains(@class,"group/card")]');
   await card.getByRole('button', { name: 'Copy export name' }).waitFor();
   await board.mouse.move(0, 0);
@@ -58,7 +58,7 @@ export async function boardShots({ open, shot }) {
   await shot(board, 'board-card-export-name-copied');
 
   await lanterns.click();
-  const menu = board.getByRole('menu', { name: 'Stone lanterns actions' });
+  const menu = board.getByRole('menu', { name: 'Guardian statues actions' });
   await menu.waitFor();
   await board.mouse.move(0, 0);
   await shot(board, 'board-card-menu-handoff');
@@ -77,8 +77,8 @@ export async function boardShots({ open, shot }) {
   await board.keyboard.press('Escape');
   await board.keyboard.press('Escape');
 
-  await board.getByRole('button', { name: /^Character, v2/ }).click({ button: 'right' });
-  await board.getByRole('menu', { name: 'Character actions' }).waitFor();
+  await board.getByRole('button', { name: /^Elsheria, v2/ }).click({ button: 'right' });
+  await board.getByRole('menu', { name: 'Elsheria actions' }).waitFor();
   await shot(board, 'board-card-context-menu');
   await board.keyboard.press('Escape');
 
@@ -103,7 +103,7 @@ export async function boardShots({ open, shot }) {
   await game.context().close();
 
   const short = await open('&scenario=configured', '#/board', { width: 1280, height: 620 });
-  await short.getByRole('button', { name: /^Character, v2/ }).waitFor();
+  await short.getByRole('button', { name: /^Elsheria, v2/ }).waitFor();
   const more = short.getByRole('button', { name: /^More for / });
   await more.first().click();
   await short.getByRole('menu', { name: / actions$/ }).waitFor();

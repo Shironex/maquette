@@ -35,9 +35,9 @@ export async function gameShots({ open, shot }) {
   await game.context().close();
 
   const site = await newProject(open);
-  await site.getByLabel('Project name').fill('Moon Island');
+  await site.getByLabel('Project name').fill('Frostveil');
   const siteRepo = site.getByLabel('Target site repo');
-  await siteRepo.fill('~/Documents/Projects/moon-island-site');
+  await siteRepo.fill('~/Documents/Projects/frostveil-site');
   await siteRepo.press('Tab');
   await site.getByText('Git repo found.').waitFor();
   await shot(site, 'game-website-check-line');
