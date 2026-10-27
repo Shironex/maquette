@@ -4,6 +4,11 @@
  */
 import type { ConceptImage, ConceptJob, Direction, RefImage } from '../client';
 import { clock } from '@/lib/clock';
+import { formatClock } from '@/lib/format';
+
+/** What Codex prints when its usage limit is hit. */
+const USAGE_LIMIT_LINE =
+  "ERROR: You've hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 4:21 PM.";
 
 /** Project relative file to the bundled image that stands in for it. */
 const CONCEPT_FILES: Record<string, string> = {};
@@ -162,13 +167,18 @@ export function labRefs(): RefImage[] {
   }));
 }
 
+/** Which wait the running scenario adds to its queue. */
+export type LabLimit = 'rate' | 'usage';
+
 /**
  * The running scenario's queue: four porch images done, two generating.
- * `limited` adds one waiting out a Codex rate limit and one that gave up.
+ * `rate` adds one waiting out a Codex rate limit and one that gave up;
+ * `usage` adds one that hit the Codex usage limit and two queued behind it,
+ * all three waiting until it lifts.
  */
-export function runningJobs(project: string, now: number, limited = false): ConceptJob[] {
+export function runningJobs(project: string, now: number, limit?: LabLimit): ConceptJob[] {
   const jobs = porchJobs(project, now);
-  if (!limited) return jobs;
+  if (!limit) return jobs;
   const base = jobs[jobs.length - 1] as ConceptJob;
   const at = (index: number) => ({
     ...base,
@@ -180,6 +190,20 @@ export function runningJobs(project: string, now: number, limited = false): Conc
     finishedAtMs: now - 86_000,
     logTail: ['ERROR: exceeded retry limit, last status: 429 Too Many Requests'],
   });
+  if (limit === 'usage') {
+    const until = now + 37 * 60_000;
+    const waiting = (index: number, ran: boolean): ConceptJob => ({
+      ...at(index),
+      state: 'rate-limited',
+      startedAtMs: ran ? now - 20_000 : null,
+      finishedAtMs: ran ? now - 18_000 : null,
+      logTail: ran ? [USAGE_LIMIT_LINE] : [],
+      retryAtMs: until,
+      usageLimit: true,
+      message: `Waiting for the Codex usage limit until about ${formatClock(until)}. It runs again on its own then.`,
+    });
+    return [...jobs, waiting(7, true), waiting(8, false), waiting(9, false)];
+  }
   return [
     ...jobs,
     {
@@ -224,6 +248,7 @@ function porchJobs(project: string, now: number): ConceptJob[] {
       logTail: done ? ['saved the image'] : ['Generating the image'],
       retryAtMs: null,
       retries: 0,
+      usageLimit: false,
     };
   });
 }

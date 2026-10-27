@@ -71,6 +71,7 @@ function job(
     logTail: [],
     retryAtMs: null,
     retries: 0,
+    usageLimit: false,
     ...extra,
   };
 }
@@ -112,6 +113,12 @@ describe('lab helpers', () => {
     const retryAt = new Date(2026, 9, 26, 9, 5).getTime();
     expect(jobMeta(job(1, 'rate-limited', { retryAtMs: retryAt }), 0)).toBe(
       'Waiting, rate limited, retries at 09:05'
+    );
+    expect(jobMeta(job(1, 'rate-limited', { retryAtMs: retryAt, usageLimit: true }), 0)).toBe(
+      'Waiting for the Codex usage limit until about 09:05'
+    );
+    expect(jobMeta(job(1, 'rate-limited', { usageLimit: true }), 0)).toBe(
+      'Waiting for the Codex usage limit'
     );
     expect(canRetry(job(1, 'failed'))).toBe(true);
     expect(canRetry(job(1, 'rate-limited'))).toBe(true);

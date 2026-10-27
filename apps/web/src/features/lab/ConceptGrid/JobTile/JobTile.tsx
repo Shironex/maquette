@@ -9,7 +9,7 @@ export interface JobTileProps {
   job: ConceptJob;
 }
 
-/** A concept still in the queue, generating or waiting out a rate limit, with its time. */
+/** A concept still in the queue, generating or waiting out a rate or usage limit, with its time. */
 export default function JobTile({ direction, job }: JobTileProps) {
   const now = useJobTile();
   const running = job.state === 'running';
@@ -18,7 +18,7 @@ export default function JobTile({ direction, job }: JobTileProps) {
     running && job.startedAtMs !== null
       ? formatElapsed(now - job.startedAtMs)
       : limited && job.retryAtMs !== null
-        ? `retries at ${formatClock(job.retryAtMs)}`
+        ? `${job.usageLimit ? 'until about' : 'retries at'} ${formatClock(job.retryAtMs)}`
         : 'in line';
   return (
     <figure className="m-0 flex flex-col gap-[7px]">
@@ -28,7 +28,15 @@ export default function JobTile({ direction, job }: JobTileProps) {
       >
         <StatusChip
           status={running ? 'running' : 'queued'}
-          label={running ? 'generating' : limited ? 'rate limited' : 'waiting'}
+          label={
+            running
+              ? 'generating'
+              : limited
+                ? job.usageLimit
+                  ? 'usage limit'
+                  : 'rate limited'
+                : 'waiting'
+          }
         />
         {running ? <ProgressBar className="w-[140px]" /> : null}
       </div>

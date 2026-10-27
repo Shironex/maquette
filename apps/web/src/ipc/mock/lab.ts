@@ -16,6 +16,7 @@ import type {
 } from '../client';
 import {
   GENERATED_POOL,
+  type LabLimit,
   WORKBENCH_OBJECTS,
   labDirections,
   labRefs,
@@ -44,7 +45,11 @@ export interface FakeLabOptions {
   };
   /** How long one fake image takes. */
   jobMs: number;
-  /** `running`: the porch direction has two images generating that never finish. */
+  /**
+   * `running`: the porch direction has two images generating that never
+   * finish; `limited` adds a rate limited job, `usage` three waiting for the
+   * Codex usage limit.
+   */
   state?: string | null;
   /** `batch`: the workbench concept and its six object refs are there too. */
   handoff?: string | null;
@@ -55,8 +60,9 @@ export interface FakeLabOptions {
 
 export function createFakeLab(options: FakeLabOptions) {
   const { fail } = options;
-  const limited = options.state === 'limited';
-  const running = options.state === 'running' || limited;
+  const limit: LabLimit | undefined =
+    options.state === 'limited' ? 'rate' : options.state === 'usage' ? 'usage' : undefined;
+  const running = options.state === 'running' || limit !== undefined;
   const batch = options.handoff === 'batch';
   const directions = new Map<string, Direction[]>([
     ['moon-island', [...(batch ? workbenchDirections() : []), ...labDirections(running)]],
@@ -64,7 +70,7 @@ export function createFakeLab(options: FakeLabOptions) {
   const refs = new Map<string, RefImage[]>([
     ['moon-island', [...labRefs(), ...(batch ? objectRefs() : [])]],
   ]);
-  let jobs: ConceptJob[] = running ? runningJobs('moon-island', clock.nowMs(), limited) : [];
+  let jobs: ConceptJob[] = running ? runningJobs('moon-island', clock.nowMs(), limit) : [];
   let concurrency = 4;
   let pool = 0;
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -216,6 +222,7 @@ export function createFakeLab(options: FakeLabOptions) {
         height: null,
         logTail: [],
         retryAtMs: null,
+        usageLimit: false,
         retries: 0,
       };
       jobs = [...jobs, job];
@@ -278,6 +285,7 @@ export function createFakeLab(options: FakeLabOptions) {
         height: null,
         logTail: [],
         retryAtMs: null,
+        usageLimit: false,
         retries: 0,
       };
       jobs = [...jobs, job];
@@ -309,6 +317,7 @@ export function createFakeLab(options: FakeLabOptions) {
       queuedAtMs: clock.nowMs(),
       retries: 0,
       retryAtMs: null,
+      usageLimit: false,
       startedAtMs: null,
       finishedAtMs: null,
       message: null,

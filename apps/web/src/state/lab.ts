@@ -121,8 +121,15 @@ const isLive = (state: ConceptJobState) =>
 export const canRetry = (job: Pick<ConceptJob, 'state'>): boolean =>
   job.state === 'failed' || job.state === 'cancelled' || job.state === 'rate-limited';
 
-/** "Waiting, rate limited, retries at 09:05" */
-export function rateLimitedLine(job: Pick<ConceptJob, 'retryAtMs'>): string {
+/**
+ * "Waiting, rate limited, retries at 09:05", or for Codex's usage limit
+ * "Waiting for the Codex usage limit until about 16:22".
+ */
+export function rateLimitedLine(job: Pick<ConceptJob, 'retryAtMs' | 'usageLimit'>): string {
+  if (job.usageLimit)
+    return job.retryAtMs === null
+      ? 'Waiting for the Codex usage limit'
+      : `Waiting for the Codex usage limit until about ${formatClock(job.retryAtMs)}`;
   return job.retryAtMs === null
     ? 'Waiting, rate limited'
     : `Waiting, rate limited, retries at ${formatClock(job.retryAtMs)}`;

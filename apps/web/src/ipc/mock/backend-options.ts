@@ -27,7 +27,9 @@ export type Args = Record<string, unknown>;
  * the project switcher shows its search.
  *
  * `?pace=` sets the milliseconds between streamed log lines (default 260).
- * `?lab=running` holds two concept images of the porch direction mid job.
+ * `?lab=running` holds two concept images of the porch direction mid job;
+ * `?lab=limited` adds a rate limited job and `?lab=usage` three waiting for
+ * the Codex usage limit.
  * `?agents=active` turns the MCP server on, with an agent's activity, a
  * run waiting at Ship for approval and a send to Tripo waiting the same way;
  * `?agents=batch` makes that send a batch of three under one approval.

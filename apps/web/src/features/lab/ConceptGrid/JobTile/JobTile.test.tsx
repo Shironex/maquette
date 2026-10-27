@@ -31,4 +31,16 @@ describe('a job tile', () => {
     expect(screen.getByText('rate limited')).toBeVisible();
     expect(screen.getByText('retries at 09:05')).toBeVisible();
   });
+
+  it('shows a job waiting for the Codex usage limit with the time it lifts', () => {
+    const at = new Date(2026, 9, 26, 16, 22).getTime();
+    render(
+      <JobTile
+        direction={porch}
+        job={{ ...running!, state: 'rate-limited', retryAtMs: at, usageLimit: true }}
+      />
+    );
+    expect(screen.getByText('usage limit')).toBeVisible();
+    expect(screen.getByText('until about 16:22')).toBeVisible();
+  });
 });

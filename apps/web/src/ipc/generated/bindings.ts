@@ -1078,10 +1078,15 @@ export type ConceptJob = {
 	retryAtMs: number | null,
 	/**  How often it ran again on its own after a rate limit. */
 	retries: number,
+	/**  Waiting: the wait is Codex's usage limit, not a rate limit. */
+	usageLimit: boolean,
 };
 
 export type ConceptJobState = "queued" | "running" | 
-/**  Codex rate limited it; it runs again on its own at `retry_at_ms`. */
+/**
+ *  Codex rate limited it, or its usage limit is hit (`usage_limit`);
+ *  it runs again on its own at `retry_at_ms`.
+ */
 "rate-limited" | "done" | "failed" | "cancelled";
 
 /**

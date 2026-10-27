@@ -83,6 +83,15 @@ describe('mock concept lab', () => {
     expect(after.jobs.filter(j => j.state === 'cancelled')).toHaveLength(2);
   });
 
+  it('holds the queue behind the Codex usage limit, every job waiting until it lifts', async () => {
+    const { handle } = backend('usage');
+    const view = (await handle('lab_get', { project: 'moon-island' })) as LabView;
+    const waiting = view.jobs.filter(j => j.state === 'rate-limited');
+    expect(waiting).toHaveLength(3);
+    expect(waiting.every(j => j.usageLimit && j.retryAtMs === waiting[0]!.retryAtMs)).toBe(true);
+    expect(view.jobs.some(j => j.state === 'failed')).toBe(false);
+  });
+
   it('runs a job that gave up on a rate limit again with Retry, under the same id', async () => {
     const { handle } = backend('limited');
     const view = (await handle('lab_get', { project: 'moon-island' })) as LabView;
