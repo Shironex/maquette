@@ -33,6 +33,8 @@ Settings > General:
 - [ ] **Features:** Issues on, Discussions on, Wikis off, Projects off.
 - [ ] **Pull requests:** allow squash merging only, default the commit message to the PR title, and
       turn on "Automatically delete head branches".
+- [ ] **Pages:** Settings > Pages > Source is "GitHub Actions"; the `pages` workflow deploys
+      `apps/site`.
 
 ## Discussions
 
@@ -97,12 +99,13 @@ Every workflow lives in `.github/workflows/`, pins each action to a full commit 
 is in a comment next to it, and Dependabot bumps both), and asks for the least permissions it
 needs.
 
-| Workflow        | Runs on                                    | Jobs (check names)                                                                                         |
-| --------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `ci.yml`        | pull requests, pushes to `main`            | `lint · format`, `typecheck`, `test · web`, `build · site`, `rust · macos-latest`, `rust · windows-latest` |
-| `pr-title.yml`  | pull requests (title and every new commit) | `pr title`                                                                                                 |
-| `pr-labels.yml` | pull requests                              | `area labels`, `issue labels`                                                                              |
-| `release.yml`   | pushed `v*` tags, or by hand as a dry run  | `check · version`, `build · macos-aarch64`, `build · windows-x86_64`, `verify · draft`, `publish`          |
+| Workflow        | Runs on                                          | Jobs (check names)                                                                                         |
+| --------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `ci.yml`        | pull requests, pushes to `main`                  | `lint · format`, `typecheck`, `test · web`, `build · site`, `rust · macos-latest`, `rust · windows-latest` |
+| `pr-title.yml`  | pull requests (title and every new commit)       | `pr title`                                                                                                 |
+| `pr-labels.yml` | pull requests                                    | `area labels`, `issue labels`                                                                              |
+| `release.yml`   | pushed `v*` tags, or by hand as a dry run        | `check · version`, `build · macos-aarch64`, `build · windows-x86_64`, `verify · draft`, `publish`          |
+| `pages.yml`     | pushes to `main` that touch the site, or by hand | `build · pages`, `deploy · pages`                                                                          |
 
 - **`ci.yml`** is `pnpm gate` split into parallel jobs. The Node jobs run on Linux; the Rust jobs
   (clippy with warnings denied, then `cargo test`) run on macOS and Windows, the systems the app
