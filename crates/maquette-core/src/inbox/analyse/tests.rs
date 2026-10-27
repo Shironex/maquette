@@ -101,6 +101,14 @@ fn tails_weighted_to_fingers_are_found() {
 }
 
 #[test]
+fn sleeves_and_chains_hanging_below_the_wrists_are_not_flagged() {
+    let r = report(&fixture::character_with_cuffs());
+    let fw = r.finger_weights.expect("checked");
+    assert_eq!(fw.vertices, 0, "{:?}", fw.joints);
+    assert!(fw.reach > 0.2 && fw.reach < 0.3, "{}", fw.reach);
+}
+
+#[test]
 fn joint_names_and_rig_detection() {
     assert_eq!(
         bare_joint_name("mixamorig:LeftHandIndex1"),

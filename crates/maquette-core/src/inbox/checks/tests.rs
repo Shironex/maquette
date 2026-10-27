@@ -82,6 +82,13 @@ fn character_rows_cover_rig_and_finger_weights() {
 
     let clean = checks(&fixture::character(false), AssetKind::Character, &config);
     assert_eq!(status(&clean, "finger-weights"), Some(CheckStatus::Pass));
+    // Sleeve ends and chains hanging below the wrists belong to the hands.
+    let cuffs = checks(
+        &fixture::character_with_cuffs(),
+        AssetKind::Character,
+        &config,
+    );
+    assert_eq!(status(&cuffs, "finger-weights"), Some(CheckStatus::Pass));
     let mut still = analyse_bytes(&fixture::character(false), Path::new(".")).expect("analyse");
     still.animations.clear();
     let list = run(&still, AssetKind::Character, &config, SendNotes::default());

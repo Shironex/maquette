@@ -10,10 +10,12 @@
 //!
 //! **Hair weighted to finger bones.** For every skinned vertex, the joint
 //! with the largest weight is its dominant joint. When that joint is a hand
-//! or finger bone (Mixamo names) but the vertex sits more than
-//! [`FINGER_REACH`] of the model height from the joint's bind position, or
-//! above the head joint, it is flagged: long hair and tails near the hands
-//! often get auto weighted to the fingers and then fly around with them.
+//! or finger bone (Mixamo names) but the vertex sits above the head joint,
+//! or more than [`FINGER_REACH`] of the model height from that hand's chain
+//! (forearm to hand to fingers) without hanging below the wrist (at most
+//! [`HANG_REACH`] under it), it is flagged: long hair and tails near the
+//! hands often get auto weighted to the fingers and then fly around with
+//! them, while sleeve ends and wrist chains rightly follow the hand.
 
 use std::fs;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -49,9 +51,13 @@ pub const GROUP_GAP: f32 = 0.1;
 /// A group needs this share of the primitive's triangles to count.
 pub const GROUP_MIN_SHARE: f32 = 0.01;
 
-/// How far, as a share of model height, a vertex may sit from its hand or
-/// finger joint before it is flagged.
+/// How far, as a share of model height, a vertex may sit from its hand's
+/// chain before it is flagged.
 pub const FINGER_REACH: f32 = 0.15;
+
+/// How far, as a share of model height, a vertex may hang below its wrist
+/// (a sleeve end, a cuff, a chain) and still belong to the hand.
+pub const HANG_REACH: f32 = 0.2;
 
 /// Islands considered per primitive, largest first, to bound the work.
 const MAX_ISLANDS: usize = 512;

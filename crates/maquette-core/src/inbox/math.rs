@@ -76,6 +76,19 @@ pub(crate) fn distance(a: Vec3, b: Vec3) -> f32 {
     ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt()
 }
 
+/// The distance from `p` to the segment from `a` to `b`.
+pub(crate) fn segment_distance(p: Vec3, a: Vec3, b: Vec3) -> f32 {
+    let ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    let len = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
+    let t = if len > 0.0 {
+        (((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1] + (p[2] - a[2]) * ab[2]) / len)
+            .clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    distance(p, [a[0] + ab[0] * t, a[1] + ab[1] * t, a[2] + ab[2] * t])
+}
+
 /// An axis aligned box.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Aabb {
@@ -166,5 +179,14 @@ mod tests {
         assert!((b.gap(&a) - 2.0).abs() < 1e-6);
         assert_eq!(a.gap(&a), 0.0);
         assert!((a.diagonal() - 3f32.sqrt()).abs() < 1e-6);
+    }
+
+    #[test]
+    fn segments_measure_to_their_nearest_point() {
+        let (a, b) = ([0.0, 0.0, 0.0], [2.0, 0.0, 0.0]);
+        assert!((segment_distance([1.0, 3.0, 0.0], a, b) - 3.0).abs() < 1e-6);
+        assert!((segment_distance([-3.0, 4.0, 0.0], a, b) - 5.0).abs() < 1e-6);
+        assert!((segment_distance([5.0, 0.0, 0.0], a, b) - 3.0).abs() < 1e-6);
+        assert!((segment_distance([0.0, 1.0, 0.0], a, a) - 1.0).abs() < 1e-6);
     }
 }

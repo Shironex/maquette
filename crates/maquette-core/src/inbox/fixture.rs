@@ -86,6 +86,17 @@ pub fn merged_islands() -> Vec<u8> {
 /// (what an auto rig does to long hair near the hands), otherwise to the
 /// head.
 pub fn character(bug: bool) -> Vec<u8> {
+    build_character(bug, false)
+}
+
+/// The clean character with sleeve ends hanging under each forearm and a
+/// chain hanging 30 cm below each hand, all weighted to the hand bones the
+/// way they should be. Nothing in it is wrong.
+pub fn character_with_cuffs() -> Vec<u8> {
+    build_character(false, true)
+}
+
+fn build_character(bug: bool, cuffs: bool) -> Vec<u8> {
     let joints = skeleton();
     let world = world_positions(&joints);
     let index = |name: &str| -> u16 {
@@ -142,6 +153,18 @@ pub fn character(bug: bool) -> Vec<u8> {
             index("Head")
         };
         mesh.cuboid([s * 0.17, 1.47, -0.08], [0.07, 0.45, 0.07], tail);
+        if cuffs {
+            mesh.cuboid(
+                [s * 0.62, 1.31, 0.0],
+                [0.12, 0.26, 0.08],
+                index(&format!("{side}Hand")),
+            );
+            mesh.cuboid(
+                [s * 0.76, 1.29, 0.0],
+                [0.02, 0.3, 0.02],
+                index(&format!("{side}HandMiddle1")),
+            );
+        }
     }
 
     let mut b = Builder::default();
