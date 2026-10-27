@@ -2033,7 +2033,7 @@ export type McpCall = {
 	id: number,
 	atMs: number | null,
 	tool: string,
-	/**  The arguments in a few words, for example `moon-island, from compress`. */
+	/**  The arguments in a few words, for example `frostveil, from compress`. */
 	detail: string,
 	outcome: CallOutcome,
 	message: string | null,

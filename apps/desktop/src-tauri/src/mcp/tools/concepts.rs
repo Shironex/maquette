@@ -46,7 +46,7 @@ impl From<AspectArg> for Aspect {
 pub struct ConceptsArgs {
     /// The project id.
     pub project: String,
-    /// The direction name, for example "Moon island porch". Reusing a name adds to it.
+    /// The direction name, for example "Frozen lake". Reusing a name adds to it.
     pub direction: String,
     /// What the images should show.
     pub prompt: String,

@@ -148,7 +148,7 @@ Reads one run's status and the end of its log. The status is `queued`, `running`
 | ---------- | ------ | -------- | -------------------------------------------------------------------------------- |
 | `project`  | string | yes      | The project id.                                                                  |
 | `number`   | number | no       | The run number ("Run 12" is 12). Without it and without `runId`, the newest run. |
-| `runId`    | string | no       | The run id `run_pipeline` returned, such as `moon-island-run-12`.                |
+| `runId`    | string | no       | The run id `run_pipeline` returned, such as `frostveil-run-12`.                  |
 | `logLines` | number | no       | Log lines from the end. 40 by default, 400 at most.                              |
 
 ### send_to_3d

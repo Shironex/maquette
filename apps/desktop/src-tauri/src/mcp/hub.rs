@@ -41,7 +41,7 @@ pub struct McpCall {
     pub id: u32,
     pub at_ms: f64,
     pub tool: String,
-    /// The arguments in a few words, for example `moon-island, from compress`.
+    /// The arguments in a few words, for example `frostveil, from compress`.
     pub detail: String,
     pub outcome: CallOutcome,
     pub message: Option<String>,

@@ -31,7 +31,7 @@ pub struct GetRunArgs {
     pub project: String,
     /// The run number ("Run 12" is 12). Without it and without runId, the newest run.
     pub number: Option<u32>,
-    /// The run id that run_pipeline returned, for example "moon-island-run-12".
+    /// The run id that run_pipeline returned, for example "frostveil-run-12".
     pub run_id: Option<String>,
     /// How many log lines to return from the end, 40 by default and 400 at most.
     pub log_lines: Option<u32>,
