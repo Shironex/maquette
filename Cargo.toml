@@ -42,7 +42,7 @@ process-wrap = { version = "10.0.1", default-features = false, features = ["std"
 
 # The built in MCP server. rmcp 3.6 and 3.7 are younger than seven days,
 # so this stays on 3.5.1. It is served by plain hyper on 127.0.0.1.
-rmcp = { version = "=3.5.1", default-features = false }
+rmcp = { version = "=3.6.0", default-features = false }
 schemars = "1.2.2"
 tokio = { version = "1.53", default-features = false }
 hyper = { version = "1.11", default-features = false }
@@ -76,7 +76,7 @@ tauri-build = { version = "2", features = [] }
 tauri-plugin-dialog = "2.7"
 # The app's own updates. 2.13 and later need tauri 2.12; this stays on the
 # newest release that builds with tauri 2.11 and is older than seven days.
-tauri-plugin-updater = { version = "=2.12.0", default-features = false, features = ["rustls-tls", "zip"] }
+tauri-plugin-updater = { version = "=2.14.0", default-features = false, features = ["rustls-tls", "zip"] }
 
 # Exact pins: tauri-specta is pre-1.0, and a floating rc would resolve
 # differently between machines and break the regenerate-and-diff guard.
