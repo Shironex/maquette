@@ -38,10 +38,11 @@
  * (scripts/visual-check/library.mjs) the Library view, Add to library and
  * Update from library, and the board set (scripts/visual-check/board.mjs)
  * a card waiting for a By hand model, its grouped menu and Move to submenu,
- * the header's tooltips and a card with several budget warnings, and the
- * sync set (scripts/visual-check/sync.mjs) a workspace shared with another
- * computer: the lock question, the repo question, the conflict warning and
- * the Settings help. It renders
+ * the header's tooltips, Remove from project and Recently removed, and a
+ * card with several budget warnings, and the sync set
+ * (scripts/visual-check/sync.mjs) a workspace shared with another computer:
+ * the lock question, the repo question, the conflict warning and the
+ * Settings help. It renders
  * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
