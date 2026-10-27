@@ -43,6 +43,7 @@ import { createPageHandlers } from './create-page-handlers';
 import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPathsHandlers } from './create-paths-handlers';
 import { createGameHandlers } from './create-game-handlers';
+import { withManyAssets, wrapManyInspect } from './many-assets-fixtures';
 import { createLibraryHandlers } from './create-library-handlers';
 import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createProjectHandlers } from './create-project-handlers';
@@ -72,6 +73,7 @@ export function createBackend({
   paths = null,
   game: gameState = null,
   library: libraryState = null,
+  inspect: inspectState = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -106,6 +108,9 @@ export function createBackend({
     state: configured ? gameState : null,
   });
   [projects, config] = game.seedInto(projects, config);
+  if (configured && inspectState === 'many') {
+    projects = projects.map(p => (p.id === 'moon-island' ? withManyAssets(p) : p));
+  }
   const listed = configured ? inboxItems(`${expand(DEFAULT_ROOT)}/inbox`, now) : [];
   let inbox: InboxItem[] = inboxState === 'redo' ? linkForRedo(listed) : listed;
 
@@ -359,6 +364,7 @@ export function createBackend({
     ...game.handlers,
   };
   page.wrapInspect(handlers);
+  if (configured && inspectState === 'many') wrapManyInspect(handlers, project);
 
   // The `running` scenario starts run 25 as soon as the app opens.
   if (scenario === 'running') {

@@ -45,7 +45,8 @@ export type Args = Record<string, unknown>;
  * (see `create-timeline-handlers.ts`), `?paths=` the Paths editor's paths
  * (see `create-paths-handlers.ts`), `?game=` a game project (see
  * `create-game-handlers.ts`), `?library=demo` the library's entries (see
- * `create-library-handlers.ts`). Configured scenarios also open with
+ * `create-library-handlers.ts`), `?inspect=many` a long compare menu (see
+ * `many-assets-fixtures.ts`). Configured scenarios also open with
  * Send to 3D jobs (see `providers.ts`).
  */
 export interface BackendOptions {
@@ -94,6 +95,8 @@ export interface BackendOptions {
   game?: string | null;
   /** `demo`: library entries, two of them with an update for a project (see library-fixtures.ts). */
   library?: string | null;
+  /** `many`: Moon Island gets 49 more versioned assets, so the Inspector's compare menu is long. */
+  inspect?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */
