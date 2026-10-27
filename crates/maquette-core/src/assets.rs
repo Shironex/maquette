@@ -10,6 +10,7 @@ use crate::error::{CoreError, CoreResult};
 use crate::project::{ProjectManifest, now_rfc3339, slugify};
 
 pub mod copy;
+pub mod remove;
 
 pub const ASSET_NAME_MAX_CHARS: usize = 80;
 

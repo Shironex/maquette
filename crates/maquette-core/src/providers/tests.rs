@@ -21,6 +21,7 @@ use crate::workspace::{self, WorkspaceConfig};
 mod connect;
 mod handoff_paths;
 mod ids;
+mod remove;
 
 const WAIT: Duration = Duration::from_secs(20);
 
