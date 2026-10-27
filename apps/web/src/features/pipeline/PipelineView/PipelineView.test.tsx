@@ -37,7 +37,7 @@ describe('the Pipeline view', () => {
     await usePipelineStore.getState().load('crypt-game');
     render(<PipelineView />);
     expect(
-      screen.getByRole('meter', { name: /^Model budget, \d+ of \d+ models over$/ })
+      screen.getByRole('meter', { name: /^Folder budgets, \d+ of \d+ models over$/ })
     ).toBeVisible();
     expect(screen.getByText('Export')).toBeInTheDocument();
     expect(screen.queryByText('Web')).toBeNull();

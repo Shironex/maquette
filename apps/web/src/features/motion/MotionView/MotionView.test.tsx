@@ -28,7 +28,7 @@ describe('the motion view', () => {
     await openGameMotion();
     render(<MotionView />);
     expect(
-      await screen.findByRole('meter', { name: /^Model budget, \d+ of \d+ models over$/ })
+      await screen.findByRole('meter', { name: /^Folder budgets, \d+ of \d+ models over$/ })
     ).toBeVisible();
     for (const label of ['Concept', 'Refs', 'Tripo', 'Blender', 'Export', 'Ship']) {
       expect(screen.getByText(label)).toBeInTheDocument();

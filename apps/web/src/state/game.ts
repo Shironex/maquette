@@ -98,14 +98,27 @@ export function isOver(settings: GameSettings, asset: Asset): boolean {
 export interface BudgetSummary {
   models: number;
   over: Asset[];
+  /** How many of the over models are over their folder's triangles. */
+  overTriangles: number;
+  /** How many are over their folder's texture size (a model can be both). */
+  overTextures: number;
 }
 
-/** How many models the budgets check and which are over. */
+/** How many models the folder budgets check, which are over, and on what. */
 export function budgetSummary(project: ProjectManifest | null | undefined): BudgetSummary | null {
   const settings = gameOf(project);
   if (!settings || !project) return null;
-  const checked = (project.assets ?? []).filter(a => checkAsset(settings, a));
-  return { models: checked.length, over: checked.filter(a => isOver(settings, a)) };
+  const checks = (project.assets ?? []).flatMap(asset => {
+    const check = checkAsset(settings, asset);
+    return check ? [{ asset, check }] : [];
+  });
+  const over = checks.filter(c => c.check.problems.length > 0);
+  return {
+    models: checks.length,
+    over: over.map(c => c.asset),
+    overTriangles: over.filter(c => c.check.triangles > c.check.maxTriangles).length,
+    overTextures: over.filter(c => c.check.texture > c.check.maxTexture).length,
+  };
 }
 
 /** "14.6k / 12k", the triangles against the budget. */

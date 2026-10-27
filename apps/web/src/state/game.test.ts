@@ -80,6 +80,7 @@ describe('game projects', () => {
     const summary = budgetSummary(crypt)!;
     expect(summary.models).toBe(15);
     expect(summary.over.map(a => a.id)).toEqual(['banner', 'iron-gate', 'knight']);
+    expect(summary.overTriangles + summary.overTextures).toBeGreaterThanOrEqual(3);
     expect(gameOf({ ...crypt, target: 'website' })).toBeNull();
     expect(budgetSummary({ ...crypt, target: 'website' })).toBeNull();
   });

@@ -5,20 +5,26 @@ export interface ModelBudgetMeterProps {
   summary: BudgetSummary;
 }
 
-/** The top bar's budget for a game: how many models are over their folder's budget. */
+/**
+ * The top bar's figure for a game: how many models are over their folder's
+ * budget (triangles or texture size, set per folder in Inspector > Budget).
+ * It is not the Tris per model setting the Inbox check reads.
+ */
 export default function ModelBudgetMeter({ summary }: ModelBudgetMeterProps) {
   const over = summary.over.length;
   const names = summary.over.map(a => a.name).join(', ');
+  const limits =
+    'The limits are per folder (props start at 12k triangles and 1024 px), not the Tris per model setting the Inbox check reads. Change them in Inspector > Budget.';
   const label = over
-    ? `Over their folder's budget: ${names}. Each model checks on its own; there is no scene total.`
-    : 'Every model fits its folder budget. Each model checks on its own; there is no scene total.';
+    ? `${over} of ${summary.models} models are over their folder's budget: ${summary.overTriangles} on triangles, ${summary.overTextures} on texture size (${names}). ${limits}`
+    : `Every model fits its folder's budget. ${limits}`;
   const fill = summary.models ? ((summary.models - over) / summary.models) * 100 : 0;
   return (
     <Tooltip label={label} wrap side="bottom">
       <span tabIndex={0} className="rounded-control">
         <div className="flex min-w-42 flex-col gap-[5px]">
           <div className="flex items-baseline justify-between gap-3 text-[12px] leading-[14px] text-fg-mute">
-            <span>Model budget</span>
+            <span>Folder budgets</span>
             <span className={cn('font-mono text-[12px]', over ? 'text-amber' : 'text-fg')}>
               {over} over{' '}
               <span className="text-fg-mute">
@@ -28,7 +34,7 @@ export default function ModelBudgetMeter({ summary }: ModelBudgetMeterProps) {
           </div>
           <div
             role="meter"
-            aria-label={`Model budget, ${over} of ${summary.models} models over`}
+            aria-label={`Folder budgets, ${over} of ${summary.models} models over`}
             aria-valuenow={summary.models - over}
             aria-valuemin={0}
             aria-valuemax={summary.models}
