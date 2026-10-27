@@ -5,7 +5,10 @@
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { commands } from '@/ipc/client';
 import { createBackend } from '@/ipc/mock/backend';
+import { events } from '@/ipc/generated/bindings';
 import { useAppStore } from '@/state/use-app-store';
+import { useUpdaterStore } from '@/state/use-updater-store';
+import { INITIAL_UPDATER } from '@/state/updater';
 
 export async function openMockWorkspace(
   scenario = 'configured',
@@ -101,3 +104,28 @@ export function openMockShip(ship?: 'hand-built') {
 }
 
 export { clearMocks };
+
+/**
+ * The configured workspace with the app updater: inert without `updater`,
+ * else on in that state (`available`, `ready`, `current` or `pending`, see
+ * create-app-handlers.ts). Events reach the listeners, so download progress
+ * shows. Resets the updater store.
+ */
+export async function openMockUpdater(updater?: string) {
+  const handle = createBackend({
+    scenario: 'configured',
+    probeDelay: 0,
+    pace: 0,
+    updater,
+    emit: event => {
+      if (event.name === 'updater') void events.updaterUpdate.emit(event.payload);
+    },
+  });
+  mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>), {
+    shouldMockEvents: true,
+  });
+  useUpdaterStore.setState({ ...INITIAL_UPDATER, refused: null, aboutAsked: false });
+  const boot = await commands.appBootstrap();
+  useAppStore.setState({ boot, workspace: boot.workspace, phase: 'app' });
+  return handle;
+}

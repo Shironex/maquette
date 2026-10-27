@@ -122,6 +122,7 @@ const handle = createBackend({
   inspect: params.get('inspect'),
   sync: params.get('sync'),
   ship: params.get('ship'),
+  updater: params.get('updater'),
   // `?timeline=demo` lights the demo paths too, for its paths lane.
   paths: params.get('paths') ?? (params.get('timeline') === 'demo' ? 'demo' : null),
   emit: event => {
@@ -133,6 +134,7 @@ const handle = createBackend({
     else if (event.name === 'concept') void events.conceptUpdate.emit(event.payload);
     else if (event.name === 'mcp') void events.mcpUpdate.emit(event.payload);
     else if (event.name === 'downloads') void events.downloadsArrival.emit(event.payload);
+    else if (event.name === 'updater') void events.updaterUpdate.emit(event.payload);
     else if (event.name === 'provider') {
       const payload = event.payload;
       if (payload.type === 'project') void events.projectChanged.emit({ project: payload.project });

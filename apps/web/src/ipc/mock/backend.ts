@@ -51,6 +51,7 @@ import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createShipHandlers } from './create-ship-handlers';
 import { createProjectHandlers } from './create-project-handlers';
 import { createToolchainHandlers } from './create-toolchain-handlers';
+import { createAppHandlers } from './create-app-handlers';
 import { createWorkspaceHandlers } from './create-workspace-handlers';
 import { createSyncHandlers, syncProjects } from './create-sync-handlers';
 import { display, expand, fail, type Args, type BackendOptions } from './backend-options';
@@ -80,6 +81,7 @@ export function createBackend({
   inspect: inspectState = null,
   sync = null,
   ship: shipState = null,
+  updater = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -309,9 +311,7 @@ export function createBackend({
       arrival,
       ...(pace === 0 ? { delayMs: 0 } : {}),
     }),
-    // Nothing closes in the browser, so the quit commands have nothing to do.
-    quit_set_unapplied: () => undefined,
-    quit_now: () => undefined,
+    ...createAppHandlers({ state: updater, emit: payload => emit?.({ name: 'updater', payload }) }),
     ...createWorkspaceHandlers({
       root: { get: () => root, set: next => (root = next) },
       config: { get: () => config, set: next => (config = next) },

@@ -7,6 +7,7 @@ import type {
   ProjectManifest,
   ProviderEvent,
   ServerStatus,
+  UpdaterEvent,
 } from '../client';
 import { HOME } from './fixtures';
 
@@ -49,7 +50,8 @@ export type Args = Record<string, unknown>;
  * `create-game-handlers.ts`), `?library=demo` the library's entries (see
  * `create-library-handlers.ts`), `?inspect=many` a long compare menu (see
  * `many-assets-fixtures.ts`), `?ship=hand-built` the website Ship settings
- * (see `create-ship-handlers.ts`). Configured scenarios also open with
+ * (see `create-ship-handlers.ts`), `?updater=` the app updater turned on (see
+ * `create-app-handlers.ts`). Configured scenarios also open with
  * Send to 3D jobs (see `providers.ts`).
  */
 export interface BackendOptions {
@@ -69,6 +71,7 @@ export interface BackendOptions {
       | { name: 'downloads'; payload: Arrival }
       | { name: 'built'; project: string; manifest?: ProjectManifest }
       | { name: 'page'; payload: ServerStatus }
+      | { name: 'updater'; payload: UpdaterEvent }
   ) => void;
   /** `active`: the MCP server is on, mid agent session. */
   agents?: string | null;
@@ -104,6 +107,8 @@ export interface BackendOptions {
   ship?: string | null;
   /** `held`, `repo` or `conflict`: a workspace shared with another computer (see create-sync-handlers.ts). */
   sync?: string | null;
+  /** `available`, `ready`, `current` or `pending`: the updater is on (see create-app-handlers.ts). */
+  updater?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */
