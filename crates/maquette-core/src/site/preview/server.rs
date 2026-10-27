@@ -35,6 +35,9 @@ use crate::error::{CoreError, CoreResult};
 /// How long a server gets to answer after it starts.
 pub const START_TIMEOUT: Duration = Duration::from_secs(90);
 const POLL: Duration = Duration::from_millis(250);
+/// How long the output gets to print its address before a port passed only
+/// as `PORT` is tried instead.
+const PRINT_GRACE: Duration = Duration::from_secs(8);
 /// Lines of output kept for the log.
 pub const LOG_LINES: usize = 200;
 
@@ -96,6 +99,8 @@ struct Slot {
     generation: u64,
     /// The address the output printed.
     found: Option<String>,
+    /// The running command's [`PreviewPlan::key`].
+    key: String,
     /// New lines since the last notice.
     dirty: bool,
     /// The frame proxy in front of the running server.
@@ -189,7 +194,9 @@ impl SitePreview {
     pub fn begin(&self, plan: &PreviewPlan, project: &str, owner: ServerOwner) -> ServerStatus {
         let site = plan.site.to_string_lossy().into_owned();
         let mut slot = lock(&self.shared);
+        // A changed dev command starts afresh; the same one is shared.
         let same = slot.status.site.as_deref() == Some(site.as_str())
+            && slot.key == plan.key
             && matches!(
                 slot.status.state,
                 ServerState::Starting | ServerState::Running
@@ -208,6 +215,7 @@ impl SitePreview {
         slot.generation += 1;
         let generation = slot.generation;
         slot.found = None;
+        slot.key.clone_from(&plan.key);
         slot.status = ServerStatus {
             state: ServerState::Starting,
             project: Some(project.to_string()),
@@ -392,11 +400,7 @@ fn watch(shared: &Shared, generation: u64, plan: &PreviewPlan) {
         }
         let dirty = std::mem::take(&mut slot.dirty);
         if slot.status.state == ServerState::Starting {
-            let candidate = plan
-                .url
-                .clone()
-                .or_else(|| slot.found.clone())
-                .or_else(|| plan.expected_url());
+            let candidate = address(plan, slot.found.as_deref(), started.elapsed());
             drop(slot);
             let up = candidate.as_deref().is_some_and(answers);
             let mut slot = lock(shared);
@@ -421,11 +425,48 @@ fn watch(shared: &Shared, generation: u64, plan: &PreviewPlan) {
             drop(old);
             shared.publish(&status);
         } else if dirty {
+            let old = follow_printed(&mut slot, plan);
             let status = slot.status.clone();
             drop(slot);
+            drop(old);
             shared.publish(&status);
         }
     }
+}
+
+/// Where to look for the server while it starts: the site config's address,
+/// then the one the output printed, then the picked port on localhost. A
+/// port passed only as `PORT` is tried after [`PRINT_GRACE`], since a tool
+/// that ignores it prints where it really serves.
+fn address(plan: &PreviewPlan, found: Option<&str>, elapsed: Duration) -> Option<String> {
+    plan.url
+        .clone()
+        .or_else(|| found.map(str::to_string))
+        .or_else(|| {
+            (plan.port_in_args || elapsed > PRINT_GRACE)
+                .then(|| plan.expected_url())
+                .flatten()
+        })
+}
+
+/// A server marked running at the guessed port that later prints another
+/// address moves to it, so the status, the frame and Open show where the
+/// site really serves. Returns the replaced frame proxy.
+fn follow_printed(slot: &mut Slot, plan: &PreviewPlan) -> Option<FrameProxy> {
+    if plan.url.is_some() || slot.status.external {
+        return None;
+    }
+    let printed = slot.found.clone()?;
+    let guessed = slot.status.url.clone()?;
+    if printed == guessed || !answers(&printed) {
+        return None;
+    }
+    slot.status.log.push(format!(
+        "The dev server printed {printed}, so Maquette shows that instead of {guessed}."
+    ));
+    let extra = slot.status.log.len().saturating_sub(LOG_LINES);
+    slot.status.log.drain(..extra);
+    slot.run_at(printed)
 }
 
 #[cfg(test)]

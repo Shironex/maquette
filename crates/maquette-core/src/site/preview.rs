@@ -33,9 +33,17 @@ pub struct PreviewPlan {
     pub url: Option<String>,
     /// The port Maquette picked for the server, when it picked one.
     pub port: Option<u16>,
+    /// True when that port is in the command's args. A port passed only as
+    /// `PORT` is a hint the dev tool may ignore (Vite and Astro do), so the
+    /// address the output prints wins over it.
+    pub port_in_args: bool,
     pub path_env: OsString,
     /// The command with its port, as one line for the log.
     pub line: String,
+    /// The command before the port is picked: a start whose key differs
+    /// from the running server's starts it afresh, so a changed dev command
+    /// takes effect.
+    pub key: String,
 }
 
 impl PreviewPlan {
@@ -128,6 +136,8 @@ pub fn plan(site: &Path, command: &DevCommand, env: &ProbeEnv) -> CoreResult<Pre
     } else {
         None
     };
+    let port_in_args = port.is_some() && command.argv.iter().any(|a| a.contains(command::PORT));
+    let key = command.line();
     let mut argv = command::with_port(&command.argv, port);
     let line = command::line(&argv);
     let program = argv.remove(0);
@@ -146,8 +156,10 @@ pub fn plan(site: &Path, command: &DevCommand, env: &ProbeEnv) -> CoreResult<Pre
         args: argv,
         url: command.url.clone(),
         port,
+        port_in_args,
         path_env,
         line,
+        key,
     })
 }
 

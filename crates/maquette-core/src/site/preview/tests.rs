@@ -95,6 +95,20 @@ fn the_plan_finds_the_program_and_picks_a_port() {
         Some(format!("http://localhost:{port}/"))
     );
     assert_eq!(plan.line, format!("pnpm run dev --port {port}"));
+    assert!(plan.port_in_args);
+    assert_eq!(plan.key, "pnpm run dev --port {port}");
+
+    // A typed command gets the port only as PORT, which the tool may ignore.
+    let typed = command::choose(
+        site.path(),
+        &SiteConfig::legacy(),
+        Some("pnpm run dev:landing"),
+    )
+    .expect("typed");
+    let plan = super::plan(site.path(), &typed, &env).expect("plan");
+    assert!(plan.port.is_some());
+    assert!(!plan.port_in_args);
+    assert_eq!(plan.key, "pnpm run dev:landing");
 
     let mut config = SiteConfig::legacy();
     config.preview = Some(super::super::PreviewConfig {

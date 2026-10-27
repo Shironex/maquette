@@ -22,8 +22,10 @@ fn node_plan(site: &Path, node: &Path, script: &str) -> PreviewPlan {
         args: vec!["-e".into(), script.into()],
         url: None,
         port: Some(free_port().expect("port")),
+        port_in_args: true,
         path_env: std::env::var_os("PATH").unwrap_or_default(),
         line: "node -e <server>".into(),
+        key: "node -e <server>".into(),
     }
 }
 
@@ -81,6 +83,84 @@ fn a_server_starts_reports_its_address_and_stops() {
     assert!(gone(&frame), "the frame proxy stopped");
 }
 
+/// Answers on `$PORT` without a word, and serves the site on another port
+/// it prints after `delay` ms, like a typed command whose tool ignores
+/// `PORT` next to one that honours it.
+fn two_servers(delay: u32) -> String {
+    format!(
+        "const http = require('http');\
+http.createServer((q, r) => r.end('port')).listen(+process.env.PORT, '127.0.0.1');\
+setTimeout(() => {{ const s = http.createServer((q, r) => r.end('site'));\
+s.listen(0, '127.0.0.1', () => console.log('  Local  http://127.0.0.1:' + s.address().port + '/')); }}, {delay});"
+    )
+}
+
+#[test]
+fn a_port_given_only_as_port_loses_to_the_printed_address() {
+    let Some(node) = node() else { return };
+    let site = tempfile::tempdir().expect("site");
+    let mut plan = node_plan(site.path(), &node, &two_servers(600));
+    plan.port_in_args = false;
+    let guess = plan.expected_url().expect("guess");
+    let preview = SitePreview::default();
+    let url = preview
+        .start(&plan, "moon-island", ServerOwner::Pipeline)
+        .expect("start");
+    assert_ne!(url, guess, "the printed address wins");
+    assert!(url.starts_with("http://127.0.0.1:"), "{url}");
+    preview.stop();
+}
+
+#[test]
+fn a_server_running_at_its_port_moves_to_the_address_it_prints_later() {
+    let Some(node) = node() else { return };
+    let site = tempfile::tempdir().expect("site");
+    let plan = node_plan(site.path(), &node, &two_servers(1500));
+    let guess = plan.expected_url().expect("guess");
+    let preview = SitePreview::default();
+    let first = preview
+        .start(&plan, "moon-island", ServerOwner::Pipeline)
+        .expect("start");
+    assert_eq!(
+        first.replace("localhost", "127.0.0.1"),
+        guess.replace("localhost", "127.0.0.1")
+    );
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while preview.status().url.as_deref() == Some(first.as_str()) && Instant::now() < deadline {
+        thread::sleep(POLL);
+    }
+    let status = preview.status();
+    let moved = status.url.expect("url");
+    assert_ne!(moved, first, "{:?}", status.log);
+    assert!(
+        status
+            .log
+            .iter()
+            .any(|l| l.contains("so Maquette shows that instead"))
+    );
+    assert!(status.frame_url.is_some());
+    preview.stop();
+}
+
+#[test]
+fn a_changed_dev_command_starts_afresh() {
+    let Some(node) = node() else { return };
+    let site = tempfile::tempdir().expect("site");
+    let plan = node_plan(site.path(), &node, SERVE);
+    let preview = SitePreview::default();
+    let first = preview
+        .start(&plan, "moon-island", ServerOwner::Page)
+        .expect("first");
+    let mut changed = node_plan(site.path(), &node, SERVE);
+    changed.key = "node -e <another server>".into();
+    let second = preview
+        .start(&changed, "moon-island", ServerOwner::Page)
+        .expect("second");
+    assert_ne!(first, second);
+    assert!(gone(&first), "the old command's server stopped");
+    preview.stop();
+}
+
 #[test]
 fn the_view_letting_go_stops_its_own_server() {
     let Some(node) = node() else { return };
@@ -126,8 +206,10 @@ fn a_missing_program_fails_without_a_process() {
         args: Vec::new(),
         url: None,
         port: None,
+        port_in_args: false,
         path_env: std::env::var_os("PATH").unwrap_or_default(),
         line: "no-such-dev-tool".into(),
+        key: "no-such-dev-tool".into(),
     };
     let preview = SitePreview::default();
     preview.begin(&plan, "moon-island", ServerOwner::Agent);
@@ -147,8 +229,10 @@ fn a_server_already_answering_is_reused_and_never_stopped() {
         args: Vec::new(),
         url: Some(url.clone()),
         port: None,
+        port_in_args: false,
         path_env: std::env::var_os("PATH").unwrap_or_default(),
         line: "never-runs".into(),
+        key: "never-runs".into(),
     };
     let preview = SitePreview::default();
     let status = preview.begin(&plan, "moon-island", ServerOwner::Page);
@@ -236,8 +320,10 @@ fn the_exit_message_keeps_the_last_lines() {
         args: Vec::new(),
         url: Some("http://localhost:15292/".into()),
         port: None,
+        port_in_args: false,
         path_env: std::ffi::OsString::new(),
         line: "pnpm dev".into(),
+        key: "pnpm dev".into(),
     };
     let log: Vec<String> = std::iter::once("$ pnpm dev".to_string())
         .chain((0..20).map(|i| format!("line {i}")))
