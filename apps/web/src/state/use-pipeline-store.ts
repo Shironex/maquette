@@ -21,7 +21,8 @@ interface PipelineStore {
   /** True between pressing Run and the run's first event. */
   starting: boolean;
   load: (project: string) => Promise<void>;
-  run: (options?: { from?: string | null; force?: boolean }) => Promise<void>;
+  /** `buildOnly` stops before Ship. */
+  run: (options?: { from?: string | null; force?: boolean; buildOnly?: boolean }) => Promise<void>;
   cancel: () => Promise<void>;
   savePresets: (presets: CompressPreset[]) => Promise<boolean>;
   /** Saves the Bake light step's size, samples or denoiser. */
@@ -72,12 +73,12 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
     }
   },
 
-  run: async ({ from = null, force = false } = {}) => {
+  run: async ({ from = null, force = false, buildOnly = false } = {}) => {
     const view = get().view;
     if (!view) return;
     set({ starting: true });
     try {
-      const run = await commands.pipelineRun(view.project, from, force);
+      const run = await commands.pipelineRun(view.project, { from, force, buildOnly });
       get().onEvent({ type: 'run', run });
     } catch (error) {
       useAppStore.getState().notify({

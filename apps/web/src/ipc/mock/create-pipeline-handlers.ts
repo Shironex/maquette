@@ -3,6 +3,7 @@ import type {
   CompressPreset,
   PipelineView,
   ProjectManifest,
+  RunAsk,
   SceneLayout,
   StarterStatus,
   WorkspaceConfig,
@@ -51,9 +52,10 @@ export function createPipelineHandlers({
       return layout.save(String(id), next as SceneLayout);
     },
     pipeline_get: ({ project: id }) => view(String(id)),
-    pipeline_run: ({ project: id, from, force }) => {
+    pipeline_run: ({ project: id, ask }) => {
       const def = view(String(id)).def;
-      return runner.submit(String(id), def, (from as string | null) ?? null, Boolean(force));
+      const { from = null, force = false, buildOnly = false } = (ask ?? {}) as RunAsk;
+      return runner.submit(String(id), def, from, force, buildOnly);
     },
     pipeline_cancel: ({ runId }) => runner.cancel(String(runId)),
     pipeline_log: ({ number }) => store.logs.get(Number(number)) ?? [],

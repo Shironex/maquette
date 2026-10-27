@@ -162,27 +162,42 @@ export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
     activeFor(project: string): string | null {
       return active?.id.startsWith(`${project}-run-`) ? active.id : null;
     },
-    submit(project: string, def: PipelineDef, from: string | null, force: boolean): RunRecord {
+    submit(
+      project: string,
+      def: PipelineDef,
+      from: string | null,
+      force: boolean,
+      buildOnly = false
+    ): RunRecord {
       if (active)
         throw { code: 'invalid', message: 'A run is already going. Mock mode runs one at a time.' };
       const number = Math.max(0, ...store.runs.map(r => r.number)) + 1;
       const fromIndex = from ? def.steps.findIndex(s => s.id === from) : -1;
-      const steps: StepRecord[] = def.steps.map((s, i) => ({
-        id: s.id,
-        name: s.name,
-        state: fromIndex > i ? 'skipped' : 'waiting',
-        startedAtMs: null,
-        durationMs: null,
-        exitCode: null,
-        message: fromIndex > i ? 'Not part of this run.' : null,
-        progress: null,
-      }));
+      const steps: StepRecord[] = def.steps.map((s, i) => {
+        const before = fromIndex > i;
+        const leftOut = buildOnly && s.id === 'ship';
+        return {
+          id: s.id,
+          name: s.name,
+          state: before || leftOut ? 'skipped' : 'waiting',
+          startedAtMs: null,
+          durationMs: null,
+          exitCode: null,
+          message: leftOut
+            ? 'Left out: this run builds only.'
+            : before
+              ? 'Not part of this run.'
+              : null,
+          progress: null,
+        };
+      });
       const run: RunRecord = {
         id: `${project}-run-${number}`,
         number,
         project,
         from,
         force,
+        buildOnly,
         state: 'queued',
         queuedAtMs: clock.nowMs(),
         startedAtMs: null,

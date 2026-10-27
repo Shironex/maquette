@@ -73,8 +73,7 @@ describe('mock backend', () => {
     const { handle, events } = backend('configured');
     const run = (await handle('pipeline_run', {
       project: 'moon-island',
-      from: null,
-      force: false,
+      ask: { from: null, force: false },
     })) as RunRecord;
     expect(run.number).toBe(25);
     let view = await finished(handle);
@@ -83,7 +82,7 @@ describe('mock backend', () => {
     expect(view.runs[0]!.steps.find(s => s.id === 'ship')!.state).toBe('skipped');
     expect(events.some(e => e.type === 'log' && e.entry.level === 'error')).toBe(true);
 
-    await handle('pipeline_run', { project: 'moon-island', from: 'posters', force: false });
+    await handle('pipeline_run', { project: 'moon-island', ask: { from: 'posters' } });
     view = await finished(handle);
     expect(view.runs[0]!.state).toBe('done');
     expect(view.runs[0]!.steps.find(s => s.id === 'export')!.state).toBe('skipped');
@@ -91,10 +90,19 @@ describe('mock backend', () => {
 
   it('passes every step in the idle scenario', async () => {
     const { handle } = backend('idle');
-    await handle('pipeline_run', { project: 'moon-island', from: null, force: true });
+    await handle('pipeline_run', { project: 'moon-island', ask: { force: true } });
     const view = await finished(handle);
     expect(view.runs[0]!).toMatchObject({ number: 24, state: 'done' });
     expect(view.runs[0]!.steps.every(s => s.state === 'done')).toBe(true);
+  });
+
+  it('leaves Ship out of a build only run', async () => {
+    const { handle } = backend('idle');
+    await handle('pipeline_run', { project: 'moon-island', ask: { force: true, buildOnly: true } });
+    const view = await finished(handle);
+    const ship = view.runs[0]!.steps.find(s => s.id === 'ship')!;
+    expect(view.runs[0]!).toMatchObject({ state: 'done', buildOnly: true });
+    expect(ship).toMatchObject({ state: 'skipped', message: 'Left out: this run builds only.' });
   });
 
   it('refuses edits to a locked preset row', async () => {
