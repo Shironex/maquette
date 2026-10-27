@@ -221,6 +221,19 @@ fn send_object_picks_makes_one_asset_per_object() {
         send_object_picks(root.path(), &layout, &manifest.id, &direction.id, None).is_err(),
         "nothing picked"
     );
+    // A laptop asset made earlier keeps its name as it is.
+    project::modify(root.path(), &layout, &manifest.id, |m| {
+        assets::add(
+            m,
+            crate::assets::NewAsset {
+                name: "laptop".into(),
+                kind: AssetKind::Prop,
+                stage: Stage::Concept,
+            },
+        )
+        .map(|_| ())
+    })
+    .expect("earlier asset");
     // Someone already keeps a laptop.png in refs/.
     fs::write(project_dir.join("refs/laptop.png"), b"mine").expect("theirs");
     for p in &planned[..2] {
@@ -229,7 +242,8 @@ fn send_object_picks_makes_one_asset_per_object() {
     let sent =
         send_object_picks(root.path(), &layout, &manifest.id, &direction.id, None).expect("send");
     let names: Vec<&str> = sent.assets.iter().map(|a| a.asset.name.as_str()).collect();
-    assert_eq!(names, vec!["desk lamp", "laptop"]);
+    assert_eq!(names, vec!["Desk lamp", "laptop"]);
+    assert_eq!(sent.assets[0].asset.id, "desk-lamp");
     assert_eq!(sent.assets[0].refs, vec!["refs/desk_lamp.png".to_string()]);
     assert_eq!(sent.assets[1].refs, vec!["refs/laptop_2.png".to_string()]);
     assert_eq!(

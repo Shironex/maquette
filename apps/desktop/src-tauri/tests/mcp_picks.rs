@@ -254,7 +254,7 @@ async fn agents_star_and_pick_concepts_onto_the_board() {
     assert_eq!(picked["images"][0]["copied"], json!(true));
     assert_eq!(picked["assets"][0]["id"], json!("stone-lantern"));
     assert_eq!(picked["assets"][0]["stage"], json!("refs"));
-    assert_eq!(picked["assets"][1]["name"], json!("desk lamp"));
+    assert_eq!(picked["assets"][1]["name"], json!("Desk lamp"));
     assert_eq!(picked["assets"][1]["kind"], json!("character"));
     assert_eq!(picked["assets"][1]["refs"], json!(["refs/desk_lamp.png"]));
     assert!(project_dir.join("refs/desk_lamp.png").is_file());

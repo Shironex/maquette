@@ -68,7 +68,7 @@ pub struct ObjectRefsArgs {
     /// The concept to take the objects from, relative to the project folder, for example
     /// "concepts/workbench-hero/workbench-hero_01.png" or "refs/workbench.png".
     pub source: String,
-    /// One short name per object (60 characters at most), for example ["desk lamp", "clay figure"]. At most 12. The name becomes the asset name; put long descriptions in notes.
+    /// One short name per object (60 characters at most), for example ["desk lamp", "clay figure"]. At most 12. The name becomes the asset name, with a capital first letter ("desk lamp" makes "Desk lamp"); put long descriptions in notes.
     pub objects: Vec<String>,
     /// Optional extra instructions per object, keyed by the object's name, for example
     /// {"island": "painted stone and moss, no wireframe lines"}. They go into the image prompt

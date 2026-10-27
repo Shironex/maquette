@@ -197,7 +197,12 @@ fn object_refs_are_named_after_their_object_with_the_direction_kind() {
         .iter()
         .map(|i| i.asset.name.as_str())
         .collect();
-    assert_eq!(names, vec!["desk lamp", "brush cup"]);
+    assert_eq!(
+        names,
+        vec!["Desk lamp", "Brush cup"],
+        "capitalised, ids as before"
+    );
+    assert_eq!(picked.images[0].asset.id, "desk-lamp");
     assert_eq!(picked.images[0].ref_file, "refs/desk_lamp.png");
     assert_eq!(picked.images[1].ref_file, "refs/brush_cup.png");
     assert_eq!(picked.images[0].asset.kind, AssetKind::Character);

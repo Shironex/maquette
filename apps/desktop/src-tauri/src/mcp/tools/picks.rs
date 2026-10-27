@@ -44,6 +44,7 @@ pub struct PickArg {
     pub star: Option<bool>,
     /// The asset's name, 80 characters at most. By default the object's name in a direction
     /// of object refs, else the direction's name. Images with the same name join one asset.
+    /// A new asset's name starts with a capital letter ("desk lamp" makes "Desk lamp").
     pub name: Option<String>,
     /// "prop", "character" or "scene" (not for object refs), for a new asset only. By default
     /// the kind of an object refs direction, else "prop".
@@ -196,7 +197,7 @@ fn star(host: &dyn Host, args: StarConceptsArgs) -> Result<Value, String> {
 #[tool_router(router = picks_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Pick Lab concepts onto the Board, as Send picks to Refs does in the app: each image is copied into the project's refs/ folder and becomes, or joins, a Board asset at the Refs stage (an existing asset of that name moves up from Concept). By default an object ref becomes an asset named after its object, any other concept the asset named after its direction. An image picked before keeps its ref and answers with the same asset, so calling again makes no duplicates. Can star the images too. Every image is checked before anything is written; it spends nothing. Returns each image's ref file and asset, and each asset once with its refs, ready for send_to_3d.",
+        description = "Pick Lab concepts onto the Board, as Send picks to Refs does in the app: each image is copied into the project's refs/ folder and becomes, or joins, a Board asset at the Refs stage (an existing asset of that name moves up from Concept). By default an object ref becomes an asset named after its object, any other concept the asset named after its direction; a new asset's name starts with a capital letter (\"desk lamp\" makes \"Desk lamp\"), an existing one keeps its own. An image picked before keeps its ref and answers with the same asset, so calling again makes no duplicates. Can star the images too. Every image is checked before anything is written; it spends nothing. Returns each image's ref file and asset, and each asset once with its refs, ready for send_to_3d.",
         annotations(idempotent_hint = true, destructive_hint = false)
     )]
     async fn pick_concepts(&self, Parameters(args): Parameters<PickConceptsArgs>) -> Out {

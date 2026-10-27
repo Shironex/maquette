@@ -79,9 +79,20 @@ pub fn send_picks(
     })
 }
 
+/// `armillary sphere` reads `Armillary sphere`: only the first letter
+/// changes, the rest stays as typed (`HUD panel`).
+fn capitalised(name: &str) -> String {
+    let name = name.trim();
+    let mut chars = name.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first.to_uppercase().chain(chars).collect()
+    })
+}
+
 /// The asset called `name` at Refs: an existing one as it is (moved up
-/// when it is still at Concept), else a new one of `kind`. Every way a pick
-/// reaches the Board goes through here.
+/// when it is still at Concept), else a new one of `kind`, its name with a
+/// capital first letter like the ones made by hand (the id is the same
+/// either way). Every way a pick reaches the Board goes through here.
 pub(super) fn place_at_refs(
     manifest: &mut ProjectManifest,
     name: &str,
@@ -95,7 +106,7 @@ pub(super) fn place_at_refs(
         None => assets::add(
             manifest,
             NewAsset {
-                name: name.to_string(),
+                name: capitalised(name),
                 kind,
                 stage: Stage::Refs,
             },
@@ -152,4 +163,19 @@ pub fn heal_ref_thumbnails(
         Ok(())
     })?;
     Ok(Some(saved))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::capitalised;
+
+    #[test]
+    fn only_the_first_letter_is_capitalised() {
+        assert_eq!(capitalised("armillary sphere"), "Armillary sphere");
+        assert_eq!(capitalised(" brazier "), "Brazier");
+        assert_eq!(capitalised("HUD panel"), "HUD panel");
+        assert_eq!(capitalised("ørsted lamp"), "Ørsted lamp");
+        assert_eq!(capitalised("3d printer"), "3d printer");
+        assert_eq!(capitalised(""), "");
+    }
 }
