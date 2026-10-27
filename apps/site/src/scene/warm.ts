@@ -14,7 +14,10 @@ export async function warm(
   camera: THREE.Camera,
   scene: THREE.Scene
 ): Promise<void> {
-  await gl.compileAsync(root, camera, scene);
+  // Without the parallel compile extension compileAsync only polls a compile
+  // that already blocked, and three warns about the missing extension.
+  if (gl.extensions.has('KHR_parallel_shader_compile')) await gl.compileAsync(root, camera, scene);
+  else gl.compile(root, camera, scene);
   await nextFrame();
   root.traverse(object => {
     if (!(object instanceof THREE.Mesh)) return;
