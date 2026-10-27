@@ -270,7 +270,7 @@ export function shouldAutoStart(view: PageView): boolean {
 
 /** "localhost:4321 · running", for the source list and the status bar. */
 export function serverLine(status: ServerStatus): string {
-  const host = status.url ? shortAddress(status.url).replace(/\/$/, '') : null;
+  const host = serverHost(status);
   switch (status.state) {
     case 'running':
       return `${host ?? 'dev server'} · ${status.external ? 'already running' : 'running'}`;
@@ -281,6 +281,32 @@ export function serverLine(status: ServerStatus): string {
     default:
       return 'stopped';
   }
+}
+
+/** Who keeps the dev server going, as a sentence's end: "started by an agent". */
+export function serverOwner(status: Pick<ServerStatus, 'owner' | 'external'>): string {
+  if (status.external) return 'already running outside Maquette';
+  switch (status.owner) {
+    case 'page':
+      return 'started by the Page view';
+    case 'agent':
+      return 'started by an agent';
+    case 'pipeline':
+      return 'started by Preview on site';
+    default:
+      return 'started by Maquette';
+  }
+}
+
+/** The dev server's host and port, "localhost:3000", once it answers. */
+export function serverHost(status: Pick<ServerStatus, 'url'> | null | undefined): string | null {
+  return status?.url ? shortAddress(status.url).replace(/\/$/, '') : null;
+}
+
+/** True while the server is up or coming up for `project`. */
+export function serverLive(status: ServerStatus | null | undefined, project?: string | null) {
+  if (!status || (project !== undefined && status.project !== project)) return false;
+  return status.state === 'running' || status.state === 'starting';
 }
 
 /** What a frame loads for the view's source, and the address bar's text (the dev server's own). */

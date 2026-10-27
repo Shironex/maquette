@@ -11,7 +11,10 @@ import {
   pageAddress,
   readPageMessage,
   scrollLine,
+  serverHost,
   serverLine,
+  serverLive,
+  serverOwner,
   shortAddress,
   shouldAutoStart,
   siteName,
@@ -286,5 +289,23 @@ describe('the stop slots', () => {
     }
     const [before, last] = slots.slice(-2);
     expect(before!.left + before!.width).toBeCloseTo(last!.left - last!.width);
+  });
+});
+
+describe('who keeps the dev server going', () => {
+  it('names the owner, or says Maquette did not start it', () => {
+    expect(serverOwner({ owner: 'page', external: false })).toBe('started by the Page view');
+    expect(serverOwner({ owner: 'agent', external: false })).toBe('started by an agent');
+    expect(serverOwner({ owner: 'pipeline', external: false })).toBe('started by Preview on site');
+    expect(serverOwner({ owner: 'page', external: true })).toBe('already running outside Maquette');
+  });
+
+  it('reads the host and whether it is up for a project', () => {
+    const status = { state: 'starting', project: 'moon-island', url: null } as ServerStatus;
+    expect(serverHost(status)).toBeNull();
+    expect(serverHost({ url: 'http://localhost:3000/' })).toBe('localhost:3000');
+    expect(serverLive(status, 'moon-island')).toBe(true);
+    expect(serverLive(status, 'rooftop-cinema')).toBe(false);
+    expect(serverLive({ ...status, state: 'failed' }, 'moon-island')).toBe(false);
   });
 });

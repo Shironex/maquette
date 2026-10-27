@@ -94,6 +94,12 @@ interface PageStore {
   onServer: (status: ServerStatus) => void;
   start: () => Promise<void>;
   stop: () => Promise<void>;
+  /** Reads the server's state for `project`, for a view that shows it with the Page view closed. */
+  syncServer: (project: string) => Promise<void>;
+  /** Stops the dev server, whichever project it serves and whoever started it. */
+  stopServer: () => Promise<void>;
+  /** Opens the site the server serves in the browser, at its root. */
+  openServer: () => Promise<void>;
   save: (patch: Partial<PageSettings>) => Promise<boolean>;
   pickConcept: () => Promise<void>;
   openInBrowser: () => Promise<void>;
@@ -235,6 +241,42 @@ export const usePageStore = create<PageStore>((set, get) => {
         await apply(project, () => commands.pageServerStop(project));
       } catch (error) {
         fail("Could not stop the site's dev server", error);
+      }
+    },
+
+    syncServer: async project => {
+      try {
+        const view = await commands.pageGet(project);
+        if (view.server.project) get().onServer(view.server);
+      } catch {
+        // The next event brings it.
+      }
+    },
+
+    stopServer: async () => {
+      const server = get().server;
+      const project = server?.project;
+      if (!server || !project) return;
+      try {
+        const view = await commands.pageServerStop(project);
+        get().onServer(
+          view.server.project
+            ? view.server
+            : { ...server, state: 'idle', url: null, frameUrl: null, owner: null, external: false }
+        );
+        if (get().project === project) set({ view });
+      } catch (error) {
+        fail("Could not stop the site's dev server", error);
+      }
+    },
+
+    openServer: async () => {
+      const project = get().server?.project;
+      if (!project) return;
+      try {
+        await commands.pageOpenInBrowser(project, '/');
+      } catch (error) {
+        fail('Could not open the site in the browser', error);
       }
     },
 
