@@ -271,3 +271,121 @@ fn ship_copies_only_the_models_its_data_lists_and_drops_the_ones_it_shipped_befo
     let data = read(&s.site.join("src/scene/shipped.json"));
     assert_eq!(data["models"].as_object().map(|m| m.len()), Some(1));
 }
+
+fn hand_built(s: &Scratch, desk: &str, armchair: &str) {
+    site_config(
+        &s.site,
+        &json!({ "version": 1, "models": "apps/landing/public/room/models",
+                 "posters": null, "data": null }),
+    );
+    let index = json!({ "version": 1, "project": "bench", "origin": "own", "sizeGuard": true,
+        "models": {
+            "desk": { "name": "Desk", "file": "desk.glb", "version": 2, "choice": desk },
+            "armchair": { "name": "Armchair", "file": "armchair.glb", "version": 1,
+                          "choice": armchair } } });
+    fs::write(s.project.join("index.json"), index.to_string()).expect("index");
+}
+
+#[test]
+fn a_hand_built_site_keeps_its_own_files_until_the_person_chooses() {
+    let s = scratch();
+    fs::remove_file(s.project.join("web/dist/desk_lamp_v1.glb")).expect("lamp");
+    fs::write(
+        s.project.join("web/dist/desk.glb"),
+        b"maquette desk, larger",
+    )
+    .expect("desk");
+    fs::write(s.project.join("web/dist/armchair.glb"), b"armchair").expect("armchair");
+    let models = s.site.join("apps/landing/public/room/models");
+    fs::create_dir_all(&models).expect("models");
+    fs::write(models.join("desk.glb"), b"own desk").expect("site desk");
+    hand_built(&s, "auto", "auto");
+    let Some(out) = ship(&s) else { return };
+    let log = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(models.join("armchair.glb").is_file());
+    assert_eq!(
+        fs::read(models.join("desk.glb")).expect("desk"),
+        b"own desk"
+    );
+    assert!(
+        log.contains("desk.glb held back: the site file was not made by Maquette"),
+        "{log}"
+    );
+    assert!(
+        !s.site.join("public").exists(),
+        "the legacy folder is not used"
+    );
+
+    // Always writes over it, and the record then lists it.
+    hand_built(&s, "always", "auto");
+    let Some(out) = ship(&s) else { return };
+    assert!(out.status.success());
+    assert_eq!(
+        fs::read(models.join("desk.glb")).expect("desk"),
+        b"maquette desk, larger"
+    );
+    let record = read(&s.project.join("web/ship-record.json"));
+    let listed = record["targets"]
+        .as_object()
+        .and_then(|t| t.values().next())
+        .cloned();
+    assert_eq!(listed, Some(json!(["armchair.glb", "desk.glb"])));
+
+    // A larger remake of a file Maquette shipped is held under the guard,
+    // and a model set to never stays as it is, neither copied nor removed.
+    fs::write(
+        s.project.join("web/dist/desk.glb"),
+        b"maquette desk, larger still",
+    )
+    .expect("desk");
+    fs::write(s.project.join("web/dist/armchair.glb"), b"armchair v2").expect("armchair");
+    hand_built(&s, "auto", "never");
+    let Some(out) = ship(&s) else { return };
+    let log = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(out.status.success());
+    assert!(
+        log.contains("desk.glb held back: the site file is smaller"),
+        "{log}"
+    );
+    assert!(
+        log.contains("armchair.glb held back: set to never ship"),
+        "{log}"
+    );
+    assert_eq!(
+        fs::read(models.join("armchair.glb")).expect("armchair"),
+        b"armchair"
+    );
+    let record = read(&s.project.join("web/ship-record.json"));
+    let listed = record["targets"]
+        .as_object()
+        .and_then(|t| t.values().next())
+        .cloned();
+    assert_eq!(
+        listed,
+        Some(json!(["armchair.glb", "desk.glb"])),
+        "held files stay listed"
+    );
+}
+
+#[test]
+fn scene_data_marks_models_from_their_own_origin_as_not_in_place() {
+    let s = scratch();
+    fs::write(s.project.join("layout.json"), layout(true).to_string()).expect("layout");
+    site_config(&s.site, &json!({ "version": 1, "data": "shipped.json" }));
+    let mut index = read(&s.project.join("index.json"));
+    index["origin"] = json!("own");
+    fs::write(s.project.join("index.json"), index.to_string()).expect("index");
+    let Some(out) = ship(&s) else { return };
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let data = read(&s.site.join("shipped.json"));
+    assert_eq!(data["models"]["desk-lamp"]["inPlace"], false);
+}

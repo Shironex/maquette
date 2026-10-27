@@ -34,6 +34,18 @@
 // shipped into each site folder. A file shipped last time that this Ship
 // no longer ships is removed from the site, and logged; every other file in
 // the site is left alone, whoever put it there.
+//
+// Before a file is copied over one the site already has, it is checked
+// (Maquette's ship plan shows the same answer):
+// - an asset whose "choice" in the index is "never" is held back, and one
+//   set to "always" is copied whatever the site has;
+// - a site file the record does not list was not made by Maquette, so it
+//   is held back;
+// - with "sizeGuard" in the index (a hand-built site), a site file that is
+//   smaller than the new one is held back too.
+// A held file is neither copied nor removed, and is logged. With
+// "origin": "own" in the index the models are exported at their own
+// origin, so the scene data marks them "inPlace": false.
 
 import {
   copyFileSync,
@@ -131,13 +143,22 @@ function copyAll(from, to, files) {
   return files.length;
 }
 
-/** The scene data the site reads, or a reason it cannot be written. */
-function sceneData(config, shipped) {
+/** The ship index Maquette wrote before the run, or null without one. */
+function readIndex(required) {
   if (!values.index || values.index.includes('{')) {
+    if (!required) return null;
     fail('the Ship step has no --index {shipIndex}; update its args from the starter');
   }
   const index = readJson(values.index, null);
-  if (!index || typeof index.models !== 'object') fail(`${values.index} is not a ship index`);
+  if (!index || typeof index.models !== 'object') {
+    if (!required && index === null) return null;
+    fail(`${values.index} is not a ship index`);
+  }
+  return index;
+}
+
+/** The scene data the site reads, or a reason it cannot be written. */
+function sceneData(config, shipped, index, present) {
   const layout = readJson(values.layout, { version: 1, models: {}, stops: [], desk: null });
   const materials = readJson(values.materials, { version: 1, models: {} });
   const placed = Object.keys(layout.models ?? {}).length;
@@ -150,11 +171,11 @@ function sceneData(config, shipped) {
   }
   const models = {};
   for (const [asset, entry] of Object.entries(index.models)) {
-    if (!shipped.includes(entry.file)) {
+    if (!shipped.includes(entry.file) && !present(entry.file)) {
       log(`${asset}: ${entry.file} is not in ${values.models}, left out`);
       continue;
     }
-    models[asset] = { name: entry.name, file: entry.file, inPlace: true };
+    models[asset] = { name: entry.name, file: entry.file, inPlace: index.origin !== 'own' };
   }
   const posterList = config.posters
     ? (readJson(join(values.posters, 'stops.json'), { stops: [] }).stops ?? []).map(stop => ({
@@ -190,13 +211,33 @@ function readRecord() {
   return record;
 }
 
+/** True when two files hold the same bytes. */
+function sameBytes(a, b) {
+  return statSync(a).size === statSync(b).size && readFileSync(a).equals(readFileSync(b));
+}
+
+/** Why `name` must not be copied into `to`, or null when it may. */
+function holdReason(index, owned, to, name) {
+  const entry = Object.values(index?.models ?? {}).find(m => m.file === name);
+  const choice = entry?.choice ?? 'auto';
+  if (choice === 'never') return 'set to never ship';
+  const target = join(to, name);
+  if (choice === 'always' || !existsSync(target)) return null;
+  if (sameBytes(join(values.models, name), target)) return null;
+  if (!owned.includes(name)) return 'the site file was not made by Maquette';
+  const grows = statSync(join(values.models, name)).size > statSync(target).size;
+  if (index?.sizeGuard && grows) return 'the site file is smaller';
+  return null;
+}
+
 /** Removes the files this project shipped to `to` last time and no longer ships. */
-function dropStale(record, to, files) {
+function dropStale(record, to, files, held) {
   const before = Array.isArray(record.targets[to]) ? record.targets[to] : [];
   let removed = 0;
   for (const name of before) {
     // Only plain file names it wrote itself, never a path.
-    if (files.includes(name) || name !== basename(name) || !name.endsWith('.glb')) continue;
+    if (files.includes(name) || held.includes(name)) continue;
+    if (name !== basename(name) || !name.endsWith('.glb')) continue;
     const path = join(to, name);
     if (!existsSync(path)) continue;
     rmSync(path);
@@ -219,22 +260,34 @@ if (built.length === 0) fail(`there are no .glb files in ${values.models} to shi
 const modelsTo = inside(config.models);
 const postersTo = config.posters ? inside(config.posters) : null;
 const dataTo = config.data ? inside(config.data) : null;
-const data = dataTo ? sceneData(config, built) : null;
+const index = readIndex(Boolean(dataTo));
+const record = readRecord();
+const owned = Array.isArray(record.targets[modelsTo]) ? record.targets[modelsTo] : [];
+const held = built.filter(name => {
+  const why = holdReason(index, owned, modelsTo, name);
+  if (why) log(`${name} held back: ${why}`);
+  return why !== null;
+});
+const present = name => existsSync(join(modelsTo, name));
+const copyable = built.filter(name => !held.includes(name));
+const data = dataTo ? sceneData(config, copyable, index, present) : null;
 // With scene data the site gets exactly the models the data lists.
-const shipped = data ? [...new Set(Object.values(data.models).map(m => m.file))] : built;
-for (const name of built.filter(name => !shipped.includes(name))) {
+const wanted = data ? [...new Set(Object.values(data.models).map(m => m.file))] : built;
+for (const name of built.filter(name => !wanted.includes(name))) {
   log(`${join(values.models, name)} is in no shipped asset, not copied`);
 }
+const shipped = wanted.filter(name => built.includes(name) && !held.includes(name));
+const kept = held.filter(name => owned.includes(name));
 
-const record = readRecord();
-const stale = dropStale(record, modelsTo, shipped);
+const stale = dropStale(record, modelsTo, shipped, held);
 const models = copyAll(values.models, modelsTo, shipped);
-writeRecord(record, modelsTo, shipped);
+writeRecord(record, modelsTo, [...shipped, ...kept]);
 const posters = postersTo
   ? copyAll(values.posters, postersTo, filesIn(values.posters, ['.png', '.jpg', '.json']))
   : 0;
 if (dataTo && data) writeData(dataTo, data);
 log(
   `shipped ${models} models and ${posters} poster files to ${site}` +
-    (stale ? `, removed ${stale} it shipped before` : '')
+    (stale ? `, removed ${stale} it shipped before` : '') +
+    (held.length ? `, held back ${held.length}` : '')
 );
