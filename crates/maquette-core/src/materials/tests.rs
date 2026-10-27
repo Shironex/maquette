@@ -468,3 +468,41 @@ fn a_newer_or_unreadable_file_on_disk_is_never_overwritten() {
     );
     assert_eq!(fs::read_to_string(path(dir.path())).expect("read"), broken);
 }
+
+#[test]
+fn the_smaller_group_is_marked_for_resize_and_unmarked_after() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input = dir.path().join("crate_v1.glb");
+    let marked = dir.path().join("crate_v1.split.glb");
+    fs::write(&input, crate::inbox::fixture::clean_prop()).expect("fixture");
+    let names = |path: &std::path::Path| -> Vec<Option<String>> {
+        let json = crate::test_blender::glb_json(path);
+        json["images"]
+            .as_array()
+            .expect("images")
+            .iter()
+            .map(|i| i["name"].as_str().map(str::to_string))
+            .collect()
+    };
+    let before = names(&input);
+    // The data and normal maps are the smaller group: the base color stays.
+    let count = mark_small_maps(&input, &marked, false).expect("mark");
+    assert!(count >= 1);
+    let after = names(&marked);
+    assert_eq!(after.len(), before.len());
+    let suffix = crate::pipeline::presets::SMALL_MARK;
+    assert_eq!(
+        after
+            .iter()
+            .flatten()
+            .filter(|n| n.ends_with(suffix))
+            .count(),
+        count
+    );
+    assert!(gltf::Gltf::from_slice(&fs::read(&marked).expect("read")).is_ok());
+    assert_eq!(unmark_small_maps(&marked).expect("unmark"), count);
+    assert_eq!(names(&marked), before, "the names are as they were");
+    // The color group alone.
+    let color = mark_small_maps(&input, &marked, true).expect("mark color");
+    assert_eq!(color + count, before.len(), "every image is in one group");
+}

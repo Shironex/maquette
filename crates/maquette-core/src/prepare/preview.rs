@@ -347,6 +347,9 @@ impl Previews {
             materials: Default::default(),
             from: None,
             force: true,
+            textures: Default::default(),
+            quality: crate::ship::DEFAULT_QUALITY,
+            build_only: false,
         })?;
         if record.state != RunState::Done {
             let lines = history::load_log(&cache_dir, record.number);

@@ -461,3 +461,122 @@ fn a_locked_row_keeps_its_codec_for_normal_maps() {
     let open = row("sakura", 1024, MeshoptLevel::High, None);
     assert_eq!(open.codecs().normal, TextureCodec::Uastc);
 }
+
+#[test]
+fn webp_resizes_before_it_encodes_and_shrinks_the_marked_group() {
+    use crate::ship::TextureFormat;
+    let input = PathBuf::from("raw/desk.glb");
+    let output = PathBuf::from("dist/desk.glb");
+    let tmp = PathBuf::from("tmp/desk.tex.glb");
+    let mut one = row("desk", 1024, MeshoptLevel::High, None);
+    let preset = resolve(std::slice::from_ref(&one), "desk", DEFAULTS);
+    assert!(!needs_split(&preset, MapGroups::ALL));
+    let passes = image_passes(
+        &input,
+        &output,
+        &tmp,
+        &preset,
+        (TextureFormat::Webp, 80),
+        MapGroups::ALL,
+    );
+    assert_eq!(
+        args_of(&passes),
+        vec![
+            vec![
+                "resize",
+                "raw/desk.glb",
+                "tmp/desk.tex.img1.glb",
+                "--width",
+                "1024",
+                "--height",
+                "1024"
+            ],
+            vec![
+                "webp",
+                "tmp/desk.tex.img1.glb",
+                "tmp/desk.tex.img2.glb",
+                "--quality",
+                "80"
+            ],
+            vec![
+                "meshopt",
+                "tmp/desk.tex.img2.glb",
+                "dist/desk.glb",
+                "--level",
+                "high"
+            ],
+        ]
+    );
+
+    // Color maps at 1024, data and normal maps at 512: everything goes to
+    // 1024, then the marked data maps to 512, then one encode.
+    one.data_texture_size = Some(512);
+    let preset = resolve(std::slice::from_ref(&one), "desk", DEFAULTS);
+    assert!(needs_split(&preset, MapGroups::ALL) && !color_is_smaller(&preset));
+    assert!(
+        !needs_split(
+            &preset,
+            MapGroups {
+                color: false,
+                normal: true
+            }
+        ),
+        "one group, one size"
+    );
+    let passes = image_passes(
+        &input,
+        &output,
+        &tmp,
+        &preset,
+        (TextureFormat::Avif, 60),
+        MapGroups::ALL,
+    );
+    let args = args_of(&passes);
+    assert_eq!(args.len(), 4);
+    assert_eq!(args[0][4], "1024");
+    assert_eq!(
+        args[1],
+        vec![
+            "resize",
+            "tmp/desk.tex.img1.glb",
+            "tmp/desk.tex.img2.glb",
+            "--width",
+            "512",
+            "--height",
+            "512",
+            "--pattern",
+            "*-maquette-small"
+        ]
+    );
+    assert_eq!(
+        args[2],
+        vec![
+            "avif",
+            "tmp/desk.tex.img2.glb",
+            "tmp/desk.tex.img3.glb",
+            "--quality",
+            "60"
+        ]
+    );
+
+    // Data maps larger than the color maps: the color maps are the marked ones.
+    one.texture_size = 512;
+    one.data_texture_size = Some(1024);
+    let preset = resolve(std::slice::from_ref(&one), "desk", DEFAULTS);
+    assert!(color_is_smaller(&preset));
+    let passes = image_passes(
+        &input,
+        &output,
+        &tmp,
+        &preset,
+        (TextureFormat::Webp, 80),
+        MapGroups::ALL,
+    );
+    let args = args_of(&passes);
+    assert_eq!((args[0][4], args[1][4]), ("1024", "512"));
+    assert!(
+        passes
+            .iter()
+            .all(|p| !p.args.iter().any(|a| a == "etc1s" || a == "uastc"))
+    );
+}

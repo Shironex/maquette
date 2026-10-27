@@ -183,6 +183,9 @@ pub(super) fn run(
             materials: Default::default(),
             from: None,
             force: true,
+            textures: Default::default(),
+            quality: crate::ship::DEFAULT_QUALITY,
+            build_only: false,
         },
         RunOptions {
             timeout: Some(TIMEOUT),

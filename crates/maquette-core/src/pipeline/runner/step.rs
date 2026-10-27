@@ -12,7 +12,7 @@ use crate::materials::map_groups;
 use crate::pipeline::cache::{self, CacheRecord, FileHasher, KeyParts};
 use crate::pipeline::graph::{BLENDER_HEADLESS_MESSAGE, blender_headless};
 use crate::pipeline::history::LogLevel;
-use crate::pipeline::presets::{compress_passes, resolve};
+use crate::pipeline::presets::{compress_passes, image_passes, resolve};
 use crate::pipeline::progress::Tracker;
 use crate::pipeline::tools::ResolvedTool;
 use crate::pipeline::{CompressSpec, StepDef, StepKind};
@@ -156,7 +156,10 @@ impl Execution {
             if let Err(message) = self.write_tweaked(step, spec, &root) {
                 return StepOutcome::Failed(message, None);
             }
-            if !self.setup.tools.has(ToolId::Toktx) {
+            if let Err(message) = self.write_split(spec, &root) {
+                return StepOutcome::Failed(message, None);
+            }
+            if self.setup.textures.is_ktx2() && !self.setup.tools.has(ToolId::Toktx) {
                 self.system(
                     Some(&step.id),
                     LogLevel::Warn,
@@ -197,6 +200,11 @@ impl Execution {
                 return StepOutcome::Cancelled;
             }
         }
+        if let Some(spec) = &step.compress
+            && let Err(message) = self.unmark_outputs(spec, &root)
+        {
+            return StepOutcome::Failed(message, None);
+        }
         let outputs = self.outputs_of(step);
         if let Some((pattern, _)) = cache::expand(&root, &outputs)
             .into_iter()
@@ -234,12 +242,22 @@ impl Execution {
         let presets = serde_json::to_string(&self.setup.def.presets).unwrap_or_default();
         let names = serde_json::to_string(&self.setup.shipped_names).unwrap_or_default();
         let materials = serde_json::to_string(&self.setup.materials).unwrap_or_default();
+        // KTX2 adds nothing, so a project from before the choice keeps its cache.
+        let textures = if self.setup.textures.is_ktx2() {
+            String::new()
+        } else {
+            format!(
+                " textures {} {}",
+                self.setup.textures.word(),
+                self.setup.quality
+            )
+        };
         Some(format!(
-            "presets {presets} defaults {} {:?} {:?} toktx {} names {names} materials {materials}",
+            "presets {presets} defaults {} {:?} {:?} toktx {} names {names} materials {materials}{textures}",
             self.setup.defaults.texture_size,
             self.setup.defaults.codec,
             self.setup.defaults.meshopt,
-            self.setup.tools.has(ToolId::Toktx)
+            self.setup.tools.has(ToolId::Toktx),
         ))
     }
 
@@ -268,9 +286,15 @@ impl Execution {
             let preset = resolve(&self.setup.def.presets, &model.stem, self.setup.defaults);
             let output = root.join(&spec.to).join(format!("{}.glb", model.shipped));
             let tmp_file = tmp.join(format!("{}.tex.glb", model.stem));
-            let input = self.tweaked_input(&model, &tmp);
+            let input = self.compress_input(&model, &tmp);
             let groups = map_groups(&model.input);
-            for pass in compress_passes(&input, &output, &tmp_file, &preset, toktx, groups) {
+            let passes = if self.setup.textures.is_ktx2() {
+                compress_passes(&input, &output, &tmp_file, &preset, toktx, groups)
+            } else {
+                let codec = (self.setup.textures, self.setup.quality);
+                image_passes(&input, &output, &tmp_file, &preset, codec, groups)
+            };
+            for pass in passes {
                 out.push((Some(pass.label), pass.args));
             }
         }

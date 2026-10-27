@@ -98,6 +98,9 @@ fn setup(dir: &Path, steps: Vec<StepDef>) -> RunSetup {
         materials: Default::default(),
         from: None,
         force: false,
+        textures: Default::default(),
+        quality: crate::ship::DEFAULT_QUALITY,
+        build_only: false,
     }
 }
 

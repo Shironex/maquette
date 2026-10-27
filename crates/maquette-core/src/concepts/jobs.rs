@@ -375,6 +375,9 @@ impl Concepts {
                     materials: Default::default(),
                     from: None,
                     force: true,
+                    textures: Default::default(),
+                    quality: crate::ship::DEFAULT_QUALITY,
+                    build_only: false,
                 },
                 options: RunOptions {
                     stdin: Some(text),

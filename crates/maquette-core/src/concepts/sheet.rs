@@ -145,6 +145,9 @@ pub fn render(
         materials: Default::default(),
         from: None,
         force: true,
+        textures: Default::default(),
+        quality: crate::ship::DEFAULT_QUALITY,
+        build_only: false,
     })?;
     if run.state != RunState::Done {
         let why = run

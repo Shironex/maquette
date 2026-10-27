@@ -41,9 +41,11 @@ use crate::project::ProjectManifest;
 mod apply;
 mod glb;
 mod patch;
+mod split;
 
 pub use apply::{Applied, apply_file, apply_to_json, map_groups, material_names};
 pub use patch::{MaterialsPatch, TweakPatch, apply_patch, save_looks, update};
+pub use split::{mark_small_maps, unmark_small_maps};
 
 pub const MATERIALS_FILE: &str = "materials.json";
 pub const MATERIALS_VERSION: u32 = 1;

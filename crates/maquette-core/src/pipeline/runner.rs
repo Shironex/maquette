@@ -69,6 +69,12 @@ pub struct RunSetup {
     pub materials: BTreeMap<String, crate::materials::ModelMaterials>,
     pub from: Option<String>,
     pub force: bool,
+    /// The format Compress encodes textures in, from `ship.json`.
+    pub textures: crate::ship::TextureFormat,
+    /// The WebP and AVIF quality, 1 to 100.
+    pub quality: u8,
+    /// Stops before Ship: the Ship step is left out of the run.
+    pub build_only: bool,
 }
 
 /// Extra controls for one run, for jobs that are not project pipelines

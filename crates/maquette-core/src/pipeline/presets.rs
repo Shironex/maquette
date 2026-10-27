@@ -2,6 +2,7 @@
 //! every map, or one per map group) and meshopt level, and how they become
 //! gltf-transform args.
 
+mod image;
 mod passes;
 
 use serde::{Deserialize, Serialize};
@@ -13,6 +14,7 @@ use crate::workspace::{MeshoptLevel, TextureCodec, is_single_segment};
 pub const MIN_TEXTURE: u32 = 64;
 pub const MAX_TEXTURE: u32 = 8192;
 
+pub use image::{SMALL_MARK, color_is_smaller, image_passes, needs_split};
 pub use passes::{CompressPass, MapGroups, compress_passes};
 
 /// The codec of each map group, where a model picks one. A group left

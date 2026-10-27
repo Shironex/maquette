@@ -34,7 +34,7 @@ impl MapGroups {
     };
 }
 
-fn arg(path: &Path) -> String {
+pub(super) fn arg(path: &Path) -> String {
     path.display().to_string()
 }
 
@@ -163,10 +163,17 @@ pub fn compress_passes(
             source = to;
         }
     }
-    let geometry = match preset.meshopt {
+    let geometry = geometry_pass(preset, &source, output);
+    passes.push(geometry);
+    passes
+}
+
+/// The last pass: `meshopt --level medium|high`, or `quantize` for low.
+pub(super) fn geometry_pass(preset: &ResolvedPreset, source: &Path, output: &Path) -> CompressPass {
+    match preset.meshopt {
         MeshoptLevel::Low => CompressPass {
             label: format!("{} geometry quantized (meshopt low)", preset.model),
-            args: vec!["quantize".to_string(), arg(&source), arg(output)],
+            args: vec!["quantize".to_string(), arg(source), arg(output)],
         },
         level => {
             let level = if level == MeshoptLevel::High {
@@ -178,14 +185,12 @@ pub fn compress_passes(
                 label: format!("{} geometry with meshopt {level}", preset.model),
                 args: vec![
                     "meshopt".to_string(),
-                    arg(&source),
+                    arg(source),
                     arg(output),
                     "--level".to_string(),
                     level.to_string(),
                 ],
             }
         }
-    };
-    passes.push(geometry);
-    passes
+    }
 }
