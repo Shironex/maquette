@@ -94,7 +94,12 @@ export {
   type StageStepperProps,
 } from './components/shell/StageStepper';
 export { TopBar, type TopBarProps } from './components/shell/TopBar';
-export { StatusBar, type StatusBarItem, type StatusDot } from './components/shell/StatusBar';
+export {
+  StatusBar,
+  StatusDotMark,
+  type StatusBarItem,
+  type StatusDot,
+} from './components/shell/StatusBar';
 export { Breadcrumb, type Crumb } from './components/shell/Breadcrumb';
 
 export { Toast, type ToastProps, type ToastStatus } from './components/feedback/Toast';

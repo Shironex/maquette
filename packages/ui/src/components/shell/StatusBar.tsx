@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
 
@@ -9,6 +10,11 @@ export interface StatusBarItem {
   dot?: StatusDot;
   /** Pushes this item and the ones after it to the right edge. */
   right?: boolean;
+  /**
+   * Replaces the dot and label with a control of its own, for an item that
+   * acts (a menu of what to do with it). `label` stays its key.
+   */
+  node?: ReactNode;
 }
 
 const DOT: Record<StatusDot, string> = {
@@ -17,6 +23,11 @@ const DOT: Record<StatusDot, string> = {
   offline: 'bg-danger',
   idle: 'bg-line-strong',
 };
+
+/** The small coloured dot an item leads with. */
+export function StatusDotMark({ dot }: { dot: StatusDot }) {
+  return <span aria-hidden="true" className={cn('size-[7px] flex-none rounded-full', DOT[dot])} />;
+}
 
 export function StatusBar({
   items,
@@ -30,12 +41,16 @@ export function StatusBar({
       key={`${i}-${it.label}`}
       className={cn('flex items-center gap-1.5 whitespace-nowrap', it.right && 'ml-auto')}
     >
-      {it.dot ? (
-        <span aria-hidden="true" className={cn('size-[7px] flex-none rounded-full', DOT[it.dot])} />
-      ) : it.icon ? (
-        <Icon name={it.icon} size={12} />
-      ) : null}
-      {it.label}
+      {it.node ?? (
+        <>
+          {it.dot ? (
+            <StatusDotMark dot={it.dot} />
+          ) : it.icon ? (
+            <Icon name={it.icon} size={12} />
+          ) : null}
+          {it.label}
+        </>
+      )}
     </span>
   ));
   return (
