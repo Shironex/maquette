@@ -27,6 +27,8 @@ export function projectSummary(p: ProjectManifest, deps: SummaryDeps): ProjectSu
     template: p.template,
     target: p.target ?? 'website',
     siteRepo: p.siteRepo,
+    siteRepoName: p.siteRepoName ?? null,
+    siteRepoState: p.siteRepoState ?? (p.siteRepo ? 'here' : 'none'),
     createdAt: p.createdAt,
     assetCount: (p.assets ?? []).length,
     dir,

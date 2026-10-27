@@ -165,7 +165,7 @@ pub struct ListAssetsArgs {
 #[tool_router(router = projects_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "List the projects in the open Maquette workspace: template, target (website or game), site repo (the game repo for a game), created, asset count, \
+        description = "List the projects in the open Maquette workspace: template, target (website or game), site repo on this computer (the game repo for a game; siteRepoMissing is true when one was picked on another computer or the folder is gone, and the app then asks the user where it is), created, asset count, \
 the picture the app shows for it, what runs in it now and which one is open in the app. Every other tool takes \
 a project id; no tool changes which project the app has open.",
         annotations(read_only_hint = true)
@@ -197,6 +197,9 @@ a project id; no tool changes which project the app has open.",
                             "template": to_value(p.template),
                             "target": to_value(p.target),
                             "siteRepo": p.site_repo,
+                            "siteRepoName": p.site_repo_name,
+                            "siteRepoState": to_value(p.site_repo_state),
+                            "siteRepoMissing": p.site_repo_state.is_missing(),
                             "createdAt": p.created_at,
                             "assets": p.asset_count,
                             "thumb": p.thumb,

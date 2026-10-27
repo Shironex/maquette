@@ -129,6 +129,8 @@ describe('switcher helpers', () => {
       template: 'floating-diorama' as const,
       target: 'website' as const,
       siteRepo: null,
+      siteRepoName: null,
+      siteRepoState: 'none' as const,
       createdAt: '',
       assetCount: 0,
       dir: '',

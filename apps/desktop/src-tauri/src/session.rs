@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 use maquette_core::inbox::{self, watch};
+use maquette_core::project::repos;
 use maquette_core::{AppState, CoreError, CoreResult, ToolReport, WorkspaceConfig, app_state};
 use tauri::{AppHandle, Manager as _};
 use tauri_specta::Event as _;
@@ -93,6 +94,7 @@ impl Session {
     pub fn set_workspace(&self, root: PathBuf, config: WorkspaceConfig) -> CoreResult<()> {
         let pointer = root.display().to_string();
         self.update_app_state(|state| state.last_workspace = Some(pointer))?;
+        self.load_repos(&root, &config);
         let watcher = self.watch_inbox(&root, &config);
         {
             let mut inner = self.lock();
@@ -112,6 +114,42 @@ impl Session {
             studio.0.open_workspace(&root, &config);
         }
         Ok(())
+    }
+
+    /// Hands this computer's repo paths for `root` to the core and moves an
+    /// older `project.json`'s path into them. A failed move is logged: the
+    /// old path still reads until the next open tries again.
+    fn load_repos(&self, root: &Path, config: &WorkspaceConfig) {
+        let key = repos::root_key(root);
+        let mine = self.lock().app.site_repos.get(&key).cloned();
+        repos::install(root, mine.unwrap_or_default());
+        match repos::migrate(root, &config.layout) {
+            Ok(moved) if !moved.is_empty() => {
+                tracing::info!(projects = ?moved, "moved site repos into this computer's state");
+            }
+            Ok(_) => {}
+            Err(err) => tracing::warn!(error = %err, "could not move the site repos"),
+        }
+        if let Err(err) = self.save_repos(root) {
+            tracing::warn!(error = %err, "could not save the site repos");
+        }
+    }
+
+    /// Saves this computer's repo paths for `root` after a change.
+    pub fn save_repos(&self, root: &Path) -> CoreResult<()> {
+        let key = repos::root_key(root);
+        let entries = repos::entries(root);
+        if self.lock().app.site_repos.get(&key) == Some(&entries) {
+            return Ok(());
+        }
+        self.update_app_state(move |state| {
+            if entries.is_empty() {
+                state.site_repos.remove(&key);
+            } else {
+                state.site_repos.insert(key, entries);
+            }
+        })
+        .map(|_| ())
     }
 
     /// Lets the web view read the workspace's files through the asset
@@ -191,6 +229,45 @@ mod tests {
         let reloaded = app_state::load(dir.path());
         assert_eq!(reloaded.last_workspace, Some(root.display().to_string()));
         assert_eq!(session.workspace().expect("open").0, root);
+    }
+
+    #[test]
+    fn opening_a_workspace_moves_old_repo_paths_into_the_app_state() {
+        use maquette_core::{FolderLayout, workspace};
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join("ws");
+        let config = workspace::create(&root, &WorkspaceConfig::default()).expect("ws");
+        let repo = dir.path().join("site");
+        std::fs::create_dir_all(&repo).expect("repo");
+        let project = root.join(&FolderLayout::default().projects).join("studio");
+        std::fs::create_dir_all(&project).expect("project");
+        let old = format!(
+            r#"{{"version":1,"id":"studio","name":"Studio","template":"room","siteRepo":{},"sourceFolder":null,"createdAt":"2026-01-01T00:00:00.000Z"}}"#,
+            serde_json::to_string(&repo.display().to_string()).expect("json")
+        );
+        std::fs::write(project.join("project.json"), old).expect("old file");
+
+        let cfg = dir.path().join("cfg");
+        let session = Session::with_state(cfg.clone(), None, AppState::default());
+        session
+            .set_workspace(root.clone(), config.clone())
+            .expect("open");
+        let saved = app_state::load(&cfg);
+        let mine = saved
+            .site_repos
+            .get(&repos::root_key(&root))
+            .expect("repos");
+        assert_eq!(mine.get("studio"), Some(&repo.display().to_string()));
+        let text = std::fs::read_to_string(project.join("project.json")).expect("read");
+        assert!(text.contains(r#""siteRepo": null"#), "{text}");
+
+        // A later start reads it from the app state alone.
+        repos::install(&root, Default::default());
+        let again = Session::with_state(cfg.clone(), None, app_state::load(&cfg));
+        again.set_workspace(root.clone(), config).expect("reopen");
+        let manifest =
+            maquette_core::project::load(&root, &FolderLayout::default(), "studio").expect("load");
+        assert_eq!(manifest.site_repo, Some(repo.display().to_string()));
     }
 
     #[test]

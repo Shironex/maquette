@@ -25,6 +25,8 @@ export function useProjectSwitcherMenu(anchorRef: RefObject<HTMLButtonElement | 
         template: p.template,
         target: p.target ?? 'website',
         siteRepo: p.siteRepo,
+        siteRepoName: p.siteRepoName ?? null,
+        siteRepoState: p.siteRepoState ?? 'none',
         createdAt: p.createdAt,
         assetCount: p.assets?.length ?? 0,
         dir: '',

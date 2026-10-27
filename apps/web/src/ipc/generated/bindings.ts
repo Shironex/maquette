@@ -427,6 +427,16 @@ export type AppState = {
 	mcpToken?: string | null,
 	/**  The By hand Downloads watcher: per machine, since folders differ. */
 	downloadsWatch: DownloadsWatch,
+	/**
+	 *  Where each project's repo is on this computer: workspace root, then
+	 *  project id, then the path. See `project::repos`.
+	 */
+	siteRepos: { [key in string]: { [key in string]: string } },
+	/**
+	 *  A random id made once for this computer, so the workspace lock can
+	 *  tell it from another one with the same name.
+	 */
+	machineId: string | null,
 };
 
 /**  Something an agent asked for that waits for a yes or no in the app. */
@@ -2529,9 +2539,14 @@ export type ProjectManifest = {
 	target?: ProjectTarget,
 	/**
 	 *  The repo Ship writes to: the site of a website, the game repo of a
-	 *  game.
+	 *  game. This computer's path (see [`repos`]); `project.json` itself
+	 *  keeps it only from older files.
 	 */
 	siteRepo: string | null,
+	/**  The repo's folder name, saved so another computer can ask for it. */
+	siteRepoName?: string | null,
+	/**  Whether this computer knows where the repo is. Never saved. */
+	siteRepoState?: SiteRepoState,
 	sourceFolder: string | null,
 	/**  A game project's settings; none for a website. */
 	game?: GameSettings | null,
@@ -2547,7 +2562,10 @@ export type ProjectSummary = {
 	name: string,
 	template: ProjectTemplate,
 	target: ProjectTarget,
+	/**  This computer's path to the repo. */
 	siteRepo: string | null,
+	siteRepoName: string | null,
+	siteRepoState: SiteRepoState,
 	createdAt: string,
 	assetCount: number,
 	/**  Absolute, so the UI can resolve `thumb`. */
@@ -2711,7 +2729,10 @@ export type RootInspection = {
 	/**  The path with the home folder shown as `~`. */
 	display: string,
 	state: RootState,
-	/**  Entries in the folder, not counting OS clutter such as `.DS_Store`. */
+	/**
+	 *  Entries in the folder, not counting OS clutter such as `.DS_Store`
+	 *  or a sync tool's own files.
+	 */
 	entries: number,
 };
 
@@ -3003,6 +3024,17 @@ export type SiteFolders = {
 	/**  Why the config could not be read, when it could not. */
 	error: string | null,
 };
+
+/**  Whether this computer knows where a project's repo is. */
+export type SiteRepoState = 
+/**  No repo was ever picked. */
+"none" | 
+/**  This computer has it, and the folder is there. */
+"here" | 
+/**  This computer has a path, but the folder is not there any more. */
+"gone" | 
+/**  Another computer picked one; this one has not been told where it is. */
+"elsewhere";
 
 /**  Which side of the model the real size measures. */
 export type SizeAxis = 

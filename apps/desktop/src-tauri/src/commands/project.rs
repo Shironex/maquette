@@ -103,6 +103,7 @@ pub fn project_create(
         ..project
     };
     let manifest = project::create(&root, &config.layout, new)?;
+    session.save_repos(&root)?;
     let dir = project::dir(&root, &config.layout, &manifest.id)?;
     maquette_core::pipeline::ensure(&dir, &manifest)?;
     config.current_project = Some(manifest.id);
@@ -121,13 +122,9 @@ pub fn project_update(
 ) -> CommandResult<ProjectManifest> {
     let (root, config) = session.workspace()?;
     let site_repo = site_repo.map(|p| session.expand(&p).display().to_string());
-    Ok(project::update(
-        &root,
-        &config.layout,
-        &id,
-        name,
-        site_repo,
-    )?)
+    let manifest = project::update(&root, &config.layout, &id, name, site_repo)?;
+    session.save_repos(&root)?;
+    Ok(manifest)
 }
 
 #[tauri::command]
