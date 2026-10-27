@@ -25,7 +25,8 @@ export function useBoardHeader() {
   const setAddingBuilt = useBuiltStore(s => s.setAdding);
   const openImport = useGameStore(s => s.openImport);
   const renderPreviews = useGameStore(s => s.renderPreviews);
-  const rendering = useGameStore(s => s.rendering);
+  const asking = useGameStore(s => s.rendering);
+  const waiting = useGameStore(s => s.waiting);
 
   // The add form belongs to the project it was opened in.
   useEffect(() => {
@@ -61,9 +62,9 @@ export function useBoardHeader() {
     importModels: () => {
       if (project) void openImport(project.id);
     },
-    // Imported models from before previews came with the import.
-    missing: gameOf(project) ? missingPreviews(project) : 0,
-    rendering,
+    // Models of any project that show no render: imported, or one that failed.
+    missing: missingPreviews(project),
+    rendering: asking || waiting > 0,
     renderPreviews: () => {
       if (project) void renderPreviews(project.id);
     },

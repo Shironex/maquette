@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { forgetStoredPrefs, useBoardPrefsStore } from '@/state/use-board-prefs-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useAppStore } from '@/state/use-app-store';
+import { commands, type Asset, type ProjectManifest } from '@/ipc/client';
+import { useGameStore } from '@/state/use-game-store';
 import { clearMocks, openMockGame, openMockWorkspace } from '@/test/mock-ipc';
 import BoardHeader from './BoardHeader';
 
@@ -58,6 +60,78 @@ describe('BoardHeader', () => {
     await userEvent.click(screen.getByRole('button', { name: /^Render \d+ previews?$/ }));
     await vi.waitFor(() => expect(without()).toEqual([]));
     expect(screen.queryByRole('button', { name: /^Render \d+ previews?$/ })).toBeNull();
+  });
+
+  describe('Render previews on a website project', () => {
+    const model = (id: string, thumbnail: string | null): Asset => ({
+      id,
+      name: id,
+      kind: 'prop',
+      stage: 'blender',
+      status: 'review',
+      versions: [{ version: 1, file: `models/${id}_v1.glb`, createdAt: '', stats: null }],
+      thumbnail,
+      createdAt: '',
+      updatedAt: '',
+      origin: null,
+    });
+    const withAssets = (assets: Asset[]) => {
+      const project = useAppStore.getState().workspace!.project!;
+      expect(project.game ?? null).toBeNull();
+      useAppStore.getState().setProject({ ...project, assets } as ProjectManifest);
+    };
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      useGameStore.setState({ rendering: false, waiting: 0, waitingFor: null, failedPreviews: 0 });
+    });
+
+    it('is hidden while every model shows a render', () => {
+      withAssets([model('lantern', 'thumbs/lantern_v1.png')]);
+      render(<BoardHeader queue={() => null} />);
+      expect(screen.queryByRole('button', { name: /^Render \d+ previews?$/ })).toBeNull();
+    });
+
+    it('counts the models without a render and asks for them', async () => {
+      withAssets([
+        model('lantern', null),
+        model('fox', 'refs/fox.png'),
+        model('pine', 'thumbs/p.png'),
+      ]);
+      const asked = vi.spyOn(commands, 'thumbnailRenderMissing').mockResolvedValue({
+        asked: 2,
+        rendering: 2,
+        failed: 0,
+        reason: null,
+        project: useAppStore.getState().workspace!.project!,
+      });
+      render(<BoardHeader queue={() => null} />);
+      const button = screen.getByRole('button', { name: 'Render 2 previews' });
+      await userEvent.click(button);
+      expect(asked).toHaveBeenCalledWith('moon-island');
+      // The renders are still queued in Blender, so the button waits for them.
+      await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'true'));
+    });
+
+    it('says when previews could not be queued', async () => {
+      withAssets([model('lantern', null)]);
+      vi.spyOn(commands, 'thumbnailRenderMissing').mockResolvedValue({
+        asked: 1,
+        rendering: 0,
+        failed: 1,
+        reason: 'Blender is not installed.',
+        project: useAppStore.getState().workspace!.project!,
+      });
+      render(<BoardHeader queue={() => null} />);
+      await userEvent.click(screen.getByRole('button', { name: 'Render 1 preview' }));
+      await vi.waitFor(() =>
+        expect(useAppStore.getState().notice).toMatchObject({
+          status: 'failed',
+          title: '1 preview could not render',
+          detail: 'Blender is not installed. Render previews to retry.',
+        })
+      );
+    });
   });
 
   it('names the project and counts the By hand models still to make', () => {

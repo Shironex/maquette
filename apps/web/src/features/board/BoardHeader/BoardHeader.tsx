@@ -88,7 +88,7 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
           <Button
             icon="image"
             loading={rendering}
-            tooltip="Renders each model without a preview, headless in Blender, one at a time"
+            tooltip="Renders each model without a preview, headless in Blender, one at a time. Run it again to retry the ones that failed"
             onClick={renderPreviews}
           >
             {missing === 1 ? 'Render 1 preview' : `Render ${missing} previews`}

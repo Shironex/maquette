@@ -9,7 +9,9 @@ import {
   type GameScan,
   type GameSettingsChange,
   type ShipPlan,
+  type ThumbnailReady,
 } from '@/ipc/client';
+import { isBoardModel } from './thumbs';
 import { useAppStore } from './use-app-store';
 import { usePipelineStore } from './use-pipeline-store';
 
@@ -25,6 +27,11 @@ interface GameStore {
   saving: boolean;
   /** Render previews is asking the thumbnail service. */
   rendering: boolean;
+  /** Previews queued in Blender that have not finished yet, for `waitingFor`. */
+  waiting: number;
+  waitingFor: string | null;
+  /** Previews that failed since the last notice about them. */
+  failedPreviews: number;
   openImport: (project: string) => Promise<void>;
   closeImport: () => void;
   toggle: (file: string, on: boolean) => void;
@@ -35,7 +42,11 @@ interface GameStore {
   loadPlan: (project: string) => Promise<void>;
   /** Asks for a preview of every model without one; the cards update as they finish. */
   renderPreviews: (project: string) => Promise<void>;
+  /** Counts a finished render (from the `thumbnailReady` event) against Render previews. */
+  onThumbnail: (event: ThumbnailReady) => void;
 }
+
+const plural = (n: number) => `${n} ${n === 1 ? 'preview' : 'previews'}`;
 
 const fail = (title: string, error: unknown) =>
   useAppStore.getState().notify({ status: 'failed', title, detail: errorMessage(error) });
@@ -52,6 +63,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   plan: null,
   saving: false,
   rendering: false,
+  waiting: 0,
+  waitingFor: null,
+  failedPreviews: 0,
 
   openImport: async project => {
     set({ importFor: project, scan: null, scanning: true, picked: [] });
@@ -128,24 +142,56 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   renderPreviews: async project => {
-    if (get().rendering) return;
-    set({ rendering: true });
+    if (get().rendering || get().waiting > 0) return;
+    set({ rendering: true, failedPreviews: 0 });
     try {
-      const { asked, project: next } = await commands.thumbnailRenderMissing(project);
-      useAppStore.getState().setProject(next);
-      useAppStore.getState().notify({
-        status: 'done',
-        title: asked
-          ? `Rendering ${asked} ${asked === 1 ? 'preview' : 'previews'}`
-          : 'Every model has a preview',
-        detail: asked
-          ? 'Blender renders them one at a time; the cards update as each one is done.'
-          : undefined,
-      });
+      const {
+        asked,
+        rendering,
+        failed,
+        reason,
+        project: next,
+      } = await commands.thumbnailRenderMissing(project);
+      const app = useAppStore.getState();
+      app.setProject(next);
+      set({ waiting: rendering, waitingFor: project, failedPreviews: 0 });
+      if (failed > 0) {
+        app.notify({
+          status: 'failed',
+          title: `${plural(failed)} could not render`,
+          detail: `${reason ?? 'Blender could not render them.'} Render previews to retry.`,
+        });
+      } else {
+        app.notify({
+          status: 'done',
+          title: asked ? `Rendering ${plural(asked)}` : 'Every model has a preview',
+          detail: asked
+            ? 'Blender renders them one at a time; the cards update as each one is done.'
+            : undefined,
+        });
+      }
     } catch (error) {
       fail('Could not render the previews', error);
     } finally {
       set({ rendering: false });
+    }
+  },
+
+  onThumbnail: event => {
+    const project = useAppStore.getState().workspace?.project;
+    // One event per file ends a render; the ones with a project only apply it.
+    if (!project || event.project || !isBoardModel(project, event.file)) return;
+    const counted = get().waitingFor === project.id && get().waiting > 0;
+    const waiting = counted ? get().waiting - 1 : get().waiting;
+    const failed = get().failedPreviews + (event.state === 'fallback' ? 1 : 0);
+    const done = waiting === 0;
+    set({ waiting, failedPreviews: done ? 0 : failed });
+    if (done && failed > 0) {
+      useAppStore.getState().notify({
+        status: 'failed',
+        title: `${plural(failed)} could not render`,
+        detail: 'Render previews to retry.',
+      });
     }
   },
 

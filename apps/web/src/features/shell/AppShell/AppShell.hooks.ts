@@ -16,6 +16,7 @@ import { usePathsStore } from '@/state/use-paths-store';
 import { usePageStore } from '@/state/use-page-store';
 import { usePrepareStore } from '@/state/use-prepare-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
+import { useGameStore } from '@/state/use-game-store';
 import { useDownloadsStore } from '@/state/use-downloads-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { isSwitcherShortcut, switcherShortcut } from '@/state/projects';
@@ -122,6 +123,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
   const loadLab = useLabStore(s => s.load);
   const onConcept = useLabStore(s => s.onEvent);
   const onThumbnail = useInboxStore(s => s.onThumbnail);
+  const onPreview = useGameStore(s => s.onThumbnail);
   const setProject = useAppStore(s => s.setProject);
   const loadAgents = useAgentsStore(s => s.load);
   const onAgents = useAgentsStore(s => s.onUpdate);
@@ -193,6 +195,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.conceptUpdate.listen(e => onConcept(e.payload)),
       events.thumbnailReady.listen(e => {
         onThumbnail(e.payload);
+        onPreview(e.payload);
         if (e.payload.project) setProject(e.payload.project);
       }),
       events.projectChanged.listen(e => {
@@ -220,6 +223,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
     refreshPipeline,
     loadInbox,
     onThumbnail,
+    onPreview,
     setProject,
     onConcept,
     onAgents,

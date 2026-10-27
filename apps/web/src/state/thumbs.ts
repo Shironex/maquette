@@ -29,6 +29,15 @@ export function missingPreviews(project: ProjectManifest | null | undefined): nu
   }).length;
 }
 
+/** True when `file` (an absolute path) is the newest model of one of the project's assets. */
+export function isBoardModel(project: ProjectManifest, file: string): boolean {
+  const path = file.replaceAll('\\', '/');
+  return (project.assets ?? []).some(a => {
+    const latest = a.versions[a.versions.length - 1];
+    return latest && path.endsWith(`/${latest.file}`);
+  });
+}
+
 /** True when Blender will not render this item, so the preview must snapshot it. */
 export function needsSnapshot(item: InboxItem): boolean {
   return item.state === 'ready' && !item.thumbnail && item.thumbnailState === 'fallback';
