@@ -273,7 +273,8 @@ fn view_of(
 ) -> MotionView {
     let placed = layout::models(project_dir, manifest, def, &layout, previews);
     let folders = crate::inspect::folders(project_dir, def);
-    let shipped_names = crate::assets::shipped_names(manifest);
+    let shipped_names =
+        crate::assets::shipped_names(manifest, &crate::ship::load_or_default(project_dir));
     let models: Vec<MotionModel> = placed
         .iter()
         .filter_map(|m| {

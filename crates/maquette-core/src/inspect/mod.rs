@@ -122,6 +122,7 @@ pub fn inspect(src: &Sources<'_>) -> InspectView {
             src.project_dir.to_path_buf()
         };
         let mut members = Vec::new();
+        let ship = crate::ship::load_or_default(src.project_dir);
         for file in files {
             let stem = file
                 .file_stem()
@@ -134,7 +135,7 @@ pub fn inspect(src: &Sources<'_>) -> InspectView {
             // A shipped file of a renamed asset carries the new name; its
             // preset row is still the model file's.
             let renamed = (source == ModelSource::Shipped)
-                .then(|| crate::assets::for_shipped_stem(src.manifest, &stem))
+                .then(|| crate::assets::for_shipped_stem(src.manifest, &ship, &stem))
                 .flatten();
             // An export of an asset version reads as the asset: "clay", v1.
             let from_asset = renamed

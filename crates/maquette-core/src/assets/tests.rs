@@ -55,10 +55,10 @@ fn a_renamed_asset_ships_under_its_current_name() {
     }
     with_version(&mut m, &lantern, 2);
     // Nobody renamed anything: every file ships as it is.
-    assert!(shipped_names(&m).is_empty());
+    assert!(shipped_names(&m, &ShipSettings::default()).is_empty());
 
     rename(&mut m, &lantern, "Paper lantern").expect("rename");
-    let names = shipped_names(&m);
+    let names = shipped_names(&m, &ShipSettings::default());
     assert_eq!(
         names.get("lantern_v1").map(String::as_str),
         Some("paper_lantern_v1")
@@ -68,12 +68,13 @@ fn a_renamed_asset_ships_under_its_current_name() {
         Some("paper_lantern_v2")
     );
     assert!(!names.contains_key("rock_v1"));
-    let (asset, version, raw) = for_shipped_stem(&m, "Paper_Lantern_v2").expect("reverse");
+    let (asset, version, raw) =
+        for_shipped_stem(&m, &ShipSettings::default(), "Paper_Lantern_v2").expect("reverse");
     assert_eq!(
         (asset.id.as_str(), version, raw.as_str()),
         ("lantern", 2, "lantern_v2")
     );
-    assert!(for_shipped_stem(&m, "lantern_v2").is_none());
+    assert!(for_shipped_stem(&m, &ShipSettings::default(), "lantern_v2").is_none());
 
     // A name that lands on another model's file keeps its own file name.
     rename(&mut m, &rock, "Lantern").expect_err("the name is taken");
@@ -88,10 +89,10 @@ fn a_new_name_never_takes_another_models_stem() {
     with_version(&mut m, &a, 1);
     with_version(&mut m, &b, 1);
     // "Plinth" stays "plinth_v1"; "Plinth base" already is "plinth_base_v1".
-    assert!(shipped_names(&m).is_empty());
+    assert!(shipped_names(&m, &ShipSettings::default()).is_empty());
     // The second asset takes a name whose stem is the first one's file.
     m.assets[1].name = "Plinth".into();
-    assert!(!shipped_names(&m).contains_key("plinth_base_v1"));
+    assert!(!shipped_names(&m, &ShipSettings::default()).contains_key("plinth_base_v1"));
 }
 
 #[test]

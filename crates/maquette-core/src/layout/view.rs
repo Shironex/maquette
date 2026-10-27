@@ -182,7 +182,7 @@ pub fn models(
     previews: Option<&Path>,
 ) -> Vec<LayoutModel> {
     let (raw_dir, dist_dir) = crate::inspect::folders(project_dir, def);
-    let shipped_names = assets::shipped_names(manifest);
+    let shipped_names = assets::shipped_names(manifest, &crate::ship::load_or_default(project_dir));
     let prep = prepare::load(project_dir).unwrap_or_else(|err| {
         tracing::warn!(error = %err, "unreadable model preparation");
         ScenePrep::default()

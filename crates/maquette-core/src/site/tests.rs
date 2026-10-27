@@ -101,7 +101,7 @@ fn the_index_lists_each_newest_model_under_its_shipped_name() {
     let rock = prop(&mut m, "Rock", 1);
     prop(&mut m, "Not modelled yet", 0);
     rename(&mut m, &rock, "Mossy rock").expect("rename");
-    let index = ship_index(&m);
+    let index = ship_index(&m, &ShipSettings::default());
     assert_eq!(index.project, "bench");
     assert_eq!(index.models.len(), 2);
     assert_eq!(
@@ -110,6 +110,7 @@ fn the_index_lists_each_newest_model_under_its_shipped_name() {
             name: "Desk lamp".into(),
             file: "desk_lamp_v2.glb".into(),
             version: 2,
+            choice: ShipChoice::Auto,
         })
     );
     assert_eq!(
@@ -119,13 +120,47 @@ fn the_index_lists_each_newest_model_under_its_shipped_name() {
 }
 
 #[test]
+fn a_hand_built_site_gets_stable_names_and_the_choices() {
+    let mut m = manifest();
+    let lamp = prop(&mut m, "Desk lamp", 2);
+    let rock = prop(&mut m, "Rock", 1);
+    let mut ship = ShipSettings {
+        style: crate::ship::ShipStyle::Models,
+        ..ShipSettings::default()
+    };
+    ship.assets.insert(
+        rock.clone(),
+        crate::ship::AssetShip {
+            choice: ShipChoice::Never,
+            file: Some("boulder".into()),
+        },
+    );
+    let index = ship_index(&m, &ship);
+    assert_eq!(
+        index.models[&lamp].file, "desk_lamp.glb",
+        "no version in the name"
+    );
+    assert_eq!(index.models[&rock].file, "boulder.glb");
+    assert_eq!(index.models[&rock].choice, ShipChoice::Never);
+    assert_eq!(index.origin, "own");
+    assert!(index.size_guard);
+    let text = serde_json::to_value(ship_index(&m, &ShipSettings::default())).expect("json");
+    assert_eq!(text["origin"], "scene");
+    assert!(
+        text["models"][&lamp].get("choice").is_none(),
+        "auto is left out"
+    );
+}
+
+#[test]
 fn the_index_is_written_into_the_cache() {
     let dir = tempfile::tempdir().expect("dir");
     let mut m = manifest();
     prop(&mut m, "Lamp", 1);
-    let path = write_ship_index(&dir.path().join("cache"), &m).expect("write");
+    let path =
+        write_ship_index(&dir.path().join("cache"), &m, &ShipSettings::default()).expect("write");
     let text = fs::read_to_string(&path).expect("read");
     let back: ShipIndex = serde_json::from_str(&text).expect("json");
-    assert_eq!(back, ship_index(&m));
+    assert_eq!(back, ship_index(&m, &ShipSettings::default()));
     assert!(path.ends_with(INDEX_FILE));
 }

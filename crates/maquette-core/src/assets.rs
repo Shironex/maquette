@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{CoreError, CoreResult};
 use crate::project::{ProjectManifest, now_rfc3339, slugify};
+use crate::ship::ShipSettings;
 
 pub mod copy;
 pub mod remove;
@@ -156,15 +157,19 @@ fn model_stem(file: &str) -> Option<String> {
         .map(|s| s.to_string_lossy().to_lowercase())
 }
 
-/// What the compressed models ship as: the model file stem to the stem of
+/// What the compressed models ship as: the model file stem to the stem it
+/// ships under. For a scene ([`ShipSettings::stable_names`] false) that is
 /// the asset's current name plus the version (`lantern_v1` of an asset now
-/// called "Paper lantern" ships as `paper_lantern_v1`). Only versions whose
-/// shipped stem differs from their file stem appear, so a project nobody
-/// renamed ships exactly as before. The version files, the asset id and the
-/// pipeline's raw exports keep their names: cache keys, the presets and the
-/// inbox matches are built on them. A name that would land on another
-/// model's stem keeps the file stem.
-pub fn shipped_names(manifest: &ProjectManifest) -> BTreeMap<String, String> {
+/// called "Paper lantern" ships as `paper_lantern_v1`). With stable names
+/// the newest version ships as the asset id in snake case (`paper_lantern`),
+/// so a new version keeps the file the site loads. A file name chosen for
+/// the asset (`ship.json`) is used for its newest version either way. Only
+/// versions whose shipped stem differs from their file stem appear, so a
+/// project nobody renamed ships exactly as before. The version files, the
+/// asset id and the pipeline's raw exports keep their names: cache keys,
+/// the presets and the inbox matches are built on them. A name that would
+/// land on another model's stem keeps the file stem.
+pub fn shipped_names(manifest: &ProjectManifest, ship: &ShipSettings) -> BTreeMap<String, String> {
     let versions: Vec<(&Asset, &AssetVersion, String)> = manifest
         .assets
         .iter()
@@ -173,7 +178,32 @@ pub fn shipped_names(manifest: &ProjectManifest) -> BTreeMap<String, String> {
         .collect();
     let mut taken: BTreeSet<String> = versions.iter().map(|(_, _, stem)| stem.clone()).collect();
     let mut out = BTreeMap::new();
+    // Chosen and stable names first, so a versioned name never takes one.
+    let newest = |asset: &Asset, version: &AssetVersion| {
+        asset.latest().is_some_and(|l| l.version == version.version)
+    };
+    let fixed = |asset: &Asset, version: &AssetVersion| -> Option<String> {
+        if !newest(asset, version) {
+            return None;
+        }
+        match ship.file(&asset.id) {
+            Some(file) => Some(file.to_string()),
+            None if ship.stable_names() => Some(asset.id.replace('-', "_")),
+            None => None,
+        }
+    };
     for (asset, version, stem) in &versions {
+        if let Some(shipped) = fixed(asset, version)
+            && &shipped != stem
+            && taken.insert(shipped.clone())
+        {
+            out.insert(stem.clone(), shipped);
+        }
+    }
+    for (asset, version, stem) in &versions {
+        if out.contains_key(stem) || fixed(asset, version).is_some() {
+            continue;
+        }
         // The same text the asset id and its version files are made of.
         let base = slugify(&asset.name).replace('-', "_");
         let shipped = format!("{base}_v{}", version.version);
@@ -188,10 +218,11 @@ pub fn shipped_names(manifest: &ProjectManifest) -> BTreeMap<String, String> {
 /// model file it was built from: the reverse of [`shipped_names`].
 pub fn for_shipped_stem<'a>(
     manifest: &'a ProjectManifest,
+    ship: &ShipSettings,
     stem: &str,
 ) -> Option<(&'a Asset, u32, String)> {
     let wanted = stem.to_lowercase();
-    let (model, _) = shipped_names(manifest)
+    let (model, _) = shipped_names(manifest, ship)
         .into_iter()
         .find(|(_, shipped)| *shipped == wanted)?;
     for_model_stem(manifest, &model).map(|(asset, version)| (asset, version, model))
