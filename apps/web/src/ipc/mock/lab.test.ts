@@ -74,6 +74,32 @@ describe('mock concept lab', () => {
     expect(view.refs.some(r => r.file === 'refs/late-train_02.png')).toBe(true);
   });
 
+  it('gives object refs of another source with the same name their own direction', async () => {
+    const { handle } = backend();
+    const make = (source: string) =>
+      handle('lab_make_objects', {
+        request: {
+          project: 'moon-island',
+          source,
+          sourceName: 'Bench',
+          objects: ['lamp'],
+          notes: {},
+          aspect: 'square',
+          kind: 'prop',
+        },
+      }) as Promise<LabView>;
+    await make('refs/moon-island-concept.png');
+    await make('refs/late-train-concept.png');
+    const view = await make('refs/moon-island-concept.png');
+    const benches = view.directions.filter(d => d.id.startsWith('bench-objects'));
+    expect(benches.map(d => [d.id, d.source]).sort()).toEqual([
+      ['bench-objects', 'refs/moon-island-concept.png'],
+      ['bench-objects-2', 'refs/late-train-concept.png'],
+    ]);
+    const lamps = view.jobs.filter(j => j.direction === 'bench-objects');
+    expect(lamps.map(j => j.index)).toEqual([1, 2]);
+  });
+
   it('holds two porch jobs in the running scenario and cancels them', async () => {
     const { handle } = backend('running');
     const view = (await handle('lab_get', { project: 'moon-island' })) as LabView;

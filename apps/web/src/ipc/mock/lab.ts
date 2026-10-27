@@ -242,7 +242,19 @@ export function createFakeLab(options: FakeLabOptions) {
     if (request.kind === 'scene')
       fail('invalid', 'Object refs are props or characters, not scenes.');
     const base = request.sourceName.trim() || 'Concept';
-    const name = `${base.slice(0, 52).trimEnd()} objects`;
+    // Another source, or another kind, with the same name gets its own
+    // direction: "... objects 2", "... objects 3".
+    const numbered = (n: number) => {
+      const suffix = n === 1 ? ' objects' : ` objects ${n}`;
+      return `${base.slice(0, 60 - suffix.length).trimEnd()}${suffix}`;
+    };
+    const fits = (n: number) => {
+      const found = list(request.project).find(d => d.id === slug(numbered(n)));
+      return !found || (found.source === request.source && found.kind === request.kind);
+    };
+    let n = 1;
+    while (!fits(n)) n += 1;
+    const name = numbered(n);
     const id = slug(name);
     const at = clock.now().toISOString();
     const existing = list(request.project).find(d => d.id === id);
