@@ -2,6 +2,7 @@ import { Button, IconButton } from '@maquette/ui';
 import type { LabView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { tileLabel } from '@/state/lab';
+import { fileName } from '@/state/pipeline';
 import { useLightbox } from './Lightbox.hooks';
 import { KEYS } from '@/lib/keys';
 
@@ -19,7 +20,7 @@ export default function Lightbox({ view }: LightboxProps) {
     useLightbox(view);
   if (!path) return null;
   const url = fileUrl(path);
-  const name = path.slice(path.lastIndexOf('/') + 1);
+  const name = fileName(path);
   const title = image ? `${direction?.name ?? ''} · ${tileLabel(image)}` : name;
   const position = at + 1;
 

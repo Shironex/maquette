@@ -13,6 +13,7 @@ import type {
   ModelPreset,
   TextureRow,
 } from '@/ipc/client';
+import { fileName } from './pipeline';
 import { formatBytes, formatK } from '@/lib/format';
 
 export type Vec3 = [number, number, number];
@@ -127,7 +128,7 @@ export function textureTone(t: TextureRow): string {
 
 /** "character.glb · 2 clips" */
 export function modelSubtitle(m: InspectModel): string {
-  const file = m.path.slice(m.path.lastIndexOf('/') + 1);
+  const file = fileName(m.path);
   const clips = m.animations.length;
   return clips > 0 ? `${file} · ${clips} ${clips === 1 ? 'clip' : 'clips'}` : file;
 }

@@ -2,6 +2,7 @@ import type { CheckStatus } from '@maquette/ui';
 import type { MotionModel } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
+import { fileName } from '@/state/pipeline';
 import { useMotionStore } from '@/state/use-motion-store';
 
 export interface RigLine {
@@ -88,7 +89,7 @@ export function useRigCheck() {
       : [],
     model,
     lines: model ? rigLines(model) : [],
-    file: model?.path.split('/').pop() ?? '',
+    file: model ? fileName(model.path) : '',
     openMap: () => setBoneMap(true),
   };
 }

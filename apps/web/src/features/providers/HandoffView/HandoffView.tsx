@@ -21,7 +21,7 @@ export interface HandoffViewProps {
 
 export default function HandoffView({ job }: HandoffViewProps) {
   const { openHandoff, openSite, revealImage } = useHandoffActions();
-  const fileManager = useFileManager().name;
+  const { name: fileManager, verb, reveal } = useFileManager();
   const watchOn = useWatchOn();
   const card = job.card;
   if (!card) return null;
@@ -42,7 +42,7 @@ export default function HandoffView({ job }: HandoffViewProps) {
         tooltip="Shows this image in your file manager"
         onClick={() => void revealImage(job.id, image)}
       >
-        Reveal image
+        {reveal('image')}
       </Button>
     </li>
   ));
@@ -128,7 +128,7 @@ export default function HandoffView({ job }: HandoffViewProps) {
           {card.prompt ? <PromptLine prompt={card.prompt} /> : null}
           <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">{images}</ul>
           <p className="text-meta text-fg-mute">
-            Reveal shows the image in {fileManager}, ready to drag into the browser.
+            {verb} shows the image in {fileManager}, ready to drag into the browser.
           </p>
         </Step>
 

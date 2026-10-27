@@ -42,7 +42,7 @@ describe('the by hand settings card', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Open Tripo studio' }));
     await userEvent.click(screen.getByRole('button', { name: 'Open folder' }));
     const images = screen.getByText(lanterns.card!.images[0]!).closest('li')!;
-    await userEvent.click(within(images).getByRole('button', { name: 'Reveal image' }));
+    await userEvent.click(within(images).getByRole('button', { name: 'Reveal image in Finder' }));
     expect(sent('provider_open_site')).toHaveLength(1);
     expect(sent('provider_open_handoff')).toHaveLength(1);
     expect(sent('provider_reveal_image')).toHaveLength(1);
