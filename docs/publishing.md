@@ -92,7 +92,9 @@ the same on macOS and Windows.
 Maquette is a desktop app, so a release is one version for the whole app.
 
 - **Tag:** `vX.Y.Z` (semver, a leading `v`), for example `v0.2.0`. The tag is created from a commit
-  on `main` after the version is bumped in `package.json` and the Tauri config.
+  on `main` after the version is bumped in all four places that carry it: the root `package.json`,
+  `apps/desktop/package.json`, `apps/desktop/src-tauri/tauri.conf.json` and `[workspace.package]` in
+  the root `Cargo.toml` (the crates inherit it).
 - **Release title:** `vX.Y.Z: short summary`, for example `v0.2.0: Motion view and Meshy remesh`.
 - **Release notes:** a short intro, then Highlights, What's New per feature, then Bug Fixes,
   Performance, Under the Hood and Dependencies, written from the real git history.
