@@ -16,6 +16,7 @@ export const DOCS_GROUPS: readonly DocsGroup[] = [
     label: 'Start',
     slugs: [
       'docs/start/install',
+      'docs/start/updates',
       'docs/start/first-project',
       'docs/start/website-projects',
       'docs/start/game-projects',
@@ -34,6 +35,7 @@ export const DOCS_GROUPS: readonly DocsGroup[] = [
       'docs/views/timeline',
       'docs/views/page',
       'docs/views/library',
+      'docs/views/settings',
     ],
   },
   {
