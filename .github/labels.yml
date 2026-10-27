@@ -1,0 +1,122 @@
+# The label set for this repo, applied with `node scripts/github/apply-labels.mjs`.
+# Colors are shared with the owner's other repos: a name that exists there keeps
+# the same color here. Existing labels are updated in place, never deleted.
+
+# Type
+- name: bug
+  color: d73a4a
+  description: Something isn't working
+- name: enhancement
+  color: a2eeef
+  description: New feature or request
+- name: documentation
+  color: 0075ca
+  description: Improvements or additions to documentation
+- name: performance
+  color: 0e8a16
+  description: Performance improvements and optimizations
+- name: refactor
+  color: F97316
+  description: Code refactoring and cleanup
+- name: chore
+  color: c2c2c2
+  description: Maintenance, refactoring, tooling
+- name: testing
+  color: 0075ca
+  description: Test coverage and test infrastructure
+- name: security
+  color: e11d48
+  description: Security vulnerabilities or hardening
+- name: dx
+  color: bfdadc
+  description: Developer experience improvements
+- name: crash
+  color: b60205
+  description: The app or a pipeline tool crashes or fails to start
+- name: dependencies
+  color: 0366d6
+  description: Pull requests that update a dependency file
+- name: javascript
+  color: 168700
+  description: Pull requests that update javascript code
+- name: rust
+  color: dea584
+  description: Pull requests that update rust code
+- name: github_actions
+  color: '000000'
+  description: Pull requests that update GitHub Actions code
+
+# Triage
+- name: question
+  color: d876e3
+  description: Further information is requested
+- name: needs repro
+  color: e99695
+  description: Cannot act without steps, a log and the versions involved
+- name: good first issue
+  color: 7057ff
+  description: Good for newcomers
+- name: help wanted
+  color: 008672
+  description: Extra attention is needed
+- name: duplicate
+  color: cfd3d7
+  description: This issue or pull request already exists
+- name: invalid
+  color: e4e669
+  description: This doesn't seem right
+- name: wontfix
+  color: ffffff
+  description: This will not be worked on
+
+# Priority
+- name: P0-critical
+  color: b60205
+  description: Must fix immediately
+- name: P1-high
+  color: d93f0b
+  description: Fix before next release
+- name: P2-medium
+  color: fbca04
+  description: Fix soon
+- name: P3-low
+  color: 0e8a16
+  description: Nice to have
+
+# Area
+- name: area:desktop
+  color: 1d76db
+  description: Tauri shell, commands, keychain, windows
+- name: area:web
+  color: 5319e7
+  description: React UI, stores, views
+- name: area:ui
+  color: 8b5cf6
+  description: The shared UI kit in packages/ui
+- name: area:core
+  color: 0e7490
+  description: Rust domain logic in maquette-core
+- name: area:pipeline
+  color: c2410c
+  description: Pipeline runner, steps, fix-ups, bake, export, compress, ship
+- name: area:providers
+  color: 7c3aed
+  description: Tripo, Meshy, by hand sends, Codex concepts, credits
+- name: area:blender
+  color: e87d0d
+  description: Blender scripts, headless jobs, thumbnails
+- name: area:mcp
+  color: 0f766e
+  description: The built in MCP server for agents
+- name: area:workspace-sync
+  color: 0891b2
+  description: Workspace lock, Syncthing, moving between computers
+- name: area:site
+  color: 6f42c1
+  description: Astro landing page
+- name: area:docs
+  color: 0075ca
+  description: README, architecture notes and other docs
+- name: area:build
+  color: 0052cc
+  description: Build tooling, bundling, packaging, CI
