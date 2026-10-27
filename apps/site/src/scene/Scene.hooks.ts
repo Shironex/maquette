@@ -1,4 +1,4 @@
-import { useFrame, useThree } from '@react-three/fiber';
+import { addAfterEffect, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import { FrameTimes, adaptiveDpr } from './quality';
 import type { TourScroll } from './tour';
@@ -95,4 +95,38 @@ export function useAdaptiveDpr(scroll: TourScroll, still: boolean) {
     // R3F sets the range's ratio again when the Canvas configures or the display changes.
     if (dpr !== viewport.dpr) setDpr(dpr);
   });
+}
+
+/** The prefix of the capture stats lines, which the capture scripts read. */
+export const STATS_LOG = 'maquette:stats';
+/** How close to a stop, in stops, progress must be for a frame to count as that stop's. */
+const AT_STOP = 1e-3;
+
+/**
+ * Poster capture only: counts each whole frame (the renderer's info is set
+ * not to reset per render pass, so it is reset here, first in the frame)
+ * and logs the draw calls, triangles and texture and geometry memory of
+ * frames drawn at a stop, once per change, so the last line per stop is
+ * its settled view.
+ */
+export function useCaptureStats(enabled: boolean, progress: React.RefObject<number>) {
+  const gl = useThree(state => state.gl);
+  useFrame(() => {
+    if (enabled) gl.info.reset();
+  }, -2);
+  useEffect(() => {
+    if (!enabled) return;
+    let last = '';
+    return addAfterEffect(() => {
+      const at = progress.current;
+      const stop = Math.round(at);
+      if (Math.abs(at - stop) > AT_STOP) return;
+      const { calls, triangles } = gl.info.render;
+      const { textures, geometries } = gl.info.memory;
+      const line = JSON.stringify({ stop, calls, triangles, textures, geometries });
+      if (line === last) return;
+      last = line;
+      console.info(STATS_LOG, line);
+    });
+  }, [enabled, gl, progress]);
 }

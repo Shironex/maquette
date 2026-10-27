@@ -25,7 +25,11 @@ export function Workbench(props: WorkbenchProps) {
       camera={{ fov: start?.fov ?? 36, near: 0.05, far: 30, position: start?.position }}
       gl={{ antialias: true, powerPreference: 'high-performance', stencil: false, ...GPU_CONTEXT }}
       onCreated={({ gl }) => {
-        if (props.capture) Object.assign(window, { __maquetteRenderer: gl });
+        if (props.capture) {
+          Object.assign(window, { __maquetteRenderer: gl });
+          // Count every pass of a frame, not only the last; Scene resets it per frame.
+          gl.info.autoReset = false;
+        }
         gl.toneMapping = THREE.ACESFilmicToneMapping;
         gl.toneMappingExposure = 1.15;
         gl.domElement.addEventListener('webglcontextlost', () => props.onFailed('context lost'));

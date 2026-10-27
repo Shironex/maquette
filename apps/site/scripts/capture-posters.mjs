@@ -11,7 +11,8 @@
  *
  * PLAYWRIGHT defaults to the `playwright` package, which this repo does not
  * install; point it at any local copy. Run it again after the manifest or
- * the models change.
+ * the models change. It also prints what the island logs at each stop in
+ * capture mode: draw calls, triangles and texture and geometry memory.
  */
 import { writeFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
@@ -68,10 +69,19 @@ async function encode(page, png, sizes) {
   );
 }
 
+/** The island's capture stats, the last line per poster. */
+const STATS_LOG = 'maquette:stats ';
+const stats = {};
+let latest = null;
+
 async function open(viewport, query) {
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
   page.on('pageerror', error => console.error('page error:', error.message));
+  page.on('console', message => {
+    if (message.text().startsWith(STATS_LOG))
+      latest = JSON.parse(message.text().slice(STATS_LOG.length));
+  });
   await page.goto(`${base}?capture=${query}`);
   await page.waitForSelector('.tour.is-live', { timeout: 180_000 });
   return page;
@@ -110,6 +120,7 @@ try {
     await save(`stop-${stop}-1920.webp`, full);
     await save(`stop-${stop}-960.webp`, half);
     await save(`stop-${stop}-thumb.webp`, thumb);
+    stats[`stop-${stop}`] = latest?.stop === stop ? latest : null;
   }
   await page.context().close();
 
@@ -120,9 +131,11 @@ try {
     { width: PHONE.out[0], height: PHONE.out[1], quality: 0.8 },
   ]);
   await save('hero-mobile.webp', poster);
+  stats['hero-mobile'] = latest;
 } finally {
   await browser.close();
   await server.stop();
 }
 
 console.log(saved.join('\n'));
+console.table(stats);

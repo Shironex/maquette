@@ -6,7 +6,7 @@ import { POSTER_CAMERAS, STOPS } from './manifest';
 import { Models } from './Models';
 import { Motes } from './Motes';
 import { PathTubes } from './PathTubes';
-import { useAdaptiveDpr, useLiveFrames, useProgress } from './Scene.hooks';
+import { useAdaptiveDpr, useCaptureStats, useLiveFrames, useProgress } from './Scene.hooks';
 import type { SceneProps } from './Workbench.types';
 
 export function Scene(props: SceneProps) {
@@ -15,6 +15,7 @@ export function Scene(props: SceneProps) {
   const progress = useProgress(props.scroll, still);
   useLiveFrames(still);
   useAdaptiveDpr(props.scroll, still);
+  useCaptureStats(still, progress);
   return (
     <>
       <color attach="background" args={['#1a1917']} />
