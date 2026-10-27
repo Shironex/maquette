@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 62 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 65 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -13,34 +13,38 @@ How to read the tables: **Spends** says whether a call costs anything. **Approva
 
 These look at the workspace and change nothing.
 
-| Tool                                          | What it returns                                                                                                                                                                                          | Spends  | Approval |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------- |
-| [`list_projects`](#list_projects)             | Every project: template, target (website or game), site or game repo, asset count, what runs in it and which is open in the app                                                                          | Nothing | No       |
-| `get_project`                                 | One project's manifest: name, template, site repo, source folder and its Board assets with every version                                                                                                 | Nothing | No       |
-| `list_assets`                                 | A project's Board assets: kind, stage, status, version count and the latest version's file and stats. Takes an optional `stage` filter                                                                   | Nothing | No       |
-| [`get_pipeline`](#get_pipeline)               | Steps, validation issues, compression presets, model sizes, the run in progress and the latest runs                                                                                                      | Nothing | No       |
-| [`get_run`](#get_run)                         | One run's status and the end of its log                                                                                                                                                                  | Nothing | No       |
-| `list_inbox`                                  | The models waiting in the inbox, with kind, size, triangle count and worst check                                                                                                                         | Nothing | No       |
-| `get_inbox_checks`                            | The checks for one inbox model (triangles, textures, rig, scale, materials) and its analysis report                                                                                                      | Nothing | No       |
-| `get_concepts`                                | A direction's prompt, refs and images with stars and picks, plus queued, running, waiting and failed jobs                                                                                                | Nothing | No       |
-| `get_provider_job`                            | A send to 3D: status, phase, progress, credits spent and message. With `project` instead of `id`, every send in the project                                                                              | Nothing | No       |
-| `cancel_provider_jobs`                        | Stops sends by id (`ids`, 1 to 50). A by hand send stops waiting, a send not yet started is cancelled, and each id answers on its own. Sends waiting for approval are refused: you deny those in the app | Nothing | No       |
-| [`get_credits`](#get_credits)                 | Each provider's balance, totals for 7 and 30 days and the latest paid sends                                                                                                                              | Nothing | No       |
-| `list_handoffs`                               | The By hand sends waiting for a model, the export file name each waits for, and what the Downloads watcher matched                                                                                       | Nothing | No       |
-| `list_removed_assets`                         | A project's removed assets waiting in the workspace trash, newest first                                                                                                                                  | Nothing | No       |
-| `get_real_size`                               | An asset's real size and fix-ups, what its model measures, and the defaults new fix-ups start from                                                                                                       | Nothing | No       |
-| `list_fixups`                                 | An asset's fix-ups in the order they apply, with the last preview's numbers                                                                                                                              | Nothing | No       |
-| [`get_material_tweaks`](#get_material_tweaks) | An asset's material names, tweaks and per map group codecs, with raw and shipped size                                                                                                                    | Nothing | No       |
-| `get_bake_settings`                           | Lightmap size, samples, denoiser, whether `bake_light.py` can denoise, and the assets that skip the bake                                                                                                 | Nothing | No       |
-| `get_starters`                                | Each starter script in `tools/` as current, outdated, edited or missing                                                                                                                                  | Nothing | No       |
-| `get_layout`                                  | Where each model stands, the camera stops, the desk, the first view, object states, explode tracks, paths and clips kept off the site                                                                    | Nothing | No       |
-| `get_motion`                                  | Every model's rig, clips and parts, and what the clips weigh inside the scene budget                                                                                                                     | Nothing | No       |
-| `list_built_assets`                           | Each built asset's script, helpers, state and last build                                                                                                                                                 | Nothing | No       |
-| `get_page_preview`                            | The site dev server's state, address, command, who started it and its last log lines                                                                                                                     | Nothing | No       |
-| `get_game`                                    | A game project's settings and each model against its folder's budget                                                                                                                                     | Nothing | No       |
-| `scan_game_models`                            | Every model in a game project's model folder with its numbers, budget check and the asset it was imported as                                                                                             | Nothing | No       |
-| `get_ship_plan`                               | What Ship would write into the game: new, replaced (marked when an imported original), unchanged and hand made files, the checks and the uncommitted file count                                          | Nothing | No       |
-| [`list_library`](#list_library)               | The library's models, with their versions, tags and the projects that use them. Takes an optional `query`, `tag` and `project`                                                                           | Nothing | No       |
+| Tool                                          | What it returns                                                                                                                                                                                                                                                   | Spends  | Approval |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------- |
+| [`list_projects`](#list_projects)             | Every project: template, target (website or game), site or game repo, asset count, what runs in it and which is open in the app                                                                                                                                   | Nothing | No       |
+| `get_project`                                 | One project's manifest: name, template, site repo, source folder and its Board assets with every version                                                                                                                                                          | Nothing | No       |
+| `list_assets`                                 | A project's Board assets: kind, stage, status, version count and the latest version's file and stats. Takes an optional `stage` filter                                                                                                                            | Nothing | No       |
+| [`get_pipeline`](#get_pipeline)               | Steps, validation issues, compression presets, model sizes, the run in progress and the latest runs                                                                                                                                                               | Nothing | No       |
+| [`get_run`](#get_run)                         | One run's status and the end of its log                                                                                                                                                                                                                           | Nothing | No       |
+| `list_inbox`                                  | The models waiting in the inbox, with kind, size, triangle count and worst check                                                                                                                                                                                  | Nothing | No       |
+| `get_inbox_checks`                            | The checks for one inbox model (triangles, textures, rig, scale, materials) and its analysis report                                                                                                                                                               | Nothing | No       |
+| `get_concepts`                                | A direction's prompt, refs and images with stars and picks, plus queued, running, waiting and failed jobs                                                                                                                                                         | Nothing | No       |
+| `get_provider_job`                            | A send to 3D: status, phase, progress, credits spent and message. With `project` instead of `id`, every send in the project                                                                                                                                       | Nothing | No       |
+| `cancel_provider_jobs`                        | Stops sends by id (`ids`, 1 to 50). A by hand send stops waiting, a send not yet started is cancelled, and each id answers on its own. Sends waiting for approval are refused: you deny those in the app                                                          | Nothing | No       |
+| [`get_credits`](#get_credits)                 | Each provider's balance, totals for 7 and 30 days and the latest paid sends                                                                                                                                                                                       | Nothing | No       |
+| `list_handoffs`                               | The By hand sends waiting for a model, the export file name each waits for, and what the Downloads watcher matched                                                                                                                                                | Nothing | No       |
+| `list_removed_assets`                         | A project's removed assets waiting in the workspace trash, newest first                                                                                                                                                                                           | Nothing | No       |
+| `get_real_size`                               | An asset's real size and fix-ups, what its model measures, and the defaults new fix-ups start from                                                                                                                                                                | Nothing | No       |
+| `list_fixups`                                 | An asset's fix-ups in the order they apply, with the last preview's numbers                                                                                                                                                                                       | Nothing | No       |
+| [`get_material_tweaks`](#get_material_tweaks) | An asset's material names, tweaks and per map group codecs, with raw and shipped size                                                                                                                                                                             | Nothing | No       |
+| `get_bake_settings`                           | Lightmap size, samples, denoiser, whether `bake_light.py` can denoise, and the assets that skip the bake                                                                                                                                                          | Nothing | No       |
+| `get_starters`                                | Each starter script in `tools/` as current, outdated, edited or missing                                                                                                                                                                                           | Nothing | No       |
+| `get_layout`                                  | Where each model stands, the camera stops, the desk, the first view, object states, explode tracks, paths and clips kept off the site                                                                                                                             | Nothing | No       |
+| `get_motion`                                  | Every model's rig, clips and parts, and what the clips weigh inside the scene budget                                                                                                                                                                              | Nothing | No       |
+| `list_built_assets`                           | Each built asset's script, helpers, state and last build                                                                                                                                                                                                          | Nothing | No       |
+| `get_page_preview`                            | The site dev server's state, address, command, who started it and its last log lines                                                                                                                                                                              | Nothing | No       |
+| `get_game`                                    | A game project's settings and each model against its folder's budget                                                                                                                                                                                              | Nothing | No       |
+| `scan_game_models`                            | Every model in a game project's model folder with its numbers, budget check and the asset it was imported as                                                                                                                                                      | Nothing | No       |
+| `get_ship_plan`                               | What Ship would write: for a game, new, replaced (marked when an imported original), unchanged and hand made files and the uncommitted file count; for a website, each file written or held back and why, with sizes before and after, and the site's other files | Nothing | No       |
+| [`get_ship_settings`](#get_ship_settings)     | A website's Ship style, texture format and quality, each asset's choice and file name, the site folders, the plan and the size report                                                                                                                             | Nothing | No       |
+| [`get_size_report`](#get_size_report)         | Each model's source bytes and triangles against what ships, with totals, as rows, CSV and Markdown                                                                                                                                                                | Nothing | No       |
+| [`list_library`](#list_library)               | The library's models, with their versions, tags and the projects that use them. Takes an optional `query`, `tag` and `project`                                                                                                                                    | Nothing | No       |
+| Tool                                          | What it returns                                                                                                                                                                                                                                                   | Spends  | Approval |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------- |
 
 `preview_fixups` is read only too: it runs an asset's saved fix-ups headless on a copy and returns the numbers before and after each. It spends nothing.
 
@@ -50,6 +54,7 @@ These look at the workspace and change nothing.
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------- | -------- |
 | [`set_compression_presets`](#set_compression_presets) | Changes the per model texture size, data map size, codec and meshopt level                                        | Nothing | No       |
 | [`set_material_tweaks`](#set_material_tweaks)         | Changes an asset's tint, roughness, metalness, emissive strength and map codecs                                   | Nothing | No       |
+| [`set_ship_settings`](#set_ship_settings)             | Changes a website's Ship style, texture format, quality, per asset choice and file name, and the site folders     | Nothing | No       |
 | `set_bake_settings`                                   | Changes the lightmap size (256 to 4096), samples (1 to 4096) and denoise                                          | Nothing | No       |
 | `set_skip_bake`                                       | Sets one or more assets to skip the bake, or join it again                                                        | Nothing | No       |
 | `set_pad_edges`                                       | Pads an asset's texture edges before the textures shrink, or stops                                                | Nothing | No       |
@@ -80,7 +85,7 @@ These look at the workspace and change nothing.
 
 | Tool                            | What it does                                                        | Spends                                              | Approval                                                                  |
 | ------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
-| [`run_pipeline`](#run_pipeline) | Runs a project's pipeline, optionally from a step                   | Nothing                                             | At the Ship step, when Ask before shipping is on or the project is a game |
+| [`run_pipeline`](#run_pipeline) | Runs a project's pipeline, optionally from a step or build only     | Nothing                                             | At the Ship step, when Ask before shipping is on or the project is a game |
 | [`send_to_3d`](#send_to_3d)     | Sends an asset's refs to Tripo or Meshy, or writes a By hand folder | Credits for Tripo and Meshy. By hand spends nothing | Always, for Tripo and Meshy                                               |
 | `send_batch_to_3d`              | Sends up to 24 assets at once with the same provider                | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
 | `redo_inbox_model`              | Sends an inbox model's asset again, prefilled from its send         | Credits for Tripo and Meshy                         | Always, for Tripo and Meshy                                               |
@@ -119,16 +124,19 @@ Runs a project's pipeline, optionally from one step and optionally ignoring the 
 
 With Ask before shipping on, and always in a [game project](/docs/start/game-projects/), the run stops before Ship and answers `waiting for approval` until you approve or deny it in the app. Poll [`get_run`](#get_run) instead of starting the run again.
 
-| Parameter     | Type    | Required | Notes                                                                 |
-| ------------- | ------- | -------- | --------------------------------------------------------------------- |
-| `project`     | string  | yes      | The project id.                                                       |
-| `from`        | string  | no       | A step id. It runs even when cached, and so does everything after it. |
-| `force`       | boolean | no       | Ignore the cache and run every step.                                  |
-| `waitSeconds` | number  | no       | How long to wait before answering. 20 by default, 120 at most.        |
+| Parameter     | Type    | Required | Notes                                                                       |
+| ------------- | ------- | -------- | --------------------------------------------------------------------------- |
+| `project`     | string  | yes      | The project id.                                                             |
+| `from`        | string  | no       | A step id. It runs even when cached, and so does everything after it.       |
+| `force`       | boolean | no       | Ignore the cache and run every step.                                        |
+| `buildOnly`   | boolean | no       | Stop before Ship: the run builds everything and writes nothing to the site. |
+| `waitSeconds` | number  | no       | How long to wait before answering. 20 by default, 120 at most.              |
 
 ```json
 { "project": "moon-island", "from": "compress" }
 ```
+
+A build only run never waits for approval, since it has no Ship step. Its summary carries `"buildOnly": true`.
 
 ### get_run
 
@@ -211,6 +219,55 @@ Changes an asset's material tweaks and codecs, as the Inspector's Material panel
 | `codecs`    | object  | no       | `color`, `normal` and `other`, each `etc1s`, `uastc` or `null`.                    |
 
 A tweak takes `tint` (`"#rrggbb"`, multiplied into the base color), `roughness` (`{ "mode": "override" | "multiply", "value": 0.4 }`), `metalness` (0 to 1) and `emissiveStrength` (0 to 50). Overriding roughness or metalness drops the model's metal and roughness map.
+
+### get_ship_settings
+
+`read only`
+
+Reads how a website project ships: the style, texture format and quality, each asset's choice and file name, and the site folders. It also returns the dry-run plan of the next Ship and the size report, as the [Ship settings](/docs/pipeline/ship/#ship-settings) view shows them. `scriptReady` and `originReady` say whether the project's starters support the choices and the own origin export; when one is false, run `update_starters`. A game project is refused: use `get_ship_plan`.
+
+| Parameter | Type   | Required | Notes           |
+| --------- | ------ | -------- | --------------- |
+| `project` | string | yes      | The project id. |
+
+### set_ship_settings
+
+`changes the project`
+
+Changes how a website project ships. Only the fields you give change, and everything is checked before anything is written. It returns what `get_ship_settings` returns.
+
+| Parameter  | Type           | Required | Notes                                                                                                                                        |
+| ---------- | -------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project`  | string         | yes      | The project id.                                                                                                                              |
+| `style`    | string         | no       | `scene`, or `models` for a hand-built site.                                                                                                  |
+| `textures` | string         | no       | `ktx2`, `webp` or `avif`.                                                                                                                    |
+| `quality`  | number         | no       | The WebP and AVIF quality, 1 to 100.                                                                                                         |
+| `assets`   | array          | no       | `{ "asset", "choice", "file" }` per asset. `choice` is `auto`, `never` or `always`; `file` is a name without `.glb`, `null` for the default. |
+| `models`   | string         | no       | The site's models folder, relative to the site. Written to `maquette.site.json` with `posters` and `data`.                                   |
+| `posters`  | string or null | no       | The posters folder, `null` for none.                                                                                                         |
+| `data`     | string or null | no       | The scene data file, `null` for none.                                                                                                        |
+
+```json
+{
+  "project": "room",
+  "style": "models",
+  "textures": "webp",
+  "models": "apps/landing/public/room/models",
+  "posters": null,
+  "data": null,
+  "assets": [{ "asset": "desk", "choice": "never" }]
+}
+```
+
+### get_size_report
+
+`read only`
+
+Returns each model's source file (bytes and triangles) against the file that ships, the totals over the models measured on both sides, and the same table as `csv` and `markdown`. Shipped numbers are empty before the first run.
+
+| Parameter | Type   | Required | Notes           |
+| --------- | ------ | -------- | --------------- |
+| `project` | string | yes      | The project id. |
 
 ### set_layout
 

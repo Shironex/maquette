@@ -15,6 +15,8 @@ A baked object keeps both UV sets (`lightmap` is `TEXCOORD_1`), carries its ligh
 
 Rigged models keep their armature, skin and clips: every action becomes one glTF animation under its own name.
 
+Each model stays where the layout put it. With the [Hand-built site](/docs/pipeline/ship/#a-hand-built-site) style, `--origin own` (the `{exportOrigin}` placeholder) undoes the layout's move for each model while it is written, so every file is centred where its model was made. The scene in Blender stays as it was.
+
 ## Inputs and outputs
 
 **Inputs:** `blender/scene_baked.blend` and `blender/bake/*`.

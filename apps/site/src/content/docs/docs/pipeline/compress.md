@@ -48,7 +48,9 @@ The per map group codecs are set in the Inspector, or with [`set_material_tweaks
 On a 1K test prop the shipped file went from about 360 KB with all ETC1S to 1.1 to 1.4 MB with UASTC normal maps. A prop that does not need sharp normals can set its normal group to ETC1S.
 :::
 
-Without `toktx` on your PATH the texture passes are skipped and the textures stay PNG or JPEG. The log says so.
+With the texture format set to WebP or AVIF in [Ship settings](/docs/pipeline/ship/#ship-settings), the texture passes resize the maps to the preset sizes and encode them at the chosen quality instead. The codec column does not apply then, and `toktx` is not needed.
+
+Without `toktx` on your PATH the KTX2 texture passes are skipped and the textures stay PNG or JPEG. The log says so.
 
 ## Example
 

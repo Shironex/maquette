@@ -86,14 +86,15 @@ Every path in `script`, `inputs`, `outputs` and `compress` is relative to the ro
 
 Each `{name}` in an argument is replaced before the step starts. Any other `{name}` is an error, and so is `{script}` in a step with no `script`.
 
-| Placeholder   | Becomes                                                                                              |
-| ------------- | ---------------------------------------------------------------------------------------------------- |
-| `{script}`    | The step's `script`.                                                                                 |
-| `{root}`      | The pipeline root, as a full path.                                                                   |
-| `{project}`   | The project folder, as a full path.                                                                  |
-| `{workspace}` | The workspace folder.                                                                                |
-| `{siteRepo}`  | The site repo from the project's settings. Empty when the project has none.                          |
-| `{shipIndex}` | A file Maquette writes before each run that says which file name each asset ships as. Ship reads it. |
+| Placeholder      | Becomes                                                                                              |
+| ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `{script}`       | The step's `script`.                                                                                 |
+| `{root}`         | The pipeline root, as a full path.                                                                   |
+| `{project}`      | The project folder, as a full path.                                                                  |
+| `{workspace}`    | The workspace folder.                                                                                |
+| `{siteRepo}`     | The site repo from the project's settings. Empty when the project has none.                          |
+| `{shipIndex}`    | A file Maquette writes before each run that says which file name each asset ships as. Ship reads it. |
+| `{exportOrigin}` | `scene` or `own`: whether Export GLB keeps each model where the layout put it, from the Ship style.  |
 
 ### Caching
 

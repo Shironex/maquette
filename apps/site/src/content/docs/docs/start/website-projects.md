@@ -35,7 +35,7 @@ The site says where things go in `maquette.site.json` at its root. Folders are r
 | `data`    | The file Ship writes the scene data to. Leave it out for no data.                                                     |
 | `preview` | The dev server the Page view and Preview on site run. `command` is a program and its args, `url` is where it answers. |
 
-A site without the file gets `public/models` and `public/posters` and no data.
+A site without the file gets `public/models` and `public/posters` and no data. **Ship settings** in the Pipeline view writes the folders for you, keeping `preview` and any other key. A site that places each model itself suits the [Hand-built site](/docs/pipeline/ship/#a-hand-built-site) style.
 
 ### The scene data
 
