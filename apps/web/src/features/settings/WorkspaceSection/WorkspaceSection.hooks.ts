@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { commands, errorMessage } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
+import { openWorkspace } from '@/state/use-workspace-lock';
 import type { RootNote } from './WorkspaceSection.types';
 
 /** The cache size on disk, and clearing it. */
@@ -62,7 +63,11 @@ export function useWorkspaceRoot() {
         });
         return;
       }
-      const snapshot = await commands.workspaceOpen(found.path);
+      const snapshot = await openWorkspace(found.path);
+      if (!snapshot) {
+        setNote(undefined);
+        return;
+      }
       setWorkspace(snapshot);
       setRoot(snapshot.display);
       setNote({ tone: 'found', text: 'Switched to this workspace.' });

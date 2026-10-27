@@ -10,7 +10,12 @@ export const commands = {
 	appBootstrap: () => __TAURI_INVOKE<Bootstrap>("app_bootstrap"),
 	workspaceInspect: (root: string) => __TAURI_INVOKE<RootInspection>("workspace_inspect", { root }),
 	workspaceCreate: (root: string, config: WorkspaceConfig) => __TAURI_INVOKE<WorkspaceSnapshot>("workspace_create", { root, config }),
-	workspaceOpen: (root: string) => __TAURI_INVOKE<WorkspaceSnapshot>("workspace_open", { root }),
+	/**
+	 *  Opens a workspace. While another computer has it open (a fresh lock)
+	 *  it answers `workspace-in-use` with the warning to show, unless `force`
+	 *  (the person chose Open anyway).
+	 */
+	workspaceOpen: (root: string, force: boolean) => __TAURI_INVOKE<WorkspaceSnapshot>("workspace_open", { root, force }),
 	workspaceSaveConfig: (config: WorkspaceConfig) => __TAURI_INVOKE<WorkspaceConfig>("workspace_save_config", { config }),
 	workspaceCacheSize: () => __TAURI_INVOKE<CacheInfo>("workspace_cache_size"),
 	workspaceClearCache: () => __TAURI_INVOKE<CacheInfo>("workspace_clear_cache"),
@@ -731,6 +736,11 @@ export type Bootstrap = {
 	workspace: WorkspaceSnapshot | null,
 	/**  Set when the remembered workspace could not be opened. */
 	lastWorkspaceError: string | null,
+	/**
+	 *  Set when the remembered workspace is open on another computer right
+	 *  now: it was not opened, and the UI asks before it is.
+	 */
+	workspaceInUse: WorkspaceInUse | null,
 };
 
 /**  One model against its folder's budget. */
@@ -2539,7 +2549,7 @@ export type ProjectManifest = {
 	target?: ProjectTarget,
 	/**
 	 *  The repo Ship writes to: the site of a website, the game repo of a
-	 *  game. This computer's path (see [`repos`]); `project.json` itself
+	 *  game. This computer's path (see `project::repos`); `project.json` itself
 	 *  keeps it only from older files.
 	 */
 	siteRepo: string | null,
@@ -3423,6 +3433,13 @@ export type WorkspaceConfig = {
 	agents: AgentSettings,
 	lab: LabSettings,
 	currentProject: string | null,
+};
+
+/**  A workspace another computer has open, and the warning to show. */
+export type WorkspaceInUse = {
+	root: string,
+	host: string,
+	message: string,
 };
 
 /**  The open workspace as the UI sees it. */

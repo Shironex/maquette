@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { commands, errorMessage, type WorkspaceSnapshot } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
+import { openWorkspace as openAsking } from '@/state/use-workspace-lock';
 import { useFolderPicker, useProjectFieldActions } from '@/features/project/useProjectFieldActions';
 import {
   STEP,
@@ -97,7 +98,8 @@ export function useOnboarding() {
   const openWorkspace = async (root: string) => {
     setBusy(true);
     try {
-      enterApp(await commands.workspaceOpen(root));
+      const snapshot = await openAsking(root);
+      if (snapshot) enterApp(snapshot);
     } catch (error) {
       fail('Could not open that workspace', error);
     } finally {

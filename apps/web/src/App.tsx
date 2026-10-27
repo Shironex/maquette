@@ -1,6 +1,7 @@
 import { Button, EmptyState, Toast } from '@maquette/ui';
 import { AppShell } from '@/features/shell/AppShell';
 import { Onboarding } from '@/features/onboarding/Onboarding';
+import { WorkspaceInUseDialog } from '@/features/common/WorkspaceInUseDialog';
 import { useApp, useBootFailure, useNoticeHost } from './App.hooks';
 
 export function App() {
@@ -13,6 +14,7 @@ export function App() {
       {phase === 'onboarding' ? <Onboarding /> : null}
       {phase === 'app' ? <AppShell /> : null}
       <NoticeHost />
+      <WorkspaceInUseDialog />
     </div>
   );
 }

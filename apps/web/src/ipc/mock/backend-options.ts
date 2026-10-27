@@ -99,6 +99,8 @@ export interface BackendOptions {
   library?: string | null;
   /** `many`: Moon Island gets 49 more versioned assets, so the Inspector's compare menu is long. */
   inspect?: string | null;
+  /** `held`, `repo` or `conflict`: a workspace shared with another computer (see create-sync-handlers.ts). */
+  sync?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */

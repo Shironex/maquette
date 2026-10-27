@@ -7,6 +7,7 @@ import type { Bootstrap, ProjectManifest, WorkspaceConfig, WorkspaceSnapshot } f
 import { DEFAULT_ROOT, HOME, defaultConfig, mockProjects, providerCatalog } from './fixtures';
 import { fail, type Args } from './backend-options';
 import { inspect, validate } from './workspace-checks';
+import { IN_USE_MESSAGE, OTHER_COMPUTER } from './create-sync-handlers';
 
 interface Cell<T> {
   get: () => T;
@@ -24,22 +25,32 @@ interface WorkspaceContext {
   snapshot: () => WorkspaceSnapshot;
   /** A settings save changed the config. */
   saved: (config: WorkspaceConfig) => void;
+  /** `held`: another computer has the workspace open (see create-sync-handlers.ts). */
+  sync?: string | null;
 }
 
 export function createWorkspaceHandlers(ctx: WorkspaceContext) {
   let cacheBytes = ctx.cacheBytes;
+  let held = ctx.sync === 'held';
   const { root, config, projects } = ctx;
   return {
-    app_bootstrap: (): Bootstrap => ({
-      os: 'mac',
-      version: '0.1.0',
-      defaultRoot: DEFAULT_ROOT,
-      home: HOME,
-      defaultConfig: defaultConfig(),
-      catalog: providerCatalog(),
-      workspace: root.get() ? ctx.snapshot() : null,
-      lastWorkspaceError: null,
-    }),
+    app_bootstrap: (): Bootstrap => {
+      const open = root.get();
+      const inUse = held && open !== null;
+      return {
+        os: 'mac',
+        version: '0.1.0',
+        defaultRoot: DEFAULT_ROOT,
+        home: HOME,
+        defaultConfig: defaultConfig(),
+        catalog: providerCatalog(),
+        workspace: open && !inUse ? ctx.snapshot() : null,
+        lastWorkspaceError: null,
+        workspaceInUse: inUse
+          ? { root: open, host: OTHER_COMPUTER, message: IN_USE_MESSAGE }
+          : null,
+      };
+    },
     workspace_inspect: ({ root: path }: Args) => inspect(String(path)),
     workspace_create: ({ root: path, config: next }: Args) => {
       const found = inspect(String(path));
@@ -54,14 +65,19 @@ export function createWorkspaceHandlers(ctx: WorkspaceContext) {
       config.set({ ...(next as WorkspaceConfig), version: 1 });
       return ctx.snapshot();
     },
-    workspace_open: ({ root: path }: Args) => {
+    workspace_open: ({ root: path, force }: Args) => {
       const found = inspect(String(path));
-      if (found.state !== 'workspace') {
+      // The workspace the app reopens after the in use question is this one.
+      const reopening = held && found.path === root.get();
+      if (found.state !== 'workspace' && !reopening) {
         fail(
           'not-a-workspace',
           'This folder is not a Maquette workspace. It has no maquette.json.'
         );
       }
+      if (held && force !== true) fail('workspace-in-use', IN_USE_MESSAGE);
+      held = false;
+      if (reopening) return ctx.snapshot();
       root.set(found.path);
       projects.set(mockProjects(ctx.many));
       config.set({ ...defaultConfig(), currentProject: 'moon-island' });

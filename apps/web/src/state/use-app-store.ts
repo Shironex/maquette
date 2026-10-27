@@ -11,8 +11,10 @@ import {
   type ToolId,
   type ToolReport,
   type WorkspaceConfig,
+  type WorkspaceInUse,
   type WorkspaceSnapshot,
 } from '@/ipc/client';
+import { openAfterAsking } from './use-workspace-lock';
 import { hashForView, viewFromHash, type ViewId } from '@/state/views';
 import type { ToastStatus } from '@maquette/ui';
 import { useSettingsGuard } from './use-settings-guard';
@@ -47,6 +49,8 @@ interface AppStore {
   notice: Notice | null;
 
   init: () => Promise<void>;
+  /** Asks about the last workspace another computer has open, and opens it on a yes. */
+  reopenInUse: (inUse: WorkspaceInUse) => Promise<void>;
   enterApp: (snapshot: WorkspaceSnapshot) => void;
   setWorkspace: (snapshot: WorkspaceSnapshot) => void;
   setConfig: (config: WorkspaceConfig) => void;
@@ -94,8 +98,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
           detail: boot.lastWorkspaceError,
         });
       }
+      if (boot.workspaceInUse) void get().reopenInUse(boot.workspaceInUse);
     } catch (error) {
       set({ phase: 'failed', bootError: errorMessage(error) });
+    }
+  },
+
+  reopenInUse: async inUse => {
+    try {
+      const snapshot = await openAfterAsking({ root: inUse.root, message: inUse.message });
+      if (snapshot) get().enterApp(snapshot);
+    } catch (error) {
+      get().notify({
+        status: 'failed',
+        title: 'Could not reopen the last workspace',
+        detail: errorMessage(error),
+      });
     }
   },
 

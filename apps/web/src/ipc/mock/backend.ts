@@ -50,6 +50,7 @@ import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createProjectHandlers } from './create-project-handlers';
 import { createToolchainHandlers } from './create-toolchain-handlers';
 import { createWorkspaceHandlers } from './create-workspace-handlers';
+import { syncProjects } from './create-sync-handlers';
 import { display, expand, fail, type Args, type BackendOptions } from './backend-options';
 
 export type MockOptions = BackendOptions;
@@ -75,12 +76,13 @@ export function createBackend({
   game: gameState = null,
   library: libraryState = null,
   inspect: inspectState = null,
+  sync = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
   let root: string | null = configured ? expand(DEFAULT_ROOT) : null;
   let projects: ProjectManifest[] = configured
-    ? seedMotionProjects(mockProjects(projectsState === 'many'), motion)
+    ? syncProjects(seedMotionProjects(mockProjects(projectsState === 'many'), motion), sync)
     : [];
   if (configured) config = motionConfig({ ...config, currentProject: 'moon-island' }, motion);
   const agentsOn = agentsState === 'active' || agentsState === 'batch';
@@ -312,6 +314,7 @@ export function createBackend({
       config: { get: () => config, set: next => (config = next) },
       projects: { get: () => projects, set: next => (projects = next) },
       many: projectsState === 'many',
+      sync,
       cacheBytes: configured ? 2.3e9 : 0,
       snapshot,
       saved: next => {
