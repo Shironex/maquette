@@ -382,6 +382,7 @@ async function uxShots() {
     logs.getByRole('button', { name: /^Texture sizes per map for/ }).first(),
     'ux-preset-per-map'
   );
+  await hoverTip(logs, logs.getByRole('button', { name: 'Run pipeline' }), 'ux-pipeline-run');
 
   const layout = await open('&scenario=configured', '#/inspector');
   await layout.getByRole('tab', { name: 'Layout' }).click();
@@ -389,6 +390,11 @@ async function uxShots() {
   await layout.getByText(/Loading \d+ models/).waitFor({ state: 'detached', timeout: SLOW });
   await layout.waitForTimeout(1500);
   await hoverTip(layout, layout.getByRole('button', { name: 'Undo' }), 'ux-layout-undo-disabled');
+  await hoverTip(
+    layout,
+    layout.getByRole('button', { name: 'Add stop from view' }),
+    'ux-layout-add-stop'
+  );
   const gizmo = layout.getByRole('group', { name: 'Gizmo' });
   await hoverTip(layout, gizmo.getByRole('button', { name: 'Turn' }), 'ux-layout-gizmo-key');
   await focusTip(
