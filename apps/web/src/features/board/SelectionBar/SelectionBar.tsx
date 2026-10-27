@@ -1,4 +1,5 @@
 import { Button, Icon } from '@maquette/ui';
+import { KEYS } from '@/lib/keys';
 import { MAX_BATCH } from '@/state/batch';
 
 export interface SelectionBarProps {
@@ -25,10 +26,20 @@ export default function SelectionBar({ count, onSend, onClear }: SelectionBarPro
       <span className="text-meta whitespace-nowrap text-fg-mute">
         {over ? `The first ${MAX_BATCH} go in one batch` : 'Shift-click to add a range'}
       </span>
-      <Button variant="primary" icon="cube" onClick={onSend}>
+      <Button
+        variant="primary"
+        icon="cube"
+        tooltip="Sends the selected assets to 3D in one batch, under one approval"
+        onClick={onSend}
+      >
         Send to 3D
       </Button>
-      <Button variant="ghost" onClick={onClear}>
+      <Button
+        variant="ghost"
+        tooltip="Clears the selection"
+        shortcut={KEYS.escape}
+        onClick={onClear}
+      >
         Clear
       </Button>
     </div>

@@ -44,13 +44,29 @@ export default function FirstRunCard({ name, budget }: FirstRunCardProps) {
       </div>
       <ol className="mt-5 list-none p-0">{steps}</ol>
       <div className="mt-[18px] flex items-center gap-2.5 border-t border-line pt-[18px]">
-        <Button size="lg" variant="primary" icon="flask" onClick={() => setView('lab')}>
+        <Button
+          size="lg"
+          variant="primary"
+          icon="flask"
+          tooltip="Concept lab: make concept art for the project's assets"
+          onClick={() => setView('lab')}
+        >
           Open Concept lab
         </Button>
-        <Button size="lg" icon="download-simple" onClick={importModels}>
+        <Button
+          size="lg"
+          icon="download-simple"
+          tooltip="Import models: bring existing models into this project"
+          onClick={importModels}
+        >
           Import models
         </Button>
-        <Button variant="ghost" className="ml-auto" onClick={hide}>
+        <Button
+          variant="ghost"
+          className="ml-auto"
+          tooltip="Hides this card; the Board stays as it is"
+          onClick={hide}
+        >
           Hide tips
         </Button>
       </div>

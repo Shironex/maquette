@@ -93,7 +93,11 @@ export default function BoardList(props: BoardListProps) {
         {rows.length === 0 && total > 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-meta text-fg-mute">
             No asset matches this stage and search.
-            <Button size="sm" onClick={list.clearFilters}>
+            <Button
+              size="sm"
+              tooltip="Clears the stage filter and the search"
+              onClick={list.clearFilters}
+            >
               Show every asset
             </Button>
           </div>

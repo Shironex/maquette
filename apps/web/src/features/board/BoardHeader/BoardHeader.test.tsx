@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { forgetStoredPrefs, useBoardPrefsStore } from '@/state/use-board-prefs-store';
@@ -21,6 +21,32 @@ afterEach(() => {
 });
 
 describe('BoardHeader', () => {
+  it('gives every button of the header a tooltip', async () => {
+    await openMockGame('crypt');
+    render(<BoardHeader queue={() => null} />);
+    const buttons = screen.getAllByRole('button');
+    const names = buttons.map(b => b.textContent ?? '');
+    for (const name of ['By hand', '3D queue', 'Import models', 'Built asset', 'Add asset'])
+      expect(
+        names.some(n => n.startsWith(name)),
+        name
+      ).toBe(true);
+    for (const button of buttons) {
+      await userEvent.hover(button);
+      expect(await screen.findByRole('tooltip'), button.textContent ?? '').toBeVisible();
+      await userEvent.unhover(button);
+      await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+    }
+  });
+
+  it('says what By hand opens', async () => {
+    render(<BoardHeader queue={() => null} />);
+    await userEvent.hover(screen.getByRole('button', { name: /By hand/ }));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      "By hand: models waiting for you to make on the provider's site"
+    );
+  });
+
   it('renders a preview for each imported game model without one', async () => {
     await openMockGame('crypt');
     const without = () =>

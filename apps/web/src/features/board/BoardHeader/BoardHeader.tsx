@@ -50,7 +50,11 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
           onChange={setLayout}
         />
         {byHand ? (
-          <Button icon="hand-pointing" onClick={() => setChecklistOpen(true)}>
+          <Button
+            icon="hand-pointing"
+            tooltip="By hand: models waiting for you to make on the provider's site"
+            onClick={() => setChecklistOpen(true)}
+          >
             By hand
             {toMake > 0 ? (
               <span className="ml-0.5 rounded-pill bg-clay-soft px-1.5 font-mono text-[11px] leading-[18px] text-clay-text">
@@ -65,6 +69,8 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
             data-queue-toggle
             aria-expanded={queueOpen}
             disabled={!project}
+            disabledReason="Open a project first"
+            tooltip="3D queue: sends to Tripo or Meshy and their progress"
             onClick={() => setQueueOpen(!queueOpen)}
           >
             3D queue
@@ -87,14 +93,19 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
           </Button>
         ) : null}
         {game ? (
-          <Button icon="download-simple" onClick={importModels}>
+          <Button
+            icon="download-simple"
+            tooltip="Import models: bring existing game models into this project"
+            onClick={importModels}
+          >
             Import models
           </Button>
         ) : null}
         <Button
           icon="wrench"
           disabled={!project}
-          tooltip="A model a Blender script in the project makes"
+          disabledReason="Open a project first"
+          tooltip="Built asset: a model a Blender script in the project makes"
           onClick={addBuilt}
         >
           Built asset
@@ -102,6 +113,8 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
         <Button
           icon="plus"
           disabled={!project}
+          disabledReason="Open a project first"
+          tooltip="Add asset: a new card on the Board, named, with its kind and column"
           aria-expanded={adding}
           onClick={() => setAdding(v => !v)}
         >

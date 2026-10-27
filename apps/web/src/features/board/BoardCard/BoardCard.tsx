@@ -36,13 +36,20 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
           <Button
             size="sm"
             icon="upload-simple"
+            tooltip="Choose the GLB, or the .zip the site downloads, that you made for this card"
             data-card-action
             onClick={() => void addModel(waiting.id)}
           >
             Add model...
           </Button>
         ) : built && wantsRebuild(built.state) ? (
-          <Button size="sm" icon="arrow-clockwise" data-card-action onClick={rebuild}>
+          <Button
+            size="sm"
+            icon="arrow-clockwise"
+            tooltip={`Runs ${built.source.script} in Blender headless again`}
+            data-card-action
+            onClick={rebuild}
+          >
             Rebuild
           </Button>
         ) : update ? (
