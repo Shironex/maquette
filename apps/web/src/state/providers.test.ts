@@ -3,6 +3,7 @@ import type { KeyStatus, ProviderJob } from '@/ipc/client';
 import {
   cardState,
   creditsText,
+  exportNameOf,
   formatElapsed,
   imagesNote,
   jobChip,
@@ -110,5 +111,16 @@ describe('the send panel', () => {
     expect(toggleImage(['a', 'b'], 'a')).toEqual(['b']);
     expect(toggleImage(['a'], 'b')).toEqual(['a', 'b']);
     expect(makeFront(['a', 'b', 'c'], 'c')).toEqual(['c', 'a', 'b']);
+  });
+});
+
+describe('the export name of a By hand card', () => {
+  it('reads the card, or the file name of an older card', () => {
+    expect(exportNameOf({ exportName: 'maq_lamp_v1_tripo', returnName: 'x.glb' })).toBe(
+      'maq_lamp_v1_tripo'
+    );
+    expect(exportNameOf({ exportName: '', returnName: 'maq_lamp_v1_tripo.glb' })).toBe(
+      'maq_lamp_v1_tripo'
+    );
   });
 });

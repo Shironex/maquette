@@ -2,6 +2,7 @@
 import type { IconName, Status } from '@maquette/ui';
 import type {
   Asset,
+  HandoffCard,
   JobPhase,
   JobState,
   KeyStatus,
@@ -248,4 +249,13 @@ export function toggleImage(images: readonly string[], file: string): string[] {
 /** Moves an image to the front. */
 export function makeFront(images: readonly string[], file: string): string[] {
   return images.includes(file) ? [file, ...images.filter(i => i !== file)] : [...images];
+}
+
+/**
+ * The name a By hand send's model is exported as on the site, without an
+ * extension: `maq_<asset>_v<n>_<provider>`. Older cards only had the file
+ * name to save it as.
+ */
+export function exportNameOf(card: Pick<HandoffCard, 'exportName' | 'returnName'>): string {
+  return card.exportName || card.returnName.replace(/\.glb$/i, '');
 }

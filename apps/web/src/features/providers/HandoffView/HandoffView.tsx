@@ -6,11 +6,12 @@
 import { Button, Icon } from '@maquette/ui';
 import type { ProviderJob } from '@/ipc/client';
 import { shortPath } from '@/lib/format';
-import { SERVICE_LABEL } from '@/state/providers';
+import { SERVICE_LABEL, exportNameOf } from '@/state/providers';
+import { useFileManager } from '@/state/use-file-manager';
 import { HandBackButtons } from '../HandBackButtons';
 import { siteLabel } from '../siteLabel';
 import { CopyButton } from './CopyButton';
-import { useFileManager, useHandoffActions, useWatchOn } from './HandoffView.hooks';
+import { useHandoffActions, useWatchOn } from './HandoffView.hooks';
 import { PromptLine } from './PromptLine';
 import { Step } from './Step';
 
@@ -20,14 +21,14 @@ export interface HandoffViewProps {
 
 export default function HandoffView({ job }: HandoffViewProps) {
   const { openHandoff, openSite, revealImage } = useHandoffActions();
-  const fileManager = useFileManager();
+  const fileManager = useFileManager().name;
   const watchOn = useWatchOn();
   const card = job.card;
   if (!card) return null;
   const service = SERVICE_LABEL[card.service];
   const folder = job.handoff ?? '';
   const waiting = job.state === 'waiting';
-  const exportName = card.exportName || card.returnName.replace(/\.glb$/i, '');
+  const exportName = exportNameOf(card);
   const images = card.images.map(image => (
     <li
       key={image}
@@ -51,7 +52,9 @@ export default function HandoffView({ job }: HandoffViewProps) {
     >
       <dt className="text-meta text-fg-mute">{row.label}</dt>
       <dd className="m-0 min-w-0">
-        <div className="truncate font-mono text-[12.5px]">{row.value}</div>
+        <div className="truncate font-mono text-[12.5px]" title={row.value}>
+          {row.value}
+        </div>
         {row.note ? <div className="truncate text-[11.5px] text-fg-mute">{row.note}</div> : null}
       </dd>
       <CopyButton text={row.value} what={row.label} />

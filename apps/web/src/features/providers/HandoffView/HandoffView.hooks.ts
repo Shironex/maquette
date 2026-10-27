@@ -1,12 +1,5 @@
-import { useAppStore } from '@/state/use-app-store';
 import { useDownloadsStore } from '@/state/use-downloads-store';
 import { useProvidersStore } from '@/state/use-providers-store';
-
-/** What the OS calls its file manager. */
-export function useFileManager(): string {
-  const os = useAppStore(s => s.boot?.os);
-  return os === 'windows' ? 'Explorer' : os === 'linux' ? 'the file manager' : 'Finder';
-}
 
 /** The handoff's folder, web app and image actions. */
 export function useHandoffActions() {
