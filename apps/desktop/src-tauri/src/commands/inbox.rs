@@ -134,8 +134,14 @@ pub async fn inbox_accept(
     let (root, config) = session.workspace()?;
     let tools = toolchain::toolbox(&session).await?;
     let mut result = inbox::accept(&root, &config, &request)?;
-    // A model from a Send to 3D: its job is done now.
-    studio.0.accepted(&request.item, result.version.version);
+    // A model from a Send to 3D: its job is done now, and so is any By hand
+    // send of the asset still waiting for a model.
+    studio.0.accepted(
+        &request.item,
+        &request.project,
+        &result.asset.id,
+        result.version.version,
+    );
     // The file kept its content, so a render made while it sat in the inbox
     // is reused at once; otherwise the Board gets it from ThumbnailReady.
     let target = ThumbTarget {

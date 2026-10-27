@@ -135,7 +135,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Accept a model from the inbox into a project: it moves into the project as a new asset version on the Board, and its thumbnail is rendered headless."
+        description = "Accept a model from the inbox into a project: it moves into the project as a new asset version on the Board, and its thumbnail is rendered headless. A By hand send of that asset still waiting for its model closes as done; a Tripo or Meshy send runs on."
     )]
     async fn accept_inbox_model(&self, Parameters(args): Parameters<AcceptArgs>) -> Out {
         let found = self
@@ -156,7 +156,12 @@ impl McpTools {
                     prep: None,
                 };
                 let mut result = inbox::accept(&root, &config, &request).map_err(reason)?;
-                host.studio().accepted(&request.item, result.version.version);
+                host.studio().accepted(
+                    &request.item,
+                    &request.project,
+                    &result.asset.id,
+                    result.version.version,
+                );
                 let target = ThumbTarget {
                     project: args.project,
                     asset: result.asset.id.clone(),

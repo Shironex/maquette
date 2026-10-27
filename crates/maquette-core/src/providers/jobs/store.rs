@@ -156,6 +156,18 @@ pub(super) fn update(
     save: bool,
     change: impl FnOnce(&mut Stored) -> CoreResult<()>,
 ) -> CoreResult<()> {
+    update_with(shared, id, save, true, change)
+}
+
+/// [`update`], writing the credits ledger line the change calls for only
+/// when `spend`.
+pub(super) fn update_with(
+    shared: &Shared,
+    id: &str,
+    save: bool,
+    spend: bool,
+    change: impl FnOnce(&mut Stored) -> CoreResult<()>,
+) -> CoreResult<()> {
     let (job, project, before, after) = {
         let mut jobs = shared.jobs();
         let entry = jobs
@@ -175,7 +187,9 @@ pub(super) fn update(
         persist(shared, &project);
     }
     shared.emit(ProviderEvent::Job { job: Box::new(job) });
-    spend::record(shared, &before, &after);
+    if spend {
+        spend::record(shared, &before, &after);
+    }
     Ok(())
 }
 

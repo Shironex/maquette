@@ -6,6 +6,7 @@
 use maquette_core::library::{
     self, AddToLibrary, LibraryAdded, LibraryUpdated, LibraryUsed, LibraryView, UpdatePlan,
 };
+use maquette_core::project::{self, ProjectManifest};
 use maquette_core::providers::ProviderJobs;
 use tauri::State;
 
@@ -29,20 +30,33 @@ pub(crate) fn add(
     Ok(library::add(&root, &config.layout, request, &sends)?)
 }
 
+/// Closes the By hand sends a library model just stood in for, and reads
+/// the project again when that moved a card.
+fn settle_handed(
+    session: &Session,
+    jobs: &ProviderJobs,
+    project: &str,
+    manifest: &mut ProjectManifest,
+) -> CommandResult<()> {
+    if jobs.settle_handed(project) > 0 {
+        let (root, config) = session.workspace()?;
+        *manifest = project::load(&root, &config.layout, project)?;
+    }
+    Ok(())
+}
+
 pub(crate) fn use_entry(
     session: &Session,
+    jobs: &ProviderJobs,
     entry: &str,
     version: Option<u32>,
     project: &str,
 ) -> CommandResult<LibraryUsed> {
     let (root, config) = session.workspace()?;
-    Ok(library::use_in_project(
-        &root,
-        &config.layout,
-        entry,
-        version,
-        project,
-    )?)
+    let mut used = library::use_in_project(&root, &config.layout, entry, version, project)?;
+    // An asset of the same name already here takes the model as a version.
+    settle_handed(session, jobs, project, &mut used.project)?;
+    Ok(used)
 }
 
 pub(crate) fn plan(session: &Session, project: &str, asset: &str) -> CommandResult<UpdatePlan> {
@@ -52,11 +66,14 @@ pub(crate) fn plan(session: &Session, project: &str, asset: &str) -> CommandResu
 
 pub(crate) fn update(
     session: &Session,
+    jobs: &ProviderJobs,
     project: &str,
     asset: &str,
 ) -> CommandResult<LibraryUpdated> {
     let (root, config) = session.workspace()?;
-    Ok(library::update(&root, &config.layout, project, asset)?)
+    let mut done = library::update(&root, &config.layout, project, asset)?;
+    settle_handed(session, jobs, project, &mut done.project)?;
+    Ok(done)
 }
 
 /// Every library entry with the projects that use it.
@@ -84,11 +101,12 @@ pub fn library_add(
 #[specta::specta]
 pub fn library_use(
     session: State<'_, Session>,
+    studio: State<'_, Studio>,
     entry: String,
     version: Option<u32>,
     project: String,
 ) -> CommandResult<LibraryUsed> {
-    use_entry(&session, &entry, version, &project)
+    use_entry(&session, &studio.0, &entry, version, &project)
 }
 
 /// What updating the asset from the library would keep and drop.
@@ -107,8 +125,9 @@ pub fn library_update_plan(
 #[specta::specta]
 pub fn library_update(
     session: State<'_, Session>,
+    studio: State<'_, Studio>,
     project: String,
     asset: String,
 ) -> CommandResult<LibraryUpdated> {
-    update(&session, &project, &asset)
+    update(&session, &studio.0, &project, &asset)
 }

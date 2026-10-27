@@ -21,6 +21,7 @@ use crate::workspace::{self, WorkspaceConfig};
 mod connect;
 mod handoff_paths;
 mod ids;
+mod landed;
 mod remove;
 mod stopped_cards;
 
@@ -983,7 +984,12 @@ fn by_hand_writes_the_handoff_and_takes_the_model_back() {
         },
     )
     .expect("accept");
-    jobs.accepted(&item.id, result.version.version);
+    jobs.accepted(
+        &item.id,
+        &world.project,
+        &world.asset,
+        result.version.version,
+    );
     let accepted = jobs.get(&job.id).expect("job");
     assert_eq!(accepted.state, JobState::Accepted);
     assert_eq!(accepted.version, Some(1));

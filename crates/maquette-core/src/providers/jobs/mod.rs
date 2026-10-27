@@ -10,6 +10,7 @@
 mod cancel;
 mod credits;
 mod ids;
+mod landed;
 mod model;
 mod records;
 mod remote;
@@ -40,7 +41,7 @@ pub use model::{CancelMode, InboxLink, JobPhase, JobState, Provider, ProviderEve
 pub use request::{BatchFailure, BatchItem, BatchRequest, BatchSent, SendRequest};
 
 use model::{Chain, JobsFile, Stored};
-use store::{load, persist, resume_fixup, touch_asset, update};
+use store::{load, persist, resume_fixup, touch_asset, update, update_with};
 use worker::pump;
 
 pub const JOBS_FILE: &str = "providers.json";
@@ -317,6 +318,9 @@ impl ProviderJobs {
             persist(&self.shared, &project);
         }
         for manifest in &projects {
+            // Sends whose model came in another way first, so the heal
+            // then sees their cards with no live job.
+            landed::close_outdated(&self.shared, &manifest.id, landed::Spend::Site);
             settle::heal_stuck(&self.shared, &manifest.id);
         }
         pump(&self.shared);

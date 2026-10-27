@@ -195,7 +195,7 @@ impl McpTools {
     async fn use_from_library(&self, Parameters(args): Parameters<UseFromLibraryArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let used = commands::use_entry(host.session(), &args.entry, args.version, &args.project)
+                let used = commands::use_entry(host.session(), host.studio(), &args.entry, args.version, &args.project)
                     .map_err(|e| e.message)?;
                 host.project_changed(&used.project);
                 if used.settings {
@@ -230,7 +230,7 @@ impl McpTools {
                         .map_err(|e| e.message)?;
                     return Ok(json!({ "dryRun": true, "plan": planned(&plan) }));
                 }
-                let done = commands::update(host.session(), &args.project, &asset)
+                let done = commands::update(host.session(), host.studio(), &args.project, &asset)
                     .map_err(|e| e.message)?;
                 host.project_changed(&done.project);
                 if !done.plan.dropped.is_empty() {

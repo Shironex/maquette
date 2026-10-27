@@ -7,6 +7,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use super::ids::next_id;
+use super::landed;
 use super::{
     Entry, InboxLink, JobState, ProviderJob, ProviderJobs, Stored, Workspace, persist, send_notes,
     touch_asset, update,
@@ -257,8 +258,10 @@ impl ProviderJobs {
             .ok_or_else(|| CoreError::NotFound(format!("the job {id}")))
     }
 
-    /// Marks the job behind an accepted inbox model as done.
-    pub fn accepted(&self, item: &str, version: u32) {
+    /// Marks the job behind an accepted inbox model as done, and closes
+    /// every other By hand send of `asset` still waiting for its model:
+    /// the asset has one now. Returns how many of those closed.
+    pub fn accepted(&self, item: &str, project: &str, asset: &str, version: u32) -> usize {
         let id = {
             let jobs = self.shared.jobs();
             let by_file = jobs
@@ -280,6 +283,15 @@ impl ProviderJobs {
                 Ok(())
             });
         }
+        landed::close_waits(&self.shared, project, asset)
+    }
+
+    /// Closes the By hand sends of `project` still waiting while their
+    /// asset already has a newer version, for a model that landed with no
+    /// send behind it (the library). That model was not made on the site,
+    /// so the credits ledger is left alone. Returns how many closed.
+    pub fn settle_handed(&self, project: &str) -> usize {
+        landed::close_outdated(&self.shared, project, landed::Spend::None)
     }
 }
 
