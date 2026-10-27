@@ -73,7 +73,15 @@ pub async fn inspect_export_glb(
         return Err(CoreError::Invalid(format!("{model:?} is not a model name.")).into());
     }
     let tools = super::toolchain::toolbox(&session).await?;
-    let mut setup = super::pipeline::setup(&session, &project, None, true, tools)?;
+    let mut setup = super::pipeline::setup(
+        &session,
+        &project,
+        super::pipeline::RunAsk {
+            force: true,
+            ..Default::default()
+        },
+        tools,
+    )?;
     let out_dir = setup.cache_dir.join(export_one::STEP_ID).join(&model);
     if out_dir.exists() {
         std::fs::remove_dir_all(&out_dir).map_err(|e| CoreError::io(&out_dir, e))?;

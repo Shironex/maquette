@@ -11,6 +11,7 @@ fn run(id: &str) -> RunRecord {
         project: "moon".into(),
         from: None,
         force: false,
+        build_only: false,
         state: RunState::Running,
         queued_at_ms: 0.0,
         started_at_ms: None,

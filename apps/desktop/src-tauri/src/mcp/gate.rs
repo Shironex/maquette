@@ -14,7 +14,7 @@ pub const DENIED: &str = "Shipping was denied in Maquette.";
 
 /// The step that copies the build to the site.
 pub fn is_ship(step: &StepDef) -> bool {
-    step.id.trim().eq_ignore_ascii_case("ship") || step.name.trim().eq_ignore_ascii_case("ship")
+    maquette_core::pipeline::is_ship_step(step)
 }
 
 /// Why a run waits before Ship.

@@ -6,12 +6,10 @@ use std::path::{Path, PathBuf};
 
 use maquette_core::inbox::checks::texture_px;
 use maquette_core::layout::{self, FirstView};
-use maquette_core::materials;
 use maquette_core::pipeline::cache::{self, project_cache_dir};
 use maquette_core::pipeline::history::{LogEntry, RunRecord};
-use maquette_core::pipeline::runner::{JobRunner, PipelineRunner, RunSetup};
+use maquette_core::pipeline::runner::{JobRunner, PipelineRunner};
 use maquette_core::pipeline::starter::{self, StarterStatus};
-use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::pipeline::{
     self, CompressDefaults, CompressPreset, PipelineDef, PipelineIssue, history, presets,
 };
@@ -131,6 +129,33 @@ fn context(session: &Session, project_id: &str) -> CommandResult<Context> {
     })
 }
 
+/// The file stem Export GLB gives a model file: lowercase snake case.
+fn export_stem(stem: &str) -> String {
+    let snake: String = stem
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let trimmed = snake.trim_matches('_');
+    let mut out = String::new();
+    for part in trimmed.split('_').filter(|p| !p.is_empty()) {
+        if !out.is_empty() {
+            out.push('_');
+        }
+        out.push_str(part);
+    }
+    if out.is_empty() {
+        "model".to_string()
+    } else {
+        out
+    }
+}
+
 pub(crate) fn view(
     session: &Session,
     runner: &PipelineRunner,
@@ -155,7 +180,8 @@ pub(crate) fn view(
             }
         }
     }
-    let shipped_names = maquette_core::assets::shipped_names(&ctx.manifest);
+    let ship = maquette_core::ship::load_or_default(&ctx.project_dir);
+    let shipped_names = maquette_core::assets::shipped_names(&ctx.manifest, &ship);
     let mut models: BTreeMap<String, ModelFile> = BTreeMap::new();
     for spec in ctx.def.steps.iter().filter_map(|s| s.compress.as_ref()) {
         for (_, files) in cache::expand(&run_root, &[format!("{}/*.glb", spec.from)]) {
@@ -193,6 +219,32 @@ pub(crate) fn view(
                 raw_bytes: None,
                 shipped_bytes: None,
             });
+    }
+    // Before the first export, each asset's newest model is listed under the
+    // stem its export will have, so its presets can be set already.
+    for asset in &ctx.manifest.assets {
+        let Some(stem) = asset.latest().and_then(|v| {
+            let path = Path::new(&v.file);
+            let glb = path
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("glb") || e.eq_ignore_ascii_case("gltf"));
+            glb.then(|| path.file_stem().map(|s| export_stem(&s.to_string_lossy())))
+                .flatten()
+        }) else {
+            continue;
+        };
+        if !models.contains_key(&stem) {
+            models.insert(
+                stem.clone(),
+                ModelFile {
+                    model: stem.clone(),
+                    asset_name: None,
+                    version: None,
+                    raw_bytes: None,
+                    shipped_bytes: None,
+                },
+            );
+        }
     }
     // An export of an asset version is labelled by the asset ("clay").
     for model in models.values_mut() {
@@ -238,40 +290,6 @@ pub(crate) fn view(
     })
 }
 
-pub(crate) fn setup(
-    session: &Session,
-    project_id: &str,
-    from: Option<String>,
-    force: bool,
-    tools: Toolbox,
-) -> CommandResult<RunSetup> {
-    let ctx = context(session, project_id)?;
-    let mut vars = BTreeMap::new();
-    vars.insert("workspace".to_string(), ctx.root.display().to_string());
-    vars.insert(
-        "siteRepo".to_string(),
-        ctx.manifest.site_repo.clone().unwrap_or_default(),
-    );
-    // The Ship step reads which file each asset shipped as from here.
-    let index = maquette_core::site::write_ship_index(&ctx.cache_dir, &ctx.manifest)?;
-    super::game::before_run(&ctx.project_dir, &ctx.manifest)?;
-    vars.insert("shipIndex".to_string(), index.display().to_string());
-    let tweaks = materials::by_model_stem(&ctx.manifest, &materials::load(&ctx.project_dir)?);
-    Ok(RunSetup {
-        project: project_id.to_string(),
-        project_dir: ctx.project_dir,
-        cache_dir: ctx.cache_dir,
-        defaults: defaults(&ctx.config),
-        def: ctx.def,
-        tools,
-        vars,
-        shipped_names: maquette_core::assets::shipped_names(&ctx.manifest),
-        materials: tweaks,
-        from,
-        force,
-    })
-}
-
 #[tauri::command]
 #[specta::specta]
 pub fn pipeline_get(
@@ -283,8 +301,9 @@ pub fn pipeline_get(
 }
 
 /// Queues a run. `from` runs that step (always) and what depends on it;
-/// `force` ignores the cache. A full run (no `from`) first rebuilds the
-/// built assets that are new or stale, and is refused when one fails.
+/// `force` ignores the cache; `buildOnly` leaves the Ship step out. A full
+/// run (no `from`) first rebuilds the built assets that are new or stale,
+/// and is refused when one fails.
 #[tauri::command]
 #[specta::specta]
 pub async fn pipeline_run(
@@ -294,12 +313,11 @@ pub async fn pipeline_run(
     thumbs: State<'_, super::thumbs::Thumbs>,
     agents: State<'_, crate::mcp::Agents>,
     project: String,
-    from: Option<String>,
-    force: bool,
+    ask: RunAsk,
 ) -> CommandResult<RunRecord> {
     let tools = super::toolchain::toolbox(&session).await?;
     // A full run first rebuilds the built assets whose scripts changed.
-    if from.is_none() {
+    if ask.from.is_none() {
         let (project, tools, thumbs) = (project.clone(), tools.clone(), thumbs.0.clone());
         tauri::async_runtime::spawn_blocking(move || {
             use tauri::Manager as _;
@@ -315,7 +333,7 @@ pub async fn pipeline_run(
         .await
         .map_err(super::join_failed)??;
     }
-    let setup = setup(&session, &project, from, force, tools)?;
+    let setup = setup(&session, &project, ask, tools)?;
     // A game's Ship writes into the game repo, so it waits for approval.
     let gate = super::game::ship_gate(&session, &project, &agents.hub);
     Ok(runner.0.submit_with(
@@ -402,6 +420,9 @@ pub fn pipeline_update_starters(
 
 pub(crate) mod bake;
 pub(crate) use bake::save_bake;
+mod run;
+pub use run::RunAsk;
+pub(crate) use run::setup;
 
 #[cfg(test)]
 mod tests;

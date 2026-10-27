@@ -9,8 +9,8 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 
 use crate::commands::{
     agents, app, assets, built, credits, dialogs, downloads, game, inbox, inspect, lab, layout,
-    library, materials, motion, page, paths, pipeline, prepare, project, providers, quit, site,
-    thumbs, timeline, toolchain, trash, workspace,
+    library, materials, motion, page, paths, pipeline, prepare, project, providers, quit, ship,
+    site, thumbs, timeline, toolchain, trash, workspace,
 };
 use crate::events::{
     BuiltChanged, ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged, LibraryChanged,
@@ -98,6 +98,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             pipeline::pipeline_save_presets,
             pipeline::bake::pipeline_save_bake,
             pipeline::pipeline_update_starters,
+            ship::ship_get,
+            ship::ship_save,
             site::site_preview,
             page::page_get,
             page::page_save,

@@ -24,6 +24,7 @@ pub mod prepare;
 pub mod project;
 pub mod providers;
 pub mod quit;
+pub mod ship;
 pub mod site;
 pub mod thumbs;
 pub mod timeline;

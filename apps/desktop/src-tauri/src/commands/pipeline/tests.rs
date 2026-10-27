@@ -295,7 +295,13 @@ fn locked_presets_refuse_edits() {
 fn a_run_without_scripts_fails_with_a_clear_message() {
     let (_dir, session, id) = open();
     let runner = PipelineRunner::new(Arc::new(NullSink));
-    let setup = setup(&session, &id, None, false, Toolbox::default()).expect("setup");
+    let setup = setup(
+        &session,
+        &id,
+        RunAsk::default(),
+        maquette_core::pipeline::tools::Toolbox::default(),
+    )
+    .expect("setup");
     let run = runner.run_blocking(setup).expect("run");
     assert_eq!(run.state, RunState::Failed);
     let view = view(&session, &runner, &id).expect("view");
