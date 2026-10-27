@@ -548,7 +548,7 @@ async function coreShots() {
   await page.getByRole('heading', { name: 'Pipeline runner' }).waitFor();
   await shot(page, 'template-pipeline');
 
-  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('heading', { name: '3D providers' }).first().waitFor();
   await page.getByText('Changes save as you go').waitFor();
   await shot(page, 'settings');
