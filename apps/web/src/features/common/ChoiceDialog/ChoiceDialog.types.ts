@@ -6,6 +6,9 @@ export interface Choice {
   onClick: () => void;
   variant?: ButtonVariant;
   loading?: boolean;
+  /** Greyed out, with `disabledReason` on hover. */
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 export interface ChoiceDialogProps {

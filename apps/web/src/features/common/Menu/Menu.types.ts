@@ -11,6 +11,8 @@ export interface MenuItem {
    * item stays focusable so the keyboard reaches it too.
    */
   hint?: string;
+  /** `danger` marks an item that removes something, in the danger colour. */
+  tone?: 'danger';
   /** Leaves the menu open, for an item that leads to more choices. */
   keepOpen?: boolean;
   /**

@@ -16,7 +16,8 @@ export default function ChoiceDialog({ title, children, choices, onDismiss }: Ch
       key={choice.label}
       variant={choice.variant ?? 'secondary'}
       loading={choice.loading}
-      disabled={busy}
+      disabled={busy || choice.disabled}
+      disabledReason={choice.disabled ? choice.disabledReason : undefined}
       autoFocus={i === last}
       onClick={choice.onClick}
     >

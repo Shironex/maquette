@@ -28,6 +28,17 @@ describe('a menu row', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it('shows a danger item in the danger colour', () => {
+    render(
+      <MenuRow
+        item={{ id: 'remove', label: 'Remove', icon: 'trash', tone: 'danger', onSelect: vi.fn() }}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getByRole('menuitem', { name: 'Remove' })).toHaveClass('text-danger');
+    expect(screen.queryByRole('menuitem', { name: 'Rename' })).toBeNull();
+  });
+
   it('opens its submenu on hover and closes it on leaving', async () => {
     render(inMenu(<MenuRow item={moveTo()} onClose={vi.fn()} />));
     const parent = screen.getByRole('menuitem', { name: 'Move to' });

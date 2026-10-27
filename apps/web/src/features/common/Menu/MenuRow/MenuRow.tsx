@@ -2,7 +2,7 @@ import { Icon, Tooltip, cn } from '@maquette/ui';
 import type { MenuItem } from '../Menu.types';
 import { startsSection } from '../menuKeys';
 import { EDGE } from '../menuPlacement';
-import { MENU_PANEL, MENU_ROW, MENU_SEPARATOR } from '../menuStyles';
+import { MENU_PANEL, MENU_ROW, MENU_ROW_DANGER, MENU_SEPARATOR } from '../menuStyles';
 import { SUBMENU_WIDTH, useSubmenu } from './MenuRow.hooks';
 
 export interface MenuRowProps {
@@ -33,9 +33,15 @@ export default function MenuRow({ item, onClose }: MenuRowProps) {
           item.onSelect?.();
           if (!item.keepOpen) onClose();
         }}
-        className={MENU_ROW}
+        className={cn(MENU_ROW, item.tone === 'danger' && MENU_ROW_DANGER)}
       >
-        {item.icon ? <Icon name={item.icon} size={14} className="text-fg-dim" /> : null}
+        {item.icon ? (
+          <Icon
+            name={item.icon}
+            size={14}
+            className={item.tone === 'danger' ? 'text-danger' : 'text-fg-dim'}
+          />
+        ) : null}
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
         {item.submenu ? <Icon name="caret-right" size={12} className="text-fg-mute" /> : null}
       </button>
