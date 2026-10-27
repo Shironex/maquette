@@ -314,6 +314,21 @@ Inbox checks for warnings and keeps the last build on the record. The desktop si
 thumbnail, the window events (`BuiltChanged`, `ProjectChanged`) and the pre run rebuild; the web
 side is `state/use-built-store.ts`, the Board card and `features/board/AddBuiltDialog`.
 
+## Website ship settings
+
+`maquette_core::ship` owns `ship.json`: the style (scene or models), the texture format (KTX2,
+WebP or AVIF), the quality and each asset's choice (auto, never, always) and file name. A missing
+file means the old behaviour: scene style, KTX2, versioned names. The run setup turns them into
+the `{exportOrigin}` var (Export GLB's `--origin`), the texture format Compress uses
+(`presets/image.rs` for WebP and AVIF, with `materials/split.rs` marking the smaller data maps by
+name so one `resize --pattern` pass reaches them) and the ship index's `choice`, `origin` and
+`sizeGuard`, which `ship.mjs` reads to hold files back. `ship/plan.rs` mirrors those rules for the
+dry-run plan, and `ship/report.rs` builds the size report. `site::save_target` writes the folders
+into `maquette.site.json`, keeping its other keys. `build_scene.py` stores each collection's move
+in `maquette_moved` so `export_web.py` can undo it. A build only run marks the ship steps skipped
+in `graph::plan_run`. The desktop side is `commands/ship.rs` and `mcp/tools/ship.rs`; the web
+side is `state/use-ship-store.ts` and `features/pipeline/SiteShipView`.
+
 ## Baked light
 
 The Bake light step and what it hands the site, end to end:
