@@ -1,0 +1,14 @@
+# Template chooser for github.com/Shironex/maquette/issues/new/choose.
+# Blank issues are off: every report goes through a form so it arrives with
+# the version, the OS and the logs that make it actionable.
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/Shironex/maquette/discussions
+    about: Ask how something works, share a workflow, or float a larger idea before it becomes an issue.
+  - name: Documentation
+    url: https://shironex.github.io/maquette/
+    about: What Maquette does, how the pipeline steps work and how to set up the toolchain. Read the page for the step before reporting a pipeline problem.
+  - name: Security vulnerability
+    url: https://github.com/Shironex/maquette/security/advisories/new
+    about: Report a vulnerability privately. Do not open a public issue for it.

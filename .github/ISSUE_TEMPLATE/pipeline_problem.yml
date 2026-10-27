@@ -1,0 +1,94 @@
+name: Model or pipeline problem
+description: A model comes out wrong, or a pipeline step fails.
+labels: ['bug', 'area:pipeline', 'P2-medium']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when the app works but a model or a pipeline step does not: Build scene, Bake light, Export GLB, Compress, Capture posters, Ship, a send to Tripo or Meshy, or a model that looks wrong after fix-ups. If you can, share the smallest model that shows it.
+  - type: dropdown
+    id: step
+    attributes:
+      label: Which step failed or looks wrong
+      options:
+        - Inbox or model check
+        - Send to 3D (Tripo, Meshy or by hand)
+        - Fix-ups or real size
+        - Build scene
+        - Bake light
+        - Export GLB
+        - Compress
+        - Capture posters
+        - Ship
+        - Built asset script
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What the step did, and what you expected instead. Include the size, triangle count or look you got if that is the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: The step's log
+      description: The run log from the Pipeline view, from the first line of the failing step to the end. Remove API keys and private paths.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: model
+    attributes:
+      label: The model
+      description: Its source (Tripo, Meshy, by hand, built asset), format, triangles and texture sizes as the Inbox shows them. Drag a small .glb into the issue, or link one. Do not attach models you do not have the right to share.
+  - type: input
+    id: version
+    attributes:
+      label: Maquette version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: blender
+    attributes:
+      label: Blender version
+      placeholder: 5.0.1
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+    validations:
+      required: true
+  - type: dropdown
+    id: sync
+    attributes:
+      label: Is the workspace synced between two computers?
+      options:
+        - 'No'
+        - 'Yes'
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider involved
+      multiple: true
+      options:
+        - Tripo
+        - Meshy
+        - By hand
+        - None
+  - type: input
+    id: toolchain
+    attributes:
+      label: Other tool versions
+      description: The toolchain check lists them. At least toktx and gltf-transform if Compress is involved.
+      placeholder: toktx 4.4.2, gltf-transform 4.3.0

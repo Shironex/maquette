@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest a change to what Maquette does.
+labels: ['enhancement', 'P3-low']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Small, concrete requests fit here. For a larger idea, start a thread under Ideas in [Discussions](https://github.com/Shironex/maquette/discussions) first, so it can take shape before it becomes an issue.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: The workflow or the problem, not the solution. What is hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like
+      description: How you imagine it working. Sketches and screenshots are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead
+      description: A workaround, or another tool that does it.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it belong
+      options:
+        - Board or Inbox
+        - Concept lab
+        - Send to 3D or providers
+        - Inspector, layout or Motion
+        - Pipeline or Blender scripts
+        - Ship (site or game)
+        - MCP server for agents
+        - Workspace or sync
+        - Settings or onboarding
+        - Other
+    validations:
+      required: true
