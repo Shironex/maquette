@@ -19,7 +19,15 @@ baked object its own copy of a shared material) the first keeps it and the
 others ship as "<name>_2", "<name>_3". The pipeline's own custom properties
 ("maquette_skip_bake" and the like) are removed, so no file carries them as
 extras. Cameras and lights
-are never exported. Geometry stays uncompressed (no Draco): the Compress
+are never exported.
+
+--origin scene (the default) exports each model where the scene has it.
+--origin own exports each model of "Models" at its own origin, as its
+real size and fix-ups left it: what Build scene moved it by (the layout's
+placement, or the row it laid unplaced models out in, kept on the model's
+collection as "maquette_moved") is undone for the export. That is for a
+site that loads one file per model and places them in its own code. The
+bake still happens in the scene, so a model keeps the light it got there. Geometry stays uncompressed (no Draco): the Compress
 step applies meshopt and KTX2 from the presets.
 
 Motion: a model's armature and skin export with it, and so does every
@@ -58,6 +66,7 @@ import re
 import sys
 
 import bpy
+from mathutils import Matrix
 
 MODELS = "Models"
 STUDIO = "Studio"
@@ -76,6 +85,12 @@ def parse_args():
     parser = argparse.ArgumentParser(prog="export_web.py")
     parser.add_argument("--bake", default="blender/bake", help="the Bake light folder")
     parser.add_argument("--out", required=True, help="folder for the GLB files")
+    parser.add_argument(
+        "--origin",
+        choices=("scene", "own"),
+        default="scene",
+        help="own exports each model at its own origin instead of its scene place",
+    )
     return parser.parse_args(argv)
 
 
@@ -93,7 +108,8 @@ def with_children(objects):
 
 
 def groups(scene):
-    """(file name, objects) pairs, in a stable order."""
+    """(file name, objects, collection) triples, in a stable order. The
+    collection is the model's under "Models", else None."""
     found = []
     models = bpy.data.collections.get(MODELS)
     in_models = set()
@@ -102,7 +118,7 @@ def groups(scene):
             objects = [o for o in child.all_objects if o.type in EXPORTED_TYPES]
             in_models.update(child.all_objects)
             if objects:
-                found.append((snake(child.name), objects))
+                found.append((snake(child.name), objects, child))
     studio = bpy.data.collections.get(STUDIO)
     skip = set(studio.all_objects) if studio is not None else set()
     roots = [
@@ -111,7 +127,7 @@ def groups(scene):
         if o.parent is None and o not in in_models and o not in skip and o.type in EXPORTED_TYPES
     ]
     for obj in sorted(roots, key=lambda o: o.name):
-        found.append((snake(obj.name), with_children([obj])))
+        found.append((snake(obj.name), with_children([obj]), None))
     return found
 
 
@@ -279,6 +295,31 @@ def undo_names(undo):
         item.name = name
 
 
+MOVED = "maquette_moved"
+
+
+def to_own_origin(collection):
+    """Undoes what Build scene moved the collection's models by. Returns how
+    to put them back."""
+    values = list(collection.get(MOVED) or []) if collection is not None else []
+    if len(values) != 16:
+        return []
+    undo = Matrix([values[i : i + 4] for i in range(0, 16, 4)]).inverted_safe()
+    roots = [o for o in collection.objects if o.parent is None]
+    before = [(o, o.matrix_world.copy()) for o in roots]
+    for obj in roots:
+        obj.matrix_world = undo @ obj.matrix_world
+    bpy.context.view_layer.update()
+    return before
+
+
+def back_in_place(before):
+    for obj, matrix in before:
+        obj.matrix_world = matrix
+    if before:
+        bpy.context.view_layer.update()
+
+
 def export(path, objects):
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objects:
@@ -339,21 +380,24 @@ def main():
     originals = take_source_names()
     drop_tags()
     names = set()
-    for name, objects in found:
+    for name, objects, collection in found:
         unique, n = name, 2
         while unique in names:
             unique, n = f"{name}_{n}", n + 1
         names.add(unique)
         path = os.path.join(args.out, f"{unique}.glb")
         undo = own_names(objects, originals)
+        moved = to_own_origin(collection) if args.origin == "own" else []
         try:
             export(path, objects)
         finally:
+            back_in_place(moved)
             undo_names(undo)
         clips = clip_count(path)
         moving = f", {clips} clip{'s' if clips != 1 else ''}" if clips else ""
         log(f"wrote {path} ({len(objects)} objects{moving}, {os.path.getsize(path) // 1024} KB)")
-    log(f"exported {len(names)} models to {args.out}")
+    where = ", each at its own origin" if args.origin == "own" else ""
+    log(f"exported {len(names)} models to {args.out}{where}")
 
 
 main()

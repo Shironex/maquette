@@ -13,8 +13,8 @@ use crate::workspace::{MeshoptLevel, TextureCodec};
 
 pub use game::fit_game;
 pub use proposal::{ImportProposal, propose};
-pub use ship::fit_ship_args;
-use ship::ship;
+use ship::{ORIGIN_VAR, ship};
+pub use ship::{fit_export_origin, fit_ship_args};
 
 pub const CHARACTER_LOCK: &str =
     "Character stays on medium. High breaks her clips: the upper body spins further every frame.";
@@ -142,7 +142,14 @@ fn diorama() -> Vec<StepDef> {
             "Export GLB",
             "tools/export_web.py",
             Some("blender/scene_baked.blend"),
-            &["--bake", "blender/bake", "--out", "web/raw"],
+            &[
+                "--bake",
+                "blender/bake",
+                "--out",
+                "web/raw",
+                "--origin",
+                ORIGIN_VAR,
+            ],
             &["blender/scene_baked.blend", "blender/bake/*"],
             &["web/raw/*.glb"],
             &["bake"],

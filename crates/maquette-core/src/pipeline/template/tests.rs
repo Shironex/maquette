@@ -394,3 +394,42 @@ fn an_untouched_ship_step_gets_the_new_args_once_its_script_reads_them() {
     assert!(!fit_ship_args(&mut old, dir.path()), "only once");
     assert!(!fit_ship_args(&mut edited, dir.path()), "edited args stay");
 }
+
+#[test]
+fn an_untouched_export_step_gets_the_origin_once_its_script_reads_it() {
+    let def = for_template(ProjectTemplate::FloatingDiorama);
+    let at = def
+        .steps
+        .iter()
+        .position(|s| s.id == "export")
+        .expect("export");
+    assert_eq!(
+        def.steps[at].args[def.steps[at].args.len() - 2..],
+        ["--origin".to_string(), "{exportOrigin}".to_string()]
+    );
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut old = def.clone();
+    let n = old.steps[at].args.len();
+    old.steps[at].args.truncate(n - 2);
+    let mut edited = old.clone();
+    edited.steps[at].args.push("--verbose".into());
+
+    std::fs::create_dir_all(dir.path().join("tools")).expect("tools");
+    std::fs::write(dir.path().join("tools/export_web.py"), "# exports\n").expect("old");
+    assert!(
+        !fit_export_origin(&mut old, dir.path()),
+        "an older script refuses the flag"
+    );
+    std::fs::write(
+        dir.path().join("tools/export_web.py"),
+        include_str!("../../../starter/export_web.py"),
+    )
+    .expect("new");
+    assert!(fit_export_origin(&mut old, dir.path()));
+    assert_eq!(old.steps[at].args, def.steps[at].args);
+    assert!(!fit_export_origin(&mut old, dir.path()), "only once");
+    assert!(
+        !fit_export_origin(&mut edited, dir.path()),
+        "hand edited args stay"
+    );
+}

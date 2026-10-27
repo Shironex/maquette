@@ -49,13 +49,14 @@ impl PipelineIssue {
 }
 
 /// Placeholders the runner fills in args.
-pub const PLACEHOLDERS: [&str; 6] = [
+pub const PLACEHOLDERS: [&str; 7] = [
     "script",
     "root",
     "project",
     "workspace",
     "siteRepo",
     "shipIndex",
+    "exportOrigin",
 ];
 
 /// Flags after which Blender runs Python or loads a file. `-b` has to come

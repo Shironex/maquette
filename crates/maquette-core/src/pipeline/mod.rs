@@ -77,7 +77,7 @@ pub struct StepDef {
     pub script: Option<String>,
     /// One argument per entry, never joined into a shell string. Supports
     /// `{script}`, `{root}`, `{project}`, `{workspace}`, `{siteRepo}` and
-    /// `{shipIndex}`.
+    /// `{shipIndex}` and `{exportOrigin}`.
     pub args: Vec<String>,
     /// Globs relative to the pipeline root. Their contents are part of the
     /// cache key.
@@ -100,6 +100,11 @@ pub struct PipelineDef {
     /// Per model overrides for the compress step. Models without a row use
     /// the workspace defaults.
     pub presets: Vec<CompressPreset>,
+}
+
+/// The step that copies the build to the site: id or name "ship".
+pub fn is_ship_step(step: &StepDef) -> bool {
+    step.id.trim().eq_ignore_ascii_case("ship") || step.name.trim().eq_ignore_ascii_case("ship")
 }
 
 impl PipelineDef {
@@ -184,10 +189,17 @@ pub fn ensure(
         let presets = template::fit_presets(&mut def, manifest);
         let layout = template::fit_build_inputs(&mut def, project_dir);
         let ship = template::fit_ship_args(&mut def, project_dir);
-        if presets || layout || ship {
+        let origin = template::fit_export_origin(&mut def, project_dir);
+        if presets || layout || ship || origin {
             match save(project_dir, &def) {
                 Ok(()) => {
-                    tracing::info!(presets, layout, ship, "fitted the pipeline to the project");
+                    tracing::info!(
+                        presets,
+                        layout,
+                        ship,
+                        origin,
+                        "fitted the pipeline to the project"
+                    );
                 }
                 Err(err) => tracing::warn!(error = %err, "the fitted pipeline was not saved"),
             }

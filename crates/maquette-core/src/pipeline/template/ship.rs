@@ -80,3 +80,36 @@ pub fn fit_ship_args(def: &mut PipelineDef, project_dir: &Path) -> bool {
     }
     changed
 }
+
+/// The placeholder the Export GLB step's `--origin` takes: `scene` or
+/// `own`, from the project's ship settings.
+pub(super) const ORIGIN_VAR: &str = "{exportOrigin}";
+const EXPORT_SCRIPT: &str = "tools/export_web.py";
+const EXPORT_ARGS: &[&str] = &["--bake", "blender/bake", "--out", "web/raw"];
+
+/// Gives an untouched Export GLB step the `--origin {exportOrigin}` args
+/// once the project's `export_web.py` reads them (the older script refuses
+/// the flag). Steps whose args were changed by hand are left alone, so they
+/// export as the scene has it. Returns true when `def` changed.
+pub fn fit_export_origin(def: &mut PipelineDef, project_dir: &Path) -> bool {
+    let root = def.root_dir(project_dir);
+    let reads = std::fs::read_to_string(root.join(EXPORT_SCRIPT))
+        .is_ok_and(|text| text.contains(crate::ship::EXPORT_ORIGIN_MARKER));
+    if !reads {
+        return false;
+    }
+    let mut changed = false;
+    for step in &mut def.steps {
+        if step.script.as_deref() != Some(EXPORT_SCRIPT)
+            || step.args.iter().any(|a| a == "--origin")
+        {
+            continue;
+        }
+        let tail = &step.args[step.args.len().saturating_sub(EXPORT_ARGS.len())..];
+        if tail == s(EXPORT_ARGS).as_slice() {
+            step.args.extend(s(&["--origin", ORIGIN_VAR]));
+            changed = true;
+        }
+    }
+    changed
+}

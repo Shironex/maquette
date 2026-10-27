@@ -143,3 +143,105 @@ fn clips_ship_with_their_model_unless_the_layout_keeps_them_off() {
     let turntable = glb_json(&out.join("turntable_v1.glb"));
     assert_eq!(turntable["animations"][0]["name"], "Spin");
 }
+
+/// The x of the first root node that carries a translation, else 0.
+fn root_x(json: &serde_json::Value) -> f64 {
+    let roots = json["scenes"][0]["nodes"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    roots
+        .iter()
+        .filter_map(|n| n.as_u64())
+        .filter_map(|n| json["nodes"][usize::try_from(n).ok()?]["translation"][0].as_f64())
+        .next()
+        .unwrap_or(0.0)
+}
+
+/// With --origin own a placed model exports where it stood before Build
+/// scene moved it; without it, where the layout put it.
+#[test]
+fn own_origin_undoes_the_layout_placement() {
+    let Some(blender) = blender() else { return };
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+    let path = |p: &std::path::Path| p.display().to_string();
+    let make = root.join("motion_models.py");
+    std::fs::write(
+        &make,
+        include_str!("../../motion/fixtures/motion_models.py"),
+    )
+    .expect("fixture");
+    std::fs::create_dir_all(root.join("models")).expect("models");
+    std::fs::create_dir_all(root.join("tools")).expect("tools");
+    let out = root.join("models/turntable_v1.glb");
+    run(
+        &blender,
+        &["--python", &path(&make), "--", "turntable", &path(&out)],
+    );
+    std::fs::write(
+        root.join("project.json"),
+        r#"{ "assets": [{ "id": "turntable", "versions": [{ "file": "models/turntable_v1.glb" }] }] }"#,
+    )
+    .expect("project");
+    std::fs::write(
+        root.join("layout.json"),
+        r#"{ "version": 1, "models": { "turntable": { "position": [3, 0, 0], "rotation": [0, 0, 0], "scale": 1 } },
+             "stops": [], "desk": null }"#,
+    )
+    .expect("layout");
+    let build = root.join("tools/build_scene.py");
+    let export = root.join("tools/export_web.py");
+    std::fs::write(&build, super::BUILD_SCENE.text).expect("build");
+    std::fs::write(&export, EXPORT_WEB.text).expect("export");
+    let built = root.join("scene_built.blend");
+    run(
+        &blender,
+        &[
+            "--python",
+            &path(&build),
+            "--",
+            "--base",
+            &path(&root.join("scene.blend")),
+            "--models",
+            &path(&root.join("models")),
+            "--out",
+            &path(&built),
+            "--layout",
+            &path(&root.join("layout.json")),
+            "--project",
+            &path(&root.join("project.json")),
+            "--prepare",
+            &path(&root.join("prepare.json")),
+        ],
+    );
+    let mut xs = Vec::new();
+    for origin in ["scene", "own"] {
+        let out = root.join(origin);
+        let log = run(
+            &blender,
+            &[
+                &path(&built),
+                "--python",
+                &path(&export),
+                "--",
+                "--bake",
+                &path(&root.join("no-bake")),
+                "--out",
+                &path(&out),
+                "--origin",
+                origin,
+            ],
+        );
+        if origin == "own" {
+            assert!(log.contains("each at its own origin"), "{log}");
+        }
+        xs.push(root_x(&glb_json(&out.join("turntable_v1.glb"))));
+    }
+    assert!(
+        (xs[0] - xs[1] - 3.0).abs() < 1e-4,
+        "scene {} own {}",
+        xs[0],
+        xs[1]
+    );
+}

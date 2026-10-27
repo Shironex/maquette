@@ -30,7 +30,10 @@ Maquette runs this headless, as the Build scene step:
   moves each asset's newest model to its place: "position" in metres,
   "rotation" in degrees (X, then Y, then Z) and a uniform "scale", all in
   glTF coordinates (Y up), keyed by asset id. Models without a placement
-  that overlap at the origin are laid out side by side along X.
+  that overlap at the origin are laid out side by side along X. Each
+  model's collection keeps what was applied to it as "maquette_moved" (16
+  numbers, row by row), so Export GLB can put a model back at its own
+  origin for a site that places the models itself.
 - Its "desk" becomes a plain slab named "desk" under "Models" (top at the
   floor, "size" is width and depth in metres), so the models cast their
   shadows on it in the bake and it ships with them. When a model already
@@ -338,6 +341,17 @@ def overlaps(a, b):
     return all(a[0][i] < b[1][i] and b[0][i] < a[1][i] for i in range(3))
 
 
+MOVED = "maquette_moved"
+
+
+def remember_move(collection, move):
+    """Adds `move` to what the collection's models were moved by."""
+    before = list(collection.get(MOVED) or [])
+    start = Matrix([before[i : i + 4] for i in range(0, 16, 4)]) if len(before) == 16 else Matrix.Identity(4)
+    total = move @ start
+    collection[MOVED] = [v for row in total for v in row]
+
+
 def lay_out(collections):
     """Moves the models into a row along X when any two of them overlap."""
     boxes = [(c, bounds(c)) for c in collections]
@@ -352,6 +366,7 @@ def lay_out(collections):
         for obj in collection.objects:
             if obj.parent is None:
                 obj.location += shift
+        remember_move(collection, Matrix.Translation(shift))
         x += width + gap
     bpy.context.view_layer.update()
     log(f"laid {len(boxes)} models out side by side")
@@ -374,6 +389,7 @@ def place(collection, placement):
     for obj in collection.objects:
         if obj.parent is None:
             obj.matrix_world = move @ obj.matrix_world
+    remember_move(collection, move)
 
 
 def blender_point(v):
