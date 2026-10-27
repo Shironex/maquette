@@ -103,7 +103,7 @@ export interface BackendOptions {
   library?: string | null;
   /** `many`: Frostveil gets 49 more versioned assets, so the Inspector's compare menu is long. */
   inspect?: string | null;
-  /** `hand-built`: Moon Island ships as a hand-built site (see create-ship-handlers.ts). */
+  /** `hand-built`: Frostveil ships as a hand-built site (see create-ship-handlers.ts). */
   ship?: string | null;
   /** `held`, `repo` or `conflict`: a workspace shared with another computer (see create-sync-handlers.ts). */
   sync?: string | null;

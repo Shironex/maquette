@@ -84,7 +84,7 @@ export function openMockLibrary(library?: 'demo') {
   );
 }
 
-/** The configured workspace, with Moon Island set to ship as a hand-built site or not. */
+/** The configured workspace, with Frostveil set to ship as a hand-built site or not. */
 export function openMockShip(ship?: 'hand-built') {
   return openMockWorkspace(
     'configured',

@@ -12,7 +12,7 @@ describe('the Inspector store', () => {
     await openMockWorkspace();
     await useInspectorStore.getState().load('frostveil');
     const model = useInspectorStore.getState().view!.models[0]!.id;
-    const exporting = useInspectorStore.getState().exportGlb(model, 'Island');
+    const exporting = useInspectorStore.getState().exportGlb(model, 'Veil platform');
     const switched = useInspectorStore.getState().load('frost-cathedral');
     await Promise.all([exporting, switched]);
     expect(useInspectorStore.getState().project).toBe('frost-cathedral');

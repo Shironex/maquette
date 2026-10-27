@@ -36,13 +36,13 @@ describe('the Pipeline view', () => {
 
   it("opens a website's Ship settings and greys the codec out for WebP", async () => {
     await openMockShip('hand-built');
-    await usePipelineStore.getState().load('moon-island');
+    await usePipelineStore.getState().load('frostveil');
     render(<PipelineView />);
     expect(await screen.findByText(/Textures ship as WebP/)).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Island codec' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Crystal lantern codec' })).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: 'Ship settings' }));
     expect(
-      await screen.findByRole('heading', { level: 1, name: "Ship to Moon Island's site" })
+      await screen.findByRole('heading', { level: 1, name: "Ship to Frostveil's site" })
     ).toBeInTheDocument();
   });
 

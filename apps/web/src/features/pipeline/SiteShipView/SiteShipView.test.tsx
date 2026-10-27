@@ -9,7 +9,7 @@ import { changeWords } from './SiteShipView.hooks';
 
 beforeEach(async () => {
   await openMockShip();
-  await act(() => usePipelineStore.getState().load('moon-island'));
+  await act(() => usePipelineStore.getState().load('frostveil'));
 });
 
 afterEach(() => {
@@ -22,45 +22,45 @@ const row = (file: string) => screen.getByTitle(file).closest('tr')!;
 
 describe('the website Ship view', () => {
   it('lists what Ship writes and holds the hand made site file back', async () => {
-    render(<SiteShipView project="moon-island" onClose={vi.fn()} />);
+    render(<SiteShipView project="frostveil" onClose={vi.fn()} />);
     expect(
-      await screen.findByRole('heading', { level: 1, name: "Ship to Moon Island's site" })
+      await screen.findByRole('heading', { level: 1, name: "Ship to Frostveil's site" })
     ).toBeInTheDocument();
     expect(screen.getByText(/3 written · 1 held back · 0 removed/)).toBeInTheDocument();
     expect(
-      within(row('shop_house.glb')).getByText('Held: the site file was not made by Maquette')
+      within(row('observatory_arch.glb')).getByText('Held: the site file was not made by Maquette')
     ).toBeInTheDocument();
-    expect(within(row('hero_desk.glb')).getByText('Left alone')).toBeInTheDocument();
+    expect(within(row('snow_drift.glb')).getByText('Left alone')).toBeInTheDocument();
   });
 
   it('ships a hand made file once the person picks Always', async () => {
-    render(<SiteShipView project="moon-island" onClose={vi.fn()} />);
-    await screen.findByTitle('shop_house.glb');
+    render(<SiteShipView project="frostveil" onClose={vi.fn()} />);
+    await screen.findByTitle('observatory_arch.glb');
     await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: 'Ship shop_house.glb' }),
+      screen.getByRole('combobox', { name: 'Ship observatory_arch.glb' }),
       'always'
     );
     expect(await screen.findByText(/4 written · 0 held back/)).toBeInTheDocument();
   });
 
   it('switches to a hand-built site and holds a smaller site file', async () => {
-    render(<SiteShipView project="moon-island" onClose={vi.fn()} />);
-    await screen.findByTitle('vending.glb');
+    render(<SiteShipView project="frostveil" onClose={vi.fn()} />);
+    await screen.findByTitle('crystal_lantern.glb');
     await userEvent.click(screen.getByRole('button', { name: 'Hand-built site' }));
     expect(
-      await within(row('vending.glb')).findByText('Held: the site file is smaller')
+      await within(row('crystal_lantern.glb')).findByText('Held: the site file is smaller')
     ).toBeInTheDocument();
     expect(useShipStore.getState().view?.settings.style).toBe('models');
   });
 
   it('renames a model and keeps the name', async () => {
-    render(<SiteShipView project="moon-island" onClose={vi.fn()} />);
-    const field = await screen.findByRole('textbox', { name: 'File name of Island' });
-    await userEvent.type(field, 'room{Enter}');
-    expect(await screen.findByTitle('room.glb')).toBeInTheDocument();
-    expect(useShipStore.getState().view?.settings.assets.island).toEqual({
+    render(<SiteShipView project="frostveil" onClose={vi.fn()} />);
+    const field = await screen.findByRole('textbox', { name: 'File name of Veil platform' });
+    await userEvent.type(field, 'veil{Enter}');
+    expect(await screen.findByTitle('veil.glb')).toBeInTheDocument();
+    expect(useShipStore.getState().view?.settings.assets['veil-platform']).toEqual({
       choice: 'auto',
-      file: 'room',
+      file: 'veil',
     });
   });
 

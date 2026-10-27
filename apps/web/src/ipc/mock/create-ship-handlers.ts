@@ -2,11 +2,11 @@
  * The website Ship settings in mock mode: `ship.json`, the site folders, the
  * dry-run plan and the size report.
  *
- * The site holds `shop_house.glb` made by hand (not in the ship record) and
- * a `vending.glb` Maquette shipped before that is smaller than the new one,
- * so the plan shows both holds. `hero_desk.glb` is the site's own model.
- * `?ship=hand-built` opens Moon Island already set to the models style with
- * WebP textures and the shop house set to never ship.
+ * The site holds `observatory_arch.glb` made by hand (not in the ship record) and
+ * a `crystal_lantern.glb` Maquette shipped before that is smaller than the new one,
+ * so the plan shows both holds. `snow_drift.glb` is the site's own model.
+ * `?ship=hand-built` opens Frostveil already set to the models style with
+ * WebP textures and the observatory arch set to never ship.
  */
 import type {
   AssetShip_Serialize as Entry,
@@ -38,14 +38,14 @@ const DEFAULTS: Settings = {
   assets: {},
 };
 const LEGACY: SiteTarget = { models: 'public/models', posters: 'public/posters', data: null };
-const HAND_MADE = new Set(['shop_house']);
-const SMALLER = new Map([['vending', 0.31e6]]);
-const BEFORE = new Map([['character', 1.6e6]]);
+const HAND_MADE = new Set(['observatory_arch']);
+const SMALLER = new Map([['crystal_lantern', 0.31e6]]);
+const BEFORE = new Map([['elsheria', 1.6e6]]);
 const SOURCE_TRIS = new Map([
-  ['island', 182_000],
-  ['shop_house', 96_000],
-  ['vending', 41_000],
-  ['character', 64_000],
+  ['veil_platform', 182_000],
+  ['observatory_arch', 96_000],
+  ['crystal_lantern', 41_000],
+  ['elsheria', 64_000],
 ]);
 
 const kb = (n: number | null) => (n === null ? '' : String(Math.round(n / 1000)));
@@ -103,7 +103,7 @@ function sum(values: (number | null)[]): number | null {
   return values.every(v => v !== null) ? values.reduce<number>((a, v) => a + (v ?? 0), 0) : null;
 }
 
-/** Moon Island's site, and an empty one for the other projects. */
+/** Frostveil's site, and an empty one for the other projects. */
 export function createShipHandlers({
   project,
   view,
@@ -112,14 +112,14 @@ export function createShipHandlers({
   const settings = new Map<string, Settings>();
   const targets = new Map<string, SiteTarget>();
   if (state === 'hand-built') {
-    settings.set('moon-island', {
+    settings.set('frostveil', {
       ...DEFAULTS,
       style: 'models',
       textures: 'webp',
-      assets: { 'shop-house': { choice: 'never' } },
+      assets: { 'observatory-arch': { choice: 'never' } },
     });
-    targets.set('moon-island', {
-      models: 'apps/landing/public/room/models',
+    targets.set('frostveil', {
+      models: 'apps/landing/public/veil/models',
       posters: null,
       data: null,
     });
@@ -173,7 +173,7 @@ export function createShipHandlers({
         textures: s.textures,
         exported: models.length > 0,
         files,
-        left: [{ file: 'hero_desk.glb', bytes: 0.72e6, removed: false }],
+        left: [{ file: 'snow_drift.glb', bytes: 0.72e6, removed: false }],
         checks,
         scriptReady: true,
         originReady: true,
