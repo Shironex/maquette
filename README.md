@@ -1,10 +1,263 @@
-# Maquette
+<div align="center">
+  <img src="assets/showcase/hero.webp" alt="Maquette: the Board, the Lab and the Page view of a sample project, stacked on a warm clay gradient" width="100%" />
 
-A desktop studio that turns AI concept art into real-time 3D web scenes. One board follows each asset through the pipeline: Concept, Refs, Tripo, Blender, Web, Ship. Everything runs on this machine.
+  <h1>Maquette</h1>
 
-So far: the app shell, onboarding, the toolchain check, workspace config and Settings, an asset Board, the pipeline runner, the model inbox, the Concept lab, Send to 3D (Tripo, Meshy or by hand), the Inspector with its scene layout editor, the Motion view for clips and object states, and a built in MCP server for agents.
+  <p><strong>Concept art in, optimised 3D for the web and games out.</strong></p>
 
-## Projects
+  <p>
+    <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-lightgrey" alt="Platform: macOS and Windows" />
+    <img src="https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white" alt="Tauri 2" />
+    <img src="https://img.shields.io/badge/Rust-1.94-b7410e?logo=rust&logoColor=white" alt="Rust 1.94" />
+    <img src="https://img.shields.io/badge/Status-not%20released%20yet-orange" alt="Status: not released yet" />
+  </p>
+
+  <p>
+    <a href="https://shironex.github.io/maquette/docs/"><strong>Docs</strong></a>
+    &nbsp;·&nbsp;
+    <a href="https://shironex.github.io/maquette/docs/start/install/"><strong>Install</strong></a>
+    &nbsp;·&nbsp;
+    <a href="https://shironex.github.io/maquette/docs/agents/mcp-tools/"><strong>MCP tools</strong></a>
+    &nbsp;·&nbsp;
+    <a href="https://shironex.github.io/maquette/"><strong>Website</strong></a>
+  </p>
+</div>
+
+---
+
+Maquette is a desktop studio I built to take one asset from a concept image to a small, compressed model in a website or game repo. One Board follows every asset through the stages, Blender does the heavy lifting headless in the background, and the numbers that decide whether a page stays fast (triangles, texture memory, transfer size, frame time) sit next to the model the whole way.
+
+There is no account and no cloud project: a workspace is a folder on your disk, the app spawns the tools you already have, and API keys live in the OS keychain.
+
+## What it does
+
+```text
+Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
+```
+
+1. **Concept.** The Lab turns a brief (a prompt and up to 8 reference images) into concept images through the Codex CLI. Star the good ones, or cut one concept into an isolated image per object.
+2. **Refs.** Picks go into the project's `refs/` and become assets on the Board.
+3. **3D model.** Send the refs to Tripo or Meshy over their API, or make the model on their site yourself (By hand) and let Maquette pick the export up from your Downloads. A Blender script in the project can build a model too.
+4. **Blender.** Every model lands in the Inbox first and is checked against the budgets. Accept moves it into the project, where headless Blender builds the scene, applies the real size and fix-ups (decimate, shrink textures, merge, origin) and bakes the light.
+5. **Web or Export.** For a website, gltf-transform and `toktx` compress each model (meshopt geometry, KTX2 textures, per model presets) and Blender captures a poster per camera stop. For a game, each model is exported as a plain `.glb` or `.obj` at its path in the game.
+6. **Ship.** The models, layout and scene data go into the site repo, or into the game's model folder, where Ship only replaces files it wrote and never commits.
+
+## Features
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/showcase/board.webp" alt="Maquette: the Board of the Moon Island sample project, with assets in the Refs, Tripo, Blender and Web columns" /></td>
+    <td width="50%"><img src="assets/showcase/lab.webp" alt="Maquette: the Lab with six concept images of a moonlit island porch, one picked and two starred" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Board: every asset of a project on its way from concept to ship.</sub></td>
+    <td align="center"><sub>Lab: concept images from the Codex CLI, starred and picked as refs.</sub></td>
+  </tr>
+</table>
+
+**One board per project.** Each asset is a card in its stage, with its picture, version, triangles, size and state: generating at Tripo, waiting for a By hand export, needs review, cached, done. Cards can be renamed, copied to another project, sent to 3D in a batch or moved to the workspace trash. A project ships to a website (templates: Floating diorama, Room, Character showcase) or to a game, imported from the models the game already has.
+
+**A concept lab.** Directions keep their prompt, references and images. Each image is one Codex job, a few run at a time, and a job that hits a rate limit runs again on its own.
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/showcase/inbox.webp" alt="Maquette: the Inbox previewing a rigged character, with its automatic checks on the right" /></td>
+    <td width="50%"><img src="assets/showcase/pipeline.webp" alt="Maquette: the Pipeline view mid run, with six steps, the bake settings, the generated artifacts, a live log and the compression presets" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Inbox: each new model checked for triangles, textures, rig and origin.</sub></td>
+    <td align="center"><sub>Pipeline: build, bake and export in headless Blender, then compress, capture posters and ship.</sub></td>
+  </tr>
+</table>
+
+**An inbox that checks every model.** Triangles and texture sizes against the budgets, a Mixamo rig for characters, PBR maps, an origin away from the bottom centre, separate objects merged into one mesh, and hair or tail vertices weighted to finger bones. A check that a fix-up answers offers it as a button. The preview shows the model shaded, as a wireframe, with a UV checker or with its skeleton.
+
+**A pipeline with a cache.** Steps live in `pipeline.json`. A step whose inputs, script, args and tool version are unchanged is skipped, programs are spawned with an args array and never through a shell, and Blender always runs in the background. Starter scripts ship with the app, and the Pipeline view says when a project's copies are older.
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/showcase/inspector.webp" alt="Maquette: the Inspector comparing two versions of a cherry tree scene with a split slider, the camera stops below and the selected model's numbers on the right" /></td>
+    <td width="50%"><img src="assets/showcase/page.webp" alt="Maquette: the Page view showing the sample site's dev page with the island scene, its readouts and the current ship against this run" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Inspector: two versions of the scene side by side, with each model's numbers and compression.</sub></td>
+    <td align="center"><sub>Page: the site's own dev server, with frame time, scene size and draw calls from the page.</sub></td>
+  </tr>
+</table>
+
+**See what ships before it ships.** The Inspector compares two versions of the scene with a slider, flies between camera stops, shows triangles, textures, GPU memory and transfer per model, and edits compression, materials, the scene layout and paths. The Page view runs the site's own dev server and reads the real numbers from the page, against the current ship.
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/showcase/motion.webp" alt="Maquette: the Motion view playing a sitting clip on a rigged character, with its clips and rig check" /></td>
+    <td width="50%"><img src="assets/showcase/timeline.webp" alt="Maquette: the scroll Timeline with camera, object state, explode and energize lanes under a preview of the site" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Motion: rigs, clips and what each one weighs on the page.</sub></td>
+    <td align="center"><sub>Timeline: camera stops, object states and paths, keyed to the scroll.</sub></td>
+  </tr>
+</table>
+
+**Motion and scroll.** Motion plays a model's clips with its skeleton, checks the rig, and sets object states (poses of a prop's parts and the transitions between them). The Timeline keys camera moves, states, explode tracks and lit paths to the page scroll; Ship sends it all to the site with the layout.
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/showcase/library.webp" alt="Maquette: the Library grid with eight reusable models, filters by tag, source, format and project, and a character's versions" /></td>
+    <td width="50%"><img src="assets/showcase/agents.webp" alt="Maquette: the Board with two approval prompts from an agent, one to ship the project and one to send an asset to Tripo" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Library: finished models reused across projects, no credits spent.</sub></td>
+    <td align="center"><sub>Agents: Claude Code or Codex over MCP; shipping and paid sends wait for your approval.</sub></td>
+  </tr>
+</table>
+
+**A library across projects.** Finished models live outside every project, with their versions, tags and refs. Using one copies it in and spends nothing; a project with an older copy is offered the update.
+
+**Built for agents.** A local MCP server lets Claude Code or Codex drive the whole flow, with the same rules as the app (see [Agents (MCP)](#agents-mcp)).
+
+## Real projects
+
+Numbers from scenes I made with Maquette, raw source models against what the page downloads.
+
+| Scene                                      | Source models | Shipped | Smaller by |
+| ------------------------------------------ | ------------- | ------- | ---------- |
+| A listening corner for a website, 10 props | 27.4 MB       | 0.89 MB | about 31x  |
+| An island scene                            | 45 MB         | 6.3 MB  | about 7x   |
+
+One prop from the listening corner: an armchair went from 3.56 MB and 19k triangles to 121 KB and 4k triangles.
+
+<!-- More before and after numbers and pictures go here. -->
+
+## Agents (MCP)
+
+Settings > Agents runs a Model Context Protocol server inside the app, so Claude Code and Codex can drive Maquette. It is off by default, listens on `127.0.0.1` only (port 4791, configurable) at `/mcp` over Streamable HTTP, and wants `Authorization: Bearer <token>`. The token is made the first time the server starts and kept in the app state on this machine, never in the workspace. New token replaces it.
+
+Copy config gives a working setup:
+
+```sh
+claude mcp add --transport http maquette http://127.0.0.1:4791/mcp --header "Authorization: Bearer <token>"
+```
+
+```toml
+# ~/.codex/config.toml
+[mcp_servers.maquette]
+url = "http://127.0.0.1:4791/mcp"
+http_headers = { Authorization = "Bearer <token>" }
+tool_timeout_sec = 150
+```
+
+The [MCP tools page](https://shironex.github.io/maquette/docs/agents/mcp-tools/) documents every tool with its arguments.
+
+<details>
+<summary><strong>Every tool, in one list</strong></summary>
+
+Tools: `list_projects` (each project's id, name, template, target, site or game repo, created date, asset count, picture, what runs in it and which one is open in the app), `get_project`, `list_assets`, `get_pipeline`, `set_compression_presets` (per model texture size, data map size, codec and meshopt; only the given fields change, locked rows refuse, the Pipeline view updates live and nothing is spent), `get_material_tweaks` (`{ project, asset }`: the asset's material names, its tweaks, and the codec per map group with the raw and shipped sizes), `set_material_tweaks` (`{ project, asset, reset?, all?, materials?, codecs? }`; `all` and each `materials` entry take `tint`, `roughness: { mode: "override" | "multiply", value }`, `metalness` and `emissiveStrength`, a field left out keeps its value and null clears it, a material name the model does not have is refused with the list, and `codecs` takes `color`, `normal` and `other` as `"etc1s"`, `"uastc"` or null; everything is checked before anything is written, the tweaks land on `materials.json` as it is on disk, and when they cannot be written the codecs go back; the app updates live), `get_bake_settings` (`{ project }`, read only: the lightmap size, samples and denoiser, whether the project's `bake_light.py` can denoise, how it compares with the shipped starter, and the assets that skip the bake), `set_bake_settings` (`{ project, size?, samples?, denoise? }`: only the given fields change, a size or sample count out of range is refused, denoise on an older script is refused until it is updated, and the Pipeline view updates live), `get_starters` (`{ project }`, read only: each starter script in `tools/` as current, outdated, edited or missing), `update_starters` (`{ project, scripts?, replace? }`: the starter banner's Update for the named project whatever the app has open; without `scripts` every outdated or missing one, edited ones only with `replace` and kept as `<name>.bak`; a path that is no starter of the template is refused and nothing is written; the Pipeline view updates live), `get_run` (status and log tail), `list_inbox`, `get_inbox_checks`, `run_pipeline` (optionally from a step, optionally ignoring the cache), `cancel_run`, `accept_inbox_model` (defaults to the asset the model was sent for), `render_thumbnail`, `start_concepts`, `get_concepts` (a direction's images, stars, picks and job states, with the failed jobs and why), `retry_concept_jobs` (`{ project, jobs? }`: failed or cancelled Lab jobs run again with their own prompt, refs and file, every failed one without `jobs`; queued, running or done ones are refused and nothing runs), `send_to_3d`, `send_batch_to_3d` (several assets under one approval), `redo_inbox_model` (`{ id, provider?, variant?, images?, overrides?, prompt? }`: an inbox model's asset sent again, prefilled from its send, under the same approval; the earlier model stays), `redo_inbox_models` (`{ ids, provider?, overrides? }`, one batch from one project), `get_credits` (`{ project?, limit?, balance? }`: each provider's balance, the week, month and redo totals, and the latest spends), `make_object_refs`, `star_concepts` (`{ project, images: [{ file? | direction?, index?, starred }] }`: the Lab's Star, nothing goes to the Board), `pick_concepts` (`{ project, images: [{ file? | direction?, index?, star?, name?, kind? }] }`, 1 to 24 images: the Lab's Send picks to Refs one image at a time, so each image is copied into `refs/` and becomes or joins an asset at Refs, named after its object for object refs and after its direction otherwise unless `name` says; `kind` (`prop`, `character` or `scene`, never `scene` for object refs) applies to a new asset; an image picked before keeps its ref and answers with the same asset; every image is checked to be a concept of the project inside its folder before anything is written; it answers with each image's `refFile` and asset and each asset once with its `refs`, which `send_to_3d` then takes by default; nothing is spent and the Lab and the Board update live), `get_provider_job`, `cancel_provider_jobs` (`{ ids }`, 1 to 50 job ids: each is stopped on its own and answers with its new status and message or why it could not be stopped; a by hand send stops waiting, a Tripo or Meshy send not yet started is cancelled, and a send waiting for approval is refused because a person denies it in the app), `list_handoffs` (`{ project? }`, read only: every By hand send waiting for a model with its expected export name, handoff folder and estimated subscription credits, and what the Downloads watch matched), `get_real_size` and `list_fixups` (`{ project, asset }`: the size, the fix-ups in order, what the newest model measures before and after them, the scale, the suggestion, the defaults and the last preview), `set_real_size` (`{ project, asset, size: { axis, value, unit } | null }`), `add_fixups` (`{ project, asset, fixups: [{ op, triangles?, maxSize?, minShare?, byMaterial? }] }`, a kind already there is replaced and a number left out starts from the workspace budgets), `remove_fixups` (`{ project, asset, ops?, all? }`) and `preview_fixups` (`{ project, asset }`, runs them headless on the newest version and returns the numbers before and after), `set_skip_bake` (`{ project, assets, skip }`: one or more assets by id or name leave the bake or join it again, all or nothing; `get_real_size` shows `skipBake`), `set_pad_edges` (`{ project, asset, pad }`: true or false pads the asset's texture edges or leaves them, null forgets the choice; `get_real_size` shows `padEdges`); each change is checked whole before anything is written, lands on `prepare.json` as it is on disk, and the app updates live, `get_layout` (the layout, every model with its bounds and size, the first view, the object states, the paths with their energize tracks and the clips kept off the site), `set_layout` (changes only what it names: `models` as `{ asset, position?, rotation?, scale?, remove? }`, `stops` as `{ id?, name?, position?, target?, fov?, models?, remove? }`, with no `id` adding a stop, plus `stopOrder` and `desk`; `states` as `{ asset, states, transitions?, triggers?, remove? }` sets an asset's object states whole, states and stops named by id or name, and `clips` as `{ asset, clip, ship }` keeps a clip off the site or ships it again; `paths` as `{ id?, name?, curve?, points?, start?, end?, width?, color?, glow?, remove? }` adds a path (no `id`, or a new one, with a name and points), changes one or removes it, `start` and `end` anchoring an end to an asset or letting it go with null, and `energize` as `{ path, easing?, keys, remove? }` sets a path's energize track whole; removing a stop drops the triggers and keys waiting for it; the whole result is checked before anything is written and the app's Layout and Motion views update live), `get_motion` (`{ project }`, read only: every model's rig with its bone map, its clips with their bytes in the source and as shipped, root travel and looping, its parts, the states, the clips kept off and the scene budget with the motion share in it and in the first view) `copy_asset` (`{ project, asset, to }`, the same copy as Copy to project...; a built asset arrives as a plain one), `remove_assets` (`{ project, assets }`, 1 to 50 ids or names: the same remove as Remove from project..., each asset answering `removed` with its trash id and path, `not-found` or `refused` with why, so a repeated call is safe), `list_removed_assets` (`{ project }`, read only: the project's removed assets in the workspace trash, newest first) and `restore_asset` (`{ project, trash }`: puts one back with its files, place and settings; refused while its name is on the Board again), `add_built_asset` (`{ project, script, helpers?, name?, kind?, root?, replace?, build? }`: the Board's Built asset, with absolute paths or paths relative to the project folder; it builds at once unless `build` is false and answers with the build), `rebuild_built_asset` (`{ project, asset?, all?, force? }`: one asset by id or name, or every new or stale one with `all`; files that match the last good build answer `up-to-date` unless `force`) and `list_built_assets` (`{ project }`, read only: each built asset's files, state and last build with its exported object and material names), `get_page_preview` (`{ project }`, read only: the site dev server's state, address, command and where it came from, who started it, why it failed and its last log lines, and `busyWith` when the one server serves another project), `start_page_preview` (`{ project, waitSeconds? }`: starts it or reuses the running one, waits up to `waitSeconds`, 30 by default, for it to answer) and `stop_page_preview` (`{ project }`: stops it whoever started it; a server Maquette did not start is only forgotten), `get_game` (`{ project }`, read only: a game project's settings and each asset's file and budget check), `scan_game_models` (`{ project }`, read only: every model in the model folder), `import_game_models` (`{ project, files }`: each file an asset with the repo file as version 1; nothing in the game repo changes), `set_game_settings` (`{ project, format?, modelsDir?, textures?, textureCap?, bake?, budgets? }`, refused whole when a value is out of range) and `get_ship_plan` (`{ project }`, read only: what Ship would write into the game). `list_library` (`{ query?, tag?, project? }`, read only: the library's models with versions, tags and the projects that use them, and with `project` that project's assets with an update waiting), `add_to_library` (`{ project, asset, name?, tags? }`: the Board's Add to library), `use_from_library` (`{ entry, project, version? }`: a copy as a new asset at v1; a website project refuses an `.obj`) and `update_from_library` (`{ project, asset, dryRun? }`: the library's newer version as the asset's next version, or with `dryRun` the plan and no copy). The library tools spend nothing, need no approval and the app updates live. Built assets spend nothing and need no approval; a full `run_pipeline` rebuilds the stale ones first and is refused while one fails. The agent rules hold by construction: Blender only runs headless, no tool opens its window, and there is no screenshot or screen capture tool. A game project's run always stops before its Ship step for approval in the app. With Ask before shipping on, a run started over MCP stops before its Ship step and the app shows an Approve or Deny prompt; until then `run_pipeline` and `get_run` answer `waiting for approval`. A run whose Ship step would come from the cache does not ask. `send_to_3d` to Tripo or Meshy always waits for Approve in the app before any credit is spent, whatever that setting says, and Deny cancels the job; `send_batch_to_3d` shows one prompt that lists every asset with its settings and the total, and Approve or Deny covers them all; By hand spends nothing, so it writes the handoff folder straight away. Settings overrides are checked by name and an unknown one is refused with the valid list. Tools that work on a project take its id as `project`; none of them changes the project open in the app. Every call shows in the activity list under Settings > Agents.
+
+</details>
+
+## Requirements
+
+Maquette runs on macOS and Windows. It calls tools you already have and checks for them on first run (`--version` on each; a tool that is not on your PATH can be located by hand).
+
+| Tool                 | What Maquette uses it for                                                 | Needed       |
+| -------------------- | ------------------------------------------------------------------------- | ------------ |
+| Blender              | Every build, bake, export, poster and thumbnail, always headless          | Yes          |
+| Codex CLI            | The Lab's concept images                                                  | For the Lab  |
+| ffmpeg               | The Lab's contact sheet                                                   | For the Lab  |
+| KTX-Software `toktx` | KTX2 textures in Compress; without it textures stay PNG or JPEG           | Recommended  |
+| gltf-transform       | The Compress step (a global install, or through `npx` when Node is there) | For websites |
+| Node                 | The Ship step (`tools/ship.mjs`), and a game's export and ship scripts    | To ship      |
+
+Sending to Tripo or Meshy over their API needs that provider's API key, saved in Settings > 3D providers; By hand needs no key.
+
+## Install and develop
+
+There is no public build yet, so Maquette runs from source. It needs Node 22.12 or newer, pnpm 10 and the Rust toolchain pinned in `rust-toolchain.toml` (1.94.1), plus the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS.
+
+```sh
+pnpm install
+pnpm dev        # the desktop app with hot reload
+pnpm dev:web    # the UI alone in a browser, in mock mode
+pnpm gate       # lint, types, tests, the docs site build, formatting, clippy and cargo test
+```
+
+`pnpm showcase` regenerates the images in this README from mock mode with [@noctcore/showcase-kit](https://github.com/noctcore/showcase-kit) (headless Chromium, a frozen clock, no network); `showcase.config.mjs` lists the shots.
+
+<details>
+<summary><strong>Mock mode</strong></summary>
+
+Outside Tauri, a dev build answers every command from an in-memory backend (`apps/web/src/ipc/mock`), so the whole UI runs in a plain browser at `http://localhost:15190`. Pick a scenario with a query parameter:
+
+- `?scenario=first-run` (default): no workspace yet, toktx missing
+- `?scenario=configured`: a workspace with Moon Island open, its last run failed at Capture posters
+- `?scenario=running`: like configured, with run 25 streaming and held at Export GLB
+- `?scenario=idle`: like configured, the last run passed
+- `?scenario=no-blender`: Blender missing, so setup stops at the toolchain step
+- `?delay=700`: how long a toolchain check takes, in milliseconds
+- `?pace=260`: milliseconds between streamed log lines in a mock run
+- `?lab=running`: two concept images of the porch direction mid job; `?conceptMs=4000` sets how long a fake image takes
+- `?agents=active`: the MCP server on, with an agent's activity, a run waiting at Ship and a Send to 3D waiting for approval
+- `?agents=batch`: like `active`, with three sends to Tripo waiting under one approval
+- `?handoff=batch`: adds the landing workbench concept, the six object refs made from it (an objects direction) and a By hand batch of them in mixed states; Check Downloads finds two matches and a stranger
+- `?arrival=named`: a moment after opening, an export named for the first waiting By hand send lands in the fake Downloads and is copied in; `?arrival=unmatched` drops `model (3).glb`, which asks "Which asset is this?"
+- `?inbox=redo`: the large sakura (a Meshy send with a texture prompt) and the character (a rigged Tripo send) in the inbox are linked to their sends for Redo, and a Meshy key is saved too
+- `?built=demo`: two built assets on Moon Island at Blender, a current Laptop and a Newtons cradle whose script changed; Rebuild and Built asset work on them
+- `?motion=demo`: Moon Island gains a clay figure on a 20 bone rig with three clips, a switch cabinet with three states and a turntable with one clip; `?motion=rest` has the figure without clips, `?motion=over` a scene budget the clips push it over, and `?motion=still` opens Rooftop cinema, where nothing moves yet
+- `?timeline=demo`: the `?motion=demo` models, with the switch cabinet opening its door at Sakura, turning its breakers on from 55 to 70 percent and spreading apart from Canopy to Pullback; `?timeline=empty` takes Moon Island's camera stops away
+- `?page=running`: the Page view's dev server starts as usual and the site holds the last ship, so Compare has a current ship; `?page=starting` keeps the server starting, `?page=failed` fails it as a site without its packages does, with its log, `?page=no-site` takes Moon Island's site repo away, `?page=stops-10` gives the page ten stops, and `?page=shim` takes the page's own bridge away and gives it the frame proxy's bridge shim. `?page=framed&site=<dev server>&frame=<frame proxy>` shows a real dev server behind a real frame proxy (the visual check starts both). The mock dev page is a small page of its own that speaks the page bridge
+- `?game=crypt`: Crypt game, a CMake game with `.glb` models in `props/`, `enemies/` and `characters/`, is open with 15 imported models (3 over their folder's budget) and 3 made in Maquette, run 7 waits for approval before Ship, and the Inbox's flower shrubs came back for Candle cluster, so they check against the props budget; `?game=import` opens it with nothing imported yet, `?game=maze` opens Maze game, an `.obj` game with 35 imported models
+- `?projects=many`: eight projects instead of three (Moon Island, Rooftop cinema, Lantern keeper), so the switcher shows its search field
+
+Configured scenarios also open with fake provider jobs: Sakura generating at Tripo, Stone lanterns waiting for a model by hand, Far spire failed at Meshy for credits, and Character accepted. Only the Tripo key is saved. The credits ledger holds those sends and a month of earlier ones. New sends move along on timers; nothing is sent anywhere.
+
+The mock runner streams Blender style output and fails Capture posters once. The mock inbox lists a character, two props and a broken download. Its previews load real meshopt and KTX2 models, and the Board and Inbox show real studio thumbnails, all from `apps/web/src/assets/mock` (see the README there: that artwork is reserved and not covered by the repository license). For hand testing a real inbox, `cargo run -p maquette-core --example write_fixtures -- <dir>` writes small generated GLBs.
+
+</details>
+
+<details>
+<summary><strong>End to end check</strong></summary>
+
+`cargo run -p maquette-core --example new_project -- <workspace dir> <name> [--site <repo>]` creates a workspace (if needed) and a project with its pipeline and starter scripts, the way the app does. `cargo run -p maquette-core --example run_pipeline -- <project dir>` then runs a real project's pipeline from the terminal with the same runner the app uses, fills `{workspace}` and `{siteRepo}` like the app, and prints each step's state. A second run with nothing changed reports every step cached except Ship, which writes outside the project and always runs.
+
+</details>
+
+<details>
+<summary><strong>Scripts</strong></summary>
+
+| Script              | What it does                                                                                                                                                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm lint`         | ESLint over the workspace                                                                                                                                                                                                                                           |
+| `pnpm lint:meta`    | Whole repo checks: 400 line cap per TypeScript module and 400 code lines per Rust module, no inline lint suppressions, no ESLint rule at `warn`                                                                                                                     |
+| `pnpm typecheck`    | TypeScript in every package                                                                                                                                                                                                                                         |
+| `pnpm test`         | Vitest for `apps/web` and `packages/ui`                                                                                                                                                                                                                             |
+| `pnpm format:check` | Prettier check (`pnpm format` writes)                                                                                                                                                                                                                               |
+| `pnpm rust:fmt`     | `cargo fmt --check`                                                                                                                                                                                                                                                 |
+| `pnpm rust:lint`    | `cargo clippy` with warnings as errors                                                                                                                                                                                                                              |
+| `pnpm rust:test`    | `cargo test` for the workspace, which also regenerates the IPC bindings                                                                                                                                                                                             |
+| `pnpm gate`         | All of the above, in order                                                                                                                                                                                                                                          |
+| `pnpm build`        | Release build of the desktop app                                                                                                                                                                                                                                    |
+| `pnpm visual`       | Screenshots of mock mode in headless Chromium (`PLAYWRIGHT` picks another local Playwright `index.mjs` and `OUT_DIR` the output; `ONLY=handoff` renders only the object refs and batch shots, `ONLY=built` only the built assets, `PORT` picks the dev server port) |
+| `pnpm showcase`     | The README images in `assets/showcase` and the banner, from mock mode with showcase-kit (`pnpm showcase:hero` renders only the banner; `SHOWCASE_PORTFOLIO_DIR` adds portfolio images)                                                                              |
+
+Commits follow Conventional Commits with a required scope (`desktop`, `web`, `site`, `ui`, `core`, `workspace`, `deps`, `docs`, `scripts`).
+
+</details>
+
+## Documentation
+
+The [docs](https://shironex.github.io/maquette/docs/) cover the app view by view, each pipeline step and the MCP tools. Good places to start:
+
+- [Install](https://shironex.github.io/maquette/docs/start/install/) and [your first project](https://shironex.github.io/maquette/docs/start/first-project/)
+- [Website projects](https://shironex.github.io/maquette/docs/start/website-projects/) and [game projects](https://shironex.github.io/maquette/docs/start/game-projects/)
+- [The Board](https://shironex.github.io/maquette/docs/views/board/), [the Inspector](https://shironex.github.io/maquette/docs/views/inspector/) and [the pipeline steps](https://shironex.github.io/maquette/docs/pipeline/pipeline-json/)
+- [Connect an agent](https://shironex.github.io/maquette/docs/agents/connect/) and [the MCP tools](https://shironex.github.io/maquette/docs/agents/mcp-tools/)
+
+The reference below is the long form of the same, kept here for reading next to the code.
+
+## Reference
+
+<details>
+<summary><strong>Projects</strong></summary>
 
 A workspace holds any number of projects. The project switcher at the top of the rail (or Cmd+P on macOS, Ctrl+P on Windows and Linux) opens a menu of them with their picture, template, asset count and age; the open one is checked, and a search field shows once there are more than six. Arrow keys move, Enter opens, Escape closes. New project opens the onboarding project form in a dialog (where it ships, template, name, target site repo or game repo) and Import folder the import form. The open project is saved as `currentProject` in `maquette.json`.
 
@@ -18,7 +271,10 @@ Remove from project... in the same menu, or Remove... with several cards selecte
 
 In the Lab, an earlier direction's menu has Move to project..., which moves its folder (concepts, picks, stars and brief) into another project. The refs it sent and its Board card go along when the card has no model yet; a card with models, or one with a send under way, stays where it is.
 
-## Game projects
+</details>
+
+<details>
+<summary><strong>Game projects</strong></summary>
 
 A project ships to a website (the default) or to a game. New project has Website and Game under Ships to; a game project takes a **Game repo** instead of a site repo and stores its settings under `game` in `project.json` (`target: "game"`; the repo itself stays `siteRepo`). Existing projects read as websites.
 
@@ -30,7 +286,10 @@ The game pipeline (`pipeline/template/game.rs`) is Build models (`build_models.p
 
 Ship to a game always waits for approval in the app, whoever started the run, and the Pipeline view opens the Ship diff: each file as new, replaced (in the ship record and different), unchanged (same bytes) or hand made (not in the record, left alone even when an export would land on it), where it writes, the record size after the run and the checks. Ship writes into the model folder keeping subfolders, only replaces files the record lists (`web/ship-record.json`), never removes a file and never commits. Page and Timeline are hidden for games (Motion stays), the Inspector shows Compare and Budget, and Game preview is listed as planned.
 
-## Pipeline runner
+</details>
+
+<details>
+<summary><strong>Pipeline runner</strong></summary>
 
 Each project keeps its steps in `pipeline.json` (new projects start from the Floating diorama template: Build, Bake light, Export GLB, Compress, Capture posters, Ship). A step has an `id`, a `kind` (`blender`, `shell`, `gltf-transform`, `toktx`, `ffmpeg`), a script or command, an args array, `inputs` and `outputs` globs and `depends_on`.
 
@@ -42,7 +301,7 @@ Each project keeps its steps in `pipeline.json` (new projects start from the Flo
 - Material tweaks (below) are written into a copy of each model before its texture passes, under `cache/`; the raw export never changes. The tweaks are part of the step's cache key, so changing them reruns Compress. A locked row keeps its values and says why. A scene project gets the locked character row only once it has a character asset; a Character showcase starts with it. Rows read as the asset a model was exported from (`clay_v1.glb` is "clay").
 - A running node shows a progress bar when its tool reports how far it is: a script's `progress N/M` or `progress P%` line (with an optional `[tag] ` prefix), Cycles' `Sample N/M` inside the current item, or one finished call of several (Compress runs one chain per model). Otherwise the bar is indeterminate.
 
-### Starter scripts
+#### Starter scripts
 
 A new project gets small, commented scripts in its `tools/` folder when its pipeline is first written, so it runs end to end on day one. They read their paths from args and are the project's to edit; Maquette never writes over a file that exists on its own.
 
@@ -63,7 +322,7 @@ Rigged models keep their armature, skin and clips through Build scene and Export
 
 Projects made before the layout editor get these `build_scene.py` and `render_stops.py` through the same Update banner when their copies are untouched; the Build scene step then reads `layout.json` too, so saving a layout reruns it. In the same way, an untouched `build_scene.py` updates to the one that reads `prepare.json`, `fixups.py` arrives next to it, and both files become inputs of the Build scene step, so a changed size or fix-up reruns it.
 
-### Baked light
+#### Baked light
 
 The Pipeline view's Baked light panel sets the project's lightmap size (256 to 4096 px), Cycles samples (1 to 4096) and the denoiser, and says roughly how the bake time compares with the default; agents use `get_bake_settings` and `set_bake_settings`. They are the Bake light step's `--size`, `--samples` and `--denoise` args in `pipeline.json`, so editing the args by hand is the same thing, and a change reruns the bake. New projects bake at 1024 px with 32 samples, denoised. Measured on a study room (Apple M3, CPU): 512 px at 16 samples without the denoiser took 20 s for 33 meshes and left blotches on flat surfaces; with its 9 scans skipping the bake, 1024 px at 32 samples took 143 s for 21 meshes and is clean, and 64 samples took about 300 s and looks the same once denoised. Time grows with the texels and the samples, so 2048 px costs about four times 1024 px. The denoiser adds about half a second per map. An older `bake_light.py` cannot denoise, so the panel keeps the switch off until the Update banner (or `update_starters`) brings the new starter in. The banner names the project it updates, since it acts on the project open in the app, and the toast after it names the project and the scripts.
 
@@ -73,7 +332,10 @@ Projects made before these settings get the new `build_scene.py`, `bake_light.py
 
 Character showcase projects get `build_character.py`, `export_character.py`, `render_stops.py` and `ship.mjs`. The build imports the newest `models/*.glb` (highest `_v<n>`, then newest file) with its rig and clips, on top of `blender/character.blend` when you add one, adds a key and fill light when the scene has none and a front camera stop `stop_01_front` when it has no stop, and saves `blender/character_built.blend`. Export GLB and Capture posters read that file, so the pipeline runs as soon as a character is in `models/`.
 
-## Model inbox
+</details>
+
+<details>
+<summary><strong>Model inbox</strong></summary>
 
 Maquette watches the workspace `inbox/` folder for `.glb` and `.gltf` files. Each file is read in Rust: triangles, meshes, materials, textures and their sizes, skins and joints, animations. Checks compare that with the budgets: triangles, texture size, a Mixamo rig for characters, PBR maps, separate objects merged into one mesh, an origin away from the bottom centre, several objects that could be one, and hair or tail vertices weighted to finger bones. In a game project, a model sent for an asset checks its triangles and textures against the budget of the folder that asset's model goes to ("Within the props budget, 12k tris"), the same budget the top bar counts against; a model nobody sent, and every model in a website project, uses Tris per model and the default texture size. A check that a fix-up answers offers it as a button (Decimate to 60k, Shrink textures to 2048 px, Remove loose parts, Origin to bottom centre, Merge objects). Accept to Blender moves the file into the project's `models/` folder as a new asset version.
 
@@ -84,7 +346,7 @@ Two checks are heuristics:
 
 The preview stands every model in the same studio: a graphite backdrop, a soft floor with a contact shadow, a warm key, a warm fill and a cool rim light, and a three quarter camera framed to the bounds. Shaded, wireframe over clay, a numbered UV checker, and the skeleton drawn in clay over a ghost of the mesh. It reads meshopt geometry and KTX2 textures (the Basis transcoder ships in `apps/web/public/basis`).
 
-### Real size and fix-ups
+#### Real size and fix-ups
 
 Each asset can have a real size and a list of fix-ups. Both are optional and are set in the Inbox before Accept (next to the measured bounds), and later from a card's (or list row's) Real size and fix-ups... or the Inspector's model details. A size is one side of the real object: height, width, depth or the longest side, in cm or m (0.1 cm to 1000 m). A small table of everyday objects suggests one from the name and kind (a mug 10 cm high, a laptop 32 cm wide, a desk lamp 45 cm high, a character 170 cm high); a suggestion only applies when you pick it.
 
@@ -112,7 +374,7 @@ They live in `prepare.json` in the project, keyed by asset id, saved like the ma
 }
 ```
 
-### Thumbnails
+#### Thumbnails
 
 Inbox models get a 256 px thumbnail when they arrive, and Board assets get one on Accept and for each new version. A headless Blender job (always `blender -b`, never the GUI) renders the model in the studio above, on the runner's own `thumbnails` lane, so renders queue and never block the UI. Renders are cached by content hash in `cache/thumbs/` and copied to `<project>/thumbs/<asset>_v<n>.png`. When Blender is missing, or cannot read the file (KTX2 textures), the UI draws the model once offscreen with three.js in the same studio and stores that instead. While a render runs, cards and rows show the asset kind's icon.
 
@@ -120,7 +382,10 @@ A compressed model is rendered from an uncompressed copy, because Blender reads 
 
 Render thumbnails by hand with `cargo run -p maquette-core --example render_thumbnail -- <thumbs dir> <model>...`.
 
-## Built assets
+</details>
+
+<details>
+<summary><strong>Built assets</strong></summary>
 
 A built asset is a model a Blender script in the project makes, the fourth source next to Tripo, Meshy and By hand. **Built asset** on the Board (or `add_built_asset` over MCP) takes the script, the helpers it imports or reads (a shared `common.py`, a texture), a name (from the script's file name until you type one), a kind and, optionally, a root object. The script and helpers are copied flat into the project's `built/` folder; they are the project's to edit from then on, and a helper several assets share is kept once (a different file under a name already there is refused unless you tick Replace). The asset lands at Blender and builds at once.
 
@@ -134,7 +399,10 @@ The real size, fix-ups, layout and material tweaks apply to a built model as to 
 
 Build one from the terminal with the real Blender: `cargo run -p maquette-core --example build_asset -- <workspace dir> <project name> <script.py> [--helper <file>]... [--name <name>] [--kind prop] [--root <object>] [--rebuild]`.
 
-## Concept lab
+</details>
+
+<details>
+<summary><strong>Concept lab</strong></summary>
 
 The Lab turns a brief into concept images with the Codex CLI. A brief is a direction name, a prompt, up to 8 reference images (dropped in, picked from the project's `refs/`, or chosen from a file dialog), an aspect ratio and 1 to 12 images. Each image is one Codex job:
 
@@ -152,7 +420,10 @@ Make object refs (on a Lab image, or in the menu of a Refs card whose picture is
 
 `cargo run -p maquette-core --example generate_concept -- <project dir> --direction "Stone lantern" --prompt "..." [--ref refs/a.png] [--count 1]` runs the same jobs from a terminal. Every image spends Codex usage.
 
-## Send to 3D
+</details>
+
+<details>
+<summary><strong>Send to 3D</strong></summary>
 
 Send to 3D takes refs from a Board card (its menu) or the picked concepts of a Lab direction (the picks go to Refs first) to Tripo, Meshy or By hand. The panel starts from the Settings preset for the asset (the prop or the character variant, picked by asset kind), and every field can change for this send only. One image makes one model; with Multi-view on, up to four images go as front, left, back and right.
 
@@ -172,7 +443,10 @@ Provider jobs run on their own lane, four at a time, with 429 back off that hono
 
 API keys live in the OS keychain (macOS Keychain, Windows Credential Manager) under the service `com.shironex.maquette`, never in `maquette.json`, a project file or a log. Settings > 3D providers shows only the last four characters, and Test key calls the free balance endpoint. Presets live there too, per provider with a character variant.
 
-## Inspector
+</details>
+
+<details>
+<summary><strong>Inspector</strong></summary>
 
 The Inspector opens a project's models in the same studio as the preview, with a compare slider that splits one canvas down the middle: the raw export against the shipped build or the site's copy, or two versions of one asset. Both halves share the camera. Camera stops come from the first of these that has any: `stops.json` in the project (`{ "stops": [{ "name", "position": [x, y, z], "target": [x, y, z], "fov": 35 }] }`, glTF coordinates in metres), the stops of the scene layout, the `web/posters/stops.json` the Capture posters step writes, or cameras inside the models. The filmstrip eases the camera to a stop and shows its poster when there is one.
 
@@ -199,7 +473,7 @@ The Material section tweaks the selected model per asset: a tint (multiplied int
 
 Compress writes the starting factors of each tweaked material under `extras.maquette.original` in the shipped file, so the preview of a tweaked build starts from those instead of applying the tweaks twice. Budget bars come from the workspace budgets and an optional `budgets.json` in the project (`{ "models": { "character": 1.0 } }`, in MB); models without a row share what is left of the scene budget. The frame time graph measures the renderer (waiting on the GPU every few frames) against the 60 fps line. Export GLB re-exports the selected model alone: it runs the pipeline's Blender export step with its output pointed at a scratch folder, then copies that one file over the raw export.
 
-### Scene layout
+#### Scene layout
 
 The Layout tab places each asset's newest model and the camera stops in one 3D canvas. Click a model (or pick it in the list) and drag the gizmo: Move, Turn and Scale (W, E, R; scale stays uniform), snapping to 5 cm and 15 degrees unless the magnet is off. The side panel takes exact numbers (metres, degrees, scale), shows the size in centimetres, and has Drop to desk and Reset turn and scale. Undo and redo cover every change (Cmd+Z, Shift+Cmd+Z), F frames every model and Cmd+S saves.
 
@@ -229,7 +503,7 @@ Positions are glTF metres (Y up), rotations degrees applied X, then Y, then Z, k
 
 The first view is what the first stop loads before the visitor moves: the models in its frame, or the ones ticked under Count what the camera sees (the stop's `models`). Its size is measured against its own budget, First view target under Settings > Budgets (3 MB by default), and shows in the Layout bar, the Pipeline view and the scene budget tooltip in the top bar.
 
-### Paths
+#### Paths
 
 The Paths tab draws curves through the scene that the site shows as glowing tubes: a cable from the trench to a panel, a pipe, a trail. Each path is a list of points in the layout's space (metres, Y up), joined smoothly (Catmull-Rom) or by straight runs. Select picks a point or a path in the 3D view and the gizmo moves the picked point; Add points (A) puts a point where a click lands on a model or the ground, after the picked one; Delete removes the picked point (a path keeps two), F frames the scene and the magnet snaps to 5 cm. The points table takes exact numbers, shows how far along each point is and adds a point at the end. The side panel lists the paths and sets the selected one's name, curve, colour, glow colour and width. Draw on surfaces, end caps, a glow strength, speed and direction show as not built yet.
 
@@ -270,7 +544,10 @@ Either end can follow a model: anchored, it moves by as much as the model's plac
 
 Up to 32 paths of 2 to 128 points, widths from 1 mm to 1 m. The site builds each path as one tube mesh (8 sides, a ring about every two widths, 16 to 256 rings) and one draw call, and a shader lights it from its first point with a soft front and a bright head. Each path is a few hundred bytes of `layout.json`, so they are not counted in the scene budget, and the Build scene step and its posters do not draw them yet.
 
-## Motion
+</details>
+
+<details>
+<summary><strong>Motion</strong></summary>
 
 Motion (the walking figure in the rail) lists the project's models that move: a rig, animation clips or object states. The ones that do not move yet sit under No motion yet, and a project where nothing moves shows what makes a model show here and suggests the prop with the most separate parts for states.
 
@@ -322,7 +599,10 @@ Motion (the walking figure in the rail) lists the project's models that move: a 
 
 Up to 16 states and 32 triggers per asset. Layouts written before Motion load as they are. The site plays the stop and scroll triggers as the page scrolls (see Timeline); click and hover travel with `layout.json` (and with the site data Ship writes) for a page to read, and the site does not play them yet.
 
-## Timeline
+</details>
+
+<details>
+<summary><strong>Timeline</strong></summary>
 
 The Timeline (the film strip in the rail) lays out what happens as the page scrolls. Its columns are the project's camera stops; the site's stop sections are one window high each, so stop `i` of `n` sits at `i / (n - 1)` of the page, and the ruler counts the page in percent, pixels (once the page answers the bridge with its scroll) or sections. Above the lanes is the Page view's frame, started the same way: drag the ruler, press `[` and `]` to jump a stop or `Space` to play at reading speed, and the page scrolls along through the page bridge. A project without camera stops shows where to add them.
 
@@ -352,7 +632,10 @@ The checks warn about a change that changes nothing, two ranges of one prop that
 
 Ship copies the layout into the site whole, and `apps/site` plays it: `scene/timeline.ts` turns tour progress into each prop's pose and each track's amount, and `scene/tracks.ts` moves the model's nodes by the names in the file; `scene/PathTubes.tsx` draws the paths and lights each by its track. With reduced motion the site shows its posters instead of the 3D scene. Agents set the tracks with `set_layout` (`explode` and `energize`) and the changes with its `states`.
 
-## Page view
+</details>
+
+<details>
+<summary><strong>Page view</strong></summary>
 
 The Page view (Page in the rail) shows the project's website with its models live in it, the way a visitor sees it. It runs the site's dev server itself: it picks a free port, runs the site's dev command in the site repo, shows the server starting with its log, and stops it when you leave the view or quit. The command comes from Settings > Project (Site dev command, where `{port}` stands for the port Maquette picks), else from `maquette.site.json`, else from the site's `package.json` scripts and lockfile; it runs as a program with its args, never through a shell. A server Preview on site or an agent started is reused and left running; one already answering at the site's address is never stopped. Without a site repo, with no dev script, or when the server fails, the frame says why and offers Settings, Try again or a page concept.
 
@@ -378,11 +661,17 @@ The scrubber talks to the page through a small window message bridge, which work
 
 With `?maquette-poster=1` in its address the page shows its no WebGL version. `apps/site/src/scene/bridge.ts` is a complete page side.
 
-## Library
+</details>
+
+<details>
+<summary><strong>Library</strong></summary>
 
 The Library (the books icon in the rail, for website and game projects) keeps finished models outside every project, in `library/` in the workspace root (`~/Maquette/library` by default). Each entry is a folder with `entry.json` (name, kind, tags, refs, versions), `models/` (one file per version), `thumbs/` and `refs/`. Add to library (a Board card's menu, the Inspector, or Add from a project in the view) copies an asset's newest model, picture, refs, real size, fix-ups and material tweaks; the same hash adds nothing and a newer model adds the next version. Use in project copies a version into a project as a new asset at v1 and spends no credits; a website project refuses an `.obj`, and a game project takes either and writes the game's format on the next Game export. The library copies and offers updates, it never links: an asset copied from an older version shows Update to vN, and the dialog lists what carries over and what no longer applies before anything changes. The view searches, filters by tag, source, format and project, and shows the credits reuse saved.
 
-## Sync with another computer
+</details>
+
+<details>
+<summary><strong>Sync with another computer</strong></summary>
 
 A workspace can live in a Syncthing folder shared by two computers, for example a Mac and a Windows PC. What belongs to one computer stays in its app data: settings, API keys, the Downloads watch's seen list and where each project's site or game repo is. `project.json` keeps only the repo's folder name, so the other computer asks once "Where is this project's repo on this computer?". Handoff folders and page concepts are saved relative to the workspace.
 
@@ -390,25 +679,7 @@ While Maquette has a workspace open it keeps `.maquette-lock.json` in it (host, 
 
 Settings > Workspace > Sync with another computer has the recommended `.stignore` (the cache and OS clutter, never the lock file, which is how the other computer knows) and a copy button. Turn on staggered file versioning for the folder, and use Maquette on one computer at a time.
 
-## Agents (MCP)
-
-Settings > Agents runs a Model Context Protocol server inside the app, so Claude Code and Codex can drive Maquette. It is off by default, listens on `127.0.0.1` only (port 4791, configurable) at `/mcp` over Streamable HTTP, and wants `Authorization: Bearer <token>`. The token is made the first time the server starts and kept in the app state on this machine, never in the workspace. New token replaces it.
-
-Copy config gives a working setup:
-
-```sh
-claude mcp add --transport http maquette http://127.0.0.1:4791/mcp --header "Authorization: Bearer <token>"
-```
-
-```toml
-# ~/.codex/config.toml
-[mcp_servers.maquette]
-url = "http://127.0.0.1:4791/mcp"
-http_headers = { Authorization = "Bearer <token>" }
-tool_timeout_sec = 150
-```
-
-Tools: `list_projects` (each project's id, name, template, target, site or game repo, created date, asset count, picture, what runs in it and which one is open in the app), `get_project`, `list_assets`, `get_pipeline`, `set_compression_presets` (per model texture size, data map size, codec and meshopt; only the given fields change, locked rows refuse, the Pipeline view updates live and nothing is spent), `get_material_tweaks` (`{ project, asset }`: the asset's material names, its tweaks, and the codec per map group with the raw and shipped sizes), `set_material_tweaks` (`{ project, asset, reset?, all?, materials?, codecs? }`; `all` and each `materials` entry take `tint`, `roughness: { mode: "override" | "multiply", value }`, `metalness` and `emissiveStrength`, a field left out keeps its value and null clears it, a material name the model does not have is refused with the list, and `codecs` takes `color`, `normal` and `other` as `"etc1s"`, `"uastc"` or null; everything is checked before anything is written, the tweaks land on `materials.json` as it is on disk, and when they cannot be written the codecs go back; the app updates live), `get_bake_settings` (`{ project }`, read only: the lightmap size, samples and denoiser, whether the project's `bake_light.py` can denoise, how it compares with the shipped starter, and the assets that skip the bake), `set_bake_settings` (`{ project, size?, samples?, denoise? }`: only the given fields change, a size or sample count out of range is refused, denoise on an older script is refused until it is updated, and the Pipeline view updates live), `get_starters` (`{ project }`, read only: each starter script in `tools/` as current, outdated, edited or missing), `update_starters` (`{ project, scripts?, replace? }`: the starter banner's Update for the named project whatever the app has open; without `scripts` every outdated or missing one, edited ones only with `replace` and kept as `<name>.bak`; a path that is no starter of the template is refused and nothing is written; the Pipeline view updates live), `get_run` (status and log tail), `list_inbox`, `get_inbox_checks`, `run_pipeline` (optionally from a step, optionally ignoring the cache), `cancel_run`, `accept_inbox_model` (defaults to the asset the model was sent for), `render_thumbnail`, `start_concepts`, `get_concepts` (a direction's images, stars, picks and job states, with the failed jobs and why), `retry_concept_jobs` (`{ project, jobs? }`: failed or cancelled Lab jobs run again with their own prompt, refs and file, every failed one without `jobs`; queued, running or done ones are refused and nothing runs), `send_to_3d`, `send_batch_to_3d` (several assets under one approval), `redo_inbox_model` (`{ id, provider?, variant?, images?, overrides?, prompt? }`: an inbox model's asset sent again, prefilled from its send, under the same approval; the earlier model stays), `redo_inbox_models` (`{ ids, provider?, overrides? }`, one batch from one project), `get_credits` (`{ project?, limit?, balance? }`: each provider's balance, the week, month and redo totals, and the latest spends), `make_object_refs`, `star_concepts` (`{ project, images: [{ file? | direction?, index?, starred }] }`: the Lab's Star, nothing goes to the Board), `pick_concepts` (`{ project, images: [{ file? | direction?, index?, star?, name?, kind? }] }`, 1 to 24 images: the Lab's Send picks to Refs one image at a time, so each image is copied into `refs/` and becomes or joins an asset at Refs, named after its object for object refs and after its direction otherwise unless `name` says; `kind` (`prop`, `character` or `scene`, never `scene` for object refs) applies to a new asset; an image picked before keeps its ref and answers with the same asset; every image is checked to be a concept of the project inside its folder before anything is written; it answers with each image's `refFile` and asset and each asset once with its `refs`, which `send_to_3d` then takes by default; nothing is spent and the Lab and the Board update live), `get_provider_job`, `cancel_provider_jobs` (`{ ids }`, 1 to 50 job ids: each is stopped on its own and answers with its new status and message or why it could not be stopped; a by hand send stops waiting, a Tripo or Meshy send not yet started is cancelled, and a send waiting for approval is refused because a person denies it in the app), `list_handoffs` (`{ project? }`, read only: every By hand send waiting for a model with its expected export name, handoff folder and estimated subscription credits, and what the Downloads watch matched), `get_real_size` and `list_fixups` (`{ project, asset }`: the size, the fix-ups in order, what the newest model measures before and after them, the scale, the suggestion, the defaults and the last preview), `set_real_size` (`{ project, asset, size: { axis, value, unit } | null }`), `add_fixups` (`{ project, asset, fixups: [{ op, triangles?, maxSize?, minShare?, byMaterial? }] }`, a kind already there is replaced and a number left out starts from the workspace budgets), `remove_fixups` (`{ project, asset, ops?, all? }`) and `preview_fixups` (`{ project, asset }`, runs them headless on the newest version and returns the numbers before and after), `set_skip_bake` (`{ project, assets, skip }`: one or more assets by id or name leave the bake or join it again, all or nothing; `get_real_size` shows `skipBake`), `set_pad_edges` (`{ project, asset, pad }`: true or false pads the asset's texture edges or leaves them, null forgets the choice; `get_real_size` shows `padEdges`); each change is checked whole before anything is written, lands on `prepare.json` as it is on disk, and the app updates live, `get_layout` (the layout, every model with its bounds and size, the first view, the object states, the paths with their energize tracks and the clips kept off the site), `set_layout` (changes only what it names: `models` as `{ asset, position?, rotation?, scale?, remove? }`, `stops` as `{ id?, name?, position?, target?, fov?, models?, remove? }`, with no `id` adding a stop, plus `stopOrder` and `desk`; `states` as `{ asset, states, transitions?, triggers?, remove? }` sets an asset's object states whole, states and stops named by id or name, and `clips` as `{ asset, clip, ship }` keeps a clip off the site or ships it again; `paths` as `{ id?, name?, curve?, points?, start?, end?, width?, color?, glow?, remove? }` adds a path (no `id`, or a new one, with a name and points), changes one or removes it, `start` and `end` anchoring an end to an asset or letting it go with null, and `energize` as `{ path, easing?, keys, remove? }` sets a path's energize track whole; removing a stop drops the triggers and keys waiting for it; the whole result is checked before anything is written and the app's Layout and Motion views update live), `get_motion` (`{ project }`, read only: every model's rig with its bone map, its clips with their bytes in the source and as shipped, root travel and looping, its parts, the states, the clips kept off and the scene budget with the motion share in it and in the first view) `copy_asset` (`{ project, asset, to }`, the same copy as Copy to project...; a built asset arrives as a plain one), `remove_assets` (`{ project, assets }`, 1 to 50 ids or names: the same remove as Remove from project..., each asset answering `removed` with its trash id and path, `not-found` or `refused` with why, so a repeated call is safe), `list_removed_assets` (`{ project }`, read only: the project's removed assets in the workspace trash, newest first) and `restore_asset` (`{ project, trash }`: puts one back with its files, place and settings; refused while its name is on the Board again), `add_built_asset` (`{ project, script, helpers?, name?, kind?, root?, replace?, build? }`: the Board's Built asset, with absolute paths or paths relative to the project folder; it builds at once unless `build` is false and answers with the build), `rebuild_built_asset` (`{ project, asset?, all?, force? }`: one asset by id or name, or every new or stale one with `all`; files that match the last good build answer `up-to-date` unless `force`) and `list_built_assets` (`{ project }`, read only: each built asset's files, state and last build with its exported object and material names), `get_page_preview` (`{ project }`, read only: the site dev server's state, address, command and where it came from, who started it, why it failed and its last log lines, and `busyWith` when the one server serves another project), `start_page_preview` (`{ project, waitSeconds? }`: starts it or reuses the running one, waits up to `waitSeconds`, 30 by default, for it to answer) and `stop_page_preview` (`{ project }`: stops it whoever started it; a server Maquette did not start is only forgotten), `get_game` (`{ project }`, read only: a game project's settings and each asset's file and budget check), `scan_game_models` (`{ project }`, read only: every model in the model folder), `import_game_models` (`{ project, files }`: each file an asset with the repo file as version 1; nothing in the game repo changes), `set_game_settings` (`{ project, format?, modelsDir?, textures?, textureCap?, bake?, budgets? }`, refused whole when a value is out of range) and `get_ship_plan` (`{ project }`, read only: what Ship would write into the game). `list_library` (`{ query?, tag?, project? }`, read only: the library's models with versions, tags and the projects that use them, and with `project` that project's assets with an update waiting), `add_to_library` (`{ project, asset, name?, tags? }`: the Board's Add to library), `use_from_library` (`{ entry, project, version? }`: a copy as a new asset at v1; a website project refuses an `.obj`) and `update_from_library` (`{ project, asset, dryRun? }`: the library's newer version as the asset's next version, or with `dryRun` the plan and no copy). The library tools spend nothing, need no approval and the app updates live. Built assets spend nothing and need no approval; a full `run_pipeline` rebuilds the stale ones first and is refused while one fails. The agent rules hold by construction: Blender only runs headless, no tool opens its window, and there is no screenshot or screen capture tool. A game project's run always stops before its Ship step for approval in the app. With Ask before shipping on, a run started over MCP stops before its Ship step and the app shows an Approve or Deny prompt; until then `run_pipeline` and `get_run` answer `waiting for approval`. A run whose Ship step would come from the cache does not ask. `send_to_3d` to Tripo or Meshy always waits for Approve in the app before any credit is spent, whatever that setting says, and Deny cancels the job; `send_batch_to_3d` shows one prompt that lists every asset with its settings and the total, and Approve or Deny covers them all; By hand spends nothing, so it writes the handoff folder straight away. Settings overrides are checked by name and an unknown one is refused with the valid list. Tools that work on a project take its id as `project`; none of them changes the project open in the app. Every call shows in the activity list under Settings > Agents.
+</details>
 
 ## Stack
 
@@ -421,66 +692,6 @@ Tools: `list_projects` (each project's id, name, template, target, site or game 
 - **IPC:** tauri-specta writes typed bindings to `apps/web/src/ipc/generated/bindings.ts` when `cargo test -p maquette-desktop` runs
 
 [docs/architecture.md](docs/architecture.md) describes the layout: features with one folder per component, which features may import which, the lint tiers and the Rust lint policy.
-
-## Development
-
-Needs Node 22.12 or newer, pnpm 10 and the Rust toolchain pinned in `rust-toolchain.toml`.
-
-```sh
-pnpm install
-pnpm dev        # the desktop app with hot reload
-pnpm dev:web    # the UI alone in a browser, in mock mode
-```
-
-### Mock mode
-
-Outside Tauri, a dev build answers every command from an in-memory backend (`apps/web/src/ipc/mock`), so the whole UI runs in a plain browser at `http://localhost:15190`. Pick a scenario with a query parameter:
-
-- `?scenario=first-run` (default): no workspace yet, toktx missing
-- `?scenario=configured`: a workspace with Moon Island open, its last run failed at Capture posters
-- `?scenario=running`: like configured, with run 25 streaming and held at Export GLB
-- `?scenario=idle`: like configured, the last run passed
-- `?scenario=no-blender`: Blender missing, so setup stops at the toolchain step
-- `?delay=700`: how long a toolchain check takes, in milliseconds
-- `?pace=260`: milliseconds between streamed log lines in a mock run
-- `?lab=running`: two concept images of the porch direction mid job; `?conceptMs=4000` sets how long a fake image takes
-- `?agents=active`: the MCP server on, with an agent's activity, a run waiting at Ship and a Send to 3D waiting for approval
-- `?agents=batch`: like `active`, with three sends to Tripo waiting under one approval
-- `?handoff=batch`: adds the landing workbench concept, the six object refs made from it (an objects direction) and a By hand batch of them in mixed states; Check Downloads finds two matches and a stranger
-- `?arrival=named`: a moment after opening, an export named for the first waiting By hand send lands in the fake Downloads and is copied in; `?arrival=unmatched` drops `model (3).glb`, which asks "Which asset is this?"
-- `?inbox=redo`: the large sakura (a Meshy send with a texture prompt) and the character (a rigged Tripo send) in the inbox are linked to their sends for Redo, and a Meshy key is saved too
-- `?built=demo`: two built assets on Moon Island at Blender, a current Laptop and a Newtons cradle whose script changed; Rebuild and Built asset work on them
-- `?motion=demo`: Moon Island gains a clay figure on a 20 bone rig with three clips, a switch cabinet with three states and a turntable with one clip; `?motion=rest` has the figure without clips, `?motion=over` a scene budget the clips push it over, and `?motion=still` opens Rooftop cinema, where nothing moves yet
-- `?timeline=demo`: the `?motion=demo` models, with the switch cabinet opening its door at Sakura, turning its breakers on from 55 to 70 percent and spreading apart from Canopy to Pullback; `?timeline=empty` takes Moon Island's camera stops away
-- `?page=running`: the Page view's dev server starts as usual and the site holds the last ship, so Compare has a current ship; `?page=starting` keeps the server starting, `?page=failed` fails it as a site without its packages does, with its log, `?page=no-site` takes Moon Island's site repo away, `?page=stops-10` gives the page ten stops, and `?page=shim` takes the page's own bridge away and gives it the frame proxy's bridge shim. `?page=framed&site=<dev server>&frame=<frame proxy>` shows a real dev server behind a real frame proxy (the visual check starts both). The mock dev page is a small page of its own that speaks the page bridge
-- `?game=crypt`: Crypt game, a CMake game with `.glb` models in `props/`, `enemies/` and `characters/`, is open with 15 imported models (3 over their folder's budget) and 3 made in Maquette, run 7 waits for approval before Ship, and the Inbox's flower shrubs came back for Candle cluster, so they check against the props budget; `?game=import` opens it with nothing imported yet, `?game=maze` opens Maze game, an `.obj` game with 35 imported models
-- `?projects=many`: eight projects instead of three (Moon Island, Rooftop cinema, Lantern keeper), so the switcher shows its search field
-
-Configured scenarios also open with fake provider jobs: Sakura generating at Tripo, Stone lanterns waiting for a model by hand, Far spire failed at Meshy for credits, and Character accepted. Only the Tripo key is saved. The credits ledger holds those sends and a month of earlier ones. New sends move along on timers; nothing is sent anywhere.
-
-The mock runner streams Blender style output and fails Capture posters once. The mock inbox lists a character, two props and a broken download. Its previews load real meshopt and KTX2 models, and the Board and Inbox show real studio thumbnails, all from `apps/web/src/assets/mock` (see the README there: that artwork is reserved and not covered by the repository license). For hand testing a real inbox, `cargo run -p maquette-core --example write_fixtures -- <dir>` writes small generated GLBs.
-
-### End to end check
-
-`cargo run -p maquette-core --example new_project -- <workspace dir> <name> [--site <repo>]` creates a workspace (if needed) and a project with its pipeline and starter scripts, the way the app does. `cargo run -p maquette-core --example run_pipeline -- <project dir>` then runs a real project's pipeline from the terminal with the same runner the app uses, fills `{workspace}` and `{siteRepo}` like the app, and prints each step's state. A second run with nothing changed reports every step cached except Ship, which writes outside the project and always runs.
-
-## Scripts
-
-| Script              | What it does                                                                                                                                                                                                                                                       |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm lint`         | ESLint over the workspace                                                                                                                                                                                                                                          |
-| `pnpm lint:meta`    | Whole repo checks: 400 line cap per TypeScript module and 400 code lines per Rust module, no inline lint suppressions, no ESLint rule at `warn`                                                                                                                    |
-| `pnpm typecheck`    | TypeScript in every package                                                                                                                                                                                                                                        |
-| `pnpm test`         | Vitest for `apps/web` and `packages/ui`                                                                                                                                                                                                                            |
-| `pnpm format:check` | Prettier check (`pnpm format` writes)                                                                                                                                                                                                                              |
-| `pnpm rust:fmt`     | `cargo fmt --check`                                                                                                                                                                                                                                                |
-| `pnpm rust:lint`    | `cargo clippy` with warnings as errors                                                                                                                                                                                                                             |
-| `pnpm rust:test`    | `cargo test` for the workspace, which also regenerates the IPC bindings                                                                                                                                                                                            |
-| `pnpm gate`         | All of the above, in order                                                                                                                                                                                                                                         |
-| `pnpm build`        | Release build of the desktop app                                                                                                                                                                                                                                   |
-| `pnpm visual`       | Screenshots of mock mode in headless Chromium (set `PLAYWRIGHT` to a local Playwright `index.mjs` and `OUT_DIR` for the output; `ONLY=handoff` renders only the object refs and batch shots, `ONLY=built` only the built assets, `PORT` picks the dev server port) |
-
-Commits follow Conventional Commits with a required scope (`desktop`, `web`, `site`, `ui`, `core`, `workspace`, `deps`, `docs`, `scripts`).
 
 ## License
 
