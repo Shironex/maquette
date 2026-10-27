@@ -565,6 +565,12 @@ async function coreShots() {
   const labLimited = await open('&scenario=configured&lab=limited', '#/lab');
   await labLimited.getByText(/^Waiting, rate limited, retries at /).waitFor();
   await shot(labLimited, 'lab-rate-limited');
+  const labUsage = await open('&scenario=configured&lab=usage', '#/lab');
+  await labUsage
+    .getByText(/^Waiting for the Codex usage limit until about /)
+    .first()
+    .waitFor();
+  await shot(labUsage, 'lab-usage-limit');
 
   const agents = await open('&scenario=configured&agents=active', '#/settings');
   await agents.getByRole('heading', { name: '3D providers' }).first().waitFor();
