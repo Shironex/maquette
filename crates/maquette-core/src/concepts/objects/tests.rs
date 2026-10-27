@@ -183,6 +183,61 @@ fn prepare_names_the_direction_after_the_source() {
 }
 
 #[test]
+fn sources_with_the_same_name_get_their_own_directions() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let (first, _) = prepare(dir.path(), &request(&["desk lamp"])).expect("first");
+    let other = NewObjectRefs {
+        source: "refs/workbench_hero.png".into(),
+        ..request(&["laptop"])
+    };
+    let (second, planned) = prepare(dir.path(), &other).expect("second");
+    assert_eq!(second.name, "Workbench hero objects 2");
+    assert_eq!(second.id, "workbench-hero-objects-2");
+    assert_eq!(second.source.as_deref(), Some("refs/workbench_hero.png"));
+    assert_eq!(
+        planned[0].file,
+        "concepts/workbench-hero-objects-2/workbench-hero-objects-2_01.png"
+    );
+    // The same name as characters is a third one.
+    let characters = NewObjectRefs {
+        kind: AssetKind::Character,
+        ..request(&["clerk"])
+    };
+    let (third, _) = prepare(dir.path(), &characters).expect("third");
+    assert_eq!(third.id, "workbench-hero-objects-3");
+    assert_eq!(third.kind, Some(AssetKind::Character));
+    // The first keeps its own source and kind, and its source adds to it.
+    let kept = load_direction(dir.path(), &first.id)
+        .expect("load")
+        .expect("first");
+    assert_eq!(
+        kept.source.as_deref(),
+        Some("concepts/workbench-hero/workbench-hero_01.png")
+    );
+    assert_eq!(kept.kind, Some(AssetKind::Prop));
+    let (again, planned) = prepare(dir.path(), &request(&["stool"])).expect("again");
+    assert_eq!(again.id, first.id);
+    assert_eq!(planned[0].index, 2);
+    // A long name still fits with its number.
+    let long = NewObjectRefs {
+        source: "refs/other.png".into(),
+        source_name: "x".repeat(80),
+        ..request(&["lamp"])
+    };
+    prepare(dir.path(), &long).expect("long first");
+    let (numbered, _) = prepare(
+        dir.path(),
+        &NewObjectRefs {
+            source: "refs/another.png".into(),
+            ..long.clone()
+        },
+    )
+    .expect("long second");
+    assert!(numbered.name.ends_with(" objects 2"), "{}", numbered.name);
+    assert!(numbered.name.chars().count() <= 60);
+}
+
+#[test]
 fn send_object_picks_makes_one_asset_per_object() {
     let root = tempfile::tempdir().expect("tempdir");
     let layout = FolderLayout::default();

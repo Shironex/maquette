@@ -5,8 +5,9 @@
 //! clay figure"), and each one becomes one Codex image job on the concept
 //! lane, with the concept attached as the reference. The images land in a
 //! new direction named after the source ("Workbench hero objects"), one per
-//! object, each titled by its object. The prompt template lives here and
-//! nowhere else.
+//! object, each titled by its object. Another source with the same name
+//! gets its own direction ("Workbench hero objects 2"), so neither loses
+//! its source or kind. The prompt template lives here and nowhere else.
 
 use std::collections::HashMap;
 use std::fs;
@@ -74,11 +75,46 @@ pub struct SentObjects {
 
 /// "Workbench hero objects", kept within the direction name limit.
 pub fn direction_name(source_name: &str) -> String {
+    numbered_name(source_name, 1)
+}
+
+/// "Workbench hero objects" for 1, "Workbench hero objects 2" after that,
+/// kept within the direction name limit.
+fn numbered_name(source_name: &str, n: u32) -> String {
     let base = source_name.trim();
     let base = if base.is_empty() { "Concept" } else { base };
-    let room = MAX_DIRECTION_CHARS - SUFFIX.chars().count();
+    let suffix = if n == 1 {
+        SUFFIX.to_string()
+    } else {
+        format!("{SUFFIX} {n}")
+    };
+    let room = MAX_DIRECTION_CHARS - suffix.chars().count();
     let base: String = base.chars().take(room).collect();
-    format!("{}{SUFFIX}", base.trim_end())
+    format!("{}{suffix}", base.trim_end())
+}
+
+/// The name of the direction a request's images go to: the first of
+/// "<source name> objects", "... objects 2", "... objects 3" that is free
+/// or already holds object refs of this very source and kind. A direction
+/// of another source (or a plain one that happens to share the name) is
+/// left alone, so its source and kind stay as they are.
+fn objects_direction_name(project_dir: &Path, new: &NewObjectRefs) -> CoreResult<String> {
+    for n in 1..=99 {
+        let name = numbered_name(&new.source_name, n);
+        match load_direction(project_dir, &slugify(&name))? {
+            None => return Ok(name),
+            Some(d)
+                if d.source.as_deref() == Some(new.source.as_str()) && d.kind == Some(new.kind) =>
+            {
+                return Ok(name);
+            }
+            Some(_) => {}
+        }
+    }
+    Err(CoreError::Invalid(format!(
+        "There are too many object directions named after {}. Give this one its own name.",
+        new.source_name.trim()
+    )))
 }
 
 /// One object per line or comma, trimmed, without repeats (any case).
@@ -241,7 +277,7 @@ pub fn prepare(
     project_dir: &Path,
     new: &NewObjectRefs,
 ) -> CoreResult<(Direction, Vec<PlannedObject>)> {
-    let name = direction_name(&new.source_name);
+    let name = objects_direction_name(project_dir, new)?;
     #[expect(clippy::cast_possible_truncation, reason = "at most 12 objects")]
     let count = new.objects.len() as u32;
     let brief = NewConcepts {
