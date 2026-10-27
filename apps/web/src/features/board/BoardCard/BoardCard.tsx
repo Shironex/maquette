@@ -4,16 +4,19 @@ import { KIND_ICON } from '@/state/thumbs';
 import { useBoardCard } from './BoardCard.hooks';
 import type { BoardCardProps } from './BoardCard.types';
 import { CardMenu } from './CardMenu';
+import { ExportName } from './ExportName';
 
 /** One asset on the Board: its picture, numbers, latest send or build, and menu. */
 export default function BoardCard({ asset, board }: BoardCardProps) {
   const card = useBoardCard(asset, board);
   const { n, over, thumb, sent, waiting, refPicture, addModel, onDragStart, built, rebuild } = card;
   const update = card.libraryUpdate;
+  // Budget warnings can run long: the chip ends in an ellipsis and its tooltip has them all.
+  const warning = !built && over && !sent ? over : undefined;
   const chip = built
     ? builtChip(built.state)
-    : over && !sent
-      ? { state: 'review' as const, label: over, icon: 'warning' as const }
+    : warning
+      ? { state: 'review' as const, label: warning, icon: 'warning' as const }
       : undefined;
   const { selection, actions, dropJob } = board;
   const { present } = selection;
@@ -27,6 +30,7 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
         onCheck: (on, range) => selection.check(asset.id, on, range),
       }}
       onClickCapture={selection.shiftClick(asset.id)}
+      onContextMenu={card.onContextMenu}
       actions={
         waiting ? (
           <Button
@@ -78,6 +82,8 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
         icon: chip?.icon ?? sent?.icon,
         progress: sent?.progress,
         progressLabel: sent?.progressLabel,
+        tooltip: warning,
+        note: card.exportName ? <ExportName name={card.exportName} /> : undefined,
       }}
       draggable
       onDragStart={onDragStart}

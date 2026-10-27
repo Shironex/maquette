@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useBuiltStore } from '@/state/use-built-store';
@@ -46,6 +46,29 @@ describe('BoardCard', () => {
     expect(screen.getByText('Waiting for your model')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Add model...' }));
     expect(addModel).toHaveBeenCalledWith('brush-cup-1');
+  });
+
+  it('shows the export name a waiting card wants, with its copy button', () => {
+    render(<BoardCard asset={mockAsset('Brush cup')} board={fakeBoardEnv()} />);
+    const name = useProvidersStore.getState().jobs.find(j => j.id === 'brush-cup-1')
+      ?.card?.exportName;
+    expect(name).toMatch(/^maq_brush-cup_v1_/);
+    expect(screen.getByText(name!)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy export name' })).toBeInTheDocument();
+  });
+
+  it('has no export name line without a waiting send', () => {
+    render(<BoardCard asset={mockAsset('Character')} board={fakeBoardEnv()} />);
+    expect(screen.queryByRole('button', { name: 'Copy export name' })).toBeNull();
+  });
+
+  it('opens its menu on a right-click', () => {
+    const board = fakeBoardEnv();
+    render(<BoardCard asset={mockAsset('Character')} board={board} />);
+    const card = screen.getByRole('button', { name: 'Character, v2' });
+    expect(fireEvent.contextMenu(card)).toBe(false);
+    expect(board.actions.setMenuFor).toHaveBeenCalledWith('character');
+    expect(board.actions.setCopyFor).toHaveBeenCalledWith(null);
   });
 });
 

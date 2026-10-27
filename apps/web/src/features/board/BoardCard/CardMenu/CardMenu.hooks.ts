@@ -1,85 +1,127 @@
 import type { MenuItem } from '@/features/common/Menu';
+import type { ProviderJob } from '@/ipc/client';
 import { projectFile } from '@/state/board';
 import { isGame } from '@/state/game';
 import { STAGES } from '@/state/pipeline';
+import { exportNameOf } from '@/state/providers';
 import { useStageLabels } from '@/state/use-stage-labels';
 import { useBuiltStore } from '@/state/use-built-store';
+import { useFileManager } from '@/state/use-file-manager';
 import { useLabStore } from '@/state/use-lab-store';
 import { updateFor } from '@/state/library';
 import { useLibraryStore } from '@/state/use-library-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { STAGE_ICON } from '../../constants';
+import { copyExportName } from '../../copyExportName';
 import type { CardMenuProps } from './CardMenu.types';
 
-/** The items of a card's menu, and of its Copy to project list. */
-export function useCardMenu({ asset, waiting, refPicture, built, board }: CardMenuProps) {
-  const STAGE_LABEL = useStageLabels();
-  const openPanel = useProvidersStore(s => s.openPanel);
-  const rebuild = useBuiltStore(s => s.rebuild);
+/**
+ * The By hand section, while the card waits for its model: the export name,
+ * the front image and the folder for the site, then the card and Add model.
+ */
+function useHandoffItems(waiting: ProviderJob | undefined): MenuItem[] {
   const showHandoff = useProvidersStore(s => s.showHandoff);
   const addModel = useProvidersStore(s => s.addModel);
-  const openObjects = useLabStore(s => s.openObjects);
-  const { view: library, openAdd, openUpdate } = useLibraryStore();
-  const waitingUpdate = updateFor(library, asset);
-  const { workspace, project, otherProjects, actions } = board;
-  const others = STAGES.filter(s => s !== asset.stage);
-
-  const copyItems: MenuItem[] = otherProjects.map(p => ({
-    id: p.id,
-    label: p.name,
-    icon: 'folder-simple' as const,
-    disabled: actions.copying,
-    hint: actions.copying ? 'Copying' : undefined,
-    onSelect: () => void actions.copyTo(asset, p),
-  }));
-  const items: MenuItem[] = [
-    ...(waiting
+  const openHandoff = useProvidersStore(s => s.openHandoff);
+  const revealImage = useProvidersStore(s => s.revealImage);
+  const fileManager = useFileManager();
+  if (!waiting) return [];
+  const card = waiting.card;
+  const name = card ? exportNameOf(card) : '';
+  const front = card?.images[0];
+  const section = 'handoff';
+  return [
+    ...(name
       ? [
           {
-            id: 'handoff',
-            label: 'Settings card',
-            icon: 'file-text' as const,
-            onSelect: () => showHandoff(waiting),
-          },
-          {
-            id: 'hand-back',
-            label: 'Add model...',
-            icon: 'upload-simple' as const,
-            onSelect: () => void addModel(waiting.id),
+            id: 'export-name',
+            label: 'Copy export name',
+            icon: 'copy' as const,
+            section,
+            hint: name,
+            onSelect: () => void copyExportName(name),
           },
         ]
       : []),
-    ...(built
+    ...(front
       ? [
           {
-            id: 'rebuild',
-            label: 'Rebuild',
-            icon: 'arrow-clockwise' as const,
-            disabled: built.state === 'building',
-            hint:
-              built.state === 'building'
-                ? 'Building now'
-                : `Runs ${built.source.script} in Blender headless again`,
-            onSelect: () => {
-              actions.setMenuFor(null);
-              if (project) void rebuild(project.id, asset.id, true);
-            },
+            id: 'reveal-image',
+            label: fileManager.reveal('image'),
+            icon: 'image' as const,
+            section,
+            hint: `Selects ${front}, ready to drag into the browser`,
+            onSelect: () => void revealImage(waiting.id, front),
           },
         ]
-      : [
+      : []),
+    ...(waiting.handoff
+      ? [
           {
-            id: 'send',
-            label: 'Send to 3D',
-            icon: 'cube' as const,
-            onSelect: () => void openPanel(project?.id ?? '', asset.id),
+            id: 'handoff-folder',
+            label: 'Open handoff folder',
+            icon: 'folder-open' as const,
+            section,
+            onSelect: () => void openHandoff(waiting.id),
           },
-        ]),
+        ]
+      : []),
+    {
+      id: 'handoff',
+      label: 'Settings card',
+      icon: 'file-text',
+      section,
+      onSelect: () => showHandoff(waiting),
+    },
+    {
+      id: 'hand-back',
+      label: 'Add model...',
+      icon: 'upload-simple',
+      section,
+      onSelect: () => void addModel(waiting.id),
+    },
+  ];
+}
+
+/** Making the model: Send to 3D (or Rebuild for a built asset) and Make object refs. */
+function useMakeItems({ asset, refPicture, built, board }: CardMenuProps): MenuItem[] {
+  const openPanel = useProvidersStore(s => s.openPanel);
+  const rebuild = useBuiltStore(s => s.rebuild);
+  const openObjects = useLabStore(s => s.openObjects);
+  const { workspace, project, actions } = board;
+  const section = 'make';
+  const make: MenuItem = built
+    ? {
+        id: 'rebuild',
+        label: 'Rebuild',
+        icon: 'arrow-clockwise',
+        section,
+        disabled: built.state === 'building',
+        hint:
+          built.state === 'building'
+            ? 'Building now'
+            : `Runs ${built.source.script} in Blender headless again`,
+        onSelect: () => {
+          actions.setMenuFor(null);
+          if (project) void rebuild(project.id, asset.id, true);
+        },
+      }
+    : {
+        id: 'send',
+        label: 'Send to 3D',
+        icon: 'cube',
+        section,
+        onSelect: () => void openPanel(project?.id ?? '', asset.id),
+      };
+  return [
+    make,
     ...(!built && refPicture && workspace && project
       ? [
           {
             id: 'objects',
             label: 'Make object refs...',
             icon: 'cube-focus' as const,
+            section,
             onSelect: () =>
               openObjects({
                 project: project.id,
@@ -90,16 +132,32 @@ export function useCardMenu({ asset, waiting, refPicture, built, board }: CardMe
           },
         ]
       : []),
+  ];
+}
+
+/**
+ * The asset itself: rename, size, copy, the library and Blender. The
+ * library and Blender items wait for a model and stay hidden until then.
+ */
+function useAssetItems({ asset, board }: CardMenuProps): MenuItem[] {
+  const { view: library, openAdd, openUpdate } = useLibraryStore();
+  const waitingUpdate = updateFor(library, asset);
+  const { project, actions } = board;
+  const hasModel = asset.versions.length > 0;
+  const section = 'asset';
+  return [
     {
       id: 'rename',
       label: 'Rename...',
       icon: 'file-text',
+      section,
       onSelect: () => actions.setRenaming(asset),
     },
     {
       id: 'size',
       label: 'Real size and fix-ups...',
       icon: 'ruler',
+      section,
       hint: isGame(project)
         ? 'How big it really is, and repairs made on a copy before the model is exported'
         : 'How big it really is, and repairs made on a copy before the scene is built',
@@ -109,47 +167,79 @@ export function useCardMenu({ asset, waiting, refPicture, built, board }: CardMe
       id: 'copy',
       label: 'Copy to project...',
       icon: 'copy',
+      section,
       hint: 'Copies the card with its refs and versions; it stays here too',
       keepOpen: true,
       onSelect: () => actions.setCopyFor(asset.id),
     },
-    {
-      id: 'library-add',
-      label: 'Add to library...',
-      icon: 'books',
-      disabled: asset.versions.length === 0,
-      hint:
-        asset.versions.length === 0
-          ? 'No model yet'
-          : 'Copies its newest model so other projects can use it without spending credits',
-      onSelect: () => project && openAdd({ project: project.id, asset: asset.id }),
-    },
+    ...(hasModel
+      ? [
+          {
+            id: 'library-add',
+            label: 'Add to library...',
+            icon: 'books' as const,
+            section,
+            hint: 'Copies its newest model so other projects can use it without spending credits',
+            onSelect: () => project && openAdd({ project: project.id, asset: asset.id }),
+          },
+        ]
+      : []),
     ...(waitingUpdate && project
       ? [
           {
             id: 'library-update',
             label: `Update to library v${waitingUpdate.to}...`,
             icon: 'arrow-up' as const,
+            section,
             hint: `It is on v${waitingUpdate.from} of ${waitingUpdate.entry.entry.name}`,
             onSelect: () => void openUpdate({ project: project.id, asset: asset.id }),
           },
         ]
       : []),
-    ...others.map(s => ({
+    ...(hasModel
+      ? [
+          {
+            id: 'blender',
+            label: 'Open in Blender',
+            icon: 'arrow-square-out' as const,
+            section,
+            onSelect: () => void actions.openInBlender(asset),
+          },
+        ]
+      : []),
+  ];
+}
+
+/** The items of a card's menu, and of its Copy to project list. */
+export function useCardMenu(props: CardMenuProps) {
+  const { asset, waiting, board } = props;
+  const STAGE_LABEL = useStageLabels();
+  const handoff = useHandoffItems(waiting);
+  const make = useMakeItems(props);
+  const assetItems = useAssetItems(props);
+  const { otherProjects, actions } = board;
+
+  const copyItems: MenuItem[] = otherProjects.map(p => ({
+    id: p.id,
+    label: p.name,
+    icon: 'folder-simple' as const,
+    disabled: actions.copying,
+    hint: actions.copying ? 'Copying' : undefined,
+    onSelect: () => void actions.copyTo(asset, p),
+  }));
+  const moveTo: MenuItem = {
+    id: 'move',
+    label: 'Move to',
+    icon: 'arrows-out-cardinal',
+    section: 'move',
+    submenu: STAGES.filter(s => s !== asset.stage).map(s => ({
       id: `move-${s}`,
-      label: `Move to ${STAGE_LABEL[s]}`,
+      label: STAGE_LABEL[s],
       icon: STAGE_ICON[s],
       onSelect: () => void actions.move(asset, s),
     })),
-    {
-      id: 'blender',
-      label: 'Open in Blender',
-      icon: 'arrow-square-out',
-      disabled: asset.versions.length === 0,
-      hint: asset.versions.length === 0 ? 'No model yet' : undefined,
-      onSelect: () => void actions.openInBlender(asset),
-    },
-  ];
+  };
+  const items = [...handoff, ...make, ...assetItems, moveTo];
   const closeAll = () => {
     actions.setMenuFor(null);
     actions.setCopyFor(null);
