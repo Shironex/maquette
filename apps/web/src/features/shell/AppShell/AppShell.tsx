@@ -18,6 +18,7 @@ import { QuitDialog } from '../QuitDialog';
 import { RepoPrompt } from '../RepoPrompt';
 import { ShellStatusBar } from '../ShellStatusBar';
 import { SyncConflictBanner } from '../SyncConflictBanner';
+import { UpdatePill } from '../UpdatePill';
 import { useAppShell } from './AppShell.hooks';
 
 export default function AppShell() {
@@ -51,11 +52,13 @@ export default function AppShell() {
             <div
               data-tauri-drag-region
               className={cn(
-                'flex items-center px-1.5 pb-3.5',
+                'flex items-center gap-2 px-1.5 pb-3.5',
+                collapsed ? 'flex-col' : 'flex-wrap gap-y-2',
                 CHROME === 'native' ? 'pt-1' : 'pt-[18px]'
               )}
             >
               <Logo size={24} wordmark={!collapsed} />
+              <UpdatePill collapsed={collapsed} />
             </div>
           </div>
         }

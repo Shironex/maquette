@@ -1,6 +1,7 @@
 import type { IconName } from '@maquette/ui';
 
-export type SectionId = 'workspace' | 'toolchain' | 'providers' | 'budgets' | 'agents' | 'project';
+export type SectionId =
+  'workspace' | 'toolchain' | 'providers' | 'budgets' | 'agents' | 'about' | 'project';
 
 export const SECTIONS: readonly { id: SectionId; label: string; icon: IconName }[] = [
   { id: 'workspace', label: 'Workspace', icon: 'folder' },
@@ -8,6 +9,7 @@ export const SECTIONS: readonly { id: SectionId; label: string; icon: IconName }
   { id: 'providers', label: '3D providers', icon: 'cube' },
   { id: 'budgets', label: 'Budgets and compression', icon: 'gauge' },
   { id: 'agents', label: 'Agents', icon: 'robot' },
+  { id: 'about', label: 'About', icon: 'info' },
 ];
 
 /** The ring on the section the nav last jumped to. */

@@ -11,6 +11,7 @@ import { ProviderPresetFields } from '@/features/providers/PresetFields';
 import { RecheckButton, ToolList } from '@/features/toolchain/ToolList';
 import { SAVE_STATUS_LABEL, patchSection, type SaveStatus } from '@/state/settings-form';
 import { ACTIVE } from '../sections';
+import { AboutSection } from '../AboutSection';
 import { InvalidSettingsDialog } from '../InvalidSettingsDialog';
 import { ProjectSection } from '../ProjectSection';
 import { SectionNav } from '../SectionNav';
@@ -129,6 +130,7 @@ export default function SettingsScreen() {
               >
                 <AgentsPanel config={draft} onChange={c => setDraft(c)} errors={errors} />
               </Panel>
+              <AboutSection active={active === 'about'} />
             </div>
           </div>
         </div>
