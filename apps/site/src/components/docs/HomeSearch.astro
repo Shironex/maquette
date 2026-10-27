@@ -1,0 +1,70 @@
+---
+// A search box for the docs home. It opens the search dialog the header already
+// has (Starlight's own, backed by Pagefind), so the page carries one search and
+// one index, and the Mod+K shortcut keeps working.
+---
+
+<home-search>
+  <button type="button" class="box" aria-label="Search the docs">
+    <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
+      <circle cx="7" cy="7" r="4.75" fill="none" stroke="currentColor" stroke-width="1.5"></circle>
+      <path d="m10.5 10.5 3.25 3.25" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+    </svg>
+    <span class="label">Search the docs</span>
+    <span class="keys" aria-hidden="true"><kbd data-mod>Ctrl</kbd><kbd>K</kbd></span>
+  </button>
+</home-search>
+
+<script>
+  class HomeSearch extends HTMLElement {
+    connectedCallback() {
+      const mod = this.querySelector('[data-mod]');
+      if (mod && /Mac|iPhone|iPad/.test(navigator.platform)) mod.textContent = '⌘';
+      this.querySelector('button')?.addEventListener('click', () => {
+        document.querySelector<HTMLButtonElement>('site-search button[data-open-modal]')?.click();
+      });
+    }
+  }
+  customElements.define('home-search', HomeSearch);
+</script>
+
+<style>
+  home-search {
+    display: block;
+    max-width: 560px;
+  }
+  .box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 52px;
+    padding-inline: 16px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-control);
+    background: var(--bg-raised);
+    color: var(--text-mute);
+    font: inherit;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .box:hover {
+    border-color: var(--text-mute);
+    color: var(--text);
+  }
+  .label {
+    flex: 1;
+    text-align: start;
+  }
+  .keys {
+    display: flex;
+    gap: 4px;
+  }
+  kbd {
+    padding: 3px 6px;
+    border: 1px solid var(--line-strong);
+    border-radius: 5px;
+    font: 500 11px/1 var(--font-mono);
+    color: var(--text-mute);
+  }
+</style>

@@ -1,0 +1,79 @@
+---
+import { getCollection } from 'astro:content';
+import { DOCS_HOME, groupOf, pagePath } from '../../lib/docs-nav';
+import { formatDate, lastUpdated } from '../../lib/docs-meta';
+
+// The pages changed last, from the same git dates the "Last updated" line on
+// each page uses. Nothing is listed by hand: with no git history (a shallow
+// clone, say) there are no dates, and the list is left out.
+const LIMIT = 7;
+
+const entries = await getCollection(
+  'docs',
+  entry => !entry.data.draft && entry.id.startsWith('docs') && entry.id !== DOCS_HOME
+);
+const recent = entries
+  .map(entry => ({
+    slug: entry.id.replace(/\/index$/, ''),
+    title: entry.data.title,
+    date: lastUpdated(entry.filePath),
+  }))
+  .flatMap(page => (page.date ? [{ ...page, date: page.date }] : []))
+  .sort((a, b) => b.date.getTime() - a.date.getTime() || a.slug.localeCompare(b.slug))
+  .slice(0, LIMIT);
+---
+
+{
+  recent.length > 0 && (
+    <ul class="recent">
+      {recent.map(page => (
+        <li>
+          <a href={pagePath(page.slug)}>{page.title}</a>
+          <span class="group">{groupOf(page.slug)?.label}</span>
+          <time datetime={page.date.toISOString().slice(0, 10)}>{formatDate(page.date)}</time>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+<style>
+  .recent {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--line);
+  }
+  li {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: baseline;
+    gap: 16px;
+    margin: 0;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 15px;
+    line-height: 22px;
+  }
+  a {
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+  .group,
+  time {
+    font: 12.5px/18px var(--font-mono);
+    color: var(--text-mute);
+  }
+  @media (max-width: 599px) {
+    li {
+      grid-template-columns: 1fr auto;
+    }
+    .group {
+      display: none;
+    }
+  }
+</style>
