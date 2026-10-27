@@ -31,6 +31,12 @@ pub struct AppState {
     pub mcp_token: Option<String>,
     /// The By hand Downloads watcher: per machine, since folders differ.
     pub downloads_watch: DownloadsWatch,
+    /// Where each project's repo is on this computer: workspace root, then
+    /// project id, then the path. See `project::repos`.
+    pub site_repos: BTreeMap<String, BTreeMap<String, String>>,
+    /// A random id made once for this computer, so the workspace lock can
+    /// tell it from another one with the same name.
+    pub machine_id: Option<String>,
 }
 
 /// Whether the Downloads watcher runs, and on which folder.
@@ -59,6 +65,8 @@ impl Default for AppState {
             tool_overrides: BTreeMap::new(),
             mcp_token: None,
             downloads_watch: DownloadsWatch::default(),
+            site_repos: BTreeMap::new(),
+            machine_id: None,
         }
     }
 }
@@ -158,6 +166,26 @@ mod tests {
             },
             ..AppState::default()
         };
+        save(dir.path(), &state).expect("save");
+        assert_eq!(load(dir.path()), state);
+    }
+
+    #[test]
+    fn an_older_file_loads_with_no_repos_and_keeps_them_once_saved() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        fs::write(
+            dir.path().join(APP_STATE_FILE),
+            r#"{"version": 1, "lastWorkspace": "/Users/me/Maquette", "toolOverrides": {}}"#,
+        )
+        .expect("old file");
+        let mut state = load(dir.path());
+        assert!(state.site_repos.is_empty());
+        assert_eq!(state.machine_id, None);
+        state.site_repos.insert(
+            "/Users/me/Maquette".into(),
+            BTreeMap::from([("studio".into(), "/Users/me/site".into())]),
+        );
+        state.machine_id = Some("abc".into());
         save(dir.path(), &state).expect("save");
         assert_eq!(load(dir.path()), state);
     }

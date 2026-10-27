@@ -130,6 +130,8 @@ fn a_scene_gets_the_character_row_only_with_a_character() {
         target: Default::default(),
         game: None,
         site_repo: None,
+        site_repo_name: None,
+        site_repo_state: Default::default(),
         source_folder: None,
         created_at: String::new(),
         assets: vec![asset("clay", AssetKind::Prop, "models/clay_v1.glb")],

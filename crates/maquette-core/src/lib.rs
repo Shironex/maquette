@@ -109,6 +109,7 @@ pub fn types() -> specta::Types {
         .register::<ProjectTemplate>()
         .register::<ProjectManifest>()
         .register::<ProjectSummary>()
+        .register::<project::SiteRepoState>()
         .register::<ProjectActivity>()
         .register::<NewProject>()
         .register::<RepoInspection>()

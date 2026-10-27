@@ -3,7 +3,6 @@
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
@@ -13,17 +12,23 @@ use crate::game::{GameSettings, NewGame, ProjectTarget};
 use crate::json::write_json;
 use crate::workspace::{FolderLayout, WorkspaceConfig, is_single_segment};
 
+mod clock;
 mod import;
+pub mod repos;
+mod slug;
 
+pub use clock::now_rfc3339;
+pub(crate) use clock::rfc3339_utc;
 pub use import::{
     BlendFile, ImportScan, RepoInspection, SiteFolders, inspect_site_repo, scan_import,
 };
 pub(crate) use import::{has_ext, sorted_children};
+pub use repos::SiteRepoState;
+pub use slug::slugify;
 
 pub const PROJECT_FILE: &str = "project.json";
 pub const PROJECT_VERSION: u32 = 1;
 pub const NAME_MAX_CHARS: usize = 80;
-const SLUG_MAX_CHARS: usize = 60;
 const PROJECT_DIRS: [&str; 6] = ["concepts", "refs", "models", "blender", "web", "tools"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -50,8 +55,15 @@ pub struct ProjectManifest {
     #[serde(default)]
     pub target: ProjectTarget,
     /// The repo Ship writes to: the site of a website, the game repo of a
-    /// game.
+    /// game. This computer's path (see `project::repos`); `project.json` itself
+    /// keeps it only from older files.
     pub site_repo: Option<String>,
+    /// The repo's folder name, saved so another computer can ask for it.
+    #[serde(default)]
+    pub site_repo_name: Option<String>,
+    /// Whether this computer knows where the repo is. Never saved.
+    #[serde(default)]
+    pub site_repo_state: SiteRepoState,
     pub source_folder: Option<String>,
     /// A game project's settings; none for a website.
     #[serde(default)]
@@ -76,65 +88,6 @@ pub struct NewProject {
     /// For a game: the format and the model folder New project found.
     #[serde(default)]
     pub game: Option<NewGame>,
-}
-
-/// `"Moon Island"` becomes `"moon-island"`. Common accented Latin letters are
-/// folded to ASCII, anything else is dropped. Never empty.
-pub fn slugify(name: &str) -> String {
-    let mut slug = String::new();
-    let mut pending_dash = false;
-    for c in name.chars() {
-        let folded = fold_char(c);
-        if folded.is_empty() {
-            if c.is_whitespace() || c.is_ascii_punctuation() {
-                pending_dash = true;
-            }
-            continue;
-        }
-        if pending_dash && !slug.is_empty() {
-            slug.push('-');
-        }
-        pending_dash = false;
-        slug.push_str(&folded);
-    }
-    let mut slug: String = slug.chars().take(SLUG_MAX_CHARS).collect();
-    while slug.ends_with('-') {
-        slug.pop();
-    }
-    if slug.is_empty() {
-        "project".to_string()
-    } else {
-        slug
-    }
-}
-
-fn fold_char(c: char) -> String {
-    if c.is_ascii_alphanumeric() {
-        return c.to_ascii_lowercase().to_string();
-    }
-    let folded = match c.to_lowercase().next().unwrap_or(c) {
-        'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ą' | 'ā' | 'ă' => "a",
-        'æ' => "ae",
-        'ç' | 'ć' | 'č' | 'ĉ' => "c",
-        'ď' | 'đ' | 'ð' => "d",
-        'è' | 'é' | 'ê' | 'ë' | 'ę' | 'ē' | 'ě' => "e",
-        'ğ' | 'ĝ' => "g",
-        'ì' | 'í' | 'î' | 'ï' | 'ī' | 'ı' => "i",
-        'ł' | 'ľ' | 'ĺ' => "l",
-        'ñ' | 'ń' | 'ň' => "n",
-        'ò' | 'ó' | 'ô' | 'õ' | 'ö' | 'ø' | 'ō' | 'ő' => "o",
-        'œ' => "oe",
-        'ř' | 'ŕ' => "r",
-        'ś' | 'š' | 'ş' | 'ŝ' => "s",
-        'ß' => "ss",
-        'ť' | 'ţ' => "t",
-        'þ' => "th",
-        'ù' | 'ú' | 'û' | 'ü' | 'ū' | 'ů' | 'ű' => "u",
-        'ý' | 'ÿ' => "y",
-        'ź' | 'ż' | 'ž' => "z",
-        _ => "",
-    };
-    folded.to_string()
 }
 
 fn projects_dir(workspace_root: &Path, layout: &FolderLayout) -> PathBuf {
@@ -223,23 +176,72 @@ pub fn create(
         fs::create_dir_all(&path).map_err(|e| CoreError::io(&path, e))?;
     }
 
+    repos::set(workspace_root, &id, site_repo.clone());
+    let (site_repo, site_repo_state) = repos::resolve(workspace_root, &id, None, None);
     let manifest = ProjectManifest {
         version: PROJECT_VERSION,
         id,
         name,
         template,
         target: new.target,
+        site_repo_name: site_repo.as_deref().and_then(repos::folder_name),
         site_repo,
+        site_repo_state,
         source_folder: clean_optional(new.source_folder),
         game,
         created_at: now_rfc3339(),
         assets: Vec::new(),
     };
-    write_json(&dir.join(PROJECT_FILE), &manifest)?;
+    write_manifest(workspace_root, &dir.join(PROJECT_FILE), &manifest, None)?;
     Ok(manifest)
 }
 
+/// Writes `manifest` as `project.json`: without the repo state, and with
+/// no repo path but an older file's `legacy` one that has not moved into
+/// this computer's map yet.
+fn write_manifest(
+    workspace_root: &Path,
+    path: &Path,
+    manifest: &ProjectManifest,
+    legacy: Option<String>,
+) -> CoreResult<()> {
+    let mut value = serde_json::to_value(manifest).map_err(|e| CoreError::json(path, e))?;
+    if let Some(object) = value.as_object_mut() {
+        object.remove("siteRepoState");
+        let kept = repos::legacy_to_keep(workspace_root, &manifest.id, legacy);
+        object.insert(
+            "siteRepo".into(),
+            kept.map_or(serde_json::Value::Null, Into::into),
+        );
+    }
+    write_json(path, &value)
+}
+
+/// The manifest with this computer's repo filled in (see [`repos::resolve`]).
 pub fn load(workspace_root: &Path, layout: &FolderLayout, id: &str) -> CoreResult<ProjectManifest> {
+    let raw = load_raw(workspace_root, layout, id)?;
+    Ok(with_repo(workspace_root, raw))
+}
+
+/// `raw` with this computer's repo in place of the file's.
+fn with_repo(workspace_root: &Path, mut manifest: ProjectManifest) -> ProjectManifest {
+    let legacy = manifest.site_repo.take();
+    let (path, state) = repos::resolve(
+        workspace_root,
+        &manifest.id,
+        legacy.as_deref(),
+        manifest.site_repo_name.as_deref(),
+    );
+    if manifest.site_repo_name.is_none() {
+        manifest.site_repo_name = legacy.as_deref().and_then(repos::folder_name);
+    }
+    manifest.site_repo = path;
+    manifest.site_repo_state = state;
+    manifest
+}
+
+/// The manifest as `project.json` has it, `siteRepo` and all.
+fn load_raw(workspace_root: &Path, layout: &FolderLayout, id: &str) -> CoreResult<ProjectManifest> {
     check_id(id)?;
     let path = projects_dir(workspace_root, layout)
         .join(id)
@@ -264,22 +266,32 @@ pub fn load(workspace_root: &Path, layout: &FolderLayout, id: &str) -> CoreResul
     Ok(manifest)
 }
 
+/// The ids of the folders that hold a `project.json`, in no order.
+fn ids(workspace_root: &Path, layout: &FolderLayout) -> Vec<String> {
+    let parent = projects_dir(workspace_root, layout);
+    let Ok(entries) = fs::read_dir(&parent) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().join(PROJECT_FILE).is_file())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|id| !crate::workspace::sync::is_sync_name(id))
+        .collect()
+}
+
 /// Every readable project, oldest first. Folders without a readable
 /// manifest are skipped with a warning.
 pub fn list(workspace_root: &Path, layout: &FolderLayout) -> CoreResult<Vec<ProjectManifest>> {
     let parent = projects_dir(workspace_root, layout);
-    let entries = match fs::read_dir(&parent) {
-        Ok(entries) => entries,
-        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(err) => return Err(CoreError::io(&parent, err)),
-    };
-    let mut projects = Vec::new();
-    for entry in entries.filter_map(Result::ok) {
-        let path = entry.path();
-        let id = entry.file_name().to_string_lossy().into_owned();
-        if crate::workspace::sync::is_sync_name(&id) || !path.join(PROJECT_FILE).is_file() {
-            continue;
+    if let Err(err) = fs::read_dir(&parent) {
+        if err.kind() == io::ErrorKind::NotFound {
+            return Ok(Vec::new());
         }
+        return Err(CoreError::io(&parent, err));
+    }
+    let mut projects = Vec::new();
+    for id in ids(workspace_root, layout) {
         match load(workspace_root, layout, &id) {
             Ok(manifest) => projects.push(manifest),
             Err(err) => tracing::warn!(project = %id, error = %err, "skipping unreadable project"),
@@ -314,7 +326,10 @@ pub struct ProjectSummary {
     pub name: String,
     pub template: ProjectTemplate,
     pub target: ProjectTarget,
+    /// This computer's path to the repo.
     pub site_repo: Option<String>,
+    pub site_repo_name: Option<String>,
+    pub site_repo_state: SiteRepoState,
     pub created_at: String,
     pub asset_count: u32,
     /// Absolute, so the UI can resolve `thumb`.
@@ -364,6 +379,8 @@ pub fn summary(
         template: manifest.template,
         target: manifest.target,
         site_repo: manifest.site_repo.clone(),
+        site_repo_name: manifest.site_repo_name.clone(),
+        site_repo_state: manifest.site_repo_state,
         created_at: manifest.created_at.clone(),
         asset_count: u32::try_from(manifest.assets.len()).unwrap_or(u32::MAX),
         thumb: project_thumb(&dir, manifest),
@@ -403,9 +420,19 @@ pub fn update(
     site_repo: Option<String>,
 ) -> CoreResult<ProjectManifest> {
     let name = clean_name(&name)?;
+    let site_repo = clean_optional(site_repo);
     modify(workspace_root, layout, id, |manifest| {
+        // A rename on a computer that was never told where the repo is
+        // keeps the name, so it is still asked for.
+        let changes_repo = site_repo.is_some() || repos::get(workspace_root, id).is_some();
+        repos::set(workspace_root, id, site_repo.clone());
+        let (site_repo, state) = repos::resolve(workspace_root, id, None, None);
         manifest.name = name;
-        manifest.site_repo = clean_optional(site_repo);
+        if changes_repo {
+            manifest.site_repo_name = site_repo.as_deref().and_then(repos::folder_name);
+            manifest.site_repo = site_repo;
+            manifest.site_repo_state = state;
+        }
         Ok(())
     })
 }
@@ -424,46 +451,13 @@ pub fn modify<T>(
     change: impl FnOnce(&mut ProjectManifest) -> CoreResult<T>,
 ) -> CoreResult<ProjectManifest> {
     let _turn = WRITES.lock().unwrap_or_else(|p| p.into_inner());
-    let mut manifest = load(workspace_root, layout, id)?;
+    let raw = load_raw(workspace_root, layout, id)?;
+    let legacy = raw.site_repo.clone();
+    let mut manifest = with_repo(workspace_root, raw);
     change(&mut manifest)?;
     let path = dir(workspace_root, layout, id)?.join(PROJECT_FILE);
-    write_json(&path, &manifest)?;
+    write_manifest(workspace_root, &path, &manifest, legacy)?;
     Ok(manifest)
-}
-
-/// The current time as RFC 3339 UTC with milliseconds.
-pub fn now_rfc3339() -> String {
-    rfc3339_utc(SystemTime::now())
-}
-
-pub(crate) fn rfc3339_utc(time: SystemTime) -> String {
-    let since = time.duration_since(UNIX_EPOCH).unwrap_or_default();
-    let secs = since.as_secs();
-    let millis = since.subsec_millis();
-    let days = i64::try_from(secs / 86_400).unwrap_or(0);
-    let rem = secs % 86_400;
-    let (year, month, day) = civil_from_days(days);
-    format!(
-        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}.{millis:03}Z",
-        rem / 3600,
-        (rem / 60) % 60,
-        rem % 60
-    )
-}
-
-/// Days since 1970-01-01 to a proleptic Gregorian date (Howard Hinnant's
-/// algorithm).
-fn civil_from_days(days: i64) -> (i64, u32, u32) {
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    let year = yoe + era * 400 + i64::from(month <= 2);
-    (year, month as u32, day as u32)
 }
 
 #[cfg(test)]

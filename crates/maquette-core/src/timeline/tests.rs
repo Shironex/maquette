@@ -19,6 +19,8 @@ fn manifest(dir: &Path) -> ProjectManifest {
         target: Default::default(),
         game: None,
         site_repo: None,
+        site_repo_name: None,
+        site_repo_state: Default::default(),
         source_folder: None,
         created_at: at.clone(),
         assets: vec![Asset {

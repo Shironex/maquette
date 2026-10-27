@@ -335,6 +335,8 @@ fn every_version_of_an_asset_with_tweaks_is_found_by_its_stem() {
         target: Default::default(),
         game: None,
         site_repo: None,
+        site_repo_name: None,
+        site_repo_state: Default::default(),
         source_folder: None,
         created_at: "2026-10-25T08:00:00.000Z".into(),
         assets: Vec::new(),

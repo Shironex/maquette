@@ -21,6 +21,8 @@ fn manifest(assets: Vec<Asset>) -> ProjectManifest {
         target: Default::default(),
         game: None,
         site_repo: None,
+        site_repo_name: None,
+        site_repo_state: Default::default(),
         source_folder: None,
         created_at: "2026-10-20T10:00:00.000Z".into(),
         assets,

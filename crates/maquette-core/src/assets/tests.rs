@@ -10,6 +10,8 @@ fn manifest() -> ProjectManifest {
         target: Default::default(),
         game: None,
         site_repo: None,
+        site_repo_name: None,
+        site_repo_state: Default::default(),
         source_folder: None,
         created_at: "2026-10-24T09:30:00.000Z".into(),
         assets: Vec::new(),
