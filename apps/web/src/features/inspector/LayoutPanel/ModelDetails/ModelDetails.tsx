@@ -77,6 +77,7 @@ export default function ModelDetails({ model, layout }: ModelDetailsProps) {
         <Button
           size="sm"
           icon="arrow-counter-clockwise"
+          tooltip="Sets the turn back to none and the scale back to 1"
           onClick={() => place({ rotation: [0, 0, 0], scale: 1 })}
         >
           Reset turn and scale

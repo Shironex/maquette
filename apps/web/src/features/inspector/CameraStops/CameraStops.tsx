@@ -1,4 +1,4 @@
-import { Icon, cn } from '@maquette/ui';
+import { Icon, Tooltip, cn } from '@maquette/ui';
 import type { InspectView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { stopsHelp, type Stop } from '@/state/inspector';
@@ -21,28 +21,29 @@ export default function CameraStops({ view, stops, shots }: CameraStopsProps) {
     const src = s.poster ? fileUrl(s.poster) : (shots[i] ?? null);
     const on = stop?.index === i;
     return (
-      <button
-        key={`${s.name}-${i}`}
-        type="button"
-        aria-pressed={on}
-        aria-label={`Fly to ${s.name}`}
-        onClick={() => flyTo(i)}
-        className={cn(
-          'relative h-[86px] cursor-pointer overflow-hidden rounded-[8px] bg-studio',
-          on
-            ? 'shadow-[0_0_0_2px_var(--color-clay)]'
-            : 'shadow-[0_0_0_1px_var(--color-line)] hover:shadow-[0_0_0_1px_var(--color-line-strong)]'
-        )}
-      >
-        {src ? (
-          <img src={src} alt="" className="block size-full object-cover" />
-        ) : (
-          <span className="grid size-full place-items-center text-fg-mute">
-            <Icon name="camera" />
-          </span>
-        )}
-        <span className={cn(badge, 'bottom-1.5 left-1.5 h-5')}>{s.name}</span>
-      </button>
+      <Tooltip key={`${s.name}-${i}`} label="Flies the camera to this stop">
+        <button
+          type="button"
+          aria-pressed={on}
+          aria-label={`Fly to ${s.name}`}
+          onClick={() => flyTo(i)}
+          className={cn(
+            'relative h-[86px] cursor-pointer overflow-hidden rounded-[8px] bg-studio',
+            on
+              ? 'shadow-[0_0_0_2px_var(--color-clay)]'
+              : 'shadow-[0_0_0_1px_var(--color-line)] hover:shadow-[0_0_0_1px_var(--color-line-strong)]'
+          )}
+        >
+          {src ? (
+            <img src={src} alt="" className="block size-full object-cover" />
+          ) : (
+            <span className="grid size-full place-items-center text-fg-mute">
+              <Icon name="camera" />
+            </span>
+          )}
+          <span className={cn(badge, 'bottom-1.5 left-1.5 h-5')}>{s.name}</span>
+        </button>
+      </Tooltip>
     );
   });
   return (

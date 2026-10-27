@@ -56,6 +56,7 @@ export default function PathEnergize({ path, track, stops, change }: PathEnergiz
             icon="film-strip"
             className="self-start"
             aria-label={`Edit ${path.name} in the Timeline`}
+            tooltip="Opens the Timeline to set how much of this path is lit at each stop"
             onClick={openTimeline}
           >
             Edit in Timeline

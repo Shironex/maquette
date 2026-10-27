@@ -61,7 +61,11 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
               title="The layout could not be read"
               body={error}
               action={
-                <Button icon="arrow-clockwise" onClick={() => void store.load(project)}>
+                <Button
+                  icon="arrow-clockwise"
+                  tooltip="Loads the layout again"
+                  onClick={() => void store.load(project)}
+                >
                   Try again
                 </Button>
               }
@@ -160,7 +164,11 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
             title="An agent changed the layout"
             detail="Your edits are not saved. Load their version to see it, or save yours over it."
             actions={
-              <Button size="sm" onClick={() => void store.load(project)}>
+              <Button
+                size="sm"
+                tooltip="Replaces your unsaved edits with the layout as it is on disk"
+                onClick={() => void store.load(project)}
+              >
                 Load their version
               </Button>
             }
@@ -174,7 +182,11 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
               title="No models to lay out yet"
               body="Accept a model from the Inbox. Every asset with a model shows up here to place."
               action={
-                <Button icon="tray" onClick={() => setView('inbox')}>
+                <Button
+                  icon="tray"
+                  tooltip="Goes to the Inbox, where models arrive"
+                  onClick={() => setView('inbox')}
+                >
                   Open the Inbox
                 </Button>
               }

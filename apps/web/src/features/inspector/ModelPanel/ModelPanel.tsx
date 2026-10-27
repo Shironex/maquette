@@ -251,7 +251,7 @@ export default function ModelPanel({
                 disabled={exporting}
                 onClick={() => onExport(model)}
                 className="self-start"
-                title="Run the export step for this model only and replace its raw GLB"
+                tooltip="Runs the export step for this model only and replaces its raw GLB"
               >
                 {exporting ? 'Exporting' : 'Export GLB'}
               </Button>

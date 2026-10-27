@@ -1,4 +1,4 @@
-import { Button, IconButton, NumberField, cn } from '@maquette/ui';
+import { Button, IconButton, NumberField, Tooltip, cn } from '@maquette/ui';
 import type { LayoutModel, ScenePath } from '@/ipc/client';
 import { MAX_POINTS, along, pointsOf } from '@/state/paths';
 import type { Vec3 } from '@/state/inspector';
@@ -49,18 +49,20 @@ export default function PointsTable({ path, models }: PointsTableProps) {
     return (
       <tr key={i} aria-selected={on} className={cn('border-t border-line', on && 'bg-clay-soft')}>
         <td className="py-1 pr-2">
-          <button
-            type="button"
-            aria-label={`Pick point ${i + 1}`}
-            aria-pressed={on}
-            onClick={() => pick(i)}
-            className={cn(
-              'grid size-6 cursor-pointer place-items-center rounded-[5px] font-mono text-[11px] hover:bg-hover',
-              on ? 'text-clay-text' : 'text-fg-mute'
-            )}
-          >
-            {i + 1}
-          </button>
+          <Tooltip label="Selects this point in the view">
+            <button
+              type="button"
+              aria-label={`Pick point ${i + 1}`}
+              aria-pressed={on}
+              onClick={() => pick(i)}
+              className={cn(
+                'grid size-6 cursor-pointer place-items-center rounded-[5px] font-mono text-[11px] hover:bg-hover',
+                on ? 'text-clay-text' : 'text-fg-mute'
+              )}
+            >
+              {i + 1}
+            </button>
+          </Tooltip>
         </td>
         {axisCells(point, i)}
         <td className="py-1 pr-2 text-right font-mono text-[11.5px] text-fg-mute">
@@ -104,6 +106,8 @@ export default function PointsTable({ path, models }: PointsTableProps) {
         icon="plus"
         className="self-start"
         disabled={points.length >= MAX_POINTS}
+        disabledReason={`A path keeps ${MAX_POINTS} points at most`}
+        tooltip="Adds a point after the last one"
         onClick={add}
       >
         Add point at the end

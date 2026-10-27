@@ -146,10 +146,21 @@ export default function BudgetPanel() {
           {budgetRows}
           {b.dirty ? (
             <div className="flex justify-end gap-2 pt-1">
-              <Button size="sm" variant="ghost" onClick={b.reset}>
+              <Button
+                size="sm"
+                variant="ghost"
+                tooltip="Puts the budgets back as last saved"
+                onClick={b.reset}
+              >
                 Undo
               </Button>
-              <Button size="sm" variant="primary" loading={b.saving} onClick={b.save}>
+              <Button
+                size="sm"
+                variant="primary"
+                loading={b.saving}
+                tooltip="Saves the triangle and texture budgets for each model"
+                onClick={b.save}
+              >
                 Save budgets
               </Button>
             </div>
@@ -175,6 +186,7 @@ export default function BudgetPanel() {
             disabledReason={
               b.over.length ? 'Rigged models are reduced by hand' : 'Nothing is over budget'
             }
+            tooltip="Adds fix-ups that reduce the models that are over budget, applied in the Build scene step"
             onClick={b.addFixups}
           >
             {b.fixable === 1 ? 'Add the fix-up' : `Add the ${b.fixable} fix-ups`}

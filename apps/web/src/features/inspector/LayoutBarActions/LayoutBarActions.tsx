@@ -18,6 +18,7 @@ export default function LayoutBarActions() {
         icon="arrow-u-up-left"
         disabled={!dirty || saving}
         disabledReason="No unsaved changes"
+        tooltip="Drops your unsaved edits and goes back to the saved layout"
         onClick={revert}
       >
         Revert

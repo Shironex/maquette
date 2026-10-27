@@ -167,6 +167,11 @@ export function useInspectorPage(view: InspectView) {
     toggleTurntable: () => setTurntable(t => !t),
     savePreset,
     runDisabled: running || pipeline.starting || !pipeline.view,
+    runReason: running
+      ? 'A run is already going'
+      : pipeline.starting
+        ? 'Starting the run'
+        : 'Loading the pipeline',
     run: () => void pipeline.run({}),
   };
 }

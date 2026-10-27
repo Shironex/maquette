@@ -15,7 +15,13 @@ export default function CompareMenu({ view, pick }: CompareMenuProps) {
   if (groups.length === 0) return null;
   return (
     <div ref={anchorRef} className="relative">
-      <Button size="sm" onClick={toggle} aria-expanded={open} aria-haspopup="listbox">
+      <Button
+        size="sm"
+        tooltip="Choose which versions to compare"
+        onClick={toggle}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
         {pick.left ? (
           <>
             <span className="font-mono">{pick.left.label}</span>

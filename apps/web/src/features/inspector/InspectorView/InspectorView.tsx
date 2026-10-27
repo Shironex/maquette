@@ -61,7 +61,11 @@ export default function InspectorView() {
                 title="The models could not be read"
                 body={error}
                 action={
-                  <Button icon="arrow-clockwise" onClick={() => void load(project.id)}>
+                  <Button
+                    icon="arrow-clockwise"
+                    tooltip="Loads the Inspector again"
+                    onClick={() => void load(project.id)}
+                  >
                     Try again
                   </Button>
                 }

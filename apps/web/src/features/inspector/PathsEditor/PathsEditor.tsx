@@ -55,7 +55,11 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
               title="The paths could not be read"
               body={error}
               action={
-                <Button icon="arrow-clockwise" onClick={() => void store.load(project)}>
+                <Button
+                  icon="arrow-clockwise"
+                  tooltip="Loads the paths again"
+                  onClick={() => void store.load(project)}
+                >
                   Try again
                 </Button>
               }
@@ -154,7 +158,11 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
                 title="No paths yet"
                 body="A path is a curve through the scene the site draws as a tube and lights as the page scrolls: a cable, a pipe, a glowing trail."
                 action={
-                  <Button icon="plus" onClick={newPath}>
+                  <Button
+                    icon="plus"
+                    tooltip="Adds a path the site draws as a tube through the scene"
+                    onClick={newPath}
+                  >
                     New path
                   </Button>
                 }

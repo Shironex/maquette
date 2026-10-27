@@ -134,6 +134,12 @@ export default function LayoutPanel({ view, dirty }: LayoutPanelProps) {
           icon="plus"
           className="self-start"
           disabled={!store.pose || draft.stops.length >= MAX_STOPS}
+          disabledReason={
+            draft.stops.length >= MAX_STOPS
+              ? `A scene keeps ${MAX_STOPS} stops at most`
+              : 'Open the scene view first'
+          }
+          tooltip="Adds a camera stop where the view is now"
           onClick={store.addStopHere}
         >
           Add stop from view

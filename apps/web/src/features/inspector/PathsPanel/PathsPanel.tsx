@@ -109,6 +109,7 @@ export default function PathsPanel({ view }: PathsPanelProps) {
           className="self-start"
           disabled={draft.paths.length >= MAX_PATHS}
           disabledReason={`A scene keeps ${MAX_PATHS} paths at most`}
+          tooltip="Adds a path the site draws as a tube through the scene"
           onClick={newPath}
         >
           New path
@@ -141,7 +142,14 @@ export default function PathsPanel({ view }: PathsPanelProps) {
               <dd className="text-right">{pathBytes(path, track)}</dd>
             </dl>
           </div>
-          <Button size="sm" icon="trash" variant="danger" className="self-start" onClick={remove}>
+          <Button
+            size="sm"
+            icon="trash"
+            variant="danger"
+            className="self-start"
+            tooltip="Deletes this path and its fill"
+            onClick={remove}
+          >
             Remove path
           </Button>
         </>

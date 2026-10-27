@@ -55,7 +55,14 @@ export default function Inspector({ view }: InspectorProps) {
       right={
         <>
           <SceneBudgetMeter value={totalMb} target={num(view.limits.sceneMb)} />
-          <Button variant="primary" icon="play" disabled={page.runDisabled} onClick={page.run}>
+          <Button
+            variant="primary"
+            icon="play"
+            disabled={page.runDisabled}
+            disabledReason={page.runReason}
+            tooltip="Runs every step, skipping cached ones"
+            onClick={page.run}
+          >
             Run pipeline
           </Button>
         </>
@@ -110,7 +117,11 @@ export default function Inspector({ view }: InspectorProps) {
                 title="Nothing to inspect yet"
                 body={page.emptyBody}
                 action={
-                  <Button icon="flow-arrow" onClick={() => page.setView('pipeline')}>
+                  <Button
+                    icon="flow-arrow"
+                    tooltip="Goes to the Pipeline, where the scene is exported"
+                    onClick={() => page.setView('pipeline')}
+                  >
                     Open the pipeline
                   </Button>
                 }

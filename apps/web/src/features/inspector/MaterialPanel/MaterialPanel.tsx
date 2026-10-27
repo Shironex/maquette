@@ -215,6 +215,7 @@ export default function MaterialPanel({ project, model }: MaterialPanelProps) {
           size="sm"
           disabled={!p.canReset || p.saving}
           disabledReason={p.saving ? 'Saving the tweaks' : 'No tweaks to drop'}
+          tooltip="Drops the saved tweaks so the model looks as it came"
           onClick={p.onReset}
         >
           {p.resetLabel}
@@ -224,6 +225,7 @@ export default function MaterialPanel({ project, model }: MaterialPanelProps) {
           variant="primary"
           disabled={!p.dirty || p.saving || p.applyBlocked !== null}
           disabledReason={p.applyBlocked ?? 'Nothing changed yet'}
+          tooltip="Saves the tweaks; Compress applies them to the shipped model on the next run"
           loading={p.saving}
           onClick={p.onApply}
         >

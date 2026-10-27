@@ -30,6 +30,7 @@ export default function LibraryPanel({ project, model }: LibraryPanelProps) {
             size="sm"
             variant="primary"
             icon="arrow-up"
+            tooltip="Brings in the newer version of this model from the library"
             onClick={() => void openUpdate(target)}
           >
             Update to v{update.to}...
@@ -40,6 +41,7 @@ export default function LibraryPanel({ project, model }: LibraryPanelProps) {
           icon="books"
           disabled={asset.versions.length === 0}
           disabledReason="No model yet"
+          tooltip="Saves this model to the library to use in other projects"
           onClick={() => openAdd(target)}
         >
           Add to library...
