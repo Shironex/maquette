@@ -27,7 +27,10 @@ const link = (href: string) => (href.startsWith('#') ? `${home}${href}` : href);
         }
       </ul>
     </nav>
-    <p class="rights">All rights reserved.</p>
+    <p class="rights">
+      Code under <a href="https://github.com/Shironex/maquette/blob/main/LICENSE">AGPL-3.0</a>, artwork
+      reserved.
+    </p>
   </div>
 </footer>
 
@@ -72,6 +75,12 @@ const link = (href: string) => (href.startsWith('#') ? `${home}${href}` : href);
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text-mute);
+  }
+  .rights a {
+    color: inherit;
+  }
+  .rights a:hover {
+    color: var(--text);
   }
   @media (max-width: 899px) {
     .row {
