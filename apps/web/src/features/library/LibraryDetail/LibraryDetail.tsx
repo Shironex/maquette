@@ -55,6 +55,7 @@ export default function LibraryDetail({ item }: LibraryDetailProps) {
         <Button
           size="sm"
           icon="arrow-up"
+          tooltip="Brings this project's copy up to the newest library version, at no credits"
           onClick={() => d.update({ project: u.project, asset: u.asset })}
         >
           Update to v{d.newest}
@@ -106,6 +107,7 @@ export default function LibraryDetail({ item }: LibraryDetailProps) {
           icon="copy"
           disabled={Boolean(d.blocked) || d.busy}
           disabledReason={d.blocked ?? 'Working on it'}
+          tooltip="Copies this library model into the project, at no credits"
           loading={d.busy}
           onClick={d.useIt}
         >

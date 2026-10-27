@@ -73,7 +73,11 @@ export default function LibraryView() {
               value={layout}
               onChange={setLayout}
             />
-            <Button icon="plus" onClick={() => v.openAdd('pick')}>
+            <Button
+              icon="plus"
+              tooltip="Pick a model from a project to keep in the library"
+              onClick={() => v.openAdd('pick')}
+            >
               Add from a project
             </Button>
           </div>
@@ -100,7 +104,12 @@ export default function LibraryView() {
               },
             ]}
             action={
-              <Button variant="primary" icon="plus" onClick={() => v.openAdd('pick')}>
+              <Button
+                variant="primary"
+                icon="plus"
+                tooltip="Pick a model from a project to keep in the library"
+                onClick={() => v.openAdd('pick')}
+              >
                 Add from a project
               </Button>
             }
