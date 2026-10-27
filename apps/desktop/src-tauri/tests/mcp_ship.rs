@@ -145,6 +145,7 @@ async fn call(client: &RunningService<RoleClient, ClientConfig>, tool: &str, arg
     serde_json::from_str(&text(&result)).expect("json")
 }
 
+#[cfg(unix)]
 fn shell_step(id: &str, name: &str, script: &str, deps: &[&str]) -> pipeline::StepDef {
     pipeline::StepDef {
         id: id.into(),
@@ -294,39 +295,43 @@ async fn agents_set_up_a_hand_built_site_and_build_without_shipping() {
             .is_some_and(|c| c.starts_with("asset,name,version"))
     );
 
-    // A build only run never reaches Ship.
-    let mut def = pipeline::load(&project_dir).expect("def").expect("file");
-    std::fs::write(project_dir.join("tools/build.sh"), "echo built\n").expect("build");
-    std::fs::write(project_dir.join("tools/ship.sh"), "touch shipped\n").expect("ship");
-    def.steps = vec![
-        shell_step("build", "Build", "tools/build.sh", &[]),
-        shell_step("ship", "Ship", "tools/ship.sh", &["build"]),
-    ];
-    pipeline::save(&project_dir, &def).expect("save");
-    let started = call(
-        &client,
-        "run_pipeline",
-        json!({ "project": project_id, "buildOnly": true, "waitSeconds": 1 }),
-    )
-    .await;
-    assert_eq!(started["buildOnly"], json!(true));
-    let mut run = started;
-    for _ in 0..300 {
-        run = call(
+    // A build only run never reaches Ship. Its fixture steps are sh
+    // scripts, which a Windows machine has no /bin/sh to run.
+    #[cfg(unix)]
+    {
+        let mut def = pipeline::load(&project_dir).expect("def").expect("file");
+        std::fs::write(project_dir.join("tools/build.sh"), "echo built\n").expect("build");
+        std::fs::write(project_dir.join("tools/ship.sh"), "touch shipped\n").expect("ship");
+        def.steps = vec![
+            shell_step("build", "Build", "tools/build.sh", &[]),
+            shell_step("ship", "Ship", "tools/ship.sh", &["build"]),
+        ];
+        pipeline::save(&project_dir, &def).expect("save");
+        let started = call(
             &client,
-            "get_run",
-            json!({ "project": project_id, "number": 1 }),
+            "run_pipeline",
+            json!({ "project": project_id, "buildOnly": true, "waitSeconds": 1 }),
         )
         .await;
-        if run["status"] == json!("done") || run["status"] == json!("failed") {
-            break;
+        assert_eq!(started["buildOnly"], json!(true));
+        let mut run = started;
+        for _ in 0..300 {
+            run = call(
+                &client,
+                "get_run",
+                json!({ "project": project_id, "number": 1 }),
+            )
+            .await;
+            if run["status"] == json!("done") || run["status"] == json!("failed") {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        assert_eq!(run["status"], json!("done"), "{run}");
+        assert_eq!(run["buildOnly"], json!(true));
+        assert_eq!(run["steps"][1]["state"], json!("skipped"));
+        assert!(!project_dir.join("shipped").exists());
     }
-    assert_eq!(run["status"], json!("done"), "{run}");
-    assert_eq!(run["buildOnly"], json!(true));
-    assert_eq!(run["steps"][1]["state"], json!("skipped"));
-    assert!(!project_dir.join("shipped").exists());
 
     client.cancel().await.expect("close");
     server.stop();
