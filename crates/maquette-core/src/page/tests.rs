@@ -2,7 +2,8 @@ use super::*;
 
 fn workspace() -> (tempfile::TempDir, std::path::PathBuf) {
     let dir = tempfile::tempdir().expect("workspace");
-    let project = dir.path().join("projects/moon-island");
+    // Joined part by part, as a file dialog hands back native separators.
+    let project = dir.path().join("projects").join("moon-island");
     std::fs::create_dir_all(project.join("concepts")).expect("project");
     (dir, project)
 }
@@ -19,7 +20,7 @@ fn a_project_without_page_json_gets_the_defaults() {
 #[test]
 fn settings_round_trip_tidied() {
     let (dir, project) = workspace();
-    let concept = project.join("concepts/home_v2.html");
+    let concept = project.join("concepts").join("home_v2.html");
     std::fs::write(&concept, "<!doctype html><title>Home</title>").expect("concept");
     let saved = save(
         &project,
