@@ -117,6 +117,15 @@ impl PipelineRunner {
         }
     }
 
+    /// Whether any lane runs or queues anything (a pipeline run, a build),
+    /// so a restart would cut work off.
+    pub fn any_active(&self) -> bool {
+        self.inner
+            .lanes()
+            .values()
+            .any(|lane| !lane.active.is_empty() || !lane.queue.is_empty())
+    }
+
     /// Every run going now on `project`'s lane.
     pub fn running(&self, project: &str) -> Vec<String> {
         self.inner
