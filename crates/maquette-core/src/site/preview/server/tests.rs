@@ -51,9 +51,16 @@ fn a_server_starts_reports_its_address_and_stops() {
     assert_eq!(first.state, ServerState::Starting);
     assert_eq!(first.project.as_deref(), Some("moon-island"));
     let status = preview.wait(Duration::from_secs(20));
-    let port = plan.port.expect("port");
     assert_eq!(status.state, ServerState::Running, "{status:?}");
-    assert_eq!(status.url, Some(format!("http://127.0.0.1:{port}/")));
+    // The port answers as the address prints, so the server may first run
+    // at the guessed localhost url and then move to the printed one.
+    let printed = format!("http://127.0.0.1:{}/", plan.port.expect("port"));
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while preview.status().url.as_deref() != Some(printed.as_str()) && Instant::now() < deadline {
+        thread::sleep(POLL);
+    }
+    let status = preview.status();
+    assert_eq!(status.url.as_deref(), Some(printed.as_str()), "{status:?}");
     assert!(!status.external);
     assert!(
         status.log.iter().any(|l| l.contains("Local")),
