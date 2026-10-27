@@ -48,7 +48,7 @@
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=page, ONLY=game, ONLY=library, ONLY=board, ONLY=compare, ONLY=sync or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=page, ONLY=game, ONLY=library, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -62,6 +62,7 @@ import { boardShots } from './visual-check/board.mjs';
 import { gameShots } from './visual-check/game.mjs';
 import { libraryShots } from './visual-check/library.mjs';
 import { compareShots } from './visual-check/compare.mjs';
+import { shipShots } from './visual-check/ship.mjs';
 import { motionShots } from './visual-check/motion.mjs';
 import { pageShots } from './visual-check/page.mjs';
 import { pathsShots } from './visual-check/paths.mjs';
@@ -982,6 +983,7 @@ try {
   if (!only || only === 'game') await gameShots({ open, shot });
   if (!only || only === 'library') await libraryShots({ open, shot });
   if (!only || only === 'compare') await compareShots({ open, shot });
+  if (!only || only === 'ship') await shipShots({ open, shot, hoverTip });
   if (!only || only === 'sync') await syncShots({ open, shot });
 } finally {
   await browser.close();
