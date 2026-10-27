@@ -9,8 +9,9 @@
  * Board card waiting for a model, Send to 3D from the Lab and Settings > 3D
  * providers with a tested key, the project switcher (open, with search, the
  * New project dialog, the collapsed rail, the Board after a switch), moving
- * a Lab direction, a long Lab title, a Refs card with its picture and the
- * starter scripts banner. The handoff set covers Make object refs, an
+ * a Lab direction, a long Lab title and a Refs card with its picture. The
+ * pipeline set (scripts/visual-check/pipeline.mjs) covers the Pipeline
+ * runner, the site preview and its Stop, and the status bar's server menu. The handoff set covers Make object refs, an
  * objects direction, Board multi-select, the batch send panel (By hand and
  * Tripo), the By hand checklist, Add model and Check Downloads, and a batch
  * approval from an agent. The scene set covers the Inspector's layout editor
@@ -50,7 +51,7 @@
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=page, ONLY=game, ONLY=library, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -69,6 +70,7 @@ import { shipShots } from './visual-check/ship.mjs';
 import { motionShots } from './visual-check/motion.mjs';
 import { pageShots } from './visual-check/page.mjs';
 import { pathsShots } from './visual-check/paths.mjs';
+import { pipelineShots } from './visual-check/pipeline.mjs';
 import { syncShots } from './visual-check/sync.mjs';
 import { timelineShots } from './visual-check/timeline.mjs';
 
@@ -637,25 +639,6 @@ async function coreShots() {
   await keys.getByText('The key works.', { exact: false }).waitFor();
   await shot(keys, 'settings-providers');
 
-  const failed = await open('&scenario=configured', '#/pipeline');
-  await failed.getByText('Run 24 failed at Capture posters').first().waitFor();
-  await shot(failed, 'pipeline-failed');
-  // A tall window, so the whole log shows.
-  const logs = await open('&scenario=configured', '#/pipeline', { width: 1440, height: 1500 });
-  await logs.getByRole('log').getByText('Traceback').waitFor();
-  await shot(logs.getByRole('log'), 'pipeline-log');
-  await logs.getByText('Hide noise').click();
-  await shot(logs.getByRole('log'), 'pipeline-log-quiet');
-
-  const idle = await open('&scenario=idle', '#/pipeline');
-  await idle.getByRole('heading', { name: 'Pipeline runner' }).waitFor();
-  await shot(idle, 'pipeline-idle');
-
-  const running = await open('&scenario=running&pace=60', '#/pipeline');
-  await running.getByText('Run 25 · step 3 of 6').first().waitFor();
-  await running.waitForTimeout(1200);
-  await shot(running, 'pipeline-running');
-
   const inbox = await open('&scenario=configured', '#/inbox');
   await inbox.getByRole('heading', { name: 'Automatic checks' }).waitFor();
   // The preview loads its model lazily; give WebGL a moment.
@@ -740,10 +723,6 @@ async function coreShots() {
   await narrow.getByRole('button', { name: /^Academy landing/ }).click();
   await narrow.getByRole('heading', { name: 'Academy landing' }).waitFor();
   await shot(narrow, 'lab-long-title');
-
-  const starters = await open('&scenario=configured', '#/pipeline');
-  await starters.getByText(/^New starter scripts for /).waitFor();
-  await shot(starters, 'pipeline-starters');
 }
 
 /** Redo from the Inbox and the Credits sheet, on the redo fixture. */
@@ -986,6 +965,7 @@ try {
   if (!only || only === 'motion') await motionShots({ open, shot });
   if (!only || only === 'timeline') await timelineShots({ open, shot });
   if (!only || only === 'paths') await pathsShots({ open, shot });
+  if (!only || only === 'pipeline') await pipelineShots({ open, shot, hoverTip });
   if (!only || only === 'page') await pageShots({ open, shot });
   if (!only || only === 'game') await gameShots({ open, shot });
   if (!only || only === 'library') await libraryShots({ open, shot });

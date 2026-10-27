@@ -1,6 +1,7 @@
 /**
  * The Page view's shots for scripts/visual-check.mjs (ONLY=page): the site
- * dev page running at a stop, starting, failed, a project without a site
+ * dev page running at a stop, its header's server state and Stop, stopped
+ * from there, starting, failed, a project without a site
  * repo, a phone, the Devices tab, a page concept, and the compare board
  * (ship against this run on desktop, then with the poster on a phone),
  * a tour of ten stops on the scrubber, the mock site with the bridge shim
@@ -70,6 +71,19 @@ export async function pageShots({ open, shot }) {
   await running.waitForTimeout(400);
   await shot(running, 'page-concept');
   await running.context().close();
+
+  // The header says where the server runs and who started it; Stop ends it.
+  const stop = await open(RUNNING, '#/page');
+  await answered(stop);
+  const stopButton = stop.getByRole('button', { name: 'Stop', exact: true });
+  await stopButton.hover();
+  await stop.getByRole('tooltip').waitFor();
+  await shot(stop, 'page-server-stop-tip');
+  await stopButton.click();
+  await stop.getByRole('heading', { name: 'The dev server is stopped' }).waitFor();
+  await stop.mouse.move(0, 0);
+  await shot(stop, 'page-server-stopped');
+  await stop.context().close();
 
   const starting = await open('&scenario=configured&page=starting', '#/page');
   await starting.getByRole('heading', { name: "Starting the site's dev server" }).waitFor();
