@@ -28,6 +28,7 @@ pub mod runs;
 pub mod sending;
 pub mod starters;
 pub mod timeline;
+pub mod trash;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -102,7 +103,9 @@ tracks saying how much of each is lit at each camera stop (Ship sends them all t
 with the rest of the layout). \
 get_motion reads every model's rig, clips and parts and what the clips weigh inside the scene \
 budget. copy_asset copies an asset with its refs and \
-versions to another project. \
+versions to another project. remove_assets removes assets from a project into the workspace \
+trash (refused while its model is being made or a run is going), list_removed_assets lists \
+them and restore_asset puts one back. \
 The library keeps models outside any project (library/ at the workspace root). list_library \
 reads it; add_to_library copies an asset's newest model in (a newer model of an asset already \
 there becomes its entry's next version); use_from_library copies an entry into a project as a \
@@ -209,7 +212,8 @@ impl McpTools {
                 + Self::starters_router()
                 + Self::page_router()
                 + Self::game_router()
-                + Self::library_router(),
+                + Self::library_router()
+                + Self::trash_router(),
         }
     }
 

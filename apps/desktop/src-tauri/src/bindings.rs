@@ -10,7 +10,7 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 use crate::commands::{
     agents, app, assets, built, credits, dialogs, downloads, game, inbox, inspect, lab, layout,
     library, materials, motion, page, paths, pipeline, prepare, project, providers, quit, site,
-    thumbs, timeline, toolchain, workspace,
+    thumbs, timeline, toolchain, trash, workspace,
 };
 use crate::events::{
     BuiltChanged, ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged, LibraryChanged,
@@ -66,6 +66,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             assets::asset_rename,
             assets::asset_open_in_blender,
             assets::asset_copy_to_project,
+            trash::asset_remove,
+            trash::asset_trash_list,
+            trash::asset_restore,
             library::library_get,
             library::library_add,
             library::library_use,
@@ -243,6 +246,9 @@ mod tests {
             "timelineSave",
             "pathsSave",
             "assetCopyToProject",
+            "assetRemove",
+            "assetTrashList",
+            "assetRestore",
             "libraryGet",
             "libraryAdd",
             "libraryUse",

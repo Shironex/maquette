@@ -24,6 +24,11 @@ use crate::session::Session;
 /// Builds run one at a time for the whole app, app and agents alike.
 static BUILDER: LazyLock<Builder> = LazyLock::new(Builder::default);
 
+/// The built assets of `project_id` building now.
+pub(crate) fn building(project_id: &str) -> Vec<String> {
+    BUILDER.busy(project_id)
+}
+
 /// What Add built asset made.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]

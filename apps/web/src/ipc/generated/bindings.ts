@@ -92,6 +92,12 @@ export const commands = {
 	 *  to another project. The asset stays where it is.
 	 */
 	assetCopyToProject: (project: string, id: string, to: string) => __TAURI_INVOKE<CopiedAsset>("asset_copy_to_project", { project, id, to }),
+	/**  Removes assets from the project into the workspace trash. */
+	assetRemove: (project: string, ids: string[]) => __TAURI_INVOKE<AssetsRemoved>("asset_remove", { project, ids }),
+	/**  The assets removed from the project, newest first. */
+	assetTrashList: (project: string) => __TAURI_INVOKE<TrashEntry[]>("asset_trash_list", { project }),
+	/**  Puts a removed asset back on the Board. */
+	assetRestore: (project: string, trash: string) => __TAURI_INVOKE<AssetRestored>("asset_restore", { project, trash }),
 	/**  Every library entry with the projects that use it. */
 	libraryGet: () => __TAURI_INVOKE<LibraryView>("library_get"),
 	/**
@@ -589,6 +595,21 @@ export type AssetPrep = {
 	defaults: FixupDefaults,
 };
 
+/**  What a restore did, with the project as it is now. */
+export type AssetRestored = {
+	project: ProjectManifest,
+	asset: Asset,
+	/**  The files and folders moved back. */
+	files: number,
+	/**
+	 *  The sends the remove stopped. They stay stopped; send again to
+	 *  wait for a model.
+	 */
+	stopped: string[],
+	/**  What could not be put back; the asset is back all the same. */
+	warnings: string[],
+};
+
 /**  Mirrors the kit's status chips. */
 export type AssetStatus = "done" | "cached" | "running" | "failed" | "review" | "queued";
 
@@ -598,6 +619,13 @@ export type AssetVersion = {
 	file: string,
 	createdAt: string,
 	stats: ModelStats | null,
+};
+
+/**  What a remove did, with the project as it is now. */
+export type AssetsRemoved = {
+	project: ProjectManifest,
+	/**  One per asset asked for, in the order asked. */
+	outcomes: RemoveOutcome[],
 };
 
 /**  A change: the fields left out keep what the step has. */
@@ -2713,6 +2741,34 @@ export type RefImage = {
 	bytes: number | null,
 };
 
+/**  One asset of a remove. */
+export type RemoveOutcome = {
+	/**  The asset id asked for. */
+	asset: string,
+	/**  Its name on the Board, when it was there. */
+	name: string | null,
+	state: RemoveState,
+	/**  Why it was refused. */
+	reason: string | null,
+	/**  The trash id [`restore`] takes. */
+	trash: string | null,
+	/**  The trash folder, relative to the workspace, with `/` separators. */
+	trashPath: string | null,
+	/**  The files and folders moved to the trash. */
+	files: number,
+	/**  The sends that were stopped, by job id. */
+	stopped: string[],
+	/**  What could not be cleaned up; the asset is removed all the same. */
+	warnings: string[],
+};
+
+/**  How the remove of one asset went. */
+export type RemoveState = "removed" | 
+/**  The project has no asset with that id; nothing changed. */
+"not-found" | 
+/**  Something is still working on it; `reason` says what to do. */
+"refused";
+
 export type RepoInspection = {
 	path: string,
 	exists: boolean,
@@ -3350,6 +3406,22 @@ export type ToolStatus = "found" | "missing" |
 
 /**  The mesh a provider makes: triangles or quads. */
 export type Topology = "triangle" | "quad";
+
+/**  One removed asset in the trash, newest first in [`list_trash`]. */
+export type TrashEntry = {
+	/**  The trash id `restore` takes. */
+	id: string,
+	project: string,
+	/**  The asset's id and name when it was removed. */
+	asset: string,
+	name: string,
+	kind: AssetKind,
+	versions: number,
+	removedAt: string,
+	files: number,
+	/**  Relative to the workspace, with `/` separators. */
+	path: string,
+};
 
 export type TriggerKind = 
 /**  Arriving at a camera stop. */

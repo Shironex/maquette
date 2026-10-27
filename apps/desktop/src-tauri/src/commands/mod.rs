@@ -28,6 +28,7 @@ pub mod site;
 pub mod thumbs;
 pub mod timeline;
 pub mod toolchain;
+pub mod trash;
 pub mod workspace;
 
 use maquette_core::{CoreError, ErrorPayload};
