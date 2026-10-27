@@ -43,7 +43,7 @@ The finished model lands in the [Inbox](/docs/views/inbox/). Fix what its checks
 
 Choose Run pipeline in the [Pipeline view](/docs/views/pipeline/). Blender always runs headless. [Build scene](/docs/pipeline/build-scene/) places the models, [Bake light](/docs/pipeline/bake-light/) bakes a lightmap per object and [Export GLB](/docs/pipeline/export-glb/) writes one file per model. A step whose inputs did not change comes from the cache.
 
-Each step is an entry in the project's `pipeline.json`. This is the Bake light step of a new Floating diorama project:
+Each step is an entry in the project's [`pipeline.json`](/docs/pipeline/pipeline-json/). This is the Bake light step of a new Floating diorama project:
 
 ```json title="pipeline.json"
 {

@@ -48,6 +48,10 @@ export const DOCS_GROUPS: readonly DocsGroup[] = [
     ],
   },
   {
+    label: 'Reference',
+    slugs: ['docs/pipeline/pipeline-json'],
+  },
+  {
     label: 'Agents',
     slugs: ['docs/agents/connect', 'docs/agents/mcp-tools', 'docs/agents/llms'],
   },

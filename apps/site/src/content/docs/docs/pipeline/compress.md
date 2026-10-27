@@ -61,5 +61,6 @@ Without `toktx` on your PATH the texture passes are skipped and the textures sta
 
 ## Related
 
+- [`pipeline.json`](/docs/pipeline/pipeline-json/#compress-steps) holds the step's `compress` folders and the presets rows.
 - [`get_pipeline`](/docs/agents/mcp-tools/#get_pipeline) shows the presets and model sizes.
 - [`get_material_tweaks`](/docs/agents/mcp-tools/#get_material_tweaks) and [`set_material_tweaks`](/docs/agents/mcp-tools/#set_material_tweaks) read and change tint, roughness, metalness, emissive strength and codecs.

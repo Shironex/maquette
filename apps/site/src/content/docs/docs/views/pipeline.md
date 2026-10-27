@@ -9,7 +9,7 @@ The Pipeline view runs the steps in the project's `pipeline.json`. A new Floatin
 
 ## Steps
 
-A step has an `id`, a `kind` (`blender`, `shell`, `gltf-transform`, `toktx` or `ffmpeg`), a script or command, an `args` array, `inputs` and `outputs` globs and `dependsOn`.
+A step has an `id`, a `kind` (`blender`, `shell`, `gltf-transform`, `toktx` or `ffmpeg`), a script or command, an `args` array, `inputs` and `outputs` globs and `dependsOn`. Every field is in the [pipeline.json reference](/docs/pipeline/pipeline-json/).
 
 - Programs are spawned directly with an args array, never through a shell. On Windows they start inside a job object, so Cancel ends the whole process tree.
 - Blender always runs in the background. A `blender` step without `-b` is refused. The only time Maquette opens Blender's window is when you click Open in Blender.
