@@ -8,10 +8,13 @@ import { useLibraryStore } from '@/state/use-library-store';
 import { usePageStore } from '@/state/use-page-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useProvidersStore } from '@/state/use-providers-store';
-import { shellStatusItems } from './statusItems';
+import { shellStatusItems, type ShellStatus } from './statusItems';
 
-/** The status bar items, from the tools, the Lab, the inbox, the sends and the last run. */
-export function useShellStatusBar() {
+/**
+ * The status bar items, from the tools, the Lab, the inbox, the sends and
+ * the last run; `siteControl` draws the site dev server's item.
+ */
+export function useShellStatusBar(siteControl?: ShellStatus['siteControl']) {
   const workspace = useAppStore(s => s.workspace);
   const { reports, checking } = useAppStore(s => s.tools);
   const view = useAppStore(s => s.view);
@@ -35,6 +38,7 @@ export function useShellStatusBar() {
     mcp,
     sends,
     server,
+    siteControl,
     libraryModels,
   });
 }

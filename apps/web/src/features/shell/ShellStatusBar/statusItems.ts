@@ -1,4 +1,5 @@
-import type { StatusBarItem } from '@maquette/ui';
+import type { ReactNode } from 'react';
+import type { StatusBarItem, StatusDot } from '@maquette/ui';
 import type {
   ConceptJob,
   InboxSnapshot,
@@ -9,7 +10,7 @@ import type {
   WorkspaceSnapshot,
 } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
-import { shortAddress } from '@/state/page';
+import { serverHost } from '@/state/page';
 import { runStatusLine, runSummary } from '@/state/pipeline';
 import type { ViewId } from '@/state/views';
 
@@ -27,6 +28,8 @@ export interface ShellStatus {
   sends: readonly ProviderJob[];
   /** The site dev server the Page view and Preview on site share. */
   server?: ServerStatus | null;
+  /** Draws the site dev server's item as a control (its menu). */
+  siteControl?: (label: string, dot: StatusDot) => ReactNode;
   /** How many models the library holds, once loaded. */
   libraryModels?: number | null;
 }
@@ -121,15 +124,21 @@ function sendItems(sends: readonly ProviderJob[]): StatusBarItem[] {
   ];
 }
 
-function pageItems(server: ServerStatus | null | undefined): StatusBarItem[] {
-  if (!server) return [];
+function pageItem(server: ServerStatus | null | undefined): StatusBarItem | null {
+  if (!server) return null;
   if (server.state === 'running' && server.url) {
-    const host = shortAddress(server.url).replace(/\/$/, '');
-    return [{ label: `Site dev page on ${host}`, dot: 'ok' }];
+    return { label: `Site dev page on ${serverHost(server)}`, dot: 'ok' };
   }
-  if (server.state === 'starting') return [{ label: 'Site dev page starting', dot: 'running' }];
-  if (server.state === 'failed') return [{ label: 'Site dev page did not start', dot: 'offline' }];
-  return [];
+  if (server.state === 'starting') return { label: 'Site dev page starting', dot: 'running' };
+  if (server.state === 'failed') return { label: 'Site dev page did not start', dot: 'offline' };
+  return null;
+}
+
+function pageItems(s: ShellStatus): StatusBarItem[] {
+  const item = pageItem(s.server);
+  if (!item) return [];
+  const node = s.siteControl?.(item.label, item.dot ?? 'idle');
+  return [node ? { ...item, node } : item];
 }
 
 /** The status bar line, left to right: worker, tools, agents, inbox, library, Lab, sends, the site dev page, then the run. */
@@ -149,7 +158,7 @@ export function shellStatusItems(s: ShellStatus): StatusBarItem[] {
     ...libraryItems(s),
     ...labItems(s.labJobs),
     ...sendItems(s.sends),
-    ...pageItems(s.server),
+    ...pageItems(s),
     ...runItems(s.latest, s.now),
   ];
 }

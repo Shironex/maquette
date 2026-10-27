@@ -27,6 +27,22 @@ describe('the shell status items', () => {
     expect(labels({ server: server('idle') }).some(l => l.startsWith('Site dev page'))).toBe(false);
   });
 
+  it('hands the site dev page to its control, with its label and dot', () => {
+    const seen: string[] = [];
+    const items = shellStatusItems({
+      ...base,
+      server: { state: 'running', url: 'http://localhost:3000/' } as ServerStatus,
+      siteControl: (label, dot) => {
+        seen.push(`${label} ${dot}`);
+        return label;
+      },
+    });
+    expect(seen).toEqual(['Site dev page on localhost:3000 ok']);
+    expect(items.find(i => i.label.startsWith('Site dev page'))?.node).toBe(
+      'Site dev page on localhost:3000'
+    );
+  });
+
   it('names the library folder and its models in the Library view', () => {
     const workspace = {
       display: '~/Maquette',
