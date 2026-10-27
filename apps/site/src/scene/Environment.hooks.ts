@@ -8,11 +8,13 @@ export function useRoomEnvironment() {
   const { gl, scene } = useThree();
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl);
-    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    const room = new RoomEnvironment();
+    const env = pmrem.fromScene(room, 0.04).texture;
     scene.environment = env;
     // A dim room: metals get something to reflect without lifting the night.
     scene.environmentIntensity = 0.16;
     pmrem.dispose();
+    room.dispose();
     return () => {
       scene.environment = null;
       env.dispose();
