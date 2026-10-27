@@ -1,5 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
+import { FrameTimes, adaptiveDpr } from './quality';
 import type { TourScroll } from './tour';
 
 /**
@@ -67,5 +68,31 @@ export function useLiveFrames(still: boolean) {
   }, [gl, invalidate, still]);
   useFrame(() => {
     if (!still && shown.current && !document.hidden) invalidate();
+  });
+}
+
+/**
+ * Draws at the ratio `adaptiveDpr` picks: the Canvas range as the ceiling,
+ * capped by the pixel budget, and dropped by R3F's performance factor while
+ * the camera moves on a GPU whose frames run slow. Only frames drawn at full
+ * quality are timed, so a drop lasts while the scroll does and then lifts.
+ * Poster capture keeps the cap but never drops.
+ */
+export function useAdaptiveDpr(scroll: TourScroll, still: boolean) {
+  const times = useRef(new FrameTimes());
+  const regress = useThree(state => state.performance.regress);
+  useEffect(() => {
+    if (still) return;
+    return scroll.subscribe(() => {
+      if (times.current.slow()) regress();
+    });
+  }, [scroll, still, regress]);
+  useFrame(state => {
+    const { performance: quality, size, viewport, setDpr } = state;
+    const full = quality.current >= quality.max;
+    times.current.tick(performance.now(), !still && full);
+    const dpr = adaptiveDpr(window.devicePixelRatio, size, still ? 1 : quality.current);
+    // R3F sets the range's ratio again when the Canvas configures or the display changes.
+    if (dpr !== viewport.dpr) setDpr(dpr);
   });
 }

@@ -7,6 +7,7 @@
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { STOPS } from './manifest';
+import { DPR_RANGE, PERFORMANCE } from './quality';
 import { Scene } from './Scene';
 import { GPU_CONTEXT } from './tour';
 import type { WorkbenchProps } from './Workbench.types';
@@ -18,7 +19,8 @@ export function Workbench(props: WorkbenchProps) {
   return (
     <Canvas
       frameloop="demand"
-      dpr={[1, 1.5]}
+      dpr={DPR_RANGE}
+      performance={PERFORMANCE}
       shadows="percentage"
       camera={{ fov: start?.fov ?? 36, near: 0.05, far: 30, position: start?.position }}
       gl={{ antialias: true, powerPreference: 'high-performance', stencil: false, ...GPU_CONTEXT }}
