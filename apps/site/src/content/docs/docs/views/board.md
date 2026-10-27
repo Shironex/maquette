@@ -19,7 +19,7 @@ Tick the boxes on cards (Shift selects a range) and press Send to 3D in the sele
 
 A card's menu has Send to 3D, Real size and fix-ups, Rename and Copy to project. Rename changes only the name on the card: the asset's id, files and versions keep their names. Copy to project copies the asset with its refs, every model version, thumbnails and finished sends, and leaves the original where it is. Remove from project, the last item, takes the asset off the Board (Remove... does the same for selected cards). Its files and settings move to the workspace trash, nothing is deleted, and the Removed button in the Board header puts it back. Sends waiting for a model are stopped first; an asset whose model is being made right now is refused until it is done.
 
-**Built asset** adds a model a Blender script in the project makes. **By hand** opens the checklist of sends waiting for a model from the provider's site.
+**Built asset** adds a model a Blender script in the project makes. **By hand** opens the checklist of sends waiting for a model from the provider's site. A send there closes on its own once its asset gets a model another way (the Inbox, the library), also for a model that came in while Maquette was closed.
 
 ## Projects
 

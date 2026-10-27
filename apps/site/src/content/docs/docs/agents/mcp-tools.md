@@ -357,7 +357,7 @@ Each image is `{ file | direction + index, star?, name?, kind? }`. `file` is the
 
 `changes the project`
 
-Moves a model from the inbox into a project as a new asset version on the Board, and renders its thumbnail headless.
+Moves a model from the inbox into a project as a new asset version on the Board, and renders its thumbnail headless. Any By hand send of that asset still waiting for its model closes as done, so `list_handoffs` no longer lists it; a Tripo or Meshy send runs on.
 
 | Parameter | Type   | Required | Notes                                                |
 | --------- | ------ | -------- | ---------------------------------------------------- |
