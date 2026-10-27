@@ -1,11 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { moveFocus } from './menuKeys';
 
-/** Focuses the first enabled item and closes on Escape or a click outside. */
+/**
+ * Focuses the first enabled item, moves between the items with the arrow
+ * keys, Home and End, and closes on Escape or a click outside.
+ */
 export function useMenu(onClose: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     ref.current?.querySelector<HTMLButtonElement>('button:not([disabled])')?.focus();
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     const onDown = (e: PointerEvent) => {
@@ -18,5 +22,8 @@ export function useMenu(onClose: () => void) {
       window.removeEventListener('pointerdown', onDown);
     };
   }, [onClose]);
-  return ref;
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (ref.current && moveFocus(ref.current, e.key)) e.preventDefault();
+  };
+  return { ref, onKeyDown };
 }

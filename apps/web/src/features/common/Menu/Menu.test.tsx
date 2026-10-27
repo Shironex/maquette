@@ -44,4 +44,51 @@ describe('the menu', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Outside' }));
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it('moves with the arrow keys and parts its sections with a line', async () => {
+    const onSelect = vi.fn();
+    render(
+      <Menu
+        label="Card actions"
+        onClose={vi.fn()}
+        items={[
+          { id: 'send', label: 'Send to 3D', section: 'make', onSelect },
+          { id: 'rename', label: 'Rename', section: 'asset', onSelect },
+          { id: 'size', label: 'Real size', section: 'asset', onSelect },
+        ]}
+      />
+    );
+    expect(screen.getAllByRole('separator')).toHaveLength(1);
+    expect(screen.getByRole('menuitem', { name: 'Send to 3D' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}');
+    expect(screen.getByRole('menuitem', { name: 'Real size' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowDown}');
+    expect(screen.getByRole('menuitem', { name: 'Send to 3D' })).toHaveFocus();
+    await userEvent.keyboard('{End}');
+    expect(screen.getByRole('menuitem', { name: 'Real size' })).toHaveFocus();
+  });
+
+  it('closes only the submenu on Escape', async () => {
+    const onClose = vi.fn();
+    render(
+      <Menu
+        label="Card actions"
+        onClose={onClose}
+        items={[
+          {
+            id: 'move',
+            label: 'Move to',
+            submenu: [{ id: 'refs', label: 'Refs', onSelect: vi.fn() }],
+          },
+        ]}
+      />
+    );
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByRole('menuitem', { name: 'Refs' })).toHaveFocus();
+    await userEvent.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('menuitem', { name: 'Move to' })).toHaveFocus();
+    await userEvent.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 });

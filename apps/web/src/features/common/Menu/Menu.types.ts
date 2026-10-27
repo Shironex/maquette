@@ -13,7 +13,18 @@ export interface MenuItem {
   hint?: string;
   /** Leaves the menu open, for an item that leads to more choices. */
   keepOpen?: boolean;
-  onSelect: () => void;
+  /**
+   * The items sit together with the others of the same section; a line
+   * parts one section from the next.
+   */
+  section?: string;
+  /**
+   * A submenu that opens beside the item, on hover, a click or ArrowRight;
+   * ArrowLeft and Escape close it again.
+   */
+  submenu?: readonly MenuItem[];
+  /** Not called for an item with a submenu. */
+  onSelect?: () => void;
 }
 
 export interface MenuProps {
