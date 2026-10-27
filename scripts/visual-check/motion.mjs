@@ -48,6 +48,7 @@ export async function motionShots({ open, shot }) {
 
   // The bone map on a page of its own, so its canvas is the second one there.
   const map = await motion(open, 'demo');
+  await map.getByRole('button', { name: /^Clay figure/ }).click();
   await map.getByRole('button', { name: 'Map bones' }).click();
   await map.getByRole('dialog', { name: /^Retarget a library clip onto / }).waitFor();
   await map.getByLabel('Clay figure rig at rest').waitFor();

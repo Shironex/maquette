@@ -494,9 +494,7 @@ async function materialShots() {
   await shot(page, 'material-preview');
   await shot(details, 'material-panel-edited');
 
-  await details
-    .getByRole('combobox', { name: 'Applies to' })
-    .selectOption('tripo_mat_90739555.001');
+  await details.getByRole('combobox', { name: 'Applies to' }).selectOption('Elsheria');
   await set('Emissive', 'Set').click();
   await page.waitForTimeout(400);
   await shot(details, 'material-panel-named');
