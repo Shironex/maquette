@@ -4,14 +4,15 @@ What to do, in order, when the repository goes from private to public. Everythin
 step in GitHub's settings or a command to run by hand; nothing in the repo does it automatically.
 Tick the boxes as you go.
 
-The license is decided as AGPL-3.0 and is swapped in as its own step (the `LICENSE` file and the
-`license` field of `package.json` and `Cargo.toml`). Do that before the repo turns public.
+The code is licensed AGPL-3.0-only (`LICENSE`, and the `license` field of `package.json` and
+`Cargo.toml`). The artwork is reserved and listed in `ARTWORK.md`; a new reserved file outside
+those folders gets a line there.
 
 ## Before the switch
 
 - [ ] `pnpm gate` is green on `main`, and the tree has no secrets: run `gitleaks detect` over the
       full history, not only the working tree.
-- [ ] The license swap is merged (`LICENSE`, `package.json`, `Cargo.toml`, README badge).
+- [x] The license swap is merged (`LICENSE`, `ARTWORK.md`, `package.json`, `Cargo.toml`, README badge).
 - [ ] The README, the docs and `apps/site` name no private repo, local path or personal account
       other than the public GitHub owner.
 - [ ] The landing page's `SITE_URL` (`apps/site/src/lib/site-url.ts`) is the address it will be

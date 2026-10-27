@@ -33,8 +33,6 @@ paths, so new renders only need the right file name.
 
 ## License
 
-Apart from the generated Motion demo models above, these images and models
-are Frostveil artwork. They are the author's own work and all rights are
-reserved. They are bundled only so mock mode looks like a real workspace, and
-they are not covered by the license of this repository or by any open license
-it may adopt in the future. Do not reuse, redistribute or train on them.
+Apart from the generated Motion demo models above, these images and models are Frostveil
+artwork. All rights are reserved; they are not covered by the code license. See
+[ARTWORK.md](../../../../../ARTWORK.md) at the repository root.

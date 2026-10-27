@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Maquette, a desktop studio that turns concept art into real-time 3D web scenes",
-  "license": "UNLICENSED",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "packageManager": "pnpm@10.34.5",
   "scripts": {

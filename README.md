@@ -9,6 +9,7 @@
     <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-lightgrey" alt="Platform: macOS and Windows" />
     <img src="https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white" alt="Tauri 2" />
     <img src="https://img.shields.io/badge/Rust-1.94-b7410e?logo=rust&logoColor=white" alt="Rust 1.94" />
+    <img src="https://img.shields.io/badge/License-AGPL--3.0-blue" alt="License: AGPL-3.0" />
     <img src="https://img.shields.io/badge/Status-not%20released%20yet-orange" alt="Status: not released yet" />
   </p>
 
@@ -230,7 +231,7 @@ Outside Tauri, a dev build answers every command from an in-memory backend (`app
 
 Configured scenarios also open with fake provider jobs: Veil gate generating at Tripo, Guardian statues waiting for a model by hand, Rune obelisk failed at Meshy for credits, and Elsheria accepted. Only the Tripo key is saved. The credits ledger holds those sends and a month of earlier ones. New sends move along on timers; nothing is sent anywhere.
 
-The mock runner streams Blender style output and fails Capture posters once. The mock inbox lists Elsheria, two props and a broken download. The sample content is Frostveil, my own game: its previews load real meshopt and KTX2 models, and the Board and Inbox show real studio thumbnails, all from `apps/web/src/assets/mock` (see the README there: that artwork is reserved and not covered by the repository license). For hand testing a real inbox, `cargo run -p maquette-core --example write_fixtures -- <dir>` writes small generated GLBs.
+The mock runner streams Blender style output and fails Capture posters once. The mock inbox lists Elsheria, two props and a broken download. The sample content is Frostveil, my own game: its previews load real meshopt and KTX2 models, and the Board and Inbox show real studio thumbnails, all from `apps/web/src/assets/mock` (that artwork is reserved and not covered by the code license, see [ARTWORK.md](ARTWORK.md)). For hand testing a real inbox, `cargo run -p maquette-core --example write_fixtures -- <dir>` writes small generated GLBs.
 
 </details>
 
@@ -715,4 +716,4 @@ Settings > Workspace > Sync with another computer has the recommended `.stignore
 
 ## License
 
-All rights reserved. See [LICENSE](LICENSE).
+The code is licensed under the [GNU Affero General Public License v3.0 only](LICENSE). The artwork in this repository (the Frostveil sample, the template and welcome pictures, the landing page scene, the README screenshots and the Maquette name and icon) is not: all rights are reserved, see [ARTWORK.md](ARTWORK.md).
