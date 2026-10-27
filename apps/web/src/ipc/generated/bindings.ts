@@ -16,6 +16,14 @@ export const commands = {
 	 *  (the person chose Open anyway).
 	 */
 	workspaceOpen: (root: string, force: boolean) => __TAURI_INVOKE<WorkspaceSnapshot>("workspace_open", { root, force }),
+	/**  Conflict copies the sync tool kept of the open workspace's data files. */
+	workspaceSyncConflicts: () => __TAURI_INVOKE<SyncConflict[]>("workspace_sync_conflicts"),
+	/**
+	 *  Shows a file of the open workspace (a conflict copy, say) selected in
+	 *  Finder or Explorer. `path` is relative to the workspace, as
+	 *  `workspace_sync_conflicts` gives it, and must stay inside it.
+	 */
+	workspaceReveal: (path: string) => __TAURI_INVOKE<null>("workspace_reveal", { path }),
 	workspaceSaveConfig: (config: WorkspaceConfig) => __TAURI_INVOKE<WorkspaceConfig>("workspace_save_config", { config }),
 	workspaceCacheSize: () => __TAURI_INVOKE<CacheInfo>("workspace_cache_size"),
 	workspaceClearCache: () => __TAURI_INVOKE<CacheInfo>("workspace_clear_cache"),
@@ -3219,6 +3227,14 @@ export type Suggestion = {
 	size: RealSize,
 	/**  "desk lamp", or "character" for the kind. */
 	matched: string,
+};
+
+/**  A conflict copy of one of Maquette's data files. */
+export type SyncConflict = {
+	/**  The copy, relative to the workspace, with `/` between folders. */
+	path: string,
+	/**  The file it is a copy of, relative to the workspace. */
+	original: string,
 };
 
 export type TextureCodec = "etc1s" | "uastc";

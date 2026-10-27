@@ -1,4 +1,5 @@
-use maquette_core::{RootInspection, WorkspaceConfig, workspace};
+use maquette_core::workspace::sync::SyncConflict;
+use maquette_core::{CoreError, RootInspection, WorkspaceConfig, workspace};
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
@@ -93,6 +94,37 @@ pub fn workspace_save_config(
     // Turning the server on or off, or a new port, takes effect at once.
     super::agents::sync(&app, &session, &agents);
     Ok(config)
+}
+
+/// Conflict copies the sync tool kept of the open workspace's data files.
+#[tauri::command]
+#[specta::specta]
+pub async fn workspace_sync_conflicts(
+    session: State<'_, Session>,
+) -> CommandResult<Vec<SyncConflict>> {
+    let (root, config) = session.workspace()?;
+    tauri::async_runtime::spawn_blocking(move || workspace::sync::conflicts(&root, &config))
+        .await
+        .map_err(super::join_failed)
+}
+
+/// Shows a file of the open workspace (a conflict copy, say) selected in
+/// Finder or Explorer. `path` is relative to the workspace, as
+/// `workspace_sync_conflicts` gives it, and must stay inside it.
+#[tauri::command]
+#[specta::specta]
+pub fn workspace_reveal(session: State<'_, Session>, path: String) -> CommandResult<()> {
+    let (root, _) = session.workspace()?;
+    let inside = !maquette_core::fs::looks_absolute(&path)
+        && path.split(['/', '\\']).all(|part| part != "..");
+    if !inside {
+        return Err(super::invalid("Show only files inside the workspace."));
+    }
+    let file = maquette_core::fs::from_workspace(&root, &path);
+    if !file.exists() {
+        return Err(CoreError::NotFound(format!("the file {path}")).into());
+    }
+    crate::opener::reveal_file(&file).map_err(|err| CoreError::io(&file, err).payload())
 }
 
 #[tauri::command]

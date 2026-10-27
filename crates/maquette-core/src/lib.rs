@@ -106,6 +106,7 @@ pub fn types() -> specta::Types {
         .register::<AgentRules>()
         .register::<RootState>()
         .register::<RootInspection>()
+        .register::<workspace::sync::SyncConflict>()
         .register::<ProjectTemplate>()
         .register::<ProjectManifest>()
         .register::<ProjectSummary>()

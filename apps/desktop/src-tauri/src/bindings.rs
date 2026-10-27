@@ -36,6 +36,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             workspace::workspace_inspect,
             workspace::workspace_create,
             workspace::workspace_open,
+            workspace::workspace_sync_conflicts,
+            workspace::workspace_reveal,
             workspace::workspace_save_config,
             workspace::workspace_cache_size,
             workspace::workspace_clear_cache,
