@@ -81,6 +81,12 @@ export function createProjectHandlers({
         name: String(name).trim() || current.name,
         siteRepo: siteRepo ? expand(String(siteRepo)) : null,
       };
+      if (updated.siteRepo) {
+        updated.siteRepoName = updated.siteRepo.split(/[\\/]/).filter(Boolean).pop() ?? null;
+        updated.siteRepoState = 'here';
+      } else if (current.siteRepoState === 'here') {
+        updated.siteRepoState = 'none';
+      }
       projects.set(projects.get().map(p => (p.id === id ? updated : p)));
       return updated;
     },

@@ -15,6 +15,7 @@ import { SETTINGS_VIEW, showsView, type ViewId } from '@/state/views';
 import { CurrentView } from '../CurrentView';
 import { ProjectSwitcherMenu } from '../ProjectSwitcherMenu';
 import { QuitDialog } from '../QuitDialog';
+import { RepoPrompt } from '../RepoPrompt';
 import { ShellStatusBar } from '../ShellStatusBar';
 import { SyncConflictBanner } from '../SyncConflictBanner';
 import { useAppShell } from './AppShell.hooks';
@@ -81,6 +82,7 @@ export default function AppShell() {
       <GameImportDialog />
       <LibraryDialogs />
       <ApprovalPrompt />
+      <RepoPrompt />
       <QuitDialog />
     </div>
   );
