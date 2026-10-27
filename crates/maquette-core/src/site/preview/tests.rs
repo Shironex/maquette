@@ -139,5 +139,7 @@ fn answers_only_when_something_listens() {
     let port = listener.local_addr().expect("addr").port();
     assert!(answers(&format!("http://127.0.0.1:{port}/")));
     drop(listener);
-    assert!(!answers(&format!("http://127.0.0.1:{port}/")));
+    // Not the freed port: under load another process may take it. No one
+    // can listen on port 0, so a connect there never succeeds.
+    assert!(!answers("http://127.0.0.1:0/"));
 }
