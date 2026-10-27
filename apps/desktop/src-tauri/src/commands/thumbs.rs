@@ -101,6 +101,43 @@ pub(crate) fn fill(
     }
 }
 
+/// What asking for one asset version's thumbnail led to.
+pub(crate) enum Asked {
+    /// A cached render was applied (the changed project comes back) or
+    /// found already applied.
+    Ready(Option<ProjectManifest>),
+    /// A render is queued; `ThumbnailReady` follows.
+    Rendering,
+    /// No render can come, with the reason.
+    Failed(String),
+}
+
+/// Asks for the thumbnail of an asset version and says what came of it.
+pub(crate) fn ask_version(
+    service: &Thumbnails,
+    root: &Path,
+    config: &WorkspaceConfig,
+    tools: &Toolbox,
+    file: &Path,
+    target: ThumbTarget,
+) -> Asked {
+    let dir = thumbs::thumbs_dir(root, config);
+    match service.request(&dir, file, Some(target.clone()), tools) {
+        Ok(Requested::Ready(png)) => Asked::Ready(
+            thumbs::apply(root, config, &target, &png)
+                .inspect_err(|err| tracing::warn!(error = %err, "could not apply the thumbnail"))
+                .ok()
+                .flatten(),
+        ),
+        Ok(Requested::Rendering) => Asked::Rendering,
+        Ok(Requested::Fallback(reason)) => Asked::Failed(reason),
+        Err(err) => {
+            tracing::warn!(error = %err, "no thumbnail for the new version");
+            Asked::Failed(err.to_string())
+        }
+    }
+}
+
 /// Asks for the thumbnail of an asset version. A cached one is applied right
 /// away and the changed project comes back; a render applies it later.
 pub(crate) fn for_version(
@@ -111,17 +148,9 @@ pub(crate) fn for_version(
     file: &Path,
     target: ThumbTarget,
 ) -> Option<maquette_core::ProjectManifest> {
-    let dir = thumbs::thumbs_dir(root, config);
-    match service.request(&dir, file, Some(target.clone()), tools) {
-        Ok(Requested::Ready(png)) => thumbs::apply(root, config, &target, &png)
-            .inspect_err(|err| tracing::warn!(error = %err, "could not apply the thumbnail"))
-            .ok()
-            .flatten(),
-        Ok(_) => None,
-        Err(err) => {
-            tracing::warn!(error = %err, "no thumbnail for the new version");
-            None
-        }
+    match ask_version(service, root, config, tools, file, target) {
+        Asked::Ready(project) => project,
+        Asked::Rendering | Asked::Failed(_) => None,
     }
 }
 
@@ -133,6 +162,13 @@ pub struct PreviewsAsked {
     pub asked: u32,
     /// The project, with the previews a cached render gave at once.
     pub project: ProjectManifest,
+    /// Models whose render is queued: each one ends in a `ThumbnailReady`.
+    pub rendering: u32,
+    /// Models no render could be queued for (Blender missing, a model it
+    /// cannot read), so nothing more will come for them.
+    pub failed: u32,
+    /// Why the first of them failed.
+    pub reason: Option<String>,
 }
 
 /// Asks for the thumbnail of every model in the project whose card shows
@@ -150,8 +186,9 @@ pub(crate) fn render_missing(
     let dir = project::dir(root, &config.layout, project_id)?;
     let missing = thumbs::missing::missing(&dir, &manifest, only);
     let mut latest = manifest;
+    let (mut rendering, mut failed, mut reason) = (0_u32, 0_u32, None);
     for item in &missing {
-        if let Some(changed) = for_version(
+        match ask_version(
             service,
             root,
             config,
@@ -159,12 +196,20 @@ pub(crate) fn render_missing(
             &item.file,
             item.target.clone(),
         ) {
-            latest = changed;
+            Asked::Ready(changed) => latest = changed.unwrap_or(latest),
+            Asked::Rendering => rendering += 1,
+            Asked::Failed(why) => {
+                failed += 1;
+                reason.get_or_insert(why);
+            }
         }
     }
     Ok(PreviewsAsked {
         asked: u32::try_from(missing.len()).unwrap_or(u32::MAX),
         project: latest,
+        rendering,
+        failed,
+        reason,
     })
 }
 

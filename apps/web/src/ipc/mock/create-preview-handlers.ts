@@ -46,7 +46,13 @@ export function createPreviewHandlers(deps: {
       );
       return { ...asset, thumbnail };
     });
-    return { asked, project: asked ? deps.saveProject({ ...p, assets }) : p };
+    return {
+      asked,
+      rendering: 0,
+      failed: 0,
+      reason: null,
+      project: asked ? deps.saveProject({ ...p, assets }) : p,
+    };
   }
 
   return {

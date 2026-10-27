@@ -2549,6 +2549,15 @@ export type PreviewsAsked = {
 	asked: number,
 	/**  The project, with the previews a cached render gave at once. */
 	project: ProjectManifest,
+	/**  Models whose render is queued: each one ends in a `ThumbnailReady`. */
+	rendering: number,
+	/**
+	 *  Models no render could be queued for (Blender missing, a model it
+	 *  cannot read), so nothing more will come for them.
+	 */
+	failed: number,
+	/**  Why the first of them failed. */
+	reason: string | null,
 };
 
 /**
