@@ -1,6 +1,7 @@
-import { Icon, Tooltip } from '@maquette/ui';
+import { Icon, Tooltip, cn } from '@maquette/ui';
 import type { MenuItem } from '../Menu.types';
 import { startsSection } from '../menuKeys';
+import { EDGE } from '../menuPlacement';
 import { MENU_PANEL, MENU_ROW, MENU_SEPARATOR } from '../menuStyles';
 import { SUBMENU_WIDTH, useSubmenu } from './MenuRow.hooks';
 
@@ -72,8 +73,8 @@ export default function MenuRow({ item, onClose }: MenuRowProps) {
             role="menu"
             aria-label={item.label}
             onKeyDown={sub.onMenuKey}
-            style={{ width: SUBMENU_WIDTH }}
-            className={MENU_PANEL}
+            style={{ width: SUBMENU_WIDTH, maxHeight: window.innerHeight - sub.place.top - EDGE }}
+            className={cn(MENU_PANEL, 'overflow-y-auto overscroll-contain')}
           >
             {rows}
           </div>

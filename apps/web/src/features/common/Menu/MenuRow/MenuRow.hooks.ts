@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { menuItems, moveFocus } from '../menuKeys';
+import { EDGE } from '../menuPlacement';
 
 /** How wide a submenu is, to tell whether it fits to the right. */
 export const SUBMENU_WIDTH = 168;
@@ -29,7 +30,7 @@ const GAP = 2;
  */
 export function placeSubmenu(menu: DOMRect, item: DOMRect, rows: number): SubmenuPlace {
   const height = rows * ROW_HEIGHT + 10;
-  const top = Math.max(8, Math.min(item.top - 5, window.innerHeight - height - 8));
+  const top = Math.max(EDGE, Math.min(item.top - 5, window.innerHeight - height - EDGE));
   if (menu.right + GAP + SUBMENU_WIDTH <= window.innerWidth) {
     return { top, left: item.right, padLeft: menu.right - item.right + GAP, padRight: 0 };
   }
