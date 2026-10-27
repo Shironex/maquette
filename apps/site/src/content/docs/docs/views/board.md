@@ -17,7 +17,7 @@ A column heading sorts by it, and again flips the order. The stage filter and th
 
 Tick the boxes on cards (Shift selects a range) and press Send to 3D in the selection bar to send several assets in one batch. With a row focused in the list, the arrow keys move, Shift and an arrow extends the selection, Space ticks the row and Enter opens its menu. See all [keyboard shortcuts](/docs/views/shortcuts/).
 
-A card's menu has Send to 3D, Real size and fix-ups, Rename and Copy to project. Rename changes only the name on the card: the asset's id, files and versions keep their names. Copy to project copies the asset with its refs, every model version, thumbnails and finished sends, and leaves the original where it is.
+A card's menu has Send to 3D, Real size and fix-ups, Rename and Copy to project. Rename changes only the name on the card: the asset's id, files and versions keep their names. Copy to project copies the asset with its refs, every model version, thumbnails and finished sends, and leaves the original where it is. Remove from project, the last item, takes the asset off the Board (Remove... does the same for selected cards). Its files and settings move to the workspace trash, nothing is deleted, and the Removed button in the Board header puts it back. Sends waiting for a model are stopped first; an asset whose model is being made right now is refused until it is done.
 
 **Built asset** adds a model a Blender script in the project makes. **By hand** opens the checklist of sends waiting for a model from the provider's site.
 

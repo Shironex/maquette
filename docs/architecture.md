@@ -135,6 +135,9 @@ layout patch's `paths` and `pathTracks`.
 `update_from_library`, which call the same `maquette_core::library` functions as the commands and
 emit `libraryChanged` and the project events.
 
+`tools/trash.rs` holds `remove_assets`, `list_removed_assets` and `restore_asset`, which go
+through `commands/trash.rs` like the Board's Remove from project and Recently removed.
+
 `tools/page.rs` reads, starts and stops the site dev server the Page view shows
 (`get_page_preview`, `start_page_preview`, `stop_page_preview`) through `commands/page.rs`, so an
 agent and the view share the one server and its state.
@@ -278,6 +281,26 @@ material tweaks.
   `libraryChanged`. The MCP tools are in `mcp/tools/library.rs`. The web state is
   `apps/web/src/state/library.ts` and `use-library-store.ts`, and the view is
   `apps/web/src/features/library`.
+
+## Remove and restore
+
+`maquette_core::assets::remove` takes assets off a project without deleting anything.
+
+- **Refusals.** A run going in the project refuses the whole call. An asset that is building, or
+  whose Tripo or Meshy send is running, is refused alone; sends waiting for approval, queued or
+  waiting for a By hand model are stopped first.
+- **Files.** `files.rs` collects the asset's own files (model versions, an `.obj` version's folder,
+  thumbnails, refs no other asset or send uses, built script and helpers, handoff folders) and moves
+  them to `<workspace>/trash/<project>/<asset>-<time>/files/`, rolling back when one fails.
+- **Record.** `trash.rs` writes `removed.json` beside them: the asset entry, the moved paths, the
+  stopped sends and what `links.rs` took out of `layout.json` (placement, stop membership, path
+  ends, states, clips, explode track), `prepare.json`, `materials.json`, `built.json` and the game
+  model. The library entry stays.
+- **Restore.** `restore.rs` moves the files back, re-adds the asset and puts back each link where
+  nothing has taken its place. Stopped sends stay stopped.
+- **Edges.** The Tauri commands `asset_remove`, `asset_trash_list` and `asset_restore` are in
+  `commands/trash.rs`; the MCP tools are in `mcp/tools/trash.rs`. The web state is
+  `apps/web/src/state/trash.ts` and `use-trash-store.ts`.
 
 ## Built assets
 

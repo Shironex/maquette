@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 58 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 62 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -27,6 +27,7 @@ These look at the workspace and change nothing.
 | `cancel_provider_jobs`                        | Stops sends by id (`ids`, 1 to 50). A by hand send stops waiting, a send not yet started is cancelled, and each id answers on its own. Sends waiting for approval are refused: you deny those in the app | Nothing | No       |
 | [`get_credits`](#get_credits)                 | Each provider's balance, totals for 7 and 30 days and the latest paid sends                                                                                                                              | Nothing | No       |
 | `list_handoffs`                               | The By hand sends waiting for a model, the export file name each waits for, and what the Downloads watcher matched                                                                                       | Nothing | No       |
+| `list_removed_assets`                         | A project's removed assets waiting in the workspace trash, newest first                                                                                                                                  | Nothing | No       |
 | `get_real_size`                               | An asset's real size and fix-ups, what its model measures, and the defaults new fix-ups start from                                                                                                       | Nothing | No       |
 | `list_fixups`                                 | An asset's fix-ups in the order they apply, with the last preview's numbers                                                                                                                              | Nothing | No       |
 | [`get_material_tweaks`](#get_material_tweaks) | An asset's material names, tweaks and per map group codecs, with raw and shipped size                                                                                                                    | Nothing | No       |
@@ -61,6 +62,8 @@ These look at the workspace and change nothing.
 | `star_concepts`                                       | Stars or unstars Lab concepts                                                                                     | Nothing | No       |
 | [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                                                        | Nothing | No       |
 | `copy_asset`                                          | Copies an asset with its refs and versions to another project                                                     | Nothing | No       |
+| `remove_assets`                                       | Takes up to 50 assets off the Board into the workspace trash, stopping their waiting sends                        | Nothing | No       |
+| `restore_asset`                                       | Puts a removed asset back from the workspace trash with its files, place and settings                             | Nothing | No       |
 | `import_game_models`                                  | Imports models from the game repo, each as an asset whose version 1 is the repo file, and asks for their previews | Nothing | No       |
 | `set_game_settings`                                   | Changes a game's format, model folder, export, bake and folder budgets                                            | Nothing | No       |
 | `add_built_asset`                                     | Adds a model a Blender script in the project makes, and builds it headless                                        | Nothing | No       |
