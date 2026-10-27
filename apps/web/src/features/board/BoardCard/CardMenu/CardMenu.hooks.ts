@@ -136,8 +136,9 @@ function useMakeItems({ asset, refPicture, built, board }: CardMenuProps): MenuI
 }
 
 /**
- * The asset itself: rename, size, copy, the library and Blender. The
- * library and Blender items wait for a model and stay hidden until then.
+ * The asset itself: rename, size, copy, the library, Blender and, last,
+ * remove. The library and Blender items wait for a model and stay hidden
+ * until then.
  */
 function useAssetItems({ asset, board }: CardMenuProps): MenuItem[] {
   const { view: library, openAdd, openUpdate } = useLibraryStore();
@@ -207,6 +208,15 @@ function useAssetItems({ asset, board }: CardMenuProps): MenuItem[] {
           },
         ]
       : []),
+    {
+      id: 'remove',
+      label: 'Remove from project...',
+      icon: 'trash',
+      tone: 'danger',
+      section,
+      hint: 'Takes the card off the Board and moves its files to the workspace trash, where Recently removed can restore it',
+      onSelect: () => actions.setRemoving([asset]),
+    },
   ];
 }
 

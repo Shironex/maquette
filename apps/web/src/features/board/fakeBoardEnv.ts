@@ -35,6 +35,8 @@ export function fakeBoardEnv(over: Partial<BoardEnv> = {}): BoardEnv {
       renamed: vi.fn(),
       sizing: null,
       setSizing: vi.fn(),
+      removing: null,
+      setRemoving: vi.fn(),
       later: vi.fn(),
       move: vi.fn(),
       dropOn: vi.fn(),

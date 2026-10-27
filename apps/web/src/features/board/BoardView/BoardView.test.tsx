@@ -5,6 +5,7 @@ import { useAppStore } from '@/state/use-app-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useProjectsStore } from '@/state/use-projects-store';
 import { useProvidersStore } from '@/state/use-providers-store';
+import { useTrashStore } from '@/state/use-trash-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import BoardView from './BoardView';
 
@@ -18,6 +19,7 @@ afterEach(() => {
     busy: [],
   });
   useLabStore.setState({ objects: null });
+  useTrashStore.setState({ project: null, entries: [], restoring: null });
 });
 
 async function renderBoard() {
@@ -175,5 +177,30 @@ describe('the Board', () => {
     );
     expect(screen.queryByRole('menu', { name: 'Copy Character to project' })).toBeNull();
     expect(screen.getByRole('button', { name: /^Character, v2/ })).toBeInTheDocument();
+  });
+
+  it('removes a card from its menu and the selection from the bar', async () => {
+    await renderBoard();
+    await userEvent.click(screen.getByRole('button', { name: 'More for Desk lamp' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove from project...' }));
+    const dialog = screen.getByRole('dialog', { name: 'Remove Desk lamp from the project?' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'More for Desk lamp' })).toBeNull()
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(useAppStore.getState().notice?.title).toBe('Removed Desk lamp');
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Turntable island' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select Character' }));
+    const bar = screen.getByRole('toolbar', { name: 'Selected assets' });
+    await userEvent.click(within(bar).getByRole('button', { name: 'Remove...' }));
+    const many = screen.getByRole('dialog', { name: 'Remove 2 assets from the project?' });
+    await userEvent.click(within(many).getByRole('button', { name: 'Remove 2 assets' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('toolbar', { name: 'Selected assets' })).toBeNull()
+    );
+    expect(screen.queryByRole('button', { name: /^Character, v2/ })).toBeNull();
+    expect(await screen.findByRole('button', { name: /Removed/ })).toHaveTextContent('3');
   });
 });

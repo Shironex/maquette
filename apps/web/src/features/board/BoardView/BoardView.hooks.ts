@@ -111,7 +111,7 @@ export function useBoardSelection(projectId: string | undefined, order: readonly
   return { present, check, shiftClick, send, clear };
 }
 
-/** A card's menu, its copy and rename, and moving cards between columns. */
+/** A card's menu, its copy, rename and remove, and moving cards between columns. */
 export function useCardActions(project: ProjectManifest | null | undefined) {
   const setProject = useAppStore(s => s.setProject);
   const notify = useAppStore(s => s.notify);
@@ -123,11 +123,14 @@ export function useCardActions(project: ProjectManifest | null | undefined) {
   const [renaming, setRenaming] = useState<Asset | null>(null);
   /** The card whose real size and fix-ups are open. */
   const [sizing, setSizing] = useState<Asset | null>(null);
+  /** The cards Remove from project asks about. */
+  const [removing, setRemoving] = useState<readonly Asset[] | null>(null);
 
   // An open menu or dialog belongs to the project it was opened in.
   useEffect(() => {
     setRenaming(null);
     setSizing(null);
+    setRemoving(null);
     setMenuFor(null);
     setCopyFor(null);
   }, [project?.id]);
@@ -210,6 +213,8 @@ export function useCardActions(project: ProjectManifest | null | undefined) {
     renamed,
     sizing,
     setSizing,
+    removing,
+    setRemoving,
     later,
     move,
     dropOn,

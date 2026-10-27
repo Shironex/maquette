@@ -38,6 +38,7 @@ describe('CardMenu', () => {
       'Copy to project...',
       'Add to library...',
       'Open in Blender',
+      'Remove from project...',
       'Move to',
     ]);
     expect(within(menu).getAllByRole('separator')).toHaveLength(2);
@@ -113,6 +114,22 @@ describe('CardMenu', () => {
     expect(board.actions.setSizing).toHaveBeenCalledWith(asset);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Send to 3D' }));
     expect(openPanel).toHaveBeenCalledWith('moon-island', 'character');
+  });
+
+  it('asks before removing the card, in the danger colour, last of its section', async () => {
+    const board = fakeBoardEnv();
+    const asset = mockAsset('Character');
+    render(<CardMenu asset={asset} waiting={undefined} refPicture={null} board={board} />);
+    const remove = screen.getByRole('menuitem', { name: 'Remove from project...' });
+    expect(remove).toHaveClass('text-danger');
+    await userEvent.hover(remove);
+    expect(
+      await screen.findByText(
+        'Takes the card off the Board and moves its files to the workspace trash, where Recently removed can restore it'
+      )
+    ).toBeInTheDocument();
+    await userEvent.click(remove);
+    expect(board.actions.setRemoving).toHaveBeenCalledWith([asset]);
   });
 
   it('shows the other projects once Copy to project is picked', async () => {

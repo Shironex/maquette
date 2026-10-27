@@ -5,11 +5,12 @@ import { MAX_BATCH } from '@/state/batch';
 export interface SelectionBarProps {
   count: number;
   onSend: () => void;
+  onRemove: () => void;
   onClear: () => void;
 }
 
-/** The bar under a selection: how many cards, Send to 3D and Clear. */
-export default function SelectionBar({ count, onSend, onClear }: SelectionBarProps) {
+/** The bar under a selection: how many cards, Send to 3D, Remove and Clear. */
+export default function SelectionBar({ count, onSend, onRemove, onClear }: SelectionBarProps) {
   const over = count > MAX_BATCH;
   return (
     <div
@@ -33,6 +34,14 @@ export default function SelectionBar({ count, onSend, onClear }: SelectionBarPro
         onClick={onSend}
       >
         Send to 3D
+      </Button>
+      <Button
+        variant="ghost"
+        icon="trash"
+        tooltip="Removes the selected assets from the project into the workspace trash; asks first"
+        onClick={onRemove}
+      >
+        Remove...
       </Button>
       <Button
         variant="ghost"

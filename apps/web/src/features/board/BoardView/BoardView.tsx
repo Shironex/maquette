@@ -7,6 +7,7 @@ import { BoardHeader } from '../BoardHeader';
 import { BoardList } from '../BoardList';
 import { FirstRunCard } from '../FirstRunCard';
 import { PrepDialog } from '../PrepDialog';
+import { RemoveAssetsDialog } from '../RemoveAssetsDialog';
 import { RenameAssetDialog } from '../RenameAssetDialog';
 import { SelectionBar } from '../SelectionBar';
 import { useBoardData, useBoardSelection, useCardActions, useCardDrop } from './BoardView.hooks';
@@ -21,7 +22,7 @@ export default function BoardView({ queue }: BoardViewProps) {
   const dropJob = useCardDrop();
   const board: BoardEnv = { workspace, project, jobs, otherProjects, dropJob, selection, actions };
   const { present } = selection;
-  const { renaming, sizing } = actions;
+  const { renaming, sizing, removing } = actions;
   const builtDialog = useBuiltDialog();
   const stageColumns = STAGES.map(stage => (
     <BoardColumn
@@ -65,6 +66,19 @@ export default function BoardView({ queue }: BoardViewProps) {
             />
           ) : null}
 
+          {removing && project ? (
+            <RemoveAssetsDialog
+              project={project.id}
+              assets={removing}
+              jobs={jobs}
+              onDone={() => {
+                actions.setRemoving(null);
+                selection.clear();
+              }}
+              onClose={() => actions.setRemoving(null)}
+            />
+          ) : null}
+
           {builtDialog.open && project ? (
             <AddBuiltDialog project={project.id} onClose={builtDialog.close} />
           ) : null}
@@ -73,6 +87,7 @@ export default function BoardView({ queue }: BoardViewProps) {
             <SelectionBar
               count={present.length}
               onSend={selection.send}
+              onRemove={() => actions.setRemoving(assets.filter(a => present.includes(a.id)))}
               onClear={selection.clear}
             />
           ) : null}

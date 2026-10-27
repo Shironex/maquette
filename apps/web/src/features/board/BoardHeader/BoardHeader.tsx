@@ -4,6 +4,7 @@ import { formatAgo } from '@/lib/format';
 import { assetCount } from '@/state/board';
 import { TEMPLATE_LABEL } from '@/state/onboarding';
 import { AddAssetForm } from '../AddAssetForm';
+import { RecentlyRemoved } from '../RecentlyRemoved';
 import { useBoardHeader } from './BoardHeader.hooks';
 import type { BoardHeaderProps } from './BoardHeader.types';
 
@@ -82,6 +83,7 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
           </Button>
           {queueOpen ? queue(() => setQueueOpen(false)) : null}
         </div>
+        <RecentlyRemoved />
         {missing > 0 ? (
           <Button
             icon="image"
