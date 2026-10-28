@@ -11,4 +11,10 @@ export interface ListRowProps {
   onToggleMenu: (id: string) => void;
   onFocus: (id: string) => void;
   nowMs: number;
+  /** Where the row sits in the whole list, and its measuring ref when the list is windowed. */
+  position?: {
+    ref?: (el: Element | null) => void;
+    'data-index'?: number;
+    'aria-rowindex': number;
+  };
 }

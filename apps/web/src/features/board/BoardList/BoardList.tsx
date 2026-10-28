@@ -45,18 +45,28 @@ export default function BoardList(props: BoardListProps) {
       </th>
     );
   });
-  const body = rows.map(row => (
-    <ListRow
-      key={row.asset.id}
-      row={row}
-      board={board}
-      tabStop={list.active === row.asset.id}
-      menuUp={list.menuUp}
-      onToggleMenu={list.toggleMenu}
-      onFocus={list.setFocused}
-      nowMs={nowMs}
-    />
-  ));
+  const { shown } = list;
+  const spacer = (height: number) =>
+    height > 0 ? (
+      <tr aria-hidden="true" style={{ height }}>
+        <td colSpan={LIST_COLUMNS.length + 3} />
+      </tr>
+    ) : null;
+  const body = rows
+    .slice(shown.start, shown.end)
+    .map((row, n) => (
+      <ListRow
+        key={row.asset.id}
+        row={row}
+        board={board}
+        tabStop={list.active === row.asset.id}
+        menuUp={list.menuUp}
+        onToggleMenu={list.toggleMenu}
+        onFocus={list.setFocused}
+        nowMs={nowMs}
+        position={{ ...shown.itemProps(shown.start + n), 'aria-rowindex': shown.start + n + 2 }}
+      />
+    ));
 
   return (
     <div className="absolute inset-0 flex flex-col gap-3">
@@ -72,10 +82,11 @@ export default function BoardList(props: BoardListProps) {
           role="grid"
           aria-label="Assets"
           aria-multiselectable="true"
+          aria-rowcount={rows.length + 1}
           className="group/head w-full table-fixed border-collapse"
         >
           <thead>
-            <tr>
+            <tr aria-rowindex={1}>
               <th scope="col" className={cn(HEAD, 'w-[36px] pl-3')}>
                 <span className="sr-only">Selected</span>
               </th>
@@ -88,7 +99,11 @@ export default function BoardList(props: BoardListProps) {
               </th>
             </tr>
           </thead>
-          <tbody onKeyDown={list.onKeyDown}>{body}</tbody>
+          <tbody ref={list.bodyRef} onKeyDown={list.onKeyDown}>
+            {spacer(shown.before)}
+            {body}
+            {spacer(shown.after)}
+          </tbody>
         </table>
         {rows.length === 0 && total > 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-meta text-fg-mute">

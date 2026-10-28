@@ -2,7 +2,9 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { useBoardPrefsStore, forgetStoredPrefs } from '@/state/use-board-prefs-store';
+import { useAppStore } from '@/state/use-app-store';
 import { useProvidersStore } from '@/state/use-providers-store';
+import { fakeScroll } from '@/test/fake-scroll';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { BoardView } from '../BoardView';
 
@@ -125,6 +127,30 @@ describe('the Board list', () => {
     expect(within(menu).getByRole('menuitem', { name: 'Send to 3D' })).toBeInTheDocument();
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('menu', { name: `${third} actions` })).toBeNull();
+  });
+
+  it('renders the rows in view of a long list and reaches the last with End', async () => {
+    const undo = fakeScroll();
+    const workspace = useAppStore.getState().workspace!;
+    const project = workspace.project!;
+    const one = project.assets![0]!;
+    const assets = Array.from({ length: 300 }, (_, i) => ({
+      ...one,
+      id: `copy-${i}`,
+      name: `Copy ${String(i).padStart(3, '0')}`,
+    }));
+    useAppStore.setState({ workspace: { ...workspace, project: { ...project, assets } } });
+    await renderList();
+    expect(grid()).toHaveAttribute('aria-rowcount', '301');
+    expect(names().length).toBeLessThan(60);
+    const first = row('Copy 000');
+    expect(first).toHaveAttribute('aria-rowindex', '2');
+    first.focus();
+    await userEvent.keyboard('{End}');
+    await waitFor(() => expect(row('Copy 299')).toHaveFocus());
+    expect(row('Copy 299')).toHaveAttribute('aria-rowindex', '301');
+    expect(within(grid()).queryByRole('row', { name: 'Copy 000' })).toBeNull();
+    undo();
   });
 
   it('has the card menu on every row', async () => {

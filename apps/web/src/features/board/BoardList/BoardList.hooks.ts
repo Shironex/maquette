@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useWindowedList } from '@maquette/ui';
 import { nextSort, type BoardPrefs, type SortKey } from '@/state/board-list';
 import { useBoardPrefsStore } from '@/state/use-board-prefs-store';
 import type { BoardListProps } from './BoardList.types';
+
+/** A row's height: 44 px and its border. */
+const ROW = 45;
 
 const rowsOf = (root: HTMLElement | null) =>
   Array.from(root?.querySelectorAll<HTMLElement>('[data-row-id]') ?? []);
@@ -9,7 +13,9 @@ const rowsOf = (root: HTMLElement | null) =>
 /**
  * The list's sort, filter and search (remembered per project), the row that
  * holds the tab stop, and the keys: arrows move, Shift extends the
- * selection, Space toggles it, Enter opens the row's menu.
+ * selection, Space toggles it, Enter opens the row's menu. A long list
+ * renders only the rows in view; a key that moves past them scrolls the
+ * row in first, then focuses it.
  */
 export function useBoardList({ rows, board, prefs }: BoardListProps) {
   const update = useBoardPrefsStore(s => s.update);
@@ -17,8 +23,27 @@ export function useBoardList({ rows, board, prefs }: BoardListProps) {
   const [focused, setFocused] = useState<string | null>(null);
   const [menuUp, setMenuUp] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  const shown = useWindowedList({
+    count: rows.length,
+    scrollRef: tableRef,
+    listRef: bodyRef,
+    estimate: ROW,
+  });
   const ids = rows.map(r => r.asset.id);
-  const active = focused && ids.includes(focused) ? focused : (ids[0] ?? null);
+  const wanted = focused && ids.includes(focused) ? focused : (ids[0] ?? null);
+  // The tab stop stays on a rendered row, so Tab always reaches the list.
+  const inView = ids.slice(shown.start, shown.end);
+  const active = wanted && inView.includes(wanted) ? wanted : (inView[0] ?? wanted);
+  /** A row a key moved to before it was rendered. */
+  const pending = useRef<string | null>(null);
+  useEffect(() => {
+    const id = pending.current;
+    const el = id ? rowsOf(tableRef.current).find(r => r.dataset.rowId === id) : null;
+    if (!el) return;
+    pending.current = null;
+    el.focus();
+  });
 
   const change = (next: Partial<BoardPrefs>) => {
     if (project) update(project.id, next);
@@ -28,9 +53,13 @@ export function useBoardList({ rows, board, prefs }: BoardListProps) {
 
   const focusRow = (id: string) => {
     setFocused(id);
-    rowsOf(tableRef.current)
-      .find(el => el.dataset.rowId === id)
-      ?.focus();
+    const el = rowsOf(tableRef.current).find(r => r.dataset.rowId === id);
+    if (el) {
+      el.focus();
+      return;
+    }
+    pending.current = id;
+    shown.scrollTo(ids.indexOf(id));
   };
 
   // Closing a row's menu hands the focus back to its row.
@@ -83,6 +112,9 @@ export function useBoardList({ rows, board, prefs }: BoardListProps) {
 
   return {
     tableRef,
+    bodyRef,
+    /** The rows rendered, and the space of the others. */
+    shown,
     /** True while the selection bar floats over the list's foot. */
     selecting: selection.present.length > 0,
     active,
