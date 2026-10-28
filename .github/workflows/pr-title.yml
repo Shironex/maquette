@@ -1,4 +1,4 @@
-# The PR title becomes the squash-merge commit subject, so it follows the same
+# The PR title becomes the merge commit subject, so it follows the same
 # rules commitlint applies to every commit: `type(scope): lowercase summary`,
 # a scope always, at most 100 characters.
 #
@@ -66,6 +66,6 @@ jobs:
         run: |
           length=${#TITLE}
           if [ "$length" -gt 100 ]; then
-            echo "::error::The title is $length characters; the squash commit allows 100."
+            echo "::error::The title is $length characters; the merge commit allows 100."
             exit 1
           fi
