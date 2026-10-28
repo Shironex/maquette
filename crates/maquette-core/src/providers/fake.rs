@@ -12,7 +12,7 @@ use std::thread::JoinHandle;
 use serde_json::Value;
 
 #[derive(Debug, Clone)]
-pub(super) struct Request {
+pub(crate) struct Request {
     pub method: String,
     pub path: String,
     pub headers: Vec<(String, String)>,
@@ -20,26 +20,26 @@ pub(super) struct Request {
 }
 
 impl Request {
-    pub(super) fn header(&self, name: &str) -> Option<&str> {
+    pub(crate) fn header(&self, name: &str) -> Option<&str> {
         self.headers
             .iter()
             .find(|(k, _)| k.eq_ignore_ascii_case(name))
             .map(|(_, v)| v.as_str())
     }
 
-    pub(super) fn json(&self) -> Value {
+    pub(crate) fn json(&self) -> Value {
         serde_json::from_slice(&self.body).unwrap_or(Value::Null)
     }
 }
 
-pub(super) struct Reply {
+pub(crate) struct Reply {
     pub status: u16,
     pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
 }
 
 impl Reply {
-    pub(super) fn json(status: u16, body: &Value) -> Self {
+    pub(crate) fn json(status: u16, body: &Value) -> Self {
         Self {
             status,
             headers: vec![("Content-Type".into(), "application/json".into())],
@@ -47,11 +47,11 @@ impl Reply {
         }
     }
 
-    pub(super) fn ok(body: &Value) -> Self {
+    pub(crate) fn ok(body: &Value) -> Self {
         Self::json(200, body)
     }
 
-    pub(super) fn bytes(status: u16, body: Vec<u8>) -> Self {
+    pub(crate) fn bytes(status: u16, body: Vec<u8>) -> Self {
         Self {
             status,
             headers: vec![("Content-Type".into(), "model/gltf-binary".into())],
@@ -59,7 +59,7 @@ impl Reply {
         }
     }
 
-    pub(super) fn with_header(mut self, name: &str, value: &str) -> Self {
+    pub(crate) fn with_header(mut self, name: &str, value: &str) -> Self {
         self.headers.push((name.to_string(), value.to_string()));
         self
     }
@@ -67,7 +67,7 @@ impl Reply {
 
 type Handler = dyn Fn(&str, &Request) -> Reply + Send + Sync;
 
-pub(super) struct FakeServer {
+pub(crate) struct FakeServer {
     pub url: String,
     log: Arc<Mutex<Vec<Request>>>,
     stop: Arc<AtomicBool>,
@@ -77,13 +77,13 @@ pub(super) struct FakeServer {
 impl FakeServer {
     /// Starts a server; `handler` gets the base URL (for download links)
     /// and the request.
-    pub(super) fn start(handler: impl Fn(&str, &Request) -> Reply + Send + Sync + 'static) -> Self {
+    pub(crate) fn start(handler: impl Fn(&str, &Request) -> Reply + Send + Sync + 'static) -> Self {
         Self::start_at("127.0.0.1:0", handler)
     }
 
     /// As [`FakeServer::start`], on a chosen address: a test can let a
     /// client fail to connect first, then start the server where it looks.
-    pub(super) fn start_at(
+    pub(crate) fn start_at(
         addr: &str,
         handler: impl Fn(&str, &Request) -> Reply + Send + Sync + 'static,
     ) -> Self {
@@ -114,19 +114,19 @@ impl FakeServer {
         }
     }
 
-    pub(super) fn requests(&self) -> Vec<Request> {
+    pub(crate) fn requests(&self) -> Vec<Request> {
         self.log.lock().expect("log").clone()
     }
 
     /// How many requests matched `method` and started with `path`.
-    pub(super) fn count(&self, method: &str, path: &str) -> usize {
+    pub(crate) fn count(&self, method: &str, path: &str) -> usize {
         self.requests()
             .iter()
             .filter(|r| r.method == method && r.path.starts_with(path))
             .count()
     }
 
-    pub(super) fn find(&self, method: &str, path: &str) -> Option<Request> {
+    pub(crate) fn find(&self, method: &str, path: &str) -> Option<Request> {
         self.requests()
             .into_iter()
             .find(|r| r.method == method && r.path == path)
