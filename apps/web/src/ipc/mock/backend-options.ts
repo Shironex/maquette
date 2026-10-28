@@ -55,7 +55,8 @@ export type Args = Record<string, unknown>;
  * `many-assets-fixtures.ts`), `?ship=hand-built` the website Ship settings
  * (see `create-ship-handlers.ts`), `?updater=` the app updater turned on (see
  * `create-app-handlers.ts`), `?pipeline=many` a runner with 24 models (see
- * `pipeline-many.ts`). Configured scenarios also open with
+ * `pipeline-many.ts`), `?stress=lists` every long list at a busy workspace's size
+ * (see `stress-fixtures.ts`). Configured scenarios also open with
  * Send to 3D jobs (see `providers.ts`).
  */
 export interface BackendOptions {
@@ -119,6 +120,8 @@ export interface BackendOptions {
   sync?: string | null;
   /** `available`, `ready`, `current` or `pending`: the updater is on (see create-app-handlers.ts). */
   updater?: string | null;
+  /** `lists`: every long list at a busy workspace's size (see stress-fixtures.ts). */
+  stress?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */

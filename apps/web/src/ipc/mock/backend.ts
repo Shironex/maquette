@@ -49,6 +49,7 @@ import { createPathsHandlers } from './create-paths-handlers';
 import { createGameHandlers } from './create-game-handlers';
 import { withManyAssets, wrapManyInspect } from './many-assets-fixtures';
 import { manyPipeline, seedManyPipeline } from './pipeline-many';
+import { stressInbox, stressProjects, wrapStress } from './stress-fixtures';
 import { createLibraryHandlers } from './create-library-handlers';
 import { createPipelineHandlers } from './create-pipeline-handlers';
 import { createShipHandlers } from './create-ship-handlers';
@@ -88,6 +89,7 @@ export function createBackend({
   ship: shipState = null,
   updater = null,
   pipeline: pipelineState = null,
+  stress = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -140,6 +142,7 @@ export function createBackend({
     probeDelay,
   });
   [projects, inbox] = seedParts(configured ? partsState : null, projects, inbox, prepare.saveEntry);
+  if (configured && stress) [projects, inbox] = [stressProjects(projects), stressInbox(inbox)];
   const bake = createFakeBake(prepare.entries, id => startersOf(id));
   const layout = createFakeLayout({
     project: id => project(id),
@@ -380,6 +383,7 @@ export function createBackend({
   };
   page.wrapInspect(handlers);
   if (configured && inspectState === 'many') wrapManyInspect(handlers, project);
+  if (configured && stress) wrapStress(handlers);
 
   // The `running` scenario starts run 25 as soon as the app opens.
   if (scenario === 'running') {
