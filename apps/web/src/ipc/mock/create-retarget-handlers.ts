@@ -1,9 +1,10 @@
 /**
  * Use on model in mock mode: the bone map read from bone names the way the
  * core reads them, settings normalised the same way, a review made from
- * the clip names (a crouch fails on its units, a run's foot slides), and a
- * bake that adds the model's next version. `?library=demo` opens with
- * Elsheria having baked a few clips, one of them since fixed.
+ * the clip names (a crouch fails on its units, a run's foot slides until
+ * its feet are pinned), and a bake that adds the model's next version.
+ * `?library=demo` opens with Elsheria having baked a few clips, one of
+ * them since fixed.
  */
 import type {
   AnimationClip,
@@ -176,12 +177,22 @@ export function createRetargetHandlers(ctx: RetargetContext) {
       travel,
       slideCm: 0.4,
       slideFrames: null,
+      unpinnedCm: null,
     };
     if (/crouch/i.test(clip.name)) {
       return {
         ...base,
         status: 'failed',
         note: 'Failed: the hips leave by 44 m, so its keys are likely in the wrong units',
+      };
+    }
+    if (/run\b/i.test(clip.name) && setting.rootMotion && setting.pinFeet) {
+      return {
+        ...base,
+        status: 'good',
+        note: 'Feet pinned, the slide is down from 4.2 cm to 0.3 cm',
+        slideCm: 0.3,
+        unpinnedCm: 4.2,
       };
     }
     if (/run\b/i.test(clip.name) && setting.rootMotion) {
@@ -354,6 +365,8 @@ export function createRetargetHandlers(ctx: RetargetContext) {
         ),
       animations_retarget: (args: Args) => retarget(args.request as UseClips),
       animations_bake: (args: Args) => bake(args.token as string),
+      animations_open_draft_in_blender: () =>
+        fail('unavailable', 'Mock mode does not open Blender.'),
     } as Record<string, (args: Args) => unknown>,
   };
 }

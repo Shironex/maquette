@@ -1,7 +1,8 @@
 import { Suspense, lazy } from 'react';
-import { Icon, KeyValueList, cn, type IconName } from '@maquette/ui';
+import { Button, Icon, KeyValueList, cn, type IconName } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import type { ReviewStatus } from '@/ipc/client';
+import { PinFeet } from '../PinFeet';
 import { useReviewStep } from './ReviewStep.hooks';
 
 const MotionStage = lazy(() => import('@/features/viewer/MotionStage'));
@@ -110,14 +111,24 @@ export default function ReviewStep() {
       <section aria-label="Side by side" className="flex min-w-0 flex-1 flex-col gap-3 p-4">
         {selected ? (
           <>
-            <p className="text-[13px]">
-              <span className="font-mono">{selected.name}</span>
-              <span className="text-fg-dim">
-                {' '}
-                from {step.source?.clip.name ?? selected.clip} · {selected.frames} f · frame{' '}
-                {step.frame}
-              </span>
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="mr-auto text-[13px]">
+                <span className="font-mono">{selected.name}</span>
+                <span className="text-fg-dim">
+                  {' '}
+                  from {step.source?.clip.name ?? selected.clip} · {selected.frames} f · frame{' '}
+                  {step.frame}
+                </span>
+              </p>
+              <Button
+                size="sm"
+                icon="arrow-square-out"
+                onClick={step.openInBlender}
+                tooltip="Opens the draft in Blender's window to look closer. Nothing is saved from there."
+              >
+                Open in Blender
+              </Button>
+            </div>
             <div className="flex min-h-0 flex-1 gap-3">
               <Stage
                 url={step.sourceUrl}
@@ -134,6 +145,7 @@ export default function ReviewStep() {
               />
             </div>
             <p className="text-meta text-fg-dim">{selected.note}.</p>
+            <PinFeet clip={selected} />
           </>
         ) : null}
         <KeyValueList items={facts} />

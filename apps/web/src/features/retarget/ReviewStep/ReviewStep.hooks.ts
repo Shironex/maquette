@@ -11,6 +11,7 @@ import { useRetargetStore } from '@/state/use-retarget-store';
 export function useReviewStep() {
   const sheet = useRetargetStore(s => s.sheet);
   const change = useRetargetStore(s => s.change);
+  const openInBlender = useRetargetStore(s => s.openInBlender);
   const view = useAnimationsStore(s => s.view);
   const items = view?.items ?? [];
   const [time, setTime] = useState(0);
@@ -37,6 +38,7 @@ export function useReviewStep() {
     time,
     frame: Math.min(selected?.frames ?? 0, Math.round(time * fps)),
     tick: (delta: number) => setTime(t => (length > 0 ? (t + delta) % length : 0)),
+    openInBlender: () => void openInBlender(),
     select: (clip: string) => {
       setTime(0);
       change({ selected: clip });

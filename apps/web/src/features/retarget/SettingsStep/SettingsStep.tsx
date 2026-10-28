@@ -103,6 +103,12 @@ export default function SettingsStep() {
             checked={selected.setting.loops}
             onChange={loops => step.edit({ loops })}
           />
+          <Toggle
+            label="Pin the feet"
+            description="Holds each foot still while it is planted, for a clip whose feet slide."
+            checked={selected.setting.pinFeet ?? false}
+            onChange={pinFeet => step.edit({ pinFeet })}
+          />
           <div className="grid grid-cols-2 gap-2">
             <NumberField
               label="Trim in"
