@@ -75,6 +75,7 @@ export {
 } from './components/shell/WindowChrome';
 export {
   NavRail,
+  type NavRailGroup,
   type NavRailItem,
   type NavRailPlanned,
   type NavRailProps,

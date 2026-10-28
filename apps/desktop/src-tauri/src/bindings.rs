@@ -8,9 +8,9 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    about, agents, app, assets, built, credits, dialogs, downloads, game, inbox, inspect, lab,
-    layout, library, materials, motion, page, paths, pipeline, prepare, project, providers, quit,
-    refs, ship, site, thumbs, timeline, toolchain, trash, updater, workspace,
+    about, agents, animations, app, assets, built, credits, dialogs, downloads, game, inbox,
+    inspect, lab, layout, library, materials, motion, page, paths, pipeline, prepare, project,
+    providers, quit, refs, ship, site, thumbs, timeline, toolchain, trash, updater, workspace,
 };
 use crate::events::{
     BuiltChanged, ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged, LibraryChanged,
@@ -67,6 +67,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             dialogs::dialog_pick_model,
             dialogs::dialog_pick_script,
             dialogs::dialog_pick_files,
+            dialogs::dialog_pick_clips,
             assets::asset_add,
             assets::asset_move,
             assets::asset_rename,
@@ -80,6 +81,11 @@ pub fn builder() -> Builder<tauri::Wry> {
             library::library_use,
             library::library_update_plan,
             library::library_update,
+            animations::animations_get,
+            animations::animations_read_import,
+            animations::animations_import,
+            animations::animations_save_plan,
+            animations::animations_save,
             layout::layout_get,
             layout::layout_save,
             motion::motion_get,

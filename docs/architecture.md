@@ -133,7 +133,8 @@ layout patch's `paths` and `pathTracks`.
 
 `tools/library.rs` holds `list_library`, `add_to_library`, `use_from_library` and
 `update_from_library`, which call the same `maquette_core::library` functions as the commands and
-emit `libraryChanged` and the project events.
+emit `libraryChanged` and the project events. `tools/animations.rs` holds `list_animations`,
+`import_animations` and `save_model_clips`; import paths must resolve inside the workspace.
 
 `tools/trash.rs` holds `remove_assets`, `list_removed_assets` and `restore_asset`, which go
 through `commands/trash.rs` like the Board's Remove from project and Recently removed.
@@ -290,6 +291,30 @@ material tweaks.
   `libraryChanged`. The MCP tools are in `mcp/tools/library.rs`. The web state is
   `apps/web/src/state/library.ts` and `use-library-store.ts`, and the view is
   `apps/web/src/features/library`.
+
+## Animation library
+
+`maquette_core::animations` keeps clips once in `<workspace root>/library/animations/`, skeleton
+only. A clip is `animations/<clip-id>/` with `clip.json` (name, pack, tags, the source rig with its
+kind, bones, rest pose and hips height, frames, rate, length, root motion, loop, size, origin, the
+sha256 of its keys and a revision) and `clip.glb` (bones and one animation, no mesh), plus
+`source.<ext>` only when the person keeps the original.
+
+- **Reading.** `read_clips.py` runs headless on the runner's `animations` lane in a scratch folder
+  under the workspace cache. It imports each FBX or glTF, keeps the armature with the most bones,
+  drops every mesh, measures each action (frames, rate, root travel and direction, loop) and writes
+  a skeleton only GLB per clip with a report. A lone FBX take is named after its file.
+- **Import.** `import.rs` stages files (a zip is unpacked, `__MACOSX` skipped), reads them, and
+  `import/classify.rs` sorts each clip: new, a duplicate (the same key hash in the library or an
+  earlier file) or a revision (the same pack and name with other keys), and files with no keys left
+  out. The plan's token names the staged folder; `import/commit.rs` writes what the person chose.
+- **Rig.** `rig.rs` reads the source rig from the bone names: Mixamo through the humanoid map,
+  Tripo through its own bone table or a Tripo send, Custom otherwise.
+- **Save.** `save.rs` reads a project asset's newest model or an Inbox file without Blender for the
+  plan, then headless for the chosen clips; clips that came from the library are never saved back
+  and known hashes are skipped.
+- **Edges.** The Tauri commands are in `commands/animations.rs` and emit `libraryChanged`; the web
+  state is `state/animations.ts` and `use-animations-store.ts`, the view `features/animations`.
 
 ## Remove and restore
 

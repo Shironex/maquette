@@ -97,3 +97,23 @@ pub async fn dialog_pick_files(app: AppHandle, title: String) -> CommandResult<V
     .await
     .map_err(super::join_failed)
 }
+
+/// Picks clip files to import: Mixamo FBX files or a pack zip of them.
+/// Empty when the user cancels.
+#[tauri::command]
+#[specta::specta]
+pub async fn dialog_pick_clips(app: AppHandle, title: String) -> CommandResult<Vec<String>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .set_title(title)
+            .add_filter("FBX clips or a pack zip", &["fbx", "zip"])
+            .blocking_pick_files()
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|p| to_string(Some(p)))
+            .collect()
+    })
+    .await
+    .map_err(super::join_failed)
+}

@@ -1,0 +1,55 @@
+---
+title: Animations
+description: Keep animation clips once for every project, skeleton only, imported from Mixamo FBX files and pack zips or saved from a rigged model.
+sidebar:
+  label: Animations
+---
+
+The Animations library keeps clips once, outside every project, for every project in the workspace. It sits under Libraries in the rail, next to [Models](/docs/views/library/), with the number of clips after its name. A clip is skeleton only: the bones, their rest pose and the keys, never a mesh. A rigged model takes a clip by baking it; the library itself never changes a project.
+
+## Import clips
+
+**Import clips** in the top bar opens a sheet. **Add files** picks Mixamo FBX files or a pack zip of them. Maquette reads them headless in Blender and shows each file before anything is added:
+
+- **A pack zip** becomes a pack named after the zip. Each FBX inside is one clip. The sheet says how many clips it found, their rate, and the rig.
+- **A single FBX** goes to Singles, or the pack you type under Single files go to.
+- **The rig** is read from the bone names: Mixamo (`mixamorig:` names), Tripo, or Custom. A custom rig goes in as it is; the first model it is used on asks for a bone map.
+- **The skin** is dropped. Only the skeleton and the keys are kept, so a clip is a few dozen KB.
+- **A duplicate** (a clip whose keys the library has already) is skipped, or added as a clip of its own with **Keep both**.
+- **A new take** of a clip already in the pack, with other keys, replaces it as its next revision. Models that baked the older take are offered an update.
+- **A file with no keys** (one pose) is left out, with the reason. So is anything that is not an FBX file or a zip of them.
+
+The sheet suggests tags from the clip names (combat, magic, locomotion, dodge, idle, hit react) and shows what was read and what the library stores. **Keep the FBX files** keeps each FBX next to its clip; it is off by default. **Import N clips** adds them.
+
+## Save clips to library
+
+A rigged model can give its clips to the library:
+
+- In [Motion](/docs/views/motion/), **Add clip** > **Save clips to library** on the selected model.
+- In the [Inbox](/docs/views/inbox/), **Save clips to library** on a model that came with a rig and clips, such as a Tripo job's animations.
+
+The sheet shows the rig it read, the clips with their frames, rate, loop and root motion, all chosen, and the pack, a new one named after the model by default. A clip that came from the library is listed but never saved back, and keys the library has already are skipped. Only the skeleton and the clips' keys go in; the mesh and its textures stay where they are.
+
+## The view
+
+Search takes a clip, pack or tag. Grid or List changes the layout. The filters are Packs (All clips, each pack, Singles last), Tags and Source rig, each with its count over the whole library. **Root motion** and **Loops** keep only the clips that travel or loop. The stat strip shows how many clips, packs and singles there are and what they weigh on disk.
+
+A card shows the clip's rest pose, its source rig, its name, its length ("38 f · 1.27 s") and whether it travels (root) or stays put (in place), and loops.
+
+The side panel plays the selected clip on its own skeleton, looping, with its frame and how far the root travels; no model is needed to look at a clip. Under it: the pack and the file it came from, its tags, length and rate, root motion ("yes, 0.92 m to the left"), loop, source rig with its bone count, and what it stores.
+
+The status bar reads "Animations at ~/Maquette/library/animations, N clips".
+
+## Mixamo clips
+
+Mixamo clips may be used in your own games and sites, but not handed out as raw files. The library lives on this machine and is never shipped: Ship and Export never copy a raw clip, and a clip leaves the library only baked into a model.
+
+## Where the files live
+
+The clips are in `library/animations/` in the workspace root, by default `~/Maquette/library/animations`. Each clip is a folder `library/animations/<clip-id>/`:
+
+- `clip.json`: the name, pack, tags, source rig with its bones and rest pose and its hips height, frames, rate, length, root motion, loop, size, the file it came from and the hash of its keys.
+- `clip.glb`: the skeleton and the one animation, no mesh.
+- `source.fbx`: the original file, only when Keep the FBX files was on.
+
+Agents use the same library through [`list_animations`](/docs/agents/mcp-tools/#list_animations), [`import_animations`](/docs/agents/mcp-tools/#import_animations) and [`save_model_clips`](/docs/agents/mcp-tools/#save_model_clips).

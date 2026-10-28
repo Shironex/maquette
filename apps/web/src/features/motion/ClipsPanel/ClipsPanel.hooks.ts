@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Clip } from '@/ipc/client';
 import { formatBytes } from '@/lib/format';
 import { budgetLine, clipBytes, clipsToFit, isOff, n } from '@/state/motion';
+import { useAnimationsStore } from '@/state/use-animations-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useIsGame } from '@/state/use-budget-check';
 import { useBuiltStore } from '@/state/use-built-store';
@@ -37,6 +38,7 @@ export function useClipsPanel() {
   const setShip = useMotionStore(s => s.setShip);
   const setBoneMap = useMotionStore(s => s.setBoneMap);
   const setView = useAppStore(s => s.setView);
+  const projectId = useAppStore(s => s.workspace?.project?.id ?? null);
   const setAdding = useBuiltStore(s => s.setAdding);
   const [menu, setMenu] = useState(false);
   const [query, setQuery] = useState('');
@@ -74,6 +76,13 @@ export function useClipsPanel() {
     setMenu,
     actions: {
       retarget: () => setBoneMap(true),
+      save: () => {
+        if (model && projectId) {
+          void useAnimationsStore
+            .getState()
+            .openSave({ project: projectId, asset: model.asset, inbox: null });
+        }
+      },
       inbox: () => setView('inbox'),
       script: () => {
         setView('board');

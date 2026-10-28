@@ -7,7 +7,7 @@
 import { Icon, InlineBanner } from '@maquette/ui';
 import { deepEqual } from '@/lib/deepEqual';
 import { batchSummary } from '@/state/batch';
-import { Sheet } from '../Sheet';
+import { Sheet } from '@/features/common/Sheet';
 import { BatchForm } from './BatchForm';
 import { useBatchPanel } from './BatchSendPanel.hooks';
 

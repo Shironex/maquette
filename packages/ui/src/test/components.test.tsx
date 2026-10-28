@@ -400,6 +400,35 @@ describe('NavRail', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Expand the sidebar' }));
     expect(onToggle).toHaveBeenCalled();
   });
+
+  it('lists groups under their headings with plain counts', async () => {
+    const onChange = vi.fn();
+    render(
+      <NavRail
+        items={[{ id: 'board', label: 'Board', icon: 'squares-four' }]}
+        groups={[
+          {
+            title: 'Libraries',
+            items: [
+              { id: 'library', label: 'Models', icon: 'cube', count: 38 },
+              { id: 'animations', label: 'Animations', icon: 'person-simple', count: 132 },
+            ],
+          },
+        ]}
+        footer={{ id: 'settings', label: 'Settings', icon: 'gear-six' }}
+        value="animations"
+        onChange={onChange}
+      />
+    );
+    const group = screen.getByRole('group', { name: 'Libraries' });
+    expect(group).toHaveTextContent('Libraries');
+    expect(group).toHaveTextContent('Models38');
+    const animations = screen.getByRole('button', { name: /Animations/ });
+    expect(animations).toHaveAttribute('aria-current', 'page');
+    expect(animations).toHaveTextContent('132');
+    await userEvent.click(screen.getByRole('button', { name: /Models/ }));
+    expect(onChange).toHaveBeenCalledWith('library');
+  });
 });
 
 describe('HelpMark', () => {

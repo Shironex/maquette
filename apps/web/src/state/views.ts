@@ -11,6 +11,7 @@ export type ViewId =
   | 'timeline'
   | 'page'
   | 'library'
+  | 'animations'
   | 'settings';
 
 export interface ViewDef {
@@ -28,7 +29,12 @@ export const TOOL_VIEWS: readonly ViewDef[] = [
   { id: 'motion', label: 'Motion', icon: 'person-simple-walk' },
   { id: 'timeline', label: 'Timeline', icon: 'film-strip' },
   { id: 'page', label: 'Page', icon: 'browser' },
-  { id: 'library', label: 'Library', icon: 'books' },
+];
+
+/** The workspace's libraries, shared by every project: models and animation clips. */
+export const LIBRARY_VIEWS: readonly ViewDef[] = [
+  { id: 'library', label: 'Models', icon: 'cube' },
+  { id: 'animations', label: 'Animations', icon: 'person-simple' },
 ];
 
 /** Views a game project has no use for: it ships no web page. */
@@ -53,7 +59,7 @@ export function plannedViewsFor(target: ProjectTarget | undefined): readonly Nav
 
 export const SETTINGS_VIEW: ViewDef = { id: 'settings', label: 'Settings', icon: 'gear-six' };
 
-const ALL = [...TOOL_VIEWS, SETTINGS_VIEW].map(v => v.id);
+const ALL = [...TOOL_VIEWS, ...LIBRARY_VIEWS, SETTINGS_VIEW].map(v => v.id);
 
 /** `#/settings` to `settings`; anything else falls back to the Board. */
 export function viewFromHash(hash: string): ViewId {

@@ -21,6 +21,7 @@ import type {
 import { clock } from '@/lib/clock';
 import { fail, slugify, type Args } from './backend-options';
 import { LIBRARY_ORIGINS, libraryEntries } from './library-fixtures';
+import { createAnimationHandlers } from './create-animation-handlers';
 
 interface LibraryContext {
   projects: () => readonly ProjectManifest[];
@@ -326,8 +327,15 @@ export function createLibraryHandlers(ctx: LibraryContext) {
     return { plan: found, asset, project };
   }
 
+  const animations = createAnimationHandlers({
+    project: ctx.project,
+    root: ctx.root,
+    state: ctx.state,
+  });
+
   return {
     handlers: {
+      ...animations.handlers,
       library_get: () => view(),
       library_add: add,
       library_use: use,

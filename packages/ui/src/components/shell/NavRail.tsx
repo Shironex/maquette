@@ -12,6 +12,14 @@ export interface NavRailItem<T extends string = string> {
   badge?: number;
   /** A live marker, as the amber dot (a running pipeline). */
   live?: boolean;
+  /** A plain count after the label, for example a library's size. */
+  count?: number;
+}
+
+/** Views under a heading of their own, for example Libraries. */
+export interface NavRailGroup<T extends string = string> {
+  title: string;
+  items: readonly NavRailItem<T>[];
 }
 
 /** A view that is not built yet: shown greyed out, never selectable. */
@@ -25,6 +33,8 @@ export interface NavRailPlanned {
 
 export interface NavRailProps<T extends string> {
   items: readonly NavRailItem<T>[];
+  /** More views under their own headings, after the tools. */
+  groups?: readonly NavRailGroup<T>[];
   /** Views that are not built yet, under a Planned heading. */
   planned?: readonly NavRailPlanned[];
   /** The bottom item, Settings. */
@@ -40,7 +50,6 @@ export interface NavRailProps<T extends string> {
   collapsed?: boolean;
   /** Shows the collapse button at the bottom. */
   onToggleCollapsed?: () => void;
-  label?: string;
   className?: string;
 }
 
@@ -58,7 +67,13 @@ function RailButton<T extends string>({
   collapsed?: boolean;
   onChange: (id: T) => void;
 }) {
-  const extra = item.badge ? `, ${item.badge} new` : item.live ? ', running' : '';
+  const extra = item.badge
+    ? `, ${item.badge} new`
+    : item.live
+      ? ', running'
+      : item.count !== undefined
+        ? `, ${item.count}`
+        : '';
   return (
     <Tooltip label={item.label} side="right" disabled={!collapsed}>
       <button
@@ -110,8 +125,20 @@ function RailLabel<T extends string>({ item }: { item: NavRailItem<T> }) {
         <span className="ml-auto size-[7px] rounded-full bg-amber shadow-[0_0_0_3px_var(--amber-soft)]">
           <span className="sr-only">running</span>
         </span>
+      ) : item.count !== undefined ? (
+        <span className="ml-auto font-mono text-[11px] text-fg-mute">{item.count}</span>
       ) : null}
     </>
+  );
+}
+
+function Heading({ title, collapsed }: { title: string; collapsed?: boolean }) {
+  return collapsed ? (
+    <div className="mx-2 mt-2 mb-1.5 border-t border-line" />
+  ) : (
+    <div className="px-2 pt-3 pb-1.5 text-caption tracking-[0.06em] text-fg-mute uppercase">
+      {title}
+    </div>
   );
 }
 
@@ -144,6 +171,7 @@ function PlannedRow({ item, collapsed }: { item: NavRailPlanned; collapsed?: boo
 
 export function NavRail<T extends string>({
   items,
+  groups,
   planned,
   footer,
   value,
@@ -153,23 +181,29 @@ export function NavRail<T extends string>({
   header,
   collapsed,
   onToggleCollapsed,
-  label = 'Main',
   className,
 }: NavRailProps<T>) {
   const toggle = collapsed ? 'Expand the sidebar' : 'Collapse the sidebar';
   const plannedRows = planned?.map(p => <PlannedRow key={p.id} item={p} collapsed={collapsed} />);
-  const itemButtons = items.map(it => (
-    <RailButton
-      key={it.id}
-      item={it}
-      current={it.id === value}
-      collapsed={collapsed}
-      onChange={onChange}
-    />
+  const buttons = (list: readonly NavRailItem<T>[]) =>
+    list.map(it => (
+      <RailButton
+        key={it.id}
+        item={it}
+        current={it.id === value}
+        collapsed={collapsed}
+        onChange={onChange}
+      />
+    ));
+  const groupBlocks = groups?.map(g => (
+    <div key={g.title} role="group" aria-label={g.title} className="flex flex-col gap-1">
+      <Heading title={g.title} collapsed={collapsed} />
+      {buttons(g.items)}
+    </div>
   ));
   return (
     <nav
-      aria-label={label}
+      aria-label="Main"
       className={cn(
         'flex flex-none flex-col gap-1 border-r border-line bg-panel pt-4 pb-3 transition-[width] duration-140',
         collapsed ? 'w-[76px] px-3' : 'w-52 px-3',
@@ -190,16 +224,11 @@ export function NavRail<T extends string>({
           Tools
         </div>
       )}
-      {itemButtons}
+      {buttons(items)}
+      {groupBlocks}
       {planned?.length ? (
         <>
-          {collapsed ? (
-            <div className="mx-2 mt-2 mb-1.5 border-t border-line" />
-          ) : (
-            <div className="px-2 pt-3 pb-1.5 text-caption tracking-[0.06em] text-fg-mute uppercase">
-              Planned
-            </div>
-          )}
+          <Heading title="Planned" collapsed={collapsed} />
           {plannedRows}
         </>
       ) : null}

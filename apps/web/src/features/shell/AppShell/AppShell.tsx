@@ -13,6 +13,7 @@ import { RefsSheet } from '@/features/providers/RefsSheet';
 import { ObjectRefsDialog } from '@/features/lab/ObjectRefsDialog';
 import { StyleBoardDialog } from '@/features/lab/StyleBoardDialog';
 import { LibraryDialogs } from '@/features/common/LibraryDialogs';
+import { AnimationDialogs } from '@/features/animations/AnimationDialogs';
 import { SETTINGS_VIEW, showsView, type ViewId } from '@/state/views';
 import { CurrentView } from '../CurrentView';
 import { ProjectSwitcherMenu } from '../ProjectSwitcherMenu';
@@ -28,6 +29,7 @@ export default function AppShell() {
     view,
     setView,
     items,
+    groups,
     planned,
     target,
     collapsed,
@@ -42,6 +44,7 @@ export default function AppShell() {
     <div className="flex h-full min-h-0 bg-app text-fg">
       <NavRail<ViewId>
         items={items}
+        groups={groups}
         planned={planned}
         footer={SETTINGS_VIEW}
         value={view}
@@ -88,6 +91,7 @@ export default function AppShell() {
       <NewProjectDialog onClosed={focusSwitcher} />
       <GameImportDialog />
       <LibraryDialogs />
+      <AnimationDialogs />
       <ApprovalPrompt />
       <RepoPrompt />
       <QuitDialog />

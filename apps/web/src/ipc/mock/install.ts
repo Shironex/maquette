@@ -18,6 +18,8 @@ import { REFS_SCENARIO_FILES } from './create-refs-handlers';
 import { MOCK_SITE_URL, conceptPath, pageOption, posterPath } from './create-page-handlers';
 import { MANY_STOPS, mockConceptPage, mockSitePage } from './page-site';
 import { libraryFiles } from './library-fixtures';
+import { CLIP_MODEL } from './animation-fixtures';
+import { clipSource } from './create-animation-handlers';
 import bridgeShim from '@crates/maquette-core/src/site/preview/frame/shim.js?raw';
 
 const params = new URLSearchParams(window.location.search);
@@ -74,6 +76,10 @@ for (const [path, url] of Object.entries(renders)) {
 for (const [file, model] of Object.entries(PREVIEW_FILE)) {
   const url = models[`../../assets/mock/models/${model}`];
   if (url) registerMockFile(`${root}/inbox/${file}`, url);
+}
+{
+  const url = models[`../../assets/mock/models/${CLIP_MODEL}`];
+  if (url) registerMockFile(clipSource(root), url);
 }
 for (const [file, render] of Object.entries(libraryFiles())) {
   const url = renders[`../../assets/mock/${render}`];

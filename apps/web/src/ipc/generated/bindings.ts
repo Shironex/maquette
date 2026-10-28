@@ -99,6 +99,11 @@ export const commands = {
 	 *  Empty when the user cancels.
 	 */
 	dialogPickFiles: (title: string) => __TAURI_INVOKE<string[]>("dialog_pick_files", { title }),
+	/**
+	 *  Picks clip files to import: Mixamo FBX files or a pack zip of them.
+	 *  Empty when the user cancels.
+	 */
+	dialogPickClips: (title: string) => __TAURI_INVOKE<string[]>("dialog_pick_clips", { title }),
 	assetAdd: (project: string, asset: NewAsset) => __TAURI_INVOKE<ProjectManifest>("asset_add", { project, asset }),
 	assetMove: (project: string, id: string, stage: Stage) => __TAURI_INVOKE<ProjectManifest>("asset_move", { project, id, stage }),
 	assetRename: (project: string, id: string, name: string) => __TAURI_INVOKE<ProjectManifest>("asset_rename", { project, id, name }),
@@ -134,6 +139,19 @@ export const commands = {
 	libraryUpdatePlan: (project: string, asset: string) => __TAURI_INVOKE<UpdatePlan>("library_update_plan", { project, asset }),
 	/**  Brings the library's newest version in as the asset's next version. */
 	libraryUpdate: (project: string, asset: string) => __TAURI_INVOKE<LibraryUpdated>("library_update", { project, asset }),
+	/**  Every clip in the animation library. */
+	animationsGet: () => __TAURI_INVOKE<AnimationsView>("animations_get"),
+	/**
+	 *  Reads FBX files and pack zips headless and says what an import would
+	 *  add. Nothing is added yet.
+	 */
+	animationsReadImport: (paths: string[]) => __TAURI_INVOKE<ImportPlan>("animations_read_import", { paths }),
+	/**  Adds the clips of a read import as the person chose. */
+	animationsImport: (request: ImportRequest) => __TAURI_INVOKE<Imported>("animations_import", { request }),
+	/**  The clips a rigged model offers to the library. */
+	animationsSavePlan: (from: ClipsFrom) => __TAURI_INVOKE<SavePlan>("animations_save_plan", { from }),
+	/**  Saves the chosen clips of a rigged model as a pack, skeleton only. */
+	animationsSave: (request: SaveClips) => __TAURI_INVOKE<Saved>("animations_save", { request }),
 	layoutGet: (project: string) => __TAURI_INVOKE<LayoutView>("layout_get", { project }),
 	/**
 	 *  Saves the whole layout and returns the view of it. The states, clip
@@ -507,6 +525,52 @@ export type AgentSettings = {
 	 */
 	mcpPort: number,
 	rules: AgentRules,
+};
+
+/**  `clip.json`. */
+export type AnimationClip = {
+	version: number,
+	/**  The folder name. */
+	id: string,
+	name: string,
+	pack: string,
+	tags: string[],
+	rig: ClipRig,
+	frames: number,
+	fps: number | null,
+	/**  Seconds. */
+	length: number | null,
+	rootMotion: RootMotion | null,
+	loops: boolean,
+	/**  What the stored clip weighs. */
+	bytes: number | null,
+	/**  The skeleton and keys, relative to the folder. */
+	file: string,
+	origin: ClipOrigin,
+	/**  A hash of the keys, so the same clip is never added twice. */
+	hash: string,
+	/**
+	 *  Goes up when an import replaces the keys; models that baked an older
+	 *  revision are offered an update.
+	 */
+	revision: number,
+	createdAt: string,
+	updatedAt: string,
+};
+
+/**  One clip as the Animations view shows it. */
+export type AnimationItem = {
+	clip: AnimationClip,
+	/**  Its skeleton file, absolute, for the preview. */
+	file: string,
+};
+
+export type AnimationsView = {
+	/**  The animation library folder, absolute. */
+	dir: string,
+	items: AnimationItem[],
+	/**  What every clip folder weighs, kept source files included. */
+	diskBytes: number | null,
 };
 
 export type AppState = {
@@ -1114,10 +1178,68 @@ export type Clip = {
 	loops: boolean | null,
 };
 
+export type ClipOrigin = {
+	source: ClipSource,
+	/**  The file it was read from: `Standing Dodge Left.fbx`, or the model's. */
+	file: string,
+	/**  The zip it came in, for a pack. */
+	archive: string | null,
+	/**  The original file kept next to the clip, relative to its folder. */
+	kept: string | null,
+	/**  The project and asset version a model's clip came from. */
+	project: string | null,
+	asset: string | null,
+	version: number | null,
+};
+
+/**  The skeleton a clip was made on. */
+export type ClipRig = {
+	kind: SourceRig,
+	/**  Every bone with its rest pose, parents first as the file had them. */
+	bones: RestBone[],
+	/**  The hips' height at rest, metres, which root motion scales by. */
+	hipsHeight: number | null,
+};
+
 /**  What the Motion view changed about one clip. */
 export type ClipSettings = {
 	/**  False leaves the clip out of the shipped model. */
 	ship: boolean,
+};
+
+/**  Where a clip came into the library from. */
+export type ClipSource = 
+/**  An FBX file or a pack of them. */
+"import" | 
+/**  A rigged model in a project. */
+"model" | 
+/**  A Tripo job's animations from the Inbox. */
+"tripo";
+
+/**  What happens to a clip unless the person says otherwise. */
+export type ClipStatus = 
+/**  Goes in as a new clip. */
+"new" | 
+/**
+ *  The library (or an earlier file here) has the same keys: skipped
+ *  unless kept both.
+ */
+"duplicate" | 
+/**
+ *  The pack has a clip of this name with other keys: it replaces that
+ *  clip as its next revision, unless kept both.
+ */
+"revision";
+
+/**
+ *  The model clips are saved from: a project asset's newest version, or an
+ *  Inbox file.
+ */
+export type ClipsFrom = {
+	project: string | null,
+	asset: string | null,
+	/**  An Inbox file name. */
+	inbox: string | null,
 };
 
 /**  What each map group is encoded with. */
@@ -1701,6 +1823,57 @@ export type HandoffCard = {
 
 export type HostOs = "mac" | "windows" | "linux";
 
+/**  One dropped file: a single FBX, or a pack zip. */
+export type ImportFile = {
+	name: string,
+	archive: boolean,
+	bytes: number | null,
+	/**  FBX files read from it. */
+	fbx: number,
+	pack: string,
+	rig: SourceRig | null,
+	/**  Bones of its (first) skeleton. */
+	bones: number,
+	/**  The prefix its bones share, like `mixamorig:`. */
+	prefix: string | null,
+	/**  The rate every clip shares, when they do. */
+	fps: number | null,
+	/**  FBX files that had a skin, which was dropped. */
+	skinned: number,
+	clips: PlanClip[],
+	leftOut: LeftOut[],
+};
+
+/**  What an import would add, before anything is added. */
+export type ImportPlan = {
+	/**  Names the read files for [`commit`]. */
+	token: string,
+	files: ImportFile[],
+	/**  What was read, the FBX files and zips together. */
+	readBytes: number | null,
+	/**  What the clips that go in by default weigh, skeleton only. */
+	storedBytes: number | null,
+	tags: TagCount[],
+	/**  Clips that go in by default. */
+	add: number,
+	leftOut: number,
+};
+
+/**  What the person chose in the Import sheet. */
+export type ImportRequest = {
+	token: string,
+	/**  The pack for a zip's clips; left out, the zip's name. */
+	packs: PackChoice[],
+	/**  Where single files go; left out, Singles. */
+	singles: string | null,
+	/**  Keeps each FBX file next to its clip. Off by default. */
+	keepFiles: boolean,
+	/**  Duplicates and revisions to add as clips of their own. */
+	keepBoth: string[],
+	/**  Clips not to add at all. */
+	skip: string[],
+};
+
 export type ImportResult = {
 	project: ProjectManifest,
 	/**  The new assets, by id. */
@@ -1717,6 +1890,15 @@ export type ImportScan = {
 	 *  `<folder>/tools/`.
 	 */
 	toolScripts: string[],
+};
+
+/**  What an import added. */
+export type Imported = {
+	added: AnimationClip[],
+	/**  Clips that took new keys as their next revision. */
+	revised: AnimationClip[],
+	skipped: number,
+	leftOut: number,
 };
 
 /**  The asset an inbox model goes to by default. */
@@ -1964,6 +2146,12 @@ export type Ledger = {
 	skipped: number,
 };
 
+/**  A file or clip that does not go in, and why. */
+export type LeftOut = {
+	file: string,
+	reason: string,
+};
+
 /**  What Add to library did. */
 export type LibraryAdded = {
 	entry: LibraryEntry,
@@ -2107,6 +2295,14 @@ export type MapCodecs = {
 	normal: TextureCodec | null,
 	/**  Metal and roughness, occlusion and anything else. */
 	other: TextureCodec | null,
+};
+
+/**  The clip a duplicate or a revision matches. */
+export type MatchedClip = {
+	/**  The library clip, or none for an earlier file in this import. */
+	id: string | null,
+	name: string,
+	pack: string,
 };
 
 /**  One material's changes. A `None` field leaves the model's value alone. */
@@ -2532,6 +2728,12 @@ export type ObjectStates = {
 	triggers: StateTrigger[],
 };
 
+/**  The pack a dropped file's clips go to. */
+export type PackChoice = {
+	file: string,
+	pack: string,
+};
+
 /**  The site's dev server changed state or printed, for the Page view. */
 export type PageServerChanged = ServerStatus;
 
@@ -2702,6 +2904,26 @@ export type Placement = {
 	rotation: [(number | null), (number | null), (number | null)],
 	/**  Uniform. */
 	scale: number | null,
+};
+
+export type PlanClip = {
+	/**  `<file id>/<clip>`, which the request names it by. */
+	key: string,
+	name: string,
+	/**  The FBX it is in. */
+	file: string,
+	pack: string,
+	tags: string[],
+	rig: SourceRig,
+	bones: number,
+	frames: number,
+	fps: number | null,
+	length: number | null,
+	rootMotion: RootMotion | null,
+	loops: boolean,
+	bytes: number | null,
+	status: ClipStatus,
+	matched: MatchedClip | null,
 };
 
 export type PoseMode = "none" | "a-pose" | "t-pose";
@@ -3038,6 +3260,14 @@ export type RepoInspection = {
 	looksLikeGame: boolean,
 };
 
+/**  One bone of a clip's skeleton at rest, in metres with Y up. */
+export type RestBone = {
+	name: string,
+	parent: string | null,
+	head: [(number | null), (number | null), (number | null)],
+	tail: [(number | null), (number | null), (number | null)],
+};
+
 export type Rig = {
 	joints: number,
 	jointNames: string[],
@@ -3066,6 +3296,13 @@ export type RootInspection = {
 	 *  or a sync tool's own files.
 	 */
 	entries: number,
+};
+
+/**  How far and which way the root moves over a clip. */
+export type RootMotion = {
+	metres: number | null,
+	/**  `forward`, `back`, `left` or `right`, as the character faces. */
+	direction: string,
 };
 
 export type RootState = "missing" | "empty" | "workspace" | "not-empty";
@@ -3108,6 +3345,50 @@ export type RunRecord = {
 };
 
 export type RunState = "queued" | "running" | "done" | "failed" | "cancelled";
+
+export type SaveClip = {
+	name: string,
+	frames: number,
+	fps: number | null,
+	rootTravel: number | null,
+	loops: boolean | null,
+	bytes: number | null,
+	/**  The library clip it came from, which is never saved back. */
+	fromLibrary: string | null,
+};
+
+/**  What the person chose. */
+export type SaveClips = {
+	from: ClipsFrom,
+	clips: string[],
+	pack: string,
+	tags: string[],
+};
+
+/**  What Save clips to the library offers for a model. */
+export type SavePlan = {
+	from: ClipsFrom,
+	/**  The model's name. */
+	name: string,
+	version: number | null,
+	/**  The model file, relative to its project or the Inbox. */
+	file: string,
+	rig: SourceRig,
+	bones: number,
+	clips: SaveClip[],
+	/**  A new pack named after the model. */
+	pack: string,
+	/**  Tags the clip names suggest. */
+	tags: string[],
+	/**  What the mesh and textures weigh, which stay where they are. */
+	modelBytes: number | null,
+};
+
+export type Saved = {
+	added: AnimationClip[],
+	/**  Clips the library already had, by name. */
+	skipped: string[],
+};
 
 export type ScannedModel = {
 	/**  Relative to the model folder, with `/`: `props/brazier.glb`. */
@@ -3607,6 +3888,9 @@ export type SkippedFile = {
 	reason: string,
 };
 
+/**  The rig a library clip was made on. */
+export type SourceRig = "mixamo" | "tripo" | "custom";
+
 /**  One send as the Credits view lists it: its lines folded together. */
 export type Spend = {
 	project: string,
@@ -3805,6 +4089,11 @@ export type SyncConflict = {
 	path: string,
 	/**  The file it is a copy of, relative to the workspace. */
 	original: string,
+};
+
+export type TagCount = {
+	tag: string,
+	count: number,
 };
 
 export type TextureCodec = "etc1s" | "uastc";

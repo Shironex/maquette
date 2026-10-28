@@ -8,6 +8,7 @@
 //! ship wait for a person when "Ask before shipping" is on, and a send to
 //! Tripo or Meshy always waits for a person before it spends credits.
 
+pub mod animations;
 pub mod bake;
 pub mod built;
 pub mod concept_jobs;
@@ -129,6 +130,12 @@ there becomes its entry's next version); use_from_library copies an entry into a
 new asset that remembers its origin; update_from_library brings a newer library version in as \
 the asset's next version, keeping the fix-ups that still apply. The library copies, never \
 links: nothing changes a project until someone updates it, and none of it spends credits. \
+The animation library keeps clips once, skeleton only (library/animations). list_animations \
+reads it; import_animations reads Mixamo FBX files or pack zips inside the workspace headless \
+(the skin is dropped, the rig read from the bone names, duplicates skipped, fixed clips become \
+a new revision); save_model_clips saves a rigged model's clips, or a Tripo job's animations in \
+the Inbox, as a pack. Mixamo clips may be used in your projects but never redistributed as raw \
+files, so the library stays on this machine and none of it spends credits. \
 add_built_asset adds a built asset: a model a Blender script in the project makes. Its script \
 and helpers are copied into the project's built/ folder and it builds headless into the asset's \
 next version, with no credits and no approval; rebuild_built_asset builds one again (or all \
@@ -240,6 +247,7 @@ impl McpTools {
                 + Self::game_router()
                 + Self::ship_router()
                 + Self::library_router()
+                + Self::animations_router()
                 + Self::trash_router(),
         }
     }

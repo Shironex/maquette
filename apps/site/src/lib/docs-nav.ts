@@ -34,9 +34,12 @@ export const DOCS_GROUPS: readonly DocsGroup[] = [
       'docs/views/motion',
       'docs/views/timeline',
       'docs/views/page',
-      'docs/views/library',
       'docs/views/settings',
     ],
+  },
+  {
+    label: 'Libraries',
+    slugs: ['docs/views/library', 'docs/views/animations'],
   },
   {
     label: 'Pipeline steps',

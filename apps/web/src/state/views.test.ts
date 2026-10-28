@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { hashForView, plannedViewsFor, showsView, toolViewsFor, viewFromHash } from './views';
+import {
+  LIBRARY_VIEWS,
+  hashForView,
+  plannedViewsFor,
+  showsView,
+  toolViewsFor,
+  viewFromHash,
+} from './views';
 
 describe('views', () => {
   it('reads the view from the hash', () => {
@@ -18,6 +25,16 @@ describe('views', () => {
     expect(viewFromHash(hashForView('page'))).toBe('page');
     expect(viewFromHash(hashForView('timeline'))).toBe('timeline');
     expect(viewFromHash(hashForView('library'))).toBe('library');
+    expect(viewFromHash(hashForView('animations'))).toBe('animations');
+  });
+
+  it('keeps Models and Animations under Libraries, out of the tools', () => {
+    expect(LIBRARY_VIEWS.map(v => [v.id, v.label])).toEqual([
+      ['library', 'Models'],
+      ['animations', 'Animations'],
+    ]);
+    expect(toolViewsFor('game').map(v => v.id)).not.toContain('library');
+    expect(showsView('game', 'animations')).toBe(true);
   });
 
   it('hides Page and Timeline for a game and keeps Motion', () => {
@@ -25,7 +42,6 @@ describe('views', () => {
     expect(game).not.toContain('page');
     expect(game).not.toContain('timeline');
     expect(game).toContain('motion');
-    expect(game).toContain('library');
     expect(toolViewsFor('website').map(v => v.id)).toContain('page');
     expect(showsView('game', 'page')).toBe(false);
     expect(showsView('website', 'page')).toBe(true);

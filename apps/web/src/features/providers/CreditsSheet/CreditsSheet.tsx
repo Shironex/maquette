@@ -9,7 +9,7 @@ import type { ProviderId, SpendSource } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { SOURCE_LABEL, formatCredits, shareText, spendKey } from '@/state/credits';
 import { SectionTitle } from '../SectionTitle';
-import { Sheet } from '../Sheet';
+import { Sheet } from '@/features/common/Sheet';
 import { BalanceCard } from './BalanceCard';
 import { useCreditsSheet } from './CreditsSheet.hooks';
 import { SpendRow } from './SpendRow';
