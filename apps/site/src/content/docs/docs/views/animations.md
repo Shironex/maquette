@@ -1,6 +1,6 @@
 ---
 title: Animations
-description: Keep animation clips once for every project, skeleton only, imported from Mixamo FBX files and pack zips or saved from a rigged model.
+description: Keep animation clips once for every project, skeleton only, imported from Mixamo FBX files and pack zips or saved from a rigged model, and bake them onto rigged models.
 sidebar:
   label: Animations
 ---
@@ -40,6 +40,19 @@ The side panel plays the selected clip on its own skeleton, looping, with its fr
 
 The status bar reads "Animations at ~/Maquette/library/animations, N clips".
 
+## Use on model
+
+**Use on model** in the side panel, or **Add clip** > **Add from library** in [Motion](/docs/views/motion/), puts library clips on a rigged model of the open project in four steps. Nothing is baked until Review.
+
+1. **Choose clips.** Pick the model, then the clips; search and the packs narrow the list. The side shows how many clips, frames, packs, root motion and loops are chosen, and what they add to the model: the motion only, as triangles and textures stay as they are.
+2. **Bone map.** Each humanoid bone with the clip's bone and the model's. The model's side is read from the map saved for it, then from the bone names (Mixamo, Unreal and Rigify style names, and Tripo's own); pick another bone, or none to keep it at rest. The step opens on its own when a bone has no match and no map is saved; it never blocks. **Save this map** keeps it for the model's next retarget.
+3. **Clip settings.** Per clip: its name in the model (snake_case, the pack's words dropped: Sword And Shield Idle reads `sword_idle`), the frames it keeps, loop, in place or root motion, and speed. They are this model's only and are never written back to the library.
+4. **Review.** Blender bakes the clips headless onto a copy of the newest version. Each clip is good, to look at (a planted foot slides more than 1.5 cm) or failed (the hips leave by metres, so its keys are in the wrong units, or nothing maps). The selected clip plays on its own skeleton and on the baked copy side by side. **Bake N clips into vN** adds the copy as the model's next version through the usual checks, failed clips left out; the older version stays.
+
+How it bakes: the model's limbs are first turned to the clip's rest pose so both rigs start matched (a T pose clip on an A pose model), then each frame takes the world rotation of every clip bone against its rest and applies that change to the mapped bone. The hips move scaled by the model's hips height over the clip's. Fingers and unmapped bones stay at rest and follow their parents.
+
+The side panel lists **Where it is used**: each model that baked the clip, with its project, version and name there. When an import replaces a clip with a newer take, those models show **Update**, which opens Use on model at Clip settings with the settings it was baked with; the new bake replaces the old clip in the model's next version.
+
 ## Mixamo clips
 
 Mixamo clips may be used in your own games and sites, but not handed out as raw files. The library lives on this machine and is never shipped: Ship and Export never copy a raw clip, and a clip leaves the library only baked into a model.
@@ -52,4 +65,6 @@ The clips are in `library/animations/` in the workspace root, by default `~/Maqu
 - `clip.glb`: the skeleton and the one animation, no mesh.
 - `source.fbx`: the original file, only when Keep the FBX files was on.
 
-Agents use the same library through [`list_animations`](/docs/agents/mcp-tools/#list_animations), [`import_animations`](/docs/agents/mcp-tools/#import_animations) and [`save_model_clips`](/docs/agents/mcp-tools/#save_model_clips).
+What a project took from the library is in its own `animations.json`: per asset, the saved bone map, each clip baked in with its settings, revision and version, and the last review.
+
+Agents use the same library through [`list_animations`](/docs/agents/mcp-tools/#list_animations), [`import_animations`](/docs/agents/mcp-tools/#import_animations), [`save_model_clips`](/docs/agents/mcp-tools/#save_model_clips), [`use_animations`](/docs/agents/mcp-tools/#use_animations) and [`get_retarget_review`](/docs/agents/mcp-tools/#get_retarget_review).

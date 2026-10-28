@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 77 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 79 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -90,6 +90,8 @@ These look at the workspace and change nothing.
 | [`update_from_library`](#update_from_library)         | Adds a newer library version to an asset as its next version, or returns the plan                                              | Nothing | No       |
 | [`import_animations`](#import_animations)             | Imports Mixamo FBX files or pack zips into the animation library, skeleton only                                                | Nothing | No       |
 | [`save_model_clips`](#save_model_clips)               | Saves a rigged model's clips to the animation library as a pack                                                                | Nothing | No       |
+| [`use_animations`](#use_animations)                   | Bakes library clips onto a rigged model as its next version, after a review                                                    | Nothing | No       |
+| [`get_retarget_review`](#get_retarget_review)         | A model's last retarget review and the library clips baked into it                                                             | Nothing | No       |
 
 ## Spends credits or Codex usage, or needs approval
 
@@ -559,3 +561,41 @@ Saves a rigged model's clips to the animation library as a pack, as Save clips t
 | `pack`    | string   | no       | The pack. `<model> moves` by default.                     |
 | `tags`    | string[] | no       | Tags for every clip. Read from the clip names by default. |
 | `dryRun`  | boolean  | no       | Return the model's rig and clips; save nothing.           |
+
+```json
+{ "project": "frostveil", "asset": "elsheria", "pack": "Elsheria moves" }
+```
+
+### use_animations
+
+`changes the project`
+
+Puts library clips on a rigged model, as Use on model does. The clip's skeleton is mapped onto the model's rig: the map saved for the model first, then the bone names (Mixamo and Tripo names included); `map` sets bones by hand, and a bone left unmapped stays at rest. Each clip gets its name, frames, loop, root motion or in place, and speed on this model only; nothing is written back to the library. Blender bakes the clips headless onto a copy of the newest version and reviews each one: `good`, `look` (a planted foot slides more than 1.5 cm) or `failed` (keys in the wrong units, nothing mapped). Failed clips are left out and the rest become the model's next version through the usual checks; the older version stays. A clip the model baked before is replaced by the new bake. Spends nothing.
+
+| Parameter | Type     | Required | Notes                                                                                                                            |
+| --------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                                                                                                  |
+| `asset`   | string   | yes      | The asset id of a rigged model.                                                                                                  |
+| `clips`   | object[] | yes      | `{ clip, name?, start?, end?, loops?, rootMotion?, speed? }`: the library clip id and its settings; defaults come from the clip. |
+| `map`     | object[] | no       | `{ bone, target? }`: a humanoid bone (`Neck`, `LeftArm`) and the model bone it drives; no `target` keeps it at rest.             |
+| `saveMap` | boolean  | no       | Keep the map for the model's next retarget. On by default.                                                                       |
+| `dryRun`  | boolean  | no       | Bake and review only; add no version.                                                                                            |
+
+```json
+{
+  "project": "frostveil",
+  "asset": "elsheria",
+  "clips": [{ "clip": "standing-dodge-left", "start": 4, "end": 33, "speed": 1.15 }]
+}
+```
+
+### get_retarget_review
+
+`read only`
+
+A model's last retarget review: each library clip baked onto it with its status and a one line note, the bones driven and left at rest, and the version it made, with every library clip baked into the model and the revision it was baked at.
+
+| Parameter | Type   | Required | Notes           |
+| --------- | ------ | -------- | --------------- |
+| `project` | string | yes      | The project id. |
+| `asset`   | string | yes      | The asset id.   |
