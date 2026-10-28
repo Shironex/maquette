@@ -27,8 +27,9 @@
  * estimate, two models ticked, the batch redo and its confirm) and the
  * Credits sheet (all sends, filtered to Meshy). The byhand set covers the
  * By hand card with its subscription cost and export name, an export the
- * Downloads watch copies in, one it asks about and the "Which asset is
- * this?" picker, the watch in Settings and the Credits sheet's subscription
+ * Downloads watch copies in, one it asks about and the downloads picker,
+ * a close name waiting for a look next to its ref, the asset chooser and
+ * its search, the watch in Settings and the Credits sheet's subscription
  * sends. The built set covers built assets on the Board (a stale and a
  * current card, a rebuild, the card menu) and Add built asset. The motion
  * set (scripts/visual-check/motion.mjs) covers the Motion view, the timeline
@@ -896,8 +897,9 @@ async function prepShots() {
 /**
  * The By hand flow: the settings card with its subscription cost and export
  * name, an export the Downloads watch copies in by itself, one it asks about
- * ("Which asset is this?"), the watch in Settings and the Credits sheet's
- * subscription sends.
+ * ("Which asset is this?") and the asset chooser, a batch export whose name
+ * is only close to a send ("Needs a look"), the watch in Settings and the
+ * Credits sheet's subscription sends.
  */
 async function byHandShots() {
   const fixture = '&scenario=configured&handoff=batch';
@@ -918,12 +920,28 @@ async function byHandShots() {
   await asking.getByText('A new model in Downloads').waitFor();
   await shot(asking, 'byhand-arrival-asking');
   await asking.getByRole('button', { name: 'Choose' }).click();
-  const picker = asking.getByRole('dialog', { name: 'Which asset is this?' });
+  const picker = asking.getByRole('dialog', { name: 'New downloads' });
   await picker.getByText('model (3).glb').waitFor();
   await shot(asking, 'byhand-picker');
-  const select = picker.getByRole('combobox', { name: 'Asset for model (3).glb' });
-  await select.selectOption({ index: 1 });
+  await picker.getByRole('button', { name: 'Attach to an asset' }).click();
+  const chooser = asking.getByRole('dialog', { name: 'Attach to an asset' });
+  await chooser.getByRole('option').first().waitFor();
   await shot(asking, 'byhand-picker-chosen');
+
+  // A Tripo batch export: one name close to a send waits for a look, two fit none.
+  const look = await open(`${fixture}&arrival=look`, '#/board');
+  await look.getByText('Is this Lantern post?').first().waitFor();
+  await shot(look, 'byhand-arrival-look');
+  await look.getByRole('button', { name: 'Look' }).click();
+  const looking = look.getByRole('dialog', { name: 'New downloads' });
+  await looking.getByRole('img', { name: 'The model in lantern post 3d model.glb' }).waitFor();
+  await shot(look, 'byhand-picker-look');
+  await looking.getByRole('button', { name: 'Pick another asset' }).click();
+  const another = look.getByRole('dialog', { name: 'Attach to an asset' });
+  await another.getByRole('option').first().waitFor();
+  await shot(look, 'byhand-chooser');
+  await another.getByRole('combobox').fill('step');
+  await shot(look, 'byhand-chooser-search');
 
   const settings = await open(fixture, '#/settings');
   const watch = settings.getByRole('switch', { name: /Watch for By hand exports/ });
