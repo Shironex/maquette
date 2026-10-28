@@ -1,5 +1,12 @@
 export { cn } from './lib/cn';
 export { useControllable } from './lib/useControllable';
+export {
+  WINDOW_FROM,
+  useGridColumns,
+  useWindowedList,
+  type WindowedList,
+  type WindowedListOptions,
+} from './lib/useWindowedList';
 export { Icon, ICON_NAMES, type IconName, type IconProps } from './icons/Icon';
 
 export { Monogram, type MonogramProps } from './components/brand/Monogram';
