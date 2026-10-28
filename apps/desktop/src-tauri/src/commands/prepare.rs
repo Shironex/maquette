@@ -248,6 +248,11 @@ pub(crate) struct PreviewJob {
 }
 
 impl PreviewJob {
+    /// The same plan on another model file, such as an older version.
+    pub(crate) fn on(self, input: PathBuf) -> Self {
+        Self { input, ..self }
+    }
+
     /// Runs it headless and returns the numbers before and after. Blocks.
     pub(crate) fn run(&self, tools: &Toolbox) -> CommandResult<FixupReport> {
         Ok(PREVIEWS.run(&self.root, &self.input, &self.plan, &self.script, tools)?)

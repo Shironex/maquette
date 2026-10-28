@@ -182,7 +182,7 @@ impl RemoveFixupsArgs {
 }
 
 /// The asset's id, found by id or name.
-fn asset_id(host: &dyn Host, project_id: &str, wanted: &str) -> Result<String, String> {
+pub(super) fn asset_id(host: &dyn Host, project_id: &str, wanted: &str) -> Result<String, String> {
     let (root, config) = workspace(host)?;
     let manifest = project::load(&root, &config.layout, project_id).map_err(reason)?;
     Ok(find_asset(&manifest, wanted)?.id.clone())
