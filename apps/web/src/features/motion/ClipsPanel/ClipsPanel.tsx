@@ -97,6 +97,18 @@ export default function ClipsPanel() {
                 onSelect: panel.actions.retarget,
               },
               {
+                id: 'save',
+                label: 'Save clips to library',
+                icon: 'download-simple',
+                disabled: !model.rig || model.clips.length === 0,
+                hint: !model.rig
+                  ? 'Only a rigged model has clips to keep'
+                  : model.clips.length === 0
+                    ? 'This model has no clips yet'
+                    : undefined,
+                onSelect: panel.actions.save,
+              },
+              {
                 id: 'inbox',
                 label: 'From a .glb in the Inbox',
                 icon: 'tray',

@@ -12,6 +12,7 @@ import {
 } from '@maquette/ui';
 import { formatAgo } from '@/lib/format';
 import { checkSummary, itemTitle, kindHint, reviewPrompt } from '@/state/inbox';
+import { useAnimationsStore } from '@/state/use-animations-store';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { CheckFixes } from '../CheckFixes';
 import { InboxPrep } from '../InboxPrep';
@@ -41,6 +42,9 @@ export default function InboxDetail({ item }: InboxDetailProps) {
   const { mode, setMode, setLoadError, loadError, url, modes, modeLabel, noPreview, orbitHint } =
     useInboxPreview(item);
   const passed = item.worst === 'pass' && item.state !== 'failed';
+  const hasClips = Boolean(
+    item.report && item.report.rig !== 'none' && item.report.animations.length
+  );
   const checkRows = checks.map(c => (
     <CheckRow
       key={c.id}
@@ -167,6 +171,20 @@ export default function InboxDetail({ item }: InboxDetailProps) {
         >
           Redo...
         </Button>
+        {hasClips ? (
+          <Button
+            variant="ghost"
+            icon="download-simple"
+            tooltip="Keeps this model's clips in the animation library, skeleton only"
+            onClick={() =>
+              void useAnimationsStore
+                .getState()
+                .openSave({ project: null, asset: null, inbox: item.id })
+            }
+          >
+            Save clips to library
+          </Button>
+        ) : null}
         <Button
           variant="ghost"
           icon="arrow-square-out"

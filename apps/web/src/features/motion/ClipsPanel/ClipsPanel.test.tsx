@@ -65,6 +65,10 @@ describe('the clips panel', () => {
       'aria-disabled',
       'true'
     );
+    expect(screen.getByRole('menuitem', { name: 'Save clips to library' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
     fireEvent.click(screen.getByRole('menuitem', { name: 'From a .glb in the Inbox' }));
     expect(useAppStore.getState().view).toBe('inbox');
   });
