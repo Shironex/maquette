@@ -38,6 +38,7 @@ use crate::project;
 use crate::workspace::WorkspaceConfig;
 
 pub use model::{CancelMode, InboxLink, JobPhase, JobState, Provider, ProviderEvent, ProviderJob};
+pub use records::ModelAttached;
 pub use request::{BatchFailure, BatchItem, BatchRequest, BatchSent, SendRequest};
 
 use model::{Chain, JobsFile, Stored};

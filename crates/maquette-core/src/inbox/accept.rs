@@ -13,8 +13,9 @@ use crate::prepare::{self, ModelPrep, ScenePrep};
 pub struct AcceptRequest {
     pub item: String,
     pub project: String,
-    /// An existing asset to add a version to. Without it, an asset named
-    /// `name` (or the item's name) is found or created.
+    /// An existing asset to add a version to. Without it, the asset the
+    /// item is aimed at, else an asset named `name` (or the item's name),
+    /// found or created.
     pub asset: Option<String>,
     pub name: Option<String>,
     /// The real size and fix-ups set in the Inbox: they replace the asset's
@@ -92,9 +93,15 @@ pub fn accept(
         .extension()
         .map_or_else(|| "glb".to_string(), |e| e.to_string_lossy().to_lowercase());
     let stats = found.report.as_ref().map(stats_of);
+    // A model attached to an asset without a send goes there by default.
+    let aimed = found
+        .aim
+        .as_ref()
+        .filter(|a| a.project == request.project)
+        .map(|a| a.asset.clone());
     let mut result: Option<(Asset, AssetVersion, String)> = None;
     let manifest = project::modify(root, &config.layout, &request.project, |manifest| {
-        let id = match &request.asset {
+        let id = match request.asset.as_ref().or(aimed.as_ref()) {
             Some(id) => assets::find(manifest, id)?.id.clone(),
             None => {
                 let name = request.name.clone().unwrap_or_else(|| found.name.clone());
@@ -139,6 +146,7 @@ pub fn accept(
         Ok(())
     })?;
     let _ = fs::remove_file(cache_dir(root, config).join(format!("{}.json", request.item)));
+    let _ = super::set_aim(root, config, &request.item, None);
     let (asset, version, file) =
         result.ok_or_else(|| CoreError::Invalid("The model was not accepted.".to_string()))?;
     let note = save_prep(&project_dir, &asset.id, request.prep.as_ref())

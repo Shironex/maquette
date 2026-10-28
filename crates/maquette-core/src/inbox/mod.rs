@@ -10,8 +10,10 @@ pub(crate) mod math;
 pub mod watch;
 
 mod accept;
+mod aim;
 
 pub use accept::{AcceptRequest, AcceptResult, accept, open_in_blender_args, stats_of};
+pub use aim::{InboxAim, set_aim};
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -70,6 +72,8 @@ pub struct InboxItem {
     pub thumbnail_state: ThumbState,
     /// The Send to 3D this model came from, when its name matches one.
     pub link: Option<crate::providers::InboxLink>,
+    /// The asset it was attached to without a send, which Accept defaults to.
+    pub aim: Option<InboxAim>,
 }
 
 pub fn inbox_dir(root: &Path, config: &WorkspaceConfig) -> PathBuf {
@@ -245,6 +249,7 @@ fn build_item(
         thumbnail_state: ThumbState::Fallback,
         // The shell asks the provider jobs, which know the send ids.
         link: None,
+        aim: None,
     })
 }
 
@@ -268,6 +273,7 @@ pub fn list(root: &Path, config: &WorkspaceConfig) -> CoreResult<Vec<InboxItem>>
         .filter(|p| p.is_file() && watch::is_model(p))
         .filter_map(|p| build_item(&p, &cache, config, &kinds).ok())
         .collect();
+    aim::fill(&cache, &mut items);
     items.sort_by(|a, b| {
         b.modified_ms
             .total_cmp(&a.modified_ms)
@@ -288,7 +294,9 @@ pub fn item(root: &Path, config: &WorkspaceConfig, id: &str) -> CoreResult<Inbox
         return Err(CoreError::NotFound(format!("{id} in the inbox")));
     }
     let cache = cache_dir(root, config);
-    build_item(&path, &cache, config, &load_kinds(&cache))
+    let mut found = build_item(&path, &cache, config, &load_kinds(&cache))?;
+    aim::fill(&cache, std::slice::from_mut(&mut found));
+    Ok(found)
 }
 
 /// Drops the cached analysis and runs it again.
