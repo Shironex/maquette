@@ -77,7 +77,7 @@ fn summary(found: &AssetParts) -> Value {
         "version": found.version,
         "split": found.split,
         "parts": to_short_value(&found.rows),
-        "note": "id is the name in the model, name the one it ships as: the export node names object states and explode tracks pick parts by. A joined part lists the ids joined into it. Hidden parts still ship; hiding is only for looking in the Inspector. A model that is one mesh lists one part: split it with add_fixups (op split-parts).",
+        "note": "id is the name in the model, name the one it ships as: the export node names object states and explode tracks pick parts by. A joined part lists the ids joined into it. Hidden parts still ship; hiding is only for looking in the Inspector. A model that is one mesh lists one part: split it with add_fixups (op split-parts), or on Tripo or Meshy with split_with_provider.",
     })
 }
 

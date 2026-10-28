@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 82 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 84 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -66,6 +66,7 @@ These look at the workspace and change nothing.
 | `set_real_size`                                       | Sets or clears the real size a model is scaled to                                                                              | Nothing | No       |
 | `add_fixups`                                          | Adds fix-ups to an asset, Split into parts (`split-parts`) among them; one of a kind already there is replaced                 | Nothing | No       |
 | [`set_parts`](#set_parts)                             | Renames, joins, unjoins, hides or shows an asset's parts                                                                       | Nothing | No       |
+| [`assemble_prop`](#assemble_prop)                     | Joins part models into one prop, a node per part under one root, as the next version of an asset                               | Nothing | No       |
 | `remove_fixups`                                       | Removes fix-ups by kind, or all of them                                                                                        | Nothing | No       |
 | `update_starters`                                     | Brings outdated or missing starter scripts up to date, as the Update banner does                                               | Nothing | No       |
 | [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states, explode tracks, paths and clips                                         | Nothing | No       |
@@ -98,18 +99,19 @@ These look at the workspace and change nothing.
 
 ## Spends credits or Codex usage, or needs approval
 
-| Tool                            | What it does                                                                                                                                     | Spends                                              | Approval                                                                  |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------- |
-| [`run_pipeline`](#run_pipeline) | Runs a project's pipeline, optionally from a step or build only                                                                                  | Nothing                                             | At the Ship step, when Ask before shipping is on or the project is a game |
-| [`send_to_3d`](#send_to_3d)     | Sends an asset's refs to Tripo or Meshy, or writes a By hand folder                                                                              | Credits for Tripo and Meshy. By hand spends nothing | Always, for Tripo and Meshy                                               |
-| `send_batch_to_3d`              | Sends up to 24 assets at once with the same provider, with each asset's weak ref warnings                                                        | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
-| `redo_inbox_model`              | Sends an inbox model's asset again, prefilled from its send                                                                                      | Credits for Tripo and Meshy                         | Always, for Tripo and Meshy                                               |
-| `redo_inbox_models`             | Redoes several inbox models from one project as one batch                                                                                        | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
-| `start_concepts`                | Starts concept image jobs in the Lab, with the project style unless `useStyle` is false                                                          | Codex usage                                         | No                                                                        |
-| `make_object_refs`              | Makes one isolated image per object of a concept, with the project style unless `useStyle` is false                                              | Codex usage                                         | No                                                                        |
-| `make_other_views`              | Draws an asset's missing views (or the named ones) from its front ref, 1 to 4 candidates each, with the project style unless `useStyle` is false | Codex usage                                         | No                                                                        |
-| `clean_ref_background`          | Makes a copy of one ref with the object kept and the clutter cleared, on studio grey or transparent                                              | Codex usage                                         | No                                                                        |
-| `retry_concept_jobs`            | Runs failed or cancelled Lab jobs again                                                                                                          | Codex usage                                         | No                                                                        |
+| Tool                                          | What it does                                                                                                                                     | Spends                                              | Approval                                                                  |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------- |
+| [`run_pipeline`](#run_pipeline)               | Runs a project's pipeline, optionally from a step or build only                                                                                  | Nothing                                             | At the Ship step, when Ask before shipping is on or the project is a game |
+| [`send_to_3d`](#send_to_3d)                   | Sends an asset's refs to Tripo or Meshy, or writes a By hand folder                                                                              | Credits for Tripo and Meshy. By hand spends nothing | Always, for Tripo and Meshy                                               |
+| `send_batch_to_3d`                            | Sends up to 24 assets at once with the same provider, with each asset's weak ref warnings                                                        | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
+| `redo_inbox_model`                            | Sends an inbox model's asset again, prefilled from its send                                                                                      | Credits for Tripo and Meshy                         | Always, for Tripo and Meshy                                               |
+| `redo_inbox_models`                           | Redoes several inbox models from one project as one batch                                                                                        | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
+| [`split_with_provider`](#split_with_provider) | Splits an asset's model into parts on Tripo (segmentation) or Meshy (Auto Split)                                                                 | Credits for Tripo and Meshy                         | Always                                                                    |
+| `start_concepts`                              | Starts concept image jobs in the Lab, with the project style unless `useStyle` is false                                                          | Codex usage                                         | No                                                                        |
+| `make_object_refs`                            | Makes one isolated image per object of a concept, with the project style unless `useStyle` is false                                              | Codex usage                                         | No                                                                        |
+| `make_other_views`                            | Draws an asset's missing views (or the named ones) from its front ref, 1 to 4 candidates each, with the project style unless `useStyle` is false | Codex usage                                         | No                                                                        |
+| `clean_ref_background`                        | Makes a copy of one ref with the object kept and the clutter cleared, on studio grey or transparent                                              | Codex usage                                         | No                                                                        |
+| `retry_concept_jobs`                          | Runs failed or cancelled Lab jobs again                                                                                                          | Codex usage                                         | No                                                                        |
 
 ## The main tools
 
@@ -328,7 +330,62 @@ Renames, joins, hides or shows an asset's parts, as the Inspector's Parts tab do
 | `hide`    | string[]   | no       | Parts drawn as a ghost in the Inspector. They still ship.                     |
 | `show`    | string[]   | no       | Hidden parts drawn again.                                                     |
 
-A model that is one mesh lists one part. Split it first: `add_fixups` with `{ "op": "split-parts", "by": "loose", "mergeUnder": 0.01 }` (`by` is `loose` or `material`, `mergeUnder` 0 to 0.2), then `preview_fixups` or `get_parts` runs it headless on a copy.
+A model that is one mesh lists one part. Split it first: `add_fixups` with `{ "op": "split-parts", "by": "loose", "mergeUnder": 0.01 }` (`by` is `loose` or `material`, `mergeUnder` 0 to 0.2), then `preview_fixups` or `get_parts` runs it headless on a copy. When the pieces are welded into one shell, `split_with_provider` lets Tripo or Meshy find the parts.
+
+### split_with_provider
+
+`costs credits` `needs approval`
+
+Splits an asset's model into parts on Tripo or Meshy, like the split sheet in the Parts tab. It always waits for you to approve it in the Maquette app and answers `waiting for approval`; follow it with `get_provider_job`. The split lands in the inbox and `accept_inbox_model` makes it the asset's next version; the version it came from stays. Tripo's parts arrive as `tripo_part_0`, `tripo_part_1` and on (name them with `set_parts`). Meshy splits only models it made with Meshy 6 or 7 and drops the texture, so once the split is accepted the texture bakes back from the version it came from in headless Blender, free, as the version after.
+
+| Parameter             | Type     | Required | Notes                                                                                     |
+| --------------------- | -------- | -------- | ----------------------------------------------------------------------------------------- |
+| `project`             | string   | yes      | The project id.                                                                           |
+| `asset`               | string   | yes      | The asset id or name.                                                                     |
+| `provider`            | string   | yes      | `tripo` (about 40 credits) or `meshy` (about 10 credits).                                 |
+| `version`             | number   | no       | The version to split. By default the current one.                                         |
+| `item`                | string   | no       | An inbox model of the asset (its id in `list_inbox`) instead of a version.                |
+| `model`               | string   | no       | Tripo: `geometry` (default) or `semantic` (beta).                                         |
+| `granularity`         | string   | no       | Tripo semantic: `simple`, `balanced` (default) or `detailed`.                             |
+| `splitByConnectivity` | boolean  | no       | Tripo semantic: loose pieces become parts too. True by default.                           |
+| `complete`            | string   | no       | Tripo: `ai-completion` or `quick-cap` runs part completion after the split, more credits. |
+| `mode`                | string   | no       | Meshy: `auto` (default), `by-parts` or `by-color`.                                        |
+| `parts`               | string[] | no       | Meshy by parts or by colour: 1 to 10 names to look for.                                   |
+
+```json
+{
+  "project": "frostveil",
+  "asset": "frost-lantern",
+  "provider": "meshy",
+  "mode": "by-parts",
+  "parts": ["lid", "cage", "crystal"]
+}
+```
+
+### assemble_prop
+
+`changes the project`
+
+Joins part models (each an asset with its own versions) into one prop, headless in Blender: one GLB with a node per part under one root named after the prop. It lands as the next version of `target`, or of an asset named after the prop, made when there is none. The recipe is kept, so assembling again picks up a part's newer version. Answers with the asset, the version, the root and each node with where it sits.
+
+| Parameter | Type     | Required | Notes                                                                                                                                                                                                                                                                                    |
+| --------- | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                                                                                                                                                                                                                                                          |
+| `name`    | string   | yes      | The prop's name: its root node, and the new asset's name.                                                                                                                                                                                                                                |
+| `target`  | string   | no       | The asset it becomes the next version of.                                                                                                                                                                                                                                                |
+| `parts`   | object[] | yes      | 2 to 16 parts in node order, each `{ asset, version?, name, pivot?, at?, turn? }`: `pivot` is `bottom-centre` (default), `centre`, `left-hinge`, `right-hinge` or `origin`; `at` is where the pivot goes in metres, Y up, by default where its model put it; `turn` is degrees about up. |
+
+```json
+{
+  "project": "frostveil",
+  "name": "sigil_gate",
+  "parts": [
+    { "asset": "sigil-gate-frame", "name": "frame" },
+    { "asset": "sigil-gate-door", "name": "door_leaf", "pivot": "left-hinge", "at": [-0.6, 0, 0] },
+    { "asset": "sigil-gate-steps", "name": "steps" }
+  ]
+}
+```
 
 ### set_layout
 

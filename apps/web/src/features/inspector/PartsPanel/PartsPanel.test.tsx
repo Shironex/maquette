@@ -1,8 +1,9 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { commands } from '@/ipc/client';
 import { clearMocks, openMockParts } from '@/test/mock-ipc';
+import { useSplitStore } from '@/state/use-split-store';
 import { PartsPanel } from '.';
 
 vi.mock('@/features/viewer/ModelPreview', () => ({ default: () => null }));
@@ -77,7 +78,11 @@ describe('PartsPanel', () => {
       'Rune chest'
     );
     expect(await screen.findByText('One mesh, no parts')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Split into parts' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Split into parts...' }));
+    // The split sheet opens; its free way, in Blender, adds the fix-up.
+    const target = useSplitStore.getState().split;
+    expect(target).toMatchObject({ project: 'frostveil', asset: 'rune-chest', version: 1 });
+    await act(() => target?.inBlender?.());
     await waitFor(() => expect(list()).toBeInTheDocument());
     const prep = await commands.prepareAsset('frostveil', 'rune-chest');
     expect(prep.entry.fixups).toEqual([{ op: 'split-parts', by: 'loose', mergeUnder: 0.01 }]);

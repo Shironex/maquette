@@ -1,5 +1,6 @@
 //! Tripo's REST API (v3): upload, image or multiview to model, the task
-//! poll, and the character chain (rig check, rig, retarget).
+//! poll, the character chain (rig check, rig, retarget) and the split into
+//! parts (mesh segment, part completion).
 //!
 //! Tripo has no cancel endpoint, so a sent task always finishes on their
 //! side. Every answer is wrapped as `{"code": 0, "data": {...}}`.
@@ -178,7 +179,8 @@ pub struct Tripo<'a> {
 }
 
 impl Tripo<'_> {
-    /// Uploads one image and returns its file token.
+    /// Uploads one file (an image, or a model to split) and returns its
+    /// file token.
     pub fn upload(&self, path: &Path) -> ApiResult<String> {
         let body = self.api.json(self.stop, || {
             let form = Form::new().file("file", path).map_err(|e| {
@@ -218,6 +220,23 @@ impl Tripo<'_> {
         self.create(
             "animations/retarget",
             &retarget_request(rig_task, animations),
+        )
+    }
+
+    /// Starts a mesh segmentation of `input`: a task id or a file token.
+    pub fn segment(&self, split: &super::split::TripoSplit, input: &str) -> ApiResult<String> {
+        self.create("mesh/segment", &super::split::segment_request(split, input))
+    }
+
+    /// Completes every part of a finished segmentation.
+    pub fn complete(
+        &self,
+        mode: super::split::CompletionMode,
+        segment_task: &str,
+    ) -> ApiResult<String> {
+        self.create(
+            "mesh/complete",
+            &super::split::complete_request(mode, segment_task),
         )
     }
 

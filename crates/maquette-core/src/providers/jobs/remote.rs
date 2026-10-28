@@ -26,7 +26,7 @@ fn may_have_created(error: &ApiError) -> bool {
 /// exist, the chain stops saying a send is in flight, so a resume starts
 /// again instead of refusing with [`CLOSED_WHILE_SENDING`]; when it may,
 /// the message says to check before sending again.
-fn create_failed(run: &Run<'_>, service: &str, error: ApiError) -> Flow {
+pub(super) fn create_failed(run: &Run<'_>, service: &str, error: ApiError) -> Flow {
     if may_have_created(&error) {
         return Flow::Fail(format!(
             "{} It may have reached {service} anyway: check its dashboard before sending again, \
@@ -38,7 +38,7 @@ fn create_failed(run: &Run<'_>, service: &str, error: ApiError) -> Flow {
     error.into()
 }
 
-fn poll_tripo(
+pub(super) fn poll_tripo(
     run: &Run<'_>,
     client: &Tripo<'_>,
     task: &str,
@@ -66,7 +66,7 @@ fn poll_tripo(
     }
 }
 
-fn poll_meshy(
+pub(super) fn poll_meshy(
     run: &Run<'_>,
     client: &Meshy<'_>,
     kind: meshy::Kind,
@@ -101,7 +101,7 @@ fn poll_meshy(
 }
 
 /// Downloads at once; an expired link gets one fresh one from the task.
-fn download(
+pub(super) fn download(
     api: &Api,
     stop: &StopFlag,
     url: &str,

@@ -30,6 +30,7 @@ pub mod quit;
 pub mod refs;
 pub mod ship;
 pub mod site;
+pub mod split;
 pub mod thumbs;
 pub mod timeline;
 pub mod toolchain;

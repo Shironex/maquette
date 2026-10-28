@@ -10,8 +10,10 @@ may adopt.
 - **Mock mode samples:** everything under `apps/web/src/assets/mock/`, the Frostveil images and
   models the app shows in a plain browser. The generated Motion demo models (`clay_figure.glb`,
   `clay_figure_rest.glb`, `switch_cabinet.glb`, `turntable.glb`) and Parts demo models
-  (`frost_lantern.glb`, `frost_lantern_split.glb`, `rune_chest.glb`) are the exception; they are
-  made by scripts in this repository and fall under the code license.
+  (`frost_lantern.glb`, `frost_lantern_split.glb`, `frost_lantern_tripo.glb`, `rune_chest.glb`,
+  `sigil_gate.glb` and its `sigil_gate_frame.glb`, `sigil_gate_door.glb`, `sigil_gate_steps.glb`
+  parts) are the exception; they are made by scripts in this repository and fall under the code
+  license.
 - **Project template and welcome pictures:** `apps/web/src/assets/template-*.jpg` and
   `apps/web/src/assets/welcome.jpg`.
 - **Landing page scene:** everything under `apps/site/public/scene/`: its models, textures,

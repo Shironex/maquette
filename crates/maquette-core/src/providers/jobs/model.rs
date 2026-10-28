@@ -10,6 +10,7 @@ use crate::providers::handoff::HandoffCard;
 use crate::providers::presets::{
     MeshyPreset, PresetVariant, ProviderId, TripoPreset, TripoRigSpec,
 };
+use crate::providers::split::{MeshySplit, TripoSplit};
 
 /// How a model gets made.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -72,6 +73,10 @@ pub enum JobPhase {
     RigCheck,
     Rig,
     Animate,
+    /// A split cutting the model into parts.
+    Split,
+    /// Tripo completing the parts a split cut.
+    Complete,
     Download,
 }
 
@@ -143,12 +148,23 @@ pub struct ProviderJob {
     /// What the price lists say it should cost, before the provider reports.
     #[serde(default)]
     pub estimate: Option<f64>,
+    /// Set for a split into parts of an asset's model, instead of a model
+    /// made from images.
+    #[serde(default)]
+    pub split: Option<SplitJob>,
 }
 
 impl ProviderJob {
     /// The settings in a few words, for an approval prompt: "Tripo H3.1,
     /// 2 images as multi-view, rig with Mixamo, 2 animations".
     pub fn summary(&self) -> String {
+        if let Some(split) = &self.split {
+            return format!(
+                "{} of {}",
+                crate::providers::split::summary(split.tripo.as_ref(), split.meshy.as_ref()),
+                split.source_label()
+            );
+        }
         let images = match self.images.len() {
             1 => "1 image".to_string(),
             n => format!("{n} images"),
@@ -214,6 +230,63 @@ impl ProviderJob {
     }
 }
 
+/// A split into parts: the model it cuts, its settings and what happens
+/// to the texture once it lands.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SplitJob {
+    /// The asset version it splits, or (from the Inbox) the inbox model.
+    pub from_version: Option<u32>,
+    pub from_item: Option<String>,
+    pub tripo: Option<TripoSplit>,
+    pub meshy: Option<MeshySplit>,
+    /// The provider task that made the model, when the provider takes it
+    /// by its task; `None` uploads the file (Tripo only).
+    pub input_task: Option<String>,
+    /// Texture images the model had before the split.
+    pub textures_before: u32,
+    /// Whether the split kept the texture, once it is in.
+    pub texture_kept: Option<bool>,
+    /// The texture bake back from the model it was split from.
+    pub bake: Option<BakeBack>,
+}
+
+impl SplitJob {
+    /// "v2", or "the Inbox model" for one not accepted yet.
+    pub fn source_label(&self) -> String {
+        match self.from_version {
+            Some(v) => format!("v{v}"),
+            None => "the Inbox model".to_string(),
+        }
+    }
+}
+
+/// Where a bake back is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum BakeState {
+    /// Tripo dropped the texture: a bake back is offered, not run.
+    Offered,
+    /// Runs as soon as Blender is free (Meshy, always).
+    Scheduled,
+    Running,
+    Done,
+    Failed,
+}
+
+/// Baking the texture of the model a split came from onto its parts, in
+/// headless Blender. Free; the untextured version stays.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BakeBack {
+    pub state: BakeState,
+    /// The split's own version, the parts it bakes onto.
+    pub onto: u32,
+    /// The version the bake made.
+    pub version: Option<u32>,
+    pub message: Option<String>,
+}
+
 /// An inbox model that came from a send.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -256,6 +329,8 @@ pub(super) struct Chain {
     pub(super) riggable: Option<bool>,
     pub(super) rig_task: Option<String>,
     pub(super) retarget_task: Option<String>,
+    /// Tripo: the part completion after a split.
+    pub(super) complete_task: Option<String>,
     /// Credits per task id, so a resumed poll does not count twice.
     pub(super) credits: BTreeMap<String, f64>,
     /// Cancelled on the provider before its model task was charged, so the

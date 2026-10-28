@@ -14,6 +14,7 @@ import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
 import { motionFiles } from './create-motion-handlers';
 import { PARTS_CACHE, partsFiles } from './create-parts-handlers';
+import { SPLIT_FILES } from './create-split-handlers';
 import { PROVIDER_REF_FILES } from './providers';
 import { REFS_SCENARIO_FILES } from './create-refs-handlers';
 import { MOCK_SITE_URL, conceptPath, pageOption, posterPath } from './create-page-handlers';
@@ -93,6 +94,7 @@ for (const [file, model] of Object.entries({
   ...LAYOUT_FILES,
   ...motionFiles(motion),
   ...partsFiles(params.get('parts')),
+  ...(params.get('parts') ? SPLIT_FILES : {}),
 })) {
   const url = models[`../../assets/mock/models/${model}`];
   if (url) registerMockFile(`${root}/projects/frostveil/${file}`, url);

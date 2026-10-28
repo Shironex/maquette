@@ -19,6 +19,7 @@ import {
   unmergePart,
 } from '@/state/parts';
 import { useAppStore } from '@/state/use-app-store';
+import { useSplitStore } from '@/state/use-split-store';
 
 export type PartsMode = 'parts' | 'shaded' | 'wireframe';
 /** The parts themselves, or before and after the split side by side. */
@@ -189,4 +190,11 @@ export function usePartsPanel() {
       addSplit,
     },
   };
+}
+
+/** The sheets the Parts tab opens: Split into parts and Assemble one prop. */
+export function usePartsSheets() {
+  const openSplit = useSplitStore(s => s.openSplit);
+  const openAssemble = useSplitStore(s => s.openAssemble);
+  return { openSplit, openAssemble };
 }

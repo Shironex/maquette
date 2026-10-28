@@ -39,6 +39,8 @@ interface Sample {
   /** What the split leaves, top first. */
   parts: PartInfo[];
   pieces: number;
+  /** The nodes an assembled prop already ships, one part each. */
+  nodes?: PartInfo[];
 }
 
 const part = (name: string, triangles: number, ...materials: string[]): PartInfo => ({
@@ -59,6 +61,16 @@ const SAMPLES: Record<string, Sample> = {
       part('part_5', 2_600, 'granite'),
     ],
     pieces: 9,
+  },
+  'sigil-gate': {
+    whole: part('sigil_gate', 32_400, 'veil_stone', 'sigil_glow'),
+    parts: [],
+    pieces: 3,
+    nodes: [
+      part('frame', 21_400, 'veil_stone'),
+      part('door_leaf', 6_200, 'veil_stone', 'sigil_glow'),
+      part('steps', 4_800, 'veil_stone'),
+    ],
   },
   'rune-chest': {
     whole: part('rune_chest', 8_600, 'rune_wood', 'frost_iron'),
@@ -298,7 +310,7 @@ export function createPartsHandlers({ project: projectOf, saveProject, prepare, 
     const split = splits(entry);
     const ran = previewed.has(`${project}/${asset.id}`);
     const plan = entry?.parts ?? EMPTY_PLAN;
-    const found = sample ? (split ? sample.parts : [sample.whole]) : [];
+    const found = sample ? (split ? sample.parts : (sample.nodes ?? [sample.whole])) : [];
     const file = split
       ? ran
         ? `/mock/cache/fixups/${asset.id}.glb`

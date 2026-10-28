@@ -1,5 +1,5 @@
 //! Meshy's REST API (openapi v1): image or multi-image to 3D, rigging,
-//! the task polls and cancel.
+//! Auto Split, the task polls and cancel.
 //!
 //! Images go up as base64 data URIs, so nothing has to be public. Cancel
 //! is a DELETE that only works while a task is still PENDING (Meshy
@@ -28,6 +28,8 @@ pub enum Kind {
     Image,
     MultiImage,
     Rigging,
+    /// Auto Split, which cuts a finished model into parts.
+    Split,
 }
 
 impl Kind {
@@ -36,11 +38,12 @@ impl Kind {
             Self::Image => "image-to-3d",
             Self::MultiImage => "multi-image-to-3d",
             Self::Rigging => "rigging",
+            Self::Split => "print/split",
         }
     }
 
     pub fn from_path(path: &str) -> Option<Self> {
-        [Self::Image, Self::MultiImage, Self::Rigging]
+        [Self::Image, Self::MultiImage, Self::Rigging, Self::Split]
             .into_iter()
             .find(|k| k.path() == path)
     }
@@ -150,7 +153,7 @@ pub fn rigging_request(preset: &MeshyPreset, model_task: &str) -> Value {
 pub fn glb_url(kind: Kind, body: &Value) -> Option<String> {
     let found = match kind {
         Kind::Rigging => body.pointer("/result/rigged_character_glb_url"),
-        Kind::Image | Kind::MultiImage => body.pointer("/model_urls/glb"),
+        Kind::Image | Kind::MultiImage | Kind::Split => body.pointer("/model_urls/glb"),
     };
     found
         .and_then(Value::as_str)
@@ -191,6 +194,14 @@ impl Meshy<'_> {
 
     pub fn rig(&self, preset: &MeshyPreset, model_task: &str) -> ApiResult<String> {
         self.create(Kind::Rigging, &rigging_request(preset, model_task))
+    }
+
+    /// Starts an Auto Split of a finished task's model.
+    pub fn split(&self, split: &super::split::MeshySplit, input_task: &str) -> ApiResult<String> {
+        self.create(
+            Kind::Split,
+            &super::split::meshy_split_request(split, input_task),
+        )
     }
 
     pub fn task(&self, kind: Kind, id: &str) -> ApiResult<Task> {

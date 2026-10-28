@@ -377,6 +377,7 @@ fn prepare(
         prompt,
         redo_of: request.redo_of.clone(),
         estimate,
+        split: None,
     })
 }
 

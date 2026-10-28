@@ -280,6 +280,7 @@ impl ProviderJobs {
                 stored.job.inbox_file = Some(item.to_string());
                 stored.job.message = Some(format!("Accepted as v{version}"));
                 stored.job.finished_at_ms.get_or_insert_with(now_ms);
+                super::split_bake::on_accept(stored, version);
                 Ok(())
             });
         }

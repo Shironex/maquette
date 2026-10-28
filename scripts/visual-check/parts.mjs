@@ -3,9 +3,12 @@
  * no parts" check with Split into parts added and its preview numbers, the
  * split preview coloured by part, the Inspector's Parts tab with two parts
  * selected and one hidden, a rename in place, before and after the split
- * side by side, and a model that is still one mesh. Mock mode's
- * `?parts=demo` frost lantern and rune chest stand in for real models.
+ * side by side, and a model that is still one mesh, then the split and
+ * assemble set (./split.mjs). Mock mode's `?parts=demo` frost lantern and
+ * rune chest stand in for real models.
  */
+
+import { splitShots } from './split.mjs';
 
 const PARTS = '&scenario=configured&parts=demo';
 
@@ -64,4 +67,6 @@ export async function partsShots({ open, shot }) {
   await tab.waitForTimeout(1200);
   await shot(tab, 'parts-one-mesh');
   await tab.context().close();
+
+  await splitShots({ open, shot });
 }

@@ -18,6 +18,9 @@ mod request;
 mod send;
 mod settle;
 mod spend;
+mod split;
+mod split_bake;
+mod split_remote;
 mod store;
 #[cfg(test)]
 mod tests;
@@ -37,9 +40,13 @@ use crate::inbox::{SendNotes, SentMaps};
 use crate::project;
 use crate::workspace::WorkspaceConfig;
 
-pub use model::{CancelMode, InboxLink, JobPhase, JobState, Provider, ProviderEvent, ProviderJob};
+pub use model::{
+    BakeBack, BakeState, CancelMode, InboxLink, JobPhase, JobState, Provider, ProviderEvent,
+    ProviderJob, SplitJob,
+};
 pub use records::ModelAttached;
 pub use request::{BatchFailure, BatchItem, BatchRequest, BatchSent, SendRequest};
+pub use split::{SplitRequest, SplitSource};
 
 use model::{Chain, JobsFile, Stored};
 use store::{load, persist, resume_fixup, touch_asset, update, update_with};
@@ -294,7 +301,8 @@ impl ProviderJobs {
                 // in a project folder copied by hand.
                 let moved = stored.job.project != manifest.id;
                 stored.job.project.clone_from(&manifest.id);
-                if resume_fixup(&mut stored) || moved {
+                let baking = split_bake::resume(&mut stored);
+                if resume_fixup(&mut stored) || moved || baking {
                     touched.push(manifest.id.clone());
                 }
                 loaded.push(stored);

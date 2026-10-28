@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use super::records::write_inbox;
 use super::remote::{run_meshy, run_tripo};
+use super::split_remote::{run_meshy_split, run_tripo_split};
 use super::{
     Chain, Flow, FlowResult, JobPhase, JobState, Outcome, ProviderJob, Shared, Stored, Workspace,
     api_key, touch_asset, update,
@@ -177,6 +178,10 @@ fn finish(
                     AssetKind::Character,
                 );
             }
+            let textures = job
+                .split
+                .as_ref()
+                .map(|_| super::split_bake::textures_in(workspace, &name));
             // The asset first, so whoever sees the job arrive sees the Board too.
             touch_asset(shared, &job.project, &job.asset, None, AssetStatus::Review);
             run.save(|s| {
@@ -191,6 +196,9 @@ fn finish(
                         .clone()
                         .unwrap_or_else(|| "In the Inbox, ready for its checks".to_string()),
                 );
+                if let Some(textures) = textures {
+                    super::split_bake::arrived(s, textures);
+                }
             });
         }
         Err(err) => {
@@ -226,15 +234,15 @@ fn run_remote(
                 &key,
                 options.tripo,
             )?;
+            let client = Tripo { api: &api, stop };
+            if let Some(split) = &job.split {
+                let source = super::split::source_of(workspace, job).ok_or_else(|| {
+                    Flow::Fail("The model to split is gone from the project.".to_string())
+                })?;
+                return run_tripo_split(run, &client, split, &source);
+            }
             let preset = job.tripo.clone().unwrap_or_else(TripoPreset::prop);
-            run_tripo(
-                run,
-                &Tripo { api: &api, stop },
-                &preset,
-                job.variant,
-                &images,
-                &job.views,
-            )
+            run_tripo(run, &client, &preset, job.variant, &images, &job.views)
         }
         ProviderId::Meshy => {
             let api = Api::new(
@@ -243,10 +251,14 @@ fn run_remote(
                 &key,
                 options.meshy,
             )?;
+            let client = Meshy { api: &api, stop };
+            if let Some(split) = &job.split {
+                return run_meshy_split(run, &client, split);
+            }
             let preset = job.meshy.clone().unwrap_or_else(MeshyPreset::prop);
             run_meshy(
                 run,
-                &Meshy { api: &api, stop },
+                &client,
                 &preset,
                 job.variant,
                 &images,
