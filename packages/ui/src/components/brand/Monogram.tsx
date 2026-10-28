@@ -4,15 +4,19 @@ export interface MonogramProps {
   className?: string;
 }
 
-/** The clay M on a plaster plinth bar inside a graphite tile. For 16 to 64 px. */
+/**
+ * The clay M on a plaster plinth bar inside a graphite tile. For 16 to 64 px.
+ * An empty `label` makes it decorative, hidden from assistive tech.
+ */
 export function Monogram({ size = 24, label = 'Maquette', className }: MonogramProps) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 64 64"
-      role="img"
-      aria-label={label}
+      role={label ? 'img' : undefined}
+      aria-label={label || undefined}
+      aria-hidden={label ? undefined : true}
       className={className}
       style={{ display: 'block', flex: 'none' }}
     >

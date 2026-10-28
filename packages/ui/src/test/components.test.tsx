@@ -7,6 +7,7 @@ import {
   HelpMark,
   Tip,
   LogConsole,
+  Monogram,
   NavRail,
   ProjectMenu,
   PipelineNode,
@@ -511,5 +512,14 @@ describe('Tabs', () => {
     await userEvent.keyboard('{ArrowLeft}{Home}');
     expect(onChange).toHaveBeenLastCalledWith('compare');
     expect(screen.getByRole('tab', { name: 'Layout' })).toHaveAttribute('tabindex', '-1');
+  });
+});
+
+describe('Monogram', () => {
+  it('is a named image, or hidden when it only decorates', () => {
+    const { rerender } = render(<Monogram />);
+    expect(screen.getByRole('img', { name: 'Maquette' })).toBeInTheDocument();
+    rerender(<Monogram label="" />);
+    expect(screen.queryByRole('img')).toBeNull();
   });
 });
