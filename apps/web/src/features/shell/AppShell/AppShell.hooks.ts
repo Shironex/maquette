@@ -19,6 +19,7 @@ import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useGameStore } from '@/state/use-game-store';
 import { useDownloadsStore } from '@/state/use-downloads-store';
 import { useProvidersStore } from '@/state/use-providers-store';
+import { useRefsStore } from '@/state/use-refs-store';
 import { isSwitcherShortcut, switcherShortcut } from '@/state/projects';
 import { useProjectsStore } from '@/state/use-projects-store';
 import { plannedViewsFor, toolViewsFor } from '@/state/views';
@@ -193,7 +194,10 @@ export function useLiveData(projectId: string | null, root: string | null) {
         void usePathsStore.getState().onChanged(e.payload.project);
       }),
       events.inboxChanged.listen(() => void loadInbox()),
-      events.conceptUpdate.listen(e => onConcept(e.payload)),
+      events.conceptUpdate.listen(e => {
+        onConcept(e.payload);
+        useRefsStore.getState().onConcept(e.payload);
+      }),
       events.thumbnailReady.listen(e => {
         onThumbnail(e.payload);
         onPreview(e.payload);
@@ -202,6 +206,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       }),
       events.projectChanged.listen(e => {
         setProject(e.payload.project);
+        useRefsStore.getState().onProject(e.payload.project);
         useLibraryStore.getState().onChanged();
       }),
       events.libraryChanged.listen(() => useLibraryStore.getState().onChanged()),

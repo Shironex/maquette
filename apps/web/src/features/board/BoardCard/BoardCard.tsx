@@ -2,6 +2,7 @@ import { AssetCard, Button, cn } from '@maquette/ui';
 import { builtChip, builtMeta, wantsRebuild } from '@/state/built';
 import { KIND_ICON } from '@/state/thumbs';
 import { useBoardCard } from './BoardCard.hooks';
+import { viewsLine } from '@/state/refs';
 import type { BoardCardProps } from './BoardCard.types';
 import { CardMenu } from './CardMenu';
 import { ExportName } from './ExportName';
@@ -77,7 +78,14 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
         },
       }}
       details={{
-        meta: asset.versions.length > 0 ? undefined : built ? builtMeta(built) : 'No model yet',
+        meta:
+          asset.versions.length > 0
+            ? undefined
+            : built
+              ? builtMeta(built)
+              : (asset.refs ?? []).length > 0
+                ? `No model yet · ${viewsLine(asset.refs ?? [])}`
+                : 'No model yet',
         tris: n.tris,
         size: n.size,
       }}

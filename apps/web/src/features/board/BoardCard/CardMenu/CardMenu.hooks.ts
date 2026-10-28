@@ -11,6 +11,7 @@ import { useLabStore } from '@/state/use-lab-store';
 import { updateFor } from '@/state/library';
 import { useLibraryStore } from '@/state/use-library-store';
 import { useProvidersStore } from '@/state/use-providers-store';
+import { useRefsStore } from '@/state/use-refs-store';
 import { STAGE_ICON } from '../../constants';
 import { copyExportName } from '../../copyExportName';
 import type { CardMenuProps } from './CardMenu.types';
@@ -88,6 +89,7 @@ function useMakeItems({ asset, refPicture, built, board }: CardMenuProps): MenuI
   const openPanel = useProvidersStore(s => s.openPanel);
   const rebuild = useBuiltStore(s => s.rebuild);
   const openObjects = useLabStore(s => s.openObjects);
+  const openRefs = useRefsStore(s => s.open);
   const { workspace, project, actions } = board;
   const section = 'make';
   const make: MenuItem = built
@@ -115,6 +117,18 @@ function useMakeItems({ asset, refPicture, built, board }: CardMenuProps): MenuI
       };
   return [
     make,
+    ...(!built && project
+      ? [
+          {
+            id: 'refs',
+            label: 'Refs and views...',
+            icon: 'images' as const,
+            section,
+            hint: 'Which ref is the front, left, back and right; sends follow these',
+            onSelect: () => void openRefs(project.id, asset.id),
+          },
+        ]
+      : []),
     ...(!built && refPicture && workspace && project
       ? [
           {

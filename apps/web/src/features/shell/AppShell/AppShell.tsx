@@ -9,6 +9,7 @@ import { CreditsSheet } from '@/features/providers/CreditsSheet';
 import { DownloadsMatches } from '@/features/providers/DownloadsMatches';
 import { HandoffChecklist } from '@/features/providers/HandoffChecklist';
 import { SendPanel } from '@/features/providers/SendPanel';
+import { RefsSheet } from '@/features/providers/RefsSheet';
 import { ObjectRefsDialog } from '@/features/lab/ObjectRefsDialog';
 import { StyleBoardDialog } from '@/features/lab/StyleBoardDialog';
 import { LibraryDialogs } from '@/features/common/LibraryDialogs';
@@ -78,6 +79,7 @@ export default function AppShell() {
       <HandoffChecklist />
       <BatchSendPanel />
       <SendPanel />
+      <RefsSheet />
       <CreditsSheet />
       <ObjectRefsDialog />
       <StyleBoardDialog />
