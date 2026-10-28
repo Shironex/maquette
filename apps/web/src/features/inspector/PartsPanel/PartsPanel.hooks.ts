@@ -192,9 +192,20 @@ export function usePartsPanel() {
   };
 }
 
-/** The sheets the Parts tab opens: Split into parts and Assemble one prop. */
+/**
+ * What the Parts tab opens: the Split into parts and Assemble one prop
+ * sheets, and the version in Blender's window (only on a click).
+ */
 export function usePartsSheets() {
   const openSplit = useSplitStore(s => s.openSplit);
   const openAssemble = useSplitStore(s => s.openAssemble);
-  return { openSplit, openAssemble };
+  const notify = useAppStore(s => s.notify);
+  const openInBlender = async ({ project, asset, version }: AssetParts) => {
+    try {
+      await commands.assetOpenInBlender(project, asset, version);
+    } catch (error) {
+      notify({ status: 'failed', title: 'Could not open Blender', detail: errorMessage(error) });
+    }
+  };
+  return { openSplit, openAssemble, openInBlender };
 }
