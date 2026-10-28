@@ -101,7 +101,7 @@ pub(crate) fn bakes_after_open(handle: &AppHandle, root: &Path, config: &Workspa
 }
 
 /// Asks for the thumbnail of the version a finished bake back made.
-fn thumb_for(
+pub(crate) fn thumb_for(
     thumbs: &Thumbnails,
     root: &Path,
     config: &WorkspaceConfig,

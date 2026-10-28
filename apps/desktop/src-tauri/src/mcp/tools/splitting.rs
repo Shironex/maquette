@@ -14,7 +14,7 @@ use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::commands::split::{run_assembly, version_thumb};
+use crate::commands::split::{run_assembly, thumb_for, version_thumb};
 
 use super::prepare::asset_id;
 use super::sending::{ServiceArg, await_send_approval, job_value};
@@ -158,6 +158,17 @@ pub struct PartArgs {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct BakeBackArgs {
+    /// The project id.
+    pub project: String,
+    /// The asset id as list_assets returns it, or the asset's name.
+    pub asset: String,
+    /// The split version the texture bakes onto. By default the newest one offered.
+    pub version: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct AssembleArgs {
     /// The project id.
     pub project: String,
@@ -211,6 +222,34 @@ impl McpTools {
             );
         }
         json_result(&job_value(&self.hub, &job))
+    }
+
+    #[tool(
+        description = "Bake the texture back onto a split that lost it, when the app offers it (a Tripo split) or an earlier bake failed: the texture of the version split from bakes headless in Blender (blender -b, never a window) onto the split version, and the result lands as the asset's next version; the untextured version stays. Blocks until Blender is done and answers with the job, its bake state and the new version. A Meshy split bakes back on its own once accepted. Spends nothing."
+    )]
+    async fn bake_back(&self, Parameters(args): Parameters<BakeBackArgs>) -> Out {
+        let baked = self
+            .blocking(move |host, hub| {
+                let (root, config) = workspace(host)?;
+                let asset = asset_id(host, &args.project, &args.asset)?;
+                let studio = host.studio();
+                let id = studio
+                    .waiting_bake(&args.project, &asset, args.version)
+                    .map_err(reason)?;
+                studio.schedule_bake(&id).map_err(reason)?;
+                let tools = host.toolbox();
+                let job = studio.bake_back(&id, &tools).map_err(reason)?;
+                thumb_for(host.thumbs(), &root, &config, &tools, &job);
+                let bake = job.split.as_ref().and_then(|s| s.bake.clone());
+                Ok(json!({
+                    "job": job_value(hub, &job),
+                    "state": bake.as_ref().map(|b| b.state),
+                    "version": bake.as_ref().and_then(|b| b.version),
+                    "message": bake.and_then(|b| b.message),
+                }))
+            })
+            .await;
+        respond(baked)
     }
 
     #[tool(
