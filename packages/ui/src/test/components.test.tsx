@@ -14,6 +14,7 @@ import {
   NumberField,
   SegmentedControl,
   StageStepper,
+  Tabs,
   TextArea,
   Toggle,
   ToolCheckRow,
@@ -486,5 +487,29 @@ describe('Tip', () => {
     expect(onDismiss).toHaveBeenCalledOnce();
     rerender(<Tip>Plain hint</Tip>);
     expect(screen.queryByRole('button')).toBeNull();
+  });
+});
+
+describe('Tabs', () => {
+  const tabs = [
+    { id: 'compare', label: 'Compare' },
+    { id: 'layout', label: 'Layout' },
+    { id: 'paths', label: 'Paths' },
+  ];
+
+  it('is one tab stop, moved and picked with the arrow keys, Home and End', async () => {
+    const onChange = vi.fn();
+    render(<Tabs tabs={tabs} defaultValue="compare" onChange={onChange} />);
+    await userEvent.tab();
+    expect(screen.getByRole('tab', { name: 'Compare', selected: true })).toHaveFocus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: 'Layout', selected: true })).toHaveFocus();
+    await userEvent.keyboard('{End}');
+    expect(screen.getByRole('tab', { name: 'Paths' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: 'Compare' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowLeft}{Home}');
+    expect(onChange).toHaveBeenLastCalledWith('compare');
+    expect(screen.getByRole('tab', { name: 'Layout' })).toHaveAttribute('tabindex', '-1');
   });
 });
