@@ -13,6 +13,7 @@ import { SAVE_STATUS_LABEL, patchSection, type SaveStatus } from '@/state/settin
 import { ACTIVE } from '../sections';
 import { AboutSection } from '../AboutSection';
 import { InvalidSettingsDialog } from '../InvalidSettingsDialog';
+import { ImagesSection } from '../ImagesSection';
 import { ProjectSection } from '../ProjectSection';
 import { SectionNav } from '../SectionNav';
 import { WorkspaceSection } from '../WorkspaceSection';
@@ -101,6 +102,11 @@ export default function SettingsScreen() {
                 <div className="h-px bg-line" />
                 <DownloadsWatchFields />
               </Panel>
+              <ImagesSection
+                active={active === 'images'}
+                config={draft}
+                onChange={c => setDraft(c)}
+              />
               <Panel
                 id="settings-budgets"
                 title="Budgets and compression"

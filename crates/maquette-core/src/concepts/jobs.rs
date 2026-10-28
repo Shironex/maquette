@@ -10,7 +10,12 @@
 //! ([`Backoff`]). When Codex says its usage limit is hit, the job and every
 //! queued one wait until the time Codex names and then run on their own.
 //! Any failed job can run again with [`Concepts::retry`].
+//!
+//! A batch can instead run on OpenAI's Image API ([`ApiPlan`]): the same
+//! prompt and attached images go to the API, the image lands at the same
+//! file and the job settles the same way, only without Codex ([`api`]).
 
+mod api;
 mod retry;
 mod settle;
 mod sink;
@@ -27,6 +32,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use serde::{Deserialize, Serialize};
 
+use super::backend::{ApiPlan, ImageBackend};
 use super::style::StyleBoard;
 use super::{Direction, NewConcepts, attached, codex_args};
 use crate::error::{CoreError, CoreResult};
@@ -37,6 +43,7 @@ use crate::pipeline::{CompressDefaults, PIPELINE_VERSION, PipelineDef, StepDef, 
 use crate::toolchain::ToolId;
 use crate::workspace::{MeshoptLevel, TextureCodec};
 
+pub use api::ImageApiClient;
 pub use retry::Backoff;
 use sink::Sink;
 
@@ -100,6 +107,9 @@ pub struct ConceptJob {
     /// The style board revision the job carries, `None` when it carries
     /// none. A retry runs with the same board.
     pub style_revision: Option<u32>,
+    /// Codex, or OpenAI's Image API. A retry runs on the same one.
+    #[serde(default)]
+    pub backend: ImageBackend,
 }
 
 /// What the service reports to the UI.
@@ -130,6 +140,8 @@ pub struct Start<'a> {
     /// Already checked with [`super::clean_request`].
     pub request: NewConcepts,
     pub timeout: Duration,
+    /// Runs the batch on OpenAI's Image API; `None` runs it on Codex.
+    pub api: Option<ApiPlan>,
 }
 
 /// Where the jobs of a start run, shared by concepts and object refs.
@@ -138,14 +150,20 @@ pub struct Lane<'a> {
     pub cache_dir: &'a Path,
     pub tools: &'a Toolbox,
     pub timeout: Duration,
+    /// Runs the batch on OpenAI's Image API; `None` runs it on Codex.
+    pub api: Option<ApiPlan>,
 }
 
-/// One planned image: where it goes, what Codex is told, its title.
+/// One planned image: where it goes, what Codex is told, its title, and
+/// the size and ground the Image API is asked for.
 struct Planned {
     index: u32,
     file: String,
     prompt: String,
     title: Option<String>,
+    /// `1536x1024`, or `auto` to follow the attached image.
+    size: &'static str,
+    transparent: bool,
 }
 
 /// What a job's run needs, kept so a retry runs the very same thing.
@@ -155,9 +173,16 @@ struct Rerun {
     options: RunOptions,
 }
 
+/// How a job runs: a `codex exec` run, or one Image API request.
+#[derive(Clone)]
+enum Run {
+    Codex(Box<Rerun>),
+    Api(api::ApiJob),
+}
+
 struct Entry {
     job: ConceptJob,
-    rerun: Rerun,
+    run: Run,
     /// Counts the job's runs, so a stale retry timer knows to stand down.
     generation: u64,
     project_dir: PathBuf,
@@ -180,6 +205,10 @@ struct Shared {
     /// Codex's usage limit holds until then (ms since the epoch); jobs
     /// queued meanwhile wait for it instead of running.
     usage_until: Mutex<Option<f64>>,
+    /// The Image API jobs waiting and running.
+    api: Mutex<api::ApiLane>,
+    /// The Image API's key store and address, once the shell set them.
+    image_api: Mutex<Option<Arc<ImageApiClient>>>,
 }
 
 impl Shared {
@@ -193,6 +222,10 @@ impl Shared {
 
     fn usage_until(&self) -> MutexGuard<'_, Option<f64>> {
         self.usage_until.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn api(&self) -> MutexGuard<'_, api::ApiLane> {
+        self.api.lock().unwrap_or_else(|p| p.into_inner())
     }
 
     fn emit(&self, event: ConceptEvent) {
@@ -230,6 +263,8 @@ impl Concepts {
             runner: OnceLock::new(),
             backoff: Mutex::new(Backoff::default()),
             usage_until: Mutex::new(None),
+            api: Mutex::new(api::ApiLane::default()),
+            image_api: Mutex::new(None),
         });
         let runner = PipelineRunner::new(Arc::new(Sink(Arc::clone(&shared))));
         let _ = shared.runner.set(runner.downgrade());
@@ -241,6 +276,7 @@ impl Concepts {
     /// How many images generate at once. Raising it starts queued jobs.
     pub fn set_concurrency(&self, n: u32) {
         self.runner.set_limit(LANE, n.max(1) as usize);
+        api::set_limit(&self.shared, n.max(1) as usize);
     }
 
     fn queue(
@@ -252,8 +288,12 @@ impl Concepts {
         board: Option<&StyleBoard>,
         planned: Vec<Planned>,
     ) -> CoreResult<Vec<ConceptJob>> {
-        let codex = codex_tool(lane.tools)?;
-        let args = codex_args(lane.project_dir, &attached(refs, board));
+        let files = attached(refs, board);
+        let codex = match lane.api {
+            None => Some(codex_tool(lane.tools)?.program.display().to_string()),
+            Some(_) => None,
+        };
+        let args = codex_args(lane.project_dir, &files);
         let stamp = now_ms() as u64;
         let mut queued = Vec::new();
         for Planned {
@@ -261,6 +301,8 @@ impl Concepts {
             file,
             prompt: text,
             title,
+            size,
+            transparent,
         } in planned
         {
             let id = format!("{}-{index:02}-{stamp:x}", direction.id);
@@ -285,53 +327,69 @@ impl Concepts {
                 retries: 0,
                 usage_limit: false,
                 style_revision: board.map(|b| b.revision),
+                backend: if lane.api.is_some() {
+                    ImageBackend::OpenaiImages
+                } else {
+                    ImageBackend::Codex
+                },
             };
-            let rerun = Rerun {
-                setup: RunSetup {
-                    project: LANE.to_string(),
-                    project_dir: lane.project_dir.to_path_buf(),
-                    cache_dir: lane.cache_dir.to_path_buf(),
-                    def: PipelineDef {
-                        version: PIPELINE_VERSION,
-                        root: None,
-                        steps: vec![StepDef {
-                            id: id.clone(),
-                            name: format!("{} #{index}", direction.name),
-                            kind: StepKind::Shell,
-                            command: Some(codex.program.display().to_string()),
-                            script: None,
-                            args: args.clone(),
-                            inputs: Vec::new(),
-                            outputs: Vec::new(),
-                            depends_on: Vec::new(),
-                            compress: None,
-                        }],
-                        presets: Vec::new(),
+            let run = match (&lane.api, &codex) {
+                (Some(plan), _) => Run::Api(api::ApiJob::new(
+                    plan,
+                    lane.project_dir,
+                    &files,
+                    &file,
+                    &text,
+                    size,
+                    transparent,
+                )),
+                (None, codex) => Run::Codex(Box::new(Rerun {
+                    setup: RunSetup {
+                        project: LANE.to_string(),
+                        project_dir: lane.project_dir.to_path_buf(),
+                        cache_dir: lane.cache_dir.to_path_buf(),
+                        def: PipelineDef {
+                            version: PIPELINE_VERSION,
+                            root: None,
+                            steps: vec![StepDef {
+                                id: id.clone(),
+                                name: format!("{} #{index}", direction.name),
+                                kind: StepKind::Shell,
+                                command: codex.clone(),
+                                script: None,
+                                args: args.clone(),
+                                inputs: Vec::new(),
+                                outputs: Vec::new(),
+                                depends_on: Vec::new(),
+                                compress: None,
+                            }],
+                            presets: Vec::new(),
+                        },
+                        tools: lane.tools.clone(),
+                        defaults: CompressDefaults {
+                            texture_size: 2048,
+                            codec: TextureCodec::Etc1s,
+                            meshopt: MeshoptLevel::Medium,
+                        },
+                        vars: Default::default(),
+                        shipped_names: Default::default(),
+                        materials: Default::default(),
+                        from: None,
+                        force: true,
+                        textures: Default::default(),
+                        quality: crate::ship::DEFAULT_QUALITY,
+                        build_only: false,
                     },
-                    tools: lane.tools.clone(),
-                    defaults: CompressDefaults {
-                        texture_size: 2048,
-                        codec: TextureCodec::Etc1s,
-                        meshopt: MeshoptLevel::Medium,
+                    options: RunOptions {
+                        stdin: Some(text),
+                        timeout: Some(lane.timeout),
+                        gate: None,
                     },
-                    vars: Default::default(),
-                    shipped_names: Default::default(),
-                    materials: Default::default(),
-                    from: None,
-                    force: true,
-                    textures: Default::default(),
-                    quality: crate::ship::DEFAULT_QUALITY,
-                    build_only: false,
-                },
-                options: RunOptions {
-                    stdin: Some(text),
-                    timeout: Some(lane.timeout),
-                    gate: None,
-                },
+                })),
             };
             self.shared.jobs().push_back(Entry {
                 job,
-                rerun,
+                run,
                 generation: 0,
                 project_dir: lane.project_dir.to_path_buf(),
                 session: None,
@@ -368,6 +426,7 @@ impl Concepts {
                 self.cancel_waiting(job_id);
                 Ok(())
             }
+            Some(_) if api::cancel(&self.shared, job_id) => Ok(()),
             Some((Some(run_id), _)) => self.runner.cancel(&run_id),
             _ => Err(CoreError::NotFound(format!("the concept job {job_id}"))),
         }
@@ -388,8 +447,10 @@ impl Concepts {
             .count();
         let stopped = runs
             .iter()
-            .filter_map(|(_, run, _)| run.as_ref())
-            .filter(|r| self.runner.cancel(r).is_ok())
+            .filter(|(id, run, _)| {
+                api::cancel(&self.shared, id)
+                    || run.as_ref().is_some_and(|r| self.runner.cancel(r).is_ok())
+            })
             .count();
         waited + stopped
     }

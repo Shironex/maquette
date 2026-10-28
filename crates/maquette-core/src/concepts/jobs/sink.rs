@@ -197,7 +197,7 @@ fn usage_limited_text(
     says_usage_limited(&text).then_some(text)
 }
 
-fn prune(jobs: &mut VecDeque<Entry>) {
+pub(super) fn prune(jobs: &mut VecDeque<Entry>) {
     let finished = jobs.iter().filter(|e| e.job.state.is_finished()).count();
     let mut extra = finished.saturating_sub(KEEP_FINISHED);
     jobs.retain(|e| {

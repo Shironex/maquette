@@ -137,6 +137,7 @@ const handle = createBackend({
   pace: Number(params.get('pace') ?? 260),
   lab: params.get('lab'),
   codex: params.get('codex'),
+  images: params.get('images'),
   conceptMs: Number(params.get('conceptMs') ?? 4000),
   agents: params.get('agents'),
   projects: params.get('projects'),

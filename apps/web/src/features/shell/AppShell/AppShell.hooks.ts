@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { events } from '@/ipc/generated/bindings';
+import { events, type ImageSettings } from '@/ipc/generated/bindings';
 import { PLATFORM } from '@/ipc/runtime';
 import { readFlag, writeFlag } from '@/lib/storage';
 import { useAgentsStore } from '@/state/use-agents-store';
@@ -8,6 +8,7 @@ import { useBuiltStore } from '@/state/use-built-store';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { useAnimationsStore } from '@/state/use-animations-store';
 import { useCodexUsageStore } from '@/state/use-codex-usage-store';
+import { useImageApiStore } from '@/state/use-image-api-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useLayoutStore } from '@/state/use-layout-store';
@@ -125,6 +126,13 @@ export function useAppShell() {
  * for the open project and keeps them fresh from the runner, the inbox
  * watcher, builds and agents.
  */
+/** An agent changed the Lab's image backends: the Lab and Settings follow. */
+function onImageSettings(images: ImageSettings) {
+  const { workspace, setConfig } = useAppStore.getState();
+  if (workspace) setConfig({ ...workspace.config, lab: { ...workspace.config.lab, images } });
+  void useImageApiStore.getState().load();
+}
+
 export function useLiveData(projectId: string | null, root: string | null) {
   const loadPipeline = usePipelineStore(s => s.load);
   const onEvent = usePipelineStore(s => s.onEvent);
@@ -238,6 +246,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.builtChanged.listen(e => onBuilt(e.payload.project)),
       events.pageServerChanged.listen(e => onPageServer(e.payload)),
       events.codexUsageUpdate.listen(e => useCodexUsageStore.getState().apply(e.payload)),
+      events.imageSettingsChanged.listen(e => onImageSettings(e.payload)),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());

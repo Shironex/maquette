@@ -23,6 +23,7 @@ export default function Composer({ view }: ComposerProps) {
     ready,
     codexReady,
     usageWarning,
+    api,
   } = useComposer(view);
   const n = draft.count;
 
@@ -102,19 +103,34 @@ export default function Composer({ view }: ComposerProps) {
           block
           iconRight="arrow-right"
           loading={busy === 'generate'}
-          disabled={!ready || busy === 'generate' || !codexReady}
+          disabled={!ready || busy === 'generate' || !codexReady || Boolean(api?.over)}
           disabledReason={
-            ready ? 'Codex is not set up yet' : 'Name the direction and write a prompt first'
+            !ready
+              ? 'Name the direction and write a prompt first'
+              : api?.over
+                ? 'This round would pass the monthly OpenAI image cap'
+                : 'Codex is not set up yet'
           }
-          tooltip="Sends the prompt to Codex to draw the concepts"
+          tooltip={
+            api
+              ? "Sends the prompt to OpenAI's Image API, paid per image"
+              : 'Sends the prompt to Codex to draw the concepts'
+          }
           onClick={() => void generate()}
         >
           {`Generate ${n} ${n === 1 ? 'concept' : 'concepts'}`}
         </Button>
-        <span className={cn('text-center text-meta', codexReady ? 'text-fg-mute' : 'text-amber')}>
-          {codexReady
-            ? `Runs through Codex CLI, ${view.concurrency} at a time`
-            : `Codex CLI is not ready. ${codex?.hint ?? 'Install it, then run codex login.'}`}
+        <span
+          className={cn(
+            'text-center text-meta',
+            api?.over || !codexReady ? 'text-amber' : 'text-fg-mute'
+          )}
+        >
+          {api
+            ? api.line
+            : codexReady
+              ? `Runs through Codex CLI, ${view.concurrency} at a time`
+              : `Codex CLI is not ready. ${codex?.hint ?? 'Install it, then run codex login.'}`}
         </span>
       </div>
     </section>

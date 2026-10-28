@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use super::usage;
-use super::{ConceptEvent, ConceptJob, ConceptJobState, Concepts, Shared};
+use super::{ConceptEvent, ConceptJob, ConceptJobState, Concepts, Run, Shared, api};
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::now_ms;
 use crate::pipeline::runner::{JobRunner, PipelineRunner};
@@ -157,7 +157,7 @@ pub(super) fn pause_queue(shared: &Arc<Shared>, until_ms: f64) {
     let paused: Vec<_> = {
         let mut jobs = shared.jobs();
         jobs.iter_mut()
-            .filter(|e| e.job.state == ConceptJobState::Queued)
+            .filter(|e| e.job.state == ConceptJobState::Queued && matches!(e.run, Run::Codex(_)))
             .map(|e| {
                 e.generation += 1;
                 let run = e.job.run_id.take();
@@ -216,19 +216,24 @@ pub(super) fn schedule(shared: Arc<Shared>, id: String, generation: u64, wait: D
 }
 
 /// Queues the job's run (again): the same prompt, refs and file, a fresh
-/// log. While Codex's usage limit holds the job waits for it instead,
-/// unless `now` (Retry by hand runs it at once). Returns the job as it is
-/// now, or `None` when it is gone.
+/// log. While Codex's usage limit holds a Codex job waits for it instead,
+/// unless `now` (Retry by hand runs it at once); an Image API job goes to
+/// its own queue. Returns the job as it is now, or `None` when it is gone.
 pub(super) fn submit(
     shared: &Arc<Shared>,
     runner: &PipelineRunner,
     id: &str,
     now: bool,
 ) -> Option<ConceptJob> {
-    let hold = if now { None } else { usage_holds(shared) };
     let rerun = {
         let mut jobs = shared.jobs();
         let e = jobs.iter_mut().find(|e| e.job.id == id)?;
+        let codex = matches!(e.run, Run::Codex(_));
+        let hold = if now || !codex {
+            None
+        } else {
+            usage_holds(shared)
+        };
         e.generation += 1;
         e.session = None;
         e.last_error = None;
@@ -259,7 +264,16 @@ pub(super) fn submit(
             });
             return Some(waiting.0);
         }
-        e.rerun.clone()
+        match &e.run {
+            Run::Codex(rerun) => (**rerun).clone(),
+            Run::Api(_) => {
+                let job = e.job.clone();
+                drop(jobs);
+                shared.emit(ConceptEvent::Job { job: job.clone() });
+                api::enqueue(shared, id);
+                return Some(job);
+            }
+        }
     };
     let outcome = runner.submit_with(rerun.setup, rerun.options);
     let job = {

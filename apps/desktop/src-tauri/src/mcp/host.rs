@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use maquette_core::ProjectManifest;
+use maquette_core::concepts::backend::ImageSettings;
 use maquette_core::concepts::codex_usage::CodexUsage;
 use maquette_core::concepts::{ConceptEvent, Concepts, Direction, StyleBoard};
 use maquette_core::pipeline::runner::PipelineRunner;
@@ -72,6 +73,9 @@ pub trait Host: Send + Sync + 'static {
     /// Keeps a Codex usage read and tells the windows, so the status bar
     /// shows what an agent read.
     fn codex_usage_seen(&self, _usage: &CodexUsage) {}
+
+    /// An agent changed the Lab's image backends.
+    fn image_settings_changed(&self, _settings: &ImageSettings) {}
 }
 
 /// The app's own services.
@@ -168,6 +172,12 @@ impl Host for AppHost {
 
     fn codex_usage_seen(&self, usage: &CodexUsage) {
         crate::commands::codex_usage::publish(&self.0, usage);
+    }
+
+    fn image_settings_changed(&self, settings: &ImageSettings) {
+        if let Err(err) = crate::events::ImageSettingsChanged(*settings).emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit the image settings");
+        }
     }
 
     fn library_changed(&self) {

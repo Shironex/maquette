@@ -11,6 +11,7 @@ use serde_json::{Value, json};
 
 use crate::commands::lab;
 
+use super::image_api::{BackendArg, backend};
 use super::sending::VariantArg;
 use super::{McpTools, Out, reason, respond, to_value, workspace};
 
@@ -61,6 +62,9 @@ pub struct ConceptsArgs {
     /// false starts this direction without the project's style board (see
     /// get_style_board). By default the board's line, palette and images go along.
     pub use_style: Option<bool>,
+    /// "codex" or "openai-images" (OpenAI's Image API, paid per image from the OpenAI key,
+    /// within the monthly cap). By default the backend Settings picks for this kind.
+    pub backend: Option<BackendArg>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -87,6 +91,9 @@ pub struct ObjectRefsArgs {
     /// false makes these object refs without the project's style board (see
     /// get_style_board). By default the board's line, palette and images go along.
     pub use_style: Option<bool>,
+    /// "codex" or "openai-images" (OpenAI's Image API, paid per image from the OpenAI key,
+    /// within the monthly cap). By default the backend Settings picks for this kind.
+    pub backend: Option<BackendArg>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -111,6 +118,7 @@ pub(super) fn job_value(job: &ConceptJob) -> Value {
         "retries": job.retries,
         "usageLimit": job.usage_limit,
         "styleRevision": job.style_revision,
+        "backend": to_value(job.backend),
     })
 }
 
@@ -134,7 +142,7 @@ fn source_name(project_dir: &Path, source: &str) -> String {
 #[tool_router(router = concepts_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Start concept image jobs in a project's Concept lab. Each image runs through the Codex CLI and takes about a minute; the images land in concepts/<direction>/ inside the project and show up in the app's Lab. Each job carries the project's style board (get_style_board) after the prompt unless useStyle is false; styleRevision says which board revision went along."
+        description = "Start concept image jobs in a project's Concept lab. Each image runs through the Codex CLI (about a minute) or, with backend openai-images or when Settings picks it, OpenAI's Image API (paid per image within the monthly cap, refused when the round would pass it); the images land in concepts/<direction>/ inside the project and show up in the app's Lab. Each job carries the project's style board (get_style_board) after the prompt unless useStyle is false; styleRevision says which board revision went along."
     )]
     async fn start_concepts(&self, Parameters(args): Parameters<ConceptsArgs>) -> Out {
         let found = self
@@ -149,19 +157,24 @@ impl McpTools {
                     use_style: args.use_style.unwrap_or(true),
                 };
                 let tools = host.toolbox();
-                let (direction, jobs) =
-                    lab::generate(host.session(), host.concepts(), &tools, &request)
-                        .map_err(|e| e.message)?;
+                let (direction, jobs) = lab::generate(
+                    host.session(),
+                    host.concepts(),
+                    &tools,
+                    &request,
+                    backend(args.backend),
+                )
+                .map_err(|e| e.message)?;
                 let jobs: Vec<Value> = jobs
                     .iter()
-                    .map(|j| json!({ "id": j.id, "file": j.file, "state": to_value(j.state) }))
+                    .map(|j| json!({ "id": j.id, "file": j.file, "state": to_value(j.state), "backend": to_value(j.backend) }))
                     .collect();
                 Ok(json!({
                     "status": "started",
                     "direction": { "id": direction.id, "name": direction.name },
                     "styleRevision": direction.style_revision,
                     "jobs": jobs,
-                    "note": "Each file appears at its path, relative to the project folder, once Codex saves it.",
+                    "note": "Each file appears at its path, relative to the project folder, once it is made.",
                 }))
             })
             .await;
@@ -235,7 +248,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Make object refs from one concept: for each object named, Codex makes one image of only that object (centered, whole, front three-quarter view, plain light grey background, soft light, no text), with the concept attached as the reference. The images land in a new Lab direction \"<name> objects\" (\"<name> objects 2\" and so on when another source or kind already has that name), each titled by its object; read them with get_concepts. They carry the project's style board unless useStyle is false. Each image spends Codex usage."
+        description = "Make object refs from one concept: for each object named, Codex makes one image of only that object (centered, whole, front three-quarter view, plain light grey background, soft light, no text), with the concept attached as the reference. The images land in a new Lab direction \"<name> objects\" (\"<name> objects 2\" and so on when another source or kind already has that name), each titled by its object; read them with get_concepts. They carry the project's style board unless useStyle is false. Each image spends Codex usage, or with backend openai-images is paid from the OpenAI key."
     )]
     async fn make_object_refs(&self, Parameters(args): Parameters<ObjectRefsArgs>) -> Out {
         let found = self
@@ -261,9 +274,14 @@ impl McpTools {
                     use_style: args.use_style.unwrap_or(true),
                 };
                 let tools = host.toolbox();
-                let (direction, jobs) =
-                    lab::make_objects(host.session(), host.concepts(), &tools, &request)
-                        .map_err(|e| e.message)?;
+                let (direction, jobs) = lab::make_objects(
+                    host.session(),
+                    host.concepts(),
+                    &tools,
+                    &request,
+                    backend(args.backend),
+                )
+                .map_err(|e| e.message)?;
                 let jobs: Vec<Value> = jobs
                     .iter()
                     .map(|j| {
@@ -275,7 +293,7 @@ impl McpTools {
                     "direction": { "id": direction.id, "name": direction.name },
                     "styleRevision": direction.style_revision,
                     "jobs": jobs,
-                    "note": "Each file appears at its path, relative to the project folder, once Codex saves it.",
+                    "note": "Each file appears at its path, relative to the project folder, once it is made.",
                 }))
             })
             .await;

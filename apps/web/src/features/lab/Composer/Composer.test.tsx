@@ -2,7 +2,7 @@ import { clock } from '@/lib/clock';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { LabView, ToolReport } from '@/ipc/client';
+import type { ImageApiStatus, LabView, ToolReport, WorkspaceSnapshot } from '@/ipc/client';
 import { labDirections, labRefs } from '@/ipc/mock/lab-fixtures';
 import { useAppStore } from '@/state/use-app-store';
 import { useLabStore } from '@/state/use-lab-store';
@@ -11,6 +11,7 @@ import { EMPTY_STYLE } from '@/state/lab-style';
 import { frostveilStyleBoard } from '@/ipc/mock/style-board';
 import { mockUsage } from '@/ipc/mock/create-codex-usage-handlers';
 import { useCodexUsageStore } from '@/state/use-codex-usage-store';
+import { useImageApiStore } from '@/state/use-image-api-store';
 
 const view: LabView = {
   project: 'frostveil',
@@ -24,12 +25,37 @@ const view: LabView = {
 const lab = useLabStore.getState();
 const app = useAppStore.getState();
 const usage = useCodexUsageStore.getState();
+const imageApi = useImageApiStore.getState();
+
+/** Concepts on OpenAI Images, with `spent` of the $10 cap gone this month. */
+function onImageApi(spent: number) {
+  const images = {
+    backends: { concepts: 'openai-images' as const },
+    quality: 'low' as const,
+    monthlyCapUsd: 10,
+  };
+  const workspace = { config: { lab: { concurrency: 4, timeoutMinutes: 10, images } } };
+  useAppStore.setState({ workspace: workspace as unknown as WorkspaceSnapshot });
+  const status: ImageApiStatus = {
+    settings: images,
+    key: { saved: true, tail: 'k7Qm' },
+    monthSpentUsd: spent,
+    pendingUsd: 0,
+    model: 'gpt-image-2.5-sunburst',
+    estimates: { low: 0.011, medium: 0.058, high: 0.216 },
+    pricesChecked: '2026-10-28',
+    pricesUrl: 'https://developers.openai.com/api/docs/pricing',
+  };
+  useImageApiStore.setState({ status });
+  useLabStore.getState().setDraft({ name: 'Harbour', prompt: 'A small harbour at dawn' });
+}
 
 afterEach(() => {
   cleanup();
   useLabStore.setState(lab, true);
   useAppStore.setState(app, true);
   useCodexUsageStore.setState(usage, true);
+  useImageApiStore.setState(imageApi, true);
 });
 
 describe('the composer', () => {
@@ -85,5 +111,29 @@ describe('the composer', () => {
     );
     act(() => useLabStore.getState().setDraft({ count: 2 }));
     expect(screen.queryByRole('note')).toBeNull();
+  });
+
+  it('says what a round on OpenAI Images costs against the cap', () => {
+    onImageApi(3.42);
+    render(<Composer view={view} />);
+    expect(
+      screen.getByText(
+        'Runs on OpenAI Images (low), about $0.04 for 4. $3.42 of $10 spent this month.'
+      )
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Generate 4 concepts' })).not.toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+  });
+
+  it('holds a round that would pass the monthly cap', () => {
+    onImageApi(9.96);
+    render(<Composer view={view} />);
+    expect(screen.getByText(/would pass the monthly cap/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Generate 4 concepts' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 });

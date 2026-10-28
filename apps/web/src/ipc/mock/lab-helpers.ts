@@ -1,4 +1,4 @@
-import type { ConceptJob, Direction, NewObjectRefs, RefImage } from '../client';
+import type { ConceptJob, Direction, NewObjectRefs, ProjectManifest, RefImage } from '../client';
 import type { FakeLabOptions } from './lab';
 import { clock } from '@/lib/clock';
 
@@ -85,4 +85,21 @@ export function objectsDirectionName(
   let n = 1;
   while (!fits(n)) n += 1;
   return numbered(n);
+}
+
+/** Cards an older Send picks to Refs left without a picture get the newest ref. */
+export function healThumbnails(
+  p: ProjectManifest,
+  sentFor: (project: string, asset: string) => string[],
+  save: (next: ProjectManifest) => ProjectManifest
+): ProjectManifest {
+  let changed = false;
+  const assets = (p.assets ?? []).map(a => {
+    if (a.thumbnail !== null || a.versions.length > 0) return a;
+    const newest = sentFor(p.id, a.name).at(-1);
+    if (!newest || !refMayReplace(a.thumbnail)) return a;
+    changed = true;
+    return { ...a, thumbnail: newest };
+  });
+  return changed ? save({ ...p, assets }) : p;
 }

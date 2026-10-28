@@ -17,6 +17,7 @@ pub mod concepts;
 pub mod credits;
 pub mod game;
 pub mod handoffs;
+pub mod image_api;
 pub mod inbox;
 pub mod library;
 pub mod materials;
@@ -89,7 +90,9 @@ limits runs again on its own a few times, a job that meets the Codex usage limit
 the rest of the queue until it lifts (usageLimit, retryAtMs), and retry_concept_jobs runs failed ones again (same \
 prompt, refs and file, no new direction). get_codex_usage reads how much of Codex's five hour and weekly \
 windows is used and when they reset; retry_usage_limited_jobs runs the jobs the usage limit holds once a \
-fresh read says it has lifted. pick_concepts puts concepts on the Board \
+fresh read says it has lifted. Lab images are made by Codex unless Settings or a request's \
+backend picks openai-images (OpenAI's Image API, paid per image within a monthly cap in US dollars); \
+get_image_backend and set_image_backend read and change that. pick_concepts puts concepts on the Board \
 as Send picks to Refs does: each image goes into refs/ and becomes or joins an asset at Refs \
 (named after its object for object refs, else after its direction), ready for send_to_3d; \
 picking an image again returns its asset. star_concepts stars or unstars them. Both spend \
@@ -248,6 +251,7 @@ impl McpTools {
                 + Self::concepts_router()
                 + Self::concept_jobs_router()
                 + Self::codex_usage_router()
+                + Self::image_api_router()
                 + Self::style_router()
                 + Self::picks_router()
                 + Self::refs_router()

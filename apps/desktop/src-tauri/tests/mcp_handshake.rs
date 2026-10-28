@@ -344,6 +344,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "get_concepts",
             "get_credits",
             "get_game",
+            "get_image_backend",
             "get_inbox_checks",
             "get_layout",
             "get_material_tweaks",
@@ -394,6 +395,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "set_bake_settings",
             "set_compression_presets",
             "set_game_settings",
+            "set_image_backend",
             "set_layout",
             "set_material_tweaks",
             "set_pad_edges",
@@ -651,6 +653,51 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     let held = call(&client, "retry_usage_limited_jobs", json!({})).await;
     assert_eq!(held["lifted"], json!(false));
     assert_eq!(held["jobs"], json!([]));
+
+    // Images go to Codex until the backend says otherwise; the Image API
+    // refuses a round past the cap before anything is made or sent.
+    let images = call(&client, "get_image_backend", json!({})).await;
+    assert_eq!(images["backends"]["concepts"], json!("codex"));
+    assert_eq!(images["monthlyCapUsd"], json!(10));
+    assert_eq!(images["keySaved"], json!(false));
+    let set = call(
+        &client,
+        "set_image_backend",
+        json!({ "concepts": "openai-images", "quality": "medium", "monthlyCapUsd": 0 }),
+    )
+    .await;
+    assert_eq!(set["backends"]["concepts"], json!("openai-images"));
+    assert_eq!(set["backends"]["objectRefs"], json!("codex"));
+    assert_eq!(set["quality"], json!("medium"));
+    let capped = raw_call(
+        &client,
+        "start_concepts",
+        json!({ "project": project_id, "direction": "Capped", "prompt": "A lantern.", "count": 1 }),
+    )
+    .await;
+    assert_eq!(capped.is_error, Some(true));
+    assert!(
+        text(&capped).contains("monthly OpenAI image cap"),
+        "{}",
+        text(&capped)
+    );
+    let codex = raw_call(
+        &client,
+        "start_concepts",
+        json!({ "project": project_id, "direction": "Capped", "prompt": "A lantern.", "count": 1, "backend": "codex" }),
+    )
+    .await;
+    assert!(
+        text(&codex).contains("Codex CLI"),
+        "the override goes to Codex: {}",
+        text(&codex)
+    );
+    call(
+        &client,
+        "set_image_backend",
+        json!({ "concepts": "codex", "monthlyCapUsd": 10 }),
+    )
+    .await;
 
     // A send to Tripo waits for a person before anything could be spent.
     let sent = call(

@@ -11,6 +11,7 @@ pub mod jobs;
 pub mod ledger;
 pub mod meshy;
 pub mod naming;
+pub mod openai_images;
 pub mod presets;
 pub mod pricing;
 pub mod secrets;
@@ -19,7 +20,7 @@ pub mod subscription;
 pub mod tripo;
 
 #[cfg(test)]
-mod fake;
+pub(crate) mod fake;
 #[cfg(test)]
 mod tests;
 

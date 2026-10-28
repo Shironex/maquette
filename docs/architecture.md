@@ -177,6 +177,41 @@ Every read goes out as `CodexUsageUpdate`. The MCP tools are `mcp/tools/codex_us
 `features/shell/CodexUsageItem` (drawn into the status bar through `codexControl`, like the site
 server's item), `features/lab/UsageLimitBanner` and the Composer's round warning.
 
+## Image backends
+
+A Lab job is made by Codex CLI or by OpenAI's Image API. `concepts/backend.rs` holds `ImageBackend`
+(`codex`, `openai-images`), the backend per kind of job (`ImageBackends`: concepts, object refs, other
+views, clean background), `ImageSettings` (the backends, the API's quality and `monthly_cap_usd`,
+kept in `maquette.json` under `lab.images`; Codex, low and $10 by default) and `ApiPlan`, which a
+`Start` or `Lane` carries when its batch goes to the API. `commands/image_api.rs::plan` picks the
+backend: the request's override (an agent's `backend`), else Settings for the kind.
+
+`providers/openai_images.rs` is the client: a generation without attached images, an edit with
+them (up to 16 as base64 data URLs, in the order Codex gets them: the brief's refs, then the style
+board), one PNG per request, 429 handled by `http::Api` with `Retry-After` and `Timing::OPENAI`.
+`price.rs` turns the reported tokens into dollars with the GPT Image 2.5 rates (`PRICES_CHECKED`,
+`PRICES_URL`) and estimates a call that reported none. `test_key` lists the models and spends
+nothing.
+
+`concepts/jobs/api.rs` runs the API jobs on their own in-process lane, as many at once as the Lab's
+concurrency, and settles them through the same `finish` as Codex jobs, so the states, the file
+layout, retries, cancel and `use_ref_candidate` do not change. Before a batch starts, the month's
+spend (`ledger::month_to_date`, the local calendar month), what queued API jobs will likely cost and
+the batch's estimate are checked against the cap, and a batch that would pass it is refused whole.
+There is no per round approval: the cap is the guard. Every made image appends an `ImageSpend` line
+(v3, `event: "image"`, dollars, tokens, estimated or not, via agent or not) to `credits.jsonl`;
+older readers skip it. A job cancelled while its request is out still records the spend when the
+answer comes, and its image is dropped. A kept 429 becomes a rate limited job like Codex's.
+
+The key is in the keychain under its own account (`secrets::OPENAI_ACCOUNT`), never in a file.
+The desktop commands are `image_api_status`, `image_api_key_save`, `image_api_key_remove` and
+`image_api_key_test`; the MCP tools are `mcp/tools/image_api.rs` (`get_image_backend`,
+`set_image_backend`, which emits `ImageSettingsChanged`), and `start_concepts`, `make_object_refs`,
+`make_other_views` and `clean_ref_background` take `backend`. The web side is
+`state/image-api.ts`, `state/use-image-api-store.ts`, `features/settings/ImagesSection` (the key row
+is the shared `KeyRowView`) and the Composer's cost line. Debug builds point the client at
+`MAQUETTE_OPENAI_URL`; tests use a fake server and never call OpenAI.
+
 ## Game projects
 
 `ProjectManifest.target` is `website` or `game`; a game keeps `GameSettings` in `game` (boxed, so

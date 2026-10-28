@@ -124,6 +124,8 @@ export interface BackendOptions {
   stress?: string | null;
   /** `low`, `limit`, `lifted` or `unknown`: the Codex usage read (see create-codex-usage-handlers.ts). */
   codex?: string | null;
+  /** `on` or `cap`: concepts on OpenAI's Image API (see create-image-api-handlers.ts). */
+  images?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */

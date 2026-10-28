@@ -12,6 +12,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::concepts::job_value;
+use super::image_api::{BackendArg, backend};
 use super::{McpTools, Out, reason, respond, to_value, workspace};
 use crate::commands::refs as shared;
 use crate::mcp::host::Host;
@@ -75,6 +76,9 @@ pub struct MakeViewsArgs {
     pub count: Option<u32>,
     /// false draws them without the project's style board. On by default.
     pub use_style: Option<bool>,
+    /// "codex" or "openai-images" (OpenAI's Image API, paid per image from the OpenAI key,
+    /// within the monthly cap). By default the backend Settings picks for this kind.
+    pub backend: Option<BackendArg>,
 }
 
 /// The background a clean copy gets.
@@ -100,6 +104,9 @@ pub struct CleanRefArgs {
     pub pad: Option<bool>,
     /// true draws what the frame cut off; by default nothing is invented.
     pub extend: Option<bool>,
+    /// "codex" or "openai-images" (OpenAI's Image API, paid per image from the OpenAI key,
+    /// within the monthly cap). By default the backend Settings picks for this kind.
+    pub backend: Option<BackendArg>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -219,7 +226,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Make the other views of an asset: Codex draws the views it is missing (left, back, right) from its front ref, count candidates each, with the front attached and the project's style board unless useStyle is false. Filled views are skipped unless named. The candidates land in the Lab direction \"<asset> views\"; nothing reaches the refs until use_ref_candidate. Each image spends Codex usage, like start_concepts."
+        description = "Make the other views of an asset: Codex draws the views it is missing (left, back, right) from its front ref, count candidates each, with the front attached and the project's style board unless useStyle is false. Filled views are skipped unless named. The candidates land in the Lab direction \"<asset> views\"; nothing reaches the refs until use_ref_candidate. Each image spends Codex usage, like start_concepts, or with backend openai-images is paid from the OpenAI key."
     )]
     async fn make_other_views(&self, Parameters(args): Parameters<MakeViewsArgs>) -> Out {
         let found = self
@@ -234,14 +241,14 @@ impl McpTools {
                 };
                 let tools = host.toolbox();
                 let (direction, jobs) =
-                    shared::make_views(host.session(), host.concepts(), &tools, &request)
+                    shared::make_views(host.session(), host.concepts(), &tools, &request, backend(args.backend))
                         .map_err(|e| e.message)?;
                 Ok(json!({
                     "status": "started",
                     "direction": { "id": direction.id, "name": direction.name },
                     "styleRevision": direction.style_revision,
                     "jobs": jobs.iter().map(|j| json!({ "id": j.id, "view": j.title, "file": j.file, "state": to_value(j.state) })).collect::<Vec<_>>(),
-                    "note": "Read the candidates with get_ref_views once Codex saves them, then put one in its slot with use_ref_candidate.",
+                    "note": "Read the candidates with get_ref_views once they are made, then put one in its slot with use_ref_candidate.",
                 }))
             })
             .await;
@@ -249,7 +256,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Clean the background of one of an asset's refs: Codex makes a copy with the object kept and the clutter removed, on studio grey (default) or transparent, optionally centered and padded to a square, and drawing what the frame cut off only when extend is true. The copy lands in the Lab direction \"<asset> clean\"; use_ref_candidate puts it in the ref's place with its view, and the original moves to refs/originals, kept. Spends Codex usage, like start_concepts."
+        description = "Clean the background of one of an asset's refs: Codex makes a copy with the object kept and the clutter removed, on studio grey (default) or transparent, optionally centered and padded to a square, and drawing what the frame cut off only when extend is true. The copy lands in the Lab direction \"<asset> clean\"; use_ref_candidate puts it in the ref's place with its view, and the original moves to refs/originals, kept. Spends Codex usage, like start_concepts, or with backend openai-images is paid from the OpenAI key."
     )]
     async fn clean_ref_background(&self, Parameters(args): Parameters<CleanRefArgs>) -> Out {
         let found = self
@@ -268,13 +275,13 @@ impl McpTools {
                 };
                 let tools = host.toolbox();
                 let (direction, jobs) =
-                    shared::clean(host.session(), host.concepts(), &tools, &request)
+                    shared::clean(host.session(), host.concepts(), &tools, &request, backend(args.backend))
                         .map_err(|e| e.message)?;
                 Ok(json!({
                     "status": "started",
                     "direction": { "id": direction.id, "name": direction.name },
                     "jobs": jobs.iter().map(|j| json!({ "id": j.id, "file": j.file, "state": to_value(j.state) })).collect::<Vec<_>>(),
-                    "note": "Once Codex saves it, put the copy in place with use_ref_candidate; until then the original stays as it is.",
+                    "note": "Once it is made, put the copy in place with use_ref_candidate; until then the original stays as it is.",
                 }))
             })
             .await;

@@ -34,7 +34,9 @@ export default function ImageQueue({ view }: ImageQueueProps) {
         </span>
       </div>
       <p className="mb-2 text-meta text-fg-mute">
-        {last ? `${last.directionName} · Codex CLI` : 'Images show here while Codex works on them.'}
+        {last
+          ? `${last.directionName} · ${last.backend === 'openai-images' ? 'OpenAI Images' : 'Codex CLI'}`
+          : 'Images show here while they are made.'}
       </p>
       <ul
         aria-live="polite"

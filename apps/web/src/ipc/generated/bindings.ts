@@ -404,6 +404,18 @@ export const commands = {
 	codexUsageRead: () => __TAURI_INVOKE<CodexUsage>("codex_usage_read"),
 	/**  Limit lifted, retry now (see [`lift`]). */
 	labLiftUsageLimit: () => __TAURI_INVOKE<UsageLift>("lab_lift_usage_limit"),
+	imageApiStatus: () => __TAURI_INVOKE<ImageApiStatus>("image_api_status"),
+	/**
+	 *  Saves the OpenAI key in the keychain. Only its last four characters
+	 *  come back.
+	 */
+	imageApiKeySave: (key: string) => __TAURI_INVOKE<OpenAiKeyStatus>("image_api_key_save", { key }),
+	imageApiKeyRemove: () => __TAURI_INVOKE<OpenAiKeyStatus>("image_api_key_remove"),
+	/**
+	 *  Tries a key by listing the models, which costs nothing. Without `key`,
+	 *  the saved one.
+	 */
+	imageApiKeyTest: (key: string | null) => __TAURI_INVOKE<OpenAiKeyTest>("image_api_key_test", { key }),
 	refsGet: (project: string, asset: string) => __TAURI_INVOKE<RefsView>("refs_get", { project, asset }),
 	/**  Saves the views of every ref of the asset at once. */
 	refsSetViews: (project: string, asset: string, refs: AssetRef[]) => __TAURI_INVOKE<RefsView>("refs_set_views", { project, asset, refs }),
@@ -528,6 +540,7 @@ export const events = {
 	codexUsageUpdate: makeEvent<CodexUsageUpdate>("codex-usage-update"),
 	conceptUpdate: makeEvent<ConceptUpdate>("concept-update"),
 	downloadsArrival: makeEvent<DownloadsArrival>("downloads-arrival"),
+	imageSettingsChanged: makeEvent<ImageSettingsChanged>("image-settings-changed"),
 	inboxChanged: makeEvent<InboxChanged>("inbox-changed"),
 	layoutChanged: makeEvent<LayoutChanged>("layout-changed"),
 	libraryChanged: makeEvent<LibraryChanged>("library-changed"),
@@ -1688,6 +1701,8 @@ export type ConceptJob = {
 	 *  none. A retry runs with the same board.
 	 */
 	styleRevision: number | null,
+	/**  Codex, or OpenAI's Image API. A retry runs on the same one. */
+	backend?: ImageBackend,
 };
 
 export type ConceptJobState = "queued" | "running" | 
@@ -2134,6 +2149,83 @@ export type HandoffCard = {
 
 export type HostOs = "mac" | "windows" | "linux";
 
+/**  What Settings and the Lab show of the Image API. */
+export type ImageApiStatus = {
+	settings: ImageSettings,
+	key: OpenAiKeyStatus,
+	/**  Dollars spent on images since the first of this month. */
+	monthSpentUsd: number | null,
+	/**  What the Image API jobs still queued or running will likely cost. */
+	pendingUsd: number | null,
+	model: string,
+	/**  One image with no attached image, per quality. */
+	estimates: ImageEstimates,
+	pricesChecked: string,
+	pricesUrl: string,
+};
+
+/**  How a Lab image is made. */
+export type ImageBackend = "codex" | "openai-images";
+
+/**  The backend per kind of job. */
+export type ImageBackends = {
+	concepts?: ImageBackend,
+	objectRefs?: ImageBackend,
+	otherViews?: ImageBackend,
+	cleanBackground?: ImageBackend,
+};
+
+/**  One image's estimated cost per quality. */
+export type ImageEstimates = {
+	low: number | null,
+	medium: number | null,
+	high: number | null,
+};
+
+/**  How much effort an image gets: more costs more and takes longer. */
+export type ImageQuality = "low" | "medium" | "high";
+
+/**  The Lab's image settings, in `maquette.json` under `lab.images`. */
+export type ImageSettings = {
+	backends?: ImageBackends,
+	/**  The Image API's quality. */
+	quality?: ImageQuality,
+	/**
+	 *  Whole US dollars the Image API may spend per calendar month. 0
+	 *  stops it.
+	 */
+	monthlyCapUsd?: number,
+};
+
+/**
+ *  An agent changed the Lab's image backends (`set_image_backend`):
+ *  Settings takes them into its form.
+ */
+export type ImageSettingsChanged = ImageSettings;
+
+/**  One image the Image API made, as written and as read. */
+export type ImageSpend = {
+	v: number,
+	/**  Always `image`. */
+	event: string,
+	atMs: number | null,
+	project: string,
+	/**  The concept job id. */
+	job: string,
+	/**  The image, relative to the project folder. */
+	file: string,
+	/**  `openai`. */
+	service: string,
+	model: string,
+	quality: ImageQuality,
+	usd: number | null,
+	/**  True when `usd` is the price list's estimate. */
+	estimated: boolean,
+	inputTokens: number | null,
+	outputTokens: number | null,
+	viaAgent: boolean,
+};
+
 /**  One dropped file: a single FBX, or a pack zip. */
 export type ImportFile = {
 	name: string,
@@ -2381,6 +2473,11 @@ export type LabSettings = {
 	concurrency: number,
 	/**  A job still running after this many minutes is stopped. */
 	timeoutMinutes: number,
+	/**
+	 *  Codex or OpenAI's Image API per kind of job, and the API's quality
+	 *  and monthly cap.
+	 */
+	images?: ImageSettings,
 };
 
 export type LabView = {
@@ -2457,6 +2554,8 @@ export type LayoutView = {
 /**  The ledger as read: newest send first. */
 export type Ledger = {
 	spends: Spend[],
+	/**  Images made with the Image API, newest first. */
+	images: ImageSpend[],
 	/**  Lines that could not be read and were left out. */
 	skipped: number,
 };
@@ -3087,6 +3186,21 @@ export type ObjectStates = {
 	states: ObjectState[],
 	transitions: StateTransition[],
 	triggers: StateTrigger[],
+};
+
+/**  The saved key, as Settings shows it. */
+export type OpenAiKeyStatus = {
+	saved: boolean,
+	/**  The last four characters. */
+	tail: string | null,
+};
+
+/**  What Test this key found. */
+export type OpenAiKeyTest = {
+	ok: boolean,
+	/**  True when the account lists [`MODEL`]. */
+	hasModel: boolean,
+	message: string,
 };
 
 /**  The pack a dropped file's clips go to. */

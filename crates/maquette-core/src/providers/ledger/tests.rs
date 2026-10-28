@@ -306,3 +306,48 @@ fn a_job_id_used_again_is_a_new_send() {
     settled.task = None;
     assert_eq!(fold(&[sent, settled]).len(), 1);
 }
+
+#[test]
+fn image_lines_read_into_their_own_list_and_sum_per_local_month() {
+    use crate::providers::openai_images::ImageQuality;
+    let dir = tempfile::tempdir().expect("dir");
+    let start = images::month_start_ms(NOW);
+    let mut this_month = ImageSpend::new(
+        start + 1_000.0,
+        "gpt-image-2.5-sunburst",
+        ImageQuality::Low,
+        0.25,
+    );
+    this_month.project = "moon-island".into();
+    let mut earlier = ImageSpend::new(
+        start - 1_000.0,
+        "gpt-image-2.5-sunburst",
+        ImageQuality::High,
+        4.0,
+    );
+    earlier.estimated = true;
+    append(
+        dir.path(),
+        &line("lantern-1", LineEvent::Sent, NOW, SpendOutcome::Pending),
+    )
+    .expect("tripo");
+    append(dir.path(), &this_month).expect("image");
+    append(dir.path(), &earlier).expect("image");
+    let ledger = read(dir.path()).expect("read");
+    assert_eq!(ledger.spends.len(), 1, "the Tripo send stays a send");
+    assert_eq!(ledger.images.len(), 2);
+    assert_eq!(ledger.skipped, 0);
+    assert!(
+        ledger.images[0].at_ms > ledger.images[1].at_ms,
+        "newest first"
+    );
+    assert!((month_to_date(&ledger.images, NOW) - 0.25).abs() < 1e-12);
+    let totals = summarise(&ledger.spends, NOW);
+    assert!(
+        totals.iter().all(|t| t.total < 100.0),
+        "dollars never join the credit totals"
+    );
+    // A line from a newer Maquette is still skipped and counted.
+    let text = r#"{"v":4,"event":"image","usd":1}"#;
+    assert_eq!(parse(text).skipped, 1);
+}

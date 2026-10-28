@@ -67,6 +67,15 @@ impl Timing {
         ..Self::TRIPO
     };
 
+    /// OpenAI's Image API: one request per image that can take a few
+    /// minutes at high quality, and 429 waits that follow `Retry-After`.
+    pub const OPENAI: Self = Self {
+        backoff: Duration::from_secs(10),
+        max_retries: 4,
+        request_timeout: Duration::from_secs(360),
+        ..Self::TRIPO
+    };
+
     /// Fast enough for tests against a local fake server.
     pub const fn instant() -> Self {
         Self {
@@ -372,9 +381,13 @@ fn read_json(response: Response) -> ApiResult<Value> {
     if status.is_success() {
         return body.ok_or_else(|| ApiError::Malformed("the answer was not JSON.".to_string()));
     }
+    // Tripo and Meshy put the message at the top, OpenAI under `error`.
     let message = body
         .as_ref()
-        .and_then(|b| b.get("message"))
+        .and_then(|b| {
+            b.get("message")
+                .or_else(|| b.get("error").and_then(|e| e.get("message")))
+        })
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();

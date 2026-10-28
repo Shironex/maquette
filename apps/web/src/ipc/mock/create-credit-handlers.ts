@@ -266,7 +266,7 @@ export function createCreditHandlers({
         .map(j => fromJob(j) ?? fromHandoff(j))
         .filter((s): s is Spend => s !== null);
       const spends = [...live, ...saved].sort((a, b) => (b.sentAtMs ?? 0) - (a.sentAtMs ?? 0));
-      return { spends, skipped: history ? 1 : 0 };
+      return { spends, images: [], skipped: history ? 1 : 0 };
     },
     credits_balances: (): Balance[] =>
       (['tripo', 'meshy'] as const).map(service => ({

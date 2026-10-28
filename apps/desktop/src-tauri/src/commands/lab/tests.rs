@@ -153,7 +153,14 @@ fn object_refs_are_checked_and_need_codex() {
         kind: AssetKind::Prop,
         use_style: true,
     };
-    let err = make_objects(&session, &lab, &Toolbox::default(), &request).expect_err("codex");
+    let err = make_objects(
+        &session,
+        &lab,
+        &Toolbox::default(),
+        &request,
+        Backend::default(),
+    )
+    .expect_err("codex");
     assert!(err.message.contains("Codex CLI"), "{}", err.message);
     assert!(
         view(&session, &lab, &manifest.id)
@@ -163,7 +170,14 @@ fn object_refs_are_checked_and_need_codex() {
         "nothing written without Codex"
     );
     request.objects.clear();
-    let err = make_objects(&session, &lab, &Toolbox::default(), &request).expect_err("none");
+    let err = make_objects(
+        &session,
+        &lab,
+        &Toolbox::default(),
+        &request,
+        Backend::default(),
+    )
+    .expect_err("none");
     assert!(
         err.message.contains("at least one object"),
         "{}",
@@ -171,9 +185,27 @@ fn object_refs_are_checked_and_need_codex() {
     );
     request.objects = vec!["lamp".into()];
     request.source = "../outside.png".into();
-    assert!(make_objects(&session, &lab, &Toolbox::default(), &request).is_err());
+    assert!(
+        make_objects(
+            &session,
+            &lab,
+            &Toolbox::default(),
+            &request,
+            Backend::default()
+        )
+        .is_err()
+    );
     request.project = "nope".into();
-    assert!(make_objects(&session, &lab, &Toolbox::default(), &request).is_err());
+    assert!(
+        make_objects(
+            &session,
+            &lab,
+            &Toolbox::default(),
+            &request,
+            Backend::default()
+        )
+        .is_err()
+    );
 }
 
 #[test]

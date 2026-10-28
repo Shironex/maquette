@@ -13,6 +13,9 @@
 //! source with the subscription table's estimate, settled once the model is
 //! imported. Their lines are version 2, which an older Maquette skips, so
 //! its API totals never take them in.
+//!
+//! Images the Lab made with OpenAI's Image API are written as version 3
+//! lines in dollars (see [`images`]) and read into their own list.
 
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write as _};
@@ -23,6 +26,10 @@ use serde::{Deserialize, Serialize};
 
 use super::presets::ProviderId;
 use crate::error::{CoreError, CoreResult};
+
+pub mod images;
+
+pub use images::{ImageSpend, month_to_date};
 
 pub const LEDGER_FILE: &str = "credits.jsonl";
 const LINE_VERSION: u32 = 1;
@@ -157,6 +164,8 @@ pub struct Spend {
 #[serde(rename_all = "camelCase")]
 pub struct Ledger {
     pub spends: Vec<Spend>,
+    /// Images made with the Image API, newest first.
+    pub images: Vec<ImageSpend>,
     /// Lines that could not be read and were left out.
     pub skipped: u32,
 }
@@ -165,8 +174,9 @@ pub fn path(root: &Path) -> PathBuf {
     root.join(LEDGER_FILE)
 }
 
-/// Adds one line to the end of the file.
-pub fn append(root: &Path, line: &LedgerLine) -> CoreResult<()> {
+/// Adds one line (a [`LedgerLine`] or an [`ImageSpend`]) to the end of
+/// the file.
+pub fn append(root: &Path, line: &impl Serialize) -> CoreResult<()> {
     let path = path(root);
     let mut text = serde_json::to_string(line)
         .map_err(|e| CoreError::Invalid(format!("could not write a ledger line: {e}")))?;
@@ -195,15 +205,21 @@ pub fn read(root: &Path) -> CoreResult<Ledger> {
 /// parse or come from a newer version.
 pub fn parse(text: &str) -> Ledger {
     let mut lines = Vec::new();
+    let mut images = Vec::new();
     let mut skipped = 0;
     for raw in text.lines().filter(|l| !l.trim().is_empty()) {
         match serde_json::from_str::<LedgerLine>(raw) {
             Ok(line) if line.v <= SUBSCRIPTION_VERSION => lines.push(line),
-            _ => skipped += 1,
+            _ => match images::parse_line(raw) {
+                Some(image) => images.push(image),
+                None => skipped += 1,
+            },
         }
     }
+    images.sort_by(|a: &ImageSpend, b| b.at_ms.total_cmp(&a.at_ms));
     Ledger {
         spends: fold(&lines),
+        images,
         skipped,
     }
 }
