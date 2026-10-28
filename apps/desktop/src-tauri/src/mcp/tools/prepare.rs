@@ -2,7 +2,9 @@
 //! preparation the Build scene step gives its model, and preview what the
 //! fix-ups do on its newest model (headless).
 
-use maquette_core::prepare::{self, Fixup, FixupKind, PrepPatch, RealSize, SizeAxis, SizeUnit};
+use maquette_core::prepare::{
+    self, DEFAULT_MERGE_UNDER, Fixup, FixupKind, PrepPatch, RealSize, SizeAxis, SizeUnit, SplitBy,
+};
 use maquette_core::project;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
@@ -64,8 +66,8 @@ pub struct PadEdgesArgs {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FixupEdit {
-    /// One of "apply-transforms", "remove-loose", "merge", "decimate", "shrink-textures",
-    /// "origin-bottom".
+    /// One of "apply-transforms", "remove-loose", "merge", "split-parts", "decimate",
+    /// "shrink-textures", "origin-bottom".
     pub op: String,
     /// decimate: the triangle target, 100 to 10,000,000. Defaults to the workspace budget.
     pub triangles: Option<u32>,
@@ -77,6 +79,11 @@ pub struct FixupEdit {
     pub min_share: Option<f32>,
     /// merge: one mesh per material instead of one mesh. Defaults to false.
     pub by_material: Option<bool>,
+    /// split-parts: "loose" (each loose piece is a part, the default) or "material".
+    pub by: Option<String>,
+    /// split-parts: pieces this share of the model's diagonal or smaller join their nearest
+    /// bigger neighbour, 0 to 0.2. Defaults to 0.01.
+    pub merge_under: Option<f32>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -111,8 +118,7 @@ fn word<T: DeserializeOwned>(field: &str, text: &str, words: &str) -> Result<T, 
         .map_err(|_| format!("{field} must be {words}, not {text:?}."))
 }
 
-const OPS: &str =
-    "apply-transforms, remove-loose, merge, decimate, shrink-textures or origin-bottom";
+const OPS: &str = "apply-transforms, remove-loose, merge, split-parts, decimate, shrink-textures or origin-bottom";
 
 fn parse_kind(text: &str) -> Result<FixupKind, String> {
     word("op", text, OPS)
@@ -137,6 +143,15 @@ impl FixupEdit {
             },
             FixupKind::Merge => Fixup::Merge {
                 by_material: self.by_material.unwrap_or(false),
+            },
+            FixupKind::SplitParts => Fixup::SplitParts {
+                by: self
+                    .by
+                    .as_deref()
+                    .map(|by| word::<SplitBy>("by", by, "loose or material"))
+                    .transpose()?
+                    .unwrap_or_default(),
+                merge_under: self.merge_under.unwrap_or(DEFAULT_MERGE_UNDER),
             },
             FixupKind::Decimate => Fixup::Decimate {
                 triangles: self.triangles.unwrap_or(defaults.triangles),
@@ -280,7 +295,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Add fix-ups to an asset; one of a kind already there is replaced. Each is { op, ...numbers }: apply-transforms (bakes object transforms, rigged meshes keep theirs), remove-loose { minShare 0 to 0.5, default 0.02 of the model's diagonal }, merge { byMaterial, default false }, decimate { triangles, default the workspace budget }, shrink-textures { maxSize px, default the workspace texture size }, origin-bottom (bottom centre to the origin, on the floor). They always apply in that order, headless, on a copy: the inbox file and the asset's versions never change, and every new version gets them on the next run. Nothing is written when any one is refused. Returns the result like get_real_size; preview_fixups shows what they do.",
+        description = "Add fix-ups to an asset; one of a kind already there is replaced. Each is { op, ...numbers }: apply-transforms (bakes object transforms, rigged meshes keep theirs), remove-loose { minShare 0 to 0.5, default 0.02 of the model's diagonal }, merge { byMaterial, default false }, split-parts { by: loose (default) | material, mergeUnder 0 to 0.2, default 0.01 of the model's diagonal: cuts each unrigged mesh into parts named part_1, part_2 top first, a piece that small joining its nearest neighbour, texture and UVs kept; name the parts with set_parts }, decimate { triangles, default the workspace budget }, shrink-textures { maxSize px, default the workspace texture size }, origin-bottom (bottom centre to the origin, on the floor). They always apply in that order, headless, on a copy: the inbox file and the asset's versions never change, and every new version gets them on the next run. Nothing is written when any one is refused. Returns the result like get_real_size; preview_fixups shows what they do.",
         annotations(idempotent_hint = true)
     )]
     async fn add_fixups(&self, Parameters(args): Parameters<AddFixupsArgs>) -> Out {

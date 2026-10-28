@@ -77,6 +77,7 @@ fn an_asset_shows_its_size_suggestion_and_defaults_then_saves() {
     let entry = ModelPrep {
         skip_bake: None,
         pad_edges: None,
+        parts: None,
         size: Some(RealSize {
             axis: SizeAxis::Height,
             value: 45.0,
@@ -104,6 +105,7 @@ fn a_preview_needs_a_model_a_valid_plan_and_blender() {
     let plan = ModelPrep {
         skip_bake: None,
         pad_edges: None,
+        parts: None,
         size: None,
         fixups: vec![Fixup::Decimate { triangles: 5000 }],
     };
@@ -130,6 +132,7 @@ fn a_preview_needs_a_model_a_valid_plan_and_blender() {
     let bad = ModelPrep {
         skip_bake: None,
         pad_edges: None,
+        parts: None,
         size: None,
         fixups: vec![Fixup::Decimate { triangles: 1 }],
     };

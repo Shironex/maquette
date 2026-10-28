@@ -94,6 +94,10 @@ const OLDER: &[(&str, &str)] = &[
         "625c3b8886d307542425b36fd7436bfbe50472c57eda897d8f532a91087e5a12",
     ),
     (
+        "tools/fixups.py",
+        "e69bc384ee9b4e5029fc0b31a6c7f76bd790dea59b0d5cb8191125be75a4d91a",
+    ),
+    (
         "tools/game_export.mjs",
         "8e4448c0a766841b4ec03e0216cee85f863920f2836a1df10d941b702e2747ed",
     ),

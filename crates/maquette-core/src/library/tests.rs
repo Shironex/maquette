@@ -104,6 +104,7 @@ fn fixture() -> Fixture {
             fixups: vec![Fixup::Decimate { triangles: 60_000 }, Fixup::OriginBottom],
             skip_bake: Some(true),
             pad_edges: None,
+            parts: None,
         },
     );
     crate::prepare::update(&moon, |_| Ok(prep.clone())).expect("prep");

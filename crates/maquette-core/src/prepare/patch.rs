@@ -4,14 +4,15 @@
 //! ([`apply_patch`]); the app replaces one asset's entry whole
 //! ([`save_entry`]).
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Mutex, PoisonError};
 
 use serde::Deserialize;
 
 use super::{
-    Fixup, FixupKind, ModelPrep, PREPARE_FILE, RealSize, ScenePrep, load, normalized, save,
-    validate,
+    Fixup, FixupKind, ModelPrep, PREPARE_FILE, PartsPlan, RealSize, ScenePrep, load, normalized,
+    save, validate,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::json::explicit;
@@ -40,6 +41,53 @@ pub struct PrepPatch {
     /// them, null forgets the choice.
     #[serde(default, deserialize_with = "explicit")]
     pub pad_edges: Option<Option<bool>>,
+    /// Renames, joins and hides parts.
+    #[serde(default)]
+    pub parts: Option<PartsPatch>,
+}
+
+/// A change of an asset's part names, by the names the model gives them.
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PartsPatch {
+    /// Model name to the name it ships as; its own name forgets a rename.
+    #[serde(default)]
+    pub rename: BTreeMap<String, String>,
+    /// Groups to join, each into its first part.
+    #[serde(default)]
+    pub merge: Vec<Vec<String>>,
+    /// Parts whose join is undone: the group holding each is dropped.
+    #[serde(default)]
+    pub unmerge: Vec<String>,
+    /// Parts to draw as a ghost, and parts to draw again.
+    #[serde(default)]
+    pub hide: Vec<String>,
+    #[serde(default)]
+    pub show: Vec<String>,
+}
+
+impl PartsPatch {
+    /// `plan` with this change on top.
+    pub fn apply(&self, plan: &PartsPlan) -> PartsPlan {
+        let mut next = plan.clone();
+        for (from, to) in &self.rename {
+            next.names.insert(from.clone(), to.clone());
+        }
+        next.merge
+            .retain(|group| !group.iter().any(|p| self.unmerge.contains(p)));
+        for group in &self.merge {
+            // A part already joined moves into the new group.
+            for group_part in group {
+                for old in &mut next.merge {
+                    old.retain(|p| p != group_part);
+                }
+            }
+            next.merge.push(group.clone());
+        }
+        next.hidden.retain(|p| !self.show.contains(p));
+        next.hidden.extend(self.hide.iter().cloned());
+        next.normalized()
+    }
 }
 
 /// Applies `patch` to `asset` in `current`. Nothing changes when any part
@@ -58,6 +106,10 @@ pub fn apply_patch(current: &ScenePrep, asset: &str, patch: &PrepPatch) -> CoreR
     }
     if let Some(pad) = patch.pad_edges {
         entry.pad_edges = pad;
+    }
+    if let Some(parts) = &patch.parts {
+        let next = parts.apply(&entry.parts.clone().unwrap_or_default());
+        entry.parts = (!next.is_empty()).then_some(next);
     }
     if patch.clear_fixups {
         entry.fixups.clear();

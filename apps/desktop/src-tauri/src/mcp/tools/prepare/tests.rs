@@ -21,6 +21,33 @@ fn edits_fill_in_the_defaults_and_bad_words_are_refused() {
         edit.fixup(&defaults()),
         Ok(Fixup::ShrinkTextures { max_size: 512 })
     );
+    let split: FixupEdit = serde_json::from_value(json!({ "op": "split-parts" })).expect("args");
+    assert_eq!(
+        split.fixup(&defaults()),
+        Ok(Fixup::SplitParts {
+            by: SplitBy::Loose,
+            merge_under: 0.01,
+        }),
+        "by loose pieces, bits under 1% merged in"
+    );
+    let split: FixupEdit = serde_json::from_value(
+        json!({ "op": "split-parts", "by": "Material", "mergeUnder": 0.05 }),
+    )
+    .expect("args");
+    assert_eq!(
+        split.fixup(&defaults()),
+        Ok(Fixup::SplitParts {
+            by: SplitBy::Material,
+            merge_under: 0.05,
+        })
+    );
+    let odd: FixupEdit =
+        serde_json::from_value(json!({ "op": "split-parts", "by": "colour" })).expect("args");
+    assert!(
+        odd.fixup(&defaults())
+            .expect_err("by")
+            .contains("loose or material")
+    );
     let bad: FixupEdit = serde_json::from_value(json!({ "op": "smooth" })).expect("args");
     assert!(
         bad.fixup(&defaults())

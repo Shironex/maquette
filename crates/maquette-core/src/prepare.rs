@@ -16,7 +16,8 @@
 //!         { "op": "origin-bottom" }
 //!       ],
 //!       "skipBake": true,
-//!       "padEdges": true
+//!       "padEdges": true,
+//!       "parts": { "names": { "part_1": "lid" }, "merge": [], "hidden": [] }
 //!     }
 //!   }
 //! }
@@ -37,6 +38,10 @@
 //! the Inbox pads unless the person chose otherwise
 //! ([`PAD_EDGES_FROM_INBOX`]). Left out or null, the textures stay as they are.
 //!
+//! `parts` names the model's parts for the export (see [`PartsPlan`]): a
+//! split or a provider gives them plain names, and object states and
+//! explode tracks pick them by the names set here.
+//!
 //! The Build scene starter applies them in Blender (`tools/fixups.py`):
 //! the fix-ups in a fixed order ([`FixupKind`]), then a uniform scale that
 //! gives the model its real size, then the layout's placement on top, so a
@@ -55,15 +60,21 @@ use serde::{Deserialize, Serialize};
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 
+mod fixup;
 mod frame;
 #[cfg(test)]
 mod pad_tests;
+mod parts;
 mod patch;
 pub mod preview;
+#[cfg(test)]
+mod split_tests;
 mod suggest;
 
+pub use fixup::{Fixup, FixupKind, SplitBy};
 pub use frame::{PrepFrame, extent, frame_of, measured_along, scale_for};
-pub use patch::{PrepPatch, apply_patch, save_entry, update};
+pub use parts::{MAX_PART_NAME, PartsPlan, check_parts};
+pub use patch::{PartsPatch, PrepPatch, apply_patch, save_entry, update};
 pub use suggest::{Suggestion, suggest};
 
 pub const PREPARE_FILE: &str = "prepare.json";
@@ -88,6 +99,10 @@ pub const PAD_EDGES_FROM_INBOX: bool = true;
 /// A loose part this share of the model's diagonal or smaller goes.
 pub const DEFAULT_LOOSE_SHARE: f32 = 0.02;
 pub const MAX_LOOSE_SHARE: f32 = 0.5;
+/// A split piece this share of the model's diagonal or smaller joins its
+/// nearest bigger neighbour instead of becoming a part of its own.
+pub const DEFAULT_MERGE_UNDER: f32 = 0.01;
+pub const MAX_MERGE_UNDER: f32 = 0.2;
 
 /// Which side of the model the real size measures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -156,105 +171,9 @@ impl RealSize {
 }
 
 /// 45, 0.5, 1.25: no trailing zeros.
-fn trim_number(v: f32) -> String {
+pub(crate) fn trim_number(v: f32) -> String {
     let text = format!("{:.3}", v);
     text.trim_end_matches('0').trim_end_matches('.').to_string()
-}
-
-/// The kinds of fix-up, in the order they are applied.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, specta::Type,
-)]
-#[serde(rename_all = "kebab-case")]
-pub enum FixupKind {
-    ApplyTransforms,
-    RemoveLoose,
-    Merge,
-    Decimate,
-    ShrinkTextures,
-    OriginBottom,
-}
-
-impl FixupKind {
-    pub const ALL: [FixupKind; 6] = [
-        FixupKind::ApplyTransforms,
-        FixupKind::RemoveLoose,
-        FixupKind::Merge,
-        FixupKind::Decimate,
-        FixupKind::ShrinkTextures,
-        FixupKind::OriginBottom,
-    ];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            FixupKind::ApplyTransforms => "Apply transforms",
-            FixupKind::RemoveLoose => "Remove loose parts",
-            FixupKind::Merge => "Merge objects",
-            FixupKind::Decimate => "Decimate",
-            FixupKind::ShrinkTextures => "Shrink textures",
-            FixupKind::OriginBottom => "Origin to bottom centre",
-        }
-    }
-}
-
-/// One repair. Each kind appears at most once per asset.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, specta::Type)]
-#[serde(tag = "op", rename_all = "kebab-case")]
-pub enum Fixup {
-    /// Bakes object transforms into the meshes (rigged meshes keep theirs).
-    ApplyTransforms,
-    /// Drops loose parts whose size is at most `minShare` of the model's
-    /// diagonal, 0 to 0.5.
-    RemoveLoose {
-        #[serde(rename = "minShare")]
-        min_share: f32,
-    },
-    /// Joins the meshes into one, or one per material.
-    Merge {
-        #[serde(rename = "byMaterial")]
-        by_material: bool,
-    },
-    /// Collapses the model down to about this many triangles.
-    Decimate { triangles: u32 },
-    /// Scales every image down to this many pixels on its longest edge.
-    ShrinkTextures {
-        #[serde(rename = "maxSize")]
-        max_size: u32,
-    },
-    /// Moves the model so its bottom centre is the origin, on the floor.
-    OriginBottom,
-}
-
-impl Fixup {
-    pub fn kind(&self) -> FixupKind {
-        match self {
-            Fixup::ApplyTransforms => FixupKind::ApplyTransforms,
-            Fixup::RemoveLoose { .. } => FixupKind::RemoveLoose,
-            Fixup::Merge { .. } => FixupKind::Merge,
-            Fixup::Decimate { .. } => FixupKind::Decimate,
-            Fixup::ShrinkTextures { .. } => FixupKind::ShrinkTextures,
-            Fixup::OriginBottom => FixupKind::OriginBottom,
-        }
-    }
-
-    /// "Decimate to 60k", "Shrink textures to 2048 px".
-    pub fn describe(&self) -> String {
-        match self {
-            Fixup::Decimate { triangles } => {
-                format!(
-                    "Decimate to {}",
-                    crate::inbox::checks::short_count(*triangles)
-                )
-            }
-            Fixup::ShrinkTextures { max_size } => format!("Shrink textures to {max_size} px"),
-            Fixup::RemoveLoose { min_share } => format!(
-                "Remove loose parts under {}%",
-                trim_number(min_share * 100.0)
-            ),
-            Fixup::Merge { by_material: true } => "Merge objects by material".to_string(),
-            other => other.kind().label().to_string(),
-        }
-    }
 }
 
 /// One asset's preparation.
@@ -273,6 +192,10 @@ pub struct ModelPrep {
     /// chose, so an Inbox accept may fill in its default.
     #[serde(default)]
     pub pad_edges: Option<bool>,
+    /// The names its parts ship as, parts joined and parts drawn as a
+    /// ghost in the Inspector. Null names none.
+    #[serde(default)]
+    pub parts: Option<PartsPlan>,
 }
 
 impl ModelPrep {
@@ -281,6 +204,7 @@ impl ModelPrep {
             && self.fixups.is_empty()
             && self.skip_bake.is_none()
             && self.pad_edges.is_none()
+            && self.parts.as_ref().is_none_or(PartsPlan::is_empty)
     }
 
     /// Whether Build scene pads its texture edges.
@@ -372,6 +296,11 @@ pub fn normalized(prep: &ScenePrep) -> ScenePrep {
                     fixups,
                     skip_bake: entry.skip_bake,
                     pad_edges: entry.pad_edges,
+                    parts: entry
+                        .parts
+                        .as_ref()
+                        .filter(|p| !p.is_empty())
+                        .map(PartsPlan::normalized),
                 },
             )
         })
@@ -430,6 +359,13 @@ pub fn check_fixup(what: &str, fixup: &Fixup) -> CoreResult<()> {
                 "{what}: shrink-textures takes a maxSize of {MIN_TEXTURE} to {MAX_TEXTURE} px, not {max_size}."
             )))
         }
+        Fixup::SplitParts { merge_under, .. }
+            if !(merge_under.is_finite() && (0.0..=MAX_MERGE_UNDER).contains(&merge_under)) =>
+        {
+            Err(invalid(format!(
+                "{what}: split-parts takes a mergeUnder of 0 to {MAX_MERGE_UNDER}, not {merge_under}."
+            )))
+        }
         _ => Ok(()),
     }
 }
@@ -453,6 +389,9 @@ pub fn validate(prep: &ScenePrep) -> CoreResult<()> {
                     fixup.kind().label().to_lowercase()
                 )));
             }
+        }
+        if let Some(parts) = &entry.parts {
+            check_parts(asset, parts)?;
         }
     }
     Ok(())
