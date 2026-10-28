@@ -350,6 +350,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "get_provider_job",
             "get_real_size",
             "get_ref_views",
+            "get_retarget_review",
             "get_run",
             "get_ship_plan",
             "get_ship_settings",
@@ -401,6 +402,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "stop_page_preview",
             "update_from_library",
             "update_starters",
+            "use_animations",
             "use_from_library",
             "use_ref_candidate",
         ]

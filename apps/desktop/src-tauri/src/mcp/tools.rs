@@ -26,6 +26,7 @@ pub mod picks;
 pub mod prepare;
 pub mod projects;
 pub mod refs;
+pub mod retarget;
 pub mod runs;
 pub mod sending;
 pub mod ship;
@@ -134,8 +135,11 @@ The animation library keeps clips once, skeleton only (library/animations). list
 reads it; import_animations reads Mixamo FBX files or pack zips inside the workspace headless \
 (the skin is dropped, the rig read from the bone names, duplicates skipped, fixed clips become \
 a new revision); save_model_clips saves a rigged model's clips, or a Tripo job's animations in \
-the Inbox, as a pack. Mixamo clips may be used in your projects but never redistributed as raw \
-files, so the library stays on this machine and none of it spends credits. \
+the Inbox, as a pack. use_animations bakes library clips onto a rigged model headless (bone \
+map, per model clip settings) into its next version after a review that leaves failed clips \
+out; get_retarget_review reads a model's last review. Mixamo clips may be used in your \
+projects but never redistributed as raw files, so the library stays on this machine and none \
+of it spends credits. \
 add_built_asset adds a built asset: a model a Blender script in the project makes. Its script \
 and helpers are copied into the project's built/ folder and it builds headless into the asset's \
 next version, with no credits and no approval; rebuild_built_asset builds one again (or all \
@@ -248,6 +252,7 @@ impl McpTools {
                 + Self::ship_router()
                 + Self::library_router()
                 + Self::animations_router()
+                + Self::retarget_router()
                 + Self::trash_router(),
         }
     }
