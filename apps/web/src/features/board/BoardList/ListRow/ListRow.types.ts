@@ -1,3 +1,4 @@
+import type { WindowItemProps } from '@maquette/ui';
 import type { ListRow } from '@/state/board-list';
 import type { BoardEnv } from '../../board.types';
 
@@ -12,9 +13,5 @@ export interface ListRowProps {
   onFocus: (id: string) => void;
   nowMs: number;
   /** Where the row sits in the whole list, and its measuring ref when the list is windowed. */
-  position?: {
-    ref?: (el: Element | null) => void;
-    'data-index'?: number;
-    'aria-rowindex': number;
-  };
+  position?: WindowItemProps & { 'aria-rowindex': number };
 }

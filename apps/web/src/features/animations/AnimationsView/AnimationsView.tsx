@@ -6,7 +6,7 @@ import { ClipCard } from '../ClipCard';
 import { ClipDetail } from '../ClipDetail';
 import { ClipRow } from '../ClipRow';
 import { PressToggle } from '@/features/common/PressToggle';
-import { useAnimationsView } from './AnimationsView.hooks';
+import { useAnimationsView, useClipsWindow } from './AnimationsView.hooks';
 
 const IMPORT_TIP = 'Add Mixamo FBX files or a pack zip; Blender reads them headless';
 
@@ -20,9 +20,11 @@ export default function AnimationsView() {
   const { filters, setFilters, layout, setLayout, item, select, stats } = v;
   const count = (n: number) => `${n} ${n === 1 ? 'clip' : 'clips'}`;
   const filtered = v.shown.length !== v.items.length;
-  const cards = v.shown.map(i =>
+  const { scrollRef, listRef, shown } = useClipsWindow(v.shown.length, layout);
+  const pad = { paddingTop: shown.before, paddingBottom: shown.after };
+  const cards = v.shown.slice(shown.start, shown.end).map((i, n) =>
     layout === 'grid' ? (
-      <li key={i.clip.id}>
+      <li key={i.clip.id} {...shown.itemProps(shown.start + n)}>
         <ClipCard
           item={i}
           selected={i.clip.id === item?.clip.id}
@@ -32,6 +34,7 @@ export default function AnimationsView() {
     ) : (
       <ClipRow
         key={i.clip.id}
+        position={shown.itemProps(shown.start + n)}
         item={i}
         selected={i.clip.id === item?.clip.id}
         onSelect={() => select(i.clip.id)}
@@ -106,6 +109,7 @@ export default function AnimationsView() {
         <main className="flex min-h-0 flex-1">
           <AnimationFilters items={v.items} filters={filters} onChange={setFilters} dir={v.dir} />
           <section
+            ref={scrollRef}
             aria-label="Clips"
             className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pt-[18px] pb-5"
           >
@@ -149,11 +153,17 @@ export default function AnimationsView() {
                 No clip matches. Clear the search or pick All clips.
               </p>
             ) : layout === 'grid' ? (
-              <ul className="grid list-none grid-cols-[repeat(auto-fill,minmax(164px,1fr))] gap-3">
+              <ul
+                ref={listRef}
+                style={pad}
+                className="grid list-none grid-cols-[repeat(auto-fill,minmax(164px,1fr))] gap-3"
+              >
                 {cards}
               </ul>
             ) : (
-              <ul className="flex list-none flex-col gap-1">{cards}</ul>
+              <ul ref={listRef} style={pad} className="flex list-none flex-col gap-1">
+                {cards}
+              </ul>
             )}
             {v.shown.length > 0 ? (
               <p className="text-meta text-fg-mute">
