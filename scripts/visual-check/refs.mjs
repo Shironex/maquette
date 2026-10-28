@@ -4,7 +4,8 @@
  * with 1 of 4 views and its Other tray, a view chip's menu, Make the other
  * views before and after its candidates come back, Clean background with
  * its before and after, and the weak ref warnings in Send to 3D and in the
- * batch send panel, with the batch approval repeating the count.
+ * batch send panel, with the batch approval repeating the count, and the
+ * detail tagged as the back, which looks different from the front.
  */
 
 export async function refsShots({ open, shot }) {
@@ -59,6 +60,32 @@ export async function refsShots({ open, shot }) {
   await send.waitForTimeout(300);
   await shot(send, 'refs-send-warnings');
   await send.context().close();
+
+  const differs = await open('&scenario=configured&lab=refs', '#/board');
+  await differs.getByRole('button', { name: 'More for Guardian statues' }).click();
+  await differs.getByRole('menuitem', { name: 'Refs and views...' }).click();
+  const tags = differs.getByRole('dialog', { name: 'Guardian statues refs' });
+  await tags.getByRole('button', { name: 'View of guardian_statues_detail.png: Other' }).click();
+  await differs
+    .getByRole('menu', { name: 'View of guardian_statues_detail.png' })
+    .getByRole('menuitem', { name: 'Back', exact: true })
+    .click();
+  await tags.getByRole('button', { name: 'View of guardian_statues_detail.png: Back' }).waitFor();
+  await tags.getByRole('button', { name: 'Done' }).click();
+  await differs.getByRole('button', { name: 'More for Guardian statues' }).click();
+  await differs.getByRole('menuitem', { name: 'Send to 3D' }).click();
+  const sendViews = differs.getByRole('dialog', { name: 'Send Guardian statues to 3D' });
+  await sendViews
+    .getByRole('group', { name: 'Provider' })
+    .getByRole('button', { name: 'Tripo' })
+    .click();
+  await sendViews.getByText('Multi-view', { exact: true }).click();
+  const differ = sendViews.getByText('Back looks different from the front', { exact: false });
+  await differ.waitFor();
+  await differ.scrollIntoViewIfNeeded();
+  await differs.waitForTimeout(300);
+  await shot(differs, 'refs-send-views-disagree');
+  await differs.context().close();
 
   const batch = await open('&scenario=configured&lab=refs', '#/board');
   await batch.getByRole('checkbox', { name: 'Select Guardian statues' }).click();
