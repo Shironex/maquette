@@ -128,7 +128,7 @@ pub struct CancelJobsArgs {
 const MAX_CANCEL_IDS: usize = 50;
 
 /// A provider job as agents read it.
-fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
+pub(super) fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
     let approval = hub.pending_for_job(&job.id);
     let status = if approval.is_some() {
         WAITING.to_string()
@@ -167,7 +167,12 @@ fn job_value(hub: &Hub, job: &ProviderJob) -> Value {
 /// Waits for the person's answer on its own thread, then releases or drops
 /// every job it covers. Jobs cancelled from the app's queue withdraw the
 /// approval once none is left waiting.
-fn await_send_approval(host: Arc<dyn Host>, hub: Arc<Hub>, approval: String, jobs: Vec<String>) {
+pub(super) fn await_send_approval(
+    host: Arc<dyn Host>,
+    hub: Arc<Hub>,
+    approval: String,
+    jobs: Vec<String>,
+) {
     let spawned = std::thread::Builder::new()
         .name("send-approval".into())
         .spawn(move || {

@@ -31,6 +31,7 @@ pub mod retarget;
 pub mod runs;
 pub mod sending;
 pub mod ship;
+pub mod splitting;
 pub mod starters;
 pub mod style;
 pub mod timeline;
@@ -108,6 +109,10 @@ version; list_fixups lists them and preview_fixups shows their numbers before an
 get_parts lists an asset's parts by the names they ship as (the export node names object states \
 and explode tracks move), set_parts renames, joins and hides them, and compare_versions compares \
 two versions (or one before and after its fix-ups) part by part. \
+split_with_provider splits a model into parts on Tripo or Meshy (it spends credits, so a person \
+approves it in the app, and the split lands in the inbox as the next version; a Meshy split \
+bakes its texture back once accepted), and assemble_prop joins part assets into one prop, a \
+node per part under one root, as the next version of a target asset. \
 set_pad_edges sets whether an asset's texture edges around its UV islands are padded before the \
 textures shrink (models accepted from the Inbox pad by default). \
 get_bake_settings reads the Bake light step's lightmap size, samples and denoiser and the \
@@ -246,6 +251,7 @@ impl McpTools {
                 + Self::materials_router()
                 + Self::prepare_router()
                 + Self::parts_router()
+                + Self::splitting_router()
                 + Self::redo_router()
                 + Self::credits_router()
                 + Self::handoffs_router()

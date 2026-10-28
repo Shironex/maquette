@@ -10,7 +10,7 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 use crate::commands::{
     about, agents, animations, app, assets, built, credits, dialogs, downloads, game, inbox,
     inspect, lab, layout, library, materials, motion, page, parts, paths, pipeline, prepare,
-    project, providers, quit, refs, ship, site, thumbs, timeline, toolchain, trash, updater,
+    project, providers, quit, refs, ship, site, split, thumbs, timeline, toolchain, trash, updater,
     workspace,
 };
 use crate::events::{
@@ -109,6 +109,11 @@ pub fn builder() -> Builder<tauri::Wry> {
             parts::parts_save,
             parts::parts_compare,
             parts::parts_keep_version,
+            split::split_sheet,
+            split::split_send,
+            split::split_bake_back,
+            split::assemble_prop,
+            split::assemble_recipe,
             built::built_list,
             built::built_add,
             built::built_rebuild,

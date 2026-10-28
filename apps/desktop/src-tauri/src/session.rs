@@ -137,6 +137,9 @@ impl Session {
         {
             studio.0.open_workspace(&root, &config);
         }
+        if let Some(handle) = self.handle.get() {
+            crate::commands::split::bakes_after_open(handle, &root, &config);
+        }
         Ok(())
     }
 

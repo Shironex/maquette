@@ -27,6 +27,8 @@ const PHASE_LABEL: Record<JobPhase, string> = {
   'rig-check': 'Checking the rig',
   rig: 'Rigging',
   animate: 'Animating',
+  split: 'Splitting',
+  complete: 'Completing hidden parts',
   download: 'Downloading',
 };
 

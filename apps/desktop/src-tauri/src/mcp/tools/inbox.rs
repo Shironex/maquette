@@ -174,6 +174,14 @@ impl McpTools {
                     version: result.version.version,
                 };
                 let tools = host.toolbox();
+                let bake_tools = tools.clone();
+                crate::commands::split::spawn_bakes(
+                    host.studio().clone(),
+                    host.thumbs().clone(),
+                    move || bake_tools,
+                    root.clone(),
+                    config.clone(),
+                );
                 let file = PathBuf::from(&result.file);
                 if let Some(project) = crate::commands::thumbs::for_version(
                     host.thumbs(),

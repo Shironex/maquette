@@ -256,6 +256,25 @@ export const commands = {
 	 *  version stays in the asset.
 	 */
 	partsKeepVersion: (project: string, asset: string, version: number) => __TAURI_INVOKE<ProjectManifest>("parts_keep_version", { project, asset, version }),
+	/**  The model a split would cut and what each provider can do with it. */
+	splitSheet: (project: string, asset: string, version: number | null, item: string | null) => __TAURI_INVOKE<SplitSheet>("split_sheet", { project, asset, version, item }),
+	/**  Starts a split from the app. Confirming it in the sheet is the approval. */
+	splitSend: (request: SplitRequest) => __TAURI_INVOKE<ProviderJob>("split_send", { request }),
+	/**
+	 *  Bakes the texture back onto a split now: an offered one, or one that
+	 *  failed. Runs Blender, so off the main thread.
+	 */
+	splitBakeBack: (id: string) => __TAURI_INVOKE<ProviderJob>("split_bake_back", { id }),
+	/**
+	 *  Assembles one prop from part models, headless, as the next version of
+	 *  its target asset.
+	 */
+	assembleProp: (request: AssembleRequest) => __TAURI_INVOKE<Assembled>("assemble_prop", { request }),
+	/**  The recipe a prop was last assembled with, to assemble it again. */
+	assembleRecipe: (project: string, asset: string) => __TAURI_INVOKE<{
+	name: string,
+	parts: AssemblePart[],
+} | null>("assemble_recipe", { project, asset }),
 	builtList: (project: string) => __TAURI_INVOKE<BuiltAsset[]>("built_list", { project }),
 	/**
 	 *  Copies the script and helpers into the project's `built/` folder and
@@ -740,6 +759,53 @@ export type Artifact = {
 /**  The aspect ratio asked for in the prompt. */
 export type Aspect = "16:9" | "3:2" | "1:1" | "3:4" | "9:16";
 
+/**  One part of a prop. */
+export type AssemblePart = {
+	/**  The asset whose model it is. */
+	asset: string,
+	/**  Its version; `None` takes the current one, so a redo flows in. */
+	version?: number | null,
+	/**  The node name it ships as. */
+	name: string,
+	pivot: Pivot,
+	/**
+	 *  Where its pivot goes, in metres (Y up); `None` keeps it where its
+	 *  model put it.
+	 */
+	at?: [(number | null), (number | null), (number | null)] | null,
+	/**  Degrees about the up axis. */
+	turn?: number | null,
+};
+
+/**  A prop to assemble, in node order. */
+export type AssembleRequest = {
+	project: string,
+	/**
+	 *  The asset it becomes a version of; `None` makes (or finds) one
+	 *  named after the prop.
+	 */
+	asset?: string | null,
+	/**  The prop's name: its root node and the new asset's name. */
+	name: string,
+	parts: AssemblePart[],
+};
+
+/**  What an assembly made. */
+export type Assembled = {
+	project: ProjectManifest,
+	asset: string,
+	version: AssetVersion,
+	root: string,
+	nodes: AssembledNode[],
+};
+
+/**  One node of the assembled prop. */
+export type AssembledNode = {
+	name: string,
+	/**  Where it sits under the root, in metres (Y up). */
+	at: [(number | null), (number | null), (number | null)],
+};
+
 export type Asset = {
 	/**  Unique within the project, derived from the name. */
 	id: string,
@@ -877,6 +943,19 @@ export type AssetsRemoved = {
 	outcomes: RemoveOutcome[],
 };
 
+/**
+ *  Baking the texture of the model a split came from onto its parts, in
+ *  headless Blender. Free; the untextured version stays.
+ */
+export type BakeBack = {
+	state: BakeState,
+	/**  The split's own version, the parts it bakes onto. */
+	onto: number,
+	/**  The version the bake made. */
+	version: number | null,
+	message: string | null,
+};
+
 /**  A change: the fields left out keep what the step has. */
 export type BakePatch = {
 	size: number | null,
@@ -892,6 +971,13 @@ export type BakeSettings = {
 	/**  Runs OpenImageDenoise over each lightmap. */
 	denoise: boolean,
 };
+
+/**  Where a bake back is. */
+export type BakeState = 
+/**  Tripo dropped the texture: a bake back is offered, not run. */
+"offered" | 
+/**  Runs as soon as Blender is free (Meshy, always). */
+"scheduled" | "running" | "done" | "failed";
 
 /**  A project's bake settings as the app and agents read them. */
 export type BakeView = {
@@ -1413,6 +1499,13 @@ export type Comparison = {
 	/**  Oldest first; the slider opens on the last two. */
 	sides: CompareSide[],
 };
+
+/**  How Tripo rebuilds the faces one part hid in another. */
+export type CompletionMode = 
+/**  Generates the missing geometry. */
+"ai-completion" | 
+/**  Only seals the open edges. */
+"quick-cap";
 
 export type CompressDefaultsView = {
 	textureSize: number,
@@ -1942,6 +2035,9 @@ export type GlbReport = {
 	fingerWeights: FingerWeights | null,
 };
 
+/**  How many parts the semantic model looks for. */
+export type Granularity = "simple" | "balanced" | "detailed";
+
 /**  What the By hand panel shows, with a copy button per row. */
 export type HandoffCard = {
 	service: ProviderId,
@@ -2171,7 +2267,11 @@ export type Islands = {
 export type IssueLevel = "error" | "warning";
 
 /**  What the job is doing now. */
-export type JobPhase = "upload" | "generate" | "rig-check" | "rig" | "animate" | "download";
+export type JobPhase = "upload" | "generate" | "rig-check" | "rig" | "animate" | 
+/**  A split cutting the model into parts. */
+"split" | 
+/**  Tripo completing the parts a split cut. */
+"complete" | "download";
 
 export type JobState = 
 /**  An agent asked; it waits for you before spending credits. */
@@ -2558,6 +2658,22 @@ export type MeshyPresets = {
 	prop: MeshyPreset,
 	character: MeshyPreset,
 };
+
+/**  A Meshy split's settings. */
+export type MeshySplit = {
+	mode: MeshySplitMode,
+	/**  The parts to find, by parts or by colour: 1 to 10 names. */
+	parts?: string[],
+};
+
+/**  How Meshy divides the model. */
+export type MeshySplitMode = 
+/**  Meshy chooses the cuts. */
+"auto" | 
+/**  Along the parts named. */
+"by-parts" | 
+/**  Along the colour regions named, found in the source image. */
+"by-color";
 
 export type MeshyTexture = "2k" | "4k" | "8k";
 
@@ -3122,6 +3238,13 @@ export type PipelineView = {
 	bake: BakeView | null,
 };
 
+/**  Where a part turns about. */
+export type Pivot = 
+/**  The origin the model was made with. */
+"origin" | "bottom-centre" | "centre" | 
+/**  The left edge at the bottom, seen from the front: a door's hinge. */
+"left-hinge" | "right-hinge";
+
 export type Placement = {
 	/**  Metres. */
 	position: [(number | null), (number | null), (number | null)],
@@ -3364,6 +3487,11 @@ export type ProviderJob = {
 	redoOf?: string | null,
 	/**  What the price lists say it should cost, before the provider reports. */
 	estimate?: number | null,
+	/**
+	 *  Set for a split into parts of an asset's model, instead of a model
+	 *  made from images.
+	 */
+	split?: SplitJob | null,
 };
 
 /**
@@ -3390,6 +3518,12 @@ export type RealSize = {
 	/**  In `unit`. */
 	value: number | null,
 	unit: SizeUnit,
+};
+
+/**  The recipe kept for a prop: the request without its project and asset. */
+export type Recipe = {
+	name: string,
+	parts: AssemblePart[],
 };
 
 /**  A one click fix the panel offers next to a warning. */
@@ -3748,6 +3882,13 @@ export type SceneTotal = {
 	triangles: number,
 	models: number,
 };
+
+/**  Which Tripo segmentation model cuts it. */
+export type SegmentModel = 
+/**  Cuts where the shape changes. */
+"geometry" | 
+/**  Beta: looks for parts that mean something, like a lid or a cage. */
+"semantic";
 
 /**  Everything the Send to 3D panel needs for one asset. */
 export type SendOptions = {
@@ -4231,6 +4372,29 @@ export type SplitBy =
 "material";
 
 /**
+ *  A split into parts: the model it cuts, its settings and what happens
+ *  to the texture once it lands.
+ */
+export type SplitJob = {
+	/**  The asset version it splits, or (from the Inbox) the inbox model. */
+	fromVersion: number | null,
+	fromItem: string | null,
+	tripo: TripoSplit | null,
+	meshy: MeshySplit | null,
+	/**
+	 *  The provider task that made the model, when the provider takes it
+	 *  by its task; `None` uploads the file (Tripo only).
+	 */
+	inputTask: string | null,
+	/**  Texture images the model had before the split. */
+	texturesBefore: number,
+	/**  Whether the split kept the texture, once it is in. */
+	textureKept: boolean | null,
+	/**  The texture bake back from the model it was split from. */
+	bake: BakeBack | null,
+};
+
+/**
  *  What a split found: the pieces, how many small ones joined a
  *  neighbour, and how many parts each way of splitting gives.
  */
@@ -4242,6 +4406,58 @@ export type SplitNumbers = {
 	/**  Parts by loose pieces and by material, small ones joined. */
 	byLoose: number,
 	byMaterial: number,
+};
+
+/**  The published credits of each way, for the sheet's estimates. */
+export type SplitPrices = {
+	tripoSegment: number | null,
+	tripoComplete: number | null,
+	meshySplit: number | null,
+};
+
+/**  What a split into parts asks for. */
+export type SplitRequest = {
+	project: string,
+	asset: string,
+	/**  The version to split; `None` takes the current one. */
+	version?: number | null,
+	/**  An Inbox model of the asset instead of a version. */
+	item?: string | null,
+	/**  Tripo or Meshy. */
+	provider: Provider,
+	/**  This split's settings; `None` takes the defaults. */
+	tripo?: TripoSplit | null,
+	meshy?: MeshySplit | null,
+};
+
+/**  Everything the split sheet needs for one model. */
+export type SplitSheet = {
+	source: SplitSource,
+	keys: KeyStatus[],
+	prices: SplitPrices,
+};
+
+/**  The model a split would cut, and what each provider can do with it. */
+export type SplitSource = {
+	project: string,
+	asset: string,
+	assetName: string,
+	version: number | null,
+	item: string | null,
+	/**  The provider whose send made it, if one did. */
+	madeBy: Provider | null,
+	/**  The Tripo task Tripo splits it by; `None` uploads the file. */
+	tripoTask: string | null,
+	/**  Why Meshy cannot split it, when it cannot. */
+	meshyProblem: string | null,
+	triangles: number,
+	materials: number,
+	/**  Texture images: what a split may lose. */
+	textures: number,
+	/**  Mesh nodes; one means it moves only as a whole. */
+	objects: number,
+	/**  A split of this asset already on its way. */
+	busy: string | null,
 };
 
 /**  The Board columns, in pipeline order. */
@@ -4584,6 +4800,17 @@ export type TripoPresets = {
 
 /**  The bone naming a Tripo rig uses. */
 export type TripoRigSpec = "mixamo" | "tripo";
+
+/**  A Tripo split's settings. */
+export type TripoSplit = {
+	model: SegmentModel,
+	/**  Semantic only. */
+	granularity: Granularity,
+	/**  Semantic only: loose pieces always become their own parts. */
+	splitByConnectivity: boolean,
+	/**  A second task that completes the parts, when set. */
+	complete: CompletionMode | null,
+};
 
 export type TripoTextureQuality = "standard" | "detailed" | "extreme";
 

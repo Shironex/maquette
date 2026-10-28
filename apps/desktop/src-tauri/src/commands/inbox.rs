@@ -142,6 +142,15 @@ pub async fn inbox_accept(
         &result.asset.id,
         result.version.version,
     );
+    // A Meshy split lost its texture: it bakes back from the model it came from.
+    let bake_tools = tools.clone();
+    super::split::spawn_bakes(
+        studio.0.clone(),
+        service.0.clone(),
+        move || bake_tools,
+        root.clone(),
+        config.clone(),
+    );
     // The file kept its content, so a render made while it sat in the inbox
     // is reused at once; otherwise the Board gets it from ThumbnailReady.
     let target = ThumbTarget {
