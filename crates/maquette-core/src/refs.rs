@@ -9,7 +9,9 @@
 //! are other. That is how sends went before the tags, so nothing changes
 //! until someone tags a ref.
 
+pub mod checks;
 mod files;
+mod png;
 mod suggested;
 
 use std::path::Path;
@@ -22,6 +24,7 @@ use crate::error::{CoreError, CoreResult};
 use crate::project::{self, ProjectManifest};
 use crate::workspace::{FolderLayout, is_single_segment};
 
+pub use checks::{RefFix, RefWarning, WarningKind, send_warnings};
 pub use files::{ORIGINALS_DIR, use_clean_copy, use_view_image};
 pub use suggested::{ref_files, suggested};
 
