@@ -3,13 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '@/state/use-app-store';
 import { useProvidersStore } from '@/state/use-providers-store';
-import { clearMocks } from '@/test/mock-ipc';
+import { useRefsStore } from '@/state/use-refs-store';
+import { clearMocks, openMockRefs } from '@/test/mock-ipc';
 import { openProviders } from '../../openProviders';
 import { SendForm } from '.';
 
 afterEach(() => {
   clearMocks();
   useProvidersStore.setState({ project: null, jobs: [], panel: null, keys: [] });
+  useRefsStore.setState({ sheet: null, view: null });
 });
 
 async function openForm(asset: string) {
@@ -52,5 +54,36 @@ describe('the Send to 3D form', () => {
     );
     expect(await screen.findByText('About 30 credits')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Redo with Meshy' })).toBeEnabled();
+  });
+
+  it('warns about weak refs before the send, counts them and leaves an image out', async () => {
+    await openMockRefs();
+    await useProvidersStore.getState().openPanel('frostveil', 'guardian-statues');
+    const draw = () => {
+      const { options, draft } = useProvidersStore.getState().panel!;
+      return render(<SendForm options={options!} draft={draft!} />);
+    };
+    const { unmount } = draw();
+    expect(
+      await screen.findByText('guardian_statues_front.png crops the object')
+    ).toBeInTheDocument();
+    expect(screen.getByText('1 ref warning')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Send to|Write the handoff folder/ })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Leave out this image' }));
+    expect(useProvidersStore.getState().panel!.draft!.images).toEqual([]);
+    unmount();
+  });
+
+  it('opens Clean background from a warning', async () => {
+    await openMockRefs();
+    await useProvidersStore.getState().openPanel('frostveil', 'guardian-statues');
+    const { options, draft } = useProvidersStore.getState().panel!;
+    render(<SendForm options={options!} draft={draft!} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Clean background' }));
+    expect(useProvidersStore.getState().panel).toBeNull();
+    expect(useRefsStore.getState().sheet).toMatchObject({
+      mode: 'clean',
+      file: 'refs/guardian_statues_front.png',
+    });
   });
 });

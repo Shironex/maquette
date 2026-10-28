@@ -1,4 +1,4 @@
-import { Button, InlineBanner, SegmentedControl, cn } from '@maquette/ui';
+import { Button, Icon, InlineBanner, SegmentedControl, cn } from '@maquette/ui';
 import type { SendOptions } from '@/ipc/client';
 import {
   MAX_IMAGES,
@@ -8,6 +8,7 @@ import {
   toggleImage,
   type SendDraft,
 } from '@/state/providers';
+import { sentView, warningsLine } from '@/state/refs';
 import { CostEstimate } from '../../CostEstimate';
 import { MeshyPresetFields, TripoPresetFields } from '../../PresetFields';
 import { PromptField } from '../../PromptField';
@@ -15,7 +16,8 @@ import { SectionTitle } from '../../SectionTitle';
 import { PROVIDERS, SERVICES, VARIANTS } from '../../choices';
 import { EarlierSends } from './EarlierSends';
 import { ImageChoice } from './ImageChoice';
-import { useSendEstimate, useSendForm } from './SendForm.hooks';
+import { RefWarnings } from '../../RefWarnings';
+import { useSendEstimate, useSendForm, useSendWarnings } from './SendForm.hooks';
 
 export interface SendFormProps {
   options: SendOptions;
@@ -40,6 +42,8 @@ export default function SendForm({ options, draft }: SendFormProps) {
     redo,
   } = useSendForm(options, draft);
   const estimate = useSendEstimate(options, draft);
+  const { warnings, fix } = useSendWarnings(options, draft, multiView);
+  const tagged = (options.asset.refs ?? []).length > 0;
   const service = draft.service;
   const images = options.images.map(image => (
     <ImageChoice
@@ -47,6 +51,8 @@ export default function SendForm({ options, draft }: SendFormProps) {
       image={image}
       projectDir={options.projectDir}
       order={draft.images.indexOf(image.file)}
+      view={tagged ? sentView(options.asset, draft.images, image.file) : undefined}
+      warned={warnings.filter(w => w.file === image.file).length}
       full={draft.images.length >= MAX_IMAGES}
       onToggle={() => setDraft({ images: toggleImage(draft.images, image.file) })}
       onFront={() => setDraft({ images: makeFront(draft.images, image.file) })}
@@ -129,6 +135,7 @@ export default function SendForm({ options, draft }: SendFormProps) {
           <p className="text-meta text-fg-mute">
             {imagesNote(draft.provider, service, draft.images, multiView, smart)}
           </p>
+          <RefWarnings warnings={warnings} onFix={fix} />
         </section>
 
         <section className="flex flex-col gap-3">
@@ -189,7 +196,13 @@ export default function SendForm({ options, draft }: SendFormProps) {
           {blocker ?? summary}
         </p>
         <div className="flex items-center justify-end gap-2">
-          <CostEstimate credits={estimate} className="mr-auto" />
+          <CostEstimate credits={estimate} />
+          {warnings.length > 0 ? (
+            <span className="inline-flex items-center gap-1 text-meta text-amber">
+              <Icon name="warning" size={12} /> {warningsLine(warnings.length)}
+            </span>
+          ) : null}
+          <span className="mr-auto" />
           <Button variant="secondary" onClick={close}>
             Cancel
           </Button>

@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useProvidersStore } from '@/state/use-providers-store';
-import { clearMocks } from '@/test/mock-ipc';
+import { clearMocks, openMockRefs } from '@/test/mock-ipc';
 import { openProviders } from '../../openProviders';
 import { BatchForm } from '.';
 
@@ -41,5 +41,27 @@ describe('the batch form', () => {
     const tabs = screen.getByRole('group', { name: 'Preset to edit' });
     expect(within(tabs).getByRole('button', { name: 'Props (1)' })).toBeInTheDocument();
     expect(within(tabs).getByRole('button', { name: 'Characters (1)' })).toBeInTheDocument();
+  });
+
+  it('counts the assets with ref warnings, filters to them and repeats it at approval', async () => {
+    await openMockRefs();
+    await useProvidersStore.getState().loadKeys();
+    await useProvidersStore.getState().openBatch('frostveil', ['guardian-statues', 'veil-gate']);
+    const draw = () => {
+      const batch = useProvidersStore.getState().batch!;
+      return render(<BatchForm projectDir={batch.options!.projectDir} draft={batch.draft!} />);
+    };
+    const { unmount } = draw();
+    expect(await screen.findByText(/1 of 2 assets has ref warnings/)).toBeInTheDocument();
+    expect(screen.getByText('Refs look good')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /1 ref warning: guardian_statues/ }));
+    expect(screen.getByRole('button', { name: 'Leave out this image' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Show only these' }));
+    expect(screen.queryByText('Veil gate')).toBeNull();
+    unmount();
+    useProvidersStore.getState().setBatch({ provider: 'tripo' });
+    await useProvidersStore.getState().sendBatch();
+    draw();
+    expect(await screen.findByText(/1 asset goes with ref warnings\./)).toBeInTheDocument();
   });
 });

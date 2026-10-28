@@ -17,6 +17,7 @@ export type BatchSlice = Pick<
   | 'setBatchPreset'
   | 'setItemPreset'
   | 'resetBatchPresets'
+  | 'leaveOutImage'
   | 'sendBatch'
 >;
 
@@ -92,6 +93,15 @@ export const createBatchSlice: StateCreator<ProvidersStore, [], [], BatchSlice> 
       };
     });
     set({ batch: { ...batch, draft: { ...draft, items }, confirming: false } });
+  },
+
+  leaveOutImage: (asset, file) => {
+    const batch = get().batch;
+    if (!batch?.draft) return;
+    const items = batch.draft.items.map(i =>
+      i.asset === asset ? { ...i, images: i.images.filter(f => f !== file) } : i
+    );
+    set({ batch: { ...batch, draft: { ...batch.draft, items }, confirming: false } });
   },
 
   resetBatchPresets: () => {

@@ -104,6 +104,8 @@ export interface ProvidersStore {
   ) => void;
   /** Starts the batch's presets over from the saved ones. */
   resetBatchPresets: () => void;
+  /** Takes one image out of an asset's send, a ref warning's Leave out. */
+  leaveOutImage: (asset: string, file: string) => void;
   /** Sends the batch; an API batch first asks for a confirm. */
   sendBatch: () => Promise<void>;
   /** The By hand checklist sheet is open. */
