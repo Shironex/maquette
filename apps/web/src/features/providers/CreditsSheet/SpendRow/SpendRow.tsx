@@ -1,4 +1,4 @@
-import { StatusChip } from '@maquette/ui';
+import { StatusChip, type WindowItemProps } from '@maquette/ui';
 import type { Spend } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { formatCredits, outcomeChip } from '@/state/credits';
@@ -9,14 +9,19 @@ export interface SpendRowProps {
   now: number;
   /** The project's name, when the list shows every project. */
   project: string | null;
+  /** Its measuring props, in a windowed list. */
+  position?: WindowItemProps;
 }
 
 /** One paid send: when, which asset, its settings, how it ended and what it cost. */
-export default function SpendRow({ spend, now, project }: SpendRowProps) {
+export default function SpendRow({ spend, now, project, position }: SpendRowProps) {
   const chip = outcomeChip(spend);
   const sent = spend.sentAtMs ? new Date(spend.sentAtMs).toLocaleString('en-GB') : '';
   return (
-    <li className="grid grid-cols-[92px_minmax(0,1fr)_minmax(0,1.2fr)_96px_84px] items-center gap-3 border-t border-line px-3 py-2 first:border-t-0">
+    <li
+      {...position}
+      className="grid grid-cols-[92px_minmax(0,1fr)_minmax(0,1.2fr)_96px_84px] items-center gap-3 border-t border-line px-3 py-2 first:border-t-0"
+    >
       <span className="text-meta text-fg-mute tabular-nums" title={sent}>
         {formatAgo(spend.sentAtMs ?? now, now)}
       </span>

@@ -1,4 +1,4 @@
-import { cn } from '@maquette/ui';
+import { cn, type WindowItemProps } from '@maquette/ui';
 import type { AnimationItem } from '@/ipc/client';
 import { RIG_LABEL, lengthLine } from '@/state/animations';
 import { ClipMarks } from '../ClipCard';
@@ -8,13 +8,15 @@ export interface ClipRowProps {
   item: AnimationItem;
   selected: boolean;
   onSelect: () => void;
+  /** Its measuring props, in a windowed list. */
+  position?: WindowItemProps;
 }
 
 /** One clip in the list: a small skeleton, name, pack, rig, length and marks. */
-export default function ClipRow({ item, selected, onSelect }: ClipRowProps) {
+export default function ClipRow({ item, selected, onSelect, position }: ClipRowProps) {
   const { clip } = item;
   return (
-    <li>
+    <li {...position}>
       <button
         type="button"
         aria-pressed={selected}

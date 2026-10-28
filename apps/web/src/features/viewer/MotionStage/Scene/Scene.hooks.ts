@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { disposeModel } from '../../dispose';
 import { originalsOf } from '../../materials';
 import {
   applyOffsets,
@@ -14,7 +15,10 @@ import {
 import { BACKDROP, CLAY, castShadows, frameCamera, gltfLoader, type Framing } from '../../studio';
 import type { LoadedMotion, SceneProps } from './Scene.types';
 
-/** Loads the file at `url` with its clips, again whenever it changes; null while there is none. */
+/**
+ * Loads the file at `url` with its clips, again whenever it changes; null
+ * while there is none. The model it replaces is freed.
+ */
 export function useMotionModel(
   url: string | null,
   onError: SceneProps['onError']
@@ -55,6 +59,13 @@ export function useMotionModel(
       alive = false;
     };
   }, [url, gl]);
+  // A model replaced by the next file, or left on unmount, frees its GPU memory.
+  useEffect(
+    () => () => {
+      if (loaded) disposeModel(loaded);
+    },
+    [loaded]
+  );
   return loaded;
 }
 

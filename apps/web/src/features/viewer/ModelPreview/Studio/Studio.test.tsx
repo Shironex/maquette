@@ -63,6 +63,22 @@ describe('loading a model', () => {
     expect(result.current).toBeNull();
   });
 
+  it('frees a model when the next file replaces it and when it unmounts', async () => {
+    const { result, rerender, unmount } = renderHook(({ url }) => useModel(url, undefined), {
+      initialProps: { url: '/mock/a.glb' },
+    });
+    await waitFor(() => expect(result.current).not.toBeNull());
+    const first = [...result.current!.originals.keys()][0]!;
+    const freed = vi.spyOn(first.geometry, 'dispose');
+    rerender({ url: '/mock/b.glb' });
+    await waitFor(() => expect(result.current?.scene).not.toBe(first.parent));
+    expect(freed).toHaveBeenCalled();
+    const second = [...result.current!.originals.keys()][0]!;
+    const material = vi.spyOn(second.material as THREE.Material, 'dispose');
+    unmount();
+    expect(material).toHaveBeenCalled();
+  });
+
   it('reports a failed file to the latest error callback', async () => {
     files.broken.add('/mock/bad.glb');
     const first = vi.fn();

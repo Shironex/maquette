@@ -7,13 +7,14 @@ const CELL = 'h-11 px-2 align-middle';
 
 /** One asset in the Board's list: the card's numbers in a row, its box and its menu. */
 export default function ListRow(props: ListRowProps) {
-  const { row, board, tabStop, menuUp, onToggleMenu, onFocus } = props;
+  const { row, board, tabStop, menuUp, onToggleMenu, onFocus, position } = props;
   const { asset, n } = row;
   const v = useListRow(props);
   const { selection, dropJob } = board;
 
   return (
     <tr
+      {...position}
       data-row-id={asset.id}
       data-drop-job={v.waiting?.id}
       tabIndex={tabStop ? 0 : -1}

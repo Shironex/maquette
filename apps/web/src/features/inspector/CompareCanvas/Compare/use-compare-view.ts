@@ -8,7 +8,7 @@ import { FLIGHT_MS } from '@/state/inspector';
 import { poseOf, setPose } from '../../camera-pose';
 import type { CompareProps, CompareRig, Side } from './Compare.types';
 import { applyLooks } from './apply-looks';
-import { disposeGroup } from './dispose-group';
+import { disposeObject } from '@/features/viewer/dispose';
 import { sceneFraming } from './scene-framing';
 
 /**
@@ -51,7 +51,7 @@ export function useCompareView(rig: CompareRig, props: CompareProps): void {
     return () => {
       for (const studio of rigs) {
         studio.removeFromParent();
-        disposeGroup(studio);
+        disposeObject(studio);
       }
     };
   }, [left, right, props.kind, scenes, camera, setFraming, live]);

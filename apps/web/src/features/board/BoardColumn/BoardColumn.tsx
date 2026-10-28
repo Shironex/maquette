@@ -2,7 +2,7 @@ import { Dropzone, Icon, cn } from '@maquette/ui';
 import { useStageLabels } from '@/state/use-stage-labels';
 import { BoardCard } from '../BoardCard';
 import { STAGE_ICON } from '../constants';
-import { useColumnDrop } from './BoardColumn.hooks';
+import { useColumnCards, useColumnDrop } from './BoardColumn.hooks';
 import type { BoardColumnProps } from './BoardColumn.types';
 
 /** One stage of the pipeline: its cards, and the drop target for cards from other columns. */
@@ -12,10 +12,16 @@ export default function BoardColumn({ stage, assets, boardEmpty, board }: BoardC
   const STAGE_LABEL = useStageLabels();
   const dropzone = stage === 'concept' && boardEmpty;
   const label = `${STAGE_LABEL[stage]}, ${assets.length} ${assets.length === 1 ? 'asset' : 'assets'}`;
-  const cards = assets.map(asset => <BoardCard key={asset.id} asset={asset} board={board} />);
+  const { scrollRef, listRef, cards: shown } = useColumnCards(assets.length);
+  const cards = assets.slice(shown.start, shown.end).map((asset, n) => (
+    <div key={asset.id} {...shown.itemProps(shown.start + n)}>
+      <BoardCard asset={asset} board={board} />
+    </div>
+  ));
 
   return (
     <section
+      ref={scrollRef}
       aria-label={label}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -42,7 +48,15 @@ export default function BoardColumn({ stage, assets, boardEmpty, board }: BoardC
           onActivate={() => later('Concept import')}
         />
       ) : null}
-      {cards}
+      {assets.length > 0 ? (
+        <div
+          ref={listRef}
+          className="flex flex-none flex-col gap-2"
+          style={{ paddingTop: shown.before, paddingBottom: shown.after }}
+        >
+          {cards}
+        </div>
+      ) : null}
       {assets.length === 0 && !dropzone ? (
         <div className="grid h-[88px] flex-none place-items-center rounded-card border border-dashed border-line-strong text-meta text-fg-mute">
           Drag an asset here

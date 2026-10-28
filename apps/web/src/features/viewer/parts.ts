@@ -7,24 +7,10 @@
  */
 import * as THREE from 'three';
 import type { Originals } from './materials';
+import { partColour } from './part-colours';
 
 /** Tells the parts code which group is the loaded file's root. */
 export const ROOT_FLAG = 'maquetteRoot';
-
-/**
- * Part colours: one hue each, told apart by lightness too, readable on the
- * dark studio floor.
- */
-export const PART_COLOURS: readonly string[] = [
-  '#e0a458',
-  '#6fa8dc',
-  '#93c47d',
-  '#c27ba0',
-  '#f6d06f',
-  '#76c5c0',
-  '#d9776b',
-  '#b4a7d6',
-];
 
 export interface PartLook {
   /** Part names drawn lifted. */
@@ -55,10 +41,6 @@ export function partRoot(mesh: THREE.Object3D): THREE.Object3D {
 
 /** The part name of `mesh`, as the model file has it. */
 export const partOf = (mesh: THREE.Object3D): string => partRoot(mesh).name;
-
-/** The colour of the `index`th part. */
-export const partColour = (index: number): string =>
-  PART_COLOURS[index % PART_COLOURS.length] ?? PART_COLOURS[0]!;
 
 /** Every part name of `originals`, in the order the file has them. */
 export function partNames(originals: Originals): string[] {

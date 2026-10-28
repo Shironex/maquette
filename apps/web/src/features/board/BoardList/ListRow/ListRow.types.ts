@@ -1,3 +1,4 @@
+import type { WindowItemProps } from '@maquette/ui';
 import type { ListRow } from '@/state/board-list';
 import type { BoardEnv } from '../../board.types';
 
@@ -11,4 +12,6 @@ export interface ListRowProps {
   onToggleMenu: (id: string) => void;
   onFocus: (id: string) => void;
   nowMs: number;
+  /** Where the row sits in the whole list, and its measuring ref when the list is windowed. */
+  position?: WindowItemProps & { 'aria-rowindex': number };
 }

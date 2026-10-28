@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NO_ANIMATION_FILTERS } from '@/state/animations';
@@ -20,6 +20,13 @@ afterEach(() => {
 });
 
 describe('the Animations view', () => {
+  it('says it is busy until the clips load', async () => {
+    await openMockLibrary('demo');
+    render(<AnimationsView />);
+    expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'true');
+    await waitFor(() => expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'false'));
+  });
+
   it('lists every clip, newest first, with the first on show', async () => {
     await openMockLibrary('demo');
     render(<AnimationsView />);
@@ -32,6 +39,28 @@ describe('the Animations view', () => {
     );
     const side = screen.getByRole('complementary', { name: 'Selected clip' });
     expect(within(side).getByRole('heading', { name: 'Standing Dodge Left' })).toBeVisible();
+  });
+
+  it('renders only the clips in view of a long library, in the grid and the list', async () => {
+    await openMockLibrary('demo');
+    render(<AnimationsView />);
+    const clips = await screen.findByRole('region', { name: 'Clips' });
+    await within(clips).findByText('16 clips · newest first');
+    const view = useAnimationsStore.getState().view!;
+    const one = view.items[0]!;
+    const items = Array.from({ length: 500 }, (_, i) => ({
+      ...one,
+      clip: { ...one.clip, id: `copy-${i}`, name: `Copy ${i}` },
+    }));
+    act(() => useAnimationsStore.setState({ view: { ...view, items } }));
+    expect(within(clips).getByText('500 clips · newest first')).toBeVisible();
+    const inGrid = within(clips).getAllByRole('listitem').length;
+    expect(inGrid).toBeGreaterThan(0);
+    expect(inGrid).toBeLessThan(80);
+    act(() => useAnimationsStore.setState({ layout: 'list' }));
+    const inList = within(clips).getAllByRole('listitem').length;
+    expect(inList).toBeLessThan(80);
+    expect(within(clips).getByRole('button', { name: /^Copy 0\b/ })).toBeVisible();
   });
 
   it('filters by pack and loops, and says when nothing matches', async () => {

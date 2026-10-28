@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { Component } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerMockFile } from '@/ipc/files';
@@ -52,5 +52,18 @@ describe('the inbox preview', () => {
     });
     expect(screen.queryByText('The file ends early.')).toBeNull();
     expect(screen.queryByText('No preview for this file')).toBeNull();
+  });
+
+  it('renders only the rows in view of a long inbox', async () => {
+    await openMockWorkspace();
+    await useInboxStore.getState().load();
+    const snapshot = useInboxStore.getState().snapshot!;
+    const one = snapshot.items[0]!;
+    const items = Array.from({ length: 200 }, (_, i) => ({ ...one, id: `copy-${i}` }));
+    useInboxStore.setState({ snapshot: { ...snapshot, items } });
+    render(<InboxView />);
+    const list = screen.getByRole('region', { name: 'Models in the inbox' });
+    expect(within(list).getByText('200 models waiting')).toBeVisible();
+    expect(within(list).getAllByRole('listitem').length).toBeLessThan(40);
   });
 });

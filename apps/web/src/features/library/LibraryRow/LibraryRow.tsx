@@ -1,4 +1,4 @@
-import { cn } from '@maquette/ui';
+import { cn, type WindowItemProps } from '@maquette/ui';
 import type { LibraryItem } from '@/ipc/client';
 import { creditLine, itemLine, numbersLine, usedLine } from '@/state/library';
 import { LibraryPicture } from '../LibraryPicture';
@@ -7,13 +7,15 @@ export interface LibraryRowProps {
   item: LibraryItem;
   selected: boolean;
   onSelect: () => void;
+  /** Its measuring props, in a windowed list. */
+  position?: WindowItemProps;
 }
 
 /** One library model in the list: the card's lines in one row, with its numbers. */
-export default function LibraryRow({ item, selected, onSelect }: LibraryRowProps) {
+export default function LibraryRow({ item, selected, onSelect, position }: LibraryRowProps) {
   const credits = creditLine(item);
   return (
-    <li>
+    <li {...position}>
       <button
         type="button"
         aria-pressed={selected}

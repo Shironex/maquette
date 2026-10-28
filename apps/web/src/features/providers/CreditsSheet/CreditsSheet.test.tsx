@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '@/state/use-app-store';
@@ -32,6 +32,16 @@ describe('the Credits sheet', () => {
     expect(within(sheet).getByText('Redo share')).toBeInTheDocument();
     expect(await within(sheet).findAllByRole('listitem')).not.toHaveLength(0);
     expect(sheet).toHaveTextContent('1 line of the ledger could not be read');
+  });
+
+  it('renders only the rows in view of a long ledger', async () => {
+    const sheet = await openSheet();
+    await within(sheet).findAllByRole('listitem');
+    const ledger = useCreditsStore.getState().ledger!;
+    const one = ledger.spends[0]!;
+    const spends = Array.from({ length: 1000 }, (_, i) => ({ ...one, job: `copy-${i}` }));
+    act(() => useCreditsStore.setState({ ledger: { ...ledger, spends } }));
+    expect(within(sheet).getAllByRole('listitem').length).toBeLessThan(60);
   });
 
   it('filters by provider and saves what it shows', async () => {

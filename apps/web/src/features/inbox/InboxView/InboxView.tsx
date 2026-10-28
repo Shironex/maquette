@@ -4,7 +4,7 @@ import { InboxDetail } from '../InboxDetail';
 import { InboxEmpty } from '../InboxEmpty';
 import { InboxRow } from '../InboxRow';
 import { RedoBar } from '../RedoBar';
-import { useInboxView } from './InboxView.hooks';
+import { useInboxRows, useInboxView } from './InboxView.hooks';
 
 /** The models waiting in the inbox folder, and the one on show with its checks. */
 export default function InboxView() {
@@ -22,8 +22,9 @@ export default function InboxView() {
     redoBlocker,
     redoChecked,
   } = useInboxView();
-  const rows = items.map(i => (
-    <li key={i.id}>
+  const { scrollRef, listRef, shown } = useInboxRows(items.length);
+  const rows = items.slice(shown.start, shown.end).map((i, n) => (
+    <li key={i.id} {...shown.itemProps(shown.start + n)}>
       <InboxRow
         item={i}
         selected={i.id === item?.id}
@@ -54,9 +55,15 @@ export default function InboxView() {
                 : `${items.length} ${items.length === 1 ? 'model' : 'models'} waiting`}
             </p>
           </div>
-          <ul className="flex min-h-0 flex-1 list-none flex-col gap-1 overflow-y-auto px-2 pb-2">
-            {rows}
-          </ul>
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+            <ul
+              ref={listRef}
+              style={{ paddingTop: shown.before, paddingBottom: shown.after }}
+              className="flex list-none flex-col gap-1"
+            >
+              {rows}
+            </ul>
+          </div>
           {checked.length > 0 ? (
             <RedoBar
               count={checked.length}

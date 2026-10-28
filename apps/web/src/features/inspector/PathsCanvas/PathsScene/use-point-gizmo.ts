@@ -5,7 +5,7 @@ import { CLAY } from '@/features/viewer/studio';
 import type { Vec3 } from '@/state/inspector';
 import { SNAP } from '@/state/layout';
 import { pointsOf } from '@/state/paths';
-import { disposeTree } from '../../LayoutCanvas/Editor/dispose-tree';
+import { disposeObject } from '@/features/viewer/dispose';
 import type { PathsRig, PathsSceneProps } from './PathsScene.types';
 
 const HANDLE = '#f4efe6';
@@ -55,7 +55,7 @@ export function usePointGizmo(rig: PathsRig, props: PathsSceneProps): void {
       transform.detach();
       for (const child of [...handles.children]) {
         handles.remove(child);
-        disposeTree(child);
+        disposeObject(child);
       }
     };
   }, [shape, handles, transform, live]);
