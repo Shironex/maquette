@@ -87,6 +87,18 @@ function sliceOf(v: Virtualizer<HTMLElement, Element>, columns: number, count: n
   };
 }
 
+/**
+ * The element `ref` points at, kept in state so effects run again when it
+ * appears late (a list rendered once its data loads) or is swapped for
+ * another (a grid switched to a list).
+ */
+function useElement<T extends HTMLElement>(ref: RefObject<T | null>): T | null {
+  // A reducer, not state: React drops a dispatch of the same element, so this cannot loop.
+  const [el, see] = useReducer((_: T | null, next: T | null) => next, null);
+  useLayoutEffect(() => see(ref.current));
+  return el;
+}
+
 /** Where the list starts inside its scroller's content. */
 function marginOf(scroller: HTMLElement, list: HTMLElement): number {
   return (
@@ -193,8 +205,8 @@ export function useGridColumns(
   gap: number
 ): number {
   const [columns, setColumns] = useState(1);
+  const el = useElement(ref);
   useLayoutEffect(() => {
-    const el = ref.current;
     if (!el) return;
     const read = () => {
       const width = el.clientWidth || FALLBACK.width;
@@ -205,6 +217,6 @@ export function useGridColumns(
     const observer = new ResizeObserver(read);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [ref, min, gap]);
+  }, [el, min, gap]);
   return columns;
 }
