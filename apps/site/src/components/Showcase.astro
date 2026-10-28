@@ -1,0 +1,249 @@
+---
+import SectionHead from './SectionHead.astro';
+import { KIT, CHARACTER, type Step } from '../content/showcase';
+
+/** Width over height of a step's tiles laid out at one height, so a row of steps shares it. */
+const aspect = (step: Step): number =>
+  step.layout === 'grid'
+    ? 1
+    : step.tiles.reduce((sum, tile) => sum + tile.width / tile.height, 0) +
+      // The 8 px gaps between tiles, at about the 400 px a desktop row stands.
+      ((step.tiles.length - 1) * 8) / 400;
+
+// As a flex-grow: scaled up, since grow values that add up to less than 1
+// leave part of the row empty.
+const grow = (ratio: number): string => `flex-grow: ${Math.round(ratio * 1000)}`;
+
+const ROWS = [
+  { id: 'kit', label: 'A modular kit', steps: KIT },
+  { id: 'cast', label: 'Characters', steps: CHARACTER },
+];
+
+// The views a ref tile shows, in the order the row lists them.
+const VIEWS = ['Front', 'Left', 'Back'];
+---
+
+<section id="showcase" class="showcase" aria-labelledby="showcase-title">
+  <div class="wrap inner">
+    <SectionHead eyebrow="On a real project" title="From one sheet to a moving character." id="showcase-title">
+      Files from a game project made in Maquette: a concept sheet, the refs cut from it, the models
+      that came back and two of its characters.
+    </SectionHead>
+
+    {
+      ROWS.map(row => (
+        <div class="row-block">
+          <p class="eyebrow mute">{row.label}</p>
+          <div class:list={['row', row.id]}>
+            {row.steps.map((step, s) => (
+              <figure
+                class:list={['step', step.layout, { wide: s === 0 }]}
+                style={grow(aspect(step))}
+              >
+                <div class="tiles">
+                  {step.tiles.map((tile, t) => (
+                    <div
+                      class="tile"
+                      style={step.layout === 'row' ? grow(tile.width / tile.height) : undefined}
+                    >
+                      {tile.video ? (
+                        <video
+                          class="media"
+                          width={tile.width}
+                          height={tile.height}
+                          poster={tile.src}
+                          muted
+                          loop
+                          playsinline
+                          preload="none"
+                          aria-label={tile.alt}
+                          data-loop={tile.video}
+                        />
+                      ) : (
+                        <img
+                          class="media"
+                          src={tile.src}
+                          srcset={tile.small ? `${tile.small.src} ${tile.small.width}w, ${tile.src} ${tile.width}w` : undefined}
+                          sizes={tile.small ? '(max-width: 899px) 100vw, 560px' : undefined}
+                          width={tile.width}
+                          height={tile.height}
+                          alt={tile.alt}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      )}
+                      {row.id === 'cast' && s === 0 && <span class="view">{VIEWS[t]}</span>}
+                      {tile.badge && <span class="badge">{tile.badge}</span>}
+                    </div>
+                  ))}
+                </div>
+                <figcaption>
+                  <span class="title">
+                    <span class="num">{step.number}</span> {step.title}
+                  </span>
+                  <span class="caption">
+                    <b>{step.tool}</b> · {step.caption}
+                  </span>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      ))
+    }
+
+    <p class="caption footnote">
+      Concepts and refs from Codex CLI, models made on Tripo by hand. The knight and the sorceress
+      are rendered from the project's GLB files.
+    </p>
+  </div>
+</section>
+
+<script>
+  // The loop plays only while it is on screen, and never with reduced motion:
+  // the poster stays and the video file is not fetched.
+  const videos = document.querySelectorAll<HTMLVideoElement>('video[data-loop]');
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (videos.length && 'IntersectionObserver' in window && !still.matches) {
+    const observer = new IntersectionObserver(
+      entries => {
+        for (const entry of entries) {
+          const video = entry.target as HTMLVideoElement;
+          if (entry.isIntersecting) {
+            if (!video.src) video.src = video.dataset.loop ?? '';
+            video.play().catch(() => {});
+          } else {
+            video.pause();
+          }
+        }
+      },
+      { rootMargin: '120px 0px' }
+    );
+    videos.forEach(video => observer.observe(video));
+  }
+</script>
+
+<style>
+  .showcase {
+    padding-block: 128px;
+    border-top: 1px solid var(--line);
+  }
+  .inner {
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+  .row-block {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .mute {
+    color: var(--text-mute);
+  }
+  .row {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .step {
+    margin: 0;
+    flex-basis: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .tiles {
+    display: flex;
+    gap: 8px;
+  }
+  .grid .tiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tile {
+    position: relative;
+    flex-basis: 0;
+    min-width: 0;
+    flex-grow: 1;
+    overflow: hidden;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--bg-panel);
+  }
+  .media {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  /* The view chip and the loop badge, as the app draws them on refs and viewers. */
+  .view,
+  .badge {
+    position: absolute;
+    left: 8px;
+    max-width: calc(100% - 16px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    line-height: 14px;
+    border-radius: 6px;
+    padding: 3px 7px;
+  }
+  .view {
+    top: 8px;
+    background: var(--clay);
+    color: var(--clay-ink);
+    font-weight: 500;
+  }
+  .badge {
+    bottom: 8px;
+    font-family: var(--font-mono);
+    background: rgba(28, 27, 25, 0.82);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+  }
+  figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .title {
+    font-size: 15px;
+    line-height: 22px;
+    font-weight: 500;
+  }
+  .num {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--clay-text);
+    margin-right: 4px;
+  }
+  .footnote {
+    max-width: 44em;
+  }
+  @media (max-width: 899px) {
+    .showcase {
+      padding-block: 48px;
+    }
+    .inner {
+      gap: 32px;
+    }
+    .row {
+      flex-wrap: wrap;
+      gap: 20px 12px;
+    }
+    .step.wide {
+      flex-basis: 100%;
+    }
+    .tiles {
+      gap: 6px;
+    }
+    .title {
+      font-size: 14px;
+      line-height: 20px;
+    }
+  }
+</style>
