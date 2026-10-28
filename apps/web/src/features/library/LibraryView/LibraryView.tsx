@@ -5,7 +5,7 @@ import { LibraryDetail } from '../LibraryDetail';
 import { LibraryFilters } from '../LibraryFilters';
 import { LibraryRow } from '../LibraryRow';
 import { LibraryStats } from '../LibraryStats';
-import { useLibraryView } from './LibraryView.hooks';
+import { useLibraryView, useModelsWindow } from './LibraryView.hooks';
 
 const SORTS: readonly { value: LibrarySort; label: string }[] = [
   { value: 'recent', label: 'Recent' },
@@ -29,9 +29,11 @@ export default function LibraryView() {
   const { filters, setFilters, layout, setLayout, sort, setSort, item, select } = v;
   const count = (n: number) => `${n} ${n === 1 ? 'model' : 'models'}`;
   const filtered = v.shown.length !== v.items.length;
-  const cards = v.shown.map(i =>
+  const { scrollRef, listRef, shown } = useModelsWindow(v.shown.length, layout);
+  const pad = { paddingTop: shown.before, paddingBottom: shown.after };
+  const cards = v.shown.slice(shown.start, shown.end).map((i, n) =>
     layout === 'grid' ? (
-      <li key={i.entry.id}>
+      <li key={i.entry.id} {...shown.itemProps(shown.start + n)}>
         <LibraryCard
           item={i}
           selected={i.entry.id === item?.entry.id}
@@ -41,6 +43,7 @@ export default function LibraryView() {
     ) : (
       <LibraryRow
         key={i.entry.id}
+        position={shown.itemProps(shown.start + n)}
         item={i}
         selected={i.entry.id === item?.entry.id}
         onSelect={() => select(i.entry.id)}
@@ -119,6 +122,7 @@ export default function LibraryView() {
         <main className="flex min-h-0 flex-1">
           <LibraryFilters items={v.items} filters={filters} onChange={setFilters} />
           <section
+            ref={scrollRef}
             aria-label="Models"
             className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pt-[18px] pb-5"
           >
@@ -142,11 +146,17 @@ export default function LibraryView() {
                 No model matches. Clear the search or pick All models.
               </p>
             ) : layout === 'grid' ? (
-              <ul className="grid list-none grid-cols-[repeat(auto-fill,minmax(172px,1fr))] gap-3">
+              <ul
+                ref={listRef}
+                style={pad}
+                className="grid list-none grid-cols-[repeat(auto-fill,minmax(172px,1fr))] gap-3"
+              >
                 {cards}
               </ul>
             ) : (
-              <ul className="flex list-none flex-col gap-1">{cards}</ul>
+              <ul ref={listRef} style={pad} className="flex list-none flex-col gap-1">
+                {cards}
+              </ul>
             )}
           </section>
           {item ? <LibraryDetail key={item.entry.id} item={item} /> : null}

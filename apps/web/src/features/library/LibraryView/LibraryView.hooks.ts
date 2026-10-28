@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { useGridOrListWindow } from '@/lib/useGridOrListWindow';
+import type { LibraryLayout } from '@/state/library';
 import { filterItems, libraryStats, sortItems } from '@/state/library';
 import { useAppStore } from '@/state/use-app-store';
 import { useLibraryStore } from '@/state/use-library-store';
@@ -25,4 +27,12 @@ export function useLibraryView() {
     stats: libraryStats(items),
     loaded: view !== null,
   };
+}
+
+/** A model card's and row's height before they are measured, and the grid's `minmax(172px, 1fr)`. */
+const SIZES = { card: 236, row: 58, column: 172 };
+
+/** The models' scroller and the models in view, windowed once the library is long. */
+export function useModelsWindow(count: number, layout: LibraryLayout) {
+  return useGridOrListWindow(count, layout === 'grid', SIZES);
 }

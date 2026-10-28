@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { useGridColumns, useWindowedList } from '@maquette/ui';
+import { useEffect } from 'react';
+import { useGridOrListWindow } from '@/lib/useGridOrListWindow';
 import type { AnimationLayout } from '@/state/animations';
 import { animationStats, filterClips } from '@/state/animations';
 import { useAppStore } from '@/state/use-app-store';
@@ -31,26 +31,10 @@ export function useAnimationsView() {
   };
 }
 
-/** A grid card's and a list row's height before they are measured. */
-const CARD = 214;
-const ROW = 58;
-/** The grid's narrowest column and its gaps (`minmax(164px, 1fr)`, `gap-3`). */
-const COLUMN = 164;
-const GRID_GAP = 12;
+/** A clip card's and row's height before they are measured, and the grid's `minmax(164px, 1fr)`. */
+const SIZES = { card: 214, row: 58, column: 164 };
 
 /** The clips' scroller and the clips in view, windowed once the library is long. */
 export function useClipsWindow(count: number, layout: AnimationLayout) {
-  const scrollRef = useRef<HTMLElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
-  const grid = layout === 'grid';
-  const columns = useGridColumns(listRef, COLUMN, GRID_GAP);
-  const shown = useWindowedList({
-    count,
-    scrollRef,
-    listRef,
-    estimate: grid ? CARD : ROW,
-    gap: grid ? GRID_GAP : 4,
-    columns: grid ? columns : 1,
-  });
-  return { scrollRef, listRef, shown };
+  return useGridOrListWindow(count, layout === 'grid', SIZES);
 }

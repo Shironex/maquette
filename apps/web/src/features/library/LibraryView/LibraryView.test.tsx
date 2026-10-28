@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { NO_FILTERS } from '@/state/library';
@@ -19,6 +19,24 @@ afterEach(() => {
 });
 
 describe('the Library view', () => {
+  it('renders only the models in view of a long library, in the grid and the list', async () => {
+    await openMockLibrary('demo');
+    render(<LibraryView />);
+    const models = await screen.findByRole('region', { name: 'Models' });
+    await within(models).findByText('8 models · most used first');
+    const view = useLibraryStore.getState().view!;
+    const one = view.items[0]!;
+    const items = Array.from({ length: 300 }, (_, i) => ({
+      ...one,
+      entry: { ...one.entry, id: `copy-${i}`, name: `Copy ${i}` },
+    }));
+    act(() => useLibraryStore.setState({ view: { ...view, items } }));
+    expect(within(models).getByText('300 models · most used first')).toBeVisible();
+    expect(within(models).getAllByRole('listitem').length).toBeLessThan(80);
+    act(() => useLibraryStore.setState({ layout: 'list' }));
+    expect(within(models).getAllByRole('listitem').length).toBeLessThan(80);
+  });
+
   it('lists every model, most used first, with the first on show', async () => {
     await openMockLibrary('demo');
     render(<LibraryView />);
