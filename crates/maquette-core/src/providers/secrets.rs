@@ -11,34 +11,46 @@ use serde::Serialize;
 use super::presets::ProviderId;
 use crate::error::{CoreError, CoreResult};
 
+/// Keys by keychain account: the 3D services' under [`account`], other
+/// keys (OpenAI's, [`OPENAI_ACCOUNT`]) under their own account name.
 pub trait SecretStore: Send + Sync {
-    fn get(&self, service: ProviderId) -> CoreResult<Option<String>>;
-    fn set(&self, service: ProviderId, key: &str) -> CoreResult<()>;
-    fn remove(&self, service: ProviderId) -> CoreResult<()>;
+    fn get_account(&self, account: &str) -> CoreResult<Option<String>>;
+    fn set_account(&self, account: &str, key: &str) -> CoreResult<()>;
+    fn remove_account(&self, account: &str) -> CoreResult<()>;
+
+    fn get(&self, service: ProviderId) -> CoreResult<Option<String>> {
+        self.get_account(account(service))
+    }
+    fn set(&self, service: ProviderId, key: &str) -> CoreResult<()> {
+        self.set_account(account(service), key)
+    }
+    fn remove(&self, service: ProviderId) -> CoreResult<()> {
+        self.remove_account(account(service))
+    }
 }
 
 /// Keys in memory, for tests and mock runs.
 #[derive(Default)]
-pub struct MemoryStore(Mutex<HashMap<ProviderId, String>>);
+pub struct MemoryStore(Mutex<HashMap<String, String>>);
 
 impl MemoryStore {
-    fn keys(&self) -> std::sync::MutexGuard<'_, HashMap<ProviderId, String>> {
+    fn keys(&self) -> std::sync::MutexGuard<'_, HashMap<String, String>> {
         self.0.lock().unwrap_or_else(|p| p.into_inner())
     }
 }
 
 impl SecretStore for MemoryStore {
-    fn get(&self, service: ProviderId) -> CoreResult<Option<String>> {
-        Ok(self.keys().get(&service).cloned())
+    fn get_account(&self, account: &str) -> CoreResult<Option<String>> {
+        Ok(self.keys().get(account).cloned())
     }
 
-    fn set(&self, service: ProviderId, key: &str) -> CoreResult<()> {
-        self.keys().insert(service, key.to_string());
+    fn set_account(&self, account: &str, key: &str) -> CoreResult<()> {
+        self.keys().insert(account.to_string(), key.to_string());
         Ok(())
     }
 
-    fn remove(&self, service: ProviderId) -> CoreResult<()> {
-        self.keys().remove(&service);
+    fn remove_account(&self, account: &str) -> CoreResult<()> {
+        self.keys().remove(account);
         Ok(())
     }
 }
@@ -51,19 +63,25 @@ pub fn account(service: ProviderId) -> &'static str {
     }
 }
 
+/// The keychain account of the OpenAI API key the Lab's image API uses.
+pub const OPENAI_ACCOUNT: &str = "openai-api-key";
+
 /// Trims a pasted key and refuses anything that cannot be one.
 pub fn clean_key(service: ProviderId, key: &str) -> CoreResult<String> {
+    clean_named_key(service.label(), key)
+}
+
+/// [`clean_key`] for a key named `label` ("OpenAI").
+pub fn clean_named_key(label: &str, key: &str) -> CoreResult<String> {
     let key = key.trim();
     if key.is_empty() {
         return Err(CoreError::Invalid(format!(
-            "Paste a {} API key first.",
-            service.label()
+            "Paste a {label} API key first."
         )));
     }
     if key.len() > 512 || key.chars().any(|c| c.is_whitespace() || c.is_control()) {
         return Err(CoreError::Invalid(format!(
-            "That does not look like a {} API key.",
-            service.label()
+            "That does not look like a {label} API key."
         )));
     }
     Ok(key.to_string())

@@ -2,8 +2,7 @@
 //! Manager, under the service `com.shironex.maquette`. Nothing else in
 //! the app ever writes a key down.
 
-use maquette_core::providers::ProviderId;
-use maquette_core::providers::secrets::{SecretStore, account};
+use maquette_core::providers::secrets::SecretStore;
 use maquette_core::{CoreError, CoreResult};
 
 pub const SERVICE: &str = "com.shironex.maquette";
@@ -54,25 +53,25 @@ fn unavailable(error: keyring_core::Error) -> CoreError {
     CoreError::Unavailable(format!("Could not use the keychain: {detail}."))
 }
 
-fn entry(service: ProviderId) -> CoreResult<keyring_core::Entry> {
-    keyring_core::Entry::new(SERVICE, account(service)).map_err(unavailable)
+fn entry(account: &str) -> CoreResult<keyring_core::Entry> {
+    keyring_core::Entry::new(SERVICE, account).map_err(unavailable)
 }
 
 impl SecretStore for KeychainStore {
-    fn get(&self, service: ProviderId) -> CoreResult<Option<String>> {
-        match entry(service)?.get_password() {
+    fn get_account(&self, account: &str) -> CoreResult<Option<String>> {
+        match entry(account)?.get_password() {
             Ok(key) => Ok(Some(key)),
             Err(keyring_core::Error::NoEntry) => Ok(None),
             Err(err) => Err(unavailable(err)),
         }
     }
 
-    fn set(&self, service: ProviderId, key: &str) -> CoreResult<()> {
-        entry(service)?.set_password(key).map_err(unavailable)
+    fn set_account(&self, account: &str, key: &str) -> CoreResult<()> {
+        entry(account)?.set_password(key).map_err(unavailable)
     }
 
-    fn remove(&self, service: ProviderId) -> CoreResult<()> {
-        match entry(service)?.delete_credential() {
+    fn remove_account(&self, account: &str) -> CoreResult<()> {
+        match entry(account)?.delete_credential() {
             Ok(()) | Err(keyring_core::Error::NoEntry) => Ok(()),
             Err(err) => Err(unavailable(err)),
         }
@@ -83,15 +82,15 @@ impl SecretStore for KeychainStore {
 pub struct NoKeychain(pub String);
 
 impl SecretStore for NoKeychain {
-    fn get(&self, _service: ProviderId) -> CoreResult<Option<String>> {
+    fn get_account(&self, _account: &str) -> CoreResult<Option<String>> {
         Ok(None)
     }
 
-    fn set(&self, _service: ProviderId, _key: &str) -> CoreResult<()> {
+    fn set_account(&self, _account: &str, _key: &str) -> CoreResult<()> {
         Err(CoreError::Unavailable(self.0.clone()))
     }
 
-    fn remove(&self, _service: ProviderId) -> CoreResult<()> {
+    fn remove_account(&self, _account: &str) -> CoreResult<()> {
         Ok(())
     }
 }
