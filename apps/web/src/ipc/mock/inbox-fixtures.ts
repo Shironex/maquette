@@ -184,6 +184,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     error: null,
     thumbnail: `${thumbs}/elsheria.webp`,
     thumbnailState: 'ready',
+    aim: null,
     link: null,
   };
   const gate: InboxItem = {
@@ -231,6 +232,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     error: null,
     thumbnail: `${thumbs}/veil-gate.webp`,
     thumbnailState: 'ready',
+    aim: null,
     link: null,
   };
   const crystals: InboxItem = {
@@ -296,6 +298,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     error: null,
     thumbnail: `${thumbs}/ice-crystals.webp`,
     thumbnailState: 'ready',
+    aim: null,
     link: {
       job: 'ice-crystals-1',
       project: 'frostveil',
@@ -320,6 +323,7 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
     error: 'This is not a glTF model. The file ends early; the download may still be running.',
     thumbnail: null,
     thumbnailState: 'fallback',
+    aim: null,
     link: null,
   };
   return [obelisk, elsheria, gate, crystals];

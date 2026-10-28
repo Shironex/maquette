@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { Arrival, PendingHandoff, WatchStatus } from '@/ipc/client';
-import { arrivalNotice, askingArrivals, sendOptions, watchLine } from './downloads';
+import type { Arrival, Asset, PendingHandoff, WatchStatus } from '@/ipc/client';
+import { stageLabels } from './game';
+import {
+  arrivalNotice,
+  askingArrivals,
+  assetChoices,
+  lookingArrivals,
+  waitingArrivals,
+  watchLine,
+} from './downloads';
 
 const arrival = (over: Partial<Arrival> = {}): Arrival => ({
   id: 'a1',
@@ -12,6 +20,7 @@ const arrival = (over: Partial<Arrival> = {}): Arrival => ({
   state: 'unmatched',
   job: null,
   project: null,
+  asset: null,
   assetName: null,
   reason: '2 sends are waiting',
   inboxFile: null,
@@ -26,6 +35,7 @@ const pending = (job: string, project: string, assetName: string): PendingHandof
   service: 'tripo',
   expectedName: `maq_${job}`,
   handoff: null,
+  image: `refs/${job.split('-')[0]!}.png`,
   credits: 30,
   createdAtMs: 0,
 });
@@ -71,16 +81,66 @@ describe('Downloads watcher words', () => {
     expect(askingArrivals(null)).toEqual([]);
   });
 
-  it('names sends by asset, with the project when there are several', () => {
-    const name = (id: string) => (id === 'moon' ? 'Frostveil' : 'Rooftop');
-    const one = [pending('lantern-1', 'moon', 'Lantern'), pending('cup-2', 'moon', 'Cup')];
-    expect(sendOptions(one, name).map(o => o.label)).toEqual(['Lantern', 'Cup']);
-    const two = [...one, pending('chair-1', 'roof', 'Chair')];
-    expect(sendOptions(two, name).map(o => o.label)).toEqual([
-      'Lantern (Frostveil)',
-      'Cup (Frostveil)',
-      'Chair (Rooftop)',
+  it('lists the assets to attach to, the waiting sends first, by search', () => {
+    const asset = (id: string, name: string, versions = 0): Asset => ({
+      id,
+      name,
+      kind: 'prop',
+      stage: versions ? 'blender' : 'refs',
+      status: 'queued',
+      versions: Array.from({ length: versions }, (_, i) => ({
+        version: i + 1,
+        file: `models/${id}_v${i + 1}.glb`,
+        createdAt: '',
+        stats: null,
+      })),
+      thumbnail: `thumbs/${id}.png`,
+      createdAt: '',
+      updatedAt: '',
+    });
+    const assets = [asset('orb', 'Orb shrine', 2), asset('lantern', 'Lantern post')];
+    const sends = [pending('lantern-1', 'moon', 'Lantern post'), pending('cup-1', 'roof', 'Cup')];
+    const all = assetChoices(assets, sends, 'moon', stageLabels('website'));
+    expect(all.map(c => [c.name, c.state, c.picture])).toEqual([
+      ['Lantern post', 'Waiting for its Tripo model', 'refs/lantern.png'],
+      ['Orb shrine', 'Blender, v2', 'thumbs/orb.png'],
     ]);
+    expect(assetChoices(assets, sends, 'moon', stageLabels('website'), 'orb door')).toHaveLength(0);
+    expect(
+      assetChoices(assets, sends, 'moon', stageLabels('website'), 'orb shr').map(c => c.name)
+    ).toEqual(['Orb shrine']);
+    expect(assetChoices([asset('cup', 'Cup')], [], 'moon', stageLabels('website'))[0]?.state).toBe(
+      'Refs, no model yet'
+    );
+  });
+
+  it('asks for a look at a close name before anything goes in', () => {
+    const look = arrival({
+      state: 'review',
+      assetName: 'Lantern post',
+      reason: 'Name close to Lantern post',
+    });
+    expect(arrivalNotice(look)).toMatchObject({
+      title: 'Is this Lantern post?',
+      ask: true,
+      action: 'Look',
+    });
+    expect(
+      arrivalNotice(
+        arrival({
+          state: 'attached',
+          assetName: 'Lantern post',
+          reason: 'You attached it to Lantern post',
+        })
+      )
+    ).toMatchObject({
+      status: 'done',
+      title: 'model.glb is in the Inbox for Lantern post',
+      ask: false,
+    });
+    const list = status({ arrivals: [arrival({ id: 'u' }), look] });
+    expect(lookingArrivals(list)).toEqual([look]);
+    expect(waitingArrivals(list).map(a => a.id)).toEqual(['a1', 'u']);
   });
 
   it('describes the watch in one line', () => {

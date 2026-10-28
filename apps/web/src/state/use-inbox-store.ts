@@ -11,7 +11,7 @@ import {
 import { fileUrl } from '@/ipc/files';
 import { useAppStore } from './use-app-store';
 import { usePrepareStore } from './use-prepare-store';
-import { contentKey, firstToReview } from './inbox';
+import { contentKey, firstToReview, goesTo } from './inbox';
 import { isStale, keepRenders, needsSnapshot, withThumbnail } from './thumbs';
 
 interface InboxStore {
@@ -124,9 +124,10 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
   accept: async (id, project) => {
     set({ busy: id });
     try {
-      // A model from a Send to 3D goes to the asset it was sent for.
-      const link = get().snapshot?.items.find(i => i.id === id)?.link;
-      const asset = link && link.project === project ? link.asset : null;
+      // A model from a Send to 3D (or a download attached to an asset) goes to that asset.
+      const item = get().snapshot?.items.find(i => i.id === id);
+      const goal = item ? goesTo(item) : null;
+      const asset = goal && goal.project === project ? goal.asset : null;
       // The Inbox draft replaces the asset's real size and fix-ups; without one it keeps them.
       const prepare = usePrepareStore.getState();
       const prep = prepare.drafts[id];

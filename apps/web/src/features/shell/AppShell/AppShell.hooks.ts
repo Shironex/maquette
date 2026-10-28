@@ -138,6 +138,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
   const reloadPrepare = usePrepareStore(s => s.reload);
   const loadDownloads = useDownloadsStore(s => s.load);
   const onArrival = useDownloadsStore(s => s.onArrival);
+  const onDownloadThumb = useDownloadsStore(s => s.onThumbnail);
   const loadBuilt = useBuiltStore(s => s.load);
   const onBuilt = useBuiltStore(s => s.onChanged);
   const onPageServer = usePageStore(s => s.onServer);
@@ -196,6 +197,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.thumbnailReady.listen(e => {
         onThumbnail(e.payload);
         onPreview(e.payload);
+        onDownloadThumb(e.payload);
         if (e.payload.project) setProject(e.payload.project);
       }),
       events.projectChanged.listen(e => {
@@ -224,6 +226,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
     loadInbox,
     onThumbnail,
     onPreview,
+    onDownloadThumb,
     setProject,
     onConcept,
     onAgents,

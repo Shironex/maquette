@@ -1,13 +1,20 @@
 /**
- * "Which asset is this?": downloads the watcher could not place on its
- * own. Pick the waiting send each one belongs to and it is copied into the
- * inbox (never moved), or leave it alone for good.
+ * The downloads the watcher would not place on its own: the ones whose
+ * name is only close to a waiting send's ("Needs a look") and the ones it
+ * could not place at all ("Which asset is this?"). Each is attached to an
+ * asset (sent to the Inbox for it, never moved) or left alone for good.
  */
 import { useArrivalPickerOpen } from './ArrivalPicker.hooks';
+import { AssetChooser } from './AssetChooser';
 import { PickerDialog } from './PickerDialog';
 
 export default function ArrivalPicker() {
-  const { open, close } = useArrivalPickerOpen();
+  const { open, chooserFor, close } = useArrivalPickerOpen();
   if (!open) return null;
-  return <PickerDialog onClose={close} />;
+  return (
+    <>
+      <PickerDialog onClose={close} />
+      {chooserFor ? <AssetChooser arrival={chooserFor} /> : null}
+    </>
+  );
 }

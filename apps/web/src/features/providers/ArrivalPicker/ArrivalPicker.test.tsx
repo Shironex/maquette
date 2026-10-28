@@ -8,7 +8,13 @@ import { ArrivalPicker } from '.';
 
 afterEach(() => {
   clearMocks();
-  useDownloadsStore.setState({ status: null, pickerOpen: false, choices: {}, busy: [] });
+  useDownloadsStore.setState({
+    status: null,
+    pickerOpen: false,
+    chooserFor: null,
+    previews: {},
+    busy: [],
+  });
   useProvidersStore.setState({ project: null, jobs: [] });
 });
 
@@ -21,7 +27,7 @@ async function openPicker() {
   });
   render(<ArrivalPicker />);
   useDownloadsStore.getState().openPicker();
-  return screen.findByRole('dialog', { name: 'Which asset is this?' });
+  return screen.findByRole('dialog', { name: 'New downloads' });
 }
 
 const jobState = async (id: string) => {
@@ -36,19 +42,18 @@ describe('Which asset is this?', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('adds a download to the send picked for it', async () => {
+  it('sends a download to the Inbox for the asset picked for it', async () => {
     const dialog = await openPicker();
     expect(within(dialog).getByText('model (3).glb')).toBeInTheDocument();
-    const add = within(dialog).getByRole('button', { name: 'Add to inbox' });
-    expect(add).toHaveAttribute('aria-disabled', 'true');
-
-    const select = within(dialog).getByRole('combobox', { name: 'Asset for model (3).glb' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Attach to an asset' }));
+    const chooser = await screen.findByRole('dialog', { name: 'Attach to an asset' });
     const job = useDownloadsStore.getState().status?.pending[0]?.job ?? '';
-    await userEvent.selectOptions(select, job);
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Add to inbox' }));
+    await userEvent.keyboard('{Enter}');
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(useDownloadsStore.getState().status?.arrivals[0]?.state).toBe('imported');
+    expect(chooser).not.toBeInTheDocument();
+    expect(useDownloadsStore.getState().status?.arrivals[0]?.state).toBe('attached');
+    // Like a named export: in the Inbox for the send, which accepting it closes.
     expect(await jobState(job)).toBe('inbox');
   });
 

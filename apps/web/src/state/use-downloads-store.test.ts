@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { waitFor } from '@testing-library/react';
 import type { Arrival } from '@/ipc/client';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { useAppStore } from './use-app-store';
@@ -6,7 +7,13 @@ import { useDownloadsStore } from './use-downloads-store';
 
 afterEach(() => {
   clearMocks();
-  useDownloadsStore.setState({ status: null, pickerOpen: false, choices: {}, busy: [] });
+  useDownloadsStore.setState({
+    status: null,
+    pickerOpen: false,
+    chooserFor: null,
+    previews: {},
+    busy: [],
+  });
   useAppStore.setState({ notice: null });
 });
 
@@ -20,6 +27,7 @@ const arrival = (over: Partial<Arrival>): Arrival => ({
   state: 'imported',
   job: 'guardian-statues-1',
   project: 'frostveil',
+  asset: 'guardian-statues',
   assetName: 'Lanterns',
   reason: 'Named for Lanterns',
   inboxFile: 'guardian-statues-1.glb',
@@ -52,10 +60,52 @@ describe('the Downloads store', () => {
     expect(useDownloadsStore.getState().pickerOpen).toBe(true);
   });
 
-  it('does nothing on Add to inbox before a send is picked', async () => {
+  it('offers a look for a close name, and Choose when it cannot tell', async () => {
     await openMockWorkspace('configured');
-    await useDownloadsStore.getState().assign('a1');
+    useDownloadsStore
+      .getState()
+      .onArrival(arrival({ state: 'review', reason: 'Name close to Lanterns' }));
+    expect(useAppStore.getState().notice).toMatchObject({ title: 'Is this Lanterns?' });
+    expect(useAppStore.getState().notice?.action?.label).toBe('Look');
+  });
+
+  it('attaches several downloads in a row, moving the chooser on, then closes', async () => {
+    await openMockWorkspace('configured', undefined, 'batch', undefined, 'look');
+    const store = useDownloadsStore.getState;
+    await waitFor(async () => {
+      await store().load();
+      expect(store().status?.arrivals).toHaveLength(3);
+    });
+    store().openPicker();
+    const [arch, rune] = store().status?.arrivals.filter(a => a.state === 'unmatched') ?? [];
+    store().openChooser(arch!.id);
+    expect(await store().attach(arch!.id, 'sigil-door')).toBe(true);
+    expect(store().chooserFor).toBe(rune!.id);
+    // It goes to the Inbox for the asset; nothing is accepted yet.
+    expect(store().status?.arrivals.find(a => a.id === arch!.id)).toMatchObject({
+      state: 'attached',
+      asset: 'sigil-door',
+      inboxFile: expect.stringMatching(/\.glb$/),
+    });
+    expect(
+      useAppStore.getState().workspace?.project?.assets?.find(a => a.id === 'sigil-door')?.versions
+    ).toHaveLength(0);
+    expect(await store().attach(rune!.id, 'step-ring')).toBe(true);
+    expect(store().chooserFor).toBeNull();
+    expect(store().pickerOpen).toBe(true);
+    // The last one, a look: Not this one closes the picker with nothing left.
+    const look = store().status?.arrivals.find(a => a.state === 'review');
+    await store().dismiss(look!.id);
+    expect(store().status?.arrivals.find(a => a.id === look!.id)?.reason).toBe(
+      'You said it is not Lantern post'
+    );
+    expect(store().pickerOpen).toBe(false);
+  });
+
+  it('refuses an attach while one is on its way, and says why one fails', async () => {
+    await openMockWorkspace('configured');
+    expect(await useDownloadsStore.getState().attach('nope', 'sigil-door')).toBe(false);
+    expect(useAppStore.getState().notice?.title).toBe('Could not attach that model');
     expect(useDownloadsStore.getState().busy).toEqual([]);
-    expect(useAppStore.getState().notice).toBeNull();
   });
 });

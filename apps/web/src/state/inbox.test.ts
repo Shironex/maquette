@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { inboxItems } from '@/ipc/mock/inbox-fixtures';
 import {
+  acceptTarget,
   checkSummary,
   firstToReview,
+  goesTo,
   itemChip,
   itemMeta,
   itemTitle,
@@ -41,6 +43,22 @@ describe('inbox helpers', () => {
     expect(reviewPrompt(character)).toMatch(/^Review the 1 failure/);
     expect(reviewPrompt(byId('rune_obelisk.glb'))).toContain('Reprocess');
     expect(itemMeta(byId('rune_obelisk.glb'))).toContain('not a glTF model');
+  });
+});
+
+describe('goesTo', () => {
+  it('sends an attached download to the asset it is aimed at', () => {
+    const projects = [
+      { id: 'frostveil', name: 'Frostveil' },
+      { id: 'academy', name: 'Academy' },
+    ];
+    const free = byId('veil_gate.glb');
+    expect(goesTo(free)).toBeNull();
+    expect(acceptTarget(free, projects, projects[0]!)).toBe(projects[0]);
+    const aim = { project: 'academy', asset: 'sigil-door', assetName: 'Sigil door' };
+    const aimed = { ...free, aim };
+    expect(goesTo(aimed)).toEqual(aim);
+    expect(acceptTarget(aimed, projects, projects[0]!)).toBe(projects[1]);
   });
 });
 

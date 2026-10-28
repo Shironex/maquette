@@ -3,7 +3,7 @@ import type { InboxItem, ProjectManifest } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import type { PreviewMode } from '@/features/viewer/ModelPreview';
 import { useNow } from '@/lib/useNow';
-import { acceptTarget, madeBy, sentFor, sortChecks } from '@/state/inbox';
+import { acceptTarget, goesTo, madeBy, sentFor, sortChecks } from '@/state/inbox';
 import { PROVIDER_LABEL, jobChip } from '@/state/providers';
 import { redoBlocker, redoUnderWay } from '@/state/redo';
 import { useAppStore } from '@/state/use-app-store';
@@ -26,14 +26,15 @@ export function useInboxDetail(item: InboxItem) {
     item
   );
   const project = acceptTarget(item, projects, current);
+  const goal = goesTo(item);
   const sentLabel = item.link
     ? sentFor(item, projects, current?.id ?? null, PROVIDER_LABEL[item.link.provider])
     : null;
   const maker = madeBy(item);
   const acceptTitle = !project
     ? 'Create a project first'
-    : item.link && item.link.project === project.id
-      ? `Adds a version to ${item.link.assetName}`
+    : goal && goal.project === project.id
+      ? `Adds a version to ${goal.assetName}`
       : `Moves it into ${project.name}`;
   return {
     now,

@@ -72,7 +72,8 @@ export function createInboxHandlers({
       if (req.prep) prepare.check(req.prep, 'The real size and fix-ups');
       const p = project(req.project);
       const assets = [...(p.assets ?? [])];
-      const assetId = req.asset ?? slugify(item.name);
+      const assetId =
+        req.asset ?? (item.aim?.project === p.id ? item.aim.asset : null) ?? slugify(item.name);
       let target = assets.find(a => a.id === assetId);
       const at = clock.now().toISOString();
       if (!target) {

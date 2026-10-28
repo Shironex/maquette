@@ -2,17 +2,34 @@
  * The Downloads watcher for mock mode: on, watching the fake Downloads
  * folder, with the waiting By hand sends as its pending hand-offs.
  * `?arrival=named` drops an export named for the first waiting send a
- * moment after the app opens (it is copied into the inbox), and
- * `?arrival=unmatched` drops "model (3).glb", which asks which asset it is.
+ * moment after the app opens (it is copied into the inbox),
+ * `?arrival=unmatched` drops "model (3).glb", which asks which asset it is,
+ * and `?arrival=look` drops a Tripo batch export whose name is only close
+ * to the Lantern post send (it waits for a look) and two that fit no send.
  */
-import type { Arrival, PendingHandoff, ProviderJob, WatchStatus } from '../client';
+import type {
+  Arrival,
+  DownloadPreview,
+  PendingHandoff,
+  ProjectManifest,
+  ProviderJob,
+  WatchStatus,
+} from '../client';
 import { clock } from '@/lib/clock';
-import { fail, type Args } from './backend-options';
-import { HOME } from './fixtures';
+import { expand, fail, type Args } from './backend-options';
+import { DEFAULT_ROOT, HOME } from './fixtures';
 import { exportName } from './handoff-card';
+import { thumbsDir } from './inbox-fixtures';
 
 const DOWNLOADS = `${HOME}/Downloads`;
 const ARRIVAL_MS = 1200;
+/** The renders mock mode serves as each download's thumbnail, by file name. */
+const PREVIEWS: Record<string, string> = {
+  'lantern post 3d model.glb': 'crystal-lantern.webp',
+  'frost arch 3d model.glb': 'observatory-arch.webp',
+  'rune circle 3d model.glb': 'veil-platform.webp',
+};
+const OPEN: readonly Arrival['state'][] = ['review', 'unmatched', 'failed'];
 
 function pendingOf(job: ProviderJob): PendingHandoff {
   return {
@@ -23,6 +40,7 @@ function pendingOf(job: ProviderJob): PendingHandoff {
     service: job.service,
     expectedName: job.card?.exportName || exportName(job),
     handoff: job.handoff,
+    image: job.images[0] ?? null,
     credits: job.card?.credits ?? null,
     createdAtMs: job.createdAtMs,
   };
@@ -31,6 +49,7 @@ function pendingOf(job: ProviderJob): PendingHandoff {
 export function createDownloadsHandlers({
   jobs,
   handBack,
+  project,
   emit,
   arrival = null,
   delayMs = ARRIVAL_MS,
@@ -38,6 +57,7 @@ export function createDownloadsHandlers({
   jobs: () => ProviderJob[];
   /** The provider mock's hand-back: copies a file into the inbox for a send. */
   handBack: (args: Args) => unknown;
+  project: (id: string) => ProjectManifest;
   emit: (arrival: Arrival) => void;
   arrival?: string | null;
   /** How long after opening the download lands. */
@@ -74,6 +94,7 @@ export function createDownloadsHandlers({
     state: 'unmatched',
     job: null,
     project: null,
+    asset: null,
     assetName: null,
     reason: '',
     inboxFile: null,
@@ -86,23 +107,68 @@ export function createDownloadsHandlers({
       state: 'imported',
       job: job.id,
       project: job.project,
+      asset: job.asset,
       assetName: job.assetName,
       reason,
       inboxFile: `${job.id}.glb`,
     });
   };
 
-  if (arrival === 'named' || arrival === 'unmatched') {
+  /** Tripo's batch export: one name close to a send, two that fit none. */
+  const batchExport = () => {
+    const lantern = waiting().find(j => j.assetName === 'Lantern post');
+    const asking = `${waiting().length} sends are waiting`;
+    remember({ ...file('rune circle 3d model.glb', 5), reason: asking });
+    remember({ ...file('frost arch 3d model.glb', 4), reason: asking });
+    if (!lantern) return;
+    remember({
+      ...file('lantern post 3d model.glb', 3),
+      state: 'review',
+      job: lantern.id,
+      project: lantern.project,
+      asset: lantern.asset,
+      assetName: lantern.assetName,
+      reason: `Name close to ${lantern.assetName}`,
+    });
+  };
+
+  if (arrival === 'named' || arrival === 'unmatched' || arrival === 'look') {
     setTimeout(() => {
       const [first] = waiting();
       if (!first) return;
       if (arrival === 'named') {
         take(file(`${exportName(first)}.glb`, 1), first, `Named for ${first.assetName}`);
+      } else if (arrival === 'look') {
+        batchExport();
       } else {
         remember({ ...file('model (3).glb', 2), reason: `${waiting().length} sends are waiting` });
       }
     }, delayMs);
   }
+
+  /**
+   * Sends a download to the Inbox for an asset, as the core does: for its
+   * newest waiting By hand send, or aimed at the asset when none waits.
+   */
+  const attach = (found: Arrival, projectId: string, assetId: string): Arrival => {
+    const [job] = waiting()
+      .filter(j => j.project === projectId && j.asset === assetId)
+      .sort((a, b) => (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0));
+    const target =
+      (project(projectId).assets ?? []).find(a => a.id === assetId) ??
+      fail('not-found', `Could not find the asset ${assetId}.`);
+    if (job) handBack({ id: job.id, file: found.path });
+    return remember({
+      ...found,
+      state: 'attached',
+      job: job?.id ?? null,
+      project: projectId,
+      asset: target.id,
+      assetName: target.name,
+      reason: `You attached it to ${target.name}`,
+      inboxFile: job ? `${job.id}.glb` : `download-${target.id}.glb`,
+    });
+  };
 
   const find = (id: unknown): Arrival =>
     arrivals.find(a => a.id === id) ?? fail('not-found', `Could not find the download ${id}.`);
@@ -116,17 +182,27 @@ export function createDownloadsHandlers({
       custom = typeof dir === 'string' && dir.trim() ? dir.trim() : null;
       return status();
     },
-    downloads_assign: ({ arrival: id, job: jobId }) => {
+    downloads_attach: ({ arrival: id, project: projectId, asset }) => {
       const found = find(id);
-      if (found.state !== 'unmatched' && found.state !== 'failed')
-        fail('invalid', `${found.name} was already taken care of.`);
-      const job =
-        waiting().find(j => j.id === jobId) ??
-        fail('invalid', `The send ${String(jobId)} is not waiting for a model.`);
-      return take(found, job, `You chose ${job.assetName}`);
+      if (!OPEN.includes(found.state)) fail('invalid', `${found.name} was already taken care of.`);
+      return attach(found, String(projectId), String(asset));
+    },
+    downloads_preview: ({ arrival: id }): DownloadPreview => {
+      const found = find(id);
+      const render = PREVIEWS[found.name];
+      return {
+        file: `${HOME}/Library/Application Support/Maquette/download-previews/${found.id}.glb`,
+        thumbnail: render ? `${thumbsDir(`${expand(DEFAULT_ROOT)}/inbox`)}/${render}` : null,
+        state: render ? 'ready' : 'fallback',
+      };
     },
     downloads_dismiss: ({ arrival: id }) => {
-      const next: Arrival = { ...find(id), state: 'dismissed', reason: 'Not a model for Maquette' };
+      const found = find(id);
+      const reason =
+        found.state === 'review' && found.assetName
+          ? `You said it is not ${found.assetName}`
+          : 'Not a model for Maquette';
+      const next: Arrival = { ...found, state: 'dismissed', reason };
       arrivals = arrivals.map(a => (a.id === next.id ? next : a));
       return next;
     },

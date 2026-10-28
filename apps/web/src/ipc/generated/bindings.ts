@@ -362,9 +362,21 @@ export const commands = {
 	 *  folder must exist; it is only ever read.
 	 */
 	downloadsWatchSet: (enabled: boolean, folder: string | null) => __TAURI_INVOKE<WatchStatus>("downloads_watch_set", { enabled, folder }),
-	/**  "Which asset is this?": copies a download into the inbox for `job`. */
-	downloadsAssign: (arrival: string, job: string) => __TAURI_INVOKE<Arrival>("downloads_assign", { arrival, job }),
-	/**  Leaves a download alone, and never asks about it again. */
+	/**
+	 *  Attaches a download (one waiting for a look, or asking which asset it
+	 *  is) to an asset: into the inbox for it, as a named export goes, where
+	 *  accepting it closes the asset's By hand sends still waiting.
+	 */
+	downloadsAttach: (arrival: string, project: string, asset: string) => __TAURI_INVOKE<Arrival>("downloads_attach", { arrival, project, asset }),
+	/**
+	 *  The thumbnail of a download waiting for a look or for its asset: the
+	 *  cached render, or one queued that arrives as `ThumbnailReady`.
+	 */
+	downloadsPreview: (arrival: string) => __TAURI_INVOKE<DownloadPreview>("downloads_preview", { arrival }),
+	/**
+	 *  Leaves a download alone ("Not this one", "Not a Maquette model"), and
+	 *  never asks about it again.
+	 */
 	downloadsDismiss: (arrival: string) => __TAURI_INVOKE<Arrival>("downloads_dismiss", { arrival }),
 	mcpStatus: () => __TAURI_INVOKE<McpStatus>("mcp_status"),
 	/**
@@ -426,8 +438,9 @@ export type AcceptRequest = {
 	item: string,
 	project: string,
 	/**
-	 *  An existing asset to add a version to. Without it, an asset named
-	 *  `name` (or the item's name) is found or created.
+	 *  An existing asset to add a version to. Without it, the asset the
+	 *  item is aimed at, else an asset named `name` (or the item's name),
+	 *  found or created.
 	 */
 	asset: string | null,
 	name: string | null,
@@ -553,8 +566,14 @@ export type Arrival = {
 	bytes: number | null,
 	atMs: number | null,
 	state: ArrivalState,
+	/**
+	 *  The send it went to, or, while it waits for a look, the one it
+	 *  looks like.
+	 */
 	job: string | null,
 	project: string | null,
+	/**  The asset id, with `asset_name`. */
+	asset: string | null,
 	assetName: string | null,
 	/**  Why it matched, or why it was not taken, in a few words. */
 	reason: string,
@@ -566,8 +585,18 @@ export type Arrival = {
 export type ArrivalState = 
 /**  Copied into the inbox for its send. */
 "imported" | 
+/**
+ *  Its name is close to a waiting send's (or it is the only send
+ *  waiting): it waits for you to look before it goes anywhere.
+ */
+"review" | 
 /**  Waiting for you to say which asset it is. */
 "unmatched" | 
+/**
+ *  You attached it to an asset: in the inbox for it, as a named
+ *  export would be.
+ */
+"attached" | 
 /**  An FBX: the inbox checks read GLB, so it was left alone. */
 "needs-glb" | 
 /**  Matched, but the file could not be read as a model. */
@@ -1282,9 +1311,17 @@ export type DownloadMatch = {
 	reason: string | null,
 };
 
+/**  A download's thumbnail, rendered headless from a GLB copy of it. */
+export type DownloadPreview = {
+	/**  The copy the render is made from: `ThumbnailReady` names it. */
+	file: string,
+	thumbnail: string | null,
+	state: ThumbState,
+};
+
 /**
  *  The Downloads watcher took a look at a new model file: copied it into
- *  the inbox, or asks which asset it is.
+ *  the inbox, holds it for a look, or asks which asset it is.
  */
 export type DownloadsArrival = Arrival;
 
@@ -1627,6 +1664,13 @@ export type ImportScan = {
 	toolScripts: string[],
 };
 
+/**  The asset an inbox model goes to by default. */
+export type InboxAim = {
+	project: string,
+	asset: string,
+	assetName: string,
+};
+
 /**  Models in the inbox folder were added, changed or removed. */
 export type InboxChanged = {
 	paths: string[],
@@ -1661,6 +1705,8 @@ export type InboxItem = {
 	thumbnailState: ThumbState,
 	/**  The Send to 3D this model came from, when its name matches one. */
 	link: InboxLink | null,
+	/**  The asset it was attached to without a send, which Accept defaults to. */
+	aim: InboxAim | null,
 };
 
 /**  An inbox model that came from a send. */
@@ -2486,6 +2532,8 @@ export type PendingHandoff = {
 	expectedName: string,
 	/**  The handoff folder (absolute), with `send.json` in it. */
 	handoff: string | null,
+	/**  The front ref it was sent with, relative to the project folder. */
+	image: string | null,
 	/**  About what the site charges, from a subscription. */
 	credits: number | null,
 	createdAtMs: number | null,

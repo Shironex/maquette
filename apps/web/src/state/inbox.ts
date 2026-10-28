@@ -72,8 +72,19 @@ export function acceptTarget<P extends NamedProject>(
   projects: readonly P[],
   current: P | null
 ): P | null {
-  const home = item.link ? projects.find(p => p.id === item.link?.project) : undefined;
+  const goal = goesTo(item);
+  const home = goal ? projects.find(p => p.id === goal.project) : undefined;
   return home ?? current;
+}
+
+/**
+ * The asset an item goes to on Accept: the one its send was for, else the
+ * one a download was attached to without a send. Null for a free model.
+ */
+export function goesTo(
+  item: InboxItem
+): { project: string; asset: string; assetName: string } | null {
+  return item.link ?? item.aim;
 }
 
 /** "Lantern, Tripo", with the project named when it is not the open one. */
