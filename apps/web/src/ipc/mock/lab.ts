@@ -80,12 +80,7 @@ export function createFakeLab(options: FakeLabOptions) {
   const directions = new Map<string, Direction[]>([
     ['frostveil', options.style === 'board' ? markStyled(seeded) : seeded],
   ]);
-  const styles = createStyleBoards({
-    projectDir: options.projectDir,
-    files: options.files,
-    fail,
-    state: options.style,
-  });
+  const styles = createStyleBoards(options);
   const refs = new Map<string, RefImage[]>([
     ['frostveil', [...labRefs(), ...(batch ? objectRefs() : [])]],
   ]);
@@ -194,6 +189,36 @@ export function createFakeLab(options: FakeLabOptions) {
     pump();
   }
 
+  /** Queues one job per title in a saved direction, numbered after its images and jobs. */
+  function enqueue(project: string, direction: Direction, titles: (string | null)[]) {
+    const { id, name, styleRevision } = direction;
+    const taken = [
+      ...direction.images.map(i => i.index),
+      ...jobs.filter(j => j.direction === id).map(j => j.index),
+    ];
+    const first = Math.max(0, ...taken) + 1;
+    const stamp = clock.nowMs().toString(16);
+    titles.forEach((title, n) => {
+      const index = first + n;
+      const two = String(index).padStart(2, '0');
+      const job = queuedJob({
+        id: `${id}-${two}-${stamp}`,
+        runId: `concepts-run-${stamp}-${n}`,
+        project,
+        direction: id,
+        directionName: name,
+        index,
+        file: `concepts/${id}/${id}_${two}.png`,
+        title,
+        styleRevision,
+      });
+      jobs = [...jobs, job];
+      emit({ type: 'job', job });
+    });
+    pump();
+    return view(project);
+  }
+
   function generate(request: NewConcepts) {
     const name = request.direction.trim();
     if (!name) fail('invalid', 'Name the direction.');
@@ -203,7 +228,6 @@ export function createFakeLab(options: FakeLabOptions) {
     const id = slug(name);
     const at = clock.now().toISOString();
     const existing = list(request.project).find(d => d.id === id);
-    const styleRevision = styles.forJob(request.project, request.useStyle)?.revision ?? null;
     const direction = saveDirection(request.project, {
       id,
       name,
@@ -215,34 +239,9 @@ export function createFakeLab(options: FakeLabOptions) {
       updatedAt: at,
       source: existing?.source ?? null,
       kind: existing?.kind ?? null,
-      styleOff: request.useStyle === false,
-      styleRevision,
+      ...styles.stamp(request.project, request.useStyle),
     });
-    const taken = [
-      ...direction.images.map(i => i.index),
-      ...jobs.filter(j => j.direction === id).map(j => j.index),
-    ];
-    const first = Math.max(0, ...taken) + 1;
-    const stamp = clock.nowMs().toString(16);
-    for (let n = 0; n < request.count; n += 1) {
-      const index = first + n;
-      const two = String(index).padStart(2, '0');
-      const job = queuedJob({
-        id: `${id}-${two}-${stamp}`,
-        runId: `concepts-run-${stamp}-${n}`,
-        project: request.project,
-        direction: id,
-        directionName: name,
-        index,
-        file: `concepts/${id}/${id}_${two}.png`,
-        title: null,
-      });
-      job.styleRevision = styleRevision;
-      jobs = [...jobs, job];
-      emit({ type: 'job', job });
-    }
-    pump();
-    return view(request.project);
+    return enqueue(request.project, direction, Array<string | null>(request.count).fill(null));
   }
 
   /** Mirrors `concepts::objects`: one titled job per object, the concept attached. */
@@ -259,7 +258,6 @@ export function createFakeLab(options: FakeLabOptions) {
     const id = slug(name);
     const at = clock.now().toISOString();
     const existing = list(request.project).find(d => d.id === id);
-    const styleRevision = styles.forJob(request.project, request.useStyle)?.revision ?? null;
     const direction = saveDirection(request.project, {
       id,
       name,
@@ -271,34 +269,9 @@ export function createFakeLab(options: FakeLabOptions) {
       updatedAt: at,
       source: request.source,
       kind: request.kind,
-      styleOff: request.useStyle === false,
-      styleRevision,
+      ...styles.stamp(request.project, request.useStyle),
     });
-    const taken = [
-      ...direction.images.map(i => i.index),
-      ...jobs.filter(j => j.direction === id).map(j => j.index),
-    ];
-    const first = Math.max(0, ...taken) + 1;
-    const stamp = clock.nowMs().toString(16);
-    names.forEach((title, n) => {
-      const index = first + n;
-      const two = String(index).padStart(2, '0');
-      const job = queuedJob({
-        id: `${id}-${two}-${stamp}`,
-        runId: `concepts-run-${stamp}-${n}`,
-        project: request.project,
-        direction: id,
-        directionName: name,
-        index,
-        file: `concepts/${id}/${id}_${two}.png`,
-        title: title,
-      });
-      job.styleRevision = styleRevision;
-      jobs = [...jobs, job];
-      emit({ type: 'job', job });
-    });
-    pump();
-    return view(request.project);
+    return enqueue(request.project, direction, names);
   }
 
   function cancel(id: string) {

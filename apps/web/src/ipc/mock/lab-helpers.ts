@@ -13,8 +13,10 @@ export const queuedJob = (
   given: Pick<
     ConceptJob,
     'id' | 'runId' | 'project' | 'direction' | 'directionName' | 'index' | 'file' | 'title'
-  >
+  > &
+    Partial<Pick<ConceptJob, 'styleRevision'>>
 ): ConceptJob => ({
+  styleRevision: null,
   ...given,
   state: 'queued',
   queuedAtMs: clock.nowMs(),
@@ -27,7 +29,6 @@ export const queuedJob = (
   retryAtMs: null,
   usageLimit: false,
   retries: 0,
-  styleRevision: null,
 });
 
 export const finished = (job: ConceptJob) =>

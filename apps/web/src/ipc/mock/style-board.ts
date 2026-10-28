@@ -20,7 +20,7 @@ export interface StyleBoardOptions {
   files?: { alias: (path: string, from: string) => void };
   fail: (code: string, message: string) => never;
   /** `board`: Frostveil has a style board. */
-  state?: string | null;
+  style?: string | null;
 }
 
 /** The seeded board's images: the copy in `style/` and the concept or ref it came from. */
@@ -71,7 +71,7 @@ const stem = (path: string) =>
 export function createStyleBoards(options: StyleBoardOptions) {
   const { fail } = options;
   const boards = new Map<string, StyleBoard>();
-  if (options.state === 'board') {
+  if (options.style === 'board') {
     const board = frostveilStyleBoard();
     boards.set('frostveil', board);
     const dir = options.projectDir('frostveil');
@@ -155,5 +155,11 @@ export function createStyleBoards(options: StyleBoardOptions) {
     return useStyle === false || isStyleEmpty(current) ? null : current;
   };
 
-  return { board, set, forJob };
+  /** What a new direction records: whether the board was off, and the revision it carries. */
+  const stamp = (project: string, useStyle: boolean | undefined) => ({
+    styleOff: useStyle === false,
+    styleRevision: forJob(project, useStyle)?.revision ?? null,
+  });
+
+  return { board, set, forJob, stamp };
 }
