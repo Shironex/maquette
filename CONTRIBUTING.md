@@ -105,11 +105,12 @@ Types are the usual ones: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `c
 1. Branch from `main` (`fix/short-name`, `feat/short-name`).
 2. Keep the change focused and the commits small. Add or update tests with the code.
 3. Run `pnpm gate` (and `pnpm visual` for UI) until both are clean.
-4. Open the PR with a conventional title in the same shape as a commit; it becomes the squash
+4. Open the PR with a conventional title in the same shape as a commit; it becomes the merge
    commit. Fill in the template and link the issue with `Closes #N`.
 5. The PR gets the labels of the issue it closes (type, priority and `area:*`).
 
-Pull requests are squash merged.
+Pull requests are merged with a merge commit, so every commit of the branch stays in the history.
+Keep each one a small conventional commit; commitlint checks them as you commit.
 
 ## Reporting
 

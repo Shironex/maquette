@@ -31,7 +31,7 @@ Settings > General:
       GitHub has no API for it, so it is a by hand upload. Use the hero image from the README so the
       two match.
 - [ ] **Features:** Issues on, Discussions on, Wikis off, Projects off.
-- [ ] **Pull requests:** allow squash merging only, default the commit message to the PR title, and
+- [ ] **Pull requests:** allow merge commits only, with the PR title and body as the merge commit, and
       turn on "Automatically delete head branches".
 - [ ] **Pages:** Settings > Pages > Source is "GitHub Actions"; the `pages` workflow deploys
       `apps/site`.
@@ -55,9 +55,9 @@ the default branch:
 - [ ] Restrict deletions.
 - [ ] Block force pushes (non fast forward).
 - [ ] Require a pull request before merging, zero required approvals (a single maintainer cannot
-      approve their own PR), allow squash only.
+      approve their own PR), allow merge only.
 - [ ] Require status checks to pass. Add them after the first green run on a pull request, so
-      GitHub can offer the names (each is a job name, see [CI](#ci)): - `lint · format` - `typecheck` - `test · web` - `build · site` - `rust · macos-latest` - `rust · windows-latest` - `pr title`
+      GitHub can offer the names (each is a job name, see [CI](#ci)): - `lint · format` - `typecheck` - `test · web` - `build · site` - `rust · macos-latest` - `rust · windows-latest` - `pr title` - `commits`
 
       Leave `area labels` and `issue labels` out: they only add labels, and `area labels` skips
       on an edit of the title or body.
@@ -113,7 +113,7 @@ needs.
   as they do on any machine without it. After the tests, the macOS job fails if
   `apps/web/src/ipc/generated` changed, which means the IPC bindings were not regenerated and
   committed. A new push to a PR cancels the run it replaces.
-- **`pr-title.yml`** checks the title the squash commit takes: `type(scope): lowercase summary`
+- **`pr-title.yml`** checks the title the merge commit takes: `type(scope): lowercase summary`
   with a type from `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`, `build`, `perf`, a
   scope from `commitlint.config.mjs` (always required), and at most 100 characters. A new scope
   goes into both files. Dependabot's titles (`ci(deps): ...`, `build(deps): ...`) pass as they are.
