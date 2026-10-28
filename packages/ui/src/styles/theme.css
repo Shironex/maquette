@@ -10,13 +10,13 @@
   --line-strong: #4d4a44;
   --text: #e9e5dc;
   --text-dim: #b9b3a7;
-  --text-mute: #9a9488;
+  --text-mute: #a6a094;
   --clay: #c47d60;
   --clay-hover: #d08c6f;
-  --clay-text: var(--clay-hover);
+  --clay-text: #dc9a7e;
   --clay-ink: #1f1410;
   --clay-soft: rgba(196,125,96,0.14);
-  --sage: #8fa58c;
+  --sage: #98ae95;
   --sage-soft: rgba(143,165,140,0.14);
   --amber: #d6b374;
   --amber-soft: rgba(214,179,116,0.14);
