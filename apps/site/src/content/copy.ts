@@ -236,6 +236,39 @@ export const SHOTS = {
   },
 } satisfies Record<string, Shot>;
 
+/**
+ * The published release the Download section links to. A new release is this
+ * object: version, date, and the two file names and byte sizes. The URLs follow
+ * from them; `latest/download/<file>` would break, as the file name carries the version.
+ */
+const REPO_URL = 'https://github.com/Shironex/maquette';
+const VERSION = '0.1.0';
+const DOWNLOAD_BASE = `${REPO_URL}/releases/download/v${VERSION}`;
+
+/** Bytes as megabytes with one decimal ("13.9 MB"). */
+export function formatMegabytes(bytes: number): string {
+  return `${(bytes / 1_000_000).toFixed(1)} MB`;
+}
+
+export const release = {
+  version: VERSION,
+  date: '28 Oct 2026',
+  notesUrl: `${REPO_URL}/releases/tag/v${VERSION}`,
+  allUrl: `${REPO_URL}/releases`,
+  mac: {
+    file: `Maquette_${VERSION}_aarch64.dmg`,
+    bytes: 14_544_020,
+    note: 'Apple silicon',
+    url: `${DOWNLOAD_BASE}/Maquette_${VERSION}_aarch64.dmg`,
+  },
+  windows: {
+    file: `Maquette_${VERSION}_x64-setup.exe`,
+    bytes: 10_935_785,
+    note: 'x64',
+    url: `${DOWNLOAD_BASE}/Maquette_${VERSION}_x64-setup.exe`,
+  },
+} as const;
+
 export const NAV = [
   { href: '#features', label: 'Features' },
   { href: '#pipeline', label: 'Pipeline' },

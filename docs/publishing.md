@@ -179,8 +179,9 @@ carries the new public key, then sign with the new key from the next release on.
 Done on 2026-10-27: `pubkey` under `plugins.updater` in `apps/desktop/src-tauri/tauri.conf.json`
 holds the whole content of `updater.key.pub` (one base64 line, key id DDAA4D2DC9F23829), next to
 the endpoint `https://github.com/Shironex/maquette/releases/latest/download/latest.json`. Release
-builds now check the feed; a debug build and `MAQUETTE_NO_UPDATER=1` still keep it off. Until the
-first public release the feed answers 404, which About shows as no release out yet. The test
+builds now check the feed; a debug build and `MAQUETTE_NO_UPDATER=1` still keep it off. Before
+the first public release the feed answered 404; v0.1.0 (28 Oct 2026) is the first, so it now
+answers with `latest.json`. The test
 `the_shipped_config_has_the_feed_and_the_key` in `apps/desktop/src-tauri/src/updater/tests.rs` pins
 it. A new key means changing both in one commit, and only through the rotation above.
 
@@ -247,7 +248,9 @@ the key from `~/.maquette-keys/updater.key` and asks for the password without pr
 - [ ] Environment `release` created, deployment tags `v*`, required reviewer set.
 - [ ] Both secrets added to that environment (not to the repository secrets).
 
-### The first release with updates
+### The first release with updates (v0.1.0, done 2026-10-28)
+
+The checklist stays for reference; keep it for the next key or repository change.
 
 - [ ] The repository is public: release assets of a private repo answer 404, which the app treats
       as "no release yet".

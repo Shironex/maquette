@@ -10,7 +10,8 @@
     <img src="https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white" alt="Tauri 2" />
     <img src="https://img.shields.io/badge/Rust-1.94-b7410e?logo=rust&logoColor=white" alt="Rust 1.94" />
     <img src="https://img.shields.io/badge/License-AGPL--3.0-blue" alt="License: AGPL-3.0" />
-    <img src="https://img.shields.io/badge/Status-not%20released%20yet-orange" alt="Status: not released yet" />
+    <a href="https://github.com/Shironex/maquette/releases/latest"><img src="https://img.shields.io/github/v/release/Shironex/maquette?label=Release" alt="Latest release" /></a>
+    <img src="https://img.shields.io/badge/Status-early%20development-orange" alt="Status: early development" />
   </p>
 
   <p>
@@ -191,9 +192,13 @@ Maquette runs on macOS and Windows. It calls tools you already have and checks f
 
 Sending to Tripo or Meshy over their API needs that provider's API key, saved in Settings > 3D providers; By hand needs no key.
 
-## Install and develop
+## Install
 
-There is no public build yet, so Maquette runs from source. It needs Node 22.12 or newer, pnpm 10 and the Rust toolchain pinned in `rust-toolchain.toml` (1.94.1), plus the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS.
+Download the latest build from the [releases page](https://github.com/Shironex/maquette/releases) (v0.1.0 is the first one): `Maquette_0.1.0_aarch64.dmg` for macOS on Apple silicon, or `Maquette_0.1.0_x64-setup.exe` for Windows x64. The builds are not signed by Apple or Microsoft yet, so the first launch asks once: on macOS open System Settings > Privacy & Security and choose Open Anyway, on Windows choose More info > Run anyway in SmartScreen. Updates through the app do not ask again. The [install guide](https://shironex.github.io/maquette/docs/start/install/) has the details.
+
+## Develop
+
+To run Maquette from source you need Node 22.12 or newer, pnpm 10 and the Rust toolchain pinned in `rust-toolchain.toml` (1.94.1), plus the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS.
 
 ```sh
 pnpm install

@@ -7,11 +7,11 @@ sidebar:
 
 Maquette checks for a newer version of itself, downloads it when you say so, and restarts into it. Nothing installs without a click.
 
-## Until the first release
+## Where it stands
 
-The app carries the key that signs updates, so a release build already checks for them. There is no public release to update to yet: until the first one, a check finds nothing and Settings > About says no release is out for this computer yet. Until then, run a new version from source as in [Install](/docs/start/install/).
+v0.1.0 is the first release, so a check right now finds that you are on the current version. When a newer release is published, it arrives through Settings > About, as described below. To run a newer commit before that, build from source as in [Install](/docs/start/install/).
 
-## How it works once it is on
+## How it works
 
 - **The feed.** Every release on GitHub carries a `latest.json` file that names the version, its notes and one download per platform. The app reads `https://github.com/Shironex/maquette/releases/latest/download/latest.json`.
 - **When it checks.** Ten seconds after launch, then every six hours, and whenever you press Check now in Settings > About. A check that fails offline stays quiet.
@@ -40,4 +40,4 @@ A check is one plain request for `latest.json` to GitHub, and a download fetches
 
 ## macOS and Windows
 
-The first install comes from a browser download, so macOS asks you to allow it under System Settings > Privacy & Security, and Windows SmartScreen asks once. Updates after that come through the app and do not ask again.
+The builds are not signed by Apple or Microsoft yet, so the first install asks once: on macOS, Open Anyway under System Settings > Privacy & Security, and on Windows, More info > Run anyway in SmartScreen. Updates after that come through the app and do not ask again.

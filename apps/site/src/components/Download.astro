@@ -1,6 +1,6 @@
 ---
 import { Icon } from '@maquette/ui';
-import { SHOTS } from '../content/copy';
+import { SHOTS, release, formatMegabytes } from '../content/copy';
 ---
 
 <section id="download" class="download" aria-labelledby="download-title">
@@ -15,14 +15,21 @@ import { SHOTS } from '../content/copy';
       A desktop app for macOS and Windows. Open this page on your computer to download.
     </p>
     <div class="buttons">
-      <a class="btn btn-primary" href="#download"
+      <a class="btn btn-primary" href={release.mac.url}
         >Download for Mac<Icon name="download-simple" size={18} /></a
       >
-      <a class="btn btn-secondary" href="#download"
+      <a class="btn btn-secondary" href={release.windows.url}
         >Download for Windows<Icon name="download-simple" size={18} /></a
       >
     </div>
-    <p class="release">Not released yet · version and file size come with the first build</p>
+    <p class="release">
+      v{release.version} · {release.date} · {formatMegabytes(release.mac.bytes)} for Mac ({release.mac.note})
+      · {formatMegabytes(release.windows.bytes)} for Windows ({release.windows.note})
+    </p>
+    <p class="release">
+      <a href={release.notesUrl}>Release notes</a> · <a href={release.allUrl}>All releases</a> · Not
+      signed by Apple or Microsoft yet, so the first launch asks once
+    </p>
   </div>
   <div class="plinth">
     <img
@@ -70,6 +77,11 @@ import { SHOTS } from '../content/copy';
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text-mute);
+  }
+  .release a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .plinth {
     max-width: 1240px;

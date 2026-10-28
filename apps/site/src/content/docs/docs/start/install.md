@@ -5,11 +5,31 @@ sidebar:
   label: Install
 ---
 
-Maquette is a desktop app for macOS and Windows, built with Tauri 2. There is no public download yet: the landing page says "Not released yet". Until the first build is out, you run it from source.
+Maquette is a desktop app for macOS and Windows, built with Tauri 2. The first release, v0.1.0, is out on [GitHub Releases](https://github.com/Shironex/maquette/releases/tag/v0.1.0). It is early, so expect bugs and back up your workspace before you update.
+
+## Install a release
+
+Download the file for your computer from the [release page](https://github.com/Shironex/maquette/releases/tag/v0.1.0).
+
+| System               | File                           |
+| -------------------- | ------------------------------ |
+| macOS, Apple silicon | `Maquette_0.1.0_aarch64.dmg`   |
+| Windows, x64         | `Maquette_0.1.0_x64-setup.exe` |
+
+Open the `.dmg` and drag Maquette to Applications, or run the setup file.
+
+### The first launch
+
+The builds are not signed by Apple or Microsoft yet, so your system asks once.
+
+- **macOS.** If it says the app cannot be opened, open System Settings > Privacy & Security, find the message about Maquette and choose Open Anyway.
+- **Windows.** If SmartScreen stops it, choose More info, then Run anyway.
+
+Updates that come through the app do not ask again. See [Updates](/docs/start/updates/).
 
 ## Run it from source
 
-You need Node 22.12 or newer, pnpm 10 and the Rust toolchain pinned in `rust-toolchain.toml`.
+For contributors, or to try the latest `main`. You need Node 22.12 or newer, pnpm 10 and the Rust toolchain pinned in `rust-toolchain.toml`.
 
 ```sh
 pnpm install
