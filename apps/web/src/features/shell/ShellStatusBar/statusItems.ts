@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { StatusBarItem, StatusDot } from '@maquette/ui';
 import type {
+  CodexUsage,
   ConceptJob,
   InboxSnapshot,
   ProviderJob,
@@ -10,6 +11,7 @@ import type {
   WorkspaceSnapshot,
 } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
+import { usageLabel, usageTone, type UsageTone } from '@/state/codex-usage';
 import { serverHost } from '@/state/page';
 import { runStatusLine, runSummary } from '@/state/pipeline';
 import type { ViewId } from '@/state/views';
@@ -35,15 +37,39 @@ export interface ShellStatus {
   /** How many clips the animation library holds, and where, once loaded. */
   animationClips?: number | null;
   animationsDir?: string | null;
+  /** The last Codex usage read. */
+  codexUsage?: CodexUsage | null;
+  /** Draws the Codex usage item as a control (a read on click, the resets in its tooltip). */
+  codexControl?: (usage: CodexUsage) => ReactNode;
 }
 
-function codexItems(view: ViewId, codex: ToolReport | undefined): StatusBarItem[] {
+/** Codex CLI's state in the Lab; a known usage read says it is signed in already. */
+function codexItems(
+  view: ViewId,
+  codex: ToolReport | undefined,
+  usage: CodexUsage | null | undefined
+): StatusBarItem[] {
   if (view !== 'lab' || !codex) return [];
+  if (codex.status === 'found' && usage?.known) return [];
   return [
     codex.status === 'found'
       ? { label: 'Codex CLI, signed in', icon: 'terminal-window' }
       : { label: 'Codex CLI not ready', dot: 'offline' },
   ];
+}
+
+const USAGE_DOT: Record<UsageTone, StatusDot> = { ok: 'ok', warn: 'running', limit: 'offline' };
+
+/** "Codex 16% (5h) · 3% (week)", in the Lab and while its images generate. */
+function codexUsageItems(s: ShellStatus): StatusBarItem[] {
+  const usage = s.codexUsage;
+  const live = s.labJobs.some(
+    j => j.state !== 'done' && j.state !== 'failed' && j.state !== 'cancelled'
+  );
+  if (!usage || (s.view !== 'lab' && !live)) return [];
+  const item: StatusBarItem = { label: usageLabel(usage), dot: USAGE_DOT[usageTone(usage)] };
+  const node = s.codexControl?.(usage);
+  return [node ? { ...item, node } : item];
 }
 
 function labItems(jobs: readonly ConceptJob[]): StatusBarItem[] {
@@ -153,7 +179,7 @@ function pageItems(s: ShellStatus): StatusBarItem[] {
   return [node ? { ...item, node } : item];
 }
 
-/** The status bar line, left to right: worker, tools, agents, inbox, library, Lab, sends, the site dev page, then the run. */
+/** The status bar line, left to right: worker, tools, agents, Codex usage, inbox, library, Lab, sends, the site dev page, then the run. */
 export function shellStatusItems(s: ShellStatus): StatusBarItem[] {
   return [
     { label: 'Local worker connected', dot: 'ok' },
@@ -164,8 +190,10 @@ export function shellStatusItems(s: ShellStatus): StatusBarItem[] {
     ...(s.mcp ? [s.mcp] : []),
     ...codexItems(
       s.view,
-      s.reports.find(r => r.id === 'codex')
+      s.reports.find(r => r.id === 'codex'),
+      s.codexUsage
     ),
+    ...codexUsageItems(s),
     ...(s.view === 'lab' ? [] : inboxItems(s.inbox, s.workspace)),
     ...libraryItems(s),
     ...animationItems(s),

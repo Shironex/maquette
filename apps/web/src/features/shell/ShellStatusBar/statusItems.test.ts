@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ConceptJob, ProviderJob, RunRecord, ServerStatus, ToolReport } from '@/ipc/client';
+import { mockUsage } from '@/ipc/mock/create-codex-usage-handlers';
 import { shellStatusItems, type ShellStatus } from './statusItems';
 
 const base: ShellStatus = {
@@ -67,6 +68,25 @@ describe('the shell status items', () => {
     expect(labels({ reports })).not.toContain('Codex CLI not ready');
     expect(labels({ reports, view: 'lab' })).toContain('Codex CLI not ready');
     expect(labels({ reports, checking: true })).toContain('Checking tools');
+  });
+
+  it('shows the Codex usage in the Lab and while its images generate', () => {
+    const codexUsage = mockUsage('low', 0);
+    const item = (s: Partial<ShellStatus>) =>
+      shellStatusItems({ ...base, codexUsage, ...s }).find(i => i.label.startsWith('Codex '));
+    expect(item({ view: 'lab' })).toEqual({ label: 'Codex 86% (5h) · 41% (week)', dot: 'running' });
+    expect(item({})).toBeUndefined();
+    const running = { state: 'running' } as ConceptJob;
+    expect(item({ labJobs: [running] })?.label).toBe('Codex 86% (5h) · 41% (week)');
+    expect(item({ view: 'lab', codexUsage: mockUsage('limit', 0) })?.dot).toBe('offline');
+    expect(item({ view: 'lab', codexUsage: mockUsage('ok', 0) })?.dot).toBe('ok');
+    // A known read stands in for "Codex CLI, signed in".
+    const reports = [{ id: 'codex', status: 'found' }] as ToolReport[];
+    const lab = shellStatusItems({ ...base, view: 'lab', reports, codexUsage }).map(i => i.label);
+    expect(lab).not.toContain('Codex CLI, signed in');
+    expect(labels({ view: 'lab', reports })).toContain('Codex CLI, signed in');
+    const drawn = item({ view: 'lab', codexControl: u => `control ${u.plan}` });
+    expect(drawn?.node).toBe('control plus');
   });
 
   it('counts the images generating and waiting', () => {

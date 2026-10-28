@@ -6,6 +6,7 @@ import { useAppStore } from '@/state/use-app-store';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useAnimationsStore } from '@/state/use-animations-store';
+import { useCodexUsageStore } from '@/state/use-codex-usage-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { usePageStore } from '@/state/use-page-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
@@ -13,10 +14,14 @@ import { useProvidersStore } from '@/state/use-providers-store';
 import { shellStatusItems, type ShellStatus } from './statusItems';
 
 /**
- * The status bar items, from the tools, the Lab, the inbox, the sends and
- * the last run; `siteControl` draws the site dev server's item.
+ * The status bar items, from the tools, the Lab, the Codex usage, the inbox,
+ * the sends and the last run; `siteControl` draws the site dev server's item
+ * and `codexControl` the Codex usage.
  */
-export function useShellStatusBar(siteControl?: ShellStatus['siteControl']) {
+export function useShellStatusBar(
+  siteControl?: ShellStatus['siteControl'],
+  codexControl?: ShellStatus['codexControl']
+) {
   const workspace = useAppStore(s => s.workspace);
   const { reports, checking } = useAppStore(s => s.tools);
   const view = useAppStore(s => s.view);
@@ -29,6 +34,7 @@ export function useShellStatusBar(siteControl?: ShellStatus['siteControl']) {
   const server = usePageStore(s => s.server);
   const libraryModels = useLibraryStore(s => s.view?.items.length ?? null);
   const animations = useAnimationsStore(s => s.view);
+  const codexUsage = useCodexUsageStore(s => s.usage);
   return shellStatusItems({
     view,
     workspace,
@@ -45,6 +51,8 @@ export function useShellStatusBar(siteControl?: ShellStatus['siteControl']) {
     libraryModels,
     animationClips: animations?.items.length ?? null,
     animationsDir: animations?.dir ?? null,
+    codexUsage,
+    codexControl,
   });
 }
 
