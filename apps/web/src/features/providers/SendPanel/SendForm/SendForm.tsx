@@ -1,4 +1,4 @@
-import { Button, Icon, InlineBanner, SegmentedControl, cn } from '@maquette/ui';
+import { Button, Icon, InlineBanner, SegmentedControl, Tooltip, cn } from '@maquette/ui';
 import type { SendOptions } from '@/ipc/client';
 import {
   MAX_IMAGES,
@@ -141,13 +141,18 @@ export default function SendForm({ options, draft }: SendFormProps) {
         <section className="flex flex-col gap-3">
           <SectionTitle
             aside={
-              <button
-                type="button"
-                className="cursor-pointer text-meta text-fg-mute underline-offset-2 hover:text-fg hover:underline"
-                onClick={reset}
+              <Tooltip
+                label="Reset the settings"
+                detail="Puts every field back to what the preset says"
               >
-                Reset to the preset
-              </button>
+                <button
+                  type="button"
+                  className="cursor-pointer text-meta text-fg-mute underline-offset-2 hover:text-fg hover:underline"
+                  onClick={reset}
+                >
+                  Reset to the preset
+                </button>
+              </Tooltip>
             }
           >
             Settings for this send

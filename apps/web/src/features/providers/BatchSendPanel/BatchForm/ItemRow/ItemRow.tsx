@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Icon, IconButton, SegmentedControl, cn } from '@maquette/ui';
+import { Icon, IconButton, SegmentedControl, Tooltip, cn } from '@maquette/ui';
 import type { PresetVariant, RefFix, RefWarning } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import type { BatchItemDraft } from '@/state/batch';
@@ -127,14 +127,19 @@ export default function ItemRow({
             <span className="text-meta text-fg-dim">
               Starts from the batch settings. Only the fields you change stay with this asset.
             </span>
-            <button
-              type="button"
-              disabled={diff === null}
-              className="flex-none cursor-pointer text-meta text-fg-mute underline-offset-2 hover:text-fg hover:underline disabled:cursor-default disabled:opacity-45 disabled:no-underline"
-              onClick={onClear}
+            <Tooltip
+              label="Use the batch settings"
+              detail="Drops this asset's own changes so it follows the batch again"
             >
-              Use batch settings
-            </button>
+              <button
+                type="button"
+                disabled={diff === null}
+                className="flex-none cursor-pointer text-meta text-fg-mute underline-offset-2 hover:text-fg hover:underline disabled:cursor-default disabled:opacity-45 disabled:no-underline"
+                onClick={onClear}
+              >
+                Use batch settings
+              </button>
+            </Tooltip>
           </div>
           {fields}
         </div>

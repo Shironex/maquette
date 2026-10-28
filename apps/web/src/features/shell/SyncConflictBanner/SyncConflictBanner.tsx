@@ -37,7 +37,12 @@ export default function SyncConflictBanner() {
         </>
       }
       actions={
-        <Button size="sm" variant="ghost" onClick={dismiss}>
+        <Button
+          size="sm"
+          variant="ghost"
+          tooltip="Hides this until the next conflict copy turns up"
+          onClick={dismiss}
+        >
           Dismiss
         </Button>
       }

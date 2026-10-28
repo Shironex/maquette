@@ -1,4 +1,4 @@
-import { Button, HelpMark, Icon, InlineBanner, SegmentedControl, cn } from '@maquette/ui';
+import { Button, HelpMark, Icon, InlineBanner, SegmentedControl, Tooltip, cn } from '@maquette/ui';
 import {
   batchLabel,
   isCustom,
@@ -178,14 +178,18 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
                 {refs.warned} of {n} assets {refs.warned === 1 ? 'has' : 'have'} ref warnings. They
                 still go; fix them first to spend the credits on better refs.
               </span>
-              <button
-                type="button"
-                aria-pressed={refs.only}
-                className="flex-none cursor-pointer text-fg-dim underline-offset-2 hover:text-fg hover:underline"
-                onClick={() => refs.setOnly(!refs.only)}
+              <Tooltip
+                label={refs.only ? 'Show every asset' : 'Show only the assets with warnings'}
               >
-                {refs.only ? 'Show all' : 'Show only these'}
-              </button>
+                <button
+                  type="button"
+                  aria-pressed={refs.only}
+                  className="flex-none cursor-pointer text-fg-dim underline-offset-2 hover:text-fg hover:underline"
+                  onClick={() => refs.setOnly(!refs.only)}
+                >
+                  {refs.only ? 'Show all' : 'Show only these'}
+                </button>
+              </Tooltip>
             </div>
           ) : null}
           <ul className="m-0 flex list-none flex-col p-0">{items}</ul>
@@ -194,13 +198,18 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
         <section className="flex flex-col gap-3">
           <SectionTitle
             aside={
-              <button
-                type="button"
-                className="cursor-pointer text-meta text-fg-mute underline-offset-2 hover:text-fg hover:underline"
-                onClick={reset}
+              <Tooltip
+                label="Reset the batch settings"
+                detail="Puts every field back to what the presets say, for all assets in the batch"
               >
-                Reset to the presets
-              </button>
+                <button
+                  type="button"
+                  className="cursor-pointer text-meta text-fg-mute underline-offset-2 hover:text-fg hover:underline"
+                  onClick={reset}
+                >
+                  Reset to the presets
+                </button>
+              </Tooltip>
             }
           >
             Settings for this batch
