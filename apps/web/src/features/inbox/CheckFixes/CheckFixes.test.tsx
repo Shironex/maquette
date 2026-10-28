@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Check, InboxItem } from '@/ipc/client';
 import { usePrepareStore } from '@/state/use-prepare-store';
+import { useSplitStore } from '@/state/use-split-store';
 import { CheckFixes } from '.';
 
 const item = { id: 'lamp.glb' } as InboxItem;
@@ -46,5 +47,35 @@ describe('CheckFixes', () => {
     expect(usePrepareStore.getState().drafts['lamp.glb']?.fixups).toEqual([
       { op: 'split-parts', by: 'loose', mergeUnder: 0.01 },
     ]);
+  });
+
+  it('opens the provider split sheet for one mesh from a send', async () => {
+    const merged: Check = {
+      id: 'merged',
+      status: 'warning',
+      title: 'One mesh, no parts',
+      detail: null,
+      fixes: [],
+    };
+    const sent = {
+      id: 'frost-lantern-2.glb',
+      link: {
+        job: 'frost-lantern-2',
+        project: 'frostveil',
+        asset: 'frost-lantern',
+        assetName: 'Frost lantern',
+        provider: 'tripo',
+      },
+    } as InboxItem;
+    render(<CheckFixes item={item} check={merged} />);
+    expect(screen.queryByRole('button', { name: 'Split on Tripo or Meshy...' })).toBeNull();
+    render(<CheckFixes item={sent} check={merged} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Split on Tripo or Meshy...' }));
+    expect(useSplitStore.getState().split).toEqual({
+      project: 'frostveil',
+      asset: 'frost-lantern',
+      version: null,
+      item: 'frost-lantern-2.glb',
+    });
   });
 });

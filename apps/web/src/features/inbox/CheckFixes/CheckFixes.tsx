@@ -1,6 +1,6 @@
 import { Button } from '@maquette/ui';
 import type { Check, InboxItem } from '@/ipc/client';
-import { useCheckFixes } from './CheckFixes.hooks';
+import { useCheckFixes, useProviderSplit } from './CheckFixes.hooks';
 
 export interface CheckFixesProps {
   item: InboxItem;
@@ -26,5 +26,22 @@ export default function CheckFixes({ item, check }: CheckFixesProps) {
       {added ? `${text} added` : text}
     </Button>
   ));
-  return <>{buttons}</>;
+  const openSplit = useProviderSplit(item, check);
+  const split = openSplit ? (
+    <Button
+      size="sm"
+      variant="secondary"
+      icon="stack"
+      tooltip="Splits this model on Tripo or Meshy; the split comes back as another Inbox model"
+      onClick={openSplit}
+    >
+      Split on Tripo or Meshy...
+    </Button>
+  ) : null;
+  return (
+    <>
+      {buttons}
+      {split}
+    </>
+  );
 }

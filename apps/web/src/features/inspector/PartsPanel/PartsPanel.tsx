@@ -1,11 +1,12 @@
 import { Suspense, lazy } from 'react';
 import { Button, EmptyState, Icon, SegmentedControl, Select, cn } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
+import { BakeBackNote } from '../BakeBackNote';
 import { formatK } from '@/lib/format';
 import { badge } from '../badge';
 import { PartActions, PartsList } from './PartsList';
 import { PartsCompare } from '../PartsCompare';
-import { usePartsPanel, type PartsMode, type PartsPage } from './PartsPanel.hooks';
+import { usePartsPanel, usePartsSheets, type PartsMode, type PartsPage } from './PartsPanel.hooks';
 
 const ModelPreview = lazy(() => import('@/features/viewer/ModelPreview'));
 
@@ -25,6 +26,7 @@ const CARD = 'flex flex-col gap-1.5 rounded-card border border-line bg-panel p-3
 /** One model's parts: select them in the viewer, rename, join and hide them. */
 export default function PartsPanel() {
   const p = usePartsPanel();
+  const { openSplit, openAssemble } = usePartsSheets();
   if (!p.asset) {
     return (
       <div className="grid flex-1 place-items-center">
@@ -132,20 +134,29 @@ export default function PartsPanel() {
             {p.error}
           </p>
         ) : null}
+        {found ? <BakeBackNote project={found.project} asset={found.asset} /> : null}
         {oneMesh ? (
           <div className={CARD}>
             <h3 className="font-semibold">One mesh, no parts</h3>
             <p className="text-meta text-fg-mute">
               Motion states and explode tracks move named parts. Split it in Blender, free and on a
-              copy: the model file stays.
+              copy, or let Tripo or Meshy find the parts.
             </p>
             <Button
               icon="stack"
               loading={p.busy}
-              tooltip="Adds the Split into parts fix-up, by loose pieces, and previews it"
-              onClick={() => void p.edit.addSplit()}
+              tooltip="Free in Blender, or on Tripo or Meshy"
+              onClick={() =>
+                openSplit({
+                  project: found.project,
+                  asset: found.asset,
+                  version: found.version,
+                  item: null,
+                  inBlender: p.edit.addSplit,
+                })
+              }
             >
-              Split into parts
+              Split into parts...
             </Button>
           </div>
         ) : (
@@ -177,6 +188,21 @@ export default function PartsPanel() {
           <div className={CARD}>
             <h3 className="font-semibold">Selected parts</h3>
             <ul className="flex flex-col gap-1 text-meta">{chosenRows}</ul>
+          </div>
+        ) : null}
+        {found ? (
+          <div className={CARD}>
+            <h3 className="font-semibold">One prop from part models</h3>
+            <p className="text-meta text-fg-mute">
+              Made the parts as models of their own, from object refs? Join them into one prop, a
+              node per part under one name.
+            </p>
+            <Button
+              icon="package"
+              onClick={() => openAssemble({ project: found.project, parts: [found.asset] })}
+            >
+              Assemble a prop...
+            </Button>
           </div>
         ) : null}
       </aside>

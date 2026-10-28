@@ -1,6 +1,7 @@
 import type { Check, InboxItem } from '@/ipc/client';
 import { EMPTY_PREP, describeFixup, hasFixup, withFixup, withoutFixup } from '@/state/prepare';
 import { usePrepareStore } from '@/state/use-prepare-store';
+import { useSplitStore } from '@/state/use-split-store';
 
 /** Each fix a check offers, whether the item's draft has it and the toggle. */
 export function useCheckFixes(item: InboxItem, check: Check) {
@@ -15,4 +16,16 @@ export function useCheckFixes(item: InboxItem, check: Check) {
       toggle: () => setDraft(item.id, added ? withoutFixup(draft, fix.op) : withFixup(draft, fix)),
     };
   });
+}
+
+/**
+ * One mesh from a send: opens the split sheet on the Inbox model, so Tripo
+ * or Meshy can find the parts before it is accepted. Null for other checks.
+ */
+export function useProviderSplit(item: InboxItem, check: Check): (() => void) | null {
+  const openSplit = useSplitStore(s => s.openSplit);
+  const link = item.link;
+  if (check.id !== 'merged' || !link) return null;
+  return () =>
+    openSplit({ project: link.project, asset: link.asset, version: null, item: item.id });
 }

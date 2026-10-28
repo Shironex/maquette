@@ -10,6 +10,8 @@ import { DownloadsMatches } from '@/features/providers/DownloadsMatches';
 import { HandoffChecklist } from '@/features/providers/HandoffChecklist';
 import { SendPanel } from '@/features/providers/SendPanel';
 import { RefsSheet } from '@/features/providers/RefsSheet';
+import { AssembleSheet } from '@/features/providers/AssembleSheet';
+import { SplitSheet } from '@/features/providers/SplitSheet';
 import { ObjectRefsDialog } from '@/features/lab/ObjectRefsDialog';
 import { StyleBoardDialog } from '@/features/lab/StyleBoardDialog';
 import { LibraryDialogs } from '@/features/common/LibraryDialogs';
@@ -85,6 +87,8 @@ export default function AppShell() {
       <SendPanel />
       <RefsSheet />
       <CreditsSheet />
+      <SplitSheet />
+      <AssembleSheet />
       <ObjectRefsDialog />
       <StyleBoardDialog />
       <DownloadsMatches />
