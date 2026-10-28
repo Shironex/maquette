@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import * as THREE from 'three';
 import { placementOf } from '@/state/layout';
 import { BACKDROP } from '@/features/viewer/studio';
-import { disposeTree } from '../../LayoutCanvas/Editor/dispose-tree';
+import { disposeObject } from '@/features/viewer/dispose';
 import { applyPlacement, applyPrep } from '../../LayoutCanvas/Editor/placement';
 import type { PathsRig, PathsSceneProps } from './PathsScene.types';
 import { pathTube } from './path-tube';
@@ -12,7 +12,7 @@ const LINE = '#4d4a44';
 const clear = (group: THREE.Group) => {
   for (const child of [...group.children]) {
     group.remove(child);
-    disposeTree(child);
+    disposeObject(child);
   }
 };
 
@@ -42,7 +42,7 @@ export function usePathTubes(rig: PathsRig, props: PathsSceneProps): void {
     scene.add(lights, world, tubes, handles, transform.getHelper());
     return () => {
       scene.remove(lights, world, tubes, handles, transform.getHelper());
-      disposeTree(lights);
+      disposeObject(lights);
     };
   }, [scene, world, tubes, handles, transform]);
 

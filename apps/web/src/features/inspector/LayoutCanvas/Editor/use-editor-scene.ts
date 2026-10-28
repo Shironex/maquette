@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { DESK_THICKNESS, placementOf } from '@/state/layout';
 import { BACKDROP, CLAY } from '@/features/viewer/studio';
-import { disposeTree } from './dispose-tree';
+import { disposeObject } from '@/features/viewer/dispose';
 import type { EditorProps, EditorRig } from './Editor.types';
 import { applyPlacement, applyPrep } from './placement';
 import { stopGlyph } from './stop-glyph';
@@ -135,7 +135,7 @@ export function useEditorScene(editor: EditorRig, props: EditorProps): number {
     scene.add(rig);
     return () => {
       scene.remove(rig);
-      disposeTree(rig);
+      disposeObject(rig);
     };
   }, [scene, extent, props.layout.desk, props.grid]);
 
@@ -151,7 +151,7 @@ export function useEditorScene(editor: EditorRig, props: EditorProps): number {
     return () => {
       for (const child of [...stopsGroup.children]) {
         stopsGroup.remove(child);
-        disposeTree(child);
+        disposeObject(child);
       }
     };
   }, [props.layout.stops, props.selection, props.preview, stopsGroup, span]);

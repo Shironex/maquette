@@ -61,6 +61,18 @@ describe('the motion scene', () => {
     await waitFor(() => expect(onError).toHaveBeenCalledWith('The file ends early.'));
   });
 
+  it('frees the model when another file replaces it', async () => {
+    const { result, rerender } = renderHook(({ url }) => useMotionModel(url, undefined), {
+      initialProps: { url: '/mock/cabinet.glb' },
+    });
+    await waitFor(() => expect(result.current).not.toBeNull());
+    const body = result.current!.scene.getObjectByName('Body') as THREE.Mesh;
+    const freed = vi.spyOn(body.geometry, 'dispose');
+    rerender({ url: '/mock/cabinet-v2.glb' });
+    await waitFor(() => expect(result.current?.scene.getObjectByName('Body')).not.toBe(body));
+    expect(freed).toHaveBeenCalled();
+  });
+
   it('poses parts by their file names and puts them back at rest', async () => {
     const model = await loaded();
     const door = model.scene.getObjectByName('Door_1')!;

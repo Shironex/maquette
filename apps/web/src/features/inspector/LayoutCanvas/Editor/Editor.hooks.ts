@@ -16,7 +16,7 @@ import { fileUrl } from '@/ipc/files';
 import { FLIGHT_MS, flight } from '@/state/inspector';
 import { CLAY, castShadows, gltfLoader } from '@/features/viewer/studio';
 import { poseOf, setPose } from '../../camera-pose';
-import { disposeTree } from './dispose-tree';
+import { disposeObject } from '@/features/viewer/dispose';
 import type { EditorProps, EditorRig, Flight } from './Editor.types';
 import { useClickSelect } from './use-click-select';
 import { useEditorCamera } from './use-editor-camera';
@@ -68,7 +68,7 @@ export function useHolders(
     });
     return () => {
       alive = false;
-      for (const holder of made.values()) disposeTree(holder);
+      for (const holder of made.values()) disposeObject(holder);
     };
   }, [key, gl]);
   return holders;

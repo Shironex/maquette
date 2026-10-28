@@ -4,24 +4,10 @@
  * offscreen in the same studio as the preview and saved as a PNG.
  */
 import * as THREE from 'three';
+import { disposeObject } from './dispose';
 import { BACKDROP, castShadows, frameCamera, gltfLoader, standOnFloor, studioRig } from './studio';
 
 export const SNAPSHOT_SIZE = 256;
-
-function dispose(root: THREE.Object3D): void {
-  root.traverse(o => {
-    const mesh = o as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    mesh.geometry.dispose();
-    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    for (const material of list) {
-      for (const value of Object.values(material)) {
-        if (value instanceof THREE.Texture) value.dispose();
-      }
-      material.dispose();
-    }
-  });
-}
 
 /** Renders the model at `url` to PNG bytes, `size` pixels square. */
 export async function snapshotModel(url: string, size = SNAPSHOT_SIZE): Promise<Uint8Array> {
@@ -55,7 +41,7 @@ export async function snapshotModel(url: string, size = SNAPSHOT_SIZE): Promise<
     if (!blob) throw new Error('The snapshot could not be encoded.');
     return new Uint8Array(await blob.arrayBuffer());
   } finally {
-    dispose(scene);
+    disposeObject(scene);
     renderer.dispose();
     renderer.forceContextLoss();
   }

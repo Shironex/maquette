@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import type * as THREE from 'three';
+import { disposeModel } from '../../dispose';
 import { originalsOf } from '../../materials';
 import { ROOT_FLAG } from '../../parts';
 import {
@@ -13,7 +14,10 @@ import {
 } from '../../studio';
 import type { Loaded, ModelSource } from '../ModelPreview.types';
 
-/** Loads the file at `url`, again whenever it changes; null while there is none. */
+/**
+ * Loads the file at `url`, again whenever it changes; null while there is
+ * none. The model it replaces is freed.
+ */
 export function useModel(url: string | null, onError: ModelSource['onError']): Loaded | null {
   const gl = useThree(s => s.gl);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -47,6 +51,13 @@ export function useModel(url: string | null, onError: ModelSource['onError']): L
       alive = false;
     };
   }, [url, gl]);
+  // A model replaced by the next file, or left on unmount, frees its GPU memory.
+  useEffect(
+    () => () => {
+      if (loaded) disposeModel(loaded);
+    },
+    [loaded]
+  );
   return loaded;
 }
 

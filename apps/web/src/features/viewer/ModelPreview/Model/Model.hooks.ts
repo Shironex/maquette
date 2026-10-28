@@ -6,6 +6,7 @@ import type { Loaded, PreviewMode } from '../ModelPreview.types';
 /** Dresses the model in `mode`'s materials, and back in its own on a change. */
 export function useModelLook(loaded: Loaded, mode: PreviewMode, parts?: PartLook): void {
   const checker = useMemo(() => checkerTexture(), []);
+  useEffect(() => () => checker.dispose(), [checker]);
   const key = JSON.stringify(parts ?? null);
   useEffect(() => {
     const look = key === 'null' ? undefined : (JSON.parse(key) as PartLook);

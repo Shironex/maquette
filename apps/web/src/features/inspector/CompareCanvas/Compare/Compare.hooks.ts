@@ -10,7 +10,7 @@ import { FLIGHT_MS, SAMPLE_EVERY_MS, flight } from '@/state/inspector';
 import { setPose } from '../../camera-pose';
 import type { CompareModel } from '../CompareCanvas.types';
 import type { CompareProps, CompareRig, Side } from './Compare.types';
-import { disposeGroup } from './dispose-group';
+import { disposeObject } from '@/features/viewer/dispose';
 import { shootStops } from './shoot-stops';
 import { useComparePick } from './use-compare-pick';
 import { useCompareView } from './use-compare-view';
@@ -73,7 +73,7 @@ export function useSide(models: CompareModel[], onError: (message: string) => vo
       });
     return () => {
       alive = false;
-      if (made) disposeGroup(made);
+      if (made) disposeObject(made);
     };
   }, [key, gl]);
   return side;
