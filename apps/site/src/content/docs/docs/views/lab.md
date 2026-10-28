@@ -1,6 +1,6 @@
 ---
 title: Lab
-description: Turn a brief into concept images with the Codex CLI, star the good ones and send the picks to Refs.
+description: Turn a brief into concept images with the Codex CLI or OpenAI Images, star the good ones and send the picks to Refs.
 sidebar:
   label: Lab
 ---
@@ -18,6 +18,12 @@ When Codex says its usage limit is hit, the job and every image still queued wai
 ## Codex usage
 
 While the Lab is open, Maquette asks Codex how much of its usage is used every minute, and again soon after an image finishes or meets the limit. The status bar shows both windows, for example "Codex 16% (5h) · 3% (week)", amber from 80% and red at the limit; its tooltip has each window's reset time in your local time, and a click reads again. Before a round of 4 images or more, the brief warns when a window is at 80% or more, and before any round while the limit holds. The read goes through `codex app-server` and spends nothing. An older Codex CLI, or one that does not answer within 10 seconds, shows "Codex usage unknown" and the jobs keep the times from Codex's messages.
+
+## OpenAI Images
+
+Settings > Image generation can send each kind of Lab image (concepts, object refs, other views, clean background) to OpenAI's Image API instead of Codex. Codex stays the default for every kind. An API image is paid per image from your own OpenAI API key, at the quality you pick (low by default, about $0.01 an image; high is about $0.22). It gets the same prompt and the same attached images in the same order as Codex would, lands in the same file and moves through the same states, so Retry, Cancel and Use this one work the same. When OpenAI asks it to slow down, it waits as long as asked and runs again on its own.
+
+Under Generate the brief says what the round likely costs and how much of the monthly cap is spent. A round that would pass the cap does not start; raise the cap or switch the kind back to Codex. There is no approval prompt for these rounds: the cap is the guard. Each image made is written to `credits.jsonl` at the workspace root in dollars, from the tokens OpenAI reports (or the price list's estimate when it reports none). The image queue names the backend each round runs on.
 
 ## Results
 

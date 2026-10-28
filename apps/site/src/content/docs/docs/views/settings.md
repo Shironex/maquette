@@ -1,6 +1,6 @@
 ---
 title: Settings
-description: The workspace, the toolchain, the 3D providers, budgets and compression, the agents, the open project, and About.
+description: The workspace, the toolchain, the 3D providers, image generation, budgets and compression, the agents, the open project, and About.
 sidebar:
   label: Settings
 ---
@@ -12,10 +12,18 @@ Settings saves as you go. The nav on the left jumps to a section; a field that i
 | Workspace               | The root folder, its layout, the cache and how to share it with another computer |
 | Toolchain               | The tools Maquette found, with Recheck and Locate                                |
 | 3D providers            | API keys, the Send to 3D presets and the Downloads watch for By hand             |
+| Image generation        | Codex or OpenAI Images per kind of Lab image, the OpenAI key, quality and cap    |
 | Budgets and compression | What a scene may weigh, and the compression every model starts from              |
 | Agents                  | The local MCP server. See [Connect an agent](/docs/agents/connect/)              |
 | About                   | The version you run, updates, and the links below                                |
 | This project            | The open project's name and site repo                                            |
+
+## Image generation
+
+- **Backend per kind.** Concepts, Object refs, Other views and Clean background each run on Codex (the default) or OpenAI Images. See [Lab](/docs/views/lab/#openai-images).
+- **OpenAI key.** Paste an API key from platform.openai.com, API keys. It is kept in the system keychain, never in a file, and only its last four characters show. Test key only lists the models the key can use, which costs nothing, and says whether it can use the image model.
+- **Quality.** Low, medium or high, each with its estimate per image.
+- **Monthly cap.** Whole US dollars the Image API may spend per calendar month, $10 by default; 0 stops it. Spent this month shows what went out since the first of the month, from `credits.jsonl`. A round that would pass the cap does not start.
 
 ## About
 
