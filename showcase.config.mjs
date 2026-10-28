@@ -92,57 +92,71 @@ export default defineConfig({
       id: 'lab',
       title: 'Lab',
       caption: 'Lab: concept images from the Codex CLI, starred and picked as refs.',
-      nav: view('scenario=idle', 'lab', 'Frozen lake arena'),
+      nav: view('scenario=idle&library=demo', 'lab', 'Frozen lake arena'),
       delayMs: 1200,
     },
     {
       id: 'inbox',
       title: 'Inbox',
       caption: 'Inbox: each new model checked for triangles, textures, rig and origin.',
-      nav: view('scenario=idle', 'inbox', 'Automatic checks'),
+      nav: view('scenario=idle&library=demo', 'inbox', 'Automatic checks'),
       delayMs: 3000,
     },
     {
       id: 'pipeline',
       title: 'Pipeline',
       caption: 'Pipeline: headless Blender build, bake, export, compress and ship.',
-      nav: view('scenario=running&pace=60', 'pipeline', 'Run 25 · step 3 of 6', async page => {
-        // Keep the edited export script, as most projects would, so its notice goes.
-        await page.getByRole('button', { name: 'Keep mine' }).click();
-      }),
+      nav: view(
+        'scenario=running&pace=60&library=demo',
+        'pipeline',
+        'Run 25 · step 3 of 6',
+        async page => {
+          // Keep the edited export script, as most projects would, so its notice goes.
+          await page.getByRole('button', { name: 'Keep mine' }).click();
+        }
+      ),
       delayMs: 1500,
     },
     {
       id: 'inspector',
       title: 'Inspector',
       caption: 'Inspector: two versions side by side, with budgets and compression.',
-      nav: view('scenario=idle', 'inspector', /WebGL 2 · \d+ fps/),
+      nav: view('scenario=idle&library=demo', 'inspector', /WebGL 2 · \d+ fps/),
       delayMs: 3500,
     },
     {
       id: 'motion',
       title: 'Motion',
       caption: 'Motion: rigs, clips and what each one weighs on the page.',
-      nav: view('scenario=idle&motion=demo', 'motion', '119 bones · 2 clips', async page => {
-        await page.getByText('119 bones · 2 clips').click();
-        // Stop the clip on its first frame, so the pose is the same every run.
-        await page.getByRole('button', { name: 'Pause' }).click();
-        await page.getByRole('button', { name: 'Go to In' }).click();
-      }),
+      nav: view(
+        'scenario=idle&motion=demo&library=demo',
+        'motion',
+        '119 bones · 2 clips',
+        async page => {
+          await page.getByText('119 bones · 2 clips').click();
+          // Stop the clip on its first frame, so the pose is the same every run.
+          await page.getByRole('button', { name: 'Pause' }).click();
+          await page.getByRole('button', { name: 'Go to In' }).click();
+        }
+      ),
       delayMs: 3500,
     },
     {
       id: 'timeline',
       title: 'Timeline',
       caption: 'Timeline: camera stops, object states and paths, keyed to the scroll.',
-      nav: view('scenario=idle&timeline=demo&page=running', 'timeline', 'Scroll timeline'),
+      nav: view(
+        'scenario=idle&timeline=demo&page=running&library=demo',
+        'timeline',
+        'Scroll timeline'
+      ),
       delayMs: 2500,
     },
     {
       id: 'page',
       title: 'Page',
       caption: "Page: the site's own dev server, measured at every camera stop.",
-      nav: view('scenario=idle&page=running', 'page', 'Current ship vs this run'),
+      nav: view('scenario=idle&page=running&library=demo', 'page', 'Current ship vs this run'),
       delayMs: 2500,
     },
     {
@@ -156,8 +170,128 @@ export default defineConfig({
       id: 'agents',
       title: 'Agents',
       caption: 'Agents: Claude Code or Codex over MCP, with paid steps waiting for you.',
-      nav: view('scenario=idle&agents=active', 'board', 'Send Rune obelisk to Tripo?'),
+      nav: view('scenario=idle&agents=active&library=demo', 'board', 'Send Rune obelisk to Tripo?'),
       delayMs: 1200,
+    },
+    {
+      id: 'animations',
+      title: 'Animations',
+      caption: 'Animations: a library of clips, each one playing on its own skeleton.',
+      nav: view(
+        'scenario=configured&library=demo',
+        'animations',
+        '16 clips · newest first',
+        async page => {
+          await page
+            .getByRole('complementary', { name: 'Selected clip' })
+            .getByRole('heading', { name: 'Standing Dodge Left' })
+            .waitFor();
+        }
+      ),
+      delayMs: 2500,
+    },
+    {
+      id: 'retarget',
+      title: 'Use on model',
+      caption: 'Use on model: library clips retargeted onto a rig, feet pinned.',
+      nav: view(
+        'scenario=configured&library=demo&motion=demo',
+        'motion',
+        '119 bones · 2 clips',
+        async page => {
+          await page.getByRole('button', { name: 'Add clip' }).click();
+          await page.getByRole('menuitem', { name: 'Add from library' }).click();
+          const steps = page.getByRole('dialog', { name: /^Add library clips to / });
+          for (const name of [
+            'Sword And Shield Run',
+            'Sword And Shield Slash',
+            'Sword And Shield Crouch',
+            'Standing Dodge Left',
+          ]) {
+            await steps.getByText(name, { exact: true }).click();
+          }
+          await steps.getByText('Chosen · 4').waitFor();
+          await steps.getByRole('button', { name: 'Next: bone map' }).click();
+          await steps.getByRole('region', { name: /^(Bone map|Clip settings)$/ }).waitFor();
+          await steps
+            .getByRole('navigation', { name: 'Steps' })
+            .getByRole('button', { name: /Clip settings/ })
+            .click();
+          await steps.getByRole('region', { name: 'Clip settings' }).waitFor();
+          await steps.getByRole('button', { name: 'Retarget 4 clips' }).click();
+          await page.getByRole('dialog', { name: /^Review the retarget on / }).waitFor();
+          await page.waitForTimeout(2500);
+          await page.getByRole('button', { name: 'Pin the feet and bake again' }).click();
+          await page.getByRole('group', { name: 'Feet pinned' }).waitFor();
+          await page.waitForTimeout(2500);
+        }
+      ),
+      delayMs: 1500,
+    },
+    {
+      id: 'parts',
+      title: 'Parts',
+      caption: 'Parts: a model split into named parts, coloured and picked in the Inspector.',
+      nav: view('scenario=configured&parts=demo&library=demo', 'inspector', 'Parts', async page => {
+        await page.getByRole('tab', { name: 'Parts' }).click();
+        const list = page.getByRole('list', { name: 'Parts' });
+        await list.waitFor();
+        await list.getByRole('button', { name: 'cage' }).click();
+        await list.getByRole('button', { name: 'crystal' }).click({ modifiers: ['Shift'] });
+        await page.getByText('cage and crystal selected').waitFor();
+        await page.waitForTimeout(1500);
+      }),
+      delayMs: 2000,
+    },
+    {
+      id: 'refs',
+      title: 'Refs by view',
+      caption:
+        'Refs by view: refs tagged front, back and sides, with a warning when they disagree.',
+      nav: view(
+        'scenario=configured&lab=refs&library=demo',
+        'board',
+        'Guardian statues',
+        async page => {
+          await page.getByRole('button', { name: 'More for Guardian statues' }).click();
+          await page.getByRole('menuitem', { name: 'Refs and views...' }).click();
+          const tags = page.getByRole('dialog', { name: 'Guardian statues refs' });
+          await tags
+            .getByRole('button', { name: 'View of guardian_statues_detail.png: Other' })
+            .click();
+          await page
+            .getByRole('menu', { name: 'View of guardian_statues_detail.png' })
+            .getByRole('menuitem', { name: 'Back', exact: true })
+            .click();
+          await tags
+            .getByRole('button', { name: 'View of guardian_statues_detail.png: Back' })
+            .waitFor();
+          await tags.getByRole('button', { name: 'Done' }).click();
+          await page.getByRole('button', { name: 'More for Guardian statues' }).click();
+          await page.getByRole('menuitem', { name: 'Send to 3D' }).click();
+          const send = page.getByRole('dialog', { name: 'Send Guardian statues to 3D' });
+          await send
+            .getByRole('group', { name: 'Provider' })
+            .getByRole('button', { name: 'Tripo' })
+            .click();
+          await send.getByText('Multi-view', { exact: true }).click();
+          const differ = send.getByText('Back looks different from the front', { exact: false });
+          await differ.waitFor();
+          await differ.evaluate(el => {
+            for (let n = el.parentElement; n; n = n.parentElement) {
+              if (
+                n.scrollHeight > n.clientHeight + 4 &&
+                getComputedStyle(n).overflowY !== 'visible'
+              ) {
+                n.scrollTop += 112;
+                break;
+              }
+            }
+          });
+          await page.waitForTimeout(500);
+        }
+      ),
+      delayMs: 1000,
     },
   ],
   frame: {

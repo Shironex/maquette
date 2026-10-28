@@ -120,6 +120,25 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
 
 **Libraries across projects.** Finished models live outside every project, with their versions, tags and refs. Using one copies it in and spends nothing; a project with an older copy is offered the update. Animation clips get a library of their own: Mixamo FBX files and pack zips, or a rigged model's clips, kept once and skeleton only.
 
+<table>
+  <tr>
+    <td width="50%"><img src="assets/showcase/animations.webp" alt="Maquette: the Animations library with a grid of Mixamo clips on skeletons, packs and tags on the left, and the selected Standing Dodge Left clip with its length, root motion and a Use on model button" /></td>
+    <td width="50%"><img src="assets/showcase/retarget.webp" alt="Maquette: the Use on model review over Motion, listing four retargeted clips with one failed, and showing a sword run on the source skeleton and on the clay figure, with the foot slide before and after Pin the feet" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Animations: clips kept once in a library, each playing on its own skeleton.</sub></td>
+    <td align="center"><sub>Use on model: review a retarget, then pin the feet and compare the slide.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="assets/showcase/parts.webp" alt="Maquette: the Inspector's Parts tab with a frost lantern coloured by part, two parts selected, one hidden, and an Assemble a prop button" /></td>
+    <td width="50%"><img src="assets/showcase/refs.webp" alt="Maquette: the Send to 3D panel for the guardian statues, with refs tagged front and back and warnings about a cropped front, a small back and a back that looks different from the front" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Parts: a model split into named parts, picked, hidden and merged in the Inspector.</sub></td>
+    <td align="center"><sub>Refs by view: tagged refs, with warnings before any credit is spent.</sub></td>
+  </tr>
+</table>
+
 **Built for agents.** A local MCP server lets Claude Code or Codex drive the whole flow, with the same rules as the app (see [Agents (MCP)](#agents-mcp)).
 
 ## Real projects
