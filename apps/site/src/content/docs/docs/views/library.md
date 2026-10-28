@@ -1,11 +1,11 @@
 ---
-title: Library
+title: Models
 description: Keep finished models in one place outside every project, and copy them into any project, with their real size, fix-ups and material tweaks.
 sidebar:
-  label: Library
+  label: Models
 ---
 
-The Library keeps models you want to use again. It lives in the workspace, outside every project, and shows in the rail (the books icon) for website and game projects. It copies a model into a project and offers updates; it does not link. A project always owns its copy, and nothing ever changes a project silently.
+The models library keeps models you want to use again. It lives in the workspace, outside every project, and shows in the rail as Models under Libraries, with the number of models after its name, for website and game projects. Animation clips have a library of their own next to it, [Animations](/docs/views/animations/). It copies a model into a project and offers updates; it does not link. A project always owns its copy, and nothing ever changes a project silently.
 
 ## Add to library
 

@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 74 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 77 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -45,6 +45,7 @@ These look at the workspace and change nothing.
 | [`get_ship_settings`](#get_ship_settings)     | A website's Ship style, texture format and quality, each asset's choice and file name, the site folders, the plan and the size report                                                                                                                             | Nothing | No       |
 | [`get_size_report`](#get_size_report)         | Each model's source bytes and triangles against what ships, with totals, as rows, CSV and Markdown                                                                                                                                                                | Nothing | No       |
 | [`list_library`](#list_library)               | The library's models, with their versions, tags and the projects that use them. Takes an optional `query`, `tag` and `project`                                                                                                                                    | Nothing | No       |
+| [`list_animations`](#list_animations)         | The animation library's clips: pack, tags, source rig, bone count, frames, rate, seconds, root motion, loop and size. Takes an optional `query`, `pack`, `tag` and `rig`                                                                                          | Nothing | No       |
 | Tool                                          | What it returns                                                                                                                                                                                                                                                   | Spends  | Approval |
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------- |
 
@@ -87,6 +88,8 @@ These look at the workspace and change nothing.
 | [`add_to_library`](#add_to_library)                   | Copies an asset's newest model into the library                                                                                | Nothing | No       |
 | [`use_from_library`](#use_from_library)               | Copies a library model into a project as a new asset                                                                           | Nothing | No       |
 | [`update_from_library`](#update_from_library)         | Adds a newer library version to an asset as its next version, or returns the plan                                              | Nothing | No       |
+| [`import_animations`](#import_animations)             | Imports Mixamo FBX files or pack zips into the animation library, skeleton only                                                | Nothing | No       |
+| [`save_model_clips`](#save_model_clips)               | Saves a rigged model's clips to the animation library as a pack                                                                | Nothing | No       |
 
 ## Spends credits or Codex usage, or needs approval
 
@@ -509,3 +512,50 @@ Adds the library's newer version to an asset copied from it, as the asset's next
 | `project` | string  | yes      | The project id.                   |
 | `asset`   | string  | yes      | The asset id or name.             |
 | `dryRun`  | boolean | no       | Return the plan and copy nothing. |
+
+### list_animations
+
+`read only`
+
+Lists the clips in the [Animations](/docs/views/animations/) library, kept once outside every project and skeleton only: id, name, pack, tags, source rig (`mixamo`, `tripo` or `custom`), bone count, frames, rate, seconds, root motion, loop, size, revision and the file it came from.
+
+| Parameter | Type   | Required | Notes                                           |
+| --------- | ------ | -------- | ----------------------------------------------- |
+| `query`   | string | no       | Words to find in the clip names, packs, tags.   |
+| `pack`    | string | no       | Only clips in this pack.                        |
+| `tag`     | string | no       | Only clips with this tag.                       |
+| `rig`     | string | no       | Only clips made on `mixamo`, `tripo`, `custom`. |
+
+### import_animations
+
+`changes the library`
+
+Imports Mixamo FBX files or pack zips that are inside the workspace, as Import clips does. Blender reads them headless: each FBX is one clip, the skin is dropped and only the skeleton and keys are kept, and the rig is read from the bone names. A file with no keys is left out. A clip whose keys the library has is skipped unless `keepDuplicates`; new keys for a clip of the same name and pack replace it as its next revision. A zip's clips go to a pack named after it, single files to Singles. A path outside the workspace is refused: copy the files in first. It spends nothing.
+
+| Parameter        | Type     | Required | Notes                                                          |
+| ---------------- | -------- | -------- | -------------------------------------------------------------- |
+| `paths`          | string[] | yes      | Absolute, or relative to the workspace root.                   |
+| `singles`        | string   | no       | The pack single files go to. Singles by default.               |
+| `keepDuplicates` | boolean  | no       | Add clips the library has already, as clips of their own.      |
+| `keepFiles`      | boolean  | no       | Keep each FBX next to its clip. Off by default.                |
+| `dryRun`         | boolean  | no       | Return what would be added, left out and skipped; add nothing. |
+
+```json
+{ "paths": ["drop/Pro Magic Pack.zip", "drop/Standing Dodge Left.fbx"] }
+```
+
+### save_model_clips
+
+`changes the library`
+
+Saves a rigged model's clips to the animation library as a pack, as Save clips to library does: a project asset's newest version (`project` and `asset`), or a model waiting in the Inbox (`inbox`, its file name), such as a Tripo job's animations. Only the skeleton and the clips' keys go in. Clips that came from the library are never saved back and keys the library has are skipped. Runs Blender headless and spends nothing.
+
+| Parameter | Type     | Required | Notes                                                     |
+| --------- | -------- | -------- | --------------------------------------------------------- |
+| `project` | string   | no       | The project id, with `asset`.                             |
+| `asset`   | string   | no       | The asset id.                                             |
+| `inbox`   | string   | no       | An Inbox file name, in place of `project` and `asset`.    |
+| `clips`   | string[] | no       | Clip names. Every clip not from the library by default.   |
+| `pack`    | string   | no       | The pack. `<model> moves` by default.                     |
+| `tags`    | string[] | no       | Tags for every clip. Read from the clip names by default. |
+| `dryRun`  | boolean  | no       | Return the model's rig and clips; save nothing.           |
