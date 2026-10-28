@@ -90,7 +90,7 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
   </tr>
 </table>
 
-**See what ships before it ships.** The Inspector compares two versions of the scene with a slider, flies between camera stops, shows triangles, textures, GPU memory and transfer per model, and edits compression, materials, the scene layout and paths. Its Parts tab names, joins and hides a model's parts, splits a one mesh model free in Blender or on Tripo or Meshy (baking the texture back when the split drops it), assembles one prop from part models, and puts it before and after a split side by side. The Page view runs the site's own dev server and reads the real numbers from the page, against the current ship.
+**See what ships before it ships.** The Inspector compares two versions of the scene with a slider, flies between camera stops, shows triangles, textures, GPU memory and transfer per model, and edits compression, materials, the scene layout and paths. Its Parts tab names, joins and hides a model's parts, splits a one mesh model free in Blender or on Tripo or Meshy (baking the texture back when the split drops it), assembles one prop from part models (placed by numbers or with a gizmo in a small 3D view), and puts it before and after a split side by side. The Page view runs the site's own dev server and reads the real numbers from the page, against the current ship.
 
 <table>
   <tr>
