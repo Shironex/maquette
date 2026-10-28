@@ -62,11 +62,14 @@ PLAYWRIGHT=/path/to/playwright/index.mjs pnpm --filter @maquette/site posters
 
 The script opens the built page in headless Chromium with `?capture`, which hides everything but the canvas, holds the camera on each stop's exact framing (no breathing, pointer or idle motion) and encodes WebP in the page. Run it after any change to the stops, the manifest, the models or the lighting, and after a ship. The posters Maquette renders in Blender show the project's scene without the bench's set pieces, so `maquette.site.json` leaves them out (`"posters": null`) and the tour keeps its own.
 
+## Releases
+
+The Download section reads the `release` object in `src/content/copy.ts` (version, date, file names, byte sizes). A new release is an edit to that object.
+
 ## Placeholders
 
 - The laptop screen (`public/scene/laptop-screen.webp`) is a mock mode capture of the Board; swap in a capture of a real project.
 - The app screenshots in `public/scene/screens/` are mock mode captures too.
-- The download buttons point at `#download` and the section says "Not released yet": the links, version and file size come with the first build.
 - The props on the bench were prepared by hand (`"inPlace": false` in `shipped.json`) until the first ship from Maquette.
 - The finished island keeps its 2048 color texture (the Web stop is a close up of it); a 1024 copy would save about 0.5 MB.
 
