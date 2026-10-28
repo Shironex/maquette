@@ -24,7 +24,8 @@ export async function openMockWorkspace(
   game?: string,
   library?: string,
   ship?: string,
-  pipeline?: string
+  pipeline?: string,
+  style?: string
 ) {
   const handle = createBackend({
     scenario,
@@ -44,11 +45,33 @@ export async function openMockWorkspace(
     library,
     ship,
     pipeline,
+    style,
   });
   mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>));
   const boot = await commands.appBootstrap();
   useAppStore.setState({ boot, workspace: boot.workspace, phase: 'app' });
   return handle;
+}
+
+/** The configured workspace with Frostveil's style board (`?style=board`). */
+export function openMockStyle() {
+  return openMockWorkspace(
+    'configured',
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    'board'
+  );
 }
 
 /** The configured workspace with a game project open: `crypt`, `import` or `maze`. */

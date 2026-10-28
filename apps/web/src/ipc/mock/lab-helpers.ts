@@ -27,6 +27,7 @@ export const queuedJob = (
   retryAtMs: null,
   usageLimit: false,
   retries: 0,
+  styleRevision: null,
 });
 
 export const finished = (job: ConceptJob) =>

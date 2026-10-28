@@ -19,6 +19,7 @@ import {
   tileLabel,
   tiles,
 } from './lab';
+import { EMPTY_STYLE } from '@/state/lab-style';
 
 function image(index: number, marks: { starred?: boolean; picked?: boolean } = {}) {
   return {
@@ -45,6 +46,8 @@ const direction: Direction = {
   updatedAt: '2026-10-24T10:00:00Z',
   source: null,
   kind: null,
+  styleOff: false,
+  styleRevision: null,
 };
 
 function job(
@@ -72,6 +75,7 @@ function job(
     retryAtMs: null,
     retries: 0,
     usageLimit: false,
+    styleRevision: null,
     ...extra,
   };
 }
@@ -134,6 +138,7 @@ describe('lab helpers', () => {
       jobs: [job(3, 'queued')],
       refs: [],
       concurrency: 4,
+      style: EMPTY_STYLE,
     };
     const running = applyConceptEvent(view, { type: 'job', job: job(3, 'running') });
     expect(running.jobs[0]?.state).toBe('running');

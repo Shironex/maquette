@@ -80,6 +80,8 @@ function direction(
     updatedAt: at,
     source: null,
     kind: null,
+    styleOff: false,
+    styleRevision: null,
   };
 }
 
@@ -252,6 +254,7 @@ function arenaJobs(project: string, now: number): ConceptJob[] {
       retryAtMs: null,
       retries: 0,
       usageLimit: false,
+      styleRevision: null,
     };
   });
 }

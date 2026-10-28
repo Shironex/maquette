@@ -6,11 +6,19 @@ import { create } from 'zustand';
 import { commands, errorMessage } from '@/ipc/client';
 import { useAppStore } from './use-app-store';
 import { applyConceptEvent, withDirection } from './lab';
+import { createLabStyleSlice } from './create-lab-style-slice';
 import type { Draft, LabStore } from './lab-store.types';
 
-export type { Draft, ObjectsDraft } from './lab-store.types';
+export type { Draft, ObjectsDraft, StyleDraft } from './lab-store.types';
 
-const EMPTY_DRAFT: Draft = { name: '', prompt: '', refs: [], aspect: '16:9', count: 4 };
+const EMPTY_DRAFT: Draft = {
+  name: '',
+  prompt: '',
+  refs: [],
+  aspect: '16:9',
+  count: 4,
+  useStyle: true,
+};
 
 const notify = (status: 'done' | 'failed' | 'info', title: string, detail?: string) =>
   useAppStore.getState().notify({ status, title, detail });
@@ -20,7 +28,8 @@ let requested: string | null = null;
 /** False once a switch moved the lab on, so a late answer stays out. */
 const stillOn = (project: string) => requested === project;
 
-export const useLabStore = create<LabStore>((set, get) => ({
+export const useLabStore = create<LabStore>((set, get, api) => ({
+  ...createLabStyleSlice(set, get, api),
   view: null,
   loading: false,
   selected: null,
@@ -39,6 +48,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
         draft: { ...EMPTY_DRAFT, count: get().draft.count },
         lightbox: null,
         busy: null,
+        style: null,
       });
     }
     // Make object refs reads a concept of the project it opened in.
@@ -74,6 +84,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
         refs: direction.refs,
         aspect: direction.aspect,
         count: get().draft.count,
+        useStyle: !direction.styleOff,
       },
     });
   },
@@ -116,6 +127,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
         refs: draft.refs,
         aspect: draft.aspect,
         count: draft.count,
+        useStyle: draft.useStyle,
       });
       const fresh = next.jobs.filter(j => !view.jobs.some(old => old.id === j.id));
       if (stillOn(view.project))
@@ -291,7 +303,9 @@ export const useLabStore = create<LabStore>((set, get) => ({
   },
 
   openObjects: draft =>
-    set({ objects: { ...draft, objects: [], notes: {}, aspect: '1:1', kind: 'prop' } }),
+    set({
+      objects: { ...draft, objects: [], notes: {}, aspect: '1:1', kind: 'prop', useStyle: true },
+    }),
 
   setObjects: patch => {
     const objects = get().objects;
@@ -315,6 +329,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
         notes: objects.notes,
         aspect: objects.aspect,
         kind: objects.kind,
+        useStyle: objects.useStyle,
       });
       const fresh = next.jobs.filter(j => !before.some(old => old.id === j.id));
       // The Lab shows the new direction, also when this came from the Board,

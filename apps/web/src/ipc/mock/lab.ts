@@ -13,6 +13,7 @@ import type {
   NewObjectRefs,
   ProjectManifest,
   RefImage,
+  StyleBoardChange,
 } from '../client';
 import {
   GENERATED_POOL,
@@ -26,6 +27,7 @@ import {
 } from './lab-fixtures';
 import { clock } from '@/lib/clock';
 import { createLabSends } from './create-lab-sends';
+import { createStyleBoards, markStyled } from './style-board';
 import {
   finished,
   importRefs,
@@ -61,6 +63,8 @@ export interface FakeLabOptions {
   state?: string | null;
   /** `batch`: the veil gate props concept and its six object refs are there too. */
   handoff?: string | null;
+  /** `board`: Frostveil has a style board (see style-board.ts). */
+  style?: string | null;
   /** True while a Send to 3D job still needs the asset where it is. */
   assetBusy?: (project: string, asset: string) => boolean;
   fail: (code: string, message: string) => never;
@@ -72,9 +76,16 @@ export function createFakeLab(options: FakeLabOptions) {
     options.state === 'limited' ? 'rate' : options.state === 'usage' ? 'usage' : undefined;
   const running = options.state === 'running' || limit !== undefined;
   const batch = options.handoff === 'batch';
+  const seeded = [...(batch ? veilGateDirections() : []), ...labDirections(running)];
   const directions = new Map<string, Direction[]>([
-    ['frostveil', [...(batch ? veilGateDirections() : []), ...labDirections(running)]],
+    ['frostveil', options.style === 'board' ? markStyled(seeded) : seeded],
   ]);
+  const styles = createStyleBoards({
+    projectDir: options.projectDir,
+    files: options.files,
+    fail,
+    state: options.style,
+  });
   const refs = new Map<string, RefImage[]>([
     ['frostveil', [...labRefs(), ...(batch ? objectRefs() : [])]],
   ]);
@@ -95,6 +106,7 @@ export function createFakeLab(options: FakeLabOptions) {
       jobs: jobs.filter(j => j.project === project),
       refs: refs.get(project) ?? [],
       concurrency,
+      style: styles.board(project),
     };
   }
 
@@ -191,6 +203,7 @@ export function createFakeLab(options: FakeLabOptions) {
     const id = slug(name);
     const at = clock.now().toISOString();
     const existing = list(request.project).find(d => d.id === id);
+    const styleRevision = styles.forJob(request.project, request.useStyle)?.revision ?? null;
     const direction = saveDirection(request.project, {
       id,
       name,
@@ -202,6 +215,8 @@ export function createFakeLab(options: FakeLabOptions) {
       updatedAt: at,
       source: existing?.source ?? null,
       kind: existing?.kind ?? null,
+      styleOff: request.useStyle === false,
+      styleRevision,
     });
     const taken = [
       ...direction.images.map(i => i.index),
@@ -222,6 +237,7 @@ export function createFakeLab(options: FakeLabOptions) {
         file: `concepts/${id}/${id}_${two}.png`,
         title: null,
       });
+      job.styleRevision = styleRevision;
       jobs = [...jobs, job];
       emit({ type: 'job', job });
     }
@@ -243,6 +259,7 @@ export function createFakeLab(options: FakeLabOptions) {
     const id = slug(name);
     const at = clock.now().toISOString();
     const existing = list(request.project).find(d => d.id === id);
+    const styleRevision = styles.forJob(request.project, request.useStyle)?.revision ?? null;
     const direction = saveDirection(request.project, {
       id,
       name,
@@ -254,6 +271,8 @@ export function createFakeLab(options: FakeLabOptions) {
       updatedAt: at,
       source: request.source,
       kind: request.kind,
+      styleOff: request.useStyle === false,
+      styleRevision,
     });
     const taken = [
       ...direction.images.map(i => i.index),
@@ -274,6 +293,7 @@ export function createFakeLab(options: FakeLabOptions) {
         file: `concepts/${id}/${id}_${two}.png`,
         title: title,
       });
+      job.styleRevision = styleRevision;
       jobs = [...jobs, job];
       emit({ type: 'job', job });
     });
@@ -373,6 +393,7 @@ export function createFakeLab(options: FakeLabOptions) {
     lab_make_objects: ({ request }) => makeObjects(request as NewObjectRefs),
     lab_send_object_picks: ({ project, direction, kind }) =>
       sends.sendObjectPicks(String(project), String(direction), (kind as AssetKind | null) ?? null),
+    lab_set_style: ({ project, change }) => styles.set(String(project), change as StyleBoardChange),
     lab_import_refs: ({ project, paths }) =>
       importRefs(options, refs, String(project), paths as string[]),
   };
