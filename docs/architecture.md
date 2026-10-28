@@ -318,7 +318,9 @@ sha256 of its keys and a revision) and `clip.glb` (bones and one animation, no m
   source rig; `settings.rs` normalises per model clip settings; `bake.rs` copies the model and
   clips into a scratch folder and runs `retarget_clips.py` headless, which turns the model's limbs
   to the clip's rest pose, applies each clip bone's world rotation change to its mapped bone, scales
-  the hips by height and measures each clip (travel, how far the hips go, planted foot slide);
+  the hips by height and measures each clip (travel, how far the hips go, each foot's track);
+  `feet.rs` finds planted frames (low and slow) and the slide in those tracks, and for a clip with
+  Pin the feet a second run holds the feet over the planted frames with a two bone leg IK;
   `review.rs` grades them. `bake` adds the draft as the next version through the build checks.
   `uses.rs` keeps the project's `animations.json` (saved map, baked clips with revision and
   settings, last review), which gives the library's uses and update offers.
