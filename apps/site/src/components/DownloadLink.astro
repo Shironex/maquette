@@ -1,6 +1,6 @@
 ---
 import { Icon } from '@maquette/ui';
-import { release } from '../content/copy';
+import { MAC_LABEL, MAC_SHORT, release } from '../content/copy';
 
 interface Props {
   /** The header's smaller button. */
@@ -21,8 +21,8 @@ const classes = ['btn', 'btn-primary', { 'btn-sm': small }];
 <a class:list={[...classes, 'os-any']} href={neutral}>
   Download<Icon name="download-simple" size={size} />
 </a>
-<a class:list={[...classes, 'os-mac']} href={release.mac.url}>
-  Download for Mac<Icon name="download-simple" size={size} />
+<a class:list={[...classes, 'os-mac']} href={release.mac.url} aria-label={small ? MAC_LABEL : undefined}>
+  {small ? MAC_SHORT : MAC_LABEL}<Icon name="download-simple" size={size} />
 </a>
 <a class:list={[...classes, 'os-windows']} href={release.windows.url}>
   Download for Windows<Icon name="download-simple" size={size} />

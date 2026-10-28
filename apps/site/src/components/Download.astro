@@ -1,6 +1,6 @@
 ---
 import { Icon } from '@maquette/ui';
-import { SHOTS, release, formatMegabytes } from '../content/copy';
+import { MAC_LABEL, SHOTS, release, formatMegabytes } from '../content/copy';
 ---
 
 <section id="download" class="download" aria-labelledby="download-title">
@@ -17,7 +17,7 @@ import { SHOTS, release, formatMegabytes } from '../content/copy';
     {/* The visitor's platform first: data-os from the head script picks the set (os.css). */}
     <div class="buttons os-not-windows">
       <a class="btn btn-primary" href={release.mac.url}
-        >Download for Mac<Icon name="download-simple" size={18} /></a
+        >{MAC_LABEL}<Icon name="download-simple" size={18} /></a
       >
       <a class="btn btn-secondary" href={release.windows.url}
         >Download for Windows<Icon name="download-simple" size={18} /></a
@@ -28,7 +28,7 @@ import { SHOTS, release, formatMegabytes } from '../content/copy';
         >Download for Windows<Icon name="download-simple" size={18} /></a
       >
       <a class="btn btn-secondary" href={release.mac.url}
-        >Download for Mac<Icon name="download-simple" size={18} /></a
+        >{MAC_LABEL}<Icon name="download-simple" size={18} /></a
       >
     </div>
     <p class="release">
@@ -139,6 +139,15 @@ import { SHOTS, release, formatMegabytes } from '../content/copy';
     .buttons {
       flex-direction: column;
       align-items: stretch;
+    }
+    /* The longer Mac label may take two lines on the narrowest phones. */
+    .buttons .btn {
+      height: auto;
+      min-height: 52px;
+      padding-block: 14px;
+      white-space: normal;
+      line-height: 22px;
+      text-align: center;
     }
     .plinth {
       margin-top: 32px;

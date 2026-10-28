@@ -65,6 +65,13 @@ const link = (href: string) => withBase(href.startsWith('#') ? `/${href}` : href
     box-shadow: inset 0 -2px 0 var(--clay);
     padding-block: 24px;
   }
+  /* Narrow desktop windows: tighter gaps keep the download button inside the bar. */
+  @media (max-width: 1099px) {
+    .bar,
+    .links {
+      gap: 20px;
+    }
+  }
   @media (max-width: 899px) {
     .bar {
       gap: 12px;

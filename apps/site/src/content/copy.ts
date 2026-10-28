@@ -295,6 +295,14 @@ export const release = {
   },
 } as const;
 
+/**
+ * The Mac button's label, and the short one where space is tight (the header).
+ * A no-break space keeps "Apple silicon" on one line when a phone wraps the label.
+ */
+const MAC_NOTE = release.mac.note.replace(' ', '\u00a0');
+export const MAC_LABEL = `Download for Mac (${MAC_NOTE})`;
+export const MAC_SHORT = `Mac (${MAC_NOTE})`;
+
 export const NAV = [
   { href: '#features', label: 'Features' },
   { href: '#pipeline', label: 'Pipeline' },
