@@ -42,6 +42,7 @@ import { createBuiltHandlers } from './create-built-handlers';
 import { createInboxHandlers } from './create-inbox-handlers';
 import { createMotionHandlers, motionConfig, seedMotionProjects } from './create-motion-handlers';
 import { createPartsHandlers, seedParts } from './create-parts-handlers';
+import { createSplitHandlers } from './create-split-handlers';
 import { createPageHandlers } from './create-page-handlers';
 import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPathsHandlers } from './create-paths-handlers';
@@ -215,11 +216,7 @@ export function createBackend({
   }
 
   const summary = (p: ProjectManifest): ProjectSummary =>
-    projectSummary(p, {
-      activeRun,
-      concepts: id => lab.activeJobs(id),
-      jobs: () => providers.jobs(),
-    });
+    projectSummary(p, { activeRun, concepts: id => lab.activeJobs(id), jobs: providers.jobs });
 
   const lab = createFakeLab({
     projectDir: id => `${expand(DEFAULT_ROOT)}/projects/${id}`,
@@ -367,6 +364,7 @@ export function createBackend({
     }),
     ...prepare.handlers,
     ...createPartsHandlers({ project, saveProject, prepare, root: () => root }),
+    ...createSplitHandlers({ project, saveProject, providers, scenario: partsState }),
     ...createMotionHandlers({
       project,
       layout,

@@ -153,14 +153,15 @@ export function createFakeProviders({
           state: 'inbox',
           phase: null,
           progress: 1,
-          credits: job.provider === 'tripo' ? 30 : 20,
+          credits: job.split ? (job.estimate ?? null) : job.provider === 'tripo' ? 30 : 20,
           finishedAtMs: clock.nowMs(),
           inboxFile: `${job.id}.glb`,
         });
         touch(job, 'review');
         return;
       }
-      put({ ...job, progress, phase: progress > 0.9 ? 'download' : 'generate' });
+      const working = job.split ? 'split' : 'generate';
+      put({ ...job, progress, phase: progress > 0.9 ? 'download' : working });
     }, 700);
     timers.set(id, timer);
   };
@@ -373,5 +374,21 @@ export function createFakeProviders({
   const busy = (project: string, asset: string) =>
     jobs.some(j => j.project === project && j.asset === asset && OPEN.includes(j.state));
 
-  return { handlers, decide, busy, jobs: () => jobs, hasKey: keyStore.has };
+  /** Tells the app a project changed, as the core does after a bake back. */
+  const changed = (next: ProjectManifest) => emit?.({ type: 'project', project: next });
+  /** A job a scenario starts with, before anyone listens. */
+  const seed = (job: ProviderJob) => void (jobs = [...jobs, job]);
+
+  return {
+    handlers,
+    decide,
+    busy,
+    jobs: () => jobs,
+    hasKey: keyStore.has,
+    base,
+    start,
+    put,
+    changed,
+    seed,
+  };
 }

@@ -33,6 +33,12 @@ came through the Maquette pipeline, so the sample shows real work.
   the split fix-up leaves it, and a rune chest as one mesh. They are generated
   headless with `crates/maquette-core/src/parts/fixtures/parts_models.py`
   and are not part of the reserved artwork below either.
+- `models/frost_lantern_tripo.glb`, `sigil_gate_frame.glb`,
+  `sigil_gate_door.glb`, `sigil_gate_steps.glb` and `sigil_gate.glb`: the
+  same kind of primitives for splits on a provider and Assemble one prop: the
+  lantern's parts the way a Tripo split names them, untextured, the three
+  Sigil gate parts as models of their own, and the gate assembled from them
+  by `crates/maquette-core/src/parts/assemble.py`. Generated the same way.
 
 `src/ipc/mock/install.ts` registers every file here under the mock workspace
 paths, so new renders only need the right file name.

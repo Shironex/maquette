@@ -206,13 +206,13 @@ export async function openMockRefs() {
 }
 
 /** The configured workspace with the frost lantern split into parts (`?parts=demo`). */
-export async function openMockParts() {
+export async function openMockParts(parts = 'demo') {
   const handle = createBackend({
     scenario: 'configured',
     probeDelay: 0,
     pace: 0,
     conceptMs: 60_000,
-    parts: 'demo',
+    parts,
   });
   mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>));
   const boot = await commands.appBootstrap();
