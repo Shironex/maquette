@@ -69,7 +69,16 @@ The Download section reads the `release` object in `src/content/copy.ts` (versio
 ## Placeholders
 
 - The laptop screen (`public/scene/laptop-screen.webp`) is a mock mode capture of the Board; swap in a capture of a real project.
-- The app screenshots in `public/scene/screens/` are mock mode captures too.
+- The app screenshots in `public/scene/screens/` are mock mode captures too. The Lab, Inbox, refs by view, Animations, retarget review and Parts shots are crops of the v0.2.0 README images (`assets/showcase/`), cut so no project name shows.
+
+## Showcase
+
+The "On a real project" section (`src/components/Showcase.astro`, data in `src/content/showcase.ts`) shows files from a game project made in Maquette, in `public/scene/showcase/`: its concept sheet, object refs, model thumbnails and view refs, scaled down to WebP, plus two renders of its character GLBs (a still and a 2.7 s loop as H.264 MP4 with a WebP poster). The loop is fetched and played only while it is on screen, and never with reduced motion. Captions call it "a game project", not by name.
+
+## Download links per platform
+
+`src/lib/platform.ts` guesses the visitor's platform from `navigator.userAgentData.platform`, else the user agent. Its source runs inline in the head (Base.astro, and Starlight's `head` in astro.config) and sets `data-os` on the root element before the first paint; `src/styles/os.css` then shows the matching links from `DownloadLink.astro` and the Download section. macOS and Windows get their file; Linux, phones and pages without JavaScript get the neutral Download that leads to both buttons.
+
 - The props on the bench were prepared by hand (`"inPlace": false` in `shipped.json`) until the first ship from Maquette.
 - The finished island keeps its 2048 color texture (the Web stop is a close up of it); a 1024 copy would save about 0.5 MB.
 
