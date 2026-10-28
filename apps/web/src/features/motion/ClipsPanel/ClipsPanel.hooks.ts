@@ -7,6 +7,7 @@ import { useAppStore } from '@/state/use-app-store';
 import { useIsGame } from '@/state/use-budget-check';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useMotionStore } from '@/state/use-motion-store';
+import { useRetargetStore } from '@/state/use-retarget-store';
 
 /** A clip list long enough to need the search box. */
 export const SEARCH_FROM = 8;
@@ -36,7 +37,7 @@ export function useClipsPanel() {
   const selected = useMotionStore(s => s.clip);
   const selectClip = useMotionStore(s => s.selectClip);
   const setShip = useMotionStore(s => s.setShip);
-  const setBoneMap = useMotionStore(s => s.setBoneMap);
+  const openRetarget = useRetargetStore(s => s.open);
   const setView = useAppStore(s => s.setView);
   const projectId = useAppStore(s => s.workspace?.project?.id ?? null);
   const setAdding = useBuiltStore(s => s.setAdding);
@@ -75,7 +76,9 @@ export function useClipsPanel() {
     menu,
     setMenu,
     actions: {
-      retarget: () => setBoneMap(true),
+      retarget: () => {
+        if (model && projectId) void openRetarget({ project: projectId, asset: model.asset });
+      },
       save: () => {
         if (model && projectId) {
           void useAnimationsStore

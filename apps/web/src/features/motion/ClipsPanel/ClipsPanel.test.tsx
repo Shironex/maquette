@@ -61,7 +61,7 @@ describe('the clips panel', () => {
     await openMotion(undefined, 'turntable');
     render(<ClipsPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Add clip' }));
-    expect(screen.getByRole('menuitem', { name: 'Retarget a library clip' })).toHaveAttribute(
+    expect(screen.getByRole('menuitem', { name: 'Add from library' })).toHaveAttribute(
       'aria-disabled',
       'true'
     );

@@ -3,7 +3,9 @@ import type { MotionModel } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import { fileName } from '@/state/pipeline';
+import { useAppStore } from '@/state/use-app-store';
 import { useMotionStore } from '@/state/use-motion-store';
+import { useRetargetStore } from '@/state/use-retarget-store';
 
 export interface RigLine {
   id: string;
@@ -77,7 +79,8 @@ export function rigLines(model: MotionModel): RigLine[] {
 
 export function useRigCheck() {
   const model = useMotionStore(s => s.view?.models.find(m => m.asset === s.asset) ?? null);
-  const setBoneMap = useMotionStore(s => s.setBoneMap);
+  const openRetarget = useRetargetStore(s => s.open);
+  const projectId = useAppStore(s => s.workspace?.project?.id ?? null);
   const now = useNow(60_000);
   return {
     facts: model
@@ -90,6 +93,10 @@ export function useRigCheck() {
     model,
     lines: model ? rigLines(model) : [],
     file: model ? fileName(model.path) : '',
-    openMap: () => setBoneMap(true),
+    openMap: () => {
+      if (model && projectId) {
+        void openRetarget({ project: projectId, asset: model.asset, step: 'map' });
+      }
+    },
   };
 }

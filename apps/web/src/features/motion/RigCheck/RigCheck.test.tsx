@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { useMotionStore } from '@/state/use-motion-store';
+import { useRetargetStore } from '@/state/use-retarget-store';
 import { clearMocks, openMotion } from '@/test/open-motion';
 import RigCheck from './RigCheck';
 import { rigLines } from './RigCheck.hooks';
@@ -13,7 +13,8 @@ describe('the rig check', () => {
     render(<RigCheck />);
     expect(screen.getByText('2 bones the library expects are missing')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Map bones' }));
-    expect(useMotionStore.getState().boneMap).toBe(true);
+    await waitFor(() => expect(useRetargetStore.getState().sheet?.step).toBe('map'));
+    useRetargetStore.setState({ sheet: null });
   });
 
   it('says a model without a rig still plays whole model clips', async () => {

@@ -1,7 +1,6 @@
 import { Button, Icon, InlineBanner, TextField, Toggle, cn } from '@maquette/ui';
 import { Menu } from '@/features/common/Menu';
 import { SectionLabel } from '@/features/common/SectionLabel';
-import { BoneMapDialog } from '../BoneMapDialog';
 import { ClipDetails } from '../ClipDetails';
 import { OverBudget } from '../OverBudget';
 import { RigCheck } from '../RigCheck';
@@ -90,7 +89,7 @@ export default function ClipsPanel() {
             items={[
               {
                 id: 'retarget',
-                label: 'Retarget a library clip',
+                label: 'Add from library',
                 icon: 'books',
                 disabled: !model.rig,
                 hint: model.rig ? undefined : 'Library clips need a rig',
@@ -170,7 +169,6 @@ export default function ClipsPanel() {
       ) : null}
       {panel.over ? <OverBudget /> : total > 0 ? <ClipDetails /> : null}
       <RigCheck />
-      <BoneMapDialog />
     </aside>
   );
 }
