@@ -3,7 +3,8 @@
 
 use super::sink::session_id;
 use super::*;
-use crate::concepts::{Aspect, load_direction};
+use crate::concepts::objects::{self, NewObjectRefs};
+use crate::concepts::{Aspect, load_direction, style};
 use crate::pipeline::tools::ResolvedTool;
 use std::collections::BTreeMap;
 use std::fs;
