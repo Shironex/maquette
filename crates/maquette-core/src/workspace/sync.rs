@@ -62,7 +62,8 @@ pub struct SyncConflict {
 
 /// Every conflict copy of a JSON data file in the workspace (the config,
 /// the ledger, projects, sends, library entries), sorted by path. The cache
-/// and Syncthing's own folders are not looked in.
+/// and Syncthing's own folders are not looked in. A conflict copy of the
+/// workspace lock is only an old heartbeat, so it is removed, not reported.
 pub fn conflicts(root: &Path, config: &WorkspaceConfig) -> Vec<SyncConflict> {
     let mut found = Vec::new();
     walk(root, root, &config.layout.cache, 0, &mut found);
@@ -90,6 +91,11 @@ fn walk(root: &Path, dir: &Path, cache: &str, depth: usize, found: &mut Vec<Sync
         let Some(original) = conflict_original(&name) else {
             continue;
         };
+        if depth == 0 && original == LOCK_FILE {
+            // Best effort: if it stays, the next scan tries again.
+            let _ = fs::remove_file(&path);
+            continue;
+        }
         if !is_data_file(&original) {
             continue;
         }
@@ -206,6 +212,7 @@ mod tests {
         write(&format!("library/lamp/entry.{stamp}.json"));
         write(&format!("projects/studio/models/lamp_v1.{stamp}.glb"));
         write(&format!("cache/inbox.{stamp}.json"));
+        write(&format!(".maquette-lock.{stamp}.json"));
         write(&format!(".stversions/project.{stamp}.json"));
         write("projects/studio/project.json");
         let found = conflicts(root, &WorkspaceConfig::default());
@@ -220,5 +227,6 @@ mod tests {
             ]
         );
         assert!(found[3].path.ends_with(&format!("project.{stamp}.json")));
+        assert!(!root.join(format!(".maquette-lock.{stamp}.json")).exists());
     }
 }
