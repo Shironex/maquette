@@ -2,8 +2,8 @@
  * The Animations view's shots for scripts/visual-check.mjs (ONLY=animations):
  * the grid with the demo clips and one playing on its own skeleton, a pack
  * picked in the list layout, the empty library, Import clips with packs, a
- * duplicate and files left out, and Save clips to library from a model in
- * Motion. Mock mode's `?library=demo` clips serve them; every clip plays
+ * duplicate and files left out, Save clips to library from a model in
+ * Motion, and the four Use on model steps from Motion's Add from library. Mock mode's `?library=demo` clips serve them; every clip plays
  * the bundled skeleton the core's reader wrote headless.
  */
 
@@ -57,4 +57,37 @@ export async function animationsShots({ open, shot }) {
   await save.getByText(/rig, \d+ bones/).waitFor();
   await shot(motion, 'animations-save-clips');
   await motion.context().close();
+
+  const use = await open(`${DEMO}&motion=demo`, '#/motion');
+  await use.getByRole('region', { name: 'Models that move' }).waitFor();
+  await use.getByRole('button', { name: 'Add clip' }).click();
+  await use.getByRole('menuitem', { name: 'Add from library' }).click();
+  const steps = use.getByRole('dialog', { name: /^Add library clips to / });
+  for (const name of [
+    'Sword And Shield Run',
+    'Sword And Shield Slash',
+    'Sword And Shield Crouch',
+    'Standing Dodge Left',
+  ]) {
+    await steps.getByText(name, { exact: true }).click();
+  }
+  await steps.getByText('Chosen · 4').waitFor();
+  await shot(use, 'retarget-choose');
+  // The bone map opens first only when the rig needs a look; open it from
+  // the steps either way.
+  const nav = steps.getByRole('navigation', { name: 'Steps' });
+  await steps.getByRole('button', { name: 'Next: bone map' }).click();
+  await steps.getByRole('region', { name: /^(Bone map|Clip settings)$/ }).waitFor();
+  await nav.getByRole('button', { name: /Bone map/ }).click();
+  await steps.getByRole('region', { name: 'Bone map' }).waitFor();
+  await shot(use, 'retarget-map');
+  await nav.getByRole('button', { name: /Clip settings/ }).click();
+  await steps.getByRole('region', { name: 'Clip settings' }).waitFor();
+  await steps.getByRole('button', { name: 'Standing Dodge Left' }).click();
+  await shot(use, 'retarget-settings');
+  await steps.getByRole('button', { name: 'Retarget 4 clips' }).click();
+  await use.getByRole('dialog', { name: /^Review the retarget on / }).waitFor();
+  await use.waitForTimeout(2500);
+  await shot(use, 'retarget-review');
+  await use.context().close();
 }
