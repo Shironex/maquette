@@ -67,15 +67,30 @@ export interface Framing {
   target: THREE.Vector3;
 }
 
+/**
+ * The meshes' bounds, or the bones' for a skeleton with no mesh (a library
+ * clip), so a bare skeleton frames too.
+ */
+function boundsOf(object: THREE.Object3D): THREE.Box3 {
+  const box = new THREE.Box3().setFromObject(object);
+  if (!box.isEmpty()) return box;
+  const at = new THREE.Vector3();
+  object.traverse(o => {
+    if ((o as THREE.Bone).isBone) box.expandByPoint(o.getWorldPosition(at));
+  });
+  // Room for the limbs to swing and the root to travel.
+  return box.isEmpty() ? box : box.expandByScalar(box.getSize(at).length() * 0.25);
+}
+
 /** Moves `object` so it stands on the floor (y = 0), centred on the origin. */
 export function standOnFloor(object: THREE.Object3D): Framing | null {
   object.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(object);
+  const box = boundsOf(object);
   if (box.isEmpty()) return null;
   const center = box.getCenter(new THREE.Vector3());
   object.position.sub(new THREE.Vector3(center.x, box.min.y, center.z));
   object.updateMatrixWorld(true);
-  const placed = new THREE.Box3().setFromObject(object);
+  const placed = boundsOf(object);
   const extent = placed.getSize(new THREE.Vector3()).length() || 1;
   return { box: placed, extent, target: placed.getCenter(new THREE.Vector3()) };
 }
