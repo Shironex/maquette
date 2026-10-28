@@ -330,9 +330,11 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "add_built_asset",
             "add_fixups",
             "add_to_library",
+            "attach_download",
             "cancel_provider_jobs",
             "cancel_run",
             "copy_asset",
+            "dismiss_download",
             "get_bake_settings",
             "get_concepts",
             "get_credits",
@@ -1638,6 +1640,18 @@ async fn agents_redo_inbox_models_and_read_the_credits() {
         "{handoffs}"
     );
     assert_eq!(handoffs["watcher"], Value::Null);
+    let attach = raw_call(
+        &client,
+        "attach_download",
+        json!({ "arrival": "0123456789abcdef", "project": project_id, "asset": "x" }),
+    )
+    .await;
+    assert_eq!(attach.is_error, Some(true), "no watcher, nothing attached");
+    assert!(
+        text(&attach).contains("Downloads watcher"),
+        "{}",
+        text(&attach)
+    );
     assert_eq!(credits["balances"][0]["service"], json!("tripo"));
     assert!(credits["balances"][0]["error"].is_string(), "{credits}");
     assert_eq!(credits["balances"][1]["key"], json!(false));
