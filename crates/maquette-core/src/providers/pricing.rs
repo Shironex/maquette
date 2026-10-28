@@ -94,6 +94,9 @@ pub fn estimate(
 impl ProviderJob {
     /// What this send should cost; `None` for By hand.
     pub fn estimate(&self) -> Option<f64> {
+        if let Some(split) = &self.split {
+            return super::split::credits(split.tripo.as_ref(), split.meshy.as_ref());
+        }
         estimate(
             self.provider,
             self.variant,

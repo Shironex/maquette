@@ -59,6 +59,7 @@ fn job(id: &str, asset_name: &str, created_at_ms: f64) -> ProviderJob {
         prompt: None,
         redo_of: None,
         estimate: None,
+        split: None,
     }
 }
 

@@ -23,6 +23,7 @@ mod handoff_paths;
 mod ids;
 mod landed;
 mod remove;
+mod split;
 mod stopped_cards;
 
 const WAIT: Duration = Duration::from_secs(20);

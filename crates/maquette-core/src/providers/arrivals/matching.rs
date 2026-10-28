@@ -150,6 +150,7 @@ mod tests {
             prompt: None,
             redo_of: None,
             estimate: None,
+            split: None,
         }
     }
 

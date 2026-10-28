@@ -14,6 +14,7 @@ pub mod naming;
 pub mod presets;
 pub mod pricing;
 pub mod secrets;
+pub mod split;
 pub mod subscription;
 pub mod tripo;
 
@@ -30,8 +31,9 @@ pub use catalog::{ModelOption, ProviderCatalog};
 pub use handback::{DownloadMatch, DownloadsScan};
 pub use handoff::{CardRow, HandoffCard};
 pub use jobs::{
-    BatchFailure, BatchItem, BatchRequest, BatchSent, CancelMode, Endpoints, InboxLink, JobPhase,
-    JobState, MAX_BATCH, Options, Provider, ProviderEvent, ProviderJob, ProviderJobs, SendRequest,
+    BakeBack, BakeState, BatchFailure, BatchItem, BatchRequest, BatchSent, CancelMode, Endpoints,
+    InboxLink, JobPhase, JobState, MAX_BATCH, Options, Provider, ProviderEvent, ProviderJob,
+    ProviderJobs, SendRequest, SplitJob, SplitRequest, SplitSource,
 };
 pub use ledger::{Ledger, ServiceTotals, Spend, SpendOutcome, SpendSource};
 pub use presets::{
