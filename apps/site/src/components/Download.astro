@@ -14,12 +14,21 @@ import { SHOTS, release, formatMegabytes } from '../content/copy';
     <p class="lead narrow-only">
       A desktop app for macOS and Windows. Open this page on your computer to download.
     </p>
-    <div class="buttons">
+    {/* The visitor's platform first: data-os from the head script picks the set (os.css). */}
+    <div class="buttons os-not-windows">
       <a class="btn btn-primary" href={release.mac.url}
         >Download for Mac<Icon name="download-simple" size={18} /></a
       >
       <a class="btn btn-secondary" href={release.windows.url}
         >Download for Windows<Icon name="download-simple" size={18} /></a
+      >
+    </div>
+    <div class="buttons os-windows">
+      <a class="btn btn-primary" href={release.windows.url}
+        >Download for Windows<Icon name="download-simple" size={18} /></a
+      >
+      <a class="btn btn-secondary" href={release.mac.url}
+        >Download for Mac<Icon name="download-simple" size={18} /></a
       >
     </div>
     <p class="release">

@@ -8,6 +8,7 @@ import { basisTranscoder } from './vite/basis-transcoder.ts';
 import { DOCS_GROUPS } from './src/lib/docs-nav.ts';
 import { baseLinks } from './src/lib/base-links.ts';
 import { SITE_URL } from './src/lib/site-url.ts';
+import { platformScript } from './src/lib/platform.ts';
 
 // Next to the web app's 15190 and its worktree ports; preview uses the same.
 const PORT = 15292;
@@ -28,6 +29,8 @@ export default defineConfig({
       description:
         'Documentation for Maquette, a desktop studio that turns concept art into real-time 3D web scenes.',
       favicon: '/icon-64.png',
+      // Sets data-os before the first paint, for the header's Download link (src/styles/os.css).
+      head: [{ tag: 'script', content: platformScript() }],
       customCss: ['./src/styles/docs.css'],
       components: {
         Header: './src/components/docs/Header.astro',

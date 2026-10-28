@@ -1,6 +1,7 @@
 ---
 import { withBase } from '../lib/with-base';
 import { absoluteUrl } from '../lib/site-url';
+import { platformScript } from '../lib/platform';
 import '../styles/global.css';
 
 interface Props {
@@ -15,6 +16,7 @@ const { title, description } = Astro.props;
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <script is:inline set:html={platformScript()} />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#1c1b19" />

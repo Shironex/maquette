@@ -2,6 +2,7 @@
 import { withBase } from '../lib/with-base';
 import { Icon } from '@maquette/ui';
 import Brand from './Brand.astro';
+import DownloadLink from './DownloadLink.astro';
 import { NAV } from '../content/copy';
 ---
 
@@ -18,9 +19,7 @@ import { NAV } from '../content/copy';
         ))
       }
     </ul>
-    <a class="btn btn-primary btn-sm cta" href="#download">
-      Download for Mac<Icon name="download-simple" size={16} />
-    </a>
+    <span class="cta"><DownloadLink small /></span>
     <button
       type="button"
       class="menu"
@@ -70,6 +69,9 @@ import { NAV } from '../content/copy';
   }
   .grow {
     flex: 1;
+  }
+  .cta {
+    display: contents;
   }
   .links {
     display: flex;

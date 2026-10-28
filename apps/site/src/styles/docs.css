@@ -11,6 +11,7 @@
 @import '@astrojs/starlight-tailwind';
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
+@import './os.css';
 
 /* The site is dark only: the light theme is the dark one. These sit outside every layer, so they win over the preset's. */
 :root,

@@ -1,8 +1,8 @@
 ---
 import { withBase } from '../../lib/with-base';
-import { Icon } from '@maquette/ui';
 import Search from '@astrojs/starlight/components/Search.astro';
 import Brand from '../Brand.astro';
+import DownloadLink from '../DownloadLink.astro';
 import { NAV } from '../../content/copy';
 
 // The landing page's header on the docs pages: its links point back at the
@@ -25,9 +25,7 @@ const link = (href: string) => withBase(href.startsWith('#') ? `/${href}` : href
       ))
     }
   </ul>
-  <a class="btn btn-primary btn-sm cta" href={withBase('/#download')}>
-    Download for Mac<Icon name="download-simple" size={16} />
-  </a>
+  <span class="cta"><DownloadLink small neutral={withBase('/#download')} /></span>
 </div>
 
 <style>
@@ -43,6 +41,9 @@ const link = (href: string) => withBase(href.startsWith('#') ? `/${href}` : href
   }
   .grow {
     flex: 1;
+  }
+  .cta {
+    display: contents;
   }
   .links {
     display: flex;
