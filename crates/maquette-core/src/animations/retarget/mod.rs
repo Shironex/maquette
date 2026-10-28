@@ -24,7 +24,7 @@ pub mod review;
 pub mod settings;
 pub mod uses;
 
-pub use bake::{RETARGET_SCRIPT, bake, draft};
+pub use bake::{RETARGET_SCRIPT, bake, draft, draft_file};
 pub use bones::{BonePair, MapChoice, PairMatch};
 pub use review::{ClipReview, RetargetReview, ReviewStatus};
 pub use settings::ClipSetting;

@@ -255,6 +255,15 @@ fn work_of(root: &Path, config: &WorkspaceConfig, token: &str) -> CoreResult<Pat
     Ok(work)
 }
 
+/// The baked copy a draft waits with, for Open in Blender.
+///
+/// # Errors
+///
+/// Fails for a token that is not a retarget, or one already baked.
+pub fn draft_file(root: &Path, config: &WorkspaceConfig, token: &str) -> CoreResult<PathBuf> {
+    Ok(work_of(root, config, token)?.join(DRAFT_FILE))
+}
+
 /// Adds a reviewed draft as the model's next version, through the checks
 /// a new version gets, and records the clips it baked.
 ///
