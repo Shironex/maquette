@@ -153,10 +153,11 @@ fn lock(shared: &Shared) -> MutexGuard<'_, Slot> {
 }
 
 impl Shared {
-    /// Wakes waiters and tells the app, outside the lock.
+    /// Tells the app, then wakes waiters, outside the lock. In that order a
+    /// waiter that wakes on a state can count on the app having heard it.
     fn publish(&self, status: &ServerStatus) {
-        self.changed.notify_all();
         (self.notify)(status);
+        self.changed.notify_all();
     }
 }
 

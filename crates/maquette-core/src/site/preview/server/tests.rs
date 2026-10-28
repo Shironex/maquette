@@ -67,7 +67,14 @@ fn a_server_starts_reports_its_address_and_stops() {
         "{:?}",
         status.log
     );
-    assert!(seen.lock().expect("seen").contains(&ServerState::Running));
+    // The app hears a state right after the slot takes it, so give the
+    // listener a moment instead of reading it the instant the wait returns.
+    let heard_running = || seen.lock().expect("seen").contains(&ServerState::Running);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !heard_running() && Instant::now() < deadline {
+        thread::sleep(POLL);
+    }
+    assert!(heard_running());
 
     // A second start for the same site reuses it, and Preview on site
     // outranks the view, so the view letting go keeps it running.
