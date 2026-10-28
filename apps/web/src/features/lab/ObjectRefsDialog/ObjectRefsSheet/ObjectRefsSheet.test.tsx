@@ -13,6 +13,7 @@ const draft: ObjectsDraft = {
   notes: { Lantern: 'Pink paper' },
   aspect: '1:1',
   kind: 'prop',
+  useStyle: true,
 };
 const lab = useLabStore.getState();
 

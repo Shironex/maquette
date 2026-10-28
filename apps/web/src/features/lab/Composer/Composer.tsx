@@ -2,6 +2,7 @@ import { Button, Field, Icon, NumberStepper, Select, TextArea, TextField, cn } f
 import type { Aspect, LabView } from '@/ipc/client';
 import { ASPECTS, MAX_IMAGES } from '@/state/lab';
 import { EarlierDirections } from '../EarlierDirections';
+import { StyleSwitch } from '../StyleSwitch';
 import { References } from './References';
 import { useComposer } from './Composer.hooks';
 
@@ -52,6 +53,12 @@ export default function Composer({ view }: ComposerProps) {
         onChange={e => setDraft({ prompt: e.target.value })}
       />
       <References view={view} />
+      <StyleSwitch
+        view={view}
+        on={draft.useStyle}
+        onChange={useStyle => setDraft({ useStyle })}
+        offerSetup
+      />
       <div className="grid grid-cols-2 gap-2.5">
         <Select<Aspect>
           label="Aspect"

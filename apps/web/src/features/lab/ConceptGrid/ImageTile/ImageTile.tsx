@@ -9,9 +9,20 @@ export interface ImageTileProps {
   image: ConceptImage;
 }
 
-/** A finished concept: open it, pick it, star it, or make object refs from it. */
+/** A finished concept: open it, pick it, star it, add it to the style board, or make object refs from it. */
 export default function ImageTile({ view, direction, image }: ImageTileProps) {
-  const { mark, openLightbox, openObjects, path, url, label } = useImageTile(view, image);
+  const {
+    mark,
+    openLightbox,
+    openObjects,
+    addToStyle,
+    styleBusy,
+    path,
+    url,
+    label,
+    onBoard,
+    boardFull,
+  } = useImageTile(view, image);
   return (
     <figure className="group m-0 flex flex-col gap-[7px]">
       <div
@@ -68,6 +79,23 @@ export default function ImageTile({ view, direction, image }: ImageTileProps) {
               In Refs
             </span>
           ) : null}
+          <IconButton
+            icon="palette"
+            label={onBoard ? `${label} is on the style board` : `Add ${label} to the style board`}
+            hint={onBoard ? undefined : 'Every new direction and object ref takes its look'}
+            variant="ghost"
+            size="sm"
+            disabled={onBoard || boardFull || styleBusy}
+            disabledReason={
+              onBoard
+                ? 'Take it off in the style board'
+                : boardFull
+                  ? 'The style board is full'
+                  : 'Saving the style board'
+            }
+            onClick={() => void addToStyle(image.file)}
+            className={onBoard ? 'text-clay-text' : 'text-fg-mute'}
+          />
           {isObjects(direction) ? null : (
             <IconButton
               icon="cube-focus"

@@ -6,6 +6,7 @@ import { labDirections } from '@/ipc/mock/lab-fixtures';
 import { useLabStore } from '@/state/use-lab-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { DirectionRow } from '.';
+import { EMPTY_STYLE } from '@/state/lab-style';
 
 const directions = labDirections(false);
 const train = directions.find(d => d.id === 'veil-gate-kit')!;
@@ -16,6 +17,7 @@ const view: LabView = {
   jobs: [],
   refs: [],
   concurrency: 4,
+  style: EMPTY_STYLE,
 };
 const lab = useLabStore.getState();
 

@@ -20,6 +20,8 @@ export function useObjectRefsSheet(objects: ObjectsDraft) {
   const make = useLabStore(s => s.makeObjects);
   const busy = useLabStore(s => s.busy === 'objects');
   const setView = useAppStore(s => s.setView);
+  // The project style shows only with the Lab of the same project loaded.
+  const labView = useLabStore(s => (s.view?.project === objects.project ? s.view : null));
   const [text, setText] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -98,5 +100,6 @@ export function useObjectRefsSheet(objects: ObjectsDraft) {
     onPaste,
     submit,
     saveEdit,
+    labView,
   };
 }

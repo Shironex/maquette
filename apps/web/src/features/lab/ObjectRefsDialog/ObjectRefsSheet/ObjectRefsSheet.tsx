@@ -8,6 +8,7 @@ import {
   objectsDirectionName,
 } from '@/state/lab';
 import type { ObjectsDraft } from '@/state/use-lab-store';
+import { StyleSwitch } from '../../StyleSwitch';
 import { ObjectChip } from './ObjectChip';
 import { ObjectEditor } from './ObjectEditor';
 import { useNotesTip, useObjectRefsSheet } from './ObjectRefsSheet.hooks';
@@ -50,6 +51,7 @@ export default function ObjectRefsSheet({ objects }: ObjectRefsSheetProps) {
     onPaste,
     submit,
     saveEdit,
+    labView,
   } = useObjectRefsSheet(objects);
   const [tipDismissed, dismissTip] = useNotesTip();
 
@@ -234,6 +236,13 @@ export default function ObjectRefsSheet({ objects }: ObjectRefsSheetProps) {
                 Refs or straight to 3D in one batch.
               </p>
             </div>
+            {labView ? (
+              <StyleSwitch
+                view={labView}
+                on={objects.useStyle}
+                onChange={useStyle => setObjects({ useStyle })}
+              />
+            ) : null}
           </div>
         </div>
 

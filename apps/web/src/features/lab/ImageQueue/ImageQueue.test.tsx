@@ -5,6 +5,7 @@ import type { LabView } from '@/ipc/client';
 import { runningJobs } from '@/ipc/mock/lab-fixtures';
 import { useLabStore } from '@/state/use-lab-store';
 import { ImageQueue } from '.';
+import { EMPTY_STYLE } from '@/state/lab-style';
 
 const view: LabView = {
   project: 'frostveil',
@@ -13,6 +14,7 @@ const view: LabView = {
   jobs: runningJobs('frostveil', 0),
   refs: [],
   concurrency: 4,
+  style: EMPTY_STYLE,
 };
 const lab = useLabStore.getState();
 
