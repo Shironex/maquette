@@ -58,6 +58,9 @@ pub struct ConceptsArgs {
     pub count: Option<u32>,
     /// The aspect ratio, 16:9 by default.
     pub aspect: Option<AspectArg>,
+    /// false starts this direction without the project's style board (see
+    /// get_style_board). By default the board's line, palette and images go along.
+    pub use_style: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -81,6 +84,9 @@ pub struct ObjectRefsArgs {
     /// The new direction is called "<name> objects". By default the source's direction name,
     /// or its file name.
     pub name: Option<String>,
+    /// false makes these object refs without the project's style board (see
+    /// get_style_board). By default the board's line, palette and images go along.
+    pub use_style: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -104,6 +110,7 @@ pub(super) fn job_value(job: &ConceptJob) -> Value {
         "retryAtMs": job.retry_at_ms,
         "retries": job.retries,
         "usageLimit": job.usage_limit,
+        "styleRevision": job.style_revision,
     })
 }
 
@@ -127,7 +134,7 @@ fn source_name(project_dir: &Path, source: &str) -> String {
 #[tool_router(router = concepts_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Start concept image jobs in a project's Concept lab. Each image runs through the Codex CLI and takes about a minute; the images land in concepts/<direction>/ inside the project and show up in the app's Lab."
+        description = "Start concept image jobs in a project's Concept lab. Each image runs through the Codex CLI and takes about a minute; the images land in concepts/<direction>/ inside the project and show up in the app's Lab. Each job carries the project's style board (get_style_board) after the prompt unless useStyle is false; styleRevision says which board revision went along."
     )]
     async fn start_concepts(&self, Parameters(args): Parameters<ConceptsArgs>) -> Out {
         let found = self
@@ -139,6 +146,7 @@ impl McpTools {
                     refs: args.refs,
                     aspect: args.aspect.map(Aspect::from).unwrap_or_default(),
                     count: args.count.unwrap_or(4),
+                    use_style: args.use_style.unwrap_or(true),
                 };
                 let tools = host.toolbox();
                 let (direction, jobs) =
@@ -151,6 +159,7 @@ impl McpTools {
                 Ok(json!({
                     "status": "started",
                     "direction": { "id": direction.id, "name": direction.name },
+                    "styleRevision": direction.style_revision,
                     "jobs": jobs,
                     "note": "Each file appears at its path, relative to the project folder, once Codex saves it.",
                 }))
@@ -160,7 +169,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read a project's Concept lab: each direction's prompt, refs and images (starred, picked, and the ref file a picked image became), plus the concept jobs still queued, running or waiting out a Codex rate limit or usage limit (running, state rate-limited with retryAtMs for a waiting one, and usageLimit true while it waits for the usage limit to lift) and the ones that failed or were cancelled (failed, with why), which retry_concept_jobs runs again.",
+        description = "Read a project's Concept lab: each direction's prompt, refs and images (starred, picked, and the ref file a picked image became), plus the concept jobs still queued, running or waiting out a Codex rate limit or usage limit (running, state rate-limited with retryAtMs for a waiting one, and usageLimit true while it waits for the usage limit to lift) and the ones that failed or were cancelled (failed, with why), which retry_concept_jobs runs again. styleOff and styleRevision say whether a direction's latest batch carried the style board, and at which revision.",
         annotations(read_only_hint = true)
     )]
     async fn get_concepts(&self, Parameters(args): Parameters<GetConceptsArgs>) -> Out {
@@ -200,6 +209,8 @@ impl McpTools {
                             "refs": d.refs,
                             "source": d.source,
                             "kind": to_value(d.kind),
+                            "styleOff": d.style_off,
+                            "styleRevision": d.style_revision,
                             "images": images,
                         })
                     })
@@ -224,7 +235,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Make object refs from one concept: for each object named, Codex makes one image of only that object (centered, whole, front three-quarter view, plain light grey background, soft light, no text), with the concept attached as the reference. The images land in a new Lab direction \"<name> objects\" (\"<name> objects 2\" and so on when another source or kind already has that name), each titled by its object; read them with get_concepts. Each image spends Codex usage."
+        description = "Make object refs from one concept: for each object named, Codex makes one image of only that object (centered, whole, front three-quarter view, plain light grey background, soft light, no text), with the concept attached as the reference. The images land in a new Lab direction \"<name> objects\" (\"<name> objects 2\" and so on when another source or kind already has that name), each titled by its object; read them with get_concepts. They carry the project's style board unless useStyle is false. Each image spends Codex usage."
     )]
     async fn make_object_refs(&self, Parameters(args): Parameters<ObjectRefsArgs>) -> Out {
         let found = self
@@ -247,6 +258,7 @@ impl McpTools {
                         Some(VariantArg::Character) => AssetKind::Character,
                         _ => AssetKind::Prop,
                     },
+                    use_style: args.use_style.unwrap_or(true),
                 };
                 let tools = host.toolbox();
                 let (direction, jobs) =
@@ -261,6 +273,7 @@ impl McpTools {
                 Ok(json!({
                     "status": "started",
                     "direction": { "id": direction.id, "name": direction.name },
+                    "styleRevision": direction.style_revision,
                     "jobs": jobs,
                     "note": "Each file appears at its path, relative to the project folder, once Codex saves it.",
                 }))
