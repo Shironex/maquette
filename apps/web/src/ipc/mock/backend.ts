@@ -1,8 +1,4 @@
-/**
- * An in-memory stand-in for the Rust commands, keyed by the same snake_case
- * names and camelCase arguments the generated bindings send. The scenarios
- * and URL options are listed on `BackendOptions` (backend-options.ts).
- */
+/** In-memory stand-ins for the Rust commands; options and scenarios: backend-options.ts. */
 import type {
   CompressPreset,
   InboxItem,
@@ -25,8 +21,10 @@ import {
   runHistory,
 } from './pipeline-fixtures';
 import { createFakeAgents } from './agents';
-import { createFakeLab, refMayReplace } from './lab';
+import { createFakeLab } from './lab';
+import { healThumbnails } from './lab-helpers';
 import { createCodexUsageHandlers } from './create-codex-usage-handlers';
+import { createImageApiHandlers } from './create-image-api-handlers';
 import { createFakeLayout, layoutBounds } from './layout';
 import { projectSummary } from './project-summary';
 import { createFakeBake, createPrepareHandlers } from './prepare';
@@ -92,6 +90,7 @@ export function createBackend({
   pipeline: pipelineState = null,
   stress = null,
   codex = null,
+  images: imagesState = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -199,23 +198,10 @@ export function createBackend({
 
   const activeRun = (id: string) => runner.activeFor(id);
 
-  /** Cards an older Send picks to Refs left without a picture get the newest ref. */
-  function heal(p: ProjectManifest): ProjectManifest {
-    let changed = false;
-    const assets = (p.assets ?? []).map(a => {
-      if (a.thumbnail !== null || a.versions.length > 0) return a;
-      const newest = lab.sentFor(p.id, a.name).at(-1);
-      if (!newest || !refMayReplace(a.thumbnail)) return a;
-      changed = true;
-      return { ...a, thumbnail: newest };
-    });
-    return changed ? saveProject({ ...p, assets }) : p;
-  }
-
   function snapshot(): WorkspaceSnapshot {
     if (!root) fail('invalid', 'No workspace is open yet.');
     const open = projects.find(p => p.id === config.currentProject) ?? projects[0] ?? null;
-    const project = open ? heal(open) : null;
+    const project = open ? healThumbnails(open, lab.sentFor, saveProject) : null;
     return { root, display: display(root), config, project, projects };
   }
 
@@ -226,7 +212,7 @@ export function createBackend({
     projectDir: id => `${expand(DEFAULT_ROOT)}/projects/${id}`,
     project,
     saveProject,
-    emit: payload => emit?.({ name: 'concept', payload }),
+    emit: payload => emit?.({ name: 'concept', payload: images.event(payload) }),
     files,
     jobMs: conceptMs,
     state: labState,
@@ -234,6 +220,12 @@ export function createBackend({
     style: configured ? style : null,
     fail,
     assetBusy: (project, asset) => providers.busy(project, asset),
+  });
+
+  const images = createImageApiHandlers({
+    state: configured ? imagesState : null,
+    config: { get: () => config, set: next => (config = next) },
+    lab: lab.handlers,
   });
 
   const providers = createFakeProviders({
@@ -292,6 +284,7 @@ export function createBackend({
   const handlers: Record<string, (args: Args) => unknown> = {
     ...lab.handlers,
     ...createCodexUsageHandlers({ state: codex, lab: lab.handlers }),
+    ...images.handlers,
     ...library.handlers,
     ...built.handlers,
     ...agents.handlers,
