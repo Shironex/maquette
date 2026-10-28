@@ -40,9 +40,9 @@ notify = { version = "8.2.0", default-features = false, features = ["macos_fseve
 # (Windows), so cancel kills the whole tree.
 process-wrap = { version = "10.0.1", default-features = false, features = ["std", "process-group", "job-object", "creation-flags", "kill-on-drop"] }
 
-# The built in MCP server. rmcp 3.6 and 3.7 are younger than seven days,
-# so this stays on 3.5.1. It is served by plain hyper on 127.0.0.1.
-rmcp = { version = "=3.5.1", default-features = false }
+# The built in MCP server, pinned exactly on a release older than seven days.
+# It is served by plain hyper on 127.0.0.1.
+rmcp = { version = "=3.6.0", default-features = false }
 schemars = "1.2.2"
 tokio = { version = "1.53", default-features = false }
 hyper = { version = "1.11", default-features = false }
@@ -71,12 +71,12 @@ keyring-core = "1.0.1"
 apple-native-keyring-store = { version = "1.0.2", default-features = false, features = ["keychain"] }
 windows-native-keyring-store = { version = "1.1.0", default-features = false }
 
-tauri = { version = "2.11", features = ["protocol-asset"] }
+tauri = { version = "2.12", features = ["protocol-asset"] }
 tauri-build = { version = "2", features = [] }
-tauri-plugin-dialog = "2.7"
-# The app's own updates. 2.13 and later need tauri 2.12; this stays on the
-# newest release that builds with tauri 2.11 and is older than seven days.
-tauri-plugin-updater = { version = "=2.12.0", default-features = false, features = ["rustls-tls", "zip"] }
+tauri-plugin-dialog = "2.8"
+# The app's own updates, pinned exactly on the newest release older than
+# seven days. 2.13 and later need tauri 2.12.
+tauri-plugin-updater = { version = "=2.14.0", default-features = false, features = ["rustls-tls", "zip"] }
 
 # Exact pins: tauri-specta is pre-1.0, and a floating rc would resolve
 # differently between machines and break the regenerate-and-diff guard.
