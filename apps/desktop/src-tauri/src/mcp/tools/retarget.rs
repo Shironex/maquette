@@ -30,6 +30,10 @@ pub struct UseClipArg {
     pub root_motion: Option<bool>,
     /// 0.25 to 4. Defaults to 1.
     pub speed: Option<f32>,
+    /// Hold each foot still while it is planted and solve the leg back to
+    /// it, for a clip the review flags for sliding feet. Defaults to how
+    /// the clip was last baked on this model.
+    pub pin_feet: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -76,6 +80,8 @@ fn review_value(review: &RetargetReview) -> Value {
             "note": c.note,
             "frames": c.frames,
             "travel": c.travel.map(to_short_value),
+            "slideCm": to_short_value(c.slide_cm),
+            "unpinnedCm": c.unpinned_cm.map(to_short_value),
         })).collect::<Vec<_>>(),
         "seconds": to_short_value(review.seconds),
         "bonesDriven": review.driven,
@@ -94,13 +100,14 @@ fn setting(arg: &UseClipArg, base: &ClipSetting) -> ClipSetting {
         loops: arg.loops.unwrap_or(base.loops),
         root_motion: arg.root_motion.unwrap_or(base.root_motion),
         speed: arg.speed.unwrap_or(base.speed),
+        pin_feet: arg.pin_feet.unwrap_or(base.pin_feet),
     }
 }
 
 #[tool_router(router = retarget_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Put animation library clips on a rigged model in a project. The clip's skeleton is mapped onto the model's rig (the map saved for the model, then the bone names, Mixamo and Tripo names included; map overrides bones by hand, and bones left unmapped stay at rest), each clip gets its name, frames, loop, root motion or in place, and speed on this model only, and Blender bakes them headless onto a copy of the newest version. The review grades each clip good, look (a planted foot slides) or failed (keys in the wrong units, nothing mapped); failed clips are left out and the rest become the model's next version through the usual checks, the older version kept. dryRun bakes and reviews without adding the version. Spends nothing."
+        description = "Put animation library clips on a rigged model in a project. The clip's skeleton is mapped onto the model's rig (the map saved for the model, then the bone names, Mixamo and Tripo names included; map overrides bones by hand, and bones left unmapped stay at rest), each clip gets its name, frames, loop, root motion or in place, and speed on this model only, and Blender bakes them headless onto a copy of the newest version. The review grades each clip good, look (a planted foot slides) or failed (keys in the wrong units, nothing mapped); bake a sliding clip again with pinFeet to hold its planted feet still (a second headless run, IK on the legs) and the review gives the slide before (unpinnedCm) and after (slideCm); failed clips are left out and the rest become the model's next version through the usual checks, the older version kept. dryRun bakes and reviews without adding the version. Spends nothing."
     )]
     async fn use_animations(&self, Parameters(args): Parameters<UseAnimationsArgs>) -> Out {
         let found = self
