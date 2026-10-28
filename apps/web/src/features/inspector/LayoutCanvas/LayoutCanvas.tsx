@@ -17,6 +17,7 @@ export default function LayoutCanvas({ className, ...props }: LayoutCanvasProps)
       camera={{ fov: 35, position: [1.4, 1, 1.6], near: 0.01, far: 200 }}
       dpr={[1, 2]}
       gl={{ antialias: true }}
+      role="img"
       aria-label="Scene layout"
     >
       <Editor {...props} />

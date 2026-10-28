@@ -16,6 +16,7 @@ export default function PathsCanvas({ className, ...props }: PathsCanvasProps) {
       camera={{ fov: 35, position: [6, 5, 9], near: 0.01, far: 400 }}
       dpr={[1, 2]}
       gl={{ antialias: true }}
+      role="img"
       aria-label="Paths in the scene"
     >
       <PathsScene {...props} />

@@ -22,6 +22,7 @@ type FrameCallback = (state: FakeState, delta: number) => void;
 export interface FakeCanvasProps {
   children?: ReactNode;
   className?: string;
+  role?: string;
   'aria-label'?: string;
   [prop: string]: unknown;
 }
@@ -99,6 +100,7 @@ export function Canvas(props: FakeCanvasProps) {
   return createElement('div', {
     'data-testid': 'canvas',
     className: props.className,
+    role: props.role,
     'aria-label': props['aria-label'],
   });
 }

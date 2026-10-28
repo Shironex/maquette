@@ -36,7 +36,7 @@ const props: LayoutCanvasProps = {
 describe('the layout canvas', () => {
   it('is one labelled canvas holding the editor with every prop but the class', () => {
     render(<LayoutCanvas {...props} className="absolute! inset-0" />);
-    expect(screen.getByLabelText('Scene layout')).toHaveClass('absolute!', 'inset-0');
+    expect(screen.getByRole('img', { name: 'Scene layout' })).toHaveClass('absolute!', 'inset-0');
     const editor = fiber.canvas?.children as ReactElement<EditorProps>;
     expect(isValidElement(editor) && editor.type).toBe(Editor);
     expect(editor.props).toEqual(props);

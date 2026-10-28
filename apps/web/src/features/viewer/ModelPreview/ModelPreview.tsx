@@ -26,6 +26,7 @@ export default function ModelPreview({
       camera={{ fov: 30, position: [2, 1.4, 3] }}
       dpr={[1, 2]}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
+      role="img"
       aria-label="Model preview"
       onPointerMissed={onPickPart ? () => onPickPart(null, false) : undefined}
     >

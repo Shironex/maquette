@@ -16,6 +16,7 @@ export default function MotionStage({ className, label, ...props }: MotionStageP
       camera={{ fov: 30, position: [2, 1.4, 3] }}
       dpr={[1, 2]}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
+      role="img"
       aria-label={label}
     >
       <Scene {...props} />

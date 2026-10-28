@@ -20,7 +20,7 @@ function studio(): StudioProps {
 describe('the model preview', () => {
   it('draws one canvas, shaded and turning by default', () => {
     render(<ModelPreview url="/mock/model.glb" className="absolute! inset-0" />);
-    const canvas = screen.getByLabelText('Model preview');
+    const canvas = screen.getByRole('img', { name: 'Model preview' });
     expect(canvas).toHaveClass('absolute!', 'inset-0');
     expect(studio()).toMatchObject({
       source: { url: '/mock/model.glb' },
