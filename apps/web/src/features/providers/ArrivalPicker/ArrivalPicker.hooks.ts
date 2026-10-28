@@ -1,8 +1,9 @@
 import { useDownloadsStore } from '@/state/use-downloads-store';
 
-/** Whether "Which asset is this?" is open, and how to close it. */
+/** Whether the downloads picker is open, which download the asset chooser is for, and closing. */
 export function useArrivalPickerOpen() {
   const open = useDownloadsStore(s => s.pickerOpen);
+  const chooserFor = useDownloadsStore(s => s.chooserFor);
   const close = useDownloadsStore(s => s.closePicker);
-  return { open, close };
+  return { open, chooserFor, close };
 }

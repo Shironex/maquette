@@ -306,6 +306,7 @@ export function createBackend({
     ...createDownloadsHandlers({
       jobs: providers.jobs,
       handBack: args => providers.handlers.provider_hand_back?.(args),
+      project,
       emit: payload => emit?.({ name: 'downloads', payload }),
       arrival,
       ...(pace === 0 ? { delayMs: 0 } : {}),

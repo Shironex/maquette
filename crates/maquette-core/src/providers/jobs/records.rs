@@ -9,8 +9,8 @@ use std::sync::Arc;
 use super::ids::next_id;
 use super::landed;
 use super::{
-    Entry, InboxLink, JobState, ProviderJob, ProviderJobs, Stored, Workspace, persist, send_notes,
-    touch_asset, update,
+    Entry, InboxLink, JobState, Provider, ProviderJob, ProviderJobs, Stored, Workspace, persist,
+    send_notes, touch_asset, update,
 };
 use crate::assets::{Asset, AssetKind, AssetStatus};
 use crate::error::{CoreError, CoreResult};
@@ -286,6 +286,55 @@ impl ProviderJobs {
         landed::close_waits(&self.shared, project, asset)
     }
 
+    /// Brings a model someone picked an asset for (a download the watcher
+    /// could not place) into the inbox for `asset` of `project`, as an
+    /// exact name match does: for the asset's newest waiting By hand send
+    /// when it has one, else aimed at the asset, so Accept goes there. The
+    /// usual checks run there, and accepting it closes the asset's sends
+    /// still waiting. The original file is left alone.
+    pub fn attach(&self, project: &str, asset: &str, file: &Path) -> CoreResult<ModelAttached> {
+        let workspace = self
+            .shared
+            .workspace()
+            .ok_or_else(|| CoreError::Unavailable("Open a workspace first.".to_string()))?;
+        let manifest = project::load(&workspace.root, &workspace.config.layout, project)?;
+        let found = crate::assets::find(&manifest, asset)?;
+        let (asset, asset_name) = (found.id.clone(), found.name.clone());
+        let mut waiting: Vec<ProviderJob> = self
+            .list(Some(project))
+            .into_iter()
+            .filter(|j| j.asset == asset)
+            .filter(|j| j.provider == Provider::ByHand && j.state == JobState::Waiting)
+            .collect();
+        waiting.sort_by(|a, b| b.created_at_ms.total_cmp(&a.created_at_ms));
+        let (job, inbox_file) = match waiting.first() {
+            Some(job) => {
+                let back = self.hand_back(&job.id, file)?;
+                let item = back.inbox_file.ok_or_else(|| {
+                    CoreError::Invalid(format!("{} did not reach the inbox.", job.id))
+                })?;
+                (Some(job.id.clone()), item)
+            }
+            None => {
+                let model = handback::read_model(file)?;
+                let item = write_inbox(&workspace, &format!("download-{asset}"), &model.bytes)?;
+                let aim = inbox::InboxAim {
+                    project: project.to_string(),
+                    asset: asset.clone(),
+                    asset_name: asset_name.clone(),
+                };
+                inbox::set_aim(&workspace.root, &workspace.config, &item, Some(aim))?;
+                (None, item)
+            }
+        };
+        Ok(ModelAttached {
+            job,
+            inbox_file,
+            asset,
+            asset_name,
+        })
+    }
+
     /// Closes the By hand sends of `project` still waiting while their
     /// asset already has a newer version, for a model that landed with no
     /// send behind it (the library). That model was not made on the site,
@@ -293,6 +342,17 @@ impl ProviderJobs {
     pub fn settle_handed(&self, project: &str) -> usize {
         landed::close_outdated(&self.shared, project, landed::Spend::None)
     }
+}
+
+/// What [`ProviderJobs::attach`] did.
+#[derive(Debug)]
+pub struct ModelAttached {
+    /// The By hand send it came in for, when the asset had one waiting.
+    pub job: Option<String>,
+    /// The inbox file it became.
+    pub inbox_file: String,
+    pub asset: String,
+    pub asset_name: String,
 }
 
 pub(super) fn write_inbox(workspace: &Workspace, id: &str, bytes: &[u8]) -> CoreResult<String> {

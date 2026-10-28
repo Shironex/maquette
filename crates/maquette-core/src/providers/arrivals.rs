@@ -1,14 +1,17 @@
 //! The Downloads watcher for By hand sends. While a send waits for its
 //! model, a new `.glb`, `.fbx` or `.zip` in the watched folder (Downloads by
 //! default, set in Settings, with an off switch) is measured until it is
-//! whole, hashed so it is taken once, matched to its send (the export name
-//! first, then the time since the handoff and the sends waiting) and copied
-//! into the inbox, where the usual checks run. A file it cannot place waits
-//! for "Which asset is this?".
+//! whole, hashed so it is taken once and matched to its send. A file named
+//! for its send (the export name) is copied into the inbox, where the usual
+//! checks run. A file that only looks like one send's (a close name, or the
+//! only send waiting) waits for a look, and a file it cannot place waits
+//! for "Which asset is this?". Either way a person (or an agent, by an
+//! explicit call) attaches it to an asset or leaves it.
 //!
 //! Only reads: it never moves, renames or deletes anything in the folder,
 //! never opens a provider's site and never spends anything.
 
+mod answer;
 mod folder;
 mod matching;
 mod seen;
@@ -35,6 +38,9 @@ use matching::Verdict;
 const KEEP: usize = 30;
 /// Hex characters of the content hash that name an arrival.
 const ID_LEN: usize = 16;
+/// The folder, in the app's data folder, of the GLB copies a download's
+/// thumbnail is rendered from.
+pub const PREVIEW_DIR: &str = "download-previews";
 
 /// Where a file the watcher saw ended up.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -42,8 +48,14 @@ const ID_LEN: usize = 16;
 pub enum ArrivalState {
     /// Copied into the inbox for its send.
     Imported,
+    /// Its name is close to a waiting send's (or it is the only send
+    /// waiting): it waits for you to look before it goes anywhere.
+    Review,
     /// Waiting for you to say which asset it is.
     Unmatched,
+    /// You attached it to an asset: in the inbox for it, as a named
+    /// export would be.
+    Attached,
     /// An FBX: the inbox checks read GLB, so it was left alone.
     NeedsGlb,
     /// Matched, but the file could not be read as a model.
@@ -66,8 +78,12 @@ pub struct Arrival {
     pub bytes: f64,
     pub at_ms: f64,
     pub state: ArrivalState,
+    /// The send it went to, or, while it waits for a look, the one it
+    /// looks like.
     pub job: Option<String>,
     pub project: Option<String>,
+    /// The asset id, with `asset_name`.
+    pub asset: Option<String>,
     pub asset_name: Option<String>,
     /// Why it matched, or why it was not taken, in a few words.
     pub reason: String,
@@ -88,6 +104,8 @@ pub struct PendingHandoff {
     pub expected_name: String,
     /// The handoff folder (absolute), with `send.json` in it.
     pub handoff: Option<String>,
+    /// The front ref it was sent with, relative to the project folder.
+    pub image: Option<String>,
     /// About what the site charges, from a subscription.
     pub credits: Option<f64>,
     pub created_at_ms: f64,
@@ -122,8 +140,8 @@ struct State {
     arrivals: Vec<Arrival>,
     /// The full hash of each arrival, by id.
     hashes: Vec<(String, String)>,
-    /// Arrivals being copied in by "Which asset is this?" right now.
-    assigning: Vec<String>,
+    /// Arrivals being attached to an asset right now.
+    attaching: Vec<String>,
 }
 
 struct Inner {
@@ -168,14 +186,31 @@ fn pending(job: &ProviderJob) -> PendingHandoff {
             .filter(|n| !n.is_empty())
             .unwrap_or_else(|| super::naming::export_stem(&job.id, &job.asset, job.service)),
         handoff: job.handoff.clone(),
+        image: job.images.first().cloned(),
         credits: card.and_then(|c| c.credits),
         created_at_ms: job.created_at_ms,
     }
 }
 
+/// True while a download waits for someone to attach it or leave it.
+fn is_open(state: ArrivalState) -> bool {
+    matches!(
+        state,
+        ArrivalState::Review | ArrivalState::Unmatched | ArrivalState::Failed
+    )
+}
+
 /// Every By hand send of the open workspace waiting for its model.
 pub fn pending_handoffs(studio: &ProviderJobs) -> Vec<PendingHandoff> {
     waiting(studio).iter().map(pending).collect()
+}
+
+/// Points `arrival` at the send `job` and its asset.
+fn suggest(arrival: &mut Arrival, job: &ProviderJob) {
+    arrival.job = Some(job.id.clone());
+    arrival.project = Some(job.project.clone());
+    arrival.asset = Some(job.asset.clone());
+    arrival.asset_name = Some(job.asset_name.clone());
 }
 
 fn is_fbx(path: &Path) -> bool {
@@ -297,9 +332,7 @@ impl Arrivals {
 
     /// Copies `path` into the inbox for `job` and says how it went.
     fn import(&self, mut arrival: Arrival, hash: &str, job: &ProviderJob) -> Arrival {
-        arrival.job = Some(job.id.clone());
-        arrival.project = Some(job.project.clone());
-        arrival.asset_name = Some(job.asset_name.clone());
+        suggest(&mut arrival, job);
         if is_fbx(Path::new(&arrival.path)) {
             arrival.state = ArrivalState::NeedsGlb;
             arrival.reason = format!(
@@ -373,14 +406,26 @@ impl Arrivals {
             state: ArrivalState::Unmatched,
             job: None,
             project: None,
+            asset: None,
             asset_name: None,
             reason: String::new(),
             inbox_file: None,
         };
         let arrival = match matching::decide(&name, inner_name.as_deref(), modified, &waiting) {
-            Verdict::Job { id, reason } => {
+            Verdict::Exact { id, reason } => {
                 let job = waiting.iter().find(|j| j.id == id)?;
                 self.import(Arrival { reason, ..arrival }, &hash, job)
+            }
+            // A guess never lands by itself: it waits for a look.
+            Verdict::Close { id, reason } => {
+                let job = waiting.iter().find(|j| j.id == id)?;
+                let mut arrival = Arrival {
+                    state: ArrivalState::Review,
+                    reason,
+                    ..arrival
+                };
+                suggest(&mut arrival, job);
+                arrival
             }
             Verdict::Ask { reason } => Arrival { reason, ..arrival },
         };
@@ -402,59 +447,5 @@ impl Arrivals {
             .map(|(_, h)| h.clone())
             .unwrap_or_default();
         Ok((arrival, hash))
-    }
-
-    /// "Which asset is this?": takes an unmatched download for `job`.
-    pub fn assign(&self, id: &str, job: &str) -> CoreResult<Arrival> {
-        {
-            let mut state = self.inner.state();
-            if state.assigning.iter().any(|a| a == id) {
-                return Err(CoreError::Invalid(
-                    "That download is being added already.".to_string(),
-                ));
-            }
-            state.assigning.push(id.to_string());
-        }
-        let done = self.assign_to(id, job);
-        self.inner.state().assigning.retain(|a| a != id);
-        done
-    }
-
-    fn assign_to(&self, id: &str, job: &str) -> CoreResult<Arrival> {
-        let (arrival, hash) = self.find(id)?;
-        if !matches!(
-            arrival.state,
-            ArrivalState::Unmatched | ArrivalState::Failed
-        ) {
-            return Err(CoreError::Invalid(format!(
-                "{} was already taken care of.",
-                arrival.name
-            )));
-        }
-        let target = waiting(&self.inner.studio)
-            .into_iter()
-            .find(|j| j.id == job)
-            .ok_or_else(|| {
-                CoreError::Invalid(format!("The send {job} is not waiting for a model."))
-            })?;
-        let reason = format!("You chose {}", target.asset_name);
-        let done = self.import(Arrival { reason, ..arrival }, &hash, &target);
-        Ok(self.remember(done, hash))
-    }
-
-    /// Leaves a download alone for good.
-    pub fn dismiss(&self, id: &str) -> CoreResult<Arrival> {
-        let (arrival, hash) = self.find(id)?;
-        self.mark_seen(&hash, None);
-        let done = Arrival {
-            state: ArrivalState::Dismissed,
-            reason: "Not a model for Maquette".to_string(),
-            ..arrival
-        };
-        let mut state = self.inner.state();
-        if let Some(slot) = state.arrivals.iter_mut().find(|a| a.id == id) {
-            *slot = done.clone();
-        }
-        Ok(done)
     }
 }

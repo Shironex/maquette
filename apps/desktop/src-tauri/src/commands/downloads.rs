@@ -2,16 +2,22 @@
 //! `maquette_core::providers::arrivals`. Settings turn it on or off and
 //! point it at a folder (kept per machine in the app state); every file it
 //! takes reaches the web view as a `DownloadsArrival` event for a quiet
-//! notice, and "Which asset is this?" answers through `downloads_assign`.
+//! notice. A download waiting for a look or asking which asset it is gets
+//! its thumbnail through `downloads_preview` (headless Blender, from a GLB
+//! copy), and is attached to an asset through `downloads_attach` or left
+//! alone through `downloads_dismiss`.
 
 use std::path::PathBuf;
 
 use maquette_core::providers::{Arrival, Arrivals, ProviderJobs, WatchStatus, WatchTiming};
+use maquette_core::thumbs::{self as core_thumbs, ThumbState};
 use maquette_core::{CoreError, app_state::DownloadsWatch};
+use serde::Serialize;
 use tauri::{AppHandle, Manager as _, State};
 use tauri_specta::Event as _;
 
-use super::CommandResult;
+use super::thumbs::Thumbs;
+use super::{CommandResult, toolchain};
 use crate::events::DownloadsArrival;
 use crate::session::Session;
 
@@ -101,23 +107,66 @@ pub fn downloads_watch_set(
     Ok(status(&session, &watch))
 }
 
-/// "Which asset is this?": copies a download into the inbox for `job`.
+/// Attaches a download (one waiting for a look, or asking which asset it
+/// is) to an asset: into the inbox for it, as a named export goes, where
+/// accepting it closes the asset's By hand sends still waiting.
 #[tauri::command]
 #[specta::specta]
-pub async fn downloads_assign(
+pub async fn downloads_attach(
     watch: State<'_, Watch>,
     arrival: String,
-    job: String,
+    project: String,
+    asset: String,
 ) -> CommandResult<Arrival> {
     let arrivals = watch.0.clone();
     Ok(
-        tauri::async_runtime::spawn_blocking(move || arrivals.assign(&arrival, &job))
+        tauri::async_runtime::spawn_blocking(move || arrivals.attach(&arrival, &project, &asset))
             .await
             .map_err(super::join_failed)??,
     )
 }
 
-/// Leaves a download alone, and never asks about it again.
+/// A download's thumbnail, rendered headless from a GLB copy of it.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadPreview {
+    /// The copy the render is made from: `ThumbnailReady` names it.
+    pub file: String,
+    pub thumbnail: Option<String>,
+    pub state: ThumbState,
+}
+
+/// The thumbnail of a download waiting for a look or for its asset: the
+/// cached render, or one queued that arrives as `ThumbnailReady`.
+#[tauri::command]
+#[specta::specta]
+pub async fn downloads_preview(
+    session: State<'_, Session>,
+    service: State<'_, Thumbs>,
+    watch: State<'_, Watch>,
+    arrival: String,
+) -> CommandResult<DownloadPreview> {
+    let (root, config) = session.workspace()?;
+    let tools = toolchain::toolbox(&session).await?;
+    let arrivals = watch.0.clone();
+    let file = tauri::async_runtime::spawn_blocking(move || arrivals.preview_file(&arrival))
+        .await
+        .map_err(super::join_failed)??;
+    let found = service.0.request(
+        &core_thumbs::thumbs_dir(&root, &config),
+        &file,
+        None,
+        &tools,
+    )?;
+    Ok(DownloadPreview {
+        file: file.display().to_string(),
+        thumbnail: found.path().map(|p| p.display().to_string()),
+        state: found.state(),
+    })
+}
+
+/// Leaves a download alone ("Not this one", "Not a Maquette model"), and
+/// never asks about it again.
 #[tauri::command]
 #[specta::specta]
 pub fn downloads_dismiss(watch: State<'_, Watch>, arrival: String) -> CommandResult<Arrival> {

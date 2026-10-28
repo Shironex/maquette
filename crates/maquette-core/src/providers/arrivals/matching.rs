@@ -1,7 +1,8 @@
-//! Which waiting By hand send a new download is for. The export name
-//! (`maq_<asset>_v<n>_<provider>`) decides first; after that a file that
-//! came within a few hours of its handoff goes to the only send waiting
-//! then, or to the one its name clearly fits. Anything else is asked.
+//! Which waiting By hand send a new download is for. Only the export name
+//! (`maq_<asset>_v<n>_<provider>`, or the older handoff name) places a file
+//! by itself. A file that came within a few hours of its handoff and fits
+//! one send (the only send waiting then, or the one its name is close to)
+//! is only suggested: a person looks at it first. Anything else is asked.
 
 use crate::providers::handback::{SLACK_MS, name_fit};
 use crate::providers::jobs::ProviderJob;
@@ -15,14 +16,23 @@ const FIT: f64 = 0.5;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum Verdict {
-    /// Take it for this job.
-    Job { id: String, reason: String },
+    /// Named for this job: take it.
+    Exact { id: String, reason: String },
+    /// Most likely this job, but only a guess: wait for a look.
+    Close { id: String, reason: String },
     /// Ask which asset it is.
     Ask { reason: String },
 }
 
-fn job(id: &str, reason: String) -> Verdict {
-    Verdict::Job {
+fn exact(id: &str, reason: String) -> Verdict {
+    Verdict::Exact {
+        id: id.to_string(),
+        reason,
+    }
+}
+
+fn close(id: &str, reason: String) -> Verdict {
+    Verdict::Close {
         id: id.to_string(),
         reason,
     }
@@ -48,7 +58,7 @@ pub(super) fn decide(
             .iter()
             .find(|j| j.id == id && j.service == named.provider)
         {
-            Some(found) => job(&found.id, format!("Named for {}", found.asset_name)),
+            Some(found) => exact(&found.id, format!("Named for {}", found.asset_name)),
             None => Verdict::Ask {
                 reason: format!(
                     "Named for {} v{} on {}, which is not waiting for a model",
@@ -66,7 +76,7 @@ pub(super) fn decide(
             .flatten()
             .any(|s| s.eq_ignore_ascii_case(&j.id))
     }) {
-        return job(&found.id, format!("Named for {}", found.asset_name));
+        return exact(&found.id, format!("Named for {}", found.asset_name));
     }
     let recent: Vec<&ProviderJob> = waiting
         .iter()
@@ -81,14 +91,14 @@ pub(super) fn decide(
     fits.sort_by(|a, b| b.0.total_cmp(&a.0));
     match (recent.as_slice(), fits.as_slice()) {
         // A stale send still waiting makes "the only one" a guess.
-        ([only], _) if waiting.len() == 1 => job(
+        ([only], _) if waiting.len() == 1 => close(
             &only.id,
             format!("The only send waiting, for {}", only.asset_name),
         ),
         (_, [(best, found), rest @ ..])
             if *best >= FIT && rest.first().is_none_or(|(next, _)| next < best) =>
         {
-            job(&found.id, format!("Name close to {}", found.asset_name))
+            close(&found.id, format!("Name close to {}", found.asset_name))
         }
         ([], _) => Verdict::Ask {
             reason: "It came long after the waiting handoffs".to_string(),
@@ -142,10 +152,19 @@ mod tests {
         }
     }
 
+    /// The job a verdict takes the file for by itself.
     fn id(v: &Verdict) -> Option<&str> {
         match v {
-            Verdict::Job { id, .. } => Some(id),
-            Verdict::Ask { .. } => None,
+            Verdict::Exact { id, .. } => Some(id),
+            Verdict::Close { .. } | Verdict::Ask { .. } => None,
+        }
+    }
+
+    /// The job a verdict only suggests.
+    fn suggested(v: &Verdict) -> Option<&str> {
+        match v {
+            Verdict::Close { id, .. } => Some(id),
+            Verdict::Exact { .. } | Verdict::Ask { .. } => None,
         }
     }
 
@@ -190,10 +209,11 @@ mod tests {
     }
 
     #[test]
-    fn without_a_name_the_only_recent_send_takes_it() {
+    fn without_a_name_the_only_recent_send_is_only_suggested() {
         let jobs = [waiting("desk-lamp", "Desk lamp", 1, T)];
         let v = decide("model (3).glb", None, T + 10.0 * MIN, &jobs);
-        assert_eq!(id(&v), Some("desk-lamp-1"));
+        assert_eq!(suggested(&v), Some("desk-lamp-1"));
+        assert_eq!(id(&v), None, "never taken by itself");
         // Before the handoff (beyond the clock slack) or hours after: asked.
         assert!(matches!(
             decide("model (3).glb", None, T - 10.0 * MIN, &jobs),
@@ -212,7 +232,7 @@ mod tests {
             waiting("brush-cup", "Brush cup", 1, T),
         ];
         let v = decide("tripo_desk_lamp_8c1f.glb", None, T + MIN, &jobs);
-        assert_eq!(id(&v), Some("desk-lamp-1"));
+        assert_eq!(suggested(&v), Some("desk-lamp-1"));
         let v = decide("model.glb", None, T + MIN, &jobs);
         assert_eq!(
             v,
@@ -229,5 +249,38 @@ mod tests {
             decide("lamp.glb", None, T + MIN, &jobs),
             Verdict::Ask { .. }
         ));
+    }
+
+    #[test]
+    fn only_the_export_name_places_a_file_and_a_close_name_waits_for_a_look() {
+        let jobs = [
+            waiting("stone-ruin", "Stone ruin", 1, T),
+            waiting("wooden-log", "Wooden log", 1, T),
+            waiting("lantern-post", "Lantern post", 1, T),
+        ];
+        // Exact: the export name, and the older handoff name.
+        let v = decide("maq_stone-ruin_v1_tripo.glb", None, T + MIN, &jobs);
+        assert_eq!(id(&v), Some("stone-ruin-1"));
+        let v = decide("Wooden-Log-1.glb", None, T + MIN, &jobs);
+        assert_eq!(id(&v), Some("wooden-log-1"));
+        // Fuzzy: the site's own batch names are a suggestion, with why.
+        let v = decide("stone ruins 3d model.glb", None, T + MIN, &jobs);
+        assert_eq!(
+            v,
+            Verdict::Close {
+                id: "stone-ruin-1".into(),
+                reason: "Name close to Stone ruin".into()
+            }
+        );
+        let v = decide("wooden log 3d model.glb", None, T + MIN, &jobs);
+        assert_eq!(suggested(&v), Some("wooden-log-1"));
+        // None: a name that fits no send is asked about.
+        let v = decide("tree stump 3d model.glb", None, T + MIN, &jobs);
+        assert_eq!(
+            v,
+            Verdict::Ask {
+                reason: "3 sends are waiting".into()
+            }
+        );
     }
 }

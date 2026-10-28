@@ -99,6 +99,11 @@ impl McpTools {
                                 "asset": l.asset,
                                 "assetName": l.asset_name,
                             })),
+                            "aimedAt": i.aim.as_ref().map(|a| json!({
+                                "project": a.project,
+                                "asset": a.asset,
+                                "assetName": a.asset_name,
+                            })),
                         })
                     })
                     .collect();
@@ -135,13 +140,14 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Accept a model from the inbox into a project: it moves into the project as a new asset version on the Board, and its thumbnail is rendered headless. A By hand send of that asset still waiting for its model closes as done; a Tripo or Meshy send runs on."
+        description = "Accept a model from the inbox into a project: it moves into the project as a new asset version on the Board, and its thumbnail is rendered headless. Without asset it goes to the asset the model was sent for, or the one a download was attached to (aimedAt in list_inbox). A By hand send of that asset still waiting for its model closes as done; a Tripo or Meshy send runs on."
     )]
     async fn accept_inbox_model(&self, Parameters(args): Parameters<AcceptArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                // A model from a send goes to the asset it was sent for.
+                // A model from a send goes to the asset it was sent for; the
+                // core falls back on the asset a download was attached to.
                 let mut item = inbox::item(&root, &config, &args.id).map_err(reason)?;
                 host.studio().link_inbox(std::slice::from_mut(&mut item));
                 let linked = item

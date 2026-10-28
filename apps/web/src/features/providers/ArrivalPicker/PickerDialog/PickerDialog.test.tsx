@@ -7,7 +7,7 @@ import { PickerDialog } from '.';
 
 afterEach(() => {
   clearMocks();
-  useDownloadsStore.setState({ status: null });
+  useDownloadsStore.setState({ status: null, chooserFor: null, previews: {} });
 });
 
 describe('the picker dialog', () => {
@@ -16,7 +16,7 @@ describe('the picker dialog', () => {
     await useDownloadsStore.getState().load();
     const onClose = vi.fn();
     render(<PickerDialog onClose={onClose} />);
-    const dialog = screen.getByRole('dialog', { name: 'Which asset is this?' });
+    const dialog = screen.getByRole('dialog', { name: 'New downloads' });
     expect(dialog).toHaveTextContent('Every new download has found its asset.');
     expect(dialog).toHaveTextContent('New in ~/Downloads');
     await userEvent.keyboard('{Escape}');

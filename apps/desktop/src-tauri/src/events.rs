@@ -106,7 +106,7 @@ pub struct PrepareChanged {
 }
 
 /// The Downloads watcher took a look at a new model file: copied it into
-/// the inbox, or asks which asset it is.
+/// the inbox, holds it for a look, or asks which asset it is.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 pub struct DownloadsArrival(pub maquette_core::providers::Arrival);
 
