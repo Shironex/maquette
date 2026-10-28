@@ -66,8 +66,9 @@ fn is_zip(name: &str) -> bool {
 fn zip_entries(archive: &mut zip::ZipArchive<File>) -> Vec<String> {
     let mut names: Vec<String> = archive
         .file_names()
+        .filter_map(Result::ok)
         .filter(|n| is_fbx(n) && !n.starts_with("__MACOSX/") && !n.contains("/._"))
-        .map(str::to_string)
+        .map(|n| n.into_owned())
         .collect();
     names.sort_by_key(|n| n.to_lowercase());
     names
