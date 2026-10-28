@@ -50,7 +50,7 @@ export function WindowChrome({
   return (
     <div className={cn('flex h-full min-h-0 flex-col bg-app text-fg', className)}>
       {mode === 'native' ? null : (
-        <div
+        <header
           data-tauri-drag-region
           className={cn(
             'relative flex flex-none items-center border-b border-line bg-panel px-4',
@@ -63,7 +63,7 @@ export function WindowChrome({
             {mark ? <Monogram size={16} /> : null}
             {title}
           </span>
-        </div>
+        </header>
       )}
       <div className="flex min-h-0 flex-1">{children}</div>
     </div>
