@@ -1,5 +1,5 @@
 use super::*;
-use maquette_core::concepts::REFS_DIR;
+use maquette_core::concepts::{self, REFS_DIR};
 use maquette_core::providers::MemoryStore;
 use maquette_core::{
     AppState, NewAsset, NewProject, ProjectTemplate, Stage, WorkspaceConfig, workspace,

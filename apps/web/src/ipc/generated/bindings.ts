@@ -293,6 +293,23 @@ export const commands = {
 	 *  each with its own ref. `kind` overrides the direction's kind.
 	 */
 	labSendObjectPicks: (project: string, direction: string, kind: "prop" | "character" | "scene" | null) => __TAURI_INVOKE<SentObjects>("lab_send_object_picks", { project, direction, kind }),
+	refsGet: (project: string, asset: string) => __TAURI_INVOKE<RefsView>("refs_get", { project, asset }),
+	/**  Saves the views of every ref of the asset at once. */
+	refsSetViews: (project: string, asset: string, refs: AssetRef[]) => __TAURI_INVOKE<RefsView>("refs_set_views", { project, asset, refs }),
+	refsMakeViews: (request: NewOtherViews) => __TAURI_INVOKE<RefsView>("refs_make_views", { request }),
+	refsClean: (request: NewCleanRef) => __TAURI_INVOKE<RefsView>("refs_clean", { request }),
+	/**
+	 *  "Use as Left" or "Use the clean copy". `view` overrides the view a
+	 *  drawn candidate was made for.
+	 */
+	refsUse: (project: string, asset: string, file: string, view: "front" | "left" | "back" | "right" | 
+/**  Kept with the asset, never sent as a view. */
+"other" | null) => __TAURI_INVOKE<RefsView>("refs_use", { project, asset, file, view }),
+	/**
+	 *  Weak ref warnings for the Send to 3D panels, one list per item. Off
+	 *  the main thread: the checks read the images.
+	 */
+	refsWarnings: (project: string, items: WarningsItem[]) => __TAURI_INVOKE<RefWarning[][]>("refs_warnings", { project, items }),
 	/**
 	 *  Reads every model of the project, off the main thread: a large raw
 	 *  export takes a moment to measure.
@@ -635,6 +652,12 @@ export type Asset = {
 	 *  origin only says where to look for an update. Older files have none.
 	 */
 	origin?: AssetOrigin | null,
+	/**
+	 *  Its refs and the view each shows, once someone tagged them. Empty
+	 *  for an asset nobody tagged: its views follow its refs' order then
+	 *  (see [`crate::refs`]).
+	 */
+	refs?: AssetRef[],
 };
 
 export type AssetKind = "prop" | "character" | "scene";
@@ -668,6 +691,13 @@ export type AssetPrep = {
 	/**  The last preview of the entry on the newest model, when one ran. */
 	report: FixupReport | null,
 	defaults: FixupDefaults,
+};
+
+/**  One ref of an asset and the view it shows. */
+export type AssetRef = {
+	/**  Relative to the project folder, in `refs/`. */
+	file: string,
+	view: RefView,
 };
 
 /**  What a restore did, with the project as it is now. */
@@ -1044,6 +1074,11 @@ export type Check = {
 
 export type CheckStatus = "pass" | "warning" | "fail";
 
+/**  The background a clean copy gets. */
+export type CleanGround = 
+/**  The grey of object refs and Board renders. */
+"studio-grey" | "transparent";
+
 export type Clip = {
 	/**  The animation's name in the file, or "Animation 2" without one. */
 	name: string,
@@ -1305,6 +1340,11 @@ export type Direction = {
 	 *  carried none.
 	 */
 	styleRevision: number | null,
+	/**
+	 *  Refs work for one asset: its other views, or clean copies of its
+	 *  refs. `None` for an ordinary direction.
+	 */
+	refsJob?: RefsJob | null,
 };
 
 /**
@@ -2376,6 +2416,19 @@ export type NewBuilt = {
 	replace: boolean,
 };
 
+/**  What "Clean background" asks for. */
+export type NewCleanRef = {
+	project: string,
+	asset: string,
+	/**  The ref to clean, in `refs/`. */
+	file: string,
+	ground?: CleanGround,
+	/**  Center the object and pad the image to a square. */
+	pad?: boolean,
+	/**  Draw what the frame cut off. Off keeps it true to the original. */
+	extend?: boolean,
+};
+
 /**  What the Lab's composer (or an agent) asks for. */
 export type NewConcepts = {
 	project: string,
@@ -2425,6 +2478,20 @@ export type NewObjectRefs = {
 	/**  What the objects become on the Board: props or characters. */
 	kind: AssetKind,
 	/**  Whether the jobs carry the project's style board, on by default. */
+	useStyle?: boolean,
+};
+
+/**  What "Make the other views" asks for. */
+export type NewOtherViews = {
+	project: string,
+	asset: string,
+	/**
+	 *  The views to draw. Empty draws every empty slot; naming a filled
+	 *  one draws it again. The front is never drawn.
+	 */
+	views?: RefView[],
+	/**  Candidates per view, 1 to 4. */
+	count: number,
 	useStyle?: boolean,
 };
 
@@ -2813,6 +2880,11 @@ export type ProviderJob = {
 	variant: PresetVariant,
 	/**  Input images, relative to the project folder, front first. */
 	images: string[],
+	/**
+	 *  The view each image goes as (`front`, `left`, ...), from the
+	 *  asset's tags. Older records have none: the images go in order.
+	 */
+	views?: string[],
 	tripo: TripoPreset | null,
 	meshy: MeshyPreset | null,
 	state: JobState,
@@ -2873,12 +2945,58 @@ export type RealSize = {
 	unit: SizeUnit,
 };
 
+/**  A one click fix the panel offers next to a warning. */
+export type RefFix = "clean-background" | "make-views" | "leave-out";
+
 /**  An image in the project's `refs/` folder. */
 export type RefImage = {
 	/**  Relative to the project folder. */
 	file: string,
 	name: string,
 	bytes: number | null,
+};
+
+/**  The view a ref shows of its object. */
+export type RefView = "front" | "left" | "back" | "right" | 
+/**  Kept with the asset, never sent as a view. */
+"other";
+
+export type RefWarning = {
+	kind: WarningKind,
+	/**  The image it is about, `None` for the send as a whole. */
+	file: string | null,
+	/**  The view that image goes as, when it goes as one. */
+	view: RefView | null,
+	title: string,
+	detail: string,
+	fixes: RefFix[],
+};
+
+/**  What a direction of refs work is for. */
+export type RefsJob = {
+	asset: string,
+	kind: RefsJobKind,
+};
+
+export type RefsJobKind = "views" | "clean";
+
+/**  Everything the refs sheet shows for one asset. */
+export type RefsView = {
+	/**  The project, with the asset as it stands. */
+	project: ProjectManifest,
+	/**  Absolute, for the image URLs. */
+	projectDir: string,
+	asset: Asset,
+	/**  Its refs with their views, front first among the slots. */
+	refs: AssetRef[],
+	/**  False while the views are read from the refs' order. */
+	tagged: boolean,
+	/**  Every image in `refs/`, for Add refs. */
+	images: RefImage[],
+	/**  The asset's views and clean directions in the Lab. */
+	directions: Direction[],
+	/**  Their jobs, oldest first. */
+	jobs: ConceptJob[],
 };
 
 /**  One asset of a remove. */
@@ -3953,6 +4071,18 @@ export type VersionFrom = {
 	project: string,
 	asset: string,
 	version: number,
+};
+
+export type WarningKind = "small" | "cropped" | "busy-background" | "one-view";
+
+/**
+ *  One asset of a warnings request: the images as picked and whether its
+ *  preset sends several as views.
+ */
+export type WarningsItem = {
+	asset: string,
+	images: string[],
+	multiView: boolean,
 };
 
 /**  The watcher as Settings, the app and the agents see it. */

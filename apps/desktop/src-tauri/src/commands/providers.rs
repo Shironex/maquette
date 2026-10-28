@@ -11,7 +11,7 @@ use maquette_core::providers::{
     BatchRequest, BatchSent, DownloadsScan, Endpoints, KeyStatus, KeyTest, Options, PresetVariant,
     ProviderEvent, ProviderId, ProviderJob, ProviderJobs, SendRequest, handoff, test_key,
 };
-use maquette_core::{Asset, AssetKind, CoreError, assets, concepts, project};
+use maquette_core::{Asset, AssetKind, CoreError, assets, project};
 use serde::Serialize;
 use tauri::{AppHandle, Manager as _, State};
 use tauri_specta::Event as _;
@@ -101,40 +101,11 @@ pub(crate) fn key_statuses(studio: &ProviderJobs) -> CommandResult<Vec<KeyStatus
         .collect()
 }
 
-/// The refs an asset came with: images sent from the Lab direction of the
-/// same name (or the name it was first made with, which its id keeps) or
-/// object refs titled like it, else files in `refs/` named after the asset.
-fn suggested(project_dir: &Path, asset: &Asset, images: &[RefImage]) -> Vec<String> {
-    let named = |text: &str| {
-        text.trim().eq_ignore_ascii_case(asset.name.trim())
-            || project::slugify(text.trim()) == asset.id
-    };
-    let mut from_lab: Vec<String> = Vec::new();
-    for d in concepts::list_directions(project_dir) {
-        let whole = named(&d.name);
-        for image in d.images {
-            let mine = whole || image.title.as_deref().is_some_and(named);
-            if let Some(file) = image.ref_file.filter(|_| mine)
-                && images.iter().any(|i| i.file == file)
-                && !from_lab.contains(&file)
-            {
-                from_lab.push(file);
-            }
-        }
-    }
-    if !from_lab.is_empty() {
-        return from_lab.into_iter().take(4).collect();
-    }
-    let slug = asset.id.replace('-', "_");
-    images
-        .iter()
-        .filter(|i| {
-            let name = i.name.to_lowercase().replace('-', "_");
-            name.starts_with(&slug)
-        })
-        .map(|i| i.file.clone())
-        .take(4)
-        .collect()
+/// The asset's view slots, front first: what a send picks by default. An
+/// asset nobody tagged reads them from its refs' order, as sends always
+/// did.
+fn suggested(project_dir: &Path, asset: &Asset) -> Vec<String> {
+    maquette_core::refs::slot_files(&super::refs::asset_refs(project_dir, asset))
 }
 
 pub(crate) fn send_options(
@@ -148,7 +119,7 @@ pub(crate) fn send_options(
     let asset = assets::find(&manifest, asset_id)?.clone();
     let dir = project::dir(&root, &config.layout, project_id)?;
     let images = list_refs(&dir);
-    let suggested = suggested(&dir, &asset, &images);
+    let suggested = suggested(&dir, &asset);
     let jobs = studio
         .list(Some(project_id))
         .into_iter()
@@ -197,7 +168,6 @@ pub(crate) fn batch_options(
     let (root, config) = session.workspace()?;
     let manifest = project::load(&root, &config.layout, project_id)?;
     let dir = project::dir(&root, &config.layout, project_id)?;
-    let images = list_refs(&dir);
     let mut items = Vec::new();
     for id in asset_ids {
         if items.iter().any(|i: &BatchItemOptions| &i.asset.id == id) {
@@ -205,7 +175,7 @@ pub(crate) fn batch_options(
         }
         let asset = assets::find(&manifest, id)?.clone();
         items.push(BatchItemOptions {
-            suggested: suggested(&dir, &asset, &images),
+            suggested: suggested(&dir, &asset),
             variant: variant_for(&asset),
             asset,
         });
