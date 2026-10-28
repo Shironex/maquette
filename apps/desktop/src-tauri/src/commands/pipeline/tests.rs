@@ -140,7 +140,7 @@ fn age_starters(dir: &std::path::Path) {
 
 fn sha256_hex(text: &str) -> String {
     use sha2::{Digest, Sha256};
-    format!("{:x}", Sha256::digest(text.as_bytes()))
+    hex::encode(Sha256::digest(text.as_bytes()))
 }
 
 #[test]
