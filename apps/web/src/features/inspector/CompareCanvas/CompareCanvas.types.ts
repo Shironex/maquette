@@ -35,6 +35,8 @@ export interface CompareCanvasProps {
   stops: Stop[];
   stop: { index: number; at: number } | null;
   handlers: CompareCanvasHandlers;
+  /** How far each side's parts pull apart from its middle, 0 to 1. */
+  explode?: number;
   /** Material tweaks to preview, by asset id; shown in the shaded mode. */
   looks?: Readonly<Record<string, ModelMaterials>>;
   className?: string;

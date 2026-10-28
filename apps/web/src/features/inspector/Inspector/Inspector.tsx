@@ -27,6 +27,7 @@ import { useGameLimits } from './useGameLimits';
 
 const MODES: SegmentedOption<InspectMode>[] = [
   { value: 'shaded', label: 'Shaded' },
+  { value: 'parts', label: 'Colour by part' },
   { value: 'wireframe', label: 'Wireframe' },
   { value: 'lightmap', label: 'Lightmap' },
 ];

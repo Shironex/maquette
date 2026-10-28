@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent } from 'react';
 import type * as THREE from 'three';
 import { applyMode } from '@/features/viewer/materials';
+import { explode } from '@/features/viewer/parts';
 import { frameCamera, standOnFloor, studioRig, type Framing } from '@/features/viewer/studio';
 import { poseOf, setPose } from '../../camera-pose';
 import type { CompareProps, CompareRig, Side } from './Compare.types';
@@ -109,6 +110,15 @@ export function useCompareView(rig: CompareRig, props: CompareProps): void {
     }
     return () => applied.forEach(a => a.undo());
   }, [left, right, props.mode, checker, live]);
+
+  // Parts pulled apart from each side's middle, to see where each one ends.
+  useEffect(() => {
+    const amount = props.explode ?? 0;
+    const undo = [left, right]
+      .filter((s): s is Side => Boolean(s))
+      .map(s => explode(s.group, amount));
+    return () => undo.forEach(u => u());
+  }, [left, right, props.explode]);
 
   // The material tweak preview, over the shaded look only. It runs after
   // the modes, so it starts from the loaded materials they put back.
