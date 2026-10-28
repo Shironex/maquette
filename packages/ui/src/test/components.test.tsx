@@ -338,6 +338,8 @@ describe('ProjectMenu', () => {
     );
     const search = screen.getByRole('searchbox', { name: 'Find a project' });
     expect(search).toHaveFocus();
+    // A menu holds menu items only, so the field sits above it.
+    expect(screen.getByRole('menu', { name: 'Projects' })).not.toContainElement(search);
     await userEvent.keyboard('harb');
     expect(screen.getAllByRole('menuitemradio')).toHaveLength(1);
     await userEvent.keyboard('{Enter}');

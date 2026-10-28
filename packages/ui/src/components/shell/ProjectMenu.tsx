@@ -123,8 +123,6 @@ export function ProjectMenu({
   return (
     <div
       ref={ref}
-      role="menu"
-      aria-label={label}
       onKeyDown={onKeyDown}
       className={cn(
         'flex w-[320px] flex-col rounded-card border border-line-strong bg-panel p-1.5 shadow-window',
@@ -153,19 +151,22 @@ export function ProjectMenu({
           />
         </label>
       ) : null}
-      <div className="flex max-h-[340px] flex-col overflow-y-auto">
-        {projectRows}
-        {shown.length === 0 ? (
-          <p className="px-2 py-3 text-meta text-fg-mute">{`No project matches "${query.trim()}".`}</p>
+      {/* The search field is not a menu item, so the menu starts below it. */}
+      <div role="menu" aria-label={label} className="flex min-h-0 flex-col">
+        <div className="flex max-h-[340px] flex-col overflow-y-auto">
+          {projectRows}
+          {shown.length === 0 ? (
+            <p className="px-2 py-3 text-meta text-fg-mute">{`No project matches "${query.trim()}".`}</p>
+          ) : null}
+        </div>
+        {note ? (
+          <p className="mx-1 mt-1.5 flex items-start gap-1.5 rounded-[7px] bg-raised px-2 py-1.5 text-meta text-fg-dim">
+            <Icon name="info" size={14} className="mt-px flex-none text-amber" />
+            {note}
+          </p>
         ) : null}
+        <div className="mt-1.5 flex flex-col border-t border-line pt-1.5">{actionRows}</div>
       </div>
-      {note ? (
-        <p className="mx-1 mt-1.5 flex items-start gap-1.5 rounded-[7px] bg-raised px-2 py-1.5 text-meta text-fg-dim">
-          <Icon name="info" size={14} className="mt-px flex-none text-amber" />
-          {note}
-        </p>
-      ) : null}
-      <div className="mt-1.5 flex flex-col border-t border-line pt-1.5">{actionRows}</div>
     </div>
   );
 }
