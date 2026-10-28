@@ -1,6 +1,7 @@
 //! How each library clip goes onto one model: its name there, the frames
-//! it keeps, whether it loops and travels, and its speed. Settings belong
-//! to that model only and are never saved back into the library.
+//! it keeps, whether it loops and travels, its speed and whether its feet
+//! are pinned while planted. Settings belong to that model only and are
+//! never saved back into the library.
 
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +29,10 @@ pub struct ClipSetting {
     /// Keeps the root's travel in the clip; off plays it in place.
     pub root_motion: bool,
     pub speed: f32,
+    /// Holds each foot still while it is planted and solves the leg back
+    /// to it, for a clip whose feet slide.
+    #[serde(default)]
+    pub pin_feet: bool,
 }
 
 /// `Sword And Shield Idle` (pack `Pro Sword and Shield Pack`) reads
@@ -87,6 +92,7 @@ pub fn default_for(clip: &AnimationClip) -> ClipSetting {
         loops: clip.loops,
         root_motion: clip.root_motion.is_some(),
         speed: 1.0,
+        pin_feet: false,
     }
 }
 
@@ -146,6 +152,7 @@ pub fn normalise(
             loops: s.loops,
             root_motion: s.root_motion,
             speed,
+            pin_feet: s.pin_feet,
         });
     }
     Ok(out)

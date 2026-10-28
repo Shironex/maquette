@@ -1,4 +1,5 @@
 use super::bones::{self, MapChoice, PairMatch};
+use super::feet;
 use super::review::{self, ClipRun, ReviewStatus, RunReport};
 use super::settings::{self, ClipSetting};
 use super::uses::{self, AssetAnimations, BakedClip};
@@ -310,4 +311,126 @@ fn the_project_record_round_trips_and_refuses_a_newer_one() {
     )
     .expect("newer");
     assert!(uses::load(dir.path()).is_err());
+}
+
+/// A foot track along X: `(x, z)` per frame, metres.
+fn track(points: &[(f32, f32)]) -> feet::Track {
+    points.iter().map(|&(x, z)| [x, 0.0, z]).collect()
+}
+
+#[test]
+fn a_foot_is_planted_while_it_is_low_and_slow() {
+    // Down and still for five frames, lifted, then down again sliding.
+    let walk = track(&[
+        (0.0, 0.0),
+        (0.0, 0.0),
+        (0.0, 0.01),
+        (0.0, 0.0),
+        (0.0, 0.0),
+        (0.2, 0.15),
+        (0.4, 0.2),
+        (0.6, 0.0),
+        (0.62, 0.0),
+        (0.64, 0.0),
+        (0.66, 0.02),
+    ]);
+    // The frame it lands on still comes in fast, so the second plant starts after it.
+    assert_eq!(feet::planted_runs(&walk), vec![[0, 4], [8, 10]]);
+    // Scraping the ground fast is a swing, not a plant.
+    let scrape: Vec<(f32, f32)> = (0..6u8).map(|i| (f32::from(i) * 0.12, 0.0)).collect();
+    assert!(feet::planted_runs(&track(&scrape)).is_empty());
+    // Two frames down is a touch, not a plant.
+    let touch = track(&[(0.0, 0.3), (0.0, 0.0), (0.0, 0.0), (0.0, 0.3)]);
+    assert!(feet::planted_runs(&touch).is_empty());
+}
+
+#[test]
+fn the_slide_is_the_drift_from_where_the_foot_went_down() {
+    let still = track(&[(0.3, 0.0); 4]);
+    let sliding = track(&[
+        (0.0, 0.0),
+        (0.01, 0.0),
+        (0.03, 0.0),
+        (0.02, 0.0),
+        (0.0, 0.3),
+    ]);
+    let feet_now: std::collections::BTreeMap<String, feet::Track> =
+        [("left".into(), still), ("right".into(), sliding)].into();
+    let slide = feet::slide(&feet_now);
+    assert_eq!((slide.foot.as_str(), slide.from, slide.to), ("right", 0, 3));
+    assert!((slide.cm - 3.0).abs() < 0.01, "{slide:?}");
+    let pins = feet::pins(&feet_now);
+    assert_eq!(pins["left"], vec![[0, 3]]);
+    assert_eq!(pins["right"], vec![[0, 3]]);
+}
+
+#[test]
+fn a_pinned_clip_is_reviewed_against_its_slide_before() {
+    let sliding = track(&[(0.0, 0.0), (0.01, 0.0), (0.04, 0.0), (0.0, 0.3)]);
+    let held = track(&[(0.0, 0.0), (0.001, 0.0), (0.002, 0.0), (0.0, 0.3)]);
+    let mut first = ClipRun {
+        feet: [("left".to_string(), sliding)].into(),
+        ..run("foot-slide")
+    };
+    first.measure();
+    assert!(
+        (first.slide_cm - 4.0).abs() < 0.01,
+        "measured from the track"
+    );
+    let mut pinned = ClipRun {
+        feet: [("left".to_string(), held)].into(),
+        unpinned_cm: Some(first.slide_cm),
+        ..run("foot-slide")
+    };
+    pinned.measure();
+    let report = RunReport {
+        clips: vec![first, pinned.clone()],
+        ..RunReport::default()
+    };
+    let review = review::review(&report, |_| false, Vec::new());
+    assert_eq!(review.clips[0].status, ReviewStatus::Look);
+    assert_eq!(review.clips[1].status, ReviewStatus::Good);
+    assert_eq!(
+        review.clips[1].note,
+        "Feet pinned, the slide is down from 4.0 cm to 0.2 cm"
+    );
+    assert_eq!(review.clips[1].unpinned_cm, Some(4.0));
+
+    // Still sliding after the pin stays to look at, with both numbers.
+    let mut stuck = ClipRun {
+        slide_cm: 2.5,
+        slide_from: 3,
+        slide_to: 9,
+        ..pinned
+    };
+    stuck.feet.clear();
+    let report = RunReport {
+        clips: vec![stuck],
+        ..RunReport::default()
+    };
+    let review = review::review(&report, |_| false, Vec::new());
+    assert_eq!(review.clips[0].status, ReviewStatus::Look);
+    assert!(
+        review.clips[0]
+            .note
+            .contains("still slides 2.5 cm (was 4.0 cm)"),
+        "{}",
+        review.clips[0].note
+    );
+    // A leg that is not mapped says why its feet stay as they were.
+    let unmapped = ClipRun {
+        slide_cm: 3.0,
+        foot: "left".into(),
+        pin_error: Some("the left leg is not mapped".into()),
+        ..run("foot-slide")
+    };
+    let report = RunReport {
+        clips: vec![unmapped],
+        ..RunReport::default()
+    };
+    let note = &review::review(&report, |_| false, Vec::new()).clips[0].note;
+    assert!(
+        note.ends_with("could not be pinned: the left leg is not mapped"),
+        "{note}"
+    );
 }
