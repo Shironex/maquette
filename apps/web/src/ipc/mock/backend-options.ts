@@ -30,7 +30,8 @@ export type Args = Record<string, unknown>;
  * `?pace=` sets the milliseconds between streamed log lines (default 260).
  * `?lab=running` holds two concept images of the arena direction mid job;
  * `?lab=limited` adds a rate limited job and `?lab=usage` three waiting for
- * the Codex usage limit.
+ * the Codex usage limit. `?lab=refs` tags the guardian statues' refs for
+ * the refs sheet and the ref warnings (see `create-refs-handlers.ts`).
  * `?agents=active` turns the MCP server on, with an agent's activity, a
  * run waiting at Ship for approval and a send to Tripo waiting the same way;
  * `?agents=batch` makes that send a batch of three under one approval.

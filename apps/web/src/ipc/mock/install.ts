@@ -14,6 +14,7 @@ import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
 import { motionFiles } from './create-motion-handlers';
 import { PROVIDER_REF_FILES } from './providers';
+import { REFS_SCENARIO_FILES } from './create-refs-handlers';
 import { MOCK_SITE_URL, conceptPath, pageOption, posterPath } from './create-page-handlers';
 import { MANY_STOPS, mockConceptPage, mockSitePage } from './page-site';
 import { libraryFiles } from './library-fixtures';
@@ -51,7 +52,11 @@ for (const [file, name] of Object.entries(conceptFiles())) {
 for (const path of Object.keys(concepts)) {
   registerMockFile(`${projectDir}/concepts/__pool/${base(path)}`, concepts[path] ?? '');
 }
-for (const [file, source] of Object.entries({ ...REF_FILES, ...OBJECT_REF_FILES })) {
+for (const [file, source] of Object.entries({
+  ...REF_FILES,
+  ...OBJECT_REF_FILES,
+  ...REFS_SCENARIO_FILES,
+})) {
   const url = source.startsWith('concepts/')
     ? conceptUrl(source.slice('concepts/'.length))
     : renders[`../../assets/mock/${source}`];

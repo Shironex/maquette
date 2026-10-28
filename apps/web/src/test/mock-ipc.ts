@@ -174,3 +174,33 @@ export async function openMockUpdater(updater?: string) {
   useAppStore.setState({ boot, workspace: boot.workspace, phase: 'app' });
   return handle;
 }
+
+/**
+ * The configured workspace with the guardian statues' refs tagged
+ * (`?lab=refs`). Concept jobs finish at once, and concept events reach
+ * the refs store, so drawn candidates show up.
+ */
+export async function openMockRefs() {
+  const handle = createBackend({
+    scenario: 'configured',
+    probeDelay: 0,
+    pace: 0,
+    conceptMs: 0,
+    lab: 'refs',
+    emit: event => {
+      if (event.name === 'concept') void events.conceptUpdate.emit(event.payload);
+    },
+  });
+  const calls: [string, Record<string, unknown>][] = [];
+  mockIPC(
+    (cmd, args) => {
+      const payload = (args ?? {}) as Record<string, unknown>;
+      calls.push([cmd, payload]);
+      return handle(cmd, payload);
+    },
+    { shouldMockEvents: true }
+  );
+  const boot = await commands.appBootstrap();
+  useAppStore.setState({ boot, workspace: boot.workspace, phase: 'app' });
+  return { sent: (cmd: string) => calls.filter(([c]) => c === cmd).map(([, a]) => a) };
+}

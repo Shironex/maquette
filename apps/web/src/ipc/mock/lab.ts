@@ -27,6 +27,7 @@ import {
 } from './lab-fixtures';
 import { clock } from '@/lib/clock';
 import { createLabSends } from './create-lab-sends';
+import { createRefsHandlers } from './create-refs-handlers';
 import { createStyleBoards, markStyled } from './style-board';
 import {
   finished,
@@ -58,7 +59,8 @@ export interface FakeLabOptions {
   /**
    * `running`: the arena direction has two images generating that never
    * finish; `limited` adds a rate limited job, `usage` three waiting for the
-   * Codex usage limit.
+   * Codex usage limit; `refs` tags the guardian statues' refs (see
+   * create-refs-handlers.ts).
    */
   state?: string | null;
   /** `batch`: the veil gate props concept and its six object refs are there too. */
@@ -88,6 +90,7 @@ export function createFakeLab(options: FakeLabOptions) {
   let concurrency = 4;
   let pool = 0;
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  const standIns = new Map<string, string>();
 
   const list = (project: string) => directions.get(project) ?? [];
   const emit = (event: ConceptEvent) => options.emit?.(structuredClone(event));
@@ -148,10 +151,10 @@ export function createFakeLab(options: FakeLabOptions) {
     timers.delete(id);
     const job = jobs.find(j => j.id === id);
     if (!job || job.state !== 'running') return;
-    // An object ref of the veil gate props shows its crop; anything else the next pool image.
-    const crop = VEIL_GATE_OBJECTS.find(
-      o => o.title.toLowerCase() === job.title?.toLowerCase()
-    )?.image;
+    // A refs job shows its stand-in, a veil gate object its crop, anything else the next pool image.
+    const crop =
+      standIns.get(job.direction) ??
+      VEIL_GATE_OBJECTS.find(o => o.title.toLowerCase() === job.title?.toLowerCase())?.image;
     const source = crop ?? GENERATED_POOL[pool % GENERATED_POOL.length] ?? GENERATED_POOL[0];
     if (!crop) pool += 1;
     const square = findDirection(job.project, job.direction).aspect === '1:1';
@@ -369,6 +372,15 @@ export function createFakeLab(options: FakeLabOptions) {
     lab_set_style: ({ project, change }) => styles.set(String(project), change as StyleBoardChange),
     lab_import_refs: ({ project, paths }) =>
       importRefs(options, refs, String(project), paths as string[]),
+    ...createRefsHandlers({
+      options,
+      refs,
+      list,
+      saveDirection,
+      enqueue,
+      standIns,
+      jobs: () => jobs,
+    }),
   };
 
   return {
