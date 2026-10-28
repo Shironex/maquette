@@ -49,6 +49,9 @@ export default function CreditsSheet() {
     nameOf,
     projectOptions,
     showProject,
+    scrollRef,
+    listRef,
+    shown,
   } = useCreditsSheet();
   if (!open) return null;
   const checkedAt = balances?.[0]?.checkedAtMs;
@@ -60,14 +63,17 @@ export default function CreditsSheet() {
       checking={checking}
     />
   ));
-  const rows = spends.map(spend => (
-    <SpendRow
-      key={spendKey(spend)}
-      spend={spend}
-      now={now}
-      project={showProject ? nameOf(spend.project) : null}
-    />
-  ));
+  const rows = spends
+    .slice(shown.start, shown.end)
+    .map((spend, n) => (
+      <SpendRow
+        key={spendKey(spend)}
+        position={shown.itemProps(shown.start + n)}
+        spend={spend}
+        now={now}
+        project={showProject ? nameOf(spend.project) : null}
+      />
+    ));
   const stats = [
     { label: 'Last 7 days', value: formatCredits(totals.week), sub: 'credits' },
     { label: 'Last 30 days', value: formatCredits(totals.month), sub: 'credits' },
@@ -96,7 +102,7 @@ export default function CreditsSheet() {
       onClose={close}
       width={720}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
+      <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
         <section className="flex flex-col gap-2.5">
           <SectionTitle
             aside={
@@ -163,7 +169,13 @@ export default function CreditsSheet() {
                 <span>Outcome</span>
                 <span className="text-right">Credits</span>
               </div>
-              <ul className="m-0 list-none p-0">{rows}</ul>
+              <ul
+                ref={listRef}
+                style={{ paddingTop: shown.before, paddingBottom: shown.after }}
+                className="m-0 list-none p-0"
+              >
+                {rows}
+              </ul>
             </div>
           )}
           {filter.source === 'subscription' ? (
