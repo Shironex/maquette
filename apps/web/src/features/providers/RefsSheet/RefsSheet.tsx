@@ -5,7 +5,7 @@
  */
 import { Icon, InlineBanner } from '@maquette/ui';
 import { viewsLine } from '@/state/refs';
-import { Sheet } from '../Sheet';
+import { Sheet } from '@/features/common/Sheet';
 import { CleanBackground } from './CleanBackground';
 import { OtherViews } from './OtherViews';
 import { RefsBody } from './RefsBody';

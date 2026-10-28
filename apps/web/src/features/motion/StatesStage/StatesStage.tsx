@@ -2,7 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Button, EmptyState, Icon, InlineBanner, Select } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { MotionTabs } from '../MotionTabs';
-import { PressToggle } from '../PressToggle';
+import { PressToggle } from '@/features/common/PressToggle';
 import { StatesStrip } from '../StatesStrip';
 import { useStatesStage } from './StatesStage.hooks';
 

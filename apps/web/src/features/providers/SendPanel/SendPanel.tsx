@@ -6,7 +6,7 @@ import { Button, Icon, InlineBanner } from '@maquette/ui';
 import { deepEqual } from '@/lib/deepEqual';
 import { SERVICE_LABEL } from '@/state/providers';
 import { HandoffView } from '../HandoffView';
-import { Sheet } from '../Sheet';
+import { Sheet } from '@/features/common/Sheet';
 import { useSendPanel } from './SendPanel.hooks';
 import { SendForm } from './SendForm';
 

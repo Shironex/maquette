@@ -4,7 +4,7 @@ import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { ClipTimeline } from '../ClipTimeline';
 import { MotionTabs } from '../MotionTabs';
 import { NoClipsOptions } from '../NoClipsOptions';
-import { PressToggle } from '../PressToggle';
+import { PressToggle } from '@/features/common/PressToggle';
 import { useClipStage } from './ClipStage.hooks';
 
 const MotionStage = lazy(() => import('@/features/viewer/MotionStage'));

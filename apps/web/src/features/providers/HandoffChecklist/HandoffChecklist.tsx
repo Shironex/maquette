@@ -6,7 +6,7 @@
 import { Button, cn } from '@maquette/ui';
 import { formatAgo } from '@/lib/format';
 import { backLabel } from '@/state/batch';
-import { Sheet } from '../Sheet';
+import { Sheet } from '@/features/common/Sheet';
 import { siteLabel } from '../siteLabel';
 import { ChecklistRow } from './ChecklistRow';
 import { useHandoffChecklist } from './HandoffChecklist.hooks';
