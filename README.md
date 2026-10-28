@@ -116,7 +116,7 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
   </tr>
 </table>
 
-**Refs by view.** Each ref is tagged front, left, back, right or other on its asset, and every send goes in that order. Codex draws the missing views from the front or cleans a busy background, as candidates you pick from, and Send to 3D warns about small, cropped or cluttered refs before any credit is spent.
+**Refs by view.** Each ref is tagged front, left, back, right or other on its asset, and every send goes in that order. Codex draws the missing views from the front or cleans a busy background, as candidates you pick from, and Send to 3D warns about small, cropped or cluttered refs, and views that look different from the front, before any credit is spent.
 
 **Libraries across projects.** Finished models live outside every project, with their versions, tags and refs. Using one copies it in and spends nothing; a project with an older copy is offered the update. Animation clips get a library of their own: Mixamo FBX files and pack zips, or a rigged model's clips, kept once and skeleton only.
 
