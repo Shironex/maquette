@@ -152,6 +152,21 @@ export const commands = {
 	animationsSavePlan: (from: ClipsFrom) => __TAURI_INVOKE<SavePlan>("animations_save_plan", { from }),
 	/**  Saves the chosen clips of a rigged model as a pack, skeleton only. */
 	animationsSave: (request: SaveClips) => __TAURI_INVOKE<Saved>("animations_save", { request }),
+	/**
+	 *  Where library clips would go on a rigged model: the suggested bone map
+	 *  and each clip's settings. Reads, never writes.
+	 */
+	animationsRetargetPlan: (project: string, asset: string, clips: string[], picked: MapChoice[]) => __TAURI_INVOKE<RetargetPlan>("animations_retarget_plan", { project, asset, clips, picked }),
+	/**
+	 *  Bakes library clips onto a copy of the model's newest version, headless,
+	 *  and reviews them. The project is not changed yet.
+	 */
+	animationsRetarget: (request: UseClips) => __TAURI_INVOKE<RetargetDraft>("animations_retarget", { request }),
+	/**
+	 *  Adds a reviewed bake as the model's next version, the failed clips
+	 *  left out and the older version kept.
+	 */
+	animationsBake: (token: string) => __TAURI_INVOKE<Baked>("animations_bake", { token }),
 	layoutGet: (project: string) => __TAURI_INVOKE<LayoutView>("layout_get", { project }),
 	/**
 	 *  Saves the whole layout and returns the view of it. The states, clip
@@ -563,6 +578,8 @@ export type AnimationItem = {
 	clip: AnimationClip,
 	/**  Its skeleton file, absolute, for the preview. */
 	file: string,
+	/**  The models that baked it, across the workspace's projects. */
+	uses: ClipUse[],
 };
 
 export type AnimationsView = {
@@ -838,6 +855,15 @@ export type BakeView = {
 	skipped: string[],
 };
 
+/**  A bake added as a new version. */
+export type Baked = {
+	project: ProjectManifest,
+	version: AssetVersion,
+	review: RetargetReview,
+	/**  Checks the new version did not pass. */
+	warnings: string[],
+};
+
 /**  One service's balance, or why there is none. */
 export type Balance = {
 	service: ProviderId,
@@ -939,6 +965,17 @@ export type BoneMatch =
 "exact" | 
 /**  A name other rigs use for that bone. */
 "by-name" | "missing";
+
+/**  One humanoid bone: the clip's bone and the model's bone it drives. */
+export type BonePair = {
+	/**  The humanoid (Mixamo) name. */
+	bone: string,
+	/**  The clip's bone, for the first clip's rig. */
+	source: string | null,
+	/**  The model's bone. */
+	target: string | null,
+	how: PairMatch,
+};
 
 /**  Everything the UI needs before its first paint. */
 export type Bootstrap = {
@@ -1192,6 +1229,22 @@ export type ClipOrigin = {
 	version: number | null,
 };
 
+export type ClipReview = {
+	/**  The library clip's id. */
+	clip: string,
+	/**  Its name in the model. */
+	name: string,
+	status: ReviewStatus,
+	/**  One line: "Looks right", "Foot slides 4.2 cm while planted, frames 9 to 14". */
+	note: string,
+	frames: number,
+	/**  How far the root travels in the baked clip, metres; none in place. */
+	travel: number | null,
+	/**  The worst slide of a planted foot, cm, and the frames it spans. */
+	slideCm: number | null,
+	slideFrames: [number, number] | null,
+};
+
 /**  The skeleton a clip was made on. */
 export type ClipRig = {
 	kind: SourceRig,
@@ -1199,6 +1252,20 @@ export type ClipRig = {
 	bones: RestBone[],
 	/**  The hips' height at rest, metres, which root motion scales by. */
 	hipsHeight: number | null,
+};
+
+export type ClipSetting = {
+	/**  The library clip's id. */
+	clip: string,
+	/**  Its name in the model, snake_case. */
+	name: string,
+	/**  The first and last frame kept, of the library clip's own frames. */
+	start: number,
+	end: number,
+	loops: boolean,
+	/**  Keeps the root's travel in the clip; off plays it in place. */
+	rootMotion: boolean,
+	speed: number | null,
 };
 
 /**  What the Motion view changed about one clip. */
@@ -1230,6 +1297,20 @@ export type ClipStatus =
  *  clip as its next revision, unless kept both.
  */
 "revision";
+
+/**  One model that baked a library clip. */
+export type ClipUse = {
+	project: string,
+	projectName: string,
+	asset: string,
+	assetName: string,
+	/**  The clip's name in the model. */
+	name: string,
+	version: number,
+	revision: number,
+	/**  The library has a newer revision than the one baked. */
+	outdated: boolean,
+};
 
 /**
  *  The model clips are saved from: a project asset's newest version, or an
@@ -2284,6 +2365,12 @@ export type LogStream = "stdout" | "stderr" |
 /**  Lines the runner writes itself. */
 "system";
 
+/**  The model bone chosen for one humanoid bone; `None` leaves it at rest. */
+export type MapChoice = {
+	bone: string,
+	target: string | null,
+};
+
 /**
  *  The codec of each map group, where a model picks one. A group left
  *  `None` follows the row's `codec`, except normal maps, which default to
@@ -2774,6 +2861,18 @@ export type PageView = {
 	/**  The project the dev server serves now, when it is another one. */
 	busyWith: string | null,
 };
+
+export type PairMatch = 
+/**  The map saved for this model. */
+"saved" | 
+/**  The model uses the humanoid name itself. */
+"exact" | 
+/**  A name other rigs use for that bone. */
+"by-name" | 
+/**  Picked by hand in this retarget. */
+"picked" | 
+/**  No model bone; the bone stays at rest. */
+"missing";
 
 /**  How far one part moves from its rest pose in a state. */
 export type PartPose = {
@@ -3267,6 +3366,72 @@ export type RestBone = {
 	head: [(number | null), (number | null), (number | null)],
 	tail: [(number | null), (number | null), (number | null)],
 };
+
+/**  A bake waiting for review, on a copy of the newest version. */
+export type RetargetDraft = {
+	token: string,
+	project: string,
+	asset: string,
+	name: string,
+	fromVersion: number,
+	review: RetargetReview,
+	/**  The baked copy, absolute, for the side by side preview. */
+	file: string,
+	settings: ClipSetting[],
+};
+
+/**  What a retarget onto one model starts from. */
+export type RetargetPlan = {
+	project: string,
+	asset: string,
+	name: string,
+	/**  The version the clips go onto, and its file, absolute. */
+	version: number,
+	file: string,
+	joints: number,
+	/**  The clips the model has now. */
+	modelClips: string[],
+	modelBytes: number | null,
+	/**  The first chosen clip's rig, which the map's clip column shows. */
+	sourceRig: SourceRig | null,
+	sourceBones: number,
+	map: BonePair[],
+	/**  A map is saved for this model. */
+	saved: boolean,
+	/**  The bone map wants a look before baking. */
+	needsLook: boolean,
+	/**  Model bones no humanoid bone maps to; they follow their parents. */
+	onlyOnModel: string[],
+	/**
+	 *  Per clip, the settings it bakes with: the ones it was baked with
+	 *  before on this model, or its defaults.
+	 */
+	settings: ClipSetting[],
+	/**  Chosen clips this model baked at an older revision. */
+	outdated: string[],
+};
+
+export type RetargetReview = {
+	clips: ClipReview[],
+	/**  How long Blender took, seconds. */
+	seconds: number | null,
+	/**  Model bones the clips drive. */
+	driven: number,
+	/**  Humanoid bones with no model bone, which stay at rest. */
+	atRest: string[],
+	/**
+	 *  The model's limbs were turned this far, at most, to line up with the
+	 *  clip's rest pose, degrees.
+	 */
+	alignedDeg: number | null,
+	/**
+	 *  What the hips' moves were scaled by: the model's hips height over
+	 *  the clip's.
+	 */
+	hipsScale: number | null,
+};
+
+export type ReviewStatus = "good" | "look" | "failed";
 
 export type Rig = {
 	joints: number,
@@ -4354,6 +4519,17 @@ export type UpdaterStatus = {
  *  update ready to install.
  */
 export type UpdaterUpdate = UpdaterEvent;
+
+/**  Bake these clips onto the model's newest version. */
+export type UseClips = {
+	project: string,
+	asset: string,
+	settings: ClipSetting[],
+	/**  The bone map as the person left it. */
+	map: MapChoice[],
+	/**  Keeps the map for this model's next retarget. */
+	saveMap: boolean,
+};
 
 /**  The project asset version a library version was copied from. */
 export type VersionFrom = {

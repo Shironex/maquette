@@ -14,7 +14,11 @@ import {
   rootMotionLine,
 } from './animations';
 
-const items: AnimationItem[] = animationClips().map(clip => ({ clip, file: `/lib/${clip.id}` }));
+const items: AnimationItem[] = animationClips().map(clip => ({
+  clip,
+  file: `/lib/${clip.id}`,
+  uses: [],
+}));
 
 const clip = (key: string, status: PlanClip['status'], kb = 40): PlanClip => ({
   key,

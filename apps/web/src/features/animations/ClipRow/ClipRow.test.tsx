@@ -8,7 +8,11 @@ describe('the clip row', () => {
     const clip = animationClips().find(c => c.rig.kind === 'tripo')!;
     render(
       <ul>
-        <ClipRow item={{ clip, file: '/lib/clip.glb' }} selected={false} onSelect={vi.fn()} />
+        <ClipRow
+          item={{ clip, file: '/lib/clip.glb', uses: [] }}
+          selected={false}
+          onSelect={vi.fn()}
+        />
       </ul>
     );
     const row = screen.getByRole('button', { name: 'Duelist lunge' });

@@ -77,7 +77,7 @@ export function createAnimationHandlers(ctx: AnimationContext) {
 
   const view = (): AnimationsView => ({
     dir: dir(),
-    items: clips.map(clip => ({ clip, file: fileOf(clip.id) })),
+    items: clips.map(clip => ({ clip, file: fileOf(clip.id), uses: [] })),
     diskBytes: clips.reduce((sum, c) => sum + (c.bytes ?? 0), 0),
   });
 

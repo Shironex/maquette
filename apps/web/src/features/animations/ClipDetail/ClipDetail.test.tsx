@@ -7,7 +7,7 @@ vi.mock('@react-three/fiber', () => import('@/test/fake-fiber'));
 
 const item = (name: string) => {
   const clip = animationClips().find(c => c.name === name)!;
-  return { clip, file: `/lib/${clip.id}/clip.glb` };
+  return { clip, file: `/lib/${clip.id}/clip.glb`, uses: [] };
 };
 
 describe('the clip detail', () => {

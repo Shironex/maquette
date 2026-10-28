@@ -6,7 +6,7 @@ import { ClipCard } from '.';
 
 const clip = (name: string) => {
   const found = animationClips().find(c => c.name === name)!;
-  return { clip: found, file: `/lib/${found.id}/clip.glb` };
+  return { clip: found, file: `/lib/${found.id}/clip.glb`, uses: [] };
 };
 
 describe('the clip card', () => {
