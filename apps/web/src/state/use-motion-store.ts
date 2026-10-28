@@ -50,9 +50,6 @@ interface MotionStore {
   clip: string | null;
   state: string | null;
   player: Player;
-  /** The bone map dialog is open. */
-  boneMap: boolean;
-  setBoneMap: (open: boolean) => void;
   load: (project: string) => Promise<void>;
   /** The layout or the project changed outside the view. */
   onChanged: (project: string) => Promise<void>;
@@ -112,8 +109,6 @@ export const useMotionStore = create<MotionStore>((set, get) => {
     clip: null,
     state: null,
     player: PLAYER,
-    boneMap: false,
-    setBoneMap: boneMap => set({ boneMap }),
 
     load: async project => {
       requested = project;

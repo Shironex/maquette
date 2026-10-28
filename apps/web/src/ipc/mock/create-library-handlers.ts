@@ -329,6 +329,8 @@ export function createLibraryHandlers(ctx: LibraryContext) {
 
   const animations = createAnimationHandlers({
     project: ctx.project,
+    saveProject: ctx.saveProject,
+    alias: ctx.alias,
     root: ctx.root,
     state: ctx.state,
   });

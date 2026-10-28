@@ -1,10 +1,14 @@
 //! The animation library: clips kept once outside any project, skeleton
 //! only. Import reads FBX files and pack zips headless and adds the clips
-//! the person keeps; Save clips copies a rigged model's clips in. Blender
+//! the person keeps; Save clips copies a rigged model's clips in; Use on
+//! model bakes clips onto a rigged model as its next version. Blender
 //! always runs headless, one job at a time, and none of it spends credits.
 
 use std::sync::{Arc, LazyLock};
 
+use maquette_core::animations::retarget::{
+    self, Baked, MapChoice, RetargetDraft, RetargetPlan, UseClips,
+};
 use maquette_core::animations::{
     self, AnimationsView, ClipsFrom, ImportPlan, ImportRequest, Imported, SaveClips, SavePlan,
     Saved,
@@ -17,15 +21,15 @@ use tauri_specta::Event as _;
 
 use super::CommandResult;
 use super::providers::Studio;
-use crate::events::LibraryChanged;
+use crate::events::{LibraryChanged, ProjectChanged};
 use crate::session::Session;
 
 /// The library's Blender jobs run one at a time, app and agents alike.
 static RUNNER: LazyLock<PipelineRunner> = LazyLock::new(|| PipelineRunner::new(Arc::new(NullSink)));
 
 pub(crate) fn get(session: &Session) -> CommandResult<AnimationsView> {
-    let (root, _) = session.workspace()?;
-    Ok(animations::view(&root)?)
+    let (root, config) = session.workspace()?;
+    Ok(animations::view(&root, &config.layout)?)
 }
 
 pub(crate) fn read_import(
@@ -72,6 +76,27 @@ fn from_tripo(session: &Session, jobs: &ProviderJobs, from: &ClipsFrom) -> bool 
     sends.last().is_some_and(|j| tripo(j.provider))
 }
 
+/// The model's clips that came from the library, as (name in the model,
+/// library clip name), so Save clips never saves them back.
+fn baked(session: &Session, from: &ClipsFrom) -> Vec<(String, String)> {
+    let (Some(project), Some(asset)) = (&from.project, &from.asset) else {
+        return Vec::new();
+    };
+    let Ok((root, config)) = session.workspace() else {
+        return Vec::new();
+    };
+    maquette_core::project::dir(&root, &config.layout, project)
+        .and_then(|dir| retarget::uses::of_asset(&dir, asset))
+        .map(|entry| {
+            entry
+                .baked
+                .into_iter()
+                .map(|b| (b.setting.name, b.library_name))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 pub(crate) fn save_plan(
     session: &Session,
     jobs: &ProviderJobs,
@@ -79,7 +104,8 @@ pub(crate) fn save_plan(
 ) -> CommandResult<SavePlan> {
     let (root, config) = session.workspace()?;
     let tripo = from_tripo(session, jobs, from);
-    Ok(animations::save::plan(&root, &config, from, tripo, &[])?)
+    let baked = baked(session, from);
+    Ok(animations::save::plan(&root, &config, from, tripo, &baked)?)
 }
 
 pub(crate) fn save(
@@ -97,8 +123,50 @@ pub(crate) fn save(
         (runner, tools),
         request,
         tripo,
-        &[],
+        &baked(session, &request.from),
     )?)
+}
+
+pub(crate) fn retarget_plan(
+    session: &Session,
+    (project, asset): (&str, &str),
+    clips: &[String],
+    picked: &[MapChoice],
+) -> CommandResult<RetargetPlan> {
+    let (root, config) = session.workspace()?;
+    Ok(retarget::plan(
+        &root,
+        &config,
+        (project, asset),
+        clips,
+        picked,
+    )?)
+}
+
+pub(crate) fn retarget(
+    session: &Session,
+    tools: &Toolbox,
+    request: &UseClips,
+) -> CommandResult<RetargetDraft> {
+    let (root, config) = session.workspace()?;
+    let runner: &PipelineRunner = &RUNNER;
+    Ok(retarget::draft(&root, &config, (runner, tools), request)?)
+}
+
+pub(crate) fn bake(session: &Session, token: &str) -> CommandResult<Baked> {
+    let (root, config) = session.workspace()?;
+    Ok(retarget::bake(&root, &config, token)?)
+}
+
+/// Tells the windows a bake made a new version.
+pub(crate) fn baked_into(app: &AppHandle, baked: &Baked) {
+    let event = ProjectChanged {
+        project: baked.project.clone(),
+    };
+    if let Err(err) = event.emit(app) {
+        tracing::warn!(error = %err, "could not emit a project event");
+    }
+    changed(app);
 }
 
 fn changed(app: &AppHandle) {
@@ -172,4 +240,49 @@ pub async fn animations_save(
     })
     .await
     .map_err(super::join_failed)?
+}
+
+/// Where library clips would go on a rigged model: the suggested bone map
+/// and each clip's settings. Reads, never writes.
+#[tauri::command]
+#[specta::specta]
+pub fn animations_retarget_plan(
+    session: State<'_, Session>,
+    project: String,
+    asset: String,
+    clips: Vec<String>,
+    picked: Vec<MapChoice>,
+) -> CommandResult<RetargetPlan> {
+    retarget_plan(&session, (&project, &asset), &clips, &picked)
+}
+
+/// Bakes library clips onto a copy of the model's newest version, headless,
+/// and reviews them. The project is not changed yet.
+#[tauri::command]
+#[specta::specta]
+pub async fn animations_retarget(
+    app: AppHandle,
+    session: State<'_, Session>,
+    request: UseClips,
+) -> CommandResult<RetargetDraft> {
+    let tools = super::toolchain::toolbox(&session).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        retarget(app.state::<Session>().inner(), &tools, &request)
+    })
+    .await
+    .map_err(super::join_failed)?
+}
+
+/// Adds a reviewed bake as the model's next version, the failed clips
+/// left out and the older version kept.
+#[tauri::command]
+#[specta::specta]
+pub fn animations_bake(
+    app: AppHandle,
+    session: State<'_, Session>,
+    token: String,
+) -> CommandResult<Baked> {
+    let baked = bake(&session, &token)?;
+    baked_into(&app, &baked);
+    Ok(baked)
 }

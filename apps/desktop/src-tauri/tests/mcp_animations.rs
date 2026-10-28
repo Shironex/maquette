@@ -1,5 +1,6 @@
 //! A real MCP client lists the animation library's clips and is refused an
-//! import from outside the workspace and clips from a model with no rig.
+//! import from outside the workspace, clips from a model with no rig and
+//! library clips onto one, and reads a model's empty retarget review.
 //! Everything happens in a temp workspace; no Blender runs.
 
 use std::path::Path;
@@ -220,6 +221,22 @@ async fn agents_list_clips_and_cannot_import_from_outside_the_workspace() {
     )
     .await;
     assert!(no_rig.contains("glTF"), "{no_rig}");
+
+    let not_rigged = call_error(
+        &client,
+        "use_animations",
+        json!({ "project": "frostveil", "asset": "dummy", "clips": [{ "clip": "standing-dodge-left" }] }),
+    )
+    .await;
+    assert!(not_rigged.contains("glTF"), "{not_rigged}");
+    let review = call(
+        &client,
+        "get_retarget_review",
+        json!({ "project": "frostveil", "asset": "dummy" }),
+    )
+    .await;
+    assert_eq!(review["version"], Value::Null);
+    assert_eq!(review["baked"], json!([]));
     client.cancel().await.expect("close");
     server.stop();
 }

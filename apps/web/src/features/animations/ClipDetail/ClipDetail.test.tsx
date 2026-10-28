@@ -1,5 +1,6 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { useRetargetStore } from '@/state/use-retarget-store';
 import { animationClips } from '@/ipc/mock/animation-fixtures';
 import { ClipDetail } from '.';
 
@@ -7,7 +8,7 @@ vi.mock('@react-three/fiber', () => import('@/test/fake-fiber'));
 
 const item = (name: string) => {
   const clip = animationClips().find(c => c.name === name)!;
-  return { clip, file: `/lib/${clip.id}/clip.glb` };
+  return { clip, file: `/lib/${clip.id}/clip.glb`, uses: [] };
 };
 
 describe('the clip detail', () => {
@@ -27,5 +28,34 @@ describe('the clip detail', () => {
     render(<ClipDetail item={item('Heroine walk, take 2')} />);
     expect(screen.queryByText('Mixamo clip.')).toBeNull();
     expect(screen.getByText('Custom · 22 bones')).toBeVisible();
+  });
+
+  it('lists the models that baked it and offers an update for an older take', () => {
+    const open = vi.fn();
+    useRetargetStore.setState({ open });
+    const use = {
+      project: 'frostveil',
+      projectName: 'Frostveil',
+      asset: 'elsheria',
+      assetName: 'Elsheria',
+      name: 'dodge_left',
+      version: 2,
+      revision: 1,
+      outdated: true,
+    };
+    render(<ClipDetail item={{ ...item('Standing Dodge Left'), uses: [use] }} />);
+    const used = screen.getByRole('region', { name: 'Where it is used' });
+    expect(used).toHaveTextContent('Elsheria v2 · Frostveil · dodge_left');
+    fireEvent.click(within(used).getByRole('button', { name: 'Update' }));
+    expect(open).toHaveBeenCalledWith({
+      project: 'frostveil',
+      asset: 'elsheria',
+      clips: ['standing-dodge-left'],
+      step: 'settings',
+    });
+    expect(screen.getByRole('button', { name: 'Use on model' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 });

@@ -14,6 +14,7 @@ import { ObjectRefsDialog } from '@/features/lab/ObjectRefsDialog';
 import { StyleBoardDialog } from '@/features/lab/StyleBoardDialog';
 import { LibraryDialogs } from '@/features/common/LibraryDialogs';
 import { AnimationDialogs } from '@/features/animations/AnimationDialogs';
+import { RetargetDialog } from '@/features/retarget/RetargetDialog';
 import { SETTINGS_VIEW, showsView, type ViewId } from '@/state/views';
 import { CurrentView } from '../CurrentView';
 import { ProjectSwitcherMenu } from '../ProjectSwitcherMenu';
@@ -92,6 +93,7 @@ export default function AppShell() {
       <GameImportDialog />
       <LibraryDialogs />
       <AnimationDialogs />
+      <RetargetDialog />
       <ApprovalPrompt />
       <RepoPrompt />
       <QuitDialog />

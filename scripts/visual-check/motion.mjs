@@ -46,13 +46,13 @@ export async function motionShots({ open, shot }) {
   await shot(main, 'motion-states');
   await main.context().close();
 
-  // The bone map on a page of its own, so its canvas is the second one there.
+  // Map bones opens the retarget at its bone map step.
   const map = await motion(open, 'demo');
   await map.getByRole('button', { name: /^Clay figure/ }).click();
   await map.getByRole('button', { name: 'Map bones' }).click();
-  await map.getByRole('dialog', { name: /^Retarget a library clip onto / }).waitFor();
-  await map.getByLabel('Clay figure rig at rest').waitFor();
-  await map.waitForTimeout(2500);
+  await map.getByRole('dialog', { name: /^Add library clips to / }).waitFor();
+  await map.getByRole('region', { name: 'Bone map' }).waitFor();
+  await map.waitForTimeout(800);
   await shot(map, 'motion-retarget');
   await map.context().close();
 

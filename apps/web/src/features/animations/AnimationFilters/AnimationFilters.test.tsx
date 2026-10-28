@@ -5,7 +5,7 @@ import { animationClips } from '@/ipc/mock/animation-fixtures';
 import { NO_ANIMATION_FILTERS } from '@/state/animations';
 import { AnimationFilters } from '.';
 
-const items = animationClips().map(clip => ({ clip, file: `/lib/${clip.id}` }));
+const items = animationClips().map(clip => ({ clip, file: `/lib/${clip.id}`, uses: [] }));
 
 describe('the animation filters', () => {
   it('counts packs, tags and rigs over the whole library and toggles them', async () => {

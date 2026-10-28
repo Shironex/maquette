@@ -94,6 +94,8 @@ interface Seed {
   days: number;
   /** The file it came from, when not `<name>.fbx`. */
   from?: string;
+  /** Takes so far, when an import replaced its keys. */
+  revision?: number;
 }
 
 const SWORD = 'Pro Sword and Shield Pack';
@@ -108,6 +110,7 @@ const SEEDS: readonly Seed[] = [
     root: { metres: 0.92, direction: 'left' },
     kb: 46,
     days: 2,
+    revision: 2,
   },
   {
     name: 'Run To Rolling',
@@ -253,7 +256,7 @@ export function mockClip(seed: Omit<Seed, 'days'> & { id?: string; at: string })
       version: null,
     },
     hash: slug(seed.name),
-    revision: 1,
+    revision: seed.revision ?? 1,
     createdAt: seed.at,
     updatedAt: seed.at,
   };

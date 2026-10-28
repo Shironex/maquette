@@ -39,7 +39,8 @@
  * (scripts/visual-check/game.mjs) game projects and the library set
  * (scripts/visual-check/library.mjs) the Library view, Add to library and
  * Update from library, the animations set (scripts/visual-check/animations.mjs)
- * the Animations view, Import clips and Save clips to library, and the board set (scripts/visual-check/board.mjs)
+ * the Animations view, Import clips, Save clips to library and the Use on
+ * model steps, and the board set (scripts/visual-check/board.mjs)
  * a card waiting for a By hand model, its grouped menu and Move to submenu,
  * the header's tooltips, Remove from project and Recently removed, and a
  * card with several budget warnings, and the sync set
