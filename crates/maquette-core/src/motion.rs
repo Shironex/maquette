@@ -33,6 +33,7 @@ use crate::pipeline::PipelineDef;
 use crate::project::ProjectManifest;
 use crate::workspace::Budgets;
 
+pub(crate) use rig::humanoid_map;
 pub use rig::{BoneMap, BoneMatch, Rig, WEB_INFLUENCES};
 pub use save::{check_parts, save, with_motion};
 
@@ -211,6 +212,11 @@ fn read_file(path: &Path) -> CoreResult<FileMotion> {
             ))
         },
     )
+}
+
+/// The rig and clips of a model file, read without Blender.
+pub(crate) fn rig_and_clips(path: &Path) -> CoreResult<(Option<Rig>, Vec<Clip>)> {
+    read_file(path).map(|f| (f.rig, f.clips))
 }
 
 /// The clip bytes of a built file, by clip name, and all of them together.

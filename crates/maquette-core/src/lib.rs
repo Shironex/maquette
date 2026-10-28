@@ -2,6 +2,7 @@
 //! projects and their assets, the pipeline runner, model thumbnails and the
 //! per machine app state.
 
+pub mod animations;
 pub mod app_state;
 pub mod assets;
 pub mod built;

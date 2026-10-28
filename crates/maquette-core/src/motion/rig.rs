@@ -142,7 +142,7 @@ fn spellings(alias: &str, side: Option<char>) -> Vec<String> {
 }
 
 /// Maps the rig's joints onto the humanoid bones.
-pub(super) fn humanoid_map(joints: &[String]) -> Vec<BoneMap> {
+pub(crate) fn humanoid_map(joints: &[String]) -> Vec<BoneMap> {
     let normals: Vec<String> = joints.iter().map(|j| normal(j)).collect();
     HUMANOID
         .iter()
