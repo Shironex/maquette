@@ -27,6 +27,7 @@
     "rust:test": "cargo test --workspace",
     "gate": "pnpm lint && pnpm lint:meta && pnpm typecheck && pnpm test && pnpm test:scripts && pnpm build:site && pnpm format:check && pnpm rust:fmt && pnpm rust:lint && pnpm rust:test",
     "visual": "node scripts/visual-check.mjs",
+    "a11y": "node scripts/a11y-check.mjs",
     "showcase": "showcase all && showcase hero",
     "showcase:hero": "showcase hero",
     "prepare": "husky"
@@ -62,6 +63,7 @@
     "@noctcore/harness": "0.3.0",
     "@noctcore/lint-meta-rules": "0.6.2",
     "@noctcore/showcase-kit": "0.3.0",
+    "axe-core": "4.14.0",
     "eslint": "10.11.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-react": "7.37.5",
