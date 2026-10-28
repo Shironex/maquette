@@ -126,7 +126,10 @@ describe('mock concept lab', () => {
     expect(waiting?.retryAtMs).toBeGreaterThan(0);
     const again = (await handle('lab_retry', { jobId: failed!.id })) as { id: string };
     expect(again.id).toBe(failed!.id);
-    await expect(handle('lab_retry', { jobId: view.jobs[0]!.id })).rejects.toThrow(/only a failed/);
+    await expect(handle('lab_retry', { jobId: view.jobs[0]!.id })).rejects.toMatchObject({
+      code: 'invalid',
+      message: expect.stringMatching(/only a failed/),
+    });
     for (let i = 0; i < 200; i++) {
       const now = (await handle('lab_get', { project: 'frostveil' })) as LabView;
       if (now.jobs.find(j => j.id === failed!.id)?.state === 'done') break;
