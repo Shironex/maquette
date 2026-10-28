@@ -2,8 +2,9 @@
 //! become a direction and one planned Codex job each, with the project's
 //! style board when it is on, then go to the queue.
 
+use super::super::backend::ApiPlan;
 use super::super::objects::{self, NewObjectRefs};
-use super::super::refs_jobs::{self, NewCleanRef, NewOtherViews, RefsJobKind};
+use super::super::refs_jobs::{self, CleanGround, NewCleanRef, NewOtherViews, RefsJobKind};
 use super::super::style;
 use super::super::{Direction, prepare_with, prompt};
 use super::{ConceptJob, Concepts, Lane, Planned, Start, codex_tool};
@@ -12,15 +13,46 @@ use crate::error::{CoreError, CoreResult};
 use crate::refs::{AssetRef, RefView};
 
 impl Concepts {
+    /// Codex must be there for a Codex batch; an Image API batch must stay
+    /// under the monthly cap with its `images` images of `attached` inputs.
+    fn ready(&self, lane: &Lane<'_>, images: usize, attached: usize) -> CoreResult<()> {
+        match &lane.api {
+            None => codex_tool(lane.tools).map(|_| ()),
+            Some(plan) => self.check_api_cap(plan, images, attached),
+        }
+    }
+}
+
+/// The style board's images a job attaches.
+fn board_images(board: Option<&style::StyleBoard>) -> usize {
+    board.map_or(0, |b| b.files().len())
+}
+
+fn lane_of<'a>(start: &Start<'a>, api: Option<ApiPlan>) -> Lane<'a> {
+    Lane {
+        project_dir: start.project_dir,
+        cache_dir: start.cache_dir,
+        tools: start.tools,
+        timeout: start.timeout,
+        api,
+    }
+}
+
+impl Concepts {
     /// Queues one Codex job per image and returns the direction and jobs.
     ///
     /// # Errors
     ///
     /// Fails when Codex CLI is missing or the direction cannot be written.
     pub fn start(&self, start: Start<'_>) -> CoreResult<(Direction, Vec<ConceptJob>)> {
-        codex_tool(start.tools)?;
         let request = &start.request;
         let board = style::for_job(start.project_dir, request.use_style);
+        let lane = lane_of(&start, start.api.clone());
+        self.ready(
+            &lane,
+            request.count as usize,
+            request.refs.len() + board_images(board.as_ref()),
+        )?;
         let (direction, files) = prepare_with(
             start.project_dir,
             request,
@@ -42,15 +74,11 @@ impl Concepts {
                     file,
                     prompt: text,
                     title: None,
+                    size: request.aspect.api_size(),
+                    transparent: false,
                 }
             })
             .collect();
-        let lane = Lane {
-            project_dir: start.project_dir,
-            cache_dir: start.cache_dir,
-            tools: start.tools,
-            timeout: start.timeout,
-        };
         let jobs = self.queue(
             &lane,
             &request.project,
@@ -74,8 +102,12 @@ impl Concepts {
         lane: &Lane<'_>,
         request: &NewObjectRefs,
     ) -> CoreResult<(Direction, Vec<ConceptJob>)> {
-        codex_tool(lane.tools)?;
         let board = style::for_job(lane.project_dir, request.use_style);
+        self.ready(
+            lane,
+            request.objects.len(),
+            1 + board_images(board.as_ref()),
+        )?;
         let (direction, files) = objects::prepare_with(
             lane.project_dir,
             request,
@@ -96,6 +128,8 @@ impl Concepts {
                 ),
                 file: p.file,
                 title: Some(p.object),
+                size: request.aspect.api_size(),
+                transparent: false,
             })
             .collect();
         let refs = [request.source.clone()];
@@ -128,7 +162,9 @@ impl Concepts {
         refs: &[AssetRef],
         request: &NewOtherViews,
     ) -> CoreResult<(Direction, Vec<ConceptJob>)> {
-        codex_tool(lane.tools)?;
+        if lane.api.is_none() {
+            codex_tool(lane.tools)?;
+        }
         if !(1..=refs_jobs::MAX_PER_VIEW).contains(&request.count) {
             return Err(CoreError::Invalid(format!(
                 "Ask for 1 to {} images per view.",
@@ -138,6 +174,11 @@ impl Concepts {
         let front = refs_jobs::front_of(refs)?;
         let views = refs_jobs::views_to_draw(refs, &request.views)?;
         let board = style::for_job(lane.project_dir, request.use_style);
+        self.ready(
+            lane,
+            views.len() * request.count as usize,
+            1 + board_images(board.as_ref()),
+        )?;
         let titles: Vec<String> = views
             .iter()
             .flat_map(|v| (0..request.count).map(|_| v.name().to_string()))
@@ -167,6 +208,8 @@ impl Concepts {
                     ),
                     file: p.file,
                     title: Some(p.title),
+                    size: "auto",
+                    transparent: false,
                 }
             })
             .collect();
@@ -195,7 +238,6 @@ impl Concepts {
         refs: &[AssetRef],
         request: &NewCleanRef,
     ) -> CoreResult<(Direction, Vec<ConceptJob>)> {
-        codex_tool(lane.tools)?;
         let file = request.file.trim().replace('\\', "/");
         if !refs.iter().any(|r| r.file == file) || !lane.project_dir.join(&file).is_file() {
             return Err(CoreError::NotFound(format!(
@@ -203,6 +245,7 @@ impl Concepts {
                 asset.name
             )));
         }
+        self.ready(lane, 1, 1)?;
         let (direction, files) = refs_jobs::prepare(
             lane.project_dir,
             asset,
@@ -218,6 +261,8 @@ impl Concepts {
                 prompt: refs_jobs::clean_prompt(request, asset, &lane.project_dir.join(&p.file)),
                 file: p.file,
                 title: Some(p.title),
+                size: if request.pad { "1024x1024" } else { "auto" },
+                transparent: request.ground == CleanGround::Transparent,
             })
             .collect();
         let jobs = self.queue(lane, &request.project, &direction, &[file], None, planned)?;

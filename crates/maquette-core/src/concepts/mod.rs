@@ -8,6 +8,7 @@
 //! job carries the project's style board ([`style`]) unless its brief turns
 //! it off.
 
+pub mod backend;
 mod codex;
 pub mod codex_usage;
 pub mod jobs;
@@ -71,6 +72,18 @@ impl Aspect {
             Aspect::Square => "1:1",
             Aspect::Portrait => "3:4",
             Aspect::Tall => "9:16",
+        }
+    }
+
+    /// The size the Image API is asked for: within its limits (sides a
+    /// multiple of 16, at most 3:1) and close to this ratio.
+    pub fn api_size(self) -> &'static str {
+        match self {
+            Aspect::Wide => "1536x864",
+            Aspect::Landscape => "1536x1024",
+            Aspect::Square => "1024x1024",
+            Aspect::Portrait => "1152x1536",
+            Aspect::Tall => "864x1536",
         }
     }
 

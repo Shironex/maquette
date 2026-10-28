@@ -131,6 +131,7 @@ fn images_arrive_by_file_and_land_in_the_direction() {
             tools: &toolbox(&codex),
             request: request("Porch at dusk", 3),
             timeout: Duration::from_secs(20),
+            api: None,
         })
         .expect("start");
     assert_eq!(jobs.len(), 3);
@@ -181,6 +182,7 @@ fn object_refs_get_one_titled_job_per_object_with_the_source_attached() {
         cache_dir: &r.cache,
         tools: &tools,
         timeout: Duration::from_secs(20),
+        api: None,
     };
     let request = objects::clean(
         &r.project,
@@ -267,6 +269,7 @@ fn object_refs_started_at_the_same_moment_never_share_a_file() {
         cache_dir: &r.cache,
         tools: &tools,
         timeout: Duration::from_secs(20),
+        api: None,
     };
     let ask = |object: &str| NewObjectRefs {
         project: "moon".into(),
@@ -332,6 +335,7 @@ fn an_image_left_in_codex_home_is_copied_out() {
             tools: &toolbox(&codex),
             request: request("Lantern", 1),
             timeout: Duration::from_secs(20),
+            api: None,
         })
         .expect("start");
     concepts.wait();
@@ -358,6 +362,7 @@ fn failures_and_timeouts_say_what_happened() {
                 tools: &toolbox(&codex),
                 request: request(direction, 1),
                 timeout: Duration::from_secs(timeout),
+                api: None,
             })
             .expect("start");
     }
@@ -387,6 +392,7 @@ fn queued_jobs_can_be_cancelled() {
             tools: &toolbox(&codex),
             request: request("Slow", 2),
             timeout: Duration::from_secs(60),
+            api: None,
         })
         .expect("start");
     concepts.cancel(&jobs[1].id).expect("cancel queued");
@@ -408,6 +414,7 @@ fn queued_jobs_can_be_cancelled() {
             tools: &Toolbox::default(),
             request: request("Slow", 1),
             timeout: Duration::from_secs(60),
+            api: None,
         })
         .expect_err("no codex");
     assert!(err.to_string().contains("Codex CLI"));
@@ -429,6 +436,7 @@ fn start_one(concepts: &Concepts, r: &Rig, codex: &Path, direction: &str) -> Con
             tools: &toolbox(codex),
             request: request(direction, 1),
             timeout: Duration::from_secs(20),
+            api: None,
         })
         .expect("start");
     jobs.into_iter().next().expect("job")
@@ -575,6 +583,7 @@ fn a_usage_limit_holds_the_whole_queue_until_it_lifts() {
             tools: &toolbox(&codex),
             request: request("Lantern", 3),
             timeout: Duration::from_secs(20),
+            api: None,
         })
         .expect("start");
     let usage_waiting = || {
@@ -634,6 +643,7 @@ fn a_usage_read_moves_the_held_jobs_to_its_reset_and_lift_runs_them_now() {
             tools: &toolbox(&codex),
             request: request("Lantern", 2),
             timeout: Duration::from_secs(20),
+            api: None,
         })
         .expect("start");
     let deadline = Instant::now() + Duration::from_secs(20);
@@ -759,6 +769,7 @@ fn jobs_carry_the_style_board_and_a_retry_carries_the_same_one() {
             tools: &toolbox(&plain),
             request: off,
             timeout: Duration::from_secs(20),
+            api: None,
         })
         .expect("start");
     assert!(direction.style_off);
@@ -803,6 +814,7 @@ fn other_views_draw_only_the_empty_slots_with_the_front_attached() {
         cache_dir: &r.cache,
         tools: &tools,
         timeout: Duration::from_secs(20),
+        api: None,
     };
     let mut request = crate::concepts::NewOtherViews {
         project: "moon".into(),

@@ -83,6 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tools: &tools,
         request,
         timeout: Duration::from_secs(600),
+        api: None,
     })?;
     println!("queued {} jobs for {}", jobs.len(), direction.id);
     service.wait();

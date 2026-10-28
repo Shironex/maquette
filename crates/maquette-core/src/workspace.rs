@@ -186,6 +186,10 @@ pub struct LabSettings {
     pub concurrency: u32,
     /// A job still running after this many minutes is stopped.
     pub timeout_minutes: u32,
+    /// Codex or OpenAI's Image API per kind of job, and the API's quality
+    /// and monthly cap.
+    #[serde(default)]
+    pub images: crate::concepts::backend::ImageSettings,
 }
 
 impl Default for LabSettings {
@@ -193,6 +197,7 @@ impl Default for LabSettings {
         Self {
             concurrency: 4,
             timeout_minutes: 10,
+            images: crate::concepts::backend::ImageSettings::default(),
         }
     }
 }
@@ -416,6 +421,12 @@ pub fn validate(config: &WorkspaceConfig) -> CoreResult<()> {
     }
     if !(1..=60).contains(&config.lab.timeout_minutes) {
         return invalid("The concept job timeout must be between 1 and 60 minutes.");
+    }
+    let cap = crate::concepts::backend::MAX_MONTHLY_CAP_USD;
+    if config.lab.images.monthly_cap_usd > cap {
+        return Err(CoreError::Invalid(format!(
+            "The monthly OpenAI image cap must be at most ${cap}."
+        )));
     }
     let scene_mb = config.budgets.scene_mb;
     if !scene_mb.is_finite() || scene_mb <= 0.0 || scene_mb > 1000.0 {

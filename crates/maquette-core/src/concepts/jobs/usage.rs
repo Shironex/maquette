@@ -384,6 +384,7 @@ mod tests {
             retries: 0,
             usage_limit: false,
             style_revision: None,
+            backend: crate::concepts::backend::ImageBackend::Codex,
         }
     }
 
