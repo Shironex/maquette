@@ -95,8 +95,8 @@ export const STAGES: readonly Stage[] = [
     chips: ['codex exec', 'style board', '1 to 12 images'],
     shots: [
       {
-        ...screen('lab', 1238, 976),
-        alt: 'The Concept lab with a brief for a frozen lake arena on the left and six generated concepts, one picked.',
+        ...screen('lab'),
+        alt: 'The Concept lab: a brief for a frozen lake arena, the project style board, and six generated concepts, one picked.',
         tool: 'Lab',
         caption: 'Frozen lake arena, 6 concepts, 1 picked',
       },
@@ -111,16 +111,16 @@ export const STAGES: readonly Stage[] = [
     chips: ['refs/', 'front, left, back, right', 'Clean background'],
     shots: [
       {
-        ...screen('refs-views', 516, 1000),
-        alt: 'Send to 3D panel for a statue: one ref tagged Front, one tagged Back, and three ref warnings with Clean background and Make the other views.',
+        ...screen('refs-views', 560, 1000),
+        alt: 'Refs for a statue: views in send order, Front and Back tagged, Left and Right empty, Make the other views, and one ref kept as Other.',
         tool: 'Refs by view',
-        caption: 'front and back tagged, 3 ref warnings',
+        caption: '2 of 4 views, front first in every send',
       },
       {
-        ...screen('board'),
-        alt: 'The Board with six columns, Concept to Ship, and asset cards with thumbnails and status.',
-        tool: 'Board',
-        caption: 'every card shows where it stands',
+        ...screen('ref-warnings', 520, 1000),
+        alt: 'Send to 3D for the same statue: three ref warnings, a cropped front, a small back and a back that does not match, each with its fix.',
+        tool: 'Send to 3D',
+        caption: '3 ref warnings, none of them blocks',
       },
     ],
   },
@@ -133,14 +133,14 @@ export const STAGES: readonly Stage[] = [
     chips: ['Tripo', 'Meshy', 'By hand', 'Downloads watch'],
     shots: [
       {
-        ...screen('send-tripo', 540, 900),
-        alt: 'Send to 3D panel with Tripo selected, reference images and the prop preset.',
+        ...screen('send-tripo', 520, 900),
+        alt: 'Send to 3D panel with Tripo selected, the project refs, one ref warning and the prop preset.',
         tool: 'Send to 3D',
         caption: 'Tripo, key from the keychain',
       },
       {
-        ...screen('by-hand', 540, 900),
-        alt: 'By hand card with three steps and every Tripo setting to copy.',
+        ...screen('by-hand', 520, 900),
+        alt: 'By hand card waiting for the model: open Tripo, upload the images, and every Tripo setting to copy.',
         tool: 'By hand',
         caption: 'no API call, no credits',
       },
@@ -155,7 +155,7 @@ export const STAGES: readonly Stage[] = [
     shots: [
       {
         ...screen('pipeline-running'),
-        alt: 'Pipeline runner: six steps, two cached, Export GLB running at 73 percent.',
+        alt: 'Pipeline runner: six steps, two cached, Export GLB running at 73 percent, with the baked light settings below.',
         tool: 'Pipeline',
         caption: 'run 25, Export GLB at 73%',
       },
@@ -169,10 +169,10 @@ export const STAGES: readonly Stage[] = [
     chips: ['KTX2', 'meshopt', 'toktx', 'gltf-transform'],
     shots: [
       {
-        ...screen('pipeline-compress', 1220, 420),
-        alt: 'Generated artifacts with raw and compressed sizes, the live log, and per model compression presets.',
+        ...screen('pipeline-compress', 1184, 368),
+        alt: 'The live log next to the compression presets: texture size, codec and meshopt per model, with raw and shipped sizes.',
         tool: 'Pipeline',
-        caption: 'island.glb 4.6 MB to 1.1 MB',
+        caption: '4 models, 14.3 MB to 3.5 MB',
       },
     ],
   },
@@ -185,7 +185,7 @@ export const STAGES: readonly Stage[] = [
     shots: [
       {
         ...screen('pipeline-done'),
-        alt: 'A finished run: every step done or cached, Ship included.',
+        alt: 'A finished run: every step done or cached, Ship included, with the compression presets below.',
         tool: 'Pipeline',
         caption: 'run 23, 4 done, 2 cached',
       },
@@ -195,44 +195,44 @@ export const STAGES: readonly Stage[] = [
 
 export const SHOTS = {
   inbox: {
-    ...screen('inbox', 1238, 976),
+    ...screen('inbox'),
     alt: 'Model inbox: a character with one failed check and two warnings before Accept to Blender.',
     tool: 'Inbox',
     caption: '4 models waiting, 1 failure and 2 warnings on a character',
   },
   parts: {
-    ...screen('parts', 1238, 976),
+    ...screen('parts'),
     alt: 'Inspector, Parts tab: a lantern split into five coloured parts, two selected, with Merge, Hide and Assemble a prop.',
     tool: 'Parts',
     caption: '5 parts, split in Blender',
   },
   animations: {
-    ...screen('animations', 880, 976),
+    ...screen('animations'),
     alt: 'Animations library: 16 clips in four packs, tagged combat, dodge, magic and locomotion, each with its length and root motion.',
     tool: 'Animations',
     caption: '16 clips, 933 KB, skeleton only',
   },
   retarget: {
-    ...screen('retarget', 1226, 722),
+    ...screen('retarget', 1220, 720),
     alt: 'Review the retarget: four clips, one failed, sword run with the feet pinned and the slide down from 4.2 cm to 0.3 cm, source skeleton next to the model.',
     tool: 'Use on model',
     caption: 'the review before the bake, feet pinned',
   },
   compare: {
     ...screen('inspector-compare'),
-    alt: 'Scene comparison of v6 and v7 with a split slider and five camera stops below.',
+    alt: 'Scene comparison of v6 and v7 with a split slider, five camera stops below, and the selected model with its compression on the right.',
     tool: 'Compare',
     caption: 'v6 baked against v7, camera stops from stops.json',
   },
   budgets: {
-    ...screen('inspector-budgets', 440, 800),
-    alt: 'Side panel with triangles, textures, GPU memory, transfer and model budgets.',
+    ...screen('inspector-budgets', 340, 438),
+    alt: 'Side panel: a library update for the model, its textures, and model budgets with one model over its share.',
     tool: 'Budgets',
     caption: 'per model, MB',
   },
   approvals: {
     ...screen('agents-approval'),
-    alt: 'Two approval prompts in the app: Ship Moon Island, run 26, and Send Far spire to Tripo.',
+    alt: 'Two approval prompts in the app: Ship Winter Spire, run 26, and Send Rune obelisk to Tripo.',
     tool: 'Waiting for you',
     caption: 'two requests from an agent',
   },
@@ -250,15 +250,15 @@ export const SHOTS = {
   },
   providers: {
     ...screen('settings-providers'),
-    alt: '3D providers: Tripo key ending 9f2c in the Keychain, Test key passed.',
+    alt: '3D providers: Tripo key ending 9f2c in the Keychain, Test key passed, 1,240 credits left.',
     tool: 'Settings',
     caption: '3D providers, key in the Keychain',
   },
   board: {
     ...screen('board'),
-    alt: 'Maquette Board with the Moon Island project open.',
+    alt: 'Maquette Board with a sample project open: nine assets across six columns, Concept to Ship.',
     tool: 'Board',
-    caption: 'Moon Island',
+    caption: 'a sample project, 9 assets',
   },
 } satisfies Record<string, Shot>;
 
