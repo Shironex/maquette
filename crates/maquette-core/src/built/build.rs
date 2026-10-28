@@ -96,7 +96,8 @@ impl Drop for Busy<'_> {
 }
 
 /// The titles of the checks a built model did not pass.
-fn warnings(
+/// The checks a new version gets that it did not pass, and its stats.
+pub(crate) fn warnings(
     output: &Path,
     asset: &Asset,
     config: &WorkspaceConfig,
@@ -304,7 +305,7 @@ impl Builder {
 }
 
 /// Copies the GLB in as `models/<id>_v<n>.glb` and records the version.
-fn add_version(
+pub(crate) fn add_version(
     manifest: &mut ProjectManifest,
     project_dir: &Path,
     id: &str,

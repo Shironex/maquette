@@ -54,6 +54,7 @@ mod build;
 pub use add::{NewBuilt, add};
 pub use blender::{LANE, work_dir};
 pub use build::{BuildContext, BuildOutcome, BuildResult, Builder};
+pub(crate) use build::{add_version as add_model_version, warnings as checked};
 
 pub const BUILT_FILE: &str = "built.json";
 pub const BUILT_VERSION: u32 = 1;

@@ -7,7 +7,7 @@ use super::import::{self, ClipStatus, ImportRequest, PackChoice, StagedEntry, St
 use super::*;
 use crate::workspace::WorkspaceConfig;
 
-const MIXAMO: [&str; 22] = [
+pub(crate) const MIXAMO: [&str; 22] = [
     "Hips",
     "Spine",
     "Spine1",
@@ -32,7 +32,7 @@ const MIXAMO: [&str; 22] = [
     "RightToeBase",
 ];
 
-fn mixamo_bones() -> Vec<String> {
+pub(crate) fn mixamo_bones() -> Vec<String> {
     MIXAMO.iter().map(|b| format!("mixamorig:{b}")).collect()
 }
 
@@ -109,7 +109,7 @@ fn pack(index: usize, name: &str, inner: &[&str]) -> StagedFile {
     }
 }
 
-fn library_clip(id: &str, name: &str, pack: &str, hash: &str) -> AnimationClip {
+pub(crate) fn library_clip(id: &str, name: &str, pack: &str, hash: &str) -> AnimationClip {
     AnimationClip {
         version: CLIP_VERSION,
         id: id.into(),
@@ -178,7 +178,7 @@ fn clips_round_trip_and_list_by_pack_then_name() {
             .join("clip.json")
             .is_file()
     );
-    let shown = view(root.path()).expect("view");
+    let shown = view(root.path(), &crate::workspace::FolderLayout::default()).expect("view");
     assert_eq!(shown.items.len(), 3);
     assert!(shown.disk_bytes > 0.0);
 }

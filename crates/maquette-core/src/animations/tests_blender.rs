@@ -170,3 +170,124 @@ fn clips_save_from_a_rigged_model_in_the_inbox() {
     let again = save::save(s.root.path(), &config, tools, &request, true, &[]).expect("again");
     assert_eq!((again.added.len(), again.skipped.len()), (0, 1));
 }
+
+/// Frostveil with Elsheria (the fixture model, v1) and the dodge clip in
+/// the library.
+fn elsheria_with_a_dodge(s: &Setup, config: &WorkspaceConfig) -> PathBuf {
+    let scripts = s.root.path().join("scripts");
+    let dodge = s.files.join("Dodge Left.fbx");
+    fixture(&s.blender, &scripts, "clip", &dodge);
+    let paths = [dodge.display().to_string()];
+    let plan = import::read(s.root.path(), config, &s.runner, &s.tools, &paths).expect("read");
+    let request = ImportRequest {
+        token: plan.token,
+        ..ImportRequest::default()
+    };
+    import::commit(s.root.path(), config, &request).expect("import");
+
+    let layout = &config.layout;
+    let made = crate::project::create(
+        s.root.path(),
+        layout,
+        crate::project::NewProject {
+            name: "Frostveil".into(),
+            template: crate::project::ProjectTemplate::FloatingDiorama,
+            target: crate::game::ProjectTarget::Website,
+            game: None,
+            site_repo: None,
+            source_folder: None,
+        },
+    )
+    .expect("project");
+    let dir = crate::project::dir(s.root.path(), layout, &made.id).expect("dir");
+    fixture(
+        &s.blender,
+        &scripts,
+        "model",
+        &dir.join("models").join("elsheria_v1.glb"),
+    );
+    crate::project::modify(s.root.path(), layout, &made.id, |m| {
+        let asset = crate::assets::add(
+            m,
+            crate::assets::NewAsset {
+                name: "Elsheria".into(),
+                kind: crate::assets::AssetKind::Character,
+                stage: crate::assets::Stage::Blender,
+            },
+        )?;
+        crate::assets::add_version(m, &asset.id, "models/elsheria_v1.glb".into(), None).map(|_| ())
+    })
+    .expect("asset");
+    dir
+}
+
+#[test]
+fn library_clips_bake_onto_a_rigged_model_as_its_next_version() {
+    use super::retarget::{self, ReviewStatus, UseClips};
+    let Some(s) = setup() else { return };
+    let config = WorkspaceConfig::default();
+    let dir = elsheria_with_a_dodge(&s, &config);
+    let target = ("frostveil", "elsheria");
+    let clips = ["dodge-left".to_string()];
+    let plan = retarget::plan(s.root.path(), &config, target, &clips, &[]).expect("plan");
+    assert_eq!((plan.version, plan.joints), (1, 22));
+    assert_eq!(plan.model_clips, ["idle"]);
+    assert_eq!(plan.source_rig, Some(SourceRig::Mixamo));
+    assert_eq!(plan.settings[0].name, "dodge_left");
+    assert!(plan.needs_look, "the fixture's spine names need a look");
+
+    let request = UseClips {
+        project: target.0.into(),
+        asset: target.1.into(),
+        settings: plan.settings.clone(),
+        map: Vec::new(),
+        save_map: true,
+    };
+    let tools = (&s.runner, &s.tools);
+    let draft = retarget::draft(s.root.path(), &config, tools, &request).expect("draft");
+    let review = &draft.review.clips[0];
+    assert_ne!(review.status, ReviewStatus::Failed, "{review:?}");
+    assert_eq!(review.frames, 30);
+    // The fixture moves only its hips, so its planted feet slide with them.
+    assert!(review.slide_cm > 50.0, "{review:?}");
+    assert!(
+        (review.travel.unwrap_or(0.0) - 0.9).abs() < 0.05,
+        "{review:?}"
+    );
+    assert!(draft.review.driven >= 20);
+    let json = test_blender::glb_json(Path::new(&draft.file));
+    let names: Vec<&str> = json["animations"]
+        .as_array()
+        .expect("animations")
+        .iter()
+        .filter_map(|a| a["name"].as_str())
+        .collect();
+    assert!(
+        names.contains(&"idle") && names.contains(&"dodge_left"),
+        "{names:?}"
+    );
+
+    let baked = retarget::bake(s.root.path(), &config, &draft.token).expect("bake");
+    assert_eq!(baked.version.version, 2);
+    assert!(dir.join(&baked.version.file).is_file());
+    let entry = retarget::uses::of_asset(&dir, "elsheria").expect("record");
+    assert_eq!(entry.baked[0].setting.name, "dodge_left");
+    assert_eq!((entry.baked[0].version, entry.review_version), (2, Some(2)));
+    assert!(!entry.map.is_empty(), "the map was saved");
+    let uses = retarget::uses::uses(
+        s.root.path(),
+        &config.layout,
+        &list(s.root.path()).expect("clips"),
+    )
+    .expect("uses");
+    assert_eq!(uses["dodge-left"][0].asset_name, "Elsheria");
+    assert!(
+        retarget::bake(s.root.path(), &config, &draft.token).is_err(),
+        "a draft bakes once"
+    );
+
+    // Baking it again replaces its own clip rather than adding dodge_left_2.
+    let again = retarget::plan(s.root.path(), &config, target, &clips, &[]).expect("again");
+    assert_eq!(again.settings[0].name, "dodge_left");
+    assert!(!again.needs_look, "the saved map is reused");
+}
