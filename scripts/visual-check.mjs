@@ -50,7 +50,9 @@
  * Settings > About and the app updater: inert, the header pill, an update
  * downloading and ready, and the style set (scripts/visual-check/style.mjs)
  * the Lab's style board, and the refs set (scripts/visual-check/refs.mjs)
- * multi-view refs and the weak ref warnings, and the parts set
+ * multi-view refs and the weak ref warnings, and the codex set
+ * (scripts/visual-check/codex.mjs) the status bar's Codex usage, the
+ * composer's warning and the Lab's usage limit banner, and the parts set
  * (scripts/visual-check/parts.mjs) a split into parts from the Inbox to the
  * Inspector's Parts tab and before and after. It renders
  * pages to files and never captures the screen.
@@ -58,7 +60,7 @@
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=codex or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -70,6 +72,7 @@ import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { aboutShots } from './visual-check/about.mjs';
 import { boardShots } from './visual-check/board.mjs';
+import { codexShots } from './visual-check/codex.mjs';
 import { gameShots } from './visual-check/game.mjs';
 import { libraryShots } from './visual-check/library.mjs';
 import { animationsShots } from './visual-check/animations.mjs';
@@ -1005,6 +1008,7 @@ try {
   if (!only || only === 'about') await aboutShots({ open, shot });
   if (!only || only === 'style') await styleShots({ open, shot, hoverTip });
   if (!only || only === 'refs') await refsShots({ open, shot });
+  if (!only || only === 'codex') await codexShots({ open, shot, hoverTip });
 } finally {
   await browser.close();
   await vite?.close();
