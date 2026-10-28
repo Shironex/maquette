@@ -8,6 +8,15 @@
 //! fix-up preview's copy. Compare reads the numbers of two versions side
 //! by side ([`numbers`]): their parts, draw calls, triangles, textures,
 //! transfer size and Inbox checks.
+//!
+//! A split on a provider can drop the texture: [`bake_back`] bakes it back
+//! from the model it came from. [`assemble`] does the opposite of a split,
+//! joining parts made as models of their own into one prop.
+
+pub mod assemble;
+pub mod bake_back;
+mod blender;
+pub(crate) mod versions;
 
 use std::fs;
 use std::panic::{AssertUnwindSafe, catch_unwind};

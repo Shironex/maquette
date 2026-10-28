@@ -48,3 +48,42 @@ pub(crate) fn glb_json(path: &Path) -> serde_json::Value {
     let len = u32::from_le_bytes(bytes[12..16].try_into().expect("chunk length")) as usize;
     serde_json::from_slice(&bytes[20..20 + len]).expect("glb json")
 }
+
+/// A Toolbox whose Blender is `blender`, for code that runs a pipeline step.
+pub(crate) fn toolbox(blender: &Path) -> crate::pipeline::tools::Toolbox {
+    let mut tools = crate::pipeline::tools::Toolbox {
+        path_env: std::env::var_os("PATH").unwrap_or_default(),
+        os: Some(crate::toolchain::HostOs::current()),
+        ..Default::default()
+    };
+    tools.tools.insert(
+        crate::toolchain::ToolId::Blender,
+        crate::pipeline::tools::ResolvedTool {
+            program: blender.to_path_buf(),
+            prefix: Vec::new(),
+            version: "test".into(),
+        },
+    );
+    tools
+}
+
+/// One of the small Frostveil props of `parts/fixtures/parts_models.py`
+/// (`lantern`, `lantern-tripo`, `gate-door`, ...), written into `dir`.
+pub(crate) fn parts_model(blender: &Path, dir: &Path, which: &str) -> PathBuf {
+    let script = dir.join("parts_models.py");
+    if !script.is_file() {
+        std::fs::write(&script, include_str!("parts/fixtures/parts_models.py")).expect("fixture");
+    }
+    let model = dir.join(format!("{which}.glb"));
+    run(
+        blender,
+        &[
+            "--python",
+            &script.display().to_string(),
+            "--",
+            which,
+            &model.display().to_string(),
+        ],
+    );
+    model
+}
