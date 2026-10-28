@@ -18,6 +18,7 @@ mod start;
 #[cfg(all(test, unix))]
 mod tests;
 mod usage;
+mod usage_hold;
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
