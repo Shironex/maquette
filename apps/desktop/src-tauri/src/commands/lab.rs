@@ -8,7 +8,7 @@ use std::time::Duration;
 use maquette_core::concepts::jobs::{Lane, Start};
 use maquette_core::concepts::{
     self, ConceptJob, Concepts, Direction, MovedDirection, NewConcepts, NewObjectRefs, REFS_DIR,
-    SentObjects, SentPicks, sheet,
+    SentObjects, SentPicks, StyleBoard, StyleBoardChange, sheet, style,
 };
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::providers::{JobState, ProviderJobs};
@@ -64,6 +64,8 @@ pub struct LabView {
     pub jobs: Vec<ConceptJob>,
     pub refs: Vec<RefImage>,
     pub concurrency: u32,
+    /// The project's style board, empty when it has none.
+    pub style: StyleBoard,
 }
 
 const IMAGE_EXTENSIONS: [&str; 4] = ["png", "jpg", "jpeg", "webp"];
@@ -121,6 +123,7 @@ pub(crate) fn view(session: &Session, lab: &Concepts, project_id: &str) -> Comma
         jobs: lab.jobs(Some(project_id)),
         refs: list_refs(&dir),
         concurrency: config.lab.concurrency,
+        style: style::load_or_default(&dir),
     })
 }
 
@@ -394,6 +397,51 @@ pub(crate) fn import_refs(
         out.push(format!("{REFS_DIR}/{name}"));
     }
     Ok(out)
+}
+
+/// Changes the project's style board. Its images may be board images,
+/// concepts and refs of the project, or absolute paths: from anywhere for
+/// the app (a file a person chose), only inside the workspace for an agent.
+/// Every image is copied into the project's `style/` folder.
+pub(crate) fn set_style(
+    session: &Session,
+    project_id: &str,
+    change: &StyleBoardChange,
+    from_anywhere: bool,
+) -> CommandResult<StyleBoard> {
+    let (root, _, dir) = project_dir(session, project_id)?;
+    let mut change = change.clone();
+    if let Some(images) = &mut change.images {
+        for entry in images.iter_mut() {
+            let path = session.expand(entry);
+            if !path.is_absolute() {
+                continue;
+            }
+            let inside = path
+                .canonicalize()
+                .ok()
+                .zip(root.canonicalize().ok())
+                .is_some_and(|(p, r)| p.starts_with(r));
+            if !from_anywhere && !inside {
+                return Err(super::invalid(&format!(
+                    "{} is outside the workspace. Give a concept or ref of the project, or a path inside the workspace.",
+                    session.display(&path)
+                )));
+            }
+            *entry = path.display().to_string();
+        }
+    }
+    Ok(style::update(&dir, &change)?)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn lab_set_style(
+    session: State<'_, Session>,
+    project: String,
+    change: StyleBoardChange,
+) -> CommandResult<StyleBoard> {
+    set_style(&session, &project, &change, true)
 }
 
 #[tauri::command]

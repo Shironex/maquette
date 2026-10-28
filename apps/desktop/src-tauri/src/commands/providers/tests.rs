@@ -87,6 +87,7 @@ fn batch_options_find_object_refs_by_title() {
             notes: Default::default(),
             aspect: concepts::Aspect::Square,
             kind: AssetKind::Prop,
+            use_style: true,
         }
     })
     .expect("clean");

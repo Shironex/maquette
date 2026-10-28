@@ -130,6 +130,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             lab::lab_contact_sheet,
             lab::lab_send_picks,
             lab::lab_import_refs,
+            lab::lab_set_style,
             lab::lab_move_direction,
             lab::lab_make_objects,
             lab::lab_send_object_picks,
