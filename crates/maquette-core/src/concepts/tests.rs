@@ -31,10 +31,9 @@ fn the_prompt_starts_and_ends_as_codex_needs() {
 
 #[test]
 fn refs_come_before_the_end_of_options_and_the_stdin_dash() {
-    let args = codex_args(
-        Path::new("/w/moon"),
-        &["refs/a.png".into(), "/abs/b.png".into()],
-    );
+    let project = Path::new("/w/moon");
+    let args = codex_args(project, &["refs/a.png".into(), "/abs/b.png".into()]);
+    let relative = project.join("refs/a.png").display().to_string();
     assert_eq!(
         args,
         [
@@ -43,7 +42,7 @@ fn refs_come_before_the_end_of_options_and_the_stdin_dash() {
             "-s",
             "workspace-write",
             "-i",
-            "/w/moon/refs/a.png",
+            relative.as_str(),
             "-i",
             "/abs/b.png",
             "--",

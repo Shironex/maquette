@@ -209,7 +209,13 @@ fn always_replaces_and_the_size_guard_holds_a_larger_remake() {
     assert!(desk.ships && desk.held.is_none());
 
     // Once Maquette shipped it, a larger remake is held only by the guard.
-    let key = models.display().to_string();
+    // The record keys the folder as the Ship starter's `path.resolve`
+    // spells it, with the system's own separators.
+    let key = models
+        .components()
+        .collect::<std::path::PathBuf>()
+        .display()
+        .to_string();
     crate::game::ship::add_to_record(&project, &key, &["desk.glb".to_string()]).expect("record");
     let mut auto = ShipSettingsChange::default();
     auto.assets.insert("desk".into(), AssetShip::default());

@@ -193,7 +193,9 @@ mod tests {
         let inbox = dir.path().join("inbox");
         let seen: Arc<Mutex<Vec<PathBuf>>> = Arc::default();
         let sink = Arc::clone(&seen);
-        let watcher = watch(&inbox, Duration::from_millis(200), move |paths| {
+        // The app's own quiet period: on a busy Windows runner a write in
+        // the burst can stall long enough to split a shorter one in two.
+        let watcher = watch(&inbox, QUIET, move |paths| {
             sink.lock().expect("lock").extend(paths);
         })
         .expect("watch");
@@ -210,7 +212,7 @@ mod tests {
         while seen.lock().expect("lock").is_empty() && start.elapsed() < Duration::from_secs(10) {
             thread::sleep(Duration::from_millis(50));
         }
-        thread::sleep(Duration::from_millis(500));
+        thread::sleep(QUIET + Duration::from_millis(500));
         let seen = seen.lock().expect("lock").clone();
         assert_eq!(seen.len(), 1, "{seen:?}");
         assert!(seen[0].ends_with("crate.glb"));

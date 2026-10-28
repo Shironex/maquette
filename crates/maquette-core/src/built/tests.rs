@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use super::*;
-use crate::assets::{AssetKind, AssetStatus, Stage};
+use crate::assets::{AssetKind, Stage};
 use crate::project::{self, NewProject, ProjectTemplate};
 use crate::workspace::{self, WorkspaceConfig};
 
@@ -246,6 +246,7 @@ fn a_newer_built_file_is_refused() {
 #[cfg(unix)]
 mod building {
     use super::*;
+    use crate::assets::AssetStatus;
     use crate::built::build::BuildContext;
     use crate::pipeline::tools::{ResolvedTool, Toolbox};
     use crate::toolchain::{HostOs, ToolId};
