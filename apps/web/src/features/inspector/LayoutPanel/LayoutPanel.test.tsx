@@ -29,7 +29,7 @@ describe('the layout panel', () => {
   it('lists the models, marking those in the first view, and the stops', () => {
     const aside = panel();
     expect(
-      within(aside).getByRole('button', { name: 'Veil platform, in the first view' })
+      within(aside).getByRole('button', { name: /^Veil platform, in the first view/ })
     ).toBeInTheDocument();
     const stops = within(aside)
       .getAllByRole('listitem')
@@ -43,7 +43,7 @@ describe('the layout panel', () => {
   it('selects a model and a stop from the lists', async () => {
     const aside = panel();
     await userEvent.click(
-      within(aside).getByRole('button', { name: 'Crystal lantern, in the first view' })
+      within(aside).getByRole('button', { name: /^Crystal lantern, in the first view/ })
     );
     expect(useLayoutStore.getState().selection).toEqual({ kind: 'model', id: 'crystal-lantern' });
     expect(within(aside).getByRole('heading', { name: 'Selected model' })).toBeInTheDocument();
