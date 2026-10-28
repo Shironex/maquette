@@ -242,7 +242,7 @@ export const SHOTS = {
  * from them; `latest/download/<file>` would break, as the file name carries the version.
  */
 const REPO_URL = 'https://github.com/Shironex/maquette';
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 const DOWNLOAD_BASE = `${REPO_URL}/releases/download/v${VERSION}`;
 
 /** Bytes as megabytes with one decimal ("13.9 MB"). */
@@ -257,13 +257,13 @@ export const release = {
   allUrl: `${REPO_URL}/releases`,
   mac: {
     file: `Maquette_${VERSION}_aarch64.dmg`,
-    bytes: 14_544_020,
+    bytes: 16_021_299,
     note: 'Apple silicon',
     url: `${DOWNLOAD_BASE}/Maquette_${VERSION}_aarch64.dmg`,
   },
   windows: {
     file: `Maquette_${VERSION}_x64-setup.exe`,
-    bytes: 10_935_785,
+    bytes: 12_221_625,
     note: 'x64',
     url: `${DOWNLOAD_BASE}/Maquette_${VERSION}_x64-setup.exe`,
   },
