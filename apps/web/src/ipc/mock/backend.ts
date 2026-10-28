@@ -41,6 +41,7 @@ import { createTrashHandlers } from './create-trash-handlers';
 import { createBuiltHandlers } from './create-built-handlers';
 import { createInboxHandlers } from './create-inbox-handlers';
 import { createMotionHandlers, motionConfig, seedMotionProjects } from './create-motion-handlers';
+import { createPartsHandlers, seedParts } from './create-parts-handlers';
 import { createPageHandlers } from './create-page-handlers';
 import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPathsHandlers } from './create-paths-handlers';
@@ -75,6 +76,7 @@ export function createBackend({
   arrival = null,
   built: builtState = null,
   motion = null,
+  parts: partsState = null,
   page: pageState = null,
   timeline = null,
   paths = null,
@@ -136,6 +138,7 @@ export function createBackend({
     bounds: layoutBounds,
     probeDelay,
   });
+  [projects, inbox] = seedParts(configured ? partsState : null, projects, inbox, prepare.saveEntry);
   const bake = createFakeBake(prepare.entries, id => startersOf(id));
   const layout = createFakeLayout({
     project: id => project(id),
@@ -229,15 +232,7 @@ export function createBackend({
     handoff,
     style: configured ? style : null,
     fail,
-    assetBusy: (project, asset) =>
-      providers
-        .jobs()
-        .some(
-          j =>
-            j.project === project &&
-            j.asset === asset &&
-            ['approval', 'queued', 'running', 'waiting', 'inbox'].includes(j.state)
-        ),
+    assetBusy: (project, asset) => providers.busy(project, asset),
   });
 
   const providers = createFakeProviders({
@@ -371,6 +366,7 @@ export function createBackend({
       prepare,
     }),
     ...prepare.handlers,
+    ...createPartsHandlers({ project, saveProject, prepare, root: () => root }),
     ...createMotionHandlers({
       project,
       layout,

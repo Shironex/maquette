@@ -45,7 +45,8 @@ export type Args = Record<string, unknown>;
  * for the Downloads watcher (see `create-downloads-handlers.ts`).
  * `?built=demo` adds two built assets to Frostveil (see
  * `create-built-handlers.ts`), `?motion=` models that move (see
- * `create-motion-handlers.ts`), `?page=` holds the Page view's dev server
+ * `create-motion-handlers.ts`), `?parts=demo` props with parts (see
+ * `create-parts-handlers.ts`), `?page=` holds the Page view's dev server
  * (see `create-page-handlers.ts`), `?timeline=` the Timeline view's tracks
  * (see `create-timeline-handlers.ts`), `?paths=` the Paths editor's paths
  * (see `create-paths-handlers.ts`), `?game=` a game project (see
@@ -96,6 +97,8 @@ export interface BackendOptions {
   built?: string | null;
   /** `demo`, `rest`, `over` or `still`: models that move (see create-motion-handlers.ts). */
   motion?: string | null;
+  /** `demo`: a frost lantern split into parts and a rune chest (see create-parts-handlers.ts). */
+  parts?: string | null;
   /** `starting`, `failed` or `no-site` holds the Page view's dev server there. */
   page?: string | null;
   /** `demo` or `empty`: the Timeline view's tracks (see create-timeline-handlers.ts). */

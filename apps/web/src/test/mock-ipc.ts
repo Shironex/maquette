@@ -204,3 +204,18 @@ export async function openMockRefs() {
   useAppStore.setState({ boot, workspace: boot.workspace, phase: 'app' });
   return { sent: (cmd: string) => calls.filter(([c]) => c === cmd).map(([, a]) => a) };
 }
+
+/** The configured workspace with the frost lantern split into parts (`?parts=demo`). */
+export async function openMockParts() {
+  const handle = createBackend({
+    scenario: 'configured',
+    probeDelay: 0,
+    pace: 0,
+    conceptMs: 60_000,
+    parts: 'demo',
+  });
+  mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>));
+  const boot = await commands.appBootstrap();
+  useAppStore.setState({ boot, workspace: boot.workspace, phase: 'app' });
+  return handle;
+}

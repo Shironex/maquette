@@ -27,12 +27,18 @@ came through the Maquette pipeline, so the sample shows real work.
   headless with
   `crates/maquette-core/src/motion/fixtures/motion_models.py` and are not part of
   the reserved artwork below.
+- `models/frost_lantern.glb`, `frost_lantern_split.glb` and `rune_chest.glb`:
+  plain primitives for the Parts demo (`?parts=demo`): a frost lantern as one
+  mesh the way a generator sends it, the same lantern cut into five parts as
+  the split fix-up leaves it, and a rune chest as one mesh. They are generated
+  headless with `crates/maquette-core/src/parts/fixtures/parts_models.py`
+  and are not part of the reserved artwork below either.
 
 `src/ipc/mock/install.ts` registers every file here under the mock workspace
 paths, so new renders only need the right file name.
 
 ## License
 
-Apart from the generated Motion demo models above, these images and models are Frostveil
+Apart from the generated Motion and Parts demo models above, these images and models are Frostveil
 artwork. All rights are reserved; they are not covered by the code license. See
 [ARTWORK.md](../../../../../ARTWORK.md) at the repository root.

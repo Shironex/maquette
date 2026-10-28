@@ -30,6 +30,7 @@ import {
 } from '@/lib/real-size';
 import { FIXUP_LABEL, FIXUP_ORDER } from '@/state/prepare';
 import { fail, sleep, type Args } from './backend-options';
+import { piecesOf } from './create-parts-handlers';
 
 export { createFakeBake } from './bake';
 
@@ -83,6 +84,10 @@ export function checkPrep(entry: ModelPrep, what: string): void {
       const share = f.minShare ?? -1;
       range(share >= 0 && share <= 0.5, 'loose parts are 0 to 50% of the model.');
     }
+    if (f.op === 'split-parts') {
+      const under = f.mergeUnder ?? -1;
+      range(under >= 0 && under <= 0.2, 'split-parts takes a mergeUnder of 0 to 0.2');
+    }
   }
 }
 
@@ -91,12 +96,36 @@ const tidy = (entry: ModelPrep): ModelPrep => ({
   fixups: [...entry.fixups].sort((a, b) => FIXUP_ORDER.indexOf(a.op) - FIXUP_ORDER.indexOf(b.op)),
   skipBake: entry.skipBake ?? null,
   padEdges: entry.padEdges ?? null,
+  ...(entry.parts ? { parts: entry.parts } : {}),
 });
 
+/**
+ * How a split cuts a model of `pieces` loose pieces: the bits under the
+ * threshold join a neighbour, and a split by material joins the pieces
+ * that share one.
+ */
+export function splitOf(pieces: number) {
+  const merged = pieces > 5 ? pieces - 5 : 0;
+  const byLoose = pieces - merged;
+  return { pieces, merged, byLoose, byMaterial: Math.max(1, byLoose - 1) };
+}
+
 /** One fix-up's effect on the numbers, with the script's note. */
-function step(f: Fixup, n: ModelNumbers): FixupStep {
+function step(f: Fixup, n: ModelNumbers, pieces: number): FixupStep {
   const after: ModelNumbers = { ...n };
   let note = '';
+  if (f.op === 'split-parts') {
+    const split = splitOf(n.objects > 1 ? 1 : pieces);
+    const parts = f.by === 'material' ? split.byMaterial : split.byLoose;
+    if (parts < 2) return { op: f.op, before: n, after, note: 'one piece, nothing to split' };
+    after.objects = parts;
+    after.drawCalls = parts;
+    note =
+      f.by === 'material'
+        ? `${parts} parts, one per material`
+        : `${parts} parts, ${split.pieces} pieces, ${split.merged} tiny bits merged in`;
+    return { op: f.op, before: n, after, note, split };
+  }
   if (f.op === 'apply-transforms') note = `${n.objects} meshes`;
   if (f.op === 'remove-loose') {
     after.triangles = Math.max(0, n.triangles - Math.round(n.triangles * 0.004));
@@ -104,6 +133,7 @@ function step(f: Fixup, n: ModelNumbers): FixupStep {
   }
   if (f.op === 'merge') {
     after.objects = 1;
+    after.drawCalls = n.drawCalls == null ? null : Math.min(n.drawCalls, 4);
     note = n.objects > 1 ? `${n.objects} meshes joined into 1` : 'nothing to join';
   }
   if (f.op === 'decimate') {
@@ -128,12 +158,13 @@ export function previewReport(
   plan: ModelPrep,
   before: ModelNumbers,
   bytes: number | null,
-  output: string
+  output: string,
+  pieces = 1
 ): FixupReport {
   const steps: FixupStep[] = [];
   let now = before;
   for (const f of plan.fixups) {
-    const done = step(f, now);
+    const done = step(f, now, pieces);
     steps.push(done);
     now = done.after;
   }
@@ -195,6 +226,7 @@ export function createPrepareHandlers(deps: PrepareDeps) {
       maxTexture: latest.stats?.maxTexture ?? 2048,
       min: b?.min ?? null,
       max: b?.max ?? null,
+      drawCalls: piecesOf(assetId) ? 4 : null,
     };
   }
 
@@ -272,13 +304,17 @@ export function createPrepareHandlers(deps: PrepareDeps) {
             maxTexture: g.maxTexture,
             min: g.min ?? null,
             max: g.max ?? null,
+            drawCalls: g.primitives,
           };
-          return previewReport(r.plan, before, g.bytes, `/mock/cache/fixups/${item.id}`);
+          const output = `/mock/cache/fixups/${item.id}`;
+          return previewReport(r.plan, before, g.bytes, output, g.islands?.groups ?? 1);
         }
         const n = numbers(String(r.project), String(r.asset));
         if (!n) fail('invalid', 'This asset has no model yet, so there is nothing to fix.');
         const { latest } = latestOf(String(r.project), String(r.asset));
-        return previewReport(r.plan, n, latest?.stats?.bytes ?? null, '/mock/cache/fixups/asset');
+        const output = `/mock/cache/fixups/${String(r.asset)}.glb`;
+        const pieces = piecesOf(String(r.asset)) ?? 1;
+        return previewReport(r.plan, n, latest?.stats?.bytes ?? null, output, pieces);
       },
     } as Record<string, (args: Args) => unknown>,
   };

@@ -282,9 +282,12 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
       c(
         'merged',
         'warning',
-        'Looks like 3 objects in one mesh',
-        'crystals has 3 far apart parts. Split them in Blender (Separate by loose parts) so each can move, or remove the small ones when they are stray bits.',
-        [{ op: 'remove-loose', minShare: 0.02 }]
+        'One mesh, no parts',
+        'Motion states and explode tracks move named parts. Split it so its 3 pieces can move on their own.',
+        [
+          { op: 'split-parts', by: 'loose', mergeUnder: 0.01 },
+          { op: 'remove-loose', minShare: 0.02 },
+        ]
       ),
       c(
         'origin',
