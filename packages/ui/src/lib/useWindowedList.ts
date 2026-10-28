@@ -1,4 +1,4 @@
-import { useLayoutEffect, useReducer, useRef, useState, type RefObject } from 'react';
+import { useCallback, useLayoutEffect, useReducer, useRef, useState, type RefObject } from 'react';
 import {
   Virtualizer,
   elementScroll,
@@ -50,8 +50,8 @@ export interface WindowedList {
    * measures the row. Spread them on the item's outer element.
    */
   itemProps: (index: number) => { ref?: (el: Element | null) => void; 'data-index'?: number };
-  /** Scrolls the row holding item `index` into view. */
-  scrollTo: (index: number) => void;
+  /** Scrolls the row holding item `index` into view, by the least, or to its end. */
+  scrollTo: (index: number, align?: 'auto' | 'end') => void;
 }
 
 interface Slice {
@@ -133,6 +133,13 @@ export function useWindowedList(options: WindowedListOptions): WindowedList {
     },
   });
 
+  const scrollTo = useCallback(
+    (index: number, align: 'auto' | 'end' = 'auto') => {
+      if (v.options.count > 0) v.scrollToIndex(Math.floor(index / columns), { align });
+    },
+    [v, columns]
+  );
+
   useLayoutEffect(() => v._didMount(), [v]);
   useLayoutEffect(() => {
     shown.current = sliceOf(v, columns, count);
@@ -160,7 +167,7 @@ export function useWindowedList(options: WindowedListOptions): WindowedList {
       before: 0,
       after: 0,
       itemProps: () => ({}),
-      scrollTo: () => undefined,
+      scrollTo,
     };
   }
   const slice = sliceOf(v, columns, count);
@@ -169,7 +176,7 @@ export function useWindowedList(options: WindowedListOptions): WindowedList {
     ...slice,
     itemProps: index =>
       index % columns === 0 ? { ref: v.measureElement, 'data-index': index / columns } : {},
-    scrollTo: index => v.scrollToIndex(Math.floor(index / columns), { align: 'auto' }),
+    scrollTo,
   };
 }
 

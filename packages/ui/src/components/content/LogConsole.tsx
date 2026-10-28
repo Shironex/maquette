@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icon } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
-import { useAutoScroll } from './LogConsole.hooks';
+import { useLogLines } from './LogConsole.hooks';
 
 export interface LogLine {
   t: string;
@@ -43,9 +43,13 @@ export function LogConsole({
   empty,
   className,
 }: LogConsoleProps) {
-  const body = useAutoScroll(autoScroll, lines);
-  const lineRows = lines.map((l, i) => (
-    <div key={i} className="grid grid-cols-[64px_1fr] gap-3 whitespace-pre-wrap text-fg-dim">
+  const { body, list, slice } = useLogLines(autoScroll, lines);
+  const lineRows = lines.slice(slice.start, slice.end).map((l, n) => (
+    <div
+      key={slice.start + n}
+      {...slice.itemProps(slice.start + n)}
+      className="grid grid-cols-[64px_1fr] gap-3 whitespace-pre-wrap text-fg-dim"
+    >
       <span className="text-fg-mute tabular-nums">{l.t}</span>
       <span className={l.dim ? 'text-fg-mute' : l.level ? LEVEL[l.level] : undefined}>
         {l.node ?? l.text}
@@ -80,7 +84,9 @@ export function LogConsole({
         style={height ? { height } : undefined}
       >
         {lines.length === 0 && empty ? <div className="text-fg-mute">{empty}</div> : null}
-        {lineRows}
+        <div ref={list} style={{ paddingTop: slice.before, paddingBottom: slice.after }}>
+          {lineRows}
+        </div>
       </div>
     </div>
   );
