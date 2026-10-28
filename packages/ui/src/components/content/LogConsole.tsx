@@ -73,6 +73,9 @@ export function LogConsole({
       <div
         ref={body}
         role="log"
+        aria-label={title}
+        // Focusable, so the keyboard can scroll it.
+        tabIndex={0}
         className="min-h-0 flex-1 overflow-auto px-3 py-2 font-mono text-[12px] leading-[19px]"
         style={height ? { height } : undefined}
       >

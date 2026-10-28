@@ -289,6 +289,12 @@ describe('LogConsole', () => {
     expect(log.scrollTop).toBe(900);
     expect(log).not.toHaveTextContent('No output yet');
   });
+
+  it('is a named log the keyboard can reach and scroll', async () => {
+    render(<LogConsole title="Run output" lines={[]} />);
+    await userEvent.tab();
+    expect(screen.getByRole('log', { name: 'Run output' })).toHaveFocus();
+  });
 });
 
 describe('TextArea', () => {

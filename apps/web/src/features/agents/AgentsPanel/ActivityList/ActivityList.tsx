@@ -33,6 +33,7 @@ export default function ActivityList({ status }: ActivityListProps) {
         </p>
       ) : (
         <ol
+          tabIndex={0}
           aria-label="MCP activity"
           className="flex max-h-[260px] list-none flex-col overflow-y-auto rounded-control border border-line bg-app"
         >
