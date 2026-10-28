@@ -32,7 +32,9 @@ async function renderShell() {
 describe('the app shell', () => {
   it('shows the selected view and switches views from the rail', async () => {
     const rail = await renderShell();
-    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Settings' }, { timeout: 4000 })
+    ).toBeVisible();
     await userEvent.click(within(rail).getByRole('button', { name: /Pipeline/ }));
     expect(useAppStore.getState().view).toBe('pipeline');
   });

@@ -1,21 +1,45 @@
+import { Suspense, lazy } from 'react';
 import { BoardView } from '@/features/board/BoardView';
-import { InboxView } from '@/features/inbox/InboxView';
-import { LabView } from '@/features/lab/LabView';
-import { LibraryView } from '@/features/library/LibraryView';
-import { AnimationsView } from '@/features/animations/AnimationsView';
-import { InspectorView } from '@/features/inspector/InspectorView';
-import { MotionView } from '@/features/motion/MotionView';
-import { PagePreview } from '@/features/page/PagePreview';
-import { PageView } from '@/features/page/PageView';
-import { PipelineView } from '@/features/pipeline/PipelineView';
 import { ProviderQueue } from '@/features/providers/ProviderQueue';
-import { SettingsView } from '@/features/settings/SettingsView';
-import { TimelineView } from '@/features/timeline/TimelineView';
 import { PlaceholderView } from '@/features/tools/PlaceholderView';
+import type { ViewId } from '@/state/views';
 import type { CurrentViewProps } from './CurrentView.types';
+import { ViewBoundary } from './ViewBoundary';
 
-/** The view the rail has selected. */
-export default function CurrentView({ view }: CurrentViewProps) {
+// The Board opens first; every other view loads when the rail first picks it.
+const InboxView = lazy(() =>
+  import('@/features/inbox/InboxView').then(m => ({ default: m.InboxView }))
+);
+const LabView = lazy(() => import('@/features/lab/LabView').then(m => ({ default: m.LabView })));
+const LibraryView = lazy(() =>
+  import('@/features/library/LibraryView').then(m => ({ default: m.LibraryView }))
+);
+const AnimationsView = lazy(() =>
+  import('@/features/animations/AnimationsView').then(m => ({ default: m.AnimationsView }))
+);
+const InspectorView = lazy(() =>
+  import('@/features/inspector/InspectorView').then(m => ({ default: m.InspectorView }))
+);
+const MotionView = lazy(() =>
+  import('@/features/motion/MotionView').then(m => ({ default: m.MotionView }))
+);
+const PagePreview = lazy(() =>
+  import('@/features/page/PagePreview').then(m => ({ default: m.PagePreview }))
+);
+const PageView = lazy(() =>
+  import('@/features/page/PageView').then(m => ({ default: m.PageView }))
+);
+const PipelineView = lazy(() =>
+  import('@/features/pipeline/PipelineView').then(m => ({ default: m.PipelineView }))
+);
+const SettingsView = lazy(() =>
+  import('@/features/settings/SettingsView').then(m => ({ default: m.SettingsView }))
+);
+const TimelineView = lazy(() =>
+  import('@/features/timeline/TimelineView').then(m => ({ default: m.TimelineView }))
+);
+
+function viewFor(view: ViewId) {
   switch (view) {
     case 'board':
       return <BoardView queue={onClose => <ProviderQueue onClose={onClose} />} />;
@@ -42,4 +66,15 @@ export default function CurrentView({ view }: CurrentViewProps) {
     default:
       return <PlaceholderView view={view} />;
   }
+}
+
+/** The view the rail has selected, with a blank busy view while its code loads. */
+export default function CurrentView({ view }: CurrentViewProps) {
+  return (
+    <ViewBoundary view={view}>
+      <Suspense fallback={<main className="grid flex-1 place-items-center" aria-busy="true" />}>
+        {viewFor(view)}
+      </Suspense>
+    </ViewBoundary>
+  );
 }
