@@ -36,11 +36,11 @@ export default function SendPanel() {
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             <HandoffView job={handoff} />
           </div>
-          <footer className="flex justify-end gap-2 border-t border-line px-5 py-3">
+          <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
             <Button variant="primary" onClick={close}>
               Done
             </Button>
-          </footer>
+          </div>
         </>
       ) : panel.error ? (
         <div className="p-5">

@@ -39,7 +39,7 @@ export default function LibraryDialogFrame({
         className="flex w-[520px] max-w-full flex-col rounded-card border border-line-strong bg-panel shadow-window"
         onSubmit={submit}
       >
-        <header className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
+        <div className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
           <span className="grid size-9 flex-none place-items-center rounded-[10px] bg-clay-soft text-clay-text">
             <Icon name="books" size={18} />
           </span>
@@ -50,11 +50,11 @@ export default function LibraryDialogFrame({
             <p className="text-meta text-fg-mute">{help}</p>
           </div>
           <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={onClose} />
-        </header>
+        </div>
         <div className="flex flex-col gap-3.5 px-5 py-4">{children}</div>
-        <footer className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
           {footer}
-        </footer>
+        </div>
       </form>
     </div>
   );

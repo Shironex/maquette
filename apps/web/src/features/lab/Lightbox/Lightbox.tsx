@@ -33,7 +33,7 @@ export default function Lightbox({ view }: LightboxProps) {
       className="fixed inset-0 z-50 flex flex-col bg-[rgba(16,15,14,0.97)] backdrop-blur-sm"
       onClick={closeOnBackdrop}
     >
-      <header className="flex items-center gap-3 px-5 pt-4 pb-3">
+      <div className="flex items-center gap-3 px-5 pt-4 pb-3">
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-panel-title">{title}</h2>
           <p className="truncate font-mono text-[12px] text-fg-mute">
@@ -83,7 +83,7 @@ export default function Lightbox({ view }: LightboxProps) {
           shortcut={KEYS.escape}
           onClick={() => open(null)}
         />
-      </header>
+      </div>
       <div
         className="relative flex min-h-0 flex-1 items-center justify-center px-16 pb-6"
         onClick={closeOnBackdrop}

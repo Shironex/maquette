@@ -79,7 +79,7 @@ export default function CleanBackground({ view, file }: CleanBackgroundProps) {
           </p>
         </section>
       </div>
-      <footer className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+      <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
         <span className="mr-auto text-meta text-fg-mute">1 Codex image, like the Lab</span>
         <Button variant="secondary" onClick={c.keepOriginal}>
           Keep the original
@@ -111,7 +111,7 @@ export default function CleanBackground({ view, file }: CleanBackgroundProps) {
             Clean background
           </Button>
         )}
-      </footer>
+      </div>
     </>
   );
 }

@@ -25,6 +25,8 @@ describe('the sheet', () => {
     const onClose = open(false);
     const sheet = screen.getByRole('dialog', { name: 'Send Lamp to 3D' });
     expect(within(sheet).getByText('prop')).toBeInTheDocument();
+    // Its title row is no second banner landmark next to the app's own.
+    expect(within(sheet).queryByRole('banner')).toBeNull();
     await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledOnce();
   });

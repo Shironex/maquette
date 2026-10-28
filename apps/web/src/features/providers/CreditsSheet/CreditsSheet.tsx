@@ -179,7 +179,7 @@ export default function CreditsSheet() {
           ) : null}
         </section>
       </div>
-      <footer className="flex items-center gap-2 border-t border-line px-5 py-3">
+      <div className="flex items-center gap-2 border-t border-line px-5 py-3">
         <span className="mr-auto text-meta text-fg-mute">
           {ledger?.skipped
             ? `${ledger.skipped} ${ledger.skipped === 1 ? 'line' : 'lines'} of the ledger could not be read and ${ledger.skipped === 1 ? 'is' : 'are'} left out.`
@@ -197,7 +197,7 @@ export default function CreditsSheet() {
         <Button variant="primary" onClick={close}>
           Done
         </Button>
-      </footer>
+      </div>
     </Sheet>
   );
 }

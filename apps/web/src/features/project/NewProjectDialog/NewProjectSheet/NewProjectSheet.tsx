@@ -40,7 +40,7 @@ export default function NewProjectSheet({ initialMode, onClosed }: NewProjectShe
         onSubmit={onSubmit}
         onKeyDown={onKeyDown}
       >
-        <header className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
+        <div className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
           <span className="grid size-9 flex-none place-items-center rounded-[10px] bg-clay-soft text-clay-text">
             <Icon name={importing ? 'folder-open' : 'plus'} size={18} />
           </span>
@@ -55,7 +55,7 @@ export default function NewProjectSheet({ initialMode, onClosed }: NewProjectShe
             </p>
           </div>
           <IconButton icon="x" label="Close" shortcut={KEYS.escape} onClick={dismiss} />
-        </header>
+        </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <ProjectForm
             value={fields}
@@ -65,7 +65,7 @@ export default function NewProjectSheet({ initialMode, onClosed }: NewProjectShe
             autoFocusName={initialMode === 'template'}
           />
         </div>
-        <footer className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
           <Button variant="ghost" onClick={dismiss}>
             Cancel
           </Button>
@@ -86,7 +86,7 @@ export default function NewProjectSheet({ initialMode, onClosed }: NewProjectShe
           >
             {importing ? 'Import project' : 'Create project'}
           </Button>
-        </footer>
+        </div>
       </form>
     </div>
   );

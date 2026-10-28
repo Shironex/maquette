@@ -34,7 +34,7 @@ export default function HandoffChecklist() {
         aria-label={group.batch ? `Batch ${group.batch}` : group.jobs[0]?.assetName}
         className="mb-4 flex flex-col"
       >
-        <header className="flex items-baseline gap-2 pb-1.5">
+        <div className="flex items-baseline gap-2 pb-1.5">
           <h3 className="text-[11px] leading-[14px] font-medium tracking-[0.04em] text-fg-mute uppercase">
             {group.batch ? `Batch of ${group.jobs.length}` : 'Single send'}
           </h3>
@@ -49,7 +49,7 @@ export default function HandoffChecklist() {
           >
             {backLabel(group)}
           </span>
-        </header>
+        </div>
         <ul className="m-0 flex list-none flex-col rounded-card border border-line bg-raised p-0">
           {rows}
         </ul>
@@ -94,11 +94,11 @@ export default function HandoffChecklist() {
           sections
         )}
       </div>
-      <footer className="flex justify-end gap-2 border-t border-line px-5 py-3">
+      <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
         <Button variant="primary" onClick={close}>
           Done
         </Button>
-      </footer>
+      </div>
     </Sheet>
   );
 }

@@ -44,9 +44,9 @@ export default function ChoiceDialog({ title, children, choices, onDismiss }: Ch
           </h2>
           <div className="text-fg-dim">{children}</div>
         </div>
-        <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">
           {buttons}
-        </footer>
+        </div>
       </div>
     </div>
   );

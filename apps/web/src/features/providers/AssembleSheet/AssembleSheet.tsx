@@ -105,7 +105,7 @@ export default function AssembleSheet() {
           </p>
         </section>
       </div>
-      <footer className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
+      <div className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
         <p className={cn('truncate text-meta', a.blocker ? 'text-amber' : 'text-fg-mute')}>
           {a.blocker ?? 'Joins headless in Blender. Spends nothing.'}
         </p>
@@ -124,7 +124,7 @@ export default function AssembleSheet() {
             Assemble
           </Button>
         </div>
-      </footer>
+      </div>
     </Sheet>
   );
 }
