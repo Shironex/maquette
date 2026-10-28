@@ -665,16 +665,16 @@ Saves a rigged model's clips to the animation library as a pack, as Save clips t
 
 `changes the project`
 
-Puts library clips on a rigged model, as Use on model does. The clip's skeleton is mapped onto the model's rig: the map saved for the model first, then the bone names (Mixamo and Tripo names included); `map` sets bones by hand, and a bone left unmapped stays at rest. Each clip gets its name, frames, loop, root motion or in place, and speed on this model only; nothing is written back to the library. Blender bakes the clips headless onto a copy of the newest version and reviews each one: `good`, `look` (a planted foot slides more than 1.5 cm) or `failed` (keys in the wrong units, nothing mapped). Failed clips are left out and the rest become the model's next version through the usual checks; the older version stays. A clip the model baked before is replaced by the new bake. Spends nothing.
+Puts library clips on a rigged model, as Use on model does. The clip's skeleton is mapped onto the model's rig: the map saved for the model first, then the bone names (Mixamo and Tripo names included); `map` sets bones by hand, and a bone left unmapped stays at rest. Each clip gets its name, frames, loop, root motion or in place, and speed on this model only; nothing is written back to the library. Blender bakes the clips headless onto a copy of the newest version and reviews each one: `good`, `look` (a planted foot slides more than 1.5 cm) or `failed` (keys in the wrong units, nothing mapped). Failed clips are left out and the rest become the model's next version through the usual checks; the older version stays. A clip the model baked before is replaced by the new bake. `pinFeet` on a clip holds its planted feet still (a second headless run solves the legs back with IK) and the review gives the slide before as `unpinnedCm` and after as `slideCm`. Spends nothing. Open in Blender has no tool: it is a click in the app only.
 
-| Parameter | Type     | Required | Notes                                                                                                                            |
-| --------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `project` | string   | yes      | The project id.                                                                                                                  |
-| `asset`   | string   | yes      | The asset id of a rigged model.                                                                                                  |
-| `clips`   | object[] | yes      | `{ clip, name?, start?, end?, loops?, rootMotion?, speed? }`: the library clip id and its settings; defaults come from the clip. |
-| `map`     | object[] | no       | `{ bone, target? }`: a humanoid bone (`Neck`, `LeftArm`) and the model bone it drives; no `target` keeps it at rest.             |
-| `saveMap` | boolean  | no       | Keep the map for the model's next retarget. On by default.                                                                       |
-| `dryRun`  | boolean  | no       | Bake and review only; add no version.                                                                                            |
+| Parameter | Type     | Required | Notes                                                                                                                                      |
+| --------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `project` | string   | yes      | The project id.                                                                                                                            |
+| `asset`   | string   | yes      | The asset id of a rigged model.                                                                                                            |
+| `clips`   | object[] | yes      | `{ clip, name?, start?, end?, loops?, rootMotion?, speed?, pinFeet? }`: the library clip id and its settings; defaults come from the clip. |
+| `map`     | object[] | no       | `{ bone, target? }`: a humanoid bone (`Neck`, `LeftArm`) and the model bone it drives; no `target` keeps it at rest.                       |
+| `saveMap` | boolean  | no       | Keep the map for the model's next retarget. On by default.                                                                                 |
+| `dryRun`  | boolean  | no       | Bake and review only; add no version.                                                                                                      |
 
 ```json
 {
@@ -688,7 +688,7 @@ Puts library clips on a rigged model, as Use on model does. The clip's skeleton 
 
 `read only`
 
-A model's last retarget review: each library clip baked onto it with its status and a one line note, the bones driven and left at rest, and the version it made, with every library clip baked into the model and the revision it was baked at.
+A model's last retarget review: each library clip baked onto it with its status, a one line note, its planted foot slide (`slideCm`, and `unpinnedCm` before Pin the feet when it was pinned), the bones driven and left at rest, and the version it made, with every library clip baked into the model and the revision it was baked at.
 
 | Parameter | Type   | Required | Notes           |
 | --------- | ------ | -------- | --------------- |

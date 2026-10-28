@@ -44,6 +44,8 @@ The Inspector's **Parts** tab shows one model's parts as it ships them. Pick the
 - **Merge**: joins the selected parts into one, named after the first. The join ships in the next build; the list's split button undoes it.
 - **Hide**: draws the part as a ghost here, to see what is behind it. A hidden part still ships.
 
+**Open in Blender** opens the version the tab shows in Blender's window, to look closer. It is the one place Maquette opens Blender with a window, and only on that click; everything else runs headless.
+
 The view colours each part, or shows it shaded or as wireframe. The side panel lists the selected parts' materials and triangles. Under the view, the export card lists the node names and the Motion states card the states and explode tracks that pick parts by name. A model that is still one mesh offers **Split into parts** right there.
 
 Names, joins and hidden parts are kept per asset in `prepare.json`, under `parts`, next to the fix-ups.
