@@ -4,6 +4,7 @@ import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { useLabStore } from '@/state/use-lab-store';
+import { useAnimationsStore } from '@/state/use-animations-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { usePageStore } from '@/state/use-page-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
@@ -26,6 +27,7 @@ export function useShellStatusBar(siteControl?: ShellStatus['siteControl']) {
   const sends = useProvidersStore(s => s.jobs);
   const server = usePageStore(s => s.server);
   const libraryModels = useLibraryStore(s => s.view?.items.length ?? null);
+  const animations = useAnimationsStore(s => s.view);
   return shellStatusItems({
     view,
     workspace,
@@ -40,5 +42,7 @@ export function useShellStatusBar(siteControl?: ShellStatus['siteControl']) {
     server,
     siteControl,
     libraryModels,
+    animationClips: animations?.items.length ?? null,
+    animationsDir: animations?.dir ?? null,
   });
 }

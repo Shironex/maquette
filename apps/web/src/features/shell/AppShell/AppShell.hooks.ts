@@ -6,6 +6,7 @@ import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useInboxStore } from '@/state/use-inbox-store';
+import { useAnimationsStore } from '@/state/use-animations-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useLayoutStore } from '@/state/use-layout-store';
@@ -22,7 +23,7 @@ import { useProvidersStore } from '@/state/use-providers-store';
 import { useRefsStore } from '@/state/use-refs-store';
 import { isSwitcherShortcut, switcherShortcut } from '@/state/projects';
 import { useProjectsStore } from '@/state/use-projects-store';
-import { plannedViewsFor, toolViewsFor } from '@/state/views';
+import { LIBRARY_VIEWS, plannedViewsFor, toolViewsFor } from '@/state/views';
 import { projectMeta, projectThumb } from '@/features/common/projectArt';
 import { useQuitGuard } from '../QuitDialog';
 
@@ -62,6 +63,8 @@ export function useAppShell() {
   const project = workspace?.project ?? null;
   const projectId = project?.id ?? null;
   const inboxCount = useInboxStore(s => s.snapshot?.items.length ?? 0);
+  const models = useLibraryStore(s => s.view?.items.length);
+  const clips = useAnimationsStore(s => s.view?.items.length);
   const running = usePipelineStore(s => Boolean(s.view?.active));
   const generating = useLabStore(s =>
     (s.view?.jobs ?? []).some(j => j.state === 'running' || j.state === 'queued')
@@ -84,6 +87,10 @@ export function useAppShell() {
         ? { ...v, live: true }
         : v
   );
+  const libraries = LIBRARY_VIEWS.map(v => ({
+    ...v,
+    count: v.id === 'library' ? models : clips,
+  }));
   const switcherButton = project
     ? {
         ref: switcher,
@@ -100,6 +107,7 @@ export function useAppShell() {
     view,
     setView,
     items,
+    groups: [{ title: 'Libraries', items: libraries }],
     planned: plannedViewsFor(project?.target),
     target: project?.target,
     collapsed,
@@ -181,6 +189,8 @@ export function useLiveData(projectId: string | null, root: string | null) {
   useEffect(() => {
     // The Board and Inspector show updates waiting, so the library loads with the workspace.
     if (root) void useLibraryStore.getState().load();
+    // The rail counts the clips.
+    if (root) void useAnimationsStore.getState().load();
   }, [root]);
   useEffect(() => {
     const stops = [
@@ -209,7 +219,10 @@ export function useLiveData(projectId: string | null, root: string | null) {
         useRefsStore.getState().onProject(e.payload.project);
         useLibraryStore.getState().onChanged();
       }),
-      events.libraryChanged.listen(() => useLibraryStore.getState().onChanged()),
+      events.libraryChanged.listen(() => {
+        useLibraryStore.getState().onChanged();
+        useAnimationsStore.getState().onChanged();
+      }),
       events.mcpUpdate.listen(e => onAgents(e.payload)),
       events.providerUpdate.listen(e => onProvider(e.payload)),
       events.materialsChanged.listen(e => void loadMaterials(e.payload.project)),

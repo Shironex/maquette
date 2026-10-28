@@ -32,6 +32,9 @@ export interface ShellStatus {
   siteControl?: (label: string, dot: StatusDot) => ReactNode;
   /** How many models the library holds, once loaded. */
   libraryModels?: number | null;
+  /** How many clips the animation library holds, and where, once loaded. */
+  animationClips?: number | null;
+  animationsDir?: string | null;
 }
 
 function codexItems(view: ViewId, codex: ToolReport | undefined): StatusBarItem[] {
@@ -88,6 +91,15 @@ function libraryItems(s: ShellStatus): StatusBarItem[] {
       dot: 'ok',
     },
   ];
+}
+
+function animationItems(s: ShellStatus): StatusBarItem[] {
+  if (s.view !== 'animations' || s.animationClips == null || !s.animationsDir) return [];
+  const n = s.animationClips;
+  const dir = s.workspace
+    ? s.animationsDir.replace(s.workspace.root, s.workspace.display)
+    : s.animationsDir;
+  return [{ label: `Animations at ${dir}, ${n} ${n === 1 ? 'clip' : 'clips'}`, dot: 'ok' }];
 }
 
 function runItems(latest: RunRecord | undefined, now: number): StatusBarItem[] {
@@ -156,6 +168,7 @@ export function shellStatusItems(s: ShellStatus): StatusBarItem[] {
     ),
     ...(s.view === 'lab' ? [] : inboxItems(s.inbox, s.workspace)),
     ...libraryItems(s),
+    ...animationItems(s),
     ...labItems(s.labJobs),
     ...sendItems(s.sends),
     ...pageItems(s),
