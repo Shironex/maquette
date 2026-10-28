@@ -9,17 +9,17 @@ Maquette watches the workspace `inbox/` folder for `.glb` and `.gltf` files. Eac
 
 ## Checks
 
-The checks compare that with your budgets: triangles, texture size, a Mixamo rig for characters, PBR maps, separate objects merged into one mesh, an origin away from the bottom centre, several objects that could be one, and hair or tail vertices weighted to finger bones. Two of them are heuristics: merged objects and weighted to finger bones. Draco or meshopt compressed geometry skips both.
+The checks compare that with your budgets: triangles, texture size, a Mixamo rig for characters, PBR maps, separate objects merged into one mesh (for a prop, One mesh, no parts), an origin away from the bottom centre, several objects that could be one, and hair or tail vertices weighted to finger bones. Two of them are heuristics: merged objects and weighted to finger bones. Draco or meshopt compressed geometry skips both.
 
-A check that a fix-up answers offers it as a button: Decimate to 60k, Shrink textures to 2048 px, Remove loose parts, Origin to bottom centre or Merge objects.
+A check that a fix-up answers offers it as a button: Decimate to 60k, Shrink textures to 2048 px, Remove loose parts, Split into parts, Origin to bottom centre or Merge objects.
 
 ## Preview
 
-The preview stands every model in the same studio: a graphite backdrop, a soft floor with a contact shadow and warm and cool lights. Pick Shaded, wireframe over clay, a numbered UV checker, or the skeleton drawn over a ghost of the mesh. It reads meshopt geometry and KTX2 textures.
+The preview stands every model in the same studio: a graphite backdrop, a soft floor with a contact shadow and warm and cool lights. Pick Shaded, each part in its own colour (the split copy once a Split into parts preview ran), wireframe over clay, a numbered UV checker, or the skeleton drawn over a ghost of the mesh. It reads meshopt geometry and KTX2 textures.
 
 ## Real size and fix-ups
 
-Each asset can have a real size and a list of fix-ups, both optional. A size is one side of the real object (height, width, depth or the longest side) in cm or m. The fix-ups run in a fixed order: Apply transforms, Remove loose parts, Merge objects, Decimate, Shrink textures and Origin to bottom centre. Nothing touches the inbox file or the asset's versions: the [Build scene](/docs/pipeline/build-scene/) step applies them headless on a copy.
+Each asset can have a real size and a list of fix-ups, both optional. A size is one side of the real object (height, width, depth or the longest side) in cm or m. The fix-ups run in a fixed order: Apply transforms, Remove loose parts, Merge objects, Split into parts, Decimate, Shrink textures and Origin to bottom centre. Split into parts is on its own page: [Parts](/docs/views/parts/). Nothing touches the inbox file or the asset's versions: the [Build scene](/docs/pipeline/build-scene/) step applies them headless on a copy.
 
 You can also skip the bake for an asset and pad its texture edges. A model accepted from the Inbox skips the bake and pads by default, since provider scans cut their textures into many small islands.
 

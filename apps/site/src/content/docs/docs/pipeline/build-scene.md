@@ -26,4 +26,4 @@ It opens `blender/scene.blend` when there is one, else an empty scene with a sun
 
 ## Fix-ups and padding
 
-Fix-ups replay on every new version of an asset. Before Decimate and Shrink textures, the step can pad texture edges: it fills the texture around each UV island with the island's own colours, so shrunk or mipmapped textures show no light or dark seams. On a 626k triangle scan it adds about 9 s.
+Fix-ups replay on every new version of an asset. A Split into parts fix-up cuts the model into named parts, and the part names and joins from the [Parts](/docs/views/parts/) tab apply after the fix-ups, so the exported nodes carry those names. Before Decimate and Shrink textures, the step can pad texture edges: it fills the texture around each UV island with the island's own colours, so shrunk or mipmapped textures show no light or dark seams. On a 626k triangle scan it adds about 9 s.
