@@ -47,13 +47,14 @@
  * Settings help, and the about set (scripts/visual-check/about.mjs)
  * Settings > About and the app updater: inert, the header pill, an update
  * downloading and ready, and the style set (scripts/visual-check/style.mjs)
- * the Lab's style board. It renders
+ * the Lab's style board, and the refs set (scripts/visual-check/refs.mjs)
+ * multi-view refs and the weak ref warnings. It renders
  * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -73,6 +74,7 @@ import { motionShots } from './visual-check/motion.mjs';
 import { pageShots } from './visual-check/page.mjs';
 import { pathsShots } from './visual-check/paths.mjs';
 import { pipelineShots } from './visual-check/pipeline.mjs';
+import { refsShots } from './visual-check/refs.mjs';
 import { styleShots } from './visual-check/style.mjs';
 import { syncShots } from './visual-check/sync.mjs';
 import { timelineShots } from './visual-check/timeline.mjs';
@@ -994,6 +996,7 @@ try {
   if (!only || only === 'sync') await syncShots({ open, shot });
   if (!only || only === 'about') await aboutShots({ open, shot });
   if (!only || only === 'style') await styleShots({ open, shot, hoverTip });
+  if (!only || only === 'refs') await refsShots({ open, shot });
 } finally {
   await browser.close();
   await vite?.close();
