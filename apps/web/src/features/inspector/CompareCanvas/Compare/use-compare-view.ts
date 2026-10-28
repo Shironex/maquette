@@ -3,6 +3,8 @@ import type * as THREE from 'three';
 import { applyMode } from '@/features/viewer/materials';
 import { explode } from '@/features/viewer/parts';
 import { frameCamera, standOnFloor, studioRig, type Framing } from '@/features/viewer/studio';
+import { flightStart } from '@/lib/motion';
+import { FLIGHT_MS } from '@/state/inspector';
 import { poseOf, setPose } from '../../camera-pose';
 import type { CompareProps, CompareRig, Side } from './Compare.types';
 import { applyLooks } from './apply-looks';
@@ -75,7 +77,11 @@ export function useCompareView(rig: CompareRig, props: CompareProps): void {
     if (!framing || !props.stop || props.kind !== 'scene') return;
     const stop = props.stops[props.stop.index];
     if (!stop) return;
-    flightRef.current = { from: poseOf(camera, controls.target), stop, start: performance.now() };
+    flightRef.current = {
+      from: poseOf(camera, controls.target),
+      stop,
+      start: flightStart(FLIGHT_MS),
+    };
     controls.autoRotate = false;
   });
   useEffect(() => flyToStop(), [props.stop?.at, framing]);

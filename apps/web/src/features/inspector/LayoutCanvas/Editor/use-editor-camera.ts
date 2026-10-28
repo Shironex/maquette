@@ -1,6 +1,8 @@
 import { useEffect, useEffectEvent, useRef } from 'react';
 import * as THREE from 'three';
 import { frameCamera } from '@/features/viewer/studio';
+import { flightStart } from '@/lib/motion';
+import { FLIGHT_MS } from '@/state/inspector';
 import { poseOf, setPose } from '../../camera-pose';
 import type { EditorProps, EditorRig } from './Editor.types';
 import { fitFov } from './fit-fov';
@@ -71,7 +73,7 @@ export function useEditorCamera(editor: EditorRig, props: EditorProps): void {
     flightRef.current = {
       from: poseOf(camera, orbit.target),
       to: { position: stop.position, target: stop.target, fov: shown },
-      start: performance.now(),
+      start: flightStart(FLIGHT_MS),
     };
   });
   useEffect(() => flyToPreview(), [props.preview?.at]);
