@@ -85,8 +85,8 @@ export default function ImagesSection({ active, config, onChange }: ImagesSectio
       />
       <p className="text-meta text-fg-mute">
         Codex makes every image unless a kind is set to OpenAI Images. Those rounds start without
-        asking, are written to Credits in dollars, and stop at the cap. Prices from OpenAI&apos;s
-        price list
+        asking, each image goes in the workspace&apos;s credits ledger in dollars, and a round that
+        would pass the cap does not start. Prices from OpenAI&apos;s price list
         {status ? `, checked ${status.pricesChecked}` : ''}.
       </p>
     </Panel>
