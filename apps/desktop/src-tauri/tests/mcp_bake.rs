@@ -147,7 +147,7 @@ fn age_bake_script(project_dir: &Path) {
     let mut record: Value =
         serde_json::from_str(&std::fs::read_to_string(&path).expect("record")).expect("json");
     record["scripts"]["tools/bake_light.py"] =
-        Value::String(format!("{:x}", Sha256::digest(old.as_bytes())));
+        Value::String(hex::encode(Sha256::digest(old.as_bytes())));
     std::fs::write(&path, record.to_string()).expect("save record");
 }
 

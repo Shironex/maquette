@@ -157,7 +157,7 @@ struct Record {
 /// that went through a CRLF checkout or editor still matches.
 fn text_hash(text: &str) -> String {
     let folded = text.replace("\r\n", "\n");
-    format!("{:x}", Sha256::digest(folded.as_bytes()))
+    hex::encode(Sha256::digest(folded.as_bytes()))
 }
 
 fn load_record(project_dir: &Path) -> Record {

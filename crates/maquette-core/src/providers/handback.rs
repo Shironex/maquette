@@ -60,8 +60,9 @@ pub(crate) fn zip_models(file: &Path) -> CoreResult<Vec<String>> {
     })?;
     Ok(archive
         .file_names()
+        .filter_map(Result::ok)
         .filter(|n| is_model_entry(n))
-        .map(str::to_string)
+        .map(|n| n.into_owned())
         .collect())
 }
 
