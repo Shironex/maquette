@@ -88,31 +88,39 @@ export interface Stage {
 export const STAGES: readonly Stage[] = [
   {
     id: 'concept',
-    short: 'A brief and refs become Codex CLI image jobs, four at a time.',
+    short: 'A brief, refs and the style board become Codex CLI image jobs.',
     title: 'Concept',
     body: 'Write a brief, drop in up to 8 reference images and pick how many concepts you want. Each image is one Codex CLI job, four at a time. Star the good ones, pick the keepers, send picks to Refs.',
-    chips: ['codex exec', '1 to 12 images', 'contact sheet'],
+    note: 'A style board per project (a line about the look, a palette and up to four images) goes with every job, so the concepts stay in one style.',
+    chips: ['codex exec', 'style board', '1 to 12 images'],
     shots: [
       {
-        ...screen('lab'),
-        alt: 'The Concept lab with a brief on the left and six generated concepts, one picked.',
+        ...screen('lab', 1238, 976),
+        alt: 'The Concept lab with a brief for a frozen lake arena on the left and six generated concepts, one picked.',
         tool: 'Lab',
-        caption: 'Moon island porch, 6 concepts, 1 picked',
+        caption: 'Frozen lake arena, 6 concepts, 1 picked',
       },
     ],
   },
   {
     id: 'refs',
-    short: 'Picks land in refs/ and the card moves on the Board.',
+    short: 'Picks land in refs/, tagged front, left, back or right.',
     title: 'Refs',
-    body: "Picked images are copied into the project's refs folder and the asset moves to Refs on the Board. From here every card shows where it stands: queued, generating, waiting for your model, done.",
-    chips: ['refs/', 'Board'],
+    body: "Picked images are copied into the project's refs folder and the asset moves to Refs on the Board. Tag each ref as the front, left, back or right view. Make the other views draws the missing ones from the front, and Clean background clears a busy one.",
+    note: 'Before a send, a ref that is small, cropped, busy, the only view, or looks different from the front gets a warning with its fix. Warnings never block the send.',
+    chips: ['refs/', 'front, left, back, right', 'Clean background'],
     shots: [
+      {
+        ...screen('refs-views', 516, 1000),
+        alt: 'Send to 3D panel for a statue: one ref tagged Front, one tagged Back, and three ref warnings with Clean background and Make the other views.',
+        tool: 'Refs by view',
+        caption: 'front and back tagged, 3 ref warnings',
+      },
       {
         ...screen('board'),
         alt: 'The Board with six columns, Concept to Ship, and asset cards with thumbnails and status.',
         tool: 'Board',
-        caption: 'Moon Island, 8 assets',
+        caption: 'every card shows where it stands',
       },
     ],
   },
@@ -120,9 +128,9 @@ export const STAGES: readonly Stage[] = [
     id: 'model',
     short: 'Tripo, Meshy, or by hand with a settings card and no credits.',
     title: '3D model',
-    body: 'Send refs to Tripo or Meshy from your preset, or make the model yourself in their web app. By hand spends nothing: Maquette writes a folder with the images and a settings card, then waits for the GLB.',
-    note: 'A job sent before you quit keeps polling after a restart instead of paying again.',
-    chips: ['Tripo', 'Meshy', 'By hand'],
+    body: 'Send refs to Tripo or Meshy from your preset, or make the model yourself in their web app. By hand spends nothing: Maquette writes a folder with the images and a settings card, then watches your Downloads for the GLB.',
+    note: 'A download named for its send goes to the inbox by itself. One whose name is only close waits for you to confirm, and any other can be attached to the asset it belongs to.',
+    chips: ['Tripo', 'Meshy', 'By hand', 'Downloads watch'],
     shots: [
       {
         ...screen('send-tripo', 540, 900),
@@ -187,10 +195,28 @@ export const STAGES: readonly Stage[] = [
 
 export const SHOTS = {
   inbox: {
-    ...screen('inbox'),
+    ...screen('inbox', 1238, 976),
     alt: 'Model inbox: a character with one failed check and two warnings before Accept to Blender.',
     tool: 'Inbox',
-    caption: '4 models waiting, 1 failure and 2 warnings on Character',
+    caption: '4 models waiting, 1 failure and 2 warnings on a character',
+  },
+  parts: {
+    ...screen('parts', 1238, 976),
+    alt: 'Inspector, Parts tab: a lantern split into five coloured parts, two selected, with Merge, Hide and Assemble a prop.',
+    tool: 'Parts',
+    caption: '5 parts, split in Blender',
+  },
+  animations: {
+    ...screen('animations', 880, 976),
+    alt: 'Animations library: 16 clips in four packs, tagged combat, dodge, magic and locomotion, each with its length and root motion.',
+    tool: 'Animations',
+    caption: '16 clips, 933 KB, skeleton only',
+  },
+  retarget: {
+    ...screen('retarget', 1226, 722),
+    alt: 'Review the retarget: four clips, one failed, sword run with the feet pinned and the slide down from 4.2 cm to 0.3 cm, source skeleton next to the model.',
+    tool: 'Use on model',
+    caption: 'the review before the bake, feet pinned',
   },
   compare: {
     ...screen('inspector-compare'),

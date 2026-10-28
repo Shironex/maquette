@@ -56,7 +56,9 @@ const total = String(STAGES.length).padStart(2, '0');
               </div>
               <div class:list={['shots', { pair: stage.shots.length > 1 }]}>
                 {stage.shots.map(shot => (
-                  <Figure shot={shot} />
+                  <div class="shot" style={`flex-grow: ${(shot.width / shot.height).toFixed(3)}`}>
+                    <Figure shot={shot} />
+                  </div>
                 ))}
               </div>
             </article>
@@ -130,10 +132,15 @@ const total = String(STAGES.length).padStart(2, '0');
   .shots {
     min-width: 0;
   }
+  /* A pair shares one height: each shot's width follows its aspect ratio. */
   .shots.pair {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    display: flex;
     gap: 24px;
+    align-items: flex-start;
+  }
+  .pair .shot {
+    flex-basis: 0;
+    min-width: 0;
   }
   .num-inline,
   .short,

@@ -34,6 +34,28 @@ import { SHOTS } from '../content/copy';
       <Figure shot={SHOTS.compare} />
       <Figure shot={SHOTS.budgets} class="side" />
     </div>
+
+    <div class="parts">
+      <div class="parts-copy">
+        <h3 class="h3">Split one mesh into parts.</h3>
+        <p class="copy">
+          A model that came back as one mesh splits by loose pieces or by material in Blender, for
+          free, or with Tripo's segmentation or Meshy's Auto Split as a paid send. Rename, merge and
+          hide the parts, then compare draw calls, triangles and transfer before and after.
+        </p>
+        <p class="note">
+          Assemble a prop builds one model from several: a node per part, a pivot each, placed by
+          numbers or with a move gizmo in the viewer.
+        </p>
+        <div class="chips">
+          <span class="chip">Blender, free</span>
+          <span class="chip">Tripo</span>
+          <span class="chip">Meshy Auto Split</span>
+          <span class="chip">Assemble a prop</span>
+        </div>
+      </div>
+      <Figure shot={SHOTS.parts} />
+    </div>
   </div>
 </section>
 
@@ -118,6 +140,29 @@ import { SHOTS } from '../content/copy';
     gap: 32px;
     align-items: start;
   }
+  .parts {
+    display: grid;
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    gap: 64px;
+    padding-top: 72px;
+    border-top: 1px solid var(--line);
+  }
+  .parts-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .note {
+    margin: 0;
+    font-size: 14px;
+    line-height: 22px;
+    color: var(--text-mute);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
   @media (max-width: 899px) {
     .inspector {
       padding-block: 48px;
@@ -139,8 +184,19 @@ import { SHOTS } from '../content/copy';
       line-height: 34px;
     }
     .meter,
-    .shots :global(.side) {
+    .shots :global(.side),
+    .parts .note,
+    .parts .chips {
       display: none;
+    }
+    .parts {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+      padding-top: 24px;
+    }
+    .parts .h3 {
+      font-size: 20px;
+      line-height: 26px;
     }
   }
 </style>
