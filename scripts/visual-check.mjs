@@ -38,7 +38,8 @@
  * set (scripts/visual-check/page.mjs) the Page view and the game set
  * (scripts/visual-check/game.mjs) game projects and the library set
  * (scripts/visual-check/library.mjs) the Library view, Add to library and
- * Update from library, and the board set (scripts/visual-check/board.mjs)
+ * Update from library, the animations set (scripts/visual-check/animations.mjs)
+ * the Animations view, Import clips and Save clips to library, and the board set (scripts/visual-check/board.mjs)
  * a card waiting for a By hand model, its grouped menu and Move to submenu,
  * the header's tooltips, Remove from project and Recently removed, and a
  * card with several budget warnings, and the sync set
@@ -54,7 +55,7 @@
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -68,6 +69,7 @@ import { aboutShots } from './visual-check/about.mjs';
 import { boardShots } from './visual-check/board.mjs';
 import { gameShots } from './visual-check/game.mjs';
 import { libraryShots } from './visual-check/library.mjs';
+import { animationsShots } from './visual-check/animations.mjs';
 import { compareShots } from './visual-check/compare.mjs';
 import { shipShots } from './visual-check/ship.mjs';
 import { motionShots } from './visual-check/motion.mjs';
@@ -991,6 +993,7 @@ try {
   if (!only || only === 'page') await pageShots({ open, shot });
   if (!only || only === 'game') await gameShots({ open, shot });
   if (!only || only === 'library') await libraryShots({ open, shot });
+  if (!only || only === 'animations') await animationsShots({ open, shot });
   if (!only || only === 'compare') await compareShots({ open, shot });
   if (!only || only === 'ship') await shipShots({ open, shot, hoverTip });
   if (!only || only === 'sync') await syncShots({ open, shot });
