@@ -1,0 +1,13 @@
+/*
+ * Download links per platform. The head script (src/lib/platform.ts) sets
+ * data-os on the root element before the first paint; without it, and for any
+ * platform without a build, only the neutral links (.os-any) show. Unlayered,
+ * so these win over the button styles.
+ */
+:root:not([data-os='mac']) .os-mac,
+:root:not([data-os='windows']) .os-windows,
+:root[data-os='mac'] .os-any,
+:root[data-os='windows'] .os-any,
+:root[data-os='windows'] .os-not-windows {
+  display: none;
+}

@@ -1,0 +1,138 @@
+---
+import { Icon } from '@maquette/ui';
+import Figure from './Figure.astro';
+import SectionHead from './SectionHead.astro';
+import { SHOTS } from '../content/copy';
+
+const SHOTS_ROW = [SHOTS.retarget, SHOTS.animations];
+
+const RULES = [
+  {
+    icon: 'eye',
+    title: 'Reviewed before it lands.',
+    text: 'The bake runs on a copy and flags clips to look at: feet sliding, hips leaving, limbs turned from the rest pose.',
+  },
+  {
+    icon: 'person-simple-walk',
+    title: 'Feet that stay planted.',
+    text: 'Pin the feet and bake again holds each planted foot with leg IK and shows the slide before and after.',
+  },
+  {
+    icon: 'lock-simple',
+    title: 'Clips stay on your machine.',
+    text: 'The library keeps the skeleton and keys only. A Mixamo clip leaves your computer baked into a model, never as a file.',
+  },
+] as const;
+---
+
+<section class="animations" aria-labelledby="animations-title">
+  <div class="wrap inner">
+    <SectionHead
+      eyebrow="Animations library"
+      title="Import clips once. Use them on any rig."
+      id="animations-title"
+    >
+      <span class="wide-only"
+        >Import Mixamo FBX files or whole pack zips. Blender reads them headless and keeps about 80 KB
+        a clip, tagged and grouped by pack. Use on model checks the bone map and bakes the clips
+        into the model's next version.</span
+      >
+      <span class="narrow-only"
+        >Mixamo clips and packs in one library, baked onto any rigged model as its next version.</span
+      >
+    </SectionHead>
+
+    <div class="shots">
+      {
+        SHOTS_ROW.map(shot => (
+          <div class="shot" style={`flex-grow: ${(shot.width / shot.height).toFixed(3)}`}>
+            <Figure shot={shot} />
+          </div>
+        ))
+      }
+    </div>
+
+    <ul class="rules">
+      {
+        RULES.map(rule => (
+          <li>
+            <Icon name={rule.icon} size={18} className="text-clay-text" />
+            <span>
+              <b>{rule.title}</b> {rule.text}
+            </span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .animations {
+    padding-block: 128px;
+    border-top: 1px solid var(--line);
+  }
+  .inner {
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+  /* One height for both shots: each one's width follows its aspect ratio. */
+  .shots {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+  }
+  .shot {
+    flex-basis: 0;
+    min-width: 0;
+  }
+  .rules {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 40px;
+  }
+  .rules li {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 12px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line-strong);
+    font-size: 15px;
+    line-height: 23px;
+    color: var(--text-dim);
+  }
+  .rules li :global(svg) {
+    margin-top: 2px;
+  }
+  .rules b {
+    color: var(--text);
+    font-weight: 500;
+  }
+  .narrow-only {
+    display: none;
+  }
+  @media (max-width: 899px) {
+    .animations {
+      padding-block: 48px;
+    }
+    .inner {
+      gap: 24px;
+    }
+    .shots {
+      flex-direction: column;
+      gap: 0;
+    }
+    .shot + .shot,
+    .rules,
+    .wide-only {
+      display: none;
+    }
+    .narrow-only {
+      display: inline;
+    }
+  }
+</style>

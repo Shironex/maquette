@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import '@maquette/ui/theme.css';
 @import '@maquette/ui/base.css';
+@import './os.css';
 
 /* The kit's Icon component carries its own utility classes. */
 @source '../../../../packages/ui/src/icons';

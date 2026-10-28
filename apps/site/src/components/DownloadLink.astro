@@ -1,0 +1,29 @@
+---
+import { Icon } from '@maquette/ui';
+import { MAC_LABEL, MAC_SHORT, release } from '../content/copy';
+
+interface Props {
+  /** The header's smaller button. */
+  small?: boolean;
+  /** Where the neutral Download goes: the Download section on this page or the landing page's. */
+  neutral?: string;
+}
+
+const { small = false, neutral = '#download' } = Astro.props;
+const size = small ? 16 : 18;
+const classes = ['btn', 'btn-primary', { 'btn-sm': small }];
+
+// One link per platform. The head script sets data-os before the first paint
+// and os.css shows the matching link, so nothing moves once the page is up.
+// Without the script, and on Linux or a phone, the neutral one shows.
+---
+
+<a class:list={[...classes, 'os-any']} href={neutral}>
+  Download<Icon name="download-simple" size={size} />
+</a>
+<a class:list={[...classes, 'os-mac']} href={release.mac.url} aria-label={small ? MAC_LABEL : undefined}>
+  {small ? MAC_SHORT : MAC_LABEL}<Icon name="download-simple" size={size} />
+</a>
+<a class:list={[...classes, 'os-windows']} href={release.windows.url}>
+  Download for Windows<Icon name="download-simple" size={size} />
+</a>

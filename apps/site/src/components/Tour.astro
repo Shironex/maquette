@@ -15,6 +15,7 @@ import { STOP_MOTION } from '../scene/cameras';
 import { STOP_IDS } from '../scene/stops';
 import TourRail from './TourRail.astro';
 import TourStop from './TourStop.astro';
+import DownloadLink from './DownloadLink.astro';
 
 const posters = ['stop-0', ...TOUR.map((_, i) => `stop-${i + 1}`)];
 const total = TOUR.length;
@@ -90,9 +91,7 @@ const side = (index: number) => STOP_MOTION[STOP_IDS[index] ?? 'hero'].copy ?? '
   </div>
 
   <div class="mobile-cta">
-    <a class="btn btn-primary" href="#download"
-      >Download for Mac<Icon name="download-simple" size={18} /></a
-    >
+    <DownloadLink />
     <a class="btn btn-secondary" href="#pipeline">See the pipeline</a>
   </div>
 
@@ -103,9 +102,7 @@ const side = (index: number) => STOP_MOTION[STOP_IDS[index] ?? 'hero'].copy ?? '
         From a Codex sketch to a compressed GLB in your site repo. Everything runs on your machine.
       </p>
       <div class="actions hero-actions">
-        <a class="btn btn-primary" href="#download"
-          >Download for Mac<Icon name="download-simple" size={18} /></a
-        >
+        <DownloadLink />
         <a class="btn btn-text see" href="#pipeline"
           >See the pipeline<Icon name="arrow-right" size={18} /></a
         >
@@ -133,10 +130,7 @@ const side = (index: number) => STOP_MOTION[STOP_IDS[index] ?? 'hero'].copy ?? '
           )}
           {stop.id === 'ship' && (
             <div class="actions">
-              <a class="btn btn-primary" href="#download">
-                Download for Mac
-                <Icon name="download-simple" size={18} />
-              </a>
+              <DownloadLink />
             </div>
           )}
         </TourStop>
