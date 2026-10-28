@@ -3,6 +3,7 @@
 
 pub mod about;
 pub mod agents;
+pub mod animations;
 pub mod app;
 pub mod assets;
 mod blender;
