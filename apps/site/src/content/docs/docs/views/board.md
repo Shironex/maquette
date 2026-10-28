@@ -17,7 +17,30 @@ A column heading sorts by it, and again flips the order. The stage filter and th
 
 Tick the boxes on cards (Shift selects a range) and press Send to 3D in the selection bar to send several assets in one batch. With a row focused in the list, the arrow keys move, Shift and an arrow extends the selection, Space ticks the row and Enter opens its menu. See all [keyboard shortcuts](/docs/views/shortcuts/).
 
-A card's menu has Send to 3D, Real size and fix-ups, Rename and Copy to project. Rename changes only the name on the card: the asset's id, files and versions keep their names. Copy to project copies the asset with its refs, every model version, thumbnails and finished sends, and leaves the original where it is. Remove from project, the last item, takes the asset off the Board (Remove... does the same for selected cards). Its files and settings move to the workspace trash, nothing is deleted, and the Removed button in the Board header puts it back. Sends waiting for a model are stopped first; an asset whose model is being made right now is refused until it is done.
+A card's menu has Send to 3D, Refs and views, Real size and fix-ups, Rename and Copy to project. Rename changes only the name on the card: the asset's id, files and versions keep their names. Copy to project copies the asset with its refs, every model version, thumbnails and finished sends, and leaves the original where it is. Remove from project, the last item, takes the asset off the Board (Remove... does the same for selected cards). Its files and settings move to the workspace trash, nothing is deleted, and the Removed button in the Board header puts it back. Sends waiting for a model are stopped first; an asset whose model is being made right now is refused until it is done.
+
+## Refs and views
+
+Refs and views... on a card opens the asset's refs sheet. Each ref shows one view of the object: Front, Left, Back, Right or Other. The four view slots sit in send order with a count (1 of 4 views), and the Other tray keeps refs that stay with the asset but never go as views. The chip on an image changes its view; picking a view another ref holds swaps the two. Tags save at once, on the asset in `project.json`, never in the file names. Add refs takes any image already in `refs/`, and Leave out of the refs drops one from the asset while the file stays.
+
+An asset nobody tagged reads its views from the order its refs always went in (its Lab picks, else the files named after it): the first is the front, then left, back and right, and any more are other. Sends behave as before until a tag changes.
+
+A send carries the view slots front first, then left, back and right, skipping an empty one, and leaves Other refs home even when they are picked. Tripo's multi-view gets each image as its view, gaps allowed. By hand folders name the images by view: `front.png`, `left.png`, `back.png`, `right.png`.
+
+**Make the other views** draws the missing views from the front with Codex, the same jobs and lane as the [Lab](/docs/views/lab/): tick the views (empty ones are ticked, a filled one draws again only when ticked), pick 1 to 4 images per view and whether the project's style board goes along. Each image is one Codex job, started by the Draw button like any Lab brief. The candidates come back per view in the sheet and in the Lab direction "<asset> views"; **Use as Left** copies one into `refs/` and into its slot, and the ref that held it becomes Other.
+
+**Clean background** (on an image's chip) makes a copy with the object kept and the clutter cleared, on studio grey or transparent, optionally centered and padded to a square. It invents nothing the frame cut off unless Draw what the frame cut off is on. The sheet shows the original and the copy side by side; **Use the clean copy** puts the copy in the ref's place with the same view and moves the original to `refs/originals/`, kept. **Keep the original** changes nothing.
+
+## Weak ref warnings
+
+Send to 3D and the batch panel check the picked refs before any credit is spent, on this machine, with nothing sent anywhere:
+
+- **Small**: the image's short side is under 512 px.
+- **Crops the object**: the object touches a frame edge.
+- **Busy background**: the background around the object is not plain.
+- **One view only**: multi-view is on but one image goes.
+
+The pixel checks read PNG refs; a JPEG or WebP gets the size check only. Each warning offers its fix: Clean background, Make the other views (both open the refs sheet) or Leave out this image. Warnings never block Send. The footer counts them next to the cost (2 ref warnings), each image carries its own flag, and the batch panel gives each asset a line (or Refs look good), a banner with Show only these, and repeats the count in its approval: "2 assets go with ref warnings."
 
 **Built asset** adds a model a Blender script in the project makes. **By hand** opens the checklist of sends waiting for a model from the provider's site. A send there closes on its own once its asset gets a model another way (the Inbox, the library), also for a model that came in while Maquette was closed.
 
