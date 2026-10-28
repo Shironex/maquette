@@ -122,6 +122,8 @@ export interface BackendOptions {
   updater?: string | null;
   /** `lists`: every long list at a busy workspace's size (see stress-fixtures.ts). */
   stress?: string | null;
+  /** `low`, `limit`, `lifted` or `unknown`: the Codex usage read (see create-codex-usage-handlers.ts). */
+  codex?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */
   files?: {
     /** Serves whatever `from` serves at `path` too. */
