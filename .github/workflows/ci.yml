@@ -32,6 +32,41 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  changes:
+    # Decides whether the code jobs have anything to check. A change that only
+    # touches docs, the README or its images skips them. The skip happens
+    # inside each job, never with a workflow `paths` filter: a required check
+    # whose workflow never runs stays pending and blocks the merge, while a
+    # skipped job (or one whose steps all skip) counts as passed.
+    name: changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          # No usable base (a new branch, a force push): check everything.
+          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Markdown outside the site, docs/, the README images and the GitHub
+          # community files. The site's own Markdown is built, so it is code.
+          docs='^(docs/|assets/|\.github/ISSUE_TEMPLATE/|LICENSE$|\.github/[^/]+\.(md|yml)$|\.github/CODEOWNERS$)|^([^/]+/)*[^/]+\.md$'
+          code=$(git diff --name-only "$BASE...$HEAD" \
+            | grep -v '^apps/site/' | grep -vE "$docs" || true)
+          code_site=$(git diff --name-only "$BASE...$HEAD" | grep '^apps/site/' || true)
+          if [ -n "$code$code_site" ]; then echo "code=true"; else echo "code=false"; fi \
+            | tee -a "$GITHUB_OUTPUT"
+
   commits:
     # PRs are merged with a merge commit, so every commit of the branch lands on
     # main and each one has to pass commitlint, not only the PR title.
@@ -81,6 +116,8 @@ jobs:
 
   typecheck:
     name: typecheck
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -97,6 +134,8 @@ jobs:
 
   test:
     name: test · web
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -120,6 +159,8 @@ jobs:
 
   site:
     name: build · site
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -136,36 +177,47 @@ jobs:
 
   rust:
     name: rust · ${{ matrix.os }}
+    needs: changes
     runs-on: ${{ matrix.os }}
     # A cold build of the Tauri shell takes a while, Windows most of all.
     timeout-minutes: 75
+    # Skipped step by step, not as a job: a skipped matrix job reports under its
+    # unexpanded name, so the required `rust · macos-latest` would never report.
+    env:
+      CODE: ${{ needs.changes.outputs.code == 'true' }}
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.CODE == 'true'
         with:
           persist-credentials: false
       # Node only: a few tests run small Node scripts (and skip without
       # Node). No package from node_modules is used, so nothing is installed.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: env.CODE == 'true'
         with:
           node-version-file: .nvmrc
       # Before the cache step, so the cache keys on the installed toolchain.
       - name: Install the pinned Rust toolchain
+        if: env.CODE == 'true'
         run: rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: env.CODE == 'true'
         with:
           # PRs restore main's cache but never write their own, so the
           # repo's cache space holds one warm entry per OS.
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo clippy --workspace --all-targets -- -D warnings
+        if: env.CODE == 'true'
       - run: cargo test --workspace
+        if: env.CODE == 'true'
       # `cargo test -p maquette-desktop` regenerates the TypeScript bindings,
       # so a command or type changed without committing them shows up here.
       # One OS is enough to catch it, and macOS keeps the line endings of a
       # Windows checkout out of the comparison.
       - name: The committed IPC bindings are current
-        if: runner.os == 'macOS'
+        if: env.CODE == 'true' && runner.os == 'macOS'
         run: git diff --exit-code -- apps/web/src/ipc/generated
