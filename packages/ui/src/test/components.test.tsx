@@ -80,6 +80,27 @@ describe('SegmentedControl', () => {
     expect(onChange).toHaveBeenCalledWith('uastc');
   });
 
+  it('locks every option when the whole control is disabled', async () => {
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl
+        label="Texture codec"
+        options={[
+          { value: 'etc1s', label: 'ETC1S' },
+          { value: 'uastc', label: 'UASTC' },
+        ]}
+        value="etc1s"
+        onChange={onChange}
+        disabled
+      />
+    );
+    for (const name of ['ETC1S', 'UASTC'])
+      expect(screen.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true');
+    screen.getByRole('button', { name: 'UASTC' }).focus();
+    await userEvent.keyboard('{Enter}');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('shows a disabled option without choosing it', async () => {
     const onChange = vi.fn();
     render(

@@ -28,6 +28,8 @@ export interface SegmentedControlProps<T extends string> {
   /** `clay` marks a setting choice; `neutral` a view switch. */
   tone?: 'clay' | 'neutral';
   block?: boolean;
+  /** The whole control is shown but locked: dimmed, and every option says so. */
+  disabled?: boolean;
   className?: string;
 }
 
@@ -39,6 +41,7 @@ export function SegmentedControl<T extends string>({
   label,
   tone = 'neutral',
   block,
+  disabled: locked,
   className,
 }: SegmentedControlProps<T>) {
   const first = options[0]?.value;
@@ -47,6 +50,7 @@ export function SegmentedControl<T extends string>({
   });
   const buttons = options.map(o => {
     const on = o.value === current;
+    const off = locked || o.disabled;
     const tip = o.hint ?? o.label;
     return (
       <Tooltip key={o.value} label={tip} shortcut={o.shortcut} disabled={!o.shortcut && !o.hint}>
@@ -54,9 +58,9 @@ export function SegmentedControl<T extends string>({
           type="button"
           aria-pressed={on}
           aria-label={o.label ? undefined : o.hint}
-          aria-disabled={o.disabled || undefined}
+          aria-disabled={off || undefined}
           onClick={() => {
-            if (!o.disabled) set(o.value);
+            if (!off) set(o.value);
           }}
           className={cn(
             'inline-flex h-[26px] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-2.5 text-[12px] font-medium text-fg-dim transition-colors duration-120 hover:text-fg active:bg-raised',
@@ -81,6 +85,7 @@ export function SegmentedControl<T extends string>({
       className={cn(
         'inline-flex gap-0.5 rounded-[8px] border border-line bg-app p-0.5',
         block && 'flex w-full',
+        locked && 'pointer-events-none opacity-60',
         className
       )}
     >

@@ -281,7 +281,7 @@ export default function ModelPanel({
                     onChange={codec => {
                       if (!locked && codec !== model.preset.codec) save({ codec });
                     }}
-                    className={cn(locked && 'pointer-events-none opacity-60')}
+                    disabled={locked}
                   />
                 </div>
                 <div className="flex items-center justify-between gap-3">
