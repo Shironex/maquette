@@ -4912,7 +4912,7 @@ export type VersionFrom = {
 	version: number,
 };
 
-export type WarningKind = "small" | "cropped" | "busy-background" | "one-view";
+export type WarningKind = "small" | "cropped" | "busy-background" | "one-view" | "views-disagree";
 
 /**
  *  One asset of a warnings request: the images as picked and whether its
