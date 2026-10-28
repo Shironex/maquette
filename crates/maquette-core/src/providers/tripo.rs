@@ -72,17 +72,27 @@ fn legacy(model: &str) -> bool {
 }
 
 /// The endpoint and body for one generation. Several images go to the
-/// multiview endpoint when the preset asks for it; P series and older
-/// models only get the parameters they accept.
-pub fn generation_request(preset: &TripoPreset, inputs: &[String]) -> (String, Value) {
+/// multiview endpoint when the preset asks for it, each under its view
+/// (`views`, from the asset's tags; empty takes [`VIEWS`] in order). P
+/// series and older models only get the parameters they accept.
+pub fn generation_request(
+    preset: &TripoPreset,
+    inputs: &[String],
+    views: &[String],
+) -> (String, Value) {
     let model = preset.model.as_str();
     let p_series = is_tripo_p_series(model);
     let multi = preset.multi_view && inputs.len() >= 2;
     let mut body = json!({ "model": model });
     if multi {
+        let named: Vec<&str> = if views.len() == inputs.len() {
+            views.iter().map(String::as_str).collect()
+        } else {
+            VIEWS.to_vec()
+        };
         let views: Vec<Value> = inputs
             .iter()
-            .zip(VIEWS)
+            .zip(named)
             .map(|(token, view)| json!({ view: token }))
             .collect();
         body["inputs"] = Value::Array(views);
@@ -186,8 +196,13 @@ impl Tripo<'_> {
         string_at(&data(answer)?, "task_id")
     }
 
-    pub fn generate(&self, preset: &TripoPreset, tokens: &[String]) -> ApiResult<String> {
-        let (path, body) = generation_request(preset, tokens);
+    pub fn generate(
+        &self,
+        preset: &TripoPreset,
+        tokens: &[String],
+        views: &[String],
+    ) -> ApiResult<String> {
+        let (path, body) = generation_request(preset, tokens, views);
         self.create(&path, &body)
     }
 
@@ -259,7 +274,7 @@ mod tests {
     #[test]
     fn the_body_always_names_the_model_and_skips_what_a_model_refuses() {
         let mut preset = TripoPreset::prop();
-        let (path, body) = generation_request(&preset, &["file_a".to_string()]);
+        let (path, body) = generation_request(&preset, &["file_a".to_string()], &[]);
         assert_eq!(path, "generation/image-to-model");
         assert_eq!(body["model"], "v3.1-20260211");
         assert_eq!(body["input"], "file_a");
@@ -270,7 +285,7 @@ mod tests {
         preset.model = "P1-20260311".into();
         preset.smart_low_poly = true;
         preset.face_limit = 5000;
-        let (_, body) = generation_request(&preset, &["file_a".to_string()]);
+        let (_, body) = generation_request(&preset, &["file_a".to_string()], &[]);
         for key in [
             "quad",
             "smart_low_poly",
@@ -282,7 +297,7 @@ mod tests {
         assert_eq!(body["face_limit"], 5000);
 
         preset.model = "v2.5-20250123".into();
-        let (_, body) = generation_request(&preset, &["file_a".to_string()]);
+        let (_, body) = generation_request(&preset, &["file_a".to_string()], &[]);
         assert!(body.get("texture_quality").is_none());
         assert!(body.get("auto_size").is_none());
     }
@@ -291,7 +306,7 @@ mod tests {
     fn several_images_go_to_the_multiview_endpoint_front_first() {
         let preset = TripoPreset::character();
         let tokens = ["f".to_string(), "l".to_string(), "b".to_string()];
-        let (path, body) = generation_request(&preset, &tokens);
+        let (path, body) = generation_request(&preset, &tokens, &[]);
         assert_eq!(path, "generation/multiview-to-model");
         assert_eq!(
             body["inputs"],
@@ -299,7 +314,7 @@ mod tests {
         );
         assert!(body.get("enable_image_autofix").is_none());
         // One image falls back to the single image endpoint.
-        let (path, _) = generation_request(&preset, &tokens[..1]);
+        let (path, _) = generation_request(&preset, &tokens[..1], &[]);
         assert_eq!(path, "generation/image-to-model");
     }
 

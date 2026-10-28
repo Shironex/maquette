@@ -56,6 +56,7 @@ fn exported_models_carry_the_name_of_their_asset() {
             created_at: "2026-10-24T19:00:00.000Z".into(),
             updated_at: "2026-10-24T19:14:19.000Z".into(),
             origin: None,
+            refs: Vec::new(),
         });
         Ok(())
     })
@@ -261,6 +262,7 @@ fn locked_presets_refuse_edits() {
             created_at: String::new(),
             updated_at: String::new(),
             origin: None,
+            refs: Vec::new(),
         });
         Ok(())
     })

@@ -120,6 +120,7 @@ pub fn use_in_project(
             entry: entry.id.clone(),
             version: chosen.version,
         }),
+        refs: Vec::new(),
     };
     let (name, id) = free_name(&manifest, &project_dir, &draft);
     let mut asset = Asset { id, name, ..draft };

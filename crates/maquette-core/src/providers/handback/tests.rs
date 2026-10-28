@@ -37,6 +37,7 @@ fn job(id: &str, asset_name: &str, created_at_ms: f64) -> ProviderJob {
         service: ProviderId::Tripo,
         variant: PresetVariant::Prop,
         images: vec!["refs/a.png".into()],
+        views: Vec::new(),
         tripo: None,
         meshy: None,
         state: JobState::Waiting,

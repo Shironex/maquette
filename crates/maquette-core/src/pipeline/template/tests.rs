@@ -121,6 +121,7 @@ fn a_scene_gets_the_character_row_only_with_a_character() {
         created_at: String::new(),
         updated_at: String::new(),
         origin: None,
+        refs: Vec::new(),
     };
     let mut manifest = ProjectManifest {
         version: 1,

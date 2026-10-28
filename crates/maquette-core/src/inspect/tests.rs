@@ -48,6 +48,7 @@ fn character_asset() -> Asset {
         created_at: "2026-10-21T10:00:00.000Z".into(),
         updated_at: "2026-10-22T10:00:00.000Z".into(),
         origin: None,
+        refs: Vec::new(),
     }
 }
 
@@ -213,6 +214,7 @@ fn an_export_of_an_asset_version_reads_as_the_asset() {
         created_at: "2026-10-24T19:00:00.000Z".into(),
         updated_at: "2026-10-24T19:14:19.000Z".into(),
         origin: None,
+        refs: Vec::new(),
     };
     let def = for_template(ProjectTemplate::FloatingDiorama);
     let manifest = manifest(vec![clay]);

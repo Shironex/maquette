@@ -233,6 +233,7 @@ fn run_remote(
                 &preset,
                 job.variant,
                 &images,
+                &job.views,
             )
         }
         ProviderId::Meshy => {

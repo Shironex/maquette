@@ -161,11 +161,18 @@ pub fn meshy_rows(preset: &MeshyPreset, variant: PresetVariant) -> Vec<CardRow> 
     rows
 }
 
-/// The images' names in the folder: `front.png`, `left.png`, ...
-pub fn view_names(images: &[PathBuf]) -> Vec<String> {
+/// The images' names in the folder: `front.png`, `left.png`, ..., from
+/// each image's view (`views`, from the asset's tags; empty takes
+/// [`VIEWS`] in order).
+pub fn view_names(images: &[PathBuf], views: &[String]) -> Vec<String> {
+    let named: Vec<&str> = if views.len() == images.len() {
+        views.iter().map(String::as_str).collect()
+    } else {
+        VIEWS.to_vec()
+    };
     images
         .iter()
-        .zip(VIEWS)
+        .zip(named)
         .map(|(path, view)| {
             let ext = path
                 .extension()
@@ -183,6 +190,8 @@ pub struct Handoff<'a> {
     pub service: ProviderId,
     pub variant: PresetVariant,
     pub images: &'a [PathBuf],
+    /// Each image's view, in order; empty for front, left, back, right.
+    pub views: &'a [String],
     pub tripo: Option<&'a TripoPreset>,
     pub meshy: Option<&'a MeshyPreset>,
     /// Meshy only: the texture prompt, for the web app's prompt box.
@@ -225,7 +234,7 @@ impl Handoff<'_> {
             rows.push(row("Texture prompt", prompt));
         }
         let cost = web_cost(self.service, self.tripo, self.meshy);
-        let names = view_names(self.images);
+        let names = view_names(self.images, self.views);
         let used = if mode == "Image to 3D" {
             1
         } else {
@@ -285,7 +294,7 @@ impl Handoff<'_> {
         }
         fs::create_dir_all(&dir).map_err(|e| CoreError::io(&dir, e))?;
         let card = self.card();
-        for (from, name) in self.images.iter().zip(view_names(self.images)) {
+        for (from, name) in self.images.iter().zip(view_names(self.images, self.views)) {
             let to = dir.join(&name);
             fs::copy(from, &to).map_err(|e| CoreError::io(from, e))?;
         }
@@ -384,6 +393,7 @@ mod tests {
             service: ProviderId::Tripo,
             variant: PresetVariant::Prop,
             images: std::slice::from_ref(&image),
+            views: &[],
             tripo: Some(&preset),
             meshy: None,
             prompt: None,
