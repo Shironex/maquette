@@ -3,6 +3,7 @@
 
 use maquette_core::ProjectManifest;
 use maquette_core::concepts::ConceptEvent;
+use maquette_core::concepts::backend::ImageSettings;
 use maquette_core::concepts::codex_usage::CodexUsage;
 use maquette_core::pipeline::runner::{PipelineEvent, RunSink};
 use maquette_core::providers::ProviderEvent;
@@ -52,6 +53,11 @@ pub struct ConceptUpdate(pub ConceptEvent);
 /// A Codex usage read finished: the status bar and the Lab show it.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 pub struct CodexUsageUpdate(pub CodexUsage);
+
+/// An agent changed the Lab's image backends (`set_image_backend`):
+/// Settings takes them into its form.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+pub struct ImageSettingsChanged(pub ImageSettings);
 
 /// A Send to 3D job changed state or progress.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

@@ -5,6 +5,7 @@
 use std::path::Path;
 use std::time::Duration;
 
+use maquette_core::concepts::backend::{ApiPlan, ImageJobKind};
 use maquette_core::concepts::jobs::Lane;
 use maquette_core::concepts::{
     self, ConceptJob, Concepts, Direction, NewCleanRef, NewOtherViews, RefsJobKind,
@@ -16,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use super::CommandResult;
-use super::lab::{Lab, RefImage, list_refs};
+use super::lab::{Backend, Lab, RefImage, list_refs};
 use crate::session::Session;
 
 /// Everything the refs sheet shows for one asset.
@@ -82,12 +83,22 @@ pub(crate) fn view(
     })
 }
 
+/// The project folder, cache, timeout, asset and Image API plan of a
+/// refs job of `kind`.
 fn lane_parts(
     session: &Session,
     lab: &Concepts,
     project_id: &str,
     asset_id: &str,
-) -> CommandResult<(std::path::PathBuf, std::path::PathBuf, Duration, Asset)> {
+    kind: ImageJobKind,
+    backend: Backend,
+) -> CommandResult<(
+    std::path::PathBuf,
+    std::path::PathBuf,
+    Duration,
+    Asset,
+    Option<ApiPlan>,
+)> {
     let (root, config) = session.workspace()?;
     let manifest = project::load(&root, &config.layout, project_id)?;
     let asset = assets::find(&manifest, asset_id)?.clone();
@@ -95,7 +106,8 @@ fn lane_parts(
     lab.set_concurrency(config.lab.concurrency);
     let cache = root.join(&config.layout.cache).join("concepts");
     let timeout = Duration::from_secs(u64::from(config.lab.timeout_minutes) * 60);
-    Ok((dir, cache, timeout, asset))
+    let api = super::image_api::plan(&root, &config, kind, backend.choice, backend.via_agent);
+    Ok((dir, cache, timeout, asset, api))
 }
 
 /// Queues the candidates for an asset's missing (or named) views. Shared
@@ -105,13 +117,22 @@ pub(crate) fn make_views(
     lab: &Concepts,
     tools: &Toolbox,
     request: &NewOtherViews,
+    backend: Backend,
 ) -> CommandResult<(Direction, Vec<ConceptJob>)> {
-    let (dir, cache, timeout, asset) = lane_parts(session, lab, &request.project, &request.asset)?;
+    let (dir, cache, timeout, asset, api) = lane_parts(
+        session,
+        lab,
+        &request.project,
+        &request.asset,
+        ImageJobKind::OtherViews,
+        backend,
+    )?;
     let lane = Lane {
         project_dir: &dir,
         cache_dir: &cache,
         tools,
         timeout,
+        api,
     };
     let current = asset_refs(&dir, &asset);
     Ok(lab.start_views(&lane, &asset, &current, request)?)
@@ -124,13 +145,22 @@ pub(crate) fn clean(
     lab: &Concepts,
     tools: &Toolbox,
     request: &NewCleanRef,
+    backend: Backend,
 ) -> CommandResult<(Direction, Vec<ConceptJob>)> {
-    let (dir, cache, timeout, asset) = lane_parts(session, lab, &request.project, &request.asset)?;
+    let (dir, cache, timeout, asset, api) = lane_parts(
+        session,
+        lab,
+        &request.project,
+        &request.asset,
+        ImageJobKind::CleanBackground,
+        backend,
+    )?;
     let lane = Lane {
         project_dir: &dir,
         cache_dir: &cache,
         tools,
         timeout,
+        api,
     };
     let current = asset_refs(&dir, &asset);
     Ok(lab.start_clean(&lane, &asset, &current, request)?)
@@ -230,7 +260,7 @@ pub async fn refs_make_views(
     request: NewOtherViews,
 ) -> CommandResult<RefsView> {
     let tools = super::toolchain::toolbox(&session).await?;
-    make_views(&session, &lab.0, &tools, &request)?;
+    make_views(&session, &lab.0, &tools, &request, Backend::default())?;
     view(&session, &lab.0, &request.project, &request.asset)
 }
 
@@ -242,7 +272,7 @@ pub async fn refs_clean(
     request: NewCleanRef,
 ) -> CommandResult<RefsView> {
     let tools = super::toolchain::toolbox(&session).await?;
-    clean(&session, &lab.0, &tools, &request)?;
+    clean(&session, &lab.0, &tools, &request, Backend::default())?;
     view(&session, &lab.0, &request.project, &request.asset)
 }
 

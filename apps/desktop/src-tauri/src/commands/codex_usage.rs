@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
+use maquette_core::concepts::backend::ImageBackend;
 use maquette_core::concepts::codex_usage::{self, CodexUsage};
 use maquette_core::concepts::{ConceptEvent, ConceptJob, ConceptJobState, Concepts};
 use maquette_core::pipeline::tools::Toolbox;
@@ -133,10 +134,11 @@ pub(crate) fn publish(app: &AppHandle, usage: &CodexUsage) {
 }
 
 /// True for a job event that should be followed by a usage read: a job
-/// finished well or failed, or met the usage limit.
+/// finished well or failed, or met the usage limit. Jobs on the Image API
+/// spend no Codex usage.
 pub(crate) fn settles(event: &ConceptEvent) -> bool {
     match event {
-        ConceptEvent::Job { job } => {
+        ConceptEvent::Job { job } if job.backend == ImageBackend::Codex => {
             matches!(job.state, ConceptJobState::Done | ConceptJobState::Failed)
                 || (job.state == ConceptJobState::RateLimited && job.usage_limit)
         }

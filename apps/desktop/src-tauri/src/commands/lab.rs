@@ -5,6 +5,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use maquette_core::concepts::backend::{ImageBackend, ImageJobKind};
 use maquette_core::concepts::jobs::{Lane, Start};
 use maquette_core::concepts::{
     self, ConceptJob, Concepts, Direction, MovedDirection, NewConcepts, NewObjectRefs, REFS_DIR,
@@ -130,12 +131,22 @@ pub(crate) fn view(session: &Session, lab: &Concepts, project_id: &str) -> Comma
     })
 }
 
-/// Queues one Codex job per image. Shared with the MCP server.
+/// How a Lab batch runs: on the backend Settings picks for its kind, or
+/// the one `choice` names; `via_agent` marks an agent's spend.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct Backend {
+    pub choice: Option<ImageBackend>,
+    pub via_agent: bool,
+}
+
+/// Queues one job per image, on Codex or the Image API. Shared with the
+/// MCP server.
 pub(crate) fn generate(
     session: &Session,
     lab: &Concepts,
     tools: &Toolbox,
     request: &NewConcepts,
+    backend: Backend,
 ) -> CommandResult<(Direction, Vec<ConceptJob>)> {
     let (root, config, dir) = project_dir(session, &request.project)?;
     let request = concepts::clean_request(&dir, request)?;
@@ -147,6 +158,13 @@ pub(crate) fn generate(
         tools,
         request,
         timeout: Duration::from_secs(u64::from(config.lab.timeout_minutes) * 60),
+        api: super::image_api::plan(
+            &root,
+            &config,
+            ImageJobKind::Concepts,
+            backend.choice,
+            backend.via_agent,
+        ),
     })?)
 }
 
@@ -157,6 +175,7 @@ pub(crate) fn make_objects(
     lab: &Concepts,
     tools: &Toolbox,
     request: &NewObjectRefs,
+    backend: Backend,
 ) -> CommandResult<(Direction, Vec<ConceptJob>)> {
     let (root, config, dir) = project_dir(session, &request.project)?;
     let request = concepts::objects::clean(&dir, request)?;
@@ -167,6 +186,13 @@ pub(crate) fn make_objects(
         cache_dir: &cache,
         tools,
         timeout: Duration::from_secs(u64::from(config.lab.timeout_minutes) * 60),
+        api: super::image_api::plan(
+            &root,
+            &config,
+            ImageJobKind::ObjectRefs,
+            backend.choice,
+            backend.via_agent,
+        ),
     };
     Ok(lab.start_objects(&lane, &request)?)
 }
@@ -179,7 +205,7 @@ pub async fn lab_make_objects(
     request: NewObjectRefs,
 ) -> CommandResult<LabView> {
     let tools = super::toolchain::toolbox(&session).await?;
-    make_objects(&session, &lab.0, &tools, &request)?;
+    make_objects(&session, &lab.0, &tools, &request, Backend::default())?;
     view(&session, &lab.0, &request.project)
 }
 
@@ -221,7 +247,7 @@ pub async fn lab_generate(
     request: NewConcepts,
 ) -> CommandResult<LabView> {
     let tools = super::toolchain::toolbox(&session).await?;
-    generate(&session, &lab.0, &tools, &request)?;
+    generate(&session, &lab.0, &tools, &request, Backend::default())?;
     view(&session, &lab.0, &request.project)
 }
 

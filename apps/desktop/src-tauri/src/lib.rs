@@ -53,6 +53,7 @@ pub fn run() {
             app.manage(commands::codex_usage::CodexUsageWatch::default());
             app.manage(commands::lab::Lab::new(app.handle().clone()));
             let studio = commands::providers::Studio::new(app.handle().clone());
+            commands::image_api::connect(&app.state::<commands::lab::Lab>().0, studio.0.secrets());
             let watch =
                 commands::downloads::Watch::new(app.handle().clone(), studio.0.clone(), config_dir);
             app.manage(studio);

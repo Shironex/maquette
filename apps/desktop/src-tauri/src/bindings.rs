@@ -9,15 +9,15 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 
 use crate::commands::{
     about, agents, animations, app, assets, built, codex_usage, credits, dialogs, downloads, game,
-    inbox, inspect, lab, layout, library, materials, motion, page, parts, paths, pipeline, prepare,
-    project, providers, quit, refs, ship, site, split, thumbs, timeline, toolchain, trash, updater,
-    workspace,
+    image_api, inbox, inspect, lab, layout, library, materials, motion, page, parts, paths,
+    pipeline, prepare, project, providers, quit, refs, ship, site, split, thumbs, timeline,
+    toolchain, trash, updater, workspace,
 };
 use crate::events::{
-    BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged,
-    LibraryChanged, MaterialsChanged, McpUpdate, PageServerChanged, PipelineChanged,
-    PipelineUpdate, PrepareChanged, ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady,
-    UpdaterUpdate,
+    BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival, ImageSettingsChanged,
+    InboxChanged, LayoutChanged, LibraryChanged, MaterialsChanged, McpUpdate, PageServerChanged,
+    PipelineChanged, PipelineUpdate, PrepareChanged, ProjectChanged, ProviderUpdate, QuitRequested,
+    ThumbnailReady, UpdaterUpdate,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -159,6 +159,10 @@ pub fn builder() -> Builder<tauri::Wry> {
             codex_usage::codex_usage_get,
             codex_usage::codex_usage_read,
             codex_usage::lab_lift_usage_limit,
+            image_api::image_api_status,
+            image_api::image_api_key_save,
+            image_api::image_api_key_remove,
+            image_api::image_api_key_test,
             refs::refs_get,
             refs::refs_set_views,
             refs::refs_make_views,
@@ -218,7 +222,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             PageServerChanged,
             LibraryChanged,
             UpdaterUpdate,
-            CodexUsageUpdate
+            CodexUsageUpdate,
+            ImageSettingsChanged
         ])
         .types(&maquette_core::types())
 }
