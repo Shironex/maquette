@@ -6,6 +6,10 @@ asset id. They are applied in this order, whatever order they were added in:
     apply-transforms   bake object transforms into the meshes
     remove-loose       drop loose parts smaller than "minShare" of the model
     merge              join the meshes into one ("byMaterial": one per material)
+    split-parts        cut each mesh into parts named part_1, part_2 (top
+                       first), "by" "loose" pieces or "material", joining a
+                       piece no bigger than "mergeUnder" of the model into
+                       its nearest bigger neighbour
     (pad edges)        with "padEdges": true, push each UV island's border
                        colours out into the empty texels around it
     decimate           collapse down to "triangles"
@@ -20,6 +24,11 @@ no island covers with the colour of the nearest islands, so no gap colour
 is left to bleed, at any size or mip level. It runs on the model's own UVs,
 before a decimate moves them, and only changes texels the model never
 shows.
+
+then the part names ("parts" in the entry): the groups in "merge" are
+joined into their first part and each part in "names" is renamed, so the
+exported nodes carry the names object states and explode tracks look for.
+"hidden" is only for looking in the Inspector and changes nothing here.
 
 then the real size: a uniform scale so the model's "height", "width",
 "depth" or "longest" side measures "value" in "unit" (cm or m). The scene
@@ -60,12 +69,16 @@ ORDER = [
     "apply-transforms",
     "remove-loose",
     "merge",
+    "split-parts",
     "pad-edges",
     "decimate",
     "shrink-textures",
     "origin-bottom",
 ]
 UNIT_METRES = {"cm": 0.01, "m": 1.0}
+# The name a model file gives an object, which the export writes back when
+# Blender had to rename it (build_scene.py tags imports with it).
+SOURCE_NAME = "maquette_name"
 
 
 def log(message):
@@ -134,12 +147,19 @@ def gltf_bounds(objects):
     return [[lo.x, lo.z, -hi.y], [hi.x, hi.z, -lo.y]]
 
 
+def draw_calls(obj):
+    """One per material the mesh's faces use, as the exporter splits it."""
+    used = {polygon.material_index for polygon in obj.data.polygons}
+    return len(used)
+
+
 def stats(objects):
     bounds = gltf_bounds(objects)
     edges = [max(image.size[0], image.size[1]) for image in images(objects)]
     return {
         "triangles": sum(triangles(o) for o in meshes(objects)),
         "objects": len(meshes(objects)),
+        "drawCalls": sum(draw_calls(o) for o in meshes(objects)),
         "maxTexture": max(edges, default=0),
         "min": [round(v, 6) for v in bounds[0]] if bounds else None,
         "max": [round(v, 6) for v in bounds[1]] if bounds else None,
@@ -268,6 +288,136 @@ def merge(objects, fixup):
     if joined == 0:
         return "nothing to join"
     return f"{len(loose)} meshes joined into {len(groups)}"
+
+
+def face_groups(bm, by):
+    """A group per face: its loose piece, or its material slot."""
+    if by == "material":
+        return [face.material_index for face in bm.faces]
+    owner = {}
+    for i, group in enumerate(components(bm)):
+        for vert in group:
+            owner[vert.index] = i
+    return [owner[face.verts[0].index] for face in bm.faces]
+
+
+def box_gap(a, b):
+    """How far apart two (lo, hi) boxes are, 0 when they touch."""
+    out = [max(a[0][i] - b[1][i], b[0][i] - a[1][i], 0.0) for i in range(3)]
+    return Vector(out).length
+
+
+def plan_split(obj, bm, by, limit):
+    """The faces of each part and how many small pieces joined another.
+
+    A piece whose box diagonal is at most `limit` metres joins the nearest
+    bigger piece; when every piece is that small the largest one stays."""
+    groups = {}
+    for face, group in zip(bm.faces, face_groups(bm, by)):
+        groups.setdefault(group, []).append(face.index)
+    boxes = {}
+    for group, faces in groups.items():
+        points = [obj.matrix_world @ v.co for i in faces for v in bm.faces[i].verts]
+        boxes[group] = (Vector(map(min, *points)), Vector(map(max, *points)))
+    size = {g: (box[1] - box[0]).length for g, box in boxes.items()}
+    big = [g for g in groups if size[g] > limit] or [max(groups, key=size.get)]
+    parts = {g: list(groups[g]) for g in big}
+    for group in groups:
+        if group in parts:
+            continue
+        home = min(big, key=lambda b: (box_gap(boxes[group], boxes[b]), -size[b]))
+        parts[home].extend(groups[group])
+    return list(parts.values()), len(groups), len(groups) - len(big)
+
+
+def cut(obj, faces):
+    """A copy of `obj` with only `faces`, its origin at their centre."""
+    part = obj.copy()
+    part.data = obj.data.copy()
+    for collection in obj.users_collection:
+        collection.objects.link(part)
+    bm = bmesh.new()
+    bm.from_mesh(part.data)
+    bm.faces.ensure_lookup_table()
+    keep = set(faces)
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index not in keep], context="FACES")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    bm.to_mesh(part.data)
+    bm.free()
+    points = [v.co for v in part.data.vertices]
+    centre = (Vector(map(min, *points)) + Vector(map(max, *points))) / 2
+    part.data.transform(Matrix.Translation(-centre))
+    part.matrix_basis = part.matrix_basis @ Matrix.Translation(centre)
+    return part
+
+
+def split_parts(objects, fixup):
+    by = "material" if fixup.get("by") == "material" else "loose"
+    found = world_bounds(objects)
+    if found is None:
+        return "no meshes", None
+    limit = float(fixup.get("mergeUnder", 0.01)) * (found[1] - found[0]).length
+    numbers = {"pieces": 0, "merged": 0, "byLoose": 0, "byMaterial": 0}
+    made = []
+    for obj in [o for o in meshes(objects) if not rigged(o) and o.data.polygons]:
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        bm.verts.ensure_lookup_table()
+        bm.faces.ensure_lookup_table()
+        bm.verts.index_update()
+        plans = {way: plan_split(obj, bm, way, limit) for way in ("loose", "material")}
+        bm.free()
+        numbers["byLoose"] += len(plans["loose"][0])
+        numbers["byMaterial"] += len(plans["material"][0])
+        parts, pieces, merged = plans[by]
+        numbers["pieces"] += pieces
+        numbers["merged"] += merged
+        if len(parts) < 2:
+            continue
+        cuts = [cut(obj, faces) for faces in parts]
+        for child in list(obj.children):
+            world = child.matrix_world.copy()
+            child.parent = cuts[0]
+            child.matrix_world = world
+        bpy.data.objects.remove(obj)
+        made.extend(cuts)
+    bpy.context.view_layer.update()
+    # Top first, then left to right, so the names follow the model.
+    made.sort(key=lambda o: (-round(o.matrix_world.translation.z, 4), o.matrix_world.translation.x))
+    for i, part in enumerate(made, start=1):
+        name = f"part_{i}"
+        part.name = name
+        part.data.name = name
+        part[SOURCE_NAME] = name
+    objects.extend(made)
+    word = "material" if by == "material" else "piece"
+    if not made:
+        return f"one {word}, nothing to split", numbers
+    note = f"{len(made)} parts, {numbers['pieces']} {word}s, {numbers['merged']} tiny bits merged in"
+    return note, numbers
+
+
+def part_name(obj):
+    """The name the model file gives the part."""
+    return obj.get(SOURCE_NAME) or obj.name
+
+
+def apply_parts(objects, parts):
+    """Joins the groups in parts["merge"], then renames by parts["names"]."""
+    names = parts.get("names") or {}
+    joined = renamed = 0
+    for group in parts.get("merge") or []:
+        by_name = {part_name(o): o for o in meshes(objects) if not rigged(o)}
+        found = [by_name[p] for p in group if p in by_name]
+        joined += join(found)
+    for obj in meshes(objects):
+        new = names.get(part_name(obj))
+        if new:
+            obj.name = new
+            obj.data.name = new
+            obj[SOURCE_NAME] = new
+            renamed += 1
+    return f"{renamed} parts renamed, {joined} joined into another"
 
 
 def decimate(objects, fixup):
@@ -531,6 +681,7 @@ OPS = {
     "apply-transforms": apply_transforms,
     "remove-loose": remove_loose,
     "merge": merge,
+    "split-parts": split_parts,
     "decimate": decimate,
     "pad-edges": lambda objects, _fixup: pad_edges(objects),
     "shrink-textures": shrink_textures,
@@ -568,16 +719,25 @@ def prepare(objects, entry, say=log):
             continue
         before = stats(objects)
         bpy.context.view_layer.update()
-        note = OPS[op](objects, wanted[op])
+        done = OPS[op](objects, wanted[op])
+        note, extra = done if isinstance(done, tuple) else (done, None)
         bpy.context.view_layer.update()
-        # Merge and remove-loose delete objects; none of them adds one.
+        # Merge and remove-loose delete objects; a split adds the parts it
+        # cuts to the list and deletes the meshes it cut them from.
         objects = live(objects)
         after = stats(objects)
         say(f"{op}: {note}")
-        steps.append({"op": op, "before": before, "after": after, "note": note})
+        step = {"op": op, "before": before, "after": after, "note": note}
+        if extra is not None:
+            step["split"] = extra
+        steps.append(step)
     unknown = sorted(set(wanted) - set(ORDER))
     if unknown:
         say(f"skipped unknown fix-ups: {', '.join(str(u) for u in unknown)}")
+    if entry.get("parts"):
+        say(f"parts: {apply_parts(objects, entry['parts'])}")
+        bpy.context.view_layer.update()
+        objects = live(objects)
     scale = size_scale(objects, entry.get("size"))
     if scale is not None:
         for obj in roots(objects):

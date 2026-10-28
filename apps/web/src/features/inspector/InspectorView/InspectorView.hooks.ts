@@ -23,11 +23,11 @@ export function useInspectorView() {
     // A finished run changes the shipped models, so it reloads too.
   }, [projectId, lastRun, load]);
 
-  // A game has no Layout or Paths; a website has no Budget.
+  // A game has no Layout or Paths; a website has no Budget. Both have Parts.
   const game = isGame(project);
   const shown = game
-    ? tab === 'budget'
-      ? 'budget'
+    ? tab === 'budget' || tab === 'parts'
+      ? tab
       : 'compare'
     : tab === 'budget'
       ? 'compare'

@@ -26,6 +26,7 @@ export const FIXUP_ORDER: readonly FixupKind[] = [
   'apply-transforms',
   'remove-loose',
   'merge',
+  'split-parts',
   'decimate',
   'shrink-textures',
   'origin-bottom',
@@ -35,6 +36,7 @@ export const FIXUP_LABEL: Record<FixupKind, string> = {
   'apply-transforms': 'Apply transforms',
   'remove-loose': 'Remove loose parts',
   merge: 'Merge objects',
+  'split-parts': 'Split into parts',
   decimate: 'Decimate',
   'shrink-textures': 'Shrink textures',
   'origin-bottom': 'Origin to bottom centre',
@@ -46,6 +48,8 @@ export const FIXUP_HINT: Record<FixupKind, string> = {
     'Bakes each object’s move, turn and scale into its mesh. Rigged meshes keep theirs.',
   'remove-loose': 'Drops stray specks: loose parts this share of the model’s size or smaller.',
   merge: 'Joins the meshes into one, or one per material, for fewer draw calls.',
+  'split-parts':
+    'Cuts one mesh into named parts, by loose pieces or by material, so Motion states and explode tracks can move each one. Keeps the texture.',
   decimate: 'Collapses the mesh down to about this many triangles.',
   'shrink-textures': 'Scales every image down to this many pixels on its longest edge.',
   'origin-bottom': 'Moves the model so its bottom centre is the origin, standing on the floor.',
@@ -96,6 +100,8 @@ export function describeFixup(f: Fixup): string {
       return `Remove loose parts under ${trim((f.minShare ?? 0) * 100)}%`;
     case 'merge':
       return f.byMaterial ? 'Merge objects by material' : 'Merge objects';
+    case 'split-parts':
+      return f.by === 'material' ? 'Split into parts by material' : 'Split into parts';
     default:
       return FIXUP_LABEL[f.op];
   }
@@ -155,6 +161,9 @@ export function hasFixup(prep: ModelPrep, fixup: Fixup): boolean {
   return prep.fixups.some(f => JSON.stringify(f) === JSON.stringify(fixup));
 }
 
+/** A split piece this share of the model's size or smaller joins its nearest neighbour. */
+export const MERGE_UNDER = 0.01;
+
 const TEXTURE_PX: Record<TextureSize, number> = { '1K': 1024, '2K': 2048, '4K': 4096 };
 
 /** What new fix-ups start from, the way the core works it out of the workspace settings. */
@@ -177,6 +186,8 @@ export function defaultFixup(kind: FixupKind, d: FixupDefaults): Fixup {
       return { op: kind, minShare: d.looseShare ?? 0.02 };
     case 'merge':
       return { op: kind, byMaterial: false };
+    case 'split-parts':
+      return { op: kind, by: 'loose', mergeUnder: MERGE_UNDER };
     default:
       return { op: kind };
   }
@@ -210,6 +221,15 @@ export function reportRows(r: FixupReport): NumberRow[] {
   const rows: [string, string, string][] = [
     ['Triangles', formatCount(r.before.triangles), formatCount(r.after.triangles)],
     ['Objects', String(r.before.objects), String(r.after.objects)],
+    ...(r.after.drawCalls != null
+      ? [
+          ['Draw calls', String(r.before.drawCalls ?? 0), String(r.after.drawCalls)] as [
+            string,
+            string,
+            string,
+          ],
+        ]
+      : []),
     [
       'Texture',
       r.before.maxTexture ? `${r.before.maxTexture} px` : 'None',
@@ -233,6 +253,19 @@ export function stepLine(step: FixupReport['steps'][number]): string {
       ? `${formatCount(step.before.triangles)} to ${formatCount(step.after.triangles)} triangles`
       : null;
   return [tris, step.note].filter(Boolean).join(', ') || 'Nothing to change';
+}
+
+/** What a split found, for its line under the numbers: "By loose pieces: 5 parts, 9 pieces, 4 tiny bits merged in. By material: 4 parts." */
+export function splitLine(report: FixupReport): string | null {
+  const step = report.steps.find(st => st.op === 'split-parts');
+  const s = step?.split;
+  if (!s) return null;
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const material = report.plan.fixups.some(f => f.op === 'split-parts' && f.by === 'material');
+  const loose = `By loose pieces: ${plural(s.byLoose, 'part')}`;
+  const byMaterial = `By material: ${plural(s.byMaterial, 'part')}`;
+  const detail = `${plural(s.pieces, material ? 'material' : 'piece')}, ${plural(s.merged, 'tiny bit')} merged in`;
+  return material ? `${byMaterial}, ${detail}. ${loose}.` : `${loose}, ${detail}. ${byMaterial}.`;
 }
 
 /** The key of one preview: what it runs on and the plan. */

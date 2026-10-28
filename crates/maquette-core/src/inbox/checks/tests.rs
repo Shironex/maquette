@@ -119,6 +119,33 @@ fn merged_objects_warn_except_in_scenes() {
 }
 
 #[test]
+fn a_prop_that_is_one_mesh_offers_a_split_into_parts() {
+    let config = WorkspaceConfig::default();
+    let list = checks(&fixture::merged_islands(), AssetKind::Prop, &config);
+    let row = list.iter().find(|c| c.id == "merged").expect("merged");
+    assert_eq!(row.title, "One mesh, no parts");
+    assert!(
+        row.detail
+            .as_deref()
+            .is_some_and(|d| d.starts_with("Motion states and explode tracks move named parts.")),
+        "{row:?}"
+    );
+    assert_eq!(
+        row.fixes[0],
+        Fixup::SplitParts {
+            by: crate::prepare::SplitBy::Loose,
+            merge_under: crate::prepare::DEFAULT_MERGE_UNDER,
+        },
+        "by loose pieces with bits under 1% merged, first"
+    );
+    assert_eq!(row.fixes[0].describe(), "Split into parts");
+    // A character keeps the older wording: its rig keeps the mesh whole.
+    let character = checks(&fixture::merged_islands(), AssetKind::Character, &config);
+    let row = character.iter().find(|c| c.id == "merged").expect("merged");
+    assert!(row.title.starts_with("Looks like"), "{row:?}");
+}
+
+#[test]
 fn a_send_without_pbr_does_not_warn_about_missing_maps() {
     let config = WorkspaceConfig::default();
     let mut report = analyse_bytes(&fixture::merged_islands(), Path::new(".")).expect("analyse");
@@ -266,7 +293,13 @@ fn checks_offer_the_fixups_that_answer_them() {
     );
     assert!(matches!(
         fixes(&merged, "merged").as_slice(),
-        [Fixup::RemoveLoose { .. }]
+        [
+            Fixup::SplitParts {
+                by: crate::prepare::SplitBy::Loose,
+                ..
+            },
+            Fixup::RemoveLoose { .. }
+        ]
     ));
     let rigged = checks(
         &fixture::character(false),

@@ -5,7 +5,7 @@ import { useFraming, useModel, useStudioRig } from './Studio.hooks';
 import type { StudioProps } from './Studio.types';
 
 /** The model in the studio: the rig, the model in its look, its skeleton and the orbit. */
-export default function Studio({ source, mode, turntable }: StudioProps) {
+export default function Studio({ source, mode, turntable, parts, onPickPart }: StudioProps) {
   const loaded = useModel(source.url, source.onError);
   const framing = useFraming(loaded, source.onLoaded);
   const rig = useStudioRig(framing);
@@ -16,7 +16,7 @@ export default function Studio({ source, mode, turntable }: StudioProps) {
   return (
     <>
       {rig ? <primitive object={rig} /> : null}
-      {loaded ? <Model loaded={loaded} mode={mode} /> : null}
+      {loaded ? <Model loaded={loaded} mode={mode} parts={parts} onPickPart={onPickPart} /> : null}
       {skeleton ? <Skeleton bones={skeleton.bones} extent={skeleton.extent} /> : null}
       <Controls turntable={turntable} target={framing?.target ?? null} />
     </>

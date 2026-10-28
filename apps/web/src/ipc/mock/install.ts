@@ -13,6 +13,7 @@ import { conceptFiles, OBJECT_REF_FILES, REF_FILES } from './lab-fixtures';
 import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
 import { motionFiles } from './create-motion-handlers';
+import { PARTS_CACHE, partsFiles } from './create-parts-handlers';
 import { PROVIDER_REF_FILES } from './providers';
 import { REFS_SCENARIO_FILES } from './create-refs-handlers';
 import { MOCK_SITE_URL, conceptPath, pageOption, posterPath } from './create-page-handlers';
@@ -91,9 +92,19 @@ for (const [file, model] of Object.entries({
   ...INSPECT_FILES,
   ...LAYOUT_FILES,
   ...motionFiles(motion),
+  ...partsFiles(params.get('parts')),
 })) {
   const url = models[`../../assets/mock/models/${model}`];
   if (url) registerMockFile(`${root}/projects/frostveil/${file}`, url);
+}
+// The fix-up previews' copies the Parts tab and Compare show.
+for (const [path, model] of Object.entries(params.get('parts') ? PARTS_CACHE : {})) {
+  const url = models[`../../assets/mock/models/${model}`];
+  if (url) registerMockFile(path, url);
+}
+if (params.get('parts')) {
+  const url = models['../../assets/mock/models/frost_lantern.glb'];
+  if (url) registerMockFile(`${root}/inbox/frost_lantern.glb`, url);
 }
 // `?motion=still` puts its prop in Frost cathedral.
 for (const [file, model] of Object.entries(motion === 'still' ? motionFiles(motion) : {})) {
@@ -132,6 +143,7 @@ const handle = createBackend({
   arrival: params.get('arrival'),
   built: params.get('built'),
   motion,
+  parts: params.get('parts'),
   page: pageOption(params),
   timeline: params.get('timeline'),
   game: params.get('game'),

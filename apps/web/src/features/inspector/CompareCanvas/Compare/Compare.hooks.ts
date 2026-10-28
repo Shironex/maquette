@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { checkerTexture, originalsOf } from '@/features/viewer/materials';
+import { ROOT_FLAG } from '@/features/viewer/parts';
 import { BACKDROP, castShadows, gltfLoader, type Framing } from '@/features/viewer/studio';
 import { FLIGHT_MS, SAMPLE_EVERY_MS, flight } from '@/state/inspector';
 import { setPose } from '../../camera-pose';
@@ -49,6 +50,7 @@ export function useSide(models: CompareModel[], onError: (message: string) => vo
             ? (cloneSkinned(gltf.scene) as THREE.Group)
             : gltf.scene;
           used.add(model.url);
+          scene.userData[ROOT_FLAG] = true;
           const holder = new THREE.Group();
           holder.position.set(...model.position);
           holder.userData.modelId = model.id;

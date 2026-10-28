@@ -50,13 +50,15 @@
  * Settings > About and the app updater: inert, the header pill, an update
  * downloading and ready, and the style set (scripts/visual-check/style.mjs)
  * the Lab's style board, and the refs set (scripts/visual-check/refs.mjs)
- * multi-view refs and the weak ref warnings. It renders
+ * multi-view refs and the weak ref warnings, and the parts set
+ * (scripts/visual-check/parts.mjs) a split into parts from the Inbox to the
+ * Inspector's Parts tab and before and after. It renders
  * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -75,6 +77,7 @@ import { compareShots } from './visual-check/compare.mjs';
 import { shipShots } from './visual-check/ship.mjs';
 import { motionShots } from './visual-check/motion.mjs';
 import { pageShots } from './visual-check/page.mjs';
+import { partsShots } from './visual-check/parts.mjs';
 import { pathsShots } from './visual-check/paths.mjs';
 import { pipelineShots } from './visual-check/pipeline.mjs';
 import { refsShots } from './visual-check/refs.mjs';
@@ -996,6 +999,7 @@ try {
   if (!only || only === 'library') await libraryShots({ open, shot });
   if (!only || only === 'animations') await animationsShots({ open, shot });
   if (!only || only === 'compare') await compareShots({ open, shot });
+  if (!only || only === 'parts') await partsShots({ open, shot });
   if (!only || only === 'ship') await shipShots({ open, shot, hoverTip });
   if (!only || only === 'sync') await syncShots({ open, shot });
   if (!only || only === 'about') await aboutShots({ open, shot });

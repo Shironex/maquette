@@ -1,6 +1,6 @@
 import { cn } from '@maquette/ui';
 import type { FixupReport } from '@/ipc/client';
-import { FIXUP_LABEL, reportRows, stepLine } from '@/state/prepare';
+import { FIXUP_LABEL, reportRows, splitLine, stepLine } from '@/state/prepare';
 
 export interface PreviewNumbersProps {
   report: FixupReport;
@@ -32,6 +32,7 @@ export default function PreviewNumbers({ report }: PreviewNumbersProps) {
       <span className="min-w-0">{stepLine(step)}</span>
     </li>
   ));
+  const split = splitLine(report);
   return (
     <div className="flex flex-col gap-2 rounded-card border border-line bg-app px-3 py-2">
       <table className="w-full text-[13px]" aria-label="Before and after the fix-ups">
@@ -54,6 +55,10 @@ export default function PreviewNumbers({ report }: PreviewNumbersProps) {
         <ol className="flex flex-col gap-0.5 border-t border-line pt-2 text-meta text-fg-mute">
           {steps}
         </ol>
+      ) : null}
+      {split ? <p className="border-t border-line pt-2 text-meta text-fg-dim">{split}</p> : null}
+      {report.steps.some(st => st.op === 'split-parts') ? (
+        <p className="text-meta text-fg-mute">Same maps, same UVs: the texture stays.</p>
       ) : null}
     </div>
   );

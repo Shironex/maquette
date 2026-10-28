@@ -28,4 +28,23 @@ describe('CheckFixes', () => {
     await userEvent.click(added);
     expect(usePrepareStore.getState().drafts['lamp.glb']).toBeUndefined();
   });
+
+  it('offers a split for a prop that is one mesh', async () => {
+    const merged: Check = {
+      id: 'merged',
+      status: 'warning',
+      title: 'One mesh, no parts',
+      detail: null,
+      fixes: [
+        { op: 'split-parts', by: 'loose', mergeUnder: 0.01 },
+        { op: 'remove-loose', minShare: 0.02 },
+      ],
+    };
+    render(<CheckFixes item={item} check={merged} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Split into parts' }));
+    expect(screen.getByRole('button', { name: 'Split into parts added' })).toBeInTheDocument();
+    expect(usePrepareStore.getState().drafts['lamp.glb']?.fixups).toEqual([
+      { op: 'split-parts', by: 'loose', mergeUnder: 0.01 },
+    ]);
+  });
 });

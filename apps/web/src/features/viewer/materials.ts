@@ -1,12 +1,13 @@
 /**
  * The looks a loaded model can take in a preview: its own shaded materials,
  * a wireframe over flat clay, a UV checker, a ghost for the skeleton view,
- * or only its baked lightmap. Plain three.js, so the Inbox preview and the
+ * only its baked lightmap, or a colour per part (see `parts.ts`). Plain three.js, so the Inbox preview and the
  * Inspector's compare view share it.
  */
 import * as THREE from 'three';
+import { applyParts, type PartLook } from './parts';
 
-export type MaterialMode = 'shaded' | 'wireframe' | 'uv' | 'bones' | 'lightmap';
+export type MaterialMode = 'shaded' | 'wireframe' | 'uv' | 'bones' | 'lightmap' | 'parts';
 
 /** An 8 by 8 checker with a number per tile, so stretched UVs show. */
 export function checkerTexture(): THREE.CanvasTexture {
@@ -82,12 +83,14 @@ export interface Applied {
   lightmapped: number;
 }
 
-/** Gives every mesh in `originals` the look of `mode`. */
+/** Gives every mesh in `originals` the look of `mode`; `parts` tunes the parts look. */
 export function applyMode(
   originals: Originals,
   mode: MaterialMode,
-  checker: THREE.Texture
+  checker: THREE.Texture,
+  parts?: PartLook
 ): Applied {
+  if (mode === 'parts') return { lightmapped: 0, undo: applyParts(originals, parts) };
   const made: THREE.Material[] = [];
   const overlays: THREE.Mesh[] = [];
   const keep = <T extends THREE.Material>(m: T): T => {

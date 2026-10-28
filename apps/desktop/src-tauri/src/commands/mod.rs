@@ -20,6 +20,7 @@ pub mod library;
 pub mod materials;
 pub mod motion;
 pub mod page;
+pub mod parts;
 pub mod paths;
 pub mod pipeline;
 pub mod prepare;

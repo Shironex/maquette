@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 79 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 82 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -37,6 +37,8 @@ These look at the workspace and change nothing.
 | `get_starters`                                | Each starter script in `tools/` as current, outdated, edited or missing                                                                                                                                                                                           | Nothing | No       |
 | `get_layout`                                  | Where each model stands, the camera stops, the desk, the first view, object states, explode tracks, paths and clips kept off the site                                                                                                                             | Nothing | No       |
 | `get_motion`                                  | Every model's rig, clips and parts, and what the clips weigh inside the scene budget                                                                                                                                                                              | Nothing | No       |
+| [`get_parts`](#set_parts)                     | An asset's parts as its newest model ships them: the name in the model, the name it ships as, triangles, materials, hidden and joined parts. Runs its split headless on a copy first when it has not run                                                          | Nothing | No       |
+| `compare_versions`                            | Two versions of an asset (or one before and after its fix-ups) part by part: the parts Motion can move, draw calls, triangles, textures, transfer size and Inbox checks                                                                                           | Nothing | No       |
 | `list_built_assets`                           | Each built asset's script, helpers, state and last build                                                                                                                                                                                                          | Nothing | No       |
 | `get_page_preview`                            | The site dev server's state, address, command, who started it and its last log lines                                                                                                                                                                              | Nothing | No       |
 | `get_game`                                    | A game project's settings and each model against its folder's budget                                                                                                                                                                                              | Nothing | No       |
@@ -62,7 +64,8 @@ These look at the workspace and change nothing.
 | `set_skip_bake`                                       | Sets one or more assets to skip the bake, or join it again                                                                     | Nothing | No       |
 | `set_pad_edges`                                       | Pads an asset's texture edges before the textures shrink, or stops                                                             | Nothing | No       |
 | `set_real_size`                                       | Sets or clears the real size a model is scaled to                                                                              | Nothing | No       |
-| `add_fixups`                                          | Adds fix-ups to an asset; one of a kind already there is replaced                                                              | Nothing | No       |
+| `add_fixups`                                          | Adds fix-ups to an asset, Split into parts (`split-parts`) among them; one of a kind already there is replaced                 | Nothing | No       |
+| [`set_parts`](#set_parts)                             | Renames, joins, unjoins, hides or shows an asset's parts                                                                       | Nothing | No       |
 | `remove_fixups`                                       | Removes fix-ups by kind, or all of them                                                                                        | Nothing | No       |
 | `update_starters`                                     | Brings outdated or missing starter scripts up to date, as the Update banner does                                               | Nothing | No       |
 | [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states, explode tracks, paths and clips                                         | Nothing | No       |
@@ -308,6 +311,24 @@ Returns each model's source file (bytes and triangles) against the file that shi
 | Parameter | Type   | Required | Notes           |
 | --------- | ------ | -------- | --------------- |
 | `project` | string | yes      | The project id. |
+
+### set_parts
+
+`changes the project`
+
+Renames, joins, hides or shows an asset's parts, as the Inspector's Parts tab does. Parts are named by their id (the name in the model, such as `part_2`) or the name they ship as; see `get_parts`. Renames and joins ship in the next build, as the export's node names, which object states and explode tracks pick parts by. Hiding only draws a part as a ghost in the Inspector. Nothing is written when any part of the change is refused. Returns the parts like `get_parts`.
+
+| Parameter | Type       | Required | Notes                                                                         |
+| --------- | ---------- | -------- | ----------------------------------------------------------------------------- |
+| `project` | string     | yes      | The project id.                                                               |
+| `asset`   | string     | yes      | The asset id or name.                                                         |
+| `rename`  | object     | no       | Part to its new name. Unique, at most 64 characters; the id forgets a rename. |
+| `merge`   | string[][] | no       | Groups of two or more parts joined into one, named after the first.           |
+| `unmerge` | string[]   | no       | Parts whose join is undone.                                                   |
+| `hide`    | string[]   | no       | Parts drawn as a ghost in the Inspector. They still ship.                     |
+| `show`    | string[]   | no       | Hidden parts drawn again.                                                     |
+
+A model that is one mesh lists one part. Split it first: `add_fixups` with `{ "op": "split-parts", "by": "loose", "mergeUnder": 0.01 }` (`by` is `loose` or `material`, `mergeUnder` 0 to 0.2), then `preview_fixups` or `get_parts` runs it headless on a copy.
 
 ### set_layout
 

@@ -6,6 +6,7 @@ import { LayoutBarActions } from '../LayoutBarActions';
 import { LayoutEditor } from '../LayoutEditor';
 import { PathsEditor } from '../PathsEditor';
 import { BudgetPanel } from '../BudgetPanel';
+import { PartsPanel } from '../PartsPanel';
 import { useInspectorView } from './InspectorView.hooks';
 
 /** The Inspector: compare the project's versions, lay out its scene or draw its paths. */
@@ -18,6 +19,16 @@ export default function InspectorView() {
         <main className="flex min-h-0 flex-1 flex-col gap-3.5 px-6 py-[18px]">
           <InspectorTabs />
           <BudgetPanel />
+        </main>
+      </InspectorShell>
+    );
+  }
+  if (project && tab === 'parts') {
+    return (
+      <InspectorShell>
+        <main className="flex min-h-0 flex-1 flex-col gap-3.5 px-6 py-[18px]">
+          <InspectorTabs />
+          <PartsPanel />
         </main>
       </InspectorShell>
     );

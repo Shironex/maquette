@@ -52,4 +52,29 @@ describe('FixupRow', () => {
     await userEvent.click(screen.getByRole('button', { name: 'By material' }));
     expect(onChange).toHaveBeenLastCalledWith({ op: 'merge', byMaterial: true });
   });
+
+  it('splits by loose pieces or material and merges the tiny bits', async () => {
+    const onChange = vi.fn();
+    render(
+      <ul>
+        <FixupRow
+          fixup={{ op: 'split-parts', by: 'loose', mergeUnder: 0.01 }}
+          index={3}
+          onChange={onChange}
+          onRemove={vi.fn()}
+        />
+      </ul>
+    );
+    expect(screen.getByText('Split into parts')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'By material' }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      op: 'split-parts',
+      by: 'material',
+      mergeUnder: 0.01,
+    });
+    const field = screen.getByLabelText('Merge bits under');
+    await userEvent.clear(field);
+    await userEvent.type(field, '3{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith({ op: 'split-parts', by: 'loose', mergeUnder: 0.03 });
+  });
 });

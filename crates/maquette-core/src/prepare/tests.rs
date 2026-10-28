@@ -14,6 +14,7 @@ fn lamp() -> ModelPrep {
     ModelPrep {
         skip_bake: None,
         pad_edges: None,
+        parts: None,
         size: Some(size(SizeAxis::Height, 45.0, SizeUnit::Cm)),
         fixups: vec![Fixup::OriginBottom, Fixup::Decimate { triangles: 60_000 }],
     }
@@ -56,6 +57,7 @@ fn saving_one_asset_keeps_the_others_and_an_empty_entry_goes() {
     let mug = ModelPrep {
         skip_bake: None,
         pad_edges: None,
+        parts: None,
         size: Some(size(SizeAxis::Height, 10.0, SizeUnit::Cm)),
         fixups: Vec::new(),
     };
@@ -84,6 +86,7 @@ fn validation_refuses_sizes_and_numbers_out_of_range() {
     let mut entry = ModelPrep {
         skip_bake: None,
         pad_edges: None,
+        parts: None,
         size: Some(size(SizeAxis::Width, 0.05, SizeUnit::Cm)),
         fixups: Vec::new(),
     };
@@ -192,6 +195,7 @@ fn the_frame_moves_the_bottom_centre_to_the_origin_then_scales() {
     let only_size = ModelPrep {
         skip_bake: None,
         pad_edges: None,
+        parts: None,
         size: lamp().size,
         fixups: Vec::new(),
     };
@@ -310,6 +314,7 @@ fn a_finished_preview_reads_its_numbers() {
             max_texture: 256,
             min: Some([0.0; 3]),
             max: Some([1.0; 3]),
+            draw_calls: None,
         }
     );
 }
@@ -353,6 +358,7 @@ fn skipping_the_bake_leaves_the_preview_key_alone() {
     let skipped = ModelPrep {
         skip_bake: Some(true),
         pad_edges: None,
+        parts: None,
         ..lamp()
     };
     assert_eq!(
@@ -387,5 +393,200 @@ fn edge_padding_is_a_choice_per_asset_that_a_patch_sets_and_forgets() {
     assert_eq!(
         preview::key("abc", &lamp(), "script"),
         preview::key("abc", &padded, "script")
+    );
+}
+
+#[test]
+fn a_split_keeps_its_way_and_threshold_and_describes_itself() {
+    let split: Fixup =
+        serde_json::from_value(json!({ "op": "split-parts", "mergeUnder": 0.01 })).expect("split");
+    assert_eq!(
+        split,
+        Fixup::SplitParts {
+            by: SplitBy::Loose,
+            merge_under: 0.01
+        },
+        "loose pieces unless said otherwise"
+    );
+    assert_eq!(split.describe(), "Split into parts");
+    let by_material = Fixup::SplitParts {
+        by: SplitBy::Material,
+        merge_under: 0.0,
+    };
+    assert_eq!(by_material.describe(), "Split into parts by material");
+    assert_eq!(
+        serde_json::to_value(by_material).expect("json"),
+        json!({ "op": "split-parts", "by": "material", "mergeUnder": 0.0 })
+    );
+    let mut prep = ScenePrep::default();
+    for (under, ok) in [(0.0, true), (0.2, true), (0.25, false), (f32::NAN, false)] {
+        let entry = ModelPrep {
+            fixups: vec![Fixup::SplitParts {
+                by: SplitBy::Loose,
+                merge_under: under,
+            }],
+            ..ModelPrep::default()
+        };
+        prep.models.insert("frost-lantern".into(), entry);
+        assert_eq!(validate(&prep).is_ok(), ok, "{under}");
+    }
+}
+
+#[test]
+fn a_split_runs_after_merge_and_before_decimate() {
+    let mut prep = ScenePrep::default();
+    prep.models.insert(
+        "frost-lantern".into(),
+        ModelPrep {
+            fixups: vec![
+                Fixup::Decimate { triangles: 20_000 },
+                Fixup::SplitParts {
+                    by: SplitBy::Loose,
+                    merge_under: 0.01,
+                },
+                Fixup::Merge { by_material: false },
+            ],
+            ..ModelPrep::default()
+        },
+    );
+    let kinds: Vec<FixupKind> = normalized(&prep).models["frost-lantern"]
+        .fixups
+        .iter()
+        .map(Fixup::kind)
+        .collect();
+    assert_eq!(
+        kinds,
+        [FixupKind::Merge, FixupKind::SplitParts, FixupKind::Decimate]
+    );
+    assert!(
+        SCRIPT.contains("\"merge\",\n    \"split-parts\",\n    \"pad-edges\""),
+        "the script applies them in the same order"
+    );
+}
+
+fn lantern_parts() -> PartsPlan {
+    PartsPlan {
+        names: [("part_1", "lid"), ("part_2", "cage")]
+            .into_iter()
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .collect(),
+        merge: vec![vec!["part_4".into(), "part_5".into()]],
+        hidden: vec!["part_3".into()],
+    }
+}
+
+#[test]
+fn part_names_are_saved_per_asset_and_checked() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let entry = ModelPrep {
+        parts: Some(lantern_parts()),
+        ..ModelPrep::default()
+    };
+    assert!(!entry.is_empty(), "names alone keep the entry");
+    save_entry(dir.path(), "frost-lantern", &entry).expect("save");
+    let saved = load(dir.path()).expect("load");
+    assert_eq!(saved.models["frost-lantern"].parts, Some(lantern_parts()));
+    let text = fs::read_to_string(path(dir.path())).expect("read");
+    assert!(text.contains("\"names\""), "{text}");
+
+    let check = |parts: PartsPlan| {
+        let mut prep = ScenePrep::default();
+        prep.models.insert(
+            "frost-lantern".into(),
+            ModelPrep {
+                parts: Some(parts),
+                ..ModelPrep::default()
+            },
+        );
+        validate(&prep)
+    };
+    let mut twice = lantern_parts();
+    twice.names.insert("part_3".into(), "lid".into());
+    let err = check(twice).expect_err("two lids");
+    assert!(err.to_string().contains("both ship as lid"), "{err}");
+    let mut empty = lantern_parts();
+    empty.names.insert("part_3".into(), "  ".into());
+    assert!(check(empty).is_err());
+    let mut long = lantern_parts();
+    long.names
+        .insert("part_3".into(), "x".repeat(MAX_PART_NAME + 1));
+    assert!(check(long).is_err());
+    let mut alone = lantern_parts();
+    alone.merge.push(vec!["part_3".into()]);
+    assert!(check(alone).is_err(), "a join of one part");
+    let mut again = lantern_parts();
+    again.merge.push(vec!["part_5".into(), "part_3".into()]);
+    assert!(check(again).is_err(), "a part in two joins");
+}
+
+#[test]
+fn a_parts_patch_renames_joins_and_hides_by_model_name() {
+    let mut current = ScenePrep::default();
+    current.models.insert(
+        "frost-lantern".into(),
+        ModelPrep {
+            parts: Some(lantern_parts()),
+            ..ModelPrep::default()
+        },
+    );
+    let patch: PrepPatch = serde_json::from_value(json!({
+        "parts": {
+            "rename": { "part_2": "part_2", "part_3": "crystal" },
+            "merge": [["part_1", "part_4"]],
+            "show": ["part_3"],
+            "hide": ["part_5"],
+        },
+    }))
+    .expect("patch");
+    let next = apply_patch(&current, "frost-lantern", &patch).expect("apply");
+    let parts = next.models["frost-lantern"].parts.clone().expect("parts");
+    assert_eq!(parts.names.get("part_2"), None, "its own name forgets it");
+    assert_eq!(parts.name_of("part_3"), "crystal");
+    assert_eq!(parts.name_of("part_1"), "lid");
+    assert_eq!(
+        parts.merge,
+        vec![vec!["part_1".to_string(), "part_4".to_string()]],
+        "part_4 moved into the new join, the old one fell under two parts"
+    );
+    assert_eq!(parts.joined_into("part_4"), Some("part_1"));
+    assert_eq!(parts.hidden, vec!["part_5".to_string()]);
+
+    let undo: PrepPatch =
+        serde_json::from_value(json!({ "parts": { "unmerge": ["part_4"], "show": ["part_5"] } }))
+            .expect("undo");
+    let back = apply_patch(&next, "frost-lantern", &undo).expect("apply");
+    let parts = back.models["frost-lantern"].parts.clone().expect("parts");
+    assert!(parts.merge.is_empty());
+    assert!(parts.hidden.is_empty());
+}
+
+#[test]
+fn hiding_a_part_leaves_the_preview_key_alone_and_a_name_changes_it() {
+    let base = ModelPrep {
+        fixups: vec![Fixup::SplitParts {
+            by: SplitBy::Loose,
+            merge_under: 0.01,
+        }],
+        ..ModelPrep::default()
+    };
+    let key = |prep: &ModelPrep| preview::key("abc", prep, SCRIPT);
+    let hidden = ModelPrep {
+        parts: Some(PartsPlan {
+            hidden: vec!["part_1".into()],
+            ..PartsPlan::default()
+        }),
+        ..base.clone()
+    };
+    assert_eq!(key(&base), key(&hidden));
+    let named = ModelPrep {
+        parts: Some(lantern_parts()),
+        ..base.clone()
+    };
+    assert_ne!(key(&base), key(&named));
+    let lamp_key = preview::key("abc", &lamp(), SCRIPT);
+    assert_eq!(
+        lamp_key,
+        preview::key("abc", &lamp(), SCRIPT),
+        "a plan without parts keeps its old key"
     );
 }

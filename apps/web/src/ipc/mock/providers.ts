@@ -36,6 +36,9 @@ import { scanDownloads } from './scan-downloads';
 
 export { PROVIDER_REF_FILES };
 
+/** The states a send is still open in. */
+const OPEN: readonly string[] = ['approval', 'queued', 'running', 'waiting', 'inbox'];
+
 export function createFakeProviders({
   config,
   configured,
@@ -340,11 +343,7 @@ export function createFakeProviders({
       return next;
     },
     provider_clear_finished: ({ project: id }) => {
-      jobs = jobs.filter(
-        j =>
-          j.project !== id ||
-          ['approval', 'queued', 'running', 'waiting', 'inbox'].includes(j.state)
-      );
+      jobs = jobs.filter(j => j.project !== id || OPEN.includes(j.state));
       return jobs.filter(j => j.project === id);
     },
     provider_open_handoff: () => null,
@@ -370,5 +369,9 @@ export function createFakeProviders({
     }
   };
 
-  return { handlers, decide, jobs: () => jobs, hasKey: keyStore.has };
+  /** Whether a send of `asset` is still open: waiting, running or in the inbox. */
+  const busy = (project: string, asset: string) =>
+    jobs.some(j => j.project === project && j.asset === asset && OPEN.includes(j.state));
+
+  return { handlers, decide, busy, jobs: () => jobs, hasKey: keyStore.has };
 }

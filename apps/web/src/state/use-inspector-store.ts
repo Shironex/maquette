@@ -6,9 +6,12 @@ import { useAppStore } from './use-app-store';
 import { pushSample } from './inspector';
 import { clock } from '@/lib/clock';
 
-export type InspectMode = Extract<MaterialMode, 'shaded' | 'wireframe' | 'lightmap'>;
-/** Compare versions, lay out the scene, or draw paths through it; a game checks budgets. */
-export type InspectorTab = 'compare' | 'layout' | 'paths' | 'budget';
+export type InspectMode = Extract<MaterialMode, 'shaded' | 'parts' | 'wireframe' | 'lightmap'>;
+/**
+ * Compare versions, lay out the scene, or draw paths through it; a game
+ * checks budgets. Both name a model's parts.
+ */
+export type InspectorTab = 'compare' | 'layout' | 'paths' | 'budget' | 'parts';
 
 interface InspectorStore {
   tab: InspectorTab;

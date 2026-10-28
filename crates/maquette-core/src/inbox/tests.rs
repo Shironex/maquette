@@ -217,6 +217,7 @@ fn accept_saves_the_real_size_and_fixups_or_refuses_them_before_moving() {
     let mut prep = ModelPrep {
         skip_bake: None,
         pad_edges: None,
+        parts: None,
         size: Some(RealSize {
             axis: SizeAxis::Height,
             value: -4.0,

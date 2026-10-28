@@ -40,7 +40,7 @@ export default function InboxDetail({ item }: InboxDetailProps) {
     redo,
   } = useInboxDetail(item);
   const { mode, setMode, setLoadError, loadError, url, modes, modeLabel, noPreview, orbitHint } =
-    useInboxPreview(item);
+    useInboxPreview(item, project?.id ?? null);
   const passed = item.worst === 'pass' && item.state !== 'failed';
   const hasClips = Boolean(
     item.report && item.report.rig !== 'none' && item.report.animations.length

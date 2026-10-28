@@ -5,7 +5,7 @@ sidebar:
   label: Inspector
 ---
 
-The Inspector opens a project's models in the same studio as the Inbox preview, with a compare slider that splits one canvas down the middle. Compare the raw export against the shipped build or the site's copy, or two versions of one asset. Both halves share the camera.
+The Inspector opens a project's models in the same studio as the Inbox preview, with a compare slider that splits one canvas down the middle. Compare the raw export against the shipped build or the site's copy, or two versions of one asset. Both halves share the camera. Shaded, Colour by part, Wireframe and Lightmap pick how they draw.
 
 ## Side panel
 
@@ -23,10 +23,14 @@ Camera stops are added where the editor camera stands, named, reordered, deleted
 
 The first view is what the first stop loads before the visitor moves. Its size is measured against its own budget, First view target under Settings (3 MB by default).
 
+## Parts
+
+The Parts tab lists a model's parts by the names they ship as: select them in the view, rename, merge and hide them, and put the model before and after its split side by side. See [Parts](/docs/views/parts/).
+
 ## Paths
 
 The Paths tab draws cables, pipes and trails through the scene, anchored to models if you like, that the site lights up as the page scrolls. See [Paths](/docs/views/paths/).
 
 ## Game projects
 
-A [game project](/docs/start/game-projects/) has no scene to lay out, so its Inspector shows Compare and Budget instead of Layout and Paths. Budget lists every model against its folder's budget, changes each folder's numbers and adds the fix-ups for the models over.
+A [game project](/docs/start/game-projects/) has no scene to lay out, so its Inspector shows Compare, Budget and Parts instead of Layout and Paths. Budget lists every model against its folder's budget, changes each folder's numbers and adds the fix-ups for the models over.

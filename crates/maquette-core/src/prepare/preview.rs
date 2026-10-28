@@ -42,6 +42,23 @@ pub struct ModelNumbers {
     /// Bounds in glTF metres (Y up); `None` without meshes.
     pub min: Option<[f32; 3]>,
     pub max: Option<[f32; 3]>,
+    /// One per mesh and material it uses; `None` from an older script.
+    #[serde(default)]
+    pub draw_calls: Option<u32>,
+}
+
+/// What a split found: the pieces, how many small ones joined a
+/// neighbour, and how many parts each way of splitting gives.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SplitNumbers {
+    /// Loose pieces, or materials, before the small ones joined.
+    pub pieces: u32,
+    /// Small pieces joined into a neighbour.
+    pub merged: u32,
+    /// Parts by loose pieces and by material, small ones joined.
+    pub by_loose: u32,
+    pub by_material: u32,
 }
 
 /// What one fix-up did.
@@ -53,6 +70,9 @@ pub struct FixupStep {
     pub after: ModelNumbers,
     /// The script's one line summary, for example "ratio 0.260".
     pub note: String,
+    /// A split's numbers.
+    #[serde(default)]
+    pub split: Option<SplitNumbers>,
 }
 
 /// The fix-ups and real size of one plan on one model.
@@ -87,6 +107,8 @@ struct RawStep {
     before: ModelNumbers,
     after: ModelNumbers,
     note: String,
+    #[serde(default)]
+    split: Option<SplitNumbers>,
 }
 
 pub fn previews_dir(workspace_cache: &Path) -> PathBuf {
@@ -108,6 +130,7 @@ pub fn key(model_hash: &str, plan: &ModelPrep, script: &str) -> String {
     let plan = serde_json::to_string(&PlanKey {
         size: &plan.size,
         fixups: &plan.fixups,
+        parts: exported_parts(plan).as_ref(),
     })
     .unwrap_or_default();
     let mut hasher = Sha256::new();
@@ -185,6 +208,7 @@ pub fn read_report(dir: &Path, input: &Path, plan: &ModelPrep) -> CoreResult<Fix
                 before: step.before,
                 after: step.after,
                 note: step.note,
+                split: step.split,
             })
         })
         .collect();
@@ -241,6 +265,7 @@ fn fixups_only(plan: &ModelPrep) -> ModelPrep {
         fixups: plan.fixups.clone(),
         skip_bake: None,
         pad_edges: None,
+        parts: None,
     }
 }
 
@@ -249,6 +274,20 @@ fn fixups_only(plan: &ModelPrep) -> ModelPrep {
 struct PlanKey<'a> {
     size: &'a Option<super::RealSize>,
     fixups: &'a [super::Fixup],
+    /// Left out without names or joins, so earlier keys still hold.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parts: Option<&'a super::PartsPlan>,
+}
+
+/// The part names and joins the export applies, without what is hidden.
+fn exported_parts(plan: &ModelPrep) -> Option<super::PartsPlan> {
+    plan.parts
+        .as_ref()
+        .filter(|p| p.changes_export())
+        .map(|p| super::PartsPlan {
+            hidden: Vec::new(),
+            ..p.clone()
+        })
 }
 
 fn bounds_file(root: &Path, input: &Path, plan: &ModelPrep, script: &str) -> CoreResult<PathBuf> {
@@ -320,8 +359,10 @@ impl Previews {
         fs::create_dir_all(&dir).map_err(|e| CoreError::io(&dir, e))?;
         // Edge padding changes texels the model never shows and no number,
         // so the preview skips its few seconds.
+        // Hidden parts are only for looking, so the script never sees them.
         let shown = ModelPrep {
             pad_edges: None,
+            parts: exported_parts(plan),
             ..plan.clone()
         };
         let plan_text =

@@ -21,6 +21,7 @@ pub mod library;
 pub mod materials;
 pub mod motion;
 pub mod page;
+pub mod parts;
 pub mod paths;
 pub mod picks;
 pub mod prepare;
@@ -101,9 +102,12 @@ material or one by name) and the ETC1S or UASTC codec of its color, normal and o
 Compress applies them to the shipped model on the next run. \
 get_real_size reads an asset's real size and fix-ups with what its model measures; set_real_size \
 sets the size its model is scaled to (height, width, depth or longest, cm or m); add_fixups and \
-remove_fixups change its fix-ups (decimate, shrink textures, merge, apply transforms, remove loose \
-parts, origin to bottom centre), which the Build scene step applies headless on a copy of every \
+remove_fixups change its fix-ups (decimate, shrink textures, merge, split into parts, apply \
+transforms, remove loose parts, origin to bottom centre), which the Build scene step applies headless on a copy of every \
 version; list_fixups lists them and preview_fixups shows their numbers before and after. \
+get_parts lists an asset's parts by the names they ship as (the export node names object states \
+and explode tracks move), set_parts renames, joins and hides them, and compare_versions compares \
+two versions (or one before and after its fix-ups) part by part. \
 set_pad_edges sets whether an asset's texture edges around its UV islands are padded before the \
 textures shrink (models accepted from the Inbox pad by default). \
 get_bake_settings reads the Bake light step's lightmap size, samples and denoiser and the \
@@ -241,6 +245,7 @@ impl McpTools {
                 + Self::sending_router()
                 + Self::materials_router()
                 + Self::prepare_router()
+                + Self::parts_router()
                 + Self::redo_router()
                 + Self::credits_router()
                 + Self::handoffs_router()

@@ -390,6 +390,7 @@ fn models_are_measured_at_their_real_size_after_the_fixups() {
     let entry = ModelPrep {
         skip_bake: None,
         pad_edges: None,
+        parts: None,
         size: Some(RealSize {
             axis: SizeAxis::Height,
             value: 100.0,
@@ -415,6 +416,7 @@ fn models_are_measured_at_their_real_size_after_the_fixups() {
         &ModelPrep {
             skip_bake: None,
             pad_edges: None,
+            parts: None,
             size: None,
             fixups: entry.fixups.clone(),
         },

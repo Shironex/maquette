@@ -1,7 +1,8 @@
 import type * as THREE from 'three';
 import type { Originals } from '../materials';
+import type { PartLook } from '../parts';
 
-export type PreviewMode = 'shaded' | 'wireframe' | 'uv' | 'bones';
+export type PreviewMode = 'shaded' | 'wireframe' | 'uv' | 'bones' | 'parts';
 
 /** The file a preview shows and what it reports about it. */
 export interface ModelSource {
@@ -13,6 +14,10 @@ export interface ModelSource {
 
 export interface ModelPreviewProps extends ModelSource {
   mode?: PreviewMode;
+  /** The parts mode's selected and hidden parts. */
+  parts?: PartLook;
+  /** A click on a part (null on empty space), with Shift held or not. */
+  onPickPart?: (part: string | null, adding: boolean) => void;
   /** Spin slowly until someone drags. */
   turntable?: boolean;
   className?: string;
