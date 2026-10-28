@@ -152,6 +152,31 @@ web side `use-page-store` holds the server for every view: `features/page/Server
 frame's Stop), `features/pipeline/PreviewSiteButton` and `features/shell/SiteServerItem` (the status
 bar menu) all stop it through `stopServer`, with `common/StopServerButton` shared.
 
+## Codex usage
+
+`maquette_core::concepts::codex_usage` reads how much Codex usage is left. `server.rs` starts
+`codex app-server` in its own process group (a job object and no window on Windows), speaks its
+newline delimited JSON (an `initialize` request, the `initialized` notification, then
+`account/rateLimits/read`, no `jsonrpc` field), skips notifications and stops the server when the
+read ends however it ends, within `READ_TIMEOUT` (10 s); its standard input is a pipe, so it also
+ends if the app goes away. `parse.rs` reads the answer leniently into `CodexUsage` (the five hour
+`primary` and weekly `secondary` windows, `limitReached`, `ordinaryUsageAllowed`). The protocol is
+experimental, so a Codex older than `OLDEST` (the toolchain check's version), an error answer, a
+timeout or a shape it cannot read is `CodexUsage::unknown` with a reason, never an error.
+`limit_active`, `resets_at_ms` and `can_run_now` hold the rules, which `state/codex-usage.ts`
+mirrors.
+
+`concepts/jobs/usage_hold.rs` moves the jobs the usage limit holds: `retime_usage_limit` to a
+read's reset time plus a minute (it beats the time `usage.rs` reads from Codex's message and the
+backoff), `lift_usage_limit` back into the queue now. The desktop side is `commands/codex_usage.rs`:
+`CodexUsageWatch` keeps the last read, `codex_usage_read` reads now (the Lab polls it every minute
+while open), the Lab's event callback calls `read_soon` after a job is done, fails or meets the
+limit (one read waits at a time, 10 s apart), and `lab_lift_usage_limit` is Limit lifted, retry now.
+Every read goes out as `CodexUsageUpdate`. The MCP tools are `mcp/tools/codex_usage.rs`
+(`get_codex_usage`, `retry_usage_limited_jobs`). The web side is `state/use-codex-usage-store.ts`,
+`features/shell/CodexUsageItem` (drawn into the status bar through `codexControl`, like the site
+server's item), `features/lab/UsageLimitBanner` and the Composer's round warning.
+
 ## Game projects
 
 `ProjectManifest.target` is `website` or `game`; a game keeps `GameSettings` in `game` (boxed, so
