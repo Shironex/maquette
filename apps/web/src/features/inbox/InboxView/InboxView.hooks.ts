@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useWindowedList } from '@maquette/ui';
 import { firstToReview } from '@/state/inbox';
 import { batchRedoPlan } from '@/state/redo';
 import { useInboxStore } from '@/state/use-inbox-store';
@@ -35,4 +36,15 @@ export function useInboxView() {
     redoBlocker: plan.blocker,
     redoChecked,
   };
+}
+
+/** An inbox row's height before it is measured. */
+const ROW = 62;
+
+/** The inbox list's scroller and the rows in view, windowed once the inbox is long. */
+export function useInboxRows(count: number) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const shown = useWindowedList({ count, scrollRef, listRef, estimate: ROW, gap: 4 });
+  return { scrollRef, listRef, shown };
 }
