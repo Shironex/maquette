@@ -13,6 +13,7 @@ fn request(objects: &[&str]) -> NewObjectRefs {
         notes: HashMap::new(),
         aspect: Aspect::Square,
         kind: AssetKind::Prop,
+        use_style: true,
     }
 }
 
@@ -26,6 +27,7 @@ fn the_object_prompt_asks_for_one_isolated_object() {
         "Workbench hero",
         Aspect::Square,
         out,
+        None,
     );
     assert!(text.starts_with("Generate an image.\n\n"));
     assert!(text.contains(
@@ -58,6 +60,7 @@ fn the_object_prompt_asks_for_one_isolated_object() {
         "",
         Aspect::Portrait,
         out,
+        None,
     );
     assert!(figure.contains("one character for a 3D model"));
     assert!(figure.contains("from the attached concept image."));
@@ -76,6 +79,7 @@ fn notes_go_into_the_prompt_after_the_look_and_never_into_the_name() {
         "Hero",
         Aspect::Square,
         out,
+        None,
     );
     assert!(text.contains("the \"Island\" from"));
     assert!(text.contains(

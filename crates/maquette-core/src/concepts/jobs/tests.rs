@@ -36,6 +36,7 @@ case "{mode}" in
   limited-once) if [ "$n" = 1 ]; then echo "ERROR: exceeded retry limit, last status: 429 Too Many Requests" >&2; exit 1; fi; cp "{png}" "$out";;
   usage) if [ ! -f "{home}/lifted" ]; then echo "ERROR: You’ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro) or try again later." >&2; exit 1; fi; cp "{png}" "$out";;
   flaky) if [ "$n" = 1 ]; then echo "error: not signed in" >&2; exit 2; fi; cp "{png}" "$out";;
+  flaky-record) if [ "$n" = 1 ]; then echo "error: not signed in" >&2; exit 2; fi; cp "{png}" "$out"; printf '%s\n' "$@" > "$out.args"; printf '%s\n' "$prompt" > "$out.prompt";;
 esac
 "#,
         mode = mode,
@@ -71,6 +72,7 @@ fn request(direction: &str, count: u32) -> NewConcepts {
         refs: Vec::new(),
         aspect: Aspect::Wide,
         count,
+        use_style: true,
     }
 }
 
@@ -192,6 +194,7 @@ fn object_refs_get_one_titled_job_per_object_with_the_source_attached() {
             )]),
             aspect: Aspect::Square,
             kind: crate::assets::AssetKind::Prop,
+            use_style: true,
         },
     )
     .expect("clean");
@@ -272,6 +275,7 @@ fn object_refs_started_at_the_same_moment_never_share_a_file() {
         notes: Default::default(),
         aspect: Aspect::Square,
         kind: crate::assets::AssetKind::Prop,
+        use_style: true,
     };
     let gate = std::sync::Barrier::new(2);
     let started: Vec<Vec<ConceptJob>> = std::thread::scope(|s| {
@@ -636,4 +640,80 @@ fn reads_the_session_id_from_the_header() {
     );
     assert_eq!(session_id("Session ID: ../etc"), None);
     assert_eq!(session_id("workdir: /tmp"), None);
+}
+
+#[test]
+fn jobs_carry_the_style_board_and_a_retry_carries_the_same_one() {
+    let r = rig();
+    fs::create_dir_all(r.project.join("refs")).expect("refs");
+    fs::copy(&r.png, r.project.join("refs/frost_glass.png")).expect("ref");
+    let board = style::update(
+        &r.project,
+        &style::StyleBoardChange {
+            line: Some("frosted glass, cool night light".into()),
+            palette: Some(vec!["#9fc3ff".into()]),
+            images: Some(vec!["refs/frost_glass.png".into()]),
+        },
+    )
+    .expect("board");
+    assert_eq!(board.revision, 1);
+    let codex = fake_codex(&r.root, &r.png, &r.home, "flaky-record");
+    let concepts = Concepts::new(Some(r.home.clone()), 1, |_| {});
+    let first = start_one(&concepts, &r, &codex, "Lantern");
+    assert_eq!(first.style_revision, Some(1));
+    let stored = load_direction(&r.project, "lantern")
+        .expect("load")
+        .expect("direction");
+    assert_eq!((stored.style_revision, stored.style_off), (Some(1), false));
+    concepts.wait();
+    // The board changes before the retry; the retry still carries revision 1.
+    style::update(
+        &r.project,
+        &style::StyleBoardChange {
+            line: Some("warm candle light".into()),
+            ..Default::default()
+        },
+    )
+    .expect("second board");
+    let again = concepts.retry(&first.id).expect("retry");
+    assert_eq!(again.style_revision, Some(1));
+    concepts.wait();
+    let out = r.project.join(&first.file);
+    let prompt = fs::read_to_string(out.with_extension("png.prompt")).expect("prompt");
+    assert!(
+        prompt.contains("Style: frosted glass, cool night light."),
+        "{prompt}"
+    );
+    assert!(!prompt.contains("candle"));
+    let args = fs::read_to_string(out.with_extension("png.args")).expect("args");
+    let args: Vec<&str> = args.lines().collect();
+    let copy = r
+        .project
+        .join("style/frost_glass.png")
+        .display()
+        .to_string();
+    assert_eq!(args[args.len() - 3], copy);
+
+    // Turned off for one direction, the next start carries nothing.
+    let plain = fake_codex(&r.root, &r.png, &r.home, "record");
+    let mut off = request("Lantern off", 1);
+    off.use_style = false;
+    let (direction, jobs) = concepts
+        .start(Start {
+            project_dir: &r.project,
+            cache_dir: &r.cache,
+            tools: &toolbox(&plain),
+            request: off,
+            timeout: Duration::from_secs(20),
+        })
+        .expect("start");
+    assert!(direction.style_off);
+    assert_eq!(direction.style_revision, None);
+    assert_eq!(jobs[0].style_revision, None);
+    concepts.wait();
+    let out = r.project.join(&jobs[0].file);
+    let prompt = fs::read_to_string(out.with_extension("png.prompt")).expect("prompt");
+    assert!(!prompt.contains("Project style"));
+    let args = fs::read_to_string(out.with_extension("png.args")).expect("args");
+    assert!(!args.contains("frost_glass"));
 }

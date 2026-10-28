@@ -26,7 +26,8 @@ use std::time::{Duration, Instant, SystemTime};
 use serde::{Deserialize, Serialize};
 
 use super::objects::{self, NewObjectRefs};
-use super::{Direction, NewConcepts, codex_args, prepare, prompt};
+use super::style::{self, StyleBoard};
+use super::{Direction, NewConcepts, attached, codex_args, prepare_with, prompt};
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::now_ms;
 use crate::pipeline::runner::{JobRunner, PipelineRunner, RunOptions, RunSetup, WeakRunner};
@@ -95,6 +96,9 @@ pub struct ConceptJob {
     pub retries: u32,
     /// Waiting: the wait is Codex's usage limit, not a rate limit.
     pub usage_limit: bool,
+    /// The style board revision the job carries, `None` when it carries
+    /// none. A retry runs with the same board.
+    pub style_revision: Option<u32>,
 }
 
 /// What the service reports to the UI.
@@ -108,6 +112,11 @@ pub enum ConceptEvent {
     Direction {
         project: String,
         direction: Direction,
+    },
+    /// The project's style board changed (an agent set it).
+    Style {
+        project: String,
+        style: StyleBoard,
     },
 }
 
@@ -241,13 +250,23 @@ impl Concepts {
     pub fn start(&self, start: Start<'_>) -> CoreResult<(Direction, Vec<ConceptJob>)> {
         codex_tool(start.tools)?;
         let request = &start.request;
-        let (direction, files) = prepare(start.project_dir, request)?;
+        let board = style::for_job(start.project_dir, request.use_style);
+        let (direction, files) = prepare_with(
+            start.project_dir,
+            request,
+            board.as_ref().map(|b| b.revision),
+        )?;
         let planned = files
             .into_iter()
             .enumerate()
             .map(|(n, (index, file))| {
                 #[expect(clippy::cast_possible_truncation, reason = "a batch is at most 12")]
-                let text = prompt(request, n as u32 + 1, &start.project_dir.join(&file));
+                let text = prompt(
+                    request,
+                    n as u32 + 1,
+                    &start.project_dir.join(&file),
+                    board.as_ref(),
+                );
                 Planned {
                     index,
                     file,
@@ -262,7 +281,14 @@ impl Concepts {
             tools: start.tools,
             timeout: start.timeout,
         };
-        let jobs = self.queue(&lane, &request.project, &direction, &request.refs, planned)?;
+        let jobs = self.queue(
+            &lane,
+            &request.project,
+            &direction,
+            &request.refs,
+            board.as_ref(),
+            planned,
+        )?;
         Ok((direction, jobs))
     }
 
@@ -279,7 +305,12 @@ impl Concepts {
         request: &NewObjectRefs,
     ) -> CoreResult<(Direction, Vec<ConceptJob>)> {
         codex_tool(lane.tools)?;
-        let (direction, files) = objects::prepare(lane.project_dir, request)?;
+        let board = style::for_job(lane.project_dir, request.use_style);
+        let (direction, files) = objects::prepare_with(
+            lane.project_dir,
+            request,
+            board.as_ref().map(|b| b.revision),
+        )?;
         let planned = files
             .into_iter()
             .map(|p| Planned {
@@ -291,13 +322,21 @@ impl Concepts {
                     &request.source_name,
                     request.aspect,
                     &lane.project_dir.join(&p.file),
+                    board.as_ref(),
                 ),
                 file: p.file,
                 title: Some(p.object),
             })
             .collect();
         let refs = [request.source.clone()];
-        let jobs = self.queue(lane, &request.project, &direction, &refs, planned)?;
+        let jobs = self.queue(
+            lane,
+            &request.project,
+            &direction,
+            &refs,
+            board.as_ref(),
+            planned,
+        )?;
         Ok((direction, jobs))
     }
 
@@ -307,10 +346,11 @@ impl Concepts {
         project: &str,
         direction: &Direction,
         refs: &[String],
+        board: Option<&StyleBoard>,
         planned: Vec<Planned>,
     ) -> CoreResult<Vec<ConceptJob>> {
         let codex = codex_tool(lane.tools)?;
-        let args = codex_args(lane.project_dir, refs);
+        let args = codex_args(lane.project_dir, &attached(refs, board));
         let stamp = now_ms() as u64;
         let mut queued = Vec::new();
         for Planned {
@@ -341,6 +381,7 @@ impl Concepts {
                 retry_at_ms: None,
                 retries: 0,
                 usage_limit: false,
+                style_revision: board.map(|b| b.revision),
             };
             let rerun = Rerun {
                 setup: RunSetup {

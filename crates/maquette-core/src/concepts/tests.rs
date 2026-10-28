@@ -13,6 +13,7 @@ fn request(direction: &str, count: u32, refs: Vec<String>) -> NewConcepts {
         refs,
         aspect: Aspect::Wide,
         count,
+        use_style: true,
     }
 }
 
@@ -20,7 +21,7 @@ fn request(direction: &str, count: u32, refs: Vec<String>) -> NewConcepts {
 fn the_prompt_starts_and_ends_as_codex_needs() {
     let new = request("Porch at dusk", 3, vec!["refs/a.png".into()]);
     let out = Path::new("/w/projects/moon/concepts/porch-at-dusk/porch-at-dusk_02.png");
-    let text = prompt(&new, 2, out);
+    let text = prompt(&new, 2, out, None);
     assert!(text.starts_with("Generate an image.\n\nA cosy porch at dusk, lanterns lit.\n"));
     assert!(text.contains("16:9 landscape"));
     assert!(text.contains("image 2 of 3"));

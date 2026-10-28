@@ -15,9 +15,11 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use super::codex::assemble;
+use super::style::StyleBoard;
 use super::{
     Aspect, Direction, MAX_IMAGES_PER_BATCH, NewConcepts, REFS_DIR, load_direction,
-    modify_direction, resolve_ref, save_instructions,
+    modify_direction, resolve_ref,
 };
 use crate::assets::{self, Asset, AssetKind};
 use crate::error::{CoreError, CoreResult};
@@ -51,6 +53,9 @@ pub struct NewObjectRefs {
     pub aspect: Aspect,
     /// What the objects become on the Board: props or characters.
     pub kind: AssetKind,
+    /// Whether the jobs carry the project's style board, on by default.
+    #[serde(default = "super::style_on")]
+    pub use_style: bool,
 }
 
 /// One object asset that Send picks made or moved to Refs.
@@ -184,6 +189,7 @@ pub fn clean(project_dir: &Path, new: &NewObjectRefs) -> CoreResult<NewObjectRef
         notes,
         aspect: new.aspect,
         kind: new.kind,
+        use_style: new.use_style,
     })
 }
 
@@ -213,8 +219,9 @@ fn clean_notes(
     Ok(out)
 }
 
-/// The prompt for one object. Codex gets the source concept as `-i`, so
-/// "the attached concept" is that image.
+/// The prompt for one object. Codex gets the source concept as the first
+/// `-i`, so "the attached concept" is that image; a style board's images
+/// come after it.
 pub fn object_prompt(
     object: &str,
     notes: &str,
@@ -222,6 +229,7 @@ pub fn object_prompt(
     source_name: &str,
     aspect: Aspect,
     out: &Path,
+    style: Option<&StyleBoard>,
 ) -> String {
     let object = object.trim();
     let notes = notes.trim();
@@ -232,32 +240,33 @@ pub fn object_prompt(
         ),
         AssetKind::Prop | AssetKind::Scene => ("object", ""),
     };
-    let from = if source_name.trim().is_empty() {
-        "the attached concept image".to_string()
+    let image = if style.is_some_and(|s| !s.images.is_empty()) {
+        "the first attached image, the concept"
     } else {
-        format!(
-            "the attached concept image (the direction \"{}\")",
-            source_name.trim()
-        )
+        "the attached concept image"
+    };
+    let from = if source_name.trim().is_empty() {
+        image.to_string()
+    } else {
+        format!("{image} (the direction \"{}\")", source_name.trim())
     };
     let extra = if notes.is_empty() {
         String::new()
     } else {
         format!("Extra instructions for this {what}: {notes}\n\n")
     };
-    format!(
-        "Generate an image.\n\n\
-         Make a clean reference image of one {what} for a 3D model: the \"{object}\" from {from}.\n\n\
+    let lead = format!(
+        "Make a clean reference image of one {what} for a 3D model: the \"{object}\" from {from}.\n\n\
          Show only the {object}, isolated: centered, the whole {what} in frame with a little space around it, \
          seen from a front three-quarter view.{pose} Use a plain light grey background, even soft light \
          and no cast shadow on the background. No other objects, no text, no labels, no watermark. \
          Match the source's materials, colours, proportions and style, so it reads as the same {what} \
          as in the concept.\n\n\
-         {extra}Use a {ratio} {shape} composition.\n\n{save}",
+         {extra}Use a {ratio} {shape} composition.",
         ratio = aspect.ratio(),
         shape = aspect.shape(),
-        save = save_instructions(out),
-    )
+    );
+    assemble(&lead, style, out)
 }
 
 /// One image an objects request will make.
@@ -277,6 +286,16 @@ pub fn prepare(
     project_dir: &Path,
     new: &NewObjectRefs,
 ) -> CoreResult<(Direction, Vec<PlannedObject>)> {
+    prepare_with(project_dir, new, None)
+}
+
+/// [`prepare`] for a request that carries the style board at
+/// `style_revision`, which the direction records.
+pub(crate) fn prepare_with(
+    project_dir: &Path,
+    new: &NewObjectRefs,
+    style_revision: Option<u32>,
+) -> CoreResult<(Direction, Vec<PlannedObject>)> {
     let name = objects_direction_name(project_dir, new)?;
     #[expect(clippy::cast_possible_truncation, reason = "at most 12 objects")]
     let count = new.objects.len() as u32;
@@ -291,8 +310,9 @@ pub fn prepare(
         refs: vec![new.source.clone()],
         aspect: new.aspect,
         count,
+        use_style: new.use_style,
     };
-    let (direction, files) = super::prepare(project_dir, &brief)?;
+    let (direction, files) = super::prepare_with(project_dir, &brief, style_revision)?;
     let (direction, ()) = modify_direction(project_dir, &direction.id, |d| {
         d.source = Some(new.source.clone());
         d.kind = Some(new.kind);
@@ -314,18 +334,24 @@ pub fn prepare(
 /// `refs/desk_lamp.png`, or `refs/desk_lamp_2.png` when that name holds
 /// another file.
 pub(super) fn ref_name(project_dir: &Path, title: &str, ext: &str) -> String {
+    free_name(project_dir, REFS_DIR, title, ext)
+}
+
+/// `<dir>/desk_lamp.png`, or `<dir>/desk_lamp_2.png` when that name holds
+/// another file. The name is slugged, so it stays one segment in `dir`.
+pub(super) fn free_name(project_dir: &Path, dir: &str, title: &str, ext: &str) -> String {
     let stem = slugify(title).replace('-', "_");
     let stem = if stem.is_empty() { "object" } else { &stem };
     (1u32..)
         .map(|n| {
             if n == 1 {
-                format!("{REFS_DIR}/{stem}.{ext}")
+                format!("{dir}/{stem}.{ext}")
             } else {
-                format!("{REFS_DIR}/{stem}_{n}.{ext}")
+                format!("{dir}/{stem}_{n}.{ext}")
             }
         })
         .find(|rel| !project_dir.join(rel).exists())
-        .unwrap_or_else(|| format!("{REFS_DIR}/{stem}.{ext}"))
+        .unwrap_or_else(|| format!("{dir}/{stem}.{ext}"))
 }
 
 /// The object an image shows: its title, else the direction and number.
