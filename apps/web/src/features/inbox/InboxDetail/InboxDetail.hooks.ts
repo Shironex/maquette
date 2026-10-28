@@ -4,6 +4,8 @@ import { fileUrl } from '@/ipc/files';
 import type { PreviewMode } from '@/features/viewer/ModelPreview';
 import { useNow } from '@/lib/useNow';
 import { acceptTarget, goesTo, madeBy, sentFor, sortChecks } from '@/state/inbox';
+import { EMPTY_PREP, previewKey } from '@/state/prepare';
+import { previewTarget, usePrepareStore } from '@/state/use-prepare-store';
 import { PROVIDER_LABEL, jobChip } from '@/state/providers';
 import { redoBlocker, redoUnderWay } from '@/state/redo';
 import { useAppStore } from '@/state/use-app-store';
@@ -58,20 +60,41 @@ export function useInboxDetail(item: InboxItem) {
   };
 }
 
+/**
+ * The split a draft's preview made of this file, when one ran: the Parts
+ * mode shows that copy, coloured by part.
+ */
+function useSplitPreview(item: InboxItem, project: string | null) {
+  const draft = usePrepareStore(s => s.drafts[item.id]) ?? EMPTY_PREP;
+  const target = previewTarget({ project, asset: null, inbox: item.id });
+  const preview = usePrepareStore(s => s.previews[previewKey(target, draft)]);
+  const split = draft.fixups.find(f => f.op === 'split-parts');
+  if (!split || split.op !== 'split-parts' || preview?.status !== 'done') return null;
+  return {
+    url: fileUrl(preview.report.output),
+    label: `Split preview · ${split.by === 'material' ? 'by material' : 'by loose pieces'} · on a copy`,
+  };
+}
+
 /** The viewport's mode and the error the preview reported for this file. */
-export function useInboxPreview(item: InboxItem) {
+export function useInboxPreview(item: InboxItem, project: string | null = null) {
   const [mode, setMode] = useState<PreviewMode>('shaded');
   const [loadError, setLoadError] = useState<string | null>(null);
-  const url = fileUrl(item.file);
+  const split = useSplitPreview(item, project);
+  const own = fileUrl(item.file);
+  const url = mode === 'parts' && split?.url ? split.url : own;
   const hasBones = (item.report?.joints ?? 0) > 0;
+  const label = MODES.find(m => m.value === mode)?.label;
   return {
     mode,
     setMode,
     loadError,
     setLoadError,
     url,
-    modes: MODES.filter(m => m.value !== 'bones' || hasBones),
-    modeLabel: MODES.find(m => m.value === mode)?.label,
+    modes: MODES.filter(
+      m => (m.value !== 'bones' || hasBones) && (m.value !== 'parts' || item.kind !== 'scene')
+    ),
+    modeLabel: mode === 'parts' ? (split?.label ?? 'Parts · as it came') : label,
     noPreview: !url || loadError || item.state === 'failed',
     orbitHint: url && item.state === 'ready' && !loadError,
   };

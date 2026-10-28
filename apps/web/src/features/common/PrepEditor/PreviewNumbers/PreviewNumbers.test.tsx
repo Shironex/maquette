@@ -39,4 +39,36 @@ describe('PreviewNumbers', () => {
     expect(screen.getByRole('row', { name: /Size/ })).toHaveTextContent('50×45×50 cm');
     expect(screen.getByText('19,212 to 4,999 triangles, ratio 0.260')).toBeInTheDocument();
   });
+
+  it('says how a split cuts the model and that the texture stays', () => {
+    const before = { ...numbers(12_200, 1, 2048, 0.86), drawCalls: 4 };
+    const after = { ...before, objects: 5, drawCalls: 5 };
+    render(
+      <PreviewNumbers
+        report={{
+          ...report,
+          plan: { size: null, fixups: [{ op: 'split-parts', by: 'loose', mergeUnder: 0.01 }] },
+          before,
+          after,
+          steps: [
+            {
+              op: 'split-parts',
+              before,
+              after,
+              note: '5 parts, 9 pieces, 4 tiny bits merged in',
+              split: { pieces: 9, merged: 4, byLoose: 5, byMaterial: 4 },
+            },
+          ],
+          scale: null,
+        }}
+      />
+    );
+    expect(screen.getByRole('row', { name: /Draw calls/ })).toHaveTextContent('45');
+    expect(
+      screen.getByText(
+        'By loose pieces: 5 parts, 9 pieces, 4 tiny bits merged in. By material: 4 parts.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText('Same maps, same UVs: the texture stays.')).toBeInTheDocument();
+  });
 });

@@ -230,6 +230,32 @@ export const commands = {
 	 *  The model is only read. A plan that already ran answers at once.
 	 */
 	preparePreview: (request: PreviewRequest) => __TAURI_INVOKE<FixupReport>("prepare_preview", { request }),
+	/**
+	 *  The asset's parts as its newest model ships them. Reads files only: a
+	 *  split that has not been previewed says so in `needsPreview`.
+	 */
+	partsGet: (project: string, asset: string) => __TAURI_INVOKE<AssetParts>("parts_get", { project, asset }),
+	/**
+	 *  Runs the split headless on a copy of the newest model so its parts can
+	 *  be listed, then returns them. A split that already ran answers at once.
+	 */
+	partsPreview: (project: string, asset: string) => __TAURI_INVOKE<AssetParts>("parts_preview", { project, asset }),
+	/**
+	 *  Saves the asset's part names, joins and hidden parts in `prepare.json`.
+	 *  The next build ships the names and joins; hiding changes no export.
+	 */
+	partsSave: (project: string, asset: string, parts: PartsPlan) => __TAURI_INVOKE<AssetParts>("parts_save", { project, asset, parts }),
+	/**
+	 *  Two versions of an asset (or one before and after its fix-ups) side by
+	 *  side: the parts Motion can move, draw calls, triangles, textures,
+	 *  transfer size and Inbox checks.
+	 */
+	partsCompare: (project: string, asset: string, left: PartsSide, right: PartsSide) => __TAURI_INVOKE<PartsCompare>("parts_compare", { project, asset, left, right }),
+	/**
+	 *  Makes one version the asset's current one, for the next export. Every
+	 *  version stays in the asset.
+	 */
+	partsKeepVersion: (project: string, asset: string, version: number) => __TAURI_INVOKE<ProjectManifest>("parts_keep_version", { project, asset, version }),
 	builtList: (project: string) => __TAURI_INVOKE<BuiltAsset[]>("built_list", { project }),
 	/**
 	 *  Copies the script and helpers into the project's `built/` folder and
@@ -752,6 +778,29 @@ export type AssetOrigin = {
 	version: number,
 };
 
+/**  One asset's parts as its newest model ships them. */
+export type AssetParts = {
+	project: string,
+	asset: string,
+	name: string,
+	kind: AssetKind,
+	/**  The newest version, when the asset has a model. */
+	version: number | null,
+	/**
+	 *  The file the parts were read from, an absolute path: the newest
+	 *  model, or the fix-up preview's copy once a split ran.
+	 */
+	file: string | null,
+	/**  Its fix-ups cut or join the parts. */
+	split: boolean,
+	/**  They do, and the preview that lists the parts has not run yet. */
+	needsPreview: boolean,
+	rows: PartRow[],
+	plan: PartsPlan,
+	/**  A game project: no Timeline, so Compare explodes the parts itself. */
+	game: boolean,
+};
+
 /**  One asset's real size and fix-ups, with what its newest model measures. */
 export type AssetPrep = {
 	project: string,
@@ -1171,6 +1220,13 @@ export type Check = {
 	detail: string | null,
 	/**  One click fix-ups for what the check found, best first. */
 	fixes: Fixup[],
+};
+
+/**  How many of a model's Inbox checks pass, warn and fail. */
+export type CheckCounts = {
+	pass: number,
+	warning: number,
+	fail: number,
 };
 
 export type CheckStatus = "pass" | "warning" | "fail";
@@ -1687,6 +1743,13 @@ export type Fixup =
 { op: "remove-loose"; minShare: number | null } | 
 /**  Joins the meshes into one, or one per material. */
 { op: "merge"; byMaterial: boolean } | 
+/**
+ *  Cuts each unrigged mesh into named parts (`part_1`, `part_2`, top
+ *  first), by loose pieces or by material. A piece whose size is at most
+ *  `mergeUnder` of the model's diagonal (0 to 0.2) joins its nearest
+ *  bigger neighbour. The texture and UVs stay as they are.
+ */
+{ op: "split-parts"; by?: SplitBy; mergeUnder: number | null } | 
 /**  Collapses the model down to about this many triangles. */
 { op: "decimate"; triangles: number } | 
 /**  Scales every image down to this many pixels on its longest edge. */
@@ -1705,7 +1768,7 @@ export type FixupDefaults = {
 };
 
 /**  The kinds of fix-up, in the order they are applied. */
-export type FixupKind = "apply-transforms" | "remove-loose" | "merge" | "decimate" | "shrink-textures" | "origin-bottom";
+export type FixupKind = "apply-transforms" | "remove-loose" | "merge" | "split-parts" | "decimate" | "shrink-textures" | "origin-bottom";
 
 /**  The fix-ups and real size of one plan on one model. */
 export type FixupReport = {
@@ -1729,6 +1792,8 @@ export type FixupStep = {
 	after: ModelNumbers,
 	/**  The script's one line summary, for example "ratio 0.260". */
 	note: string,
+	/**  A split's numbers. */
+	split?: SplitNumbers | null,
 };
 
 /**
@@ -2537,6 +2602,8 @@ export type ModelNumbers = {
 	/**  Bounds in glTF metres (Y up); `None` without meshes. */
 	min: [(number | null), (number | null), (number | null)] | null,
 	max: [(number | null), (number | null), (number | null)] | null,
+	/**  One per mesh and material it uses; `None` from an older script. */
+	drawCalls?: number | null,
 };
 
 /**  One choice in a model select. */
@@ -2547,6 +2614,23 @@ export type ModelOption = {
 	label: string,
 	/**  One line on when to pick it. */
 	note: string,
+};
+
+/**  One side of a compare: what a version (or its fixed copy) ships with. */
+export type ModelParts = {
+	/**
+	 *  The parts Motion can move, by the names they ship as. Empty for a
+	 *  model that is one mesh: it moves only as a whole.
+	 */
+	parts: string[],
+	drawCalls: number,
+	triangles: number,
+	textures: number,
+	/**  The longest texture edge in pixels, 0 without textures. */
+	maxTexture: number,
+	/**  The file's size: what a page or game loads. */
+	bytes: number | null,
+	checks: CheckCounts,
 };
 
 /**  One asset's preparation. */
@@ -2565,6 +2649,11 @@ export type ModelPrep = {
 	 *  chose, so an Inbox accept may fill in its default.
 	 */
 	padEdges?: boolean | null,
+	/**
+	 *  The names its parts ship as, parts joined and parts drawn as a
+	 *  ghost in the Inspector. Null names none.
+	 */
+	parts?: PartsPlan | null,
 };
 
 /**  The compression a model gets: its preset row, or the workspace defaults. */
@@ -2880,6 +2969,43 @@ export type PartPose = {
 	position: [(number | null), (number | null), (number | null)],
 	/**  Degrees added to its own rotation, X, then Y, then Z. */
 	rotation: [(number | null), (number | null), (number | null)],
+};
+
+/**  One part as the Inspector lists it. */
+export type PartRow = {
+	/**  The name in the model, which the plan keys by. */
+	id: string,
+	/**  The name it ships as. */
+	name: string,
+	triangles: number,
+	materials: string[],
+	/**  Drawn as a ghost in the Inspector; it still ships. */
+	hidden: boolean,
+	/**  The parts joined into this one (their ids), when it is a group's first. */
+	joined: string[],
+};
+
+export type PartsCompare = {
+	left: ModelParts,
+	right: ModelParts,
+	/**  The files each side shows, absolute paths. */
+	leftFile: string,
+	rightFile: string,
+};
+
+export type PartsPlan = {
+	/**  The name in the model to the name it ships as. */
+	names?: { [key in string]: string },
+	/**  Groups of parts joined into one mesh, named after the first. */
+	merge?: string[][],
+	/**  Parts drawn as a ghost in the Inspector. They still ship. */
+	hidden?: string[],
+};
+
+/**  One side of a compare: a version as it came, or after its fix-ups. */
+export type PartsSide = {
+	version: number,
+	fixed?: boolean,
 };
 
 /**  How the site joins a path's points. */
@@ -4096,6 +4222,27 @@ export type SpendOutcome =
 
 /**  Who was paid: the provider's API, or a web subscription by hand. */
 export type SpendSource = "api" | "subscription";
+
+/**  What a split cuts the model along. */
+export type SplitBy = 
+/**  Each loose piece (faces that touch) is a part. */
+"loose" | 
+/**  Each material is a part. */
+"material";
+
+/**
+ *  What a split found: the pieces, how many small ones joined a
+ *  neighbour, and how many parts each way of splitting gives.
+ */
+export type SplitNumbers = {
+	/**  Loose pieces, or materials, before the small ones joined. */
+	pieces: number,
+	/**  Small pieces joined into a neighbour. */
+	merged: number,
+	/**  Parts by loose pieces and by material, small ones joined. */
+	byLoose: number,
+	byMaterial: number,
+};
 
 /**  The Board columns, in pipeline order. */
 export type Stage = "concept" | "refs" | "tripo" | "blender" | "web" | "ship";

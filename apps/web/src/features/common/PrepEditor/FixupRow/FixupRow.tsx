@@ -7,7 +7,7 @@ import {
   type SegmentedOption,
   type SelectOption,
 } from '@maquette/ui';
-import type { Fixup } from '@/ipc/client';
+import type { Fixup, SplitBy } from '@/ipc/client';
 import { formatCount } from '@/lib/format';
 import { FIXUP_HINT, FIXUP_LABEL } from '@/state/prepare';
 
@@ -18,6 +18,10 @@ const SIZES: SelectOption<string>[] = [256, 512, 1024, 2048, 4096].map(px => ({
 const MERGE: SegmentedOption<'one' | 'material'>[] = [
   { value: 'one', label: 'One mesh' },
   { value: 'material', label: 'By material' },
+];
+const SPLIT: SegmentedOption<SplitBy>[] = [
+  { value: 'material', label: 'By material' },
+  { value: 'loose', label: 'By loose pieces' },
 ];
 
 export interface FixupRowProps {
@@ -88,11 +92,45 @@ function Param({ fixup, onChange, disabled }: Omit<FixupRowProps, 'index' | 'onR
   }
 }
 
+/**
+ * A split's own lines, under its name: by material or by loose pieces, and
+ * the share under which a piece joins its neighbour.
+ */
+function SplitLines({ fixup, onChange, disabled }: Omit<FixupRowProps, 'index' | 'onRemove'>) {
+  if (fixup.op !== 'split-parts') return null;
+  return (
+    <div className="flex basis-full flex-col items-start gap-1.5 pb-0.5 pl-5 text-meta text-fg-dim">
+      <SegmentedControl
+        label="Split"
+        options={SPLIT}
+        value={fixup.by ?? 'loose'}
+        onChange={by => onChange({ ...fixup, by })}
+      />
+      <div className="flex items-center gap-2">
+        <span>Merge bits under</span>
+        <NumberField
+          aria-label="Merge bits under"
+          size="sm"
+          unit="%"
+          value={(fixup.mergeUnder ?? 0) * 100}
+          min={0}
+          max={20}
+          format={v => String(Number(v.toFixed(2)))}
+          disabled={disabled}
+          onChange={pct => onChange({ ...fixup, mergeUnder: pct / 100 })}
+          fieldClassName="w-[70px]"
+        />
+        <span>into a neighbour</span>
+      </div>
+    </div>
+  );
+}
+
 /** One fix-up: its place, name and number, and Remove. */
 export default function FixupRow({ fixup, index, onChange, onRemove, disabled }: FixupRowProps) {
   const label = FIXUP_LABEL[fixup.op];
   return (
-    <li className="flex min-h-9 items-center gap-2 rounded-card bg-raised py-1 pr-1 pl-2.5">
+    <li className="flex min-h-9 flex-wrap items-center gap-2 rounded-card bg-raised py-1 pr-1 pl-2.5">
       <span className="w-3 flex-none font-mono text-[11px] text-fg-mute tabular-nums">{index}</span>
       <Tooltip label={FIXUP_HINT[fixup.op]} wrap>
         <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -105,6 +143,7 @@ export default function FixupRow({ fixup, index, onChange, onRemove, disabled }:
         disabled={disabled}
         onClick={onRemove}
       />
+      <SplitLines fixup={fixup} onChange={onChange} disabled={disabled} />
     </li>
   );
 }

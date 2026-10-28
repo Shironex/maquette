@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import type * as THREE from 'three';
 import { originalsOf } from '../../materials';
+import { ROOT_FLAG } from '../../parts';
 import {
   castShadows,
   frameCamera,
@@ -28,6 +29,7 @@ export function useModel(url: string | null, onError: ModelSource['onError']): L
       gltf => {
         if (!alive) return;
         const scene = gltf.scene;
+        scene.userData[ROOT_FLAG] = true;
         const originals = originalsOf(scene);
         const bones: THREE.Bone[] = [];
         scene.traverse(obj => {

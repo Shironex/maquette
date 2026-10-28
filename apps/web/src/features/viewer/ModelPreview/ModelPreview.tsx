@@ -15,6 +15,8 @@ export default function ModelPreview({
   mode = 'shaded',
   turntable = true,
   className,
+  parts,
+  onPickPart,
   ...source
 }: ModelPreviewProps) {
   return (
@@ -25,9 +27,16 @@ export default function ModelPreview({
       dpr={[1, 2]}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
       aria-label="Model preview"
+      onPointerMissed={onPickPart ? () => onPickPart(null, false) : undefined}
     >
       <color attach="background" args={[BACKDROP]} />
-      <Studio source={source} mode={mode} turntable={turntable} />
+      <Studio
+        source={source}
+        mode={mode}
+        turntable={turntable}
+        parts={parts}
+        onPickPart={onPickPart}
+      />
     </Canvas>
   );
 }

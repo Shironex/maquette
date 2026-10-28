@@ -4,6 +4,7 @@ import type { PreviewMode } from '@/features/viewer/ModelPreview';
 
 export const MODES: readonly { value: PreviewMode; label: string }[] = [
   { value: 'shaded', label: 'Shaded' },
+  { value: 'parts', label: 'Parts' },
   { value: 'wireframe', label: 'Wireframe' },
   { value: 'uv', label: 'UV' },
   { value: 'bones', label: 'Bones' },
@@ -11,6 +12,7 @@ export const MODES: readonly { value: PreviewMode; label: string }[] = [
 
 export const MODE_ICON: Record<PreviewMode, IconName> = {
   shaded: 'cube',
+  parts: 'stack',
   wireframe: 'cube-transparent',
   uv: 'squares-four',
   bones: 'person-simple',
