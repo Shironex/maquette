@@ -4,6 +4,7 @@ export {
   WINDOW_FROM,
   useGridColumns,
   useWindowedList,
+  type WindowItemProps,
   type WindowedList,
   type WindowedListOptions,
 } from './lib/useWindowedList';

@@ -35,6 +35,12 @@ export interface WindowedListOptions {
   overscan?: number;
 }
 
+/** What an item spreads on its outer element; only a row's first item measures the row. */
+export interface WindowItemProps {
+  ref?: (el: Element | null) => void;
+  'data-index'?: number;
+}
+
 export interface WindowedList {
   /** False while the list renders whole. */
   windowed: boolean;
@@ -49,7 +55,7 @@ export interface WindowedList {
    * Props for item `index`: the first item of each row carries the ref that
    * measures the row. Spread them on the item's outer element.
    */
-  itemProps: (index: number) => { ref?: (el: Element | null) => void; 'data-index'?: number };
+  itemProps: (index: number) => WindowItemProps;
   /** Scrolls the row holding item `index` into view, by the least, or to its end. */
   scrollTo: (index: number, align?: 'auto' | 'end') => void;
 }
