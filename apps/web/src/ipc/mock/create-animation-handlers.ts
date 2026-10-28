@@ -26,9 +26,12 @@ import { fail, type Args } from './backend-options';
 import { HOME } from './fixtures';
 import { PACK_CLIPS, animationClips, mockClip } from './animation-fixtures';
 import { MOTION_FIXTURES } from './motion-fixtures';
+import { createRetargetHandlers } from './create-retarget-handlers';
 
 interface AnimationContext {
   project: (id: string) => ProjectManifest;
+  saveProject: (next: ProjectManifest) => ProjectManifest;
+  alias: (path: string, from: string) => void;
   root: () => string;
   state: string | null;
 }
@@ -74,10 +77,11 @@ export function createAnimationHandlers(ctx: AnimationContext) {
     if (url) registerMockFile(fileOf(id), url);
   };
   for (const c of clips) serve(c.id);
+  const retarget = createRetargetHandlers({ ...ctx, clips: () => clips });
 
   const view = (): AnimationsView => ({
     dir: dir(),
-    items: clips.map(clip => ({ clip, file: fileOf(clip.id), uses: [] })),
+    items: clips.map(clip => ({ clip, file: fileOf(clip.id), uses: retarget.uses(clip) })),
     diskBytes: clips.reduce((sum, c) => sum + (c.bytes ?? 0), 0),
   });
 
@@ -331,6 +335,7 @@ export function createAnimationHandlers(ctx: AnimationContext) {
 
   return {
     handlers: {
+      ...retarget.handlers,
       animations_get: () => view(),
       dialog_pick_clips: () => PICKED,
       animations_read_import: (args: Args) => readImport(args.paths as string[]),
