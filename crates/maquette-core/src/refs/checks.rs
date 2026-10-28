@@ -9,6 +9,8 @@
 //! - **Cropped:** on a plain background, the object reaches the edge of
 //!   the frame. PNG only.
 //! - **One view:** one image goes while the preset has multi-view on.
+//! - **Views disagree:** a side or the back does not match the front in
+//!   its main colours or its proportions (see [`agree`]). PNG only.
 //!
 //! The pixel checks read a grid of at most [`GRID`] samples a side, so a
 //! 4k image costs the same as a small one.
@@ -44,6 +46,7 @@ pub enum WarningKind {
     Cropped,
     BusyBackground,
     OneView,
+    ViewsDisagree,
 }
 
 /// A one click fix the panel offers next to a warning.
@@ -99,6 +102,17 @@ impl Grid {
         self.px[y * self.w + x]
     }
 
+    /// The four corners, each the mean of a small square: the ground.
+    fn corners(&self) -> [[u8; 4]; 4] {
+        let side = (self.w.min(self.h) / 25).max(1);
+        [
+            self.corner(false, false, side),
+            self.corner(true, false, side),
+            self.corner(false, true, side),
+            self.corner(true, true, side),
+        ]
+    }
+
     /// The mean colour of a square of `side` samples at a corner.
     fn corner(&self, right: bool, bottom: bool, side: usize) -> [u8; 4] {
         let mut sum = [0u64; 4];
@@ -141,13 +155,7 @@ pub(crate) fn look(image: &Pixels) -> Option<Looks> {
     if grid.w < 8 || grid.h < 8 {
         return None;
     }
-    let side = (grid.w.min(grid.h) / 25).max(1);
-    let corners = [
-        grid.corner(false, false, side),
-        grid.corner(true, false, side),
-        grid.corner(false, true, side),
-        grid.corner(true, true, side),
-    ];
+    let corners = grid.corners();
     let apart = corners
         .iter()
         .flat_map(|a| corners.iter().map(move |b| diff(*a, *b)))
@@ -169,15 +177,7 @@ pub(crate) fn look(image: &Pixels) -> Option<Looks> {
             cut: Vec::new(),
         });
     }
-    let ground = corners[0];
-    let transparent = ground[3] < 128;
-    let object = |p: [u8; 4]| {
-        if transparent {
-            p[3] >= 128
-        } else {
-            diff(p, ground) > DIFFERENT
-        }
-    };
+    let object = |p: [u8; 4]| is_object(corners[0], p);
     let edges: [(&'static str, Vec<[u8; 4]>); 4] = [
         ("top", (0..grid.w).map(|x| grid.at(x, 0)).collect()),
         (
@@ -201,6 +201,16 @@ pub(crate) fn look(image: &Pixels) -> Option<Looks> {
         .map(|(side, _)| side)
         .collect();
     Some(Looks { busy: false, cut })
+}
+
+/// Whether a sample is the object rather than the `ground` behind it: any
+/// opaque sample on a transparent ground, else one clearly off its colour.
+fn is_object(ground: [u8; 4], p: [u8; 4]) -> bool {
+    if ground[3] < 128 {
+        p[3] >= 128
+    } else {
+        diff(p, ground) > DIFFERENT
+    }
 }
 
 fn name_of(file: &str) -> &str {
@@ -297,8 +307,10 @@ pub fn send_warnings(
             fixes: vec![RefFix::MakeViews],
         });
     }
+    out.extend(agree::view_warnings(project_dir, &sent, &views));
     out
 }
 
+mod agree;
 #[cfg(test)]
 mod tests;

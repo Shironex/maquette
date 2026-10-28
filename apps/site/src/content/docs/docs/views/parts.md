@@ -29,11 +29,11 @@ A split is a send like any other: it waits in the 3D queue, its credits show in 
 
 ## The texture after a split
 
-Meshy's split never keeps the texture: the parts come back grey. Once you accept them, Maquette bakes the texture back from the version they came from onto the parts, headless in Blender and free, and adds the result as the version after. Tripo does not say whether a split keeps the texture, so the Inbox looks when it arrives; when it is gone, the Parts tab offers **Bake back** instead of running it. Either way the grey version stays: **Keep** it from the note in the Parts tab to undo the bake. A bake that fails says why and can run again.
+Meshy's split never keeps the texture: the parts come back grey. Once you accept them, Maquette bakes the texture back from the version they came from onto the parts, headless in Blender and free, and adds the result as the version after. Tripo does not say whether a split keeps the texture, so the Inbox looks when it arrives; when it is gone, the Parts tab offers **Bake back** instead of running it. Either way the grey version stays: **Keep** it from the note in the Parts tab to undo the bake. A bake that fails says why and can run again. An agent runs an offered or failed bake with `bake_back`.
 
 ## Assemble one prop
 
-Parts made as models of their own (from [object refs](/docs/views/lab/), say, one model per part) join into one prop with **Assemble a prop...** in the Parts tab. Pick the parts and their order, give each the node name it ships as and a pivot (bottom centre, centre, left or right hinge, or its own origin), and place them where their models put them or by numbers, in metres. Headless Blender joins them into one GLB with a node per part under one root named after the prop, and it lands as the next version of a new prop, or of the prop you pick. Each part stays an asset with its own versions; the recipe is kept in `assemblies.json` in the project, so assembling again picks up a part's newer version. A door on its left hinge swings on its hinge in object states.
+Parts made as models of their own (from [object refs](/docs/views/lab/), say, one model per part) join into one prop with **Assemble a prop...** in the Parts tab. Pick the parts and their order, give each the node name it ships as and a pivot (bottom centre, centre, left or right hinge, or its own origin), and place them where their models put them, by numbers (in metres, and degrees of turn), or with **Move in the viewer**: the parts stand in a small 3D view where a click or the part list puts a gizmo on one, **Move** drags it and **Turn** turns it about its pivot, snapping to 1, 5 or 10 cm and 15, 45 or 90 degrees (or free). The viewer writes the same numbers, so each drag shows in the part's fields and typing a number moves it there. Headless Blender joins them into one GLB with a node per part under one root named after the prop, and it lands as the next version of a new prop, or of the prop you pick. Each part stays an asset with its own versions; the recipe is kept in `assemblies.json` in the project, so assembling again picks up a part's newer version. A door on its left hinge swings on its hinge in object states.
 
 ## The Parts tab
 
@@ -43,6 +43,8 @@ The Inspector's **Parts** tab shows one model's parts as it ships them. Pick the
 - **Rename**: double click a part in the list. The name is what the export calls the part's node, and what object states and explode tracks pick it by, so name parts before you use them. Names are unique and at most 64 characters.
 - **Merge**: joins the selected parts into one, named after the first. The join ships in the next build; the list's split button undoes it.
 - **Hide**: draws the part as a ghost here, to see what is behind it. A hidden part still ships.
+
+**Open in Blender** opens the version the tab shows in Blender's window, to look closer. It is the one place Maquette opens Blender with a window, and only on that click; everything else runs headless.
 
 The view colours each part, or shows it shaded or as wireframe. The side panel lists the selected parts' materials and triangles. Under the view, the export card lists the node names and the Motion states card the states and explode tracks that pick parts by name. A model that is still one mesh offers **Split into parts** right there.
 

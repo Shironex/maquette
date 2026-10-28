@@ -3,7 +3,8 @@
  * the missing ones and clean a ref, and the weak ref warnings, mirroring
  * `maquette_core::refs`. `?lab=refs` tags the guardian statues: a front,
  * a busy crop and a small detail as other, so the sheet shows 1 of 4
- * views. The front crops its object, so a send of it warns.
+ * views. The front crops its object, so a send of it warns, and the
+ * detail tagged as a side or the back looks different from the front.
  */
 import type {
   AssetRef,
@@ -43,6 +44,22 @@ type Weak = 'busy' | 'small' | 'cropped';
 
 /** What the core's pixel checks find in the scenario's refs. */
 const WEAK: Record<string, Weak> = { [FRONT]: 'cropped', [CROP]: 'busy', [DETAIL]: 'small' };
+
+/** Refs whose colours and proportions do not match the statues' front. */
+const LOOKS_DIFFERENT = new Set([DETAIL]);
+
+/** The core's copy when a side or the back does not match the front. */
+function disagreeWarning(file: string, view: RefView): RefWarning {
+  return {
+    kind: 'views-disagree',
+    file,
+    view,
+    title: `${VIEW_LABEL[view]} looks different from the front: its colours and proportions do not match`,
+    detail:
+      'Views that do not match can mix into the model. It may only be the light or the drawing; check it against the front, or draw it again from the front.',
+    fixes: ['make-views', 'leave-out'],
+  };
+}
 
 /** The core's copy for each check; `who` is the view an image goes as, else its name. */
 function weakWarning(weak: Weak, who: string, name: string) {
@@ -271,6 +288,13 @@ export function createRefsHandlers(parts: RefsLabParts): Record<string, (args: A
         const name = file.slice(file.lastIndexOf('/') + 1);
         return [{ file, view, ...weakWarning(weak, view ? VIEW_LABEL[view] : name, name) }];
       });
+      const views = sent.map(file => sentView(asset, item.images, file));
+      if (sent.length > 1 && views.includes('front'))
+        sent.forEach((file, i) => {
+          const view = views[i];
+          if (view && view !== 'front' && LOOKS_DIFFERENT.has(file))
+            out.push(disagreeWarning(file, view));
+        });
       if (sent.length === 1 && item.multiView)
         out.push({
           kind: 'one-view',

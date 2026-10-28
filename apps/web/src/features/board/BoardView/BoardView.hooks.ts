@@ -192,7 +192,7 @@ export function useCardActions(project: ProjectManifest | null | undefined) {
   const openInBlender = async (asset: Asset) => {
     if (!project) return;
     try {
-      await commands.assetOpenInBlender(project.id, asset.id);
+      await commands.assetOpenInBlender(project.id, asset.id, null);
     } catch (error) {
       notify({ status: 'failed', title: 'Could not open Blender', detail: errorMessage(error) });
     }

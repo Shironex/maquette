@@ -108,10 +108,10 @@ export const commands = {
 	assetMove: (project: string, id: string, stage: Stage) => __TAURI_INVOKE<ProjectManifest>("asset_move", { project, id, stage }),
 	assetRename: (project: string, id: string, name: string) => __TAURI_INVOKE<ProjectManifest>("asset_rename", { project, id, name }),
 	/**
-	 *  Opens the asset's latest file in Blender's window. Only ever from a
-	 *  click on Open in Blender.
+	 *  Opens one of the asset's versions (the latest without `version`) in
+	 *  Blender's window. Only ever from a click on Open in Blender.
 	 */
-	assetOpenInBlender: (project: string, id: string) => __TAURI_INVOKE<null>("asset_open_in_blender", { project, id }),
+	assetOpenInBlender: (project: string, id: string, version: number | null) => __TAURI_INVOKE<null>("asset_open_in_blender", { project, id, version }),
 	/**
 	 *  Copies an asset with its refs, versions, thumbnails and finished sends
 	 *  to another project. The asset stays where it is.
@@ -167,6 +167,11 @@ export const commands = {
 	 *  left out and the older version kept.
 	 */
 	animationsBake: (token: string) => __TAURI_INVOKE<Baked>("animations_bake", { token }),
+	/**
+	 *  Opens a retarget's baked copy in Blender's window. Only ever from a
+	 *  click on Open in Blender in the review.
+	 */
+	animationsOpenDraftInBlender: (token: string) => __TAURI_INVOKE<null>("animations_open_draft_in_blender", { token }),
 	layoutGet: (project: string) => __TAURI_INVOKE<LayoutView>("layout_get", { project }),
 	/**
 	 *  Saves the whole layout and returns the view of it. The states, clip
@@ -1385,6 +1390,8 @@ export type ClipReview = {
 	/**  The worst slide of a planted foot, cm, and the frames it spans. */
 	slideCm: number | null,
 	slideFrames: [number, number] | null,
+	/**  The slide before Pin the feet, cm, when this bake pinned them. */
+	unpinnedCm: number | null,
 };
 
 /**  The skeleton a clip was made on. */
@@ -1408,6 +1415,11 @@ export type ClipSetting = {
 	/**  Keeps the root's travel in the clip; off plays it in place. */
 	rootMotion: boolean,
 	speed: number | null,
+	/**
+	 *  Holds each foot still while it is planted and solves the leg back
+	 *  to it, for a clip whose feet slide.
+	 */
+	pinFeet?: boolean,
 };
 
 /**  What the Motion view changed about one clip. */
@@ -4912,7 +4924,7 @@ export type VersionFrom = {
 	version: number,
 };
 
-export type WarningKind = "small" | "cropped" | "busy-background" | "one-view";
+export type WarningKind = "small" | "cropped" | "busy-background" | "one-view" | "views-disagree";
 
 /**
  *  One asset of a warnings request: the images as picked and whether its

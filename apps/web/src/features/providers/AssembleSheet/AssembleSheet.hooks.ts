@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { commands, errorMessage, type Asset, type Recipe } from '@/ipc/client';
+import { commands, errorMessage, type AssemblePart, type Asset, type Recipe } from '@/ipc/client';
 import { notify } from '@/state/providers-store-helpers';
 import {
   MAX_ASSEMBLE_PARTS,
@@ -11,10 +11,24 @@ import {
 import { useAppStore } from '@/state/use-app-store';
 import { useSplitStore, type AssembleTarget } from '@/state/use-split-store';
 
-/** Where the parts go: where their models put them, or by numbers. */
-export type Placement = 'model' | 'numbers';
+/**
+ * Where the parts go: where their models put them, by numbers, or moved
+ * in the viewer, which writes the same numbers.
+ */
+export type Placement = 'model' | 'numbers' | 'viewer';
 
 const NEW_ASSET = '';
+
+/**
+ * A part's place and turn as sent: none where the models put them, the
+ * numbers (from the origin) by numbers, and in the viewer the place the
+ * viewer read, or the model's own until the part loaded.
+ */
+function placed(placement: Placement, p: AssemblePart): Pick<AssemblePart, 'at' | 'turn'> {
+  if (placement === 'model') return { at: null, turn: 0 };
+  const at = placement === 'numbers' ? (p.at ?? [0, 0, 0]) : (p.at ?? null);
+  return { at, turn: p.turn ?? 0 };
+}
 
 function draftOf(asset: Asset, given?: Partial<DraftPart>): DraftPart {
   return {
@@ -113,8 +127,7 @@ export function useAssembleSheet() {
         parts: parts.map(({ triangles: _, ...p }) => ({
           ...p,
           name: p.name.trim(),
-          at: placement === 'numbers' ? (p.at ?? [0, 0, 0]) : null,
-          turn: placement === 'numbers' ? (p.turn ?? 0) : 0,
+          ...placed(placement, p),
         })),
       });
       setProject(made.project);

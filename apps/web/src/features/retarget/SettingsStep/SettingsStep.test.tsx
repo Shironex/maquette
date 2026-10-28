@@ -30,5 +30,7 @@ describe('the clip settings step', () => {
     expect(useRetargetStore.getState().sheet!.settings[0]!.name).toBe('dodge_l');
     fireEvent.click(screen.getByRole('button', { name: 'Reset names' }));
     expect(useRetargetStore.getState().sheet!.settings[0]!.name).toBe('dodge_left');
+    fireEvent.click(screen.getByRole('switch', { name: /Pin the feet/ }));
+    expect(useRetargetStore.getState().sheet!.settings[0]!.pinFeet).toBe(true);
   });
 });

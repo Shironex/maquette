@@ -171,19 +171,24 @@ fn clips_save_from_a_rigged_model_in_the_inbox() {
     assert_eq!((again.added.len(), again.skipped.len()), (0, 1));
 }
 
-/// Frostveil with Elsheria (the fixture model, v1) and the dodge clip in
-/// the library.
-fn elsheria_with_a_dodge(s: &Setup, config: &WorkspaceConfig) -> PathBuf {
-    let scripts = s.root.path().join("scripts");
-    let dodge = s.files.join("Dodge Left.fbx");
-    fixture(&s.blender, &scripts, "clip", &dodge);
-    let paths = [dodge.display().to_string()];
+/// Imports fixture `which` into the library as `file`.
+fn import_fixture(s: &Setup, config: &WorkspaceConfig, which: &str, file: &str) {
+    let path = s.files.join(file);
+    fixture(&s.blender, &s.root.path().join("scripts"), which, &path);
+    let paths = [path.display().to_string()];
     let plan = import::read(s.root.path(), config, &s.runner, &s.tools, &paths).expect("read");
     let request = ImportRequest {
         token: plan.token,
         ..ImportRequest::default()
     };
     import::commit(s.root.path(), config, &request).expect("import");
+}
+
+/// Frostveil with Elsheria (the fixture model, v1) and the dodge clip in
+/// the library.
+fn elsheria_with_a_dodge(s: &Setup, config: &WorkspaceConfig) -> PathBuf {
+    let scripts = s.root.path().join("scripts");
+    import_fixture(s, config, "clip", "Dodge Left.fbx");
 
     let layout = &config.layout;
     let made = crate::project::create(
@@ -290,4 +295,48 @@ fn library_clips_bake_onto_a_rigged_model_as_its_next_version() {
     let again = retarget::plan(s.root.path(), &config, target, &clips, &[]).expect("again");
     assert_eq!(again.settings[0].name, "dodge_left");
     assert!(!again.needs_look, "the saved map is reused");
+}
+
+#[test]
+fn pin_the_feet_holds_a_sliding_foot_and_reports_before_and_after() {
+    use super::retarget::{self, ReviewStatus, UseClips};
+    let Some(s) = setup() else { return };
+    let config = WorkspaceConfig::default();
+    elsheria_with_a_dodge(&s, &config);
+    import_fixture(&s, &config, "slide", "Foot Slide.fbx");
+    let target = ("frostveil", "elsheria");
+    let clips = ["foot-slide".to_string()];
+    let plan = retarget::plan(s.root.path(), &config, target, &clips, &[]).expect("plan");
+    assert!(!plan.settings[0].pin_feet, "off until asked");
+    let mut request = UseClips {
+        project: target.0.into(),
+        asset: target.1.into(),
+        settings: plan.settings.clone(),
+        map: Vec::new(),
+        save_map: false,
+    };
+    let tools = (&s.runner, &s.tools);
+    let draft = retarget::draft(s.root.path(), &config, tools, &request).expect("draft");
+    let before = draft.review.clips[0].clone();
+    assert_eq!(before.status, ReviewStatus::Look, "{before:?}");
+    assert!(
+        before.note.starts_with("The left foot slides"),
+        "{before:?}"
+    );
+    assert!(before.unpinned_cm.is_none());
+
+    request.settings[0].pin_feet = true;
+    let pinned = retarget::draft(s.root.path(), &config, tools, &request).expect("pinned");
+    let after = &pinned.review.clips[0];
+    assert_eq!(after.status, ReviewStatus::Good, "{after:?}");
+    assert!(after.slide_cm < 0.5, "{after:?}");
+    let was = after.unpinned_cm.expect("before");
+    assert!((was - before.slide_cm).abs() < 0.01, "{was} {before:?}");
+    assert!(
+        after
+            .note
+            .starts_with("Feet pinned, the slide is down from"),
+        "{after:?}"
+    );
+    assert!(pinned.settings[0].pin_feet, "kept with the clip settings");
 }

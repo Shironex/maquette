@@ -107,6 +107,35 @@ impl ProviderJobs {
             .collect()
     }
 
+    /// The split of an asset whose bake back can run now (offered, or
+    /// failed): the one onto `version`, or the newest without it.
+    ///
+    /// # Errors
+    ///
+    /// Fails when no split of the asset has a bake back waiting.
+    pub fn waiting_bake(
+        &self,
+        project: &str,
+        asset: &str,
+        version: Option<u32>,
+    ) -> CoreResult<String> {
+        self.list(None)
+            .into_iter()
+            .filter(|j| j.project == project && j.asset == asset)
+            .filter_map(|j| {
+                let bake = j.split.as_ref()?.bake.as_ref()?;
+                let waiting = matches!(bake.state, BakeState::Offered | BakeState::Failed);
+                (waiting && version.is_none_or(|v| v == bake.onto))
+                    .then(|| (bake.onto, j.id.clone()))
+            })
+            .max_by_key(|(onto, _)| *onto)
+            .map(|(_, id)| id)
+            .ok_or_else(|| {
+                let onto = version.map(|v| format!(" onto v{v}")).unwrap_or_default();
+                CoreError::NotFound(format!("a texture bake back offered for {asset}{onto}"))
+            })
+    }
+
     /// Runs every scheduled bake back, one after another. Blocks.
     pub fn run_scheduled_bakes(&self, tools: &Toolbox) -> Vec<ProviderJob> {
         self.scheduled_bakes()

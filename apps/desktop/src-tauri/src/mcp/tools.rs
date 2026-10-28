@@ -82,7 +82,7 @@ front, left, back and right in that order and leaves other refs home. make_other
 Codex draw an asset's missing views from its front and clean_ref_background makes a cleaned \
 copy of one ref; both spend Codex usage like start_concepts, and use_ref_candidate puts a \
 candidate in place (a clean copy's original moves to refs/originals). send_to_3d and \
-send_batch_to_3d report refWarnings (small, cropped, busy background, one view only) before \
+send_batch_to_3d report refWarnings (small, cropped, busy background, one view only, a view that looks different from the front) before \
 anything is spent; they never stop a send. get_concepts reads the Lab, with its failed jobs; a job Codex rate \
 limits runs again on its own a few times, a job that meets the Codex usage limit waits with \
 the rest of the queue until it lifts (usageLimit, retryAtMs), and retry_concept_jobs runs failed ones again (same \

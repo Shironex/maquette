@@ -26,7 +26,7 @@ const CARD = 'flex flex-col gap-1.5 rounded-card border border-line bg-panel p-3
 /** One model's parts: select them in the viewer, rename, join and hide them. */
 export default function PartsPanel() {
   const p = usePartsPanel();
-  const { openSplit, openAssemble } = usePartsSheets();
+  const { openSplit, openAssemble, openInBlender } = usePartsSheets();
   if (!p.asset) {
     return (
       <div className="grid flex-1 place-items-center">
@@ -72,6 +72,16 @@ export default function PartsPanel() {
                   : ' '}
             </p>
           </div>
+          {found?.version ? (
+            <Button
+              size="sm"
+              icon="arrow-square-out"
+              onClick={() => void openInBlender(found)}
+              tooltip={`Opens v${found.version} in Blender's window to look closer.`}
+            >
+              Open in Blender
+            </Button>
+          ) : null}
           <SegmentedControl
             label="Parts page"
             options={PAGES}

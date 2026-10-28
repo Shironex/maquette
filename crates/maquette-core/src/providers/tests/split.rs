@@ -190,6 +190,15 @@ fn a_tripo_split_goes_by_the_task_that_made_the_model_then_completes_the_parts()
     let bake = jobs.get(&job.id).and_then(|j| j.split?.bake).expect("bake");
     assert_eq!((bake.state, bake.onto), (BakeState::Offered, 2));
     assert!(jobs.scheduled_bakes().is_empty(), "Tripo only offers it");
+    // An agent finds the offered bake by the asset and the version.
+    for version in [None, Some(2)] {
+        let found = jobs.waiting_bake(&world.project, &world.asset, version);
+        assert_eq!(found.expect("offered"), job.id);
+    }
+    assert!(
+        jobs.waiting_bake(&world.project, &world.asset, Some(1))
+            .is_err_and(|e| e.to_string().contains("onto v1"))
+    );
     let spend = settled(&jobs, 2)
         .spends
         .into_iter()

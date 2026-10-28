@@ -2,7 +2,8 @@
 //! only. Import reads FBX files and pack zips headless and adds the clips
 //! the person keeps; Save clips copies a rigged model's clips in; Use on
 //! model bakes clips onto a rigged model as its next version. Blender
-//! always runs headless, one job at a time, and none of it spends credits.
+//! always runs headless, one job at a time, and none of it spends credits;
+//! the review's Open in Blender is the one window, on a click.
 
 use std::sync::{Arc, LazyLock};
 
@@ -285,4 +286,17 @@ pub fn animations_bake(
     let baked = bake(&session, &token)?;
     baked_into(&app, &baked);
     Ok(baked)
+}
+
+/// Opens a retarget's baked copy in Blender's window. Only ever from a
+/// click on Open in Blender in the review.
+#[tauri::command]
+#[specta::specta]
+pub async fn animations_open_draft_in_blender(
+    session: State<'_, Session>,
+    token: String,
+) -> CommandResult<()> {
+    let (root, config) = session.workspace()?;
+    let file = retarget::draft_file(&root, &config, &token)?;
+    super::blender::open_gui(&session, &file).await
 }

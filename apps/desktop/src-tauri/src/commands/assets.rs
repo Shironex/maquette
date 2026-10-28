@@ -111,22 +111,28 @@ pub(crate) fn copy_to(
     Ok(copied)
 }
 
-/// Opens the asset's latest file in Blender's window. Only ever from a
-/// click on Open in Blender.
+/// Opens one of the asset's versions (the latest without `version`) in
+/// Blender's window. Only ever from a click on Open in Blender.
 #[tauri::command]
 #[specta::specta]
 pub async fn asset_open_in_blender(
     session: State<'_, Session>,
     project: String,
     id: String,
+    version: Option<u32>,
 ) -> CommandResult<()> {
     let (root, config) = session.workspace()?;
     let manifest = project::load(&root, &config.layout, &project)?;
     let asset = assets::find(&manifest, &id)?;
-    let latest = asset.latest().ok_or_else(|| {
-        super::invalid("This asset has no file yet. Accept a model from the inbox first.")
+    let chosen = match version {
+        Some(v) => asset.versions.iter().find(|x| x.version == v),
+        None => asset.latest(),
+    };
+    let chosen = chosen.ok_or_else(|| match version {
+        Some(v) => super::invalid(&format!("{} has no v{v}.", asset.name)),
+        None => super::invalid("This asset has no file yet. Accept a model from the inbox first."),
     })?;
-    let file = project::dir(&root, &config.layout, &project)?.join(&latest.file);
+    let file = project::dir(&root, &config.layout, &project)?.join(&chosen.file);
     blender::open_gui(&session, &file).await
 }
 

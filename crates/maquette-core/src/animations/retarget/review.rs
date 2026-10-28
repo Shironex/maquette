@@ -3,7 +3,11 @@
 //! out of the new version; one to look at goes in unless the person takes
 //! it out.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
+
+use super::feet::{self, Track};
 
 /// A planted foot may drift this far before the clip is flagged, cm.
 pub const PLANTED_CM: f32 = 1.5;
@@ -35,6 +39,8 @@ pub struct ClipReview {
     /// The worst slide of a planted foot, cm, and the frames it spans.
     pub slide_cm: f32,
     pub slide_frames: Option<[u32; 2]>,
+    /// The slide before Pin the feet, cm, when this bake pinned them.
+    pub unpinned_cm: Option<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -78,6 +84,28 @@ pub(crate) struct ClipRun {
     pub slide_from: u32,
     pub slide_to: u32,
     pub foot: String,
+    /// Each foot's world position per baked frame; the slide is measured
+    /// from these when the run reports them.
+    pub feet: BTreeMap<String, Track>,
+    /// Why the feet could not be pinned, when asked.
+    pub pin_error: Option<String>,
+    /// The slide of the same clip baked without the pin, filled in here.
+    #[serde(skip)]
+    pub unpinned_cm: Option<f32>,
+}
+
+impl ClipRun {
+    /// Measures the slide from the foot tracks, when there are any.
+    pub(crate) fn measure(&mut self) {
+        if self.feet.is_empty() {
+            return;
+        }
+        let slide = feet::slide(&self.feet);
+        self.slide_cm = slide.cm;
+        self.slide_from = slide.from;
+        self.slide_to = slide.to;
+        self.foot = slide.foot;
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
@@ -102,14 +130,18 @@ fn review_clip(run: &ClipRun, root_motion: bool) -> ClipReview {
                 run.farthest
             ),
         )
+    } else if let Some(before) = run.unpinned_cm {
+        pinned_note(run, before)
     } else if run.slide_cm > PLANTED_CM {
-        (
-            ReviewStatus::Look,
-            format!(
-                "The {} foot slides {:.1} cm while planted, frames {} to {}",
-                run.foot, run.slide_cm, run.slide_from, run.slide_to
-            ),
-        )
+        let note = format!(
+            "The {} foot slides {:.1} cm while planted, frames {} to {}",
+            run.foot, run.slide_cm, run.slide_from, run.slide_to
+        );
+        let note = match &run.pin_error {
+            Some(why) => format!("{note}. The feet could not be pinned: {why}"),
+            None => note,
+        };
+        (ReviewStatus::Look, note)
     } else {
         let note = travel.map_or_else(
             || "Looks right".to_string(),
@@ -126,7 +158,24 @@ fn review_clip(run: &ClipRun, root_motion: bool) -> ClipReview {
         travel,
         slide_cm: run.slide_cm,
         slide_frames: (run.slide_cm > PLANTED_CM).then_some([run.slide_from, run.slide_to]),
+        unpinned_cm: run.unpinned_cm,
     }
+}
+
+/// A clip baked with its feet pinned, against the slide it had before.
+fn pinned_note(run: &ClipRun, before: f32) -> (ReviewStatus, String) {
+    if run.slide_cm > PLANTED_CM {
+        let note = format!(
+            "Feet pinned, the {} foot still slides {:.1} cm (was {before:.1} cm), frames {} to {}",
+            run.foot, run.slide_cm, run.slide_from, run.slide_to
+        );
+        return (ReviewStatus::Look, note);
+    }
+    let note = format!(
+        "Feet pinned, the slide is down from {before:.1} cm to {:.1} cm",
+        run.slide_cm
+    );
+    (ReviewStatus::Good, note)
 }
 
 /// The review of a run. `root_motion` says, per clip id, whether it keeps

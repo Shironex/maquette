@@ -29,6 +29,17 @@ describe('PartsPanel', () => {
     expect(screen.getByText('lid, cage, crystal, post, base')).toBeInTheDocument();
   });
 
+  it('opens the version it shows in Blender, only from the button', async () => {
+    const open = vi.spyOn(commands, 'assetOpenInBlender').mockResolvedValue(null);
+    render(<PartsPanel />);
+    await waitFor(() => expect(list()).toBeInTheDocument());
+    expect(open).not.toHaveBeenCalled();
+    const { version } = await commands.partsGet('frostveil', 'frost-lantern');
+    await userEvent.click(screen.getByRole('button', { name: 'Open in Blender' }));
+    expect(open).toHaveBeenCalledWith('frostveil', 'frost-lantern', version);
+    open.mockRestore();
+  });
+
   it('renames a part on double click and saves it', async () => {
     render(<PartsPanel />);
     await waitFor(() => expect(list()).toBeInTheDocument());

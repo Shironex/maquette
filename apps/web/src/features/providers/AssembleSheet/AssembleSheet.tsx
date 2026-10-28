@@ -3,6 +3,7 @@ import { SectionTitle } from '../SectionTitle';
 import { Sheet } from '@/features/common/Sheet';
 import { MAX_ASSEMBLE_PARTS } from '@/state/split';
 import AssemblePartRow from './AssemblePartRow';
+import { AssembleViewer } from './AssembleViewer';
 import { useAssembleSheet, type Placement } from './AssembleSheet.hooks';
 
 const PLACEMENTS: readonly { value: Placement; label: string; hint: string }[] = [
@@ -12,6 +13,11 @@ const PLACEMENTS: readonly { value: Placement; label: string; hint: string }[] =
     hint: 'Each part sits where its model was made to sit, like parts made from one concept.',
   },
   { value: 'numbers', label: 'By numbers', hint: 'Place each pivot in metres, Y up.' },
+  {
+    value: 'viewer',
+    label: 'Move in the viewer',
+    hint: 'Drag each part with a gizmo, or turn it about its pivot. It writes the same numbers.',
+  },
 ];
 
 /** Assemble one prop from part models: one GLB, a node per part under one root. */
@@ -39,7 +45,7 @@ export default function AssembleSheet() {
       index={i}
       count={a.parts.length}
       assetName={nameOf(part.asset)}
-      byNumbers={a.placement === 'numbers'}
+      byNumbers={a.placement !== 'model'}
       onChange={patch => a.update(i, patch)}
       onMove={by => a.move(i, by)}
       onRemove={() => a.remove(i)}
@@ -96,6 +102,7 @@ export default function AssembleSheet() {
             value={a.placement}
             onChange={a.setPlacement}
           />
+          {a.placement === 'viewer' ? <AssembleViewer parts={a.parts} onPlace={a.update} /> : null}
           <div className="rounded-card border border-line bg-raised px-3 py-2.5">
             <p className="font-mono text-meta text-fg">{prop}</p>
             <ul>{tree}</ul>

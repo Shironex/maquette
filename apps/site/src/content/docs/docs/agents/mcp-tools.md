@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 84 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 85 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -67,6 +67,7 @@ These look at the workspace and change nothing.
 | `add_fixups`                                          | Adds fix-ups to an asset, Split into parts (`split-parts`) among them; one of a kind already there is replaced                 | Nothing | No       |
 | [`set_parts`](#set_parts)                             | Renames, joins, unjoins, hides or shows an asset's parts                                                                       | Nothing | No       |
 | [`assemble_prop`](#assemble_prop)                     | Joins part models into one prop, a node per part under one root, as the next version of an asset                               | Nothing | No       |
+| [`bake_back`](#bake_back)                             | Bakes the texture back onto a split that lost it, headless, as the asset's next version                                        | Nothing | No       |
 | `remove_fixups`                                       | Removes fix-ups by kind, or all of them                                                                                        | Nothing | No       |
 | `update_starters`                                     | Brings outdated or missing starter scripts up to date, as the Update banner does                                               | Nothing | No       |
 | [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states, explode tracks, paths and clips                                         | Nothing | No       |
@@ -174,7 +175,7 @@ Reads one run's status and the end of its log. The status is `queued`, `running`
 
 `costs credits` `needs approval`
 
-Sends an asset's refs to 3D. The images go by their views, front first, and refs tagged other stay home (see [Refs and views](/docs/views/board/#refs-and-views)). The answer carries `refWarnings`: weak refs found before anything is spent (small, cropped, busy background, one view with multi-view on), each with its fixes. They never stop the send. `tripo` and `meshy` spend credits, so the send always waits for you to approve it in the Maquette app and answers `waiting for approval`. Follow it with `get_provider_job`. `by-hand` spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back.
+Sends an asset's refs to 3D. The images go by their views, front first, and refs tagged other stay home (see [Refs and views](/docs/views/board/#refs-and-views)). The answer carries `refWarnings`: weak refs found before anything is spent (small, cropped, busy background, one view with multi-view on, a side or the back that looks different from the front), each with its fixes. They never stop the send. `tripo` and `meshy` spend credits, so the send always waits for you to approve it in the Maquette app and answers `waiting for approval`. Follow it with `get_provider_job`. `by-hand` spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back.
 
 | Parameter   | Type     | Required | Notes                                                                                                                |
 | ----------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -360,6 +361,22 @@ Splits an asset's model into parts on Tripo or Meshy, like the split sheet in th
   "mode": "by-parts",
   "parts": ["lid", "cage", "crystal"]
 }
+```
+
+### bake_back
+
+`changes the project`
+
+Bakes the texture back onto a split that lost it, like Bake back in the Parts tab. It runs when the app offers the bake (a Tripo split that came back grey) or when an earlier bake failed; a Meshy split bakes back on its own once accepted. The texture of the version the split came from bakes headless in Blender onto the split version, and the result lands as the asset's next version; the untextured version stays. It waits for Blender and answers with the job, the bake's state (`done` or `failed`), the new version and a message.
+
+| Parameter | Type   | Required | Notes                                                                    |
+| --------- | ------ | -------- | ------------------------------------------------------------------------ |
+| `project` | string | yes      | The project id.                                                          |
+| `asset`   | string | yes      | The asset id or name.                                                    |
+| `version` | number | no       | The split version the texture bakes onto. By default the newest offered. |
+
+```json
+{ "project": "frostveil", "asset": "frost-lantern", "version": 2 }
 ```
 
 ### assemble_prop
@@ -648,16 +665,16 @@ Saves a rigged model's clips to the animation library as a pack, as Save clips t
 
 `changes the project`
 
-Puts library clips on a rigged model, as Use on model does. The clip's skeleton is mapped onto the model's rig: the map saved for the model first, then the bone names (Mixamo and Tripo names included); `map` sets bones by hand, and a bone left unmapped stays at rest. Each clip gets its name, frames, loop, root motion or in place, and speed on this model only; nothing is written back to the library. Blender bakes the clips headless onto a copy of the newest version and reviews each one: `good`, `look` (a planted foot slides more than 1.5 cm) or `failed` (keys in the wrong units, nothing mapped). Failed clips are left out and the rest become the model's next version through the usual checks; the older version stays. A clip the model baked before is replaced by the new bake. Spends nothing.
+Puts library clips on a rigged model, as Use on model does. The clip's skeleton is mapped onto the model's rig: the map saved for the model first, then the bone names (Mixamo and Tripo names included); `map` sets bones by hand, and a bone left unmapped stays at rest. Each clip gets its name, frames, loop, root motion or in place, and speed on this model only; nothing is written back to the library. Blender bakes the clips headless onto a copy of the newest version and reviews each one: `good`, `look` (a planted foot slides more than 1.5 cm) or `failed` (keys in the wrong units, nothing mapped). Failed clips are left out and the rest become the model's next version through the usual checks; the older version stays. A clip the model baked before is replaced by the new bake. `pinFeet` on a clip holds its planted feet still (a second headless run solves the legs back with IK) and the review gives the slide before as `unpinnedCm` and after as `slideCm`. Spends nothing. Open in Blender has no tool: it is a click in the app only.
 
-| Parameter | Type     | Required | Notes                                                                                                                            |
-| --------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `project` | string   | yes      | The project id.                                                                                                                  |
-| `asset`   | string   | yes      | The asset id of a rigged model.                                                                                                  |
-| `clips`   | object[] | yes      | `{ clip, name?, start?, end?, loops?, rootMotion?, speed? }`: the library clip id and its settings; defaults come from the clip. |
-| `map`     | object[] | no       | `{ bone, target? }`: a humanoid bone (`Neck`, `LeftArm`) and the model bone it drives; no `target` keeps it at rest.             |
-| `saveMap` | boolean  | no       | Keep the map for the model's next retarget. On by default.                                                                       |
-| `dryRun`  | boolean  | no       | Bake and review only; add no version.                                                                                            |
+| Parameter | Type     | Required | Notes                                                                                                                                      |
+| --------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `project` | string   | yes      | The project id.                                                                                                                            |
+| `asset`   | string   | yes      | The asset id of a rigged model.                                                                                                            |
+| `clips`   | object[] | yes      | `{ clip, name?, start?, end?, loops?, rootMotion?, speed?, pinFeet? }`: the library clip id and its settings; defaults come from the clip. |
+| `map`     | object[] | no       | `{ bone, target? }`: a humanoid bone (`Neck`, `LeftArm`) and the model bone it drives; no `target` keeps it at rest.                       |
+| `saveMap` | boolean  | no       | Keep the map for the model's next retarget. On by default.                                                                                 |
+| `dryRun`  | boolean  | no       | Bake and review only; add no version.                                                                                                      |
 
 ```json
 {
@@ -671,7 +688,7 @@ Puts library clips on a rigged model, as Use on model does. The clip's skeleton 
 
 `read only`
 
-A model's last retarget review: each library clip baked onto it with its status and a one line note, the bones driven and left at rest, and the version it made, with every library clip baked into the model and the revision it was baked at.
+A model's last retarget review: each library clip baked onto it with its status, a one line note, its planted foot slide (`slideCm`, and `unpinnedCm` before Pin the feet when it was pinned), the bones driven and left at rest, and the version it made, with every library clip baked into the model and the revision it was baked at.
 
 | Parameter | Type   | Required | Notes           |
 | --------- | ------ | -------- | --------------- |

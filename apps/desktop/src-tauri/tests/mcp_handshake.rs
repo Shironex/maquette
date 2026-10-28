@@ -332,6 +332,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "add_to_library",
             "assemble_prop",
             "attach_download",
+            "bake_back",
             "cancel_provider_jobs",
             "cancel_run",
             "clean_ref_background",

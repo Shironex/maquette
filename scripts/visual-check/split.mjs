@@ -76,6 +76,15 @@ export async function splitShots({ open, shot }) {
   await x.fill('-0.6');
   await x.press('Enter');
   await shot(gate, 'parts-assemble-numbers');
+  await assemble.getByRole('button', { name: 'Move in the viewer' }).click();
+  await assemble
+    .getByRole('combobox', { name: 'Part the gizmo moves' })
+    .selectOption({ label: 'door_leaf' });
+  await assemble.getByRole('button', { name: 'Turn' }).click();
+  const stage = assemble.getByLabel('Assembly');
+  await stage.scrollIntoViewIfNeeded();
+  await gate.waitForTimeout(2500);
+  await shot(gate, 'parts-assemble-viewer');
   await assemble.getByRole('button', { name: 'Assemble', exact: true }).click();
   await assemble.waitFor({ state: 'detached' });
   await gate

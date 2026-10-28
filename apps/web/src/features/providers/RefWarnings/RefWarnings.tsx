@@ -1,7 +1,8 @@
 /**
  * Weak ref warnings above a send: an image too small, an object cropped at
- * the frame, a busy background, one view with multi-view on. They never
- * block the send; each offers its one click fixes.
+ * the frame, a busy background, one view with multi-view on, a side or the
+ * back that does not match the front. They never block the send; each
+ * offers its one click fixes.
  */
 import { Button, Icon } from '@maquette/ui';
 import type { RefFix, RefWarning } from '@/ipc/client';

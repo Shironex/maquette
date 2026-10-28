@@ -7,6 +7,9 @@
   and one clip, "Dodge Left" (30 frames at 30 fps, the hips moving 0.9 m
   to the left), written as FBX with a skinned box, the way clip packs come.
 - still: the same skeleton holding one pose, with keys that never change.
+- slide: the same skeleton with one clip, "Foot Slide" (30 frames), its
+  left leg swaying a few degrees so the planted left foot slides about
+  5 cm and back, within the leg's reach: a clip Pin the feet can fix.
 - custom: a 6 bone chain with names no humanoid rig uses and one clip.
 - model: a box figure on a 22 bone humanoid rig with its own bone names
   (hips, spine, chest, upper_arm.L) in an A pose, with one clip "idle",
@@ -161,6 +164,18 @@ def dodge(arm, hips, arm_bone, still=False):
     )
 
 
+def sway(arm, leg):
+    arm.animation_data_create().action = bpy.data.actions.new("Foot Slide")
+    half = math.radians(3.0) / 2
+    key_bone(
+        arm,
+        leg,
+        [(0, {"rotation_quaternion": (1, 0, 0, 0)}), (15, {"rotation_quaternion": (math.cos(half), math.sin(half), 0, 0)}), (30, {"rotation_quaternion": (1, 0, 0, 0)})],
+    )
+    hips = PREFIX + "Hips"
+    key_bone(arm, hips, [(0, {"location": (0, 0, 0)}), (30, {"location": (0, 0, 0)})])
+
+
 def write_fbx(path):
     bpy.ops.export_scene.fbx(
         filepath=path,
@@ -176,6 +191,14 @@ def make_clip(path, still=False):
     arm = armature("Armature", T_POSE, lambda n: PREFIX + n)
     skinned_box(arm)
     dodge(arm, PREFIX + "Hips", PREFIX + "LeftArm", still)
+    write_fbx(path)
+
+
+def make_slide(path):
+    reset()
+    arm = armature("Armature", T_POSE, lambda n: PREFIX + n)
+    skinned_box(arm)
+    sway(arm, PREFIX + "LeftUpLeg")
     write_fbx(path)
 
 
@@ -206,6 +229,8 @@ def main():
         make_clip(out)
     elif which == "still":
         make_clip(out, still=True)
+    elif which == "slide":
+        make_slide(out)
     elif which == "custom":
         make_custom(out)
     elif which == "model":

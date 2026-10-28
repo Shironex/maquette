@@ -202,7 +202,7 @@ pub(super) fn await_send_approval(
 #[tool_router(router = sending_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Send an asset's refs to 3D. \"tripo\" or \"meshy\" spend credits, so the send always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back. Settings start from the workspace preset (prop or character) and overrides change them for this send only. The images go front, left, back, right by the asset's ref views (get_ref_views), and refWarnings lists weak refs (small, cropped, busy background, one view only) without stopping the send."
+        description = "Send an asset's refs to 3D. \"tripo\" or \"meshy\" spend credits, so the send always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back. Settings start from the workspace preset (prop or character) and overrides change them for this send only. The images go front, left, back, right by the asset's ref views (get_ref_views), and refWarnings lists weak refs (small, cropped, busy background, one view only, a view that looks different from the front) without stopping the send."
     )]
     async fn send_to_3d(&self, Parameters(args): Parameters<SendTo3dArgs>) -> Out {
         let sent = self

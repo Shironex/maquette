@@ -13,7 +13,8 @@ rest direction, the model clips the bake replaces and the model's feet:
      "clips": [{"id": "standing-dodge-left", "file": "in/clips/standing-dodge-left.glb",
                 "name": "dodge_left", "start": 0, "end": 37, "loops": false,
                 "rootMotion": true, "speed": 1.0,
-                "pairs": [["mixamorig:Hips", "hips"], ["mixamorig:LeftArm", "upper_arm.L"]]}],
+                "pairs": [["mixamorig:Hips", "hips"], ["mixamorig:LeftArm", "upper_arm.L"]],
+                "pins": {"left": [[0, 12]]}}],
      "keepRest": ["spine", "neck"], "replace": [], "feet": ["foot.L", "foot.R"]}
 
 How a clip is baked: the model's limbs are first turned so each points the
@@ -30,7 +31,15 @@ settings say, and the model is written back as GLB with its own clips and
 the new ones. A clip that cannot be baked is reported with its error and
 left out. The report measures each clip on the model: frames, how far the
 root travels, how far the hips end from where they started (keys in the
-wrong units leave by metres) and the worst slide of a planted foot.
+wrong units leave by metres) and each foot's world position per frame,
+from which Maquette measures the slide of a planted foot.
+
+Pin the feet: a clip's optional "pins" give, per foot, the frames it is
+planted on (Maquette finds them in an earlier run's foot tracks). Over each
+run the foot is held where it was put down, and its leg is solved back to
+it with a two bone IK (thigh and shin, the knee bending the way it bends in
+the clip); the foot keeps the clip's turn. It eases back over a few frames
+after the run. A foot whose leg is not mapped cannot be pinned, and says so.
 """
 
 import argparse
@@ -44,8 +53,8 @@ import traceback
 import bpy
 from mathutils import Matrix, Vector
 
-# A foot this close to its lowest point counts as planted, metres.
-PLANTED_HEIGHT = 0.025
+# Frames a pinned foot takes to ease back to the clip after a plant.
+EASE_OUT = 3
 # Root travel below this reads as in place, metres.
 ROOT_MIN = 0.05
 
@@ -214,27 +223,6 @@ def set_frame(scene, t):
     scene.frame_set(whole, subframe=t - whole)
 
 
-def slide(tracks):
-    """The worst horizontal drift of a planted foot: (cm, from, to, side)."""
-    worst = (0.0, 0, 0, "left")
-    for side, track in tracks.items():
-        if len(track) < 3:
-            continue
-        floor = min(p.z for p in track)
-        run = []
-        for i, p in enumerate(track + [None]):
-            if p is not None and p.z <= floor + PLANTED_HEIGHT:
-                run.append(i)
-                continue
-            if len(run) >= 3:
-                start = track[run[0]]
-                drift = max(math.hypot(track[j].x - start.x, track[j].y - start.y) for j in run)
-                if drift * 100.0 > worst[0]:
-                    worst = (drift * 100.0, run[0], run[-1], side)
-            run = []
-    return worst
-
-
 def write_action(name, tgt, times, rot_samples, loc_samples):
     action = bpy.data.actions.new(name)
     if action.name != name:
@@ -273,6 +261,78 @@ def write_action(name, tgt, times, rot_samples, loc_samples):
     return action, slot
 
 
+def legs_of(tgt, feet, driven):
+    """Per foot, the thigh, shin and foot bone names, when all three are driven."""
+    legs = {}
+    for side, name in feet.items():
+        foot = tgt.arm.data.bones.get(name)
+        shin = foot.parent if foot else None
+        thigh = shin.parent if shin else None
+        if thigh is None:
+            raise RuntimeError(f"the {side} foot has no thigh and shin above it")
+        names = (thigh.name, shin.name, foot.name)
+        if not all(n in driven for n in names):
+            raise RuntimeError(f"the {side} leg is not mapped, so its foot cannot be pinned")
+        legs[side] = names
+    return legs
+
+
+def solve_leg(pose, leg, target):
+    """Rotations, in armature space, of the thigh and shin that put the
+    foot's head on `target`; the knee bends the way it bends now, or
+    toward the toes when the leg is straight."""
+    thigh, shin, foot = leg
+    hip, knee, ankle = (pose[n].translation for n in leg)
+    upper, lower = (knee - hip).length, (ankle - knee).length
+    reach = target - hip
+    if reach.length < 1e-6 or upper < 1e-6 or lower < 1e-6:
+        return {}
+    d = min(max(reach.length, abs(upper - lower) + 1e-4), (upper + lower) * 0.9999)
+    u = reach.normalized()
+    bend = (knee - hip) - u * (knee - hip).dot(u)
+    if bend.length < 1e-4:
+        toes = rot3(pose[foot]).col[1]
+        bend = toes - u * toes.dot(u)
+    if bend.length < 1e-6:
+        return {}
+    a = (upper * upper - lower * lower + d * d) / (2.0 * d)
+    new_knee = hip + u * a + bend.normalized() * math.sqrt(max(upper * upper - a * a, 0.0))
+    q1 = (knee - hip).rotation_difference(new_knee - hip)
+    q2 = (q1 @ (ankle - knee)).rotation_difference(target - new_knee)
+    return {
+        thigh: (q1.to_matrix() @ rot3(pose[thigh])).to_4x4(),
+        shin: ((q2 @ q1).to_matrix() @ rot3(pose[shin])).to_4x4(),
+    }
+
+
+def pin_weights(runs, count):
+    """Per frame, the plant it belongs to and how firmly it is held: 1 over
+    the run, easing to 0 over EASE_OUT frames after it."""
+    out = [None] * count
+    for start, end in runs:
+        for i in range(start, min(end + EASE_OUT, count - 1) + 1):
+            weight = 1.0 if i <= end else 1.0 - (i - end) / (EASE_OUT + 1)
+            if out[i] is None or out[i][1] < weight:
+                out[i] = (start, weight)
+    return out
+
+
+def frame_pose(tgt, driven_rot, head_world, overrides):
+    """Every bone's armature space matrix for one frame: driven bones take
+    their world rotation (or an override), the hips also their place, and
+    the rest follow their parents."""
+    pose = {}
+    for b in tgt.order:
+        n = b.name
+        base = tgt.base(pose, b)
+        if n not in driven_rot:
+            pose[n] = base
+            continue
+        head = tgt.mw_inv @ head_world if b == tgt.hips else base.translation
+        pose[n] = Matrix.Translation(head) @ overrides.get(n, driven_rot[n])
+    return pose
+
+
 def bake(scene, tgt, src, action, clip, feet):
     ref_rot, angles = tgt.reference(src.rest_dir)
     src_ref_inv = {k: q.inverted() for k, q in src.rest_rot.items()}
@@ -282,7 +342,15 @@ def bake(scene, tgt, src, action, clip, feet):
     loc_samples, hips_track, prev_q = [], [], {}
     foot_tracks = {side: [] for side in feet}
     times = frame_times(action, clip)
-    for t in times:
+    pins = {side: runs for side, runs in clip.get("pins", {}).items() if side in feet and runs}
+    pin_error = None
+    try:
+        legs = legs_of(tgt, {side: feet[side] for side in pins}, driven)
+    except RuntimeError as err:
+        legs, pin_error = {}, str(err)
+    weights = {side: pin_weights(pins[side], len(times)) for side in legs}
+    held = {}
+    for i, t in enumerate(times):
         set_frame(scene, t)
         srot, src_hips = src.sample()
         delta = (src_hips - src.hips_rest_world) * scale
@@ -290,31 +358,40 @@ def bake(scene, tgt, src, action, clip, feet):
         if not clip["rootMotion"]:
             removed = Vector((delta.x, delta.y, 0.0))
             delta = delta - removed
-        pose = {}
-        for b in tgt.order:
-            n = b.name
-            base = tgt.base(pose, b)
-            if n not in rot_samples:
-                pose[n] = base
-                continue
+        head_world = tgt.hips_rest_world + delta
+        hips_track.append(head_world + removed)
+        driven_rot = {}
+        for n in rot_samples:
             k = tgt.source[n]
             r_world = srot[k] @ src_ref_inv[k] @ ref_rot[n]
-            r_arm = (tgt.mw_rot_inv @ r_world).to_matrix().to_4x4()
-            if b == tgt.hips:
-                head_world = tgt.hips_rest_world + delta
-                hips_track.append(head_world + removed)
-                head = tgt.mw_inv @ head_world
-            else:
-                head = base.translation
-            p = Matrix.Translation(head) @ r_arm
-            q = (base.inverted() @ p).to_quaternion().normalized()
+            driven_rot[n] = (tgt.mw_rot_inv @ r_world).to_matrix().to_4x4()
+        pose = frame_pose(tgt, driven_rot, head_world, {})
+        overrides = {}
+        for side, leg in legs.items():
+            at = weights[side][i]
+            if at is None:
+                continue
+            start, weight = at
+            ankle = tgt.mw @ pose[leg[2]].translation + removed
+            if i == start:
+                held[side] = ankle
+            # Held where it went down, in the travelling frame, eased out.
+            want = held.get(side, ankle).lerp(ankle, 1.0 - weight) - removed
+            overrides.update(solve_leg(pose, leg, tgt.mw_inv @ want))
+        if overrides:
+            pose = frame_pose(tgt, driven_rot, head_world, overrides)
+        for b in tgt.order:
+            n = b.name
+            if n not in rot_samples:
+                continue
+            local = tgt.base(pose, b).inverted() @ pose[n]
+            q = local.to_quaternion().normalized()
             if n in prev_q and prev_q[n].dot(q) < 0.0:
                 q.negate()
             prev_q[n] = q
             rot_samples[n].append(q)
             if b == tgt.hips:
-                loc_samples.append((base.inverted() @ p).translation.copy())
-            pose[n] = p
+                loc_samples.append(local.translation.copy())
         for side, bone in feet.items():
             if bone in pose:
                 foot_tracks[side].append(tgt.mw @ pose[bone].translation + removed)
@@ -324,15 +401,14 @@ def bake(scene, tgt, src, action, clip, feet):
     first, last = hips_track[0], hips_track[-1]
     travel = math.hypot(last.x - first.x, last.y - first.y) if clip["rootMotion"] else 0.0
     farthest = max((h - first).length for h in hips_track)
-    cm, slide_from, slide_to, foot = slide(foot_tracks)
     return made, slot, {
         "frames": len(times),
         "travel": round(travel, 4),
         "farthest": round(farthest, 3),
-        "slideCm": round(cm, 2),
-        "slideFrom": slide_from,
-        "slideTo": slide_to,
-        "foot": foot,
+        "feet": {
+            side: [[round(c, 4) for c in p] for p in track] for side, track in foot_tracks.items()
+        },
+        "pinError": pin_error,
         "driven": len(driven),
         "aligned": max(angles.values(), default=0.0),
         "hipsScale": scale,

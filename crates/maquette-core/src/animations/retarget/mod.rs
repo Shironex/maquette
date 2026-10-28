@@ -4,7 +4,8 @@
 //! headless Blender bakes them onto a copy of the newest version
 //! ([`draft`]). The review says per clip whether it looks right; [`bake`]
 //! then adds the copy as the model's next version through the usual
-//! checks, the older version kept, with the failed clips left out.
+//! checks, the older version kept, with the failed clips left out. A clip
+//! whose planted feet slide can bake again with them pinned ([`feet`]).
 
 use std::path::{Path, PathBuf};
 
@@ -18,11 +19,12 @@ use crate::workspace::WorkspaceConfig;
 
 mod bake;
 pub mod bones;
+pub mod feet;
 pub mod review;
 pub mod settings;
 pub mod uses;
 
-pub use bake::{RETARGET_SCRIPT, bake, draft};
+pub use bake::{RETARGET_SCRIPT, bake, draft, draft_file};
 pub use bones::{BonePair, MapChoice, PairMatch};
 pub use review::{ClipReview, RetargetReview, ReviewStatus};
 pub use settings::ClipSetting;

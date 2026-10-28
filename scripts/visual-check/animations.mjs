@@ -3,7 +3,8 @@
  * the grid with the demo clips and one playing on its own skeleton, a pack
  * picked in the list layout, the empty library, Import clips with packs, a
  * duplicate and files left out, Save clips to library from a model in
- * Motion, and the four Use on model steps from Motion's Add from library. Mock mode's `?library=demo` clips serve them; every clip plays
+ * Motion, the four Use on model steps from Motion's Add from library, and
+ * the review after Pin the feet. Mock mode's `?library=demo` clips serve them; every clip plays
  * the bundled skeleton the core's reader wrote headless.
  */
 
@@ -89,5 +90,9 @@ export async function animationsShots({ open, shot }) {
   await use.getByRole('dialog', { name: /^Review the retarget on / }).waitFor();
   await use.waitForTimeout(2500);
   await shot(use, 'retarget-review');
+  await use.getByRole('button', { name: 'Pin the feet and bake again' }).click();
+  await use.getByRole('group', { name: 'Feet pinned' }).waitFor();
+  await use.waitForTimeout(2500);
+  await shot(use, 'retarget-review-pinned');
   await use.context().close();
 }

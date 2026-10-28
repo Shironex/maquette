@@ -90,6 +90,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             animations::animations_retarget_plan,
             animations::animations_retarget,
             animations::animations_bake,
+            animations::animations_open_draft_in_blender,
             layout::layout_get,
             layout::layout_save,
             motion::motion_get,

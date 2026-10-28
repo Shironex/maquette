@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { BonePair, ClipReview, ClipSetting } from '@/ipc/client';
 import { animationClips } from '@/ipc/mock/animation-fixtures';
 import {
+  canPin,
   chosenTotals,
   mapCounts,
   playLine,
   reviewCounts,
   reviewOrder,
+  slideText,
   stepIndex,
   trimmed,
   withSetting,
@@ -33,6 +35,7 @@ const review = (clip: string, status: ClipReview['status']): ClipReview => ({
   travel: null,
   slideCm: 0,
   slideFrames: null,
+  unpinnedCm: null,
 });
 
 describe('retarget rules', () => {
@@ -71,5 +74,18 @@ describe('retarget rules', () => {
     expect(reviewCounts(clips)).toEqual({ good: 1, look: 1, failed: 1 });
     expect(reviewOrder(clips).map(c => c.clip)).toEqual(['c', 'b', 'a']);
     expect(stepIndex('settings')).toBe(2);
+  });
+
+  it('offers Pin the feet only for a sliding clip that is not pinned yet', () => {
+    const sliding = {
+      ...review('run', 'look'),
+      slideCm: 4.2,
+      slideFrames: [9, 14] as [number, number],
+    };
+    expect(canPin(sliding)).toBe(true);
+    expect(canPin({ ...sliding, unpinnedCm: 4.2, slideCm: 2.1 })).toBe(false);
+    expect(canPin(review('idle', 'look'))).toBe(false);
+    expect(canPin(review('idle', 'good'))).toBe(false);
+    expect(slideText(4.25)).toBe('4.3 cm');
   });
 });

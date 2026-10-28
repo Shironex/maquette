@@ -67,6 +67,10 @@ interface RetargetStore {
   resetNames: () => void;
   /** Bakes the clips onto a copy, headless, and opens the review. */
   retarget: () => Promise<void>;
+  /** Turns Pin the feet on for one clip and bakes again. */
+  pinFeet: (clip: string) => Promise<void>;
+  /** Opens the reviewed bake in Blender's window, on a click. */
+  openInBlender: () => Promise<void>;
   /** Adds the reviewed bake as the model's next version. */
   bake: () => Promise<void>;
 }
@@ -219,6 +223,28 @@ export const useRetargetStore = create<RetargetStore>((set, get) => {
         patch({ error: errorMessage(error) });
       } finally {
         set({ busy: false });
+      }
+    },
+
+    pinFeet: async clip => {
+      const sheet = get().sheet;
+      if (!sheet) return;
+      patch({ settings: withSetting(sheet.settings, clip, { pinFeet: true }), selected: clip });
+      await get().retarget();
+      patch({ selected: clip });
+    },
+
+    openInBlender: async () => {
+      const token = get().sheet?.draft?.token;
+      if (!token) return;
+      try {
+        await commands.animationsOpenDraftInBlender(token);
+      } catch (error) {
+        useAppStore.getState().notify({
+          status: 'failed',
+          title: 'Could not open Blender',
+          detail: errorMessage(error),
+        });
       }
     },
 

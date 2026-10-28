@@ -1,14 +1,17 @@
 //! The bake itself: a scratch folder with the model, the clips and the
 //! job, one headless Blender run, the review, and the draft kept by its
-//! token until [`bake`] adds it as the model's next version.
+//! token until [`bake`] adds it as the model's next version. A clip with
+//! Pin the feet on takes a second run that holds its feet where the first
+//! found them planted ([`super::feet`]); the review compares the two.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
 use super::{
-    Baked, BakedClip, Pending, RetargetDraft, RetargetReview, UseClips, bone_names, bones,
+    Baked, BakedClip, Pending, RetargetDraft, RetargetReview, UseClips, bone_names, bones, feet,
     library_clips, model, review, settings, taken, uses,
 };
 use crate::animations::{blender, clip_dir};
@@ -42,6 +45,9 @@ struct ScriptClip<'a> {
     root_motion: bool,
     speed: f32,
     pairs: Vec<(String, String)>,
+    /// Per foot, the frames to hold it still over; empty bakes it as is.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pins: BTreeMap<String, Vec<[u32; 2]>>,
 }
 
 #[derive(Serialize)]
@@ -116,9 +122,10 @@ pub fn draft(
             root_motion: setting.root_motion,
             speed: setting.speed,
             pairs: bones::pairs_for(&bone_names(clip), &map),
+            pins: BTreeMap::new(),
         });
     }
-    let feet = ["LeftFoot", "RightFoot"]
+    let foot_bones = ["LeftFoot", "RightFoot"]
         .iter()
         .filter_map(|b| map.iter().find(|p| p.bone == *b)?.target.clone())
         .collect();
@@ -128,27 +135,42 @@ pub fn draft(
         .filter(|b| ids.contains(&b.setting.clip))
         .map(|b| b.setting.name.clone())
         .collect();
-    write_json(
-        &work.join(JOB_FILE),
-        &ScriptJob {
-            model: "in/model.glb",
-            out: DRAFT_FILE,
-            report: REPORT_FILE,
-            clips: script_clips,
-            keep_rest: bones::keep_rest(&map),
-            replace,
-            feet,
-        },
-    )?;
-    let extra = vec!["--job".to_string(), JOB_FILE.to_string()];
-    blender::run_script(
-        runner,
-        tools,
-        &work,
-        (RETARGET_FILE, RETARGET_SCRIPT),
-        &extra,
-    )?;
-    let report: review::RunReport = read(&work.join(REPORT_FILE))?;
+    let mut job = ScriptJob {
+        model: "in/model.glb",
+        out: DRAFT_FILE,
+        report: REPORT_FILE,
+        clips: script_clips,
+        keep_rest: bones::keep_rest(&map),
+        replace,
+        feet: foot_bones,
+    };
+    let mut report = run(runner, tools, &work, &job)?;
+    let pinned: Vec<&str> = settings
+        .iter()
+        .filter(|s| s.pin_feet)
+        .map(|s| s.clip.as_str())
+        .collect();
+    if !pinned.is_empty() {
+        let before = report;
+        for clip in job.clips.iter_mut().filter(|c| pinned.contains(&c.id)) {
+            if let Some(first) = before.clips.iter().find(|r| r.id == clip.id) {
+                clip.pins = feet::pins(&first.feet);
+            }
+        }
+        report = run(runner, tools, &work, &job)?;
+        for clip in &mut report.clips {
+            let Some(was) = before.clips.iter().find(|r| r.id == clip.id) else {
+                continue;
+            };
+            let pins = job
+                .clips
+                .iter()
+                .any(|c| c.id == clip.id && !c.pins.is_empty());
+            if pins && clip.pin_error.is_none() {
+                clip.unpinned_cm = Some(was.slide_cm);
+            }
+        }
+    }
     let at_rest = map
         .iter()
         .filter(|p| p.target.is_none())
@@ -194,6 +216,29 @@ pub fn draft(
     })
 }
 
+/// One headless run of the job, and its report with the slides measured.
+fn run(
+    runner: &PipelineRunner,
+    tools: &Toolbox,
+    work: &Path,
+    job: &ScriptJob<'_>,
+) -> CoreResult<review::RunReport> {
+    write_json(&work.join(JOB_FILE), job)?;
+    let extra = vec!["--job".to_string(), JOB_FILE.to_string()];
+    blender::run_script(
+        runner,
+        tools,
+        work,
+        (RETARGET_FILE, RETARGET_SCRIPT),
+        &extra,
+    )?;
+    let mut report: review::RunReport = read(&work.join(REPORT_FILE))?;
+    for clip in &mut report.clips {
+        clip.measure();
+    }
+    Ok(report)
+}
+
 fn work_of(root: &Path, config: &WorkspaceConfig, token: &str) -> CoreResult<PathBuf> {
     if !token.starts_with(TOKEN_PREFIX) || !crate::workspace::is_single_segment(token) {
         return Err(CoreError::Invalid(format!("{token:?} is not a retarget.")));
@@ -208,6 +253,15 @@ fn work_of(root: &Path, config: &WorkspaceConfig, token: &str) -> CoreResult<Pat
         ));
     }
     Ok(work)
+}
+
+/// The baked copy a draft waits with, for Open in Blender.
+///
+/// # Errors
+///
+/// Fails for a token that is not a retarget, or one already baked.
+pub fn draft_file(root: &Path, config: &WorkspaceConfig, token: &str) -> CoreResult<PathBuf> {
+    Ok(work_of(root, config, token)?.join(DRAFT_FILE))
 }
 
 /// Adds a reviewed draft as the model's next version, through the checks
