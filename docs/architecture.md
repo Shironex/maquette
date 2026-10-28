@@ -313,8 +313,19 @@ sha256 of its keys and a revision) and `clip.glb` (bones and one animation, no m
 - **Save.** `save.rs` reads a project asset's newest model or an Inbox file without Blender for the
   plan, then headless for the chosen clips; clips that came from the library are never saved back
   and known hashes are skipped.
-- **Edges.** The Tauri commands are in `commands/animations.rs` and emit `libraryChanged`; the web
-  state is `state/animations.ts` and `use-animations-store.ts`, the view `features/animations`.
+- **Retarget.** `retarget/` puts clips on a rigged model. `bones.rs` maps both skeletons onto the
+  humanoid bones of Motion's rig check (Tripo's names filled in), so one map per model covers every
+  source rig; `settings.rs` normalises per model clip settings; `bake.rs` copies the model and
+  clips into a scratch folder and runs `retarget_clips.py` headless, which turns the model's limbs
+  to the clip's rest pose, applies each clip bone's world rotation change to its mapped bone, scales
+  the hips by height and measures each clip (travel, how far the hips go, planted foot slide);
+  `review.rs` grades them. `bake` adds the draft as the next version through the build checks.
+  `uses.rs` keeps the project's `animations.json` (saved map, baked clips with revision and
+  settings, last review), which gives the library's uses and update offers.
+- **Edges.** The Tauri commands are in `commands/animations.rs` and emit `libraryChanged` (and
+  `projectChanged` after a bake); the MCP tools are `mcp/tools/animations.rs` and
+  `mcp/tools/retarget.rs`; the web state is `state/animations.ts`, `state/retarget.ts` and their
+  stores, the views `features/animations` and `features/retarget`.
 
 ## Remove and restore
 
