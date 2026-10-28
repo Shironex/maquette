@@ -24,6 +24,7 @@ pub mod paths;
 pub mod picks;
 pub mod prepare;
 pub mod projects;
+pub mod refs;
 pub mod runs;
 pub mod sending;
 pub mod ship;
@@ -71,7 +72,14 @@ matched; it reads only. A download whose name is only close to a send's waits th
 needsLook, and one it could not place under unmatched: nothing lands without attach_download \
 (into the inbox for the asset you name, ready for accept_inbox_model) or dismiss_download. \
 cancel_provider_jobs stops sends by id (a by hand send stops waiting, a send not yet started is cancelled, one that cannot be stopped says why), but a send waiting for approval is only denied by a person in the app. make_object_refs turns the objects of one concept into \
-one isolated image each. get_concepts reads the Lab, with its failed jobs; a job Codex rate \
+one isolated image each. get_ref_views reads an asset's refs and the view each shows \
+(front, left, back, right or other); set_ref_views sets them, and every send then carries \
+front, left, back and right in that order and leaves other refs home. make_other_views has \
+Codex draw an asset's missing views from its front and clean_ref_background makes a cleaned \
+copy of one ref; both spend Codex usage like start_concepts, and use_ref_candidate puts a \
+candidate in place (a clean copy's original moves to refs/originals). send_to_3d and \
+send_batch_to_3d report refWarnings (small, cropped, busy background, one view only) before \
+anything is spent; they never stop a send. get_concepts reads the Lab, with its failed jobs; a job Codex rate \
 limits runs again on its own a few times, a job that meets the Codex usage limit waits with \
 the rest of the queue until it lifts (usageLimit, retryAtMs), and retry_concept_jobs runs failed ones again (same \
 prompt, refs and file, no new direction). pick_concepts puts concepts on the Board \
@@ -218,6 +226,7 @@ impl McpTools {
                 + Self::concept_jobs_router()
                 + Self::style_router()
                 + Self::picks_router()
+                + Self::refs_router()
                 + Self::sending_router()
                 + Self::materials_router()
                 + Self::prepare_router()

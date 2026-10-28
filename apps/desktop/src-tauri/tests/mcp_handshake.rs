@@ -333,6 +333,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "attach_download",
             "cancel_provider_jobs",
             "cancel_run",
+            "clean_ref_background",
             "copy_asset",
             "dismiss_download",
             "get_bake_settings",
@@ -348,6 +349,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "get_project",
             "get_provider_job",
             "get_real_size",
+            "get_ref_views",
             "get_run",
             "get_ship_plan",
             "get_ship_settings",
@@ -364,6 +366,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "list_projects",
             "list_removed_assets",
             "make_object_refs",
+            "make_other_views",
             "pick_concepts",
             "preview_fixups",
             "rebuild_built_asset",
@@ -385,6 +388,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "set_material_tweaks",
             "set_pad_edges",
             "set_real_size",
+            "set_ref_views",
             "set_ship_settings",
             "set_skip_bake",
             "set_style_board",
@@ -395,6 +399,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "update_from_library",
             "update_starters",
             "use_from_library",
+            "use_ref_candidate",
         ]
     );
     for tool in &tools {

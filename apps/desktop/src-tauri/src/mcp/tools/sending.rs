@@ -14,6 +14,7 @@ use crate::mcp::hub::Hub;
 
 mod redo;
 mod requests;
+mod warnings;
 
 use self::requests::{batch_request, send_request};
 use super::{McpTools, Out, WAITING, failed, json_result, reason, respond, to_value, workspace};
@@ -196,7 +197,7 @@ fn await_send_approval(host: Arc<dyn Host>, hub: Arc<Hub>, approval: String, job
 #[tool_router(router = sending_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Send an asset's refs to 3D. \"tripo\" or \"meshy\" spend credits, so the send always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back. Settings start from the workspace preset (prop or character) and overrides change them for this send only."
+        description = "Send an asset's refs to 3D. \"tripo\" or \"meshy\" spend credits, so the send always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back. Settings start from the workspace preset (prop or character) and overrides change them for this send only. The images go front, left, back, right by the asset's ref views (get_ref_views), and refWarnings lists weak refs (small, cropped, busy background, one view only) without stopping the send."
     )]
     async fn send_to_3d(&self, Parameters(args): Parameters<SendTo3dArgs>) -> Out {
         let sent = self
@@ -208,10 +209,11 @@ impl McpTools {
                     .send(&request, approval, true)
                     .map_err(reason)?;
                 let pending = (job.state == JobState::Approval).then(|| hub.request_send(&job));
-                Ok((job, pending))
+                let warned = warnings::of(host, &job);
+                Ok((job, pending, warned))
             })
             .await;
-        let (job, pending) = match sent {
+        let (job, pending, warned) = match sent {
             Ok(sent) => sent,
             Err(message) => return failed(message),
         };
@@ -224,6 +226,7 @@ impl McpTools {
             );
         }
         let mut out = job_value(&self.hub, &job);
+        out["refWarnings"] = warned;
         if job.provider == Provider::ByHand {
             out["note"] = json!(format!(
                 "Nothing is spent. A person makes the model in the {} web app with the settings card in the handoff folder, then drops the GLB on the asset's card in Maquette or saves it into the inbox as {}.glb.",
@@ -235,7 +238,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Send several assets to 3D at once, one model per asset, with the same provider and settings (each asset keeps its own refs and prop or character preset unless given). \"tripo\" or \"meshy\" spend credits, so the whole batch waits for one approval in the Maquette app that lists every asset; follow each job with get_provider_job. \"by-hand\" spends nothing and writes one handoff folder per asset. Every item is checked before any goes out."
+        description = "Send several assets to 3D at once, one model per asset, with the same provider and settings (each asset keeps its own refs and prop or character preset unless given). \"tripo\" or \"meshy\" spend credits, so the whole batch waits for one approval in the Maquette app that lists every asset; follow each job with get_provider_job. \"by-hand\" spends nothing and writes one handoff folder per asset. Every item is checked before any goes out. Each job reports refWarnings (weak refs, never a stop) and assetsWithRefWarnings counts the assets with any."
     )]
     async fn send_batch_to_3d(&self, Parameters(args): Parameters<SendBatchArgs>) -> Out {
         let sent = self
@@ -254,17 +257,31 @@ impl McpTools {
                     .collect();
                 let pending = hub.request_batch(&waiting);
                 let ids = waiting.into_iter().map(|j| j.id).collect::<Vec<_>>();
-                Ok((sent, pending, ids))
+                let warned: Vec<Value> = sent.jobs.iter().map(|j| warnings::of(host, j)).collect();
+                Ok((sent, pending, ids, warned))
             })
             .await;
-        let (sent, pending, ids) = match sent {
+        let (sent, pending, ids, warned) = match sent {
             Ok(sent) => sent,
             Err(message) => return failed(message),
         };
         if let Some(approval) = pending {
             await_send_approval(Arc::clone(&self.host), Arc::clone(&self.hub), approval, ids);
         }
-        let jobs: Vec<Value> = sent.jobs.iter().map(|j| job_value(&self.hub, j)).collect();
+        let jobs: Vec<Value> = sent
+            .jobs
+            .iter()
+            .zip(warned)
+            .map(|(j, w)| {
+                let mut out = job_value(&self.hub, j);
+                out["refWarnings"] = w;
+                out
+            })
+            .collect();
+        let warned_assets = jobs
+            .iter()
+            .filter(|j| j["refWarnings"].as_array().is_some_and(|w| !w.is_empty()))
+            .count();
         let by_hand = sent
             .jobs
             .first()
@@ -278,6 +295,7 @@ impl McpTools {
             "status": status,
             "batch": sent.batch,
             "jobs": jobs,
+            "assetsWithRefWarnings": warned_assets,
             "failed": sent.failed.iter().map(|f| json!({ "asset": f.asset, "message": f.message })).collect::<Vec<_>>(),
         });
         out["note"] = json!(if by_hand {
