@@ -106,7 +106,7 @@ export default function AnimationsView() {
           />
         </main>
       ) : (
-        <main className="flex min-h-0 flex-1">
+        <main className="flex min-h-0 flex-1" aria-busy={!v.loaded}>
           <AnimationFilters items={v.items} filters={filters} onChange={setFilters} dir={v.dir} />
           <section
             ref={scrollRef}

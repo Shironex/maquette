@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NO_ANIMATION_FILTERS } from '@/state/animations';
@@ -20,6 +20,13 @@ afterEach(() => {
 });
 
 describe('the Animations view', () => {
+  it('says it is busy until the clips load', async () => {
+    await openMockLibrary('demo');
+    render(<AnimationsView />);
+    expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'true');
+    await waitFor(() => expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'false'));
+  });
+
   it('lists every clip, newest first, with the first on show', async () => {
     await openMockLibrary('demo');
     render(<AnimationsView />);

@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { NO_FILTERS } from '@/state/library';
@@ -19,6 +19,13 @@ afterEach(() => {
 });
 
 describe('the Library view', () => {
+  it('says it is busy until the models load', async () => {
+    await openMockLibrary('demo');
+    render(<LibraryView />);
+    expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'true');
+    await waitFor(() => expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'false'));
+  });
+
   it('renders only the models in view of a long library, in the grid and the list', async () => {
     await openMockLibrary('demo');
     render(<LibraryView />);

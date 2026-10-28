@@ -119,7 +119,7 @@ export default function LibraryView() {
           />
         </main>
       ) : (
-        <main className="flex min-h-0 flex-1">
+        <main className="flex min-h-0 flex-1" aria-busy={!v.loaded}>
           <LibraryFilters items={v.items} filters={filters} onChange={setFilters} />
           <section
             ref={scrollRef}
