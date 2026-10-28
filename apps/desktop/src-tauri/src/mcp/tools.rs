@@ -11,6 +11,7 @@
 pub mod animations;
 pub mod bake;
 pub mod built;
+pub mod codex_usage;
 pub mod concept_jobs;
 pub mod concepts;
 pub mod credits;
@@ -86,7 +87,9 @@ send_batch_to_3d report refWarnings (small, cropped, busy background, one view o
 anything is spent; they never stop a send. get_concepts reads the Lab, with its failed jobs; a job Codex rate \
 limits runs again on its own a few times, a job that meets the Codex usage limit waits with \
 the rest of the queue until it lifts (usageLimit, retryAtMs), and retry_concept_jobs runs failed ones again (same \
-prompt, refs and file, no new direction). pick_concepts puts concepts on the Board \
+prompt, refs and file, no new direction). get_codex_usage reads how much of Codex's five hour and weekly \
+windows is used and when they reset; retry_usage_limited_jobs runs the jobs the usage limit holds once a \
+fresh read says it has lifted. pick_concepts puts concepts on the Board \
 as Send picks to Refs does: each image goes into refs/ and becomes or joins an asset at Refs \
 (named after its object for object refs, else after its direction), ready for send_to_3d; \
 picking an image again returns its asset. star_concepts stars or unstars them. Both spend \
@@ -244,6 +247,7 @@ impl McpTools {
                 + Self::inbox_router()
                 + Self::concepts_router()
                 + Self::concept_jobs_router()
+                + Self::codex_usage_router()
                 + Self::style_router()
                 + Self::picks_router()
                 + Self::refs_router()

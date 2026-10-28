@@ -340,6 +340,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "copy_asset",
             "dismiss_download",
             "get_bake_settings",
+            "get_codex_usage",
             "get_concepts",
             "get_credits",
             "get_game",
@@ -384,6 +385,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "render_thumbnail",
             "restore_asset",
             "retry_concept_jobs",
+            "retry_usage_limited_jobs",
             "run_pipeline",
             "save_model_clips",
             "scan_game_models",
@@ -636,6 +638,19 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     .await;
     assert_eq!(unknown.is_error, Some(true));
     assert!(text(&unknown).contains("no Lab job"), "{}", text(&unknown));
+
+    // Without a Codex CLI the usage reads unknown, and nothing held runs.
+    let usage = call(&client, "get_codex_usage", json!({})).await;
+    assert_eq!(usage["known"], json!(false));
+    assert_eq!(usage["limitActive"], json!(false));
+    assert!(
+        usage["reason"]
+            .as_str()
+            .is_some_and(|r| r.contains("Codex CLI"))
+    );
+    let held = call(&client, "retry_usage_limited_jobs", json!({})).await;
+    assert_eq!(held["lifted"], json!(false));
+    assert_eq!(held["jobs"], json!([]));
 
     // A send to Tripo waits for a person before anything could be spent.
     let sent = call(
