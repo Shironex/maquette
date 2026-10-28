@@ -113,6 +113,10 @@ needs.
   as they do on any machine without it. After the tests, the macOS job fails if
   `apps/web/src/ipc/generated` changed, which means the IPC bindings were not regenerated and
   committed. A new push to a PR cancels the run it replaces.
+  A `changes` job looks at the diff first: when it only touches Markdown outside the site,
+  `docs/`, `assets/` or the GitHub community files, `typecheck`, `test · web`, `build · site` and
+  the Rust jobs skip their work and pass, while `lint · format` and `commits` still run. The skip
+  is inside the jobs, never a workflow `paths` filter, so the required checks always report.
 - **`pr-title.yml`** checks the title the merge commit takes: `type(scope): lowercase summary`
   with a type from `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`, `build`, `perf`, a
   scope from `commitlint.config.mjs` (always required), and at most 100 characters. A new scope
