@@ -5,8 +5,10 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use maquette_core::concepts::backend::{ImageBackend, ImageJobKind};
+use maquette_core::concepts::backend::ImageJobKind;
 use maquette_core::concepts::jobs::{Lane, Start};
+
+use super::image_api::{self, Backend};
 use maquette_core::concepts::{
     self, ConceptJob, Concepts, Direction, MovedDirection, NewConcepts, NewObjectRefs, REFS_DIR,
     SentObjects, SentPicks, StyleBoard, StyleBoardChange, sheet, style,
@@ -131,14 +133,6 @@ pub(crate) fn view(session: &Session, lab: &Concepts, project_id: &str) -> Comma
     })
 }
 
-/// How a Lab batch runs: on the backend Settings picks for its kind, or
-/// the one `choice` names; `via_agent` marks an agent's spend.
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct Backend {
-    pub choice: Option<ImageBackend>,
-    pub via_agent: bool,
-}
-
 /// Queues one job per image, on Codex or the Image API. Shared with the
 /// MCP server.
 pub(crate) fn generate(
@@ -158,13 +152,7 @@ pub(crate) fn generate(
         tools,
         request,
         timeout: Duration::from_secs(u64::from(config.lab.timeout_minutes) * 60),
-        api: super::image_api::plan(
-            &root,
-            &config,
-            ImageJobKind::Concepts,
-            backend.choice,
-            backend.via_agent,
-        ),
+        api: image_api::plan(&root, &config, ImageJobKind::Concepts, backend),
     })?)
 }
 
@@ -186,13 +174,7 @@ pub(crate) fn make_objects(
         cache_dir: &cache,
         tools,
         timeout: Duration::from_secs(u64::from(config.lab.timeout_minutes) * 60),
-        api: super::image_api::plan(
-            &root,
-            &config,
-            ImageJobKind::ObjectRefs,
-            backend.choice,
-            backend.via_agent,
-        ),
+        api: image_api::plan(&root, &config, ImageJobKind::ObjectRefs, backend),
     };
     Ok(lab.start_objects(&lane, &request)?)
 }

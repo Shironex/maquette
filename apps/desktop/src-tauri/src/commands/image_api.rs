@@ -43,17 +43,25 @@ pub(crate) fn connect(lab: &Concepts, secrets: &std::sync::Arc<dyn SecretStore>)
     });
 }
 
-/// How a batch of `kind` runs: the backend `choice` names, else the one
+/// How a Lab batch runs: on the backend Settings picks for its kind, or
+/// the one `choice` names; `via_agent` marks an agent's spend.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct Backend {
+    pub choice: Option<ImageBackend>,
+    pub via_agent: bool,
+}
+
+/// How a batch of `kind` runs: the backend's `choice`, else the one
 /// Settings picks for the kind. `None` is Codex.
 pub(crate) fn plan(
     root: &Path,
     config: &WorkspaceConfig,
     kind: ImageJobKind,
-    choice: Option<ImageBackend>,
-    via_agent: bool,
+    backend: Backend,
 ) -> Option<ApiPlan> {
     let images = &config.lab.images;
-    match choice.unwrap_or_else(|| images.backends.get(kind)) {
+    let via_agent = backend.via_agent;
+    match backend.choice.unwrap_or_else(|| images.backends.get(kind)) {
         ImageBackend::Codex => None,
         ImageBackend::OpenaiImages => Some(ApiPlan {
             kind,

@@ -17,7 +17,8 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use super::CommandResult;
-use super::lab::{Backend, Lab, RefImage, list_refs};
+use super::image_api::Backend;
+use super::lab::{Lab, RefImage, list_refs};
 use crate::session::Session;
 
 /// Everything the refs sheet shows for one asset.
@@ -106,7 +107,7 @@ fn lane_parts(
     lab.set_concurrency(config.lab.concurrency);
     let cache = root.join(&config.layout.cache).join("concepts");
     let timeout = Duration::from_secs(u64::from(config.lab.timeout_minutes) * 60);
-    let api = super::image_api::plan(&root, &config, kind, backend.choice, backend.via_agent);
+    let api = super::image_api::plan(&root, &config, kind, backend);
     Ok((dir, cache, timeout, asset, api))
 }
 

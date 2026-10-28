@@ -9,8 +9,7 @@ use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::commands::image_api::{self, ImageApiStatus};
-use crate::commands::lab::Backend;
+use crate::commands::image_api::{self, Backend, ImageApiStatus};
 
 use super::{McpTools, Out, respond, to_value};
 
