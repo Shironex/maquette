@@ -12,8 +12,18 @@ export interface ComposerProps {
 
 /** The left panel: the brief for a new direction (or more of an earlier one). */
 export default function Composer({ view }: ComposerProps) {
-  const { draft, setDraft, generate, busy, newDraft, codex, existing, ready, codexReady } =
-    useComposer(view);
+  const {
+    draft,
+    setDraft,
+    generate,
+    busy,
+    newDraft,
+    codex,
+    existing,
+    ready,
+    codexReady,
+    usageWarning,
+  } = useComposer(view);
   const n = draft.count;
 
   return (
@@ -80,6 +90,12 @@ export default function Composer({ view }: ComposerProps) {
       </div>
       {view.directions.length > 0 ? <EarlierDirections view={view} /> : null}
       <div className="mt-auto flex flex-col gap-2 pt-1">
+        {usageWarning ? (
+          <p className="flex items-start gap-1.5 text-meta text-amber" role="note">
+            <Icon name="warning" size={13} className="mt-px flex-none" />
+            <span>{usageWarning}</span>
+          </p>
+        ) : null}
         <Button
           variant="primary"
           size="lg"

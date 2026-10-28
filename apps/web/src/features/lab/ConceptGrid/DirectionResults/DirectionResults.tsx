@@ -54,7 +54,7 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
   return (
     <section
       aria-label={`${direction.name} concepts`}
-      className="flex min-w-0 flex-1 flex-col gap-3.5 overflow-y-auto px-[22px] pt-[18px] pb-[18px]"
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-3.5 overflow-y-auto px-[22px] pt-[18px] pb-[18px]"
     >
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2.5">
         {/* The title takes the free width and wraps; the actions drop below it only when they must. */}
