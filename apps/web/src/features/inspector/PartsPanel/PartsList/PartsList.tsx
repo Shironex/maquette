@@ -2,7 +2,7 @@ import { Button, Icon, IconButton, cn } from '@maquette/ui';
 import type { PartRow } from '@/ipc/client';
 import { formatK } from '@/lib/format';
 import { MAX_PART_NAME } from '@/state/parts';
-import { partColour } from '@/features/viewer/parts';
+import { partColour } from '@/features/viewer/part-colours';
 import { usePartRename } from './PartsList.hooks';
 
 export interface PartsListProps {
