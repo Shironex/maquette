@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '@/state/use-app-store';
+import { usePipelineStore } from '@/state/use-pipeline-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { ShellStatusBar } from '.';
 
@@ -24,5 +25,12 @@ describe('the shell status bar', () => {
     useAppStore.setState({ view: 'lab' });
     render(<ShellStatusBar />);
     expect(screen.queryByText(/^Inbox at/)).toBeNull();
+  });
+
+  it('reads the last run out in a polite status region', async () => {
+    await openMockWorkspace();
+    await usePipelineStore.getState().load('frostveil');
+    render(<ShellStatusBar />);
+    expect(screen.getByRole('status')).toHaveTextContent(/^Run \d+ failed at Capture posters$/);
   });
 });

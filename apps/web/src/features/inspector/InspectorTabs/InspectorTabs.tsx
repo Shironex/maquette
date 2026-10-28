@@ -39,7 +39,7 @@ export default function InspectorTabs() {
       />
       <span
         title="Game preview is planned: the model in the game's own lighting. Not built yet."
-        className="inline-flex h-9 items-center gap-1.5 font-medium text-fg-mute opacity-70"
+        className="inline-flex h-9 items-center gap-1.5 font-medium text-fg-mute"
       >
         Game preview
         <span className="rounded-pill border border-line px-1.5 text-[11px] leading-4">later</span>

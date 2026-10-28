@@ -119,7 +119,7 @@ export default function SaveClipsSheet() {
           </>
         ) : null}
       </div>
-      <footer className="flex items-center gap-3 border-t border-line px-5 py-3.5">
+      <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
         <span className="min-w-0 flex-1 truncate text-meta text-fg-mute">
           <b className="text-[15px] font-semibold text-fg">{v.clips}</b> to {sheet.pack || 'a pack'}
         </span>
@@ -140,7 +140,7 @@ export default function SaveClipsSheet() {
         >
           Save {v.clips}
         </Button>
-      </footer>
+      </div>
     </Sheet>
   );
 }

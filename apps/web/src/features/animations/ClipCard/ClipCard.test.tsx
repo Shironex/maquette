@@ -13,18 +13,19 @@ describe('the clip card', () => {
   it('shows the rig, the length, root motion and a loop', async () => {
     const onSelect = vi.fn();
     render(<ClipCard item={clip('Sword And Shield Run')} selected={false} onSelect={onSelect} />);
-    const card = screen.getByRole('button', { name: 'Sword And Shield Run' });
+    const button = screen.getByRole('button', { name: 'Sword And Shield Run' });
+    const card = button.parentElement!;
     expect(card).toHaveTextContent('Mixamo');
     expect(card).toHaveTextContent('22 f · 0.73 s');
     expect(card).toHaveTextContent('root');
     expect(card).toHaveTextContent('loop');
-    await userEvent.click(card);
+    await userEvent.click(button);
     expect(onSelect).toHaveBeenCalled();
   });
 
   it('marks a clip that stays put', () => {
     render(<ClipCard item={clip('Sword And Shield Slash')} selected onSelect={vi.fn()} />);
-    const card = screen.getByRole('button', { pressed: true });
+    const card = screen.getByRole('button', { pressed: true }).parentElement!;
     expect(card).toHaveTextContent('in place');
     expect(card).not.toHaveTextContent('loop');
   });

@@ -188,7 +188,7 @@ export default function SendForm({ options, draft }: SendFormProps) {
         {earlier.length > 0 ? <EarlierSends jobs={earlier} /> : null}
       </div>
 
-      <footer className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
+      <div className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
         <p
           className={cn('truncate text-meta', blocker ? 'text-amber' : 'text-fg-mute')}
           title={blocker ?? summary}
@@ -222,7 +222,7 @@ export default function SendForm({ options, draft }: SendFormProps) {
             {label}
           </Button>
         </div>
-      </footer>
+      </div>
     </>
   );
 }

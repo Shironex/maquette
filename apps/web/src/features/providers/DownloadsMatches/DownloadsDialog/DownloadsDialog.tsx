@@ -51,7 +51,7 @@ export default function DownloadsDialog({ onClose }: DownloadsDialogProps) {
         aria-labelledby="downloads-title"
         className="flex max-h-full w-[620px] max-w-full flex-col rounded-card border border-line-strong bg-panel shadow-window"
       >
-        <header className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
+        <div className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
           <span className="grid size-9 flex-none place-items-center rounded-[10px] bg-clay-soft text-clay-text">
             <Icon name="download-simple" size={18} />
           </span>
@@ -62,7 +62,7 @@ export default function DownloadsDialog({ onClose }: DownloadsDialogProps) {
             <p className="truncate text-meta text-fg-mute">{summary}</p>
           </div>
           <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={onClose} />
-        </header>
+        </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {downloads.error ? (
             <InlineBanner
@@ -94,7 +94,7 @@ export default function DownloadsDialog({ onClose }: DownloadsDialogProps) {
             </ul>
           )}
         </div>
-        <footer className="flex items-center gap-2 border-t border-line px-5 py-3">
+        <div className="flex items-center gap-2 border-t border-line px-5 py-3">
           <p className="min-w-0 flex-1 text-meta text-fg-mute">
             I copy each file you use into the inbox. The original stays in Downloads.
           </p>
@@ -108,7 +108,7 @@ export default function DownloadsDialog({ onClose }: DownloadsDialogProps) {
           <Button variant="primary" onClick={onClose}>
             Done
           </Button>
-        </footer>
+        </div>
       </div>
     </div>
   );

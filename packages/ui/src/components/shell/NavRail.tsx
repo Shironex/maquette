@@ -148,7 +148,7 @@ function PlannedRow({ item, collapsed }: { item: NavRailPlanned; collapsed?: boo
     <Tooltip label={`${label}: not built yet`} side="right">
       <div
         className={cn(
-          'flex h-[34px] w-full items-center gap-2.5 rounded-control px-2.5 font-medium text-fg-mute opacity-70',
+          'flex h-[34px] w-full items-center gap-2.5 rounded-control px-2.5 font-medium text-fg-mute',
           collapsed && 'justify-center px-0'
         )}
       >

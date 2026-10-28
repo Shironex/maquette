@@ -111,7 +111,7 @@ export default function ImportSheet() {
           detail={s.dir ? `${LICENSE} Clips go to ${s.dir}.` : LICENSE}
         />
       </div>
-      <footer className="flex items-center gap-3 border-t border-line px-5 py-3.5">
+      <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
         <span className="min-w-0 flex-1 text-meta text-fg-mute">
           <b className="text-[15px] font-semibold text-fg">{s.addLine}</b> to add
           {s.totals?.leftOut ? ` · ${s.totals.leftOut} left out` : ''}
@@ -127,7 +127,7 @@ export default function ImportSheet() {
         >
           {s.importLabel}
         </Button>
-      </footer>
+      </div>
     </Sheet>
   );
 }

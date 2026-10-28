@@ -115,7 +115,7 @@ export default function OtherViews({ view }: OtherViewsProps) {
           ) : null}
         </section>
       </div>
-      <footer className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+      <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
         <span className="mr-auto text-meta text-fg-mute">{o.cost}</span>
         <Button variant="secondary" onClick={o.back}>
           Back to the refs
@@ -131,7 +131,7 @@ export default function OtherViews({ view }: OtherViewsProps) {
         >
           {o.drawLabel}
         </Button>
-      </footer>
+      </div>
     </>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { ScannedModel } from '@/ipc/client';
 import { formatBytes, formatK } from '@/lib/format';
+import { useModalFocus } from '@/lib/useModalFocus';
 import { useAppStore } from '@/state/use-app-store';
 import { useGameStore } from '@/state/use-game-store';
 
@@ -27,6 +28,7 @@ export function useGameImportDialog() {
   const sheet = useRef<HTMLFormElement>(null);
   const open = Boolean(store.importFor);
   const { closeImport } = store;
+  useModalFocus(sheet, open);
 
   useEffect(() => {
     if (!open) return;

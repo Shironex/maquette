@@ -64,7 +64,7 @@ export default function SplitSheet() {
         </section>
         {source ? <WayFields s={s} source={source} /> : null}
       </div>
-      <footer className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
+      <div className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
         <p
           className={cn('truncate text-meta', s.blocker ? 'text-amber' : 'text-fg-mute')}
           title={s.blocker ?? s.summary}
@@ -92,7 +92,7 @@ export default function SplitSheet() {
             {s.way === 'blender' ? 'Split in Blender' : `Split with ${PROVIDER_LABEL[s.way]}`}
           </Button>
         </div>
-      </footer>
+      </div>
       {s.confirm.open && s.way !== 'blender' ? (
         <ChoiceDialog
           title={`Split ${name} with ${PROVIDER_LABEL[s.way]}?`}

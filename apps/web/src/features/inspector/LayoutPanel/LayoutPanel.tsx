@@ -36,7 +36,6 @@ export default function LayoutPanel({ view, dirty }: LayoutPanelProps) {
         <button
           type="button"
           aria-pressed={on}
-          aria-label={inView.has(m.asset) ? `${m.name}, in the first view` : m.name}
           onClick={() => pick({ kind: 'model', id: m.asset })}
           className={cn(
             'flex w-full cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-left hover:bg-hover',
@@ -50,7 +49,10 @@ export default function LayoutPanel({ view, dirty }: LayoutPanelProps) {
               inView.has(m.asset) ? 'bg-sage' : 'bg-line-strong'
             )}
           />
-          <span className={cn('min-w-0 flex-1 truncate', on && 'text-clay-text')}>{m.name}</span>
+          <span className={cn('min-w-0 flex-1 truncate', on && 'text-clay-text')}>
+            {m.name}
+            {inView.has(m.asset) ? <span className="sr-only">, in the first view</span> : null}
+          </span>
           <span className="flex-none font-mono text-[11.5px] text-fg-mute">
             {sizeLine(m, p.scale).replace(' cm', '')}
           </span>

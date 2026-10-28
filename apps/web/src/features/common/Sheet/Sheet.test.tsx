@@ -25,6 +25,8 @@ describe('the sheet', () => {
     const onClose = open(false);
     const sheet = screen.getByRole('dialog', { name: 'Send Lamp to 3D' });
     expect(within(sheet).getByText('prop')).toBeInTheDocument();
+    // Its title row is no second banner landmark next to the app's own.
+    expect(within(sheet).queryByRole('banner')).toBeNull();
     await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledOnce();
   });
@@ -35,5 +37,35 @@ describe('the sheet', () => {
     const ask = screen.getByRole('dialog', { name: 'Discard changes?' });
     await userEvent.click(within(ask).getByRole('button', { name: 'Discard' }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('keeps Tab inside and gives focus back to its opener on close', async () => {
+    const onClose = vi.fn();
+    const view = (open: boolean) => (
+      <>
+        <button type="button">Send to 3D</button>
+        {open ? (
+          <Sheet id="t" icon="cube" title="Send Lamp to 3D" onClose={onClose}>
+            <button type="button">Send</button>
+          </Sheet>
+        ) : null}
+      </>
+    );
+    const { rerender } = render(view(false));
+    const opener = screen.getByRole('button', { name: 'Send to 3D' });
+    opener.focus();
+    rerender(view(true));
+    const sheet = screen.getByRole('dialog', { name: 'Send Lamp to 3D' });
+    expect(within(sheet).getByRole('button', { name: 'Close' })).toHaveFocus();
+    await userEvent.tab();
+    expect(within(sheet).getByRole('button', { name: 'Send' })).toHaveFocus();
+    await userEvent.tab();
+    expect(within(sheet).getByRole('button', { name: 'Close' })).toHaveFocus();
+    await userEvent.tab({ shift: true });
+    expect(within(sheet).getByRole('button', { name: 'Send' })).toHaveFocus();
+    await userEvent.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledOnce();
+    rerender(view(false));
+    expect(opener).toHaveFocus();
   });
 });

@@ -245,7 +245,7 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
         </section>
       </div>
 
-      <footer className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
+      <div className="flex flex-col gap-2.5 border-t border-line px-5 py-3">
         {asking ? (
           <div
             role="alert"
@@ -297,7 +297,7 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
             {confirming && api ? `Yes, send ${n}` : batchLabel(draft)}
           </Button>
         </div>
-      </footer>
+      </div>
     </>
   );
 }

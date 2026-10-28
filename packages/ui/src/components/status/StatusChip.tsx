@@ -8,7 +8,7 @@ const CHIP: Record<Status, { icon: IconName; label: string; spin?: boolean; tone
   cached: { icon: 'stack', label: 'Cached', tone: 'bg-fg-dim/10 text-fg-dim' },
   running: { icon: 'circle-notch', label: 'Running', spin: true, tone: 'bg-amber-soft text-amber' },
   failed: { icon: 'x-circle', label: 'Failed', tone: 'bg-danger-soft text-danger' },
-  review: { icon: 'eye', label: 'Needs review', tone: 'bg-clay-soft text-clay-hover' },
+  review: { icon: 'eye', label: 'Needs review', tone: 'bg-clay-soft text-clay-text' },
   queued: {
     icon: 'clock',
     label: 'Queued',

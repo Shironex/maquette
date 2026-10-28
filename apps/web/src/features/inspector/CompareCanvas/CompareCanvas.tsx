@@ -23,6 +23,7 @@ export default function CompareCanvas({ className, ...props }: CompareCanvasProp
       camera={{ fov: 30, position: [6, 4, 10] }}
       dpr={[1, 2]}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
+      role="img"
       aria-label="Compare view"
     >
       <Compare {...props} />

@@ -45,6 +45,25 @@ describe('the menu', () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
+  it('gives focus back to its trigger when it closes', async () => {
+    const onClose = vi.fn();
+    const view = (open: boolean) => (
+      <div className="relative">
+        <button type="button">More for Lamp</button>
+        {open ? <Menu label="Card actions" items={items()} onClose={onClose} /> : null}
+      </div>
+    );
+    const { rerender } = render(view(false));
+    const trigger = screen.getByRole('button', { name: 'More for Lamp' });
+    trigger.focus();
+    rerender(view(true));
+    expect(screen.getByRole('menuitem', { name: 'Rename' })).toHaveFocus();
+    await userEvent.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledOnce();
+    rerender(view(false));
+    expect(trigger).toHaveFocus();
+  });
+
   it('moves with the arrow keys and parts its sections with a line', async () => {
     const onSelect = vi.fn();
     render(

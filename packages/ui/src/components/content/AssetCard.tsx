@@ -162,7 +162,7 @@ export function AssetCard({
             aria-label={`Select ${name}`}
             onClick={e => onCheck?.(!checked, e.shiftKey)}
             className={cn(
-              'absolute top-2 left-2 grid size-[22px] cursor-pointer place-items-center rounded-[6px] border-[1.5px] shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-opacity duration-120 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+              'absolute top-2 left-2 grid size-6 cursor-pointer place-items-center rounded-[6px] border-[1.5px] shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-opacity duration-120 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
               checked
                 ? 'border-clay-text bg-clay text-clay-ink'
                 : 'border-line-strong bg-panel/90 text-transparent hover:border-fg-mute',

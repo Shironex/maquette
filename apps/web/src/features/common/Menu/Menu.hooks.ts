@@ -9,18 +9,32 @@ import { placeMenu, type MenuPlace } from './menuPlacement';
  * clipping parent can cut it. It focuses the first enabled item, moves
  * between the items with the arrow keys, Home and End, and closes on
  * Escape, a click outside, or a scroll or resize of the page around it.
+ * Closed with focus inside it, it gives focus back to what opened it.
  */
 export function useMenu(onClose: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<MenuPlace | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
 
   useLayoutEffect(() => {
     const menu = ref.current;
     if (!menu) return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active !== document.body) opener.current = active;
     const natural = menu.getBoundingClientRect();
     const anchor = menu.offsetParent?.getBoundingClientRect() ?? natural;
     setPlace(placeMenu(natural, anchor, { width: window.innerWidth, height: window.innerHeight }));
   }, []);
+
+  // Runs before a dialog the pick opened takes focus, so that dialog hands it back here too.
+  useEffect(
+    () => () => {
+      const now = document.activeElement;
+      if (now && now !== document.body && now.isConnected) return;
+      if (opener.current?.isConnected) opener.current.focus();
+    },
+    []
+  );
 
   const placed = place !== null;
   useEffect(() => {

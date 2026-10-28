@@ -37,7 +37,7 @@ export default function Sheet({
         style={{ width }}
         className="flex h-full max-w-full flex-col border-l border-line-strong bg-panel shadow-window"
       >
-        <header className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
+        <div className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
           <span className="grid size-9 flex-none place-items-center rounded-[10px] bg-clay-soft text-clay-text">
             <Icon name={icon} size={18} />
           </span>
@@ -48,7 +48,7 @@ export default function Sheet({
             {meta ? <p className="truncate text-meta text-fg-mute">{meta}</p> : null}
           </div>
           <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={dismiss} />
-        </header>
+        </div>
         {children}
       </div>
       {asking ? (

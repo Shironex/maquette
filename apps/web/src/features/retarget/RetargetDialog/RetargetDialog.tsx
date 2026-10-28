@@ -57,7 +57,7 @@ export default function RetargetDialog() {
         aria-labelledby="retarget-title"
         className="flex h-[720px] max-h-full w-[1220px] max-w-full flex-col rounded-card border border-line-strong bg-panel shadow-window"
       >
-        <header className="flex items-start justify-between gap-4 border-b border-line px-5 pt-[18px] pb-3">
+        <div className="flex items-start justify-between gap-4 border-b border-line px-5 pt-[18px] pb-3">
           <div className="min-w-0">
             <h2 id="retarget-title" className="text-[17px] leading-6 font-semibold">
               {dialog.title}
@@ -65,14 +65,14 @@ export default function RetargetDialog() {
             <p className="text-meta text-fg-dim">{dialog.subtitle}</p>
           </div>
           <IconButton icon="x" label="Close" onClick={dialog.close} />
-        </header>
+        </div>
         <nav aria-label="Steps" className="border-b border-line px-4 py-2">
           <ol className="flex flex-wrap gap-1">{steps}</ol>
         </nav>
         <div className="flex min-h-0 flex-1">
           <Body />
         </div>
-        <footer className="flex flex-wrap items-center gap-2 border-t border-line px-5 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-t border-line px-5 py-3">
           {sheet.error ? (
             <p role="alert" className="mr-auto text-meta text-danger">
               {sheet.error}
@@ -95,7 +95,7 @@ export default function RetargetDialog() {
           >
             {primary.label}
           </Button>
-        </footer>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useModalFocus } from '@/lib/useModalFocus';
 import { assetChoices, askingArrivals, type AssetChoice } from '@/state/downloads';
 import { stageLabels } from '@/state/game';
 import { useAppStore } from '@/state/use-app-store';
@@ -16,6 +17,7 @@ export const choiceDomId = (listId: string, asset: string) => `${listId}-${asset
 export function useAssetChooser(arrivalId: string) {
   const listId = useId();
   const ref = useRef<HTMLDivElement>(null);
+  useModalFocus(ref);
   const arrival = useDownloadsStore(s => s.status?.arrivals.find(a => a.id === arrivalId));
   const pending = useDownloadsStore(s => s.status?.pending);
   const status = useDownloadsStore(s => s.status);

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, type MouseEvent } from 'react';
 import type { ConceptImage, LabView } from '@/ipc/client';
+import { useModalFocus } from '@/lib/useModalFocus';
 import { inProject } from '@/state/lab';
 import { useLabStore } from '@/state/use-lab-store';
 
@@ -22,6 +23,7 @@ export function useLightbox(view: LabView) {
   const at = images.findIndex(i => inProject(view.projectDir, i.file) === path);
   const image = at >= 0 ? images[at] : undefined;
 
+  useModalFocus(dialog, Boolean(path));
   useEffect(() => {
     if (!path) return;
     dialog.current?.querySelector<HTMLButtonElement>('[data-close]')?.focus();

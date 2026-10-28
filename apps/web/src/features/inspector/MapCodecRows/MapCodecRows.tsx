@@ -46,7 +46,7 @@ export default function MapCodecRows({ model, onCodec }: MapCodecRowsProps) {
           onChange={next => {
             if (onCodec && next !== codec) onCodec(group, next);
           }}
-          className={cn(!onCodec && 'pointer-events-none opacity-60')}
+          disabled={!onCodec}
         />
       </div>
     );

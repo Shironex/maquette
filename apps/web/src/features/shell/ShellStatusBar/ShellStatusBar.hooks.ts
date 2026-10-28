@@ -1,5 +1,6 @@
 import { useNow } from '@/lib/useNow';
 import { mcpStatusItem } from '@/state/agents';
+import { runStatusLine } from '@/state/pipeline';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useInboxStore } from '@/state/use-inbox-store';
@@ -45,4 +46,10 @@ export function useShellStatusBar(siteControl?: ShellStatus['siteControl']) {
     animationClips: animations?.items.length ?? null,
     animationsDir: animations?.dir ?? null,
   });
+}
+
+/** The latest run's line (its step, or where it failed), for a polite live region. */
+export function useRunAnnouncement(): string {
+  const latest = usePipelineStore(s => s.view?.runs[0]);
+  return latest ? runStatusLine(latest) : '';
 }

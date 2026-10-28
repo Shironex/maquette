@@ -52,7 +52,7 @@ export default function AddBuiltDialog(props: AddBuiltDialogProps) {
         className="flex w-[520px] max-w-full flex-col rounded-card border border-line-strong bg-panel shadow-window"
         onSubmit={e => void f.submit(e)}
       >
-        <header className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
+        <div className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
           <span className="grid size-9 flex-none place-items-center rounded-[10px] bg-clay-soft text-clay-text">
             <Icon name="wrench" size={18} />
           </span>
@@ -65,7 +65,7 @@ export default function AddBuiltDialog(props: AddBuiltDialogProps) {
             </p>
           </div>
           <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={onClose} />
-        </header>
+        </div>
         <div className="flex flex-col gap-3.5 px-5 py-4">
           <PathField
             label="Script"
@@ -122,14 +122,14 @@ export default function AddBuiltDialog(props: AddBuiltDialogProps) {
             </p>
           ) : null}
         </div>
-        <footer className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" loading={f.saving} disabled={f.saving}>
             Add and build
           </Button>
-        </footer>
+        </div>
       </form>
     </div>
   );

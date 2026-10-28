@@ -20,6 +20,6 @@ describe('theme', () => {
   it('carries every kit colour token as a raw custom property', () => {
     const css = buildTheme(tokens);
     for (const t of tokens.color.tokens) expect(css).toContain(`--${t.name}:`);
-    expect(css).toContain('--clay-text: var(--clay-hover);');
+    expect(css).toContain('--clay-text: #dc9a7e;');
   });
 });

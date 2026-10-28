@@ -7,6 +7,7 @@ import {
   HelpMark,
   Tip,
   LogConsole,
+  Monogram,
   NavRail,
   ProjectMenu,
   PipelineNode,
@@ -14,6 +15,7 @@ import {
   NumberField,
   SegmentedControl,
   StageStepper,
+  Tabs,
   TextArea,
   Toggle,
   ToolCheckRow,
@@ -78,6 +80,27 @@ describe('SegmentedControl', () => {
     expect(screen.getByRole('button', { name: 'ETC1S' })).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(screen.getByRole('button', { name: 'UASTC' }));
     expect(onChange).toHaveBeenCalledWith('uastc');
+  });
+
+  it('locks every option when the whole control is disabled', async () => {
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl
+        label="Texture codec"
+        options={[
+          { value: 'etc1s', label: 'ETC1S' },
+          { value: 'uastc', label: 'UASTC' },
+        ]}
+        value="etc1s"
+        onChange={onChange}
+        disabled
+      />
+    );
+    for (const name of ['ETC1S', 'UASTC'])
+      expect(screen.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true');
+    screen.getByRole('button', { name: 'UASTC' }).focus();
+    await userEvent.keyboard('{Enter}');
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('shows a disabled option without choosing it', async () => {
@@ -268,6 +291,12 @@ describe('LogConsole', () => {
     expect(log.scrollTop).toBe(900);
     expect(log).not.toHaveTextContent('No output yet');
   });
+
+  it('is a named log the keyboard can reach and scroll', async () => {
+    render(<LogConsole title="Run output" lines={[]} />);
+    await userEvent.tab();
+    expect(screen.getByRole('log', { name: 'Run output' })).toHaveFocus();
+  });
 });
 
 describe('TextArea', () => {
@@ -338,6 +367,8 @@ describe('ProjectMenu', () => {
     );
     const search = screen.getByRole('searchbox', { name: 'Find a project' });
     expect(search).toHaveFocus();
+    // A menu holds menu items only, so the field sits above it.
+    expect(screen.getByRole('menu', { name: 'Projects' })).not.toContainElement(search);
     await userEvent.keyboard('harb');
     expect(screen.getAllByRole('menuitemradio')).toHaveLength(1);
     await userEvent.keyboard('{Enter}');
@@ -457,5 +488,38 @@ describe('Tip', () => {
     expect(onDismiss).toHaveBeenCalledOnce();
     rerender(<Tip>Plain hint</Tip>);
     expect(screen.queryByRole('button')).toBeNull();
+  });
+});
+
+describe('Tabs', () => {
+  const tabs = [
+    { id: 'compare', label: 'Compare' },
+    { id: 'layout', label: 'Layout' },
+    { id: 'paths', label: 'Paths' },
+  ];
+
+  it('is one tab stop, moved and picked with the arrow keys, Home and End', async () => {
+    const onChange = vi.fn();
+    render(<Tabs tabs={tabs} defaultValue="compare" onChange={onChange} />);
+    await userEvent.tab();
+    expect(screen.getByRole('tab', { name: 'Compare', selected: true })).toHaveFocus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: 'Layout', selected: true })).toHaveFocus();
+    await userEvent.keyboard('{End}');
+    expect(screen.getByRole('tab', { name: 'Paths' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: 'Compare' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowLeft}{Home}');
+    expect(onChange).toHaveBeenLastCalledWith('compare');
+    expect(screen.getByRole('tab', { name: 'Layout' })).toHaveAttribute('tabindex', '-1');
+  });
+});
+
+describe('Monogram', () => {
+  it('is a named image, or hidden when it only decorates', () => {
+    const { rerender } = render(<Monogram />);
+    expect(screen.getByRole('img', { name: 'Maquette' })).toBeInTheDocument();
+    rerender(<Monogram label="" />);
+    expect(screen.queryByRole('img')).toBeNull();
   });
 });

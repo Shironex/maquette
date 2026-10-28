@@ -152,7 +152,7 @@ export default function RefsBody({ view, warnings, onSend }: RefsBodyProps) {
           </span>
         </section>
       </div>
-      <footer className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+      <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
         <span className="mr-auto text-meta text-fg-mute">{body.footer}</span>
         <Button variant="secondary" onClick={body.close}>
           Done
@@ -160,7 +160,7 @@ export default function RefsBody({ view, warnings, onSend }: RefsBodyProps) {
         <Button variant="primary" icon="cube" disabled={!front} onClick={onSend}>
           Send to 3D
         </Button>
-      </footer>
+      </div>
     </>
   );
 }

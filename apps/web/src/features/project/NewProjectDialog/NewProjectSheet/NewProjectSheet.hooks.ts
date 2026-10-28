@@ -6,6 +6,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from 'react';
+import { useModalFocus } from '@/lib/useModalFocus';
 import { useAppStore } from '@/state/use-app-store';
 import { emptyProjectFields, projectFieldsReady, type ProjectFields } from '@/state/onboarding';
 import { useProjectsStore } from '@/state/use-projects-store';
@@ -24,6 +25,7 @@ export function useNewProjectSheet(initialMode: ProjectFields['mode'], onClosed?
   const update = (patch: Partial<ProjectFields>) => setFields(f => ({ ...f, ...patch }));
   const actions = useProjectFieldActions(fields, update);
   const sheet = useRef<HTMLFormElement>(null);
+  useModalFocus(sheet);
   const ready = projectFieldsReady(fields);
   const game = fields.target === 'game';
   const importing = !game && fields.mode === 'import';

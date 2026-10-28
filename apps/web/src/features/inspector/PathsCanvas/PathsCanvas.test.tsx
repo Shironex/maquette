@@ -33,7 +33,10 @@ const props: PathsCanvasProps = {
 describe('the paths canvas', () => {
   it('is one labelled canvas holding the scene with every prop but the class', () => {
     render(<PathsCanvas {...props} className="absolute! inset-0" />);
-    expect(screen.getByLabelText('Paths in the scene')).toHaveClass('absolute!', 'inset-0');
+    expect(screen.getByRole('img', { name: 'Paths in the scene' })).toHaveClass(
+      'absolute!',
+      'inset-0'
+    );
     const scene = fiber.canvas?.children as ReactElement<PathsSceneProps>;
     expect(isValidElement(scene) && scene.type).toBe(PathsScene);
     expect(scene.props).toEqual(props);

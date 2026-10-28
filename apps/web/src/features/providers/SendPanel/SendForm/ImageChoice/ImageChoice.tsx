@@ -42,15 +42,13 @@ export default function ImageChoice({
       : view
         ? VIEW_LABEL[view]
         : 'Other, stays home';
+  const label = `${image.name}${image.bytes ? `, ${formatBytes(image.bytes)}` : ''}`;
   return (
     <li className="group relative">
-      <Tooltip
-        label={`${on ? 'Leave out' : 'Send'} ${image.name}${image.bytes ? `, ${formatBytes(image.bytes)}` : ''}`}
-      >
+      <Tooltip label={`${on ? 'Leave out' : 'Send'} ${label}`}>
         <button
           type="button"
           aria-pressed={on}
-          aria-label={`${image.name}${image.bytes ? `, ${formatBytes(image.bytes)}` : ''}`}
           disabled={!on && full}
           onClick={onToggle}
           className={cn(
@@ -68,9 +66,12 @@ export default function ImageChoice({
               {badge}
             </span>
           ) : null}
+          {/* The name follows the badge, so what shows is part of what is read. */}
+          <span className="sr-only">{on ? `, ${label}` : label}</span>
           {warned > 0 ? (
             <span className="absolute right-1 bottom-1 inline-flex h-[18px] items-center gap-0.5 rounded-pill bg-panel/90 px-1.5 text-[10.5px] font-semibold text-amber">
               <Icon name="warning" size={11} /> {warned}
+              <span className="sr-only">{warned === 1 ? ' warning' : ' warnings'}</span>
             </span>
           ) : null}
         </button>

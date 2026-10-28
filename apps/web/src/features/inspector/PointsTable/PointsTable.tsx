@@ -95,7 +95,9 @@ export default function PointsTable({ path, models }: PointsTableProps) {
               {axisHeads}
               <th className="pb-1 pr-2 text-right font-medium">Along</th>
               <th className="pb-1 font-medium">Anchor</th>
-              <th className="pb-1" />
+              <th className="pb-1">
+                <span className="sr-only">Remove</span>
+              </th>
             </tr>
           </thead>
           <tbody>{rows}</tbody>

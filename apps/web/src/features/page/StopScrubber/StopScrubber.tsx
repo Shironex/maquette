@@ -44,7 +44,6 @@ export default function StopScrubber() {
       <Tooltip key={`${i}-${stop.name}`} label={`Jump to ${stop.name}`}>
         <button
           type="button"
-          aria-label={`Jump to stop ${i + 1}, ${stop.name}`}
           aria-current={on ? 'step' : undefined}
           onClick={() => jump(i)}
           className={cn(
@@ -59,6 +58,7 @@ export default function StopScrubber() {
           }
         >
           <span
+            aria-hidden="true"
             className={cn(
               'grid size-[22px] flex-none place-items-center rounded-full font-mono text-[10.5px] font-bold',
               on ? 'bg-focus text-app' : 'border border-line-strong bg-hover text-fg-dim'
@@ -66,7 +66,11 @@ export default function StopScrubber() {
           >
             {i + 1}
           </span>
-          <span className="min-w-0 truncate">{stop.name}</span>
+          <span aria-hidden="true" className="min-w-0 truncate">
+            {stop.name}
+          </span>
+          {/* The name in one piece, holding the number and name it shows. */}
+          <span className="sr-only">{`Jump to stop ${i + 1}, ${stop.name}`}</span>
         </button>
       </Tooltip>
     );

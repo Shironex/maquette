@@ -57,7 +57,7 @@ export default function StyleBoardSheet({ draft, view }: StyleBoardSheetProps) {
         onKeyDown={onKeyDown}
         className="flex max-h-full w-[680px] max-w-full flex-col rounded-card border border-line-strong bg-panel shadow-window"
       >
-        <header className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
+        <div className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
           <span className="grid size-9 flex-none place-items-center rounded-[10px] bg-clay-soft text-clay-text">
             <Icon name="palette" size={18} />
           </span>
@@ -72,7 +72,7 @@ export default function StyleBoardSheet({ draft, view }: StyleBoardSheetProps) {
             </p>
           </div>
           <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={close} />
-        </header>
+        </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
           <StyleImages view={view} images={draft.images} onAdd={addImage} onRemove={removeImage} />
@@ -93,7 +93,7 @@ export default function StyleBoardSheet({ draft, view }: StyleBoardSheetProps) {
           </div>
         </div>
 
-        <footer className="flex items-center gap-2 border-t border-line px-5 py-3">
+        <div className="flex items-center gap-2 border-t border-line px-5 py-3">
           <Button
             variant="ghost"
             icon="trash"
@@ -120,7 +120,7 @@ export default function StyleBoardSheet({ draft, view }: StyleBoardSheetProps) {
           >
             Save board
           </Button>
-        </footer>
+        </div>
       </div>
     </div>
   );

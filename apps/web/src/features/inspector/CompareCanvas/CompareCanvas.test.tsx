@@ -35,7 +35,7 @@ const props: CompareCanvasProps = {
 describe('the compare canvas', () => {
   it('is one labelled canvas holding the compare view with every prop but the class', () => {
     render(<CompareCanvas {...props} className="absolute! inset-0" />);
-    expect(screen.getByLabelText('Compare view')).toHaveClass('absolute!', 'inset-0');
+    expect(screen.getByRole('img', { name: 'Compare view' })).toHaveClass('absolute!', 'inset-0');
     const compare = fiber.canvas?.children as ReactElement<CompareProps>;
     expect(isValidElement(compare) && compare.type).toBe(Compare);
     expect(compare.props).toEqual(props);

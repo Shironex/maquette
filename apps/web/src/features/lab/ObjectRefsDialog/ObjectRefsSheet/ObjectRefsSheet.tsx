@@ -92,7 +92,7 @@ export default function ObjectRefsSheet({ objects }: ObjectRefsSheetProps) {
         aria-labelledby="objects-title"
         className="flex max-h-full w-[680px] max-w-full flex-col rounded-card border border-line-strong bg-panel shadow-window"
       >
-        <header className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
+        <div className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
           <span className="grid size-9 flex-none place-items-center rounded-[10px] bg-clay-soft text-clay-text">
             <Icon name="cube-focus" size={18} />
           </span>
@@ -105,7 +105,7 @@ export default function ObjectRefsSheet({ objects }: ObjectRefsSheetProps) {
             </p>
           </div>
           <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={close} />
-        </header>
+        </div>
 
         <div className="flex min-h-0 flex-1 gap-5 overflow-y-auto px-5 py-4">
           <figure className="m-0 flex w-[220px] flex-none flex-col gap-2">
@@ -246,7 +246,7 @@ export default function ObjectRefsSheet({ objects }: ObjectRefsSheetProps) {
           </div>
         </div>
 
-        <footer className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
           <Button variant="ghost" onClick={close}>
             Cancel
           </Button>
@@ -262,7 +262,7 @@ export default function ObjectRefsSheet({ objects }: ObjectRefsSheetProps) {
           >
             {n === 0 ? 'Make object refs' : `Make ${n} object ${n === 1 ? 'ref' : 'refs'}`}
           </Button>
-        </footer>
+        </div>
       </div>
     </div>
   );

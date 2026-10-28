@@ -30,7 +30,7 @@ export default function PickerDialog({ onClose }: PickerDialogProps) {
         aria-labelledby="arrival-title"
         className="flex max-h-full w-[640px] max-w-full flex-col rounded-card border border-line-strong bg-panel shadow-window"
       >
-        <header className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
+        <div className="flex items-start gap-3 border-b border-line px-5 pt-[18px] pb-3.5">
           <span className="grid size-9 flex-none place-items-center rounded-[10px] bg-clay-soft text-clay-text">
             <Icon name="question" size={18} />
           </span>
@@ -44,7 +44,7 @@ export default function PickerDialog({ onClose }: PickerDialogProps) {
             </p>
           </div>
           <IconButton data-close icon="x" label="Close" shortcut={KEYS.escape} onClick={onClose} />
-        </header>
+        </div>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
           {count === 0 ? (
             <p className="py-6 text-center text-meta text-fg-mute">
@@ -67,14 +67,14 @@ export default function PickerDialog({ onClose }: PickerDialogProps) {
             </section>
           ) : null}
         </div>
-        <footer className="flex items-center gap-2 border-t border-line px-5 py-3">
+        <div className="flex items-center gap-2 border-t border-line px-5 py-3">
           <p className="min-w-0 flex-1 text-meta text-fg-mute">
             Attaching sends the model to the Inbox for that asset. The original stays where it is.
           </p>
           <Button variant="primary" onClick={onClose}>
             Done
           </Button>
-        </footer>
+        </div>
       </div>
     </div>
   );
