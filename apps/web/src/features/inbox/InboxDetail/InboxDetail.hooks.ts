@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { InboxItem, ProjectManifest } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import type { PreviewMode } from '@/features/viewer/ModelPreview';
+import { reducedMotion } from '@/lib/motion';
 import { useNow } from '@/lib/useNow';
 import { acceptTarget, goesTo, madeBy, sentFor, sortChecks } from '@/state/inbox';
 import { EMPTY_PREP, previewKey } from '@/state/prepare';
@@ -79,6 +80,8 @@ function useSplitPreview(item: InboxItem, project: string | null) {
 /** The viewport's mode and the error the preview reported for this file. */
 export function useInboxPreview(item: InboxItem, project: string | null = null) {
   const [mode, setMode] = useState<PreviewMode>('shaded');
+  // It spins until stopped, so it starts still when the system asks for less motion.
+  const [turning, setTurning] = useState(() => !reducedMotion());
   const [loadError, setLoadError] = useState<string | null>(null);
   const split = useSplitPreview(item, project);
   const own = fileUrl(item.file);
@@ -88,6 +91,8 @@ export function useInboxPreview(item: InboxItem, project: string | null = null) 
   return {
     mode,
     setMode,
+    turning,
+    toggleTurning: () => setTurning(on => !on),
     loadError,
     setLoadError,
     url,

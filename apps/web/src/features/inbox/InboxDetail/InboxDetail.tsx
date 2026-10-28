@@ -39,8 +39,9 @@ export default function InboxDetail({ item }: InboxDetailProps) {
     redoBlocked,
     redo,
   } = useInboxDetail(item);
+  const preview = useInboxPreview(item, project?.id ?? null);
   const { mode, setMode, setLoadError, loadError, url, modes, modeLabel, noPreview, orbitHint } =
-    useInboxPreview(item, project?.id ?? null);
+    preview;
   const passed = item.worst === 'pass' && item.state !== 'failed';
   const hasClips = Boolean(
     item.report && item.report.rig !== 'none' && item.report.animations.length
@@ -72,6 +73,15 @@ export default function InboxDetail({ item }: InboxDetailProps) {
               value={mode}
               onChange={setMode}
             />
+            <IconButton
+              icon="arrow-clockwise"
+              label={preview.turning ? 'Stop rotating' : 'Rotate the view'}
+              size="sm"
+              variant="secondary"
+              aria-pressed={preview.turning}
+              onClick={preview.toggleTurning}
+              className={cn(preview.turning && 'border-clay-line text-clay-text')}
+            />
           </div>
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-[14px] border border-line bg-studio">
             {url && item.state === 'ready' ? (
@@ -80,6 +90,7 @@ export default function InboxDetail({ item }: InboxDetailProps) {
                   <ModelPreview
                     url={url}
                     mode={mode}
+                    turntable={preview.turning}
                     onError={setLoadError}
                     className="absolute inset-0"
                   />

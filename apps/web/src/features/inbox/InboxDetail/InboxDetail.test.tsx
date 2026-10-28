@@ -38,6 +38,13 @@ describe('InboxDetail', () => {
     ).toBeInTheDocument();
   });
 
+  it('stops and starts the turntable from a pressed button', async () => {
+    render(<InboxDetail item={inboxItem('elsheria.glb')} />);
+    const spin = screen.getByRole('button', { name: 'Stop rotating', pressed: true });
+    await userEvent.click(spin);
+    expect(screen.getByRole('button', { name: 'Rotate the view', pressed: false })).toBe(spin);
+  });
+
   it('offers Bones only for a rigged model', () => {
     const { unmount } = render(<InboxDetail item={inboxItem('elsheria.glb')} />);
     const modes = screen.getByRole('group', { name: 'Preview mode' });

@@ -16,7 +16,6 @@ export function useOrbitControls(turntable: boolean, target: THREE.Vector3 | nul
   }, [controls, target]);
   useEffect(() => {
     controls.enableDamping = true;
-    controls.autoRotate = turntable && !reducedMotion();
     controls.autoRotateSpeed = 0.8;
     const stop = () => {
       controls.autoRotate = false;
@@ -26,6 +25,10 @@ export function useOrbitControls(turntable: boolean, target: THREE.Vector3 | nul
       controls.removeEventListener('start', stop);
       controls.dispose();
     };
+  }, [controls]);
+  // Apart from the set up, so turning the turntable on or off keeps the controls alive.
+  useEffect(() => {
+    controls.autoRotate = turntable && !reducedMotion();
   }, [controls, turntable]);
   useFrame(() => controls.update());
   return controls;
