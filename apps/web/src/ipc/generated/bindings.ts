@@ -376,6 +376,34 @@ export const commands = {
 	 *  each with its own ref. `kind` overrides the direction's kind.
 	 */
 	labSendObjectPicks: (project: string, direction: string, kind: "prop" | "character" | "scene" | null) => __TAURI_INVOKE<SentObjects>("lab_send_object_picks", { project, direction, kind }),
+	/**  The last read, without reading again. `None` before the first. */
+	codexUsageGet: () => __TAURI_INVOKE<{
+	/**  False when the read failed or this Codex cannot say; `reason` says why. */
+	known: boolean,
+	reason: string | null,
+	/**  When the read happened, ms since the epoch. */
+	readAtMs: number | null,
+	/**  The five hour window. */
+	primary: UsageWindow | null,
+	/**  The weekly window. */
+	secondary: UsageWindow | null,
+	/**  "plus", "pro" and so on. */
+	plan: string | null,
+	/**  Set while a limit holds, for example "rate_limit_reached". */
+	limitReached: string | null,
+	/**
+	 *  Whether the account may use its included usage now. `None` when the
+	 *  server does not say; then nothing is read into the percentages.
+	 */
+	ordinaryUsageAllowed: boolean | null,
+	credits: UsageCredits | null,
+	/**  Limit reset credits the account may spend, when the server says. */
+	resetCredits: number | null,
+} | null>("codex_usage_get"),
+	/**  Reads the usage now (the Lab asks every minute while it is open). */
+	codexUsageRead: () => __TAURI_INVOKE<CodexUsage>("codex_usage_read"),
+	/**  Limit lifted, retry now (see [`lift`]). */
+	labLiftUsageLimit: () => __TAURI_INVOKE<UsageLift>("lab_lift_usage_limit"),
 	refsGet: (project: string, asset: string) => __TAURI_INVOKE<RefsView>("refs_get", { project, asset }),
 	/**  Saves the views of every ref of the asset at once. */
 	refsSetViews: (project: string, asset: string, refs: AssetRef[]) => __TAURI_INVOKE<RefsView>("refs_set_views", { project, asset, refs }),
@@ -497,6 +525,7 @@ export const commands = {
 /** Events */
 export const events = {
 	builtChanged: makeEvent<BuiltChanged>("built-changed"),
+	codexUsageUpdate: makeEvent<CodexUsageUpdate>("codex-usage-update"),
 	conceptUpdate: makeEvent<ConceptUpdate>("concept-update"),
 	downloadsArrival: makeEvent<DownloadsArrival>("downloads-arrival"),
 	inboxChanged: makeEvent<InboxChanged>("inbox-changed"),
@@ -1483,6 +1512,34 @@ export type CodecSet = {
 	normal: TextureCodec,
 	other: TextureCodec,
 };
+
+/**  What one read found. */
+export type CodexUsage = {
+	/**  False when the read failed or this Codex cannot say; `reason` says why. */
+	known: boolean,
+	reason: string | null,
+	/**  When the read happened, ms since the epoch. */
+	readAtMs: number | null,
+	/**  The five hour window. */
+	primary: UsageWindow | null,
+	/**  The weekly window. */
+	secondary: UsageWindow | null,
+	/**  "plus", "pro" and so on. */
+	plan: string | null,
+	/**  Set while a limit holds, for example "rate_limit_reached". */
+	limitReached: string | null,
+	/**
+	 *  Whether the account may use its included usage now. `None` when the
+	 *  server does not say; then nothing is read into the percentages.
+	 */
+	ordinaryUsageAllowed: boolean | null,
+	credits: UsageCredits | null,
+	/**  Limit reset credits the account may spend, when the server says. */
+	resetCredits: number | null,
+};
+
+/**  A Codex usage read finished: the status bar and the Lab show it. */
+export type CodexUsageUpdate = CodexUsage;
 
 /**  Where a dev command came from. */
 export type CommandSource = 
@@ -4905,6 +4962,33 @@ export type UpdaterStatus = {
  *  update ready to install.
  */
 export type UpdaterUpdate = UpdaterEvent;
+
+/**  The account's Codex credits, as the app server reports them. */
+export type UsageCredits = {
+	hasCredits: boolean,
+	unlimited: boolean,
+	balance: string | null,
+};
+
+/**  What Limit lifted, retry now did. */
+export type UsageLift = {
+	usage: CodexUsage,
+	/**  True when the read says the limit lifted and the held jobs ran again. */
+	lifted: boolean,
+	/**  The jobs that ran again, or the ones still waiting. */
+	jobs: ConceptJob[],
+	message: string,
+};
+
+/**  One usage window: the five hour one or the weekly one. */
+export type UsageWindow = {
+	/**  0 to 100. */
+	usedPercent: number | null,
+	/**  300 for the five hour window, 10080 for the week. */
+	windowMins: number | null,
+	/**  When the window starts over, ms since the epoch. */
+	resetsAtMs: number | null,
+};
 
 /**  Bake these clips onto the model's newest version. */
 export type UseClips = {

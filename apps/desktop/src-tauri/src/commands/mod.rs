@@ -8,6 +8,7 @@ pub mod app;
 pub mod assets;
 mod blender;
 pub mod built;
+pub mod codex_usage;
 pub mod credits;
 pub mod dialogs;
 pub mod downloads;

@@ -8,15 +8,16 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    about, agents, animations, app, assets, built, credits, dialogs, downloads, game, inbox,
-    inspect, lab, layout, library, materials, motion, page, parts, paths, pipeline, prepare,
+    about, agents, animations, app, assets, built, codex_usage, credits, dialogs, downloads, game,
+    inbox, inspect, lab, layout, library, materials, motion, page, parts, paths, pipeline, prepare,
     project, providers, quit, refs, ship, site, split, thumbs, timeline, toolchain, trash, updater,
     workspace,
 };
 use crate::events::{
-    BuiltChanged, ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged, LibraryChanged,
-    MaterialsChanged, McpUpdate, PageServerChanged, PipelineChanged, PipelineUpdate,
-    PrepareChanged, ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady, UpdaterUpdate,
+    BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival, InboxChanged, LayoutChanged,
+    LibraryChanged, MaterialsChanged, McpUpdate, PageServerChanged, PipelineChanged,
+    PipelineUpdate, PrepareChanged, ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady,
+    UpdaterUpdate,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -155,6 +156,9 @@ pub fn builder() -> Builder<tauri::Wry> {
             lab::lab_move_direction,
             lab::lab_make_objects,
             lab::lab_send_object_picks,
+            codex_usage::codex_usage_get,
+            codex_usage::codex_usage_read,
+            codex_usage::lab_lift_usage_limit,
             refs::refs_get,
             refs::refs_set_views,
             refs::refs_make_views,
@@ -213,7 +217,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             DownloadsArrival,
             PageServerChanged,
             LibraryChanged,
-            UpdaterUpdate
+            UpdaterUpdate,
+            CodexUsageUpdate
         ])
         .types(&maquette_core::types())
 }
