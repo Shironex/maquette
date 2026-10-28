@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 65 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 67 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -26,7 +26,7 @@ These look at the workspace and change nothing.
 | `get_provider_job`                            | A send to 3D: status, phase, progress, credits spent and message. With `project` instead of `id`, every send in the project                                                                                                                                       | Nothing | No       |
 | `cancel_provider_jobs`                        | Stops sends by id (`ids`, 1 to 50). A by hand send stops waiting, a send not yet started is cancelled, and each id answers on its own. Sends waiting for approval are refused: you deny those in the app                                                          | Nothing | No       |
 | [`get_credits`](#get_credits)                 | Each provider's balance, totals for 7 and 30 days and the latest paid sends                                                                                                                                                                                       | Nothing | No       |
-| `list_handoffs`                               | The By hand sends waiting for a model, the export file name each waits for, and what the Downloads watcher matched                                                                                                                                                | Nothing | No       |
+| [`list_handoffs`](#list_handoffs)             | The By hand sends waiting for a model, the export file name each waits for, and the Downloads watcher: downloads that need a look (`needsLook`) and ones it could not place (`unmatched`)                                                                         | Nothing | No       |
 | `list_removed_assets`                         | A project's removed assets waiting in the workspace trash, newest first                                                                                                                                                                                           | Nothing | No       |
 | `get_real_size`                               | An asset's real size and fix-ups, what its model measures, and the defaults new fix-ups start from                                                                                                                                                                | Nothing | No       |
 | `list_fixups`                                 | An asset's fix-ups in the order they apply, with the last preview's numbers                                                                                                                                                                                       | Nothing | No       |
@@ -66,6 +66,8 @@ These look at the workspace and change nothing.
 | [`pick_concepts`](#pick_concepts)                     | Puts Lab concepts on the Board at Refs                                                                            | Nothing | No       |
 | `star_concepts`                                       | Stars or unstars Lab concepts                                                                                     | Nothing | No       |
 | [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                                                        | Nothing | No       |
+| [`attach_download`](#attach_download)                 | Sends a download from `list_handoffs` to the inbox for an asset                                                   | Nothing | No       |
+| `dismiss_download`                                    | Leaves a download from `list_handoffs` alone and never asks about it again                                        | Nothing | No       |
 | `copy_asset`                                          | Copies an asset with its refs and versions to another project                                                     | Nothing | No       |
 | `remove_assets`                                       | Takes up to 50 assets off the Board into the workspace trash, stopping their waiting sends                        | Nothing | No       |
 | `restore_asset`                                       | Puts a removed asset back from the workspace trash with its files, place and settings                             | Nothing | No       |
@@ -365,6 +367,33 @@ Moves a model from the inbox into a project as a new asset version on the Board,
 | `project` | string | yes      | The project that gets the model.                     |
 | `asset`   | string | no       | An existing asset id to add a version to.            |
 | `name`    | string | no       | The asset name, when a new asset is made.            |
+
+Without `asset` it goes to the asset the model was sent for, or the one a download was attached to (`aimedAt` in `list_inbox`).
+
+### list_handoffs
+
+`read only`
+
+The By hand sends waiting for a model made on the provider's site (`pending`: job, asset, provider, the export name `maq_<asset>_v<n>_<provider>` it waits for, the handoff folder, the front ref, about what the site charges) and the Downloads watcher (`watcher`, null when no watcher runs). Only a download named for its send goes into the inbox by itself. The rest wait for an answer:
+
+- `needsLook`: downloads whose name is only close to a waiting send's, or that came for the only send waiting. Each names the asset it looks like (`asset`, `assetName`, `job`) and why (`reason`, for example "Name close to Lantern post"). Nothing went in yet.
+- `unmatched`: downloads it could not place.
+
+Answer each with `attach_download` or `dismiss_download`. `arrivals` lists every recent file with its state. Takes an optional `project`.
+
+### attach_download
+
+`changes the project`
+
+Attaches a download from `needsLook` or `unmatched` to an asset: it goes into the inbox for that asset, as a download named for its send does. It is handed to the asset's newest waiting By hand send, or, when none waits, put in the inbox aimed at the asset (`list_inbox` shows it as `aimedAt`). The usual checks run there. It answers with the arrival, its `inboxFile` (the inbox id) and the `job` it went to, if any; `accept_inbox_model` with that id then goes to the asset by default and closes the asset's By hand sends still waiting. Look at a `needsLook` download before attaching it: the watcher never attaches one by itself, so the call is the check. The download stays where it is.
+
+| Parameter | Type   | Required | Notes                                      |
+| --------- | ------ | -------- | ------------------------------------------ |
+| `arrival` | string | yes      | The download's `id`, from `list_handoffs`. |
+| `project` | string | yes      | The project the asset is in.               |
+| `asset`   | string | yes      | The asset id or name that gets the model.  |
+
+`dismiss_download` takes `arrival` and leaves the file alone for good (Not this one, or Not a Maquette model in the app): its send keeps waiting and the same file is never asked about again.
 
 ### get_credits
 
