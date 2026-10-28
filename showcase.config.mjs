@@ -92,57 +92,71 @@ export default defineConfig({
       id: 'lab',
       title: 'Lab',
       caption: 'Lab: concept images from the Codex CLI, starred and picked as refs.',
-      nav: view('scenario=idle', 'lab', 'Frozen lake arena'),
+      nav: view('scenario=idle&library=demo', 'lab', 'Frozen lake arena'),
       delayMs: 1200,
     },
     {
       id: 'inbox',
       title: 'Inbox',
       caption: 'Inbox: each new model checked for triangles, textures, rig and origin.',
-      nav: view('scenario=idle', 'inbox', 'Automatic checks'),
+      nav: view('scenario=idle&library=demo', 'inbox', 'Automatic checks'),
       delayMs: 3000,
     },
     {
       id: 'pipeline',
       title: 'Pipeline',
       caption: 'Pipeline: headless Blender build, bake, export, compress and ship.',
-      nav: view('scenario=running&pace=60', 'pipeline', 'Run 25 · step 3 of 6', async page => {
-        // Keep the edited export script, as most projects would, so its notice goes.
-        await page.getByRole('button', { name: 'Keep mine' }).click();
-      }),
+      nav: view(
+        'scenario=running&pace=60&library=demo',
+        'pipeline',
+        'Run 25 · step 3 of 6',
+        async page => {
+          // Keep the edited export script, as most projects would, so its notice goes.
+          await page.getByRole('button', { name: 'Keep mine' }).click();
+        }
+      ),
       delayMs: 1500,
     },
     {
       id: 'inspector',
       title: 'Inspector',
       caption: 'Inspector: two versions side by side, with budgets and compression.',
-      nav: view('scenario=idle', 'inspector', /WebGL 2 · \d+ fps/),
+      nav: view('scenario=idle&library=demo', 'inspector', /WebGL 2 · \d+ fps/),
       delayMs: 3500,
     },
     {
       id: 'motion',
       title: 'Motion',
       caption: 'Motion: rigs, clips and what each one weighs on the page.',
-      nav: view('scenario=idle&motion=demo', 'motion', '119 bones · 2 clips', async page => {
-        await page.getByText('119 bones · 2 clips').click();
-        // Stop the clip on its first frame, so the pose is the same every run.
-        await page.getByRole('button', { name: 'Pause' }).click();
-        await page.getByRole('button', { name: 'Go to In' }).click();
-      }),
+      nav: view(
+        'scenario=idle&motion=demo&library=demo',
+        'motion',
+        '119 bones · 2 clips',
+        async page => {
+          await page.getByText('119 bones · 2 clips').click();
+          // Stop the clip on its first frame, so the pose is the same every run.
+          await page.getByRole('button', { name: 'Pause' }).click();
+          await page.getByRole('button', { name: 'Go to In' }).click();
+        }
+      ),
       delayMs: 3500,
     },
     {
       id: 'timeline',
       title: 'Timeline',
       caption: 'Timeline: camera stops, object states and paths, keyed to the scroll.',
-      nav: view('scenario=idle&timeline=demo&page=running', 'timeline', 'Scroll timeline'),
+      nav: view(
+        'scenario=idle&timeline=demo&page=running&library=demo',
+        'timeline',
+        'Scroll timeline'
+      ),
       delayMs: 2500,
     },
     {
       id: 'page',
       title: 'Page',
       caption: "Page: the site's own dev server, measured at every camera stop.",
-      nav: view('scenario=idle&page=running', 'page', 'Current ship vs this run'),
+      nav: view('scenario=idle&page=running&library=demo', 'page', 'Current ship vs this run'),
       delayMs: 2500,
     },
     {
@@ -156,7 +170,7 @@ export default defineConfig({
       id: 'agents',
       title: 'Agents',
       caption: 'Agents: Claude Code or Codex over MCP, with paid steps waiting for you.',
-      nav: view('scenario=idle&agents=active', 'board', 'Send Rune obelisk to Tripo?'),
+      nav: view('scenario=idle&agents=active&library=demo', 'board', 'Send Rune obelisk to Tripo?'),
       delayMs: 1200,
     },
   ],
