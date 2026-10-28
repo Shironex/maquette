@@ -48,6 +48,7 @@ pub(crate) fn is_ref_of(stem: &str, key: &str) -> bool {
 /// picture and the files named after it, each once.
 pub(crate) fn refs_of(project_dir: &Path, asset: &Asset, sent: &[String]) -> Vec<String> {
     let mut refs: Vec<String> = sent.to_vec();
+    refs.extend(asset.refs.iter().map(|r| r.file.clone()));
     refs.extend(asset.thumbnail.iter().cloned());
     let wanted = key(&asset.id);
     if let Ok(entries) = fs::read_dir(project_dir.join(REFS_DIR)) {
@@ -203,6 +204,18 @@ pub fn copy_to_project(
         },
         created_at: now.clone(),
         updated_at: now,
+        // The tags follow their refs to the names they got there.
+        refs: asset
+            .refs
+            .iter()
+            .filter_map(|r| {
+                let (_, new) = refs.iter().find(|(old, _)| *old == r.file)?;
+                Some(crate::refs::AssetRef {
+                    file: new.clone(),
+                    view: r.view,
+                })
+            })
+            .collect(),
         ..asset
     };
     let to = project::modify(workspace_root, layout, to_id, |m| {

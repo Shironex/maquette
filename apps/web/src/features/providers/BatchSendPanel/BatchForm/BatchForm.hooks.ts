@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { commands, type PresetVariant } from '@/ipc/client';
+import { commands, type PresetVariant, type RefWarning } from '@/ipc/client';
 import { useAsyncValue } from '@/lib/useAsyncValue';
 import {
   batchBlocker,
   batchLines,
   batchProblem,
   batchRequest,
+  itemMeshy,
+  itemTripo,
   variantsUsed,
   type BatchDraft,
 } from '@/state/batch';
 import { useAppStore } from '@/state/use-app-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useCatalog } from '../../PresetFields';
+import { useRefWarnings, useWarningFix } from '../../RefWarnings';
 
 /** What the batch form does: edit the draft, send it, or leave for Settings. */
 export function useBatchActions() {
@@ -73,4 +76,34 @@ export function useBatchEstimate(draft: BatchDraft) {
       ? batchRequest(project, draft)
       : null;
   return useAsyncValue(commands.providerEstimateBatch, request);
+}
+
+/**
+ * The weak ref warnings of every asset in the batch, the fixes, and the
+ * "Show only these" filter of the assets with warnings.
+ */
+export function useBatchWarnings(draft: BatchDraft) {
+  const project = useProvidersStore(s => s.batch?.project ?? null);
+  const leaveOut = useProvidersStore(s => s.leaveOutImage);
+  const [only, setOnly] = useState(false);
+  const items = draft.items
+    .filter(i => i.images.length > 0)
+    .map(i => ({
+      asset: i.asset,
+      images: i.images,
+      multiView:
+        draft.service === 'tripo' ? itemTripo(draft, i).multiView : itemMeshy(draft, i).multiView,
+    }));
+  const lists = useRefWarnings(project, items);
+  const byAsset = new Map<string, RefWarning[]>(items.map((i, n) => [i.asset, lists?.[n] ?? []]));
+  const warned = [...byAsset.values()].filter(l => l.length > 0).length;
+  const fix = useWarningFix(project ?? '', leaveOut);
+  return {
+    known: lists !== null,
+    byAsset,
+    warned,
+    only: only && warned > 0,
+    setOnly,
+    fix,
+  };
 }

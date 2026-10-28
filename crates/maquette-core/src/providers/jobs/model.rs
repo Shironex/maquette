@@ -104,6 +104,10 @@ pub struct ProviderJob {
     pub variant: PresetVariant,
     /// Input images, relative to the project folder, front first.
     pub images: Vec<String>,
+    /// The view each image goes as (`front`, `left`, ...), from the
+    /// asset's tags. Older records have none: the images go in order.
+    #[serde(default)]
+    pub views: Vec<String>,
     pub tripo: Option<TripoPreset>,
     pub meshy: Option<MeshyPreset>,
     pub state: JobState,

@@ -415,3 +415,99 @@ async fn agents_set_the_style_board_from_project_files_only() {
     client.cancel().await.expect("close");
     server.stop();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn agents_tag_ref_views_and_sends_follow_them_with_warnings() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp dir");
+    let (session, project_id, project_dir) = fixture(dir.path());
+    let (_host, client, server) = connect(session).await;
+    let picked = call(
+        &client,
+        "pick_concepts",
+        json!({ "project": project_id, "images": [
+            { "direction": "Stone lantern", "index": 1 },
+            { "direction": "Stone lantern", "index": 2 },
+        ] }),
+    )
+    .await;
+    let refs: Vec<String> = picked["assets"][0]["refs"]
+        .as_array()
+        .expect("refs")
+        .iter()
+        .map(|r| r.as_str().expect("ref").to_string())
+        .collect();
+    assert_eq!(refs.len(), 2, "{picked}");
+    // A 4 by 4 PNG header: small enough to warn about.
+    let mut png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13];
+    png.extend_from_slice(b"IHDR");
+    png.extend_from_slice(&[0, 0, 0, 4, 0, 0, 0, 4, 8, 2, 0, 0, 0]);
+    for r in &refs {
+        std::fs::write(project_dir.join(r), &png).expect("ref");
+    }
+
+    let before = call(&client, "list_assets", json!({ "project": project_id })).await;
+    let lantern = |listed: &Value| {
+        listed["assets"]
+            .as_array()
+            .expect("assets")
+            .iter()
+            .find(|a| a["id"] == json!("stone-lantern"))
+            .cloned()
+            .expect("lantern")
+    };
+    assert_eq!(lantern(&before)["refsTagged"], json!(false));
+    assert_eq!(lantern(&before)["refs"][0]["view"], json!("front"));
+
+    let twice = raw_call(
+        &client,
+        "set_ref_views",
+        json!({ "project": project_id, "asset": "stone-lantern", "refs": [
+            { "file": refs[0], "view": "front" }, { "file": refs[1], "view": "front" },
+        ] }),
+    )
+    .await;
+    assert_eq!(twice.is_error, Some(true), "one ref per view");
+    let set = call(
+        &client,
+        "set_ref_views",
+        json!({ "project": project_id, "asset": "stone-lantern", "refs": [
+            { "file": refs[0], "view": "back" }, { "file": refs[1], "view": "front" },
+        ] }),
+    )
+    .await;
+    assert_eq!(set["tagged"], json!(true), "{set}");
+    let after = call(&client, "list_assets", json!({ "project": project_id })).await;
+    assert_eq!(lantern(&after)["refs"][1]["view"], json!("front"));
+
+    let sent = call(
+        &client,
+        "send_to_3d",
+        json!({ "project": project_id, "asset": "stone-lantern", "provider": "by-hand", "images": refs }),
+    )
+    .await;
+    assert_eq!(sent["images"], json!([refs[1], refs[0]]), "front first");
+    let warned = sent["refWarnings"].as_array().expect("warnings");
+    assert_eq!(warned.len(), 2, "{sent}");
+    assert_eq!(warned[0]["kind"], json!("small"));
+    assert_eq!(warned[0]["view"], json!("front"));
+
+    let views = call(
+        &client,
+        "get_ref_views",
+        json!({ "project": project_id, "asset": "stone-lantern" }),
+    )
+    .await;
+    assert_eq!(views["refs"][0]["view"], json!("back"));
+    let no_codex = raw_call(
+        &client,
+        "make_other_views",
+        json!({ "project": project_id, "asset": "stone-lantern" }),
+    )
+    .await;
+    assert_eq!(no_codex.is_error, Some(true));
+    assert!(text(&no_codex).contains("Codex"), "{}", text(&no_codex));
+
+    client.cancel().await.expect("close");
+    server.stop();
+}

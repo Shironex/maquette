@@ -1,12 +1,15 @@
-//! Starting a batch: a brief or a concept's objects become a direction
-//! and one planned Codex job each, with the project's style board when it
-//! is on, then go to the queue.
+//! Starting a batch: a brief, a concept's objects or an asset's refs work
+//! become a direction and one planned Codex job each, with the project's
+//! style board when it is on, then go to the queue.
 
 use super::super::objects::{self, NewObjectRefs};
+use super::super::refs_jobs::{self, NewCleanRef, NewOtherViews, RefsJobKind};
 use super::super::style;
 use super::super::{Direction, prepare_with, prompt};
 use super::{ConceptJob, Concepts, Lane, Planned, Start, codex_tool};
-use crate::error::CoreResult;
+use crate::assets::Asset;
+use crate::error::{CoreError, CoreResult};
+use crate::refs::{AssetRef, RefView};
 
 impl Concepts {
     /// Queues one Codex job per image and returns the direction and jobs.
@@ -104,6 +107,120 @@ impl Concepts {
             board.as_ref(),
             planned,
         )?;
+        Ok((direction, jobs))
+    }
+}
+
+impl Concepts {
+    /// Queues the candidates for an asset's other views: `count` per view
+    /// the request draws (see [`refs_jobs::views_to_draw`]), each with the
+    /// front attached and the project's style board when it is on.
+    /// `refs` are the asset's refs with their views.
+    ///
+    /// # Errors
+    ///
+    /// Fails when Codex CLI is missing, the asset has no front, every view
+    /// is filled and none was named, or the direction cannot be written.
+    pub fn start_views(
+        &self,
+        lane: &Lane<'_>,
+        asset: &Asset,
+        refs: &[AssetRef],
+        request: &NewOtherViews,
+    ) -> CoreResult<(Direction, Vec<ConceptJob>)> {
+        codex_tool(lane.tools)?;
+        if !(1..=refs_jobs::MAX_PER_VIEW).contains(&request.count) {
+            return Err(CoreError::Invalid(format!(
+                "Ask for 1 to {} images per view.",
+                refs_jobs::MAX_PER_VIEW
+            )));
+        }
+        let front = refs_jobs::front_of(refs)?;
+        let views = refs_jobs::views_to_draw(refs, &request.views)?;
+        let board = style::for_job(lane.project_dir, request.use_style);
+        let titles: Vec<String> = views
+            .iter()
+            .flat_map(|v| (0..request.count).map(|_| v.name().to_string()))
+            .collect();
+        let (direction, files) = refs_jobs::prepare(
+            lane.project_dir,
+            asset,
+            RefsJobKind::Views,
+            &front,
+            &titles,
+            board.as_ref().map(|b| b.revision),
+        )?;
+        let planned = files
+            .into_iter()
+            .map(|p| {
+                let view = RefView::SLOTS
+                    .into_iter()
+                    .find(|v| v.name() == p.title)
+                    .unwrap_or(RefView::Left);
+                Planned {
+                    index: p.index,
+                    prompt: refs_jobs::view_prompt(
+                        asset,
+                        view,
+                        &lane.project_dir.join(&p.file),
+                        board.as_ref(),
+                    ),
+                    file: p.file,
+                    title: Some(p.title),
+                }
+            })
+            .collect();
+        let jobs = self.queue(
+            lane,
+            &request.project,
+            &direction,
+            &[front],
+            board.as_ref(),
+            planned,
+        )?;
+        Ok((direction, jobs))
+    }
+
+    /// Queues one clean copy of a ref, with the ref attached and no style
+    /// board: the copy keeps the ref's own look.
+    ///
+    /// # Errors
+    ///
+    /// Fails when Codex CLI is missing, the file is not one of the
+    /// asset's refs, or the direction cannot be written.
+    pub fn start_clean(
+        &self,
+        lane: &Lane<'_>,
+        asset: &Asset,
+        refs: &[AssetRef],
+        request: &NewCleanRef,
+    ) -> CoreResult<(Direction, Vec<ConceptJob>)> {
+        codex_tool(lane.tools)?;
+        let file = request.file.trim().replace('\\', "/");
+        if !refs.iter().any(|r| r.file == file) || !lane.project_dir.join(&file).is_file() {
+            return Err(CoreError::NotFound(format!(
+                "{file} among the refs of {}",
+                asset.name
+            )));
+        }
+        let (direction, files) = refs_jobs::prepare(
+            lane.project_dir,
+            asset,
+            RefsJobKind::Clean,
+            &file,
+            std::slice::from_ref(&file),
+            None,
+        )?;
+        let planned = files
+            .into_iter()
+            .map(|p| Planned {
+                index: p.index,
+                prompt: refs_jobs::clean_prompt(request, asset, &lane.project_dir.join(&p.file)),
+                file: p.file,
+                title: Some(p.title),
+            })
+            .collect();
+        let jobs = self.queue(lane, &request.project, &direction, &[file], None, planned)?;
         Ok((direction, jobs))
     }
 }

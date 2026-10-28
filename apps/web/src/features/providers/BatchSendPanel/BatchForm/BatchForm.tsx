@@ -14,7 +14,12 @@ import { MeshyPresetFields, TripoPresetFields } from '../../PresetFields';
 import { PromptField } from '../../PromptField';
 import { SectionTitle } from '../../SectionTitle';
 import { PROVIDERS, SERVICES } from '../../choices';
-import { useBatchActions, useBatchEstimate, useBatchView } from './BatchForm.hooks';
+import {
+  useBatchActions,
+  useBatchEstimate,
+  useBatchView,
+  useBatchWarnings,
+} from './BatchForm.hooks';
 import { ItemRow } from './ItemRow';
 import { VARIANT_LABEL } from './variantLabel';
 
@@ -41,16 +46,20 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
   } = useBatchActions();
   const estimate = useBatchEstimate(draft);
   const { catalog, used, shown, setTab, blocker, key, lines, open, toggle } = useBatchView(draft);
+  const refs = useBatchWarnings(draft);
   const service = draft.service;
   const api = draft.provider !== 'by-hand';
   const n = draft.items.length;
   const asking = confirming && api && !blocker;
   const assetsAside = `${n} ${n === 1 ? 'asset' : 'assets'}, one model each`;
-  const items = draft.items.map(item => (
+  const shownItems = draft.items.filter(i => !refs.only || refs.byAsset.get(i.asset)?.length);
+  const items = shownItems.map(item => (
     <ItemRow
       key={item.asset}
       item={item}
       projectDir={projectDir}
+      warnings={refs.known ? (refs.byAsset.get(item.asset) ?? []) : null}
+      onFix={(w, f) => refs.fix(item.asset, w, f)}
       onVariant={variant => setItemVariant(item.asset, variant)}
       diff={isCustom(draft, item) ? itemDiff(draft, item, catalog) : null}
       open={open.includes(item.asset)}
@@ -162,6 +171,23 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
           >
             Assets
           </SectionTitle>
+          {refs.warned > 0 ? (
+            <div className="flex items-center gap-2 rounded-card border border-amber/40 bg-amber-soft/40 px-3 py-2 text-meta">
+              <Icon name="warning" size={14} className="flex-none text-amber" />
+              <span className="flex-1">
+                {refs.warned} of {n} assets {refs.warned === 1 ? 'has' : 'have'} ref warnings. They
+                still go; fix them first to spend the credits on better refs.
+              </span>
+              <button
+                type="button"
+                aria-pressed={refs.only}
+                className="flex-none cursor-pointer text-fg-dim underline-offset-2 hover:text-fg hover:underline"
+                onClick={() => refs.setOnly(!refs.only)}
+              >
+                {refs.only ? 'Show all' : 'Show only these'}
+              </button>
+            </div>
+          ) : null}
           <ul className="m-0 flex list-none flex-col p-0">{items}</ul>
         </section>
 
@@ -233,6 +259,9 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
               <p className="text-meta text-fg-dim">
                 {n} {n === 1 ? 'task' : 'tasks'} with {lines.join('; ')}.
                 {estimate !== null ? ` About ${formatCredits(estimate)} credits in all.` : ''}
+                {refs.warned > 0
+                  ? ` ${refs.warned} ${refs.warned === 1 ? 'asset goes' : 'assets go'} with ref warnings.`
+                  : ''}
                 {draft.provider === 'tripo'
                   ? ' Tripo cannot cancel a task once it is sent.'
                   : ' You can cancel each one while Meshy has not started it.'}

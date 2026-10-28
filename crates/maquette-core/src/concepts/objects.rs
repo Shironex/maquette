@@ -339,7 +339,7 @@ pub(super) fn ref_name(project_dir: &Path, title: &str, ext: &str) -> String {
 
 /// `<dir>/desk_lamp.png`, or `<dir>/desk_lamp_2.png` when that name holds
 /// another file. The name is slugged, so it stays one segment in `dir`.
-pub(super) fn free_name(project_dir: &Path, dir: &str, title: &str, ext: &str) -> String {
+pub(crate) fn free_name(project_dir: &Path, dir: &str, title: &str, ext: &str) -> String {
     let stem = slugify(title).replace('-', "_");
     let stem = if stem.is_empty() { "object" } else { &stem };
     (1u32..)

@@ -1,4 +1,4 @@
-import { commands, type SendOptions } from '@/ipc/client';
+import { commands, type RefFix, type RefWarning, type SendOptions } from '@/ipc/client';
 import { useAsyncValue } from '@/lib/useAsyncValue';
 import {
   isSmartTopology,
@@ -19,6 +19,7 @@ import { redoLine } from '@/state/redo';
 import { useAppStore } from '@/state/use-app-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useCatalog } from '../../PresetFields';
+import { useRefWarnings, useWarningFix } from '../../RefWarnings';
 
 /** The draft's actions and what the form derives from it: blocker, summary, key, earlier sends. */
 export function useSendForm(options: SendOptions, draft: SendDraft) {
@@ -85,4 +86,15 @@ export function useSendEstimate(options: SendOptions, draft: SendDraft) {
       ? null
       : sendRequest({ project: options.project, asset: options.asset.id, redo }, draft);
   return useAsyncValue(commands.providerEstimate, request);
+}
+
+/** The weak ref warnings of the images as picked, and their fixes. */
+export function useSendWarnings(options: SendOptions, draft: SendDraft, multiView: boolean) {
+  const setDraft = useProvidersStore(s => s.setDraft);
+  const items = [{ asset: options.asset.id, images: draft.images, multiView }];
+  const warnings = useRefWarnings(options.project, draft.images.length > 0 ? items : [])?.[0] ?? [];
+  const fix = useWarningFix(options.project, (_, file) =>
+    setDraft({ images: draft.images.filter(i => i !== file) })
+  );
+  return { warnings, fix: (w: RefWarning, f: RefFix) => fix(options.asset.id, w, f) };
 }

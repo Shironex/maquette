@@ -1,14 +1,22 @@
 import { Icon, Tooltip, cn } from '@maquette/ui';
-import type { RefImage } from '@/ipc/client';
+import type { RefImage, RefView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { formatBytes } from '@/lib/format';
 import { inProject } from '@/state/lab';
 import { VIEW_NAMES } from '@/state/providers';
+import { VIEW_LABEL } from '@/state/refs';
 
 export interface ImageChoiceProps {
   image: RefImage;
   projectDir: string;
   order: number;
+  /**
+   * For an asset with view tags: the view the image goes as, null when it
+   * stays home. Left out, the order names the view.
+   */
+  view?: RefView | null;
+  /** How many ref warnings it has. */
+  warned?: number;
   full: boolean;
   onToggle: () => void;
   onFront: () => void;
@@ -18,12 +26,22 @@ export default function ImageChoice({
   image,
   projectDir,
   order,
+  view,
+  warned = 0,
   full,
   onToggle,
   onFront,
 }: ImageChoiceProps) {
   const url = fileUrl(inProject(projectDir, image.file));
   const on = order >= 0;
+  // A tagged asset's views come from its tags, so there is no order to change.
+  const canFront = on && order > 0 && view === undefined;
+  const badge =
+    view === undefined
+      ? `${order + 1} ${VIEW_NAMES[order]}`
+      : view
+        ? VIEW_LABEL[view]
+        : 'Other, stays home';
   return (
     <li className="group relative">
       <Tooltip
@@ -47,13 +65,18 @@ export default function ImageChoice({
           )}
           {on ? (
             <span className="absolute top-1 left-1 inline-flex h-[18px] items-center gap-1 rounded-pill bg-clay px-1.5 text-[10.5px] font-semibold text-clay-ink">
-              {order + 1} {VIEW_NAMES[order]}
+              {badge}
+            </span>
+          ) : null}
+          {warned > 0 ? (
+            <span className="absolute right-1 bottom-1 inline-flex h-[18px] items-center gap-0.5 rounded-pill bg-panel/90 px-1.5 text-[10.5px] font-semibold text-amber">
+              <Icon name="warning" size={11} /> {warned}
             </span>
           ) : null}
         </button>
       </Tooltip>
       <div className="mt-1 truncate font-mono text-[11px] text-fg-mute">{image.name}</div>
-      {on && order > 0 ? (
+      {canFront ? (
         <Tooltip label="Makes this the front image the model is built from">
           <button
             type="button"

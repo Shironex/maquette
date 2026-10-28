@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 69 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 74 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -17,13 +17,14 @@ These look at the workspace and change nothing.
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------- |
 | [`list_projects`](#list_projects)             | Every project: template, target (website or game), site or game repo, asset count, what runs in it and which is open in the app                                                                                                                                   | Nothing | No       |
 | `get_project`                                 | One project's manifest: name, template, site repo, source folder and its Board assets with every version                                                                                                                                                          | Nothing | No       |
-| `list_assets`                                 | A project's Board assets: kind, stage, status, version count and the latest version's file and stats. Takes an optional `stage` filter                                                                                                                            | Nothing | No       |
+| `list_assets`                                 | A project's Board assets: kind, stage, status, version count, the latest version's file and stats, and its refs with their views (`refsTagged` false while they are read from the refs' order). Takes an optional `stage` filter                                  | Nothing | No       |
 | [`get_pipeline`](#get_pipeline)               | Steps, validation issues, compression presets, model sizes, the run in progress and the latest runs                                                                                                                                                               | Nothing | No       |
 | [`get_run`](#get_run)                         | One run's status and the end of its log                                                                                                                                                                                                                           | Nothing | No       |
 | `list_inbox`                                  | The models waiting in the inbox, with kind, size, triangle count and worst check                                                                                                                                                                                  | Nothing | No       |
 | `get_inbox_checks`                            | The checks for one inbox model (triangles, textures, rig, scale, materials) and its analysis report                                                                                                                                                               | Nothing | No       |
 | `get_concepts`                                | A direction's prompt, refs and images with stars and picks, plus queued, running, waiting and failed jobs                                                                                                                                                         | Nothing | No       |
 | `get_style_board`                             | A project's style board: the style line, the palette, up to 4 images with the concept or ref each came from, and its revision                                                                                                                                     | Nothing | No       |
+| [`get_ref_views`](#set_ref_views)             | An asset's refs with the view each shows, whether they were tagged, the candidates `make_other_views` and `clean_ref_background` made and their jobs still running                                                                                                | Nothing | No       |
 | `get_provider_job`                            | A send to 3D: status, phase, progress, credits spent and message. With `project` instead of `id`, every send in the project                                                                                                                                       | Nothing | No       |
 | `cancel_provider_jobs`                        | Stops sends by id (`ids`, 1 to 50). A by hand send stops waiting, a send not yet started is cancelled, and each id answers on its own. Sends waiting for approval are refused: you deny those in the app                                                          | Nothing | No       |
 | [`get_credits`](#get_credits)                 | Each provider's balance, totals for 7 and 30 days and the latest paid sends                                                                                                                                                                                       | Nothing | No       |
@@ -51,52 +52,56 @@ These look at the workspace and change nothing.
 
 ## Changes the project, spends nothing
 
-| Tool                                                  | What it does                                                                                                      | Spends  | Approval |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------- | -------- |
-| [`set_compression_presets`](#set_compression_presets) | Changes the per model texture size, data map size, codec and meshopt level                                        | Nothing | No       |
-| [`set_material_tweaks`](#set_material_tweaks)         | Changes an asset's tint, roughness, metalness, emissive strength and map codecs                                   | Nothing | No       |
-| [`set_ship_settings`](#set_ship_settings)             | Changes a website's Ship style, texture format, quality, per asset choice and file name, and the site folders     | Nothing | No       |
-| `set_bake_settings`                                   | Changes the lightmap size (256 to 4096), samples (1 to 4096) and denoise                                          | Nothing | No       |
-| `set_skip_bake`                                       | Sets one or more assets to skip the bake, or join it again                                                        | Nothing | No       |
-| `set_pad_edges`                                       | Pads an asset's texture edges before the textures shrink, or stops                                                | Nothing | No       |
-| `set_real_size`                                       | Sets or clears the real size a model is scaled to                                                                 | Nothing | No       |
-| `add_fixups`                                          | Adds fix-ups to an asset; one of a kind already there is replaced                                                 | Nothing | No       |
-| `remove_fixups`                                       | Removes fix-ups by kind, or all of them                                                                           | Nothing | No       |
-| `update_starters`                                     | Brings outdated or missing starter scripts up to date, as the Update banner does                                  | Nothing | No       |
-| [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states, explode tracks, paths and clips                            | Nothing | No       |
-| [`pick_concepts`](#pick_concepts)                     | Puts Lab concepts on the Board at Refs                                                                            | Nothing | No       |
-| `star_concepts`                                       | Stars or unstars Lab concepts                                                                                     | Nothing | No       |
-| [`set_style_board`](#set_style_board)                 | Changes a project's style board: the line, the palette and the images, copied into `style/`                       | Nothing | No       |
-| [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                                                        | Nothing | No       |
-| [`attach_download`](#attach_download)                 | Sends a download from `list_handoffs` to the inbox for an asset                                                   | Nothing | No       |
-| `dismiss_download`                                    | Leaves a download from `list_handoffs` alone and never asks about it again                                        | Nothing | No       |
-| `copy_asset`                                          | Copies an asset with its refs and versions to another project                                                     | Nothing | No       |
-| `remove_assets`                                       | Takes up to 50 assets off the Board into the workspace trash, stopping their waiting sends                        | Nothing | No       |
-| `restore_asset`                                       | Puts a removed asset back from the workspace trash with its files, place and settings                             | Nothing | No       |
-| `import_game_models`                                  | Imports models from the game repo, each as an asset whose version 1 is the repo file, and asks for their previews | Nothing | No       |
-| `set_game_settings`                                   | Changes a game's format, model folder, export, bake and folder budgets                                            | Nothing | No       |
-| `add_built_asset`                                     | Adds a model a Blender script in the project makes, and builds it headless                                        | Nothing | No       |
-| `rebuild_built_asset`                                 | Builds one built asset again, or every new or stale one                                                           | Nothing | No       |
-| `render_thumbnail`                                    | Renders a studio thumbnail of a model with headless Blender and returns the PNG's path                            | Nothing | No       |
-| `start_page_preview`                                  | Starts the site dev server the Page view shows, or reuses the running one                                         | Nothing | No       |
-| `stop_page_preview`                                   | Stops that server, whoever started it                                                                             | Nothing | No       |
-| `cancel_run`                                          | Cancels a queued or running run. A run waiting for approval is cancelled too                                      | Nothing | No       |
-| [`add_to_library`](#add_to_library)                   | Copies an asset's newest model into the library                                                                   | Nothing | No       |
-| [`use_from_library`](#use_from_library)               | Copies a library model into a project as a new asset                                                              | Nothing | No       |
-| [`update_from_library`](#update_from_library)         | Adds a newer library version to an asset as its next version, or returns the plan                                 | Nothing | No       |
+| Tool                                                  | What it does                                                                                                                   | Spends  | Approval |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------- | -------- |
+| [`set_compression_presets`](#set_compression_presets) | Changes the per model texture size, data map size, codec and meshopt level                                                     | Nothing | No       |
+| [`set_material_tweaks`](#set_material_tweaks)         | Changes an asset's tint, roughness, metalness, emissive strength and map codecs                                                | Nothing | No       |
+| [`set_ship_settings`](#set_ship_settings)             | Changes a website's Ship style, texture format, quality, per asset choice and file name, and the site folders                  | Nothing | No       |
+| `set_bake_settings`                                   | Changes the lightmap size (256 to 4096), samples (1 to 4096) and denoise                                                       | Nothing | No       |
+| `set_skip_bake`                                       | Sets one or more assets to skip the bake, or join it again                                                                     | Nothing | No       |
+| `set_pad_edges`                                       | Pads an asset's texture edges before the textures shrink, or stops                                                             | Nothing | No       |
+| `set_real_size`                                       | Sets or clears the real size a model is scaled to                                                                              | Nothing | No       |
+| `add_fixups`                                          | Adds fix-ups to an asset; one of a kind already there is replaced                                                              | Nothing | No       |
+| `remove_fixups`                                       | Removes fix-ups by kind, or all of them                                                                                        | Nothing | No       |
+| `update_starters`                                     | Brings outdated or missing starter scripts up to date, as the Update banner does                                               | Nothing | No       |
+| [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states, explode tracks, paths and clips                                         | Nothing | No       |
+| [`pick_concepts`](#pick_concepts)                     | Puts Lab concepts on the Board at Refs                                                                                         | Nothing | No       |
+| `star_concepts`                                       | Stars or unstars Lab concepts                                                                                                  | Nothing | No       |
+| [`set_style_board`](#set_style_board)                 | Changes a project's style board: the line, the palette and the images, copied into `style/`                                    | Nothing | No       |
+| [`set_ref_views`](#set_ref_views)                     | Sets the view of every ref of an asset: front, left, back, right or other                                                      | Nothing | No       |
+| `use_ref_candidate`                                   | Takes a drawn view into its slot, or a clean copy into the place of the ref it cleans (the original moves to `refs/originals`) | Nothing | No       |
+| [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                                                                     | Nothing | No       |
+| [`attach_download`](#attach_download)                 | Sends a download from `list_handoffs` to the inbox for an asset                                                                | Nothing | No       |
+| `dismiss_download`                                    | Leaves a download from `list_handoffs` alone and never asks about it again                                                     | Nothing | No       |
+| `copy_asset`                                          | Copies an asset with its refs and versions to another project                                                                  | Nothing | No       |
+| `remove_assets`                                       | Takes up to 50 assets off the Board into the workspace trash, stopping their waiting sends                                     | Nothing | No       |
+| `restore_asset`                                       | Puts a removed asset back from the workspace trash with its files, place and settings                                          | Nothing | No       |
+| `import_game_models`                                  | Imports models from the game repo, each as an asset whose version 1 is the repo file, and asks for their previews              | Nothing | No       |
+| `set_game_settings`                                   | Changes a game's format, model folder, export, bake and folder budgets                                                         | Nothing | No       |
+| `add_built_asset`                                     | Adds a model a Blender script in the project makes, and builds it headless                                                     | Nothing | No       |
+| `rebuild_built_asset`                                 | Builds one built asset again, or every new or stale one                                                                        | Nothing | No       |
+| `render_thumbnail`                                    | Renders a studio thumbnail of a model with headless Blender and returns the PNG's path                                         | Nothing | No       |
+| `start_page_preview`                                  | Starts the site dev server the Page view shows, or reuses the running one                                                      | Nothing | No       |
+| `stop_page_preview`                                   | Stops that server, whoever started it                                                                                          | Nothing | No       |
+| `cancel_run`                                          | Cancels a queued or running run. A run waiting for approval is cancelled too                                                   | Nothing | No       |
+| [`add_to_library`](#add_to_library)                   | Copies an asset's newest model into the library                                                                                | Nothing | No       |
+| [`use_from_library`](#use_from_library)               | Copies a library model into a project as a new asset                                                                           | Nothing | No       |
+| [`update_from_library`](#update_from_library)         | Adds a newer library version to an asset as its next version, or returns the plan                                              | Nothing | No       |
 
 ## Spends credits or Codex usage, or needs approval
 
-| Tool                            | What it does                                                                                        | Spends                                              | Approval                                                                  |
-| ------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
-| [`run_pipeline`](#run_pipeline) | Runs a project's pipeline, optionally from a step or build only                                     | Nothing                                             | At the Ship step, when Ask before shipping is on or the project is a game |
-| [`send_to_3d`](#send_to_3d)     | Sends an asset's refs to Tripo or Meshy, or writes a By hand folder                                 | Credits for Tripo and Meshy. By hand spends nothing | Always, for Tripo and Meshy                                               |
-| `send_batch_to_3d`              | Sends up to 24 assets at once with the same provider                                                | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
-| `redo_inbox_model`              | Sends an inbox model's asset again, prefilled from its send                                         | Credits for Tripo and Meshy                         | Always, for Tripo and Meshy                                               |
-| `redo_inbox_models`             | Redoes several inbox models from one project as one batch                                           | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
-| `start_concepts`                | Starts concept image jobs in the Lab, with the project style unless `useStyle` is false             | Codex usage                                         | No                                                                        |
-| `make_object_refs`              | Makes one isolated image per object of a concept, with the project style unless `useStyle` is false | Codex usage                                         | No                                                                        |
-| `retry_concept_jobs`            | Runs failed or cancelled Lab jobs again                                                             | Codex usage                                         | No                                                                        |
+| Tool                            | What it does                                                                                                                                     | Spends                                              | Approval                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------- |
+| [`run_pipeline`](#run_pipeline) | Runs a project's pipeline, optionally from a step or build only                                                                                  | Nothing                                             | At the Ship step, when Ask before shipping is on or the project is a game |
+| [`send_to_3d`](#send_to_3d)     | Sends an asset's refs to Tripo or Meshy, or writes a By hand folder                                                                              | Credits for Tripo and Meshy. By hand spends nothing | Always, for Tripo and Meshy                                               |
+| `send_batch_to_3d`              | Sends up to 24 assets at once with the same provider, with each asset's weak ref warnings                                                        | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
+| `redo_inbox_model`              | Sends an inbox model's asset again, prefilled from its send                                                                                      | Credits for Tripo and Meshy                         | Always, for Tripo and Meshy                                               |
+| `redo_inbox_models`             | Redoes several inbox models from one project as one batch                                                                                        | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
+| `start_concepts`                | Starts concept image jobs in the Lab, with the project style unless `useStyle` is false                                                          | Codex usage                                         | No                                                                        |
+| `make_object_refs`              | Makes one isolated image per object of a concept, with the project style unless `useStyle` is false                                              | Codex usage                                         | No                                                                        |
+| `make_other_views`              | Draws an asset's missing views (or the named ones) from its front ref, 1 to 4 candidates each, with the project style unless `useStyle` is false | Codex usage                                         | No                                                                        |
+| `clean_ref_background`          | Makes a copy of one ref with the object kept and the clutter cleared, on studio grey or transparent                                              | Codex usage                                         | No                                                                        |
+| `retry_concept_jobs`            | Runs failed or cancelled Lab jobs again                                                                                                          | Codex usage                                         | No                                                                        |
 
 ## The main tools
 
@@ -159,22 +164,48 @@ Reads one run's status and the end of its log. The status is `queued`, `running`
 
 `costs credits` `needs approval`
 
-Sends an asset's refs to 3D. `tripo` and `meshy` spend credits, so the send always waits for you to approve it in the Maquette app and answers `waiting for approval`. Follow it with `get_provider_job`. `by-hand` spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back.
+Sends an asset's refs to 3D. The images go by their views, front first, and refs tagged other stay home (see [Refs and views](/docs/views/board/#refs-and-views)). The answer carries `refWarnings`: weak refs found before anything is spent (small, cropped, busy background, one view with multi-view on), each with its fixes. They never stop the send. `tripo` and `meshy` spend credits, so the send always waits for you to approve it in the Maquette app and answers `waiting for approval`. Follow it with `get_provider_job`. `by-hand` spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back.
 
-| Parameter   | Type     | Required | Notes                                                                                                             |
-| ----------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
-| `project`   | string   | yes      | The project id.                                                                                                   |
-| `asset`     | string   | yes      | The asset id, as `list_assets` returns it.                                                                        |
-| `provider`  | string   | yes      | `tripo`, `meshy` or `by-hand`.                                                                                    |
-| `service`   | string   | no       | By hand only: whose web app the settings card is for, `tripo` by default.                                         |
-| `variant`   | string   | no       | `prop` or `character`. By default from the asset's kind.                                                          |
-| `images`    | string[] | no       | Images relative to the project folder, front first, at most 4. By default the asset's own refs.                   |
-| `overrides` | object   | no       | Preset fields for this send only, such as `{"faceLimit": 20000}`. An unknown name is refused with the valid list. |
-| `prompt`    | string   | no       | Meshy only: text that guides the texture, at most 800 characters.                                                 |
+| Parameter   | Type     | Required | Notes                                                                                                                |
+| ----------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `project`   | string   | yes      | The project id.                                                                                                      |
+| `asset`     | string   | yes      | The asset id, as `list_assets` returns it.                                                                           |
+| `provider`  | string   | yes      | `tripo`, `meshy` or `by-hand`.                                                                                       |
+| `service`   | string   | no       | By hand only: whose web app the settings card is for, `tripo` by default.                                            |
+| `variant`   | string   | no       | `prop` or `character`. By default from the asset's kind.                                                             |
+| `images`    | string[] | no       | Images relative to the project folder, at most 4. By default the asset's view slots. Tagged images go in view order. |
+| `overrides` | object   | no       | Preset fields for this send only, such as `{"faceLimit": 20000}`. An unknown name is refused with the valid list.    |
+| `prompt`    | string   | no       | Meshy only: text that guides the texture, at most 800 characters.                                                    |
 
 ```json
 { "project": "moon-island", "asset": "far-spire", "provider": "tripo" }
 ```
+
+### set_ref_views
+
+`spends nothing`
+
+Sets the view of every ref of an asset, as the refs sheet does. At most one ref per front, left, back and right; other refs stay with the asset but never go as views, and a ref left out is no longer the asset's (its file stays in `refs/`). Everything is checked before anything is saved, and the app updates live. `get_ref_views` reads them back, with `tagged` false while the views are read from the refs' order.
+
+| Parameter | Type     | Required | Notes                                                                                   |
+| --------- | -------- | -------- | --------------------------------------------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                                                         |
+| `asset`   | string   | yes      | The asset id.                                                                           |
+| `refs`    | object[] | yes      | `{ file, view }` for each ref, `view` one of `front`, `left`, `back`, `right`, `other`. |
+
+```json
+{
+  "project": "frostveil",
+  "asset": "frost-lantern",
+  "refs": [
+    { "file": "refs/frost_lantern.png", "view": "front" },
+    { "file": "refs/frost_lantern_side.png", "view": "left" },
+    { "file": "refs/lantern_kit_crop.png", "view": "other" }
+  ]
+}
+```
+
+`make_other_views` (`{ project, asset, views?, count?, useStyle? }`) draws the empty slots by default, 2 candidates each, from the front with the front attached; naming a filled view draws it again, and the front is never drawn. `clean_ref_background` (`{ project, asset, file, background?, pad?, extend? }`) cleans one ref; `background` is `studio-grey` (default) or `transparent`, and nothing the frame cut off is drawn unless `extend` is true. Both are Lab jobs on the Codex lane, like `start_concepts`, in a direction named "<asset> views" or "<asset> clean". `use_ref_candidate` (`{ project, asset, file, view? }`) then takes one candidate in; nothing reaches the refs before that.
 
 ### set_compression_presets
 

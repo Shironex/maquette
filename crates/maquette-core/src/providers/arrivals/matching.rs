@@ -128,6 +128,7 @@ mod tests {
             service: ProviderId::Tripo,
             variant: PresetVariant::Prop,
             images: vec![],
+            views: Vec::new(),
             tripo: None,
             meshy: None,
             state: JobState::Waiting,

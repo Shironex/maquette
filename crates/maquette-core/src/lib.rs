@@ -21,6 +21,7 @@ pub mod pipeline;
 pub mod prepare;
 pub mod project;
 pub mod providers;
+pub mod refs;
 pub mod ship;
 pub mod site;
 #[cfg(test)]

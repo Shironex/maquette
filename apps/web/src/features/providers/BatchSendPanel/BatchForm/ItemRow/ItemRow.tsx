@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react';
 import { Icon, IconButton, SegmentedControl, cn } from '@maquette/ui';
-import type { PresetVariant } from '@/ipc/client';
+import type { PresetVariant, RefFix, RefWarning } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import type { BatchItemDraft } from '@/state/batch';
 import { inProject } from '@/state/lab';
+import { warningsLine } from '@/state/refs';
 import { VARIANTS } from '../../../choices';
+import { useItemWarnings } from './ItemRow.hooks';
+import { RefWarnings } from '../../../RefWarnings';
 
 export interface ItemRowProps {
   item: BatchItemDraft;
@@ -16,6 +19,9 @@ export interface ItemRowProps {
   onToggle: () => void;
   onClear: () => void;
   fields: ReactNode;
+  /** Its weak ref warnings, null while they are checked. */
+  warnings?: readonly RefWarning[] | null;
+  onFix?: (warning: RefWarning, fix: RefFix) => void;
 }
 
 export default function ItemRow({
@@ -27,7 +33,10 @@ export default function ItemRow({
   onToggle,
   onClear,
   fields,
+  warnings = null,
+  onFix = () => undefined,
 }: ItemRowProps) {
+  const { showWarnings, toggleWarnings, warned, warnedTitle } = useItemWarnings(warnings);
   const thumb = fileUrl(item.thumbnail ? inProject(projectDir, item.thumbnail) : null);
   const n = item.images.length;
   const panel = `custom-${item.asset}`;
@@ -65,6 +74,24 @@ export default function ItemRow({
           <div className={cn('truncate text-meta', n === 0 ? 'text-amber' : 'text-fg-mute')}>
             {refs}
           </div>
+          {warnings && n > 0 ? (
+            warnings.length === 0 ? (
+              <div className="text-meta text-sage">Refs look good</div>
+            ) : (
+              <button
+                type="button"
+                aria-expanded={showWarnings}
+                onClick={toggleWarnings}
+                title={warnedTitle}
+                className="flex max-w-full cursor-pointer items-center gap-1 truncate text-meta text-amber hover:underline"
+              >
+                <Icon name="warning" size={12} className="flex-none" />
+                <span className="truncate">
+                  {warningsLine(warnings.length)}: {warnings[0]?.title}
+                </span>
+              </button>
+            )
+          ) : null}
           {diff !== null ? (
             <div className="truncate text-meta text-fg-dim" title={diff}>
               {diff}
@@ -88,6 +115,7 @@ export default function ItemRow({
           onClick={onToggle}
         />
       </div>
+      {showWarnings && warned ? <RefWarnings warnings={warned} onFix={onFix} /> : null}
       {open ? (
         <div
           id={panel}

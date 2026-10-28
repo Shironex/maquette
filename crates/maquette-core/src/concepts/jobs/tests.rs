@@ -718,3 +718,89 @@ fn jobs_carry_the_style_board_and_a_retry_carries_the_same_one() {
     let args = fs::read_to_string(out.with_extension("png.args")).expect("args");
     assert!(!args.contains("frost_glass"));
 }
+
+#[test]
+fn other_views_draw_only_the_empty_slots_with_the_front_attached() {
+    use crate::refs::{AssetRef, RefView};
+    let r = rig();
+    let codex = fake_codex(&r.root, &r.png, &r.home, "record");
+    for f in ["refs/frost_lantern.png", "refs/lantern_left.png"] {
+        fs::create_dir_all(r.project.join("refs")).expect("refs");
+        fs::copy(&r.png, r.project.join(f)).expect("ref");
+    }
+    let asset: crate::Asset = serde_json::from_str(
+        r#"{"id":"frost-lantern","name":"Frost lantern","kind":"prop","stage":"refs",
+            "status":"queued","versions":[],"thumbnail":null,"createdAt":"t","updatedAt":"t"}"#,
+    )
+    .expect("asset");
+    let refs = vec![
+        AssetRef {
+            file: "refs/frost_lantern.png".into(),
+            view: RefView::Front,
+        },
+        AssetRef {
+            file: "refs/lantern_left.png".into(),
+            view: RefView::Left,
+        },
+    ];
+    let concepts = Concepts::new(Some(r.home.clone()), 2, |_| {});
+    let tools = toolbox(&codex);
+    let lane = Lane {
+        project_dir: &r.project,
+        cache_dir: &r.cache,
+        tools: &tools,
+        timeout: Duration::from_secs(20),
+    };
+    let mut request = crate::concepts::NewOtherViews {
+        project: "moon".into(),
+        asset: "frost-lantern".into(),
+        views: Vec::new(),
+        count: 2,
+        use_style: true,
+    };
+    let (direction, jobs) = concepts
+        .start_views(&lane, &asset, &refs, &request)
+        .expect("start");
+    assert_eq!(direction.name, "Frost lantern views");
+    assert_eq!(
+        jobs.iter().map(|j| j.title.as_deref()).collect::<Vec<_>>(),
+        vec![Some("back"), Some("back"), Some("right"), Some("right")],
+        "left is filled, so it is skipped"
+    );
+    concepts.wait();
+    let first = r
+        .project
+        .join("concepts/frost-lantern-views/frost-lantern-views_01.png");
+    let prompt = fs::read_to_string(first.with_extension("png.prompt")).expect("prompt");
+    assert!(prompt.contains("Draw the Frost lantern from behind it"));
+    let args = fs::read_to_string(first.with_extension("png.args")).expect("args");
+    assert!(
+        args.contains("refs/frost_lantern.png"),
+        "the front goes along"
+    );
+    let stored = load_direction(&r.project, "frost-lantern-views")
+        .expect("load")
+        .expect("direction");
+    assert_eq!(
+        stored.refs_job.map(|j| j.asset).as_deref(),
+        Some("frost-lantern")
+    );
+
+    request.views = vec![RefView::Left];
+    request.count = 1;
+    let (_, again) = concepts
+        .start_views(&lane, &asset, &refs, &request)
+        .expect("redraw");
+    assert_eq!(
+        again[0].title.as_deref(),
+        Some("left"),
+        "a filled one on request"
+    );
+    concepts.wait();
+    request.views = vec![RefView::Front];
+    assert!(
+        concepts
+            .start_views(&lane, &asset, &refs, &request)
+            .is_err()
+    );
+}

@@ -13,6 +13,7 @@ pub mod jobs;
 pub mod objects;
 pub mod pick;
 mod picks;
+pub mod refs_jobs;
 pub mod sheet;
 pub mod style;
 pub mod transfer;
@@ -35,6 +36,7 @@ pub use jobs::{ConceptEvent, ConceptJob, ConceptJobState, Concepts};
 pub use objects::{NewObjectRefs, ObjectAsset, SentObjects, send_object_picks};
 pub use pick::{ImageRef, MAX_PICKS, PickRequest, Picked, PickedImage, pick_images, star_images};
 pub use picks::{SentPicks, heal_ref_thumbnails, send_picks};
+pub use refs_jobs::{CleanGround, NewCleanRef, NewOtherViews, RefsJob, RefsJobKind};
 pub use style::{StyleBoard, StyleBoardChange, StyleImage};
 pub use transfer::{MovedDirection, move_direction};
 
@@ -122,6 +124,10 @@ pub struct Direction {
     /// The style board revision the latest batch carried, `None` when it
     /// carried none.
     pub style_revision: Option<u32>,
+    /// Refs work for one asset: its other views, or clean copies of its
+    /// refs. `None` for an ordinary direction.
+    #[serde(default)]
+    pub refs_job: Option<RefsJob>,
 }
 
 impl Direction {

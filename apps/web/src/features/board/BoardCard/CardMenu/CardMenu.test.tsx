@@ -6,6 +6,7 @@ import { useAppStore } from '@/state/use-app-store';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useProvidersStore } from '@/state/use-providers-store';
+import { useRefsStore } from '@/state/use-refs-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { clearMocks, openMockLibrary, openMockWorkspace } from '@/test/mock-ipc';
 import { fakeBoardEnv, mockAsset } from '../../fakeBoardEnv';
@@ -33,6 +34,7 @@ describe('CardMenu', () => {
       .map(i => i.textContent);
     expect(labels).toEqual([
       'Send to 3D',
+      'Refs and views...',
       'Rename...',
       'Real size and fix-ups...',
       'Copy to project...',
@@ -48,6 +50,14 @@ describe('CardMenu', () => {
     expect(within(move).queryByRole('menuitem', { name: 'Blender' })).toBeNull();
     await userEvent.click(within(move).getByRole('menuitem', { name: 'Web' }));
     expect(board.actions.move).toHaveBeenCalledWith(asset, 'web');
+  });
+
+  it('opens the refs sheet of the asset', async () => {
+    const asset = mockAsset('Elsheria');
+    render(<CardMenu asset={asset} waiting={undefined} refPicture={null} board={fakeBoardEnv()} />);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Refs and views...' }));
+    expect(useRefsStore.getState().sheet).toMatchObject({ asset: asset.id, mode: 'refs' });
+    useRefsStore.setState({ sheet: null, view: null });
   });
 
   it('hides the library and Blender before there is a model', () => {

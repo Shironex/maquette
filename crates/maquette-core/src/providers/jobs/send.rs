@@ -163,6 +163,7 @@ impl ProviderJobs {
                 service: job.service,
                 variant: job.variant,
                 images: &images,
+                views: &job.views,
                 tripo: job.tripo.as_ref(),
                 meshy: job.meshy.as_ref(),
                 prompt: job.prompt.as_deref(),
@@ -280,6 +281,7 @@ fn prepare(
     for image in &request.images {
         check_image(&project_dir, image)?;
     }
+    let (images, views) = crate::refs::send_order(&asset, &request.images);
     let service = request.provider.service().unwrap_or(request.service);
     let providers = &workspace.config.providers;
     let (tripo, meshy) = match service {
@@ -352,7 +354,8 @@ fn prepare(
         provider: request.provider,
         service,
         variant: request.variant,
-        images: request.images.clone(),
+        images,
+        views,
         tripo,
         meshy,
         state: JobState::Queued,

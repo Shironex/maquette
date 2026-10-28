@@ -74,6 +74,7 @@ mod tests {
             service: ProviderId::Meshy,
             variant: PresetVariant::Prop,
             images: &images,
+            views: &[],
             tripo: None,
             meshy: Some(&meshy),
             prompt: Some("brushed brass, warm bulb"),

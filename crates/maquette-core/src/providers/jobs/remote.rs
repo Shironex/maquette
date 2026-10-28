@@ -130,6 +130,7 @@ pub(super) fn run_tripo(
     preset: &TripoPreset,
     variant: PresetVariant,
     images: &[PathBuf],
+    views: &[String],
 ) -> FlowResult<Outcome> {
     let rig = variant == PresetVariant::Character && preset.rig;
     let animate = rig && !preset.animations.is_empty();
@@ -153,7 +154,7 @@ pub(super) fn run_tripo(
             }
             run.save(|s| s.chain.sending = true);
             let task = client
-                .generate(preset, &tokens)
+                .generate(preset, &tokens, views)
                 .map_err(|e| create_failed(run, tripo::SERVICE, e))?;
             run.save(|s| {
                 s.chain.model_task = Some(task.clone());

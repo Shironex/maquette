@@ -37,6 +37,11 @@ pub fn send_picks(
     let project_dir = project::dir(workspace_root, layout, project_id)?;
     let current = load_direction(&project_dir, direction_id)?
         .ok_or_else(|| CoreError::NotFound(format!("the direction {direction_id}")))?;
+    if current.refs_job.is_some() {
+        return Err(CoreError::Invalid(
+            "These images were made for an asset's refs. Use them from that asset's refs on the Board.".to_string(),
+        ));
+    }
     if !current.images.iter().any(|i| i.picked) {
         return Err(CoreError::Invalid(
             "Pick at least one concept to send to Refs.".to_string(),

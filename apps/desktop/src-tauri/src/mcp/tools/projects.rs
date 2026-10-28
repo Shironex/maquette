@@ -238,7 +238,7 @@ a project id; no tool changes which project the app has open.",
     }
 
     #[tool(
-        description = "List a project's Board assets: kind, stage, status, version count and the latest version's file and stats.",
+        description = "List a project's Board assets: kind, stage, status, version count, the latest version's file and stats, and its refs with the view each shows (front, left, back, right or other; refsTagged false means the views are read from the refs' order).",
         annotations(read_only_hint = true)
     )]
     async fn list_assets(&self, Parameters(args): Parameters<ListAssetsArgs>) -> Out {
@@ -247,6 +247,7 @@ a project id; no tool changes which project the app has open.",
                 let (root, config) = workspace(host)?;
                 let manifest =
                     project::load(&root, &config.layout, &args.project).map_err(reason)?;
+                let dir = project::dir(&root, &config.layout, &args.project).map_err(reason)?;
                 let stage = args.stage.as_deref().map(str::to_ascii_lowercase);
                 let assets: Vec<Value> = manifest
                     .assets
@@ -266,6 +267,8 @@ a project id; no tool changes which project the app has open.",
                             "versions": a.versions.len(),
                             "latest": a.latest().map(to_value),
                             "thumbnail": a.thumbnail,
+                            "refs": to_value(crate::commands::refs::asset_refs(&dir, a)),
+                            "refsTagged": !a.refs.is_empty(),
                         })
                     })
                     .collect();

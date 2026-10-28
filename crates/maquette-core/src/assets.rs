@@ -115,6 +115,11 @@ pub struct Asset {
     /// origin only says where to look for an update. Older files have none.
     #[serde(default)]
     pub origin: Option<AssetOrigin>,
+    /// Its refs and the view each shows, once someone tagged them. Empty
+    /// for an asset nobody tagged: its views follow its refs' order then
+    /// (see [`crate::refs`]).
+    #[serde(default)]
+    pub refs: Vec<crate::refs::AssetRef>,
 }
 
 /// Where a Board asset came from in the library: the entry id and the
@@ -279,7 +284,10 @@ pub fn find<'a>(manifest: &'a ProjectManifest, id: &str) -> CoreResult<&'a Asset
         .ok_or_else(|| CoreError::NotFound(format!("the asset {id}")))
 }
 
-fn find_mut<'a>(manifest: &'a mut ProjectManifest, id: &str) -> CoreResult<&'a mut Asset> {
+pub(crate) fn find_mut<'a>(
+    manifest: &'a mut ProjectManifest,
+    id: &str,
+) -> CoreResult<&'a mut Asset> {
     manifest
         .assets
         .iter_mut()
@@ -303,6 +311,7 @@ pub fn add(manifest: &mut ProjectManifest, new: NewAsset) -> CoreResult<Asset> {
         created_at: now.clone(),
         updated_at: now,
         origin: None,
+        refs: Vec::new(),
     };
     manifest.assets.push(asset.clone());
     Ok(asset)
