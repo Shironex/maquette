@@ -58,6 +58,7 @@ fn concepts(lab: &Lab, count: u32) -> Vec<String> {
         refs: Vec::new(),
         aspect: Aspect::Square,
         count,
+        use_style: true,
     };
     let (_, files) = prepare(&lab.dir, &brief).expect("prep");
     for (index, file) in &files {
@@ -77,6 +78,7 @@ fn object_refs(lab: &Lab, kind: AssetKind) -> String {
         notes: HashMap::new(),
         aspect: Aspect::Square,
         kind,
+        use_style: true,
     };
     let (direction, planned) = objects::prepare(&lab.dir, &request).expect("prep");
     for p in &planned {

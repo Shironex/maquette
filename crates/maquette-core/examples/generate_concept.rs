@@ -49,6 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             refs,
             aspect: Aspect::Wide,
             count,
+            use_style: true,
         },
     )?;
     let started = Instant::now();
@@ -73,6 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             direction.id,
             direction.images.len()
         ),
+        ConceptEvent::Style { style, .. } => println!("style board at revision {}", style.revision),
     });
     let cache = project_dir.join(".concept-runs");
     let (direction, jobs) = service.start(Start {

@@ -13,8 +13,10 @@ export const queuedJob = (
   given: Pick<
     ConceptJob,
     'id' | 'runId' | 'project' | 'direction' | 'directionName' | 'index' | 'file' | 'title'
-  >
+  > &
+    Partial<Pick<ConceptJob, 'styleRevision'>>
 ): ConceptJob => ({
+  styleRevision: null,
   ...given,
   state: 'queued',
   queuedAtMs: clock.nowMs(),

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use maquette_core::concepts::objects::{self, NewObjectRefs};
-use maquette_core::concepts::{self, Aspect, Concepts, Direction, NewConcepts};
+use maquette_core::concepts::{self, Aspect, Concepts, Direction, NewConcepts, StyleBoard};
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::providers::{Endpoints, MemoryStore, Options, ProviderJobs};
@@ -38,6 +38,8 @@ struct TestHost {
     project_changes: AtomicUsize,
     /// How often a tool told the windows that a direction changed.
     concept_changes: AtomicUsize,
+    /// How often a tool told the windows that the style board changed.
+    style_changes: AtomicUsize,
 }
 
 impl Host for TestHost {
@@ -64,6 +66,9 @@ impl Host for TestHost {
     }
     fn concepts_changed(&self, _project: &str, _direction: &Direction) {
         self.concept_changes.fetch_add(1, Ordering::SeqCst);
+    }
+    fn style_changed(&self, _project: &str, _style: &StyleBoard) {
+        self.style_changes.fetch_add(1, Ordering::SeqCst);
     }
 }
 
@@ -99,6 +104,7 @@ fn fixture(dir: &Path) -> (Session, String, std::path::PathBuf) {
         refs: Vec::new(),
         aspect: Aspect::Square,
         count: 2,
+        use_style: true,
     };
     let (_, files) = concepts::prepare(&project_dir, &brief).expect("prep");
     for (index, file) in &files {
@@ -113,6 +119,7 @@ fn fixture(dir: &Path) -> (Session, String, std::path::PathBuf) {
         notes: HashMap::new(),
         aspect: Aspect::Square,
         kind: AssetKind::Prop,
+        use_style: true,
     };
     let (direction, planned) = objects::prepare(&project_dir, &request).expect("objects");
     for p in &planned {
@@ -163,11 +170,16 @@ async fn call(client: &RunningService<RoleClient, ClientConfig>, tool: &str, arg
     serde_json::from_str(&text(&result)).expect("json")
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn agents_star_and_pick_concepts_onto_the_board() {
-    maquette_core::providers::http::ensure_crypto();
-    let dir = tempfile::tempdir().expect("temp dir");
-    let (session, project_id, project_dir) = fixture(dir.path());
+type Client = RunningService<RoleClient, ClientConfig>;
+
+/// The MCP server over a host for `session`, and a client signed in to it.
+async fn connect(
+    session: Session,
+) -> (
+    Arc<TestHost>,
+    Client,
+    maquette_desktop_lib::mcp::server::Running,
+) {
     // Provider jobs that can never reach a service; By hand spends nothing.
     let options = Options {
         endpoints: Endpoints {
@@ -189,6 +201,7 @@ async fn agents_star_and_pick_concepts_onto_the_board() {
         studio,
         project_changes: AtomicUsize::new(0),
         concept_changes: AtomicUsize::new(0),
+        style_changes: AtomicUsize::new(0),
     });
     let token = ensure_token(&host.session).expect("token");
     let server = maquette_desktop_lib::mcp::server::start(
@@ -206,6 +219,15 @@ async fn agents_star_and_pick_concepts_onto_the_board() {
         .serve(transport)
         .await
         .expect("initialize");
+    (host, client, server)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn agents_star_and_pick_concepts_onto_the_board() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp dir");
+    let (session, project_id, project_dir) = fixture(dir.path());
+    let (host, client, server) = connect(session).await;
     let info = client.peer_info().expect("server info");
     assert!(
         info.instructions
@@ -315,6 +337,80 @@ async fn agents_star_and_pick_concepts_onto_the_board() {
     )
     .await;
     assert_eq!(sent["images"], json!(["refs/desk_lamp.png"]), "{sent}");
+
+    client.cancel().await.expect("close");
+    server.stop();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn agents_set_the_style_board_from_project_files_only() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp dir");
+    let (session, project_id, project_dir) = fixture(dir.path());
+    // The PNG signature and header are all the board's image check reads.
+    let mut png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13];
+    png.extend_from_slice(b"IHDR");
+    png.extend_from_slice(&[0, 0, 0, 4, 0, 0, 0, 4, 8, 2, 0, 0, 0]);
+    std::fs::create_dir_all(project_dir.join("refs")).expect("refs");
+    std::fs::write(project_dir.join("refs/frost_glass.png"), &png).expect("ref");
+    let outside = dir.path().join("elsewhere.png");
+    std::fs::write(&outside, &png).expect("outside");
+    let (host, client, server) = connect(session).await;
+
+    let empty = call(&client, "get_style_board", json!({ "project": project_id })).await;
+    assert_eq!(empty["empty"], json!(true));
+    assert_eq!(empty["board"]["revision"], json!(0));
+
+    let set = call(
+        &client,
+        "set_style_board",
+        json!({
+            "project": project_id,
+            "line": "frosted glass, cool night light",
+            "palette": ["#9FC3FF", "1b2440"],
+            "images": ["refs/frost_glass.png"],
+        }),
+    )
+    .await;
+    assert_eq!(set["board"]["revision"], json!(1), "{set}");
+    assert_eq!(set["board"]["palette"], json!(["#9fc3ff", "#1b2440"]));
+    assert_eq!(
+        set["board"]["images"][0]["file"],
+        json!("style/frost_glass.png")
+    );
+    assert!(project_dir.join("style/frost_glass.png").is_file());
+    assert_eq!(host.style_changes.load(Ordering::SeqCst), 1);
+
+    for bad in [
+        json!(["../elsewhere.png"]),
+        json!([outside.display().to_string()]),
+    ] {
+        let refused = raw_call(
+            &client,
+            "set_style_board",
+            json!({ "project": project_id, "images": bad }),
+        )
+        .await;
+        assert_eq!(refused.is_error, Some(true), "{bad}");
+    }
+    let read = call(&client, "get_style_board", json!({ "project": project_id })).await;
+    assert_eq!(read["board"]["revision"], json!(1));
+    assert_eq!(host.style_changes.load(Ordering::SeqCst), 1);
+
+    // Starting without the board is accepted; it fails only for want of Codex.
+    let no_codex = raw_call(
+        &client,
+        "start_concepts",
+        json!({
+            "project": project_id,
+            "direction": "Frozen lake",
+            "prompt": "A frozen lake at night",
+            "useStyle": false,
+        }),
+    )
+    .await;
+    assert_eq!(no_codex.is_error, Some(true));
+    assert!(text(&no_codex).contains("Codex CLI"), "{}", text(&no_codex));
 
     client.cancel().await.expect("close");
     server.stop();

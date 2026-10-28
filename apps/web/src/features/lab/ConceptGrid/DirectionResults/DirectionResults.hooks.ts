@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Asset, AssetKind, Direction, LabView } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
 import { isObjects, tiles } from '@/state/lab';
+import { styleChip } from '@/state/lab-style';
 import { useLabStore } from '@/state/use-lab-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 
@@ -63,5 +64,6 @@ export function useDirectionResults(view: LabView, direction: Direction) {
     unsent,
     sendTo3d,
     to3d,
+    chip: styleChip(direction, view.style),
   };
 }

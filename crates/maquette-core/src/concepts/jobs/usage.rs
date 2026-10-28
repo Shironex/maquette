@@ -383,6 +383,7 @@ mod tests {
             retry_at_ms: None,
             retries: 0,
             usage_limit: false,
+            style_revision: None,
         }
     }
 

@@ -70,6 +70,7 @@ fn a_direction_moves_to_another_project() {
         refs: Vec::new(),
         aspect: concepts::Aspect::Wide,
         count: 1,
+        use_style: true,
     };
     let (direction, files) = concepts::prepare(&moon, &request).expect("prepare");
     std::fs::write(moon.join(&files[0].1), b"png").expect("png");
@@ -150,6 +151,7 @@ fn object_refs_are_checked_and_need_codex() {
         notes: Default::default(),
         aspect: concepts::Aspect::Square,
         kind: AssetKind::Prop,
+        use_style: true,
     };
     let err = make_objects(&session, &lab, &Toolbox::default(), &request).expect_err("codex");
     assert!(err.message.contains("Codex CLI"), "{}", err.message);
@@ -172,4 +174,54 @@ fn object_refs_are_checked_and_need_codex() {
     assert!(make_objects(&session, &lab, &Toolbox::default(), &request).is_err());
     request.project = "nope".into();
     assert!(make_objects(&session, &lab, &Toolbox::default(), &request).is_err());
+}
+
+#[test]
+fn the_style_board_takes_files_from_anywhere_for_the_app_but_only_the_workspace_for_agents() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let root = dir.path().join("ws");
+    let config = workspace::create(&root, &WorkspaceConfig::default()).expect("ws");
+    let session = Session::with_state(dir.path().join("cfg"), None, AppState::default());
+    session
+        .set_workspace(root.clone(), config.clone())
+        .expect("open");
+    let manifest = project::create(
+        &root,
+        &config.layout,
+        NewProject {
+            name: "Frostveil".into(),
+            template: ProjectTemplate::Room,
+            target: Default::default(),
+            game: None,
+            site_repo: None,
+            source_folder: None,
+        },
+    )
+    .expect("project");
+    // The PNG signature and header are all the board's image check reads.
+    let mut png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13];
+    png.extend_from_slice(b"IHDR");
+    png.extend_from_slice(&[0, 0, 0, 4, 0, 0, 0, 4, 8, 2, 0, 0, 0]);
+    let outside = dir.path().join("frost_glass.png");
+    std::fs::write(&outside, &png).expect("png");
+    let shared = root.join("shared.png");
+    std::fs::write(&shared, &png).expect("png");
+    let change = |path: &std::path::Path| StyleBoardChange {
+        line: Some("frosted glass".into()),
+        images: Some(vec![path.display().to_string()]),
+        ..Default::default()
+    };
+    let refused = set_style(&session, &manifest.id, &change(&outside), false).expect_err("agent");
+    assert!(
+        refused.message.contains("outside the workspace"),
+        "{refused:?}"
+    );
+    let agent = set_style(&session, &manifest.id, &change(&shared), false).expect("agent");
+    assert_eq!(agent.files(), ["style/shared.png"]);
+    let app = set_style(&session, &manifest.id, &change(&outside), true).expect("app");
+    assert_eq!(app.files(), ["style/frost_glass.png"]);
+    assert_eq!(app.revision, 2);
+    let lab = Concepts::new(None, 2, |_| {});
+    let view = view(&session, &lab, &manifest.id).expect("view");
+    assert_eq!(view.style, app);
 }

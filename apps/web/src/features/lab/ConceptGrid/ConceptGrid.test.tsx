@@ -4,6 +4,7 @@ import type { LabView } from '@/ipc/client';
 import { labDirections } from '@/ipc/mock/lab-fixtures';
 import { useLabStore } from '@/state/use-lab-store';
 import { ConceptGrid } from '.';
+import { EMPTY_STYLE } from '@/state/lab-style';
 
 const view: LabView = {
   project: 'frostveil',
@@ -12,6 +13,7 @@ const view: LabView = {
   jobs: [],
   refs: [],
   concurrency: 4,
+  style: EMPTY_STYLE,
 };
 const lab = useLabStore.getState();
 

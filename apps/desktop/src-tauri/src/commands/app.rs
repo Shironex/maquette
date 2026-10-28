@@ -231,6 +231,7 @@ mod tests {
             refs: Vec::new(),
             aspect: Aspect::Wide,
             count: 1,
+            use_style: true,
         };
         let (direction, files) = concepts::prepare(&project_dir, &request).expect("prepare");
         let (index, file) = files[0].clone();

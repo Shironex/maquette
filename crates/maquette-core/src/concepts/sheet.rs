@@ -208,6 +208,7 @@ mod tests {
             refs: Vec::new(),
             aspect: Aspect::Wide,
             count: 3,
+            use_style: true,
         };
         let (_, files) = crate::concepts::prepare(dir.path(), &new).expect("prepare");
         let png = crate::inbox::images::write_png(32, 18, &[150; 32 * 18 * 3]);

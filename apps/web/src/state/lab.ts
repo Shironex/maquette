@@ -248,6 +248,7 @@ export function applyConceptEvent(view: LabView, event: ConceptEvent): LabView {
     };
   }
   if (event.project !== view.project) return view;
+  if (event.type === 'style') return { ...view, style: event.style };
   const others = view.directions.filter(d => d.id !== event.direction.id);
   return { ...view, directions: [event.direction, ...others] };
 }

@@ -4,7 +4,9 @@
 //! Each direction folder holds its images and a `direction.json` with the
 //! brief (name, prompt, references, aspect ratio) and per image marks (star,
 //! pick, sent to refs). Jobs ([`jobs::Concepts`]) run one `codex exec` per
-//! image; the image counts as made when the file appears at its path.
+//! image; the image counts as made when the file appears at its path. Every
+//! job carries the project's style board ([`style`]) unless its brief turns
+//! it off.
 
 mod codex;
 pub mod jobs;
@@ -12,6 +14,7 @@ pub mod objects;
 pub mod pick;
 mod picks;
 pub mod sheet;
+pub mod style;
 pub mod transfer;
 
 use std::collections::BTreeMap;
@@ -27,12 +30,12 @@ use crate::error::{CoreError, CoreResult};
 use crate::json::{from_json_with_defaults, write_json};
 use crate::project::{now_rfc3339, slugify};
 
-pub(crate) use codex::save_instructions;
-pub use codex::{codex_args, prompt};
+pub use codex::{assemble, attached, codex_args, prompt};
 pub use jobs::{ConceptEvent, ConceptJob, ConceptJobState, Concepts};
 pub use objects::{NewObjectRefs, ObjectAsset, SentObjects, send_object_picks};
 pub use pick::{ImageRef, MAX_PICKS, PickRequest, Picked, PickedImage, pick_images, star_images};
 pub use picks::{SentPicks, heal_ref_thumbnails, send_picks};
+pub use style::{StyleBoard, StyleBoardChange, StyleImage};
 pub use transfer::{MovedDirection, move_direction};
 
 pub const CONCEPTS_DIR: &str = "concepts";
@@ -114,6 +117,11 @@ pub struct Direction {
     pub source: Option<String>,
     /// Object refs: what the objects become on the Board.
     pub kind: Option<AssetKind>,
+    /// The brief turned the project's style board off.
+    pub style_off: bool,
+    /// The style board revision the latest batch carried, `None` when it
+    /// carried none.
+    pub style_revision: Option<u32>,
 }
 
 impl Direction {
@@ -142,6 +150,14 @@ pub struct NewConcepts {
     pub refs: Vec<String>,
     pub aspect: Aspect,
     pub count: u32,
+    /// Whether the jobs carry the project's style board. On unless the
+    /// brief turns it off; an empty board carries nothing either way.
+    #[serde(default = "style_on")]
+    pub use_style: bool,
+}
+
+pub(crate) fn style_on() -> bool {
+    true
 }
 
 /// Serialises writes to `direction.json` files: jobs finish on their own
@@ -276,6 +292,7 @@ pub fn clean_request(project_dir: &Path, new: &NewConcepts) -> CoreResult<NewCon
         refs,
         aspect: new.aspect,
         count: new.count,
+        use_style: new.use_style,
     })
 }
 
@@ -297,6 +314,16 @@ pub fn prepare(
     project_dir: &Path,
     new: &NewConcepts,
 ) -> CoreResult<(Direction, Vec<(u32, String)>)> {
+    prepare_with(project_dir, new, None)
+}
+
+/// [`prepare`] for a batch that carries the style board at
+/// `style_revision`, which the direction records.
+pub(crate) fn prepare_with(
+    project_dir: &Path,
+    new: &NewConcepts,
+    style_revision: Option<u32>,
+) -> CoreResult<(Direction, Vec<(u32, String)>)> {
     let id = slugify(&new.direction);
     let folder = direction_dir(project_dir, &id)?;
     let _guard = write_lock();
@@ -312,6 +339,8 @@ pub fn prepare(
     direction.prompt.clone_from(&new.prompt);
     direction.refs.clone_from(&new.refs);
     direction.aspect = new.aspect;
+    direction.style_off = !new.use_style;
+    direction.style_revision = style_revision;
     direction.updated_at = now;
     save_direction(project_dir, &direction)?;
     let mut reserved = RESERVED.lock().unwrap_or_else(|p| p.into_inner());

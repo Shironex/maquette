@@ -13,6 +13,7 @@ import type {
   NewObjectRefs,
   ProjectManifest,
   RefImage,
+  StyleBoardChange,
 } from '../client';
 import {
   GENERATED_POOL,
@@ -26,6 +27,7 @@ import {
 } from './lab-fixtures';
 import { clock } from '@/lib/clock';
 import { createLabSends } from './create-lab-sends';
+import { createStyleBoards, markStyled } from './style-board';
 import {
   finished,
   importRefs,
@@ -61,6 +63,8 @@ export interface FakeLabOptions {
   state?: string | null;
   /** `batch`: the veil gate props concept and its six object refs are there too. */
   handoff?: string | null;
+  /** `board`: Frostveil has a style board (see style-board.ts). */
+  style?: string | null;
   /** True while a Send to 3D job still needs the asset where it is. */
   assetBusy?: (project: string, asset: string) => boolean;
   fail: (code: string, message: string) => never;
@@ -72,9 +76,11 @@ export function createFakeLab(options: FakeLabOptions) {
     options.state === 'limited' ? 'rate' : options.state === 'usage' ? 'usage' : undefined;
   const running = options.state === 'running' || limit !== undefined;
   const batch = options.handoff === 'batch';
+  const seeded = [...(batch ? veilGateDirections() : []), ...labDirections(running)];
   const directions = new Map<string, Direction[]>([
-    ['frostveil', [...(batch ? veilGateDirections() : []), ...labDirections(running)]],
+    ['frostveil', options.style === 'board' ? markStyled(seeded) : seeded],
   ]);
+  const styles = createStyleBoards(options);
   const refs = new Map<string, RefImage[]>([
     ['frostveil', [...labRefs(), ...(batch ? objectRefs() : [])]],
   ]);
@@ -95,6 +101,7 @@ export function createFakeLab(options: FakeLabOptions) {
       jobs: jobs.filter(j => j.project === project),
       refs: refs.get(project) ?? [],
       concurrency,
+      style: styles.board(project),
     };
   }
 
@@ -182,6 +189,36 @@ export function createFakeLab(options: FakeLabOptions) {
     pump();
   }
 
+  /** Queues one job per title in a saved direction, numbered after its images and jobs. */
+  function enqueue(project: string, direction: Direction, titles: (string | null)[]) {
+    const { id, name, styleRevision } = direction;
+    const taken = [
+      ...direction.images.map(i => i.index),
+      ...jobs.filter(j => j.direction === id).map(j => j.index),
+    ];
+    const first = Math.max(0, ...taken) + 1;
+    const stamp = clock.nowMs().toString(16);
+    titles.forEach((title, n) => {
+      const index = first + n;
+      const two = String(index).padStart(2, '0');
+      const job = queuedJob({
+        id: `${id}-${two}-${stamp}`,
+        runId: `concepts-run-${stamp}-${n}`,
+        project,
+        direction: id,
+        directionName: name,
+        index,
+        file: `concepts/${id}/${id}_${two}.png`,
+        title,
+        styleRevision,
+      });
+      jobs = [...jobs, job];
+      emit({ type: 'job', job });
+    });
+    pump();
+    return view(project);
+  }
+
   function generate(request: NewConcepts) {
     const name = request.direction.trim();
     if (!name) fail('invalid', 'Name the direction.');
@@ -202,31 +239,9 @@ export function createFakeLab(options: FakeLabOptions) {
       updatedAt: at,
       source: existing?.source ?? null,
       kind: existing?.kind ?? null,
+      ...styles.stamp(request.project, request.useStyle),
     });
-    const taken = [
-      ...direction.images.map(i => i.index),
-      ...jobs.filter(j => j.direction === id).map(j => j.index),
-    ];
-    const first = Math.max(0, ...taken) + 1;
-    const stamp = clock.nowMs().toString(16);
-    for (let n = 0; n < request.count; n += 1) {
-      const index = first + n;
-      const two = String(index).padStart(2, '0');
-      const job = queuedJob({
-        id: `${id}-${two}-${stamp}`,
-        runId: `concepts-run-${stamp}-${n}`,
-        project: request.project,
-        direction: id,
-        directionName: name,
-        index,
-        file: `concepts/${id}/${id}_${two}.png`,
-        title: null,
-      });
-      jobs = [...jobs, job];
-      emit({ type: 'job', job });
-    }
-    pump();
-    return view(request.project);
+    return enqueue(request.project, direction, Array<string | null>(request.count).fill(null));
   }
 
   /** Mirrors `concepts::objects`: one titled job per object, the concept attached. */
@@ -254,31 +269,9 @@ export function createFakeLab(options: FakeLabOptions) {
       updatedAt: at,
       source: request.source,
       kind: request.kind,
+      ...styles.stamp(request.project, request.useStyle),
     });
-    const taken = [
-      ...direction.images.map(i => i.index),
-      ...jobs.filter(j => j.direction === id).map(j => j.index),
-    ];
-    const first = Math.max(0, ...taken) + 1;
-    const stamp = clock.nowMs().toString(16);
-    names.forEach((title, n) => {
-      const index = first + n;
-      const two = String(index).padStart(2, '0');
-      const job = queuedJob({
-        id: `${id}-${two}-${stamp}`,
-        runId: `concepts-run-${stamp}-${n}`,
-        project: request.project,
-        direction: id,
-        directionName: name,
-        index,
-        file: `concepts/${id}/${id}_${two}.png`,
-        title: title,
-      });
-      jobs = [...jobs, job];
-      emit({ type: 'job', job });
-    });
-    pump();
-    return view(request.project);
+    return enqueue(request.project, direction, names);
   }
 
   function cancel(id: string) {
@@ -373,6 +366,7 @@ export function createFakeLab(options: FakeLabOptions) {
     lab_make_objects: ({ request }) => makeObjects(request as NewObjectRefs),
     lab_send_object_picks: ({ project, direction, kind }) =>
       sends.sendObjectPicks(String(project), String(direction), (kind as AssetKind | null) ?? null),
+    lab_set_style: ({ project, change }) => styles.set(String(project), change as StyleBoardChange),
     lab_import_refs: ({ project, paths }) =>
       importRefs(options, refs, String(project), paths as string[]),
   };

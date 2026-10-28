@@ -28,6 +28,7 @@ pub mod runs;
 pub mod sending;
 pub mod ship;
 pub mod starters;
+pub mod style;
 pub mod timeline;
 pub mod trash;
 
@@ -78,6 +79,10 @@ as Send picks to Refs does: each image goes into refs/ and becomes or joins an a
 (named after its object for object refs, else after its direction), ready for send_to_3d; \
 picking an image again returns its asset. star_concepts stars or unstars them. Both spend \
 nothing and the app updates live. \
+get_style_board reads a project's style board (a style line, a palette and up to 4 images \
+copied into style/); set_style_board changes it from concepts, refs or image paths inside the \
+workspace. Every new start_concepts direction and make_object_refs request carries the board \
+after its own prompt and refs unless useStyle is false; both spend nothing. \
 set_compression_presets changes the per model texture size, data map size, codec and \
 meshopt level that get_pipeline shows (it spends nothing; locked rows refuse). \
 get_material_tweaks reads an asset's material names, tweaks and per map codecs; \
@@ -211,6 +216,7 @@ impl McpTools {
                 + Self::inbox_router()
                 + Self::concepts_router()
                 + Self::concept_jobs_router()
+                + Self::style_router()
                 + Self::picks_router()
                 + Self::sending_router()
                 + Self::materials_router()

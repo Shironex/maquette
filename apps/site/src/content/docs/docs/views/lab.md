@@ -17,6 +17,12 @@ When Codex answers 429 Too Many Requests, the job waits and runs again on its ow
 
 Results show per direction with Star and Pick, and a lightbox: arrow keys, S to star, P to pick, Escape to close. Contact sheet tiles every image into `contact_sheet.png` with ffmpeg. Send picks to Refs copies the picked images into `refs/` and moves the asset with the direction's name to Refs on the Board, or adds it there.
 
+## Style board
+
+The style board keeps every direction of a project in one look. Open it from the palette button under the brief's references (Set up, while the project has none). It holds up to 4 images, one style line ("frosted glass, cool night light, chunky silhouettes") and up to 6 palette colours. Add images from the project's concepts and refs, or choose a file; each is copied into the project's `style/` folder. A concept's palette button adds it to the board in one click. Save board writes `style.json` at the project root and bumps its revision. Escape closes the board, and Ctrl+Enter (Cmd+Enter on a Mac) saves it.
+
+Once the board has anything on it, every new direction and object ref carries it. The style line and palette go after the brief's own prompt, and the board's images are attached after the brief's own references, so the brief leads where the two disagree. Turn off Use the project style in the brief, or in Make object refs, to make one without it. A direction shows a chip with the revision its latest images carried, or Own style when they were made without it. Retry runs a job with the same board revision it started with.
+
 ## Object refs
 
 Make object refs turns one concept into a clean reference image per object, for a scene with many props. List up to 12 objects, add optional notes per object, pick the aspect (1:1 by default) and whether they become props or characters. Each object is one Codex job that asks for that object alone, centered, in a plain light grey background, with no text. The images land in a new direction, "name objects".

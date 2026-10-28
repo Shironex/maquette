@@ -6,6 +6,8 @@ import { labDirections } from '@/ipc/mock/lab-fixtures';
 import { useLabStore } from '@/state/use-lab-store';
 import { DirectionResults } from '.';
 import { tooltipText } from '@/test/tooltipText';
+import { EMPTY_STYLE } from '@/state/lab-style';
+import { frostveilStyleBoard } from '@/ipc/mock/style-board';
 
 const directions = labDirections(false);
 const arena = directions.find(d => d.id === 'frozen-lake-arena')!;
@@ -17,6 +19,7 @@ const view: LabView = {
   jobs: [],
   refs: [],
   concurrency: 4,
+  style: EMPTY_STYLE,
 };
 const lab = useLabStore.getState();
 
@@ -50,6 +53,18 @@ describe('the results of a direction', () => {
     );
     expect(await tooltipText(screen.getByRole('button', { name: 'Send to 3D' }))).toBe(
       'Pick at least one concept first'
+    );
+  });
+
+  it('chips the style board revision the direction carried', () => {
+    const style = frostveilStyleBoard();
+    render(
+      <DirectionResults view={{ ...view, style }} direction={{ ...arena, styleRevision: 2 }} />
+    );
+    const chip = screen.getByText('Style r2');
+    expect(chip).toHaveAttribute(
+      'title',
+      'Made with the project style at revision 2; the board is at 3 now'
     );
   });
 });

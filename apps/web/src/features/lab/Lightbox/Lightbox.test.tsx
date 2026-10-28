@@ -5,6 +5,7 @@ import type { LabView } from '@/ipc/client';
 import { labDirections } from '@/ipc/mock/lab-fixtures';
 import { useLabStore } from '@/state/use-lab-store';
 import { Lightbox } from '.';
+import { EMPTY_STYLE } from '@/state/lab-style';
 
 const directions = labDirections(false);
 const view: LabView = {
@@ -14,6 +15,7 @@ const view: LabView = {
   jobs: [],
   refs: [],
   concurrency: 4,
+  style: EMPTY_STYLE,
 };
 const arena = directions.find(d => d.id === 'frozen-lake-arena')!;
 const file = (index: number) => arena.images.find(i => i.index === index)!.file;

@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useLabStore } from '@/state/use-lab-store';
-import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
+import { clearMocks, openMockStyle, openMockWorkspace } from '@/test/mock-ipc';
 import { ObjectRefsDialog } from '.';
 
 afterEach(() => {
@@ -135,5 +135,26 @@ describe('Make object refs', () => {
     await userEvent.type(await screen.findByRole('textbox', { name: 'Objects' }), 'lamp{Enter}');
     expect(screen.queryByRole('note')).toBeNull();
     window.localStorage.clear();
+  });
+
+  it('carries the project style unless its switch is off', async () => {
+    await openMockStyle();
+    await useLabStore.getState().load('frostveil');
+    render(<ObjectRefsDialog />);
+    useLabStore.getState().openObjects({
+      project: 'frostveil',
+      source: 'concepts/frozen-lake-arena/frozen-lake-arena_01.png',
+      sourcePath: '/x/frozen-lake-arena_01.png',
+      sourceName: 'Frozen lake arena',
+    });
+    const field = await screen.findByRole('textbox', { name: 'Objects' });
+    await userEvent.type(field, 'rune pillar{Enter}');
+    await userEvent.click(screen.getByRole('switch', { name: /^Use the project style/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Make 1 object ref' }));
+    await waitFor(() => expect(useLabStore.getState().objects).toBeNull());
+    const direction = useLabStore
+      .getState()
+      .view!.directions.find(d => d.id === 'frozen-lake-arena-objects')!;
+    expect(direction).toMatchObject({ styleOff: true, styleRevision: null });
   });
 });

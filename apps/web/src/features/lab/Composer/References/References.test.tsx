@@ -5,6 +5,7 @@ import type { LabView } from '@/ipc/client';
 import { labRefs } from '@/ipc/mock/lab-fixtures';
 import { useLabStore } from '@/state/use-lab-store';
 import { References } from '.';
+import { EMPTY_STYLE } from '@/state/lab-style';
 
 const refs = labRefs();
 const view: LabView = {
@@ -14,6 +15,7 @@ const view: LabView = {
   jobs: [],
   refs,
   concurrency: 4,
+  style: EMPTY_STYLE,
 };
 const lab = useLabStore.getState();
 

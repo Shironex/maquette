@@ -83,6 +83,7 @@ export const ICON_NAMES = [
   'mountains',
   'mouse-scroll',
   'package',
+  'palette',
   'path',
   'pause',
   'person-simple',

@@ -70,6 +70,7 @@ export function createBackend({
   agents: agentsState = null,
   projects: projectsState = null,
   handoff = null,
+  style = null,
   inbox: inboxState = null,
   arrival = null,
   built: builtState = null,
@@ -226,6 +227,7 @@ export function createBackend({
     jobMs: conceptMs,
     state: labState,
     handoff,
+    style: configured ? style : null,
     fail,
     assetBusy: (project, asset) =>
       providers

@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 67 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 69 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -23,6 +23,7 @@ These look at the workspace and change nothing.
 | `list_inbox`                                  | The models waiting in the inbox, with kind, size, triangle count and worst check                                                                                                                                                                                  | Nothing | No       |
 | `get_inbox_checks`                            | The checks for one inbox model (triangles, textures, rig, scale, materials) and its analysis report                                                                                                                                                               | Nothing | No       |
 | `get_concepts`                                | A direction's prompt, refs and images with stars and picks, plus queued, running, waiting and failed jobs                                                                                                                                                         | Nothing | No       |
+| `get_style_board`                             | A project's style board: the style line, the palette, up to 4 images with the concept or ref each came from, and its revision                                                                                                                                     | Nothing | No       |
 | `get_provider_job`                            | A send to 3D: status, phase, progress, credits spent and message. With `project` instead of `id`, every send in the project                                                                                                                                       | Nothing | No       |
 | `cancel_provider_jobs`                        | Stops sends by id (`ids`, 1 to 50). A by hand send stops waiting, a send not yet started is cancelled, and each id answers on its own. Sends waiting for approval are refused: you deny those in the app                                                          | Nothing | No       |
 | [`get_credits`](#get_credits)                 | Each provider's balance, totals for 7 and 30 days and the latest paid sends                                                                                                                                                                                       | Nothing | No       |
@@ -65,6 +66,7 @@ These look at the workspace and change nothing.
 | [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states, explode tracks, paths and clips                            | Nothing | No       |
 | [`pick_concepts`](#pick_concepts)                     | Puts Lab concepts on the Board at Refs                                                                            | Nothing | No       |
 | `star_concepts`                                       | Stars or unstars Lab concepts                                                                                     | Nothing | No       |
+| [`set_style_board`](#set_style_board)                 | Changes a project's style board: the line, the palette and the images, copied into `style/`                       | Nothing | No       |
 | [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                                                        | Nothing | No       |
 | [`attach_download`](#attach_download)                 | Sends a download from `list_handoffs` to the inbox for an asset                                                   | Nothing | No       |
 | `dismiss_download`                                    | Leaves a download from `list_handoffs` alone and never asks about it again                                        | Nothing | No       |
@@ -85,16 +87,16 @@ These look at the workspace and change nothing.
 
 ## Spends credits or Codex usage, or needs approval
 
-| Tool                            | What it does                                                        | Spends                                              | Approval                                                                  |
-| ------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
-| [`run_pipeline`](#run_pipeline) | Runs a project's pipeline, optionally from a step or build only     | Nothing                                             | At the Ship step, when Ask before shipping is on or the project is a game |
-| [`send_to_3d`](#send_to_3d)     | Sends an asset's refs to Tripo or Meshy, or writes a By hand folder | Credits for Tripo and Meshy. By hand spends nothing | Always, for Tripo and Meshy                                               |
-| `send_batch_to_3d`              | Sends up to 24 assets at once with the same provider                | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
-| `redo_inbox_model`              | Sends an inbox model's asset again, prefilled from its send         | Credits for Tripo and Meshy                         | Always, for Tripo and Meshy                                               |
-| `redo_inbox_models`             | Redoes several inbox models from one project as one batch           | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
-| `start_concepts`                | Starts concept image jobs in the Lab                                | Codex usage                                         | No                                                                        |
-| `make_object_refs`              | Makes one isolated image per object of a concept                    | Codex usage                                         | No                                                                        |
-| `retry_concept_jobs`            | Runs failed or cancelled Lab jobs again                             | Codex usage                                         | No                                                                        |
+| Tool                            | What it does                                                                                        | Spends                                              | Approval                                                                  |
+| ------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
+| [`run_pipeline`](#run_pipeline) | Runs a project's pipeline, optionally from a step or build only                                     | Nothing                                             | At the Ship step, when Ask before shipping is on or the project is a game |
+| [`send_to_3d`](#send_to_3d)     | Sends an asset's refs to Tripo or Meshy, or writes a By hand folder                                 | Credits for Tripo and Meshy. By hand spends nothing | Always, for Tripo and Meshy                                               |
+| `send_batch_to_3d`              | Sends up to 24 assets at once with the same provider                                                | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
+| `redo_inbox_model`              | Sends an inbox model's asset again, prefilled from its send                                         | Credits for Tripo and Meshy                         | Always, for Tripo and Meshy                                               |
+| `redo_inbox_models`             | Redoes several inbox models from one project as one batch                                           | Credits for Tripo and Meshy                         | One approval for the whole batch                                          |
+| `start_concepts`                | Starts concept image jobs in the Lab, with the project style unless `useStyle` is false             | Codex usage                                         | No                                                                        |
+| `make_object_refs`              | Makes one isolated image per object of a concept, with the project style unless `useStyle` is false | Codex usage                                         | No                                                                        |
+| `retry_concept_jobs`            | Runs failed or cancelled Lab jobs again                                                             | Codex usage                                         | No                                                                        |
 
 ## The main tools
 
@@ -354,6 +356,23 @@ Picks Lab concepts onto the Board, as Send picks to Refs does. Each image is cop
 | `images`  | object[] | yes      | 1 to 24 images. |
 
 Each image is `{ file | direction + index, star?, name?, kind? }`. `file` is the path `get_concepts` lists. `name` is the asset's name, at most 80 characters, and defaults to the object's name for object refs, else the direction's. `kind` is `prop`, `character` or `scene` for a new asset only.
+
+### set_style_board
+
+`changes the project`
+
+Changes the project's style board, the look every new Lab direction and object ref carries. Only the fields given change. The board lives in `style.json` at the project root, its images copied into `style/`; each change that differs bumps `revision`. It spends nothing, and the Lab updates live.
+
+| Parameter | Type     | Required | Notes                                                                |
+| --------- | -------- | -------- | -------------------------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                                      |
+| `line`    | string   | no       | One style line, at most 200 characters. `""` clears it.              |
+| `palette` | string[] | no       | Up to 6 colours as `#rrggbb` or `#rgb`. `[]` clears the palette.     |
+| `images`  | string[] | no       | The whole new list, at most 4. `[]` takes every image off the board. |
+
+Each image is a board image as `get_style_board` lists it (`style/...`), a concept or ref of the project as `get_concepts` lists it (`concepts/<direction>/<file>.png`, `refs/<file>.png`), or an absolute path inside the workspace. A path outside the workspace, or one that climbs out of the project, is refused. Each is copied into `style/`, never linked.
+
+`start_concepts` and `make_object_refs` carry the board by default: the style line and palette go after the brief, and the board's images are attached after the brief's own refs, so the brief leads. `useStyle: false` starts them without it. Their results, and the directions and jobs in `get_concepts`, say `styleRevision` (null when the board was off or empty), and a retried job carries the same board it started with.
 
 ### accept_inbox_model
 

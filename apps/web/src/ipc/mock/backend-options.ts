@@ -36,6 +36,7 @@ export type Args = Record<string, unknown>;
  * `?agents=batch` makes that send a batch of three under one approval.
  * `?handoff=batch` adds the veil gate props concept, six object refs made
  * from it and a By hand batch of them in mixed states.
+ * `?style=board` gives Frostveil a style board (see `style-board.ts`).
  * `?inbox=redo` links the veil gate and Elsheria in the inbox to
  * the sends they came from (Meshy with a texture prompt, rigged Tripo) and
  * saves a Meshy key too, for Redo. The credits ledger holds the live sends
@@ -84,6 +85,8 @@ export interface BackendOptions {
   projects?: string | null;
   /** `batch`: the veil gate objects and their By hand batch. */
   handoff?: string | null;
+  /** `board`: Frostveil has a style board, and its directions say which carried it. */
+  style?: string | null;
   /** `redo`: two inbox models linked to their sends, and both keys saved. */
   inbox?: string | null;
   /** `named` or `unmatched`: a download for the Downloads watcher. */

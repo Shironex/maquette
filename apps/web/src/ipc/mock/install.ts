@@ -116,6 +116,7 @@ const handle = createBackend({
   agents: params.get('agents'),
   projects: params.get('projects'),
   handoff: params.get('handoff'),
+  style: params.get('style'),
   inbox: params.get('inbox'),
   arrival: params.get('arrival'),
   built: params.get('built'),

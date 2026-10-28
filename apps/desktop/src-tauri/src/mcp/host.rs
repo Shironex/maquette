@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use maquette_core::ProjectManifest;
-use maquette_core::concepts::{ConceptEvent, Concepts, Direction};
+use maquette_core::concepts::{ConceptEvent, Concepts, Direction, StyleBoard};
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::providers::{Arrivals, ProviderJobs};
@@ -62,6 +62,9 @@ pub trait Host: Send + Sync + 'static {
     /// Tells the windows that a tool starred or picked concepts of a
     /// direction, so the Lab shows its marks and refs.
     fn concepts_changed(&self, _project: &str, _direction: &Direction) {}
+    /// Tells the windows that a tool changed a project's style board, so
+    /// the Lab shows it.
+    fn style_changed(&self, _project: &str, _style: &StyleBoard) {}
     /// Tells the windows that a tool changed the library, so the Library
     /// view and the update marks reload.
     fn library_changed(&self) {}
@@ -169,6 +172,16 @@ impl Host for AppHost {
         let event = ConceptUpdate(ConceptEvent::Direction {
             project: project.to_string(),
             direction: direction.clone(),
+        });
+        if let Err(err) = event.emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit a concept event");
+        }
+    }
+
+    fn style_changed(&self, project: &str, style: &StyleBoard) {
+        let event = ConceptUpdate(ConceptEvent::Style {
+            project: project.to_string(),
+            style: style.clone(),
         });
         if let Err(err) = event.emit(&self.0) {
             tracing::warn!(error = %err, "could not emit a concept event");

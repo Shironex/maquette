@@ -1,4 +1,4 @@
-import { Button, IconButton } from '@maquette/ui';
+import { Button, Icon, IconButton, cn } from '@maquette/ui';
 import type { AssetKind, Direction, LabView } from '@/ipc/client';
 import { Menu } from '@/features/common/Menu';
 import { directionSummary } from '@/state/lab';
@@ -34,6 +34,7 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
     unsent,
     sendTo3d,
     to3d,
+    chip,
   } = useDirectionResults(view, direction);
   const kindItems = KINDS.map(k => ({
     id: k.id,
@@ -62,6 +63,18 @@ export default function DirectionResults({ view, direction }: DirectionResultsPr
           <p className="mt-0.5 text-fg-mute">
             {directionSummary(direction, view.jobs)}
             {objects ? ` · from ${from?.name ?? direction.source}` : null}
+            {chip ? (
+              <span
+                title={chip.tip}
+                className={cn(
+                  'ml-2 inline-flex h-5 items-center gap-1 rounded-pill px-2 align-[1px] text-[11.5px] font-medium',
+                  chip.on ? 'bg-clay-soft text-clay-text' : 'bg-raised text-fg-mute'
+                )}
+              >
+                <Icon name="palette" size={12} />
+                {chip.label}
+              </span>
+            ) : null}
           </p>
         </div>
         <div className="ml-auto flex flex-none items-start gap-2">

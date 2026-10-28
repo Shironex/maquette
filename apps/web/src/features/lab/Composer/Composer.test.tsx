@@ -6,6 +6,8 @@ import { labDirections, labRefs } from '@/ipc/mock/lab-fixtures';
 import { useAppStore } from '@/state/use-app-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { Composer } from '.';
+import { EMPTY_STYLE } from '@/state/lab-style';
+import { frostveilStyleBoard } from '@/ipc/mock/style-board';
 
 const view: LabView = {
   project: 'frostveil',
@@ -14,6 +16,7 @@ const view: LabView = {
   jobs: [],
   refs: labRefs(),
   concurrency: 4,
+  style: EMPTY_STYLE,
 };
 const lab = useLabStore.getState();
 const app = useAppStore.getState();
@@ -52,5 +55,20 @@ describe('the composer', () => {
     useAppStore.setState({ tools: { ...app.tools, reports: [codex] } });
     render(<Composer view={view} />);
     expect(screen.getByText('Codex CLI is not ready. Run codex login.')).toBeVisible();
+  });
+
+  it('carries the project style unless the switch turns it off', async () => {
+    render(<Composer view={{ ...view, style: frostveilStyleBoard() }} />);
+    const toggle = screen.getByRole('switch', { name: /^Use the project style/ });
+    expect(toggle).toBeChecked();
+    await userEvent.click(toggle);
+    expect(useLabStore.getState().draft.useStyle).toBe(false);
+    expect(screen.getByText('This direction keeps its own look')).toBeVisible();
+  });
+
+  it('offers to set up a style board while there is none', () => {
+    render(<Composer view={view} />);
+    expect(screen.getByRole('button', { name: 'Set up' })).toBeVisible();
+    expect(screen.queryByRole('switch', { name: /^Use the project style/ })).toBeNull();
   });
 });

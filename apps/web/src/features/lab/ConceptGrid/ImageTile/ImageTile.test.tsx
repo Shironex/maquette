@@ -5,6 +5,7 @@ import type { LabView } from '@/ipc/client';
 import { labDirections } from '@/ipc/mock/lab-fixtures';
 import { useLabStore } from '@/state/use-lab-store';
 import { ImageTile } from '.';
+import { EMPTY_STYLE } from '@/state/lab-style';
 
 const directions = labDirections(false);
 const arena = directions.find(d => d.id === 'frozen-lake-arena')!;
@@ -16,6 +17,7 @@ const view: LabView = {
   jobs: [],
   refs: [],
   concurrency: 4,
+  style: EMPTY_STYLE,
 };
 const lab = useLabStore.getState();
 
@@ -51,5 +53,22 @@ describe('an image tile', () => {
       sourcePath: path,
       sourceName: 'Frozen lake arena',
     });
+  });
+
+  it('adds the concept to the style board, and says when it is already there', async () => {
+    const addToStyle = vi.fn(async () => {});
+    useLabStore.setState({ addToStyle });
+    const { rerender } = render(<ImageTile view={view} direction={arena} image={first} />);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Add Concept 01 to the style board' })
+    );
+    expect(addToStyle).toHaveBeenCalledWith(first.file);
+    const style = {
+      ...EMPTY_STYLE,
+      images: [{ file: 'style/frozen_lake_arena_01.png', source: first.file }],
+    };
+    rerender(<ImageTile view={{ ...view, style }} direction={arena} image={first} />);
+    const on = screen.getByRole('button', { name: 'Concept 01 is on the style board' });
+    expect(on).toHaveAttribute('aria-disabled', 'true');
   });
 });

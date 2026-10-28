@@ -40,6 +40,7 @@ fn direction(project_dir: &Path, name: &str, count: u32, picks: &[usize], refs: 
         refs,
         aspect: Aspect::Wide,
         count,
+        use_style: true,
     };
     let (d, files) = prepare(project_dir, &request).expect("prepare");
     for (n, (index, file)) in files.iter().enumerate() {

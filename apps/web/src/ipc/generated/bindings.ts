@@ -285,6 +285,7 @@ export const commands = {
 	 */
 	labSendPicks: (project: string, direction: string, kind: AssetKind) => __TAURI_INVOKE<SentPicks>("lab_send_picks", { project, direction, kind }),
 	labImportRefs: (project: string, paths: string[]) => __TAURI_INVOKE<string[]>("lab_import_refs", { project, paths }),
+	labSetStyle: (project: string, change: StyleBoardChange) => __TAURI_INVOKE<StyleBoard>("lab_set_style", { project, change }),
 	labMoveDirection: (project: string, direction: string, to: string) => __TAURI_INVOKE<MovedDirection>("lab_move_direction", { project, direction, to }),
 	labMakeObjects: (request: NewObjectRefs) => __TAURI_INVOKE<LabView>("lab_make_objects", { request }),
 	/**
@@ -1176,7 +1177,9 @@ export type Compression = {
 /**  What the service reports to the UI. */
 export type ConceptEvent = { type: "job"; job: ConceptJob } | 
 /**  A direction changed (a new image arrived). */
-{ type: "direction"; project: string; direction: Direction };
+{ type: "direction"; project: string; direction: Direction } | 
+/**  The project's style board changed (an agent set it). */
+{ type: "style"; project: string; style: StyleBoard };
 
 export type ConceptImage = {
 	/**
@@ -1224,6 +1227,11 @@ export type ConceptJob = {
 	retries: number,
 	/**  Waiting: the wait is Codex's usage limit, not a rate limit. */
 	usageLimit: boolean,
+	/**
+	 *  The style board revision the job carries, `None` when it carries
+	 *  none. A retry runs with the same board.
+	 */
+	styleRevision: number | null,
 };
 
 export type ConceptJobState = "queued" | "running" | 
@@ -1290,6 +1298,13 @@ export type Direction = {
 	source: string | null,
 	/**  Object refs: what the objects become on the Board. */
 	kind: AssetKind | null,
+	/**  The brief turned the project's style board off. */
+	styleOff: boolean,
+	/**
+	 *  The style board revision the latest batch carried, `None` when it
+	 *  carried none.
+	 */
+	styleRevision: number | null,
 };
 
 /**
@@ -1841,6 +1856,8 @@ export type LabView = {
 	jobs: ConceptJob[],
 	refs: RefImage[],
 	concurrency: number,
+	/**  The project's style board, empty when it has none. */
+	style: StyleBoard,
 };
 
 /**
@@ -2371,6 +2388,11 @@ export type NewConcepts = {
 	refs: string[],
 	aspect: Aspect,
 	count: number,
+	/**
+	 *  Whether the jobs carry the project's style board. On unless the
+	 *  brief turns it off; an empty board carries nothing either way.
+	 */
+	useStyle?: boolean,
 };
 
 /**  What New project asks for a game. */
@@ -2402,6 +2424,8 @@ export type NewObjectRefs = {
 	aspect: Aspect,
 	/**  What the objects become on the Board: props or characters. */
 	kind: AssetKind,
+	/**  Whether the jobs carry the project's style board, on by default. */
+	useStyle?: boolean,
 };
 
 export type NewProject = {
@@ -3614,6 +3638,41 @@ export type StepState =
 
 /**  Where the stops came from, for the "From stops.json" line. */
 export type StopsSource = "project-file" | "layout" | "posters" | "model-cameras" | "none";
+
+export type StyleBoard = {
+	version: number,
+	/**  Counts the changes; 0 for a board never saved. */
+	revision: number,
+	/**  One written style line, for example "frosted glass, cool night light". */
+	line: string,
+	/**  `#rrggbb` colours, lowercase. */
+	palette: string[],
+	images: StyleImage[],
+	updatedAt: string | null,
+};
+
+/**  A change from the app or an agent. Every field left out stays. */
+export type StyleBoardChange = {
+	line?: string | null,
+	palette?: string[] | null,
+	/**
+	 *  The whole new list of images, in order. Each is a board image as it
+	 *  is (`style/...`), a concept or ref of the project (`concepts/...`,
+	 *  `refs/...`), or an absolute path to an image to copy in.
+	 */
+	images?: string[] | null,
+};
+
+/**  One image of the board. */
+export type StyleImage = {
+	/**  The copy, relative to the project folder: `style/<name>`. */
+	file: string,
+	/**
+	 *  The concept or ref it was copied from, relative to the project
+	 *  folder. `None` for a file added from elsewhere on disk.
+	 */
+	source: string | null,
+};
 
 /**  A size from the table and the word of the name it matched. */
 export type Suggestion = {
