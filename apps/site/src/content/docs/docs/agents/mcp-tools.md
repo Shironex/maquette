@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 84 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 85 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -67,6 +67,7 @@ These look at the workspace and change nothing.
 | `add_fixups`                                          | Adds fix-ups to an asset, Split into parts (`split-parts`) among them; one of a kind already there is replaced                 | Nothing | No       |
 | [`set_parts`](#set_parts)                             | Renames, joins, unjoins, hides or shows an asset's parts                                                                       | Nothing | No       |
 | [`assemble_prop`](#assemble_prop)                     | Joins part models into one prop, a node per part under one root, as the next version of an asset                               | Nothing | No       |
+| [`bake_back`](#bake_back)                             | Bakes the texture back onto a split that lost it, headless, as the asset's next version                                        | Nothing | No       |
 | `remove_fixups`                                       | Removes fix-ups by kind, or all of them                                                                                        | Nothing | No       |
 | `update_starters`                                     | Brings outdated or missing starter scripts up to date, as the Update banner does                                               | Nothing | No       |
 | [`set_layout`](#set_layout)                           | Changes placements, camera stops, desk, object states, explode tracks, paths and clips                                         | Nothing | No       |
@@ -360,6 +361,22 @@ Splits an asset's model into parts on Tripo or Meshy, like the split sheet in th
   "mode": "by-parts",
   "parts": ["lid", "cage", "crystal"]
 }
+```
+
+### bake_back
+
+`changes the project`
+
+Bakes the texture back onto a split that lost it, like Bake back in the Parts tab. It runs when the app offers the bake (a Tripo split that came back grey) or when an earlier bake failed; a Meshy split bakes back on its own once accepted. The texture of the version the split came from bakes headless in Blender onto the split version, and the result lands as the asset's next version; the untextured version stays. It waits for Blender and answers with the job, the bake's state (`done` or `failed`), the new version and a message.
+
+| Parameter | Type   | Required | Notes                                                                    |
+| --------- | ------ | -------- | ------------------------------------------------------------------------ |
+| `project` | string | yes      | The project id.                                                          |
+| `asset`   | string | yes      | The asset id or name.                                                    |
+| `version` | number | no       | The split version the texture bakes onto. By default the newest offered. |
+
+```json
+{ "project": "frostveil", "asset": "frost-lantern", "version": 2 }
 ```
 
 ### assemble_prop

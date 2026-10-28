@@ -29,7 +29,7 @@ A split is a send like any other: it waits in the 3D queue, its credits show in 
 
 ## The texture after a split
 
-Meshy's split never keeps the texture: the parts come back grey. Once you accept them, Maquette bakes the texture back from the version they came from onto the parts, headless in Blender and free, and adds the result as the version after. Tripo does not say whether a split keeps the texture, so the Inbox looks when it arrives; when it is gone, the Parts tab offers **Bake back** instead of running it. Either way the grey version stays: **Keep** it from the note in the Parts tab to undo the bake. A bake that fails says why and can run again.
+Meshy's split never keeps the texture: the parts come back grey. Once you accept them, Maquette bakes the texture back from the version they came from onto the parts, headless in Blender and free, and adds the result as the version after. Tripo does not say whether a split keeps the texture, so the Inbox looks when it arrives; when it is gone, the Parts tab offers **Bake back** instead of running it. Either way the grey version stays: **Keep** it from the note in the Parts tab to undo the bake. A bake that fails says why and can run again. An agent runs an offered or failed bake with `bake_back`.
 
 ## Assemble one prop
 
