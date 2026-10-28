@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
@@ -30,6 +30,27 @@ describe('BoardColumn', () => {
     expect(column).toHaveTextContent('Elsheria');
     expect(column).toHaveTextContent('Crystal lantern');
     expect(screen.queryByText('Drag an asset here')).toBeNull();
+  });
+
+  it('renders only the cards in view of a long column, and the next ones as it scrolls', () => {
+    const one = mockAsset('Elsheria');
+    const assets = Array.from({ length: 200 }, (_, i) => ({
+      ...one,
+      id: `prop-${i}`,
+      name: `Prop ${i}`,
+    }));
+    render(
+      <BoardColumn stage="blender" assets={assets} boardEmpty={false} board={fakeBoardEnv()} />
+    );
+    const column = screen.getByRole('region', { name: 'Blender, 200 assets' });
+    expect(screen.getByText('Prop 0')).toBeInTheDocument();
+    expect(screen.queryByText('Prop 199')).toBeNull();
+    act(() => {
+      column.scrollTop = 150 * 220;
+      fireEvent.scroll(column);
+    });
+    expect(screen.getByText('Prop 150')).toBeInTheDocument();
+    expect(screen.queryByText('Prop 0')).toBeNull();
   });
 
   it('shows the concept drop zone on an empty Board, and a drag target elsewhere', async () => {

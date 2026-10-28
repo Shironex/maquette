@@ -1,4 +1,5 @@
-import { useState, type DragEvent } from 'react';
+import { useRef, useState, type DragEvent } from 'react';
+import { useWindowedList } from '@maquette/ui';
 import type { Stage } from '@/ipc/client';
 import { DRAG_TYPE } from '../constants';
 
@@ -17,4 +18,15 @@ export function useColumnDrop(stage: Stage, dropOn: (stage: Stage, id: string) =
     dropOn(stage, e.dataTransfer.getData(DRAG_TYPE));
   };
   return { over, onDragOver, onDragLeave, onDrop };
+}
+
+/** A card's height before it is measured; its status and buttons make it grow. */
+const CARD = 212;
+
+/** The column's scroller and its cards, windowed once the column is long. */
+export function useColumnCards(count: number) {
+  const scrollRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const cards = useWindowedList({ count, scrollRef, listRef, estimate: CARD, gap: 8 });
+  return { scrollRef, listRef, cards };
 }
