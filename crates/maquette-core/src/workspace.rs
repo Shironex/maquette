@@ -12,8 +12,11 @@ use crate::fs::{clear_dir_contents, collapse_home, dir_size, expand_home};
 use crate::json::{from_json_with_defaults, write_json};
 use crate::providers::{ProviderSettings, meshy_problem, tripo_problem};
 
+mod lab;
 pub mod lock;
 pub mod sync;
+
+pub use lab::{LAB_MAX_CONCURRENCY, LabSettings};
 
 pub const CONFIG_FILE: &str = "maquette.json";
 pub const CONFIG_VERSION: u32 = 1;
@@ -176,33 +179,6 @@ impl Default for AgentRules {
         }
     }
 }
-
-/// The Concept lab's Codex jobs.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct LabSettings {
-    /// How many images generate at once. Each Codex job takes about a
-    /// minute; six or seven in parallel work fine.
-    pub concurrency: u32,
-    /// A job still running after this many minutes is stopped.
-    pub timeout_minutes: u32,
-    /// Codex or OpenAI's Image API per kind of job, and the API's quality
-    /// and monthly cap.
-    #[serde(default)]
-    pub images: crate::concepts::backend::ImageSettings,
-}
-
-impl Default for LabSettings {
-    fn default() -> Self {
-        Self {
-            concurrency: 4,
-            timeout_minutes: 10,
-            images: crate::concepts::backend::ImageSettings::default(),
-        }
-    }
-}
-
-pub const LAB_MAX_CONCURRENCY: u32 = 8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]
@@ -414,20 +390,7 @@ pub fn validate(config: &WorkspaceConfig) -> CoreResult<()> {
     if !(1024..=65535).contains(&config.agents.mcp_port) {
         return invalid("The MCP port must be between 1024 and 65535.");
     }
-    if !(1..=LAB_MAX_CONCURRENCY).contains(&config.lab.concurrency) {
-        return Err(CoreError::Invalid(format!(
-            "Run between 1 and {LAB_MAX_CONCURRENCY} concept jobs at a time."
-        )));
-    }
-    if !(1..=60).contains(&config.lab.timeout_minutes) {
-        return invalid("The concept job timeout must be between 1 and 60 minutes.");
-    }
-    let cap = crate::concepts::backend::MAX_MONTHLY_CAP_USD;
-    if config.lab.images.monthly_cap_usd > cap {
-        return Err(CoreError::Invalid(format!(
-            "The monthly OpenAI image cap must be at most ${cap}."
-        )));
-    }
+    config.lab.validate()?;
     let scene_mb = config.budgets.scene_mb;
     if !scene_mb.is_finite() || scene_mb <= 0.0 || scene_mb > 1000.0 {
         return invalid("The scene budget must be more than 0 MB and at most 1000 MB.");
