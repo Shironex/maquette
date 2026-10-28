@@ -1,7 +1,8 @@
 <!--
 Title format: conventional commit with a scope, `type(scope): lowercase summary`,
 for example `fix(core): keep the lock file out of the sync ignore list`.
-The PR title becomes the squash-merge commit subject. Scopes are in
+The PR title becomes the merge commit subject, and every commit
+of the branch stays in the history. Scopes are in
 commitlint.config.mjs. CONTRIBUTING.md has the long version.
 -->
 
