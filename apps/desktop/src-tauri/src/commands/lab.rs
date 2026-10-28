@@ -28,6 +28,9 @@ pub struct Lab(pub Concepts);
 impl Lab {
     pub fn new(handle: AppHandle) -> Self {
         Self(Concepts::new(codex_home(), 4, move |event| {
+            if super::codex_usage::settles(&event) {
+                super::codex_usage::read_soon(&handle);
+            }
             if let Err(err) = ConceptUpdate(event).emit(&handle) {
                 tracing::warn!(error = %err, "could not emit a concept event");
             }

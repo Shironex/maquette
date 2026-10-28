@@ -619,6 +619,59 @@ fn a_usage_limit_holds_the_whole_queue_until_it_lifts() {
 }
 
 #[test]
+fn a_usage_read_moves_the_held_jobs_to_its_reset_and_lift_runs_them_now() {
+    let r = rig();
+    fs::create_dir_all(&r.home).expect("home");
+    let codex = fake_codex(&r.root, &r.png, &r.home, "usage");
+    let (_log, on_event) = events();
+    let concepts = Concepts::new(Some(r.home.clone()), 1, on_event);
+    // A long backoff: nothing runs again on its own during the test.
+    concepts.set_backoff(quick(3, 60_000));
+    concepts
+        .start(Start {
+            project_dir: &r.project,
+            cache_dir: &r.cache,
+            tools: &toolbox(&codex),
+            request: request("Lantern", 2),
+            timeout: Duration::from_secs(20),
+        })
+        .expect("start");
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while concepts.usage_held().len() < 2 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(concepts.usage_held().len(), 2, "{:#?}", concepts.jobs(None));
+    // The read's reset time beats the backoff guess.
+    let resets = now_ms() + 3_600_000.0;
+    let moved = concepts.retime_usage_limit(resets);
+    assert_eq!(moved.len(), 2);
+    for job in concepts.usage_held() {
+        assert_eq!(job.retry_at_ms, Some(resets + 60_000.0), "{job:#?}");
+        assert!(
+            job.message
+                .as_deref()
+                .is_some_and(|m| m.contains("until about"))
+        );
+    }
+    // The same time again moves nothing, and a past one is ignored.
+    assert!(concepts.retime_usage_limit(resets).is_empty());
+    assert!(concepts.retime_usage_limit(now_ms() - 120_000.0).is_empty());
+    // A job started now waits for the new time too.
+    let late = start_one(&concepts, &r, &codex, "Porch");
+    assert_eq!(late.retry_at_ms, Some(resets + 60_000.0));
+    // Lifted: every held job runs at once instead of in an hour.
+    fs::write(r.home.join("lifted"), "").expect("lift");
+    let requeued = concepts.lift_usage_limit();
+    assert_eq!(requeued.len(), 3);
+    assert!(requeued.iter().all(|j| !j.usage_limit));
+    concepts.wait();
+    for job in concepts.jobs(None) {
+        assert_eq!(job.state, ConceptJobState::Done, "{job:#?}");
+    }
+    assert!(concepts.usage_held().is_empty());
+}
+
+#[test]
 fn tells_rate_limits_and_hook_lines_apart_from_other_lines() {
     use super::retry::{is_noise, says_rate_limited};
     assert!(says_rate_limited(

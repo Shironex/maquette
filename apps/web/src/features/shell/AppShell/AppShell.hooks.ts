@@ -7,6 +7,7 @@ import { useAppStore } from '@/state/use-app-store';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { useAnimationsStore } from '@/state/use-animations-store';
+import { useCodexUsageStore } from '@/state/use-codex-usage-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { useLabStore } from '@/state/use-lab-store';
 import { useLayoutStore } from '@/state/use-layout-store';
@@ -191,6 +192,8 @@ export function useLiveData(projectId: string | null, root: string | null) {
     if (root) void useLibraryStore.getState().load();
     // The rail counts the clips.
     if (root) void useAnimationsStore.getState().load();
+    // The status bar's Codex usage, as the shell last read it.
+    if (root) void useCodexUsageStore.getState().load();
   }, [root]);
   useEffect(() => {
     const stops = [
@@ -234,6 +237,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       events.downloadsArrival.listen(e => onArrival(e.payload)),
       events.builtChanged.listen(e => onBuilt(e.payload.project)),
       events.pageServerChanged.listen(e => onPageServer(e.payload)),
+      events.codexUsageUpdate.listen(e => useCodexUsageStore.getState().apply(e.payload)),
     ];
     return () => {
       for (const stop of stops) void stop.then(fn => fn());

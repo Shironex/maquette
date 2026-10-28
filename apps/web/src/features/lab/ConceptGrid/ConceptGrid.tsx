@@ -12,7 +12,7 @@ export default function ConceptGrid({ view }: ConceptGridProps) {
   const direction = useConceptGrid(view);
   if (!direction) {
     return (
-      <section className="flex min-w-0 flex-1 items-center justify-center p-8">
+      <section className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-8">
         <EmptyState
           icon="flask"
           title="No concepts yet"

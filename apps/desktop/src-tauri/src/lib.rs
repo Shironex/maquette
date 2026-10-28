@@ -50,6 +50,7 @@ pub fn run() {
             ));
             app.manage(commands::thumbs::Thumbs::new(app.handle().clone()));
             app.manage(commands::site::Preview::new(app.handle().clone()));
+            app.manage(commands::codex_usage::CodexUsageWatch::default());
             app.manage(commands::lab::Lab::new(app.handle().clone()));
             let studio = commands::providers::Studio::new(app.handle().clone());
             let watch =

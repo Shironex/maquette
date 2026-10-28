@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use maquette_core::ProjectManifest;
+use maquette_core::concepts::codex_usage::CodexUsage;
 use maquette_core::concepts::{ConceptEvent, Concepts, Direction, StyleBoard};
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::pipeline::tools::Toolbox;
@@ -68,6 +69,9 @@ pub trait Host: Send + Sync + 'static {
     /// Tells the windows that a tool changed the library, so the Library
     /// view and the update marks reload.
     fn library_changed(&self) {}
+    /// Keeps a Codex usage read and tells the windows, so the status bar
+    /// shows what an agent read.
+    fn codex_usage_seen(&self, _usage: &CodexUsage) {}
 }
 
 /// The app's own services.
@@ -160,6 +164,10 @@ impl Host for AppHost {
         if let Err(err) = event.emit(&self.0) {
             tracing::warn!(error = %err, "could not emit a built event");
         }
+    }
+
+    fn codex_usage_seen(&self, usage: &CodexUsage) {
+        crate::commands::codex_usage::publish(&self.0, usage);
     }
 
     fn library_changed(&self) {

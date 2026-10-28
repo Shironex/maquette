@@ -9,6 +9,7 @@
 //! it off.
 
 mod codex;
+pub mod codex_usage;
 pub mod jobs;
 pub mod objects;
 pub mod pick;

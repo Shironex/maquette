@@ -1,3 +1,4 @@
+import { clock } from '@/lib/clock';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +9,8 @@ import { useLabStore } from '@/state/use-lab-store';
 import { Composer } from '.';
 import { EMPTY_STYLE } from '@/state/lab-style';
 import { frostveilStyleBoard } from '@/ipc/mock/style-board';
+import { mockUsage } from '@/ipc/mock/create-codex-usage-handlers';
+import { useCodexUsageStore } from '@/state/use-codex-usage-store';
 
 const view: LabView = {
   project: 'frostveil',
@@ -20,11 +23,13 @@ const view: LabView = {
 };
 const lab = useLabStore.getState();
 const app = useAppStore.getState();
+const usage = useCodexUsageStore.getState();
 
 afterEach(() => {
   cleanup();
   useLabStore.setState(lab, true);
   useAppStore.setState(app, true);
+  useCodexUsageStore.setState(usage, true);
 });
 
 describe('the composer', () => {
@@ -70,5 +75,15 @@ describe('the composer', () => {
     render(<Composer view={view} />);
     expect(screen.getByRole('button', { name: 'Set up' })).toBeVisible();
     expect(screen.queryByRole('switch', { name: /^Use the project style/ })).toBeNull();
+  });
+
+  it('warns before a large round when little Codex usage is left', () => {
+    useCodexUsageStore.setState({ usage: mockUsage('low', clock.nowMs()) });
+    render(<Composer view={view} />);
+    expect(screen.getByRole('note')).toHaveTextContent(
+      /^Only 14% of Codex's 5h usage is left, which resets (\w{3} )?\d\d:\d\d\. A round of 4 may stop at the usage limit and wait\.$/
+    );
+    act(() => useLabStore.getState().setDraft({ count: 2 }));
+    expect(screen.queryByRole('note')).toBeNull();
   });
 });

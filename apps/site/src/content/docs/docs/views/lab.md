@@ -13,6 +13,12 @@ Jobs run in the project folder on their own lane, 4 at a time by default (Settin
 
 When Codex answers 429 Too Many Requests, the job waits and runs again on its own after 3, 6 and 12 minutes. After that it fails and asks you to try again later. Retry on a failed or cancelled job runs the same prompt, refs and target file again without making a new direction.
 
+When Codex says its usage limit is hit, the job and every image still queued wait until the limit lifts, then run on their own. A banner over the results says when: the reset time Codex's own usage read names, else the time in Codex's message, else a guess that grows like the rate limit wait. Limit lifted, retry now reads the usage again. When Codex allows ordinary usage and the five hour window is not full, the waiting images run at once; otherwise the banner says until when the limit still holds.
+
+## Codex usage
+
+While the Lab is open, Maquette asks Codex how much of its usage is used every minute, and again soon after an image finishes or meets the limit. The status bar shows both windows, for example "Codex 16% (5h) · 3% (week)", amber from 80% and red at the limit; its tooltip has each window's reset time in your local time, and a click reads again. Before a round of 4 images or more, the brief warns when a window is at 80% or more, and before any round while the limit holds. The read goes through `codex app-server` and spends nothing. An older Codex CLI, or one that does not answer within 10 seconds, shows "Codex usage unknown" and the jobs keep the times from Codex's messages.
+
 ## Results
 
 Results show per direction with Star and Pick, and a lightbox: arrow keys, S to star, P to pick, Escape to close. Contact sheet tiles every image into `contact_sheet.png` with ffmpeg. Send picks to Refs copies the picked images into `refs/` and moves the asset with the direction's name to Refs on the Board, or adds it there.

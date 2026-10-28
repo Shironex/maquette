@@ -132,7 +132,7 @@ pub(super) fn usage_limited(
 }
 
 /// Puts a job in the usage limit wait until `until_ms`.
-fn wait_for_usage(job: &mut ConceptJob, until_ms: f64) {
+pub(super) fn wait_for_usage(job: &mut ConceptJob, until_ms: f64) {
     job.state = ConceptJobState::RateLimited;
     job.usage_limit = true;
     job.retry_at_ms = Some(until_ms);

@@ -26,6 +26,7 @@ import {
 } from './pipeline-fixtures';
 import { createFakeAgents } from './agents';
 import { createFakeLab, refMayReplace } from './lab';
+import { createCodexUsageHandlers } from './create-codex-usage-handlers';
 import { createFakeLayout, layoutBounds } from './layout';
 import { projectSummary } from './project-summary';
 import { createFakeBake, createPrepareHandlers } from './prepare';
@@ -90,6 +91,7 @@ export function createBackend({
   updater = null,
   pipeline: pipelineState = null,
   stress = null,
+  codex = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -189,8 +191,7 @@ export function createBackend({
   /** Each project's starter scripts; the fixture Frostveil has old ones. */
   const starters = new Map<string, StarterStatus[]>();
   function startersOf(id: string): StarterStatus[] {
-    // The fixture Frostveil is older than its starters, unless `?motion=`
-    // shows it with clips kept off the site; a new project is not.
+    // The fixture is older than its starters unless `?motion=` keeps clips off; a new project is not.
     const old = id === 'frostveil' && !motion && (project(id).assets ?? []).length > 0;
     if (!starters.has(id)) starters.set(id, old ? oldStarters() : currentStarters());
     return starters.get(id)!;
@@ -290,6 +291,7 @@ export function createBackend({
 
   const handlers: Record<string, (args: Args) => unknown> = {
     ...lab.handlers,
+    ...createCodexUsageHandlers({ state: codex, lab: lab.handlers }),
     ...library.handlers,
     ...built.handlers,
     ...agents.handlers,
