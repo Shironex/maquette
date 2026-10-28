@@ -1,10 +1,10 @@
-//! The checks on a model's shape: where its origin sits and how many
-//! objects draw it.
+//! The checks on a model's shape: where its origin sits, how many objects
+//! draw it and whether one mesh holds what should be separate parts.
 
 use super::{Check, CheckStatus, check};
 use crate::assets::AssetKind;
 use crate::inbox::analyse::GlbReport;
-use crate::prepare::Fixup;
+use crate::prepare::{DEFAULT_LOOSE_SHARE, DEFAULT_MERGE_UNDER, Fixup, SplitBy};
 
 /// How far the bottom centre may sit from the origin before it shows: a
 /// share of the model's size.
@@ -63,4 +63,69 @@ pub(super) fn shape_checks(report: &GlbReport, kind: AssetKind) -> Vec<Check> {
         );
     }
     out
+}
+
+/// Whether one mesh holds far apart pieces. A prop that is one mesh has no
+/// parts at all, so object states and explode tracks have nothing to move:
+/// it offers the split first. Scenes are left as they are.
+pub(super) fn merged_check(report: &GlbReport, kind: AssetKind) -> Option<Check> {
+    let Some(islands) = &report.islands else {
+        return (!report.geometry_readable).then(|| {
+            check(
+                "merged",
+                CheckStatus::Pass,
+                "Geometry is compressed",
+                "Shape checks skipped for meshopt or Draco files.".to_string(),
+            )
+        });
+    };
+    if islands.groups < 2 || kind == AssetKind::Scene {
+        return Some(check(
+            "merged",
+            CheckStatus::Pass,
+            "One object per mesh",
+            None,
+        ));
+    }
+    let remove = Fixup::RemoveLoose {
+        min_share: DEFAULT_LOOSE_SHARE,
+    };
+    if kind == AssetKind::Prop && report.objects == 1 && report.skins == 0 {
+        return Some(
+            check(
+                "merged",
+                CheckStatus::Warning,
+                "One mesh, no parts",
+                format!(
+                    "Motion states and explode tracks move named parts. Split it so its {} pieces can move on their own.",
+                    islands.groups
+                ),
+            )
+            .with_fixes(vec![
+                Fixup::SplitParts {
+                    by: SplitBy::Loose,
+                    merge_under: DEFAULT_MERGE_UNDER,
+                },
+                remove,
+            ]),
+        );
+    }
+    Some(
+        check(
+            "merged",
+            CheckStatus::Warning,
+            format!("Looks like {} objects in one mesh", islands.groups),
+            format!(
+                "{} has {} far apart parts. Split them so each can move, or remove the small ones when they are stray bits.",
+                islands.mesh, islands.groups
+            ),
+        )
+        .with_fixes(vec![
+            Fixup::SplitParts {
+                by: SplitBy::Loose,
+                merge_under: DEFAULT_MERGE_UNDER,
+            },
+            remove,
+        ]),
+    )
 }

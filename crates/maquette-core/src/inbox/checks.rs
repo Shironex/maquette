@@ -7,11 +7,11 @@ use serde::{Deserialize, Serialize};
 use super::analyse::{GlbReport, RigKind};
 use crate::assets::AssetKind;
 use crate::game::FolderBudget;
-use crate::prepare::{DEFAULT_LOOSE_SHARE, Fixup};
+use crate::prepare::Fixup;
 
 mod shape;
 use crate::workspace::{TextureSize, WorkspaceConfig};
-use shape::shape_checks;
+use shape::{merged_check, shape_checks};
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, specta::Type,
@@ -321,38 +321,7 @@ pub fn run(
         ));
     }
 
-    if let Some(islands) = &report.islands {
-        if islands.groups >= 2 && kind != AssetKind::Scene {
-            out.push(
-                check(
-                    "merged",
-                    CheckStatus::Warning,
-                    format!("Looks like {} objects in one mesh", islands.groups),
-                    format!(
-                        "{} has {} far apart parts. Split them in Blender (Separate by loose parts) so each can move, or remove the small ones when they are stray bits.",
-                        islands.mesh, islands.groups
-                    ),
-                )
-                .with_fixes(vec![Fixup::RemoveLoose {
-                    min_share: DEFAULT_LOOSE_SHARE,
-                }]),
-            );
-        } else {
-            out.push(check(
-                "merged",
-                CheckStatus::Pass,
-                "One object per mesh",
-                None,
-            ));
-        }
-    } else if !report.geometry_readable {
-        out.push(check(
-            "merged",
-            CheckStatus::Pass,
-            "Geometry is compressed",
-            "Shape checks skipped for meshopt or Draco files.".to_string(),
-        ));
-    }
+    out.extend(merged_check(report, kind));
 
     if let Some(fw) = &report.finger_weights {
         if fw.vertices == 0 {
