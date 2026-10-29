@@ -23,7 +23,7 @@ Settings saves as you go. The nav on the left jumps to a section; a field that i
 - **Backend per kind.** Concepts, Object refs, Other views and Clean background each run on Codex (the default) or OpenAI Images. See [Lab](/docs/views/lab/#openai-images).
 - **OpenAI key.** Paste an API key from platform.openai.com, API keys. It is kept in the system keychain, never in a file, and only its last four characters show. Test key only lists the models the key can use, which costs nothing, and says whether it can use the image model.
 - **Quality.** Low, medium or high, each with its estimate per image.
-- **Monthly cap.** Whole US dollars the Image API may spend per calendar month, $10 by default; 0 stops it. Spent this month shows what went out since the first of the month, from `credits.jsonl`. A round that would pass the cap does not start.
+- **Monthly cap.** Whole US dollars the Image API may spend per calendar month, $10 by default; 0 stops it. Spent this month shows what went out since the first of the month, from `credits.jsonl`. A round that would pass the cap does not start. The check counts each image at what one has cost lately at this quality, from the ledger, so a round that fits is not refused on the price list's higher guess.
 
 ## About
 
