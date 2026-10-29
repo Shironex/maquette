@@ -108,26 +108,35 @@ impl Default for VrmMeta {
 pub const META_TEXT_MAX: usize = 2000;
 
 impl VrmMeta {
-    /// Refuses a meta VRM would refuse: no name, no author, a blank
-    /// author, a licence URL other than VRM's, or text past
-    /// [`META_TEXT_MAX`] characters.
+    /// Refuses a meta VRM would refuse: no name, no author, or anything
+    /// [`VrmMeta::check_draft`] refuses.
     ///
     /// # Errors
     ///
     /// The first problem, as a sentence for the person or agent.
     pub fn validate(&self) -> CoreResult<()> {
-        let invalid = |m: &str| Err(CoreError::Invalid(m.to_string()));
         if self.name.trim().is_empty() {
-            return invalid("The avatar needs a name.");
+            return Err(invalid("The avatar needs a name."));
         }
         if self.authors.is_empty() {
-            return invalid("Name at least one author.");
+            return Err(invalid("Name at least one author."));
         }
+        self.check_draft()
+    }
+
+    /// Checks what a meta still being filled in may already hold: no blank
+    /// author, VRM's licence URL, and text up to [`META_TEXT_MAX`]
+    /// characters. The name and authors may still be missing.
+    ///
+    /// # Errors
+    ///
+    /// The first problem, as a sentence for the person or agent.
+    pub fn check_draft(&self) -> CoreResult<()> {
         if self.authors.iter().any(|a| a.trim().is_empty()) {
-            return invalid("An author name is blank. Fill it in or remove it.");
+            return Err(invalid("An author name is blank. Fill it in or remove it."));
         }
         if self.license_url != LICENSE_URL {
-            return Err(CoreError::Invalid(format!(
+            return Err(invalid(format!(
                 "The licence URL must be {LICENSE_URL}. Put another licence in the other licence URL."
             )));
         }
@@ -146,10 +155,14 @@ impl VrmMeta {
             .chain(&self.references)
             .any(|t| t.chars().count() > META_TEXT_MAX);
         if long {
-            return Err(CoreError::Invalid(format!(
+            return Err(invalid(format!(
                 "Keep each meta field to {META_TEXT_MAX} characters or fewer."
             )));
         }
         Ok(())
     }
+}
+
+fn invalid(message: impl Into<String>) -> CoreError {
+    CoreError::Invalid(message.into())
 }

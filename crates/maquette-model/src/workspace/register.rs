@@ -2,8 +2,9 @@
 //! under the size cap.
 
 use super::{
-    AgentRules, AgentSettings, Budgets, Compression, FolderLayout, LabSettings, MeshoptLevel,
-    RootInspection, RootState, TextureCodec, TextureSize, Topology, WorkspaceConfig, sync,
+    AgentRules, AgentSettings, AvatarDefaults, Budgets, Compression, FolderLayout, LabSettings,
+    MeshoptLevel, RootInspection, RootState, TextureCodec, TextureSize, Topology, WorkspaceConfig,
+    sync,
 };
 
 /// Registers this module's IPC types (the workspace config and its root state) with the shell's
@@ -24,4 +25,5 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<RootInspection>()
         .register::<sync::SyncConflict>()
         .register::<LabSettings>()
+        .register::<AvatarDefaults>()
 }

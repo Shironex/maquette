@@ -13,11 +13,13 @@ use crate::json::{from_json_with_defaults, write_json};
 use crate::settings::catalog::TRIPO_DEFAULT_MODEL;
 use crate::settings::presets::{ProviderSettings, meshy_problem, tripo_problem};
 
+mod avatar;
 mod lab;
 pub mod lock;
 mod register;
 pub mod sync;
 
+pub use avatar::AvatarDefaults;
 pub use lab::{LAB_MAX_CONCURRENCY, LabSettings};
 pub use register::register;
 
@@ -37,6 +39,9 @@ pub struct WorkspaceConfig {
     pub compression: Compression,
     pub agents: AgentSettings,
     pub lab: LabSettings,
+    /// What a new VRM avatar spec starts from.
+    #[serde(default)]
+    pub avatar: AvatarDefaults,
     pub current_project: Option<String>,
 }
 
@@ -50,6 +55,7 @@ impl Default for WorkspaceConfig {
             compression: Compression::default(),
             agents: AgentSettings::default(),
             lab: LabSettings::default(),
+            avatar: AvatarDefaults::default(),
             current_project: None,
         }
     }
@@ -394,6 +400,7 @@ pub fn validate(config: &WorkspaceConfig) -> CoreResult<()> {
         return invalid("The MCP port must be between 1024 and 65535.");
     }
     config.lab.validate()?;
+    config.avatar.validate()?;
     let scene_mb = config.budgets.scene_mb;
     if !scene_mb.is_finite() || scene_mb <= 0.0 || scene_mb > 1000.0 {
         return invalid("The scene budget must be more than 0 MB and at most 1000 MB.");

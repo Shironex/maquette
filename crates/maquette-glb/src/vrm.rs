@@ -47,6 +47,12 @@ pub use mtoon::VRMC_MATERIALS_MTOON;
 pub use pose::{Axis, RestPose, SCALE_NOISE};
 pub use write::{MaterialMode, Thumbnail, VRMC_VRM, WriteSpec, Written, write};
 
+/// True when `name` is one of VRM 1.0's humanoid bones, such as `hips` or
+/// `leftUpperArm`.
+pub fn is_human_bone(name: &str) -> bool {
+    bones::human_bones().iter().any(|b| b.name == name)
+}
+
 /// How much a finding matters, most first.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, specta::Type,

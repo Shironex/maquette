@@ -25,6 +25,7 @@
     "workspace": "model",
     "project": "model",
     "assets": "model",
+    "avatar": "model",
     "layout": "model",
     "refs": "model",
     "timeline": "model",

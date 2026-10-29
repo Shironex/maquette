@@ -123,7 +123,7 @@ against it.
 | Layer     | May use    | Modules                                                                                                                                                                                         |
 | --------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | base      | nothing    | `error`, `fs`, `json`, `toolchain` (the maquette-base crate), `app_state`, `base` (the run log and the Toolbox)                                                                                 |
-| model     | base, glb  | `workspace`, `project`, `assets`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends`, and the stored files of `prepare`, `built`, `materials` and `ship`             |
+| model     | base, glb  | `workspace`, `project`, `assets`, `avatar`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends`, and the stored files of `prepare`, `built`, `materials` and `ship`   |
 | glb       | base       | `inbox::{analyse, fixture, images, math, vrm}` (the maquette-glb crate)                                                                                                                         |
 | preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                                                                                                            |
 | pipeline  | model, glb | `pipeline`, `prepare::preview`, `built::{build, blender}`, `materials::{apply, split}`, `ship::{plan, report}`, `layout::view`, `thumbs`, `game`, `inspect`, `inbox`, `motion`, `parts`, `site` |
@@ -133,7 +133,7 @@ against it.
 | facade    | everything | `lib.rs`, `providers::tests` (the provider tests that drive a send into the inbox)                                                                                                              |
 
 A module whose file on disk is model data but whose work runs Blender or reads other layers is split
-by submodule. `prepare.json`, `built.json`, `materials.json` and `ship.json` (their types, load,
+by submodule. `prepare.json`, `built.json`, `materials.json`, `avatar.json` and `ship.json` (their types, load,
 save and checks) are model, so removing an asset can keep and clear its entries; the fix-up preview,
 the built asset builds, applying material tweaks, the ship plan and the size report are pipeline.
 `layout::view` (the Inspector's read model, which measures prepared models) is pipeline, and
@@ -176,7 +176,7 @@ part list of a model file (`parts::{PartInfo, read, read_bytes}`), its rig, clip
 VRM below). What core keeps of `inbox::checks`,
 `parts` and `motion` uses model and pipeline types (`AssetKind`, `WorkspaceConfig`, `Fixup`, the
 layout), so it is pipeline. `maquette-model` holds the model layer: `workspace`, `project`,
-`assets`, `timeline`, `settings` and `sends` whole, and the stored part of `layout`, `refs`,
+`assets`, `avatar`, `timeline`, `settings` and `sends` whole, and the stored part of `layout`, `refs`,
 `prepare`, `built`, `materials` and `ship`. For those six, core keeps a module of the same name that
 re-exports the crate's (`pub use maquette_model::layout::*`) and adds the work above the model
 layer: `layout::view`, `refs::{files, suggested}`, `prepare::preview` and the fix-up script,
@@ -209,22 +209,22 @@ Every crate, and every core module that owns IPC types, has a `register(types)` 
 into the `register` of the module that defines it, so `lib.rs` changes only when a module is
 added. The order does not change `bindings.ts`: the TypeScript exporter sorts the types by name.
 
-| Registry                       | Types it adds                                                                                                                                                                                                                                                                |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `maquette_base::register`      | the error payload, the toolchain report, step kinds and the run log                                                                                                                                                                                                          |
-| `maquette_glb::register`       | the GLB report: its rig kind, textures, maps, islands, finger weights and VRM readiness                                                                                                                                                                                      |
-| `app_state`                    | the per machine app state                                                                                                                                                                                                                                                    |
-| `maquette_model::register`     | its modules' in turn: provider presets, the model catalog and game settings; how a model gets made; the workspace config; the project manifest; assets; the scene layout, object states and timeline; the Timeline view; the scene prep; built assets; the scene's materials |
-| `maquette_providers::register` | sends, handoffs, keys, batches, downloads and the ledger                                                                                                                                                                                                                     |
-| `layout`                       | the layout view                                                                                                                                                                                                                                                              |
-| `motion`, `inbox`              | the Motion view; the checks and the inbox                                                                                                                                                                                                                                    |
-| `pipeline`, `prepare`          | the pipeline definition, events and starters; the fix-up report                                                                                                                                                                                                              |
-| `built`, `thumbs`              | a build's result; the thumbnail state                                                                                                                                                                                                                                        |
-| `inspect`                      | the Inspect view                                                                                                                                                                                                                                                             |
-| `game`                         | a game repo's checks, scan, import and ship plan                                                                                                                                                                                                                             |
-| `concepts`                     | Lab concepts and jobs                                                                                                                                                                                                                                                        |
-| `library`                      | library entries, their uses and updates                                                                                                                                                                                                                                      |
-| `maquette_preview::register`   | the Page view's settings and the dev server's command and status                                                                                                                                                                                                             |
+| Registry                       | Types it adds                                                                                                                                                                                                                                                                                  |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maquette_base::register`      | the error payload, the toolchain report, step kinds and the run log                                                                                                                                                                                                                            |
+| `maquette_glb::register`       | the GLB report: its rig kind, textures, maps, islands, finger weights and VRM readiness                                                                                                                                                                                                        |
+| `app_state`                    | the per machine app state                                                                                                                                                                                                                                                                      |
+| `maquette_model::register`     | its modules' in turn: provider presets, the model catalog and game settings; how a model gets made; the workspace config; the project manifest; assets; the scene layout, object states and timeline; the Timeline view; the scene prep; built assets; the scene's materials; the avatar specs |
+| `maquette_providers::register` | sends, handoffs, keys, batches, downloads and the ledger                                                                                                                                                                                                                                       |
+| `layout`                       | the layout view                                                                                                                                                                                                                                                                                |
+| `motion`, `inbox`              | the Motion view; the checks and the inbox                                                                                                                                                                                                                                                      |
+| `pipeline`, `prepare`          | the pipeline definition, events and starters; the fix-up report                                                                                                                                                                                                                                |
+| `built`, `thumbs`              | a build's result; the thumbnail state                                                                                                                                                                                                                                                          |
+| `inspect`                      | the Inspect view                                                                                                                                                                                                                                                                               |
+| `game`                         | a game repo's checks, scan, import and ship plan                                                                                                                                                                                                                                               |
+| `concepts`                     | Lab concepts and jobs                                                                                                                                                                                                                                                                          |
+| `library`                      | library entries, their uses and updates                                                                                                                                                                                                                                                        |
+| `maquette_preview::register`   | the Page view's settings and the dev server's command and status                                                                                                                                                                                                                               |
 
 ## MCP tools
 
@@ -574,6 +574,15 @@ uses.
   outline, keeping the PBR values as the fallback; `Pbr` leaves the materials as they are. The
   golden test compares the written fixture's JSON with `vrm/golden/humanoid_vrm.json`
   (`MAQUETTE_BLESS=1` writes it again).
+- **Avatar spec.** `maquette_model::avatar` keeps each character asset's `AvatarSpec` (the
+  `VrmMeta`, bone map overrides and the material mode) in `avatar.json` next to `project.json`,
+  keyed by asset id like `materials.json`, with the same versioned load and `update` that reads the
+  file on disk first. A stored spec may be a draft: `VrmMeta::check_draft` checks the licence URL,
+  blank authors and text length, and the name and authors are only required by `VrmMeta::validate`
+  when the VRM is written. `WorkspaceConfig::avatar` (`AvatarDefaults`: author, contact, copyright,
+  every licence field at the VRM default, the material mode) fills a new spec through
+  `AvatarDefaults::spec`. Removing an asset keeps its spec in the trash record, and restoring it puts
+  the spec back.
 
 ## Downloads matching
 
