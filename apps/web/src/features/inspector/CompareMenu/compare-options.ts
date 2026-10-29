@@ -39,6 +39,11 @@ export function byName(a: { label: string }, b: { label: string }): number {
   return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
 }
 
+/** A name with its first letter capitalised, so older and object ref assets read alike. */
+export function displayName(name: string): string {
+  return name ? name.charAt(0).toUpperCase() + name.slice(1) : name;
+}
+
 function versionsNote(count: number): string {
   return `${count} ${count === 1 ? 'version' : 'versions'}`;
 }
@@ -65,11 +70,15 @@ export function compareGroups(
       onSelect: () => choose({ left: s.id }),
     }));
   if (others.length)
-    groups.push({ id: 'versions', title: `Versions of ${pick.comparison.label}`, options: others });
+    groups.push({
+      id: 'versions',
+      title: `Versions of ${displayName(pick.comparison.label)}`,
+      options: others,
+    });
 
   const option = (c: InspectView['comparisons'][number]): CompareOption => ({
     id: `c-${c.id}`,
-    label: c.label,
+    label: displayName(c.label),
     detail: c.kind === 'scene' ? undefined : versionsNote(c.sides.length),
     icon: c.kind === 'scene' ? 'squares-four' : 'cube',
     current: c.id === pick.comparison.id,

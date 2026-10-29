@@ -37,7 +37,7 @@ describe('compareGroups', () => {
 
   it('sorts a group by name without regard to case', () => {
     const props = groups.find(g => g.title === 'Props')!;
-    expect(props.options.map(o => o.label)).toEqual(['armillary sphere', 'Brazier']);
+    expect(props.options.map(o => o.label)).toEqual(['Armillary sphere', 'Brazier']);
   });
 
   it('shows the version count once, as a trailing note', () => {

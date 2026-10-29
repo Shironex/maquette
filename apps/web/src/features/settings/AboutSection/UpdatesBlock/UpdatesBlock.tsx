@@ -11,7 +11,13 @@ export default function UpdatesBlock({ version }: UpdatesBlockProps) {
 
   const action =
     phase.kind === 'available' || (phase.kind === 'failed' && update) ? (
-      <Button size="sm" variant="primary" icon="download-simple" onClick={download}>
+      <Button
+        size="sm"
+        variant="primary"
+        icon="download-simple"
+        tooltip="Downloads this version; it installs when you restart"
+        onClick={download}
+      >
         Download {update?.version}
       </Button>
     ) : phase.kind === 'ready' || phase.kind === 'installing' ? (

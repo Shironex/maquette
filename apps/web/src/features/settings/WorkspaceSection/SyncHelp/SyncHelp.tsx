@@ -35,7 +35,12 @@ export default function SyncHelp({ cache }: { cache: string }) {
           {text}
         </pre>
         <div>
-          <Button size="sm" icon="copy" onClick={copy}>
+          <Button
+            size="sm"
+            icon="copy"
+            tooltip="Copies the file text to the clipboard"
+            onClick={copy}
+          >
             {copied ? 'Copied' : 'Copy .stignore'}
           </Button>
         </div>

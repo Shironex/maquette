@@ -3,7 +3,7 @@
  * Remove, or a field to paste one. The 3D providers' keys and OpenAI's
  * share it; each passes its own key calls through [`useKeyDraft`].
  */
-import { Button, Icon, TextField, cn } from '@maquette/ui';
+import { Button, Icon, TextField, Tooltip, cn } from '@maquette/ui';
 import { KEYCHAIN } from '../keychain';
 import type { KeyDraft } from './KeyRowView.hooks';
 
@@ -115,13 +115,18 @@ export default function KeyRowView({
       )}
       {showInput && !draft.trim() ? <p className="text-meta text-fg-mute">From {where}.</p> : null}
       {showInput && draft.trim() ? (
-        <button
-          type="button"
-          className="self-start text-meta text-fg-mute underline-offset-2 hover:text-fg hover:underline"
-          onClick={() => void onTest()}
+        <Tooltip
+          label="Test this key"
+          detail="Asks the service whether it accepts the key; nothing is saved"
         >
-          Test this key before saving
-        </button>
+          <button
+            type="button"
+            className="self-start text-meta text-fg-mute underline-offset-2 hover:text-fg hover:underline"
+            onClick={() => void onTest()}
+          >
+            Test this key before saving
+          </button>
+        </Tooltip>
       ) : null}
       {result ? (
         <p
