@@ -411,3 +411,6 @@ impl Previews {
         Ok(report)
     }
 }
+
+#[cfg(test)]
+mod tests;

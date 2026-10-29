@@ -338,3 +338,6 @@ pub fn first_view_of(
     let models = models(project_dir, manifest, def, &layout, previews);
     first_view(&layout, &models, first_view_mb)
 }
+
+#[cfg(test)]
+mod tests;
