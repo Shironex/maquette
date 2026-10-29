@@ -181,6 +181,8 @@ fn world() -> World {
         ..ModelPrep::default()
     };
     prepare::save_entry(&project, "clay-bowl", &prep).expect("prep");
+    let spec = crate::workspace::AvatarDefaults::default().spec("Clay bowl");
+    crate::avatar::set(&project, "clay-bowl", Some(spec)).expect("avatar");
     built::update(&project, |file| {
         file.assets.insert(
             "clay-bowl".into(),
@@ -297,6 +299,12 @@ fn a_removed_asset_goes_to_the_trash_with_its_files_and_links() {
     assert_eq!(scene.paths[0].end.as_deref(), Some("desk-lamp"));
     assert!(scene.timeline.explode.is_empty());
     assert!(prepare::load(&w.project).expect("prep").models.is_empty());
+    assert!(
+        crate::avatar::load(&w.project)
+            .expect("avatar")
+            .avatars
+            .is_empty()
+    );
     assert!(built::load(&w.project).expect("built").assets.is_empty());
 
     let listed = list_trash(&w.root, &w.layout, "moon-island").expect("list");
@@ -337,6 +345,8 @@ fn restore_puts_the_asset_its_files_and_links_back() {
     assert_eq!(scene.paths[0].start.as_deref(), Some("clay-bowl"));
     assert_eq!(scene.timeline.explode["clay-bowl"].keys.len(), 1);
     assert!(prepare::load(&w.project).expect("prep").models["clay-bowl"].skips_bake());
+    let avatars = crate::avatar::load(&w.project).expect("avatar").avatars;
+    assert_eq!(avatars["clay-bowl"].meta.name, "Clay bowl");
     assert!(
         built::load(&w.project)
             .expect("built")

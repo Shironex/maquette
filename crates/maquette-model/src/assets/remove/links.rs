@@ -1,7 +1,8 @@
 //! What a project's other files say about one asset: its placement, the
 //! camera stops that count it, the path ends that follow it, its object
 //! states, clips and explode track in `layout.json`, its real size and
-//! fix-ups, its material tweaks, its built source and its game model. A
+//! fix-ups, its material tweaks, its avatar spec, its built source and its
+//! game model. A
 //! remove takes them out and keeps them in the trash record; a restore puts
 //! back what still fits.
 
@@ -10,6 +11,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use crate::avatar::{self, AvatarSpec};
 use crate::built::{self, BuiltSource};
 use crate::error::CoreResult;
 use crate::layout::{self, ClipSettings, ExplodeTrack, ObjectStates, Placement, SceneLayout};
@@ -33,6 +35,7 @@ pub(super) struct AssetLinks {
     pub explode: Option<ExplodeTrack>,
     pub prep: Option<ModelPrep>,
     pub materials: Option<ModelMaterials>,
+    pub avatar: Option<AvatarSpec>,
     pub built: Option<BuiltSource>,
     pub game: Option<GameModel>,
 }
@@ -92,6 +95,10 @@ pub(super) fn take(
         Ok(found) => links.materials = found.models.get(id).cloned(),
         Err(err) => warn(materials::MATERIALS_FILE, err),
     }
+    match avatar::load(project_dir) {
+        Ok(found) => links.avatar = found.avatars.get(id).cloned(),
+        Err(err) => warn(avatar::AVATAR_FILE, err),
+    }
     match built::load(project_dir) {
         Ok(found) => links.built = found.assets.get(id).cloned(),
         Err(err) => warn(built::BUILT_FILE, err),
@@ -139,7 +146,7 @@ fn has_layout(links: &AssetLinks) -> bool {
         || !links.path_ends.is_empty()
 }
 
-/// Takes the asset `id` out of the layout, prep, materials and built
+/// Takes the asset `id` out of the layout, prep, materials, avatar and built
 /// files, wherever `links` found it. Returns what could not be written.
 pub(super) fn clear(project_dir: &Path, id: &str, links: &AssetLinks) -> Vec<String> {
     let steps = [
@@ -154,6 +161,9 @@ pub(super) fn clear(project_dir: &Path, id: &str, links: &AssetLinks) -> Vec<Str
         when(links.materials.is_some(), materials::MATERIALS_FILE, || {
             let empty = BTreeMap::from([(id.to_string(), ModelMaterials::default())]);
             materials::save_looks(project_dir, &empty).map(|_| ())
+        }),
+        when(links.avatar.is_some(), avatar::AVATAR_FILE, || {
+            avatar::set(project_dir, id, None).map(|_| ())
         }),
         when(links.built.is_some(), built::BUILT_FILE, || {
             built::update(project_dir, |file| {
@@ -236,6 +246,18 @@ pub(super) fn put_back(project_dir: &Path, id: &str, links: &AssetLinks) -> Vec<
                     next.models
                         .entry(id.to_string())
                         .or_insert_with(|| look.clone());
+                }
+                Ok(next)
+            })
+            .map(|_| ())
+        }),
+        when(links.avatar.is_some(), avatar::AVATAR_FILE, || {
+            avatar::update(project_dir, |current| {
+                let mut next = current.clone();
+                if let Some(spec) = &links.avatar {
+                    next.avatars
+                        .entry(id.to_string())
+                        .or_insert_with(|| spec.clone());
                 }
                 Ok(next)
             })
