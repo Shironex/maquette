@@ -49,6 +49,7 @@
     "built::blender": "pipeline",
     "built::tests": "pipeline",
     "materials::apply": "pipeline",
+    "materials::glb": "pipeline",
     "materials::split": "pipeline",
     "materials::tests": "pipeline",
     "ship::plan": "pipeline",

@@ -1,7 +1,8 @@
 {
   "maquette-base": [],
   "maquette-glb": ["maquette-base"],
+  "maquette-model": ["maquette-base", "maquette-glb"],
   "maquette-preview": ["maquette-base"],
-  "maquette-core": ["maquette-base", "maquette-glb", "maquette-preview"],
+  "maquette-core": ["maquette-base", "maquette-glb", "maquette-model", "maquette-preview"],
   "maquette-desktop": ["maquette-core"]
 }
