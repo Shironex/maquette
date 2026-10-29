@@ -48,6 +48,9 @@ pub struct SetGameSettingsArgs {
     /// The longest texture edge Game export writes for models in a folder with no budget:
     /// 256, 512, 1024, 2048 or 4096 px. A folder's budget texture size wins for its models.
     pub texture_cap: Option<u32>,
+    /// true leaves normal and metal-roughness maps out of exported models, for a game whose
+    /// shader reads neither; false (the default) keeps them.
+    pub drop_maps: Option<bool>,
     /// Whether the pipeline runs Bake light (off by default for games).
     pub bake: Option<bool>,
     /// The whole budget table, one row per folder. Leave it out to keep it.
@@ -71,9 +74,11 @@ impl SetGameSettingsArgs {
             .as_deref()
             .map(|t| word("texture format (png, jpg or keep)", t))
             .transpose()?;
-        let export = (textures.is_some() || self.texture_cap.is_some()).then(|| GameExport {
+        let touched = textures.is_some() || self.texture_cap.is_some() || self.drop_maps.is_some();
+        let export = touched.then(|| GameExport {
             textures: textures.unwrap_or(current.textures),
             texture_cap: self.texture_cap.unwrap_or(current.texture_cap),
+            drop_maps: self.drop_maps.unwrap_or(current.drop_maps),
         });
         Ok(GameSettingsChange {
             format,
@@ -178,7 +183,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change a game project's settings: format, modelsDir, textures, textureCap, bake and the budgets table (each field left out keeps what is saved). The pipeline follows: Bake light goes in or out and Export uses the new texture settings on the next run. Refused, changing nothing, when a value is out of range. Returns the settings like get_game."
+        description = "Change a game project's settings: format, modelsDir, textures, textureCap, dropMaps (true leaves normal and metal-roughness maps out of exported models; false, the default, keeps them), bake and the budgets table (each field left out keeps what is saved). The pipeline follows: Bake light goes in or out and Export uses the new texture settings on the next run. Refused, changing nothing, when a value is out of range. Returns the settings like get_game."
     )]
     async fn set_game_settings(&self, Parameters(args): Parameters<SetGameSettingsArgs>) -> Out {
         let project_id = args.project.clone();

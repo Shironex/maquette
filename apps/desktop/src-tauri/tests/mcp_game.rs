@@ -256,6 +256,21 @@ async fn agents_read_scan_import_and_change_a_game_project() {
     assert_eq!(changed["settings"]["export"]["textures"], "jpg");
     assert_eq!(changed["settings"]["export"]["textureCap"], 512);
     assert_eq!(changed["settings"]["bake"], true);
+    assert_eq!(
+        changed["settings"]["export"]["dropMaps"], false,
+        "maps kept by default"
+    );
+    let dropped = call(
+        &client,
+        "set_game_settings",
+        json!({ "project": project_id, "dropMaps": true }),
+    )
+    .await;
+    assert_eq!(dropped["settings"]["export"]["dropMaps"], true);
+    assert_eq!(
+        dropped["settings"]["export"]["textureCap"], 512,
+        "the other export settings stay"
+    );
     let files: Vec<&str> = changed["assets"]
         .as_array()
         .expect("assets")
