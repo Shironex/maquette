@@ -1027,8 +1027,52 @@ export type AssetsRemoved = {
 	outcomes: RemoveOutcome[],
 };
 
+/**  What a new avatar spec starts from. */
+export type AvatarDefaults = {
+	/**  The author every avatar names first; empty leaves it to fill in. */
+	author?: string,
+	contactInformation?: string | null,
+	copyrightInformation?: string | null,
+	avatarPermission?: AvatarPermission,
+	commercialUsage?: CommercialUsage,
+	creditNotation?: CreditNotation,
+	modification?: Modification,
+	allowRedistribution?: boolean,
+	allowExcessivelyViolentUsage?: boolean,
+	allowExcessivelySexualUsage?: boolean,
+	allowPoliticalOrReligiousUsage?: boolean,
+	allowAntisocialOrHateUsage?: boolean,
+	otherLicenseUrl?: string | null,
+	material?: MaterialMode,
+};
+
 /**  Who may play the avatar. */
 export type AvatarPermission = "onlyAuthor" | "onlySeparatelyLicensedPerson" | "everyone";
+
+/**  One character asset's avatar. */
+export type AvatarSpec = AvatarSpec_Serialize | AvatarSpec_Deserialize;
+
+/**  One character asset's avatar. */
+export type AvatarSpec_Deserialize = {
+	meta?: VrmMeta_Deserialize,
+	/**
+	 *  VRM bone name to a joint name, or `None` to leave the bone
+	 *  unmapped. Bones not listed map by name.
+	 */
+	bones?: { [key in string]: string | null },
+	material?: MaterialMode,
+};
+
+/**  One character asset's avatar. */
+export type AvatarSpec_Serialize = {
+	meta: VrmMeta_Serialize,
+	/**
+	 *  VRM bone name to a joint name, or `None` to leave the bone
+	 *  unmapped. Bones not listed map by name.
+	 */
+	bones: { [key in string]: string | null },
+	material: MaterialMode,
+};
 
 /**  The axis a model faces, the nearest of four. */
 export type Axis = "+z" | "-z" | "+x" | "-x";
@@ -4230,6 +4274,20 @@ export type ScannedModel = {
 	asset: string | null,
 };
 
+export type SceneAvatars = SceneAvatars_Serialize | SceneAvatars_Deserialize;
+
+export type SceneAvatars_Deserialize = {
+	version: number,
+	/**  Asset id to its avatar. */
+	avatars: { [key in string]: AvatarSpec_Deserialize },
+};
+
+export type SceneAvatars_Serialize = {
+	version: number,
+	/**  Asset id to its avatar. */
+	avatars: { [key in string]: AvatarSpec_Serialize },
+};
+
 export type SceneLayout = {
 	version: number,
 	/**  Asset id to where its newest model stands. */
@@ -5507,6 +5565,8 @@ export type WorkspaceConfig = {
 	compression: Compression,
 	agents: AgentSettings,
 	lab: LabSettings,
+	/**  What a new VRM avatar spec starts from. */
+	avatar?: AvatarDefaults,
 	currentProject: string | null,
 };
 

@@ -264,3 +264,26 @@ fn cache_size_and_clear() {
     assert_eq!(cache_size(dir.path(), &config), 0);
     assert!(cache.is_dir());
 }
+
+#[test]
+fn avatar_defaults_read_from_the_file_and_are_checked() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join(CONFIG_FILE),
+        r#"{ "avatar": { "author": "Test Author", "commercialUsage": "corporation" } }"#,
+    )
+    .expect("write");
+    let config = open(dir.path()).expect("open");
+    assert_eq!(config.avatar.author, "Test Author");
+    let meta = config.avatar.spec("Hero").meta;
+    assert_eq!(meta.authors, ["Test Author"]);
+    assert_eq!(
+        meta.commercial_usage,
+        maquette_glb::vrm::CommercialUsage::Corporation
+    );
+    assert!(!meta.allow_redistribution);
+
+    let mut long = WorkspaceConfig::default();
+    long.avatar.contact_information = Some("x".repeat(2001));
+    assert!(validate(&long).is_err());
+}
