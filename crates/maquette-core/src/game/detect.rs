@@ -10,6 +10,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 use super::GameFormat;
+use crate::error::{CoreError, CoreResult};
 use crate::project::{has_ext, sorted_children};
 use crate::toolchain::CommandRunner;
 
@@ -201,6 +202,31 @@ fn build_text(repo: &Path, cmake: &str) -> String {
     text
 }
 
+/// Checks a game repo path given by an agent: an absolute path to a folder
+/// that is a git repo (a `.git` folder) or a git worktree (a `.git` file
+/// naming its repo). Returns it as given.
+///
+/// # Errors
+///
+/// `Invalid`, saying why, for anything else.
+pub fn check_repo(path: &str) -> CoreResult<PathBuf> {
+    let at = Path::new(path.trim());
+    let invalid = |why: &str| Err(CoreError::Invalid(format!("{} {why}", at.display())));
+    if !at.is_absolute() {
+        return invalid("is not an absolute path.");
+    }
+    if !at.is_dir() {
+        return invalid("is not a folder on this computer.");
+    }
+    let git = at.join(".git");
+    let worktree = git.is_file()
+        && fs::read_to_string(&git).is_ok_and(|t| t.trim_start().starts_with("gitdir:"));
+    if !git.is_dir() && !worktree {
+        return invalid("is not a git repo or worktree (it has no .git).");
+    }
+    Ok(at.to_path_buf())
+}
+
 /// Looks at a folder picked as a game repo.
 pub fn inspect_game_repo(path: &Path) -> GameRepoInspection {
     let mut out = GameRepoInspection {
@@ -258,5 +284,31 @@ mod tests {
         let cmake = "project(Game)\n# add_executable(old)\nadd_executable(frost)\n\
                      add_executable( frost_tests\n  src/a.cpp)\nadd_executable(frost)\n";
         assert_eq!(executables(cmake), ["frost", "frost_tests"]);
+    }
+
+    #[test]
+    fn a_repo_path_must_be_an_absolute_git_repo_or_worktree() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let repo = dir.path().join("game");
+        fs::create_dir_all(repo.join(".git")).expect("git");
+        let worktree = dir.path().join("game-wt");
+        fs::create_dir_all(&worktree).expect("worktree");
+        fs::write(
+            worktree.join(".git"),
+            "gitdir: /x/game/.git/worktrees/game-wt\n",
+        )
+        .expect("file");
+        let plain = dir.path().join("plain");
+        fs::create_dir_all(&plain).expect("plain");
+        let text = |p: &Path| p.display().to_string();
+        assert_eq!(check_repo(&text(&repo)).expect("repo"), repo);
+        assert_eq!(check_repo(&text(&worktree)).expect("worktree"), worktree);
+        for bad in [
+            text(&plain),
+            text(&dir.path().join("none")),
+            "game".to_string(),
+        ] {
+            assert!(check_repo(&bad).is_err(), "{bad}");
+        }
     }
 }
