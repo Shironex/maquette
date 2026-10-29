@@ -1,9 +1,12 @@
 //! Taking a Lab candidate into an asset's refs: a drawn view goes into a
 //! view slot, a clean copy takes the place of the ref it cleans. The
-//! original of a clean copy moves to `refs/originals/` and is kept.
+//! original of a clean copy moves to `refs/originals/` and is kept, and so
+//! does the ref a drawn view replaces, unless something else still uses it.
 
 use std::fs;
 use std::path::Path;
+
+use serde::Serialize;
 
 use super::{AssetRef, RefView, assign, ref_files, suggested, views_of};
 use crate::assets::{self, Asset};
@@ -79,6 +82,75 @@ fn take_candidate(
     Ok(out)
 }
 
+/// Moves the ref `rel` to `refs/originals/` under a free name and returns
+/// where it went. A file that is gone moves nothing.
+fn keep_original(project_dir: &Path, rel: &str) -> CoreResult<Option<String>> {
+    let from = project_dir.join(rel);
+    if !from.is_file() {
+        return Ok(None);
+    }
+    let keep = project_dir.join(ORIGINALS_DIR);
+    fs::create_dir_all(&keep).map_err(|e| CoreError::io(&keep, e))?;
+    let stem = from
+        .file_stem()
+        .map_or_else(|| "ref".to_string(), |s| s.to_string_lossy().into_owned());
+    let to = free_name(project_dir, ORIGINALS_DIR, &stem, &extension(&from));
+    fs::rename(&from, project_dir.join(&to)).map_err(|e| CoreError::io(&from, e))?;
+    Ok(Some(to))
+}
+
+/// What happens to the ref that held the slot a drawn view takes.
+#[derive(Debug, Clone, Copy)]
+pub enum OldView<'a> {
+    /// It stays with the asset, tagged other.
+    KeepAsOther,
+    /// It leaves the asset's refs and its file moves to `refs/originals/`,
+    /// unless another asset of the project shows it or a send lists it
+    /// (`sent`: the images of every send of the project), in which case the
+    /// file stays where it is.
+    Replace { sent: &'a [String] },
+}
+
+/// The ref a drawn view replaced and where its file went.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Replaced {
+    pub file: String,
+    pub view: RefView,
+    /// `refs/originals/<name>`, or `None` when the file stayed in place.
+    pub moved_to: Option<String>,
+    /// Why the file stayed in place.
+    pub kept_because: Option<String>,
+}
+
+/// The project after a drawn view went in, and the ref it replaced.
+#[derive(Debug, Clone)]
+pub struct UsedView {
+    pub manifest: ProjectManifest,
+    pub replaced: Option<Replaced>,
+}
+
+/// Why `file` must stay where it is, if anything else uses it: another
+/// asset that shows it or a send that lists it.
+fn still_used(
+    project_dir: &Path,
+    manifest: &ProjectManifest,
+    asset_id: &str,
+    file: &str,
+    sent: &[String],
+) -> Option<String> {
+    if let Some(other) = manifest.assets.iter().find(|a| {
+        a.id != asset_id
+            && (a.thumbnail.as_deref() == Some(file)
+                || current(project_dir, a).iter().any(|r| r.file == file))
+    }) {
+        return Some(format!("{} uses it too", other.name));
+    }
+    sent.iter()
+        .any(|s| s == file)
+        .then(|| "a send lists it".to_string())
+}
+
 /// The asset's refs as they stand, tagged or read from their order.
 fn current(project_dir: &Path, asset: &Asset) -> Vec<AssetRef> {
     let files = ref_files(project_dir);
@@ -101,8 +173,8 @@ fn save(
 }
 
 /// "Use as Left": the view candidate `file` goes into `refs/` and into
-/// the slot `view` (its title's view when `None`). The ref that held the
-/// slot becomes other. The other candidates stay in the Lab.
+/// the slot `view` (its title's view when `None`). `old` says what becomes
+/// of the ref that held the slot. The other candidates stay in the Lab.
 pub fn use_view_image(
     workspace_root: &Path,
     layout: &FolderLayout,
@@ -110,7 +182,8 @@ pub fn use_view_image(
     asset_id: &str,
     file: &str,
     view: Option<RefView>,
-) -> CoreResult<ProjectManifest> {
+    old: OldView<'_>,
+) -> CoreResult<UsedView> {
     let project_dir = project::dir(workspace_root, layout, project_id)?;
     let manifest = project::load(workspace_root, layout, project_id)?;
     let asset = assets::find(&manifest, asset_id)?.clone();
@@ -126,10 +199,37 @@ pub fn use_view_image(
             "The front stays as it is; a drawn view fills left, back or right.".to_string(),
         ));
     }
+    let holder = refs
+        .iter()
+        .find(|r| r.view == view && r.file != copy)
+        .map(|r| r.file.clone());
+    let replaced = match (old, holder) {
+        (OldView::Replace { sent }, Some(held)) => {
+            let kept_because = still_used(&project_dir, &manifest, asset_id, &held, sent);
+            let moved_to = match kept_because {
+                Some(_) => None,
+                None => keep_original(&project_dir, &held)?,
+            };
+            refs.retain(|r| r.file != held);
+            Some(Replaced {
+                file: held,
+                view,
+                moved_to,
+                kept_because,
+            })
+        }
+        _ => None,
+    };
     assign(&mut refs, &copy, view);
-    save(workspace_root, layout, project_id, asset_id, |a| {
-        a.refs = refs
-    })
+    let manifest = save(workspace_root, layout, project_id, asset_id, |a| {
+        a.refs = refs;
+        if let Some(r) = replaced.as_ref().filter(|r| r.moved_to.is_some())
+            && a.thumbnail.as_deref() == Some(r.file.as_str())
+        {
+            a.thumbnail = Some(copy);
+        }
+    })?;
+    Ok(UsedView { manifest, replaced })
 }
 
 /// "Use the clean copy": the clean candidate `file` goes into `refs/` as
@@ -153,16 +253,7 @@ pub fn use_clean_copy(
             .map_or_else(|| "ref".to_string(), |s| s.to_string_lossy().into_owned());
         format!("{stem}_clean")
     })?;
-    let from = project_dir.join(&original);
-    if from.is_file() {
-        let keep = project_dir.join(ORIGINALS_DIR);
-        fs::create_dir_all(&keep).map_err(|e| CoreError::io(&keep, e))?;
-        let stem = from
-            .file_stem()
-            .map_or_else(|| "ref".to_string(), |s| s.to_string_lossy().into_owned());
-        let to = free_name(&project_dir, ORIGINALS_DIR, &stem, &extension(&from));
-        fs::rename(&from, project_dir.join(&to)).map_err(|e| CoreError::io(&from, e))?;
-    }
+    keep_original(&project_dir, &original)?;
     let view = refs
         .iter()
         .find(|r| r.file == original)

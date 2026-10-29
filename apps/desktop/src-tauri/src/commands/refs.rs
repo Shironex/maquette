@@ -11,7 +11,8 @@ use maquette_core::concepts::{
     self, ConceptJob, Concepts, Direction, NewCleanRef, NewOtherViews, RefsJobKind,
 };
 use maquette_core::pipeline::tools::Toolbox;
-use maquette_core::refs::{self, AssetRef, RefView, RefWarning};
+use maquette_core::providers::ProviderJobs;
+use maquette_core::refs::{self, AssetRef, OldView, RefView, RefWarning, Replaced};
 use maquette_core::{Asset, ProjectManifest, assets, project};
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -19,6 +20,7 @@ use tauri::State;
 use super::CommandResult;
 use super::image_api::Backend;
 use super::lab::{Lab, RefImage, list_refs};
+use super::providers::Studio;
 use crate::session::Session;
 
 /// Everything the refs sheet shows for one asset.
@@ -168,15 +170,19 @@ pub(crate) fn clean(
 }
 
 /// Takes a candidate of the asset's refs work into its refs: a view into
-/// its slot, a clean copy into the place of the ref it cleans. Shared
-/// with the MCP server.
+/// its slot, a clean copy into the place of the ref it cleans. With
+/// `replace`, a view replaces the ref that held its slot (see
+/// [`OldView::Replace`]; the project's sends keep their files in place),
+/// else that ref stays as other. Shared with the MCP server.
 pub(crate) fn use_candidate(
     session: &Session,
+    jobs: &ProviderJobs,
     project_id: &str,
     asset_id: &str,
     file: &str,
     view: Option<RefView>,
-) -> CommandResult<ProjectManifest> {
+    replace: bool,
+) -> CommandResult<(ProjectManifest, Option<Replaced>)> {
     let (root, config) = session.workspace()?;
     let dir = project::dir(&root, &config.layout, project_id)?;
     let id = file.split('/').nth(1).unwrap_or_default();
@@ -185,12 +191,22 @@ pub(crate) fn use_candidate(
         .flatten()
         .and_then(|d| d.refs_job)
         .map(|j| j.kind);
-    Ok(match kind {
-        Some(RefsJobKind::Clean) => {
-            refs::use_clean_copy(&root, &config.layout, project_id, asset_id, file)?
-        }
-        _ => refs::use_view_image(&root, &config.layout, project_id, asset_id, file, view)?,
-    })
+    if kind == Some(RefsJobKind::Clean) {
+        let manifest = refs::use_clean_copy(&root, &config.layout, project_id, asset_id, file)?;
+        return Ok((manifest, None));
+    }
+    let sent: Vec<String> = jobs
+        .list(Some(project_id))
+        .into_iter()
+        .flat_map(|j| j.images)
+        .collect();
+    let old = if replace {
+        OldView::Replace { sent: &sent }
+    } else {
+        OldView::KeepAsOther
+    };
+    let used = refs::use_view_image(&root, &config.layout, project_id, asset_id, file, view, old)?;
+    Ok((used.manifest, used.replaced))
 }
 
 /// One asset of a warnings request: the images as picked and whether its
@@ -278,18 +294,19 @@ pub async fn refs_clean(
 }
 
 /// "Use as Left" or "Use the clean copy". `view` overrides the view a
-/// drawn candidate was made for.
+/// drawn candidate was made for. A view replaces the one in its slot.
 #[tauri::command]
 #[specta::specta]
 pub fn refs_use(
     session: State<'_, Session>,
     lab: State<'_, Lab>,
+    studio: State<'_, Studio>,
     project: String,
     asset: String,
     file: String,
     view: Option<RefView>,
 ) -> CommandResult<RefsView> {
-    use_candidate(&session, &project, &asset, &file, view)?;
+    use_candidate(&session, &studio.0, &project, &asset, &file, view, true)?;
     self::view(&session, &lab.0, &project, &asset)
 }
 

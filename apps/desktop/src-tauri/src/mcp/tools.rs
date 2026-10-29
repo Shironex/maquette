@@ -83,8 +83,11 @@ one isolated image each. get_ref_views reads an asset's refs and the view each s
 (front, left, back, right or other); set_ref_views sets them, and every send then carries \
 front, left, back and right in that order and leaves other refs home. make_other_views draws \
 an asset's missing views from its front and clean_ref_background makes a cleaned \
-copy of one ref; both make images on the Lab's image backend like start_concepts, and use_ref_candidate puts a \
-candidate in place (a clean copy's original moves to refs/originals). send_to_3d and \
+copy of one ref; both make images on the Lab's image backend like start_concepts, and make_other_views takes notes \
+for every view's prompt. use_ref_candidate puts a candidate in place: a clean copy's original \
+moves to refs/originals, and a drawn view replaces the ref in its slot, which moves to \
+refs/originals too unless another asset or a send still uses it (replace false keeps it as \
+other); its answer says what moved where. send_to_3d and \
 send_batch_to_3d report refWarnings (small, cropped, busy background, one view only, a view that looks different from the front) before \
 anything is spent; they never stop a send. get_concepts reads the Lab, with its failed jobs; a job Codex rate \
 limits runs again on its own a few times, a job that meets the Codex usage limit waits with \

@@ -8,7 +8,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use maquette_core::concepts::objects::{self, NewObjectRefs};
-use maquette_core::concepts::{self, Aspect, Concepts, Direction, NewConcepts, StyleBoard};
+use maquette_core::concepts::{
+    self, Aspect, Concepts, Direction, NewConcepts, RefsJob, RefsJobKind, StyleBoard,
+};
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::providers::{Endpoints, MemoryStore, Options, ProviderJobs};
@@ -507,6 +509,118 @@ async fn agents_tag_ref_views_and_sends_follow_them_with_warnings() {
     .await;
     assert_eq!(no_codex.is_error, Some(true));
     assert!(text(&no_codex).contains("Codex"), "{}", text(&no_codex));
+
+    client.cancel().await.expect("close");
+    server.stop();
+}
+
+/// Two drawn left views for the stone lantern, as make_other_views leaves
+/// them in its Lab direction.
+fn left_candidates(project_dir: &Path, project_id: &str) -> Vec<String> {
+    let brief = NewConcepts {
+        project: project_id.to_string(),
+        direction: "Stone lantern views".into(),
+        prompt: "Other views of Stone lantern from its front.".into(),
+        refs: Vec::new(),
+        aspect: Aspect::Square,
+        count: 2,
+        use_style: false,
+    };
+    let (direction, files) = concepts::prepare(project_dir, &brief).expect("prep");
+    concepts::modify_direction(project_dir, &direction.id, |d| {
+        d.refs_job = Some(RefsJob {
+            asset: "stone-lantern".into(),
+            kind: RefsJobKind::Views,
+        });
+        Ok(())
+    })
+    .expect("refs job");
+    files
+        .into_iter()
+        .map(|(index, file)| {
+            std::fs::write(project_dir.join(&file), PNG).expect("png");
+            concepts::add_image(project_dir, &direction.id, index, &file, Some("left"))
+                .expect("add");
+            file
+        })
+        .collect()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn agents_replace_a_filled_view_and_the_old_ref_moves_aside() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp dir");
+    let (session, project_id, project_dir) = fixture(dir.path());
+    let (_host, client, server) = connect(session).await;
+    let picked = call(
+        &client,
+        "pick_concepts",
+        json!({ "project": project_id, "images": [
+            { "direction": "Stone lantern", "index": 1 },
+            { "direction": "Stone lantern", "index": 2 },
+        ] }),
+    )
+    .await;
+    let front = picked["assets"][0]["refs"][0]
+        .as_str()
+        .expect("front")
+        .to_string();
+    let left = picked["assets"][0]["refs"][1]
+        .as_str()
+        .expect("left")
+        .to_string();
+    call(
+        &client,
+        "set_ref_views",
+        json!({ "project": project_id, "asset": "stone-lantern", "refs": [
+            { "file": front, "view": "front" }, { "file": left, "view": "left" },
+        ] }),
+    )
+    .await;
+    let made = left_candidates(&project_dir, &project_id);
+
+    let used = call(
+        &client,
+        "use_ref_candidate",
+        json!({ "project": project_id, "asset": "stone-lantern", "file": made[0] }),
+    )
+    .await;
+    let replaced = &used["replaced"];
+    assert_eq!(replaced["file"], json!(left), "{used}");
+    assert_eq!(replaced["view"], json!("left"));
+    let moved = replaced["movedTo"].as_str().expect("moved");
+    assert!(moved.starts_with("refs/originals/"), "{moved}");
+    assert!(project_dir.join(moved).is_file());
+    assert!(!project_dir.join(&left).exists());
+    let refs = used["refs"].as_array().expect("refs");
+    assert_eq!(refs.len(), 2, "{used}");
+    assert!(!refs.iter().any(|r| r["file"] == json!(left)));
+    let new_left = refs
+        .iter()
+        .find(|r| r["view"] == json!("left"))
+        .and_then(|r| r["file"].as_str())
+        .expect("new left")
+        .to_string();
+
+    // A ref a send lists stays where it is; the asset still lets it go.
+    call(
+        &client,
+        "send_to_3d",
+        json!({ "project": project_id, "asset": "stone-lantern", "provider": "by-hand", "images": [front, new_left] }),
+    )
+    .await;
+    let used = call(
+        &client,
+        "use_ref_candidate",
+        json!({ "project": project_id, "asset": "stone-lantern", "file": made[1] }),
+    )
+    .await;
+    assert_eq!(used["replaced"]["file"], json!(new_left), "{used}");
+    assert_eq!(used["replaced"]["movedTo"], Value::Null);
+    assert_eq!(used["replaced"]["keptBecause"], json!("a send lists it"));
+    assert!(project_dir.join(&new_left).is_file());
+    let refs = used["refs"].as_array().expect("refs");
+    assert!(!refs.iter().any(|r| r["file"] == json!(new_left)), "{used}");
 
     client.cancel().await.expect("close");
     server.stop();

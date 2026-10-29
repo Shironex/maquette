@@ -25,7 +25,7 @@ use crate::project::{self, ProjectManifest};
 use crate::workspace::{FolderLayout, is_single_segment};
 
 pub use checks::{RefFix, RefWarning, WarningKind, send_warnings};
-pub use files::{ORIGINALS_DIR, use_clean_copy, use_view_image};
+pub use files::{ORIGINALS_DIR, OldView, Replaced, UsedView, use_clean_copy, use_view_image};
 pub use suggested::{ref_files, suggested};
 
 /// The view a ref shows of its object.

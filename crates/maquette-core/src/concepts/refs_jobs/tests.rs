@@ -41,9 +41,10 @@ fn filled_slots_are_skipped_unless_named() {
 #[test]
 fn the_prompts_say_the_side_and_what_to_keep() {
     let out = Path::new("/w/frost/concepts/frost-lantern-views/frost-lantern-views_01.png");
-    let text = view_prompt(&lantern(), RefView::Right, out, None);
+    let text = view_prompt(&lantern(), RefView::Right, "", out, None);
     assert!(text.starts_with("Generate an image.\n\nDraw the Frost lantern from its right side"));
     assert!(text.contains("first attached image is its front view"));
+    assert!(!text.contains("Extra instructions"));
     assert!(text.trim_end().ends_with(&out.display().to_string()));
 
     let mut clean = NewCleanRef {
@@ -64,6 +65,25 @@ fn the_prompts_say_the_side_and_what_to_keep() {
     assert!(text.contains("transparent"));
     assert!(text.contains("pad the image to a 1:1 square"));
     assert!(text.contains("draw the missing part"));
+}
+
+#[test]
+fn notes_go_into_every_view_prompt_on_one_line() {
+    let out = Path::new("/w/frost/concepts/frost-lantern-views/frost-lantern-views_01.png");
+    let notes = view_notes(Some("  cape over the\n\nright shoulder ")).expect("notes");
+    assert_eq!(notes, "cape over the right shoulder");
+    for view in [RefView::Left, RefView::Back] {
+        let text = view_prompt(&lantern(), view, &notes, out, None);
+        assert!(
+            text.contains("1:1 square composition.\n\nExtra instructions for this view: cape over the right shoulder"),
+            "{text}"
+        );
+    }
+    assert_eq!(view_notes(None).expect("none"), "");
+    assert_eq!(view_notes(Some(" \n ")).expect("blank"), "");
+    let long = "a".repeat(MAX_NOTE_CHARS + 1);
+    let err = view_notes(Some(&long)).expect_err("too long");
+    assert!(err.to_string().contains("400 characters"), "{err}");
 }
 
 #[test]

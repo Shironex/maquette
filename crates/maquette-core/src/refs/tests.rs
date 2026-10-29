@@ -287,8 +287,10 @@ fn use_as_left_copies_the_candidate_into_the_left_slot() {
         "frost-lantern",
         &made[0],
         None,
+        OldView::KeepAsOther,
     )
-    .expect("use");
+    .expect("use")
+    .manifest;
     let asset = assets::find(&manifest, "frost-lantern").expect("asset");
     assert_eq!(
         asset.refs[0],
@@ -307,8 +309,10 @@ fn use_as_left_copies_the_candidate_into_the_left_slot() {
         "frost-lantern",
         &made[1],
         None,
+        OldView::KeepAsOther,
     )
-    .expect("again");
+    .expect("again")
+    .manifest;
     let asset = assets::find(&again, "frost-lantern").expect("asset");
     assert_eq!(asset.refs[1], tagged(&copy, RefView::Other));
     assert_eq!(asset.refs[2].view, RefView::Left);
@@ -323,6 +327,7 @@ fn use_as_left_copies_the_candidate_into_the_left_slot() {
         "frost-lantern",
         &made[2],
         Some(RefView::Front),
+        OldView::KeepAsOther,
     );
     assert!(front_again.is_err(), "the front is never replaced");
     let elsewhere = f.image("concepts/porch/porch_01.png");
@@ -333,8 +338,110 @@ fn use_as_left_copies_the_candidate_into_the_left_slot() {
         "frost-lantern",
         &elsewhere,
         Some(RefView::Left),
+        OldView::KeepAsOther,
     );
     assert!(foreign.is_err(), "only the asset's own candidates");
+}
+
+/// Uses `file` in its own view, replacing the ref that held it.
+fn replace(f: &Fixture, file: &str, sent: &[String]) -> UsedView {
+    use_view_image(
+        f.root.path(),
+        &f.layout,
+        &f.project,
+        "frost-lantern",
+        file,
+        None,
+        OldView::Replace { sent },
+    )
+    .expect("replace")
+}
+
+#[test]
+fn a_new_view_replaces_the_old_one_and_the_old_file_moves_aside() {
+    let f = Fixture::new();
+    let front = f.image("refs/frost_lantern.png");
+    let left = f.image("refs/lantern_left_old.png");
+    f.set(&[(&front, RefView::Front), (&left, RefView::Left)])
+        .expect("set");
+    let made = candidates(&f, RefsJobKind::Views, &front, &["left", "back"]);
+    let used = replace(&f, &made[0], &[]);
+    let asset = assets::find(&used.manifest, "frost-lantern").expect("asset");
+    let copy = "refs/frost_lantern_left.png";
+    assert_eq!(
+        asset.refs,
+        vec![tagged(&front, RefView::Front), tagged(copy, RefView::Left)],
+        "the old left left the list"
+    );
+    let moved = "refs/originals/lantern_left_old.png";
+    assert_eq!(
+        used.replaced,
+        Some(Replaced {
+            file: left.clone(),
+            view: RefView::Left,
+            moved_to: Some(moved.to_string()),
+            kept_because: None,
+        })
+    );
+    assert!(!f.dir.join(&left).exists());
+    assert!(f.dir.join(moved).is_file());
+    let refs = views_of(
+        &f.dir,
+        &f.asset(),
+        &suggested(&f.dir, &f.asset(), &ref_files(&f.dir)),
+    );
+    assert!(!refs.iter().any(|r| r.file == left), "{refs:?}");
+    // An empty slot replaces nothing.
+    let back = replace(&f, &made[1], &[]);
+    assert_eq!(back.replaced, None);
+}
+
+#[test]
+fn a_replaced_ref_another_asset_or_a_send_uses_stays_in_place() {
+    let f = Fixture::new();
+    let front = f.image("refs/frost_lantern.png");
+    let left = f.image("refs/lantern_left_old.png");
+    let back = f.image("refs/lantern_back_old.png");
+    f.set(&[
+        (&front, RefView::Front),
+        (&left, RefView::Left),
+        (&back, RefView::Back),
+    ])
+    .expect("set");
+    project::modify(f.root.path(), &f.layout, &f.project, |m| {
+        let porch = assets::add(
+            m,
+            NewAsset {
+                name: "Porch lantern".into(),
+                kind: AssetKind::Prop,
+                stage: Stage::Refs,
+            },
+        )?
+        .id;
+        assets::find_mut(m, &porch)?.refs = vec![tagged(&left, RefView::Front)];
+        Ok(())
+    })
+    .expect("porch");
+    let made = candidates(&f, RefsJobKind::Views, &front, &["left", "back"]);
+    let used = replace(&f, &made[0], &[]);
+    let replaced = used.replaced.expect("replaced");
+    assert_eq!(replaced.moved_to, None);
+    assert_eq!(
+        replaced.kept_because.as_deref(),
+        Some("Porch lantern uses it too")
+    );
+    assert!(f.dir.join(&left).is_file(), "the porch keeps its front");
+    let asset = assets::find(&used.manifest, "frost-lantern").expect("asset");
+    assert!(!asset.refs.iter().any(|r| r.file == left));
+    let porch = assets::find(&used.manifest, "porch-lantern").expect("porch");
+    assert_eq!(porch.refs, vec![tagged(&left, RefView::Front)]);
+
+    let used = replace(&f, &made[1], std::slice::from_ref(&back));
+    let replaced = used.replaced.expect("replaced");
+    assert_eq!(replaced.kept_because.as_deref(), Some("a send lists it"));
+    assert!(f.dir.join(&back).is_file(), "the send still finds it");
+    let asset = assets::find(&used.manifest, "frost-lantern").expect("asset");
+    assert!(!asset.refs.iter().any(|r| r.file == back));
 }
 
 #[test]

@@ -13,6 +13,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use super::codex::assemble;
+use super::objects::MAX_NOTE_CHARS;
 use super::style::StyleBoard;
 use super::{Aspect, Direction, NewConcepts, load_direction, modify_direction};
 use crate::assets::Asset;
@@ -52,6 +53,10 @@ pub struct NewOtherViews {
     pub count: u32,
     #[serde(default = "super::style_on")]
     pub use_style: bool,
+    /// Extra instructions every view's prompt carries, for example "the
+    /// sword in the left hand". One line, at most 400 characters.
+    #[serde(default)]
+    pub notes: Option<String>,
 }
 
 /// The background a clean copy gets.
@@ -129,16 +134,44 @@ fn side_words(view: RefView) -> &'static str {
     }
 }
 
+/// The notes of a views request folded to one line, empty when blank.
+pub fn view_notes(notes: Option<&str>) -> CoreResult<String> {
+    let text = notes
+        .unwrap_or_default()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if text.chars().count() > MAX_NOTE_CHARS {
+        return Err(CoreError::Invalid(format!(
+            "Keep the notes for the views to {MAX_NOTE_CHARS} characters or fewer."
+        )));
+    }
+    Ok(text)
+}
+
 /// The prompt for one view candidate. The front is the first attached
-/// image; a style board's images come after it.
-pub fn view_prompt(asset: &Asset, view: RefView, out: &Path, style: Option<&StyleBoard>) -> String {
+/// image; a style board's images come after it. `notes` (from
+/// [`view_notes`]) go in as extra instructions, so a retry, which reruns
+/// the stored prompt, keeps them.
+pub fn view_prompt(
+    asset: &Asset,
+    view: RefView,
+    notes: &str,
+    out: &Path,
+    style: Option<&StyleBoard>,
+) -> String {
+    let extra = if notes.is_empty() {
+        String::new()
+    } else {
+        format!("\n\nExtra instructions for this view: {notes}")
+    };
     let lead = format!(
         "Draw the {name} from {side}. The first attached image is its front view: \
          this is the very same {name}, turned to that side.\n\n\
          Keep the front image's scale, framing, light and plain background, the object centered \
          and whole in frame. Show no parts the front does not show or imply, and keep its \
          materials, colours and proportions. No other objects, no text, no labels, no watermark. \
-         Use a 1:1 square composition.",
+         Use a 1:1 square composition.{extra}",
         name = asset.name.trim(),
         side = side_words(view),
     );

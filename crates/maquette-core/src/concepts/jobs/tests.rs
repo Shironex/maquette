@@ -822,6 +822,7 @@ fn other_views_draw_only_the_empty_slots_with_the_front_attached() {
         views: Vec::new(),
         count: 2,
         use_style: true,
+        notes: Some(" the sword\n in the left hand ".into()),
     };
     let (direction, jobs) = concepts
         .start_views(&lane, &asset, &refs, &request)
@@ -838,6 +839,7 @@ fn other_views_draw_only_the_empty_slots_with_the_front_attached() {
         .join("concepts/frost-lantern-views/frost-lantern-views_01.png");
     let prompt = fs::read_to_string(first.with_extension("png.prompt")).expect("prompt");
     assert!(prompt.contains("Draw the Frost lantern from behind it"));
+    assert!(prompt.contains("Extra instructions for this view: the sword in the left hand"));
     let args = fs::read_to_string(first.with_extension("png.args")).expect("args");
     assert!(
         args.contains("refs/frost_lantern.png"),
