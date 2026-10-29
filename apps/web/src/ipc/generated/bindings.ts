@@ -4043,6 +4043,13 @@ export type RestPose = {
 	feetY: number | null,
 	/**  The hips' distance from the Y axis, metres. */
 	hipsOffset: number | null,
+	/**
+	 *  The same offset in the character's own frame: metres to its left
+	 *  (negative to its right) and metres forward (negative behind);
+	 *  `None` when the facing is unknown.
+	 */
+	hipsSide: number | null,
+	hipsForward: number | null,
 	/**  From the soles to the top of the meshes, metres. */
 	height: number | null,
 	/**  Every node's scale is positive and uniform, float noise aside. */
@@ -4063,6 +4070,8 @@ export type RestPose = {
 	 *  metres; `None` without pairs.
 	 */
 	asymmetry: number | null,
+	/**  The left bone of that pair, such as `leftHand`. */
+	asymmetryBone: string | null,
 };
 
 /**  A bake waiting for review, on a copy of the newest version. */

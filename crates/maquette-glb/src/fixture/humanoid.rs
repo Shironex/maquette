@@ -1,7 +1,7 @@
 //! A box humanoid for the VRM readiness and writer tests: the 65 joint
 //! skeleton under any of four namings, with the arms dropped into an
-//! A-pose, the whole turned about Y, lifted off the ground, or with float
-//! noise in the armature's scale.
+//! A-pose, the whole turned about Y, lifted off the ground, moved off the
+//! Y axis, or with float noise in the armature's scale.
 
 use serde_json::json;
 
@@ -33,6 +33,9 @@ pub struct HumanoidSpec {
     pub yaw: f32,
     /// Metres the whole body sits above Y = 0.
     pub lift: f32,
+    /// Metres the whole body sits off the Y axis before the turn: along
+    /// its left (X) and its front (Z).
+    pub offset: [f32; 2],
     /// The armature's scale is off 1 by float noise.
     pub scale_noise: bool,
     /// The armature is scaled by this, evenly, when it is not 1.
@@ -47,6 +50,7 @@ impl Default for HumanoidSpec {
             arm_drop: 0.0,
             yaw: 0.0,
             lift: 0.0,
+            offset: [0.0, 0.0],
             scale_noise: false,
             armature_scale: 1.0,
             animation: true,
@@ -195,7 +199,9 @@ fn posed(spec: &HumanoidSpec) -> Vec<(String, Option<usize>, [f32; 3])> {
         }
     }
     for p in &mut world {
+        p[0] += spec.offset[0];
         p[1] += spec.lift;
+        p[2] += spec.offset[1];
     }
     joints
         .iter()

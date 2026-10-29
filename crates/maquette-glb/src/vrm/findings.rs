@@ -221,24 +221,52 @@ pub(super) fn pose_findings(pose: &RestPose) -> Vec<VrmFinding> {
         ));
     }
     if let Some(off) = pose.hips_offset.filter(|o| *o > CENTRE_SLACK) {
+        let mut detail = "VRM centres the model on the Y axis.".to_string();
+        if let (Some(side), Some(forward)) = (pose.hips_side, pose.hips_forward) {
+            let parts: Vec<String> = [
+                (forward, "forward", "back"),
+                (side, "to its left", "to its right"),
+            ]
+            .iter()
+            .filter(|(m, _, _)| m.abs() >= 0.005)
+            .map(|(m, plus, minus)| offset_cm(*m, plus, minus))
+            .collect();
+            if !parts.is_empty() {
+                detail.push_str(&format!(" Seen from the character: {}.", list(&parts)));
+            }
+        }
         out.push(finding(
             "centre",
             FindingLevel::Warning,
             format!("Hips sit {:.0} cm off the centre", off * 100.0),
-            Some("VRM centres the model on the Y axis.".to_string()),
+            Some(detail),
         ));
     }
     if let (Some(gap), Some(height)) = (pose.asymmetry, pose.height)
         && gap > SYMMETRY_SLACK * height
     {
+        let at = pose
+            .asymmetry_bone
+            .as_deref()
+            .map(|b| format!(" The widest gap is at {b} and its right twin."))
+            .unwrap_or_default();
         out.push(finding(
             "symmetry",
             FindingLevel::Warning,
             format!("Sides differ by up to {:.0} cm", gap * 100.0),
-            Some("VRM wants the rest pose mirrored across X. A mirrored joint sits that far from its pair.".to_string()),
+            Some(format!("VRM wants the rest pose mirrored across X. A mirrored joint sits that far from its pair, in the character's own frame.{at}")),
         ));
     }
     out
+}
+
+/// "26 cm forward", or "4 cm back" for a negative offset.
+fn offset_cm(metres: f32, plus: &str, minus: &str) -> String {
+    format!(
+        "{:.0} cm {}",
+        metres.abs() * 100.0,
+        if metres < 0.0 { minus } else { plus }
+    )
 }
 
 fn arm_findings(pose: &RestPose, out: &mut Vec<VrmFinding>) {

@@ -49,8 +49,9 @@ pub use crate::sends::inbox_dir;
 const KINDS_FILE: &str = "kinds.json";
 
 /// Bumped when the analysis gains a field, so cached reports from before
-/// it are read again (version 1 added the VRM readiness).
-const REPORT_VERSION: u32 = 1;
+/// it are read again (version 1 added the VRM readiness, version 2 its
+/// offsets in the character's own frame and the wider scale noise).
+const REPORT_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]

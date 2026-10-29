@@ -17,8 +17,9 @@ use crate::analyse::primitive_corners;
 use crate::math::{self, Aabb, IDENTITY, Mat4, Vec3};
 
 /// Scale components this close to 1 are float noise, which the writer
-/// snaps to 1.
-pub const SCALE_NOISE: f32 = 1e-5;
+/// snaps to 1. Exports carry noise up to about 2e-5; a real scale is
+/// far bigger.
+pub const SCALE_NOISE: f32 = 1e-4;
 
 /// Components of one node's scale may differ this much, relative to the
 /// largest, and still count as uniform.
@@ -77,6 +78,11 @@ pub struct RestPose {
     pub feet_y: Option<f32>,
     /// The hips' distance from the Y axis, metres.
     pub hips_offset: Option<f32>,
+    /// The same offset in the character's own frame: metres to its left
+    /// (negative to its right) and metres forward (negative behind);
+    /// `None` when the facing is unknown.
+    pub hips_side: Option<f32>,
+    pub hips_forward: Option<f32>,
     /// From the soles to the top of the meshes, metres.
     pub height: Option<f32>,
     /// Every node's scale is positive and uniform, float noise aside.
@@ -93,6 +99,8 @@ pub struct RestPose {
     /// The largest gap between a left bone and its mirrored right bone,
     /// metres; `None` without pairs.
     pub asymmetry: Option<f32>,
+    /// The left bone of that pair, such as `leftHand`.
+    pub asymmetry_bone: Option<String>,
 }
 
 fn sub(a: Vec3, b: Vec3) -> Vec3 {
@@ -268,8 +276,9 @@ fn mesh_bounds(doc: &gltf::Document, buffers: &[Option<Vec<u8>>], worlds: &[Mat4
 }
 
 /// The largest gap between left bones and their mirrored right bones, in
-/// the character's own frame (left, up, front from the hips).
-fn asymmetry(joints: &Joints, hips: Vec3, left: Vec3) -> Option<f32> {
+/// the character's own frame (left, up, front from the hips), with the
+/// left bone of that pair.
+fn asymmetry(joints: &Joints, hips: Vec3, left: Vec3) -> Option<(f32, String)> {
     let front = [-left[2], 0.0, left[0]];
     let frame = |p: Vec3| {
         let d = sub(p, hips);
@@ -282,9 +291,9 @@ fn asymmetry(joints: &Joints, hips: Vec3, left: Vec3) -> Option<f32> {
             let rest = bone.strip_prefix("left")?;
             let r = joints.get(&format!("right{rest}"))?;
             let (a, b) = (frame(*l), frame(r));
-            Some(math::distance([a[0], a[1], a[2]], [-b[0], b[1], b[2]]))
+            Some((math::distance(a, [-b[0], b[1], b[2]]), bone.clone()))
         })
-        .reduce(f32::max)
+        .reduce(|a, b| if b.0 > a.0 { b } else { a })
 }
 
 /// Measures the rest pose of the mapped bones.
@@ -310,7 +319,16 @@ pub(crate) fn measure(
         .map(|p| p[1])
         .reduce(f32::min);
     let hips = joints.get("hips");
+    // The hips against the Y axis, along the character's left and front.
+    let along = |axis: Option<Vec3>| match (hips, axis) {
+        (Some(h), Some(a)) => Some(dot([h[0], 0.0, h[2]], a)),
+        _ => None,
+    };
     let s = scales(doc);
+    let asymmetry = match (hips, left) {
+        (Some(h), Some(l)) => asymmetry(&joints, h, l),
+        _ => None,
+    };
     RestPose {
         facing: facing_deg.map(Axis::nearest),
         facing_deg,
@@ -320,15 +338,15 @@ pub(crate) fn measure(
         ground_y: (!bounds.is_empty()).then_some(bounds.min[1]),
         feet_y,
         hips_offset: hips.map(|h| (h[0] * h[0] + h[2] * h[2]).sqrt()),
+        hips_side: along(left),
+        hips_forward: along(front),
         height: (!bounds.is_empty()).then(|| bounds.size()[1]),
         uniform_scale: s.negative.is_empty() && s.uneven.is_empty(),
         negative_scale: s.negative,
         uneven_scale: s.uneven,
         scaled: s.scaled,
         scale_noise: s.noise,
-        asymmetry: match (hips, left) {
-            (Some(h), Some(l)) => asymmetry(&joints, h, l),
-            _ => None,
-        },
+        asymmetry: asymmetry.as_ref().map(|a| a.0),
+        asymmetry_bone: asymmetry.map(|a| a.1),
     }
 }
