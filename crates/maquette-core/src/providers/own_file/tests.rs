@@ -1,10 +1,8 @@
 use std::fs;
 use std::path::Path;
-use std::sync::Arc;
 
 use super::*;
 use crate::inbox::{self, fixture};
-use crate::pipeline::runner::NullSink;
 use crate::providers::http::Timing;
 use crate::providers::jobs::{JobState, Provider};
 use crate::providers::presets::PresetVariant;
@@ -27,6 +25,22 @@ fn own<'a>(world: &'a World, file: &'a Path) -> OwnFile<'a> {
 
 fn tools() -> Toolbox {
     Toolbox::default()
+}
+
+/// A script runner for files that need no Blender: a `.glb` is copied as it
+/// is, so a run here fails the test.
+struct NoBlender;
+
+impl ScriptRunner for NoBlender {
+    fn run_script(
+        &self,
+        _tools: &Toolbox,
+        _work: &Path,
+        (file, _): (&str, &str),
+        _extra: &[String],
+    ) -> CoreResult<()> {
+        panic!("a .glb needs no Blender, yet {file} ran");
+    }
 }
 
 #[test]
@@ -83,7 +97,7 @@ fn a_glb_lands_in_the_inbox_aimed_at_the_asset_and_stays_where_it_was() {
     let file = outside.path().join("lantern fixed.glb");
     let bytes = fixture::clean_prop();
     fs::write(&file, &bytes).expect("write");
-    let runner = PipelineRunner::new(Arc::new(NullSink));
+    let runner = NoBlender;
 
     let added = add(&jobs, &runner, &tools(), &own(&world, &file)).expect("added");
     assert_eq!(added.job, None, "no send waits for it");
@@ -117,7 +131,7 @@ fn a_waiting_by_hand_send_takes_the_file_as_its_model() {
     let outside = tempfile::tempdir().expect("tempdir");
     let file = outside.path().join("my fix.glb");
     fs::write(&file, fixture::clean_prop()).expect("write");
-    let runner = PipelineRunner::new(Arc::new(NullSink));
+    let runner = NoBlender;
 
     let added = add(&jobs, &runner, &tools(), &own(&world, &file)).expect("added");
     assert_eq!(added.job.as_deref(), Some(job.id.as_str()));
@@ -135,7 +149,7 @@ fn an_obj_becomes_a_glb_without_touching_the_original() {
     let file = outside.path().join("crate.obj");
     let obj = "o crate\nv 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n";
     fs::write(&file, obj).expect("write");
-    let runner = PipelineRunner::new(Arc::new(NullSink));
+    let runner = test_blender::runner();
 
     let added = add(
         &jobs,

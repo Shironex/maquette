@@ -10,9 +10,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use super::jobs::{ModelAttached, ProviderJobs};
-use crate::animations::blender::run_script;
+use crate::base::ports::ScriptRunner;
 use crate::error::{CoreError, CoreResult};
-use crate::pipeline::runner::PipelineRunner;
 use crate::pipeline::tools::Toolbox;
 use crate::project;
 use crate::workspace::WorkspaceConfig;
@@ -97,14 +96,14 @@ fn scratch(root: &Path, config: &WorkspaceConfig) -> CoreResult<PathBuf> {
 
 /// Turns `file` into a GLB in `work` with Blender and returns its path.
 fn to_glb(
-    runner: &PipelineRunner,
+    runner: &dyn ScriptRunner,
     tools: &Toolbox,
     work: &Path,
     file: &Path,
 ) -> CoreResult<PathBuf> {
     let out = work.join(OUT_FILE);
     let extra = [file.display().to_string(), out.display().to_string()];
-    run_script(runner, tools, work, (SCRIPT_FILE, SCRIPT), &extra)?;
+    runner.run_script(tools, work, (SCRIPT_FILE, SCRIPT), &extra)?;
     if !out.is_file() {
         return Err(CoreError::Invalid(format!(
             "Blender could not turn {} into a GLB.",
@@ -133,7 +132,7 @@ pub struct OwnFile<'a> {
 /// file Blender cannot read.
 pub fn add(
     studio: &ProviderJobs,
-    runner: &PipelineRunner,
+    runner: &dyn ScriptRunner,
     tools: &Toolbox,
     own: &OwnFile<'_>,
 ) -> CoreResult<ModelAttached> {

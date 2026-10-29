@@ -85,6 +85,13 @@ pub(crate) fn toolbox(blender: &Path) -> crate::pipeline::tools::Toolbox {
     tools
 }
 
+/// A pipeline runner that reports to no one, for code that runs Blender
+/// through the runner or one of the Blender ports it implements.
+pub(crate) fn runner() -> crate::pipeline::runner::PipelineRunner {
+    use crate::pipeline::runner::{NullSink, PipelineRunner};
+    PipelineRunner::new(std::sync::Arc::new(NullSink))
+}
+
 /// One of the small Frostveil props of `parts/fixtures/parts_models.py`
 /// (`lantern`, `lantern-tripo`, `gate-door`, ...), written into `dir`.
 pub(crate) fn parts_model(blender: &Path, dir: &Path, which: &str) -> PathBuf {
