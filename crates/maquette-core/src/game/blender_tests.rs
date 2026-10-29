@@ -40,7 +40,7 @@ fn run_in(project_dir: &Path, program: &Path, args: &[&str]) -> String {
 
 /// Runs the build, export and game export steps the way the pipeline does,
 /// in the project folder.
-fn run_chain(project_dir: &Path, settings: &GameSettings) -> Option<String> {
+pub(super) fn run_chain(project_dir: &Path, settings: &GameSettings) -> Option<String> {
     let blender = blender()?;
     let node = find_on_path(&["node"], &ProbeEnv::from_system())?;
     let tools = project_dir.join("tools");

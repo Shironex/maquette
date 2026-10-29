@@ -13,7 +13,9 @@ for a target without one). The folder is emptied first.
 
 - .glb: binary glTF with the textures inside as PNG or JPG (--textures png,
   jpg, or keep for each image's own), never KTX2, never meshopt or Draco.
-  The rig and every animation clip export with the model.
+  The rig and its animation clips export with the model: each armature
+  carries only its own actions (its active one and its NLA tracks), so a
+  rig never carries the clips of another model in the same file.
 - .obj: Wavefront .obj with its .mtl, Y up, and each texture saved next to
   them as a .png or .jpg file the .mtl names without a folder.
 - Each model's textures scale down to the "textureCap" the index gives it,
@@ -267,7 +269,7 @@ def select(objects):
 
 def export_glb(path, objects, textures):
     select(objects)
-    bpy.ops.export_scene.gltf(
+    options = dict(
         filepath=path,
         export_format="GLB",
         use_selection=True,
@@ -281,6 +283,12 @@ def export_glb(path, objects, textures):
         export_image_format="JPEG" if textures == "jpg" else "AUTO",
         export_draco_mesh_compression_enable=False,
     )
+    try:
+        # Off, a lone armature does not take every action in the file: it
+        # carries its own (its active action and NLA tracks) and no other's.
+        bpy.ops.export_scene.gltf(**options, export_anim_single_armature=False)
+    except TypeError:  # an exporter without the option
+        bpy.ops.export_scene.gltf(**options)
 
 
 def export_obj(path, objects):

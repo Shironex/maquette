@@ -290,4 +290,6 @@ pub fn settings_of(manifest: &ProjectManifest) -> CoreResult<&GameSettings> {
 #[cfg(test)]
 mod blender_tests;
 #[cfg(test)]
+mod rig_export_tests;
+#[cfg(test)]
 mod tests;
