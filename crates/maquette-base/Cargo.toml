@@ -1,6 +1,6 @@
 [package]
 name = "maquette-base"
-description = "Maquette's bottom layer: the error type, file and JSON helpers, and toolchain detection"
+description = "Maquette's bottom layer: the error type, file and JSON helpers, toolchain detection, the run log and the Toolbox"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
