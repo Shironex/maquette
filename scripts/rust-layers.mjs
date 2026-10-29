@@ -9,6 +9,11 @@
  * root re-export (`crate::CoreError`) counts as the module `lib.rs` takes it
  * from.
  *
+ * A module that moved into its own crate stays in the map under its old path
+ * (`site::preview`, kept by a `pub use` of the crate): core's uses of that
+ * path still count against its layer. The crate's own files are outside
+ * this check; scripts/crate-layers.mjs keeps the crates pointing down.
+ *
  * Every `crate::` path in a core source file is a use: `use crate::x`,
  * `use crate::{x, y::z}` and inline `crate::x::f()`. A use of a layer the
  * file's layer may not reach is an upward use. `pnpm lint:meta` ratchets

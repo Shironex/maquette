@@ -57,7 +57,6 @@
   "crates/maquette-core/src/motion/tests.rs -> pipeline": 2,
   "crates/maquette-core/src/motion/tests.rs -> project": 2,
   "crates/maquette-core/src/motion/tests.rs -> test_blender": 2,
-  "crates/maquette-core/src/page.rs -> site": 2,
   "crates/maquette-core/src/parts.rs -> assets": 2,
   "crates/maquette-core/src/parts.rs -> game": 1,
   "crates/maquette-core/src/parts.rs -> prepare": 3,
@@ -105,7 +104,6 @@
   "crates/maquette-core/src/refs/tests.rs -> concepts": 4,
   "crates/maquette-core/src/refs/tests.rs -> inbox::images": 1,
   "crates/maquette-core/src/refs/tests.rs -> providers": 3,
-  "crates/maquette-core/src/site/preview/server.rs -> project": 1,
   "crates/maquette-core/src/timeline.rs -> motion": 1,
   "crates/maquette-core/src/timeline/tests.rs -> inbox::fixture": 1,
   "crates/maquette-core/src/workspace/sync.rs -> inbox": 1
