@@ -87,3 +87,28 @@ pub fn month_to_date(images: &[ImageSpend], now_ms: f64) -> f64 {
         .map(|s| s.usd.max(0.0))
         .sum()
 }
+
+/// How many of the newest measured images [`recent_average_usd`] averages.
+pub const AVERAGE_OF: usize = 20;
+/// The fewest measured images that make an average worth trusting.
+pub const AVERAGE_FROM: usize = 3;
+
+/// What one image at `quality` has cost lately: the mean of the newest
+/// [`AVERAGE_OF`] lines at that quality whose dollars came from the tokens
+/// the API reported. `None` with fewer than [`AVERAGE_FROM`] of them, when
+/// the price list's guess is all there is. `images` is newest first, as
+/// [`super::read`] returns them.
+pub fn recent_average_usd(images: &[ImageSpend], quality: ImageQuality) -> Option<f64> {
+    let recent: Vec<f64> = images
+        .iter()
+        .filter(|s| s.quality == quality && !s.estimated && s.usd > 0.0)
+        .take(AVERAGE_OF)
+        .map(|s| s.usd)
+        .collect();
+    if recent.len() < AVERAGE_FROM {
+        return None;
+    }
+    #[expect(clippy::cast_precision_loss, reason = "at most 20 lines")]
+    let n = recent.len() as f64;
+    Some(recent.iter().sum::<f64>() / n)
+}
