@@ -1,4 +1,4 @@
-//! Tools for the inbox: its checks, accepting a model and thumbnails.
+//! Tools for the inbox: its checks, accepting or discarding a model and thumbnails.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -200,6 +200,22 @@ impl McpTools {
     )]
     async fn accept_inbox_model(&self, Parameters(args): Parameters<AcceptArgs>) -> Out {
         let found = self.blocking(move |host, _| accept_item(host, args)).await;
+        respond(found)
+    }
+
+    #[tool(
+        description = "Discard an inbox model, such as the losing version of a redo or a bad download. The file is not deleted: it moves into inbox/.discarded/ in the workspace (a name already there gets a number) and can be moved back by hand. Its cached checks, picked kind and aim are forgotten. A send that was waiting on this model in the Inbox ends as cancelled with the note Discarded from the Inbox (closedSend is its id, or null); the credits ledger and the asset's earlier versions are not touched. Spends nothing and needs no approval."
+    )]
+    async fn discard_inbox_model(&self, Parameters(args): Parameters<InboxItemArgs>) -> Out {
+        let found = self
+            .blocking(move |host, _| {
+                let (root, config) = workspace(host)?;
+                let (done, closed) =
+                    crate::commands::inbox::discard_model(host.studio(), &root, &config, &args.id)
+                        .map_err(reason)?;
+                Ok(json!({ "id": done.id, "file": done.file, "closedSend": closed }))
+            })
+            .await;
         respond(found)
     }
 

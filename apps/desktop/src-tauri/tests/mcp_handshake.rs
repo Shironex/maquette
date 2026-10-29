@@ -362,6 +362,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "clean_ref_background",
             "compare_versions",
             "copy_asset",
+            "discard_inbox_model",
             "dismiss_download",
             "get_bake_settings",
             "get_codex_usage",
