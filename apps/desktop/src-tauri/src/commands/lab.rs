@@ -28,16 +28,30 @@ use crate::session::Session;
 /// The service the app shares between commands.
 pub struct Lab(pub Concepts);
 
+/// The file in the app's config folder that keeps the Lab's jobs across
+/// restarts.
+pub const KEPT_JOBS: &str = "lab-jobs.json";
+
 impl Lab {
-    pub fn new(handle: AppHandle) -> Self {
-        Self(Concepts::new(codex_home(), 4, move |event| {
+    /// Brings back the jobs kept in `config_dir` (failed, ready for Retry)
+    /// and keeps them there from now on.
+    pub fn new(handle: AppHandle, config_dir: &Path) -> Self {
+        let concepts = Concepts::new(codex_home(), 4, move |event| {
             if super::codex_usage::settles(&event) {
                 super::codex_usage::read_soon(&handle);
             }
             if let Err(err) = ConceptUpdate(event).emit(&handle) {
                 tracing::warn!(error = %err, "could not emit a concept event");
             }
-        }))
+        });
+        let restored = concepts.keep_jobs_in(config_dir.join(KEPT_JOBS));
+        if !restored.is_empty() {
+            tracing::info!(
+                jobs = restored.len(),
+                "brought back the Lab jobs of the last session"
+            );
+        }
+        Self(concepts)
     }
 }
 
