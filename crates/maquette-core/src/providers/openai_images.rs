@@ -211,8 +211,43 @@ pub struct OpenAiKeyTest {
     pub message: String,
 }
 
+/// Why OpenAI refused to make the image, when the error is a safety
+/// refusal: a 400 its safety system raised (`moderation_blocked`, or a
+/// message about the safety system or `safety_violations`).
+pub fn refusal(error: &ApiError) -> Option<String> {
+    let ApiError::Status {
+        status: 400,
+        message,
+    } = error
+    else {
+        return None;
+    };
+    let lower = message.to_ascii_lowercase();
+    [
+        "moderation_blocked",
+        "safety system",
+        "safety_violations",
+        "content policy",
+    ]
+    .iter()
+    .any(|k| lower.contains(k))
+    .then(|| {
+        let reason = message.trim();
+        if reason.is_empty() {
+            "its safety system blocked the request".to_string()
+        } else {
+            reason.to_string()
+        }
+    })
+}
+
 /// A sentence for an error, with a pointer to the right Settings section.
 pub fn error_message(error: &ApiError) -> String {
+    if let Some(reason) = refusal(error) {
+        return format!(
+            "{SERVICE} refused this image on safety grounds: {reason} Nothing was charged. Reword the prompt (or the object's notes) and start it again; Retry sends the same prompt, which is likely refused again."
+        );
+    }
     match error {
         ApiError::Auth => format!(
             "{SERVICE} did not accept the API key. Check it in Settings > Image generation."

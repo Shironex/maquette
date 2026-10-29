@@ -391,6 +391,19 @@ fn read_json(response: Response) -> ApiResult<Value> {
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
+    // OpenAI names the kind of error under `error.code`, for example
+    // `moderation_blocked` for a safety refusal.
+    let message = match body
+        .as_ref()
+        .and_then(|b| b.get("error"))
+        .and_then(|e| e.get("code"))
+        .and_then(Value::as_str)
+    {
+        Some(kind) if !kind.is_empty() && !message.contains(kind) => {
+            format!("{message} [{kind}]").trim_start().to_string()
+        }
+        _ => message,
+    };
     let code = body
         .as_ref()
         .and_then(|b| b.get("code"))
