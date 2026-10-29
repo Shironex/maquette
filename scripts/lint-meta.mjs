@@ -8,6 +8,8 @@
  * - no ESLint rule resolves to `warn`, including what a spread preset sets;
  * - no inline `eslint-disable` or `@ts-ignore`: exceptions go in a scoped
  *   override in eslint.config.mjs, with the reason next to it;
+ * - a maquette-core module only uses its own layer and the layers below it
+ *   (scripts/lint-meta/rust-layers.json, read by scripts/rust-layers.mjs);
  * - the agent skills only name tools the MCP server lists (scripts/check-skills.mjs).
  *
  *   pnpm lint:meta             check, exit 1 on any violation
@@ -32,6 +34,7 @@ import { isGrandfathered, loadBaseline, serializeBaseline } from '@noctcore/harn
 import { createFileSizeRatchetRule } from '@noctcore/lint-meta-rules';
 import { createEslintConfigNoWarnRule } from '@noctcore/lint-meta-rules/resolved-config';
 import { checkSkills } from './check-skills.mjs';
+import { LAYER_MAP, upwardUses } from './rust-layers.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const BASELINE_DIR = 'scripts/lint-meta/baselines';
@@ -70,12 +73,9 @@ function rustCodeLines(source) {
     }).length;
 }
 
-/**
- * A ratchet over a per-file metric: files over `limit` fail unless the
- * baseline freezes them at a value they have not grown past.
- */
-function ratchetRule({ id, description, files, measure, limit, message }) {
-  const offenders = () => {
+/** The files whose metric is over `limit`, with the metric. */
+function overLimit(files, measure, limit) {
+  return () => {
     const map = {};
     for (const file of files()) {
       const n = measure(ctx.read(file) ?? '');
@@ -83,6 +83,14 @@ function ratchetRule({ id, description, files, measure, limit, message }) {
     }
     return map;
   };
+}
+
+/**
+ * A ratchet over offenders keyed by file (or by file and what it uses): an
+ * offender fails unless the baseline freezes it at a value it has not grown
+ * past.
+ */
+function ratchetRule({ id, description, offenders, message }) {
   return {
     id,
     category: 'source-text',
@@ -154,9 +162,7 @@ const rules = [
   ratchetRule({
     id: 'rust-module-size',
     description: `Rust modules stay at or under ${CAP} code lines (comments and blank lines excluded).`,
-    files: rustFiles,
-    measure: rustCodeLines,
-    limit: CAP,
+    offenders: overLimit(rustFiles, rustCodeLines, CAP),
     message: n =>
       `${n} code lines exceeds the ${CAP} line cap. The module has more than one job: split it into submodules at its natural seams.`,
   }),
@@ -164,11 +170,16 @@ const rules = [
     id: 'no-inline-suppression',
     description:
       'No inline eslint-disable or @ts-ignore; exceptions are scoped overrides with a reason.',
-    files: sourceFiles,
-    measure: text => (text.match(INLINE_SUPPRESSION) ?? []).length,
-    limit: 0,
+    offenders: overLimit(sourceFiles, text => (text.match(INLINE_SUPPRESSION) ?? []).length, 0),
     message: n =>
       `${n} inline suppression(s). Fix the code, or add a scoped override with a one line reason to eslint.config.mjs.`,
+  }),
+  ratchetRule({
+    id: 'rust-layers',
+    description: 'A maquette-core module only uses its own layer and the layers below it.',
+    offenders: () => upwardUses(ctx),
+    message: n =>
+      `${n} use(s) of a module above this file's layer (${LAYER_MAP}). Move the shared code down a layer, or reach it through a lower module.`,
   }),
   createEslintConfigNoWarnRule({ packages: ['.'], probes: probeFiles() }),
   {
