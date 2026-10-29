@@ -173,7 +173,7 @@ export function labRefs(): RefImage[] {
 }
 
 /** Which wait the running scenario adds to its queue. */
-export type LabLimit = 'rate' | 'usage';
+export type LabLimit = 'rate' | 'usage' | 'approval';
 
 /**
  * The running scenario's queue: four arena images done, two generating.
@@ -195,6 +195,34 @@ export function runningJobs(project: string, now: number, limit?: LabLimit): Con
     finishedAtMs: now - 86_000,
     logTail: ['ERROR: exceeded retry limit, last status: 429 Too Many Requests'],
   });
+  if (limit === 'approval') {
+    // An agent's OpenAI Images round waiting for a person, and an image
+    // OpenAI refused on safety grounds.
+    const held = (index: number): ConceptJob => ({
+      ...at(index),
+      runId: null,
+      state: 'approval',
+      startedAtMs: null,
+      finishedAtMs: null,
+      logTail: [],
+      backend: 'openai-images',
+    });
+    return [
+      ...jobs,
+      held(7),
+      held(8),
+      {
+        ...at(9),
+        runId: null,
+        state: 'failed',
+        logTail: [],
+        backend: 'openai-images',
+        refused: true,
+        message:
+          "OpenAI refused this image on safety grounds: Your request was rejected by the safety system. safety_violations=[violence]. [moderation_blocked] Nothing was charged. Reword the prompt (or the object's notes) and start it again; Retry sends the same prompt, which is likely refused again.",
+      },
+    ];
+  }
   if (limit === 'usage') {
     const until = now + 37 * 60_000;
     const waiting = (index: number, ran: boolean): ConceptJob => ({

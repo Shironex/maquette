@@ -19,8 +19,11 @@ export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
   const path = inProject(projectDir, job.file);
   const thumb = job.state === 'done' ? fileUrl(path) : null;
   const limited = job.state === 'rate-limited';
-  const live = job.state === 'running' || job.state === 'queued' || limited;
+  const approval = job.state === 'approval';
+  const live = job.state === 'running' || job.state === 'queued' || limited || approval;
   const failed = job.state === 'failed' || job.state === 'cancelled';
+  // A rate limited, held or refused row says it in its own line, which needs the room.
+  const chip = !(job.state === 'running' || limited || approval || job.refused);
   const label = tileLabel(job);
   const elapsed =
     job.state === 'running' && job.startedAtMs !== null
@@ -60,9 +63,19 @@ export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
           <span
             className={cn(
               'text-[11.5px] tabular-nums',
-              failed ? 'line-clamp-2 text-danger' : limited ? 'text-amber' : 'text-fg-mute'
+              failed
+                ? 'line-clamp-2 text-danger'
+                : limited || approval
+                  ? 'line-clamp-2 text-amber'
+                  : 'text-fg-mute'
             )}
-            title={failed ? job.logTail.slice(-6).join('\n') || undefined : undefined}
+            title={
+              job.refused
+                ? (job.message ?? undefined)
+                : failed
+                  ? job.logTail.slice(-6).join('\n') || undefined
+                  : undefined
+            }
           >
             {jobMeta(job, now)}
           </span>
@@ -87,8 +100,7 @@ export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
           className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
         />
       ) : null}
-      {/* A rate limited row says it in its own line, which needs the room. */}
-      {job.state === 'running' || limited ? null : (
+      {!chip ? null : (
         <StatusChip
           status={jobStatus(job)}
           label={

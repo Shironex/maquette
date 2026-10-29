@@ -115,7 +115,11 @@ export function formatElapsed(ms: number): string {
 }
 
 const isLive = (state: ConceptJobState) =>
-  state === 'queued' || state === 'running' || state === 'rate-limited';
+  state === 'approval' || state === 'queued' || state === 'running' || state === 'rate-limited';
+
+/** True while a job waits in line: for approval, a slot or a rate or usage limit. */
+export const isWaiting = (job: Pick<ConceptJob, 'state'>): boolean =>
+  job.state === 'approval' || job.state === 'queued' || job.state === 'rate-limited';
 
 /** True for a job Retry runs again: failed, cancelled, or waiting out a rate limit. */
 export const canRetry = (job: Pick<ConceptJob, 'state'>): boolean =>
@@ -149,11 +153,25 @@ export function jobStatus(job: ConceptJob): Status {
   }
 }
 
+/**
+ * "Refused for safety (violence). Reword the prompt." for an image OpenAI
+ * refused, naming the violations when its message lists them.
+ */
+export function refusalLine(message: string | null): string {
+  const listed = /safety_violations=\[([^\]]*)\]/.exec(message ?? '')?.[1]?.trim();
+  return listed
+    ? `Refused for safety (${listed.replace(/,\s*/g, ', ')}). Reword the prompt.`
+    : 'Refused for safety. Reword the prompt.';
+}
+
 /** The second line of a queue row. */
 export function jobMeta(job: ConceptJob, now: number): string {
+  if (job.state === 'failed' && job.refused) return refusalLine(job.message);
   const took = (end: number | null) =>
     job.startedAtMs !== null ? formatElapsed((end ?? now) - job.startedAtMs) : null;
   switch (job.state) {
+    case 'approval':
+      return "Needs your approval: an agent's OpenAI Images round";
     case 'queued':
       return 'Waiting for a free slot';
     case 'running':
@@ -164,7 +182,7 @@ export function jobMeta(job: ConceptJob, now: number): string {
       return time ? `${size} · ${time}` : size;
     }
     case 'cancelled':
-      return 'Cancelled';
+      return job.message && job.message !== 'Cancelled.' ? job.message : 'Cancelled';
     case 'rate-limited':
       return rateLimitedLine(job);
     default:
@@ -221,7 +239,7 @@ export function queueSummary(jobs: readonly ConceptJob[]): QueueSummary {
     done: jobs.filter(j => j.state === 'done').length,
     total: jobs.length,
     running: jobs.filter(j => j.state === 'running').length,
-    queued: jobs.filter(j => j.state === 'queued' || j.state === 'rate-limited').length,
+    queued: jobs.filter(isWaiting).length,
     failed: jobs.filter(j => j.state === 'failed').length,
   };
 }

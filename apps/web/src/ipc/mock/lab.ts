@@ -59,7 +59,8 @@ export interface FakeLabOptions {
   /**
    * `running`: the arena direction has two images generating that never
    * finish; `limited` adds a rate limited job, `usage` three waiting for the
-   * Codex usage limit; `refs` tags the guardian statues' refs (see
+   * Codex usage limit, `approval` two waiting for an agent's OpenAI Images
+   * round to be approved and one OpenAI refused; `refs` tags the guardian statues' refs (see
    * create-refs-handlers.ts).
    */
   state?: string | null;
@@ -75,7 +76,13 @@ export interface FakeLabOptions {
 export function createFakeLab(options: FakeLabOptions) {
   const { fail } = options;
   const limit: LabLimit | undefined =
-    options.state === 'limited' ? 'rate' : options.state === 'usage' ? 'usage' : undefined;
+    options.state === 'limited'
+      ? 'rate'
+      : options.state === 'usage'
+        ? 'usage'
+        : options.state === 'approval'
+          ? 'approval'
+          : undefined;
   const running = options.state === 'running' || limit !== undefined;
   const batch = options.handoff === 'batch';
   const seeded = [...(batch ? veilGateDirections() : []), ...labDirections(running)];

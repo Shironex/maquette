@@ -58,4 +58,17 @@ describe('a queue row', () => {
     expect(screen.getByText(/Rate limited by Codex, 4 times in a row/)).toHaveClass('text-danger');
     expect(screen.getByRole('button', { name: 'Retry Concept 08' })).toBeInTheDocument();
   });
+
+  it('waits for approval with Cancel, and marks an image OpenAI refused', () => {
+    const [, , , , , , held, , refused] = runningJobs('frostveil', 0, 'approval');
+    render(<QueueRow job={held!} projectDir="/w" now={0} />);
+    expect(screen.getByText(/^Needs your approval/)).toHaveClass('text-amber');
+    expect(screen.getByRole('button', { name: 'Cancel Concept 07' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Retry/ })).toBeNull();
+    cleanup();
+    render(<QueueRow job={refused!} projectDir="/w" now={0} />);
+    const line = screen.getByText('Refused for safety (violence). Reword the prompt.');
+    expect(line).toHaveClass('text-danger');
+    expect(line).toHaveAttribute('title', refused!.message);
+  });
 });

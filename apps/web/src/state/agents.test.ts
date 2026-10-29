@@ -85,6 +85,24 @@ describe('agents', () => {
     );
   });
 
+  it("asks to make an agent's OpenAI Images round", () => {
+    const round: Approval = {
+      ...send,
+      id: 'approval-4',
+      kind: 'image-round',
+      job: null,
+      assetName: 'Harbour',
+      service: 'OpenAI Images',
+      conceptJobs: ['harbour-01-x', 'harbour-02-x'],
+      estimateUsd: 0.13,
+    };
+    expect(approvalTitle(round)).toBe('Make 2 images for Harbour with OpenAI Images?');
+    expect(approvalTitle({ ...round, assetName: null, conceptJobs: ['harbour-01-x'] })).toBe(
+      'Make 1 image with OpenAI Images?'
+    );
+    expect(approvalsLabel([round])).toBe('1 image round waits for approval');
+  });
+
   it('counts approvals by kind', () => {
     expect(approvalsLabel([approval])).toBe('1 run waits for approval');
     expect(approvalsLabel([send, { ...send, id: 'approval-3' }])).toBe('2 sends wait for approval');

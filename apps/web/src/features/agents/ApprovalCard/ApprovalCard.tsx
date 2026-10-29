@@ -14,6 +14,8 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
   const { decide, deciding, site, now, cost, notes } = useApprovalCard(approval);
   const titleId = `${approval.id}-title`;
   const send = approval.kind === 'send-to-3d';
+  const round = approval.kind === 'image-round';
+  const detailLine = (send || round) && approval.detail ? approval.detail : null;
   const items = approval.items.map(item => (
     <li
       key={item.job}
@@ -40,13 +42,18 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
     >
       <div className="flex items-start gap-3">
         <span className="grid size-8 flex-none place-items-center rounded-[9px] bg-amber-soft text-amber">
-          <Icon name={send ? 'cube' : 'rocket-launch'} size={17} />
+          <Icon name={round ? 'image' : send ? 'cube' : 'rocket-launch'} size={17} />
         </span>
         <div className="min-w-0 flex-1">
           <h2 id={titleId} className="text-emphasis leading-5 font-semibold">
             {approvalTitle(approval, site?.name)}
           </h2>
-          {send ? (
+          {round ? (
+            <p className="mt-0.5 text-meta text-fg-mute">
+              An agent asked over MCP. This spends {cost}; nothing is sent to OpenAI until you
+              approve.
+            </p>
+          ) : send ? (
             <p className="mt-0.5 text-meta text-fg-mute">
               An agent asked over MCP. This spends {cost}; nothing is sent until you approve.
             </p>
@@ -75,9 +82,9 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
             </p>
           ) : null}
         </div>
-      ) : send && approval.detail ? (
+      ) : detailLine ? (
         <p className="ml-11 rounded-[7px] border border-line bg-raised px-2.5 py-1.5 text-meta text-fg-dim">
-          {approval.detail}
+          {detailLine}
         </p>
       ) : null}
       {notes.length > 0 ? (
@@ -89,7 +96,13 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
         <Button
           variant="secondary"
           disabled={deciding}
-          tooltip={send ? 'Sends nothing and spends no credits' : 'Ships nothing'}
+          tooltip={
+            round
+              ? 'Makes nothing and spends nothing; the jobs end cancelled'
+              : send
+                ? 'Sends nothing and spends no credits'
+                : 'Ships nothing'
+          }
           onClick={() => void decide(approval.id, false)}
         >
           Deny
@@ -100,17 +113,21 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
           loading={deciding}
           disabled={deciding}
           tooltip={
-            send
-              ? 'Sends it to the provider, which spends credits'
-              : 'Writes the files to the game repo'
+            round
+              ? 'Queues the images on OpenAI Images, which spends from the OpenAI key'
+              : send
+                ? 'Sends it to the provider, which spends credits'
+                : 'Writes the files to the game repo'
           }
           onClick={() => void decide(approval.id, true)}
         >
-          {send
-            ? approval.items.length > 1
-              ? `Approve and send ${approval.items.length}`
-              : 'Approve and send'
-            : 'Approve and ship'}
+          {round
+            ? `Approve and make ${approval.conceptJobs?.length ?? ''}`.trim()
+            : send
+              ? approval.items.length > 1
+                ? `Approve and send ${approval.items.length}`
+                : 'Approve and send'
+              : 'Approve and ship'}
         </Button>
       </div>
     </section>
