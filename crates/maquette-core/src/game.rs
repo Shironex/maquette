@@ -175,3 +175,20 @@ mod move_tests;
 mod rig_export_tests;
 #[cfg(test)]
 mod tests;
+
+/// Registers this module's IPC types (a game repo's checks, scan, import and ship plan) with the
+/// shell's TypeScript export; `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types
+        .register::<GameSettingsChange>()
+        .register::<GameRepoInspection>()
+        .register::<BudgetCheck>()
+        .register::<ScannedModel>()
+        .register::<GameScan>()
+        .register::<ImportResult>()
+        .register::<import::SkippedFile>()
+        .register::<ShipChange>()
+        .register::<ShipFile>()
+        .register::<ship::ShipCheck>()
+        .register::<ShipPlan>()
+}

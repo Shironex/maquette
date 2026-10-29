@@ -281,3 +281,9 @@ pub fn inspect(src: &Sources<'_>) -> InspectView {
 
 #[cfg(test)]
 mod tests;
+
+/// Registers this module's IPC types (the Inspect view) with the shell's TypeScript export;
+/// `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types.register::<InspectView>()
+}

@@ -362,3 +362,22 @@ fn external_files(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests;
+
+/// Registers this module's IPC types (the GLB report, its checks and the inbox) with the shell's
+/// TypeScript export; `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types
+        .register::<analyse::RigKind>()
+        .register::<analyse::TextureInfo>()
+        .register::<analyse::PbrMaps>()
+        .register::<analyse::JointCount>()
+        .register::<analyse::FingerWeights>()
+        .register::<analyse::Islands>()
+        .register::<analyse::GlbReport>()
+        .register::<checks::CheckStatus>()
+        .register::<checks::Check>()
+        .register::<InboxState>()
+        .register::<InboxItem>()
+        .register::<AcceptRequest>()
+        .register::<AcceptResult>()
+}

@@ -272,3 +272,22 @@ pub fn clean_tags(tags: &[String]) -> CoreResult<Vec<String>> {
 
 #[cfg(test)]
 mod tests;
+
+/// Registers this module's IPC types (library entries, their uses and updates) with the shell's
+/// TypeScript export; `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types
+        .register::<LibrarySource>()
+        .register::<VersionFrom>()
+        .register::<LibraryVersion>()
+        .register::<LibraryEntry>()
+        .register::<LibraryUse>()
+        .register::<LibraryItem>()
+        .register::<LibraryView>()
+        .register::<AddToLibrary>()
+        .register::<LibraryAdded>()
+        .register::<LibraryUsed>()
+        .register::<SettingChange>()
+        .register::<UpdatePlan>()
+        .register::<LibraryUpdated>()
+}

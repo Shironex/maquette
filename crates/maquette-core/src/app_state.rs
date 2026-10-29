@@ -120,6 +120,12 @@ pub fn save(dir: &Path, state: &AppState) -> CoreResult<()> {
     write_json(&dir.join(APP_STATE_FILE), state)
 }
 
+/// Registers this module's IPC types (the per machine app state) with the shell's TypeScript
+/// export; `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types.register::<AppState>().register::<DownloadsWatch>()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

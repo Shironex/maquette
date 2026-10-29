@@ -404,3 +404,9 @@ pub fn parts(project_dir: &Path, manifest: &ProjectManifest) -> BTreeMap<String,
 
 #[cfg(test)]
 mod tests;
+
+/// Registers this module's IPC types (the Motion view) with the shell's TypeScript export;
+/// `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types.register::<MotionView>()
+}

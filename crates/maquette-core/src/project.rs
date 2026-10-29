@@ -13,6 +13,7 @@ use crate::settings::game::{GameSettings, NewGame, ProjectTarget};
 use crate::workspace::{FolderLayout, WorkspaceConfig, is_single_segment};
 
 mod import;
+mod register;
 pub mod repos;
 mod slug;
 
@@ -23,6 +24,7 @@ pub use import::{
 pub(crate) use import::{has_ext, sorted_children};
 pub use maquette_base::clock::now_rfc3339;
 pub(crate) use maquette_base::clock::rfc3339_utc;
+pub use register::register;
 pub use repos::SiteRepoState;
 pub use slug::slugify;
 

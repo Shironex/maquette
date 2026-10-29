@@ -110,3 +110,32 @@ pub fn format_credits(credits: f64) -> String {
         format!("{grouped}{}", &format!("{frac:.2}")[1..])
     }
 }
+
+/// Registers this module's IPC types (provider sends, handoff cards, keys, batches, downloads and
+/// the ledger) with the shell's TypeScript export; `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types
+        .register::<Provider>()
+        .register::<JobState>()
+        .register::<JobPhase>()
+        .register::<CancelMode>()
+        .register::<ProviderJob>()
+        .register::<SendRequest>()
+        .register::<InboxLink>()
+        .register::<ProviderEvent>()
+        .register::<CardRow>()
+        .register::<HandoffCard>()
+        .register::<KeyStatus>()
+        .register::<KeyTest>()
+        .register::<BatchItem>()
+        .register::<BatchRequest>()
+        .register::<BatchFailure>()
+        .register::<BatchSent>()
+        .register::<DownloadMatch>()
+        .register::<Balance>()
+        .register::<Spend>()
+        .register::<SpendOutcome>()
+        .register::<Ledger>()
+        .register::<ServiceTotals>()
+        .register::<DownloadsScan>()
+}
