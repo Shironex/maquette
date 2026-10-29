@@ -1,6 +1,6 @@
 [package]
 name = "maquette-base"
-description = "Maquette's bottom layer: the error type, file and JSON helpers, toolchain detection, the run log and the Toolbox"
+description = "Maquette's bottom layer: the error type, file and JSON helpers, toolchain detection, file hashes, the run log and the Toolbox"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,8 +9,10 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+hex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 specta = { workspace = true }
 thiserror = { workspace = true }
 

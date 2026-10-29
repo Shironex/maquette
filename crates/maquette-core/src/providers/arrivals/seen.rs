@@ -39,7 +39,7 @@ fn path(dir: &Path) -> PathBuf {
 
 /// The SHA-256 of a file, as the pipeline cache hashes it.
 pub(super) fn hash_file(file: &Path) -> CoreResult<String> {
-    crate::pipeline::cache::hash_file(file).map_err(|e| CoreError::io(file, e))
+    maquette_base::hash::hash_file(file).map_err(|e| CoreError::io(file, e))
 }
 
 /// Every hash seen, from the file in `dir`. A missing or unreadable file

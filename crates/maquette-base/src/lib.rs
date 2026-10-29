@@ -1,13 +1,14 @@
 //! The bottom layer every other Maquette crate builds on: the error type
-//! every fallible function returns, file and JSON helpers, the clock files
-//! write timestamps with, the lookup of the external tools Maquette drives,
-//! the run log a pipeline run, a Lab job or a provider send writes, the
-//! programs a run spawns (the Toolbox) and a site's `maquette.site.json`. It
-//! uses no other Maquette crate.
+//! every fallible function returns, file and JSON helpers, file hashes, the
+//! clock files write timestamps with, the lookup of the external tools
+//! Maquette drives, the run log a pipeline run, a Lab job or a provider send
+//! writes, the programs a run spawns (the Toolbox) and a site's
+//! `maquette.site.json`. It uses no other Maquette crate.
 
 pub mod clock;
 pub mod error;
 pub mod fs;
+pub mod hash;
 pub mod history;
 pub mod json;
 pub mod site_config;

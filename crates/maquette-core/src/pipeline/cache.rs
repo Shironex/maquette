@@ -9,8 +9,8 @@
 //! `hashes.json` next to them, so a 300 MB blend is read once, not every run.
 
 use std::collections::BTreeMap;
-use std::fs::{self, File};
-use std::io::{self, Read};
+use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -21,6 +21,10 @@ use super::StepDef;
 use super::tools::ResolvedTool;
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
+
+// A file's hash is shared with the Downloads watcher, so it lives in the
+// base crate; this keeps the old path.
+pub use maquette_base::hash::hash_file;
 
 const KEY_VERSION: &str = "maquette step cache v1";
 const MEMO_FILE: &str = "hashes.json";
@@ -162,20 +166,6 @@ impl FileHasher {
         }
         self.dirty = false;
     }
-}
-
-pub fn hash_file(path: &Path) -> io::Result<String> {
-    let mut file = File::open(path)?;
-    let mut hasher = Sha256::new();
-    let mut buf = vec![0u8; 1 << 16];
-    loop {
-        let n = file.read(&mut buf)?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buf[..n]);
-    }
-    Ok(hex::encode(hasher.finalize()))
 }
 
 /// Everything that goes into one step's key.
