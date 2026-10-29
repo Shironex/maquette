@@ -260,36 +260,54 @@ impl McpTools {
         Self {
             host,
             hub,
-            tool_router: Self::runs_router()
-                + Self::projects_router()
-                + Self::motion_router()
-                + Self::inbox_router()
-                + Self::concepts_router()
-                + Self::concept_jobs_router()
-                + Self::codex_usage_router()
-                + Self::image_api_router()
-                + Self::style_router()
-                + Self::picks_router()
-                + Self::refs_router()
-                + Self::sending_router()
-                + Self::materials_router()
-                + Self::prepare_router()
-                + Self::parts_router()
-                + Self::splitting_router()
-                + Self::redo_router()
-                + Self::credits_router()
-                + Self::handoffs_router()
-                + Self::built_router()
-                + Self::bake_router()
-                + Self::starters_router()
-                + Self::page_router()
-                + Self::game_router()
-                + Self::ship_router()
-                + Self::library_router()
-                + Self::animations_router()
-                + Self::retarget_router()
-                + Self::trash_router(),
+            tool_router: Self::router(),
         }
+    }
+
+    /// Every tool, one `#[tool_router]` per file in `tools/`.
+    fn router() -> ToolRouter<Self> {
+        Self::runs_router()
+            + Self::projects_router()
+            + Self::motion_router()
+            + Self::inbox_router()
+            + Self::concepts_router()
+            + Self::concept_jobs_router()
+            + Self::codex_usage_router()
+            + Self::image_api_router()
+            + Self::style_router()
+            + Self::picks_router()
+            + Self::refs_router()
+            + Self::sending_router()
+            + Self::materials_router()
+            + Self::prepare_router()
+            + Self::parts_router()
+            + Self::splitting_router()
+            + Self::redo_router()
+            + Self::credits_router()
+            + Self::handoffs_router()
+            + Self::built_router()
+            + Self::bake_router()
+            + Self::starters_router()
+            + Self::page_router()
+            + Self::game_router()
+            + Self::ship_router()
+            + Self::library_router()
+            + Self::animations_router()
+            + Self::retarget_router()
+            + Self::trash_router()
+    }
+
+    /// The name of every tool the server lists, sorted. `tool_names.rs`
+    /// writes them to the snapshot the handshake test and the skills check
+    /// read.
+    pub fn tool_names() -> Vec<String> {
+        let mut names: Vec<String> = Self::router()
+            .list_all()
+            .into_iter()
+            .map(|tool| tool.name.to_string())
+            .collect();
+        names.sort();
+        names
     }
 
     /// Runs `job` on a blocking thread, since the services touch the disk
