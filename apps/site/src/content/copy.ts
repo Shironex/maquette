@@ -255,6 +255,18 @@ export const SHOTS = {
     tool: 'Settings',
     caption: '3D providers, key in the Keychain',
   },
+  caseRoom: {
+    ...screen('case-room', 1572, 756),
+    alt: 'The room at the first camera stop before (left) and after (right) the ship: desk, window, shelf and a seated mascot look the same.',
+    tool: 'Before and after',
+    caption: 'the first camera stop, before (left) and after (right)',
+  },
+  caseRadio: {
+    ...screen('case-radio', 1576, 440),
+    alt: 'The radio up close before (left) and after (right) the ship, with the same grille, dial and knobs.',
+    tool: 'Before and after',
+    caption: 'the radio up close: 130 KB before, 135 KB after',
+  },
   board: {
     ...screen('board'),
     alt: 'Maquette Board with a sample project open: nine assets across six columns, Concept to Ship.',
@@ -263,13 +275,30 @@ export const SHOTS = {
   },
 } satisfies Record<string, Shot>;
 
+/** The README's "Real projects" numbers: raw source models against what the page downloads. */
+export const PROOF = {
+  rows: [
+    {
+      scene: 'A listening corner for a website, 10 props',
+      source: '27.4 MB',
+      shipped: '0.89 MB',
+      ratio: 'about 31x',
+    },
+    { scene: 'An island scene', source: '45 MB', shipped: '6.3 MB', ratio: 'about 7x' },
+  ],
+  armchair: {
+    before: { size: '3.56 MB', triangles: '19k' },
+    after: { size: '121 KB', triangles: '4k' },
+  },
+} as const;
+
 /**
  * The published release the Download section links to. A new release is this
- * object: the date and the two byte sizes (the version comes from tauri.conf.json). The URLs follow
+ * object: the date and the two byte sizes (the version comes from package.json). The URLs follow
  * from them; `latest/download/<file>` would break, as the file name carries the version.
  */
 const REPO_URL = 'https://github.com/Shironex/maquette';
-/** Read from tauri.conf.json, which bump-version.mjs keeps in step with the app. */
+/** Read from tauri.conf.json, which bump-version.mjs keeps in step, so the links cannot lag the app. */
 const VERSION: string = tauri.version;
 const DOWNLOAD_BASE = `${REPO_URL}/releases/download/v${VERSION}`;
 
