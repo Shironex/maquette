@@ -165,6 +165,7 @@ impl ProviderJob {
                     parts.push(match t.rig_spec {
                         TripoRigSpec::Mixamo => "rig with Mixamo".to_string(),
                         TripoRigSpec::Tripo => "rig".to_string(),
+                        TripoRigSpec::Vrm => "rig with VRM names".to_string(),
                     });
                     match t.animations.len().min(5) {
                         0 => {}
