@@ -1,0 +1,128 @@
+---
+import Figure from './Figure.astro';
+import SectionHead from './SectionHead.astro';
+import { PROOF, SHOTS } from '../content/copy';
+
+const { rows, armchair } = PROOF;
+---
+
+<section id="proof" class="band" aria-labelledby="proof-title">
+  <div class="wrap inner">
+    <SectionHead eyebrow="Real projects" title="Smaller by 7x to 31x, same look." id="proof-title">
+      Numbers from scenes made with Maquette, raw source models against what the page downloads.
+    </SectionHead>
+    <div class="grid">
+      <div class="numbers">
+        <table>
+          <caption class="sr-only">Source models against shipped size</caption>
+          <thead>
+            <tr>
+              <th scope="col">Scene</th>
+              <th scope="col">Source models</th>
+              <th scope="col">Shipped</th>
+              <th scope="col">Smaller by</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              rows.map(row => (
+                <tr>
+                  <th scope="row">{row.scene}</th>
+                  <td>{row.source}</td>
+                  <td>{row.shipped}</td>
+                  <td class="ratio">{row.ratio}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+        <p class="armchair">
+          One prop from the listening corner: an armchair went from
+          <b>{armchair.before.size}</b> and <b>{armchair.before.triangles} triangles</b> to
+          <b>{armchair.after.size}</b> and <b>{armchair.after.triangles} triangles</b>.
+        </p>
+      </div>
+      <Figure shot={SHOTS.caseRoom} sizes="(max-width: 899px) 100vw, 60vw" />
+    </div>
+    <Figure shot={SHOTS.caseRadio} sizes="(max-width: 899px) 100vw, 1120px" />
+  </div>
+</section>
+
+<style>
+  .band {
+    padding-block: 128px;
+  }
+  .inner {
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 56px;
+    align-items: start;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    line-height: 21px;
+  }
+  th,
+  td {
+    padding: 12px 12px 12px 0;
+    text-align: left;
+    border-top: 1px solid var(--line);
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+  }
+  thead th {
+    border-top: 0;
+    color: var(--text-mute);
+    font-size: 12px;
+  }
+  tbody th {
+    color: var(--text);
+    font-weight: 500;
+  }
+  tbody tr:last-child > * {
+    border-bottom: 1px solid var(--line);
+  }
+  .ratio {
+    color: var(--text);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .armchair {
+    margin: 0;
+    padding-top: 16px;
+    font-size: 15px;
+    line-height: 23px;
+    color: var(--text-dim);
+  }
+  .armchair b {
+    color: var(--text);
+    font-weight: 500;
+  }
+  @media (max-width: 899px) {
+    .band {
+      padding-block: 48px;
+    }
+    .inner {
+      gap: 24px;
+    }
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 24px;
+    }
+  }
+</style>

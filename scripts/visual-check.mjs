@@ -845,7 +845,7 @@ async function listShots() {
   await board.keyboard.press('Escape');
   await board
     .getByRole('group', { name: 'Stage filter' })
-    .getByRole('button', { name: 'Tripo' })
+    .getByRole('button', { name: '3D model' })
     .click();
   await board.getByRole('searchbox', { name: 'Search assets' }).fill('cup');
   await board.mouse.move(0, 0);

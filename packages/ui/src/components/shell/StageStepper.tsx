@@ -10,7 +10,7 @@ export interface Stage {
   state?: StageState;
 }
 
-export const PIPELINE_STAGES = ['Concept', 'Refs', 'Tripo', 'Blender', 'Web', 'Ship'] as const;
+export const PIPELINE_STAGES = ['Concept', 'Refs', '3D model', 'Blender', 'Web', 'Ship'] as const;
 
 export interface StageStepperProps {
   stages?: readonly Stage[];
@@ -44,7 +44,7 @@ function Mark({ state }: { state: StageState }) {
 
 export function StageStepper({ stages, onSelect, className }: StageStepperProps) {
   const list: readonly Stage[] =
-    stages ?? PIPELINE_STAGES.map(l => ({ id: l.toLowerCase(), label: l }));
+    stages ?? PIPELINE_STAGES.map(l => ({ id: l.toLowerCase().replaceAll(' ', '-'), label: l }));
   const stageItems = list.map((st, i) => {
     const state = st.state ?? 'todo';
     const pill = cn(

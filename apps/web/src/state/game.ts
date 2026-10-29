@@ -35,7 +35,7 @@ export function gameOf(project: ProjectManifest | null | undefined): GameSetting
 const WEBSITE_STAGES: Record<Stage, string> = {
   concept: 'Concept',
   refs: 'Refs',
-  tripo: 'Tripo',
+  tripo: '3D model',
   blender: 'Blender',
   web: 'Web',
   ship: 'Ship',

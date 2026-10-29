@@ -204,7 +204,7 @@ Four skills teach Claude Code and Codex the Maquette workflows: concept rounds, 
 node plugins/maquette/install-codex.mjs
 ```
 
-The [agent skills page](https://shironex.github.io/maquette/docs/agents/skills/) has the token setup for both and what each skill does.
+The plugin and the Codex setup keep the token in an environment variable (`MAQUETTE_MCP_TOKEN`) instead of a config file, unlike the two literal lines above. The [agent skills page](https://shironex.github.io/maquette/docs/agents/skills/) has that token setup, an example prompt per skill and what each one asks you to approve.
 
 <details>
 <summary><strong>Every tool, in one list</strong></summary>

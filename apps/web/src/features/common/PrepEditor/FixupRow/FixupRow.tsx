@@ -132,23 +132,26 @@ const AXES = ['x', 'y', 'z'] as const;
 function RotateLines({ fixup, onChange, disabled }: Omit<FixupRowProps, 'index' | 'onRemove'>) {
   if (fixup.op !== 'rotate') return null;
   const fields = AXES.map(axis => (
-    <NumberField
-      key={axis}
-      prefix={`${axis.toUpperCase()} `}
-      aria-label={`Degrees about ${axis}`}
-      size="sm"
-      unit="°"
-      value={fixup[axis] ?? 0}
-      min={-360}
-      max={360}
-      format={v => String(Number(v.toFixed(2)))}
-      disabled={disabled}
-      onChange={deg => onChange({ ...fixup, [axis]: deg })}
-      fieldClassName="w-[78px]"
-    />
+    <div key={axis} className="flex min-w-0 flex-col gap-1">
+      <span aria-hidden="true" className="text-[11px] text-fg-mute uppercase">
+        {axis}
+      </span>
+      <NumberField
+        aria-label={`Degrees about ${axis}`}
+        size="sm"
+        unit="°"
+        value={fixup[axis] ?? 0}
+        min={-360}
+        max={360}
+        format={v => String(Number(v.toFixed(2)))}
+        disabled={disabled}
+        onChange={deg => onChange({ ...fixup, [axis]: deg })}
+        fieldClassName="w-full min-w-0"
+      />
+    </div>
   ));
   return (
-    <div className="flex basis-full flex-wrap items-center gap-2 pb-0.5 pl-5 text-meta text-fg-dim">
+    <div className="grid basis-full grid-cols-3 gap-2.5 pb-1 pl-5 text-meta text-fg-dim">
       {fields}
     </div>
   );
