@@ -65,6 +65,7 @@
     "site": "pipeline",
     "test_blender": "pipeline",
     "providers": "providers",
+    "providers::tests": "facade",
     "concepts": "lab",
     "refs::files": "lab",
     "refs::suggested": "lab",

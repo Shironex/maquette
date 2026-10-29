@@ -12,11 +12,5 @@
   "crates/maquette-core/src/concepts/sheet.rs -> pipeline": 7,
   "crates/maquette-core/src/library/add.rs -> providers": 1,
   "crates/maquette-core/src/library/files.rs -> concepts": 1,
-  "crates/maquette-core/src/library/source.rs -> providers": 2,
-  "crates/maquette-core/src/providers/arrivals/render/tests.rs -> test_blender": 1,
-  "crates/maquette-core/src/providers/arrivals/tests.rs -> inbox": 4,
-  "crates/maquette-core/src/providers/own_file/tests.rs -> inbox": 1,
-  "crates/maquette-core/src/providers/own_file/tests.rs -> test_blender": 1,
-  "crates/maquette-core/src/providers/tests.rs -> inbox": 1,
-  "crates/maquette-core/src/providers/tests/split.rs -> test_blender": 2
+  "crates/maquette-core/src/library/source.rs -> providers": 2
 }
