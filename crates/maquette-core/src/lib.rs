@@ -15,7 +15,6 @@ pub mod layout;
 pub mod library;
 pub mod materials;
 pub mod motion;
-pub mod page;
 pub mod parts;
 pub mod pipeline;
 pub mod prepare;
@@ -33,7 +32,9 @@ pub mod workspace;
 
 // The bottom layer lives in its own crate; these keep the old paths.
 pub(crate) use maquette_base::json;
+// The Page view's settings live with the preview server they start.
 pub use maquette_base::{error, fs, toolchain};
+pub use maquette_preview::page;
 
 pub use app_state::AppState;
 pub use assets::{

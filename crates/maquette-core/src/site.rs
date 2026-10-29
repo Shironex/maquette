@@ -20,7 +20,8 @@
 //! `public/models`, posters in `public/posters`, no data. The Ship starter
 //! (`tools/ship.mjs`) reads the same file, so the two stay in step.
 
-pub mod preview;
+// The preview server is its own crate; this keeps the old path.
+pub use maquette_preview as preview;
 
 use std::collections::BTreeMap;
 use std::fs;

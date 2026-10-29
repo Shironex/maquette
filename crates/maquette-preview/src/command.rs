@@ -16,8 +16,8 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use super::super::{CONFIG_FILE, SiteConfig};
-use crate::error::{CoreError, CoreResult};
+use maquette_base::error::{CoreError, CoreResult};
+use maquette_base::site_config::{CONFIG_FILE, SiteConfig};
 
 /// The scripts a dev server is looked for in, in order.
 pub const DEV_SCRIPTS: [&str; 3] = ["dev", "start", "serve"];

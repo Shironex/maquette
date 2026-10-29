@@ -3,10 +3,16 @@
 //! run in the site folder in its own process group (job object on Windows)
 //! and stopped when another site starts, its owner lets go or the app
 //! quits ([`server`]), with a frame proxy in front so the Page view can
-//! show it ([`frame`]). Nothing is built or deployed here.
+//! show it ([`frame`]). Nothing is built or deployed here. The Page view's
+//! settings for one project ([`page`]) live here too, since they pick the
+//! command the server runs.
+//!
+//! maquette-core re-exports this crate as `site::preview` and its `page`
+//! module as `page`.
 
 pub mod command;
 pub mod frame;
+pub mod page;
 pub mod server;
 
 use std::ffi::OsString;
@@ -18,8 +24,8 @@ pub use command::{CommandSource, DevCommand};
 pub use frame::FrameProxy;
 pub use server::{START_TIMEOUT, ServerOwner, ServerState, ServerStatus, SitePreview};
 
-use crate::error::{CoreError, CoreResult};
-use crate::toolchain::{ProbeEnv, find_on_path};
+use maquette_base::error::{CoreError, CoreResult};
+use maquette_base::toolchain::{ProbeEnv, find_on_path};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_millis(300);
 

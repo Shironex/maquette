@@ -2011,10 +2011,8 @@ dependencies = [
  "glob",
  "gltf",
  "hex",
- "http-body-util",
- "hyper",
- "hyper-util",
  "maquette-base",
+ "maquette-preview",
  "notify",
  "process-wrap",
  "reqwest",
@@ -2025,7 +2023,6 @@ dependencies = [
  "specta",
  "tempfile",
  "thiserror 2.0.21",
- "tokio",
  "tracing",
  "windows",
  "zip",
@@ -2063,6 +2060,25 @@ dependencies = [
  "tower-service",
  "tracing",
  "windows-native-keyring-store",
+]
+
+[[package]]
+name = "maquette-preview"
+version = "0.3.0"
+dependencies = [
+ "flate2",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "maquette-base",
+ "process-wrap",
+ "serde",
+ "serde_json",
+ "specta",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "windows",
 ]
 
 [[package]]

@@ -19,6 +19,7 @@ publish = false
 [workspace.dependencies]
 maquette-base = { path = "crates/maquette-base" }
 maquette-core = { path = "crates/maquette-core" }
+maquette-preview = { path = "crates/maquette-preview" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

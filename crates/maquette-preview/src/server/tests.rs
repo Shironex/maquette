@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use super::process::exit_message;
 use super::*;
-use crate::site::preview::free_port;
-use crate::toolchain::{ProbeEnv, find_on_path};
+use crate::free_port;
+use maquette_base::toolchain::{ProbeEnv, find_on_path};
 
 /// A tiny dev server in Node: prints its address the way Vite does, then
 /// answers on `$PORT`.

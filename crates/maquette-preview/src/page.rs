@@ -1,6 +1,6 @@
 //! The Page view's settings for one project, in `page.json` in the project
 //! folder: the dev command typed in Settings > Project (none uses the
-//! site's own, see [`crate::site::preview::command`]), an HTML page concept
+//! site's own, see [`crate::command`]), an HTML page concept
 //! the view can show instead of the site, which of the two it shows and the
 //! path on the site it opens.
 //!
@@ -15,11 +15,11 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{CoreError, CoreResult};
-use crate::json::{from_json_with_defaults, write_json};
-use crate::site::preview::command::{self, parse_line};
-use crate::site::preview::{DevCommand, ServerStatus};
-use crate::site::{self, CONFIG_FILE};
+use crate::command::{self, parse_line};
+use crate::{DevCommand, ServerStatus};
+use maquette_base::error::{CoreError, CoreResult};
+use maquette_base::json::{from_json_with_defaults, write_json};
+use maquette_base::site_config::{CONFIG_FILE, load_config};
 
 pub const PAGE_FILE: &str = "page.json";
 pub const PAGE_VERSION: u32 = 1;
@@ -87,7 +87,7 @@ pub fn load(project_dir: &Path, workspace_root: &Path) -> CoreResult<PageSetting
         });
     }
     settings.concept = settings.concept.map(|c| {
-        crate::fs::from_workspace(workspace_root, &c)
+        maquette_base::fs::from_workspace(workspace_root, &c)
             .display()
             .to_string()
     });
@@ -187,7 +187,7 @@ pub fn save(
         concept: next
             .concept
             .as_deref()
-            .map(|c| crate::fs::to_workspace(workspace_root, Path::new(c))),
+            .map(|c| maquette_base::fs::to_workspace(workspace_root, Path::new(c))),
         ..next.clone()
     };
     write_json(&project_dir.join(PAGE_FILE), &stored)?;
@@ -231,7 +231,7 @@ pub fn dev_command(site_repo: Option<&str>, settings: &PageSettings) -> CoreResu
             repo.display()
         )));
     }
-    let config = site::load_config(repo)?;
+    let config = load_config(repo)?;
     command::choose(repo, &config, settings.dev_command.as_deref())
 }
 
@@ -251,9 +251,10 @@ pub fn view(
         .filter(|f| f.is_file())
         .map(|f| f.to_string_lossy().into_owned());
     let mine = status.project.as_deref() == Some(project);
-    let busy_with = status.project.clone().filter(|p| {
-        !mine && status.state != crate::site::preview::ServerState::Idle && p != project
-    });
+    let busy_with = status
+        .project
+        .clone()
+        .filter(|p| !mine && status.state != crate::ServerState::Idle && p != project);
     PageView {
         project: project.to_string(),
         site_repo: site_repo.map(str::to_string),
