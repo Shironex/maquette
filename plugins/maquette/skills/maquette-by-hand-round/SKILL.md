@@ -49,6 +49,11 @@ For several assets use `send_batch_to_3d` `{ project, provider: "by-hand", servi
 asset, variant?, images?, overrides?, mesh?, rig? }], mesh?, rig?, overrides? }` (24 at most;
 per item values win over the batch).
 
+When the person asked for a Meshy API send (`provider: "meshy"`), always pass
+`overrides: { "shouldRemesh": true, "targetPolycount": <budget> }` (15000 to 20000 suits most
+props) and a short texture `prompt`. Without remesh Meshy returns its raw mesh, often over 500k
+triangles, and decimating that in Blender crumples hard surface props. A batch takes one approval.
+
 Read the answer:
 
 - `refWarnings`: small, cropped, busy background, one view only, a view that differs from the
@@ -149,6 +154,7 @@ asset again prefilled from its send. For By hand it writes a new handoff and spe
 Tripo or Meshy it costs credits and waits for approval. The earlier model stays in the inbox so
 the person can compare. Before redoing, say what you would change (a cleaner front ref, an
 added view, another `mesh` or `rig`, a lower face limit) so the redo is not the same send again.
+The inbox has no discard yet: the losing model stays there until the person removes the file.
 
 ## Stop conditions
 
