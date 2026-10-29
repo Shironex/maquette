@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { after, describe, test } from 'node:test';
 
-import { checkSkills, serverTools, toolMentions } from './check-skills.mjs';
+import { checkSkills, serverTools, toolMentions, undocumentedTools } from './check-skills.mjs';
 
 const REPO = resolve(import.meta.dirname, '..');
 const scratch = mkdtempSync(join(tmpdir(), 'maquette-skills-test-'));
@@ -51,6 +51,19 @@ describe('serverTools', () => {
     const tools = serverTools(REPO);
     assert.ok(tools.has('list_handoffs'));
     assert.ok(tools.size >= 90);
+  });
+});
+
+describe('undocumentedTools', () => {
+  test('passes on the real README and docs page', () => {
+    assert.deepEqual(undocumentedTools(REPO), []);
+  });
+
+  test('names each tool a page leaves out', () => {
+    const root = fixture({ 'TOOLS.md': 'Use `get_game`, `run_pipeline` and the rest.' });
+    const missing = undocumentedTools(root, ['TOOLS.md']).map(v => v.message.split('`')[1]);
+    assert.ok(missing.includes('send_to_3d'));
+    assert.ok(!missing.includes('get_game') && !missing.includes('run_pipeline'));
   });
 });
 

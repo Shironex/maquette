@@ -39,6 +39,26 @@ export function serverTools(root) {
   return new Set(names);
 }
 
+/** The pages that document every tool by name: the README and the docs site's MCP tools page. */
+export const TOOL_DOCS = ['README.md', 'apps/site/src/content/docs/docs/agents/mcp-tools.md'];
+
+/** One violation per tool a documenting page never names in backticks. */
+export function undocumentedTools(root, pages = TOOL_DOCS) {
+  const tools = serverTools(root);
+  const violations = [];
+  for (const page of pages) {
+    const named = new Set(backticked(read(root, page)));
+    for (const tool of tools)
+      if (!named.has(tool))
+        violations.push({
+          rule: 'tools-documented',
+          file: page,
+          message: `does not name \`${tool}\`, a tool of the MCP server (${TOOL_NAMES})`,
+        });
+  }
+  return violations;
+}
+
 /** Inline backticked tokens of a Markdown text, fenced blocks included. */
 export function backticked(text) {
   return [...text.matchAll(/`([^`\n]+)`/g)].map(m => m[1].trim());
