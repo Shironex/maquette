@@ -1,0 +1,36 @@
+[package]
+name = "maquette-preview"
+description = "Maquette's site preview: the site's dev server, the frame proxy the Page view shows it through, and the Page view's settings"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+maquette-base = { workspace = true }
+# Unpacks a compressed page before the frame proxy injects its script.
+flate2 = { workspace = true }
+# The frame proxy in front of the Page view's dev server, on its own small
+# runtime: the same hyper and tokio the desktop shell serves MCP with.
+http-body-util = { workspace = true }
+hyper = { workspace = true, features = ["client", "server", "http1"] }
+hyper-util = { workspace = true, features = ["tokio"] }
+process-wrap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "time"] }
+tracing = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+# Only for the CREATE_NO_WINDOW flag type process-wrap takes; the same
+# release process-wrap already pulls in.
+windows = { version = "0.62.2", default-features = false, features = ["Win32_System_Threading"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

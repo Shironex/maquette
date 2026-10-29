@@ -10,6 +10,8 @@
  *   override in eslint.config.mjs, with the reason next to it;
  * - a maquette-core module only uses its own layer and the layers below it
  *   (scripts/lint-meta/rust-layers.json, read by scripts/rust-layers.mjs);
+ * - a workspace crate only depends on the crates below it
+ *   (scripts/lint-meta/crate-layers.json, read by scripts/crate-layers.mjs);
  * - the agent skills only name tools the MCP server lists (scripts/check-skills.mjs).
  *
  *   pnpm lint:meta             check, exit 1 on any violation
@@ -34,6 +36,7 @@ import { isGrandfathered, loadBaseline, serializeBaseline } from '@noctcore/harn
 import { createFileSizeRatchetRule } from '@noctcore/lint-meta-rules';
 import { createEslintConfigNoWarnRule } from '@noctcore/lint-meta-rules/resolved-config';
 import { checkSkills } from './check-skills.mjs';
+import { CRATE_MAP, crateLayers } from './crate-layers.mjs';
 import { LAYER_MAP, upwardUses } from './rust-layers.mjs';
 
 const root = resolve(import.meta.dirname, '..');
@@ -181,6 +184,14 @@ const rules = [
     message: n =>
       `${n} use(s) of a module above this file's layer (${LAYER_MAP}). Move the shared code down a layer, or reach it through a lower module.`,
   }),
+  {
+    id: 'crate-layers',
+    category: 'source-text',
+    ciCritical: true,
+    description: 'A workspace crate only depends on the crates below it.',
+    run: () =>
+      crateLayers(ctx).map(v => ({ file: CRATE_MAP, rule: 'crate-layers', message: v.message })),
+  },
   createEslintConfigNoWarnRule({ packages: ['.'], probes: probeFiles() }),
   {
     id: 'skills-honest',

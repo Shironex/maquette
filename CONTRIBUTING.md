@@ -86,17 +86,17 @@ fix(core): keep the lock file out of the sync ignore list
 
 `commitlint.config.mjs` enforces it. The allowed scopes follow the folders:
 
-| Scope       | What it covers                                |
-| ----------- | --------------------------------------------- |
-| `desktop`   | `apps/desktop`, the Tauri shell               |
-| `web`       | `apps/web`, the React UI                      |
-| `site`      | `apps/site`, the landing page                 |
-| `ui`        | `packages/ui`, the UI kit                     |
-| `core`      | `crates/maquette-core`, the Rust domain logic |
-| `workspace` | workspace files and cross-cutting changes     |
-| `deps`      | dependency bumps                              |
-| `docs`      | documentation and `.github` community files   |
-| `scripts`   | `scripts/` and tooling                        |
+| Scope       | What it covers                              |
+| ----------- | ------------------------------------------- |
+| `desktop`   | `apps/desktop`, the Tauri shell             |
+| `web`       | `apps/web`, the React UI                    |
+| `site`      | `apps/site`, the landing page               |
+| `ui`        | `packages/ui`, the UI kit                   |
+| `core`      | `crates/maquette-*`, the Rust domain logic  |
+| `workspace` | workspace files and cross-cutting changes   |
+| `deps`      | dependency bumps                            |
+| `docs`      | documentation and `.github` community files |
+| `scripts`   | `scripts/` and tooling                      |
 
 Types are the usual ones: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`, `build`, `perf`.
 

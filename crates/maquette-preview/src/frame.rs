@@ -32,7 +32,7 @@ pub use headers::Upstream;
 use headers::{fix_request, fix_response, wants_upgrade};
 use inject::Injected;
 
-use crate::error::{CoreError, CoreResult};
+use maquette_base::error::{CoreError, CoreResult};
 
 type Body = Either<Incoming, Either<Full<Bytes>, Injected>>;
 

@@ -30,7 +30,7 @@ mod process;
 use process::{Proc, exit_message, read_output, spawn};
 
 use super::{FrameProxy, PreviewPlan, answers};
-use crate::error::{CoreError, CoreResult};
+use maquette_base::error::{CoreError, CoreResult};
 
 /// How long a server gets to answer after it starts.
 pub const START_TIMEOUT: Duration = Duration::from_secs(90);
@@ -223,7 +223,7 @@ impl SitePreview {
             site: Some(site),
             command: Some(plan.line.clone()),
             owner: Some(owner),
-            started_at: Some(crate::project::now_rfc3339()),
+            started_at: Some(maquette_base::clock::now_rfc3339()),
             ..ServerStatus::default()
         };
         drop(slot);

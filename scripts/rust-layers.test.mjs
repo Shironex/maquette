@@ -94,6 +94,17 @@ describe('upwardUses', () => {
     assert.deepEqual(uses, { 'src/project.rs -> pipeline': 1 });
   });
 
+  test('a module kept at its old path by a pub use of another crate keeps its layer', () => {
+    const uses = upwardUses(
+      ctx({
+        'src/lib.rs': 'pub use other_base::error;\npub mod project;',
+        'src/project.rs': 'use crate::error::CoreResult;',
+        'src/inbox/math.rs': 'use crate::error;\nuse crate::project;',
+      })
+    );
+    assert.deepEqual(uses, { 'src/inbox/math.rs -> project': 1 });
+  });
+
   test('a module or a used path missing from the map fails', () => {
     assert.throws(() => upwardUses(ctx({ 'src/thumbs.rs': '' })), /module thumbs is not in/);
     assert.throws(

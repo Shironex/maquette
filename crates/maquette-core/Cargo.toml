@@ -9,17 +9,14 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+maquette-base = { workspace = true }
+maquette-preview = { workspace = true }
 base64 = { workspace = true }
 chrono = { workspace = true }
 flate2 = { workspace = true }
 glob = { workspace = true }
 gltf = { workspace = true }
 hex = { workspace = true }
-# The frame proxy in front of the Page view's dev server, on its own small
-# runtime: the same hyper and tokio the desktop shell serves MCP with.
-http-body-util = { workspace = true }
-hyper = { workspace = true, features = ["client", "server", "http1"] }
-hyper-util = { workspace = true, features = ["tokio"] }
 notify = { workspace = true }
 process-wrap = { workspace = true }
 reqwest = { workspace = true }
@@ -29,7 +26,6 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 specta = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "time"] }
 tracing = { workspace = true }
 zip = { workspace = true }
 

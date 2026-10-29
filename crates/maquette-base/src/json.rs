@@ -10,7 +10,7 @@ use crate::error::{CoreError, CoreResult};
 use crate::fs::write_atomic;
 
 /// Pretty JSON with a trailing newline, written atomically.
-pub(crate) fn write_json<T: Serialize + ?Sized>(path: &Path, value: &T) -> CoreResult<()> {
+pub fn write_json<T: Serialize + ?Sized>(path: &Path, value: &T) -> CoreResult<()> {
     let mut text = serde_json::to_string_pretty(value).map_err(|e| CoreError::json(path, e))?;
     text.push('\n');
     write_atomic(path, text.as_bytes()).map_err(|e| CoreError::io(path, e))
@@ -21,7 +21,7 @@ pub(crate) fn write_json<T: Serialize + ?Sized>(path: &Path, value: &T) -> CoreR
 ///
 /// Done this way instead of `#[serde(default)]` so the exported TypeScript
 /// types keep every field required.
-pub(crate) fn from_json_with_defaults<T>(text: &str) -> Result<T, serde_json::Error>
+pub fn from_json_with_defaults<T>(text: &str) -> Result<T, serde_json::Error>
 where
     T: Serialize + DeserializeOwned + Default,
 {
@@ -49,7 +49,7 @@ fn merge(base: &mut Value, overlay: Value) {
 
 /// Tells a missing field (`None`) from an explicit null (`Some(None)`), for
 /// `#[serde(default, deserialize_with = "explicit")]` on patch fields.
-pub(crate) fn explicit<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
+pub fn explicit<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
 where
     D: serde::Deserializer<'de>,
     T: Deserialize<'de>,

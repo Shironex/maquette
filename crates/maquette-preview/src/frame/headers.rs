@@ -17,7 +17,7 @@ use hyper::header::{
     HeaderName, HeaderValue, LOCATION, ORIGIN, REFERER, UPGRADE, X_FRAME_OPTIONS,
 };
 
-use crate::error::{CoreError, CoreResult};
+use maquette_base::error::{CoreError, CoreResult};
 
 /// Hop by hop headers: they describe one connection, so a proxy never
 /// passes them on (`Connection` and `Upgrade` come back for an upgrade).

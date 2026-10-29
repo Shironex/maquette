@@ -106,12 +106,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
-      - run: pnpm lint:meta
       - run: pnpm format:check
       # rustup reads rust-toolchain.toml (channel and components), so the pin
       # lives in one place.
       - name: Install the pinned Rust toolchain
         run: rustup toolchain install
+      # After the toolchain: the crate direction check reads cargo metadata.
+      - run: pnpm lint:meta
       - run: cargo fmt --all --check
 
   typecheck:

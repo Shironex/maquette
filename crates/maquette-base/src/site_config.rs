@@ -1,6 +1,7 @@
 //! A site's `maquette.site.json`: where Ship writes the models, posters
 //! and scene data in the site, and how the site's own preview server
-//! starts. Writing it and the index of shipped models are [`crate::site`].
+//! starts. Writing it and the index of shipped models are maquette-core's
+//! `site` module.
 
 use std::fs;
 use std::io;

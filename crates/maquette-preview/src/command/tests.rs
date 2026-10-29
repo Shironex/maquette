@@ -1,5 +1,5 @@
-use super::super::super::PreviewConfig;
 use super::*;
+use maquette_base::site_config::PreviewConfig;
 
 fn site_with(package: Option<&str>, lock: Option<&str>) -> tempfile::TempDir {
     let dir = tempfile::tempdir().expect("site");

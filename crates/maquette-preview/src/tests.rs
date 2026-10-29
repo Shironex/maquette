@@ -1,6 +1,6 @@
-use super::super::SiteConfig;
 use super::*;
-use crate::toolchain::HostOs;
+use maquette_base::site_config::SiteConfig;
+use maquette_base::toolchain::HostOs;
 
 #[test]
 fn the_package_manager_comes_from_the_nearest_lockfile() {
@@ -111,7 +111,7 @@ fn the_plan_finds_the_program_and_picks_a_port() {
     assert_eq!(plan.key, "pnpm run dev:landing");
 
     let mut config = SiteConfig::legacy();
-    config.preview = Some(super::super::PreviewConfig {
+    config.preview = Some(maquette_base::site_config::PreviewConfig {
         command: vec!["pnpm".into(), "dev".into()],
         url: Some("http://localhost:15292/".into()),
     });
@@ -127,7 +127,7 @@ fn the_plan_refuses_paths_remote_addresses_and_missing_programs() {
     let site = tempfile::tempdir().expect("site");
     let env = env_with(site.path());
     let with = |command: &[&str], url: Option<&str>| SiteConfig {
-        preview: Some(super::super::PreviewConfig {
+        preview: Some(maquette_base::site_config::PreviewConfig {
             command: command.iter().map(|s| (*s).to_string()).collect(),
             url: url.map(str::to_string),
         }),

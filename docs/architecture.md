@@ -6,16 +6,19 @@ page says why and how to work with them.
 
 ## Workspace
 
-| Path                     | What it is                                                              |
-| ------------------------ | ----------------------------------------------------------------------- |
-| `apps/web`               | The React UI, served by the Tauri shell or by Vite in mock mode         |
-| `apps/site`              | The landing page: Astro with a react-three-fiber island in `src/scene`  |
-| `apps/desktop/src-tauri` | The Tauri shell: a thin composition root that wires the core into Tauri |
-| `packages/ui`            | The UI kit: typed primitives and the theme                              |
-| `crates/maquette-core`   | The Rust domain logic                                                   |
+| Path                      | What it is                                                              |
+| ------------------------- | ----------------------------------------------------------------------- |
+| `apps/web`                | The React UI, served by the Tauri shell or by Vite in mock mode         |
+| `apps/site`               | The landing page: Astro with a react-three-fiber island in `src/scene`  |
+| `apps/desktop/src-tauri`  | The Tauri shell: a thin composition root that wires the core into Tauri |
+| `packages/ui`             | The UI kit: typed primitives and the theme                              |
+| `crates/maquette-core`    | The Rust domain logic, and the facade over the crates below it          |
+| `crates/maquette-base`    | The bottom layer: errors, file and JSON helpers, the clock, toolchain   |
+| `crates/maquette-preview` | The site dev server, the Page view's frame proxy and page settings      |
 
-Dependencies run one way: `packages/ui` -> `apps/web`, and `maquette-core` -> `src-tauri`. The web
-app reaches the backend only through `src/ipc` (generated tauri-specta bindings, or the in-memory mock).
+Dependencies run one way: `packages/ui` -> `apps/web`, and `maquette-base` -> `maquette-preview` ->
+`maquette-core` -> `src-tauri`. The web app reaches the backend only through `src/ipc` (generated
+tauri-specta bindings, or the in-memory mock).
 
 ## apps/web
 
@@ -113,21 +116,38 @@ than its parent, and a path kept at its old place by a `pub use`, such as `pipel
 in the layer of the code it points to. `pnpm lint:meta` reads every `crate::` path in the core
 against it.
 
-| Layer     | May use    | Modules                                                                                                |
-| --------- | ---------- | ------------------------------------------------------------------------------------------------------ |
-| base      | nothing    | `error`, `fs`, `json`, `toolchain`, `app_state`, `base` (the run log and the Toolbox)                  |
-| model     | base       | `workspace`, `project`, `assets`, `layout`, `refs`, `timeline`, `settings` (the stored settings types) |
-| glb       | base       | `inbox::{analyse, checks, fixture, images, math}`, `motion`, `parts` (not its Blender runs)            |
-| preview   | base       | `site::preview`, `page`                                                                                |
-| pipeline  | model, glb | `pipeline`, `prepare`, `built`, `thumbs`, `game`, `ship`, `materials`, `inspect`, `inbox`, `site`      |
-| providers | model, glb | `providers`                                                                                            |
-| lab       | model, glb | `concepts`                                                                                             |
-| library   | pipeline   | `library`, `animations`                                                                                |
-| facade    | everything | `lib.rs`                                                                                               |
+| Layer     | May use    | Modules                                                                                                         |
+| --------- | ---------- | --------------------------------------------------------------------------------------------------------------- |
+| base      | nothing    | `error`, `fs`, `json`, `toolchain` (the maquette-base crate), `app_state`, `base` (the run log and the Toolbox) |
+| model     | base       | `workspace`, `project`, `assets`, `layout`, `refs`, `timeline`, `settings` (the stored settings types)          |
+| glb       | base       | `inbox::{analyse, checks, fixture, images, math}`, `motion`, `parts` (not its Blender runs)                     |
+| preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                            |
+| pipeline  | model, glb | `pipeline`, `prepare`, `built`, `thumbs`, `game`, `ship`, `materials`, `inspect`, `inbox`, `site`               |
+| providers | model, glb | `providers`                                                                                                     |
+| lab       | model, glb | `concepts`                                                                                                      |
+| library   | pipeline   | `library`, `animations`                                                                                         |
+| facade    | everything | `lib.rs`                                                                                                        |
 
 A new module goes into the map, or lint-meta fails. The uses that point up today are frozen in
 `scripts/lint-meta/baselines/rust-layers.json`, per file and module used: the count may only shrink,
 and a new upward use fails. Moving shared code down a layer is how an entry goes away.
+
+Some layers are their own crates now. `maquette-base` holds `error`, `fs`, `json`, `toolchain`, the
+clock (`project::now_rfc3339`) and a site's config (`settings::site`, a stored settings type the
+preview crate reads too, so it sits in the base crate until there is a model crate), and
+`maquette-preview` holds
+`site::preview` and `page`. Core keeps every old path with a `pub use`, so `maquette_core::...` paths
+do not change, and the map keeps those paths in their layer. A crate cannot reach up into core at
+all: `scripts/lint-meta/crate-layers.json` lists the workspace crates each crate may depend on, and
+`pnpm lint:meta` checks it against `cargo metadata --no-deps` (every dependency kind counts, and a
+new crate has to be added to the list).
+
+| Crate              | May depend on                       |
+| ------------------ | ----------------------------------- |
+| `maquette-base`    | no workspace crate                  |
+| `maquette-preview` | `maquette-base`                     |
+| `maquette-core`    | `maquette-base`, `maquette-preview` |
+| `maquette-desktop` | `maquette-core`                     |
 
 ## MCP tools
 
@@ -528,7 +548,8 @@ The Bake light step and what it hands the site, end to end:
 
 ## Page view
 
-The Page view shows the project's site, or an HTML page concept, with the models live in it.
+The Page view shows the project's site, or an HTML page concept, with the models live in it. The
+code below lives in `crates/maquette-preview`; core re-exports it as `site::preview` and `page`.
 
 - **Settings.** `maquette_core::page` keeps `page.json` in the project: the source (`site` or
   `concept`), the path on the site, the concept file (an `.html` inside the workspace) and the

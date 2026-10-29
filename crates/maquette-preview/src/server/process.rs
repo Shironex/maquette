@@ -10,8 +10,8 @@ use std::thread;
 use process_wrap::std::{ChildWrapper, CommandWrap};
 
 use super::{LOG_LINES, Shared, lock};
-use crate::error::{CoreError, CoreResult};
-use crate::site::preview::{PreviewPlan, find_local_url};
+use crate::{PreviewPlan, find_local_url};
+use maquette_base::error::{CoreError, CoreResult};
 
 /// Lines of output quoted when the server stops early.
 const TAIL_LINES: usize = 12;

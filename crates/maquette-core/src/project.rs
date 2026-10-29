@@ -12,17 +12,17 @@ use crate::json::write_json;
 use crate::settings::game::{GameSettings, NewGame, ProjectTarget};
 use crate::workspace::{FolderLayout, WorkspaceConfig, is_single_segment};
 
-mod clock;
 mod import;
 pub mod repos;
 mod slug;
 
-pub use clock::now_rfc3339;
-pub(crate) use clock::rfc3339_utc;
+// The clock lives in the base crate; these keep the old paths.
 pub use import::{
     BlendFile, ImportScan, RepoInspection, SiteFolders, inspect_site_repo, scan_import,
 };
 pub(crate) use import::{has_ext, sorted_children};
+pub use maquette_base::clock::now_rfc3339;
+pub(crate) use maquette_base::clock::rfc3339_utc;
 pub use repos::SiteRepoState;
 pub use slug::slugify;
 

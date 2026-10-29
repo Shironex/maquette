@@ -358,7 +358,7 @@ fn forwards_only_to_the_dev_server_whatever_the_target_says() {
 
 #[test]
 fn says_so_when_the_dev_server_is_gone() {
-    let port = crate::site::preview::free_port().expect("port");
+    let port = crate::free_port().expect("port");
     let proxy = FrameProxy::start(&format!("http://127.0.0.1:{port}/"), 0).expect("proxy");
     let res = get(proxy.port(), "/", "");
     assert!(res.starts_with("HTTP/1.1 502"), "{res}");

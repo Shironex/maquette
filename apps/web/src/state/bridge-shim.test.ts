@@ -1,6 +1,6 @@
 /**
  * The page bridge shim the frame proxy adds to a framed page
- * (crates/maquette-core/src/site/preview/frame/shim.js), run against a fake
+ * (crates/maquette-preview/src/frame/shim.js), run against a fake
  * window: its stop mapping, what it sends, and how it stands down for a
  * page with its own bridge.
  */
@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readPageMessage } from './page';
 
 const SHIM = readFileSync(
-  resolve(import.meta.dirname, '../../../../crates/maquette-core/src/site/preview/frame/shim.js'),
+  resolve(import.meta.dirname, '../../../../crates/maquette-preview/src/frame/shim.js'),
   'utf8'
 );
 

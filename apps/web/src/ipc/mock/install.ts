@@ -22,7 +22,7 @@ import { MANY_STOPS, mockConceptPage, mockSitePage } from './page-site';
 import { libraryFiles } from './library-fixtures';
 import { CLIP_MODEL } from './animation-fixtures';
 import { clipSource } from './create-animation-handlers';
-import bridgeShim from '@crates/maquette-core/src/site/preview/frame/shim.js?raw';
+import bridgeShim from '@crates/maquette-preview/src/frame/shim.js?raw';
 
 const params = new URLSearchParams(window.location.search);
 const root = DEFAULT_ROOT.replace('~', HOME);
