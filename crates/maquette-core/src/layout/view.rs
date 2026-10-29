@@ -89,36 +89,6 @@ pub(super) fn file_bytes(path: &Path) -> Option<f64> {
         .map(|m| m.len() as f64)
 }
 
-pub(super) fn stem(file: &str) -> String {
-    Path::new(file)
-        .file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_default()
-}
-
-/// The assets with a model, newest version each, ordered the way the Build
-/// scene starter imports them (`.glb` files by name, then `.gltf`).
-pub(crate) fn placeable(manifest: &ProjectManifest) -> Vec<&Asset> {
-    let mut list: Vec<&Asset> = manifest
-        .assets
-        .iter()
-        .filter(|a| a.latest().is_some())
-        .collect();
-    list.sort_by_key(|a| {
-        let file = a
-            .latest()
-            .map(|v| v.file.to_lowercase())
-            .unwrap_or_default();
-        (!file.ends_with(".glb"), stem(&file))
-    });
-    list
-}
-
-/// The asset ids [`apply`] accepts for `manifest`.
-pub fn known_assets(manifest: &ProjectManifest) -> Vec<String> {
-    placeable(manifest).iter().map(|a| a.id.clone()).collect()
-}
-
 /// A model's bounds once prepared, and the frame that gets them there.
 /// The fix-ups' own bounds come from a preview that ran (`previews`), else
 /// the model file's.

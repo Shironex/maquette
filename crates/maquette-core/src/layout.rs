@@ -54,12 +54,14 @@ mod view;
 
 pub use view::{
     FirstView, FirstViewModel, LayoutModel, LayoutView, Measured, first_view, first_view_of,
-    known_assets, models, placement_of, view, view_of,
+    models, placement_of, view, view_of,
 };
 
-pub(crate) use view::{measured_file, placeable};
+pub(crate) use view::measured_file;
 
-pub use placement::{Bounds, Mat4, fallback_row, in_view, matrix, placed_bounds};
+pub use placement::{
+    Bounds, Mat4, fallback_row, in_view, known_assets, matrix, placeable, placed_bounds, stem,
+};
 
 pub use patch::{LayoutPatch, PlacementPatch, StopPatch, apply};
 
