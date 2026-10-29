@@ -1096,14 +1096,15 @@ fn a_game_projects_inbox_checks_use_the_folder_budget_of_the_asset() {
     );
     project::modify(&world.root, &world.config.layout, &world.project, |m| {
         m.target = crate::settings::game::ProjectTarget::Game;
-        let mut settings = crate::game::new_settings(
+        let mut settings = crate::settings::game::new_settings(
             &crate::settings::game::NewGame {
                 format: crate::settings::game::GameFormat::Glb,
                 models_dir: "assets/models".into(),
             },
             None,
         )?;
-        settings.budgets = crate::game::default_budgets(&["props".into(), "characters".into()]);
+        settings.budgets =
+            crate::settings::game::default_budgets(&["props".into(), "characters".into()]);
         m.game = Some(Box::new(settings));
         Ok(())
     })

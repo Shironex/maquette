@@ -8,10 +8,10 @@
 use super::split::{source_of, split_dir, version_file};
 use super::{BakeBack, BakeState, ProviderEvent, ProviderJob, ProviderJobs, Stored, Workspace};
 use super::{Provider, update};
+use crate::assets::versions::{self, Target};
 use crate::base::ports::TextureBake;
 use crate::error::{CoreError, CoreResult};
 use crate::inbox::analyse;
-use crate::parts::versions::{self, Target};
 use crate::pipeline::tools::Toolbox;
 
 /// Texture images in an Inbox model.

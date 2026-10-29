@@ -149,7 +149,7 @@ pub fn create(
                 models_dir: crate::settings::game::DEFAULT_MODELS_DIR.to_string(),
             });
             let repo = site_repo.as_deref().map(Path::new);
-            let settings = crate::game::new_settings(&wanted, repo)?;
+            let settings = crate::settings::game::new_settings(&wanted, repo)?;
             (ProjectTemplate::GameImport, Some(Box::new(settings)))
         }
     };

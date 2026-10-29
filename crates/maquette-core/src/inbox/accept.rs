@@ -49,17 +49,6 @@ fn move_file(from: &Path, to: &Path) -> CoreResult<()> {
     fs::remove_file(from).map_err(|e| CoreError::io(from, e))
 }
 
-pub fn stats_of(report: &GlbReport) -> ModelStats {
-    ModelStats {
-        triangles: report.triangles,
-        bytes: report.bytes,
-        textures: u32::try_from(report.textures.len()).unwrap_or(u32::MAX),
-        max_texture: report.max_texture,
-        joints: report.joints,
-        animations: u32::try_from(report.animations.len()).unwrap_or(u32::MAX),
-    }
-}
-
 /// Moves the model into the project's `models/` folder as the next version
 /// of its asset and records it, with the asset moved to the Blender column
 /// for review.

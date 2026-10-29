@@ -12,11 +12,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::built::{self, BuiltSource};
 use crate::error::CoreResult;
-use crate::game::GameModel;
 use crate::layout::{self, ClipSettings, ExplodeTrack, ObjectStates, Placement, SceneLayout};
 use crate::materials::{self, ModelMaterials};
 use crate::prepare::{self, ModelPrep};
 use crate::project::ProjectManifest;
+use crate::settings::game::GameModel;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]

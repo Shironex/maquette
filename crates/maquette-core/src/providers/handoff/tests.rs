@@ -8,6 +8,10 @@ fn value(rows: &[CardRow], label: &str) -> Option<String> {
         .map(|r| r.value.clone())
 }
 
+fn strings(items: &[&str]) -> Vec<String> {
+    items.iter().map(|s| (*s).to_string()).collect()
+}
+
 fn studio(mesh: StudioMesh, rig: StudioRig) -> StudioSettings {
     StudioSettings { mesh, rig }
 }
@@ -196,4 +200,24 @@ fn the_meshy_card_keeps_its_words() {
     assert_eq!(get("Pose").as_deref(), Some("A-pose"));
     assert_eq!(get("Rig").as_deref(), Some("1.70 m tall"));
     assert_eq!(get("Remove lighting"), None);
+}
+
+#[test]
+fn by_hand_files_and_tripo_inputs_are_named_from_the_tags() {
+    use crate::providers::tripo::generation_request;
+    let images = vec![PathBuf::from("refs/f.png"), PathBuf::from("refs/b.jpg")];
+    let views = strings(&["front", "back"]);
+    assert_eq!(
+        view_names(&images, &views),
+        strings(&["front.png", "back.jpg"])
+    );
+    assert_eq!(
+        view_names(&images, &[]),
+        strings(&["front.png", "left.jpg"])
+    );
+    let mut preset = TripoPreset::prop();
+    preset.multi_view = true;
+    let (path, body) = generation_request(&preset, &strings(&["t1", "t2"]), &views);
+    assert_eq!(path, "generation/multiview-to-model");
+    assert_eq!(body["inputs"][1]["back"], "t2");
 }

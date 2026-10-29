@@ -13,9 +13,6 @@
 //! ([`index`]), and Ship writes them back into the model folder, replacing
 //! only files it wrote or imported ([`ship`]).
 
-use std::collections::BTreeMap;
-use std::path::{Component, Path};
-
 use crate::error::{CoreError, CoreResult};
 
 pub mod budget;
@@ -30,7 +27,7 @@ pub mod ship;
 pub use crate::settings::game::{
     DEFAULT_MODELS_DIR, DEFAULT_TEXTURE_CAP, FolderBudget, GameExport, GameFormat, GameModel,
     GameSettings, GameTextures, MIN_BUDGET_TEXTURE, MIN_BUDGET_TRIANGLES, NewGame, ProjectTarget,
-    TEXTURE_CAPS, file_of, settings_of,
+    TEXTURE_CAPS, file_of, new_settings, settings_of, stays_inside,
 };
 pub use budget::{BudgetCheck, asset_budget, check_asset, default_budgets, folder_of};
 pub use detect::{GameRepoInspection, check_repo, inspect_game_repo};
@@ -38,40 +35,6 @@ pub use import::{ImportResult, import_models};
 pub use scan::{GameScan, ScannedModel, scan_models};
 pub use settings::{GameSettingsChange, add_budget_fixups, save_settings};
 pub use ship::{ShipChange, ShipFile, ShipPlan, plan as ship_plan};
-
-/// True for a relative path with `/` that cannot leave the folder it is
-/// joined to.
-pub fn stays_inside(path: &str) -> bool {
-    let p = Path::new(path);
-    !path.trim().is_empty()
-        && !path.starts_with(['/', '\\'])
-        && !path.contains('\\')
-        && !p.is_absolute()
-        && p.components().all(|c| matches!(c, Component::Normal(_)))
-}
-
-/// The settings of a new game project in `repo`, with a budget for every
-/// model folder found there.
-pub fn new_settings(new: &NewGame, repo: Option<&Path>) -> CoreResult<GameSettings> {
-    let models_dir = new.models_dir.trim().trim_end_matches('/').to_string();
-    if !stays_inside(&models_dir) {
-        return Err(CoreError::Invalid(format!(
-            "The model folder {models_dir:?} must be a folder inside the game repo, without .."
-        )));
-    }
-    let folders = repo
-        .map(|r| detect::model_folders(&r.join(&models_dir)))
-        .unwrap_or_default();
-    Ok(GameSettings {
-        format: new.format,
-        models_dir,
-        export: GameExport::default(),
-        bake: false,
-        budgets: default_budgets(&folders),
-        models: BTreeMap::new(),
-        folders: BTreeMap::new(),
-    })
-}
 
 /// Checks the settings a person or an agent saves.
 pub fn validate(settings: &GameSettings) -> CoreResult<()> {

@@ -7,6 +7,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use super::*;
+use crate::pipeline::PipelineDef;
 use crate::prepare::{self, PrepFrame, ScenePrep, preview};
 
 /// Which built file a model's size is read from.
@@ -337,3 +338,6 @@ pub fn first_view_of(
     let models = models(project_dir, manifest, def, &layout, previews);
     first_view(&layout, &models, first_view_mb)
 }
+
+#[cfg(test)]
+mod tests;

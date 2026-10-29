@@ -359,7 +359,7 @@ fn fbx_exports_are_matched_but_left_for_a_glb() {
     let models = fs::read_dir(rig.world.inbox())
         .map(|d| {
             d.flatten()
-                .filter(|e| crate::inbox::watch::is_model(&e.path()))
+                .filter(|e| crate::sends::is_model(&e.path()))
                 .count()
         })
         .unwrap_or(0);

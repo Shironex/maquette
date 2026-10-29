@@ -117,17 +117,27 @@ than its parent, and a path kept at its old place by a `pub use`, such as `pipel
 in the layer of the code it points to. `pnpm lint:meta` reads every `crate::` path in the core
 against it.
 
-| Layer     | May use    | Modules                                                                                                         |
-| --------- | ---------- | --------------------------------------------------------------------------------------------------------------- |
-| base      | nothing    | `error`, `fs`, `json`, `toolchain` (the maquette-base crate), `app_state`, `base` (the run log and the Toolbox) |
-| model     | base       | `workspace`, `project`, `assets`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends` |
-| glb       | base       | `inbox::{analyse, checks, fixture, images, math}`, `motion`, `parts` (not its Blender runs)                     |
-| preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                            |
-| pipeline  | model, glb | `pipeline`, `prepare`, `built`, `thumbs`, `game`, `ship`, `materials`, `inspect`, `inbox`, `site`               |
-| providers | model, glb | `providers`                                                                                                     |
-| lab       | model, glb | `concepts`                                                                                                      |
-| library   | pipeline   | `library`, `animations`                                                                                         |
-| facade    | everything | `lib.rs`                                                                                                        |
+| Layer     | May use    | Modules                                                                                                                                                                                         |
+| --------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| base      | nothing    | `error`, `fs`, `json`, `toolchain` (the maquette-base crate), `app_state`, `base` (the run log and the Toolbox)                                                                                 |
+| model     | base, glb  | `workspace`, `project`, `assets`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends`, and the stored files of `prepare`, `built`, `materials` and `ship`             |
+| glb       | base       | `inbox::{analyse, fixture, images, math}` (the maquette-glb crate)                                                                                                                              |
+| preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                                                                                                            |
+| pipeline  | model, glb | `pipeline`, `prepare::preview`, `built::{build, blender}`, `materials::{apply, split}`, `ship::{plan, report}`, `layout::view`, `thumbs`, `game`, `inspect`, `inbox`, `motion`, `parts`, `site` |
+| providers | model, glb | `providers`                                                                                                                                                                                     |
+| lab       | model, glb | `concepts`, `refs::{files, suggested}`                                                                                                                                                          |
+| library   | pipeline   | `library`, `animations`                                                                                                                                                                         |
+| facade    | everything | `lib.rs`                                                                                                                                                                                        |
+
+A module whose file on disk is model data but whose work runs Blender or reads other layers is split
+by submodule. `prepare.json`, `built.json`, `materials.json` and `ship.json` (their types, load,
+save and checks) are model, so removing an asset can keep and clear its entries; the fix-up preview,
+the built asset builds, applying material tweaks, the ship plan and the size report are pipeline.
+`layout::view` (the Inspector's read model, which measures prepared models) is pipeline, and
+`refs::files` and `refs::suggested`, which read and mark the Lab's directions, are lab. Tests that
+need a higher layer sit beside the code they test (`layout::view`, `prepare::preview`,
+`refs::files`), and the Blender runs of the fix-ups and the built, material and ship tests are
+pipeline.
 
 A new module goes into the map, or lint-meta fails. The uses that point up today are frozen in
 `scripts/lint-meta/baselines/rust-layers.json`, per file and module used: the count may only shrink,
@@ -146,8 +156,11 @@ its tests:
 | `sends::InboxPort`, `SendLinked` | `inbox::Inbox`, `InboxItem`           | `inbox::send_ports()` in `ProviderJobs::new`        |
 
 `sends` holds what the inbox and the provider jobs share (`Provider`, `InboxLink`, `InboxAim`,
-`inbox_dir` and the ports above); what a send asked for (`SendNotes`) and a file's hash are in the
-base crate, and a game asset's folder budget lookup is in `settings::game`.
+`inbox_dir`, `is_model` and the ports above); what a send asked for (`SendNotes`) and a file's hash
+are in the base crate, and a game asset's folder budget lookup and a new game's settings are in
+`settings::game`. The model layer uses no higher layer: a model's card numbers (`stats_of`,
+`short_count`) and adding a model made in Blender as an asset's next version (`assets::versions`)
+live in `assets`, and the timeline reads its models' parts itself.
 
 Some layers are their own crates now. `maquette-base` holds `error`, `fs`, `json`, `toolchain`, the
 run log and the Toolbox (`base::history` and `base::tools`, with `StepKind`), the ports
@@ -157,9 +170,9 @@ stored settings type the preview crate reads too, so it sits in the base crate u
 model crate).
 `maquette-glb` holds the glb layer's pure reading: `inbox::{analyse, fixture, images, math}`, the
 part list of a model file (`parts::{PartInfo, read, read_bytes}`) and its rig, clips and parts
-(`motion::{Clip, Rig, BoneMap}` and the reader behind them). `inbox::checks`, the rest of
-`parts` and the Motion view stay in core for now, since they still use model and pipeline types
-(`AssetKind`, `WorkspaceConfig`, `FolderBudget`, `Fixup`, the layout). `maquette-preview` holds
+(`motion::{Clip, Rig, BoneMap}` and the reader behind them). What core keeps of `inbox::checks`,
+`parts` and `motion` uses model and pipeline types (`AssetKind`, `WorkspaceConfig`, `Fixup`, the
+layout), so it is pipeline. `maquette-preview` holds
 `site::preview` and `page`. Core keeps every old path with a `pub use`, so `maquette_core::...` paths
 do not change, and the map keeps those paths in their layer. A crate cannot reach up into core at
 all: `scripts/lint-meta/crate-layers.json` lists the workspace crates each crate may depend on, and
@@ -393,8 +406,8 @@ tracks live under `timeline.explode` (`layout/timeline.rs`): per asset a `distan
 checks them with the rest of the layout, `layout::prune_stops` drops the keys and stop triggers of
 a removed stop, and older layouts load with no tracks.
 
-`maquette_core::timeline` builds the view (the stops, every model with its parts from
-`motion::parts`, the states and the tracks) and saves it: `with_timeline` replaces only the stop and
+`maquette_core::timeline` builds the view (the stops, every model with its parts read from its
+newest model file, the states and the tracks) and saves it: `with_timeline` replaces only the stop and
 scroll triggers of the assets the view names, keeps their click and hover triggers, and refuses an
 asset without states. `commands/timeline.rs` reads and saves it, and the Layout editor's save keeps
 the timeline as it is.

@@ -9,8 +9,11 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 mod lookup;
+mod new;
 
 pub use lookup::{asset_budget, budget_for, file_of, folder_of, settings_of};
+pub use new::{default_budgets, new_settings, stays_inside};
+pub(crate) use new::{model_files, model_folders};
 
 /// Where a project ships.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]

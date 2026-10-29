@@ -140,10 +140,7 @@ impl Fixup {
                 }
             }
             Fixup::Decimate { triangles } => {
-                format!(
-                    "Decimate to {}",
-                    crate::inbox::checks::short_count(*triangles)
-                )
+                format!("Decimate to {}", crate::assets::short_count(*triangles))
             }
             Fixup::ShrinkTextures { max_size } => format!("Shrink textures to {max_size} px"),
             Fixup::RemoveLoose { min_share } => format!(

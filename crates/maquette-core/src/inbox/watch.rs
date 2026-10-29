@@ -15,14 +15,9 @@ use crate::error::{CoreError, CoreResult};
 /// How long a path must stay quiet before it is reported.
 pub const QUIET: Duration = Duration::from_millis(700);
 
-/// True for `.glb` and `.gltf` files, but not a sync tool's temp file or
-/// conflict copy of one.
-pub fn is_model(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| e.eq_ignore_ascii_case("glb") || e.eq_ignore_ascii_case("gltf"))
-        && !crate::workspace::sync::is_sync_path(path)
-}
+// What counts as a model in the inbox is read below the pipeline too, so
+// it lives in the sends module; this keeps the old path.
+pub use crate::sends::is_model;
 
 /// Collects paths and hands each back once it has been quiet for `quiet`.
 /// Time is passed in, so the logic is testable without sleeping.
