@@ -5,9 +5,9 @@
 pub mod checks;
 pub mod watch;
 
-// The GLB analysis, its fixture models, image headers and matrix math live
-// in the glb crate; these keep the old paths.
-pub use maquette_glb::{analyse, fixture};
+// The GLB analysis, its fixture models, the VRM readiness, image headers
+// and matrix math live in the glb crate; these keep the old paths.
+pub use maquette_glb::{analyse, fixture, vrm};
 pub(crate) use maquette_glb::{images, math};
 
 mod accept;
@@ -47,6 +47,10 @@ use crate::workspace::{WorkspaceConfig, is_single_segment};
 pub use crate::sends::inbox_dir;
 
 const KINDS_FILE: &str = "kinds.json";
+
+/// Bumped when the analysis gains a field, so cached reports from before
+/// it are read again (version 1 added the VRM readiness).
+const REPORT_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]
@@ -94,6 +98,8 @@ fn cache_dir(root: &Path, config: &WorkspaceConfig) -> PathBuf {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CachedReport {
+    #[serde(default)]
+    version: u32,
     len: u64,
     modified_ns: u128,
     report: GlbReport,
@@ -200,12 +206,15 @@ fn build_item(
     let cached: Option<CachedReport> = fs::read_to_string(&cache_file)
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok())
-        .filter(|c: &CachedReport| c.len == len && c.modified_ns == modified_ns);
+        .filter(|c: &CachedReport| {
+            c.version == REPORT_VERSION && c.len == len && c.modified_ns == modified_ns
+        });
     let (report, error) = match cached {
         Some(c) => (Some(c.report), None),
         None => match analyse(path) {
             Ok(report) => {
                 let record = CachedReport {
+                    version: REPORT_VERSION,
                     len,
                     modified_ns,
                     report: report.clone(),
