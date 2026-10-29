@@ -184,7 +184,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Read a project's Concept lab: each direction's prompt, refs and images (starred, picked, and the ref file a picked image became), plus the concept jobs still waiting for approval, queued, running or waiting out a Codex rate limit or usage limit (running: state approval for an agent's OpenAI Images round a person has not approved yet, state rate-limited with retryAtMs for a waiting one, and usageLimit true while it waits for the usage limit to lift) and the ones that failed or were cancelled (failed, with why; refused true when OpenAI refused the image on safety grounds, nothing was charged and the prompt needs rewording), which retry_concept_jobs runs again. Every job names its backend. styleOff and styleRevision say whether a direction's latest batch carried the style board, and at which revision.",
+        description = "Read a project's Concept lab (give direction, an id or a name, to read only that direction and its jobs): each direction's prompt, refs and images (starred, picked, and the ref file a picked image became), plus the concept jobs still waiting for approval, queued, running or waiting out a Codex rate limit or usage limit (running: state approval for an agent's OpenAI Images round a person has not approved yet, state rate-limited with retryAtMs for a waiting one, and usageLimit true while it waits for the usage limit to lift) and the ones that failed or were cancelled (failed, with why; refused true when OpenAI refused the image on safety grounds, nothing was charged and the prompt needs rewording), which retry_concept_jobs runs again. Every job names its backend. styleOff and styleRevision say whether a direction's latest batch carried the style board, and at which revision.",
         annotations(read_only_hint = true)
     )]
     async fn get_concepts(&self, Parameters(args): Parameters<GetConceptsArgs>) -> Out {
@@ -233,7 +233,14 @@ impl McpTools {
                 if let (Some(w), true) = (wanted, directions.is_empty()) {
                     return Err(format!("There is no direction {w:?} in {}.", args.project));
                 }
-                let jobs = host.concepts().jobs(Some(&args.project));
+                // A named direction limits the jobs to the direction found, too.
+                let shown: Vec<&str> = directions.iter().filter_map(|d| d["id"].as_str()).collect();
+                let jobs: Vec<ConceptJob> = host
+                    .concepts()
+                    .jobs(Some(&args.project))
+                    .into_iter()
+                    .filter(|j| wanted.is_none() || shown.contains(&j.direction.as_str()))
+                    .collect();
                 let (running, failed): (Vec<_>, Vec<_>) = jobs
                     .iter()
                     .filter(|j| j.state != ConceptJobState::Done)
