@@ -22,6 +22,7 @@ mod connect;
 mod handoff_paths;
 mod ids;
 mod landed;
+mod ports;
 mod remove;
 mod split;
 mod stopped_cards;
@@ -114,6 +115,7 @@ impl World {
         let jobs = ProviderJobs::new(
             Arc::clone(&self.secrets) as Arc<dyn SecretStore>,
             options,
+            inbox::send_ports(),
             move |event| events.lock().expect("events").push(event),
         );
         jobs.open_workspace(&self.root, &self.config);

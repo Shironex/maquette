@@ -109,7 +109,12 @@ async fn get_concepts_limits_directions_and_jobs_to_the_direction() {
         runner: PipelineRunner::new(Arc::new(maquette_core::pipeline::runner::NullSink)),
         concepts: Concepts::new(Some(dir.path().join("codex-home")), 2, |_| {}),
         thumbs: Thumbnails::new(|_| {}),
-        studio: ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {}),
+        studio: ProviderJobs::new(
+            Arc::new(MemoryStore::default()),
+            Options::default(),
+            maquette_core::inbox::send_ports(),
+            |_| {},
+        ),
         codex: fake_codex(dir.path()),
     });
     let token = ensure_token(&host.session).expect("token");

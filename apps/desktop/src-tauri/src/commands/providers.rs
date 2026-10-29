@@ -35,9 +35,14 @@ impl Studio {
                 Arc::new(NoKeychain(err.to_string()))
             }
         };
-        Self(ProviderJobs::new(secrets, options(), move |event| {
-            emit(&handle, event);
-        }))
+        Self(ProviderJobs::new(
+            secrets,
+            options(),
+            maquette_core::inbox::send_ports(),
+            move |event| {
+                emit(&handle, event);
+            },
+        ))
     }
 }
 

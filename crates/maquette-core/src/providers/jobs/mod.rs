@@ -38,7 +38,7 @@ use super::secrets::SecretStore;
 use super::tripo;
 use crate::error::{CoreError, CoreResult};
 use crate::project;
-use crate::sends::{SendNotes, SentMaps};
+use crate::sends::{SendNotes, SendPorts, SentMaps};
 use crate::workspace::WorkspaceConfig;
 
 pub use model::{
@@ -166,6 +166,8 @@ struct Shared {
     on_event: Callback,
     secrets: Arc<dyn SecretStore>,
     options: Options,
+    /// The inbox and the bake back, as the app wired them in.
+    ports: SendPorts,
 }
 
 impl Shared {
@@ -247,9 +249,12 @@ pub struct ProviderJobs {
 }
 
 impl ProviderJobs {
+    /// The jobs reach the inbox and the bake back only through `ports`
+    /// (`maquette_core::inbox::send_ports()` in the app).
     pub fn new(
         secrets: Arc<dyn SecretStore>,
         options: Options,
+        ports: SendPorts,
         on_event: impl Fn(ProviderEvent) + Send + Sync + 'static,
     ) -> Self {
         Self {
@@ -260,6 +265,7 @@ impl ProviderJobs {
                 on_event: Box::new(on_event),
                 secrets,
                 options,
+                ports,
             }),
         }
     }

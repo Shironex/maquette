@@ -78,7 +78,12 @@ async fn the_inbox_tools_agree_on_the_checks_and_a_discard_moves_a_model_aside()
     let dir = tempfile::tempdir().expect("temp dir");
     let (session, project_id, asset) = fixture(dir.path());
     let (root, config) = session.workspace().expect("workspace");
-    let studio = ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {});
+    let studio = ProviderJobs::new(
+        Arc::new(MemoryStore::default()),
+        Options::default(),
+        maquette_core::inbox::send_ports(),
+        |_| {},
+    );
     studio.open_workspace(&root, &config);
     // A By hand send made as a character, answered with a model that has no
     // rig: the send decides its kind, and the checks follow it.

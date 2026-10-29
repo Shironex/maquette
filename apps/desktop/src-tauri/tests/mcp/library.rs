@@ -94,7 +94,12 @@ async fn agents_add_use_and_update_a_library_model() {
         runner: PipelineRunner::new(Arc::new(maquette_core::pipeline::runner::NullSink)),
         concepts: Concepts::new(None, 1, |_| {}),
         thumbs: Thumbnails::new(|_| {}),
-        studio: ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {}),
+        studio: ProviderJobs::new(
+            Arc::new(MemoryStore::default()),
+            Options::default(),
+            maquette_core::inbox::send_ports(),
+            |_| {},
+        ),
     });
     let token = ensure_token(&host.session).expect("token");
     let server = maquette_desktop_lib::mcp::server::start(
@@ -237,7 +242,12 @@ async fn list_library_pages_and_is_compact_by_default() {
         runner: PipelineRunner::new(Arc::new(maquette_core::pipeline::runner::NullSink)),
         concepts: Concepts::new(None, 1, |_| {}),
         thumbs: Thumbnails::new(|_| {}),
-        studio: ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {}),
+        studio: ProviderJobs::new(
+            Arc::new(MemoryStore::default()),
+            Options::default(),
+            maquette_core::inbox::send_ports(),
+            |_| {},
+        ),
     });
     let token = ensure_token(&host.session).expect("token");
     let server = maquette_desktop_lib::mcp::server::start(
@@ -353,7 +363,12 @@ async fn add_many_to_library_reports_each_asset_and_goes_on_after_a_failure() {
         runner: PipelineRunner::new(Arc::new(maquette_core::pipeline::runner::NullSink)),
         concepts: Concepts::new(None, 1, |_| {}),
         thumbs: Thumbnails::new(|_| {}),
-        studio: ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {}),
+        studio: ProviderJobs::new(
+            Arc::new(MemoryStore::default()),
+            Options::default(),
+            maquette_core::inbox::send_ports(),
+            |_| {},
+        ),
     });
     let token = ensure_token(&host.session).expect("token");
     let server = maquette_desktop_lib::mcp::server::start(

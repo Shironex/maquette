@@ -155,7 +155,12 @@ async fn connect(
         },
         ..Options::default()
     };
-    let studio = ProviderJobs::new(Arc::new(MemoryStore::default()), options, |_| {});
+    let studio = ProviderJobs::new(
+        Arc::new(MemoryStore::default()),
+        options,
+        maquette_core::inbox::send_ports(),
+        |_| {},
+    );
     if let Ok((root, config)) = session.workspace() {
         studio.open_workspace(&root, &config);
     }

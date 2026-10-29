@@ -130,7 +130,12 @@ async fn agents_change_the_bake_settings_and_skip_assets() {
     maquette_core::providers::http::ensure_crypto();
     let dir = tempfile::tempdir().expect("temp dir");
     let (session, project_id, project_dir) = fixture(dir.path());
-    let studio = ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {});
+    let studio = ProviderJobs::new(
+        Arc::new(MemoryStore::default()),
+        Options::default(),
+        maquette_core::inbox::send_ports(),
+        |_| {},
+    );
     let hub = Arc::new(Hub::new(|| {}));
     let host = Arc::new(TestHost {
         session,

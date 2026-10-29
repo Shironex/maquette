@@ -13,10 +13,12 @@ pub(crate) use maquette_glb::{images, math};
 mod accept;
 mod aim;
 mod discard;
+mod port;
 
 pub use accept::{AcceptRequest, AcceptResult, accept, open_in_blender_args, stats_of};
 pub use aim::{InboxAim, set_aim};
 pub use discard::{DISCARDED_DIR, Discarded, discard};
+pub use port::{Inbox, send_ports};
 
 use std::collections::BTreeMap;
 use std::fs;

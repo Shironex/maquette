@@ -206,6 +206,7 @@ mod tests {
         let studio = ProviderJobs::new(
             std::sync::Arc::new(maquette_core::providers::secrets::MemoryStore::default()),
             maquette_core::providers::Options::default(),
+            maquette_core::inbox::send_ports(),
             |_| {},
         );
         let rows = summaries(&session, &runner, &lab, &studio).expect("list");

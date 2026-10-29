@@ -12,7 +12,6 @@ use super::{
     api_key, touch_asset, update,
 };
 use crate::assets::{AssetKind, AssetStatus};
-use crate::inbox;
 use crate::pipeline::history::now_ms;
 use crate::providers::http::{Api, ApiError, StopFlag};
 use crate::providers::meshy::{self, Meshy};
@@ -171,7 +170,7 @@ fn finish(
     match write_inbox(workspace, &job.id, &outcome.glb) {
         Ok(name) => {
             if job.variant == PresetVariant::Character {
-                let _ = inbox::set_kind(
+                let _ = shared.ports.inbox.set_kind(
                     &workspace.root,
                     &workspace.config,
                     &name,

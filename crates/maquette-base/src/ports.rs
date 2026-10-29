@@ -37,3 +37,20 @@ pub trait PictureRender: Send + Sync {
     /// Fails without Blender, or when the render does.
     fn render(&self, model: &Path, dir: &Path, key: &str) -> CoreResult<PathBuf>;
 }
+
+/// Bakes the texture of a model back onto the parts it was split into.
+pub trait TextureBake: Send + Sync {
+    /// Bakes `source`'s texture onto the parts of `target` inside `dir` and
+    /// returns the baked model. Blocks until Blender is done.
+    ///
+    /// # Errors
+    ///
+    /// Fails without Blender or when the bake fails.
+    fn bake(
+        &self,
+        dir: &Path,
+        source: &Path,
+        target: &Path,
+        tools: &Toolbox,
+    ) -> CoreResult<PathBuf>;
+}

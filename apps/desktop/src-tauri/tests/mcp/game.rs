@@ -133,7 +133,12 @@ async fn agents_read_scan_import_and_change_a_game_project() {
     let dir = tempfile::tempdir().expect("temp dir");
     let (session, project_id, repo) = fixture(dir.path());
     let before = tree(&repo);
-    let studio = ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {});
+    let studio = ProviderJobs::new(
+        Arc::new(MemoryStore::default()),
+        Options::default(),
+        maquette_core::inbox::send_ports(),
+        |_| {},
+    );
     let hub = Arc::new(Hub::new(|| {}));
     let host = Arc::new(TestHost {
         session,

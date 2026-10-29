@@ -80,6 +80,7 @@ fn a_direction_moves_to_another_project() {
     let studio = ProviderJobs::new(
         std::sync::Arc::new(maquette_core::providers::MemoryStore::default()),
         maquette_core::providers::Options::default(),
+        maquette_core::inbox::send_ports(),
         |_| {},
     );
     let moved = move_direction(
