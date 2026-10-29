@@ -81,11 +81,11 @@ fn legacy_tripo_block_folds_into_compression_and_presets() {
     assert!(tripo.character.rig);
     assert_eq!(
         tripo.character.rig_spec,
-        crate::providers::TripoRigSpec::Tripo
+        crate::settings::presets::TripoRigSpec::Tripo
     );
     assert_eq!(
         config.providers.meshy,
-        crate::providers::MeshyPresets::default()
+        crate::settings::presets::MeshyPresets::default()
     );
     save(dir.path(), &config).expect("save");
     let text = fs::read_to_string(dir.path().join(CONFIG_FILE)).expect("read");
