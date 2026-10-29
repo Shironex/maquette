@@ -18,6 +18,34 @@ The [MCP tools](/docs/agents/mcp-tools/) let an agent act. The skills tell it ho
 
 The rig skill carries headless Blender scripts (a humanoid set and a creature set with an example config). Everything else is instructions.
 
+## What to say, and what the app asks of you
+
+Each skill triggers from a plain request. Here is one prompt per skill and what you are asked to approve or decide in the app.
+
+### `maquette-lab-round`
+
+Prompt: "Start a concept round for my site project: three directions for the lantern post, then show me the options."
+
+You pick the concepts in the Lab; the agent only presents them and waits. If the round runs on OpenAI Images instead of Codex, an Approve prompt shows the estimated cost before anything is sent. Deny cancels its jobs. The monthly cap stays yours, in Settings.
+
+### `maquette-by-hand-round`
+
+Prompt: "Write By hand handoffs for the five waiting props, then match what I download and show me the inbox checks."
+
+By hand handoffs write folders and spend nothing. A send that goes to Tripo or Meshy through the API waits for you to Approve the credits in the app, and the agent never sends it again while it waits. Matching a download is done by looking at its picture next to the waiting sends, and you confirm any look-alike in the New downloads dialog. Accepting a model into the project is a tool call the agent makes after it reads the checks and tells you what failed.
+
+### `maquette-character-rig`
+
+Prompt: "The guardian from the inbox has hair weighted to a finger bone. Run the rig check and fix the skin weights."
+
+Nothing here costs credits or ships. The agent works on a copy, runs a pose test, fixes weights per island and adds the result as the next version of the asset, so v1 stays. Moving a joint changes the rest pose, so the agent asks you first and shows the evidence.
+
+### `maquette-game-export`
+
+Prompt: "Import the models from my game repo, set a 5k triangle budget for props, run the pipeline and tell me what changed in git."
+
+Ship always waits. The run stops at Approve and ship in the app, with the counts of the plan, and you press Approve or Deny. The agent polls the run, never starts it again and never commits in the game repo; you review the changed files in git.
+
 ## Rules every skill keeps
 
 - A person picks the concepts. The agent presents options and waits.
@@ -38,14 +66,14 @@ The repo is a plugin marketplace. In Claude Code:
 
 The skills then appear as `/maquette:maquette-lab-round` and so on, and Claude picks them up from what you ask for.
 
-The plugin also declares the Maquette MCP server, so the tools come with it. It reads the token and the port from your environment; set them in the shell you start Claude Code from. Copy the token from Settings > Agents:
+The plugin also declares the Maquette MCP server, so the tools come with it. Its `.mcp.json` reads the token and the port from your environment (`${MAQUETTE_MCP_TOKEN}` and `${MAQUETTE_MCP_PORT:-4791}`), so no token is written into a file. Set them in the shell you start Claude Code from. Copy the token from Settings > Agents:
 
 ```sh
 export MAQUETTE_MCP_TOKEN="<token>"
 export MAQUETTE_MCP_PORT=4791   # only when you changed the port
 ```
 
-If you already added the server yourself as described in [Connect an agent](/docs/agents/connect/), keep one of the two entries so the tools are not listed twice.
+Use this when you install the plugin. The `claude mcp add ... --header "Authorization: Bearer <token>"` line from [Connect an agent](/docs/agents/connect/) is the way to add the server without the plugin, and it stores the token as it is in Claude Code's own config. If you already added the server that way, keep one of the two entries so the tools are not listed twice.
 
 ## Codex
 
@@ -58,7 +86,7 @@ node maquette/plugins/maquette/install-codex.mjs
 
 That links each skill into `~/.agents/skills`. Use `--repo <path>` to link into one repository instead, `--copy` to copy rather than link, and `--remove` to take them out again. On Windows the link is a directory junction, which needs no administrator rights. Restart Codex if a skill does not show up, then type `$` to mention one.
 
-Add the server to `~/.codex/config.toml`. Codex reads the token from an environment variable of your choosing:
+Add the server to `~/.codex/config.toml`. Here too the token stays in the environment: Codex reads it from the variable named by `bearer_token_env_var`, so export `MAQUETTE_MCP_TOKEN` as above. The `http_headers` form in [Connect an agent](/docs/agents/connect/) writes the token into the file instead.
 
 ```toml
 [mcp_servers.maquette]
