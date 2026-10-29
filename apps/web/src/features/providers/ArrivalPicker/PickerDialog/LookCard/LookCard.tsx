@@ -81,9 +81,9 @@ export default function LookCard({ arrival, now }: LookCardProps) {
         </div>
       </div>
       {otherButtons.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-meta text-fg-mute">Also waiting:</span>
-          {otherButtons}
+        <div className="flex items-start gap-2">
+          <span className="flex-none py-1 text-meta text-fg-mute">Also waiting:</span>
+          <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">{otherButtons}</div>
         </div>
       ) : null}
       <div className="flex flex-wrap items-center justify-end gap-2">
