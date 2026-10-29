@@ -2,8 +2,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use super::*;
-use crate::assets::{AssetKind, Stage};
-use crate::project::{self, NewProject, ProjectTemplate};
+use crate::assets::{Asset, AssetKind, Stage};
+use crate::project::{self, NewProject, ProjectManifest, ProjectTemplate};
 use crate::workspace::{self, WorkspaceConfig};
 
 struct Fixture {

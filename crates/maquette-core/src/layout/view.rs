@@ -1,14 +1,18 @@
 //! The Inspector's read model of the layout: measured models, the first
 //! view of each stop, and the whole view of a project.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
 use super::*;
+use crate::assets::{self, AssetKind};
+use crate::error::CoreResult;
 use crate::pipeline::PipelineDef;
 use crate::prepare::{self, PrepFrame, ScenePrep, preview};
+use crate::project::ProjectManifest;
 
 /// Which built file a model's size is read from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
