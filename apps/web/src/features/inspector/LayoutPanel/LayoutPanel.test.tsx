@@ -28,9 +28,9 @@ function panel() {
 describe('the layout panel', () => {
   it('lists the models, marking those in the first view, and the stops', () => {
     const aside = panel();
-    expect(
-      within(aside).getByRole('button', { name: /^Veil platform, in the first view/ })
-    ).toBeInTheDocument();
+    const row = within(aside).getByRole('button', { name: /^Veil platform, in the first view/ });
+    // The dot's tooltip stays out of the name, which says it once already.
+    expect(within(row).getByTitle('In the first view')).toHaveAttribute('aria-hidden', 'true');
     const stops = within(aside)
       .getAllByRole('listitem')
       .filter(li => li.closest('ol'));

@@ -43,6 +43,7 @@ export default function LayoutPanel({ view, dirty }: LayoutPanelProps) {
           )}
         >
           <span
+            aria-hidden="true"
             title={inView.has(m.asset) ? 'In the first view' : undefined}
             className={cn(
               'size-[7px] flex-none rounded-full',
