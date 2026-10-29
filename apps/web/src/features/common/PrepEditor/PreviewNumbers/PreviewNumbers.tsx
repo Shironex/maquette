@@ -10,15 +10,15 @@ export interface PreviewNumbersProps {
 export default function PreviewNumbers({ report }: PreviewNumbersProps) {
   const rows = reportRows(report).map(row => (
     <tr key={row.label} className="border-t border-line">
-      <th scope="row" className="w-[22%] py-1.5 pr-2 text-left align-top font-normal text-fg-dim">
+      <th scope="row" className="w-[17%] py-1.5 pr-1 text-left align-top font-normal text-fg-dim">
         {row.label}
       </th>
-      <td className="py-1.5 pl-2 text-right align-top font-mono text-[11px] break-words text-fg-mute tabular-nums">
+      <td className="py-1.5 pl-1 text-right align-top font-mono text-[10px] tracking-tighter break-words text-fg-mute tabular-nums">
         {row.before}
       </td>
       <td
         className={cn(
-          'py-1.5 pl-2 text-right align-top font-mono text-[11px] break-words tabular-nums',
+          'py-1.5 pl-1 text-right align-top font-mono text-[10px] tracking-tighter break-words tabular-nums',
           row.changed ? 'text-sage' : 'text-fg'
         )}
       >
