@@ -2,7 +2,8 @@
 #
 # The domain crates under `crates/` own the backend logic, and
 # `apps/desktop/src-tauri` is a thin composition root that wires them into the
-# Tauri shell. Dependencies run one way: core -> desktop.
+# Tauri shell. Dependencies run one way: base -> preview -> core -> desktop
+# (scripts/lint-meta/crate-layers.json).
 
 [workspace]
 resolver = "3"
