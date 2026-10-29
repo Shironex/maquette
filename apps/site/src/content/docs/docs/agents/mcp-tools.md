@@ -179,18 +179,20 @@ Reads one run's status and the end of its log. The status is `queued`, `running`
 
 `costs credits` `needs approval`
 
-Sends an asset's refs to 3D. The images go by their views, front first, and refs tagged other stay home (see [Refs and views](/docs/views/board/#refs-and-views)). The answer carries `refWarnings`: weak refs found before anything is spent (small, cropped, busy background, one view with multi-view on, a side or the back that looks different from the front), each with its fixes. They never stop the send. `tripo` and `meshy` spend credits, so the send always waits for you to approve it in the Maquette app and answers `waiting for approval`. Follow it with `get_provider_job`. `by-hand` spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back.
+Sends an asset's refs to 3D. The images go by their views, front first, and refs tagged other stay home (see [Refs and views](/docs/views/board/#refs-and-views)). The answer carries `refWarnings`: weak refs found before anything is spent (small, cropped, busy background, one view with multi-view on, a side or the back that looks different from the front), each with its fixes. They never stop the send. `tripo` and `meshy` spend credits, so the send always waits for you to approve it in the Maquette app and answers `waiting for approval`. Follow it with `get_provider_job`. `by-hand` spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back. A by hand Tripo send takes `mesh` and `rig`, the Tripo Studio tab and rig the card asks for; more than the front view goes as Multiview to 3D, each image in the slot of its view. `send_batch_to_3d` takes both for the batch and per item, and the redo tools take them too, by default as the earlier send had them.
 
-| Parameter   | Type     | Required | Notes                                                                                                                |
-| ----------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
-| `project`   | string   | yes      | The project id.                                                                                                      |
-| `asset`     | string   | yes      | The asset id, as `list_assets` returns it.                                                                           |
-| `provider`  | string   | yes      | `tripo`, `meshy` or `by-hand`.                                                                                       |
-| `service`   | string   | no       | By hand only: whose web app the settings card is for, `tripo` by default.                                            |
-| `variant`   | string   | no       | `prop` or `character`. By default from the asset's kind.                                                             |
-| `images`    | string[] | no       | Images relative to the project folder, at most 4. By default the asset's view slots. Tagged images go in view order. |
-| `overrides` | object   | no       | Preset fields for this send only, such as `{"faceLimit": 20000}`. An unknown name is refused with the valid list.    |
-| `prompt`    | string   | no       | Meshy only: text that guides the texture, at most 800 characters.                                                    |
+| Parameter   | Type     | Required | Notes                                                                                                                                           |
+| ----------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project`   | string   | yes      | The project id.                                                                                                                                 |
+| `asset`     | string   | yes      | The asset id, as `list_assets` returns it.                                                                                                      |
+| `provider`  | string   | yes      | `tripo`, `meshy` or `by-hand`.                                                                                                                  |
+| `service`   | string   | no       | By hand only: whose web app the settings card is for, `tripo` by default.                                                                       |
+| `variant`   | string   | no       | `prop` or `character`. By default from the asset's kind.                                                                                        |
+| `images`    | string[] | no       | Images relative to the project folder, at most 4. By default the asset's view slots. Tagged images go in view order.                            |
+| `overrides` | object   | no       | Preset fields for this send only, such as `{"faceLimit": 20000}`. An unknown name is refused with the valid list.                               |
+| `prompt`    | string   | no       | Meshy only: text that guides the texture, at most 800 characters.                                                                               |
+| `mesh`      | string   | no       | By hand on Tripo only: `hd-model` or `smart-mesh` (Smart Mesh (P2.0)). By default Smart Mesh for a P series preset.                             |
+| `rig`       | string   | no       | By hand on Tripo only: `biped` (Mixamo skeleton), `quadruped`, `multi-legged` or `none`. By default biped for a character that rigs, else none. |
 
 ```json
 { "project": "moon-island", "asset": "far-spire", "provider": "tripo" }
