@@ -7,4 +7,6 @@ pub mod catalog;
 pub mod game;
 pub mod images;
 pub mod presets;
-pub mod site;
+// A site's config is read by the preview crate too, so it lives in the base
+// crate; this keeps the old path.
+pub use maquette_base::site_config as site;
