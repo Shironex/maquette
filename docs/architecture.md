@@ -113,17 +113,17 @@ than its parent, and a path kept at its old place by a `pub use`, such as `pipel
 in the layer of the code it points to. `pnpm lint:meta` reads every `crate::` path in the core
 against it.
 
-| Layer     | May use    | Modules                                                                                           |
-| --------- | ---------- | ------------------------------------------------------------------------------------------------- |
-| base      | nothing    | `error`, `fs`, `json`, `toolchain`, `app_state`, `base` (the run log and the Toolbox)             |
-| model     | base       | `workspace`, `project`, `assets`, `layout`, `refs`, `timeline`                                    |
-| glb       | base       | `inbox::{analyse, checks, fixture, images, math}`, `motion`, `parts` (not its Blender runs)       |
-| preview   | base       | `site::preview`, `page`                                                                           |
-| pipeline  | model, glb | `pipeline`, `prepare`, `built`, `thumbs`, `game`, `ship`, `materials`, `inspect`, `inbox`, `site` |
-| providers | model, glb | `providers`                                                                                       |
-| lab       | model, glb | `concepts`                                                                                        |
-| library   | pipeline   | `library`, `animations`                                                                           |
-| facade    | everything | `lib.rs`                                                                                          |
+| Layer     | May use    | Modules                                                                                                |
+| --------- | ---------- | ------------------------------------------------------------------------------------------------------ |
+| base      | nothing    | `error`, `fs`, `json`, `toolchain`, `app_state`, `base` (the run log and the Toolbox)                  |
+| model     | base       | `workspace`, `project`, `assets`, `layout`, `refs`, `timeline`, `settings` (the stored settings types) |
+| glb       | base       | `inbox::{analyse, checks, fixture, images, math}`, `motion`, `parts` (not its Blender runs)            |
+| preview   | base       | `site::preview`, `page`                                                                                |
+| pipeline  | model, glb | `pipeline`, `prepare`, `built`, `thumbs`, `game`, `ship`, `materials`, `inspect`, `inbox`, `site`      |
+| providers | model, glb | `providers`                                                                                            |
+| lab       | model, glb | `concepts`                                                                                             |
+| library   | pipeline   | `library`, `animations`                                                                                |
+| facade    | everything | `lib.rs`                                                                                               |
 
 A new module goes into the map, or lint-meta fails. The uses that point up today are frozen in
 `scripts/lint-meta/baselines/rust-layers.json`, per file and module used: the count may only shrink,

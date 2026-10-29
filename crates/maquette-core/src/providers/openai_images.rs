@@ -21,6 +21,7 @@ use serde_json::{Value, json};
 
 use super::http::{Api, ApiError, ApiResult, StopFlag, Timing};
 
+pub use crate::settings::images::ImageQuality;
 pub use price::{PRICES_CHECKED, PRICES_URL, cost_usd, estimate_usd};
 
 pub const SERVICE: &str = "OpenAI";
@@ -32,26 +33,6 @@ pub const MODEL: &str = "gpt-image-2.5-sunburst";
 pub const MAX_IMAGES: usize = 16;
 /// The longest data URL an input image may become.
 const MAX_DATA_URL: usize = 20_971_520;
-
-/// How much effort an image gets: more costs more and takes longer.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "kebab-case")]
-pub enum ImageQuality {
-    #[default]
-    Low,
-    Medium,
-    High,
-}
-
-impl ImageQuality {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Low => "low",
-            Self::Medium => "medium",
-            Self::High => "high",
-        }
-    }
-}
 
 /// One image to make.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -33,6 +33,7 @@ use crate::error::{CoreError, CoreResult};
 use crate::json::{from_json_with_defaults, write_json};
 use crate::project::{now_rfc3339, slugify};
 
+pub use crate::refs::REFS_DIR;
 pub use codex::{assemble, attached, codex_args, prompt};
 pub use jobs::{ConceptEvent, ConceptJob, ConceptJobState, Concepts};
 pub use objects::{NewObjectRefs, ObjectAsset, SentObjects, send_object_picks};
@@ -44,7 +45,6 @@ pub use transfer::{MovedDirection, move_direction};
 
 pub const CONCEPTS_DIR: &str = "concepts";
 pub const DIRECTION_FILE: &str = "direction.json";
-pub const REFS_DIR: &str = "refs";
 pub const MAX_IMAGES_PER_BATCH: u32 = 12;
 pub const MAX_REFS: usize = 8;
 

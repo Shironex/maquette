@@ -3,7 +3,6 @@
 
 pub mod arrivals;
 pub mod balance;
-pub mod catalog;
 pub mod handback;
 pub mod handoff;
 pub mod http;
@@ -13,7 +12,6 @@ pub mod meshy;
 pub mod naming;
 pub mod openai_images;
 pub mod own_file;
-pub mod presets;
 pub mod pricing;
 pub mod secrets;
 pub mod split;
@@ -27,6 +25,7 @@ mod tests;
 
 use serde::Serialize;
 
+pub use crate::settings::{catalog, presets};
 pub use arrivals::{
     Arrival, ArrivalState, Arrivals, PendingHandoff, PictureRenderer, PictureState, SendSuggestion,
     WatchStatus, WatchTiming,

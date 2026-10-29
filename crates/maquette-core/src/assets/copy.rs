@@ -8,10 +8,9 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use super::{Asset, AssetStatus, find, slugify};
-use crate::concepts::REFS_DIR;
-use crate::concepts::transfer::carry_ref;
 use crate::error::{CoreError, CoreResult};
 use crate::project::{self, ProjectManifest, now_rfc3339};
+use crate::refs::{REFS_DIR, carry_ref};
 use crate::workspace::FolderLayout;
 
 /// What Copy to project did.

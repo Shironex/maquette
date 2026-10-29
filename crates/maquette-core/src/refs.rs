@@ -9,6 +9,7 @@
 //! are other. That is how sends went before the tags, so nothing changes
 //! until someone tags a ref.
 
+mod carry;
 pub mod checks;
 mod files;
 pub(crate) mod picture;
@@ -20,14 +21,17 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::assets::{self, Asset};
-use crate::concepts::REFS_DIR;
 use crate::error::{CoreError, CoreResult};
 use crate::project::{self, ProjectManifest};
 use crate::workspace::{FolderLayout, is_single_segment};
 
+pub(crate) use carry::carry_ref;
 pub use checks::{RefFix, RefWarning, WarningKind, send_warnings};
 pub use files::{ORIGINALS_DIR, OldView, Replaced, UsedView, use_clean_copy, use_view_image};
 pub use suggested::{ref_files, suggested};
+
+/// The folder of a project the refs live in.
+pub const REFS_DIR: &str = "refs";
 
 /// The view a ref shows of its object.
 #[derive(

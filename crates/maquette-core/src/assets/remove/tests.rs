@@ -10,47 +10,37 @@ use crate::built::{self, BuiltSource};
 use crate::layout::{self, ExplodeKey, ExplodeTrack, LayoutStop, Placement, ScenePath};
 use crate::prepare::{self, ModelPrep};
 use crate::project::{NewProject, ProjectTemplate};
-use crate::providers::Provider;
 
 /// Sends as a list, recording which ones a remove stopped.
 #[derive(Default)]
 struct Stub {
-    jobs: Vec<ProviderJob>,
+    jobs: Vec<Sent>,
     stopped: RefCell<Vec<String>>,
 }
 
 impl Sends for Stub {
-    fn jobs(&self, _project: &str) -> Vec<ProviderJob> {
+    fn jobs(&self, _project: &str) -> Vec<Sent> {
         self.jobs.clone()
     }
 
-    fn stop(&self, id: &str) -> CoreResult<ProviderJob> {
+    fn stop(&self, id: &str) -> CoreResult<()> {
         self.stopped.borrow_mut().push(id.to_string());
         self.jobs
             .iter()
             .find(|j| j.id == id)
-            .cloned()
+            .map(|_| ())
             .ok_or_else(|| CoreError::NotFound(id.to_string()))
     }
 }
 
-fn job(id: &str, asset: &str, provider: Provider, state: JobState, images: &[&str]) -> ProviderJob {
-    serde_json::from_value(json!({
-        "id": id,
-        "project": "moon-island",
-        "asset": asset,
-        "assetName": asset,
-        "provider": provider,
-        "service": "tripo",
-        "variant": "prop",
-        "images": images,
-        "state": state,
-        "progress": 0.0,
-        "createdAtMs": 0.0,
-        "viaAgent": false,
-        "cancel": "none",
-    }))
-    .expect("job")
+fn job(id: &str, asset: &str, provider: &'static str, state: SentState, images: &[&str]) -> Sent {
+    Sent {
+        id: id.to_string(),
+        asset: asset.to_string(),
+        images: images.iter().map(|i| (*i).to_string()).collect(),
+        provider,
+        state,
+    }
 }
 
 struct World {
@@ -218,15 +208,15 @@ fn sends() -> Stub {
             job(
                 "clay-bowl-1",
                 "clay-bowl",
-                Provider::ByHand,
-                JobState::Waiting,
+                "By hand",
+                SentState::Waiting,
                 &["refs/shared_front.png"],
             ),
             job(
                 "desk-lamp-1",
                 "desk-lamp",
-                Provider::Tripo,
-                JobState::Accepted,
+                "Tripo",
+                SentState::Done,
                 &["refs/shared_front.png"],
             ),
         ],
@@ -428,13 +418,7 @@ fn a_running_pipeline_refuses_the_whole_remove_and_restore() {
 fn a_running_paid_send_or_build_refuses_that_asset_and_keeps_its_files() {
     let w = world();
     let mut sends = sends();
-    sends.jobs[0] = job(
-        "clay-bowl-2",
-        "clay-bowl",
-        Provider::Meshy,
-        JobState::Running,
-        &[],
-    );
+    sends.jobs[0] = job("clay-bowl-2", "clay-bowl", "Meshy", SentState::Running, &[]);
     let done = w
         .remove(&["clay-bowl", "desk-lamp"], &sends)
         .expect("remove");
