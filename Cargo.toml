@@ -2,8 +2,9 @@
 #
 # The domain crates under `crates/` own the backend logic, and
 # `apps/desktop/src-tauri` is a thin composition root that wires them into the
-# Tauri shell. Dependencies run one way: base -> glb -> model, and base ->
-# preview, then all of them -> core -> desktop (scripts/lint-meta/crate-layers.json).
+# Tauri shell. Dependencies run one way: base -> glb -> model -> providers,
+# and base -> preview, then all of them -> core -> desktop
+# (scripts/lint-meta/crate-layers.json).
 
 [workspace]
 resolver = "3"
@@ -23,6 +24,7 @@ maquette-core = { path = "crates/maquette-core" }
 maquette-glb = { path = "crates/maquette-glb" }
 maquette-model = { path = "crates/maquette-model" }
 maquette-preview = { path = "crates/maquette-preview" }
+maquette-providers = { path = "crates/maquette-providers" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

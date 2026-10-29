@@ -2017,10 +2017,9 @@ dependencies = [
  "maquette-glb",
  "maquette-model",
  "maquette-preview",
+ "maquette-providers",
  "notify",
  "process-wrap",
- "reqwest",
- "rustls",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -2111,6 +2110,26 @@ dependencies = [
  "tokio",
  "tracing",
  "windows",
+]
+
+[[package]]
+name = "maquette-providers"
+version = "0.3.0"
+dependencies = [
+ "base64 0.23.1",
+ "chrono",
+ "maquette-base",
+ "maquette-glb",
+ "maquette-model",
+ "notify",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "specta",
+ "tempfile",
+ "tracing",
+ "zip",
 ]
 
 [[package]]
