@@ -7,3 +7,4 @@ pub mod catalog;
 pub mod game;
 pub mod images;
 pub mod presets;
+pub mod site;

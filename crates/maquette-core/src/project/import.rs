@@ -37,10 +37,13 @@ pub struct SiteFolders {
 }
 
 fn site_folders(path: &Path) -> SiteFolders {
-    let config = path.join(crate::site::CONFIG_FILE).is_file();
-    let (found, error) = match crate::site::load_config(path) {
+    let config = path.join(crate::settings::site::CONFIG_FILE).is_file();
+    let (found, error) = match crate::settings::site::load_config(path) {
         Ok(found) => (found, None),
-        Err(err) => (crate::site::SiteConfig::legacy(), Some(err.to_string())),
+        Err(err) => (
+            crate::settings::site::SiteConfig::legacy(),
+            Some(err.to_string()),
+        ),
     };
     SiteFolders {
         config,
