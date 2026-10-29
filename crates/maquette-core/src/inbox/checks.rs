@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use super::analyse::{GlbReport, RigKind};
 use crate::assets::AssetKind;
+// The card numbers are written below the pipeline too, so the count
+// format lives with the assets; this keeps the old path.
+pub use crate::assets::short_count;
 use crate::game::FolderBudget;
 use crate::prepare::Fixup;
 
@@ -65,21 +68,6 @@ pub fn texture_px(size: TextureSize) -> u32 {
         TextureSize::K2 => 2048,
         TextureSize::K4 => 4096,
     }
-}
-
-/// "94.6k", "60k", "1.3M", "812".
-pub fn short_count(n: u32) -> String {
-    let n = f64::from(n);
-    let text = if n >= 1_000_000.0 {
-        format!("{:.1}M", n / 1_000_000.0)
-    } else if n >= 100_000.0 {
-        format!("{:.0}k", n / 1000.0)
-    } else if n >= 1000.0 {
-        format!("{:.1}k", n / 1000.0)
-    } else {
-        format!("{n:.0}")
-    };
-    text.replace(".0k", "k").replace(".0M", "M")
 }
 
 fn plural(n: u32, one: &str, many: &str) -> String {

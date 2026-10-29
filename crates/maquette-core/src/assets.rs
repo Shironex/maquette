@@ -87,6 +87,33 @@ pub struct ModelStats {
     pub animations: u32,
 }
 
+/// The card numbers of a model from its analysis.
+pub fn stats_of(report: &maquette_glb::analyse::GlbReport) -> ModelStats {
+    ModelStats {
+        triangles: report.triangles,
+        bytes: report.bytes,
+        textures: u32::try_from(report.textures.len()).unwrap_or(u32::MAX),
+        max_texture: report.max_texture,
+        joints: report.joints,
+        animations: u32::try_from(report.animations.len()).unwrap_or(u32::MAX),
+    }
+}
+
+/// "94.6k", "60k", "1.3M", "812".
+pub fn short_count(n: u32) -> String {
+    let n = f64::from(n);
+    let text = if n >= 1_000_000.0 {
+        format!("{:.1}M", n / 1_000_000.0)
+    } else if n >= 100_000.0 {
+        format!("{:.0}k", n / 1000.0)
+    } else if n >= 1000.0 {
+        format!("{:.1}k", n / 1000.0)
+    } else {
+        format!("{n:.0}")
+    };
+    text.replace(".0k", "k").replace(".0M", "M")
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetVersion {

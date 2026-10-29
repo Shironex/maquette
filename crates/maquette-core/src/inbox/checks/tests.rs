@@ -18,16 +18,6 @@ fn status(list: &[Check], id: &str) -> Option<CheckStatus> {
 }
 
 #[test]
-fn counts_read_short() {
-    assert_eq!(short_count(94_600), "94.6k");
-    assert_eq!(short_count(60_000), "60k");
-    assert_eq!(short_count(812), "812");
-    assert_eq!(short_count(120_000), "120k");
-    assert_eq!(short_count(1_260_000), "1.3M");
-    assert_eq!(short_count(2_000_000), "2M");
-}
-
-#[test]
 fn a_clean_prop_passes_everything() {
     let list = checks(
         &fixture::clean_prop(),

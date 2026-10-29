@@ -15,7 +15,10 @@ mod aim;
 mod discard;
 mod port;
 
-pub use accept::{AcceptRequest, AcceptResult, accept, open_in_blender_args, stats_of};
+pub use accept::{AcceptRequest, AcceptResult, accept, open_in_blender_args};
+// A model's card numbers are made below the pipeline too, so they live
+// with the assets; this keeps the old path.
+pub use crate::assets::stats_of;
 pub use aim::{InboxAim, set_aim};
 pub use discard::{DISCARDED_DIR, Discarded, discard};
 pub use port::{Inbox, send_ports};
@@ -31,9 +34,7 @@ use serde::{Deserialize, Serialize};
 pub use analyse::{GlbReport, RigKind, analyse};
 pub use checks::{Check, CheckStatus, SendNotes, SentMaps};
 
-use crate::assets::{
-    self, Asset, AssetKind, AssetStatus, AssetVersion, ModelStats, NewAsset, Stage,
-};
+use crate::assets::{self, Asset, AssetKind, AssetStatus, AssetVersion, NewAsset, Stage};
 use crate::error::{CoreError, CoreResult};
 use crate::game::FolderBudget;
 use crate::json::write_json;
