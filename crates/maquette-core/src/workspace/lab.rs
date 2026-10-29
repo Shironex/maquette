@@ -3,8 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::concepts::backend::{ImageSettings, MAX_MONTHLY_CAP_USD};
 use crate::error::{CoreError, CoreResult};
+use crate::settings::images::{ImageSettings, MAX_MONTHLY_CAP_USD};
 
 /// The Concept lab's Codex jobs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]

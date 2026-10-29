@@ -4,4 +4,5 @@
 //! settings and a site's `maquette.site.json`.
 
 pub mod catalog;
+pub mod images;
 pub mod presets;
