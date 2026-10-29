@@ -56,13 +56,16 @@
  * (scripts/visual-check/images.mjs) Settings > Image generation and a Lab
  * round on OpenAI's Image API under and at its monthly cap, and the parts set
  * (scripts/visual-check/parts.mjs) a split into parts from the Inbox to the
- * Inspector's Parts tab and before and after. It renders
+ * Inspector's Parts tab and before and after, and the fixes set
+ * (scripts/visual-check/fixes.mjs) a download's look card with its picture
+ * suggestions, a rotate fix-up, Add a model file, a game folder, the moved
+ * file in the Ship plan and the drop maps switch. It renders
  * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=codex, ONLY=images or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=codex, ONLY=images, ONLY=fixes or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -76,6 +79,7 @@ import { aboutShots } from './visual-check/about.mjs';
 import { boardShots } from './visual-check/board.mjs';
 import { codexShots } from './visual-check/codex.mjs';
 import { imagesShots } from './visual-check/images.mjs';
+import { fixesShots } from './visual-check/fixes.mjs';
 import { gameShots } from './visual-check/game.mjs';
 import { libraryShots } from './visual-check/library.mjs';
 import { animationsShots } from './visual-check/animations.mjs';
@@ -978,7 +982,7 @@ async function byHandShots() {
   await shot(look, 'byhand-arrival-look');
   await look.getByRole('button', { name: 'Look' }).click();
   const looking = look.getByRole('dialog', { name: 'New downloads' });
-  await looking.getByRole('img', { name: 'The model in lantern post 3d model.glb' }).waitFor();
+  await looking.getByRole('img', { name: 'lantern post 3d model.glb from the front' }).waitFor();
   await shot(look, 'byhand-picker-look');
   await looking.getByRole('button', { name: 'Pick another asset' }).click();
   const another = look.getByRole('dialog', { name: 'Attach to an asset' });
@@ -1079,6 +1083,8 @@ try {
   if (!only || only === 'codex') await codexShots({ open, shot, hoverTip });
   await settle();
   if (!only || only === 'images') await imagesShots({ open, shot });
+  await settle();
+  if (!only || only === 'fixes') await fixesShots({ open, shot });
   await settle();
 } finally {
   await browser.close();
