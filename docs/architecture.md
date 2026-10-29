@@ -213,7 +213,7 @@ answer comes, and its image is dropped. A kept 429 becomes a rate limited job li
 The key is in the keychain under its own account (`secrets::OPENAI_ACCOUNT`), never in a file.
 The desktop commands are `image_api_status`, `image_api_key_save`, `image_api_key_remove` and
 `image_api_key_test`; the MCP tools are `mcp/tools/image_api.rs` (`get_image_backend`,
-`set_image_backend`, which emits `ImageSettingsChanged`), and `start_concepts`, `make_object_refs`,
+`set_image_backend`, which emits `ImageSettingsChanged` and refuses `monthlyCapUsd` with `CAP_REFUSED`: the cap is set only in Settings), and `start_concepts`, `make_object_refs`,
 `make_other_views` and `clean_ref_background` take `backend`. The web side is
 `state/image-api.ts`, `state/use-image-api-store.ts`, `features/settings/ImagesSection` (the key row
 is the shared `KeyRowView`) and the Composer's cost line. Debug builds point the client at

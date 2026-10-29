@@ -197,6 +197,15 @@ fn fixture(dir: &Path) -> (Session, String, std::path::PathBuf) {
     (session, manifest.id, project_dir)
 }
 
+/// Sets the monthly image cap the way the owner does in Settings; agents
+/// cannot change it over MCP.
+fn set_cap(session: &Session, cap: u32) {
+    let (root, mut config) = session.workspace().expect("workspace");
+    config.lab.images.monthly_cap_usd = cap;
+    maquette_core::workspace::save(&root, &config).expect("save");
+    session.set_config(config);
+}
+
 fn text(result: &CallToolResult) -> String {
     result
         .content
@@ -677,12 +686,36 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     let set = call(
         &client,
         "set_image_backend",
-        json!({ "concepts": "openai-images", "quality": "medium", "monthlyCapUsd": 0 }),
+        json!({ "concepts": "openai-images", "quality": "medium" }),
     )
     .await;
     assert_eq!(set["backends"]["concepts"], json!("openai-images"));
     assert_eq!(set["backends"]["objectRefs"], json!("codex"));
     assert_eq!(set["quality"], json!("medium"));
+    // The cap is the owner's: a request that carries it is refused whole,
+    // and the backends it asked for are not changed either.
+    let cap = raw_call(
+        &client,
+        "set_image_backend",
+        json!({ "objectRefs": "openai-images", "monthlyCapUsd": 500 }),
+    )
+    .await;
+    assert_eq!(cap.is_error, Some(true));
+    assert!(
+        text(&cap).contains("only be changed by a person in Maquette"),
+        "{}",
+        text(&cap)
+    );
+    let after = call(&client, "get_image_backend", json!({})).await;
+    assert_eq!(after["monthlyCapUsd"], json!(10));
+    assert_eq!(after["backends"]["objectRefs"], json!("codex"));
+    let schema = tools
+        .iter()
+        .find(|t| t.name == "set_image_backend")
+        .map(|t| serde_json::to_string(&t.input_schema).expect("schema"))
+        .expect("listed");
+    assert!(!schema.contains("monthlyCapUsd"), "{schema}");
+    set_cap(&host.session, 0);
     let capped = raw_call(
         &client,
         "start_concepts",
@@ -710,7 +743,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     // Under the cap, an agent's round on the Image API waits for a person
     // in the app: nothing is sent until it is approved, and a denied round
     // ends cancelled.
-    call(&client, "set_image_backend", json!({ "monthlyCapUsd": 10 })).await;
+    set_cap(&host.session, 10);
     let held = call(
         &client,
         "start_concepts",
@@ -777,12 +810,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     assert!(wait_until(Duration::from_secs(5), || hub
         .approvals()
         .is_empty()));
-    call(
-        &client,
-        "set_image_backend",
-        json!({ "concepts": "codex", "monthlyCapUsd": 10 }),
-    )
-    .await;
+    call(&client, "set_image_backend", json!({ "concepts": "codex" })).await;
 
     // A send to Tripo waits for a person before anything could be spent.
     let sent = call(

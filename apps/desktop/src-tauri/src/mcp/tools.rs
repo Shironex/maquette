@@ -100,7 +100,8 @@ prioritize_concept_jobs moves a project's queued jobs to the front of the line (
 windows is used and when they reset; retry_usage_limited_jobs runs the jobs the usage limit holds once a \
 fresh read says it has lifted. Lab images are made by Codex unless Settings or a request's \
 backend picks openai-images (OpenAI's Image API, paid per image within a monthly cap in US dollars); \
-get_image_backend and set_image_backend read and change that, and every job reports its backend. A round \
+get_image_backend and set_image_backend read and change that (the backends and quality; the cap is \
+set only by a person in the app), and every job reports its backend. A round \
 an agent asks for on openai-images (start_concepts, make_object_refs, make_other_views, \
 clean_ref_background, retry_concept_jobs) waits for a person to approve it in the app and answers \
 \"waiting for approval\" with its estimate: poll get_concepts and never start it again. \
