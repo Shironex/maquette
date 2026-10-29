@@ -271,6 +271,16 @@ fn library_clips_bake_onto_a_rigged_model_as_its_next_version() {
         names.contains(&"idle") && names.contains(&"dodge_left"),
         "{names:?}"
     );
+    // The clip is 30 frames at 30 fps: it bakes at its own rate and keeps
+    // its real time length, not 25% longer at Blender's default 24 fps.
+    let seconds = test_blender::animation_seconds(&json, "dodge_left");
+    assert!((seconds - 1.0).abs() < 0.01, "dodge_left lasts {seconds} s");
+    let idle = |file: &Path| test_blender::animation_seconds(&test_blender::glb_json(file), "idle");
+    let model_idle = idle(&dir.join("models").join("elsheria_v1.glb"));
+    assert!(
+        (idle(Path::new(&draft.file)) - model_idle).abs() < 0.01,
+        "the model's own clip keeps its length"
+    );
 
     let baked = retarget::bake(s.root.path(), &config, &draft.token).expect("bake");
     assert_eq!(baked.version.version, 2);

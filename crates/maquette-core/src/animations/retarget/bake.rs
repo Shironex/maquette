@@ -41,6 +41,8 @@ struct ScriptClip<'a> {
     name: &'a str,
     start: u32,
     end: u32,
+    /// The clip's own frame rate, which its start and end count in.
+    fps: f32,
     loops: bool,
     root_motion: bool,
     speed: f32,
@@ -118,6 +120,7 @@ pub fn draft(
             name: &setting.name,
             start: setting.start,
             end: setting.end,
+            fps: clip.fps,
             loops: setting.loops,
             root_motion: setting.root_motion,
             speed: setting.speed,
