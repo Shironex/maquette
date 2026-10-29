@@ -327,3 +327,16 @@ pub fn to_rebuild(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<
 
 #[cfg(test)]
 mod tests;
+
+/// Registers this module's IPC types (built assets and their builds) with the shell's TypeScript
+/// export; `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types
+        .register::<BuiltSource>()
+        .register::<BuildRecord>()
+        .register::<BuiltState>()
+        .register::<BuiltAsset>()
+        .register::<NewBuilt>()
+        .register::<BuildResult>()
+        .register::<BuildOutcome>()
+}

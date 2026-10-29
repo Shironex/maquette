@@ -149,6 +149,31 @@ new crate has to be added to the list).
 | `maquette-core`    | `maquette-base`, `maquette-preview` |
 | `maquette-desktop` | `maquette-core`                     |
 
+### IPC type registration
+
+Every crate, and every core module that owns IPC types, has a `register(types)` that adds its own
+`specta::Type`s: `maquette_base::register`, `maquette_preview::register`, `providers::register`,
+`workspace::register` and so on. `maquette_core::types()` folds them in the order of its
+`REGISTRIES` list, and the desktop crate's `bindings.rs` exports the result. A new IPC type goes
+into the `register` of the module that defines it, so `lib.rs` changes only when a module is
+added. The order does not change `bindings.ts`: the TypeScript exporter sorts the types by name.
+
+| Registry                     | Types it adds                                                            |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| `maquette_base::register`    | the error payload and the toolchain report                               |
+| `base`, `app_state`          | step kinds and the run log; the per machine app state                    |
+| `settings`, `workspace`      | provider presets, the model catalog, game settings; the workspace config |
+| `project`, `assets`          | the project manifest and import scan; assets and their versions          |
+| `layout`, `timeline`         | the scene layout, object states and timeline; the Timeline view          |
+| `motion`, `inbox`            | the Motion view; the GLB report, its checks and the inbox                |
+| `pipeline`, `prepare`        | the pipeline definition, events and starters; the scene prep             |
+| `built`, `thumbs`            | built assets and their builds; the thumbnail state                       |
+| `materials`, `inspect`       | the scene's materials; the Inspect view                                  |
+| `game`                       | a game repo's checks, scan, import and ship plan                         |
+| `providers`, `concepts`      | sends, handoffs, keys, batches and the ledger; Lab concepts and jobs     |
+| `library`                    | library entries, their uses and updates                                  |
+| `maquette_preview::register` | the Page view's settings and the dev server's command and status         |
+
 ## MCP tools
 
 The MCP server lives in `apps/desktop/src-tauri/src/mcp`: `server.rs` serves Streamable HTTP on
@@ -657,5 +682,6 @@ state machine), `state/use-updater-store.ts`, `features/shell/UpdatePill` and
    let the shell (or another composition root) pass it in. If it becomes something every feature
    needs, add it to `SHARED_FEATURES`; if it assembles other features, to `COMPOSITION_ROOTS`.
 3. Give the shell its view (`src/state/views.ts` and `CurrentView` in the shell).
-4. Backend work goes in `maquette-core`; the desktop crate only adds the command that calls it.
+4. Backend work goes in `maquette-core`; the desktop crate only adds the command that calls it. A
+   new IPC type goes into the `register` of the module that defines it.
 5. Run `pnpm gate`.

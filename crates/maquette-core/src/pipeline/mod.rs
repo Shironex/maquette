@@ -201,6 +201,21 @@ pub fn ensure(
     Ok(def)
 }
 
+/// Registers this module's IPC types (the pipeline definition, its issues, its events and the
+/// starters) with the shell's TypeScript export; `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types
+        .register::<CompressSpec>()
+        .register::<StepDef>()
+        .register::<PipelineDef>()
+        .register::<presets::CompressPreset>()
+        .register::<graph::IssueLevel>()
+        .register::<graph::PipelineIssue>()
+        .register::<runner::PipelineEvent>()
+        .register::<starter::StarterState>()
+        .register::<starter::StarterStatus>()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

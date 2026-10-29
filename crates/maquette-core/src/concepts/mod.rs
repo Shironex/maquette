@@ -460,3 +460,21 @@ pub fn mark(
 
 #[cfg(test)]
 mod tests;
+
+/// Registers this module's IPC types (Lab concepts, picks, object refs and jobs) with the shell's
+/// TypeScript export; `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types
+        .register::<Aspect>()
+        .register::<ConceptImage>()
+        .register::<Direction>()
+        .register::<NewConcepts>()
+        .register::<SentPicks>()
+        .register::<MovedDirection>()
+        .register::<NewObjectRefs>()
+        .register::<ObjectAsset>()
+        .register::<SentObjects>()
+        .register::<ConceptJobState>()
+        .register::<ConceptJob>()
+        .register::<ConceptEvent>()
+}

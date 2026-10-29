@@ -157,3 +157,15 @@ fn answers_only_when_something_listens() {
     // can listen on port 0, so a connect there never succeeds.
     assert!(!answers("http://127.0.0.1:0/"));
 }
+
+#[test]
+fn register_names_the_page_and_server_types() {
+    let types = register(specta::Types::default());
+    let names: Vec<String> = types
+        .into_unsorted_iter()
+        .map(|t| t.name.to_string())
+        .collect();
+    for expected in ["PageSettings", "PageView", "DevCommand", "ServerStatus"] {
+        assert!(names.iter().any(|n| n == expected), "missing {expected}");
+    }
+}

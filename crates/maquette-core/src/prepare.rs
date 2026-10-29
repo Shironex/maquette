@@ -412,3 +412,13 @@ pub fn validate(prep: &ScenePrep) -> CoreResult<()> {
 
 #[cfg(test)]
 mod tests;
+
+/// Registers this module's IPC types (the scene prep, its suggestions and the fix-up report) with
+/// the shell's TypeScript export; `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types
+        .register::<ScenePrep>()
+        .register::<preview::FixupReport>()
+        .register::<Suggestion>()
+        .register::<PrepFrame>()
+}

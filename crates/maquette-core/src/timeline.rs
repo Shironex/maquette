@@ -144,3 +144,9 @@ pub fn save(
 
 #[cfg(test)]
 mod tests;
+
+/// Registers this module's IPC types (the Timeline view) with the shell's TypeScript export;
+/// `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types.register::<TimelineView>()
+}

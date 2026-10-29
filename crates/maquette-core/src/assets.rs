@@ -460,3 +460,17 @@ pub fn add_version(
 
 #[cfg(test)]
 mod tests;
+
+/// Registers this module's IPC types (an asset, its versions and its stage) with the shell's
+/// TypeScript export; `maquette_core::types` folds every module's in.
+pub fn register(types: specta::Types) -> specta::Types {
+    types
+        .register::<Asset>()
+        .register::<AssetKind>()
+        .register::<AssetStatus>()
+        .register::<AssetVersion>()
+        .register::<AssetOrigin>()
+        .register::<ModelStats>()
+        .register::<NewAsset>()
+        .register::<Stage>()
+}

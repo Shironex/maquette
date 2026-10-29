@@ -15,9 +15,11 @@ use crate::settings::presets::{ProviderSettings, meshy_problem, tripo_problem};
 
 mod lab;
 pub mod lock;
+mod register;
 pub mod sync;
 
 pub use lab::{LAB_MAX_CONCURRENCY, LabSettings};
+pub use register::register;
 
 pub const CONFIG_FILE: &str = "maquette.json";
 pub const CONFIG_VERSION: u32 = 1;

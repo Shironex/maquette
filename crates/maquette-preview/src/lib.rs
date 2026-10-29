@@ -189,3 +189,17 @@ pub fn answers(url: &str) -> bool {
 
 #[cfg(test)]
 mod tests;
+
+/// Registers this crate's IPC types (the Page view's settings and the dev server's command and
+/// status) with the shell's TypeScript export; `maquette_core::types` folds it in with the core's.
+pub fn register(types: specta::Types) -> specta::Types {
+    types
+        .register::<page::PageSource>()
+        .register::<page::PageSettings>()
+        .register::<page::PageView>()
+        .register::<CommandSource>()
+        .register::<DevCommand>()
+        .register::<ServerState>()
+        .register::<ServerOwner>()
+        .register::<ServerStatus>()
+}
