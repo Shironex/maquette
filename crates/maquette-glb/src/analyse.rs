@@ -26,6 +26,7 @@ use gltf::mesh::Mode;
 use serde::{Deserialize, Serialize};
 
 use crate::math::{self, Aabb, IDENTITY};
+use crate::vrm::{BoneOverrides, VrmReadiness, readiness_of};
 use maquette_base::error::{CoreError, CoreResult};
 
 mod fingers;
@@ -39,7 +40,7 @@ pub use geometry::world_matrices;
 pub use rig::{bare_joint_name, is_hand_joint};
 
 use fingers::finger_weights;
-use geometry::primitive_corners;
+pub(crate) use geometry::primitive_corners;
 use islands::primitive_islands;
 use rig::rig_kind;
 pub use source::load_uri;
@@ -152,6 +153,9 @@ pub struct GlbReport {
     pub geometry_readable: bool,
     pub islands: Option<Islands>,
     pub finger_weights: Option<FingerWeights>,
+    /// How far a rigged model is from a VRM 1.0 file; `None` without a skin.
+    #[serde(default)]
+    pub vrm: Option<VrmReadiness>,
 }
 
 /// Analyses the model at `path`.
@@ -262,6 +266,9 @@ pub fn analyse_bytes(bytes: &[u8], base: &Path) -> CoreResult<GlbReport> {
         finger_weights(doc, &buffers, &worlds)
     };
 
+    let vrm =
+        (doc.skins().next().is_some()).then(|| readiness_of(doc, &buffers, &BoneOverrides::new()));
+
     Ok(GlbReport {
         bytes: bytes.len() as f64,
         generator: doc_generator(&gltf),
@@ -302,6 +309,7 @@ pub fn analyse_bytes(bytes: &[u8], base: &Path) -> CoreResult<GlbReport> {
         geometry_readable: !compressed,
         islands,
         finger_weights,
+        vrm,
     })
 }
 

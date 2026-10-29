@@ -13,6 +13,16 @@ The checks compare that with your budgets: triangles, texture size, a Mixamo rig
 
 A check that a fix-up answers offers it as a button: Decimate to 60k, Shrink textures to 2048 px, Remove loose parts, Split into parts, Origin to bottom centre or Merge objects.
 
+### VRM readiness
+
+A rigged character also gets a VRM row: how far it is from a VRM 1.0 avatar, read without Blender. It never fails a model, since VRM is an export a character may never need: it passes when a VRM file could be written from the model as it is, and warns otherwise, naming every finding with the blockers first.
+
+- **Bones.** The joints are mapped onto VRM's 55 humanoid bones by name: VRM's own (and VRoid's `J_Bip_` names), Mixamo, Unreal, and Tripo's own rig names (a guess no real Tripo rig has confirmed yet). The 15 VRM requires (hips, spine, head, and both upper legs, lower legs, feet, upper arms, lower arms and hands) must all be there, each bone must sit under the bone VRM puts above it (other nodes may sit between), and the upper chest and each finger segment need the bone above them.
+- **Rest pose.** VRM's T-pose faces +Z with the character's left on +X, arms level (within 3 degrees), soles on the ground, the hips on the centre, both sides mirrored, and every node scaled the same on each axis and never negatively. Facing, the arm angles and the scales block; the ground, the centre, the symmetry and a scaled node only warn.
+- **Notes.** The bones it maps, the optional ones it lacks (eyes, jaw, fingers), clips the export drops, and node scales off 1 by float noise, which the writer snaps.
+
+A typical Tripo character faces +X and stands in an A-pose with its arms about 50 degrees below level: both block until its rest pose is normalised.
+
 ## Preview
 
 The preview stands every model in the same studio: a graphite backdrop, a soft floor with a contact shadow and warm and cool lights. Pick Shaded, each part in its own colour (the split copy once a Split into parts preview ran), wireframe over clay, a numbered UV checker, or the skeleton drawn over a ghost of the mesh. It reads meshopt geometry and KTX2 textures.

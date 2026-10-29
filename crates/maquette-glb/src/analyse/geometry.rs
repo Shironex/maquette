@@ -7,7 +7,7 @@ use std::path::Path;
 use crate::math::{self, Aabb, IDENTITY, Mat4, Vec3};
 
 /// The corners of a primitive's position bounds in its node's frame.
-pub(super) fn primitive_corners(prim: &gltf::Primitive<'_>) -> [Vec3; 8] {
+pub(crate) fn primitive_corners(prim: &gltf::Primitive<'_>) -> [Vec3; 8] {
     let bb = prim.bounding_box();
     // Quantized positions (KHR_mesh_quantization) store normalized
     // integers, and their min and max are in those integer units.

@@ -391,3 +391,38 @@ fn a_game_folder_budget_replaces_the_flat_one_and_is_named() {
         Some("Within the model folder's budget, 20k tris.")
     );
 }
+
+#[test]
+fn a_rigged_character_gets_a_vrm_row_that_never_fails() {
+    let config = WorkspaceConfig::default();
+    let clean = checks(&fixture::character(false), AssetKind::Character, &config);
+    let row = clean.iter().find(|c| c.id == "vrm").expect("vrm row");
+    assert_eq!(row.status, CheckStatus::Pass);
+    assert_eq!(row.title, "VRM ready, 52 of 55 bones");
+    // It sits right after the rig row.
+    let at = |id: &str| clean.iter().position(|c| c.id == id);
+    assert_eq!(at("vrm"), at("rig").map(|i| i + 1));
+
+    let posed = fixture::humanoid(&fixture::HumanoidSpec {
+        arm_drop: 50.0,
+        yaw: 90.0,
+        ..fixture::HumanoidSpec::default()
+    });
+    let list = checks(&posed, AssetKind::Character, &config);
+    let row = list.iter().find(|c| c.id == "vrm").expect("vrm row");
+    assert_eq!(row.status, CheckStatus::Warning);
+    assert_eq!(row.title, "Not VRM ready: 2 things to fix");
+    let detail = row.detail.as_deref().unwrap_or_default();
+    assert!(
+        detail.starts_with("Faces +X, VRM wants +Z. Arms hang below horizontal"),
+        "{detail}"
+    );
+    assert!(
+        detail.contains("52 of 55 humanoid bones mapped."),
+        "{detail}"
+    );
+
+    // A prop, rigged or not, has no VRM row.
+    let prop = checks(&fixture::character(false), AssetKind::Prop, &config);
+    assert!(prop.iter().all(|c| c.id != "vrm"));
+}

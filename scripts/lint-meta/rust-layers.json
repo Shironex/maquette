@@ -38,6 +38,7 @@
     "inbox::fixture": "glb",
     "inbox::images": "glb",
     "inbox::math": "glb",
+    "inbox::vrm": "glb",
     "site::preview": "preview",
     "page": "preview",
     "pipeline": "pipeline",

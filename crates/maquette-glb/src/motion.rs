@@ -13,6 +13,7 @@ use maquette_base::error::{CoreError, CoreResult};
 use serde::{Deserialize, Serialize};
 
 use crate::analyse::{self, RigKind};
+use crate::vrm;
 
 pub use clips::{clip_bytes, json_of};
 pub use rig::{BoneMap, BoneMatch, Rig, WEB_INFLUENCES, humanoid_map};
@@ -90,6 +91,7 @@ fn parse(bytes: &[u8], base: &Path) -> CoreResult<FileMotion> {
             humanoid: rig::is_humanoid(&map),
             map,
             max_influences: rig::max_influences(doc, &buffers, !compressed),
+            vrm: Some(vrm::readiness_of(doc, &buffers, &vrm::BoneOverrides::new())),
             joint_names,
         }
     });

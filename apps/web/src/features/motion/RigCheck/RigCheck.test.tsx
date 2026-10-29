@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { useRetargetStore } from '@/state/use-retarget-store';
 import { clearMocks, openMotion } from '@/test/open-motion';
 import RigCheck from './RigCheck';
-import { rigLines } from './RigCheck.hooks';
+import { rigLines, vrmLine } from './RigCheck.hooks';
 
 afterEach(() => clearMocks());
 
@@ -21,6 +21,29 @@ describe('the rig check', () => {
     const s = await openMotion();
     const turntable = s.view!.models.find(m => m.asset === 'turntable')!;
     expect(rigLines(turntable)).toEqual([expect.objectContaining({ title: 'No rig' })]);
+  });
+
+  it('ends with the VRM readiness of a rig that has one', async () => {
+    const s = await openMotion();
+    const figure = s.view!.models.find(m => m.asset === 'clay-figure')!;
+    expect(rigLines(figure).at(-1)).toMatchObject({
+      id: 'vrm',
+      status: 'pass',
+      title: 'VRM ready, 20 of 55 bones',
+    });
+    const posed = vrmLine({
+      ...figure.rig!.vrm!,
+      ready: false,
+      findings: [
+        { id: 'facing', level: 'blocker', title: 'Faces +X, VRM wants +Z', detail: null },
+        { id: 'ground', level: 'warning', title: 'Soles sit 3 cm above the ground', detail: null },
+      ],
+    });
+    expect(posed).toMatchObject({
+      status: 'warning',
+      title: 'Not VRM ready: 1 thing to fix',
+      detail: 'Faces +X, VRM wants +Z. Soles sit 3 cm above the ground.',
+    });
   });
 
   it('fails weights past four influences', async () => {

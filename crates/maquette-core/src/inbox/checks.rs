@@ -13,11 +13,13 @@ use crate::game::FolderBudget;
 use crate::prepare::Fixup;
 
 mod shape;
+mod vrm;
 // What a send asked for is shared with the provider sends, so it lives in
 // the base crate; this keeps the old path.
 use crate::workspace::{TextureSize, WorkspaceConfig};
 pub use maquette_base::send_notes::{SendNotes, SentMaps};
 use shape::{merged_check, shape_checks};
+use vrm::vrm_check;
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, specta::Type,
@@ -226,6 +228,7 @@ pub fn run(
                 .to_string(),
         )),
     }
+    out.extend(vrm_check(report, kind));
 
     let p = &report.pbr;
     let mut missing = Vec::new();

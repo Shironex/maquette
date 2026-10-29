@@ -1,9 +1,9 @@
 //! Reading GLB and glTF files without Blender: the analysis the inbox
 //! checks run on (counts, textures, the rig and two geometry heuristics),
-//! a model's parts and what in it moves (rig, clips and parts), texture
-//! sizes from image headers, the matrix math they share, and small
-//! generated fixture models with known flaws. It is pure logic on bytes and
-//! uses only the maquette-base crate.
+//! a model's parts and what in it moves (rig, clips and parts), its VRM
+//! readiness, texture sizes from image headers, the matrix math they share,
+//! and small generated fixture models with known flaws. It is pure logic on
+//! bytes and uses only the maquette-base crate.
 
 pub mod analyse;
 pub mod fixture;
@@ -11,10 +11,13 @@ pub mod images;
 pub mod math;
 pub mod motion;
 pub mod parts;
+pub mod vrm;
 
-/// Registers this crate's IPC types (the GLB report the inbox shows) with the shell's TypeScript
-/// export; `maquette_core::types` folds it in with the core's.
+/// Registers this crate's IPC types (the GLB report the inbox shows, with
+/// the VRM readiness in it) with the shell's TypeScript export;
+/// `maquette_core::types` folds it in with the core's.
 pub fn register(types: specta::Types) -> specta::Types {
+    let types = vrm::register(types);
     types
         .register::<analyse::RigKind>()
         .register::<analyse::TextureInfo>()
@@ -34,7 +37,16 @@ mod tests {
             .into_unsorted_iter()
             .map(|t| t.name.to_string())
             .collect();
-        for expected in ["RigKind", "TextureInfo", "PbrMaps", "GlbReport", "Islands"] {
+        for expected in [
+            "RigKind",
+            "TextureInfo",
+            "PbrMaps",
+            "GlbReport",
+            "Islands",
+            "VrmReadiness",
+            "VrmFinding",
+            "RestPose",
+        ] {
             assert!(names.iter().any(|n| n == expected), "missing {expected}");
         }
     }
