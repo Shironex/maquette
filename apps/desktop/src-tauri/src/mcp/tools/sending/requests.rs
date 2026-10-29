@@ -2,12 +2,12 @@
 
 use maquette_core::providers::{
     BatchItem, BatchRequest, MeshyPreset, PresetVariant, Provider, ProviderId, SendRequest,
-    TripoPreset,
+    StudioChoice, StudioMesh, StudioRig, TripoPreset,
 };
 use serde::Serialize;
 use serde_json::Value;
 
-use super::{ProviderArg, SendBatchArgs, SendTo3dArgs, ServiceArg, VariantArg};
+use super::{MeshArg, ProviderArg, RigArg, SendBatchArgs, SendTo3dArgs, ServiceArg, VariantArg};
 use crate::commands::providers;
 use crate::mcp::host::Host;
 use crate::mcp::tools::{to_value, workspace};
@@ -36,6 +36,37 @@ pub(super) fn with_overrides<T: Serialize + serde::de::DeserializeOwned>(
         fields.insert(key.clone(), field.clone());
     }
     serde_json::from_value(value).map_err(|e| format!("The overrides do not fit the preset. {e}"))
+}
+
+/// The Tripo Studio tab and rig an agent asked for, refused unless the send
+/// is By hand on Tripo.
+pub(super) fn studio_choice(
+    provider: Provider,
+    service: ProviderId,
+    mesh: Option<MeshArg>,
+    rig: Option<RigArg>,
+) -> Result<Option<StudioChoice>, String> {
+    if mesh.is_none() && rig.is_none() {
+        return Ok(None);
+    }
+    if provider != Provider::ByHand || service != ProviderId::Tripo {
+        return Err(
+            "mesh and rig are Tripo Studio settings: they only go with provider \"by-hand\" on Tripo."
+                .to_string(),
+        );
+    }
+    Ok(Some(StudioChoice {
+        mesh: mesh.map(|m| match m {
+            MeshArg::HdModel => StudioMesh::HdModel,
+            MeshArg::SmartMesh => StudioMesh::SmartMesh,
+        }),
+        rig: rig.map(|r| match r {
+            RigArg::Biped => StudioRig::Biped,
+            RigArg::Quadruped => StudioRig::Quadruped,
+            RigArg::MultiLegged => StudioRig::MultiLegged,
+            RigArg::None => StudioRig::None,
+        }),
+    }))
 }
 
 /// Builds the send an agent asked for, filling in what it left out.
@@ -94,6 +125,7 @@ pub(super) fn send_request(host: &dyn Host, args: &SendTo3dArgs) -> Result<SendR
         meshy,
         prompt: args.prompt.clone(),
         redo_of: None,
+        studio: studio_choice(provider, service, args.mesh, args.rig)?,
     })
 }
 
@@ -166,6 +198,7 @@ pub(super) fn batch_request(host: &dyn Host, args: &SendBatchArgs) -> Result<Bat
                 .map_err(tag)?,
             prompt: arg.prompt.clone(),
             redo_of: None,
+            studio: studio_choice(provider, service, arg.mesh, arg.rig).map_err(tag)?,
         });
     }
     Ok(BatchRequest {
@@ -183,5 +216,6 @@ pub(super) fn batch_request(host: &dyn Host, args: &SendBatchArgs) -> Result<Bat
         meshy_character: (!tripo)
             .then(|| meshy_for(PresetVariant::Character))
             .transpose()?,
+        studio: studio_choice(provider, service, args.mesh, args.rig)?,
     })
 }

@@ -69,8 +69,9 @@ run_pipeline runs a project's pipeline; when it reaches the Ship step it may ans
 \"waiting for approval\": a person approves or denies shipping in the Maquette app, \
 so poll get_run instead of starting the run again. send_to_3d sends an asset's refs to \
 Tripo or Meshy (it always waits for a person to approve the credits in the app; follow it \
-with get_provider_job) or writes a by hand handoff folder; send_batch_to_3d sends several \
-assets at once under one approval. redo_inbox_model sends an inbox model's asset again \
+with get_provider_job) or writes a by hand handoff folder (on Tripo with mesh, HD Model or \
+Smart Mesh (P2.0), and rig, biped, quadruped, multi-legged or none, for its settings card); \
+send_batch_to_3d sends several assets at once under one approval. redo_inbox_model sends an inbox model's asset again \
 prefilled from its send (redo_inbox_models for several), under the same approval. get_credits \
 reads the provider balances and the local ledger of paid sends (API spend and By hand \
 subscription spend apart). list_handoffs lists the By hand sends waiting for a model made on \

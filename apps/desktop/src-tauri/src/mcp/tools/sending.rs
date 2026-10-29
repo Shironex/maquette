@@ -42,6 +42,24 @@ pub enum VariantArg {
     Character,
 }
 
+/// Tripo Studio's mesh tab for a By hand send.
+#[derive(Debug, Clone, Copy, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum MeshArg {
+    HdModel,
+    SmartMesh,
+}
+
+/// The rig Tripo Studio adds to a By hand send.
+#[derive(Debug, Clone, Copy, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum RigArg {
+    Biped,
+    Quadruped,
+    MultiLegged,
+    None,
+}
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SendTo3dArgs {
@@ -66,6 +84,14 @@ pub struct SendTo3dArgs {
     pub overrides: Option<serde_json::Map<String, Value>>,
     /// Meshy only: text that guides the texture, at most 800 characters.
     pub prompt: Option<String>,
+    /// By hand on Tripo only: the Tripo Studio tab, "hd-model" or "smart-mesh" (Smart
+    /// Mesh (P2.0)). By default Smart Mesh for a P series or smart low poly preset, else
+    /// HD Model.
+    pub mesh: Option<MeshArg>,
+    /// By hand on Tripo only: the rig Tripo Studio adds, "biped" (Mixamo skeleton),
+    /// "quadruped", "multi-legged" or "none". By default biped for a character preset
+    /// that rigs, else none.
+    pub rig: Option<RigArg>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -84,6 +110,10 @@ pub struct BatchItemArg {
     pub overrides: Option<serde_json::Map<String, Value>>,
     /// Meshy only: text that guides this asset's texture, at most 800 characters.
     pub prompt: Option<String>,
+    /// By hand on Tripo only: this asset's Tripo Studio tab, over the batch's.
+    pub mesh: Option<MeshArg>,
+    /// By hand on Tripo only: this asset's rig, over the batch's.
+    pub rig: Option<RigArg>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -102,6 +132,12 @@ pub struct SendBatchArgs {
     /// character preset, for example {"faceLimit": 20000}. An item's own overrides
     /// go on top of these.
     pub overrides: Option<serde_json::Map<String, Value>>,
+    /// By hand on Tripo only: the Tripo Studio tab for every asset, "hd-model" or
+    /// "smart-mesh". By default from each asset's preset.
+    pub mesh: Option<MeshArg>,
+    /// By hand on Tripo only: the rig for every asset, "biped", "quadruped",
+    /// "multi-legged" or "none". By default biped for characters that rig, else none.
+    pub rig: Option<RigArg>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -202,7 +238,7 @@ pub(super) fn await_send_approval(
 #[tool_router(router = sending_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Send an asset's refs to 3D. \"tripo\" or \"meshy\" spend credits, so the send always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back. Settings start from the workspace preset (prop or character) and overrides change them for this send only. The images go front, left, back, right by the asset's ref views (get_ref_views), and refWarnings lists weak refs (small, cropped, busy background, one view only, a view that looks different from the front) without stopping the send. modelWarning says when the asset already has a model (for example one that came from the library): the send then makes its next version and the library entry is not changed; it is null for a first model."
+        description = "Send an asset's refs to 3D. \"tripo\" or \"meshy\" spend credits, so the send always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back. Settings start from the workspace preset (prop or character) and overrides change them for this send only. A by hand Tripo send also takes mesh (Tripo Studio's HD Model or Smart Mesh (P2.0) tab) and rig (biped on the Mixamo skeleton, quadruped, multi-legged or none); the settings card follows them, and more than the front view goes as Multiview to 3D. The images go front, left, back, right by the asset's ref views (get_ref_views), and refWarnings lists weak refs (small, cropped, busy background, one view only, a view that looks different from the front) without stopping the send. modelWarning says when the asset already has a model (for example one that came from the library): the send then makes its next version and the library entry is not changed; it is null for a first model."
     )]
     async fn send_to_3d(&self, Parameters(args): Parameters<SendTo3dArgs>) -> Out {
         let sent = self
@@ -244,7 +280,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Send several assets to 3D at once, one model per asset, with the same provider and settings (each asset keeps its own refs and prop or character preset unless given). \"tripo\" or \"meshy\" spend credits, so the whole batch waits for one approval in the Maquette app that lists every asset; follow each job with get_provider_job. \"by-hand\" spends nothing and writes one handoff folder per asset. Every item is checked before any goes out. Each job reports refWarnings (weak refs, never a stop) and modelWarning (the asset already has a model, so the send makes its next version; null for a first model), and assetsWithRefWarnings counts the assets with any refWarnings."
+        description = "Send several assets to 3D at once, one model per asset, with the same provider and settings (each asset keeps its own refs and prop or character preset unless given). \"tripo\" or \"meshy\" spend credits, so the whole batch waits for one approval in the Maquette app that lists every asset; follow each job with get_provider_job. \"by-hand\" spends nothing and writes one handoff folder per asset; on Tripo, mesh and rig set the Tripo Studio tab and rig for the batch, and an item's own mesh or rig goes on top. Every item is checked before any goes out. Each job reports refWarnings (weak refs, never a stop) and modelWarning (the asset already has a model, so the send makes its next version; null for a first model), and assetsWithRefWarnings counts the assets with any refWarnings."
     )]
     async fn send_batch_to_3d(&self, Parameters(args): Parameters<SendBatchArgs>) -> Out {
         let sent = self

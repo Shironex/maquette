@@ -849,6 +849,25 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     let handoff = std::path::PathBuf::from(by_hand["handoff"].as_str().expect("handoff"));
     assert!(handoff.join("settings.md").is_file());
     assert!(handoff.join("front.png").is_file());
+    // A prop goes without a rig by default, and mesh and rig are refused
+    // for an API send.
+    let card = std::fs::read_to_string(handoff.join("settings.md")).expect("card");
+    assert!(
+        card.contains("| Tab | HD Model |") && card.contains("| Rig | None |"),
+        "{card}"
+    );
+    let refused = raw_call(
+        &client,
+        "send_to_3d",
+        json!({ "project": project_id, "asset": "desk-lamp", "provider": "tripo", "rig": "biped" }),
+    )
+    .await;
+    assert_eq!(refused.is_error, Some(true));
+    assert!(
+        text(&refused).contains("Tripo Studio settings"),
+        "{}",
+        text(&refused)
+    );
     let listed = call(
         &client,
         "get_provider_job",
@@ -998,9 +1017,11 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "project": project_id,
             "provider": "by-hand",
             "overrides": { "faceLimit": 10000 },
+            "mesh": "smart-mesh",
+            "rig": "quadruped",
             "items": [
                 { "asset": "stone-lantern" },
-                { "asset": "desk-lamp", "overrides": { "faceLimit": 2000 } },
+                { "asset": "desk-lamp", "overrides": { "faceLimit": 2000 }, "mesh": "hd-model", "rig": "none" },
             ],
         }),
     )
@@ -1021,6 +1042,15 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         "own overrides win: {}",
         cards[1]
     );
+    // The Studio tab and rig: the batch's, and an item's own on top.
+    assert!(
+        cards[0].contains("| Tab | Smart Mesh (P2.0) |"),
+        "{}",
+        cards[0]
+    );
+    assert!(cards[0].contains("| Rig | Quadruped |"), "{}", cards[0]);
+    assert!(cards[1].contains("| Tab | HD Model |"), "{}", cards[1]);
+    assert!(cards[1].contains("| Rig | None |"), "{}", cards[1]);
     for job in by_hand["jobs"].as_array().expect("jobs") {
         assert_eq!(job["status"], json!("waiting"));
         let folder = std::path::PathBuf::from(job["handoff"].as_str().expect("handoff"));
