@@ -24,7 +24,7 @@
 //! `all` applies to every material of the model and a named entry to the
 //! material of that name, its fields winning over `all`. The Compress step
 //! applies them to a copy of each raw export before the texture passes
-//! ([`apply_file`]), so the source model never changes and the step's cache
+//! (`materials::apply_file` in core), so the source model never changes and the step's cache
 //! key covers them.
 
 use std::collections::BTreeMap;

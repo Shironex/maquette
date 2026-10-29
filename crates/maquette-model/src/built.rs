@@ -280,7 +280,7 @@ pub fn state_of(
 }
 
 /// Every built asset of the project with how it stands, in Board order.
-/// `busy` names the assets building now ([`Builder::busy`]).
+/// `busy` names the assets building now (the builder in core's `built` module).
 ///
 /// # Errors
 ///

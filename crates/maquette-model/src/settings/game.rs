@@ -1,7 +1,7 @@
 //! A game project's settings, in `project.json` (`game`): the model format
 //! the engine reads, the model folder in the game repo, the Game export
 //! settings, a budget per model folder and where each asset's model goes.
-//! Scanning, importing and shipping them is [`crate::game`].
+//! Scanning, importing and shipping them is core's `game` module.
 
 use std::collections::BTreeMap;
 use std::path::Path;

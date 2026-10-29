@@ -48,7 +48,7 @@
 //! layout scale stays the person's own tweak. The source model in
 //! `models/` is never written. Both files are inputs of that step, so a
 //! change reruns it. The Inbox and the Inspector run the same script on its
-//! own to show the numbers before and after ([`preview`]).
+//! own to show the numbers before and after (`prepare::preview` in core).
 
 use std::collections::BTreeMap;
 use std::fs;

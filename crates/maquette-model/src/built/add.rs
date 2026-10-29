@@ -1,7 +1,7 @@
 //! Adding a built asset: its script and helpers are copied into the
 //! project's `built/` folder (a file already there with the same content is
 //! shared), the asset goes on the Board at Blender and `built.json` records
-//! where its files are. Nothing is built here; [`super::Builder`] does that.
+//! where its files are. Nothing is built here; the builder in core's `built` module does that.
 
 use std::fs;
 use std::path::{Path, PathBuf};
