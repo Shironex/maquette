@@ -14,7 +14,7 @@ page says why and how to work with them.
 | `packages/ui`               | The UI kit: typed primitives and the theme                              |
 | `crates/maquette-core`      | The Rust domain logic, and the facade over the crates below it          |
 | `crates/maquette-base`      | The bottom layer: errors, files, JSON, the clock, toolchain, run log    |
-| `crates/maquette-glb`       | GLB reading without Blender: the inbox analysis, parts and motion       |
+| `crates/maquette-glb`       | GLB reading without Blender: the inbox analysis, parts, motion and VRM  |
 | `crates/maquette-model`     | The stored files: workspace, projects, assets, layout, refs, settings   |
 | `crates/maquette-preview`   | The site dev server, the Page view's frame proxy and page settings      |
 | `crates/maquette-providers` | The 3D sends: Tripo, Meshy, By hand handoffs, Downloads and the ledger  |
@@ -124,7 +124,7 @@ against it.
 | --------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | base      | nothing    | `error`, `fs`, `json`, `toolchain` (the maquette-base crate), `app_state`, `base` (the run log and the Toolbox)                                                                                 |
 | model     | base, glb  | `workspace`, `project`, `assets`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends`, and the stored files of `prepare`, `built`, `materials` and `ship`             |
-| glb       | base       | `inbox::{analyse, fixture, images, math}` (the maquette-glb crate)                                                                                                                              |
+| glb       | base       | `inbox::{analyse, fixture, images, math, vrm}` (the maquette-glb crate)                                                                                                                         |
 | preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                                                                                                            |
 | pipeline  | model, glb | `pipeline`, `prepare::preview`, `built::{build, blender}`, `materials::{apply, split}`, `ship::{plan, report}`, `layout::view`, `thumbs`, `game`, `inspect`, `inbox`, `motion`, `parts`, `site` |
 | providers | model, glb | `providers` (the maquette-providers crate)                                                                                                                                                      |
@@ -171,8 +171,9 @@ run log and the Toolbox (`base::history` and `base::tools`, with `StepKind`), th
 (`sends::SendNotes`), the clock (`project::now_rfc3339`) and a site's config (`settings::site`, a
 stored settings type the preview crate reads too, so it sits in the base crate).
 `maquette-glb` holds the glb layer's pure reading: `inbox::{analyse, fixture, images, math}`, the
-part list of a model file (`parts::{PartInfo, read, read_bytes}`) and its rig, clips and parts
-(`motion::{Clip, Rig, BoneMap}` and the reader behind them). What core keeps of `inbox::checks`,
+part list of a model file (`parts::{PartInfo, read, read_bytes}`), its rig, clips and parts
+(`motion::{Clip, Rig, BoneMap}` and the reader behind them) and its VRM readiness (`inbox::vrm`, see
+VRM below). What core keeps of `inbox::checks`,
 `parts` and `motion` uses model and pipeline types (`AssetKind`, `WorkspaceConfig`, `Fixup`, the
 layout), so it is pipeline. `maquette-model` holds the model layer: `workspace`, `project`,
 `assets`, `timeline`, `settings` and `sends` whole, and the stored part of `layout`, `refs`,
@@ -211,7 +212,7 @@ added. The order does not change `bindings.ts`: the TypeScript exporter sorts th
 | Registry                       | Types it adds                                                                                                                                                                                                                                                                |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `maquette_base::register`      | the error payload, the toolchain report, step kinds and the run log                                                                                                                                                                                                          |
-| `maquette_glb::register`       | the GLB report: its rig kind, textures, maps, islands and finger weights                                                                                                                                                                                                     |
+| `maquette_glb::register`       | the GLB report: its rig kind, textures, maps, islands, finger weights and VRM readiness                                                                                                                                                                                      |
 | `app_state`                    | the per machine app state                                                                                                                                                                                                                                                    |
 | `maquette_model::register`     | its modules' in turn: provider presets, the model catalog and game settings; how a model gets made; the workspace config; the project manifest; assets; the scene layout, object states and timeline; the Timeline view; the scene prep; built assets; the scene's materials |
 | `maquette_providers::register` | sends, handoffs, keys, batches, downloads and the ledger                                                                                                                                                                                                                     |
@@ -533,6 +534,32 @@ sha256 of its keys and a revision) and `clip.glb` (bones and one animation, no m
   `projectChanged` after a bake); the MCP tools are `mcp/tools/animations.rs` and
   `mcp/tools/retarget.rs`; the web state is `state/animations.ts`, `state/retarget.ts` and their
   stores, the views `features/animations` and `features/retarget`.
+
+## VRM
+
+`maquette_glb::vrm` (kept at `inbox::vrm` in core) reads how far a rigged model is from a VRM 1.0
+avatar, without Blender. It is pure: the `gltf` crate and the matrix math the analysis already
+uses.
+
+- **Bones.** `bones/table.rs` holds VRM's 55 humanoid bones (15 required) with their parents and the
+  names four namings give them: VRM's own and VRoid's `J_Bip_` names, Mixamo, Unreal, and Tripo's
+  own rig (unverified, as in `animations::rig`), and `bones.rs` maps the joints onto them. Joints are compared by bare name in lower case;
+  the naming with the most matches is tried first, a joint maps to one bone, and an override (a
+  bone to any node name, or to none) wins. The parent check walks both trees up to the nearest
+  mapped bone, so other nodes may sit between.
+- **Rest pose.** `pose.rs` measures the nodes' rest transforms: the facing from the left minus
+  right upper legs and arms (left crossed with up; the toes must agree or the sides look swapped),
+  each arm's drop below horizontal, the soles (a skinned mesh's bounds through its first joint's
+  world matrix and inverse bind matrix), the hips' distance from the Y axis, mirrored bone gaps in
+  the character's own frame, and every node's scale (negative, uneven, evenly scaled, or float
+  noise within `SCALE_NOISE`).
+- **Findings.** `findings.rs` turns both into blockers, warnings and notes in plain words, sorted
+  by level and never dropped. `VrmReadiness` carries the bone list, the pose and the findings; it
+  rides on `GlbReport::vrm` (the inbox caches it under a report version) and `Rig::vrm` (Motion's
+  rig check). Core's `inbox::checks::vrm` makes the one Inbox row from it, a pass or a warning.
+- **Fixture.** `fixture::humanoid(&HumanoidSpec)` builds a box humanoid on the 65 joint skeleton
+  under any of the four namings, optionally in an A-pose, turned, lifted, scaled, or with float
+  noise in its armature's scale.
 
 ## Downloads matching
 
