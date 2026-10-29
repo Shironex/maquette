@@ -12,6 +12,7 @@ pub mod ledger;
 pub mod meshy;
 pub mod naming;
 pub mod openai_images;
+pub mod own_file;
 pub mod presets;
 pub mod pricing;
 pub mod secrets;
