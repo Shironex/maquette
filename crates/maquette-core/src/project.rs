@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::assets::Asset;
 use crate::error::{CoreError, CoreResult};
-use crate::game::{GameSettings, NewGame, ProjectTarget};
 use crate::json::write_json;
+use crate::settings::game::{GameSettings, NewGame, ProjectTarget};
 use crate::workspace::{FolderLayout, WorkspaceConfig, is_single_segment};
 
 mod clock;
@@ -143,8 +143,8 @@ pub fn create(
         ProjectTarget::Website => (new.template, None),
         ProjectTarget::Game => {
             let wanted = new.game.unwrap_or(NewGame {
-                format: crate::game::GameFormat::Glb,
-                models_dir: crate::game::DEFAULT_MODELS_DIR.to_string(),
+                format: crate::settings::game::GameFormat::Glb,
+                models_dir: crate::settings::game::DEFAULT_MODELS_DIR.to_string(),
             });
             let repo = site_repo.as_deref().map(Path::new);
             let settings = crate::game::new_settings(&wanted, repo)?;
