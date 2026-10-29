@@ -17,6 +17,7 @@ license = "AGPL-3.0-only"
 publish = false
 
 [workspace.dependencies]
+maquette-base = { path = "crates/maquette-base" }
 maquette-core = { path = "crates/maquette-core" }
 
 serde = { version = "1", features = ["derive"] }

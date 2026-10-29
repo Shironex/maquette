@@ -1991,6 +1991,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
 
 [[package]]
+name = "maquette-base"
+version = "0.3.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "specta",
+ "tempfile",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "maquette-core"
 version = "0.3.0"
 dependencies = [
@@ -2003,6 +2014,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "maquette-base",
  "notify",
  "process-wrap",
  "reqwest",

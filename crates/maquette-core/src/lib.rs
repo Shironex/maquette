@@ -8,12 +8,9 @@ pub mod assets;
 pub mod base;
 pub mod built;
 pub mod concepts;
-pub mod error;
-pub mod fs;
 pub mod game;
 pub mod inbox;
 pub mod inspect;
-mod json;
 pub mod layout;
 pub mod library;
 pub mod materials;
@@ -32,8 +29,11 @@ pub mod site;
 mod test_blender;
 pub mod thumbs;
 pub mod timeline;
-pub mod toolchain;
 pub mod workspace;
+
+// The bottom layer lives in its own crate; these keep the old paths.
+pub(crate) use maquette_base::json;
+pub use maquette_base::{error, fs, toolchain};
 
 pub use app_state::AppState;
 pub use assets::{
