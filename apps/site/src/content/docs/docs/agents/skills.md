@@ -97,6 +97,6 @@ tool_timeout_sec = 150
 
 ## Keeping the skills honest
 
-`pnpm lint:meta` (part of `pnpm gate`) runs `scripts/check-skills.mjs`. It reads the tool list the MCP handshake test expects and fails when a skill names a tool the server does not have, when a skill's name does not match its folder, when its description does not say when to use it, when a skill passes 250 lines, when a dash slips in, or when the plugin's MCP entry carries a literal token.
+`pnpm lint:meta` (part of `pnpm gate`) runs `scripts/check-skills.mjs`. It reads the tool list the server's tool router writes to `apps/desktop/src-tauri/tool-names.txt` (the same list the MCP handshake test checks) and fails when a skill names a tool the server does not have, when a skill's name does not match its folder, when its description does not say when to use it, when a skill passes 250 lines, when a dash slips in, or when the plugin's MCP entry carries a literal token.
 
 Next: [MCP tools](/docs/agents/mcp-tools/).
