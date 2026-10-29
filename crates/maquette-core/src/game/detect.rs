@@ -11,7 +11,10 @@ use serde::{Deserialize, Serialize};
 
 use super::GameFormat;
 use crate::error::{CoreError, CoreResult};
-use crate::project::{has_ext, sorted_children};
+// A new game's settings list the model folders too, below the pipeline,
+// so the model file walk lives in the settings module.
+use crate::project::sorted_children;
+pub(crate) use crate::settings::game::{model_files, model_folders};
 use crate::toolchain::CommandRunner;
 
 /// Where engines keep their models, in the order they are tried.
@@ -22,9 +25,6 @@ pub const MODEL_DIRS: [&str; 5] = [
     "res/models",
     "data/models",
 ];
-
-/// How deep the model folder is searched.
-const MAX_DEPTH: usize = 4;
 
 /// Model loading libraries, by a word that names them in the build files
 /// or the vendored folders, and the format each reads.
@@ -143,41 +143,6 @@ fn executables(cmake: &str) -> Vec<String> {
         }
     }
     out
-}
-
-/// Every model file under `dir`, relative to it with `/`, sorted.
-pub(crate) fn model_files(dir: &Path) -> Vec<String> {
-    fn walk(dir: &Path, prefix: &str, depth: usize, out: &mut Vec<String>) {
-        for (name, path) in sorted_children(dir) {
-            if name.starts_with('.') {
-                continue;
-            }
-            let rel = if prefix.is_empty() {
-                name.clone()
-            } else {
-                format!("{prefix}/{name}")
-            };
-            if path.is_dir() && depth < MAX_DEPTH {
-                walk(&path, &rel, depth + 1, out);
-            } else if path.is_file() && has_ext(&path, &["glb", "obj"]) {
-                out.push(rel);
-            }
-        }
-    }
-    let mut out = Vec::new();
-    walk(dir, "", 0, &mut out);
-    out
-}
-
-/// The folders under `dir` that hold model files (empty for its top level).
-pub(crate) fn model_folders(dir: &Path) -> Vec<String> {
-    let mut folders: Vec<String> = model_files(dir)
-        .iter()
-        .map(|f| super::folder_of(f))
-        .collect();
-    folders.sort();
-    folders.dedup();
-    folders
 }
 
 /// The lowercased text the loader and decoder words are looked for in: the

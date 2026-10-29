@@ -8,51 +8,7 @@ use crate::assets::{Asset, ModelStats};
 use crate::inbox::checks::short_count;
 // Where a model goes and the budget it checks against are read below the
 // pipeline too, so they live in the settings module; these keep the paths.
-pub use crate::settings::game::{asset_budget, budget_for, folder_of};
-
-/// What a new game gets per folder, by the folder's name.
-const KNOWN: &[(&str, u32, u32)] = &[
-    ("props", 12_000, 1024),
-    ("enemies", 40_000, 2048),
-    ("characters", 60_000, 2048),
-];
-/// Any other folder, and the model folder's top level.
-const OTHER: (u32, u32) = (20_000, 1024);
-
-/// A budget row for every folder, the known names first.
-pub fn default_budgets(folders: &[String]) -> Vec<FolderBudget> {
-    let mut rows: Vec<FolderBudget> = folders
-        .iter()
-        .map(|folder| {
-            let (triangles, texture) = KNOWN
-                .iter()
-                .find(|(name, _, _)| name == folder)
-                .map_or(OTHER, |(_, t, x)| (*t, *x));
-            FolderBudget {
-                folder: folder.clone(),
-                triangles,
-                texture,
-            }
-        })
-        .collect();
-    rows.sort_by_key(|r| {
-        (
-            KNOWN
-                .iter()
-                .position(|(n, _, _)| *n == r.folder)
-                .unwrap_or(KNOWN.len()),
-            r.folder.clone(),
-        )
-    });
-    if rows.is_empty() {
-        rows.push(FolderBudget {
-            folder: String::new(),
-            triangles: OTHER.0,
-            texture: OTHER.1,
-        });
-    }
-    rows
-}
+pub use crate::settings::game::{asset_budget, budget_for, default_budgets, folder_of};
 
 /// One model against its folder's budget.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
