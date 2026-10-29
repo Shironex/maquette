@@ -8,23 +8,35 @@
 //! for "Which asset is this?". Either way a person (or an agent, by an
 //! explicit call) attaches it to an asset or leaves it.
 //!
+//! A download it does not place by name is also rendered headless from the
+//! front ([`PictureRenderer`], one at a time, cached by content hash) and
+//! every waiting send is ranked by how much its front ref looks like it
+//! ([`SendSuggestion`]); a clear best is suggested with its score, never
+//! attached by itself.
+//!
 //! Only reads: it never moves, renames or deletes anything in the folder,
 //! never opens a provider's site and never spends anything.
 
 mod answer;
 mod folder;
 mod matching;
+mod picture;
+mod render;
 mod seen;
 mod settle;
 #[cfg(test)]
 mod tests;
 
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
 use serde::{Deserialize, Serialize};
 
 pub use folder::{WATCHED, WatchTiming, is_watched};
+pub use picture::SendSuggestion;
+pub use render::PictureRenderer;
 
 use super::handback::{SLACK_MS, modified_ms, zip_models};
 use super::jobs::{JobState, Provider, ProviderJob, ProviderJobs};
@@ -89,6 +101,31 @@ pub struct Arrival {
     pub reason: String,
     /// The inbox file it became.
     pub inbox_file: Option<String>,
+    /// Every send waiting then, ranked against it, best first, while it
+    /// waits for a look or for its asset.
+    #[serde(default)]
+    pub suggestions: Vec<SendSuggestion>,
+    /// Where its front picture stands.
+    #[serde(default)]
+    pub picture: PictureState,
+    /// Its front picture (an absolute PNG path), once rendered.
+    #[serde(default)]
+    pub render: Option<String>,
+}
+
+/// Where a download's front picture stands.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum PictureState {
+    /// None is made: it was placed by name, it is an FBX, or no Blender.
+    #[default]
+    Skipped,
+    /// Waiting for its headless render.
+    Queued,
+    /// Rendered, and the sends ranked by it.
+    Ready,
+    /// The render or the comparison did not work out; the name ranks.
+    Failed,
 }
 
 /// A By hand send waiting for its model, as the watcher matches it.
@@ -144,6 +181,14 @@ struct State {
     attaching: Vec<String>,
 }
 
+/// The downloads waiting for their front picture, and the one worker
+/// that renders them in turn.
+#[derive(Default)]
+struct Pictures {
+    renderer: Option<PictureRenderer>,
+    queue: VecDeque<String>,
+}
+
 struct Inner {
     studio: ProviderJobs,
     timing: WatchTiming,
@@ -151,6 +196,9 @@ struct Inner {
     seen_dir: PathBuf,
     state: Mutex<State>,
     on_arrival: Callback,
+    pictures: Mutex<Pictures>,
+    /// True while the picture worker runs.
+    rendering: AtomicBool,
 }
 
 impl Inner {
@@ -234,6 +282,8 @@ impl Arrivals {
                 seen_dir,
                 state: Mutex::new(State::default()),
                 on_arrival: Box::new(on_arrival),
+                pictures: Mutex::new(Pictures::default()),
+                rendering: AtomicBool::new(false),
             }),
         }
     }
@@ -410,6 +460,9 @@ impl Arrivals {
             asset_name: None,
             reason: String::new(),
             inbox_file: None,
+            suggestions: Vec::new(),
+            picture: PictureState::Skipped,
+            render: None,
         };
         let arrival = match matching::decide(&name, inner_name.as_deref(), modified, &waiting) {
             Verdict::Exact { id, reason } => {
@@ -429,7 +482,18 @@ impl Arrivals {
             }
             Verdict::Ask { reason } => Arrival { reason, ..arrival },
         };
-        Some(self.remember(arrival, hash))
+        let arrival = if is_open(arrival.state) {
+            self.ranked_by_name(arrival, &waiting)
+        } else {
+            arrival
+        };
+        let queued = arrival.picture == PictureState::Queued;
+        let id = arrival.id.clone();
+        let arrival = self.remember(arrival, hash);
+        if queued {
+            self.queue_picture(id);
+        }
+        Some(arrival)
     }
 
     fn find(&self, id: &str) -> CoreResult<(Arrival, String)> {

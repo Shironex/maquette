@@ -171,6 +171,12 @@ pub fn store(dir: &Path, file: &Path, png: &[u8]) -> CoreResult<PathBuf> {
 /// The one step pipeline that renders `model` to `out` (a file name inside
 /// the thumbs folder, which is the pipeline root).
 pub fn render_def(model: &Path, out: &str) -> PipelineDef {
+    render_def_with(model, out, &[])
+}
+
+/// [`render_def`] with `extra` script arguments (`--view front`,
+/// `--plain`).
+pub fn render_def_with(model: &Path, out: &str, extra: &[&str]) -> PipelineDef {
     let model_arg = model.display().to_string();
     let mut args: Vec<String> = ["-b", "--factory-startup", "--python-exit-code", "1"]
         .iter()
@@ -199,6 +205,7 @@ pub fn render_def(model: &Path, out: &str) -> PipelineDef {
         .iter()
         .map(|s| (*s).to_string()),
     );
+    args.extend(extra.iter().map(|s| (*s).to_string()));
     PipelineDef {
         version: PIPELINE_VERSION,
         root: None,

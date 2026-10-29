@@ -78,14 +78,14 @@ fn diff(a: [u8; 4], b: [u8; 4]) -> u8 {
 }
 
 /// The image sampled on a grid of at most `GRID` a side.
-struct Grid {
-    w: usize,
-    h: usize,
+pub(super) struct Grid {
+    pub(super) w: usize,
+    pub(super) h: usize,
     px: Vec<[u8; 4]>,
 }
 
 impl Grid {
-    fn of(image: &Pixels) -> Self {
+    pub(super) fn of(image: &Pixels) -> Self {
         let step = image.width.max(image.height).div_ceil(GRID).max(1);
         let (w, h) = (image.width.div_ceil(step), image.height.div_ceil(step));
         let mut px = Vec::with_capacity(w * h);
@@ -100,12 +100,12 @@ impl Grid {
         Self { w, h, px }
     }
 
-    fn at(&self, x: usize, y: usize) -> [u8; 4] {
+    pub(super) fn at(&self, x: usize, y: usize) -> [u8; 4] {
         self.px[y * self.w + x]
     }
 
     /// The four corners, each the mean of a small square: the ground.
-    fn corners(&self) -> [[u8; 4]; 4] {
+    pub(super) fn corners(&self) -> [[u8; 4]; 4] {
         let side = (self.w.min(self.h) / 25).max(1);
         [
             self.corner(false, false, side),
@@ -207,7 +207,7 @@ pub(crate) fn look(image: &Pixels) -> Option<Looks> {
 
 /// Whether a sample is the object rather than the `ground` behind it: any
 /// opaque sample on a transparent ground, else one clearly off its colour.
-fn is_object(ground: [u8; 4], p: [u8; 4]) -> bool {
+pub(super) fn is_object(ground: [u8; 4], p: [u8; 4]) -> bool {
     if ground[3] < 128 {
         p[3] >= 128
     } else {

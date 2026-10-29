@@ -27,7 +27,10 @@ mod tests;
 
 use serde::Serialize;
 
-pub use arrivals::{Arrival, ArrivalState, Arrivals, PendingHandoff, WatchStatus, WatchTiming};
+pub use arrivals::{
+    Arrival, ArrivalState, Arrivals, PendingHandoff, PictureRenderer, PictureState, SendSuggestion,
+    WatchStatus, WatchTiming,
+};
 pub use balance::Balance;
 pub use catalog::{ModelOption, ProviderCatalog};
 pub use handback::{DownloadMatch, DownloadsScan};

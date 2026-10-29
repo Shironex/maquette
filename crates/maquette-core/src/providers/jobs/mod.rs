@@ -353,6 +353,11 @@ impl ProviderJobs {
         self.shared.workspace().map(|w| w.root)
     }
 
+    /// The open workspace's root and settings, if any.
+    pub fn workspace_paths(&self) -> Option<(PathBuf, crate::workspace::WorkspaceConfig)> {
+        self.shared.workspace().map(|w| (w.root, w.config))
+    }
+
     /// Stops every polling thread, keeping the saved state. For app exit
     /// and workspace switches.
     pub fn close(&self) {

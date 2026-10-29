@@ -20,13 +20,9 @@ use std::fs;
 use std::path::Path;
 
 use super::png::{self, Pixels};
-use super::{Grid, RefFix, RefView, RefWarning, WarningKind, is_object, look};
+use super::{RefFix, RefView, RefWarning, WarningKind};
+use crate::refs::picture;
 
-/// Hue bins for coloured samples, then dark, mid and light grey.
-const HUES: usize = 12;
-const BINS: usize = HUES + 3;
-/// The channel spread under which a sample counts as grey.
-const GREY_SPREAD: u8 = 40;
 /// The least share of colour two views of one object have in common.
 pub(super) const COLOURS_OVERLAP: f64 = 0.45;
 /// How many times taller or shorter in the frame a view may stand.
@@ -35,8 +31,6 @@ pub(super) const HEIGHT_APART: f64 = 1.45;
 pub(super) const BACK_RATIO_APART: f64 = 1.4;
 /// How far a side's ratio may stray, since it shows the depth.
 pub(super) const SIDE_RATIO_APART: f64 = 4.0;
-/// Under this share of the samples the object is too small to compare.
-const LEAST_OBJECT: f64 = 0.01;
 
 /// What one view's object looks like, as far as the comparison goes.
 #[derive(Debug, Clone, PartialEq)]
@@ -46,73 +40,19 @@ pub(crate) struct Shape {
     /// The object's box height as a share of the frame's height.
     pub height: f64,
     /// The share of the object's samples in each colour bin.
-    pub colours: [f64; BINS],
+    pub colours: [f64; picture::BINS],
     /// Whether the object touches the frame, so its box is not whole.
     pub cut: bool,
 }
 
-/// The colour bin of one sample.
-fn bin(p: [u8; 4]) -> usize {
-    let (r, g, b) = (f64::from(p[0]), f64::from(p[1]), f64::from(p[2]));
-    let max = p[0].max(p[1]).max(p[2]);
-    let min = p[0].min(p[1]).min(p[2]);
-    if max - min < GREY_SPREAD {
-        return HUES + usize::from(max >= 85) + usize::from(max >= 170);
-    }
-    let spread = f64::from(max - min);
-    let hue = if max == p[0] {
-        ((g - b) / spread).rem_euclid(6.0)
-    } else if max == p[1] {
-        (b - r) / spread + 2.0
-    } else {
-        (r - g) / spread + 4.0
-    };
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "the hue is in 0 to 6"
-    )]
-    let at = (hue / 6.0 * HUES as f64) as usize;
-    at.min(HUES - 1)
-}
-
 /// The object in an image, `None` on a busy ground or with no object.
 pub(crate) fn shape(image: &Pixels) -> Option<Shape> {
-    let looks = look(image)?;
-    if looks.busy {
-        return None;
-    }
-    let grid = Grid::of(image);
-    let ground = grid.corners()[0];
-    let (mut left, mut right, mut top, mut bottom) = (grid.w, 0, grid.h, 0);
-    let mut counts = [0u32; BINS];
-    let mut total = 0u32;
-    for y in 0..grid.h {
-        for x in 0..grid.w {
-            let p = grid.at(x, y);
-            if !is_object(ground, p) {
-                continue;
-            }
-            (left, right) = (left.min(x), right.max(x));
-            (top, bottom) = (top.min(y), bottom.max(y));
-            counts[bin(p)] += 1;
-            total += 1;
-        }
-    }
-    #[expect(clippy::cast_precision_loss, reason = "sample counts stay small")]
-    let share = f64::from(total) / (grid.w * grid.h) as f64;
-    if share < LEAST_OBJECT {
-        return None;
-    }
-    #[expect(clippy::cast_precision_loss, reason = "sample counts stay small")]
-    let (w, h) = ((right - left + 1) as f64, (bottom - top + 1) as f64);
-    #[expect(clippy::cast_precision_loss, reason = "sample counts stay small")]
-    let height = h / grid.h as f64;
+    let found = picture::object(image)?;
     Some(Shape {
-        ratio: h / w,
-        height,
-        colours: counts.map(|c| f64::from(c) / f64::from(total)),
-        cut: !looks.cut.is_empty(),
+        ratio: found.ratio,
+        height: found.height,
+        colours: found.colours,
+        cut: found.cut,
     })
 }
 
