@@ -5,6 +5,7 @@
  * the rules live here.
  */
 import type {
+  TripoRigSpec,
   MeshyPreset,
   ModelOption,
   PresetVariant,
@@ -48,6 +49,16 @@ export function modelLabel(options: readonly ModelOption[], id: string): string 
   return options.find(o => o.id === id)?.label ?? id;
 }
 
+/** The name a summary gives a rig's bone naming. */
+export function rigSpecLabel(spec: TripoRigSpec): string {
+  return { mixamo: 'Mixamo', tripo: 'Tripo', vrm: 'VRM' }[spec];
+}
+
+/** VRM bone names come only from Tripo's 3.0 rig models. */
+export function rigSpecFits(spec: TripoRigSpec, rigModel: string): boolean {
+  return spec !== 'vrm' || rigModel.trim().startsWith('v3.');
+}
+
 export function tripoProblem(preset: TripoPreset, models: readonly ModelOption[]): string | null {
   if (!preset.model.trim()) return 'Pick a Tripo model.';
   if (preset.faceLimit > 0) {
@@ -59,6 +70,9 @@ export function tripoProblem(preset: TripoPreset, models: readonly ModelOption[]
     }
   }
   if (preset.rig && !preset.rigModel.trim()) return 'Pick a Tripo rig model.';
+  if (preset.rig && !rigSpecFits(preset.rigSpec, preset.rigModel)) {
+    return 'VRM bone names need the Rig 3.0 model. Pick it, or another naming.';
+  }
   if (preset.animations.length > 5) return 'Tripo retargets at most 5 animations at once.';
   return null;
 }
@@ -107,7 +121,7 @@ export function tripoSummary(preset: TripoPreset, models: readonly ModelOption[]
     preset.faceLimit ? `${formatCount(preset.faceLimit)} faces` : 'adaptive faces',
     preset.pbr ? 'PBR' : null,
     preset.multiView ? 'multi-view' : null,
-    preset.rig ? `rig with ${preset.rigSpec === 'mixamo' ? 'Mixamo' : 'Tripo'} bones` : null,
+    preset.rig ? `rig with ${rigSpecLabel(preset.rigSpec)} bones` : null,
   ]
     .filter(Boolean)
     .join(', ');

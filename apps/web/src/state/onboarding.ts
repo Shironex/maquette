@@ -15,7 +15,7 @@ import type {
 } from '@/ipc/client';
 import type { FieldTone } from '@maquette/ui';
 import { formatK, shortPath } from '@/lib/format';
-import { modelLabel } from './provider-presets';
+import { modelLabel, rigSpecLabel } from './provider-presets';
 import { NO_LISTS, hasErrors, validateConfig, type ModelLists } from './settings-form';
 import { MISSING_EFFECT, SHORT_NAME, summarizeTools } from './toolchain';
 
@@ -258,7 +258,7 @@ export function defaultsSummary(config: WorkspaceConfig, lists: ModelLists = NO_
   const character = [
     `Characters: ${tripo.faceLimit ? `${formatK(tripo.faceLimit)} faces` : 'adaptive faces'}`,
     tripo.multiView ? 'multi-view' : null,
-    tripo.rig ? `rig with ${tripo.rigSpec === 'mixamo' ? 'Mixamo' : 'Tripo'}` : null,
+    tripo.rig ? `rig with ${rigSpecLabel(tripo.rigSpec)}` : null,
   ]
     .filter(Boolean)
     .join(', ');

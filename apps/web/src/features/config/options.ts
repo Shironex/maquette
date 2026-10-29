@@ -59,6 +59,7 @@ export const TRIPO_GEOMETRY: SelectOption<TripoGeometryQuality>[] = [
 export const RIG_SPEC: SelectOption<TripoRigSpec>[] = [
   { value: 'mixamo', label: 'Mixamo' },
   { value: 'tripo', label: 'Tripo' },
+  { value: 'vrm', label: 'VRM' },
 ];
 
 export const MESHY_TEXTURE: SelectOption<MeshyTexture>[] = [
