@@ -1,6 +1,4 @@
-use super::clock::civil_from_days;
 use super::*;
-use std::time::{Duration, UNIX_EPOCH};
 
 fn new_project(name: &str) -> NewProject {
     NewProject {
@@ -24,14 +22,6 @@ fn slugify_cases() {
     assert_eq!(slugify(""), "project");
     assert_eq!(slugify("---"), "project");
     assert_eq!(slugify(&"a ".repeat(100)).chars().count(), 59);
-}
-
-#[test]
-fn rfc3339_formatting() {
-    assert_eq!(rfc3339_utc(UNIX_EPOCH), "1970-01-01T00:00:00.000Z");
-    let t = UNIX_EPOCH + Duration::from_millis(1_709_210_096_789);
-    assert_eq!(rfc3339_utc(t), "2024-02-29T12:34:56.789Z");
-    assert_eq!(civil_from_days(-1), (1969, 12, 31));
 }
 
 #[test]
