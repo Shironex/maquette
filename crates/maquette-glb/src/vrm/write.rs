@@ -23,7 +23,7 @@ use serde_json::{Map, Value, json};
 use super::container::{self, invalid, set_extension, use_extension};
 use super::meta::VrmMeta;
 use super::pose::SCALE_NOISE;
-use super::{BoneOverrides, FindingLevel, VrmFinding, assess, bones, mtoon, with_parsed};
+use super::{BoneOverrides, FindingLevel, VrmFinding, assess, is_human_bone, mtoon, with_parsed};
 use maquette_base::error::CoreResult;
 
 /// The VRM extension.
@@ -98,12 +98,7 @@ fn look_at(has_eyes: bool) -> Value {
 
 fn check_spec(spec: &WriteSpec) -> CoreResult<()> {
     spec.meta.validate()?;
-    let human = bones::human_bones();
-    if let Some(bone) = spec
-        .overrides
-        .keys()
-        .find(|k| !human.iter().any(|b| &b.name == *k))
-    {
+    if let Some(bone) = spec.overrides.keys().find(|k| !is_human_bone(k)) {
         return Err(invalid(format!(
             "{bone} is not a VRM humanoid bone. Use the VRM 1.0 names, such as leftUpperArm."
         )));
