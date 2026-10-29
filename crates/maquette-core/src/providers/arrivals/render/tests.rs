@@ -1,18 +1,17 @@
 //! Matching a download by its picture, end to end: a red cube made and
 //! rendered by a real headless Blender against a red block ref and a blue
-//! disc ref. Skipped where no Blender is installed. Nothing talks to a
-//! provider or reads a real Downloads folder.
+//! disc ref (skipped where no Blender is installed), and the same through a
+//! picture port that draws the picture itself. Nothing talks to a provider
+//! or reads a real Downloads folder.
 
 use std::fs;
-use std::path::Path;
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use super::super::tests::{Rig, rig};
 use super::*;
 use crate::inbox::fixture;
 use crate::inbox::images::write_png;
-use crate::pipeline::runner::NullSink;
 use crate::providers::jobs::Provider;
 use crate::providers::presets::PresetVariant;
 use crate::providers::tests::add_objects;
@@ -68,6 +67,22 @@ fn two_sends(rig: &Rig) -> (String, String) {
     (red.id, blue.id)
 }
 
+/// A picture port that draws a red block on the studio ground for every
+/// model, as the renderer the app hands in would draw a red crate.
+struct RedBlock;
+
+impl PictureRender for RedBlock {
+    fn render(&self, _model: &Path, dir: &Path, key: &str) -> CoreResult<PathBuf> {
+        fs::create_dir_all(dir).map_err(|e| CoreError::io(dir, e))?;
+        let png = dir.join(format!("{key}.png"));
+        let block = drawn([196, 40, 36], |x, y| {
+            (0.25..0.75).contains(&x) && (0.25..0.75).contains(&y)
+        });
+        fs::write(&png, block).map_err(|e| CoreError::io(&png, e))?;
+        Ok(png)
+    }
+}
+
 fn settled(rig: &Rig, id: &str) -> Arrival {
     let deadline = Instant::now() + Duration::from_secs(180);
     loop {
@@ -98,16 +113,33 @@ fn without_a_renderer_the_sends_are_ranked_by_name_alone() {
 }
 
 #[test]
+fn the_picture_port_draws_what_the_waiting_sends_are_ranked_by() {
+    let rig = rig();
+    rig.arrivals.set_renderer(RedBlock);
+    let (red, blue) = two_sends(&rig);
+    let file = rig.download("model (3).glb", &fixture::clean_prop());
+
+    let arrival = rig.arrivals.take(&file).expect("seen");
+    assert_eq!(arrival.picture, PictureState::Queued, "a renderer is set");
+    let done = settled(&rig, &arrival.id);
+    assert_eq!(done.picture, PictureState::Ready, "{done:?}");
+    let order: Vec<&str> = done.suggestions.iter().map(|s| s.job.as_str()).collect();
+    assert_eq!(order, [red.as_str(), blue.as_str()]);
+    assert_ne!(
+        done.state,
+        ArrivalState::Attached,
+        "never attached by itself"
+    );
+}
+
+#[test]
 fn a_red_cube_download_is_suggested_for_the_red_crate_and_never_attached() {
     let Some(blender) = test_blender::blender() else {
         return;
     };
     let rig = rig();
-    let tools = test_blender::toolbox(&blender);
-    rig.arrivals.set_renderer(PictureRenderer::new(
-        PipelineRunner::new(Arc::new(NullSink)),
-        move || tools.clone(),
-    ));
+    rig.arrivals
+        .set_renderer(test_blender::picture_renderer(&blender));
     let (red, blue) = two_sends(&rig);
     let file = rig.download("model (3).glb", b"");
     red_cube(&blender, &file);

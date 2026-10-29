@@ -27,8 +27,8 @@ use serde::Serialize;
 
 pub use crate::settings::{catalog, presets};
 pub use arrivals::{
-    Arrival, ArrivalState, Arrivals, PendingHandoff, PictureRenderer, PictureState, SendSuggestion,
-    WatchStatus, WatchTiming,
+    Arrival, ArrivalState, Arrivals, PendingHandoff, PictureState, SendSuggestion, WatchStatus,
+    WatchTiming,
 };
 pub use balance::Balance;
 pub use catalog::{ModelOption, ProviderCatalog};

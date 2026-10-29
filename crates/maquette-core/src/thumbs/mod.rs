@@ -19,7 +19,10 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 
 pub mod missing;
+mod picture;
 pub mod source;
+
+pub use picture::PictureRenderer;
 
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::cache::FileHasher;

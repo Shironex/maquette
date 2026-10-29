@@ -11,10 +11,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use maquette_core::pipeline::runner::{NullSink, PipelineRunner};
-use maquette_core::providers::{
-    Arrival, Arrivals, PictureRenderer, ProviderJobs, WatchStatus, WatchTiming,
-};
-use maquette_core::thumbs::{self as core_thumbs, ThumbState};
+use maquette_core::providers::{Arrival, Arrivals, ProviderJobs, WatchStatus, WatchTiming};
+use maquette_core::thumbs::{self as core_thumbs, PictureRenderer, ThumbState};
 use maquette_core::{CoreError, app_state::DownloadsWatch};
 use serde::Serialize;
 use tauri::{AppHandle, Manager as _, State};

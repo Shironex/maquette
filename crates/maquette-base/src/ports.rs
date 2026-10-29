@@ -5,7 +5,7 @@
 //! Each port is one call, and an implementation does exactly what the code
 //! behind it did before the port existed.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::error::CoreResult;
 use crate::tools::Toolbox;
@@ -25,4 +25,15 @@ pub trait ScriptRunner {
         script: (&str, &str),
         extra: &[String],
     ) -> CoreResult<()>;
+}
+
+/// Renders a model from the front on a plain ground.
+pub trait PictureRender: Send + Sync {
+    /// The front picture of `model` as `<dir>/<key>.png`, rendered unless it
+    /// is there already.
+    ///
+    /// # Errors
+    ///
+    /// Fails without Blender, or when the render does.
+    fn render(&self, model: &Path, dir: &Path, key: &str) -> CoreResult<PathBuf>;
 }

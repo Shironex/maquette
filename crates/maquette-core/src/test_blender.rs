@@ -92,6 +92,13 @@ pub(crate) fn runner() -> crate::pipeline::runner::PipelineRunner {
     PipelineRunner::new(std::sync::Arc::new(NullSink))
 }
 
+/// The download picture renderer on [`runner`], with `blender` as its
+/// Blender.
+pub(crate) fn picture_renderer(blender: &Path) -> crate::thumbs::PictureRenderer {
+    let tools = toolbox(blender);
+    crate::thumbs::PictureRenderer::new(runner(), move || tools.clone())
+}
+
 /// One of the small Frostveil props of `parts/fixtures/parts_models.py`
 /// (`lantern`, `lantern-tripo`, `gate-door`, ...), written into `dir`.
 pub(crate) fn parts_model(blender: &Path, dir: &Path, which: &str) -> PathBuf {

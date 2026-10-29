@@ -9,10 +9,11 @@
 //! explicit call) attaches it to an asset or leaves it.
 //!
 //! A download it does not place by name is also rendered headless from the
-//! front ([`PictureRenderer`], one at a time, cached by content hash) and
-//! every waiting send is ranked by how much its front ref looks like it
-//! ([`SendSuggestion`]); a clear best is suggested with its score, never
-//! attached by itself.
+//! front (through the picture port the app hands it,
+//! [`crate::base::ports::PictureRender`], one at a time, cached by content
+//! hash) and every waiting send is ranked by how much its front ref looks
+//! like it ([`SendSuggestion`]); a clear best is suggested with its score,
+//! never attached by itself.
 //!
 //! Only reads: it never moves, renames or deletes anything in the folder,
 //! never opens a provider's site and never spends anything.
@@ -34,9 +35,10 @@ use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
 use serde::{Deserialize, Serialize};
 
+use crate::base::ports::PictureRender;
+
 pub use folder::{WATCHED, WatchTiming, is_watched};
 pub use picture::SendSuggestion;
-pub use render::PictureRenderer;
 
 use super::handback::{SLACK_MS, modified_ms, zip_models};
 use super::jobs::{JobState, Provider, ProviderJob, ProviderJobs};
@@ -185,7 +187,7 @@ struct State {
 /// that renders them in turn.
 #[derive(Default)]
 struct Pictures {
-    renderer: Option<PictureRenderer>,
+    renderer: Option<Arc<dyn PictureRender>>,
     queue: VecDeque<String>,
 }
 
