@@ -26,7 +26,8 @@ colors = opt("--colors")
 labels = opt("--labels", ",".join(os.path.basename(g)[:-4] for g in glbs)).split(",")
 cw, ch = map(int, opt("--cell", "300x400").split("x"))
 fx, fz, fs = map(float, opt("--frame", "0,0.6,1.45").split(","))
-tmpdir = os.path.join(os.path.dirname(os.path.abspath(out)), "_cells")
+# one cell folder per sheet, so runs in parallel never share files
+tmpdir = os.path.abspath(out) + "_cells"
 os.makedirs(tmpdir, exist_ok=True)
 
 P = "mixamorig:"
