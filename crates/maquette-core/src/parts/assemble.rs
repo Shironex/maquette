@@ -30,7 +30,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use super::blender::{self, Script};
-use super::versions::{self, Target};
+use crate::assets::versions::{self, Target};
 use crate::assets::{self, AssetKind, AssetVersion};
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;

@@ -12,6 +12,7 @@ use crate::ship::ShipSettings;
 
 pub mod copy;
 pub mod remove;
+pub(crate) mod versions;
 
 pub const ASSET_NAME_MAX_CHARS: usize = 80;
 /// The folder of a project the By hand sends keep their handoff folders in.

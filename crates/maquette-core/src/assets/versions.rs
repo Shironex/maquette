@@ -6,9 +6,10 @@
 use std::fs;
 use std::path::Path;
 
-use crate::assets::{self, Asset, AssetKind, AssetStatus, AssetVersion, NewAsset, Stage};
+use maquette_glb::analyse;
+
+use crate::assets::{self, Asset, AssetKind, AssetStatus, AssetVersion, NewAsset, Stage, stats_of};
 use crate::error::{CoreError, CoreResult};
-use crate::inbox::{analyse, stats_of};
 use crate::project::{self, ProjectManifest};
 use crate::workspace::FolderLayout;
 

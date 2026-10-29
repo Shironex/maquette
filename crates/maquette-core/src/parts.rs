@@ -16,7 +16,6 @@
 pub mod assemble;
 pub mod bake_back;
 mod blender;
-pub(crate) mod versions;
 
 // Reading the parts from the model file lives in the glb crate.
 pub use maquette_glb::parts::{PartInfo, read, read_bytes};
