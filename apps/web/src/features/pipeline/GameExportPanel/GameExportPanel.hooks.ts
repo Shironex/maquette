@@ -5,6 +5,8 @@ export interface GameExportDraft {
   format: GameFormat;
   textures: GameTextures;
   textureCap: number;
+  /** Leaves normal and metal-roughness maps out of the exported models. */
+  dropMaps: boolean;
   bake: boolean;
 }
 
@@ -15,6 +17,7 @@ export function draftOf(settings: GameSettings): GameExportDraft {
     format: settings.format,
     textures: settings.export.textures,
     textureCap: settings.export.textureCap,
+    dropMaps: settings.export.dropMaps ?? false,
     bake: settings.bake,
   };
 }
@@ -34,10 +37,13 @@ export function capLine(settings: GameSettings): string {
 /** The change Apply saves: only what differs from the saved settings. */
 export function exportChange(saved: GameSettings, draft: GameExportDraft): GameSettingsChange {
   const exportChanged =
-    draft.textures !== saved.export.textures || draft.textureCap !== saved.export.textureCap;
+    draft.textures !== saved.export.textures ||
+    draft.textureCap !== saved.export.textureCap ||
+    draft.dropMaps !== (saved.export.dropMaps ?? false);
+  const { textures, textureCap, dropMaps } = draft;
   return {
     format: draft.format === saved.format ? null : draft.format,
-    export: exportChanged ? { textures: draft.textures, textureCap: draft.textureCap } : null,
+    export: exportChanged ? { textures, textureCap, dropMaps } : null,
     bake: draft.bake === saved.bake ? null : draft.bake,
   };
 }
@@ -49,11 +55,11 @@ export function useGameExportPanel(
 ) {
   const saved = draftOf(settings);
   const [draft, setDraft] = useState(saved);
-  const { format, textures, textureCap, bake } = saved;
+  const { format, textures, textureCap, dropMaps, bake } = saved;
   // A save, an agent's change or another project brings the saved values in.
   useEffect(
-    () => setDraft({ format, textures, textureCap, bake }),
-    [format, textures, textureCap, bake]
+    () => setDraft({ format, textures, textureCap, dropMaps, bake }),
+    [format, textures, textureCap, dropMaps, bake]
   );
   const [saving, setSaving] = useState(false);
   const change = exportChange(settings, draft);

@@ -276,7 +276,7 @@ export function gameProject(kind: 'crypt' | 'maze', imported: boolean): ProjectM
   const settings: GameSettings = {
     format: obj ? 'obj' : 'glb',
     modelsDir: 'assets/models',
-    export: { textures: 'png', textureCap: 1024 },
+    export: { textures: 'png', textureCap: 1024, dropMaps: false },
     bake: false,
     budgets: obj ? mazeBudgets() : cryptBudgets(),
     models: {},

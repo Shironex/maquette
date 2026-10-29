@@ -48,7 +48,7 @@ export function createProjectHandlers({
             ? {
                 format: next.game.format,
                 modelsDir: next.game.modelsDir,
-                export: { textures: 'png', textureCap: 1024 },
+                export: { textures: 'png', textureCap: 1024, dropMaps: false },
                 bake: false,
                 budgets: next.game.format === 'obj' ? mazeBudgets() : cryptBudgets(),
                 models: {},

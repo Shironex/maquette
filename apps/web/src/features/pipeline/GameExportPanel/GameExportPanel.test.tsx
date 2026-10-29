@@ -8,7 +8,7 @@ import { exportChange } from './GameExportPanel.hooks';
 const settings: GameSettings = {
   format: 'glb',
   modelsDir: 'assets/models',
-  export: { textures: 'png', textureCap: 1024 },
+  export: { textures: 'png', textureCap: 1024, dropMaps: false },
   bake: false,
   budgets: [],
   models: {},
@@ -31,7 +31,7 @@ describe('GameExportPanel', () => {
     await userEvent.click(apply);
     expect(onSave).toHaveBeenCalledWith({
       format: null,
-      export: { textures: 'png', textureCap: 512 },
+      export: { textures: 'png', textureCap: 512, dropMaps: false },
       bake: true,
     });
   });
@@ -66,7 +66,26 @@ describe('GameExportPanel', () => {
 
   it('sends only what changed', () => {
     expect(
-      exportChange(settings, { format: 'obj', textures: 'png', textureCap: 1024, bake: false })
+      exportChange(settings, {
+        format: 'obj',
+        textures: 'png',
+        textureCap: 1024,
+        dropMaps: false,
+        bake: false,
+      })
     ).toEqual({ format: 'obj', export: null, bake: null });
+  });
+
+  it('drops the normal and metal maps only when switched on', async () => {
+    const onSave = vi.fn().mockResolvedValue(true);
+    render(<GameExportPanel settings={settings} onDisk={0} busy={false} onSave={onSave} />);
+    expect(screen.getByText(/Kept: models export with their normal/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('switch', { name: 'Drop normal and metal maps' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(onSave).toHaveBeenCalledWith({
+      format: null,
+      export: { textures: 'png', textureCap: 1024, dropMaps: true },
+      bake: null,
+    });
   });
 });

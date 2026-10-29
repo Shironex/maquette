@@ -2043,6 +2043,11 @@ export type GameExport = {
 	textures: GameTextures,
 	/**  The longest texture edge in pixels, one of [`TEXTURE_CAPS`]. */
 	textureCap: number,
+	/**
+	 *  Leaves normal and metal-roughness maps out of the exported models,
+	 *  for a game whose shader reads neither. Off (keep them) by default.
+	 */
+	dropMaps?: boolean,
 };
 
 /**  The model files a game engine reads. */
