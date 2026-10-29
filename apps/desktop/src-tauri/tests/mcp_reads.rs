@@ -1,6 +1,8 @@
 //! A real MCP client reads the Lab with a direction filter. Codex is a
 //! fake script that always fails, so the failed jobs of two directions
-//! exist without any real service.
+//! exist without any real service. The fake is a shell script, so the
+//! test runs on unix only.
+#![cfg(unix)]
 
 use std::collections::BTreeMap;
 use std::os::unix::fs::PermissionsExt;
