@@ -1,0 +1,12 @@
+{
+  "name": "maquette",
+  "description": "Agent skills for Maquette, the desktop studio that turns concept art into 3D for websites and games",
+  "owner": { "name": "Shironex" },
+  "plugins": [
+    {
+      "name": "maquette",
+      "source": "./plugins/maquette",
+      "description": "Skills for driving Maquette over its local MCP server: concept rounds, by hand sends and landings, character rig fixes, game export"
+    }
+  ]
+}
