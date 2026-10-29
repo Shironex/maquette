@@ -16,6 +16,7 @@ import { SectionTitle } from '../../SectionTitle';
 import { PROVIDERS, SERVICES, VARIANTS } from '../../choices';
 import { EarlierSends } from './EarlierSends';
 import { ImageChoice } from './ImageChoice';
+import { ModelNote } from '../../ModelNote';
 import { RefWarnings } from '../../RefWarnings';
 import { useSendEstimate, useSendForm, useSendWarnings } from './SendForm.hooks';
 
@@ -42,7 +43,7 @@ export default function SendForm({ options, draft }: SendFormProps) {
     redo,
   } = useSendForm(options, draft);
   const estimate = useSendEstimate(options, draft);
-  const { warnings, fix } = useSendWarnings(options, draft, multiView);
+  const { warnings, note, fix } = useSendWarnings(options, draft, multiView);
   const tagged = (options.asset.refs ?? []).length > 0;
   const service = draft.service;
   const images = options.images.map(image => (
@@ -135,6 +136,7 @@ export default function SendForm({ options, draft }: SendFormProps) {
           <p className="text-meta text-fg-mute">
             {imagesNote(draft.provider, service, draft.images, multiView, smart)}
           </p>
+          <ModelNote note={note} />
           <RefWarnings warnings={warnings} onFix={fix} />
         </section>
 

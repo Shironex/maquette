@@ -7,6 +7,7 @@ import { inProject } from '@/state/lab';
 import { warningsLine } from '@/state/refs';
 import { VARIANTS } from '../../../choices';
 import { useItemWarnings } from './ItemRow.hooks';
+import { ModelNote } from '../../../ModelNote';
 import { RefWarnings } from '../../../RefWarnings';
 
 export interface ItemRowProps {
@@ -21,6 +22,8 @@ export interface ItemRowProps {
   fields: ReactNode;
   /** Its weak ref warnings, null while they are checked. */
   warnings?: readonly RefWarning[] | null;
+  /** The note that the asset has a model already, when it has. */
+  modelNote?: RefWarning | null;
   onFix?: (warning: RefWarning, fix: RefFix) => void;
 }
 
@@ -34,6 +37,7 @@ export default function ItemRow({
   onClear,
   fields,
   warnings = null,
+  modelNote = null,
   onFix = () => undefined,
 }: ItemRowProps) {
   const { showWarnings, toggleWarnings, warned, warnedTitle } = useItemWarnings(warnings);
@@ -115,6 +119,7 @@ export default function ItemRow({
           onClick={onToggle}
         />
       </div>
+      <ModelNote note={modelNote} />
       {showWarnings && warned ? <RefWarnings warnings={warned} onFix={onFix} /> : null}
       {open ? (
         <div

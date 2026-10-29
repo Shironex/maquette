@@ -341,6 +341,18 @@ export function createRefsHandlers(parts: RefsLabParts): Record<string, (args: A
             'Multi-view is on, but only one image goes. Make the other views to send all four.',
           fixes: ['make-views'],
         });
+      const latest = asset.versions.at(-1);
+      if (latest) {
+        const entry = asset.origin?.entry;
+        out.push({
+          kind: 'has-model',
+          file: null,
+          view: null,
+          title: `${asset.name} already has a model (v${latest.version}${entry ? `, from the library entry ${entry}` : ''})`,
+          detail: `This send makes v${latest.version + 1}${entry ? '; the library entry is not changed' : ''}. The older versions stay.`,
+          fixes: [],
+        });
+      }
       return out;
     });
   }

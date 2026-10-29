@@ -47,6 +47,8 @@ pub enum WarningKind {
     BusyBackground,
     OneView,
     ViewsDisagree,
+    /// The asset has a model already; the send makes its next version.
+    HasModel,
 }
 
 /// A one click fix the panel offers next to a warning.
@@ -308,7 +310,39 @@ pub fn send_warnings(
         });
     }
     out.extend(agree::view_warnings(project_dir, &sent, &views));
+    out.extend(has_model(asset));
     out
+}
+
+/// A note that the asset has a model already, so a send adds a version
+/// instead of making the first one. When the model came from the library
+/// it says the entry stays as it is.
+fn has_model(asset: &Asset) -> Option<RefWarning> {
+    let latest = asset.latest()?;
+    let from = asset
+        .origin
+        .as_ref()
+        .map(|o| format!(", from the library entry {}", o.entry))
+        .unwrap_or_default();
+    let kept = if asset.origin.is_some() {
+        "; the library entry is not changed"
+    } else {
+        ""
+    };
+    Some(RefWarning {
+        kind: WarningKind::HasModel,
+        file: None,
+        view: None,
+        title: format!(
+            "{} already has a model (v{}{from})",
+            asset.name, latest.version
+        ),
+        detail: format!(
+            "This send makes v{}{kept}. The older versions stay.",
+            asset.next_version()
+        ),
+        fixes: Vec::new(),
+    })
 }
 
 mod agree;

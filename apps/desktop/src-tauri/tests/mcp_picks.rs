@@ -423,7 +423,7 @@ async fn agents_tag_ref_views_and_sends_follow_them_with_warnings() {
     maquette_core::providers::http::ensure_crypto();
     let dir = tempfile::tempdir().expect("temp dir");
     let (session, project_id, project_dir) = fixture(dir.path());
-    let (_host, client, server) = connect(session).await;
+    let (host, client, server) = connect(session).await;
     let picked = call(
         &client,
         "pick_concepts",
@@ -493,6 +493,61 @@ async fn agents_tag_ref_views_and_sends_follow_them_with_warnings() {
     assert_eq!(warned.len(), 2, "{sent}");
     assert_eq!(warned[0]["kind"], json!("small"));
     assert_eq!(warned[0]["view"], json!("front"));
+    assert_eq!(
+        sent["modelWarning"],
+        Value::Null,
+        "a first model has no note"
+    );
+
+    // An asset with a model from a library entry: a send says it makes the next version.
+    let (root, config) = host.session.workspace().expect("workspace");
+    std::fs::create_dir_all(project_dir.join("models")).expect("models");
+    std::fs::write(project_dir.join("models/stone_lantern_v1.glb"), "glb").expect("model");
+    project::modify(&root, &config.layout, &project_id, |m| {
+        maquette_core::assets::add_version(
+            m,
+            "stone-lantern",
+            "models/stone_lantern_v1.glb".into(),
+            None,
+        )?;
+        m.assets
+            .iter_mut()
+            .find(|a| a.id == "stone-lantern")
+            .expect("lantern")
+            .origin = Some(maquette_core::assets::AssetOrigin {
+            entry: "stone-lantern".into(),
+            version: 1,
+        });
+        Ok(())
+    })
+    .expect("model");
+    let batch = call(
+        &client,
+        "send_batch_to_3d",
+        json!({ "project": project_id, "provider": "by-hand", "items": [
+            { "asset": "stone-lantern", "images": refs },
+        ] }),
+    )
+    .await;
+    let job = &batch["jobs"][0];
+    assert_eq!(
+        job["modelWarning"]["title"],
+        json!("Stone lantern already has a model (v1, from the library entry stone-lantern)")
+    );
+    assert!(
+        job["modelWarning"]["detail"]
+            .as_str()
+            .is_some_and(|d| d.starts_with("This send makes v2; the library entry is not changed"))
+    );
+    assert_eq!(job["refWarnings"].as_array().expect("warnings").len(), 2);
+    assert_eq!(batch["assetsWithRefWarnings"], json!(1));
+    let single = call(
+        &client,
+        "send_to_3d",
+        json!({ "project": project_id, "asset": "stone-lantern", "provider": "by-hand", "images": refs }),
+    )
+    .await;
+    assert!(single["modelWarning"]["title"].is_string(), "{single}");
 
     let views = call(
         &client,

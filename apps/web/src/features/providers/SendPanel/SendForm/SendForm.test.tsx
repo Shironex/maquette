@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { commands, type RefWarning } from '@/ipc/client';
 import { useAppStore } from '@/state/use-app-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useRefsStore } from '@/state/use-refs-store';
@@ -8,7 +9,17 @@ import { clearMocks, openMockRefs } from '@/test/mock-ipc';
 import { openProviders } from '../../openProviders';
 import { SendForm } from '.';
 
+const modelNote: RefWarning = {
+  kind: 'has-model',
+  file: null,
+  view: null,
+  title: 'Guardian statues already has a model (v1, from the library entry guardian-statues)',
+  detail: 'This send makes v2; the library entry is not changed. The older versions stay.',
+  fixes: [],
+};
+
 afterEach(() => {
+  vi.restoreAllMocks();
   clearMocks();
   useProvidersStore.setState({ project: null, jobs: [], panel: null, keys: [] });
   useRefsStore.setState({ sheet: null, view: null });
@@ -85,5 +96,19 @@ describe('the Send to 3D form', () => {
       mode: 'clean',
       file: 'refs/guardian_statues_front.png',
     });
+  });
+
+  it('says before the send that the asset has a model and the send makes the next version', async () => {
+    await openMockRefs();
+    vi.spyOn(commands, 'refsWarnings').mockResolvedValue([[modelNote]]);
+    await useProvidersStore.getState().openPanel('frostveil', 'guardian-statues');
+    const { options, draft } = useProvidersStore.getState().panel!;
+    render(<SendForm options={options!} draft={draft!} />);
+    const found = await screen.findByRole('note', { name: 'Existing model' });
+    expect(found).toHaveTextContent('from the library entry guardian-statues');
+    expect(found).toHaveTextContent('This send makes v2');
+    // It is a note, not a ref warning: it is not counted and does not block.
+    expect(screen.queryByText(/ref warning/)).toBeNull();
+    expect(screen.getByRole('button', { name: /Send to|Write the handoff folder/ })).toBeEnabled();
   });
 });

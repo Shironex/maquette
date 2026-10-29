@@ -1,12 +1,23 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { commands, type RefWarning } from '@/ipc/client';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { clearMocks, openMockRefs } from '@/test/mock-ipc';
 import { openProviders } from '../../openProviders';
 import { BatchForm } from '.';
 
+const modelNote: RefWarning = {
+  kind: 'has-model',
+  file: null,
+  view: null,
+  title: 'Guardian statues already has a model (v1, from the library entry guardian-statues)',
+  detail: 'This send makes v2; the library entry is not changed. The older versions stay.',
+  fixes: [],
+};
+
 afterEach(() => {
+  vi.restoreAllMocks();
   clearMocks();
   useProvidersStore.setState({ project: null, jobs: [], batch: null });
 });
@@ -63,5 +74,18 @@ describe('the batch form', () => {
     await useProvidersStore.getState().sendBatch();
     draw();
     expect(await screen.findByText(/1 asset goes with ref warnings\./)).toBeInTheDocument();
+  });
+
+  it('notes the asset that has a model already without counting it as a ref warning', async () => {
+    await openMockRefs();
+    vi.spyOn(commands, 'refsWarnings').mockResolvedValue([[modelNote], []]);
+    await useProvidersStore.getState().loadKeys();
+    await useProvidersStore.getState().openBatch('frostveil', ['guardian-statues', 'veil-gate']);
+    const batch = useProvidersStore.getState().batch!;
+    render(<BatchForm projectDir={batch.options!.projectDir} draft={batch.draft!} />);
+    const notes = await screen.findAllByRole('note', { name: 'Existing model' });
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toHaveTextContent('This send makes v2');
+    expect(screen.queryByText(/assets? (has|have) ref warnings/)).toBeNull();
   });
 });

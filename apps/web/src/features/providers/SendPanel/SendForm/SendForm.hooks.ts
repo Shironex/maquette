@@ -19,6 +19,7 @@ import { redoLine } from '@/state/redo';
 import { useAppStore } from '@/state/use-app-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useCatalog } from '../../PresetFields';
+import { splitModelNote } from '@/state/refs';
 import { useRefWarnings, useWarningFix } from '../../RefWarnings';
 
 /** The draft's actions and what the form derives from it: blocker, summary, key, earlier sends. */
@@ -88,13 +89,14 @@ export function useSendEstimate(options: SendOptions, draft: SendDraft) {
   return useAsyncValue(commands.providerEstimate, request);
 }
 
-/** The weak ref warnings of the images as picked, and their fixes. */
+/** The weak ref warnings of the images as picked, their fixes, and the existing model note. */
 export function useSendWarnings(options: SendOptions, draft: SendDraft, multiView: boolean) {
   const setDraft = useProvidersStore(s => s.setDraft);
   const items = [{ asset: options.asset.id, images: draft.images, multiView }];
-  const warnings = useRefWarnings(options.project, draft.images.length > 0 ? items : [])?.[0] ?? [];
+  const all = useRefWarnings(options.project, draft.images.length > 0 ? items : [])?.[0] ?? [];
+  const { weak: warnings, note } = splitModelNote(all);
   const fix = useWarningFix(options.project, (_, file) =>
     setDraft({ images: draft.images.filter(i => i !== file) })
   );
-  return { warnings, fix: (w: RefWarning, f: RefFix) => fix(options.asset.id, w, f) };
+  return { warnings, note, fix: (w: RefWarning, f: RefFix) => fix(options.asset.id, w, f) };
 }

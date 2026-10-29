@@ -251,6 +251,44 @@ fn using_an_entry_copies_it_in_as_a_new_asset_with_its_origin() {
 }
 
 #[test]
+fn a_new_model_of_an_asset_that_came_from_an_entry_is_that_entrys_next_version() {
+    let f = fixture();
+    add_lamp(&f, &["props"]);
+    use_in_project(f.root(), &f.layout, "desk-lamp", None, "study-room").expect("use");
+    // A send in Study room comes back and is accepted as the copy's v2.
+    write(&f.room, "models/desk_lamp_v2.glb", "lamp from a send");
+    project::modify(f.root(), &f.layout, "study-room", |m| {
+        add_version(
+            m,
+            "desk-lamp",
+            "models/desk_lamp_v2.glb".into(),
+            Some(stats(30_000)),
+        )?;
+        Ok(())
+    })
+    .expect("v2");
+    let added = add(
+        f.root(),
+        &f.layout,
+        &AddToLibrary {
+            project: "study-room".into(),
+            asset: "desk-lamp".into(),
+            name: None,
+            tags: None,
+        },
+        &[],
+    )
+    .expect("add");
+    assert_eq!(added.entry.id, "desk-lamp");
+    assert_eq!(added.version, 2);
+    assert!(added.added);
+    let entries = list(f.root()).expect("list");
+    assert_eq!(entries.len(), 1, "no desk-lamp-2 entry");
+    assert_eq!(entries[0].versions.len(), 2);
+    assert_eq!(entries[0].tags, vec!["props".to_string()]);
+}
+
+#[test]
 fn a_newer_version_shows_as_an_update_until_the_asset_is_updated() {
     let f = fixture();
     add_lamp(&f, &[]);

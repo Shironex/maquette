@@ -5127,7 +5127,7 @@ export type VersionFrom = {
 	version: number,
 };
 
-export type WarningKind = "small" | "cropped" | "busy-background" | "one-view" | "views-disagree";
+export type WarningKind = "small" | "cropped" | "busy-background" | "one-view" | "views-disagree" | "has-model";
 
 /**
  *  One asset of a warnings request: the images as picked and whether its

@@ -202,7 +202,7 @@ pub(super) fn await_send_approval(
 #[tool_router(router = sending_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Send an asset's refs to 3D. \"tripo\" or \"meshy\" spend credits, so the send always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back. Settings start from the workspace preset (prop or character) and overrides change them for this send only. The images go front, left, back, right by the asset's ref views (get_ref_views), and refWarnings lists weak refs (small, cropped, busy background, one view only, a view that looks different from the front) without stopping the send."
+        description = "Send an asset's refs to 3D. \"tripo\" or \"meshy\" spend credits, so the send always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back. Settings start from the workspace preset (prop or character) and overrides change them for this send only. The images go front, left, back, right by the asset's ref views (get_ref_views), and refWarnings lists weak refs (small, cropped, busy background, one view only, a view that looks different from the front) without stopping the send. modelWarning says when the asset already has a model (for example one that came from the library): the send then makes its next version and the library entry is not changed; it is null for a first model."
     )]
     async fn send_to_3d(&self, Parameters(args): Parameters<SendTo3dArgs>) -> Out {
         let sent = self
@@ -231,7 +231,8 @@ impl McpTools {
             );
         }
         let mut out = job_value(&self.hub, &job);
-        out["refWarnings"] = warned;
+        out["refWarnings"] = warned.refs;
+        out["modelWarning"] = warned.model;
         if job.provider == Provider::ByHand {
             out["note"] = json!(format!(
                 "Nothing is spent. A person makes the model in the {} web app with the settings card in the handoff folder, then drops the GLB on the asset's card in Maquette or saves it into the inbox as {}.glb.",
@@ -243,7 +244,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Send several assets to 3D at once, one model per asset, with the same provider and settings (each asset keeps its own refs and prop or character preset unless given). \"tripo\" or \"meshy\" spend credits, so the whole batch waits for one approval in the Maquette app that lists every asset; follow each job with get_provider_job. \"by-hand\" spends nothing and writes one handoff folder per asset. Every item is checked before any goes out. Each job reports refWarnings (weak refs, never a stop) and assetsWithRefWarnings counts the assets with any."
+        description = "Send several assets to 3D at once, one model per asset, with the same provider and settings (each asset keeps its own refs and prop or character preset unless given). \"tripo\" or \"meshy\" spend credits, so the whole batch waits for one approval in the Maquette app that lists every asset; follow each job with get_provider_job. \"by-hand\" spends nothing and writes one handoff folder per asset. Every item is checked before any goes out. Each job reports refWarnings (weak refs, never a stop) and modelWarning (the asset already has a model, so the send makes its next version; null for a first model), and assetsWithRefWarnings counts the assets with any refWarnings."
     )]
     async fn send_batch_to_3d(&self, Parameters(args): Parameters<SendBatchArgs>) -> Out {
         let sent = self
@@ -262,7 +263,7 @@ impl McpTools {
                     .collect();
                 let pending = hub.request_batch(&waiting);
                 let ids = waiting.into_iter().map(|j| j.id).collect::<Vec<_>>();
-                let warned: Vec<Value> = sent.jobs.iter().map(|j| warnings::of(host, j)).collect();
+                let warned: Vec<_> = sent.jobs.iter().map(|j| warnings::of(host, j)).collect();
                 Ok((sent, pending, ids, warned))
             })
             .await;
@@ -279,7 +280,8 @@ impl McpTools {
             .zip(warned)
             .map(|(j, w)| {
                 let mut out = job_value(&self.hub, j);
-                out["refWarnings"] = w;
+                out["refWarnings"] = w.refs;
+                out["modelWarning"] = w.model;
                 out
             })
             .collect();

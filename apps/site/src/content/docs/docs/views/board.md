@@ -43,6 +43,8 @@ Send to 3D and the batch panel check the picked refs before any credit is spent,
 
 The pixel checks read PNG refs; a JPEG or WebP gets the size check only. Each warning offers its fix: Clean background, Make the other views (both open the refs sheet, Make the other views draws a view that looks different again from the front) or Leave out this image. Warnings never block Send. The footer counts them next to the cost (2 ref warnings), each image carries its own flag, and the batch panel gives each asset a line (or Refs look good), a banner with Show only these, and repeats the count in its approval: "2 assets go with ref warnings."
 
+An asset that already has a model, for example one it got from the library, also gets a note above the settings: "Stone well already has a model (v1, from the library entry stone-well). This send makes v2; the library entry is not changed." It is not a ref warning, is not counted and never blocks Send. In the batch panel each such asset carries the same note. To put the new model in the library, use Add to library afterwards: it becomes the entry's next version, not a second entry.
+
 **Built asset** adds a model a Blender script in the project makes. **By hand** opens the checklist of sends waiting for a model from the provider's site. A send there closes on its own once its asset gets a model another way (the Inbox, the library), also for a model that came in while Maquette was closed.
 
 ## Projects

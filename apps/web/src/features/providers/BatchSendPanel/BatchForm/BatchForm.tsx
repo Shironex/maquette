@@ -59,6 +59,7 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
       item={item}
       projectDir={projectDir}
       warnings={refs.known ? (refs.byAsset.get(item.asset) ?? []) : null}
+      modelNote={refs.notes.get(item.asset) ?? null}
       onFix={(w, f) => refs.fix(item.asset, w, f)}
       onVariant={variant => setItemVariant(item.asset, variant)}
       diff={isCustom(draft, item) ? itemDiff(draft, item, catalog) : null}
