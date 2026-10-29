@@ -229,7 +229,14 @@ file, recorded in `game.models`), `budget.rs` checks models against their folder
 still the untouched import, its `textureCap` from its folder budget with the global cap as the
 fallback, the export settings), `ship.rs` plans what Ship would change against
 `web/ship-record.json` (a replaced file whose game copy is still the imported one is `imported`;
-`detect::uncommitted` counts `git --no-optional-locks status --porcelain`, read only), and `settings.rs` saves a settings change and re-ensures the pipeline. Budget fix-ups never give a
+`detect::uncommitted` counts `git --no-optional-locks status --porcelain`, read only), and `settings.rs` saves a settings change and re-ensures the pipeline. `GameSettings.folders` moves
+one asset to a folder of its own (`file_of` keeps the file name); changing it writes the old path
+into the ship record's `remove` list (`ship::record_moves`), so the plan shows it as removed and
+`ship_game.mjs` deletes it only when Maquette wrote it. `detect::check_repo` checks a path an agent
+names as a game repo (a checkout or a worktree's `.git` file), for `set_game_settings` and for the
+one plan or run that `get_ship_plan` and `run_pipeline` take a `repo` for. `GameExport.drop_maps`
+has `export_game.py` unhook the normal and metal-roughness textures; each rig's export keeps only
+its own clips. Budget fix-ups never give a
 rigged model (`BudgetCheck.rigged`, any joints) Decimate, only Shrink textures. The
 game template is `pipeline/template/game.rs` with its starters in `starter/` (`export_game.py`,
 `game_export.mjs`, `ship_game.mjs`).
@@ -385,7 +392,8 @@ sha256 of its keys and a revision) and `clip.glb` (bones and one animation, no m
   source rig; `settings.rs` normalises per model clip settings; `bake.rs` copies the model and
   clips into a scratch folder and runs `retarget_clips.py` headless, which turns the model's limbs
   to the clip's rest pose, applies each clip bone's world rotation change to its mapped bone, scales
-  the hips by height and measures each clip (travel, how far the hips go, each foot's track);
+  the hips by height (each clip imported and keyed at its own frame rate, the model exported at the
+  highest) and measures each clip (travel, how far the hips go, each foot's track);
   `feet.rs` finds planted frames (low and slow) and the slide in those tracks, and for a clip with
   Pin the feet a second run holds the feet over the planted frames with a two bone leg IK;
   `review.rs` grades them. `bake` adds the draft as the next version through the build checks.
@@ -395,6 +403,25 @@ sha256 of its keys and a revision) and `clip.glb` (bones and one animation, no m
   `projectChanged` after a bake); the MCP tools are `mcp/tools/animations.rs` and
   `mcp/tools/retarget.rs`; the web state is `state/animations.ts`, `state/retarget.ts` and their
   stores, the views `features/animations` and `features/retarget`.
+
+## Downloads matching
+
+`providers/arrivals.rs` is the Downloads watcher. `matching.rs` places a file by its export name
+and suggests a send for a close name or the only send waiting, however late it came. Every other
+download is ranked against all waiting By hand sends: `arrivals/render.rs` queues a headless front
+render of a GLB copy (`render_thumb.py --view front --plain`, transparent ground) on its own runner,
+one at a time and cached by content hash under `<workspace cache>/download-pictures`, and
+`arrivals/picture.rs` scores it against each send's front ref (outline IoU after scaling both to
+one square, colour histogram overlap, box ratio; the name only breaks ties) into
+`Arrival.suggestions`. A clear best (at least `LOOKS_LIKE` and `LEAD` ahead) turns the download into
+Needs a look; nothing is attached by itself. `refs/picture.rs` is the object reader both this and
+the ref checks (`refs/checks/agree.rs`) use. The desktop sets the renderer in `commands/downloads.rs`;
+the web shows it in `features/providers/ArrivalPicker`.
+
+`providers/own_file.rs` adds a model file someone fixed by hand as an asset's next version: it
+checks the path (outside the inbox and every `models` folder), turns a `.gltf`, `.fbx` or `.obj`
+into a GLB headless, and hands it to `ProviderJobs::attach`, the same path an attached download
+takes. `add_model_file` and `inbox_add_model_file` call it.
 
 ## Remove and restore
 
