@@ -393,8 +393,8 @@ tracks live under `timeline.explode` (`layout/timeline.rs`): per asset a `distan
 checks them with the rest of the layout, `layout::prune_stops` drops the keys and stop triggers of
 a removed stop, and older layouts load with no tracks.
 
-`maquette_core::timeline` builds the view (the stops, every model with its parts from
-`motion::parts`, the states and the tracks) and saves it: `with_timeline` replaces only the stop and
+`maquette_core::timeline` builds the view (the stops, every model with its parts read from its
+newest model file, the states and the tracks) and saves it: `with_timeline` replaces only the stop and
 scroll triggers of the assets the view names, keeps their click and hover triggers, and refuses an
 asset without states. `commands/timeline.rs` reads and saves it, and the Layout editor's save keeps
 the timeline as it is.

@@ -266,21 +266,6 @@ pub fn unknown_parts(
     found
 }
 
-/// The parts of the newest model of every asset with one, by asset id;
-/// none for a model that cannot be read.
-pub fn parts(project_dir: &Path, manifest: &ProjectManifest) -> BTreeMap<String, Vec<String>> {
-    layout::placeable(manifest)
-        .into_iter()
-        .filter_map(|asset| {
-            let version = asset.latest()?;
-            let parts = read_file(&project_dir.join(&version.file))
-                .map(|f| f.parts)
-                .unwrap_or_default();
-            Some((asset.id.clone(), parts))
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests;
 

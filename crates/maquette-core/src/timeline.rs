@@ -45,6 +45,21 @@ pub struct TimelineView {
     pub timeline: Timeline,
 }
 
+/// The parts of the newest model of every asset with one, by asset id;
+/// none for a model that cannot be read.
+fn parts(project_dir: &Path, manifest: &ProjectManifest) -> BTreeMap<String, Vec<String>> {
+    layout::placeable(manifest)
+        .into_iter()
+        .filter_map(|asset| {
+            let version = asset.latest()?;
+            let parts = maquette_glb::motion::read_file(&project_dir.join(&version.file))
+                .map(|f| f.parts)
+                .unwrap_or_default();
+            Some((asset.id.clone(), parts))
+        })
+        .collect()
+}
+
 /// True for the triggers the timeline places: the ones the scroll drives.
 pub fn on_scroll(trigger: &StateTrigger) -> bool {
     matches!(trigger.kind, TriggerKind::Stop | TriggerKind::Scroll)
@@ -61,7 +76,7 @@ pub fn view(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<Timeli
 }
 
 fn view_of(project_dir: &Path, manifest: &ProjectManifest, layout: SceneLayout) -> TimelineView {
-    let mut parts = crate::motion::parts(project_dir, manifest);
+    let mut parts = parts(project_dir, manifest);
     let models = layout::placeable(manifest)
         .into_iter()
         .map(|asset| TimelineModel {
