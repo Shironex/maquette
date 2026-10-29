@@ -180,12 +180,22 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                let item = inbox::item(&root, &config, &args.id).map_err(reason)?;
+                let mut item = inbox::item(&root, &config, &args.id).map_err(reason)?;
+                // As list_inbox does: a model from a send is checked against
+                // what the send asked for (its kind, maps and budgets), so
+                // both tools report the same checks and worst.
+                host.studio().link_inbox(std::slice::from_mut(&mut item));
                 Ok(json!({
                     "id": item.id,
                     "name": item.name,
                     "kind": to_value(item.kind),
                     "worst": to_value(item.worst),
+                    "sentFor": item.link.as_ref().map(|l| json!({
+                        "job": l.job,
+                        "project": l.project,
+                        "asset": l.asset,
+                        "assetName": l.asset_name,
+                    })),
                     "checks": to_value(&item.checks),
                     "report": to_value(&item.report),
                     "error": item.error,
