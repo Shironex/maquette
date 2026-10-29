@@ -157,6 +157,6 @@ describe('stageViews', () => {
 
   it('names the stages of a game, Export in place of Web', () => {
     const labels = stageViews([asset('blender')], undefined, 'game').map(s => s.label);
-    expect(labels).toEqual(['Concept', 'Refs', 'Tripo', 'Blender', 'Export', 'Ship']);
+    expect(labels).toEqual(['Concept', 'Refs', '3D model', 'Blender', 'Export', 'Ship']);
   });
 });

@@ -23,7 +23,7 @@ describe('the welcome step', () => {
     await openMockWorkspace('first-run');
     render(<Harness />);
     expect(
-      screen.getByLabelText('Pipeline: Concept, Refs, Tripo, Blender, Web, Ship')
+      screen.getByLabelText('Pipeline: Concept, Refs, 3D model, Blender, Web, Ship')
     ).toHaveTextContent('ConceptRefsTripoBlenderWebShip');
     await userEvent.click(screen.getByRole('button', { name: 'Set up' }));
     expect(screen.getByLabelText('step')).toHaveTextContent('1');

@@ -28,7 +28,7 @@ export default function WelcomeStep({ api }: WelcomeStepProps) {
         </p>
         <div
           className="mt-[26px] flex flex-wrap items-center gap-1.5 text-[12.5px] text-fg-mute"
-          aria-label="Pipeline: Concept, Refs, Tripo, Blender, Web, Ship"
+          aria-label="Pipeline: Concept, Refs, 3D model, Blender, Web, Ship"
         >
           {stages}
         </div>

@@ -51,7 +51,7 @@ impl Stage {
         match self {
             Stage::Concept => "Concept",
             Stage::Refs => "Refs",
-            Stage::Tripo => "Tripo",
+            Stage::Tripo => "3D model",
             Stage::Blender => "Blender",
             Stage::Web => "Web",
             Stage::Ship => "Ship",

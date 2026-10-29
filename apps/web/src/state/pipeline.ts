@@ -219,7 +219,7 @@ const STAGE_ORDER: readonly Stage[] = ['concept', 'refs', 'tripo', 'blender', 'w
 const STAGE_LABEL: Record<Stage, string> = {
   concept: 'Concept',
   refs: 'Refs',
-  tripo: 'Tripo',
+  tripo: '3D model',
   blender: 'Blender',
   web: 'Web',
   ship: 'Ship',
