@@ -13,7 +13,7 @@ page says why and how to work with them.
 | `apps/desktop/src-tauri`  | The Tauri shell: a thin composition root that wires the core into Tauri |
 | `packages/ui`             | The UI kit: typed primitives and the theme                              |
 | `crates/maquette-core`    | The Rust domain logic, and the facade over the crates below it          |
-| `crates/maquette-base`    | The bottom layer: errors, file and JSON helpers, the clock, toolchain   |
+| `crates/maquette-base`    | The bottom layer: errors, files, JSON, the clock, toolchain, run log    |
 | `crates/maquette-preview` | The site dev server, the Page view's frame proxy and page settings      |
 
 Dependencies run one way: `packages/ui` -> `apps/web`, and `maquette-base` -> `maquette-preview` ->
@@ -133,6 +133,7 @@ A new module goes into the map, or lint-meta fails. The uses that point up today
 and a new upward use fails. Moving shared code down a layer is how an entry goes away.
 
 Some layers are their own crates now. `maquette-base` holds `error`, `fs`, `json`, `toolchain`, the
+run log and the Toolbox (`base::history` and `base::tools`, with `StepKind`), the
 clock (`project::now_rfc3339`) and a site's config (`settings::site`, a stored settings type the
 preview crate reads too, so it sits in the base crate until there is a model crate), and
 `maquette-preview` holds
@@ -160,8 +161,8 @@ added. The order does not change `bindings.ts`: the TypeScript exporter sorts th
 
 | Registry                     | Types it adds                                                            |
 | ---------------------------- | ------------------------------------------------------------------------ |
-| `maquette_base::register`    | the error payload and the toolchain report                               |
-| `base`, `app_state`          | step kinds and the run log; the per machine app state                    |
+| `maquette_base::register`    | the error payload, the toolchain report, step kinds and the run log      |
+| `app_state`                  | the per machine app state                                                |
 | `settings`, `workspace`      | provider presets, the model catalog, game settings; the workspace config |
 | `project`, `assets`          | the project manifest and import scan; assets and their versions          |
 | `layout`, `timeline`         | the scene layout, object states and timeline; the Timeline view          |

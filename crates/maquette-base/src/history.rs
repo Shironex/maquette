@@ -174,7 +174,7 @@ pub fn record_run(dir: &Path, run: &RunRecord) -> CoreResult<Vec<RunRecord>> {
     runs.retain(|r| r.id != run.id);
     runs.insert(0, run.clone());
     runs.truncate(KEEP_RUNS);
-    fs::create_dir_all(dir).map_err(|e| crate::CoreError::io(dir, e))?;
+    fs::create_dir_all(dir).map_err(|e| crate::error::CoreError::io(dir, e))?;
     write_json(&dir.join(RUNS_FILE), &runs)?;
     Ok(runs)
 }
@@ -187,7 +187,7 @@ fn log_path(dir: &Path, number: u32) -> PathBuf {
 /// older than the last [`KEEP_LOGS`] runs.
 pub fn save_log(dir: &Path, number: u32, entries: &[LogEntry]) -> CoreResult<()> {
     let logs = dir.join("logs");
-    fs::create_dir_all(&logs).map_err(|e| crate::CoreError::io(&logs, e))?;
+    fs::create_dir_all(&logs).map_err(|e| crate::error::CoreError::io(&logs, e))?;
     let start = entries.len().saturating_sub(MAX_LOG_LINES);
     write_json(&log_path(dir, number), &entries[start..])?;
     if let Ok(read) = fs::read_dir(&logs) {
