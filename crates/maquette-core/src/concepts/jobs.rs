@@ -17,6 +17,7 @@
 
 mod api;
 mod approval;
+mod codex_run;
 mod retry;
 mod settle;
 mod sink;
@@ -40,11 +41,10 @@ use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::now_ms;
 use crate::pipeline::runner::{JobRunner, PipelineRunner, RunOptions, RunSetup, WeakRunner};
 use crate::pipeline::tools::Toolbox;
-use crate::pipeline::{CompressDefaults, PIPELINE_VERSION, PipelineDef, StepDef, StepKind};
 use crate::toolchain::ToolId;
-use crate::workspace::{MeshoptLevel, TextureCodec};
 
 pub use api::ImageApiClient;
+use codex_run::CodexRun;
 pub use retry::Backoff;
 use sink::Sink;
 
@@ -353,49 +353,17 @@ impl Concepts {
                     size,
                     transparent,
                 )),
-                (None, codex) => Run::Codex(Box::new(Rerun {
-                    setup: RunSetup {
-                        project: LANE.to_string(),
-                        project_dir: lane.project_dir.to_path_buf(),
+                (None, codex) => Run::Codex(Box::new(
+                    CodexRun {
                         cache_dir: lane.cache_dir.to_path_buf(),
-                        def: PipelineDef {
-                            version: PIPELINE_VERSION,
-                            root: None,
-                            steps: vec![StepDef {
-                                id: id.clone(),
-                                name: format!("{} #{index}", direction.name),
-                                kind: StepKind::Shell,
-                                command: codex.clone(),
-                                script: None,
-                                args: args.clone(),
-                                inputs: Vec::new(),
-                                outputs: Vec::new(),
-                                depends_on: Vec::new(),
-                                compress: None,
-                            }],
-                            presets: Vec::new(),
-                        },
-                        tools: lane.tools.clone(),
-                        defaults: CompressDefaults {
-                            texture_size: 2048,
-                            codec: TextureCodec::Etc1s,
-                            meshopt: MeshoptLevel::Medium,
-                        },
-                        vars: Default::default(),
-                        shipped_names: Default::default(),
-                        materials: Default::default(),
-                        from: None,
-                        force: true,
-                        textures: Default::default(),
-                        quality: crate::ship::DEFAULT_QUALITY,
-                        build_only: false,
-                    },
-                    options: RunOptions {
-                        stdin: Some(text),
-                        timeout: Some(lane.timeout),
-                        gate: None,
-                    },
-                })),
+                        program: codex.clone(),
+                        args: args.clone(),
+                        step: format!("{} #{index}", direction.name),
+                        prompt: text,
+                        timeout_ms: u64::try_from(lane.timeout.as_millis()).unwrap_or(u64::MAX),
+                    }
+                    .rerun(&id, lane.project_dir, lane.tools.clone()),
+                )),
             };
             let hold = lane.api.as_ref().is_some_and(|p| p.hold);
             let held = hold.then(|| {
