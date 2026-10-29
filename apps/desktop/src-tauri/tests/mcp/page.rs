@@ -22,11 +22,12 @@ use maquette_desktop_lib::mcp::host::Host;
 use maquette_desktop_lib::mcp::hub::Hub;
 use maquette_desktop_lib::session::Session;
 use rmcp::ServiceExt as _;
-use rmcp::model::{CallToolRequestParams, CallToolResult, ClientConfig, ContentBlock};
-use rmcp::service::{RoleClient, RunningService};
+use rmcp::model::{CallToolRequestParams, ClientConfig};
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
-use serde_json::{Value, json};
+use serde_json::json;
+
+use super::support::call;
 
 struct TestHost {
     session: Session,
@@ -97,32 +98,6 @@ fn fixture(dir: &Path) -> (Session, PathBuf, String, PathBuf, PathBuf) {
     )
     .expect("broken");
     (session, root, manifest.id, project_dir, site)
-}
-
-fn text(result: &CallToolResult) -> String {
-    result
-        .content
-        .iter()
-        .find_map(|c| match c {
-            ContentBlock::Text(t) => Some(t.text.clone()),
-            _ => None,
-        })
-        .unwrap_or_default()
-}
-
-async fn call(client: &RunningService<RoleClient, ClientConfig>, tool: &str, args: Value) -> Value {
-    let mut params = CallToolRequestParams::new(tool.to_string());
-    if let Value::Object(map) = args {
-        params = params.with_arguments(map);
-    }
-    let result = client.call_tool(params).await.expect("call");
-    assert_ne!(
-        result.is_error,
-        Some(true),
-        "{tool} failed: {}",
-        text(&result)
-    );
-    serde_json::from_str(&text(&result)).expect("json")
 }
 
 fn set_command(root: &Path, project_dir: &Path, command: &str) {

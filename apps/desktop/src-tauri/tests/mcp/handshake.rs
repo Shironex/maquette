@@ -23,14 +23,17 @@ use maquette_core::{
 use maquette_desktop_lib::mcp::host::Host;
 use maquette_desktop_lib::mcp::hub::ApprovalKind;
 use maquette_desktop_lib::mcp::hub::Hub;
+use maquette_desktop_lib::mcp::tool_names;
 use maquette_desktop_lib::mcp::{Agents, ensure_token};
 use maquette_desktop_lib::session::Session;
 use rmcp::ServiceExt as _;
-use rmcp::model::{CallToolRequestParams, CallToolResult, ClientConfig, ContentBlock};
+use rmcp::model::{CallToolRequestParams, ClientConfig};
 use rmcp::service::{RoleClient, RunningService};
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use serde_json::{Value, json};
+
+use super::support::{call, raw_call, text};
 
 struct TestHost {
     session: Session,
@@ -206,40 +209,6 @@ fn set_cap(session: &Session, cap: u32) {
     session.set_config(config);
 }
 
-fn text(result: &CallToolResult) -> String {
-    result
-        .content
-        .iter()
-        .find_map(|c| match c {
-            ContentBlock::Text(t) => Some(t.text.clone()),
-            _ => None,
-        })
-        .unwrap_or_default()
-}
-
-async fn raw_call(
-    client: &RunningService<RoleClient, ClientConfig>,
-    tool: &str,
-    args: Value,
-) -> CallToolResult {
-    let mut params = CallToolRequestParams::new(tool.to_string());
-    if let Value::Object(map) = args {
-        params = params.with_arguments(map);
-    }
-    client.call_tool(params).await.expect("call")
-}
-
-async fn call(client: &RunningService<RoleClient, ClientConfig>, tool: &str, args: Value) -> Value {
-    let result = raw_call(client, tool, args).await;
-    assert_ne!(
-        result.is_error,
-        Some(true),
-        "{tool} failed: {}",
-        text(&result)
-    );
-    serde_json::from_str(&text(&result)).expect("json")
-}
-
 /// Sends a bare HTTP request and returns the status line.
 /// Polls `done` until it holds or `limit` passes.
 fn wait_until(limit: Duration, done: impl Fn() -> bool) -> bool {
@@ -340,109 +309,13 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             .is_some_and(|i| i.contains("headless"))
     );
 
-    // List tools: exactly these, each with a description and an object schema.
+    // List tools: exactly the ones in the tool-names snapshot, each with a
+    // description and an object schema.
     let tools = client.list_all_tools().await.expect("tools");
     let mut names: Vec<String> = tools.iter().map(|t| t.name.to_string()).collect();
     names.sort();
-    assert_eq!(
-        names,
-        [
-            "accept_inbox_model",
-            "add_built_asset",
-            "add_fixups",
-            "add_many_to_library",
-            "add_model_file",
-            "add_to_library",
-            "assemble_prop",
-            "attach_download",
-            "bake_back",
-            "cancel_concept_jobs",
-            "cancel_provider_jobs",
-            "cancel_run",
-            "clean_ref_background",
-            "compare_versions",
-            "copy_asset",
-            "discard_inbox_model",
-            "dismiss_download",
-            "get_bake_settings",
-            "get_codex_usage",
-            "get_concepts",
-            "get_credits",
-            "get_game",
-            "get_image_backend",
-            "get_inbox_checks",
-            "get_layout",
-            "get_material_tweaks",
-            "get_motion",
-            "get_page_preview",
-            "get_parts",
-            "get_pipeline",
-            "get_project",
-            "get_provider_job",
-            "get_real_size",
-            "get_ref_views",
-            "get_retarget_review",
-            "get_run",
-            "get_ship_plan",
-            "get_ship_settings",
-            "get_size_report",
-            "get_starters",
-            "get_style_board",
-            "import_animations",
-            "import_game_models",
-            "list_animations",
-            "list_assets",
-            "list_built_assets",
-            "list_fixups",
-            "list_handoffs",
-            "list_inbox",
-            "list_library",
-            "list_projects",
-            "list_removed_assets",
-            "make_object_refs",
-            "make_other_views",
-            "pick_concepts",
-            "preview_fixups",
-            "prioritize_concept_jobs",
-            "rebuild_built_asset",
-            "redo_inbox_model",
-            "redo_inbox_models",
-            "remove_assets",
-            "remove_fixups",
-            "render_thumbnail",
-            "restore_asset",
-            "retry_concept_jobs",
-            "retry_usage_limited_jobs",
-            "run_pipeline",
-            "save_model_clips",
-            "scan_game_models",
-            "send_batch_to_3d",
-            "send_to_3d",
-            "set_bake_settings",
-            "set_compression_presets",
-            "set_game_settings",
-            "set_image_backend",
-            "set_layout",
-            "set_material_tweaks",
-            "set_pad_edges",
-            "set_parts",
-            "set_real_size",
-            "set_ref_views",
-            "set_ship_settings",
-            "set_skip_bake",
-            "set_style_board",
-            "split_with_provider",
-            "star_concepts",
-            "start_concepts",
-            "start_page_preview",
-            "stop_page_preview",
-            "update_from_library",
-            "update_starters",
-            "use_animations",
-            "use_from_library",
-            "use_ref_candidate",
-        ]
-    );
+    let snapshot = std::fs::read_to_string(tool_names::TOOL_NAMES_FILE).expect("tool names");
+    assert_eq!(names, tool_names::parse(&snapshot));
     for tool in &tools {
         assert!(
             tool.description.as_deref().is_some_and(|d| d.len() > 20),

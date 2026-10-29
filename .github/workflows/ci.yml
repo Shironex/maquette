@@ -215,10 +215,11 @@ jobs:
         if: env.CODE == 'true'
       - run: cargo test --workspace
         if: env.CODE == 'true'
-      # `cargo test -p maquette-desktop` regenerates the TypeScript bindings,
-      # so a command or type changed without committing them shows up here.
-      # One OS is enough to catch it, and macOS keeps the line endings of a
-      # Windows checkout out of the comparison.
-      - name: The committed IPC bindings are current
+      # `cargo test -p maquette-desktop` regenerates the TypeScript bindings
+      # and the MCP tool-names snapshot, so a command, type or tool changed
+      # without committing them shows up here. One OS is enough to catch it,
+      # and macOS keeps the line endings of a Windows checkout out of the
+      # comparison.
+      - name: The committed IPC bindings and tool names are current
         if: env.CODE == 'true' && runner.os == 'macOS'
-        run: git diff --exit-code -- apps/web/src/ipc/generated
+        run: git diff --exit-code -- apps/web/src/ipc/generated apps/desktop/src-tauri/tool-names.txt

@@ -1,8 +1,9 @@
 /**
  * Keeps the agent skills honest: every Maquette tool a skill names must exist.
  *
- * The authoritative tool list is the one the MCP handshake test asserts
- * (apps/desktop/src-tauri/tests/mcp_handshake.rs), not the docs page. For every
+ * The authoritative tool list is the snapshot `cargo test -p maquette-desktop`
+ * writes from the server's tool router (apps/desktop/src-tauri/tool-names.txt),
+ * which the MCP handshake test also checks; not the docs page. For every
  * plugins/<plugin>/skills/<skill>/SKILL.md (and the Markdown beside it) the check:
  *
  * - takes each inline `backticked` snake_case word whose first segment is a verb that
@@ -21,21 +22,41 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const HANDSHAKE = 'apps/desktop/src-tauri/tests/mcp_handshake.rs';
+const TOOL_NAMES = 'apps/desktop/src-tauri/tool-names.txt';
 const MAX_LINES = 250;
 const DASHES = /[\u2013\u2014]/;
 const SNAKE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
 
 const read = (root, rel) => readFileSync(join(root, rel), 'utf8').replace(/\r\n/g, '\n');
 
-/** The tool names the server lists, read from the handshake test's expected list. */
+/** The tool names the server lists, read from the generated tool-names snapshot. */
 export function serverTools(root) {
-  const text = read(root, HANDSHAKE);
-  const block = /\bnames,\s*\[([\s\S]*?)\]\s*\)/.exec(text);
-  if (!block) throw new Error(`${HANDSHAKE}: the expected tool list was not found`);
-  const names = [...block[1].matchAll(/"([a-z0-9_]+)"/g)].map(m => m[1]);
-  if (names.length < 10) throw new Error(`${HANDSHAKE}: only ${names.length} tool names found`);
+  const names = read(root, TOOL_NAMES)
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'));
+  if (names.length < 10) throw new Error(`${TOOL_NAMES}: only ${names.length} tool names found`);
   return new Set(names);
+}
+
+/** The pages that document every tool by name: the README and the docs site's MCP tools page. */
+export const TOOL_DOCS = ['README.md', 'apps/site/src/content/docs/docs/agents/mcp-tools.md'];
+
+/** One violation per tool a documenting page never names in backticks. */
+export function undocumentedTools(root, pages = TOOL_DOCS) {
+  const tools = serverTools(root);
+  const violations = [];
+  for (const page of pages) {
+    const named = new Set(backticked(read(root, page)));
+    for (const tool of tools)
+      if (!named.has(tool))
+        violations.push({
+          rule: 'tools-documented',
+          file: page,
+          message: `does not name \`${tool}\`, a tool of the MCP server (${TOOL_NAMES})`,
+        });
+  }
+  return violations;
 }
 
 /** Inline backticked tokens of a Markdown text, fenced blocks included. */

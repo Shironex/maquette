@@ -7,7 +7,6 @@ use std::sync::Arc;
 
 use maquette_core::concepts::Concepts;
 use maquette_core::pipeline::runner::PipelineRunner;
-use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::providers::{MemoryStore, Options, ProviderJobs};
 use maquette_core::thumbs::Thumbnails;
 use maquette_core::{
@@ -19,40 +18,12 @@ use maquette_desktop_lib::mcp::host::Host;
 use maquette_desktop_lib::mcp::hub::Hub;
 use maquette_desktop_lib::session::Session;
 use rmcp::ServiceExt as _;
-use rmcp::model::{CallToolRequestParams, CallToolResult, ClientConfig, ContentBlock};
-use rmcp::service::{RoleClient, RunningService};
+use rmcp::model::{CallToolRequestParams, ClientConfig};
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use serde_json::{Value, json};
 
-struct TestHost {
-    session: Session,
-    runner: PipelineRunner,
-    concepts: Concepts,
-    thumbs: Thumbnails,
-    studio: ProviderJobs,
-}
-
-impl Host for TestHost {
-    fn session(&self) -> &Session {
-        &self.session
-    }
-    fn runner(&self) -> &PipelineRunner {
-        &self.runner
-    }
-    fn concepts(&self) -> &Concepts {
-        &self.concepts
-    }
-    fn thumbs(&self) -> &Thumbnails {
-        &self.thumbs
-    }
-    fn studio(&self) -> &ProviderJobs {
-        &self.studio
-    }
-    fn toolbox(&self) -> Toolbox {
-        Toolbox::default()
-    }
-}
+use super::support::{TestHost, call};
 
 fn stats(triangles: u32) -> ModelStats {
     ModelStats {
@@ -110,32 +81,6 @@ fn fixture(dir: &Path) -> Session {
     })
     .expect("lamp");
     session
-}
-
-fn text(result: &CallToolResult) -> String {
-    result
-        .content
-        .iter()
-        .find_map(|c| match c {
-            ContentBlock::Text(t) => Some(t.text.clone()),
-            _ => None,
-        })
-        .unwrap_or_default()
-}
-
-async fn call(client: &RunningService<RoleClient, ClientConfig>, tool: &str, args: Value) -> Value {
-    let mut params = CallToolRequestParams::new(tool.to_string());
-    if let Value::Object(map) = args {
-        params = params.with_arguments(map);
-    }
-    let result = client.call_tool(params).await.expect("call");
-    assert_ne!(
-        result.is_error,
-        Some(true),
-        "{tool} failed: {}",
-        text(&result)
-    );
-    serde_json::from_str(&text(&result)).expect("json")
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

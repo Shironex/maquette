@@ -12,7 +12,9 @@
  *   (scripts/lint-meta/rust-layers.json, read by scripts/rust-layers.mjs);
  * - a workspace crate only depends on the crates below it
  *   (scripts/lint-meta/crate-layers.json, read by scripts/crate-layers.mjs);
- * - the agent skills only name tools the MCP server lists (scripts/check-skills.mjs).
+ * - the agent skills only name tools the MCP server lists, and the README and the
+ *   docs site's MCP tools page name every one (scripts/check-skills.mjs, against the
+ *   generated apps/desktop/src-tauri/tool-names.txt).
  *
  *   pnpm lint:meta             check, exit 1 on any violation
  *   pnpm lint:meta --baseline  rewrite the baselines from today's offenders
@@ -35,7 +37,7 @@ import { join, resolve } from 'node:path';
 import { isGrandfathered, loadBaseline, serializeBaseline } from '@noctcore/harness';
 import { createFileSizeRatchetRule } from '@noctcore/lint-meta-rules';
 import { createEslintConfigNoWarnRule } from '@noctcore/lint-meta-rules/resolved-config';
-import { checkSkills } from './check-skills.mjs';
+import { checkSkills, undocumentedTools } from './check-skills.mjs';
 import { CRATE_MAP, crateLayers } from './crate-layers.mjs';
 import { LAYER_MAP, upwardUses } from './rust-layers.mjs';
 
@@ -197,6 +199,11 @@ const rules = [
     id: 'skills-honest',
     description: 'Agent skills only name tools the MCP server lists, and stay well formed.',
     run: () => checkSkills(root),
+  },
+  {
+    id: 'tools-documented',
+    description: 'The README and the MCP tools docs page name every tool the server lists.',
+    run: () => undocumentedTools(root),
   },
 ];
 

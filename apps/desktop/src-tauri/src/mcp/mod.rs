@@ -6,6 +6,7 @@ pub mod gate;
 pub mod host;
 pub mod hub;
 pub mod server;
+pub mod tool_names;
 pub mod tools;
 
 use std::sync::{Arc, Mutex, MutexGuard};
