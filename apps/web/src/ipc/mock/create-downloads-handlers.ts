@@ -187,6 +187,26 @@ export function createDownloadsHandlers({
       if (!OPEN.includes(found.state)) fail('invalid', `${found.name} was already taken care of.`);
       return attach(found, String(projectId), String(asset));
     },
+    // A file someone fixed by hand goes the same way: copied, never moved.
+    inbox_add_model_file: ({ project: projectId, asset, path }) => {
+      if (!/\.(glb|gltf|fbx|obj)$/i.test(String(path)))
+        fail('invalid', `${path} is not a model file. Add a .glb, .gltf, .fbx or .obj.`);
+      if (/\/models\//.test(String(path)))
+        fail('invalid', 'That file is a version already. Add one from outside the models folder.');
+      const target =
+        (project(String(projectId)).assets ?? []).find(a => a.id === asset) ??
+        fail('not-found', `Could not find the asset ${asset}.`);
+      const [job] = waiting()
+        .filter(j => j.project === projectId && j.asset === target.id)
+        .sort((a, b) => (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0));
+      if (job) handBack({ id: job.id, file: String(path) });
+      return {
+        inboxFile: job ? `${job.id}.glb` : `download-${target.id}.glb`,
+        job: job?.id ?? null,
+        asset: target.id,
+        assetName: target.name,
+      };
+    },
     downloads_preview: ({ arrival: id }): DownloadPreview => {
       const found = find(id);
       const render = PREVIEWS[found.name];

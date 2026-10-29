@@ -121,5 +121,6 @@ export function createProjectHandlers({
     dialog_pick_folder: ({ start }) => (typeof start === 'string' && start ? start : DEFAULT_ROOT),
     dialog_pick_file: () => '/usr/local/bin/toktx',
     dialog_pick_model: () => `${HOME}/Downloads/lantern_post.glb`,
+    dialog_pick_model_file: () => `${HOME}/Desktop/lantern_post_fixed.fbx`,
   };
 }

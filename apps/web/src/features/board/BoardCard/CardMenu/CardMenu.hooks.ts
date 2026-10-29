@@ -154,8 +154,9 @@ function useMakeItems({ asset, refPicture, built, board }: CardMenuProps): MenuI
  * remove. The library and Blender items wait for a model and stay hidden
  * until then.
  */
-function useAssetItems({ asset, board }: CardMenuProps): MenuItem[] {
+function useAssetItems({ asset, built, board }: CardMenuProps): MenuItem[] {
   const { view: library, openAdd, openUpdate } = useLibraryStore();
+  const addModelFile = useProvidersStore(s => s.addModelFile);
   const waitingUpdate = updateFor(library, asset);
   const { project, actions } = board;
   const hasModel = asset.versions.length > 0;
@@ -187,6 +188,18 @@ function useAssetItems({ asset, board }: CardMenuProps): MenuItem[] {
       keepOpen: true,
       onSelect: () => actions.setCopyFor(asset.id),
     },
+    ...(project && !built
+      ? [
+          {
+            id: 'model-file',
+            label: 'Add a model file as the next version...',
+            icon: 'upload-simple' as const,
+            section,
+            hint: 'A .glb, .gltf, .fbx or .obj you fixed yourself; it is copied into the Inbox for this card',
+            onSelect: () => void addModelFile(project.id, asset.id),
+          },
+        ]
+      : []),
     ...(hasModel
       ? [
           {

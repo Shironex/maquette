@@ -120,6 +120,11 @@ export interface ProvidersStore {
   closeDownloads: () => void;
   /** Opens the file picker for a GLB or zip, then hands it back. */
   addModel: (id: string) => Promise<void>;
+  /**
+   * Opens the file picker for a model file someone fixed by hand and copies
+   * it into the Inbox for `asset`, where Accept makes its next version.
+   */
+  addModelFile: (project: string, asset: string) => Promise<void>;
   openSite: (service: ProviderId) => Promise<void>;
   revealImage: (id: string, image: string) => Promise<void>;
   /** Opens the send panel prefilled from the earlier send `job` of `asset`. */
