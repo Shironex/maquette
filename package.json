@@ -16,6 +16,7 @@
     "tauri": "pnpm --filter @maquette/desktop exec tauri",
     "lint": "eslint .",
     "lint:meta": "node scripts/lint-meta.mjs",
+    "check:skills": "node scripts/check-skills.mjs",
     "typecheck": "pnpm -r --parallel typecheck",
     "test": "vitest run",
     "test:watch": "vitest",

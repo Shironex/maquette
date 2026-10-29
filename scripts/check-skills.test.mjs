@@ -1,0 +1,124 @@
+/** Tests for scripts/check-skills.mjs: `pnpm test:scripts`. */
+import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { after, describe, test } from 'node:test';
+
+import { checkSkills, serverTools, toolMentions } from './check-skills.mjs';
+
+const REPO = resolve(import.meta.dirname, '..');
+const scratch = mkdtempSync(join(tmpdir(), 'maquette-skills-test-'));
+after(() => rmSync(scratch, { recursive: true, force: true }));
+
+const HANDSHAKE = `assert_eq!(
+        names,
+        [
+            "get_game",
+            "list_projects",
+            "run_pipeline",
+            "set_game_settings",
+            "get_run",
+            "list_assets",
+            "list_inbox",
+            "get_inbox_checks",
+            "accept_inbox_model",
+            "send_to_3d",
+            "use_animations",
+        ]
+    );`;
+
+let counter = 0;
+function fixture(files) {
+  const root = join(scratch, String(counter++));
+  const all = {
+    'apps/desktop/src-tauri/tests/mcp_handshake.rs': HANDSHAKE,
+    'plugins/demo/.claude-plugin/plugin.json': '{ "name": "demo" }',
+    '.claude-plugin/marketplace.json':
+      '{ "plugins": [{ "name": "demo", "source": "./plugins/demo" }] }',
+    ...files,
+  };
+  for (const [rel, text] of Object.entries(all)) {
+    mkdirSync(dirname(join(root, rel)), { recursive: true });
+    writeFileSync(join(root, rel), text);
+  }
+  return root;
+}
+
+const skill = (body, name = 'demo-skill', description = 'Does a thing. Use when asked to.') =>
+  `---\nname: ${name}\ndescription: ${description}\n---\n\n${body}\n`;
+const SKILL = 'plugins/demo/skills/demo-skill/SKILL.md';
+
+describe('serverTools', () => {
+  test('reads the real handshake test list', () => {
+    const tools = serverTools(REPO);
+    assert.ok(tools.has('list_handoffs'));
+    assert.ok(tools.size >= 90);
+  });
+});
+
+describe('toolMentions', () => {
+  const tools = new Set(['get_game', 'save_model_clips', 'use_animations']);
+  test('picks tool-shaped words only', () => {
+    const text =
+      '`get_game` and `get_gam` and `JOINTS_0` and `fix.py` and `sidebar_label` and `use_animations`';
+    assert.deepEqual(toolMentions(text, tools), ['get_game', 'get_gam', 'use_animations']);
+  });
+});
+
+describe('checkSkills', () => {
+  test('passes a consistent plugin', () => {
+    const root = fixture({ [SKILL]: skill('Call `get_game`, then `run_pipeline`.') });
+    assert.deepEqual(checkSkills(root), []);
+  });
+
+  test('fails on a tool the server does not list', () => {
+    const root = fixture({ [SKILL]: skill('Call `get_gam` first.') });
+    const found = checkSkills(root);
+    assert.equal(found.length, 1);
+    assert.match(found[0].message, /get_gam/);
+  });
+
+  test('fails on a name that differs from the folder, or a description without a when', () => {
+    const root = fixture({ [SKILL]: skill('Body.', 'other', 'Does a thing.') });
+    assert.equal(checkSkills(root).length, 2);
+  });
+
+  test('fails on dashes and long skills', () => {
+    const body = `A ${String.fromCharCode(0x2014)} B\n${'line\n'.repeat(260)}`;
+    const root = fixture({ [SKILL]: skill(body) });
+    const messages = checkSkills(root).map(v => v.message);
+    assert.ok(messages.some(m => /dash/.test(m)));
+    assert.ok(messages.some(m => /line cap/.test(m)));
+  });
+
+  test('fails when the token is a literal', () => {
+    const mcp = {
+      mcpServers: {
+        maquette: {
+          type: 'http',
+          url: 'http://127.0.0.1:${P:-4791}/mcp',
+          headers: { Authorization: 'Bearer abc123' },
+        },
+      },
+    };
+    const root = fixture({
+      [SKILL]: skill('Body.'),
+      'plugins/demo/.mcp.json': JSON.stringify(mcp),
+    });
+    assert.match(checkSkills(root)[0].message, /environment variable/);
+  });
+
+  test('fails when the marketplace points at nothing', () => {
+    const root = fixture({
+      [SKILL]: skill('Body.'),
+      '.claude-plugin/marketplace.json':
+        '{ "plugins": [{ "name": "demo", "source": "./plugins/missing" }] }',
+    });
+    assert.match(checkSkills(root)[0].message, /has no plugin/);
+  });
+
+  test('the real plugin is consistent', () => {
+    assert.deepEqual(checkSkills(REPO), []);
+  });
+});
