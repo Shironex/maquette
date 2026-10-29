@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { Arrival, Asset, PendingHandoff, WatchStatus } from '@/ipc/client';
+import type { Arrival, Asset, PendingHandoff, SendSuggestion, WatchStatus } from '@/ipc/client';
 import { stageLabels } from './game';
 import {
   arrivalNotice,
   askingArrivals,
   assetChoices,
   lookingArrivals,
+  otherSuggestions,
+  shownSuggestion,
+  suggestionLabel,
   waitingArrivals,
   watchLine,
 } from './downloads';
@@ -25,6 +28,17 @@ const arrival = (over: Partial<Arrival> = {}): Arrival => ({
   reason: '2 sends are waiting',
   inboxFile: null,
   ...over,
+});
+
+const suggestion = (asset: string, score: number, picture: number | null): SendSuggestion => ({
+  job: `${asset}-1`,
+  project: 'moon',
+  asset,
+  assetName: asset,
+  score,
+  picture,
+  name: 0,
+  image: null,
 });
 
 const pending = (job: string, project: string, assetName: string): PendingHandoff => ({
@@ -112,6 +126,30 @@ describe('Downloads watcher words', () => {
     expect(assetChoices([asset('cup', 'Cup')], [], 'moon', stageLabels('website'))[0]?.state).toBe(
       'Refs, no model yet'
     );
+    // Ranked against the download, the waiting sends that look most like it come first.
+    const both = [...assets, asset('crate', 'Crate')];
+    const waits = [...sends, pending('crate-1', 'moon', 'Crate')];
+    const ranks = [suggestion('crate', 0.82, 0.86), suggestion('lantern', 0.31, 0.3)];
+    const ranked = assetChoices(both, waits, 'moon', stageLabels('website'), '', ranks);
+    expect(ranked.map(c => [c.name, c.fit])).toEqual([
+      ['Crate', '82% alike'],
+      ['Lantern post', '31% alike'],
+      ['Orb shrine', null],
+    ]);
+  });
+
+  it('shows the send a download points at first, then the rest ranked', () => {
+    const ranks = [
+      suggestion('crate', 0.82, 0.86),
+      suggestion('lantern', 0.4, null),
+      suggestion('cup', 0.2, 0.2),
+    ];
+    const look = arrival({ state: 'review', job: 'lantern-1', suggestions: ranks });
+    expect(shownSuggestion(look)?.asset).toBe('lantern');
+    expect(otherSuggestions(look).map(s => s.asset)).toEqual(['crate', 'cup']);
+    expect(suggestionLabel(ranks[1]!)).toBe('Name only');
+    expect(shownSuggestion(arrival({ suggestions: ranks }))?.asset).toBe('crate');
+    expect(shownSuggestion(arrival())).toBeNull();
   });
 
   it('asks for a look at a close name before anything goes in', () => {
