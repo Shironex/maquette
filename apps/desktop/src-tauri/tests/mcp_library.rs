@@ -261,3 +261,121 @@ async fn agents_add_use_and_update_a_library_model() {
     client.cancel().await.expect("close");
     server.stop();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn list_library_pages_and_is_compact_by_default() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp dir");
+    let session = fixture(dir.path());
+    let root = dir.path().join("ws");
+    let moon = root.join("projects/moon-island");
+    project::modify(&root, &Default::default(), "moon-island", |m| {
+        for name in ["Brass key", "Clay cup", "Dusty book"] {
+            let id = assets::add(
+                m,
+                NewAsset {
+                    name: name.into(),
+                    kind: AssetKind::Prop,
+                    stage: Stage::Blender,
+                },
+            )?
+            .id;
+            let file = format!("models/{id}_v1.glb");
+            std::fs::write(moon.join(&file), name).expect("model");
+            assets::add_version(m, &id, file, Some(stats(1000)))?;
+        }
+        Ok(())
+    })
+    .expect("assets");
+    let host = Arc::new(TestHost {
+        session,
+        runner: PipelineRunner::new(Arc::new(maquette_core::pipeline::runner::NullSink)),
+        concepts: Concepts::new(None, 1, |_| {}),
+        thumbs: Thumbnails::new(|_| {}),
+        studio: ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {}),
+    });
+    let token = ensure_token(&host.session).expect("token");
+    let server = maquette_desktop_lib::mcp::server::start(
+        0,
+        token.clone(),
+        host.clone() as Arc<dyn Host>,
+        Arc::new(Hub::new(|| {})),
+    )
+    .expect("start");
+    let url = format!("http://127.0.0.1:{}/mcp", server.port());
+    let transport = StreamableHttpClientTransport::from_config(
+        StreamableHttpClientTransportConfig::with_uri(url).auth_header(token),
+    );
+    let client = ClientConfig::default()
+        .serve(transport)
+        .await
+        .expect("initialize");
+    for asset in ["Desk lamp", "Brass key", "Clay cup", "Dusty book"] {
+        call(
+            &client,
+            "add_to_library",
+            json!({ "project": "moon-island", "asset": asset, "tags": ["Props"] }),
+        )
+        .await;
+    }
+
+    let first = call(&client, "list_library", json!({ "limit": 3 })).await;
+    assert_eq!(first["total"], json!(4));
+    assert_eq!(first["entries"].as_array().expect("entries").len(), 3);
+    let cursor = first["nextCursor"]
+        .as_str()
+        .expect("more pages")
+        .to_string();
+    let compact = &first["entries"][0];
+    assert_eq!(compact["versions"], json!(1));
+    assert_eq!(compact["uses"], json!(1), "the project it was added from");
+    assert_eq!(compact["latest"], json!(1));
+    for long in ["usedIn", "bytes", "triangles", "creditsSpent", "source"] {
+        assert!(compact.get(long).is_none(), "{long} is for full");
+    }
+
+    let second = call(
+        &client,
+        "list_library",
+        json!({ "limit": 3, "cursor": cursor }),
+    )
+    .await;
+    assert_eq!(second["entries"].as_array().expect("entries").len(), 1);
+    assert_eq!(second["nextCursor"], Value::Null);
+    let mut ids: Vec<&str> = first["entries"]
+        .as_array()
+        .into_iter()
+        .chain(second["entries"].as_array())
+        .flatten()
+        .map(|e| e["id"].as_str().expect("id"))
+        .collect();
+    ids.sort_unstable();
+    ids.dedup();
+    assert_eq!(ids.len(), 4, "every entry once");
+
+    // limit is capped, a filter narrows total, full brings the long form back.
+    let capped = call(&client, "list_library", json!({ "limit": 5000 })).await;
+    assert_eq!(capped["entries"].as_array().expect("entries").len(), 4);
+    let one = call(
+        &client,
+        "list_library",
+        json!({ "query": "clay", "full": true }),
+    )
+    .await;
+    assert_eq!(one["total"], json!(1));
+    assert_eq!(one["entries"][0]["triangles"], json!(1000));
+    assert!(one["entries"][0]["usedIn"].is_array());
+
+    let mut params = CallToolRequestParams::new("list_library".to_string());
+    params = params.with_arguments(
+        json!({ "cursor": "gone" })
+            .as_object()
+            .cloned()
+            .expect("object"),
+    );
+    let stale = client.call_tool(params).await.expect("call");
+    assert_eq!(stale.is_error, Some(true));
+
+    client.cancel().await.expect("close");
+    server.stop();
+}

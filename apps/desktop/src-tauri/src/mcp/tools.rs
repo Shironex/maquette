@@ -149,7 +149,7 @@ versions to another project. remove_assets removes assets from a project into th
 trash (refused while its model is being made or a run is going), list_removed_assets lists \
 them and restore_asset puts one back. \
 The library keeps models outside any project (library/ at the workspace root). list_library \
-reads it; add_to_library copies an asset's newest model in (a newer model of an asset already \
+reads it, 25 compact entries per page (follow nextCursor, or pass full for everything about an entry); add_to_library copies an asset's newest model in (a newer model of an asset already \
 there becomes its entry's next version); use_from_library copies an entry into a project as a \
 new asset that remembers its origin; update_from_library brings a newer library version in as \
 the asset's next version, keeping the fix-ups that still apply. The library copies, never \
