@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 use crate::error::{CoreError, CoreResult};
 use crate::fs::{clear_dir_contents, collapse_home, dir_size, expand_home};
 use crate::json::{from_json_with_defaults, write_json};
-use crate::providers::{ProviderSettings, meshy_problem, tripo_problem};
+use crate::settings::catalog::TRIPO_DEFAULT_MODEL;
+use crate::settings::presets::{ProviderSettings, meshy_problem, tripo_problem};
 
 mod lab;
 pub mod lock;
@@ -327,7 +328,7 @@ fn fold_legacy_tripo(text: &str) -> Result<String, serde_json::Error> {
         let model = match tripo.get("model").and_then(Value::as_str) {
             Some("H3.0") => "v3.0-20250812",
             Some("v2.5") => "v2.5-20250123",
-            _ => crate::providers::catalog::TRIPO_DEFAULT_MODEL,
+            _ => TRIPO_DEFAULT_MODEL,
         };
         let pbr = tripo.get("pbr").cloned().unwrap_or(Value::Bool(true));
         let character = tripo.get("character").and_then(Value::as_object);
