@@ -123,8 +123,17 @@ fn uncommitted(repo: &Path) -> Option<u32> {
     game::detect::uncommitted(repo, &git, &SystemRunner, &env.child_path(None))
 }
 
-pub(crate) fn ship_plan(session: &Session, project_id: &str) -> CommandResult<ShipPlan> {
-    let (manifest, dir) = game_project(session, project_id)?;
+/// What Ship would write, into the project's game repo or, for one look,
+/// into `repo` (an agent's worktree, checked by [`game::check_repo`]).
+pub(crate) fn ship_plan(
+    session: &Session,
+    project_id: &str,
+    repo: Option<&str>,
+) -> CommandResult<ShipPlan> {
+    let (mut manifest, dir) = game_project(session, project_id)?;
+    if let Some(repo) = repo {
+        manifest.site_repo = Some(game::check_repo(repo)?.display().to_string());
+    }
     let mut plan = game::ship_plan(&dir, &manifest)?;
     plan.uncommitted = manifest
         .site_repo
@@ -191,7 +200,7 @@ pub async fn game_ship_plan(
     session: State<'_, Session>,
     project: String,
 ) -> CommandResult<ShipPlan> {
-    ship_plan(&session, &project)
+    ship_plan(&session, &project, None)
 }
 
 #[cfg(test)]

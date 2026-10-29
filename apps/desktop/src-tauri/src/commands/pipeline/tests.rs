@@ -310,3 +310,37 @@ fn a_run_without_scripts_fails_with_a_clear_message() {
     assert_eq!(view.runs.len(), 1);
     assert!(!view.log.is_empty());
 }
+
+#[test]
+fn a_run_ships_into_a_repo_given_for_it_alone() {
+    let (dir, session, id) = open();
+    let tools = maquette_core::pipeline::tools::Toolbox::default;
+    let worktree = dir.path().join("site-agent");
+    std::fs::create_dir_all(&worktree).expect("worktree");
+    std::fs::write(
+        worktree.join(".git"),
+        "gitdir: /src/site/.git/worktrees/agent\n",
+    )
+    .expect("git file");
+    let ask = |repo: Option<String>| RunAsk {
+        repo,
+        ..RunAsk::default()
+    };
+    let at = worktree.display().to_string();
+    let run = setup(&session, &id, ask(Some(at.clone())), tools()).expect("setup");
+    assert_eq!(run.vars["siteRepo"], at);
+    let plain = dir.path().join("plain");
+    std::fs::create_dir_all(&plain).expect("plain");
+    let refused = setup(
+        &session,
+        &id,
+        ask(Some(plain.display().to_string())),
+        tools(),
+    );
+    assert!(refused.is_err(), "not a git repo or worktree");
+    let own = setup(&session, &id, ask(None), tools()).expect("own");
+    assert_eq!(
+        own.vars["siteRepo"], "",
+        "the project's own repo, none here"
+    );
+}

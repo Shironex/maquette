@@ -36,9 +36,22 @@ pub struct BudgetEdit {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ShipPlanArgs {
+    /// The project id.
+    pub project: String,
+    /// A game project only: plan against this repo instead of the project's (an absolute path
+    /// to a git repo or worktree, for example an agent's worktree). Nothing is saved.
+    pub repo: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SetGameSettingsArgs {
     /// The project id of a game project.
     pub project: String,
+    /// The game repo on this computer: an absolute path to a folder that is a git repo or a
+    /// git worktree. Saved for this computer only, as picking it in the app does.
+    pub repo: Option<String>,
     /// "glb" or "obj": the format of models made in Maquette. Imported models keep theirs.
     pub format: Option<String>,
     /// The model folder inside the game repo, for example "assets/models".
@@ -55,6 +68,11 @@ pub struct SetGameSettingsArgs {
     pub bake: Option<bool>,
     /// The whole budget table, one row per folder. Leave it out to keep it.
     pub budgets: Option<Vec<BudgetEdit>>,
+    /// Per asset (id as list_assets returns it), the folder its model goes to inside the
+    /// model folder, for example "kit" or "enemies/bosses": relative, no "..". null or "" puts
+    /// it back where its kind or imported file puts it. The next Ship writes it there and
+    /// removes its old file when Maquette wrote or imported that file.
+    pub asset_folders: Option<std::collections::BTreeMap<String, Option<String>>>,
 }
 
 fn word<T: serde::de::DeserializeOwned>(what: &str, value: &str) -> Result<T, String> {
@@ -85,6 +103,7 @@ impl SetGameSettingsArgs {
             models_dir: self.models_dir.clone(),
             export,
             bake: self.bake,
+            asset_folders: self.asset_folders.clone(),
             budgets: self.budgets.as_ref().map(|rows| {
                 rows.iter()
                     .map(|b| FolderBudget {
@@ -101,7 +120,7 @@ impl SetGameSettingsArgs {
 #[tool_router(router = game_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Get a game project's settings: the game repo, the model format, the model folder, the Game export settings (texture format and size cap), whether Bake light runs, the budget per folder and, per asset, its file in the model folder and its numbers against its folder's budget. A website project answers that it is not a game.",
+        description = "Get a game project's settings: the game repo, the model format, the model folder, the Game export settings (texture format and size cap), whether Bake light runs, the budget per folder and, per asset, its file in the model folder (with the folder set for it, if any) and its numbers against its folder's budget. A website project answers that it is not a game.",
         annotations(read_only_hint = true)
     )]
     async fn get_game(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
@@ -119,6 +138,7 @@ impl McpTools {
                             "id": a.id,
                             "name": a.name,
                             "file": game::file_of(settings, a),
+                            "folder": settings.folders.get(&a.id),
                             "budget": game::check_asset(settings, a).map(|c| to_value(&c)),
                         })
                     })
@@ -183,7 +203,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change a game project's settings: format, modelsDir, textures, textureCap, dropMaps (true leaves normal and metal-roughness maps out of exported models; false, the default, keeps them), bake and the budgets table (each field left out keeps what is saved). The pipeline follows: Bake light goes in or out and Export uses the new texture settings on the next run. Refused, changing nothing, when a value is out of range. Returns the settings like get_game."
+        description = "Change a game project's settings: repo (the game repo on this computer, an absolute path to a git repo or worktree, saved per computer), format, modelsDir, textures, textureCap, dropMaps (true leaves normal and metal-roughness maps out of exported models; false, the default, keeps them), bake, assetFolders (per asset id, its own folder inside the model folder such as kit, or null to put it back; the next Ship moves the file and removes the old one it owns) and the budgets table (each field left out keeps what is saved). The pipeline follows: Bake light goes in or out and Export uses the new texture settings on the next run. Refused, changing nothing, when a value is out of range. Returns the settings like get_game."
     )]
     async fn set_game_settings(&self, Parameters(args): Parameters<SetGameSettingsArgs>) -> Out {
         let project_id = args.project.clone();
@@ -194,6 +214,13 @@ impl McpTools {
                     project::load(&root, &config.layout, &args.project).map_err(reason)?;
                 let current = game::settings_of(&manifest).map_err(reason)?;
                 let change = args.change(&current.export)?;
+                if let Some(repo) = args.repo.as_deref() {
+                    let path = game::check_repo(repo).map_err(reason)?;
+                    let path = Some(path.display().to_string());
+                    project::update(&root, &config.layout, &args.project, manifest.name, path)
+                        .map_err(reason)?;
+                    host.session().save_repos(&root).map_err(reason)?;
+                }
                 let saved = commands::save_settings(host.session(), &args.project, change)
                     .map_err(|e| e.message)?;
                 host.project_changed(&saved);
@@ -211,10 +238,10 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Show what Ship would write. For a website: the same plan get_ship_settings returns (each file new, replaced, unchanged or hand made, whether it ships or why it is held back, sizes and triangles before and after, the site files left alone or removed). For a game: what it would write into the model folder from the last Game export: each file as new, replaced (Maquette wrote or imported it before; imported is true when the game's file is still the imported original), unchanged or hand made (not in the ship record, so Ship leaves it alone), with sizes and triangles before and after, the branch, the ship record size after the run, the checks (budgets, no KTX2 or meshopt) and uncommitted, how many files git status lists in the game repo. Reads only; Ship runs from run_pipeline and waits for a person in the app.",
+        description = "Show what Ship would write. For a website: the same plan get_ship_settings returns (each file new, replaced, unchanged or hand made, whether it ships or why it is held back, sizes and triangles before and after, the site files left alone or removed). For a game: what it would write into the model folder from the last Game export: each file as new, replaced (Maquette wrote or imported it before; imported is true when the game's file is still the imported original), unchanged or hand made (not in the ship record, so Ship leaves it alone), with sizes and triangles before and after, the branch, the ship record size after the run, the checks (budgets, no KTX2 or meshopt) and uncommitted, how many files git status lists in the game repo. Files of assets moved to another folder (set_game_settings assetFolders) show as removed. repo plans a game against another git repo or worktree for this look only. Reads only; Ship runs from run_pipeline (which takes the same repo for one run) and waits for a person in the app.",
         annotations(read_only_hint = true)
     )]
-    async fn get_ship_plan(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
+    async fn get_ship_plan(&self, Parameters(args): Parameters<ShipPlanArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
@@ -225,8 +252,8 @@ impl McpTools {
                         .map_err(|e| e.message)?;
                     return Ok(to_value(&view.plan));
                 }
-                let plan =
-                    commands::ship_plan(host.session(), &args.project).map_err(|e| e.message)?;
+                let plan = commands::ship_plan(host.session(), &args.project, args.repo.as_deref())
+                    .map_err(|e| e.message)?;
                 Ok(to_value(&plan))
             })
             .await;

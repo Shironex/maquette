@@ -2110,6 +2110,12 @@ export type GameSettings = {
 	budgets: FolderBudget[],
 	/**  Asset id to its file in the model folder. */
 	models: { [key in string]: GameModel },
+	/**
+	 *  Asset id to the folder its model goes to, relative to the model
+	 *  folder (`kit`, `enemies/bosses`), in place of the folder its kind or
+	 *  its imported file gives it. Moving an asset leaves its file name.
+	 */
+	folders?: { [key in string]: string },
 };
 
 /**
@@ -2128,6 +2134,12 @@ export type GameSettingsChange = {
 	bake?: boolean | null,
 	/**  The whole budget table, one row per folder. */
 	budgets?: FolderBudget[] | null,
+	/**
+	 *  Asset id to the folder its model goes to in the model folder
+	 *  (`kit`, relative, no `..`); null or an empty folder puts it back where its kind or its
+	 *  imported file puts it. Assets left out keep theirs.
+	 */
+	assetFolders?: { [key in string]: string | null } | null,
 };
 
 /**  The image files Game export writes. */
@@ -3994,6 +4006,11 @@ export type RunAsk = {
 	force?: boolean,
 	/**  Stop before Ship. */
 	buildOnly?: boolean,
+	/**
+	 *  Ship into this repo for this run only (an agent's worktree, say),
+	 *  in place of the project's; nothing is saved.
+	 */
+	repo?: string | null,
 };
 
 export type RunRecord = {
@@ -4265,7 +4282,12 @@ export type ShipChange = "new" |
 /**  The record lists it and its bytes differ. */
 "replaced" | "unchanged" | 
 /**  Not in the ship record: Ship never touches it. */
-"hand-made";
+"hand-made" | 
+/**
+ *  A file Maquette wrote whose asset moved to another folder: Ship
+ *  deletes it.
+ */
+"removed";
 
 export type ShipCheck = {
 	ok: boolean,

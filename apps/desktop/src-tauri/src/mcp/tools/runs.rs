@@ -51,6 +51,10 @@ pub struct RunPipelineArgs {
     /// and ask no approval.
     #[serde(default)]
     pub build_only: bool,
+    /// Ship into this repo for this run only, in place of the project's: an absolute path to
+    /// a git repo or worktree on this computer. Nothing is saved; set_game_settings repo
+    /// changes the project's own. Ship still waits for a person's approval.
+    pub repo: Option<String>,
     /// Seconds to wait for the run before answering, 20 by default and 120 at most.
     /// The run carries on either way; follow it with get_run.
     pub wait_seconds: Option<u32>,
@@ -228,7 +232,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. buildOnly true stops before Ship: the run never writes to the site and never waits for approval. If the run reaches the Ship step while \"Ask before shipping\" is on, or in a game project (whose Ship always asks), it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run."
+        description = "Run a project's pipeline, optionally from one step and optionally ignoring the cache. A full run (no from) first rebuilds the built assets whose script or helpers changed, and is refused when one of them fails to build. Waits up to waitSeconds, then answers with the run's status. buildOnly true stops before Ship: the run never writes to the site and never waits for approval. repo ships this run into another git repo or worktree (an absolute path) without saving it. If the run reaches the Ship step while \"Ask before shipping\" is on, or in a game project (whose Ship always asks), it answers \"waiting for approval\" until a person approves or denies it in the app; follow it with get_run."
     )]
     async fn run_pipeline(&self, Parameters(args): Parameters<RunPipelineArgs>) -> Out {
         let wait = Duration::from_secs(u64::from(args.wait_seconds.unwrap_or(20).min(120)));
@@ -247,6 +251,7 @@ impl McpTools {
                         from: args.from,
                         force: args.force,
                         build_only: args.build_only,
+                        repo: args.repo,
                     },
                     tools,
                 )
