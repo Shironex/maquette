@@ -76,4 +76,20 @@ impl CodexRun {
             },
         }
     }
+
+    /// What `rerun` was built from.
+    pub(super) fn of(rerun: &Rerun) -> Self {
+        let step = rerun.setup.def.steps.first();
+        Self {
+            cache_dir: rerun.setup.cache_dir.clone(),
+            program: step.and_then(|s| s.command.clone()),
+            args: step.map(|s| s.args.clone()).unwrap_or_default(),
+            step: step.map(|s| s.name.clone()).unwrap_or_default(),
+            prompt: rerun.options.stdin.clone().unwrap_or_default(),
+            timeout_ms: rerun
+                .options
+                .timeout
+                .map_or(0, |t| u64::try_from(t.as_millis()).unwrap_or(u64::MAX)),
+        }
+    }
 }

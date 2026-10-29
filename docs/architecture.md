@@ -193,6 +193,13 @@ board), one PNG per request, 429 handled by `http::Api` with `Retry-After` and `
 `PRICES_URL`) and estimates a call that reported none. `test_key` lists the models and spends
 nothing.
 
+`concepts/jobs/persist.rs` keeps the Lab's queued, running, waiting and failed jobs in
+`lab-jobs.json` in the app's config folder (`Concepts::keep_jobs_in`, called by `Lab::new`), with
+what each run needs: the codex call (`codex_run.rs`) or the Image API request and plan. It is
+written when a job joins, changes state or leaves, never on a log line. On start the kept jobs come
+back failed with an Interrupted by a restart message (done when the image already landed), and
+Retry or `retry_concept_jobs` reruns them; nothing resumes on its own.
+
 `concepts/jobs/api.rs` runs the API jobs on their own in-process lane, as many at once as the Lab's
 concurrency, and settles them through the same `finish` as Codex jobs, so the states, the file
 layout, retries, cancel and `use_ref_candidate` do not change. Before a batch starts, the month's

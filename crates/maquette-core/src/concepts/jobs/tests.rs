@@ -12,7 +12,7 @@ use std::os::unix::fs::PermissionsExt;
 
 /// A fake `codex` that reads the prompt from stdin, checks the command
 /// line, and acts out `mode`.
-fn fake_codex(dir: &Path, placeholder: &Path, home: &Path, mode: &str) -> PathBuf {
+pub(super) fn fake_codex(dir: &Path, placeholder: &Path, home: &Path, mode: &str) -> PathBuf {
     let script = format!(
         r#"#!/bin/sh
 prompt=$(cat)
@@ -50,7 +50,7 @@ esac
     path
 }
 
-fn toolbox(codex: &Path) -> Toolbox {
+pub(super) fn toolbox(codex: &Path) -> Toolbox {
     Toolbox {
         tools: BTreeMap::from([(
             ToolId::Codex,
@@ -65,7 +65,7 @@ fn toolbox(codex: &Path) -> Toolbox {
     }
 }
 
-fn request(direction: &str, count: u32) -> NewConcepts {
+pub(super) fn request(direction: &str, count: u32) -> NewConcepts {
     NewConcepts {
         project: "moon".into(),
         direction: direction.into(),
@@ -77,16 +77,16 @@ fn request(direction: &str, count: u32) -> NewConcepts {
     }
 }
 
-struct Rig {
+pub(super) struct Rig {
     _dir: tempfile::TempDir,
-    root: PathBuf,
-    project: PathBuf,
-    cache: PathBuf,
-    png: PathBuf,
-    home: PathBuf,
+    pub(super) root: PathBuf,
+    pub(super) project: PathBuf,
+    pub(super) cache: PathBuf,
+    pub(super) png: PathBuf,
+    pub(super) home: PathBuf,
 }
 
-fn rig() -> Rig {
+pub(super) fn rig() -> Rig {
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().to_path_buf();
     let project = root.join("moon");
@@ -109,7 +109,7 @@ fn rig() -> Rig {
     }
 }
 
-fn events() -> (
+pub(super) fn events() -> (
     Arc<Mutex<Vec<ConceptEvent>>>,
     impl Fn(ConceptEvent) + Send + Sync,
 ) {

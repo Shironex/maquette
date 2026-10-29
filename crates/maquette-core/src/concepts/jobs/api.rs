@@ -37,8 +37,8 @@ pub struct ImageApiClient {
 /// One job's request, kept so a retry sends the very same one.
 #[derive(Clone)]
 pub(super) struct ApiJob {
-    call: ImageCall,
-    plan: ApiPlan,
+    pub(super) call: ImageCall,
+    pub(super) plan: ApiPlan,
 }
 
 impl ApiJob {

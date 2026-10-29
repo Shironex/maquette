@@ -18,6 +18,7 @@
 mod api;
 mod approval;
 mod codex_run;
+mod persist;
 mod retry;
 mod settle;
 mod sink;
@@ -218,6 +219,8 @@ struct Shared {
     api: Mutex<api::ApiLane>,
     /// The Image API's key store and address, once the shell set them.
     image_api: Mutex<Option<Arc<ImageApiClient>>>,
+    /// Where the jobs are kept across restarts, once the shell set it.
+    store: Mutex<Option<persist::Store>>,
 }
 
 impl Shared {
@@ -237,7 +240,12 @@ impl Shared {
         self.api.lock().unwrap_or_else(|p| p.into_inner())
     }
 
+    /// Tells the UI, and keeps the jobs when one changed state. Never
+    /// called while the jobs are locked.
     fn emit(&self, event: ConceptEvent) {
+        if let ConceptEvent::Job { job } = &event {
+            persist::on_job(self, job);
+        }
         (self.on_event)(event);
     }
 }
@@ -274,6 +282,7 @@ impl Concepts {
             usage_until: Mutex::new(None),
             api: Mutex::new(api::ApiLane::default()),
             image_api: Mutex::new(None),
+            store: Mutex::new(None),
         });
         let runner = PipelineRunner::new(Arc::new(Sink(Arc::clone(&shared))));
         let _ = shared.runner.set(runner.downgrade());
@@ -455,6 +464,7 @@ impl Concepts {
         self.shared
             .jobs()
             .retain(|e| e.job.project != project || !e.job.state.is_finished());
+        persist::save(&self.shared);
     }
 
     /// Blocks until no job is queued or running. For tests and the CLI.
