@@ -55,6 +55,38 @@ export interface GameContext {
   files: BackendOptions['files'];
 }
 
+/** The folders after a change: a folder sets one, null or '' clears it. */
+function withFolders(
+  current: Record<string, string>,
+  change: Partial<Record<string, string | null>>
+): Record<string, string> {
+  const next = { ...current };
+  for (const [asset, folder] of Object.entries(change)) {
+    if (folder) next[asset] = folder.replace(/\/+$/, '');
+    else delete next[asset];
+  }
+  return next;
+}
+
+/** The old file of a moved imported asset, which Ship removes. */
+function removedFile(
+  path: string,
+  bytes: number | null,
+  stats: { triangles: number } | null | undefined
+): ShipFile {
+  return {
+    path,
+    change: 'removed',
+    bytes: 0,
+    beforeBytes: bytes,
+    triangles: null,
+    beforeTriangles: stats?.triangles ?? null,
+    asset: null,
+    blocked: false,
+    imported: false,
+  };
+}
+
 export function createGameHandlers({ project, saveProject, store, state, files }: GameContext) {
   const previews = createPreviewHandlers({ project, saveProject, files });
   /** Files Ship wrote before, per project, so a second Ship finds them unchanged. */
@@ -146,7 +178,11 @@ export function createGameHandlers({ project, saveProject, store, state, files }
       const check = checkAsset(game, asset);
       const stats = asset.versions[asset.versions.length - 1]?.stats;
       const bytes = stats?.bytes ?? null;
-      const before = game.models[asset.id];
+      const imported = game.models[asset.id];
+      const moved = imported !== undefined && imported.file !== path;
+      if (moved) files.push(removedFile(imported.file, bytes, stats));
+      // A moved file is new at its new path, as the core plans it.
+      const before = moved ? undefined : imported;
       const fixed = check ? autoFixes(check).length > 0 : false;
       const done = shipped.has(`${id}:${path}`);
       const change = done ? 'unchanged' : !before ? 'new' : fixed ? 'replaced' : 'unchanged';
@@ -258,6 +294,7 @@ export function createGameHandlers({ project, saveProject, store, state, files }
         export: c.export ?? current.export,
         bake: c.bake ?? current.bake,
         budgets: c.budgets ?? current.budgets,
+        folders: withFolders(current.folders ?? {}, c.assetFolders ?? {}),
       };
       return saveProject({ ...p, game });
     },

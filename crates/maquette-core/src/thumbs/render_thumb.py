@@ -3,7 +3,8 @@
 Maquette runs this headless, always with -b:
 
     blender -b --factory-startup --python-exit-code 1 [model.blend] \
-        --python render_thumb.py -- --model <file> --out <png> [--size 256]
+        --python render_thumb.py -- --model <file> --out <png> [--size 256] \
+        [--view front] [--plain]
 
 A .glb, .gltf or .obj is imported into an empty scene. A .blend is opened by
 Blender itself (it comes before --python) and its own lights, cameras and
@@ -13,6 +14,11 @@ The look matches the app: a graphite backdrop, a soft studio floor that
 fades into it with a contact shadow, a three quarter camera framed to the
 model's bounds, a warm key, a warm fill and a cool rim light. Cycles on the
 CPU with a few samples and the denoiser, so it runs the same everywhere.
+
+--view front puts the camera straight in front, a little above, as a front
+ref is drawn. --plain renders the model alone on a transparent ground, no
+floor, so its outline is exact: the Downloads matching compares that with
+the refs.
 """
 
 import argparse
@@ -43,6 +49,8 @@ def args():
     parser.add_argument("--out", required=True)
     parser.add_argument("--size", type=int, default=256)
     parser.add_argument("--samples", type=int, default=32)
+    parser.add_argument("--view", choices=("three-quarter", "front"), default="three-quarter")
+    parser.add_argument("--plain", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -172,13 +180,19 @@ def world(scene):
     scene.world = w
 
 
+# The camera's turn and height, set once from --view.
+VIEW = {"azimuth": AZIMUTH, "elevation": ELEVATION}
+FRONT_ELEVATION = math.radians(6)
+
+
 def view_dir():
     # glTF fronts face -Y in Blender, so the camera sits in front and to the right.
+    azimuth, elevation = VIEW["azimuth"], VIEW["elevation"]
     return Vector(
         (
-            math.sin(AZIMUTH) * math.cos(ELEVATION),
-            -math.cos(AZIMUTH) * math.cos(ELEVATION),
-            math.sin(ELEVATION),
+            math.sin(azimuth) * math.cos(elevation),
+            -math.cos(azimuth) * math.cos(elevation),
+            math.sin(elevation),
         )
     ).normalized()
 
@@ -237,7 +251,7 @@ def lights(scene, center, extent):
         obj.rotation_euler = (-d).to_track_quat("-Z", "Y").to_euler()
 
 
-def render(scene, out, size, samples):
+def render(scene, out, size, samples, plain=False):
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
     scene.cycles.samples = samples
@@ -246,11 +260,11 @@ def render(scene, out, size, samples):
     scene.render.resolution_x = size
     scene.render.resolution_y = size
     scene.render.resolution_percentage = 100
-    scene.render.film_transparent = False
+    scene.render.film_transparent = plain
     scene.view_settings.view_transform = "Standard"
     scene.view_settings.look = "None"
     scene.render.image_settings.file_format = "PNG"
-    scene.render.image_settings.color_mode = "RGB"
+    scene.render.image_settings.color_mode = "RGBA" if plain else "RGB"
     scene.render.image_settings.color_depth = "8"
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     # Written next to the target and renamed, so a half written PNG is never cached.
@@ -266,12 +280,15 @@ def main():
     meshes = visible_meshes(scene)
     lo, hi = bounds(meshes)
     extent = max((hi - lo).length, 1e-3)
+    if a.view == "front":
+        VIEW.update(azimuth=0.0, elevation=FRONT_ELEVATION)
     world(scene)
-    floor(scene, lo, hi, extent)
+    if not a.plain:
+        floor(scene, lo, hi, extent)
     center, _ = camera(scene, lo, hi)
     lights(scene, center, extent)
     # Blender reads a relative render path from the blend's folder, so pin it.
-    render(scene, os.path.abspath(a.out), a.size, a.samples)
+    render(scene, os.path.abspath(a.out), a.size, a.samples, a.plain)
     print(f"thumbnail {a.out} ({a.size} px)")
 
 

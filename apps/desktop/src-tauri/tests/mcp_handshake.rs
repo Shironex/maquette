@@ -350,6 +350,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "accept_inbox_model",
             "add_built_asset",
             "add_fixups",
+            "add_model_file",
             "add_to_library",
             "assemble_prop",
             "attach_download",

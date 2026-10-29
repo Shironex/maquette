@@ -276,10 +276,11 @@ export function gameProject(kind: 'crypt' | 'maze', imported: boolean): ProjectM
   const settings: GameSettings = {
     format: obj ? 'obj' : 'glb',
     modelsDir: 'assets/models',
-    export: { textures: 'png', textureCap: 1024 },
+    export: { textures: 'png', textureCap: 1024, dropMaps: false },
     bake: false,
     budgets: obj ? mazeBudgets() : cryptBudgets(),
     models: {},
+    folders: {},
   };
   const picked = repoModels(settings.format).filter(m => !m.file.startsWith('characters/'));
   const assets = imported

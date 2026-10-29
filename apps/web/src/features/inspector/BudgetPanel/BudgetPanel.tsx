@@ -3,6 +3,7 @@ import { formatBytes, formatK } from '@/lib/format';
 import { BY_HAND_REASON } from '@/state/game';
 import { useStageLabels } from '@/state/use-stage-labels';
 import { useBudgetPanel } from './BudgetPanel.hooks';
+import { FolderField } from './FolderField';
 
 const folderName = (folder: string) => (folder ? `${folder}/` : 'top level');
 
@@ -25,6 +26,15 @@ export default function BudgetPanel() {
         <td className="truncate py-1.5 pr-2 pl-3 font-medium text-fg" title={r.file}>
           {r.asset.name}
           <span className="ml-2 font-mono text-[11px] text-fg-mute">{r.file}</span>
+        </td>
+        <td className="px-2 py-1">
+          <FolderField
+            name={r.asset.name}
+            folder={r.own}
+            fallback={r.fallback}
+            disabled={b.saving}
+            onSave={folder => b.moveTo(r.asset.id, folder)}
+          />
         </td>
         <td className="px-2 py-1.5 text-fg-dim">{stages[r.asset.stage]}</td>
         <td
@@ -108,6 +118,7 @@ export default function BudgetPanel() {
             <table className="w-full table-fixed border-collapse text-[12px]">
               <colgroup>
                 <col />
+                <col className="w-[160px]" />
                 <col className="w-[84px]" />
                 <col className="w-[110px]" />
                 <col className="w-[100px]" />
@@ -117,6 +128,7 @@ export default function BudgetPanel() {
               <thead>
                 <tr className="border-b border-line text-[11px] tracking-[0.04em] text-fg-mute uppercase">
                   <th className="py-1.5 pr-2 pl-3 text-left font-medium">Model</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Game folder</th>
                   <th className="px-2 py-1.5 text-left font-medium">Stage</th>
                   <th className="px-2 py-1.5 text-right font-medium">Triangles</th>
                   <th className="px-2 py-1.5 text-right font-medium">Texture</th>

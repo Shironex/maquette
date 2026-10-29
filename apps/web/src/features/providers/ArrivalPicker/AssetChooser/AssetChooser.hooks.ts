@@ -35,10 +35,11 @@ export function useAssetChooser(arrivalId: string) {
             pending ?? [],
             project.id,
             stageLabels(project.target),
-            query
+            query,
+            arrival?.suggestions ?? []
           )
         : [],
-    [project, pending, query]
+    [project, pending, query, arrival?.suggestions]
   );
   const active = choices[Math.min(index, choices.length - 1)] ?? null;
   const more = askingArrivals(status).filter(a => a.id !== arrivalId).length;

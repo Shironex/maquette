@@ -42,9 +42,12 @@ export default function ChoiceRow({ id, choice, active, suggested, onPick }: Cho
           )}
         >
           {choice.state}
-          {suggested ? ' · the name looked like it' : ''}
+          {suggested ? ' · the watcher thinks it is this one' : ''}
         </span>
       </span>
+      {choice.fit ? (
+        <span className="flex-none text-meta text-fg-mute tabular-nums">{choice.fit}</span>
+      ) : null}
       {choice.waiting ? <Icon name="clock" size={14} className="text-clay-text" /> : null}
     </div>
   );

@@ -117,3 +117,24 @@ pub async fn dialog_pick_clips(app: AppHandle, title: String) -> CommandResult<V
     .await
     .map_err(super::join_failed)
 }
+
+/// Picks a model file to add as an asset's next version: a GLB, glTF, FBX
+/// or OBJ.
+#[tauri::command]
+#[specta::specta]
+pub async fn dialog_pick_model_file(
+    app: AppHandle,
+    title: String,
+) -> CommandResult<Option<String>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        to_string(
+            app.dialog()
+                .file()
+                .set_title(title)
+                .add_filter("Model", &maquette_core::providers::own_file::MODEL_TYPES)
+                .blocking_pick_file(),
+        )
+    })
+    .await
+    .map_err(super::join_failed)
+}

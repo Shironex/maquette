@@ -10,15 +10,20 @@ const lantern: AssetChoice = {
   picture: null,
   waiting: true,
   state: 'Waiting for its Tripo model',
+  score: 0.82,
+  fit: '82% alike',
 };
 
 describe('an asset in the chooser', () => {
-  it('shows its name and state, says when the name looked like it, and picks on click', async () => {
+  it('shows its name, state and fit, says when it is the suggestion, and picks on click', async () => {
     const onPick = vi.fn();
     render(<ChoiceRow id="c1" choice={lantern} active suggested onPick={onPick} />);
     const option = screen.getByRole('option', { selected: true });
     expect(option).toHaveTextContent('Lantern post');
-    expect(option).toHaveTextContent('Waiting for its Tripo model · the name looked like it');
+    expect(option).toHaveTextContent(
+      'Waiting for its Tripo model · the watcher thinks it is this one'
+    );
+    expect(option).toHaveTextContent('82% alike');
     await userEvent.click(option);
     expect(onPick).toHaveBeenCalledOnce();
   });
@@ -27,12 +32,14 @@ describe('an asset in the chooser', () => {
     render(
       <ChoiceRow
         id="c2"
-        choice={{ ...lantern, waiting: false, state: 'Blender, v2' }}
+        choice={{ ...lantern, waiting: false, state: 'Blender, v2', score: null, fit: null }}
         active={false}
         suggested={false}
         onPick={() => {}}
       />
     );
-    expect(screen.getByRole('option', { selected: false })).toHaveTextContent('Blender, v2');
+    const option = screen.getByRole('option', { selected: false });
+    expect(option).toHaveTextContent('Blender, v2');
+    expect(option).not.toHaveTextContent('alike');
   });
 });

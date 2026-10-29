@@ -114,14 +114,14 @@ export default function SettingsStep() {
               label="Trim in"
               value={selected.setting.start}
               min={0}
-              max={selected.clip.frames - 1}
+              max={selected.clip.frames}
               onChange={start => step.edit({ start })}
             />
             <NumberField
               label="Trim out"
               value={selected.setting.end}
               min={0}
-              max={selected.clip.frames - 1}
+              max={selected.clip.frames}
               onChange={end => step.edit({ end })}
             />
           </div>

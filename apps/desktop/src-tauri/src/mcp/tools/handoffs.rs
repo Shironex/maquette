@@ -5,14 +5,18 @@
 //! nothing is ever attached without one of those calls, and nothing is
 //! sent or spent.
 
+use std::path::Path;
+
 use maquette_core::providers::arrivals::pending_handoffs;
+use maquette_core::providers::own_file::{self, OwnFile};
 use maquette_core::providers::{Arrival, ArrivalState, Arrivals};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::{McpTools, Out, reason, respond, to_value};
+use super::inbox::{AcceptArgs, accept_item};
+use super::{McpTools, Out, reason, respond, to_value, workspace};
 use crate::mcp::host::Host;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -31,6 +35,21 @@ pub struct AttachDownloadArgs {
     pub project: String,
     /// The asset id (or name) that gets the model.
     pub asset: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddModelFileArgs {
+    /// The project the asset is in.
+    pub project: String,
+    /// The asset id (or name) that gets the model as its next version.
+    pub asset: String,
+    /// The absolute path to a .glb, .gltf, .fbx or .obj outside the
+    /// workspace's inbox and the projects' models folders.
+    pub path: String,
+    /// Accept it into the asset right away (false by default: it waits in
+    /// the inbox, checked, for accept_inbox_model).
+    pub accept: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -61,7 +80,7 @@ fn waiting_in(
 #[tool_router(router = handoffs_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "List the By hand hand-offs: every send waiting for a model made by a person on the Tripo or Meshy site (job, asset, provider, the export file name it waits for as maq_<asset>_v<n>_<provider>, its handoff folder with send.json, its front ref, about what the site's subscription charges), and the Downloads watcher: whether it is on and watching, and the recent files it saw. Only a file named for its send goes into the inbox by itself. needsLook lists the downloads whose name is only close to a waiting send's (or that came for the only send waiting): each names the asset it looks like and why, and waits. unmatched lists the downloads it could not place. Answer either with attach_download or dismiss_download. Reads only: Maquette never opens or drives the provider's site, and nothing is spent.",
+        description = "List the By hand hand-offs: every send waiting for a model made by a person on the Tripo or Meshy site (job, asset, provider, the export file name it waits for as maq_<asset>_v<n>_<provider>, its handoff folder with send.json, its front ref, about what the site's subscription charges), and the Downloads watcher: whether it is on and watching, and the recent files it saw. Only a file named for its send goes into the inbox by itself. needsLook lists the downloads whose name is only close to a waiting send's, that came for the only send waiting, or whose picture looks like one send's (however late they came): each names the asset it looks like and why, and waits. unmatched lists the downloads it could not place. Every download in either carries suggestions: each waiting send ranked best first with score (0 to 1), picture (how alike the download's headless front render and the send's front ref are, null until the render is in) and name, plus picture (queued, ready, failed or skipped) and render (the PNG). A suggestion is never attached by itself. Answer either with attach_download or dismiss_download. Reads only: Maquette never opens or drives the provider's site, and nothing is spent.",
         annotations(read_only_hint = true)
     )]
     async fn list_handoffs(&self, Parameters(args): Parameters<HandoffsArgs>) -> Out {
@@ -112,6 +131,48 @@ impl McpTools {
                     "job": arrival.job,
                     "asset": { "id": arrival.asset, "name": arrival.asset_name },
                     "arrival": to_value(&arrival),
+                }))
+            })
+            .await;
+        respond(found)
+    }
+
+    #[tool(
+        description = "Add a model file someone made or fixed themselves (an absolute path to a .glb, .gltf, .fbx or .obj, outside the inbox and the projects' models folders) as an asset's next version. It is copied, never moved: a .glb as it is, the others turned into a GLB by headless Blender. It goes into the inbox for the asset as attach_download does, for the asset's newest waiting By hand send when one waits (accepting closes it) or aimed at the asset when none does, and the usual checks run there. With accept true it is accepted into the asset right away and the answer carries the version. Spends nothing."
+    )]
+    async fn add_model_file(&self, Parameters(args): Parameters<AddModelFileArgs>) -> Out {
+        let found = self
+            .blocking(move |host, _| {
+                let (root, config) = workspace(host)?;
+                let added = own_file::add(
+                    host.studio(),
+                    host.runner(),
+                    &host.toolbox(),
+                    &OwnFile {
+                        root: &root,
+                        config: &config,
+                        project: &args.project,
+                        asset: &args.asset,
+                        file: Path::new(args.path.trim()),
+                    },
+                )
+                .map_err(reason)?;
+                let accepted = if args.accept.unwrap_or(false) {
+                    let accept = AcceptArgs {
+                        id: added.inbox_file.clone(),
+                        project: args.project.clone(),
+                        asset: Some(added.asset.clone()),
+                        name: None,
+                    };
+                    Some(accept_item(host, accept)?)
+                } else {
+                    None
+                };
+                Ok(json!({
+                    "inboxFile": added.inbox_file,
+                    "job": added.job,
+                    "asset": { "id": added.asset, "name": added.asset_name },
+                    "accepted": accepted,
                 }))
             })
             .await;

@@ -84,6 +84,19 @@ export default function GameExportPanel({ settings, onDisk, busy, onSave }: Game
           />
           <p className="text-meta text-fg-mute">{capLine(settings)}</p>
         </div>
+        <div className="flex flex-col gap-1">
+          <Toggle
+            label="Drop normal and metal maps"
+            checked={draft.dropMaps}
+            disabled={busy}
+            onChange={dropMaps => update({ dropMaps })}
+          />
+          <p className="text-meta text-fg-mute">
+            {draft.dropMaps
+              ? 'The export leaves normal and metal-roughness maps out, for a shader that reads neither.'
+              : 'Kept: models export with their normal and metal-roughness maps.'}
+          </p>
+        </div>
         <div className="flex flex-col gap-1.5">
           <span className={label}>LOD levels</span>
           <ul className="m-0 flex list-none flex-col rounded-[7px] border border-line bg-raised p-0 text-meta">

@@ -9,12 +9,13 @@ export interface ShipViewProps {
   onClose: () => void;
 }
 
-const MARK = { new: '+', replaced: '~', unchanged: '=', 'hand-made': '·' } as const;
+const MARK = { new: '+', replaced: '~', unchanged: '=', 'hand-made': '·', removed: 'x' } as const;
 const MARK_TONE = {
   new: 'text-sage',
   replaced: 'text-amber',
   unchanged: 'text-fg-mute',
   'hand-made': 'text-fg-mute',
+  removed: 'text-amber',
 } as const;
 const UNCHANGED_SHOWN = 4;
 
@@ -70,7 +71,7 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
   if (!plan || !groups) {
     return <main className="grid flex-1 place-items-center" aria-busy="true" />;
   }
-  const changing = groups.added.length + groups.replaced.length;
+  const changing = groups.added.length + groups.replaced.length + groups.removed.length;
   const total = plan.files.length + plan.handMade.length;
   const unchanged = showAll ? groups.unchanged : groups.unchanged.slice(0, UNCHANGED_SHOWN);
   const subtitle = [
@@ -85,6 +86,7 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
   );
   const unchangedRows = rows(unchanged);
   const blocked = rows(groups.blocked, () => 'left alone');
+  const removed = rows(groups.removed, () => 'its asset moved folder');
   const originals = originalsLine(groups);
   const commitFirst = commitFirstLine(plan);
   const commitNote = commitFirst ? (
@@ -171,6 +173,15 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
                   </tr>
                 ) : null}
               </Group>
+              {groups.removed.length ? (
+                <Group
+                  title="Removed"
+                  note="Old files of assets moved to another folder"
+                  count={groups.removed.length}
+                >
+                  {removed}
+                </Group>
+              ) : null}
               {groups.blocked.length ? (
                 <Group
                   title="Held back"

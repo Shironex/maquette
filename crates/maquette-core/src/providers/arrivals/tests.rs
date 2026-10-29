@@ -17,16 +17,16 @@ use crate::providers::ledger::{SpendOutcome, SpendSource};
 use crate::providers::presets::PresetVariant;
 use crate::providers::tests::{World, add_objects};
 
-struct Rig {
-    world: World,
+pub(super) struct Rig {
+    pub(super) world: World,
     _server: FakeServer,
-    jobs: ProviderJobs,
-    arrivals: Arrivals,
-    seen: Arc<Mutex<Vec<Arrival>>>,
+    pub(super) jobs: ProviderJobs,
+    pub(super) arrivals: Arrivals,
+    pub(super) seen: Arc<Mutex<Vec<Arrival>>>,
     downloads: PathBuf,
 }
 
-fn rig() -> Rig {
+pub(super) fn rig() -> Rig {
     let world = World::new();
     let server = FakeServer::start(|_, _| Reply::json(404, &json!({})));
     let jobs = world.jobs(&server);
@@ -54,7 +54,7 @@ fn rig() -> Rig {
 }
 
 impl Rig {
-    fn by_hand(&self, asset: &str) -> ProviderJob {
+    pub(super) fn by_hand(&self, asset: &str) -> ProviderJob {
         let mut request = self
             .world
             .request(Provider::ByHand, PresetVariant::Prop, &["front.png"]);
@@ -62,7 +62,7 @@ impl Rig {
         self.jobs.send(&request, false, false).expect("send")
     }
 
-    fn download(&self, name: &str, bytes: &[u8]) -> PathBuf {
+    pub(super) fn download(&self, name: &str, bytes: &[u8]) -> PathBuf {
         let path = self.downloads.join(name);
         fs::write(&path, bytes).expect("download");
         path

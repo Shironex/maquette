@@ -28,7 +28,7 @@ use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use crate::workspace::is_single_segment;
 
-mod blender;
+pub(crate) mod blender;
 pub mod import;
 pub mod names;
 pub mod retarget;

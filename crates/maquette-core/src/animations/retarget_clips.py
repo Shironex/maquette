@@ -11,7 +11,7 @@ rest direction, the model clips the bake replaces and the model's feet:
 
     {"model": "in/model.glb", "out": "draft.glb", "report": "report.json",
      "clips": [{"id": "standing-dodge-left", "file": "in/clips/standing-dodge-left.glb",
-                "name": "dodge_left", "start": 0, "end": 37, "loops": false,
+                "name": "dodge_left", "start": 0, "end": 37, "fps": 30, "loops": false,
                 "rootMotion": true, "speed": 1.0,
                 "pairs": [["mixamorig:Hips", "hips"], ["mixamorig:LeftArm", "upper_arm.L"]],
                 "pins": {"left": [[0, 12]]}}],
@@ -28,7 +28,15 @@ their rest pose and follow their parents.
 
 Each clip is written as one action on the model's armature, named as the
 settings say, and the model is written back as GLB with its own clips and
-the new ones. A clip that cannot be baked is reported with its error and
+the new ones.
+
+Frame rates: glTF keeps seconds, and Blender turns them into frames at the
+scene's rate on import and back on export. Each clip is imported at its own
+rate ("fps", what the library read), so its start and end are its own
+frames. The model and the export use one rate, the highest of the clips',
+and each baked key is placed at that rate, so every clip keeps its real
+time length whatever rate it came at and the model's own clips do not
+change. A clip that cannot be baked is reported with its error and
 left out. The report measures each clip on the model: frames, how far the
 root travels, how far the hips end from where they started (keys in the
 wrong units leave by metres) and each foot's world position per frame,
@@ -57,6 +65,8 @@ from mathutils import Matrix, Vector
 EASE_OUT = 3
 # Root travel below this reads as in place, metres.
 ROOT_MIN = 0.05
+# A clip whose rate the library does not know, frames per second.
+DEFAULT_FPS = 30.0
 
 
 def log(message):
@@ -218,19 +228,37 @@ def frame_times(action, clip):
     return [first + i * speed for i in range(count)]
 
 
+def set_fps(scene, fps):
+    """Sets the scene's frame rate; a fractional rate such as 29.97 goes in fps_base."""
+    whole = max(int(round(fps)), 1)
+    scene.render.fps = whole
+    scene.render.fps_base = whole / fps if fps > 0 else 1.0
+
+
+def clip_fps(clip):
+    fps = float(clip.get("fps") or 0.0)
+    return fps if fps > 0 else DEFAULT_FPS
+
+
+def key_frames(count, clip, out_fps):
+    """Where each of `count` baked keys goes at the export rate: key i plays i
+    clip frames in, so the clip lasts as long as it did at its own rate."""
+    step = out_fps / clip_fps(clip)
+    return [i * step for i in range(count)]
+
+
 def set_frame(scene, t):
     whole = int(math.floor(t))
     scene.frame_set(whole, subframe=t - whole)
 
 
-def write_action(name, tgt, times, rot_samples, loc_samples):
+def write_action(name, tgt, frames, rot_samples, loc_samples):
     action = bpy.data.actions.new(name)
     if action.name != name:
         raise RuntimeError(f"the model already has an action named {name}")
     slot = action.slots.new(id_type="OBJECT", name=tgt.arm.name)
     strip = action.layers.new("Layer").strips.new(type="KEYFRAME")
     bag = strip.channelbags.new(slot)
-    frames = list(range(len(times)))
 
     def write(data_path, index, group, values):
         fc = bag.fcurves.new(data_path, index=index, group_name=group)
@@ -257,7 +285,7 @@ def write_action(name, tgt, times, rot_samples, loc_samples):
     action.use_fake_user = True
     action.use_frame_range = True
     action.frame_start = 0
-    action.frame_end = max(len(times) - 1, 1)
+    action.frame_end = max(frames[-1], 1)
     return action, slot
 
 
@@ -333,7 +361,7 @@ def frame_pose(tgt, driven_rot, head_world, overrides):
     return pose
 
 
-def bake(scene, tgt, src, action, clip, feet):
+def bake(scene, tgt, src, action, clip, feet, out_fps):
     ref_rot, angles = tgt.reference(src.rest_dir)
     src_ref_inv = {k: q.inverted() for k, q in src.rest_rot.items()}
     scale = tgt.hips_rest_world.z / src.hips_rest_world.z if src.hips_rest_world.z > 1e-4 else 1.0
@@ -397,7 +425,8 @@ def bake(scene, tgt, src, action, clip, feet):
                 foot_tracks[side].append(tgt.mw @ pose[bone].translation + removed)
     if not loc_samples:
         loc_samples = [Vector((0.0, 0.0, 0.0))]
-    made, slot = write_action(clip["name"], tgt, times, rot_samples, loc_samples)
+    frames = key_frames(len(times), clip, out_fps)
+    made, slot = write_action(clip["name"], tgt, frames, rot_samples, loc_samples)
     first, last = hips_track[0], hips_track[-1]
     travel = math.hypot(last.x - first.x, last.y - first.y) if clip["rootMotion"] else 0.0
     farthest = max((h - first).length for h in hips_track)
@@ -436,6 +465,8 @@ def main():
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
+    out_fps = max((clip_fps(c) for c in job["clips"]), default=DEFAULT_FPS)
+    set_fps(scene, out_fps)
     model = import_gltf(at(job["model"]))
     target_arm = armature_of(model["objects"])
     for name in job.get("replace", []):
@@ -452,6 +483,7 @@ def main():
         entry = {"id": clip["id"], "name": clip["name"], "error": None}
         found = None
         try:
+            set_fps(scene, clip_fps(clip))
             found = import_gltf(at(clip["file"]))
             src_arm = armature_of(found["objects"])
             action = action_of(src_arm)
@@ -464,7 +496,7 @@ def main():
             tgt = Target(target_arm, clip["pairs"], job.get("keepRest", []))
             hips = next(s for s, t in clip["pairs"] if t == tgt.hips.name)
             src = Source(src_arm, hips)
-            made, slot, info = bake(scene, tgt, src, action, clip, feet)
+            made, slot, info = bake(scene, tgt, src, action, clip, feet, out_fps)
             stash(target_arm, made, slot)
             keep.add(made)
             report["driven"] = max(report["driven"], info.pop("driven"))
@@ -481,6 +513,7 @@ def main():
                 remove_imported({**found, "actions": [a for a in found["actions"] if a not in keep]})
         report["clips"].append(entry)
 
+    set_fps(scene, out_fps)
     data = target_arm.animation_data
     if data is not None:
         data.action = None

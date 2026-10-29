@@ -38,6 +38,7 @@ describe('CardMenu', () => {
       'Rename...',
       'Real size and fix-ups...',
       'Copy to project...',
+      'Add a model file as the next version...',
       'Add to library...',
       'Open in Blender',
       'Remove from project...',
@@ -190,6 +191,9 @@ describe('CardMenu', () => {
       <CardMenu asset={asset} waiting={undefined} refPicture={null} built={built} board={board} />
     );
     expect(screen.queryByRole('menuitem', { name: 'Send to 3D' })).toBeNull();
+    expect(
+      screen.queryByRole('menuitem', { name: 'Add a model file as the next version...' })
+    ).toBeNull();
     await userEvent.click(screen.getByRole('menuitem', { name: 'Rebuild' }));
     expect(rebuild).toHaveBeenCalledWith('frostveil', 'elsheria', true);
     expect(board.actions.setMenuFor).toHaveBeenCalledWith(null);
@@ -211,5 +215,16 @@ describe('CardMenu', () => {
       asset: 'elsheria',
     });
     useLibraryStore.setState({ view: null, adding: null, updating: null, plan: null });
+  });
+
+  it('copies a model file someone fixed into the Inbox for the card', async () => {
+    const asset = { ...mockAsset('Elsheria'), versions: [] };
+    render(<CardMenu asset={asset} waiting={undefined} refPicture={null} board={fakeBoardEnv()} />);
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: 'Add a model file as the next version...' })
+    );
+    await vi.waitFor(() =>
+      expect(useAppStore.getState().notice?.title).toBe('Elsheria is in the Inbox')
+    );
   });
 });

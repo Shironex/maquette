@@ -158,7 +158,7 @@ fn failure(cache_dir: &Path, record: &history::RunRecord) -> String {
 /// # Errors
 ///
 /// Fails without Blender, or with the reason the run gave when it failed.
-pub(super) fn run_script(
+pub(crate) fn run_script(
     runner: &PipelineRunner,
     tools: &Toolbox,
     work: &Path,
@@ -167,8 +167,7 @@ pub(super) fn run_script(
 ) -> CoreResult<()> {
     if !tools.has(ToolId::Blender) {
         return Err(CoreError::Unavailable(
-            "Blender is not installed, so the clips cannot be read. Install it, then try again."
-                .to_string(),
+            "Blender is not installed, and this needs it. Install it, then try again.".to_string(),
         ));
     }
     let path = work.join(script_file);

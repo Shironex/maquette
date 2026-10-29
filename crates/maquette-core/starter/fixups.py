@@ -3,6 +3,9 @@
 The fix-ups and the real size of each asset live in prepare.json, keyed by
 asset id. They are applied in this order, whatever order they were added in:
 
+    rotate             turn the model about its centre by "x", "y" and "z"
+                       degrees (the app's axes, y up; x first, then y,
+                       then z) and bake the turn into the meshes
     apply-transforms   bake object transforms into the meshes
     remove-loose       drop loose parts smaller than "minShare" of the model
     merge              join the meshes into one ("byMaterial": one per material)
@@ -66,6 +69,7 @@ from mathutils import Matrix, Vector
 
 PREPARE_VERSION = 1
 ORDER = [
+    "rotate",
     "apply-transforms",
     "remove-loose",
     "merge",
@@ -193,6 +197,29 @@ def apply_transforms(objects, _fixup):
         if not obj.children:
             bpy.data.objects.remove(obj)
     return f"{done} meshes, {skipped} rigged kept" if skipped else f"{done} meshes"
+
+
+def turn_matrix(x, y, z):
+    """The turn by x, then y, then z degrees about the app's axes (glTF, y
+    up), in Blender's: glTF x is Blender x, y is Blender z and z is -y."""
+    about_x = Matrix.Rotation(math.radians(x), 4, Vector((1.0, 0.0, 0.0)))
+    about_y = Matrix.Rotation(math.radians(y), 4, Vector((0.0, 0.0, 1.0)))
+    about_z = Matrix.Rotation(math.radians(z), 4, Vector((0.0, -1.0, 0.0)))
+    return about_z @ about_y @ about_x
+
+
+def rotate(objects, fixup):
+    x, y, z = (float(fixup.get(axis) or 0.0) for axis in ("x", "y", "z"))
+    if not any((x, y, z)):
+        return "no turn"
+    found = world_bounds(objects)
+    centre = (found[0] + found[1]) / 2 if found else Vector((0.0, 0.0, 0.0))
+    pivot = Matrix.Translation(centre) @ turn_matrix(x, y, z) @ Matrix.Translation(-centre)
+    for obj in roots(objects):
+        obj.matrix_world = pivot @ obj.matrix_world
+    bpy.context.view_layer.update()
+    baked = apply_transforms(objects, None)
+    return f"turned by x {x:g}, y {y:g}, z {z:g} degrees, {baked}"
 
 
 def components(bm):
@@ -678,6 +705,7 @@ def origin_bottom(objects, _fixup):
 
 
 OPS = {
+    "rotate": rotate,
     "apply-transforms": apply_transforms,
     "remove-loose": remove_loose,
     "merge": merge,

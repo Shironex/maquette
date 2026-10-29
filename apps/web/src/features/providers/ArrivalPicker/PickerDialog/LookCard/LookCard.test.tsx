@@ -30,11 +30,12 @@ async function lookAtLantern(): Promise<Arrival> {
 }
 
 describe('a download that needs a look', () => {
-  it('shows the model next to the sent ref, the file and why it matched', async () => {
+  it('shows the front render next to the front ref, the file, the fit and why', async () => {
     await lookAtLantern();
     expect(screen.getByText('Is this Lantern post?')).toBeInTheDocument();
     expect(screen.getByText('lantern post 3d model.glb')).toBeInTheDocument();
-    expect(screen.getByText('Name close to Lantern post')).toBeInTheDocument();
+    expect(screen.getByText('Looks like Lantern post (88%)')).toBeInTheDocument();
+    expect(screen.getByText('88% alike')).toBeInTheDocument();
     // The model's headless render was asked for; mock mode serves no files in tests.
     const arrival = useDownloadsStore.getState().status?.arrivals.find(a => a.state === 'review');
     await waitFor(() =>
@@ -43,7 +44,10 @@ describe('a download that needs a look', () => {
       )
     );
     expect(screen.getByText('Download')).toBeInTheDocument();
-    expect(screen.getByText('Sent ref')).toBeInTheDocument();
+    expect(screen.getByText('Front ref')).toBeInTheDocument();
+    // Its front render, matched against the refs, is the picture shown.
+    expect(arrival?.render).toMatch(/crystal-lantern\.webp$/);
+    expect(arrival?.picture).toBe('ready');
   });
 
   it('sends it to the Inbox for the asset it looks like, for that send', async () => {
@@ -78,5 +82,21 @@ describe('a download that needs a look', () => {
       ).toBe('dismissed')
     );
     expect(useDownloadsStore.getState().chooserFor).toBeNull();
+  });
+
+  it('ranks the other waiting sends after it, and attaches to one of them instead', async () => {
+    const arrival = await lookAtLantern();
+    const others = (arrival.suggestions ?? []).filter(s => s.job !== arrival.job);
+    expect(others.length).toBeGreaterThan(0);
+    expect(screen.getByText('Also waiting:')).toBeInTheDocument();
+    const other = others[0]!;
+    await userEvent.click(
+      screen.getByRole('button', { name: new RegExp(`^${other.assetName} · `) })
+    );
+    await waitFor(() =>
+      expect(
+        useDownloadsStore.getState().status?.arrivals.find(a => a.id === arrival.id)?.asset
+      ).toBe(other.asset)
+    );
   });
 });

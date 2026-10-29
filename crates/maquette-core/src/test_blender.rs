@@ -49,6 +49,24 @@ pub(crate) fn glb_json(path: &Path) -> serde_json::Value {
     serde_json::from_slice(&bytes[20..20 + len]).expect("glb json")
 }
 
+/// How long the animation `name` of a GLB's JSON chunk lasts, in seconds:
+/// the latest key time of its samplers (each input accessor's `max`).
+pub(crate) fn animation_seconds(json: &serde_json::Value, name: &str) -> f64 {
+    let anim = json["animations"]
+        .as_array()
+        .expect("animations")
+        .iter()
+        .find(|a| a["name"] == name)
+        .expect("the animation");
+    anim["samplers"]
+        .as_array()
+        .expect("samplers")
+        .iter()
+        .filter_map(|s| s["input"].as_u64())
+        .filter_map(|i| json["accessors"][i as usize]["max"][0].as_f64())
+        .fold(0.0, f64::max)
+}
+
 /// A Toolbox whose Blender is `blender`, for code that runs a pipeline step.
 pub(crate) fn toolbox(blender: &Path) -> crate::pipeline::tools::Toolbox {
     let mut tools = crate::pipeline::tools::Toolbox {

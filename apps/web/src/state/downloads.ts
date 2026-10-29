@@ -4,7 +4,14 @@
  * they can be attached to and the line Settings shows about the watch.
  */
 import type { ToastStatus } from '@maquette/ui';
-import type { Arrival, Asset, PendingHandoff, Stage, WatchStatus } from '@/ipc/client';
+import type {
+  Arrival,
+  Asset,
+  PendingHandoff,
+  SendSuggestion,
+  Stage,
+  WatchStatus,
+} from '@/ipc/client';
 import { formatAgo, formatBytes } from '@/lib/format';
 import { SERVICE_LABEL } from './providers';
 
@@ -97,6 +104,30 @@ export function arrivalMeta(arrival: Arrival, now: number): string {
     .join(' · ');
 }
 
+/** A score of 0 to 1 as a whole percent. */
+export function percent(score: number | null | undefined): number {
+  return Math.round(Math.max(0, Math.min(1, score ?? 0)) * 100);
+}
+
+/** "89% alike" for a send ranked by its picture, "Name only" without one. */
+export function suggestionLabel(suggestion: SendSuggestion): string {
+  return suggestion.picture === null || suggestion.picture === undefined
+    ? 'Name only'
+    : `${percent(suggestion.score)}% alike`;
+}
+
+/** The send a download's card compares it with: the one it points at, else the best. */
+export function shownSuggestion(arrival: Arrival): SendSuggestion | null {
+  const ranked = arrival.suggestions ?? [];
+  return ranked.find(s => s.job === arrival.job) ?? ranked[0] ?? null;
+}
+
+/** The other waiting sends, ranked, after the one shown. */
+export function otherSuggestions(arrival: Arrival, limit = 3): SendSuggestion[] {
+  const shown = shownSuggestion(arrival);
+  return (arrival.suggestions ?? []).filter(s => s.job !== shown?.job).slice(0, limit);
+}
+
 /** One asset a download can be attached to. */
 export interface AssetChoice {
   asset: string;
@@ -107,22 +138,29 @@ export interface AssetChoice {
   waiting: boolean;
   /** Where it stands, in a few words. */
   state: string;
+  /** How well the download fits its waiting send, 0 to 1, when ranked. */
+  score: number | null;
+  /** "89% alike", when ranked. */
+  fit: string | null;
 }
 
 /**
  * The project's assets a download can go to, the ones a By hand send
- * waits on first, narrowed to the names that hold every word of `query`.
+ * waits on first (best ranked against the download first), narrowed to the
+ * names that hold every word of `query`.
  */
 export function assetChoices(
   assets: readonly Asset[],
   pending: readonly PendingHandoff[],
   project: string,
   stages: Record<Stage, string>,
-  query = ''
+  query = '',
+  ranked: readonly SendSuggestion[] = []
 ): AssetChoice[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const choices = assets.map((asset): AssetChoice => {
     const send = pending.find(p => p.project === project && p.asset === asset.id);
+    const rank = ranked.find(r => r.project === project && r.asset === asset.id);
     const n = asset.versions.length;
     return {
       asset: asset.id,
@@ -134,11 +172,13 @@ export function assetChoices(
         : n === 0
           ? `${stages[asset.stage]}, no model yet`
           : `${stages[asset.stage]}, v${n}`,
+      score: rank?.score ?? null,
+      fit: rank ? suggestionLabel(rank) : null,
     };
   });
   return choices
     .filter(c => words.every(w => c.name.toLowerCase().includes(w)))
-    .sort((a, b) => Number(b.waiting) - Number(a.waiting));
+    .sort((a, b) => Number(b.waiting) - Number(a.waiting) || (b.score ?? -1) - (a.score ?? -1));
 }
 
 /** The line under the switch in Settings. */

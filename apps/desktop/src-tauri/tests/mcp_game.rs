@@ -256,6 +256,43 @@ async fn agents_read_scan_import_and_change_a_game_project() {
     assert_eq!(changed["settings"]["export"]["textures"], "jpg");
     assert_eq!(changed["settings"]["export"]["textureCap"], 512);
     assert_eq!(changed["settings"]["bake"], true);
+    assert_eq!(
+        changed["settings"]["export"]["dropMaps"], false,
+        "maps kept by default"
+    );
+    let dropped = call(
+        &client,
+        "set_game_settings",
+        json!({ "project": project_id, "dropMaps": true }),
+    )
+    .await;
+    assert_eq!(dropped["settings"]["export"]["dropMaps"], true);
+    let moved = call(
+        &client,
+        "set_game_settings",
+        json!({ "project": project_id, "assetFolders": { "brazier": "kit" } }),
+    )
+    .await;
+    let brazier = &moved["assets"][0];
+    assert_eq!(brazier["file"], "kit/brazier.glb");
+    assert_eq!(brazier["folder"], "kit");
+    let outside = raw_call(
+        &client,
+        "set_game_settings",
+        json!({ "project": project_id, "assetFolders": { "brazier": "../up" } }),
+    )
+    .await;
+    assert_eq!(outside.is_error, Some(true), "{}", text(&outside));
+    call(
+        &client,
+        "set_game_settings",
+        json!({ "project": project_id, "assetFolders": { "brazier": null } }),
+    )
+    .await;
+    assert_eq!(
+        dropped["settings"]["export"]["textureCap"], 512,
+        "the other export settings stay"
+    );
     let files: Vec<&str> = changed["assets"]
         .as_array()
         .expect("assets")
@@ -277,6 +314,52 @@ async fn agents_read_scan_import_and_change_a_game_project() {
         before,
         "nothing was written into the game repo"
     );
+
+    // An agent's worktree of the game: a plan against it for one look, then
+    // the project's repo on this computer.
+    let worktree = dir.path().join("crypt-game-agent");
+    std::fs::create_dir_all(worktree.join("assets/models")).expect("worktree");
+    std::fs::write(
+        worktree.join(".git"),
+        "gitdir: /src/crypt-game/.git/worktrees/agent\n",
+    )
+    .expect("git file");
+    let at = worktree.display().to_string();
+    let plan = call(
+        &client,
+        "get_ship_plan",
+        json!({ "project": project_id, "repo": at }),
+    )
+    .await;
+    assert_eq!(plan["repo"], at.as_str(), "planned against the worktree");
+    let game = call(&client, "get_game", json!({ "project": project_id })).await;
+    assert_ne!(game["gameRepo"], at.as_str(), "a plan saves nothing");
+    let plain = raw_call(
+        &client,
+        "set_game_settings",
+        json!({ "project": project_id, "repo": repo.join("assets").display().to_string() }),
+    )
+    .await;
+    assert_eq!(
+        plain.is_error,
+        Some(true),
+        "not a git repo: {}",
+        text(&plain)
+    );
+    let relative = raw_call(
+        &client,
+        "set_game_settings",
+        json!({ "project": project_id, "repo": "crypt-game-agent" }),
+    )
+    .await;
+    assert_eq!(relative.is_error, Some(true), "{}", text(&relative));
+    let set = call(
+        &client,
+        "set_game_settings",
+        json!({ "project": project_id, "repo": at }),
+    )
+    .await;
+    assert_eq!(set["gameRepo"], at.as_str());
 
     client.cancel().await.expect("close");
     server.stop();

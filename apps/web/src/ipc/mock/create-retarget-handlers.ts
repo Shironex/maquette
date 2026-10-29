@@ -100,7 +100,7 @@ export function createRetargetHandlers(ctx: RetargetContext) {
     const used = [...taken];
     return settings.map(s => {
       const clip = clipOf(s.clip);
-      const last = clip.frames - 1;
+      const last = clip.frames;
       const base = snake(s.name) || defaultName(clip.name, clip.pack);
       let name = base;
       for (let n = 2; used.includes(name); n += 1) name = `${base}_${n}`;
@@ -136,7 +136,7 @@ export function createRetargetHandlers(ctx: RetargetContext) {
           clip: c.id,
           name: defaultName(c.name, c.pack),
           start: 0,
-          end: c.frames - 1,
+          end: c.frames,
           loops: c.loops,
           rootMotion: Boolean(c.rootMotion),
           speed: 1,
@@ -317,7 +317,7 @@ export function createRetargetHandlers(ctx: RetargetContext) {
               clip: id,
               name,
               start: 0,
-              end: clip.frames - 1,
+              end: clip.frames,
               loops: clip.loops,
               rootMotion: Boolean(clip.rootMotion),
               speed: 1,

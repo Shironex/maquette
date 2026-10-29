@@ -63,9 +63,10 @@ describe('retarget rules', () => {
   });
 
   it('says how a trimmed, faster clip plays', () => {
-    expect(playLine(setting, { fps: 30 })).toBe('30 f, plays in 0.87 s at 1.15x');
+    expect(playLine(setting, { fps: 30 })).toBe('29 f, plays in 0.84 s at 1.15x');
     expect(trimmed(setting, { frames: 38 })).toBe(true);
-    expect(trimmed({ ...setting, start: 0, end: 37 }, { frames: 38 })).toBe(false);
+    expect(trimmed({ ...setting, start: 0, end: 37 }, { frames: 38 })).toBe(true);
+    expect(trimmed({ ...setting, start: 0, end: 38 }, { frames: 38 })).toBe(false);
     expect(withSetting([setting], 'standing-dodge-left', { loops: true })[0]!.loops).toBe(true);
   });
 

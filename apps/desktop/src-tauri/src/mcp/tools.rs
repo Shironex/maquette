@@ -79,6 +79,9 @@ the provider's site, the export file name each waits for and what the Downloads 
 matched; it reads only. A download whose name is only close to a send's waits there under \
 needsLook, and one it could not place under unmatched: nothing lands without attach_download \
 (into the inbox for the asset you name, ready for accept_inbox_model) or dismiss_download. \
+add_model_file takes a model file someone fixed by hand (an absolute .glb, .gltf, .fbx or \
+.obj path outside the workspace's versions) into the inbox as an asset's next version the same \
+way, and accepts it at once with accept true. \
 cancel_provider_jobs stops sends by id (a by hand send stops waiting, a send not yet started is cancelled, one that cannot be stopped says why), but a send waiting for approval is only denied by a person in the app. make_object_refs turns the objects of one concept into \
 one isolated image each. get_ref_views reads an asset's refs and the view each shows \
 (front, left, back, right or other); set_ref_views sets them, and every send then carries \

@@ -32,7 +32,7 @@ pub mod settings;
 pub mod ship;
 
 pub use budget::{BudgetCheck, asset_budget, check_asset, default_budgets, folder_of};
-pub use detect::{GameRepoInspection, inspect_game_repo};
+pub use detect::{GameRepoInspection, check_repo, inspect_game_repo};
 pub use import::{ImportResult, import_models};
 pub use scan::{GameScan, ScannedModel, scan_models};
 pub use settings::{GameSettingsChange, add_budget_fixups, save_settings};
@@ -112,6 +112,10 @@ pub struct GameExport {
     pub textures: GameTextures,
     /// The longest texture edge in pixels, one of [`TEXTURE_CAPS`].
     pub texture_cap: u32,
+    /// Leaves normal and metal-roughness maps out of the exported models,
+    /// for a game whose shader reads neither. Off (keep them) by default.
+    #[serde(default)]
+    pub drop_maps: bool,
 }
 
 impl Default for GameExport {
@@ -119,6 +123,7 @@ impl Default for GameExport {
         Self {
             textures: GameTextures::Png,
             texture_cap: DEFAULT_TEXTURE_CAP,
+            drop_maps: false,
         }
     }
 }
@@ -158,6 +163,11 @@ pub struct GameSettings {
     pub budgets: Vec<FolderBudget>,
     /// Asset id to its file in the model folder.
     pub models: BTreeMap<String, GameModel>,
+    /// Asset id to the folder its model goes to, relative to the model
+    /// folder (`kit`, `enemies/bosses`), in place of the folder its kind or
+    /// its imported file gives it. Moving an asset leaves its file name.
+    #[serde(default)]
+    pub folders: BTreeMap<String, String>,
 }
 
 /// What New project asks for a game.
@@ -206,6 +216,7 @@ pub fn new_settings(new: &NewGame, repo: Option<&Path>) -> CoreResult<GameSettin
         bake: false,
         budgets: default_budgets(&folders),
         models: BTreeMap::new(),
+        folders: BTreeMap::new(),
     })
 }
 
@@ -235,6 +246,13 @@ pub fn validate(settings: &GameSettings) -> CoreResult<()> {
             ));
         }
     }
+    for (asset, folder) in &settings.folders {
+        if !stays_inside(folder) {
+            return invalid(format!(
+                "{asset}: the folder {folder:?} must be a relative folder inside the model folder, without .."
+            ));
+        }
+    }
     for (asset, model) in &settings.models {
         if !stays_inside(&model.file) || GameFormat::of(&model.file).is_none() {
             return invalid(format!(
@@ -261,14 +279,21 @@ fn default_folder(settings: &GameSettings, kind: AssetKind) -> String {
 }
 
 /// Where `asset`'s model goes in the model folder: its recorded file, or
-/// `<folder>/<snake name>.<format>` for an asset made in Maquette.
+/// `<folder>/<snake name>.<format>` for an asset made in Maquette. A folder
+/// set for the asset ([`GameSettings::folders`]) moves either, keeping the
+/// file name.
 pub fn file_of(settings: &GameSettings, asset: &Asset) -> String {
-    if let Some(model) = settings.models.get(&asset.id) {
-        return model.file.clone();
-    }
-    let stem = asset.id.replace('-', "_");
-    let folder = default_folder(settings, asset.kind);
-    let name = format!("{stem}.{}", settings.format.ext());
+    let (folder, name) = match settings.models.get(&asset.id) {
+        Some(model) => match model.file.rsplit_once('/') {
+            Some((folder, name)) => (folder.to_string(), name.to_string()),
+            None => (String::new(), model.file.clone()),
+        },
+        None => (
+            default_folder(settings, asset.kind),
+            format!("{}.{}", asset.id.replace('-', "_"), settings.format.ext()),
+        ),
+    };
+    let folder = settings.folders.get(&asset.id).cloned().unwrap_or(folder);
     if folder.is_empty() {
         name
     } else {
@@ -289,5 +314,9 @@ pub fn settings_of(manifest: &ProjectManifest) -> CoreResult<&GameSettings> {
 
 #[cfg(test)]
 mod blender_tests;
+#[cfg(test)]
+mod move_tests;
+#[cfg(test)]
+mod rig_export_tests;
 #[cfg(test)]
 mod tests;

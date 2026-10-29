@@ -10,6 +10,7 @@
 import type {
   Arrival,
   DownloadPreview,
+  SendSuggestion,
   PendingHandoff,
   ProjectManifest,
   ProviderJob,
@@ -30,6 +31,12 @@ const PREVIEWS: Record<string, string> = {
   'rune circle 3d model.glb': 'veil-platform.webp',
 };
 const OPEN: readonly Arrival['state'][] = ['review', 'unmatched', 'failed'];
+
+/** The render mock mode shows as a download's front picture, by file name. */
+const renderOf = (name: string): string | null => {
+  const render = PREVIEWS[name];
+  return render ? `${thumbsDir(`${expand(DEFAULT_ROOT)}/inbox`)}/${render}` : null;
+};
 
 function pendingOf(job: ProviderJob): PendingHandoff {
   return {
@@ -78,6 +85,29 @@ export function createDownloadsHandlers({
     arrivals,
   });
 
+  /**
+   * Every waiting send ranked against a download by picture, as the core
+   * does once its front render is in: `best` (an asset name) at `top`, the
+   * rest falling away from `rest`.
+   */
+  const ranked = (best: string | null, top: number, rest: number): SendSuggestion[] =>
+    waiting()
+      .map((job, i): SendSuggestion => {
+        const picture = job.assetName === best ? top : Math.max(0.12, rest - i * 0.07);
+        const name = job.assetName === best ? 0.6 : 0;
+        return {
+          job: job.id,
+          project: job.project,
+          asset: job.asset,
+          assetName: job.assetName,
+          score: 0.9 * picture + 0.1 * name,
+          picture,
+          name,
+          image: job.images[0] ?? null,
+        };
+      })
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
   const remember = (next: Arrival): Arrival => {
     arrivals = [next, ...arrivals.filter(a => a.id !== next.id)];
     emit(next);
@@ -118,17 +148,32 @@ export function createDownloadsHandlers({
   const batchExport = () => {
     const lantern = waiting().find(j => j.assetName === 'Lantern post');
     const asking = `${waiting().length} sends are waiting`;
-    remember({ ...file('rune circle 3d model.glb', 5), reason: asking });
-    remember({ ...file('frost arch 3d model.glb', 4), reason: asking });
-    if (!lantern) return;
+    const pictured = (name: string, suggestions: SendSuggestion[]) => ({
+      suggestions,
+      picture: 'ready' as const,
+      render: renderOf(name),
+    });
     remember({
-      ...file('lantern post 3d model.glb', 3),
+      ...file('rune circle 3d model.glb', 5),
+      reason: asking,
+      ...pictured('rune circle 3d model.glb', ranked(null, 0, 0.41)),
+    });
+    remember({
+      ...file('frost arch 3d model.glb', 4),
+      reason: asking,
+      ...pictured('frost arch 3d model.glb', ranked(null, 0, 0.52)),
+    });
+    if (!lantern) return;
+    const name = 'lantern post 3d model.glb';
+    remember({
+      ...file(name, 3),
       state: 'review',
       job: lantern.id,
       project: lantern.project,
       asset: lantern.asset,
       assetName: lantern.assetName,
-      reason: `Name close to ${lantern.assetName}`,
+      reason: `Looks like ${lantern.assetName} (88%)`,
+      ...pictured(name, ranked(lantern.assetName, 0.91, 0.47)),
     });
   };
 
@@ -186,6 +231,26 @@ export function createDownloadsHandlers({
       const found = find(id);
       if (!OPEN.includes(found.state)) fail('invalid', `${found.name} was already taken care of.`);
       return attach(found, String(projectId), String(asset));
+    },
+    // A file someone fixed by hand goes the same way: copied, never moved.
+    inbox_add_model_file: ({ project: projectId, asset, path }) => {
+      if (!/\.(glb|gltf|fbx|obj)$/i.test(String(path)))
+        fail('invalid', `${path} is not a model file. Add a .glb, .gltf, .fbx or .obj.`);
+      if (/\/models\//.test(String(path)))
+        fail('invalid', 'That file is a version already. Add one from outside the models folder.');
+      const target =
+        (project(String(projectId)).assets ?? []).find(a => a.id === asset) ??
+        fail('not-found', `Could not find the asset ${asset}.`);
+      const [job] = waiting()
+        .filter(j => j.project === projectId && j.asset === target.id)
+        .sort((a, b) => (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0));
+      if (job) handBack({ id: job.id, file: String(path) });
+      return {
+        inboxFile: job ? `${job.id}.glb` : `download-${target.id}.glb`,
+        job: job?.id ?? null,
+        asset: target.id,
+        assetName: target.name,
+      };
     },
     downloads_preview: ({ arrival: id }): DownloadPreview => {
       const found = find(id);

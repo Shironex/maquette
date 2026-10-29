@@ -199,3 +199,56 @@ mod tests {
         assert_eq!(snap.items[0].checks.len(), 6);
     }
 }
+
+/// What [`inbox_add_model_file`] did.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelFileAdded {
+    /// The inbox item it became, ready for Accept.
+    pub inbox_file: String,
+    /// The By hand send it went to, when the asset had one waiting.
+    pub job: Option<String>,
+    pub asset: String,
+    pub asset_name: String,
+}
+
+/// Adds a model file someone fixed by hand (a `.glb`, `.gltf`, `.fbx` or
+/// `.obj` outside the workspace's versions) to the inbox for `asset`, as
+/// its next version once accepted. The file is copied, never moved; a file
+/// that is no GLB is turned into one by headless Blender first.
+#[tauri::command]
+#[specta::specta]
+pub async fn inbox_add_model_file(
+    session: State<'_, Session>,
+    studio: State<'_, Studio>,
+    pipelines: State<'_, super::pipeline::Pipelines>,
+    project: String,
+    asset: String,
+    path: String,
+) -> CommandResult<ModelFileAdded> {
+    let (root, config) = session.workspace()?;
+    let tools = toolchain::toolbox(&session).await?;
+    let studio = studio.0.clone();
+    let runner = pipelines.0.clone();
+    let added = blocking(move || {
+        maquette_core::providers::own_file::add(
+            &studio,
+            &runner,
+            &tools,
+            &maquette_core::providers::own_file::OwnFile {
+                root: &root,
+                config: &config,
+                project: &project,
+                asset: &asset,
+                file: std::path::Path::new(path.trim()),
+            },
+        )
+    })
+    .await??;
+    Ok(ModelFileAdded {
+        inbox_file: added.inbox_file,
+        job: added.job,
+        asset: added.asset,
+        asset_name: added.asset_name,
+    })
+}

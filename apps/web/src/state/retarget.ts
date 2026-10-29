@@ -72,15 +72,18 @@ export function withSetting(
   return settings.map(s => (s.clip === clip ? { ...s, ...change } : s));
 }
 
-/** "30 f, plays in 0.87 s at 1.15x". */
+/**
+ * "30 f, plays in 0.87 s at 1.15x". A clip of `frames` frames runs from frame 0 to frame
+ * `frames`, so a trim keeps `end - start` of them.
+ */
 export function playLine(setting: ClipSetting, clip: Pick<AnimationClip, 'fps'>): string {
-  const frames = setting.end - setting.start + 1;
+  const frames = setting.end - setting.start;
   const seconds = frames / (clip.fps || 30) / (setting.speed || 1);
   return `${frames} f, plays in ${seconds.toFixed(2)} s at ${setting.speed}x`;
 }
 
 export const trimmed = (setting: ClipSetting, clip: Pick<AnimationClip, 'frames'>) =>
-  setting.start > 0 || setting.end < clip.frames - 1;
+  setting.start > 0 || setting.end < clip.frames;
 
 export function reviewCounts(clips: readonly ClipReview[]): Record<ReviewStatus, number> {
   const count = (s: ReviewStatus) => clips.filter(c => c.status === s).length;

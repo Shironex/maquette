@@ -6,6 +6,7 @@ import {
   checkAsset,
   fileOf,
   fixName,
+  folderProblem,
   gameOf,
   shipCounts,
   shipGroups,
@@ -58,6 +59,17 @@ describe('game projects', () => {
     expect(fileOf(settings, asset('iron-gate', 1))).toBe('props/doors/iron_gate.glb');
     expect(fileOf(settings, asset('candle-cluster', 1))).toBe('props/candle_cluster.glb');
     expect(fileOf(settings, asset('heroine', 1, 1024, 'character'))).toBe('characters/heroine.glb');
+    const moved = { ...settings, folders: { 'iron-gate': 'kit', 'candle-cluster': 'kit/lights' } };
+    expect(fileOf(moved, asset('iron-gate', 1))).toBe('kit/iron_gate.glb');
+    expect(fileOf(moved, asset('candle-cluster', 1))).toBe('kit/lights/candle_cluster.glb');
+  });
+
+  it('takes a game folder only inside the model folder', () => {
+    expect(folderProblem('kit/')).toBeNull();
+    expect(folderProblem('')).toBeNull();
+    expect(folderProblem('/etc')).not.toBeNull();
+    expect(folderProblem('C:/games')).not.toBeNull();
+    expect(folderProblem('kit/../up')).toBe('No .. or empty parts');
     expect(fileOf({ ...settings, budgets: [] }, asset('crate', 1))).toBe('crate.glb');
   });
 
@@ -107,6 +119,7 @@ describe('game projects', () => {
         file('b.glb', 'replaced'),
         file('c.glb', 'unchanged'),
         file('d.glb', 'new', true),
+        file('props/old.glb', 'removed'),
       ],
       handMade: [file('e.glb', 'hand-made')],
       recordAfter: 3,
@@ -117,6 +130,7 @@ describe('game projects', () => {
     expect(groups.added.map(f => f.path)).toEqual(['a.glb']);
     expect(groups.blocked.map(f => f.path)).toEqual(['d.glb']);
     expect(groups.handMade).toHaveLength(1);
-    expect(shipCounts(groups)).toBe('1 new · 1 replaced · 0 removed');
+    expect(groups.removed.map(f => f.path)).toEqual(['props/old.glb']);
+    expect(shipCounts(groups)).toBe('1 new · 1 replaced · 1 removed');
   });
 });

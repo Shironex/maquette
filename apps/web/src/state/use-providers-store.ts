@@ -313,6 +313,22 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
     }
   },
 
+  addModelFile: async (project, asset) => {
+    try {
+      const file = await commands.dialogPickModelFile('Choose the model file to add');
+      if (!file) return;
+      const added = await commands.inboxAddModelFile(project, asset, file);
+      notify(
+        'done',
+        `${added.assetName} is in the Inbox`,
+        'The checks are running. Accept it there to make the next version.'
+      );
+      if (added.job) await get().load(project);
+    } catch (error) {
+      notify('failed', 'Could not add the model file', errorMessage(error));
+    }
+  },
+
   openSite: async service => {
     try {
       await commands.providerOpenSite(service);

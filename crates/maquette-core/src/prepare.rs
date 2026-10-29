@@ -68,6 +68,8 @@ mod parts;
 mod patch;
 pub mod preview;
 #[cfg(test)]
+mod rotate_tests;
+#[cfg(test)]
 mod split_tests;
 mod suggest;
 
@@ -103,6 +105,8 @@ pub const MAX_LOOSE_SHARE: f32 = 0.5;
 /// nearest bigger neighbour instead of becoming a part of its own.
 pub const DEFAULT_MERGE_UNDER: f32 = 0.01;
 pub const MAX_MERGE_UNDER: f32 = 0.2;
+/// A rotate fix-up turns at most this far about each axis, in degrees.
+pub const MAX_TURN_DEGREES: f32 = 360.0;
 
 /// Which side of the model the real size measures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -364,6 +368,15 @@ pub fn check_fixup(what: &str, fixup: &Fixup) -> CoreResult<()> {
         {
             Err(invalid(format!(
                 "{what}: split-parts takes a mergeUnder of 0 to {MAX_MERGE_UNDER}, not {merge_under}."
+            )))
+        }
+        Fixup::Rotate { x, y, z }
+            if ![x, y, z]
+                .iter()
+                .all(|d| d.is_finite() && d.abs() <= MAX_TURN_DEGREES) =>
+        {
+            Err(invalid(format!(
+                "{what}: rotate takes x, y and z in degrees from -{MAX_TURN_DEGREES} to {MAX_TURN_DEGREES}, not {x}, {y}, {z}."
             )))
         }
         _ => Ok(()),

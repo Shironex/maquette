@@ -63,6 +63,9 @@ pub struct GameIndex {
     pub format: GameFormat,
     pub textures: GameTextures,
     pub texture_cap: u32,
+    /// The export leaves normal and metal-roughness maps out.
+    #[serde(default)]
+    pub drop_maps: bool,
     pub models: Vec<IndexModel>,
 }
 
@@ -134,6 +137,7 @@ pub fn build(
         format: settings.format,
         textures: settings.export.textures,
         texture_cap: settings.export.texture_cap,
+        drop_maps: settings.export.drop_maps,
         models,
     }
 }

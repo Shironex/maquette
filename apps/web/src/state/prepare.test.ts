@@ -29,6 +29,8 @@ describe('real size and fix-up words', () => {
       'Remove loose parts under 2%'
     );
     expect(describeFixup({ op: 'merge', byMaterial: true })).toBe('Merge objects by material');
+    expect(describeFixup({ op: 'rotate', x: -24.5, y: 0, z: 90 })).toBe('Rotate x -24.5°, z 90°');
+    expect(describeFixup({ op: 'rotate', x: 0, y: 0, z: 0 })).toBe('Rotate (no turn)');
     expect(shortCount(1_250_000)).toBe('1.3M');
     expect(shortCount(812)).toBe('812');
   });
@@ -39,6 +41,12 @@ describe('editing the fix-ups', () => {
     let prep = withFixup(EMPTY_PREP, { op: 'origin-bottom' });
     prep = withFixup(prep, { op: 'decimate', triangles: 60_000 });
     prep = withFixup(prep, { op: 'decimate', triangles: 5000 });
+    expect(withFixup(prep, defaultFixup('rotate', workspaceDefaults(null))).fixups[0]).toEqual({
+      op: 'rotate',
+      x: 0,
+      y: 0,
+      z: 0,
+    });
     expect(prep.fixups).toEqual([{ op: 'decimate', triangles: 5000 }, { op: 'origin-bottom' }]);
     expect(withoutFixup(prep, 'decimate').fixups).toEqual([{ op: 'origin-bottom' }]);
   });

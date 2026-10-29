@@ -40,7 +40,7 @@ fn run_in(project_dir: &Path, program: &Path, args: &[&str]) -> String {
 
 /// Runs the build, export and game export steps the way the pipeline does,
 /// in the project folder.
-fn run_chain(project_dir: &Path, settings: &GameSettings) -> Option<String> {
+pub(super) fn run_chain(project_dir: &Path, settings: &GameSettings) -> Option<String> {
     let blender = blender()?;
     let node = find_on_path(&["node"], &ProbeEnv::from_system())?;
     let tools = project_dir.join("tools");
@@ -141,6 +141,7 @@ fn a_glb_game_exports_plain_capped_png_textures_and_copies_untouched_imports() {
     let export = GameExport {
         textures: GameTextures::Png,
         texture_cap: 4096,
+        drop_maps: false,
     };
     let (ws, project_dir, manifest) = prepared(
         glb_game,

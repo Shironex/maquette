@@ -11,7 +11,8 @@
 
 pub mod checks;
 mod files;
-mod png;
+pub(crate) mod picture;
+pub(crate) mod png;
 mod suggested;
 
 use std::path::Path;

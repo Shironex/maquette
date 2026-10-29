@@ -114,7 +114,8 @@ pub fn check(root: &Path, me: &Holder, now_ms: f64) -> LockCheck {
 }
 
 /// Writes this computer's lock, keeping the open time of its own earlier
-/// lock.
+/// lock, and quietly removes the sync conflict copies of the lock: they are
+/// only old heartbeats, so nobody needs to merge them.
 ///
 /// # Errors
 ///
@@ -126,6 +127,7 @@ pub fn claim(root: &Path, me: &Holder, now_ms: f64) -> CoreResult<WorkspaceLock>
     };
     let lock = me.lock(opened, now_ms);
     write_json(&root.join(LOCK_FILE), &lock)?;
+    super::sync::remove_lock_conflicts(root);
     Ok(lock)
 }
 
@@ -284,6 +286,18 @@ mod tests {
         claim(dir.path(), &me, NOW).expect("claim");
         release(dir.path(), &me).expect("release");
         assert!(!dir.path().join(LOCK_FILE).exists());
+    }
+
+    #[test]
+    fn claim_removes_the_lock_conflict_copies() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let copy = dir
+            .path()
+            .join(".maquette-lock.sync-conflict-20261027-101500-ABC1234.json");
+        fs::write(&copy, b"{}").expect("copy");
+        claim(dir.path(), &holder("studio-mac", "m1", 10), NOW).expect("claim");
+        assert!(!copy.exists());
+        assert!(dir.path().join(LOCK_FILE).is_file());
     }
 
     #[test]

@@ -23,6 +23,10 @@ pub struct RunAsk {
     /// Stop before Ship.
     #[serde(default)]
     pub build_only: bool,
+    /// Ship into this repo for this run only (an agent's worktree, say),
+    /// in place of the project's; nothing is saved.
+    #[serde(default)]
+    pub repo: Option<String>,
 }
 
 pub(crate) fn setup(
@@ -35,15 +39,21 @@ pub(crate) fn setup(
         from,
         force,
         build_only,
+        repo,
     } = ask;
     let ctx = context(session, project_id)?;
+    let repo = match repo {
+        Some(path) => Some(
+            maquette_core::game::check_repo(&path)?
+                .display()
+                .to_string(),
+        ),
+        None => ctx.manifest.site_repo.clone(),
+    };
     let ship = maquette_core::ship::load(&ctx.project_dir)?;
     let mut vars = BTreeMap::new();
     vars.insert("workspace".to_string(), ctx.root.display().to_string());
-    vars.insert(
-        "siteRepo".to_string(),
-        ctx.manifest.site_repo.clone().unwrap_or_default(),
-    );
+    vars.insert("siteRepo".to_string(), repo.unwrap_or_default());
     // The Ship step reads which file each asset shipped as from here.
     let index = maquette_core::site::write_ship_index(&ctx.cache_dir, &ctx.manifest, &ship)?;
     crate::commands::game::before_run(&ctx.project_dir, &ctx.manifest)?;

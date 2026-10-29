@@ -126,6 +126,34 @@ function SplitLines({ fixup, onChange, disabled }: Omit<FixupRowProps, 'index' |
   );
 }
 
+const AXES = ['x', 'y', 'z'] as const;
+
+/** A rotate's own line, under its name: the degrees about each axis, applied x, y then z. */
+function RotateLines({ fixup, onChange, disabled }: Omit<FixupRowProps, 'index' | 'onRemove'>) {
+  if (fixup.op !== 'rotate') return null;
+  const fields = AXES.map(axis => (
+    <NumberField
+      key={axis}
+      prefix={`${axis.toUpperCase()} `}
+      aria-label={`Degrees about ${axis}`}
+      size="sm"
+      unit="°"
+      value={fixup[axis] ?? 0}
+      min={-360}
+      max={360}
+      format={v => String(Number(v.toFixed(2)))}
+      disabled={disabled}
+      onChange={deg => onChange({ ...fixup, [axis]: deg })}
+      fieldClassName="w-[78px]"
+    />
+  ));
+  return (
+    <div className="flex basis-full flex-wrap items-center gap-2 pb-0.5 pl-5 text-meta text-fg-dim">
+      {fields}
+    </div>
+  );
+}
+
 /** One fix-up: its place, name and number, and Remove. */
 export default function FixupRow({ fixup, index, onChange, onRemove, disabled }: FixupRowProps) {
   const label = FIXUP_LABEL[fixup.op];
@@ -144,6 +172,7 @@ export default function FixupRow({ fixup, index, onChange, onRemove, disabled }:
         onClick={onRemove}
       />
       <SplitLines fixup={fixup} onChange={onChange} disabled={disabled} />
+      <RotateLines fixup={fixup} onChange={onChange} disabled={disabled} />
     </li>
   );
 }

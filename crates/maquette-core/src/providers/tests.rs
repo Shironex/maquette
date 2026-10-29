@@ -141,7 +141,7 @@ impl World {
         }
     }
 
-    fn project_dir(&self) -> PathBuf {
+    pub(super) fn project_dir(&self) -> PathBuf {
         project::dir(&self.root, &self.config.layout, &self.project).expect("dir")
     }
 

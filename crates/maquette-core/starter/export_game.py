@@ -13,7 +13,13 @@ for a target without one). The folder is emptied first.
 
 - .glb: binary glTF with the textures inside as PNG or JPG (--textures png,
   jpg, or keep for each image's own), never KTX2, never meshopt or Draco.
-  The rig and every animation clip export with the model.
+  The rig and its animation clips export with the model: each armature
+  carries only its own actions (its active one and its NLA tracks), so a
+  rig never carries the clips of another model in the same file.
+- With "dropMaps": true in the game index (a Game export setting, for a
+  game whose shader reads neither), normal maps and metal-roughness maps
+  are left out: each Principled BSDF's Normal, Metallic and Roughness
+  inputs are unhooked from their textures and keep their plain values.
 - .obj: Wavefront .obj with its .mtl, Y up, and each texture saved next to
   them as a .png or .jpg file the .mtl names without a folder.
 - Each model's textures scale down to the "textureCap" the index gives it,
@@ -246,6 +252,28 @@ def save_images(images, folder, textures):
             image.filepath = path
 
 
+DATA_INPUTS = ("Normal", "Metallic", "Roughness")
+
+
+def drop_data_maps(materials):
+    """Unhooks the normal and metal-roughness textures of each Principled
+    BSDF, so the export writes neither map. Returns how many links went."""
+    dropped = 0
+    for material in materials:
+        tree = material.node_tree
+        if tree is None:
+            continue
+        for node in tree.nodes:
+            if node.type != "BSDF_PRINCIPLED":
+                continue
+            for name in DATA_INPUTS:
+                socket = node.inputs.get(name)
+                for link in list(socket.links) if socket is not None else []:
+                    tree.links.remove(link)
+                    dropped += 1
+    return dropped
+
+
 def texture_rows(images):
     return [
         {"name": image.name, "width": image.size[0], "height": image.size[1],
@@ -267,7 +295,7 @@ def select(objects):
 
 def export_glb(path, objects, textures):
     select(objects)
-    bpy.ops.export_scene.gltf(
+    options = dict(
         filepath=path,
         export_format="GLB",
         use_selection=True,
@@ -281,6 +309,12 @@ def export_glb(path, objects, textures):
         export_image_format="JPEG" if textures == "jpg" else "AUTO",
         export_draco_mesh_compression_enable=False,
     )
+    try:
+        # Off, a lone armature does not take every action in the file: it
+        # carries its own (its active action and NLA tracks) and no other's.
+        bpy.ops.export_scene.gltf(**options, export_anim_single_armature=False)
+    except TypeError:  # an exporter without the option
+        bpy.ops.export_scene.gltf(**options)
 
 
 def export_obj(path, objects):
@@ -308,12 +342,18 @@ def triangles(objects):
     return total
 
 
-def caps_of(path, fallback):
-    """Each target's texture cap from the game index, its folder's budget."""
+def read_index(path):
+    """The game index, or None when it cannot be read."""
     try:
         with open(path, encoding="utf-8") as fh:
-            index = json.load(fh)
+            return json.load(fh)
     except (OSError, ValueError):
+        return None
+
+
+def caps_of(index, path, fallback):
+    """Each target's texture cap from the game index, its folder's budget."""
+    if index is None:
         log(f"no {path}, every texture caps at {fallback} px")
         return {}
     return {
@@ -323,7 +363,7 @@ def caps_of(path, fallback):
     }
 
 
-def export_one(collection, args, originals, caps):
+def export_one(collection, args, originals, caps, drop_maps):
     target = str(collection[TARGET])
     cap = caps.get(target, args.cap)
     move = float(collection.get(OFFSET, 0.0))
@@ -340,6 +380,7 @@ def export_one(collection, args, originals, caps):
     fmt = ext if ext in ("glb", "obj") else args.format
     path = os.path.abspath(os.path.join(args.out, target))
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    dropped = drop_data_maps(materials_of(objects)) if drop_maps else 0
     images = images_of(objects)
     capped = cap_images(images, cap, args.textures)
     undo = own_names(
@@ -356,9 +397,10 @@ def export_one(collection, args, originals, caps):
         undo_names(undo)
     count = triangles(objects)
     shrunk = f", {capped} textures to {cap} px" if capped else ""
+    shrunk += f", {dropped} normal and metal-roughness links dropped" if dropped else ""
     log(f"wrote {target} ({count} triangles{shrunk}, {os.path.getsize(path) // 1024} KB)")
     return {"asset": collection.name, "target": target, "triangles": count, "cap": cap,
-            "textures": texture_rows(images)}
+            "textures": texture_rows(images), "droppedMaps": dropped}
 
 
 def main():
@@ -369,12 +411,14 @@ def main():
     if args.bake:
         hook_lightmaps(args.bake)
     originals = take_source_names()
-    caps = caps_of(args.index, args.cap)
+    index = read_index(args.index)
+    caps = caps_of(index, args.index, args.cap)
+    drop_maps = bool((index or {}).get("dropMaps"))
     models = bpy.data.collections.get(MODELS)
     tagged = [c for c in (models.children if models else []) if TARGET in c]
-    written = [w for w in (export_one(c, args, originals, caps) for c in tagged) if w]
+    written = [w for w in (export_one(c, args, originals, caps, drop_maps) for c in tagged) if w]
     report = {"version": 1, "format": args.format, "textures": args.textures,
-              "cap": args.cap, "models": written}
+              "cap": args.cap, "dropMaps": drop_maps, "models": written}
     with open(os.path.join(args.out, "export.json"), "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2)
     log(f"exported {len(written)} models to {args.out}")
