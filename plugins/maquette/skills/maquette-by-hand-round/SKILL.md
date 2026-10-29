@@ -145,7 +145,8 @@ Sites often name downloads after the caption ("stone well 3d model.glb"). For ea
 size, fix-ups and tweaks into the library when the asset should be reusable. The same model again
 adds nothing; a newer model of an asset already there adds the next version. A DIFFERENT design
 of an existing entry (another well, same name) gets its own entry: give it its own `name`, do
-not stack it as a version. `list_library` `{ query?, tag? }` first, to see what exists.
+not stack it as a version. For many assets at once, `add_many_to_library` `{ project, assets: [{ asset, name?, tags? }], tags? }`
+(200 at most) answers per asset and goes on after a failure. `list_library` `{ query?, tag? }` first, to see what exists.
 
 ## 7. A bad generation
 
@@ -154,7 +155,8 @@ asset again prefilled from its send. For By hand it writes a new handoff and spe
 Tripo or Meshy it costs credits and waits for approval. The earlier model stays in the inbox so
 the person can compare. Before redoing, say what you would change (a cleaner front ref, an
 added view, another `mesh` or `rig`, a lower face limit) so the redo is not the same send again.
-The inbox has no discard yet: the losing model stays there until the person removes the file.
+`discard_inbox_model` `{ id }` throws the losing model away: it moves into `inbox/.discarded/`
+(never deleted) and the send behind it closes as cancelled. Discard only after the person picked.
 
 ## Stop conditions
 
