@@ -1,16 +1,14 @@
 //! Which waiting By hand send a new download is for. Only the export name
 //! (`maq_<asset>_v<n>_<provider>`, or the older handoff name) places a file
-//! by itself. A file that came within a few hours of its handoff and fits
-//! one send (the only send waiting then, or the one its name is close to)
-//! is only suggested: a person looks at it first. Anything else is asked.
+//! by itself. A file that fits one send (the only send waiting, or the one
+//! its name is close to) is only suggested: a person looks at it first,
+//! however long after its handoff it came. Anything else is asked, and its
+//! picture ([`super::picture`]) may suggest a send later.
 
 use crate::providers::handback::{SLACK_MS, name_fit};
 use crate::providers::jobs::ProviderJob;
 use crate::providers::naming;
 
-/// How long after a handoff a download still counts as its model without
-/// a name that says so.
-pub(super) const WINDOW_MS: f64 = 6.0 * 3_600_000.0;
 /// The least name fit that picks one send out of several.
 const FIT: f64 = 0.5;
 
@@ -78,11 +76,10 @@ pub(super) fn decide(
     }) {
         return exact(&found.id, format!("Named for {}", found.asset_name));
     }
+    // Late is fine: a model made days after its handoff is still its model.
     let recent: Vec<&ProviderJob> = waiting
         .iter()
-        .filter(|j| {
-            modified_ms + SLACK_MS >= j.created_at_ms && modified_ms - j.created_at_ms <= WINDOW_MS
-        })
+        .filter(|j| modified_ms + SLACK_MS >= j.created_at_ms)
         .collect();
     let mut fits: Vec<(f64, &ProviderJob)> = recent
         .iter()
@@ -101,7 +98,7 @@ pub(super) fn decide(
             close(&found.id, format!("Name close to {}", found.asset_name))
         }
         ([], _) => Verdict::Ask {
-            reason: "It came long after the waiting handoffs".to_string(),
+            reason: "It is older than the waiting handoffs".to_string(),
         },
         _ => Verdict::Ask {
             reason: format!("{} sends are waiting", waiting.len()),
@@ -110,15 +107,20 @@ pub(super) fn decide(
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use crate::providers::jobs::{CancelMode, JobState, Provider};
     use crate::providers::presets::{PresetVariant, ProviderId};
 
-    const T: f64 = 1_800_000_000_000.0;
+    pub(in crate::providers::arrivals) const T: f64 = 1_800_000_000_000.0;
     const MIN: f64 = 60_000.0;
 
-    fn waiting(asset: &str, name: &str, n: u32, created: f64) -> ProviderJob {
+    pub(in crate::providers::arrivals) fn waiting(
+        asset: &str,
+        name: &str,
+        n: u32,
+        created: f64,
+    ) -> ProviderJob {
         ProviderJob {
             id: format!("{asset}-{n}"),
             project: "moon".into(),
@@ -199,7 +201,7 @@ mod tests {
     }
 
     #[test]
-    fn a_stale_send_still_waiting_means_asking() {
+    fn two_sends_waiting_with_no_name_means_asking() {
         let jobs = [
             waiting("desk-lamp", "Desk lamp", 1, T),
             waiting("crate", "Crate", 1, T + 8.0 * 60.0 * MIN),
@@ -212,20 +214,34 @@ mod tests {
     }
 
     #[test]
-    fn without_a_name_the_only_recent_send_is_only_suggested() {
+    fn without_a_name_the_only_send_is_only_suggested_however_late() {
         let jobs = [waiting("desk-lamp", "Desk lamp", 1, T)];
         let v = decide("model (3).glb", None, T + 10.0 * MIN, &jobs);
         assert_eq!(suggested(&v), Some("desk-lamp-1"));
         assert_eq!(id(&v), None, "never taken by itself");
-        // Before the handoff (beyond the clock slack) or hours after: asked.
+        // Two days later it is still suggested, never refused.
+        let v = decide("model (3).glb", None, T + 48.0 * 60.0 * MIN, &jobs);
+        assert_eq!(suggested(&v), Some("desk-lamp-1"));
+        // Before the handoff (beyond the clock slack): asked.
         assert!(matches!(
             decide("model (3).glb", None, T - 10.0 * MIN, &jobs),
             Verdict::Ask { .. }
         ));
-        assert!(matches!(
-            decide("model (3).glb", None, T + WINDOW_MS + MIN, &jobs),
-            Verdict::Ask { .. }
-        ));
+    }
+
+    #[test]
+    fn a_close_name_is_suggested_a_day_after_its_handoff() {
+        let jobs = [
+            waiting("stone-ruin", "Stone ruin", 1, T),
+            waiting("wooden-log", "Wooden log", 1, T + 60.0 * MIN),
+        ];
+        let v = decide(
+            "stone ruins 3d model.glb",
+            None,
+            T + 26.0 * 60.0 * MIN,
+            &jobs,
+        );
+        assert_eq!(suggested(&v), Some("stone-ruin-1"));
     }
 
     #[test]
