@@ -76,7 +76,7 @@ tauri-build = { version = "2", features = [] }
 tauri-plugin-dialog = "2.8"
 # The app's own updates, pinned exactly on the newest release older than
 # seven days. 2.13 and later need tauri 2.12.
-tauri-plugin-updater = { version = "=2.14.0", default-features = false, features = ["rustls-tls", "zip"] }
+tauri-plugin-updater = { version = "=2.14.0", default-features = false, features = ["rustls-tls"] }
 
 # Exact pins: tauri-specta is pre-1.0, and a floating rc would resolve
 # differently between machines and break the regenerate-and-diff guard.
