@@ -325,6 +325,99 @@ fn swapped_sides_and_an_unrigged_model_are_blockers() {
 }
 
 #[test]
+fn a_turned_model_off_centre_reads_its_offsets_in_its_own_frame() {
+    for yaw in [90.0, -90.0, 180.0] {
+        let r = read(&HumanoidSpec {
+            yaw,
+            offset: [0.02, 0.26],
+            ..HumanoidSpec::default()
+        });
+        let p = &r.pose;
+        assert!(
+            p.hips_offset.is_some_and(|o| (o - 0.2608).abs() < 1e-3),
+            "{yaw}: {p:?}"
+        );
+        assert!(
+            p.hips_forward.is_some_and(|f| (f - 0.26).abs() < 1e-3),
+            "{yaw}: {p:?}"
+        );
+        assert!(
+            p.hips_side.is_some_and(|s| (s - 0.02).abs() < 1e-3),
+            "{yaw}: {p:?}"
+        );
+        // Moving and turning the whole body keeps it mirrored.
+        assert!(p.asymmetry.is_some_and(|a| a < 1e-3), "{yaw}: {p:?}");
+        let centre = r
+            .findings
+            .iter()
+            .find(|f| f.id == "centre")
+            .expect("centre");
+        assert_eq!(centre.title, "Hips sit 26 cm off the centre");
+        assert!(
+            centre
+                .detail
+                .as_deref()
+                .is_some_and(|d| d.contains("26 cm forward and 2 cm to its left")),
+            "{centre:?}"
+        );
+        assert!(!ids(&r, FindingLevel::Warning).contains(&"symmetry"));
+    }
+    let behind = read(&HumanoidSpec {
+        offset: [-0.1, -0.1],
+        ..HumanoidSpec::default()
+    });
+    let centre = behind
+        .findings
+        .iter()
+        .find(|f| f.id == "centre")
+        .expect("centre");
+    assert!(
+        centre
+            .detail
+            .as_deref()
+            .is_some_and(|d| d.contains("10 cm back and 10 cm to its right")),
+        "{centre:?}"
+    );
+}
+
+#[test]
+fn the_widest_mirror_gap_names_its_bone() {
+    // The left hand read from the index finger's first joint: only that
+    // pair is out of mirror.
+    let bytes = fixture::humanoid(&HumanoidSpec {
+        yaw: 90.0,
+        ..HumanoidSpec::default()
+    });
+    let mut overrides = BoneOverrides::new();
+    overrides.insert(
+        "leftHand".to_string(),
+        Some("mixamorig:LeftHandIndex1".to_string()),
+    );
+    let r = readiness(&bytes, Path::new("."), &overrides).expect("readiness");
+    assert_eq!(r.pose.asymmetry_bone.as_deref(), Some("leftHand"));
+    assert!(r.pose.asymmetry.is_some_and(|a| a > 0.05), "{:?}", r.pose);
+}
+
+#[test]
+fn scale_noise_from_an_export_is_not_a_scale() {
+    // Float noise as exports leave it, up to about 2e-5.
+    for noise in [1.000_010_6, 1.000_017_4, 0.999_982_6] {
+        let r = read(&HumanoidSpec {
+            armature_scale: noise,
+            ..HumanoidSpec::default()
+        });
+        assert!(r.pose.scaled.is_empty(), "{noise}: {:?}", r.pose.scaled);
+        assert_eq!(r.pose.scale_noise, 1, "{noise}");
+        assert!(!ids(&r, FindingLevel::Warning).contains(&"scaled"));
+    }
+    let real = read(&HumanoidSpec {
+        armature_scale: 1.001,
+        ..HumanoidSpec::default()
+    });
+    assert_eq!(real.pose.scaled, ["Armature (1.001)"]);
+}
+
+#[test]
 fn findings_are_ranked_blockers_first() {
     let r = read(&HumanoidSpec {
         arm_drop: 40.0,

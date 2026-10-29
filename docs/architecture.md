@@ -550,9 +550,10 @@ uses.
 - **Rest pose.** `pose.rs` measures the nodes' rest transforms: the facing from the left minus
   right upper legs and arms (left crossed with up; the toes must agree or the sides look swapped),
   each arm's drop below horizontal, the soles (a skinned mesh's bounds through its first joint's
-  world matrix and inverse bind matrix), the hips' distance from the Y axis, mirrored bone gaps in
-  the character's own frame, and every node's scale (negative, uneven, evenly scaled, or float
-  noise within `SCALE_NOISE`).
+  world matrix and inverse bind matrix), the hips' distance from the Y axis (also split into side and
+  forward in the character's own frame), mirrored bone gaps in that frame with the bone of the
+  widest, and every node's scale (negative, uneven, evenly scaled, or float noise within
+  `SCALE_NOISE`, 1e-4: exports leave up to about 2e-5).
 - **Findings.** `findings.rs` turns both into blockers, warnings and notes in plain words, sorted
   by level and never dropped. `VrmReadiness` carries the bone list, the pose and the findings; it
   rides on `GlbReport::vrm` (the inbox caches it under a report version) and `Rig::vrm` (Motion's
