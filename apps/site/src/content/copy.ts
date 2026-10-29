@@ -2,6 +2,7 @@
  * The page's words, kept apart from layout so the tour panels, the timeline
  * and the pipeline section stay in step. Plain and short; no dashes.
  */
+import tauri from '../../../desktop/src-tauri/tauri.conf.json';
 import { withBase } from '../lib/with-base';
 import type { StopId } from '../scene/manifest';
 
@@ -264,11 +265,12 @@ export const SHOTS = {
 
 /**
  * The published release the Download section links to. A new release is this
- * object: version, date, and the two file names and byte sizes. The URLs follow
+ * object: the date and the two byte sizes (the version comes from tauri.conf.json). The URLs follow
  * from them; `latest/download/<file>` would break, as the file name carries the version.
  */
 const REPO_URL = 'https://github.com/Shironex/maquette';
-const VERSION = '0.2.0';
+/** Read from tauri.conf.json, which bump-version.mjs keeps in step with the app. */
+const VERSION: string = tauri.version;
 const DOWNLOAD_BASE = `${REPO_URL}/releases/download/v${VERSION}`;
 
 /** Bytes as megabytes with one decimal ("13.9 MB"). */
@@ -278,18 +280,18 @@ export function formatMegabytes(bytes: number): string {
 
 export const release = {
   version: VERSION,
-  date: '28 Oct 2026',
+  date: '29 Oct 2026',
   notesUrl: `${REPO_URL}/releases/tag/v${VERSION}`,
   allUrl: `${REPO_URL}/releases`,
   mac: {
     file: `Maquette_${VERSION}_aarch64.dmg`,
-    bytes: 16_021_299,
+    bytes: 16_422_239,
     note: 'Apple silicon',
     url: `${DOWNLOAD_BASE}/Maquette_${VERSION}_aarch64.dmg`,
   },
   windows: {
     file: `Maquette_${VERSION}_x64-setup.exe`,
-    bytes: 12_221_625,
+    bytes: 12_564_355,
     note: 'x64',
     url: `${DOWNLOAD_BASE}/Maquette_${VERSION}_x64-setup.exe`,
   },
