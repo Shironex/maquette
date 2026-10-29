@@ -160,6 +160,12 @@ export function inboxItems(dir: string, now: number): InboxItem[] {
       c('textures', 'pass', '1 texture, largest 2048 px', 'At or under the 2048 px default.'),
       c('rig', 'pass', 'Mixamo rig found', '119 joints, ready for Mixamo animations.'),
       c(
+        'vrm',
+        'warning',
+        'Not VRM ready: 1 thing to fix',
+        'Arms hang below horizontal, VRM wants a T-pose. 52 of 55 humanoid bones mapped.'
+      ),
+      c(
         'pbr',
         'pass',
         'Base color only, as exported',

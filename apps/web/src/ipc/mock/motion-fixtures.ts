@@ -6,6 +6,7 @@
  * `motion/fixtures/motion_models.py`.
  */
 import type { Clip, Rig } from '../client';
+import { CLAY_FIGURE_VRM } from './vrm-fixtures';
 
 export interface MotionFixture {
   rig: Rig | null;
@@ -250,6 +251,7 @@ export const MOTION_FIXTURES: Record<string, MotionFixture> = {
         { bone: 'RightToeBase', joint: null, how: 'missing' },
       ],
       maxInfluences: 1,
+      vrm: CLAY_FIGURE_VRM,
     },
     clips: [
       {

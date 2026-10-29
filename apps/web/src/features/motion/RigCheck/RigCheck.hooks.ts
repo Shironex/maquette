@@ -1,5 +1,5 @@
 import type { CheckStatus } from '@maquette/ui';
-import type { MotionModel } from '@/ipc/client';
+import type { MotionModel, VrmReadiness } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import { fileName } from '@/state/pipeline';
@@ -18,6 +18,22 @@ export interface RigLine {
 
 /** Web skinning plays four influences per vertex at most. */
 export const MAX_INFLUENCES = 4;
+
+/** VRM names this many humanoid bones. */
+const VRM_BONES = 55;
+
+/** One line for a rig's VRM readiness, naming every finding, blockers first. */
+export function vrmLine(vrm: VrmReadiness): RigLine {
+  const blockers = vrm.findings.filter(f => f.level === 'blocker').length;
+  return {
+    id: 'vrm',
+    status: vrm.ready ? 'pass' : 'warning',
+    title: vrm.ready
+      ? `VRM ready, ${vrm.mapped} of ${VRM_BONES} bones`
+      : `Not VRM ready: ${blockers} ${blockers === 1 ? 'thing' : 'things'} to fix`,
+    detail: vrm.findings.map(f => `${f.title}.`).join(' '),
+  };
+}
 
 /** What the rig check says about a model's rig. */
 export function rigLines(model: MotionModel): RigLine[] {
@@ -74,6 +90,7 @@ export function rigLines(model: MotionModel): RigLine[] {
       map: true,
     });
   }
+  if (rig.vrm) lines.push(vrmLine(rig.vrm));
   return lines;
 }
 
