@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::inbox::analyse::{RigKind, bare_joint_name};
+use crate::analyse::{RigKind, bare_joint_name};
 
 /// The bones a humanoid clip drives, in Mixamo names, with the names other
 /// rigs give them (Unreal and Rigify style; `{s}` is the side letter).
@@ -142,7 +142,7 @@ fn spellings(alias: &str, side: Option<char>) -> Vec<String> {
 }
 
 /// Maps the rig's joints onto the humanoid bones.
-pub(crate) fn humanoid_map(joints: &[String]) -> Vec<BoneMap> {
+pub fn humanoid_map(joints: &[String]) -> Vec<BoneMap> {
     let normals: Vec<String> = joints.iter().map(|j| normal(j)).collect();
     HUMANOID
         .iter()

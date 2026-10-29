@@ -15,7 +15,7 @@ const RATES: [f32; 9] = [12.0, 15.0, 24.0, 25.0, 30.0, 48.0, 50.0, 60.0, 120.0];
 const LOOP_TOLERANCE: f32 = 1e-3;
 
 /// The JSON of a GLB or a `.gltf` file.
-pub(super) fn json_of(bytes: &[u8]) -> Option<Value> {
+pub fn json_of(bytes: &[u8]) -> Option<Value> {
     if bytes.get(..4) == Some(b"glTF".as_slice()) {
         let len = u32::from_le_bytes(bytes.get(12..16)?.try_into().ok()?) as usize;
         return serde_json::from_slice(bytes.get(20..20 + len)?).ok();
@@ -87,7 +87,7 @@ fn accessors_of(json: &Value) -> Vec<BTreeSet<u64>> {
 
 /// Keyframe bytes per clip name, and every clip together (an accessor two
 /// clips share counts once there).
-pub(super) fn clip_bytes(json: &Value) -> (BTreeMap<String, f64>, f64) {
+pub fn clip_bytes(json: &Value) -> (BTreeMap<String, f64>, f64) {
     let sets = accessors_of(json);
     let names = json["animations"].as_array().cloned().unwrap_or_default();
     let mut per = BTreeMap::new();
