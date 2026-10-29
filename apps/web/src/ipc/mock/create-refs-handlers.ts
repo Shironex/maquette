@@ -22,6 +22,7 @@ import type {
   WarningsItem,
 } from '../client';
 import { clock } from '@/lib/clock';
+import { MAX_NOTE_CHARS } from '@/state/lab';
 import { DRAWN, VIEW_LABEL, assign, emptyViews, sendOrder, sentView } from '@/state/refs';
 import type { FakeLabOptions } from './lab';
 import { slug } from './lab-helpers';
@@ -205,6 +206,8 @@ export function createRefsHandlers(parts: RefsLabParts): Record<string, (args: A
     const front = refsNow.find(r => r.view === 'front');
     if (!front) fail('invalid', 'Tag a front first: the other views are drawn from it.');
     if (request.count < 1 || request.count > 4) fail('invalid', 'Ask for 1 to 4 images per view.');
+    if ((request.notes ?? '').trim().length > MAX_NOTE_CHARS)
+      fail('invalid', `Keep the notes for the views to ${MAX_NOTE_CHARS} characters or fewer.`);
     const asked = request.views ?? [];
     if (asked.some(v => !(DRAWN as readonly RefView[]).includes(v)))
       fail('invalid', 'A drawn view is left, back or right; the front stays as it is.');
@@ -230,6 +233,39 @@ export function createRefsHandlers(parts: RefsLabParts): Record<string, (args: A
     return view(request.project, request.asset);
   }
 
+  /** `refs/<stem>.png`, numbered like `free_name` when the name is taken. */
+  function freeRef(project: string, stem: string) {
+    const taken = (file: string) => (refs.get(project) ?? []).some(r => r.file === file);
+    let n = 1;
+    let file = `refs/${stem}.png`;
+    while (taken(file)) file = `refs/${stem}_${++n}.png`;
+    return file;
+  }
+
+  /**
+   * The ref a drawn view replaces leaves the asset and `refs/` (for
+   * `refs/originals/`), unless another asset still lists it.
+   */
+  function replaceIn(
+    p: ProjectManifest,
+    asset: string,
+    next: AssetRef[],
+    slot: RefView,
+    copy: string
+  ) {
+    const held = next.find(r => r.view === slot && r.file !== copy)?.file;
+    if (!held) return next;
+    const shared = (p.assets ?? []).some(
+      a => a.id !== asset && (a.thumbnail === held || (a.refs ?? []).some(r => r.file === held))
+    );
+    if (!shared)
+      refs.set(
+        p.id,
+        (refs.get(p.id) ?? []).filter(r => r.file !== held)
+      );
+    return next.filter(r => r.file !== held);
+  }
+
   /** "Use as Left" or "Use the clean copy", as `refs::use_view_image` and `use_clean_copy`. */
   function take(project: string, asset: string, file: string, as: RefView | null) {
     const dir = options.projectDir(project);
@@ -243,7 +279,7 @@ export function createRefsHandlers(parts: RefsLabParts): Record<string, (args: A
     const stem = image.title?.slice(image.title.lastIndexOf('/') + 1).replace(/\.\w+$/, '');
     const copy =
       kept ??
-      (d.refsJob.kind === 'views' ? `refs/${key}_${image.title}.png` : `refs/${stem}_clean.png`);
+      freeRef(project, d.refsJob.kind === 'views' ? `${key}_${image.title}` : `${stem}_clean`);
     options.files?.alias(`${dir}/${copy}`, `${dir}/${file}`);
     refs.set(project, [
       ...(refs.get(project) ?? []).filter(r => r.file !== copy),
@@ -259,7 +295,7 @@ export function createRefsHandlers(parts: RefsLabParts): Record<string, (args: A
       if (!slot) fail('invalid', 'Say which view this image shows.');
       if (slot === 'front')
         fail('invalid', 'The front stays as it is; a drawn view fills left, back or right.');
-      next = assign(next, copy, slot as RefView);
+      next = assign(replaceIn(p, asset, next, slot as RefView, copy), copy, slot as RefView);
     } else {
       const original = image.title ?? '';
       const was = next.find(r => r.file === original)?.view ?? 'other';

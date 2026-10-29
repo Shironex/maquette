@@ -45,9 +45,10 @@ interface RefsStore {
   add: (files: string[]) => Promise<void>;
   /** Drops `file` from the asset's refs; the image stays in `refs/`. */
   remove: (file: string) => Promise<void>;
-  makeViews: (views: RefView[], count: number, useStyle: boolean) => Promise<void>;
+  /** Draws the views; `notes` go into every view's prompt. */
+  makeViews: (views: RefView[], count: number, useStyle: boolean, notes?: string) => Promise<void>;
   clean: (file: string, ground: CleanGround, pad: boolean, extend: boolean) => Promise<void>;
-  /** "Use as Left" or "Use the clean copy". */
+  /** "Use as Left" (replacing the ref in a filled slot) or "Use the clean copy". */
   use: (file: string, view?: RefView | null) => Promise<void>;
   onConcept: (event: ConceptEvent) => void;
   onProject: (project: ProjectManifest) => void;
@@ -128,9 +129,16 @@ export const useRefsStore = create<RefsStore>((set, get) => {
         )
       ),
 
-    makeViews: (views, count, useStyle) =>
+    makeViews: (views, count, useStyle, notes = '') =>
       change('Could not start the views', s =>
-        commands.refsMakeViews({ project: s.project, asset: s.asset, views, count, useStyle })
+        commands.refsMakeViews({
+          project: s.project,
+          asset: s.asset,
+          views,
+          count,
+          useStyle,
+          notes: notes.trim() || null,
+        })
       ),
 
     clean: (file, ground, pad, extend) =>

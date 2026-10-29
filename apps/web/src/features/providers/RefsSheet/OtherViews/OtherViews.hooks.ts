@@ -7,6 +7,8 @@ export interface ViewsForm {
   views: RefView[];
   count: number;
   useStyle: boolean;
+  /** Extra instructions for every view, optional. */
+  notes: string;
 }
 
 /** The form, the start and the candidates per view of Make the other views. */
@@ -16,6 +18,7 @@ export function useOtherViews(view: RefsView) {
     views: emptyViews(view.refs),
     count: 2,
     useStyle: true,
+    notes: '',
   }));
   const byView = candidatesByView(view.refs, view.directions, view.jobs);
   const groups = DRAWN.map(v => byView[v]);
@@ -27,7 +30,7 @@ export function useOtherViews(view: RefsView) {
   return {
     form,
     setForm: (patch: Partial<ViewsForm>) => set(now => ({ ...now, ...patch })),
-    start: () => makeViews(form.views, form.count, form.useStyle),
+    start: () => makeViews(form.views, form.count, form.useStyle, form.notes),
     use,
     back: () => show('refs'),
     busy,
