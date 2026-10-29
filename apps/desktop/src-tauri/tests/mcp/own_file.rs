@@ -72,7 +72,12 @@ async fn agents_add_a_fixed_model_file_as_the_next_version() {
     maquette_core::providers::http::ensure_crypto();
     let dir = tempfile::tempdir().expect("temp dir");
     let (session, project_id, project_dir) = fixture(dir.path());
-    let studio = ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {});
+    let studio = ProviderJobs::new(
+        Arc::new(MemoryStore::default()),
+        Options::default(),
+        maquette_core::inbox::send_ports(),
+        |_| {},
+    );
     let (root, config) = session.workspace().expect("workspace");
     studio.open_workspace(&root, &config);
     let hub = Arc::new(Hub::new(|| {}));

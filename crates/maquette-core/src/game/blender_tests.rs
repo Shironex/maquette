@@ -9,7 +9,7 @@ use std::process::Command;
 use super::tests::{game_project, glb_game, obj_game};
 use super::*;
 use crate::prepare::{self, ModelPrep, RealSize, SizeAxis, SizeUnit};
-use crate::project;
+use crate::project::{self, ProjectManifest};
 use crate::test_blender::{blender, glb_json};
 use crate::toolchain::{ProbeEnv, find_on_path};
 

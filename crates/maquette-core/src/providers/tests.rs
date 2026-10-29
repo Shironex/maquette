@@ -22,6 +22,7 @@ mod connect;
 mod handoff_paths;
 mod ids;
 mod landed;
+mod ports;
 mod remove;
 mod split;
 mod stopped_cards;
@@ -114,6 +115,7 @@ impl World {
         let jobs = ProviderJobs::new(
             Arc::clone(&self.secrets) as Arc<dyn SecretStore>,
             options,
+            inbox::send_ports(),
             move |event| events.lock().expect("events").push(event),
         );
         jobs.open_workspace(&self.root, &self.config);
@@ -1093,10 +1095,10 @@ fn a_game_projects_inbox_checks_use_the_folder_budget_of_the_asset() {
         triangles_detail()
     );
     project::modify(&world.root, &world.config.layout, &world.project, |m| {
-        m.target = crate::game::ProjectTarget::Game;
+        m.target = crate::settings::game::ProjectTarget::Game;
         let mut settings = crate::game::new_settings(
-            &crate::game::NewGame {
-                format: crate::game::GameFormat::Glb,
+            &crate::settings::game::NewGame {
+                format: crate::settings::game::GameFormat::Glb,
                 models_dir: "assets/models".into(),
             },
             None,

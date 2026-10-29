@@ -7,23 +7,16 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
-
 use super::{InboxItem, cache_dir, check_id};
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use crate::workspace::WorkspaceConfig;
 
-const AIMS_FILE: &str = "aims.json";
+// The aim is shared with the provider sends, so it lives in the sends
+// module; this keeps the old path.
+pub use crate::sends::InboxAim;
 
-/// The asset an inbox model goes to by default.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct InboxAim {
-    pub project: String,
-    pub asset: String,
-    pub asset_name: String,
-}
+const AIMS_FILE: &str = "aims.json";
 
 fn load(cache: &Path) -> BTreeMap<String, InboxAim> {
     fs::read_to_string(cache.join(AIMS_FILE))

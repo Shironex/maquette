@@ -16,9 +16,7 @@
 use std::collections::BTreeMap;
 use std::path::{Component, Path};
 
-use crate::assets::{Asset, AssetKind};
 use crate::error::{CoreError, CoreResult};
-use crate::project::ProjectManifest;
 
 pub mod budget;
 pub mod detect;
@@ -32,7 +30,7 @@ pub mod ship;
 pub use crate::settings::game::{
     DEFAULT_MODELS_DIR, DEFAULT_TEXTURE_CAP, FolderBudget, GameExport, GameFormat, GameModel,
     GameSettings, GameTextures, MIN_BUDGET_TEXTURE, MIN_BUDGET_TRIANGLES, NewGame, ProjectTarget,
-    TEXTURE_CAPS,
+    TEXTURE_CAPS, file_of, settings_of,
 };
 pub use budget::{BudgetCheck, asset_budget, check_asset, default_budgets, folder_of};
 pub use detect::{GameRepoInspection, check_repo, inspect_game_repo};
@@ -117,54 +115,6 @@ pub fn validate(settings: &GameSettings) -> CoreResult<()> {
         }
     }
     Ok(())
-}
-
-/// The folder a new asset's model goes to by its kind: `characters` for a
-/// character, `props` for the rest, when the game has such a folder.
-fn default_folder(settings: &GameSettings, kind: AssetKind) -> String {
-    let wanted = match kind {
-        AssetKind::Character => "characters",
-        AssetKind::Prop | AssetKind::Scene => "props",
-    };
-    if settings.budgets.iter().any(|b| b.folder == wanted) {
-        wanted.to_string()
-    } else {
-        String::new()
-    }
-}
-
-/// Where `asset`'s model goes in the model folder: its recorded file, or
-/// `<folder>/<snake name>.<format>` for an asset made in Maquette. A folder
-/// set for the asset ([`GameSettings::folders`]) moves either, keeping the
-/// file name.
-pub fn file_of(settings: &GameSettings, asset: &Asset) -> String {
-    let (folder, name) = match settings.models.get(&asset.id) {
-        Some(model) => match model.file.rsplit_once('/') {
-            Some((folder, name)) => (folder.to_string(), name.to_string()),
-            None => (String::new(), model.file.clone()),
-        },
-        None => (
-            default_folder(settings, asset.kind),
-            format!("{}.{}", asset.id.replace('-', "_"), settings.format.ext()),
-        ),
-    };
-    let folder = settings.folders.get(&asset.id).cloned().unwrap_or(folder);
-    if folder.is_empty() {
-        name
-    } else {
-        format!("{folder}/{name}")
-    }
-}
-
-/// The game settings of a game project, or a sentence for anything else.
-pub fn settings_of(manifest: &ProjectManifest) -> CoreResult<&GameSettings> {
-    match (manifest.target, manifest.game.as_ref()) {
-        (ProjectTarget::Game, Some(settings)) => Ok(settings),
-        _ => Err(CoreError::Invalid(format!(
-            "{} is not a game project.",
-            manifest.name
-        ))),
-    }
 }
 
 #[cfg(test)]

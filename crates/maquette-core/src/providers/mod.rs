@@ -27,8 +27,8 @@ use serde::Serialize;
 
 pub use crate::settings::{catalog, presets};
 pub use arrivals::{
-    Arrival, ArrivalState, Arrivals, PendingHandoff, PictureRenderer, PictureState, SendSuggestion,
-    WatchStatus, WatchTiming,
+    Arrival, ArrivalState, Arrivals, PendingHandoff, PictureState, SendSuggestion, WatchStatus,
+    WatchTiming,
 };
 pub use balance::Balance;
 pub use catalog::{ModelOption, ProviderCatalog};
@@ -115,13 +115,11 @@ pub fn format_credits(credits: f64) -> String {
 /// the ledger) with the shell's TypeScript export; `maquette_core::types` folds every module's in.
 pub fn register(types: specta::Types) -> specta::Types {
     types
-        .register::<Provider>()
         .register::<JobState>()
         .register::<JobPhase>()
         .register::<CancelMode>()
         .register::<ProviderJob>()
         .register::<SendRequest>()
-        .register::<InboxLink>()
         .register::<ProviderEvent>()
         .register::<CardRow>()
         .register::<HandoffCard>()

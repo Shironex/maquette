@@ -8,15 +8,15 @@
 use super::split::{source_of, split_dir, version_file};
 use super::{BakeBack, BakeState, ProviderEvent, ProviderJob, ProviderJobs, Stored, Workspace};
 use super::{Provider, update};
+use crate::base::ports::TextureBake;
 use crate::error::{CoreError, CoreResult};
-use crate::inbox::{self, analyse};
-use crate::parts::bake_back;
+use crate::inbox::analyse;
 use crate::parts::versions::{self, Target};
 use crate::pipeline::tools::Toolbox;
 
 /// Texture images in an Inbox model.
 pub(super) fn textures_in(workspace: &Workspace, item: &str) -> u32 {
-    let path = inbox::inbox_dir(&workspace.root, &workspace.config).join(item);
+    let path = crate::sends::inbox_dir(&workspace.root, &workspace.config).join(item);
     analyse::analyse(&path)
         .map(|r| u32::try_from(r.textures.len()).unwrap_or(u32::MAX))
         .unwrap_or(0)
@@ -191,7 +191,7 @@ impl ProviderJobs {
             b.state = BakeState::Running;
             b.message = Some(format!("Baking the texture back from {from} in Blender"));
         })?;
-        let made = bake_onto(&workspace, &job, bake.onto, tools);
+        let made = bake_onto(&*self.shared.ports.bake, &workspace, &job, bake.onto, tools);
         match made {
             Ok(landed) => {
                 self.shared.emit(ProviderEvent::Project {
@@ -242,6 +242,7 @@ impl ProviderJobs {
 }
 
 fn bake_onto(
+    baker: &dyn TextureBake,
     workspace: &Workspace,
     job: &ProviderJob,
     onto: u32,
@@ -253,7 +254,7 @@ fn bake_onto(
     let target = version_file(workspace, &job.project, &job.asset, onto)
         .ok_or_else(|| CoreError::NotFound(format!("v{onto} of {}", job.asset_name)))?;
     let work = split_dir(workspace, &job.id).join("bake");
-    let (baked, _) = bake_back::run(&work, &source, &target, bake_back::IMAGE_SIZE, tools)?;
+    let baked = baker.bake(&work, &source, &target, tools)?;
     versions::add(
         &workspace.root,
         &workspace.config.layout,

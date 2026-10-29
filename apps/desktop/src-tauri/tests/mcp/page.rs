@@ -120,7 +120,12 @@ async fn agents_start_read_and_stop_the_page_preview_server() {
     maquette_core::providers::http::ensure_crypto();
     let dir = tempfile::tempdir().expect("temp dir");
     let (session, root, project_id, project_dir, site) = fixture(dir.path());
-    let studio = ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {});
+    let studio = ProviderJobs::new(
+        Arc::new(MemoryStore::default()),
+        Options::default(),
+        maquette_core::inbox::send_ports(),
+        |_| {},
+    );
     let hub = Arc::new(Hub::new(|| {}));
     let host = Arc::new(TestHost {
         session,

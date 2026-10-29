@@ -2,8 +2,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::*;
+use crate::assets::AssetKind;
 use crate::inbox::fixture;
-use crate::project::{self, NewProject, ProjectTemplate};
+use crate::project::{self, NewProject, ProjectManifest, ProjectTemplate};
 use crate::workspace::{self, WorkspaceConfig};
 
 /// A game repo: CMake, cgltf vendored, `.glb` models in props/ and

@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 use super::{FolderBudget, GameSettings, file_of};
 use crate::assets::{Asset, ModelStats};
 use crate::inbox::checks::short_count;
-use crate::project::ProjectManifest;
+// Where a model goes and the budget it checks against are read below the
+// pipeline too, so they live in the settings module; these keep the paths.
+pub use crate::settings::game::{asset_budget, budget_for, folder_of};
 
 /// What a new game gets per folder, by the folder's name.
 const KNOWN: &[(&str, u32, u32)] = &[
@@ -52,28 +54,6 @@ pub fn default_budgets(folders: &[String]) -> Vec<FolderBudget> {
     rows
 }
 
-/// `props` for `props/brazier.glb`, empty at the top level.
-pub fn folder_of(file: &str) -> String {
-    file.rsplit_once('/')
-        .map(|(folder, _)| folder.to_string())
-        .unwrap_or_default()
-}
-
-/// The budget a file in the model folder checks against: its folder's, or
-/// the nearest parent folder's.
-pub fn budget_for<'a>(settings: &'a GameSettings, file: &str) -> Option<&'a FolderBudget> {
-    let mut folder = folder_of(file);
-    loop {
-        if let Some(found) = settings.budgets.iter().find(|b| b.folder == folder) {
-            return Some(found);
-        }
-        if folder.is_empty() {
-            return None;
-        }
-        folder = folder_of(&folder);
-    }
-}
-
 /// One model against its folder's budget.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -114,16 +94,6 @@ pub fn check_stats(budget: &FolderBudget, stats: &ModelStats) -> BudgetCheck {
         rigged: stats.joints > 0,
         problems,
     }
-}
-
-/// The budget an asset's models check against in a game project: that of
-/// the folder its model maps to. `None` for a website project and for an
-/// asset the project does not have. The Inbox checks a model sent for the
-/// asset against it, so the Inbox and the top bar agree.
-pub fn asset_budget(manifest: &ProjectManifest, asset_id: &str) -> Option<FolderBudget> {
-    let settings = super::settings_of(manifest).ok()?;
-    let asset = manifest.assets.iter().find(|a| a.id == asset_id)?;
-    budget_for(settings, &file_of(settings, asset)).cloned()
 }
 
 /// The asset's newest model against the budget of its folder, when both

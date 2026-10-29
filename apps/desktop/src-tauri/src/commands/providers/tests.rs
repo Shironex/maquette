@@ -45,7 +45,12 @@ fn send_options_pick_the_assets_own_refs() {
     session
         .set_workspace(root.clone(), config.clone())
         .expect("open");
-    let jobs = ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {});
+    let jobs = ProviderJobs::new(
+        Arc::new(MemoryStore::default()),
+        Options::default(),
+        maquette_core::inbox::send_ports(),
+        |_| {},
+    );
     jobs.open_workspace(&root, &config);
     let options = send_options(&session, &jobs, &manifest.id, "fox-spirit").expect("options");
     assert_eq!(options.variant, PresetVariant::Character);
@@ -123,7 +128,12 @@ fn batch_options_find_object_refs_by_title() {
     session
         .set_workspace(root.clone(), config.clone())
         .expect("open");
-    let jobs = ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {});
+    let jobs = ProviderJobs::new(
+        Arc::new(MemoryStore::default()),
+        Options::default(),
+        maquette_core::inbox::send_ports(),
+        |_| {},
+    );
     jobs.open_workspace(&root, &config);
     let ids: Vec<String> = sent.assets.iter().map(|a| a.asset.id.clone()).collect();
     let mut asked = ids.clone();

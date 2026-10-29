@@ -1994,8 +1994,10 @@ checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
 name = "maquette-base"
 version = "0.3.0"
 dependencies = [
+ "hex",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "specta",
  "tempfile",
  "thiserror 2.0.21",

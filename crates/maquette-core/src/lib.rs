@@ -21,6 +21,7 @@ pub mod prepare;
 pub mod project;
 pub mod providers;
 pub mod refs;
+pub mod sends;
 pub mod settings;
 pub mod ship;
 pub mod site;
@@ -56,11 +57,12 @@ pub use workspace::{
 
 /// One `register` per crate and per core module, in this order: each adds
 /// the IPC types it owns, so a new type touches only its own module.
-const REGISTRIES: [fn(specta::Types) -> specta::Types; 22] = [
+const REGISTRIES: [fn(specta::Types) -> specta::Types; 23] = [
     maquette_base::register,
     maquette_glb::register,
     app_state::register,
     settings::register,
+    sends::register,
     workspace::register,
     project::register,
     assets::register,

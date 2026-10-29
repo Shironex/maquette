@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use super::blender::{self, Script};
+use crate::base::ports::TextureBake;
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::tools::Toolbox;
 
@@ -74,6 +75,22 @@ pub fn run(
     let text = std::fs::read_to_string(&file).map_err(|e| CoreError::io(&file, e))?;
     let stats: Stats = serde_json::from_str(&text).map_err(|e| CoreError::json(&file, e))?;
     Ok((dir.join(OUTPUT_FILE), stats.parts))
+}
+
+/// The bake back at [`IMAGE_SIZE`], as the provider jobs ask for it when
+/// a split's texture goes back onto its parts.
+pub struct Bake;
+
+impl TextureBake for Bake {
+    fn bake(
+        &self,
+        dir: &Path,
+        source: &Path,
+        target: &Path,
+        tools: &Toolbox,
+    ) -> CoreResult<PathBuf> {
+        run(dir, source, target, IMAGE_SIZE, tools).map(|(baked, _)| baked)
+    }
 }
 
 #[cfg(test)]

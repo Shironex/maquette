@@ -123,7 +123,12 @@ async fn connect(
         },
         ..Options::default()
     };
-    let studio = ProviderJobs::new(Arc::new(MemoryStore::default()), options, |_| {});
+    let studio = ProviderJobs::new(
+        Arc::new(MemoryStore::default()),
+        options,
+        maquette_core::inbox::send_ports(),
+        |_| {},
+    );
     let hub = Arc::new(Hub::new(|| {}));
     let host = Arc::new(TestHost {
         session,

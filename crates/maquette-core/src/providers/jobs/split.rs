@@ -20,7 +20,7 @@ use super::{
 };
 use crate::assets::{self, Asset, AssetKind, AssetStatus};
 use crate::error::{CoreError, CoreResult};
-use crate::inbox::{self, analyse};
+use crate::inbox::analyse;
 use crate::pipeline::history::now_ms;
 use crate::project;
 use crate::providers::http::StopFlag;
@@ -106,7 +106,10 @@ fn find_model(
     let asset = assets::find(&manifest, asset_id)?.clone();
     let jobs = shared.jobs();
     if let Some(item) = item {
-        let found = inbox::item(&workspace.root, &workspace.config, item)?;
+        let found = shared
+            .ports
+            .inbox
+            .path_of(&workspace.root, &workspace.config, item)?;
         let made = jobs
             .iter()
             .find(|e| e.stored.job.inbox_file.as_deref() == Some(item))
@@ -122,7 +125,7 @@ fn find_model(
         }
         return Ok(Found {
             asset,
-            file: PathBuf::from(found.file),
+            file: PathBuf::from(found),
             version: None,
             item: Some(item.to_string()),
             made,

@@ -65,7 +65,7 @@ fn studio(session: &Session) -> ProviderJobs {
         },
         ..Options::default()
     };
-    let jobs = ProviderJobs::new(secrets, options, |_| {});
+    let jobs = ProviderJobs::new(secrets, options, maquette_core::inbox::send_ports(), |_| {});
     if let Ok((root, config)) = session.workspace() {
         jobs.open_workspace(&root, &config);
     }

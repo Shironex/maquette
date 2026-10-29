@@ -15,13 +15,13 @@ use super::{
 use crate::assets::{Asset, AssetKind, AssetStatus};
 use crate::error::{CoreError, CoreResult};
 use crate::fs::write_atomic;
-use crate::game::{self, FolderBudget};
-use crate::inbox::{self, InboxItem};
 use crate::pipeline::history::now_ms;
 use crate::project;
 use crate::providers::handback::{self, DownloadsScan};
 use crate::providers::http::StopFlag;
 use crate::providers::presets::PresetVariant;
+use crate::sends::SendLinked;
+use crate::settings::game::{self, FolderBudget};
 
 /// Lower case with `_` and spaces read as `-`, for matching file names to
 /// job ids.
@@ -143,7 +143,7 @@ impl ProviderJobs {
 
     /// Fills `link` on inbox items that came from a send, and moves a By
     /// hand job whose model showed up in the inbox to the Inbox state.
-    pub fn link_inbox(&self, items: &mut [InboxItem]) {
+    pub fn link_inbox<T: SendLinked>(&self, items: &mut [T]) {
         let mut arrived = Vec::new();
         let workspace = self.shared.workspace();
         // A game project's folder budget for each asset, read once per call.
@@ -154,10 +154,13 @@ impl ProviderJobs {
                 // The file a job saved first, then its name.
                 let saved = jobs
                     .iter()
-                    .find(|e| e.stored.job.inbox_file.as_deref() == Some(item.id.as_str()))
+                    .find(|e| e.stored.job.inbox_file.as_deref() == Some(item.inbox_name()))
                     .map(|e| e.stored.job.id.as_str());
                 let Some(id) = saved.or_else(|| {
-                    job_for_file(&item.id, jobs.iter().map(|e| e.stored.job.id.as_str()))
+                    job_for_file(
+                        item.inbox_name(),
+                        jobs.iter().map(|e| e.stored.job.id.as_str()),
+                    )
                 }) else {
                     continue;
                 };
@@ -165,7 +168,7 @@ impl ProviderJobs {
                     continue;
                 };
                 let job = &entry.stored.job;
-                item.link = Some(InboxLink {
+                item.link_send(InboxLink {
                     job: job.id.clone(),
                     project: job.project.clone(),
                     asset: job.asset.clone(),
@@ -185,16 +188,10 @@ impl ProviderJobs {
                                 .ok()
                                 .and_then(|m| game::asset_budget(&m, &job.asset))
                         });
-                    inbox::apply_send(
-                        item,
-                        kind,
-                        send_notes(job),
-                        &workspace.config,
-                        folder.as_ref(),
-                    );
+                    item.apply_send(kind, send_notes(job), &workspace.config, folder.as_ref());
                 }
                 if job.state == JobState::Waiting {
-                    arrived.push((job.id.clone(), item.id.clone()));
+                    arrived.push((job.id.clone(), item.inbox_name().to_string()));
                 }
             }
         }
@@ -246,7 +243,7 @@ impl ProviderJobs {
         let model = handback::read_model(file)?;
         let name = write_inbox(&workspace, &job.id, &model.bytes)?;
         if job.variant == PresetVariant::Character {
-            let _ = inbox::set_kind(
+            let _ = self.shared.ports.inbox.set_kind(
                 &workspace.root,
                 &workspace.config,
                 &name,
@@ -348,12 +345,17 @@ impl ProviderJobs {
             None => {
                 let model = handback::read_model(file)?;
                 let item = write_inbox(&workspace, &format!("download-{asset}"), &model.bytes)?;
-                let aim = inbox::InboxAim {
+                let aim = crate::sends::InboxAim {
                     project: project.to_string(),
                     asset: asset.clone(),
                     asset_name: asset_name.clone(),
                 };
-                inbox::set_aim(&workspace.root, &workspace.config, &item, Some(aim))?;
+                self.shared.ports.inbox.set_aim(
+                    &workspace.root,
+                    &workspace.config,
+                    &item,
+                    Some(aim),
+                )?;
                 (None, item)
             }
         };
@@ -386,7 +388,7 @@ pub struct ModelAttached {
 }
 
 pub(super) fn write_inbox(workspace: &Workspace, id: &str, bytes: &[u8]) -> CoreResult<String> {
-    let dir = inbox::inbox_dir(&workspace.root, &workspace.config);
+    let dir = crate::sends::inbox_dir(&workspace.root, &workspace.config);
     fs::create_dir_all(&dir).map_err(|e| CoreError::io(&dir, e))?;
     let name = (1u32..)
         .map(|n| {

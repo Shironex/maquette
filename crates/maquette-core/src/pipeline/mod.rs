@@ -9,6 +9,7 @@ pub mod graph;
 pub mod presets;
 pub mod progress;
 pub mod runner;
+pub mod script;
 pub mod starter;
 pub mod template;
 

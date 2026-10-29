@@ -93,7 +93,12 @@ async fn agents_list_clips_and_cannot_import_from_outside_the_workspace() {
         runner: PipelineRunner::new(Arc::new(maquette_core::pipeline::runner::NullSink)),
         concepts: Concepts::new(None, 1, |_| {}),
         thumbs: Thumbnails::new(|_| {}),
-        studio: ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {}),
+        studio: ProviderJobs::new(
+            Arc::new(MemoryStore::default()),
+            Options::default(),
+            maquette_core::inbox::send_ports(),
+            |_| {},
+        ),
     });
     let token = ensure_token(&host.session).expect("token");
     let server = maquette_desktop_lib::mcp::server::start(
