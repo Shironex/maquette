@@ -4,11 +4,13 @@
 //! numbers are easy to reason about.
 
 mod builder;
+mod humanoid;
 mod skeleton;
 
 use serde_json::{Value, json};
 
 use builder::{Builder, Mesh};
+pub use humanoid::{HumanoidSpec, Naming, humanoid};
 use skeleton::{skeleton, world_positions};
 
 /// A full PBR material set (base colour, metal/rough, normal) at `size`.
