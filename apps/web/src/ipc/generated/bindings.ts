@@ -1475,7 +1475,11 @@ export type ClipSetting = {
 	clip: string,
 	/**  Its name in the model, snake_case. */
 	name: string,
-	/**  The first and last frame kept, of the library clip's own frames. */
+	/**
+	 *  The first and last frame kept, of the library clip's own frames: a
+	 *  clip of `frames` frames runs from frame 0 to frame `frames`, so its
+	 *  whole length is `frames / fps` seconds.
+	 */
 	start: number,
 	end: number,
 	loops: boolean,
@@ -1947,6 +1951,13 @@ export type FirstViewModel = {
 
 /**  One repair. Each kind appears at most once per asset. */
 export type Fixup = 
+/**
+ *  Turns the model about its centre by these angles in degrees, in the
+ *  app's axes (y up): about x, then y, then z. The turn is baked into
+ *  the meshes (rigged meshes keep it on their rig), so a model that came
+ *  out of a provider leaning stands up straight without a new send.
+ */
+{ op: "rotate"; x: number | null; y: number | null; z: number | null } | 
 /**  Bakes object transforms into the meshes (rigged meshes keep theirs). */
 { op: "apply-transforms" } | 
 /**
@@ -1981,7 +1992,7 @@ export type FixupDefaults = {
 };
 
 /**  The kinds of fix-up, in the order they are applied. */
-export type FixupKind = "apply-transforms" | "remove-loose" | "merge" | "split-parts" | "decimate" | "shrink-textures" | "origin-bottom";
+export type FixupKind = "rotate" | "apply-transforms" | "remove-loose" | "merge" | "split-parts" | "decimate" | "shrink-textures" | "origin-bottom";
 
 /**  The fix-ups and real size of one plan on one model. */
 export type FixupReport = {

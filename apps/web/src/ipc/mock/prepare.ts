@@ -110,6 +110,40 @@ export function splitOf(pieces: number) {
   return { pieces, merged, byLoose, byMaterial: Math.max(1, byLoose - 1) };
 }
 
+type Vec3 = [number, number, number];
+
+/** The box `min`..`max` turned about its centre by x, y then z degrees, as the script turns it. */
+export function turnedBounds(min: Vec3, max: Vec3, [x, y, z]: Vec3): { min: Vec3; max: Vec3 } {
+  const c = [0, 1, 2].map(i => (min[i]! + max[i]!) / 2) as Vec3;
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const about = (p: Vec3, axis: 0 | 1 | 2, deg: number): Vec3 => {
+    const [a, b] = (
+      [
+        [1, 2],
+        [2, 0],
+        [0, 1],
+      ] as const
+    )[axis];
+    const cos = Math.cos(rad(deg));
+    const sin = Math.sin(rad(deg));
+    const out = [...p] as Vec3;
+    out[a] = p[a] * cos - p[b] * sin;
+    out[b] = p[a] * sin + p[b] * cos;
+    return out;
+  };
+  const lo: Vec3 = [Infinity, Infinity, Infinity];
+  const hi: Vec3 = [-Infinity, -Infinity, -Infinity];
+  for (const corner of [0, 1, 2, 3, 4, 5, 6, 7]) {
+    let p = [0, 1, 2].map(i => ((corner >> i) & 1 ? max[i]! : min[i]!) - c[i]!) as Vec3;
+    p = about(about(about(p, 0, x), 1, y), 2, z);
+    for (const i of [0, 1, 2]) {
+      lo[i] = Math.min(lo[i]!, p[i]! + c[i]!);
+      hi[i] = Math.max(hi[i]!, p[i]! + c[i]!);
+    }
+  }
+  return { min: lo, max: hi };
+}
+
 /** One fix-up's effect on the numbers, with the script's note. */
 function step(f: Fixup, n: ModelNumbers, pieces: number): FixupStep {
   const after: ModelNumbers = { ...n };
@@ -125,6 +159,13 @@ function step(f: Fixup, n: ModelNumbers, pieces: number): FixupStep {
         ? `${parts} parts, one per material`
         : `${parts} parts, ${split.pieces} pieces, ${split.merged} tiny bits merged in`;
     return { op: f.op, before: n, after, note, split };
+  }
+  if (f.op === 'rotate' && n.min && n.max) {
+    const vec = (p: readonly (number | null)[]) => p.map(v => v ?? 0) as Vec3;
+    const turned = turnedBounds(vec(n.min), vec(n.max), [f.x ?? 0, f.y ?? 0, f.z ?? 0]);
+    after.min = turned.min;
+    after.max = turned.max;
+    note = `turned by x ${f.x ?? 0}, y ${f.y ?? 0}, z ${f.z ?? 0} degrees`;
   }
   if (f.op === 'apply-transforms') note = `${n.objects} meshes`;
   if (f.op === 'remove-loose') {

@@ -23,6 +23,7 @@ export const EMPTY_PREP: ModelPrep = { size: null, fixups: [], skipBake: null, p
 
 /** The kinds in the order they apply. */
 export const FIXUP_ORDER: readonly FixupKind[] = [
+  'rotate',
   'apply-transforms',
   'remove-loose',
   'merge',
@@ -33,6 +34,7 @@ export const FIXUP_ORDER: readonly FixupKind[] = [
 ];
 
 export const FIXUP_LABEL: Record<FixupKind, string> = {
+  rotate: 'Rotate',
   'apply-transforms': 'Apply transforms',
   'remove-loose': 'Remove loose parts',
   merge: 'Merge objects',
@@ -44,6 +46,8 @@ export const FIXUP_LABEL: Record<FixupKind, string> = {
 
 /** What each kind does, for its tooltip. */
 export const FIXUP_HINT: Record<FixupKind, string> = {
+  rotate:
+    'Turns the model about its centre by these degrees (x, then y, then z, y up), for a model that came out leaning. Spends no credits.',
   'apply-transforms':
     'Bakes each object’s move, turn and scale into its mesh. Rigged meshes keep theirs.',
   'remove-loose': 'Drops stray specks: loose parts this share of the model’s size or smaller.',
@@ -89,9 +93,19 @@ export function shortCount(n: number): string {
   return text.replace('.0k', 'k').replace('.0M', 'M');
 }
 
+/** "x -24.5°, z 90°": the turns of a rotate, as the core says them. */
+function describeTurns(f: Extract<Fixup, { op: 'rotate' }>): string {
+  const turns = (['x', 'y', 'z'] as const)
+    .filter(axis => (f[axis] ?? 0) !== 0)
+    .map(axis => `${axis} ${trim(f[axis] ?? 0)}°`);
+  return turns.length ? `Rotate ${turns.join(', ')}` : 'Rotate (no turn)';
+}
+
 /** "Decimate to 60k", "Shrink textures to 2048 px", as the core says it. */
 export function describeFixup(f: Fixup): string {
   switch (f.op) {
+    case 'rotate':
+      return describeTurns(f);
     case 'decimate':
       return `Decimate to ${shortCount(f.triangles)}`;
     case 'shrink-textures':
@@ -178,6 +192,8 @@ export function workspaceDefaults(config: WorkspaceConfig | null | undefined): F
 /** A new fix-up of `kind`, starting from the workspace budgets. */
 export function defaultFixup(kind: FixupKind, d: FixupDefaults): Fixup {
   switch (kind) {
+    case 'rotate':
+      return { op: kind, x: 0, y: 0, z: 0 };
     case 'decimate':
       return { op: kind, triangles: d.triangles };
     case 'shrink-textures':

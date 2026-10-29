@@ -77,4 +77,24 @@ describe('FixupRow', () => {
     await userEvent.type(field, '3{Enter}');
     expect(onChange).toHaveBeenLastCalledWith({ op: 'split-parts', by: 'loose', mergeUnder: 0.03 });
   });
+
+  it('turns a leaning model by degrees about each axis', async () => {
+    const onChange = vi.fn();
+    render(
+      <ul>
+        <FixupRow
+          fixup={{ op: 'rotate', x: 0, y: 0, z: 0 }}
+          index={1}
+          onChange={onChange}
+          onRemove={vi.fn()}
+        />
+      </ul>
+    );
+    expect(screen.getByText('Rotate')).toBeInTheDocument();
+    const field = screen.getByLabelText('Degrees about x');
+    await userEvent.clear(field);
+    await userEvent.type(field, '-24.5{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith({ op: 'rotate', x: -24.5, y: 0, z: 0 });
+    expect(screen.getByLabelText('Degrees about z')).toBeInTheDocument();
+  });
 });
