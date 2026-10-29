@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn scans_skip_sync_files() {
-        use crate::inbox::watch::is_model;
+        use crate::sends::is_model;
         assert!(is_model(Path::new("inbox/lamp.glb")));
         assert!(!is_model(Path::new(
             "inbox/lamp.sync-conflict-20261027-101500-ABC1234.glb"

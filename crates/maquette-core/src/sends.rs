@@ -2,7 +2,7 @@
 //! reaches into the other: how a model gets made, the link from an inbox
 //! model to the send it came from, what that send asked for, the asset a
 //! model is aimed at when no send stands behind it, and where models
-//! arrive.
+//! arrive and which files count as one.
 //!
 //! The provider jobs reach the inbox only through the ports here: the
 //! inbox implements [`InboxPort`] and [`SendLinked`] (for its items), and
@@ -77,6 +77,15 @@ pub struct InboxAim {
 /// The workspace's inbox folder, where models arrive.
 pub fn inbox_dir(root: &Path, config: &WorkspaceConfig) -> PathBuf {
     root.join(&config.layout.inbox)
+}
+
+/// True for `.glb` and `.gltf` files, but not a sync tool's temp file or
+/// conflict copy of one.
+pub fn is_model(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("glb") || e.eq_ignore_ascii_case("gltf"))
+        && !crate::workspace::sync::is_sync_path(path)
 }
 
 /// The inbox as the provider jobs use it.
