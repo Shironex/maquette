@@ -16,6 +16,12 @@
 //! ```json
 //! { "version": 1, "targets": { "assets/models": ["props/brazier.glb"] } }
 //! ```
+//!
+//! Moving an asset to another folder (`GameSettings::folders`) leaves its
+//! old file behind. When the record lists that file, the move adds it to
+//! `remove` under the same target, and the next Ship deletes it there (and
+//! only there, and only while no export lands on it) and drops it from the
+//! record. A file Maquette does not own is never removed.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -45,6 +51,9 @@ pub struct ShipRecord {
     pub version: u32,
     /// A target folder to the files shipped or imported there.
     pub targets: BTreeMap<String, Vec<String>>,
+    /// A target folder to the files of moved assets the next Ship removes.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub remove: BTreeMap<String, Vec<String>>,
 }
 
 /// The project's ship record, empty when it has none or cannot be read.
@@ -56,7 +65,58 @@ pub fn read_record(project_dir: &Path) -> ShipRecord {
         .unwrap_or(ShipRecord {
             version: RECORD_VERSION,
             targets: BTreeMap::new(),
+            remove: BTreeMap::new(),
         })
+}
+
+/// Notes the files assets moved away from (`(old, new)` paths in the model
+/// folder `target`): an old file the record lists joins `remove`, so the
+/// next Ship deletes it, and a file an asset moved back onto leaves it.
+///
+/// # Errors
+///
+/// Fails when the record cannot be written.
+pub fn record_moves(
+    project_dir: &Path,
+    target: &str,
+    moved: &[(String, String)],
+) -> CoreResult<()> {
+    if moved.is_empty() {
+        return Ok(());
+    }
+    let mut record = read_record(project_dir);
+    let owned: BTreeSet<String> = record
+        .targets
+        .get(target)
+        .map(|l| l.iter().cloned().collect())
+        .unwrap_or_default();
+    let mut remove: BTreeSet<String> = record
+        .remove
+        .remove(target)
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
+    for (old, new) in moved {
+        remove.remove(new);
+        if owned.contains(old) {
+            remove.insert(old.clone());
+        }
+    }
+    if !remove.is_empty() {
+        record
+            .remove
+            .insert(target.to_string(), remove.into_iter().collect());
+    }
+    record.version = RECORD_VERSION;
+    write_record(project_dir, &record)
+}
+
+fn write_record(project_dir: &Path, record: &ShipRecord) -> CoreResult<()> {
+    let path = project_dir.join(RECORD_FILE);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| CoreError::io(parent, e))?;
+    }
+    write_json(&path, record)
 }
 
 /// Adds `files` to the record's `target`, so Ship may replace them later.
@@ -67,11 +127,7 @@ pub fn add_to_record(project_dir: &Path, target: &str, files: &[String]) -> Core
     let mut all: BTreeSet<String> = list.drain(..).collect();
     all.extend(files.iter().cloned());
     *list = all.into_iter().collect();
-    let path = project_dir.join(RECORD_FILE);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| CoreError::io(parent, e))?;
-    }
-    write_json(&path, &record)
+    write_record(project_dir, &record)
 }
 
 /// How one file in the model folder changes.
@@ -84,6 +140,9 @@ pub enum ShipChange {
     Unchanged,
     /// Not in the ship record: Ship never touches it.
     HandMade,
+    /// A file Maquette wrote whose asset moved to another folder: Ship
+    /// deletes it.
+    Removed,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -226,6 +285,39 @@ fn same_bytes(a: &Path, b: &Path) -> bool {
     }
 }
 
+/// The files of moved assets the next Ship deletes: listed in the record's
+/// `remove` and its files, still in the game and landed on by no export.
+fn removals(
+    record: &ShipRecord,
+    settings: &GameSettings,
+    game_dir: Option<&Path>,
+    owned: &BTreeSet<String>,
+    produced: &[String],
+) -> Vec<ShipFile> {
+    let Some(game_dir) = game_dir else {
+        return Vec::new();
+    };
+    record
+        .remove
+        .get(&settings.models_dir)
+        .into_iter()
+        .flatten()
+        .filter(|p| owned.contains(*p) && !produced.contains(p))
+        .filter(|p| game_dir.join(p).is_file())
+        .map(|path| ShipFile {
+            path: path.clone(),
+            change: ShipChange::Removed,
+            bytes: 0.0,
+            before_bytes: size(&game_dir.join(path)),
+            triangles: None,
+            before_triangles: model_numbers(&game_dir.join(path)).0,
+            asset: None,
+            blocked: false,
+            imported: false,
+        })
+        .collect()
+}
+
 /// What Ship would do now, from the last Game export. Reads only.
 pub fn plan(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<ShipPlan> {
     let settings = settings_of(manifest)?;
@@ -294,8 +386,14 @@ pub fn plan(project_dir: &Path, manifest: &ProjectManifest) -> CoreResult<ShipPl
             imported: false,
         })
         .collect();
+    let removed = removals(&record, settings, game_dir.as_deref(), &owned, &produced);
     let mut after: BTreeSet<String> = owned;
     after.extend(files.iter().filter(|f| !f.blocked).map(|f| f.path.clone()));
+    for gone in &removed {
+        after.remove(&gone.path);
+    }
+    files.extend(removed);
+    files.sort_by(|a, b| a.path.cmp(&b.path));
     let over = manifest
         .assets
         .iter()

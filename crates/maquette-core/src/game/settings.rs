@@ -1,10 +1,14 @@
 //! Changing a game project's settings, and the fix-ups its budgets ask for.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use super::{FolderBudget, GameExport, GameFormat, ProjectTarget, budget, settings_of, validate};
+use super::{
+    FolderBudget, GameExport, GameFormat, GameSettings, ProjectTarget, budget, file_of,
+    settings_of, ship, validate,
+};
 use crate::error::{CoreError, CoreResult};
 use crate::prepare::{self, Fixup};
 use crate::project::{self, ProjectManifest};
@@ -29,6 +33,52 @@ pub struct GameSettingsChange {
     /// The whole budget table, one row per folder.
     #[serde(default)]
     pub budgets: Option<Vec<FolderBudget>>,
+    /// Asset id to the folder its model goes to in the model folder
+    /// (`kit`, relative, no `..`); null or an empty folder puts it back where its kind or its
+    /// imported file puts it. Assets left out keep theirs.
+    #[serde(default)]
+    pub asset_folders: Option<BTreeMap<String, Option<String>>>,
+}
+
+/// Sets or clears the folder of each asset `folders` names, refusing an
+/// asset the project does not have.
+fn apply_folders(
+    next: &mut GameSettings,
+    manifest: &ProjectManifest,
+    folders: &BTreeMap<String, Option<String>>,
+) -> CoreResult<()> {
+    for (asset, folder) in folders {
+        if !manifest.assets.iter().any(|a| a.id == *asset) {
+            return Err(CoreError::Invalid(format!(
+                "{} has no asset {asset}.",
+                manifest.name
+            )));
+        }
+        let folder = folder.as_deref().unwrap_or("").trim().trim_end_matches('/');
+        if folder.is_empty() {
+            next.folders.remove(asset);
+        } else {
+            next.folders.insert(asset.clone(), folder.to_string());
+        }
+    }
+    Ok(())
+}
+
+/// The files the moved assets leave behind in the model folder: each asset
+/// `folders` names whose file is somewhere else now, old path first.
+fn moves(
+    before: &GameSettings,
+    after: &GameSettings,
+    manifest: &ProjectManifest,
+    folders: &BTreeMap<String, Option<String>>,
+) -> Vec<(String, String)> {
+    manifest
+        .assets
+        .iter()
+        .filter(|a| folders.contains_key(&a.id))
+        .map(|a| (file_of(before, a), file_of(after, a)))
+        .filter(|(old, new)| old != new)
+        .collect()
 }
 
 /// Saves `change` into the game settings of project `id` and fits its
@@ -40,7 +90,10 @@ pub fn save_settings(
     id: &str,
     change: GameSettingsChange,
 ) -> CoreResult<ProjectManifest> {
+    let mut moved = Vec::new();
+    let mut models_dir = String::new();
     let manifest = project::modify(workspace_root, layout, id, |m| {
+        let snapshot = m.clone();
         let name = m.name.clone();
         let game = match (m.target, m.game.as_mut()) {
             (ProjectTarget::Game, Some(game)) => game,
@@ -62,11 +115,17 @@ pub fn save_settings(
         if let Some(budgets) = change.budgets {
             next.budgets = budgets;
         }
+        if let Some(folders) = &change.asset_folders {
+            apply_folders(&mut next, &snapshot, folders)?;
+            moved = moves(game, &next, &snapshot, folders);
+        }
         validate(&next)?;
+        models_dir.clone_from(&next.models_dir);
         **game = next;
         Ok(())
     })?;
     let dir = project::dir(workspace_root, layout, id)?;
+    ship::record_moves(&dir, &models_dir, &moved)?;
     crate::pipeline::ensure(&dir, &manifest)?;
     Ok(manifest)
 }

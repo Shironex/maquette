@@ -133,6 +133,10 @@ const OLDER: &[(&str, &str)] = &[
         "tools/ship.mjs",
         "b08f2221e09c8081f582cddd22bf094d1fdabbf56ce84a1726525b1f860e9e11",
     ),
+    (
+        "tools/ship_game.mjs",
+        "53cb829301d78319d2131b59beb4f012b83048287b02f61a8cf697a0deb4b154",
+    ),
 ];
 
 /// How a project's copy of a starter compares with the one this build ships.

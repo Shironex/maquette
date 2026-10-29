@@ -15,8 +15,13 @@
 // A different file is only replaced when the ship record lists it: a file
 // Maquette wrote there before, or one imported from there. Any other file
 // is hand made: it is left alone, also when an export would land on it,
-// and the log says so. Ship never removes a file and never commits; review
-// the change in git and commit it yourself.
+// and the log says so. Ship never commits; review the change in git and
+// commit it yourself.
+//
+// Ship removes one kind of file only: the old file of an asset moved to
+// another folder in Maquette. The move lists it under "remove" in the
+// record; Ship deletes it when the record still owns it and no export
+// lands on it, then drops it from the record. Nothing else is removed.
 //
 // The record (--record) lists, under the model folder, every file Maquette
 // owns there; the files this Ship writes join it:
@@ -31,6 +36,7 @@ import {
   readdirSync,
   renameSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -99,8 +105,9 @@ function readRecord() {
 const record = readRecord();
 const key = values.models;
 const owned = new Set(Array.isArray(record.targets[key]) ? record.targets[key] : []);
-const counts = { new: 0, replaced: 0, unchanged: 0, handMade: 0 };
-for (const file of filesUnder(values.from)) {
+const counts = { new: 0, replaced: 0, unchanged: 0, handMade: 0, removed: 0 };
+const produced = filesUnder(values.from);
+for (const file of produced) {
   const from = join(values.from, file);
   const to = join(target, file);
   if (existsSync(to)) {
@@ -127,12 +134,32 @@ for (const file of filesUnder(values.from)) {
   owned.add(file);
 }
 
+// The old files of moved assets, when Maquette still owns them.
+const moved = Array.isArray(record.remove?.[key]) ? record.remove[key] : [];
+for (const file of moved) {
+  if (typeof file !== 'string' || !owned.has(file) || produced.includes(file)) continue;
+  const at = resolve(target, file);
+  const within = relative(target, at);
+  if (!within || within.startsWith('..') || isAbsolute(within)) continue;
+  if (existsSync(at) && statSync(at).isFile()) {
+    unlinkSync(at);
+    counts.removed += 1;
+    log(`removed ${file}, its asset moved to another folder`);
+  }
+  owned.delete(file);
+}
+if (record.remove) {
+  delete record.remove[key];
+  if (Object.keys(record.remove).length === 0) delete record.remove;
+}
+
 record.version = RECORD_VERSION;
 record.targets[key] = [...owned].sort();
 mkdirSync(dirname(values.record), { recursive: true });
 writeFileSync(values.record, `${JSON.stringify(record, null, 2)}\n`);
 log(
   `shipped to ${join(game, values.models)}: ${counts.new} new, ${counts.replaced} replaced, ` +
-    `${counts.unchanged} unchanged, ${counts.handMade} hand made left alone. Nothing was ` +
+    `${counts.unchanged} unchanged, ${counts.handMade} hand made left alone, ` +
+    `${counts.removed} moved away. Nothing was ` +
     'committed: review the change in git and commit it yourself.'
 );
