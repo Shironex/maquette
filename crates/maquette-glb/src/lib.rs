@@ -1,6 +1,6 @@
 //! Reading GLB and glTF files without Blender: the analysis the inbox
 //! checks run on (counts, textures, the rig and two geometry heuristics),
-//! texture sizes from image headers, the matrix math they share, and small
+//! the parts of a model file, texture sizes from image headers, the matrix math they share, and small
 //! generated fixture models with known flaws. It is pure logic on bytes and
 //! uses only the maquette-base crate.
 
@@ -8,6 +8,7 @@ pub mod analyse;
 pub mod fixture;
 pub mod images;
 pub mod math;
+pub mod parts;
 
 /// Registers this crate's IPC types (the GLB report the inbox shows) with the shell's TypeScript
 /// export; `maquette_core::types` folds it in with the core's.
