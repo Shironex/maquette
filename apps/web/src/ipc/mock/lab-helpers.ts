@@ -32,7 +32,10 @@ export const queuedJob = (
 });
 
 export const finished = (job: ConceptJob) =>
-  job.state !== 'queued' && job.state !== 'running' && job.state !== 'rate-limited';
+  job.state !== 'approval' &&
+  job.state !== 'queued' &&
+  job.state !== 'running' &&
+  job.state !== 'rate-limited';
 
 /** A job Retry runs again: failed, cancelled or waiting out a rate limit. */
 export const retryable = (job: ConceptJob) =>

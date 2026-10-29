@@ -62,6 +62,8 @@ export interface LabStore {
   /** Runs a failed or cancelled job again: the same prompt, refs and file. */
   retry: (jobId: string) => Promise<void>;
   cancelAll: () => Promise<void>;
+  /** Run next: the open project's queued jobs (or `jobIds`) go to the front of the line. */
+  runNext: (jobIds?: string[]) => Promise<void>;
   clearFinished: () => Promise<void>;
   mark: (file: string, marks: { starred?: boolean; picked?: boolean }) => Promise<void>;
   contactSheet: () => Promise<void>;

@@ -16,6 +16,10 @@
 //! file and the job settles the same way, only without Codex ([`api`]).
 
 mod api;
+mod approval;
+mod codex_run;
+mod persist;
+mod priority;
 mod retry;
 mod settle;
 mod sink;
@@ -39,11 +43,10 @@ use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::now_ms;
 use crate::pipeline::runner::{JobRunner, PipelineRunner, RunOptions, RunSetup, WeakRunner};
 use crate::pipeline::tools::Toolbox;
-use crate::pipeline::{CompressDefaults, PIPELINE_VERSION, PipelineDef, StepDef, StepKind};
 use crate::toolchain::ToolId;
-use crate::workspace::{MeshoptLevel, TextureCodec};
 
 pub use api::ImageApiClient;
+use codex_run::CodexRun;
 pub use retry::Backoff;
 use sink::Sink;
 
@@ -58,6 +61,9 @@ const KEEP_FINISHED: usize = 120;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]
 pub enum ConceptJobState {
+    /// An agent asked for it on the paid Image API: it waits for a person
+    /// to approve the round in the app, and nothing is sent until then.
+    Approval,
     Queued,
     Running,
     /// Codex rate limited it, or its usage limit is hit (`usage_limit`);
@@ -110,6 +116,11 @@ pub struct ConceptJob {
     /// Codex, or OpenAI's Image API. A retry runs on the same one.
     #[serde(default)]
     pub backend: ImageBackend,
+    /// Failed because OpenAI refused the image on safety grounds; the
+    /// message says why. Nothing was charged, and the same prompt is
+    /// likely refused again.
+    #[serde(default)]
+    pub refused: bool,
 }
 
 /// What the service reports to the UI.
@@ -209,6 +220,8 @@ struct Shared {
     api: Mutex<api::ApiLane>,
     /// The Image API's key store and address, once the shell set them.
     image_api: Mutex<Option<Arc<ImageApiClient>>>,
+    /// Where the jobs are kept across restarts, once the shell set it.
+    store: Mutex<Option<persist::Store>>,
 }
 
 impl Shared {
@@ -228,7 +241,12 @@ impl Shared {
         self.api.lock().unwrap_or_else(|p| p.into_inner())
     }
 
+    /// Tells the UI, and keeps the jobs when one changed state. Never
+    /// called while the jobs are locked.
     fn emit(&self, event: ConceptEvent) {
+        if let ConceptEvent::Job { job } = &event {
+            persist::on_job(self, job);
+        }
         (self.on_event)(event);
     }
 }
@@ -265,6 +283,7 @@ impl Concepts {
             usage_until: Mutex::new(None),
             api: Mutex::new(api::ApiLane::default()),
             image_api: Mutex::new(None),
+            store: Mutex::new(None),
         });
         let runner = PipelineRunner::new(Arc::new(Sink(Arc::clone(&shared))));
         let _ = shared.runner.set(runner.downgrade());
@@ -332,6 +351,7 @@ impl Concepts {
                 } else {
                     ImageBackend::Codex
                 },
+                refused: false,
             };
             let run = match (&lane.api, &codex) {
                 (Some(plan), _) => Run::Api(api::ApiJob::new(
@@ -343,52 +363,26 @@ impl Concepts {
                     size,
                     transparent,
                 )),
-                (None, codex) => Run::Codex(Box::new(Rerun {
-                    setup: RunSetup {
-                        project: LANE.to_string(),
-                        project_dir: lane.project_dir.to_path_buf(),
+                (None, codex) => Run::Codex(Box::new(
+                    CodexRun {
                         cache_dir: lane.cache_dir.to_path_buf(),
-                        def: PipelineDef {
-                            version: PIPELINE_VERSION,
-                            root: None,
-                            steps: vec![StepDef {
-                                id: id.clone(),
-                                name: format!("{} #{index}", direction.name),
-                                kind: StepKind::Shell,
-                                command: codex.clone(),
-                                script: None,
-                                args: args.clone(),
-                                inputs: Vec::new(),
-                                outputs: Vec::new(),
-                                depends_on: Vec::new(),
-                                compress: None,
-                            }],
-                            presets: Vec::new(),
-                        },
-                        tools: lane.tools.clone(),
-                        defaults: CompressDefaults {
-                            texture_size: 2048,
-                            codec: TextureCodec::Etc1s,
-                            meshopt: MeshoptLevel::Medium,
-                        },
-                        vars: Default::default(),
-                        shipped_names: Default::default(),
-                        materials: Default::default(),
-                        from: None,
-                        force: true,
-                        textures: Default::default(),
-                        quality: crate::ship::DEFAULT_QUALITY,
-                        build_only: false,
-                    },
-                    options: RunOptions {
-                        stdin: Some(text),
-                        timeout: Some(lane.timeout),
-                        gate: None,
-                    },
-                })),
+                        program: codex.clone(),
+                        args: args.clone(),
+                        step: format!("{} #{index}", direction.name),
+                        prompt: text,
+                        timeout_ms: u64::try_from(lane.timeout.as_millis()).unwrap_or(u64::MAX),
+                    }
+                    .rerun(&id, lane.project_dir, lane.tools.clone()),
+                )),
             };
+            let hold = lane.api.as_ref().is_some_and(|p| p.hold);
+            let held = hold.then(|| {
+                let mut job = job.clone();
+                job.state = ConceptJobState::Approval;
+                job
+            });
             self.shared.jobs().push_back(Entry {
-                job,
+                job: held.clone().unwrap_or(job),
                 run,
                 generation: 0,
                 project_dir: lane.project_dir.to_path_buf(),
@@ -397,7 +391,13 @@ impl Concepts {
                 started: None,
                 last_emit: None,
             });
-            queued.extend(retry::submit(&self.shared, &self.runner, &id, false));
+            match held {
+                Some(job) => {
+                    self.shared.emit(ConceptEvent::Job { job: job.clone() });
+                    queued.push(job);
+                }
+                None => queued.extend(retry::submit(&self.shared, &self.runner, &id, false)),
+            }
         }
         Ok(queued)
     }
@@ -422,7 +422,7 @@ impl Concepts {
             .map(|e| (e.job.run_id.clone(), e.job.state));
         match run {
             Some((_, state)) if state.is_finished() => Ok(()),
-            Some((_, ConceptJobState::RateLimited)) => {
+            Some((_, ConceptJobState::RateLimited | ConceptJobState::Approval)) => {
                 self.cancel_waiting(job_id);
                 Ok(())
             }
@@ -440,7 +440,12 @@ impl Concepts {
             .iter()
             .filter(|e| e.job.project == project && !e.job.state.is_finished())
             .map(|e| (e.job.id.clone(), e.job.run_id.clone(), e.job.state))
-            .partition(|(_, _, state)| *state == ConceptJobState::RateLimited);
+            .partition(|(_, _, state)| {
+                matches!(
+                    state,
+                    ConceptJobState::RateLimited | ConceptJobState::Approval
+                )
+            });
         let waited = waiting
             .iter()
             .filter(|(id, _, _)| self.cancel_waiting(id).is_some())
@@ -460,6 +465,7 @@ impl Concepts {
         self.shared
             .jobs()
             .retain(|e| e.job.project != project || !e.job.state.is_finished());
+        persist::save(&self.shared);
     }
 
     /// Blocks until no job is queued or running. For tests and the CLI.

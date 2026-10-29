@@ -99,7 +99,7 @@ export function createBackend({
     ? syncProjects(seedMotionProjects(mockProjects(projectsState === 'many'), motion), sync)
     : [];
   if (configured) config = motionConfig({ ...config, currentProject: 'frostveil' }, motion);
-  const agentsOn = agentsState === 'active' || agentsState === 'batch';
+  const agentsOn = agentsState === 'active' || agentsState === 'batch' || agentsState === 'images';
   if (configured && agentsOn) {
     config = { ...config, agents: { ...config.agents, mcpEnabled: true } };
   }
@@ -248,6 +248,7 @@ export function createBackend({
     config: () => config,
     active: agentsOn,
     batch: agentsState === 'batch',
+    images: agentsState === 'images',
     emit: payload => emit?.({ name: 'mcp', payload }),
     onSendDecision: providers.decide,
     games: game,

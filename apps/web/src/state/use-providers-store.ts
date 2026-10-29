@@ -102,7 +102,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
     // A new variant starts from that variant's saved preset.
     if (patch.variant && patch.variant !== panel.draft.variant && panel.options) {
       const fresh = draftFrom({ ...panel.options, variant: patch.variant }, draft.provider);
-      draft = { ...draft, tripo: fresh.tripo, meshy: fresh.meshy };
+      draft = { ...draft, tripo: fresh.tripo, meshy: fresh.meshy, studio: fresh.studio };
     }
     if (patch.provider && patch.provider !== 'by-hand') draft.service = patch.provider;
     set({ panel: { ...panel, draft } });
@@ -118,7 +118,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
     set({
       panel: {
         ...panel,
-        draft: { ...panel.draft, tripo: fresh.tripo, meshy: fresh.meshy },
+        draft: { ...panel.draft, tripo: fresh.tripo, meshy: fresh.meshy, studio: fresh.studio },
       },
     });
   },

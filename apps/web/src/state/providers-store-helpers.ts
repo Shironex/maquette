@@ -1,6 +1,7 @@
 import type { ProviderJob, SendOptions, SendRequest } from '@/ipc/client';
 import { useAppStore } from './use-app-store';
 import { promptFor, type SendDraft } from './providers';
+import { studioDefaults } from './studio';
 import type { Panel, ProvidersStore } from './providers-store.types';
 
 export const notify = (status: 'done' | 'failed' | 'info', title: string, detail?: string) =>
@@ -39,6 +40,7 @@ export function draftFrom(
     images: options.suggested.slice(0, 4),
     tripo: structuredClone(tripo),
     meshy: structuredClone(meshy),
+    studio: studioDefaults(tripo, variant),
   };
 }
 
@@ -47,6 +49,11 @@ export function savedPresets() {
   const providers = useAppStore.getState().workspace?.config.providers;
   if (!providers) throw new Error('Open a workspace first.');
   return { tripo: providers.tripo, meshy: providers.meshy };
+}
+
+/** True for a By hand send on Tripo, the one that takes Studio settings. */
+export function byHandTripo(draft: Pick<SendDraft, 'provider' | 'service'>): boolean {
+  return draft.provider === 'by-hand' && draft.service === 'tripo';
 }
 
 /** The request the panel sends: only the service's own settings, and a redo's earlier send. */
@@ -65,5 +72,6 @@ export function sendRequest(
     meshy: draft.service === 'meshy' ? draft.meshy : null,
     prompt: promptFor(draft.service, draft.prompt),
     redoOf: panel.redo?.id ?? null,
+    studio: byHandTripo(draft) ? draft.studio : null,
   };
 }

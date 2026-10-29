@@ -59,5 +59,15 @@ export async function libraryShots({ open, shot }) {
   const update = board.getByRole('dialog', { name: 'Update Elsheria to library v3' });
   await update.getByText('Decimate to 60k').waitFor();
   await shot(board, 'library-update-dialog');
+  await board.keyboard.press('Escape');
+  await update.waitFor({ state: 'detached' });
+
+  // An asset that came from the library and has a model: the send panel says
+  // the send makes its next version and leaves the entry alone.
+  await board.getByRole('button', { name: 'More for Elsheria' }).click();
+  await board.getByRole('menuitem', { name: 'Send to 3D' }).click();
+  await board.getByRole('dialog', { name: /Send Elsheria to 3D/ }).waitFor();
+  await board.getByRole('note', { name: 'Existing model' }).waitFor();
+  await shot(board, 'library-send-has-model');
   await board.context().close();
 }

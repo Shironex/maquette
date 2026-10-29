@@ -832,3 +832,51 @@ fn compress_reads_a_tweaked_copy_and_reruns_when_the_tweaks_change() {
         StepState::Done
     );
 }
+
+#[test]
+fn run_next_moves_queued_runs_to_the_front_of_the_lane() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let s = setup(
+        dir.path(),
+        vec![shell_step("job", "tools/job.sh", &[], &[])],
+    );
+    // Each run notes its mark, then holds the lane a moment.
+    let runner = PipelineRunner::new(Arc::new(NullSink));
+    let runs: Vec<RunRecord> = ["a", "b", "c", "d"]
+        .iter()
+        .map(|mark| {
+            let mut forced = s.clone();
+            forced.force = true;
+            forced.def.steps[0].args =
+                vec!["-c".into(), format!("echo {mark} >> order.log; sleep 0.2")];
+            forced.def.steps[0].script = None;
+            runner.submit(forced).expect("submit")
+        })
+        .collect();
+    let ids = |names: &[usize]| {
+        names
+            .iter()
+            .map(|&i| runs[i].id.clone())
+            .collect::<Vec<_>>()
+    };
+    // The running one and unknown ids are left alone.
+    assert_eq!(runner.run_next("moon", &ids(&[0])), 0);
+    assert_eq!(runner.run_next("elsewhere", &ids(&[3])), 0);
+    assert_eq!(runner.run_next("moon", &ids(&[3, 2])), 2);
+    let queued: Vec<String> = runner
+        .active("moon")
+        .1
+        .iter()
+        .map(|r| r.id.clone())
+        .collect();
+    assert_eq!(
+        queued,
+        ids(&[2, 3, 1]),
+        "moved in the order they were queued"
+    );
+    while runner.active("moon").0.is_some() || !runner.active("moon").1.is_empty() {
+        thread::sleep(Duration::from_millis(20));
+    }
+    let log = fs::read_to_string(s.project_dir.join("order.log")).expect("log");
+    assert_eq!(log, "a\nc\nd\nb\n");
+}

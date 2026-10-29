@@ -11,16 +11,22 @@ export interface QueueRowProps {
 }
 
 /**
- * One Codex job: its thumbnail once done, its state, Cancel while it is
- * live and Retry once it failed or waits out a rate limit.
+ * One Codex job: its thumbnail once done, its state, Run next while it
+ * waits in the queue, Cancel while it is live and Retry once it failed or
+ * waits out a rate limit.
  */
 export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
-  const { cancel, retry, openLightbox } = useQueueRow();
+  const { cancel, retry, runNext, openLightbox } = useQueueRow();
   const path = inProject(projectDir, job.file);
   const thumb = job.state === 'done' ? fileUrl(path) : null;
   const limited = job.state === 'rate-limited';
-  const live = job.state === 'running' || job.state === 'queued' || limited;
+  const approval = job.state === 'approval';
+  const live = job.state === 'running' || job.state === 'queued' || limited || approval;
   const failed = job.state === 'failed' || job.state === 'cancelled';
+  // A waiting, rate limited, held or refused row says it in its own line, and
+  // a waiting one needs the room for Run next and Cancel.
+  const queued = job.state === 'queued';
+  const chip = !(job.state === 'running' || queued || limited || approval || job.refused);
   const label = tileLabel(job);
   const elapsed =
     job.state === 'running' && job.startedAtMs !== null
@@ -60,9 +66,19 @@ export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
           <span
             className={cn(
               'text-[11.5px] tabular-nums',
-              failed ? 'line-clamp-2 text-danger' : limited ? 'text-amber' : 'text-fg-mute'
+              failed
+                ? 'line-clamp-2 text-danger'
+                : limited || approval
+                  ? 'line-clamp-2 text-amber'
+                  : 'text-fg-mute'
             )}
-            title={failed ? job.logTail.slice(-6).join('\n') || undefined : undefined}
+            title={
+              job.refused
+                ? (job.message ?? undefined)
+                : failed
+                  ? job.logTail.slice(-6).join('\n') || undefined
+                  : undefined
+            }
           >
             {jobMeta(job, now)}
           </span>
@@ -77,6 +93,17 @@ export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
           onClick={() => void retry(job.id)}
         />
       ) : null}
+      {queued ? (
+        <IconButton
+          icon="arrow-up"
+          label={`Run ${label} next`}
+          hint="Moves it to the front of the line, ahead of other projects' images"
+          size="sm"
+          variant="ghost"
+          onClick={() => void runNext([job.id])}
+          className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
+        />
+      ) : null}
       {live ? (
         <IconButton
           icon="x"
@@ -87,13 +114,10 @@ export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
           className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
         />
       ) : null}
-      {/* A rate limited row says it in its own line, which needs the room. */}
-      {job.state === 'running' || limited ? null : (
+      {!chip ? null : (
         <StatusChip
           status={jobStatus(job)}
-          label={
-            job.state === 'cancelled' ? 'cancelled' : job.state === 'queued' ? 'waiting' : undefined
-          }
+          label={job.state === 'cancelled' ? 'cancelled' : undefined}
         />
       )}
     </div>

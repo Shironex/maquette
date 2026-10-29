@@ -76,6 +76,9 @@ pub struct MakeViewsArgs {
     pub count: Option<u32>,
     /// false draws them without the project's style board. On by default.
     pub use_style: Option<bool>,
+    /// Extra instructions for every view, for example "the sword in the left hand" or "the
+    /// cape over the right shoulder". One line, at most 400 characters; a retry keeps them.
+    pub notes: Option<String>,
     /// "codex" or "openai-images" (OpenAI's Image API, paid per image from the OpenAI key,
     /// within the monthly cap). By default the backend Settings picks for this kind.
     pub backend: Option<BackendArg>,
@@ -121,6 +124,10 @@ pub struct UseCandidateArgs {
     pub file: String,
     /// For a drawn view: the slot it fills, by default the view it was drawn for.
     pub view: Option<ViewArg>,
+    /// For a drawn view whose slot is filled: true (default) replaces the old ref, which leaves
+    /// the asset's refs and moves to refs/originals (it stays in place when another asset
+    /// shows it or a send lists it); false keeps it with the asset as other.
+    pub replace: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -226,9 +233,10 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Make the other views of an asset: Codex draws the views it is missing (left, back, right) from its front ref, count candidates each, with the front attached and the project's style board unless useStyle is false. Filled views are skipped unless named. The candidates land in the Lab direction \"<asset> views\"; nothing reaches the refs until use_ref_candidate. Each image spends Codex usage, like start_concepts, or with backend openai-images is paid from the OpenAI key."
+        description = "Make the other views of an asset: the image backend draws the views it is missing (left, back, right) from its front ref, count candidates each, with the front attached and the project's style board unless useStyle is false. Filled views are skipped unless named. notes adds extra instructions to every view's prompt (\"the sword in the left hand\"). The candidates land in the Lab direction \"<asset> views\"; nothing reaches the refs until use_ref_candidate. The backend is the one Settings picks for other views (get_image_backend), or the one backend names: codex spends Codex usage; openai-images is paid per image from the OpenAI key within the monthly cap, and since an agent asked, the round waits for a person to approve it in the Maquette app: the answer is \"waiting for approval\" with approval.estimateUsd and the jobs are in state approval, so poll get_concepts and never start the round again (a denied round's jobs end cancelled)."
     )]
     async fn make_other_views(&self, Parameters(args): Parameters<MakeViewsArgs>) -> Out {
+        let project = args.project.clone();
         let found = self
             .blocking(move |host, _| {
                 check_asset(host, &args.project, &args.asset)?;
@@ -238,6 +246,7 @@ impl McpTools {
                     views: args.views.into_iter().map(RefView::from).collect(),
                     count: args.count.unwrap_or(2),
                     use_style: args.use_style.unwrap_or(true),
+                    notes: args.notes,
                 };
                 let tools = host.toolbox();
                 let (direction, jobs) =
@@ -247,18 +256,19 @@ impl McpTools {
                     "status": "started",
                     "direction": { "id": direction.id, "name": direction.name },
                     "styleRevision": direction.style_revision,
-                    "jobs": jobs.iter().map(|j| json!({ "id": j.id, "view": j.title, "file": j.file, "state": to_value(j.state) })).collect::<Vec<_>>(),
+                    "jobs": jobs.iter().map(|j| json!({ "id": j.id, "view": j.title, "file": j.file, "state": to_value(j.state), "backend": to_value(j.backend) })).collect::<Vec<_>>(),
                     "note": "Read the candidates with get_ref_views once they are made, then put one in its slot with use_ref_candidate.",
                 }))
             })
             .await;
-        respond(found)
+        respond(self.ask_for_round(project, found).await)
     }
 
     #[tool(
-        description = "Clean the background of one of an asset's refs: Codex makes a copy with the object kept and the clutter removed, on studio grey (default) or transparent, optionally centered and padded to a square, and drawing what the frame cut off only when extend is true. The copy lands in the Lab direction \"<asset> clean\"; use_ref_candidate puts it in the ref's place with its view, and the original moves to refs/originals, kept. Spends Codex usage, like start_concepts, or with backend openai-images is paid from the OpenAI key."
+        description = "Clean the background of one of an asset's refs: the image backend makes a copy with the object kept and the clutter removed, on studio grey (default) or transparent, optionally centered and padded to a square, and drawing what the frame cut off only when extend is true. The copy lands in the Lab direction \"<asset> clean\"; use_ref_candidate puts it in the ref's place with its view, and the original moves to refs/originals, kept. The backend is the one Settings picks for clean background (get_image_backend), or the one backend names: codex spends Codex usage; openai-images is paid per image from the OpenAI key within the monthly cap, and since an agent asked, the round waits for a person to approve it in the Maquette app: the answer is \"waiting for approval\" with approval.estimateUsd and the jobs are in state approval, so poll get_concepts and never start the round again (a denied round's jobs end cancelled)."
     )]
     async fn clean_ref_background(&self, Parameters(args): Parameters<CleanRefArgs>) -> Out {
+        let project = args.project.clone();
         let found = self
             .blocking(move |host, _| {
                 check_asset(host, &args.project, &args.asset)?;
@@ -280,30 +290,34 @@ impl McpTools {
                 Ok(json!({
                     "status": "started",
                     "direction": { "id": direction.id, "name": direction.name },
-                    "jobs": jobs.iter().map(|j| json!({ "id": j.id, "file": j.file, "state": to_value(j.state) })).collect::<Vec<_>>(),
+                    "jobs": jobs.iter().map(|j| json!({ "id": j.id, "file": j.file, "state": to_value(j.state), "backend": to_value(j.backend) })).collect::<Vec<_>>(),
                     "note": "Once it is made, put the copy in place with use_ref_candidate; until then the original stays as it is.",
                 }))
             })
             .await;
-        respond(found)
+        respond(self.ask_for_round(project, found).await)
     }
 
     #[tool(
-        description = "Take a candidate into an asset's refs: a drawn view goes into refs/ and into its slot (the ref that held the slot becomes other), a clean copy takes the place and view of the ref it cleans while the original moves to refs/originals. The other candidates stay in the Lab. Spends nothing; the app updates live.",
+        description = "Take a candidate into an asset's refs: a drawn view goes into refs/ and into its slot, a clean copy takes the place and view of the ref it cleans while the original moves to refs/originals. A drawn view replaces the ref that held its slot: that ref leaves the asset's refs and moves to refs/originals, or stays in place when another asset shows it or a send lists it; replace false keeps it as other instead. replaced says what moved where. The other candidates stay in the Lab. Spends nothing; the app updates live.",
         annotations(destructive_hint = false)
     )]
     async fn use_ref_candidate(&self, Parameters(args): Parameters<UseCandidateArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                shared::use_candidate(
+                let (_, replaced) = shared::use_candidate(
                     host.session(),
+                    host.studio(),
                     &args.project,
                     &args.asset,
                     &args.file,
                     args.view.map(RefView::from),
+                    args.replace.unwrap_or(true),
                 )
                 .map_err(|e| e.message)?;
-                after(host, &args.project, &args.asset)
+                let mut out = after(host, &args.project, &args.asset)?;
+                out["replaced"] = to_value(&replaced);
+                Ok(out)
             })
             .await;
         respond(found)

@@ -5,7 +5,7 @@ import { createBackend } from '@/ipc/mock/backend';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 
-export async function openAgentSession(agents: 'active' | 'batch' | null = 'batch') {
+export async function openAgentSession(agents: 'active' | 'batch' | 'images' | null = 'batch') {
   const handle = createBackend({
     scenario: 'configured',
     probeDelay: 0,

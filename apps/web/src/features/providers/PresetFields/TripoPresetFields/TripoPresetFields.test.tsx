@@ -32,4 +32,20 @@ describe('the Tripo preset fields', () => {
     expect(screen.getByRole('group', { name: 'Animations' })).toBeInTheDocument();
     expect(screen.getByText('Pick a model')).toBeInTheDocument();
   });
+
+  it('leave out what Tripo Studio has no field for when sent by hand', async () => {
+    await openMockWorkspace();
+    render(
+      <TripoPresetFields
+        preset={{ ...textured, rig: true }}
+        onChange={() => {}}
+        variant="character"
+        byHand
+      />
+    );
+    expect(screen.getByRole('switch', { name: 'Texture' })).toBeInTheDocument();
+    for (const name of ['Multi-view', 'Real-world size', 'Fix the image first', 'Smart low poly'])
+      expect(screen.queryByRole('switch', { name })).toBeNull();
+    expect(screen.queryByText('Rig and animate')).toBeNull();
+  });
 });

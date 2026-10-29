@@ -355,6 +355,12 @@ export const commands = {
 	/**  Stops every queued and running job of the project. */
 	labCancelAll: (project: string) => __TAURI_INVOKE<number>("lab_cancel_all", { project }),
 	labClearFinished: (project: string) => __TAURI_INVOKE<LabView>("lab_clear_finished", { project }),
+	/**
+	 *  Run next: moves the project's queued jobs (or the ones among `jobs`) to
+	 *  the front of the line, ahead of every other project's. Returns the jobs
+	 *  that moved.
+	 */
+	labRunNext: (project: string, jobs: string[] | null) => __TAURI_INVOKE<ConceptJob[]>("lab_run_next", { project, jobs }),
 	/**  Stars or picks one image; `None` leaves that mark alone. */
 	labMark: (project: string, direction: string, file: string, starred: boolean | null, picked: boolean | null) => __TAURI_INVOKE<Direction>("lab_mark", { project, direction, file, starred, picked }),
 	/**
@@ -423,7 +429,7 @@ export const commands = {
 	refsClean: (request: NewCleanRef) => __TAURI_INVOKE<RefsView>("refs_clean", { request }),
 	/**
 	 *  "Use as Left" or "Use the clean copy". `view` overrides the view a
-	 *  drawn candidate was made for.
+	 *  drawn candidate was made for. A view replaces the one in its slot.
 	 */
 	refsUse: (project: string, asset: string, file: string, view: "front" | "left" | "back" | "right" | 
 /**  Kept with the asset, never sent as a view. */
@@ -726,6 +732,10 @@ export type Approval = {
 	requestedAtMs: number | null,
 	/**  Send to 3D: the credits it should cost in all, from the price lists. */
 	estimate?: number | null,
+	/**  Image round: the Lab jobs it holds. */
+	conceptJobs?: string[],
+	/**  Image round: the dollars it should cost in all. */
+	estimateUsd?: number | null,
 };
 
 /**  One send of a batch approval. */
@@ -743,7 +753,12 @@ export type ApprovalKind =
 /**  A run an agent started stopped before its Ship step. */
 "ship" | 
 /**  An agent asked to send an asset to Tripo or Meshy, which spends credits. */
-"send-to-3d";
+"send-to-3d" | 
+/**
+ *  An agent asked for Lab images on OpenAI's Image API, which spends
+ *  dollars from the OpenAI key.
+ */
+"image-round";
 
 /**  One file the watcher took a look at. */
 export type Arrival = {
@@ -1082,6 +1097,11 @@ export type BatchItem = {
 	prompt?: string | null,
 	/**  The earlier send of this asset it redoes. */
 	redoOf?: string | null,
+	/**
+	 *  By hand on Tripo only: this asset's Studio tab and rig, laid over
+	 *  the batch's.
+	 */
+	studio?: StudioChoice | null,
 };
 
 /**  One asset of the batch panel: its refs and the preset it starts from. */
@@ -1117,6 +1137,11 @@ export type BatchRequest = {
 	tripoCharacter: TripoPreset | null,
 	meshyProp: MeshyPreset | null,
 	meshyCharacter: MeshyPreset | null,
+	/**
+	 *  By hand on Tripo only: the Studio tab and rig for every asset. A
+	 *  field left out follows each asset's preset.
+	 */
+	studio?: StudioChoice | null,
 };
 
 /**  What a batch send started. */
@@ -1703,9 +1728,20 @@ export type ConceptJob = {
 	styleRevision: number | null,
 	/**  Codex, or OpenAI's Image API. A retry runs on the same one. */
 	backend?: ImageBackend,
+	/**
+	 *  Failed because OpenAI refused the image on safety grounds; the
+	 *  message says why. Nothing was charged, and the same prompt is
+	 *  likely refused again.
+	 */
+	refused?: boolean,
 };
 
-export type ConceptJobState = "queued" | "running" | 
+export type ConceptJobState = 
+/**
+ *  An agent asked for it on the paid Image API: it waits for a person
+ *  to approve the round in the app, and nothing is sent until then.
+ */
+"approval" | "queued" | "running" | 
 /**
  *  Codex rate limited it, or its usage limit is hit (`usage_limit`);
  *  it runs again on its own at `retry_at_ms`.
@@ -2175,7 +2211,10 @@ export type ImageBackends = {
 	cleanBackground?: ImageBackend,
 };
 
-/**  One image's estimated cost per quality. */
+/**
+ *  One image's estimated cost per quality: what it has cost lately (the
+ *  ledger's recent average), else the price list's guess.
+ */
 export type ImageEstimates = {
 	low: number | null,
 	medium: number | null,
@@ -3149,6 +3188,11 @@ export type NewOtherViews = {
 	/**  Candidates per view, 1 to 4. */
 	count: number,
 	useStyle?: boolean,
+	/**
+	 *  Extra instructions every view's prompt carries, for example "the
+	 *  sword in the left hand". One line, at most 400 characters.
+	 */
+	notes?: string | null,
 };
 
 export type NewProject = {
@@ -3675,6 +3719,11 @@ export type ProviderJob = {
 	 *  made from images.
 	 */
 	split?: SplitJob | null,
+	/**
+	 *  By hand on Tripo: the Studio tab and rig the card asks for. Older
+	 *  records have none.
+	 */
+	studio?: StudioSettings | null,
 };
 
 /**
@@ -4107,6 +4156,11 @@ export type SendRequest = {
 	prompt?: string | null,
 	/**  The earlier send of the same asset this one redoes. */
 	redoOf?: string | null,
+	/**
+	 *  By hand on Tripo only: the Studio tab and rig. A field left out
+	 *  follows the preset.
+	 */
+	studio?: StudioChoice | null,
 };
 
 /**  What Send picks did for a direction of object refs: one asset per pick. */
@@ -4752,6 +4806,26 @@ export type StepState =
 /**  Where the stops came from, for the "From stops.json" line. */
 export type StopsSource = "project-file" | "layout" | "posters" | "model-cameras" | "none";
 
+/**  What a send asks for; a field left out follows the preset. */
+export type StudioChoice = {
+	mesh?: StudioMesh | null,
+	rig?: StudioRig | null,
+};
+
+/**  Tripo Studio's mesh tab. */
+export type StudioMesh = "hd-model" | "smart-mesh";
+
+/**  The rig Tripo Studio adds once the model is made. */
+export type StudioRig = 
+/**  A humanoid on the Mixamo skeleton. */
+"biped" | "quadruped" | "multi-legged" | "none";
+
+/**  The Tripo Studio settings a By hand send went with. */
+export type StudioSettings = {
+	mesh: StudioMesh,
+	rig: StudioRig,
+};
+
 export type StyleBoard = {
 	version: number,
 	/**  Counts the changes; 0 for a board never saved. */
@@ -5122,7 +5196,9 @@ export type VersionFrom = {
 	version: number,
 };
 
-export type WarningKind = "small" | "cropped" | "busy-background" | "one-view" | "views-disagree";
+export type WarningKind = "small" | "cropped" | "busy-background" | "one-view" | "views-disagree" | 
+/**  The asset has a model already; the send makes its next version. */
+"has-model";
 
 /**
  *  One asset of a warnings request: the images as picked and whether its

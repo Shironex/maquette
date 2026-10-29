@@ -3,8 +3,9 @@
  * Codex item in the Lab while plenty is left (with its reset times in the
  * tooltip), amber with the composer's warning before a large round, red
  * with the Lab's usage limit banner over the jobs it holds, Limit lifted,
- * retry now while the limit still holds and once it has lifted, and a
- * Codex that cannot say.
+ * retry now while the limit still holds and once it has lifted, a
+ * Codex that cannot say, and the image queue with jobs waiting: Run next
+ * on its header and on a hovered waiting row.
  */
 
 export async function codexShots({ open, shot, hoverTip }) {
@@ -49,4 +50,17 @@ export async function codexShots({ open, shot, hoverTip }) {
   await blank.waitFor();
   await hoverTip(unknown, blank, 'codex-usage-unknown');
   await unknown.context().close();
+
+  // Two held running jobs fill half the lane, so two of four new ones wait.
+  const queue = await open(`${lab}&codex=ok&lab=running`, '#/lab');
+  await queue.getByLabel('Direction name').fill('Harbour');
+  await queue.getByLabel('Prompt').fill('A small harbour at dawn');
+  await queue.getByRole('button', { name: 'Generate 4 concepts' }).click();
+  const aside = queue.getByRole('complementary', { name: 'Image queue' });
+  await aside.getByRole('button', { name: 'Run next' }).waitFor();
+  const waiting = aside.getByRole('listitem').filter({ hasText: 'waiting' }).last();
+  await waiting.hover();
+  await waiting.getByRole('button', { name: /next$/ }).waitFor();
+  await shot(aside, 'codex-queue-run-next');
+  await queue.context().close();
 }

@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{Provider, ProviderJob};
+use crate::providers::handoff::options::StudioChoice;
 use crate::providers::presets::{MeshyPreset, PresetVariant, ProviderId, TripoPreset};
 
 /// What a Send to 3D asks for.
@@ -26,6 +27,10 @@ pub struct SendRequest {
     /// The earlier send of the same asset this one redoes.
     #[serde(default)]
     pub redo_of: Option<String>,
+    /// By hand on Tripo only: the Studio tab and rig. A field left out
+    /// follows the preset.
+    #[serde(default)]
+    pub studio: Option<StudioChoice>,
 }
 
 /// One asset of a batch send.
@@ -47,6 +52,10 @@ pub struct BatchItem {
     /// The earlier send of this asset it redoes.
     #[serde(default)]
     pub redo_of: Option<String>,
+    /// By hand on Tripo only: this asset's Studio tab and rig, laid over
+    /// the batch's.
+    #[serde(default)]
+    pub studio: Option<StudioChoice>,
 }
 
 /// Several assets to one provider: one model per asset. The settings for
@@ -64,6 +73,10 @@ pub struct BatchRequest {
     pub tripo_character: Option<TripoPreset>,
     pub meshy_prop: Option<MeshyPreset>,
     pub meshy_character: Option<MeshyPreset>,
+    /// By hand on Tripo only: the Studio tab and rig for every asset. A
+    /// field left out follows each asset's preset.
+    #[serde(default)]
+    pub studio: Option<StudioChoice>,
 }
 
 impl BatchRequest {
@@ -102,6 +115,10 @@ impl BatchRequest {
                 .flatten(),
             prompt: item.prompt.clone(),
             redo_of: item.redo_of.clone(),
+            studio: match (item.studio, self.studio) {
+                (Some(own), batch) => Some(own.over(batch)),
+                (None, batch) => batch,
+            },
         }
     }
 }

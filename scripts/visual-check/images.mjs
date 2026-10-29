@@ -3,8 +3,10 @@
  * Image generation with every kind on Codex and no key, with a saved key,
  * concepts on OpenAI Images and the month's spend, a key test (which only
  * lists the models), the Lab composer's cost line for a round, the same
- * round held at the cap, and the queue naming OpenAI Images. Mock mode's
- * `?images=` states serve them.
+ * round held at the cap, the queue naming OpenAI Images, an agent's round
+ * waiting for approval (the prompt and its jobs in the queue) and an image
+ * OpenAI refused. Mock mode's `?images=`, `?agents=images` and
+ * `?lab=approval` states serve them.
  */
 
 async function imagesSection(page) {
@@ -59,4 +61,22 @@ export async function imagesShots({ open, shot }) {
   await held.scrollIntoViewIfNeeded();
   await shot(cap, 'images-lab-cap');
   await cap.context().close();
+
+  const asked = await open('&scenario=configured&images=on&agents=images', '#/board');
+  await asked
+    .getByRole('alertdialog', { name: 'Make 2 images for Frozen lake arena with OpenAI Images?' })
+    .waitFor();
+  await shot(asked, 'images-agent-approval');
+  await asked.context().close();
+
+  const asking = await open(`${lab}&images=on&lab=approval`, '#/lab');
+  const waiting = asking.getByText(/^Needs your approval/).first();
+  await waiting.waitFor();
+  await waiting.scrollIntoViewIfNeeded();
+  await shot(asking, 'images-lab-approval');
+  const queue = asking.getByRole('complementary', { name: 'Image queue' });
+  const refused = asking.getByText(/^Refused for safety/).first();
+  await refused.scrollIntoViewIfNeeded();
+  await shot(queue, 'images-lab-refused');
+  await asking.context().close();
 }

@@ -29,7 +29,8 @@ use crate::workspace::{FolderLayout, is_single_segment};
 /// The most objects one request makes, the same cap as a concept batch.
 pub const MAX_OBJECTS: usize = MAX_IMAGES_PER_BATCH as usize;
 const MAX_OBJECT_CHARS: usize = 60;
-const MAX_NOTE_CHARS: usize = 400;
+/// The most characters a note for Codex may have (object refs, other views).
+pub(crate) const MAX_NOTE_CHARS: usize = 400;
 const MAX_DIRECTION_CHARS: usize = 60;
 const SUFFIX: &str = " objects";
 

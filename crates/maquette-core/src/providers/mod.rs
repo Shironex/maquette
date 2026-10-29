@@ -30,6 +30,7 @@ pub use arrivals::{Arrival, ArrivalState, Arrivals, PendingHandoff, WatchStatus,
 pub use balance::Balance;
 pub use catalog::{ModelOption, ProviderCatalog};
 pub use handback::{DownloadMatch, DownloadsScan};
+pub use handoff::options::{StudioChoice, StudioMesh, StudioRig, StudioSettings};
 pub use handoff::{CardRow, HandoffCard};
 pub use jobs::{
     BakeBack, BakeState, BatchFailure, BatchItem, BatchRequest, BatchSent, CancelMode, Endpoints,

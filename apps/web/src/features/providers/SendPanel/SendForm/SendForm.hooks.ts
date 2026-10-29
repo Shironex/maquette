@@ -14,11 +14,13 @@ import {
   sortJobs,
   type SendDraft,
 } from '@/state/providers';
-import { sendRequest } from '@/state/providers-store-helpers';
+import { byHandTripo, sendRequest } from '@/state/providers-store-helpers';
+import { studioSummary } from '@/state/studio';
 import { redoLine } from '@/state/redo';
 import { useAppStore } from '@/state/use-app-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useCatalog } from '../../PresetFields';
+import { splitModelNote } from '@/state/refs';
 import { useRefWarnings, useWarningFix } from '../../RefWarnings';
 
 /** The draft's actions and what the form derives from it: blocker, summary, key, earlier sends. */
@@ -43,10 +45,12 @@ export function useSendForm(options: SendOptions, draft: SendDraft) {
     draft.images,
     problem ?? promptProblem(service, draft.prompt)
   );
+  const studio = byHandTripo(draft);
   const multiView = service === 'tripo' ? draft.tripo.multiView : draft.meshy.multiView;
   const smart = service === 'meshy' && isSmartTopology(draft.meshy.aiModel);
-  const summary =
-    service === 'tripo'
+  const summary = studio
+    ? studioSummary(draft.tripo, draft.studio, catalog.tripoModels)
+    : service === 'tripo'
       ? tripoSummary(draft.tripo, catalog.tripoModels)
       : meshySummary(draft.meshy, catalog.meshyModels);
   const key = keys.find(k => k.service === draft.provider);
@@ -75,6 +79,7 @@ export function useSendForm(options: SendOptions, draft: SendDraft) {
     earlier,
     label,
     redo: redo ? { line: redoLine(redo), name: redo.assetName } : null,
+    studio,
   };
 }
 
@@ -88,13 +93,14 @@ export function useSendEstimate(options: SendOptions, draft: SendDraft) {
   return useAsyncValue(commands.providerEstimate, request);
 }
 
-/** The weak ref warnings of the images as picked, and their fixes. */
+/** The weak ref warnings of the images as picked, their fixes, and the existing model note. */
 export function useSendWarnings(options: SendOptions, draft: SendDraft, multiView: boolean) {
   const setDraft = useProvidersStore(s => s.setDraft);
   const items = [{ asset: options.asset.id, images: draft.images, multiView }];
-  const warnings = useRefWarnings(options.project, draft.images.length > 0 ? items : [])?.[0] ?? [];
+  const all = useRefWarnings(options.project, draft.images.length > 0 ? items : [])?.[0] ?? [];
+  const { weak: warnings, note } = splitModelNote(all);
   const fix = useWarningFix(options.project, (_, file) =>
     setDraft({ images: draft.images.filter(i => i !== file) })
   );
-  return { warnings, fix: (w: RefWarning, f: RefFix) => fix(options.asset.id, w, f) };
+  return { warnings, note, fix: (w: RefWarning, f: RefFix) => fix(options.asset.id, w, f) };
 }

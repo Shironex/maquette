@@ -29,7 +29,7 @@ use crate::error::{CoreError, CoreResult};
 
 pub mod images;
 
-pub use images::{ImageSpend, month_to_date};
+pub use images::{ImageSpend, month_to_date, recent_average_usd};
 
 pub const LEDGER_FILE: &str = "credits.jsonl";
 const LINE_VERSION: u32 = 1;

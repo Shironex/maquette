@@ -25,6 +25,18 @@ describe('a queue row', () => {
     expect(cancel).toHaveBeenCalledWith(running!.id);
   });
 
+  it('moves a queued job to the front of the line with Run next', async () => {
+    const runNext = vi.fn(async () => {});
+    useLabStore.setState({ runNext });
+    const queued = { ...done!, state: 'queued' as const };
+    render(<QueueRow job={queued} projectDir="/w" now={0} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Run Concept 01 next' }));
+    expect(runNext).toHaveBeenCalledWith([queued.id]);
+    cleanup();
+    render(<QueueRow job={running!} projectDir="/w" now={0} />);
+    expect(screen.queryByRole('button', { name: /next$/ })).toBeNull();
+  });
+
   it('opens a finished image in the lightbox', async () => {
     const openLightbox = vi.fn();
     useLabStore.setState({ openLightbox });
@@ -57,5 +69,18 @@ describe('a queue row', () => {
     render(<QueueRow job={gaveUp!} projectDir="/w" now={0} />);
     expect(screen.getByText(/Rate limited by Codex, 4 times in a row/)).toHaveClass('text-danger');
     expect(screen.getByRole('button', { name: 'Retry Concept 08' })).toBeInTheDocument();
+  });
+
+  it('waits for approval with Cancel, and marks an image OpenAI refused', () => {
+    const [, , , , , , held, , refused] = runningJobs('frostveil', 0, 'approval');
+    render(<QueueRow job={held!} projectDir="/w" now={0} />);
+    expect(screen.getByText(/^Needs your approval/)).toHaveClass('text-amber');
+    expect(screen.getByRole('button', { name: 'Cancel Concept 07' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Retry/ })).toBeNull();
+    cleanup();
+    render(<QueueRow job={refused!} projectDir="/w" now={0} />);
+    const line = screen.getByText('Refused for safety (violence). Reword the prompt.');
+    expect(line).toHaveClass('text-danger');
+    expect(line).toHaveAttribute('title', refused!.message);
   });
 });

@@ -124,6 +124,23 @@ describe('lab helpers', () => {
     expect(jobMeta(job(1, 'rate-limited', { usageLimit: true }), 0)).toBe(
       'Waiting for the Codex usage limit'
     );
+    expect(jobMeta(job(1, 'approval'), 0)).toBe(
+      "Needs your approval: an agent's OpenAI Images round"
+    );
+    expect(jobMeta(job(1, 'cancelled', { message: 'Cancelled.' }), 0)).toBe('Cancelled');
+    expect(
+      jobMeta(job(1, 'cancelled', { message: 'Denied in Maquette. Nothing was sent or spent.' }), 0)
+    ).toBe('Denied in Maquette. Nothing was sent or spent.');
+    expect(queueSummary([job(1, 'approval'), job(2, 'queued')]).queued).toBe(2);
+    const refused =
+      'OpenAI refused this image on safety grounds: no. safety_violations=[violence,gore].';
+    expect(jobMeta(job(1, 'failed', { refused: true, message: refused }), 0)).toBe(
+      'Refused for safety (violence, gore). Reword the prompt.'
+    );
+    expect(jobMeta(job(1, 'failed', { refused: true, message: 'OpenAI refused it.' }), 0)).toBe(
+      'Refused for safety. Reword the prompt.'
+    );
+    expect(canRetry(job(1, 'approval'))).toBe(false);
     expect(canRetry(job(1, 'failed'))).toBe(true);
     expect(canRetry(job(1, 'rate-limited'))).toBe(true);
     expect(canRetry(job(1, 'done'))).toBe(false);

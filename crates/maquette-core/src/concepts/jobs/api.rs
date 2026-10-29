@@ -37,8 +37,8 @@ pub struct ImageApiClient {
 /// One job's request, kept so a retry sends the very same one.
 #[derive(Clone)]
 pub(super) struct ApiJob {
-    call: ImageCall,
-    plan: ApiPlan,
+    pub(super) call: ImageCall,
+    pub(super) plan: ApiPlan,
 }
 
 impl ApiJob {
@@ -74,7 +74,7 @@ impl ApiJob {
         }
     }
 
-    fn estimate(&self) -> f64 {
+    pub(super) fn estimate(&self) -> f64 {
         self.plan.estimate_usd(1, self.call.images.len())
     }
 }
@@ -101,6 +101,18 @@ pub(super) fn enqueue(shared: &Arc<Shared>, id: &str) {
         }
     }
     pump(shared);
+}
+
+/// Moves the waiting jobs among `ids` to the front of the line, in the
+/// order they were waiting. Returns how many moved.
+pub(super) fn run_next(shared: &Shared, ids: &[String]) -> usize {
+    let mut lane = shared.api();
+    let (mut first, rest): (VecDeque<String>, VecDeque<String>) =
+        lane.waiting.drain(..).partition(|id| ids.contains(id));
+    let moved = first.len();
+    first.extend(rest);
+    lane.waiting = first;
+    moved
 }
 
 fn pump(shared: &Arc<Shared>) {
@@ -272,11 +284,15 @@ fn run(shared: &Arc<Shared>, id: &str, stop: &StopFlag) {
         return;
     };
     shared.emit(ConceptEvent::Job { job: entry.clone() });
+    let mut refused = false;
     let outcome = check_cap(&job).and_then(|()| {
         send(shared, &job, stop).map_err(|e| match e {
             ApiError::Stopped => String::new(),
             ApiError::RateLimited => "rate-limited".to_string(),
-            e => openai_images::error_message(&e),
+            e => {
+                refused = openai_images::refusal(&e).is_some();
+                openai_images::error_message(&e)
+            }
         })
     });
     if let Ok(made) = &outcome {
@@ -322,7 +338,10 @@ fn run(shared: &Arc<Shared>, id: &str, stop: &StopFlag) {
             wait = retry::rate_limited(&mut entry, &shared.backoff());
             entry.message = entry.message.map(|m| m.replace("Codex", SERVICE));
         }
-        Err(message) => fail(&mut entry, message),
+        Err(message) => {
+            fail(&mut entry, message);
+            entry.refused = refused;
+        }
     }
     entry.finished_at_ms = Some(now_ms());
     let current = {

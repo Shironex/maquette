@@ -13,6 +13,10 @@ Jobs run in the project folder on their own lane, 4 at a time by default (Settin
 
 When Codex answers 429 Too Many Requests, the job waits and runs again on its own after 3, 6 and 12 minutes. After that it fails and asks you to try again later. Retry on a failed or cancelled job runs the same prompt, refs and target file again without making a new direction.
 
+Run next, on a waiting row or on the queue's header for the whole project, moves those images to the front of the line, ahead of other projects' images.
+
+The queue survives a restart. Images still queued, running or waiting when the app closes come back failed with Interrupted by a restart, ready for Retry with the same prompt and file; one whose image had already landed comes back done. Nothing runs again on its own, so an OpenAI Images job is never paid for without someone asking.
+
 When Codex says its usage limit is hit, the job and every image still queued wait until the limit lifts, then run on their own. A banner over the results says when: the reset time Codex's own usage read names, else the time in Codex's message, else a guess that grows like the rate limit wait. Limit lifted, retry now reads the usage again. When Codex allows ordinary usage and the five hour window is not full, the waiting images run at once; otherwise the banner says until when the limit still holds.
 
 ## Codex usage
@@ -23,7 +27,7 @@ While the Lab is open, Maquette asks Codex how much of its usage is used every m
 
 Settings > Image generation can send each kind of Lab image (concepts, object refs, other views, clean background) to OpenAI's Image API instead of Codex. Codex stays the default for every kind. An API image is paid per image from your own OpenAI API key, at the quality you pick (low by default, about $0.01 an image; high is about $0.22). It gets the same prompt and the same attached images in the same order as Codex would, lands in the same file and moves through the same states, so Retry, Cancel and Use this one work the same. When OpenAI asks it to slow down, it waits as long as asked and runs again on its own.
 
-Under Generate the brief says what the round likely costs and how much of the monthly cap is spent. A round that would pass the cap does not start; raise the cap or switch the kind back to Codex. There is no approval prompt for these rounds: the cap is the guard. Each image made is written to `credits.jsonl` at the workspace root in dollars, from the tokens OpenAI reports (or the price list's estimate when it reports none). The image queue names the backend each round runs on.
+Under Generate the brief says what the round likely costs and how much of the monthly cap is spent. A round that would pass the cap does not start; raise the cap or switch the kind back to Codex. The estimate is what an image at that quality has cost lately (the average of the last 20 measured images), or the price list's guess until there are a few. A round you start yourself has no approval prompt: the cap is the guard. A round an agent asks for over MCP waits for you instead: the app shows Make N images with OpenAI Images? with the estimate and the month's spend, its jobs wait in the queue as Needs your approval (Cancel works there), and nothing is sent until you approve. Deny cancels them. Each image made is written to `credits.jsonl` at the workspace root in dollars, from the tokens OpenAI reports (or the price list's estimate when it reports none). The image queue names the backend each round runs on. When OpenAI refuses an image on safety grounds, its row says Refused for safety with the reason OpenAI gave (hover for the whole message); nothing was charged, and the prompt needs rewording, since Retry sends the same one.
 
 ## Results
 

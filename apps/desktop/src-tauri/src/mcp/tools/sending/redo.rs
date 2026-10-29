@@ -9,15 +9,15 @@ use std::sync::Arc;
 use maquette_core::inbox;
 use maquette_core::providers::{
     BatchItem, BatchRequest, JobState, PresetVariant, Provider, ProviderId, ProviderJob,
-    SendRequest,
+    SendRequest, StudioChoice,
 };
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::requests::with_overrides;
-use super::{ProviderArg, VariantArg, await_send_approval, job_value};
+use super::requests::{studio_choice, with_overrides};
+use super::{MeshArg, ProviderArg, RigArg, VariantArg, await_send_approval, job_value};
 use crate::mcp::host::Host;
 use crate::mcp::tools::{McpTools, Out, WAITING, failed, json_result, reason, workspace};
 
@@ -41,6 +41,12 @@ pub(crate) struct RedoArgs {
     pub(crate) overrides: Option<serde_json::Map<String, Value>>,
     /// Meshy only: the texture prompt. By default the one it was sent with; "" clears it.
     pub(crate) prompt: Option<String>,
+    /// By hand on Tripo only: the Tripo Studio tab, "hd-model" or "smart-mesh". By
+    /// default the one it was sent with.
+    pub(crate) mesh: Option<MeshArg>,
+    /// By hand on Tripo only: "biped", "quadruped", "multi-legged" or "none". By default
+    /// the rig it was sent with.
+    pub(crate) rig: Option<RigArg>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -53,6 +59,10 @@ pub(crate) struct RedoManyArgs {
     pub(crate) provider: Option<ProviderArg>,
     /// Preset fields to change for every redo, laid over each one's own settings.
     pub(crate) overrides: Option<serde_json::Map<String, Value>>,
+    /// By hand on Tripo only: the Tripo Studio tab for every redo, over each one's own.
+    pub(crate) mesh: Option<MeshArg>,
+    /// By hand on Tripo only: the rig for every redo, over each one's own.
+    pub(crate) rig: Option<RigArg>,
 }
 
 /// The send an inbox model came from.
@@ -121,6 +131,29 @@ fn settings(
     })
 }
 
+/// The Studio tab and rig a redo goes with: the ones asked for, over the
+/// earlier send's when it was By hand on Tripo with the same kind.
+fn studio_for(
+    earlier: &ProviderJob,
+    provider: Provider,
+    service: ProviderId,
+    variant: PresetVariant,
+    asked: Option<StudioChoice>,
+) -> Option<StudioChoice> {
+    let by_hand_tripo = provider == Provider::ByHand && service == ProviderId::Tripo;
+    let kept = earlier
+        .studio
+        .filter(|_| by_hand_tripo && earlier.variant == variant)
+        .map(|s| StudioChoice {
+            mesh: Some(s.mesh),
+            rig: Some(s.rig),
+        });
+    match asked {
+        Some(asked) => Some(asked.over(kept)),
+        None => kept,
+    }
+}
+
 fn redo_request(host: &dyn Host, args: &RedoArgs) -> Result<(SendRequest, String), String> {
     let earlier = record(host, &args.id)?;
     let (provider, service) = args.provider.map_or_else(
@@ -155,6 +188,13 @@ fn redo_request(host: &dyn Host, args: &RedoArgs) -> Result<(SendRequest, String
             meshy,
             prompt,
             redo_of: Some(earlier.id.clone()),
+            studio: studio_for(
+                &earlier,
+                provider,
+                service,
+                variant,
+                studio_choice(provider, service, args.mesh, args.rig)?,
+            ),
         },
         earlier.id,
     ))
@@ -187,6 +227,7 @@ fn redo_batch(host: &dyn Host, args: &RedoManyArgs) -> Result<BatchRequest, Stri
             );
         }
     };
+    let asked = studio_choice(provider, service, args.mesh, args.rig)?;
     let mut items = Vec::new();
     for job in &earlier {
         let (tripo, meshy) = settings(host, job, service, job.variant, args.overrides.as_ref())?;
@@ -198,6 +239,7 @@ fn redo_batch(host: &dyn Host, args: &RedoManyArgs) -> Result<BatchRequest, Stri
             meshy,
             prompt: job.prompt.clone().filter(|_| service == ProviderId::Meshy),
             redo_of: Some(job.id.clone()),
+            studio: studio_for(job, provider, service, job.variant, asked),
         });
     }
     Ok(BatchRequest {
@@ -209,13 +251,14 @@ fn redo_batch(host: &dyn Host, args: &RedoManyArgs) -> Result<BatchRequest, Stri
         tripo_character: None,
         meshy_prop: None,
         meshy_character: None,
+        studio: None,
     })
 }
 
 #[tool_router(router = redo_router, vis = "pub(crate)")]
 impl McpTools {
     #[tool(
-        description = "Redo an inbox model: send its asset again as a new version, prefilled from the send it came from (provider, images, prop or character, settings and Meshy texture prompt), with overrides on top. \"tripo\" or \"meshy\" spend credits, so the redo always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" writes a new handoff folder. The old model stays in the inbox, so a person can compare both and accept one."
+        description = "Redo an inbox model: send its asset again as a new version, prefilled from the send it came from (provider, images, prop or character, settings and Meshy texture prompt), with overrides on top (a by hand Tripo redo also takes mesh and rig, by default as it was sent). \"tripo\" or \"meshy\" spend credits, so the redo always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" writes a new handoff folder. The old model stays in the inbox, so a person can compare both and accept one."
     )]
     async fn redo_inbox_model(&self, Parameters(args): Parameters<RedoArgs>) -> Out {
         let sent = self

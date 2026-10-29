@@ -156,3 +156,37 @@ fn one_image_with_multi_view_on_asks_for_the_other_views() {
     assert_eq!(w[0].view, Some(RefView::Right), "named by its tag");
     assert_eq!(w[0].file.as_deref(), Some("refs/side.png"));
 }
+
+#[test]
+fn an_asset_with_a_model_says_the_send_makes_its_next_version() {
+    let dir = tempfile::tempdir().expect("dir");
+    let mut asset: crate::Asset = serde_json::from_str(
+        r#"{"id":"stone-well","name":"Stone well","kind":"prop","stage":"blender",
+            "status":"done","versions":[{"version":1,"file":"models/stone_well_v1.glb",
+            "createdAt":"t","stats":null}],"thumbnail":null,"createdAt":"t","updatedAt":"t"}"#,
+    )
+    .expect("asset");
+    let w = send_warnings(dir.path(), &asset, &[], false);
+    assert_eq!(w.len(), 1);
+    assert_eq!(w[0].kind, WarningKind::HasModel);
+    assert_eq!(w[0].title, "Stone well already has a model (v1)");
+    assert_eq!(w[0].detail, "This send makes v2. The older versions stay.");
+    assert!(w[0].fixes.is_empty());
+
+    asset.origin = Some(crate::assets::AssetOrigin {
+        entry: "stone-well".into(),
+        version: 1,
+    });
+    let w = send_warnings(dir.path(), &asset, &[], false);
+    assert_eq!(
+        w[0].title,
+        "Stone well already has a model (v1, from the library entry stone-well)"
+    );
+    assert_eq!(
+        w[0].detail,
+        "This send makes v2; the library entry is not changed. The older versions stay."
+    );
+
+    asset.versions.clear();
+    assert!(send_warnings(dir.path(), &asset, &[], false).is_empty());
+}

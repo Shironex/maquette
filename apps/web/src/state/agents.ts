@@ -30,9 +30,16 @@ export function clockTime(ms: number): string {
 
 /**
  * The approval's question: "Ship Frostveil, run 26?" with the project's
- * display name when known, or "Send Guardian statue to Tripo?".
+ * display name when known, "Send Guardian statue to Tripo?", or "Make 2
+ * images for Harbour with OpenAI Images?".
  */
 export function approvalTitle(approval: Approval, projectName?: string): string {
+  if (approval.kind === 'image-round') {
+    const n = approval.conceptJobs?.length ?? 0;
+    const what = n === 1 ? '1 image' : `${n} images`;
+    const where = approval.assetName ? ` for ${approval.assetName}` : '';
+    return `Make ${what}${where} with OpenAI Images?`;
+  }
   if (approval.kind === 'send-to-3d') {
     const n = approval.items.length;
     const what = n > 1 ? `${n} assets` : (approval.assetName ?? approval.items[0]?.assetName);
@@ -45,7 +52,14 @@ export function approvalTitle(approval: Approval, projectName?: string): string 
 export function approvalsLabel(approvals: Approval[]): string {
   const n = approvals.length;
   const kinds = new Set(approvals.map(a => a.kind));
-  const noun = kinds.size > 1 ? 'request' : kinds.has('ship') ? 'run' : 'send';
+  const noun =
+    kinds.size > 1
+      ? 'request'
+      : kinds.has('ship')
+        ? 'run'
+        : kinds.has('image-round')
+          ? 'image round'
+          : 'send';
   return `${n} ${noun}${n === 1 ? ' waits' : 's wait'} for approval`;
 }
 

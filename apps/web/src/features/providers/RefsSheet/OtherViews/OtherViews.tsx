@@ -1,13 +1,14 @@
 /**
  * Make the other views: Codex draws the views the asset is missing from
  * its front, a few candidates each, with the project's style board when
- * the switch is on. The candidates come back per view; "Use as Left" puts
- * one in its slot.
+ * the switch is on, and the notes, if any, in every prompt. The candidates
+ * come back per view; "Use as Left" puts one in its slot, and "Replace Left"
+ * moves the ref that held it to refs/originals.
  */
-import { Button, Checkbox, Icon, SegmentedControl, Toggle } from '@maquette/ui';
+import { Button, Checkbox, Icon, SegmentedControl, TextArea, Toggle } from '@maquette/ui';
 import type { RefsView } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
-import { inProject } from '@/state/lab';
+import { MAX_NOTE_CHARS, inProject } from '@/state/lab';
 import { DRAWN, VIEW_LABEL } from '@/state/refs';
 import { SectionTitle } from '../../SectionTitle';
 import { useOtherViews } from './OtherViews.hooks';
@@ -31,6 +32,7 @@ export default function OtherViews({ view }: OtherViewsProps) {
   ));
   const groups = DRAWN.filter(v => o.byView[v].images.length + o.byView[v].drawing > 0).map(v => {
     const label = VIEW_LABEL[v];
+    const replaces = o.filled.includes(v);
     const picks = o.byView[v].images.map(c => (
       <li key={c.file} className="flex min-w-0 flex-col gap-1">
         <span className="aspect-square overflow-hidden rounded-[8px] border border-line bg-studio">
@@ -40,9 +42,14 @@ export default function OtherViews({ view }: OtherViewsProps) {
           size="sm"
           variant="secondary"
           disabled={o.busy || c.inSlot}
+          tooltip={
+            replaces && !c.inSlot
+              ? `The ${label.toLowerCase()} in use leaves the refs and moves to refs/originals`
+              : undefined
+          }
           onClick={() => void o.use(c.file, v)}
         >
-          {c.inSlot ? 'In use' : `Use as ${label}`}
+          {c.inSlot ? 'In use' : replaces ? `Replace ${label}` : `Use as ${label}`}
         </Button>
       </li>
     ));
@@ -100,6 +107,15 @@ export default function OtherViews({ view }: OtherViewsProps) {
             onChange={useStyle => o.setForm({ useStyle })}
             label="Use the project's style board"
             description="The views keep the project's look. An empty board carries nothing."
+          />
+          <TextArea
+            label="Notes for every view"
+            rows={2}
+            maxLength={MAX_NOTE_CHARS}
+            value={o.form.notes}
+            placeholder="The sword in the left hand, the cape over the right shoulder"
+            onChange={e => o.setForm({ notes: e.target.value })}
+            hint={`${o.form.notes.length} of ${MAX_NOTE_CHARS} characters. Optional, added to each view's prompt.`}
           />
         </section>
 

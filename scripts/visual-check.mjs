@@ -928,6 +928,34 @@ async function byHandShots() {
   await checklist.getByText('Bring the GLB back', { exact: true }).scrollIntoViewIfNeeded();
   await shot(board, 'byhand-card-export-name');
 
+  // The Tripo Studio tab and rig: picked per send, and the card follows them.
+  const studio = await open('&scenario=configured', '#/board');
+  await studio.getByRole('button', { name: /^Elsheria, v2/ }).waitFor();
+  await studio.getByRole('button', { name: 'More for Elsheria' }).click();
+  await studio.getByRole('menuitem', { name: 'Send to 3D' }).click();
+  const send = studio.getByRole('dialog', { name: /Send Elsheria to 3D/ });
+  await send
+    .getByRole('group', { name: 'Provider' })
+    .getByRole('button', { name: 'By hand' })
+    .click();
+  await send.getByRole('combobox', { name: 'Tripo Studio tab' }).selectOption('smart-mesh');
+  await send.getByRole('combobox', { name: 'Rig' }).first().selectOption('quadruped');
+  await shot(studio, 'byhand-send-studio');
+  await send.getByRole('button', { name: 'Write the handoff folder' }).click();
+  await studio.getByText('Bring the GLB back', { exact: true }).waitFor();
+  await studio.getByText('Quadruped', { exact: true }).scrollIntoViewIfNeeded();
+  await studio.waitForTimeout(400);
+  await shot(studio, 'byhand-card-studio');
+
+  const many = await open(fixture, '#/lab');
+  await many.getByText('Earlier directions').waitFor();
+  await many.getByRole('button', { name: /^Veil gate props objects/ }).click();
+  await many.getByRole('button', { name: 'Send to 3D' }).click();
+  const batch = many.getByRole('dialog', { name: 'Send 6 assets to 3D' });
+  await batch.getByRole('button', { name: 'Custom settings for Lantern post' }).click();
+  await batch.getByRole('combobox', { name: 'Rig for Lantern post' }).selectOption('multi-legged');
+  await shot(many, 'byhand-batch-studio');
+
   const named = await open(`${fixture}&arrival=named`, '#/board');
   await named.getByText('is in the Inbox', { exact: false }).first().waitFor();
   await shot(named, 'byhand-arrival-imported');
@@ -983,36 +1011,75 @@ async function byHandShots() {
   await shot(credits, 'byhand-credits-subscription');
 }
 
+/**
+ * A set's pages keep rendering WebGL until their context closes, so every
+ * set's contexts are closed before the next starts; dozens of live scenes
+ * starve a later set's waits on a full run.
+ */
+async function settle() {
+  await Promise.all(browser.contexts().map(context => context.close()));
+}
+
 try {
   if (only === 'guards') await guardShots();
+  await settle();
   if (!only || only === 'ux') await uxShots();
+  await settle();
   if (!only) await coreShots();
+  await settle();
   if (!only || only === 'handoff') await handoffShots();
+  await settle();
   if (!only || only === 'scene') await sceneShots();
+  await settle();
   if (!only || only === 'material') await materialShots();
+  await settle();
   if (!only || only === 'redo') await redoShots();
+  await settle();
   if (!only || only === 'byhand') await byHandShots();
-  if (!only || only === 'size') await listShots();
-  if (!only || only === 'size') await prepShots();
+  await settle();
+  if (!only || only === 'size') {
+    await listShots();
+    await prepShots();
+  }
+  await settle();
   if (!only || only === 'built') await builtShots();
+  await settle();
   if (!only || only === 'board') await boardShots({ open, shot });
+  await settle();
   if (!only || only === 'motion') await motionShots({ open, shot });
+  await settle();
   if (!only || only === 'timeline') await timelineShots({ open, shot });
+  await settle();
   if (!only || only === 'paths') await pathsShots({ open, shot });
+  await settle();
   if (!only || only === 'pipeline') await pipelineShots({ open, shot, hoverTip });
+  await settle();
   if (!only || only === 'page') await pageShots({ open, shot });
+  await settle();
   if (!only || only === 'game') await gameShots({ open, shot });
+  await settle();
   if (!only || only === 'library') await libraryShots({ open, shot });
+  await settle();
   if (!only || only === 'animations') await animationsShots({ open, shot });
+  await settle();
   if (!only || only === 'compare') await compareShots({ open, shot });
+  await settle();
   if (!only || only === 'parts') await partsShots({ open, shot });
+  await settle();
   if (!only || only === 'ship') await shipShots({ open, shot, hoverTip });
+  await settle();
   if (!only || only === 'sync') await syncShots({ open, shot });
+  await settle();
   if (!only || only === 'about') await aboutShots({ open, shot });
+  await settle();
   if (!only || only === 'style') await styleShots({ open, shot, hoverTip });
+  await settle();
   if (!only || only === 'refs') await refsShots({ open, shot });
+  await settle();
   if (!only || only === 'codex') await codexShots({ open, shot, hoverTip });
+  await settle();
   if (!only || only === 'images') await imagesShots({ open, shot });
+  await settle();
 } finally {
   await browser.close();
   await vite?.close();

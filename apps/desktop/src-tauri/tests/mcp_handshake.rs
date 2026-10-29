@@ -197,6 +197,15 @@ fn fixture(dir: &Path) -> (Session, String, std::path::PathBuf) {
     (session, manifest.id, project_dir)
 }
 
+/// Sets the monthly image cap the way the owner does in Settings; agents
+/// cannot change it over MCP.
+fn set_cap(session: &Session, cap: u32) {
+    let (root, mut config) = session.workspace().expect("workspace");
+    config.lab.images.monthly_cap_usd = cap;
+    maquette_core::workspace::save(&root, &config).expect("save");
+    session.set_config(config);
+}
+
 fn text(result: &CallToolResult) -> String {
     result
         .content
@@ -232,6 +241,18 @@ async fn call(client: &RunningService<RoleClient, ClientConfig>, tool: &str, arg
 }
 
 /// Sends a bare HTTP request and returns the status line.
+/// Polls `done` until it holds or `limit` passes.
+fn wait_until(limit: Duration, done: impl Fn() -> bool) -> bool {
+    let end = Instant::now() + limit;
+    while Instant::now() < end {
+        if done() {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    done()
+}
+
 fn raw_status(port: u16, request: &str) -> String {
     let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).expect("connect");
     stream
@@ -333,6 +354,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "assemble_prop",
             "attach_download",
             "bake_back",
+            "cancel_concept_jobs",
             "cancel_provider_jobs",
             "cancel_run",
             "clean_ref_background",
@@ -378,6 +400,7 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "make_other_views",
             "pick_concepts",
             "preview_fixups",
+            "prioritize_concept_jobs",
             "rebuild_built_asset",
             "redo_inbox_model",
             "redo_inbox_models",
@@ -663,12 +686,36 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     let set = call(
         &client,
         "set_image_backend",
-        json!({ "concepts": "openai-images", "quality": "medium", "monthlyCapUsd": 0 }),
+        json!({ "concepts": "openai-images", "quality": "medium" }),
     )
     .await;
     assert_eq!(set["backends"]["concepts"], json!("openai-images"));
     assert_eq!(set["backends"]["objectRefs"], json!("codex"));
     assert_eq!(set["quality"], json!("medium"));
+    // The cap is the owner's: a request that carries it is refused whole,
+    // and the backends it asked for are not changed either.
+    let cap = raw_call(
+        &client,
+        "set_image_backend",
+        json!({ "objectRefs": "openai-images", "monthlyCapUsd": 500 }),
+    )
+    .await;
+    assert_eq!(cap.is_error, Some(true));
+    assert!(
+        text(&cap).contains("only be changed by a person in Maquette"),
+        "{}",
+        text(&cap)
+    );
+    let after = call(&client, "get_image_backend", json!({})).await;
+    assert_eq!(after["monthlyCapUsd"], json!(10));
+    assert_eq!(after["backends"]["objectRefs"], json!("codex"));
+    let schema = tools
+        .iter()
+        .find(|t| t.name == "set_image_backend")
+        .map(|t| serde_json::to_string(&t.input_schema).expect("schema"))
+        .expect("listed");
+    assert!(!schema.contains("monthlyCapUsd"), "{schema}");
+    set_cap(&host.session, 0);
     let capped = raw_call(
         &client,
         "start_concepts",
@@ -692,12 +739,78 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         "the override goes to Codex: {}",
         text(&codex)
     );
-    call(
+
+    // Under the cap, an agent's round on the Image API waits for a person
+    // in the app: nothing is sent until it is approved, and a denied round
+    // ends cancelled.
+    set_cap(&host.session, 10);
+    let held = call(
         &client,
-        "set_image_backend",
-        json!({ "concepts": "codex", "monthlyCapUsd": 10 }),
+        "start_concepts",
+        json!({ "project": project_id, "direction": "Held", "prompt": "A lantern.", "count": 2 }),
     )
     .await;
+    assert_eq!(held["status"], json!("waiting for approval"), "{held}");
+    assert!(
+        held["approval"]["estimateUsd"]
+            .as_f64()
+            .is_some_and(|u| u > 0.0)
+    );
+    assert_eq!(held["jobs"][0]["state"], json!("approval"));
+    assert_eq!(held["jobs"][0]["backend"], json!("openai-images"));
+    let approvals = hub.approvals();
+    assert_eq!(approvals.len(), 1, "the app shows the round");
+    assert_eq!(approvals[0].kind, ApprovalKind::ImageRound);
+    assert_eq!(approvals[0].concept_jobs.len(), 2);
+    assert!(approvals[0].estimate_usd.is_some_and(|u| u > 0.0));
+    assert!(
+        approvals[0]
+            .detail
+            .as_deref()
+            .is_some_and(|d| d.starts_with("2 images at medium quality")),
+        "{:?}",
+        approvals[0].detail
+    );
+    let lab = call(&client, "get_concepts", json!({ "project": project_id })).await;
+    assert!(
+        lab["running"]
+            .as_array()
+            .expect("running")
+            .iter()
+            .any(|j| j["state"] == json!("approval"))
+    );
+    let credits = call(&client, "get_credits", json!({ "balance": false })).await;
+    assert_eq!(credits["openaiImages"]["capUsd"], json!(10));
+    assert_eq!(credits["openaiImages"]["monthToDateUsd"], json!(0.0));
+    assert!(
+        credits["openaiImages"]["pendingUsd"]
+            .as_f64()
+            .is_some_and(|u| u > 0.0),
+        "held jobs count as pending: {credits}"
+    );
+    assert!(hub.decide(&approvals[0].id, false));
+    let denied = wait_until(Duration::from_secs(5), || {
+        host.concepts
+            .jobs(Some(&project_id))
+            .iter()
+            .all(|j| j.state == maquette_core::concepts::ConceptJobState::Cancelled)
+    });
+    assert!(denied, "a denied round ends cancelled");
+    let again = call(
+        &client,
+        "retry_concept_jobs",
+        json!({ "project": project_id }),
+    )
+    .await;
+    assert_eq!(again["status"], json!("waiting for approval"), "{again}");
+    assert_eq!(again["jobs"][0]["state"], json!("approval"));
+    let retried = hub.approvals();
+    assert_eq!(retried[0].kind, ApprovalKind::ImageRound);
+    assert!(hub.decide(&retried[0].id, false));
+    assert!(wait_until(Duration::from_secs(5), || hub
+        .approvals()
+        .is_empty()));
+    call(&client, "set_image_backend", json!({ "concepts": "codex" })).await;
 
     // A send to Tripo waits for a person before anything could be spent.
     let sent = call(
@@ -766,6 +879,25 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     let handoff = std::path::PathBuf::from(by_hand["handoff"].as_str().expect("handoff"));
     assert!(handoff.join("settings.md").is_file());
     assert!(handoff.join("front.png").is_file());
+    // A prop goes without a rig by default, and mesh and rig are refused
+    // for an API send.
+    let card = std::fs::read_to_string(handoff.join("settings.md")).expect("card");
+    assert!(
+        card.contains("| Tab | HD Model |") && card.contains("| Rig | None |"),
+        "{card}"
+    );
+    let refused = raw_call(
+        &client,
+        "send_to_3d",
+        json!({ "project": project_id, "asset": "desk-lamp", "provider": "tripo", "rig": "biped" }),
+    )
+    .await;
+    assert_eq!(refused.is_error, Some(true));
+    assert!(
+        text(&refused).contains("Tripo Studio settings"),
+        "{}",
+        text(&refused)
+    );
     let listed = call(
         &client,
         "get_provider_job",
@@ -915,9 +1047,11 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
             "project": project_id,
             "provider": "by-hand",
             "overrides": { "faceLimit": 10000 },
+            "mesh": "smart-mesh",
+            "rig": "quadruped",
             "items": [
                 { "asset": "stone-lantern" },
-                { "asset": "desk-lamp", "overrides": { "faceLimit": 2000 } },
+                { "asset": "desk-lamp", "overrides": { "faceLimit": 2000 }, "mesh": "hd-model", "rig": "none" },
             ],
         }),
     )
@@ -938,6 +1072,15 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         "own overrides win: {}",
         cards[1]
     );
+    // The Studio tab and rig: the batch's, and an item's own on top.
+    assert!(
+        cards[0].contains("| Tab | Smart Mesh (P2.0) |"),
+        "{}",
+        cards[0]
+    );
+    assert!(cards[0].contains("| Rig | Quadruped |"), "{}", cards[0]);
+    assert!(cards[1].contains("| Tab | HD Model |"), "{}", cards[1]);
+    assert!(cards[1].contains("| Rig | None |"), "{}", cards[1]);
     for job in by_hand["jobs"].as_array().expect("jobs") {
         assert_eq!(job["status"], json!("waiting"));
         let folder = std::path::PathBuf::from(job["handoff"].as_str().expect("handoff"));

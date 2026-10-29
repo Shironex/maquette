@@ -10,12 +10,13 @@ export interface ImageQueueProps {
 
 /** The right panel: every Codex job of this session, with its state. */
 export default function ImageQueue({ view }: ImageQueueProps) {
-  const { cancelAll, clearFinished, now } = useImageQueue();
+  const { cancelAll, clearFinished, runNext, now } = useImageQueue();
   const jobs = view.jobs;
   const summary = queueSummary(jobs);
   const live = summary.running + summary.queued;
   const last = jobs[jobs.length - 1];
   const finished = jobs.length - live;
+  const queued = jobs.filter(j => j.state === 'queued').length;
   const rows = jobs.map(job => (
     <li key={job.id}>
       <QueueRow job={job} projectDir={view.projectDir} now={now} />
@@ -29,8 +30,20 @@ export default function ImageQueue({ view }: ImageQueueProps) {
     >
       <div className="mb-1 flex items-baseline justify-between">
         <h2 className="text-panel-title">Image queue</h2>
-        <span className="text-meta text-fg-mute tabular-nums">
-          {jobs.length ? `${summary.done} of ${summary.total} done` : 'Empty'}
+        <span className="flex items-baseline gap-1.5">
+          <span className="text-meta text-fg-mute tabular-nums">
+            {jobs.length ? `${summary.done} of ${summary.total} done` : 'Empty'}
+          </span>
+          {queued > 0 ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              tooltip="Moves this project's waiting images to the front of the line, ahead of other projects'"
+              onClick={() => void runNext()}
+            >
+              Run next
+            </Button>
+          ) : null}
         </span>
       </div>
       <p className="mb-2 text-meta text-fg-mute">

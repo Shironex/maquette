@@ -28,6 +28,17 @@ describe('an approval card', () => {
     expect(calls).toContain('mcp_decide');
   });
 
+  it("asks for an agent's OpenAI Images round with its dollar estimate", async () => {
+    const calls = await openAgentSession('images');
+    render(<ApprovalCard approval={approval('approval-3')} />);
+    const card = screen.getByRole('alertdialog');
+    expect(card).toHaveTextContent('Make 2 images for Frozen lake arena with OpenAI Images?');
+    expect(card).toHaveTextContent('This spends about $0.13 from the OpenAI key');
+    expect(card).toHaveTextContent('2 images at medium quality');
+    await userEvent.click(within(card).getByRole('button', { name: 'Approve and make 2' }));
+    expect(calls).toContain('mcp_decide');
+  });
+
   it('asks to ship a run stopped before Ship', async () => {
     await openAgentSession('active');
     render(<ApprovalCard approval={approval('approval-1')} />);

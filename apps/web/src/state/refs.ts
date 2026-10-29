@@ -125,6 +125,21 @@ export const FIX_LABEL: Record<RefFix, string> = {
   'leave-out': 'Leave out this image',
 };
 
+/**
+ * A send's warnings in two lists: the weak ref ones, and the note that the
+ * asset has a model already (the send makes its next version), which is no
+ * fault of the refs and does not count as a ref warning.
+ */
+export function splitModelNote(warnings: readonly RefWarning[]): {
+  weak: RefWarning[];
+  note: RefWarning | null;
+} {
+  return {
+    weak: warnings.filter(w => w.kind !== 'has-model'),
+    note: warnings.find(w => w.kind === 'has-model') ?? null,
+  };
+}
+
 /** "3 ref warnings". */
 export function warningsLine(count: number): string {
   return `${count} ref ${count === 1 ? 'warning' : 'warnings'}`;

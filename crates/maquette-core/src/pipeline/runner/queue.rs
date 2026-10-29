@@ -151,6 +151,24 @@ impl PipelineRunner {
         }
     }
 
+    /// Moves the queued runs among `run_ids` to the front of `lane`'s
+    /// queue, in the order they were queued, so they start next. Runs
+    /// already going and unknown ids are left alone. Returns how many moved.
+    pub fn run_next(&self, lane: &str, run_ids: &[String]) -> usize {
+        let mut lanes = self.inner.lanes();
+        let Some(lane) = lanes.get_mut(lane) else {
+            return 0;
+        };
+        let (mut first, rest): (VecDeque<Job>, VecDeque<Job>) = lane
+            .queue
+            .drain(..)
+            .partition(|(record, _, _)| run_ids.contains(&record.id));
+        let moved = first.len();
+        first.extend(rest);
+        lane.queue = first;
+        moved
+    }
+
     /// Queues a run with extra controls.
     ///
     /// # Errors

@@ -151,6 +151,7 @@ mod tests {
             redo_of: None,
             estimate: None,
             split: None,
+            studio: None,
         }
     }
 

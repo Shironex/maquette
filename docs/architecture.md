@@ -133,7 +133,7 @@ layout patch's `paths` and `pathTracks`.
 
 `tools/library.rs` holds `list_library`, `add_to_library`, `use_from_library` and
 `update_from_library`, which call the same `maquette_core::library` functions as the commands and
-emit `libraryChanged` and the project events. `tools/animations.rs` holds `list_animations`,
+emit `libraryChanged` and the project events. `list_library` pages (a `limit` and an entry id `cursor`) and answers compact entries unless `full`. The send tools' `modelWarning` comes from the core `HasModel` send warning (`refs/checks.rs`), which the Send to 3D and batch panels show as a note beside the ref warnings. `tools/animations.rs` holds `list_animations`,
 `import_animations` and `save_model_clips`; import paths must resolve inside the workspace.
 
 `tools/trash.rs` holds `remove_assets`, `list_removed_assets` and `restore_asset`, which go
@@ -193,12 +193,19 @@ board), one PNG per request, 429 handled by `http::Api` with `Retry-After` and `
 `PRICES_URL`) and estimates a call that reported none. `test_key` lists the models and spends
 nothing.
 
+`concepts/jobs/persist.rs` keeps the Lab's queued, running, waiting and failed jobs in
+`lab-jobs.json` in the app's config folder (`Concepts::keep_jobs_in`, called by `Lab::new`), with
+what each run needs: the codex call (`codex_run.rs`) or the Image API request and plan. It is
+written when a job joins, changes state or leaves, never on a log line. On start the kept jobs come
+back failed with an Interrupted by a restart message (done when the image already landed), and
+Retry or `retry_concept_jobs` reruns them; nothing resumes on its own.
+
 `concepts/jobs/api.rs` runs the API jobs on their own in-process lane, as many at once as the Lab's
 concurrency, and settles them through the same `finish` as Codex jobs, so the states, the file
 layout, retries, cancel and `use_ref_candidate` do not change. Before a batch starts, the month's
 spend (`ledger::month_to_date`, the local calendar month), what queued API jobs will likely cost and
 the batch's estimate are checked against the cap, and a batch that would pass it is refused whole.
-There is no per round approval: the cap is the guard. Every made image appends an `ImageSpend` line
+The cap check counts each image at `ApiPlan::per_image_usd`, what one has cost lately at that quality (`ledger::recent_average_usd`: the last 20 measured lines, once there are 3), else the price list's guess. A round the person starts has no approval: the cap is the guard. An agent's round is held: `image_api::plan` sets `ApiPlan::hold` for `via_agent`, `queue` puts its jobs in `ConceptJobState::Approval` instead of the lane, and `jobs/approval.rs` releases or denies them (`retry_with(id, true)` holds an agent's retry the same way). On the desktop side every MCP tool that queues Lab images ends in `mcp/tools/image_round.rs::ask_for_round`, which adds an `ApprovalKind::ImageRound` to the hub (the jobs and `estimate_usd`), answers `waiting for approval`, and waits on a thread for the decision, withdrawing the approval once no job is left waiting (cancelled in the Lab). The web side shows it in `features/agents/ApprovalCard` and the queue rows. A 400 from OpenAI's safety system (`openai_images::refusal`; `http` keeps OpenAI's `error.code` in the message) fails the job with `ConceptJob::refused` and a message to reword the prompt, and writes nothing to the ledger. `get_credits` adds `openaiImages`, the month's dollars against the cap. Every made image appends an `ImageSpend` line
 (v3, `event: "image"`, dollars, tokens, estimated or not, via agent or not) to `credits.jsonl`;
 older readers skip it. A job cancelled while its request is out still records the spend when the
 answer comes, and its image is dropped. A kept 429 becomes a rate limited job like Codex's.
@@ -206,7 +213,7 @@ answer comes, and its image is dropped. A kept 429 becomes a rate limited job li
 The key is in the keychain under its own account (`secrets::OPENAI_ACCOUNT`), never in a file.
 The desktop commands are `image_api_status`, `image_api_key_save`, `image_api_key_remove` and
 `image_api_key_test`; the MCP tools are `mcp/tools/image_api.rs` (`get_image_backend`,
-`set_image_backend`, which emits `ImageSettingsChanged`), and `start_concepts`, `make_object_refs`,
+`set_image_backend`, which emits `ImageSettingsChanged` and refuses `monthlyCapUsd` with `CAP_REFUSED`: the cap is set only in Settings), and `start_concepts`, `make_object_refs`,
 `make_other_views` and `clean_ref_background` take `backend`. The web side is
 `state/image-api.ts`, `state/use-image-api-store.ts`, `features/settings/ImagesSection` (the key row
 is the shared `KeyRowView`) and the Composer's cost line. Debug builds point the client at

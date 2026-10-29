@@ -41,6 +41,8 @@ The agent rules hold by construction.
 - Blender only runs headless. No tool opens its window.
 - There is no screenshot or screen capture tool.
 - A send to Tripo or Meshy always waits for you to Approve in the app before any credit is spent, whatever other settings say. Deny cancels the job.
+- A round of Lab images on OpenAI Images that an agent asks for waits for you to Approve in the app, with what it should cost, before anything is sent. Deny cancels its jobs. Codex rounds and rounds you start in the Lab do not ask.
+- An agent cannot change the monthly OpenAI image cap. `set_image_backend` changes the backends and quality only; the cap is yours, in Settings.
 - With Ask before shipping on (the default), a run started over MCP stops before its Ship step and the app shows Approve or Deny.
 - Settings overrides are checked by name. An unknown one is refused with the list of valid names.
 

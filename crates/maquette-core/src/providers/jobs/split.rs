@@ -409,6 +409,7 @@ fn prepare(
         redo_of: None,
         estimate,
         split: Some(split),
+        studio: None,
     };
     Ok((job, found.file))
 }

@@ -166,6 +166,7 @@ impl ProviderJobs {
                 views: &job.views,
                 tripo: job.tripo.as_ref(),
                 meshy: job.meshy.as_ref(),
+                studio: job.studio,
                 prompt: job.prompt.as_deref(),
             }
             .write(&project_dir)?;
@@ -307,6 +308,15 @@ fn prepare(
         }
     };
     let prompt = check_prompt(service, request.prompt.as_deref())?;
+    let studio = tripo
+        .as_ref()
+        .filter(|_| request.provider == Provider::ByHand)
+        .map(|preset| {
+            request
+                .studio
+                .unwrap_or_default()
+                .resolve(preset, request.variant)
+        });
     if let Some(service) = request.provider.service() {
         api_key(shared, service)?;
     }
@@ -378,6 +388,7 @@ fn prepare(
         redo_of: request.redo_of.clone(),
         estimate,
         split: None,
+        studio,
     })
 }
 

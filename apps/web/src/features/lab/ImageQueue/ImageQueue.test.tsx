@@ -47,4 +47,16 @@ describe('the image queue', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(clearFinished).toHaveBeenCalledTimes(1);
   });
+
+  it("moves the project's waiting jobs up with Run next, shown only while some wait", async () => {
+    const runNext = vi.fn(async () => {});
+    useLabStore.setState({ runNext });
+    render(<ImageQueue view={view} />);
+    expect(screen.queryByRole('button', { name: 'Run next' })).toBeNull();
+    cleanup();
+    const waiting = view.jobs.map((j, i) => (i === 5 ? { ...j, state: 'queued' as const } : j));
+    render(<ImageQueue view={{ ...view, jobs: waiting }} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Run next' }));
+    expect(runNext).toHaveBeenCalledWith();
+  });
 });

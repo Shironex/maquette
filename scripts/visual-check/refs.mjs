@@ -2,7 +2,8 @@
  * Multi-view refs for scripts/visual-check.mjs (ONLY=refs), on Frostveil
  * with the guardian statues' refs tagged (`?lab=refs`): the refs sheet
  * with 1 of 4 views and its Other tray, a view chip's menu, Make the other
- * views before and after its candidates come back, Clean background with
+ * views before and after its candidates come back (with notes, then a
+ * filled Left offering Replace Left), Clean background with
  * its before and after, and the weak ref warnings in Send to 3D and in the
  * batch send panel, with the batch approval repeating the count, and the
  * detail tagged as the back, which looks different from the front.
@@ -24,6 +25,9 @@ export async function refsShots({ open, shot }) {
   await sheet.getByRole('button', { name: 'Make the other views' }).click();
   const views = board.getByRole('dialog', { name: 'Make the other views of Guardian statues' });
   await views.getByRole('button', { name: 'Draw 3 views' }).waitFor();
+  await views
+    .getByRole('textbox', { name: 'Notes for every view' })
+    .fill('The sword in the left hand, the cape over the right shoulder');
   await shot(board, 'refs-make-views');
   await views.getByRole('button', { name: 'Draw 3 views' }).click();
   await views.getByRole('button', { name: 'Use as Right' }).first().waitFor({ timeout: 20_000 });
@@ -31,6 +35,9 @@ export async function refsShots({ open, shot }) {
   await shot(board, 'refs-make-views-candidates');
   await views.getByRole('button', { name: 'Use as Left' }).first().click();
   await views.getByRole('button', { name: 'In use' }).waitFor();
+  await views.getByRole('button', { name: 'Replace Left' }).waitFor();
+  await board.waitForTimeout(300);
+  await shot(board, 'refs-make-views-replace');
   await views.getByRole('button', { name: 'Back to the refs' }).click();
 
   await sheet.getByRole('button', { name: 'View of guardian_statues_crop.png: Other' }).click();

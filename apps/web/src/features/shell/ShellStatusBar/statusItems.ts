@@ -12,6 +12,7 @@ import type {
 } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { usageLabel, usageTone, type UsageTone } from '@/state/codex-usage';
+import { isWaiting } from '@/state/lab';
 import { serverHost } from '@/state/page';
 import { runStatusLine, runSummary } from '@/state/pipeline';
 import type { ViewId } from '@/state/views';
@@ -74,7 +75,7 @@ function codexUsageItems(s: ShellStatus): StatusBarItem[] {
 
 function labItems(jobs: readonly ConceptJob[]): StatusBarItem[] {
   const generating = jobs.filter(j => j.state === 'running').length;
-  const waiting = jobs.filter(j => j.state === 'queued' || j.state === 'rate-limited').length;
+  const waiting = jobs.filter(isWaiting).length;
   if (!generating && !waiting) return [];
   return [
     {

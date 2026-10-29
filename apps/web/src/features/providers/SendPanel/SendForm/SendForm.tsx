@@ -13,9 +13,11 @@ import { CostEstimate } from '../../CostEstimate';
 import { MeshyPresetFields, TripoPresetFields } from '../../PresetFields';
 import { PromptField } from '../../PromptField';
 import { SectionTitle } from '../../SectionTitle';
+import { StudioFields } from '../../StudioFields';
 import { PROVIDERS, SERVICES, VARIANTS } from '../../choices';
 import { EarlierSends } from './EarlierSends';
 import { ImageChoice } from './ImageChoice';
+import { ModelNote } from '../../ModelNote';
 import { RefWarnings } from '../../RefWarnings';
 import { useSendEstimate, useSendForm, useSendWarnings } from './SendForm.hooks';
 
@@ -40,9 +42,10 @@ export default function SendForm({ options, draft }: SendFormProps) {
     earlier,
     label,
     redo,
+    studio,
   } = useSendForm(options, draft);
   const estimate = useSendEstimate(options, draft);
-  const { warnings, fix } = useSendWarnings(options, draft, multiView);
+  const { warnings, note, fix } = useSendWarnings(options, draft, multiView);
   const tagged = (options.asset.refs ?? []).length > 0;
   const service = draft.service;
   const images = options.images.map(image => (
@@ -93,6 +96,14 @@ export default function SendForm({ options, draft }: SendFormProps) {
                   onChange={next => setDraft({ service: next })}
                 />
               </div>
+              {studio ? (
+                <StudioFields
+                  compact
+                  value={draft.studio}
+                  views={draft.images.length}
+                  onChange={next => setDraft({ studio: next })}
+                />
+              ) : null}
             </div>
           ) : key?.saved ? (
             <p className="flex items-start gap-2 text-meta text-fg-mute">
@@ -135,6 +146,7 @@ export default function SendForm({ options, draft }: SendFormProps) {
           <p className="text-meta text-fg-mute">
             {imagesNote(draft.provider, service, draft.images, multiView, smart)}
           </p>
+          <ModelNote note={note} />
           <RefWarnings warnings={warnings} onFix={fix} />
         </section>
 
@@ -171,6 +183,7 @@ export default function SendForm({ options, draft }: SendFormProps) {
               compact
               preset={draft.tripo}
               variant={draft.variant}
+              byHand={studio}
               onChange={tripo => setDraft({ tripo })}
             />
           ) : (

@@ -2,7 +2,9 @@
  * A fake MCP server for mock mode. It "runs" whenever the workspace setting
  * is on; `?agents=active` adds an activity list from an agent session, a
  * run waiting at Ship for approval and a send to Tripo waiting the same way.
- * `?agents=batch` asks for three sends under one approval instead.
+ * `?agents=batch` asks for three sends under one approval instead, and
+ * `?agents=images` a round of two Lab images on OpenAI Images (the jobs
+ * `?lab=approval` holds).
  */
 import type { Approval, McpCall, McpStatus, WorkspaceConfig } from '../client';
 import { clock } from '@/lib/clock';
@@ -54,6 +56,7 @@ export function createFakeAgents({
   config,
   active,
   batch = false,
+  images = false,
   emit,
   onSendDecision,
   games,
@@ -63,6 +66,8 @@ export function createFakeAgents({
   active: boolean;
   /** The send waiting for approval is a batch of three. */
   batch?: boolean;
+  /** An OpenAI Images round waits instead of the send. */
+  images?: boolean;
   emit?: (status: McpStatus) => void;
   /** A send to 3D an agent asked for was approved or denied. */
   onSendDecision?: (job: string, approve: boolean) => void;
@@ -140,6 +145,29 @@ export function createFakeAgents({
             },
       ]
     : [];
+
+  if (images && approvals[0]) {
+    approvals = [
+      approvals[0],
+      {
+        id: 'approval-3',
+        kind: 'image-round',
+        runId: null,
+        project: approvals[0].project,
+        runNumber: null,
+        step: null,
+        job: null,
+        assetName: 'Frozen lake arena',
+        service: 'OpenAI Images',
+        detail: '2 images at medium quality, about $0.13. $3.42 of $10 spent this month.',
+        estimate: null,
+        conceptJobs: ['frozen-lake-arena-07-mock', 'frozen-lake-arena-08-mock'],
+        estimateUsd: 0.134,
+        requestedAtMs: now - 25_000,
+        items: [],
+      },
+    ];
+  }
 
   const status = (): McpStatus => {
     const agents = config().agents;

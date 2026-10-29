@@ -27,17 +27,10 @@ import {
 } from './lab-fixtures';
 import { clock } from '@/lib/clock';
 import { createLabSends } from './create-lab-sends';
+import { createLabRequests } from './lab-requests';
 import { createRefsHandlers } from './create-refs-handlers';
 import { createStyleBoards, markStyled } from './style-board';
-import {
-  finished,
-  importRefs,
-  objectsDirectionName,
-  queuedJob,
-  refMayReplace,
-  retryable,
-  slug,
-} from './lab-helpers';
+import { finished, importRefs, queuedJob, refMayReplace, retryable } from './lab-helpers';
 
 export { refMayReplace };
 
@@ -59,7 +52,8 @@ export interface FakeLabOptions {
   /**
    * `running`: the arena direction has two images generating that never
    * finish; `limited` adds a rate limited job, `usage` three waiting for the
-   * Codex usage limit; `refs` tags the guardian statues' refs (see
+   * Codex usage limit, `approval` two waiting for an agent's OpenAI Images
+   * round to be approved and one OpenAI refused; `refs` tags the guardian statues' refs (see
    * create-refs-handlers.ts).
    */
   state?: string | null;
@@ -75,7 +69,13 @@ export interface FakeLabOptions {
 export function createFakeLab(options: FakeLabOptions) {
   const { fail } = options;
   const limit: LabLimit | undefined =
-    options.state === 'limited' ? 'rate' : options.state === 'usage' ? 'usage' : undefined;
+    options.state === 'limited'
+      ? 'rate'
+      : options.state === 'usage'
+        ? 'usage'
+        : options.state === 'approval'
+          ? 'approval'
+          : undefined;
   const running = options.state === 'running' || limit !== undefined;
   const batch = options.handoff === 'batch';
   const seeded = [...(batch ? veilGateDirections() : []), ...labDirections(running)];
@@ -91,6 +91,9 @@ export function createFakeLab(options: FakeLabOptions) {
   let pool = 0;
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const standIns = new Map<string, string>();
+  /** Run next: the later a job was moved up, the sooner it starts. */
+  const movedUp = new Map<string, number>();
+  let moves = 0;
 
   const list = (project: string) => directions.get(project) ?? [];
   const emit = (event: ConceptEvent) => options.emit?.(structuredClone(event));
@@ -131,7 +134,10 @@ export function createFakeLab(options: FakeLabOptions) {
     const busy = jobs.filter(j => j.state === 'running' && timers.has(j.id)).length;
     const held = jobs.filter(j => j.state === 'running' && !timers.has(j.id)).length;
     let free = concurrency - busy - held;
-    for (const job of jobs.filter(j => j.state === 'queued')) {
+    const waiting = jobs
+      .filter(j => j.state === 'queued')
+      .sort((a, b) => (movedUp.get(b.id) ?? 0) - (movedUp.get(a.id) ?? 0));
+    for (const job of waiting) {
       if (free <= 0) break;
       free -= 1;
       const started = update(job, {
@@ -222,60 +228,13 @@ export function createFakeLab(options: FakeLabOptions) {
     return view(project);
   }
 
-  function generate(request: NewConcepts) {
-    const name = request.direction.trim();
-    if (!name) fail('invalid', 'Name the direction.');
-    if (!request.prompt.trim()) fail('invalid', 'Describe what the concepts should show.');
-    if (request.count < 1 || request.count > 12)
-      fail('invalid', 'Ask for between 1 and 12 images.');
-    const id = slug(name);
-    const at = clock.now().toISOString();
-    const existing = list(request.project).find(d => d.id === id);
-    const direction = saveDirection(request.project, {
-      id,
-      name,
-      prompt: request.prompt.trim(),
-      refs: request.refs,
-      aspect: request.aspect,
-      images: existing?.images ?? [],
-      createdAt: existing?.createdAt ?? at,
-      updatedAt: at,
-      source: existing?.source ?? null,
-      kind: existing?.kind ?? null,
-      ...styles.stamp(request.project, request.useStyle),
-    });
-    return enqueue(request.project, direction, Array<string | null>(request.count).fill(null));
-  }
-
-  /** Mirrors `concepts::objects`: one titled job per object, the concept attached. */
-  function makeObjects(request: NewObjectRefs) {
-    const names = request.objects.map(o => o.trim()).filter(Boolean);
-    if (names.length === 0) fail('invalid', 'Name at least one object.');
-    if (names.length > 12) fail('invalid', 'Make 12 object refs at most in one go.');
-    const long = names.find(n => n.length > 60);
-    if (long) fail('invalid', `Keep each object to 60 characters or fewer: "${long}" is longer.`);
-    if (request.kind === 'scene')
-      fail('invalid', 'Object refs are props or characters, not scenes.');
-    const base = request.sourceName.trim() || 'Concept';
-    const name = objectsDirectionName(list(request.project), request);
-    const id = slug(name);
-    const at = clock.now().toISOString();
-    const existing = list(request.project).find(d => d.id === id);
-    const direction = saveDirection(request.project, {
-      id,
-      name,
-      prompt: `One clean reference image of each object in ${base}.`,
-      refs: [request.source],
-      aspect: request.aspect,
-      images: existing?.images ?? [],
-      createdAt: existing?.createdAt ?? at,
-      updatedAt: at,
-      source: request.source,
-      kind: request.kind,
-      ...styles.stamp(request.project, request.useStyle),
-    });
-    return enqueue(request.project, direction, names);
-  }
+  const { generate, makeObjects } = createLabRequests({
+    fail,
+    list,
+    saveDirection,
+    stamp: styles.stamp,
+    enqueue,
+  });
 
   function cancel(id: string) {
     const job = jobs.find(j => j.id === id);
@@ -330,6 +289,17 @@ export function createFakeLab(options: FakeLabOptions) {
       const live = jobs.filter(j => j.project === project && !finished(j));
       for (const job of live) cancel(job.id);
       return live.length;
+    },
+    lab_run_next: ({ project, jobs: ids }) => {
+      const moved = jobs.filter(
+        j =>
+          j.project === project &&
+          j.state === 'queued' &&
+          (!Array.isArray(ids) || ids.includes(j.id))
+      );
+      moves += 1;
+      for (const job of moved) movedUp.set(job.id, moves);
+      return moved;
     },
     lab_clear_finished: ({ project }) => {
       jobs = jobs.filter(j => j.project !== project || !finished(j));

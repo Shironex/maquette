@@ -12,7 +12,7 @@ import type {
   SendOptions,
   TripoPreset,
 } from '@/ipc/client';
-import { presetChanges, type BatchDraft } from './batch';
+import { presetChanges, studioFor, type BatchDraft } from './batch';
 import { MAX_IMAGES, PROVIDER_LABEL, isActive, type SendDraft } from './providers';
 
 /** Why an inbox model cannot be redone, or null. */
@@ -38,6 +38,7 @@ export function redoDraft(job: ProviderJob, options: SendOptions, fresh: SendDra
     tripo: job.tripo ? structuredClone(job.tripo) : fresh.tripo,
     meshy: job.meshy ? structuredClone(job.meshy) : fresh.meshy,
     prompt: job.prompt ?? '',
+    studio: job.studio ?? fresh.studio,
   };
 }
 
@@ -79,6 +80,7 @@ export function redoBatchDraft(base: BatchDraft, sources: RedoSources): BatchDra
     service,
     tripo,
     meshy,
+    studio: studioFor(tripo),
     items: base.items.map(item => {
       const job = sources[item.asset];
       if (!job) return item;
@@ -88,6 +90,7 @@ export function redoBatchDraft(base: BatchDraft, sources: RedoSources): BatchDra
         images: job.images.length > 0 ? job.images.slice(0, MAX_IMAGES) : item.images,
         tripo: job.service === service ? own<TripoPreset>(job.tripo, tripo, job.variant) : {},
         meshy: job.service === service ? own<MeshyPreset>(job.meshy, meshy, job.variant) : {},
+        studio: job.studio ? presetChanges(studioFor(tripo)[job.variant], job.studio) : {},
         prompt: job.prompt ?? '',
         redoOf: job.id,
       };

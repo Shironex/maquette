@@ -173,6 +173,7 @@ impl Concepts {
         }
         let front = refs_jobs::front_of(refs)?;
         let views = refs_jobs::views_to_draw(refs, &request.views)?;
+        let notes = refs_jobs::view_notes(request.notes.as_deref())?;
         let board = style::for_job(lane.project_dir, request.use_style);
         self.ready(
             lane,
@@ -203,6 +204,7 @@ impl Concepts {
                     prompt: refs_jobs::view_prompt(
                         asset,
                         view,
+                        &notes,
                         &lane.project_dir.join(&p.file),
                         board.as_ref(),
                     ),

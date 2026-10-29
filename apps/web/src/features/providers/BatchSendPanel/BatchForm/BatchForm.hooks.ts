@@ -14,6 +14,7 @@ import {
 import { useAppStore } from '@/state/use-app-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useCatalog } from '../../PresetFields';
+import { splitModelNote } from '@/state/refs';
 import { useRefWarnings, useWarningFix } from '../../RefWarnings';
 
 /** What the batch form does: edit the draft, send it, or leave for Settings. */
@@ -95,12 +96,15 @@ export function useBatchWarnings(draft: BatchDraft) {
         draft.service === 'tripo' ? itemTripo(draft, i).multiView : itemMeshy(draft, i).multiView,
     }));
   const lists = useRefWarnings(project, items);
-  const byAsset = new Map<string, RefWarning[]>(items.map((i, n) => [i.asset, lists?.[n] ?? []]));
+  const split = items.map((i, n) => [i.asset, splitModelNote(lists?.[n] ?? [])] as const);
+  const byAsset = new Map<string, RefWarning[]>(split.map(([asset, s]) => [asset, s.weak]));
+  const notes = new Map<string, RefWarning | null>(split.map(([asset, s]) => [asset, s.note]));
   const warned = [...byAsset.values()].filter(l => l.length > 0).length;
   const fix = useWarningFix(project ?? '', leaveOut);
   return {
     known: lists !== null,
     byAsset,
+    notes,
     warned,
     only: only && warned > 0,
     setOnly,

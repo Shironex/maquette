@@ -3,6 +3,7 @@ import { commands, type Approval } from '@/ipc/client';
 import { useNow } from '@/lib/useNow';
 import { commitFirstLine, originalsLine, shipGroups } from '@/state/game';
 import { formatCredits } from '@/state/credits';
+import { formatUsd } from '@/state/image-api';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 
@@ -38,10 +39,15 @@ export function useApprovalCard(approval: Approval) {
   const site = projects?.find(p => p.id === approval.project);
   const now = useNow(15_000);
   const estimate = approval.estimate;
+  const usd = approval.estimateUsd;
   const cost =
-    estimate === null || estimate === undefined
-      ? `${approval.service} credits`
-      : `about ${formatCredits(estimate)} ${approval.service} credits`;
+    approval.kind === 'image-round'
+      ? usd === null || usd === undefined
+        ? 'dollars from the OpenAI key'
+        : `about ${formatUsd(usd)} from the OpenAI key`
+      : estimate === null || estimate === undefined
+        ? `${approval.service} credits`
+        : `about ${formatCredits(estimate)} ${approval.service} credits`;
   const notes = useShipNotes(approval, approval.kind === 'ship' && site?.target === 'game');
   return { decide, deciding, site, now, cost, notes };
 }

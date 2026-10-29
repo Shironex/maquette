@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use super::usage;
-use super::{ConceptEvent, ConceptJob, ConceptJobState, Concepts, Run, Shared, api};
+use super::{ConceptEvent, ConceptJob, ConceptJobState, Concepts, Entry, Run, Shared, api};
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::now_ms;
 use crate::pipeline::runner::{JobRunner, PipelineRunner};
@@ -215,6 +215,30 @@ pub(super) fn schedule(shared: Arc<Shared>, id: String, generation: u64, wait: D
     }
 }
 
+/// Clears a job's last run so it can run again, in `state`.
+pub(super) fn reset(e: &mut Entry, state: ConceptJobState) {
+    e.generation += 1;
+    e.session = None;
+    e.last_error = None;
+    e.started = None;
+    e.last_emit = None;
+    let job = &mut e.job;
+    job.run_id = None;
+    job.state = state;
+    job.queued_at_ms = now_ms();
+    job.started_at_ms = None;
+    job.finished_at_ms = None;
+    job.retry_at_ms = None;
+    job.width = None;
+    job.height = None;
+    job.log_tail.clear();
+    job.usage_limit = false;
+    job.refused = false;
+    if job.retries == 0 {
+        job.message = None;
+    }
+}
+
 /// Queues the job's run (again): the same prompt, refs and file, a fresh
 /// log. While Codex's usage limit holds a Codex job waits for it instead,
 /// unless `now` (Retry by hand runs it at once); an Image API job goes to
@@ -234,25 +258,8 @@ pub(super) fn submit(
         } else {
             usage_holds(shared)
         };
-        e.generation += 1;
-        e.session = None;
-        e.last_error = None;
-        e.started = None;
-        e.last_emit = None;
+        reset(e, ConceptJobState::Queued);
         let job = &mut e.job;
-        job.run_id = None;
-        job.state = ConceptJobState::Queued;
-        job.queued_at_ms = now_ms();
-        job.started_at_ms = None;
-        job.finished_at_ms = None;
-        job.retry_at_ms = None;
-        job.width = None;
-        job.height = None;
-        job.log_tail.clear();
-        job.usage_limit = false;
-        if job.retries == 0 {
-            job.message = None;
-        }
         if let Some(until) = hold {
             wait_for_usage(job, until);
             let waiting = (job.clone(), e.generation);
@@ -308,6 +315,16 @@ impl Concepts {
     ///
     /// Fails for an unknown job, and for one that is queued, running or done.
     pub fn retry(&self, job_id: &str) -> CoreResult<ConceptJob> {
+        self.retry_with(job_id, false)
+    }
+
+    /// [`Concepts::retry`], except that with `hold` an Image API job waits
+    /// for approval again instead of running (an agent's retry).
+    ///
+    /// # Errors
+    ///
+    /// As [`Concepts::retry`].
+    pub fn retry_with(&self, job_id: &str, hold: bool) -> CoreResult<ConceptJob> {
         {
             let mut jobs = self.shared.jobs();
             let e = jobs
@@ -324,39 +341,54 @@ impl Concepts {
                         e.job.file
                     )));
                 }
-                ConceptJobState::Queued | ConceptJobState::Running => {
+                ConceptJobState::Queued | ConceptJobState::Running | ConceptJobState::Approval => {
                     return Err(CoreError::Invalid(format!(
                         "{} is still {}; only a failed or cancelled job runs again.",
                         e.job.file,
-                        if e.job.state == ConceptJobState::Queued {
-                            "queued"
-                        } else {
-                            "running"
+                        match e.job.state {
+                            ConceptJobState::Queued => "queued",
+                            ConceptJobState::Approval => "waiting for approval",
+                            _ => "running",
                         }
                     )));
                 }
+            }
+            if hold && matches!(e.run, Run::Api(_)) {
+                reset(e, ConceptJobState::Approval);
+                let job = e.job.clone();
+                drop(jobs);
+                self.shared.emit(ConceptEvent::Job { job: job.clone() });
+                return Ok(job);
             }
         }
         submit(&self.shared, &self.runner, job_id, true)
             .ok_or_else(|| CoreError::NotFound(format!("the concept job {job_id}")))
     }
 
-    /// Cancels a job waiting out a rate limit; there is no run to stop.
+    /// Cancels a job waiting out a rate limit or for approval; there is no
+    /// run to stop.
     /// Returns the job when it was one.
     pub(super) fn cancel_waiting(&self, job_id: &str) -> Option<ConceptJob> {
         let job = {
             let mut jobs = self.shared.jobs();
-            let e = jobs
-                .iter_mut()
-                .find(|e| e.job.id == job_id && e.job.state == ConceptJobState::RateLimited)?;
-            e.job.state = ConceptJobState::Cancelled;
-            e.job.finished_at_ms = Some(now_ms());
-            e.job.retry_at_ms = None;
-            e.job.message = Some(if e.job.usage_limit {
+            let e = jobs.iter_mut().find(|e| {
+                e.job.id == job_id
+                    && matches!(
+                        e.job.state,
+                        ConceptJobState::RateLimited | ConceptJobState::Approval
+                    )
+            })?;
+            e.job.message = Some(if e.job.state == ConceptJobState::Approval {
+                "Cancelled before it was approved. Nothing was sent or spent.".into()
+            } else if e.job.usage_limit {
                 "Cancelled while waiting for the Codex usage limit.".into()
             } else {
                 "Cancelled while waiting out the rate limit.".into()
             });
+            e.generation += 1;
+            e.job.state = ConceptJobState::Cancelled;
+            e.job.finished_at_ms = Some(now_ms());
+            e.job.retry_at_ms = None;
             e.job.clone()
         };
         self.shared.emit(ConceptEvent::Job { job: job.clone() });

@@ -28,16 +28,30 @@ use crate::session::Session;
 /// The service the app shares between commands.
 pub struct Lab(pub Concepts);
 
+/// The file in the app's config folder that keeps the Lab's jobs across
+/// restarts.
+pub const KEPT_JOBS: &str = "lab-jobs.json";
+
 impl Lab {
-    pub fn new(handle: AppHandle) -> Self {
-        Self(Concepts::new(codex_home(), 4, move |event| {
+    /// Brings back the jobs kept in `config_dir` (failed, ready for Retry)
+    /// and keeps them there from now on.
+    pub fn new(handle: AppHandle, config_dir: &Path) -> Self {
+        let concepts = Concepts::new(codex_home(), 4, move |event| {
             if super::codex_usage::settles(&event) {
                 super::codex_usage::read_soon(&handle);
             }
             if let Err(err) = ConceptUpdate(event).emit(&handle) {
                 tracing::warn!(error = %err, "could not emit a concept event");
             }
-        }))
+        });
+        let restored = concepts.keep_jobs_in(config_dir.join(KEPT_JOBS));
+        if !restored.is_empty() {
+            tracing::info!(
+                jobs = restored.len(),
+                "brought back the Lab jobs of the last session"
+            );
+        }
+        Self(concepts)
     }
 }
 
@@ -231,39 +245,6 @@ pub async fn lab_generate(
     let tools = super::toolchain::toolbox(&session).await?;
     generate(&session, &lab.0, &tools, &request, Backend::default())?;
     view(&session, &lab.0, &request.project)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn lab_cancel(lab: State<'_, Lab>, job_id: String) -> CommandResult<()> {
-    Ok(lab.0.cancel(&job_id)?)
-}
-
-/// Runs a failed or cancelled job again: the same prompt, refs and file
-/// under the same job, so no new direction. A job waiting out a rate limit
-/// runs at once.
-#[tauri::command]
-#[specta::specta]
-pub fn lab_retry(lab: State<'_, Lab>, job_id: String) -> CommandResult<ConceptJob> {
-    Ok(lab.0.retry(&job_id)?)
-}
-
-/// Stops every queued and running job of the project.
-#[tauri::command]
-#[specta::specta]
-pub fn lab_cancel_all(lab: State<'_, Lab>, project: String) -> u32 {
-    u32::try_from(lab.0.cancel_all(&project)).unwrap_or(u32::MAX)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn lab_clear_finished(
-    session: State<'_, Session>,
-    lab: State<'_, Lab>,
-    project: String,
-) -> CommandResult<LabView> {
-    lab.0.clear_finished(&project);
-    view(&session, &lab.0, &project)
 }
 
 /// Stars or picks one image; `None` leaves that mark alone.
@@ -465,5 +446,6 @@ pub fn lab_import_refs(
     import_refs(&session, &project, &paths)
 }
 
+pub mod queue;
 #[cfg(test)]
 mod tests;

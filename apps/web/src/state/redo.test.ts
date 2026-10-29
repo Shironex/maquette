@@ -57,6 +57,7 @@ const fresh: SendDraft = {
   images: ['refs/fresh.png'],
   tripo: structuredClone(presets.tripo.prop),
   meshy: structuredClone(presets.meshy.prop),
+  studio: { mesh: 'hd-model', rig: 'none' },
 };
 
 const link = (job: string, asset: string, project = 'frostveil') => ({

@@ -4,6 +4,7 @@ import type {
   ProjectManifest,
   ProviderJob,
   Stage,
+  StudioSettings,
   WorkspaceConfig,
 } from '../client';
 import { handoffCard } from './handoff-card';
@@ -13,9 +14,16 @@ import { VEIL_GATE_OBJECTS, objectRef } from './lab-fixtures';
 
 /** The batch the `?handoff=batch` fixture wrote, and how far each object got. */
 const VEIL_GATE_BATCH = 'batch-19a2f0c1e4b';
-const VEIL_GATE_STATES: Record<string, { state: ProviderJob['state']; variant?: 'character' }> = {
-  'Lantern post': { state: 'waiting' },
-  'Hooded guardian': { state: 'waiting', variant: 'character' },
+const VEIL_GATE_STATES: Record<
+  string,
+  { state: ProviderJob['state']; variant?: 'character'; studio?: StudioSettings }
+> = {
+  'Lantern post': { state: 'waiting', studio: { mesh: 'smart-mesh', rig: 'none' } },
+  'Hooded guardian': {
+    state: 'waiting',
+    variant: 'character',
+    studio: { mesh: 'hd-model', rig: 'biped' },
+  },
   'Ice shards': { state: 'inbox' },
   'Orb shrine': { state: 'accepted' },
   'Sigil door': { state: 'waiting' },
@@ -65,6 +73,7 @@ export function seedProviders({
     createdAtMs: now - 26 * 60_000,
     message: 'Waiting for your model',
     cancel: 'stop-waiting',
+    studio: { mesh: 'hd-model', rig: 'none' },
   });
   guardians.handoff = handoffDir(guardians);
   guardians.card = handoffCard(guardians);
@@ -182,6 +191,10 @@ export function seedProviders({
         version: spec.state === 'accepted' ? 1 : null,
         cancel: back ? 'none' : 'stop-waiting',
         batch: VEIL_GATE_BATCH,
+        studio: spec.studio ?? {
+          mesh: 'hd-model',
+          rig: variant === 'character' ? 'biped' : 'none',
+        },
       });
       job.handoff = handoffDir(job);
       job.card = handoffCard(job);

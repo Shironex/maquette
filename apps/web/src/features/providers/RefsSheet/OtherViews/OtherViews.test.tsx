@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { events } from '@/ipc/generated/bindings';
@@ -30,7 +30,18 @@ describe('Make the other views', () => {
     await userEvent.click(within(sheet).getByRole('checkbox', { name: 'Back' }));
     await userEvent.click(within(sheet).getByRole('button', { name: 'Draw 2 views' }));
     expect(sent('refs_make_views')[0]).toMatchObject({
-      request: { views: ['left', 'right'], count: 2, useStyle: true },
+      request: { views: ['left', 'right'], count: 2, useStyle: true, notes: null },
+    });
+  });
+
+  it('sends the notes for every view, trimmed', async () => {
+    const { sheet, sent } = await openViews();
+    const notes = within(sheet).getByRole('textbox', { name: 'Notes for every view' });
+    await userEvent.type(notes, ' The sword in the left hand ');
+    expect(within(sheet).getByText(/28 of 400 characters/)).toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Draw 3 views' }));
+    expect(sent('refs_make_views')[0]).toMatchObject({
+      request: { notes: 'The sword in the left hand' },
     });
   });
 
@@ -41,6 +52,13 @@ describe('Make the other views', () => {
     expect(use).toHaveLength(2);
     await userEvent.click(use[0]!);
     expect(await within(sheet).findByRole('button', { name: 'In use' })).toBeDisabled();
-    expect(useRefsStore.getState().view!.refs.find(r => r.view === 'left')).toBeTruthy();
+    const first = useRefsStore.getState().view!.refs.find(r => r.view === 'left')!.file;
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Replace Left' }));
+    await waitFor(() =>
+      expect(useRefsStore.getState().view!.refs.some(r => r.file === first)).toBe(false)
+    );
+    const lefts = useRefsStore.getState().view!.refs.filter(r => r.view === 'left');
+    expect(lefts).toHaveLength(1);
+    expect(lefts[0]!.file).not.toBe(first);
   });
 });

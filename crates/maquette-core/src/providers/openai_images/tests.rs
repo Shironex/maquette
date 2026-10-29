@@ -151,6 +151,36 @@ fn errors_read_openais_message_and_point_at_the_settings() {
 }
 
 #[test]
+fn a_safety_refusal_says_why_that_nothing_was_charged_and_to_reword() {
+    let server = FakeServer::start(|_, _| {
+        Reply::json(
+            400,
+            &json!({ "error": {
+                "message": "Your request was rejected by the safety system. safety_violations=[violence].",
+                "type": "image_generation_user_error",
+                "code": "moderation_blocked"
+            } }),
+        )
+    });
+    let err = make(&api(&server), &StopFlag::default(), &call(Vec::new())).expect_err("400");
+    let reason = refusal(&err).expect("a refusal");
+    assert!(reason.contains("safety_violations=[violence]"), "{reason}");
+    assert!(reason.contains("[moderation_blocked]"), "{reason}");
+    let message = error_message(&err);
+    assert!(
+        message.starts_with("OpenAI refused this image on safety grounds"),
+        "{message}"
+    );
+    assert!(message.contains("Nothing was charged"), "{message}");
+    assert!(message.contains("Reword the prompt"), "{message}");
+    let other = ApiError::Status {
+        status: 400,
+        message: "Invalid size.".into(),
+    };
+    assert_eq!(refusal(&other), None);
+}
+
+#[test]
 fn test_key_only_lists_the_models() {
     let server = FakeServer::start(|_, _| {
         Reply::ok(&json!({ "object": "list", "data": [

@@ -18,6 +18,7 @@ pub mod credits;
 pub mod game;
 pub mod handoffs;
 pub mod image_api;
+pub mod image_round;
 pub mod inbox;
 pub mod library;
 pub mod materials;
@@ -68,8 +69,9 @@ run_pipeline runs a project's pipeline; when it reaches the Ship step it may ans
 \"waiting for approval\": a person approves or denies shipping in the Maquette app, \
 so poll get_run instead of starting the run again. send_to_3d sends an asset's refs to \
 Tripo or Meshy (it always waits for a person to approve the credits in the app; follow it \
-with get_provider_job) or writes a by hand handoff folder; send_batch_to_3d sends several \
-assets at once under one approval. redo_inbox_model sends an inbox model's asset again \
+with get_provider_job) or writes a by hand handoff folder (on Tripo with mesh, HD Model or \
+Smart Mesh (P2.0), and rig, biped, quadruped, multi-legged or none, for its settings card); \
+send_batch_to_3d sends several assets at once under one approval. redo_inbox_model sends an inbox model's asset again \
 prefilled from its send (redo_inbox_models for several), under the same approval. get_credits \
 reads the provider balances and the local ledger of paid sends (API spend and By hand \
 subscription spend apart). list_handoffs lists the By hand sends waiting for a model made on \
@@ -80,19 +82,30 @@ needsLook, and one it could not place under unmatched: nothing lands without att
 cancel_provider_jobs stops sends by id (a by hand send stops waiting, a send not yet started is cancelled, one that cannot be stopped says why), but a send waiting for approval is only denied by a person in the app. make_object_refs turns the objects of one concept into \
 one isolated image each. get_ref_views reads an asset's refs and the view each shows \
 (front, left, back, right or other); set_ref_views sets them, and every send then carries \
-front, left, back and right in that order and leaves other refs home. make_other_views has \
-Codex draw an asset's missing views from its front and clean_ref_background makes a cleaned \
-copy of one ref; both spend Codex usage like start_concepts, and use_ref_candidate puts a \
-candidate in place (a clean copy's original moves to refs/originals). send_to_3d and \
+front, left, back and right in that order and leaves other refs home. make_other_views draws \
+an asset's missing views from its front and clean_ref_background makes a cleaned \
+copy of one ref; both make images on the Lab's image backend like start_concepts, and make_other_views takes notes \
+for every view's prompt. use_ref_candidate puts a candidate in place: a clean copy's original \
+moves to refs/originals, and a drawn view replaces the ref in its slot, which moves to \
+refs/originals too unless another asset or a send still uses it (replace false keeps it as \
+other); its answer says what moved where. send_to_3d and \
 send_batch_to_3d report refWarnings (small, cropped, busy background, one view only, a view that looks different from the front) before \
 anything is spent; they never stop a send. get_concepts reads the Lab, with its failed jobs; a job Codex rate \
 limits runs again on its own a few times, a job that meets the Codex usage limit waits with \
 the rest of the queue until it lifts (usageLimit, retryAtMs), and retry_concept_jobs runs failed ones again (same \
-prompt, refs and file, no new direction). get_codex_usage reads how much of Codex's five hour and weekly \
+prompt, refs and file, no new direction; include held or all runs the rate or usage limited ones now too). Jobs \
+the app closed on come back failed with an Interrupted by a restart message, ready for retry_concept_jobs. \
+cancel_concept_jobs cancels queued, running, waiting or approval held jobs as the Lab's Cancel does, and \
+prioritize_concept_jobs moves a project's queued jobs to the front of the line (Run next). get_codex_usage reads how much of Codex's five hour and weekly \
 windows is used and when they reset; retry_usage_limited_jobs runs the jobs the usage limit holds once a \
 fresh read says it has lifted. Lab images are made by Codex unless Settings or a request's \
 backend picks openai-images (OpenAI's Image API, paid per image within a monthly cap in US dollars); \
-get_image_backend and set_image_backend read and change that. pick_concepts puts concepts on the Board \
+get_image_backend and set_image_backend read and change that (the backends and quality; the cap is \
+set only by a person in the app), and every job reports its backend. A round \
+an agent asks for on openai-images (start_concepts, make_object_refs, make_other_views, \
+clean_ref_background, retry_concept_jobs) waits for a person to approve it in the app and answers \
+\"waiting for approval\" with its estimate: poll get_concepts and never start it again. \
+get_credits shows the month's OpenAI image dollars against the cap. pick_concepts puts concepts on the Board \
 as Send picks to Refs does: each image goes into refs/ and becomes or joins an asset at Refs \
 (named after its object for object refs, else after its direction), ready for send_to_3d; \
 picking an image again returns its asset. star_concepts stars or unstars them. Both spend \
@@ -141,7 +154,7 @@ versions to another project. remove_assets removes assets from a project into th
 trash (refused while its model is being made or a run is going), list_removed_assets lists \
 them and restore_asset puts one back. \
 The library keeps models outside any project (library/ at the workspace root). list_library \
-reads it; add_to_library copies an asset's newest model in (a newer model of an asset already \
+reads it, 25 compact entries per page (follow nextCursor, or pass full for everything about an entry); add_to_library copies an asset's newest model in (a newer model of an asset already \
 there becomes its entry's next version); use_from_library copies an entry into a project as a \
 new asset that remembers its origin; update_from_library brings a newer library version in as \
 the asset's next version, keeping the fix-ups that still apply. The library copies, never \

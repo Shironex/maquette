@@ -1,8 +1,9 @@
 //! The Lab's image backends for agents: which one each kind of job uses
-//! (Codex or OpenAI's Image API), the API's quality and monthly cap, and
-//! the month's spend. The OpenAI key itself is only ever set in the app.
+//! (Codex or OpenAI's Image API), the API's quality, and the month's
+//! spend against its cap. The OpenAI key and the monthly cap are only ever
+//! set in the app.
 
-use maquette_core::concepts::backend::{ImageBackend, ImageSettings, MAX_MONTHLY_CAP_USD};
+use maquette_core::concepts::backend::{ImageBackend, ImageSettings};
 use maquette_core::providers::openai_images::ImageQuality;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
@@ -71,9 +72,15 @@ pub struct SetImageBackendArgs {
     pub clean_background: Option<BackendArg>,
     /// The Image API's quality: low (about $0.01 an image), medium or high (about $0.22).
     pub quality: Option<QualityArg>,
-    /// Whole US dollars the Image API may spend per calendar month; 0 stops it.
-    pub monthly_cap_usd: Option<u32>,
+    /// Not in the schema: the monthly cap is the owner's to set in
+    /// Settings, so a request that carries it is refused.
+    #[schemars(skip)]
+    #[serde(default)]
+    pub monthly_cap_usd: Option<Value>,
 }
+
+/// Why `set_image_backend` refuses a cap.
+pub const CAP_REFUSED: &str = "The monthly OpenAI image cap can only be changed by a person in Maquette (Settings > Image generation), not over MCP. Nothing was changed. Ask the owner to raise it, or use the codex backend.";
 
 fn status_value(status: &ImageApiStatus) -> Value {
     let s = &status.settings;
@@ -102,7 +109,7 @@ fn status_value(status: &ImageApiStatus) -> Value {
 #[tool_router(router = image_api_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Read how the Lab makes images: the backend per kind of job (codex, or openai-images for OpenAI's Image API), the Image API's quality and monthly cap in US dollars, what it spent this calendar month and what its queued jobs will likely cost, whether an OpenAI key is saved, and the estimated cost per image. Codex is the default for every kind. start_concepts, make_object_refs, make_other_views and clean_ref_background take a backend to override it for one request.",
+        description = "Read how the Lab makes images: the backend per kind of job (codex, or openai-images for OpenAI's Image API), the Image API's quality and monthly cap in US dollars, what it spent this calendar month and what its queued jobs will likely cost, whether an OpenAI key is saved, and the estimated cost per image. Codex is the default for every kind. start_concepts, make_object_refs, make_other_views and clean_ref_background take a backend to override it for one request. A round an agent asks for on openai-images waits for a person to approve it in the app.",
         annotations(read_only_hint = true)
     )]
     async fn get_image_backend(&self) -> Out {
@@ -121,12 +128,15 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change how the Lab makes images, as Settings > Image generation does: the backend per kind of job (codex or openai-images), the Image API's quality (low, medium or high) and its monthly cap in whole US dollars (0 stops it). Fields left out keep their value. openai-images is paid per image from the OpenAI key saved in the app; a batch that would pass the cap is refused before anything is made, and every image is written to the credits ledger. The key itself can only be set in the app. Returns the result like get_image_backend.",
+        description = "Change how the Lab makes images, as Settings > Image generation does: the backend per kind of job (codex or openai-images), and the Image API's quality (low, medium or high). Fields left out keep their value. The monthly cap is not changed here: only a person sets it, in the app's Settings, and a request that carries monthlyCapUsd is refused with nothing changed. openai-images is paid per image from the OpenAI key saved in the app; a batch that would pass the cap is refused before anything is made, a round an agent asks for waits for a person to approve it in the app, and every image is written to the credits ledger. The key itself can only be set in the app. Returns the result like get_image_backend.",
         annotations(destructive_hint = false)
     )]
     async fn set_image_backend(&self, Parameters(args): Parameters<SetImageBackendArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
+                if args.monthly_cap_usd.is_some() {
+                    return Err(CAP_REFUSED.to_string());
+                }
                 let (_, config) = host.session().workspace().map_err(|e| e.to_string())?;
                 let mut settings: ImageSettings = config.lab.images;
                 let b = &mut settings.backends;
@@ -144,14 +154,6 @@ impl McpTools {
                 }
                 if let Some(q) = args.quality {
                     settings.quality = q.into();
-                }
-                if let Some(cap) = args.monthly_cap_usd {
-                    if cap > MAX_MONTHLY_CAP_USD {
-                        return Err(format!(
-                            "The monthly cap must be at most ${MAX_MONTHLY_CAP_USD}."
-                        ));
-                    }
-                    settings.monthly_cap_usd = cap;
                 }
                 image_api::save_settings(host.session(), settings).map_err(|e| e.message)?;
                 host.image_settings_changed(&settings);

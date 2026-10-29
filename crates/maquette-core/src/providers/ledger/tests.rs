@@ -351,3 +351,33 @@ fn image_lines_read_into_their_own_list_and_sum_per_local_month() {
     let text = r#"{"v":4,"event":"image","usd":1}"#;
     assert_eq!(parse(text).skipped, 1);
 }
+
+#[test]
+fn the_recent_average_uses_measured_lines_at_the_same_quality() {
+    use crate::providers::openai_images::ImageQuality;
+    let spend = |usd: f64, quality: ImageQuality, estimated: bool| {
+        let mut line = ImageSpend::new(NOW, "gpt-image-2.5-sunburst", quality, usd);
+        line.estimated = estimated;
+        line
+    };
+    let medium = ImageQuality::Medium;
+    let two = [spend(0.06, medium, false), spend(0.07, medium, false)];
+    assert_eq!(recent_average_usd(&two, medium), None, "too few to trust");
+    let mut lines = vec![
+        spend(0.06, medium, false),
+        spend(0.07, medium, false),
+        spend(0.08, medium, false),
+        spend(0.50, medium, true),
+        spend(0.90, ImageQuality::High, false),
+    ];
+    let average = recent_average_usd(&lines, medium).expect("an average");
+    assert!((average - 0.07).abs() < 1e-12, "{average}");
+    // Only the newest 20 count; older lines come later in the list.
+    lines.splice(
+        0..0,
+        (0..images::AVERAGE_OF).map(|_| spend(0.05, medium, false)),
+    );
+    let newest = recent_average_usd(&lines, medium).expect("an average");
+    assert!((newest - 0.05).abs() < 1e-12, "{newest}");
+    assert_eq!(recent_average_usd(&lines, ImageQuality::Low), None);
+}

@@ -119,6 +119,7 @@ pub(super) fn job_value(job: &ConceptJob) -> Value {
         "usageLimit": job.usage_limit,
         "styleRevision": job.style_revision,
         "backend": to_value(job.backend),
+        "refused": job.refused,
     })
 }
 
@@ -142,9 +143,10 @@ fn source_name(project_dir: &Path, source: &str) -> String {
 #[tool_router(router = concepts_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Start concept image jobs in a project's Concept lab. Each image runs through the Codex CLI (about a minute) or, with backend openai-images or when Settings picks it, OpenAI's Image API (paid per image within the monthly cap, refused when the round would pass it); the images land in concepts/<direction>/ inside the project and show up in the app's Lab. Each job carries the project's style board (get_style_board) after the prompt unless useStyle is false; styleRevision says which board revision went along."
+        description = "Start concept image jobs in a project's Concept lab. Each image is made on the backend Settings picks for concepts (get_image_backend says which), or the one backend names, and each job reports its backend: codex runs the Codex CLI (about a minute an image) and spends Codex usage; openai-images is paid per image from the OpenAI key within the monthly cap, and since an agent asked, the round waits for a person to approve it in the Maquette app: the answer is \"waiting for approval\" with approval.estimateUsd and the jobs are in state approval, so poll get_concepts and never start the round again (a denied round's jobs end cancelled). A round that would pass the cap is refused before anything is made. The images land in concepts/<direction>/ inside the project and show up in the app's Lab. Each job carries the project's style board (get_style_board) after the prompt unless useStyle is false; styleRevision says which board revision went along."
     )]
     async fn start_concepts(&self, Parameters(args): Parameters<ConceptsArgs>) -> Out {
+        let project = args.project.clone();
         let found = self
             .blocking(move |host, _| {
                 let request = NewConcepts {
@@ -178,11 +180,11 @@ impl McpTools {
                 }))
             })
             .await;
-        respond(found)
+        respond(self.ask_for_round(project, found).await)
     }
 
     #[tool(
-        description = "Read a project's Concept lab: each direction's prompt, refs and images (starred, picked, and the ref file a picked image became), plus the concept jobs still queued, running or waiting out a Codex rate limit or usage limit (running, state rate-limited with retryAtMs for a waiting one, and usageLimit true while it waits for the usage limit to lift) and the ones that failed or were cancelled (failed, with why), which retry_concept_jobs runs again. styleOff and styleRevision say whether a direction's latest batch carried the style board, and at which revision.",
+        description = "Read a project's Concept lab (give direction, an id or a name, to read only that direction and its jobs): each direction's prompt, refs and images (starred, picked, and the ref file a picked image became), plus the concept jobs still waiting for approval, queued, running or waiting out a Codex rate limit or usage limit (running: state approval for an agent's OpenAI Images round a person has not approved yet, state rate-limited with retryAtMs for a waiting one, and usageLimit true while it waits for the usage limit to lift) and the ones that failed or were cancelled (failed, with why; refused true when OpenAI refused the image on safety grounds, nothing was charged and the prompt needs rewording), which retry_concept_jobs runs again. Every job names its backend. styleOff and styleRevision say whether a direction's latest batch carried the style board, and at which revision.",
         annotations(read_only_hint = true)
     )]
     async fn get_concepts(&self, Parameters(args): Parameters<GetConceptsArgs>) -> Out {
@@ -231,7 +233,14 @@ impl McpTools {
                 if let (Some(w), true) = (wanted, directions.is_empty()) {
                     return Err(format!("There is no direction {w:?} in {}.", args.project));
                 }
-                let jobs = host.concepts().jobs(Some(&args.project));
+                // A named direction limits the jobs to the direction found, too.
+                let shown: Vec<&str> = directions.iter().filter_map(|d| d["id"].as_str()).collect();
+                let jobs: Vec<ConceptJob> = host
+                    .concepts()
+                    .jobs(Some(&args.project))
+                    .into_iter()
+                    .filter(|j| wanted.is_none() || shown.contains(&j.direction.as_str()))
+                    .collect();
                 let (running, failed): (Vec<_>, Vec<_>) = jobs
                     .iter()
                     .filter(|j| j.state != ConceptJobState::Done)
@@ -248,9 +257,10 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Make object refs from one concept: for each object named, Codex makes one image of only that object (centered, whole, front three-quarter view, plain light grey background, soft light, no text), with the concept attached as the reference. The images land in a new Lab direction \"<name> objects\" (\"<name> objects 2\" and so on when another source or kind already has that name), each titled by its object; read them with get_concepts. They carry the project's style board unless useStyle is false. Each image spends Codex usage, or with backend openai-images is paid from the OpenAI key."
+        description = "Make object refs from one concept: for each object named, one image is made of only that object (centered, whole, front three-quarter view, plain light grey background, soft light, no text), with the concept attached as the reference. The images land in a new Lab direction \"<name> objects\" (\"<name> objects 2\" and so on when another source or kind already has that name), each titled by its object; read them with get_concepts. They carry the project's style board unless useStyle is false. The images are made on the backend Settings picks for object refs (get_image_backend), or the one backend names: codex spends Codex usage; openai-images is paid per image from the OpenAI key within the monthly cap, and since an agent asked, the round waits for a person to approve it in the Maquette app: the answer is \"waiting for approval\" with approval.estimateUsd and the jobs are in state approval, so poll get_concepts and never start the round again (a denied round's jobs end cancelled)."
     )]
     async fn make_object_refs(&self, Parameters(args): Parameters<ObjectRefsArgs>) -> Out {
+        let project = args.project.clone();
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
@@ -285,7 +295,7 @@ impl McpTools {
                 let jobs: Vec<Value> = jobs
                     .iter()
                     .map(|j| {
-                        json!({ "id": j.id, "object": j.title, "file": j.file, "state": to_value(j.state) })
+                        json!({ "id": j.id, "object": j.title, "file": j.file, "state": to_value(j.state), "backend": to_value(j.backend) })
                     })
                     .collect();
                 Ok(json!({
@@ -297,6 +307,6 @@ impl McpTools {
                 }))
             })
             .await;
-        respond(found)
+        respond(self.ask_for_round(project, found).await)
     }
 }

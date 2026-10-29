@@ -141,4 +141,32 @@ describe('mock concept lab', () => {
     // Cancel all stops the one still waiting out the rate limit too.
     expect(await handle('lab_cancel_all', { project: 'frostveil' })).toBe(3);
   });
+
+  it('starts the jobs moved up with Run next before the ones queued earlier', async () => {
+    const { handle, events } = backend();
+    const brief = (direction: string, count: number) => ({
+      request: {
+        project: 'frostveil',
+        direction,
+        prompt: 'A lantern',
+        refs: [],
+        aspect: '16:9',
+        count,
+      },
+    });
+    // Four start at once; two of these wait, then the urgent two.
+    await handle('lab_generate', brief('Early', 6));
+    const view = (await handle('lab_generate', brief('Urgent', 2))) as LabView;
+    const urgent = view.jobs.filter(j => j.direction === 'urgent').map(j => j.id);
+    const moved = (await handle('lab_run_next', {
+      project: 'frostveil',
+      jobs: urgent,
+    })) as { id: string }[];
+    expect(moved.map(j => j.id)).toEqual(urgent);
+    const started = () =>
+      events.flatMap(e => (e.type === 'job' && e.job.state === 'running' ? [e.job.direction] : []));
+    const before = started().length;
+    await settled(handle);
+    expect(started().slice(before, before + 2)).toEqual(['urgent', 'urgent']);
+  });
 });
