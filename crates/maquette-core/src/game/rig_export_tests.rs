@@ -1,5 +1,6 @@
 //! Game export of rigged models in a real, headless Blender (skipped
-//! without Blender or node): each rig keeps only its own clips.
+//! without Blender or node): each rig keeps only its own clips, and the
+//! drop maps setting leaves normal and metal-roughness maps out.
 
 use std::fs;
 use std::path::Path;
@@ -78,9 +79,17 @@ fn clips(json: &serde_json::Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Exports the two rigs, returning the walker's and the biter's exported
-/// GLB JSON, or `None` without Blender or node.
-fn export_rigs() -> Option<(serde_json::Value, serde_json::Value)> {
+fn has_map(json: &serde_json::Value, key: &str) -> bool {
+    json["materials"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .any(|m| !m[key].is_null() || !m["pbrMetallicRoughness"][key].is_null())
+}
+
+/// Exports the two rigs with `drop_maps`, returning the walker's and the
+/// biter's exported GLB JSON, or `None` without Blender or node.
+fn export_rigs(drop_maps: bool) -> Option<(serde_json::Value, serde_json::Value)> {
     let blender = blender()?;
     let (ws, manifest) = game_project(glb_game, GameFormat::Glb);
     let characters = ws.repo.join("assets/models/characters");
@@ -124,7 +133,13 @@ fn export_rigs() -> Option<(serde_json::Value, serde_json::Value)> {
         Ok(next)
     })
     .expect("prep");
-    let manifest = project::load(&ws.root, &ws.config.layout, &manifest.id).expect("manifest");
+    let manifest = project::modify(&ws.root, &ws.config.layout, &manifest.id, |m| {
+        if let Some(game) = m.game.as_mut() {
+            game.export.drop_maps = drop_maps;
+        }
+        Ok(())
+    })
+    .expect("settings");
     crate::pipeline::ensure(&project_dir, &manifest).expect("pipeline");
     index::write(&project_dir, &manifest).expect("index");
     run_chain(&project_dir, settings_of(&manifest).expect("game"))?;
@@ -136,10 +151,21 @@ fn export_rigs() -> Option<(serde_json::Value, serde_json::Value)> {
 }
 
 #[test]
-fn each_rig_keeps_only_its_own_clips() {
-    let Some((walker, biter)) = export_rigs() else {
+fn each_rig_keeps_its_own_clips_and_maps_drop_only_when_asked() {
+    let Some((walker, biter)) = export_rigs(false) else {
         return;
     };
     assert_eq!(clips(&walker), ["walk"], "the walker has no bite");
     assert_eq!(clips(&biter), ["bite"], "the biter has no walk");
+    assert!(has_map(&walker, "normalTexture"), "maps kept by default");
+    assert!(has_map(&walker, "metallicRoughnessTexture"));
+
+    let Some((walker, _)) = export_rigs(true) else {
+        return;
+    };
+    assert!(
+        !has_map(&walker, "normalTexture"),
+        "the normal map is dropped"
+    );
+    assert!(!has_map(&walker, "metallicRoughnessTexture"));
 }

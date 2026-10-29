@@ -112,6 +112,10 @@ pub struct GameExport {
     pub textures: GameTextures,
     /// The longest texture edge in pixels, one of [`TEXTURE_CAPS`].
     pub texture_cap: u32,
+    /// Leaves normal and metal-roughness maps out of the exported models,
+    /// for a game whose shader reads neither. Off (keep them) by default.
+    #[serde(default)]
+    pub drop_maps: bool,
 }
 
 impl Default for GameExport {
@@ -119,6 +123,7 @@ impl Default for GameExport {
         Self {
             textures: GameTextures::Png,
             texture_cap: DEFAULT_TEXTURE_CAP,
+            drop_maps: false,
         }
     }
 }

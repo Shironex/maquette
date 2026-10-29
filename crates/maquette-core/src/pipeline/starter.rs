@@ -74,6 +74,10 @@ const OLDER: &[(&str, &str)] = &[
         "337b4e824ee1fcd32e9bba20cea28d321cb4cd088dfd2ffe1148419f5de6495e",
     ),
     (
+        "tools/export_game.py",
+        "b61ebb6be9b04459f2cd69f0b376eaf7433739f2218d09d00a293176c31089fa",
+    ),
+    (
         "tools/export_web.py",
         "e67655bf5b32f480d84a53f0c7b4657c891576993dedbc1eff1585696a59d486",
     ),

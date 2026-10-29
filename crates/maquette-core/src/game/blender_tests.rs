@@ -141,6 +141,7 @@ fn a_glb_game_exports_plain_capped_png_textures_and_copies_untouched_imports() {
     let export = GameExport {
         textures: GameTextures::Png,
         texture_cap: 4096,
+        drop_maps: false,
     };
     let (ws, project_dir, manifest) = prepared(
         glb_game,
