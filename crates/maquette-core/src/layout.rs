@@ -43,7 +43,6 @@ use serde::{Deserialize, Serialize};
 use crate::assets::{self, Asset, AssetKind};
 use crate::error::{CoreError, CoreResult};
 use crate::json::{explicit, from_json_with_defaults, write_json};
-use crate::pipeline::PipelineDef;
 use crate::project::{ProjectManifest, slugify};
 
 mod patch;

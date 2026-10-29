@@ -7,6 +7,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use super::*;
+use crate::pipeline::PipelineDef;
 use crate::prepare::{self, PrepFrame, ScenePrep, preview};
 
 /// Which built file a model's size is read from.
