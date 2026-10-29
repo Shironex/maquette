@@ -17,10 +17,18 @@
 //! warnings are what VRM asks for but a runtime copes without; notes say
 //! what the export will drop or leave out. All of them are kept, blockers
 //! first.
+//!
+//! **Writing.** [`write()`] turns a rig with no bone blocker into VRM 1.0
+//! bytes with the avatar's [`VrmMeta`]. Pose blockers do not stop it: they
+//! come back with the bytes as what the file still lacks.
 
 mod bones;
+mod container;
 mod findings;
+mod meta;
+mod mtoon;
 mod pose;
+mod write;
 
 use std::path::Path;
 
@@ -31,7 +39,13 @@ use maquette_base::error::{CoreError, CoreResult};
 
 pub use bones::{BoneNaming, BoneOverrides, HUMAN_BONES, REQUIRED_BONES};
 pub use findings::{ARM_SLACK_DEG, FACING_SLACK_DEG, GROUND_SLACK};
+pub use meta::{
+    AvatarPermission, CommercialUsage, CreditNotation, LICENSE_URL, META_TEXT_MAX, Modification,
+    VrmMeta,
+};
+pub use mtoon::VRMC_MATERIALS_MTOON;
 pub use pose::{Axis, RestPose, SCALE_NOISE};
+pub use write::{MaterialMode, Thumbnail, VRMC_VRM, WriteSpec, Written, write};
 
 /// How much a finding matters, most first.
 #[derive(
@@ -132,6 +146,15 @@ pub(crate) fn readiness_of(
     buffers: &[Option<Vec<u8>>],
     overrides: &BoneOverrides,
 ) -> VrmReadiness {
+    assess(doc, buffers, overrides).0
+}
+
+/// The readiness of a parsed model, with each mapped bone's node index.
+fn assess(
+    doc: &gltf::Document,
+    buffers: &[Option<Vec<u8>>],
+    overrides: &BoneOverrides,
+) -> (VrmReadiness, Vec<(String, usize)>) {
     let human = bones::human_bones();
     let joints = skin_joints(doc);
     let nodes: Vec<(usize, String)> = doc.nodes().map(|n| (n.index(), node_name(&n))).collect();
@@ -167,23 +190,26 @@ pub(crate) fn readiness_of(
             }
         })
         .collect();
-    VrmReadiness {
+    let readiness = VrmReadiness {
         ready: !findings.iter().any(|f| f.level == FindingLevel::Blocker),
         mapped: count(mapped.len()),
         required: count(required),
         bones,
         pose,
         findings,
-    }
+    };
+    let nodes = mapped.into_iter().map(|m| (m.bone, m.node)).collect();
+    (readiness, nodes)
 }
 
-/// Reads the VRM readiness of model bytes; external files resolve against
-/// `base`.
-///
-/// # Errors
-///
-/// Fails when the bytes are not glTF.
-pub fn readiness(bytes: &[u8], base: &Path, overrides: &BoneOverrides) -> CoreResult<VrmReadiness> {
+/// Parses model bytes and reads their buffers, external ones against
+/// `base`, then runs `then` on them. A panic in the parser, which trusts
+/// indices it has not validated, comes back as a bad file.
+fn with_parsed<T>(
+    bytes: &[u8],
+    base: &Path,
+    then: impl FnOnce(&gltf::Document, &[Option<Vec<u8>>]) -> CoreResult<T>,
+) -> CoreResult<T> {
     let run = || {
         let gltf = gltf::Gltf::from_slice_without_validation(bytes)
             .map_err(|e| CoreError::Invalid(format!("This is not a glTF model. {e}")))?;
@@ -195,10 +221,8 @@ pub fn readiness(bytes: &[u8], base: &Path, overrides: &BoneOverrides) -> CoreRe
                 gltf::buffer::Source::Uri(uri) => load_uri(uri, base),
             })
             .collect();
-        Ok(readiness_of(&gltf.document, &buffers, overrides))
+        then(&gltf.document, &buffers)
     };
-    // The parser trusts indices it has not validated and can panic on a
-    // malformed file; that is a bad file, not a crash.
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)).unwrap_or_else(|_| {
         Err(CoreError::Invalid(
             "This file is not a well formed glTF model.".to_string(),
@@ -206,7 +230,19 @@ pub fn readiness(bytes: &[u8], base: &Path, overrides: &BoneOverrides) -> CoreRe
     })
 }
 
-/// Registers the readiness types with the shell's TypeScript export.
+/// Reads the VRM readiness of model bytes; external files resolve against
+/// `base`.
+///
+/// # Errors
+///
+/// Fails when the bytes are not glTF.
+pub fn readiness(bytes: &[u8], base: &Path, overrides: &BoneOverrides) -> CoreResult<VrmReadiness> {
+    with_parsed(bytes, base, |doc, buffers| {
+        Ok(readiness_of(doc, buffers, overrides))
+    })
+}
+
+/// Registers the readiness and writer types with the shell's TypeScript export.
 pub(crate) fn register(types: specta::Types) -> specta::Types {
     types
         .register::<BoneNaming>()
@@ -216,7 +252,15 @@ pub(crate) fn register(types: specta::Types) -> specta::Types {
         .register::<VrmFinding>()
         .register::<VrmBone>()
         .register::<VrmReadiness>()
+        .register::<AvatarPermission>()
+        .register::<CommercialUsage>()
+        .register::<CreditNotation>()
+        .register::<Modification>()
+        .register::<VrmMeta>()
+        .register::<MaterialMode>()
 }
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod write_tests;

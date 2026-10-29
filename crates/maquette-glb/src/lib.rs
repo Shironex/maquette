@@ -1,7 +1,8 @@
 //! Reading GLB and glTF files without Blender: the analysis the inbox
 //! checks run on (counts, textures, the rig and two geometry heuristics),
 //! a model's parts and what in it moves (rig, clips and parts), its VRM
-//! readiness, texture sizes from image headers, the matrix math they share,
+//! readiness and a VRM 1.0 writer, texture sizes from image headers, the
+//! matrix math they share,
 //! and small generated fixture models with known flaws. It is pure logic on
 //! bytes and uses only the maquette-base crate.
 

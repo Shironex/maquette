@@ -1027,6 +1027,9 @@ export type AssetsRemoved = {
 	outcomes: RemoveOutcome[],
 };
 
+/**  Who may play the avatar. */
+export type AvatarPermission = "onlyAuthor" | "onlySeparatelyLicensedPerson" | "everyone";
+
 /**  The axis a model faces, the nearest of four. */
 export type Axis = "+z" | "-z" | "+x" | "-x";
 
@@ -1626,6 +1629,9 @@ export type CommandSource =
 /**  The site's `package.json` scripts and lockfile. */
 "package-json";
 
+/**  Who may use the avatar for money. */
+export type CommercialUsage = "personalNonProfit" | "personalProfit" | "corporation";
+
 export type CompareKind = "scene" | "asset";
 
 export type CompareSide = {
@@ -1801,6 +1807,9 @@ export type CopiedAsset = {
 	/**  Each old ref path and where it landed, relative to the projects. */
 	refs: ([string, string])[],
 };
+
+/**  Whether a user must credit the author. */
+export type CreditNotation = "required" | "unnecessary";
 
 /**  A plain slab the models stand on, so they cast their shadows somewhere. */
 export type Desk = {
@@ -2845,6 +2854,13 @@ export type MatchedClip = {
 	pack: string,
 };
 
+/**  How the materials are written. */
+export type MaterialMode = 
+/**  The model's PBR materials as they are. */
+"pbr" | 
+/**  MToon, soft: shaded from the base color, no outline. */
+"mtoon-soft";
+
 /**  One material's changes. A `None` field leaves the model's value alone. */
 export type MaterialTweak = {
 	/**  Multiplies the base color, as `#rrggbb` in sRGB. The color map stays. */
@@ -3108,6 +3124,9 @@ export type ModelStats = {
 	joints: number,
 	animations: number,
 };
+
+/**  Whether others may change the avatar, and hand the change on. */
+export type Modification = "prohibited" | "allowModification" | "allowModificationRedistribution";
 
 export type MotionBudget = {
 	/**  Every model's bytes, against the scene budget. */
@@ -5387,6 +5406,53 @@ export type VrmFinding = {
 	level: FindingLevel,
 	title: string,
 	detail: string | null,
+};
+
+/**  The `meta` of `VRMC_vrm`, as written (its thumbnail index aside). */
+export type VrmMeta = VrmMeta_Serialize | VrmMeta_Deserialize;
+
+/**  The `meta` of `VRMC_vrm`, as written (its thumbnail index aside). */
+export type VrmMeta_Deserialize = {
+	name?: string,
+	version?: string | null,
+	authors?: string[],
+	copyrightInformation?: string | null,
+	contactInformation?: string | null,
+	references?: string[],
+	thirdPartyLicenses?: string | null,
+	licenseUrl?: string,
+	avatarPermission?: AvatarPermission,
+	allowExcessivelyViolentUsage?: boolean,
+	allowExcessivelySexualUsage?: boolean,
+	commercialUsage?: CommercialUsage,
+	allowPoliticalOrReligiousUsage?: boolean,
+	allowAntisocialOrHateUsage?: boolean,
+	creditNotation?: CreditNotation,
+	allowRedistribution?: boolean,
+	modification?: Modification,
+	otherLicenseUrl?: string | null,
+};
+
+/**  The `meta` of `VRMC_vrm`, as written (its thumbnail index aside). */
+export type VrmMeta_Serialize = {
+	name: string,
+	version?: string | null,
+	authors: string[],
+	copyrightInformation?: string | null,
+	contactInformation?: string | null,
+	references?: string[],
+	thirdPartyLicenses?: string | null,
+	licenseUrl: string,
+	avatarPermission: AvatarPermission,
+	allowExcessivelyViolentUsage: boolean,
+	allowExcessivelySexualUsage: boolean,
+	commercialUsage: CommercialUsage,
+	allowPoliticalOrReligiousUsage: boolean,
+	allowAntisocialOrHateUsage: boolean,
+	creditNotation: CreditNotation,
+	allowRedistribution: boolean,
+	modification: Modification,
+	otherLicenseUrl?: string | null,
 };
 
 export type VrmReadiness = {
