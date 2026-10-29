@@ -48,6 +48,17 @@ fn edits_fill_in_the_defaults_and_bad_words_are_refused() {
             .expect_err("by")
             .contains("loose or material")
     );
+    let lean: FixupEdit =
+        serde_json::from_value(json!({ "op": "rotate", "x": -24.5 })).expect("args");
+    assert_eq!(
+        lean.fixup(&defaults()),
+        Ok(Fixup::Rotate {
+            x: -24.5,
+            y: 0.0,
+            z: 0.0,
+        }),
+        "the other axes default to no turn"
+    );
     let bad: FixupEdit = serde_json::from_value(json!({ "op": "smooth" })).expect("args");
     assert!(
         bad.fixup(&defaults())

@@ -66,9 +66,15 @@ pub struct PadEdgesArgs {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FixupEdit {
-    /// One of "apply-transforms", "remove-loose", "merge", "split-parts", "decimate",
-    /// "shrink-textures", "origin-bottom".
+    /// One of "rotate", "apply-transforms", "remove-loose", "merge", "split-parts",
+    /// "decimate", "shrink-textures", "origin-bottom".
     pub op: String,
+    /// rotate: degrees about x (the app's axes, y up), -360 to 360. Defaults to 0.
+    pub x: Option<f32>,
+    /// rotate: degrees about y, after x. Defaults to 0.
+    pub y: Option<f32>,
+    /// rotate: degrees about z, after y. Defaults to 0.
+    pub z: Option<f32>,
     /// decimate: the triangle target, 100 to 10,000,000. Defaults to the workspace budget.
     pub triangles: Option<u32>,
     /// shrink-textures: the longest image edge in pixels, 64 to 16384. Defaults to the
@@ -118,7 +124,7 @@ fn word<T: DeserializeOwned>(field: &str, text: &str, words: &str) -> Result<T, 
         .map_err(|_| format!("{field} must be {words}, not {text:?}."))
 }
 
-const OPS: &str = "apply-transforms, remove-loose, merge, split-parts, decimate, shrink-textures or origin-bottom";
+const OPS: &str = "rotate, apply-transforms, remove-loose, merge, split-parts, decimate, shrink-textures or origin-bottom";
 
 fn parse_kind(text: &str) -> Result<FixupKind, String> {
     word("op", text, OPS)
@@ -137,6 +143,11 @@ impl SizeEdit {
 impl FixupEdit {
     fn fixup(&self, defaults: &FixupDefaults) -> Result<Fixup, String> {
         Ok(match parse_kind(&self.op)? {
+            FixupKind::Rotate => Fixup::Rotate {
+                x: self.x.unwrap_or(0.0),
+                y: self.y.unwrap_or(0.0),
+                z: self.z.unwrap_or(0.0),
+            },
             FixupKind::ApplyTransforms => Fixup::ApplyTransforms,
             FixupKind::RemoveLoose => Fixup::RemoveLoose {
                 min_share: self.min_share.unwrap_or(defaults.loose_share),
@@ -295,7 +306,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Add fix-ups to an asset; one of a kind already there is replaced. Each is { op, ...numbers }: apply-transforms (bakes object transforms, rigged meshes keep theirs), remove-loose { minShare 0 to 0.5, default 0.02 of the model's diagonal }, merge { byMaterial, default false }, split-parts { by: loose (default) | material, mergeUnder 0 to 0.2, default 0.01 of the model's diagonal: cuts each unrigged mesh into parts named part_1, part_2 top first, a piece that small joining its nearest neighbour, texture and UVs kept; name the parts with set_parts }, decimate { triangles, default the workspace budget }, shrink-textures { maxSize px, default the workspace texture size }, origin-bottom (bottom centre to the origin, on the floor). They always apply in that order, headless, on a copy: the inbox file and the asset's versions never change, and every new version gets them on the next run. Nothing is written when any one is refused. Returns the result like get_real_size; preview_fixups shows what they do.",
+        description = "Add fix-ups to an asset; one of a kind already there is replaced. Each is { op, ...numbers }: rotate { x, y, z degrees in the app's axes (y up), -360 to 360, default 0, applied x then y then z about the model's centre: stands up a model that came out leaning, no credits spent }, apply-transforms (bakes object transforms, rigged meshes keep theirs), remove-loose { minShare 0 to 0.5, default 0.02 of the model's diagonal }, merge { byMaterial, default false }, split-parts { by: loose (default) | material, mergeUnder 0 to 0.2, default 0.01 of the model's diagonal: cuts each unrigged mesh into parts named part_1, part_2 top first, a piece that small joining its nearest neighbour, texture and UVs kept; name the parts with set_parts }, decimate { triangles, default the workspace budget }, shrink-textures { maxSize px, default the workspace texture size }, origin-bottom (bottom centre to the origin, on the floor). They always apply in that order, headless, on a copy: the inbox file and the asset's versions never change, and every new version gets them on the next run. Nothing is written when any one is refused. Returns the result like get_real_size; preview_fixups shows what they do.",
         annotations(idempotent_hint = true)
     )]
     async fn add_fixups(&self, Parameters(args): Parameters<AddFixupsArgs>) -> Out {
