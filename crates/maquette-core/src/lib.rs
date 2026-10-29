@@ -4,6 +4,7 @@
 
 pub mod animations;
 pub mod app_state;
+pub mod avatar;
 pub mod base;
 pub mod built;
 pub mod concepts;
@@ -26,10 +27,10 @@ mod test_blender;
 pub mod thumbs;
 
 // The model layer lives in its own crate; these keep the old paths. The
-// model modules whose higher layer work stays here (`built`, `layout`,
-// `materials`, `prepare`, `refs`, `ship`) re-export the crate's module and
-// add that work.
-pub use maquette_model::{assets, avatar, project, sends, settings, timeline, workspace};
+// model modules whose higher layer work stays here (`avatar`, `built`,
+// `layout`, `materials`, `prepare`, `refs`, `ship`) re-export the crate's
+// module and add that work.
+pub use maquette_model::{assets, project, sends, settings, timeline, workspace};
 
 // The bottom layer lives in its own crate; these keep the old paths.
 pub(crate) use maquette_base::json;
