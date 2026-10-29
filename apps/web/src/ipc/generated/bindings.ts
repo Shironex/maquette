@@ -1082,6 +1082,11 @@ export type BatchItem = {
 	prompt?: string | null,
 	/**  The earlier send of this asset it redoes. */
 	redoOf?: string | null,
+	/**
+	 *  By hand on Tripo only: this asset's Studio tab and rig, laid over
+	 *  the batch's.
+	 */
+	studio?: StudioChoice | null,
 };
 
 /**  One asset of the batch panel: its refs and the preset it starts from. */
@@ -1117,6 +1122,11 @@ export type BatchRequest = {
 	tripoCharacter: TripoPreset | null,
 	meshyProp: MeshyPreset | null,
 	meshyCharacter: MeshyPreset | null,
+	/**
+	 *  By hand on Tripo only: the Studio tab and rig for every asset. A
+	 *  field left out follows each asset's preset.
+	 */
+	studio?: StudioChoice | null,
 };
 
 /**  What a batch send started. */
@@ -3680,6 +3690,11 @@ export type ProviderJob = {
 	 *  made from images.
 	 */
 	split?: SplitJob | null,
+	/**
+	 *  By hand on Tripo: the Studio tab and rig the card asks for. Older
+	 *  records have none.
+	 */
+	studio?: StudioSettings | null,
 };
 
 /**
@@ -4112,6 +4127,11 @@ export type SendRequest = {
 	prompt?: string | null,
 	/**  The earlier send of the same asset this one redoes. */
 	redoOf?: string | null,
+	/**
+	 *  By hand on Tripo only: the Studio tab and rig. A field left out
+	 *  follows the preset.
+	 */
+	studio?: StudioChoice | null,
 };
 
 /**  What Send picks did for a direction of object refs: one asset per pick. */
@@ -4756,6 +4776,26 @@ export type StepState =
 
 /**  Where the stops came from, for the "From stops.json" line. */
 export type StopsSource = "project-file" | "layout" | "posters" | "model-cameras" | "none";
+
+/**  What a send asks for; a field left out follows the preset. */
+export type StudioChoice = {
+	mesh?: StudioMesh | null,
+	rig?: StudioRig | null,
+};
+
+/**  Tripo Studio's mesh tab. */
+export type StudioMesh = "hd-model" | "smart-mesh";
+
+/**  The rig Tripo Studio adds once the model is made. */
+export type StudioRig = 
+/**  A humanoid on the Mixamo skeleton. */
+"biped" | "quadruped" | "multi-legged" | "none";
+
+/**  The Tripo Studio settings a By hand send went with. */
+export type StudioSettings = {
+	mesh: StudioMesh,
+	rig: StudioRig,
+};
 
 export type StyleBoard = {
 	version: number,

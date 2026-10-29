@@ -67,6 +67,34 @@ describe('the Send to 3D form', () => {
     expect(screen.getByRole('button', { name: 'Redo with Meshy' })).toBeEnabled();
   });
 
+  it('asks for the Tripo Studio tab and rig by hand and sends them', async () => {
+    await openForm('veil-gate');
+    useProvidersStore.getState().setDraft({ provider: 'by-hand' });
+    const { options, draft } = useProvidersStore.getState().panel!;
+    const { unmount, container } = render(<SendForm options={options!} draft={draft!} />);
+    const form = within(container);
+    expect(form.getByRole('combobox', { name: 'Rig' })).toHaveValue('none');
+    expect(form.queryByRole('switch', { name: 'Multi-view' })).toBeNull();
+    await userEvent.selectOptions(
+      form.getByRole('combobox', { name: 'Tripo Studio tab' }),
+      'Smart Mesh (P2.0)'
+    );
+    expect(useProvidersStore.getState().panel!.draft!.studio).toEqual({
+      mesh: 'smart-mesh',
+      rig: 'none',
+    });
+    unmount();
+    await useProvidersStore.getState().send();
+    const job = useProvidersStore
+      .getState()
+      .jobs.find(
+        j =>
+          j.provider === 'by-hand' && j.asset === 'veil-gate' && j.state === 'waiting' && j.studio
+      );
+    expect(job?.studio).toEqual({ mesh: 'smart-mesh', rig: 'none' });
+    expect(job?.card?.rows.find(r => r.label === 'Tab')?.value).toBe('Smart Mesh (P2.0)');
+  });
+
   it('warns about weak refs before the send, counts them and leaves an image out', async () => {
     await openMockRefs();
     await useProvidersStore.getState().openPanel('frostveil', 'guardian-statues');

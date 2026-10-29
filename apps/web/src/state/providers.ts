@@ -9,6 +9,7 @@ import type {
   Provider,
   ProviderId,
   ProviderJob,
+  StudioSettings,
   TripoPreset,
   MeshyPreset,
 } from '@/ipc/client';
@@ -223,6 +224,8 @@ export interface SendDraft {
   meshy: MeshyPreset;
   /** Meshy only: text that guides the texture. */
   prompt?: string;
+  /** By hand on Tripo: the Tripo Studio tab and rig. */
+  studio: StudioSettings;
 }
 
 /** Meshy refuses a texture prompt longer than this. */

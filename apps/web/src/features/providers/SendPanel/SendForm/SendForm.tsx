@@ -13,6 +13,7 @@ import { CostEstimate } from '../../CostEstimate';
 import { MeshyPresetFields, TripoPresetFields } from '../../PresetFields';
 import { PromptField } from '../../PromptField';
 import { SectionTitle } from '../../SectionTitle';
+import { StudioFields } from '../../StudioFields';
 import { PROVIDERS, SERVICES, VARIANTS } from '../../choices';
 import { EarlierSends } from './EarlierSends';
 import { ImageChoice } from './ImageChoice';
@@ -41,6 +42,7 @@ export default function SendForm({ options, draft }: SendFormProps) {
     earlier,
     label,
     redo,
+    studio,
   } = useSendForm(options, draft);
   const estimate = useSendEstimate(options, draft);
   const { warnings, note, fix } = useSendWarnings(options, draft, multiView);
@@ -94,6 +96,14 @@ export default function SendForm({ options, draft }: SendFormProps) {
                   onChange={next => setDraft({ service: next })}
                 />
               </div>
+              {studio ? (
+                <StudioFields
+                  compact
+                  value={draft.studio}
+                  views={draft.images.length}
+                  onChange={next => setDraft({ studio: next })}
+                />
+              ) : null}
             </div>
           ) : key?.saved ? (
             <p className="flex items-start gap-2 text-meta text-fg-mute">
@@ -173,6 +183,7 @@ export default function SendForm({ options, draft }: SendFormProps) {
               compact
               preset={draft.tripo}
               variant={draft.variant}
+              byHand={studio}
               onChange={tripo => setDraft({ tripo })}
             />
           ) : (

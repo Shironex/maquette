@@ -128,8 +128,12 @@ describe('the batch send panel', () => {
       within(panel).getByRole('button', { name: 'Custom settings for Lantern post' })
     );
     const own = within(panel).getByRole('group', { name: 'Lantern post settings' });
-    await userEvent.click(within(own).getByRole('switch', { name: 'Multi-view' }));
+    await userEvent.selectOptions(
+      within(own).getByRole('combobox', { name: 'Rig for Lantern post' }),
+      'Quadruped'
+    );
     expect(within(panel).getByText('Custom')).toBeInTheDocument();
+    expect(within(panel).getAllByText('quadruped rig').length).toBeGreaterThan(0);
     await userEvent.click(within(own).getByRole('button', { name: 'Use batch settings' }));
     expect(within(panel).queryByText('Custom')).toBeNull();
   });
@@ -145,7 +149,7 @@ describe('the batch send panel', () => {
       within(panel).getByRole('button', { name: 'Custom settings for Lantern post' })
     );
     const own = within(panel).getByRole('group', { name: 'Lantern post settings' });
-    await userEvent.click(within(own).getByRole('switch', { name: 'Multi-view' }));
+    await userEvent.click(within(own).getByRole('switch', { name: 'PBR' }));
 
     await userEvent.keyboard('{Escape}');
     const ask = await screen.findByRole('dialog', { name: 'Discard changes?' });
@@ -172,7 +176,7 @@ describe('the batch send panel', () => {
       within(within(panel).getByRole('group', { name: 'Lantern post settings' })).getByRole(
         'switch',
         {
-          name: 'Multi-view',
+          name: 'PBR',
         }
       )
     );
@@ -190,7 +194,7 @@ describe('the batch send panel', () => {
       within(within(panel).getByRole('group', { name: 'Lantern post settings' })).getByRole(
         'switch',
         {
-          name: 'Multi-view',
+          name: 'PBR',
         }
       )
     );

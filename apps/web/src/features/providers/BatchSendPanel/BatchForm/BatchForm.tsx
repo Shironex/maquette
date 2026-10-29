@@ -4,7 +4,9 @@ import {
   isCustom,
   itemDiff,
   itemMeshy,
+  itemStudio,
   itemTripo,
+  studioBatch,
   type BatchDraft,
 } from '@/state/batch';
 import { PROVIDER_LABEL, SERVICE_LABEL } from '@/state/providers';
@@ -13,6 +15,7 @@ import { CostEstimate } from '../../CostEstimate';
 import { MeshyPresetFields, TripoPresetFields } from '../../PresetFields';
 import { PromptField } from '../../PromptField';
 import { SectionTitle } from '../../SectionTitle';
+import { StudioFields } from '../../StudioFields';
 import { PROVIDERS, SERVICES } from '../../choices';
 import {
   useBatchActions,
@@ -49,6 +52,7 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
   const refs = useBatchWarnings(draft);
   const service = draft.service;
   const api = draft.provider !== 'by-hand';
+  const studio = studioBatch(draft);
   const n = draft.items.length;
   const asking = confirming && api && !blocker;
   const assetsAside = `${n} ${n === 1 ? 'asset' : 'assets'}, one model each`;
@@ -68,12 +72,24 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
       onClear={() => setItemPreset(item.asset, null)}
       fields={
         service === 'tripo' ? (
-          <TripoPresetFields
-            compact
-            preset={itemTripo(draft, item)}
-            variant={item.variant}
-            onChange={tripo => setItemPreset(item.asset, { tripo })}
-          />
+          <>
+            {studio ? (
+              <StudioFields
+                compact
+                name={item.name}
+                value={itemStudio(draft, item)}
+                views={item.images.length}
+                onChange={next => setItemPreset(item.asset, { studio: next })}
+              />
+            ) : null}
+            <TripoPresetFields
+              compact
+              byHand={studio}
+              preset={itemTripo(draft, item)}
+              variant={item.variant}
+              onChange={tripo => setItemPreset(item.asset, { tripo })}
+            />
+          </>
         ) : (
           <>
             <MeshyPresetFields
@@ -234,12 +250,26 @@ export default function BatchForm({ projectDir, draft, redo = false }: BatchForm
             </p>
           )}
           {service === 'tripo' ? (
-            <TripoPresetFields
-              compact
-              preset={draft.tripo[shown]}
-              variant={shown}
-              onChange={tripo => setPreset(shown, { tripo })}
-            />
+            <>
+              {studio ? (
+                <StudioFields
+                  compact
+                  value={draft.studio[shown]}
+                  views={Math.max(
+                    0,
+                    ...draft.items.filter(i => i.variant === shown).map(i => i.images.length)
+                  )}
+                  onChange={next => setPreset(shown, { studio: next })}
+                />
+              ) : null}
+              <TripoPresetFields
+                compact
+                byHand={studio}
+                preset={draft.tripo[shown]}
+                variant={shown}
+                onChange={tripo => setPreset(shown, { tripo })}
+              />
+            </>
           ) : (
             <MeshyPresetFields
               compact

@@ -97,6 +97,7 @@ describe('a batch send', () => {
         meshy: null,
         prompt: null,
         redoOf: null,
+        studio: null,
       },
       {
         asset: 'sculptor',
@@ -106,6 +107,7 @@ describe('a batch send', () => {
         meshy: null,
         prompt: null,
         redoOf: null,
+        studio: null,
       },
     ]);
     expect(batchLabel(props)).toBe('Send 2 to Meshy');
@@ -152,6 +154,26 @@ describe('per-asset overrides', () => {
     const d = batchDraft(options(), presets.tripo, presets.meshy, 'tripo');
     return { ...d, items: d.items.map(i => ({ ...i, variant: 'prop' as const })) };
   };
+
+  it('gives each By hand Tripo asset its Studio tab and rig, its own over its kind', () => {
+    const draft = batchDraft(options(), presets.tripo, presets.meshy);
+    expect(draft.studio.character).toEqual({ mesh: 'hd-model', rig: 'biped' });
+    expect(draft.studio.prop).toEqual({ mesh: 'hd-model', rig: 'none' });
+    const [lamp, sculptor] = draft.items;
+    const items = [
+      { ...lamp!, variant: 'prop' as const, studio: { rig: 'quadruped' as const } },
+      { ...sculptor!, variant: 'character' as const },
+    ];
+    const next = { ...draft, items };
+    expect(isCustom(next, items[0]!)).toBe(true);
+    expect(itemDiff(next, items[0]!, catalog)).toBe('quadruped rig');
+    const request = batchRequest('frostveil', next);
+    expect(request.items.map(i => i.studio)).toEqual([
+      { mesh: 'hd-model', rig: 'quadruped' },
+      { mesh: 'hd-model', rig: 'biped' },
+    ]);
+    expect(batchRequest('frostveil', { ...next, provider: 'tripo' }).items[0]!.studio).toBeNull();
+  });
 
   it('keeps only the changed fields', () => {
     const base = presets.tripo.prop;

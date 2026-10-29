@@ -34,9 +34,16 @@ describe('the By hand checklist', () => {
     expect(within(batch).getAllByRole('listitem')).toHaveLength(6);
     expect(within(batch).getByText('In the Inbox')).toBeInTheDocument();
     expect(within(batch).getByText('Accepted as v1')).toBeInTheDocument();
+    // The row reads the card, which follows each send's Studio tab.
     expect(
       within(batch).getAllByText(/^Tripo Image to 3D · Tab HD Model · AI Model H3\.1/).length
-    ).toBe(6);
+    ).toBe(5);
+    expect(
+      within(batch).getByText(
+        /^Tripo Image to 3D · Tab Smart Mesh \(P2\.0\) · AI Complete On · .* · Rig None$/
+      )
+    ).toBeInTheDocument();
+    expect(within(batch).getByText(/· Rig Biped \(Mixamo\)$/)).toBeInTheDocument();
     expect(
       within(sheet).getByRole('button', { name: 'Open the Lantern post folder' })
     ).toBeInTheDocument();

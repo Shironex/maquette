@@ -13,6 +13,7 @@ import type {
   ProviderId,
   ModelOption,
   ProviderJob,
+  StudioSettings,
   TripoPreset,
 } from '@/ipc/client';
 import {
@@ -24,6 +25,7 @@ import {
   tripoSummary,
 } from './provider-presets';
 import { PROVIDER_LABEL, SERVICE_LABEL, promptFor, promptProblem } from './providers';
+import { studioChanges, studioDefaults, studioSummary } from './studio';
 
 /** The most assets one batch takes; the core says the same. */
 export const MAX_BATCH = 24;
@@ -66,6 +68,8 @@ export interface BatchItemDraft {
    */
   tripo: Partial<TripoPreset>;
   meshy: Partial<MeshyPreset>;
+  /** By hand on Tripo: the Studio tab or rig this asset changes. */
+  studio: Partial<StudioSettings>;
   /** Meshy only: text that guides this asset's texture. */
   prompt?: string;
   /** A redo from the Inbox: the earlier send of this asset. */
@@ -78,6 +82,21 @@ export interface BatchDraft {
   items: BatchItemDraft[];
   tripo: Record<PresetVariant, TripoPreset>;
   meshy: Record<PresetVariant, MeshyPreset>;
+  /** By hand on Tripo: the Studio tab and rig per kind. */
+  studio: Record<PresetVariant, StudioSettings>;
+}
+
+/** The Studio settings of each kind, from its preset. */
+export function studioFor(tripo: Record<PresetVariant, TripoPreset>) {
+  return {
+    prop: studioDefaults(tripo.prop, 'prop'),
+    character: studioDefaults(tripo.character, 'character'),
+  };
+}
+
+/** True for a By hand batch on Tripo, the one that takes Studio settings. */
+export function studioBatch(draft: Pick<BatchDraft, 'provider' | 'service'>): boolean {
+  return draft.provider === 'by-hand' && draft.service === 'tripo';
 }
 
 /** A draft from the batch options and the saved presets. */
@@ -98,9 +117,11 @@ export function batchDraft(
       thumbnail: item.asset.thumbnail,
       tripo: {},
       meshy: {},
+      studio: {},
     })),
     tripo: structuredClone(tripo),
     meshy: structuredClone(meshy),
+    studio: studioFor(tripo),
   };
 }
 
@@ -128,6 +149,11 @@ export function itemMeshy(draft: BatchDraft, item: BatchItemDraft): MeshyPreset 
   return { ...draft.meshy[item.variant], ...item.meshy };
 }
 
+/** The Studio tab and rig one asset goes with. */
+export function itemStudio(draft: BatchDraft, item: BatchItemDraft): StudioSettings {
+  return { ...draft.studio[item.variant], ...item.studio };
+}
+
 /**
  * The fields an asset really changes: the stored ones that still differ
  * from the batch preset. A field the batch has since moved to the same
@@ -137,11 +163,15 @@ export function itemChanges<T extends object>(base: T, stored: Partial<T>): Part
   return presetChanges(base, { ...base, ...stored });
 }
 
-/** The asset's own changes for the draft's service. */
-function itemOwn(draft: BatchDraft, item: BatchItemDraft): object {
-  return draft.service === 'tripo'
-    ? itemChanges(draft.tripo[item.variant], item.tripo)
-    : itemChanges(draft.meshy[item.variant], item.meshy);
+/** The fields the asset changes for the draft's service. */
+function itemOwn(draft: BatchDraft, item: BatchItemDraft): string[] {
+  if (draft.service !== 'tripo')
+    return Object.keys(itemChanges(draft.meshy[item.variant], item.meshy));
+  const studio = studioBatch(draft) ? itemChanges(draft.studio[item.variant], item.studio) : {};
+  return [
+    ...Object.keys(itemChanges(draft.tripo[item.variant], item.tripo)),
+    ...Object.keys(studio).map(k => `studio.${k}`),
+  ];
 }
 
 /** The draft with every stored override that now equals its batch preset dropped. */
@@ -152,13 +182,14 @@ export function pruneItems(draft: BatchDraft): BatchDraft {
       ...item,
       tripo: itemChanges(draft.tripo[item.variant], item.tripo),
       meshy: itemChanges(draft.meshy[item.variant], item.meshy),
+      studio: itemChanges(draft.studio[item.variant], item.studio),
     })),
   };
 }
 
 /** True when the asset changes at least one setting of its own. */
 export function isCustom(draft: BatchDraft, item: BatchItemDraft): boolean {
-  return Object.keys(itemOwn(draft, item)).length > 0;
+  return itemOwn(draft, item).length > 0;
 }
 
 /** "12,000 faces, no PBR": what an asset changes from the batch. */
@@ -167,6 +198,9 @@ export function itemDiff(
   item: BatchItemDraft,
   catalog: Pick<Catalog, 'tripoModels' | 'meshyModels'>
 ): string {
+  const studio = studioBatch(draft)
+    ? studioChanges(itemChanges(draft.studio[item.variant], item.studio))
+    : [];
   const changes =
     draft.service === 'tripo'
       ? tripoChanges(
@@ -179,7 +213,7 @@ export function itemDiff(
           itemMeshy(draft, item),
           catalog.meshyModels
         );
-  return changes.join(', ');
+  return [...studio, ...changes].join(', ');
 }
 
 type Catalog = { tripoModels: readonly ModelOption[]; meshyModels: readonly ModelOption[] };
@@ -210,9 +244,11 @@ export function batchLines(draft: BatchDraft, catalog: Catalog): string[] {
   }).map(
     v =>
       `${label[v]}: ${
-        draft.service === 'tripo'
-          ? tripoSummary(draft.tripo[v], catalog.tripoModels)
-          : meshySummary(draft.meshy[v], catalog.meshyModels)
+        studioBatch(draft)
+          ? studioSummary(draft.tripo[v], draft.studio[v], catalog.tripoModels)
+          : draft.service === 'tripo'
+            ? tripoSummary(draft.tripo[v], catalog.tripoModels)
+            : meshySummary(draft.meshy[v], catalog.meshyModels)
       }`
   );
   const own = draft.items
@@ -240,6 +276,7 @@ export function batchRequest(project: string, draft: BatchDraft): BatchRequest {
         meshy: own && !tripo ? itemMeshy(draft, i) : null,
         prompt: promptFor(draft.service, i.prompt),
         redoOf: i.redoOf ?? null,
+        studio: studioBatch(draft) ? itemStudio(draft, i) : null,
       };
     }),
     tripoProp: pick(tripo, 'prop', draft.tripo.prop),

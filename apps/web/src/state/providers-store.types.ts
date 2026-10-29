@@ -9,6 +9,7 @@ import type {
   ProviderId,
   ProviderJob,
   SendOptions,
+  StudioSettings,
   TripoPreset,
 } from '@/ipc/client';
 import type { SendDraft } from './providers';
@@ -92,7 +93,7 @@ export interface ProvidersStore {
   /** This batch's copy of one preset; the saved presets stay. */
   setBatchPreset: (
     variant: PresetVariant,
-    preset: { tripo?: TripoPreset; meshy?: MeshyPreset }
+    preset: { tripo?: TripoPreset; meshy?: MeshyPreset; studio?: StudioSettings }
   ) => void;
   /**
    * One asset's own settings: `preset` is what the form shows, and only
@@ -100,7 +101,7 @@ export interface ProvidersStore {
    */
   setItemPreset: (
     asset: string,
-    preset: { tripo?: TripoPreset; meshy?: MeshyPreset } | null
+    preset: { tripo?: TripoPreset; meshy?: MeshyPreset; studio?: StudioSettings } | null
   ) => void;
   /** Starts the batch's presets over from the saved ones. */
   resetBatchPresets: () => void;

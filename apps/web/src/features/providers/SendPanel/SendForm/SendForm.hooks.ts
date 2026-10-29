@@ -14,7 +14,8 @@ import {
   sortJobs,
   type SendDraft,
 } from '@/state/providers';
-import { sendRequest } from '@/state/providers-store-helpers';
+import { byHandTripo, sendRequest } from '@/state/providers-store-helpers';
+import { studioSummary } from '@/state/studio';
 import { redoLine } from '@/state/redo';
 import { useAppStore } from '@/state/use-app-store';
 import { useProvidersStore } from '@/state/use-providers-store';
@@ -44,10 +45,12 @@ export function useSendForm(options: SendOptions, draft: SendDraft) {
     draft.images,
     problem ?? promptProblem(service, draft.prompt)
   );
+  const studio = byHandTripo(draft);
   const multiView = service === 'tripo' ? draft.tripo.multiView : draft.meshy.multiView;
   const smart = service === 'meshy' && isSmartTopology(draft.meshy.aiModel);
-  const summary =
-    service === 'tripo'
+  const summary = studio
+    ? studioSummary(draft.tripo, draft.studio, catalog.tripoModels)
+    : service === 'tripo'
       ? tripoSummary(draft.tripo, catalog.tripoModels)
       : meshySummary(draft.meshy, catalog.meshyModels);
   const key = keys.find(k => k.service === draft.provider);
@@ -76,6 +79,7 @@ export function useSendForm(options: SendOptions, draft: SendDraft) {
     earlier,
     label,
     redo: redo ? { line: redoLine(redo), name: redo.assetName } : null,
+    studio,
   };
 }
 

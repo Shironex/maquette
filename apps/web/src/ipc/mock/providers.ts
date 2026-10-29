@@ -22,8 +22,10 @@ import type {
   SendOptions,
   SendRequest,
   Stage,
+  StudioChoice,
   WorkspaceConfig,
 } from '../client';
+import { over, studioOf } from './studio-of';
 import { clock } from '@/lib/clock';
 import type { Args } from './backend-options';
 import { createKeyStore } from './create-key-store';
@@ -176,7 +178,8 @@ export function createFakeProviders({
     fail('not-found', `Could not find the asset ${assetId}.`);
 
   /** A new send of `asset`, By hand ones waiting for the model, API ones on their way. */
-  const start = (job: ProviderJob) => {
+  const start = (job: ProviderJob, asked?: StudioChoice | null) => {
+    job.studio = studioOf(config(), job, asked);
     if (job.provider === 'by-hand') {
       job.state = 'waiting';
       job.message = 'Waiting for your model';
@@ -267,7 +270,8 @@ export function createFakeProviders({
             batch,
             prompt: item.prompt ?? null,
             redoOf: item.redoOf ?? null,
-          })
+          }),
+          over(item.studio, req.studio)
         )
       );
       return { batch, jobs: sent, failed: [] };
@@ -298,7 +302,7 @@ export function createFakeProviders({
         prompt: req.prompt ?? null,
         redoOf: req.redoOf ?? null,
       });
-      return start(job);
+      return start(job, req.studio);
     },
     provider_jobs: ({ project: id }) => jobs.filter(j => !id || j.project === id),
     provider_cancel: ({ id }) => {

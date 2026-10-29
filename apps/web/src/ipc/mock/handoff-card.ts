@@ -1,4 +1,13 @@
-import type { CardRow, HandoffCard, MeshyPreset, ProviderJob, TripoPreset } from '../client';
+import type {
+  CardRow,
+  HandoffCard,
+  MeshyPreset,
+  ProviderJob,
+  StudioSettings,
+  TripoPreset,
+} from '../client';
+import { isTripoPSeries } from '@/state/provider-presets';
+import { STUDIO_RIG, studioDefaults } from '@/state/studio';
 import { webCost } from './pricing';
 
 const onOff = (on: boolean) => (on ? 'On' : 'Off');
@@ -10,21 +19,27 @@ const TEXTURE_QUALITY: Record<TripoPreset['textureQuality'], string> = {
 };
 
 /** The Tripo card in Tripo Studio's words, as `handoff/studio.rs` writes it. */
-function tripoRows(p: TripoPreset, character: boolean, name: string): CardRow[] {
+function tripoRows(p: TripoPreset, studio: StudioSettings, name: string): CardRow[] {
   const recommended = 'recommended';
-  const skeleton = p.rigSpec === 'tripo' ? 'Tripo skeleton' : 'Mixamo skeleton';
+  const hd = studio.mesh === 'hd-model';
+  const model = isTripoPSeries(p.model) ? 'v3.1-20260211' : p.model;
+  const rig = STUDIO_RIG.find(r => r.value === studio.rig)?.label ?? studio.rig;
   return [
-    { label: 'Tab', value: p.smartLowPoly ? 'Smart Mesh' : 'HD Model', note: null },
-    {
-      label: 'AI Model',
-      value: p.model.startsWith('v3.1') ? 'H3.1' : p.model,
-      note: `model id ${p.model}`,
-    },
-    {
-      label: 'Ultra Mesh Quality',
-      value: onOff(p.geometryQuality === 'detailed'),
-      note: null,
-    },
+    { label: 'Tab', value: hd ? 'HD Model' : 'Smart Mesh (P2.0)', note: null },
+    ...(hd
+      ? [
+          {
+            label: 'AI Model',
+            value: model.startsWith('v3.1') ? 'H3.1' : model,
+            note: `model id ${model}`,
+          },
+          {
+            label: 'Ultra Mesh Quality',
+            value: onOff(p.geometryQuality === 'detailed'),
+            note: null,
+          },
+        ]
+      : []),
     { label: 'AI Complete', value: 'On', note: recommended },
     { label: 'Texture', value: onOff(p.texture), note: null },
     ...(p.texture
@@ -41,17 +56,30 @@ function tripoRows(p: TripoPreset, character: boolean, name: string): CardRow[] 
       note: p.faceLimit ? null : 'Studio has no adaptive',
     },
     { label: 'Generate in Parts', value: 'Off', note: recommended },
-    ...(character && p.rig
+    {
+      label: 'Rig',
+      value: rig,
+      note:
+        studio.rig === 'none'
+          ? 'skip Rig, export the model as is'
+          : 'export GLB (or FBX) with Export Skeleton on, Texture Resolution 2K',
+    },
+    ...(studio.rig === 'biped' && p.animations.length > 0
       ? [
           {
-            label: 'Rig',
-            value: `${skeleton}, export GLB (or FBX) with Export Skeleton on, Texture Resolution 2K`,
-            note: `rig model ${p.rigModel}`,
+            label: 'Animations',
+            value: p.animations.map(animationLabel).join(', '),
+            note: 'retarget them onto the rig',
           },
         ]
       : []),
     { label: 'Export', value: name, note: 'GLB, with this file name' },
   ];
+}
+
+function animationLabel(id: string): string {
+  const name = (id.split(':').pop() ?? id).replace(/_/g, ' ');
+  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 function meshyRows(p: MeshyPreset): CardRow[] {
@@ -94,7 +122,7 @@ export function handoffCard(job: ProviderJob): HandoffCard {
         : 'Image to 3D',
     rows: [
       ...(tripo && job.tripo
-        ? tripoRows(job.tripo, job.variant === 'character', name)
+        ? tripoRows(job.tripo, job.studio ?? studioDefaults(job.tripo, job.variant), name)
         : job.meshy
           ? meshyRows(job.meshy)
           : []),

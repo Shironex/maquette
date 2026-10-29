@@ -16,7 +16,9 @@ export default function ChecklistRow({ job }: ChecklistRowProps) {
   const { asset, thumb, openHandoff, expanded, toggleExpanded } = useChecklistRow(job);
   const chip = jobChip(job);
   const card = job.card;
-  const rows = card?.rows.slice(0, 3).map(r => `${r.label} ${r.value}`) ?? [];
+  // The first rows of the card, and its rig, as the card says them.
+  const shown = card ? [...card.rows.slice(0, 3), ...card.rows.filter(r => r.label === 'Rig')] : [];
+  const rows = shown.map(r => `${r.label} ${r.value}`);
   const settings = card
     ? [`${SERVICE_LABEL[card.service]} ${card.mode}`, ...rows].join(' · ')
     : SERVICE_LABEL[job.service];

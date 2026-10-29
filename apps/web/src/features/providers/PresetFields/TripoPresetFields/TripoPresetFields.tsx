@@ -9,7 +9,14 @@ import { AnimationPicks } from './AnimationPicks';
 import { formatFaces, parseFaces } from './faces';
 import { useTripoPresetFields } from './TripoPresetFields.hooks';
 
-export type TripoPresetFieldsProps = PresetFieldsProps<TripoPreset>;
+export interface TripoPresetFieldsProps extends PresetFieldsProps<TripoPreset> {
+  /**
+   * By hand on Tripo Studio: hides what the site has no field for (or the
+   * Studio fields set instead): multi-view, real-world size, image fix,
+   * smart low poly and the rig.
+   */
+  byHand?: boolean;
+}
 
 export default function TripoPresetFields({
   preset,
@@ -17,6 +24,7 @@ export default function TripoPresetFields({
   variant,
   error,
   compact,
+  byHand = false,
 }: TripoPresetFieldsProps) {
   const { catalog, pSeries, low, high } = useTripoPresetFields(preset);
   const set = (patch: Partial<TripoPreset>) => onChange({ ...preset, ...patch });
@@ -59,21 +67,25 @@ export default function TripoPresetFields({
           disabled={!preset.texture}
           onChange={pbr => set({ pbr })}
         />
-        <Toggle
-          label="Multi-view"
-          checked={preset.multiView}
-          onChange={multiView => set({ multiView })}
-        />
-        <Toggle
-          label="Real-world size"
-          checked={preset.autoSize}
-          onChange={autoSize => set({ autoSize })}
-        />
-        <Toggle
-          label="Fix the image first"
-          checked={preset.imageAutofix}
-          onChange={imageAutofix => set({ imageAutofix })}
-        />
+        {byHand ? null : (
+          <>
+            <Toggle
+              label="Multi-view"
+              checked={preset.multiView}
+              onChange={multiView => set({ multiView })}
+            />
+            <Toggle
+              label="Real-world size"
+              checked={preset.autoSize}
+              onChange={autoSize => set({ autoSize })}
+            />
+            <Toggle
+              label="Fix the image first"
+              checked={preset.imageAutofix}
+              onChange={imageAutofix => set({ imageAutofix })}
+            />
+          </>
+        )}
       </div>
       <div className={cn('grid grid-cols-2', compact ? 'gap-2.5' : 'gap-3')}>
         <Select
@@ -84,16 +96,18 @@ export default function TripoPresetFields({
           title={pSeries ? 'The P series has one geometry level' : undefined}
           onChange={geometryQuality => set({ geometryQuality })}
         />
-        <div className="flex items-end pb-[7px]">
-          <Toggle
-            label="Smart low poly"
-            checked={!pSeries && preset.smartLowPoly}
-            disabled={pSeries}
-            onChange={smartLowPoly => set({ smartLowPoly })}
-          />
-        </div>
+        {byHand ? null : (
+          <div className="flex items-end pb-[7px]">
+            <Toggle
+              label="Smart low poly"
+              checked={!pSeries && preset.smartLowPoly}
+              disabled={pSeries}
+              onChange={smartLowPoly => set({ smartLowPoly })}
+            />
+          </div>
+        )}
       </div>
-      {variant === 'character' ? (
+      {variant === 'character' && !byHand ? (
         <Group title="Rig and animate">
           <div
             className={cn('grid grid-cols-[auto_1fr_1fr] items-end', compact ? 'gap-2.5' : 'gap-3')}

@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import { commands, errorMessage } from '@/ipc/client';
 import { PROVIDER_LABEL } from './providers';
-import { batchDraft, batchRequest, presetChanges, pruneItems } from './batch';
+import { batchDraft, batchRequest, presetChanges, pruneItems, studioFor } from './batch';
 import { foldIn, notify, savedPresets } from './providers-store-helpers';
 import type { ProvidersStore } from './providers-store.types';
 
@@ -76,6 +76,7 @@ export const createBatchSlice: StateCreator<ProvidersStore, [], [], BatchSlice> 
     const draft = { ...batch.draft };
     if (preset.tripo) draft.tripo = { ...draft.tripo, [variant]: preset.tripo };
     if (preset.meshy) draft.meshy = { ...draft.meshy, [variant]: preset.meshy };
+    if (preset.studio) draft.studio = { ...draft.studio, [variant]: preset.studio };
     set({ batch: { ...batch, draft: pruneItems(draft), confirming: false } });
   },
 
@@ -85,11 +86,14 @@ export const createBatchSlice: StateCreator<ProvidersStore, [], [], BatchSlice> 
     const { draft } = batch;
     const items = draft.items.map(item => {
       if (item.asset !== asset) return item;
-      if (!preset) return { ...item, tripo: {}, meshy: {} };
+      if (!preset) return { ...item, tripo: {}, meshy: {}, studio: {} };
       return {
         ...item,
         ...(preset.tripo && { tripo: presetChanges(draft.tripo[item.variant], preset.tripo) }),
         ...(preset.meshy && { meshy: presetChanges(draft.meshy[item.variant], preset.meshy) }),
+        ...(preset.studio && {
+          studio: presetChanges(draft.studio[item.variant], preset.studio),
+        }),
       };
     });
     set({ batch: { ...batch, draft: { ...draft, items }, confirming: false } });
@@ -115,6 +119,7 @@ export const createBatchSlice: StateCreator<ProvidersStore, [], [], BatchSlice> 
           ...batch.draft,
           tripo: structuredClone(saved.tripo),
           meshy: structuredClone(saved.meshy),
+          studio: studioFor(saved.tripo),
         },
         confirming: false,
       },

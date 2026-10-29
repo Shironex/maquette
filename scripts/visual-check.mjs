@@ -928,6 +928,34 @@ async function byHandShots() {
   await checklist.getByText('Bring the GLB back', { exact: true }).scrollIntoViewIfNeeded();
   await shot(board, 'byhand-card-export-name');
 
+  // The Tripo Studio tab and rig: picked per send, and the card follows them.
+  const studio = await open('&scenario=configured', '#/board');
+  await studio.getByRole('button', { name: /^Elsheria, v2/ }).waitFor();
+  await studio.getByRole('button', { name: 'More for Elsheria' }).click();
+  await studio.getByRole('menuitem', { name: 'Send to 3D' }).click();
+  const send = studio.getByRole('dialog', { name: /Send Elsheria to 3D/ });
+  await send
+    .getByRole('group', { name: 'Provider' })
+    .getByRole('button', { name: 'By hand' })
+    .click();
+  await send.getByRole('combobox', { name: 'Tripo Studio tab' }).selectOption('smart-mesh');
+  await send.getByRole('combobox', { name: 'Rig' }).first().selectOption('quadruped');
+  await shot(studio, 'byhand-send-studio');
+  await send.getByRole('button', { name: 'Write the handoff folder' }).click();
+  await studio.getByText('Bring the GLB back', { exact: true }).waitFor();
+  await studio.getByText('Quadruped', { exact: true }).scrollIntoViewIfNeeded();
+  await studio.waitForTimeout(400);
+  await shot(studio, 'byhand-card-studio');
+
+  const many = await open(fixture, '#/lab');
+  await many.getByText('Earlier directions').waitFor();
+  await many.getByRole('button', { name: /^Veil gate props objects/ }).click();
+  await many.getByRole('button', { name: 'Send to 3D' }).click();
+  const batch = many.getByRole('dialog', { name: 'Send 6 assets to 3D' });
+  await batch.getByRole('button', { name: 'Custom settings for Lantern post' }).click();
+  await batch.getByRole('combobox', { name: 'Rig for Lantern post' }).selectOption('multi-legged');
+  await shot(many, 'byhand-batch-studio');
+
   const named = await open(`${fixture}&arrival=named`, '#/board');
   await named.getByText('is in the Inbox', { exact: false }).first().waitFor();
   await shot(named, 'byhand-arrival-imported');

@@ -12,6 +12,7 @@ const item: BatchItemDraft = {
   thumbnail: null,
   tripo: {},
   meshy: {},
+  studio: {},
 };
 
 function row(props: Partial<Parameters<typeof ItemRow>[0]> = {}) {
