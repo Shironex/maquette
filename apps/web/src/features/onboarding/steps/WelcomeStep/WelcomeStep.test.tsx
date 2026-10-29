@@ -24,7 +24,7 @@ describe('the welcome step', () => {
     render(<Harness />);
     expect(
       screen.getByLabelText('Pipeline: Concept, Refs, 3D model, Blender, Web, Ship')
-    ).toHaveTextContent('ConceptRefsTripoBlenderWebShip');
+    ).toHaveTextContent('ConceptRefs3D modelBlenderWebShip');
     await userEvent.click(screen.getByRole('button', { name: 'Set up' }));
     expect(screen.getByLabelText('step')).toHaveTextContent('1');
   });

@@ -39,7 +39,7 @@ describe('the project top bar', () => {
     expect(
       screen.getByRole('meter', { name: /^Game budget, \d+ of \d+ models over$/ })
     ).toBeVisible();
-    for (const label of ['Concept', 'Refs', 'Tripo', 'Blender', 'Export', 'Ship']) {
+    for (const label of ['Concept', 'Refs', '3D model', 'Blender', 'Export', 'Ship']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     expect(screen.queryByText('Web')).toBeNull();
