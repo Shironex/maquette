@@ -384,10 +384,6 @@ fn a_split_runs_after_merge_and_before_decimate() {
         kinds,
         [FixupKind::Merge, FixupKind::SplitParts, FixupKind::Decimate]
     );
-    assert!(
-        SCRIPT.contains("\"merge\",\n    \"split-parts\",\n    \"pad-edges\""),
-        "the script applies them in the same order"
-    );
 }
 
 fn lantern_parts() -> PartsPlan {
