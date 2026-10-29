@@ -59,7 +59,12 @@ export const DOCS_GROUPS: readonly DocsGroup[] = [
   },
   {
     label: 'Agents',
-    slugs: ['docs/agents/connect', 'docs/agents/mcp-tools', 'docs/agents/llms'],
+    slugs: [
+      'docs/agents/connect',
+      'docs/agents/mcp-tools',
+      'docs/agents/skills',
+      'docs/agents/llms',
+    ],
   },
 ];
 
