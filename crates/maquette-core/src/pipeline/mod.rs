@@ -6,13 +6,11 @@ pub mod bake;
 pub mod cache;
 pub mod export_one;
 pub mod graph;
-pub mod history;
 pub mod presets;
 pub mod progress;
 pub mod runner;
 pub mod starter;
 pub mod template;
-pub mod tools;
 
 use std::fs;
 use std::io;
@@ -24,33 +22,13 @@ use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use crate::workspace::{MeshoptLevel, TextureCodec};
 
+pub use crate::base::tools::StepKind;
+pub use crate::base::{history, tools};
 pub use graph::{PipelineIssue, validate};
 pub use presets::{CompressPreset, ResolvedPreset};
 
 pub const PIPELINE_FILE: &str = "pipeline.json";
 pub const PIPELINE_VERSION: u32 = 1;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "kebab-case")]
-pub enum StepKind {
-    Blender,
-    Shell,
-    GltfTransform,
-    Toktx,
-    Ffmpeg,
-}
-
-impl StepKind {
-    pub fn label(self) -> &'static str {
-        match self {
-            StepKind::Blender => "Blender",
-            StepKind::Shell => "Shell",
-            StepKind::GltfTransform => "gltf-transform",
-            StepKind::Toktx => "toktx",
-            StepKind::Ffmpeg => "ffmpeg",
-        }
-    }
-}
 
 /// Where the compress step reads raw GLBs and writes the compressed ones.
 /// Each `<from>/<model>.glb` goes through the texture and meshopt passes its

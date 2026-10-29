@@ -5,6 +5,7 @@
 pub mod animations;
 pub mod app_state;
 pub mod assets;
+pub mod base;
 pub mod built;
 pub mod concepts;
 pub mod error;
