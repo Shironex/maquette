@@ -103,6 +103,18 @@ pub(super) fn enqueue(shared: &Arc<Shared>, id: &str) {
     pump(shared);
 }
 
+/// Moves the waiting jobs among `ids` to the front of the line, in the
+/// order they were waiting. Returns how many moved.
+pub(super) fn run_next(shared: &Shared, ids: &[String]) -> usize {
+    let mut lane = shared.api();
+    let (mut first, rest): (VecDeque<String>, VecDeque<String>) =
+        lane.waiting.drain(..).partition(|id| ids.contains(id));
+    let moved = first.len();
+    first.extend(rest);
+    lane.waiting = first;
+    moved
+}
+
 fn pump(shared: &Arc<Shared>) {
     loop {
         let next = {

@@ -19,6 +19,7 @@ mod api;
 mod approval;
 mod codex_run;
 mod persist;
+mod priority;
 mod retry;
 mod settle;
 mod sink;
