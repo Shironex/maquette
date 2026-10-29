@@ -347,7 +347,7 @@ fn a_meshy_split_waits_for_approval_lands_as_a_version_and_bakes_the_texture_bac
     assert_eq!(asset.versions.len(), 3, "the untextured v2 stays");
     let baked_file = world.project_dir().join(&asset.versions[2].file);
     let report = inbox::analyse::analyse(&baked_file).expect("analyse");
-    let parts = crate::parts::read(&baked_file).expect("parts");
+    let parts = maquette_glb::parts::read(&baked_file).expect("parts");
     assert_eq!(
         report.textures.len(),
         parts.len(),
