@@ -178,8 +178,11 @@ export function createGameHandlers({ project, saveProject, store, state, files }
       const check = checkAsset(game, asset);
       const stats = asset.versions[asset.versions.length - 1]?.stats;
       const bytes = stats?.bytes ?? null;
-      const before = game.models[asset.id];
-      if (before && before.file !== path) files.push(removedFile(before.file, bytes, stats));
+      const imported = game.models[asset.id];
+      const moved = imported !== undefined && imported.file !== path;
+      if (moved) files.push(removedFile(imported.file, bytes, stats));
+      // A moved file is new at its new path, as the core plans it.
+      const before = moved ? undefined : imported;
       const fixed = check ? autoFixes(check).length > 0 : false;
       const done = shipped.has(`${id}:${path}`);
       const change = done ? 'unchanged' : !before ? 'new' : fixed ? 'replaced' : 'unchanged';

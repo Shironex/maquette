@@ -118,7 +118,7 @@ export default function BudgetPanel() {
             <table className="w-full table-fixed border-collapse text-[12px]">
               <colgroup>
                 <col />
-                <col className="w-[120px]" />
+                <col className="w-[160px]" />
                 <col className="w-[84px]" />
                 <col className="w-[110px]" />
                 <col className="w-[100px]" />
