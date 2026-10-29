@@ -39,6 +39,10 @@ use crate::project;
 use crate::thumbs::{Fingerprint, ThumbState};
 use crate::workspace::{WorkspaceConfig, is_single_segment};
 
+// Where models arrive is shared with the provider sends, so it lives in the
+// sends module; this keeps the old path.
+pub use crate::sends::inbox_dir;
+
 const KINDS_FILE: &str = "kinds.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -74,13 +78,9 @@ pub struct InboxItem {
     pub thumbnail: Option<String>,
     pub thumbnail_state: ThumbState,
     /// The Send to 3D this model came from, when its name matches one.
-    pub link: Option<crate::providers::InboxLink>,
+    pub link: Option<crate::sends::InboxLink>,
     /// The asset it was attached to without a send, which Accept defaults to.
     pub aim: Option<InboxAim>,
-}
-
-pub fn inbox_dir(root: &Path, config: &WorkspaceConfig) -> PathBuf {
-    root.join(&config.layout.inbox)
 }
 
 fn cache_dir(root: &Path, config: &WorkspaceConfig) -> PathBuf {

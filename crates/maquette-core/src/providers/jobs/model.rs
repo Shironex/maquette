@@ -12,33 +12,9 @@ use crate::providers::presets::{
     MeshyPreset, PresetVariant, ProviderId, TripoPreset, TripoRigSpec,
 };
 use crate::providers::split::{MeshySplit, TripoSplit};
-
-/// How a model gets made.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "kebab-case")]
-pub enum Provider {
-    Tripo,
-    Meshy,
-    ByHand,
-}
-
-impl Provider {
-    pub fn service(self) -> Option<ProviderId> {
-        match self {
-            Self::Tripo => Some(ProviderId::Tripo),
-            Self::Meshy => Some(ProviderId::Meshy),
-            Self::ByHand => None,
-        }
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Tripo => "Tripo",
-            Self::Meshy => "Meshy",
-            Self::ByHand => "By hand",
-        }
-    }
-}
+// How a model gets made and the link to its send are shared with the inbox,
+// so they live in the sends module; this keeps the old paths.
+pub use crate::sends::{InboxLink, Provider};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]
@@ -305,20 +281,6 @@ pub struct BakeBack {
     /// The version the bake made.
     pub version: Option<u32>,
     pub message: Option<String>,
-}
-
-/// An inbox model that came from a send.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct InboxLink {
-    pub job: String,
-    pub project: String,
-    pub asset: String,
-    pub asset_name: String,
-    pub provider: Provider,
-    /// The send it redoes, when it came from a Redo.
-    #[serde(default)]
-    pub redo_of: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]

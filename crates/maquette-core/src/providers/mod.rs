@@ -115,13 +115,11 @@ pub fn format_credits(credits: f64) -> String {
 /// the ledger) with the shell's TypeScript export; `maquette_core::types` folds every module's in.
 pub fn register(types: specta::Types) -> specta::Types {
     types
-        .register::<Provider>()
         .register::<JobState>()
         .register::<JobPhase>()
         .register::<CancelMode>()
         .register::<ProviderJob>()
         .register::<SendRequest>()
-        .register::<InboxLink>()
         .register::<ProviderEvent>()
         .register::<CardRow>()
         .register::<HandoffCard>()

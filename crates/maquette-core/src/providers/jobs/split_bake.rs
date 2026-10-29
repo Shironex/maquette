@@ -9,14 +9,14 @@ use super::split::{source_of, split_dir, version_file};
 use super::{BakeBack, BakeState, ProviderEvent, ProviderJob, ProviderJobs, Stored, Workspace};
 use super::{Provider, update};
 use crate::error::{CoreError, CoreResult};
-use crate::inbox::{self, analyse};
+use crate::inbox::analyse;
 use crate::parts::bake_back;
 use crate::parts::versions::{self, Target};
 use crate::pipeline::tools::Toolbox;
 
 /// Texture images in an Inbox model.
 pub(super) fn textures_in(workspace: &Workspace, item: &str) -> u32 {
-    let path = inbox::inbox_dir(&workspace.root, &workspace.config).join(item);
+    let path = crate::sends::inbox_dir(&workspace.root, &workspace.config).join(item);
     analyse::analyse(&path)
         .map(|r| u32::try_from(r.textures.len()).unwrap_or(u32::MAX))
         .unwrap_or(0)

@@ -29,6 +29,7 @@
     "refs": "model",
     "timeline": "model",
     "settings": "model",
+    "sends": "model",
     "inbox::analyse": "glb",
     "inbox::checks": "glb",
     "inbox::fixture": "glb",

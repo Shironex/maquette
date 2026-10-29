@@ -348,7 +348,7 @@ impl ProviderJobs {
             None => {
                 let model = handback::read_model(file)?;
                 let item = write_inbox(&workspace, &format!("download-{asset}"), &model.bytes)?;
-                let aim = inbox::InboxAim {
+                let aim = crate::sends::InboxAim {
                     project: project.to_string(),
                     asset: asset.clone(),
                     asset_name: asset_name.clone(),
@@ -386,7 +386,7 @@ pub struct ModelAttached {
 }
 
 pub(super) fn write_inbox(workspace: &Workspace, id: &str, bytes: &[u8]) -> CoreResult<String> {
-    let dir = inbox::inbox_dir(&workspace.root, &workspace.config);
+    let dir = crate::sends::inbox_dir(&workspace.root, &workspace.config);
     fs::create_dir_all(&dir).map_err(|e| CoreError::io(&dir, e))?;
     let name = (1u32..)
         .map(|n| {

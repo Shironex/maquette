@@ -37,8 +37,8 @@ use super::presets::{MeshyTexture, ProviderId, TripoTextureQuality};
 use super::secrets::SecretStore;
 use super::tripo;
 use crate::error::{CoreError, CoreResult};
-use crate::inbox::{SendNotes, SentMaps};
 use crate::project;
+use crate::sends::{SendNotes, SentMaps};
 use crate::workspace::WorkspaceConfig;
 
 pub use model::{
