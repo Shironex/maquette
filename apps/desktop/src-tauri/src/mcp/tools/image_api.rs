@@ -102,7 +102,7 @@ fn status_value(status: &ImageApiStatus) -> Value {
 #[tool_router(router = image_api_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Read how the Lab makes images: the backend per kind of job (codex, or openai-images for OpenAI's Image API), the Image API's quality and monthly cap in US dollars, what it spent this calendar month and what its queued jobs will likely cost, whether an OpenAI key is saved, and the estimated cost per image. Codex is the default for every kind. start_concepts, make_object_refs, make_other_views and clean_ref_background take a backend to override it for one request.",
+        description = "Read how the Lab makes images: the backend per kind of job (codex, or openai-images for OpenAI's Image API), the Image API's quality and monthly cap in US dollars, what it spent this calendar month and what its queued jobs will likely cost, whether an OpenAI key is saved, and the estimated cost per image. Codex is the default for every kind. start_concepts, make_object_refs, make_other_views and clean_ref_background take a backend to override it for one request. A round an agent asks for on openai-images waits for a person to approve it in the app.",
         annotations(read_only_hint = true)
     )]
     async fn get_image_backend(&self) -> Out {
@@ -121,7 +121,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change how the Lab makes images, as Settings > Image generation does: the backend per kind of job (codex or openai-images), the Image API's quality (low, medium or high) and its monthly cap in whole US dollars (0 stops it). Fields left out keep their value. openai-images is paid per image from the OpenAI key saved in the app; a batch that would pass the cap is refused before anything is made, and every image is written to the credits ledger. The key itself can only be set in the app. Returns the result like get_image_backend.",
+        description = "Change how the Lab makes images, as Settings > Image generation does: the backend per kind of job (codex or openai-images), the Image API's quality (low, medium or high) and its monthly cap in whole US dollars (0 stops it). Fields left out keep their value. openai-images is paid per image from the OpenAI key saved in the app; a batch that would pass the cap is refused before anything is made, a round an agent asks for waits for a person to approve it in the app, and every image is written to the credits ledger. The key itself can only be set in the app. Returns the result like get_image_backend.",
         annotations(destructive_hint = false)
     )]
     async fn set_image_backend(&self, Parameters(args): Parameters<SetImageBackendArgs>) -> Out {

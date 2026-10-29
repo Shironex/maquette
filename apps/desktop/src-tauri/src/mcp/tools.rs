@@ -18,6 +18,7 @@ pub mod credits;
 pub mod game;
 pub mod handoffs;
 pub mod image_api;
+pub mod image_round;
 pub mod inbox;
 pub mod library;
 pub mod materials;
@@ -80,9 +81,9 @@ needsLook, and one it could not place under unmatched: nothing lands without att
 cancel_provider_jobs stops sends by id (a by hand send stops waiting, a send not yet started is cancelled, one that cannot be stopped says why), but a send waiting for approval is only denied by a person in the app. make_object_refs turns the objects of one concept into \
 one isolated image each. get_ref_views reads an asset's refs and the view each shows \
 (front, left, back, right or other); set_ref_views sets them, and every send then carries \
-front, left, back and right in that order and leaves other refs home. make_other_views has \
-Codex draw an asset's missing views from its front and clean_ref_background makes a cleaned \
-copy of one ref; both spend Codex usage like start_concepts, and use_ref_candidate puts a \
+front, left, back and right in that order and leaves other refs home. make_other_views draws \
+an asset's missing views from its front and clean_ref_background makes a cleaned \
+copy of one ref; both make images on the Lab's image backend like start_concepts, and use_ref_candidate puts a \
 candidate in place (a clean copy's original moves to refs/originals). send_to_3d and \
 send_batch_to_3d report refWarnings (small, cropped, busy background, one view only, a view that looks different from the front) before \
 anything is spent; they never stop a send. get_concepts reads the Lab, with its failed jobs; a job Codex rate \
@@ -92,7 +93,11 @@ prompt, refs and file, no new direction). get_codex_usage reads how much of Code
 windows is used and when they reset; retry_usage_limited_jobs runs the jobs the usage limit holds once a \
 fresh read says it has lifted. Lab images are made by Codex unless Settings or a request's \
 backend picks openai-images (OpenAI's Image API, paid per image within a monthly cap in US dollars); \
-get_image_backend and set_image_backend read and change that. pick_concepts puts concepts on the Board \
+get_image_backend and set_image_backend read and change that, and every job reports its backend. A round \
+an agent asks for on openai-images (start_concepts, make_object_refs, make_other_views, \
+clean_ref_background, retry_concept_jobs) waits for a person to approve it in the app and answers \
+\"waiting for approval\" with its estimate: poll get_concepts and never start it again. \
+get_credits shows the month's OpenAI image dollars against the cap. pick_concepts puts concepts on the Board \
 as Send picks to Refs does: each image goes into refs/ and becomes or joins an asset at Refs \
 (named after its object for object refs, else after its direction), ready for send_to_3d; \
 picking an image again returns its asset. star_concepts stars or unstars them. Both spend \

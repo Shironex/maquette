@@ -232,6 +232,18 @@ async fn call(client: &RunningService<RoleClient, ClientConfig>, tool: &str, arg
 }
 
 /// Sends a bare HTTP request and returns the status line.
+/// Polls `done` until it holds or `limit` passes.
+fn wait_until(limit: Duration, done: impl Fn() -> bool) -> bool {
+    let end = Instant::now() + limit;
+    while Instant::now() < end {
+        if done() {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    done()
+}
+
 fn raw_status(port: u16, request: &str) -> String {
     let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).expect("connect");
     stream
@@ -692,6 +704,77 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
         "the override goes to Codex: {}",
         text(&codex)
     );
+
+    // Under the cap, an agent's round on the Image API waits for a person
+    // in the app: nothing is sent until it is approved, and a denied round
+    // ends cancelled.
+    call(&client, "set_image_backend", json!({ "monthlyCapUsd": 10 })).await;
+    let held = call(
+        &client,
+        "start_concepts",
+        json!({ "project": project_id, "direction": "Held", "prompt": "A lantern.", "count": 2 }),
+    )
+    .await;
+    assert_eq!(held["status"], json!("waiting for approval"), "{held}");
+    assert!(
+        held["approval"]["estimateUsd"]
+            .as_f64()
+            .is_some_and(|u| u > 0.0)
+    );
+    assert_eq!(held["jobs"][0]["state"], json!("approval"));
+    assert_eq!(held["jobs"][0]["backend"], json!("openai-images"));
+    let approvals = hub.approvals();
+    assert_eq!(approvals.len(), 1, "the app shows the round");
+    assert_eq!(approvals[0].kind, ApprovalKind::ImageRound);
+    assert_eq!(approvals[0].concept_jobs.len(), 2);
+    assert!(approvals[0].estimate_usd.is_some_and(|u| u > 0.0));
+    assert!(
+        approvals[0]
+            .detail
+            .as_deref()
+            .is_some_and(|d| d.starts_with("2 images at medium quality")),
+        "{:?}",
+        approvals[0].detail
+    );
+    let lab = call(&client, "get_concepts", json!({ "project": project_id })).await;
+    assert!(
+        lab["running"]
+            .as_array()
+            .expect("running")
+            .iter()
+            .any(|j| j["state"] == json!("approval"))
+    );
+    let credits = call(&client, "get_credits", json!({ "balance": false })).await;
+    assert_eq!(credits["openaiImages"]["capUsd"], json!(10));
+    assert_eq!(credits["openaiImages"]["monthToDateUsd"], json!(0.0));
+    assert!(
+        credits["openaiImages"]["pendingUsd"]
+            .as_f64()
+            .is_some_and(|u| u > 0.0),
+        "held jobs count as pending: {credits}"
+    );
+    assert!(hub.decide(&approvals[0].id, false));
+    let denied = wait_until(Duration::from_secs(5), || {
+        host.concepts
+            .jobs(Some(&project_id))
+            .iter()
+            .all(|j| j.state == maquette_core::concepts::ConceptJobState::Cancelled)
+    });
+    assert!(denied, "a denied round ends cancelled");
+    let again = call(
+        &client,
+        "retry_concept_jobs",
+        json!({ "project": project_id }),
+    )
+    .await;
+    assert_eq!(again["status"], json!("waiting for approval"), "{again}");
+    assert_eq!(again["jobs"][0]["state"], json!("approval"));
+    let retried = hub.approvals();
+    assert_eq!(retried[0].kind, ApprovalKind::ImageRound);
+    assert!(hub.decide(&retried[0].id, false));
+    assert!(wait_until(Duration::from_secs(5), || hub
+        .approvals()
+        .is_empty()));
     call(
         &client,
         "set_image_backend",

@@ -226,9 +226,10 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Make the other views of an asset: Codex draws the views it is missing (left, back, right) from its front ref, count candidates each, with the front attached and the project's style board unless useStyle is false. Filled views are skipped unless named. The candidates land in the Lab direction \"<asset> views\"; nothing reaches the refs until use_ref_candidate. Each image spends Codex usage, like start_concepts, or with backend openai-images is paid from the OpenAI key."
+        description = "Make the other views of an asset: the image backend draws the views it is missing (left, back, right) from its front ref, count candidates each, with the front attached and the project's style board unless useStyle is false. Filled views are skipped unless named. The candidates land in the Lab direction \"<asset> views\"; nothing reaches the refs until use_ref_candidate. The backend is the one Settings picks for other views (get_image_backend), or the one backend names: codex spends Codex usage; openai-images is paid per image from the OpenAI key within the monthly cap, and since an agent asked, the round waits for a person to approve it in the Maquette app: the answer is \"waiting for approval\" with approval.estimateUsd and the jobs are in state approval, so poll get_concepts and never start the round again (a denied round's jobs end cancelled)."
     )]
     async fn make_other_views(&self, Parameters(args): Parameters<MakeViewsArgs>) -> Out {
+        let project = args.project.clone();
         let found = self
             .blocking(move |host, _| {
                 check_asset(host, &args.project, &args.asset)?;
@@ -247,18 +248,19 @@ impl McpTools {
                     "status": "started",
                     "direction": { "id": direction.id, "name": direction.name },
                     "styleRevision": direction.style_revision,
-                    "jobs": jobs.iter().map(|j| json!({ "id": j.id, "view": j.title, "file": j.file, "state": to_value(j.state) })).collect::<Vec<_>>(),
+                    "jobs": jobs.iter().map(|j| json!({ "id": j.id, "view": j.title, "file": j.file, "state": to_value(j.state), "backend": to_value(j.backend) })).collect::<Vec<_>>(),
                     "note": "Read the candidates with get_ref_views once they are made, then put one in its slot with use_ref_candidate.",
                 }))
             })
             .await;
-        respond(found)
+        respond(self.ask_for_round(project, found).await)
     }
 
     #[tool(
-        description = "Clean the background of one of an asset's refs: Codex makes a copy with the object kept and the clutter removed, on studio grey (default) or transparent, optionally centered and padded to a square, and drawing what the frame cut off only when extend is true. The copy lands in the Lab direction \"<asset> clean\"; use_ref_candidate puts it in the ref's place with its view, and the original moves to refs/originals, kept. Spends Codex usage, like start_concepts, or with backend openai-images is paid from the OpenAI key."
+        description = "Clean the background of one of an asset's refs: the image backend makes a copy with the object kept and the clutter removed, on studio grey (default) or transparent, optionally centered and padded to a square, and drawing what the frame cut off only when extend is true. The copy lands in the Lab direction \"<asset> clean\"; use_ref_candidate puts it in the ref's place with its view, and the original moves to refs/originals, kept. The backend is the one Settings picks for clean background (get_image_backend), or the one backend names: codex spends Codex usage; openai-images is paid per image from the OpenAI key within the monthly cap, and since an agent asked, the round waits for a person to approve it in the Maquette app: the answer is \"waiting for approval\" with approval.estimateUsd and the jobs are in state approval, so poll get_concepts and never start the round again (a denied round's jobs end cancelled)."
     )]
     async fn clean_ref_background(&self, Parameters(args): Parameters<CleanRefArgs>) -> Out {
+        let project = args.project.clone();
         let found = self
             .blocking(move |host, _| {
                 check_asset(host, &args.project, &args.asset)?;
@@ -280,12 +282,12 @@ impl McpTools {
                 Ok(json!({
                     "status": "started",
                     "direction": { "id": direction.id, "name": direction.name },
-                    "jobs": jobs.iter().map(|j| json!({ "id": j.id, "file": j.file, "state": to_value(j.state) })).collect::<Vec<_>>(),
+                    "jobs": jobs.iter().map(|j| json!({ "id": j.id, "file": j.file, "state": to_value(j.state), "backend": to_value(j.backend) })).collect::<Vec<_>>(),
                     "note": "Once it is made, put the copy in place with use_ref_candidate; until then the original stays as it is.",
                 }))
             })
             .await;
-        respond(found)
+        respond(self.ask_for_round(project, found).await)
     }
 
     #[tool(

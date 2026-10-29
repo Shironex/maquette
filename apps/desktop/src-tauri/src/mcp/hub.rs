@@ -57,6 +57,9 @@ pub enum ApprovalKind {
     /// An agent asked to send an asset to Tripo or Meshy, which spends credits.
     #[serde(rename = "send-to-3d")]
     SendTo3d,
+    /// An agent asked for Lab images on OpenAI's Image API, which spends
+    /// dollars from the OpenAI key.
+    ImageRound,
 }
 
 /// One send of a batch approval.
@@ -94,6 +97,12 @@ pub struct Approval {
     /// Send to 3D: the credits it should cost in all, from the price lists.
     #[serde(default)]
     pub estimate: Option<f64>,
+    /// Image round: the Lab jobs it holds.
+    #[serde(default)]
+    pub concept_jobs: Vec<String>,
+    /// Image round: the dollars it should cost in all.
+    #[serde(default)]
+    pub estimate_usd: Option<f64>,
 }
 
 impl Approval {
@@ -105,6 +114,16 @@ impl Approval {
             .chain(self.items.iter().map(|i| i.job.clone()))
             .collect()
     }
+}
+
+/// What [`Hub::request_image_round`] records.
+pub struct ImageRound {
+    pub project: String,
+    /// The Lab direction the images land in.
+    pub direction: Option<String>,
+    pub jobs: Vec<String>,
+    pub estimate_usd: f64,
+    pub detail: String,
 }
 
 #[derive(Default)]
@@ -268,6 +287,8 @@ impl Hub {
             items: Vec::new(),
             requested_at_ms: now_ms(),
             estimate: None,
+            concept_jobs: Vec::new(),
+            estimate_usd: None,
         })
     }
 
@@ -287,6 +308,31 @@ impl Hub {
             items: Vec::new(),
             requested_at_ms: now_ms(),
             estimate: job.estimate.or_else(|| job.estimate()),
+            concept_jobs: Vec::new(),
+            estimate_usd: None,
+        })
+    }
+
+    /// Records that a round of Lab images an agent asked for on the Image
+    /// API waits before anything is sent. `detail` says what it is and how
+    /// the month stands.
+    pub fn request_image_round(&self, round: ImageRound) -> String {
+        self.push(|id| Approval {
+            id,
+            kind: ApprovalKind::ImageRound,
+            project: round.project,
+            run_id: None,
+            run_number: None,
+            step: None,
+            job: None,
+            asset_name: round.direction,
+            service: Some("OpenAI Images".to_string()),
+            detail: Some(round.detail),
+            items: Vec::new(),
+            requested_at_ms: now_ms(),
+            estimate: None,
+            concept_jobs: round.jobs,
+            estimate_usd: Some(round.estimate_usd),
         })
     }
 
@@ -335,6 +381,8 @@ impl Hub {
                     .collect(),
                 requested_at_ms: now_ms(),
                 estimate,
+                concept_jobs: Vec::new(),
+                estimate_usd: None,
             }
         }))
     }

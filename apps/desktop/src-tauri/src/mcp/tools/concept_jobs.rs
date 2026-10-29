@@ -23,10 +23,11 @@ pub struct RetryJobsArgs {
 #[tool_router(router = concept_jobs_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Run failed or cancelled Lab jobs again, as Retry in the Lab queue does: each reruns its own prompt, refs and target file under the same job id, so no new direction is made (object ref jobs too). Without jobs, every failed or cancelled job of the project. A job waiting out a Codex rate limit (it runs again on its own at retryAtMs) runs at once. A queued, running or done job is refused, and nothing runs when any id is refused. Each run spends Codex usage. Returns the jobs; follow them with get_concepts.",
+        description = "Run failed or cancelled Lab jobs again, as Retry in the Lab queue does: each reruns its own prompt, refs and target file under the same job id, so no new direction is made (object ref jobs too). Without jobs, every failed or cancelled job of the project. A job waiting out a Codex rate limit (it runs again on its own at retryAtMs) runs at once. A queued, running, waiting for approval or done job is refused, and nothing runs when any id is refused. Each job runs on the backend it ran on before: a codex job spends Codex usage; an openai-images job is paid from the OpenAI key, so its retry waits for a person to approve it in the Maquette app and the answer is \"waiting for approval\" (poll get_concepts, never retry it again meanwhile). Returns the jobs; follow them with get_concepts.",
         annotations(idempotent_hint = false)
     )]
     async fn retry_concept_jobs(&self, Parameters(args): Parameters<RetryJobsArgs>) -> Out {
+        let project = args.project.clone();
         let found = self
             .blocking(move |host, _| {
                 let concepts = host.concepts();
@@ -66,11 +67,17 @@ impl McpTools {
                 }
                 let jobs = ids
                     .iter()
-                    .map(|id| concepts.retry(id).map(|j| job_value(&j)).map_err(reason))
+                    .map(|id| {
+                        // An agent's retry on the Image API waits for approval again.
+                        concepts
+                            .retry_with(id, true)
+                            .map(|j| job_value(&j))
+                            .map_err(reason)
+                    })
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(json!({ "project": args.project, "jobs": jobs }))
             })
             .await;
-        respond(found)
+        respond(self.ask_for_round(project, found).await)
     }
 }
