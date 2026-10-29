@@ -11,6 +11,7 @@ use super::trim_number;
 )]
 #[serde(rename_all = "kebab-case")]
 pub enum FixupKind {
+    Rotate,
     ApplyTransforms,
     RemoveLoose,
     Merge,
@@ -21,7 +22,8 @@ pub enum FixupKind {
 }
 
 impl FixupKind {
-    pub const ALL: [FixupKind; 7] = [
+    pub const ALL: [FixupKind; 8] = [
+        FixupKind::Rotate,
         FixupKind::ApplyTransforms,
         FixupKind::RemoveLoose,
         FixupKind::Merge,
@@ -33,6 +35,7 @@ impl FixupKind {
 
     pub fn label(self) -> &'static str {
         match self {
+            FixupKind::Rotate => "Rotate",
             FixupKind::ApplyTransforms => "Apply transforms",
             FixupKind::RemoveLoose => "Remove loose parts",
             FixupKind::Merge => "Merge objects",
@@ -68,6 +71,11 @@ impl SplitBy {
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "op", rename_all = "kebab-case")]
 pub enum Fixup {
+    /// Turns the model about its centre by these angles in degrees, in the
+    /// app's axes (y up): about x, then y, then z. The turn is baked into
+    /// the meshes (rigged meshes keep it on their rig), so a model that came
+    /// out of a provider leaning stands up straight without a new send.
+    Rotate { x: f32, y: f32, z: f32 },
     /// Bakes object transforms into the meshes (rigged meshes keep theirs).
     ApplyTransforms,
     /// Drops loose parts whose size is at most `minShare` of the model's
@@ -105,6 +113,7 @@ pub enum Fixup {
 impl Fixup {
     pub fn kind(&self) -> FixupKind {
         match self {
+            Fixup::Rotate { .. } => FixupKind::Rotate,
             Fixup::ApplyTransforms => FixupKind::ApplyTransforms,
             Fixup::RemoveLoose { .. } => FixupKind::RemoveLoose,
             Fixup::Merge { .. } => FixupKind::Merge,
@@ -115,9 +124,21 @@ impl Fixup {
         }
     }
 
-    /// "Decimate to 60k", "Shrink textures to 2048 px".
+    /// "Decimate to 60k", "Shrink textures to 2048 px", "Rotate x 24.5°".
     pub fn describe(&self) -> String {
         match self {
+            Fixup::Rotate { x, y, z } => {
+                let turns: Vec<String> = [("x", x), ("y", y), ("z", z)]
+                    .into_iter()
+                    .filter(|(_, deg)| **deg != 0.0)
+                    .map(|(axis, deg)| format!("{axis} {}°", trim_number(*deg)))
+                    .collect();
+                if turns.is_empty() {
+                    "Rotate (no turn)".to_string()
+                } else {
+                    format!("Rotate {}", turns.join(", "))
+                }
+            }
             Fixup::Decimate { triangles } => {
                 format!(
                     "Decimate to {}",

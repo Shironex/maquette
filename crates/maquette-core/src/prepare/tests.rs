@@ -254,6 +254,35 @@ fn fixups_describe_themselves_for_the_buttons() {
 }
 
 #[test]
+fn rotate_reads_its_turns_checks_its_range_and_runs_first() {
+    let lean = Fixup::Rotate {
+        x: -24.5,
+        y: 0.0,
+        z: 90.0,
+    };
+    assert_eq!(lean.describe(), "Rotate x -24.5°, z 90°");
+    assert!(super::check_fixup("lamp", &lean).is_ok());
+    for bad in [f32::NAN, 361.0, -400.0] {
+        let turn = Fixup::Rotate {
+            x: bad,
+            y: 0.0,
+            z: 0.0,
+        };
+        assert!(super::check_fixup("lamp", &turn).is_err(), "{bad}");
+    }
+    assert_eq!(FixupKind::ALL[0], FixupKind::Rotate);
+    let parsed: Fixup =
+        serde_json::from_str(r#"{ "op": "rotate", "x": 10, "y": 0, "z": 0 }"#).expect("rotate");
+    assert_eq!(parsed.kind(), FixupKind::Rotate);
+    let mut entry = ModelPrep {
+        fixups: vec![Fixup::OriginBottom, lean],
+        ..ModelPrep::default()
+    };
+    entry.fixups.sort_by_key(Fixup::kind);
+    assert_eq!(entry.fixups[0], lean);
+}
+
+#[test]
 fn the_preview_runs_headless_with_whole_path_args() {
     let input = Path::new("/ws/inbox/desk lamp.glb");
     let args = preview::args(input);
