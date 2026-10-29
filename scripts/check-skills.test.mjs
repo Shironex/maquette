@@ -32,7 +32,7 @@ let counter = 0;
 function fixture(files) {
   const root = join(scratch, String(counter++));
   const all = {
-    'apps/desktop/src-tauri/tests/mcp_handshake.rs': HANDSHAKE,
+    'apps/desktop/src-tauri/tests/mcp/handshake.rs': HANDSHAKE,
     'plugins/demo/.claude-plugin/plugin.json': '{ "name": "demo" }',
     '.claude-plugin/marketplace.json':
       '{ "plugins": [{ "name": "demo", "source": "./plugins/demo" }] }',

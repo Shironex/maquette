@@ -2,7 +2,7 @@
  * Keeps the agent skills honest: every Maquette tool a skill names must exist.
  *
  * The authoritative tool list is the one the MCP handshake test asserts
- * (apps/desktop/src-tauri/tests/mcp_handshake.rs), not the docs page. For every
+ * (apps/desktop/src-tauri/tests/mcp/handshake.rs), not the docs page. For every
  * plugins/<plugin>/skills/<skill>/SKILL.md (and the Markdown beside it) the check:
  *
  * - takes each inline `backticked` snake_case word whose first segment is a verb that
@@ -21,7 +21,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const HANDSHAKE = 'apps/desktop/src-tauri/tests/mcp_handshake.rs';
+const HANDSHAKE = 'apps/desktop/src-tauri/tests/mcp/handshake.rs';
 const MAX_LINES = 250;
 const DASHES = /[\u2013\u2014]/;
 const SNAKE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
