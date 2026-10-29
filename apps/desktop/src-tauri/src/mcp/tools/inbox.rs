@@ -10,6 +10,8 @@ use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use crate::mcp::host::Host;
+
 use super::{McpTools, Out, failed, json_result, reason, respond, to_value, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -64,6 +66,60 @@ fn resolve_model(root: &Path, file: &str) -> Result<PathBuf, String> {
         return Err(format!("{} is not a .glb or .gltf model.", path.display()));
     }
     Ok(path)
+}
+
+/// Accepts inbox item `args.id` into its project, as accept_inbox_model does,
+/// and starts its thumbnail.
+pub(super) fn accept_item(host: &dyn Host, args: AcceptArgs) -> Result<Value, String> {
+    let (root, config) = workspace(host)?;
+    // A model from a send goes to the asset it was sent for; the
+    // core falls back on the asset a download was attached to.
+    let mut item = inbox::item(&root, &config, &args.id).map_err(reason)?;
+    host.studio().link_inbox(std::slice::from_mut(&mut item));
+    let linked = item
+        .link
+        .filter(|l| l.project == args.project)
+        .map(|l| l.asset);
+    let request = AcceptRequest {
+        item: args.id,
+        project: args.project.clone(),
+        asset: args.asset.or(linked),
+        name: args.name,
+        prep: None,
+    };
+    let mut result = inbox::accept(&root, &config, &request).map_err(reason)?;
+    host.studio().accepted(
+        &request.item,
+        &request.project,
+        &result.asset.id,
+        result.version.version,
+    );
+    let target = ThumbTarget {
+        project: args.project,
+        asset: result.asset.id.clone(),
+        version: result.version.version,
+    };
+    let tools = host.toolbox();
+    let bake_tools = tools.clone();
+    crate::commands::split::spawn_bakes(
+        host.studio().clone(),
+        host.thumbs().clone(),
+        move || bake_tools,
+        root.clone(),
+        config.clone(),
+    );
+    let file = PathBuf::from(&result.file);
+    if let Some(project) =
+        crate::commands::thumbs::for_version(host.thumbs(), &root, &config, &tools, &file, target)
+    {
+        result.project = project;
+    }
+    host.project_changed(&result.project);
+    Ok(json!({
+        "asset": { "id": result.asset.id, "name": result.asset.name, "stage": to_value(result.asset.stage) },
+        "version": result.version.version,
+        "file": result.file,
+    }))
 }
 
 #[tool_router(router = inbox_router, vis = "pub(super)")]
@@ -143,64 +199,7 @@ impl McpTools {
         description = "Accept a model from the inbox into a project: it moves into the project as a new asset version on the Board, and its thumbnail is rendered headless. Without asset it goes to the asset the model was sent for, or the one a download was attached to (aimedAt in list_inbox). A By hand send of that asset still waiting for its model closes as done; a Tripo or Meshy send runs on."
     )]
     async fn accept_inbox_model(&self, Parameters(args): Parameters<AcceptArgs>) -> Out {
-        let found = self
-            .blocking(move |host, _| {
-                let (root, config) = workspace(host)?;
-                // A model from a send goes to the asset it was sent for; the
-                // core falls back on the asset a download was attached to.
-                let mut item = inbox::item(&root, &config, &args.id).map_err(reason)?;
-                host.studio().link_inbox(std::slice::from_mut(&mut item));
-                let linked = item
-                    .link
-                    .filter(|l| l.project == args.project)
-                    .map(|l| l.asset);
-                let request = AcceptRequest {
-                    item: args.id,
-                    project: args.project.clone(),
-                    asset: args.asset.or(linked),
-                    name: args.name,
-                    prep: None,
-                };
-                let mut result = inbox::accept(&root, &config, &request).map_err(reason)?;
-                host.studio().accepted(
-                    &request.item,
-                    &request.project,
-                    &result.asset.id,
-                    result.version.version,
-                );
-                let target = ThumbTarget {
-                    project: args.project,
-                    asset: result.asset.id.clone(),
-                    version: result.version.version,
-                };
-                let tools = host.toolbox();
-                let bake_tools = tools.clone();
-                crate::commands::split::spawn_bakes(
-                    host.studio().clone(),
-                    host.thumbs().clone(),
-                    move || bake_tools,
-                    root.clone(),
-                    config.clone(),
-                );
-                let file = PathBuf::from(&result.file);
-                if let Some(project) = crate::commands::thumbs::for_version(
-                    host.thumbs(),
-                    &root,
-                    &config,
-                    &tools,
-                    &file,
-                    target,
-                ) {
-                    result.project = project;
-                }
-                host.project_changed(&result.project);
-                Ok(json!({
-                    "asset": { "id": result.asset.id, "name": result.asset.name, "stage": to_value(result.asset.stage) },
-                    "version": result.version.version,
-                    "file": result.file,
-                }))
-            })
-            .await;
+        let found = self.blocking(move |host, _| accept_item(host, args)).await;
         respond(found)
     }
 

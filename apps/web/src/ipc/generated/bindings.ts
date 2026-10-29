@@ -92,6 +92,11 @@ export const commands = {
 	 *  downloads with one inside.
 	 */
 	dialogPickModel: (title: string) => __TAURI_INVOKE<string | null>("dialog_pick_model", { title }),
+	/**
+	 *  Picks a model file to add as an asset's next version: a GLB, glTF, FBX
+	 *  or OBJ.
+	 */
+	dialogPickModelFile: (title: string) => __TAURI_INVOKE<string | null>("dialog_pick_model_file", { title }),
 	/**  Picks the Python script that builds a model. */
 	dialogPickScript: (title: string) => __TAURI_INVOKE<string | null>("dialog_pick_script", { title }),
 	/**
@@ -335,6 +340,13 @@ export const commands = {
 	inboxReprocess: (id: string) => __TAURI_INVOKE<InboxItem>("inbox_reprocess", { id }),
 	inboxSetKind: (id: string, kind: AssetKind) => __TAURI_INVOKE<InboxItem>("inbox_set_kind", { id, kind }),
 	inboxAccept: (request: AcceptRequest) => __TAURI_INVOKE<AcceptResult>("inbox_accept", { request }),
+	/**
+	 *  Adds a model file someone fixed by hand (a `.glb`, `.gltf`, `.fbx` or
+	 *  `.obj` outside the workspace's versions) to the inbox for `asset`, as
+	 *  its next version once accepted. The file is copied, never moved; a file
+	 *  that is no GLB is turned into one by headless Blender first.
+	 */
+	inboxAddModelFile: (project: string, asset: string, path: string) => __TAURI_INVOKE<ModelFileAdded>("inbox_add_model_file", { project, asset, path }),
 	/**  Opens the model in Blender's window, imported into an empty scene. */
 	inboxOpenInBlender: (id: string) => __TAURI_INVOKE<null>("inbox_open_in_blender", { id }),
 	thumbnailStore: (file: string, png: number[]) => __TAURI_INVOKE<string>("thumbnail_store", { file, png }),
@@ -2933,6 +2945,16 @@ export type ModelFile = {
 	version: number | null,
 	rawBytes: number | null,
 	shippedBytes: number | null,
+};
+
+/**  What [`inbox_add_model_file`] did. */
+export type ModelFileAdded = {
+	/**  The inbox item it became, ready for Accept. */
+	inboxFile: string,
+	/**  The By hand send it went to, when the asset had one waiting. */
+	job: string | null,
+	asset: string,
+	assetName: string,
 };
 
 /**  The tweaks of one asset's model. */
