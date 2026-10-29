@@ -91,7 +91,7 @@ fn walk(root: &Path, dir: &Path, cache: &str, depth: usize, found: &mut Vec<Sync
         let Some(original) = conflict_original(&name) else {
             continue;
         };
-        if depth == 0 && original == LOCK_FILE {
+        if depth == 0 && is_lock_conflict(&name) {
             // Best effort: if it stays, the next scan tries again.
             let _ = fs::remove_file(&path);
             continue;
@@ -104,6 +104,27 @@ fn walk(root: &Path, dir: &Path, cache: &str, depth: usize, found: &mut Vec<Sync
             path: rel(&path),
             original: rel(&path.with_file_name(&original)),
         });
+    }
+}
+
+/// True for a sync conflict copy of the workspace lock
+/// (`.maquette-lock.sync-conflict-<date>-<time>-<device>.json`).
+pub fn is_lock_conflict(name: &str) -> bool {
+    conflict_original(name).is_some_and(|original| original == LOCK_FILE)
+}
+
+/// Removes every conflict copy of the workspace lock in the workspace root,
+/// quietly: a copy is only an old heartbeat, and one that stays is skipped by
+/// every scan and tried again next time.
+pub fn remove_lock_conflicts(root: &Path) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let is_copy = entry.file_name().to_str().is_some_and(is_lock_conflict);
+        if is_copy && entry.file_type().is_ok_and(|kind| kind.is_file()) {
+            let _ = fs::remove_file(entry.path());
+        }
     }
 }
 
@@ -228,5 +249,27 @@ mod tests {
         );
         assert!(found[3].path.ends_with(&format!("project.{stamp}.json")));
         assert!(!root.join(format!(".maquette-lock.{stamp}.json")).exists());
+    }
+
+    #[test]
+    fn lock_conflict_copies_are_recognised_and_removed_alone() {
+        let stamp = "sync-conflict-20261027-101500-ABC1234";
+        assert!(is_lock_conflict(&format!(".maquette-lock.{stamp}.json")));
+        assert!(!is_lock_conflict(LOCK_FILE));
+        assert!(!is_lock_conflict(&format!("maquette.{stamp}.json")));
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let copy = root.join(format!(".maquette-lock.{stamp}.json"));
+        let other = root.join(".maquette-lock.sync-conflict-20261028-090000-XYZ9876.json");
+        let data = root.join(format!("maquette.{stamp}.json"));
+        for path in [&copy, &other, &data] {
+            fs::write(path, b"{}").expect("write");
+        }
+        fs::write(root.join(LOCK_FILE), b"{}").expect("lock");
+        remove_lock_conflicts(root);
+        assert!(!copy.exists() && !other.exists(), "lock copies go");
+        assert!(data.exists(), "a data copy stays for the person");
+        assert!(root.join(LOCK_FILE).exists(), "the lock itself stays");
     }
 }
