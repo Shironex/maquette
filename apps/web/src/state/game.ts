@@ -57,13 +57,38 @@ function defaultFolder(settings: GameSettings, asset: Asset): string {
   return settings.budgets.some(b => b.folder === wanted) ? wanted : '';
 }
 
-/** Where the asset's model goes in the model folder. */
+/**
+ * Where the asset's model goes in the model folder: its recorded file or a name of its own, in
+ * the folder set for it when there is one.
+ */
 export function fileOf(settings: GameSettings, asset: Asset): string {
-  const recorded = settings.models[asset.id];
-  if (recorded) return recorded.file;
-  const name = `${asset.id.replaceAll('-', '_')}.${settings.format}`;
-  const folder = defaultFolder(settings, asset);
+  const recorded = settings.models[asset.id]?.file;
+  const name = recorded
+    ? recorded.slice(recorded.lastIndexOf('/') + 1)
+    : `${asset.id.replaceAll('-', '_')}.${settings.format}`;
+  const kept = recorded ? folderOf(recorded) : defaultFolder(settings, asset);
+  const folder = settings.folders?.[asset.id] ?? kept;
   return folder ? `${folder}/${name}` : name;
+}
+
+/** The folder set for the asset in the game, or null when it goes where its kind puts it. */
+export const ownFolder = (settings: GameSettings, asset: Asset): string | null =>
+  settings.folders?.[asset.id] ?? null;
+
+/**
+ * Why `text` cannot be an asset's game folder, or null when it can: a folder inside the model
+ * folder, relative, with `/` and without `..`. An empty text clears the folder.
+ */
+export function folderProblem(text: string): string | null {
+  const folder = text.trim().replace(/\/+$/, '');
+  if (!folder) return null;
+  if (folder.startsWith('/') || /^[a-z]:/i.test(folder) || folder.includes('\\')) {
+    return 'A folder inside the model folder, like kit or enemies/bosses';
+  }
+  if (folder.split('/').some(part => part === '..' || part === '.' || part === '')) {
+    return 'No .. or empty parts';
+  }
+  return null;
 }
 
 /** The budget of the file's folder, or of its nearest parent. */
@@ -169,6 +194,8 @@ export interface ShipGroups {
   /** Exports Ship leaves alone because a hand made file is there. */
   blocked: ShipFile[];
   handMade: ShipFile[];
+  /** Old files of assets moved to another folder, which Ship deletes. */
+  removed: ShipFile[];
 }
 
 /** The Ship plan grouped the way the panel lists it. */
@@ -181,6 +208,7 @@ export function shipGroups(plan: ShipPlan): ShipGroups {
     unchanged: of('unchanged'),
     blocked: plan.files.filter(f => f.blocked),
     handMade: plan.handMade,
+    removed: of('removed'),
   };
 }
 
@@ -206,5 +234,5 @@ export function commitFirstLine(plan: ShipPlan): string | null {
 
 /** "3 new · 3 replaced · 0 removed". */
 export function shipCounts(groups: ShipGroups): string {
-  return `${groups.added.length} new · ${groups.replaced.length} replaced · 0 removed`;
+  return `${groups.added.length} new · ${groups.replaced.length} replaced · ${groups.removed.length} removed`;
 }

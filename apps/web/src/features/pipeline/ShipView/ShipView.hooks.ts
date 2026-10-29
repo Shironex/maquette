@@ -25,6 +25,9 @@ const tris = (n: number | null) => (n === null ? null : `${formatK(n)} tris`);
 
 /** The size and model cells of one row: before to after when it is replaced. */
 export function shipCells(file: ShipFile): { size: string; model: string } {
+  if (file.change === 'removed') {
+    return { size: size(file.beforeBytes) ?? '', model: tris(file.beforeTriangles) ?? '' };
+  }
   if (file.change === 'replaced') {
     const before = size(file.beforeBytes);
     const after = size(file.bytes);

@@ -280,6 +280,7 @@ export function gameProject(kind: 'crypt' | 'maze', imported: boolean): ProjectM
     bake: false,
     budgets: obj ? mazeBudgets() : cryptBudgets(),
     models: {},
+    folders: {},
   };
   const picked = repoModels(settings.format).filter(m => !m.file.startsWith('characters/'));
   const assets = imported

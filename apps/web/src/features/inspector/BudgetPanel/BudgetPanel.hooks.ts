@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { Asset, BudgetCheck, FolderBudget } from '@/ipc/client';
-import { autoFixes, checkAsset, fileOf, fixName, folderOf, gameOf, needsHand } from '@/state/game';
+import {
+  autoFixes,
+  checkAsset,
+  fileOf,
+  fixName,
+  folderOf,
+  gameOf,
+  needsHand,
+  ownFolder,
+} from '@/state/game';
 import { useAppStore } from '@/state/use-app-store';
 import { useGameStore } from '@/state/use-game-store';
 
@@ -12,6 +21,10 @@ export interface BudgetRow {
   fix: string | null;
   /** Rigged and over its triangles: no Decimate, reduced by hand. */
   byHand: boolean;
+  /** The folder set for it in the game, or null. */
+  own: string | null;
+  /** Where its kind or imported file puts it without one. */
+  fallback: string;
 }
 
 /** 'all', 'over', or a folder name. */
@@ -37,7 +50,9 @@ export function useBudgetPanel() {
         const check = checkAsset(game, asset);
         const fix = check ? fixName(check) : null;
         const byHand = check ? needsHand(check) : false;
-        return { asset, file, folder: folderOf(file), check, fix, byHand };
+        const own = ownFolder(game, asset);
+        const fallback = folderOf(fileOf({ ...game, folders: {} }, asset));
+        return { asset, file, folder: folderOf(file), check, fix, byHand, own, fallback };
       })
     : [];
   const over = rows.filter(r => r.fix);
@@ -72,6 +87,10 @@ export function useBudgetPanel() {
     reset: () => setBudgets(JSON.parse(savedKey) as FolderBudget[]),
     addFixups: () => {
       if (project) void addBudgetFixups(project.id);
+    },
+    /** Moves an asset's model to `folder` in the game, or back where it goes with null. */
+    moveTo: (asset: string, folder: string | null) => {
+      if (project) void saveSettings(project.id, { assetFolders: { [asset]: folder } });
     },
   };
 }
