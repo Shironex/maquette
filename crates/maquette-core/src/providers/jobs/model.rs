@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::project::ProjectManifest;
 use crate::providers::handoff::HandoffCard;
+use crate::providers::handoff::options::{StudioRig, StudioSettings};
 use crate::providers::presets::{
     MeshyPreset, PresetVariant, ProviderId, TripoPreset, TripoRigSpec,
 };
@@ -152,6 +153,10 @@ pub struct ProviderJob {
     /// made from images.
     #[serde(default)]
     pub split: Option<SplitJob>,
+    /// By hand on Tripo: the Studio tab and rig the card asks for. Older
+    /// records have none.
+    #[serde(default)]
+    pub studio: Option<StudioSettings>,
 }
 
 impl ProviderJob {
@@ -219,6 +224,21 @@ impl ProviderJob {
                 }
                 if m.rig {
                     parts.push("rig".to_string());
+                }
+            }
+            (Provider::ByHand, Some(_), _) if self.service == ProviderId::Tripo => {
+                parts.push("By hand on Tripo Studio".to_string());
+                if let Some(studio) = self.studio {
+                    parts.push(studio.mesh.label().to_string());
+                }
+                parts.push(if self.images.len() >= 2 {
+                    format!("{images} as multi-view")
+                } else {
+                    images
+                });
+                match self.studio.map(|s| s.rig) {
+                    Some(StudioRig::None) | None => {}
+                    Some(rig) => parts.push(format!("{} rig", rig.label())),
                 }
             }
             (provider, _, _) => {

@@ -1,15 +1,14 @@
 //! The Tripo card in Tripo Studio's own words. The preset keeps the API's
 //! names and values; a By hand send is made on the website, whose Image to
-//! 3D panel names them differently (a tab for HD Model or Smart Mesh, "Ultra
-//! Mesh Quality", "Texture Quality" in K, "Polycount", "Topology"), so the
-//! card maps them here and lists the website's settings the API has no
-//! field for at the values that suit Maquette.
+//! 3D panel names them differently (a tab for HD Model or Smart Mesh
+//! (P2.0), "Ultra Mesh Quality", "Texture Quality" in K, "Polycount",
+//! "Topology"), so the card maps them here and lists the website's settings
+//! the API has no field for at the values that suit Maquette.
 
+use super::options::{StudioMesh, StudioRig, StudioSettings};
 use super::{CardRow, animation_label, on_off, row, row_note};
-use crate::providers::catalog::{is_tripo_p_series, tripo_label};
-use crate::providers::presets::{
-    PresetVariant, TripoGeometryQuality, TripoPreset, TripoRigSpec, TripoTextureQuality,
-};
+use crate::providers::catalog::{TRIPO_DEFAULT_MODEL, is_tripo_p_series, tripo_label};
+use crate::providers::presets::{TripoGeometryQuality, TripoPreset, TripoTextureQuality};
 
 /// What Studio's Polycount field gets when the preset leaves it to Tripo
 /// (adaptive): Studio has no adaptive, and this is its own default.
@@ -48,31 +47,29 @@ fn texture_quality(quality: TripoTextureQuality) -> &'static str {
 }
 
 /// The Tripo card, in Studio's labels and values, in the panel's order.
-pub fn tripo_rows(preset: &TripoPreset, variant: PresetVariant, export_name: &str) -> Vec<CardRow> {
-    let p_series = is_tripo_p_series(&preset.model);
-    let legacy = preset.model.starts_with("v2");
-    let h_series = !p_series && !legacy;
-    let mut rows = Vec::new();
-    if h_series {
-        rows.push(row(
-            "Tab",
-            if preset.smart_low_poly {
-                "Smart Mesh"
-            } else {
-                "HD Model"
-            },
+/// The tab and the rig come from the send's Studio settings.
+pub fn tripo_rows(preset: &TripoPreset, studio: StudioSettings, export_name: &str) -> Vec<CardRow> {
+    let hd = studio.mesh == StudioMesh::HdModel;
+    let legacy = hd && preset.model.starts_with("v2");
+    let mut rows = vec![row("Tab", studio.mesh.label())];
+    if hd {
+        // A P series model belongs to Smart Mesh; HD Model takes the default.
+        let model = if is_tripo_p_series(&preset.model) {
+            TRIPO_DEFAULT_MODEL
+        } else {
+            preset.model.as_str()
+        };
+        rows.push(row_note(
+            "AI Model",
+            tripo_label(model),
+            &format!("model id {model}"),
         ));
-    }
-    rows.push(row_note(
-        "AI Model",
-        tripo_label(&preset.model),
-        &format!("model id {}", preset.model),
-    ));
-    if h_series {
-        rows.push(row(
-            "Ultra Mesh Quality",
-            on_off(preset.geometry_quality == TripoGeometryQuality::Detailed),
-        ));
+        if !legacy {
+            rows.push(row(
+                "Ultra Mesh Quality",
+                on_off(preset.geometry_quality == TripoGeometryQuality::Detailed),
+            ));
+        }
     }
     // Studio settings the API has no field for, at what suits Maquette.
     rows.push(row_note("AI Complete", "On", "recommended"));
@@ -90,24 +87,27 @@ pub fn tripo_rows(preset: &TripoPreset, variant: PresetVariant, export_name: &st
     rows.push(row_note("Topology", "Triangle", "quads export FBX only"));
     rows.push(polycount(preset.face_limit));
     rows.push(row_note("Generate in Parts", "Off", "recommended"));
-    if variant == PresetVariant::Character && preset.rig {
-        rig_rows(&mut rows, preset);
-    }
+    rig_rows(&mut rows, preset, studio.rig);
     rows.push(row_note("Export", export_name, "GLB, with this file name"));
     rows
 }
 
-fn rig_rows(rows: &mut Vec<CardRow>, preset: &TripoPreset) {
-    let skeleton = match preset.rig_spec {
-        TripoRigSpec::Mixamo => "Mixamo skeleton",
-        TripoRigSpec::Tripo => "Tripo skeleton",
-    };
+fn rig_rows(rows: &mut Vec<CardRow>, preset: &TripoPreset, rig: StudioRig) {
+    if rig == StudioRig::None {
+        rows.push(row_note(
+            "Rig",
+            rig.label(),
+            "skip Rig, export the model as is",
+        ));
+        return;
+    }
     rows.push(row_note(
         "Rig",
-        format!("{skeleton}, export GLB (or FBX) with Export Skeleton on, Texture Resolution 2K"),
-        &format!("rig model {}", preset.rig_model),
+        rig.label(),
+        "export GLB (or FBX) with Export Skeleton on, Texture Resolution 2K",
     ));
-    if !preset.animations.is_empty() {
+    // The preset animations are biped ones.
+    if rig == StudioRig::Biped && !preset.animations.is_empty() {
         let names: Vec<String> = preset
             .animations
             .iter()

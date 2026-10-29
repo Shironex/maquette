@@ -77,6 +77,7 @@ mod tests {
             views: &[],
             tripo: None,
             meshy: Some(&meshy),
+            studio: None,
             prompt: Some("brushed brass, warm bulb"),
         };
         let (folder, card) = handoff.write(dir.path()).expect("write");

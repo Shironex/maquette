@@ -137,6 +137,7 @@ impl World {
             meshy: None,
             prompt: None,
             redo_of: None,
+            studio: None,
         }
     }
 
@@ -1185,12 +1186,14 @@ fn batch(world: &World, provider: Provider, ids: &[String]) -> BatchRequest {
                 meshy: None,
                 prompt: None,
                 redo_of: None,
+                studio: None,
             })
             .collect(),
         tripo_prop: None,
         tripo_character: None,
         meshy_prop: None,
         meshy_character: None,
+        studio: None,
     }
 }
 
