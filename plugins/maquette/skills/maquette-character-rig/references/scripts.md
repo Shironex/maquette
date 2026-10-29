@@ -38,19 +38,30 @@ Copy it to your scratch folder, edit it, then set `RIG_CONFIG_DIR` to that folde
 RIG_CONFIG_DIR=/scratch/spider blender -b --factory-startup -P weightmap.py -- in.glb out_prefix
 ```
 
-| Script         | Arguments                    | What it does                                                                                                                                 |
-| -------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `shlib.py`     | (library)                    | Import, bounds, orbit camera `shot()` with a caption; loads `rigconfig.py`. Sets the scene to 30 fps so clip times convert correctly.        |
-| `groups.py`    | (library)                    | Colour helpers over `CHAINS`.                                                                                                                |
-| `posing.py`    | (library)                    | Rig-agnostic posing by world-axis rotation about each bone head.                                                                             |
-| `weightmap.py` | `in.glb out_prefix [chain]`  | Colours every vertex by its bone weights and draws each bone as a labelled stick, from front, side, back, top and perspective.               |
-| `probe.py`     | `in.glb out.json`            | Dumps objects, bones (head, tail, parent), weight statistics, influence counts, zero-weight vertices and connected islands.                  |
-| `pieces.py`    | `in.glb out.json`            | Real rigid pieces (islands welded across co-located vertices): size, centre, dominant bones, how mixed their weights are.                    |
-| `piecemap.py`  | `in.glb out_prefix [n1,n2]`  | Colours each piece differently; optional vertex counts to highlight.                                                                         |
-| `posetest.py`  | `in.glb outdir tag`          | Bends each chain in turn, renders rest and posed tiles, and measures per piece how far it deforms (a rigid piece should read near 0).        |
-| `fix.py`       | `in.glb out.glb [dry]`       | Per piece weight repair: rigid pieces follow one bone, big pieces keep their owner's bones plus the torso with smoothed seams, mirror twins. |
-| `verify.py`    | `a.glb b.glb`                | Compares two files: objects, counts, UVs, materials, images, bone names and rest, influences, rest positions.                                |
-| `walkclip.py`  | `in.glb out.glb [frames=30]` | Procedural loopable in-place walk, keyed headless, for a visual proof of the rig.                                                            |
+| Script         | Arguments                     | What it does                                                                                                                                                                                                                                                       |
+| -------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `shlib.py`     | (library)                     | Import, bounds, orbit camera `shot()` with a caption; loads `rigconfig.py`. Sets the scene to 30 fps so clip times convert correctly.                                                                                                                              |
+| `groups.py`    | (library)                     | Colour helpers over `CHAINS`.                                                                                                                                                                                                                                      |
+| `posing.py`    | (library)                     | Rig-agnostic posing by world-axis rotation about each bone head.                                                                                                                                                                                                   |
+| `weightmap.py` | `in.glb out_prefix [chain]`   | Colours every vertex by its bone weights and draws each bone as a labelled stick, from front, side, back, top and perspective.                                                                                                                                     |
+| `probe.py`     | `in.glb out.json`             | Dumps objects, bones (head, tail, parent), weight statistics, influence counts, zero-weight vertices and connected islands.                                                                                                                                        |
+| `pieces.py`    | `in.glb out.json`             | Real rigid pieces (islands welded across co-located vertices): size, centre, dominant bones, how mixed their weights are.                                                                                                                                          |
+| `piecemap.py`  | `in.glb out_prefix [n1,n2]`   | Colours each piece differently; optional vertex counts to highlight.                                                                                                                                                                                               |
+| `posetest.py`  | `in.glb outdir tag`           | Bends each chain in turn, renders rest and posed tiles into `outdir/tag_sheet.png`, measures per piece how far it deforms (a rigid piece should read near 0), the seam gap (UV seam copies drifting apart: a crack) and edge stretch with where the worst edge is. |
+| `fix.py`       | `in.glb out.glb [dry]`        | Per piece weight repair: rigid pieces follow one bone, big pieces keep their owner's bones plus the torso with smoothed seams, mirror twins.                                                                                                                       |
+| `verify.py`    | `a.glb b.glb`                 | Compares two files: changed accessors and every image's bytes (byte level), objects, counts, UVs, materials, bone names and rest, influences, rest positions.                                                                                                      |
+| `walkclip.py`  | `in.glb out.glb [frames=30]`  | Procedural loopable in-place walk, keyed headless, for a visual proof of the rig. Splayed legs yaw (spider), hanging legs swing fore and aft.                                                                                                                      |
+| `clipsheet.py` | `clip.glb out.png [frames=6]` | Renders frames of the file's clip (textured, side and three quarter) into one PNG, to look at a `walkclip.py` result.                                                                                                                                              |
+| `sheet.py`     | `out.png a.png b.png [...]`   | Puts PNGs side by side: the before and after `posetest.py` sheets in one image.                                                                                                                                                                                    |
+
+`rigconfig.py` must name real bones before `weightmap.py` or `posetest.py` run (they look bones up by
+name). First pass: fill `CHAINS` from `probe.py` bone heads and parents, set `FRONT` from where the head
+is, then render and correct. Legs are any chain named `leg_*` or `rear_*`.
+
+`fix.py` writes the result as a byte patch of JOINTS_0 and WEIGHTS_0 (via `humanoid/glbio.py`) whenever
+the Blender vertex order matches the file, so `verify.py` should report only those two accessors changed;
+otherwise it falls back to a Blender export and says so. Optional steps (`REMAP`, `STRAY_DIST`,
+`PIECE_RULES`, `WELD_PIECES`) are described in its header and in the example `rigconfig.py`.
 
 `fix.py` method in one paragraph: weld edge islands into pieces; find each piece's owner (torso, a
 leg or a spike) from its summed weights, ignoring JUNK chains; small pieces become rigid (100

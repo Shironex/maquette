@@ -64,14 +64,21 @@ Always test with poses, not only still renders: a fault shows when a joint moves
 Humanoid: `scripts/humanoid/rendertest.py` with `--glb in.glb --out before.png --labels before`,
 default poses `rest,raise,forward,hand,twist,head,stride`, views front and side, plus frames from
 every clip: `--clips <clipname>:0,<clipname>:0.5` (clip names come from `get_inbox_checks`).
-`probe.py in.glb` counts vertices that still carry hand or finger weight far from the hand.
+`probe.py in.glb` counts vertices that still carry hand or finger weight far from the hand. Judge
+the count against the hand's real size: on oversized fists (a golem, a brute) hundreds of
+vertices 25 cm out are the hand itself. The pose sheet decides, not the count.
 
 Creature: copy `scripts/creature/rigconfig.py` to your scratch folder and set
-`RIG_CONFIG_DIR`. Run `weightmap.py` (rig map renders: every bone group in its own colour from five
+`RIG_CONFIG_DIR`. Run `probe.py` first: the renders need real bone names in `CHAINS`, so fill a first
+pass from its bone heads and parents, and set `FRONT` from where the head is (a Tripo quadruped can face
+-X). Then run `weightmap.py` (rig map renders: every bone group in its own colour from five
 views), `probe.py` (bones, weights, islands), `pieces.py` and `piecemap.py` (rigid pieces and
 their weight mix). READ the renders and fill the `rigconfig.py` tables: what the groups really
-are, which chains are junk, which pieces are rigid. Then `posetest.py in.glb outdir before` bends
-every chain and measures how much each rigid piece deforms.
+are, which chains are junk, which pieces are rigid. If `pieces.py` reports `WELDED_PIECES 1`, the model
+is one continuous shell (fur or shards sculpted into one surface): there are no rigid pieces, so set
+`WELD_PIECES = False` and `PIECE_RULES = False`. Then `posetest.py in.glb outdir before` bends every
+chain into `outdir/before_sheet.png` and measures piece deformation, seam gaps and edge stretch (the
+log prints where the worst edge is: that place is usually the defect).
 
 LOOK at every sheet. Name the defects you see, by place, before changing anything. Common ones
 (see `references/rig-defects.md` for how each is recognised and fixed):
@@ -94,10 +101,11 @@ If a limb is misplaced, the weights alone are fixed by mirroring the good side. 
 would pull them back: show the person the before sheet and the report and ask. Without a yes, keep
 the weight-only result.
 
-Creature: `fix.py in.glb out.glb dry` prints per piece what it would do (rigid, smoothed, mirrored)
+Creature: `fix.py in.glb out.glb dry` prints what it would do (per piece, or per `REMAP` and
+`STRAY_DIST` step with where the stray weight sits) (rigid, smoothed, mirrored)
 and how many vertices change; check it against what you saw, adjust `rigconfig.py`, then run it
-without `dry`. It exports a GLB with the same image and rest pose and drops unskinned helper
-meshes.
+without `dry`. It rewrites only the JOINTS_0 and WEIGHTS_0 bytes when it can (it says so), else it
+exports through Blender (images re-encoded, unskinned helper meshes dropped).
 
 Iterate until the sheets are clean. Keep the changes the sheets justify and no more.
 
@@ -108,11 +116,13 @@ Iterate until the sheets are clean. Keep the changes the sheets justify and no m
    heads unchanged, max influences 4, weight sums 1, zero-weight vertices 0, image bytes
    identical, animations and bones after re-import.
 2. Pose test AFTER with the same poses and labels, into `after.png` (or `posetest.py ... after`).
-   Put before and after side by side (`rendertest.py` takes several `--glb`, one sheet) and LOOK:
+   Put before and after side by side (humanoid: `rendertest.py` takes several `--glb`, one sheet;
+   creature: `sheet.py -- both.png before_sheet.png after_sheet.png`) and LOOK:
    the hands carry hands, the cloth follows the body, nothing tears at the seams, rigid pieces
    stay rigid. Say what changed and what did not. If a defect remains, return to step 5.
 3. Optional clip proof: `walkclip.py` (creatures) writes a loopable in-place walk at 30 fps onto
-   a copy so the person sees the rig move. Do not ship it unless asked.
+   a copy so the person sees the rig move; `clipsheet.py` renders its frames to one PNG to look at.
+   Do not ship it unless asked.
 
 ## 7. Land v2
 
