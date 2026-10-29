@@ -43,5 +43,16 @@ describe('provider presets', () => {
       'Tripo H3.1, 50,000 faces, PBR, multi-view, rig with Mixamo bones'
     );
     expect(meshySummary(meshy.prop, catalog.meshyModels)).toBe('Meshy 7.1, PBR, 2K');
+    expect(tripoSummary({ ...tripo.character, rigSpec: 'vrm' }, catalog.tripoModels)).toMatch(
+      /rig with VRM bones$/
+    );
+  });
+
+  it('takes VRM bone names only from a 3.0 rig model', () => {
+    const vrm = { ...tripo.character, rigSpec: 'vrm' as const };
+    expect(tripoProblem(vrm, catalog.tripoModels)).toBeNull();
+    const old = { ...vrm, rigModel: 'v2.5-20260210' };
+    expect(tripoProblem(old, catalog.tripoModels)).toMatch(/Rig 3.0/);
+    expect(tripoProblem({ ...old, rig: false }, catalog.tripoModels)).toBeNull();
   });
 });

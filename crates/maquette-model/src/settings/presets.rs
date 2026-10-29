@@ -61,6 +61,15 @@ pub enum TripoRigSpec {
     #[default]
     Mixamo,
     Tripo,
+    /// VRM 1.0 humanoid bone names. Only Tripo's 3.0 rig models take it.
+    Vrm,
+}
+
+impl TripoRigSpec {
+    /// Whether the rig model `rig_model` can rig with this naming.
+    pub fn fits(self, rig_model: &str) -> bool {
+        self != TripoRigSpec::Vrm || rig_model.trim().starts_with("v3.")
+    }
 }
 
 /// One Tripo preset. A character preset also rigs and animates.
@@ -287,6 +296,11 @@ pub fn tripo_problem(preset: &TripoPreset) -> Option<String> {
     if preset.rig && preset.rig_model.trim().is_empty() {
         return Some("Pick a Tripo rig model.".to_string());
     }
+    if preset.rig && !preset.rig_spec.fits(&preset.rig_model) {
+        return Some(
+            "VRM bone names need the Rig 3.0 model. Pick it, or another naming.".to_string(),
+        );
+    }
     if preset.animations.len() > 5 {
         return Some("Tripo retargets at most 5 animations at once.".to_string());
     }
@@ -370,6 +384,19 @@ mod tests {
         assert_eq!(tripo_problem(&p), None);
         p.animations = (0..6).map(|i| format!("preset:{i}")).collect();
         assert!(tripo_problem(&p).is_some());
+
+        // VRM names only come from a 3.0 rig model, and only matter when it rigs.
+        let mut c = TripoPreset::character();
+        c.rig_spec = TripoRigSpec::Vrm;
+        assert_eq!(tripo_problem(&c), None);
+        c.rig_model = "v2.5-20260210".into();
+        assert!(tripo_problem(&c).is_some_and(|m| m.contains("Rig 3.0")));
+        c.rig = false;
+        assert_eq!(tripo_problem(&c), None);
+        assert_eq!(
+            serde_json::to_string(&TripoRigSpec::Vrm).expect("json"),
+            "\"vrm\""
+        );
 
         let mut m = MeshyPreset::prop();
         m.ai_model = "meshy-t2".into();

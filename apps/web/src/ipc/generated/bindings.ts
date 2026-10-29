@@ -5230,7 +5230,9 @@ export type TripoPresets = {
 };
 
 /**  The bone naming a Tripo rig uses. */
-export type TripoRigSpec = "mixamo" | "tripo";
+export type TripoRigSpec = "mixamo" | "tripo" | 
+/**  VRM 1.0 humanoid bone names. Only Tripo's 3.0 rig models take it. */
+"vrm";
 
 /**  A Tripo split's settings. */
 export type TripoSplit = {

@@ -141,6 +141,7 @@ pub fn rig_request(preset: &TripoPreset, model_task: &str, rig_type: &str) -> Va
         "spec": match preset.rig_spec {
             TripoRigSpec::Mixamo => "mixamo",
             TripoRigSpec::Tripo => "tripo",
+            TripoRigSpec::Vrm => "vrm",
         },
         "out_format": "glb",
     })
@@ -289,6 +290,18 @@ impl Tripo<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_rig_asks_for_the_preset_bone_naming() {
+        let mut preset = TripoPreset::character();
+        let body = rig_request(&preset, "task_a", "biped");
+        assert_eq!(
+            (&body["spec"], &body["model"]),
+            (&json!("mixamo"), &json!("v3.0-20260909"))
+        );
+        preset.rig_spec = TripoRigSpec::Vrm;
+        assert_eq!(rig_request(&preset, "task_a", "biped")["spec"], "vrm");
+    }
 
     #[test]
     fn the_body_always_names_the_model_and_skips_what_a_model_refuses() {
