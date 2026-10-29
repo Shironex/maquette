@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use super::*;
 use crate::assets::{Asset, AssetKind, Stage};
-use crate::project::{self, NewProject, ProjectManifest, ProjectTemplate};
+use crate::project::{self, NewProject, ProjectTemplate};
 use crate::workspace::{self, WorkspaceConfig};
 
 struct Fixture {
@@ -249,6 +249,7 @@ mod building {
     use crate::assets::AssetStatus;
     use crate::built::build::BuildContext;
     use crate::pipeline::tools::{ResolvedTool, Toolbox};
+    use crate::project::ProjectManifest;
     use crate::toolchain::{HostOs, ToolId};
     use std::ffi::OsString;
 
