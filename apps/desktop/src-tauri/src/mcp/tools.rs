@@ -93,7 +93,10 @@ send_batch_to_3d report refWarnings (small, cropped, busy background, one view o
 anything is spent; they never stop a send. get_concepts reads the Lab, with its failed jobs; a job Codex rate \
 limits runs again on its own a few times, a job that meets the Codex usage limit waits with \
 the rest of the queue until it lifts (usageLimit, retryAtMs), and retry_concept_jobs runs failed ones again (same \
-prompt, refs and file, no new direction). get_codex_usage reads how much of Codex's five hour and weekly \
+prompt, refs and file, no new direction; include held or all runs the rate or usage limited ones now too). Jobs \
+the app closed on come back failed with an Interrupted by a restart message, ready for retry_concept_jobs. \
+cancel_concept_jobs cancels queued, running, waiting or approval held jobs as the Lab's Cancel does, and \
+prioritize_concept_jobs moves a project's queued jobs to the front of the line (Run next). get_codex_usage reads how much of Codex's five hour and weekly \
 windows is used and when they reset; retry_usage_limited_jobs runs the jobs the usage limit holds once a \
 fresh read says it has lifted. Lab images are made by Codex unless Settings or a request's \
 backend picks openai-images (OpenAI's Image API, paid per image within a monthly cap in US dollars); \
