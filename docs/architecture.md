@@ -184,8 +184,18 @@ UI action does by calling the same `maquette-core` function or the shared comman
 `commands/` (`pick_concepts` and Send picks to Refs both end in `concepts::picks::place_at_refs`),
 so the checks are the same. After a change it tells the windows through `Host` (`project_changed`,
 `concepts_changed`, `layout_changed` and the rest), which emits the same events the UI listens to.
-The integration tests in `apps/desktop/src-tauri/tests/` run a real client against a test `Host`;
-a new tool goes into the tool list in `mcp_handshake.rs`, the instructions and the README.
+The integration tests run a real client against a test `Host`. They are one test binary,
+`apps/desktop/src-tauri/tests/mcp/main.rs`, with a module per area (`handshake.rs`, `picks.rs`,
+`library.rs` and the rest) and the shared client helpers and plain test host in `support.rs`, so
+the desktop crate links one test binary instead of one per file.
+
+The tool names have one source: the router in `tools.rs`. `cargo test -p maquette-desktop` writes
+them to `apps/desktop/src-tauri/tool-names.txt` (`mcp/tool_names.rs`, like the IPC bindings), and
+CI fails when the committed file is stale. The handshake test checks the served list against that
+file, `scripts/check-skills.mjs` judges the skills by it, and the `tools-documented` rule in
+`pnpm lint:meta` fails when the README or the docs site's MCP tools page does not name a tool in
+it. A new tool goes into its `tools/` file and the instructions; then commit the regenerated
+`tool-names.txt` and name the tool in the README and the docs page.
 
 `tools/built.rs` adds, rebuilds and lists built assets through `commands/built.rs`, the same
 helpers the Board's commands use. Builds go through one `maquette_core::built::Builder` for the
