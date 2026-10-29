@@ -8,8 +8,12 @@
 //! alone through `downloads_dismiss`.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use maquette_core::providers::{Arrival, Arrivals, ProviderJobs, WatchStatus, WatchTiming};
+use maquette_core::pipeline::runner::{NullSink, PipelineRunner};
+use maquette_core::providers::{
+    Arrival, Arrivals, PictureRenderer, ProviderJobs, WatchStatus, WatchTiming,
+};
 use maquette_core::thumbs::{self as core_thumbs, ThumbState};
 use maquette_core::{CoreError, app_state::DownloadsWatch};
 use serde::Serialize;
@@ -28,16 +32,19 @@ impl Watch {
     /// `data_dir` is the app's per computer folder, where the list of
     /// downloads already taken is kept.
     pub fn new(handle: AppHandle, studio: ProviderJobs, data_dir: PathBuf) -> Self {
-        Self(Arrivals::new(
-            studio,
-            WatchTiming::APP,
-            data_dir,
-            move |arrival| {
-                if let Err(err) = DownloadsArrival(arrival.clone()).emit(&handle) {
-                    tracing::warn!(error = %err, "could not emit a downloads event");
-                }
-            },
-        ))
+        let tools_handle = handle.clone();
+        let arrivals = Arrivals::new(studio, WatchTiming::APP, data_dir, move |arrival| {
+            if let Err(err) = DownloadsArrival(arrival.clone()).emit(&handle) {
+                tracing::warn!(error = %err, "could not emit a downloads event");
+            }
+        });
+        // Downloads it cannot place by name are rendered from the front, one
+        // at a time on a runner of their own, and matched by picture.
+        arrivals.set_renderer(PictureRenderer::new(
+            PipelineRunner::new(Arc::new(NullSink)),
+            move || toolchain::toolbox_blocking(&tools_handle.state::<Session>()),
+        ));
+        Self(arrivals)
     }
 }
 

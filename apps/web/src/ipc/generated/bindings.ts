@@ -797,6 +797,15 @@ export type Arrival = {
 	reason: string,
 	/**  The inbox file it became. */
 	inboxFile: string | null,
+	/**
+	 *  Every send waiting then, ranked against it, best first, while it
+	 *  waits for a look or for its asset.
+	 */
+	suggestions?: SendSuggestion[],
+	/**  Where its front picture stands. */
+	picture?: PictureState,
+	/**  Its front picture (an absolute PNG path), once rendered. */
+	render?: string | null,
 };
 
 /**  Where a file the watcher saw ended up. */
@@ -3450,6 +3459,17 @@ export type PendingHandoff = {
 	createdAtMs: number | null,
 };
 
+/**  Where a download's front picture stands. */
+export type PictureState = 
+/**  None is made: it was placed by name, it is an FBX, or no Blender. */
+"skipped" | 
+/**  Waiting for its headless render. */
+"queued" | 
+/**  Rendered, and the sends ranked by it. */
+"ready" | 
+/**  The render or the comparison did not work out; the name ranks. */
+"failed";
+
 /**
  *  An agent saved a project's compression presets through the MCP server,
  *  so the Pipeline view reloads them.
@@ -4216,6 +4236,25 @@ export type SendRequest = {
 	 *  follows the preset.
 	 */
 	studio?: StudioChoice | null,
+};
+
+/**  One waiting send, ranked against a download. */
+export type SendSuggestion = {
+	job: string,
+	project: string,
+	asset: string,
+	assetName: string,
+	/**  The ranking, 0 to 1: mostly the picture, the name breaking ties. */
+	score: number | null,
+	/**
+	 *  How alike the pictures are, 0 to 1; none before the render, or when
+	 *  either picture could not be read.
+	 */
+	picture: number | null,
+	/**  How close the file name is to the send's, 0 to 1. */
+	name: number | null,
+	/**  The ref compared with, relative to the project folder. */
+	image: string | null,
 };
 
 /**  What Send picks did for a direction of object refs: one asset per pick. */
