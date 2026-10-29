@@ -30,6 +30,21 @@ fn kept_ids(path: &std::path::Path) -> Vec<String> {
         .collect()
 }
 
+/// The kept ids once the file settles. `wait` returns when the jobs read
+/// finished, but each one's event (and the write it brings) follows just
+/// after, so the file is read again until it shows `want`, for at most
+/// five seconds.
+fn kept_settled(path: &std::path::Path, want: &[String]) -> Vec<String> {
+    let until = std::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        let ids = kept_ids(path);
+        if ids == want || std::time::Instant::now() >= until {
+            return ids;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
 #[test]
 fn codex_jobs_come_back_failed_after_a_restart_and_retry_runs_them() {
     let r = rig();
@@ -54,7 +69,10 @@ fn codex_jobs_come_back_failed_after_a_restart_and_retry_runs_them() {
     fs::copy(&store, &closed).expect("copy");
     before.cancel_all("moon");
     before.wait();
-    assert!(kept_ids(&store).is_empty(), "cancelled jobs are not kept");
+    assert!(
+        kept_settled(&store, &[]).is_empty(),
+        "cancelled jobs are not kept"
+    );
 
     // The third image landed before the app closed.
     fs::write(
@@ -109,7 +127,10 @@ fn codex_jobs_come_back_failed_after_a_restart_and_retry_runs_them() {
     let files: Vec<&str> = landed.images.iter().map(|i| i.file.as_str()).collect();
     assert!(files.contains(&jobs[0].file.as_str()), "{files:?}");
     assert!(files.contains(&jobs[2].file.as_str()), "{files:?}");
-    assert_eq!(kept_ids(&closed), vec![ids[1].clone()]);
+    assert_eq!(
+        kept_settled(&closed, std::slice::from_ref(&ids[1])),
+        vec![ids[1].clone()]
+    );
     // Clear drops the failed rows, and they are no longer kept.
     after.clear_finished("moon");
     assert!(kept_ids(&closed).is_empty());
