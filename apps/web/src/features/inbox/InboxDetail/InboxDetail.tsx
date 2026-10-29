@@ -15,6 +15,7 @@ import { checkSummary, itemTitle, kindHint, reviewPrompt } from '@/state/inbox';
 import { useAnimationsStore } from '@/state/use-animations-store';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { CheckFixes } from '../CheckFixes';
+import { DiscardDialog } from '../DiscardDialog';
 import { InboxPrep } from '../InboxPrep';
 import { BADGE, KINDS, MODE_ICON } from './constants';
 import { useInboxDetail, useInboxPreview } from './InboxDetail.hooks';
@@ -33,6 +34,9 @@ export default function InboxDetail({ item }: InboxDetailProps) {
     isBusy,
     acceptTitle,
     reprocess,
+    discarding,
+    askDiscard,
+    closeDiscard,
     accept,
     openInBlender,
     setKind,
@@ -173,6 +177,15 @@ export default function InboxDetail({ item }: InboxDetailProps) {
           disabledReason="Working on this model"
           onClick={() => void reprocess(item.id)}
         />
+        <IconButton
+          icon="trash"
+          variant="secondary"
+          label="Discard"
+          hint="Move this model aside, out of the Inbox"
+          disabled={isBusy}
+          disabledReason="Working on this model"
+          onClick={askDiscard}
+        />
         <Button
           icon="arrow-bend-up-right"
           disabled={Boolean(redoBlocked)}
@@ -216,6 +229,7 @@ export default function InboxDetail({ item }: InboxDetailProps) {
           Accept to Blender
         </Button>
       </div>
+      {discarding ? <DiscardDialog item={item} onClose={closeDiscard} /> : null}
     </div>
   );
 }

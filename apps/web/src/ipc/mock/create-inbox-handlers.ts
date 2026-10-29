@@ -139,6 +139,13 @@ export function createInboxHandlers({
         note: null,
       };
     },
+    inbox_discard: ({ id }) => {
+      const item = inbox.get().find(i => i.id === id);
+      if (!item) fail('not-found', `${String(id)} in the inbox`);
+      inbox.set(inbox.get().filter(i => i.id !== item.id));
+      emit?.({ name: 'inbox' });
+      return { id: item.id, file: `${expand(DEFAULT_ROOT)}/inbox/.discarded/${item.id}` };
+    },
     inbox_open_in_blender: () => fail('unavailable', 'Mock mode does not open Blender.'),
     thumbnail_store: ({ file, png }) => {
       const item = inbox.get().find(i => i.file === file);

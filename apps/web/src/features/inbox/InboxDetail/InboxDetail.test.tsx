@@ -54,6 +54,15 @@ describe('InboxDetail', () => {
     expect(screen.queryByRole('button', { name: 'Bones' })).toBeNull();
   });
 
+  it('asks before it discards a model', async () => {
+    render(<InboxDetail item={inboxItem('veil_gate.glb')} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(screen.getByRole('dialog')).toHaveAccessibleName(/^Discard /);
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(useInboxStore.getState().snapshot?.items.some(i => i.id === 'veil_gate.glb')).toBe(true);
+  });
+
   it('accepts a model into the open project', async () => {
     const accept = vi.fn(async () => true);
     useInboxStore.setState({ accept });
