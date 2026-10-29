@@ -17,6 +17,11 @@
 #   - Chain names that start with "leg_" or "rear_" are posed as legs; "body", "neck" and "head"
 #     use TRUNK_POSES; anything else (cheeks, spikes) is tilted sideways.
 
+# Facing: the world direction (Blender space, Z up) the creature looks along. Views, pose axes and the
+# walk all derive from it. A Tripo quadruped can import facing -X: read probe.py's bone heads (where is
+# the head?) before the first render.
+FRONT = (0, -1, 0)
+
 # --- groups used for colouring, posing and the pose test (weightmap.py, posetest.py, posing.py) ---
 CHAINS = {
     "body":     ["tripo::Root", "tripo::Spine_0"],
@@ -69,6 +74,16 @@ MIRROR_JUNK = 0.30   # a piece with more junk weight than this is rebuilt from i
 RIGID_EXT = 0.15     # welded pieces smaller than this follow ONE bone (crystals, joint balls, plates)
 SECONDARY = 0.30     # a leg owner with this share of a big piece marks a welded part (a leg in a plate)
 FALLBACK_BONE = "tripo::Spine_0"   # for a vertex left with no weight at all
+# Pieces: pieces.py welds edge islands that share positions. If that merges the model into one piece
+# (WELDED_PIECES 1: a continuous shell whose edge islands are only UV islands), set WELD_PIECES = False
+# and PIECE_RULES = False and fix with REMAP and STRAY_DIST instead (fix.py header).
+WELD_PIECES = True
+PIECE_RULES = True
+# Secondary bones no clip will key (a tuft off an elbow): their skin goes to these bones, nearest first.
+REMAP = {}            # e.g. {"bone_17": ["leg_bone_upper", "leg_bone_lower"]}
+# Weight of an owner's bones on vertices farther than this from all of them (and nearer another owner)
+# is removed and refilled from neighbours: a tail bone driving a paw.
+STRAY_DIST = {}       # e.g. {"tail": 0.12, "leg_L1": 0.12}
 
 # --- procedural walk (walkclip.py): leg -> (its first two bones, phase 0 or 0.5) ---
 # Two alternating sets (a generalised tripod gait). Pair each leg with its opposite neighbour.

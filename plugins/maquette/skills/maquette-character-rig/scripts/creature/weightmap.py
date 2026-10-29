@@ -53,10 +53,7 @@ for ch, bs in CHAINS.items():
 sc = bpy.context.scene; sc.display.shading.color_type = "VERTEX"
 lo, hi = bounds(me); ctr = (lo + hi) / 2
 for name, (yw, pt) in VIEWS.items():
-    cam_dir = None
-    # labels face the camera
-    y, p = math.radians(yw), math.radians(pt)
-    d = Vector((math.sin(y) * math.cos(p), -math.cos(y) * math.cos(p), math.sin(p)))
+    d = view_dir(yw, pt)   # labels face the camera
     rot = (-d).to_track_quat("-Z", "Y").to_euler()
     for t in labels: t.rotation_euler = rot; t.location = t.location  # keep
     for t in labels:

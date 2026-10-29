@@ -2,7 +2,7 @@
 # needed). bind(arm) first; scale multiplies every angle.
 import bpy, math
 from mathutils import Vector, Matrix
-from shlib import CHAINS, TRUNK_POSES
+from shlib import CHAINS, TRUNK_POSES, FRONT, UP, LEFT
 arm = None; mw = None; mwi = None
 def bind(a):
     global arm, mw, mwi
@@ -19,11 +19,19 @@ def rot_world(pb, axis, deg):
 def chain_dir(bs):
     a = mw @ arm.data.bones[bs[0]].head_local; b = mw @ arm.data.bones[bs[-1]].tail_local
     return a, b
+def leg_axis(bs):
+    """-LEFT (the creature's right axis) for a leg that hangs under the body, None for a leg that splays out."""
+    a, b = chain_dir(bs); d = b - a; hd = Vector((d.x, d.y, 0))
+    return None if abs(hd.dot(LEFT)) > 0.5 * d.length else -LEFT
 def pose_chain(ch, k=1.0):
     bs = CHAINS[ch]; pb = arm.pose.bones
     a, b = chain_dir(bs); d = b - a; hd = Vector((d.x, d.y, 0))
     if ch.startswith("leg_") or ch.startswith("rear_"):
-        side = hd.cross(Vector((0, 0, 1))).normalized()   # horizontal axis perpendicular to the leg
+        # A leg that splays out sideways (spider) bends about the horizontal axis across it; a leg that
+        # hangs under the body (four legged beast) has almost no horizontal direction, so it swings
+        # fore and aft about the creature's own right axis instead (positive lifts the foot forward).
+        side = leg_axis(bs)
+        if side is None: side = hd.cross(UP).normalized()
         ang = [30, -25, 15]                               # lift hip, fold knee back down, flick tip
         for i, n in enumerate(bs):
             if i < len(ang): rot_world(pb[n], side, ang[i] * k)

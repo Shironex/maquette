@@ -44,7 +44,9 @@ def load(path):
     bl = struct.unpack("<I", d[20 + jl:24 + jl])[0]
     g.bin = d[g.bin_off:g.bin_off + bl]
     prims = [p for m in g.json["meshes"] for p in m["primitives"]]
-    assert len(prims) == 1, "expected one primitive"
+    skinned = [p for p in prims if "JOINTS_0" in p["attributes"]]
+    if len(prims) > 1 and len(skinned) == 1: prims = skinned   # unskinned props beside one skinned mesh
+    assert len(prims) == 1, "expected one skinned primitive"
     p = prims[0]
     g.prim = p
     at = p["attributes"]
