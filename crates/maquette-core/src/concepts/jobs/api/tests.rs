@@ -84,6 +84,8 @@ fn plan(r: &Rig, cap: u32) -> ApiPlan {
         monthly_cap_usd: cap,
         ledger_root: r.root.clone(),
         via_agent: true,
+        hold: false,
+        per_image_usd: None,
     }
 }
 
@@ -294,4 +296,127 @@ fn a_waiting_job_cancels_without_a_request() {
     wait_for(&r, &jobs[0].id, ConceptJobState::Done);
     r.concepts.wait();
     assert_eq!(hits.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn an_agents_round_waits_for_approval_and_sends_nothing_until_released() {
+    let server = FakeServer::start(|_, _| Reply::ok(&answer()));
+    let r = rig(&server, true, 2);
+    let held = ApiPlan {
+        hold: true,
+        ..plan(&r, 10)
+    };
+    let (_, jobs) = start(&r, request("Held", 2, Vec::new()), held).expect("start");
+    let ids: Vec<String> = jobs.iter().map(|j| j.id.clone()).collect();
+    assert!(jobs.iter().all(|j| j.state == ConceptJobState::Approval));
+    assert_eq!(r.concepts.awaiting_approval(&ids), ids);
+    assert!(r.concepts.estimate_usd(&ids) > 0.0);
+    assert!(
+        r.concepts.api_pending_usd() > 0.0,
+        "held jobs count against the cap"
+    );
+    std::thread::sleep(Duration::from_millis(50));
+    assert!(
+        server.requests().is_empty(),
+        "nothing is sent before approval"
+    );
+    let err = r
+        .concepts
+        .retry(&ids[0])
+        .expect_err("not retried while held");
+    assert!(err.to_string().contains("waiting for approval"), "{err}");
+    let released = r.concepts.release(&ids);
+    assert_eq!(released.len(), 2);
+    r.concepts.wait();
+    assert!(
+        r.concepts
+            .jobs(None)
+            .iter()
+            .all(|j| j.state == ConceptJobState::Done)
+    );
+    assert_eq!(ledger::read(&r.root).expect("ledger").images.len(), 2);
+}
+
+#[test]
+fn a_denied_or_cancelled_round_is_cancelled_without_a_request() {
+    let server = FakeServer::start(|_, _| Reply::ok(&answer()));
+    let r = rig(&server, true, 1);
+    let held = ApiPlan {
+        hold: true,
+        ..plan(&r, 10)
+    };
+    let (_, jobs) = start(&r, request("Denied", 2, Vec::new()), held).expect("start");
+    r.concepts.cancel(&jobs[1].id).expect("cancel");
+    let ids: Vec<String> = jobs.iter().map(|j| j.id.clone()).collect();
+    let denied = r.concepts.deny(&ids);
+    assert_eq!(denied.len(), 1, "the cancelled one is not denied again");
+    assert!(
+        denied[0]
+            .message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("Denied in Maquette")
+    );
+    let cancelled = wait_for(&r, &jobs[1].id, ConceptJobState::Cancelled);
+    assert!(
+        cancelled
+            .message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("before it was approved")
+    );
+    assert!(r.concepts.awaiting_approval(&ids).is_empty());
+    r.concepts.wait();
+    assert!(server.requests().is_empty());
+    // An agent's retry of a denied job waits for approval again.
+    let again = r.concepts.retry_with(&ids[0], true).expect("retry");
+    assert_eq!(again.state, ConceptJobState::Approval);
+    assert!(server.requests().is_empty());
+}
+
+#[test]
+fn a_safety_refusal_fails_as_refused_and_writes_nothing_to_the_ledger() {
+    let server = FakeServer::start(|_, _| {
+        Reply::json(
+            400,
+            &json!({ "error": {
+                "message": "Your request was rejected by the safety system.",
+                "type": "image_generation_user_error",
+                "code": "moderation_blocked"
+            } }),
+        )
+    });
+    let r = rig(&server, true, 1);
+    let (_, jobs) = start(&r, request("Refused", 1, Vec::new()), plan(&r, 10)).expect("start");
+    let failed = wait_for(&r, &jobs[0].id, ConceptJobState::Failed);
+    assert!(failed.refused);
+    let message = failed.message.unwrap_or_default();
+    assert!(
+        message.contains("refused this image on safety grounds"),
+        "{message}"
+    );
+    assert!(message.contains("Reword the prompt"), "{message}");
+    assert!(ledger::read(&r.root).expect("ledger").images.is_empty());
+}
+
+#[test]
+fn the_cap_uses_the_recent_average_when_the_plan_has_one() {
+    let server = FakeServer::start(|_, _| Reply::ok(&answer()));
+    let r = rig(&server, true, 1);
+    // The price list's guess for medium is about $0.06 an image, so 20
+    // images would pass a $1 cap; at a measured $0.04 they fit.
+    let guessed = ApiPlan {
+        quality: ImageQuality::Medium,
+        ..plan(&r, 1)
+    };
+    assert!(guessed.estimate_usd(20, 0) > 1.0);
+    let measured = ApiPlan {
+        per_image_usd: Some(0.04),
+        ..guessed.clone()
+    };
+    assert!((measured.estimate_usd(20, 3) - 0.8).abs() < 1e-9);
+    r.concepts
+        .check_api_cap(&measured, 20, 3)
+        .expect("fits at the measured cost");
+    assert!(r.concepts.check_api_cap(&guessed, 20, 3).is_err());
 }

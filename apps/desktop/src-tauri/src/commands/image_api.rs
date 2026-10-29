@@ -69,8 +69,19 @@ pub(crate) fn plan(
             monthly_cap_usd: images.monthly_cap_usd,
             ledger_root: root.to_path_buf(),
             via_agent,
+            // An agent's paid round waits for a person in the app.
+            hold: via_agent,
+            per_image_usd: per_image_usd(root, images.quality),
         }),
     }
+}
+
+/// What one image at `quality` has cost lately, from the ledger; `None`
+/// when it has too few measured images (or cannot be read).
+fn per_image_usd(root: &Path, quality: ImageQuality) -> Option<f64> {
+    ledger::read(root)
+        .ok()
+        .and_then(|l| ledger::recent_average_usd(&l.images, quality))
 }
 
 /// The saved key, as Settings shows it.
@@ -82,7 +93,8 @@ pub struct OpenAiKeyStatus {
     pub tail: Option<String>,
 }
 
-/// One image's estimated cost per quality.
+/// One image's estimated cost per quality: what it has cost lately (the
+/// ledger's recent average), else the price list's guess.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageEstimates {
@@ -123,6 +135,9 @@ pub(crate) fn status(
 ) -> CommandResult<ImageApiStatus> {
     let (root, config) = session.workspace()?;
     let images = ledger::read(&root)?.images;
+    let estimate = |quality| {
+        ledger::recent_average_usd(&images, quality).unwrap_or_else(|| estimate_usd(quality, 0))
+    };
     Ok(ImageApiStatus {
         settings: config.lab.images,
         key: key_status(secrets)?,
@@ -130,9 +145,9 @@ pub(crate) fn status(
         pending_usd: lab.api_pending_usd(),
         model: openai_images::MODEL.to_string(),
         estimates: ImageEstimates {
-            low: estimate_usd(ImageQuality::Low, 0),
-            medium: estimate_usd(ImageQuality::Medium, 0),
-            high: estimate_usd(ImageQuality::High, 0),
+            low: estimate(ImageQuality::Low),
+            medium: estimate(ImageQuality::Medium),
+            high: estimate(ImageQuality::High),
         },
         prices_checked: PRICES_CHECKED.to_string(),
         prices_url: PRICES_URL.to_string(),

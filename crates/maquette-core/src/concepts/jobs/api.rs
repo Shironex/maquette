@@ -74,7 +74,7 @@ impl ApiJob {
         }
     }
 
-    fn estimate(&self) -> f64 {
+    pub(super) fn estimate(&self) -> f64 {
         self.plan.estimate_usd(1, self.call.images.len())
     }
 }
@@ -272,11 +272,15 @@ fn run(shared: &Arc<Shared>, id: &str, stop: &StopFlag) {
         return;
     };
     shared.emit(ConceptEvent::Job { job: entry.clone() });
+    let mut refused = false;
     let outcome = check_cap(&job).and_then(|()| {
         send(shared, &job, stop).map_err(|e| match e {
             ApiError::Stopped => String::new(),
             ApiError::RateLimited => "rate-limited".to_string(),
-            e => openai_images::error_message(&e),
+            e => {
+                refused = openai_images::refusal(&e).is_some();
+                openai_images::error_message(&e)
+            }
         })
     });
     if let Ok(made) = &outcome {
@@ -322,7 +326,10 @@ fn run(shared: &Arc<Shared>, id: &str, stop: &StopFlag) {
             wait = retry::rate_limited(&mut entry, &shared.backoff());
             entry.message = entry.message.map(|m| m.replace("Codex", SERVICE));
         }
-        Err(message) => fail(&mut entry, message),
+        Err(message) => {
+            fail(&mut entry, message);
+            entry.refused = refused;
+        }
     }
     entry.finished_at_ms = Some(now_ms());
     let current = {

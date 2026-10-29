@@ -16,6 +16,7 @@
 //! file and the job settles the same way, only without Codex ([`api`]).
 
 mod api;
+mod approval;
 mod retry;
 mod settle;
 mod sink;
@@ -58,6 +59,9 @@ const KEEP_FINISHED: usize = 120;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]
 pub enum ConceptJobState {
+    /// An agent asked for it on the paid Image API: it waits for a person
+    /// to approve the round in the app, and nothing is sent until then.
+    Approval,
     Queued,
     Running,
     /// Codex rate limited it, or its usage limit is hit (`usage_limit`);
@@ -110,6 +114,11 @@ pub struct ConceptJob {
     /// Codex, or OpenAI's Image API. A retry runs on the same one.
     #[serde(default)]
     pub backend: ImageBackend,
+    /// Failed because OpenAI refused the image on safety grounds; the
+    /// message says why. Nothing was charged, and the same prompt is
+    /// likely refused again.
+    #[serde(default)]
+    pub refused: bool,
 }
 
 /// What the service reports to the UI.
@@ -332,6 +341,7 @@ impl Concepts {
                 } else {
                     ImageBackend::Codex
                 },
+                refused: false,
             };
             let run = match (&lane.api, &codex) {
                 (Some(plan), _) => Run::Api(api::ApiJob::new(
@@ -387,8 +397,14 @@ impl Concepts {
                     },
                 })),
             };
+            let hold = lane.api.as_ref().is_some_and(|p| p.hold);
+            let held = hold.then(|| {
+                let mut job = job.clone();
+                job.state = ConceptJobState::Approval;
+                job
+            });
             self.shared.jobs().push_back(Entry {
-                job,
+                job: held.clone().unwrap_or(job),
                 run,
                 generation: 0,
                 project_dir: lane.project_dir.to_path_buf(),
@@ -397,7 +413,13 @@ impl Concepts {
                 started: None,
                 last_emit: None,
             });
-            queued.extend(retry::submit(&self.shared, &self.runner, &id, false));
+            match held {
+                Some(job) => {
+                    self.shared.emit(ConceptEvent::Job { job: job.clone() });
+                    queued.push(job);
+                }
+                None => queued.extend(retry::submit(&self.shared, &self.runner, &id, false)),
+            }
         }
         Ok(queued)
     }
@@ -422,7 +444,7 @@ impl Concepts {
             .map(|e| (e.job.run_id.clone(), e.job.state));
         match run {
             Some((_, state)) if state.is_finished() => Ok(()),
-            Some((_, ConceptJobState::RateLimited)) => {
+            Some((_, ConceptJobState::RateLimited | ConceptJobState::Approval)) => {
                 self.cancel_waiting(job_id);
                 Ok(())
             }
@@ -440,7 +462,12 @@ impl Concepts {
             .iter()
             .filter(|e| e.job.project == project && !e.job.state.is_finished())
             .map(|e| (e.job.id.clone(), e.job.run_id.clone(), e.job.state))
-            .partition(|(_, _, state)| *state == ConceptJobState::RateLimited);
+            .partition(|(_, _, state)| {
+                matches!(
+                    state,
+                    ConceptJobState::RateLimited | ConceptJobState::Approval
+                )
+            });
         let waited = waiting
             .iter()
             .filter(|(id, _, _)| self.cancel_waiting(id).is_some())

@@ -87,7 +87,7 @@ impl Default for ImageSettings {
 /// How a batch runs on the Image API: what the shell resolved from the
 /// settings, a request's override and the workspace. `None` in its place
 /// means Codex.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ApiPlan {
     pub kind: ImageJobKind,
     pub quality: ImageQuality,
@@ -96,13 +96,24 @@ pub struct ApiPlan {
     pub ledger_root: PathBuf,
     /// Started by an agent over MCP.
     pub via_agent: bool,
+    /// The jobs wait in [`ConceptJobState::Approval`](super::ConceptJobState)
+    /// until a person approves the round in the app (an agent's round).
+    pub hold: bool,
+    /// What one image at this quality has cost lately, from the ledger
+    /// ([`crate::providers::ledger::recent_average_usd`]). `None` uses the
+    /// price list's guess.
+    pub per_image_usd: Option<f64>,
 }
 
 impl ApiPlan {
-    /// What `images` images with `attached` inputs each likely cost.
+    /// What `images` images with `attached` inputs each likely cost: the
+    /// recent average per image when the ledger has one, else the price
+    /// list's guess for the quality and inputs.
     pub fn estimate_usd(&self, images: usize, attached: usize) -> f64 {
         #[expect(clippy::cast_precision_loss, reason = "a batch is small")]
         let count = images as f64;
-        estimate_usd(self.quality, attached) * count
+        self.per_image_usd
+            .unwrap_or_else(|| estimate_usd(self.quality, attached))
+            * count
     }
 }
