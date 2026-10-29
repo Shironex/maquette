@@ -161,3 +161,11 @@ fn hiding_a_part_leaves_the_preview_key_alone_and_a_name_changes_it() {
         "a plan without parts keeps its old key"
     );
 }
+
+#[test]
+fn the_script_applies_merge_split_and_padding_in_plan_order() {
+    assert!(
+        SCRIPT.contains("\"merge\",\n    \"split-parts\",\n    \"pad-edges\""),
+        "the script applies them in the order the plan keeps"
+    );
+}

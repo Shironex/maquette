@@ -1,0 +1,26 @@
+[package]
+name = "maquette-model"
+description = "Maquette's model layer: the workspace config, projects and their assets, the layout, refs and timeline, the settings types and the files a project keeps next to project.json"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+maquette-base = { workspace = true }
+maquette-glb = { workspace = true }
+flate2 = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+specta = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

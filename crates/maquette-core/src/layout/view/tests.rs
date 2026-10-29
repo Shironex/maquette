@@ -6,10 +6,10 @@ use std::fs;
 use std::path::Path;
 
 use super::*;
-use crate::assets::{AssetStatus, AssetVersion, Stage};
+use crate::assets::{Asset, AssetKind, AssetStatus, AssetVersion, Stage};
 use crate::inbox::fixture;
 use crate::pipeline::template::for_template;
-use crate::project::{PROJECT_VERSION, ProjectTemplate};
+use crate::project::{PROJECT_VERSION, ProjectManifest, ProjectTemplate, slugify};
 
 fn stop(name: &str, position: [f32; 3], target: [f32; 3]) -> LayoutStop {
     LayoutStop {

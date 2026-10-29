@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 
 use super::*;
 use crate::assets::{AssetKind, NewAsset, Stage, add, add_version};

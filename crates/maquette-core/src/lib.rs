@@ -4,7 +4,6 @@
 
 pub mod animations;
 pub mod app_state;
-pub mod assets;
 pub mod base;
 pub mod built;
 pub mod concepts;
@@ -18,18 +17,19 @@ pub mod motion;
 pub mod parts;
 pub mod pipeline;
 pub mod prepare;
-pub mod project;
 pub mod providers;
 pub mod refs;
-pub mod sends;
-pub mod settings;
 pub mod ship;
 pub mod site;
 #[cfg(test)]
 mod test_blender;
 pub mod thumbs;
-pub mod timeline;
-pub mod workspace;
+
+// The model layer lives in its own crate; these keep the old paths. The
+// model modules whose higher layer work stays here (`built`, `layout`,
+// `materials`, `prepare`, `refs`, `ship`) re-export the crate's module and
+// add that work.
+pub use maquette_model::{assets, project, sends, settings, timeline, workspace};
 
 // The bottom layer lives in its own crate; these keep the old paths.
 pub(crate) use maquette_base::json;
@@ -57,24 +57,18 @@ pub use workspace::{
 
 /// One `register` per crate and per core module, in this order: each adds
 /// the IPC types it owns, so a new type touches only its own module.
-const REGISTRIES: [fn(specta::Types) -> specta::Types; 23] = [
+const REGISTRIES: [fn(specta::Types) -> specta::Types; 17] = [
     maquette_base::register,
     maquette_glb::register,
+    maquette_model::register,
     app_state::register,
-    settings::register,
-    sends::register,
-    workspace::register,
-    project::register,
-    assets::register,
     layout::register,
-    timeline::register,
     motion::register,
     inbox::register,
     pipeline::register,
     prepare::register,
     built::register,
     thumbs::register,
-    materials::register,
     inspect::register,
     game::register,
     providers::register,
