@@ -252,7 +252,7 @@ fn library_clips_bake_onto_a_rigged_model_as_its_next_version() {
     let draft = retarget::draft(s.root.path(), &config, tools, &request).expect("draft");
     let review = &draft.review.clips[0];
     assert_ne!(review.status, ReviewStatus::Failed, "{review:?}");
-    assert_eq!(review.frames, 30);
+    assert_eq!(review.frames, 31, "frames 0 to 30 of the clip");
     // The fixture moves only its hips, so its planted feet slide with them.
     assert!(review.slide_cm > 50.0, "{review:?}");
     assert!(

@@ -22,7 +22,9 @@ pub struct ClipSetting {
     pub clip: String,
     /// Its name in the model, snake_case.
     pub name: String,
-    /// The first and last frame kept, of the library clip's own frames.
+    /// The first and last frame kept, of the library clip's own frames: a
+    /// clip of `frames` frames runs from frame 0 to frame `frames`, so its
+    /// whole length is `frames / fps` seconds.
     pub start: u32,
     pub end: u32,
     pub loops: bool,
@@ -88,7 +90,7 @@ pub fn default_for(clip: &AnimationClip) -> ClipSetting {
         clip: clip.id.clone(),
         name: default_name(&clip.name, &clip.pack),
         start: 0,
-        end: clip.frames.saturating_sub(1),
+        end: clip.frames,
         loops: clip.loops,
         root_motion: clip.root_motion.is_some(),
         speed: 1.0,
@@ -123,7 +125,7 @@ pub fn normalise(
             )));
         }
         seen.push(&s.clip);
-        let last = clip.frames.saturating_sub(1);
+        let last = clip.frames;
         let (start, end) = if s.start < s.end && s.end <= last {
             (s.start, s.end)
         } else if s.start < s.end.min(last) {

@@ -185,12 +185,12 @@ fn names_drop_the_pack_words_and_settings_are_made_safe() {
     assert_eq!(out[0].name, "sword_idle_2");
     assert_eq!(
         (out[0].start, out[0].end),
-        (0, 37),
+        (0, 38),
         "a trim that keeps nothing keeps it all"
     );
     assert!((out[0].speed - settings::SPEED_MAX).abs() < f32::EPSILON);
     assert_eq!(out[1].name, "sword_block");
-    assert_eq!((out[1].start, out[1].end), (4, 37));
+    assert_eq!((out[1].start, out[1].end), (4, 38));
     assert!((out[1].speed - 1.0).abs() < f32::EPSILON);
 
     let twice = [settings::default_for(&idle), settings::default_for(&idle)];
