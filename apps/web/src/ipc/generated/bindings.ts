@@ -1027,6 +1027,9 @@ export type AssetsRemoved = {
 	outcomes: RemoveOutcome[],
 };
 
+/**  The axis a model faces, the nearest of four. */
+export type Axis = "+z" | "-z" | "+x" | "-x";
+
 /**
  *  Baking the texture of the model a split came from onto its parts, in
  *  headless Blender. Free; the untextured version stays.
@@ -1194,6 +1197,15 @@ export type BoneMatch =
 "exact" | 
 /**  A name other rigs use for that bone. */
 "by-name" | "missing";
+
+/**  The naming a joint matched its humanoid bone by. */
+export type BoneNaming = 
+/**  VRM's own names (`leftUpperArm`) or VRoid's (`J_Bip_L_UpperArm`). */
+"vrm" | "mixamo" | "unreal" | 
+/**  Tripo's own rig names, unverified. */
+"tripo" | 
+/**  Set by hand in the avatar spec. */
+"override";
 
 /**  One humanoid bone: the clip's bone and the model's bone it drives. */
 export type BonePair = {
@@ -1953,6 +1965,15 @@ export type FactorMode =
 /**  Scales the factor; the map stays. */
 "multiply";
 
+/**  How much a finding matters, most first. */
+export type FindingLevel = 
+/**  Stops a VRM file being written from the model as it is. */
+"blocker" | 
+/**  VRM asks for it; runtimes cope without. */
+"warning" | 
+/**  What the export drops or leaves out. */
+"note";
+
 export type FingerWeights = {
 	vertices: number,
 	/**  The finger and hand joints holding flagged vertices, most first. */
@@ -2211,6 +2232,8 @@ export type GlbReport = {
 	geometryReadable: boolean,
 	islands: Islands | null,
 	fingerWeights: FingerWeights | null,
+	/**  How far a rigged model is from a VRM 1.0 file; `None` without a skin. */
+	vrm?: VrmReadiness | null,
 };
 
 /**  How many parts the semantic model looks for. */
@@ -3938,6 +3961,47 @@ export type RestBone = {
 	tail: [(number | null), (number | null), (number | null)],
 };
 
+export type RestPose = {
+	/**  The axis the front points along; `None` without both legs or arms. */
+	facing: Axis | null,
+	/**  Degrees the front is turned from +Z about Y, towards +X positive. */
+	facingDeg: number | null,
+	/**  The toes point against the front: left and right look swapped. */
+	sidesSwapped: boolean,
+	/**
+	 *  Degrees each arm drops below horizontal, upper arm to hand; negative
+	 *  when it is raised.
+	 */
+	armLeftDeg: number | null,
+	armRightDeg: number | null,
+	/**  The lowest point of the skinned meshes at rest, metres. */
+	groundY: number | null,
+	/**  The lowest foot or toe joint, metres. */
+	feetY: number | null,
+	/**  The hips' distance from the Y axis, metres. */
+	hipsOffset: number | null,
+	/**  From the soles to the top of the meshes, metres. */
+	height: number | null,
+	/**  Every node's scale is positive and uniform, float noise aside. */
+	uniformScale: boolean,
+	/**  Nodes with a negative scale component. */
+	negativeScale: string[],
+	/**  Nodes whose scale differs per axis. */
+	unevenScale: string[],
+	/**
+	 *  Nodes scaled evenly by something other than 1, such as a 0.01
+	 *  armature, each with its scale.
+	 */
+	scaled: string[],
+	/**  Nodes off 1 by float noise only, which the writer snaps. */
+	scaleNoise: number,
+	/**
+	 *  The largest gap between a left bone and its mirrored right bone,
+	 *  metres; `None` without pairs.
+	 */
+	asymmetry: number | null,
+};
+
 /**  A bake waiting for review, on a copy of the newest version. */
 export type RetargetDraft = {
 	token: string,
@@ -4017,6 +4081,8 @@ export type Rig = {
 	 *  read (compressed geometry).
 	 */
 	maxInfluences: number | null,
+	/**  How far the rig is from a VRM 1.0 file. */
+	vrm?: VrmReadiness | null,
 };
 
 export type RigKind = "none" | "mixamo" | "other";
@@ -5302,6 +5368,37 @@ export type VersionFrom = {
 	project: string,
 	asset: string,
 	version: number,
+};
+
+export type VrmBone = {
+	/**  The VRM name: `hips`, `leftUpperArm`. */
+	bone: string,
+	required: boolean,
+	/**  The joint (node name) it maps to. */
+	joint: string | null,
+	/**  The naming the joint matched by. */
+	naming: BoneNaming | null,
+};
+
+export type VrmFinding = {
+	id: string,
+	level: FindingLevel,
+	title: string,
+	detail: string | null,
+};
+
+export type VrmReadiness = {
+	/**  No blocker: a VRM file can be written from the model as it is. */
+	ready: boolean,
+	/**  Bones mapped, of the 55. */
+	mapped: number,
+	/**  Required bones mapped, of the 15. */
+	required: number,
+	/**  Every humanoid bone, parents before children. */
+	bones: VrmBone[],
+	pose: RestPose,
+	/**  Blockers first, then warnings, then notes. */
+	findings: VrmFinding[],
 };
 
 export type WarningKind = "small" | "cropped" | "busy-background" | "one-view" | "views-disagree" | 

@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::analyse::{RigKind, bare_joint_name};
+use crate::vrm::VrmReadiness;
 
 /// The bones a humanoid clip drives, in Mixamo names, with the names other
 /// rigs give them (Unreal and Rigify style; `{s}` is the side letter).
@@ -112,6 +113,9 @@ pub struct Rig {
     /// Most bones one vertex weighs on; `None` when the weights cannot be
     /// read (compressed geometry).
     pub max_influences: Option<u32>,
+    /// How far the rig is from a VRM 1.0 file.
+    #[serde(default)]
+    pub vrm: Option<VrmReadiness>,
 }
 
 /// `upper_arm.L` and `Upper-Arm_L` both read `upper_arm_l`.
