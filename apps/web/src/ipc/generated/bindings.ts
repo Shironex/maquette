@@ -726,6 +726,10 @@ export type Approval = {
 	requestedAtMs: number | null,
 	/**  Send to 3D: the credits it should cost in all, from the price lists. */
 	estimate?: number | null,
+	/**  Image round: the Lab jobs it holds. */
+	conceptJobs?: string[],
+	/**  Image round: the dollars it should cost in all. */
+	estimateUsd?: number | null,
 };
 
 /**  One send of a batch approval. */
@@ -743,7 +747,12 @@ export type ApprovalKind =
 /**  A run an agent started stopped before its Ship step. */
 "ship" | 
 /**  An agent asked to send an asset to Tripo or Meshy, which spends credits. */
-"send-to-3d";
+"send-to-3d" | 
+/**
+ *  An agent asked for Lab images on OpenAI's Image API, which spends
+ *  dollars from the OpenAI key.
+ */
+"image-round";
 
 /**  One file the watcher took a look at. */
 export type Arrival = {
@@ -1713,9 +1722,20 @@ export type ConceptJob = {
 	styleRevision: number | null,
 	/**  Codex, or OpenAI's Image API. A retry runs on the same one. */
 	backend?: ImageBackend,
+	/**
+	 *  Failed because OpenAI refused the image on safety grounds; the
+	 *  message says why. Nothing was charged, and the same prompt is
+	 *  likely refused again.
+	 */
+	refused?: boolean,
 };
 
-export type ConceptJobState = "queued" | "running" | 
+export type ConceptJobState = 
+/**
+ *  An agent asked for it on the paid Image API: it waits for a person
+ *  to approve the round in the app, and nothing is sent until then.
+ */
+"approval" | "queued" | "running" | 
 /**
  *  Codex rate limited it, or its usage limit is hit (`usage_limit`);
  *  it runs again on its own at `retry_at_ms`.
@@ -2185,7 +2205,10 @@ export type ImageBackends = {
 	cleanBackground?: ImageBackend,
 };
 
-/**  One image's estimated cost per quality. */
+/**
+ *  One image's estimated cost per quality: what it has cost lately (the
+ *  ledger's recent average), else the price list's guess.
+ */
 export type ImageEstimates = {
 	low: number | null,
 	medium: number | null,
@@ -5167,7 +5190,9 @@ export type VersionFrom = {
 	version: number,
 };
 
-export type WarningKind = "small" | "cropped" | "busy-background" | "one-view" | "views-disagree" | "has-model";
+export type WarningKind = "small" | "cropped" | "busy-background" | "one-view" | "views-disagree" | 
+/**  The asset has a model already; the send makes its next version. */
+"has-model";
 
 /**
  *  One asset of a warnings request: the images as picked and whether its
