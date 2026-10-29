@@ -287,6 +287,35 @@ impl ProviderJobs {
         landed::close_waits(&self.shared, project, asset)
     }
 
+    /// Closes the send behind an inbox model that was discarded: a job
+    /// still in the Inbox state ends as cancelled with a note, since its
+    /// model is gone. Its ledger line was written when the model arrived, so
+    /// nothing is spent or refunded by this. Returns the job's id.
+    pub fn discarded(&self, item: &str) -> Option<String> {
+        let id = {
+            let jobs = self.shared.jobs();
+            jobs.iter()
+                .find(|e| e.stored.job.inbox_file.as_deref() == Some(item))
+                .map(|e| e.stored.job.id.clone())
+                .or_else(|| {
+                    job_for_file(item, jobs.iter().map(|e| e.stored.job.id.as_str()))
+                        .map(str::to_string)
+                })
+        }?;
+        let mut closed = false;
+        let _ = update(&self.shared, &id, true, |stored| {
+            if stored.job.state == JobState::Inbox {
+                stored.job.state = JobState::Cancelled;
+                stored.job.inbox_file = None;
+                stored.job.message = Some("Discarded from the Inbox".to_string());
+                stored.job.finished_at_ms.get_or_insert_with(now_ms);
+                closed = true;
+            }
+            Ok(())
+        });
+        closed.then_some(id)
+    }
+
     /// Brings a model someone picked an asset for (a download the watcher
     /// could not place) into the inbox for `asset` of `project`, as an
     /// exact name match does: for the asset's newest waiting By hand send
