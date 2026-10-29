@@ -270,3 +270,6 @@ pub fn use_clean_copy(
         }
     })
 }
+
+#[cfg(test)]
+mod tests;
