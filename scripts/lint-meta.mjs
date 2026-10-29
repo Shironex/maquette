@@ -8,6 +8,8 @@
  * - no ESLint rule resolves to `warn`, including what a spread preset sets;
  * - no inline `eslint-disable` or `@ts-ignore`: exceptions go in a scoped
  *   override in eslint.config.mjs, with the reason next to it;
+ * - a maquette-core module only uses its own layer and the layers below it
+ *   (scripts/lint-meta/rust-layers.json, read by scripts/rust-layers.mjs);
  * - the agent skills only name tools the MCP server lists (scripts/check-skills.mjs).
  *
  *   pnpm lint:meta             check, exit 1 on any violation
@@ -32,6 +34,7 @@ import { isGrandfathered, loadBaseline, serializeBaseline } from '@noctcore/harn
 import { createFileSizeRatchetRule } from '@noctcore/lint-meta-rules';
 import { createEslintConfigNoWarnRule } from '@noctcore/lint-meta-rules/resolved-config';
 import { checkSkills } from './check-skills.mjs';
+import { LAYER_MAP, upwardUses } from './rust-layers.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const BASELINE_DIR = 'scripts/lint-meta/baselines';
@@ -170,6 +173,13 @@ const rules = [
     offenders: overLimit(sourceFiles, text => (text.match(INLINE_SUPPRESSION) ?? []).length, 0),
     message: n =>
       `${n} inline suppression(s). Fix the code, or add a scoped override with a one line reason to eslint.config.mjs.`,
+  }),
+  ratchetRule({
+    id: 'rust-layers',
+    description: 'A maquette-core module only uses its own layer and the layers below it.',
+    offenders: () => upwardUses(ctx),
+    message: n =>
+      `${n} use(s) of a module above this file's layer (${LAYER_MAP}). Move the shared code down a layer, or reach it through a lower module.`,
   }),
   createEslintConfigNoWarnRule({ packages: ['.'], probes: probeFiles() }),
   {
