@@ -1,17 +1,17 @@
 //! The little matrix math the analysis needs. Matrices are column major,
 //! as glTF stores them: `m[column][row]`.
 
-pub(crate) type Mat4 = [[f32; 4]; 4];
-pub(crate) type Vec3 = [f32; 3];
+pub type Mat4 = [[f32; 4]; 4];
+pub type Vec3 = [f32; 3];
 
-pub(crate) const IDENTITY: Mat4 = [
+pub const IDENTITY: Mat4 = [
     [1.0, 0.0, 0.0, 0.0],
     [0.0, 1.0, 0.0, 0.0],
     [0.0, 0.0, 1.0, 0.0],
     [0.0, 0.0, 0.0, 1.0],
 ];
 
-pub(crate) fn mul(a: &Mat4, b: &Mat4) -> Mat4 {
+pub fn mul(a: &Mat4, b: &Mat4) -> Mat4 {
     let mut out = [[0.0; 4]; 4];
     for (c, column) in out.iter_mut().enumerate() {
         for (r, cell) in column.iter_mut().enumerate() {
@@ -21,7 +21,7 @@ pub(crate) fn mul(a: &Mat4, b: &Mat4) -> Mat4 {
     out
 }
 
-pub(crate) fn point(m: &Mat4, p: Vec3) -> Vec3 {
+pub fn point(m: &Mat4, p: Vec3) -> Vec3 {
     [
         m[0][0] * p[0] + m[1][0] * p[1] + m[2][0] * p[2] + m[3][0],
         m[0][1] * p[0] + m[1][1] * p[1] + m[2][1] * p[2] + m[3][1],
@@ -29,12 +29,12 @@ pub(crate) fn point(m: &Mat4, p: Vec3) -> Vec3 {
     ]
 }
 
-pub(crate) fn translation(m: &Mat4) -> Vec3 {
+pub fn translation(m: &Mat4) -> Vec3 {
     [m[3][0], m[3][1], m[3][2]]
 }
 
 /// Inverts an affine matrix (the bottom row is taken as 0 0 0 1).
-pub(crate) fn invert_affine(m: &Mat4) -> Option<Mat4> {
+pub fn invert_affine(m: &Mat4) -> Option<Mat4> {
     let (a, b, c) = (m[0][0], m[1][0], m[2][0]);
     let (d, e, f) = (m[0][1], m[1][1], m[2][1]);
     let (g, h, i) = (m[0][2], m[1][2], m[2][2]);
@@ -72,12 +72,12 @@ pub(crate) fn invert_affine(m: &Mat4) -> Option<Mat4> {
     Some(out)
 }
 
-pub(crate) fn distance(a: Vec3, b: Vec3) -> f32 {
+pub fn distance(a: Vec3, b: Vec3) -> f32 {
     ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt()
 }
 
 /// The distance from `p` to the segment from `a` to `b`.
-pub(crate) fn segment_distance(p: Vec3, a: Vec3, b: Vec3) -> f32 {
+pub fn segment_distance(p: Vec3, a: Vec3, b: Vec3) -> f32 {
     let ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
     let len = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
     let t = if len > 0.0 {
@@ -91,29 +91,29 @@ pub(crate) fn segment_distance(p: Vec3, a: Vec3, b: Vec3) -> f32 {
 
 /// An axis aligned box.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct Aabb {
-    pub(crate) min: Vec3,
-    pub(crate) max: Vec3,
+pub struct Aabb {
+    pub min: Vec3,
+    pub max: Vec3,
 }
 
 impl Aabb {
-    pub(crate) const EMPTY: Aabb = Aabb {
+    pub const EMPTY: Aabb = Aabb {
         min: [f32::INFINITY; 3],
         max: [f32::NEG_INFINITY; 3],
     };
 
-    pub(crate) fn add(&mut self, p: Vec3) {
+    pub fn add(&mut self, p: Vec3) {
         for (k, v) in p.iter().enumerate() {
             self.min[k] = self.min[k].min(*v);
             self.max[k] = self.max[k].max(*v);
         }
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.min[0] > self.max[0]
     }
 
-    pub(crate) fn size(&self) -> Vec3 {
+    pub fn size(&self) -> Vec3 {
         if self.is_empty() {
             return [0.0; 3];
         }
@@ -124,14 +124,14 @@ impl Aabb {
         ]
     }
 
-    pub(crate) fn diagonal(&self) -> f32 {
+    pub fn diagonal(&self) -> f32 {
         let s = self.size();
         (s[0] * s[0] + s[1] * s[1] + s[2] * s[2]).sqrt()
     }
 
     /// The largest per axis gap between the boxes, 0 when they touch or
     /// overlap.
-    pub(crate) fn gap(&self, other: &Aabb) -> f32 {
+    pub fn gap(&self, other: &Aabb) -> f32 {
         (0..3)
             .map(|k| {
                 (other.min[k] - self.max[k])

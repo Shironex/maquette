@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use super::{GROUP_GAP, GROUP_MIN_SHARE, Islands, MAX_ISLANDS, count};
-use crate::inbox::math::{Aabb, Vec3};
+use crate::math::{Aabb, Vec3};
 
 struct UnionFind(Vec<u32>);
 

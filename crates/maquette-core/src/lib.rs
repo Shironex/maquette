@@ -56,8 +56,9 @@ pub use workspace::{
 
 /// One `register` per crate and per core module, in this order: each adds
 /// the IPC types it owns, so a new type touches only its own module.
-const REGISTRIES: [fn(specta::Types) -> specta::Types; 21] = [
+const REGISTRIES: [fn(specta::Types) -> specta::Types; 22] = [
     maquette_base::register,
+    maquette_glb::register,
     app_state::register,
     settings::register,
     workspace::register,

@@ -4,7 +4,7 @@ use std::fs;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 
-use crate::inbox::math::{self, Aabb, IDENTITY, Mat4, Vec3};
+use crate::math::{self, Aabb, IDENTITY, Mat4, Vec3};
 
 /// The corners of a primitive's position bounds in its node's frame.
 pub(super) fn primitive_corners(prim: &gltf::Primitive<'_>) -> [Vec3; 8] {
@@ -71,7 +71,7 @@ fn corners(min: Vec3, max: Vec3) -> [Vec3; 8] {
 }
 
 /// World matrices of every node, from the scene roots down.
-pub(crate) fn world_matrices(doc: &gltf::Document) -> Vec<Mat4> {
+pub fn world_matrices(doc: &gltf::Document) -> Vec<Mat4> {
     let mut out = vec![IDENTITY; doc.nodes().len()];
     let mut has_parent = vec![false; doc.nodes().len()];
     for node in doc.nodes() {

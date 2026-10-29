@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 
 use super::rig::{bare_joint_name, is_hand_joint};
 use super::{FINGER_REACH, FingerWeights, HANG_REACH, JointCount};
-use crate::inbox::math::{self, Aabb, IDENTITY, Mat4, Vec3};
+use crate::math::{self, Aabb, IDENTITY, Mat4, Vec3};
 
 /// One side's hand at bind, in the mesh's space.
 #[derive(Default)]

@@ -25,8 +25,8 @@ use gltf::buffer::Source as BufferSource;
 use gltf::mesh::Mode;
 use serde::{Deserialize, Serialize};
 
-use super::math::{self, Aabb, IDENTITY};
-use crate::error::{CoreError, CoreResult};
+use crate::math::{self, Aabb, IDENTITY};
+use maquette_base::error::{CoreError, CoreResult};
 
 mod fingers;
 mod geometry;
@@ -35,14 +35,14 @@ mod rig;
 mod source;
 
 pub use geometry::bounds;
-pub(crate) use geometry::world_matrices;
+pub use geometry::world_matrices;
 pub use rig::{bare_joint_name, is_hand_joint};
 
 use fingers::finger_weights;
 use geometry::primitive_corners;
 use islands::primitive_islands;
 use rig::rig_kind;
-pub(crate) use source::load_uri;
+pub use source::load_uri;
 use source::textures;
 
 /// Islands closer than this share of the primitive's diagonal are grouped.

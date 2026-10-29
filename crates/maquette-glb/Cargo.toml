@@ -1,0 +1,22 @@
+[package]
+name = "maquette-glb"
+description = "Maquette's GLB reading: the inbox analysis, a model's parts and motion, image headers and fixture models"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+maquette-base = { workspace = true }
+gltf = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

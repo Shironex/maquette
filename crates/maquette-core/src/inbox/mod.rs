@@ -2,12 +2,13 @@
 //! inbox folder, analysed and checked, then accepted into a project's
 //! `models/` folder as a new asset version.
 
-pub mod analyse;
 pub mod checks;
-pub mod fixture;
-pub(crate) mod images;
-pub(crate) mod math;
 pub mod watch;
+
+// The GLB analysis, its fixture models, image headers and matrix math live
+// in the glb crate; these keep the old paths.
+pub use maquette_glb::{analyse, fixture};
+pub(crate) use maquette_glb::{images, math};
 
 mod accept;
 mod aim;
@@ -363,17 +364,10 @@ fn external_files(path: &Path) -> bool {
 #[cfg(test)]
 mod tests;
 
-/// Registers this module's IPC types (the GLB report, its checks and the inbox) with the shell's
+/// Registers this module's IPC types (the checks and the inbox) with the shell's
 /// TypeScript export; `maquette_core::types` folds every module's in.
 pub fn register(types: specta::Types) -> specta::Types {
     types
-        .register::<analyse::RigKind>()
-        .register::<analyse::TextureInfo>()
-        .register::<analyse::PbrMaps>()
-        .register::<analyse::JointCount>()
-        .register::<analyse::FingerWeights>()
-        .register::<analyse::Islands>()
-        .register::<analyse::GlbReport>()
         .register::<checks::CheckStatus>()
         .register::<checks::Check>()
         .register::<InboxState>()

@@ -1,7 +1,7 @@
 use super::rig::MIXAMO_CORE;
 use super::source::{base64_decode, percent_decode};
 use super::*;
-use crate::inbox::fixture;
+use crate::fixture;
 
 fn report(bytes: &[u8]) -> GlbReport {
     analyse_bytes(bytes, Path::new(".")).expect("analyse")
