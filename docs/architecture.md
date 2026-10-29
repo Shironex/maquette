@@ -560,6 +560,20 @@ uses.
 - **Fixture.** `fixture::humanoid(&HumanoidSpec)` builds a box humanoid on the 65 joint skeleton
   under any of the four namings, optionally in an A-pose, turned, lifted, scaled, or with float
   noise in its armature's scale.
+- **Writer.** `vrm::write(glb, &WriteSpec, base)` returns VRM 1.0 bytes and the pose findings the
+  file still carries. It refuses a rig VRM cannot hold (no skin, a required bone missing, a gap,
+  a wrong parent, swapped sides, a negative or uneven scale) and a meta `VrmMeta::validate` refuses
+  (no name, no author, another licence URL); facing, arms and ground do not stop it, since
+  normalising the rest pose is a step before. `container.rs` splits and joins the GLB chunks and
+  only adds to them: `VRMC_vrm` (meta, `humanoid.humanBones` by node index, `firstPerson` auto on
+  every mesh node, a default `lookAt`, bone when both eyes are mapped and expression otherwise),
+  `extensionsUsed`, and a thumbnail appended to the BIN chunk as one more buffer view and image.
+  The animations go (their keyframes stay in the BIN chunk, unused), node scales within
+  `SCALE_NOISE` of 1 snap to 1, and `MaterialMode::MtoonSoft` (`mtoon.rs`) puts
+  `VRMC_materials_mtoon` on every material, shaded from the base color and texture with no
+  outline, keeping the PBR values as the fallback; `Pbr` leaves the materials as they are. The
+  golden test compares the written fixture's JSON with `vrm/golden/humanoid_vrm.json`
+  (`MAQUETTE_BLESS=1` writes it again).
 
 ## Downloads matching
 
