@@ -191,6 +191,21 @@ tool_timeout_sec = 150
 
 The [MCP tools page](https://shironex.github.io/maquette/docs/agents/mcp-tools/) documents every tool with its arguments.
 
+### Agent skills
+
+Four skills teach Claude Code and Codex the Maquette workflows: concept rounds, by hand sends and landings, character rig fixes and game export. They live in [`plugins/maquette/skills`](plugins/maquette/skills), one source for both agents.
+
+```sh
+# Claude Code
+/plugin marketplace add Shironex/maquette
+/plugin install maquette@maquette
+
+# Codex (from a clone of this repo)
+node plugins/maquette/install-codex.mjs
+```
+
+The [agent skills page](https://shironex.github.io/maquette/docs/agents/skills/) has the token setup for both and what each skill does.
+
 <details>
 <summary><strong>Every tool, in one list</strong></summary>
 
