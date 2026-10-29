@@ -1093,10 +1093,10 @@ fn a_game_projects_inbox_checks_use_the_folder_budget_of_the_asset() {
         triangles_detail()
     );
     project::modify(&world.root, &world.config.layout, &world.project, |m| {
-        m.target = crate::game::ProjectTarget::Game;
+        m.target = crate::settings::game::ProjectTarget::Game;
         let mut settings = crate::game::new_settings(
-            &crate::game::NewGame {
-                format: crate::game::GameFormat::Glb,
+            &crate::settings::game::NewGame {
+                format: crate::settings::game::GameFormat::Glb,
                 models_dir: "assets/models".into(),
             },
             None,

@@ -15,13 +15,13 @@ use super::{
 use crate::assets::{Asset, AssetKind, AssetStatus};
 use crate::error::{CoreError, CoreResult};
 use crate::fs::write_atomic;
-use crate::game::{self, FolderBudget};
 use crate::inbox::{self, InboxItem};
 use crate::pipeline::history::now_ms;
 use crate::project;
 use crate::providers::handback::{self, DownloadsScan};
 use crate::providers::http::StopFlag;
 use crate::providers::presets::PresetVariant;
+use crate::settings::game::{self, FolderBudget};
 
 /// Lower case with `_` and spaces read as `-`, for matching file names to
 /// job ids.
