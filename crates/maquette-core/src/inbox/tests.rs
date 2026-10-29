@@ -277,3 +277,33 @@ fn accept_saves_the_real_size_and_fixups_or_refuses_them_before_moving() {
     assert_eq!(saved.models[&again.asset.id].skip_bake, Some(false));
     assert_eq!(saved.models[&again.asset.id].pad_edges, Some(false));
 }
+
+#[test]
+fn discard_moves_the_model_aside_and_forgets_what_the_inbox_kept() {
+    let (dir, config) = workspace();
+    let root = dir.path();
+    drop_in(root, &config, "lamp.glb", &fixture::clean_prop());
+    set_kind(root, &config, "lamp.glb", AssetKind::Scene).expect("kind");
+    assert!(cache_dir(root, &config).join("lamp.glb.json").is_file());
+
+    let done = discard(root, &config, "lamp.glb").expect("discard");
+    let kept = inbox_dir(root, &config)
+        .join(DISCARDED_DIR)
+        .join("lamp.glb");
+    assert_eq!(done.file, kept.display().to_string());
+    assert!(kept.is_file(), "moved, not deleted");
+    assert!(list(root, &config).expect("list").is_empty());
+    assert!(!cache_dir(root, &config).join("lamp.glb.json").exists());
+    assert!(load_kinds(&cache_dir(root, &config)).is_empty());
+    assert!(item(root, &config, "lamp.glb").is_err());
+
+    // The same name again: the first discard is kept.
+    drop_in(root, &config, "lamp.glb", b"second");
+    let again = discard(root, &config, "lamp.glb").expect("second discard");
+    assert!(again.file.ends_with("lamp-2.glb"));
+    assert!(kept.is_file());
+
+    assert!(discard(root, &config, "lamp.glb").is_err(), "already gone");
+    assert!(discard(root, &config, "../lamp.glb").is_err());
+    assert!(discard(root, &config, "notes.txt").is_err());
+}

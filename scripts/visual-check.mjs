@@ -756,6 +756,16 @@ async function redoShots() {
   await inbox.getByRole('button', { name: 'More for Veil gate' }).click();
   await inbox.getByRole('menu', { name: 'Veil gate actions' }).waitFor();
   await shot(inbox, 'redo-inbox-menu');
+  await inbox.keyboard.press('Escape');
+  // Discard asks first, with Cancel focused, and says the send closes.
+  await inbox.getByRole('button', { name: 'Discard', exact: true }).click();
+  const discard = inbox.getByRole('dialog', { name: 'Discard Veil gate?' });
+  await discard.getByText('closed as cancelled', { exact: false }).waitFor();
+  await shot(inbox, 'inbox-discard-dialog');
+  await inbox.keyboard.press('Escape');
+  await discard.waitFor({ state: 'detached' });
+  await inbox.getByRole('button', { name: 'More for Veil gate' }).click();
+  await inbox.getByRole('menu', { name: 'Veil gate actions' }).waitFor();
   await inbox.getByRole('menuitem', { name: 'Redo...' }).click();
   const panel = inbox.getByRole('dialog', { name: 'Redo Veil gate' });
   await panel.getByText('About 30 credits').waitFor();
@@ -775,6 +785,19 @@ async function redoShots() {
   await batch.getByRole('button', { name: 'Send 2 to Tripo' }).click();
   await batch.getByRole('alert').waitFor();
   await shot(inbox, 'redo-batch-confirm');
+
+  // Confirming leaves the other models, and the next one is selected.
+  const gone = await open(fixture, '#/inbox');
+  await gone.getByRole('heading', { name: 'Automatic checks' }).waitFor();
+  await gone.getByRole('button', { name: /^Veil gate/ }).click();
+  await gone.getByRole('button', { name: 'Discard', exact: true }).click();
+  await gone
+    .getByRole('dialog', { name: 'Discard Veil gate?' })
+    .getByRole('button', { name: 'Discard' })
+    .click();
+  await gone.getByText('discarded', { exact: false }).first().waitFor();
+  await gone.waitForTimeout(1500);
+  await shot(gone, 'inbox-discarded');
 
   const board = await open(fixture, '#/board');
   await board.getByRole('button', { name: /3D queue/ }).click();

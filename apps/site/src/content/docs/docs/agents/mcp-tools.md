@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 92 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 94 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -21,7 +21,7 @@ These look at the workspace and change nothing.
 | [`get_pipeline`](#get_pipeline)               | Steps, validation issues, compression presets, model sizes, the run in progress and the latest runs                                                                                                                                                                                                                                                                    | Nothing | No       |
 | [`get_run`](#get_run)                         | One run's status and the end of its log                                                                                                                                                                                                                                                                                                                                | Nothing | No       |
 | `list_inbox`                                  | The models waiting in the inbox, with kind, size, triangle count and worst check                                                                                                                                                                                                                                                                                       | Nothing | No       |
-| `get_inbox_checks`                            | The checks for one inbox model (triangles, textures, rig, scale, materials) and its analysis report                                                                                                                                                                                                                                                                    | Nothing | No       |
+| `get_inbox_checks`                            | The checks for one inbox model (triangles, textures, rig, scale, materials) and its analysis report, read against its send as `list_inbox` does                                                                                                                                                                                                                        | Nothing | No       |
 | `get_concepts`                                | A direction's prompt, refs and images with stars and picks, plus queued, running, waiting and failed jobs                                                                                                                                                                                                                                                              | Nothing | No       |
 | `get_style_board`                             | A project's style board: the style line, the palette, up to 4 images with the concept or ref each came from, and its revision                                                                                                                                                                                                                                          | Nothing | No       |
 | `get_codex_usage`                             | How much of Codex's five hour and weekly windows is used, when each resets, whether the usage limit holds and until when. `known` is false with a reason when this Codex CLI cannot say. Lab jobs waiting for the limit move to the reset time it names                                                                                                                | Nothing | No       |
@@ -82,6 +82,7 @@ These look at the workspace and change nothing.
 | [`set_ref_views`](#set_ref_views)                     | Sets the view of every ref of an asset: front, left, back, right or other                                                                                                                             | Nothing | No       |
 | `use_ref_candidate`                                   | Takes a drawn view into its slot (the ref it replaces moves to `refs/originals`), or a clean copy into the place of the ref it cleans (the original moves there too)                                  | Nothing | No       |
 | [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                                                                                                                                            | Nothing | No       |
+| [`discard_inbox_model`](#discard_inbox_model)         | Moves an inbox model aside into `inbox/.discarded/` instead of deleting it                                                                                                                            | Nothing | No       |
 | [`attach_download`](#attach_download)                 | Sends a download from `list_handoffs` to the inbox for an asset                                                                                                                                       | Nothing | No       |
 | [`add_model_file`](#add_model_file)                   | Adds a model file you fixed yourself as an asset's next version, through the inbox                                                                                                                    | Nothing | No       |
 | `dismiss_download`                                    | Leaves a download from `list_handoffs` alone and never asks about it again                                                                                                                            | Nothing | No       |
@@ -97,6 +98,7 @@ These look at the workspace and change nothing.
 | `stop_page_preview`                                   | Stops that server, whoever started it                                                                                                                                                                 | Nothing | No       |
 | `cancel_run`                                          | Cancels a queued or running run. A run waiting for approval is cancelled too                                                                                                                          | Nothing | No       |
 | [`add_to_library`](#add_to_library)                   | Copies an asset's newest model into the library                                                                                                                                                       | Nothing | No       |
+| [`add_many_to_library`](#add_many_to_library)         | Copies up to 200 assets' newest models into the library in one call, each answering on its own                                                                                                        | Nothing | No       |
 | [`use_from_library`](#use_from_library)               | Copies a library model into a project as a new asset                                                                                                                                                  | Nothing | No       |
 | [`update_from_library`](#update_from_library)         | Adds a newer library version to an asset as its next version, or returns the plan                                                                                                                     | Nothing | No       |
 | [`import_animations`](#import_animations)             | Imports Mixamo FBX files or pack zips into the animation library, skeleton only                                                                                                                       | Nothing | No       |
@@ -540,6 +542,16 @@ Moves a model from the inbox into a project as a new asset version on the Board,
 
 Without `asset` it goes to the asset the model was sent for, or the one a download was attached to (`aimedAt` in `list_inbox`).
 
+### discard_inbox_model
+
+`changes the inbox`
+
+Throws away an inbox model, such as the losing version of a redo or a bad download. The file is not deleted: it moves into `inbox/.discarded/` in the workspace (a name already there gets a number), where it can be moved back by hand. Its cached checks, picked kind and aim are forgotten. A send that was waiting on this model in the Inbox ends as cancelled with the note `Discarded from the Inbox`; what the send already cost stays as it was in the credits ledger, and an asset's earlier versions are untouched. It answers with the `file` it moved to and `closedSend`, the id of that send or null.
+
+| Parameter | Type   | Required | Notes                                                |
+| --------- | ------ | -------- | ---------------------------------------------------- |
+| `id`      | string | yes      | The inbox item id, its file name, from `list_inbox`. |
+
 ### list_handoffs
 
 `read only`
@@ -626,6 +638,26 @@ Copies an asset's newest model, picture, refs, real size, fix-ups and material t
 
 ```json
 { "project": "moon-island", "asset": "bench", "tags": ["furniture"] }
+```
+
+### add_many_to_library
+
+`changes the library`
+
+Adds several assets of one project to the library in one call, each as `add_to_library` does. Every asset answers on its own, so one that fails (an unknown asset, an asset without a model) does not stop the rest. The answer counts `added` and `failed`, and `results` lists each asset with `ok`, then its `entry`, `version`, `added` and `tags`, or its `error`. It spends nothing and the app updates live.
+
+| Parameter | Type     | Required | Notes                                                                                        |
+| --------- | -------- | -------- | -------------------------------------------------------------------------------------------- |
+| `project` | string   | yes      | The project id.                                                                              |
+| `assets`  | object[] | yes      | 1 to 200 items of `{ asset, name?, tags? }`. `tags` on an item replace the shared `tags`.    |
+| `tags`    | string[] | no       | Tags for every asset that names none of its own. Lowercased, at most 16, 32 characters each. |
+
+```json
+{
+  "project": "moon-island",
+  "tags": ["furniture"],
+  "assets": [{ "asset": "bench" }, { "asset": "lamp", "tags": ["lighting"] }]
+}
 ```
 
 ### use_from_library

@@ -131,7 +131,7 @@ or its removal; the Timeline's stop and scroll changes go through the `states` e
 `energize` edits (a path's whole energize track or its removal), which `projects.rs` turns into the
 layout patch's `paths` and `pathTracks`.
 
-`tools/library.rs` holds `list_library`, `add_to_library`, `use_from_library` and
+`tools/library.rs` holds `list_library`, `add_to_library`, `add_many_to_library`, `use_from_library` and
 `update_from_library`, which call the same `maquette_core::library` functions as the commands and
 emit `libraryChanged` and the project events. `list_library` pages (a `limit` and an entry id `cursor`) and answers compact entries unless `full`. The send tools' `modelWarning` comes from the core `HasModel` send warning (`refs/checks.rs`), which the Send to 3D and batch panels show as a note beside the ref warnings. `tools/animations.rs` holds `list_animations`,
 `import_animations` and `save_model_clips`; import paths must resolve inside the workspace.

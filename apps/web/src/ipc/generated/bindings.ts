@@ -340,6 +340,7 @@ export const commands = {
 	inboxReprocess: (id: string) => __TAURI_INVOKE<InboxItem>("inbox_reprocess", { id }),
 	inboxSetKind: (id: string, kind: AssetKind) => __TAURI_INVOKE<InboxItem>("inbox_set_kind", { id, kind }),
 	inboxAccept: (request: AcceptRequest) => __TAURI_INVOKE<AcceptResult>("inbox_accept", { request }),
+	inboxDiscard: (id: string) => __TAURI_INVOKE<Discarded>("inbox_discard", { id }),
 	/**
 	 *  Adds a model file someone fixed by hand (a `.glb`, `.gltf`, `.fbx` or
 	 *  `.obj` outside the workspace's versions) to the inbox for `asset`, as
@@ -1842,6 +1843,14 @@ export type Direction = {
 	 *  refs. `None` for an ordinary direction.
 	 */
 	refsJob?: RefsJob | null,
+};
+
+/**  Where a discarded model went. */
+export type Discarded = {
+	/**  The inbox id the model had. */
+	id: string,
+	/**  The file it moved to (an absolute path). */
+	file: string,
 };
 
 /**

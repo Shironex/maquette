@@ -23,6 +23,7 @@ export function useInboxDetail(item: InboxItem) {
   const current = useAppStore(s => s.workspace?.project ?? null);
   const projects = useAppStore(s => s.workspace?.projects) ?? NO_PROJECTS;
   const { busy, reprocess, accept, openInBlender, setKind } = useInboxStore();
+  const [discarding, setDiscarding] = useState(false);
   const openRedo = useProvidersStore(s => s.openRedo);
   const pending = redoUnderWay(
     useProvidersStore(s => s.jobs),
@@ -53,6 +54,9 @@ export function useInboxDetail(item: InboxItem) {
     redoBlocked: redoBlocker(item),
     redo: () => item.link && void openRedo(item.link.project, item.link.asset, item.link.job),
     isBusy: busy === item.id,
+    discarding,
+    askDiscard: () => setDiscarding(true),
+    closeDiscard: () => setDiscarding(false),
     acceptTitle,
     reprocess,
     accept,

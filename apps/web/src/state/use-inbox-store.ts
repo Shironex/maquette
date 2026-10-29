@@ -11,7 +11,7 @@ import {
 import { fileUrl } from '@/ipc/files';
 import { useAppStore } from './use-app-store';
 import { usePrepareStore } from './use-prepare-store';
-import { contentKey, firstToReview, goesTo } from './inbox';
+import { contentKey, firstToReview, goesTo, itemTitle } from './inbox';
 import { isStale, keepRenders, needsSnapshot, withThumbnail } from './thumbs';
 
 interface InboxStore {
@@ -29,6 +29,8 @@ interface InboxStore {
   reprocess: (id: string) => Promise<void>;
   setKind: (id: string, kind: AssetKind) => Promise<void>;
   accept: (id: string, project: string) => Promise<boolean>;
+  /** Moves a model aside into the workspace's `inbox/.discarded` folder; false when it failed. */
+  discard: (id: string) => Promise<boolean>;
   openInBlender: (id: string) => Promise<void>;
   /** Folds in a render that finished (from the `thumbnailReady` event). */
   onThumbnail: (event: ThumbnailReady) => void;
@@ -146,6 +148,26 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
       return true;
     } catch (error) {
       fail('Accept failed', error);
+      return false;
+    } finally {
+      set({ busy: null });
+    }
+  },
+
+  discard: async id => {
+    set({ busy: id });
+    try {
+      const item = get().snapshot?.items.find(i => i.id === id);
+      await commands.inboxDiscard(id);
+      useAppStore.getState().notify({
+        status: 'done',
+        title: `${item ? itemTitle(item) : id} discarded`,
+        detail: 'Moved to inbox/.discarded in the workspace, not deleted.',
+      });
+      await get().load();
+      return true;
+    } catch (error) {
+      fail('Discard failed', error);
       return false;
     } finally {
       set({ busy: null });

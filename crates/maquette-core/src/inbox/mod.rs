@@ -11,9 +11,11 @@ pub mod watch;
 
 mod accept;
 mod aim;
+mod discard;
 
 pub use accept::{AcceptRequest, AcceptResult, accept, open_in_blender_args, stats_of};
 pub use aim::{InboxAim, set_aim};
+pub use discard::{DISCARDED_DIR, Discarded, discard};
 
 use std::collections::BTreeMap;
 use std::fs;

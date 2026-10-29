@@ -379,3 +379,84 @@ async fn list_library_pages_and_is_compact_by_default() {
     client.cancel().await.expect("close");
     server.stop();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn add_many_to_library_reports_each_asset_and_goes_on_after_a_failure() {
+    maquette_core::providers::http::ensure_crypto();
+    let dir = tempfile::tempdir().expect("temp dir");
+    let session = fixture(dir.path());
+    let root = dir.path().join("ws");
+    let moon = root.join("projects/moon-island");
+    project::modify(&root, &Default::default(), "moon-island", |m| {
+        let id = assets::add(
+            m,
+            NewAsset {
+                name: "Brass key".into(),
+                kind: AssetKind::Prop,
+                stage: Stage::Blender,
+            },
+        )?
+        .id;
+        let file = format!("models/{id}_v1.glb");
+        std::fs::write(moon.join(&file), "key").expect("model");
+        assets::add_version(m, &id, file, Some(stats(1000)))?;
+        Ok(())
+    })
+    .expect("assets");
+    let host = Arc::new(TestHost {
+        session,
+        runner: PipelineRunner::new(Arc::new(maquette_core::pipeline::runner::NullSink)),
+        concepts: Concepts::new(None, 1, |_| {}),
+        thumbs: Thumbnails::new(|_| {}),
+        studio: ProviderJobs::new(Arc::new(MemoryStore::default()), Options::default(), |_| {}),
+    });
+    let token = ensure_token(&host.session).expect("token");
+    let server = maquette_desktop_lib::mcp::server::start(
+        0,
+        token.clone(),
+        host.clone() as Arc<dyn Host>,
+        Arc::new(Hub::new(|| {})),
+    )
+    .expect("start");
+    let url = format!("http://127.0.0.1:{}/mcp", server.port());
+    let transport = StreamableHttpClientTransport::from_config(
+        StreamableHttpClientTransportConfig::with_uri(url).auth_header(token),
+    );
+    let client = ClientConfig::default()
+        .serve(transport)
+        .await
+        .expect("initialize");
+
+    let done = call(
+        &client,
+        "add_many_to_library",
+        json!({
+            "project": "moon-island",
+            "tags": ["Props", "batch"],
+            "assets": [
+                { "asset": "Desk lamp" },
+                { "asset": "No such asset" },
+                { "asset": "Brass key", "tags": ["keys"] },
+            ],
+        }),
+    )
+    .await;
+    assert_eq!(done["added"], json!(2));
+    assert_eq!(done["failed"], json!(1));
+    let results = done["results"].as_array().expect("results");
+    assert_eq!(results[0]["ok"], json!(true));
+    assert_eq!(results[0]["tags"], json!(["props", "batch"]));
+    assert_eq!(results[1]["ok"], json!(false));
+    assert!(results[1]["error"].is_string());
+    assert_eq!(
+        results[2]["ok"],
+        json!(true),
+        "a failure does not stop the rest"
+    );
+    assert_eq!(results[2]["tags"], json!(["keys"]));
+    let listed = call(&client, "list_library", json!({})).await;
+    assert_eq!(listed["total"], json!(2));
+
+    client.cancel().await.expect("close");
+    server.stop();
+}

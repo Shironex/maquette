@@ -1,9 +1,9 @@
 //! The model inbox: list, check, reprocess, accept into a project, open in
 //! Blender.
 
-use maquette_core::AssetKind;
 use maquette_core::inbox::{self, AcceptRequest, AcceptResult, InboxItem};
 use maquette_core::thumbs::ThumbTarget;
+use maquette_core::{AssetKind, CoreResult};
 use serde::Serialize;
 use tauri::State;
 
@@ -166,6 +166,33 @@ pub async fn inbox_accept(
         result.project = project;
     }
     Ok(result)
+}
+
+/// Moves the inbox model `id` aside (never deletes it) and closes the send
+/// that was waiting on it. Returns where the file went and the closed send's
+/// id, when there was one. The UI and the MCP tool both call this.
+pub(crate) fn discard_model(
+    studio: &maquette_core::providers::ProviderJobs,
+    root: &std::path::Path,
+    config: &maquette_core::WorkspaceConfig,
+    id: &str,
+) -> CoreResult<(inbox::Discarded, Option<String>)> {
+    let done = inbox::discard(root, config, id)?;
+    let closed = studio.discarded(id);
+    Ok((done, closed))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn inbox_discard(
+    session: State<'_, Session>,
+    studio: State<'_, Studio>,
+    id: String,
+) -> CommandResult<inbox::Discarded> {
+    let (root, config) = session.workspace()?;
+    let studio = studio.0.clone();
+    let (done, _) = blocking(move || discard_model(&studio, &root, &config, &id)).await??;
+    Ok(done)
 }
 
 /// Opens the model in Blender's window, imported into an empty scene.

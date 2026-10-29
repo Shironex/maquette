@@ -187,3 +187,31 @@ fn a_running_api_send_of_the_asset_is_left_alone() {
     assert_eq!(world.asset_status().1, AssetStatus::Running);
     jobs.close();
 }
+
+#[test]
+fn discarding_the_model_of_a_send_closes_it_and_leaves_the_ledger_alone() {
+    let world = World::new();
+    let jobs = world.jobs(&server());
+    let job = send_by_hand(&world, &jobs);
+    let file = world.root.join("made_on_the_site.glb");
+    fs::write(&file, fixture::clean_prop()).expect("model");
+    let back = jobs.hand_back(&job.id, &file).expect("hand back");
+    assert_eq!(back.state, JobState::Inbox);
+    let name = back.inbox_file.clone().expect("inbox file");
+    let lines = ledger_lines(&world);
+    assert_eq!(lines.len(), 2, "sent, then settled");
+
+    inbox::discard(&world.root, &world.config, &name).expect("discard");
+    assert_eq!(jobs.discarded(&name).as_deref(), Some(job.id.as_str()));
+    let closed = jobs.get(&job.id).expect("job");
+    assert_eq!(closed.state, JobState::Cancelled, "{closed:?}");
+    assert_eq!(closed.inbox_file, None);
+    assert_eq!(closed.message.as_deref(), Some("Discarded from the Inbox"));
+    assert_eq!(ledger_lines(&world), lines, "nothing written");
+    assert_eq!(hand_spend(&jobs, &job.id), SpendOutcome::Succeeded);
+    assert!(pending_handoffs(&jobs).is_empty());
+    assert_eq!(jobs.discarded(&name), None, "closed once");
+
+    // A model nobody sent: nothing to close.
+    assert_eq!(jobs.discarded("lantern_final.glb"), None);
+}

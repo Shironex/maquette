@@ -50,6 +50,28 @@ pub struct AddToLibraryArgs {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct LibraryAssetArgs {
+    /// The asset id or name, as list_assets returns it.
+    pub asset: String,
+    /// The entry's name. Defaults to the asset's.
+    pub name: Option<String>,
+    /// This asset's tags. They replace the shared tags for this asset.
+    pub tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddManyToLibraryArgs {
+    /// The project id.
+    pub project: String,
+    /// 1 to 200 assets.
+    pub assets: Vec<LibraryAssetArgs>,
+    /// Tags for every asset that names none of its own.
+    pub tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct UseFromLibraryArgs {
     /// The library entry id, as list_library returns it.
     pub entry: String,
@@ -167,6 +189,37 @@ fn planned(plan: &UpdatePlan) -> Value {
     })
 }
 
+/// The most assets one add_many_to_library call takes.
+const MAX_BATCH: usize = 200;
+
+/// Adds one asset as add_to_library does and answers its result row, or the
+/// reason it failed.
+fn add_one(
+    host: &dyn super::Host,
+    project: &str,
+    item: &LibraryAssetArgs,
+    shared: Option<&Vec<String>>,
+) -> Result<Value, String> {
+    let asset = asset_id(host, project, &item.asset)?;
+    let request = AddToLibrary {
+        project: project.to_string(),
+        asset,
+        name: item.name.clone(),
+        tags: item.tags.clone().or_else(|| shared.cloned()),
+    };
+    let added = commands::add(host.session(), host.studio(), &request).map_err(|e| e.message)?;
+    host.project_changed(&added.project);
+    Ok(json!({
+        "asset": item.asset,
+        "ok": true,
+        "entry": added.entry.id,
+        "name": added.entry.name,
+        "version": added.version,
+        "added": added.added,
+        "tags": added.entry.tags,
+    }))
+}
+
 /// The asset id `wanted` names in `project_id`.
 fn asset_id(host: &dyn super::Host, project_id: &str, wanted: &str) -> Result<String, String> {
     let (root, config) = workspace(host)?;
@@ -248,6 +301,38 @@ impl McpTools {
                     "version": added.version,
                     "added": added.added,
                     "tags": added.entry.tags,
+                }))
+            })
+            .await;
+        respond(found)
+    }
+
+    #[tool(
+        description = "Add several project assets to the library in one call, each as add_to_library does (1 to 200 assets). tags are shared by every asset that names none of its own. Each asset answers on its own, with ok true and its entry, version and added, or ok false and why, and one failure does not stop the rest; the answer also counts added and failed. Copies files, spends nothing and needs no approval."
+    )]
+    async fn add_many_to_library(&self, Parameters(args): Parameters<AddManyToLibraryArgs>) -> Out {
+        let found = self
+            .blocking(move |host, _| {
+                if args.assets.is_empty() || args.assets.len() > MAX_BATCH {
+                    return Err(format!("Give 1 to {MAX_BATCH} assets."));
+                }
+                let results: Vec<Value> = args
+                    .assets
+                    .iter()
+                    .map(|item| {
+                        add_one(host, &args.project, item, args.tags.as_ref()).unwrap_or_else(
+                            |why| json!({ "asset": item.asset, "ok": false, "error": why }),
+                        )
+                    })
+                    .collect();
+                let added = results.iter().filter(|r| r["ok"] == json!(true)).count();
+                if added > 0 {
+                    host.library_changed();
+                }
+                Ok(json!({
+                    "added": added,
+                    "failed": results.len() - added,
+                    "results": results,
                 }))
             })
             .await;
