@@ -36,6 +36,8 @@ Every model checks its triangles and its largest texture against the budget of t
 
 The Board marks a model over its budget on its card and in the list, and the top bar counts the models over. The Inspector's **Budget** tab lists every model against its budget, lets you change each folder's numbers, and **Add the fix-ups** gives every model over budget a Decimate or Shrink textures fix-up. Build models applies them to a copy; the repo file stays version 1.
 
+The Budget tab's **Game folder** column moves one model to a folder of its own inside the model folder (`kit`, `enemies/bosses`), keeping its file name. Clear it to go back to the folder its kind or its import gives it. The next Ship writes the model at the new path and removes the old file, but only when Maquette wrote it and nothing else ships there; a hand made file is never removed.
+
 A rigged model (one with bones) never gets Decimate, since it would tear the skin weights and shape keys. Over its triangle budget it reads **By hand**: reduce it in Blender yourself. Shrink textures still applies to it.
 
 ## The game pipeline
@@ -56,8 +58,9 @@ The **Game export** panel in the Pipeline view sets what the engine reads:
 - **Textures**: PNG, JPG, or Keep each image's own format.
 - **Texture size cap**: 256 to 4096 px on the longest edge; smaller textures stay as they are. A model in a folder with a budget exports at that budget's texture size instead, so `props/` at 1024 px caps its props at 1024 px. The cap covers the models in folders without a budget, and the panel lists each folder's size.
 - KTX2, meshopt and Draco are always off. Game export refuses an exported model that uses them, or a texture over the cap.
+- **Drop normal and metal maps**: leaves out the normal and metal-roughness textures, for engines that light flat or pack their own maps. Color and emission stay.
 
-Rigs and animation clips export with a `.glb`. LOD levels are shown in the panel but not built yet.
+Rigs and animation clips export with a `.glb`. Each rigged model keeps only its own clips, never another rig's. LOD levels are shown in the panel but not built yet.
 
 A project made before the per folder cap keeps its own copies of `export_game.py` and `game_export.mjs`. The Pipeline view offers to update them; until then every model exports at the global cap.
 
@@ -68,9 +71,10 @@ When a run reaches Ship, the Pipeline view opens the Ship diff and the run waits
 - **New**: not in the game yet.
 - **Replaced**: a file Maquette wrote or imported before, now different. When the file in the game is still the original Maquette imported, the row says it **replaces the imported original**, and the approval card counts them.
 - **Unchanged**: the same bytes, left as they are.
+- **Removed**: the old file of a model you moved to another folder. Ship removes it only when Maquette wrote it.
 - **Hand made, left alone**: not in the ship record, so Ship never touches it, also when an export would land on it.
 
-It also shows where Ship writes (game repo, model folder, branch), how many files the ship record lists after the run, and the checks before Ship. **Approve and ship** writes the files; **Deny** stops the run and nothing in the game repo changes. Ship never removes a file and never commits: review the change in git and commit it yourself. When git status lists uncommitted files in the game repo, the diff and the approval card suggest committing them first, so the Ship change is easy to review and undo. Maquette only reads git status; it never writes to the repo's git. **What Ship changes** in the Pipeline view shows the same diff between runs.
+It also shows where Ship writes (game repo, model folder, branch), how many files the ship record lists after the run, and the checks before Ship. **Approve and ship** writes the files; **Deny** stops the run and nothing in the game repo changes. Ship never removes a file other than a moved model's old one, and never commits: review the change in git and commit it yourself. When git status lists uncommitted files in the game repo, the diff and the approval card suggest committing them first, so the Ship change is easy to review and undo. Maquette only reads git status; it never writes to the repo's git. **What Ship changes** in the Pipeline view shows the same diff between runs.
 
 ## Views
 
@@ -78,4 +82,4 @@ Game projects hide the Page and Timeline views; Motion stays. Every view's top b
 
 ## Agents
 
-Over MCP, `get_game` reads a game project's settings and each model against its budget, `scan_game_models` and `import_game_models` scan and import the model folder (an import asks for each model's preview), `set_game_settings` changes the format, model folder, export, bake and budgets, and `get_ship_plan` shows what Ship would change, which replaced files are imported originals, and how many files the game repo has uncommitted. `run_pipeline` runs the game pipeline; Ship waits for a person to approve it in the app, whoever started the run.
+Over MCP, `get_game` reads a game project's settings and each model against its budget, `scan_game_models` and `import_game_models` scan and import the model folder (an import asks for each model's preview), `set_game_settings` changes the format, model folder, export (`dropMaps` too), bake, budgets, each asset's own folder (`assetFolders`, null to go back) and the game repo (`repo`, an absolute path to a git checkout or a worktree), and `get_ship_plan` shows what Ship would change, which replaced files are imported originals, and how many files the game repo has uncommitted. `get_ship_plan` and `run_pipeline` also take `repo` for that one plan or run, so an agent can ship into a worktree without changing the project. `run_pipeline` runs the game pipeline; Ship waits for a person to approve it in the app, whoever started the run.

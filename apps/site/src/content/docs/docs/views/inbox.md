@@ -19,7 +19,7 @@ The preview stands every model in the same studio: a graphite backdrop, a soft f
 
 ## Real size and fix-ups
 
-Each asset can have a real size and a list of fix-ups, both optional. A size is one side of the real object (height, width, depth or the longest side) in cm or m. The fix-ups run in a fixed order: Apply transforms, Remove loose parts, Merge objects, Split into parts, Decimate, Shrink textures and Origin to bottom centre. Split into parts is on its own page: [Parts](/docs/views/parts/). Nothing touches the inbox file or the asset's versions: the [Build scene](/docs/pipeline/build-scene/) step applies them headless on a copy.
+Each asset can have a real size and a list of fix-ups, both optional. A size is one side of the real object (height, width, depth or the longest side) in cm or m. The fix-ups run in a fixed order: Rotate, Apply transforms, Remove loose parts, Merge objects, Split into parts, Decimate, Shrink textures and Origin to bottom centre. Rotate turns a model that came in leaning or lying down upright: degrees about x, y and z (up to 360 either way), turned about the middle of its bounds before anything else runs, so the size and Origin to bottom centre measure the upright model. Split into parts is on its own page: [Parts](/docs/views/parts/). Nothing touches the inbox file or the asset's versions: the [Build scene](/docs/pipeline/build-scene/) step applies them headless on a copy.
 
 You can also skip the bake for an asset and pad its texture edges. A model accepted from the Inbox skips the bake and pads by default, since provider scans cut their textures into many small islands.
 
@@ -29,9 +29,15 @@ Accept to Blender moves the file into the project's `models/` folder as a new as
 
 ## Downloads from By hand sends
 
-While a By hand send waits, the Downloads watch (Settings > 3D providers) looks at new `.glb`, `.fbx` and `.zip` files. A file named for its send (`maq_<asset>_v<n>_<provider>`) goes into the inbox by itself. Anything else waits in **New downloads**, opened from its notice:
+While a By hand send waits, the Downloads watch (Settings > 3D providers) looks at new `.glb`, `.fbx` and `.zip` files. A file named for its send (`maq_<asset>_v<n>_<provider>`) goes into the inbox by itself. Anything else waits in **New downloads**, opened from its notice, however long after its handoff it came.
 
-- **Needs a look**: the name is only close to a waiting send's (a site's batch export such as `lantern post 3d model.glb`), or it is the only send waiting. The card shows the model's thumbnail, rendered headless, next to the ref the send went out with, the file name and why it matched. **Attach to Lantern post** takes it, **Pick another asset** chooses a different one, and **Not this one** leaves the file alone and never asks about it again.
-- **Which asset is this?**: files it could not place. **Attach to an asset** opens a searchable list of the project's assets, the ones a By hand send waits on first, each with its ref picture and state. Type to search, use the arrows and press Enter; the list moves on to the next file, so a batch goes quickly. Esc closes it.
+Each of those is matched by its picture too. Blender renders it headless from the front on a plain ground (one file at a time, kept by its content so it renders once), and every waiting By hand send is ranked by how much its front ref looks like it: how much the two outlines cover the same area once both are scaled to one square, how much colour they share (by hue, and by lightness for greys, so softer light still matches) and how close their proportions are. The file name only breaks ties. A clear best, at least 60% alike and ahead of the next, is suggested with its score; nothing is ever attached by itself.
+
+- **Needs a look**: the picture looks like one waiting send's, the name is close to one (a site's batch export such as `lantern post 3d model.glb`), or it is the only send waiting. The card shows the download's front render next to the send's front ref, how alike they are ("88% alike"), the file name and why it matched. **Attach to Lantern post** takes it, the other waiting sends are listed after it, ranked, to attach to instead, **Pick another asset** chooses any asset, and **Not this one** leaves the file alone and never asks about it again.
+- **Which asset is this?**: files it could not place, with the closest send when the picture was read. **Attach to an asset** opens a searchable list of the project's assets, the ones a By hand send waits on first, best fit first with how alike each is, each with its ref picture and state. Type to search, use the arrows and press Enter; the list moves on to the next file, so a batch goes quickly. Esc closes it.
+
+Without Blender, or for an FBX, the name alone ranks the sends.
+
+**Add a model file as the next version...** in a card's menu on the Board does the same for a file you made or fixed yourself, whether or not a send waits: pick a `.glb`, `.gltf`, `.fbx` or `.obj` and it is copied into the inbox for that asset (the others are turned into a GLB by headless Blender first). A file already in the inbox or in a project's `models` folder is refused.
 
 Attaching sends the model to the inbox for that asset, as a file named for its send would go: for the asset's newest waiting By hand send, or aimed at the asset when none waits. The usual checks run, and the real size and fix-ups draft is there as for any inbox model. Accept goes to that asset by default and closes its By hand sends still waiting. The downloaded file stays where it is.
