@@ -18,10 +18,12 @@ use crate::inbox::fixture;
 use crate::project::{self, NewProject, ProjectTemplate};
 use crate::workspace::{self, WorkspaceConfig};
 
+mod arrivals;
 mod connect;
 mod handoff_paths;
 mod ids;
 mod landed;
+mod own_file;
 mod ports;
 mod remove;
 mod split;

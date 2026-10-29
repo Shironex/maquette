@@ -15,7 +15,7 @@ use crate::base::ports::PictureRender;
 use crate::error::{CoreError, CoreResult};
 
 /// The workspace cache folder of the pictures.
-pub(super) const PICTURES_DIR: &str = "download-pictures";
+pub const PICTURES_DIR: &str = "download-pictures";
 
 impl Arrivals {
     /// Lets the watcher render downloads to match them by picture. Without
@@ -207,6 +207,3 @@ impl Arrivals {
         arrival
     }
 }
-
-#[cfg(test)]
-mod tests;

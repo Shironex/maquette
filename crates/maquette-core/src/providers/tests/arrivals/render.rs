@@ -8,10 +8,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use super::super::tests::{Rig, rig};
-use super::*;
+use super::{Rig, rig};
+use crate::base::ports::PictureRender;
+use crate::error::{CoreError, CoreResult};
 use crate::inbox::fixture;
 use crate::inbox::images::write_png;
+use crate::providers::arrivals::*;
 use crate::providers::jobs::Provider;
 use crate::providers::presets::PresetVariant;
 use crate::providers::tests::add_objects;

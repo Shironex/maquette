@@ -17,6 +17,8 @@ use crate::providers::ledger::{SpendOutcome, SpendSource};
 use crate::providers::presets::PresetVariant;
 use crate::providers::tests::{World, add_objects};
 
+mod render;
+
 pub(super) struct Rig {
     pub(super) world: World,
     _server: FakeServer,

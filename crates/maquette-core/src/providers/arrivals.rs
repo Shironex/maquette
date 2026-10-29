@@ -25,8 +25,6 @@ mod picture;
 mod render;
 mod seen;
 mod settle;
-#[cfg(test)]
-mod tests;
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
@@ -39,6 +37,7 @@ use crate::base::ports::PictureRender;
 
 pub use folder::{WATCHED, WatchTiming, is_watched};
 pub use picture::SendSuggestion;
+pub use render::PICTURES_DIR;
 
 use super::handback::{SLACK_MS, modified_ms, zip_models};
 use super::jobs::{JobState, Provider, ProviderJob, ProviderJobs};

@@ -21,7 +21,8 @@ pub const MODEL_TYPES: [&str; 4] = ["glb", "gltf", "fbx", "obj"];
 /// Turns one model into a GLB.
 const SCRIPT: &str = include_str!("own_file/to_glb.py");
 const SCRIPT_FILE: &str = "to_glb.py";
-const WORK_DIR: &str = "own-files";
+/// The workspace cache folder an own file is turned into a GLB in.
+pub const WORK_DIR: &str = "own-files";
 const OUT_FILE: &str = "model.glb";
 
 fn ext_of(file: &Path) -> Option<String> {
@@ -151,6 +152,3 @@ pub fn add(
     let _ = fs::remove_dir_all(&work);
     done
 }
-
-#[cfg(test)]
-mod tests;

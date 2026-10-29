@@ -64,7 +64,7 @@ const MAX_IMAGES: usize = 4;
 pub const MAX_BATCH: usize = 24;
 
 /// What a send's settings say about the model it asked for.
-pub(super) fn send_notes(job: &ProviderJob) -> SendNotes {
+pub fn send_notes(job: &ProviderJob) -> SendNotes {
     let tripo = job
         .tripo
         .as_ref()
