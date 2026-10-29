@@ -6,20 +6,21 @@ page says why and how to work with them.
 
 ## Workspace
 
-| Path                      | What it is                                                              |
-| ------------------------- | ----------------------------------------------------------------------- |
-| `apps/web`                | The React UI, served by the Tauri shell or by Vite in mock mode         |
-| `apps/site`               | The landing page: Astro with a react-three-fiber island in `src/scene`  |
-| `apps/desktop/src-tauri`  | The Tauri shell: a thin composition root that wires the core into Tauri |
-| `packages/ui`             | The UI kit: typed primitives and the theme                              |
-| `crates/maquette-core`    | The Rust domain logic, and the facade over the crates below it          |
-| `crates/maquette-base`    | The bottom layer: errors, files, JSON, the clock, toolchain, run log    |
-| `crates/maquette-glb`     | GLB reading without Blender: the inbox analysis, parts and motion       |
-| `crates/maquette-model`   | The stored files: workspace, projects, assets, layout, refs, settings   |
-| `crates/maquette-preview` | The site dev server, the Page view's frame proxy and page settings      |
+| Path                        | What it is                                                              |
+| --------------------------- | ----------------------------------------------------------------------- |
+| `apps/web`                  | The React UI, served by the Tauri shell or by Vite in mock mode         |
+| `apps/site`                 | The landing page: Astro with a react-three-fiber island in `src/scene`  |
+| `apps/desktop/src-tauri`    | The Tauri shell: a thin composition root that wires the core into Tauri |
+| `packages/ui`               | The UI kit: typed primitives and the theme                              |
+| `crates/maquette-core`      | The Rust domain logic, and the facade over the crates below it          |
+| `crates/maquette-base`      | The bottom layer: errors, files, JSON, the clock, toolchain, run log    |
+| `crates/maquette-glb`       | GLB reading without Blender: the inbox analysis, parts and motion       |
+| `crates/maquette-model`     | The stored files: workspace, projects, assets, layout, refs, settings   |
+| `crates/maquette-preview`   | The site dev server, the Page view's frame proxy and page settings      |
+| `crates/maquette-providers` | The 3D sends: Tripo, Meshy, By hand handoffs, Downloads and the ledger  |
 
 Dependencies run one way: `packages/ui` -> `apps/web`, and `maquette-base` -> `maquette-glb` ->
-`maquette-model`, `maquette-base` -> `maquette-preview`, then all of them -> `maquette-core` ->
+`maquette-model` -> `maquette-providers`, `maquette-base` -> `maquette-preview`, then all of them -> `maquette-core` ->
 `src-tauri`. The web app reaches the backend only through `src/ipc` (generated tauri-specta
 bindings, or the in-memory mock).
 
@@ -126,10 +127,10 @@ against it.
 | glb       | base       | `inbox::{analyse, fixture, images, math}` (the maquette-glb crate)                                                                                                                              |
 | preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                                                                                                            |
 | pipeline  | model, glb | `pipeline`, `prepare::preview`, `built::{build, blender}`, `materials::{apply, split}`, `ship::{plan, report}`, `layout::view`, `thumbs`, `game`, `inspect`, `inbox`, `motion`, `parts`, `site` |
-| providers | model, glb | `providers`                                                                                                                                                                                     |
+| providers | model, glb | `providers` (the maquette-providers crate)                                                                                                                                                      |
 | lab       | model, glb | `concepts`, `refs::{files, suggested}`                                                                                                                                                          |
 | library   | pipeline   | `library`, `animations`                                                                                                                                                                         |
-| facade    | everything | `lib.rs`                                                                                                                                                                                        |
+| facade    | everything | `lib.rs`, `providers::tests` (the provider tests that drive a send into the inbox)                                                                                                              |
 
 A module whose file on disk is model data but whose work runs Blender or reads other layers is split
 by submodule. `prepare.json`, `built.json`, `materials.json` and `ship.json` (their types, load,
@@ -147,8 +148,8 @@ and a new upward use fails. Moving shared code down a layer is how an entry goes
 
 Where a layer needs work from a higher one, it asks through a port: a small trait in a lower layer
 that the higher layer implements and the app hands in where it wires things up. Each port is one
-call and does exactly what the code behind it did before. `providers` uses no higher layer outside
-its tests:
+call and does exactly what the code behind it did before. `providers` uses no higher layer; its tests
+that drive a send into the inbox or run Blender sit in core's `providers::tests`, which is facade:
 
 | Port (where the trait lives)     | Implemented by                        | Handed in by                                        |
 | -------------------------------- | ------------------------------------- | --------------------------------------------------- |
@@ -179,45 +180,50 @@ layout), so it is pipeline. `maquette-model` holds the model layer: `workspace`,
 re-exports the crate's (`pub use maquette_model::layout::*`) and adds the work above the model
 layer: `layout::view`, `refs::{files, suggested}`, `prepare::preview` and the fix-up script,
 `built`'s Blender build, `materials`' apply and split, and `ship`'s plan and size report. `maquette-preview` holds
-`site::preview` and `page`. Core keeps every old path with a `pub use`, so `maquette_core::...` paths
+`site::preview` and `page`. `maquette-providers` holds `providers`; core keeps a `providers` module
+that re-exports the crate (`pub use maquette_providers::*`) and holds the provider tests that need the
+inbox or a real Blender run. The crate's fake HTTP server (`providers::fake`) is behind its
+`test-support` feature, which core's tests turn on. Core keeps every old path with a `pub use`, so `maquette_core::...` paths
 do not change, and the map keeps those paths in their layer. A crate cannot reach up into core at
 all: `scripts/lint-meta/crate-layers.json` lists the workspace crates each crate may depend on, and
 `pnpm lint:meta` checks it against `cargo metadata --no-deps` (every dependency kind counts, and a
 new crate has to be added to the list).
 
-| Crate              | May depend on                                                         |
-| ------------------ | --------------------------------------------------------------------- |
-| `maquette-base`    | no workspace crate                                                    |
-| `maquette-glb`     | `maquette-base`                                                       |
-| `maquette-model`   | `maquette-base`, `maquette-glb`                                       |
-| `maquette-preview` | `maquette-base`                                                       |
-| `maquette-core`    | `maquette-base`, `maquette-glb`, `maquette-model`, `maquette-preview` |
-| `maquette-desktop` | `maquette-core`                                                       |
+| Crate                | May depend on                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| `maquette-base`      | no workspace crate                                                                          |
+| `maquette-glb`       | `maquette-base`                                                                             |
+| `maquette-model`     | `maquette-base`, `maquette-glb`                                                             |
+| `maquette-preview`   | `maquette-base`                                                                             |
+| `maquette-providers` | `maquette-base`, `maquette-glb`, `maquette-model`                                           |
+| `maquette-core`      | `maquette-base`, `maquette-glb`, `maquette-model`, `maquette-preview`, `maquette-providers` |
+| `maquette-desktop`   | `maquette-core`                                                                             |
 
 ### IPC type registration
 
 Every crate, and every core module that owns IPC types, has a `register(types)` that adds its own
 `specta::Type`s: `maquette_base::register`, `maquette_glb::register`, `maquette_model::register`,
-`maquette_preview::register`, `providers::register` and so on. `maquette_core::types()` folds them in the order of its
+`maquette_preview::register`, `maquette_providers::register` and so on. `maquette_core::types()` folds them in the order of its
 `REGISTRIES` list, and the desktop crate's `bindings.rs` exports the result. A new IPC type goes
 into the `register` of the module that defines it, so `lib.rs` changes only when a module is
 added. The order does not change `bindings.ts`: the TypeScript exporter sorts the types by name.
 
-| Registry                     | Types it adds                                                                                                                                                                                                                                                                |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `maquette_base::register`    | the error payload, the toolchain report, step kinds and the run log                                                                                                                                                                                                          |
-| `maquette_glb::register`     | the GLB report: its rig kind, textures, maps, islands and finger weights                                                                                                                                                                                                     |
-| `app_state`                  | the per machine app state                                                                                                                                                                                                                                                    |
-| `maquette_model::register`   | its modules' in turn: provider presets, the model catalog and game settings; how a model gets made; the workspace config; the project manifest; assets; the scene layout, object states and timeline; the Timeline view; the scene prep; built assets; the scene's materials |
-| `layout`                     | the layout view                                                                                                                                                                                                                                                              |
-| `motion`, `inbox`            | the Motion view; the checks and the inbox                                                                                                                                                                                                                                    |
-| `pipeline`, `prepare`        | the pipeline definition, events and starters; the fix-up report                                                                                                                                                                                                              |
-| `built`, `thumbs`            | a build's result; the thumbnail state                                                                                                                                                                                                                                        |
-| `inspect`                    | the Inspect view                                                                                                                                                                                                                                                             |
-| `game`                       | a game repo's checks, scan, import and ship plan                                                                                                                                                                                                                             |
-| `providers`, `concepts`      | sends, handoffs, keys, batches and the ledger; Lab concepts and jobs                                                                                                                                                                                                         |
-| `library`                    | library entries, their uses and updates                                                                                                                                                                                                                                      |
-| `maquette_preview::register` | the Page view's settings and the dev server's command and status                                                                                                                                                                                                             |
+| Registry                       | Types it adds                                                                                                                                                                                                                                                                |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maquette_base::register`      | the error payload, the toolchain report, step kinds and the run log                                                                                                                                                                                                          |
+| `maquette_glb::register`       | the GLB report: its rig kind, textures, maps, islands and finger weights                                                                                                                                                                                                     |
+| `app_state`                    | the per machine app state                                                                                                                                                                                                                                                    |
+| `maquette_model::register`     | its modules' in turn: provider presets, the model catalog and game settings; how a model gets made; the workspace config; the project manifest; assets; the scene layout, object states and timeline; the Timeline view; the scene prep; built assets; the scene's materials |
+| `maquette_providers::register` | sends, handoffs, keys, batches, downloads and the ledger                                                                                                                                                                                                                     |
+| `layout`                       | the layout view                                                                                                                                                                                                                                                              |
+| `motion`, `inbox`              | the Motion view; the checks and the inbox                                                                                                                                                                                                                                    |
+| `pipeline`, `prepare`          | the pipeline definition, events and starters; the fix-up report                                                                                                                                                                                                              |
+| `built`, `thumbs`              | a build's result; the thumbnail state                                                                                                                                                                                                                                        |
+| `inspect`                      | the Inspect view                                                                                                                                                                                                                                                             |
+| `game`                         | a game repo's checks, scan, import and ship plan                                                                                                                                                                                                                             |
+| `concepts`                     | Lab concepts and jobs                                                                                                                                                                                                                                                        |
+| `library`                      | library entries, their uses and updates                                                                                                                                                                                                                                      |
+| `maquette_preview::register`   | the Page view's settings and the dev server's command and status                                                                                                                                                                                                             |
 
 ## MCP tools
 
