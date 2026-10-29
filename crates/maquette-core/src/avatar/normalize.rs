@@ -59,6 +59,9 @@ const SHEET_AFTER: &str = "sheet_after.png";
 const RESULT_FILE: &str = "result.json";
 /// The step cache record's name inside the folder (`normalize.json`).
 const STEP: &str = "normalize";
+/// The skill's copy of [`SCRIPT`], for a person or an agent to run by hand.
+pub const SKILL_COPY: &str =
+    "plugins/maquette/skills/maquette-avatar-vrm/scripts/avatar_normalize.py";
 const KEY_VERSION: &str = "maquette avatar normalize v1";
 
 /// The findings normalising fixes; any other blocker stops it first.

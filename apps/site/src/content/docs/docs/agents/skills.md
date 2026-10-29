@@ -1,6 +1,6 @@
 ---
 title: Agent skills
-description: Four skills that teach Claude Code and Codex the Maquette workflows, from concept rounds and by hand sends to character rig fixes and game export. Install them from the repo.
+description: Five skills that teach Claude Code and Codex the Maquette workflows, from concept rounds and by hand sends to character rig fixes, VRM avatars and game export. Install them from the repo.
 sidebar:
   label: Agent skills
 ---
@@ -15,8 +15,9 @@ The [MCP tools](/docs/agents/mcp-tools/) let an agent act. The skills tell it ho
 | `maquette-by-hand-round` | Write By hand handoffs for Tripo or Meshy, then land the downloads: match them by picture, attach, read the inbox checks, accept, add to the library, redo a bad generation.                |
 | `maquette-character-rig` | Take a rigged character from its rig check to a clean v2: pose test, fix skin weights per island, verify, add the file as the next version, bake clips.                                     |
 | `maquette-game-export`   | Set up a game project, import its models, set budgets and export, plan and run the pipeline, wait for your approval at Ship and check the files in the repo.                                |
+| `maquette-avatar-vrm`    | Early: turn a rigged character's rest pose into the VRM T-pose facing +Z on a copy, and judge the before and after pose sheets with you.                                                    |
 
-The rig skill carries headless Blender scripts (a humanoid set and a creature set with an example config). Everything else is instructions.
+The rig skill carries headless Blender scripts (a humanoid set and a creature set with an example config), and the avatar skill the rest pose script Maquette itself runs. Everything else is instructions.
 
 ## What to say, and what the app asks of you
 
@@ -45,6 +46,12 @@ Nothing here costs credits or ships. The agent works on a copy, runs a pose test
 Prompt: "Import the models from my game repo, set a 5k triangle budget for props, run the pipeline and tell me what changed in git."
 
 Ship always waits. The run stops at Approve and ship in the app, with the counts of the plan, and you press Approve or Deny. The agent polls the run, never starts it again and never commits in the game repo; you review the changed files in git.
+
+### `maquette-avatar-vrm`
+
+Prompt: "Normalise the duelist's rest pose for VRM and show me the pose sheets."
+
+A new rest pose changes how every clip plays, so nothing uses the normalised model until you say yes to the before and after sheets. The agent works on a copy and never changes skin weights on its own: a cape or hair that follows the arms is shown to you, with a proposed fix.
 
 ## Rules every skill keeps
 

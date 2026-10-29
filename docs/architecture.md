@@ -600,6 +600,7 @@ uses.
   Blender. The readiness is read again on the output, which must have both arms within
   `ARM_SLACK_DEG` of level and face +Z. A result starts `Pending`; `approve` records the person's
   yes against that key and the GLB's hash, and `approved_glb` and `write_vrm` refuse anything else.
+  The skill `maquette-avatar-vrm` carries a copy of the script, which a test keeps the same.
 
 ## Downloads matching
 

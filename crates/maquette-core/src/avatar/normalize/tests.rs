@@ -402,3 +402,16 @@ fn the_rest_pose_bar_reads_the_readiness() {
     });
     assert!(check_rest_pose(&turned).is_err());
 }
+
+#[test]
+fn the_skill_keeps_the_same_script() {
+    let copy = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(SKILL_COPY);
+    let text = fs::read_to_string(&copy).expect("the skill's copy");
+    assert_eq!(
+        text.replace("\r\n", "\n"),
+        SCRIPT.replace("\r\n", "\n"),
+        "copy src/avatar/avatar_normalize.py over {SKILL_COPY}"
+    );
+}
