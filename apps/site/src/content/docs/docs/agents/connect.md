@@ -48,4 +48,4 @@ The agent rules hold by construction.
 
 Every call shows in the activity list under Settings > Agents.
 
-Next: [MCP tools](/docs/agents/mcp-tools/).
+Next: [MCP tools](/docs/agents/mcp-tools/), then the [agent skills](/docs/agents/skills/) that teach an agent the workflows.

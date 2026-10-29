@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "maquette": {
+      "type": "http",
+      "url": "http://127.0.0.1:${MAQUETTE_MCP_PORT:-4791}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MAQUETTE_MCP_TOKEN}"
+      }
+    }
+  }
+}

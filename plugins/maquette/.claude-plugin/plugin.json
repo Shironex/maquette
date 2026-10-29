@@ -1,0 +1,10 @@
+{
+  "name": "maquette",
+  "version": "0.1.0",
+  "description": "Skills for driving Maquette over its local MCP server: concept rounds, by hand sends and landings, character rig fixes, game export",
+  "author": { "name": "Shironex" },
+  "homepage": "https://shironex.github.io/maquette/docs/agents/skills/",
+  "repository": "https://github.com/Shironex/maquette",
+  "license": "AGPL-3.0-only",
+  "keywords": ["maquette", "3d", "mcp", "tripo", "meshy", "blender", "gltf"]
+}

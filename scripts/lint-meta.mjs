@@ -7,7 +7,8 @@
  *   lines excluded, `tests.rs` test modules excluded);
  * - no ESLint rule resolves to `warn`, including what a spread preset sets;
  * - no inline `eslint-disable` or `@ts-ignore`: exceptions go in a scoped
- *   override in eslint.config.mjs, with the reason next to it.
+ *   override in eslint.config.mjs, with the reason next to it;
+ * - the agent skills only name tools the MCP server lists (scripts/check-skills.mjs).
  *
  *   pnpm lint:meta             check, exit 1 on any violation
  *   pnpm lint:meta --baseline  rewrite the baselines from today's offenders
@@ -30,6 +31,7 @@ import { join, resolve } from 'node:path';
 import { isGrandfathered, loadBaseline, serializeBaseline } from '@noctcore/harness';
 import { createFileSizeRatchetRule } from '@noctcore/lint-meta-rules';
 import { createEslintConfigNoWarnRule } from '@noctcore/lint-meta-rules/resolved-config';
+import { checkSkills } from './check-skills.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const BASELINE_DIR = 'scripts/lint-meta/baselines';
@@ -169,6 +171,11 @@ const rules = [
       `${n} inline suppression(s). Fix the code, or add a scoped override with a one line reason to eslint.config.mjs.`,
   }),
   createEslintConfigNoWarnRule({ packages: ['.'], probes: probeFiles() }),
+  {
+    id: 'skills-honest',
+    description: 'Agent skills only name tools the MCP server lists, and stay well formed.',
+    run: () => checkSkills(root),
+  },
 ];
 
 /** One probe per file shape the config scopes blocks to. */
