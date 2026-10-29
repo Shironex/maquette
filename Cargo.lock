@@ -2012,6 +2012,7 @@ dependencies = [
  "gltf",
  "hex",
  "maquette-base",
+ "maquette-glb",
  "maquette-preview",
  "notify",
  "process-wrap",
@@ -2060,6 +2061,18 @@ dependencies = [
  "tower-service",
  "tracing",
  "windows-native-keyring-store",
+]
+
+[[package]]
+name = "maquette-glb"
+version = "0.3.0"
+dependencies = [
+ "gltf",
+ "maquette-base",
+ "serde",
+ "serde_json",
+ "specta",
+ "tempfile",
 ]
 
 [[package]]

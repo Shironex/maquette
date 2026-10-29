@@ -18,11 +18,11 @@ pub mod bake_back;
 mod blender;
 pub(crate) mod versions;
 
-use std::fs;
-use std::panic::{AssertUnwindSafe, catch_unwind};
+// Reading the parts from the model file lives in the glb crate.
+pub use maquette_glb::parts::{PartInfo, read, read_bytes};
+
 use std::path::Path;
 
-use gltf::mesh::Mode;
 use serde::{Deserialize, Serialize};
 
 use crate::assets::{self, AssetKind};
@@ -33,19 +33,6 @@ use crate::inbox::checks::{self, CheckStatus, SendNotes};
 use crate::prepare::{Fixup, ModelPrep, PartsPlan};
 use crate::project::ProjectManifest;
 use crate::workspace::WorkspaceConfig;
-
-/// One part as the model file has it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct PartInfo {
-    /// The node's name, or `part_<n>` for a node without one.
-    pub name: String,
-    pub triangles: u32,
-    /// Its materials' names, in primitive order, each once.
-    pub materials: Vec<String>,
-    /// One per primitive.
-    pub draw_calls: u32,
-}
 
 /// One part as the Inspector lists it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -78,62 +65,6 @@ pub fn listing_plan(prep: &ModelPrep) -> ModelPrep {
         fixups: prep.fixups.clone(),
         ..ModelPrep::default()
     }
-}
-
-/// The parts of the model at `path`, in node order.
-///
-/// # Errors
-///
-/// Fails when the file cannot be read or is not glTF.
-pub fn read(path: &Path) -> CoreResult<Vec<PartInfo>> {
-    let bytes = fs::read(path).map_err(|e| CoreError::io(path, e))?;
-    catch_unwind(AssertUnwindSafe(|| read_bytes(&bytes))).unwrap_or_else(|_| {
-        Err(CoreError::Invalid(
-            "This file is not a well formed glTF model.".to_string(),
-        ))
-    })
-}
-
-/// The parts of model bytes, in node order.
-///
-/// # Errors
-///
-/// Fails when the bytes are not glTF.
-pub fn read_bytes(bytes: &[u8]) -> CoreResult<Vec<PartInfo>> {
-    let gltf = gltf::Gltf::from_slice_without_validation(bytes)
-        .map_err(|e| CoreError::Invalid(format!("This is not a glTF model. {e}")))?;
-    let mut parts = Vec::new();
-    for node in gltf.document.nodes() {
-        let Some(mesh) = node.mesh() else { continue };
-        let mut part = PartInfo {
-            name: node
-                .name()
-                .or(mesh.name())
-                .map_or_else(|| format!("part_{}", parts.len() + 1), str::to_string),
-            triangles: 0,
-            materials: Vec::new(),
-            draw_calls: 0,
-        };
-        for prim in mesh.primitives() {
-            part.draw_calls += 1;
-            let count = prim
-                .get(&gltf::Semantic::Positions)
-                .map_or(0, |a| a.count());
-            let elements = prim.indices().map_or(count, |a| a.count());
-            let tris = match prim.mode() {
-                Mode::Triangles => elements / 3,
-                Mode::TriangleStrip | Mode::TriangleFan => elements.saturating_sub(2),
-                _ => 0,
-            };
-            part.triangles += u32::try_from(tris).unwrap_or(u32::MAX);
-            let material = prim.material().name().unwrap_or("material").to_string();
-            if !part.materials.contains(&material) {
-                part.materials.push(material);
-            }
-        }
-        parts.push(part);
-    }
-    Ok(parts)
 }
 
 /// The parts as they ship under `plan`: joined groups as one row under

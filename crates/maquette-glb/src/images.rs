@@ -3,7 +3,7 @@
 //! fixture models.
 
 /// Width and height from an image's header, if it is a format we know.
-pub(crate) fn dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+pub fn dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     png(bytes)
         .or_else(|| ktx2(bytes))
         .or_else(|| jpeg(bytes))
@@ -11,7 +11,7 @@ pub(crate) fn dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
 }
 
 /// The MIME type a header says, for images without one in the JSON.
-pub(crate) fn sniff(bytes: &[u8]) -> Option<&'static str> {
+pub fn sniff(bytes: &[u8]) -> Option<&'static str> {
     if png(bytes).is_some() {
         Some("image/png")
     } else if ktx2(bytes).is_some() {
@@ -142,7 +142,7 @@ fn chunk(out: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
 }
 
 /// Encodes RGB pixels (row major, 3 bytes each) as a valid, uncompressed PNG.
-pub(crate) fn write_png(width: u32, height: u32, rgb: &[u8]) -> Vec<u8> {
+pub fn write_png(width: u32, height: u32, rgb: &[u8]) -> Vec<u8> {
     let row = width as usize * 3;
     let mut raw = Vec::with_capacity((row + 1) * height as usize);
     for y in 0..height as usize {

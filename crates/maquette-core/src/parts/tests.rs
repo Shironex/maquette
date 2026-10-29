@@ -12,24 +12,6 @@ fn names(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
 }
 
 #[test]
-fn a_model_lists_one_part_per_mesh_node() {
-    let parts = read_bytes(&fixture::messy_prop()).expect("parts");
-    let found: Vec<(&str, u32, &[String])> = parts
-        .iter()
-        .map(|p| (p.name.as_str(), p.draw_calls, p.materials.as_slice()))
-        .collect();
-    assert_eq!(found.len(), 3);
-    assert_eq!(found[0].0, "Shade");
-    assert_eq!(found[0].2, ["Shade".to_string()]);
-    assert_eq!(found[1].0, "Base");
-    assert_eq!(found[1].2, ["Metal".to_string()]);
-    assert_eq!(parts[1].triangles, 12);
-    assert!(parts.iter().all(|p| p.draw_calls == 1));
-    let one = read_bytes(&fixture::merged_islands()).expect("parts");
-    assert_eq!(one.len(), 1, "one mesh is one part");
-}
-
-#[test]
 fn rows_carry_the_names_joins_and_hidden_parts() {
     let parts = read_bytes(&fixture::messy_prop()).expect("parts");
     let plan = PartsPlan {

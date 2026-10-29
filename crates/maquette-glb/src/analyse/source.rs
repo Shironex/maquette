@@ -8,9 +8,9 @@ use std::path::Path;
 use gltf::image::Source as ImageSource;
 
 use super::{PbrMaps, TextureInfo};
-use crate::inbox::images;
+use crate::images;
 
-pub(crate) fn load_uri(uri: &str, base: &Path) -> Option<Vec<u8>> {
+pub fn load_uri(uri: &str, base: &Path) -> Option<Vec<u8>> {
     if let Some(rest) = uri.strip_prefix("data:") {
         let (_, data) = rest.split_once(";base64,")?;
         return base64_decode(data);

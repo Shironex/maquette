@@ -2,7 +2,7 @@
 
 use serde_json::{Value, json};
 
-use crate::inbox::images::write_png;
+use crate::images::write_png;
 
 #[derive(Default)]
 pub(super) struct Mesh {

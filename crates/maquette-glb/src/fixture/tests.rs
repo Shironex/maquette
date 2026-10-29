@@ -25,8 +25,7 @@ fn fixtures_parse_as_gltf() {
 #[test]
 fn the_messy_prop_is_dense_scaled_and_has_a_speck() {
     let bytes = messy_prop();
-    let report =
-        crate::inbox::analyse::analyse_bytes(&bytes, std::path::Path::new(".")).expect("analyse");
+    let report = crate::analyse::analyse_bytes(&bytes, std::path::Path::new(".")).expect("analyse");
     assert_eq!(report.triangles, 19_200 + 12 + 12);
     assert_eq!(report.meshes, 3);
     assert_eq!(report.max_texture, 1024);

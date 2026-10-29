@@ -14,11 +14,12 @@ page says why and how to work with them.
 | `packages/ui`             | The UI kit: typed primitives and the theme                              |
 | `crates/maquette-core`    | The Rust domain logic, and the facade over the crates below it          |
 | `crates/maquette-base`    | The bottom layer: errors, files, JSON, the clock, toolchain, run log    |
+| `crates/maquette-glb`     | GLB reading without Blender: the inbox analysis, parts and motion       |
 | `crates/maquette-preview` | The site dev server, the Page view's frame proxy and page settings      |
 
-Dependencies run one way: `packages/ui` -> `apps/web`, and `maquette-base` -> `maquette-preview` ->
-`maquette-core` -> `src-tauri`. The web app reaches the backend only through `src/ipc` (generated
-tauri-specta bindings, or the in-memory mock).
+Dependencies run one way: `packages/ui` -> `apps/web`, and `maquette-base` -> `maquette-glb` and
+`maquette-preview` -> `maquette-core` -> `src-tauri`. The web app reaches the backend only through
+`src/ipc` (generated tauri-specta bindings, or the in-memory mock).
 
 ## apps/web
 
@@ -135,26 +136,31 @@ and a new upward use fails. Moving shared code down a layer is how an entry goes
 Some layers are their own crates now. `maquette-base` holds `error`, `fs`, `json`, `toolchain`, the
 run log and the Toolbox (`base::history` and `base::tools`, with `StepKind`), the
 clock (`project::now_rfc3339`) and a site's config (`settings::site`, a stored settings type the
-preview crate reads too, so it sits in the base crate until there is a model crate), and
-`maquette-preview` holds
+preview crate reads too, so it sits in the base crate until there is a model crate).
+`maquette-glb` holds the glb layer's pure reading: `inbox::{analyse, fixture, images, math}`, the
+part list of a model file (`parts::{PartInfo, read, read_bytes}`) and its rig, clips and parts
+(`motion::{Clip, Rig, BoneMap}` and the reader behind them). `inbox::checks`, the rest of
+`parts` and the Motion view stay in core for now, since they still use model and pipeline types
+(`AssetKind`, `WorkspaceConfig`, `FolderBudget`, `Fixup`, the layout). `maquette-preview` holds
 `site::preview` and `page`. Core keeps every old path with a `pub use`, so `maquette_core::...` paths
 do not change, and the map keeps those paths in their layer. A crate cannot reach up into core at
 all: `scripts/lint-meta/crate-layers.json` lists the workspace crates each crate may depend on, and
 `pnpm lint:meta` checks it against `cargo metadata --no-deps` (every dependency kind counts, and a
 new crate has to be added to the list).
 
-| Crate              | May depend on                       |
-| ------------------ | ----------------------------------- |
-| `maquette-base`    | no workspace crate                  |
-| `maquette-preview` | `maquette-base`                     |
-| `maquette-core`    | `maquette-base`, `maquette-preview` |
-| `maquette-desktop` | `maquette-core`                     |
+| Crate              | May depend on                                       |
+| ------------------ | --------------------------------------------------- |
+| `maquette-base`    | no workspace crate                                  |
+| `maquette-glb`     | `maquette-base`                                     |
+| `maquette-preview` | `maquette-base`                                     |
+| `maquette-core`    | `maquette-base`, `maquette-glb`, `maquette-preview` |
+| `maquette-desktop` | `maquette-core`                                     |
 
 ### IPC type registration
 
 Every crate, and every core module that owns IPC types, has a `register(types)` that adds its own
-`specta::Type`s: `maquette_base::register`, `maquette_preview::register`, `providers::register`,
-`workspace::register` and so on. `maquette_core::types()` folds them in the order of its
+`specta::Type`s: `maquette_base::register`, `maquette_glb::register`, `maquette_preview::register`,
+`providers::register`, `workspace::register` and so on. `maquette_core::types()` folds them in the order of its
 `REGISTRIES` list, and the desktop crate's `bindings.rs` exports the result. A new IPC type goes
 into the `register` of the module that defines it, so `lib.rs` changes only when a module is
 added. The order does not change `bindings.ts`: the TypeScript exporter sorts the types by name.
@@ -162,11 +168,12 @@ added. The order does not change `bindings.ts`: the TypeScript exporter sorts th
 | Registry                     | Types it adds                                                            |
 | ---------------------------- | ------------------------------------------------------------------------ |
 | `maquette_base::register`    | the error payload, the toolchain report, step kinds and the run log      |
+| `maquette_glb::register`     | the GLB report: its rig kind, textures, maps, islands and finger weights |
 | `app_state`                  | the per machine app state                                                |
 | `settings`, `workspace`      | provider presets, the model catalog, game settings; the workspace config |
 | `project`, `assets`          | the project manifest and import scan; assets and their versions          |
 | `layout`, `timeline`         | the scene layout, object states and timeline; the Timeline view          |
-| `motion`, `inbox`            | the Motion view; the GLB report, its checks and the inbox                |
+| `motion`, `inbox`            | the Motion view; the checks and the inbox                                |
 | `pipeline`, `prepare`        | the pipeline definition, events and starters; the scene prep             |
 | `built`, `thumbs`            | built assets and their builds; the thumbnail state                       |
 | `materials`, `inspect`       | the scene's materials; the Inspect view                                  |

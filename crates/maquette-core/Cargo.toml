@@ -10,6 +10,7 @@ publish.workspace = true
 
 [dependencies]
 maquette-base = { workspace = true }
+maquette-glb = { workspace = true }
 maquette-preview = { workspace = true }
 base64 = { workspace = true }
 chrono = { workspace = true }
