@@ -26,11 +26,13 @@ use maquette_desktop_lib::mcp::hub::Hub;
 use maquette_desktop_lib::mcp::{Agents, ensure_token};
 use maquette_desktop_lib::session::Session;
 use rmcp::ServiceExt as _;
-use rmcp::model::{CallToolRequestParams, CallToolResult, ClientConfig, ContentBlock};
+use rmcp::model::{CallToolRequestParams, ClientConfig};
 use rmcp::service::{RoleClient, RunningService};
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use serde_json::{Value, json};
+
+use super::support::{call, raw_call, text};
 
 struct TestHost {
     session: Session,
@@ -204,40 +206,6 @@ fn set_cap(session: &Session, cap: u32) {
     config.lab.images.monthly_cap_usd = cap;
     maquette_core::workspace::save(&root, &config).expect("save");
     session.set_config(config);
-}
-
-fn text(result: &CallToolResult) -> String {
-    result
-        .content
-        .iter()
-        .find_map(|c| match c {
-            ContentBlock::Text(t) => Some(t.text.clone()),
-            _ => None,
-        })
-        .unwrap_or_default()
-}
-
-async fn raw_call(
-    client: &RunningService<RoleClient, ClientConfig>,
-    tool: &str,
-    args: Value,
-) -> CallToolResult {
-    let mut params = CallToolRequestParams::new(tool.to_string());
-    if let Value::Object(map) = args {
-        params = params.with_arguments(map);
-    }
-    client.call_tool(params).await.expect("call")
-}
-
-async fn call(client: &RunningService<RoleClient, ClientConfig>, tool: &str, args: Value) -> Value {
-    let result = raw_call(client, tool, args).await;
-    assert_ne!(
-        result.is_error,
-        Some(true),
-        "{tool} failed: {}",
-        text(&result)
-    );
-    serde_json::from_str(&text(&result)).expect("json")
 }
 
 /// Sends a bare HTTP request and returns the status line.

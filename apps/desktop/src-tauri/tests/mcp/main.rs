@@ -1,6 +1,8 @@
 //! The MCP integration tests: a real client against the built in server,
 //! one module per area, built and linked as one test binary.
 
+mod support;
+
 mod animations;
 mod bake;
 mod built;
