@@ -25,6 +25,18 @@ describe('a queue row', () => {
     expect(cancel).toHaveBeenCalledWith(running!.id);
   });
 
+  it('moves a queued job to the front of the line with Run next', async () => {
+    const runNext = vi.fn(async () => {});
+    useLabStore.setState({ runNext });
+    const queued = { ...done!, state: 'queued' as const };
+    render(<QueueRow job={queued} projectDir="/w" now={0} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Run Concept 01 next' }));
+    expect(runNext).toHaveBeenCalledWith([queued.id]);
+    cleanup();
+    render(<QueueRow job={running!} projectDir="/w" now={0} />);
+    expect(screen.queryByRole('button', { name: /next$/ })).toBeNull();
+  });
+
   it('opens a finished image in the lightbox', async () => {
     const openLightbox = vi.fn();
     useLabStore.setState({ openLightbox });

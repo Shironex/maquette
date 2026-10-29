@@ -13,6 +13,8 @@ Jobs run in the project folder on their own lane, 4 at a time by default (Settin
 
 When Codex answers 429 Too Many Requests, the job waits and runs again on its own after 3, 6 and 12 minutes. After that it fails and asks you to try again later. Retry on a failed or cancelled job runs the same prompt, refs and target file again without making a new direction.
 
+Run next, on a waiting row or on the queue's header for the whole project, moves those images to the front of the line, ahead of other projects' images.
+
 The queue survives a restart. Images still queued, running or waiting when the app closes come back failed with Interrupted by a restart, ready for Retry with the same prompt and file; one whose image had already landed comes back done. Nothing runs again on its own, so an OpenAI Images job is never paid for without someone asking.
 
 When Codex says its usage limit is hit, the job and every image still queued wait until the limit lifts, then run on their own. A banner over the results says when: the reset time Codex's own usage read names, else the time in Codex's message, else a guess that grows like the rate limit wait. Limit lifted, retry now reads the usage again. When Codex allows ordinary usage and the five hour window is not full, the waiting images run at once; otherwise the banner says until when the limit still holds.

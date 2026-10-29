@@ -91,6 +91,9 @@ export function createFakeLab(options: FakeLabOptions) {
   let pool = 0;
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const standIns = new Map<string, string>();
+  /** Run next: the later a job was moved up, the sooner it starts. */
+  const movedUp = new Map<string, number>();
+  let moves = 0;
 
   const list = (project: string) => directions.get(project) ?? [];
   const emit = (event: ConceptEvent) => options.emit?.(structuredClone(event));
@@ -131,7 +134,10 @@ export function createFakeLab(options: FakeLabOptions) {
     const busy = jobs.filter(j => j.state === 'running' && timers.has(j.id)).length;
     const held = jobs.filter(j => j.state === 'running' && !timers.has(j.id)).length;
     let free = concurrency - busy - held;
-    for (const job of jobs.filter(j => j.state === 'queued')) {
+    const waiting = jobs
+      .filter(j => j.state === 'queued')
+      .sort((a, b) => (movedUp.get(b.id) ?? 0) - (movedUp.get(a.id) ?? 0));
+    for (const job of waiting) {
       if (free <= 0) break;
       free -= 1;
       const started = update(job, {
@@ -283,6 +289,17 @@ export function createFakeLab(options: FakeLabOptions) {
       const live = jobs.filter(j => j.project === project && !finished(j));
       for (const job of live) cancel(job.id);
       return live.length;
+    },
+    lab_run_next: ({ project, jobs: ids }) => {
+      const moved = jobs.filter(
+        j =>
+          j.project === project &&
+          j.state === 'queued' &&
+          (!Array.isArray(ids) || ids.includes(j.id))
+      );
+      moves += 1;
+      for (const job of moved) movedUp.set(job.id, moves);
+      return moved;
     },
     lab_clear_finished: ({ project }) => {
       jobs = jobs.filter(j => j.project !== project || !finished(j));

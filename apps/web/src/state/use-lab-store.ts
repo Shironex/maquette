@@ -168,6 +168,16 @@ export const useLabStore = create<LabStore>((set, get, api) => ({
     }
   },
 
+  runNext: async jobIds => {
+    const view = get().view;
+    if (!view) return;
+    try {
+      await commands.labRunNext(view.project, jobIds ?? null);
+    } catch (error) {
+      notify('failed', 'Could not move the jobs up', errorMessage(error));
+    }
+  },
+
   clearFinished: async () => {
     const view = get().view;
     if (!view) return;

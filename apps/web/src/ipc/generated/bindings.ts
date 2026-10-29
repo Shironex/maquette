@@ -355,6 +355,12 @@ export const commands = {
 	/**  Stops every queued and running job of the project. */
 	labCancelAll: (project: string) => __TAURI_INVOKE<number>("lab_cancel_all", { project }),
 	labClearFinished: (project: string) => __TAURI_INVOKE<LabView>("lab_clear_finished", { project }),
+	/**
+	 *  Run next: moves the project's queued jobs (or the ones among `jobs`) to
+	 *  the front of the line, ahead of every other project's. Returns the jobs
+	 *  that moved.
+	 */
+	labRunNext: (project: string, jobs: string[] | null) => __TAURI_INVOKE<ConceptJob[]>("lab_run_next", { project, jobs }),
 	/**  Stars or picks one image; `None` leaves that mark alone. */
 	labMark: (project: string, direction: string, file: string, starred: boolean | null, picked: boolean | null) => __TAURI_INVOKE<Direction>("lab_mark", { project, direction, file, starred, picked }),
 	/**
