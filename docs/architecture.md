@@ -120,7 +120,7 @@ against it.
 | Layer     | May use    | Modules                                                                                                         |
 | --------- | ---------- | --------------------------------------------------------------------------------------------------------------- |
 | base      | nothing    | `error`, `fs`, `json`, `toolchain` (the maquette-base crate), `app_state`, `base` (the run log and the Toolbox) |
-| model     | base       | `workspace`, `project`, `assets`, `layout`, `refs`, `timeline`, `settings` (the stored settings types)          |
+| model     | base       | `workspace`, `project`, `assets`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends` |
 | glb       | base       | `inbox::{analyse, checks, fixture, images, math}`, `motion`, `parts` (not its Blender runs)                     |
 | preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                            |
 | pipeline  | model, glb | `pipeline`, `prepare`, `built`, `thumbs`, `game`, `ship`, `materials`, `inspect`, `inbox`, `site`               |
@@ -133,10 +133,28 @@ A new module goes into the map, or lint-meta fails. The uses that point up today
 `scripts/lint-meta/baselines/rust-layers.json`, per file and module used: the count may only shrink,
 and a new upward use fails. Moving shared code down a layer is how an entry goes away.
 
+Where a layer needs work from a higher one, it asks through a port: a small trait in a lower layer
+that the higher layer implements and the app hands in where it wires things up. Each port is one
+call and does exactly what the code behind it did before. `providers` uses no higher layer outside
+its tests:
+
+| Port (where the trait lives)     | Implemented by                        | Handed in by                                        |
+| -------------------------------- | ------------------------------------- | --------------------------------------------------- |
+| `base::ports::ScriptRunner`      | `PipelineRunner` (`pipeline::script`) | `add_model_file`, `inbox_add_model_file`            |
+| `base::ports::PictureRender`     | `thumbs::PictureRenderer`             | `Arrivals::set_renderer` in `commands/downloads.rs` |
+| `base::ports::TextureBake`       | `parts::bake_back::Bake`              | `SendPorts` in `ProviderJobs::new`                  |
+| `sends::InboxPort`, `SendLinked` | `inbox::Inbox`, `InboxItem`           | `inbox::send_ports()` in `ProviderJobs::new`        |
+
+`sends` holds what the inbox and the provider jobs share (`Provider`, `InboxLink`, `InboxAim`,
+`inbox_dir` and the ports above); what a send asked for (`SendNotes`) and a file's hash are in the
+base crate, and a game asset's folder budget lookup is in `settings::game`.
+
 Some layers are their own crates now. `maquette-base` holds `error`, `fs`, `json`, `toolchain`, the
-run log and the Toolbox (`base::history` and `base::tools`, with `StepKind`), the
-clock (`project::now_rfc3339`) and a site's config (`settings::site`, a stored settings type the
-preview crate reads too, so it sits in the base crate until there is a model crate).
+run log and the Toolbox (`base::history` and `base::tools`, with `StepKind`), the ports
+(`base::ports`), a file's hash (`pipeline::cache::hash_file`), what a send asked for
+(`sends::SendNotes`), the clock (`project::now_rfc3339`) and a site's config (`settings::site`, a
+stored settings type the preview crate reads too, so it sits in the base crate until there is a
+model crate).
 `maquette-glb` holds the glb layer's pure reading: `inbox::{analyse, fixture, images, math}`, the
 part list of a model file (`parts::{PartInfo, read, read_bytes}`) and its rig, clips and parts
 (`motion::{Clip, Rig, BoneMap}` and the reader behind them). `inbox::checks`, the rest of
@@ -171,6 +189,7 @@ added. The order does not change `bindings.ts`: the TypeScript exporter sorts th
 | `maquette_glb::register`     | the GLB report: its rig kind, textures, maps, islands and finger weights |
 | `app_state`                  | the per machine app state                                                |
 | `settings`, `workspace`      | provider presets, the model catalog, game settings; the workspace config |
+| `sends`                      | how a model gets made and the link from an inbox model to its send       |
 | `project`, `assets`          | the project manifest and import scan; assets and their versions          |
 | `layout`, `timeline`         | the scene layout, object states and timeline; the Timeline view          |
 | `motion`, `inbox`            | the Motion view; the checks and the inbox                                |
@@ -502,13 +521,15 @@ one at a time and cached by content hash under `<workspace cache>/download-pictu
 one square, colour histogram overlap, box ratio; the name only breaks ties) into
 `Arrival.suggestions`. A clear best (at least `LOOKS_LIKE` and `LEAD` ahead) turns the download into
 Needs a look; nothing is attached by itself. `refs/picture.rs` is the object reader both this and
-the ref checks (`refs/checks/agree.rs`) use. The desktop sets the renderer in `commands/downloads.rs`;
-the web shows it in `features/providers/ArrivalPicker`.
+the ref checks (`refs/checks/agree.rs`) use. The render is a `PictureRender` port: the desktop sets
+`thumbs::PictureRenderer` in `commands/downloads.rs`; the web shows it in
+`features/providers/ArrivalPicker`.
 
 `providers/own_file.rs` adds a model file someone fixed by hand as an asset's next version: it
 checks the path (outside the inbox and every `models` folder), turns a `.gltf`, `.fbx` or `.obj`
-into a GLB headless, and hands it to `ProviderJobs::attach`, the same path an attached download
-takes. `add_model_file` and `inbox_add_model_file` call it.
+into a GLB headless through the `ScriptRunner` port it is handed, and hands it to
+`ProviderJobs::attach`, the same path an attached download takes. `add_model_file` and
+`inbox_add_model_file` call it.
 
 ## Remove and restore
 
