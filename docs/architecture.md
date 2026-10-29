@@ -86,9 +86,9 @@ including from a preset.
 
 `pnpm lint:meta` adds the whole-repo checks: every TypeScript module in `apps/web/src`,
 `apps/site/src` and `packages/ui/src` at or under 400 lines (tests excluded), every Rust module at or
-under 400 code lines, no inline suppressions, and no `warn` severities. Over-cap files can be frozen in
-`scripts/lint-meta/baselines/` while they are split; a frozen entry may only shrink, and one that is
-no longer needed fails until it is removed.
+under 400 code lines, no inline suppressions, no `warn` severities, and the core layer map (below).
+Over-cap files can be frozen in `scripts/lint-meta/baselines/` while they are split; a frozen entry may
+only shrink, and one that is no longer needed fails until it is removed.
 
 ## Rust lint policy
 
@@ -104,6 +104,28 @@ The gate runs clippy with `-D warnings`, so these are hard failures. `clippy.tom
 function or group the arguments. `rust-toolchain.toml` pins the toolchain the repo builds with and
 `rust-version` in the workspace states it. A module over 400 code lines is split into submodules,
 with its tests in a sibling `tests.rs`.
+
+### maquette-core layers
+
+Every core module sits in a layer, and a layer only uses itself and the layers below it. The map is
+`scripts/lint-meta/rust-layers.json` (a submodule such as `inbox::analyse` may sit in another layer
+than its parent); `pnpm lint:meta` reads every `crate::` path in the core against it.
+
+| Layer     | May use    | Modules                                                                                           |
+| --------- | ---------- | ------------------------------------------------------------------------------------------------- |
+| base      | nothing    | `error`, `fs`, `json`, `toolchain`, `app_state`                                                   |
+| model     | base       | `workspace`, `project`, `assets`, `layout`, `refs`, `timeline`                                    |
+| glb       | base       | `inbox::{analyse, checks, fixture, images, math}`, `motion`, `parts` (not its Blender runs)       |
+| preview   | base       | `site::preview`, `page`                                                                           |
+| pipeline  | model, glb | `pipeline`, `prepare`, `built`, `thumbs`, `game`, `ship`, `materials`, `inspect`, `inbox`, `site` |
+| providers | model, glb | `providers`                                                                                       |
+| lab       | model, glb | `concepts`                                                                                        |
+| library   | pipeline   | `library`, `animations`                                                                           |
+| facade    | everything | `lib.rs`                                                                                          |
+
+A new module goes into the map, or lint-meta fails. The uses that point up today are frozen in
+`scripts/lint-meta/baselines/rust-layers.json`, per file and module used: the count may only shrink,
+and a new upward use fails. Moving shared code down a layer is how an entry goes away.
 
 ## MCP tools
 
