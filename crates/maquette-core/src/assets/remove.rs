@@ -23,7 +23,6 @@ use serde::{Deserialize, Serialize};
 use super::Asset;
 use crate::error::{CoreError, CoreResult};
 use crate::project::{self, ProjectManifest};
-use crate::providers::{JobState, ProviderJob, ProviderJobs};
 use crate::workspace::FolderLayout;
 
 mod files;
@@ -49,23 +48,38 @@ pub struct Busy<'a> {
     pub building: &'a [String],
 }
 
-/// The sends a remove looks at and stops: the app's provider jobs, or a
-/// stand in for tests.
-pub trait Sends {
-    /// Every send of `project`, as the 3D queue lists them.
-    fn jobs(&self, project: &str) -> Vec<ProviderJob>;
-    /// Cancels a send or stops waiting for its model.
-    fn stop(&self, id: &str) -> CoreResult<ProviderJob>;
+/// A send to a 3D service, as a remove sees it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Sent {
+    pub id: String,
+    /// The asset it makes a model for.
+    pub asset: String,
+    /// The refs it sent, relative to the project.
+    pub images: Vec<String>,
+    /// Who makes the model, as the 3D queue names it.
+    pub provider: &'static str,
+    pub state: SentState,
 }
 
-impl Sends for ProviderJobs {
-    fn jobs(&self, project: &str) -> Vec<ProviderJob> {
-        self.list(Some(project))
-    }
+/// Where a send is, as far as a remove cares.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SentState {
+    /// Being made and paid for now: the remove waits for it.
+    Running,
+    /// Waiting for approval, its turn or a model made by hand: the remove
+    /// stops it.
+    Waiting,
+    /// In the inbox, accepted, failed or cancelled.
+    Done,
+}
 
-    fn stop(&self, id: &str) -> CoreResult<ProviderJob> {
-        self.cancel(id)
-    }
+/// The sends a remove looks at and stops: the app's provider jobs (the
+/// providers implement it), or a stand in for tests.
+pub trait Sends {
+    /// Every send of `project`, as the 3D queue lists them.
+    fn jobs(&self, project: &str) -> Vec<Sent>;
+    /// Cancels a send or stops waiting for its model.
+    fn stop(&self, id: &str) -> CoreResult<()>;
 }
 
 /// How the remove of one asset went.
@@ -212,12 +226,10 @@ pub fn remove_assets(
 }
 
 /// Why a send refuses the remove: it is being made and paid for now.
-fn running_reason(asset: &Asset, job: &ProviderJob) -> String {
+fn running_reason(asset: &Asset, job: &Sent) -> String {
     format!(
         "{} is making the model of {} now (send {}). Wait for it to reach the Inbox, or cancel it in the 3D queue, then remove the asset.",
-        job.provider.label(),
-        asset.name,
-        job.id
+        job.provider, asset.name, job.id
     )
 }
 
@@ -243,17 +255,12 @@ fn remove_one(place: &Place<'_>, id: &str, busy: &Busy<'_>, sends: &dyn Sends) -
         );
     }
     let jobs = sends.jobs(place.project);
-    let mine: Vec<&ProviderJob> = jobs.iter().filter(|j| j.asset == asset.id).collect();
-    if let Some(running) = mine.iter().find(|j| j.state == JobState::Running) {
+    let mine: Vec<&Sent> = jobs.iter().filter(|j| j.asset == asset.id).collect();
+    if let Some(running) = mine.iter().find(|j| j.state == SentState::Running) {
         return RemoveOutcome::refused(&asset, running_reason(&asset, running));
     }
     let mut stopped = Vec::new();
-    for job in mine.iter().filter(|j| {
-        matches!(
-            j.state,
-            JobState::Approval | JobState::Queued | JobState::Waiting
-        )
-    }) {
+    for job in mine.iter().filter(|j| j.state == SentState::Waiting) {
         if let Err(err) = sends.stop(&job.id) {
             let mut out = RemoveOutcome::refused(
                 &asset,

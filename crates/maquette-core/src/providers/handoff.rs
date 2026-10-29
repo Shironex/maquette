@@ -27,7 +27,7 @@ use crate::json::write_json;
 use crate::workspace::Topology;
 use options::StudioSettings;
 
-pub const HANDOFF_DIR: &str = "handoff";
+pub use crate::assets::HANDOFF_DIR;
 
 /// One line of the card.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]

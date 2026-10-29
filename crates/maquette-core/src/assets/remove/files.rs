@@ -9,14 +9,13 @@ use std::fs;
 use std::io;
 use std::path::{Component, Path};
 
-use crate::assets::Asset;
+use super::Sent;
 use crate::assets::copy::{is_ref_of, key, refs_of, thumb_of};
+use crate::assets::{Asset, HANDOFF_DIR};
 use crate::built::BuiltFile;
 use crate::error::{CoreError, CoreResult};
 use crate::fs::move_tree;
 use crate::project::ProjectManifest;
-use crate::providers::ProviderJob;
-use crate::providers::handoff::HANDOFF_DIR;
 
 /// A relative path made only of plain names, with `/` separators: the only
 /// kind a remove moves or a restore writes back.
@@ -75,7 +74,7 @@ pub(super) fn of_asset(
     project_dir: &Path,
     manifest: &ProjectManifest,
     asset: &Asset,
-    jobs: &[ProviderJob],
+    jobs: &[Sent],
     built: &BuiltFile,
 ) -> Vec<String> {
     let own_key = key(&asset.id);

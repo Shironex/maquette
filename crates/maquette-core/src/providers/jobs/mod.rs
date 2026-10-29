@@ -16,6 +16,7 @@ mod records;
 mod remote;
 mod request;
 mod send;
+mod sends;
 mod settle;
 mod spend;
 mod split;

@@ -9,13 +9,12 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use super::links::{self, AssetLinks};
-use super::{Place, RemoveOutcome, RemoveState, files};
+use super::{Place, RemoveOutcome, RemoveState, Sent, files};
 use crate::assets::{Asset, AssetKind};
 use crate::built;
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use crate::project::{self, ProjectManifest, now_rfc3339};
-use crate::providers::ProviderJob;
 use crate::workspace::{FolderLayout, is_single_segment};
 
 /// The workspace folder removed assets go to.
@@ -141,7 +140,7 @@ pub(super) fn move_to_trash(
     place: &Place<'_>,
     manifest: &ProjectManifest,
     asset: &Asset,
-    jobs: &[ProviderJob],
+    jobs: &[Sent],
     stopped: &[String],
 ) -> CoreResult<RemoveOutcome> {
     let trash = project_trash(place.root, place.layout, place.project)?;

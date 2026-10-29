@@ -14,6 +14,8 @@ pub mod copy;
 pub mod remove;
 
 pub const ASSET_NAME_MAX_CHARS: usize = 80;
+/// The folder of a project the By hand sends keep their handoff folders in.
+pub const HANDOFF_DIR: &str = "handoff";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]
