@@ -5,12 +5,35 @@ use std::env;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-use super::StepKind;
+use serde::{Deserialize, Serialize};
+
 use crate::error::{CoreError, CoreResult};
 use crate::toolchain::{ProbeEnv, ToolId, ToolReport, ToolSource, ToolStatus, find_on_path};
 
 /// The gltf-transform release npx runs when no global install exists.
 pub const GLTF_TRANSFORM_NPX: &str = "@gltf-transform/cli@4.5.1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum StepKind {
+    Blender,
+    Shell,
+    GltfTransform,
+    Toktx,
+    Ffmpeg,
+}
+
+impl StepKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            StepKind::Blender => "Blender",
+            StepKind::Shell => "Shell",
+            StepKind::GltfTransform => "gltf-transform",
+            StepKind::Toktx => "toktx",
+            StepKind::Ffmpeg => "ffmpeg",
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedTool {

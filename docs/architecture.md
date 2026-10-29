@@ -108,12 +108,14 @@ with its tests in a sibling `tests.rs`.
 ### maquette-core layers
 
 Every core module sits in a layer, and a layer only uses itself and the layers below it. The map is
-`scripts/lint-meta/rust-layers.json` (a submodule such as `inbox::analyse` may sit in another layer
-than its parent); `pnpm lint:meta` reads every `crate::` path in the core against it.
+`scripts/lint-meta/rust-layers.json`: a submodule such as `inbox::analyse` may sit in another layer
+than its parent, and a path kept at its old place by a `pub use`, such as `pipeline::history`, sits
+in the layer of the code it points to. `pnpm lint:meta` reads every `crate::` path in the core
+against it.
 
 | Layer     | May use    | Modules                                                                                           |
 | --------- | ---------- | ------------------------------------------------------------------------------------------------- |
-| base      | nothing    | `error`, `fs`, `json`, `toolchain`, `app_state`                                                   |
+| base      | nothing    | `error`, `fs`, `json`, `toolchain`, `app_state`, `base` (the run log and the Toolbox)             |
 | model     | base       | `workspace`, `project`, `assets`, `layout`, `refs`, `timeline`                                    |
 | glb       | base       | `inbox::{analyse, checks, fixture, images, math}`, `motion`, `parts` (not its Blender runs)       |
 | preview   | base       | `site::preview`, `page`                                                                           |
