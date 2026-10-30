@@ -90,9 +90,10 @@ impl Hub {
                 version: chained.source_version,
                 sheets: &chained.sheets,
                 detail: format!(
-                    "v{}, {} spring chains ({}), {} vertices reweighted",
+                    "v{}, {} spring chain{} ({}), {} vertices reweighted",
                     chained.source_version,
                     ids.len(),
+                    if ids.len() == 1 { "" } else { "s" },
                     ids.join(", "),
                     chained.report.changed
                 ),
