@@ -53,7 +53,13 @@ export function useAddToLibraryDialog(target: AssetRef | 'pick') {
     }
     if (!name.trim()) return setError('Give the model a name.');
     try {
-      await add({ project: project.id, asset: asset.id, name: name.trim(), tags: parseTags(tags) });
+      await add({
+        project: project.id,
+        asset: asset.id,
+        name: name.trim(),
+        tags: parseTags(tags),
+        into: null,
+      });
     } catch (err) {
       setError(errorMessage(err));
     }

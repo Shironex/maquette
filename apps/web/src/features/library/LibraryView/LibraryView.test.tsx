@@ -35,7 +35,7 @@ describe('the Library view', () => {
     await openMockLibrary('demo');
     render(<LibraryView />);
     const models = await screen.findByRole('region', { name: 'Models' });
-    await within(models).findByText('8 models · most used first');
+    await within(models).findByText('8 models');
     const view = useLibraryStore.getState().view!;
     const one = view.items[0]!;
     const items = Array.from({ length: 300 }, (_, i) => ({
@@ -43,7 +43,7 @@ describe('the Library view', () => {
       entry: { ...one.entry, id: `copy-${i}`, name: `Copy ${i}` },
     }));
     act(() => useLibraryStore.setState({ view: { ...view, items } }));
-    expect(within(models).getByText('300 models · most used first')).toBeVisible();
+    expect(within(models).getByText('300 models')).toBeVisible();
     expect(within(models).getAllByRole('listitem').length).toBeLessThan(80);
     act(() => useLibraryStore.setState({ layout: 'list' }));
     expect(within(models).getAllByRole('listitem').length).toBeLessThan(80);
@@ -53,7 +53,7 @@ describe('the Library view', () => {
     await openMockLibrary('demo');
     render(<LibraryView />);
     const models = await screen.findByRole('region', { name: 'Models' });
-    expect(await within(models).findByText('8 models · most used first')).toBeVisible();
+    expect(await within(models).findByText('8 models')).toBeVisible();
     const cards = within(models).getAllByRole('listitem');
     // Two projects each use Crystal lantern and Elsheria; a tie goes by name.
     expect(within(cards[1]!).getByRole('button', { pressed: false })).toHaveAccessibleName(
@@ -73,7 +73,7 @@ describe('the Library view', () => {
     const filters = await screen.findByRole('region', { name: 'Filters' });
     await userEvent.click(await within(filters).findByRole('button', { name: /^statues/ }));
     const models = screen.getByRole('region', { name: 'Models' });
-    expect(within(models).getByText('2 of 8 models · most used first')).toBeVisible();
+    expect(within(models).getByText('2 of 8 models')).toBeVisible();
     await userEvent.type(
       screen.getByRole('searchbox', { name: 'Find a model' }),
       'nothing like it'

@@ -16,7 +16,7 @@ describe('a library row', () => {
       </ul>
     );
     expect(screen.getByRole('button', { name: 'Veil platform', pressed: true })).toBeVisible();
-    expect(screen.getByText('v1 · Built')).toBeVisible();
+    expect(screen.getByText('v1 · Built · 412k tris')).toBeVisible();
     expect(screen.getByText('no credits, built')).toBeVisible();
     expect(screen.getByText('412k triangles · 1.1 MB')).toBeVisible();
   });

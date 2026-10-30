@@ -6,6 +6,7 @@
 import type {
   Asset,
   GameFormat,
+  LibraryCollection,
   LibraryItem,
   LibrarySource,
   LibraryVersion,
@@ -13,6 +14,7 @@ import type {
   ProjectManifest,
 } from '@/ipc/client';
 import { formatAgo, formatBytes, formatK } from '@/lib/format';
+import { matchesQuery, parseQuery } from './library-query';
 
 export const SOURCE_LABEL: Record<LibrarySource, string> = {
   tripo: 'Tripo',
@@ -25,14 +27,27 @@ export const SOURCE_LABEL: Record<LibrarySource, string> = {
 export const SOURCES: readonly LibrarySource[] = ['tripo', 'meshy', 'built', 'by-hand', 'imported'];
 export const FORMATS: readonly GameFormat[] = ['glb', 'obj'];
 
-export type LibrarySort = 'recent' | 'used' | 'name';
-export type LibraryLayout = 'grid' | 'list';
+export type LibrarySort = 'recent' | 'used' | 'name' | 'heaviest' | 'lightest';
+export type LibraryLayout = 'grid' | 'list' | 'look-alikes';
+
+export const SORT_LABEL: Record<LibrarySort, string> = {
+  recent: 'Newest first',
+  used: 'Most used',
+  name: 'By name',
+  heaviest: 'Most triangles',
+  lightest: 'Fewest triangles',
+};
 
 /** Picks "Not used" in the Used in filter. */
 export const NOT_USED = '';
+/** Picks the models with no tag in the Tags filter. */
+export const UNTAGGED = '';
 
 export interface LibraryFilters {
   query: string;
+  /** A collection id, or null for every model. */
+  collection: string | null;
+  /** A tag, `UNTAGGED`, or null for every model. */
   tag: string | null;
   source: LibrarySource | null;
   format: GameFormat | null;
@@ -42,6 +57,7 @@ export interface LibraryFilters {
 
 export const NO_FILTERS: LibraryFilters = {
   query: '',
+  collection: null,
   tag: null,
   source: null,
   format: null,
@@ -56,18 +72,22 @@ export function projectsOf(item: LibraryItem): string[] {
   return [...new Set(item.uses.map(u => u.project))];
 }
 
-function matchesQuery(item: LibraryItem, query: string): boolean {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const text = [item.entry.name, ...item.entry.tags, ...item.uses.map(u => u.projectName)]
-    .join(' ')
-    .toLowerCase();
-  return words.every(w => text.includes(w));
-}
-
-export function filterItems(items: readonly LibraryItem[], f: LibraryFilters): LibraryItem[] {
+/** The entries `filters` leave, `collections` saying which entries each collection holds. */
+export function filterItems(
+  items: readonly LibraryItem[],
+  f: LibraryFilters,
+  collections: readonly LibraryCollection[] = []
+): LibraryItem[] {
+  const query = parseQuery(f.query);
+  const inCollection = f.collection
+    ? new Set(collections.find(c => c.id === f.collection)?.entries ?? [])
+    : null;
   return items.filter(item => {
-    if (f.query && !matchesQuery(item, f.query)) return false;
-    if (f.tag && !item.entry.tags.includes(f.tag)) return false;
+    if (inCollection && !inCollection.has(item.entry.id)) return false;
+    if (f.query && !matchesQuery(item, query)) return false;
+    if (f.tag === UNTAGGED) {
+      if (item.entry.tags.length > 0) return false;
+    } else if (f.tag && !item.entry.tags.includes(f.tag)) return false;
     if (f.source && latestOf(item)?.source !== f.source) return false;
     if (f.format && item.format !== f.format) return false;
     if (f.usedIn === NOT_USED) return item.uses.length === 0;
@@ -76,12 +96,17 @@ export function filterItems(items: readonly LibraryItem[], f: LibraryFilters): L
   });
 }
 
+/** The newest version's triangles, or -1 when unknown. */
+export const trianglesOf = (item: LibraryItem) => latestOf(item)?.stats?.triangles ?? -1;
+
 export function sortItems(items: readonly LibraryItem[], sort: LibrarySort): LibraryItem[] {
   const byName = (a: LibraryItem, b: LibraryItem) => a.entry.name.localeCompare(b.entry.name, 'en');
   return [...items].sort((a, b) => {
     if (sort === 'recent')
       return b.entry.updatedAt.localeCompare(a.entry.updatedAt) || byName(a, b);
     if (sort === 'used') return projectsOf(b).length - projectsOf(a).length || byName(a, b);
+    if (sort === 'heaviest') return trianglesOf(b) - trianglesOf(a) || byName(a, b);
+    if (sort === 'lightest') return trianglesOf(a) - trianglesOf(b) || byName(a, b);
     return byName(a, b);
   });
 }
@@ -134,12 +159,16 @@ export function libraryStats(items: readonly LibraryItem[]): LibraryStats {
   };
 }
 
-/** "v3 · Built", "v2 · Tripo, rigged". */
+/** Whole thousands from 10k up, so the line fits a narrow card: "35k", "7.4k". */
+const shortK = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000)}k` : formatK(n));
+
+/** "v3 · Built · 412k tris", "v2 · Tripo, rigged · 35k tris". */
 export function itemLine(item: LibraryItem): string {
   const latest = latestOf(item);
   if (!latest) return 'No model';
   const rigged = (latest.stats?.joints ?? 0) > 0 ? ', rigged' : '';
-  return `v${latest.version} · ${SOURCE_LABEL[latest.source]}${rigged}`;
+  const tris = latest.stats ? ` · ${shortK(latest.stats.triangles)} tris` : '';
+  return `v${latest.version} · ${SOURCE_LABEL[latest.source]}${rigged}${tris}`;
 }
 
 /** "2 projects", "Not used yet". */

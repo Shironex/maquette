@@ -2,6 +2,7 @@
 import type { Asset, AssetVersion, ModelStats, ProjectManifest } from '../client';
 import { clock } from '@/lib/clock';
 import { HOME } from './mock-paths';
+import { hollowVale } from './hollow-vale-fixtures';
 
 export function frostveilProject(withAssets = true): ProjectManifest {
   return {
@@ -236,15 +237,22 @@ export function moreProjects(): ProjectManifest[] {
   }));
 }
 
-/** The projects a configured mock workspace opens with. */
-export function mockProjects(many = false): ProjectManifest[] {
+/**
+ * The projects a configured mock workspace opens with: `many` (or
+ * `?projects=many`) adds five more, and `?library=scale` adds Hollow Vale.
+ */
+export function mockProjects(
+  many: boolean | string | null = false,
+  library: string | null = null
+): ProjectManifest[] {
   return [
     frostveilProject(),
     frostCathedral(),
     elsheriaShowcase(),
-    ...(many ? moreProjects() : []),
+    ...(many === true || many === 'many' ? moreProjects() : []),
+    ...(library === 'scale' ? [hollowVale()] : []),
   ];
 }
 
 /** Every project id mock mode knows, so its files can be served. */
-export const MOCK_PROJECT_IDS = mockProjects(true).map(p => p.id);
+export const MOCK_PROJECT_IDS = mockProjects(true, 'scale').map(p => p.id);

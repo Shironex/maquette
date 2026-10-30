@@ -1,25 +1,41 @@
-import { cn } from '@maquette/ui';
+import type { MouseEvent } from 'react';
+import { Icon, cn } from '@maquette/ui';
 import type { LibraryItem } from '@/ipc/client';
 import { creditLine, itemLine, usedLine } from '@/state/library';
 import { CARD, CARD_BUTTON } from '@/features/common/cardButton';
 import { LibraryPicture } from '../LibraryPicture';
+import { SelectBox } from '../SelectBox';
+import type { ModelFlag } from '../LibraryView/LibraryView.types';
 
 export interface LibraryCardProps {
   item: LibraryItem;
   selected: boolean;
-  onSelect: () => void;
+  /** A click on the card; it carries Shift, Cmd and Ctrl for the selection. */
+  onSelect: (e?: MouseEvent) => void;
   /** Opens the model in the 3D quick view, from a click on the picture. */
   onInspect?: () => void;
+  /** In the bulk selection, and how its select box is clicked. */
+  checked?: boolean;
+  selecting?: boolean;
+  onCheck?: (on: boolean, range: boolean) => void;
+  /** A look-alike or same name pair it is in. */
+  flag?: ModelFlag | null;
 }
 
+const FLAG_LABEL: Record<ModelFlag, string> = {
+  'same-look': 'look-alike',
+  'same-name': 'same name',
+};
+
 /**
- * One library model in the grid: picture, name, version and source, tags,
- * uses and credits. The button lies over the card and is named after the
- * model alone, so its name holds all the text it covers (WCAG 2.5.3). The
- * picture lies over that button and opens the 3D quick view, selecting the
- * card too; the rest of the card only selects it.
+ * One library model in the grid: picture, name, version, source and
+ * triangles, tags, uses and credits. The button lies over the card and is
+ * named after the model alone, so its name holds all the text it covers
+ * (WCAG 2.5.3). The picture lies over that button and opens the 3D quick
+ * view; the select box sits on the picture's corner.
  */
-export default function LibraryCard({ item, selected, onSelect, onInspect }: LibraryCardProps) {
+export default function LibraryCard(props: LibraryCardProps) {
+  const { item, selected, onSelect, onInspect, checked = false, selecting = false } = props;
   const credits = creditLine(item);
   const tags = item.entry.tags.map(tag => (
     <span
@@ -33,34 +49,56 @@ export default function LibraryCard({ item, selected, onSelect, onInspect }: Lib
     <div
       className={cn(
         CARD,
-        'flex flex-col overflow-hidden',
-        selected && 'border-clay-line ring-2 ring-clay/25'
+        'group/model flex flex-col overflow-hidden',
+        (selected || checked) && 'border-clay-line',
+        checked ? 'ring-2 ring-clay/35' : selected && 'ring-2 ring-clay/25'
       )}
     >
       <button
         type="button"
         aria-pressed={selected}
         aria-label={item.entry.name}
-        onClick={onSelect}
+        onClick={e => onSelect(e)}
         className={CARD_BUTTON}
       />
-      <LibraryPicture
-        item={item}
-        onInspect={
-          onInspect &&
-          (() => {
-            onSelect();
-            onInspect();
-          })
-        }
-        className={cn('aspect-[4/3] w-full border-b border-line', onInspect && 'z-20')}
-      />
+      <div className="relative">
+        <LibraryPicture
+          item={item}
+          onInspect={
+            onInspect &&
+            (() => {
+              onSelect();
+              onInspect();
+            })
+          }
+          className={cn('aspect-[4/3] w-full border-b border-line', onInspect && 'z-20')}
+        />
+        {props.onCheck ? (
+          <SelectBox
+            name={item.entry.name}
+            checked={checked}
+            selecting={selecting}
+            onCheck={props.onCheck}
+            className="absolute top-2 left-2 z-30"
+          />
+        ) : null}
+        {props.flag ? (
+          <span className="pointer-events-none absolute top-2 right-2 z-30 flex items-center gap-1 rounded-pill bg-panel/90 px-2 text-[11px] leading-5 text-amber shadow-[0_1px_3px_rgba(0,0,0,0.35)]">
+            <Icon name={props.flag === 'same-look' ? 'copy' : 'note-pencil'} size={11} />
+            {FLAG_LABEL[props.flag]}
+          </span>
+        ) : null}
+      </div>
       <span className="flex flex-col gap-1.5 p-3">
         <span className="truncate font-semibold">{item.entry.name}</span>
-        <span className="font-mono text-[11.5px] leading-[14px] text-fg-mute">
+        <span className="truncate font-mono text-[11.5px] leading-[14px] text-fg-mute">
           {itemLine(item)}
         </span>
-        {tags.length ? <span className="flex flex-wrap gap-1">{tags}</span> : null}
+        {tags.length ? (
+          <span className="flex flex-wrap gap-1">{tags}</span>
+        ) : (
+          <span className="text-[11px] leading-[18px] text-amber">untagged</span>
+        )}
         <span className="flex items-center justify-between gap-2 text-meta">
           <span className="text-fg-dim">{usedLine(item)}</span>
           <span className={credits.saved ? 'text-sage' : 'text-fg-mute'}>{credits.text}</span>

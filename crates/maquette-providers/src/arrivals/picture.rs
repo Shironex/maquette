@@ -1,33 +1,24 @@
 //! Which waiting By hand send a download looks like. The download is
 //! rendered headless from the front on a plain ground; each waiting send's
 //! front ref (its first image when none is tagged front) is read the same
-//! way, and the two objects are compared on:
+//! way, and the two objects are compared on their outline, colours and
+//! proportions ([`score`]).
 //!
-//! - **Outline:** both silhouettes scaled into one square, longer side
-//!   filling it, and how much they cover the same cells (intersection over
-//!   union). [`SHAPE_WEIGHT`] of the score.
-//! - **Colours:** the share of colour the two have in common, by hue for
-//!   coloured samples and by lightness for greys. [`COLOUR_WEIGHT`].
-//! - **Proportions:** how close the boxes' height to width ratios are.
-//!   [`RATIO_WEIGHT`].
+//! The score itself lives in [`maquette_model::refs::picture`], shared with
+//! the library's look-alike check.
 //!
 //! The name only breaks ties ([`NAME_WEIGHT`]). Every waiting send is
 //! ranked, however late the download came; the best is only suggested,
 //! with its score, and never attached by itself.
 
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
 use crate::handback::name_fit;
 use crate::jobs::ProviderJob;
-use maquette_model::refs::picture::{self, Object};
-use maquette_model::refs::png;
+pub(crate) use maquette_model::refs::picture::{Object, object_in, score};
 
-pub(super) const SHAPE_WEIGHT: f64 = 0.45;
-pub(super) const COLOUR_WEIGHT: f64 = 0.35;
-pub(super) const RATIO_WEIGHT: f64 = 0.2;
 /// The share of the ranking the name has once there is a picture.
 pub(super) const NAME_WEIGHT: f64 = 0.1;
 /// The least score that suggests a send by its picture.
@@ -52,34 +43,6 @@ pub struct SendSuggestion {
     pub name: f64,
     /// The ref compared with, relative to the project folder.
     pub image: Option<String>,
-}
-
-/// How alike two pictures' objects are.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct PictureScore {
-    pub shape: f64,
-    pub colour: f64,
-    pub ratio: f64,
-}
-
-impl PictureScore {
-    pub(crate) fn total(self) -> f64 {
-        SHAPE_WEIGHT * self.shape + COLOUR_WEIGHT * self.colour + RATIO_WEIGHT * self.ratio
-    }
-}
-
-pub(crate) fn score(download: &Object, reference: &Object) -> PictureScore {
-    PictureScore {
-        shape: picture::shape_overlap(download, reference),
-        colour: picture::colour_overlap(download, reference),
-        ratio: picture::ratio_fit(download, reference),
-    }
-}
-
-/// The object in a PNG file, `None` when it cannot be read.
-pub(crate) fn object_in(file: &Path) -> Option<Object> {
-    let bytes = fs::read(file).ok()?;
-    picture::object(&png::decode(&bytes)?)
 }
 
 /// A send's front ref: the image tagged front, else its first.

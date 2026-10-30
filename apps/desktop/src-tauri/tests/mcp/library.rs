@@ -25,7 +25,7 @@ use serde_json::{Value, json};
 
 use super::support::{TestHost, call};
 
-fn stats(triangles: u32) -> ModelStats {
+pub(super) fn stats(triangles: u32) -> ModelStats {
     ModelStats {
         triangles,
         bytes: 2048.0,
@@ -37,7 +37,7 @@ fn stats(triangles: u32) -> ModelStats {
 }
 
 /// A workspace with Moon Island (a desk lamp, v1) and an empty Study room.
-fn fixture(dir: &Path) -> Session {
+pub(super) fn fixture(dir: &Path) -> Session {
     let root = dir.join("ws");
     let config = workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
     let session = Session::with_state(dir.join("cfg"), None, AppState::default());
@@ -285,7 +285,9 @@ async fn list_library_pages_and_is_compact_by_default() {
     assert_eq!(compact["versions"], json!(1));
     assert_eq!(compact["uses"], json!(1), "the project it was added from");
     assert_eq!(compact["latest"], json!(1));
-    for long in ["usedIn", "bytes", "triangles", "creditsSpent", "source"] {
+    assert!(compact["triangles"].is_u64(), "compact has the triangles");
+    assert_eq!(compact["source"], json!("imported"));
+    for long in ["usedIn", "bytes", "creditsSpent"] {
         assert!(compact.get(long).is_none(), "{long} is for full");
     }
 

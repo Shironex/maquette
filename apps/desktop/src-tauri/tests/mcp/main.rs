@@ -11,6 +11,7 @@ mod handshake;
 mod inbox;
 mod lab_jobs;
 mod library;
+mod library_batch;
 mod own_file;
 mod page;
 mod picks;

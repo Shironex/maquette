@@ -3,6 +3,7 @@ import { Button, KeyValueList, Select, StatusChip, VersionBadge } from '@maquett
 import type { LibraryItem } from '@/ipc/client';
 import { SOURCE_LABEL, numbersLine, versionLine } from '@/state/library';
 import { LibraryPicture } from '../LibraryPicture';
+import { TagEditor } from '../TagEditor';
 import { useLibraryDetail } from './LibraryDetail.hooks';
 
 export interface LibraryDetailProps {
@@ -116,6 +117,10 @@ export default function LibraryDetail({ item }: LibraryDetailProps) {
         </Button>
         <p className="text-meta text-fg-mute">{d.blocked ? `${d.blocked}.` : d.note}</p>
       </div>
+      <div className="h-px bg-line" />
+      <Section title="Tags">
+        <TagEditor entry={entry} />
+      </Section>
       <div className="h-px bg-line" />
       <Section title={`Versions · ${entry.versions.length}`}>
         <ul className="flex list-none flex-col gap-2">{versions}</ul>

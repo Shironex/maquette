@@ -92,7 +92,7 @@ export function openMockGame(game: 'crypt' | 'import' | 'maze' | 'hero') {
 }
 
 /** The configured workspace with the library: `demo` entries, or empty without. */
-export function openMockLibrary(library?: 'demo') {
+export function openMockLibrary(library?: 'demo' | 'scale') {
   return openMockWorkspace(
     'configured',
     undefined,

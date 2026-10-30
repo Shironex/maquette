@@ -68,7 +68,7 @@ describe('useLibraryStore', () => {
     useLibraryStore.getState().openAdd({ project: 'frostveil', asset: 'observatory-arch' });
     await useLibraryStore
       .getState()
-      .add({ project: 'frostveil', asset: 'observatory-arch', name: null, tags: null });
+      .add({ project: 'frostveil', asset: 'observatory-arch', name: null, tags: null, into: null });
     expect(useLibraryStore.getState().adding).toBeNull();
     expect(useLibraryStore.getState().selected).toBe('observatory-arch');
     expect(asset('frostveil', 'observatory-arch')?.origin).toEqual({

@@ -14,6 +14,7 @@ import {
 } from '@/ipc/client';
 import { NO_FILTERS, type LibraryFilters, type LibraryLayout, type LibrarySort } from './library';
 import { useAppStore } from './use-app-store';
+import { useLibrarySelectionStore } from './use-library-selection-store';
 
 /** A project asset a dialog is about. */
 export interface AssetRef {
@@ -75,6 +76,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
       const selected = get().selected;
       const kept = view.items.some(i => i.entry.id === selected) ? selected : null;
       set({ view, error: null, selected: kept });
+      useLibrarySelectionStore.getState().keep(view.items.map(i => i.entry.id));
     } catch (error) {
       set({ error: errorMessage(error) });
     }

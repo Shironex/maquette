@@ -26,7 +26,12 @@ fn own_folder(file: &str) -> Option<&str> {
 /// The model file's SHA-256 as hex.
 pub(super) fn hash(path: &Path) -> CoreResult<String> {
     let bytes = fs::read(path).map_err(|e| CoreError::io(path, e))?;
-    Ok(hex::encode(Sha256::digest(bytes)))
+    Ok(hash_bytes(&bytes))
+}
+
+/// The SHA-256 of bytes already read, as hex.
+pub(super) fn hash_bytes(bytes: &[u8]) -> String {
+    hex::encode(Sha256::digest(bytes))
 }
 
 fn ext_of(file: &str) -> String {

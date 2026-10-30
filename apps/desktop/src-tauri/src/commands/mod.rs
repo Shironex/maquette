@@ -20,6 +20,7 @@ pub mod inspect;
 pub mod lab;
 pub mod layout;
 pub mod library;
+pub mod library_batch;
 pub mod materials;
 pub mod motion;
 pub mod page;

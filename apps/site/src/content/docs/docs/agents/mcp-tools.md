@@ -51,7 +51,8 @@ These look at the workspace and change nothing.
 | `get_ship_plan`                               | What Ship would write: for a game, new, replaced (marked when an imported original), unchanged and hand made files and the uncommitted file count, and the old files a moved asset leaves (removed); `repo` plans against another checkout or worktree; for a website, each file written or held back and why, with sizes before and after, and the site's other files | Nothing | No       |
 | [`get_ship_settings`](#get_ship_settings)     | A website's Ship style, texture format and quality, each asset's choice and file name, the site folders, the plan and the size report                                                                                                                                                                                                                                  | Nothing | No       |
 | [`get_size_report`](#get_size_report)         | Each model's source bytes and triangles against what ships, with totals, as rows, CSV and Markdown                                                                                                                                                                                                                                                                     | Nothing | No       |
-| [`list_library`](#list_library)               | The library's models, with their versions, tags and the projects that use them. Takes an optional `query`, `tag`, `project`, `limit`, `cursor` and `full`                                                                                                                                                                                                              | Nothing | No       |
+| [`list_library`](#list_library)               | The library's models, with their versions, tags and the projects that use them. Takes an optional `query`, `tag`, `project`, `collection`, `limit`, `cursor` and `full`                                                                                                                                                                                                | Nothing | No       |
+| [`find_look_alikes`](#find_look_alikes)       | Library entries that may be one model twice (same look or same name), the entries with no readable picture, the recent merges and the settings                                                                                                                                                                                                                         | Nothing | No       |
 | [`list_animations`](#list_animations)         | The animation library's clips: pack, tags, source rig, bone count, frames, rate, seconds, root motion, loop and size. Takes an optional `query`, `pack`, `tag` and `rig`                                                                                                                                                                                               | Nothing | No       |
 | Tool                                          | What it returns                                                                                                                                                                                                                                                                                                                                                        | Spends  | Approval |
 | --------------------------------------------- | -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------                                                                                                      | ------- | -------- |
@@ -105,6 +106,12 @@ These look at the workspace and change nothing.
 | [`add_many_to_library`](#add_many_to_library)         | Copies up to 200 assets' newest models into the library in one call, each answering on its own                                                                                                        | Nothing | No       |
 | [`use_from_library`](#use_from_library)               | Copies a library model into a project as a new asset                                                                                                                                                  | Nothing | No       |
 | [`update_from_library`](#update_from_library)         | Adds a newer library version to an asset as its next version, or returns the plan                                                                                                                     | Nothing | No       |
+| [`tag_library_entries`](#tag_library_entries)         | Puts tags on and takes tags off several library entries at once                                                                                                                                       | Nothing | No       |
+| [`rename_library_entry`](#rename_library_entry)       | Renames a library entry; its id stays                                                                                                                                                                 | Nothing | No       |
+| [`set_library_collection`](#set_library_collection)   | Creates, fills, empties, renames or deletes a library collection                                                                                                                                      | Nothing | No       |
+| [`remove_from_library`](#remove_from_library)         | Moves library entries to `library/.removed`; the copies in projects stay                                                                                                                              | Nothing | No       |
+| [`restore_to_library`](#restore_to_library)           | Puts removed library entries back, undoing a merge for a merged one                                                                                                                                   | Nothing | No       |
+| [`merge_library_entries`](#merge_library_entries)     | Merges one library entry into another and points project assets along                                                                                                                                 | Nothing | No       |
 | [`import_animations`](#import_animations)             | Imports Mixamo FBX files or pack zips into the animation library, skeleton only                                                                                                                       | Nothing | No       |
 | [`save_model_clips`](#save_model_clips)               | Saves a rigged model's clips to the animation library as a pack                                                                                                                                       | Nothing | No       |
 | [`use_animations`](#use_animations)                   | Bakes library clips onto a rigged model as its next version, after a review                                                                                                                           | Nothing | No       |
@@ -709,16 +716,17 @@ Reads each provider's balance (a free call, skipped without a saved key), totals
 
 `read only`
 
-Lists the models in the [Library](/docs/views/library/). Each entry is compact by default: id, name, kind, tags, newest version, version count and use count. With `full`, it also has the format, sizes, credits and the projects that use each. It returns one page, with `total` (the number that match) and `nextCursor` (null on the last page). With `project`, it also lists that project's assets that have an update waiting.
+Lists the models in the [Library](/docs/views/library/). Each entry is compact by default: id, name, kind, tags, newest version, version count, use count, triangles and what made it. With `full`, it also has the format, sizes, credits and the projects that use each. It returns one page, with `total` (the number that match) and `nextCursor` (null on the last page), and `collections` lists every collection with its id, name and count. With `project`, it also lists that project's assets that have an update waiting.
 
-| Parameter | Type    | Required | Notes                                                              |
-| --------- | ------- | -------- | ------------------------------------------------------------------ |
-| `query`   | string  | no       | Matches a model's name, tag or project.                            |
-| `tag`     | string  | no       | Only models with this tag.                                         |
-| `project` | string  | no       | Also list this project's assets with an update waiting.            |
-| `limit`   | number  | no       | Entries per page: 25 by default, 100 at most.                      |
-| `cursor`  | string  | no       | The `nextCursor` of the previous page. Opaque: pass it back as is. |
-| `full`    | boolean | no       | List every entry in full instead of compact. False by default.     |
+| Parameter    | Type    | Required | Notes                                                              |
+| ------------ | ------- | -------- | ------------------------------------------------------------------ |
+| `query`      | string  | no       | Matches a model's name, tag or project.                            |
+| `tag`        | string  | no       | Only models with this tag.                                         |
+| `project`    | string  | no       | Also list this project's assets with an update waiting.            |
+| `collection` | string  | no       | Only models in this collection (its id).                           |
+| `limit`      | number  | no       | Entries per page: 25 by default, 100 at most.                      |
+| `cursor`     | string  | no       | The `nextCursor` of the previous page. Opaque: pass it back as is. |
+| `full`       | boolean | no       | List every entry in full instead of compact. False by default.     |
 
 ### add_to_library
 
@@ -741,13 +749,17 @@ Copies an asset's newest model, picture, refs, real size, fix-ups and material t
 
 `changes the library`
 
-Adds several assets of one project to the library in one call, each as `add_to_library` does. Every asset answers on its own, so one that fails (an unknown asset, an asset without a model) does not stop the rest. The answer counts `added` and `failed`, and `results` lists each asset with `ok`, then its `entry`, `version`, `added` and `tags`, or its `error`. It spends nothing and the app updates live.
+Adds several assets of one project to the library in one call, each as `add_to_library` does. Every asset answers on its own, so one that fails (an unknown asset, an asset without a model) does not stop the rest. The answer counts `added` and `failed`, and `results` lists each asset with `ok`, then its `entry`, `version`, `added` and `tags`, or its `error`. With `collection`, every added entry joins that collection. It spends nothing and the app updates live.
 
-| Parameter | Type     | Required | Notes                                                                                        |
-| --------- | -------- | -------- | -------------------------------------------------------------------------------------------- |
-| `project` | string   | yes      | The project id.                                                                              |
-| `assets`  | object[] | yes      | 1 to 200 items of `{ asset, name?, tags? }`. `tags` on an item replace the shared `tags`.    |
-| `tags`    | string[] | no       | Tags for every asset that names none of its own. Lowercased, at most 16, 32 characters each. |
+With `dryRun`, it adds nothing and returns the plan: for every asset with a model (or only the ones in `assets`) its `state`, one of `new`, `next-version`, `same-file`, `name-clash`, `looks-like` (its picture scores at or over the look-alike threshold against an entry's) or `unreadable` (the model is missing or cut short, with the `reason`), the `entry` it meets and `looks`, how alike the two pictures are. The plan also has the suggested project `tag`.
+
+| Parameter    | Type     | Required | Notes                                                                                                                                                                                             |
+| ------------ | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project`    | string   | yes      | The project id.                                                                                                                                                                                   |
+| `assets`     | object[] | yes      | 1 to 200 items of `{ asset, name?, tags?, into? }`. `tags` on an item replace the shared `tags`; `into` (an entry id) adds the model as that entry's next version. May be left out with `dryRun`. |
+| `tags`       | string[] | no       | Tags for every asset that names none of its own. Lowercased, at most 16, 32 characters each.                                                                                                      |
+| `collection` | string   | no       | A collection id every added entry joins.                                                                                                                                                          |
+| `dryRun`     | boolean  | no       | Return the plan and add nothing.                                                                                                                                                                  |
 
 ```json
 {
@@ -780,6 +792,92 @@ Adds the library's newer version to an asset copied from it, as the asset's next
 | `project` | string  | yes      | The project id.                   |
 | `asset`   | string  | yes      | The asset id or name.             |
 | `dryRun`  | boolean | no       | Return the plan and copy nothing. |
+
+### tag_library_entries
+
+`changes the library`
+
+Puts tags on and takes tags off several library entries at once. Every entry is checked first, so an unknown entry or one that would pass 16 tags changes nothing. It answers each entry with its tags and spends nothing.
+
+| Parameter | Type     | Required | Notes                                      |
+| --------- | -------- | -------- | ------------------------------------------ |
+| `entries` | string[] | yes      | Entry ids, as `list_library` returns them. |
+| `add`     | string[] | no       | Tags to put on every entry. Lowercased.    |
+| `remove`  | string[] | no       | Tags to take off every entry.              |
+
+```json
+{ "entries": ["bench", "desk-lamp"], "add": ["study"], "remove": ["draft"] }
+```
+
+### rename_library_entry
+
+`changes the library`
+
+Renames a library entry. Its id (its folder) stays, so the projects that came from it still find it. It spends nothing.
+
+| Parameter | Type   | Required | Notes                                |
+| --------- | ------ | -------- | ------------------------------------ |
+| `entry`   | string | yes      | The entry id.                        |
+| `name`    | string | yes      | The new name, 80 characters at most. |
+
+### set_library_collection
+
+`changes the library`
+
+Changes the library's collections: named groups of entries, kept in `library/collections.json`. An entry can sit in several. `create` makes one from `name` (and `entries`), `add` and `remove` put entries in and take them out, `rename` gives it a new `name`, and `delete` removes the collection only, never a model. Two collections cannot share a name. It answers every collection with its entry ids and spends nothing.
+
+| Parameter    | Type     | Required | Notes                                            |
+| ------------ | -------- | -------- | ------------------------------------------------ |
+| `op`         | string   | yes      | `create`, `add`, `remove`, `rename` or `delete`. |
+| `collection` | string   | no       | The collection id, for every op but `create`.    |
+| `name`       | string   | no       | The name, for `create` and `rename`.             |
+| `entries`    | string[] | no       | Entry ids, for `create`, `add` and `remove`.     |
+
+```json
+{ "op": "create", "name": "Study props", "entries": ["bench", "desk-lamp"] }
+```
+
+### remove_from_library
+
+`changes the library`
+
+Removes entries from the library. Their folders move to `library/.removed`, so `restore_to_library` brings them back. The copies in projects stay as they are, and collections keep the ids for a restore. An unknown entry removes nothing. It spends nothing.
+
+| Parameter | Type     | Required | Notes          |
+| --------- | -------- | -------- | -------------- |
+| `entries` | string[] | yes      | The entry ids. |
+
+### restore_to_library
+
+`changes the library`
+
+Puts removed entries back. An entry that `merge_library_entries` merged comes back by undoing the merge: the versions it added to the kept entry go, the kept entry's tags and refs come back, and the project assets it moved point back at it. An undo is refused, with the reason, once the kept entry has newer versions or a project uses a version the merge added. It answers the entries restored and the projects that changed, and spends nothing.
+
+| Parameter | Type     | Required | Notes                  |
+| --------- | -------- | -------- | ---------------------- |
+| `entries` | string[] | yes      | The removed entry ids. |
+
+### find_look_alikes
+
+`read only`
+
+Finds library entries that may be one model twice. A same-look pair's pictures (each entry's newest thumbnail) score at or over the threshold on outline, colours and proportions; a same-name pair has names equal once a trailing number is dropped. Each pair names the older entry as `a`, with both names and the scores when both pictures read. Pairs a person decided in the app are left out. It also returns `unseen` (entries with no readable picture), `merges` (the recent merges, newest first, each undone with `restore_to_library` on its merged entry) and the `settings`. It takes no parameters.
+
+### merge_library_entries
+
+`changes the library`
+
+Merges one library entry into another. Every version of `merge` the kept entry lacks (by file) becomes the kept entry's next version, its refs come along and, with `copyTags`, its tags. Project assets that came from `merge` point at the kept entry's matching version, so every project keeps the model it uses. The merged entry then waits in `library/.removed`, and `restore_to_library` on it undoes the merge. It spends nothing.
+
+| Parameter  | Type    | Required | Notes                                                                  |
+| ---------- | ------- | -------- | ---------------------------------------------------------------------- |
+| `keep`     | string  | yes      | The entry that stays.                                                  |
+| `merge`    | string  | yes      | The entry that goes into it.                                           |
+| `copyTags` | boolean | no       | Copy the merged entry's tags. The saved look-alike setting by default. |
+
+```json
+{ "keep": "desk-lamp", "merge": "desk-lamp-2" }
+```
 
 ### list_animations
 
