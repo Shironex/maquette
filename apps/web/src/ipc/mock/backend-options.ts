@@ -52,7 +52,7 @@ export type Args = Record<string, unknown>;
  * (see `create-page-handlers.ts`), `?timeline=` the Timeline view's tracks
  * (see `create-timeline-handlers.ts`), `?paths=` the Paths editor's paths
  * (see `create-paths-handlers.ts`), `?game=` a game project (see
- * `create-game-handlers.ts`), `?library=demo` the library's entries (see
+ * `create-game-handlers.ts`), `?library=demo` the library's entries (`scale` for 214 of them, see
  * `create-library-handlers.ts`), `?inspect=many` a long compare menu (see
  * `many-assets-fixtures.ts`), `?ship=hand-built` the website Ship settings
  * (see `create-ship-handlers.ts`), `?updater=` the app updater turned on (see
@@ -111,7 +111,11 @@ export interface BackendOptions {
   paths?: string | null;
   /** `crypt`, `import` or `maze`: a game project is open (see create-game-handlers.ts). */
   game?: string | null;
-  /** `demo`: library entries, two of them with an update for a project (see library-fixtures.ts). */
+  /**
+   * `demo`: library entries, two of them with an update for a project (see library-fixtures.ts).
+   * `scale`: 214 models with collections and look-alikes, and Hollow Vale, a project of 121
+   * models to add in one go (see library-scale-fixtures.ts).
+   */
   library?: string | null;
   /** `many`: Frostveil gets 49 more versioned assets, so the Inspector's compare menu is long. */
   inspect?: string | null;

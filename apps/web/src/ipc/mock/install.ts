@@ -23,6 +23,7 @@ import { REFS_SCENARIO_FILES } from './create-refs-handlers';
 import { MOCK_SITE_URL, conceptPath, pageOption, posterPath } from './create-page-handlers';
 import { MANY_STOPS, mockConceptPage, mockSitePage } from './page-site';
 import { libraryFiles } from './library-fixtures';
+import { scaleLibraryFiles, scaleQuickViewFiles } from './library-scale-fixtures';
 import { quickViewFiles } from './quick-view-files';
 import { CLIP_MODEL } from './animation-fixtures';
 import { clipSource } from './create-animation-handlers';
@@ -96,6 +97,18 @@ for (const [file, model] of Object.entries({ ...PREVIEW_FILE, ...TRIAGE_PREVIEW 
 for (const [path, model] of Object.entries(quickViewFiles(root, MOCK_PROJECT_IDS))) {
   const url = models[`../../assets/mock/models/${model}`];
   if (url) registerMockFile(path, url);
+}
+// `?library=scale`: its generated models' pictures and the models their quick view shows.
+if (params.get('library') === 'scale') {
+  for (const [file, render] of Object.entries(scaleLibraryFiles())) {
+    const url = renders[`../../assets/mock/${render}`];
+    if (url) registerMockFile(`${root}/library/${file}`, url);
+  }
+  const stand = ['frost_lantern.glb', 'rune_chest.glb', 'sigil_gate.glb', 'switch_cabinet.glb'];
+  for (const [path, model] of Object.entries(scaleQuickViewFiles(root, stand))) {
+    const url = models[`../../assets/mock/models/${model}`];
+    if (url) registerMockFile(path, url);
+  }
 }
 for (const [file, render] of Object.entries(libraryFiles())) {
   const url = renders[`../../assets/mock/${render}`];

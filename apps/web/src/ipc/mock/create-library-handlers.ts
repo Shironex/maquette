@@ -1,7 +1,9 @@
 /**
  * The library in mock mode: entries kept in memory and copied in and out
  * of the mock projects the way the core does it. `?library=demo` opens with
- * the entries of `library-fixtures.ts`; without it the library is empty.
+ * the entries of `library-fixtures.ts`, `?library=scale` with 214 models
+ * (`library-scale-fixtures.ts`); without either the library is empty. The
+ * bulk actions live in `create-library-batch-handlers.ts`.
  * Adding, using and updating spend nothing, as in the app.
  */
 import type {
@@ -20,8 +22,9 @@ import type {
 } from '../client';
 import { clock } from '@/lib/clock';
 import { fail, slugify, type Args } from './backend-options';
-import { LIBRARY_ORIGINS, libraryEntries } from './library-fixtures';
+import { LIBRARY_ORIGINS } from './library-fixtures';
 import { createAnimationHandlers } from './create-animation-handlers';
+import { createLibraryBatchHandlers, seedLibrary } from './create-library-batch-handlers';
 
 interface LibraryContext {
   projects: () => readonly ProjectManifest[];
@@ -43,8 +46,8 @@ function withAsset(p: ProjectManifest, id: string, change: (a: Asset) => Asset):
 }
 
 export function createLibraryHandlers(ctx: LibraryContext) {
-  let entries: LibraryEntry[] = ctx.state === 'demo' ? libraryEntries() : [];
-  if (ctx.state === 'demo') {
+  const state = seedLibrary(ctx.state);
+  if (ctx.state === 'demo' || ctx.state === 'scale') {
     for (const [projectId, origins] of Object.entries(LIBRARY_ORIGINS)) {
       const p = ctx.projects().find(x => x.id === projectId);
       if (!p) continue;
@@ -62,7 +65,8 @@ export function createLibraryHandlers(ctx: LibraryContext) {
   }
   const dir = () => `${ctx.root()}/library`;
   const entry = (id: string) =>
-    entries.find(e => e.id === id) ?? fail('not-found', `Could not find the library entry ${id}.`);
+    state.entries.find(e => e.id === id) ??
+    fail('not-found', `Could not find the library entry ${id}.`);
 
   function item(e: LibraryEntry): LibraryItem {
     const latest = e.versions.at(-1)?.version ?? 0;
@@ -93,7 +97,17 @@ export function createLibraryHandlers(ctx: LibraryContext) {
     };
   }
 
-  const view = (): LibraryView => ({ dir: dir(), items: entries.map(item) });
+  const view = (): LibraryView => {
+    const known = new Set(state.entries.map(e => e.id));
+    return {
+      dir: dir(),
+      items: state.entries.map(item),
+      collections: state.collections.map(c => ({
+        ...c,
+        entries: c.entries.filter(id => known.has(id)),
+      })),
+    };
+  };
 
   function note(p: ProjectManifest, file: string, asset: string): string | null {
     const format = ext(file) === 'obj' ? 'obj' : 'glb';
@@ -127,15 +141,17 @@ export function createLibraryHandlers(ctx: LibraryContext) {
     }
     const hash = `${r.project}/${latest.file}`;
     const now = clock.now().toISOString();
+    const into = r.into ? entry(r.into) : undefined;
     let found =
-      entries.find(e => e.id === asset.origin?.entry) ??
-      entries.find(e =>
+      into ??
+      state.entries.find(e => e.id === asset.origin?.entry) ??
+      state.entries.find(e =>
         e.versions.some(v => v.from.project === r.project && v.from.asset === asset.id)
       );
     if (!found) {
       const base = slugify(r.name ?? asset.name);
       let id = base;
-      for (let n = 2; entries.some(e => e.id === id); n++) id = `${base}-${n}`;
+      for (let n = 2; state.entries.some(e => e.id === id); n++) id = `${base}-${n}`;
       found = {
         version: 1,
         id,
@@ -147,7 +163,7 @@ export function createLibraryHandlers(ctx: LibraryContext) {
         createdAt: now,
         updatedAt: now,
       };
-      entries = [...entries, found];
+      state.entries = [...state.entries, found];
     }
     const tags = r.tags
       ? [...new Set(r.tags.map(t => t.trim().toLowerCase()).filter(Boolean))]
@@ -187,7 +203,7 @@ export function createLibraryHandlers(ctx: LibraryContext) {
             },
           ],
     };
-    entries = entries.map(e => (e.id === next.id ? next : e));
+    state.entries = state.entries.map(e => (e.id === next.id ? next : e));
     const project = ctx.saveProject(
       withAsset(p, asset.id, a => ({ ...a, origin: { entry: next.id, version: number } }))
     );
@@ -335,9 +351,17 @@ export function createLibraryHandlers(ctx: LibraryContext) {
     state: ctx.state,
   });
 
+  const batch = createLibraryBatchHandlers({
+    state,
+    projects: ctx.projects,
+    project: ctx.project,
+    saveProject: ctx.saveProject,
+  });
+
   return {
     handlers: {
       ...animations.handlers,
+      ...batch,
       library_get: () => view(),
       library_add: add,
       library_use: use,

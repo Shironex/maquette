@@ -97,7 +97,7 @@ export function createBackend({
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
   let root: string | null = configured ? expand(DEFAULT_ROOT) : null;
-  const seeded = seedMotionProjects(mockProjects(projectsState === 'many'), motion);
+  const seeded = seedMotionProjects(mockProjects(projectsState, libraryState), motion);
   let projects = configured ? syncProjects(seedAvatar(seeded, avatar), sync) : [];
   if (configured) config = motionConfig({ ...config, currentProject: 'frostveil' }, motion);
   const agentsOn = agentsState === 'active' || agentsState === 'batch' || agentsState === 'images';
