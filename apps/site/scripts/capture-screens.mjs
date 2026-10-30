@@ -26,6 +26,8 @@ const root = resolve(import.meta.dirname, '..');
 const web = resolve(root, '../web');
 const sceneDir = resolve(root, 'public/scene');
 const screensDir = resolve(sceneDir, 'screens');
+/** The laptop screen is the Board at the usual 1440 x 900, scaled down to fit the scene. */
+const LAPTOP_SIZE = { width: 1024, height: 640 };
 const only = process.argv[2] ? new Set(process.argv[2].split(',')) : null;
 const PORT = Number(process.env.PORT ?? 15197);
 const ORIGIN = `http://localhost:${PORT}`;
@@ -77,8 +79,9 @@ async function save(page, name, target = page, clip) {
   const png = clip
     ? await page.screenshot({ clip })
     : await target.screenshot({ animations: 'disabled' });
-  const file = resolve(name === 'laptop-screen' ? sceneDir : screensDir, `${name}.webp`);
-  await writeFile(file, await toWebp(page, png));
+  const laptop = name === 'laptop-screen';
+  const file = resolve(laptop ? sceneDir : screensDir, `${name}.webp`);
+  await writeFile(file, await toWebp(page, png, laptop ? LAPTOP_SIZE : undefined));
   console.log(`ok ${name}`);
   await page.context().close();
 }
@@ -144,7 +147,7 @@ const IDLE = 'scenario=idle&library=demo';
 
 const shots = {
   board: () => boardShot('board'),
-  'laptop-screen': () => boardShot('laptop-screen', { width: 1024, height: 640 }),
+  'laptop-screen': () => boardShot('laptop-screen'),
   async lab() {
     const p = await open(IDLE, 'lab');
     await p.getByText('Frozen lake arena').first().waitFor();

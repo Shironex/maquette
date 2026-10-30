@@ -5,21 +5,23 @@
 
 const WEBP_QUALITY = 0.85;
 
-/** Encodes a PNG screenshot to WebP at its own size, inside the page. */
-export function toWebp(page, png) {
+/** Encodes a PNG screenshot to WebP inside the page, at its own size or scaled to `size`. */
+export function toWebp(page, png, size) {
   return page
     .evaluate(
-      async ({ data, quality }) => {
+      async ({ data, quality, size }) => {
         const image = new Image();
         image.src = `data:image/png;base64,${data}`;
         await image.decode();
         const canvas = document.createElement('canvas');
-        canvas.width = image.width;
-        canvas.height = image.height;
-        canvas.getContext('2d').drawImage(image, 0, 0);
+        canvas.width = size?.width ?? image.width;
+        canvas.height = size?.height ?? image.height;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
         return canvas.toDataURL('image/webp', quality).split(',')[1];
       },
-      { data: png.toString('base64'), quality: WEBP_QUALITY }
+      { data: png.toString('base64'), quality: WEBP_QUALITY, size }
     )
     .then(b64 => Buffer.from(b64, 'base64'));
 }
