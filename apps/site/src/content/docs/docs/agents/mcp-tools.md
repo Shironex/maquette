@@ -295,7 +295,7 @@ A tweak takes `tint` (`"#rrggbb"`, multiplied into the base color), `roughness` 
 
 `read only`
 
-Reads a character asset's VRM avatar, as the [Avatar view](/docs/views/avatar/) shows it: the VRM readiness of the version (the 55 humanoid bones with the joint each maps to, the 15 required, the rest pose measures and the findings, blockers first), the spec (the VRM meta, the bone map overrides and the material mode, taken from Settings > Avatar defaults until it is first saved), whether the rest pose needs normalising, the last normalised rest pose with its before and after sheets and its state (`pending`, `approved` or `denied`), the last export and `waitingApproval`.
+Reads a character asset's VRM avatar, as the [Avatar view](/docs/views/avatar/) shows it: the VRM readiness of the version (the 55 humanoid bones with the joint each maps to and the naming it matched by, the 15 required, the naming report (the convention the joints matched, ambiguous matches and whether the map is confident), the skin's joints to pick from, the rest pose measures and the findings, blockers first), the spec (the VRM meta, the bone map overrides and the material mode, taken from Settings > Avatar defaults until it is first saved), whether the rest pose needs normalising, the last normalised rest pose with its before and after sheets and its state (`pending`, `approved` or `denied`), the last export and `waitingApproval`.
 
 | Parameter | Type   | Required | Notes                                      |
 | --------- | ------ | -------- | ------------------------------------------ |
