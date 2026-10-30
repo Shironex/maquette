@@ -11,6 +11,8 @@ import { useLabStore } from '@/state/use-lab-store';
 import { updateFor } from '@/state/library';
 import { useLibraryStore } from '@/state/use-library-store';
 import { useProvidersStore } from '@/state/use-providers-store';
+import { assetQuickView } from '@/state/quick-view';
+import { useQuickViewStore } from '@/state/use-quick-view-store';
 import { useRefsStore } from '@/state/use-refs-store';
 import { STAGE_ICON } from '../../constants';
 import { copyExportName } from '../../copyExportName';
@@ -150,16 +152,18 @@ function useMakeItems({ asset, refPicture, built, board }: CardMenuProps): MenuI
 }
 
 /**
- * The asset itself: rename, size, copy, the library, Blender and, last,
- * remove. The library and Blender items wait for a model and stay hidden
- * until then.
+ * The asset itself: rename, size, copy, the library, the 3D quick view,
+ * Blender and, last, remove. The library, quick view and Blender items wait
+ * for a model and stay hidden until then.
  */
 function useAssetItems({ asset, built, board }: CardMenuProps): MenuItem[] {
   const { view: library, openAdd, openUpdate } = useLibraryStore();
   const addModelFile = useProvidersStore(s => s.addModelFile);
   const waitingUpdate = updateFor(library, asset);
+  const openQuickView = useQuickViewStore(s => s.open);
   const { project, actions } = board;
   const hasModel = asset.versions.length > 0;
+  const quickView = assetQuickView(asset, board.workspace);
   const section = 'asset';
   return [
     {
@@ -221,6 +225,18 @@ function useAssetItems({ asset, built, board }: CardMenuProps): MenuItem[] {
             section,
             hint: `It is on v${waitingUpdate.from} of ${waitingUpdate.entry.entry.name}`,
             onSelect: () => void openUpdate({ project: project.id, asset: asset.id }),
+          },
+        ]
+      : []),
+    ...(quickView
+      ? [
+          {
+            id: 'quick-view',
+            label: 'Inspect 3D model',
+            icon: 'cube-transparent' as const,
+            section,
+            hint: `Turns v${quickView.version} around in a 3D preview, without leaving the Board`,
+            onSelect: () => openQuickView(quickView),
           },
         ]
       : []),
