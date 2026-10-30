@@ -120,17 +120,17 @@ than its parent, and a path kept at its old place by a `pub use`, such as `pipel
 in the layer of the code it points to. `pnpm lint:meta` reads every `crate::` path in the core
 against it.
 
-| Layer     | May use    | Modules                                                                                                                                                                                                                          |
-| --------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| base      | nothing    | `error`, `fs`, `json`, `toolchain` (the maquette-base crate), `app_state`, `base` (the run log and the Toolbox)                                                                                                                  |
-| model     | base, glb  | `workspace`, `project`, `assets`, `avatar`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends`, and the stored files of `prepare`, `built`, `materials` and `ship`                                    |
-| glb       | base       | `inbox::{analyse, fixture, images, math, vrm}` (the maquette-glb crate)                                                                                                                                                          |
-| preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                                                                                                                                             |
-| pipeline  | model, glb | `pipeline`, `prepare::preview`, `avatar::{normalize, reweight}`, `built::{build, blender}`, `materials::{apply, split}`, `ship::{plan, report}`, `layout::view`, `thumbs`, `game`, `inspect`, `inbox`, `motion`, `parts`, `site` |
-| providers | model, glb | `providers` (the maquette-providers crate)                                                                                                                                                                                       |
-| lab       | model, glb | `concepts`, `refs::{files, suggested}`                                                                                                                                                                                           |
-| library   | pipeline   | `library`, `animations`                                                                                                                                                                                                          |
-| facade    | everything | `lib.rs`, `providers::tests` (the provider tests that drive a send into the inbox)                                                                                                                                               |
+| Layer     | May use    | Modules                                                                                                                                                                                                                                   |
+| --------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| base      | nothing    | `error`, `fs`, `json`, `toolchain` (the maquette-base crate), `app_state`, `base` (the run log and the Toolbox)                                                                                                                           |
+| model     | base, glb  | `workspace`, `project`, `assets`, `avatar`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends`, and the stored files of `prepare`, `built`, `materials` and `ship`                                             |
+| glb       | base       | `inbox::{analyse, fixture, images, math, vrm}` (the maquette-glb crate)                                                                                                                                                                   |
+| preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                                                                                                                                                      |
+| pipeline  | model, glb | `pipeline`, `prepare::preview`, `avatar::{normalize, reweight, springs}`, `built::{build, blender}`, `materials::{apply, split}`, `ship::{plan, report}`, `layout::view`, `thumbs`, `game`, `inspect`, `inbox`, `motion`, `parts`, `site` |
+| providers | model, glb | `providers` (the maquette-providers crate)                                                                                                                                                                                                |
+| lab       | model, glb | `concepts`, `refs::{files, suggested}`                                                                                                                                                                                                    |
+| library   | pipeline   | `library`, `animations`                                                                                                                                                                                                                   |
+| facade    | everything | `lib.rs`, `providers::tests` (the provider tests that drive a send into the inbox)                                                                                                                                                        |
 
 A module whose file on disk is model data but whose work runs Blender or reads other layers is split
 by submodule. `prepare.json`, `built.json`, `materials.json`, `avatar.json` and `ship.json` (their types, load,
@@ -181,7 +181,7 @@ layout), so it is pipeline. `maquette-model` holds the model layer: `workspace`,
 `prepare`, `built`, `materials` and `ship`. For those six and `avatar`, core keeps a module of the
 same name that re-exports the crate's (`pub use maquette_model::layout::*`) and adds the work above
 the model layer: `layout::view`, `refs::{files, suggested}`, `prepare::preview` and the fix-up script,
-`avatar::normalize` and `avatar::reweight` with their scripts,
+`avatar::normalize`, `avatar::reweight` and `avatar::springs` with their scripts,
 `built`'s Blender build, `materials`' apply and split, and `ship`'s plan and size report. `maquette-preview` holds
 `site::preview` and `page`. `maquette-providers` holds `providers`; core keeps a `providers` module
 that re-exports the crate (`pub use maquette_providers::*`) and holds the provider tests that need the
@@ -639,6 +639,39 @@ uses.
   a no both go on to the normalise. The desktop's `avatar_decide_reweight` and the hub's
   `ApprovalKind::Reweight` carry the person's answer; the web shows it in
   `features/avatar/ReweightStep`. The skill carries a copy of this script too.
+- **Spring bones.** Core's `avatar::springs` (pipeline) runs `avatar_springs.py` on the model a
+  VRM is written from (the approved normalised rest pose, or the version's file when its rest pose
+  is VRM's already; `export/springs.rs` picks it), in two modes. `find` builds a body model from
+  the humanoid bones (a capsule per segment, its radius read per direction from the mesh around it,
+  low percentile, mirrored and capped so hair does not inflate it), takes the vertices well off
+  that body and away from the head's own volume, joins them into parts by a voxel grid, gives each
+  part a root (the humanoid bone its welded neighbours at the top are weighted to, else its own
+  top's weights), drops parts that do not hang, and draws a centre line down each by a walk from
+  the attachment. Each candidate has a kind (hair from the head or neck, cloth when long, an
+  accessory otherwise), a line, a length, a vertex count, a confidence (how much it hangs, how much
+  lies below the attachment, how slender and how big it is) and a colour on `candidates.png`. It
+  is cached per model under `v<version>/springs/find/` and never waits for a yes. Nothing is
+  confirmed on its own: `AvatarSpec.springs` (`maquette_model::avatar::SpringSpec`: id, kind, root
+  bone, line, joints, preset and swing overrides) holds what a person or an agent confirmed.
+  `chain` reruns the finder, matches each confirmed spring to a part by root and line, adds N
+  joints along its line (`spring_<id>_<k>`, parented to the root's joint, by length unless the spec
+  says), weights the part to them with a smooth blend between joints, a ramp from the root at the
+  attachment and a fade where the part touches the rest, keeps at most 4 influences, and derives
+  colliders (head sphere, capsules for neck, chest, hips, upper arms and legs, sized from the body
+  model) in groups. Only new nodes and `JOINTS_0`/`WEIGHTS_0` change; `finish` refuses unweighted
+  vertices, more influences or a different humanoid bone map. Its key covers the parts and joint
+  counts only, so tuning a preset or a swing value needs no new run. It is its own approval step
+  on `gate.rs` under `v<version>/springs/chain/`, with a sheet of the parts and their joints and a
+  sway test (rest, swung left, right and back). A build with `SpringsMode::Auto` runs the finder
+  when nothing is confirmed, chains what is, answers `SpringsWaiting` while the chains are pending,
+  and after a yes writes the VRM from the chained model and adds `VRMC_springBone` 1.0
+  (`maquette_glb::vrm::add_springs`: springs with per joint `hitRadius`, `stiffness`,
+  `gravityPower`, `gravityDir` and `dragForce` from the kind's preset with the spec's overrides,
+  colliders and collider groups); after a no it is written without. The round trip counts and
+  checks the springs, `AvatarExport.springs` and the report's `springs` record them. The desktop's
+  `avatar_find_springs` and `avatar_decide_springs` and the hub's `ApprovalKind::Springs` carry
+  the steps; the web shows them in `features/avatar/SpringsPanel`, and Preview's Wiggle shakes the
+  hips and head so three-vrm swings the springs. The skill carries a copy of this script too.
 
 ## Downloads matching
 

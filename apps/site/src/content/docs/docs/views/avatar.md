@@ -1,11 +1,11 @@
 ---
 title: Avatar
-description: Export a rigged character as a VRM 1.0 avatar, with a person's yes to its freed arms and its new rest pose.
+description: Export a rigged character as a VRM 1.0 avatar, with a person's yes to its freed arms, its new rest pose and its spring chains.
 sidebar:
   label: Avatar
 ---
 
-Avatar turns a rigged character into a VRM 1.0 file for VRM apps and games. It lists the project's characters that have a model; pick one, or open it from the rig check in [Motion](/docs/views/motion/#rig-check) (**Open Avatar**). It has two tabs, Export and Preview. Springs and Expressions are planned.
+Avatar turns a rigged character into a VRM 1.0 file for VRM apps and games. It lists the project's characters that have a model; pick one, or open it from the rig check in [Motion](/docs/views/motion/#rig-check) (**Open Avatar**). It has three tabs, Export, Springs and Preview. Expressions are planned.
 
 ## VRM readiness
 
@@ -63,6 +63,33 @@ The yes or no is only ever given here. An agent's build waits for it, and a card
 
 A model already in VRM's rest pose is written straight away, without Blender.
 
+## Springs
+
+Spring bones let a ponytail, a cape's panels or a charm swing in a VRM app. AI made characters come with a humanoid rig only, so these parts move rigidly with the head or the chest. The Springs tab finds them and gives each one a chain of joints of its own. It reads the rest pose the VRM is written from, so it opens once that pose is ready: the model's own when it is already VRM's, else the normalised one after your yes.
+
+### Find the parts
+
+**Find dangling parts** reads the model headless in Blender and proposes the parts that hang off the body. It changes nothing and needs no yes. It measures the body around each humanoid bone, takes what lies well off it (and away from the head itself), joins it into parts, finds where each one hangs from, and keeps the ones that hang down. Each part shows its colour on the sheet beside the list, its kind (hair from the head or neck, cloth when long, an accessory otherwise), the bone it hangs from, its length, its vertex count and how sure the finder is. Below 60% it is marked: a rigid hood brim or a part close to the body can look like hair. A build looks once by itself when nothing is confirmed, and the result is kept for that model.
+
+Nothing swings until you confirm it: switch on the parts that should swing, and leave a stiff brim or a sewn on patch off. Each confirmed part can take a joint count (by its length unless you set one) and a swing:
+
+- **Soft** for hair: light drag, little gravity.
+- **Heavy** for cloth: more drag and gravity.
+- **Stiff** for charms and small parts: springs back quickly.
+
+A part that sits close to the body, such as a small charm on a jacket, may not be found at all.
+
+### Make the chains
+
+**Make chains** saves and, headless in Blender on a copy, adds a chain of joints along each confirmed part, hung from its bone, and weights the part to it: smoothly from joint to joint, blending into the bone it hangs from at the top so nothing tears where it attaches. Only new joints and the skin weights change: the humanoid bones, the rest pose, the mesh, the UVs and the textures stay as they are, with at most 4 influences on a vertex. It also measures colliders from the body (a sphere for the head, capsules for the neck, chest, hips, upper arms and upper legs) and groups them, so hair stays out of the head, chest, back and arms in a VRM app.
+
+It makes two sheets: the parts with their joints marked, and a sway test with each chain swung left, right and back, seen from the front, the side, the back and close to where it hangs. A part should bend smoothly, stay on at the top and keep its shape. In the sway test it can pass through the body: the colliders only act in a VRM app. The chains wait for your yes:
+
+- **Approve and write** says yes to these exact chains and writes the VRM with `VRMC_springBone`: a spring per part with its swing, the colliders and their groups.
+- **Deny** writes the VRM without springs. Change the parts or their joints and make the chains again.
+
+Changing a swing later needs no new chains: a build writes the new values. Changing the parts or their joints makes new chains, which wait for a yes again. The report records the springs, and the round trip reads them back.
+
 ## Preview
 
 The written `.vrm`, loaded with [three-vrm](https://github.com/pixiv/three-vrm) the way a VRM app loads it, in the same studio light as the other previews. Drag to orbit, scroll to zoom. The chips over the stage say what three-vrm found: the spec version, the humanoid bones of 55, the required ones of 15, the spring joints and the expressions. A required bone it did not find is named under the stage.
@@ -71,8 +98,10 @@ The written `.vrm`, loaded with [three-vrm](https://github.com/pixiv/three-vrm) 
 - **Breathe.** A slow idle in the chest and arms, so the model does not stand still. Off when your system asks for reduced motion.
 - **Look at pointer.** The eyes follow the pointer when the file can move them: with eye bones, or with look expressions. A file whose look at is driven by expressions it does not have yet keeps its eyes still, and the panel says so.
 
+- **Wiggle.** Shakes the hips and the head once, so the spring bones swing. Off for a file without springs.
+
 Spring bones and expressions run every frame once a file has them. Nothing written yet, or the file gone, and Preview points you back to Export. A failed round trip shows over the stage too.
 
 ## Agents
 
-[`get_avatar`](/docs/agents/mcp-tools/#get_avatar), [`set_avatar`](/docs/agents/mcp-tools/#set_avatar) and [`build_avatar`](/docs/agents/mcp-tools/#build_avatar) do the same over MCP. `build_avatar` answers `waiting for approval` with the step (`reweight` or `rest pose`) and the sheet paths while one waits; no tool approves it. `reweight: "off"` skips step 1. Once written it answers with the report's path and the round trip, and an agent tells you what the file still lacks. When the bone names are unclear, an agent asks you which joint is which, or sets the bones with `set_avatar` and tells you what it set; the Bone map shows them as set by you.
+[`get_avatar`](/docs/agents/mcp-tools/#get_avatar), [`set_avatar`](/docs/agents/mcp-tools/#set_avatar) and [`build_avatar`](/docs/agents/mcp-tools/#build_avatar) do the same over MCP. `build_avatar` answers `waiting for approval` with the step (`reweight`, `rest pose` or `springs`) and the sheet paths while one waits; no tool approves it. `reweight: "off"` skips step 1, and `springs: "off"` writes no springs. `get_avatar` lists the parts the finder found, and `set_avatar` confirms them by id; an agent confirms only the parts you or it judged from the sheet, and tells you which. Once written it answers with the report's path and the round trip, and an agent tells you what the file still lacks. When the bone names are unclear, an agent asks you which joint is which, or sets the bones with `set_avatar` and tells you what it set; the Bone map shows them as set by you.

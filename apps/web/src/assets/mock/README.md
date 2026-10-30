@@ -49,6 +49,14 @@ came through the Maquette pipeline, so the sample shows real work.
   `crates/maquette-core/src/avatar/avatar_reweight.py` renders headless, made from the box
   humanoid test fixture with a strip of cloth on its left arm (`cape_strip`), 1200 px wide, and
   are not part of the reserved artwork below either.
+- `avatar/springs_candidates.webp`, `springs_before.webp` and `springs_after.webp`: the
+  Springs tab's sheets (the parts found, the chains, the sway test). They are the sheets
+  `crates/maquette-core/src/avatar/avatar_springs.py` renders headless, made from the box
+  humanoid test fixture with a strip hanging from its head down its back, and
+  `avatar/box_humanoid_springs.vrm` is that fixture written with its spring chain, which the
+  Preview tab loads once the chains are approved. Both come from
+  `MAQUETTE_AVATAR_OUT=<folder> cargo test -p maquette-core find_chain_and_write_springs_in_blender -- --ignored`
+  (sheets converted to WebP), and are not part of the reserved artwork below either.
 - `avatar/box_humanoid.vrm`: the `.vrm` every mock avatar build "writes", which
   the Avatar view's Preview tab loads. It is generated: the box humanoid test
   fixture written as VRM 1.0 by the Rust writer, with
