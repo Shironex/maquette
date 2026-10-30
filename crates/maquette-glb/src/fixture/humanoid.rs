@@ -86,6 +86,9 @@ pub struct HumanoidSpec {
     /// A short strip of cloth hanging just below the left upper arm,
     /// weighted to it: close to the arm, but well outside the limb.
     pub cape_strip: bool,
+    /// A long strip hanging behind the head down the back, weighted to the
+    /// head: a ponytail that moves rigidly with it.
+    pub tail: bool,
     pub weights: WeightFormat,
     /// The body is two skinned meshes on one skin, the second with two
     /// primitives.
@@ -116,6 +119,7 @@ impl Default for HumanoidSpec {
             animation: true,
             cape: false,
             cape_strip: false,
+            tail: false,
             weights: WeightFormat::Float,
             split: false,
             flaw: SkinFlaw::None,
@@ -215,6 +219,9 @@ fn below(joints: &[(String, Option<usize>, [f32; 3])], i: usize, root: usize) ->
     false
 }
 
+/// The slabs of the tail, 2 cm each.
+const TAIL_SLABS: usize = 33;
+
 /// A box humanoid built to `spec`.
 pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
     let joints = posed(spec);
@@ -306,6 +313,23 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
     }
     if spec.hair_strip {
         hair_strip(&mut mesh, &world);
+    }
+
+    if spec.tail
+        && let Some(head) = joint_index(&skeleton(), "Head")
+    {
+        let h = at(head);
+        // Thin slabs stacked edge to edge, so the strip reads as one surface
+        // hanging from the back of the head to the waist.
+        for k in 0..TAIL_SLABS {
+            #[expect(clippy::cast_precision_loss, reason = "a few slabs")]
+            let y = h[1] - 0.02 * k as f32;
+            mesh.cuboid(
+                [h[0], y, h[2] - 0.1],
+                [0.1, 0.02, 0.02],
+                u16::try_from(head).unwrap_or(0),
+            );
+        }
     }
 
     flaw_box(&mut mesh, spec.flaw, joints.len());
