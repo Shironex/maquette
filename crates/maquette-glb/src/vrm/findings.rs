@@ -2,10 +2,15 @@
 //! file, in plain words, ranked blockers first and never left out.
 
 use super::arm_weights::{ARM_REACH, ArmDrag};
-use super::bones::{HUMANOID_JOINTS_MIN, HumanBone, Mapped, NamingReport, WrongParent, needs};
+use super::bones::{HumanBone, Mapped, WrongParent, needs};
 use super::pose::RestPose;
-use super::skin::{MAX_INFLUENCES, PerMesh, SkinFacts, WEIGHT_SUM_SLACK};
 use super::{FindingLevel, VrmFinding};
+
+mod naming;
+mod skin;
+
+pub(super) use naming::naming_finding;
+pub(super) use skin::skin_findings;
 
 /// The front may turn this far from +Z and still count as facing it.
 pub const FACING_SLACK_DEG: f32 = 5.0;
@@ -22,7 +27,12 @@ pub(super) const CENTRE_SLACK: f32 = 0.05;
 /// Mirrored bones may differ by this share of the height.
 pub(super) const SYMMETRY_SLACK: f32 = 0.02;
 
-fn finding(id: &str, level: FindingLevel, title: String, detail: Option<String>) -> VrmFinding {
+pub(super) fn finding(
+    id: &str,
+    level: FindingLevel,
+    title: String,
+    detail: Option<String>,
+) -> VrmFinding {
     VrmFinding {
         id: id.to_string(),
         level,
@@ -39,7 +49,7 @@ pub(super) fn list(names: &[String]) -> String {
     }
 }
 
-fn plural(n: usize, one: &str, many: &str) -> String {
+pub(super) fn plural(n: usize, one: &str, many: &str) -> String {
     format!("{n} {}", if n == 1 { one } else { many })
 }
 
@@ -390,195 +400,4 @@ pub(super) fn arm_weight_finding(drag: &ArmDrag, height: Option<f32>) -> VrmFind
             list(&bones)
         )),
     )
-}
-
-/// When the names leave the bone map unclear, or bones were read from
-/// descriptive names: the bones are for a person to assign or check.
-pub(super) fn naming_finding(naming: &NamingReport) -> Option<VrmFinding> {
-    if naming.confident && naming.descriptive == 0 {
-        return None;
-    }
-    let mut parts = Vec::new();
-    if naming.missing_required > 0 && naming.humanoid_joints >= HUMANOID_JOINTS_MIN {
-        let matched = match naming.convention {
-            Some(c) => format!(
-                "only {} of the 15 required bones match {} names",
-                naming.convention_required,
-                c.label()
-            ),
-            None => "none of the 15 required bones match by name".to_string(),
-        };
-        parts.push(format!(
-            "{} look like humanoid bones, but {matched}.",
-            plural(naming.humanoid_joints as usize, "joint", "joints")
-        ));
-    }
-    parts.extend(naming.ambiguous.iter().cloned());
-    if naming.descriptive > 0 {
-        parts.push(format!(
-            "{} read from descriptive names such as Left elbow, which is a guess.",
-            plural(naming.descriptive as usize, "bone was", "bones were")
-        ));
-    }
-    let (title, ask) = if naming.confident {
-        (
-            format!(
-                "{} matched by descriptive names",
-                plural(naming.descriptive as usize, "bone", "bones")
-            ),
-            "Check them in the Bone map and set any that are wrong.",
-        )
-    } else {
-        (
-            "Bone names are unclear".to_string(),
-            "Assign the bones in the Bone map, or have an agent set them with set_avatar. Nothing past this is guessed.",
-        )
-    };
-    parts.push(ask.to_string());
-    Some(finding(
-        "bone-naming",
-        FindingLevel::Warning,
-        title,
-        Some(parts.join(" ")),
-    ))
-}
-
-/// "Body (812), Hair (40) and 2 more meshes".
-fn meshes(counts: &PerMesh) -> String {
-    let mut named: Vec<String> = counts
-        .0
-        .iter()
-        .take(3)
-        .map(|(mesh, n)| format!("{mesh} ({n})"))
-        .collect();
-    let more = counts.0.len().saturating_sub(3);
-    if more > 0 {
-        named.push(plural(more, "more mesh", "more meshes"));
-    }
-    list(&named)
-}
-
-fn vertex_finding(
-    counts: &PerMesh,
-    id: &str,
-    level: FindingLevel,
-    what: &str,
-    then: &str,
-) -> Option<VrmFinding> {
-    let total = counts.total() as usize;
-    (total > 0).then(|| {
-        finding(
-            id,
-            level,
-            format!("{} {what}", plural(total, "vertex", "vertices")),
-            Some(format!("In {}. {then}", meshes(counts))),
-        )
-    })
-}
-
-/// The skin, node tree and limb chain findings.
-pub(super) fn skin_findings(skin: &SkinFacts) -> Vec<VrmFinding> {
-    let mut out = Vec::new();
-    if !skin.cycle.is_empty() {
-        out.push(finding(
-            "node-cycle",
-            FindingLevel::Blocker,
-            "The node tree loops".to_string(),
-            Some(format!(
-                "{} sit in a loop, each under the next. A runtime cannot place them. Fix the parenting and export again.",
-                list(&skin.cycle)
-            )),
-        ));
-    }
-    for (name, joints) in &skin.twice {
-        out.push(finding(
-            "skin-joints-twice",
-            FindingLevel::Blocker,
-            format!(
-                "{name} lists {} twice",
-                plural(joints.len(), "joint", "joints")
-            ),
-            Some(format!(
-                "{}. A skin names each joint once. Export the skin again.",
-                list(joints)
-            )),
-        ));
-    }
-    out.extend(vertex_finding(
-        &skin.past_joints,
-        "skin-joint-index",
-        FindingLevel::Blocker,
-        "use a joint the skin does not have",
-        "Their joint index runs past the skin's joint list. Export the skin again.",
-    ));
-    out.extend(vertex_finding(
-        &skin.unweighted,
-        "skin-unweighted",
-        FindingLevel::Blocker,
-        "carry no weight",
-        "Every weight is zero, so the body leaves them behind as it moves. Weight them to a bone or delete them.",
-    ));
-    out.extend(vertex_finding(
-        &skin.off_sum,
-        "skin-weight-sum",
-        FindingLevel::Blocker,
-        "have weights that do not add up to 1",
-        &format!(
-            "Off by more than {WEIGHT_SUM_SLACK}, more than a normaliser's rounding. Normalise all vertex groups in Blender."
-        ),
-    ));
-    out.extend(vertex_finding(
-        &skin.over_four,
-        "skin-influences",
-        FindingLevel::Warning,
-        &format!("have more than {MAX_INFLUENCES} influences"),
-        &format!(
-            "VRM runtimes keep {MAX_INFLUENCES} joints per vertex, so these bend a little differently. Limit the total to {MAX_INFLUENCES} in Blender and normalise."
-        ),
-    ));
-    if !skin.short.is_empty() {
-        let bones: Vec<String> = skin
-            .short
-            .iter()
-            .map(|(bone, length)| format!("{bone} ({:.1} cm)", length * 100.0))
-            .collect();
-        out.push(finding(
-            "short-bones",
-            FindingLevel::Warning,
-            format!(
-                "{} too short to bend by",
-                plural(skin.short.len(), "limb bone is", "limb bones are")
-            ),
-            Some(format!(
-                "{}, each measured to the next joint down the chain. A bone with no length gives a runtime no direction to bend or aim it.",
-                list(&bones)
-            )),
-        ));
-    }
-    if !skin.sides.is_empty() {
-        out.push(finding(
-            "side-topology",
-            FindingLevel::Warning,
-            "Left and right limbs differ".to_string(),
-            Some(format!(
-                "{} Mirrored poses and animations expect the same bones on both sides.",
-                skin.sides.join(" ")
-            )),
-        ));
-    }
-    if !skin.unread.is_empty() {
-        out.push(finding(
-            "skin-unread",
-            FindingLevel::Note,
-            format!(
-                "Skin weights of {} not checked",
-                plural(skin.unread.len(), "mesh", "meshes")
-            ),
-            Some(format!(
-                "{}: compressed or packed, so the weights cannot be read here.",
-                list(&skin.unread)
-            )),
-        ));
-    }
-    out
 }
