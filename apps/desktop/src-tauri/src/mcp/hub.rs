@@ -64,6 +64,9 @@ pub enum ApprovalKind {
     /// An agent built an avatar whose new rest pose waits for a person to
     /// look at the before and after sheets.
     RestPose,
+    /// An agent built an avatar whose weights, freeing cloth and hair from
+    /// the arms, wait for a person to look at the before and after sheets.
+    Reweight,
 }
 
 /// One send of a batch approval.
@@ -107,12 +110,12 @@ pub struct Approval {
     /// Image round: the dollars it should cost in all.
     #[serde(default)]
     pub estimate_usd: Option<f64>,
-    /// Rest pose: the asset id and the version normalised.
+    /// Rest pose and reweight: the asset id and the version.
     #[serde(default)]
     pub asset: Option<String>,
     #[serde(default)]
     pub version: Option<u32>,
-    /// Rest pose: the before and after sheets.
+    /// Rest pose and reweight: the before and after sheets.
     #[serde(default)]
     pub sheets: Option<NormalizeSheets>,
 }

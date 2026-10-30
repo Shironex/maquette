@@ -69,6 +69,7 @@ fn a_t_posed_character_saves_its_spec_and_writes_its_vrm() {
         asset: &asset,
         version: None,
         elbows: Elbows::default(),
+        reweight: ReweightMode::default(),
     };
 
     let fresh = view(&session, &target).expect("view");

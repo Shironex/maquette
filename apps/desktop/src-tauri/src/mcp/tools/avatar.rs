@@ -1,11 +1,13 @@
 //! Tools that read, change and build a character asset's VRM avatar. A
-//! build that changes the rest pose waits for a person to approve the
-//! before and after sheets in the app; no tool approves it.
+//! build that frees cloth and hair from the arms or changes the rest pose
+//! waits for a person to approve the before and after sheets of each step
+//! in the app; no tool approves them.
 
 use std::collections::BTreeMap;
 
 use maquette_core::avatar::export::{self, AvatarBuild, AvatarPatch};
 use maquette_core::avatar::normalize::{Elbows, Normalized};
+use maquette_core::avatar::reweight::{ReweightMode, Reweighted};
 use maquette_core::project;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
@@ -76,6 +78,10 @@ pub struct BuildAvatarArgs {
     pub dry_run: bool,
     /// "straighten" (the default) levels the lower arms too; "keep" leaves bent elbows bent.
     pub elbows: Option<String>,
+    /// "auto" (the default) first frees cloth and hair weighted to the arms (a cape, a coat's
+    /// skirt, long hair) when the readiness finds them and the arms are lifted, as a step with
+    /// its own approval; "off" lifts the arms without it.
+    pub reweight: Option<String>,
 }
 
 /// The asset id an agent names, by id or by name.
@@ -92,6 +98,28 @@ fn parse_elbows(word: Option<&str>) -> Result<Elbows, String> {
     })
 }
 
+fn parse_reweight(word: Option<&str>) -> Result<ReweightMode, String> {
+    word.map_or(Ok(ReweightMode::default()), |w| {
+        serde_json::from_value(json!(w.to_lowercase()))
+            .map_err(|_| format!("reweight must be auto or off, not {w:?}."))
+    })
+}
+
+/// A reweight, short: the sheets to judge and its counts.
+fn reweight_summary(found: &Reweighted) -> Value {
+    let report = &found.report;
+    json!({
+        "sourceVersion": found.source_version,
+        "state": to_short_value(found.state),
+        "sheets": to_short_value(&found.sheets),
+        "moved": report.moved,
+        "keptAsSleeve": report.kept_as_sleeve,
+        "band": report.band,
+        "fromBones": to_short_value(&report.from_bones),
+        "toBones": to_short_value(&report.to_bones),
+    })
+}
+
 /// A normalised rest pose, short: the sheets to judge and its numbers.
 fn pose_summary(found: &Normalized) -> Value {
     json!({
@@ -103,16 +131,31 @@ fn pose_summary(found: &Normalized) -> Value {
         "lifted": to_short_value(&found.report.lifted),
         "after": to_short_value(&found.report.after),
         "findingsAfter": to_short_value(&found.readiness.findings),
+        "reweight": found.reweight.as_ref().map(|r| json!({
+            "moved": r.moved,
+            "keptAsSleeve": r.kept_as_sleeve,
+        })),
     })
 }
 
 /// The answer to a build, and the approval it leaves for a person.
 fn build_answer(hub: &Hub, name: &str, built: &AvatarBuild) -> Value {
     match built {
+        AvatarBuild::ReweightWaiting { reweighted } => {
+            let approval = hub.request_reweight(reweighted, name);
+            json!({
+                "status": WAITING,
+                "step": "reweight",
+                "approval": approval,
+                "message": "Cloth and hair weighted to the arms were moved to the trunk on a copy, so lifting the arms does not drag them along. The new weights wait for a person to look at the before and after sheets and approve them in Maquette's Avatar view; the rest pose comes after. Call get_avatar or build_avatar again later; nothing is written until then.",
+                "reweight": reweight_summary(reweighted),
+            })
+        }
         AvatarBuild::Waiting { normalized } => {
             let approval = hub.request_rest_pose(normalized, name);
             json!({
                 "status": WAITING,
+                "step": "rest pose",
                 "approval": approval,
                 "message": "The new rest pose waits for a person to look at the before and after sheets and approve it in Maquette's Avatar view. Call get_avatar or build_avatar again later; nothing is written until then.",
                 "pose": pose_summary(normalized),
@@ -140,7 +183,7 @@ fn build_answer(hub: &Hub, name: &str, built: &AvatarBuild) -> Value {
 #[tool_router(router = avatar_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Get a character asset's VRM avatar: its VRM readiness (the 55 humanoid bones with the joint each maps to and the naming it matched by, the 15 required, the naming report saying which convention the joints matched, any ambiguous matches and whether the map is confident, the skin's joints to pick from with set_avatar bones, the rest pose measures and the findings, blockers first), the spec (the VRM meta, bone map overrides and material mode; from the workspace's avatar defaults until first saved), whether the rest pose needs normalising, the last normalised rest pose with its before and after sheets and its state (pending, approved or denied), the last export (path, size, what it still lacks) and whether an approval waits.",
+        description = "Get a character asset's VRM avatar: its VRM readiness (the 55 humanoid bones with the joint each maps to and the naming it matched by, the 15 required, the naming report saying which convention the joints matched, any ambiguous matches and whether the map is confident, the skin's joints to pick from with set_avatar bones, the rest pose measures and the findings, blockers first), the spec (the VRM meta, bone map overrides and material mode; from the workspace's avatar defaults until first saved), whether the rest pose needs normalising, whether cloth or hair weighted to the arms needs freeing first (needsReweight) and the last reweight with its sheets, counts and state, the last normalised rest pose with its before and after sheets and its state (pending, approved or denied), the last export (path, size, what it still lacks) and whether an approval waits.",
         annotations(read_only_hint = true)
     )]
     async fn get_avatar(&self, Parameters(args): Parameters<GetAvatarArgs>) -> Out {
@@ -152,11 +195,14 @@ impl McpTools {
                     asset: &asset,
                     version: args.version,
                     elbows: Elbows::default(),
+                    reweight: ReweightMode::default(),
                 };
                 let view = commands::view(host.session(), &target).map_err(|e| e.message)?;
                 let mut value = to_short_value(&view);
-                value["waitingApproval"] =
-                    json!(hub.rest_pose_for(&args.project, &asset).is_some());
+                value["waitingApproval"] = json!(
+                    hub.rest_pose_for(&args.project, &asset).is_some()
+                        || hub.reweight_for(&args.project, &asset).is_some()
+                );
                 Ok(value)
             })
             .await;
@@ -176,6 +222,7 @@ impl McpTools {
                     asset: &asset,
                     version: None,
                     elbows: Elbows::default(),
+                    reweight: ReweightMode::default(),
                 };
                 let current = commands::view(host.session(), &target).map_err(|e| e.message)?;
                 let (_, config) = workspace(host)?;
@@ -205,7 +252,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Build a character asset's VRM 1.0 avatar into the project's exports/<asset>.vrm (a derived export, never a new version). When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), it is first normalised headless in Blender on a copy (elbows straighten by default, or keep), which makes before and after pose sheets. A changed rest pose needs a person's yes: the call then answers \"waiting for approval\" with the sheet paths, and a person approves or denies it in the app's Avatar view. You cannot approve it: call get_avatar or build_avatar again later (the normalised result is cached, Blender does not run again), and once approved it writes the file and returns its path, size, what it still lacks, the validation report beside it (exports/<asset>.vrm.report.json: source version and hash, readiness before and after, the bone map with each bone's source, the meta) and the round trip (the written file read back and checked; a failure is a blocker in what it still lacks). \"denied\" means the person turned the pose down. dryRun returns the plan and does nothing. Needs a meta name and an author (set_avatar).",
+        description = "Build a character asset's VRM 1.0 avatar into the project's exports/<asset>.vrm (a derived export, never a new version). When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), it is first normalised headless in Blender on a copy (elbows straighten by default, or keep), which makes before and after pose sheets. When the readiness finds cloth or hair weighted to the arms (the arm-weights finding), reweight auto (the default) frees them before that: Blender moves their weight from the arm bones to the trunk on a copy, keeping the arms, sleeves and gloves, and makes before and after sheets; the call answers \"waiting for approval\" with step reweight, and the rest pose comes after that yes (or after a no, from the model as it is). reweight off skips it. A changed rest pose needs a person's yes: the call then answers \"waiting for approval\" with step rest pose and the sheet paths, and a person approves or denies it in the app's Avatar view. You cannot approve it: call get_avatar or build_avatar again later (the normalised result is cached, Blender does not run again), and once approved it writes the file and returns its path, size, what it still lacks, the validation report beside it (exports/<asset>.vrm.report.json: source version and hash, readiness before and after, the bone map with each bone's source, the meta, and what the reweight changed when one was applied) and the round trip (the written file read back and checked; a failure is a blocker in what it still lacks). \"denied\" means the person turned the pose down. dryRun returns the plan and does nothing. Needs a meta name and an author (set_avatar).",
         annotations(idempotent_hint = true)
     )]
     async fn build_avatar(&self, Parameters(args): Parameters<BuildAvatarArgs>) -> Out {
@@ -217,6 +264,7 @@ impl McpTools {
                     asset: &asset,
                     version: args.version,
                     elbows: parse_elbows(args.elbows.as_deref())?,
+                    reweight: parse_reweight(args.reweight.as_deref())?,
                 };
                 if args.dry_run {
                     let plan = commands::plan(host.session(), &target).map_err(|e| e.message)?;
