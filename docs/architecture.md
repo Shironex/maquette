@@ -181,7 +181,7 @@ layout), so it is pipeline. `maquette-model` holds the model layer: `workspace`,
 `prepare`, `built`, `materials` and `ship`. For those six and `avatar`, core keeps a module of the
 same name that re-exports the crate's (`pub use maquette_model::layout::*`) and adds the work above
 the model layer: `layout::view`, `refs::{files, suggested}`, `prepare::preview` and the fix-up script,
-`avatar::normalize`, `avatar::reweight` and `avatar::springs` with their scripts,
+`avatar::normalize`, `avatar::reweight`, `avatar::springs` and `avatar::highlights` with their scripts,
 `built`'s Blender build, `materials`' apply and split, and `ship`'s plan and size report. `maquette-preview` holds
 `site::preview` and `page`. `maquette-providers` holds `providers`; core keeps a `providers` module
 that re-exports the crate (`pub use maquette_providers::*`) and holds the provider tests that need the
@@ -587,11 +587,15 @@ uses.
   The animations go (their keyframes stay in the BIN chunk, unused), node scales within
   `SCALE_NOISE` of 1 snap to 1, and `MaterialMode::MtoonSoft` (`mtoon.rs`) puts
   `VRMC_materials_mtoon` on every material, shaded from the base color and texture with no
-  outline, keeping the PBR values as the fallback; `Pbr` leaves the materials as they are. The
+  outline, keeping the PBR values as the fallback; `Pbr` leaves the materials as they are.
+  `base_color.rs` reads the base color images out of written bytes and swaps in others, adding
+  the new image and texture and pointing the base color and MToon shade at them, so the original
+  stays in the file. The
   golden test compares the written fixture's JSON with `vrm/golden/humanoid_vrm.json`
   (`MAQUETTE_BLESS=1` writes it again).
 - **Avatar spec.** `maquette_model::avatar` keeps each character asset's `AvatarSpec` (the
-  `VrmMeta`, bone map overrides and the material mode) in `avatar.json` next to `project.json`,
+  `VrmMeta`, bone map overrides, the material mode and what MToon does with baked highlights) in
+  `avatar.json` next to `project.json`,
   keyed by asset id like `materials.json`, with the same versioned load and `update` that reads the
   file on disk first. A stored spec may be a draft: `VrmMeta::check_draft` checks the licence URL,
   blank authors and text length, and the name and authors are only required by `VrmMeta::validate`
@@ -672,6 +676,21 @@ uses.
   `avatar_find_springs` and `avatar_decide_springs` and the hub's `ApprovalKind::Springs` carry
   the steps; the web shows them in `features/avatar/SpringsPanel`, and Preview's Wiggle shakes the
   hips and head so three-vrm swings the springs. The skill carries a copy of this script too.
+- **Baked highlights.** Core's `avatar::highlights` (pipeline) runs on every MToon build, after
+  the VRM is written and before it is saved, unless the spec's `highlights` is `keep`. It reads
+  the base color images out of the written bytes (`maquette_glb::vrm::base_color_images`), writes
+  them to `<asset avatar folder>/highlights/` and runs `avatar_highlights.py` once over them,
+  cached by their content, the script and `STRENGTH`. The script measures on a copy at most 2048
+  wide: a pixel is a highlight when it stands out above an opening by reconstruction of the luma
+  (a square 1/32 of the width, so wide light areas and anything joined to them are kept whole),
+  the mean colour of the not standing out pixels around it is dark, and it is grey, near the line
+  from that colour toward white and not warmer than it (skin leaves that line). Each test is a
+  smooth ramp; the product moves the pixel `STRENGTH` (0.75) of the way to the colour around it,
+  feathered a pixel. An image with under 0.2% highlights gets no copy. The copies go back in with
+  `swap_base_color`, which adds an image and texture and points the base color and the MToon
+  shade at them, so the original stays in the file unused. A failed run never stops the build:
+  the texture is kept and `HighlightsReport.note` says why. The report, `AvatarExport.highlights`
+  and the Export panel's Last export show the mode and each image's coverage.
 
 ## Downloads matching
 

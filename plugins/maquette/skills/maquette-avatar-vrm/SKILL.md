@@ -44,8 +44,9 @@ Avatar view (`/docs/views/avatar/`).
    from. When bones are missing or unclear, ask the person, or map them with `set_avatar`
    `{ bones: { leftUpperLeg: "Left thigh" } }` (null leaves a bone unmapped, `clearBones` maps it
    by name again) and say which you set. Read `get_avatar` again to see the readiness follow.
-3. **Meta.** `set_avatar` `{ project, asset, meta?, bones?, clearBones?, material? }`. Only the
-   fields you give change. A build needs `meta.name` and at least one of `meta.authors`. Ask the
+3. **Meta.** `set_avatar` `{ project, asset, meta?, bones?, clearBones?, material?, highlights? }`.
+   Only the fields you give change. With `mtoon-soft`, `highlights: "soften"` (the default) softens
+   strong highlights baked into dark material on a copy of the texture; `keep` leaves it. A build needs `meta.name` and at least one of `meta.authors`. Ask the
    person for the licence (`avatarPermission`, `commercialUsage`, `modification` and the allow
    flags) rather than loosening the workspace defaults yourself.
 4. **Plan.** `build_avatar` `{ project, asset, dryRun: true }`: the version read, whether it
@@ -86,7 +87,8 @@ Avatar view (`/docs/views/avatar/`).
    when one was applied), the readiness before and after with
    every finding, `unresolved`, the bone map with each bone's `source` (`convention`, `auto` or
    `override`), the meta, the writer and `roundTrip`, plus the springs written (each with its
-   joints and swing, and the collider groups). Read it, then tell the person the path and
+   joints and swing, and the collider groups), and with MToon `highlights` (how much of each
+   texture was baked highlights and whether a softened copy was written). Read it, then tell the person the path and
    everything in `unresolved`, blockers first, in plain words. If `roundTrip.passed` is false,
    say the file does not read back as a VRM and list `roundTrip.problems`; do not hand that file
    on. The person sees the file in the Avatar view's Preview tab.
