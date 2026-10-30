@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::avatar::normalize::{Elbows, Fingers};
 use crate::avatar::reweight::{FINDING, ReweightReport};
+use crate::avatar::springs::SpringsSummary;
 use crate::inbox::vrm::{
     self, AvatarPermission, BoneNaming, BoneOverrides, CommercialUsage, CreditNotation,
     FindingLevel, MaterialMode, Modification, RoundTrip, VrmBone, VrmFinding, VrmMeta,
@@ -152,6 +153,10 @@ pub struct AvatarReport {
     pub bones: Vec<ReportBone>,
     pub meta: MetaSummary,
     pub round_trip: RoundTrip,
+    /// The springs the file carries, each with its settings, and its
+    /// colliders. `None` when it carries none.
+    #[serde(default)]
+    pub springs: Option<SpringsSummary>,
 }
 
 /// Where `bone`'s joint came from, against the rig's main naming.

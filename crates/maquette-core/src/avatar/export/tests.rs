@@ -8,6 +8,7 @@ use crate::avatar::reweight::tests::FakeReweighter;
 use crate::base::ports::ScriptRunner;
 use crate::inbox::fixture::{self, HumanoidSpec};
 use crate::inbox::vrm::VRMC_VRM;
+use crate::pipeline::cache::hash_file;
 
 fn request(w: &World) -> AvatarRequest<'_> {
     AvatarRequest {
@@ -19,6 +20,7 @@ fn request(w: &World) -> AvatarRequest<'_> {
         elbows: Elbows::Straighten,
         reweight: ReweightMode::Auto,
         fingers: Fingers::Straighten,
+        springs: SpringsMode::Off,
     }
 }
 

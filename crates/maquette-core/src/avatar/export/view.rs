@@ -1,12 +1,13 @@
 //! What the Avatar view and `get_avatar` read for one asset: the spec, the
 //! readiness of the version, its last reweight and normalised rest pose,
-//! and the last export.
+//! its springs, and the last export.
 
 use std::fs;
 use std::path::Path;
 
 use serde::Serialize;
 
+use super::springs::{self, SpringsView};
 use super::{AvatarExport, AvatarRequest, RECORD_FILE, asset_dir, source, spec_for, vrm_file};
 use crate::AssetKind;
 use crate::avatar::AvatarSpec;
@@ -44,6 +45,9 @@ pub struct AvatarView {
     pub reweighted: Option<Reweighted>,
     /// The last normalised rest pose of this version, with its sheets.
     pub normalized: Option<Normalized>,
+    /// The parts that could swing, found on the model the VRM is written
+    /// from, and the last chains made for the confirmed ones.
+    pub springs: SpringsView,
     pub export: Option<AvatarExport>,
     /// Where a build writes the `.vrm`, an absolute path.
     pub export_path: String,
@@ -100,6 +104,7 @@ pub fn view(req: &AvatarRequest<'_>) -> CoreResult<AvatarView> {
         reweighted,
         readiness_error,
         normalized,
+        springs: springs::view(req),
         export: read_export(&dir),
         export_path: vrm_file(&src.project_dir, &src.asset.id)
             .display()

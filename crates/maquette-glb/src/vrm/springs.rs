@@ -313,7 +313,9 @@ pub(super) fn check(json: &Value, doc: &gltf::Document, problems: &mut Vec<Strin
         let shape = c.get("shape");
         let has = |k: &str| shape.and_then(|s| s.get(k)).is_some();
         if !has("sphere") && !has("capsule") {
-            problems.push(format!("Spring collider {i} is neither a sphere nor a capsule."));
+            problems.push(format!(
+                "Spring collider {i} is neither a sphere nor a capsule."
+            ));
         }
     }
     let groups = list("colliderGroups");

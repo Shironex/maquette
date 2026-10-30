@@ -48,6 +48,7 @@
     "avatar::gate": "pipeline",
     "avatar::normalize": "pipeline",
     "avatar::reweight": "pipeline",
+    "avatar::springs": "pipeline",
     "prepare::pad_tests": "pipeline",
     "prepare::rotate_tests": "pipeline",
     "prepare::split_tests": "pipeline",

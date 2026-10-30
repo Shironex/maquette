@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::invalid;
-use crate::avatar::AvatarSpec;
+use crate::avatar::{AvatarSpec, SpringSpec};
 use crate::error::CoreResult;
 use crate::inbox::vrm::{BoneOverrides, MaterialMode};
 
@@ -22,6 +22,9 @@ pub struct AvatarPatch {
     /// Bones whose override is dropped, so they map by name again.
     pub clear_bones: Vec<String>,
     pub material: Option<MaterialMode>,
+    /// The confirmed springs, replacing the ones there; an empty list
+    /// writes the VRM without springs.
+    pub springs: Option<Vec<SpringSpec>>,
 }
 
 /// The meta fields a patch may name.
@@ -91,6 +94,9 @@ pub fn apply_patch(
     }
     if let Some(material) = patch.material {
         next.material = material;
+    }
+    if let Some(springs) = &patch.springs {
+        next.springs.clone_from(springs);
     }
     next.validate()?;
     Ok(next)
