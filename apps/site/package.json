@@ -10,6 +10,7 @@
     "preview": "astro preview",
     "typecheck": "astro check",
     "posters": "node scripts/capture-posters.mjs",
+    "screens": "node scripts/capture-screens.mjs",
     "check:dev-tour": "node scripts/check-dev-tour.mjs"
   },
   "dependencies": {
