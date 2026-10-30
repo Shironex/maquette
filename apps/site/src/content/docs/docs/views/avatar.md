@@ -1,6 +1,6 @@
 ---
 title: Avatar
-description: Export a rigged character as a VRM 1.0 avatar, with a person's yes to its new rest pose.
+description: Export a rigged character as a VRM 1.0 avatar, with a person's yes to its freed arms and its new rest pose.
 sidebar:
   label: Avatar
 ---
@@ -9,7 +9,7 @@ Avatar turns a rigged character into a VRM 1.0 file for VRM apps and games. It l
 
 ## VRM readiness
 
-The same readiness the [Inbox](/docs/views/inbox/#vrm-readiness) reads, every finding listed with the blockers first: the bones VRM requires and how clear their names are, the skin, the rest pose (facing, arms, ground, centre, symmetry, scale) and cloth or hair weighted to the arms. Nothing is hidden. A pose a build can fix says so.
+The same readiness the [Inbox](/docs/views/inbox/#vrm-readiness) reads, every finding listed with the blockers first: the bones VRM requires and how clear their names are, the skin, the rest pose (facing, arms, ground, centre, symmetry, scale) and cloth or hair weighted to the arms. Nothing is hidden. A pose a build can fix says so, and so does cloth a build can free.
 
 The skin checks cover every skinned mesh and primitive. They block the export when a vertex uses a joint the skin does not have, carries no weight, or has weights that do not add up to 1 (off by more than 0.01), when a skin lists a joint twice, when the node tree loops, or when a node is mirrored, scaled unevenly or sheared. They warn about more than 4 influences on a vertex (VRM runtimes keep 4), arm, leg or finger bones with almost no length, and left and right limbs that differ, such as a finger mapped on one side only.
 
@@ -25,24 +25,37 @@ The VRM meta a build writes: the name, an optional version, the authors (separat
 
 ## Rest pose
 
-VRM wants a T-pose facing +Z, arms level, soles on the ground, hips on the centre. The table shows how far the model is from that. When it is not there yet, a build normalises a copy headless in Blender: it turns the model, lifts the arms, and by default straightens the elbows (**Elbows** > **Keep** leaves them bent). The model's versions are never touched.
+VRM wants a T-pose facing +Z, arms level, soles on the ground, hips on the centre. The table shows how far the model is from that. A build gets there in two steps, each headless in Blender on a copy, each waiting for your yes. The model's versions are never touched.
+
+### Step 1: Free cloth and hair from the arms
+
+A cape, a long coat or hair often carries weight from the arm bones, so lifting the arms drags it up like a wing. When the readiness finds cloth or hair on the arms, a build first moves that weight to the trunk. It keeps what wraps the arm: the arm itself, a sleeve, a glove, a cuff, the hand. It reads the mesh in slices along each arm, keeps the loops that hug the bone and follow on from the ones before, and moves everything else to the spine and chest, with a soft band where the two meet so nothing tears. Only the weights change: the mesh, the bones and the materials stay as they are, with at most 4 influences on a vertex.
+
+It makes two sheets, before and after, each with the model at rest, the arms level and the arms raised, seen from the front, the side, the back and close on the shoulders. On the after sheet a cape or hair should hang still while the arms lift, and the sleeves should follow the arms without pinching at the shoulder. Cloth sewn to a sleeve (one piece of mesh from the cuff to the hem) cannot be cut there: it still stretches between the arm and the body, softer than before.
+
+- **Approve and go on** says yes to these exact weights and lifts the arms from them.
+- **Deny** keeps the model's own weights and lifts the arms as they are.
+
+### Step 2: Lift the arms to a T-pose
+
+When the pose is not there yet, a build normalises it: it turns the model, lifts the arms, and by default straightens the elbows (**Elbows** > **Keep** leaves them bent). It starts from the freed weights when you approved them.
 
 The normalise makes two pose sheets, before and after, each in four poses (at rest, arms down, arms up, a step) seen from the front, the side, the back and close on the shoulders. The new pose waits for your yes:
 
 - **Approve and write** says yes to this exact result and writes the file.
 - **Deny** writes nothing. Change the elbows or fix the model, then build again.
 
-Click a sheet to see it up close, or **Compare the shoulders** for the before and after shoulders side by side. Look at the armpits and whatever hangs by the arms, like a cape or hair: cloth weighted to the arms rises with them. A reweight that frees it is planned.
+Click a sheet to see it up close, or **Compare the shoulders** for the before and after shoulders side by side. Look at the armpits and whatever hangs by the arms.
 
-The yes or no is only ever given here. An agent's build waits for it, and a card floats over the other views: **Open the sheets** brings you here, **Deny** turns the pose down from the card.
+The yes or no is only ever given here. An agent's build waits for it, and a card floats over the other views: **Open the sheets** brings you here, **Deny** turns the weights or the pose down from the card.
 
 ## Export
 
 - **Material.** MToon soft (toon shading from the base color, no outline, alike in every VRM app) or PBR (the model's own materials). New avatars take the workspace default.
 - **Output.** `exports/<asset>.vrm` in the project folder. A derived export: the asset gains no version, and each build replaces the file.
-- **Last export.** Its size, when it was written, the version it came from, whether the rest pose was normalised, the material, and what the file still lacks, ranked. **Reveal** shows it in the file manager; **Copy path** copies its full path.
+- **Last export.** Its size, when it was written, the version it came from, whether the arms were freed and the rest pose normalised, the material, and what the file still lacks, ranked. **Reveal** shows it in the file manager; **Copy path** copies its full path.
 - **Round trip.** Every written file is read back at once and checked the way a VRM app would trip on it: it opens as valid glTF, it says VRM 1.0, every humanoid bone points at a node that exists and no node twice, the 15 required bones are there, each bone sits under the one VRM puts above it, the meta has a name, an author and the licence URL, `extensionsUsed` lists every extension the file uses, there are no animations, and every texture an MToon material points at is there. A pass says how many bones it read; a failure is a blocker at the top of what the file still lacks, with each problem.
-- **Report.** `exports/<asset>.vrm.report.json`, written beside the file by every build: the source version and the SHA-256 of its model, when it was written, the material and elbows modes, the readiness before (the source) and after (the written file) with every finding, what the file still lacks, the bone map with where each bone came from (`convention`, the naming most joints use; `auto`, another naming or a descriptive guess; `override`, set by you), the meta, the writer's version and the round trip. **Reveal report** shows it in the file manager.
+- **Report.** `exports/<asset>.vrm.report.json`, written beside the file by every build: the source version and the SHA-256 of its model, when it was written, the material and elbows modes, what the reweight moved when one was applied, the readiness before (the source) and after (the written file) with every finding, what the file still lacks, the bone map with where each bone came from (`convention`, the naming most joints use; `auto`, another naming or a descriptive guess; `override`, set by you), the meta, the writer's version and the round trip. **Reveal report** shows it in the file manager.
 
 A model already in VRM's rest pose is written straight away, without Blender.
 
@@ -58,4 +71,4 @@ Spring bones and expressions run every frame once a file has them. Nothing writt
 
 ## Agents
 
-[`get_avatar`](/docs/agents/mcp-tools/#get_avatar), [`set_avatar`](/docs/agents/mcp-tools/#set_avatar) and [`build_avatar`](/docs/agents/mcp-tools/#build_avatar) do the same over MCP. `build_avatar` answers `waiting for approval` with the sheet paths while the pose waits; no tool approves it. Once written it answers with the report's path and the round trip, and an agent tells you what the file still lacks. When the bone names are unclear, an agent asks you which joint is which, or sets the bones with `set_avatar` and tells you what it set; the Bone map shows them as set by you.
+[`get_avatar`](/docs/agents/mcp-tools/#get_avatar), [`set_avatar`](/docs/agents/mcp-tools/#set_avatar) and [`build_avatar`](/docs/agents/mcp-tools/#build_avatar) do the same over MCP. `build_avatar` answers `waiting for approval` with the step (`reweight` or `rest pose`) and the sheet paths while one waits; no tool approves it. `reweight: "off"` skips step 1. Once written it answers with the report's path and the round trip, and an agent tells you what the file still lacks. When the bone names are unclear, an agent asks you which joint is which, or sets the bones with `set_avatar` and tells you what it set; the Bone map shows them as set by you.
