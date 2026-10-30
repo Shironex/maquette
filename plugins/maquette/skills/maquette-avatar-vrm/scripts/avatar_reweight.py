@@ -51,19 +51,23 @@ Which vertices belong to the arm, per side:
    or most of it is weighted to the hand and finger bones (a prop the hand holds).
 
 Everything else on the arm chain moves its arm weight to the trunk, shared by inverse distance
-between spine, chest and upperChest, and the shoulder for vertices above the armpit (the top of a
-cape). At the boundary a smooth band in surface distance (geodesic, over the welded mesh) blends:
-just outside the arm a vertex keeps most of its arm weight and the share fades to none, so cloth
-sewn to a sleeve stretches instead of tearing. The band only blends where lifting the arm level
-moves the surface little, near the shoulder. Further down (a sleeve that rested on the hip, with
-faces fused between the two), a share kept on the body would stretch into a sheet as wide as the
-band, so there each band vertex goes wholly to the arm or wholly to the body, split along the
-seam that costs least to stretch: a minimum cut over the mesh edges, each costing its length
-times how far the lift moves it. Where the lift moves it far, the arm's own surface follows the
-arm wholly too, giving its arm bones the weight an auto rig put on the body or the legs. The
-trunk shares what it takes over its two nearest bones, so it never crowds a kept arm weight out
-of the four influences. At most 4 influences per vertex are kept and they sum to 1; no vertex is
-left without weight.
+between spine, chest and upperChest, and the shoulder for vertices above the armpit (the top of
+a cape). Hair the rig hangs from the head as well as the arm (a ponytail resting on the
+shoulder) keeps hanging from the head: on the vertices with most of their weight on the head
+(the hair tie) the moved weight goes to the head instead, fading back to the trunk over the
+surface below them, and only on vertices the rig already gave some head weight, so a collar or a
+cape never starts turning with the head. At the boundary a smooth band in surface distance
+(geodesic, over the welded mesh) blends: just outside the arm a vertex keeps most of its arm
+weight and the share fades to none, so cloth sewn to a sleeve stretches instead of tearing. The
+band only blends where lifting the arm level moves the surface little, near the shoulder.
+Further down (a sleeve that rested on the hip, with faces fused between the two), a share kept
+on the body would stretch into a sheet as wide as the band, so there each band vertex goes
+wholly to the arm or wholly to the body, split along the seam that costs least to stretch: a
+minimum cut over the mesh edges, each costing its length times how far the lift moves it. Where
+the lift moves it far, the arm's own surface follows the arm wholly too, giving its arm bones
+the weight an auto rig put on the body or the legs. The trunk shares what it takes over its two
+nearest bones, so it never crowds a kept arm weight out of the four influences. At most 4
+influences per vertex are kept and they sum to 1; no vertex is left without weight.
 
 Faces that join a part following the arm to a part staying with the body still stretch when the
 arm lifts, whatever the weights: those bridges are counted and named in the report. With
@@ -73,11 +77,11 @@ vertex, UV, texture and weight stays where it was. A primitive whose indices ano
 shares, or that has none or draws strips or fans, keeps its faces. "keep" leaves every face.
 
 The report holds the counts: vertices changed, the weight moved, from which arm bones and to
-which trunk bones, the arm vertices kept as sleeve, the band, the arm vertices that let go of
-body weight, the bridges (side, faces, middle and stretched length), the bridge faces hidden,
-and the limb radii. The two sheets
-show the model before and after, turned to face the camera, in rows rest, arms level (the
-T-pose) and arms raised, and columns front, side, back and a close look at the shoulders.
+which trunk bones (and the head), the arm vertices kept as sleeve, the band, the arm vertices
+that let go of body weight, the bridges (side, faces, middle and stretched length), the bridge
+faces hidden, and the limb radii. The two sheets show the model before and after, turned to
+face the camera, in rows rest, arms level (the T-pose) and arms raised, and columns front, side,
+back and a close look at the shoulders.
 """
 
 import argparse
@@ -124,6 +128,8 @@ HAND_REACH = 0.06    # the hand's surface lies past the wrist within this of the
 HAND_WRIST = 0.03    # ...reached from the arm found up to this far before the wrist
 HAND_TOUCH = 0.01    # a piece this near the hand's surface lies on it
 HAND_HELD = 0.5      # a vertex with more than this share of its weight on the hand is held by it
+HEAD_HOLD = 0.5      # a vertex with this share of its weight on the head hangs from it
+HEAD_BAND = 0.1      # arm weight moved near those goes back to the head, fading over this distance
 
 
 def log(text):
@@ -1097,6 +1103,31 @@ def trunk_share(body, pos):
     return [j for j, _, _, _ in segs], inv
 
 
+def head_share(body, skin, mesh):
+    """For each vertex, the share of the weight moved off an arm that goes to the head instead of
+    the trunk. Hair an auto rig hung from the head and the arm (a ponytail beside the shoulder)
+    keeps hanging from the head where it does: whole on the vertices with most of their weight
+    on the head (the hair tie), fading over the surface below them. Only vertices the rig
+    already gave some head weight take any, so a collar or a cape sewn near a hood never starts
+    turning with the head."""
+    if not body.has("head"):
+        return None, None
+    h = body.height
+    head = np.zeros(len(skin.names), bool)
+    head[list(skin.descendants(body.joint["head"]))] = True
+    joints, weights = skin.joints, skin.weights
+    total = weights.sum(1)
+    on_head = np.where(head[joints], weights, 0.0).sum(1)
+    held = (total > 0.0) & (on_head >= HEAD_HOLD * total)
+    sources = np.zeros(mesh.n, bool)
+    sources[mesh.of[held]] = True
+    dist = surface_distance(mesh.n, mesh.edges, mesh.length, sources, HEAD_BAND * h)[mesh.of]
+    share = np.where(np.isfinite(dist), smoothstep(1.0 - dist / (HEAD_BAND * h)), 0.0)
+    share[held] = 1.0
+    share[on_head <= 0.0] = 0.0
+    return body.joint["head"], share
+
+
 def top_four(joints, weights):
     """Merges repeated joints, keeps the 4 largest and normalises."""
     j = joints.copy()
@@ -1187,6 +1218,10 @@ def reweight_skin(skin, bones):
             for jnt, count in zip(*np.unique(top, return_counts=True)):
                 name = skin.names[int(jnt)]
                 from_bone[name] = from_bone.get(name, 0) + int(count)
+    head_joint, to_head = head_share(body, skin, mesh)
+    if head_joint is not None:
+        trunk_joints = trunk_joints + [head_joint]
+        trunk = np.concatenate([trunk * (1.0 - to_head)[:, None], to_head[:, None]], 1)
     extra_j = np.tile(np.array(trunk_joints, np.int64), (n, 1))
     extra_w = trunk * moved[:, None]
     all_j = np.concatenate([joints, extra_j], 1)

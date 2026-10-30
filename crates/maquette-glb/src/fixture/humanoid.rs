@@ -16,6 +16,9 @@ mod bunched;
 mod hands;
 mod names;
 mod pieces;
+mod shoulder_tail;
+
+pub use shoulder_tail::SHOULDER_TAIL_ROWS;
 
 use bunched::bunch_fingers;
 use hands::curl_fingers;
@@ -109,6 +112,10 @@ pub struct HumanoidSpec {
     /// hand, its lower end weighted partly to a finger bone. Built after
     /// every box, so it does not go with `split` or a `flaw`.
     pub hair_strip: bool,
+    /// A ribbon of hair from the back of the head that falls behind the
+    /// left shoulder, weighted to the head fading to the left upper arm.
+    /// Built after every box, so it does not go with `split` or a `flaw`.
+    pub shoulder_tail: bool,
     /// A ribbon fused between the wrist end of the left forearm and the top
     /// of the hip, weighted from the forearm fading to the hips, as an auto
     /// rig leaves a sleeve that rested on the hip.
@@ -139,6 +146,7 @@ impl Default for HumanoidSpec {
             finger_curl: 0.0,
             hand_piece: false,
             hair_strip: false,
+            shoulder_tail: false,
             sleeve_bridge: false,
             bunched_hand: false,
         }

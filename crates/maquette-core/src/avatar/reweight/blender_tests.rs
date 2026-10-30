@@ -201,3 +201,52 @@ fn a_ribbon_from_the_forearm_to_the_hip_follows_one_side_in_blender() {
     assert_eq!(found.report.hidden_faces, 0);
     assert_eq!(out.triangles, source.triangles);
 }
+
+#[test]
+#[ignore = "runs Blender"]
+fn a_ponytail_on_the_shoulder_keeps_hanging_from_the_head_in_blender() {
+    let Some(blender) = test_blender::blender() else {
+        return;
+    };
+    // A ponytail the rig hung from the head and the left upper arm: freed
+    // from the arm, its top (mostly on the head) gives the arm's share to
+    // the head, so it turns with the head; lower down the trunk takes it.
+    // The cape behind the back, on the arm alone, never takes head weight.
+    let w = world_with(&fixture::humanoid(&HumanoidSpec {
+        arm_drop: 55.0,
+        cape: true,
+        shoulder_tail: true,
+        animation: false,
+        ..HumanoidSpec::default()
+    }));
+    let none = BoneOverrides::new();
+    let planned = plan(&ReweightRequest {
+        workspace_root: &w.root,
+        config: &w.config,
+        project: &w.project,
+        asset: &w.asset,
+        version: None,
+        overrides: &none,
+        bridges: BridgeFaces::Hide,
+    })
+    .expect("plan");
+    let runner = test_blender::runner();
+    let found = run(&runner, &test_blender::toolbox(&blender), &planned).expect("reweight");
+    let report = &found.report;
+    println!("{}", serde_json::to_string_pretty(report).expect("json"));
+    let tail = 2 * u32::from(fixture::SHOULDER_TAIL_ROWS);
+    let to_head = report.to_bones.get("mixamorig:Head").copied().unwrap_or(0);
+    // The top rows and the fade below them, not the whole ponytail, and
+    // nothing of the cape.
+    assert!(to_head >= 6, "{report:#?}");
+    assert!(to_head < tail, "{report:#?}");
+    assert!(report.moved > tail, "{report:#?}");
+    assert!(
+        report
+            .to_bones
+            .keys()
+            .any(|b| b.starts_with("mixamorig:Spine")),
+        "{report:#?}"
+    );
+    assert_eq!(report.weights.unweighted, 0);
+}
