@@ -26,9 +26,28 @@ pub struct AvatarPatch {
     pub highlights: Option<Highlights>,
     /// Hide the faces fused between an arm and the body, or keep them.
     pub bridges: Option<BridgeFaces>,
-    /// The confirmed springs, replacing the ones there; an empty list
-    /// writes the VRM without springs.
-    pub springs: Option<Vec<SpringSpec>>,
+    /// The springs: the ones confirmed (replacing those there; an empty
+    /// list clears the picks), or none at all.
+    pub springs: Option<SpringsChange>,
+}
+
+/// The word that confirms no springs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NoSprings {
+    None,
+}
+
+/// What a patch does with the springs.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(untagged)]
+pub enum SpringsChange {
+    /// `"none"`: a person confirmed the VRM carries no springs.
+    None(NoSprings),
+    /// The confirmed springs, replacing the ones there. An empty list
+    /// clears the picks: nobody picked yet, so a build waits for a pick
+    /// when the last export carried springs.
+    Picked(Vec<SpringSpec>),
 }
 
 /// The meta fields a patch may name.
@@ -105,8 +124,16 @@ pub fn apply_patch(
     if let Some(bridges) = patch.bridges {
         next.bridges = bridges;
     }
-    if let Some(springs) = &patch.springs {
-        next.springs.clone_from(springs);
+    match &patch.springs {
+        Some(SpringsChange::None(_)) => {
+            next.springs.clear();
+            next.no_springs = true;
+        }
+        Some(SpringsChange::Picked(springs)) => {
+            next.springs.clone_from(springs);
+            next.no_springs = false;
+        }
+        None => {}
     }
     next.validate()?;
     Ok(next)
