@@ -623,7 +623,8 @@ uses.
   arm chain holds that sits more than twice the arm's own radius from it, the radius read from the
   mesh around each arm segment in `arm_weights.rs`). The script cuts the mesh in slices along each
   arm, keeps the loops that hug the bone and follow on from slice to slice (sleeves, gloves, the
-  hand, a cuff or a separate glove whole), and moves every other vertex's arm weight to spine,
+  hand, a cuff or a separate glove whole; a vertex weighted mostly to the hand and finger bones,
+  or past the wrist within 6% of the height of the bones, always stays), and moves every other vertex's arm weight to spine,
   chest and upperChest (and the shoulder above the armpit) by inverse distance, with a geodesic
   band at the boundary so cloth sewn to a sleeve stretches instead of tearing. Only `JOINTS_0` and
   `WEIGHTS_0` change, at most 4 influences; `finish` refuses an output with unweighted vertices or

@@ -40,6 +40,9 @@ Which vertices belong to the arm, per side:
    the arm. A piece of its own that no cut gave to the rest (a separate sleeve or glove, a
    finger) goes with the arm whole, and so does a small island lying mostly on the arm (a
    cuff, a bracelet).
+4. The hand always stays with the arm: a vertex weighted mostly to the hand and finger bones, or
+   lying past the wrist within a hand's reach of the bones, is the arm whatever the cuts said, so
+   a nail or a finger tip never stays behind when the arm lifts.
 
 Everything else on the arm chain moves its arm weight to the trunk, shared by inverse distance
 between spine, chest and upperChest, and the shoulder for vertices above the armpit (the top of a
@@ -87,6 +90,8 @@ BAND = 0.1           # width of the smooth falloff, surface distance
 ARMPIT = 0.04        # the shoulder takes cloth above the armpit, fading over this
 IDW_POWER = 4.0
 CHANGED = 1e-3       # arm weight a vertex must lose to count as moved
+HAND_HELD = 0.5      # a vertex with more than this share of its weight on the hand is the hand
+HAND_NEAR = 0.06     # past the wrist, this near the bones is the hand
 
 
 def log(text):
@@ -747,6 +752,19 @@ def arm_members(body, arm, mesh):
     return members, radius
 
 
+def in_hand(skin, body, arm, side):
+    """The vertices of the hand: weighted mostly to the hand and finger bones, or lying past the
+    wrist within HAND_NEAR of the bones. They keep their arm weight, nails and tips included."""
+    hand = np.zeros(len(skin.names), bool)
+    hand[sorted(skin.descendants(body.joint[side + "Hand"]))] = True
+    weights = skin.weights
+    held = (weights * hand[skin.joints]).sum(1) > HAND_HELD * weights.sum(1)
+    s, _, radial, above = arm.project(skin.pos)
+    near = (s >= arm.hand_from) & ~above & \
+        (np.linalg.norm(radial, axis=1) <= HAND_NEAR * body.height)
+    return held | near
+
+
 def trunk_share(body, pos):
     """For each vertex, how the trunk bones share weight moved off an arm: inverse distance to
     the spine, chest and upperChest, and to each shoulder above the armpit."""
@@ -823,7 +841,7 @@ def reweight_skin(skin, bones):
         share = np.bincount(island, weights=found.astype(np.float64), minlength=len(island_size))
         share /= np.maximum(island_size, 1)
         cuffs = (share >= ISLAND_IN) & (island_size <= ISLAND_MAX * mesh.n)
-        members[side] = (found | cuffs[island])[mesh.of]
+        members[side] = (found | cuffs[island])[mesh.of] | in_hand(skin, body, arm, side)
         info[side] = {"radius": radius}
     # The share of its arm weight each vertex keeps: all on the arm, fading over the band.
     keep = {}
