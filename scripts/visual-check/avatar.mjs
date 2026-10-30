@@ -6,7 +6,10 @@
  * through the version picker, its shoulders up close and the
  * floating cards an agent's build leaves; the written VRM with its report
  * and round trip, its Preview (arms down and T-pose), the Preview with
- * nothing written, and a round trip that failed; and Settings >
+ * nothing written, and a round trip that failed; the Springs tab with the
+ * parts found and one confirmed, its chains waiting for a yes with the sway
+ * test up close, and the Preview of the file with springs after a Wiggle;
+ * and Settings >
  * Avatar defaults; and a rig with its own joint names, its bones picked by
  * hand in the Bone map. Mock mode's `?avatar=` sets the state (see
  * apps/web/src/ipc/mock/create-avatar-handlers.ts).
@@ -75,6 +78,42 @@ export async function avatarShots({ open, shot }) {
   await written.waitForTimeout(800);
   await shot(preview, 'avatar-preview-tpose');
   await written.context().close();
+
+  // The finder found a strip hanging from the head; confirming it shows its joints and swing.
+  const found = await avatar(open, 'springs');
+  await found.getByRole('tab', { name: 'Springs' }).click();
+  const springs = found.getByRole('region', { name: 'Springs' });
+  await springs.getByRole('img', { name: 'The parts found, each in its colour sheet' }).waitFor();
+  await shot(springs, 'avatar-springs-found');
+  await springs.getByRole('switch', { name: 'Swing hair-1' }).click({ force: true });
+  await springs.getByRole('combobox', { name: 'How hair-1 swings' }).waitFor();
+  await shot(springs, 'avatar-springs-confirmed');
+  await found.context().close();
+
+  // An agent's build added the chain: it waits for a yes on the sway test.
+  const chains = await avatar(open, 'chains');
+  await chains.getByRole('tab', { name: 'Springs' }).click();
+  await chains.getByRole('region', { name: 'Spring chains approval' }).waitFor();
+  await chains.getByRole('img', { name: 'The sway test sheet' }).waitFor();
+  await shot(chains, 'avatar-springs-chains');
+  await chains.getByRole('button', { name: 'The sway test sheet' }).click();
+  await chains.getByRole('dialog', { name: 'Spring sheets' }).waitFor();
+  await shot(chains, 'avatar-springs-sway');
+  await chains.context().close();
+
+  // Approved: the file carries the strip's spring, and Wiggle swings it.
+  const swung = await avatar(open, 'chains');
+  await swung.getByRole('tab', { name: 'Springs' }).click();
+  await swung.getByRole('button', { name: 'Approve and write' }).click();
+  await swung.getByText(/The VRM carries these springs/).waitFor();
+  await swung.getByRole('tab', { name: 'Preview' }).click();
+  const springPreview = swung.getByRole('region', { name: 'Preview' });
+  await springPreview.getByText(/spring joints$/).waitFor();
+  await swung.waitForTimeout(1200);
+  await springPreview.getByRole('button', { name: 'Wiggle' }).click();
+  await swung.waitForTimeout(450);
+  await shot(springPreview, 'avatar-springs-preview');
+  await swung.context().close();
 
   // Nothing written yet: the Preview tab points back to Export.
   const empty = await avatar(open);
