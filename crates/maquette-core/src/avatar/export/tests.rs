@@ -193,6 +193,7 @@ fn a_patch_changes_only_what_it_names() {
     );
     assert_eq!(next.material, MaterialMode::Pbr);
     assert_eq!(next.highlights, crate::avatar::Highlights::Soften);
+    assert_eq!(next.bridges, crate::avatar::BridgeFaces::Hide);
     assert_eq!(next.bones.get("leftEye"), Some(&Some("Eye_L".to_string())));
     assert_eq!(next.bones.get("jaw"), Some(&None));
 
@@ -201,6 +202,7 @@ fn a_patch_changes_only_what_it_names() {
         "clearBones": ["jaw"],
         "material": "mtoon-soft",
         "highlights": "keep",
+        "bridges": "keep",
     }))
     .expect("patch");
     let cleared = apply_patch(&next, &defaults, &clear).expect("apply");
@@ -208,6 +210,7 @@ fn a_patch_changes_only_what_it_names() {
     assert!(!cleared.bones.contains_key("jaw"));
     assert_eq!(cleared.material, MaterialMode::MtoonSoft);
     assert_eq!(cleared.highlights, crate::avatar::Highlights::Keep);
+    assert_eq!(cleared.bridges, crate::avatar::BridgeFaces::Keep);
 
     let reset: AvatarPatch = serde_json::from_value(json!({ "reset": true })).expect("patch");
     assert_eq!(

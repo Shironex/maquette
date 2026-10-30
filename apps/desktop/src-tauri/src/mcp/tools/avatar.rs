@@ -69,6 +69,11 @@ pub struct SetAvatarArgs {
     /// them, so they do not read as white blotches under toon shading; "keep" writes the
     /// texture as it is. The model's own texture never changes.
     pub highlights: Option<String>,
+    /// When cloth and hair are freed from the arms: "hide" (the default) takes the faces fused
+    /// between an arm and the body (a sleeve sewn to the hip), which stretch whatever the
+    /// weights when the arm lifts, out of the reweighted model so they are not drawn; "keep"
+    /// leaves them. A build reweights again after a change.
+    pub bridges: Option<String>,
     /// The springs to confirm, replacing the ones confirmed before; an empty list confirms
     /// none. Name a candidate from get_avatar's springs.found by id, and tune joints, preset or
     /// the swing settings if you like.
@@ -141,6 +146,9 @@ fn reweight_summary(found: &Reweighted) -> Value {
         "moved": report.moved,
         "keptAsSleeve": report.kept_as_sleeve,
         "band": report.band,
+        "bridges": to_short_value(&report.bridges),
+        "bridgeFaces": to_short_value(found.bridges),
+        "hiddenFaces": report.hidden_faces,
         "fromBones": to_short_value(&report.from_bones),
         "toBones": to_short_value(&report.to_bones),
     })
@@ -253,7 +261,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change a character asset's VRM avatar spec, as the Avatar view's form does: meta fields by their VRM 1.0 names (only the ones you give change; null puts one back to its default; the licence URL stays VRM's own), bone map overrides (a VRM bone name to a joint, or null to leave it unmapped; clearBones drops overrides), the material mode (mtoon-soft or pbr), what MToon does with highlights baked into the base color texture (soften, the default, or keep) and the confirmed springs (by a candidate id from get_avatar's springs.found, with joints, a preset (soft, heavy, stiff) or stiffness, gravityPower, dragForce and hitRadius to tune; nothing is confirmed on its own, so confirm only parts a person or you judged from the candidates sheet). reset starts again from the workspace's avatar defaults. A name and at least one author are needed before a build writes. Returns the avatar like get_avatar; the open app updates live.",
+        description = "Change a character asset's VRM avatar spec, as the Avatar view's form does: meta fields by their VRM 1.0 names (only the ones you give change; null puts one back to its default; the licence URL stays VRM's own), bone map overrides (a VRM bone name to a joint, or null to leave it unmapped; clearBones drops overrides), the material mode (mtoon-soft or pbr), what MToon does with highlights baked into the base color texture (soften, the default, or keep), whether the reweight hides the bridge faces fused between an arm and the body (bridges hide, the default, or keep) and the confirmed springs (by a candidate id from get_avatar's springs.found, with joints, a preset (soft, heavy, stiff) or stiffness, gravityPower, dragForce and hitRadius to tune; nothing is confirmed on its own, so confirm only parts a person or you judged from the candidates sheet). reset starts again from the workspace's avatar defaults. A name and at least one author are needed before a build writes. Returns the avatar like get_avatar; the open app updates live.",
         annotations(idempotent_hint = true)
     )]
     async fn set_avatar(&self, Parameters(args): Parameters<SetAvatarArgs>) -> Out {
@@ -287,6 +295,14 @@ impl McpTools {
                             .map_err(|_| format!("highlights must be soften or keep, not {h:?}."))
                     })
                     .transpose()?;
+                let bridges = args
+                    .bridges
+                    .as_deref()
+                    .map(|b| {
+                        serde_json::from_value(json!(b.to_lowercase()))
+                            .map_err(|_| format!("bridges must be hide or keep, not {b:?}."))
+                    })
+                    .transpose()?;
                 let patch = AvatarPatch {
                     reset: args.reset,
                     meta: args.meta.unwrap_or_default(),
@@ -294,6 +310,7 @@ impl McpTools {
                     clear_bones: args.clear_bones,
                     material,
                     highlights,
+                    bridges,
                     springs: args
                         .springs
                         .as_deref()
@@ -311,7 +328,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Build a character asset's VRM 1.0 avatar into the project's exports/<asset>.vrm (a derived export, never a new version). When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), it is first normalised headless in Blender on a copy (elbows straighten by default, or keep; fingers straighten by default, as far as the hand's mesh holds, or keep), which makes before and after pose sheets with a row of the hands up close. When the readiness finds cloth or hair weighted to the arms (the arm-weights finding), reweight auto (the default) frees them before that: Blender moves their weight from the arm bones to the trunk on a copy, keeping the arms, sleeves and gloves, and makes before and after sheets; the call answers \"waiting for approval\" with step reweight, and the rest pose comes after that yes (or after a no, from the model as it is). reweight off skips it. A changed rest pose needs a person's yes: the call then answers \"waiting for approval\" with step rest pose and the sheet paths, and a person approves or denies it in the app's Avatar view. You cannot approve it: call get_avatar or build_avatar again later (the normalised result is cached, Blender does not run again), and once approved it writes the file and returns its path, size, what it still lacks, the validation report beside it (exports/<asset>.vrm.report.json: source version and hash, readiness before and after, the bone map with each bone's source, the meta, what the reweight changed when one was applied, and with MToon how much of each base color texture is baked highlights and whether a softened copy was written) and the round trip (the written file read back and checked; a failure is a blocker in what it still lacks). \"denied\" means the person turned the pose down. Springs auto (the default): with springs confirmed (set_avatar springs), once the rest pose is approved Blender adds a chain of joints along each one, weights the part to it and derives colliders from the body, on a copy, and makes a sheet of the parts and a sway test; the call answers \"waiting for approval\" with step springs, and after that yes the file carries VRMC_springBone (each spring with its preset or tuned settings, the colliders and their groups) and the report records them; after a no it is written without springs. With none confirmed, a build looks for the parts that could swing (cached) so get_avatar lists them. springs off writes no springs. dryRun returns the plan and does nothing. Needs a meta name and an author (set_avatar).",
+        description = "Build a character asset's VRM 1.0 avatar into the project's exports/<asset>.vrm (a derived export, never a new version). When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), it is first normalised headless in Blender on a copy (elbows straighten by default, or keep; fingers straighten by default, as far as the hand's mesh holds, or keep), which makes before and after pose sheets with a row of the hands up close. When the readiness finds cloth or hair weighted to the arms (the arm-weights finding), reweight auto (the default) frees them before that: Blender moves their weight from the arm bones to the trunk on a copy, keeping the arms, sleeves and gloves, and makes before and after sheets; the call answers \"waiting for approval\" with step reweight, and the rest pose comes after that yes (or after a no, from the model as it is). The faces fused between an arm and the body that still stretch when it lifts (bridges, with their side, faces and where) are taken out of the reweighted model by default (set_avatar bridges keep keeps them; reweight.hiddenFaces says how many). reweight off skips it. A changed rest pose needs a person's yes: the call then answers \"waiting for approval\" with step rest pose and the sheet paths, and a person approves or denies it in the app's Avatar view. You cannot approve it: call get_avatar or build_avatar again later (the normalised result is cached, Blender does not run again), and once approved it writes the file and returns its path, size, what it still lacks, the validation report beside it (exports/<asset>.vrm.report.json: source version and hash, readiness before and after, the bone map with each bone's source, the meta, what the reweight changed when one was applied, and with MToon how much of each base color texture is baked highlights and whether a softened copy was written) and the round trip (the written file read back and checked; a failure is a blocker in what it still lacks). \"denied\" means the person turned the pose down. Springs auto (the default): with springs confirmed (set_avatar springs), once the rest pose is approved Blender adds a chain of joints along each one, weights the part to it and derives colliders from the body, on a copy, and makes a sheet of the parts and a sway test; the call answers \"waiting for approval\" with step springs, and after that yes the file carries VRMC_springBone (each spring with its preset or tuned settings, the colliders and their groups) and the report records them; after a no it is written without springs. With none confirmed, a build looks for the parts that could swing (cached) so get_avatar lists them. springs off writes no springs. dryRun returns the plan and does nothing. Needs a meta name and an author (set_avatar).",
         annotations(idempotent_hint = true)
     )]
     async fn build_avatar(&self, Parameters(args): Parameters<BuildAvatarArgs>) -> Out {

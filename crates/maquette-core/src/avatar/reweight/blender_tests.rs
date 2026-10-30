@@ -8,8 +8,10 @@ use std::fs;
 use std::path::PathBuf;
 
 use super::*;
+use crate::avatar::BridgeFaces;
 use crate::avatar::normalize::tests::world_with;
 use crate::avatar::normalize::{self, Elbows, Fingers, NormalizeRequest};
+use crate::inbox::analyse::analyse_bytes;
 use crate::inbox::fixture::{self, HumanoidSpec};
 use crate::test_blender;
 
@@ -37,6 +39,7 @@ fn reweight_then_normalise_a_model_in_blender() {
         asset: &w.asset,
         version: None,
         overrides: &none,
+        bridges: BridgeFaces::Hide,
     })
     .expect("plan");
     let runner = test_blender::runner();
@@ -115,6 +118,7 @@ fn whatever_the_hand_holds_stays_with_the_arm_in_blender() {
         asset: &w.asset,
         version: None,
         overrides: &none,
+        bridges: BridgeFaces::Hide,
     })
     .expect("plan");
     let runner = test_blender::runner();
@@ -145,24 +149,34 @@ fn a_ribbon_from_the_forearm_to_the_hip_follows_one_side_in_blender() {
     // from one to the other: lifting the arm pulled it into a long membrane.
     // It must split between the two, and only the faces where it does are
     // left to stretch, named as a bridge.
-    let w = world_with(&fixture::humanoid(&HumanoidSpec {
+    let model = fixture::humanoid(&HumanoidSpec {
         arm_drop: 55.0,
         sleeve_bridge: true,
         animation: false,
         ..HumanoidSpec::default()
-    }));
+    });
+    let w = world_with(&model);
     let none = BoneOverrides::new();
-    let planned = plan(&ReweightRequest {
-        workspace_root: &w.root,
-        config: &w.config,
-        project: &w.project,
-        asset: &w.asset,
-        version: None,
-        overrides: &none,
-    })
-    .expect("plan");
+    let source = analyse_bytes(&model, &w.root).expect("analyse");
     let runner = test_blender::runner();
-    let found = run(&runner, &test_blender::toolbox(&blender), &planned).expect("reweight");
+    let tools = test_blender::toolbox(&blender);
+    let reweight = |bridges| {
+        let planned = plan(&ReweightRequest {
+            workspace_root: &w.root,
+            config: &w.config,
+            project: &w.project,
+            asset: &w.asset,
+            version: None,
+            overrides: &none,
+            bridges,
+        })
+        .expect("plan");
+        let found = run(&runner, &tools, &planned).expect("reweight");
+        let out = analyse_bytes(&fs::read(&found.glb).expect("glb"), &w.root).expect("analyse");
+        (found, out)
+    };
+
+    let (found, out) = reweight(BridgeFaces::Hide);
     let report = &found.report;
     println!("{}", serde_json::to_string_pretty(report).expect("json"));
     assert!(report.moved > 0, "{report:#?}");
@@ -174,4 +188,16 @@ fn a_ribbon_from_the_forearm_to_the_hip_follows_one_side_in_blender() {
     assert!(bridge.faces > 0 && bridge.faces <= 4, "{bridge:?}");
     assert_eq!(report.bridge_faces, bridge.faces);
     assert_eq!(report.sides["right"].bridge_faces, 0);
+    // Hidden, only the bridge faces leave; every vertex stays.
+    assert_eq!(found.bridges, BridgeFaces::Hide);
+    assert_eq!(report.hidden_faces, bridge.faces);
+    assert_eq!(out.triangles + bridge.faces, source.triangles);
+    assert_eq!(out.vertices, source.vertices);
+
+    // Kept, every face stays.
+    let (found, out) = reweight(BridgeFaces::Keep);
+    assert_eq!(found.bridges, BridgeFaces::Keep);
+    assert_eq!(found.report.bridge_faces, bridge.faces);
+    assert_eq!(found.report.hidden_faces, 0);
+    assert_eq!(out.triangles, source.triangles);
 }

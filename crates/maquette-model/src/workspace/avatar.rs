@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::avatar::{AvatarSpec, Highlights};
+use crate::avatar::{AvatarSpec, BridgeFaces, Highlights};
 use crate::error::CoreResult;
 use maquette_glb::vrm::{
     AvatarPermission, CommercialUsage, CreditNotation, MaterialMode, Modification, VrmMeta,
@@ -60,6 +60,7 @@ impl AvatarDefaults {
             bones: Default::default(),
             material: self.material,
             highlights: Highlights::default(),
+            bridges: BridgeFaces::default(),
             springs: Vec::new(),
         }
     }

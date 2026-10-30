@@ -257,6 +257,7 @@ fn reweight_request<'a>(req: &'a AvatarRequest<'a>, spec: &'a AvatarSpec) -> Rew
         asset: req.asset,
         version: req.version,
         overrides: &spec.bones,
+        bridges: spec.bridges,
     }
 }
 

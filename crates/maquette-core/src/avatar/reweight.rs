@@ -4,7 +4,9 @@
 //! Blender reads a copy of one asset version, tells the arm (skin, sleeves,
 //! gloves) from what only hangs beside it, and moves the weight of the
 //! rest to the trunk ([`SCRIPT`]). Only the skin weights change; the mesh,
-//! UVs, textures, bone names and rest pose stay as they were.
+//! UVs, textures, bone names and rest pose stay as they were, except that
+//! with [`BridgeFaces::Hide`] the faces fused between an arm and the body
+//! (the bridges) leave the index buffers, so they are not drawn.
 //!
 //! The result is derived, never a new version: it lives in the version's
 //! avatar folder under `reweight/`, with the reweighted GLB, the script's
@@ -23,6 +25,7 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use super::BridgeFaces;
 use super::gate::{APPROVAL_FILE, DENIAL_FILE, Gate, Gated};
 use super::normalize::{self, NormalizeSheets, NormalizeState};
 use crate::base::ports::ScriptRunner;
@@ -103,6 +106,8 @@ pub struct ReweightRequest<'a> {
     pub version: Option<u32>,
     /// The avatar spec's bone map overrides.
     pub overrides: &'a BoneOverrides,
+    /// Hide the bridge faces in the output, or keep them.
+    pub bridges: BridgeFaces,
 }
 
 /// A planned run: what it reads, where it writes and its cache key.
@@ -118,6 +123,7 @@ pub struct ReweightPlan {
     pub bones: BTreeMap<String, String>,
     /// The source's readiness.
     pub readiness: VrmReadiness,
+    pub bridges: BridgeFaces,
     pub key: String,
 }
 
@@ -137,6 +143,7 @@ struct Job<'a> {
     report: &'a str,
     sheets: BTreeMap<&'a str, &'a str>,
     bones: &'a BTreeMap<String, String>,
+    bridges: BridgeFaces,
 }
 
 fn outputs() -> Vec<String> {
@@ -195,23 +202,30 @@ pub fn plan(req: &ReweightRequest<'_>) -> CoreResult<ReweightPlan> {
         project: req.project.to_string(),
         asset: found.asset,
         version: found.version,
-        key: key(&source_hash, &bones),
+        key: key(&source_hash, &bones, req.bridges),
         source: found.source,
         dir: work_dir(&version_dir),
         bones,
         readiness,
+        bridges: req.bridges,
     })
 }
 
 /// The run's key: everything that decides the output.
-pub(crate) fn key(source_hash: &str, bones: &BTreeMap<String, String>) -> String {
+pub(crate) fn key(
+    source_hash: &str,
+    bones: &BTreeMap<String, String>,
+    bridges: BridgeFaces,
+) -> String {
     let mut hasher = Sha256::new();
     let bones = serde_json::to_string(bones).unwrap_or_default();
+    let bridges = serde_json::to_string(&bridges).unwrap_or_default();
     for part in [
         KEY_VERSION,
         source_hash,
         &SCRIPT.replace("\r\n", "\n"),
         &bones,
+        &bridges,
     ] {
         hasher.update(part.as_bytes());
         hasher.update(b"\n");
@@ -258,6 +272,7 @@ pub fn run(
         report: REPORT_FILE,
         sheets: BTreeMap::from([("before", SHEET_BEFORE), ("after", SHEET_AFTER)]),
         bones: &plan.bones,
+        bridges: plan.bridges,
     };
     write_json(&dir.join(JOB_FILE), &job)?;
     let started = Instant::now();
@@ -306,6 +321,7 @@ fn finish(plan: &ReweightPlan) -> CoreResult<Reweighted> {
             after: dir.join(SHEET_AFTER).display().to_string(),
         },
         report,
+        bridges: plan.bridges,
         key: plan.key.clone(),
         approved_at: None,
     })
@@ -343,7 +359,8 @@ pub fn deny(dir: &Path) -> CoreResult<Reweighted> {
 }
 
 /// The approved reweight in `dir` of the source with `source_hash` and
-/// these bones, still intact; `None` when there is none.
+/// these bones, with the bridges as the person chose, still intact; `None`
+/// when there is none.
 ///
 /// # Errors
 ///
@@ -353,9 +370,11 @@ pub fn approved(
     source_hash: &str,
     bones: &BTreeMap<String, String>,
 ) -> CoreResult<Option<Reweighted>> {
-    let wanted = key(source_hash, bones);
     // Approved means the yes holds for the output's bytes as they are now.
-    Ok(load(dir)?.filter(|found| found.key == wanted && found.state == NormalizeState::Approved))
+    Ok(load(dir)?.filter(|found| {
+        found.key == key(source_hash, bones, found.bridges)
+            && found.state == NormalizeState::Approved
+    }))
 }
 
 #[cfg(test)]

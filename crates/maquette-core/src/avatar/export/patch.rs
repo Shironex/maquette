@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::invalid;
-use crate::avatar::{AvatarSpec, Highlights, SpringSpec};
+use crate::avatar::{AvatarSpec, BridgeFaces, Highlights, SpringSpec};
 use crate::error::CoreResult;
 use crate::inbox::vrm::{BoneOverrides, MaterialMode};
 
@@ -24,6 +24,8 @@ pub struct AvatarPatch {
     pub material: Option<MaterialMode>,
     /// Soften the highlights baked into the base color, or keep them.
     pub highlights: Option<Highlights>,
+    /// Hide the faces fused between an arm and the body, or keep them.
+    pub bridges: Option<BridgeFaces>,
     /// The confirmed springs, replacing the ones there; an empty list
     /// writes the VRM without springs.
     pub springs: Option<Vec<SpringSpec>>,
@@ -99,6 +101,9 @@ pub fn apply_patch(
     }
     if let Some(highlights) = patch.highlights {
         next.highlights = highlights;
+    }
+    if let Some(bridges) = patch.bridges {
+        next.bridges = bridges;
     }
     if let Some(springs) = &patch.springs {
         next.springs.clone_from(springs);
