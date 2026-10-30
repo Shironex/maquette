@@ -155,15 +155,23 @@ export function createSpringsMock(
   }
 
   /**
-   * What a build does about springs: looks once with none confirmed, and
-   * with some, makes their chains (again when they changed) and waits on
-   * them while they are pending.
+   * What a build does about springs: nothing with none confirmed; looks
+   * once with nothing picked yet, and waits for a pick when the last file
+   * had springs; with some, makes their chains (again when they changed)
+   * and waits on them while they are pending.
    */
-  function step(p: string, a: string, version: number, spec: AvatarSpec_Serialize) {
+  function step(
+    p: string,
+    a: string,
+    version: number,
+    spec: AvatarSpec_Serialize,
+    hadSprings: boolean
+  ): { waiting: Chained | null; unpicked: FoundSprings | null } {
     const ids = (spec.springs ?? []).map(s => s.id);
+    if (spec.noSprings) return { waiting: null, unpicked: null };
     if (ids.length === 0) {
       if (!looks.has(key(p, a))) looks.set(key(p, a), found(dir(p, a)));
-      return { waiting: null };
+      return { waiting: null, unpicked: hadSprings ? looks.get(key(p, a))! : null };
     }
     const made = chains.get(key(p, a));
     const wanted = `v${version}-${ids.join('-')}`;
@@ -171,7 +179,7 @@ export function createSpringsMock(
       chains.set(key(p, a), rooted(chain(p, a, version, ids)));
     }
     const current = chains.get(key(p, a))!;
-    return { waiting: current.state === 'pending' ? current : null };
+    return { waiting: current.state === 'pending' ? current : null, unpicked: null };
   }
 
   /** The springs a file written now carries: the confirmed ones, once their chains are approved. */

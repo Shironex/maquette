@@ -1,12 +1,15 @@
 /**
  * The Springs tab's words and numbers: which candidates are confirmed in a
- * spec, the joints and preset each gets, and what the chain step added.
- * Nothing is confirmed on its own: a person picks each part.
+ * spec (or that none are), the joints and preset each gets, and what the
+ * chain step added. Nothing is confirmed on its own: a person picks each
+ * part, or confirms none.
  */
 import type {
+  AvatarBuild,
   AvatarSpec_Serialize,
   Chained,
   SpringCandidate,
+  SpringCarried,
   SpringKind,
   SpringPreset,
   SpringSpec,
@@ -41,6 +44,30 @@ export function confirmedSprings(spec: AvatarSpec_Serialize | null): SpringSpec[
   return spec?.springs ?? [];
 }
 
+/**
+ * What the person chose: some springs, none at all, or nothing yet (a
+ * build then waits for a pick when the last export carried springs).
+ */
+export type SpringsChoice = 'picked' | 'none' | 'unpicked';
+
+export function springsChoice(spec: AvatarSpec_Serialize | null): SpringsChoice {
+  if (confirmedSprings(spec).length > 0) return 'picked';
+  return spec?.noSprings ? 'none' : 'unpicked';
+}
+
+/** `spec` confirming that the VRM carries no springs, or taking that back. */
+export function confirmNoSprings(spec: AvatarSpec_Serialize, on: boolean): AvatarSpec_Serialize {
+  return { ...spec, springs: on ? [] : confirmedSprings(spec), noSprings: on };
+}
+
+/** The confirmed springs no candidate goes by now: the model changed under them. */
+export function unmatchedSprings(
+  spec: AvatarSpec_Serialize | null,
+  candidates: readonly SpringCandidate[]
+): SpringSpec[] {
+  return confirmedSprings(spec).filter(s => !candidates.some(c => c.id === s.id));
+}
+
 /** A candidate confirmed as it was found: its line, its bone, its kind's preset. */
 export function specOf(candidate: SpringCandidate): SpringSpec {
   return {
@@ -60,7 +87,13 @@ export function toggleSpring(
   on: boolean
 ): AvatarSpec_Serialize {
   const rest = confirmedSprings(spec).filter(s => s.id !== candidate.id);
-  return { ...spec, springs: on ? [...rest, specOf(candidate)] : rest };
+  if (!on) return { ...spec, springs: rest };
+  return { ...spec, springs: [...rest, specOf(candidate)], noSprings: false };
+}
+
+/** `spec` without the confirmed spring `id`. */
+export function dropSpring(spec: AvatarSpec_Serialize, id: string): AvatarSpec_Serialize {
+  return { ...spec, springs: confirmedSprings(spec).filter(s => s.id !== id) };
 }
 
 /** `spec` with the confirmed spring `id` changed by `change`. */
@@ -103,3 +136,37 @@ export const SPRINGS_WAITING = {
   title: 'The spring chains wait for you',
   detail: 'Look at the parts and the sway sheet, then approve or deny the chains.',
 };
+
+/** The notice after a build that waits for a pick. */
+export const SPRINGS_UNPICKED = {
+  title: 'Pick the springs first',
+  detail:
+    'The last VRM had springs and none are confirmed now. Pick the parts to keep on the Springs tab, or confirm no springs; nothing was written.',
+};
+
+/** The notice after a build whose confirmed springs match no part now. */
+export function springsStaleNotice(stale: readonly string[]): { title: string; detail: string } {
+  return {
+    title: 'The confirmed springs no longer match; pick again',
+    detail: `No part found on this model matches ${stale.join(', ')} clearly enough to carry it over. Pick again on the Springs tab; nothing was written.`,
+  };
+}
+
+/** "cloth-1 is hair-1 now", for a build that carried picks over. */
+export function carriedSummary(carried: readonly SpringCarried[]): string {
+  return carried
+    .map(c => (c.from === c.to ? `${c.from} was found again` : `${c.from} is ${c.to} now`))
+    .join(', ');
+}
+
+/** The notice after a build the springs stopped or hold, if they did. */
+export function springsBuildNotice(built: AvatarBuild): { title: string; detail: string } | null {
+  if (built.status === 'candidates waiting for a pick') return SPRINGS_UNPICKED;
+  if (built.status === 'springs no longer match') return springsStaleNotice(built.stale);
+  if (built.status !== 'springs waiting for approval') return null;
+  if (built.carried.length === 0) return SPRINGS_WAITING;
+  return {
+    title: SPRINGS_WAITING.title,
+    detail: `The model changed under the confirmed springs, so they were carried over: ${carriedSummary(built.carried)}. ${SPRINGS_WAITING.detail}`,
+  };
+}

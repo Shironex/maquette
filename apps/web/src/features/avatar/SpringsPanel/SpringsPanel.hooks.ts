@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { fileUrl } from '@/ipc/files';
 import { formatAgo } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
-import { chainSummary, confirmedSprings } from '@/state/avatar-springs';
+import {
+  chainSummary,
+  confirmedSprings,
+  springsChoice,
+  unmatchedSprings,
+} from '@/state/avatar-springs';
 import { useAvatarStore } from '@/state/use-avatar-store';
 import type { SheetKind } from './SpringSheets';
 
@@ -25,14 +30,21 @@ export function useSpringsPanel() {
   const found = springs?.found ?? null;
   const chained = springs?.chained ?? null;
   const confirmed = confirmedSprings(draft);
+  const candidates = found?.candidates ?? [];
   const pending = chained?.state === 'pending';
   const busy = finding || building || deciding;
   return {
     view,
     ready: Boolean(springs?.ready),
     found,
-    candidates: found?.candidates ?? [],
+    candidates,
     confirmed,
+    /** Picked springs, none confirmed, or nothing picked yet. */
+    choice: springsChoice(draft),
+    /** Confirmed springs no candidate goes by now. */
+    unmatched: found ? unmatchedSprings(draft, candidates) : [],
+    /** The last VRM written carries springs. */
+    hadSprings: (view?.export?.springs ?? 0) > 0,
     chained,
     state: chained?.state ?? null,
     summary: chained ? chainSummary(chained) : null,
@@ -56,6 +68,8 @@ export function useSpringsPanel() {
       find: () => void useAvatarStore.getState().findSprings(),
       confirm,
       edit,
+      none: (on: boolean) => useAvatarStore.getState().confirmNoSprings(on),
+      drop: (id: string) => useAvatarStore.getState().dropSpring(id),
       make: () => void useAvatarStore.getState().build(),
       approve: () => void useAvatarStore.getState().decideSprings(true),
       deny: () => void useAvatarStore.getState().decideSprings(false),
