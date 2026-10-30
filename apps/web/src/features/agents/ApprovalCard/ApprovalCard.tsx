@@ -13,7 +13,8 @@ export interface ApprovalCardProps {
 export default function ApprovalCard({ approval, floating }: ApprovalCardProps) {
   const { decide, deciding, site, now, cost, notes, pose } = useApprovalCard(approval);
   const titleId = `${approval.id}-title`;
-  const rest = approval.kind === 'rest-pose';
+  const weights = approval.kind === 'reweight';
+  const rest = approval.kind === 'rest-pose' || weights;
   const send = approval.kind === 'send-to-3d';
   const round = approval.kind === 'image-round';
   const detailLine = (send || round || rest) && approval.detail ? approval.detail : null;
@@ -52,7 +53,13 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
           <h2 id={titleId} className="text-emphasis leading-5 font-semibold">
             {approvalTitle(approval, site?.name)}
           </h2>
-          {rest ? (
+          {weights ? (
+            <p className="mt-0.5 text-meta text-fg-mute">
+              An agent built this avatar over MCP and moved cloth and hair off its arms, so lifting
+              the arms does not drag them. Nothing is used until you approve the sheets in the
+              Avatar view.
+            </p>
+          ) : rest ? (
             <p className="mt-0.5 text-meta text-fg-mute">
               An agent built this avatar over MCP and its rest pose changed. Nothing is written
               until you approve the sheets in the Avatar view.
@@ -125,7 +132,11 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
             variant="secondary"
             disabled={pose.denying}
             loading={pose.denying}
-            tooltip="Writes nothing; the agent is told the pose was turned down"
+            tooltip={
+              weights
+                ? 'Lifts the arms from the model as it is; the agent is told it was turned down'
+                : 'Writes nothing; the agent is told the pose was turned down'
+            }
             onClick={() => void pose.deny()}
           >
             Deny

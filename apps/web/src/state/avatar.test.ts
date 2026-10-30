@@ -83,12 +83,17 @@ describe('the avatar helpers', () => {
       readiness,
       readinessError: null,
       needsNormalize: true,
+      needsReweight: false,
+      reweighted: null,
       normalized: null,
       export: null,
       exportPath: '/p/exports/hero.vrm',
       metaProblem: null,
     };
     expect(buildAction(view, spec)).toMatchObject({ label: 'Build VRM', disabled: false });
+    expect(buildAction({ ...view, needsReweight: true }, spec).tooltip).toBe(
+      'Frees cloth and hair from the arms headless in Blender, then waits for your yes'
+    );
     expect(buildAction(view, { ...spec, meta: { ...spec.meta, authors: [] } })).toMatchObject({
       disabled: true,
       tooltip: 'Name at least one author',

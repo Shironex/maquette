@@ -16,13 +16,15 @@ describe('the Avatar view', () => {
     expect(screen.getByRole('region', { name: 'Characters' })).toHaveTextContent('Elsheria');
   });
 
-  it('builds, waits for the yes on the sheets, then shows the file', async () => {
+  it('builds, waits for each yes on the sheets, then shows the file', async () => {
     await openAvatar();
     render(<AvatarView />);
     await userEvent.type(await screen.findByLabelText('Authors'), 'Ana');
     await userEvent.click(screen.getByRole('button', { name: 'Build VRM' }));
+    const weights = await screen.findByRole('region', { name: 'Cloth and hair approval' });
+    await userEvent.click(within(weights).getByRole('button', { name: 'Approve and go on' }));
     const ask = await screen.findByRole('region', { name: 'Rest pose approval' });
-    expect(screen.getByRole('img', { name: 'The after sheet' })).toBeInTheDocument();
+    expect(screen.getAllByRole('img', { name: 'The after sheet' })).toHaveLength(2);
     await userEvent.click(within(ask).getByRole('button', { name: 'Approve and write' }));
     const last = await screen.findByRole('region', { name: 'Last export' });
     expect(last).toHaveTextContent('Last export');

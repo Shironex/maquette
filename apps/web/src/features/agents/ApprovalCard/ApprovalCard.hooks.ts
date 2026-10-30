@@ -55,8 +55,9 @@ export function useApprovalCard(approval: Approval) {
 }
 
 /**
- * A rest pose is judged on its sheets, so the card only opens them in the
- * Avatar view or turns the pose down; approving happens there.
+ * A rest pose, or the weights that free cloth and hair from the arms, is
+ * judged on its sheets, so the card only opens them in the Avatar view or
+ * turns them down; approving happens there.
  */
 function useRestPose(approval: Approval) {
   const [denying, setDenying] = useState(false);
@@ -72,11 +73,17 @@ function useRestPose(approval: Approval) {
       if (!asset) return;
       setDenying(true);
       try {
-        await commands.avatarDecide(project, asset, version ?? null, false);
+        const weights = approval.kind === 'reweight';
+        if (weights) await commands.avatarDecideReweight(project, asset, version ?? null, false);
+        else await commands.avatarDecide(project, asset, version ?? null, false);
         notify({
           status: 'info',
-          title: `${approval.assetName ?? 'The avatar'}'s rest pose was turned down`,
-          detail: 'Nothing was written. The agent is told it was denied.',
+          title: weights
+            ? `${approval.assetName ?? 'The avatar'}'s new weights were turned down`
+            : `${approval.assetName ?? 'The avatar'}'s rest pose was turned down`,
+          detail: weights
+            ? 'The arms are lifted from the model as it is. The agent is told it was denied.'
+            : 'Nothing was written. The agent is told it was denied.',
         });
         await useAgentsStore.getState().load();
         useAvatarStore.getState().onChanged(project, asset);

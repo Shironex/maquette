@@ -20,6 +20,8 @@ export function useRestPosePanel() {
   const before = n?.report.before ?? measuresOf(view?.readiness ?? null);
   return {
     view,
+    /** Freeing cloth and hair from the arms comes first. */
+    stepped: Boolean(view?.needsReweight || view?.reweighted),
     normalized: n,
     state: n?.state ?? null,
     rows: measureRows(before ?? null, n?.report.after ?? null),

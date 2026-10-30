@@ -1,7 +1,8 @@
 /**
  * The Avatar view: one character asset's VRM export. The spec is edited
- * as a draft and saved before a build; a build that changes the rest pose
- * waits for the person's yes, given here and nowhere else. Agents that
+ * as a draft and saved before a build; a build that frees cloth and hair
+ * from the arms or changes the rest pose waits for the person's yes to
+ * each, given here and nowhere else. Agents that
  * change or build an avatar raise `avatarChanged`, which reloads it.
  */
 import { create } from 'zustand';
@@ -57,6 +58,8 @@ interface AvatarStore {
   setBone: (bone: string, joint: string | null | undefined) => Promise<void>;
   build: () => Promise<void>;
   decide: (approve: boolean) => Promise<void>;
+  /** The yes or no to the weights that free cloth and hair from the arms; a yes builds on. */
+  decideReweight: (approve: boolean) => Promise<void>;
   /** An agent changed an avatar; reloads it when it is the one open. */
   onChanged: (project: string, asset: string) => void;
 }
@@ -179,7 +182,7 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
     if (dirty && !(await get().save())) return;
     set({ building: true });
     try {
-      const built = await commands.avatarBuild(project, asset, version, elbows);
+      const built = await commands.avatarBuild(project, asset, version, elbows, null);
       const { title, detail } = buildNotice(built);
       notify(built.status === 'written' ? 'done' : 'info', title, detail);
     } catch (error) {
@@ -205,6 +208,31 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
       notify('info', 'Rest pose turned down', 'Nothing is written from it.');
     } catch (error) {
       notify('failed', 'Could not answer the rest pose', errorMessage(error));
+    } finally {
+      set({ deciding: false });
+      await get().load();
+    }
+  },
+
+  decideReweight: async approve => {
+    const { project, asset, version } = get();
+    if (!project || !asset) return;
+    set({ deciding: true });
+    try {
+      await commands.avatarDecideReweight(project, asset, version, approve);
+      void useAgentsStore.getState().load();
+      if (approve) {
+        set({ deciding: false });
+        await get().build();
+        return;
+      }
+      notify(
+        'info',
+        'New weights turned down',
+        'Build again to lift the arms from the model as it is.'
+      );
+    } catch (error) {
+      notify('failed', 'Could not answer the new weights', errorMessage(error));
     } finally {
       set({ deciding: false });
       await get().load();

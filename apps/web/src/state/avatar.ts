@@ -1,7 +1,8 @@
 /**
  * The Avatar view's words and numbers: the VRM licence choices, the bone
  * map grouped for reading, the rest pose measures before and after a
- * normalise, and the checks a meta must pass before a build writes.
+ * normalise, what a reweight moved off the arms, and the checks a meta
+ * must pass before a build writes.
  */
 import type {
   AvatarBuild,
@@ -17,6 +18,7 @@ import type {
   NormalizeReport,
   PoseMeasures,
   ProjectManifest,
+  ReweightReport,
   VrmBone,
   VrmMeta_Serialize,
   VrmReadiness,
@@ -318,8 +320,29 @@ export function poseSummary(report: NormalizeReport): string {
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
 }
 
+const count = (n: number | undefined) => (n ?? 0).toLocaleString('en-US');
+
+/** What a reweight moved, in a sentence: how many vertices, and from which arm bones most. */
+export function reweightSummary(report: ReweightReport): string {
+  const from = Object.entries(report.fromBones ?? {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([bone]) => bone);
+  const most = from.length > 0 ? `, most from ${from.join(' and ')}` : '';
+  return (
+    `Moved ${count(report.moved)} vertices of cloth and hair to the trunk${most}; ` +
+    `kept ${count(report.keptAsSleeve)} on the arms as sleeve.`
+  );
+}
+
 /** What a build answered, for the notice after it. */
 export function buildNotice(built: AvatarBuild): { title: string; detail: string } {
+  if (built.status === 'reweight waiting for approval') {
+    return {
+      title: 'The freed arms wait for you',
+      detail: 'Look at the before and after sheets, then approve or deny the new weights.',
+    };
+  }
   if (built.status === 'written') {
     const left = built.export.unresolved.filter(f => f.level !== 'note').length;
     return {
@@ -364,6 +387,8 @@ export function buildAction(
   if (!view.readiness) return off(view.readinessError ?? 'The model has no humanoid rig');
   const problem = metaProblem(draft.meta);
   if (problem) return off(problem.replace(/\.$/, ''));
+  const weights = view.reweighted?.state;
+  if (weights === 'pending') return off('Approve or deny the new weights first');
   const pose = view.normalized?.state;
   if (pose === 'pending') return off('Approve or deny the new rest pose first');
   const file = `exports/${view.asset}.vrm`;
@@ -371,8 +396,10 @@ export function buildAction(
     label,
     disabled: false,
     tooltip:
-      view.needsNormalize && pose !== 'approved'
-        ? 'Normalises the rest pose headless in Blender, then waits for your yes'
-        : `Writes ${file}, never a new version`,
+      view.needsReweight && !weights
+        ? 'Frees cloth and hair from the arms headless in Blender, then waits for your yes'
+        : view.needsNormalize && pose !== 'approved'
+          ? 'Normalises the rest pose headless in Blender, then waits for your yes'
+          : `Writes ${file}, never a new version`,
   };
 }

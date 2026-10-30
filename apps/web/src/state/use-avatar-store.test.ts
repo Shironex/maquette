@@ -19,14 +19,19 @@ describe('the avatar store', () => {
     expect(state().draft?.meta.name).toBe('Elsheria');
   });
 
-  it('saves the meta, normalises, waits for a yes, then writes', async () => {
+  it('saves the meta, frees the arms, normalises, waits for each yes, then writes', async () => {
     const calls = await openAvatar();
     state().editMeta({ authors: ['Ana'] });
     expect(state().dirty).toBe(true);
     await state().build();
     expect(calls).toContain('avatar_save');
     expect(state().dirty).toBe(false);
+    expect(state().view?.reweighted?.state).toBe('pending');
+    expect(state().view?.normalized).toBeNull();
+    await state().decideReweight(true);
+    expect(state().view?.reweighted?.state).toBe('approved');
     expect(state().view?.normalized?.state).toBe('pending');
+    expect(state().view?.normalized?.reweight?.moved).toBe(2314);
     expect(state().view?.export).toBeNull();
     await state().decide(true);
     expect(state().view?.normalized?.state).toBe('approved');
@@ -39,6 +44,17 @@ describe('the avatar store', () => {
     await state().decide(false);
     expect(state().view?.normalized?.state).toBe('denied');
     expect(useAgentsStore.getState().status?.approvals.map(a => a.kind)).not.toContain('rest-pose');
+  });
+
+  it("settles an agent's waiting weights with a no and lifts the arms as they are", async () => {
+    await openAvatar('reweight');
+    expect(useAgentsStore.getState().status?.approvals.map(a => a.kind)).toContain('reweight');
+    await state().decideReweight(false);
+    expect(state().view?.reweighted?.state).toBe('denied');
+    expect(useAgentsStore.getState().status?.approvals.map(a => a.kind)).not.toContain('reweight');
+    await state().build();
+    expect(state().view?.normalized?.state).toBe('pending');
+    expect(state().view?.normalized?.reweight).toBeNull();
   });
 
   it('saves a bone by hand and keeps the meta being typed', async () => {

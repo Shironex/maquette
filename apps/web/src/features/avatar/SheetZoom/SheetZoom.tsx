@@ -14,7 +14,7 @@ const MODES: readonly { value: ZoomMode; label: string; hint: string }[] = [
   { value: 'after', label: 'After', hint: 'The whole after sheet, full size' },
 ];
 
-/** Rows of a sheet, top to bottom; its last column is the shoulders. */
+/** Rows of a rest pose sheet, top to bottom; its last column is the shoulders. */
 const POSES = ['At rest', 'Arms down', 'Arms up', 'A step'];
 
 export interface SheetZoomProps {
@@ -22,10 +22,16 @@ export interface SheetZoomProps {
   after: string | null;
   mode: ZoomMode;
   onClose: () => void;
+  /** The sheet's name; the rest pose sheets without. */
+  title?: string;
+  /** Its rows, top to bottom; the rest pose sheet's without. */
+  poses?: readonly string[];
 }
 
+const WORDS = ['one', 'two', 'three', 'four', 'five', 'six'];
+
 /** Only a sheet's shoulders column, each cell as wide as the column. */
-function Shoulders({ src, label }: { src: string | null; label: string }) {
+function Shoulders({ src, label, rows }: { src: string | null; label: string; rows: number }) {
   return (
     <figure className="m-0 flex min-w-0 flex-1 flex-col gap-1.5">
       <figcaption className="text-meta font-medium text-fg-dim">{label}</figcaption>
@@ -33,7 +39,7 @@ function Shoulders({ src, label }: { src: string | null; label: string }) {
         {src ? (
           <img
             src={src}
-            alt={`${label}: the shoulders in four poses`}
+            alt={`${label}: the shoulders in ${WORDS[rows - 1] ?? rows} poses`}
             className="ml-[-300%] block w-[400%] max-w-none"
           />
         ) : null}
@@ -43,15 +49,22 @@ function Shoulders({ src, label }: { src: string | null; label: string }) {
 }
 
 /** A rest pose sheet up close, to judge the armpits, a cape or hair by the arms. */
-export default function SheetZoom({ before, after, mode: start, onClose }: SheetZoomProps) {
+export default function SheetZoom({
+  before,
+  after,
+  mode: start,
+  onClose,
+  title = 'Rest pose sheets',
+  poses = POSES,
+}: SheetZoomProps) {
   const [mode, setMode] = useSheetZoom(start);
   const whole = mode === 'before' ? before : after;
   return (
     <Sheet
       id="avatar-sheet-zoom"
       icon="magnifying-glass"
-      title="Rest pose sheets"
-      meta={`Rows: ${POSES.join(', ').toLowerCase()}. Columns: front, side, back, shoulders.`}
+      title={title}
+      meta={`Rows: ${poses.join(', ').toLowerCase()}. Columns: front, side, back, shoulders.`}
       onClose={onClose}
       width={1080}
     >
@@ -59,8 +72,8 @@ export default function SheetZoom({ before, after, mode: start, onClose }: Sheet
         <SegmentedControl label="Show" options={MODES} value={mode} onChange={setMode} />
         {mode === 'shoulders' ? (
           <div className="flex gap-4">
-            <Shoulders src={before} label="Before" />
-            <Shoulders src={after} label="After" />
+            <Shoulders src={before} label="Before" rows={poses.length} />
+            <Shoulders src={after} label="After" rows={poses.length} />
           </div>
         ) : whole ? (
           <img
