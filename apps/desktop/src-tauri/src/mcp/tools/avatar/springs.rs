@@ -1,9 +1,10 @@
-//! The springs part of the avatar tools: confirming candidates by id, the
-//! springs mode word, and a chain step's short answer.
+//! The springs part of the avatar tools: confirming candidates by id or
+//! none at all, the springs mode word, and the short answers of a build the
+//! springs stop.
 
 use maquette_core::avatar::SpringSpec;
-use maquette_core::avatar::export::SpringsView;
-use maquette_core::avatar::springs::{Chained, SpringsMode};
+use maquette_core::avatar::export::{NoSprings, SpringsChange, SpringsView};
+use maquette_core::avatar::springs::{Chained, FoundSprings, SpringsMode};
 use rmcp::schemars;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -37,6 +38,30 @@ pub struct SpringArg {
     pub drag_force: Option<f64>,
     /// 0 to 0.5 metres: each joint's radius against the colliders.
     pub hit_radius: Option<f64>,
+}
+
+/// What `set_avatar` confirms: the springs, or none at all.
+#[derive(Debug, Clone, Deserialize, schemars::JsonSchema)]
+#[serde(untagged)]
+pub enum SpringsArg {
+    /// "none": the VRM carries no springs, whatever the finder proposes.
+    Word(String),
+    /// The springs to confirm, replacing the ones confirmed before. An empty list clears the
+    /// picks: nobody picked yet, so a build waits for a pick when the last export had springs.
+    List(Vec<SpringArg>),
+}
+
+/// The change `arg` makes to the confirmed springs.
+pub(super) fn change(view: &SpringsView, arg: &SpringsArg) -> Result<SpringsChange, String> {
+    match arg {
+        SpringsArg::Word(word) if word.eq_ignore_ascii_case("none") => {
+            Ok(SpringsChange::None(NoSprings::None))
+        }
+        SpringsArg::Word(word) => Err(format!(
+            "springs is a list of springs to confirm, or \"none\" for no springs, not {word:?}."
+        )),
+        SpringsArg::List(list) => confirmed(view, list).map(SpringsChange::Picked),
+    }
 }
 
 pub(super) fn parse_springs(word: Option<&str>) -> Result<SpringsMode, String> {
@@ -103,5 +128,20 @@ pub(super) fn chain_summary(found: &Chained) -> Value {
         })).collect::<Vec<_>>(),
         "colliders": report.colliders.len(),
         "changed": report.changed,
+    })
+}
+
+/// The candidates, short: what a person picks from.
+pub(super) fn candidates_summary(found: &FoundSprings) -> Value {
+    json!({
+        "sheet": found.sheet,
+        "candidates": found.candidates.iter().map(|c| json!({
+            "id": c.id,
+            "kind": to_short_value(c.kind),
+            "rootBone": c.root_bone,
+            "length": c.length,
+            "vertices": c.vertices,
+            "confidence": c.confidence,
+        })).collect::<Vec<_>>(),
     })
 }

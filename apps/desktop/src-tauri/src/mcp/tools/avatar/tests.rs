@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use maquette_core::avatar::export::AvatarExport;
-use maquette_core::avatar::export::SpringsView;
+use maquette_core::avatar::export::{NoSprings, SpringCarried, SpringsChange, SpringsView};
 use maquette_core::avatar::highlights::{HighlightsReport, ImageHighlights};
 use maquette_core::avatar::normalize::{NormalizeReport, NormalizeSheets, NormalizeState};
 use maquette_core::avatar::reweight::{ReweightBridge, ReweightReport};
@@ -262,7 +262,10 @@ fn chained() -> Chained {
 #[test]
 fn waiting_chains_ask_a_person_once_with_the_sway_sheet() {
     let hub = Hub::new(|| {});
-    let built = AvatarBuild::SpringsWaiting { chained: chained() };
+    let built = AvatarBuild::SpringsWaiting {
+        chained: chained(),
+        carried: Vec::new(),
+    };
     let first = build_answer(&hub, "Hero", &built);
     assert_eq!(
         (first["status"].as_str(), first["step"].as_str()),
@@ -287,11 +290,93 @@ fn waiting_chains_ask_a_person_once_with_the_sway_sheet() {
             .is_some_and(|d| d.contains("hair-1"))
     );
     assert!(hub.springs_for("pets", "hero").is_some());
+    assert!(first.get("carried").is_none());
+
+    let carried = AvatarBuild::SpringsWaiting {
+        chained: chained(),
+        carried: vec![SpringCarried {
+            from: "cloth-1".into(),
+            to: "hair-1".into(),
+            root_bone: "head".into(),
+            overlap: 1.0,
+        }],
+    };
+    let answer = build_answer(&hub, "Hero", &carried);
+    assert_eq!(answer["carried"][0]["from"], "cloth-1");
+    assert_eq!(answer["carried"][0]["to"], "hair-1");
+    assert!(
+        answer["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("carried over"))
+    );
 }
 
 #[test]
-fn springs_are_confirmed_by_candidate_id_and_tuned_on_top() {
-    let view = SpringsView {
+fn a_build_the_springs_stop_says_what_to_pick_and_writes_nothing() {
+    let hub = Hub::new(|| {});
+    let found = view().found.expect("found");
+    let unpicked = build_answer(
+        &hub,
+        "Hero",
+        &AvatarBuild::SpringsUnpicked {
+            found: found.clone(),
+        },
+    );
+    assert_eq!(unpicked["status"], "candidates waiting for a pick");
+    assert_eq!(unpicked["springs"]["candidates"][0]["id"], "hair-1");
+    assert!(
+        unpicked["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("\"none\""))
+    );
+    let stale = build_answer(
+        &hub,
+        "Hero",
+        &AvatarBuild::SpringsStale {
+            found,
+            stale: vec!["cloth-1".into()],
+        },
+    );
+    assert_eq!(stale["status"], "springs no longer match");
+    assert_eq!(stale["stale"][0], "cloth-1");
+    assert!(
+        stale["message"]
+            .as_str()
+            .is_some_and(|m| m.starts_with("The confirmed springs no longer match; pick again."))
+    );
+    assert!(hub.approvals().is_empty());
+}
+
+#[test]
+fn springs_none_confirms_none_and_an_empty_list_clears_the_picks() {
+    let view = view();
+    let none: springs::SpringsArg = serde_json::from_value(json!("None")).expect("word");
+    assert_eq!(
+        springs::change(&view, &none),
+        Ok(SpringsChange::None(NoSprings::None))
+    );
+    let cleared: springs::SpringsArg = serde_json::from_value(json!([])).expect("list");
+    assert_eq!(
+        springs::change(&view, &cleared),
+        Ok(SpringsChange::Picked(Vec::new()))
+    );
+    let picked: springs::SpringsArg =
+        serde_json::from_value(json!([{ "id": "hair-1" }])).expect("list");
+    assert!(matches!(
+        springs::change(&view, &picked),
+        Ok(SpringsChange::Picked(list)) if list.len() == 1
+    ));
+    let other: springs::SpringsArg = serde_json::from_value(json!("all")).expect("word");
+    assert!(
+        springs::change(&view, &other)
+            .expect_err("unknown word")
+            .contains("\"none\"")
+    );
+}
+
+/// A springs view with one candidate, the ponytail.
+fn view() -> SpringsView {
+    SpringsView {
         ready: true,
         found: Some(FoundSprings {
             candidates: vec![SpringCandidate {
@@ -311,7 +396,12 @@ fn springs_are_confirmed_by_candidate_id_and_tuned_on_top() {
             height: 1.7,
         }),
         chained: None,
-    };
+    }
+}
+
+#[test]
+fn springs_are_confirmed_by_candidate_id_and_tuned_on_top() {
+    let view = view();
     let arg = |id: &str| springs::SpringArg {
         id: id.into(),
         kind: None,
