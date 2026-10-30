@@ -432,6 +432,34 @@ fn findings_are_ranked_blockers_first() {
     assert_eq!(r.count(FindingLevel::Warning), 1);
 }
 
+#[test]
+fn a_cape_weighted_to_the_arm_is_a_warning() {
+    let clean = read(&HumanoidSpec::default());
+    assert!(!ids(&clean, FindingLevel::Warning).contains(&"arm-weights"));
+    for arm_drop in [0.0, 45.0] {
+        let caped = read(&HumanoidSpec {
+            cape: true,
+            arm_drop,
+            ..HumanoidSpec::default()
+        });
+        let found = caped
+            .findings
+            .iter()
+            .find(|f| f.id == "arm-weights")
+            .expect("arm weights");
+        assert_eq!(found.level, FindingLevel::Warning);
+        assert_eq!(
+            found.title,
+            "24 vertices of cloth or hair weighted to the arms"
+        );
+        let detail = found.detail.as_deref().unwrap_or_default();
+        assert!(detail.contains("leftUpperArm (24)"), "{detail}");
+        assert!(detail.contains("reweight"), "{detail}");
+        // A warning only: the rig stays as ready as it was.
+        assert_eq!(caped.ready, arm_drop == 0.0);
+    }
+}
+
 /// A real model from disk, for a local look. Set `MAQUETTE_VRM_PROBE` to a
 /// `.glb` and run with `--ignored --nocapture`.
 #[test]
