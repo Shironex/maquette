@@ -256,7 +256,7 @@ fn a_written_vrm_has_a_report_beside_it_and_reads_back() {
     assert_eq!(found.file, file.display().to_string());
     assert_eq!(found.writer, report::WRITER);
     assert_eq!(found.source.version, 1);
-    let source = project_dir(&w).join("models/hero_v1.glb");
+    let source = project_dir(&w).join("models").join("hero_v1.glb");
     assert_eq!(found.source.sha256, hash_file(&source).expect("hash"));
     assert!(found.normalized);
     assert_eq!(found.elbows, Some(Elbows::Straighten));
