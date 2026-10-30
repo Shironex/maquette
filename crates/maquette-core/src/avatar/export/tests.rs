@@ -226,3 +226,123 @@ fn a_patch_changes_only_what_it_names() {
         assert!(err.to_string().contains(says), "{err}");
     }
 }
+
+#[test]
+fn a_written_vrm_has_a_report_beside_it_and_reads_back() {
+    let w = world();
+    named(&w);
+    let blender = FakeBlender::good();
+    build(&blender, &tools(), &request(&w)).expect("build");
+    decide(&request(&w), true).expect("approve");
+    let AvatarBuild::Written { export, .. } =
+        build(&blender, &tools(), &request(&w)).expect("build")
+    else {
+        panic!("written");
+    };
+    let file = vrm_file(&project_dir(&w), &w.asset);
+    let path = report::report_file(&file);
+    assert!(path.ends_with(format!("{}.vrm.report.json", w.asset)));
+    assert_eq!(export.report, Some(path.display().to_string()));
+    let trip = export.round_trip.clone().expect("round trip");
+    assert!(trip.passed, "{:?}", trip.problems);
+    assert!(
+        export.unresolved.iter().all(|f| f.id != "round-trip"),
+        "{:?}",
+        export.unresolved
+    );
+
+    let text = fs::read_to_string(&path).expect("report");
+    let found: report::AvatarReport = serde_json::from_str(&text).expect("parse");
+    assert_eq!(found.file, file.display().to_string());
+    assert_eq!(found.writer, report::WRITER);
+    assert_eq!(found.source.version, 1);
+    let source = project_dir(&w).join("models/hero_v1.glb");
+    assert_eq!(found.source.sha256, hash_file(&source).expect("hash"));
+    assert!(found.normalized);
+    assert_eq!(found.elbows, Some(Elbows::Straighten));
+    assert!(!found.before.ready || !found.before.findings.is_empty());
+    assert!(found.after.is_some());
+    assert_eq!(found.meta.name, "Hero");
+    assert_eq!(found.meta.authors, ["Me"]);
+    assert!(found.round_trip.passed);
+    let hips = found.bones.iter().find(|b| b.bone == "hips").expect("hips");
+    assert_eq!(hips.source, Some(report::BoneSource::Convention));
+    assert_eq!(found.unresolved, export.unresolved);
+
+    // The view keeps the report while it is there, and drops it once gone.
+    assert_eq!(view(&request(&w)).expect("view").export, Some(export));
+    fs::remove_file(&path).expect("remove");
+    let gone = view(&request(&w)).expect("view").export.expect("export");
+    assert_eq!(gone.report, None);
+}
+
+#[test]
+fn a_bone_set_by_hand_reads_as_an_override_in_the_report() {
+    let w = world();
+    named(&w);
+    let dir = project_dir(&w);
+    fs::write(
+        dir.join("models/hero_v2.glb"),
+        fixture::humanoid(&HumanoidSpec::default()),
+    )
+    .expect("model");
+    project::modify(&w.root, &w.config.layout, &w.project, |m| {
+        assets::add_version(m, &w.asset, "models/hero_v2.glb".into(), None).map(drop)
+    })
+    .expect("version");
+    let mut spec = super::super::load(&dir)
+        .expect("avatars")
+        .avatars
+        .values()
+        .next()
+        .cloned()
+        .expect("spec");
+    spec.bones
+        .insert("leftToes".into(), Some("mixamorig:LeftToeBase".into()));
+    super::super::set(&dir, &w.asset, Some(spec)).expect("spec");
+    let AvatarBuild::Written { export, .. } =
+        build(&FakeBlender::good(), &tools(), &request(&w)).expect("build")
+    else {
+        panic!("written");
+    };
+    let text = fs::read_to_string(export.report.expect("report")).expect("report");
+    let found: report::AvatarReport = serde_json::from_str(&text).expect("parse");
+    assert_eq!((found.normalized, found.elbows), (false, None));
+    assert_eq!(found.source.version, 2);
+    let toes = found
+        .bones
+        .iter()
+        .find(|b| b.bone == "leftToes")
+        .expect("toes");
+    assert_eq!(toes.source, Some(report::BoneSource::Override));
+    let eye = found
+        .bones
+        .iter()
+        .find(|b| b.bone == "leftEye")
+        .expect("eye");
+    assert_eq!((eye.joint.as_deref(), eye.source), (None, None));
+}
+
+#[test]
+fn a_failed_round_trip_is_a_blocker() {
+    let failed = RoundTrip {
+        passed: false,
+        problems: vec!["The meta has no name.".into(), "No animations.".into()],
+        bones: 52,
+    };
+    let finding = report::round_trip_finding(&failed).expect("blocker");
+    assert_eq!(
+        (finding.id.as_str(), finding.level),
+        ("round-trip", vrm::FindingLevel::Blocker)
+    );
+    assert_eq!(
+        finding.detail.as_deref(),
+        Some("The meta has no name. No animations.")
+    );
+    let passed = RoundTrip {
+        passed: true,
+        problems: Vec::new(),
+        bones: 52,
+    };
+    assert_eq!(report::round_trip_finding(&passed), None);
+}
