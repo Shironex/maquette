@@ -76,7 +76,7 @@ describe('library lines', () => {
     const stats = libraryStats(view.items);
     expect([stats.models, stats.shared, stats.updates]).toEqual([8, 2, 2]);
     const character = byId(view, 'elsheria');
-    expect(itemLine(character)).toBe('v3 · Meshy, rigged');
+    expect(itemLine(character)).toBe('v3 · Meshy, rigged · 35k tris');
     expect(usedLine(character)).toBe('2 projects');
     expect(creditLine(character)).toEqual({ text: '40 saved by reuse', saved: true });
     expect(creditLine(byId(view, 'veil-platform'))).toEqual({
