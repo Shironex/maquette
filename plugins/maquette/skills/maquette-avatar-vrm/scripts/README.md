@@ -61,8 +61,11 @@ script moves that weight to the trunk on a copy:
 1. cuts the mesh in slices along each arm and keeps the loops that hug the bone and carry on
    from slice to slice: the arm, a sleeve, a glove; a separate glove or a cuff goes with the arm
    whole;
-   the hand always stays with the arm: a vertex weighted mostly to the hand and finger bones, or
-   lying past the wrist near the bones, keeps its arm weight, nails and finger tips included;
+   the hand always stays with the arm: its own surface, reached over the mesh edges from the arm
+   at the wrist through what lies past it near the bones (fingers, nails, a glove), and a small
+   piece of its own lying on it or weighted mostly to it (a ring, a held prop); hair or cloth
+   that only hangs beside the hand joins it through the head or the body, so it is freed even
+   when the rig weighted it to the fingers;
 2. moves the arm weight of every other vertex to the spine, chest and upper chest (and the
    shoulder above the armpit), with a smooth band where the two meet so cloth sewn to a sleeve
    stretches instead of tearing;
