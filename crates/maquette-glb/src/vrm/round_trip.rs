@@ -6,7 +6,10 @@
 //! one VRM's tree puts above it, the meta has a name, an author and the
 //! licence URL, `extensionsUsed` lists every extension the file uses,
 //! there are no animations, and every texture an MToon material points at
-//! is there with an image behind it.
+//! is there with an image behind it. When the file has springs
+//! (`VRMC_springBone`), every joint and collider points at a node that
+//! exists, each joint is the child of the one before, and every group a
+//! spring or group lists is there.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -28,6 +31,10 @@ pub struct RoundTrip {
     pub problems: Vec<String>,
     /// Human bones the file names.
     pub bones: u32,
+    /// Springs (`VRMC_springBone`) the file has; 0 without any, and in
+    /// round trips older versions recorded.
+    #[serde(default)]
+    pub springs: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,33 +69,35 @@ struct MetaRead {
 /// Reads `bytes` back as VRM 1.0 and lists what does not hold.
 pub fn round_trip(bytes: &[u8]) -> RoundTrip {
     let mut problems = Vec::new();
-    let bones = check(bytes, &mut problems);
+    let (bones, springs) = check(bytes, &mut problems);
     RoundTrip {
         passed: problems.is_empty(),
         problems,
         bones,
+        springs,
     }
 }
 
-/// Runs every check, pushing what fails; returns the human bones named.
-fn check(bytes: &[u8], problems: &mut Vec<String>) -> u32 {
+/// Runs every check, pushing what fails; returns the human bones named and
+/// the springs.
+fn check(bytes: &[u8], problems: &mut Vec<String>) -> (u32, u32) {
     let opened = std::panic::catch_unwind(|| gltf::Gltf::from_slice(bytes));
     let doc = match opened {
         Ok(Ok(gltf)) => gltf.document,
         Ok(Err(e)) => {
             problems.push(format!("The file does not open as valid glTF: {e}."));
-            return 0;
+            return (0, 0);
         }
         Err(_) => {
             problems.push("The file does not open as valid glTF.".to_string());
-            return 0;
+            return (0, 0);
         }
     };
     let json = match container::split(bytes) {
         Ok((json, _)) => json,
         Err(e) => {
             problems.push(e.to_string());
-            return 0;
+            return (0, 0);
         }
     };
     if doc.animations().len() > 0 {
@@ -99,15 +108,16 @@ fn check(bytes: &[u8], problems: &mut Vec<String>) -> u32 {
     }
     check_extensions(&json, problems);
     check_mtoon(&json, problems);
+    let springs = super::springs::check(&json, &doc, problems);
     let Some(raw) = json.get("extensions").and_then(|e| e.get(VRMC_VRM)) else {
         problems.push(format!("The file has no {VRMC_VRM} extension."));
-        return 0;
+        return (0, 0);
     };
     let vrm: VrmRead = match serde_json::from_value(raw.clone()) {
         Ok(vrm) => vrm,
         Err(e) => {
             problems.push(format!("{VRMC_VRM} does not read: {e}."));
-            return 0;
+            return (0, 0);
         }
     };
     if vrm.spec_version.as_deref() != Some("1.0") {
@@ -119,7 +129,7 @@ fn check(bytes: &[u8], problems: &mut Vec<String>) -> u32 {
     check_meta(vrm.meta.as_ref(), problems);
     let named = vrm.humanoid.map(|h| h.human_bones).unwrap_or_default();
     check_bones(&doc, &named, problems);
-    u32::try_from(named.len()).unwrap_or(u32::MAX)
+    (u32::try_from(named.len()).unwrap_or(u32::MAX), springs)
 }
 
 fn check_meta(meta: Option<&MetaRead>, problems: &mut Vec<String>) {

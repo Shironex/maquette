@@ -333,6 +333,7 @@ fn a_failed_round_trip_is_a_blocker() {
         passed: false,
         problems: vec!["The meta has no name.".into(), "No animations.".into()],
         bones: 52,
+        springs: 0,
     };
     let finding = report::round_trip_finding(&failed).expect("blocker");
     assert_eq!(
@@ -347,6 +348,7 @@ fn a_failed_round_trip_is_a_blocker() {
         passed: true,
         problems: Vec::new(),
         bones: 52,
+        springs: 0,
     };
     assert_eq!(report::round_trip_finding(&passed), None);
 }

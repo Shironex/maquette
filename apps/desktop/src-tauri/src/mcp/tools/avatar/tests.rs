@@ -181,6 +181,7 @@ fn a_written_build_names_its_report_and_round_trip() {
             passed: true,
             problems: Vec::new(),
             bones: 52,
+            springs: 0,
         }),
     };
     let built = AvatarBuild::Written {
