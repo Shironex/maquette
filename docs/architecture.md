@@ -664,8 +664,14 @@ uses.
   top's weights), drops parts that do not hang, and draws a centre line down each by a walk from
   the attachment. Each candidate has a kind (hair from the head or neck, cloth when long, an
   accessory otherwise), a line, a length, a vertex count, a confidence (how much it hangs, how much
-  lies below the attachment, how slender and how big it is) and a colour on `candidates.png`. It
-  is cached per model under `v<version>/springs/find/` and never waits for a yes. Nothing is
+  lies below the attachment, how slender and how big it is) and a colour on `candidates.png`.
+  Small pieces close to the body come after them (`find_small`): vertices standing out of the
+  surface around them (`local_rise`: the distance from the bone less the median of that stretch
+  and direction, or the body radius where the mesh is too coarse), joined by a finer voxel grid,
+  taller than wide and hanging down, left out on the forearms, hands, shins and feet. Each is a
+  `charm-N` accessory flagged `small` with 2 to 4 joints by default, a close look on the sheet,
+  a fade back over a quarter of its length where it touches the rest, and a near look on the sway
+  test. It is cached per model under `v<version>/springs/find/` and never waits for a yes. Nothing is
   confirmed on its own: `AvatarSpec.springs` (`maquette_model::avatar::SpringSpec`: id, kind, root
   bone, line, joints, preset and swing overrides) holds what a person or an agent confirmed, and
   `AvatarSpec.no_springs` that they confirmed none (`springs_choice`: unpicked, none or picked).
