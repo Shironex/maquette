@@ -254,7 +254,5 @@ mod tests;
 /// Registers this module's IPC types (the scene's avatars) with the shell's
 /// TypeScript export; `maquette_core::types` folds every module's in.
 pub fn register(types: specta::Types) -> specta::Types {
-    types
-        .register::<SceneAvatars>()
-        .register::<SpringSpec>()
+    types.register::<SceneAvatars>().register::<SpringSpec>()
 }
