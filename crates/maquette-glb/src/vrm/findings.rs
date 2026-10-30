@@ -6,9 +6,12 @@ use super::bones::{HumanBone, Mapped, WrongParent, needs};
 use super::pose::RestPose;
 use super::{FindingLevel, VrmFinding};
 
+mod fingers;
 mod naming;
 mod skin;
 
+pub use fingers::FINGER_SLACK_DEG;
+pub(super) use fingers::finger_findings;
 pub(super) use naming::naming_finding;
 pub(super) use skin::skin_findings;
 

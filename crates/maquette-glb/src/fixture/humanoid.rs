@@ -89,6 +89,9 @@ pub struct HumanoidSpec {
     /// primitives.
     pub split: bool,
     pub flaw: SkinFlaw,
+    /// Degrees each knuckle and finger joint of the four fingers bends
+    /// towards the palm, as an auto rig's curled hand has them.
+    pub finger_curl: f32,
 }
 
 impl Default for HumanoidSpec {
@@ -107,6 +110,7 @@ impl Default for HumanoidSpec {
             weights: WeightFormat::Float,
             split: false,
             flaw: SkinFlaw::None,
+            finger_curl: 0.0,
         }
     }
 }
@@ -123,6 +127,7 @@ fn turn_xy(p: [f32; 3], pivot: [f32; 3], deg: f32) -> [f32; 3] {
 fn posed(spec: &HumanoidSpec) -> Vec<(String, Option<usize>, [f32; 3])> {
     let joints = skeleton();
     let mut world = world_positions(&joints);
+    curl_fingers(&joints, &mut world, spec.finger_curl);
     for (side, sign) in [("Left", 1.0f32), ("Right", -1.0f32)] {
         let Some(arm) = joints
             .iter()
@@ -179,6 +184,29 @@ fn posed(spec: &HumanoidSpec) -> Vec<(String, Option<usize>, [f32; 3])> {
             (name, *parent, t)
         })
         .collect()
+}
+
+/// Bends the four fingers of both hands `deg` degrees at each of their
+/// first three joints, towards the palm (-Y in the T-pose).
+fn curl_fingers(joints: &[(String, Option<usize>, [f32; 3])], world: &mut [[f32; 3]], deg: f32) {
+    if deg == 0.0 {
+        return;
+    }
+    for (side, sign) in [("Left", 1.0f32), ("Right", -1.0f32)] {
+        for finger in ["Index", "Middle", "Ring", "Pinky"] {
+            for n in 1..=3 {
+                let Some(joint) = joint_index(joints, &format!("{side}Hand{finger}{n}")) else {
+                    continue;
+                };
+                let pivot = world[joint];
+                for (i, p) in world.iter_mut().enumerate() {
+                    if below(joints, i, joint) {
+                        *p = turn_xy(*p, pivot, -sign * deg);
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// The index of a Mixamo joint (without its prefix) in the skeleton.

@@ -35,6 +35,7 @@ mod arm_weights;
 mod bones;
 mod container;
 mod findings;
+mod fingers;
 mod meta;
 mod mtoon;
 mod pose;
@@ -52,7 +53,8 @@ use maquette_base::error::{CoreError, CoreResult};
 pub use bones::{
     BoneNaming, BoneOverrides, HUMAN_BONES, HUMANOID_JOINTS_MIN, NamingReport, REQUIRED_BONES,
 };
-pub use findings::{ARM_SLACK_DEG, FACING_SLACK_DEG, GROUND_SLACK};
+pub use findings::{ARM_SLACK_DEG, FACING_SLACK_DEG, FINGER_SLACK_DEG, GROUND_SLACK};
+pub use fingers::{BUNCHED, FINGERS, FingerCurl};
 pub use meta::{
     AvatarPermission, CommercialUsage, CreditNotation, LICENSE_URL, META_TEXT_MAX, Modification,
     VrmMeta,
@@ -203,6 +205,7 @@ fn assess(
     findings.extend(findings::naming_finding(&naming));
     findings.extend(findings::skin_findings(&skin));
     findings.extend(findings::pose_findings(&pose));
+    findings.extend(findings::finger_findings(&pose));
     if let Some(drag) = arm_weights::measure(doc, buffers, &worlds, &mapped, &human)
         .filter(arm_weights::ArmDrag::matters)
     {
@@ -291,6 +294,7 @@ pub(crate) fn register(types: specta::Types) -> specta::Types {
         .register::<BoneNaming>()
         .register::<NamingReport>()
         .register::<Axis>()
+        .register::<FingerCurl>()
         .register::<RestPose>()
         .register::<FindingLevel>()
         .register::<VrmFinding>()
@@ -305,6 +309,8 @@ pub(crate) fn register(types: specta::Types) -> specta::Types {
         .register::<RoundTrip>()
 }
 
+#[cfg(test)]
+mod fingers_tests;
 #[cfg(test)]
 mod naming_tests;
 #[cfg(test)]
