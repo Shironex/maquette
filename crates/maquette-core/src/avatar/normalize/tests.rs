@@ -19,6 +19,17 @@ pub(crate) struct World {
 
 /// A rigged character in an A-pose facing +X, as its first version.
 pub(crate) fn world() -> World {
+    world_with(&fixture::humanoid(&HumanoidSpec {
+        arm_drop: 60.0,
+        yaw: 90.0,
+        offset: [0.0, 0.2],
+        ..HumanoidSpec::default()
+    }))
+}
+
+/// A workspace with one project whose character asset has `model` as its
+/// first version.
+pub(crate) fn world_with(model: &[u8]) -> World {
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().join("ws");
     let config = workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
@@ -38,16 +49,7 @@ pub(crate) fn world() -> World {
     let project_dir = project::dir(&root, &config.layout, &manifest.id).expect("dir");
     let models = project_dir.join("models");
     fs::create_dir_all(&models).expect("models");
-    fs::write(
-        models.join("hero_v1.glb"),
-        fixture::humanoid(&HumanoidSpec {
-            arm_drop: 60.0,
-            yaw: 90.0,
-            offset: [0.0, 0.2],
-            ..HumanoidSpec::default()
-        }),
-    )
-    .expect("model");
+    fs::write(models.join("hero_v1.glb"), model).expect("model");
     let mut asset = String::new();
     project::modify(&root, &config.layout, &manifest.id, |m| {
         let added = assets::add(

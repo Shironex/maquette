@@ -9,7 +9,8 @@
 //! read again on the output. The run is keyed like a pipeline step (the
 //! source's content, the script, the bone roles and the options) and
 //! recorded with the step cache, so asking again with nothing changed
-//! skips Blender.
+//! skips Blender. When a person approved a reweight of the same source
+//! ([`super::reweight`]), the arms are lifted from that instead.
 //!
 //! Changing a rest pose needs a person's yes. A fresh result is pending;
 //! [`approve`] records the yes against that exact output, and the writer
@@ -27,6 +28,7 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use super::reweight::{self, ReweightReport};
 use crate::assets;
 use crate::base::ports::ScriptRunner;
 use crate::error::{CoreError, CoreResult};
@@ -113,7 +115,8 @@ pub struct NormalizePlan {
     pub project: String,
     pub asset: String,
     pub version: u32,
-    /// The version's model file, only read.
+    /// The model the arms are lifted from, only read: the version's file,
+    /// or its approved reweight.
     pub source: PathBuf,
     pub dir: PathBuf,
     /// VRM bone name to joint name, as the readiness mapped them.
@@ -123,6 +126,9 @@ pub struct NormalizePlan {
     /// The source's readiness, before.
     pub readiness: VrmReadiness,
     pub key: String,
+    /// What the approved reweight the arms lift from changed; `None` when
+    /// the source is lifted as it is.
+    pub reweight: Option<ReweightReport>,
 }
 
 /// What the script reads.
@@ -156,23 +162,109 @@ fn invalid(message: impl Into<String>) -> CoreError {
 /// glTF, or a rig with a blocker normalising cannot fix (no skin, missing
 /// or misplaced bones, swapped sides, a mirrored or uneven scale).
 pub fn plan(req: &NormalizeRequest<'_>) -> CoreResult<NormalizePlan> {
-    let manifest = project::load(req.workspace_root, &req.config.layout, req.project)?;
-    let asset = assets::find(&manifest, req.asset)?;
-    let version = match req.version {
+    let found = locate(
+        req.workspace_root,
+        req.config,
+        req.project,
+        req.asset,
+        req.version,
+    )?;
+    let bytes = fs::read(&found.source).map_err(|e| CoreError::io(&found.source, e))?;
+    let base = found.source.parent().unwrap_or(&found.project_dir);
+    let readiness = vrm::readiness(&bytes, base, req.overrides)?;
+    let bones = fixable_bones(&readiness, "Normalising the rest pose")?;
+    let dir = work_dir(
+        req.workspace_root,
+        req.config,
+        req.project,
+        &found.asset,
+        found.version,
+    );
+    let avatar_root = req
+        .workspace_root
+        .join(&req.config.layout.cache)
+        .join(AVATAR_DIR);
+    let mut hasher = FileHasher::with_memo(&avatar_root);
+    let source_hash = hasher
+        .hash(&found.source)
+        .map_err(|e| CoreError::io(&found.source, e))?;
+    // An approved reweight of this exact source is what the arms lift.
+    let reweighted = reweight::approved(&reweight::work_dir(&dir), &source_hash, &bones)?;
+    let (source, source_hash) = match &reweighted {
+        Some(r) => {
+            let glb = PathBuf::from(&r.glb);
+            let hash = hasher.hash(&glb).map_err(|e| CoreError::io(&glb, e))?;
+            (glb, hash)
+        }
+        None => (found.source, source_hash),
+    };
+    hasher.flush();
+    let key = key(&source_hash, &bones, req.elbows);
+    Ok(NormalizePlan {
+        project: req.project.to_string(),
+        asset: found.asset,
+        version: found.version,
+        source,
+        dir,
+        bones,
+        overrides: req.overrides.clone(),
+        elbows: req.elbows,
+        readiness,
+        key,
+        reweight: reweighted.map(|r| r.report),
+    })
+}
+
+/// The asset version a request names.
+pub(super) struct Located {
+    pub(super) project_dir: PathBuf,
+    /// The asset's id.
+    pub(super) asset: String,
+    pub(super) version: u32,
+    /// The version's model file, only read.
+    pub(super) source: PathBuf,
+}
+
+/// Finds the asset version a request names, the newest when `version` is
+/// `None`.
+pub(super) fn locate(
+    workspace_root: &Path,
+    config: &WorkspaceConfig,
+    project_id: &str,
+    wanted: &str,
+    version: Option<u32>,
+) -> CoreResult<Located> {
+    let manifest = project::load(workspace_root, &config.layout, project_id)?;
+    let asset = assets::find(&manifest, wanted)?;
+    let found = match version {
         Some(n) => asset.versions.iter().find(|v| v.version == n),
         None => asset.latest(),
     }
     .ok_or_else(|| {
-        CoreError::NotFound(match req.version {
+        CoreError::NotFound(match version {
             Some(n) => format!("version {n} of {}", asset.name),
             None => format!("a model of {}", asset.name),
         })
     })?;
-    let project_dir = project::dir(req.workspace_root, &req.config.layout, req.project)?;
-    let source = project_dir.join(&version.file);
-    let bytes = fs::read(&source).map_err(|e| CoreError::io(&source, e))?;
-    let base = source.parent().unwrap_or(&project_dir);
-    let readiness = vrm::readiness(&bytes, base, req.overrides)?;
+    let project_dir = project::dir(workspace_root, &config.layout, project_id)?;
+    Ok(Located {
+        source: project_dir.join(&found.file),
+        project_dir,
+        asset: asset.id.clone(),
+        version: found.version,
+    })
+}
+
+/// The bones the readiness maps (VRM bone name to joint name), once no
+/// blocker but the rest pose stands in the way of `doing`.
+///
+/// # Errors
+///
+/// Names the blockers `doing` cannot fix.
+pub(super) fn fixable_bones(
+    readiness: &VrmReadiness,
+    doing: &str,
+) -> CoreResult<BTreeMap<String, String>> {
     let stoppers: Vec<&str> = readiness
         .findings
         .iter()
@@ -181,44 +273,15 @@ pub fn plan(req: &NormalizeRequest<'_>) -> CoreResult<NormalizePlan> {
         .collect();
     if !stoppers.is_empty() {
         return Err(invalid(format!(
-            "Normalising the rest pose cannot fix this rig: {}. Fix the rig first.",
+            "{doing} cannot fix this rig: {}. Fix the rig first.",
             stoppers.join("; ")
         )));
     }
-    let bones: BTreeMap<String, String> = readiness
+    Ok(readiness
         .bones
         .iter()
         .filter_map(|b| b.joint.clone().map(|j| (b.bone.clone(), j)))
-        .collect();
-    let dir = work_dir(
-        req.workspace_root,
-        req.config,
-        req.project,
-        &asset.id,
-        version.version,
-    );
-    let avatar_root = req
-        .workspace_root
-        .join(&req.config.layout.cache)
-        .join(AVATAR_DIR);
-    let mut hasher = FileHasher::with_memo(&avatar_root);
-    let source_hash = hasher
-        .hash(&source)
-        .map_err(|e| CoreError::io(&source, e))?;
-    hasher.flush();
-    let key = key(&source_hash, &bones, req.elbows);
-    Ok(NormalizePlan {
-        project: req.project.to_string(),
-        asset: asset.id.clone(),
-        version: version.version,
-        source,
-        dir,
-        bones,
-        overrides: req.overrides.clone(),
-        elbows: req.elbows,
-        readiness,
-        key,
-    })
+        .collect())
 }
 
 /// The run's key: everything that decides the output.
@@ -349,6 +412,7 @@ fn finish(plan: &NormalizePlan) -> CoreResult<Normalized> {
         readiness,
         key: plan.key.clone(),
         approved_at: None,
+        reweight: plan.reweight.clone(),
     })
 }
 
