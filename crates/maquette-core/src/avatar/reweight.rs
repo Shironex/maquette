@@ -20,7 +20,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::gate::{APPROVAL_FILE, DENIAL_FILE, Gate, Gated};
@@ -73,6 +73,19 @@ impl Gated for Reweighted {
         self.state = state;
         self.approved_at = approved_at;
     }
+}
+
+/// Whether a build frees cloth and hair from the arms before it lifts them.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum ReweightMode {
+    /// When the readiness finds cloth or hair on the arms and the arms are
+    /// lifted, the reweight runs first and waits for a yes of its own.
+    #[default]
+    Auto,
+    /// The arms are lifted without a new reweight; one a person already
+    /// approved still counts until they turn it down.
+    Off,
 }
 
 /// `<version's avatar folder>/reweight`.
@@ -348,4 +361,4 @@ pub fn approved(
 #[cfg(test)]
 mod blender_tests;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

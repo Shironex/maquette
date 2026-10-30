@@ -1,8 +1,10 @@
 //! Exporting a character asset as a VRM 1.0 avatar: what the Avatar view
 //! and the avatar tools read ([`view`]), the patch `set_avatar` applies
-//! ([`AvatarPatch`]), and the build ([`build`]): normalise the rest pose
-//! when it is not VRM's yet, wait for a person's yes to the new pose, then
-//! write the file.
+//! ([`AvatarPatch`]), and the build ([`build`]): when the rest pose is not
+//! VRM's yet, first free cloth and hair from the arms if the readiness
+//! finds them there and wait for a person's yes to the new weights, then
+//! normalise the rest pose and wait for a yes to the new pose, then write
+//! the file.
 //!
 //! The `.vrm` is a derived export, never a new version: it is written only
 //! to the project's `exports/<asset>.vrm`, over the last one, with a
@@ -20,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use super::normalize::{
     self, AVATAR_DIR, Elbows, NormalizeRequest, NormalizeState, Normalized, needs_normalize,
 };
+use super::reweight::{self, ReweightMode, ReweightReport, ReweightRequest, Reweighted};
 use super::{AvatarSpec, SceneAvatars};
 use crate::assets;
 use crate::base::ports::ScriptRunner;
@@ -73,6 +76,10 @@ pub struct AvatarExport {
     pub source_version: u32,
     /// Written from a normalised rest pose (else from the model as it is).
     pub normalized: bool,
+    /// The arms were lifted from an approved reweight that freed cloth and
+    /// hair from them. False for a build that predates the reweight.
+    #[serde(default)]
+    pub reweighted: bool,
     pub material: MaterialMode,
     /// What the file still lacks, blockers first.
     pub unresolved: Vec<VrmFinding>,
@@ -99,6 +106,7 @@ pub struct AvatarRequest<'a> {
     /// The newest version when `None`.
     pub version: Option<u32>,
     pub elbows: Elbows,
+    pub reweight: ReweightMode,
 }
 
 /// The asset and the version a request names.
@@ -169,6 +177,11 @@ pub struct AvatarView {
     /// The rest pose is not VRM's yet: a build normalises it and waits for
     /// a person's yes.
     pub needs_normalize: bool,
+    /// The readiness finds cloth or hair weighted to the arms and the arms
+    /// are lifted: a build frees them first and waits for a person's yes.
+    pub needs_reweight: bool,
+    /// The last reweight of this version, with its sheets.
+    pub reweighted: Option<Reweighted>,
     /// The last normalised rest pose of this version, with its sheets.
     pub normalized: Option<Normalized>,
     pub export: Option<AvatarExport>,
@@ -205,8 +218,13 @@ pub fn view(req: &AvatarRequest<'_>) -> CoreResult<AvatarView> {
         None => (None, Some("This asset has no model yet.".to_string())),
     };
     let dir = asset_dir(req.workspace_root, req.config, req.project, &src.asset.id);
-    let normalized = match src.version {
-        Some(v) => normalize::load(&dir.join(format!("v{v}")))?,
+    let version_dir = src.version.map(|v| dir.join(format!("v{v}")));
+    let normalized = match &version_dir {
+        Some(d) => normalize::load(d)?,
+        None => None,
+    };
+    let reweighted = match &version_dir {
+        Some(d) => reweight::load(&reweight::work_dir(d))?,
         None => None,
     };
     Ok(AvatarView {
@@ -217,7 +235,9 @@ pub fn view(req: &AvatarRequest<'_>) -> CoreResult<AvatarView> {
         version: src.version,
         model: src.file.as_ref().map(|f| f.display().to_string()),
         needs_normalize: readiness.as_ref().is_some_and(needs_normalize),
+        needs_reweight: readiness.as_ref().is_some_and(lifts_cloth),
         readiness,
+        reweighted,
         readiness_error,
         normalized,
         export: read_export(&dir),
@@ -228,6 +248,11 @@ pub fn view(req: &AvatarRequest<'_>) -> CoreResult<AvatarView> {
         spec,
         stored,
     })
+}
+
+/// The arms are lifted and cloth or hair hangs on them.
+fn lifts_cloth(readiness: &VrmReadiness) -> bool {
+    needs_normalize(readiness) && reweight::needs_reweight(readiness)
 }
 
 fn readiness_of(file: &Path, overrides: &BoneOverrides) -> CoreResult<VrmReadiness> {
@@ -246,6 +271,12 @@ pub struct AvatarPlan {
     pub source: String,
     /// It normalises the rest pose first, and waits for a yes.
     pub normalize: bool,
+    /// Before that it frees cloth and hair from the arms, and waits for a
+    /// yes of its own.
+    pub reweight: bool,
+    /// The state of that reweight when one is there: pending, approved or
+    /// denied.
+    pub reweight_state: Option<NormalizeState>,
     pub elbows: Elbows,
     /// A normalised result with these options is already there, so Blender
     /// does not run again.
@@ -265,6 +296,10 @@ pub struct AvatarPlan {
 #[derive(Debug, Clone, PartialEq, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase", tag = "status")]
 pub enum AvatarBuild {
+    /// The weights that free cloth and hair from the arms wait for a person
+    /// to look at the sheets; the rest pose comes after.
+    #[serde(rename = "reweight waiting for approval")]
+    ReweightWaiting { reweighted: Reweighted },
     /// The new rest pose waits for a person to look at the sheets.
     #[serde(rename = "waiting for approval")]
     Waiting { normalized: Normalized },
@@ -292,6 +327,23 @@ fn normalize_request<'a>(req: &'a AvatarRequest<'a>, spec: &'a AvatarSpec) -> No
     }
 }
 
+/// A request's reweight request, against `spec`'s bone overrides.
+fn reweight_request<'a>(req: &'a AvatarRequest<'a>, spec: &'a AvatarSpec) -> ReweightRequest<'a> {
+    ReweightRequest {
+        workspace_root: req.workspace_root,
+        config: req.config,
+        project: req.project,
+        asset: req.asset,
+        version: req.version,
+        overrides: &spec.bones,
+    }
+}
+
+/// Whether a build with `req` reweights before it lifts the arms.
+fn reweights(req: &AvatarRequest<'_>, readiness: &VrmReadiness) -> bool {
+    req.reweight == ReweightMode::Auto && lifts_cloth(readiness)
+}
+
 /// Reads a request's spec, source and readiness.
 fn prepare(req: &AvatarRequest<'_>) -> CoreResult<(Source, AvatarSpec, VrmReadiness)> {
     let src = source(req)?;
@@ -314,6 +366,17 @@ fn prepare(req: &AvatarRequest<'_>) -> CoreResult<(Source, AvatarSpec, VrmReadin
 pub fn plan(req: &AvatarRequest<'_>) -> CoreResult<AvatarPlan> {
     let (src, spec, readiness) = prepare(req)?;
     let normalize = needs_normalize(&readiness);
+    let reweight = reweights(req, &readiness);
+    let reweight_state = if reweight {
+        let planned = reweight::plan(&reweight_request(req, &spec))?;
+        if planned.cached() {
+            reweight::load(&planned.dir)?.map(|r| r.state)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     let (version, source, cached, state) = if normalize {
         let plan = normalize::plan(&normalize_request(req, &spec))?;
         let cached = plan.cached();
@@ -333,6 +396,8 @@ pub fn plan(req: &AvatarRequest<'_>) -> CoreResult<AvatarPlan> {
         version,
         source: source.display().to_string(),
         normalize,
+        reweight,
+        reweight_state,
         elbows: req.elbows,
         cached,
         state,
@@ -369,11 +434,12 @@ pub fn build(
     let dir = asset_dir(req.workspace_root, req.config, req.project, &src.asset.id);
     let output = vrm_file(&src.project_dir, &src.asset.id);
     let file = src.file.clone().unwrap_or_default();
-    let built = |written, source_version, elbows| Built {
+    let built = |written, source_version, elbows, reweight| Built {
         written,
         source: &file,
         source_version,
         elbows,
+        reweight,
         spec: &spec,
         before: &readiness,
     };
@@ -383,12 +449,20 @@ pub fn build(
         let export = save(
             &dir,
             &output,
-            &built(written, src.version.unwrap_or(0), None),
+            &built(written, src.version.unwrap_or(0), None, None),
         )?;
         return Ok(AvatarBuild::Written {
             export,
             normalized: None,
         });
+    }
+    if reweights(req, &readiness) {
+        let planned = reweight::plan(&reweight_request(req, &spec))?;
+        let freed = reweight::run(runner, tools, &planned)?;
+        // A no lifts the arms from the source as it is.
+        if freed.state == NormalizeState::Pending {
+            return Ok(AvatarBuild::ReweightWaiting { reweighted: freed });
+        }
     }
     let plan = normalize::plan(&normalize_request(req, &spec))?;
     let found = normalize::run(runner, tools, &plan)?;
@@ -400,7 +474,12 @@ pub fn build(
             let export = save(
                 &dir,
                 &output,
-                &built(written, plan.version, Some(req.elbows)),
+                &built(
+                    written,
+                    plan.version,
+                    Some(req.elbows),
+                    found.reweight.clone(),
+                ),
             )?;
             Ok(AvatarBuild::Written {
                 export,
@@ -418,6 +497,8 @@ struct Built<'a> {
     source_version: u32,
     /// The elbows mode of the normalise; `None` when nothing was normalised.
     elbows: Option<Elbows>,
+    /// What the approved reweight the arms were lifted from changed.
+    reweight: Option<ReweightReport>,
     spec: &'a AvatarSpec,
     /// The source version's readiness.
     before: &'a VrmReadiness,
@@ -453,6 +534,7 @@ fn save(dir: &Path, output: &Path, built: &Built<'_>) -> CoreResult<AvatarExport
         material: built.spec.material,
         normalized: built.elbows.is_some(),
         elbows: built.elbows,
+        reweight: built.reweight.clone(),
         before: built.before.into(),
         after: after.as_ref().map(Into::into),
         unresolved: unresolved.clone(),
@@ -471,6 +553,7 @@ fn save(dir: &Path, output: &Path, built: &Built<'_>) -> CoreResult<AvatarExport
         bytes: written.bytes.len() as f64,
         source_version: built.source_version,
         normalized: built.elbows.is_some(),
+        reweighted: built.reweight.is_some(),
         material: built.spec.material,
         unresolved,
         written_at,
@@ -483,22 +566,44 @@ fn save(dir: &Path, output: &Path, built: &Built<'_>) -> CoreResult<AvatarExport
     Ok(export)
 }
 
+/// The avatar folder of the version a request names.
+fn version_dir(req: &AvatarRequest<'_>) -> CoreResult<PathBuf> {
+    let src = source(req)?;
+    let version = src
+        .version
+        .ok_or_else(|| invalid(format!("{} has no model yet.", src.asset.name)))?;
+    Ok(
+        asset_dir(req.workspace_root, req.config, req.project, &src.asset.id)
+            .join(format!("v{version}")),
+    )
+}
+
 /// A person's yes or no to a version's new rest pose, from the app.
 ///
 /// # Errors
 ///
 /// Fails when nothing intact was normalised for that version.
 pub fn decide(req: &AvatarRequest<'_>, approve: bool) -> CoreResult<Normalized> {
-    let src = source(req)?;
-    let version = src
-        .version
-        .ok_or_else(|| invalid(format!("{} has no model yet.", src.asset.name)))?;
-    let dir = asset_dir(req.workspace_root, req.config, req.project, &src.asset.id)
-        .join(format!("v{version}"));
+    let dir = version_dir(req)?;
     if approve {
         normalize::approve(&dir)
     } else {
         normalize::deny(&dir)
+    }
+}
+
+/// A person's yes or no to the weights that free a version's cloth and
+/// hair from the arms, from the app.
+///
+/// # Errors
+///
+/// Fails when nothing intact was reweighted for that version.
+pub fn decide_reweight(req: &AvatarRequest<'_>, approve: bool) -> CoreResult<Reweighted> {
+    let dir = reweight::work_dir(&version_dir(req)?);
+    if approve {
+        reweight::approve(&dir)
+    } else {
+        reweight::deny(&dir)
     }
 }
 
