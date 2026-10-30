@@ -67,6 +67,9 @@ pub enum ApprovalKind {
     /// An agent built an avatar whose weights, freeing cloth and hair from
     /// the arms, wait for a person to look at the before and after sheets.
     Reweight,
+    /// An agent built an avatar whose new spring chains wait for a person
+    /// to look at the parts and the sway sheet.
+    Springs,
 }
 
 /// One send of a batch approval.

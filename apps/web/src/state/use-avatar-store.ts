@@ -189,7 +189,15 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
     if (dirty && !(await get().save())) return;
     set({ building: true });
     try {
-      const built = await commands.avatarBuild(project, asset, version, elbows, null, fingers);
+      const built = await commands.avatarBuild(
+        project,
+        asset,
+        version,
+        elbows,
+        null,
+        fingers,
+        null
+      );
       const { title, detail } = buildNotice(built);
       notify(built.status === 'written' ? 'done' : 'info', title, detail);
     } catch (error) {

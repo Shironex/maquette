@@ -71,6 +71,7 @@ fn a_t_posed_character_saves_its_spec_and_writes_its_vrm() {
         elbows: Elbows::default(),
         reweight: ReweightMode::default(),
         fingers: Fingers::default(),
+        springs: SpringsMode::default(),
     };
 
     let fresh = view(&session, &target).expect("view");

@@ -1,9 +1,10 @@
 //! Avatar approvals: an agent's avatar build whose new weights (cloth and
-//! hair freed from the arms) or new rest pose wait for a person to look at
-//! the before and after sheets.
+//! hair freed from the arms), new rest pose or new spring chains wait for a
+//! person to look at the before and after sheets.
 
 use maquette_core::avatar::normalize::{NormalizeSheets, Normalized};
 use maquette_core::avatar::reweight::Reweighted;
+use maquette_core::avatar::springs::Chained;
 use maquette_core::pipeline::history::now_ms;
 
 use super::{Approval, ApprovalKind, Hub};
@@ -71,6 +72,35 @@ impl Hub {
         )
     }
 
+    /// Records that an avatar's new spring chains, which an agent's build
+    /// made, wait for a person. One per asset: asking again returns the
+    /// same id.
+    pub fn request_springs(&self, chained: &Chained, asset_name: &str) -> String {
+        let ids: Vec<&str> = chained
+            .report
+            .chains
+            .iter()
+            .map(|c| c.id.as_str())
+            .collect();
+        self.request_avatar(
+            AvatarAsk {
+                kind: ApprovalKind::Springs,
+                project: &chained.project,
+                asset: &chained.asset,
+                version: chained.source_version,
+                sheets: &chained.sheets,
+                detail: format!(
+                    "v{}, {} spring chains ({}), {} vertices reweighted",
+                    chained.source_version,
+                    ids.len(),
+                    ids.join(", "),
+                    chained.report.changed
+                ),
+            },
+            asset_name,
+        )
+    }
+
     fn request_avatar(&self, ask: AvatarAsk<'_>, asset_name: &str) -> String {
         if let Some(found) = self.avatar_approval(ask.kind, ask.project, ask.asset) {
             return found.id;
@@ -105,6 +135,11 @@ impl Hub {
     /// The reweight approval an asset waits for, if any.
     pub fn reweight_for(&self, project: &str, asset: &str) -> Option<Approval> {
         self.avatar_approval(ApprovalKind::Reweight, project, asset)
+    }
+
+    /// The springs approval an asset waits for, if any.
+    pub fn springs_for(&self, project: &str, asset: &str) -> Option<Approval> {
+        self.avatar_approval(ApprovalKind::Springs, project, asset)
     }
 
     fn avatar_approval(&self, kind: ApprovalKind, project: &str, asset: &str) -> Option<Approval> {
