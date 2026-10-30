@@ -32,10 +32,10 @@ export default function DiscardedList({ limit = 5 }: DiscardedListProps) {
     >
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold">{d.assetName ?? d.id}</span>
-        <span className="block text-meta break-all text-fg-mute">
-          {d.assetName ? `${d.id} · ` : ''}
-          {why(d, now)}
-        </span>
+        {d.assetName ? (
+          <span className="block truncate font-mono text-[11.5px] text-fg-mute">{d.id}</span>
+        ) : null}
+        <span className="block text-meta text-fg-mute">{why(d, now)}</span>
       </span>
       <Button
         size="sm"
