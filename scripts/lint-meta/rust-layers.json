@@ -44,6 +44,7 @@
     "page": "preview",
     "pipeline": "pipeline",
     "prepare::preview": "pipeline",
+    "avatar::export": "pipeline",
     "avatar::normalize": "pipeline",
     "prepare::pad_tests": "pipeline",
     "prepare::rotate_tests": "pipeline",

@@ -1,0 +1,525 @@
+//! Exporting a character asset as a VRM 1.0 avatar: what the Avatar view
+//! and the avatar tools read ([`view`]), the patch `set_avatar` applies
+//! ([`AvatarPatch`]), and the build ([`build`]): normalise the rest pose
+//! when it is not VRM's yet, wait for a person's yes to the new pose, then
+//! write the file.
+//!
+//! The `.vrm` is a derived export, never a new version: it is written only
+//! to the project's `exports/<asset>.vrm`, over the last one. What the last
+//! build wrote (the file, its size, the source version and what the file
+//! still lacks) is kept in the asset's avatar cache folder as
+//! `export.json`.
+
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
+
+use super::normalize::{
+    self, AVATAR_DIR, Elbows, NormalizeRequest, NormalizeState, Normalized, needs_normalize,
+};
+use super::{AvatarSpec, SceneAvatars};
+use crate::assets;
+use crate::base::ports::ScriptRunner;
+use crate::error::{CoreError, CoreResult};
+use crate::fs::write_atomic;
+use crate::inbox::vrm::{self, BoneOverrides, MaterialMode, VrmFinding, VrmReadiness, WriteSpec};
+use crate::json::write_json;
+use crate::pipeline::tools::Toolbox;
+use crate::project::{self, now_rfc3339};
+use crate::workspace::WorkspaceConfig;
+use crate::{Asset, AssetKind};
+
+/// The project folder exports are written into.
+pub const EXPORTS_DIR: &str = "exports";
+const RECORD_FILE: &str = "export.json";
+
+fn invalid(message: impl Into<String>) -> CoreError {
+    CoreError::Invalid(message.into())
+}
+
+/// `exports/<asset>.vrm` inside the project folder.
+pub fn vrm_file(project_dir: &Path, asset: &str) -> PathBuf {
+    project_dir.join(EXPORTS_DIR).join(format!("{asset}.vrm"))
+}
+
+/// `<workspace cache>/avatar/<project>/<asset>`, which holds a folder per
+/// normalised version and the last export's record.
+fn asset_dir(root: &Path, config: &WorkspaceConfig, project: &str, asset: &str) -> PathBuf {
+    root.join(&config.layout.cache)
+        .join(AVATAR_DIR)
+        .join(project)
+        .join(asset)
+}
+
+/// What the last build wrote.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AvatarExport {
+    /// The `.vrm`, an absolute path.
+    pub path: String,
+    pub bytes: f64,
+    pub source_version: u32,
+    /// Written from a normalised rest pose (else from the model as it is).
+    pub normalized: bool,
+    pub material: MaterialMode,
+    /// What the file still lacks, blockers first.
+    pub unresolved: Vec<VrmFinding>,
+    pub written_at: String,
+    /// The file is still there. Read, never stored.
+    #[serde(default)]
+    pub exists: bool,
+}
+
+/// Which asset to build, and how.
+pub struct AvatarRequest<'a> {
+    pub workspace_root: &'a Path,
+    pub config: &'a WorkspaceConfig,
+    pub project: &'a str,
+    pub asset: &'a str,
+    /// The newest version when `None`.
+    pub version: Option<u32>,
+    pub elbows: Elbows,
+}
+
+/// The asset and the version a request names.
+struct Source {
+    project_dir: PathBuf,
+    asset: Asset,
+    version: Option<u32>,
+    file: Option<PathBuf>,
+}
+
+fn source(req: &AvatarRequest<'_>) -> CoreResult<Source> {
+    let manifest = project::load(req.workspace_root, &req.config.layout, req.project)?;
+    let project_dir = project::dir(req.workspace_root, &req.config.layout, req.project)?;
+    let asset = assets::find(&manifest, req.asset)?.clone();
+    let found = match req.version {
+        Some(n) => Some(
+            asset
+                .versions
+                .iter()
+                .find(|v| v.version == n)
+                .ok_or_else(|| CoreError::NotFound(format!("version {n} of {}", asset.name)))?,
+        ),
+        None => asset.latest(),
+    };
+    let (version, file) = found.map_or((None, None), |v| {
+        (Some(v.version), Some(project_dir.join(&v.file)))
+    });
+    Ok(Source {
+        project_dir,
+        asset,
+        version,
+        file,
+    })
+}
+
+/// The asset's stored spec, or a new one from the workspace defaults.
+/// True when it was stored.
+pub fn spec_for(
+    avatars: &SceneAvatars,
+    config: &WorkspaceConfig,
+    asset: &Asset,
+) -> (AvatarSpec, bool) {
+    avatars.avatars.get(&asset.id).map_or_else(
+        || (config.avatar.spec(&asset.name), false),
+        |spec| (spec.clone(), true),
+    )
+}
+
+/// Everything the Avatar view and `get_avatar` show for one asset.
+#[derive(Debug, Clone, PartialEq, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AvatarView {
+    pub project: String,
+    pub asset: String,
+    pub name: String,
+    pub kind: AssetKind,
+    /// The version read, `None` without a model.
+    pub version: Option<u32>,
+    /// That version's model file, an absolute path.
+    pub model: Option<String>,
+    pub spec: AvatarSpec,
+    /// The spec is stored in `avatar.json`; otherwise it comes from the
+    /// workspace's avatar defaults and is saved on the first change.
+    pub stored: bool,
+    pub readiness: Option<VrmReadiness>,
+    /// Why the readiness could not be read.
+    pub readiness_error: Option<String>,
+    /// The rest pose is not VRM's yet: a build normalises it and waits for
+    /// a person's yes.
+    pub needs_normalize: bool,
+    /// The last normalised rest pose of this version, with its sheets.
+    pub normalized: Option<Normalized>,
+    pub export: Option<AvatarExport>,
+    /// Where a build writes the `.vrm`, an absolute path.
+    pub export_path: String,
+    /// What writing would refuse in the meta (no name, no author).
+    pub meta_problem: Option<String>,
+}
+
+fn read_export(dir: &Path) -> Option<AvatarExport> {
+    let text = fs::read_to_string(dir.join(RECORD_FILE)).ok()?;
+    let mut found: AvatarExport = serde_json::from_str(&text).ok()?;
+    found.exists = Path::new(&found.path).is_file();
+    Some(found)
+}
+
+/// Reads one asset's avatar: the spec, the readiness of the version, the
+/// last normalised rest pose and the last export.
+///
+/// # Errors
+///
+/// Fails for an unknown project, asset or version, or an `avatar.json`
+/// that cannot be read.
+pub fn view(req: &AvatarRequest<'_>) -> CoreResult<AvatarView> {
+    let src = source(req)?;
+    let avatars = super::load(&src.project_dir)?;
+    let (spec, stored) = spec_for(&avatars, req.config, &src.asset);
+    let (readiness, readiness_error) = match &src.file {
+        Some(file) => match readiness_of(file, &spec.bones) {
+            Ok(r) => (Some(r), None),
+            Err(e) => (None, Some(e.to_string())),
+        },
+        None => (None, Some("This asset has no model yet.".to_string())),
+    };
+    let dir = asset_dir(req.workspace_root, req.config, req.project, &src.asset.id);
+    let normalized = match src.version {
+        Some(v) => normalize::load(&dir.join(format!("v{v}")))?,
+        None => None,
+    };
+    Ok(AvatarView {
+        project: req.project.to_string(),
+        asset: src.asset.id.clone(),
+        name: src.asset.name.clone(),
+        kind: src.asset.kind,
+        version: src.version,
+        model: src.file.as_ref().map(|f| f.display().to_string()),
+        needs_normalize: readiness.as_ref().is_some_and(needs_normalize),
+        readiness,
+        readiness_error,
+        normalized,
+        export: read_export(&dir),
+        export_path: vrm_file(&src.project_dir, &src.asset.id)
+            .display()
+            .to_string(),
+        meta_problem: spec.meta.validate().err().map(|e| e.to_string()),
+        spec,
+        stored,
+    })
+}
+
+fn readiness_of(file: &Path, overrides: &BoneOverrides) -> CoreResult<VrmReadiness> {
+    let bytes = fs::read(file).map_err(|e| CoreError::io(file, e))?;
+    vrm::readiness(&bytes, file.parent().unwrap_or(Path::new(".")), overrides)
+}
+
+/// What a build would do, without doing it.
+#[derive(Debug, Clone, PartialEq, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AvatarPlan {
+    pub project: String,
+    pub asset: String,
+    pub version: u32,
+    /// The model it reads, an absolute path. Only read.
+    pub source: String,
+    /// It normalises the rest pose first, and waits for a yes.
+    pub normalize: bool,
+    pub elbows: Elbows,
+    /// A normalised result with these options is already there, so Blender
+    /// does not run again.
+    pub cached: bool,
+    /// The state of that result: pending, approved or denied.
+    pub state: Option<NormalizeState>,
+    pub material: MaterialMode,
+    /// Where the `.vrm` goes, an absolute path.
+    pub output: String,
+    /// What writing would refuse in the meta.
+    pub meta_problem: Option<String>,
+    /// The source's readiness, findings blockers first.
+    pub readiness: VrmReadiness,
+}
+
+/// What a build did.
+#[derive(Debug, Clone, PartialEq, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase", tag = "status")]
+pub enum AvatarBuild {
+    /// The new rest pose waits for a person to look at the sheets.
+    #[serde(rename = "waiting for approval")]
+    Waiting { normalized: Normalized },
+    /// A person turned the new rest pose down.
+    #[serde(rename = "denied")]
+    Denied { normalized: Normalized },
+    /// The `.vrm` is written.
+    #[serde(rename = "written")]
+    Written {
+        export: AvatarExport,
+        normalized: Option<Normalized>,
+    },
+}
+
+/// A request's normalise request, against `spec`'s bone overrides.
+fn normalize_request<'a>(req: &'a AvatarRequest<'a>, spec: &'a AvatarSpec) -> NormalizeRequest<'a> {
+    NormalizeRequest {
+        workspace_root: req.workspace_root,
+        config: req.config,
+        project: req.project,
+        asset: req.asset,
+        version: req.version,
+        overrides: &spec.bones,
+        elbows: req.elbows,
+    }
+}
+
+/// Reads a request's spec, source and readiness.
+fn prepare(req: &AvatarRequest<'_>) -> CoreResult<(Source, AvatarSpec, VrmReadiness)> {
+    let src = source(req)?;
+    let avatars = super::load(&src.project_dir)?;
+    let (spec, _) = spec_for(&avatars, req.config, &src.asset);
+    let file = src
+        .file
+        .clone()
+        .ok_or_else(|| invalid(format!("{} has no model yet.", src.asset.name)))?;
+    let readiness = readiness_of(&file, &spec.bones)?;
+    Ok((src, spec, readiness))
+}
+
+/// Plans a build: whether it normalises, whether a result is cached and
+/// in what state, and where it writes.
+///
+/// # Errors
+///
+/// As [`build`] would before running anything.
+pub fn plan(req: &AvatarRequest<'_>) -> CoreResult<AvatarPlan> {
+    let (src, spec, readiness) = prepare(req)?;
+    let normalize = needs_normalize(&readiness);
+    let (version, source, cached, state) = if normalize {
+        let plan = normalize::plan(&normalize_request(req, &spec))?;
+        let cached = plan.cached();
+        let state = if cached {
+            normalize::load(&plan.dir)?.map(|n| n.state)
+        } else {
+            None
+        };
+        (plan.version, plan.source, cached, state)
+    } else {
+        let file = src.file.clone().unwrap_or_default();
+        (src.version.unwrap_or_default(), file, false, None)
+    };
+    Ok(AvatarPlan {
+        project: req.project.to_string(),
+        asset: src.asset.id.clone(),
+        version,
+        source: source.display().to_string(),
+        normalize,
+        elbows: req.elbows,
+        cached,
+        state,
+        material: spec.material,
+        output: vrm_file(&src.project_dir, &src.asset.id)
+            .display()
+            .to_string(),
+        meta_problem: spec.meta.validate().err().map(|e| e.to_string()),
+        readiness,
+    })
+}
+
+/// Builds the avatar: normalises the rest pose when it is not VRM's yet
+/// (or reuses the cached result), and once a person approved the new pose,
+/// writes `exports/<asset>.vrm`. Blocks while Blender runs.
+///
+/// # Errors
+///
+/// Fails for a meta VRM refuses (no name or author), a rig normalising
+/// cannot fix, a failed Blender run, or a writer refusal.
+pub fn build(
+    runner: &dyn ScriptRunner,
+    tools: &Toolbox,
+    req: &AvatarRequest<'_>,
+) -> CoreResult<AvatarBuild> {
+    let (src, spec, readiness) = prepare(req)?;
+    spec.meta.validate()?;
+    let write_spec = WriteSpec {
+        meta: spec.meta.clone(),
+        overrides: spec.bones.clone(),
+        material: spec.material,
+        thumbnail: None,
+    };
+    let dir = asset_dir(req.workspace_root, req.config, req.project, &src.asset.id);
+    let output = vrm_file(&src.project_dir, &src.asset.id);
+    if !needs_normalize(&readiness) {
+        let file = src.file.clone().unwrap_or_default();
+        let bytes = fs::read(&file).map_err(|e| CoreError::io(&file, e))?;
+        let written = vrm::write(&bytes, &write_spec, file.parent().unwrap_or(&dir))?;
+        let export = save(
+            &dir,
+            &output,
+            &written,
+            src.version.unwrap_or(0),
+            false,
+            &spec,
+        )?;
+        return Ok(AvatarBuild::Written {
+            export,
+            normalized: None,
+        });
+    }
+    let plan = normalize::plan(&normalize_request(req, &spec))?;
+    let found = normalize::run(runner, tools, &plan)?;
+    match found.state {
+        NormalizeState::Pending => Ok(AvatarBuild::Waiting { normalized: found }),
+        NormalizeState::Denied => Ok(AvatarBuild::Denied { normalized: found }),
+        NormalizeState::Approved => {
+            let written = normalize::write_vrm(&plan.dir, &write_spec)?;
+            let export = save(&dir, &output, &written, plan.version, true, &spec)?;
+            Ok(AvatarBuild::Written {
+                export,
+                normalized: Some(found),
+            })
+        }
+    }
+}
+
+/// Writes the `.vrm` and the record of it.
+fn save(
+    dir: &Path,
+    output: &Path,
+    written: &vrm::Written,
+    source_version: u32,
+    normalized: bool,
+    spec: &AvatarSpec,
+) -> CoreResult<AvatarExport> {
+    if let Some(parent) = output.parent() {
+        fs::create_dir_all(parent).map_err(|e| CoreError::io(parent, e))?;
+    }
+    write_atomic(output, &written.bytes).map_err(|e| CoreError::io(output, e))?;
+    let export = AvatarExport {
+        path: output.display().to_string(),
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a model is far below 2^53 bytes"
+        )]
+        bytes: written.bytes.len() as f64,
+        source_version,
+        normalized,
+        material: spec.material,
+        unresolved: written.unresolved.clone(),
+        written_at: now_rfc3339(),
+        exists: true,
+    };
+    fs::create_dir_all(dir).map_err(|e| CoreError::io(dir, e))?;
+    write_json(&dir.join(RECORD_FILE), &export)?;
+    Ok(export)
+}
+
+/// A person's yes or no to a version's new rest pose, from the app.
+///
+/// # Errors
+///
+/// Fails when nothing intact was normalised for that version.
+pub fn decide(req: &AvatarRequest<'_>, approve: bool) -> CoreResult<Normalized> {
+    let src = source(req)?;
+    let version = src
+        .version
+        .ok_or_else(|| invalid(format!("{} has no model yet.", src.asset.name)))?;
+    let dir = asset_dir(req.workspace_root, req.config, req.project, &src.asset.id)
+        .join(format!("v{version}"));
+    if approve {
+        normalize::approve(&dir)
+    } else {
+        normalize::deny(&dir)
+    }
+}
+
+/// A change to one asset's spec, as `set_avatar` takes it. Only what is
+/// given changes.
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AvatarPatch {
+    /// Start from the workspace defaults first, before the rest applies.
+    pub reset: bool,
+    /// Meta fields by their VRM names; null puts one back to its default.
+    pub meta: Map<String, Value>,
+    /// VRM bone name to a joint name, or null to leave the bone unmapped.
+    pub bones: BoneOverrides,
+    /// Bones whose override is dropped, so they map by name again.
+    pub clear_bones: Vec<String>,
+    pub material: Option<MaterialMode>,
+}
+
+/// The meta fields a patch may name.
+const META_FIELDS: [&str; 18] = [
+    "name",
+    "version",
+    "authors",
+    "copyrightInformation",
+    "contactInformation",
+    "references",
+    "thirdPartyLicenses",
+    "licenseUrl",
+    "avatarPermission",
+    "allowExcessivelyViolentUsage",
+    "allowExcessivelySexualUsage",
+    "commercialUsage",
+    "allowPoliticalOrReligiousUsage",
+    "allowAntisocialOrHateUsage",
+    "creditNotation",
+    "allowRedistribution",
+    "modification",
+    "otherLicenseUrl",
+];
+
+/// Applies `patch` to `current` (`defaults` when it resets).
+///
+/// # Errors
+///
+/// Refuses an unknown meta field, a value of the wrong kind, or a spec
+/// [`AvatarSpec::validate`] refuses.
+pub fn apply_patch(
+    current: &AvatarSpec,
+    defaults: &AvatarSpec,
+    patch: &AvatarPatch,
+) -> CoreResult<AvatarSpec> {
+    let mut next = if patch.reset {
+        defaults.clone()
+    } else {
+        current.clone()
+    };
+    if !patch.meta.is_empty() {
+        let mut meta = match serde_json::to_value(&next.meta) {
+            Ok(Value::Object(map)) => map,
+            _ => Map::new(),
+        };
+        for (field, value) in &patch.meta {
+            if !META_FIELDS.contains(&field.as_str()) {
+                return Err(invalid(format!(
+                    "{field} is not a VRM meta field. Use one of {}.",
+                    META_FIELDS.join(", ")
+                )));
+            }
+            if value.is_null() {
+                meta.remove(field);
+            } else {
+                meta.insert(field.clone(), value.clone());
+            }
+        }
+        next.meta = serde_json::from_value(Value::Object(meta))
+            .map_err(|e| invalid(format!("The meta does not read: {e}.")))?;
+    }
+    for bone in &patch.clear_bones {
+        next.bones.remove(bone);
+    }
+    for (bone, joint) in &patch.bones {
+        next.bones.insert(bone.clone(), joint.clone());
+    }
+    if let Some(material) = patch.material {
+        next.material = material;
+    }
+    next.validate()?;
+    Ok(next)
+}
+
+#[cfg(test)]
+mod tests;
