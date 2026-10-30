@@ -2,12 +2,14 @@
 //! project's `avatar.json`; a build normalises the rest pose headless when
 //! it is not VRM's yet, waits for a person's yes to the new pose, then
 //! writes `exports/<asset>.vrm`. When cloth or hair hangs on the arms, it
-//! first frees them and waits for a yes to the new weights. The yes or no
-//! is only ever given here, in the app: agents build, and wait.
+//! first frees them and waits for a yes to the new weights; when springs
+//! are confirmed, it adds their chains and waits for a yes to those. The
+//! yes or no is only ever given here, in the app: agents build, and wait.
 
 use maquette_core::avatar::export::{self, AvatarBuild, AvatarPlan, AvatarRequest, AvatarView};
 use maquette_core::avatar::normalize::{Elbows, Fingers, Normalized};
 use maquette_core::avatar::reweight::{ReweightMode, Reweighted};
+use maquette_core::avatar::springs::{Chained, FoundSprings, SpringsMode};
 use maquette_core::avatar::{self, AvatarSpec};
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::project;
@@ -26,6 +28,7 @@ pub(crate) struct Target<'a> {
     pub elbows: Elbows,
     pub reweight: ReweightMode,
     pub fingers: Fingers,
+    pub springs: SpringsMode,
 }
 
 /// Runs `then` on the request a target names in the open workspace.
@@ -44,6 +47,7 @@ fn with_request<T>(
         elbows: target.elbows,
         reweight: target.reweight,
         fingers: target.fingers,
+        springs: target.springs,
     };
     Ok(then(&req)?)
 }
@@ -64,6 +68,18 @@ pub(crate) fn build(
     target: &Target<'_>,
 ) -> CommandResult<AvatarBuild> {
     with_request(session, target, |req| export::build(runner, tools, req))
+}
+
+/// Looks for the parts that could swing. Blocks while Blender runs.
+pub(crate) fn find_springs(
+    session: &Session,
+    runner: &dyn maquette_core::base::ports::ScriptRunner,
+    tools: &Toolbox,
+    target: &Target<'_>,
+) -> CommandResult<FoundSprings> {
+    with_request(session, target, |req| {
+        export::find_springs(runner, tools, req)
+    })
 }
 
 /// Stores `spec` as the asset's avatar, checked, and reads the view again.
@@ -99,6 +115,7 @@ pub fn avatar_get(
             elbows: Elbows::default(),
             reweight: ReweightMode::default(),
             fingers: Fingers::default(),
+            springs: SpringsMode::default(),
         },
     )
 }
@@ -121,6 +138,7 @@ pub fn avatar_save(
             elbows: Elbows::default(),
             reweight: ReweightMode::default(),
             fingers: Fingers::default(),
+            springs: SpringsMode::default(),
         },
         spec,
     )
@@ -129,8 +147,10 @@ pub fn avatar_save(
 /// Builds the avatar's `.vrm`: frees cloth and hair from the arms when they
 /// hang there (unless `reweight` is off) and waits for that yes, normalises
 /// the rest pose headless when it is not VRM's yet and waits for the yes,
-/// or writes the file once both are given. `fingers` straightens the fingers
-/// in that normalise (the default) or keeps them.
+/// chains the confirmed springs and waits for that yes (a person who wants
+/// none confirms none, or `springs` is off), or writes the file once all are
+/// given. `fingers` straightens the fingers in that normalise (the default)
+/// or keeps them.
 #[tauri::command]
 #[specta::specta]
 #[expect(
@@ -147,6 +167,7 @@ pub async fn avatar_build(
     elbows: Option<Elbows>,
     reweight: Option<ReweightMode>,
     fingers: Option<Fingers>,
+    springs: Option<SpringsMode>,
 ) -> CommandResult<AvatarBuild> {
     let tools = super::toolchain::toolbox(&session).await?;
     let runner = runner.0.clone();
@@ -162,6 +183,7 @@ pub async fn avatar_build(
                 elbows: elbows.unwrap_or_default(),
                 reweight: reweight.unwrap_or_default(),
                 fingers: fingers.unwrap_or_default(),
+                springs: springs.unwrap_or_default(),
             },
         )
     })
@@ -189,6 +211,7 @@ pub fn avatar_decide(
         elbows: Elbows::default(),
         reweight: ReweightMode::default(),
         fingers: Fingers::default(),
+        springs: SpringsMode::default(),
     };
     let decided = with_request(&session, &target, |req| export::decide(req, approve))?;
     if let Some(waiting) = agents.hub.rest_pose_for(&decided.project, &decided.asset) {
@@ -217,11 +240,77 @@ pub fn avatar_decide_reweight(
         elbows: Elbows::default(),
         reweight: ReweightMode::default(),
         fingers: Fingers::default(),
+        springs: SpringsMode::default(),
     };
     let decided = with_request(&session, &target, |req| {
         export::decide_reweight(req, approve)
     })?;
     if let Some(waiting) = agents.hub.reweight_for(&decided.project, &decided.asset) {
+        agents.hub.decide(&waiting.id, approve);
+    }
+    Ok(decided)
+}
+
+/// Looks for the parts hanging off the model a version's VRM is written
+/// from (its approved rest pose), or reads the last look. Changes nothing.
+#[tauri::command]
+#[specta::specta]
+pub async fn avatar_find_springs(
+    app: AppHandle,
+    session: State<'_, Session>,
+    runner: State<'_, Pipelines>,
+    project: String,
+    asset: String,
+    version: Option<u32>,
+) -> CommandResult<FoundSprings> {
+    let tools = super::toolchain::toolbox(&session).await?;
+    let runner = runner.0.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        find_springs(
+            app.state::<Session>().inner(),
+            &runner,
+            &tools,
+            &Target {
+                project: &project,
+                asset: &asset,
+                version,
+                elbows: Elbows::default(),
+                reweight: ReweightMode::default(),
+                fingers: Fingers::default(),
+                springs: SpringsMode::default(),
+            },
+        )
+    })
+    .await
+    .map_err(super::join_failed)?
+}
+
+/// A person's yes or no to a version's new spring chains. Not an agent
+/// tool: only the app's approval card calls it. An agent's waiting request
+/// for that asset is settled with it.
+#[tauri::command]
+#[specta::specta]
+pub fn avatar_decide_springs(
+    session: State<'_, Session>,
+    agents: State<'_, Agents>,
+    project: String,
+    asset: String,
+    version: Option<u32>,
+    approve: bool,
+) -> CommandResult<Chained> {
+    let target = Target {
+        project: &project,
+        asset: &asset,
+        version,
+        elbows: Elbows::default(),
+        reweight: ReweightMode::default(),
+        fingers: Fingers::default(),
+        springs: SpringsMode::default(),
+    };
+    let decided = with_request(&session, &target, |req| {
+        export::decide_springs(req, approve)
+    })?;
+    if let Some(waiting) = agents.hub.springs_for(&decided.project, &decided.asset) {
         agents.hub.decide(&waiting.id, approve);
     }
     Ok(decided)

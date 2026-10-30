@@ -43,6 +43,9 @@ export function approvalTitle(approval: Approval, projectName?: string): string 
   if (approval.kind === 'rest-pose') {
     return `Approve ${approval.assetName ?? 'the avatar'}'s new rest pose?`;
   }
+  if (approval.kind === 'springs') {
+    return `Add spring chains to ${approval.assetName ?? 'the avatar'}?`;
+  }
   if (approval.kind === 'reweight') {
     return `Free ${approval.assetName ?? 'the avatar'}'s cloth and hair from the arms?`;
   }
@@ -69,7 +72,9 @@ export function approvalsLabel(approvals: Approval[]): string {
             ? 'rest pose'
             : kinds.has('reweight')
               ? 'reweight'
-              : 'send';
+              : kinds.has('springs')
+                ? 'spring chain'
+                : 'send';
   return `${n} ${noun}${n === 1 ? ' waits' : 's wait'} for approval`;
 }
 

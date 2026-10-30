@@ -116,6 +116,11 @@ describe('agents', () => {
     };
     expect(approvalTitle(pose)).toBe("Approve Hero's new rest pose?");
     expect(approvalsLabel([pose])).toBe('1 rest pose waits for approval');
+    const chains: Approval = { ...pose, id: 'springs-hero', kind: 'springs' };
+    expect(approvalTitle(chains)).toBe('Add spring chains to Hero?');
+    expect(approvalsLabel([chains, { ...chains, id: 'springs-2' }])).toBe(
+      '2 spring chains wait for approval'
+    );
   });
 
   it('counts approvals by kind', () => {

@@ -30,6 +30,8 @@
 //! bytes with the avatar's [`VrmMeta`]. Pose blockers do not stop it: they
 //! come back with the bytes as what the file still lacks. [`round_trip()`]
 //! reads the written bytes back and checks them as a runtime would.
+//! [`add_springs`] adds secondary motion (`VRMC_springBone`) to written
+//! bytes, for chains of joints added to hanging parts ([`springs`]).
 
 mod arm_weights;
 mod bones;
@@ -41,6 +43,7 @@ mod mtoon;
 mod pose;
 mod round_trip;
 mod skin;
+mod springs;
 mod write;
 
 use std::path::Path;
@@ -63,6 +66,10 @@ pub use mtoon::VRMC_MATERIALS_MTOON;
 pub use pose::{Axis, RestPose, SCALE_NOISE};
 pub use round_trip::{RoundTrip, round_trip};
 pub use skin::{MAX_INFLUENCES, WEIGHT_SUM_SLACK};
+pub use springs::{
+    ColliderShape, SpringBones, SpringChain, SpringCollider, SpringKind, SpringPreset,
+    SpringSettings, VRMC_SPRING_BONE, add_springs,
+};
 pub use write::{MaterialMode, Thumbnail, VRMC_VRM, WriteSpec, Written, write};
 
 /// True when `name` is one of VRM 1.0's humanoid bones, such as `hips` or
@@ -334,6 +341,11 @@ pub(crate) fn register(types: specta::Types) -> specta::Types {
         .register::<VrmMeta>()
         .register::<MaterialMode>()
         .register::<RoundTrip>()
+        .register::<SpringKind>()
+        .register::<SpringPreset>()
+        .register::<SpringSettings>()
+        .register::<ColliderShape>()
+        .register::<SpringCollider>()
 }
 
 #[cfg(test)]
@@ -344,6 +356,8 @@ mod naming_tests;
 mod round_trip_tests;
 #[cfg(test)]
 mod skin_tests;
+#[cfg(test)]
+mod springs_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

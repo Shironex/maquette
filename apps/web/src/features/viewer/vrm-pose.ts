@@ -3,7 +3,9 @@
  * shares whatever its rig: each starts at rest with no rotation, the
  * character faces +Z with its left on +X, and the arms lie along X in a
  * T-pose. Arms down turns the upper arms down about Z and bends the elbows
- * forward a little; breathe lifts the chest and the arms on a slow cycle.
+ * forward a little; breathe lifts the chest and the arms on a slow cycle;
+ * a wiggle shakes the hips and the head for a moment, so spring bones
+ * swing.
  * Plain three.js, so it is tested without three-vrm.
  */
 import * as THREE from 'three';
@@ -37,6 +39,22 @@ export interface PoseOptions {
   armsDown: boolean;
   /** A slow breath in the chest and arms. */
   breathe: boolean;
+  /** Seconds since a wiggle started; null without one. */
+  wiggle?: number | null;
+}
+
+/** How long a wiggle lasts, and how far it turns the hips and tilts the head at first. */
+export const WIGGLE_SECONDS = 1.6;
+const WIGGLE_HIPS = THREE.MathUtils.degToRad(24);
+const WIGGLE_HEAD = THREE.MathUtils.degToRad(16);
+
+/** A wiggle's sway `seconds` in, from -1 to 1, dying down to 0 at its end. */
+export function wiggleAt(seconds: number | null | undefined): number {
+  if (seconds === null || seconds === undefined || seconds < 0 || seconds >= WIGGLE_SECONDS) {
+    return 0;
+  }
+  const fade = 1 - seconds / WIGGLE_SECONDS;
+  return Math.sin(seconds * Math.PI * 2 * 2.5) * fade * fade;
 }
 
 /** How far the arms come down from level. */
@@ -66,7 +84,7 @@ export function breathAt(seconds: number): number {
 export function poseHumanoid(
   humanoid: PosableHumanoid,
   seconds: number,
-  { armsDown, breathe }: PoseOptions
+  { armsDown, breathe, wiggle }: PoseOptions
 ): void {
   const breath = breathe ? breathAt(seconds) : 0;
   const lift = (armsDown ? ARMS_DOWN : 0) - breath * ARM_BREATH;
@@ -80,4 +98,7 @@ export function poseHumanoid(
   }
   const chest = bone(humanoid, 'upperChest') ?? bone(humanoid, 'chest') ?? bone(humanoid, 'spine');
   chest?.rotation.set(-breath * CHEST_BREATH, 0, 0);
+  const sway = wiggleAt(wiggle);
+  bone(humanoid, 'hips')?.rotation.set(0, sway * WIGGLE_HIPS, 0);
+  bone(humanoid, 'head')?.rotation.set(0, 0, -sway * WIGGLE_HEAD);
 }

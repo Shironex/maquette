@@ -21,7 +21,8 @@ const POSES = [
 
 /**
  * The written `.vrm` as a VRM app loads it: idling with the arms down, its
- * eyes on the pointer where the file can move them, with what the loader
+ * eyes on the pointer where the file can move them, its spring bones live
+ * (Wiggle shakes it so they swing), with what the loader
  * found and the round trip's problems when it failed.
  */
 export default function PreviewPanel() {
@@ -82,6 +83,20 @@ export default function PreviewPanel() {
           title={p.stillEyes ?? undefined}
           onChange={p.setLookAt}
         />
+        <Button
+          size="sm"
+          variant="secondary"
+          icon="arrows-left-right"
+          disabled={!p.wiggle.ready}
+          tooltip={
+            p.wiggle.ready
+              ? 'Shakes the hips and the head once, so the springs swing'
+              : 'This file has no spring bones to swing'
+          }
+          onClick={p.wiggle.shake}
+        >
+          Wiggle
+        </Button>
       </div>
       <div className="relative h-[520px] overflow-hidden rounded-card border border-line bg-studio">
         {p.failed ? null : (
@@ -94,6 +109,7 @@ export default function PreviewPanel() {
                 armsDown={p.armsDown}
                 breathe={p.breathe}
                 lookAt={p.lookAt}
+                wiggle={p.wiggle.count}
                 onLoaded={p.onLoaded}
                 onError={p.onError}
               />

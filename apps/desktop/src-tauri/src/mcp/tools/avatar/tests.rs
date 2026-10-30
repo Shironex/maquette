@@ -1,10 +1,15 @@
 use std::path::Path;
 
 use maquette_core::avatar::export::AvatarExport;
+use maquette_core::avatar::export::SpringsView;
 use maquette_core::avatar::normalize::{NormalizeReport, NormalizeSheets, NormalizeState};
 use maquette_core::avatar::reweight::ReweightReport;
+use maquette_core::avatar::springs::{
+    ChainBuilt, ChainReport, Chained, FoundSprings, SpringCandidate,
+};
 use maquette_core::inbox::fixture::{self, HumanoidSpec};
 use maquette_core::inbox::vrm::{self, BoneOverrides, MaterialMode, RoundTrip};
+use maquette_core::inbox::vrm::{SpringKind, SpringPreset};
 
 use super::*;
 use crate::mcp::hub::ApprovalKind;
@@ -181,7 +186,9 @@ fn a_written_build_names_its_report_and_round_trip() {
             passed: true,
             problems: Vec::new(),
             bones: 52,
+            springs: 0,
         }),
+        springs: 2,
     };
     let built = AvatarBuild::Written {
         export,
@@ -192,5 +199,115 @@ fn a_written_build_names_its_report_and_round_trip() {
     assert_eq!(answer["report"], "/p/exports/hero.vrm.report.json");
     assert_eq!(answer["roundTrip"]["passed"], true);
     assert_eq!(answer["roundTrip"]["bones"], 52);
+    assert_eq!(answer["springs"], 2);
     assert!(hub.approvals().is_empty());
+}
+
+fn chained() -> Chained {
+    Chained {
+        project: "pets".into(),
+        asset: "hero".into(),
+        source_version: 2,
+        state: NormalizeState::Pending,
+        glb: "/cache/avatar/pets/hero/v2/springs/chain/springs.glb".into(),
+        sheets: NormalizeSheets {
+            before: "/cache/avatar/pets/hero/v2/springs/chain/sheet_before.png".into(),
+            after: "/cache/avatar/pets/hero/v2/springs/chain/sheet_after.png".into(),
+        },
+        report: ChainReport {
+            chains: vec![ChainBuilt {
+                id: "hair-1".into(),
+                root_bone: "head".into(),
+                joints: vec!["spring_hair-1_0".into(), "spring_hair-1_1".into()],
+                ..ChainBuilt::default()
+            }],
+            changed: 640,
+            ..ChainReport::default()
+        },
+        key: "s".into(),
+        approved_at: None,
+    }
+}
+
+#[test]
+fn waiting_chains_ask_a_person_once_with_the_sway_sheet() {
+    let hub = Hub::new(|| {});
+    let built = AvatarBuild::SpringsWaiting { chained: chained() };
+    let first = build_answer(&hub, "Hero", &built);
+    assert_eq!(
+        (first["status"].as_str(), first["step"].as_str()),
+        (Some(WAITING), Some("springs"))
+    );
+    assert_eq!(first["springs"]["chains"][0]["id"], "hair-1");
+    assert_eq!(first["springs"]["chains"][0]["joints"], 2);
+    assert!(
+        first["springs"]["sheets"]["after"]
+            .as_str()
+            .is_some_and(|p| p.ends_with("sheet_after.png"))
+    );
+    let again = build_answer(&hub, "Hero", &built);
+    assert_eq!(again["approval"], first["approval"]);
+    let approvals = hub.approvals();
+    assert_eq!(approvals.len(), 1);
+    assert_eq!(approvals[0].kind, ApprovalKind::Springs);
+    assert!(
+        approvals[0]
+            .detail
+            .as_deref()
+            .is_some_and(|d| d.contains("hair-1"))
+    );
+    assert!(hub.springs_for("pets", "hero").is_some());
+}
+
+#[test]
+fn springs_are_confirmed_by_candidate_id_and_tuned_on_top() {
+    let view = SpringsView {
+        ready: true,
+        found: Some(FoundSprings {
+            candidates: vec![SpringCandidate {
+                id: "hair-1".into(),
+                kind: SpringKind::Hair,
+                root_bone: "head".into(),
+                line: vec![[0.0, 1.6, -0.1], [0.0, 1.0, -0.2]],
+                length: 0.6,
+                drop: 0.6,
+                vertices: 900,
+                confidence: 0.9,
+                joints: 6,
+                color: "#e8553f".into(),
+            }],
+            sheet: "/c/candidates.png".into(),
+            input: "/c/normalized.glb".into(),
+            height: 1.7,
+        }),
+        chained: None,
+    };
+    let arg = |id: &str| springs::SpringArg {
+        id: id.into(),
+        kind: None,
+        root_bone: None,
+        line: None,
+        joints: None,
+        preset: None,
+        stiffness: None,
+        gravity_power: None,
+        drag_force: None,
+        hit_radius: None,
+    };
+    let tuned = springs::SpringArg {
+        joints: Some(4),
+        preset: Some("Heavy".into()),
+        drag_force: Some(0.7),
+        ..arg("hair-1")
+    };
+    let specs = springs::confirmed(&view, &[tuned]).expect("confirmed");
+    assert_eq!(specs[0].root_bone, "head");
+    assert_eq!(specs[0].line.len(), 2);
+    assert_eq!(specs[0].joints, Some(4));
+    assert_eq!(specs[0].preset, Some(SpringPreset::Heavy));
+    assert_eq!(specs[0].settings().drag_force, 0.7);
+    let err = springs::confirmed(&view, &[arg("cape-9")]).expect_err("unknown");
+    assert!(err.contains("No candidate is called cape-9"), "{err}");
+    assert_eq!(springs::parse_springs(Some("OFF")), Ok(SpringsMode::Off));
+    assert!(springs::parse_springs(Some("on")).is_err());
 }

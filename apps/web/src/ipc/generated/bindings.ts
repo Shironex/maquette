@@ -228,8 +228,10 @@ export const commands = {
 	 *  Builds the avatar's `.vrm`: frees cloth and hair from the arms when they
 	 *  hang there (unless `reweight` is off) and waits for that yes, normalises
 	 *  the rest pose headless when it is not VRM's yet and waits for the yes,
-	 *  or writes the file once both are given. `fingers` straightens the fingers
-	 *  in that normalise (the default) or keeps them.
+	 *  chains the confirmed springs and waits for that yes (a person who wants
+	 *  none confirms none, or `springs` is off), or writes the file once all are
+	 *  given. `fingers` straightens the fingers in that normalise (the default)
+	 *  or keeps them.
 	 */
 	avatarBuild: (project: string, asset: string, version: number | null, elbows: 
 /**  The whole arm turns at the shoulder; a bent elbow stays bent. */
@@ -249,7 +251,14 @@ export const commands = {
 /**  Laid straight along the hand, as far as the hand's mesh holds. */
 "straighten" | 
 /**  Left as the rig has them. */
-"keep" | null) => __TAURI_INVOKE<AvatarBuild>("avatar_build", { project, asset, version, elbows, reweight, fingers }),
+"keep" | null, springs: 
+/**
+ *  Look for dangling parts once (cached), and when springs are
+ *  confirmed, chain them as a step that waits for a yes of its own.
+ */
+"auto" | 
+/**  Write the VRM without springs. */
+"off" | null) => __TAURI_INVOKE<AvatarBuild>("avatar_build", { project, asset, version, elbows, reweight, fingers, springs }),
 	/**
 	 *  A person's yes or no to a version's new rest pose. Not an agent tool:
 	 *  only the app's approval card calls it. An agent's waiting request for
@@ -262,6 +271,17 @@ export const commands = {
 	 *  calls it. An agent's waiting request for that asset is settled with it.
 	 */
 	avatarDecideReweight: (project: string, asset: string, version: number | null, approve: boolean) => __TAURI_INVOKE<Reweighted>("avatar_decide_reweight", { project, asset, version, approve }),
+	/**
+	 *  Looks for the parts hanging off the model a version's VRM is written
+	 *  from (its approved rest pose), or reads the last look. Changes nothing.
+	 */
+	avatarFindSprings: (project: string, asset: string, version: number | null) => __TAURI_INVOKE<FoundSprings>("avatar_find_springs", { project, asset, version }),
+	/**
+	 *  A person's yes or no to a version's new spring chains. Not an agent
+	 *  tool: only the app's approval card calls it. An agent's waiting request
+	 *  for that asset is settled with it.
+	 */
+	avatarDecideSprings: (project: string, asset: string, version: number | null, approve: boolean) => __TAURI_INVOKE<Chained>("avatar_decide_springs", { project, asset, version, approve }),
 	prepareGet: (project: string) => __TAURI_INVOKE<ScenePrep>("prepare_get", { project }),
 	prepareAsset: (project: string, asset: string) => __TAURI_INVOKE<AssetPrep>("prepare_asset", { project, asset }),
 	/**
@@ -832,7 +852,12 @@ export type ApprovalKind =
  *  An agent built an avatar whose weights, freeing cloth and hair from
  *  the arms, wait for a person to look at the before and after sheets.
  */
-"reweight";
+"reweight" | 
+/**
+ *  An agent built an avatar whose new spring chains wait for a person
+ *  to look at the parts and the sway sheet.
+ */
+"springs";
 
 /**  How far one arm turned. */
 export type ArmLift = {
@@ -1106,6 +1131,11 @@ export type AvatarBuild =
 { status: "waiting for approval"; normalized: Normalized } | 
 /**  A person turned the new rest pose down. */
 { status: "denied"; normalized: Normalized } | 
+/**
+ *  The chains of the confirmed springs wait for a person to look at
+ *  the sway sheets.
+ */
+{ status: "springs waiting for approval"; chained: Chained } | 
 /**  The `.vrm` is written. */
 { status: "written"; export: AvatarExport; normalized: Normalized | null };
 
@@ -1166,6 +1196,8 @@ export type AvatarExport = {
 	 *  predates the check.
 	 */
 	roundTrip?: RoundTrip | null,
+	/**  The springs the file carries; 0 for a build that predates them. */
+	springs?: number,
 };
 
 /**  Who may play the avatar. */
@@ -1183,6 +1215,8 @@ export type AvatarSpec_Deserialize = {
 	 */
 	bones?: { [key in string]: string | null },
 	material?: MaterialMode,
+	/**  The confirmed springs, in the order they were confirmed. */
+	springs?: SpringSpec[],
 };
 
 /**  One character asset's avatar. */
@@ -1194,6 +1228,8 @@ export type AvatarSpec_Serialize = {
 	 */
 	bones: { [key in string]: string | null },
 	material: MaterialMode,
+	/**  The confirmed springs, in the order they were confirmed. */
+	springs?: SpringSpec[],
 };
 
 /**  Everything the Avatar view and `get_avatar` show for one asset. */
@@ -1232,6 +1268,11 @@ export type AvatarView_Deserialize = {
 	reweighted: Reweighted | null,
 	/**  The last normalised rest pose of this version, with its sheets. */
 	normalized: Normalized | null,
+	/**
+	 *  The parts that could swing, found on the model the VRM is written
+	 *  from, and the last chains made for the confirmed ones.
+	 */
+	springs: SpringsView,
 	export: AvatarExport | null,
 	/**  Where a build writes the `.vrm`, an absolute path. */
 	exportPath: string,
@@ -1272,6 +1313,11 @@ export type AvatarView_Serialize = {
 	reweighted: Reweighted | null,
 	/**  The last normalised rest pose of this version, with its sheets. */
 	normalized: Normalized | null,
+	/**
+	 *  The parts that could swing, found on the model the VRM is written
+	 *  from, and the last chains made for the confirmed ones.
+	 */
+	springs: SpringsView,
 	export: AvatarExport | null,
 	/**  Where a build writes the `.vrm`, an absolute path. */
 	exportPath: string,
@@ -1662,6 +1708,60 @@ export type CardRow = {
 	note: string | null,
 };
 
+/**  One chain the chain step added. */
+export type ChainBuilt = {
+	id?: string,
+	kind?: SpringKind | null,
+	rootBone?: string,
+	/**  The root bone's joint (node name). */
+	rootJoint?: string,
+	/**  The chain's joint nodes, root to tip. */
+	joints?: string[],
+	length?: number | null,
+	/**  Vertices weighted to the chain. */
+	vertices?: number,
+	/**
+	 *  Of those, the ones that keep some of their old weight where the part
+	 *  meets the rest.
+	 */
+	blended?: number,
+	/**  Each joint's head, glTF metres. */
+	heads?: ([(number | null), (number | null), (number | null)])[],
+	/**  How far the part's vertices lie from the line, the median. */
+	radius?: number | null,
+	/**  The collider groups it touches. */
+	colliderGroups?: string[],
+};
+
+/**  The chain step's `report.json`. */
+export type ChainReport = {
+	height?: number | null,
+	chains?: ChainBuilt[],
+	colliders?: SpringCollider[],
+	weights?: ReweightChecks,
+	/**  Vertices whose weights changed. */
+	changed?: number,
+};
+
+/**  A model with chains added and what it takes to judge it. */
+export type Chained = {
+	project: string,
+	asset: string,
+	sourceVersion: number,
+	state: NormalizeState,
+	/**  The model with the chains, an absolute path. */
+	glb: string,
+	/**
+	 *  Before: the parts and the joints to come. After: the sway test,
+	 *  rows rest, left, right and back.
+	 */
+	sheets: NormalizeSheets,
+	report: ChainReport,
+	/**  The run's cache key; an approval holds for this key only. */
+	key: string,
+	approvedAt: string | null,
+};
+
 export type Check = {
 	id: string,
 	status: CheckStatus,
@@ -1873,6 +1973,16 @@ export type CodexUsage = {
 
 /**  A Codex usage read finished: the status bar and the Lab show it. */
 export type CodexUsageUpdate = CodexUsage;
+
+/**  A collider's shape, in its bone's space. */
+export type ColliderShape = ({ sphere: {
+	offset: [(number | null), (number | null), (number | null)],
+	radius: number | null,
+} }) & { capsule?: never } | ({ capsule: {
+	offset: [(number | null), (number | null), (number | null)],
+	radius: number | null,
+	tail: [(number | null), (number | null), (number | null)],
+} }) & { sphere?: never };
 
 /**  Where a dev command came from. */
 export type CommandSource = 
@@ -2387,6 +2497,21 @@ export type FolderLayout = {
 	projects: string,
 	inbox: string,
 	cache: string,
+};
+
+/**  What the finder found on the model a VRM is written from. */
+export type FoundSprings = {
+	/**  Most sure first. */
+	candidates: SpringCandidate[],
+	/**
+	 *  The model with each candidate in its colour, front, side and back;
+	 *  an absolute path.
+	 */
+	sheet: string,
+	/**  The model the finder read, an absolute path. */
+	input: string,
+	/**  The model's height in metres. */
+	height: number | null,
 };
 
 /**  What Game export writes: plain files, never KTX2 or meshopt. */
@@ -4634,6 +4759,11 @@ export type RoundTrip = {
 	problems: string[],
 	/**  Human bones the file names. */
 	bones: number,
+	/**
+	 *  Springs (`VRMC_springBone`) the file has; 0 without any, and in
+	 *  round trips older versions recorded.
+	 */
+	springs?: number,
 };
 
 /**  What a run is asked to do besides its steps. */
@@ -5404,6 +5534,111 @@ export type SplitSource = {
 	objects: number,
 	/**  A split of this asset already on its way. */
 	busy: string | null,
+};
+
+/**  A part hanging off the body the finder proposes for a spring. */
+export type SpringCandidate = {
+	/**  `hair-1`, `cloth-2`: the kind and its rank, most sure first. */
+	id: string,
+	kind: SpringKind,
+	/**  The VRM humanoid bone it hangs from. */
+	rootBone: string,
+	/**  Its centre line from where it hangs, glTF metres. */
+	line: ([(number | null), (number | null), (number | null)])[],
+	/**  Metres along the line. */
+	length: number | null,
+	/**  Metres it drops below where it hangs from. */
+	drop: number | null,
+	vertices: number,
+	/**  0 to 1: how sure the finder is this part hangs free. */
+	confidence: number | null,
+	/**  The joints a chain gets by its length. */
+	joints: number,
+	/**  Its colour on the candidates sheet, `#rrggbb`. */
+	color: string,
+};
+
+/**  A collider on a bone. */
+export type SpringCollider = {
+	/**  The group it belongs to: Head, Neck, Chest, Arms, Hips or Legs. */
+	group: string,
+	/**  The VRM humanoid bone it sits on. */
+	bone: string,
+	/**  That bone's joint (node name). */
+	joint: string,
+	shape: ColliderShape,
+};
+
+/**  What a hanging part is. */
+export type SpringKind = 
+/**  Hair hanging from the head or neck. */
+"hair" | 
+/**  A long part hanging from the trunk: a cape, a coat's tails. */
+"cloth" | 
+/**  A short part hanging from the trunk: a charm, a strap. */
+"accessory";
+
+/**  How a spring swings, as a starting point. */
+export type SpringPreset = 
+/**  Soft with light drag: hair. */
+"soft" | 
+/**  More drag and gravity: cloth. */
+"heavy" | 
+/**  Stiff and small: charms and straps. */
+"stiff";
+
+/**  One joint's swing, as VRM writes it. */
+export type SpringSettings = {
+	/**  How hard the joint springs back to its rest direction. */
+	stiffness: number | null,
+	gravityPower: number | null,
+	gravityDir: [(number | null), (number | null), (number | null)],
+	/**  How much of its speed the joint loses each step, 0 to 1. */
+	dragForce: number | null,
+	/**  The radius, in metres, the joint keeps from colliders. */
+	hitRadius: number | null,
+};
+
+/**  One confirmed spring. */
+export type SpringSpec = {
+	/**  The candidate's id, such as `hair-1`. */
+	id: string,
+	kind: SpringKind,
+	/**  The VRM humanoid bone the chain hangs from. */
+	rootBone: string,
+	/**  The candidate's centre line, glTF metres, from where it hangs. */
+	line: ([(number | null), (number | null), (number | null)])[],
+	/**  Joints along the chain; by its length when `None`. */
+	joints?: number | null,
+	/**  By kind when `None`. */
+	preset?: SpringPreset | null,
+	stiffness?: number | null,
+	gravityPower?: number | null,
+	dragForce?: number | null,
+	hitRadius?: number | null,
+};
+
+/**  Whether a build adds the confirmed springs. */
+export type SpringsMode = 
+/**
+ *  Look for dangling parts once (cached), and when springs are
+ *  confirmed, chain them as a step that waits for a yes of its own.
+ */
+"auto" | 
+/**  Write the VRM without springs. */
+"off";
+
+/**  What the Avatar view shows of the springs. */
+export type SpringsView = {
+	/**
+	 *  The model the springs read is ready: the version's rest pose is
+	 *  VRM's, or its new one is approved.
+	 */
+	ready: boolean,
+	/**  The last look for dangling parts on that model. */
+	found: FoundSprings | null,
+	/**  The last chains made on it, with their sheets and approval state. */
+	chained: Chained | null,
 };
 
 /**  The Board columns, in pipeline order. */

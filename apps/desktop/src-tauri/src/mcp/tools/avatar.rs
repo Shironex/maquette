@@ -1,13 +1,16 @@
 //! Tools that read, change and build a character asset's VRM avatar. A
-//! build that frees cloth and hair from the arms or changes the rest pose
-//! waits for a person to approve the before and after sheets of each step
-//! in the app; no tool approves them.
+//! build that frees cloth and hair from the arms, changes the rest pose or
+//! adds spring chains waits for a person to approve the before and after
+//! sheets of each step in the app; no tool approves them.
+
+mod springs;
 
 use std::collections::BTreeMap;
 
 use maquette_core::avatar::export::{self, AvatarBuild, AvatarPatch};
 use maquette_core::avatar::normalize::{Elbows, Fingers, Normalized};
 use maquette_core::avatar::reweight::{ReweightMode, Reweighted};
+use maquette_core::avatar::springs::SpringsMode;
 use maquette_core::project;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
@@ -61,6 +64,10 @@ pub struct SetAvatarArgs {
     /// "mtoon-soft" (toon shading from the base color, no outline) or "pbr" (the model's
     /// materials as they are).
     pub material: Option<String>,
+    /// The springs to confirm, replacing the ones confirmed before; an empty list confirms
+    /// none. Name a candidate from get_avatar's springs.found by id, and tune joints, preset or
+    /// the swing settings if you like.
+    pub springs: Option<Vec<springs::SpringArg>>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -85,6 +92,10 @@ pub struct BuildAvatarArgs {
     /// "straighten" (the default) lays the fingers straight along the hand and the thumb 45
     /// degrees forward in the normalise, as far as the hand's mesh holds; "keep" leaves them.
     pub fingers: Option<String>,
+    /// "auto" (the default) adds a chain of joints for each confirmed spring, as a step with
+    /// its own approval, and writes them as VRM spring bones; with none confirmed it looks for
+    /// the parts that could swing. "off" writes no springs.
+    pub springs: Option<String>,
 }
 
 /// The asset id an agent names, by id or by name.
@@ -178,6 +189,16 @@ fn build_answer(hub: &Hub, name: &str, built: &AvatarBuild) -> Value {
             "message": "A person turned this rest pose down in Maquette. Ask them what to change (for example elbows keep), then build again.",
             "pose": pose_summary(normalized),
         }),
+        AvatarBuild::SpringsWaiting { chained } => {
+            let approval = hub.request_springs(chained, name);
+            json!({
+                "status": WAITING,
+                "step": "springs",
+                "approval": approval,
+                "message": "A chain of joints was added along each confirmed spring and the part weighted to it, on a copy. The chains wait for a person to look at the parts and the sway sheet and approve them in Maquette's Avatar view. Call get_avatar or build_avatar again later; nothing is written until then.",
+                "springs": springs::chain_summary(chained),
+            })
+        }
         AvatarBuild::Written { export, normalized } => json!({
             "status": "written",
             "path": export.path,
@@ -187,6 +208,7 @@ fn build_answer(hub: &Hub, name: &str, built: &AvatarBuild) -> Value {
             "unresolved": to_short_value(&export.unresolved),
             "report": export.report,
             "roundTrip": to_short_value(&export.round_trip),
+            "springs": export.springs,
             "pose": normalized.as_ref().map(pose_summary),
         }),
     }
@@ -195,7 +217,7 @@ fn build_answer(hub: &Hub, name: &str, built: &AvatarBuild) -> Value {
 #[tool_router(router = avatar_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Get a character asset's VRM avatar: its VRM readiness (the 55 humanoid bones with the joint each maps to and the naming it matched by, the 15 required, the naming report saying which convention the joints matched, any ambiguous matches and whether the map is confident, the skin's joints to pick from with set_avatar bones, the rest pose measures and the findings, blockers first), the spec (the VRM meta, bone map overrides and material mode; from the workspace's avatar defaults until first saved), whether the rest pose needs normalising, whether cloth or hair weighted to the arms needs freeing first (needsReweight) and the last reweight with its sheets, counts and state, the last normalised rest pose with its before and after sheets and its state (pending, approved or denied), the last export (path, size, what it still lacks) and whether an approval waits.",
+        description = "Get a character asset's VRM avatar: its VRM readiness (the 55 humanoid bones with the joint each maps to and the naming it matched by, the 15 required, the naming report saying which convention the joints matched, any ambiguous matches and whether the map is confident, the skin's joints to pick from with set_avatar bones, the rest pose measures and the findings, blockers first), the spec (the VRM meta, bone map overrides and material mode; from the workspace's avatar defaults until first saved), whether the rest pose needs normalising, whether cloth or hair weighted to the arms needs freeing first (needsReweight) and the last reweight with its sheets, counts and state, the last normalised rest pose with its before and after sheets and its state (pending, approved or denied), the springs (springs.ready once the model the VRM is written from is: its rest pose is VRM's or its new one is approved; springs.found, the parts that could swing that a build looked for, each with an id such as hair-1, a kind (hair, cloth, accessory), the bone it hangs from, its centre line, length, vertex count, how sure the finder is and a colour on springs.found.sheet; springs.chained, the last chains with their sheets and state; the confirmed ones are spec.springs), the last export (path, size, what it still lacks) and whether an approval waits.",
         annotations(read_only_hint = true)
     )]
     async fn get_avatar(&self, Parameters(args): Parameters<GetAvatarArgs>) -> Out {
@@ -209,12 +231,14 @@ impl McpTools {
                     elbows: Elbows::default(),
                     reweight: ReweightMode::default(),
                     fingers: Fingers::default(),
+                    springs: SpringsMode::default(),
                 };
                 let view = commands::view(host.session(), &target).map_err(|e| e.message)?;
                 let mut value = to_short_value(&view);
                 value["waitingApproval"] = json!(
                     hub.rest_pose_for(&args.project, &asset).is_some()
                         || hub.reweight_for(&args.project, &asset).is_some()
+                        || hub.springs_for(&args.project, &asset).is_some()
                 );
                 Ok(value)
             })
@@ -223,7 +247,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change a character asset's VRM avatar spec, as the Avatar view's form does: meta fields by their VRM 1.0 names (only the ones you give change; null puts one back to its default; the licence URL stays VRM's own), bone map overrides (a VRM bone name to a joint, or null to leave it unmapped; clearBones drops overrides) and the material mode (mtoon-soft or pbr). reset starts again from the workspace's avatar defaults. A name and at least one author are needed before a build writes. Returns the avatar like get_avatar; the open app updates live.",
+        description = "Change a character asset's VRM avatar spec, as the Avatar view's form does: meta fields by their VRM 1.0 names (only the ones you give change; null puts one back to its default; the licence URL stays VRM's own), bone map overrides (a VRM bone name to a joint, or null to leave it unmapped; clearBones drops overrides), the material mode (mtoon-soft or pbr) and the confirmed springs (by a candidate id from get_avatar's springs.found, with joints, a preset (soft, heavy, stiff) or stiffness, gravityPower, dragForce and hitRadius to tune; nothing is confirmed on its own, so confirm only parts a person or you judged from the candidates sheet). reset starts again from the workspace's avatar defaults. A name and at least one author are needed before a build writes. Returns the avatar like get_avatar; the open app updates live.",
         annotations(idempotent_hint = true)
     )]
     async fn set_avatar(&self, Parameters(args): Parameters<SetAvatarArgs>) -> Out {
@@ -237,6 +261,7 @@ impl McpTools {
                     elbows: Elbows::default(),
                     reweight: ReweightMode::default(),
                     fingers: Fingers::default(),
+                    springs: SpringsMode::default(),
                 };
                 let current = commands::view(host.session(), &target).map_err(|e| e.message)?;
                 let (_, config) = workspace(host)?;
@@ -254,6 +279,11 @@ impl McpTools {
                     bones: args.bones,
                     clear_bones: args.clear_bones,
                     material,
+                    springs: args
+                        .springs
+                        .as_deref()
+                        .map(|list| springs::confirmed(&current.springs, list))
+                        .transpose()?,
                 };
                 let defaults = config.avatar.spec(&current.name);
                 let next = export::apply_patch(&current.spec, &defaults, &patch).map_err(reason)?;
@@ -266,7 +296,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Build a character asset's VRM 1.0 avatar into the project's exports/<asset>.vrm (a derived export, never a new version). When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), it is first normalised headless in Blender on a copy (elbows straighten by default, or keep; fingers straighten by default, as far as the hand's mesh holds, or keep), which makes before and after pose sheets with a row of the hands up close. When the readiness finds cloth or hair weighted to the arms (the arm-weights finding), reweight auto (the default) frees them before that: Blender moves their weight from the arm bones to the trunk on a copy, keeping the arms, sleeves and gloves, and makes before and after sheets; the call answers \"waiting for approval\" with step reweight, and the rest pose comes after that yes (or after a no, from the model as it is). reweight off skips it. A changed rest pose needs a person's yes: the call then answers \"waiting for approval\" with step rest pose and the sheet paths, and a person approves or denies it in the app's Avatar view. You cannot approve it: call get_avatar or build_avatar again later (the normalised result is cached, Blender does not run again), and once approved it writes the file and returns its path, size, what it still lacks, the validation report beside it (exports/<asset>.vrm.report.json: source version and hash, readiness before and after, the bone map with each bone's source, the meta, and what the reweight changed when one was applied) and the round trip (the written file read back and checked; a failure is a blocker in what it still lacks). \"denied\" means the person turned the pose down. dryRun returns the plan and does nothing. Needs a meta name and an author (set_avatar).",
+        description = "Build a character asset's VRM 1.0 avatar into the project's exports/<asset>.vrm (a derived export, never a new version). When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), it is first normalised headless in Blender on a copy (elbows straighten by default, or keep; fingers straighten by default, as far as the hand's mesh holds, or keep), which makes before and after pose sheets with a row of the hands up close. When the readiness finds cloth or hair weighted to the arms (the arm-weights finding), reweight auto (the default) frees them before that: Blender moves their weight from the arm bones to the trunk on a copy, keeping the arms, sleeves and gloves, and makes before and after sheets; the call answers \"waiting for approval\" with step reweight, and the rest pose comes after that yes (or after a no, from the model as it is). reweight off skips it. A changed rest pose needs a person's yes: the call then answers \"waiting for approval\" with step rest pose and the sheet paths, and a person approves or denies it in the app's Avatar view. You cannot approve it: call get_avatar or build_avatar again later (the normalised result is cached, Blender does not run again), and once approved it writes the file and returns its path, size, what it still lacks, the validation report beside it (exports/<asset>.vrm.report.json: source version and hash, readiness before and after, the bone map with each bone's source, the meta, and what the reweight changed when one was applied) and the round trip (the written file read back and checked; a failure is a blocker in what it still lacks). \"denied\" means the person turned the pose down. Springs auto (the default): with springs confirmed (set_avatar springs), once the rest pose is approved Blender adds a chain of joints along each one, weights the part to it and derives colliders from the body, on a copy, and makes a sheet of the parts and a sway test; the call answers \"waiting for approval\" with step springs, and after that yes the file carries VRMC_springBone (each spring with its preset or tuned settings, the colliders and their groups) and the report records them; after a no it is written without springs. With none confirmed, a build looks for the parts that could swing (cached) so get_avatar lists them. springs off writes no springs. dryRun returns the plan and does nothing. Needs a meta name and an author (set_avatar).",
         annotations(idempotent_hint = true)
     )]
     async fn build_avatar(&self, Parameters(args): Parameters<BuildAvatarArgs>) -> Out {
@@ -280,6 +310,7 @@ impl McpTools {
                     elbows: parse_elbows(args.elbows.as_deref())?,
                     reweight: parse_reweight(args.reweight.as_deref())?,
                     fingers: parse_fingers(args.fingers.as_deref())?,
+                    springs: springs::parse_springs(args.springs.as_deref())?,
                 };
                 if args.dry_run {
                     let plan = commands::plan(host.session(), &target).map_err(|e| e.message)?;

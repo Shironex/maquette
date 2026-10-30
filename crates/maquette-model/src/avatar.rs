@@ -10,7 +10,8 @@
 //!     "hero": {
 //!       "meta": { "name": "Hero", "authors": ["Me"], "licenseUrl": "https://vrm.dev/licenses/1.0/" },
 //!       "bones": { "leftEye": "Eye_L", "jaw": null },
-//!       "material": "mtoon-soft"
+//!       "material": "mtoon-soft",
+//!       "springs": []
 //!     }
 //!   }
 //! }
@@ -20,7 +21,9 @@
 //! defaults (the strictest) unless set. `bones` overrides the bone map: a
 //! VRM bone name to the joint it maps to, or null to leave it unmapped.
 //! A stored spec may be a draft: the meta's name and authors are only
-//! required when the VRM is written.
+//! required when the VRM is written. `springs` lists the hanging parts a
+//! person confirmed for secondary motion ([`springs`]); it is left out when
+//! empty, so older files read and write the same.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -33,6 +36,9 @@ use serde::{Deserialize, Serialize};
 use crate::error::{CoreError, CoreResult};
 use crate::json::write_json;
 use maquette_glb::vrm::{BoneOverrides, MaterialMode, VrmMeta, is_human_bone};
+
+mod springs;
+pub use springs::{SPRING_JOINTS_MAX, SPRING_LINE_MAX, SpringSpec, validate_springs};
 
 pub const AVATAR_FILE: &str = "avatar.json";
 pub const AVATAR_VERSION: u32 = 1;
@@ -48,6 +54,9 @@ pub struct AvatarSpec {
     /// unmapped. Bones not listed map by name.
     pub bones: BoneOverrides,
     pub material: MaterialMode,
+    /// The confirmed springs, in the order they were confirmed.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub springs: Vec<SpringSpec>,
 }
 
 impl AvatarSpec {
@@ -75,7 +84,7 @@ impl AvatarSpec {
                 }
             }
         }
-        Ok(())
+        validate_springs(&self.springs)
     }
 }
 
@@ -245,5 +254,5 @@ mod tests;
 /// Registers this module's IPC types (the scene's avatars) with the shell's
 /// TypeScript export; `maquette_core::types` folds every module's in.
 pub fn register(types: specta::Types) -> specta::Types {
-    types.register::<SceneAvatars>()
+    types.register::<SceneAvatars>().register::<SpringSpec>()
 }

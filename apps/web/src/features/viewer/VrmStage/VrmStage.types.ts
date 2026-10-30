@@ -24,6 +24,8 @@ export interface VrmStageProps {
   breathe: boolean;
   /** The eyes follow the pointer, where the file can move them. */
   lookAt: boolean;
+  /** Counts wiggles: each new value shakes the hips and head once, so springs swing. */
+  wiggle?: number;
   onLoaded?: (summary: VrmSummary) => void;
   onError?: (message: string) => void;
   className?: string;

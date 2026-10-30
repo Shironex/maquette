@@ -107,6 +107,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             avatar::avatar_build,
             avatar::avatar_decide,
             avatar::avatar_decide_reweight,
+            avatar::avatar_find_springs,
+            avatar::avatar_decide_springs,
             prepare::prepare_get,
             prepare::prepare_asset,
             prepare::prepare_save,

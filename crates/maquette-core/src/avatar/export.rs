@@ -3,8 +3,9 @@
 //! ([`AvatarPatch`]), and the build ([`build`]): when the rest pose is not
 //! VRM's yet, first free cloth and hair from the arms if the readiness
 //! finds them there and wait for a person's yes to the new weights, then
-//! normalise the rest pose and wait for a yes to the new pose, then write
-//! the file.
+//! normalise the rest pose and wait for a yes to the new pose, then add
+//! the chains of the confirmed springs and wait for a yes to those
+//! ([`springs`]), then write the file.
 //!
 //! The `.vrm` is a derived export, never a new version: it is written only
 //! to the project's `exports/<asset>.vrm`, over the last one, with a
@@ -23,18 +24,16 @@ use super::normalize::{
     self, AVATAR_DIR, Elbows, Fingers, NormalizeRequest, NormalizeState, Normalized,
     needs_normalize,
 };
-use super::reweight::{self, ReweightMode, ReweightReport, ReweightRequest, Reweighted};
+use super::reweight::{self, ReweightMode, ReweightRequest, Reweighted};
+use super::springs::{Chained, SpringsMode};
 use super::{AvatarSpec, SceneAvatars};
 use crate::Asset;
 use crate::assets;
 use crate::base::ports::ScriptRunner;
 use crate::error::{CoreError, CoreResult};
-use crate::fs::write_atomic;
 use crate::inbox::vrm::{self, MaterialMode, RoundTrip, VrmFinding, VrmReadiness, WriteSpec};
-use crate::json::write_json;
-use crate::pipeline::cache::hash_file;
 use crate::pipeline::tools::Toolbox;
-use crate::project::{self, now_rfc3339};
+use crate::project;
 use crate::workspace::WorkspaceConfig;
 
 /// The project folder exports are written into.
@@ -43,13 +42,14 @@ const RECORD_FILE: &str = "export.json";
 
 mod patch;
 pub mod report;
-
+mod save;
+mod springs;
 mod view;
 
 pub use patch::{AvatarPatch, apply_patch};
-use report::{
-    AvatarReport, ReportSource, bone_map, report_file, round_trip_finding, written_readiness,
-};
+use save::{Built, save};
+use springs::Step;
+pub use springs::{SpringsView, decide_springs, find_springs};
 pub use view::{AvatarView, view};
 use view::{lifts_cloth, readiness_of};
 
@@ -100,6 +100,9 @@ pub struct AvatarExport {
     /// predates the check.
     #[serde(default)]
     pub round_trip: Option<RoundTrip>,
+    /// The springs the file carries; 0 for a build that predates them.
+    #[serde(default)]
+    pub springs: u32,
 }
 
 /// Which asset to build, and how.
@@ -113,6 +116,7 @@ pub struct AvatarRequest<'a> {
     pub elbows: Elbows,
     pub reweight: ReweightMode,
     pub fingers: Fingers,
+    pub springs: SpringsMode,
 }
 
 /// The asset and the version a request names.
@@ -192,6 +196,9 @@ pub struct AvatarPlan {
     pub meta_problem: Option<String>,
     /// The source's readiness, findings blockers first.
     pub readiness: VrmReadiness,
+    /// The confirmed springs a build chains, each a step that waits for a
+    /// yes; 0 when it writes no springs.
+    pub springs: u32,
 }
 
 /// What a build did.
@@ -208,6 +215,10 @@ pub enum AvatarBuild {
     /// A person turned the new rest pose down.
     #[serde(rename = "denied")]
     Denied { normalized: Normalized },
+    /// The chains of the confirmed springs wait for a person to look at
+    /// the sway sheets.
+    #[serde(rename = "springs waiting for approval")]
+    SpringsWaiting { chained: Chained },
     /// The `.vrm` is written.
     #[serde(rename = "written")]
     Written {
@@ -311,12 +322,18 @@ pub fn plan(req: &AvatarRequest<'_>) -> CoreResult<AvatarPlan> {
             .to_string(),
         meta_problem: spec.meta.validate().err().map(|e| e.to_string()),
         readiness,
+        springs: if req.springs == SpringsMode::Auto {
+            u32::try_from(spec.springs.len()).unwrap_or(u32::MAX)
+        } else {
+            0
+        },
     })
 }
 
 /// Builds the avatar: normalises the rest pose when it is not VRM's yet
 /// (or reuses the cached result), and once a person approved the new pose,
-/// writes `exports/<asset>.vrm`. Blocks while Blender runs.
+/// chains the confirmed springs and waits for a yes to those, then writes
+/// `exports/<asset>.vrm`. Blocks while Blender runs.
 ///
 /// # Errors
 ///
@@ -338,7 +355,7 @@ pub fn build(
     let dir = asset_dir(req.workspace_root, req.config, req.project, &src.asset.id);
     let output = vrm_file(&src.project_dir, &src.asset.id);
     let file = src.file.clone().unwrap_or_default();
-    let built = |written, source_version, options, reweight| Built {
+    let built = |(written, springs), source_version, options, reweight| Built {
         written,
         source: &file,
         source_version,
@@ -346,15 +363,20 @@ pub fn build(
         reweight,
         spec: &spec,
         before: &readiness,
+        springs,
     };
+    let version = src.version.unwrap_or(0);
     if !needs_normalize(&readiness) {
-        let bytes = fs::read(&file).map_err(|e| CoreError::io(&file, e))?;
-        let written = vrm::write(&bytes, &write_spec, file.parent().unwrap_or(&dir))?;
-        let export = save(
-            &dir,
-            &output,
-            &built(written, src.version.unwrap_or(0), None, None),
-        )?;
+        let input = springs::input(req, &src.asset.id, version, &file, &readiness);
+        let step = match springs::step(runner, tools, req.springs, &spec, &input)? {
+            Step::Waiting(chained) => return Ok(AvatarBuild::SpringsWaiting { chained }),
+            step => step,
+        };
+        let written = springs::write(step, &spec, &write_spec, || {
+            let bytes = fs::read(&file).map_err(|e| CoreError::io(&file, e))?;
+            vrm::write(&bytes, &write_spec, file.parent().unwrap_or(&dir))
+        })?;
+        let export = save(&dir, &output, &built(written, version, None, None))?;
         return Ok(AvatarBuild::Written {
             export,
             normalized: None,
@@ -374,7 +396,15 @@ pub fn build(
         NormalizeState::Pending => Ok(AvatarBuild::Waiting { normalized: found }),
         NormalizeState::Denied => Ok(AvatarBuild::Denied { normalized: found }),
         NormalizeState::Approved => {
-            let written = normalize::write_vrm(&plan.dir, &write_spec)?;
+            let glb = Path::new(&found.glb);
+            let input = springs::input(req, &src.asset.id, plan.version, glb, &found.readiness);
+            let step = match springs::step(runner, tools, req.springs, &spec, &input)? {
+                Step::Waiting(chained) => return Ok(AvatarBuild::SpringsWaiting { chained }),
+                step => step,
+            };
+            let written = springs::write(step, &spec, &write_spec, || {
+                normalize::write_vrm(&plan.dir, &write_spec)
+            })?;
             let export = save(
                 &dir,
                 &output,
@@ -391,89 +421,6 @@ pub fn build(
             })
         }
     }
-}
-
-/// What a build wrote, and from what.
-struct Built<'a> {
-    written: vrm::Written,
-    /// The source version's model file.
-    source: &'a Path,
-    source_version: u32,
-    /// The elbows and fingers of the normalise; `None` when nothing was
-    /// normalised.
-    options: Option<(Elbows, Fingers)>,
-    /// What the approved reweight the arms were lifted from changed.
-    reweight: Option<ReweightReport>,
-    spec: &'a AvatarSpec,
-    /// The source version's readiness.
-    before: &'a VrmReadiness,
-}
-
-/// Writes the `.vrm`, reads it back, and writes the report beside it and
-/// the record of it.
-fn save(dir: &Path, output: &Path, built: &Built<'_>) -> CoreResult<AvatarExport> {
-    let written = &built.written;
-    if let Some(parent) = output.parent() {
-        fs::create_dir_all(parent).map_err(|e| CoreError::io(parent, e))?;
-    }
-    write_atomic(output, &written.bytes).map_err(|e| CoreError::io(output, e))?;
-    let round_trip = vrm::round_trip(&written.bytes);
-    let mut unresolved = written.unresolved.clone();
-    let base = built.source.parent().unwrap_or(dir);
-    let after = written_readiness(
-        &written.bytes,
-        base,
-        &built.spec.bones,
-        built.reweight.is_some(),
-        &mut unresolved,
-    );
-    if let Some(blocker) = round_trip_finding(&round_trip) {
-        unresolved.insert(0, blocker);
-    }
-    let written_at = now_rfc3339();
-    let report = AvatarReport {
-        file: output.display().to_string(),
-        written_at: written_at.clone(),
-        writer: report::WRITER.to_string(),
-        source: ReportSource {
-            version: built.source_version,
-            file: built.source.display().to_string(),
-            sha256: hash_file(built.source).map_err(|e| CoreError::io(built.source, e))?,
-        },
-        material: built.spec.material,
-        normalized: built.options.is_some(),
-        elbows: built.options.map(|o| o.0),
-        fingers: built.options.map(|o| o.1),
-        reweight: built.reweight.clone(),
-        before: built.before.into(),
-        after: after.as_ref().map(Into::into),
-        unresolved: unresolved.clone(),
-        bones: bone_map(after.as_ref().unwrap_or(built.before)),
-        meta: (&built.spec.meta).into(),
-        round_trip: round_trip.clone(),
-    };
-    let report_path = report_file(output);
-    write_json(&report_path, &report)?;
-    let export = AvatarExport {
-        path: output.display().to_string(),
-        #[expect(
-            clippy::cast_precision_loss,
-            reason = "a model is far below 2^53 bytes"
-        )]
-        bytes: written.bytes.len() as f64,
-        source_version: built.source_version,
-        normalized: built.options.is_some(),
-        reweighted: built.reweight.is_some(),
-        material: built.spec.material,
-        unresolved,
-        written_at,
-        exists: true,
-        report: Some(report_path.display().to_string()),
-        round_trip: Some(round_trip),
-    };
-    fs::create_dir_all(dir).map_err(|e| CoreError::io(dir, e))?;
-    write_json(&dir.join(RECORD_FILE), &export)?;
-    Ok(export)
 }
 
 /// The avatar folder of the version a request names.

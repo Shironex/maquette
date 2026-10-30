@@ -59,6 +59,7 @@ impl AvatarDefaults {
             },
             bones: Default::default(),
             material: self.material,
+            springs: Vec::new(),
         }
     }
 

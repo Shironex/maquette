@@ -14,7 +14,8 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
   const { decide, deciding, site, now, cost, notes, pose } = useApprovalCard(approval);
   const titleId = `${approval.id}-title`;
   const weights = approval.kind === 'reweight';
-  const rest = approval.kind === 'rest-pose' || weights;
+  const chains = approval.kind === 'springs';
+  const rest = approval.kind === 'rest-pose' || weights || chains;
   const send = approval.kind === 'send-to-3d';
   const round = approval.kind === 'image-round';
   const detailLine = (send || round || rest) && approval.detail ? approval.detail : null;
@@ -53,7 +54,12 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
           <h2 id={titleId} className="text-emphasis leading-5 font-semibold">
             {approvalTitle(approval, site?.name)}
           </h2>
-          {weights ? (
+          {chains ? (
+            <p className="mt-0.5 text-meta text-fg-mute">
+              An agent built this avatar over MCP and added a chain of joints to each confirmed
+              spring. Nothing is written with them until you approve the sheets in the Avatar view.
+            </p>
+          ) : weights ? (
             <p className="mt-0.5 text-meta text-fg-mute">
               An agent built this avatar over MCP and moved cloth and hair off its arms, so lifting
               the arms does not drag them. Nothing is used until you approve the sheets in the
@@ -133,9 +139,11 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
             disabled={pose.denying}
             loading={pose.denying}
             tooltip={
-              weights
-                ? 'Lifts the arms from the model as it is; the agent is told it was turned down'
-                : 'Writes nothing; the agent is told the pose was turned down'
+              chains
+                ? 'Writes the VRM without springs; the agent is told it was turned down'
+                : weights
+                  ? 'Lifts the arms from the model as it is; the agent is told it was turned down'
+                  : 'Writes nothing; the agent is told the pose was turned down'
             }
             onClick={() => void pose.deny()}
           >

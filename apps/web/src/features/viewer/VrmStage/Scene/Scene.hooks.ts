@@ -100,18 +100,29 @@ export function usePointer(): RefObject<THREE.Vector2> {
 }
 
 /**
- * Poses the VRM every frame (arms down, breathing), points its look at the
- * pointer, and runs `vrm.update` so the look at, expressions and spring
- * bones move. With the look at off the eyes go back to rest.
+ * Poses the VRM every frame (arms down, breathing, a wiggle when asked),
+ * points its look at the pointer, and runs `vrm.update` so the look at,
+ * expressions and spring bones move. With the look at off the eyes go back
+ * to rest.
  */
 export function useIdle(
   vrm: VRM | null,
-  { armsDown, breathe, lookAt }: Pick<SceneProps, 'armsDown' | 'breathe' | 'lookAt'>
+  {
+    armsDown,
+    breathe,
+    lookAt,
+    wiggle = 0,
+  }: Pick<SceneProps, 'armsDown' | 'breathe' | 'lookAt' | 'wiggle'>
 ): THREE.Object3D {
   const camera = useThree(s => s.camera);
   const pointer = usePointer();
   const target = useMemo(() => new THREE.Object3D(), []);
   const clock = useRef(0);
+  // When the last wiggle started, on the idle's clock; 0 wiggles is none.
+  const wiggled = useRef<number | null>(null);
+  useEffect(() => {
+    if (wiggle > 0) wiggled.current = clock.current;
+  }, [wiggle]);
   useEffect(() => {
     if (!vrm?.lookAt) return;
     vrm.lookAt.target = lookAt ? target : null;
@@ -120,7 +131,12 @@ export function useIdle(
   useFrame((_, delta) => {
     if (!vrm) return;
     clock.current += delta;
-    poseHumanoid(vrm.humanoid, clock.current, { armsDown, breathe });
+    const at = wiggled.current;
+    poseHumanoid(vrm.humanoid, clock.current, {
+      armsDown,
+      breathe,
+      wiggle: at === null ? null : clock.current - at,
+    });
     if (lookAt) target.position.set(pointer.current.x, pointer.current.y, 0.5).unproject(camera);
     vrm.update(delta);
   });

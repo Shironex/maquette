@@ -6,7 +6,7 @@ import { useAvatarStore } from '@/state/use-avatar-store';
 /**
  * The approvals to float over the current view; Settings > Agents lists them
  * in place, and so do the Pipeline view's Ship diff for the open game and
- * the Avatar view for the rest pose and the weights of its asset.
+ * the Avatar view for the rest pose, the weights and the spring chains of its asset.
  */
 export function useFloatingApprovals() {
   const approvals = useAgentsStore(s => s.status?.approvals);
@@ -14,10 +14,12 @@ export function useFloatingApprovals() {
   const project = useAppStore(s => s.workspace?.project);
   const avatar = useAvatarStore(s => s.asset);
   if (view === 'settings') return undefined;
-  // The Avatar view asks about the rest pose and the weights of the asset it shows itself.
+  // The Avatar view asks about each step of the asset it shows itself.
   if (view === 'avatar') {
     return approvals?.filter(
-      a => (a.kind !== 'rest-pose' && a.kind !== 'reweight') || a.asset !== avatar
+      a =>
+        (a.kind !== 'rest-pose' && a.kind !== 'reweight' && a.kind !== 'springs') ||
+        a.asset !== avatar
     );
   }
   if (view !== 'pipeline' || !isGame(project)) return approvals;

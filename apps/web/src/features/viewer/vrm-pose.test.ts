@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { breathAt, poseHumanoid, type PosableHumanoid } from './vrm-pose';
+import { WIGGLE_SECONDS, breathAt, poseHumanoid, wiggleAt, type PosableHumanoid } from './vrm-pose';
 
 /** A humanoid of named nodes at rest, as normalised bones are. */
 function humanoid(names: string[]): PosableHumanoid & { nodes: Map<string, THREE.Object3D> } {
@@ -44,5 +44,16 @@ describe('posing a vrm humanoid', () => {
 
   it('skips the bones a rig does not have', () => {
     expect(() => poseHumanoid(humanoid([]), 0, { armsDown: true, breathe: true })).not.toThrow();
+  });
+
+  it('wiggles the hips and the head, dying down to rest', () => {
+    const h = humanoid(['hips', 'head']);
+    poseHumanoid(h, 0, { armsDown: false, breathe: false, wiggle: 0.1 });
+    expect(Math.abs(h.nodes.get('hips')!.rotation.y)).toBeGreaterThan(0.1);
+    expect(Math.abs(h.nodes.get('head')!.rotation.z)).toBeGreaterThan(0.05);
+    poseHumanoid(h, 0, { armsDown: false, breathe: false, wiggle: WIGGLE_SECONDS });
+    expect(h.nodes.get('hips')!.rotation.y).toBe(0);
+    expect(wiggleAt(null)).toBe(0);
+    expect(Math.abs(wiggleAt(WIGGLE_SECONDS * 0.9))).toBeLessThan(0.05);
   });
 });

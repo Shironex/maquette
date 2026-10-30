@@ -14,6 +14,7 @@ import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
 import { motionFiles } from './create-motion-handlers';
 import { avatarSheetFiles, avatarVrmFiles } from './avatar-files';
+import { SPRINGS_SCENARIOS } from './create-avatar-springs';
 import { PARTS_CACHE, partsFiles } from './create-parts-handlers';
 import { SPLIT_FILES } from './create-split-handlers';
 import { PROVIDER_REF_FILES } from './providers';
@@ -103,7 +104,8 @@ const avatarVrms = import.meta.glob<string>('../../assets/mock/avatar/*.vrm', {
   query: '?url',
   import: 'default',
 });
-for (const [path, file] of Object.entries(avatarVrmFiles(root, MOCK_PROJECT_IDS))) {
+const springsVrm = SPRINGS_SCENARIOS.has(params.get('avatar') ?? '');
+for (const [path, file] of Object.entries(avatarVrmFiles(root, MOCK_PROJECT_IDS, springsVrm))) {
   const url = avatarVrms[`../../assets/mock/avatar/${file}`];
   if (url) registerMockFile(path, url);
 }
