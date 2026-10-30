@@ -1,10 +1,12 @@
 //! A box humanoid for the VRM readiness and writer tests: the 65 joint
-//! skeleton under any of four namings, with the arms dropped into an
+//! skeleton under any of five namings, with the arms dropped into an
 //! A-pose, the whole turned about Y, lifted off the ground, moved off the
-//! Y axis, or with float noise in the armature's scale.
+//! Y axis, or with float noise in the armature's scale; its skin in any
+//! weight format, split over two meshes, or with one known flaw.
 
 use serde_json::json;
 
+pub use super::builder::WeightFormat;
 use super::builder::{Builder, Mesh};
 use super::pbr_material;
 use super::skeleton::{skeleton, world_positions};
@@ -20,6 +22,37 @@ pub enum Naming {
     Unreal,
     /// `L_Upperarm`, the unverified guess at Tripo's own names.
     Tripo,
+    /// Descriptive names a person types: `Left leg`, `Left elbow`,
+    /// `Left wrist`, `Upper chest`, `ThumbProximal_L` (VRM 0's finger
+    /// names, so the thumb counts from proximal).
+    Descriptive,
+}
+
+/// One known flaw in the skin or the node tree, in the last box of the
+/// body (in the second mesh when the body is split).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SkinFlaw {
+    #[default]
+    None,
+    /// The box's vertices use a joint index one past the skin's joints.
+    JointPastEnd,
+    /// The box's weights are all zero.
+    Unweighted,
+    /// The box's weights add up to 0.7.
+    OffSum,
+    /// The box's vertices have five joints weighted, over two sets: 0.3,
+    /// 0.3, 0.2, 0.1 and 0.1, which 8 bit weights round to 1.008.
+    FiveInfluences,
+    /// The skin lists the hips twice.
+    JointTwice,
+    /// The left thumb's last joint is also its middle joint's parent.
+    Cycle,
+    /// The armature's matrix shears.
+    Shear,
+    /// The left hand sits on the left forearm's joint.
+    ShortForearm,
+    /// The right pinky's joints have names no naming knows.
+    OneSidedFinger,
 }
 
 /// How to build a fixture humanoid. The default is a clean T-pose facing
@@ -44,6 +77,11 @@ pub struct HumanoidSpec {
     /// A cape behind the back weighted to the left upper arm, as a rig
     /// that drags cloth with the arm has it.
     pub cape: bool,
+    pub weights: WeightFormat,
+    /// The body is two skinned meshes on one skin, the second with two
+    /// primitives.
+    pub split: bool,
+    pub flaw: SkinFlaw,
 }
 
 impl Default for HumanoidSpec {
@@ -58,6 +96,9 @@ impl Default for HumanoidSpec {
             armature_scale: 1.0,
             animation: true,
             cape: false,
+            weights: WeightFormat::Float,
+            split: false,
+            flaw: SkinFlaw::None,
         }
     }
 }
@@ -81,7 +122,41 @@ fn rename(bare: &str, naming: Naming) -> String {
         Naming::Tripo => {
             tripo_name(side.map(|s| s.2), rest).unwrap_or_else(|| format!("{bare}_end"))
         }
+        Naming::Descriptive => {
+            descriptive_name(side.map(|s| (s.2, s.1)), rest).unwrap_or_else(|| bare.to_string())
+        }
     }
+}
+
+/// `side` is the letter and the word: ("L", "left").
+fn descriptive_name(side: Option<(&str, &str)>, rest: &str) -> Option<String> {
+    let body = match rest {
+        "Hips" => return Some("Hips".into()),
+        "Spine" => return Some("Spine".into()),
+        "Spine1" => return Some("Chest".into()),
+        "Spine2" => return Some("Upper chest".into()),
+        "Neck" => return Some("Neck".into()),
+        "Head" => return Some("Head".into()),
+        "HeadTop_End" => return Some("Head top end".into()),
+        "Shoulder" => "shoulder",
+        "Arm" => "arm",
+        "ForeArm" => "elbow",
+        "Hand" => "wrist",
+        "UpLeg" => "leg",
+        "Leg" => "knee",
+        "Foot" => "ankle",
+        "ToeBase" => "toe",
+        "Toe_End" => "toe end",
+        _ => {
+            let (f, n) = finger(rest)?;
+            let f = if f == "Pinky" { "Little" } else { f };
+            let segment = ["Proximal", "Intermediate", "Distal", "End"].get(n.checked_sub(1)?)?;
+            return Some(format!("{f}{segment}_{}", side?.0));
+        }
+    };
+    let (_, word) = side?;
+    let word = if word == "left" { "Left" } else { "Right" };
+    Some(format!("{word} {body}"))
 }
 
 fn finger(rest: &str) -> Option<(&str, usize)> {
@@ -186,19 +261,28 @@ fn posed(spec: &HumanoidSpec) -> Vec<(String, Option<usize>, [f32; 3])> {
             continue;
         };
         let pivot = world[arm];
-        let below = |i: usize| {
-            let mut at = joints[i].1;
-            while let Some(j) = at {
-                if j == arm {
-                    return true;
-                }
-                at = joints[j].1;
-            }
-            false
-        };
         for (i, p) in world.iter_mut().enumerate() {
-            if below(i) {
+            if below(&joints, i, arm) {
                 *p = turn_xy(*p, pivot, -sign * spec.arm_drop);
+            }
+        }
+    }
+    if spec.flaw == SkinFlaw::ShortForearm
+        && let (Some(fore), Some(hand)) = (
+            joint_index(&joints, "LeftForeArm"),
+            joint_index(&joints, "LeftHand"),
+        )
+    {
+        let shift = [
+            world[fore][0] - world[hand][0],
+            world[fore][1] - world[hand][1],
+            world[fore][2] - world[hand][2],
+        ];
+        for (i, p) in world.iter_mut().enumerate() {
+            if i == hand || below(&joints, i, hand) {
+                for (k, d) in shift.iter().enumerate() {
+                    p[k] += d;
+                }
             }
         }
     }
@@ -218,9 +302,31 @@ fn posed(spec: &HumanoidSpec) -> Vec<(String, Option<usize>, [f32; 3])> {
                 world[i][2] - base[2],
             ];
             let bare = name.trim_start_matches("mixamorig:");
-            (rename(bare, spec.naming), *parent, t)
+            let name = match bare.strip_prefix("RightHandPinky") {
+                Some(n) if spec.flaw == SkinFlaw::OneSidedFinger => format!("RightHandExtra{n}"),
+                _ => rename(bare, spec.naming),
+            };
+            (name, *parent, t)
         })
         .collect()
+}
+
+/// The index of a Mixamo joint (without its prefix) in the skeleton.
+fn joint_index(joints: &[(String, Option<usize>, [f32; 3])], bare: &str) -> Option<usize> {
+    let full = format!("mixamorig:{bare}");
+    joints.iter().position(|(n, _, _)| *n == full)
+}
+
+/// True when joint `i` sits somewhere under joint `root`.
+fn below(joints: &[(String, Option<usize>, [f32; 3])], i: usize, root: usize) -> bool {
+    let mut at = joints[i].1;
+    while let Some(j) = at {
+        if j == root {
+            return true;
+        }
+        at = joints[j].1;
+    }
+    false
 }
 
 /// A box humanoid built to `spec`.
@@ -247,8 +353,8 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
         mesh.cuboid(centre, size, u16::try_from(p).unwrap_or(0));
     }
     // A sole under each foot, its bottom on the lift height.
-    for (i, (name, _, _)) in joints.iter().enumerate() {
-        if name.to_lowercase().contains("foot") {
+    for (i, (name, _, _)) in skeleton().iter().enumerate() {
+        if name.ends_with("Foot") {
             let f = at(i);
             mesh.cuboid(
                 [f[0], spec.lift + 0.01, f[2] + 0.03],
@@ -270,11 +376,34 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
         );
     }
 
+    flaw_box(&mut mesh, spec.flaw, joints.len());
+
     let mut b = Builder::default();
     let (images, textures, materials) = pbr_material(&mut b, 16, "Body");
-    let prim = b.primitive(&mesh, 0, true);
-    let ibm: Vec<f32> = world
+    let format = spec.weights;
+    let mut meshes = vec![];
+    if spec.split {
+        let half = mesh.boxes() / 2;
+        let (first, rest) = mesh.split_boxes(half);
+        let (second, third) = rest.split_boxes(rest.boxes() / 2);
+        let one = b.primitive_as(&first, 0, true, format);
+        let two = [
+            b.primitive_as(&second, 0, true, format),
+            b.primitive_as(&third, 0, true, format),
+        ];
+        meshes.push(json!({ "name": "Body", "primitives": [one] }));
+        meshes.push(json!({ "name": "Body 2", "primitives": two }));
+    } else {
+        let prim = b.primitive_as(&mesh, 0, true, format);
+        meshes.push(json!({ "name": "Body", "primitives": [prim] }));
+    }
+    let mut skin_joints: Vec<usize> = (0..joints.len()).collect();
+    if spec.flaw == SkinFlaw::JointTwice {
+        skin_joints.push(0);
+    }
+    let ibm: Vec<f32> = skin_joints
         .iter()
+        .map(|i| world[*i])
         .flat_map(|p| {
             [
                 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -p[0], -p[1], -p[2],
@@ -290,38 +419,62 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
     } else {
         [spec.armature_scale; 3]
     };
-    let mut nodes = vec![
-        json!({ "name": "Body", "mesh": 0, "skin": 0 }),
+    let armature = if spec.flaw == SkinFlaw::Shear {
+        json!({
+            "name": "Armature",
+            "children": [offset],
+            "matrix": [1.0, 0.0, 0.0, 0.0, 0.2, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+        })
+    } else {
         json!({
             "name": "Armature",
             "children": [offset],
             "rotation": [0.0, s, 0.0, c],
             "scale": scale,
-        }),
-    ];
+        })
+    };
+    let mut nodes = vec![json!({ "name": "Body", "mesh": 0, "skin": 0 }), armature];
+    let looped = (spec.flaw == SkinFlaw::Cycle)
+        .then(|| {
+            Some((
+                joint_index(&skeleton(), "LeftHandThumb4")?,
+                joint_index(&skeleton(), "LeftHandThumb2")?,
+            ))
+        })
+        .flatten();
     for (i, (name, _, t)) in joints.iter().enumerate() {
-        let children: Vec<usize> = joints
+        let mut children: Vec<usize> = joints
             .iter()
             .enumerate()
             .filter(|(_, (_, parent, _))| *parent == Some(i))
             .map(|(c, _)| c + offset)
             .collect();
+        if let Some((from, to)) = looped
+            && from == i
+        {
+            children.push(to + offset);
+        }
         let mut node = json!({ "name": name, "translation": t });
         if !children.is_empty() {
             node["children"] = json!(children);
         }
         nodes.push(node);
     }
+    let mut scene = vec![0, 1];
+    if spec.split {
+        scene.push(nodes.len());
+        nodes.push(json!({ "name": "Body 2", "mesh": 1, "skin": 0 }));
+    }
     let mut root = json!({
         "scene": 0,
-        "scenes": [{ "nodes": [0, 1] }],
+        "scenes": [{ "nodes": scene }],
         "nodes": nodes,
-        "meshes": [{ "name": "Body", "primitives": [prim] }],
+        "meshes": meshes,
         "skins": [{
             "name": "Armature",
             "inverseBindMatrices": ibm,
             "skeleton": offset,
-            "joints": (0..joints.len()).map(|i| i + offset).collect::<Vec<_>>(),
+            "joints": skin_joints.iter().map(|i| i + offset).collect::<Vec<_>>(),
         }],
         "materials": materials,
         "images": images,
@@ -345,4 +498,30 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
         }]);
     }
     b.finish(root)
+}
+
+/// Puts `flaw` into the last box of `mesh`; `joints` is the skin's count.
+fn flaw_box(mesh: &mut Mesh, flaw: SkinFlaw, joints: usize) {
+    let n = mesh.positions.len();
+    let last = n.saturating_sub(Mesh::BOX_VERTICES)..n;
+    let past = u16::try_from(joints).unwrap_or(u16::MAX);
+    if flaw == SkinFlaw::FiveInfluences {
+        mesh.joints1 = vec![[0; 4]; n];
+        mesh.weights1 = vec![[0.0; 4]; n];
+    }
+    for v in last {
+        let j = mesh.joints[v][0];
+        match flaw {
+            SkinFlaw::JointPastEnd => mesh.joints[v][0] = past,
+            SkinFlaw::Unweighted => mesh.weights[v] = [0.0; 4],
+            SkinFlaw::OffSum => mesh.weights[v] = [0.7, 0.0, 0.0, 0.0],
+            SkinFlaw::FiveInfluences => {
+                mesh.joints[v] = [j, 0, 1, 2];
+                mesh.weights[v] = [0.3, 0.3, 0.2, 0.1];
+                mesh.joints1[v] = [3, 0, 0, 0];
+                mesh.weights1[v] = [0.1, 0.0, 0.0, 0.0];
+            }
+            _ => {}
+        }
+    }
 }
