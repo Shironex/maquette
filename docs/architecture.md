@@ -604,7 +604,9 @@ uses.
   `AvatarDefaults::spec`. Removing an asset keeps its spec in the trash record, and restoring it puts
   the spec back.
 - **Normalising the rest pose.** Core's `avatar::normalize` (pipeline) runs `avatar_normalize.py`
-  headless through the `ScriptRunner` port on one asset version, only read: it turns the model to
+  headless through the `ScriptRunner` port (`run_step`, so the run's one step is named for what
+  runs and a failure carries the script's own `[avatar] Error:` line) on one asset version, only
+  read: it turns the model to
   face +Z, centres the hips, puts the soles on Y = 0, lifts each arm at the shoulder until upper arm
   to hand is level (`Elbows::Straighten` levels the lower arm too), straightens each finger chain
   along its hand (`Fingers::Straighten`: the four fingers in the palm plane with half their spread,
@@ -632,7 +634,11 @@ uses.
   its own lying on it or weighted mostly to it, while hair that only hangs beside the hand does
   not), and moves every other vertex's arm weight to spine, chest and upperChest (and the
   shoulder above the armpit) by inverse distance, with a geodesic band at the boundary so cloth
-  sewn to a sleeve stretches instead of tearing. Only `JOINTS_0` and `WEIGHTS_0` change, at most
+  sewn to a sleeve stretches instead of tearing. Hair the rig also hangs from the head keeps
+  hanging from it: where most of a vertex's weight is on the head, the moved weight goes to the
+  head instead, fading to the trunk over the surface below (`head_share`), and only on vertices
+  that already carry some head weight, so a ponytail on the shoulder still turns with the head
+  and the springs finder roots it there. Only `JOINTS_0` and `WEIGHTS_0` change, at most
   4 influences, except that the bridges (faces fused between an arm and the body far from the
   shoulder, which stretch whatever the weights) leave their primitives' index buffers when the
   spec's `bridges` is `Hide` (the default): the kept indices move to the front of the accessor and
@@ -661,7 +667,8 @@ uses.
   lies below the attachment, how slender and how big it is) and a colour on `candidates.png`. It
   is cached per model under `v<version>/springs/find/` and never waits for a yes. Nothing is
   confirmed on its own: `AvatarSpec.springs` (`maquette_model::avatar::SpringSpec`: id, kind, root
-  bone, line, joints, preset and swing overrides) holds what a person or an agent confirmed.
+  bone, line, joints, preset and swing overrides) holds what a person or an agent confirmed, and
+  `AvatarSpec.no_springs` that they confirmed none (`springs_choice`: unpicked, none or picked).
   `chain` reruns the finder, matches each confirmed spring to a part by root and line, adds N
   joints along its line (`spring_<id>_<k>`, parented to the root's joint, by length unless the spec
   says), weights the part to them with a smooth blend between joints, a ramp from the root at the
@@ -671,8 +678,14 @@ uses.
   vertices, more influences or a different humanoid bone map. Its key covers the parts and joint
   counts only, so tuning a preset or a swing value needs no new run. It is its own approval step
   on `gate.rs` under `v<version>/springs/chain/`, with a sheet of the parts and their joints and a
-  sway test (rest, swung left, right and back). A build with `SpringsMode::Auto` runs the finder
-  when nothing is confirmed, chains what is, answers `SpringsWaiting` while the chains are pending,
+  sway test (rest, swung left, right and back). A build with `SpringsMode::Auto` writes no springs
+  when none are confirmed; with nothing picked it runs the finder and, when the last export carried
+  springs, answers `SpringsUnpicked` instead of writing without them. With picks it runs the finder
+  too and holds each pick to its candidates (`export/rematch.rs`): a pick whose part kept its root
+  and line stays, one the finder names differently now is carried over to the candidate on its
+  line hanging from about the same place (saved to `avatar.json`, keeping kind, joints and preset,
+  listed as `carried`), and with no clear match the build answers `SpringsStale` and writes
+  nothing. It chains the picks, answers `SpringsWaiting` while the chains are pending,
   and after a yes writes the VRM from the chained model and adds `VRMC_springBone` 1.0
   (`maquette_glb::vrm::add_springs`: springs with per joint `hitRadius`, `stiffness`,
   `gravityPower`, `gravityDir` and `dragForce` from the kind's preset with the spec's overrides,

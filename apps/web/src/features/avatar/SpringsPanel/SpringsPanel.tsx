@@ -1,4 +1,4 @@
-import { Button, EmptyState, Icon, InlineBanner } from '@maquette/ui';
+import { Button, EmptyState, Icon, InlineBanner, Toggle } from '@maquette/ui';
 import { Panel } from '@/features/common/Panel';
 import { SheetButton } from '../SheetButton';
 import { SpringRow } from './SpringRow';
@@ -56,6 +56,20 @@ export default function SpringsPanel() {
       onEdit={change => p.actions.edit(c.id, change)}
     />
   ));
+  const drops = p.unmatched.map(s => (
+    <li key={s.id}>
+      <Button
+        variant="secondary"
+        size="sm"
+        icon="x"
+        disabled={p.busy}
+        tooltip={`Takes ${s.id} out of the confirmed springs`}
+        onClick={() => p.actions.drop(s.id)}
+      >
+        Drop {s.id}
+      </Button>
+    </li>
+  ));
   return (
     <Panel id="avatar-springs" title="Springs" help={HELP} actions={p.found ? find : null}>
       {!p.found ? (
@@ -81,6 +95,26 @@ export default function SpringsPanel() {
             />
           </div>
           <div className="flex flex-col gap-3">
+            {p.choice === 'unpicked' && p.hadSprings ? (
+              <InlineBanner
+                tone="warning"
+                title="Pick the springs to keep"
+                detail="The last VRM had springs and none are confirmed now. A build waits until you pick the parts here or confirm no springs."
+              />
+            ) : null}
+            {p.unmatched.length > 0 ? (
+              <section
+                aria-label="Springs that no longer match"
+                className="flex flex-col gap-2 rounded-card border border-amber/40 bg-amber-soft/40 p-3"
+              >
+                <p className="text-meta text-fg-mute">
+                  The model changed, and no part found now goes by these confirmed springs. A build
+                  carries each over to the part on its line when one clearly matches; otherwise pick
+                  again.
+                </p>
+                <ul className="m-0 flex list-none flex-wrap gap-2 p-0">{drops}</ul>
+              </section>
+            ) : null}
             <ul
               aria-label="Parts that could swing"
               className="m-0 flex list-none flex-col gap-2 p-0"
@@ -91,6 +125,20 @@ export default function SpringsPanel() {
               Confirm only parts that should swing: a stiff brim or a sewn on patch looks wrong
               moving. The VRM gets a spring for each one after you approve its chain.
             </p>
+            <div className="flex items-center justify-between gap-3 rounded-[9px] border border-line bg-raised px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="font-medium">No springs</p>
+                <p className="text-meta text-fg-mute">
+                  Write the VRM without springs, whatever is found here.
+                </p>
+              </div>
+              <Toggle
+                aria-label="No springs"
+                checked={p.choice === 'none'}
+                disabled={p.busy}
+                onChange={p.actions.none}
+              />
+            </div>
             <Button
               variant="primary"
               icon="bone"

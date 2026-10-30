@@ -55,7 +55,7 @@ pub struct AvatarView {
     pub meta_problem: Option<String>,
 }
 
-fn read_export(dir: &Path) -> Option<AvatarExport> {
+pub(super) fn read_export(dir: &Path) -> Option<AvatarExport> {
     let text = fs::read_to_string(dir.join(RECORD_FILE)).ok()?;
     let mut found: AvatarExport = serde_json::from_str(&text).ok()?;
     found.exists = Path::new(&found.path).is_file();

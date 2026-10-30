@@ -48,6 +48,53 @@ describe('the springs tab', () => {
     expect(await screen.findByText(/The VRM carries these springs/)).toBeInTheDocument();
   });
 
+  it('waits for a pick after a vrm with springs, until one is picked or none confirmed', async () => {
+    await openAvatar('written');
+    render(<SpringsPanel />);
+    await userEvent.click(screen.getByRole('button', { name: 'Find dangling parts' }));
+    const list = await screen.findByRole('list', { name: 'Parts that could swing' });
+    const strip = within(list).getByRole('listitem', { name: /hair-1/ });
+    await userEvent.click(within(strip).getByRole('switch', { name: 'Swing hair-1' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Make chains' }));
+    const ask = await screen.findByRole('region', { name: 'Spring chains approval' });
+    await userEvent.click(within(ask).getByRole('button', { name: 'Approve and write' }));
+    await waitFor(() => expect(useAvatarStore.getState().view?.export?.springs).toBe(1));
+
+    // Taking the pick back does not mean no springs.
+    await userEvent.click(within(list).getByRole('switch', { name: 'Swing hair-1' }));
+    expect(await screen.findByText('Pick the springs to keep')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('switch', { name: 'No springs' }));
+    expect(useAvatarStore.getState().draft?.noSprings).toBe(true);
+    expect(screen.queryByText('Pick the springs to keep')).not.toBeInTheDocument();
+  });
+
+  it('offers to drop a confirmed spring no part goes by now', async () => {
+    await openAvatar('written');
+    render(<SpringsPanel />);
+    await userEvent.click(screen.getByRole('button', { name: 'Find dangling parts' }));
+    await screen.findByRole('list', { name: 'Parts that could swing' });
+    const draft = useAvatarStore.getState().draft!;
+    useAvatarStore.setState({
+      draft: {
+        ...draft,
+        springs: [
+          {
+            id: 'cloth-1',
+            kind: 'cloth',
+            rootBone: 'upperChest',
+            line: [
+              [0, 1, 0],
+              [0, 0.5, 0],
+            ],
+          },
+        ],
+      },
+    });
+    const stale = await screen.findByRole('region', { name: 'Springs that no longer match' });
+    await userEvent.click(within(stale).getByRole('button', { name: 'Drop cloth-1' }));
+    expect(useAvatarStore.getState().draft?.springs).toEqual([]);
+  });
+
   it('answers an agent’s chains, and a no writes the vrm without springs', async () => {
     await openAvatar('chains');
     expect(useAgentsStore.getState().status?.approvals.some(a => a.kind === 'springs')).toBe(true);

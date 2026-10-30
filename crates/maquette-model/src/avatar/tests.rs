@@ -217,3 +217,33 @@ fn bad_springs_are_refused() {
             .contains("Two springs")
     );
 }
+
+#[test]
+fn no_springs_is_a_choice_apart_from_nobody_picking() {
+    let dir = tempfile::tempdir().expect("dir");
+    // Nobody picked yet, as every older file has it.
+    let fresh = hero();
+    assert_eq!(fresh.springs_choice(), SpringsChoice::Unpicked);
+    // A person confirmed none: stored, read back, and the list stays empty.
+    let none = AvatarSpec {
+        no_springs: true,
+        ..hero()
+    };
+    assert_eq!(none.springs_choice(), SpringsChoice::None);
+    set(dir.path(), "hero", Some(none.clone())).expect("set");
+    let text = std::fs::read_to_string(path(dir.path())).expect("read");
+    assert!(text.contains("\"noSprings\": true"), "{text}");
+    assert_eq!(load(dir.path()).expect("load").avatars["hero"], none);
+    // Picks win, and both at once are refused.
+    let mut picked = hero();
+    picked.springs.push(ponytail());
+    assert!(matches!(picked.springs_choice(), SpringsChoice::Picked(s) if s.len() == 1));
+    picked.no_springs = true;
+    assert!(
+        picked
+            .validate()
+            .expect_err("refused")
+            .to_string()
+            .contains("not both")
+    );
+}

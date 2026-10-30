@@ -22,7 +22,7 @@ import type {
   VrmMeta_Serialize,
   VrmReadiness,
 } from '@/ipc/client';
-import { SPRINGS_WAITING } from './avatar-springs';
+import { springsBuildNotice } from './avatar-springs';
 
 /** VRM 1.0's own licence; any other licence goes in the other licence URL. */
 export const LICENSE_URL = 'https://vrm.dev/licenses/1.0/';
@@ -328,7 +328,8 @@ export function poseSummary(report: NormalizeReport): string {
 
 /** What a build answered, for the notice after it. */
 export function buildNotice(built: AvatarBuild): { title: string; detail: string } {
-  if (built.status === 'springs waiting for approval') return SPRINGS_WAITING;
+  const springs = springsBuildNotice(built);
+  if (springs) return springs;
   if (built.status === 'reweight waiting for approval') {
     return {
       title: 'The freed arms wait for you',

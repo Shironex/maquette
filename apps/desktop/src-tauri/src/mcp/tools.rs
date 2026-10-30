@@ -127,7 +127,7 @@ Compress applies them to the shipped model on the next run. \
 get_avatar reads a character asset's VRM avatar (readiness with the bone map and findings, the meta, \
 the last reweight, the last normalised rest pose with its before and after sheets, the parts that \
 could swing and the last spring chains, the last export); set_avatar changes its meta, bone \
-overrides, material mode (mtoon-soft or pbr) and confirmed springs (by candidate id); \
+overrides, material mode (mtoon-soft or pbr) and confirmed springs (by candidate id, or \"none\"); \
 build_avatar writes the project's \
 exports/<asset>.vrm, never a new version. When cloth or hair weighted to the arms needs freeing \
 (reweight auto, the default) and when the rest pose needs normalising (headless, elbows and fingers \

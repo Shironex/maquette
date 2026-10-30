@@ -62,6 +62,7 @@ impl AvatarDefaults {
             highlights: Highlights::default(),
             bridges: BridgeFaces::default(),
             springs: Vec::new(),
+            no_springs: false,
         }
     }
 

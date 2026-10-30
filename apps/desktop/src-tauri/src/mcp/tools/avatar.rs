@@ -74,10 +74,12 @@ pub struct SetAvatarArgs {
     /// weights when the arm lifts, out of the reweighted model so they are not drawn; "keep"
     /// leaves them. A build reweights again after a change.
     pub bridges: Option<String>,
-    /// The springs to confirm, replacing the ones confirmed before; an empty list confirms
-    /// none. Name a candidate from get_avatar's springs.found by id, and tune joints, preset or
-    /// the swing settings if you like.
-    pub springs: Option<Vec<springs::SpringArg>>,
+    /// The springs to confirm, replacing the ones confirmed before: name a candidate from
+    /// get_avatar's springs.found by id, and tune joints, preset or the swing settings if you
+    /// like. "none" confirms that the VRM carries no springs. An empty list only clears the
+    /// picks: when the last export had springs, a build then waits for a pick instead of
+    /// writing without them.
+    pub springs: Option<springs::SpringsArg>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -202,16 +204,38 @@ fn build_answer(hub: &Hub, name: &str, built: &AvatarBuild) -> Value {
             "message": "A person turned this rest pose down in Maquette. Ask them what to change (for example elbows keep), then build again.",
             "pose": pose_summary(normalized),
         }),
-        AvatarBuild::SpringsWaiting { chained } => {
+        AvatarBuild::SpringsWaiting { chained, carried } => {
             let approval = hub.request_springs(chained, name);
-            json!({
+            let mut answer = json!({
                 "status": WAITING,
                 "step": "springs",
                 "approval": approval,
                 "message": "A chain of joints was added along each confirmed spring and the part weighted to it, on a copy. The chains wait for a person to look at the parts and the sway sheet and approve them in Maquette's Avatar view. Call get_avatar or build_avatar again later; nothing is written until then.",
                 "springs": springs::chain_summary(chained),
-            })
+            });
+            if !carried.is_empty() {
+                answer["carried"] = to_short_value(carried);
+                answer["message"] = json!(format!(
+                    "The model changed under the confirmed springs, so the finder names their parts differently now; each was carried over to the part on its line (carried: from, to, rootBone) and saved, keeping its kind, joints and preset. {}",
+                    answer["message"].as_str().unwrap_or_default()
+                ));
+            }
+            answer
         }
+        AvatarBuild::SpringsUnpicked { found } => json!({
+            "status": "candidates waiting for a pick",
+            "message": "No springs are confirmed, and the last export carried some: the parts that could swing wait for a pick so the file does not quietly lose them. Confirm the ones to keep (set_avatar springs, by candidate id) or confirm none (set_avatar springs \"none\"), then build again. Nothing was written.",
+            "springs": springs::candidates_summary(found),
+        }),
+        AvatarBuild::SpringsStale { found, stale } => json!({
+            "status": "springs no longer match",
+            "message": format!(
+                "The confirmed springs no longer match; pick again. No part the finder sees on this model matches {} clearly enough to carry it over. Pick from the candidates (set_avatar springs) or confirm none, then build again. Nothing was written.",
+                stale.join(", ")
+            ),
+            "stale": stale,
+            "springs": springs::candidates_summary(found),
+        }),
         AvatarBuild::Written { export, normalized } => json!({
             "status": "written",
             "path": export.path,
@@ -261,7 +285,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change a character asset's VRM avatar spec, as the Avatar view's form does: meta fields by their VRM 1.0 names (only the ones you give change; null puts one back to its default; the licence URL stays VRM's own), bone map overrides (a VRM bone name to a joint, or null to leave it unmapped; clearBones drops overrides), the material mode (mtoon-soft or pbr), what MToon does with highlights baked into the base color texture (soften, the default, or keep), whether the reweight hides the bridge faces fused between an arm and the body (bridges hide, the default, or keep) and the confirmed springs (by a candidate id from get_avatar's springs.found, with joints, a preset (soft, heavy, stiff) or stiffness, gravityPower, dragForce and hitRadius to tune; nothing is confirmed on its own, so confirm only parts a person or you judged from the candidates sheet). reset starts again from the workspace's avatar defaults. A name and at least one author are needed before a build writes. Returns the avatar like get_avatar; the open app updates live.",
+        description = "Change a character asset's VRM avatar spec, as the Avatar view's form does: meta fields by their VRM 1.0 names (only the ones you give change; null puts one back to its default; the licence URL stays VRM's own), bone map overrides (a VRM bone name to a joint, or null to leave it unmapped; clearBones drops overrides), the material mode (mtoon-soft or pbr), what MToon does with highlights baked into the base color texture (soften, the default, or keep), whether the reweight hides the bridge faces fused between an arm and the body (bridges hide, the default, or keep) and the confirmed springs (by a candidate id from get_avatar's springs.found, with joints, a preset (soft, heavy, stiff) or stiffness, gravityPower, dragForce and hitRadius to tune; nothing is confirmed on its own, so confirm only parts a person or you judged from the candidates sheet; springs \"none\" confirms no springs, while an empty list only clears the picks). reset starts again from the workspace's avatar defaults. A name and at least one author are needed before a build writes. Returns the avatar like get_avatar; the open app updates live.",
         annotations(idempotent_hint = true)
     )]
     async fn set_avatar(&self, Parameters(args): Parameters<SetAvatarArgs>) -> Out {
@@ -313,8 +337,8 @@ impl McpTools {
                     bridges,
                     springs: args
                         .springs
-                        .as_deref()
-                        .map(|list| springs::confirmed(&current.springs, list))
+                        .as_ref()
+                        .map(|arg| springs::change(&current.springs, arg))
                         .transpose()?,
                 };
                 let defaults = config.avatar.spec(&current.name);
@@ -328,7 +352,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Build a character asset's VRM 1.0 avatar into the project's exports/<asset>.vrm (a derived export, never a new version). When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), it is first normalised headless in Blender on a copy (elbows straighten by default, or keep; fingers straighten by default, as far as the hand's mesh holds, or keep), which makes before and after pose sheets with a row of the hands up close. When the readiness finds cloth or hair weighted to the arms (the arm-weights finding), reweight auto (the default) frees them before that: Blender moves their weight from the arm bones to the trunk on a copy, keeping the arms, sleeves and gloves, and makes before and after sheets; the call answers \"waiting for approval\" with step reweight, and the rest pose comes after that yes (or after a no, from the model as it is). The faces fused between an arm and the body that still stretch when it lifts (bridges, with their side, faces and where) are taken out of the reweighted model by default (set_avatar bridges keep keeps them; reweight.hiddenFaces says how many). reweight off skips it. A changed rest pose needs a person's yes: the call then answers \"waiting for approval\" with step rest pose and the sheet paths, and a person approves or denies it in the app's Avatar view. You cannot approve it: call get_avatar or build_avatar again later (the normalised result is cached, Blender does not run again), and once approved it writes the file and returns its path, size, what it still lacks, the validation report beside it (exports/<asset>.vrm.report.json: source version and hash, readiness before and after, the bone map with each bone's source, the meta, what the reweight changed when one was applied, and with MToon how much of each base color texture is baked highlights and whether a softened copy was written) and the round trip (the written file read back and checked; a failure is a blocker in what it still lacks). \"denied\" means the person turned the pose down. Springs auto (the default): with springs confirmed (set_avatar springs), once the rest pose is approved Blender adds a chain of joints along each one, weights the part to it and derives colliders from the body, on a copy, and makes a sheet of the parts and a sway test; the call answers \"waiting for approval\" with step springs, and after that yes the file carries VRMC_springBone (each spring with its preset or tuned settings, the colliders and their groups) and the report records them; after a no it is written without springs. With none confirmed, a build looks for the parts that could swing (cached) so get_avatar lists them. springs off writes no springs. dryRun returns the plan and does nothing. Needs a meta name and an author (set_avatar).",
+        description = "Build a character asset's VRM 1.0 avatar into the project's exports/<asset>.vrm (a derived export, never a new version). When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), it is first normalised headless in Blender on a copy (elbows straighten by default, or keep; fingers straighten by default, as far as the hand's mesh holds, or keep), which makes before and after pose sheets with a row of the hands up close. When the readiness finds cloth or hair weighted to the arms (the arm-weights finding), reweight auto (the default) frees them before that: Blender moves their weight from the arm bones to the trunk on a copy, keeping the arms, sleeves and gloves, and makes before and after sheets; the call answers \"waiting for approval\" with step reweight, and the rest pose comes after that yes (or after a no, from the model as it is). The faces fused between an arm and the body that still stretch when it lifts (bridges, with their side, faces and where) are taken out of the reweighted model by default (set_avatar bridges keep keeps them; reweight.hiddenFaces says how many). reweight off skips it. A changed rest pose needs a person's yes: the call then answers \"waiting for approval\" with step rest pose and the sheet paths, and a person approves or denies it in the app's Avatar view. You cannot approve it: call get_avatar or build_avatar again later (the normalised result is cached, Blender does not run again), and once approved it writes the file and returns its path, size, what it still lacks, the validation report beside it (exports/<asset>.vrm.report.json: source version and hash, readiness before and after, the bone map with each bone's source, the meta, what the reweight changed when one was applied, and with MToon how much of each base color texture is baked highlights and whether a softened copy was written) and the round trip (the written file read back and checked; a failure is a blocker in what it still lacks). \"denied\" means the person turned the pose down. Springs auto (the default): with springs confirmed (set_avatar springs), once the rest pose is approved Blender adds a chain of joints along each one, weights the part to it and derives colliders from the body, on a copy, and makes a sheet of the parts and a sway test; the call answers \"waiting for approval\" with step springs, and after that yes the file carries VRMC_springBone (each spring with its preset or tuned settings, the colliders and their groups) and the report records them; after a no it is written without springs. With none confirmed, a build looks for the parts that could swing (cached) so get_avatar lists them; when the last export carried springs it answers \"candidates waiting for a pick\" and writes nothing until set_avatar confirms some or \"none\". A confirmed spring the finder now names differently (after a new reweight or rest pose) is carried over to the part on its line, keeping its kind, joints and preset, and listed in carried; when none matches clearly the call answers \"springs no longer match\" with stale and writes nothing: pick again. springs off writes no springs. dryRun returns the plan and does nothing. Needs a meta name and an author (set_avatar).",
         annotations(idempotent_hint = true)
     )]
     async fn build_avatar(&self, Parameters(args): Parameters<BuildAvatarArgs>) -> Out {

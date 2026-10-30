@@ -38,6 +38,8 @@ pub const HIGHLIGHTS_DIR: &str = "highlights";
 const JOB_FILE: &str = "job.json";
 const REPORT_FILE: &str = "report.json";
 const STEP: &str = "highlights";
+/// The Blender step as a run shows it.
+const STEP_NAME: &str = "Highlights";
 const KEY_VERSION: &str = "maquette avatar highlights v1";
 /// How far a highlight moves toward the colour around it.
 pub const STRENGTH: f64 = 0.75;
@@ -186,7 +188,7 @@ fn run(
         write_json(&dir.join(JOB_FILE), &job)?;
         let started = Instant::now();
         let extra = ["--job".to_string(), JOB_FILE.to_string()];
-        runner.run_script(tools, dir, (SCRIPT_FILE, SCRIPT), &extra)?;
+        runner.run_step(tools, dir, STEP_NAME, (SCRIPT_FILE, SCRIPT), &extra)?;
         if !dir.join(REPORT_FILE).is_file() {
             return Err(invalid(format!(
                 "Blender finished without writing {REPORT_FILE}."

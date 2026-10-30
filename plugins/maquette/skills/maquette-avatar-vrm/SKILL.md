@@ -77,15 +77,20 @@ Avatar view (`/docs/views/avatar/`).
    an id, kind (`hair`, `cloth`, `accessory`), root bone, length, vertices and `confidence`, and
    `springs.found.sheet` draws each in its colour. Look at the sheet, ask the person which should
    swing, then call `set_avatar` with `springs`, for example
-   `[{ "id": "hair-1" }, { "id": "cloth-1", "preset": "heavy", "joints": 6 }]` (`[]` confirms
-   none; `stiffness`, `gravityPower`, `dragForce` and `hitRadius` tune one). The next `build_avatar` adds the chains on a copy and
+   `[{ "id": "hair-1" }, { "id": "cloth-1", "preset": "heavy", "joints": 6 }]` (`"none"`
+   confirms no springs; `[]` only clears the picks, and when the last export had springs a build
+   then answers `candidates waiting for a pick` and writes nothing; `stiffness`, `gravityPower`,
+   `dragForce` and `hitRadius` tune one). The next `build_avatar` adds the chains on a copy and
    answers `waiting for approval` with `step: "springs"` and `chained.sheets` (the chains, and a
    sway test swung left, right and back). Ask the person to check that each part bends smoothly
    and stays on where it hangs, and approve in the Springs tab; on the sheet a part swings through
    the body, since the colliders only act in a VRM app. After the yes the file carries
    `VRMC_springBone` and `written` counts `springs`; after a no it is written without.
    `springs: "off"` on a build skips all of it. The person can wiggle the springs in the Preview
-   tab.
+   tab. After the model changes (a new reweight or rest pose) a build carries a confirmed spring
+   over to the part on its line when the finder names it differently, and lists it in `carried`;
+   when nothing matches clearly it answers `springs no longer match` with `stale`: show the
+   person the candidates sheet and pick again.
 9. **Report.** Every build writes `exports/<asset>.vrm.report.json` beside the `.vrm`: the source
    version and its SHA-256, the material, elbows and fingers modes, what the reweight moved (`reweight`,
    when one was applied), the readiness before and after with

@@ -13,7 +13,8 @@
 //!       "material": "mtoon-soft",
 //!       "highlights": "soften",
 //!       "bridges": "hide",
-//!       "springs": []
+//!       "springs": [],
+//!       "noSprings": false
 //!     }
 //!   }
 //! }
@@ -25,7 +26,9 @@
 //! A stored spec may be a draft: the meta's name and authors are only
 //! required when the VRM is written. `springs` lists the hanging parts a
 //! person confirmed for secondary motion ([`springs`]); it is left out when
-//! empty, so older files read and write the same.
+//! empty, so older files read and write the same. `noSprings` (left out
+//! when false) records that a person confirmed none: without it an empty
+//! list only means nobody picked yet.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -88,9 +91,14 @@ pub struct AvatarSpec {
     pub highlights: Highlights,
     /// Only read when the arms are freed of cloth and hair first.
     pub bridges: BridgeFaces,
-    /// The confirmed springs, in the order they were confirmed.
+    /// The confirmed springs, in the order they were confirmed. Empty
+    /// without `noSprings`, nobody picked yet.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub springs: Vec<SpringSpec>,
+    /// A person confirmed that the VRM carries no springs, whatever the
+    /// finder proposes; `springs` is then empty.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub no_springs: bool,
 }
 
 impl AvatarSpec {
@@ -118,8 +126,35 @@ impl AvatarSpec {
                 }
             }
         }
+        if self.no_springs && !self.springs.is_empty() {
+            return Err(invalid(
+                "Confirm either no springs or the springs to add, not both.",
+            ));
+        }
         validate_springs(&self.springs)
     }
+
+    /// What the person chose about springs.
+    pub fn springs_choice(&self) -> SpringsChoice<'_> {
+        if !self.springs.is_empty() {
+            SpringsChoice::Picked(&self.springs)
+        } else if self.no_springs {
+            SpringsChoice::None
+        } else {
+            SpringsChoice::Unpicked
+        }
+    }
+}
+
+/// What a person chose about an avatar's springs.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SpringsChoice<'a> {
+    /// Nobody picked yet: the finder's candidates wait for a pick.
+    Unpicked,
+    /// The person confirmed none: the VRM is written without springs.
+    None,
+    /// The confirmed springs.
+    Picked(&'a [SpringSpec]),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]

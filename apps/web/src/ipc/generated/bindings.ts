@@ -1133,9 +1133,21 @@ export type AvatarBuild =
 { status: "denied"; normalized: Normalized } | 
 /**
  *  The chains of the confirmed springs wait for a person to look at
- *  the sway sheets.
+ *  the sway sheets. `carried` names the picks carried over to the
+ *  parts the finder sees now, when the model changed under them.
  */
-{ status: "springs waiting for approval"; chained: Chained } | 
+{ status: "springs waiting for approval"; chained: Chained; carried: SpringCarried[] } | 
+/**
+ *  Nobody picked springs yet, the last export carried some and the
+ *  finder proposes parts: they wait for a pick (or for none to be
+ *  confirmed), and nothing is written.
+ */
+{ status: "candidates waiting for a pick"; found: FoundSprings } | 
+/**
+ *  The confirmed springs no longer match the parts the finder sees on
+ *  this model (`stale`, by id): pick again. Nothing is written.
+ */
+{ status: "springs no longer match"; found: FoundSprings; stale: string[] } | 
 /**  The `.vrm` is written. */
 { status: "written"; export: AvatarExport; normalized: Normalized | null };
 
@@ -1225,8 +1237,16 @@ export type AvatarSpec_Deserialize = {
 	highlights?: Highlights,
 	/**  Only read when the arms are freed of cloth and hair first. */
 	bridges?: BridgeFaces,
-	/**  The confirmed springs, in the order they were confirmed. */
+	/**
+	 *  The confirmed springs, in the order they were confirmed. Empty
+	 *  without `noSprings`, nobody picked yet.
+	 */
 	springs?: SpringSpec[],
+	/**
+	 *  A person confirmed that the VRM carries no springs, whatever the
+	 *  finder proposes; `springs` is then empty.
+	 */
+	noSprings?: boolean,
 };
 
 /**  One character asset's avatar. */
@@ -1242,8 +1262,16 @@ export type AvatarSpec_Serialize = {
 	highlights: Highlights,
 	/**  Only read when the arms are freed of cloth and hair first. */
 	bridges: BridgeFaces,
-	/**  The confirmed springs, in the order they were confirmed. */
+	/**
+	 *  The confirmed springs, in the order they were confirmed. Empty
+	 *  without `noSprings`, nobody picked yet.
+	 */
 	springs?: SpringSpec[],
+	/**
+	 *  A person confirmed that the VRM carries no springs, whatever the
+	 *  finder proposes; `springs` is then empty.
+	 */
+	noSprings?: boolean,
 };
 
 /**  Everything the Avatar view and `get_avatar` show for one asset. */
@@ -5671,6 +5699,18 @@ export type SpringCandidate = {
 	joints: number,
 	/**  Its colour on the candidates sheet, `#rrggbb`. */
 	color: string,
+};
+
+/**  A pick carried over to the candidate its part is now. */
+export type SpringCarried = {
+	/**  The pick's id before. */
+	from: string,
+	/**  The candidate's id now, which the pick takes. */
+	to: string,
+	/**  The bone it hangs from now. */
+	rootBone: string,
+	/**  0 to 1: how much of the two lines lie on each other. */
+	overlap: number | null,
 };
 
 /**  A collider on a bone. */

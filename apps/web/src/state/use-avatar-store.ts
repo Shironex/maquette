@@ -20,7 +20,7 @@ import {
   type VrmMeta_Serialize,
 } from '@/ipc/client';
 import { buildNotice } from './avatar';
-import { editSpring, toggleSpring } from './avatar-springs';
+import { confirmNoSprings, dropSpring, editSpring, toggleSpring } from './avatar-springs';
 import { useAppStore } from './use-app-store';
 import { useAgentsStore } from './use-agents-store';
 
@@ -80,6 +80,10 @@ interface AvatarStore {
   findSprings: () => Promise<void>;
   /** Confirms a candidate as a spring, or takes it back, in the draft. */
   confirmSpring: (candidate: SpringCandidate, on: boolean) => void;
+  /** Confirms that the VRM carries no springs, or takes that back, in the draft. */
+  confirmNoSprings: (on: boolean) => void;
+  /** Drops a confirmed spring no candidate goes by any more, in the draft. */
+  dropSpring: (id: string) => void;
   /** Changes a confirmed spring's joints or preset in the draft. */
   editSpring: (id: string, change: Partial<Pick<SpringSpec, 'joints' | 'preset'>>) => void;
   /** The yes or no to the new spring chains; a yes writes the VRM with them. */
@@ -313,6 +317,16 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   confirmSpring: (candidate, on) => {
     const draft = get().draft;
     if (draft) set({ draft: toggleSpring(draft, candidate, on), dirty: true });
+  },
+
+  confirmNoSprings: on => {
+    const draft = get().draft;
+    if (draft) set({ draft: confirmNoSprings(draft, on), dirty: true });
+  },
+
+  dropSpring: id => {
+    const draft = get().draft;
+    if (draft) set({ draft: dropSpring(draft, id), dirty: true });
   },
 
   editSpring: (id, change) => {

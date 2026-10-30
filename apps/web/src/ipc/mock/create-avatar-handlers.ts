@@ -208,10 +208,16 @@ export function createAvatarHandlers(
     const problem = metaProblem(v.spec.meta);
     if (problem) fail('invalid', problem);
     const e = entry(p, v.asset);
-    const waiting = () => springs.step(p, v.asset, v.version ?? 1, v.spec).waiting;
+    const stopped = (): AvatarBuild | null => {
+      const hadSprings = (e.export?.springs ?? 0) > 0;
+      const { waiting, unpicked } = springs.step(p, v.asset, v.version ?? 1, v.spec, hadSprings);
+      if (waiting) return { status: 'springs waiting for approval', chained: waiting, carried: [] };
+      if (unpicked) return { status: 'candidates waiting for a pick', found: unpicked };
+      return null;
+    };
     if (!v.needsNormalize) {
-      const chained = waiting();
-      if (chained) return { status: 'springs waiting for approval', chained };
+      const stop = stopped();
+      if (stop) return stop;
       e.export = write(p, v.asset, null, version);
       return { status: 'written', export: e.export, normalized: null };
     }
@@ -235,8 +241,8 @@ export function createAvatarHandlers(
     const normalized = e.normalized;
     if (normalized.state === 'pending') return { status: 'waiting for approval', normalized };
     if (normalized.state === 'denied') return { status: 'denied', normalized };
-    const chained = waiting();
-    if (chained) return { status: 'springs waiting for approval', chained };
+    const stop = stopped();
+    if (stop) return stop;
     e.export = write(p, v.asset, normalized, version);
     return { status: 'written', export: e.export, normalized };
   }

@@ -17,6 +17,7 @@
 //! is kept in the asset's avatar cache folder as `export.json`.
 
 use std::fs;
+use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -27,7 +28,7 @@ use super::normalize::{
     needs_normalize,
 };
 use super::reweight::{self, ReweightMode, ReweightRequest, Reweighted};
-use super::springs::{Chained, SpringsMode};
+use super::springs::{Chained, FoundSprings, SpringsMode};
 use super::{AvatarSpec, SceneAvatars};
 use crate::Asset;
 use crate::assets;
@@ -43,17 +44,19 @@ pub const EXPORTS_DIR: &str = "exports";
 const RECORD_FILE: &str = "export.json";
 
 mod patch;
+mod rematch;
 pub mod report;
 mod save;
 mod springs;
 mod view;
 
-pub use patch::{AvatarPatch, apply_patch};
+pub use patch::{AvatarPatch, NoSprings, SpringsChange, apply_patch};
+pub use rematch::SpringCarried;
 use save::{Built, save};
-use springs::Step;
+use springs::Picks;
 pub use springs::{SpringsView, decide_springs, find_springs};
 pub use view::{AvatarView, view};
-use view::{lifts_cloth, readiness_of};
+use view::{lifts_cloth, read_export, readiness_of};
 
 fn invalid(message: impl Into<String>) -> CoreError {
     CoreError::Invalid(message.into())
@@ -223,9 +226,25 @@ pub enum AvatarBuild {
     #[serde(rename = "denied")]
     Denied { normalized: Normalized },
     /// The chains of the confirmed springs wait for a person to look at
-    /// the sway sheets.
+    /// the sway sheets. `carried` names the picks carried over to the
+    /// parts the finder sees now, when the model changed under them.
     #[serde(rename = "springs waiting for approval")]
-    SpringsWaiting { chained: Chained },
+    SpringsWaiting {
+        chained: Chained,
+        carried: Vec<SpringCarried>,
+    },
+    /// Nobody picked springs yet, the last export carried some and the
+    /// finder proposes parts: they wait for a pick (or for none to be
+    /// confirmed), and nothing is written.
+    #[serde(rename = "candidates waiting for a pick")]
+    SpringsUnpicked { found: FoundSprings },
+    /// The confirmed springs no longer match the parts the finder sees on
+    /// this model (`stale`, by id): pick again. Nothing is written.
+    #[serde(rename = "springs no longer match")]
+    SpringsStale {
+        found: FoundSprings,
+        stale: Vec<String>,
+    },
     /// The `.vrm` is written.
     #[serde(rename = "written")]
     Written {
@@ -379,13 +398,25 @@ pub fn build(
         }
     };
     let version = src.version.unwrap_or(0);
+    let picks = Picks {
+        project_dir: &src.project_dir,
+        asset: &src.asset.id,
+        had_springs: read_export(&dir).is_some_and(|e| e.springs > 0),
+    };
     if !needs_normalize(&readiness) {
         let input = springs::input(req, &src.asset.id, version, &file, &readiness);
-        let step = match springs::step(runner, tools, req.springs, &spec, &input)? {
-            Step::Waiting(chained) => return Ok(AvatarBuild::SpringsWaiting { chained }),
-            step => step,
+        let step = match springs::stopping(springs::step(
+            runner,
+            tools,
+            req.springs,
+            &spec,
+            &input,
+            &picks,
+        )?) {
+            ControlFlow::Continue(step) => step,
+            ControlFlow::Break(stop) => return Ok(stop),
         };
-        let written = springs::write(step, &spec, &write_spec, || {
+        let written = springs::write(step, &write_spec, || {
             let bytes = fs::read(&file).map_err(|e| CoreError::io(&file, e))?;
             vrm::write(&bytes, &write_spec, file.parent().unwrap_or(&dir))
         })?;
@@ -411,11 +442,18 @@ pub fn build(
         NormalizeState::Approved => {
             let glb = Path::new(&found.glb);
             let input = springs::input(req, &src.asset.id, plan.version, glb, &found.readiness);
-            let step = match springs::step(runner, tools, req.springs, &spec, &input)? {
-                Step::Waiting(chained) => return Ok(AvatarBuild::SpringsWaiting { chained }),
-                step => step,
+            let step = match springs::stopping(springs::step(
+                runner,
+                tools,
+                req.springs,
+                &spec,
+                &input,
+                &picks,
+            )?) {
+                ControlFlow::Continue(step) => step,
+                ControlFlow::Break(stop) => return Ok(stop),
             };
-            let written = springs::write(step, &spec, &write_spec, || {
+            let written = springs::write(step, &write_spec, || {
                 normalize::write_vrm(&plan.dir, &write_spec)
             })?;
             let export = save(
