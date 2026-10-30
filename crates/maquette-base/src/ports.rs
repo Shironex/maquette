@@ -25,6 +25,25 @@ pub trait ScriptRunner {
         script: (&str, &str),
         extra: &[String],
     ) -> CoreResult<()>;
+
+    /// As [`ScriptRunner::run_script`], with `name` for the step the run
+    /// shows and fails as (`Springs chain`, `Reweight`), so a failure names
+    /// what ran. An implementation that shows no steps ignores it.
+    ///
+    /// # Errors
+    ///
+    /// As [`ScriptRunner::run_script`].
+    fn run_step(
+        &self,
+        tools: &Toolbox,
+        work: &Path,
+        name: &str,
+        script: (&str, &str),
+        extra: &[String],
+    ) -> CoreResult<()> {
+        let _ = name;
+        self.run_script(tools, work, script, extra)
+    }
 }
 
 /// Renders a model from the front on a plain ground.

@@ -22,6 +22,8 @@ const CANDIDATES_FILE: &str = "candidates.json";
 const CANDIDATES_SHEET: &str = "candidates.png";
 /// The step cache record's name inside the folder (`find.json`).
 const STEP: &str = "find";
+/// The Blender step as a run shows it.
+const STEP_NAME: &str = "Springs find";
 const KEY_VERSION: &str = "maquette avatar springs find v1";
 
 /// What the script reads in find mode.
@@ -114,7 +116,7 @@ pub fn find(
     write_json(&dir.join(JOB_FILE), &job)?;
     let started = Instant::now();
     let extra = ["--job".to_string(), JOB_FILE.to_string()];
-    runner.run_script(tools, &dir, (SCRIPT_FILE, SCRIPT), &extra)?;
+    runner.run_step(tools, &dir, STEP_NAME, (SCRIPT_FILE, SCRIPT), &extra)?;
     if let Some(missing) = outputs().iter().find(|o| !dir.join(o).is_file()) {
         return Err(invalid(format!(
             "Blender finished without writing {missing}."

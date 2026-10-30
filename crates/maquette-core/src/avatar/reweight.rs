@@ -51,6 +51,8 @@ const SHEET_AFTER: &str = "sheet_after.png";
 const RESULT_FILE: &str = "result.json";
 /// The step cache record's name inside the folder (`reweight.json`).
 const STEP: &str = "reweight";
+/// The Blender step as a run shows it.
+const STEP_NAME: &str = "Reweight";
 /// The skill's copy of [`SCRIPT`], for a person or an agent to run by hand.
 pub const SKILL_COPY: &str =
     "plugins/maquette/skills/maquette-avatar-vrm/scripts/avatar_reweight.py";
@@ -277,7 +279,7 @@ pub fn run(
     write_json(&dir.join(JOB_FILE), &job)?;
     let started = Instant::now();
     let extra = ["--job".to_string(), JOB_FILE.to_string()];
-    runner.run_script(tools, dir, (SCRIPT_FILE, SCRIPT), &extra)?;
+    runner.run_step(tools, dir, STEP_NAME, (SCRIPT_FILE, SCRIPT), &extra)?;
     if let Some(missing) = outputs().iter().find(|o| !dir.join(o).is_file()) {
         return Err(invalid(format!(
             "Blender finished without writing {missing}."
