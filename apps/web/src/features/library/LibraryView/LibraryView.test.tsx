@@ -1,11 +1,15 @@
 import { act, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NO_FILTERS } from '@/state/library';
 import { useAppStore } from '@/state/use-app-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { clearMocks, openMockLibrary } from '@/test/mock-ipc';
+import { QuickView } from '@/features/viewer/QuickView';
+import { useQuickViewStore } from '@/state/use-quick-view-store';
 import LibraryView from './LibraryView';
+
+vi.mock('@/features/viewer/ModelPreview', () => ({ default: () => null }));
 
 afterEach(() => {
   clearMocks();
@@ -16,6 +20,7 @@ afterEach(() => {
     adding: null,
     layout: 'grid',
   });
+  useQuickViewStore.setState({ target: null });
 });
 
 describe('the Library view', () => {
@@ -51,7 +56,9 @@ describe('the Library view', () => {
     expect(await within(models).findByText('8 models · most used first')).toBeVisible();
     const cards = within(models).getAllByRole('listitem');
     // Two projects each use Crystal lantern and Elsheria; a tie goes by name.
-    expect(within(cards[1]!).getByRole('button')).toHaveAccessibleName('Elsheria');
+    expect(within(cards[1]!).getByRole('button', { pressed: false })).toHaveAccessibleName(
+      'Elsheria'
+    );
     expect(within(cards[0]!).getByRole('button', { pressed: true })).toHaveAccessibleName(
       'Crystal lantern'
     );
@@ -100,5 +107,36 @@ describe('the Library view', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'List' }));
     expect(useLibraryStore.getState().layout).toBe('list');
     expect(await screen.findByText('12.9k triangles · 400 KB')).toBeVisible();
+  });
+
+  it('opens a model in the 3D quick view from its picture, and gives focus back on close', async () => {
+    await openMockLibrary('demo');
+    render(
+      <>
+        <LibraryView />
+        <QuickView />
+      </>
+    );
+    const picture = await screen.findByRole('button', { name: 'Inspect 3D model of Elsheria' });
+    await userEvent.click(picture);
+    const dialog = screen.getByRole('dialog', { name: 'Elsheria' });
+    expect(dialog).toHaveAccessibleDescription('v3 · 34.7k triangles · 1.1 MB · Library');
+    expect(useLibraryStore.getState().selected).toBe('elsheria');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(picture).toHaveFocus();
+    // The selected model's big picture opens it too.
+    const side = screen.getByRole('complementary', { name: 'Selected model' });
+    await userEvent.click(
+      within(side).getByRole('button', { name: 'Inspect 3D model of Elsheria' })
+    );
+    expect(screen.getByRole('dialog', { name: 'Elsheria' })).toBeInTheDocument();
+  });
+
+  it('keeps an .obj model, which has no 3D preview, to selecting', async () => {
+    await openMockLibrary('demo');
+    render(<LibraryView />);
+    await screen.findByRole('button', { name: 'Crypt brazier' });
+    expect(screen.queryByRole('button', { name: 'Inspect 3D model of Crypt brazier' })).toBeNull();
   });
 });

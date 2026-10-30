@@ -38,6 +38,7 @@ export default function LibraryView() {
           item={i}
           selected={i.entry.id === item?.entry.id}
           onSelect={() => select(i.entry.id)}
+          onInspect={v.quickView(i)}
         />
       </li>
     ) : (

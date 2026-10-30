@@ -8,14 +8,18 @@ export interface LibraryCardProps {
   item: LibraryItem;
   selected: boolean;
   onSelect: () => void;
+  /** Opens the model in the 3D quick view, from a click on the picture. */
+  onInspect?: () => void;
 }
 
 /**
  * One library model in the grid: picture, name, version and source, tags,
  * uses and credits. The button lies over the card and is named after the
- * model alone, so its name holds all the text it covers (WCAG 2.5.3).
+ * model alone, so its name holds all the text it covers (WCAG 2.5.3). The
+ * picture lies over that button and opens the 3D quick view, selecting the
+ * card too; the rest of the card only selects it.
  */
-export default function LibraryCard({ item, selected, onSelect }: LibraryCardProps) {
+export default function LibraryCard({ item, selected, onSelect, onInspect }: LibraryCardProps) {
   const credits = creditLine(item);
   const tags = item.entry.tags.map(tag => (
     <span
@@ -40,7 +44,17 @@ export default function LibraryCard({ item, selected, onSelect }: LibraryCardPro
         onClick={onSelect}
         className={CARD_BUTTON}
       />
-      <LibraryPicture item={item} className="aspect-[4/3] w-full border-b border-line" />
+      <LibraryPicture
+        item={item}
+        onInspect={
+          onInspect &&
+          (() => {
+            onSelect();
+            onInspect();
+          })
+        }
+        className={cn('aspect-[4/3] w-full border-b border-line', onInspect && 'z-20')}
+      />
       <span className="flex flex-col gap-1.5 p-3">
         <span className="truncate font-semibold">{item.entry.name}</span>
         <span className="font-mono text-[11.5px] leading-[14px] text-fg-mute">
