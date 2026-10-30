@@ -103,6 +103,21 @@ describe('agents', () => {
     expect(approvalsLabel([round])).toBe('1 image round waits for approval');
   });
 
+  it("asks about an agent's normalised rest pose", () => {
+    const pose: Approval = {
+      ...send,
+      id: 'rest-pose-hero',
+      kind: 'rest-pose',
+      job: null,
+      assetName: 'Hero',
+      service: null,
+      asset: 'hero',
+      version: 2,
+    };
+    expect(approvalTitle(pose)).toBe("Approve Hero's new rest pose?");
+    expect(approvalsLabel([pose])).toBe('1 rest pose waits for approval');
+  });
+
   it('counts approvals by kind', () => {
     expect(approvalsLabel([approval])).toBe('1 run waits for approval');
     expect(approvalsLabel([send, { ...send, id: 'approval-3' }])).toBe('2 sends wait for approval');

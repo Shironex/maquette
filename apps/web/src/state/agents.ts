@@ -40,6 +40,9 @@ export function approvalTitle(approval: Approval, projectName?: string): string 
     const where = approval.assetName ? ` for ${approval.assetName}` : '';
     return `Make ${what}${where} with OpenAI Images?`;
   }
+  if (approval.kind === 'rest-pose') {
+    return `Approve ${approval.assetName ?? 'the avatar'}'s new rest pose?`;
+  }
   if (approval.kind === 'send-to-3d') {
     const n = approval.items.length;
     const what = n > 1 ? `${n} assets` : (approval.assetName ?? approval.items[0]?.assetName);
@@ -59,7 +62,9 @@ export function approvalsLabel(approvals: Approval[]): string {
         ? 'run'
         : kinds.has('image-round')
           ? 'image round'
-          : 'send';
+          : kinds.has('rest-pose')
+            ? 'rest pose'
+            : 'send';
   return `${n} ${noun}${n === 1 ? ' waits' : 's wait'} for approval`;
 }
 

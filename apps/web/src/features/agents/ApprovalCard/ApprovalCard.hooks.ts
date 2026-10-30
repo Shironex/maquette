@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { commands, type Approval } from '@/ipc/client';
+import { commands, errorMessage, type Approval } from '@/ipc/client';
+import { fileUrl } from '@/ipc/files';
 import { useNow } from '@/lib/useNow';
 import { commitFirstLine, originalsLine, shipGroups } from '@/state/game';
 import { formatCredits } from '@/state/credits';
 import { formatUsd } from '@/state/image-api';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
+import { useAvatarStore } from '@/state/use-avatar-store';
 
 /**
  * For a game's Ship: which replaced files are the game's imported originals,
@@ -49,5 +51,44 @@ export function useApprovalCard(approval: Approval) {
         ? `${approval.service} credits`
         : `about ${formatCredits(estimate)} ${approval.service} credits`;
   const notes = useShipNotes(approval, approval.kind === 'ship' && site?.target === 'game');
-  return { decide, deciding, site, now, cost, notes };
+  return { decide, deciding, site, now, cost, notes, pose: useRestPose(approval) };
+}
+
+/**
+ * A rest pose is judged on its sheets, so the card only opens them in the
+ * Avatar view or turns the pose down; approving happens there.
+ */
+function useRestPose(approval: Approval) {
+  const [denying, setDenying] = useState(false);
+  const notify = useAppStore(s => s.notify);
+  const { project, asset, version, sheets } = approval;
+  return {
+    sheets: sheets ? { before: fileUrl(sheets.before), after: fileUrl(sheets.after) } : null,
+    denying,
+    open: () => {
+      if (asset) useAvatarStore.getState().open(project, asset);
+    },
+    deny: async () => {
+      if (!asset) return;
+      setDenying(true);
+      try {
+        await commands.avatarDecide(project, asset, version ?? null, false);
+        notify({
+          status: 'info',
+          title: `${approval.assetName ?? 'The avatar'}'s rest pose was turned down`,
+          detail: 'Nothing was written. The agent is told it was denied.',
+        });
+        await useAgentsStore.getState().load();
+        useAvatarStore.getState().onChanged(project, asset);
+      } catch (error) {
+        notify({
+          status: 'failed',
+          title: 'Could not answer the rest pose',
+          detail: errorMessage(error),
+        });
+      } finally {
+        setDenying(false);
+      }
+    },
+  };
 }
