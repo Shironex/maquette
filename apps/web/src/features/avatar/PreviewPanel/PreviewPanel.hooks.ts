@@ -27,6 +27,7 @@ export function usePreviewPanel() {
   const [armsDown, setArmsDown] = useState(true);
   const [breathe, setBreathe] = useState(() => !reducedMotion());
   const [lookAt, setLookAt] = useState(true);
+  const [wiggle, setWiggle] = useState(0);
   const [result, setResult] = useState<{
     url: string;
     summary: VrmSummary | null;
@@ -57,6 +58,13 @@ export function usePreviewPanel() {
     setBreathe,
     lookAt,
     setLookAt,
+    /** How many times Wiggle was pressed, whether there are springs to swing, and the shake. */
+    wiggle: {
+      count: wiggle,
+      ready: (summary?.springs ?? 0) > 0,
+      /** Shakes the hips and head once, so the spring bones swing. */
+      shake: () => setWiggle(n => n + 1),
+    },
     summary,
     chips,
     failed: current?.failed ?? null,
