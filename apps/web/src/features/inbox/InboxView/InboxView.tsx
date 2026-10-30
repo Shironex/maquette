@@ -1,94 +1,120 @@
-import { TopBar, cn } from '@maquette/ui';
+import { SegmentedControl, TopBar, type SegmentedOption } from '@maquette/ui';
 import { contentKey } from '@/state/inbox';
+import type { InboxLayout } from '@/state/use-triage-store';
+import { BulkDiscardDialog } from '../BulkDiscardDialog';
+import { InboxClear } from '../InboxClear';
 import { InboxDetail } from '../InboxDetail';
 import { InboxEmpty } from '../InboxEmpty';
-import { InboxRow } from '../InboxRow';
-import { RedoBar } from '../RedoBar';
-import { useInboxRows, useInboxView } from './InboxView.hooks';
+import { InboxList } from '../InboxList';
+import { SelectionBar } from '../SelectionBar';
+import { useSelection } from '../SelectionBar/SelectionBar.hooks';
+import { TriageAside } from '../TriageAside';
+import { TriageTable } from '../TriageTable';
+import { useInboxView } from './InboxView.hooks';
 
-/** The models waiting in the inbox folder, and the one on show with its checks. */
-export default function InboxView() {
-  const {
-    snapshot,
-    items,
-    item,
-    select,
-    checked,
-    check,
-    clearChecked,
-    menuFor,
-    toggleMenu,
-    closeMenu,
-    redoBlocker,
-    redoChecked,
-  } = useInboxView();
-  const { scrollRef, listRef, shown } = useInboxRows(items.length);
-  const rows = items.slice(shown.start, shown.end).map((i, n) => (
-    <li key={i.id} {...shown.itemProps(shown.start + n)}>
-      <InboxRow
-        item={i}
-        selected={i.id === item?.id}
-        onSelect={() => select(i.id)}
-        checked={checked.includes(i.id)}
-        selecting={checked.length > 0}
-        onCheck={on => check(i.id, on)}
-        menuOpen={menuFor === i.id}
-        onMenu={() => toggleMenu(i.id)}
-        onCloseMenu={closeMenu}
-      />
-    </li>
-  ));
+const LAYOUTS: readonly SegmentedOption<InboxLayout>[] = [
+  {
+    value: 'one',
+    label: 'One by one',
+    icon: 'cube',
+    hint: 'Each model with its preview and checks',
+  },
+  { value: 'table', label: 'Table', icon: 'list', hint: 'Every model grouped by what it needs' },
+];
 
+/** Every model in one table with the bulk bar and what the selection does. */
+function TableLayout({ replaced }: { replaced: ReturnType<typeof useInboxView>['replaced'] }) {
+  const sel = useSelection();
+  const n = sel.items.length;
   return (
     <>
-      <TopBar lead={<h1 className="text-panel-title">Inbox</h1>} />
+      <section
+        aria-label="Models in the inbox"
+        className="flex min-w-0 flex-1 flex-col gap-3.5 overflow-y-auto px-6 pt-[18px] pb-6"
+      >
+        <div>
+          <h2 className="text-panel-title">Model inbox</h2>
+          <p className="mt-0.5 text-fg-mute">
+            {n} {n === 1 ? 'model' : 'models'}, grouped by what they need, worst last.
+          </p>
+        </div>
+        {sel.checked.length > 0 ? (
+          <SelectionBar
+            wide
+            count={sel.checked.length}
+            note={sel.note}
+            acceptable={sel.plan.ids.length}
+            redoBlocker={sel.redoBlocker}
+            working={sel.working}
+            onAccept={() => sel.accept()}
+            onAcceptToLibrary={() => sel.accept({ library: true, tags: [] })}
+            onRedo={sel.redoChecked}
+            onDiscard={() => sel.askDiscard()}
+            onClear={sel.clearChecked}
+          />
+        ) : null}
+        <TriageTable
+          items={sel.items}
+          checked={sel.checked}
+          onCheck={sel.check}
+          onCheckAll={sel.checkAll}
+        />
+      </section>
+      <TriageAside
+        count={sel.checked.length}
+        plan={sel.plan}
+        replaced={replaced}
+        working={sel.working}
+        onAccept={after => sel.accept(after)}
+        onDiscard={ids => sel.askDiscard(ids)}
+      />
+      {sel.discarding ? (
+        <BulkDiscardDialog
+          items={sel.items.filter(i => sel.discarding?.includes(i.id))}
+          busy={sel.working}
+          onConfirm={() => void sel.confirmDiscard()}
+          onClose={sel.closeDiscard}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** The models waiting in the inbox folder: one by one with its checks, or all in one table. */
+export default function InboxView() {
+  const { snapshot, items, item, layout, setLayout, replaced } = useInboxView();
+  const empty = snapshot !== null && items.length === 0;
+  return (
+    <>
+      <TopBar
+        lead={<h1 className="text-panel-title">Inbox</h1>}
+        right={
+          empty ? null : (
+            <SegmentedControl
+              label="Inbox layout"
+              tone="neutral"
+              options={LAYOUTS}
+              value={layout}
+              onChange={setLayout}
+            />
+          )
+        }
+      />
       <main className="flex min-h-0 flex-1">
-        <section
-          aria-label="Models in the inbox"
-          className="flex w-[300px] flex-none flex-col border-r border-line bg-panel"
-        >
-          <div className="px-4 pt-[18px] pb-3">
-            <h2 className="text-panel-title">Model inbox</h2>
-            <p className="mt-0.5 text-fg-mute">
-              {items.length === 0
-                ? 'Empty'
-                : `${items.length} ${items.length === 1 ? 'model' : 'models'} waiting`}
-            </p>
-          </div>
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-            <ul
-              ref={listRef}
-              style={{ paddingTop: shown.before, paddingBottom: shown.after }}
-              className="flex list-none flex-col gap-1"
-            >
-              {rows}
-            </ul>
-          </div>
-          {checked.length > 0 ? (
-            <RedoBar
-              count={checked.length}
-              blocker={redoBlocker}
-              onRedo={redoChecked}
-              onClear={clearChecked}
-            />
-          ) : null}
-          <div className="flex items-center gap-2 border-t border-line px-4 py-3">
-            <span
-              className={cn('size-2 rounded-full', snapshot?.watching ? 'bg-sage' : 'bg-fg-mute')}
-            />
-            <span className="flex-1 truncate font-mono text-[12px] text-fg-mute">
-              {snapshot?.dir ?? 'inbox'}
-            </span>
-            <span className="text-meta text-fg-mute">
-              {snapshot?.watching ? 'watching' : 'not watched'}
-            </span>
-          </div>
-        </section>
-        {/* A finished download or a new file under the same name starts the preview over. */}
-        {item ? (
-          <InboxDetail key={contentKey(item)} item={item} />
+        {empty ? (
+          <InboxClear dir={snapshot.dir} watching={snapshot.watching} />
+        ) : layout === 'table' ? (
+          <TableLayout replaced={replaced} />
         ) : (
-          <InboxEmpty dir={snapshot?.dir} />
+          <>
+            <InboxList shownId={item?.id ?? null} />
+            {/* A finished download or a new file under the same name starts the preview over. */}
+            {item ? (
+              <InboxDetail key={contentKey(item)} item={item} />
+            ) : (
+              <InboxEmpty dir={snapshot?.dir} />
+            )}
+          </>
         )}
       </main>
     </>

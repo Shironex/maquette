@@ -1,8 +1,10 @@
 import { act, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Component } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerMockFile } from '@/ipc/files';
 import { useInboxStore } from '@/state/use-inbox-store';
+import { useTriageStore } from '@/state/use-triage-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import InboxView from './InboxView';
 
@@ -23,7 +25,8 @@ vi.mock('@/features/viewer/ModelPreview', () => ({
 
 afterEach(() => {
   clearMocks();
-  useInboxStore.setState({ snapshot: null, selected: null });
+  useInboxStore.setState({ snapshot: null, selected: null, checked: [] });
+  useTriageStore.setState({ layout: 'one', filter: 'all', discarded: [] });
 });
 
 describe('the inbox preview', () => {
@@ -65,5 +68,42 @@ describe('the inbox preview', () => {
     const list = screen.getByRole('region', { name: 'Models in the inbox' });
     expect(within(list).getByText('200 models waiting')).toBeVisible();
     expect(within(list).getAllByRole('listitem').length).toBeLessThan(40);
+  });
+});
+
+describe('inbox triage', () => {
+  it('switches to the table, ticks a group and says what accepting it does', async () => {
+    await openMockWorkspace('configured', undefined, undefined, 'triage');
+    await useInboxStore.getState().load();
+    render(<InboxView />);
+    await userEvent.click(screen.getByRole('button', { name: 'Table' }));
+    expect(screen.getByText('12 models, grouped by what they need, worst last.')).toBeVisible();
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'Select every model in Checks pass' })
+    );
+    expect(screen.getByRole('toolbar', { name: 'Selected models' })).toHaveTextContent(
+      '6 selected · all checks pass'
+    );
+    const aside = screen.getByRole('complementary', { name: 'What the selection does' });
+    expect(aside).toHaveTextContent('6 become versions');
+    expect(aside).toHaveTextContent('Observatory arch v4');
+  });
+
+  it('follows the filter: a model it hides is not the one on show', async () => {
+    await openMockWorkspace('configured', undefined, undefined, 'triage');
+    await useInboxStore.getState().load();
+    useInboxStore.setState({ selected: 'elsheria.glb' });
+    useTriageStore.setState({ filter: 'replaced' });
+    render(<InboxView />);
+    expect(screen.getByRole('heading', { level: 2, name: 'Crystal lantern' })).toBeVisible();
+  });
+
+  it('shows the clear inbox with what was discarded', async () => {
+    await openMockWorkspace('configured', undefined, undefined, 'clear');
+    await useInboxStore.getState().load();
+    render(<InboxView />);
+    expect(screen.getByRole('heading', { name: 'Inbox clear' })).toBeVisible();
+    expect(screen.queryByRole('group', { name: 'Inbox layout' })).toBeNull();
+    expect(await screen.findByRole('region', { name: 'Recently discarded' })).toBeVisible();
   });
 });

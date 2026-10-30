@@ -1,0 +1,38 @@
+import { Icon, cn } from '@maquette/ui';
+import { DiscardedList } from '../DiscardedList';
+import { WaitingSends } from '../WaitingSends';
+
+export interface InboxClearProps {
+  /** The inbox folder, once known. */
+  dir?: string;
+  watching?: boolean;
+}
+
+/**
+ * The empty inbox after a round: where new models come from, the By hand
+ * sends still waiting, and the models discarded lately with Restore.
+ */
+export default function InboxClear({ dir, watching = false }: InboxClearProps) {
+  return (
+    <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-6 py-10">
+      <div className="flex w-full max-w-[560px] flex-col gap-6">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <span className="grid size-11 place-items-center rounded-full bg-sage-soft text-sage">
+            <Icon name="check-circle" size={22} />
+          </span>
+          <h2 className="text-[18px] leading-6 font-semibold">Inbox clear</h2>
+          <p className="max-w-[440px] text-fg-dim">
+            Every model has a place. New downloads and sends land here; drop a .glb into{' '}
+            {dir ?? 'the inbox folder'} and I check it before it reaches Blender.
+          </p>
+          <span className="inline-flex items-center gap-2 text-meta text-fg-mute">
+            <span className={cn('size-2 rounded-full', watching ? 'bg-sage' : 'bg-fg-mute')} />
+            {watching ? 'Watching the folder' : 'The folder is not watched'}
+          </span>
+        </div>
+        <WaitingSends />
+        <DiscardedList limit={8} />
+      </div>
+    </div>
+  );
+}
