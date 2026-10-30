@@ -98,6 +98,66 @@ arms lift and the sleeves should follow without pinching. A cape sewn to a sleev
 mesh from cuff to hem) still stretches between arm and body, softer than before; only remodelling
 the mesh fixes that.
 
+## Spring chains for hair, cloth and charms
+
+`avatar_springs.py` is a copy of the script Maquette embeds
+(`crates/maquette-core/src/avatar/avatar_springs.py`); a test keeps the two the same. It runs on a
+model already in VRM's rest pose (the normalised copy) in two modes.
+
+`"mode": "find"` proposes the parts that hang off the body and changes nothing: it measures the
+body as a capsule around each humanoid bone, groups the vertices well outside it into parts,
+keeps the ones that hang down from where they meet the body, and writes each with an id, kind
+(`hair`, `cloth` or `accessory`), root bone, centre line, length, vertex count, confidence and a
+sheet with each part in its own colour:
+
+```json
+{
+  "mode": "find",
+  "input": "/abs/path/normalized.glb",
+  "candidates": "candidates.json",
+  "sheets": { "candidates": "candidates.png" },
+  "bones": { "hips": "mixamorig:Hips", "head": "mixamorig:Head" }
+}
+```
+
+`"mode": "chain"` adds a chain of joints along each confirmed part (its id, root bone and line
+from the candidates, and `joints`, by length when left out) and weights the part to it, fading
+into its old weights where it hangs so nothing tears. Only new joints, the skin's joints and
+inverse bind matrices, `JOINTS_0` and `WEIGHTS_0` change, with at most 4 influences summing to 1.
+The report also gives the colliders measured from the body (head, neck, chest, hips, arms, legs).
+The sheets show the chains before, and a sway test after (rest, swung left, right and back):
+
+```json
+{
+  "mode": "chain",
+  "input": "/abs/path/normalized.glb",
+  "output": "springs.glb",
+  "report": "report.json",
+  "sheets": { "before": "sheet_before.png", "after": "sheet_after.png" },
+  "bones": { "hips": "mixamorig:Hips", "head": "mixamorig:Head" },
+  "springs": [
+    {
+      "id": "hair-1",
+      "rootBone": "head",
+      "line": [
+        [0, 1.5, -0.1],
+        [0, 1.0, -0.2]
+      ]
+    }
+  ]
+}
+```
+
+Run either headless only, never with a window, from a scratch folder:
+
+```
+blender -b --factory-startup --python-exit-code 1 --python avatar_springs.py -- --job job.json
+```
+
+New chains need a person's yes: on the sway test each part should bend smoothly and stay on
+where it hangs. It swings through the body there; the colliders only act in a VRM app. The script
+writes no `VRMC_springBone`; Maquette writes it from the report when the VRM is built.
+
 ## Second opinion from the VRM Add-on
 
 `vrm_addon_check.py` imports a written `.vrm` with the VRM Add-on for Blender (MIT, by the VRM

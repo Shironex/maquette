@@ -1,6 +1,6 @@
 ---
 name: maquette-avatar-vrm
-description: Export a rigged Maquette character as a VRM 1.0 avatar into the project's exports folder. Use when asked to make a VRM, check a character's VRM readiness, map its bones when the joint names are unclear, fill its VRM meta or licence, or check how its cape, hair or sleeves hold up when the arms are lifted to the T-pose.
+description: Export a rigged Maquette character as a VRM 1.0 avatar into the project's exports folder. Use when asked to make a VRM, check a character's VRM readiness, map its bones when the joint names are unclear, fill its VRM meta or licence, check how its cape, hair or sleeves hold up when the arms are lifted to the T-pose, or make its hair, cloth or charms swing with spring bones.
 ---
 
 # Maquette avatar (VRM)
@@ -21,6 +21,10 @@ Avatar view (`/docs/views/avatar/`).
 - Never guess bones past the readiness. When `readiness.naming.confident` is false (a
   `bone-naming` finding says "Bone names are unclear"), ask the person which joint is which, or
   set the bones you are sure of with `set_avatar` `bones` and tell them exactly what you set.
+- Never confirm springs on your own judgement alone. The finder only proposes parts; confirm
+  the ones the person picked, or that clearly hang (a ponytail, cape panels), and say which you
+  confirmed and why. A rigid part (a hood brim, a sewn on patch) also looks like a candidate. The
+  chains need the person's yes in the app too (`step: "springs"`).
 - Never change skin weights yourself. Cloth or hair weighted to the arms (the `arm-weights`
   finding) is freed only by the build's reweight step, which the person approves. Skin blockers
   (weights that do not add up to 1, vertices without weight, a joint index past the skin, a joint
@@ -63,11 +67,26 @@ Avatar view (`/docs/views/avatar/`).
    person needs to rig the hands again.
 7. **Result.** Once approved, `build_avatar` again (both copies are cached, Blender does not run
    again) answers `written` with `path`, `bytes`, `unresolved`, `report` and `roundTrip`.
-8. **Report.** Every build writes `exports/<asset>.vrm.report.json` beside the `.vrm`: the source
+8. **Springs.** Once the rest pose is approved (`springs.ready`), a build with no confirmed
+   springs looks for the parts that could swing: `get_avatar` lists them in `springs.found` with
+   an id, kind (`hair`, `cloth`, `accessory`), root bone, length, vertices and `confidence`, and
+   `springs.found.sheet` draws each in its colour. Look at the sheet, ask the person which should
+   swing, then call `set_avatar` with `springs`, for example
+   `[{ "id": "hair-1" }, { "id": "cloth-1", "preset": "heavy", "joints": 6 }]` (`[]` confirms
+   none; `stiffness`, `gravityPower`, `dragForce` and `hitRadius` tune one). The next `build_avatar` adds the chains on a copy and
+   answers `waiting for approval` with `step: "springs"` and `chained.sheets` (the chains, and a
+   sway test swung left, right and back). Ask the person to check that each part bends smoothly
+   and stays on where it hangs, and approve in the Springs tab; on the sheet a part swings through
+   the body, since the colliders only act in a VRM app. After the yes the file carries
+   `VRMC_springBone` and `written` counts `springs`; after a no it is written without.
+   `springs: "off"` on a build skips all of it. The person can wiggle the springs in the Preview
+   tab.
+9. **Report.** Every build writes `exports/<asset>.vrm.report.json` beside the `.vrm`: the source
    version and its SHA-256, the material, elbows and fingers modes, what the reweight moved (`reweight`,
    when one was applied), the readiness before and after with
    every finding, `unresolved`, the bone map with each bone's `source` (`convention`, `auto` or
-   `override`), the meta, the writer and `roundTrip`. Read it, then tell the person the path and
+   `override`), the meta, the writer and `roundTrip`, plus the springs written (each with its
+   joints and swing, and the collider groups). Read it, then tell the person the path and
    everything in `unresolved`, blockers first, in plain words. If `roundTrip.passed` is false,
    say the file does not read back as a VRM and list `roundTrip.problems`; do not hand that file
    on. The person sees the file in the Avatar view's Preview tab.
@@ -75,7 +94,8 @@ Avatar view (`/docs/views/avatar/`).
 ## The scripts
 
 `scripts/avatar_reweight.py` (frees cloth and hair from the arms) and
-`scripts/avatar_normalize.py` (the rest pose) are the scripts Maquette runs, for checking a model
+`scripts/avatar_normalize.py` (the rest pose) and `scripts/avatar_springs.py` (finds the
+dangling parts and adds the chains of the confirmed ones) are the scripts Maquette runs, for checking a model
 by hand outside the app. `scripts/vrm_addon_check.py` imports a written `.vrm` with the VRM Add-on for
 Blender, headless, as a second opinion (spec, required bones, meta, left arm direction); it needs
 the add-on installed and is never part of a build. `scripts/README.md` says how to run each. Work on a copy in a scratch folder, never
