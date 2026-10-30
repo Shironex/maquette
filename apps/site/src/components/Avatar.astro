@@ -1,0 +1,140 @@
+---
+import { Icon } from '@maquette/ui';
+import Figure from './Figure.astro';
+import SectionHead from './SectionHead.astro';
+import { SHOTS } from '../content/copy';
+
+const RULES = [
+  {
+    icon: 'check-circle',
+    title: 'Every step waits for you.',
+    text: 'Freeing cloth and hair from the arms, the rest pose and the spring chains each show before and after sheets and need Approve in the app. No MCP tool approves them.',
+  },
+  {
+    icon: 'person-arms-spread',
+    title: 'Preview the written file.',
+    text: 'Preview loads the .vrm the way a VRM app does, with arms down or in a T-pose, a breathing idle and a Wiggle for the springs.',
+  },
+  {
+    icon: 'shield-check',
+    title: 'Checked on the way out.',
+    text: 'Every build reads the file back: the humanoid bones, the springs and the textures. A round trip that fails shows as a blocker.',
+  },
+] as const;
+---
+
+<section class="avatar" aria-labelledby="avatar-title">
+  <div class="wrap inner">
+    <SectionHead eyebrow="Avatar" title="A rigged character in, a VRM 1.0 file out." id="avatar-title">
+      <span class="wide-only"
+        >The Avatar view checks how ready a rigged model is for VRM 1.0, maps its 55 humanoid bones
+        and writes a .vrm next to a report. Every change to the model runs headless in Blender on a
+        copy and waits for your yes.</span
+      >
+      <span class="narrow-only"
+        >Rigged characters to VRM 1.0, with every change to the model waiting for your approval.</span
+      >
+    </SectionHead>
+
+    <aside class="note" aria-label="Early stages">
+      <Icon name="flask" size={18} className="text-amber" />
+      <p>
+        <b>Early stages.</b> Use it for prototyping and playing around, not for production yet. Generated
+        rigs vary, it was tested on a few characters, and there are no face expressions or look at yet.
+        Check every file in Preview before you use it.
+      </p>
+    </aside>
+
+    <Figure shot={SHOTS.avatar} />
+
+    <ul class="rules">
+      {
+        RULES.map(rule => (
+          <li>
+            <Icon name={rule.icon} size={18} className="text-clay-text" />
+            <span>
+              <b>{rule.title}</b> {rule.text}
+            </span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .avatar {
+    padding-block: 128px;
+    border-top: 1px solid var(--line);
+  }
+  .inner {
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+  .note {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 12px;
+    padding: 16px 18px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-card);
+    background: var(--bg-panel);
+    font-size: 15px;
+    line-height: 23px;
+    color: var(--text-dim);
+  }
+  .note p {
+    margin: 0;
+  }
+  .note :global(svg) {
+    margin-top: 2px;
+  }
+  .note b {
+    color: var(--text);
+    font-weight: 500;
+  }
+  .rules {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 40px;
+  }
+  .rules li {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 12px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line-strong);
+    font-size: 15px;
+    line-height: 23px;
+    color: var(--text-dim);
+  }
+  .rules li :global(svg) {
+    margin-top: 2px;
+  }
+  .rules b {
+    color: var(--text);
+    font-weight: 500;
+  }
+  .narrow-only {
+    display: none;
+  }
+  @media (max-width: 899px) {
+    .avatar {
+      padding-block: 48px;
+    }
+    .inner {
+      gap: 24px;
+    }
+    .rules,
+    .wide-only {
+      display: none;
+    }
+    .narrow-only {
+      display: inline;
+    }
+  }
+</style>

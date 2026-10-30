@@ -137,6 +137,14 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
     <td align="center"><sub>Parts: a model split into named parts, picked, hidden and merged in the Inspector.</sub></td>
     <td align="center"><sub>Refs by view: tagged refs, with warnings before any credit is spent.</sub></td>
   </tr>
+  <tr>
+    <td width="50%"><img src="assets/showcase/avatar.webp" alt="Maquette: the Avatar view asking to approve a new rest pose for Elsheria, with before and after sheets of the arms lifted to a T-pose and the measures before and after" /></td>
+    <td width="50%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Avatar (early stages): a rigged character to VRM 1.0, each step waiting for your yes.</sub></td>
+    <td></td>
+  </tr>
 </table>
 
 **Built for agents.** A local MCP server lets Claude Code or Codex drive the whole flow, with the same rules as the app (see [Agents (MCP)](#agents-mcp)).
