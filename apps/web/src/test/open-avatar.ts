@@ -15,7 +15,16 @@ import { useAvatarStore } from '@/state/use-avatar-store';
 export const avatarCalls: { cmd: string; args: Record<string, unknown> }[] = [];
 
 export async function openAvatar(
-  avatar: 'reweight' | 'pending' | 'written' | 'round-trip' | 'older' | 'custom' | null = null,
+  avatar:
+    | 'reweight'
+    | 'pending'
+    | 'written'
+    | 'round-trip'
+    | 'older'
+    | 'custom'
+    | 'springs'
+    | 'chains'
+    | null = null,
   asset = 'elsheria'
 ) {
   avatarCalls.length = 0;
@@ -38,7 +47,8 @@ export async function openAvatar(
   for (const [path, sheet] of Object.entries(avatarSheetFiles(root))) {
     registerMockFile(path, `/${sheet}`);
   }
-  for (const [path, file] of Object.entries(avatarVrmFiles(root, ['frostveil']))) {
+  const springs = avatar === 'springs' || avatar === 'chains';
+  for (const [path, file] of Object.entries(avatarVrmFiles(root, ['frostveil'], springs))) {
     registerMockFile(path, `/${file}`);
   }
   useAppStore.setState({ boot, workspace: boot.workspace, phase: 'app' });

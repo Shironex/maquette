@@ -7,13 +7,15 @@ import { MetaForm } from '../MetaForm';
 import { PreviewPanel } from '../PreviewPanel';
 import { ReadinessPanel } from '../ReadinessPanel';
 import { RestPosePanel } from '../RestPosePanel';
+import { SpringsPanel } from '../SpringsPanel';
 import { useAvatarView } from './AvatarView.hooks';
 
 /**
  * Avatar: a rigged character's VRM 1.0 export. Export checks the rig,
  * fills the meta, shows the rest pose before and after a normalise for a
- * person's yes, and writes `exports/<asset>.vrm`; Preview loads the
- * written file the way a VRM app does.
+ * person's yes, and writes `exports/<asset>.vrm`; Springs finds the parts
+ * that could swing and chains the confirmed ones for a yes of their own;
+ * Preview loads the written file the way a VRM app does.
  */
 export default function AvatarView() {
   const { project, stages, count, view, tab, loading, error, retry, building, action, build } =
@@ -74,6 +76,8 @@ export default function AvatarView() {
               <AvatarTabs />
               {tab === 'preview' ? (
                 <PreviewPanel />
+              ) : tab === 'springs' ? (
+                <SpringsPanel />
               ) : (
                 <>
                   <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

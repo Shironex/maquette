@@ -1,25 +1,21 @@
 /**
- * The Avatar view in mock mode: each character asset's VRM spec, a
- * reweight that frees cloth and hair from the arms and a normalise that
- * each "run" for a moment and make the bundled before and after sheets,
- * the person's yes or no to each, and the `.vrm` a build writes.
- *
- * `?avatar=` in the URL:
- * - `reweight`: an agent's build moved Elsheria's cape and hair off the
- *   arms, and the new weights wait for a yes (a floating approval card
- *   says so too); the rest pose comes after.
+ * The Avatar view in mock mode: each character's VRM spec, a reweight and a
+ * normalise that "run" for a moment and make the bundled sheets, the yes or
+ * no to each, and the `.vrm` a build writes. `?avatar=` in the URL:
+ * - `reweight`: an agent's build moved Elsheria's cape and hair off the arms,
+ *   and the new weights wait for a yes (an approval card says so too).
  * - `pending`: the weights were approved, and an agent's build normalised
  *   Elsheria's rest pose, which waits for a yes.
  * - `written`: the pose was approved and `exports/elsheria.vrm` written,
  *   with its report; the Preview tab loads the box humanoid fixture as it.
  * - `round-trip`: like `written`, but the written file did not read back.
  * - `older`: like `pending`, but Elsheria has a newer v3 and the wait is on v2.
+ * - `springs`, `chains`: see create-avatar-springs.ts.
  * - `custom`: Elsheria's rig names its joints its own way and has two
  *   joints for each upper leg, which a person assigns in the Bone map
  *   (see custom-rig-fixtures.ts).
- * Without it Elsheria faces +X in an A-pose and was never built. Bone
- * overrides in a saved spec change the bone map as the reader would.
- */
+ * Without it Elsheria faces +X in an A-pose and was never built; bone
+ * overrides in a saved spec change the bone map as the reader would. */
 import type {
   Approval,
   AvatarBuild,
@@ -49,6 +45,7 @@ import {
 } from './avatar-fixtures';
 import { customRigReadiness } from './custom-rig-fixtures';
 import { CLAY_FIGURE_VRM, withOverrides } from './vrm-fixtures';
+import { SPRINGS_SCENARIOS, createSpringsMock } from './create-avatar-springs';
 
 /** Rest pose findings a normalise fixes, as `needs_normalize` reads them. */
 const POSE_IDS = new Set(['facing', 'arms', 'fingers', 'ground', 'centre']);
@@ -104,6 +101,7 @@ export function createAvatarHandlers(
     return entries.get(k)!;
   };
   const projectDir = (p: string) => `${root()}/projects/${p}`;
+  const springs = createSpringsMock(root, state, (p, a) => assetOf(p, a).name);
 
   function assetOf(p: string, id: string) {
     const found = (project(p).assets ?? []).find(a => a.id === id || a.name === id);
@@ -181,6 +179,7 @@ export function createAvatarHandlers(
       needsReweight: needsNormalize && findings.some(f => f.id === 'arm-weights'),
       reweighted,
       normalized,
+      springs: springs.view(p, asset.id, !needsNormalize || normalized?.state === 'approved'),
       export: e.export,
       exportPath: `${projectDir(p)}/exports/${asset.id}.vrm`,
       metaProblem: metaProblem(spec.meta),
@@ -207,6 +206,7 @@ export function createAvatarHandlers(
       exists: true,
       report: `${v.exportPath}.report.json`,
       roundTrip: { passed: true, problems: [], bones: 52 },
+      springs: springs.written(p, v.asset, v.spec),
     };
   }
 
@@ -223,7 +223,10 @@ export function createAvatarHandlers(
     const problem = metaProblem(v.spec.meta);
     if (problem) fail('invalid', problem);
     const e = entry(p, v.asset);
+    const waiting = () => springs.step(p, v.asset, v.version ?? 1, v.spec).waiting;
     if (!v.needsNormalize) {
+      const chained = waiting();
+      if (chained) return { status: 'springs waiting for approval', chained };
       e.export = write(p, v.asset, null, version);
       return { status: 'written', export: e.export, normalized: null };
     }
@@ -243,18 +246,21 @@ export function createAvatarHandlers(
     const normalized = e.normalized;
     if (normalized.state === 'pending') return { status: 'waiting for approval', normalized };
     if (normalized.state === 'denied') return { status: 'denied', normalized };
+    const chained = waiting();
+    if (chained) return { status: 'springs waiting for approval', chained };
     e.export = write(p, v.asset, normalized, version);
     return { status: 'written', export: e.export, normalized };
   }
 
   // The scenario's state, as an agent's build left it.
-  const written = state === 'written' || state === 'round-trip';
+  const written =
+    state === 'written' || state === 'round-trip' || SPRINGS_SCENARIOS.has(state ?? '');
   if (state === 'reweight' || state === 'pending' || written || state === 'older') {
     const e = entry('frostveil', 'elsheria');
-    e.spec = {
+    e.spec = springs.startSpec({
       ...specFromDefaults(config().avatar, 'Elsheria'),
       meta: { ...specFromDefaults(config().avatar, 'Elsheria').meta, authors: ['The art team'] },
-    };
+    });
     e.reweighted = freeArms('frostveil', 'elsheria', 2);
     e.askedReweight = state === 'reweight';
   }
@@ -296,6 +302,7 @@ export function createAvatarHandlers(
         );
 
   const handlers: Record<string, (args: Args) => unknown> = {
+    ...springs.handlers,
     avatar_get: ({ project: p, asset, version }) =>
       view(String(p), String(asset), (version as number | null) ?? null),
     avatar_save: ({ project: p, asset, spec }) => {
@@ -386,7 +393,7 @@ export function createAvatarHandlers(
           sheets: n.sheets,
         };
       });
-    return [...weights, ...poses];
+    return [...weights, ...poses, ...springs.approvals()];
   }
 
   return { handlers, approvals };

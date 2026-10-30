@@ -105,6 +105,7 @@ describe('the avatar helpers', () => {
       needsReweight: false,
       reweighted: null,
       normalized: null,
+      springs: { ready: false, found: null, chained: null },
       export: null,
       exportPath: '/p/exports/hero.vrm',
       metaProblem: null,
@@ -113,6 +114,10 @@ describe('the avatar helpers', () => {
     expect(buildAction({ ...view, needsReweight: true }, spec).tooltip).toBe(
       'Frees cloth and hair from the arms headless in Blender, then waits for your yes'
     );
+    const chained = { state: 'pending' } as NonNullable<typeof view.springs.chained>;
+    expect(
+      buildAction({ ...view, springs: { ready: true, found: null, chained } }, spec).tooltip
+    ).toBe('Approve or deny the chains first');
     expect(buildAction(view, { ...spec, meta: { ...spec.meta, authors: [] } })).toMatchObject({
       disabled: true,
       tooltip: 'Name at least one author',

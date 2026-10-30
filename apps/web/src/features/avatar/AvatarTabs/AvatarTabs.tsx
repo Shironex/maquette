@@ -4,16 +4,14 @@ import { useAvatarTabs } from './AvatarTabs.hooks';
 
 const TABS = [
   { id: 'export', label: 'Export' },
+  { id: 'springs', label: 'Springs' },
   { id: 'preview', label: 'Preview' },
 ] as const;
 
 /** Planned tabs, shown so the person knows they are coming. */
-const LATER = [
-  { label: 'Springs', why: 'Spring bones for hair and cloth. Not built yet.' },
-  { label: 'Expressions', why: 'Blink, mouth and mood expressions. Not built yet.' },
-];
+const LATER = [{ label: 'Expressions', why: 'Blink, mouth and mood expressions. Not built yet.' }];
 
-/** The avatar's name and version over its tabs: Export, Preview, and the ones still to come. */
+/** The avatar's name and version over its tabs: Export, Springs, Preview, and the one to come. */
 export default function AvatarTabs() {
   const tabs = useAvatarTabs();
   if (!tabs) return null;

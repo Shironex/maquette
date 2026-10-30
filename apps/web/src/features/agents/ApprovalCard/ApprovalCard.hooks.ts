@@ -54,6 +54,31 @@ export function useApprovalCard(approval: Approval) {
   return { decide, deciding, site, now, cost, notes, pose: useRestPose(approval) };
 }
 
+/** Turns down the avatar step `approval` names, and says what that means. */
+async function denyStep(approval: Approval, asset: string) {
+  const { project, version } = approval;
+  const name = approval.assetName ?? 'The avatar';
+  if (approval.kind === 'springs') {
+    await commands.avatarDecideSprings(project, asset, version ?? null, false);
+    return {
+      title: `${name}'s spring chains were turned down`,
+      detail: 'The VRM is written without springs. The agent is told it was denied.',
+    };
+  }
+  if (approval.kind === 'reweight') {
+    await commands.avatarDecideReweight(project, asset, version ?? null, false);
+    return {
+      title: `${name}'s new weights were turned down`,
+      detail: 'The arms are lifted from the model as it is. The agent is told it was denied.',
+    };
+  }
+  await commands.avatarDecide(project, asset, version ?? null, false);
+  return {
+    title: `${name}'s rest pose was turned down`,
+    detail: 'Nothing was written. The agent is told it was denied.',
+  };
+}
+
 /**
  * A rest pose, or the weights that free cloth and hair from the arms, is
  * judged on its sheets, so the card only opens them in the Avatar view or
@@ -73,18 +98,8 @@ function useRestPose(approval: Approval) {
       if (!asset) return;
       setDenying(true);
       try {
-        const weights = approval.kind === 'reweight';
-        if (weights) await commands.avatarDecideReweight(project, asset, version ?? null, false);
-        else await commands.avatarDecide(project, asset, version ?? null, false);
-        notify({
-          status: 'info',
-          title: weights
-            ? `${approval.assetName ?? 'The avatar'}'s new weights were turned down`
-            : `${approval.assetName ?? 'The avatar'}'s rest pose was turned down`,
-          detail: weights
-            ? 'The arms are lifted from the model as it is. The agent is told it was denied.'
-            : 'Nothing was written. The agent is told it was denied.',
-        });
+        const { title, detail } = await denyStep(approval, asset);
+        notify({ status: 'info', title, detail });
         await useAgentsStore.getState().load();
         useAvatarStore.getState().onChanged(project, asset);
       } catch (error) {

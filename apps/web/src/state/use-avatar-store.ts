@@ -1,8 +1,8 @@
 /**
  * The Avatar view: one character asset's VRM export. The spec is edited
  * as a draft and saved before a build; a build that frees cloth and hair
- * from the arms or changes the rest pose waits for the person's yes to
- * each, given here and nowhere else. Agents that
+ * from the arms, changes the rest pose or adds spring chains waits for the
+ * person's yes to each, given here and nowhere else. Agents that
  * change or build an avatar raise `avatarChanged`, which reloads it.
  */
 import { create } from 'zustand';
@@ -13,14 +13,17 @@ import {
   type AvatarView_Serialize,
   type Elbows,
   type Fingers,
+  type SpringCandidate,
+  type SpringSpec,
   type VrmMeta_Serialize,
 } from '@/ipc/client';
 import { buildNotice } from './avatar';
+import { editSpring, toggleSpring } from './avatar-springs';
 import { useAppStore } from './use-app-store';
 import { useAgentsStore } from './use-agents-store';
 
 /** The Avatar view's built tabs. */
-export type AvatarTab = 'export' | 'preview';
+export type AvatarTab = 'export' | 'springs' | 'preview';
 
 interface AvatarStore {
   project: string | null;
@@ -38,6 +41,8 @@ interface AvatarStore {
   savingBone: string | null;
   building: boolean;
   deciding: boolean;
+  /** The finder runs. */
+  finding: boolean;
   elbows: Elbows;
   fingers: Fingers;
   tab: AvatarTab;
@@ -63,6 +68,14 @@ interface AvatarStore {
   decide: (approve: boolean) => Promise<void>;
   /** The yes or no to the weights that free cloth and hair from the arms; a yes builds on. */
   decideReweight: (approve: boolean) => Promise<void>;
+  /** Looks for the parts that could swing on the model the VRM is written from. */
+  findSprings: () => Promise<void>;
+  /** Confirms a candidate as a spring, or takes it back, in the draft. */
+  confirmSpring: (candidate: SpringCandidate, on: boolean) => void;
+  /** Changes a confirmed spring's joints or preset in the draft. */
+  editSpring: (id: string, change: Partial<Pick<SpringSpec, 'joints' | 'preset'>>) => void;
+  /** The yes or no to the new spring chains; a yes writes the VRM with them. */
+  decideSprings: (approve: boolean) => Promise<void>;
   /** An agent changed an avatar; reloads it when it is the one open. */
   onChanged: (project: string, asset: string) => void;
 }
@@ -83,6 +96,7 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   savingBone: null,
   building: false,
   deciding: false,
+  finding: false,
   elbows: 'straighten',
   fingers: 'straighten',
   tab: 'export',
@@ -248,6 +262,57 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
       );
     } catch (error) {
       notify('failed', 'Could not answer the new weights', errorMessage(error));
+    } finally {
+      set({ deciding: false });
+      await get().load();
+    }
+  },
+
+  findSprings: async () => {
+    const { project, asset, version } = get();
+    if (!project || !asset) return;
+    set({ finding: true });
+    try {
+      const found = await commands.avatarFindSprings(project, asset, version);
+      const n = found.candidates.length;
+      notify(
+        'info',
+        n === 0 ? 'No dangling parts found' : `${n} ${n === 1 ? 'part' : 'parts'} could swing`,
+        n === 0
+          ? 'Nothing hangs off the body far enough to swing.'
+          : 'Confirm the ones that should swing, then make the chains.'
+      );
+    } catch (error) {
+      notify('failed', 'Could not look for dangling parts', errorMessage(error));
+    } finally {
+      set({ finding: false });
+      await get().load();
+    }
+  },
+
+  confirmSpring: (candidate, on) => {
+    const draft = get().draft;
+    if (draft) set({ draft: toggleSpring(draft, candidate, on), dirty: true });
+  },
+
+  editSpring: (id, change) => {
+    const draft = get().draft;
+    if (draft) set({ draft: editSpring(draft, id, change), dirty: true });
+  },
+
+  decideSprings: async approve => {
+    const { project, asset, version } = get();
+    if (!project || !asset) return;
+    set({ deciding: true });
+    try {
+      await commands.avatarDecideSprings(project, asset, version, approve);
+      void useAgentsStore.getState().load();
+      set({ deciding: false });
+      // A yes writes the VRM with the chains, a no writes it without.
+      await get().build();
+      return;
+    } catch (error) {
+      notify('failed', 'Could not answer the spring chains', errorMessage(error));
     } finally {
       set({ deciding: false });
       await get().load();
