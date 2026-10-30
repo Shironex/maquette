@@ -81,6 +81,9 @@ pub struct HumanoidSpec {
     /// A cape behind the back weighted to the left upper arm, as a rig
     /// that drags cloth with the arm has it.
     pub cape: bool,
+    /// A short strip of cloth hanging just below the left upper arm,
+    /// weighted to it: close to the arm, but well outside the limb.
+    pub cape_strip: bool,
     pub weights: WeightFormat,
     /// The body is two skinned meshes on one skin, the second with two
     /// primitives.
@@ -100,6 +103,7 @@ impl Default for HumanoidSpec {
             armature_scale: 1.0,
             animation: true,
             cape: false,
+            cape_strip: false,
             weights: WeightFormat::Float,
             split: false,
             flaw: SkinFlaw::None,
@@ -201,11 +205,30 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
     let world = world_positions(&joints);
     let at = |i: usize| world[i];
     let mut mesh = Mesh::default();
+    // The arm each joint hangs from, with its pivot and how far it dropped,
+    // so a box along a dropped arm lies along it rather than square to the
+    // world.
+    let arms: Vec<(usize, [f32; 3], f32)> = [("LeftArm", 1.0f32), ("RightArm", -1.0f32)]
+        .iter()
+        .filter_map(|(bare, sign)| {
+            let i = joint_index(&skeleton(), bare)?;
+            Some((i, at(i), -sign * spec.arm_drop))
+        })
+        .collect();
     // A box between each joint and its parent, weighted to the parent, so
     // the mesh follows the pose.
     for (i, (_, parent, _)) in joints.iter().enumerate() {
         let Some(p) = *parent else { continue };
-        let (a, b) = (at(p), at(i));
+        let turn = arms
+            .iter()
+            .find(|(arm, _, _)| p == *arm || below(&joints, p, *arm))
+            .map(|(_, pivot, deg)| (*pivot, *deg));
+        let (mut a, mut b) = (at(p), at(i));
+        if let Some((pivot, deg)) = turn {
+            a = turn_xy(a, pivot, -deg);
+            b = turn_xy(b, pivot, -deg);
+        }
+        let first = mesh.positions.len();
         let centre = [
             (a[0] + b[0]) / 2.0,
             (a[1] + b[1]) / 2.0,
@@ -217,6 +240,12 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
             (a[2] - b[2]).abs().max(0.04),
         ];
         mesh.cuboid(centre, size, u16::try_from(p).unwrap_or(0));
+        if let Some((pivot, deg)) = turn {
+            for v in first..mesh.positions.len() {
+                mesh.positions[v] = turn_xy(mesh.positions[v], pivot, deg);
+                mesh.normals[v] = turn_xy(mesh.normals[v], [0.0; 3], deg);
+            }
+        }
     }
     // A sole under each foot, its bottom on the lift height.
     for (i, (name, _, _)) in skeleton().iter().enumerate() {
@@ -238,6 +267,20 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
         mesh.cuboid(
             [a[0] / 2.0, a[1] - 0.5, a[2] - 0.25],
             [0.3, 0.5, 0.02],
+            u16::try_from(arm).unwrap_or(0),
+        );
+    }
+
+    if spec.cape_strip
+        && let (Some(arm), Some(fore)) = (
+            joint_index(&skeleton(), "LeftArm"),
+            joint_index(&skeleton(), "LeftForeArm"),
+        )
+    {
+        let (a, b) = (at(arm), at(fore));
+        mesh.cuboid(
+            [(a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0 - 0.1, a[2] - 0.03],
+            [0.12, 0.05, 0.01],
             u16::try_from(arm).unwrap_or(0),
         );
     }

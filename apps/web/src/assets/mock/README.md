@@ -44,6 +44,11 @@ came through the Maquette pipeline, so the sample shows real work.
   `crates/maquette-core/src/avatar/avatar_normalize.py` renders headless, made
   from the box humanoid test fixture in an A-pose facing +X, 1200 px wide, and
   are not part of the reserved artwork below.
+- `avatar/reweight_before.webp` and `reweight_after.webp`: the Avatar view's freed arms
+  sheets, before and after a reweight. They are the sheets
+  `crates/maquette-core/src/avatar/avatar_reweight.py` renders headless, made from the box
+  humanoid test fixture with a strip of cloth on its left arm (`cape_strip`), 1200 px wide, and
+  are not part of the reserved artwork below either.
 - `avatar/box_humanoid.vrm`: the `.vrm` every mock avatar build "writes", which
   the Avatar view's Preview tab loads. It is generated: the box humanoid test
   fixture written as VRM 1.0 by the Rust writer, with
@@ -55,6 +60,6 @@ paths, so new renders only need the right file name.
 
 ## License
 
-Apart from the generated Motion and Parts demo models, the avatar sheets and the box humanoid VRM above, these images and models are Frostveil
+Apart from the generated Motion and Parts demo models, the avatar sheets (rest pose and freed arms) and the box humanoid VRM above, these images and models are Frostveil
 artwork. All rights are reserved; they are not covered by the code license. See
 [ARTWORK.md](../../../../../ARTWORK.md) at the repository root.

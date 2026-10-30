@@ -1,6 +1,8 @@
 import { Button, Icon, InlineBanner, SegmentedControl, cn } from '@maquette/ui';
 import type { Elbows } from '@/ipc/client';
 import { Panel } from '@/features/common/Panel';
+import { ReweightStep } from '../ReweightStep';
+import { SheetButton } from '../SheetButton';
 import { SheetZoom } from '../SheetZoom';
 import { useRestPosePanel } from './RestPosePanel.hooks';
 
@@ -9,40 +11,10 @@ const ELBOWS: readonly { value: Elbows; label: string; hint: string }[] = [
   { value: 'keep', label: 'Keep', hint: 'Leaves bent elbows bent' },
 ];
 
-function SheetButton({
-  src,
-  label,
-  onOpen,
-}: {
-  src: string | null;
-  label: string;
-  onOpen: () => void;
-}) {
-  return (
-    <figure className="m-0 flex min-w-0 flex-1 flex-col gap-1.5">
-      <figcaption className="text-meta font-medium text-fg-dim">{label}</figcaption>
-      <button
-        type="button"
-        onClick={onOpen}
-        title={`Opens the ${label.toLowerCase()} sheet up close`}
-        className="group relative cursor-zoom-in overflow-hidden rounded-[8px] border border-line bg-studio"
-      >
-        {src ? (
-          <img src={src} alt={`The ${label.toLowerCase()} sheet`} className="block w-full" />
-        ) : (
-          <span className="block aspect-square" />
-        )}
-        <span className="absolute right-2 bottom-2 grid size-7 place-items-center rounded-[7px] bg-panel/90 text-fg-dim opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">
-          <Icon name="magnifying-glass" size={15} />
-        </span>
-      </button>
-    </figure>
-  );
-}
-
 /**
  * The rest pose: its measures, and after a normalise the before and after
  * sheets that a person approves or denies. Nothing is written until then.
+ * When cloth or hair hangs on the arms, freeing it comes first.
  */
 export default function RestPosePanel() {
   const p = useRestPosePanel();
@@ -112,6 +84,13 @@ export default function RestPosePanel() {
         ) : null
       }
     >
+      <ReweightStep />
+      {p.stepped ? (
+        <div className="flex items-baseline gap-2 border-t border-line pt-3">
+          <span className="text-caption tracking-[0.04em] text-fg-mute uppercase">Step 2</span>
+          <h3 className="text-emphasis font-semibold">Lift the arms to a T-pose</h3>
+        </div>
+      ) : null}
       {normalized ? (
         <>
           {state === 'pending' ? (

@@ -41,8 +41,50 @@ The bone map needs at least the hips, both upper legs, and both upper arms, lowe
 A new rest pose needs a person's yes: show the two sheets and the report before the normalised
 model is used for anything. The script never changes weights. When the sheets show a cape, hair or
 other cloth following the arms up, that is a weight problem of the rig itself (the same cloth moves
-with the arms in the before sheet's raised row); fix it with a reweight the person agrees to, then
-normalise again.
+with the arms in the before sheet's raised row); free it with `avatar_reweight.py` first, have the
+person approve, then normalise the reweighted copy.
+
+## Freeing cloth and hair from the arms
+
+`avatar_reweight.py` is a copy of the script Maquette embeds
+(`crates/maquette-core/src/avatar/avatar_reweight.py`); a test keeps the two the same. Auto rigs
+often weight a cape, a long coat or hair to the arm bones, so lifting the arms drags it up. The
+script moves that weight to the trunk on a copy:
+
+1. cuts the mesh in slices along each arm and keeps the loops that hug the bone and carry on
+   from slice to slice: the arm, a sleeve, a glove; a separate glove or a cuff goes with the arm
+   whole;
+2. moves the arm weight of every other vertex to the spine, chest and upper chest (and the
+   shoulder above the armpit), with a smooth band where the two meet so cloth sewn to a sleeve
+   stretches instead of tearing;
+3. keeps at most 4 influences per vertex, summing to 1, and changes only `JOINTS_0` and
+   `WEIGHTS_0`: the mesh, UVs, textures, bones and rest pose stay byte for byte;
+4. writes the reweighted GLB, a JSON report (vertices moved, kept as sleeve, the band, from and to
+   which bones, the limb radii) and two sheets, before and after, in rows rest, arms level and
+   arms raised, columns front, side, back and the shoulders.
+
+Run it headless only, never with a window, from a scratch folder:
+
+```
+blender -b --factory-startup --python-exit-code 1 --python avatar_reweight.py -- --job job.json
+```
+
+`job.json` is the same shape as the normalise's, without `elbows`:
+
+```json
+{
+  "input": "/abs/path/model.glb",
+  "output": "reweighted.glb",
+  "report": "report.json",
+  "sheets": { "before": "sheet_before.png", "after": "sheet_after.png" },
+  "bones": { "hips": "mixamorig:Hips", "leftUpperArm": "mixamorig:LeftArm" }
+}
+```
+
+New weights need a person's yes too. On the after sheet a cape or hair should hang still while the
+arms lift and the sleeves should follow without pinching. A cape sewn to a sleeve (one piece of
+mesh from cuff to hem) still stretches between arm and body, softer than before; only remodelling
+the mesh fixes that.
 
 ## Second opinion from the VRM Add-on
 

@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use super::Elbows;
+use crate::avatar::reweight::ReweightReport;
 use crate::inbox::vrm::VrmReadiness;
 
 /// The two pose sheets, absolute paths.
@@ -104,4 +105,8 @@ pub struct Normalized {
     /// The run's cache key; an approval holds for this key only.
     pub key: String,
     pub approved_at: Option<String>,
+    /// The approved reweight the arms were lifted from; `None` when they
+    /// were lifted from the source as it is (and in results older versions
+    /// wrote).
+    pub reweight: Option<ReweightReport>,
 }

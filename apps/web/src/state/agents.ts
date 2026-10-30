@@ -43,6 +43,9 @@ export function approvalTitle(approval: Approval, projectName?: string): string 
   if (approval.kind === 'rest-pose') {
     return `Approve ${approval.assetName ?? 'the avatar'}'s new rest pose?`;
   }
+  if (approval.kind === 'reweight') {
+    return `Free ${approval.assetName ?? 'the avatar'}'s cloth and hair from the arms?`;
+  }
   if (approval.kind === 'send-to-3d') {
     const n = approval.items.length;
     const what = n > 1 ? `${n} assets` : (approval.assetName ?? approval.items[0]?.assetName);
@@ -64,7 +67,9 @@ export function approvalsLabel(approvals: Approval[]): string {
           ? 'image round'
           : kinds.has('rest-pose')
             ? 'rest pose'
-            : 'send';
+            : kinds.has('reweight')
+              ? 'reweight'
+              : 'send';
   return `${n} ${noun}${n === 1 ? ' waits' : 's wait'} for approval`;
 }
 

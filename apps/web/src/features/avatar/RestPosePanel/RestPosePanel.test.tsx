@@ -30,7 +30,10 @@ describe('the rest pose panel', () => {
   it('opens the shoulders before and after side by side', async () => {
     await openAvatar('pending');
     render(<RestPosePanel />);
-    await userEvent.click(screen.getByRole('button', { name: 'Compare the shoulders' }));
+    // The freed arms come first, with sheets of their own.
+    const compare = screen.getAllByRole('button', { name: 'Compare the shoulders' });
+    expect(compare).toHaveLength(2);
+    await userEvent.click(compare[1]!);
     const zoom = screen.getByRole('dialog', { name: 'Rest pose sheets' });
     expect(within(zoom).getAllByRole('img', { name: /the shoulders in four poses/ })).toHaveLength(
       2

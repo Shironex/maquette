@@ -1,5 +1,16 @@
-/** Fixtures for the mock Avatar view: a posed rig, its normalised twin, and the older-version seed. */
-import type { Elbows, NormalizeReport, ProjectManifest, VrmFinding, VrmReadiness } from '../client';
+/**
+ * Fixtures for the mock Avatar view: a posed rig, its normalised twin, what
+ * freeing its arms moved, a round trip that failed, and the older-version seed.
+ */
+import type {
+  AvatarExport,
+  Elbows,
+  NormalizeReport,
+  ProjectManifest,
+  ReweightReport,
+  VrmFinding,
+  VrmReadiness,
+} from '../client';
 import { vrmReadiness } from './vrm-fixtures';
 
 /** `?avatar=older`: Elsheria gets a v3 over the v2 an agent's pose waits on. */
@@ -63,8 +74,9 @@ const ARM_WEIGHTS: VrmFinding = {
   title: '212 vertices of cloth or hair weighted to the arms',
   detail:
     'They move with leftUpperArm (118), rightUpperArm (86) and leftLowerArm (8) but sit more ' +
-    'than 13 cm from the arm, like a cape or hair beside it. Lifting the arms to a T-pose drags ' +
-    'them along, so check the shoulders on the after sheet. A reweight that frees them is planned.',
+    "than twice the arm's own radius from it, like a cape or hair beside it. Lifting the arms " +
+    'to a T-pose drags them along. Free them first: a reweight keeps the arms, sleeves and ' +
+    'gloves and moves the rest to the trunk, for a person to approve on before and after sheets.',
 };
 
 const NOTES: VrmFinding[] = [
@@ -159,5 +171,54 @@ export function report(elbows: Elbows): NormalizeReport {
       left: { shoulderDeg: 55, elbowDeg: kept ? null : 14 },
       right: { shoulderDeg: 53, elbowDeg: kept ? null : 12 },
     },
+  };
+}
+
+/** What freeing the arms moved: the cape and hair off them, the sleeves kept. */
+export function reweightReport(): ReweightReport {
+  return {
+    vertices: 48_211,
+    armWeighted: 4_745,
+    moved: 2_314,
+    weightMoved: 1_125.6,
+    keptAsSleeve: 2_410,
+    band: 1_072,
+    fromBones: {
+      'mixamorig:LeftArm': 1_109,
+      'mixamorig:RightForeArm': 309,
+      'mixamorig:LeftForeArm': 224,
+    },
+    toBones: {
+      'mixamorig:Spine2': 2_201,
+      'mixamorig:Spine1': 2_150,
+      'mixamorig:LeftShoulder': 412,
+    },
+    weights: { vertices: 48_211, maxInfluences: 4, unweighted: 0, offSum: 0 },
+    sides: {
+      left: { moved: 1_602, keptAsSleeve: 1_296, limbRadius: [0.05, 0.014, 0.012] },
+      right: { moved: 712, keptAsSleeve: 1_114, limbRadius: [0.05, 0.015, 0.012] },
+    },
+  };
+}
+
+/** `?avatar=round-trip`: the written file did not read back, a blocker in what it lacks. */
+export function roundTripFailed(
+  unresolved: VrmFinding[]
+): Pick<AvatarExport, 'roundTrip' | 'unresolved'> {
+  const problems = [
+    'extensionsUsed does not list VRMC_materials_mtoon.',
+    'leftLowerArm sits under leftShoulder in the node tree; VRM puts it under leftUpperArm.',
+  ];
+  return {
+    roundTrip: { passed: false, problems, bones: 52 },
+    unresolved: [
+      {
+        id: 'round-trip',
+        level: 'blocker',
+        title: 'The written file does not read back as a VRM',
+        detail: problems.join(' '),
+      },
+      ...unresolved,
+    ],
   };
 }

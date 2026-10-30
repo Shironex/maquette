@@ -11,23 +11,27 @@ Avatar view (`/docs/views/avatar/`).
 
 ## Hard rules
 
-- A rest pose change needs a person's yes in the app. `build_avatar` answers
-  `waiting for approval` with the before and after sheet paths; no tool approves it. Tell the
-  person, then call `get_avatar` or `build_avatar` again later. NEVER loop on it fast.
+- New weights and a rest pose change each need a person's yes in the app. `build_avatar`
+  answers `waiting for approval` with `step` (`reweight`, then `rest pose`) and the before and
+  after sheet paths; no tool approves either. Tell the person which step waits, then call
+  `get_avatar` or `build_avatar` again later. NEVER loop on it fast.
 - `denied` means the person turned the pose down. Ask what to change (for example `elbows`
-  `keep`) before building again.
+  `keep`) before building again. A no to the weights is not a stop: the build lifts the arms
+  from the model's own weights.
 - Never guess bones past the readiness. When `readiness.naming.confident` is false (a
   `bone-naming` finding says "Bone names are unclear"), ask the person which joint is which, or
   set the bones you are sure of with `set_avatar` `bones` and tell them exactly what you set.
-- Never change skin weights. Cloth or hair weighted to the arms, and skin blockers (weights that
-  do not add up to 1, vertices without weight, a joint index past the skin, a joint twice, a loop
-  in the node tree), are for the person to fix in Blender; report them.
+- Never change skin weights yourself. Cloth or hair weighted to the arms (the `arm-weights`
+  finding) is freed only by the build's reweight step, which the person approves. Skin blockers
+  (weights that do not add up to 1, vertices without weight, a joint index past the skin, a joint
+  twice, a loop in the node tree) are for the person to fix in Blender; report them.
 - Never capture the screen. Blender runs headless.
 
 ## Workflow
 
 1. **Readiness.** `get_avatar` `{ project, asset }`. Read `readiness.findings` (blockers first),
-   `needsNormalize`, `metaProblem`, the last `normalized` pose and `export`. A blocker that is not
+   `needsReweight`, `needsNormalize`, `metaProblem`, the last `reweighted` weights, the last
+   `normalized` pose and `export`. A blocker that is not
    about the rest pose (no rig, a skin blocker) needs the model fixed first; report it.
 2. **Bones.** `readiness.naming` says which naming the joints matched (`convention`), how many
    required bones it found, any `ambiguous` matches and whether the map is `confident`;
@@ -41,15 +45,23 @@ Avatar view (`/docs/views/avatar/`).
    person for the licence (`avatarPermission`, `commercialUsage`, `modification` and the allow
    flags) rather than loosening the workspace defaults yourself.
 4. **Plan.** `build_avatar` `{ project, asset, dryRun: true }`: the version read, whether it
-   normalises, whether that is cached, where it writes.
-5. **Build.** `build_avatar` `{ project, asset, elbows? }` (`straighten`, the default, or `keep`).
-   A model already in VRM's rest pose is written at once. Otherwise Blender normalises a copy and
-   the call answers `waiting for approval` with `pose.sheets`. Ask the person to look at the
-   sheets in the Avatar view, especially the shoulders, and approve there.
-6. **Result.** Once approved, `build_avatar` again (the normalised copy is cached, Blender does not
-   run again) answers `written` with `path`, `bytes`, `unresolved`, `report` and `roundTrip`.
-7. **Report.** Every build writes `exports/<asset>.vrm.report.json` beside the `.vrm`: the source
-   version and its SHA-256, the material and elbows modes, the readiness before and after with
+   frees the arms and normalises, whether that is cached, where it writes.
+5. **Free the arms.** `build_avatar` `{ project, asset, elbows?, reweight? }` (`reweight` `auto`,
+   the default, or `off`). When cloth or hair hangs on the arms, Blender first moves its weight
+   to the trunk on a copy, keeping the arms, sleeves and gloves, and the call answers
+   `waiting for approval` with `step: "reweight"` and `reweight.sheets` (rest, arms level, arms
+   raised). Ask the person to check that a cape or hair hangs still as the arms lift and the
+   sleeves follow, and approve in the Avatar view. Cloth sewn to a sleeve still stretches a little
+   between arm and body; say so if the counts or sheets show it.
+6. **Lift the arms.** `build_avatar` again. A model already in VRM's rest pose is written at once.
+   Otherwise Blender normalises a copy (from the approved weights, when there are any) and the
+   call answers `waiting for approval` with `step: "rest pose"` and `pose.sheets`. Ask the person
+   to look at the sheets, especially the shoulders, and approve there.
+7. **Result.** Once approved, `build_avatar` again (both copies are cached, Blender does not run
+   again) answers `written` with `path`, `bytes`, `unresolved`, `report` and `roundTrip`.
+8. **Report.** Every build writes `exports/<asset>.vrm.report.json` beside the `.vrm`: the source
+   version and its SHA-256, the material and elbows modes, what the reweight moved (`reweight`,
+   when one was applied), the readiness before and after with
    every finding, `unresolved`, the bone map with each bone's `source` (`convention`, `auto` or
    `override`), the meta, the writer and `roundTrip`. Read it, then tell the person the path and
    everything in `unresolved`, blockers first, in plain words. If `roundTrip.passed` is false,
@@ -58,8 +70,9 @@ Avatar view (`/docs/views/avatar/`).
 
 ## The scripts
 
-`scripts/avatar_normalize.py` is the rest pose script Maquette runs, for checking a model by hand
-outside the app. `scripts/vrm_addon_check.py` imports a written `.vrm` with the VRM Add-on for
+`scripts/avatar_reweight.py` (frees cloth and hair from the arms) and
+`scripts/avatar_normalize.py` (the rest pose) are the scripts Maquette runs, for checking a model
+by hand outside the app. `scripts/vrm_addon_check.py` imports a written `.vrm` with the VRM Add-on for
 Blender, headless, as a second opinion (spec, required bones, meta, left arm direction); it needs
-the add-on installed and is never part of a build. `scripts/README.md` says how to run both. Work on a copy in a scratch folder, never
+the add-on installed and is never part of a build. `scripts/README.md` says how to run each. Work on a copy in a scratch folder, never
 in the workspace's versions or a game repo.

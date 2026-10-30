@@ -3,7 +3,9 @@ use std::fs;
 use serde_json::json;
 
 use super::*;
-use crate::avatar::normalize::tests::{FakeBlender, World, tools, world};
+use crate::avatar::normalize::tests::{FakeBlender, World, tools, world, world_with};
+use crate::avatar::reweight::tests::FakeReweighter;
+use crate::base::ports::ScriptRunner;
 use crate::inbox::fixture::{self, HumanoidSpec};
 use crate::inbox::vrm::VRMC_VRM;
 
@@ -15,6 +17,7 @@ fn request(w: &World) -> AvatarRequest<'_> {
         asset: &w.asset,
         version: None,
         elbows: Elbows::Straighten,
+        reweight: ReweightMode::Auto,
     }
 }
 
@@ -345,4 +348,132 @@ fn a_failed_round_trip_is_a_blocker() {
         bones: 52,
     };
     assert_eq!(report::round_trip_finding(&passed), None);
+}
+
+/// Blender for a whole build: the reweight script and the normalise script
+/// each go to their own stand in.
+struct BothSteps {
+    reweight: FakeReweighter,
+    normalize: FakeBlender,
+}
+
+impl ScriptRunner for BothSteps {
+    fn run_script(
+        &self,
+        tools: &Toolbox,
+        work: &Path,
+        script: (&str, &str),
+        extra: &[String],
+    ) -> CoreResult<()> {
+        if script.0 == "avatar_reweight.py" {
+            self.reweight.run_script(tools, work, script, extra)
+        } else {
+            self.normalize.run_script(tools, work, script, extra)
+        }
+    }
+}
+
+/// A character in an A-pose facing +X with a cape weighted to its arm.
+fn caped() -> World {
+    let w = world_with(&fixture::humanoid(&HumanoidSpec {
+        arm_drop: 60.0,
+        yaw: 90.0,
+        offset: [0.0, 0.2],
+        cape: true,
+        ..HumanoidSpec::default()
+    }));
+    named(&w);
+    w
+}
+
+#[test]
+fn cloth_on_the_arms_is_freed_first_and_waits_for_its_own_yes() {
+    let w = caped();
+    let v = view(&request(&w)).expect("view");
+    assert!(v.needs_reweight && v.needs_normalize && v.reweighted.is_none());
+    let planned = plan(&request(&w)).expect("plan");
+    assert!(planned.reweight && planned.reweight_state.is_none());
+
+    let blender = BothSteps {
+        reweight: FakeReweighter::good(),
+        normalize: FakeBlender::good(),
+    };
+    let AvatarBuild::ReweightWaiting { reweighted } =
+        build(&blender, &tools(), &request(&w)).expect("build")
+    else {
+        panic!("the reweight waits first");
+    };
+    assert_eq!(reweighted.state, NormalizeState::Pending);
+    assert_eq!(
+        (blender.reweight.runs.get(), blender.normalize.runs.get()),
+        (1, 0)
+    );
+    let again = plan(&request(&w)).expect("plan");
+    assert_eq!(again.reweight_state, Some(NormalizeState::Pending));
+    assert_eq!(
+        view(&request(&w)).expect("view").reweighted,
+        Some(reweighted.clone())
+    );
+
+    // A yes moves on to the rest pose, lifted from the reweighted model.
+    decide_reweight(&request(&w), true).expect("approve");
+    let AvatarBuild::Waiting { normalized } =
+        build(&blender, &tools(), &request(&w)).expect("build")
+    else {
+        panic!("the rest pose waits next");
+    };
+    assert_eq!(blender.reweight.runs.get(), 1, "cached");
+    assert_eq!(normalized.reweight.as_ref().map(|r| r.moved), Some(120));
+    decide(&request(&w), true).expect("approve the pose");
+    let AvatarBuild::Written { export, .. } =
+        build(&blender, &tools(), &request(&w)).expect("build")
+    else {
+        panic!("written");
+    };
+    assert!(export.reweighted && export.normalized);
+    let report: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(export.report.as_deref().expect("report")).expect("read"),
+    )
+    .expect("json");
+    assert_eq!(report["reweight"]["moved"], 120);
+    assert_eq!(report["reweight"]["keptAsSleeve"], 150);
+    assert_eq!(report["reweight"]["fromBones"]["mixamorig:LeftArm"], 100);
+}
+
+#[test]
+fn a_no_to_the_weights_or_reweight_off_lifts_the_source_as_it_is() {
+    let w = caped();
+    let blender = BothSteps {
+        reweight: FakeReweighter::good(),
+        normalize: FakeBlender::good(),
+    };
+    let off = AvatarRequest {
+        reweight: ReweightMode::Off,
+        ..request(&w)
+    };
+    assert!(!plan(&off).expect("plan").reweight);
+    let AvatarBuild::Waiting { normalized } = build(&blender, &tools(), &off).expect("build")
+    else {
+        panic!("straight to the rest pose");
+    };
+    assert!(normalized.reweight.is_none());
+    assert_eq!(blender.reweight.runs.get(), 0);
+
+    assert!(matches!(
+        build(&blender, &tools(), &request(&w)).expect("build"),
+        AvatarBuild::ReweightWaiting { .. }
+    ));
+    let denied = decide_reweight(&request(&w), false).expect("deny");
+    assert_eq!(denied.state, NormalizeState::Denied);
+    let AvatarBuild::Waiting { normalized } =
+        build(&blender, &tools(), &request(&w)).expect("build")
+    else {
+        panic!("the rest pose, from the source");
+    };
+    assert!(normalized.reweight.is_none());
+    assert_eq!(
+        blender.normalize.runs.get(),
+        1,
+        "the same run as with reweight off"
+    );
 }

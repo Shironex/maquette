@@ -225,20 +225,38 @@ export const commands = {
 	/**  Saves the asset's avatar spec (meta, bone overrides, material mode). */
 	avatarSave: (project: string, asset: string, spec: AvatarSpec_Deserialize) => __TAURI_INVOKE<AvatarView_Serialize>("avatar_save", { project, asset, spec }),
 	/**
-	 *  Builds the avatar's `.vrm`: normalises the rest pose headless when it is
-	 *  not VRM's yet, then waits for the yes, or writes the file once given.
+	 *  Builds the avatar's `.vrm`: frees cloth and hair from the arms when they
+	 *  hang there (unless `reweight` is off) and waits for that yes, normalises
+	 *  the rest pose headless when it is not VRM's yet and waits for the yes,
+	 *  or writes the file once both are given.
 	 */
 	avatarBuild: (project: string, asset: string, version: number | null, elbows: 
 /**  The whole arm turns at the shoulder; a bent elbow stays bent. */
 "keep" | 
 /**  The lower arm is levelled too, so the arm lies straight along X. */
-"straighten" | null) => __TAURI_INVOKE<AvatarBuild>("avatar_build", { project, asset, version, elbows }),
+"straighten" | null, reweight: 
+/**
+ *  When the readiness finds cloth or hair on the arms and the arms are
+ *  lifted, the reweight runs first and waits for a yes of its own.
+ */
+"auto" | 
+/**
+ *  The arms are lifted without a new reweight; one a person already
+ *  approved still counts until they turn it down.
+ */
+"off" | null) => __TAURI_INVOKE<AvatarBuild>("avatar_build", { project, asset, version, elbows, reweight }),
 	/**
 	 *  A person's yes or no to a version's new rest pose. Not an agent tool:
 	 *  only the app's approval card calls it. An agent's waiting request for
 	 *  that asset is settled with it.
 	 */
 	avatarDecide: (project: string, asset: string, version: number | null, approve: boolean) => __TAURI_INVOKE<Normalized>("avatar_decide", { project, asset, version, approve }),
+	/**
+	 *  A person's yes or no to a version's new weights, which free its cloth
+	 *  and hair from the arms. Not an agent tool: only the app's approval card
+	 *  calls it. An agent's waiting request for that asset is settled with it.
+	 */
+	avatarDecideReweight: (project: string, asset: string, version: number | null, approve: boolean) => __TAURI_INVOKE<Reweighted>("avatar_decide_reweight", { project, asset, version, approve }),
 	prepareGet: (project: string) => __TAURI_INVOKE<ScenePrep>("prepare_get", { project }),
 	prepareAsset: (project: string, asset: string) => __TAURI_INVOKE<AssetPrep>("prepare_asset", { project, asset }),
 	/**
@@ -772,10 +790,10 @@ export type Approval = {
 	conceptJobs?: string[],
 	/**  Image round: the dollars it should cost in all. */
 	estimateUsd?: number | null,
-	/**  Rest pose: the asset id and the version normalised. */
+	/**  Rest pose and reweight: the asset id and the version. */
 	asset?: string | null,
 	version?: number | null,
-	/**  Rest pose: the before and after sheets. */
+	/**  Rest pose and reweight: the before and after sheets. */
 	sheets?: NormalizeSheets | null,
 };
 
@@ -804,7 +822,12 @@ export type ApprovalKind =
  *  An agent built an avatar whose new rest pose waits for a person to
  *  look at the before and after sheets.
  */
-"rest-pose";
+"rest-pose" | 
+/**
+ *  An agent built an avatar whose weights, freeing cloth and hair from
+ *  the arms, wait for a person to look at the before and after sheets.
+ */
+"reweight";
 
 /**  How far one arm turned. */
 export type ArmLift = {
@@ -1069,6 +1092,11 @@ export type AssetsRemoved = {
 
 /**  What a build did. */
 export type AvatarBuild = 
+/**
+ *  The weights that free cloth and hair from the arms wait for a person
+ *  to look at the sheets; the rest pose comes after.
+ */
+{ status: "reweight waiting for approval"; reweighted: Reweighted } | 
 /**  The new rest pose waits for a person to look at the sheets. */
 { status: "waiting for approval"; normalized: Normalized } | 
 /**  A person turned the new rest pose down. */
@@ -1112,6 +1140,11 @@ export type AvatarExport = {
 	sourceVersion: number,
 	/**  Written from a normalised rest pose (else from the model as it is). */
 	normalized: boolean,
+	/**
+	 *  The arms were lifted from an approved reweight that freed cloth and
+	 *  hair from them. False for a build that predates the reweight.
+	 */
+	reweighted?: boolean,
 	material: MaterialMode,
 	/**  What the file still lacks, blockers first. */
 	unresolved: VrmFinding[],
@@ -1185,6 +1218,13 @@ export type AvatarView_Deserialize = {
 	 *  a person's yes.
 	 */
 	needsNormalize: boolean,
+	/**
+	 *  The readiness finds cloth or hair weighted to the arms and the arms
+	 *  are lifted: a build frees them first and waits for a person's yes.
+	 */
+	needsReweight: boolean,
+	/**  The last reweight of this version, with its sheets. */
+	reweighted: Reweighted | null,
 	/**  The last normalised rest pose of this version, with its sheets. */
 	normalized: Normalized | null,
 	export: AvatarExport | null,
@@ -1218,6 +1258,13 @@ export type AvatarView_Serialize = {
 	 *  a person's yes.
 	 */
 	needsNormalize: boolean,
+	/**
+	 *  The readiness finds cloth or hair weighted to the arms and the arms
+	 *  are lifted: a build frees them first and waits for a person's yes.
+	 */
+	needsReweight: boolean,
+	/**  The last reweight of this version, with its sheets. */
+	reweighted: Reweighted | null,
 	/**  The last normalised rest pose of this version, with its sheets. */
 	normalized: Normalized | null,
 	export: AvatarExport | null,
@@ -3599,6 +3646,12 @@ export type Normalized = {
 	/**  The run's cache key; an approval holds for this key only. */
 	key: string,
 	approvedAt: string | null,
+	/**
+	 *  The approved reweight the arms were lifted from; `None` when they
+	 *  were lifted from the source as it is (and in results older versions
+	 *  wrote).
+	 */
+	reweight: ReweightReport | null,
 };
 
 /**  One object asset that Send picks made or moved to Refs. */
@@ -4395,6 +4448,82 @@ export type RetargetReview = {
 };
 
 export type ReviewStatus = "good" | "look" | "failed";
+
+/**  The skin weights after the reweight. */
+export type ReweightChecks = {
+	vertices?: number,
+	maxInfluences?: number,
+	/**  Vertices left without weight; a good run leaves none. */
+	unweighted?: number,
+	/**  Vertices whose weights do not sum to 1. */
+	offSum?: number,
+};
+
+/**  Whether a build frees cloth and hair from the arms before it lifts them. */
+export type ReweightMode = 
+/**
+ *  When the readiness finds cloth or hair on the arms and the arms are
+ *  lifted, the reweight runs first and waits for a yes of its own.
+ */
+"auto" | 
+/**
+ *  The arms are lifted without a new reweight; one a person already
+ *  approved still counts until they turn it down.
+ */
+"off";
+
+/**  The script's `report.json`. */
+export type ReweightReport = {
+	/**  Skinned vertices read. */
+	vertices?: number,
+	/**  Vertices the arms held any weight of, before. */
+	armWeighted?: number,
+	/**  Vertices that gave arm weight to the trunk. */
+	moved?: number,
+	/**  The arm weight moved, summed over those vertices. */
+	weightMoved?: number | null,
+	/**  Arm vertices kept on the arm: skin, sleeves, gloves. */
+	keptAsSleeve?: number,
+	/**  Vertices in the smooth band between the two, keeping some. */
+	band?: number,
+	/**  The arm bones the weight came from, with how many vertices each. */
+	fromBones?: { [key in string]: number },
+	/**  The trunk bones it went to, with how many vertices each. */
+	toBones?: { [key in string]: number },
+	weights?: ReweightChecks,
+	/**  Per arm, `left` and `right`. */
+	sides?: { [key in string]: ReweightSide },
+};
+
+/**  One arm's share of the counts. */
+export type ReweightSide = {
+	moved?: number,
+	keptAsSleeve?: number,
+	/**
+	 *  The limb radius along the arm, shoulder to finger tips, as a share
+	 *  of the height.
+	 */
+	limbRadius?: (number | null)[],
+};
+
+/**  A reweighted model and what it takes to judge it. */
+export type Reweighted = {
+	project: string,
+	asset: string,
+	sourceVersion: number,
+	state: NormalizeState,
+	/**  The reweighted GLB, an absolute path. */
+	glb: string,
+	/**
+	 *  Rows rest, arms level and arms raised; columns front, side, back and
+	 *  the shoulders.
+	 */
+	sheets: NormalizeSheets,
+	report: ReweightReport,
+	/**  The run's cache key; an approval holds for this key only. */
+	key: string,
+	approvedAt: string | null,
+};
 
 export type Rig = {
 	joints: number,

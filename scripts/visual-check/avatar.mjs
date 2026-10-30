@@ -1,9 +1,10 @@
 /**
  * The Avatar view's shots for scripts/visual-check.mjs (ONLY=avatar): a
  * character never built, with its readiness, meta and rest pose measures;
- * a normalised rest pose waiting for a yes, the same on an older version
+ * cloth and hair freed from the arms waiting for a yes, with its shoulders
+ * up close; a normalised rest pose waiting for a yes, the same on an older version
  * through the version picker, its shoulders up close and the
- * floating card an agent's build leaves; the written VRM with its report
+ * floating cards an agent's build leaves; the written VRM with its report
  * and round trip, its Preview (arms down and T-pose), the Preview with
  * nothing written, and a round trip that failed; and Settings >
  * Avatar defaults; and a rig with its own joint names, its bones picked by
@@ -27,11 +28,23 @@ export async function avatarShots({ open, shot }) {
   await shot(fresh, 'avatar-fresh');
   await fresh.context().close();
 
+  // Cloth hangs on the arms: the new weights wait for a yes first.
+  const weights = await avatar(open, 'reweight');
+  const freeing = weights.getByRole('region', { name: 'Cloth and hair approval' });
+  await freeing.waitFor();
+  await weights.getByRole('img', { name: 'The after sheet' }).waitFor();
+  await shot(weights, 'avatar-reweight');
+  await weights.getByRole('button', { name: 'Compare the shoulders' }).click();
+  await weights.getByRole('dialog', { name: 'Freed arms sheets' }).waitFor();
+  await shot(weights, 'avatar-reweight-shoulders');
+  await weights.context().close();
+
+  // The weights were approved; the rest pose waits as step 2.
   const pending = await avatar(open, 'pending');
   await pending.getByRole('region', { name: 'Rest pose approval' }).waitFor();
-  await pending.getByRole('img', { name: 'The after sheet' }).waitFor();
+  await pending.getByRole('img', { name: 'The after sheet' }).last().waitFor();
   await shot(pending, 'avatar-pending');
-  await pending.getByRole('button', { name: 'Compare the shoulders' }).click();
+  await pending.getByRole('button', { name: 'Compare the shoulders' }).last().click();
   await pending.getByRole('dialog', { name: 'Rest pose sheets' }).waitFor();
   await shot(pending, 'avatar-shoulders');
   await pending.context().close();
@@ -104,6 +117,11 @@ export async function avatarShots({ open, shot }) {
   await board.getByRole('alertdialog', { name: /new rest pose\?$/ }).waitFor();
   await shot(board, 'avatar-agent-card');
   await board.context().close();
+
+  const freeCard = await open(`${BASE}&avatar=reweight`, '#/board');
+  await freeCard.getByRole('alertdialog', { name: /cloth and hair from the arms\?$/ }).waitFor();
+  await shot(freeCard, 'avatar-agent-reweight-card');
+  await freeCard.context().close();
 
   const settings = await open(BASE, '#/settings', TALL);
   const panel = settings.getByRole('region', { name: /Avatar defaults/ });

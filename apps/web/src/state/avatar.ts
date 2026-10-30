@@ -320,6 +320,12 @@ export function poseSummary(report: NormalizeReport): string {
 
 /** What a build answered, for the notice after it. */
 export function buildNotice(built: AvatarBuild): { title: string; detail: string } {
+  if (built.status === 'reweight waiting for approval') {
+    return {
+      title: 'The freed arms wait for you',
+      detail: 'Look at the before and after sheets, then approve or deny the new weights.',
+    };
+  }
   if (built.status === 'written') {
     const left = built.export.unresolved.filter(f => f.level !== 'note').length;
     return {
@@ -364,6 +370,8 @@ export function buildAction(
   if (!view.readiness) return off(view.readinessError ?? 'The model has no humanoid rig');
   const problem = metaProblem(draft.meta);
   if (problem) return off(problem.replace(/\.$/, ''));
+  const weights = view.reweighted?.state;
+  if (weights === 'pending') return off('Approve or deny the new weights first');
   const pose = view.normalized?.state;
   if (pose === 'pending') return off('Approve or deny the new rest pose first');
   const file = `exports/${view.asset}.vrm`;
@@ -371,8 +379,10 @@ export function buildAction(
     label,
     disabled: false,
     tooltip:
-      view.needsNormalize && pose !== 'approved'
-        ? 'Normalises the rest pose headless in Blender, then waits for your yes'
-        : `Writes ${file}, never a new version`,
+      view.needsReweight && !weights
+        ? 'Frees cloth and hair from the arms headless in Blender, then waits for your yes'
+        : view.needsNormalize && pose !== 'approved'
+          ? 'Normalises the rest pose headless in Blender, then waits for your yes'
+          : `Writes ${file}, never a new version`,
   };
 }

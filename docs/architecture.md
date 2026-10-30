@@ -120,22 +120,22 @@ than its parent, and a path kept at its old place by a `pub use`, such as `pipel
 in the layer of the code it points to. `pnpm lint:meta` reads every `crate::` path in the core
 against it.
 
-| Layer     | May use    | Modules                                                                                                                                                                                                              |
-| --------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| base      | nothing    | `error`, `fs`, `json`, `toolchain` (the maquette-base crate), `app_state`, `base` (the run log and the Toolbox)                                                                                                      |
-| model     | base, glb  | `workspace`, `project`, `assets`, `avatar`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends`, and the stored files of `prepare`, `built`, `materials` and `ship`                        |
-| glb       | base       | `inbox::{analyse, fixture, images, math, vrm}` (the maquette-glb crate)                                                                                                                                              |
-| preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                                                                                                                                 |
-| pipeline  | model, glb | `pipeline`, `prepare::preview`, `avatar::normalize`, `built::{build, blender}`, `materials::{apply, split}`, `ship::{plan, report}`, `layout::view`, `thumbs`, `game`, `inspect`, `inbox`, `motion`, `parts`, `site` |
-| providers | model, glb | `providers` (the maquette-providers crate)                                                                                                                                                                           |
-| lab       | model, glb | `concepts`, `refs::{files, suggested}`                                                                                                                                                                               |
-| library   | pipeline   | `library`, `animations`                                                                                                                                                                                              |
-| facade    | everything | `lib.rs`, `providers::tests` (the provider tests that drive a send into the inbox)                                                                                                                                   |
+| Layer     | May use    | Modules                                                                                                                                                                                                                          |
+| --------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| base      | nothing    | `error`, `fs`, `json`, `toolchain` (the maquette-base crate), `app_state`, `base` (the run log and the Toolbox)                                                                                                                  |
+| model     | base, glb  | `workspace`, `project`, `assets`, `avatar`, `layout`, `refs`, `timeline`, `settings` (the stored settings types), `sends`, and the stored files of `prepare`, `built`, `materials` and `ship`                                    |
+| glb       | base       | `inbox::{analyse, fixture, images, math, vrm}` (the maquette-glb crate)                                                                                                                                                          |
+| preview   | base       | `site::preview`, `page` (the maquette-preview crate)                                                                                                                                                                             |
+| pipeline  | model, glb | `pipeline`, `prepare::preview`, `avatar::{normalize, reweight}`, `built::{build, blender}`, `materials::{apply, split}`, `ship::{plan, report}`, `layout::view`, `thumbs`, `game`, `inspect`, `inbox`, `motion`, `parts`, `site` |
+| providers | model, glb | `providers` (the maquette-providers crate)                                                                                                                                                                                       |
+| lab       | model, glb | `concepts`, `refs::{files, suggested}`                                                                                                                                                                                           |
+| library   | pipeline   | `library`, `animations`                                                                                                                                                                                                          |
+| facade    | everything | `lib.rs`, `providers::tests` (the provider tests that drive a send into the inbox)                                                                                                                                               |
 
 A module whose file on disk is model data but whose work runs Blender or reads other layers is split
 by submodule. `prepare.json`, `built.json`, `materials.json`, `avatar.json` and `ship.json` (their types, load,
 save and checks) are model, so removing an asset can keep and clear its entries; the fix-up preview,
-normalising an avatar's rest pose, the built asset builds, applying material tweaks, the ship plan and
+normalising an avatar's rest pose and freeing its arms, the built asset builds, applying material tweaks, the ship plan and
 the size report are pipeline.
 `layout::view` (the Inspector's read model, which measures prepared models) is pipeline, and
 `refs::files` and `refs::suggested`, which read and mark the Lab's directions, are lab. Tests that
@@ -181,7 +181,7 @@ layout), so it is pipeline. `maquette-model` holds the model layer: `workspace`,
 `prepare`, `built`, `materials` and `ship`. For those six and `avatar`, core keeps a module of the
 same name that re-exports the crate's (`pub use maquette_model::layout::*`) and adds the work above
 the model layer: `layout::view`, `refs::{files, suggested}`, `prepare::preview` and the fix-up script,
-`avatar::normalize` and its rest pose script,
+`avatar::normalize` and `avatar::reweight` with their scripts,
 `built`'s Blender build, `materials`' apply and split, and `ship`'s plan and size report. `maquette-preview` holds
 `site::preview` and `page`. `maquette-providers` holds `providers`; core keeps a `providers` module
 that re-exports the crate (`pub use maquette_providers::*`) and holds the provider tests that need the
@@ -614,6 +614,24 @@ uses.
   `ARM_SLACK_DEG` of level and face +Z. A result starts `Pending`; `approve` records the person's
   yes against that key and the GLB's hash, and `approved_glb` and `write_vrm` refuse anything else.
   The skill `maquette-avatar-vrm` carries a copy of the script, which a test keeps the same.
+- **Freeing the arms.** Core's `avatar::reweight` (pipeline) runs `avatar_reweight.py` the same
+  way, before the normalise, when the readiness has the `arm-weights` finding (cloth or hair the
+  arm chain holds that sits more than twice the arm's own radius from it, the radius read from the
+  mesh around each arm segment in `arm_weights.rs`). The script cuts the mesh in slices along each
+  arm, keeps the loops that hug the bone and follow on from slice to slice (sleeves, gloves, the
+  hand, a cuff or a separate glove whole), and moves every other vertex's arm weight to spine,
+  chest and upperChest (and the shoulder above the armpit) by inverse distance, with a geodesic
+  band at the boundary so cloth sewn to a sleeve stretches instead of tearing. Only `JOINTS_0` and
+  `WEIGHTS_0` change, at most 4 influences; `finish` refuses an output with unweighted vertices or
+  more influences. The result lives in `v<version>/reweight/`, keyed and cached like the
+  normalise, with its own before and after sheets (rest, arms level, arms raised). Both share
+  `avatar/gate.rs`: a result starts `Pending`, and a yes holds only for the output bytes it was
+  given for. `normalize::plan` lifts the approved reweight when there is one (its key then reads
+  that GLB), and the `.vrm` report records it. `AvatarRequest.reweight` (`Auto` or `Off`) decides
+  whether a build frees the arms first; a waiting reweight answers `ReweightWaiting`, and a yes or
+  a no both go on to the normalise. The desktop's `avatar_decide_reweight` and the hub's
+  `ApprovalKind::Reweight` carry the person's answer; the web shows it in
+  `features/avatar/ReweightStep`. The skill carries a copy of this script too.
 
 ## Downloads matching
 

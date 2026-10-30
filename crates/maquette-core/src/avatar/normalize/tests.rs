@@ -19,6 +19,17 @@ pub(crate) struct World {
 
 /// A rigged character in an A-pose facing +X, as its first version.
 pub(crate) fn world() -> World {
+    world_with(&fixture::humanoid(&HumanoidSpec {
+        arm_drop: 60.0,
+        yaw: 90.0,
+        offset: [0.0, 0.2],
+        ..HumanoidSpec::default()
+    }))
+}
+
+/// A workspace with one project whose character asset has `model` as its
+/// first version.
+pub(crate) fn world_with(model: &[u8]) -> World {
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().join("ws");
     let config = workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
@@ -38,16 +49,7 @@ pub(crate) fn world() -> World {
     let project_dir = project::dir(&root, &config.layout, &manifest.id).expect("dir");
     let models = project_dir.join("models");
     fs::create_dir_all(&models).expect("models");
-    fs::write(
-        models.join("hero_v1.glb"),
-        fixture::humanoid(&HumanoidSpec {
-            arm_drop: 60.0,
-            yaw: 90.0,
-            offset: [0.0, 0.2],
-            ..HumanoidSpec::default()
-        }),
-    )
-    .expect("model");
+    fs::write(models.join("hero_v1.glb"), model).expect("model");
     let mut asset = String::new();
     project::modify(&root, &config.layout, &manifest.id, |m| {
         let added = assets::add(
@@ -206,6 +208,29 @@ fn a_run_makes_a_pending_result_in_the_cache_and_no_new_version() {
         1
     );
     assert_eq!(load(&plan.dir).expect("load"), Some(found));
+}
+
+#[test]
+fn a_result_an_older_version_wrote_is_a_miss_and_runs_again() {
+    let w = world();
+    let none = BoneOverrides::new();
+    let blender = FakeBlender::good();
+    let planned = plan(&request(&w, &none, Elbows::Keep)).expect("plan");
+    run(&blender, &tools(), &planned).expect("run");
+    // The shape before the readiness carried its naming report.
+    let file = planned.dir.join(RESULT_FILE);
+    let mut old: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&file).expect("read")).expect("json");
+    old["readiness"]
+        .as_object_mut()
+        .expect("readiness")
+        .remove("naming");
+    fs::write(&file, serde_json::to_string_pretty(&old).expect("json")).expect("write");
+
+    assert_eq!(load(&planned.dir).expect("an old shape is no error"), None);
+    let found = run(&blender, &tools(), &planned).expect("run again");
+    assert_eq!(blender.runs.get(), 2, "the stale result ran again");
+    assert_eq!(load(&planned.dir).expect("load"), Some(found));
 }
 
 #[test]
