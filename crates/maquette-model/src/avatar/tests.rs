@@ -138,3 +138,82 @@ fn a_newer_or_broken_file_is_never_saved_over() {
         "{ not json"
     );
 }
+
+fn ponytail() -> SpringSpec {
+    SpringSpec {
+        id: "hair-1".to_string(),
+        kind: maquette_glb::vrm::SpringKind::Hair,
+        root_bone: "head".to_string(),
+        line: vec![[0.0, 1.5, -0.1], [0.0, 1.0, -0.2]],
+        joints: Some(6),
+        preset: None,
+        stiffness: None,
+        gravity_power: None,
+        drag_force: Some(0.4),
+        hit_radius: None,
+    }
+}
+
+#[test]
+fn a_spec_without_springs_loads_and_springs_round_trip() {
+    let dir = tempfile::tempdir().expect("dir");
+    std::fs::write(
+        path(dir.path()),
+        r#"{"version":1,"avatars":{"hero":{"meta":{"name":"Hero"},"material":"pbr"}}}"#,
+    )
+    .expect("write");
+    let old = load(dir.path()).expect("old spec loads");
+    assert!(old.avatars["hero"].springs.is_empty());
+    let mut spec = hero();
+    spec.springs.push(ponytail());
+    let written = set(dir.path(), "hero", Some(spec)).expect("set");
+    assert_eq!(load(dir.path()).expect("load"), written);
+    let text = std::fs::read_to_string(path(dir.path())).expect("read");
+    assert!(text.contains("\"rootBone\": \"head\""), "{text}");
+    // An avatar without springs writes no springs key.
+    set(dir.path(), "hero", Some(hero())).expect("set");
+    let text = std::fs::read_to_string(path(dir.path())).expect("read");
+    assert!(!text.contains("springs"), "{text}");
+}
+
+#[test]
+fn a_spring_takes_its_kind_s_preset_with_overrides_on_top() {
+    let spring = ponytail();
+    let base = maquette_glb::vrm::SpringPreset::Soft.settings();
+    let settings = spring.settings();
+    assert_eq!(settings.stiffness, base.stiffness);
+    assert_eq!(settings.drag_force, 0.4);
+    let stiff = SpringSpec {
+        preset: Some(maquette_glb::vrm::SpringPreset::Stiff),
+        ..spring
+    };
+    assert_eq!(
+        stiff.settings().stiffness,
+        maquette_glb::vrm::SpringPreset::Stiff.settings().stiffness
+    );
+}
+
+#[test]
+fn bad_springs_are_refused() {
+    let refused = |change: fn(&mut SpringSpec)| {
+        let mut spec = hero();
+        let mut spring = ponytail();
+        change(&mut spring);
+        spec.springs.push(spring);
+        spec.validate().expect_err("refused").to_string()
+    };
+    assert!(refused(|s| s.id = "Hair 1".into()).contains("lowercase"));
+    assert!(refused(|s| s.root_bone = "ponytail".into()).contains("not a VRM humanoid bone"));
+    assert!(refused(|s| s.line.truncate(1)).contains("2 to 64 points"));
+    assert!(refused(|s| s.joints = Some(40)).contains("joints is 1 to 16"));
+    assert!(refused(|s| s.drag_force = Some(2.0)).contains("dragForce is 0 to 1"));
+    let mut twice = hero();
+    twice.springs = vec![ponytail(), ponytail()];
+    assert!(
+        twice
+            .validate()
+            .expect_err("refused")
+            .to_string()
+            .contains("Two springs")
+    );
+}
