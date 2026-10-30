@@ -26,7 +26,8 @@ pub struct SpringArg {
     /// Its centre line in glTF metres from where it hangs, 2 to 64 points; the candidate's
     /// when left out.
     pub line: Option<Vec<[f64; 3]>>,
-    /// Joints along the chain, 1 to 16; by its length when left out.
+    /// Joints along the chain, 1 to 16; by its length when left out (a small piece, such as
+    /// charm-1, keeps its 2 to 4).
     pub joints: Option<u32>,
     /// "soft" (hair), "heavy" (cloth) or "stiff" (accessory); by kind when left out.
     pub preset: Option<String>,
@@ -94,12 +95,16 @@ pub(super) fn confirmed(view: &SpringsView, args: &[SpringArg]) -> Result<Vec<Sp
             };
             let root_bone = arg.root_bone.clone().or_else(|| found.map(|c| c.root_bone.clone()));
             let line = arg.line.clone().or_else(|| found.map(|c| c.line.clone()));
+            // A small piece keeps its short chain unless the joints are given.
+            let joints = arg
+                .joints
+                .or_else(|| found.filter(|c| c.small).map(|c| c.joints));
             let spec = json!({
                 "id": arg.id,
                 "kind": kind,
                 "rootBone": root_bone,
                 "line": line,
-                "joints": arg.joints,
+                "joints": joints,
                 "preset": arg.preset.as_deref().map(str::to_lowercase),
                 "stiffness": arg.stiffness,
                 "gravityPower": arg.gravity_power,
@@ -142,6 +147,7 @@ pub(super) fn candidates_summary(found: &FoundSprings) -> Value {
             "length": c.length,
             "vertices": c.vertices,
             "confidence": c.confidence,
+            "small": c.small,
         })).collect::<Vec<_>>(),
     })
 }
