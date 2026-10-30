@@ -20,7 +20,7 @@ These look at the workspace and change nothing.
 | `list_assets`                                 | A project's Board assets: kind, stage, status, version count, the latest version's file and stats, and its refs with their views (`refsTagged` false while they are read from the refs' order). Takes an optional `stage` filter                                                                                                                                       | Nothing | No       |
 | [`get_pipeline`](#get_pipeline)               | Steps, validation issues, compression presets, model sizes, the run in progress and the latest runs                                                                                                                                                                                                                                                                    | Nothing | No       |
 | [`get_run`](#get_run)                         | One run's status and the end of its log                                                                                                                                                                                                                                                                                                                                | Nothing | No       |
-| `list_inbox`                                  | The models waiting in the inbox, with kind, size, triangle count and worst check                                                                                                                                                                                                                                                                                       | Nothing | No       |
+| `list_inbox`                                  | The models waiting in the inbox, with kind, size, triangle count, worst check, the version each would become and the newer version that replaced it, plus the discarded models                                                                                                                                                                                         | Nothing | No       |
 | `get_inbox_checks`                            | The checks for one inbox model (triangles, textures, rig, VRM readiness, scale, materials) and its analysis report (with `vrm`: the bone map, rest pose measures and findings), read against its send as `list_inbox` does                                                                                                                                             | Nothing | No       |
 | `get_concepts`                                | A direction's prompt, refs and images with stars and picks, plus queued, running, waiting and failed jobs                                                                                                                                                                                                                                                              | Nothing | No       |
 | `get_style_board`                             | A project's style board: the style line, the palette, up to 4 images with the concept or ref each came from, and its revision                                                                                                                                                                                                                                          | Nothing | No       |
@@ -85,6 +85,8 @@ These look at the workspace and change nothing.
 | `use_ref_candidate`                                   | Takes a drawn view into its slot (the ref it replaces moves to `refs/originals`), or a clean copy into the place of the ref it cleans (the original moves there too)                                  | Nothing | No       |
 | [`accept_inbox_model`](#accept_inbox_model)           | Moves an inbox model into a project as a new asset version                                                                                                                                            | Nothing | No       |
 | [`discard_inbox_model`](#discard_inbox_model)         | Moves an inbox model aside into `inbox/.discarded/` instead of deleting it                                                                                                                            | Nothing | No       |
+| [`accept_inbox_models`](#accept_inbox_models)         | Accepts several inbox models in one call, each answering on its own                                                                                                                                   | Nothing | No       |
+| [`restore_inbox_model`](#restore_inbox_model)         | Puts a discarded inbox model back into the inbox, aimed at the asset it was going to                                                                                                                  | Nothing | No       |
 | [`attach_download`](#attach_download)                 | Sends a download from `list_handoffs` to the inbox for an asset                                                                                                                                       | Nothing | No       |
 | [`add_model_file`](#add_model_file)                   | Adds a model file you fixed yourself as an asset's next version, through the inbox                                                                                                                    | Nothing | No       |
 | `dismiss_download`                                    | Leaves a download from `list_handoffs` alone and never asks about it again                                                                                                                            | Nothing | No       |
@@ -614,11 +616,38 @@ Without `asset` it goes to the asset the model was sent for, or the one a downlo
 
 `changes the inbox`
 
-Throws away an inbox model, such as the losing version of a redo or a bad download. The file is not deleted: it moves into `inbox/.discarded/` in the workspace (a name already there gets a number), where it can be moved back by hand. Its cached checks, picked kind and aim are forgotten. A send that was waiting on this model in the Inbox ends as cancelled with the note `Discarded from the Inbox`; what the send already cost stays as it was in the credits ledger, and an asset's earlier versions are untouched. It answers with the `file` it moved to and `closedSend`, the id of that send or null.
+Throws away an inbox model, such as the losing version of a redo or a bad download. The file is not deleted: it moves into `inbox/.discarded/` in the workspace (a name already there gets a number), and `restore_inbox_model` puts it back. Its cached checks, picked kind and aim are forgotten. A send that was waiting on this model in the Inbox ends as cancelled with the note `Discarded from the Inbox`; what the send already cost stays as it was in the credits ledger, and an asset's earlier versions are untouched. It answers with the `file` it moved to and `closedSend`, the id of that send or null.
 
 | Parameter | Type   | Required | Notes                                                |
 | --------- | ------ | -------- | ---------------------------------------------------- |
 | `id`      | string | yes      | The inbox item id, its file name, from `list_inbox`. |
+
+### accept_inbox_models
+
+`changes the project`
+
+Accepts several inbox models in one call, each as `accept_inbox_model` does: it goes to the asset it was sent for or attached to, as that asset's next version. Without `project` each model goes to the project of that asset, and a model that goes nowhere fails on its own; with `project` every model goes there. Every model answers on its own, so an unreadable file does not stop the rest. The answer counts `accepted` and `failed`, and `results` lists each id with `ok`, then its `project`, `asset`, `version` and `file`, or its `error`. A By hand send of an accepted asset still waiting closes as done. It spends nothing and needs no approval, like `accept_inbox_model`.
+
+| Parameter | Type     | Required | Notes                                                                          |
+| --------- | -------- | -------- | ------------------------------------------------------------------------------ |
+| `ids`     | string[] | yes      | 1 to 200 inbox item ids from `list_inbox`.                                     |
+| `project` | string   | no       | The project that gets every model. Left out, each goes to its asset's project. |
+
+```json
+{ "ids": ["lantern_post.glb", "bench_v2.glb"] }
+```
+
+### restore_inbox_model
+
+`changes the inbox`
+
+Puts a discarded model back into the inbox. It returns under the inbox name it had (a name taken since gets a number) and is aimed at the asset it was going to, so `accept_inbox_model` goes there again; the send its discard closed stays closed. It answers with its inbox `id` and `file`. `list_inbox` lists the discarded models under `discarded`, the most recent first, with their `name`, the inbox `id` they had, `bytes`, `discardedMs`, the `assetName` they were going to and `replacedBy`. It spends nothing and needs no approval.
+
+| Parameter | Type   | Required | Notes                                                              |
+| --------- | ------ | -------- | ------------------------------------------------------------------ |
+| `name`    | string | yes      | The discarded model's file name, from `discarded` in `list_inbox`. |
+
+`list_inbox` also gives every waiting model `nextVersion`, the version Accept would make of the asset it goes to, and `replacedBy`, the newer version of that asset made after the model arrived (a redo that was accepted), when there is one.
 
 ### list_handoffs
 
