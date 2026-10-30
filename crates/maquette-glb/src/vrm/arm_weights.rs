@@ -1,12 +1,16 @@
 //! Cloth or hair weighted to the arms: vertices the arm chain moves at rest
-//! that sit far from the arm, such as a cape, a sleeve's long hem or a
+//! that sit well outside the arm, such as a cape, a sleeve's long hem or a
 //! braid. Lifting the arms to a T-pose drags them along.
 //!
 //! Everything is read in each skinned mesh's own (bind) space: the vertex
 //! positions as stored, and each joint where its inverse bind matrix puts
 //! it. Distances are measured against the arm's segments (upper arm to
-//! lower arm to hand, hand to each finger) and compared with the height of
-//! the skinned meshes, so the scale of the export does not matter.
+//! lower arm to hand, hand to each finger) and compared with the arm's own
+//! radius, read from the mesh around the upper and lower arm: in a few
+//! slices along each, the nearest surface in each direction around the
+//! bone, and the median of those. Cloth beside the arm is further out than
+//! the sleeve, so it does not widen the limb. The radius is a share of the
+//! height of the skinned meshes, so the scale of the export does not matter.
 
 use std::collections::BTreeMap;
 
@@ -17,9 +21,26 @@ use crate::math::{self, Aabb, IDENTITY, Mat4, Vec3};
 /// weight.
 pub(super) const ARM_WEIGHT_MIN: f32 = 0.25;
 
-/// ...and it sits further than this share of the height from the arm.
-/// Sleeves on a real rigged character stay within 0.05.
-pub(super) const ARM_REACH: f32 = 0.08;
+/// ...and it sits further than this many limb radii from the arm...
+const ARM_RADII: f32 = 2.0;
+
+/// ...and further than this share of the height outside the limb.
+const ARM_GAP: f32 = 0.01;
+
+/// The limb radius, as a share of the height, when the mesh around the arm
+/// cannot be read.
+const LIMB_FALLBACK: f32 = 0.03;
+
+/// Surface further than this share of the height from the bone is never
+/// read as the limb.
+const LIMB_NEAR: f32 = 0.15;
+
+/// Slices along each arm segment, and directions around the bone in each.
+const SLICES: usize = 4;
+const SECTORS: usize = 8;
+
+/// A slice reads the limb when at least this many directions found surface.
+const SECTORS_MIN: usize = 4;
 
 /// The finding needs at least this share of the skinned vertices...
 pub(super) const ARM_SHARE: f32 = 0.005;
@@ -166,6 +187,128 @@ fn segments(human: &[HumanBone], at: &BTreeMap<String, Vec3>, side: &str) -> Vec
     out
 }
 
+fn median(mut values: Vec<f32>) -> Option<f32> {
+    if values.is_empty() {
+        return None;
+    }
+    values.sort_by(f32::total_cmp);
+    let mid = values.len() / 2;
+    Some(if values.len().is_multiple_of(2) {
+        f32::midpoint(values[mid - 1], values[mid])
+    } else {
+        values[mid]
+    })
+}
+
+fn sub(a: Vec3, b: Vec3) -> Vec3 {
+    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
+fn dot(a: Vec3, b: Vec3) -> f32 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+fn cross(a: Vec3, b: Vec3) -> Vec3 {
+    [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    ]
+}
+
+fn unit(v: Vec3) -> Option<Vec3> {
+    let n = dot(v, v).sqrt();
+    (n > 1e-6).then(|| [v[0] / n, v[1] / n, v[2] / n])
+}
+
+/// The radius of the limb along the segment `a` to `b`: in each slice
+/// across it, the nearest surface in each direction around the bone, and
+/// the median of those. `None` when no slice found enough surface.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    reason = "slice and sector indices are small and clamped"
+)]
+fn segment_radius(positions: &[Vec3], a: Vec3, b: Vec3, height: f32) -> Option<f32> {
+    let along = sub(b, a);
+    let length = dot(along, along).sqrt();
+    let axis = unit(along)?;
+    let e1 = unit(cross(axis, [0.0, 1.0, 0.0])).or_else(|| unit(cross(axis, [1.0, 0.0, 0.0])))?;
+    let e2 = cross(axis, e1);
+    let mut nearest = [[f32::INFINITY; SECTORS]; SLICES];
+    for p in positions {
+        let rel = sub(*p, a);
+        let d = dot(rel, axis);
+        let t = d / length;
+        if !(0.0..=1.0).contains(&t) {
+            continue;
+        }
+        let off = [
+            rel[0] - axis[0] * d,
+            rel[1] - axis[1] * d,
+            rel[2] - axis[2] * d,
+        ];
+        let r = dot(off, off).sqrt();
+        if r >= LIMB_NEAR * height {
+            continue;
+        }
+        let slice = ((t * SLICES as f32) as usize).min(SLICES - 1);
+        let turn = dot(off, e2).atan2(dot(off, e1)) + std::f32::consts::PI;
+        let sector = (turn / std::f32::consts::TAU * SECTORS as f32) as usize % SECTORS;
+        nearest[slice][sector] = nearest[slice][sector].min(r);
+    }
+    let slices = nearest.iter().filter_map(|sectors| {
+        let found: Vec<f32> = sectors.iter().copied().filter(|r| r.is_finite()).collect();
+        (found.len() >= SECTORS_MIN)
+            .then(|| median(found))
+            .flatten()
+    });
+    median(slices.collect())
+}
+
+/// The limb radius of one side in one mesh, from its upper and lower arm.
+fn limb_radius(mesh: &Skinned, side: &str, height: f32) -> Option<f32> {
+    let at = |part: &str| mesh.at.get(&format!("{side}{part}")).copied();
+    let radii: Vec<f32> = [("UpperArm", "LowerArm"), ("LowerArm", "Hand")]
+        .iter()
+        .filter_map(|(from, to)| segment_radius(&mesh.positions, at(from)?, at(to)?, height))
+        .collect();
+    median(radii)
+}
+
+/// How far from its arm a vertex may sit, per mesh and side: a few limb
+/// radii. A mesh that does not show the limb (a cape on its own) borrows
+/// the radius the other meshes read.
+fn reaches(meshes: &[Skinned], height: f32) -> Vec<BTreeMap<&'static str, f32>> {
+    let read: Vec<BTreeMap<&'static str, Option<f32>>> = meshes
+        .iter()
+        .map(|m| {
+            ["left", "right"]
+                .into_iter()
+                .map(|s| (s, limb_radius(m, s, height)))
+                .collect()
+        })
+        .collect();
+    let shared: BTreeMap<&str, Option<f32>> = ["left", "right"]
+        .into_iter()
+        .map(|s| (s, median(read.iter().filter_map(|r| r[s]).collect())))
+        .collect();
+    read.iter()
+        .map(|r| {
+            r.iter()
+                .map(|(side, own)| {
+                    let radius = own
+                        .or(shared[side])
+                        .unwrap_or(LIMB_FALLBACK * height)
+                        .max(1e-6);
+                    (*side, (ARM_RADII * radius).max(radius + ARM_GAP * height))
+                })
+                .collect()
+        })
+        .collect()
+}
+
 /// Counts the vertices the arm chain moves that sit far from the arm.
 /// `None` when no skinned mesh could be read or nothing maps to an arm
 /// (a meshopt packed file, or an unrigged model).
@@ -187,11 +330,12 @@ pub(crate) fn measure(
     for p in meshes.iter().flat_map(|m| &m.positions) {
         bounds.add(*p);
     }
-    let reach = bounds.size()[1] * ARM_REACH;
+    let height = bounds.size()[1];
+    let reaches = reaches(&meshes, height);
     let mut skinned = 0u32;
     let mut vertices = 0u32;
     let mut per_bone: BTreeMap<String, u32> = BTreeMap::new();
-    for mesh in &meshes {
+    for (mesh, reach) in meshes.iter().zip(&reaches) {
         let sides: BTreeMap<&str, Vec<(Vec3, Vec3)>> = ["left", "right"]
             .into_iter()
             .map(|s| (s, segments(human, &mesh.at, s)))
@@ -218,7 +362,7 @@ pub(crate) fn measure(
                 .flatten()
                 .map(|(a, b)| math::segment_distance(*p, *a, *b))
                 .fold(f32::INFINITY, f32::min);
-            if near > reach {
+            if near > reach.get(side_of(bone)).copied().unwrap_or(f32::INFINITY) {
                 vertices += 1;
                 *per_bone.entry(bone.to_string()).or_default() += 1;
             }

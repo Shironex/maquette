@@ -460,6 +460,38 @@ fn a_cape_weighted_to_the_arm_is_a_warning() {
     }
 }
 
+#[test]
+fn cloth_close_to_the_arm_counts_by_the_arm_radius() {
+    // A strip hanging 8 to 13 cm from the upper arm: inside the old fixed
+    // reach of 8 percent of the height, but well outside the limb.
+    let strip = read(&HumanoidSpec {
+        cape_strip: true,
+        ..HumanoidSpec::default()
+    });
+    let height = strip.pose.height.expect("height");
+    assert!(0.13 < 0.08 * height, "the strip sits inside the old reach");
+    let found = strip
+        .findings
+        .iter()
+        .find(|f| f.id == "arm-weights")
+        .expect("arm weights");
+    assert_eq!(
+        found.title,
+        "24 vertices of cloth or hair weighted to the arms"
+    );
+    // The arm's own boxes stay unflagged, level or dropped.
+    for arm_drop in [0.0, 45.0] {
+        let clean = read(&HumanoidSpec {
+            arm_drop,
+            ..HumanoidSpec::default()
+        });
+        assert!(
+            !ids(&clean, FindingLevel::Warning).contains(&"arm-weights"),
+            "{arm_drop}"
+        );
+    }
+}
+
 /// A real model from disk, for a local look. Set `MAQUETTE_VRM_PROBE` to a
 /// `.glb` and run with `--ignored --nocapture`.
 #[test]

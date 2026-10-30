@@ -206,7 +206,7 @@ fn assess(
     if let Some(drag) = arm_weights::measure(doc, buffers, &worlds, &mapped, &human)
         .filter(arm_weights::ArmDrag::matters)
     {
-        findings.push(findings::arm_weight_finding(&drag, pose.height));
+        findings.push(findings::arm_weight_finding(&drag));
     }
     // Stable, so each level keeps the order the checks run in.
     findings.sort_by_key(|f| f.level);
