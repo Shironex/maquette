@@ -77,8 +77,10 @@ script moves that weight to the trunk on a copy:
    `WEIGHTS_0`: the mesh, UVs, textures, bones and rest pose stay byte for byte;
 4. writes the reweighted GLB, a JSON report (vertices moved, kept as sleeve, the band, from and to
    which bones, the limb radii, the bridges: faces left joining an arm to the body far from the
-   shoulder that still stretch when it lifts) and two sheets, before and after, in rows rest, arms level and
-   arms raised, columns front, side, back and the shoulders.
+   shoulder that still stretch when it lifts, and how many of their faces it hid) and two sheets,
+   before and after, in rows rest, arms level and arms raised, columns front, side, back and the
+   shoulders. With `"bridges": "hide"` in the job (the default) the bridge triangles leave the
+   index buffers, so they are not drawn; every vertex, UV and weight stays. `"keep"` leaves them.
 
 Run it headless only, never with a window, from a scratch folder:
 
@@ -94,7 +96,8 @@ blender -b --factory-startup --python-exit-code 1 --python avatar_reweight.py --
   "output": "reweighted.glb",
   "report": "report.json",
   "sheets": { "before": "sheet_before.png", "after": "sheet_after.png" },
-  "bones": { "hips": "mixamorig:Hips", "leftUpperArm": "mixamorig:LeftArm" }
+  "bones": { "hips": "mixamorig:Hips", "leftUpperArm": "mixamorig:LeftArm" },
+  "bridges": "hide"
 }
 ```
 

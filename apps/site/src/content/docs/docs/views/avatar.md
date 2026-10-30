@@ -33,6 +33,13 @@ A cape, a long coat or hair often carries weight from the arm bones, so lifting 
 
 It makes two sheets, before and after, each with the model at rest, the arms level and the arms raised, seen from the front, the side, the back and close on the shoulders. On the after sheet a cape or hair should hang still while the arms lift, and the sleeves should follow the arms without pinching at the shoulder. Cloth sewn to a sleeve (one piece of mesh from the cuff to the hem) cannot be cut there: it still stretches between the arm and the body, softer than before.
 
+Some generated meshes fuse a few faces between a sleeve and the hip, where the sleeve rested on it (a cuff joined to a strap on the shorts). No weights keep those faces from stretching into a dark strand when the arm lifts, so the summary names them as faces joining the arm to the body. **Faces fused to the body** decides what happens to them:
+
+- **Hide** (the default) takes only those faces out of the model, so they are not drawn. Every vertex, UV, texture and weight stays where it was, and the after sheet shows the result.
+- **Keep** leaves them, stretching as the arm lifts.
+
+Changing it reweights again, and the new weights wait for your yes.
+
 - **Approve and go on** says yes to these exact weights and lifts the arms from them.
 - **Deny** keeps the model's own weights and lifts the arms as they are.
 
@@ -60,7 +67,7 @@ The yes or no is only ever given here. An agent's build waits for it, and a card
 - **Output.** `exports/<asset>.vrm` in the project folder. A derived export: the asset gains no version, and each build replaces the file.
 - **Last export.** Its size, when it was written, the version it came from, whether the arms were freed and the rest pose normalised, the material, how much of the texture was softened as baked highlights, and what the file still lacks, ranked. **Reveal** shows it in the file manager; **Copy path** copies its full path.
 - **Round trip.** Every written file is read back at once and checked the way a VRM app would trip on it: it opens as valid glTF, it says VRM 1.0, every humanoid bone points at a node that exists and no node twice, the 15 required bones are there, each bone sits under the one VRM puts above it, the meta has a name, an author and the licence URL, `extensionsUsed` lists every extension the file uses, there are no animations, and every texture an MToon material points at is there. A pass says how many bones it read; a failure is a blocker at the top of what the file still lacks, with each problem.
-- **Report.** `exports/<asset>.vrm.report.json`, written beside the file by every build: the source version and the SHA-256 of its model, when it was written, the material, elbows and fingers modes, what the reweight moved when one was applied, the readiness before (the source) and after (the written file) with every finding, what the file still lacks, the bone map with where each bone came from (`convention`, the naming most joints use; `auto`, another naming or a descriptive guess; `override`, set by you), the meta, the writer's version, the round trip and, with MToon, `highlights`: kept or softened, and per base color texture its size, the share of its pixels that are baked highlights (`coverage`, and `darkCoverage` within its dark areas) and whether a softened copy was written or why not. **Reveal report** shows it in the file manager.
+- **Report.** `exports/<asset>.vrm.report.json`, written beside the file by every build: the source version and the SHA-256 of its model, when it was written, the material, elbows and fingers modes, what the reweight moved when one was applied (with the faces fused to the body it found and how many it hid), the readiness before (the source) and after (the written file) with every finding, what the file still lacks, the bone map with where each bone came from (`convention`, the naming most joints use; `auto`, another naming or a descriptive guess; `override`, set by you), the meta, the writer's version, the round trip and, with MToon, `highlights`: kept or softened, and per base color texture its size, the share of its pixels that are baked highlights (`coverage`, and `darkCoverage` within its dark areas) and whether a softened copy was written or why not. **Reveal report** shows it in the file manager.
 
 A model already in VRM's rest pose is written straight away, without Blender.
 

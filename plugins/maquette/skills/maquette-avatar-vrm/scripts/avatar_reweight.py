@@ -15,10 +15,12 @@ against the job file's folder:
 
     {"input": "/abs/model.glb", "output": "reweighted.glb", "report": "report.json",
      "sheets": {"before": "sheet_before.png", "after": "sheet_after.png"},
-     "bones": {"hips": "mixamorig:Hips", "leftUpperArm": "mixamorig:LeftArm", ...}}
+     "bones": {"hips": "mixamorig:Hips", "leftUpperArm": "mixamorig:LeftArm", ...},
+     "bridges": "hide"}
 
 Only the bytes of the JOINTS_0 and WEIGHTS_0 accessors change (JOINTS_1 and WEIGHTS_1 are
-cleared when present): the mesh, UVs, textures, bone names and the rest pose stay byte for byte.
+cleared when present): the mesh, UVs, textures, bone names and the rest pose stay byte for byte,
+unless bridges are hidden (below).
 Everything is read in each skin's bind space (vertex positions as stored, each joint where its
 inverse bind matrix puts it) and measured against the model's own height, so the scale of the
 export does not matter. The arm chain of a side is its upper arm joint and every joint below it.
@@ -64,11 +66,16 @@ of the four influences. At most 4 influences per vertex are kept and they sum to
 left without weight.
 
 Faces that join a part following the arm to a part staying with the body still stretch when the
-arm lifts, whatever the weights: those bridges are counted and named in the report.
+arm lifts, whatever the weights: those bridges are counted and named in the report. With
+"bridges": "hide" (the default) their triangles are taken out of the index buffer, so they are
+not drawn: the kept indices move to the front of the accessor and its count shrinks, and every
+vertex, UV, texture and weight stays where it was. A primitive whose indices another primitive
+shares, or that has none or draws strips or fans, keeps its faces. "keep" leaves every face.
 
 The report holds the counts: vertices changed, the weight moved, from which arm bones and to
 which trunk bones, the arm vertices kept as sleeve, the band, the arm vertices that let go of
-body weight, the bridges (side, faces, middle and stretched length), and the limb radii. The two sheets
+body weight, the bridges (side, faces, middle and stretched length), the bridge faces hidden,
+and the limb radii. The two sheets
 show the model before and after, turned to face the camera, in rows rest, arms level (the
 T-pose) and arms raised, and columns front, side, back and a close look at the shoulders.
 """
@@ -203,6 +210,30 @@ class Glb:
             out[...] = np.rint(values).astype(dtype)
 
 
+    def shrink(self, index, values):
+        """Writes `values` (unsigned integers) over the start of an index accessor and makes it
+        that many long; the bytes past them stay as they were and nothing else moves."""
+        acc, dtype, width, offset, stride = self.view(index)
+        if width != 1 or stride != dtype.itemsize or len(values) > acc["count"]:
+            raise Refused("an index accessor is not a plain list")
+        out = np.ndarray((len(values),), dtype, self.data, offset)
+        out[...] = values.astype(dtype)
+        acc["count"] = int(len(values))
+        if "min" in acc:
+            acc["min"] = [int(values.min())] if len(values) else [0]
+        if "max" in acc:
+            acc["max"] = [int(values.max())] if len(values) else [0]
+
+    def bytes(self):
+        """The file with this JSON, and the binary chunk as it is."""
+        text = json.dumps(self.json, separators=(",", ":")).encode()
+        text += b" " * (-len(text) % 4)
+        old = struct.unpack("<I", self.data[12:16])[0]
+        rest = bytes(self.data[20 + old:])
+        head = struct.pack("<4sII", b"glTF", 2, 20 + len(text) + len(rest))
+        return head + struct.pack("<I4s", len(text), b"JSON") + text + rest
+
+
 def quantise(weights, top):
     """Rounds rows of weights to integers that still sum to `top`."""
     scaled = weights * top
@@ -272,6 +303,8 @@ class Skin:
                 p = parent[p]
             self.parent.append(position.get(p, -1))
         self.prims = []
+        # Per primitive, where its triangles start in `tris` and how many there are.
+        self.tri_ranges = []
         pos, joints, weights, tris = [], [], [], []
         start = 0
         for prim in prims:
@@ -294,6 +327,7 @@ class Skin:
             else:
                 t = np.zeros((0, 3), np.int64)
             self.prims.append((prim, sets, start, len(p)))
+            self.tri_ranges.append((sum(len(x) for x in tris), len(t)))
             pos.append(p)
             joints.append(j)
             weights.append(w)
@@ -359,6 +393,32 @@ def skins_of(glb):
     return [Skin(glb, s, prims, worlds, parent) for s, prims in sorted(by_skin.items())]
 
 
+def hide_faces(glb, skin, faces):
+    """Takes the skin's triangles `faces` (indices into skin.tris) out of their primitives' index
+    buffers. Returns how many were hidden; a primitive drawn without indices, as strips or fans,
+    or whose indices another primitive shares keeps its faces."""
+    shared = {}
+    for mesh in glb.json.get("meshes", []):
+        for prim in mesh["primitives"]:
+            if "indices" in prim:
+                shared[prim["indices"]] = shared.get(prim["indices"], 0) + 1
+    faces = np.unique(np.asarray(faces, np.int64))
+    hidden = 0
+    for (prim, _, start, _), (first, count) in zip(skin.prims, skin.tri_ranges):
+        mine = faces[(faces >= first) & (faces < first + count)] - first
+        if len(mine) == 0 or prim.get("mode", 4) != 4 or "indices" not in prim:
+            continue
+        if shared[prim["indices"]] > 1:
+            continue
+        idx = glb.read(prim["indices"]).astype(np.int64).ravel()
+        tris = idx[: len(idx) // 3 * 3].reshape(-1, 3)
+        keep = np.ones(len(tris), bool)
+        keep[mine] = False
+        glb.shrink(prim["indices"], tris[keep].ravel())
+        hidden += int(len(mine))
+    return hidden
+
+
 # Geometry helpers.
 
 
@@ -389,7 +449,10 @@ class Welded:
         self.pos = np.zeros((self.n, 3))
         self.pos[self.of] = pos
         t = self.of[tris]
-        t = t[(t[:, 0] != t[:, 1]) & (t[:, 1] != t[:, 2]) & (t[:, 2] != t[:, 0])]
+        whole = (t[:, 0] != t[:, 1]) & (t[:, 1] != t[:, 2]) & (t[:, 2] != t[:, 0])
+        # Each welded face's triangle in the skin's own list.
+        self.source = np.nonzero(whole)[0]
+        t = t[whole]
         self.tris = t
         pairs = np.sort(np.stack([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]], 1), 2)
         flat = pairs.reshape(-1, 2)
@@ -905,8 +968,8 @@ def bridges_of(mesh, pos, lift, follows, shoulders, h):
     hip). Each vertex is moved by the share of its weight on each arm; faces stretched past
     STRETCHED form patches, and a patch is a bridge when it lies further than BRIDGE_FROM from
     the shoulder and stretches longer than BRIDGE_LONG (the armpit stretching is the lift
-    itself). Returns them largest first, each with its side, face count, middle (bind space)
-    and length (the longest stretched edge once lifted), in metres."""
+    itself). Returns them largest first, each with its side, face count, middle (bind space),
+    length (the longest stretched edge once lifted, in metres) and its triangles in the skin."""
     moved = pos.copy()
     for side in SIDES:
         moved += follows[side][:, None] * (lift[side] - pos)
@@ -938,6 +1001,7 @@ def bridges_of(mesh, pos, lift, follows, shoulders, h):
             "faces": int(len(mine)),
             "at": [round(float(x), 3) for x in at],
             "length": round(length, 3),
+            "tris": mesh.source[mine],
         })
     return sorted(out, key=lambda p: -p["faces"])
 
@@ -1158,7 +1222,7 @@ def reweight_skin(skin, bones):
                         for s in SIDES)),
         "followArm": int(followed.sum()),
         "bridgeFaces": int(sum(p["faces"] for p in bridges)),
-        "bridges": bridges[:BRIDGES_LISTED],
+        "bridges": [{k: v for k, v in p.items() if k != "tris"} for p in bridges[:BRIDGES_LISTED]],
         "fromBones": dict(sorted(from_bone.items(), key=lambda kv: -kv[1])),
         "toBones": dict(sorted(to_bone.items(), key=lambda kv: -kv[1])),
         "sides": {
@@ -1172,6 +1236,7 @@ def reweight_skin(skin, bones):
         },
     }
     debug = {"members": members, "keep": keep, "info": info, "armWeight": arm_weight,
+             "bridgeTris": np.concatenate([p["tris"] for p in bridges] or [np.zeros(0, np.int64)]),
              "moved": moved}
     return out_j, out_w, changed, stats, debug
 
@@ -1187,9 +1252,9 @@ def weight_checks(joints, weights):
     }
 
 
-def reweight(data, bones):
-    """Reweights the model in `data` (GLB bytes); returns the new bytes, the report and what
-    each skin decided (for a look)."""
+def reweight(data, bones, hide=True):
+    """Reweights the model in `data` (GLB bytes), hiding the bridge faces when `hide`; returns
+    the new bytes, the report and what each skin decided (for a look)."""
     glb = Glb(bytes(data))
     skins = skins_of(glb)
     if not skins:
@@ -1205,17 +1270,29 @@ def reweight(data, bones):
             continue
         skin.store(glb, joints, weights, rows)
         stats["weights"] = weight_checks(joints, weights)
+        stats["hiddenFaces"] = hide_faces(glb, skin, debug["bridgeTris"]) if hide else 0
         report = stats if report is None else merge_reports(report, stats)
         decided.append((skin, debug))
     if report is None:
         raise Refused("no skin carries the mapped arm bones")
-    return bytes(glb.data), report, decided
+    out = glb.bytes() if report["hiddenFaces"] else bytes(glb.data)
+    return out, report, decided
 
 
 def merge_reports(a, b):
     out = dict(a)
-    for key in ("vertices", "armWeighted", "moved", "keptAsSleeve", "band"):
+    for key in ("vertices", "armWeighted", "moved", "keptAsSleeve", "band", "followArm",
+                "bridgeFaces", "hiddenFaces"):
         out[key] = a[key] + b[key]
+    out["bridges"] = sorted(a["bridges"] + b["bridges"], key=lambda p: -p["faces"])[:BRIDGES_LISTED]
+    out["sides"] = {
+        side: {
+            **a["sides"][side],
+            **{k: a["sides"][side][k] + b["sides"][side][k]
+               for k in ("moved", "keptAsSleeve", "bridgeFaces")},
+        }
+        for side in SIDES
+    }
     out["weightMoved"] = round(a["weightMoved"] + b["weightMoved"], 3)
     for key in ("fromBones", "toBones"):
         merged = dict(a[key])
@@ -1445,13 +1522,15 @@ def main():
     with open(job["input"], "rb") as fh:
         data = fh.read()
     try:
-        out, report, _ = reweight(data, job["bones"])
+        out, report, _ = reweight(data, job["bones"], job.get("bridges", "hide") == "hide")
     except Refused as e:
         fail(str(e))
     with open(job["output"], "wb") as fh:
         fh.write(out)
     log(f"{report['moved']} vertices moved weight off the arms, "
         f"{report['keptAsSleeve']} kept as sleeve")
+    if report["hiddenFaces"]:
+        log(f"{report['hiddenFaces']} bridge faces hidden")
     if job["sheets"]:
         try:
             import bpy  # noqa: F401

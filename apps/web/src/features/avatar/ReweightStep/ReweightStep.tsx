@@ -1,7 +1,7 @@
-import { Button, Icon, InlineBanner } from '@maquette/ui';
+import { Button, Icon, InlineBanner, SegmentedControl } from '@maquette/ui';
 import { SheetButton } from '../SheetButton';
 import { SheetZoom } from '../SheetZoom';
-import { useReweightStep } from './ReweightStep.hooks';
+import { BRIDGES, useReweightStep } from './ReweightStep.hooks';
 
 const POSES = ['At rest', 'Arms level', 'Arms raised'];
 
@@ -85,6 +85,21 @@ export default function ReweightStep() {
             </p>
           )}
           <p className="text-meta text-fg-dim">{p.summary}</p>
+          {p.showBridges ? (
+            <div className="flex flex-col gap-1.5">
+              <SegmentedControl
+                label="Faces fused to the body"
+                tone="clay"
+                options={BRIDGES}
+                value={p.bridges}
+                disabled={p.busy}
+                onChange={p.setBridges}
+              />
+              <p className="text-meta text-fg-mute">
+                {p.bridgesHint} Changing it reweights again, for a new yes.
+              </p>
+            </div>
+          ) : null}
           <div className="flex gap-4">
             <SheetButton
               src={p.sheets?.before ?? null}

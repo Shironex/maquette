@@ -3,6 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use super::*;
+use crate::avatar::BridgeFaces;
 use crate::avatar::normalize::tests::{World, tools, world};
 use crate::avatar::normalize::{self, Elbows, Fingers, NormalizeRequest};
 use crate::inbox::fixture::{self, HumanoidSpec};
@@ -15,6 +16,7 @@ fn request<'a>(w: &'a World, overrides: &'a BoneOverrides) -> ReweightRequest<'a
         asset: &w.asset,
         version: None,
         overrides,
+        bridges: BridgeFaces::Hide,
     }
 }
 
@@ -108,6 +110,8 @@ fn a_run_makes_a_pending_reweight_beside_the_rest_pose() {
     assert_eq!(job["bones"]["leftUpperArm"], "mixamorig:LeftArm");
     assert_eq!(job["input"], plan.source.display().to_string());
     assert_eq!(job["output"], OUTPUT_FILE);
+    assert_eq!(job["bridges"], "hide");
+    assert_eq!(found.bridges, BridgeFaces::Hide);
 
     // The version is only read.
     assert_eq!(fs::read(&plan.source).expect("source"), source_before);
@@ -160,6 +164,44 @@ fn normalising_lifts_the_approved_reweight_only() {
         approve(&plan.dir).is_err(),
         "changed outputs are not a result"
     );
+}
+
+#[test]
+fn keeping_the_bridges_is_another_run_and_still_lifts_once_approved() {
+    let w = world();
+    let none = BoneOverrides::new();
+    let hide = plan(&request(&w, &none)).expect("plan");
+    let keep = plan(&ReweightRequest {
+        bridges: BridgeFaces::Keep,
+        ..request(&w, &none)
+    })
+    .expect("plan");
+    assert_ne!(hide.key, keep.key);
+    let blender = FakeReweighter::good();
+    run(&blender, &tools(), &hide).expect("hide");
+    assert!(!keep.cached());
+    let kept = run(&blender, &tools(), &keep).expect("keep");
+    assert_eq!(blender.runs.get(), 2);
+    assert_eq!(
+        blender.job.borrow().as_ref().expect("job")["bridges"],
+        "keep"
+    );
+    assert_eq!(kept.bridges, BridgeFaces::Keep);
+
+    // Approved, normalising lifts it whichever the choice was.
+    approve(&keep.dir).expect("approve");
+    let lifted = normalize::plan(&NormalizeRequest {
+        workspace_root: &w.root,
+        config: &w.config,
+        project: &w.project,
+        asset: &w.asset,
+        version: None,
+        overrides: &none,
+        elbows: Elbows::Keep,
+        fingers: Fingers::Keep,
+    })
+    .expect("plan");
+    assert_eq!(lifted.source.display().to_string(), kept.glb);
 }
 
 #[test]

@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::avatar::BridgeFaces;
 use crate::avatar::normalize::{NormalizeSheets, NormalizeState};
 
 /// The skin weights after the reweight.
@@ -70,6 +71,9 @@ pub struct ReweightReport {
     pub bridge_faces: u32,
     /// The largest bridges, largest first.
     pub bridges: Vec<ReweightBridge>,
+    /// Bridge faces taken out of the model so they are not drawn; 0 when
+    /// they were kept.
+    pub hidden_faces: u32,
     /// The arm bones the weight came from, with how many vertices each.
     pub from_bones: BTreeMap<String, u32>,
     /// The trunk bones it went to, with how many vertices each.
@@ -93,6 +97,9 @@ pub struct Reweighted {
     /// the shoulders.
     pub sheets: NormalizeSheets,
     pub report: ReweightReport,
+    /// Whether the bridge faces were hidden or kept.
+    #[serde(default)]
+    pub bridges: BridgeFaces,
     /// The run's cache key; an approval holds for this key only.
     pub key: String,
     pub approved_at: Option<String>,

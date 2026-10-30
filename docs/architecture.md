@@ -633,7 +633,12 @@ uses.
   not), and moves every other vertex's arm weight to spine, chest and upperChest (and the
   shoulder above the armpit) by inverse distance, with a geodesic band at the boundary so cloth
   sewn to a sleeve stretches instead of tearing. Only `JOINTS_0` and `WEIGHTS_0` change, at most
-  4 influences; `finish` refuses an output with unweighted vertices or
+  4 influences, except that the bridges (faces fused between an arm and the body far from the
+  shoulder, which stretch whatever the weights) leave their primitives' index buffers when the
+  spec's `bridges` is `Hide` (the default): the kept indices move to the front of the accessor and
+  its count shrinks, so no vertex, UV or weight moves, and the JSON chunk is written again. The
+  choice is part of the key and recorded on `Reweighted`, whose `approved` check reads it back;
+  `finish` refuses an output with unweighted vertices or
   more influences. The result lives in `v<version>/reweight/`, keyed and cached like the
   normalise, with its own before and after sheets (rest, arms level, arms raised). Both share
   `avatar/gate.rs`: a result starts `Pending`, and a yes holds only for the output bytes it was

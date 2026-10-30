@@ -11,6 +11,7 @@ import {
   errorMessage,
   type AvatarSpec_Serialize,
   type AvatarView_Serialize,
+  type BridgeFaces,
   type Elbows,
   type Fingers,
   type Highlights,
@@ -56,6 +57,11 @@ interface AvatarStore {
   editMeta: (change: Partial<VrmMeta_Serialize>) => void;
   setMaterial: (material: AvatarSpec_Serialize['material']) => void;
   setHighlights: (highlights: Highlights) => void;
+  /**
+   * Hides or keeps the faces fused between an arm and the body, and builds
+   * again: another choice is another reweight, waiting for a yes of its own.
+   */
+  setBridges: (bridges: BridgeFaces) => Promise<void>;
   setElbows: (elbows: Elbows) => void;
   setFingers: (fingers: Fingers) => void;
   setTab: (tab: AvatarTab) => void;
@@ -158,6 +164,13 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   setHighlights: highlights => {
     const draft = get().draft;
     if (draft) set({ draft: { ...draft, highlights }, dirty: true });
+  },
+
+  setBridges: async bridges => {
+    const draft = get().draft;
+    if (!draft || (draft.bridges ?? 'hide') === bridges) return;
+    set({ draft: { ...draft, bridges }, dirty: true });
+    await get().build();
   },
 
   setElbows: elbows => set({ elbows }),

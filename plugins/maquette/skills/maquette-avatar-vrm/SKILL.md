@@ -58,7 +58,9 @@ Avatar view (`/docs/views/avatar/`).
    raised). Ask the person to check that a cape or hair hangs still as the arms lift and the
    sleeves follow, and approve in the Avatar view. Cloth sewn to a sleeve still stretches a little
    between arm and body; say so if the counts or sheets show it. `reweight.bridges` names faces
-   fused between an arm and the body far from the shoulder that still stretch.
+   fused between an arm and the body far from the shoulder that stretch whatever the weights;
+   they are taken out of the model by default (`reweight.hiddenFaces`). `set_avatar`
+   `bridges: "keep"` keeps them, and the next build reweights again for a new yes.
 6. **Lift the arms.** `build_avatar` again. A model already in VRM's rest pose is written at once.
    Otherwise Blender normalises a copy (from the approved weights, when there are any) and the
    call answers `waiting for approval` with `step: "rest pose"` and `pose.sheets`. Ask the person

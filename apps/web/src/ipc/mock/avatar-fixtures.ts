@@ -6,14 +6,17 @@
 import type {
   AvatarExport,
   AvatarSpec,
+  BridgeFaces,
   Elbows,
   Fingers,
   NormalizeReport,
   ProjectManifest,
   ReweightReport,
+  Reweighted,
   VrmFinding,
   VrmReadiness,
 } from '../client';
+import { avatarCacheDir } from './avatar-files';
 import { vrmReadiness } from './vrm-fixtures';
 
 /** `?avatar=older`: Elsheria gets a v3 over the v2 an agent's pose waits on. */
@@ -219,8 +222,12 @@ export function report(elbows: Elbows, fingers: Fingers = 'straighten'): Normali
   };
 }
 
-/** What freeing the arms moved: the cape and hair off them, the sleeves kept. */
-export function reweightReport(): ReweightReport {
+/**
+ * What freeing the arms moved: the cape and hair off them, the sleeves kept,
+ * and a strap fused from the right cuff to the hip left as a bridge, hidden
+ * unless the spec keeps it.
+ */
+export function reweightReport(bridges: BridgeFaces = 'hide'): ReweightReport {
   return {
     vertices: 48_211,
     armWeighted: 4_745,
@@ -238,11 +245,48 @@ export function reweightReport(): ReweightReport {
       'mixamorig:Spine1': 2_150,
       'mixamorig:LeftShoulder': 412,
     },
+    followArm: 640,
+    bridgeFaces: 17,
+    bridges: [{ side: 'right', faces: 17, at: [0.105, 0.981, 0.08], length: 0.481 }],
+    hiddenFaces: bridges === 'hide' ? 17 : 0,
     weights: { vertices: 48_211, maxInfluences: 4, unweighted: 0, offSum: 0 },
     sides: {
-      left: { moved: 1_602, keptAsSleeve: 1_296, limbRadius: [0.05, 0.014, 0.012] },
-      right: { moved: 712, keptAsSleeve: 1_114, limbRadius: [0.05, 0.015, 0.012] },
+      left: {
+        moved: 1_602,
+        keptAsSleeve: 1_296,
+        limbRadius: [0.05, 0.014, 0.012],
+        bridgeFaces: 0,
+      },
+      right: {
+        moved: 712,
+        keptAsSleeve: 1_114,
+        limbRadius: [0.05, 0.015, 0.012],
+        bridgeFaces: 17,
+      },
     },
+  };
+}
+
+/** A pending reweight of `version`, with the bridges hidden or kept. */
+export function freeArms(
+  root: string,
+  p: string,
+  a: string,
+  version: number,
+  bridges: BridgeFaces = 'hide'
+): Reweighted {
+  const dir = `${avatarCacheDir(root, p, a)}/reweight`;
+  return {
+    project: p,
+    asset: a,
+    sourceVersion: version,
+    state: 'pending',
+    glb: `${dir}/reweighted.glb`,
+    sheets: { before: `${dir}/sheet_before.webp`, after: `${dir}/sheet_after.webp` },
+    report: reweightReport(bridges),
+    bridges,
+    key: `v${version}-reweight-${bridges}`,
+    approvedAt: null,
   };
 }
 

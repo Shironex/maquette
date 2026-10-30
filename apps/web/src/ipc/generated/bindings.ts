@@ -1223,6 +1223,8 @@ export type AvatarSpec_Deserialize = {
 	material?: MaterialMode,
 	/**  Only read with MToon: PBR shades the texture as it is. */
 	highlights?: Highlights,
+	/**  Only read when the arms are freed of cloth and hair first. */
+	bridges?: BridgeFaces,
 	/**  The confirmed springs, in the order they were confirmed. */
 	springs?: SpringSpec[],
 };
@@ -1238,6 +1240,8 @@ export type AvatarSpec_Serialize = {
 	material: MaterialMode,
 	/**  Only read with MToon: PBR shades the texture as it is. */
 	highlights: Highlights,
+	/**  Only read when the arms are freed of cloth and hair first. */
+	bridges: BridgeFaces,
 	/**  The confirmed springs, in the order they were confirmed. */
 	springs?: SpringSpec[],
 };
@@ -1552,6 +1556,20 @@ export type Bootstrap = {
 	 */
 	workspaceInUse: WorkspaceInUse | null,
 };
+
+/**
+ *  What the reweight does with its bridges: faces fused between a part
+ *  that follows an arm and a part that stays with the body (a sleeve sewn
+ *  to the hip), which stretch when the arm lifts whatever the weights.
+ */
+export type BridgeFaces = 
+/**
+ *  Take those faces out of the reweighted model, so they are not
+ *  drawn. Every vertex, UV, texture and weight stays.
+ */
+"hide" | 
+/**  Keep them, stretching as the arm lifts. */
+"keep";
 
 /**  One model against its folder's budget. */
 export type BudgetCheck = {
@@ -4753,6 +4771,11 @@ export type ReweightReport = {
 	bridgeFaces?: number,
 	/**  The largest bridges, largest first. */
 	bridges?: ReweightBridge[],
+	/**
+	 *  Bridge faces taken out of the model so they are not drawn; 0 when
+	 *  they were kept.
+	 */
+	hiddenFaces?: number,
 	/**  The arm bones the weight came from, with how many vertices each. */
 	fromBones?: { [key in string]: number },
 	/**  The trunk bones it went to, with how many vertices each. */
@@ -4789,6 +4812,8 @@ export type Reweighted = {
 	 */
 	sheets: NormalizeSheets,
 	report: ReweightReport,
+	/**  Whether the bridge faces were hidden or kept. */
+	bridges?: BridgeFaces,
 	/**  The run's cache key; an approval holds for this key only. */
 	key: string,
 	approvedAt: string | null,

@@ -12,6 +12,7 @@
 //!       "bones": { "leftEye": "Eye_L", "jaw": null },
 //!       "material": "mtoon-soft",
 //!       "highlights": "soften",
+//!       "bridges": "hide",
 //!       "springs": []
 //!     }
 //!   }
@@ -60,6 +61,20 @@ pub enum Highlights {
     Keep,
 }
 
+/// What the reweight does with its bridges: faces fused between a part
+/// that follows an arm and a part that stays with the body (a sleeve sewn
+/// to the hip), which stretch when the arm lifts whatever the weights.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum BridgeFaces {
+    /// Take those faces out of the reweighted model, so they are not
+    /// drawn. Every vertex, UV, texture and weight stays.
+    #[default]
+    Hide,
+    /// Keep them, stretching as the arm lifts.
+    Keep,
+}
+
 /// One character asset's avatar.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", default)]
@@ -71,6 +86,8 @@ pub struct AvatarSpec {
     pub material: MaterialMode,
     /// Only read with MToon: PBR shades the texture as it is.
     pub highlights: Highlights,
+    /// Only read when the arms are freed of cloth and hair first.
+    pub bridges: BridgeFaces,
     /// The confirmed springs, in the order they were confirmed.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub springs: Vec<SpringSpec>,

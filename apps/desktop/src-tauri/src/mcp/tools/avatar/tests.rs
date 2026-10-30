@@ -1,14 +1,14 @@
 use std::path::Path;
 
-use maquette_core::avatar::Highlights;
 use maquette_core::avatar::export::AvatarExport;
 use maquette_core::avatar::export::SpringsView;
 use maquette_core::avatar::highlights::{HighlightsReport, ImageHighlights};
 use maquette_core::avatar::normalize::{NormalizeReport, NormalizeSheets, NormalizeState};
-use maquette_core::avatar::reweight::ReweightReport;
+use maquette_core::avatar::reweight::{ReweightBridge, ReweightReport};
 use maquette_core::avatar::springs::{
     ChainBuilt, ChainReport, Chained, FoundSprings, SpringCandidate,
 };
+use maquette_core::avatar::{BridgeFaces, Highlights};
 use maquette_core::inbox::fixture::{self, HumanoidSpec};
 use maquette_core::inbox::vrm::{self, BoneOverrides, MaterialMode, RoundTrip};
 use maquette_core::inbox::vrm::{SpringKind, SpringPreset};
@@ -58,8 +58,17 @@ fn freed() -> Reweighted {
         report: ReweightReport {
             moved: 2314,
             kept_as_sleeve: 2410,
+            bridge_faces: 17,
+            bridges: vec![ReweightBridge {
+                side: "right".into(),
+                faces: 17,
+                at: [0.1, 0.98, 0.08],
+                length: 0.48,
+            }],
+            hidden_faces: 17,
             ..ReweightReport::default()
         },
+        bridges: BridgeFaces::Hide,
         key: "r".into(),
         approved_at: None,
     }
@@ -143,6 +152,9 @@ fn a_waiting_reweight_asks_a_person_apart_from_the_rest_pose() {
     assert_eq!(first["status"], WAITING);
     assert_eq!(first["step"], "reweight");
     assert_eq!(first["reweight"]["moved"], 2314);
+    assert_eq!(first["reweight"]["bridgeFaces"], "hide");
+    assert_eq!(first["reweight"]["hiddenFaces"], 17);
+    assert_eq!(first["reweight"]["bridges"][0]["side"], "right");
     assert_eq!(
         first["reweight"]["sheets"]["after"],
         "/cache/avatar/pets/hero/v2/reweight/sheet_after.png"
