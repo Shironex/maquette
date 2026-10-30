@@ -9,6 +9,7 @@ add_to_library
 assemble_prop
 attach_download
 bake_back
+build_avatar
 cancel_concept_jobs
 cancel_provider_jobs
 cancel_run
@@ -17,6 +18,7 @@ compare_versions
 copy_asset
 discard_inbox_model
 dismiss_download
+get_avatar
 get_bake_settings
 get_codex_usage
 get_concepts
@@ -71,6 +73,7 @@ save_model_clips
 scan_game_models
 send_batch_to_3d
 send_to_3d
+set_avatar
 set_bake_settings
 set_compression_presets
 set_game_settings

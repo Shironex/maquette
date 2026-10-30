@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 94 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 97 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -37,6 +37,7 @@ These look at the workspace and change nothing.
 | `get_real_size`                               | An asset's real size and fix-ups, what its model measures, and the defaults new fix-ups start from                                                                                                                                                                                                                                                                     | Nothing | No       |
 | `list_fixups`                                 | An asset's fix-ups in the order they apply, with the last preview's numbers                                                                                                                                                                                                                                                                                            | Nothing | No       |
 | [`get_material_tweaks`](#get_material_tweaks) | An asset's material names, tweaks and per map group codecs, with raw and shipped size                                                                                                                                                                                                                                                                                  | Nothing | No       |
+| [`get_avatar`](#get_avatar)                   | A character asset's VRM avatar: its readiness (bone map, rest pose measures, findings), the meta, bone overrides and material mode, the last normalised rest pose with its sheets and state, and the last export                                                                                                                                                       | Nothing | No       |
 | `get_bake_settings`                           | Lightmap size, samples, denoiser, whether `bake_light.py` can denoise, and the assets that skip the bake                                                                                                                                                                                                                                                               | Nothing | No       |
 | `get_starters`                                | Each starter script in `tools/` as current, outdated, edited or missing                                                                                                                                                                                                                                                                                                | Nothing | No       |
 | `get_layout`                                  | Where each model stands, the camera stops, the desk, the first view, object states, explode tracks, paths and clips kept off the site                                                                                                                                                                                                                                  | Nothing | No       |
@@ -63,6 +64,7 @@ These look at the workspace and change nothing.
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------- |
 | [`set_compression_presets`](#set_compression_presets) | Changes the per model texture size, data map size, codec and meshopt level                                                                                                                            | Nothing | No       |
 | [`set_material_tweaks`](#set_material_tweaks)         | Changes an asset's tint, roughness, metalness, emissive strength and map codecs                                                                                                                       | Nothing | No       |
+| [`set_avatar`](#set_avatar)                           | Changes a character asset's VRM meta, bone map overrides and material mode                                                                                                                            | Nothing | No       |
 | [`set_ship_settings`](#set_ship_settings)             | Changes a website's Ship style, texture format, quality, per asset choice and file name, and the site folders                                                                                         | Nothing | No       |
 | `set_bake_settings`                                   | Changes the lightmap size (256 to 4096), samples (1 to 4096) and denoise                                                                                                                              | Nothing | No       |
 | `set_skip_bake`                                       | Sets one or more assets to skip the bake, or join it again                                                                                                                                            | Nothing | No       |
@@ -108,20 +110,21 @@ These look at the workspace and change nothing.
 
 ## Spends credits, Codex usage or dollars, or needs approval
 
-| Tool                                          | What it does                                                                                                                                                                                                                          | Spends                                                          | Approval                                                                  |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [`run_pipeline`](#run_pipeline)               | Runs a project's pipeline, optionally from a step or build only                                                                                                                                                                       | Nothing                                                         | At the Ship step, when Ask before shipping is on or the project is a game |
-| [`send_to_3d`](#send_to_3d)                   | Sends an asset's refs to Tripo or Meshy, or writes a By hand folder                                                                                                                                                                   | Credits for Tripo and Meshy. By hand spends nothing             | Always, for Tripo and Meshy                                               |
-| `send_batch_to_3d`                            | Sends up to 24 assets at once with the same provider, with each asset's weak ref warnings and a modelWarning when it has a model                                                                                                      | Credits for Tripo and Meshy                                     | One approval for the whole batch                                          |
-| `redo_inbox_model`                            | Sends an inbox model's asset again, prefilled from its send                                                                                                                                                                           | Credits for Tripo and Meshy                                     | Always, for Tripo and Meshy                                               |
-| `redo_inbox_models`                           | Redoes several inbox models from one project as one batch                                                                                                                                                                             | Credits for Tripo and Meshy                                     | One approval for the whole batch                                          |
-| [`split_with_provider`](#split_with_provider) | Splits an asset's model into parts on Tripo (segmentation) or Meshy (Auto Split)                                                                                                                                                      | Credits for Tripo and Meshy                                     | Always                                                                    |
-| `start_concepts`                              | Starts concept image jobs in the Lab, with the project style unless `useStyle` is false. `backend` picks Codex or OpenAI Images for this request                                                                                      | Codex usage, or dollars on OpenAI Images within the monthly cap | OpenAI Images only, when an agent asks                                    |
-| `make_object_refs`                            | Makes one isolated image per object of a concept, with the project style unless `useStyle` is false. `backend` picks Codex or OpenAI Images for this request                                                                          | Codex usage, or dollars on OpenAI Images within the monthly cap | OpenAI Images only, when an agent asks                                    |
-| `make_other_views`                            | Draws an asset's missing views (or the named ones) from its front ref, 1 to 4 candidates each, with the project style unless `useStyle` is false and `notes` in every prompt. `backend` picks Codex or OpenAI Images for this request | Codex usage, or dollars on OpenAI Images within the monthly cap | OpenAI Images only, when an agent asks                                    |
-| `clean_ref_background`                        | Makes a copy of one ref with the object kept and the clutter cleared, on studio grey or transparent. `backend` picks Codex or OpenAI Images for this request                                                                          | Codex usage, or dollars on OpenAI Images within the monthly cap | OpenAI Images only, when an agent asks                                    |
-| `retry_concept_jobs`                          | Runs failed or cancelled Lab jobs again, including jobs the app closed on. `include: "held"` or `"all"` runs the jobs waiting out a rate or usage limit now too                                                                       | Codex usage, or dollars on OpenAI Images within the monthly cap | OpenAI Images only, when an agent asks                                    |
-| `retry_usage_limited_jobs`                    | Runs the Lab jobs waiting for the Codex usage limit now, but only when a fresh read says the limit has lifted; otherwise says until when it holds                                                                                     | Codex usage                                                     | No                                                                        |
+| Tool                                          | What it does                                                                                                                                                                                                                          | Spends                                                          | Approval                                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [`run_pipeline`](#run_pipeline)               | Runs a project's pipeline, optionally from a step or build only                                                                                                                                                                       | Nothing                                                         | At the Ship step, when Ask before shipping is on or the project is a game                    |
+| [`send_to_3d`](#send_to_3d)                   | Sends an asset's refs to Tripo or Meshy, or writes a By hand folder                                                                                                                                                                   | Credits for Tripo and Meshy. By hand spends nothing             | Always, for Tripo and Meshy                                                                  |
+| `send_batch_to_3d`                            | Sends up to 24 assets at once with the same provider, with each asset's weak ref warnings and a modelWarning when it has a model                                                                                                      | Credits for Tripo and Meshy                                     | One approval for the whole batch                                                             |
+| `redo_inbox_model`                            | Sends an inbox model's asset again, prefilled from its send                                                                                                                                                                           | Credits for Tripo and Meshy                                     | Always, for Tripo and Meshy                                                                  |
+| `redo_inbox_models`                           | Redoes several inbox models from one project as one batch                                                                                                                                                                             | Credits for Tripo and Meshy                                     | One approval for the whole batch                                                             |
+| [`split_with_provider`](#split_with_provider) | Splits an asset's model into parts on Tripo (segmentation) or Meshy (Auto Split)                                                                                                                                                      | Credits for Tripo and Meshy                                     | Always                                                                                       |
+| [`build_avatar`](#build_avatar)               | Builds a character asset's VRM 1.0 avatar into the project's `exports/<asset>.vrm`, normalising its rest pose headless first when it needs it                                                                                         | Nothing                                                         | When the rest pose changes: a person approves the before and after sheets in the Avatar view |
+| `start_concepts`                              | Starts concept image jobs in the Lab, with the project style unless `useStyle` is false. `backend` picks Codex or OpenAI Images for this request                                                                                      | Codex usage, or dollars on OpenAI Images within the monthly cap | OpenAI Images only, when an agent asks                                                       |
+| `make_object_refs`                            | Makes one isolated image per object of a concept, with the project style unless `useStyle` is false. `backend` picks Codex or OpenAI Images for this request                                                                          | Codex usage, or dollars on OpenAI Images within the monthly cap | OpenAI Images only, when an agent asks                                                       |
+| `make_other_views`                            | Draws an asset's missing views (or the named ones) from its front ref, 1 to 4 candidates each, with the project style unless `useStyle` is false and `notes` in every prompt. `backend` picks Codex or OpenAI Images for this request | Codex usage, or dollars on OpenAI Images within the monthly cap | OpenAI Images only, when an agent asks                                                       |
+| `clean_ref_background`                        | Makes a copy of one ref with the object kept and the clutter cleared, on studio grey or transparent. `backend` picks Codex or OpenAI Images for this request                                                                          | Codex usage, or dollars on OpenAI Images within the monthly cap | OpenAI Images only, when an agent asks                                                       |
+| `retry_concept_jobs`                          | Runs failed or cancelled Lab jobs again, including jobs the app closed on. `include: "held"` or `"all"` runs the jobs waiting out a rate or usage limit now too                                                                       | Codex usage, or dollars on OpenAI Images within the monthly cap | OpenAI Images only, when an agent asks                                                       |
+| `retry_usage_limited_jobs`                    | Runs the Lab jobs waiting for the Codex usage limit now, but only when a fresh read says the limit has lifted; otherwise says until when it holds                                                                                     | Codex usage                                                     | No                                                                                           |
 
 ## The main tools
 
@@ -287,6 +290,59 @@ Changes an asset's material tweaks and codecs, as the Inspector's Material panel
 | `codecs`    | object  | no       | `color`, `normal` and `other`, each `etc1s`, `uastc` or `null`.                    |
 
 A tweak takes `tint` (`"#rrggbb"`, multiplied into the base color), `roughness` (`{ "mode": "override" | "multiply", "value": 0.4 }`), `metalness` (0 to 1) and `emissiveStrength` (0 to 50). Overriding roughness or metalness drops the model's metal and roughness map.
+
+### get_avatar
+
+`read only`
+
+Reads a character asset's VRM avatar, as the [Avatar view](/docs/views/avatar/) shows it: the VRM readiness of the version (the 55 humanoid bones with the joint each maps to, the 15 required, the rest pose measures and the findings, blockers first), the spec (the VRM meta, the bone map overrides and the material mode, taken from Settings > Avatar defaults until it is first saved), whether the rest pose needs normalising, the last normalised rest pose with its before and after sheets and its state (`pending`, `approved` or `denied`), the last export and `waitingApproval`.
+
+| Parameter | Type   | Required | Notes                                      |
+| --------- | ------ | -------- | ------------------------------------------ |
+| `project` | string | yes      | The project id.                            |
+| `asset`   | string | yes      | The asset id or name.                      |
+| `version` | number | no       | The version to read; the newest otherwise. |
+
+### set_avatar
+
+`changes the project`
+
+Changes a character asset's avatar spec in the project's `avatar.json`, as the Avatar view's form does. Only what you give changes.
+
+| Parameter    | Type    | Required | Notes                                                                                                                                        |
+| ------------ | ------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project`    | string  | yes      | The project id.                                                                                                                              |
+| `asset`      | string  | yes      | The asset id or name.                                                                                                                        |
+| `reset`      | boolean | no       | Start again from the workspace's avatar defaults first.                                                                                      |
+| `meta`       | object  | no       | VRM 1.0 meta fields by name (`name`, `authors`, `commercialUsage`, `allowRedistribution` and the rest); `null` puts one back to its default. |
+| `bones`      | object  | no       | A VRM bone name to the joint it maps to, or `null` to leave the bone unmapped.                                                               |
+| `clearBones` | array   | no       | Bones whose override is dropped, so they map by name again.                                                                                  |
+| `material`   | string  | no       | `mtoon-soft` (toon shading from the base color, no outline) or `pbr`.                                                                        |
+
+A build needs a name and at least one author. The licence URL is always VRM's own; put another licence in `otherLicenseUrl`.
+
+```json
+{
+  "project": "pets",
+  "asset": "hero",
+  "meta": { "authors": ["Me"], "commercialUsage": "personalProfit" },
+  "material": "mtoon-soft"
+}
+```
+
+### build_avatar
+
+`needs approval when the rest pose changes`
+
+Builds a character asset's VRM 1.0 avatar into the project's `exports/<asset>.vrm`, over the last one. It is a derived export: the asset gets no new version. When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), Blender first normalises it headless on a copy and draws before and after pose sheets. A changed rest pose needs a person's yes, so the call answers `waiting for approval` with the sheet paths and the app shows the request; a person approves or denies it in the Avatar view. No tool approves it. Call `get_avatar` or `build_avatar` again later: the normalised result is cached, so Blender does not run again, and once approved the call writes the file and answers `written` with its path, size and what it still lacks. `denied` means the person turned the pose down; build again with other options once they say what to change.
+
+| Parameter | Type    | Required | Notes                                                                                      |
+| --------- | ------- | -------- | ------------------------------------------------------------------------------------------ |
+| `project` | string  | yes      | The project id.                                                                            |
+| `asset`   | string  | yes      | The asset id or name.                                                                      |
+| `version` | number  | no       | The version to build from; the newest otherwise.                                           |
+| `dryRun`  | boolean | no       | Return the plan: what it reads, whether it normalises, what is cached and where it writes. |
+| `elbows`  | string  | no       | `straighten` (the default) levels the lower arms too; `keep` leaves bent elbows bent.      |
 
 ### get_ship_settings
 
