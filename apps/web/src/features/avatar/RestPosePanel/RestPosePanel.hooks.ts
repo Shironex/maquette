@@ -11,6 +11,8 @@ export function useRestPosePanel() {
   const view = useAvatarStore(s => s.view);
   const elbows = useAvatarStore(s => s.elbows);
   const setElbows = useAvatarStore(s => s.setElbows);
+  const fingers = useAvatarStore(s => s.fingers);
+  const setFingers = useAvatarStore(s => s.setFingers);
   const deciding = useAvatarStore(s => s.deciding);
   const building = useAvatarStore(s => s.building);
   const decide = useAvatarStore(s => s.decide);
@@ -31,6 +33,8 @@ export function useRestPosePanel() {
     findingsAfter: n?.readiness.findings.filter(f => f.level !== 'note') ?? [],
     elbows,
     setElbows,
+    fingers,
+    setFingers,
     busy: deciding || building,
     deciding,
     approve: () => void decide(true),

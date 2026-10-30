@@ -5,6 +5,7 @@
 import type {
   AvatarExport,
   Elbows,
+  Fingers,
   NormalizeReport,
   ProjectManifest,
   ReweightReport,
@@ -79,6 +80,27 @@ const ARM_WEIGHTS: VrmFinding = {
     'gloves and moves the rest to the trunk, for a person to approve on before and after sheets.',
 };
 
+/** What the reweight left on the arms, once a person approved it. */
+const ARM_WEIGHTS_LEFT: VrmFinding = {
+  id: 'arm-weights',
+  level: 'note',
+  title: '64 vertices still follow the arms after the reweight, cloth sewn to the sleeves',
+  detail:
+    'The reweight freed the arms and kept these on leftUpperArm (40) and rightUpperArm (24) ' +
+    'as sleeve: they sit beside the arm but join it, so they stretch with it instead of tearing.',
+};
+
+const FINGERS_CURLED: VrmFinding = {
+  id: 'fingers',
+  level: 'warning',
+  title: 'Fingers curl up to 64 degrees, VRM wants them straight',
+  detail:
+    "Most at leftRing (64), rightRing (62) and leftLittle (58). VRM's rest pose lays the four " +
+    'fingers straight along the hand and the thumb 45 degrees between the hand and the front, ' +
+    "and animations retarget onto that. Normalising the rest pose straightens them as far as the hand's " +
+    'mesh holds; fused fingers keep some curl.',
+};
+
 const NOTES: VrmFinding[] = [
   {
     id: 'bones',
@@ -115,6 +137,7 @@ export function posedReadiness(): VrmReadiness {
           'Upper arm to hand: left 55 degrees below and right 53 degrees below. Normalising the ' +
           'rest pose lifts them.',
       },
+      FINGERS_CURLED,
       ARM_WEIGHTS,
       ...NOTES,
     ],
@@ -126,21 +149,32 @@ export function posedReadiness(): VrmReadiness {
       groundY: 0.004,
       hipsOffset: 0.012,
       height: 1.62,
+      fingerCurlDeg: 64,
     }
   );
 }
 
-/** The same character after the normalise: only the arm weights are left. */
-export function normalisedReadiness(): VrmReadiness {
-  return vrmReadiness(mixamoBones(), 'mixamo', [ARM_WEIGHTS, ...NOTES], {
+/**
+ * The same character after the normalise: only the arm weights are left,
+ * as what the reweight kept when it was `freed` first, and the fingers
+ * when they were kept.
+ */
+export function normalisedReadiness(freed = false, fingers: Fingers = 'straighten'): VrmReadiness {
+  const left = [
+    ...(fingers === 'keep' ? [FINGERS_CURLED] : []),
+    freed ? ARM_WEIGHTS_LEFT : ARM_WEIGHTS,
+  ];
+  return vrmReadiness(mixamoBones(), 'mixamo', [...left, ...NOTES], {
     groundY: 0,
     hipsOffset: 0.002,
     height: 1.62,
+    fingerCurlDeg: fingers === 'keep' ? 64 : 2,
   });
 }
 
-export function report(elbows: Elbows): NormalizeReport {
+export function report(elbows: Elbows, fingers: Fingers = 'straighten'): NormalizeReport {
   const kept = elbows === 'keep';
+  const straight = fingers === 'straighten';
   const before = {
     facingDeg: 90,
     armLeftDeg: 55,
@@ -151,6 +185,7 @@ export function report(elbows: Elbows): NormalizeReport {
     hipsOffset: 0.012,
     height: 1.62,
     vertices: 48_211,
+    fingerCurlDeg: 64,
   };
   return {
     before,
@@ -163,6 +198,7 @@ export function report(elbows: Elbows): NormalizeReport {
       elbowRightDeg: kept ? 12 : 0.1,
       groundY: 0,
       hipsOffset: 0.002,
+      fingerCurlDeg: straight ? 2 : 64,
     },
     turnedDeg: 90,
     moved: [0, -0.004, 0],
@@ -171,6 +207,13 @@ export function report(elbows: Elbows): NormalizeReport {
       left: { shoulderDeg: 55, elbowDeg: kept ? null : 14 },
       right: { shoulderDeg: 53, elbowDeg: kept ? null : 12 },
     },
+    fingers,
+    straightened: straight
+      ? {
+          left: { share: 1, stretch: 1.21, turnedDeg: 42 },
+          right: { share: 0.75, stretch: 1.31, turnedDeg: 33 },
+        }
+      : {},
   };
 }
 

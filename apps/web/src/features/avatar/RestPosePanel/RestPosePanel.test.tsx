@@ -12,8 +12,19 @@ describe('the rest pose panel', () => {
     await openAvatar();
     render(<RestPosePanel />);
     expect(screen.getByRole('row', { name: /Facing off \+Z 90°/ })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    const elbows = screen.getByRole('group', { name: 'Elbows' });
+    await userEvent.click(within(elbows).getByRole('button', { name: 'Keep' }));
     expect(useAvatarStore.getState().elbows).toBe('keep');
+  });
+
+  it('measures the finger curl and lets the fingers be kept', async () => {
+    await openAvatar();
+    render(<RestPosePanel />);
+    expect(screen.getByRole('row', { name: /Most finger curl 64°/ })).toBeInTheDocument();
+    expect(useAvatarStore.getState().fingers).toBe('straighten');
+    const fingers = screen.getByRole('group', { name: 'Fingers' });
+    await userEvent.click(within(fingers).getByRole('button', { name: 'Keep' }));
+    expect(useAvatarStore.getState().fingers).toBe('keep');
   });
 
   it('asks for a yes on the sheets, and a no writes nothing', async () => {
@@ -38,5 +49,14 @@ describe('the rest pose panel', () => {
     expect(within(zoom).getAllByRole('img', { name: /the shoulders in four poses/ })).toHaveLength(
       2
     );
+  });
+
+  it('opens both hands before and after side by side', async () => {
+    await openAvatar('pending');
+    render(<RestPosePanel />);
+    const compare = screen.getAllByRole('button', { name: 'Compare the hands' });
+    await userEvent.click(compare.at(-1)!);
+    const zoom = screen.getByRole('dialog', { name: 'Rest pose sheets' });
+    expect(within(zoom).getAllByRole('img', { name: /both hands/ })).toHaveLength(2);
   });
 });

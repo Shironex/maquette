@@ -3,6 +3,7 @@
  * map grouped for reading, the rest pose measures before and after a
  * normalise, and the checks a meta must pass before a build writes.
  */
+import { FINGER_SLACK_DEG, fingersSummary } from './avatar-fingers';
 import type {
   AvatarBuild,
   BoneNaming,
@@ -282,6 +283,7 @@ export function measureRows(
     row('arm-right', 'Right arm off level', m => m.armRightDeg, deg, 3),
     row('elbow-left', 'Left elbow bend', m => m.elbowLeftDeg, deg, 3),
     row('elbow-right', 'Right elbow bend', m => m.elbowRightDeg, deg, 3),
+    row('fingers', 'Most finger curl', m => m.fingerCurlDeg, deg, FINGER_SLACK_DEG),
     row('ground', 'Soles off the ground', m => m.groundY, cm, 0.01),
     row('hips', 'Hips off centre', m => m.hipsOffset, cm, 0.02),
     row('height', 'Height', m => m.height, metres, Infinity),
@@ -301,6 +303,7 @@ export function measuresOf(readiness: VrmReadiness | null): PoseMeasures | null 
     groundY: p.groundY,
     hipsOffset: p.hipsOffset,
     height: p.height,
+    fingerCurlDeg: p.fingerCurlDeg,
   };
 }
 
@@ -314,6 +317,8 @@ export function poseSummary(report: NormalizeReport): string {
     .map(([side, lift]) => `the ${side} arm ${deg(lift.shoulderDeg)}`);
   if (lifts.length > 0) parts.push(`lifted ${lifts.join(' and ')}`);
   parts.push(report.elbows === 'keep' ? 'elbows kept' : 'elbows straightened');
+  // A report from before the fingers option says nothing of them.
+  if (report.fingers) parts.push(fingersSummary(report));
   const text = parts.join(', ');
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
 }

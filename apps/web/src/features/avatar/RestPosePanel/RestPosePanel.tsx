@@ -1,5 +1,5 @@
 import { Button, Icon, InlineBanner, SegmentedControl, cn } from '@maquette/ui';
-import type { Elbows } from '@/ipc/client';
+import type { Elbows, Fingers } from '@/ipc/client';
 import { Panel } from '@/features/common/Panel';
 import { ReweightStep } from '../ReweightStep';
 import { SheetButton } from '../SheetButton';
@@ -9,6 +9,15 @@ import { useRestPosePanel } from './RestPosePanel.hooks';
 const ELBOWS: readonly { value: Elbows; label: string; hint: string }[] = [
   { value: 'straighten', label: 'Straighten', hint: 'Levels the lower arms too' },
   { value: 'keep', label: 'Keep', hint: 'Leaves bent elbows bent' },
+];
+
+const FINGERS: readonly { value: Fingers; label: string; hint: string }[] = [
+  {
+    value: 'straighten',
+    label: 'Straighten',
+    hint: 'Lays the fingers along the hand and the thumb 45° forward, as far as the mesh holds',
+  },
+  { value: 'keep', label: 'Keep', hint: 'Leaves curled fingers curled' },
 ];
 
 /**
@@ -68,6 +77,15 @@ export default function RestPosePanel() {
       onChange={p.setElbows}
     />
   );
+  const fingers = (
+    <SegmentedControl
+      label="Fingers"
+      tone="clay"
+      options={FINGERS}
+      value={p.fingers}
+      onChange={p.setFingers}
+    />
+  );
   const help = normalized
     ? `v${normalized.sourceVersion}. ${p.summary}`
     : view.needsNormalize
@@ -80,7 +98,9 @@ export default function RestPosePanel() {
       help={help}
       actions={
         normalized && state !== 'pending' ? (
-          <span className="flex items-center gap-2 text-meta text-fg-mute">Elbows {elbows}</span>
+          <span className="flex items-center gap-2 text-meta text-fg-mute">
+            Elbows {elbows} Fingers {fingers}
+          </span>
         ) : null
       }
     >
@@ -107,9 +127,9 @@ export default function RestPosePanel() {
                     Approve the new rest pose?
                   </h3>
                   <p className="mt-0.5 text-meta text-fg-mute">
-                    Look at the armpits and whatever hangs by the arms, like a cape or hair, on the
-                    after sheet. Approving writes the VRM from this pose; the model’s versions stay
-                    as they are.
+                    Look at the armpits and whatever hangs by the arms, like a cape or hair, and at
+                    the hands row for torn or fused fingers, on the after sheet. Approving writes
+                    the VRM from this pose; the model’s versions stay as they are.
                   </p>
                 </div>
               </div>
@@ -171,6 +191,16 @@ export default function RestPosePanel() {
               >
                 Compare the shoulders
               </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon="magnifying-glass"
+                className="self-start"
+                tooltip="Both hands up close before and after, from the thumb side and from above"
+                onClick={() => p.openZoom('hands')}
+              >
+                Compare the hands
+              </Button>
               {p.findingsAfter.length > 0 ? (
                 <ul className="m-0 flex list-none flex-col gap-1 p-0 text-meta text-amber">
                   {left}
@@ -188,6 +218,8 @@ export default function RestPosePanel() {
             <div className="flex flex-col gap-1.5">
               <span className="text-meta font-medium text-fg-dim">Elbows</span>
               {elbows}
+              <span className="text-meta font-medium text-fg-dim">Fingers</span>
+              {fingers}
             </div>
           ) : null}
         </div>
@@ -198,6 +230,7 @@ export default function RestPosePanel() {
           after={p.sheets?.after ?? null}
           mode={p.zoom}
           onClose={p.closeZoom}
+          hands
         />
       ) : null}
     </Panel>
