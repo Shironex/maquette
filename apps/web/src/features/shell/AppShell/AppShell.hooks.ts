@@ -4,6 +4,7 @@ import { PLATFORM } from '@/ipc/runtime';
 import { readFlag, writeFlag } from '@/lib/storage';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
+import { useAvatarStore } from '@/state/use-avatar-store';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { useAnimationsStore } from '@/state/use-animations-store';
@@ -243,6 +244,9 @@ export function useLiveData(projectId: string | null, root: string | null) {
         void useTimelineStore.getState().onChanged(e.payload.project);
       }),
       events.downloadsArrival.listen(e => onArrival(e.payload)),
+      events.avatarChanged.listen(e =>
+        useAvatarStore.getState().onChanged(e.payload.project, e.payload.asset)
+      ),
       events.builtChanged.listen(e => onBuilt(e.payload.project)),
       events.pageServerChanged.listen(e => onPageServer(e.payload)),
       events.codexUsageUpdate.listen(e => useCodexUsageStore.getState().apply(e.payload)),

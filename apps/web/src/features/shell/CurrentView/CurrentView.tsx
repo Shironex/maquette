@@ -23,6 +23,9 @@ const InspectorView = lazy(() =>
 const MotionView = lazy(() =>
   import('@/features/motion/MotionView').then(m => ({ default: m.MotionView }))
 );
+const AvatarView = lazy(() =>
+  import('@/features/avatar/AvatarView').then(m => ({ default: m.AvatarView }))
+);
 const PagePreview = lazy(() =>
   import('@/features/page/PagePreview').then(m => ({ default: m.PagePreview }))
 );
@@ -55,6 +58,8 @@ function viewFor(view: ViewId) {
       return <InspectorView />;
     case 'motion':
       return <MotionView />;
+    case 'avatar':
+      return <AvatarView />;
     case 'timeline':
       return <TimelineView preview={<PagePreview />} />;
     case 'page':
