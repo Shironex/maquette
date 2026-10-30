@@ -316,7 +316,7 @@ fn a_build_finds_first_then_chains_the_confirmed_springs_and_writes_them() {
     // Confirmed: the chains wait for their own yes.
     confirm(&w, vec![hair()]);
     assert_eq!(export::plan(&request(&w)).expect("plan").springs, 1);
-    let AvatarBuild::SpringsWaiting { chained } =
+    let AvatarBuild::SpringsWaiting { chained, .. } =
         export::build(&blender, &tools(), &request(&w)).expect("build")
     else {
         panic!("the chains wait");
@@ -367,6 +367,130 @@ fn a_build_finds_first_then_chains_the_confirmed_springs_and_writes_them() {
         ..request(&w)
     };
     assert_eq!(export::plan(&off).expect("plan").springs, 0);
+}
+
+/// The stored spec's picks and whether it confirms none.
+fn stored(w: &World) -> (Vec<SpringSpec>, bool) {
+    let dir = project::dir(&w.root, &w.config.layout, &w.project).expect("dir");
+    let spec = crate::avatar::load(&dir).expect("load").avatars[&w.asset].clone();
+    (spec.springs, spec.no_springs)
+}
+
+/// Builds with `hair-1` confirmed, approves the chains and writes the VRM
+/// with its spring.
+fn written_with_a_spring(w: &World, blender: &FakeSpringer) {
+    confirm(w, vec![hair()]);
+    export::build(blender, &tools(), &request(w)).expect("chains");
+    export::decide_springs(&request(w), true).expect("approve");
+    let AvatarBuild::Written { export, .. } =
+        export::build(blender, &tools(), &request(w)).expect("build")
+    else {
+        panic!("written");
+    };
+    assert_eq!(export.springs, 1);
+}
+
+#[test]
+fn cleared_picks_wait_for_a_pick_and_only_none_writes_without_springs() {
+    let (w, model) = tailed();
+    let blender = FakeSpringer::good(&model);
+    written_with_a_spring(&w, &blender);
+    let before = fs::read(export::view(&request(&w)).expect("view").export_path).expect("vrm");
+
+    // The picks cleared after an export with springs: the candidates wait,
+    // nothing is written over the file.
+    confirm(&w, Vec::new());
+    let AvatarBuild::SpringsUnpicked { found } =
+        export::build(&blender, &tools(), &request(&w)).expect("build")
+    else {
+        panic!("the candidates wait for a pick");
+    };
+    assert_eq!(found.candidates[0].id, "hair-1");
+    let view = export::view(&request(&w)).expect("view");
+    assert_eq!(fs::read(&view.export_path).expect("vrm"), before);
+    assert_eq!(view.export.expect("export").springs, 1);
+
+    // A person confirms none: written without springs.
+    let dir = project::dir(&w.root, &w.config.layout, &w.project).expect("dir");
+    let mut spec = crate::avatar::load(&dir).expect("load").avatars[&w.asset].clone();
+    spec.no_springs = true;
+    set(&dir, &w.asset, Some(spec)).expect("none");
+    let AvatarBuild::Written { export, .. } =
+        export::build(&blender, &tools(), &request(&w)).expect("build")
+    else {
+        panic!("written without springs");
+    };
+    assert_eq!(export.springs, 0);
+    // With no springs in the last export, cleared picks write as before.
+    confirm(&w, Vec::new());
+    assert!(matches!(
+        export::build(&blender, &tools(), &request(&w)).expect("build"),
+        AvatarBuild::Written { .. }
+    ));
+}
+
+#[test]
+fn a_pick_the_finder_reads_differently_now_is_carried_over_and_saved() {
+    let (w, model) = tailed();
+    let blender = FakeSpringer::good(&model);
+    // Picked when the finder read the strip as cloth from the upper chest;
+    // it reads hair-1 from the head now, on the same line.
+    let old = SpringSpec {
+        id: "cloth-1".to_string(),
+        kind: SpringKind::Cloth,
+        root_bone: "upperChest".to_string(),
+        preset: Some(SpringPreset::Heavy),
+        ..hair()
+    };
+    confirm(&w, vec![old]);
+    let AvatarBuild::SpringsWaiting { chained, carried } =
+        export::build(&blender, &tools(), &request(&w)).expect("build")
+    else {
+        panic!("carried over, the chains wait");
+    };
+    assert_eq!(chained.state, NormalizeState::Pending);
+    assert_eq!(carried.len(), 1);
+    assert_eq!(
+        (carried[0].from.as_str(), carried[0].to.as_str()),
+        ("cloth-1", "hair-1")
+    );
+    let job = blender.job.borrow().clone().expect("job");
+    assert_eq!(job["springs"][0]["id"], "hair-1");
+    assert_eq!(job["springs"][0]["rootBone"], "head");
+    let (picks, none) = stored(&w);
+    assert!(!none);
+    assert_eq!(picks.len(), 1);
+    assert_eq!(
+        (picks[0].id.as_str(), picks[0].root_bone.as_str()),
+        ("hair-1", "head")
+    );
+    // The person's kind, joints and preset stay.
+    assert_eq!(picks[0].kind, SpringKind::Cloth);
+    assert_eq!(picks[0].joints, Some(3));
+    assert_eq!(picks[0].preset, Some(SpringPreset::Heavy));
+}
+
+#[test]
+fn a_pick_with_no_part_left_stops_the_build_without_writing() {
+    let (w, model) = tailed();
+    let blender = FakeSpringer::good(&model);
+    let gone = SpringSpec {
+        id: "cloth-2".to_string(),
+        line: vec![[0.5, 1.0, 0.3], [0.5, 0.4, 0.3]],
+        ..hair()
+    };
+    confirm(&w, vec![gone.clone()]);
+    let AvatarBuild::SpringsStale { found, stale } =
+        export::build(&blender, &tools(), &request(&w)).expect("build")
+    else {
+        panic!("the picks no longer match");
+    };
+    assert_eq!(stale, ["cloth-2"]);
+    assert_eq!(found.candidates.len(), 1);
+    assert_eq!(blender.chains.get(), 0);
+    assert_eq!(stored(&w).0, vec![gone]);
+    let view = export::view(&request(&w)).expect("view");
+    assert!(view.export.is_none());
 }
 
 #[test]
