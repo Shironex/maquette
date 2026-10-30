@@ -11,13 +11,44 @@
  * - `chains`: the strip is confirmed, and an agent's build added its chain,
  *   which waits for a yes (a floating approval card says so too).
  */
-import type { Approval, AvatarSpec_Serialize, Chained, FoundSprings, SpringsView } from '../client';
+import type {
+  Approval,
+  AvatarSpec_Serialize,
+  Chained,
+  FoundSprings,
+  SpringCollider,
+  SpringsView,
+} from '../client';
 import { clock } from '@/lib/clock';
 import { fail, type Args } from './backend-options';
 import { avatarCacheDir } from './avatar-files';
 
 /** The scenarios that start with springs. */
 export const SPRINGS_SCENARIOS = new Set(['springs', 'chains']);
+
+/** A capsule collider down (or along) a bone, as the chain step measures them. */
+function capsule(group: string, bone: string, joint: string, radius: number, tail: Vec3) {
+  return { group, bone, joint, shape: { capsule: { offset: [0, 0, 0] as Vec3, radius, tail } } };
+}
+type Vec3 = [number, number, number];
+
+/** The box humanoid's colliders: the head, neck, chest, hips, arms and legs. */
+const COLLIDERS: SpringCollider[] = [
+  {
+    group: 'Head',
+    bone: 'head',
+    joint: 'mixamorig:Head',
+    shape: { sphere: { offset: [0, 0.088, 0], radius: 0.0325 } },
+  },
+  capsule('Neck', 'neck', 'mixamorig:Neck', 0.088, [0, 0.056, 0]),
+  capsule('Chest', 'upperChest', 'mixamorig:Spine2', 0.1408, [0, 0.0696, 0]),
+  capsule('Chest', 'chest', 'mixamorig:Spine1', 0.1408, [0, 0.0496, 0]),
+  capsule('Hips', 'hips', 'mixamorig:Hips', 0.1408, [0, 0.0296, 0]),
+  capsule('Arms', 'leftUpperArm', 'mixamorig:LeftArm', 0.0704, [0.2248, 0, 0]),
+  capsule('Arms', 'rightUpperArm', 'mixamorig:RightArm', 0.0704, [-0.2248, 0, 0]),
+  capsule('Legs', 'leftUpperLeg', 'mixamorig:LeftUpLeg', 0.0704, [0, -0.3848, 0]),
+  capsule('Legs', 'rightUpperLeg', 'mixamorig:RightUpLeg', 0.0704, [0, -0.3848, 0]),
+];
 
 /** The strip down the box humanoid's back, as the finder proposes it. */
 function found(dir: string): FoundSprings {
@@ -71,7 +102,7 @@ function chain(p: string, a: string, version: number, ids: string[]): Chained {
         radius: 0.012,
         colliderGroups: ['Head', 'Neck', 'Chest', 'Arms', 'Hips', 'Legs'],
       })),
-      colliders: [],
+      colliders: COLLIDERS,
       weights: { vertices: 2376, maxInfluences: 3, unweighted: 0, offSum: 0 },
       changed: 792,
     },
