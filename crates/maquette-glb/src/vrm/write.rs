@@ -10,7 +10,10 @@
 //!
 //! The writer refuses a model whose rig VRM cannot accept: no skin, a
 //! required bone missing, one out of the humanoid order or skipping its
-//! parent, swapped sides, a mirrored or uneven scale. What the rest pose
+//! parent, swapped sides, a mirrored, uneven or sheared scale, a loop in
+//! the node tree, or a skin a runtime cannot deform with (a joint twice,
+//! a joint index past the skin, vertices without weight or with weights
+//! that do not add up to 1). What the rest pose
 //! still lacks (the facing, the T-pose, the ground) is written as it is and
 //! comes back as `unresolved`, for the caller to show; normalising the rest
 //! pose is a step before this one.
@@ -67,7 +70,7 @@ pub struct Written {
 
 /// The findings the writer refuses on. The other blockers are about the
 /// rest pose, which a VRM runtime still loads.
-const REFUSED: [&str; 7] = [
+const REFUSED: [&str; 12] = [
     "skin",
     "required-bones",
     "bone-gaps",
@@ -75,6 +78,11 @@ const REFUSED: [&str; 7] = [
     "sides",
     "negative-scale",
     "uneven-scale",
+    "node-cycle",
+    "skin-joints-twice",
+    "skin-joint-index",
+    "skin-unweighted",
+    "skin-weight-sum",
 ];
 
 /// The look at: the eye bones when the rig has both, otherwise

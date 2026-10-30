@@ -11,6 +11,11 @@
 //! (required bones missing from a humanoid looking rig, or two joints for
 //! one bone) a finding asks a person to assign them.
 //!
+//! **Skin.** Every skinned mesh and primitive: joint indices inside the
+//! skin, weights that carry something and add up to 1, at most four
+//! influences, each joint once per skin, no loop in the node tree, limb
+//! bones with length and the same bones on both sides ([`skin`]).
+//!
 //! **Rest pose.** The VRM T-pose faces +Z with the character's left on +X,
 //! arms level along X, soles on Y = 0, the hips on the Y axis, both sides
 //! mirrored, and every node scaled the same on each axis and positively
@@ -32,6 +37,7 @@ mod findings;
 mod meta;
 mod mtoon;
 mod pose;
+mod skin;
 mod write;
 
 use std::path::Path;
@@ -51,6 +57,7 @@ pub use meta::{
 };
 pub use mtoon::VRMC_MATERIALS_MTOON;
 pub use pose::{Axis, RestPose, SCALE_NOISE};
+pub use skin::{MAX_INFLUENCES, WEIGHT_SUM_SLACK};
 pub use write::{MaterialMode, Thumbnail, VRMC_VRM, WriteSpec, Written, write};
 
 /// True when `name` is one of VRM 1.0's humanoid bones, such as `hips` or
@@ -180,6 +187,7 @@ fn assess(
     let wrong = bones::wrong_parents(&human, &mapped, &parents(doc));
     let worlds = world_matrices(doc);
     let pose = pose::measure(doc, buffers, &worlds, &mapped);
+    let skin = skin::check(doc, buffers, &worlds, &mapped, pose.height);
     let mut findings = findings::bone_findings(&findings::RigFacts {
         bones: &human,
         mapped: &mapped,
@@ -190,6 +198,7 @@ fn assess(
         animations: doc.animations().len(),
     });
     findings.extend(findings::naming_finding(&naming));
+    findings.extend(findings::skin_findings(&skin));
     findings.extend(findings::pose_findings(&pose));
     if let Some(drag) = arm_weights::measure(doc, buffers, &worlds, &mapped, &human)
         .filter(arm_weights::ArmDrag::matters)
@@ -294,6 +303,8 @@ pub(crate) fn register(types: specta::Types) -> specta::Types {
 
 #[cfg(test)]
 mod naming_tests;
+#[cfg(test)]
+mod skin_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
