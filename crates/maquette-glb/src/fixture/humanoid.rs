@@ -219,7 +219,8 @@ fn below(joints: &[(String, Option<usize>, [f32; 3])], i: usize, root: usize) ->
     false
 }
 
-/// The slabs of the tail, 2 cm each.
+/// The slabs of the tail, 2 cm tall and 4 cm wide, so the finder reads
+/// their corners as one strip.
 const TAIL_SLABS: usize = 33;
 
 /// A box humanoid built to `spec`.
@@ -327,7 +328,7 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
             let y = h[1] - 0.02 * k as f32;
             mesh.cuboid(
                 [h[0], y, h[2] - 0.3],
-                [0.1, 0.02, 0.02],
+                [0.04, 0.02, 0.02],
                 u16::try_from(head).unwrap_or(0),
             );
         }

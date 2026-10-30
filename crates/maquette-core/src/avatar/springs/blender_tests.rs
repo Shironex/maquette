@@ -68,6 +68,7 @@ fn find_chain_and_write_springs_in_blender() {
             (first.kind, first.root_bone.as_str()),
             (SpringKind::Hair, "head")
         );
+        assert_eq!(found.candidates.len(), 1, "the strip is one part");
     }
     let specs: Vec<SpringSpec> = found
         .candidates
