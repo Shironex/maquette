@@ -42,6 +42,16 @@ describe('an approval card', () => {
     expect(calls).toContain('mcp_decide');
   });
 
+  it('opens the Avatar view on the version a rest pose waits on', async () => {
+    await openAvatar('older');
+    const pose = useAgentsStore.getState().status!.approvals.find(a => a.kind === 'rest-pose')!;
+    expect(pose.version).toBe(2);
+    render(<ApprovalCard approval={pose} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Open the sheets' }));
+    expect(useAvatarStore.getState()).toMatchObject({ asset: 'elsheria', version: 2 });
+    await waitFor(() => expect(useAvatarStore.getState().view?.normalized?.state).toBe('pending'));
+  });
+
   it("opens an agent's rest pose in the Avatar view, or turns it down", async () => {
     const calls = await openAvatar('pending');
     const pose = useAgentsStore.getState().status!.approvals.find(a => a.kind === 'rest-pose')!;

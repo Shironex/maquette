@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { clearMocks, openAvatar } from '@/test/open-avatar';
+import { avatarCalls, clearMocks, openAvatar } from '@/test/open-avatar';
 import { useAgentsStore } from './use-agents-store';
 import { useAppStore } from './use-app-store';
 import { useAvatarStore } from './use-avatar-store';
@@ -48,5 +48,38 @@ describe('the avatar store', () => {
     state().onChanged('frostveil', 'elsheria');
     await Promise.resolve();
     expect(calls.filter(c => c === 'avatar_get').length).toBe(before + 1);
+  });
+});
+
+const lastOf = (cmd: string) => avatarCalls.findLast(c => c.cmd === cmd);
+
+describe('the avatar store versions', () => {
+  it('opens on a version and goes back to the newest when another asset is picked', async () => {
+    await openAvatar('older');
+    state().open('frostveil', 'elsheria', 2);
+    expect(state().version).toBe(2);
+    state().select('clay-figure');
+    expect(state().version).toBeNull();
+  });
+
+  it('passes the selected version to get, build and decide', async () => {
+    await openAvatar('older');
+    state().open('frostveil', 'elsheria', 2);
+    await expect.poll(() => state().view?.version).toBe(2);
+    expect(lastOf('avatar_get')?.args.version).toBe(2);
+    await state().editMeta({ authors: ['The art team'] });
+    await state().build();
+    expect(lastOf('avatar_build')?.args.version).toBe(2);
+    await state().decide(false);
+    expect(lastOf('avatar_decide')?.args.version).toBe(2);
+  });
+
+  it('reloads the open avatar on its selected version when an agent changes it', async () => {
+    await openAvatar('older');
+    state().open('frostveil', 'elsheria', 2);
+    await expect.poll(() => state().view?.version).toBe(2);
+    state().onChanged('frostveil', 'elsheria');
+    await expect.poll(() => avatarCalls.filter(c => c.cmd === 'avatar_get').length).toBe(3);
+    expect(lastOf('avatar_get')?.args.version).toBe(2);
   });
 });

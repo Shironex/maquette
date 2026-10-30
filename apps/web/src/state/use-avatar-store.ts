@@ -20,6 +20,8 @@ import { useAgentsStore } from './use-agents-store';
 interface AvatarStore {
   project: string | null;
   asset: string | null;
+  /** The model version shown; null is the newest. */
+  version: number | null;
   view: AvatarView_Serialize | null;
   draft: AvatarSpec_Serialize | null;
   /** The draft differs from what is stored. */
@@ -30,9 +32,11 @@ interface AvatarStore {
   building: boolean;
   deciding: boolean;
   elbows: Elbows;
-  /** Opens the Avatar view on an asset. */
-  open: (project: string, asset: string) => void;
+  /** Opens the Avatar view on an asset, on one of its versions (the newest without). */
+  open: (project: string, asset: string, version?: number | null) => void;
   select: (asset: string | null) => void;
+  /** Shows another version of the open asset; the draft spec stays. */
+  setVersion: (version: number | null) => void;
   load: () => Promise<void>;
   editMeta: (change: Partial<VrmMeta_Serialize>) => void;
   setMaterial: (material: AvatarSpec_Serialize['material']) => void;
@@ -50,6 +54,7 @@ const notify = (status: 'done' | 'failed' | 'info', title: string, detail?: stri
 export const useAvatarStore = create<AvatarStore>((set, get) => ({
   project: null,
   asset: null,
+  version: null,
   view: null,
   draft: null,
   dirty: false,
@@ -60,29 +65,44 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   deciding: false,
   elbows: 'straighten',
 
-  open: (project, asset) => {
-    set({ project, asset, view: null, draft: null, dirty: false, error: null });
+  open: (project, asset, version = null) => {
+    set({ project, asset, version, view: null, draft: null, dirty: false, error: null });
     useAppStore.getState().setView('avatar');
     void get().load();
   },
 
   select: asset => {
     if (asset === get().asset) return;
-    set({ asset, view: null, draft: null, dirty: false, error: null, elbows: 'straighten' });
+    set({
+      asset,
+      version: null,
+      view: null,
+      draft: null,
+      dirty: false,
+      error: null,
+      elbows: 'straighten',
+    });
+    void get().load();
+  },
+
+  setVersion: version => {
+    if (version === get().version) return;
+    set({ version, view: null, error: null });
     void get().load();
   },
 
   load: async () => {
-    const { project, asset } = get();
+    const { project, asset, version } = get();
     if (!project || !asset) return;
     set({ loading: true, error: null });
     try {
-      const view = await commands.avatarGet(project, asset, null);
-      if (get().asset !== asset) return;
+      const view = await commands.avatarGet(project, asset, version);
+      if (get().asset !== asset || get().version !== version) return;
       // Keep what the person is typing; take the stored spec otherwise.
       set(s => ({ view, draft: s.dirty && s.draft ? s.draft : view.spec, loading: false }));
     } catch (error) {
-      if (get().asset === asset) set({ loading: false, error: errorMessage(error) });
+      if (get().asset === asset && get().version === version)
+        set({ loading: false, error: errorMessage(error) });
     }
   },
 
@@ -114,12 +134,12 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   },
 
   build: async () => {
-    const { project, asset, dirty, elbows } = get();
+    const { project, asset, version, dirty, elbows } = get();
     if (!project || !asset) return;
     if (dirty && !(await get().save())) return;
     set({ building: true });
     try {
-      const built = await commands.avatarBuild(project, asset, null, elbows);
+      const built = await commands.avatarBuild(project, asset, version, elbows);
       const { title, detail } = buildNotice(built);
       notify(built.status === 'written' ? 'done' : 'info', title, detail);
     } catch (error) {
@@ -131,11 +151,11 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   },
 
   decide: async approve => {
-    const { project, asset } = get();
+    const { project, asset, version } = get();
     if (!project || !asset) return;
     set({ deciding: true });
     try {
-      await commands.avatarDecide(project, asset, null, approve);
+      await commands.avatarDecide(project, asset, version, approve);
       void useAgentsStore.getState().load();
       if (approve) {
         set({ deciding: false });
