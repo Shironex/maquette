@@ -170,7 +170,7 @@ export const STAGES: readonly Stage[] = [
     chips: ['KTX2', 'meshopt', 'toktx', 'gltf-transform'],
     shots: [
       {
-        ...screen('pipeline-compress', 1184, 368),
+        ...screen('pipeline-compress', 1184, 367),
         alt: 'The live log next to the compression presets: texture size, codec and meshopt per model, with raw and shipped sizes.',
         tool: 'Pipeline',
         caption: '4 models, 14.3 MB to 3.5 MB',
@@ -226,7 +226,7 @@ export const SHOTS = {
     caption: 'v6 baked against v7, camera stops from stops.json',
   },
   budgets: {
-    ...screen('inspector-budgets', 340, 438),
+    ...screen('inspector-budgets', 340, 422),
     alt: 'Side panel: a library update for the model, its textures, and model budgets with one model over its share.',
     tool: 'Budgets',
     caption: 'per model, MB',
