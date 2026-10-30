@@ -1,4 +1,4 @@
-import { Button, CheckRow, KeyValueList, SegmentedControl } from '@maquette/ui';
+import { Button, CheckRow, Icon, KeyValueList, SegmentedControl } from '@maquette/ui';
 import { Panel } from '@/features/common/Panel';
 import { SectionLabel } from '@/features/common/SectionLabel';
 import { MATERIALS } from '@/state/avatar';
@@ -71,6 +71,33 @@ export default function ExportPanel() {
             </div>
           </div>
           <KeyValueList items={p.facts} columns={3} />
+          {p.roundTrip ? (
+            <p
+              className={`flex items-center gap-1.5 text-meta ${p.roundTrip.passed ? 'text-sage' : 'text-danger'}`}
+            >
+              <Icon name={p.roundTrip.passed ? 'check-circle' : 'x-circle'} size={14} />
+              Round trip: {p.roundTrip.text}
+            </p>
+          ) : null}
+          {p.report ? (
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <SectionLabel>Report</SectionLabel>
+                <p className="truncate font-mono text-[12px] text-fg-dim" title={p.report}>
+                  {p.report}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="file-text"
+                tooltip="Shows the validation report in the file manager"
+                onClick={p.revealReport}
+              >
+                Reveal report
+              </Button>
+            </div>
+          ) : null}
           {unresolved.length > 0 ? (
             <div className="flex flex-col gap-2">
               <SectionLabel>Still in the file · {unresolved.length}</SectionLabel>
