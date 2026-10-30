@@ -1118,6 +1118,16 @@ export type AvatarExport = {
 	writtenAt: string,
 	/**  The file is still there. Read, never stored. */
 	exists?: boolean,
+	/**
+	 *  The validation report beside the file, an absolute path; `None`
+	 *  when it is gone or the build predates it.
+	 */
+	report?: string | null,
+	/**
+	 *  The written bytes read back and checked; `None` for a build that
+	 *  predates the check.
+	 */
+	roundTrip?: RoundTrip | null,
 };
 
 /**  Who may play the avatar. */
@@ -4431,6 +4441,16 @@ export type RoughnessTweak = {
 	mode: FactorMode,
 	/**  0 to 1 for an override, 0 to 2 for a multiplier. */
 	value: number | null,
+};
+
+/**  What reading a written VRM back found. */
+export type RoundTrip = {
+	/**  No problem: the file reads back as the VRM it should be. */
+	passed: boolean,
+	/**  What failed, as sentences. */
+	problems: string[],
+	/**  Human bones the file names. */
+	bones: number,
 };
 
 /**  What a run is asked to do besides its steps. */

@@ -130,6 +130,8 @@ fn build_answer(hub: &Hub, name: &str, built: &AvatarBuild) -> Value {
             "sourceVersion": export.source_version,
             "material": to_short_value(export.material),
             "unresolved": to_short_value(&export.unresolved),
+            "report": export.report,
+            "roundTrip": to_short_value(&export.round_trip),
             "pose": normalized.as_ref().map(pose_summary),
         }),
     }
@@ -203,7 +205,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Build a character asset's VRM 1.0 avatar into the project's exports/<asset>.vrm (a derived export, never a new version). When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), it is first normalised headless in Blender on a copy (elbows straighten by default, or keep), which makes before and after pose sheets. A changed rest pose needs a person's yes: the call then answers \"waiting for approval\" with the sheet paths, and a person approves or denies it in the app's Avatar view. You cannot approve it: call get_avatar or build_avatar again later (the normalised result is cached, Blender does not run again), and once approved it writes the file and returns its path, size and what it still lacks. \"denied\" means the person turned the pose down. dryRun returns the plan and does nothing. Needs a meta name and an author (set_avatar).",
+        description = "Build a character asset's VRM 1.0 avatar into the project's exports/<asset>.vrm (a derived export, never a new version). When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), it is first normalised headless in Blender on a copy (elbows straighten by default, or keep), which makes before and after pose sheets. A changed rest pose needs a person's yes: the call then answers \"waiting for approval\" with the sheet paths, and a person approves or denies it in the app's Avatar view. You cannot approve it: call get_avatar or build_avatar again later (the normalised result is cached, Blender does not run again), and once approved it writes the file and returns its path, size, what it still lacks, the validation report beside it (exports/<asset>.vrm.report.json: source version and hash, readiness before and after, the bone map with each bone's source, the meta) and the round trip (the written file read back and checked; a failure is a blocker in what it still lacks). \"denied\" means the person turned the pose down. dryRun returns the plan and does nothing. Needs a meta name and an author (set_avatar).",
         annotations(idempotent_hint = true)
     )]
     async fn build_avatar(&self, Parameters(args): Parameters<BuildAvatarArgs>) -> Out {
