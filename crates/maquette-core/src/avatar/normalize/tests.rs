@@ -9,16 +9,16 @@ use crate::inbox::vrm::{VRMC_VRM, VrmMeta, WriteSpec};
 use crate::project::{NewProject, ProjectTemplate};
 use crate::workspace;
 
-struct World {
+pub(crate) struct World {
     _dir: tempfile::TempDir,
-    root: PathBuf,
-    config: WorkspaceConfig,
-    project: String,
-    asset: String,
+    pub(crate) root: PathBuf,
+    pub(crate) config: WorkspaceConfig,
+    pub(crate) project: String,
+    pub(crate) asset: String,
 }
 
 /// A rigged character in an A-pose facing +X, as its first version.
-fn world() -> World {
+pub(crate) fn world() -> World {
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().join("ws");
     let config = workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
@@ -86,9 +86,9 @@ fn request<'a>(w: &'a World, overrides: &'a BoneOverrides, elbows: Elbows) -> No
 
 /// A script runner standing in for Blender: it writes the outputs the
 /// script would, with `output` as the normalised model.
-struct FakeBlender {
+pub(crate) struct FakeBlender {
     output: Vec<u8>,
-    runs: Cell<u32>,
+    pub(crate) runs: Cell<u32>,
     job: RefCell<Option<serde_json::Value>>,
     fail: bool,
 }
@@ -104,7 +104,7 @@ impl FakeBlender {
     }
 
     /// A clean T-pose facing +Z, as a good run leaves it.
-    fn good() -> Self {
+    pub(crate) fn good() -> Self {
         Self::new(fixture::humanoid(&HumanoidSpec::default()))
     }
 }
@@ -145,7 +145,7 @@ impl ScriptRunner for FakeBlender {
     }
 }
 
-fn tools() -> Toolbox {
+pub(crate) fn tools() -> Toolbox {
     Toolbox::default()
 }
 
@@ -420,4 +420,51 @@ fn the_skill_keeps_the_same_script() {
 fn elbows_straighten_unless_asked_to_keep() {
     assert_eq!(Elbows::default(), Elbows::Straighten);
     assert!(SCRIPT.contains(r#"job.setdefault("elbows", "straighten")"#));
+}
+
+#[test]
+fn a_no_holds_for_its_output_until_a_yes_or_a_new_run() {
+    let w = world();
+    let none = BoneOverrides::new();
+    let blender = FakeBlender::good();
+    let straight = plan(&request(&w, &none, Elbows::Straighten)).expect("plan");
+    assert!(!straight.cached());
+    run(&blender, &tools(), &straight).expect("run");
+    assert!(straight.cached());
+    approve(&straight.dir).expect("approve");
+    let denied = deny(&straight.dir).expect("deny");
+    assert_eq!(denied.state, NormalizeState::Denied);
+    assert!(approved_glb(&straight.dir).is_err());
+    let cached = run(&blender, &tools(), &straight).expect("cached");
+    assert_eq!(
+        (cached.state, blender.runs.get()),
+        (NormalizeState::Denied, 1)
+    );
+    // A yes after all wins over the no.
+    assert_eq!(
+        approve(&straight.dir).expect("approve").state,
+        NormalizeState::Approved
+    );
+    deny(&straight.dir).expect("deny");
+    // A new run asks again.
+    let keep = plan(&request(&w, &none, Elbows::Keep)).expect("plan");
+    assert_eq!(
+        run(&blender, &tools(), &keep).expect("run").state,
+        NormalizeState::Pending
+    );
+}
+
+#[test]
+fn only_a_pose_off_vrm_needs_normalising() {
+    let w = world();
+    let none = BoneOverrides::new();
+    let plan = plan(&request(&w, &none, Elbows::Straighten)).expect("plan");
+    assert!(needs_normalize(&plan.readiness));
+    let clean = vrm::readiness(
+        &fixture::humanoid(&HumanoidSpec::default()),
+        Path::new("."),
+        &none,
+    )
+    .expect("readiness");
+    assert!(!needs_normalize(&clean));
 }

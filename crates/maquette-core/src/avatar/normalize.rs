@@ -39,8 +39,8 @@ use crate::pipeline::tools::Toolbox;
 use crate::project;
 use crate::workspace::WorkspaceConfig;
 
-use approval::APPROVAL_FILE;
-pub use approval::{approve, approved_glb, load, write_vrm};
+use approval::{APPROVAL_FILE, DENIAL_FILE};
+pub use approval::{approve, approved_glb, deny, load, write_vrm};
 pub use report::{
     ArmLift, NormalizeReport, NormalizeSheets, NormalizeState, Normalized, PoseMeasures,
     WeightChecks,
@@ -239,6 +239,24 @@ fn key(source_hash: &str, bones: &BTreeMap<String, String>, elbows: Elbows) -> S
     hex::encode(hasher.finalize())
 }
 
+impl NormalizePlan {
+    /// True when an earlier run with this key left its outputs untouched,
+    /// so [`run`] answers without Blender.
+    pub fn cached(&self) -> bool {
+        fresh(self)
+    }
+}
+
+/// The findings normalising exists for: a rest pose that is not VRM's yet
+/// (facing, arms) or stands off the ground or the centre. Without any of
+/// them the model is written as it is and nothing waits for a yes.
+pub fn needs_normalize(readiness: &VrmReadiness) -> bool {
+    readiness
+        .findings
+        .iter()
+        .any(|f| ["facing", "arms", "ground", "centre"].contains(&f.id.as_str()))
+}
+
 /// True when the folder holds this key's outputs, untouched.
 fn fresh(plan: &NormalizePlan) -> bool {
     cache::load_record(&plan.dir, STEP)
@@ -267,7 +285,7 @@ pub fn run(
     let dir = &plan.dir;
     fs::create_dir_all(dir).map_err(|e| CoreError::io(dir, e))?;
     cache::forget(dir, STEP);
-    for old in [RESULT_FILE, APPROVAL_FILE]
+    for old in [RESULT_FILE, APPROVAL_FILE, DENIAL_FILE]
         .iter()
         .copied()
         .chain(outputs().iter().map(String::as_str))
@@ -372,4 +390,4 @@ pub fn check_rest_pose(readiness: &VrmReadiness) -> CoreResult<()> {
 #[cfg(test)]
 mod blender_tests;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
