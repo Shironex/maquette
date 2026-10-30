@@ -31,6 +31,7 @@ export function useSpringsPanel() {
   const chained = springs?.chained ?? null;
   const confirmed = confirmedSprings(draft);
   const candidates = found?.candidates ?? [];
+  const pieces = candidates.filter(c => c.small);
   const pending = chained?.state === 'pending';
   const busy = finding || building || deciding;
   return {
@@ -38,6 +39,10 @@ export function useSpringsPanel() {
     ready: Boolean(springs?.ready),
     found,
     candidates,
+    /** The parts hanging off the body. */
+    parts: candidates.filter(c => !c.small),
+    /** The small pieces close to it: charms, short chains, earrings. */
+    pieces,
     confirmed,
     /** Picked springs, none confirmed, or nothing picked yet. */
     choice: springsChoice(draft),

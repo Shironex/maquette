@@ -75,7 +75,8 @@ export function specOf(candidate: SpringCandidate): SpringSpec {
     kind: candidate.kind,
     rootBone: candidate.rootBone,
     line: candidate.line,
-    joints: null,
+    // A small piece keeps its short chain; a longer part gets its joints by length.
+    joints: candidate.small ? candidate.joints : null,
     preset: null,
   };
 }

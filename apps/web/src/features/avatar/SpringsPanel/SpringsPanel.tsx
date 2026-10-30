@@ -1,5 +1,6 @@
 import { Button, EmptyState, Icon, InlineBanner, Toggle } from '@maquette/ui';
 import { Panel } from '@/features/common/Panel';
+import type { SpringCandidate } from '@/ipc/client';
 import { SheetButton } from '../SheetButton';
 import { SpringRow } from './SpringRow';
 import { SpringSheets } from './SpringSheets';
@@ -46,7 +47,7 @@ export default function SpringsPanel() {
       {p.found ? 'Look again' : 'Find dangling parts'}
     </Button>
   );
-  const rows = p.candidates.map(c => (
+  const row = (c: SpringCandidate) => (
     <SpringRow
       key={c.id}
       candidate={c}
@@ -55,7 +56,9 @@ export default function SpringsPanel() {
       onConfirm={on => p.actions.confirm(c, on)}
       onEdit={change => p.actions.edit(c.id, change)}
     />
-  ));
+  );
+  const rows = p.parts.map(row);
+  const pieceRows = p.pieces.map(row);
   const drops = p.unmatched.map(s => (
     <li key={s.id}>
       <Button
@@ -121,6 +124,23 @@ export default function SpringsPanel() {
             >
               {rows}
             </ul>
+            {p.pieces.length > 0 ? (
+              <section aria-labelledby="avatar-pieces-title" className="flex flex-col gap-2">
+                <h3 id="avatar-pieces-title" className="text-emphasis font-semibold">
+                  Small pieces
+                </h3>
+                <p className="text-meta text-fg-mute">
+                  Charms, short chains and earrings close to the body. Each gets a short stiff
+                  chain; the sheet shows the first few up close.
+                </p>
+                <ul
+                  aria-label="Small pieces that could swing"
+                  className="m-0 flex list-none flex-col gap-2 p-0"
+                >
+                  {pieceRows}
+                </ul>
+              </section>
+            ) : null}
             <p className="text-meta text-fg-mute">
               Confirm only parts that should swing: a stiff brim or a sewn on patch looks wrong
               moving. The VRM gets a spring for each one after you approve its chain.

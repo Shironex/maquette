@@ -50,7 +50,7 @@ const COLLIDERS: SpringCollider[] = [
   capsule('Legs', 'rightUpperLeg', 'mixamorig:RightUpLeg', 0.0704, [0, -0.3848, 0]),
 ];
 
-/** The strip down the box humanoid's back, as the finder proposes it. */
+/** The strip down the box humanoid's back and a charm on its jacket, as the finder proposes them. */
 function found(dir: string): FoundSprings {
   return {
     candidates: [
@@ -69,6 +69,22 @@ function found(dir: string): FoundSprings {
         confidence: 0.99,
         joints: 5,
         color: '#e8553f',
+      },
+      {
+        id: 'charm-1',
+        kind: 'accessory',
+        rootBone: 'spine',
+        line: [
+          [0.03, 1.2, 0.07],
+          [0.03, 1.12, 0.07],
+        ],
+        length: 0.08,
+        drop: 0.08,
+        vertices: 27,
+        confidence: 0.94,
+        joints: 2,
+        color: '#3fa7e8',
+        small: true,
       },
     ],
     sheet: `${dir}/find/candidates.webp`,
