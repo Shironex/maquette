@@ -35,6 +35,7 @@ mod arm_weights;
 mod bones;
 mod container;
 mod findings;
+mod fingers;
 mod meta;
 mod mtoon;
 mod pose;
@@ -52,7 +53,8 @@ use maquette_base::error::{CoreError, CoreResult};
 pub use bones::{
     BoneNaming, BoneOverrides, HUMAN_BONES, HUMANOID_JOINTS_MIN, NamingReport, REQUIRED_BONES,
 };
-pub use findings::{ARM_SLACK_DEG, FACING_SLACK_DEG, GROUND_SLACK};
+pub use findings::{ARM_SLACK_DEG, FACING_SLACK_DEG, FINGER_SLACK_DEG, GROUND_SLACK};
+pub use fingers::{BUNCHED, FINGERS, FingerCurl};
 pub use meta::{
     AvatarPermission, CommercialUsage, CreditNotation, LICENSE_URL, META_TEXT_MAX, Modification,
     VrmMeta,
@@ -182,6 +184,16 @@ fn assess(
     buffers: &[Option<Vec<u8>>],
     overrides: &BoneOverrides,
 ) -> (VrmReadiness, Vec<(String, usize)>) {
+    assess_with(doc, buffers, overrides, false)
+}
+
+/// [`assess`], saying whether an approved reweight already freed the arms.
+fn assess_with(
+    doc: &gltf::Document,
+    buffers: &[Option<Vec<u8>>],
+    overrides: &BoneOverrides,
+    reweighted: bool,
+) -> (VrmReadiness, Vec<(String, usize)>) {
     let human = bones::human_bones();
     let joints = skin_joints(doc);
     let nodes: Vec<(usize, String)> = doc.nodes().map(|n| (n.index(), node_name(&n))).collect();
@@ -203,10 +215,11 @@ fn assess(
     findings.extend(findings::naming_finding(&naming));
     findings.extend(findings::skin_findings(&skin));
     findings.extend(findings::pose_findings(&pose));
+    findings.extend(findings::finger_findings(&pose));
     if let Some(drag) = arm_weights::measure(doc, buffers, &worlds, &mapped, &human)
         .filter(arm_weights::ArmDrag::matters)
     {
-        findings.push(findings::arm_weight_finding(&drag));
+        findings.push(findings::arm_weight_finding(&drag, reweighted));
     }
     // Stable, so each level keeps the order the checks run in.
     findings.sort_by_key(|f| f.level);
@@ -285,12 +298,30 @@ pub fn readiness(bytes: &[u8], base: &Path, overrides: &BoneOverrides) -> CoreRe
     })
 }
 
+/// The readiness of a model an approved reweight made: like [`readiness`],
+/// but cloth or hair still on the arms is reported as what the reweight
+/// left (a note), not as something to free.
+///
+/// # Errors
+///
+/// Fails when the bytes are not glTF.
+pub fn readiness_after_reweight(
+    bytes: &[u8],
+    base: &Path,
+    overrides: &BoneOverrides,
+) -> CoreResult<VrmReadiness> {
+    with_parsed(bytes, base, |doc, buffers| {
+        Ok(assess_with(doc, buffers, overrides, true).0)
+    })
+}
+
 /// Registers the readiness and writer types with the shell's TypeScript export.
 pub(crate) fn register(types: specta::Types) -> specta::Types {
     types
         .register::<BoneNaming>()
         .register::<NamingReport>()
         .register::<Axis>()
+        .register::<FingerCurl>()
         .register::<RestPose>()
         .register::<FindingLevel>()
         .register::<VrmFinding>()
@@ -305,6 +336,8 @@ pub(crate) fn register(types: specta::Types) -> specta::Types {
         .register::<RoundTrip>()
 }
 
+#[cfg(test)]
+mod fingers_tests;
 #[cfg(test)]
 mod naming_tests;
 #[cfg(test)]

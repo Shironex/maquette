@@ -12,7 +12,7 @@ readiness found them. Relative paths resolve against the job file's folder:
     {"input": "/abs/model.glb", "output": "normalized.glb", "report": "report.json",
      "sheets": {"before": "sheet_before.png", "after": "sheet_after.png"},
      "bones": {"hips": "mixamorig:Hips", "leftUpperArm": "mixamorig:LeftArm", ...},
-     "elbows": "straighten"}
+     "elbows": "straighten", "fingers": "straighten"}
 
 What it does, in this order:
 
@@ -26,19 +26,31 @@ What it does, in this order:
    and fingers ride along unchanged. With "elbows": "straighten" (the
    default) the lower arm is levelled too, so upper arm, lower arm and hand
    all lie on X; "keep" leaves a bent elbow bent.
-4. Make that pose the rest: the armature modifier is applied on each
+4. With "fingers": "straighten" (the default), lay each finger straight
+   along the hand in the palm plane, as VRM's T-pose wants: the four
+   fingers keep their natural spread (half the fan the knuckles make from
+   the wrist), the thumb points 45 degrees between the hand and the front.
+   Generated hands often have fused fingers that tear when pulled apart, so
+   each hand goes only as far as its mesh holds: the whole way, else three
+   quarters, half or a quarter of each joint's turn, the first whose finger
+   edges stretch at most STRETCH_MAX (95th percentile), leaving a soft curl.
+   A hand whose finger bones sit bunched at the wrist (a broken auto rig)
+   stays as it is. "keep" leaves every finger as it is.
+5. Make that pose the rest: the armature modifier is applied on each
    skinned mesh, the pose becomes the armature's rest, and the modifier is
    added back. The vertex groups stay as they were; at most 4 influences
    per vertex and weights summing to 1 are checked and kept.
-5. Export a plain GLB without animations.
+6. Export a plain GLB without animations.
 
 The report holds the measures before and after (facing, each arm's drop,
-the elbow bends, the soles, the hips, the height) in glTF metres and
+the elbow bends, each finger's curl, the soles, the hips, the height) in glTF metres and
 degrees, the turn and the move, and the weight checks. The two pose sheets
 show the model before (only turned to face the camera) and after, in rows
 rest, arms down, arms raised and a forward step, and columns front, side,
 back and a close look at the shoulders, so the armpits and whatever hangs
-beside the arms (a cape, hair) can be judged. Poses are world space turns
+beside the arms (a cape, hair) can be judged. A last row looks at the
+hands at rest up close: each hand from its thumb side, where a curl shows,
+and from the back of the hand, where fused or torn fingers show. Poses are world space turns
 about each bone's head, so they read the same on any rig.
 """
 
@@ -57,10 +69,27 @@ TAG = "[avatar]"
 MAX_INFLUENCES = 4
 SHEET_POSES = ["rest", "down", "raise", "step"]
 SHEET_VIEWS = ["front", "side", "back", "shoulders"]
+# The hands row: each hand from its thumb side and from its back.
+HAND_VIEWS = [("left", "front"), ("left", "top"), ("right", "front"), ("right", "top")]
 CELL = 400
 # Degrees the arms point below and above level in the down and raise poses.
 DOWN_DEG = 65.0
 RAISE_DEG = 45.0
+FINGERS = ["Thumb", "Index", "Middle", "Ring", "Little"]
+# How far a hand's fingers are straightened, tried in this order.
+SHARES = (1.0, 0.75, 0.5, 0.25)
+# The finger edges may stretch or shrink this much (95th percentile, as a
+# ratio) when straightened; beyond it fused fingers tear.
+STRETCH_MAX = 1.35
+# Finger edges are those whose ends both carry this much finger weight.
+FINGER_WEIGHT = 0.1
+# A hand whose middle knuckle sits nearer the wrist than this share of the
+# height has its finger bones bunched up, as a broken auto rig leaves them.
+BUNCHED = 0.015
+# The hand crops frame at least this share of the height.
+HAND_MIN = 0.07
+# The share of the knuckles' fan from the wrist the straightened fingers keep.
+SPREAD_KEEP = 0.5
 
 
 def log(text):
@@ -94,6 +123,9 @@ def load_job(path):
     job.setdefault("elbows", "straighten")
     if job["elbows"] not in ("keep", "straighten"):
         fail(f"elbows must be keep or straighten, not {job['elbows']}")
+    job.setdefault("fingers", "straighten")
+    if job["fingers"] not in ("keep", "straighten"):
+        fail(f"fingers must be keep or straighten, not {job['fingers']}")
     return job
 
 
@@ -153,6 +185,15 @@ class Rig:
         pb = self.pose_bone(role)
         return self.arm.matrix_world @ pb.head if pb else None
 
+    def tip(self, role):
+        """Where a bone ends in world space, as posed now: its first child's
+        head (a finger's end bone), else its tail."""
+        pb = self.pose_bone(role)
+        if pb is None:
+            return None
+        end = pb.children[0].head if pb.children else pb.tail
+        return self.arm.matrix_world @ end
+
     def mesh_points(self):
         """Every skinned mesh vertex in world space, as deformed now."""
         depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -198,6 +239,19 @@ class Rig:
         self.world_rotate(role, rot)
         return math.degrees(rot.angle)
 
+    def aim_chain(self, role, direction, share):
+        """Turns `role` about its head, its end being its child's head or its
+        tail, `share` of the way to pointing along `direction`."""
+        a = self.head(role)
+        b = self.tip(role)
+        if a is None or b is None or (b - a).length < 1e-9:
+            return 0.0
+        rot = (b - a).normalized().rotation_difference(Vector(direction).normalized())
+        axis, angle = rot.to_axis_angle()
+        rot = Quaternion(axis, angle * share)
+        self.world_rotate(role, rot)
+        return math.degrees(rot.angle)
+
 
 def left_axis(rig):
     """The character's left, flattened, in Blender space."""
@@ -235,12 +289,15 @@ def measure(rig):
         elbows[side] = angle_between(lo - u, h - lo)
     pts = rig.mesh_points()
     hips = to_gltf(rig.head("hips"))
+    curls = finger_curls(rig, float(pts[:, 2].max() - pts[:, 2].min()))
     return {
         "facingDeg": facing,
         "armLeftDeg": arms["left"],
         "armRightDeg": arms["right"],
         "elbowLeftDeg": elbows["left"],
         "elbowRightDeg": elbows["right"],
+        "fingers": curls,
+        "fingerCurlDeg": max(curls.values()) if curls else None,
         "groundY": float(pts[:, 2].min()),
         "height": float(pts[:, 2].max() - pts[:, 2].min()),
         "hips": hips,
@@ -298,6 +355,186 @@ def level_arms(rig, elbows):
             lifted[side] = {"shoulderDeg": rig.aim(side + "UpperArm", side + "Hand", (x, 0.0, 0.0))}
         log(f"{cap} arm turned {lifted[side]['shoulderDeg']:.1f} degrees at the shoulder")
     return lifted
+
+
+# Fingers. Each VRM finger is a chain of three bones (the thumb's metacarpal,
+# proximal and distal; the others' proximal, intermediate and distal) whose
+# last bone ends at its end bone or its tail.
+
+
+def finger_roles(side, finger):
+    joints = ("Metacarpal", "Proximal", "Distal") if finger == "Thumb" else (
+        "Proximal", "Intermediate", "Distal")
+    return [side + finger + j for j in joints]
+
+
+def hand_frame(rig, side):
+    """The hand's axis (wrist to the middle knuckle), its palm normal (towards
+    the palm) and its thumb side, in world space; `None` without the knuckles."""
+    h = rig.head(side + "Hand")
+    knuckles = {f: rig.head(side + f + "Proximal") for f in FINGERS[1:]}
+    knuckles = {f: k for f, k in knuckles.items() if k is not None}
+    first = knuckles.get("Index")
+    last = knuckles.get("Little") or knuckles.get("Ring")
+    if h is None or first is None or last is None:
+        return None
+    mid = knuckles.get("Middle") or (first + last) / 2.0
+    a = mid - h
+    across = first - last
+    if a.length < 1e-9 or across.length < 1e-9:
+        return None
+    a = a.normalized()
+    # The left hand's axis crossed with little to index points to the palm.
+    n = a.cross(across) * (1.0 if side == "left" else -1.0)
+    if n.length < 1e-9:
+        return None
+    n = n.normalized()
+    f = (across - a * across.dot(a)).normalized()
+    return h, a, n, f
+
+
+def bunched(rig, side, height):
+    """True when the hand has knuckles and every one sits nearer the wrist
+    than BUNCHED of the height, as a broken auto rig leaves them."""
+    h = rig.head(side + "Hand")
+    knuckles = [rig.head(side + f + "Proximal") for f in FINGERS[1:]]
+    far = [(k - h).length for k in knuckles if k is not None]
+    return h is not None and bool(far) and max(far) < BUNCHED * height
+
+
+def finger_curls(rig, height):
+    """Each finger's curl in degrees: the bends between its bones, and for the
+    four fingers how far the first bone dips out of the palm towards it."""
+    out = {}
+    for side in ("left", "right"):
+        if bunched(rig, side, height):
+            continue
+        frame = hand_frame(rig, side)
+        for finger in FINGERS:
+            roles = finger_roles(side, finger)
+            pts = [rig.head(r) for r in roles]
+            if any(p is None for p in pts):
+                continue
+            pts.append(rig.tip(roles[-1]))
+            segs = [pts[i + 1] - pts[i] for i in range(3)]
+            if any(s.length < 1e-9 for s in segs):
+                continue
+            curl = sum(math.degrees(segs[i].angle(segs[i + 1])) for i in range(2))
+            if finger != "Thumb" and frame is not None:
+                dip = segs[0].normalized().dot(frame[2])
+                curl += max(0.0, math.degrees(math.asin(max(-1.0, min(1.0, dip)))))
+            out[side + finger] = curl
+    return out
+
+
+def finger_edges(rig, side):
+    """Per skinned mesh, the edges whose ends both follow the side's fingers."""
+    names = {rig.roles[r] for f in FINGERS for r in finger_roles(side, f) if r in rig.roles}
+    out = []
+    for obj in rig.meshes:
+        groups = {g.index for g in obj.vertex_groups if g.name in names}
+        if not groups:
+            continue
+        held = np.zeros(len(obj.data.vertices))
+        for v in obj.data.vertices:
+            held[v.index] = sum(g.weight for g in v.groups if g.group in groups)
+        edges = np.empty(len(obj.data.edges) * 2, np.int64)
+        obj.data.edges.foreach_get("vertices", edges)
+        edges = edges.reshape(-1, 2)
+        keep = (held[edges[:, 0]] > FINGER_WEIGHT) & (held[edges[:, 1]] > FINGER_WEIGHT)
+        if keep.any():
+            out.append((obj, edges[keep]))
+    return out
+
+
+def edge_lengths(edges):
+    """The edges' lengths as deformed now."""
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    out = []
+    for obj, pairs in edges:
+        ev = obj.evaluated_get(depsgraph)
+        me = ev.to_mesh()
+        co = np.empty(len(me.vertices) * 3, np.float64)
+        me.vertices.foreach_get("co", co)
+        co = co.reshape(-1, 3)
+        ev.to_mesh_clear()
+        out.append(np.linalg.norm(co[pairs[:, 0]] - co[pairs[:, 1]], axis=1))
+    return np.concatenate(out) if out else np.zeros(0)
+
+
+def stretch(before, after):
+    """The 95th percentile of how much each edge stretched or shrank, a ratio."""
+    ok = before > 1e-9
+    if not ok.any():
+        return 1.0
+    q = after[ok] / before[ok]
+    return float(np.percentile(np.maximum(q, 1.0 / np.maximum(q, 1e-9)), 95))
+
+
+def finger_targets(rig, side, frame):
+    """Where each finger points once straight: the four along the hand, keeping
+    part of the knuckles' fan, the thumb 45 degrees between hand and front."""
+    h, a, n, f = frame
+    out = {}
+    for finger in FINGERS:
+        roles = finger_roles(side, finger)
+        if any(rig.pose_bone(r) is None for r in roles):
+            continue
+        if finger == "Thumb":
+            out[finger] = (a + f).normalized()
+            continue
+        fan = rig.head(roles[0]) - h
+        fan -= n * fan.dot(n)
+        yaw = math.atan2(fan.dot(f), fan.dot(a)) * SPREAD_KEEP if fan.length > 1e-9 else 0.0
+        out[finger] = a * math.cos(yaw) + f * math.sin(yaw)
+    return out
+
+
+def straighten_hand(rig, side, targets, share):
+    turned = 0.0
+    for finger, target in targets.items():
+        for role in finger_roles(side, finger):
+            turned = max(turned, rig.aim_chain(role, target, share))
+    return turned
+
+
+def straighten_fingers(rig):
+    """Lays each hand's fingers straight, as far as its mesh holds. Returns per
+    side the share of the way it went, the stretch there, the largest joint
+    turn and, for a hand left as it was, why."""
+    height = float(np.ptp(rig.mesh_points()[:, 2]))
+    out = {}
+    for side in ("left", "right"):
+        if bunched(rig, side, height):
+            out[side] = {"share": 0.0, "skipped": "the finger bones sit bunched at the wrist"}
+            log(f"{side.capitalize()} hand: finger bones bunched at the wrist, left as they are")
+            continue
+        frame = hand_frame(rig, side)
+        if frame is None:
+            out[side] = {"share": 0.0, "skipped": "the hand has no knuckles to read"}
+            continue
+        targets = finger_targets(rig, side, frame)
+        bones = [rig.pose_bone(r) for f in targets for r in finger_roles(side, f)]
+        kept = [pb.matrix_basis.copy() for pb in bones]
+        edges = finger_edges(rig, side)
+        rest = edge_lengths(edges)
+        result = {"share": 0.0, "skipped": "every share tore the fingers"}
+        for share in SHARES:
+            for pb, m in zip(bones, kept):
+                pb.matrix_basis = m.copy()
+            update()
+            turned = straighten_hand(rig, side, targets, share)
+            s = stretch(rest, edge_lengths(edges))
+            if s <= STRETCH_MAX:
+                result = {"share": share, "stretch": s, "turnedDeg": turned}
+                break
+        else:
+            for pb, m in zip(bones, kept):
+                pb.matrix_basis = m.copy()
+            update()
+        out[side] = result
+        log(f"{side.capitalize()} fingers straightened {result['share'] * 100:.0f}% of the way")
+    return out
 
 
 def apply_as_rest(rig):
@@ -422,7 +659,8 @@ def frame_for(rig):
         reach = max(reach, abs(u.x) + (lo - u).length + (h - lo).length + 0.12 * height)
     body = max(1.08 * height, 2.1 * reach)
     shoulders = rig.head("leftUpperArm").z
-    return {"body": (body, height / 2), "shoulders": (0.5 * height, shoulders - 0.05 * height)}
+    return {"body": (body, height / 2), "shoulders": (0.5 * height, shoulders - 0.05 * height),
+            "height": height}
 
 
 def place(cam, label, view, frame, text):
@@ -434,6 +672,7 @@ def place(cam, label, view, frame, text):
     cam.data.ortho_scale = scale
     cam.location = centre + d * 10.0
     cam.rotation_euler = (-d).to_track_quat("-Z", "Y").to_euler()
+    cam.data.clip_start = 0.1
     cam.data.clip_end = 30.0
     right = Vector((math.cos(y), math.sin(y), 0.0))
     label.data.body = text
@@ -442,28 +681,87 @@ def place(cam, label, view, frame, text):
     label.rotation_euler = (math.radians(90.0), 0.0, y)
 
 
+def hand_reach(rig, side):
+    """Wrist to the middle finger's end along its bones, metres; the same in
+    any pose, so the before and after crops share one scale."""
+    roles = [side + "Hand"] + finger_roles(side, "Middle")
+    pts = [rig.head(r) for r in roles]
+    if any(p is None for p in pts):
+        return None
+    pts.append(rig.tip(roles[-1]))
+    return sum((pts[i + 1] - pts[i]).length for i in range(len(pts) - 1))
+
+
+def place_hand(cam, label, rig, side, view, frame, text):
+    """Frames one hand at rest from its thumb side ("front") or its back
+    ("top"), clipped to the hand so the body around it stays out. False when
+    the hand cannot be read."""
+    hand = hand_frame(rig, side)
+    reach = hand_reach(rig, side)
+    if hand is None or reach is None:
+        return False
+    # A hand whose bones are bunched up still gets a hand sized frame.
+    reach = max(reach, HAND_MIN * frame["height"])
+    h, a, n, f = hand
+    pts = [h]
+    for finger in FINGERS:
+        for role in finger_roles(side, finger):
+            if rig.head(role) is not None:
+                pts += [rig.head(role), rig.tip(role)]
+    lo = Vector([min(p[i] for p in pts) for i in range(3)])
+    hi = Vector([max(p[i] for p in pts) for i in range(3)])
+    centre = (lo + hi) / 2.0
+    back, up = (f, -n) if view == "front" else (-n, -f)
+    right = up.cross(back)
+    rot = Matrix((right, up, back)).transposed()
+    scale = 1.35 * reach
+    dist = 3.0 * reach
+    cam.data.ortho_scale = scale
+    cam.location = centre + back * dist
+    cam.rotation_euler = rot.to_euler()
+    cam.data.clip_start = dist - 0.5 * reach
+    cam.data.clip_end = dist + 0.5 * reach
+    label.data.body = text
+    label.data.size = 0.03 * scale
+    label.location = centre + back * 0.5 * reach - right * 0.46 * scale + up * 0.44 * scale
+    label.rotation_euler = rot.to_euler()
+    return True
+
+
+def render_cell(path):
+    bpy.context.scene.render.filepath = path
+    bpy.ops.render.render(write_still=True)
+    img = bpy.data.images.load(path)
+    px = np.array(img.pixels[:], np.float32).reshape(CELL, CELL, 4)[::-1]
+    bpy.data.images.remove(img)
+    return px
+
+
 def render_sheet(rig, out, title, frame):
     cam, label = setup_scene()
     cells_dir = out + "_cells"
     os.makedirs(cells_dir, exist_ok=True)
-    sheet = np.ones((CELL * len(SHEET_POSES), CELL * len(SHEET_VIEWS), 4), np.float32)
+    rows = len(SHEET_POSES) + 1
+    sheet = np.ones((CELL * rows, CELL * len(SHEET_VIEWS), 4), np.float32)
     for ri, pose in enumerate(SHEET_POSES):
         rig.reset_pose()
         sheet_pose(rig, pose)
         for ci, view in enumerate(SHEET_VIEWS):
             place(cam, label, view, frame, f"{title}  {pose}  {view}")
-            path = os.path.join(cells_dir, f"{pose}_{view}.png")
-            bpy.context.scene.render.filepath = path
-            bpy.ops.render.render(write_still=True)
-            img = bpy.data.images.load(path)
-            px = np.array(img.pixels[:], np.float32).reshape(CELL, CELL, 4)[::-1]
+            px = render_cell(os.path.join(cells_dir, f"{pose}_{view}.png"))
             sheet[ri * CELL:(ri + 1) * CELL, ci * CELL:(ci + 1) * CELL] = px
-            bpy.data.images.remove(img)
-            if ci:
-                sheet[ri * CELL:(ri + 1) * CELL, ci * CELL:ci * CELL + 2, :3] = 0.15
-        if ri:
-            sheet[ri * CELL:ri * CELL + 2, :, :3] = 0.15
     rig.reset_pose()
+    ri = len(SHEET_POSES)
+    for ci, (side, view) in enumerate(HAND_VIEWS):
+        cell = sheet[ri * CELL:(ri + 1) * CELL, ci * CELL:(ci + 1) * CELL]
+        if place_hand(cam, label, rig, side, view, frame, f"{title}  {side} hand  {view}"):
+            cell[:] = render_cell(os.path.join(cells_dir, f"hand_{side}_{view}.png"))
+        else:
+            cell[:, :, :3] = 0.4
+    for ri in range(1, rows):
+        sheet[ri * CELL:ri * CELL + 2, :, :3] = 0.15
+    for ci in range(1, len(SHEET_VIEWS)):
+        sheet[:, ci * CELL:ci * CELL + 2, :3] = 0.15
     bpy.data.objects.remove(cam)
     bpy.data.objects.remove(label)
     img = bpy.data.images.new("sheet", sheet.shape[1], sheet.shape[0], alpha=True)
@@ -505,6 +803,7 @@ def main():
         render_sheet(rig, job["sheets"]["before"], "before", frame)
     weights_before = weight_checks(rig, fix=False)
     lifted = level_arms(rig, job["elbows"])
+    straightened = straighten_fingers(rig) if job["fingers"] == "straighten" else {}
     apply_as_rest(rig)
     weights = weight_checks(rig, fix=True)
     rig.reset_pose()
@@ -519,6 +818,8 @@ def main():
         "moved": moved,
         "elbows": job["elbows"],
         "lifted": lifted,
+        "fingers": job["fingers"],
+        "straightened": straightened,
         "weightsBefore": weights_before,
         "weights": weights,
     }

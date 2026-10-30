@@ -70,6 +70,17 @@ fn elbows_default_to_straighten_and_bad_words_are_refused() {
 }
 
 #[test]
+fn fingers_default_to_straighten_and_bad_words_are_refused() {
+    assert_eq!(parse_fingers(None), Ok(Fingers::Straighten));
+    assert_eq!(parse_fingers(Some("KEEP")), Ok(Fingers::Keep));
+    assert!(
+        parse_fingers(Some("curl"))
+            .expect_err("bad")
+            .contains("straighten or keep")
+    );
+}
+
+#[test]
 fn a_waiting_build_asks_a_person_once_and_shows_the_sheets() {
     let hub = Hub::new(|| {});
     let built = AvatarBuild::Waiting {

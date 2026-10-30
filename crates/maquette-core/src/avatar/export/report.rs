@@ -9,11 +9,12 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::avatar::normalize::Elbows;
-use crate::avatar::reweight::ReweightReport;
+use crate::avatar::normalize::{Elbows, Fingers};
+use crate::avatar::reweight::{FINDING, ReweightReport};
 use crate::inbox::vrm::{
-    AvatarPermission, BoneNaming, CommercialUsage, CreditNotation, FindingLevel, MaterialMode,
-    Modification, RoundTrip, VrmBone, VrmFinding, VrmMeta, VrmReadiness,
+    self, AvatarPermission, BoneNaming, BoneOverrides, CommercialUsage, CreditNotation,
+    FindingLevel, MaterialMode, Modification, RoundTrip, VrmBone, VrmFinding, VrmMeta,
+    VrmReadiness,
 };
 
 /// What wrote the file: the app and its version.
@@ -132,6 +133,10 @@ pub struct AvatarReport {
     pub normalized: bool,
     /// The elbows mode of the normalise; `None` when nothing was normalised.
     pub elbows: Option<Elbows>,
+    /// The fingers mode of the normalise; `None` when nothing was
+    /// normalised, or for a report older than the option.
+    #[serde(default)]
+    pub fingers: Option<Fingers>,
     /// What the approved reweight the arms were lifted from changed: the
     /// vertices that gave arm weight to the trunk, from which arm bones and
     /// to which trunk bones, and those kept as sleeve. `None` when no
@@ -184,4 +189,39 @@ pub fn round_trip_finding(round_trip: &RoundTrip) -> Option<VrmFinding> {
         title: "The written file does not read back as a VRM".to_string(),
         detail: Some(round_trip.problems.join(" ")),
     })
+}
+
+/// The written file's readiness; `None` when it does not read back (the
+/// round trip says why). After an approved reweight, what still follows
+/// the arms is what it left, and `unresolved` says so too.
+pub fn written_readiness(
+    bytes: &[u8],
+    base: &Path,
+    overrides: &BoneOverrides,
+    reweighted: bool,
+    unresolved: &mut Vec<VrmFinding>,
+) -> Option<VrmReadiness> {
+    if !reweighted {
+        return vrm::readiness(bytes, base, overrides).ok();
+    }
+    let after = vrm::readiness_after_reweight(bytes, base, overrides).ok()?;
+    freed_arms(unresolved, &after);
+    Some(after)
+}
+
+/// Puts what an approved reweight left on the arms in place of the arm
+/// weights finding the writer read without knowing of it: `after` is the
+/// written file's readiness read as reweighted. Drops the finding when
+/// nothing is left.
+fn freed_arms(unresolved: &mut Vec<VrmFinding>, after: &VrmReadiness) {
+    let left = after.findings.iter().find(|f| f.id == FINDING);
+    match (unresolved.iter().position(|f| f.id == FINDING), left) {
+        (Some(at), Some(left)) => unresolved[at] = left.clone(),
+        (Some(at), None) => {
+            unresolved.remove(at);
+        }
+        (None, _) => return,
+    }
+    // Stable, so each level keeps its order.
+    unresolved.sort_by_key(|f| f.level);
 }

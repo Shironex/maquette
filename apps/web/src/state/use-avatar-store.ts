@@ -12,6 +12,7 @@ import {
   type AvatarSpec_Serialize,
   type AvatarView_Serialize,
   type Elbows,
+  type Fingers,
   type VrmMeta_Serialize,
 } from '@/ipc/client';
 import { buildNotice } from './avatar';
@@ -38,6 +39,7 @@ interface AvatarStore {
   building: boolean;
   deciding: boolean;
   elbows: Elbows;
+  fingers: Fingers;
   tab: AvatarTab;
   /** Opens the Avatar view on an asset, on one of its versions (the newest without). */
   open: (project: string, asset: string, version?: number | null) => void;
@@ -48,6 +50,7 @@ interface AvatarStore {
   editMeta: (change: Partial<VrmMeta_Serialize>) => void;
   setMaterial: (material: AvatarSpec_Serialize['material']) => void;
   setElbows: (elbows: Elbows) => void;
+  setFingers: (fingers: Fingers) => void;
   setTab: (tab: AvatarTab) => void;
   save: () => Promise<boolean>;
   /**
@@ -81,6 +84,7 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   building: false,
   deciding: false,
   elbows: 'straighten',
+  fingers: 'straighten',
   tab: 'export',
 
   open: (project, asset, version = null) => {
@@ -99,6 +103,7 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
       dirty: false,
       error: null,
       elbows: 'straighten',
+      fingers: 'straighten',
     });
     void get().load();
   },
@@ -135,6 +140,8 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   },
 
   setElbows: elbows => set({ elbows }),
+
+  setFingers: fingers => set({ fingers }),
 
   setTab: tab => set({ tab }),
 
@@ -177,12 +184,12 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   },
 
   build: async () => {
-    const { project, asset, version, dirty, elbows } = get();
+    const { project, asset, version, dirty, elbows, fingers } = get();
     if (!project || !asset) return;
     if (dirty && !(await get().save())) return;
     set({ building: true });
     try {
-      const built = await commands.avatarBuild(project, asset, version, elbows, null);
+      const built = await commands.avatarBuild(project, asset, version, elbows, null, fingers);
       const { title, detail } = buildNotice(built);
       notify(built.status === 'written' ? 'done' : 'info', title, detail);
     } catch (error) {

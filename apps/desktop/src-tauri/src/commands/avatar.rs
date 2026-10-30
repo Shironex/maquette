@@ -6,7 +6,7 @@
 //! is only ever given here, in the app: agents build, and wait.
 
 use maquette_core::avatar::export::{self, AvatarBuild, AvatarPlan, AvatarRequest, AvatarView};
-use maquette_core::avatar::normalize::{Elbows, Normalized};
+use maquette_core::avatar::normalize::{Elbows, Fingers, Normalized};
 use maquette_core::avatar::reweight::{ReweightMode, Reweighted};
 use maquette_core::avatar::{self, AvatarSpec};
 use maquette_core::pipeline::tools::Toolbox;
@@ -25,6 +25,7 @@ pub(crate) struct Target<'a> {
     pub version: Option<u32>,
     pub elbows: Elbows,
     pub reweight: ReweightMode,
+    pub fingers: Fingers,
 }
 
 /// Runs `then` on the request a target names in the open workspace.
@@ -42,6 +43,7 @@ fn with_request<T>(
         version: target.version,
         elbows: target.elbows,
         reweight: target.reweight,
+        fingers: target.fingers,
     };
     Ok(then(&req)?)
 }
@@ -96,6 +98,7 @@ pub fn avatar_get(
             version,
             elbows: Elbows::default(),
             reweight: ReweightMode::default(),
+            fingers: Fingers::default(),
         },
     )
 }
@@ -117,6 +120,7 @@ pub fn avatar_save(
             version: None,
             elbows: Elbows::default(),
             reweight: ReweightMode::default(),
+            fingers: Fingers::default(),
         },
         spec,
     )
@@ -125,9 +129,14 @@ pub fn avatar_save(
 /// Builds the avatar's `.vrm`: frees cloth and hair from the arms when they
 /// hang there (unless `reweight` is off) and waits for that yes, normalises
 /// the rest pose headless when it is not VRM's yet and waits for the yes,
-/// or writes the file once both are given.
+/// or writes the file once both are given. `fingers` straightens the fingers
+/// in that normalise (the default) or keeps them.
 #[tauri::command]
 #[specta::specta]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a command takes each IPC argument as a parameter of its own"
+)]
 pub async fn avatar_build(
     app: AppHandle,
     session: State<'_, Session>,
@@ -137,6 +146,7 @@ pub async fn avatar_build(
     version: Option<u32>,
     elbows: Option<Elbows>,
     reweight: Option<ReweightMode>,
+    fingers: Option<Fingers>,
 ) -> CommandResult<AvatarBuild> {
     let tools = super::toolchain::toolbox(&session).await?;
     let runner = runner.0.clone();
@@ -151,6 +161,7 @@ pub async fn avatar_build(
                 version,
                 elbows: elbows.unwrap_or_default(),
                 reweight: reweight.unwrap_or_default(),
+                fingers: fingers.unwrap_or_default(),
             },
         )
     })
@@ -177,6 +188,7 @@ pub fn avatar_decide(
         version,
         elbows: Elbows::default(),
         reweight: ReweightMode::default(),
+        fingers: Fingers::default(),
     };
     let decided = with_request(&session, &target, |req| export::decide(req, approve))?;
     if let Some(waiting) = agents.hub.rest_pose_for(&decided.project, &decided.asset) {
@@ -204,6 +216,7 @@ pub fn avatar_decide_reweight(
         version,
         elbows: Elbows::default(),
         reweight: ReweightMode::default(),
+        fingers: Fingers::default(),
     };
     let decided = with_request(&session, &target, |req| {
         export::decide_reweight(req, approve)

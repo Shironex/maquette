@@ -27,6 +27,7 @@ import type {
   AvatarSpec_Serialize,
   AvatarView_Serialize,
   Elbows,
+  Fingers,
   Normalized,
   ProjectManifest,
   ReweightMode,
@@ -50,7 +51,7 @@ import { customRigReadiness } from './custom-rig-fixtures';
 import { CLAY_FIGURE_VRM, withOverrides } from './vrm-fixtures';
 
 /** Rest pose findings a normalise fixes, as `needs_normalize` reads them. */
-const POSE_IDS = new Set(['facing', 'arms', 'ground', 'centre']);
+const POSE_IDS = new Set(['facing', 'arms', 'fingers', 'ground', 'centre']);
 
 function readinessOf(
   asset: string,
@@ -130,7 +131,8 @@ export function createAvatarHandlers(
     a: string,
     version: number,
     elbows: Elbows,
-    freed: Reweighted | null
+    freed: Reweighted | null,
+    fingers: Fingers = 'straighten'
   ): Normalized {
     const dir = avatarCacheDir(root(), p, a);
     return {
@@ -140,9 +142,9 @@ export function createAvatarHandlers(
       state: 'pending',
       glb: `${dir}/normalized.glb`,
       sheets: { before: `${dir}/sheet_before.webp`, after: `${dir}/sheet_after.webp` },
-      report: report(elbows),
-      readiness: normalisedReadiness(),
-      key: `v${version}-elbows-${elbows}${freed ? '-freed' : ''}`,
+      report: report(elbows, fingers),
+      readiness: normalisedReadiness(freed !== null, fingers),
+      key: `v${version}-elbows-${elbows}-${fingers}${freed ? '-freed' : ''}`,
       approvedAt: null,
       reweight: freed?.report ?? null,
     };
@@ -213,7 +215,8 @@ export function createAvatarHandlers(
     id: string,
     version: number | null,
     elbows: Elbows,
-    mode: ReweightMode
+    mode: ReweightMode,
+    fingers: Fingers
   ): AvatarBuild {
     const v = view(p, id, version);
     if (!v.readiness) fail('invalid', v.readinessError ?? 'No humanoid rig in this model.');
@@ -233,9 +236,9 @@ export function createAvatarHandlers(
     }
     // An approved reweight is what the arms are lifted from.
     const freed = v.reweighted?.state === 'approved' ? v.reweighted : null;
-    const wanted = `v${v.version}-elbows-${elbows}${freed ? '-freed' : ''}`;
+    const wanted = `v${v.version}-elbows-${elbows}-${fingers}${freed ? '-freed' : ''}`;
     if (!e.normalized || e.normalized.key !== wanted) {
-      e.normalized = normalise(p, v.asset, v.version ?? 1, elbows, freed);
+      e.normalized = normalise(p, v.asset, v.version ?? 1, elbows, freed, fingers);
     }
     const normalized = e.normalized;
     if (normalized.state === 'pending') return { status: 'waiting for approval', normalized };
@@ -300,14 +303,15 @@ export function createAvatarHandlers(
       entry(String(p), id).spec = spec as AvatarSpec_Serialize;
       return view(String(p), id);
     },
-    avatar_build: ({ project: p, asset, version, elbows, reweight }) =>
+    avatar_build: ({ project: p, asset, version, elbows, reweight, fingers }) =>
       later(() =>
         build(
           String(p),
           String(asset),
           (version as number | null) ?? null,
           (elbows as Elbows | null) ?? 'straighten',
-          (reweight as ReweightMode | null) ?? 'auto'
+          (reweight as ReweightMode | null) ?? 'auto',
+          (fingers as Fingers | null) ?? 'straighten'
         )
       ),
     avatar_decide: ({ project: p, asset, version, approve }) => {

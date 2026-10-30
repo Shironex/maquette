@@ -68,6 +68,25 @@ describe('the avatar helpers', () => {
     ).toBe('Turned 90°, lifted the left arm 55° and the right arm 53°, elbows straightened.');
   });
 
+  it('say how far the fingers went, and show their curl', () => {
+    const base = { turnedDeg: 0, elbows: 'keep' as const, lifted: {} };
+    expect(poseSummary({ ...base, fingers: 'keep' })).toBe('Elbows kept, fingers kept.');
+    expect(
+      poseSummary({
+        ...base,
+        fingers: 'straighten',
+        straightened: { left: { share: 1 }, right: { share: 1 } },
+      })
+    ).toBe('Elbows kept, fingers straightened.');
+    const rows = measureRows({ fingerCurlDeg: 74 }, { fingerCurlDeg: 4 });
+    expect(rows.find(r => r.id === 'fingers')).toMatchObject({
+      label: 'Most finger curl',
+      before: '74°',
+      after: '4°',
+      fixed: true,
+    });
+  });
+
   it('hold the build until the meta and the pose allow it', () => {
     const readiness = vrmReadiness({}, 'vrm', []);
     const spec = specFromDefaults({ author: 'Ana' }, 'Hero');

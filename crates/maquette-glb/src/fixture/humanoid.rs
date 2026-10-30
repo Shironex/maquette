@@ -11,8 +11,10 @@ use super::builder::{Builder, Mesh};
 use super::pbr_material;
 use super::skeleton::{skeleton, world_positions};
 
+mod hands;
 mod names;
 
+use hands::{curl_fingers, hand_piece};
 use names::rename;
 
 /// The bone names a fixture humanoid uses.
@@ -89,6 +91,12 @@ pub struct HumanoidSpec {
     /// primitives.
     pub split: bool,
     pub flaw: SkinFlaw,
+    /// Degrees each knuckle and finger joint of the four fingers bends
+    /// towards the palm, as an auto rig's curled hand has them.
+    pub finger_curl: f32,
+    /// A small piece of its own weighted wholly to the left hand, hanging
+    /// well off it, as a nail or a held prop an auto rig gives the hand.
+    pub hand_piece: bool,
 }
 
 impl Default for HumanoidSpec {
@@ -107,6 +115,8 @@ impl Default for HumanoidSpec {
             weights: WeightFormat::Float,
             split: false,
             flaw: SkinFlaw::None,
+            finger_curl: 0.0,
+            hand_piece: false,
         }
     }
 }
@@ -123,6 +133,7 @@ fn turn_xy(p: [f32; 3], pivot: [f32; 3], deg: f32) -> [f32; 3] {
 fn posed(spec: &HumanoidSpec) -> Vec<(String, Option<usize>, [f32; 3])> {
     let joints = skeleton();
     let mut world = world_positions(&joints);
+    curl_fingers(&joints, &mut world, spec.finger_curl);
     for (side, sign) in [("Left", 1.0f32), ("Right", -1.0f32)] {
         let Some(arm) = joints
             .iter()
@@ -283,6 +294,10 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
             [0.12, 0.05, 0.01],
             u16::try_from(arm).unwrap_or(0),
         );
+    }
+
+    if spec.hand_piece {
+        hand_piece(&mut mesh, &world);
     }
 
     flaw_box(&mut mesh, spec.flaw, joints.len());

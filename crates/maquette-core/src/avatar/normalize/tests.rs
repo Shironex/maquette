@@ -83,6 +83,7 @@ fn request<'a>(w: &'a World, overrides: &'a BoneOverrides, elbows: Elbows) -> No
         version: None,
         overrides,
         elbows,
+        fingers: Fingers::default(),
     }
 }
 
@@ -96,7 +97,7 @@ pub(crate) struct FakeBlender {
 }
 
 impl FakeBlender {
-    fn new(output: Vec<u8>) -> Self {
+    pub(crate) fn new(output: Vec<u8>) -> Self {
         Self {
             output,
             runs: Cell::new(0),
@@ -140,6 +141,11 @@ impl ScriptRunner for FakeBlender {
             "moved": [0.0, 0.0, -0.2],
             "elbows": "keep",
             "lifted": { "left": { "shoulderDeg": 60.0 }, "right": { "shoulderDeg": 60.0 } },
+            "fingers": "straighten",
+            "straightened": {
+                "left": { "share": 1.0, "stretch": 1.2, "turnedDeg": 40.0 },
+                "right": { "share": 0.0, "skipped": "the finger bones sit bunched at the wrist" },
+            },
             "weights": { "vertices": 100, "maxInfluences": 4 },
         });
         fs::write(work.join(REPORT_FILE), report.to_string()).expect("report");
@@ -492,4 +498,75 @@ fn only_a_pose_off_vrm_needs_normalising() {
     )
     .expect("readiness");
     assert!(!needs_normalize(&clean));
+}
+
+#[test]
+fn fingers_straighten_unless_asked_to_keep_and_key_the_run() {
+    assert_eq!(Fingers::default(), Fingers::Straighten);
+    assert!(SCRIPT.contains(r#"job.setdefault("fingers", "straighten")"#));
+    let w = world();
+    let none = BoneOverrides::new();
+    let blender = FakeBlender::good();
+    let straight = plan(&request(&w, &none, Elbows::Keep)).expect("plan");
+    let found = run(&blender, &tools(), &straight).expect("run");
+    let job = blender.job.borrow().clone().expect("job");
+    assert_eq!(job["fingers"], "straighten");
+    // The report says how far each hand went, and why one stayed.
+    assert_eq!(found.report.fingers, Fingers::Straighten);
+    assert_eq!(found.report.straightened["left"].share, 1.0);
+    assert_eq!(
+        found.report.straightened["right"].skipped.as_deref(),
+        Some("the finger bones sit bunched at the wrist")
+    );
+
+    let kept = plan(&NormalizeRequest {
+        fingers: Fingers::Keep,
+        ..request(&w, &none, Elbows::Keep)
+    })
+    .expect("plan");
+    assert_ne!(kept.key, straight.key, "another option is another run");
+    run(&blender, &tools(), &kept).expect("run");
+    assert_eq!(blender.runs.get(), 2);
+    let job = blender.job.borrow().clone().expect("job");
+    assert_eq!(job["fingers"], "keep");
+}
+
+#[test]
+fn curled_fingers_alone_need_normalising_and_never_block() {
+    // A level T-pose facing +Z whose fingers curl 60 degrees.
+    let curled = vrm::readiness(
+        &fixture::humanoid(&HumanoidSpec {
+            finger_curl: 20.0,
+            ..HumanoidSpec::default()
+        }),
+        Path::new("."),
+        &BoneOverrides::new(),
+    )
+    .expect("readiness");
+    assert!(curled.ready, "{:#?}", curled.findings);
+    assert!(needs_normalize(&curled));
+    assert!(
+        check_rest_pose(&curled).is_ok(),
+        "fingers never fail the bar"
+    );
+
+    let w = world_with(&fixture::humanoid(&HumanoidSpec {
+        finger_curl: 20.0,
+        ..HumanoidSpec::default()
+    }));
+    let none = BoneOverrides::new();
+    let planned = plan(&request(&w, &none, Elbows::Straighten)).expect("plan");
+    let before = planned
+        .readiness
+        .findings
+        .iter()
+        .find(|f| f.id == "fingers")
+        .expect("fingers finding");
+    assert_eq!(
+        before.title,
+        "Fingers curl up to 60 degrees, VRM wants them straight"
+    );
+    // A run that laid them straight leaves no finding.
+    let found = run(&FakeBlender::good(), &tools(), &planned).expect("run");
+    assert!(found.readiness.findings.iter().all(|f| f.id != "fingers"));
 }

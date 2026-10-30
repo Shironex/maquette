@@ -23,7 +23,7 @@ describe('the export panel', () => {
     const last = screen.getByRole('region', { name: 'Last export' });
     expect(last).toHaveTextContent('9.4 MB');
     expect(last).toHaveTextContent('Normalised');
-    expect(last).toHaveTextContent('212 vertices of cloth or hair weighted to the arms');
+    expect(last).toHaveTextContent('64 vertices still follow the arms after the reweight');
     expect(last).toHaveTextContent('Round trip: Reads back as a VRM with 52 humanoid bones.');
     expect(last).toHaveTextContent('exports/elsheria.vrm.report.json');
     await userEvent.click(screen.getByRole('button', { name: 'Reveal' }));

@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use super::*;
 use crate::avatar::normalize::tests::world_with;
-use crate::avatar::normalize::{self, Elbows, NormalizeRequest};
+use crate::avatar::normalize::{self, Elbows, Fingers, NormalizeRequest};
 use crate::inbox::fixture::{self, HumanoidSpec};
 use crate::test_blender;
 
@@ -67,6 +67,7 @@ fn reweight_then_normalise_a_model_in_blender() {
         version: None,
         overrides: &none,
         elbows: Elbows::Straighten,
+        fingers: Fingers::Straighten,
     })
     .expect("normalise plan");
     assert_eq!(lifted.source.display().to_string(), found.glb);
@@ -86,4 +87,39 @@ fn reweight_then_normalise_a_model_in_blender() {
             fs::copy(lifted.dir.join(name), out.join(format!("normalize_{name}"))).expect("copy");
         }
     }
+}
+
+#[test]
+#[ignore = "runs Blender"]
+fn whatever_the_hand_holds_stays_with_the_arm_in_blender() {
+    let Some(blender) = test_blender::blender() else {
+        return;
+    };
+    // The strip below the upper arm still needs freeing; the piece weighted
+    // to the hand, far off it, must not lose its weight with it.
+    let w = world_with(&fixture::humanoid(&HumanoidSpec {
+        arm_drop: 55.0,
+        cape_strip: true,
+        hand_piece: true,
+        animation: false,
+        ..HumanoidSpec::default()
+    }));
+    let none = BoneOverrides::new();
+    let planned = plan(&ReweightRequest {
+        workspace_root: &w.root,
+        config: &w.config,
+        project: &w.project,
+        asset: &w.asset,
+        version: None,
+        overrides: &none,
+    })
+    .expect("plan");
+    let runner = test_blender::runner();
+    let found = run(&runner, &test_blender::toolbox(&blender), &planned).expect("reweight");
+    assert!(found.report.moved > 0, "{:#?}", found.report);
+    assert!(
+        !found.report.from_bones.contains_key("mixamorig:LeftHand"),
+        "{:#?}",
+        found.report.from_bones
+    );
 }

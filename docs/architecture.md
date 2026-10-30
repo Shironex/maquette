@@ -602,11 +602,15 @@ uses.
 - **Normalising the rest pose.** Core's `avatar::normalize` (pipeline) runs `avatar_normalize.py`
   headless through the `ScriptRunner` port on one asset version, only read: it turns the model to
   face +Z, centres the hips, puts the soles on Y = 0, lifts each arm at the shoulder until upper arm
-  to hand is level (`Elbows::Straighten` levels the lower arm too), applies the pose as the rest
+  to hand is level (`Elbows::Straighten` levels the lower arm too), straightens each finger chain
+  along its hand (`Fingers::Straighten`: the four fingers in the palm plane with half their spread,
+  the thumb 45 degrees towards the front, trying a whole, three quarter, half and quarter turn per
+  hand and keeping the first whose finger-weighted edges stretch at most 1.35 at the 95th
+  percentile; hands whose finger bones sit bunched at the wrist are skipped), applies the pose as the rest
   (armature modifier applied, `pose.armature_apply`, modifier added back, at most 4 influences,
   weights summing to 1, weights otherwise untouched) and exports a plain GLB, with a report of the
   measures before and after and two pose sheets (rest, arms down, arms raised, a forward step; front,
-  side, back and the shoulders). The bone roles come from the readiness's bone map, so any naming
+  side, back and the shoulders, plus a row with each hand from the thumb side and from above). The bone roles come from the readiness's bone map, so any naming
   works, and `plan` refuses a rig with a blocker normalising cannot fix. The result is derived,
   never a version: `<cache>/avatar/<project>/<asset>/v<version>/`, keyed by the source's content,
   the script, the bone map and the options, recorded with the step cache so a fresh result skips
@@ -619,7 +623,8 @@ uses.
   arm chain holds that sits more than twice the arm's own radius from it, the radius read from the
   mesh around each arm segment in `arm_weights.rs`). The script cuts the mesh in slices along each
   arm, keeps the loops that hug the bone and follow on from slice to slice (sleeves, gloves, the
-  hand, a cuff or a separate glove whole), and moves every other vertex's arm weight to spine,
+  hand, a cuff or a separate glove whole; a vertex weighted mostly to the hand and finger bones,
+  or past the wrist within 6% of the height of the bones, always stays), and moves every other vertex's arm weight to spine,
   chest and upperChest (and the shoulder above the armpit) by inverse distance, with a geodesic
   band at the boundary so cloth sewn to a sleeve stretches instead of tearing. Only `JOINTS_0` and
   `WEIGHTS_0` change, at most 4 influences; `finish` refuses an output with unweighted vertices or

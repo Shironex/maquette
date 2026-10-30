@@ -6,9 +6,12 @@ use super::bones::{HumanBone, Mapped, WrongParent, needs};
 use super::pose::RestPose;
 use super::{FindingLevel, VrmFinding};
 
+mod fingers;
 mod naming;
 mod skin;
 
+pub use fingers::FINGER_SLACK_DEG;
+pub(super) use fingers::finger_findings;
 pub(super) use naming::naming_finding;
 pub(super) use skin::skin_findings;
 
@@ -376,14 +379,30 @@ fn scale_findings(pose: &RestPose, out: &mut Vec<VrmFinding>) {
 }
 
 /// Cloth or hair the arm chain moves at rest, far from the arm: lifting
-/// the arms drags it along. `height` is the model's, metres, for the reach.
-pub(super) fn arm_weight_finding(drag: &ArmDrag) -> VrmFinding {
+/// the arms drags it along. After an approved reweight (`reweighted`) the
+/// arms were freed already: what is left is cloth sewn to the sleeves, a
+/// note with nothing more to offer.
+pub(super) fn arm_weight_finding(drag: &ArmDrag, reweighted: bool) -> VrmFinding {
     let bones: Vec<String> = drag
         .bones
         .iter()
         .take(3)
         .map(|(bone, n)| format!("{bone} ({n})"))
         .collect();
+    if reweighted {
+        return finding(
+            "arm-weights",
+            FindingLevel::Note,
+            format!(
+                "{} still follow the arms after the reweight, cloth sewn to the sleeves",
+                plural(drag.vertices as usize, "vertex", "vertices")
+            ),
+            Some(format!(
+                "The reweight freed the arms and kept these on {} as sleeve: they sit beside the arm but join it, so they stretch with it instead of tearing.",
+                list(&bones)
+            )),
+        );
+    }
     finding(
         "arm-weights",
         FindingLevel::Warning,

@@ -18,6 +18,7 @@ fn request(w: &World) -> AvatarRequest<'_> {
         version: None,
         elbows: Elbows::Straighten,
         reweight: ReweightMode::Auto,
+        fingers: Fingers::Straighten,
     }
 }
 
@@ -476,4 +477,76 @@ fn a_no_to_the_weights_or_reweight_off_lifts_the_source_as_it_is() {
         1,
         "the same run as with reweight off"
     );
+}
+
+#[test]
+fn after_a_reweight_the_cloth_left_on_the_arms_is_a_note_not_an_offer() {
+    let w = caped();
+    // The normalised model still has the cape on its arm: what the
+    // reweight kept as sleeve.
+    let blender = BothSteps {
+        reweight: FakeReweighter::good(),
+        normalize: FakeBlender::new(fixture::humanoid(&HumanoidSpec {
+            cape: true,
+            ..HumanoidSpec::default()
+        })),
+    };
+    build(&blender, &tools(), &request(&w)).expect("reweight waits");
+    decide_reweight(&request(&w), true).expect("approve the weights");
+    let AvatarBuild::Waiting { normalized } =
+        build(&blender, &tools(), &request(&w)).expect("build")
+    else {
+        panic!("the rest pose waits next");
+    };
+    let left = |findings: &[VrmFinding]| {
+        findings
+            .iter()
+            .find(|f| f.id == "arm-weights")
+            .cloned()
+            .expect("arm weights")
+    };
+    let after = left(&normalized.readiness.findings);
+    assert_eq!(after.level, vrm::FindingLevel::Note);
+    assert_eq!(
+        after.title,
+        "24 vertices still follow the arms after the reweight, cloth sewn to the sleeves"
+    );
+    assert!(
+        !after
+            .detail
+            .as_deref()
+            .unwrap_or_default()
+            .contains("Free them first")
+    );
+
+    decide(&request(&w), true).expect("approve the pose");
+    let AvatarBuild::Written { export, .. } =
+        build(&blender, &tools(), &request(&w)).expect("build")
+    else {
+        panic!("written");
+    };
+    assert_eq!(left(&export.unresolved), after);
+    let report: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(export.report.as_deref().expect("report")).expect("read"),
+    )
+    .expect("json");
+    for list in [&report["unresolved"], &report["after"]["findings"]] {
+        let found = list
+            .as_array()
+            .expect("findings")
+            .iter()
+            .find(|f| f["id"] == "arm-weights")
+            .expect("arm weights");
+        assert_eq!(found["level"], "note", "{found}");
+        assert_eq!(found["title"], after.title.as_str());
+    }
+    assert_eq!(report["fingers"], "straighten");
+    // The source's own readiness still offers the reweight.
+    let before = report["before"]["findings"]
+        .as_array()
+        .expect("findings")
+        .iter()
+        .find(|f| f["id"] == "arm-weights")
+        .expect("arm weights");
+    assert_eq!(before["level"], "warning");
 }

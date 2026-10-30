@@ -4,7 +4,7 @@ use std::path::Path;
 
 use super::*;
 use crate::avatar::normalize::tests::{World, tools, world};
-use crate::avatar::normalize::{self, Elbows, NormalizeRequest};
+use crate::avatar::normalize::{self, Elbows, Fingers, NormalizeRequest};
 use crate::inbox::fixture::{self, HumanoidSpec};
 
 fn request<'a>(w: &'a World, overrides: &'a BoneOverrides) -> ReweightRequest<'a> {
@@ -131,6 +131,7 @@ fn normalising_lifts_the_approved_reweight_only() {
         version: None,
         overrides: &none,
         elbows: Elbows::Keep,
+        fingers: Fingers::Keep,
     };
     let plain = normalize::plan(&normalize_request).expect("plan");
     assert!(plain.reweight.is_none());

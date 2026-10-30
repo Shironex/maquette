@@ -6,13 +6,15 @@
 //! VRM runtime treats as the T-pose. Facing comes from the character's
 //! left: the left minus the right upper leg and upper arm, flattened, and
 //! the front is that left crossed with up (+X left faces +Z). The toes, when
-//! mapped, must point the same way, or left and right look swapped.
+//! mapped, must point the same way, or left and right look swapped. How
+//! far each finger curls is read in [`super::fingers`].
 
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
 use super::bones::Mapped;
+use super::fingers::{self, FingerCurl};
 use crate::analyse::primitive_corners;
 use crate::math::{self, Aabb, IDENTITY, Mat4, Vec3};
 
@@ -101,6 +103,16 @@ pub struct RestPose {
     pub asymmetry: Option<f32>,
     /// The left bone of that pair, such as `leftHand`.
     pub asymmetry_bone: Option<String>,
+    /// Each finger's curl, thumb first per side. A hand whose finger bones
+    /// sit bunched at the wrist is left out.
+    #[serde(default)]
+    pub fingers: Vec<FingerCurl>,
+    /// The most any finger curls, degrees; `None` without finger bones.
+    #[serde(default)]
+    pub finger_curl_deg: Option<f32>,
+    /// The sides whose finger bones sit bunched at the wrist.
+    #[serde(default)]
+    pub bunched_hands: Vec<String>,
 }
 
 fn sub(a: Vec3, b: Vec3) -> Vec3 {
@@ -134,7 +146,7 @@ impl Joints {
         Joints { at }
     }
 
-    fn get(&self, bone: &str) -> Option<Vec3> {
+    pub(crate) fn get(&self, bone: &str) -> Option<Vec3> {
         self.at.get(bone).copied()
     }
 
@@ -339,6 +351,14 @@ pub(crate) fn measure(
         (Some(h), Some(a)) => Some(dot([h[0], 0.0, h[2]], a)),
         _ => None,
     };
+    let height = (!bounds.is_empty()).then(|| bounds.size()[1]);
+    // Where a finger's last bone ends: its first child node.
+    let tip = |bone: &str| {
+        let node = mapped.iter().find(|m| m.bone == bone)?.node;
+        let child = doc.nodes().nth(node)?.children().next()?;
+        worlds.get(child.index()).map(math::translation)
+    };
+    let fingers = fingers::measure(&joints, tip, height);
     let s = scales(doc);
     let asymmetry = match (hips, left) {
         (Some(h), Some(l)) => asymmetry(&joints, h, l),
@@ -355,7 +375,7 @@ pub(crate) fn measure(
         hips_offset: hips.map(|h| (h[0] * h[0] + h[2] * h[2]).sqrt()),
         hips_side: along(left),
         hips_forward: along(front),
-        height: (!bounds.is_empty()).then(|| bounds.size()[1]),
+        height,
         uniform_scale: s.negative.is_empty() && s.uneven.is_empty(),
         negative_scale: s.negative,
         uneven_scale: s.uneven,
@@ -363,5 +383,8 @@ pub(crate) fn measure(
         scale_noise: s.noise,
         asymmetry: asymmetry.as_ref().map(|a| a.0),
         asymmetry_bone: asymmetry.map(|a| a.1),
+        finger_curl_deg: fingers.curls.iter().map(|f| f.curl_deg).reduce(f32::max),
+        fingers: fingers.curls,
+        bunched_hands: fingers.bunched,
     }
 }
