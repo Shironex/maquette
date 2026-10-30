@@ -40,9 +40,13 @@ Which vertices belong to the arm, per side:
    the arm. A piece of its own that no cut gave to the rest (a separate sleeve or glove, a
    finger) goes with the arm whole, and so does a small island lying mostly on the arm (a
    cuff, a bracelet).
-4. The hand always stays with the arm: a vertex weighted mostly to the hand and finger bones, or
-   lying past the wrist within a hand's reach of the bones, is the arm whatever the cuts said, so
-   a nail or a finger tip never stays behind when the arm lifts.
+4. The hand always stays with the arm, whatever the cuts said, so a nail or a finger tip never
+   stays behind when the arm lifts. The hand is its own surface: what the mesh edges reach from
+   the arm found just before the wrist, going only through the surface past the wrist near the
+   bones (fingers, nails, a glove, a ring sewn on). Hair or cloth that only hangs beside the hand
+   joins it through the head or the body, so it is never reached, whatever its weights. A small
+   piece of its own goes with the hand whole when most of it lies on the hand's surface (a ring)
+   or most of it is weighted to the hand and finger bones (a prop the hand holds).
 
 Everything else on the arm chain moves its arm weight to the trunk, shared by inverse distance
 between spine, chest and upperChest, and the shoulder for vertices above the armpit (the top of a
@@ -90,8 +94,10 @@ BAND = 0.1           # width of the smooth falloff, surface distance
 ARMPIT = 0.04        # the shoulder takes cloth above the armpit, fading over this
 IDW_POWER = 4.0
 CHANGED = 1e-3       # arm weight a vertex must lose to count as moved
-HAND_HELD = 0.5      # a vertex with more than this share of its weight on the hand is the hand
-HAND_NEAR = 0.06     # past the wrist, this near the bones is the hand
+HAND_REACH = 0.06    # the hand's surface lies past the wrist within this of the bones...
+HAND_WRIST = 0.03    # ...reached from the arm found up to this far before the wrist
+HAND_TOUCH = 0.01    # a piece this near the hand's surface lies on it
+HAND_HELD = 0.5      # a vertex with more than this share of its weight on the hand is held by it
 
 
 def log(text):
@@ -752,17 +758,44 @@ def arm_members(body, arm, mesh):
     return members, radius
 
 
-def in_hand(skin, body, arm, side):
-    """The vertices of the hand: weighted mostly to the hand and finger bones, or lying past the
-    wrist within HAND_NEAR of the bones. They keep their arm weight, nails and tips included."""
-    hand = np.zeros(len(skin.names), bool)
-    hand[sorted(skin.descendants(body.joint[side + "Hand"]))] = True
-    weights = skin.weights
-    held = (weights * hand[skin.joints]).sum(1) > HAND_HELD * weights.sum(1)
-    s, _, radial, above = arm.project(skin.pos)
-    near = (s >= arm.hand_from) & ~above & \
-        (np.linalg.norm(radial, axis=1) <= HAND_NEAR * body.height)
-    return held | near
+def hand_region(body, arm, mesh, found):
+    """The hand's own surface, as welded vertices: from the arm found just before the wrist,
+    spread over the mesh edges through what lies past the wrist within HAND_REACH of the bones.
+    Hair or cloth beside the hand joins it only through the head or the body, outside that, so
+    it is never reached."""
+    h = body.height
+    s, _, radial, above = arm.project(mesh.pos)
+    near = ~above & (s >= arm.hand_from - HAND_WRIST * h) & \
+        (np.linalg.norm(radial, axis=1) <= HAND_REACH * h)
+    seed = found & near & (s <= arm.hand_from)
+    inside = near[mesh.edges[:, 0]] & near[mesh.edges[:, 1]]
+    dist = surface_distance(mesh.n, mesh.edges[inside], mesh.length[inside], seed, np.inf)
+    return np.isfinite(dist), near
+
+
+def hand_pieces(skin, body, mesh, hand, near, island, island_size, side):
+    """Small islands of their own that go with the hand whole: most of the piece within
+    HAND_TOUCH of the hand's surface (a ring, a nail), or most of it weighted to the hand and
+    finger bones (a prop the hand holds)."""
+    small = island_size <= ISLAND_MAX * mesh.n
+    small[np.unique(island[hand])] = False
+    touch = np.zeros(mesh.n, bool)
+    look = np.nonzero(near & ~hand & small[island])[0]
+    surface = mesh.pos[hand]
+    if len(surface):
+        for chunk in np.array_split(look, max(1, len(look) // 256)):
+            gap = np.linalg.norm(mesh.pos[chunk][:, None, :] - surface[None], axis=2).min(1)
+            touch[chunk] = gap <= HAND_TOUCH * body.height
+    count = np.maximum(island_size, 1)
+    touching = np.bincount(island, weights=touch.astype(np.float64), minlength=len(count)) / count
+    bones = np.zeros(len(skin.names), bool)
+    bones[sorted(skin.descendants(body.joint[side + "Hand"]))] = True
+    w = skin.weights
+    held = (w * bones[skin.joints]).sum(1) > HAND_HELD * w.sum(1)
+    of = island[mesh.of]
+    holding = np.bincount(of, weights=held.astype(np.float64), minlength=len(count)) / \
+        np.maximum(np.bincount(of, minlength=len(count)), 1)
+    return small & ((touching >= ISLAND_IN) | (holding >= ISLAND_IN))
 
 
 def trunk_share(body, pos):
@@ -841,7 +874,9 @@ def reweight_skin(skin, bones):
         share = np.bincount(island, weights=found.astype(np.float64), minlength=len(island_size))
         share /= np.maximum(island_size, 1)
         cuffs = (share >= ISLAND_IN) & (island_size <= ISLAND_MAX * mesh.n)
-        members[side] = (found | cuffs[island])[mesh.of] | in_hand(skin, body, arm, side)
+        hand, near = hand_region(body, arm, mesh, found)
+        pieces = hand_pieces(skin, body, mesh, hand, near, island, island_size, side)
+        members[side] = (found | hand | cuffs[island] | pieces[island])[mesh.of]
         info[side] = {"radius": radius}
     # The share of its arm weight each vertex keeps: all on the arm, fading over the band.
     keep = {}
