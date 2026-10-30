@@ -47,11 +47,19 @@ Avatar view (`/docs/views/avatar/`).
    the call answers `waiting for approval` with `pose.sheets`. Ask the person to look at the
    sheets in the Avatar view, especially the shoulders, and approve there.
 6. **Result.** Once approved, `build_avatar` again (the normalised copy is cached, Blender does not
-   run again) answers `written` with `path`, `bytes` and `unresolved`. Report the path and every
-   unresolved warning.
+   run again) answers `written` with `path`, `bytes`, `unresolved`, `report` and `roundTrip`.
+7. **Report.** Every build writes `exports/<asset>.vrm.report.json` beside the `.vrm`: the source
+   version and its SHA-256, the material and elbows modes, the readiness before and after with
+   every finding, `unresolved`, the bone map with each bone's `source` (`convention`, `auto` or
+   `override`), the meta, the writer and `roundTrip`. Read it, then tell the person the path and
+   everything in `unresolved`, blockers first, in plain words. If `roundTrip.passed` is false,
+   say the file does not read back as a VRM and list `roundTrip.problems`; do not hand that file
+   on. The person sees the file in the Avatar view's Preview tab.
 
-## The script
+## The scripts
 
 `scripts/avatar_normalize.py` is the rest pose script Maquette runs, for checking a model by hand
-outside the app. `scripts/README.md` says how to run it. Work on a copy in a scratch folder, never
+outside the app. `scripts/vrm_addon_check.py` imports a written `.vrm` with the VRM Add-on for
+Blender, headless, as a second opinion (spec, required bones, meta, left arm direction); it needs
+the add-on installed and is never part of a build. `scripts/README.md` says how to run both. Work on a copy in a scratch folder, never
 in the workspace's versions or a game repo.
