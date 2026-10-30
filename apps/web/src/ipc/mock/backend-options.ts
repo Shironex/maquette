@@ -41,7 +41,9 @@ export type Args = Record<string, unknown>;
  * `?inbox=redo` links the veil gate and Elsheria in the inbox to
  * the sends they came from (Meshy with a texture prompt, rigged Tripo) and
  * saves a Meshy key too, for Redo. The credits ledger holds the live sends
- * and a month of earlier ones. `?arrival=named|unmatched|look` drops downloads
+ * and a month of earlier ones. `?inbox=triage` adds eight more models and
+ * three discarded ones, `?inbox=clear` empties the inbox but keeps those
+ * three (see `triage-fixtures.ts`). `?arrival=named|unmatched|look` drops downloads
  * for the Downloads watcher (see `create-downloads-handlers.ts`).
  * `?built=demo` adds two built assets to Frostveil (see
  * `create-built-handlers.ts`), `?motion=` models that move (see
@@ -91,7 +93,7 @@ export interface BackendOptions {
   handoff?: string | null;
   /** `board`: Frostveil has a style board, and its directions say which carried it. */
   style?: string | null;
-  /** `redo`: two inbox models linked to their sends, and both keys saved. */
+  /** `redo`: two inbox models linked to their sends, and both keys saved; `triage` or `clear`: see triage-fixtures.ts. */
   inbox?: string | null;
   /** `named` or `unmatched`: a download for the Downloads watcher. */
   arrival?: string | null;

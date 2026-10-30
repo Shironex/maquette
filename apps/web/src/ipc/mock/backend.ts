@@ -10,7 +10,6 @@ import type {
   WorkspaceSnapshot,
 } from '../client';
 import { DEFAULT_ROOT, defaultConfig, mockProjects } from './fixtures';
-import { inboxItems } from './inbox-fixtures';
 import { linkGameInbox } from './game-inbox';
 import {
   currentStarters,
@@ -32,7 +31,7 @@ import { createMaterialHandlers } from './materials';
 import { createFakeProviders } from './providers';
 import { createCreditHandlers } from './create-credit-handlers';
 import { createDownloadsHandlers } from './create-downloads-handlers';
-import { linkForRedo } from './redo-fixtures';
+import { seedInbox } from './triage-fixtures';
 import { createFakeRunner, type RunStore } from './runner';
 import { clock } from '@/lib/clock';
 import { createAssetHandlers } from './create-asset-handlers';
@@ -131,9 +130,9 @@ export function createBackend({
     projects = projects.map(p => (p.id === 'frostveil' ? withManyAssets(p) : p));
   }
   if (configured) projects = projects.map(p => seedManyPipeline(p, pipelineState));
-  const listed = configured ? inboxItems(`${expand(DEFAULT_ROOT)}/inbox`, now) : [];
+  const listed = configured ? seedInbox(inboxState, `${expand(DEFAULT_ROOT)}/inbox`, now) : [];
   let inbox: InboxItem[] = linkGameInbox(
-    inboxState === 'redo' ? linkForRedo(listed) : listed,
+    listed,
     gameState === 'crypt' ? (projects.find(p => p.id === 'crypt-game') ?? null) : null
   );
 
@@ -360,7 +359,7 @@ export function createBackend({
       project,
       saveProject,
       root: () => root,
-      inbox: { get: () => inbox, set: next => (inbox = next) },
+      inbox: { get: () => inbox, set: next => (inbox = next), state: inboxState },
       probeDelay,
       emit,
       files,
