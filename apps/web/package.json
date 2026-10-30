@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@maquette/ui": "workspace:*",
+    "@pixiv/three-vrm": "3.5.5",
     "@react-three/fiber": "9.8.2",
     "@tauri-apps/api": "2.12.4",
     "react": "19.3.1",
