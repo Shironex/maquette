@@ -28,7 +28,8 @@
 //!
 //! **Writing.** [`write()`] turns a rig with no bone blocker into VRM 1.0
 //! bytes with the avatar's [`VrmMeta`]. Pose blockers do not stop it: they
-//! come back with the bytes as what the file still lacks.
+//! come back with the bytes as what the file still lacks. [`round_trip()`]
+//! reads the written bytes back and checks them as a runtime would.
 
 mod arm_weights;
 mod bones;
@@ -37,6 +38,7 @@ mod findings;
 mod meta;
 mod mtoon;
 mod pose;
+mod round_trip;
 mod skin;
 mod write;
 
@@ -57,6 +59,7 @@ pub use meta::{
 };
 pub use mtoon::VRMC_MATERIALS_MTOON;
 pub use pose::{Axis, RestPose, SCALE_NOISE};
+pub use round_trip::{RoundTrip, round_trip};
 pub use skin::{MAX_INFLUENCES, WEIGHT_SUM_SLACK};
 pub use write::{MaterialMode, Thumbnail, VRMC_VRM, WriteSpec, Written, write};
 
@@ -299,10 +302,13 @@ pub(crate) fn register(types: specta::Types) -> specta::Types {
         .register::<Modification>()
         .register::<VrmMeta>()
         .register::<MaterialMode>()
+        .register::<RoundTrip>()
 }
 
 #[cfg(test)]
 mod naming_tests;
+#[cfg(test)]
+mod round_trip_tests;
 #[cfg(test)]
 mod skin_tests;
 #[cfg(test)]

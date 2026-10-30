@@ -6,7 +6,9 @@
  * `?avatar=` in the URL:
  * - `pending`: an agent's build normalised Elsheria's rest pose, which
  *   waits for a yes (a floating approval card says so too).
- * - `written`: the pose was approved and `exports/elsheria.vrm` written.
+ * - `written`: the pose was approved and `exports/elsheria.vrm` written,
+ *   with its report; the Preview tab loads the box humanoid fixture as it.
+ * - `round-trip`: like `written`, but the written file did not read back.
  * - `older`: like `pending`, but Elsheria has a newer v3 and the wait is on v2.
  * - `custom`: Elsheria's rig names its joints its own way and has two
  *   joints for each upper leg, which a person assigns in the Bone map
@@ -23,6 +25,7 @@ import type {
   Elbows,
   Normalized,
   ProjectManifest,
+  VrmFinding,
   VrmReadiness,
   WorkspaceConfig,
 } from '../client';
@@ -45,6 +48,40 @@ export function avatarSheetFiles(root: string): Record<string, string> {
   return {
     [`${dir}/sheet_before.webp`]: 'sheet_before.webp',
     [`${dir}/sheet_after.webp`]: 'sheet_after.webp',
+  };
+}
+
+/**
+ * The `.vrm` every mock build "writes", by its path under each project:
+ * the box humanoid test fixture written as VRM 1.0.
+ */
+export function avatarVrmFiles(root: string, projects: readonly string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const project of projects) {
+    for (const asset of ['elsheria', 'clay-figure']) {
+      out[`${root}/projects/${project}/exports/${asset}.vrm`] = 'box_humanoid.vrm';
+    }
+  }
+  return out;
+}
+
+/** `?avatar=round-trip`: the written file did not read back, a blocker in what it lacks. */
+function roundTripFailed(unresolved: VrmFinding[]): Pick<AvatarExport, 'roundTrip' | 'unresolved'> {
+  const problems = [
+    'extensionsUsed does not list VRMC_materials_mtoon.',
+    'leftLowerArm sits under leftShoulder in the node tree; VRM puts it under leftUpperArm.',
+  ];
+  return {
+    roundTrip: { passed: false, problems, bones: 52 },
+    unresolved: [
+      {
+        id: 'round-trip',
+        level: 'blocker',
+        title: 'The written file does not read back as a VRM',
+        detail: problems.join(' '),
+      },
+      ...unresolved,
+    ],
   };
 }
 
@@ -163,6 +200,8 @@ export function createAvatarHandlers(
       unresolved,
       writtenAt: new Date(clock.nowMs()).toISOString(),
       exists: true,
+      report: `${v.exportPath}.report.json`,
+      roundTrip: { passed: true, problems: [], bones: 52 },
     };
   }
 
@@ -188,23 +227,26 @@ export function createAvatarHandlers(
   }
 
   // The scenario's state, as an agent's build left it.
-  if (state === 'pending' || state === 'written' || state === 'older') {
+  const written = state === 'written' || state === 'round-trip';
+  if (state === 'pending' || written || state === 'older') {
     const e = entry('frostveil', 'elsheria');
     e.spec = {
       ...specFromDefaults(config().avatar, 'Elsheria'),
       meta: { ...specFromDefaults(config().avatar, 'Elsheria').meta, authors: ['The art team'] },
     };
     e.normalized = normalise('frostveil', 'elsheria', 2, 'straighten');
-    e.asked = state !== 'written';
-    if (state === 'written') {
+    e.asked = !written;
+    if (written) {
       e.normalized = {
         ...e.normalized,
         state: 'approved',
         approvedAt: new Date(clock.nowMs() - 600_000).toISOString(),
       };
+      const done = write('frostveil', 'elsheria', e.normalized);
       e.export = {
-        ...write('frostveil', 'elsheria', e.normalized),
+        ...done,
         writtenAt: new Date(clock.nowMs() - 540_000).toISOString(),
+        ...(state === 'round-trip' ? roundTripFailed(done.unresolved) : {}),
       };
     }
   }

@@ -43,3 +43,29 @@ model is used for anything. The script never changes weights. When the sheets sh
 other cloth following the arms up, that is a weight problem of the rig itself (the same cloth moves
 with the arms in the before sheet's raised row); fix it with a reweight the person agrees to, then
 normalise again.
+
+## Second opinion from the VRM Add-on
+
+`vrm_addon_check.py` imports a written `.vrm` with the VRM Add-on for Blender (MIT, by the VRM
+Consortium; not vendored here) and prints one JSON object: the spec version, how many humanoid bones
+and of the 15 required ones the add-on found, the meta, and the left arm's direction from the upper
+arm to the hand (in Blender's axes and in glTF's, where a T-pose reads `[1, 0, 0]`). It exits 1 when
+the import fails or a required bone is missing. It is a check by hand, not part of the app or of CI.
+
+Install the add-on once, as a Blender extension, headless:
+
+```
+blender -b --online-mode --command extension sync
+blender -b --online-mode --command extension install --sync -e vrm
+```
+
+or in Blender: Edit > Preferences > Get Extensions, search VRM, Install. To keep it out of your own
+Blender set up, set `BLENDER_USER_RESOURCES` to a scratch folder for both the install and the run.
+
+Then run it headless, never with a window, on a copy of the file:
+
+```
+blender -b --factory-startup --python-exit-code 1 --python vrm_addon_check.py -- /abs/path/avatar.vrm
+```
+
+The script enables the add-on itself, so `--factory-startup` is fine.

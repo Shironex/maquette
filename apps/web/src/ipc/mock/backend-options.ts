@@ -126,7 +126,7 @@ export interface BackendOptions {
   /** `low`, `limit`, `lifted` or `unknown`: the Codex usage read (see create-codex-usage-handlers.ts). */
   codex?: string | null;
   /**
-   * `pending`, `written` or `older`: an agent built Elsheria's avatar;
+   * `pending`, `written`, `round-trip` or `older`: an agent built Elsheria's avatar;
    * `custom`: her rig needs bones assigned by hand (see create-avatar-handlers.ts).
    */
   avatar?: string | null;

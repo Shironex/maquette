@@ -5,10 +5,12 @@
 //! write the file.
 //!
 //! The `.vrm` is a derived export, never a new version: it is written only
-//! to the project's `exports/<asset>.vrm`, over the last one. What the last
-//! build wrote (the file, its size, the source version and what the file
-//! still lacks) is kept in the asset's avatar cache folder as
-//! `export.json`.
+//! to the project's `exports/<asset>.vrm`, over the last one, with a
+//! validation report beside it ([`report`]). Each written file is read
+//! back and checked ([`vrm::round_trip`]); a failure joins what the file
+//! still lacks as a blocker. What the last build wrote (the file, its
+//! size, the source version, what the file still lacks and the round trip)
+//! is kept in the asset's avatar cache folder as `export.json`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -23,8 +25,11 @@ use crate::assets;
 use crate::base::ports::ScriptRunner;
 use crate::error::{CoreError, CoreResult};
 use crate::fs::write_atomic;
-use crate::inbox::vrm::{self, BoneOverrides, MaterialMode, VrmFinding, VrmReadiness, WriteSpec};
+use crate::inbox::vrm::{
+    self, BoneOverrides, MaterialMode, RoundTrip, VrmFinding, VrmReadiness, WriteSpec,
+};
 use crate::json::write_json;
+use crate::pipeline::cache::hash_file;
 use crate::pipeline::tools::Toolbox;
 use crate::project::{self, now_rfc3339};
 use crate::workspace::WorkspaceConfig;
@@ -35,8 +40,10 @@ pub const EXPORTS_DIR: &str = "exports";
 const RECORD_FILE: &str = "export.json";
 
 mod patch;
+pub mod report;
 
 pub use patch::{AvatarPatch, apply_patch};
+use report::{AvatarReport, ReportSource, bone_map, report_file, round_trip_finding};
 
 fn invalid(message: impl Into<String>) -> CoreError {
     CoreError::Invalid(message.into())
@@ -73,6 +80,14 @@ pub struct AvatarExport {
     /// The file is still there. Read, never stored.
     #[serde(default)]
     pub exists: bool,
+    /// The validation report beside the file, an absolute path; `None`
+    /// when it is gone or the build predates it.
+    #[serde(default)]
+    pub report: Option<String>,
+    /// The written bytes read back and checked; `None` for a build that
+    /// predates the check.
+    #[serde(default)]
+    pub round_trip: Option<RoundTrip>,
 }
 
 /// Which asset to build, and how.
@@ -167,6 +182,7 @@ fn read_export(dir: &Path) -> Option<AvatarExport> {
     let text = fs::read_to_string(dir.join(RECORD_FILE)).ok()?;
     let mut found: AvatarExport = serde_json::from_str(&text).ok()?;
     found.exists = Path::new(&found.path).is_file();
+    found.report = found.report.filter(|r| Path::new(r).is_file());
     Some(found)
 }
 
@@ -352,17 +368,22 @@ pub fn build(
     };
     let dir = asset_dir(req.workspace_root, req.config, req.project, &src.asset.id);
     let output = vrm_file(&src.project_dir, &src.asset.id);
+    let file = src.file.clone().unwrap_or_default();
+    let built = |written, source_version, elbows| Built {
+        written,
+        source: &file,
+        source_version,
+        elbows,
+        spec: &spec,
+        before: &readiness,
+    };
     if !needs_normalize(&readiness) {
-        let file = src.file.clone().unwrap_or_default();
         let bytes = fs::read(&file).map_err(|e| CoreError::io(&file, e))?;
         let written = vrm::write(&bytes, &write_spec, file.parent().unwrap_or(&dir))?;
         let export = save(
             &dir,
             &output,
-            &written,
-            src.version.unwrap_or(0),
-            false,
-            &spec,
+            &built(written, src.version.unwrap_or(0), None),
         )?;
         return Ok(AvatarBuild::Written {
             export,
@@ -376,7 +397,11 @@ pub fn build(
         NormalizeState::Denied => Ok(AvatarBuild::Denied { normalized: found }),
         NormalizeState::Approved => {
             let written = normalize::write_vrm(&plan.dir, &write_spec)?;
-            let export = save(&dir, &output, &written, plan.version, true, &spec)?;
+            let export = save(
+                &dir,
+                &output,
+                &built(written, plan.version, Some(req.elbows)),
+            )?;
             Ok(AvatarBuild::Written {
                 export,
                 normalized: Some(found),
@@ -385,19 +410,58 @@ pub fn build(
     }
 }
 
-/// Writes the `.vrm` and the record of it.
-fn save(
-    dir: &Path,
-    output: &Path,
-    written: &vrm::Written,
+/// What a build wrote, and from what.
+struct Built<'a> {
+    written: vrm::Written,
+    /// The source version's model file.
+    source: &'a Path,
     source_version: u32,
-    normalized: bool,
-    spec: &AvatarSpec,
-) -> CoreResult<AvatarExport> {
+    /// The elbows mode of the normalise; `None` when nothing was normalised.
+    elbows: Option<Elbows>,
+    spec: &'a AvatarSpec,
+    /// The source version's readiness.
+    before: &'a VrmReadiness,
+}
+
+/// Writes the `.vrm`, reads it back, and writes the report beside it and
+/// the record of it.
+fn save(dir: &Path, output: &Path, built: &Built<'_>) -> CoreResult<AvatarExport> {
+    let written = &built.written;
     if let Some(parent) = output.parent() {
         fs::create_dir_all(parent).map_err(|e| CoreError::io(parent, e))?;
     }
     write_atomic(output, &written.bytes).map_err(|e| CoreError::io(output, e))?;
+    let round_trip = vrm::round_trip(&written.bytes);
+    let mut unresolved = written.unresolved.clone();
+    if let Some(blocker) = round_trip_finding(&round_trip) {
+        unresolved.insert(0, blocker);
+    }
+    let base = built.source.parent().unwrap_or(dir);
+    // A file that does not read back has no readiness of its own; the
+    // round trip says why.
+    let after = vrm::readiness(&written.bytes, base, &built.spec.bones).ok();
+    let written_at = now_rfc3339();
+    let report = AvatarReport {
+        file: output.display().to_string(),
+        written_at: written_at.clone(),
+        writer: report::WRITER.to_string(),
+        source: ReportSource {
+            version: built.source_version,
+            file: built.source.display().to_string(),
+            sha256: hash_file(built.source).map_err(|e| CoreError::io(built.source, e))?,
+        },
+        material: built.spec.material,
+        normalized: built.elbows.is_some(),
+        elbows: built.elbows,
+        before: built.before.into(),
+        after: after.as_ref().map(Into::into),
+        unresolved: unresolved.clone(),
+        bones: bone_map(after.as_ref().unwrap_or(built.before)),
+        meta: (&built.spec.meta).into(),
+        round_trip: round_trip.clone(),
+    };
+    let report_path = report_file(output);
+    write_json(&report_path, &report)?;
     let export = AvatarExport {
         path: output.display().to_string(),
         #[expect(
@@ -405,12 +469,14 @@ fn save(
             reason = "a model is far below 2^53 bytes"
         )]
         bytes: written.bytes.len() as f64,
-        source_version,
-        normalized,
-        material: spec.material,
-        unresolved: written.unresolved.clone(),
-        written_at: now_rfc3339(),
+        source_version: built.source_version,
+        normalized: built.elbows.is_some(),
+        material: built.spec.material,
+        unresolved,
+        written_at,
         exists: true,
+        report: Some(report_path.display().to_string()),
+        round_trip: Some(round_trip),
     };
     fs::create_dir_all(dir).map_err(|e| CoreError::io(dir, e))?;
     write_json(&dir.join(RECORD_FILE), &export)?;

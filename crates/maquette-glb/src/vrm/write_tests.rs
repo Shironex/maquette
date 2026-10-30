@@ -240,3 +240,23 @@ fn probe_write_a_model_from_disk() {
         std::fs::write(path, &out.bytes).expect("write out");
     }
 }
+
+/// Writes the box humanoid as the `.vrm` the web app's mock Preview tab
+/// loads: `MAQUETTE_MOCK_VRM=apps/web/src/assets/mock/avatar/box_humanoid.vrm
+/// cargo test -p maquette-glb writes_the_mock_vrm -- --ignored`.
+#[test]
+#[ignore = "writes the file named by MAQUETTE_MOCK_VRM"]
+fn writes_the_mock_vrm() {
+    let path = std::env::var("MAQUETTE_MOCK_VRM").expect("MAQUETTE_MOCK_VRM");
+    let model = HumanoidSpec {
+        naming: fixture::Naming::Vrm,
+        animation: false,
+        ..HumanoidSpec::default()
+    };
+    let mut spec = spec();
+    spec.meta.name = "Box humanoid".to_string();
+    spec.meta.authors = vec!["Maquette test fixture".to_string()];
+    let out = written(&model, &spec);
+    assert!(round_trip(&out.bytes).passed);
+    std::fs::write(Path::new(&path), &out.bytes).expect("write the mock vrm");
+}

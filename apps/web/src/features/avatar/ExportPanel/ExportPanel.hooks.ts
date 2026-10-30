@@ -14,6 +14,15 @@ export function useExportPanel() {
   const notify = useAppStore(s => s.notify);
   const now = useNow(60_000);
   const written = view?.export ?? null;
+  const show = (path: string) =>
+    commands.workspaceReveal(path).catch((error: unknown) =>
+      notify({
+        status: 'failed',
+        title: 'Could not show the file',
+        detail: errorMessage(error),
+      })
+    );
+  const trip = written?.roundTrip ?? null;
   return {
     view,
     material,
@@ -35,15 +44,21 @@ export function useExportPanel() {
           },
         ]
       : [],
+    report: written?.report ?? null,
+    /** The round trip in a line; null for a build that predates it. */
+    roundTrip: trip
+      ? {
+          passed: trip.passed,
+          text: trip.passed
+            ? `Reads back as a VRM with ${trip.bones} humanoid bones.`
+            : `Does not read back as a VRM: ${trip.problems.length} ${trip.problems.length === 1 ? 'problem' : 'problems'}, listed below.`,
+        }
+      : null,
     reveal: () => {
-      if (!written) return;
-      commands.workspaceReveal(written.path).catch((error: unknown) =>
-        notify({
-          status: 'failed',
-          title: 'Could not show the file',
-          detail: errorMessage(error),
-        })
-      );
+      if (written) void show(written.path);
+    },
+    revealReport: () => {
+      if (written?.report) void show(written.report);
     },
     copy: () => {
       if (!written) return;

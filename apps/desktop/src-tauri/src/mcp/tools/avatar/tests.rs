@@ -1,8 +1,9 @@
 use std::path::Path;
 
+use maquette_core::avatar::export::AvatarExport;
 use maquette_core::avatar::normalize::{NormalizeReport, NormalizeSheets, NormalizeState};
 use maquette_core::inbox::fixture::{self, HumanoidSpec};
-use maquette_core::inbox::vrm::{self, BoneOverrides};
+use maquette_core::inbox::vrm::{self, BoneOverrides, MaterialMode, RoundTrip};
 
 use super::*;
 use crate::mcp::hub::ApprovalKind;
@@ -78,4 +79,35 @@ fn a_waiting_build_asks_a_person_once_and_shows_the_sheets() {
         },
     );
     assert_eq!(denied["status"], "denied");
+}
+
+#[test]
+fn a_written_build_names_its_report_and_round_trip() {
+    let hub = Hub::new(|| {});
+    let export = AvatarExport {
+        path: "/p/exports/hero.vrm".into(),
+        bytes: 1024.0,
+        source_version: 2,
+        normalized: false,
+        material: MaterialMode::MtoonSoft,
+        unresolved: Vec::new(),
+        written_at: "2026-10-30T12:00:00Z".into(),
+        exists: true,
+        report: Some("/p/exports/hero.vrm.report.json".into()),
+        round_trip: Some(RoundTrip {
+            passed: true,
+            problems: Vec::new(),
+            bones: 52,
+        }),
+    };
+    let built = AvatarBuild::Written {
+        export,
+        normalized: None,
+    };
+    let answer = build_answer(&hub, "Hero", &built);
+    assert_eq!(answer["status"], "written");
+    assert_eq!(answer["report"], "/p/exports/hero.vrm.report.json");
+    assert_eq!(answer["roundTrip"]["passed"], true);
+    assert_eq!(answer["roundTrip"]["bones"], 52);
+    assert!(hub.approvals().is_empty());
 }

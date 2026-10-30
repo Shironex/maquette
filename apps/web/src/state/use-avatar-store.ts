@@ -17,6 +17,9 @@ import { buildNotice } from './avatar';
 import { useAppStore } from './use-app-store';
 import { useAgentsStore } from './use-agents-store';
 
+/** The Avatar view's built tabs. */
+export type AvatarTab = 'export' | 'preview';
+
 interface AvatarStore {
   project: string | null;
   asset: string | null;
@@ -34,6 +37,7 @@ interface AvatarStore {
   building: boolean;
   deciding: boolean;
   elbows: Elbows;
+  tab: AvatarTab;
   /** Opens the Avatar view on an asset, on one of its versions (the newest without). */
   open: (project: string, asset: string, version?: number | null) => void;
   select: (asset: string | null) => void;
@@ -43,6 +47,7 @@ interface AvatarStore {
   editMeta: (change: Partial<VrmMeta_Serialize>) => void;
   setMaterial: (material: AvatarSpec_Serialize['material']) => void;
   setElbows: (elbows: Elbows) => void;
+  setTab: (tab: AvatarTab) => void;
   save: () => Promise<boolean>;
   /**
    * Maps a VRM bone by hand and saves it at once: a joint name, null to
@@ -73,6 +78,7 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   building: false,
   deciding: false,
   elbows: 'straighten',
+  tab: 'export',
 
   open: (project, asset, version = null) => {
     set({ project, asset, version, view: null, draft: null, dirty: false, error: null });
@@ -126,6 +132,8 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   },
 
   setElbows: elbows => set({ elbows }),
+
+  setTab: tab => set({ tab }),
 
   save: async () => {
     const { project, asset, draft, version } = get();

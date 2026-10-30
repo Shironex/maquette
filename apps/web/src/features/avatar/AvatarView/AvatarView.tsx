@@ -4,6 +4,7 @@ import { AvatarTabs } from '../AvatarTabs';
 import { BoneMap } from '../BoneMap';
 import { ExportPanel } from '../ExportPanel';
 import { MetaForm } from '../MetaForm';
+import { PreviewPanel } from '../PreviewPanel';
 import { ReadinessPanel } from '../ReadinessPanel';
 import { RestPosePanel } from '../RestPosePanel';
 import { useAvatarView } from './AvatarView.hooks';
@@ -11,10 +12,11 @@ import { useAvatarView } from './AvatarView.hooks';
 /**
  * Avatar: a rigged character's VRM 1.0 export. Export checks the rig,
  * fills the meta, shows the rest pose before and after a normalise for a
- * person's yes, and writes `exports/<asset>.vrm`.
+ * person's yes, and writes `exports/<asset>.vrm`; Preview loads the
+ * written file the way a VRM app does.
  */
 export default function AvatarView() {
-  const { project, stages, count, view, loading, error, retry, building, action, build } =
+  const { project, stages, count, view, tab, loading, error, retry, building, action, build } =
     useAvatarView();
   const bar = (
     <TopBar
@@ -70,15 +72,21 @@ export default function AvatarView() {
           <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
             <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4 px-6 pt-5 pb-8">
               <AvatarTabs />
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <ReadinessPanel />
-                <MetaForm />
-              </div>
-              <RestPosePanel />
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <BoneMap />
-                <ExportPanel />
-              </div>
+              {tab === 'preview' ? (
+                <PreviewPanel />
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <ReadinessPanel />
+                    <MetaForm />
+                  </div>
+                  <RestPosePanel />
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <BoneMap />
+                    <ExportPanel />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ) : (
