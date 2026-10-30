@@ -59,6 +59,7 @@ async function addToLibrary(results: readonly AcceptResult[], tags: string[]): P
         asset: r.asset.id,
         name: null,
         tags: tags.length ? tags : null,
+        into: null,
       });
       useAppStore.getState().setProject(done.project);
       added += 1;
