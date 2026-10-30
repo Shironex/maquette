@@ -5,4 +5,5 @@
 pub use maquette_model::avatar::*;
 
 pub mod export;
+mod gate;
 pub mod normalize;

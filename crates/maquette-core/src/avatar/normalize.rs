@@ -39,7 +39,7 @@ use crate::pipeline::tools::Toolbox;
 use crate::project;
 use crate::workspace::WorkspaceConfig;
 
-use approval::{APPROVAL_FILE, DENIAL_FILE};
+use super::gate::{APPROVAL_FILE, DENIAL_FILE};
 pub use approval::{approve, approved_glb, deny, load, write_vrm};
 pub use report::{
     ArmLift, NormalizeReport, NormalizeSheets, NormalizeState, Normalized, PoseMeasures,
