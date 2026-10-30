@@ -2,9 +2,24 @@ import { useState } from 'react';
 import { fileUrl } from '@/ipc/files';
 import { formatAgo } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
-import { reweightSummary } from '@/state/avatar';
 import { useAvatarStore } from '@/state/use-avatar-store';
 import type { ZoomMode } from '../SheetZoom/SheetZoom';
+import type { ReweightReport } from '@/ipc/client';
+
+const count = (n: number | undefined) => (n ?? 0).toLocaleString('en-US');
+
+/** What a reweight moved, in a sentence: how many vertices, and from which arm bones most. */
+export function reweightSummary(report: ReweightReport): string {
+  const from = Object.entries(report.fromBones ?? {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([bone]) => bone);
+  const most = from.length > 0 ? `, most from ${from.join(' and ')}` : '';
+  return (
+    `Moved ${count(report.moved)} vertices of cloth and hair to the trunk${most}; ` +
+    `kept ${count(report.keptAsSleeve)} on the arms as sleeve.`
+  );
+}
 
 /** The step that frees cloth and hair from the arms, before the arms are lifted. */
 export function useReweightStep() {

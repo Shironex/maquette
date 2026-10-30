@@ -1,8 +1,7 @@
 /**
  * The Avatar view's words and numbers: the VRM licence choices, the bone
  * map grouped for reading, the rest pose measures before and after a
- * normalise, what a reweight moved off the arms, and the checks a meta
- * must pass before a build writes.
+ * normalise, and the checks a meta must pass before a build writes.
  */
 import type {
   AvatarBuild,
@@ -18,7 +17,6 @@ import type {
   NormalizeReport,
   PoseMeasures,
   ProjectManifest,
-  ReweightReport,
   VrmBone,
   VrmMeta_Serialize,
   VrmReadiness,
@@ -318,21 +316,6 @@ export function poseSummary(report: NormalizeReport): string {
   parts.push(report.elbows === 'keep' ? 'elbows kept' : 'elbows straightened');
   const text = parts.join(', ');
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
-}
-
-const count = (n: number | undefined) => (n ?? 0).toLocaleString('en-US');
-
-/** What a reweight moved, in a sentence: how many vertices, and from which arm bones most. */
-export function reweightSummary(report: ReweightReport): string {
-  const from = Object.entries(report.fromBones ?? {})
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 2)
-    .map(([bone]) => bone);
-  const most = from.length > 0 ? `, most from ${from.join(' and ')}` : '';
-  return (
-    `Moved ${count(report.moved)} vertices of cloth and hair to the trunk${most}; ` +
-    `kept ${count(report.keptAsSleeve)} on the arms as sleeve.`
-  );
 }
 
 /** What a build answered, for the notice after it. */

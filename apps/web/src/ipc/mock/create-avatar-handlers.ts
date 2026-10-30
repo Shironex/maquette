@@ -31,7 +31,6 @@ import type {
   ProjectManifest,
   ReweightMode,
   Reweighted,
-  VrmFinding,
   VrmReadiness,
   WorkspaceConfig,
 } from '../client';
@@ -39,59 +38,16 @@ import { metaProblem, specFromDefaults } from '@/state/avatar';
 import { clock } from '@/lib/clock';
 import { expand, fail, type Args } from './backend-options';
 import { DEFAULT_ROOT } from './fixtures';
-import { normalisedReadiness, posedReadiness, report, reweightReport } from './avatar-fixtures';
+import { avatarCacheDir } from './avatar-files';
+import {
+  normalisedReadiness,
+  posedReadiness,
+  report,
+  reweightReport,
+  roundTripFailed,
+} from './avatar-fixtures';
 import { customRigReadiness } from './custom-rig-fixtures';
 import { CLAY_FIGURE_VRM, withOverrides } from './vrm-fixtures';
-
-/** Where the mock's normalise "writes" its sheets, under the cache. */
-export function avatarCacheDir(root: string, project: string, asset: string) {
-  return `${root}/cache/avatar/${project}/${asset}`;
-}
-
-/** The bundled sheet each cached sheet path serves. */
-export function avatarSheetFiles(root: string): Record<string, string> {
-  const dir = avatarCacheDir(root, 'frostveil', 'elsheria');
-  return {
-    [`${dir}/sheet_before.webp`]: 'sheet_before.webp',
-    [`${dir}/sheet_after.webp`]: 'sheet_after.webp',
-    [`${dir}/reweight/sheet_before.webp`]: 'reweight_before.webp',
-    [`${dir}/reweight/sheet_after.webp`]: 'reweight_after.webp',
-  };
-}
-
-/**
- * The `.vrm` every mock build "writes", by its path under each project:
- * the box humanoid test fixture written as VRM 1.0.
- */
-export function avatarVrmFiles(root: string, projects: readonly string[]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const project of projects) {
-    for (const asset of ['elsheria', 'clay-figure']) {
-      out[`${root}/projects/${project}/exports/${asset}.vrm`] = 'box_humanoid.vrm';
-    }
-  }
-  return out;
-}
-
-/** `?avatar=round-trip`: the written file did not read back, a blocker in what it lacks. */
-function roundTripFailed(unresolved: VrmFinding[]): Pick<AvatarExport, 'roundTrip' | 'unresolved'> {
-  const problems = [
-    'extensionsUsed does not list VRMC_materials_mtoon.',
-    'leftLowerArm sits under leftShoulder in the node tree; VRM puts it under leftUpperArm.',
-  ];
-  return {
-    roundTrip: { passed: false, problems, bones: 52 },
-    unresolved: [
-      {
-        id: 'round-trip',
-        level: 'blocker',
-        title: 'The written file does not read back as a VRM',
-        detail: problems.join(' '),
-      },
-      ...unresolved,
-    ],
-  };
-}
 
 /** Rest pose findings a normalise fixes, as `needs_normalize` reads them. */
 const POSE_IDS = new Set(['facing', 'arms', 'ground', 'centre']);

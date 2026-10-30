@@ -13,7 +13,7 @@ import { conceptFiles, OBJECT_REF_FILES, REF_FILES } from './lab-fixtures';
 import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
 import { motionFiles } from './create-motion-handlers';
-import { avatarSheetFiles, avatarVrmFiles } from './create-avatar-handlers';
+import { avatarSheetFiles, avatarVrmFiles } from './avatar-files';
 import { PARTS_CACHE, partsFiles } from './create-parts-handlers';
 import { SPLIT_FILES } from './create-split-handlers';
 import { PROVIDER_REF_FILES } from './providers';

@@ -6,7 +6,7 @@ import { mockIPC } from '@tauri-apps/api/mocks';
 import { commands } from '@/ipc/client';
 import { registerMockFile } from '@/ipc/files';
 import { createBackend } from '@/ipc/mock/backend';
-import { avatarSheetFiles, avatarVrmFiles } from '@/ipc/mock/create-avatar-handlers';
+import { avatarSheetFiles, avatarVrmFiles } from '@/ipc/mock/avatar-files';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
