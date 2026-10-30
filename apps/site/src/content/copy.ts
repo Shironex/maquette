@@ -219,6 +219,12 @@ export const SHOTS = {
     tool: 'Use on model',
     caption: 'the review before the bake, feet pinned',
   },
+  avatar: {
+    ...screen('avatar'),
+    alt: 'Avatar view: Approve the new rest pose? over before and after sheets of a character, arms lifted to a T-pose, with the measures before and after.',
+    tool: 'Avatar',
+    caption: 'the rest pose waiting for a yes, VRM 1.0',
+  },
   compare: {
     ...screen('inspector-compare'),
     alt: 'Scene comparison of v6 and v7 with a split slider, five camera stops below, and the selected model with its compression on the right.',
