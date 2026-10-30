@@ -5,7 +5,7 @@ sidebar:
   label: Avatar
 ---
 
-Avatar turns a rigged character into a VRM 1.0 file for VRM apps and games. It lists the project's characters that have a model; pick one, or open it from the rig check in [Motion](/docs/views/motion/#rig-check) (**Open Avatar**). It has one tab, Export. Springs, Expressions and Preview are planned.
+Avatar turns a rigged character into a VRM 1.0 file for VRM apps and games. It lists the project's characters that have a model; pick one, or open it from the rig check in [Motion](/docs/views/motion/#rig-check) (**Open Avatar**). It has two tabs, Export and Preview. Springs and Expressions are planned.
 
 ## VRM readiness
 
@@ -41,9 +41,21 @@ The yes or no is only ever given here. An agent's build waits for it, and a card
 - **Material.** MToon soft (toon shading from the base color, no outline, alike in every VRM app) or PBR (the model's own materials). New avatars take the workspace default.
 - **Output.** `exports/<asset>.vrm` in the project folder. A derived export: the asset gains no version, and each build replaces the file.
 - **Last export.** Its size, when it was written, the version it came from, whether the rest pose was normalised, the material, and what the file still lacks, ranked. **Reveal** shows it in the file manager; **Copy path** copies its full path.
+- **Round trip.** Every written file is read back at once and checked the way a VRM app would trip on it: it opens as valid glTF, it says VRM 1.0, every humanoid bone points at a node that exists and no node twice, the 15 required bones are there, each bone sits under the one VRM puts above it, the meta has a name, an author and the licence URL, `extensionsUsed` lists every extension the file uses, there are no animations, and every texture an MToon material points at is there. A pass says how many bones it read; a failure is a blocker at the top of what the file still lacks, with each problem.
+- **Report.** `exports/<asset>.vrm.report.json`, written beside the file by every build: the source version and the SHA-256 of its model, when it was written, the material and elbows modes, the readiness before (the source) and after (the written file) with every finding, what the file still lacks, the bone map with where each bone came from (`convention`, the naming most joints use; `auto`, another naming or a descriptive guess; `override`, set by you), the meta, the writer's version and the round trip. **Reveal report** shows it in the file manager.
 
 A model already in VRM's rest pose is written straight away, without Blender.
 
+## Preview
+
+The written `.vrm`, loaded with [three-vrm](https://github.com/pixiv/three-vrm) the way a VRM app loads it, in the same studio light as the other previews. Drag to orbit, scroll to zoom. The chips over the stage say what three-vrm found: the spec version, the humanoid bones of 55, the required ones of 15, the spring joints and the expressions. A required bone it did not find is named under the stage.
+
+- **Pose.** **Arms down** lowers the arms from the T-pose through the humanoid's normalised bones, which also shows the bone map works; **T-pose** shows the rest pose as written.
+- **Breathe.** A slow idle in the chest and arms, so the model does not stand still. Off when your system asks for reduced motion.
+- **Look at pointer.** The eyes follow the pointer when the file can move them: with eye bones, or with look expressions. A file whose look at is driven by expressions it does not have yet keeps its eyes still, and the panel says so.
+
+Spring bones and expressions run every frame once a file has them. Nothing written yet, or the file gone, and Preview points you back to Export. A failed round trip shows over the stage too.
+
 ## Agents
 
-[`get_avatar`](/docs/agents/mcp-tools/#get_avatar), [`set_avatar`](/docs/agents/mcp-tools/#set_avatar) and [`build_avatar`](/docs/agents/mcp-tools/#build_avatar) do the same over MCP. `build_avatar` answers `waiting for approval` with the sheet paths while the pose waits; no tool approves it. When the bone names are unclear, an agent asks you which joint is which, or sets the bones with `set_avatar` and tells you what it set; the Bone map shows them as set by you.
+[`get_avatar`](/docs/agents/mcp-tools/#get_avatar), [`set_avatar`](/docs/agents/mcp-tools/#set_avatar) and [`build_avatar`](/docs/agents/mcp-tools/#build_avatar) do the same over MCP. `build_avatar` answers `waiting for approval` with the sheet paths while the pose waits; no tool approves it. Once written it answers with the report's path and the round trip, and an agent tells you what the file still lacks. When the bone names are unclear, an agent asks you which joint is which, or sets the bones with `set_avatar` and tells you what it set; the Bone map shows them as set by you.
