@@ -87,6 +87,12 @@ Nothing swings until you confirm it: switch on the parts that should swing, and 
 
 A part that sits close to the body, such as a small charm on a jacket, may not be found at all.
 
+**No springs** confirms that the VRM carries none, whatever is found. Switching every part off is not the same: it only means nothing is picked yet. When the last VRM had springs and nothing is picked, a build stops with "Pick the springs first" and writes nothing, so a cleared list never quietly drops a ponytail from the file. Pick the parts to keep or switch on **No springs**, then build again.
+
+### When the model changes
+
+A new reweight or rest pose can change how the finder reads a part: the same ponytail may come back with another id, kind or bone. A build holds each confirmed spring to the parts found now. One that still matches stays as it is. One whose part is still on its line, hanging from about the same place, is carried over to that part (its new id, bone and line) and saved, keeping your kind, joints and swing; the notice says which. When no part matches clearly, the build stops with "The confirmed springs no longer match; pick again" and writes nothing. The Springs tab lists confirmed springs no part goes by now, each with a **Drop** button.
+
 ### Make the chains
 
 **Make chains** saves and, headless in Blender on a copy, adds a chain of joints along each confirmed part, hung from its bone, and weights the part to it: smoothly from joint to joint, blending into the bone it hangs from at the top so nothing tears where it attaches. Only new joints and the skin weights change: the humanoid bones, the rest pose, the mesh, the UVs and the textures stay as they are, with at most 4 influences on a vertex. It also measures colliders from the body (a sphere for the head, capsules for the neck, chest, hips, upper arms and upper legs) and groups them, so hair stays out of the head, chest, back and arms in a VRM app.
