@@ -38,14 +38,18 @@ It makes two sheets, before and after, each with the model at rest, the arms lev
 
 ### Step 2: Lift the arms to a T-pose
 
-When the pose is not there yet, a build normalises it: it turns the model, lifts the arms, and by default straightens the elbows (**Elbows** > **Keep** leaves them bent). It starts from the freed weights when you approved them.
+When the pose is not there yet, a build normalises it: it turns the model, lifts the arms, and by default straightens the elbows (**Elbows** > **Keep** leaves them bent) and the fingers (**Fingers** > **Keep** leaves them curled). It starts from the freed weights when you approved them.
 
-The normalise makes two pose sheets, before and after, each in four poses (at rest, arms down, arms up, a step) seen from the front, the side, the back and close on the shoulders. The new pose waits for your yes:
+VRM's rest pose lays the four fingers straight along the hand, palm down, and the thumb 45 degrees between the hand and the front. The table's **Most finger curl** row shows how far the most curled finger bends. Straightening keeps a little of the fingers' natural spread, and stops short when the hand's mesh would tear: it tries the whole turn, then three quarters, a half and a quarter, and keeps the first one under which no finger stretches much. Fingers modelled fused together keep some curl. A hand whose finger bones all sit bunched at the wrist, as a broken auto rig leaves them, is left as it is, with a warning to rig the hands again.
+
+The normalise makes two pose sheets, before and after, each in four poses (at rest, arms down, arms up, a step) seen from the front, the side, the back and close on the shoulders, and a last row with each hand from its thumb side and from above. The new pose waits for your yes:
 
 - **Approve and write** says yes to this exact result and writes the file.
-- **Deny** writes nothing. Change the elbows or fix the model, then build again.
+- **Deny** writes nothing. Change the elbows or the fingers, or fix the model, then build again.
 
-Click a sheet to see it up close, or **Compare the shoulders** for the before and after shoulders side by side. Look at the armpits and whatever hangs by the arms.
+Click a sheet to see it up close, **Compare the shoulders** for the before and after shoulders side by side, or **Compare the hands** for both hands. Look at the armpits and whatever hangs by the arms, and at the fingertips and the webbing between the fingers.
+
+When the arms were freed first, cloth sewn to the sleeves still follows them: what the file still lacks then says how many vertices are left on the arms after the reweight, as a note, not as something to fix.
 
 The yes or no is only ever given here. An agent's build waits for it, and a card floats over the other views: **Open the sheets** brings you here, **Deny** turns the weights or the pose down from the card.
 
@@ -55,7 +59,7 @@ The yes or no is only ever given here. An agent's build waits for it, and a card
 - **Output.** `exports/<asset>.vrm` in the project folder. A derived export: the asset gains no version, and each build replaces the file.
 - **Last export.** Its size, when it was written, the version it came from, whether the arms were freed and the rest pose normalised, the material, and what the file still lacks, ranked. **Reveal** shows it in the file manager; **Copy path** copies its full path.
 - **Round trip.** Every written file is read back at once and checked the way a VRM app would trip on it: it opens as valid glTF, it says VRM 1.0, every humanoid bone points at a node that exists and no node twice, the 15 required bones are there, each bone sits under the one VRM puts above it, the meta has a name, an author and the licence URL, `extensionsUsed` lists every extension the file uses, there are no animations, and every texture an MToon material points at is there. A pass says how many bones it read; a failure is a blocker at the top of what the file still lacks, with each problem.
-- **Report.** `exports/<asset>.vrm.report.json`, written beside the file by every build: the source version and the SHA-256 of its model, when it was written, the material and elbows modes, what the reweight moved when one was applied, the readiness before (the source) and after (the written file) with every finding, what the file still lacks, the bone map with where each bone came from (`convention`, the naming most joints use; `auto`, another naming or a descriptive guess; `override`, set by you), the meta, the writer's version and the round trip. **Reveal report** shows it in the file manager.
+- **Report.** `exports/<asset>.vrm.report.json`, written beside the file by every build: the source version and the SHA-256 of its model, when it was written, the material, elbows and fingers modes, what the reweight moved when one was applied, the readiness before (the source) and after (the written file) with every finding, what the file still lacks, the bone map with where each bone came from (`convention`, the naming most joints use; `auto`, another naming or a descriptive guess; `override`, set by you), the meta, the writer's version and the round trip. **Reveal report** shows it in the file manager.
 
 A model already in VRM's rest pose is written straight away, without Blender.
 
