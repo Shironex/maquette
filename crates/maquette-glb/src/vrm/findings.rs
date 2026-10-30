@@ -1,6 +1,7 @@
 //! The readiness findings: what stands between a rigged model and a VRM 1.0
 //! file, in plain words, ranked blockers first and never left out.
 
+use super::arm_weights::{ARM_REACH, ArmDrag};
 use super::bones::{HumanBone, Mapped, WrongParent, needs};
 use super::pose::RestPose;
 use super::{FindingLevel, VrmFinding};
@@ -361,4 +362,31 @@ fn scale_findings(pose: &RestPose, out: &mut Vec<VrmFinding>) {
             Some("The VRM writer snaps them to 1.".to_string()),
         ));
     }
+}
+
+/// Cloth or hair the arm chain moves at rest, far from the arm: lifting
+/// the arms drags it along. `height` is the model's, metres, for the reach.
+pub(super) fn arm_weight_finding(drag: &ArmDrag, height: Option<f32>) -> VrmFinding {
+    let bones: Vec<String> = drag
+        .bones
+        .iter()
+        .take(3)
+        .map(|(bone, n)| format!("{bone} ({n})"))
+        .collect();
+    let reach = height.map_or_else(
+        || format!("{:.0} percent of the height", ARM_REACH * 100.0),
+        |h| format!("{:.0} cm", h * ARM_REACH * 100.0),
+    );
+    finding(
+        "arm-weights",
+        FindingLevel::Warning,
+        format!(
+            "{} of cloth or hair weighted to the arms",
+            plural(drag.vertices as usize, "vertex", "vertices")
+        ),
+        Some(format!(
+            "They move with {} but sit more than {reach} from the arm, like a cape or hair beside it. Lifting the arms to a T-pose drags them along, so check the shoulders on the after sheet. A reweight that frees them is planned.",
+            list(&bones)
+        )),
+    )
 }

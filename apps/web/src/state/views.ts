@@ -8,6 +8,7 @@ export type ViewId =
   | 'pipeline'
   | 'inspector'
   | 'motion'
+  | 'avatar'
   | 'timeline'
   | 'page'
   | 'library'
@@ -27,6 +28,7 @@ export const TOOL_VIEWS: readonly ViewDef[] = [
   { id: 'pipeline', label: 'Pipeline', icon: 'flow-arrow' },
   { id: 'inspector', label: 'Inspector', icon: 'cube-focus' },
   { id: 'motion', label: 'Motion', icon: 'person-simple-walk' },
+  { id: 'avatar', label: 'Avatar', icon: 'person-arms-spread' },
   { id: 'timeline', label: 'Timeline', icon: 'film-strip' },
   { id: 'page', label: 'Page', icon: 'browser' },
 ];

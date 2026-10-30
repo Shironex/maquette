@@ -15,6 +15,7 @@ use crate::pipeline::cache::{self, hash_file};
 use crate::project::now_rfc3339;
 
 pub(super) const APPROVAL_FILE: &str = "approval.json";
+pub(super) const DENIAL_FILE: &str = "denial.json";
 
 /// What `approval.json` holds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,6 +33,21 @@ fn glb_hash(path: &Path) -> CoreResult<String> {
 fn read_approval(dir: &Path) -> Option<Approval> {
     let text = fs::read_to_string(dir.join(APPROVAL_FILE)).ok()?;
     serde_json::from_str(&text).ok()
+}
+
+/// What `denial.json` holds: a person's no to one key's output.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Denial {
+    key: String,
+    denied_at: String,
+}
+
+fn denied(dir: &Path, key: &str) -> bool {
+    fs::read_to_string(dir.join(DENIAL_FILE))
+        .ok()
+        .and_then(|text| serde_json::from_str::<Denial>(&text).ok())
+        .is_some_and(|d| d.key == key)
 }
 
 /// The approval that holds for `found`: same key, same file bytes.
@@ -67,6 +83,8 @@ pub fn load(dir: &Path) -> CoreResult<Option<Normalized>> {
     let approval = valid_approval(dir, &found)?;
     found.state = if approval.is_some() {
         NormalizeState::Approved
+    } else if denied(dir, &found.key) {
+        NormalizeState::Denied
     } else {
         NormalizeState::Pending
     };
@@ -92,8 +110,29 @@ pub fn approve(dir: &Path) -> CoreResult<Normalized> {
         approved_at: now_rfc3339(),
     };
     write_json(&dir.join(APPROVAL_FILE), &approval)?;
+    let _ = fs::remove_file(dir.join(DENIAL_FILE));
     found.state = NormalizeState::Approved;
     found.approved_at = Some(approval.approved_at);
+    Ok(found)
+}
+
+/// Records a person's no to the rest pose change in `dir`: the output stays
+/// unwritten until someone approves it after all, or a new run (other
+/// options, another source) replaces it.
+///
+/// # Errors
+///
+/// Fails when there is no intact result to deny.
+pub fn deny(dir: &Path) -> CoreResult<Normalized> {
+    let mut found = load(dir)?.ok_or_else(not_normalised)?;
+    let denial = Denial {
+        key: found.key.clone(),
+        denied_at: now_rfc3339(),
+    };
+    write_json(&dir.join(DENIAL_FILE), &denial)?;
+    let _ = fs::remove_file(dir.join(APPROVAL_FILE));
+    found.state = NormalizeState::Denied;
+    found.approved_at = None;
     Ok(found)
 }
 

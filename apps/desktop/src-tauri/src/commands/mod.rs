@@ -6,6 +6,7 @@ pub mod agents;
 pub mod animations;
 pub mod app;
 pub mod assets;
+pub mod avatar;
 mod blender;
 pub mod built;
 pub mod codex_usage;

@@ -108,6 +108,15 @@ pub struct MaterialsChanged {
     pub project: String,
 }
 
+/// An agent changed or built an asset's avatar through the MCP server, so
+/// the Avatar view reloads it.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct AvatarChanged {
+    pub project: String,
+    pub asset: String,
+}
+
 /// An agent changed a project's real sizes or fix-ups through the MCP
 /// server, so the Board, the Inbox and the Inspector reload them.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

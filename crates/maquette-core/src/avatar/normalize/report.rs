@@ -83,6 +83,8 @@ pub enum NormalizeState {
     Pending,
     /// A person said yes to this exact output.
     Approved,
+    /// A person said no; nothing is written from it.
+    Denied,
 }
 
 /// A normalised model and what it takes to judge it.

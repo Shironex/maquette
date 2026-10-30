@@ -26,6 +26,7 @@ describe('views', () => {
     expect(viewFromHash(hashForView('timeline'))).toBe('timeline');
     expect(viewFromHash(hashForView('library'))).toBe('library');
     expect(viewFromHash(hashForView('animations'))).toBe('animations');
+    expect(viewFromHash(hashForView('avatar'))).toBe('avatar');
   });
 
   it('keeps Models and Animations under Libraries, out of the tools', () => {
@@ -42,6 +43,7 @@ describe('views', () => {
     expect(game).not.toContain('page');
     expect(game).not.toContain('timeline');
     expect(game).toContain('motion');
+    expect(game).toContain('avatar');
     expect(toolViewsFor('website').map(v => v.id)).toContain('page');
     expect(showsView('game', 'page')).toBe(false);
     expect(showsView('website', 'page')).toBe(true);

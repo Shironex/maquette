@@ -22,6 +22,7 @@
 //! bytes with the avatar's [`VrmMeta`]. Pose blockers do not stop it: they
 //! come back with the bytes as what the file still lacks.
 
+mod arm_weights;
 mod bones;
 mod container;
 mod findings;
@@ -178,6 +179,11 @@ fn assess(
         animations: doc.animations().len(),
     });
     findings.extend(findings::pose_findings(&pose));
+    if let Some(drag) = arm_weights::measure(doc, buffers, &worlds, &mapped, &human)
+        .filter(arm_weights::ArmDrag::matters)
+    {
+        findings.push(findings::arm_weight_finding(&drag, pose.height));
+    }
     // Stable, so each level keeps the order the checks run in.
     findings.sort_by_key(|f| f.level);
     let required = human

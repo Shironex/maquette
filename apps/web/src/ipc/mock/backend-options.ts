@@ -56,7 +56,8 @@ export type Args = Record<string, unknown>;
  * (see `create-ship-handlers.ts`), `?updater=` the app updater turned on (see
  * `create-app-handlers.ts`), `?pipeline=many` a runner with 24 models (see
  * `pipeline-many.ts`), `?stress=lists` every long list at a busy workspace's size
- * (see `stress-fixtures.ts`). Configured scenarios also open with
+ * (see `stress-fixtures.ts`), `?avatar=` an avatar build (see
+ * `create-avatar-handlers.ts`). Configured scenarios also open with
  * Send to 3D jobs (see `providers.ts`).
  */
 export interface BackendOptions {
@@ -124,6 +125,8 @@ export interface BackendOptions {
   stress?: string | null;
   /** `low`, `limit`, `lifted` or `unknown`: the Codex usage read (see create-codex-usage-handlers.ts). */
   codex?: string | null;
+  /** `pending` or `written`: an agent built Elsheria's avatar (see create-avatar-handlers.ts). */
+  avatar?: string | null;
   /** `on` or `cap`: concepts on OpenAI's Image API (see create-image-api-handlers.ts). */
   images?: string | null;
   /** Serves files the backend "writes", since mock mode has no disk. */

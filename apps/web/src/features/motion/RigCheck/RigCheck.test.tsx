@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { useAppStore } from '@/state/use-app-store';
+import { useAvatarStore } from '@/state/use-avatar-store';
 import { useRetargetStore } from '@/state/use-retarget-store';
 import { clearMocks, openMotion } from '@/test/open-motion';
 import RigCheck from './RigCheck';
@@ -44,6 +46,15 @@ describe('the rig check', () => {
       title: 'Not VRM ready: 1 thing to fix',
       detail: 'Faces +X, VRM wants +Z. Soles sit 3 cm above the ground.',
     });
+  });
+
+  it("opens a character's VRM export in the Avatar view", async () => {
+    await openMotion('demo', 'clay-figure');
+    render(<RigCheck />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open Avatar' }));
+    expect(useAppStore.getState().view).toBe('avatar');
+    expect(useAvatarStore.getState().asset).toBe('clay-figure');
+    await waitFor(() => expect(useAvatarStore.getState().view?.name).toBe('Clay figure'));
   });
 
   it('fails weights past four influences', async () => {

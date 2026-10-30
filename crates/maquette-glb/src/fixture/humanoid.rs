@@ -41,6 +41,9 @@ pub struct HumanoidSpec {
     /// The armature is scaled by this, evenly, when it is not 1.
     pub armature_scale: f32,
     pub animation: bool,
+    /// A cape behind the back weighted to the left upper arm, as a rig
+    /// that drags cloth with the arm has it.
+    pub cape: bool,
 }
 
 impl Default for HumanoidSpec {
@@ -54,6 +57,7 @@ impl Default for HumanoidSpec {
             scale_noise: false,
             armature_scale: 1.0,
             animation: true,
+            cape: false,
         }
     }
 }
@@ -252,6 +256,18 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
                 u16::try_from(i).unwrap_or(0),
             );
         }
+    }
+    if spec.cape
+        && let Some(arm) = skeleton()
+            .iter()
+            .position(|(n, _, _)| *n == "mixamorig:LeftArm")
+    {
+        let a = at(arm);
+        mesh.cuboid(
+            [a[0] / 2.0, a[1] - 0.5, a[2] - 0.25],
+            [0.3, 0.5, 0.02],
+            u16::try_from(arm).unwrap_or(0),
+        );
     }
 
     let mut b = Builder::default();

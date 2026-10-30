@@ -12,7 +12,7 @@ readiness found them. Relative paths resolve against the job file's folder:
     {"input": "/abs/model.glb", "output": "normalized.glb", "report": "report.json",
      "sheets": {"before": "sheet_before.png", "after": "sheet_after.png"},
      "bones": {"hips": "mixamorig:Hips", "leftUpperArm": "mixamorig:LeftArm", ...},
-     "elbows": "keep"}
+     "elbows": "straighten"}
 
 What it does, in this order:
 
@@ -23,8 +23,9 @@ What it does, in this order:
    bake the turn and the move into the armature and the meshes.
 3. Lift each arm at the shoulder (the upper arm's head) until upper arm to
    hand is level along X. The clavicles stay where they are and the hand
-   and fingers ride along unchanged. With "elbows": "straighten" the lower
-   arm is levelled too, so upper arm, lower arm and hand all lie on X.
+   and fingers ride along unchanged. With "elbows": "straighten" (the
+   default) the lower arm is levelled too, so upper arm, lower arm and hand
+   all lie on X; "keep" leaves a bent elbow bent.
 4. Make that pose the rest: the armature modifier is applied on each
    skinned mesh, the pose becomes the armature's rest, and the modifier is
    added back. The vertex groups stay as they were; at most 4 influences
@@ -90,7 +91,7 @@ def load_job(path):
     job["output"] = resolve(job["output"])
     job["report"] = resolve(job["report"])
     job["sheets"] = {k: resolve(v) for k, v in job.get("sheets", {}).items()}
-    job.setdefault("elbows", "keep")
+    job.setdefault("elbows", "straighten")
     if job["elbows"] not in ("keep", "straighten"):
         fail(f"elbows must be keep or straighten, not {job['elbows']}")
     return job

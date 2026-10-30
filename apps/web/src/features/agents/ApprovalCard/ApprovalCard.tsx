@@ -11,11 +11,12 @@ export interface ApprovalCardProps {
 }
 
 export default function ApprovalCard({ approval, floating }: ApprovalCardProps) {
-  const { decide, deciding, site, now, cost, notes } = useApprovalCard(approval);
+  const { decide, deciding, site, now, cost, notes, pose } = useApprovalCard(approval);
   const titleId = `${approval.id}-title`;
+  const rest = approval.kind === 'rest-pose';
   const send = approval.kind === 'send-to-3d';
   const round = approval.kind === 'image-round';
-  const detailLine = (send || round) && approval.detail ? approval.detail : null;
+  const detailLine = (send || round || rest) && approval.detail ? approval.detail : null;
   const items = approval.items.map(item => (
     <li
       key={item.job}
@@ -42,13 +43,21 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
     >
       <div className="flex items-start gap-3">
         <span className="grid size-8 flex-none place-items-center rounded-[9px] bg-amber-soft text-amber">
-          <Icon name={round ? 'image' : send ? 'cube' : 'rocket-launch'} size={17} />
+          <Icon
+            name={rest ? 'person-arms-spread' : round ? 'image' : send ? 'cube' : 'rocket-launch'}
+            size={17}
+          />
         </span>
         <div className="min-w-0 flex-1">
           <h2 id={titleId} className="text-emphasis leading-5 font-semibold">
             {approvalTitle(approval, site?.name)}
           </h2>
-          {round ? (
+          {rest ? (
+            <p className="mt-0.5 text-meta text-fg-mute">
+              An agent built this avatar over MCP and its rest pose changed. Nothing is written
+              until you approve the sheets in the Avatar view.
+            </p>
+          ) : round ? (
             <p className="mt-0.5 text-meta text-fg-mute">
               An agent asked over MCP. This spends {cost}; nothing is sent to OpenAI until you
               approve.
@@ -87,49 +96,89 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
           {detailLine}
         </p>
       ) : null}
+      {rest && pose.sheets ? (
+        <div className="ml-11 grid grid-cols-2 gap-2">
+          {pose.sheets.before ? (
+            <img
+              src={pose.sheets.before}
+              alt="The before sheet"
+              className="w-full rounded-[7px] border border-line"
+            />
+          ) : null}
+          {pose.sheets.after ? (
+            <img
+              src={pose.sheets.after}
+              alt="The after sheet"
+              className="w-full rounded-[7px] border border-line"
+            />
+          ) : null}
+        </div>
+      ) : null}
       {notes.length > 0 ? (
         <ul className="m-0 ml-11 flex list-none flex-col gap-1 p-0 text-meta text-amber">
           {noteItems}
         </ul>
       ) : null}
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="secondary"
-          disabled={deciding}
-          tooltip={
-            round
-              ? 'Makes nothing and spends nothing; the jobs end cancelled'
+      {rest ? (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="secondary"
+            disabled={pose.denying}
+            loading={pose.denying}
+            tooltip="Writes nothing; the agent is told the pose was turned down"
+            onClick={() => void pose.deny()}
+          >
+            Deny
+          </Button>
+          <Button
+            variant="primary"
+            icon="magnifying-glass"
+            tooltip="Opens the before and after sheets large, to approve or deny there"
+            onClick={pose.open}
+          >
+            Open the sheets
+          </Button>
+        </div>
+      ) : (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="secondary"
+            disabled={deciding}
+            tooltip={
+              round
+                ? 'Makes nothing and spends nothing; the jobs end cancelled'
+                : send
+                  ? 'Sends nothing and spends no credits'
+                  : 'Ships nothing'
+            }
+            onClick={() => void decide(approval.id, false)}
+          >
+            Deny
+          </Button>
+          <Button
+            variant="primary"
+            icon="check"
+            loading={deciding}
+            disabled={deciding}
+            tooltip={
+              round
+                ? 'Queues the images on OpenAI Images, which spends from the OpenAI key'
+                : send
+                  ? 'Sends it to the provider, which spends credits'
+                  : 'Writes the files to the game repo'
+            }
+            onClick={() => void decide(approval.id, true)}
+          >
+            {round
+              ? `Approve and make ${approval.conceptJobs?.length ?? ''}`.trim()
               : send
-                ? 'Sends nothing and spends no credits'
-                : 'Ships nothing'
-          }
-          onClick={() => void decide(approval.id, false)}
-        >
-          Deny
-        </Button>
-        <Button
-          variant="primary"
-          icon="check"
-          loading={deciding}
-          disabled={deciding}
-          tooltip={
-            round
-              ? 'Queues the images on OpenAI Images, which spends from the OpenAI key'
-              : send
-                ? 'Sends it to the provider, which spends credits'
-                : 'Writes the files to the game repo'
-          }
-          onClick={() => void decide(approval.id, true)}
-        >
-          {round
-            ? `Approve and make ${approval.conceptJobs?.length ?? ''}`.trim()
-            : send
-              ? approval.items.length > 1
-                ? `Approve and send ${approval.items.length}`
-                : 'Approve and send'
-              : 'Approve and ship'}
-        </Button>
-      </div>
+                ? approval.items.length > 1
+                  ? `Approve and send ${approval.items.length}`
+                  : 'Approve and send'
+                : 'Approve and ship'}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

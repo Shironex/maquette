@@ -60,6 +60,7 @@ export function createFakeAgents({
   emit,
   onSendDecision,
   games,
+  avatars,
 }: {
   config: () => WorkspaceConfig;
   /** `active`: an agent session is under way, with a run waiting at Ship. */
@@ -73,6 +74,8 @@ export function createFakeAgents({
   onSendDecision?: (job: string, approve: boolean) => void;
   /** Ship approvals runs of game projects ask for, whoever started them. */
   games?: { approvals: () => Approval[]; decide: (a: Approval, approve: boolean) => void };
+  /** Rest pose approvals agents' avatar builds wait on; only the Avatar view answers them. */
+  avatars?: { approvals: () => Approval[] };
 }) {
   const now = clock.nowMs();
   let token: string | null = active ? MOCK_TOKEN : null;
@@ -181,7 +184,7 @@ export function createFakeAgents({
       error: null,
       askBeforeShipping: agents.rules.askBeforeShipping,
       calls,
-      approvals: [...approvals, ...(games?.approvals() ?? [])],
+      approvals: [...approvals, ...(games?.approvals() ?? []), ...(avatars?.approvals() ?? [])],
     };
   };
 

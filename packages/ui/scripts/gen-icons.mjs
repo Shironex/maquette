@@ -86,6 +86,7 @@ export const ICON_NAMES = [
   'palette',
   'path',
   'pause',
+  'person-arms-spread',
   'person-simple',
   'person-simple-walk',
   'play',

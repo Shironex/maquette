@@ -1,0 +1,39 @@
+/**
+ * Opens the mock workspace for the Avatar view (`?avatar=` in the browser)
+ * and loads one character asset into the Avatar store.
+ */
+import { mockIPC } from '@tauri-apps/api/mocks';
+import { commands } from '@/ipc/client';
+import { registerMockFile } from '@/ipc/files';
+import { createBackend } from '@/ipc/mock/backend';
+import { avatarSheetFiles } from '@/ipc/mock/create-avatar-handlers';
+import { useAgentsStore } from '@/state/use-agents-store';
+import { useAppStore } from '@/state/use-app-store';
+import { useAvatarStore } from '@/state/use-avatar-store';
+
+export async function openAvatar(avatar: 'pending' | 'written' | null = null, asset = 'elsheria') {
+  useAvatarStore.setState(useAvatarStore.getInitialState(), true);
+  const handle = createBackend({
+    scenario: 'configured',
+    probeDelay: 0,
+    pace: 0,
+    conceptMs: 60_000,
+    avatar,
+  });
+  const calls: string[] = [];
+  mockIPC((cmd, args) => {
+    calls.push(cmd);
+    return handle(cmd, (args ?? {}) as Record<string, unknown>);
+  });
+  const boot = await commands.appBootstrap();
+  for (const [path, sheet] of Object.entries(avatarSheetFiles(boot.workspace!.root))) {
+    registerMockFile(path, `/${sheet}`);
+  }
+  useAppStore.setState({ boot, workspace: boot.workspace, phase: 'app' });
+  await useAgentsStore.getState().load();
+  useAvatarStore.setState({ project: 'frostveil', asset });
+  await useAvatarStore.getState().load();
+  return calls;
+}
+
+export { clearMocks } from './mock-ipc';

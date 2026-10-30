@@ -1,8 +1,11 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { clearMocks } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAgentsStore } from '@/state/use-agents-store';
+import { useAppStore } from '@/state/use-app-store';
+import { useAvatarStore } from '@/state/use-avatar-store';
+import { openAvatar } from '@/test/open-avatar';
 import { openMockGame } from '@/test/mock-ipc';
 import { openAgentSession } from '../openAgentSession';
 import { ApprovalCard } from '.';
@@ -37,6 +40,22 @@ describe('an approval card', () => {
     expect(card).toHaveTextContent('2 images at medium quality');
     await userEvent.click(within(card).getByRole('button', { name: 'Approve and make 2' }));
     expect(calls).toContain('mcp_decide');
+  });
+
+  it("opens an agent's rest pose in the Avatar view, or turns it down", async () => {
+    const calls = await openAvatar('pending');
+    const pose = useAgentsStore.getState().status!.approvals.find(a => a.kind === 'rest-pose')!;
+    render(<ApprovalCard approval={pose} />);
+    const card = screen.getByRole('alertdialog');
+    expect(card).toHaveTextContent("Approve Elsheria's new rest pose?");
+    expect(card).toHaveTextContent('lifted left arm 55');
+    expect(within(card).queryByRole('button', { name: /Approve/ })).not.toBeInTheDocument();
+    await userEvent.click(within(card).getByRole('button', { name: 'Open the sheets' }));
+    expect(useAppStore.getState().view).toBe('avatar');
+    expect(useAvatarStore.getState().asset).toBe('elsheria');
+    await userEvent.click(within(card).getByRole('button', { name: 'Deny' }));
+    await waitFor(() => expect(calls).toContain('avatar_decide'));
+    expect(calls).not.toContain('mcp_decide');
   });
 
   it('asks to ship a run stopped before Ship', async () => {

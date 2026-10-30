@@ -1,6 +1,6 @@
 ---
 title: Settings
-description: The workspace, the toolchain, the 3D providers, image generation, budgets and compression, the agents, the open project, and About.
+description: The workspace, the toolchain, the 3D providers, image generation, avatar defaults, budgets and compression, the agents, the open project, and About.
 sidebar:
   label: Settings
 ---
@@ -13,6 +13,7 @@ Settings saves as you go. The nav on the left jumps to a section; a field that i
 | Toolchain               | The tools Maquette found, with Recheck and Locate                                |
 | 3D providers            | API keys, the Send to 3D presets and the Downloads watch for By hand             |
 | Image generation        | Codex or OpenAI Images per kind of Lab image, the OpenAI key, quality and cap    |
+| Avatar defaults         | The author and licence every new VRM avatar starts from, and its material        |
 | Budgets and compression | What a scene may weigh, and the compression every model starts from              |
 | Agents                  | The local MCP server. See [Connect an agent](/docs/agents/connect/)              |
 | About                   | The version you run, updates, and the links below                                |
@@ -24,6 +25,10 @@ Settings saves as you go. The nav on the left jumps to a section; a field that i
 - **OpenAI key.** Paste an API key from platform.openai.com, API keys. It is kept in the system keychain, never in a file, and only its last four characters show. Test key only lists the models the key can use, which costs nothing, and says whether it can use the image model.
 - **Quality.** Low, medium or high, each with its estimate per image.
 - **Monthly cap.** Whole US dollars the Image API may spend per calendar month, $10 by default; 0 stops it. Spent this month shows what went out since the first of the month, from `credits.jsonl`. A round that would pass the cap does not start. The check counts each image at what one has cost lately at this quality, from the ledger, so a round that fits is not refused on the price list's higher guess.
+
+## Avatar defaults
+
+What every new [Avatar](/docs/views/avatar/) starts from: the author, contact and copyright, the licence (who may play it, commercial use, credit, changes, the yes or no uses and an other licence URL) and the material, MToon soft or PBR. The licence starts at VRM 1.0's defaults, the strictest. An avatar that is already saved keeps its own; change it in the Avatar view.
 
 ## About
 
