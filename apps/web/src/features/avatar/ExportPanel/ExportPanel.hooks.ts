@@ -3,14 +3,17 @@ import { copyText } from '@/features/config/copyText';
 import { formatAgo, formatBytes } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import { MATERIALS } from '@/state/avatar';
+import { HIGHLIGHTS, highlightsSummary } from '@/state/avatar-highlights';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
 
-/** The material mode, where the file goes, and what the last build wrote. */
+/** The material mode and its highlights, where the file goes, and what the last build wrote. */
 export function useExportPanel() {
   const view = useAvatarStore(s => s.view);
   const material = useAvatarStore(s => s.draft?.material ?? 'mtoon-soft');
   const setMaterial = useAvatarStore(s => s.setMaterial);
+  const highlights = useAvatarStore(s => s.draft?.highlights ?? 'soften');
+  const setHighlights = useAvatarStore(s => s.setHighlights);
   const notify = useAppStore(s => s.notify);
   const now = useNow(60_000);
   const written = view?.export ?? null;
@@ -28,6 +31,11 @@ export function useExportPanel() {
     material,
     setMaterial,
     hint: MATERIALS.find(m => m.value === material)?.hint ?? '',
+    /** The highlights choice only means something with MToon. */
+    toon: material === 'mtoon-soft',
+    highlights,
+    setHighlights,
+    highlightsHint: HIGHLIGHTS.find(h => h.value === highlights)?.hint ?? '',
     written,
     facts: written
       ? [
@@ -42,6 +50,9 @@ export function useExportPanel() {
             label: 'Material',
             value: MATERIALS.find(m => m.value === written.material)?.label ?? written.material,
           },
+          ...(written.highlights
+            ? [{ label: 'Highlights', value: highlightsSummary(written.highlights) }]
+            : []),
         ]
       : [],
     report: written?.report ?? null,

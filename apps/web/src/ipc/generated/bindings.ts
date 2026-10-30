@@ -1181,6 +1181,12 @@ export type AvatarExport = {
 	 */
 	reweighted?: boolean,
 	material: MaterialMode,
+	/**
+	 *  With MToon, what was done with the highlights baked into the base
+	 *  color; `None` with PBR or for a build that predates the option.
+	 *  Boxed, so a written build stays near the size of the others.
+	 */
+	highlights?: HighlightsReport | null,
 	/**  What the file still lacks, blockers first. */
 	unresolved: VrmFinding[],
 	writtenAt: string,
@@ -1215,6 +1221,8 @@ export type AvatarSpec_Deserialize = {
 	 */
 	bones?: { [key in string]: string | null },
 	material?: MaterialMode,
+	/**  Only read with MToon: PBR shades the texture as it is. */
+	highlights?: Highlights,
 	/**  The confirmed springs, in the order they were confirmed. */
 	springs?: SpringSpec[],
 };
@@ -1228,6 +1236,8 @@ export type AvatarSpec_Serialize = {
 	 */
 	bones: { [key in string]: string | null },
 	material: MaterialMode,
+	/**  Only read with MToon: PBR shades the texture as it is. */
+	highlights: Highlights,
 	/**  The confirmed springs, in the order they were confirmed. */
 	springs?: SpringSpec[],
 };
@@ -2689,6 +2699,30 @@ export type HandoffCard = {
 	prompt?: string | null,
 };
 
+/**
+ *  What an MToon export does with the highlights a generated model's
+ *  lighting painted into its base color texture.
+ */
+export type Highlights = 
+/**
+ *  Write a copy of the texture with only strong baked highlights on
+ *  dark material toned down toward the colour around them. The
+ *  model's own texture stays as it is.
+ */
+"soften" | 
+/**  Write the texture as it is. */
+"keep";
+
+/**  What an export did with the highlights baked into its base color. */
+export type HighlightsReport = {
+	mode: Highlights,
+	/**  How far a highlight moved toward the colour around it, 0 to 1. */
+	strength: number | null,
+	images: ImageHighlights[],
+	/**  Why nothing was softened, when nothing was. */
+	note: string | null,
+};
+
 export type HostOs = "mac" | "windows" | "linux";
 
 /**  What Settings and the Lab show of the Image API. */
@@ -2725,6 +2759,22 @@ export type ImageEstimates = {
 	low: number | null,
 	medium: number | null,
 	high: number | null,
+};
+
+/**  What softening did to one base color image. */
+export type ImageHighlights = {
+	/**  The image's index in the file. */
+	image: number,
+	width: number,
+	height: number,
+	/**  The share of the texture's pixels that are baked highlights, 0 to 1. */
+	coverage: number | null,
+	/**  The same share within the dark areas of the texture. */
+	darkCoverage: number | null,
+	/**  A softened copy is what the materials shade from. */
+	softened: boolean,
+	/**  Why it was left as it is. */
+	note: string | null,
 };
 
 /**  How much effort an image gets: more costs more and takes longer. */

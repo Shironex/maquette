@@ -13,6 +13,7 @@ import {
   type AvatarView_Serialize,
   type Elbows,
   type Fingers,
+  type Highlights,
   type SpringCandidate,
   type SpringSpec,
   type VrmMeta_Serialize,
@@ -54,6 +55,7 @@ interface AvatarStore {
   load: () => Promise<void>;
   editMeta: (change: Partial<VrmMeta_Serialize>) => void;
   setMaterial: (material: AvatarSpec_Serialize['material']) => void;
+  setHighlights: (highlights: Highlights) => void;
   setElbows: (elbows: Elbows) => void;
   setFingers: (fingers: Fingers) => void;
   setTab: (tab: AvatarTab) => void;
@@ -151,6 +153,11 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   setMaterial: material => {
     const draft = get().draft;
     if (draft) set({ draft: { ...draft, material }, dirty: true });
+  },
+
+  setHighlights: highlights => {
+    const draft = get().draft;
+    if (draft) set({ draft: { ...draft, highlights }, dirty: true });
   },
 
   setElbows: elbows => set({ elbows }),

@@ -2,9 +2,10 @@ import { Button, CheckRow, Icon, KeyValueList, SegmentedControl } from '@maquett
 import { Panel } from '@/features/common/Panel';
 import { SectionLabel } from '@/features/common/SectionLabel';
 import { MATERIALS } from '@/state/avatar';
+import { HIGHLIGHTS } from '@/state/avatar-highlights';
 import { useExportPanel } from './ExportPanel.hooks';
 
-/** How the VRM shades, where it goes, and the file the last build wrote. */
+/** How the VRM shades, its baked highlights, where it goes, and the file the last build wrote. */
 export default function ExportPanel() {
   const p = useExportPanel();
   if (!p.view) return null;
@@ -33,6 +34,18 @@ export default function ExportPanel() {
         />
         <p className="text-meta text-fg-mute">{p.hint}</p>
       </div>
+      {p.toon ? (
+        <div className="flex flex-col gap-1.5">
+          <SegmentedControl
+            label="Baked highlights"
+            tone="clay"
+            options={HIGHLIGHTS.map(h => ({ value: h.value, label: h.label, hint: h.hint }))}
+            value={p.highlights}
+            onChange={p.setHighlights}
+          />
+          <p className="text-meta text-fg-mute">{p.highlightsHint}</p>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-1">
         <SectionLabel>Output</SectionLabel>
         <p className="truncate font-mono text-[12px] text-fg-dim" title={p.view.exportPath}>
