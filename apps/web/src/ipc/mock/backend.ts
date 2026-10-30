@@ -47,6 +47,7 @@ import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPathsHandlers } from './create-paths-handlers';
 import { createGameHandlers } from './create-game-handlers';
 import { createAvatarHandlers } from './create-avatar-handlers';
+import { seedAvatar } from './avatar-fixtures';
 import { withManyAssets, wrapManyInspect } from './many-assets-fixtures';
 import { manyPipeline, seedManyPipeline } from './pipeline-many';
 import { stressInbox, stressProjects, wrapStress } from './stress-fixtures';
@@ -97,9 +98,8 @@ export function createBackend({
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
   let root: string | null = configured ? expand(DEFAULT_ROOT) : null;
-  let projects: ProjectManifest[] = configured
-    ? syncProjects(seedMotionProjects(mockProjects(projectsState === 'many'), motion), sync)
-    : [];
+  const seeded = seedMotionProjects(mockProjects(projectsState === 'many'), motion);
+  let projects = configured ? syncProjects(seedAvatar(seeded, avatar), sync) : [];
   if (configured) config = motionConfig({ ...config, currentProject: 'frostveil' }, motion);
   const agentsOn = agentsState === 'active' || agentsState === 'batch' || agentsState === 'images';
   if (configured && agentsOn) {

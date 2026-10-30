@@ -1,4 +1,4 @@
-import { Tabs } from '@maquette/ui';
+import { Select, Tabs } from '@maquette/ui';
 import { useAvatarTabs } from './AvatarTabs.hooks';
 
 const TABS = [{ id: 'export', label: 'Export' }] as const;
@@ -12,8 +12,9 @@ const LATER = [
 
 /** The avatar's name and version over its tabs; only Export is built so far. */
 export default function AvatarTabs() {
-  const view = useAvatarTabs();
-  if (!view) return null;
+  const tabs = useAvatarTabs();
+  if (!tabs) return null;
+  const { view, options, setVersion } = tabs;
   const later = LATER.map(tab => (
     <span
       key={tab.label}
@@ -28,9 +29,20 @@ export default function AvatarTabs() {
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline gap-2.5">
         <h1 className="text-[20px] leading-7 font-semibold">{view.name}</h1>
-        <span className="font-mono text-[12px] text-fg-mute">
-          {view.version === null ? 'no model' : `v${view.version}`}
-        </span>
+        {options.length > 1 && view.version !== null ? (
+          <Select
+            aria-label="Model version"
+            size="sm"
+            options={options}
+            value={String(view.version)}
+            onChange={value => setVersion(Number(value))}
+            fieldClassName="w-[170px]"
+          />
+        ) : (
+          <span className="font-mono text-[12px] text-fg-mute">
+            {view.version === null ? 'no model' : `v${view.version}`}
+          </span>
+        )}
       </div>
       <div className="flex flex-none items-end gap-4 border-b border-line">
         <Tabs tabs={TABS} value="export" onChange={() => undefined} className="border-b-0" />

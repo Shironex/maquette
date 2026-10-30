@@ -66,7 +66,7 @@ function useRestPose(approval: Approval) {
     sheets: sheets ? { before: fileUrl(sheets.before), after: fileUrl(sheets.after) } : null,
     denying,
     open: () => {
-      if (asset) useAvatarStore.getState().open(project, asset);
+      if (asset) useAvatarStore.getState().open(project, asset, version ?? null);
     },
     deny: async () => {
       if (!asset) return;

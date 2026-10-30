@@ -1,7 +1,8 @@
 /**
  * The Avatar view's shots for scripts/visual-check.mjs (ONLY=avatar): a
  * character never built, with its readiness, meta and rest pose measures;
- * a normalised rest pose waiting for a yes, its shoulders up close and the
+ * a normalised rest pose waiting for a yes, the same on an older version
+ * through the version picker, its shoulders up close and the
  * floating card an agent's build leaves; the written VRM; and Settings >
  * Avatar defaults. Mock mode's `?avatar=` sets the state (see
  * apps/web/src/ipc/mock/create-avatar-handlers.ts).
@@ -31,6 +32,18 @@ export async function avatarShots({ open, shot }) {
   await pending.getByRole('dialog', { name: 'Rest pose sheets' }).waitFor();
   await shot(pending, 'avatar-shoulders');
   await pending.context().close();
+
+  // The pose waits on v2 while v3 is newest: the picker marks it.
+  const older = await avatar(open, 'older');
+  await older.getByRole('combobox', { name: 'Model version' }).waitFor();
+  await shot(
+    older.getByRole('combobox', { name: 'Model version' }).locator('xpath=ancestor::div[2]'),
+    'avatar-version-picker'
+  );
+  await older.getByRole('combobox', { name: 'Model version' }).selectOption('2');
+  await older.getByRole('region', { name: 'Rest pose approval' }).waitFor();
+  await shot(older, 'avatar-older-pending');
+  await older.context().close();
 
   const written = await avatar(open, 'written');
   await written.getByRole('region', { name: 'Last export' }).waitFor();

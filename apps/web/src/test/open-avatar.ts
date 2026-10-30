@@ -11,7 +11,14 @@ import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
 
-export async function openAvatar(avatar: 'pending' | 'written' | null = null, asset = 'elsheria') {
+/** Every command since the last open, with its arguments. */
+export const avatarCalls: { cmd: string; args: Record<string, unknown> }[] = [];
+
+export async function openAvatar(
+  avatar: 'pending' | 'written' | 'older' | null = null,
+  asset = 'elsheria'
+) {
+  avatarCalls.length = 0;
   useAvatarStore.setState(useAvatarStore.getInitialState(), true);
   const handle = createBackend({
     scenario: 'configured',
@@ -23,6 +30,7 @@ export async function openAvatar(avatar: 'pending' | 'written' | null = null, as
   const calls: string[] = [];
   mockIPC((cmd, args) => {
     calls.push(cmd);
+    avatarCalls.push({ cmd, args: (args ?? {}) as Record<string, unknown> });
     return handle(cmd, (args ?? {}) as Record<string, unknown>);
   });
   const boot = await commands.appBootstrap();
