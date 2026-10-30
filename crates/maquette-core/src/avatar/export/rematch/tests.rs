@@ -33,6 +33,7 @@ fn candidate(id: &str, kind: SpringKind, root: &str, line: &[[f64; 3]]) -> Sprin
         confidence: 0.9,
         joints: 6,
         color: "#e8553f".to_string(),
+        small: false,
     }
 }
 

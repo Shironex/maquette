@@ -13,6 +13,7 @@ use super::skeleton::{skeleton, world_positions};
 
 mod bridge;
 mod bunched;
+mod charm;
 mod hands;
 mod names;
 mod pieces;
@@ -116,6 +117,10 @@ pub struct HumanoidSpec {
     /// left shoulder, weighted to the head fading to the left upper arm.
     /// Built after every box, so it does not go with `split` or a `flaw`.
     pub shoulder_tail: bool,
+    /// A fine tube around the spine with a charm on a short ribbon hanging
+    /// 2 cm in front of it, both weighted to the spine. Built after
+    /// every box, so it does not go with `split` or a `flaw`.
+    pub charm: bool,
     /// A ribbon fused between the wrist end of the left forearm and the top
     /// of the hip, weighted from the forearm fading to the hips, as an auto
     /// rig leaves a sleeve that rested on the hip.
@@ -147,6 +152,7 @@ impl Default for HumanoidSpec {
             hand_piece: false,
             hair_strip: false,
             shoulder_tail: false,
+            charm: false,
             sleeve_bridge: false,
             bunched_hand: false,
         }

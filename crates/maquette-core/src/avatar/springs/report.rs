@@ -30,6 +30,11 @@ pub struct SpringCandidate {
     pub joints: u32,
     /// Its colour on the candidates sheet, `#rrggbb`.
     pub color: String,
+    /// A small piece close to the body (a charm, a short chain, an
+    /// earring), listed after the other parts with a chain of 2 to 4
+    /// joints; older finders never set it.
+    #[serde(default)]
+    pub small: bool,
 }
 
 /// The finder's `candidates.json`.
