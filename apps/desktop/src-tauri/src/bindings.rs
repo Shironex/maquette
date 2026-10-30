@@ -148,6 +148,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             inbox::inbox_set_kind,
             inbox::inbox_accept,
             inbox::inbox_discard,
+            inbox::inbox_discarded,
+            inbox::inbox_restore,
             inbox::inbox_add_model_file,
             inbox::inbox_open_in_blender,
             thumbs::thumbnail_store,

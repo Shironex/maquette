@@ -53,6 +53,7 @@ pub async fn inbox_list(
         let mut items = inbox::list(&root, &config)?;
         thumbs::fill(&service, &root, &config, &tools, &mut items);
         studio.link_inbox(&mut items);
+        inbox::place(&root, &config, &mut items);
         Ok::<_, maquette_core::CoreError>(items)
     })
     .await??;
@@ -95,6 +96,7 @@ pub async fn inbox_reprocess(
             std::slice::from_mut(&mut item),
         );
         studio.link_inbox(std::slice::from_mut(&mut item));
+        inbox::place(&root, &config, std::slice::from_mut(&mut item));
         Ok::<_, maquette_core::CoreError>(item)
     })
     .await??)
@@ -120,6 +122,7 @@ pub async fn inbox_set_kind(
         std::slice::from_mut(&mut item),
     );
     studio.0.link_inbox(std::slice::from_mut(&mut item));
+    inbox::place(&root, &config, std::slice::from_mut(&mut item));
     Ok(item)
 }
 
@@ -170,16 +173,58 @@ pub async fn inbox_accept(
 
 /// Moves the inbox model `id` aside (never deletes it) and closes the send
 /// that was waiting on it. Returns where the file went and the closed send's
-/// id, when there was one. The UI and the MCP tool both call this.
+/// id, when there was one. It notes the asset the model was going to, so a
+/// restore aims it there again. The UI and the MCP tools all call this.
 pub(crate) fn discard_model(
     studio: &maquette_core::providers::ProviderJobs,
     root: &std::path::Path,
     config: &maquette_core::WorkspaceConfig,
     id: &str,
 ) -> CoreResult<(inbox::Discarded, Option<String>)> {
+    let mut before = inbox::item(root, config, id)?;
+    studio.link_inbox(std::slice::from_mut(&mut before));
+    inbox::place(root, config, std::slice::from_mut(&mut before));
+    let goal = before
+        .link
+        .map(|l| inbox::InboxAim {
+            project: l.project,
+            asset: l.asset,
+            asset_name: l.asset_name,
+        })
+        .or(before.aim);
     let done = inbox::discard(root, config, id)?;
+    inbox::remember_discard(root, config, &done, goal, before.replaced_by, now_ms());
     let closed = studio.discarded(id);
     Ok((done, closed))
+}
+
+/// Now, in milliseconds since 1970.
+fn now_ms() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0.0, |d| d.as_millis() as f64)
+}
+
+/// The models discarded from the inbox, the most recent first.
+#[tauri::command]
+#[specta::specta]
+pub async fn inbox_discarded(
+    session: State<'_, Session>,
+) -> CommandResult<Vec<inbox::DiscardedModel>> {
+    let (root, config) = session.workspace()?;
+    Ok(blocking(move || inbox::list_discarded(&root, &config)).await??)
+}
+
+/// Puts a discarded model back into the inbox, aimed at the asset it was
+/// going to. The watcher then lists it with its checks.
+#[tauri::command]
+#[specta::specta]
+pub async fn inbox_restore(
+    session: State<'_, Session>,
+    name: String,
+) -> CommandResult<inbox::Restored> {
+    let (root, config) = session.workspace()?;
+    Ok(blocking(move || inbox::restore(&root, &config, &name)).await??)
 }
 
 #[tauri::command]

@@ -406,6 +406,13 @@ export const commands = {
 	inboxSetKind: (id: string, kind: AssetKind) => __TAURI_INVOKE<InboxItem>("inbox_set_kind", { id, kind }),
 	inboxAccept: (request: AcceptRequest) => __TAURI_INVOKE<AcceptResult>("inbox_accept", { request }),
 	inboxDiscard: (id: string) => __TAURI_INVOKE<Discarded>("inbox_discard", { id }),
+	/**  The models discarded from the inbox, the most recent first. */
+	inboxDiscarded: () => __TAURI_INVOKE<DiscardedModel[]>("inbox_discarded"),
+	/**
+	 *  Puts a discarded model back into the inbox, aimed at the asset it was
+	 *  going to. The watcher then lists it with its checks.
+	 */
+	inboxRestore: (name: string) => __TAURI_INVOKE<Restored>("inbox_restore", { name }),
 	/**
 	 *  Adds a model file someone fixed by hand (a `.glb`, `.gltf`, `.fbx` or
 	 *  `.obj` outside the workspace's versions) to the inbox for `asset`, as
@@ -2294,6 +2301,23 @@ export type Discarded = {
 	file: string,
 };
 
+/**  A model waiting in `<inbox>/.discarded/`. */
+export type DiscardedModel = {
+	/**  Its file name in the discarded folder, which restore takes. */
+	name: string,
+	/**  The inbox name it had (the same, unless a number was added). */
+	id: string,
+	/**  The file, an absolute path. */
+	file: string,
+	bytes: number | null,
+	/**  When it was discarded; the file's modified time for an older discard. */
+	discardedMs: number | null,
+	/**  The asset it was going to, when it was going somewhere. */
+	assetName: string | null,
+	/**  The version that had replaced it, when a redo had. */
+	replacedBy: number | null,
+};
+
 /**
  *  A model file in the Downloads folder, with the send it most likely
  *  belongs to.
@@ -3000,6 +3024,17 @@ export type InboxItem = {
 	link: InboxLink | null,
 	/**  The asset it was attached to without a send, which Accept defaults to. */
 	aim: InboxAim | null,
+	/**
+	 *  The version Accept would make of the asset it goes to (1 for an
+	 *  asset with no model yet); null for a model that goes nowhere yet.
+	 *  Filled by [`place`].
+	 */
+	nextVersion?: number | null,
+	/**
+	 *  The newest version of that asset made after this model arrived, as a
+	 *  redo that was accepted makes; this model then only takes room.
+	 */
+	replacedBy?: number | null,
 };
 
 /**  An inbox model that came from a send. */
@@ -4670,6 +4705,14 @@ export type RestPose = {
 	fingerCurlDeg?: number | null,
 	/**  The sides whose finger bones sit bunched at the wrist. */
 	bunchedHands?: string[],
+};
+
+/**  Where a restored model went. */
+export type Restored = {
+	/**  Its inbox id now. */
+	id: string,
+	/**  The file, an absolute path. */
+	file: string,
 };
 
 /**  A bake waiting for review, on a copy of the newest version. */
