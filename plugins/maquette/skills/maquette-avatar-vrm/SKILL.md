@@ -57,15 +57,17 @@ Avatar view (`/docs/views/avatar/`).
    `waiting for approval` with `step: "reweight"` and `reweight.sheets` (rest, arms level, arms
    raised). Ask the person to check that a cape or hair hangs still as the arms lift and the
    sleeves follow, and approve in the Avatar view. Cloth sewn to a sleeve still stretches a little
-   between arm and body; say so if the counts or sheets show it.
+   between arm and body; say so if the counts or sheets show it. `reweight.bridges` names faces
+   fused between an arm and the body far from the shoulder that still stretch.
 6. **Lift the arms.** `build_avatar` again. A model already in VRM's rest pose is written at once.
    Otherwise Blender normalises a copy (from the approved weights, when there are any) and the
    call answers `waiting for approval` with `step: "rest pose"` and `pose.sheets`. Ask the person
    to look at the sheets, especially the shoulders and the hands row at the bottom, and approve
    there. `fingers` `straighten` (the default) lays the fingers straight as far as the hand's mesh
    holds (`pose.straightened` says how far per hand, or why a hand was skipped); `keep` leaves
-   them curled. A `finger-bones` finding means a hand's finger bones sit bunched at the wrist: the
-   person needs to rig the hands again.
+   them curled. A hand whose finger bones sit bunched at the wrist is repaired first when its mesh
+   shows five fingers (`pose.repaired` per hand); a `finger-bones` finding left after means it did
+   not, and the person needs to rig the hands again.
 7. **Result.** Once approved, `build_avatar` again (both copies are cached, Blender does not run
    again) answers `written` with `path`, `bytes`, `unresolved`, `report` and `roundTrip`.
 8. **Springs.** Once the rest pose is approved (`springs.ready`), a build with no confirmed
