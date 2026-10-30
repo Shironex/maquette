@@ -3,7 +3,9 @@ import { vrmReadiness } from '@/ipc/mock/vrm-fixtures';
 import {
   boneGroups,
   boneLabel,
+  boneSource,
   buildAction,
+  jointChoices,
   measureRows,
   metaProblem,
   parseAuthors,
@@ -94,5 +96,38 @@ describe('the avatar helpers', () => {
     expect(buildAction({ ...view, readiness: null, readinessError: 'No rig' }, spec).tooltip).toBe(
       'No rig'
     );
+  });
+
+  it('say where each mapping came from', () => {
+    const r = vrmReadiness({ hips: 'Hips', leftHand: 'Hand_L' }, 'mixamo', []);
+    const bone = (name: string) => r.bones.find(b => b.bone === name)!;
+    expect(boneSource(bone('hips'), {})).toBe('auto · Mixamo');
+    expect(boneSource(bone('hips'), { hips: 'Root' })).toBe('set by you');
+    expect(boneSource(bone('jaw'), { jaw: null })).toBe('left out by you');
+    expect(boneSource(bone('jaw'), {})).toBeNull();
+  });
+
+  it('list the joints a bone may take, searched, with the bone each holds', () => {
+    const r = vrmReadiness(
+      { hips: 'Hips', leftHand: 'Hand_L' },
+      'mixamo',
+      [],
+      {},
+      {
+        joints: ['Hips', 'Hand_L', 'Hand_R'],
+      }
+    );
+    const all = jointChoices(r, 'rightHand', '');
+    expect(all.map(c => c.label)).toEqual([
+      'Automatic, by name',
+      'Leave unmapped',
+      'Hips',
+      'Hand_L',
+      'Hand_R',
+    ]);
+    expect(all.find(c => c.label === 'Hand_L')?.takenBy).toBe('leftHand');
+    expect(jointChoices(r, 'leftHand', '').find(c => c.label === 'Hand_L')?.takenBy).toBeNull();
+    const found = jointChoices(r, 'rightHand', 'hand');
+    expect(found.map(c => c.value)).toEqual(['Hand_L', 'Hand_R']);
   });
 });

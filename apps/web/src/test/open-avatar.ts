@@ -15,7 +15,7 @@ import { useAvatarStore } from '@/state/use-avatar-store';
 export const avatarCalls: { cmd: string; args: Record<string, unknown> }[] = [];
 
 export async function openAvatar(
-  avatar: 'pending' | 'written' | 'older' | null = null,
+  avatar: 'pending' | 'written' | 'older' | 'custom' | null = null,
   asset = 'elsheria'
 ) {
   avatarCalls.length = 0;

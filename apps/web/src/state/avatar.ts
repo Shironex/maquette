@@ -5,6 +5,7 @@
  */
 import type {
   AvatarBuild,
+  BoneNaming,
   AvatarDefaults,
   AvatarPermission,
   AvatarSpec_Serialize,
@@ -166,6 +167,70 @@ export function boneGroups(readiness: VrmReadiness): BoneGroup[] {
       optional.filter(b => FINGER.test(b.bone))
     ),
   ];
+}
+
+const NAMING_LABEL: Record<BoneNaming, string> = {
+  vrm: 'VRM',
+  mixamo: 'Mixamo',
+  unreal: 'Unreal',
+  tripo: 'Tripo',
+  descriptive: 'descriptive',
+  override: 'set by you',
+};
+
+/** "Mixamo", or "descriptive" for names read as words. */
+export function namingLabel(naming: BoneNaming): string {
+  return NAMING_LABEL[naming];
+}
+
+/**
+ * Where a bone's mapping comes from, as its row says it: set by you, left
+ * out by you, auto with the naming it matched by, or nothing.
+ */
+export function boneSource(bone: VrmBone, overrides: Partial<Record<string, string | null>>) {
+  if (bone.bone in overrides) {
+    return overrides[bone.bone] ? 'set by you' : 'left out by you';
+  }
+  if (bone.joint && bone.naming) return `auto · ${namingLabel(bone.naming)}`;
+  return null;
+}
+
+/** One choice in a bone's joint picker. */
+export interface JointChoice {
+  /** A joint name; null leaves the bone unmapped, undefined maps it by name. */
+  value: string | null | undefined;
+  id: string;
+  label: string;
+  /** The bone the joint maps to now, other than this one. */
+  takenBy: string | null;
+}
+
+/**
+ * The joints a bone may map to, filtered by `query`: Automatic and
+ * Leave unmapped first while the search is empty, then every joint whose
+ * name holds the query, in the rig's order.
+ */
+export function jointChoices(readiness: VrmReadiness, bone: string, query: string): JointChoice[] {
+  const q = query.trim().toLowerCase();
+  const holder = new Map(readiness.bones.filter(b => b.joint).map(b => [b.joint!, b.bone]));
+  const fixed: JointChoice[] = q
+    ? []
+    : [
+        { value: undefined, id: 'auto', label: 'Automatic, by name', takenBy: null },
+        { value: null, id: 'none', label: 'Leave unmapped', takenBy: null },
+      ];
+  const joints = readiness.joints
+    .map((j, i): JointChoice => {
+      const taken = holder.get(j);
+      return {
+        value: j,
+        id: `joint-${i}`,
+        label: j,
+        takenBy: taken && taken !== bone ? taken : null,
+      };
+    })
+    .filter(c => c.label.toLowerCase().includes(q));
+  return [...fixed, ...joints];
 }
 
 export interface MeasureRow {

@@ -2,7 +2,7 @@
  * VRM readiness as the Rust reader reports it for the mock models, built
  * from the bones each one maps so the 55 bone list stays short here.
  */
-import type { BoneNaming, VrmBone, VrmFinding, VrmReadiness } from '../client';
+import type { BoneNaming, NamingReport, VrmBone, VrmFinding, VrmReadiness } from '../client';
 
 const SIDED = ['UpperLeg', 'LowerLeg', 'Foot', 'Toes', 'Shoulder', 'UpperArm', 'LowerArm', 'Hand'];
 const REQUIRED = new Set(['UpperLeg', 'LowerLeg', 'Foot', 'UpperArm', 'LowerArm', 'Hand']);
@@ -15,7 +15,7 @@ const FINGERS: [string, string[]][] = [
 ];
 
 /** Every VRM humanoid bone in the reader's order, with whether VRM requires it. */
-function humanBones(): [string, boolean][] {
+export function humanBones(): [string, boolean][] {
   const out: [string, boolean][] = [
     ['hips', true],
     ['spine', true],
@@ -38,24 +38,48 @@ function humanBones(): [string, boolean][] {
   return out;
 }
 
-/** A readiness report from the bones a rig maps (VRM name to joint). */
+/** The rest of a readiness report the reader fills beside the bones. */
+export interface ReadinessExtra {
+  naming?: Partial<NamingReport>;
+  /** The skin's joints when it has more than the mapped ones. */
+  joints?: string[];
+}
+
+/**
+ * A readiness report from the bones a rig maps (VRM name to joint), each
+ * by `naming` (or the naming `naming` gives that bone).
+ */
 export function vrmReadiness(
   mapped: Record<string, string>,
-  naming: BoneNaming,
+  naming: BoneNaming | ((bone: string) => BoneNaming),
   findings: VrmFinding[],
-  pose: Partial<VrmReadiness['pose']> = {}
+  pose: Partial<VrmReadiness['pose']> = {},
+  extra: ReadinessExtra = {}
 ): VrmReadiness {
+  const by = typeof naming === 'function' ? naming : () => naming;
   const bones: VrmBone[] = humanBones().map(([bone, required]) => ({
     bone,
     required,
     joint: mapped[bone] ?? null,
-    naming: mapped[bone] ? naming : null,
+    naming: mapped[bone] ? by(bone) : null,
   }));
+  const required = bones.filter(b => b.required && b.joint).length;
   return {
     ready: !findings.some(f => f.level === 'blocker'),
     mapped: bones.filter(b => b.joint).length,
-    required: bones.filter(b => b.required && b.joint).length,
+    required,
     bones,
+    naming: {
+      convention: typeof naming === 'function' ? null : naming,
+      conventionRequired: required,
+      missingRequired: 15 - required,
+      humanoidJoints: Object.keys(mapped).length,
+      descriptive: bones.filter(b => b.naming === 'descriptive').length,
+      ambiguous: [],
+      confident: true,
+      ...extra.naming,
+    },
+    joints: extra.joints ?? Object.values(mapped),
     pose: {
       facing: '+z',
       facingDeg: 0,
@@ -129,3 +153,25 @@ export const CLAY_FIGURE_VRM = vrmReadiness(
   ],
   { groundY: 0.005, height: 1.195, scaleNoise: 2 }
 );
+
+/**
+ * A report with a spec's bone overrides on top, as the reader applies
+ * them: a joint is set by hand, null leaves the bone unmapped. The counts
+ * follow; the findings stay the caller's.
+ */
+export function withOverrides(
+  readiness: VrmReadiness,
+  overrides: Partial<Record<string, string | null>>
+): VrmReadiness {
+  const bones = readiness.bones.map(b => {
+    if (!(b.bone in overrides)) return b;
+    const joint = overrides[b.bone] ?? null;
+    return { ...b, joint, naming: joint ? ('override' as const) : null };
+  });
+  return {
+    ...readiness,
+    bones,
+    mapped: bones.filter(b => b.joint).length,
+    required: bones.filter(b => b.required && b.joint).length,
+  };
+}

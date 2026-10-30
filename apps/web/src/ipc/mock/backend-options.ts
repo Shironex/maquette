@@ -125,7 +125,10 @@ export interface BackendOptions {
   stress?: string | null;
   /** `low`, `limit`, `lifted` or `unknown`: the Codex usage read (see create-codex-usage-handlers.ts). */
   codex?: string | null;
-  /** `pending`, `written` or `older`: an agent built Elsheria's avatar (see create-avatar-handlers.ts). */
+  /**
+   * `pending`, `written` or `older`: an agent built Elsheria's avatar;
+   * `custom`: her rig needs bones assigned by hand (see create-avatar-handlers.ts).
+   */
   avatar?: string | null;
   /** `on` or `cap`: concepts on OpenAI's Image API (see create-image-api-handlers.ts). */
   images?: string | null;

@@ -29,6 +29,8 @@ interface AvatarStore {
   loading: boolean;
   error: string | null;
   saving: boolean;
+  /** The bone whose joint is being saved. */
+  savingBone: string | null;
   building: boolean;
   deciding: boolean;
   elbows: Elbows;
@@ -42,6 +44,12 @@ interface AvatarStore {
   setMaterial: (material: AvatarSpec_Serialize['material']) => void;
   setElbows: (elbows: Elbows) => void;
   save: () => Promise<boolean>;
+  /**
+   * Maps a VRM bone by hand and saves it at once: a joint name, null to
+   * leave the bone unmapped, undefined to map it by name again. The meta
+   * draft stays as it is.
+   */
+  setBone: (bone: string, joint: string | null | undefined) => Promise<void>;
   build: () => Promise<void>;
   decide: (approve: boolean) => Promise<void>;
   /** An agent changed an avatar; reloads it when it is the one open. */
@@ -61,6 +69,7 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   loading: false,
   error: null,
   saving: false,
+  savingBone: null,
   building: false,
   deciding: false,
   elbows: 'straighten',
@@ -119,17 +128,40 @@ export const useAvatarStore = create<AvatarStore>((set, get) => ({
   setElbows: elbows => set({ elbows }),
 
   save: async () => {
-    const { project, asset, draft } = get();
+    const { project, asset, draft, version } = get();
     if (!project || !asset || !draft) return false;
     set({ saving: true });
     try {
       const view = await commands.avatarSave(project, asset, draft);
-      set({ view, draft: view.spec, dirty: false, saving: false });
+      // A save reads the newest version back; another one shown is read again.
+      if (version === null) set({ view });
+      set({ draft: view.spec, dirty: false, saving: false });
+      if (version !== null) await get().load();
       return true;
     } catch (error) {
       set({ saving: false });
       notify('failed', 'Could not save the avatar', errorMessage(error));
       return false;
+    }
+  },
+
+  setBone: async (bone, joint) => {
+    const { project, asset, view } = get();
+    if (!project || !asset || !view) return;
+    const bones = { ...view.spec.bones };
+    if (joint === undefined) delete bones[bone];
+    else bones[bone] = joint;
+    set({ savingBone: bone });
+    try {
+      const saved = await commands.avatarSave(project, asset, { ...view.spec, bones });
+      set(s => ({
+        draft: s.dirty && s.draft ? { ...s.draft, bones: saved.spec.bones } : saved.spec,
+      }));
+      await get().load();
+    } catch (error) {
+      notify('failed', 'Could not map the bone', errorMessage(error));
+    } finally {
+      set({ savingBone: null });
     }
   },
 

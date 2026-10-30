@@ -8,7 +8,11 @@
  *   waits for a yes (a floating approval card says so too).
  * - `written`: the pose was approved and `exports/elsheria.vrm` written.
  * - `older`: like `pending`, but Elsheria has a newer v3 and the wait is on v2.
- * Without it Elsheria faces +X in an A-pose and was never built.
+ * - `custom`: Elsheria's rig names its joints its own way and has two
+ *   joints for each upper leg, which a person assigns in the Bone map
+ *   (see custom-rig-fixtures.ts).
+ * Without it Elsheria faces +X in an A-pose and was never built. Bone
+ * overrides in a saved spec change the bone map as the reader would.
  */
 import type {
   Approval,
@@ -27,7 +31,8 @@ import { clock } from '@/lib/clock';
 import { expand, fail, type Args } from './backend-options';
 import { DEFAULT_ROOT } from './fixtures';
 import { normalisedReadiness, posedReadiness, report } from './avatar-fixtures';
-import { CLAY_FIGURE_VRM } from './vrm-fixtures';
+import { customRigReadiness } from './custom-rig-fixtures';
+import { CLAY_FIGURE_VRM, withOverrides } from './vrm-fixtures';
 
 /** Where the mock's normalise "writes" its sheets, under the cache. */
 export function avatarCacheDir(root: string, project: string, asset: string) {
@@ -46,9 +51,15 @@ export function avatarSheetFiles(root: string): Record<string, string> {
 /** Rest pose findings a normalise fixes, as `needs_normalize` reads them. */
 const POSE_IDS = new Set(['facing', 'arms', 'ground', 'centre']);
 
-function readinessOf(asset: string): VrmReadiness | null {
-  if (asset === 'elsheria') return posedReadiness();
-  if (asset === 'clay-figure') return CLAY_FIGURE_VRM;
+function readinessOf(
+  asset: string,
+  spec: AvatarSpec_Serialize,
+  state: string | null
+): VrmReadiness | null {
+  const bones = spec.bones;
+  if (asset === 'elsheria' && state === 'custom') return customRigReadiness(bones);
+  if (asset === 'elsheria') return withOverrides(posedReadiness(), bones);
+  if (asset === 'clay-figure') return withOverrides(CLAY_FIGURE_VRM, bones);
   return null;
 }
 
@@ -113,7 +124,7 @@ export function createAvatarHandlers(
           fail('not-found', `${asset.name} has no version ${version}.`));
     const e = entry(p, asset.id);
     const spec = e.spec ?? specFromDefaults(config().avatar, asset.name);
-    const readiness = readinessOf(asset.id);
+    const readiness = readinessOf(asset.id, spec, state);
     const normalized =
       e.normalized && e.normalized.sourceVersion === latest?.version ? e.normalized : null;
     return {
