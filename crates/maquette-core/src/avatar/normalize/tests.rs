@@ -415,3 +415,9 @@ fn the_skill_keeps_the_same_script() {
         "copy src/avatar/avatar_normalize.py over {SKILL_COPY}"
     );
 }
+
+#[test]
+fn elbows_straighten_unless_asked_to_keep() {
+    assert_eq!(Elbows::default(), Elbows::Straighten);
+    assert!(SCRIPT.contains(r#"job.setdefault("elbows", "straighten")"#));
+}

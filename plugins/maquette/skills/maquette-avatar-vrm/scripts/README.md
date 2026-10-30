@@ -7,7 +7,8 @@ a rigged character's rest pose for VRM 1.0 on a copy of the model:
 1. turns it so the face points to +Z and the character's left lands on +X;
 2. centres the hips on the Y axis and puts the soles on Y = 0;
 3. lifts each arm at the shoulder until upper arm to hand is level along X (the clavicles and the
-   fingers stay as they are; `"elbows": "straighten"` levels the lower arm too);
+   fingers stay as they are; `"elbows": "straighten"`, the default, levels the lower arm too, and
+   `"keep"` leaves a bent elbow bent);
 4. makes that pose the rest: the armature modifier is applied, the pose becomes the rest, the
    modifier is added back; the vertex groups are kept, at most 4 influences, weights summing to 1;
 5. exports a plain GLB without animations, a JSON report with the measures before and after, and
@@ -31,7 +32,7 @@ them:
   "report": "report.json",
   "sheets": { "before": "sheet_before.png", "after": "sheet_after.png" },
   "bones": { "hips": "mixamorig:Hips", "leftUpperArm": "mixamorig:LeftArm" },
-  "elbows": "keep"
+  "elbows": "straighten"
 }
 ```
 

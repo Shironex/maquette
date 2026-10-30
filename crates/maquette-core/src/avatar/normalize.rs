@@ -72,9 +72,9 @@ const FIXED_HERE: [&str; 2] = ["facing", "arms"];
 #[serde(rename_all = "kebab-case")]
 pub enum Elbows {
     /// The whole arm turns at the shoulder; a bent elbow stays bent.
-    #[default]
     Keep,
     /// The lower arm is levelled too, so the arm lies straight along X.
+    #[default]
     Straighten,
 }
 
