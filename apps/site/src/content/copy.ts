@@ -170,7 +170,7 @@ export const STAGES: readonly Stage[] = [
     chips: ['KTX2', 'meshopt', 'toktx', 'gltf-transform'],
     shots: [
       {
-        ...screen('pipeline-compress', 1184, 368),
+        ...screen('pipeline-compress', 1184, 367),
         alt: 'The live log next to the compression presets: texture size, codec and meshopt per model, with raw and shipped sizes.',
         tool: 'Pipeline',
         caption: '4 models, 14.3 MB to 3.5 MB',
@@ -219,6 +219,12 @@ export const SHOTS = {
     tool: 'Use on model',
     caption: 'the review before the bake, feet pinned',
   },
+  avatar: {
+    ...screen('avatar'),
+    alt: 'Avatar view: Approve the new rest pose? over before and after sheets of a character, arms lifted to a T-pose, with the measures before and after.',
+    tool: 'Avatar',
+    caption: 'the rest pose waiting for a yes, VRM 1.0',
+  },
   compare: {
     ...screen('inspector-compare'),
     alt: 'Scene comparison of v6 and v7 with a split slider, five camera stops below, and the selected model with its compression on the right.',
@@ -226,7 +232,7 @@ export const SHOTS = {
     caption: 'v6 baked against v7, camera stops from stops.json',
   },
   budgets: {
-    ...screen('inspector-budgets', 340, 438),
+    ...screen('inspector-budgets', 340, 422),
     alt: 'Side panel: a library update for the model, its textures, and model budgets with one model over its share.',
     tool: 'Budgets',
     caption: 'per model, MB',
