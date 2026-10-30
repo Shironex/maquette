@@ -25,7 +25,8 @@ import type {
 } from '../client';
 import { metaProblem, specFromDefaults } from '@/state/avatar';
 import { clock } from '@/lib/clock';
-import { fail, type Args } from './backend-options';
+import { expand, fail, type Args } from './backend-options';
+import { DEFAULT_ROOT } from './fixtures';
 import { CLAY_FIGURE_VRM, vrmReadiness } from './vrm-fixtures';
 
 /** Where the mock's normalise "writes" its sheets, under the cache. */
@@ -201,19 +202,18 @@ interface Entry {
   asked: boolean;
 }
 
-export function createAvatarHandlers({
-  project,
-  root,
-  config,
-  state,
-  buildMs = 1200,
-}: {
-  project: (id: string) => ProjectManifest;
-  root: () => string;
-  config: () => WorkspaceConfig;
-  state: string | null;
-  buildMs?: number;
-}) {
+/**
+ * `pace` 0 (tests) answers a build at once; otherwise it takes a moment,
+ * like Blender would.
+ */
+export function createAvatarHandlers(
+  project: (id: string) => ProjectManifest,
+  config: () => WorkspaceConfig,
+  state: string | null,
+  pace: number
+) {
+  const root = () => expand(DEFAULT_ROOT);
+  const buildMs = pace === 0 ? 0 : 1200;
   const entries = new Map<string, Entry>();
   const key = (p: string, a: string) => `${p}/${a}`;
   const entry = (p: string, a: string): Entry => {

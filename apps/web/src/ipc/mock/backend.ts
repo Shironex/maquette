@@ -92,7 +92,7 @@ export function createBackend({
   stress = null,
   codex = null,
   images: imagesState = null,
-  avatar: avatarState = null,
+  avatar = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -246,13 +246,7 @@ export function createBackend({
     fail,
   });
 
-  const avatars = createAvatarHandlers({
-    project: id => project(id),
-    root: () => root ?? expand(DEFAULT_ROOT),
-    config: () => config,
-    state: configured ? avatarState : null,
-    buildMs: pace === 0 ? 0 : 1200,
-  });
+  const avatars = createAvatarHandlers(project, () => config, configured ? avatar : null, pace);
 
   const agents = createFakeAgents({
     config: () => config,
