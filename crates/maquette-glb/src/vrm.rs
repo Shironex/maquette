@@ -184,6 +184,16 @@ fn assess(
     buffers: &[Option<Vec<u8>>],
     overrides: &BoneOverrides,
 ) -> (VrmReadiness, Vec<(String, usize)>) {
+    assess_with(doc, buffers, overrides, false)
+}
+
+/// [`assess`], saying whether an approved reweight already freed the arms.
+fn assess_with(
+    doc: &gltf::Document,
+    buffers: &[Option<Vec<u8>>],
+    overrides: &BoneOverrides,
+    reweighted: bool,
+) -> (VrmReadiness, Vec<(String, usize)>) {
     let human = bones::human_bones();
     let joints = skin_joints(doc);
     let nodes: Vec<(usize, String)> = doc.nodes().map(|n| (n.index(), node_name(&n))).collect();
@@ -209,7 +219,7 @@ fn assess(
     if let Some(drag) = arm_weights::measure(doc, buffers, &worlds, &mapped, &human)
         .filter(arm_weights::ArmDrag::matters)
     {
-        findings.push(findings::arm_weight_finding(&drag));
+        findings.push(findings::arm_weight_finding(&drag, reweighted));
     }
     // Stable, so each level keeps the order the checks run in.
     findings.sort_by_key(|f| f.level);
@@ -285,6 +295,23 @@ fn with_parsed<T>(
 pub fn readiness(bytes: &[u8], base: &Path, overrides: &BoneOverrides) -> CoreResult<VrmReadiness> {
     with_parsed(bytes, base, |doc, buffers| {
         Ok(readiness_of(doc, buffers, overrides))
+    })
+}
+
+/// The readiness of a model an approved reweight made: like [`readiness`],
+/// but cloth or hair still on the arms is reported as what the reweight
+/// left (a note), not as something to free.
+///
+/// # Errors
+///
+/// Fails when the bytes are not glTF.
+pub fn readiness_after_reweight(
+    bytes: &[u8],
+    base: &Path,
+    overrides: &BoneOverrides,
+) -> CoreResult<VrmReadiness> {
+    with_parsed(bytes, base, |doc, buffers| {
+        Ok(assess_with(doc, buffers, overrides, true).0)
     })
 }
 

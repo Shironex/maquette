@@ -96,7 +96,7 @@ pub(crate) struct FakeBlender {
 }
 
 impl FakeBlender {
-    fn new(output: Vec<u8>) -> Self {
+    pub(crate) fn new(output: Vec<u8>) -> Self {
         Self {
             output,
             runs: Cell::new(0),

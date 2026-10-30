@@ -87,3 +87,36 @@ fn a_hand_with_its_knuckles_at_the_wrist_is_bunched() {
         "The right hand's finger bones sit bunched at the wrist"
     );
 }
+
+#[test]
+fn after_a_reweight_what_is_left_on_the_arms_is_a_note() {
+    let bytes = fixture::humanoid(&HumanoidSpec {
+        cape: true,
+        arm_drop: 45.0,
+        ..HumanoidSpec::default()
+    });
+    let none = BoneOverrides::new();
+    let fresh = readiness(&bytes, Path::new("."), &none).expect("readiness");
+    let freed = readiness_after_reweight(&bytes, Path::new("."), &none).expect("readiness");
+    let before = find(&fresh, "arm-weights").expect("arm weights");
+    assert_eq!(before.level, FindingLevel::Warning);
+    assert!(
+        before
+            .detail
+            .as_deref()
+            .unwrap_or_default()
+            .contains("Free them first")
+    );
+    let after = find(&freed, "arm-weights").expect("arm weights");
+    assert_eq!(after.level, FindingLevel::Note);
+    assert_eq!(
+        after.title,
+        "24 vertices still follow the arms after the reweight, cloth sewn to the sleeves"
+    );
+    let detail = after.detail.as_deref().unwrap_or_default();
+    assert!(detail.contains("freed the arms"), "{detail}");
+    assert!(!detail.contains("Free them first"), "{detail}");
+    // Everything else reads the same.
+    assert_eq!(fresh.pose, freed.pose);
+    assert_eq!(fresh.findings.len(), freed.findings.len());
+}

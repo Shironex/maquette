@@ -46,7 +46,9 @@ pub mod report;
 mod view;
 
 pub use patch::{AvatarPatch, apply_patch};
-use report::{AvatarReport, ReportSource, bone_map, report_file, round_trip_finding};
+use report::{
+    AvatarReport, ReportSource, bone_map, report_file, round_trip_finding, written_readiness,
+};
 pub use view::{AvatarView, view};
 use view::{lifts_cloth, readiness_of};
 
@@ -411,13 +413,17 @@ fn save(dir: &Path, output: &Path, built: &Built<'_>) -> CoreResult<AvatarExport
     write_atomic(output, &written.bytes).map_err(|e| CoreError::io(output, e))?;
     let round_trip = vrm::round_trip(&written.bytes);
     let mut unresolved = written.unresolved.clone();
+    let base = built.source.parent().unwrap_or(dir);
+    let after = written_readiness(
+        &written.bytes,
+        base,
+        &built.spec.bones,
+        built.reweight.is_some(),
+        &mut unresolved,
+    );
     if let Some(blocker) = round_trip_finding(&round_trip) {
         unresolved.insert(0, blocker);
     }
-    let base = built.source.parent().unwrap_or(dir);
-    // A file that does not read back has no readiness of its own; the
-    // round trip says why.
-    let after = vrm::readiness(&written.bytes, base, &built.spec.bones).ok();
     let written_at = now_rfc3339();
     let report = AvatarReport {
         file: output.display().to_string(),

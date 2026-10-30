@@ -396,7 +396,12 @@ fn finish(plan: &NormalizePlan) -> CoreResult<Normalized> {
         serde_json::from_str(&text).map_err(|e| CoreError::json(&report_file, e))?;
     let glb = dir.join(OUTPUT_FILE);
     let bytes = fs::read(&glb).map_err(|e| CoreError::io(&glb, e))?;
-    let readiness = vrm::readiness(&bytes, dir, &plan.overrides)?;
+    // After an approved reweight, what still follows the arms is what it left.
+    let readiness = if plan.reweight.is_some() {
+        vrm::readiness_after_reweight(&bytes, dir, &plan.overrides)?
+    } else {
+        vrm::readiness(&bytes, dir, &plan.overrides)?
+    };
     check_rest_pose(&readiness)?;
     Ok(Normalized {
         project: plan.project.clone(),
