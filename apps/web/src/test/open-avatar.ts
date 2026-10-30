@@ -6,7 +6,7 @@ import { mockIPC } from '@tauri-apps/api/mocks';
 import { commands } from '@/ipc/client';
 import { registerMockFile } from '@/ipc/files';
 import { createBackend } from '@/ipc/mock/backend';
-import { avatarSheetFiles } from '@/ipc/mock/create-avatar-handlers';
+import { avatarSheetFiles, avatarVrmFiles } from '@/ipc/mock/create-avatar-handlers';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
@@ -15,7 +15,7 @@ import { useAvatarStore } from '@/state/use-avatar-store';
 export const avatarCalls: { cmd: string; args: Record<string, unknown> }[] = [];
 
 export async function openAvatar(
-  avatar: 'pending' | 'written' | 'older' | 'custom' | null = null,
+  avatar: 'pending' | 'written' | 'round-trip' | 'older' | 'custom' | null = null,
   asset = 'elsheria'
 ) {
   avatarCalls.length = 0;
@@ -34,8 +34,12 @@ export async function openAvatar(
     return handle(cmd, (args ?? {}) as Record<string, unknown>);
   });
   const boot = await commands.appBootstrap();
-  for (const [path, sheet] of Object.entries(avatarSheetFiles(boot.workspace!.root))) {
+  const root = boot.workspace!.root;
+  for (const [path, sheet] of Object.entries(avatarSheetFiles(root))) {
     registerMockFile(path, `/${sheet}`);
+  }
+  for (const [path, file] of Object.entries(avatarVrmFiles(root, ['frostveil']))) {
+    registerMockFile(path, `/${file}`);
   }
   useAppStore.setState({ boot, workspace: boot.workspace, phase: 'app' });
   await useAgentsStore.getState().load();

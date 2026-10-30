@@ -13,7 +13,7 @@ import { conceptFiles, OBJECT_REF_FILES, REF_FILES } from './lab-fixtures';
 import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
 import { motionFiles } from './create-motion-handlers';
-import { avatarSheetFiles } from './create-avatar-handlers';
+import { avatarSheetFiles, avatarVrmFiles } from './create-avatar-handlers';
 import { PARTS_CACHE, partsFiles } from './create-parts-handlers';
 import { SPLIT_FILES } from './create-split-handlers';
 import { PROVIDER_REF_FILES } from './providers';
@@ -95,6 +95,16 @@ for (const [file, render] of Object.entries(libraryFiles())) {
 }
 for (const [path, sheet] of Object.entries(avatarSheetFiles(root))) {
   const url = sheets[`../../assets/mock/avatar/${sheet}`];
+  if (url) registerMockFile(path, url);
+}
+// The `.vrm` an avatar build writes, which the Preview tab loads.
+const avatarVrms = import.meta.glob<string>('../../assets/mock/avatar/*.vrm', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+});
+for (const [path, file] of Object.entries(avatarVrmFiles(root, MOCK_PROJECT_IDS))) {
+  const url = avatarVrms[`../../assets/mock/avatar/${file}`];
   if (url) registerMockFile(path, url);
 }
 // `?timeline=` brings the motion demo models along.
