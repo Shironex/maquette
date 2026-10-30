@@ -128,3 +128,79 @@ fn find_chain_and_write_springs_in_blender() {
         copy(&chained.sheets.after, "sheet_after.png");
     }
 }
+
+#[test]
+#[ignore = "runs Blender"]
+fn a_charm_close_to_the_body_is_a_small_piece_with_a_short_chain_in_blender() {
+    let Some(blender) = test_blender::blender() else {
+        return;
+    };
+    let model = fixture::humanoid(&HumanoidSpec {
+        tail: true,
+        charm: true,
+        animation: false,
+        ..HumanoidSpec::default()
+    });
+    let dir = tempfile::tempdir().expect("tempdir");
+    let glb = dir.path().join("model.glb");
+    fs::write(&glb, &model).expect("model");
+    if let Some(out) = std::env::var_os("MAQUETTE_AVATAR_OUT") {
+        fs::create_dir_all(&out).expect("out");
+        fs::write(Path::new(&out).join("charm.glb"), &model).expect("model");
+    }
+    let readiness = vrm::readiness(&model, dir.path(), &BoneOverrides::new()).expect("readiness");
+    let input = SpringsInput {
+        project: "probe".to_string(),
+        asset: "probe".to_string(),
+        version: 1,
+        dir: dir.path().join("springs"),
+        glb,
+        bones: readiness
+            .bones
+            .iter()
+            .filter_map(|b| b.joint.clone().map(|j| (b.bone.clone(), j)))
+            .collect(),
+        cache_root: dir.path().join("hashes"),
+    };
+    let runner = test_blender::runner();
+    let tools = test_blender::toolbox(&blender);
+    let found = find::find(&runner, &tools, &input).expect("find");
+    let ids: Vec<(&str, bool)> = found
+        .candidates
+        .iter()
+        .map(|c| (c.id.as_str(), c.small))
+        .collect();
+    // The tail hangs off the body as before; the charm is too near it for that.
+    assert_eq!(found.candidates[0].id, "hair-1", "{ids:?}");
+    assert!(!found.candidates[0].small);
+    let charms: Vec<_> = found.candidates.iter().filter(|c| c.small).collect();
+    assert_eq!(charms.len(), 1, "{ids:?}");
+    let charm = charms[0];
+    assert_eq!(charm.id, "charm-1");
+    assert_eq!(charm.kind, SpringKind::Accessory);
+    assert_eq!(charm.root_bone, "spine");
+    assert!((2..=4).contains(&charm.joints), "{}", charm.joints);
+    assert!(charm.confidence > 0.5, "{}", charm.confidence);
+
+    let spec = SpringSpec {
+        id: charm.id.clone(),
+        kind: charm.kind,
+        root_bone: charm.root_bone.clone(),
+        line: charm.line.clone(),
+        joints: None,
+        preset: None,
+        stiffness: None,
+        gravity_power: None,
+        drag_force: None,
+        hit_radius: None,
+    };
+    let plan = chain::plan(&input, std::slice::from_ref(&spec)).expect("plan");
+    let chained = chain::run(&runner, &tools, &plan).expect("chain");
+    let built = &chained.report.chains[0];
+    // Its joints plus the tip.
+    assert_eq!(built.joints.len(), charm.joints as usize + 1);
+    assert_eq!(built.root_bone, "spine");
+    assert!(built.vertices >= 24, "{}", built.vertices);
+    assert_eq!(chained.report.weights.unweighted, 0);
+    assert!(chained.report.weights.max_influences <= 4);
+}

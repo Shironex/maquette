@@ -390,6 +390,7 @@ fn view() -> SpringsView {
                 confidence: 0.9,
                 joints: 6,
                 color: "#e8553f".into(),
+                small: false,
             }],
             sheet: "/c/candidates.png".into(),
             input: "/c/normalized.glb".into(),
@@ -430,4 +431,40 @@ fn springs_are_confirmed_by_candidate_id_and_tuned_on_top() {
     assert!(err.contains("No candidate is called cape-9"), "{err}");
     assert_eq!(springs::parse_springs(Some("OFF")), Ok(SpringsMode::Off));
     assert!(springs::parse_springs(Some("on")).is_err());
+}
+
+#[test]
+fn a_small_piece_is_confirmed_by_id_with_its_short_chain() {
+    let mut view = view();
+    if let Some(found) = view.found.as_mut() {
+        found.candidates.push(SpringCandidate {
+            id: "charm-1".into(),
+            kind: SpringKind::Accessory,
+            root_bone: "hips".into(),
+            line: vec![[0.1, 0.95, 0.1], [0.1, 0.85, 0.1]],
+            length: 0.1,
+            drop: 0.1,
+            vertices: 40,
+            confidence: 0.8,
+            joints: 3,
+            color: "#3fa7e8".into(),
+            small: true,
+        });
+    }
+    let picked: springs::SpringsArg =
+        serde_json::from_value(json!([{ "id": "charm-1" }, { "id": "hair-1" }])).expect("list");
+    let Ok(SpringsChange::Picked(specs)) = springs::change(&view, &picked) else {
+        panic!("picked");
+    };
+    assert_eq!(specs[0].root_bone, "hips");
+    assert_eq!(specs[0].joints, Some(3));
+    assert_eq!(specs[0].preset(), SpringPreset::Stiff);
+    assert_eq!(
+        specs[1].joints, None,
+        "a long part keeps its joints by length"
+    );
+    let found = view.found.as_ref().expect("found");
+    let summary = springs::candidates_summary(found);
+    assert_eq!(summary["candidates"][1]["small"], true);
+    assert_eq!(summary["candidates"][0]["small"], false);
 }

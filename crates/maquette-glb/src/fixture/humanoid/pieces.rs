@@ -1,11 +1,12 @@
 //! What the box humanoid wears beyond its boxes: a cape, a strip or a tail
 //! of cloth, a piece the hand holds, hair by the hand, a sleeve fused to the
-//! hip, a hand of one piece and a ponytail on the shoulder.
+//! hip, a hand of one piece, a ponytail on the shoulder and a charm.
 
 use super::super::builder::Mesh;
 use super::super::skeleton::skeleton;
 use super::bridge::sleeve_bridge;
 use super::bunched::bunched_hand;
+use super::charm::charm;
 use super::hands::{hair_strip, hand_piece};
 use super::shoulder_tail::shoulder_tail;
 use super::{HumanoidSpec, joint_index};
@@ -48,6 +49,9 @@ pub(super) fn pieces(mesh: &mut Mesh, spec: &HumanoidSpec, world: &[[f32; 3]]) {
     }
     if spec.shoulder_tail {
         shoulder_tail(mesh, world);
+    }
+    if spec.charm {
+        charm(mesh, world);
     }
     if spec.sleeve_bridge {
         sleeve_bridge(mesh, world, spec.arm_drop);

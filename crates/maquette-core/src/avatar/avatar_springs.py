@@ -44,6 +44,12 @@ How a part is found, in the bind space of the skin (glTF metres, measured agains
    bands of that walk, so it follows a ponytail up over the crown and down the back.
 4. How sure the finder is grows with how far the part drops for its length, how much of it
    hangs low, how slender it is and how big.
+5. Small pieces that sit close to the body (a charm on a belt, a short chain, an earring) are
+   too near it for step 1. They are the vertices standing out of the surface around them
+   (their distance from the bone less the median of that stretch and direction of the bone),
+   in touching voxels, taller than wide and hanging down from where they meet the rest, left
+   out on the forearms, hands, shins and feet. Each is a `charm-N` accessory flagged `small`,
+   after the other parts, with a chain of 2 to 4 joints, and the sheet adds a close look.
 
 Nothing is applied while finding. A confirmed spring is matched again to the part with the same
 root whose centre line its line lies on, then:
@@ -52,7 +58,8 @@ root whose centre line its line lies on, then:
   a tip joint at the end (VRM's last joint only gives the chain its length);
 - each vertex of the part takes the chain's weight by where it lies along the line: whole at a
   joint's middle, fading to the next between two middles, and fading back into its old weights
-  over the first joint and wherever the part touches the rest of the mesh, so nothing tears;
+  over the first joint and wherever the part touches the rest of the mesh (for a small piece
+  over a quarter of its length), so nothing tears;
 - at most 4 influences are kept, summing to 1.
 
 Only new nodes, the skin's joints and inverse bind matrices, and JOINTS_0 and WEIGHTS_0 change
@@ -63,7 +70,8 @@ head, neck, chest, hips, upper arms and upper legs are sized from the measured b
 The report holds the chains (their joints, root, length and vertices), the colliders in their
 bones' space and the groups each chain touches, and the weight checks. The before sheet shows
 the parts and the joints to come; the after sheet the sway test: rest, the chains bent left,
-right and back, front, side, back and a close look where the first part hangs from.
+right and back, front, side, back and a close look where the first part hangs from, plus a near
+look at the first small piece when one is chained.
 """
 
 import argparse
@@ -100,11 +108,26 @@ JOINTS_MIN, JOINTS_MAX = 2, 8   # ...within these counts
 RAMP = 1.0           # joints over which a part fades from its old weights into the chain
 BAND = 0.04          # surface distance over which a part touching the rest fades back
 MATCH = 0.05         # a confirmed line this near a part's centre line is that part
+# Small pieces: charms, chains and earrings that sit close to the body.
+SMALL_RISE = 0.006   # a vertex standing this far out of the surface around it...
+SMALL_VOXEL = 0.006  # ...and this near the others is one small piece
+SMALL_BIN = 0.03     # the surface around a vertex: this long along its bone...
+SMALL_ANGLES = 12    # ...in this many directions around it
+SMALL_AROUND = 5     # the surface is read where this many of the nine bins around hold vertices
+SMALL_MIN = 8        # a small piece has at least this many vertices...
+SMALL_MAX = 0.01     # ...and at most this share of them (or 64 on a coarse mesh)
+SMALL_TALL = (0.025, 0.15)  # it is this tall (share of the height)...
+SMALL_SLENDER = 1.4  # ...and this many times taller than wide
+SMALL_TOP = 0.15     # it hangs from this top share of it
+SMALL_JOINTS = (2, 4)  # a small piece's chain gets this many joints
+SMALL_BAND = 0.25    # share of its length over which it fades back where it touches the rest
+SMALL_SKIP = ("LowerArm", "Hand", "LowerLeg", "Foot", "Toes")  # bones whose pieces are left out
 SPRING_PREFIX = "spring_"
 COLOURS = ["#e8553f", "#3fa7e8", "#f2c230", "#5fd068", "#c86ce0", "#f08a3c", "#35d0c2",
            "#e85fa0"]
 CELL = 400
 SWAY_DEG = 50.0
+NEAR_LOOK = 0.16     # a near look on the sheets frames this share of the height
 # The sway test's bends, each toward a direction in glTF axes.
 SWAYS = [("left", (1.0, 0.0, 0.0)), ("right", (-1.0, 0.0, 0.0)), ("back", (0.0, 0.0, -1.0))]
 
@@ -768,7 +791,103 @@ def find_parts(skin, bones):
             "measures": {"hang": hang, "below": below, "slender": slender, "size": size},
         })
     parts.sort(key=lambda p: (-p["confidence"], -len(p["members"])))
-    return body, parts
+    return body, parts + find_small(skin, body, parts, role_of, dominant)
+
+
+def local_rise(body, pos):
+    """How far each vertex stands out of the surface around it: its distance from its body
+    bone less the median distance of the vertices along that bone and in that direction, read
+    in bins with their neighbours so a small piece does not lift its own surface."""
+    h = body.height
+    n = len(pos)
+    along = np.zeros(n)
+    angle = np.zeros(n)
+    for k in range(len(body.a)):
+        m = body.seg == k
+        t = ((pos[m] - body.a[k]) @ body.d[k]) / body.len2[k]
+        along[m] = t * math.sqrt(body.len2[k])
+        rel = pos[m] - (body.a[k] + np.clip(t, 0.0, 1.0)[:, None] * body.d[k])
+        u, v = body.frames[k]
+        angle[m] = np.arctan2(rel @ v, rel @ u)
+    row = np.floor(along / (SMALL_BIN * h)).astype(np.int64) + 1000
+    col = (np.floor((angle + np.pi) / (2 * np.pi) * SMALL_ANGLES).astype(np.int64)
+           % SMALL_ANGLES)
+    key = (body.seg * 4000 + row) * SMALL_ANGLES + col
+    cells, of = np.unique(key, return_inverse=True)
+    of = of.ravel()
+    order = np.argsort(of, kind="stable")
+    splits = np.split(body.dist[order], np.cumsum(np.bincount(of))[:-1])
+    median = {int(c): float(np.median(d)) for c, d in zip(cells.tolist(), splits)}
+    surface = np.full(len(cells), np.nan)
+    for i, c in enumerate(cells.tolist()):
+        line, a = divmod(c, SMALL_ANGLES)
+        near = [median.get((line + dl) * SMALL_ANGLES + (a + da) % SMALL_ANGLES)
+                for dl in (-1, 0, 1) for da in (-1, 0, 1)]
+        near = [x for x in near if x is not None]
+        if len(near) >= SMALL_AROUND:
+            surface[i] = np.median(near)
+    # Where too little of the mesh lies around (a coarse mesh), the body's radius is the surface.
+    surface = surface[of]
+    bare = np.isnan(surface)
+    surface[bare] = body.radius[body.seg[bare], body.sector[bare]]
+    return body.dist - surface
+
+
+def find_small(skin, body, parts, role_of, dominant):
+    """Small pieces hanging close to the body (a charm on a belt, a short chain, an earring):
+    vertices standing out of the surface around them, in touching voxels, taller than wide and
+    hanging down from where they meet the rest. Each is an accessory with a short chain."""
+    h = body.height
+    pos = skin.pos
+    n = len(pos)
+    taken = np.zeros(n, bool)
+    for part in parts:
+        taken[part["members"]] = True
+    skip = [k for k, name in enumerate(body.names)
+            if any(word in name.split(">")[0] for word in SMALL_SKIP)]
+    rise = local_rise(body, pos)
+    idx = np.nonzero((rise > SMALL_RISE * h) & ~taken & ~np.isin(body.seg, skip))[0]
+    found = []
+    if len(idx) == 0:
+        return found
+    label, _, _, _ = voxel_components(pos[idx], SMALL_VOXEL * h)
+    for lab in np.unique(label):
+        members = idx[label == lab]
+        if not SMALL_MIN <= len(members) <= max(SMALL_MAX * n, 64):
+            continue
+        pts = pos[members]
+        extent = np.ptp(pts, axis=0)
+        wide = float(max(extent[0], extent[2]))
+        tall = float(extent[1])
+        if not SMALL_TALL[0] * h <= tall <= SMALL_TALL[1] * h or tall < SMALL_SLENDER * wide:
+            continue
+        top, bottom = float(pts[:, 1].max()), float(pts[:, 1].min())
+        sources = np.nonzero(pts[:, 1] >= top - SMALL_TOP * (top - bottom))[0]
+        line, line_t, t = centre_line(pts, sources, SMALL_VOXEL * h)
+        length = float(arc(line)[-1])
+        drop = float(pts[sources].mean(0)[1] - bottom)
+        if length < SMALL_TALL[0] * h or drop < HANG_MIN * length:
+            continue
+        votes = {}
+        for v in members[sources].tolist():
+            role = role_of[dominant[v]]
+            if role:
+                votes[role] = votes.get(role, 0) + 1
+        root = max(votes, key=votes.get) if votes else None
+        if root not in body.joint:
+            continue
+        hang = min(drop / max(length, 1e-9), 1.0)
+        slender = min(tall / max(wide, 1e-9) / 3.0, 1.0)
+        stands = min(float(np.median(rise[members])) / (2.5 * SMALL_RISE * h), 1.0)
+        confidence = round(0.4 * hang + 0.3 * slender + 0.3 * stands, 3)
+        found.append({
+            "members": members, "t": t, "line_t": line_t, "root": root, "kind": "accessory",
+            "line": line, "length": length, "drop": drop, "confidence": confidence,
+            "small": True,
+            "measures": {"hang": hang, "slender": slender, "stands": stands},
+        })
+    found.sort(key=lambda p: (-p["confidence"], -len(p["members"])))
+    return found
 
 
 # Writing the chains into the GLB.
@@ -841,8 +960,10 @@ def point_at(line, along, s):
     return line[k] + f * (line[k + 1] - line[k])
 
 
-def default_joints(length, h):
-    return int(np.clip(round(length / (JOINT_SPACING * h)), JOINTS_MIN, JOINTS_MAX))
+def default_joints(length, h, small=False):
+    low, high = SMALL_JOINTS if small else (JOINTS_MIN, JOINTS_MAX)
+    spacing = JOINT_SPACING * h * (0.25 if small else 1.0)
+    return int(np.clip(round(length / spacing), low, high))
 
 
 def chain_weights(part, count, h, mesh, outside):
@@ -860,7 +981,8 @@ def chain_weights(part, count, h, mesh, outside):
     hi = np.minimum(lo + 1, count - 1)
     blend = smoothstep(s / (RAMP * step))
     near = outside[mesh.of[part["members"]]]
-    blend *= np.where(np.isfinite(near), smoothstep(near / (BAND * h)), 1.0)
+    band = min(BAND * h, SMALL_BAND * total) if part.get("small") else BAND * h
+    blend *= np.where(np.isfinite(near), smoothstep(near / band), 1.0)
     return lo, hi, f, blend, s
 
 
@@ -889,7 +1011,7 @@ def build_chains(glb, skin, body, parts, wanted):
     joint_nodes = list(skin_json["joints"])
     chains = []
     for part, spec in wanted:
-        count = int(spec.get("joints") or default_joints(part["length"], h))
+        count = int(spec.get("joints") or default_joints(part["length"], h, part.get("small")))
         count = int(np.clip(count, 1, JOINTS_MAX * 2))
         root_node = skin.joint_nodes[body.joint[part["root"]]]
         line = part["line"]
@@ -1170,8 +1292,10 @@ class Stage:
         from mathutils import Vector
 
         h = self.height
-        if view == "close":
-            scale, centre = 0.42 * h, Vector((focus[0], -focus[2], focus[1]))
+        if view in ("close", "near"):
+            # A near look frames a small piece; a close one where a long part hangs from.
+            scale = (0.42 if view == "close" else NEAR_LOOK) * h
+            centre = Vector((focus[0], -focus[2], focus[1]))
             # Look at where the part hangs from, from the side it sits on, a little from above.
             yaw = math.atan2(focus[0], focus[2]) if abs(focus[0]) + abs(focus[2]) > 1e-6 else 0.0
             d = Vector((math.sin(yaw), -math.cos(yaw), 0.15)).normalized()
@@ -1253,7 +1377,12 @@ def candidates_sheet(path, out, skin, parts, height):
     stage = Stage(path, height)
     paint(stage, skin, parts, [p["color"] for p in parts])
     views = [("front", None), ("side", None), ("back", None)]
-    stage.shoot(out, [("found", lambda: None, views)], "dangling parts")
+    rows = [("found", lambda: None, views)]
+    small = [p for p in parts if p.get("small")]
+    if small:
+        # A close look at the first few small pieces, where each hangs from.
+        rows.append(("small pieces", lambda: None, [("near", p["line"][0]) for p in small[:3]]))
+    stage.shoot(out, rows, "dangling parts")
 
 
 def chain_sheets(job, skin, wanted, chains, height):
@@ -1265,6 +1394,10 @@ def chain_sheets(job, skin, wanted, chains, height):
         along = arc(line)
         focus = point_at(line, along, 0.15 * along[-1])
     views = [("front", None), ("side", None), ("back", None), ("close", focus)]
+    small = [part for part in parts if part.get("small")]
+    if small:
+        line = small[0]["line"]
+        views.append(("near", point_at(line, arc(line), 0.5 * arc(line)[-1])))
     if "before" in job["sheets"]:
         stage = Stage(job["input"], height)
         paint(stage, skin, parts, [p["color"] for p in parts])
@@ -1292,8 +1425,9 @@ def candidates(parts, h):
     out = []
     counts = {}
     for k, part in enumerate(parts):
-        counts[part["kind"]] = counts.get(part["kind"], 0) + 1
-        part["id"] = f"{part['kind']}-{counts[part['kind']]}"
+        name = "charm" if part.get("small") else part["kind"]
+        counts[name] = counts.get(name, 0) + 1
+        part["id"] = f"{name}-{counts[name]}"
         part["color"] = COLOURS[k % len(COLOURS)]
         out.append({
             "id": part["id"],
@@ -1304,8 +1438,9 @@ def candidates(parts, h):
             "drop": round(part["drop"], 4),
             "vertices": int(len(part["members"])),
             "confidence": part["confidence"],
-            "joints": default_joints(part["length"], h),
+            "joints": default_joints(part["length"], h, part.get("small")),
             "color": part["color"],
+            "small": bool(part.get("small")),
         })
     return out
 

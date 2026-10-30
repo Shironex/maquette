@@ -75,7 +75,10 @@ Avatar view (`/docs/views/avatar/`).
 8. **Springs.** Once the rest pose is approved (`springs.ready`), a build with no confirmed
    springs looks for the parts that could swing: `get_avatar` lists them in `springs.found` with
    an id, kind (`hair`, `cloth`, `accessory`), root bone, length, vertices and `confidence`, and
-   `springs.found.sheet` draws each in its colour. Look at the sheet, ask the person which should
+   `springs.found.sheet` draws each in its colour. Small pieces close to the body (a charm on a
+   belt or jacket, a short chain, an earring) come after the rest as `charm-N` with `small: true`
+   and a close look on the sheet; confirmed by id they keep a short chain of 2 to 4 joints and the
+   `stiff` preset. Look at the sheet, ask the person which should
    swing, then call `set_avatar` with `springs`, for example
    `[{ "id": "hair-1" }, { "id": "cloth-1", "preset": "heavy", "joints": 6 }]` (`"none"`
    confirms no springs; `[]` only clears the picks, and when the last export had springs a build

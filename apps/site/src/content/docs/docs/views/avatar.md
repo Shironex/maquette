@@ -85,7 +85,7 @@ Nothing swings until you confirm it: switch on the parts that should swing, and 
 - **Heavy** for cloth: more drag and gravity.
 - **Stiff** for charms and small parts: springs back quickly.
 
-A part that sits close to the body, such as a small charm on a jacket, may not be found at all.
+**Small pieces** lists what sits too close to the body for that: a charm on a belt or a jacket, a short chain, an earring. The finder reads where the mesh stands out of the surface around it and keeps the narrow bits that hang down, away from the forearms, hands, shins and feet. Each is a `charm` accessory from the bone it hangs from, with how sure the finder is, and the sheet adds a close look at the first few. A small piece gets a short chain of 2 to 4 joints and the stiff swing, and once its chain is made the sway test adds a near look at it. A charm drawn flat onto the cloth stays rigid, since nothing of it stands out.
 
 **No springs** confirms that the VRM carries none, whatever is found. Switching every part off is not the same: it only means nothing is picked yet. When the last VRM had springs and nothing is picked, a build stops with "Pick the springs first" and writes nothing, so a cleared list never quietly drops a ponytail from the file. Pick the parts to keep or switch on **No springs**, then build again.
 

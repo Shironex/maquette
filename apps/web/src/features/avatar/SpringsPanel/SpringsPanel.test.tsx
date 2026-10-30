@@ -48,6 +48,22 @@ describe('the springs tab', () => {
     expect(await screen.findByText(/The VRM carries these springs/)).toBeInTheDocument();
   });
 
+  it('lists the small pieces apart, each confirmed with its short chain', async () => {
+    await openAvatar('written');
+    render(<SpringsPanel />);
+    await userEvent.click(screen.getByRole('button', { name: 'Find dangling parts' }));
+    const parts = await screen.findByRole('list', { name: 'Parts that could swing' });
+    expect(within(parts).queryByRole('listitem', { name: /charm-1/ })).toBeNull();
+    const pieces = screen.getByRole('list', { name: 'Small pieces that could swing' });
+    const charm = within(pieces).getByRole('listitem', {
+      name: /charm-1, accessory from the spine/,
+    });
+    expect(within(charm).getByText(/94% sure/)).toBeInTheDocument();
+    await userEvent.click(within(charm).getByRole('switch', { name: 'Swing charm-1' }));
+    const spring = useAvatarStore.getState().draft?.springs?.[0];
+    expect(spring).toMatchObject({ id: 'charm-1', rootBone: 'spine', joints: 2, preset: null });
+  });
+
   it('waits for a pick after a vrm with springs, until one is picked or none confirmed', async () => {
     await openAvatar('written');
     render(<SpringsPanel />);

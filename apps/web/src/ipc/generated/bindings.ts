@@ -5699,6 +5699,12 @@ export type SpringCandidate = {
 	joints: number,
 	/**  Its colour on the candidates sheet, `#rrggbb`. */
 	color: string,
+	/**
+	 *  A small piece close to the body (a charm, a short chain, an
+	 *  earring), listed after the other parts with a chain of 2 to 4
+	 *  joints; older finders never set it.
+	 */
+	small?: boolean,
 };
 
 /**  A pick carried over to the candidate its part is now. */
