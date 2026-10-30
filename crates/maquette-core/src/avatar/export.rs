@@ -24,19 +24,17 @@ use super::normalize::{
 };
 use super::reweight::{self, ReweightMode, ReweightReport, ReweightRequest, Reweighted};
 use super::{AvatarSpec, SceneAvatars};
+use crate::Asset;
 use crate::assets;
 use crate::base::ports::ScriptRunner;
 use crate::error::{CoreError, CoreResult};
 use crate::fs::write_atomic;
-use crate::inbox::vrm::{
-    self, BoneOverrides, MaterialMode, RoundTrip, VrmFinding, VrmReadiness, WriteSpec,
-};
+use crate::inbox::vrm::{self, MaterialMode, RoundTrip, VrmFinding, VrmReadiness, WriteSpec};
 use crate::json::write_json;
 use crate::pipeline::cache::hash_file;
 use crate::pipeline::tools::Toolbox;
 use crate::project::{self, now_rfc3339};
 use crate::workspace::WorkspaceConfig;
-use crate::{Asset, AssetKind};
 
 /// The project folder exports are written into.
 pub const EXPORTS_DIR: &str = "exports";
@@ -45,8 +43,12 @@ const RECORD_FILE: &str = "export.json";
 mod patch;
 pub mod report;
 
+mod view;
+
 pub use patch::{AvatarPatch, apply_patch};
 use report::{AvatarReport, ReportSource, bone_map, report_file, round_trip_finding};
+pub use view::{AvatarView, view};
+use view::{lifts_cloth, readiness_of};
 
 fn invalid(message: impl Into<String>) -> CoreError {
     CoreError::Invalid(message.into())
@@ -153,111 +155,6 @@ pub fn spec_for(
         || (config.avatar.spec(&asset.name), false),
         |spec| (spec.clone(), true),
     )
-}
-
-/// Everything the Avatar view and `get_avatar` show for one asset.
-#[derive(Debug, Clone, PartialEq, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct AvatarView {
-    pub project: String,
-    pub asset: String,
-    pub name: String,
-    pub kind: AssetKind,
-    /// The version read, `None` without a model.
-    pub version: Option<u32>,
-    /// That version's model file, an absolute path.
-    pub model: Option<String>,
-    pub spec: AvatarSpec,
-    /// The spec is stored in `avatar.json`; otherwise it comes from the
-    /// workspace's avatar defaults and is saved on the first change.
-    pub stored: bool,
-    pub readiness: Option<VrmReadiness>,
-    /// Why the readiness could not be read.
-    pub readiness_error: Option<String>,
-    /// The rest pose is not VRM's yet: a build normalises it and waits for
-    /// a person's yes.
-    pub needs_normalize: bool,
-    /// The readiness finds cloth or hair weighted to the arms and the arms
-    /// are lifted: a build frees them first and waits for a person's yes.
-    pub needs_reweight: bool,
-    /// The last reweight of this version, with its sheets.
-    pub reweighted: Option<Reweighted>,
-    /// The last normalised rest pose of this version, with its sheets.
-    pub normalized: Option<Normalized>,
-    pub export: Option<AvatarExport>,
-    /// Where a build writes the `.vrm`, an absolute path.
-    pub export_path: String,
-    /// What writing would refuse in the meta (no name, no author).
-    pub meta_problem: Option<String>,
-}
-
-fn read_export(dir: &Path) -> Option<AvatarExport> {
-    let text = fs::read_to_string(dir.join(RECORD_FILE)).ok()?;
-    let mut found: AvatarExport = serde_json::from_str(&text).ok()?;
-    found.exists = Path::new(&found.path).is_file();
-    found.report = found.report.filter(|r| Path::new(r).is_file());
-    Some(found)
-}
-
-/// Reads one asset's avatar: the spec, the readiness of the version, the
-/// last normalised rest pose and the last export.
-///
-/// # Errors
-///
-/// Fails for an unknown project, asset or version, or an `avatar.json`
-/// that cannot be read.
-pub fn view(req: &AvatarRequest<'_>) -> CoreResult<AvatarView> {
-    let src = source(req)?;
-    let avatars = super::load(&src.project_dir)?;
-    let (spec, stored) = spec_for(&avatars, req.config, &src.asset);
-    let (readiness, readiness_error) = match &src.file {
-        Some(file) => match readiness_of(file, &spec.bones) {
-            Ok(r) => (Some(r), None),
-            Err(e) => (None, Some(e.to_string())),
-        },
-        None => (None, Some("This asset has no model yet.".to_string())),
-    };
-    let dir = asset_dir(req.workspace_root, req.config, req.project, &src.asset.id);
-    let version_dir = src.version.map(|v| dir.join(format!("v{v}")));
-    let normalized = match &version_dir {
-        Some(d) => normalize::load(d)?,
-        None => None,
-    };
-    let reweighted = match &version_dir {
-        Some(d) => reweight::load(&reweight::work_dir(d))?,
-        None => None,
-    };
-    Ok(AvatarView {
-        project: req.project.to_string(),
-        asset: src.asset.id.clone(),
-        name: src.asset.name.clone(),
-        kind: src.asset.kind,
-        version: src.version,
-        model: src.file.as_ref().map(|f| f.display().to_string()),
-        needs_normalize: readiness.as_ref().is_some_and(needs_normalize),
-        needs_reweight: readiness.as_ref().is_some_and(lifts_cloth),
-        readiness,
-        reweighted,
-        readiness_error,
-        normalized,
-        export: read_export(&dir),
-        export_path: vrm_file(&src.project_dir, &src.asset.id)
-            .display()
-            .to_string(),
-        meta_problem: spec.meta.validate().err().map(|e| e.to_string()),
-        spec,
-        stored,
-    })
-}
-
-/// The arms are lifted and cloth or hair hangs on them.
-fn lifts_cloth(readiness: &VrmReadiness) -> bool {
-    needs_normalize(readiness) && reweight::needs_reweight(readiness)
-}
-
-fn readiness_of(file: &Path, overrides: &BoneOverrides) -> CoreResult<VrmReadiness> {
-    let bytes = fs::read(file).map_err(|e| CoreError::io(file, e))?;
-    vrm::readiness(&bytes, file.parent().unwrap_or(Path::new(".")), overrides)
 }
 
 /// What a build would do, without doing it.
