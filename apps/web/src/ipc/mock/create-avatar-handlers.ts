@@ -39,7 +39,7 @@ import {
   normalisedReadiness,
   posedReadiness,
   report,
-  reweightReport,
+  freeArms,
   roundTripFailed,
   writtenChecks,
 } from './avatar-fixtures';
@@ -107,21 +107,6 @@ export function createAvatarHandlers(
     const found = (project(p).assets ?? []).find(a => a.id === id || a.name === id);
     if (!found) fail('not-found', `Could not find the asset ${id}.`);
     return found;
-  }
-
-  function freeArms(p: string, a: string, version: number): Reweighted {
-    const dir = `${avatarCacheDir(root(), p, a)}/reweight`;
-    return {
-      project: p,
-      asset: a,
-      sourceVersion: version,
-      state: 'pending',
-      glb: `${dir}/reweighted.glb`,
-      sheets: { before: `${dir}/sheet_before.webp`, after: `${dir}/sheet_after.webp` },
-      report: reweightReport(),
-      key: `v${version}-reweight`,
-      approvedAt: null,
-    };
   }
 
   function normalise(
@@ -231,7 +216,11 @@ export function createAvatarHandlers(
       return { status: 'written', export: e.export, normalized: null };
     }
     if (v.needsReweight && mode === 'auto') {
-      if (!v.reweighted) e.reweighted = freeArms(p, v.asset, v.version ?? 1);
+      // Another bridges choice is another run, waiting for a yes again.
+      const bridges = v.spec.bridges ?? 'hide';
+      if (!v.reweighted || v.reweighted.bridges !== bridges) {
+        e.reweighted = freeArms(root(), p, v.asset, v.version ?? 1, bridges);
+      }
       const reweighted = e.reweighted!;
       if (reweighted.state === 'pending') {
         return { status: 'reweight waiting for approval', reweighted };
@@ -261,7 +250,7 @@ export function createAvatarHandlers(
       ...specFromDefaults(config().avatar, 'Elsheria'),
       meta: { ...specFromDefaults(config().avatar, 'Elsheria').meta, authors: ['The art team'] },
     });
-    e.reweighted = freeArms('frostveil', 'elsheria', 2);
+    e.reweighted = freeArms(root(), 'frostveil', 'elsheria', 2);
     e.askedReweight = state === 'reweight';
   }
   if (state === 'pending' || written || state === 'older') {

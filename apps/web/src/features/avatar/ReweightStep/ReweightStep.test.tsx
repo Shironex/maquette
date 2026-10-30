@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { ReweightBridge } from '@/ipc/client';
 import { useAvatarStore } from '@/state/use-avatar-store';
-import { clearMocks, openAvatar } from '@/test/open-avatar';
+import { avatarCalls, clearMocks, openAvatar } from '@/test/open-avatar';
 import ReweightStep from './ReweightStep';
 import { reweightSummary } from './ReweightStep.hooks';
 
@@ -40,6 +40,26 @@ describe('the step that frees cloth and hair from the arms', () => {
     );
   });
 
+  it('hides the faces fused to the body by default, and keeping them reweights again', async () => {
+    await openAvatar('reweight');
+    render(<ReweightStep />);
+    expect(screen.getByText(/17 faces joining the right arm to the body are hidden/)).toBeVisible();
+    const choice = screen.getByRole('group', { name: 'Faces fused to the body' });
+    expect(within(choice).getByRole('button', { name: 'Hide' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await userEvent.click(within(choice).getByRole('button', { name: 'Keep' }));
+    expect(await screen.findByText(/to the body still stretch when lifted/)).toBeVisible();
+    const saved = avatarCalls.find(c => c.cmd === 'avatar_save');
+    expect((saved?.args.spec as { bridges?: string }).bridges).toBe('keep');
+    expect(avatarCalls.some(c => c.cmd === 'avatar_build')).toBe(true);
+    const r = useAvatarStore.getState().view?.reweighted;
+    expect(r?.bridges).toBe('keep');
+    expect(r?.state).toBe('pending');
+    expect(r?.report.hiddenFaces).toBe(0);
+  });
+
   it('stays away for a model with nothing on its arms', async () => {
     await openAvatar(null, 'clay-figure');
     const { container } = render(<ReweightStep />);
@@ -62,6 +82,12 @@ describe('the step that frees cloth and hair from the arms', () => {
     ).toMatch(/sleeve\. 52 faces joining the right arm to the body still stretch when lifted\.$/);
     expect(reweightSummary({ ...base, bridges: [bridge('left', 1)] })).toMatch(
       /1 face joining the left arm to the body still stretches when lifted\.$/
+    );
+    expect(reweightSummary({ ...base, bridges: [bridge('right', 35)], hiddenFaces: 35 })).toMatch(
+      /35 faces joining the right arm to the body are hidden, as they would stretch/
+    );
+    expect(reweightSummary({ ...base, bridges: [bridge('right', 35)], hiddenFaces: 20 })).toMatch(
+      /still stretch when lifted\. 20 of them hidden\.$/
     );
   });
 });
