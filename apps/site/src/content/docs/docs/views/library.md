@@ -21,6 +21,8 @@ Search takes a model, tag or project name. Grid or List changes the layout. The 
 
 A card shows the picture, the name, the latest version and source ("v3 · Built"), the tags, how many projects use it and its credits: "30 credits", "no credits, built" or "30 saved by reuse".
 
+A click on a card's picture, or on the big picture in the side panel, opens the newest version in a 3D quick view: the Inbox's preview with orbit, zoom and its modes, the version, triangles and size. A click anywhere else on the card selects it. Open in Inspector shows the open project's copy of the model; a model the project has not added yet says so instead. An `.obj` model has no 3D preview, so its picture only selects it.
+
 The side panel shows the selected model:
 
 - **Use in project:** pick the project, and a version when there are several. **Add, no credits** copies it.

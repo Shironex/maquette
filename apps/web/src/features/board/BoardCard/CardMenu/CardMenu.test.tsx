@@ -8,9 +8,13 @@ import { useLabStore } from '@/state/use-lab-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useRefsStore } from '@/state/use-refs-store';
 import { useLibraryStore } from '@/state/use-library-store';
+import { useQuickViewStore } from '@/state/use-quick-view-store';
 import { clearMocks, openMockLibrary, openMockWorkspace } from '@/test/mock-ipc';
 import { fakeBoardEnv, mockAsset } from '../../fakeBoardEnv';
+import { QuickView } from '@/features/viewer/QuickView';
 import CardMenu from './CardMenu';
+
+vi.mock('@/features/viewer/ModelPreview', () => ({ default: () => null }));
 
 beforeEach(async () => {
   await openMockWorkspace('configured', undefined, 'batch');
@@ -40,6 +44,7 @@ describe('CardMenu', () => {
       'Copy to project...',
       'Add a model file as the next version...',
       'Add to library...',
+      'Inspect 3D model',
       'Open in Blender',
       'Remove from project...',
       'Move to',
@@ -61,11 +66,36 @@ describe('CardMenu', () => {
     useRefsStore.setState({ sheet: null, view: null });
   });
 
-  it('hides the library and Blender before there is a model', () => {
+  it('hides the library, the 3D quick view and Blender before there is a model', () => {
     const asset = { ...mockAsset('Elsheria'), versions: [] };
     render(<CardMenu asset={asset} waiting={undefined} refPicture={null} board={fakeBoardEnv()} />);
     expect(screen.queryByRole('menuitem', { name: 'Add to library...' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Inspect 3D model' })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: 'Open in Blender' })).toBeNull();
+  });
+
+  it('opens the newest version in the 3D quick view, which Escape closes', async () => {
+    const asset = mockAsset('Elsheria');
+    const { rerender } = render(
+      <>
+        <CardMenu asset={asset} waiting={undefined} refPicture={null} board={fakeBoardEnv()} />
+        <QuickView />
+      </>
+    );
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Inspect 3D model' }));
+    // The Board closes its menu on a pick; Escape waits for an open menu to go first.
+    rerender(<QuickView />);
+    const dialog = screen.getByRole('dialog', { name: 'Elsheria' });
+    expect(dialog).toHaveAccessibleDescription(/^v2 · 115.7k triangles · 1.1 MB · Frostveil$/);
+    expect(within(dialog).getByRole('button', { name: 'Bones' })).toBeInTheDocument();
+    expect(useQuickViewStore.getState().target).toMatchObject({
+      name: 'Elsheria',
+      version: 2,
+      file: expect.stringMatching(/\/projects\/frostveil\/models\/elsheria_v2\.glb$/),
+      inspect: { project: 'frostveil', asset: 'elsheria', version: 2 },
+    });
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('leads with the By hand actions while the card waits for its model', async () => {

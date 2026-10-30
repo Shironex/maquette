@@ -77,6 +77,7 @@ export default function LibraryDetail({ item }: LibraryDetailProps) {
     >
       <LibraryPicture
         item={item}
+        onInspect={d.quickView}
         className="aspect-[4/3] w-full flex-none rounded-card border border-line"
       />
       <div>

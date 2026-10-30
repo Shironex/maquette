@@ -15,6 +15,7 @@ import { SplitSheet } from '@/features/providers/SplitSheet';
 import { ObjectRefsDialog } from '@/features/lab/ObjectRefsDialog';
 import { StyleBoardDialog } from '@/features/lab/StyleBoardDialog';
 import { LibraryDialogs } from '@/features/common/LibraryDialogs';
+import { QuickView } from '@/features/viewer/QuickView';
 import { AnimationDialogs } from '@/features/animations/AnimationDialogs';
 import { RetargetDialog } from '@/features/retarget/RetargetDialog';
 import { SETTINGS_VIEW, showsView, type ViewId } from '@/state/views';
@@ -96,6 +97,7 @@ export default function AppShell() {
       <NewProjectDialog onClosed={focusSwitcher} />
       <GameImportDialog />
       <LibraryDialogs />
+      <QuickView />
       <AnimationDialogs />
       <RetargetDialog />
       <ApprovalPrompt />

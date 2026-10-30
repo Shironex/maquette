@@ -12,7 +12,7 @@ import { redoBlocker, redoUnderWay } from '@/state/redo';
 import { useAppStore } from '@/state/use-app-store';
 import { useInboxStore } from '@/state/use-inbox-store';
 import { useProvidersStore } from '@/state/use-providers-store';
-import { MODES } from './constants';
+import { MODES } from '@/features/viewer/previewModes';
 import { sourceItems } from './sourceItems';
 
 const NO_PROJECTS: readonly ProjectManifest[] = [];

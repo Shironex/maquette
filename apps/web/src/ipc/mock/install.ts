@@ -22,6 +22,7 @@ import { REFS_SCENARIO_FILES } from './create-refs-handlers';
 import { MOCK_SITE_URL, conceptPath, pageOption, posterPath } from './create-page-handlers';
 import { MANY_STOPS, mockConceptPage, mockSitePage } from './page-site';
 import { libraryFiles } from './library-fixtures';
+import { quickViewFiles } from './quick-view-files';
 import { CLIP_MODEL } from './animation-fixtures';
 import { clipSource } from './create-animation-handlers';
 import bridgeShim from '@crates/maquette-preview/src/frame/shim.js?raw';
@@ -89,6 +90,11 @@ for (const [file, model] of Object.entries(PREVIEW_FILE)) {
 {
   const url = models[`../../assets/mock/models/${CLIP_MODEL}`];
   if (url) registerMockFile(clipSource(root), url);
+}
+// The model versions the 3D quick view loads from the Board and the Library.
+for (const [path, model] of Object.entries(quickViewFiles(root, MOCK_PROJECT_IDS))) {
+  const url = models[`../../assets/mock/models/${model}`];
+  if (url) registerMockFile(path, url);
 }
 for (const [file, render] of Object.entries(libraryFiles())) {
   const url = renders[`../../assets/mock/${render}`];
