@@ -8,16 +8,16 @@ use specta_typescript::Typescript;
 use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events};
 
 use crate::commands::{
-    about, agents, animations, app, assets, built, codex_usage, credits, dialogs, downloads, game,
-    image_api, inbox, inspect, lab, layout, library, materials, motion, page, parts, paths,
-    pipeline, prepare, project, providers, quit, refs, ship, site, split, thumbs, timeline,
-    toolchain, trash, updater, workspace,
+    about, agents, animations, app, assets, avatar, built, codex_usage, credits, dialogs,
+    downloads, game, image_api, inbox, inspect, lab, layout, library, materials, motion, page,
+    parts, paths, pipeline, prepare, project, providers, quit, refs, ship, site, split, thumbs,
+    timeline, toolchain, trash, updater, workspace,
 };
 use crate::events::{
-    BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival, ImageSettingsChanged,
-    InboxChanged, LayoutChanged, LibraryChanged, MaterialsChanged, McpUpdate, PageServerChanged,
-    PipelineChanged, PipelineUpdate, PrepareChanged, ProjectChanged, ProviderUpdate, QuitRequested,
-    ThumbnailReady, UpdaterUpdate,
+    AvatarChanged, BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival,
+    ImageSettingsChanged, InboxChanged, LayoutChanged, LibraryChanged, MaterialsChanged, McpUpdate,
+    PageServerChanged, PipelineChanged, PipelineUpdate, PrepareChanged, ProjectChanged,
+    ProviderUpdate, QuitRequested, ThumbnailReady, UpdaterUpdate,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -102,6 +102,10 @@ pub fn builder() -> Builder<tauri::Wry> {
             paths::paths_save,
             materials::materials_get,
             materials::materials_save,
+            avatar::avatar_get,
+            avatar::avatar_save,
+            avatar::avatar_build,
+            avatar::avatar_decide,
             prepare::prepare_get,
             prepare::prepare_asset,
             prepare::prepare_save,
@@ -220,6 +224,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             QuitRequested,
             LayoutChanged,
             MaterialsChanged,
+            AvatarChanged,
             PrepareChanged,
             BuiltChanged,
             DownloadsArrival,
@@ -308,6 +313,10 @@ mod tests {
             "libraryUpdate",
             "materialsGet",
             "materialsSave",
+            "avatarGet",
+            "avatarSave",
+            "avatarBuild",
+            "avatarDecide",
             "prepareGet",
             "prepareAsset",
             "prepareSave",
@@ -360,6 +369,7 @@ mod tests {
             "quitRequested",
             "layoutChanged",
             "materialsChanged",
+            "avatarChanged",
             "prepareChanged",
             "downloadsArrival",
             "builtChanged",

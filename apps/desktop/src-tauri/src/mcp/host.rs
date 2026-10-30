@@ -21,8 +21,8 @@ use crate::commands::pipeline::Pipelines;
 use crate::commands::providers::Studio;
 use crate::commands::thumbs::Thumbs;
 use crate::events::{
-    BuiltChanged, ConceptUpdate, LayoutChanged, LibraryChanged, MaterialsChanged, PipelineChanged,
-    PrepareChanged, ProjectChanged,
+    AvatarChanged, BuiltChanged, ConceptUpdate, LayoutChanged, LibraryChanged, MaterialsChanged,
+    PipelineChanged, PrepareChanged, ProjectChanged,
 };
 use crate::session::Session;
 
@@ -58,6 +58,9 @@ pub trait Host: Send + Sync + 'static {
     /// Tells the windows that a tool changed a project's real sizes or
     /// fix-ups, so the Board, the Inbox and the Inspector reload them.
     fn prepare_changed(&self, _project: &str) {}
+    /// Tells the windows that a tool changed or built an asset's avatar,
+    /// so the Avatar view reloads it.
+    fn avatar_changed(&self, _project: &str, _asset: &str) {}
     /// Tells the windows that a project's built assets changed, so the
     /// Board shows how they stand.
     fn built_changed(&self, _project: &str) {}
@@ -149,6 +152,16 @@ impl Host for AppHost {
         };
         if let Err(err) = event.emit(&self.0) {
             tracing::warn!(error = %err, "could not emit a materials event");
+        }
+    }
+
+    fn avatar_changed(&self, project: &str, asset: &str) {
+        let event = AvatarChanged {
+            project: project.to_string(),
+            asset: asset.to_string(),
+        };
+        if let Err(err) = event.emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit an avatar event");
         }
     }
 

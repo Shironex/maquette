@@ -217,6 +217,28 @@ export const commands = {
 	 *  next time Compress runs.
 	 */
 	materialsSave: (project: string, looks: { [key in string]: ModelMaterials }) => __TAURI_INVOKE<SceneMaterials>("materials_save", { project, looks }),
+	/**
+	 *  One character asset's avatar: the spec (or the workspace defaults), the
+	 *  readiness, the last normalised rest pose and the last export.
+	 */
+	avatarGet: (project: string, asset: string, version: number | null) => __TAURI_INVOKE<AvatarView_Serialize>("avatar_get", { project, asset, version }),
+	/**  Saves the asset's avatar spec (meta, bone overrides, material mode). */
+	avatarSave: (project: string, asset: string, spec: AvatarSpec_Deserialize) => __TAURI_INVOKE<AvatarView_Serialize>("avatar_save", { project, asset, spec }),
+	/**
+	 *  Builds the avatar's `.vrm`: normalises the rest pose headless when it is
+	 *  not VRM's yet, then waits for the yes, or writes the file once given.
+	 */
+	avatarBuild: (project: string, asset: string, version: number | null, elbows: 
+/**  The whole arm turns at the shoulder; a bent elbow stays bent. */
+"keep" | 
+/**  The lower arm is levelled too, so the arm lies straight along X. */
+"straighten" | null) => __TAURI_INVOKE<AvatarBuild>("avatar_build", { project, asset, version, elbows }),
+	/**
+	 *  A person's yes or no to a version's new rest pose. Not an agent tool:
+	 *  only the app's approval card calls it. An agent's waiting request for
+	 *  that asset is settled with it.
+	 */
+	avatarDecide: (project: string, asset: string, version: number | null, approve: boolean) => __TAURI_INVOKE<Normalized>("avatar_decide", { project, asset, version, approve }),
 	prepareGet: (project: string) => __TAURI_INVOKE<ScenePrep>("prepare_get", { project }),
 	prepareAsset: (project: string, asset: string) => __TAURI_INVOKE<AssetPrep>("prepare_asset", { project, asset }),
 	/**
@@ -555,6 +577,7 @@ export const commands = {
 
 /** Events */
 export const events = {
+	avatarChanged: makeEvent<AvatarChanged>("avatar-changed"),
 	builtChanged: makeEvent<BuiltChanged>("built-changed"),
 	codexUsageUpdate: makeEvent<CodexUsageUpdate>("codex-usage-update"),
 	conceptUpdate: makeEvent<ConceptUpdate>("concept-update"),
@@ -749,6 +772,11 @@ export type Approval = {
 	conceptJobs?: string[],
 	/**  Image round: the dollars it should cost in all. */
 	estimateUsd?: number | null,
+	/**  Rest pose: the asset id and the version normalised. */
+	asset?: string | null,
+	version?: number | null,
+	/**  Rest pose: the before and after sheets. */
+	sheets?: NormalizeSheets | null,
 };
 
 /**  One send of a batch approval. */
@@ -771,7 +799,19 @@ export type ApprovalKind =
  *  An agent asked for Lab images on OpenAI's Image API, which spends
  *  dollars from the OpenAI key.
  */
-"image-round";
+"image-round" | 
+/**
+ *  An agent built an avatar whose new rest pose waits for a person to
+ *  look at the before and after sheets.
+ */
+"rest-pose";
+
+/**  How far one arm turned. */
+export type ArmLift = {
+	shoulderDeg?: number | null,
+	/**  Only when the elbows were straightened. */
+	elbowDeg?: number | null,
+};
 
 /**  One file the watcher took a look at. */
 export type Arrival = {
@@ -1027,6 +1067,24 @@ export type AssetsRemoved = {
 	outcomes: RemoveOutcome[],
 };
 
+/**  What a build did. */
+export type AvatarBuild = 
+/**  The new rest pose waits for a person to look at the sheets. */
+{ status: "waiting for approval"; normalized: Normalized } | 
+/**  A person turned the new rest pose down. */
+{ status: "denied"; normalized: Normalized } | 
+/**  The `.vrm` is written. */
+{ status: "written"; export: AvatarExport; normalized: Normalized | null };
+
+/**
+ *  An agent changed or built an asset's avatar through the MCP server, so
+ *  the Avatar view reloads it.
+ */
+export type AvatarChanged = {
+	project: string,
+	asset: string,
+};
+
 /**  What a new avatar spec starts from. */
 export type AvatarDefaults = {
 	/**  The author every avatar names first; empty leaves it to fill in. */
@@ -1044,6 +1102,22 @@ export type AvatarDefaults = {
 	allowAntisocialOrHateUsage?: boolean,
 	otherLicenseUrl?: string | null,
 	material?: MaterialMode,
+};
+
+/**  What the last build wrote. */
+export type AvatarExport = {
+	/**  The `.vrm`, an absolute path. */
+	path: string,
+	bytes: number | null,
+	sourceVersion: number,
+	/**  Written from a normalised rest pose (else from the model as it is). */
+	normalized: boolean,
+	material: MaterialMode,
+	/**  What the file still lacks, blockers first. */
+	unresolved: VrmFinding[],
+	writtenAt: string,
+	/**  The file is still there. Read, never stored. */
+	exists?: boolean,
 };
 
 /**  Who may play the avatar. */
@@ -1072,6 +1146,75 @@ export type AvatarSpec_Serialize = {
 	 */
 	bones: { [key in string]: string | null },
 	material: MaterialMode,
+};
+
+/**  Everything the Avatar view and `get_avatar` show for one asset. */
+export type AvatarView = AvatarView_Serialize | AvatarView_Deserialize;
+
+/**  Everything the Avatar view and `get_avatar` show for one asset. */
+export type AvatarView_Deserialize = {
+	project: string,
+	asset: string,
+	name: string,
+	kind: AssetKind,
+	/**  The version read, `None` without a model. */
+	version: number | null,
+	/**  That version's model file, an absolute path. */
+	model: string | null,
+	spec: AvatarSpec_Deserialize,
+	/**
+	 *  The spec is stored in `avatar.json`; otherwise it comes from the
+	 *  workspace's avatar defaults and is saved on the first change.
+	 */
+	stored: boolean,
+	readiness: VrmReadiness | null,
+	/**  Why the readiness could not be read. */
+	readinessError: string | null,
+	/**
+	 *  The rest pose is not VRM's yet: a build normalises it and waits for
+	 *  a person's yes.
+	 */
+	needsNormalize: boolean,
+	/**  The last normalised rest pose of this version, with its sheets. */
+	normalized: Normalized | null,
+	export: AvatarExport | null,
+	/**  Where a build writes the `.vrm`, an absolute path. */
+	exportPath: string,
+	/**  What writing would refuse in the meta (no name, no author). */
+	metaProblem: string | null,
+};
+
+/**  Everything the Avatar view and `get_avatar` show for one asset. */
+export type AvatarView_Serialize = {
+	project: string,
+	asset: string,
+	name: string,
+	kind: AssetKind,
+	/**  The version read, `None` without a model. */
+	version: number | null,
+	/**  That version's model file, an absolute path. */
+	model: string | null,
+	spec: AvatarSpec_Serialize,
+	/**
+	 *  The spec is stored in `avatar.json`; otherwise it comes from the
+	 *  workspace's avatar defaults and is saved on the first change.
+	 */
+	stored: boolean,
+	readiness: VrmReadiness | null,
+	/**  Why the readiness could not be read. */
+	readinessError: string | null,
+	/**
+	 *  The rest pose is not VRM's yet: a build normalises it and waits for
+	 *  a person's yes.
+	 */
+	needsNormalize: boolean,
+	/**  The last normalised rest pose of this version, with its sheets. */
+	normalized: Normalized | null,
+	export: AvatarExport | null,
+	/**  Where a build writes the `.vrm`, an absolute path. */
+	exportPath: string,
+	/**  What writing would refuse in the meta (no name, no author). */
+	metaProblem: string | null,
 };
 
 /**  The axis a model faces, the nearest of four. */
@@ -1975,6 +2118,13 @@ export type Easing = "linear" |
 "ease-in" | 
 /**  Cubic, slow at the end. */
 "ease-out" | "ease-in-out";
+
+/**  What happens at the elbows when the arms are lifted. */
+export type Elbows = 
+/**  The whole arm turns at the shoulder; a bent elbow stays bent. */
+"keep" | 
+/**  The lower arm is levelled too, so the arm lies straight along X. */
+"straighten";
 
 /**  Serializable form of [`CoreError`] for IPC. */
 export type ErrorPayload = {
@@ -3360,6 +3510,51 @@ export type NewProject = {
 	game?: NewGame | null,
 };
 
+/**  The script's `report.json`. */
+export type NormalizeReport = {
+	before?: PoseMeasures,
+	after?: PoseMeasures,
+	/**  Degrees the model turned about the up axis. */
+	turnedDeg?: number | null,
+	/**  Metres it moved, in glTF axes. */
+	moved?: [(number | null), (number | null), (number | null)],
+	elbows?: Elbows,
+	lifted?: { [key in string]: ArmLift },
+	weightsBefore?: WeightChecks,
+	weights?: WeightChecks,
+};
+
+/**  The two pose sheets, absolute paths. */
+export type NormalizeSheets = {
+	before: string,
+	after: string,
+};
+
+export type NormalizeState = 
+/**  Made and waiting for a person's yes. */
+"pending" | 
+/**  A person said yes to this exact output. */
+"approved" | 
+/**  A person said no; nothing is written from it. */
+"denied";
+
+/**  A normalised model and what it takes to judge it. */
+export type Normalized = {
+	project: string,
+	asset: string,
+	sourceVersion: number,
+	state: NormalizeState,
+	/**  The normalised GLB, an absolute path. */
+	glb: string,
+	sheets: NormalizeSheets,
+	report: NormalizeReport,
+	/**  The readiness of the normalised GLB. */
+	readiness: VrmReadiness,
+	/**  The run's cache key; an approval holds for this key only. */
+	key: string,
+	approvedAt: string | null,
+};
+
 /**  One object asset that Send picks made or moved to Refs. */
 export type ObjectAsset = {
 	asset: Asset,
@@ -3664,6 +3859,21 @@ export type PlanClip = {
 	bytes: number | null,
 	status: ClipStatus,
 	matched: MatchedClip | null,
+};
+
+/**  The rest pose as the script measured it, in glTF metres and degrees. */
+export type PoseMeasures = {
+	facingDeg?: number | null,
+	armLeftDeg?: number | null,
+	armRightDeg?: number | null,
+	/**  Degrees each elbow bends at rest. */
+	elbowLeftDeg?: number | null,
+	elbowRightDeg?: number | null,
+	groundY?: number | null,
+	height?: number | null,
+	hips?: [(number | null), (number | null), (number | null)],
+	hipsOffset?: number | null,
+	vertices?: number,
 };
 
 export type PoseMode = "none" | "a-pose" | "t-pose";
@@ -5564,6 +5774,21 @@ export type WatchStatus = {
 	pending: PendingHandoff[],
 	/**  Newest first. */
 	arrivals: Arrival[],
+};
+
+/**  The skin weights over the bone groups. */
+export type WeightChecks = {
+	vertices?: number,
+	/**  Vertices with more than 4 bone influences. */
+	overInfluences?: number,
+	/**  Vertices whose weights do not sum to 1. */
+	offSum?: number,
+	unweighted?: number,
+	maxInfluences?: number,
+	minSum?: number | null,
+	maxSum?: number | null,
+	/**  Vertices trimmed to 4 influences or normalised. */
+	fixed?: number,
 };
 
 export type WorkspaceConfig = {

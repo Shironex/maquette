@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Condvar, Mutex, MutexGuard};
 use std::time::Duration;
 
+use maquette_core::avatar::normalize::NormalizeSheets;
 use maquette_core::pipeline::StepDef;
 use maquette_core::pipeline::history::{LogEntry, RunRecord, now_ms};
 use maquette_core::pipeline::runner::PipelineEvent;
@@ -60,6 +61,9 @@ pub enum ApprovalKind {
     /// An agent asked for Lab images on OpenAI's Image API, which spends
     /// dollars from the OpenAI key.
     ImageRound,
+    /// An agent built an avatar whose new rest pose waits for a person to
+    /// look at the before and after sheets.
+    RestPose,
 }
 
 /// One send of a batch approval.
@@ -103,6 +107,14 @@ pub struct Approval {
     /// Image round: the dollars it should cost in all.
     #[serde(default)]
     pub estimate_usd: Option<f64>,
+    /// Rest pose: the asset id and the version normalised.
+    #[serde(default)]
+    pub asset: Option<String>,
+    #[serde(default)]
+    pub version: Option<u32>,
+    /// Rest pose: the before and after sheets.
+    #[serde(default)]
+    pub sheets: Option<NormalizeSheets>,
 }
 
 impl Approval {
@@ -289,6 +301,9 @@ impl Hub {
             estimate: None,
             concept_jobs: Vec::new(),
             estimate_usd: None,
+            asset: None,
+            version: None,
+            sheets: None,
         })
     }
 
@@ -310,6 +325,9 @@ impl Hub {
             estimate: job.estimate.or_else(|| job.estimate()),
             concept_jobs: Vec::new(),
             estimate_usd: None,
+            asset: None,
+            version: None,
+            sheets: None,
         })
     }
 
@@ -333,6 +351,9 @@ impl Hub {
             estimate: None,
             concept_jobs: round.jobs,
             estimate_usd: Some(round.estimate_usd),
+            asset: None,
+            version: None,
+            sheets: None,
         })
     }
 
@@ -383,6 +404,9 @@ impl Hub {
                 estimate,
                 concept_jobs: Vec::new(),
                 estimate_usd: None,
+                asset: None,
+                version: None,
+                sheets: None,
             }
         }))
     }
@@ -434,6 +458,8 @@ impl Hub {
         }
     }
 }
+
+mod rest_pose;
 
 #[cfg(test)]
 mod tests;
