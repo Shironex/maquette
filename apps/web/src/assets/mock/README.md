@@ -44,12 +44,17 @@ came through the Maquette pipeline, so the sample shows real work.
   `crates/maquette-core/src/avatar/avatar_normalize.py` renders headless, made
   from the box humanoid test fixture in an A-pose facing +X, 1200 px wide, and
   are not part of the reserved artwork below.
+- `avatar/box_humanoid.vrm`: the `.vrm` every mock avatar build "writes", which
+  the Avatar view's Preview tab loads. It is generated: the box humanoid test
+  fixture written as VRM 1.0 by the Rust writer, with
+  `MAQUETTE_MOCK_VRM=apps/web/src/assets/mock/avatar/box_humanoid.vrm cargo test -p maquette-glb writes_the_mock_vrm -- --ignored`.
+  It is not part of the reserved artwork below either.
 
 `src/ipc/mock/install.ts` registers every file here under the mock workspace
 paths, so new renders only need the right file name.
 
 ## License
 
-Apart from the generated Motion and Parts demo models and the avatar sheets above, these images and models are Frostveil
+Apart from the generated Motion and Parts demo models, the avatar sheets and the box humanoid VRM above, these images and models are Frostveil
 artwork. All rights are reserved; they are not covered by the code license. See
 [ARTWORK.md](../../../../../ARTWORK.md) at the repository root.
