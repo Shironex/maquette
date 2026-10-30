@@ -320,12 +320,13 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
     {
         let h = at(head);
         // Thin slabs stacked edge to edge, so the strip reads as one surface
-        // hanging from the back of the head to the waist.
+        // hanging from the back of the head to the waist, clear of the
+        // thin box body (whose back it would otherwise pass for).
         for k in 0..TAIL_SLABS {
             #[expect(clippy::cast_precision_loss, reason = "a few slabs")]
             let y = h[1] - 0.02 * k as f32;
             mesh.cuboid(
-                [h[0], y, h[2] - 0.1],
+                [h[0], y, h[2] - 0.3],
                 [0.1, 0.02, 0.02],
                 u16::try_from(head).unwrap_or(0),
             );
