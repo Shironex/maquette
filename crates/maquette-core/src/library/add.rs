@@ -7,8 +7,8 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    LibraryEntry, LibraryVersion, VersionFrom, clean_tags, entry_dir, files, list, save, source,
-    turn,
+    LibraryEntry, LibraryVersion, VersionFrom, clean_tags, entry_dir, files, list, load, save,
+    source, turn,
 };
 use crate::assets::copy::{key, refs_of};
 use crate::assets::{self, Asset, AssetOrigin};
@@ -28,6 +28,9 @@ pub struct AddToLibrary {
     pub name: Option<String>,
     /// Replaces the entry's tags; left out, they stay.
     pub tags: Option<Vec<String>>,
+    /// Adds the model as the next version of this entry instead of the one
+    /// the asset belongs to.
+    pub into: Option<String>,
 }
 
 /// What Add to library did.
@@ -45,7 +48,7 @@ pub struct LibraryAdded {
 
 /// The entry this asset belongs to: the one it came from, else the one an
 /// earlier add of it made.
-fn entry_of<'a>(
+pub(super) fn entry_of<'a>(
     entries: &'a [LibraryEntry],
     project: &str,
     asset: &Asset,
@@ -94,7 +97,8 @@ fn new_entry(entries: &[LibraryEntry], root: &Path, asset: &Asset, name: &str) -
 
 /// Adds the newest model of `request.asset` to the library. `jobs` are the
 /// project's sends: they say what made the model, what it cost and which
-/// refs it was sent with.
+/// refs it was sent with. With `request.into` the model joins that entry,
+/// whichever entry the asset belonged to, and the asset's origin follows.
 ///
 /// # Errors
 ///
@@ -126,16 +130,18 @@ pub fn add(
 
     let _turn = turn();
     let entries = list(root)?;
-    let mut entry = entry_of(&entries, &request.project, &asset)
-        .cloned()
-        .unwrap_or_else(|| {
-            new_entry(
-                &entries,
-                root,
-                &asset,
-                name.as_deref().unwrap_or(&asset.name),
-            )
-        });
+    let chosen = match &request.into {
+        Some(id) => Some(load(root, id)?),
+        None => entry_of(&entries, &request.project, &asset).cloned(),
+    };
+    let mut entry = chosen.unwrap_or_else(|| {
+        new_entry(
+            &entries,
+            root,
+            &asset,
+            name.as_deref().unwrap_or(&asset.name),
+        )
+    });
     if let Some(name) = name {
         entry.name = name;
     }

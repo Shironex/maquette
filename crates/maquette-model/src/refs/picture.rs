@@ -7,9 +7,21 @@
 //! silhouette is the object's samples scaled into a square, its longer side
 //! filling it and centred, so two pictures of one object framed apart still
 //! line up.
+//!
+//! Two objects are compared on their outline (how much the silhouettes
+//! cover the same cells, [`SHAPE_WEIGHT`] of the score), their colours (the
+//! share of colour they have in common, [`COLOUR_WEIGHT`]) and their
+//! proportions (how close the box ratios are, [`RATIO_WEIGHT`]).
+
+use std::fs;
+use std::path::Path;
 
 use super::checks::{Grid, is_object, look};
-use super::png::Pixels;
+use super::png::{self, Pixels};
+
+pub const SHAPE_WEIGHT: f64 = 0.45;
+pub const COLOUR_WEIGHT: f64 = 0.35;
+pub const RATIO_WEIGHT: f64 = 0.2;
 
 /// Hue bins for coloured samples, then dark, mid and light grey.
 pub const HUES: usize = 12;
@@ -156,4 +168,34 @@ pub fn shape_overlap(a: &Object, b: &Object) -> f64 {
 /// How close two box ratios are, 0 to 1 (1 for the same ratio).
 pub fn ratio_fit(a: &Object, b: &Object) -> f64 {
     a.ratio.min(b.ratio) / a.ratio.max(b.ratio).max(f64::EPSILON)
+}
+
+/// How alike two pictures' objects are.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PictureScore {
+    pub shape: f64,
+    pub colour: f64,
+    pub ratio: f64,
+}
+
+impl PictureScore {
+    /// The weighted score, 0 to 1.
+    pub fn total(self) -> f64 {
+        SHAPE_WEIGHT * self.shape + COLOUR_WEIGHT * self.colour + RATIO_WEIGHT * self.ratio
+    }
+}
+
+/// How alike objects `a` and `b` are.
+pub fn score(a: &Object, b: &Object) -> PictureScore {
+    PictureScore {
+        shape: shape_overlap(a, b),
+        colour: colour_overlap(a, b),
+        ratio: ratio_fit(a, b),
+    }
+}
+
+/// The object in a PNG file, `None` when it cannot be read.
+pub fn object_in(path: &Path) -> Option<Object> {
+    let bytes = fs::read(path).ok()?;
+    object(&png::decode(&bytes)?)
 }

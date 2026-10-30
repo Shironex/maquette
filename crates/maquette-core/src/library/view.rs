@@ -1,11 +1,11 @@
 //! The Library view: every entry with where it is used, read from the
-//! projects' asset origins, and what reuse saved.
+//! projects' asset origins, what reuse saved, and the collections.
 
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use super::{LibraryEntry, dir, list};
+use super::{LibraryCollection, LibraryEntry, collections, dir, list};
 use crate::error::CoreResult;
 use crate::game::{GameFormat, ProjectTarget};
 use crate::project;
@@ -49,6 +49,8 @@ pub struct LibraryView {
     /// The library folder, absolute.
     pub dir: String,
     pub items: Vec<LibraryItem>,
+    /// Every collection by name, each listing only entries in `items`.
+    pub collections: Vec<LibraryCollection>,
 }
 
 fn item(root: &Path, entry: LibraryEntry, uses: Vec<LibraryUse>) -> LibraryItem {
@@ -82,6 +84,12 @@ fn item(root: &Path, entry: LibraryEntry, uses: Vec<LibraryUse>) -> LibraryItem 
 /// Fails when the library or projects folder cannot be read.
 pub fn view(root: &Path, layout: &FolderLayout) -> CoreResult<LibraryView> {
     let entries = list(root)?;
+    let mut groups = collections(root)?;
+    for group in &mut groups {
+        group
+            .entries
+            .retain(|id| entries.iter().any(|e| &e.id == id));
+    }
     let projects = project::list(root, layout)?;
     let items = entries
         .into_iter()
@@ -109,5 +117,6 @@ pub fn view(root: &Path, layout: &FolderLayout) -> CoreResult<LibraryView> {
     Ok(LibraryView {
         dir: dir(root).display().to_string(),
         items,
+        collections: groups,
     })
 }

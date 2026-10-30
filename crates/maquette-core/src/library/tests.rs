@@ -8,20 +8,20 @@ use crate::prepare::{Fixup, RealSize, ScenePrep, SizeAxis, SizeUnit};
 use crate::project::{self, NewProject, ProjectTemplate};
 use crate::workspace::FolderLayout;
 
-struct Fixture {
-    root: tempfile::TempDir,
-    layout: FolderLayout,
-    moon: PathBuf,
-    room: PathBuf,
+pub(super) struct Fixture {
+    pub(super) root: tempfile::TempDir,
+    pub(super) layout: FolderLayout,
+    pub(super) moon: PathBuf,
+    pub(super) room: PathBuf,
 }
 
 impl Fixture {
-    fn root(&self) -> &Path {
+    pub(super) fn root(&self) -> &Path {
         self.root.path()
     }
 }
 
-fn stats(triangles: u32) -> ModelStats {
+pub(super) fn stats(triangles: u32) -> ModelStats {
     ModelStats {
         triangles,
         bytes: 1000.0,
@@ -32,7 +32,7 @@ fn stats(triangles: u32) -> ModelStats {
     }
 }
 
-fn new_project(root: &Path, layout: &FolderLayout, name: &str, game: bool) -> PathBuf {
+pub(super) fn new_project(root: &Path, layout: &FolderLayout, name: &str, game: bool) -> PathBuf {
     let m = project::create(
         root,
         layout,
@@ -56,7 +56,7 @@ fn new_project(root: &Path, layout: &FolderLayout, name: &str, game: bool) -> Pa
     project::dir(root, layout, &m.id).expect("dir")
 }
 
-fn write(dir: &Path, file: &str, bytes: &str) {
+pub(super) fn write(dir: &Path, file: &str, bytes: &str) {
     let path = dir.join(file);
     fs::create_dir_all(path.parent().expect("parent")).expect("dir");
     fs::write(path, bytes).expect("write");
@@ -64,7 +64,7 @@ fn write(dir: &Path, file: &str, bytes: &str) {
 
 /// Moon Island has a desk lamp (v1, 80k triangles) with a render, a ref,
 /// a real size and two fix-ups; Study room is empty.
-fn fixture() -> Fixture {
+pub(super) fn fixture() -> Fixture {
     let root = tempfile::tempdir().expect("tempdir");
     let layout = FolderLayout::default();
     let moon = new_project(root.path(), &layout, "Moon Island", false);
@@ -116,7 +116,7 @@ fn fixture() -> Fixture {
     }
 }
 
-fn add_lamp(f: &Fixture, tags: &[&str]) -> LibraryAdded {
+pub(super) fn add_lamp(f: &Fixture, tags: &[&str]) -> LibraryAdded {
     add(
         f.root(),
         &f.layout,
@@ -125,6 +125,7 @@ fn add_lamp(f: &Fixture, tags: &[&str]) -> LibraryAdded {
             asset: "desk-lamp".into(),
             name: None,
             tags: Some(tags.iter().map(ToString::to_string).collect()),
+            into: None,
         },
         &[],
     )
@@ -132,7 +133,7 @@ fn add_lamp(f: &Fixture, tags: &[&str]) -> LibraryAdded {
 }
 
 /// Accepts a second, lighter model of the desk lamp in Moon Island.
-fn second_model(f: &Fixture) {
+pub(super) fn second_model(f: &Fixture) {
     write(&f.moon, "models/desk_lamp_v2.glb", "lamp 2");
     project::modify(f.root(), &f.layout, "moon-island", |m| {
         add_version(
@@ -219,6 +220,7 @@ fn an_asset_without_a_model_is_refused() {
             asset: "bench".into(),
             name: None,
             tags: None,
+            into: None,
         },
         &[],
     );
@@ -275,6 +277,7 @@ fn a_new_model_of_an_asset_that_came_from_an_entry_is_that_entrys_next_version()
             asset: "desk-lamp".into(),
             name: None,
             tags: None,
+            into: None,
         },
         &[],
     )

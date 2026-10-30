@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use super::*;
 use crate::arrivals::matching::tests::{T, waiting};
 use maquette_glb::images::write_png;
+use maquette_model::refs::{picture, png};
 
 const GROUND: [u8; 3] = [212, 212, 216];
 const RED: [u8; 3] = [196, 40, 36];

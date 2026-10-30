@@ -35,14 +35,31 @@ use crate::prepare::ModelPrep;
 use crate::workspace::is_single_segment;
 
 mod add;
+mod collections;
 mod files;
+mod look_alike;
+mod merge;
+mod merge_undo;
+mod names;
+mod plan_many;
+mod remove;
 mod source;
+mod tags;
 mod update;
 mod use_in;
 mod view;
 
 pub use add::{AddToLibrary, LibraryAdded, add};
+pub use collections::{CollectionChange, LibraryCollection, change_collection, collections};
+pub use look_alike::{
+    LookAlikeKind, LookAlikePair, LookAlikeSettings, LookAlikeVerdict, LookAlikes, decide,
+    look_alikes, save_settings, settings as look_alike_settings,
+};
+pub use merge::{LibraryMerge, LibraryMerged, MergeEntries, merge};
+pub use plan_many::{AddManyPlan, PlannedAdd, PlannedState, plan_add_many};
+pub use remove::{LibraryRestored, REMOVED_DIR, remove, restore};
 pub use source::detect as detect_source;
+pub use tags::{TagEntries, rename, tag};
 pub use update::{LibraryUpdated, SettingChange, UpdatePlan, plan_update, update};
 pub use use_in::{LibraryUsed, use_in_project};
 pub use view::{LibraryItem, LibraryUse, LibraryView, view};
@@ -272,8 +289,15 @@ pub fn clean_tags(tags: &[String]) -> CoreResult<Vec<String>> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_batch;
+#[cfg(test)]
+mod tests_merge;
+#[cfg(test)]
+mod tests_plan;
 
-/// Registers this module's IPC types (library entries, their uses and updates) with the shell's
+/// Registers this module's IPC types (library entries, their uses, updates, tags,
+/// collections, look-alikes, merges and batch adds) with the shell's
 /// TypeScript export; `maquette_core::types` folds every module's in.
 pub fn register(types: specta::Types) -> specta::Types {
     types
@@ -290,4 +314,19 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<SettingChange>()
         .register::<UpdatePlan>()
         .register::<LibraryUpdated>()
+        .register::<TagEntries>()
+        .register::<LibraryCollection>()
+        .register::<CollectionChange>()
+        .register::<LibraryRestored>()
+        .register::<LookAlikeSettings>()
+        .register::<LookAlikeKind>()
+        .register::<LookAlikeVerdict>()
+        .register::<LookAlikePair>()
+        .register::<LibraryMerge>()
+        .register::<LookAlikes>()
+        .register::<MergeEntries>()
+        .register::<LibraryMerged>()
+        .register::<PlannedState>()
+        .register::<PlannedAdd>()
+        .register::<AddManyPlan>()
 }
