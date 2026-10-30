@@ -75,6 +75,18 @@ pub struct FingerStraighten {
     pub skipped: Option<String>,
 }
 
+/// A hand whose finger joints sat bunched at the wrist, placed along the
+/// fingers its mesh shows and reweighted to them.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", default)]
+pub struct FingerRepair {
+    /// Vertices whose weights changed.
+    pub vertices: u32,
+    /// The middle finger's reach from the wrist before and after, metres.
+    pub reach_before: f64,
+    pub reach_after: f64,
+}
+
 /// The skin weights over the bone groups.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", default)]
@@ -107,6 +119,8 @@ pub struct NormalizeReport {
     pub fingers: Fingers,
     /// Per side, how far the fingers were straightened; empty when kept.
     pub straightened: BTreeMap<String, FingerStraighten>,
+    /// Per side, the hands whose bunched finger joints were repaired.
+    pub repaired: BTreeMap<String, FingerRepair>,
     pub weights_before: WeightChecks,
     pub weights: WeightChecks,
 }
