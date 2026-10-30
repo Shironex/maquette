@@ -59,13 +59,16 @@
  * Inspector's Parts tab and before and after, and the fixes set
  * (scripts/visual-check/fixes.mjs) a download's look card with its picture
  * suggestions, a rotate fix-up, Add a model file, a game folder, the moved
- * file in the Ship plan and the drop maps switch. It renders
+ * file in the Ship plan and the drop maps switch, and the avatar set
+ * (scripts/visual-check/avatar.mjs) the Avatar view: readiness, meta, a rest
+ * pose waiting for a yes with its sheets, the written VRM, an agent's
+ * floating card and Settings > Avatar defaults. It renders
  * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=codex, ONLY=images, ONLY=fixes or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=codex, ONLY=images, ONLY=fixes, ONLY=avatar or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -83,6 +86,7 @@ import { fixesShots } from './visual-check/fixes.mjs';
 import { gameShots } from './visual-check/game.mjs';
 import { libraryShots } from './visual-check/library.mjs';
 import { animationsShots } from './visual-check/animations.mjs';
+import { avatarShots } from './visual-check/avatar.mjs';
 import { compareShots } from './visual-check/compare.mjs';
 import { shipShots } from './visual-check/ship.mjs';
 import { motionShots } from './visual-check/motion.mjs';
@@ -1108,6 +1112,8 @@ try {
   if (!only || only === 'images') await imagesShots({ open, shot });
   await settle();
   if (!only || only === 'fixes') await fixesShots({ open, shot });
+  await settle();
+  if (!only || only === 'avatar') await avatarShots({ open, shot });
   await settle();
 } finally {
   await browser.close();
