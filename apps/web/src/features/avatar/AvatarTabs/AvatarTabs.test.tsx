@@ -8,13 +8,16 @@ import AvatarTabs from './AvatarTabs';
 afterEach(() => clearMocks());
 
 describe('the avatar tabs', () => {
-  it('build Export only and show the rest as later', async () => {
+  it('build Export and Preview, switch between them and show the rest as later', async () => {
     await openAvatar();
     render(<AvatarTabs />);
     expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true');
-    for (const later of ['Springs', 'Expressions', 'Preview']) {
+    for (const later of ['Springs', 'Expressions']) {
       expect(screen.getByText(later)).toHaveAttribute('title', expect.stringMatching(/planned/));
     }
+    await userEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+    expect(useAvatarStore.getState().tab).toBe('preview');
+    expect(screen.getByRole('tab', { name: 'Preview' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('lists the versions, marks the one that waits and reloads on a pick', async () => {

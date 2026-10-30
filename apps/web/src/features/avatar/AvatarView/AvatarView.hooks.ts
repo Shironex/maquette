@@ -20,6 +20,7 @@ export function useAvatarView() {
   const loading = useAvatarStore(s => s.loading);
   const error = useAvatarStore(s => s.error);
   const building = useAvatarStore(s => s.building);
+  const tab = useAvatarStore(s => s.tab);
   const list = characters(project);
   const projectId = project?.id ?? null;
   const known = list.some(a => a.id === asset);
@@ -39,6 +40,7 @@ export function useAvatarView() {
     stages: stageViews(project?.assets ?? [], latest, project?.target),
     count: list.length,
     view,
+    tab,
     loading,
     error,
     retry: () => void useAvatarStore.getState().load(),

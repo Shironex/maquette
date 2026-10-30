@@ -1,20 +1,23 @@
 import { Select, Tabs } from '@maquette/ui';
+import type { AvatarTab } from '@/state/use-avatar-store';
 import { useAvatarTabs } from './AvatarTabs.hooks';
 
-const TABS = [{ id: 'export', label: 'Export' }] as const;
+const TABS = [
+  { id: 'export', label: 'Export' },
+  { id: 'preview', label: 'Preview' },
+] as const;
 
 /** Planned tabs, shown so the person knows they are coming. */
 const LATER = [
   { label: 'Springs', why: 'Spring bones for hair and cloth. Not built yet.' },
   { label: 'Expressions', why: 'Blink, mouth and mood expressions. Not built yet.' },
-  { label: 'Preview', why: 'The avatar as a VRM app shows it. Not built yet.' },
 ];
 
-/** The avatar's name and version over its tabs; only Export is built so far. */
+/** The avatar's name and version over its tabs: Export, Preview, and the ones still to come. */
 export default function AvatarTabs() {
   const tabs = useAvatarTabs();
   if (!tabs) return null;
-  const { view, options, setVersion } = tabs;
+  const { view, options, setVersion, tab, setTab } = tabs;
   const later = LATER.map(tab => (
     <span
       key={tab.label}
@@ -45,7 +48,12 @@ export default function AvatarTabs() {
         )}
       </div>
       <div className="flex flex-none items-end gap-4 border-b border-line">
-        <Tabs tabs={TABS} value="export" onChange={() => undefined} className="border-b-0" />
+        <Tabs
+          tabs={TABS}
+          value={tab}
+          onChange={id => setTab(id as AvatarTab)}
+          className="border-b-0"
+        />
         {later}
       </div>
     </div>
