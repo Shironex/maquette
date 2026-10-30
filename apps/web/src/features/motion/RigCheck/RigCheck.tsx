@@ -4,7 +4,7 @@ import { useRigCheck } from './RigCheck.hooks';
 
 /** The rig check of the selected model: bones, weights and what the library misses. */
 export default function RigCheck() {
-  const { model, lines, file, openMap, facts } = useRigCheck();
+  const { model, lines, file, openMap, facts, character, openAvatar } = useRigCheck();
   if (!model) return null;
   const rows = lines.map(line => (
     <CheckRow
@@ -21,6 +21,15 @@ export default function RigCheck() {
             onClick={openMap}
           >
             Map bones
+          </Button>
+        ) : line.avatar && character ? (
+          <Button
+            size="sm"
+            icon="person-arms-spread"
+            tooltip="Opens the Avatar view to export this character as VRM"
+            onClick={openAvatar}
+          >
+            Open Avatar
           </Button>
         ) : undefined
       }

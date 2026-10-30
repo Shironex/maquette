@@ -4,6 +4,7 @@ import { formatAgo } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import { fileName } from '@/state/pipeline';
 import { useAppStore } from '@/state/use-app-store';
+import { useAvatarStore } from '@/state/use-avatar-store';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useRetargetStore } from '@/state/use-retarget-store';
 
@@ -14,6 +15,8 @@ export interface RigLine {
   detail?: string;
   /** The row offers the bone map. */
   map?: boolean;
+  /** The row offers the Avatar view. */
+  avatar?: boolean;
 }
 
 /** Web skinning plays four influences per vertex at most. */
@@ -32,6 +35,7 @@ export function vrmLine(vrm: VrmReadiness): RigLine {
       ? `VRM ready, ${vrm.mapped} of ${VRM_BONES} bones`
       : `Not VRM ready: ${blockers} ${blockers === 1 ? 'thing' : 'things'} to fix`,
     detail: vrm.findings.map(f => `${f.title}.`).join(' '),
+    avatar: true,
   };
 }
 
@@ -110,6 +114,11 @@ export function useRigCheck() {
     model,
     lines: model ? rigLines(model) : [],
     file: model ? fileName(model.path) : '',
+    /** Characters export as VRM avatars; other rigs only read their readiness. */
+    character: model?.kind === 'character',
+    openAvatar: () => {
+      if (model && projectId) useAvatarStore.getState().open(projectId, model.asset);
+    },
     openMap: () => {
       if (model && projectId) {
         void openRetarget({ project: projectId, asset: model.asset, step: 'map' });
