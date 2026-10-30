@@ -10,6 +10,7 @@ import {
   Select,
   cn,
 } from '@maquette/ui';
+import type { AssetKind } from '@/ipc/client';
 import { formatAgo } from '@/lib/format';
 import { checkSummary, itemTitle, kindHint, reviewPrompt } from '@/state/inbox';
 import { useAnimationsStore } from '@/state/use-animations-store';
@@ -17,11 +18,17 @@ import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { CheckFixes } from '../CheckFixes';
 import { DiscardDialog } from '../DiscardDialog';
 import { InboxPrep } from '../InboxPrep';
-import { BADGE, KINDS, MODE_ICON } from './constants';
+import { BADGE, MODE_ICON } from '@/features/viewer/previewModes';
 import { useInboxDetail, useInboxPreview } from './InboxDetail.hooks';
 import type { InboxDetailProps } from './InboxDetail.types';
 
 const ModelPreview = lazy(() => import('@/features/viewer/ModelPreview'));
+
+const KINDS: readonly { value: AssetKind; label: string }[] = [
+  { value: 'prop', label: 'Prop' },
+  { value: 'character', label: 'Character' },
+  { value: 'scene', label: 'Scene' },
+];
 
 /** One inbox model: the 3D preview, its checks and source, and Accept to Blender. */
 export default function InboxDetail({ item }: InboxDetailProps) {
