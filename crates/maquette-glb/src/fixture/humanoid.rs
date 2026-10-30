@@ -14,7 +14,7 @@ use super::skeleton::{skeleton, world_positions};
 mod hands;
 mod names;
 
-use hands::{curl_fingers, hand_piece};
+use hands::{curl_fingers, hair_strip, hand_piece};
 use names::rename;
 
 /// The bone names a fixture humanoid uses.
@@ -97,6 +97,10 @@ pub struct HumanoidSpec {
     /// A small piece of its own weighted wholly to the left hand, hanging
     /// well off it, as a nail or a held prop an auto rig gives the hand.
     pub hand_piece: bool,
+    /// A ribbon of hair sewn to the head that hangs just behind the left
+    /// hand, its lower end weighted partly to a finger bone. Built after
+    /// every box, so it does not go with `split` or a `flaw`.
+    pub hair_strip: bool,
 }
 
 impl Default for HumanoidSpec {
@@ -117,6 +121,7 @@ impl Default for HumanoidSpec {
             flaw: SkinFlaw::None,
             finger_curl: 0.0,
             hand_piece: false,
+            hair_strip: false,
         }
     }
 }
@@ -298,6 +303,9 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
 
     if spec.hand_piece {
         hand_piece(&mut mesh, &world);
+    }
+    if spec.hair_strip {
+        hair_strip(&mut mesh, &world);
     }
 
     flaw_box(&mut mesh, spec.flaw, joints.len());

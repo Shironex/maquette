@@ -623,11 +623,13 @@ uses.
   arm chain holds that sits more than twice the arm's own radius from it, the radius read from the
   mesh around each arm segment in `arm_weights.rs`). The script cuts the mesh in slices along each
   arm, keeps the loops that hug the bone and follow on from slice to slice (sleeves, gloves, the
-  hand, a cuff or a separate glove whole; a vertex weighted mostly to the hand and finger bones,
-  or past the wrist within 6% of the height of the bones, always stays), and moves every other vertex's arm weight to spine,
-  chest and upperChest (and the shoulder above the armpit) by inverse distance, with a geodesic
-  band at the boundary so cloth sewn to a sleeve stretches instead of tearing. Only `JOINTS_0` and
-  `WEIGHTS_0` change, at most 4 influences; `finish` refuses an output with unweighted vertices or
+  hand, a cuff or a separate glove whole; the hand's own surface, reached over mesh edges from the
+  arm at the wrist through what lies past it near the bones, always stays, with a small piece of
+  its own lying on it or weighted mostly to it, while hair that only hangs beside the hand does
+  not), and moves every other vertex's arm weight to spine, chest and upperChest (and the
+  shoulder above the armpit) by inverse distance, with a geodesic band at the boundary so cloth
+  sewn to a sleeve stretches instead of tearing. Only `JOINTS_0` and `WEIGHTS_0` change, at most
+  4 influences; `finish` refuses an output with unweighted vertices or
   more influences. The result lives in `v<version>/reweight/`, keyed and cached like the
   normalise, with its own before and after sheets (rest, arms level, arms raised). Both share
   `avatar/gate.rs`: a result starts `Pending`, and a yes holds only for the output bytes it was

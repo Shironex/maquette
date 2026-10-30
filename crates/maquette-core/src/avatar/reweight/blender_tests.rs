@@ -96,11 +96,14 @@ fn whatever_the_hand_holds_stays_with_the_arm_in_blender() {
         return;
     };
     // The strip below the upper arm still needs freeing; the piece weighted
-    // to the hand, far off it, must not lose its weight with it.
+    // to the hand, far off it, must not lose its weight with it. The hair
+    // sewn to the head hangs just behind the hand with most of its end on a
+    // finger bone: it is not the hand's surface, so it is freed.
     let w = world_with(&fixture::humanoid(&HumanoidSpec {
         arm_drop: 55.0,
         cape_strip: true,
         hand_piece: true,
+        hair_strip: true,
         animation: false,
         ..HumanoidSpec::default()
     }));
@@ -119,6 +122,14 @@ fn whatever_the_hand_holds_stays_with_the_arm_in_blender() {
     assert!(found.report.moved > 0, "{:#?}", found.report);
     assert!(
         !found.report.from_bones.contains_key("mixamorig:LeftHand"),
+        "{:#?}",
+        found.report.from_bones
+    );
+    assert!(
+        found
+            .report
+            .from_bones
+            .contains_key("mixamorig:LeftHandIndex4"),
         "{:#?}",
         found.report.from_bones
     );
