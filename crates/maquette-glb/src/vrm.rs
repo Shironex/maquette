@@ -32,8 +32,11 @@
 //! reads the written bytes back and checks them as a runtime would.
 //! [`add_springs`] adds secondary motion (`VRMC_springBone`) to written
 //! bytes, for chains of joints added to hanging parts ([`springs`]).
+//! [`swap_base_color`] puts other base color images into written bytes,
+//! such as a copy with its baked highlights softened.
 
 mod arm_weights;
+mod base_color;
 mod bones;
 mod container;
 mod findings;
@@ -53,6 +56,7 @@ use serde::{Deserialize, Serialize};
 use crate::analyse::{load_uri, world_matrices};
 use maquette_base::error::{CoreError, CoreResult};
 
+pub use base_color::{BaseColorImage, BaseColorSwap, base_color_images, swap_base_color};
 pub use bones::{
     BoneNaming, BoneOverrides, HUMAN_BONES, HUMANOID_JOINTS_MIN, NamingReport, REQUIRED_BONES,
 };
@@ -348,6 +352,8 @@ pub(crate) fn register(types: specta::Types) -> specta::Types {
         .register::<SpringCollider>()
 }
 
+#[cfg(test)]
+mod base_color_tests;
 #[cfg(test)]
 mod fingers_tests;
 #[cfg(test)]
