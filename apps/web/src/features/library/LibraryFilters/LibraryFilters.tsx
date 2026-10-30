@@ -1,26 +1,41 @@
 import { FilterList, FilterGroup, FilterOption } from '@/features/common/FilterList';
-import type { LibraryItem } from '@/ipc/client';
+import type { LibraryCollection, LibraryItem } from '@/ipc/client';
 import {
   NOT_USED,
   SOURCE_LABEL,
+  UNTAGGED,
   formatCounts,
   projectCounts,
   sourceCounts,
   tagCounts,
   type LibraryFilters as Filters,
 } from '@/state/library';
+import { NewCollection } from '../NewCollection';
+
+/** The dots that tell collections apart, in turn. */
+const DOTS = ['bg-clay', 'bg-sage', 'bg-amber', 'bg-fg-dim', 'bg-danger'];
 
 export interface LibraryFiltersProps {
   items: readonly LibraryItem[];
   filters: Filters;
   onChange: (change: Partial<Filters>) => void;
+  collections?: readonly LibraryCollection[];
+  /** The bulk selection, which a new collection starts with. */
+  selected?: readonly string[];
 }
 
 /**
- * Tags, what made each model, its format and the projects that use it.
- * Picking an option again clears it; the counts are over the whole library.
+ * Collections, tags (models with none called out), what made each model,
+ * its format and the projects that use it. Picking an option again clears
+ * it; the counts are over the whole library.
  */
-export default function LibraryFilters({ items, filters, onChange }: LibraryFiltersProps) {
+export default function LibraryFilters({
+  items,
+  filters,
+  onChange,
+  collections = [],
+  selected = [],
+}: LibraryFiltersProps) {
   const toggle = <K extends keyof Filters>(key: K, value: Filters[K]) =>
     onChange({ [key]: filters[key] === value ? null : value } as Partial<Filters>);
   const tags = tagCounts(items).map(([tag, n]) => (
@@ -64,17 +79,50 @@ export default function LibraryFilters({ items, filters, onChange }: LibraryFilt
     />
   ));
   const unused = items.filter(i => i.uses.length === 0).length;
+  const untagged = items.filter(i => i.entry.tags.length === 0).length;
+  const sets = collections.map((c, n) => (
+    <FilterOption
+      key={c.id}
+      label={
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className={`size-2 flex-none rounded-full ${DOTS[n % DOTS.length]}`}
+          />
+          <span className="truncate">{c.name}</span>
+        </span>
+      }
+      count={c.entries.length}
+      on={filters.collection === c.id}
+      onClick={() => toggle('collection', c.id)}
+    />
+  ));
+  const anyFilter = filters.collection || filters.tag !== null || filters.source || filters.format;
 
   return (
     <FilterList>
-      <FilterGroup title="Tags">
+      <FilterGroup title="Collections">
         <FilterOption
           label="All models"
           count={items.length}
-          on={!filters.tag && !filters.source && !filters.format && filters.usedIn === null}
-          onClick={() => onChange({ tag: null, source: null, format: null, usedIn: null })}
+          on={!anyFilter && filters.usedIn === null}
+          onClick={() =>
+            onChange({ collection: null, tag: null, source: null, format: null, usedIn: null })
+          }
         />
+        {sets}
+        <NewCollection entries={selected} />
+      </FilterGroup>
+      <FilterGroup title="Tags">
         {tags}
+        {untagged ? (
+          <FilterOption
+            label={<span className="text-amber">untagged</span>}
+            count={untagged}
+            on={filters.tag === UNTAGGED}
+            onClick={() => toggle('tag', UNTAGGED)}
+          />
+        ) : null}
       </FilterGroup>
       <FilterGroup title="Made with">{sources}</FilterGroup>
       {formats.length > 1 ? <FilterGroup title="Format">{formats}</FilterGroup> : null}
