@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::avatar::normalize::Elbows;
+use crate::avatar::normalize::{Elbows, Fingers};
 use crate::avatar::reweight::{FINDING, ReweightReport};
 use crate::inbox::vrm::{
     self, AvatarPermission, BoneNaming, BoneOverrides, CommercialUsage, CreditNotation,
@@ -133,6 +133,10 @@ pub struct AvatarReport {
     pub normalized: bool,
     /// The elbows mode of the normalise; `None` when nothing was normalised.
     pub elbows: Option<Elbows>,
+    /// The fingers mode of the normalise; `None` when nothing was
+    /// normalised, or for a report older than the option.
+    #[serde(default)]
+    pub fingers: Option<Fingers>,
     /// What the approved reweight the arms were lifted from changed: the
     /// vertices that gave arm weight to the trunk, from which arm bones and
     /// to which trunk bones, and those kept as sleeve. `None` when no

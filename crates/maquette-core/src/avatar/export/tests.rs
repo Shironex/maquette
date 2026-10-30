@@ -18,6 +18,7 @@ fn request(w: &World) -> AvatarRequest<'_> {
         version: None,
         elbows: Elbows::Straighten,
         reweight: ReweightMode::Auto,
+        fingers: Fingers::Straighten,
     }
 }
 
@@ -539,6 +540,7 @@ fn after_a_reweight_the_cloth_left_on_the_arms_is_a_note_not_an_offer() {
         assert_eq!(found["level"], "note", "{found}");
         assert_eq!(found["title"], after.title.as_str());
     }
+    assert_eq!(report["fingers"], "straighten");
     // The source's own readiness still offers the reweight.
     let before = report["before"]["findings"]
         .as_array()

@@ -1,7 +1,8 @@
 //! Normalising a rigged model's rest pose for VRM: Blender turns a copy of
 //! one asset version to face +Z, centres and grounds it, lifts the arms to
-//! level and makes that pose the rest ([`SCRIPT`]), and draws pose sheets
-//! before and after.
+//! level, straightens the fingers as far as the hand's mesh holds and makes
+//! that pose the rest ([`SCRIPT`]), and draws pose sheets before and after,
+//! with a row of the hands up close.
 //!
 //! The result is derived, never a new version: it lives in
 //! `<workspace cache>/avatar/<project>/<asset>/v<version>/`, with the
@@ -44,8 +45,8 @@ use crate::workspace::WorkspaceConfig;
 use super::gate::{APPROVAL_FILE, DENIAL_FILE};
 pub use approval::{approve, approved_glb, deny, load, write_vrm};
 pub use report::{
-    ArmLift, NormalizeReport, NormalizeSheets, NormalizeState, Normalized, PoseMeasures,
-    WeightChecks,
+    ArmLift, FingerStraighten, Fingers, NormalizeReport, NormalizeSheets, NormalizeState,
+    Normalized, PoseMeasures, WeightChecks,
 };
 
 /// The script, run headless on a copy of the model.
@@ -107,6 +108,7 @@ pub struct NormalizeRequest<'a> {
     /// The avatar spec's bone map overrides.
     pub overrides: &'a BoneOverrides,
     pub elbows: Elbows,
+    pub fingers: Fingers,
 }
 
 /// A planned run: what it reads, where it writes and its cache key.
@@ -123,6 +125,7 @@ pub struct NormalizePlan {
     pub bones: BTreeMap<String, String>,
     pub overrides: BoneOverrides,
     pub elbows: Elbows,
+    pub fingers: Fingers,
     /// The source's readiness, before.
     pub readiness: VrmReadiness,
     pub key: String,
@@ -140,6 +143,7 @@ struct Job<'a> {
     sheets: BTreeMap<&'a str, &'a str>,
     bones: &'a BTreeMap<String, String>,
     elbows: Elbows,
+    fingers: Fingers,
 }
 
 fn outputs() -> Vec<String> {
@@ -199,7 +203,7 @@ pub fn plan(req: &NormalizeRequest<'_>) -> CoreResult<NormalizePlan> {
         None => (found.source, source_hash),
     };
     hasher.flush();
-    let key = key(&source_hash, &bones, req.elbows);
+    let key = key(&source_hash, &bones, req.elbows, req.fingers);
     Ok(NormalizePlan {
         project: req.project.to_string(),
         asset: found.asset,
@@ -209,6 +213,7 @@ pub fn plan(req: &NormalizeRequest<'_>) -> CoreResult<NormalizePlan> {
         bones,
         overrides: req.overrides.clone(),
         elbows: req.elbows,
+        fingers: req.fingers,
         readiness,
         key,
         reweight: reweighted.map(|r| r.report),
@@ -285,16 +290,23 @@ pub(super) fn fixable_bones(
 }
 
 /// The run's key: everything that decides the output.
-fn key(source_hash: &str, bones: &BTreeMap<String, String>, elbows: Elbows) -> String {
+fn key(
+    source_hash: &str,
+    bones: &BTreeMap<String, String>,
+    elbows: Elbows,
+    fingers: Fingers,
+) -> String {
     let mut hasher = Sha256::new();
     let bones = serde_json::to_string(bones).unwrap_or_default();
     let elbows = serde_json::to_string(&elbows).unwrap_or_default();
+    let fingers = serde_json::to_string(&fingers).unwrap_or_default();
     for part in [
         KEY_VERSION,
         source_hash,
         &SCRIPT.replace("\r\n", "\n"),
         &bones,
         &elbows,
+        &fingers,
     ] {
         hasher.update(part.as_bytes());
         hasher.update(b"\n");
@@ -311,13 +323,14 @@ impl NormalizePlan {
 }
 
 /// The findings normalising exists for: a rest pose that is not VRM's yet
-/// (facing, arms) or stands off the ground or the centre. Without any of
-/// them the model is written as it is and nothing waits for a yes.
+/// (facing, arms, curled fingers) or stands off the ground or the centre.
+/// Without any of them the model is written as it is and nothing waits for
+/// a yes.
 pub fn needs_normalize(readiness: &VrmReadiness) -> bool {
     readiness
         .findings
         .iter()
-        .any(|f| ["facing", "arms", "ground", "centre"].contains(&f.id.as_str()))
+        .any(|f| ["facing", "arms", "fingers", "ground", "centre"].contains(&f.id.as_str()))
 }
 
 /// True when the folder holds this key's outputs, untouched.
@@ -362,6 +375,7 @@ pub fn run(
         sheets: BTreeMap::from([("before", SHEET_BEFORE), ("after", SHEET_AFTER)]),
         bones: &plan.bones,
         elbows: plan.elbows,
+        fingers: plan.fingers,
     };
     write_json(&dir.join(JOB_FILE), &job)?;
     let started = Instant::now();

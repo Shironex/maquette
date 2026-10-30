@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use super::*;
 use crate::avatar::normalize::tests::world_with;
-use crate::avatar::normalize::{self, Elbows, NormalizeRequest};
+use crate::avatar::normalize::{self, Elbows, Fingers, NormalizeRequest};
 use crate::inbox::fixture::{self, HumanoidSpec};
 use crate::test_blender;
 
@@ -67,6 +67,7 @@ fn reweight_then_normalise_a_model_in_blender() {
         version: None,
         overrides: &none,
         elbows: Elbows::Straighten,
+        fingers: Fingers::Straighten,
     })
     .expect("normalise plan");
     assert_eq!(lifted.source.display().to_string(), found.glb);

@@ -1,6 +1,6 @@
 //! What a normalising run leaves to judge it by: the script's report
-//! (measures before and after, the arm lifts, the weight checks) and the
-//! result with its approval state.
+//! (measures before and after, the arm lifts, how far the fingers were
+//! straightened, the weight checks) and the result with its approval state.
 
 use std::collections::BTreeMap;
 
@@ -28,6 +28,11 @@ pub struct PoseMeasures {
     /// Degrees each elbow bends at rest.
     pub elbow_left_deg: Option<f64>,
     pub elbow_right_deg: Option<f64>,
+    /// Degrees each finger curls (`leftIndex`), a hand whose finger bones
+    /// sit bunched at the wrist left out.
+    pub fingers: BTreeMap<String, f64>,
+    /// The most any finger curls.
+    pub finger_curl_deg: Option<f64>,
     pub ground_y: f64,
     pub height: f64,
     pub hips: [f64; 3],
@@ -42,6 +47,32 @@ pub struct ArmLift {
     pub shoulder_deg: f64,
     /// Only when the elbows were straightened.
     pub elbow_deg: Option<f64>,
+}
+
+/// What happens to the fingers when the rest pose is normalised.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum Fingers {
+    /// Laid straight along the hand, as far as the hand's mesh holds.
+    #[default]
+    Straighten,
+    /// Left as the rig has them.
+    Keep,
+}
+
+/// How far one hand's fingers were straightened.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", default)]
+pub struct FingerStraighten {
+    /// The share of the way to straight, 0 to 1: less where the whole way
+    /// stretched the finger mesh too far and would tear fused fingers.
+    pub share: f64,
+    /// How much the finger edges stretched there (95th percentile, a ratio).
+    pub stretch: Option<f64>,
+    /// The largest turn of one finger joint, degrees.
+    pub turned_deg: Option<f64>,
+    /// Why the hand was left as it was.
+    pub skipped: Option<String>,
 }
 
 /// The skin weights over the bone groups.
@@ -73,6 +104,9 @@ pub struct NormalizeReport {
     pub moved: [f64; 3],
     pub elbows: Elbows,
     pub lifted: BTreeMap<String, ArmLift>,
+    pub fingers: Fingers,
+    /// Per side, how far the fingers were straightened; empty when kept.
+    pub straightened: BTreeMap<String, FingerStraighten>,
     pub weights_before: WeightChecks,
     pub weights: WeightChecks,
 }

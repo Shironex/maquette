@@ -74,6 +74,7 @@ fn normalise_a_model_in_blender() {
         version: None,
         overrides: &none,
         elbows: Elbows::Keep,
+        fingers: Fingers::Straighten,
     })
     .expect("plan");
     let runner = test_blender::runner();
@@ -108,4 +109,83 @@ fn normalise_a_model_in_blender() {
             fs::copy(planned.dir.join(name), out.join(name)).expect("copy");
         }
     }
+}
+
+/// The PNG's height in pixels, from its header.
+fn png_height(path: &str) -> u32 {
+    let bytes = fs::read(path).expect("sheet");
+    u32::from_be_bytes(bytes[20..24].try_into().expect("IHDR height"))
+}
+
+#[test]
+#[ignore = "runs Blender"]
+fn curled_fingers_come_out_straight_in_blender() {
+    let Some(blender) = test_blender::blender() else {
+        return;
+    };
+    let model = fixture::humanoid(&HumanoidSpec {
+        arm_drop: 55.0,
+        yaw: 90.0,
+        finger_curl: 20.0,
+        animation: false,
+        ..HumanoidSpec::default()
+    });
+    let w = super::tests::world_with(&model);
+    let none = BoneOverrides::new();
+    let request = |fingers| NormalizeRequest {
+        workspace_root: &w.root,
+        config: &w.config,
+        project: &w.project,
+        asset: &w.asset,
+        version: None,
+        overrides: &none,
+        elbows: Elbows::Straighten,
+        fingers,
+    };
+    let planned = plan(&request(Fingers::Straighten)).expect("plan");
+    assert!(
+        planned.readiness.findings.iter().any(|f| f.id == "fingers"),
+        "{:#?}",
+        planned.readiness.findings
+    );
+    let runner = test_blender::runner();
+    let tools = test_blender::toolbox(&blender);
+    let found = run(&runner, &tools, &planned).expect("normalise");
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&found.report).expect("json")
+    );
+    let report = &found.report;
+    assert!(
+        report.before.finger_curl_deg.is_some_and(|d| d > 50.0),
+        "{report:?}"
+    );
+    assert!(
+        report.after.finger_curl_deg.is_some_and(|d| d < 2.0),
+        "{report:?}"
+    );
+    for side in ["left", "right"] {
+        assert_eq!(report.straightened[side].share, 1.0, "{report:?}");
+    }
+    assert!(
+        found.readiness.findings.iter().all(|f| f.id != "fingers"),
+        "{:#?}",
+        found.readiness.findings
+    );
+    assert!(
+        found
+            .readiness
+            .pose
+            .finger_curl_deg
+            .is_some_and(|d| d < 2.0)
+    );
+    // Four pose rows and the hands row, 400 pixels each.
+    assert_eq!(png_height(&found.sheets.after), 2000);
+
+    // Kept, they stay as they were.
+    let kept = plan(&request(Fingers::Keep)).expect("plan");
+    let found = run(&runner, &tools, &kept).expect("normalise");
+    assert!(found.report.straightened.is_empty());
+    assert!(found.report.after.finger_curl_deg.is_some_and(|d| d > 50.0));
+    assert!(found.readiness.findings.iter().any(|f| f.id == "fingers"));
 }

@@ -20,7 +20,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use super::normalize::{
-    self, AVATAR_DIR, Elbows, NormalizeRequest, NormalizeState, Normalized, needs_normalize,
+    self, AVATAR_DIR, Elbows, Fingers, NormalizeRequest, NormalizeState, Normalized,
+    needs_normalize,
 };
 use super::reweight::{self, ReweightMode, ReweightReport, ReweightRequest, Reweighted};
 use super::{AvatarSpec, SceneAvatars};
@@ -111,6 +112,7 @@ pub struct AvatarRequest<'a> {
     pub version: Option<u32>,
     pub elbows: Elbows,
     pub reweight: ReweightMode,
+    pub fingers: Fingers,
 }
 
 /// The asset and the version a request names.
@@ -177,6 +179,7 @@ pub struct AvatarPlan {
     /// denied.
     pub reweight_state: Option<NormalizeState>,
     pub elbows: Elbows,
+    pub fingers: Fingers,
     /// A normalised result with these options is already there, so Blender
     /// does not run again.
     pub cached: bool,
@@ -223,6 +226,7 @@ fn normalize_request<'a>(req: &'a AvatarRequest<'a>, spec: &'a AvatarSpec) -> No
         version: req.version,
         overrides: &spec.bones,
         elbows: req.elbows,
+        fingers: req.fingers,
     }
 }
 
@@ -298,6 +302,7 @@ pub fn plan(req: &AvatarRequest<'_>) -> CoreResult<AvatarPlan> {
         reweight,
         reweight_state,
         elbows: req.elbows,
+        fingers: req.fingers,
         cached,
         state,
         material: spec.material,
@@ -333,11 +338,11 @@ pub fn build(
     let dir = asset_dir(req.workspace_root, req.config, req.project, &src.asset.id);
     let output = vrm_file(&src.project_dir, &src.asset.id);
     let file = src.file.clone().unwrap_or_default();
-    let built = |written, source_version, elbows, reweight| Built {
+    let built = |written, source_version, options, reweight| Built {
         written,
         source: &file,
         source_version,
-        elbows,
+        options,
         reweight,
         spec: &spec,
         before: &readiness,
@@ -376,7 +381,7 @@ pub fn build(
                 &built(
                     written,
                     plan.version,
-                    Some(req.elbows),
+                    Some((req.elbows, req.fingers)),
                     found.reweight.clone(),
                 ),
             )?;
@@ -394,8 +399,9 @@ struct Built<'a> {
     /// The source version's model file.
     source: &'a Path,
     source_version: u32,
-    /// The elbows mode of the normalise; `None` when nothing was normalised.
-    elbows: Option<Elbows>,
+    /// The elbows and fingers of the normalise; `None` when nothing was
+    /// normalised.
+    options: Option<(Elbows, Fingers)>,
     /// What the approved reweight the arms were lifted from changed.
     reweight: Option<ReweightReport>,
     spec: &'a AvatarSpec,
@@ -435,8 +441,9 @@ fn save(dir: &Path, output: &Path, built: &Built<'_>) -> CoreResult<AvatarExport
             sha256: hash_file(built.source).map_err(|e| CoreError::io(built.source, e))?,
         },
         material: built.spec.material,
-        normalized: built.elbows.is_some(),
-        elbows: built.elbows,
+        normalized: built.options.is_some(),
+        elbows: built.options.map(|o| o.0),
+        fingers: built.options.map(|o| o.1),
         reweight: built.reweight.clone(),
         before: built.before.into(),
         after: after.as_ref().map(Into::into),
@@ -455,7 +462,7 @@ fn save(dir: &Path, output: &Path, built: &Built<'_>) -> CoreResult<AvatarExport
         )]
         bytes: written.bytes.len() as f64,
         source_version: built.source_version,
-        normalized: built.elbows.is_some(),
+        normalized: built.options.is_some(),
         reweighted: built.reweight.is_some(),
         material: built.spec.material,
         unresolved,
