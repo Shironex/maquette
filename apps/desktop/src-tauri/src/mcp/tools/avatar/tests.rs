@@ -1,7 +1,9 @@
 use std::path::Path;
 
+use maquette_core::avatar::Highlights;
 use maquette_core::avatar::export::AvatarExport;
 use maquette_core::avatar::export::SpringsView;
+use maquette_core::avatar::highlights::{HighlightsReport, ImageHighlights};
 use maquette_core::avatar::normalize::{NormalizeReport, NormalizeSheets, NormalizeState};
 use maquette_core::avatar::reweight::ReweightReport;
 use maquette_core::avatar::springs::{
@@ -178,6 +180,20 @@ fn a_written_build_names_its_report_and_round_trip() {
         normalized: false,
         reweighted: false,
         material: MaterialMode::MtoonSoft,
+        highlights: Some(Box::new(HighlightsReport {
+            mode: Highlights::Soften,
+            strength: 0.75,
+            images: vec![ImageHighlights {
+                image: 1,
+                width: 2048,
+                height: 2048,
+                coverage: 0.03,
+                dark_coverage: 0.032,
+                softened: true,
+                note: None,
+            }],
+            note: None,
+        })),
         unresolved: Vec::new(),
         written_at: "2026-10-30T12:00:00Z".into(),
         exists: true,
@@ -200,6 +216,8 @@ fn a_written_build_names_its_report_and_round_trip() {
     assert_eq!(answer["roundTrip"]["passed"], true);
     assert_eq!(answer["roundTrip"]["bones"], 52);
     assert_eq!(answer["springs"], 2);
+    assert_eq!(answer["highlights"]["mode"], "soften");
+    assert_eq!(answer["highlights"]["images"][0]["softened"], true);
     assert!(hub.approvals().is_empty());
 }
 
