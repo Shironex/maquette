@@ -88,6 +88,6 @@ fn a_t_posed_character_saves_its_spec_and_writes_its_vrm() {
         panic!("written");
     };
     assert!(Path::new(&export.path).is_file());
-    assert!(export.path.ends_with(&format!("exports/{asset}.vrm")));
+    assert!(Path::new(&export.path).ends_with(Path::new("exports").join(format!("{asset}.vrm"))));
     assert_eq!(view(&session, &target).expect("view").export, Some(export));
 }

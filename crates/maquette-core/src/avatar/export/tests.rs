@@ -50,7 +50,8 @@ fn the_view_reads_defaults_readiness_and_where_the_file_goes() {
     let r = v.readiness.expect("readiness");
     assert!(r.findings.iter().any(|f| f.id == "arms"));
     assert!(v.normalized.is_none() && v.export.is_none());
-    assert!(v.export_path.ends_with(&format!("exports/{}.vrm", w.asset)));
+    let tail = std::path::Path::new("exports").join(format!("{}.vrm", w.asset));
+    assert!(std::path::Path::new(&v.export_path).ends_with(tail));
     assert_eq!(v.meta_problem.as_deref(), Some("Name at least one author."));
 }
 
