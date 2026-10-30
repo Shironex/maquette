@@ -89,6 +89,21 @@ fn a_hand_with_its_knuckles_at_the_wrist_is_bunched() {
 }
 
 #[test]
+fn the_bunched_hand_fixture_reads_as_bunched() {
+    let r = read(
+        &HumanoidSpec {
+            arm_drop: 55.0,
+            yaw: 90.0,
+            bunched_hand: true,
+            ..HumanoidSpec::default()
+        },
+        &BoneOverrides::new(),
+    );
+    assert_eq!(r.pose.bunched_hands, vec!["right".to_string()]);
+    assert!(find(&r, "finger-bones").is_some());
+}
+
+#[test]
 fn after_a_reweight_what_is_left_on_the_arms_is_a_note() {
     let bytes = fixture::humanoid(&HumanoidSpec {
         cape: true,

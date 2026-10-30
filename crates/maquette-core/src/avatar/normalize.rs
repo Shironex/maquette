@@ -45,8 +45,8 @@ use crate::workspace::WorkspaceConfig;
 use super::gate::{APPROVAL_FILE, DENIAL_FILE};
 pub use approval::{approve, approved_glb, deny, load, write_vrm};
 pub use report::{
-    ArmLift, FingerStraighten, Fingers, NormalizeReport, NormalizeSheets, NormalizeState,
-    Normalized, PoseMeasures, WeightChecks,
+    ArmLift, FingerRepair, FingerStraighten, Fingers, NormalizeReport, NormalizeSheets,
+    NormalizeState, Normalized, PoseMeasures, WeightChecks,
 };
 
 /// The script, run headless on a copy of the model.

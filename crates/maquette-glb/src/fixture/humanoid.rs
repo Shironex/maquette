@@ -11,11 +11,16 @@ use super::builder::{Builder, Mesh};
 use super::pbr_material;
 use super::skeleton::{skeleton, world_positions};
 
+mod bridge;
+mod bunched;
 mod hands;
 mod names;
+mod pieces;
 
-use hands::{curl_fingers, hair_strip, hand_piece};
+use bunched::bunch_fingers;
+use hands::curl_fingers;
 use names::rename;
+use pieces::pieces;
 
 /// The bone names a fixture humanoid uses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -104,6 +109,14 @@ pub struct HumanoidSpec {
     /// hand, its lower end weighted partly to a finger bone. Built after
     /// every box, so it does not go with `split` or a `flaw`.
     pub hair_strip: bool,
+    /// A ribbon fused between the wrist end of the left forearm and the top
+    /// of the hip, weighted from the forearm fading to the hips, as an auto
+    /// rig leaves a sleeve that rested on the hip.
+    pub sleeve_bridge: bool,
+    /// The right hand is one piece (a palm with four fingers and a thumb)
+    /// weighted wholly to the hand, and its finger joints sit bunched within
+    /// a centimetre of the wrist, as a broken auto rig leaves them.
+    pub bunched_hand: bool,
 }
 
 impl Default for HumanoidSpec {
@@ -126,6 +139,8 @@ impl Default for HumanoidSpec {
             finger_curl: 0.0,
             hand_piece: false,
             hair_strip: false,
+            sleeve_bridge: false,
+            bunched_hand: false,
         }
     }
 }
@@ -143,6 +158,9 @@ fn posed(spec: &HumanoidSpec) -> Vec<(String, Option<usize>, [f32; 3])> {
     let joints = skeleton();
     let mut world = world_positions(&joints);
     curl_fingers(&joints, &mut world, spec.finger_curl);
+    if spec.bunched_hand {
+        bunch_fingers(&joints, &mut world);
+    }
     for (side, sign) in [("Left", 1.0f32), ("Right", -1.0f32)] {
         let Some(arm) = joints
             .iter()
@@ -219,10 +237,6 @@ fn below(joints: &[(String, Option<usize>, [f32; 3])], i: usize, root: usize) ->
     false
 }
 
-/// The slabs of the tail, 2 cm tall and 4 cm wide, so the finder reads
-/// their corners as one strip.
-const TAIL_SLABS: usize = 33;
-
 /// A box humanoid built to `spec`.
 pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
     let joints = posed(spec);
@@ -243,6 +257,9 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
     // the mesh follows the pose.
     for (i, (_, parent, _)) in joints.iter().enumerate() {
         let Some(p) = *parent else { continue };
+        if spec.bunched_hand && bunched::in_hand(&joints, p) {
+            continue;
+        }
         let turn = arms
             .iter()
             .find(|(arm, _, _)| p == *arm || below(&joints, p, *arm))
@@ -282,57 +299,7 @@ pub fn humanoid(spec: &HumanoidSpec) -> Vec<u8> {
             );
         }
     }
-    if spec.cape
-        && let Some(arm) = skeleton()
-            .iter()
-            .position(|(n, _, _)| *n == "mixamorig:LeftArm")
-    {
-        let a = at(arm);
-        mesh.cuboid(
-            [a[0] / 2.0, a[1] - 0.5, a[2] - 0.25],
-            [0.3, 0.5, 0.02],
-            u16::try_from(arm).unwrap_or(0),
-        );
-    }
-
-    if spec.cape_strip
-        && let (Some(arm), Some(fore)) = (
-            joint_index(&skeleton(), "LeftArm"),
-            joint_index(&skeleton(), "LeftForeArm"),
-        )
-    {
-        let (a, b) = (at(arm), at(fore));
-        mesh.cuboid(
-            [(a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0 - 0.1, a[2] - 0.03],
-            [0.12, 0.05, 0.01],
-            u16::try_from(arm).unwrap_or(0),
-        );
-    }
-
-    if spec.hand_piece {
-        hand_piece(&mut mesh, &world);
-    }
-    if spec.hair_strip {
-        hair_strip(&mut mesh, &world);
-    }
-
-    if spec.tail
-        && let Some(head) = joint_index(&skeleton(), "Head")
-    {
-        let h = at(head);
-        // Thin slabs stacked edge to edge, so the strip reads as one surface
-        // hanging from the back of the head to the waist, clear of the
-        // thin box body (whose back it would otherwise pass for).
-        for k in 0..TAIL_SLABS {
-            #[expect(clippy::cast_precision_loss, reason = "a few slabs")]
-            let y = h[1] - 0.02 * k as f32;
-            mesh.cuboid(
-                [h[0], y, h[2] - 0.3],
-                [0.04, 0.02, 0.02],
-                u16::try_from(head).unwrap_or(0),
-            );
-        }
-    }
+    pieces(&mut mesh, spec, &world);
 
     flaw_box(&mut mesh, spec.flaw, joints.len());
 

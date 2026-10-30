@@ -52,11 +52,23 @@ Everything else on the arm chain moves its arm weight to the trunk, shared by in
 between spine, chest and upperChest, and the shoulder for vertices above the armpit (the top of a
 cape). At the boundary a smooth band in surface distance (geodesic, over the welded mesh) blends:
 just outside the arm a vertex keeps most of its arm weight and the share fades to none, so cloth
-sewn to a sleeve stretches instead of tearing. At most 4 influences per vertex are kept and they
-sum to 1; no vertex is left without weight.
+sewn to a sleeve stretches instead of tearing. The band only blends where lifting the arm level
+moves the surface little, near the shoulder. Further down (a sleeve that rested on the hip, with
+faces fused between the two), a share kept on the body would stretch into a sheet as wide as the
+band, so there each band vertex goes wholly to the arm or wholly to the body, split along the
+seam that costs least to stretch: a minimum cut over the mesh edges, each costing its length
+times how far the lift moves it. Where the lift moves it far, the arm's own surface follows the
+arm wholly too, giving its arm bones the weight an auto rig put on the body or the legs. The
+trunk shares what it takes over its two nearest bones, so it never crowds a kept arm weight out
+of the four influences. At most 4 influences per vertex are kept and they sum to 1; no vertex is
+left without weight.
+
+Faces that join a part following the arm to a part staying with the body still stretch when the
+arm lifts, whatever the weights: those bridges are counted and named in the report.
 
 The report holds the counts: vertices changed, the weight moved, from which arm bones and to
-which trunk bones, the arm vertices kept as sleeve, the band, and the limb radii. The two sheets
+which trunk bones, the arm vertices kept as sleeve, the band, the arm vertices that let go of
+body weight, the bridges (side, faces, middle and stretched length), and the limb radii. The two sheets
 show the model before and after, turned to face the camera, in rows rest, arms level (the
 T-pose) and arms raised, and columns front, side, back and a close look at the shoulders.
 """
@@ -91,6 +103,13 @@ CORE_Q = 1.3         # limb radii around the limb's middle that count as the arm
 ISLAND_IN = 0.7      # share of an island inside the tube that makes it a cuff
 ISLAND_MAX = 0.02    # ...when it is at most this share of the skinned vertices
 BAND = 0.1           # width of the smooth falloff, surface distance
+SPLIT_LIFT = 0.04    # past this lift, the band splits between arm and body instead of blending
+FOLLOW_LIFT = 0.08   # the arm's own surface follows it wholly where the lift moves it twice this
+STRETCHED = 2.5      # a face whose edge grows past this many times its length when lifted
+BRIDGE_FROM = 0.1    # stretched faces this far from the shoulder...
+BRIDGE_LONG = 0.1    # ...stretched longer than this are a bridge the lift cannot avoid
+BRIDGES_LISTED = 8   # the largest bridges the report names
+TRUNK_BONES = 2      # trunk bones sharing what an arm lets go of, per vertex
 ARMPIT = 0.04        # the shoulder takes cloth above the armpit, fading over this
 IDW_POWER = 4.0
 CHANGED = 1e-3       # arm weight a vertex must lose to count as moved
@@ -798,6 +817,189 @@ def hand_pieces(skin, body, mesh, hand, near, island, island_size, side):
     return small & ((touching >= ISLAND_IN) | (holding >= ISLAND_IN))
 
 
+def lifted(body, arm, pos):
+    """Where each point goes if it follows this arm wholly when the arms are lifted level (the
+    upper arm turned at the shoulder, then the lower arm at the elbow)."""
+    level = body.left if arm.side == "left" else -body.left
+    u, lo, hd = arm.points[:3]
+
+    def turn(v):
+        axis = np.cross(unit(v), level)
+        s, c = np.linalg.norm(axis), float(unit(v) @ level)
+        if s < 1e-9:
+            return np.eye(3)
+        k = axis / s
+        cross = np.array([[0.0, -k[2], k[1]], [k[2], 0.0, -k[0]], [-k[1], k[0], 0.0]])
+        return np.eye(3) + s * cross + (1.0 - c) * cross @ cross
+
+    r1 = turn(lo - u)
+    lo2, hd2 = u + r1 @ (lo - u), u + r1 @ (hd - u)
+    r2 = turn(hd2 - lo2)
+    _, seg, _, _ = arm.project(pos)
+    upper = u + (pos - u) @ r1.T
+    lower = lo2 + (upper - lo2) @ r2.T
+    return np.where((seg == 0)[:, None], upper, lower)
+
+
+def max_flow_cut(count, pairs, caps, source, sink):
+    """Dinic's maximum flow on an undirected graph of `count` nodes; returns which nodes stay
+    reachable from `source` in the residual graph (the source's side of a minimum cut)."""
+    head = [[] for _ in range(count)]
+    to, cap = [], []
+    for (a, b), c in zip(pairs, caps):
+        head[a].append(len(to))
+        to.append(b)
+        cap.append(c)
+        head[b].append(len(to))
+        to.append(a)
+        cap.append(c)
+    while True:
+        level = [-1] * count
+        level[source] = 0
+        queue = [source]
+        for u in queue:
+            for e in head[u]:
+                if cap[e] > 0 and level[to[e]] < 0:
+                    level[to[e]] = level[u] + 1
+                    queue.append(to[e])
+        if level[sink] < 0:
+            break
+        nxt = [0] * count
+        while True:
+            # One augmenting path along the level graph, found without recursion.
+            path, u = [], source
+            while u != sink:
+                while nxt[u] < len(head[u]):
+                    e = head[u][nxt[u]]
+                    if cap[e] > 0 and level[to[e]] == level[u] + 1:
+                        break
+                    nxt[u] += 1
+                if nxt[u] == len(head[u]):
+                    if not path:
+                        break
+                    level[u] = -1
+                    u = to[path.pop() ^ 1]
+                    continue
+                path.append(head[u][nxt[u]])
+                u = to[path[-1]]
+            if u != sink:
+                break
+            push = min(cap[e] for e in path)
+            for e in path:
+                cap[e] -= push
+                cap[e ^ 1] += push
+    seen = np.zeros(count, bool)
+    seen[source] = True
+    queue = [source]
+    for u in queue:
+        for e in head[u]:
+            if cap[e] > 0 and not seen[to[e]]:
+                seen[to[e]] = True
+                queue.append(to[e])
+    return seen
+
+
+def bridges_of(mesh, pos, lift, follows, shoulders, h):
+    """Bridges: faces that join a part following an arm to a part staying with the body, so
+    lifting the arms must stretch them (an auto rig's mesh fused where a sleeve rested on the
+    hip). Each vertex is moved by the share of its weight on each arm; faces stretched past
+    STRETCHED form patches, and a patch is a bridge when it lies further than BRIDGE_FROM from
+    the shoulder and stretches longer than BRIDGE_LONG (the armpit stretching is the lift
+    itself). Returns them largest first, each with its side, face count, middle (bind space)
+    and length (the longest stretched edge once lifted), in metres."""
+    moved = pos.copy()
+    for side in SIDES:
+        moved += follows[side][:, None] * (lift[side] - pos)
+    a, b = np.zeros((mesh.n, 3)), np.zeros((mesh.n, 3))
+    a[mesh.of], b[mesh.of] = pos, moved
+    before = np.linalg.norm(a[mesh.edges[:, 0]] - a[mesh.edges[:, 1]], axis=1)
+    after = np.linalg.norm(b[mesh.edges[:, 0]] - b[mesh.edges[:, 1]], axis=1)
+    bad = (after > STRETCHED * before) & (after > 0.02 * h)
+    faces = np.nonzero(bad[mesh.tri_edges].any(1))[0]
+    if len(faces) == 0:
+        return []
+    moves = {}
+    for side in SIDES:
+        moves[side] = np.zeros(mesh.n)
+        np.maximum.at(moves[side], mesh.of, follows[side])
+    tris = mesh.tris[faces]
+    label = components(mesh.n, np.concatenate([tris[:, [0, 1]], tris[:, [1, 2]]]))[tris[:, 0]]
+    out = []
+    for k in np.unique(label):
+        mine = faces[label == k]
+        corners = mesh.tris[mine]
+        side = max(SIDES, key=lambda s: float(moves[s][corners].sum()))
+        at = mesh.pos[corners].mean((0, 1))
+        length = float(after[mesh.tri_edges[mine]].max())
+        if np.linalg.norm(at - shoulders[side]) <= BRIDGE_FROM * h or length <= BRIDGE_LONG * h:
+            continue
+        out.append({
+            "side": side,
+            "faces": int(len(mine)),
+            "at": [round(float(x), 3) for x in at],
+            "length": round(length, 3),
+        })
+    return sorted(out, key=lambda p: -p["faces"])
+
+
+def split_band(mesh, share, reach, weighted, members, h):
+    """Where lifting the arm moves the band far, a share kept on the body stretches it into a
+    sheet (cloth an auto rig fused between a sleeve and the hip). There each band vertex goes
+    wholly to the arm or to the body, split along the seam that costs least to stretch: a
+    minimum cut over the mesh edges, each costing its length times how far the lift moves it.
+    Returns the vertices that go to the arm. The faces left spanning the split must stretch:
+    they bridge two parts that move apart."""
+    of = mesh.of
+    far = np.zeros(mesh.n)
+    np.maximum.at(far, of, reach)
+    part = np.zeros(mesh.n)
+    np.maximum.at(part, of, np.where(weighted & ~members, share, 0.0))
+    arm_end = np.zeros(mesh.n, bool)
+    arm_end[of[members]] = True
+    free = (part > 0.0) & (part < 1.0) & (far > SPLIT_LIFT * h) & ~arm_end
+    if not free.any():
+        return np.zeros(len(share), bool)
+    # The ends: the arm's surface and the band near enough the shoulder to keep its share
+    # (on the arm's side when it keeps most), and everything else on the body's side.
+    arm_end |= ~free & (part >= 0.5)
+    node = np.full(mesh.n, -1)
+    node[free] = np.arange(int(free.sum()))
+    source, sink = int(free.sum()), int(free.sum()) + 1
+    a, b = mesh.edges[:, 0], mesh.edges[:, 1]
+    touch = free[a] | free[b]
+    cost = mesh.length * (far[a] + far[b]) / 2.0 / (h * h)
+    caps = np.maximum(np.rint(cost * 1e6), 1).astype(np.int64)
+    ends = lambda v: np.where(free[v], node[v], np.where(arm_end[v], source, sink))
+    na, nb = ends(a[touch]), ends(b[touch])
+    keep = na != nb
+    side = max_flow_cut(source + 2, np.stack([na[keep], nb[keep]], 1).tolist(),
+                        caps[touch][keep].tolist(), source, sink)
+    to_arm = free & side[np.maximum(node, 0)]
+    return to_arm[of]
+
+
+def follow_arm(weights, on_arm, members, reach, h):
+    """The arm's own surface (sleeve, glove, hand) follows the arm wholly where lifting it
+    moves far: weight an auto rig gave it on the body or the legs (a sleeve resting on the hip)
+    would hold it back and stretch it. Near the shoulder the blend with the body stays. Returns
+    the weights and which vertices changed."""
+    out = weights.copy()
+    followed = np.zeros(len(weights), bool)
+    for side in SIDES:
+        m = on_arm[side]
+        arm = np.where(m, out, 0.0).sum(1)
+        other = out.sum(1) - arm
+        share = smoothstep((reach[side] - FOLLOW_LIFT * h) / (FOLLOW_LIFT * h))
+        rows = members[side] & (arm > 0) & (share * other > CHANGED)
+        if not rows.any():
+            continue
+        gain = (share * other)[rows] / arm[rows]
+        out[rows] = np.where(m[rows], out[rows] * (1.0 + gain[:, None]),
+                             out[rows] * (1.0 - share[rows])[:, None])
+        followed |= rows
+    return out, followed
+
+
 def trunk_share(body, pos):
     """For each vertex, how the trunk bones share weight moved off an arm: inverse distance to
     the spine, chest and upperChest, and to each shoulder above the armpit."""
@@ -823,6 +1025,10 @@ def trunk_share(body, pos):
             w *= smoothstep((heights - (top - ARMPIT * h)) / (ARMPIT * h))
         inv.append(w)
     inv = np.stack(inv, 1)
+    # The two nearest trunk bones only, so the trunk never crowds a kept arm weight out of the
+    # four influences (which would leave a vertex behind its neighbours when the arm lifts).
+    if inv.shape[1] > TRUNK_BONES:
+        inv[inv < np.sort(inv, 1)[:, -TRUNK_BONES][:, None]] = 0.0
     inv /= np.maximum(inv.sum(1, keepdims=True), 1e-30)
     return [j for j, _, _, _ in segs], inv
 
@@ -878,15 +1084,28 @@ def reweight_skin(skin, bones):
         pieces = hand_pieces(skin, body, mesh, hand, near, island, island_size, side)
         members[side] = (found | hand | cuffs[island] | pieces[island])[mesh.of]
         info[side] = {"radius": radius}
-    # The share of its arm weight each vertex keeps: all on the arm, fading over the band.
+    # The share of its arm weight each vertex keeps: all on the arm, fading over the band. The
+    # band only blends where lifting the arm moves the surface little (near the shoulder);
+    # further down a share would stretch into a sheet between the sleeve and the body, so
+    # there each vertex goes wholly to the arm or to the body, split along the narrowest seam.
     keep = {}
-    for side in SIDES:
+    reach = {}
+    bridges = {}
+    lift = {}
+    for side, arm in arms.items():
+        lift[side] = lifted(body, arm, pos)
+        reach[side] = np.linalg.norm(lift[side] - pos, axis=1)
         sources = np.zeros(mesh.n, bool)
         sources[mesh.of[members[side]]] = True
         dist = surface_distance(mesh.n, mesh.edges, mesh.length, sources, BAND * h)[mesh.of]
         share = np.where(np.isfinite(dist), smoothstep(1.0 - dist / (BAND * h)), 0.0)
         share[members[side]] = 1.0
+        arm_side = split_band(mesh, share, reach[side], arm_weight[side] > 0, members[side], h)
+        members[side] |= arm_side
+        share[arm_side] = 1.0
+        share[(reach[side] > SPLIT_LIFT * h) & ~members[side]] = 0.0
         keep[side] = share
+    weights, followed = follow_arm(weights, on_arm, members, reach, h)
     trunk_joints, trunk = trunk_share(body, pos)
     new_w = weights.copy()
     moved = np.zeros(n)
@@ -912,8 +1131,15 @@ def reweight_skin(skin, bones):
     empty = weights.sum(1) <= 0
     all_w[empty, joints.shape[1]:] = trunk[empty]
     out_j, out_w = top_four(all_j, all_w)
+    follows = {}
+    for side in SIDES:
+        chain = np.zeros(len(skin.names), bool)
+        chain[arms[side].chain] = True
+        follows[side] = (out_w * chain[out_j]).sum(1)
+    shoulders = {side: body.at(side + "UpperArm") for side in SIDES}
+    bridges = bridges_of(mesh, pos, lift, follows, shoulders, h)
     changed = (moved > CHANGED) | empty | ((weights > 0).sum(1) > MAX_INFLUENCES)
-    changed |= np.abs(weights.sum(1) - 1.0) > 1e-3
+    changed |= (np.abs(weights.sum(1) - 1.0) > 1e-3) | followed
     to_bone = {}
     if (moved > CHANGED).any():
         gains = np.zeros(len(trunk_joints))
@@ -930,6 +1156,9 @@ def reweight_skin(skin, bones):
         "keptAsSleeve": int(sum((members[s] & (arm_weight[s] > 0)).sum() for s in SIDES)),
         "band": int(sum(((keep[s] > 0) & (keep[s] < 1) & (arm_weight[s] > 0)).sum()
                         for s in SIDES)),
+        "followArm": int(followed.sum()),
+        "bridgeFaces": int(sum(p["faces"] for p in bridges)),
+        "bridges": bridges[:BRIDGES_LISTED],
         "fromBones": dict(sorted(from_bone.items(), key=lambda kv: -kv[1])),
         "toBones": dict(sorted(to_bone.items(), key=lambda kv: -kv[1])),
         "sides": {
@@ -937,6 +1166,7 @@ def reweight_skin(skin, bones):
                 "moved": int(((1.0 - keep[side]) * arm_weight[side] > CHANGED).sum()),
                 "keptAsSleeve": int((members[side] & (arm_weight[side] > 0)).sum()),
                 "limbRadius": [round(float(x) / h, 4) for x in info[side]["radius"] if x == x],
+                "bridgeFaces": int(sum(p["faces"] for p in bridges if p["side"] == side)),
             }
             for side in SIDES
         },

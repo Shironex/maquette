@@ -1,9 +1,11 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import type { ReweightBridge } from '@/ipc/client';
 import { useAvatarStore } from '@/state/use-avatar-store';
 import { clearMocks, openAvatar } from '@/test/open-avatar';
 import ReweightStep from './ReweightStep';
+import { reweightSummary } from './ReweightStep.hooks';
 
 afterEach(() => clearMocks());
 
@@ -42,5 +44,24 @@ describe('the step that frees cloth and hair from the arms', () => {
     await openAvatar(null, 'clay-figure');
     const { container } = render(<ReweightStep />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('names the faces fused between an arm and the body that still stretch', () => {
+    const base = { moved: 10, keptAsSleeve: 4, fromBones: { RightArm: 10 } };
+    expect(reweightSummary(base)).toBe(
+      'Moved 10 vertices of cloth and hair to the trunk, most from RightArm; kept 4 on the arms as sleeve.'
+    );
+    const bridge = (side: string, faces: number): ReweightBridge => ({
+      side,
+      faces,
+      at: [0, 1, 0],
+      length: 0.4,
+    });
+    expect(
+      reweightSummary({ ...base, bridges: [bridge('right', 35), bridge('right', 17)] })
+    ).toMatch(/sleeve\. 52 faces joining the right arm to the body still stretch when lifted\.$/);
+    expect(reweightSummary({ ...base, bridges: [bridge('left', 1)] })).toMatch(
+      /1 face joining the left arm to the body still stretches when lifted\.$/
+    );
   });
 });

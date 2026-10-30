@@ -189,3 +189,67 @@ fn curled_fingers_come_out_straight_in_blender() {
     assert!(found.report.after.finger_curl_deg.is_some_and(|d| d > 50.0));
     assert!(found.readiness.findings.iter().any(|f| f.id == "fingers"));
 }
+
+#[test]
+#[ignore = "runs Blender"]
+fn bunched_finger_joints_are_placed_along_the_fingers_in_blender() {
+    let Some(blender) = test_blender::blender() else {
+        return;
+    };
+    // The right hand's finger joints sit at the wrist, its fingers weighted
+    // to the hand alone: the joints go along the fingers the mesh shows, and
+    // then the fingers straighten like any other.
+    let model = fixture::humanoid(&HumanoidSpec {
+        arm_drop: 55.0,
+        yaw: 90.0,
+        bunched_hand: true,
+        animation: false,
+        ..HumanoidSpec::default()
+    });
+    let w = super::tests::world_with(&model);
+    let none = BoneOverrides::new();
+    let planned = plan(&NormalizeRequest {
+        workspace_root: &w.root,
+        config: &w.config,
+        project: &w.project,
+        asset: &w.asset,
+        version: None,
+        overrides: &none,
+        elbows: Elbows::Straighten,
+        fingers: Fingers::Straighten,
+    })
+    .expect("plan");
+    assert_eq!(
+        planned.readiness.pose.bunched_hands,
+        vec!["right".to_string()]
+    );
+    let runner = test_blender::runner();
+    let found = run(&runner, &test_blender::toolbox(&blender), &planned).expect("normalise");
+    assert!(found.readiness.pose.bunched_hands.is_empty());
+    assert!(
+        found
+            .readiness
+            .findings
+            .iter()
+            .all(|f| f.id != "finger-bones"),
+        "{:#?}",
+        found.readiness.findings
+    );
+    let report = &found.report;
+    println!("{}", serde_json::to_string_pretty(report).expect("json"));
+    assert!(!report.repaired.contains_key("left"), "{report:?}");
+    let repaired = &report.repaired["right"];
+    assert!(repaired.vertices > 100, "{repaired:?}");
+    assert!(
+        repaired.reach_after > 5.0 * repaired.reach_before,
+        "{repaired:?}"
+    );
+    assert!(report.straightened["right"].share > 0.0, "{report:?}");
+    assert!(
+        report.after.fingers.contains_key("rightMiddle"),
+        "{report:?}"
+    );
+    assert_eq!(report.weights.over_influences, 0);
+    assert_eq!(report.weights.unweighted, 0);
+    assert_eq!(png_height(&found.sheets.after), 2000);
+}

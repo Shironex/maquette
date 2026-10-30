@@ -2372,6 +2372,18 @@ export type FingerCurl = {
 	curlDeg: number | null,
 };
 
+/**
+ *  A hand whose finger joints sat bunched at the wrist, placed along the
+ *  fingers its mesh shows and reweighted to them.
+ */
+export type FingerRepair = {
+	/**  Vertices whose weights changed. */
+	vertices?: number,
+	/**  The middle finger's reach from the wrist before and after, metres. */
+	reachBefore?: number | null,
+	reachAfter?: number | null,
+};
+
 /**  How far one hand's fingers were straightened. */
 export type FingerStraighten = {
 	/**
@@ -3826,6 +3838,8 @@ export type NormalizeReport = {
 	fingers?: Fingers,
 	/**  Per side, how far the fingers were straightened; empty when kept. */
 	straightened?: { [key in string]: FingerStraighten },
+	/**  Per side, the hands whose bunched finger joints were repaired. */
+	repaired?: { [key in string]: FingerRepair },
 	weightsBefore?: WeightChecks,
 	weights?: WeightChecks,
 };
@@ -4678,6 +4692,21 @@ export type RetargetReview = {
 
 export type ReviewStatus = "good" | "look" | "failed";
 
+/**
+ *  Faces that join a part following an arm to a part staying with the
+ *  body, far from the shoulder: lifting the arm stretches them whatever the
+ *  weights (a mesh fused where a sleeve rested on the hip).
+ */
+export type ReweightBridge = {
+	/**  `left` or `right`. */
+	side?: string,
+	faces?: number,
+	/**  Their middle in the model's own space, metres. */
+	at?: [(number | null), (number | null), (number | null)],
+	/**  The longest stretched edge once the arm is level, metres. */
+	length?: number | null,
+};
+
 /**  The skin weights after the reweight. */
 export type ReweightChecks = {
 	vertices?: number,
@@ -4715,6 +4744,15 @@ export type ReweightReport = {
 	keptAsSleeve?: number,
 	/**  Vertices in the smooth band between the two, keeping some. */
 	band?: number,
+	/**
+	 *  Arm vertices that gave their body or leg weight to the arm, to
+	 *  follow it wholly where the lift moves them far.
+	 */
+	followArm?: number,
+	/**  Faces of every bridge. */
+	bridgeFaces?: number,
+	/**  The largest bridges, largest first. */
+	bridges?: ReweightBridge[],
 	/**  The arm bones the weight came from, with how many vertices each. */
 	fromBones?: { [key in string]: number },
 	/**  The trunk bones it went to, with how many vertices each. */
@@ -4733,6 +4771,8 @@ export type ReweightSide = {
 	 *  of the height.
 	 */
 	limbRadius?: (number | null)[],
+	/**  Faces of this arm's bridges. */
+	bridgeFaces?: number,
 };
 
 /**  A reweighted model and what it takes to judge it. */

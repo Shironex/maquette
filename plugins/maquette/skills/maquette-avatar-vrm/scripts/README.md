@@ -13,7 +13,9 @@ a rigged character's rest pose for VRM 1.0 on a copy of the model:
    palm plane, keeping half of its spread, and the thumb 45 degrees between the hand and the front;
    per hand it tries the whole turn, then 0.75, 0.5 and 0.25 of it, and keeps the first where the
    finger-weighted edges stretch at most 1.35 at the 95th percentile. A hand whose finger bones
-   sit bunched at the wrist is skipped. `"keep"` leaves the fingers as they are;
+   sit bunched at the wrist is repaired first: the five fingers are found on its surface, each
+   finger's joints are placed along its finger and the hand is reweighted to them; a hand where
+   five fingers cannot be told apart is skipped. `"keep"` leaves the fingers as they are;
 5. makes that pose the rest: the armature modifier is applied, the pose becomes the rest, the
    modifier is added back; the vertex groups are kept, at most 4 influences, weights summing to 1;
 6. exports a plain GLB without animations, a JSON report with the measures before and after (the
@@ -68,11 +70,14 @@ script moves that weight to the trunk on a copy:
    when the rig weighted it to the fingers;
 2. moves the arm weight of every other vertex to the spine, chest and upper chest (and the
    shoulder above the armpit), with a smooth band where the two meet so cloth sewn to a sleeve
-   stretches instead of tearing;
+   stretches instead of tearing; where lifting the arm would carry the band far, it splits
+   between arm and body along the cheapest cut instead, and the arm's own surface there follows
+   it wholly, so faces fused from a sleeve to the hip do not stretch into a membrane;
 3. keeps at most 4 influences per vertex, summing to 1, and changes only `JOINTS_0` and
    `WEIGHTS_0`: the mesh, UVs, textures, bones and rest pose stay byte for byte;
 4. writes the reweighted GLB, a JSON report (vertices moved, kept as sleeve, the band, from and to
-   which bones, the limb radii) and two sheets, before and after, in rows rest, arms level and
+   which bones, the limb radii, the bridges: faces left joining an arm to the body far from the
+   shoulder that still stretch when it lifts) and two sheets, before and after, in rows rest, arms level and
    arms raised, columns front, side, back and the shoulders.
 
 Run it headless only, never with a window, from a scratch folder:

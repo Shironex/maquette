@@ -35,7 +35,13 @@ What it does, in this order:
    quarters, half or a quarter of each joint's turn, the first whose finger
    edges stretch at most STRETCH_MAX (95th percentile), leaving a soft curl.
    A hand whose finger bones sit bunched at the wrist (a broken auto rig)
-   stays as it is. "keep" leaves every finger as it is.
+   is repaired first: the five fingers are found on the hand's surface (the
+   tips stand out farthest from the wrist, the thumb is the one that parts
+   from the rest nearest the wrist), each finger's joints are placed along
+   its finger, and the hand is reweighted with a smooth falloff along every
+   finger and across the seams between them (at most 4 influences, summing
+   to 1). A hand where five fingers cannot be told apart stays as it is.
+   "keep" leaves every finger as it is.
 5. Make that pose the rest: the armature modifier is applied on each
    skinned mesh, the pose becomes the armature's rest, and the modifier is
    added back. The vertex groups stay as they were; at most 4 influences
@@ -44,7 +50,9 @@ What it does, in this order:
 
 The report holds the measures before and after (facing, each arm's drop,
 the elbow bends, each finger's curl, the soles, the hips, the height) in glTF metres and
-degrees, the turn and the move, and the weight checks. The two pose sheets
+degrees, the turn and the move, the weight checks, and per repaired hand
+the vertices reweighted and how far the middle finger reached from the wrist
+before and after. The two pose sheets
 show the model before (only turned to face the camera) and after, in rows
 rest, arms down, arms raised and a forward step, and columns front, side,
 back and a close look at the shoulders, so the armpits and whatever hangs
@@ -55,6 +63,7 @@ about each bone's head, so they read the same on any rig.
 """
 
 import argparse
+import heapq
 import json
 import math
 import os
@@ -90,6 +99,34 @@ BUNCHED = 0.015
 HAND_MIN = 0.07
 # The share of the knuckles' fan from the wrist the straightened fingers keep.
 SPREAD_KEEP = 0.5
+# Repairing bunched fingers, in shares of the height: the hand's surface lies
+# past the wrist within REPAIR_REACH of it, reached over the mesh from what
+# lies within REPAIR_WRIST of the wrist's plane and REPAIR_RING of the forearm's
+# line; a finger tip lies at least REPAIR_TIP from the wrist over the surface
+# and stands out at least REPAIR_KEEP from where it joins a taller one.
+REPAIR_REACH = 0.14
+REPAIR_WRIST = 0.01
+REPAIR_RING = 0.03
+REPAIR_TIP = 0.025
+REPAIR_KEEP = 0.004
+# A joint is the middle of the finger's surface around its distance from the
+# wrist, weighted over this share of the tip's distance; the weights blend over this share of the shorter bone
+# beside each joint, and fade in from the old ones over REPAIR_BLEND from the
+# wrist.
+REPAIR_SLICE = 0.08
+REPAIR_FADE = 0.3
+REPAIR_BLEND = 0.012
+# Skin within this (surface distance, share of the height) of the seam
+# between two fingers blends into the other one, half at the seam.
+REPAIR_MIX = 0.012
+# A piece of its own up to this share of the vertices, most of it within
+# REPAIR_TOUCH of a finger, follows the finger (a ring).
+REPAIR_PIECE = 0.02
+REPAIR_TOUCH = 0.006
+# Each finger's joints, its first joint's head to its tip, as shares of the
+# tip's surface distance from the wrist.
+FINGER_LEVELS = (0.42, 0.66, 0.82, 1.0)
+THUMB_LEVELS = (0.30, 0.56, 0.79, 1.0)
 
 
 def log(text):
@@ -537,6 +574,394 @@ def straighten_fingers(rig):
     return out
 
 
+# Repairing bunched fingers. A broken auto rig can leave a hand's finger
+# joints within a centimetre or two of the wrist, with the finger mesh
+# weighted to the hand or the forearm, so the fingers can never open. The
+# mesh still has the fingers: the hand's surface is what the mesh edges reach
+# from the wrist, each finger tip a top of the surface distance from the wrist
+# that stands out from the surface around it, and the thumb the finger that
+# joins the hand nearest the wrist. Each finger's joints go along its tube and
+# its vertices are weighted to them.
+
+
+def surface(rig):
+    """Every skinned mesh at rest as one welded surface, in world space: each
+    vertex's welded vertex, the welded positions, edges and adjacency, and
+    which mesh each vertex belongs to."""
+    pos, edges, parts = [], [], []
+    start = 0
+    for obj in rig.meshes:
+        me = obj.data
+        co = np.empty(len(me.vertices) * 3, np.float64)
+        me.vertices.foreach_get("co", co)
+        mw = np.array(obj.matrix_world)
+        pos.append(co.reshape(-1, 3) @ mw[:3, :3].T + mw[:3, 3])
+        e = np.empty(len(me.edges) * 2, np.int64)
+        me.edges.foreach_get("vertices", e)
+        edges.append(e.reshape(-1, 2) + start)
+        parts.append((obj, start))
+        start += len(me.vertices)
+    pos = np.concatenate(pos)
+    height = float(np.ptp(pos[:, 2]))
+    _, of = np.unique(np.round(pos / (1e-5 * height)).astype(np.int64), axis=0,
+                      return_inverse=True)
+    of = of.ravel()
+    welded = np.zeros((int(of.max()) + 1, 3))
+    welded[of] = pos
+    e = np.sort(of[np.concatenate(edges)], 1)
+    e = np.unique(e[e[:, 0] != e[:, 1]], axis=0)
+    adj = [[] for _ in range(len(welded))]
+    for (a, b), l in zip(e.tolist(), np.linalg.norm(welded[e[:, 0]] - welded[e[:, 1]],
+                                                    axis=1).tolist()):
+        adj[a].append((b, l))
+        adj[b].append((a, l))
+    return {"pos": pos, "of": of, "welded": welded, "adj": adj, "parts": parts,
+            "height": height}
+
+
+def spread(adj, sources, allowed):
+    """Surface distance from the sources (a list of welded vertices) through
+    allowed vertices, and the index of the nearest source (-1 unreached)."""
+    dist = np.full(len(adj), np.inf)
+    near = np.full(len(adj), -1)
+    heap = []
+    for k, s in enumerate(sources):
+        dist[s] = 0.0
+        near[s] = k
+        heap.append((0.0, s))
+    heapq.heapify(heap)
+    while heap:
+        d, u = heapq.heappop(heap)
+        if d > dist[u]:
+            continue
+        for v, l in adj[u]:
+            if allowed[v] and d + l < dist[v]:
+                dist[v] = d + l
+                near[v] = near[u]
+                heapq.heappush(heap, (d + l, v))
+    return dist, near
+
+
+def finger_tips(adj, dist, region):
+    """The tops of the surface distance from the wrist, as (vertex, distance,
+    how far it stands out, the distance where it joins a taller top): the
+    surface is joined from the top down, and where two parts meet the lower
+    top dies. A top that never meets a taller one stands out its whole height
+    and joins at infinity."""
+    parent = {}
+    top = {}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    out = []
+    order = [int(v) for v in np.argsort(-dist) if region[v]]
+    for u in order:
+        parent[u] = u
+        top[u] = u
+        for v, _ in adj[u]:
+            if v not in parent:
+                continue
+            ru, rv = find(u), find(v)
+            if ru == rv:
+                continue
+            if dist[top[ru]] < dist[top[rv]]:
+                ru, rv = rv, ru
+            out.append((top[rv], float(dist[top[rv]]), float(dist[top[rv]] - dist[u]),
+                        float(dist[u])))
+            parent[rv] = ru
+    for r in {find(u) for u in order}:
+        out.append((top[r], float(dist[top[r]]), float(dist[top[r]]), math.inf))
+    return out
+
+
+def read_weights(rig):
+    """Each vertex's bone weights, {bone name: weight}, over every skinned mesh."""
+    bones = set(rig.arm.data.bones.keys())
+    out = []
+    for obj in rig.meshes:
+        names = {g.index: g.name for g in obj.vertex_groups}
+        for v in obj.data.vertices:
+            out.append({names[g.group]: g.weight for g in v.groups
+                        if names.get(g.group) in bones and g.weight > 0.0})
+    return out
+
+
+def find_fingers(rig, side, shape):
+    """The hand's surface and its five fingers, or None when the mesh does not
+    show five: per finger its welded vertices, their surface distance from the
+    wrist and its joints (four points, the last its tip)."""
+    if any(r not in rig.roles for f in FINGERS for r in finger_roles(side, f)):
+        return None
+    h = shape["height"]
+    welded, adj = shape["welded"], shape["adj"]
+    wrist = np.array(rig.head(side + "Hand"))
+    axis = wrist - np.array(rig.head(side + "LowerArm"))
+    axis /= np.linalg.norm(axis)
+    rel = welded - wrist
+    along = rel @ axis
+    across = np.linalg.norm(rel - np.outer(along, axis), axis=1)
+    near = (along > -REPAIR_WRIST * h) & (np.linalg.norm(rel, axis=1) < REPAIR_REACH * h)
+    hand_bones = {rig.roles[r] for r in (side + "LowerArm", side + "Hand")}
+    hand_bones |= {rig.roles[r] for f in FINGERS for r in finger_roles(side, f) if r in rig.roles}
+    held = np.zeros(len(welded))
+    np.maximum.at(held, shape["of"], np.array([sum(w for b, w in ws.items() if b in hand_bones)
+                                               for ws in shape["weights"]]))
+    seeds = near & (np.abs(along) < REPAIR_WRIST * h) & (across < REPAIR_RING * h) & (held > 0.5)
+    if not seeds.any():
+        return None
+    dist, _ = spread(adj, np.nonzero(seeds)[0].tolist(), near)
+    region = np.isfinite(dist)
+    tips = [t for t in finger_tips(adj, dist, region)
+            if t[1] >= REPAIR_TIP * h and t[2] >= REPAIR_KEEP * h]
+    tips.sort(key=lambda t: -t[2])
+    # Five tips, and a sixth (a nail, a fold) clearly below them.
+    if len(tips) < 5 or (len(tips) > 5 and tips[5][2] > 0.5 * tips[4][2]):
+        return None
+    tips = tips[:5]
+    to_tip = np.array([spread(adj, [t[0]], region)[0] for t in tips])
+    cell = np.where(region, to_tip.argmin(0), -1)
+    thumb = min(range(5), key=lambda k: tips[k][3])
+    fingers = []
+    for k, (tip, reach, _, _) in enumerate(tips):
+        levels = THUMB_LEVELS if k == thumb else FINGER_LEVELS
+        mine = np.nonzero(cell == k)[0]
+        # A sparse mesh may have no vertex at a joint's distance: each joint
+        # is the finger's surface weighted by how near it lies to that distance.
+        width = max(REPAIR_SLICE * reach, 0.002 * h)
+        joints = []
+        for level in levels[:-1]:
+            near_level = np.exp(-(((dist[mine] - level * reach) / width) ** 2))
+            if near_level.sum() < 1e-6:
+                return None
+            joints.append((welded[mine] * near_level[:, None]).sum(0) / near_level.sum())
+        joints.append(welded[tip])
+        fingers.append({"vertices": mine, "joints": joints, "tip": k, "thumb": k == thumb})
+    # The four fingers in order from the thumb: along the line their knuckles make.
+    thumb_at = next(f["joints"][0] for f in fingers if f["thumb"])
+    four = [f for f in fingers if not f["thumb"]]
+    knuckles = np.array([f["joints"][0] for f in four])
+    centre = knuckles.mean(0)
+    line = np.linalg.svd(knuckles - centre)[2][0]
+    if (thumb_at - centre) @ line < 0:
+        line = -line
+    four.sort(key=lambda f: -float((f["joints"][0] - centre) @ line))
+    named = {"Thumb": next(f for f in fingers if f["thumb"])}
+    named.update(zip(FINGERS[1:], four))
+    return {"dist": dist, "region": region, "toTip": to_tip, "fingers": named, "wrist": wrist}
+
+
+def place_joints(rig, side, fingers):
+    """Moves each finger's joints, at rest, to the points found along it; the
+    last bone's end bone (the tip joint) goes to the tip."""
+    select_only([rig.arm], rig.arm)
+    bpy.ops.object.mode_set(mode="EDIT")
+    inv = rig.arm.matrix_world.inverted()
+    edit = rig.arm.data.edit_bones
+    for finger, found in fingers.items():
+        names = [rig.roles[r] for r in finger_roles(side, finger)]
+        ends = [c.name for c in rig.arm.data.bones[names[-1]].children]
+        pts = [inv @ Vector(p) for p in found["joints"]]
+        for k, name in enumerate(names):
+            edit[name].use_connect = False
+            edit[name].head = pts[k]
+            edit[name].tail = pts[k + 1]
+        for name in ends:
+            edit[name].use_connect = False
+            edit[name].head = pts[3]
+            edit[name].tail = pts[3] + (pts[3] - pts[2]) * 0.5
+    bpy.ops.object.mode_set(mode="OBJECT")
+    update()
+
+
+def finger_share(p, wrist, joints):
+    """Where along its finger a point lies, as a bone index with a fraction:
+    0 is the hand, 1 to 3 the finger's bones, read from the nearest point on
+    the line wrist, joints, tip and blended over a band around each joint so
+    the skin bends smoothly."""
+    pts = [np.asarray(wrist)] + [np.asarray(j) for j in joints]
+    lengths = [float(np.linalg.norm(b - a)) for a, b in zip(pts[:-1], pts[1:])]
+    arcs = np.concatenate([[0.0], np.cumsum(lengths)])
+    best, at = math.inf, 0.0
+    for k, (a, b) in enumerate(zip(pts[:-1], pts[1:])):
+        ab = b - a
+        t = float(np.clip((p - a) @ ab / max(float(ab @ ab), 1e-12), 0.0, 1.0))
+        gap = float(np.linalg.norm(p - a - t * ab))
+        if gap < best:
+            best, at = gap, arcs[k] + t * lengths[k]
+    x = 0.0
+    for k in range(3):
+        half = max(REPAIR_FADE * min(lengths[k], lengths[k + 1]), 1e-6)
+        x += float(np.clip((at - arcs[k + 1] + half) / (2.0 * half), 0.0, 1.0))
+    return x
+
+
+def finger_weights(rig, side, finger, x):
+    """The bone weights at bone index `x` along `finger` (see finger_share)."""
+    chain = [rig.roles[side + "Hand"]] + [rig.roles[r] for r in finger_roles(side, finger)]
+    lo = int(min(math.floor(x), 3))
+    out = {chain[lo]: 1.0 - (x - lo)}
+    if lo < 3 and x > lo:
+        out[chain[lo + 1]] = x - lo
+    return out
+
+
+def reweight_hand(rig, side, shape, found):
+    """Weights the hand's surface to its new finger joints, fading from the old
+    weights at the wrist; finger weight left anywhere else goes to the hand.
+    Small pieces of their own lying on a finger (a ring) take the weights of
+    the finger surface nearest them. Returns how many vertices changed."""
+    h = shape["height"]
+    of, dist = shape["of"], found["dist"]
+    hand = rig.roles[side + "Hand"]
+    finger_bones = {rig.roles[r] for f in FINGERS for r in finger_roles(side, f) if r in rig.roles}
+    for f in FINGERS:
+        for c in rig.arm.data.bones[rig.roles[finger_roles(side, f)[-1]]].children:
+            finger_bones.add(c.name)
+    by_tip = {info["tip"]: f for f, info in found["fingers"].items()}
+    of_finger = {}
+    for f, info in found["fingers"].items():
+        for v in info["vertices"]:
+            of_finger[int(v)] = f
+    # Beside the seam between two fingers the skin blends into the other one,
+    # so fingers the mesh fuses stretch the seam smoothly instead of tearing it.
+    to_tip = np.where(np.isfinite(found["toTip"]), found["toTip"], 1e9)
+    order = np.argsort(to_tip, axis=0)
+    gap = np.take_along_axis(to_tip, order[1:2], 0)[0] - np.take_along_axis(to_tip, order[:1], 0)[0]
+    other = 0.5 * smoothstep(1.0 - gap / (REPAIR_MIX * h))
+    pos = shape["pos"]
+    out = []
+    for i, old in enumerate(shape["weights"]):
+        ws = {}
+        for b, w in old.items():
+            b = hand if b in finger_bones else b
+            ws[b] = ws.get(b, 0.0) + w
+        w = int(of[i])
+        f = of_finger.get(w)
+        if f is not None:
+            new = {}
+            second = by_tip[int(order[1, w])]
+            for g, share in ((f, 1.0 - other[w]), (second, other[w])):
+                if share <= 0.0:
+                    continue
+                x = finger_share(pos[i], found["wrist"], found["fingers"][g]["joints"])
+                for b, bw in finger_weights(rig, side, g, x).items():
+                    new[b] = new.get(b, 0.0) + share * bw
+            s = float(smoothstep(float(dist[w]) / (REPAIR_BLEND * h)))
+            mixed = {b: (1.0 - s) * bw for b, bw in ws.items()}
+            for b, bw in new.items():
+                mixed[b] = mixed.get(b, 0.0) + s * bw
+            ws = mixed
+        out.append(ws)
+    # A ring or a nail of its own: most of it within reach of a finger's surface.
+    welded = shape["welded"]
+    on = np.zeros(len(welded), bool)
+    on[list(of_finger)] = True
+    surface_at = welded[on]
+    surface_of = np.nonzero(on)[0]
+    rows = {}
+    for i, w in enumerate(of.tolist()):
+        rows.setdefault(w, []).append(i)
+    wrist = np.array(rig.head(side + "Hand"))
+    for members in islands(shape):
+        if on[members].any() or len(members) > REPAIR_PIECE * len(welded):
+            continue
+        pts = welded[members]
+        if np.linalg.norm(pts - wrist, axis=1).max() > REPAIR_REACH * h:
+            continue
+        gap = np.linalg.norm(pts[:, None, :] - surface_at[None], axis=2)
+        if (gap.min(1) <= REPAIR_TOUCH * h).mean() < 0.7:
+            continue
+        nearest = surface_of[gap.argmin(1)]
+        for w, take in zip(members.tolist(), nearest.tolist()):
+            for i in rows[w]:
+                out[i] = dict(out[rows[take][0]])
+    changed = 0
+    for i, (old, ws) in enumerate(zip(shape["weights"], out)):
+        top = sorted(ws.items(), key=lambda bw: -bw[1])[:MAX_INFLUENCES]
+        total = sum(w for _, w in top)
+        top = {b: w / total for b, w in top if w > 0.0}
+        if top.keys() != old.keys() or any(abs(top[b] - old[b]) > 1e-4 for b in top):
+            out[i] = top
+            changed += 1
+        else:
+            out[i] = None
+    for obj, start in shape["parts"]:
+        groups = obj.vertex_groups
+        for k in range(len(obj.data.vertices)):
+            ws = out[start + k]
+            if ws is None:
+                continue
+            # Indices first: removing a group shifts the vertex's own list.
+            for gi in [g.group for g in obj.data.vertices[k].groups]:
+                if groups[gi].name in rig.arm.data.bones:
+                    groups[gi].remove([k])
+            for b, w in ws.items():
+                group = groups.get(b) or groups.new(name=b)
+                group.add([k], w, "REPLACE")
+    return changed
+
+
+def islands(shape):
+    """The welded surface's pieces of their own, as arrays of welded vertices."""
+    adj = shape["adj"]
+    label = np.full(len(adj), -1)
+    out = []
+    for s in range(len(adj)):
+        if label[s] >= 0:
+            continue
+        label[s] = len(out)
+        stack, members = [s], [s]
+        while stack:
+            u = stack.pop()
+            for v, _ in adj[u]:
+                if label[v] < 0:
+                    label[v] = len(out)
+                    stack.append(v)
+                    members.append(v)
+        out.append(np.array(members))
+    return out
+
+
+def smoothstep(x):
+    x = np.clip(x, 0.0, 1.0)
+    return x * x * (3.0 - 2.0 * x)
+
+
+def repair_hands(rig):
+    """Places the finger joints of each hand whose finger bones sit bunched at
+    the wrist along the fingers its mesh shows, and weights the fingers to
+    them. Returns per repaired side how many vertices were reweighted and the
+    middle finger's reach from the wrist before and after; a hand whose mesh
+    does not show five fingers is left as it is."""
+    update()
+    shape = None
+    out = {}
+    for side in ("left", "right"):
+        if shape is None:
+            shape = surface(rig)
+            height = shape["height"]
+        if not bunched(rig, side, height):
+            continue
+        if shape.get("weights") is None:
+            shape["weights"] = read_weights(rig)
+        found = find_fingers(rig, side, shape)
+        if found is None:
+            log(f"{side.capitalize()} hand: finger bones bunched at the wrist and five fingers not found")
+            continue
+        before = hand_reach(rig, side)
+        place_joints(rig, side, found["fingers"])
+        changed = reweight_hand(rig, side, shape, found)
+        shape["weights"] = read_weights(rig)
+        out[side] = {"vertices": changed, "reachBefore": before, "reachAfter": hand_reach(rig, side)}
+        log(f"{side.capitalize()} hand: finger joints placed along its fingers, "
+            f"{changed} vertices reweighted")
+    return out
+
+
 def apply_as_rest(rig):
     """Bakes the current pose into the meshes and makes it the armature's rest."""
     kept = {}
@@ -737,7 +1162,7 @@ def render_cell(path):
     return px
 
 
-def render_sheet(rig, out, title, frame):
+def render_sheet(rig, out, title, frame, repaired=()):
     cam, label = setup_scene()
     cells_dir = out + "_cells"
     os.makedirs(cells_dir, exist_ok=True)
@@ -754,7 +1179,8 @@ def render_sheet(rig, out, title, frame):
     ri = len(SHEET_POSES)
     for ci, (side, view) in enumerate(HAND_VIEWS):
         cell = sheet[ri * CELL:(ri + 1) * CELL, ci * CELL:(ci + 1) * CELL]
-        if place_hand(cam, label, rig, side, view, frame, f"{title}  {side} hand  {view}"):
+        text = f"{title}  {side} hand  {view}" + ("  joints repaired" if side in repaired else "")
+        if place_hand(cam, label, rig, side, view, frame, text):
             cell[:] = render_cell(os.path.join(cells_dir, f"hand_{side}_{view}.png"))
         else:
             cell[:, :, :3] = 0.4
@@ -802,6 +1228,7 @@ def main():
     if "before" in job["sheets"]:
         render_sheet(rig, job["sheets"]["before"], "before", frame)
     weights_before = weight_checks(rig, fix=False)
+    repaired = repair_hands(rig)
     lifted = level_arms(rig, job["elbows"])
     straightened = straighten_fingers(rig) if job["fingers"] == "straighten" else {}
     apply_as_rest(rig)
@@ -809,7 +1236,7 @@ def main():
     rig.reset_pose()
     after = measure(rig)
     if "after" in job["sheets"]:
-        render_sheet(rig, job["sheets"]["after"], "after", frame)
+        render_sheet(rig, job["sheets"]["after"], "after", frame, repaired)
     export(rig, job["output"])
     report = {
         "before": before,
@@ -820,6 +1247,7 @@ def main():
         "lifted": lifted,
         "fingers": job["fingers"],
         "straightened": straightened,
+        "repaired": repaired,
         "weightsBefore": weights_before,
         "weights": weights,
     }
