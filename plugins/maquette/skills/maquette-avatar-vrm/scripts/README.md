@@ -6,14 +6,20 @@ a rigged character's rest pose for VRM 1.0 on a copy of the model:
 
 1. turns it so the face points to +Z and the character's left lands on +X;
 2. centres the hips on the Y axis and puts the soles on Y = 0;
-3. lifts each arm at the shoulder until upper arm to hand is level along X (the clavicles and the
-   fingers stay as they are; `"elbows": "straighten"`, the default, levels the lower arm too, and
-   `"keep"` leaves a bent elbow bent);
-4. makes that pose the rest: the armature modifier is applied, the pose becomes the rest, the
+3. lifts each arm at the shoulder until upper arm to hand is level along X (the clavicles stay as
+   they are; `"elbows": "straighten"`, the default, levels the lower arm too, and `"keep"` leaves a
+   bent elbow bent);
+4. with `"fingers": "straighten"`, the default, lays each finger straight along its hand in the
+   palm plane, keeping half of its spread, and the thumb 45 degrees between the hand and the front;
+   per hand it tries the whole turn, then 0.75, 0.5 and 0.25 of it, and keeps the first where the
+   finger-weighted edges stretch at most 1.35 at the 95th percentile. A hand whose finger bones
+   sit bunched at the wrist is skipped. `"keep"` leaves the fingers as they are;
+5. makes that pose the rest: the armature modifier is applied, the pose becomes the rest, the
    modifier is added back; the vertex groups are kept, at most 4 influences, weights summing to 1;
-5. exports a plain GLB without animations, a JSON report with the measures before and after, and
-   two pose sheets (rest, arms down, arms raised, a forward step; front, side, back and the
-   shoulders).
+6. exports a plain GLB without animations, a JSON report with the measures before and after (the
+   finger curl too) and how far each hand straightened, and two pose sheets (rest, arms down, arms
+   raised, a forward step; front, side, back and the shoulders; a last row with each hand from its
+   thumb side and from above).
 
 It runs headless only, never with a window, from a scratch folder:
 
@@ -32,7 +38,8 @@ them:
   "report": "report.json",
   "sheets": { "before": "sheet_before.png", "after": "sheet_after.png" },
   "bones": { "hips": "mixamorig:Hips", "leftUpperArm": "mixamorig:LeftArm" },
-  "elbows": "straighten"
+  "elbows": "straighten",
+  "fingers": "straighten"
 }
 ```
 
@@ -69,7 +76,7 @@ Run it headless only, never with a window, from a scratch folder:
 blender -b --factory-startup --python-exit-code 1 --python avatar_reweight.py -- --job job.json
 ```
 
-`job.json` is the same shape as the normalise's, without `elbows`:
+`job.json` is the same shape as the normalise's, without `elbows` and `fingers`:
 
 ```json
 {

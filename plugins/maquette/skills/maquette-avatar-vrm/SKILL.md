@@ -16,7 +16,7 @@ Avatar view (`/docs/views/avatar/`).
   after sheet paths; no tool approves either. Tell the person which step waits, then call
   `get_avatar` or `build_avatar` again later. NEVER loop on it fast.
 - `denied` means the person turned the pose down. Ask what to change (for example `elbows`
-  `keep`) before building again. A no to the weights is not a stop: the build lifts the arms
+  `keep` or `fingers` `keep`) before building again. A no to the weights is not a stop: the build lifts the arms
   from the model's own weights.
 - Never guess bones past the readiness. When `readiness.naming.confident` is false (a
   `bone-naming` finding says "Bone names are unclear"), ask the person which joint is which, or
@@ -46,7 +46,7 @@ Avatar view (`/docs/views/avatar/`).
    flags) rather than loosening the workspace defaults yourself.
 4. **Plan.** `build_avatar` `{ project, asset, dryRun: true }`: the version read, whether it
    frees the arms and normalises, whether that is cached, where it writes.
-5. **Free the arms.** `build_avatar` `{ project, asset, elbows?, reweight? }` (`reweight` `auto`,
+5. **Free the arms.** `build_avatar` `{ project, asset, elbows?, fingers?, reweight? }` (`reweight` `auto`,
    the default, or `off`). When cloth or hair hangs on the arms, Blender first moves its weight
    to the trunk on a copy, keeping the arms, sleeves and gloves, and the call answers
    `waiting for approval` with `step: "reweight"` and `reweight.sheets` (rest, arms level, arms
@@ -56,11 +56,15 @@ Avatar view (`/docs/views/avatar/`).
 6. **Lift the arms.** `build_avatar` again. A model already in VRM's rest pose is written at once.
    Otherwise Blender normalises a copy (from the approved weights, when there are any) and the
    call answers `waiting for approval` with `step: "rest pose"` and `pose.sheets`. Ask the person
-   to look at the sheets, especially the shoulders, and approve there.
+   to look at the sheets, especially the shoulders and the hands row at the bottom, and approve
+   there. `fingers` `straighten` (the default) lays the fingers straight as far as the hand's mesh
+   holds (`pose.straightened` says how far per hand, or why a hand was skipped); `keep` leaves
+   them curled. A `finger-bones` finding means a hand's finger bones sit bunched at the wrist: the
+   person needs to rig the hands again.
 7. **Result.** Once approved, `build_avatar` again (both copies are cached, Blender does not run
    again) answers `written` with `path`, `bytes`, `unresolved`, `report` and `roundTrip`.
 8. **Report.** Every build writes `exports/<asset>.vrm.report.json` beside the `.vrm`: the source
-   version and its SHA-256, the material and elbows modes, what the reweight moved (`reweight`,
+   version and its SHA-256, the material, elbows and fingers modes, what the reweight moved (`reweight`,
    when one was applied), the readiness before and after with
    every finding, `unresolved`, the bone map with each bone's `source` (`convention`, `auto` or
    `override`), the meta, the writer and `roundTrip`. Read it, then tell the person the path and
