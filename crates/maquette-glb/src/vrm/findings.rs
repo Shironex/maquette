@@ -2,7 +2,7 @@
 //! file, in plain words, ranked blockers first and never left out.
 
 use super::arm_weights::{ARM_REACH, ArmDrag};
-use super::bones::{HumanBone, Mapped, WrongParent, needs};
+use super::bones::{HUMANOID_JOINTS_MIN, HumanBone, Mapped, NamingReport, WrongParent, needs};
 use super::pose::RestPose;
 use super::{FindingLevel, VrmFinding};
 
@@ -389,4 +389,55 @@ pub(super) fn arm_weight_finding(drag: &ArmDrag, height: Option<f32>) -> VrmFind
             list(&bones)
         )),
     )
+}
+
+/// When the names leave the bone map unclear, or bones were read from
+/// descriptive names: the bones are for a person to assign or check.
+pub(super) fn naming_finding(naming: &NamingReport) -> Option<VrmFinding> {
+    if naming.confident && naming.descriptive == 0 {
+        return None;
+    }
+    let mut parts = Vec::new();
+    if naming.missing_required > 0 && naming.humanoid_joints >= HUMANOID_JOINTS_MIN {
+        let matched = match naming.convention {
+            Some(c) => format!(
+                "only {} of the 15 required bones match {} names",
+                naming.convention_required,
+                c.label()
+            ),
+            None => "none of the 15 required bones match by name".to_string(),
+        };
+        parts.push(format!(
+            "{} look like humanoid bones, but {matched}.",
+            plural(naming.humanoid_joints as usize, "joint", "joints")
+        ));
+    }
+    parts.extend(naming.ambiguous.iter().cloned());
+    if naming.descriptive > 0 {
+        parts.push(format!(
+            "{} read from descriptive names such as Left elbow, which is a guess.",
+            plural(naming.descriptive as usize, "bone was", "bones were")
+        ));
+    }
+    let (title, ask) = if naming.confident {
+        (
+            format!(
+                "{} matched by descriptive names",
+                plural(naming.descriptive as usize, "bone", "bones")
+            ),
+            "Check them in the Bone map and set any that are wrong.",
+        )
+    } else {
+        (
+            "Bone names are unclear".to_string(),
+            "Assign the bones in the Bone map, or have an agent set them with set_avatar. Nothing past this is guessed.",
+        )
+    };
+    parts.push(ask.to_string());
+    Some(finding(
+        "bone-naming",
+        FindingLevel::Warning,
+        title,
+        Some(parts.join(" ")),
+    ))
 }
