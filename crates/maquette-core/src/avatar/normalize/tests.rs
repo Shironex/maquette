@@ -209,6 +209,29 @@ fn a_run_makes_a_pending_result_in_the_cache_and_no_new_version() {
 }
 
 #[test]
+fn a_result_an_older_version_wrote_is_a_miss_and_runs_again() {
+    let w = world();
+    let none = BoneOverrides::new();
+    let blender = FakeBlender::good();
+    let planned = plan(&request(&w, &none, Elbows::Keep)).expect("plan");
+    run(&blender, &tools(), &planned).expect("run");
+    // The shape before the readiness carried its naming report.
+    let file = planned.dir.join(RESULT_FILE);
+    let mut old: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&file).expect("read")).expect("json");
+    old["readiness"]
+        .as_object_mut()
+        .expect("readiness")
+        .remove("naming");
+    fs::write(&file, serde_json::to_string_pretty(&old).expect("json")).expect("write");
+
+    assert_eq!(load(&planned.dir).expect("an old shape is no error"), None);
+    let found = run(&blender, &tools(), &planned).expect("run again");
+    assert_eq!(blender.runs.get(), 2, "the stale result ran again");
+    assert_eq!(load(&planned.dir).expect("load"), Some(found));
+}
+
+#[test]
 fn the_same_plan_comes_from_the_cache_and_another_runs_again() {
     let w = world();
     let none = BoneOverrides::new();

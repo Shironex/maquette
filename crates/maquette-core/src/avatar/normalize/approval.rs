@@ -61,11 +61,12 @@ fn valid_approval(dir: &Path, found: &Normalized) -> CoreResult<Option<Approval>
 }
 
 /// The result in `dir`, with its approval state, or `None` when nothing
-/// was normalised there or its outputs changed since.
+/// was normalised there, its outputs changed since, or an older version
+/// wrote it in a shape this one cannot read.
 ///
 /// # Errors
 ///
-/// Fails when the result file is there but unreadable.
+/// Fails when the result file is there but cannot be read from disk.
 pub fn load(dir: &Path) -> CoreResult<Option<Normalized>> {
     let file = dir.join(RESULT_FILE);
     let text = match fs::read_to_string(&file) {
@@ -73,8 +74,11 @@ pub fn load(dir: &Path) -> CoreResult<Option<Normalized>> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(CoreError::io(&file, e)),
     };
-    let mut found: Normalized =
-        serde_json::from_str(&text).map_err(|e| CoreError::json(&file, e))?;
+    // A result an older version wrote, in a shape this one no longer reads, is a miss: the
+    // next run makes it again instead of failing for the person.
+    let Ok(mut found) = serde_json::from_str::<Normalized>(&text) else {
+        return Ok(None);
+    };
     let intact = cache::load_record(dir, STEP)
         .is_some_and(|r| cache::is_fresh(&r, &found.key, dir, &outputs()));
     if !intact {
