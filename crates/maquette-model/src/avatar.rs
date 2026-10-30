@@ -11,6 +11,7 @@
 //!       "meta": { "name": "Hero", "authors": ["Me"], "licenseUrl": "https://vrm.dev/licenses/1.0/" },
 //!       "bones": { "leftEye": "Eye_L", "jaw": null },
 //!       "material": "mtoon-soft",
+//!       "highlights": "soften",
 //!       "springs": []
 //!     }
 //!   }
@@ -45,6 +46,20 @@ pub const AVATAR_VERSION: u32 = 1;
 /// The longest joint name a bone override may hold.
 pub const JOINT_NAME_MAX_CHARS: usize = 120;
 
+/// What an MToon export does with the highlights a generated model's
+/// lighting painted into its base color texture.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum Highlights {
+    /// Write a copy of the texture with only strong baked highlights on
+    /// dark material toned down toward the colour around them. The
+    /// model's own texture stays as it is.
+    #[default]
+    Soften,
+    /// Write the texture as it is.
+    Keep,
+}
+
 /// One character asset's avatar.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", default)]
@@ -54,6 +69,8 @@ pub struct AvatarSpec {
     /// unmapped. Bones not listed map by name.
     pub bones: BoneOverrides,
     pub material: MaterialMode,
+    /// Only read with MToon: PBR shades the texture as it is.
+    pub highlights: Highlights,
     /// The confirmed springs, in the order they were confirmed.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub springs: Vec<SpringSpec>,
@@ -254,5 +271,8 @@ mod tests;
 /// Registers this module's IPC types (the scene's avatars) with the shell's
 /// TypeScript export; `maquette_core::types` folds every module's in.
 pub fn register(types: specta::Types) -> specta::Types {
-    types.register::<SceneAvatars>().register::<SpringSpec>()
+    types
+        .register::<SceneAvatars>()
+        .register::<SpringSpec>()
+        .register::<Highlights>()
 }

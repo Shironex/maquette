@@ -1,9 +1,11 @@
 /**
  * Fixtures for the mock Avatar view: a posed rig, its normalised twin, what
- * freeing its arms moved, a round trip that failed, and the older-version seed.
+ * freeing its arms moved, a round trip that failed, the highlights a written
+ * MToon file softened, and the older-version seed.
  */
 import type {
   AvatarExport,
+  AvatarSpec,
   Elbows,
   Fingers,
   NormalizeReport,
@@ -263,5 +265,35 @@ export function roundTripFailed(
       },
       ...unresolved,
     ],
+  };
+}
+
+/**
+ * A written file's checks: it reads back, and with MToon what it did with
+ * its baked highlights (3% of the texture softened).
+ */
+export function writtenChecks(spec: AvatarSpec): Pick<AvatarExport, 'roundTrip' | 'highlights'> {
+  const roundTrip = { passed: true, problems: [], bones: 52 };
+  if (spec.material !== 'mtoon-soft') return { roundTrip, highlights: null };
+  if (spec.highlights === 'keep')
+    return { roundTrip, highlights: { mode: 'keep', strength: 0.75, images: [], note: null } };
+  return {
+    roundTrip,
+    highlights: {
+      mode: 'soften',
+      strength: 0.75,
+      images: [
+        {
+          image: 1,
+          width: 2048,
+          height: 2048,
+          coverage: 0.0298,
+          darkCoverage: 0.0322,
+          softened: true,
+          note: null,
+        },
+      ],
+      note: null,
+    },
   };
 }

@@ -11,9 +11,8 @@
  * - `round-trip`: like `written`, but the written file did not read back.
  * - `older`: like `pending`, but Elsheria has a newer v3 and the wait is on v2.
  * - `springs`, `chains`: see create-avatar-springs.ts.
- * - `custom`: Elsheria's rig names its joints its own way and has two
- *   joints for each upper leg, which a person assigns in the Bone map
- *   (see custom-rig-fixtures.ts).
+ * - `custom`: Elsheria's rig names its joints its own way and has two joints for
+ *   each upper leg, which a person assigns in the Bone map (custom-rig-fixtures.ts).
  * Without it Elsheria faces +X in an A-pose and was never built; bone
  * overrides in a saved spec change the bone map as the reader would. */
 import type {
@@ -42,6 +41,7 @@ import {
   report,
   reweightReport,
   roundTripFailed,
+  writtenChecks,
 } from './avatar-fixtures';
 import { customRigReadiness } from './custom-rig-fixtures';
 import { CLAY_FIGURE_VRM, withOverrides } from './vrm-fixtures';
@@ -201,11 +201,11 @@ export function createAvatarHandlers(
       normalized: normalized !== null,
       reweighted: Boolean(normalized?.reweight),
       material: v.spec.material,
+      ...writtenChecks(v.spec),
       unresolved,
       writtenAt: new Date(clock.nowMs()).toISOString(),
       exists: true,
       report: `${v.exportPath}.report.json`,
-      roundTrip: { passed: true, problems: [], bones: 52 },
       springs: springs.written(p, v.asset, v.spec),
     };
   }

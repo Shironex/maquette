@@ -3,12 +3,14 @@
 //! when and how it was written, the readiness before and after with every
 //! finding, what the file still lacks, the bone map with where each bone
 //! came from, the meta, the writer and the round trip (the written bytes
-//! read back and checked as a runtime would).
+//! read back and checked as a runtime would), and with MToon what was
+//! done with the highlights baked into the base color.
 
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::avatar::highlights::HighlightsReport;
 use crate::avatar::normalize::{Elbows, Fingers};
 use crate::avatar::reweight::{FINDING, ReweightReport};
 use crate::avatar::springs::SpringsSummary;
@@ -130,6 +132,11 @@ pub struct AvatarReport {
     pub writer: String,
     pub source: ReportSource,
     pub material: MaterialMode,
+    /// With MToon, the highlights baked into the base color: kept or
+    /// softened, and how much of each texture they cover. `None` with PBR
+    /// or for a report older than the option.
+    #[serde(default)]
+    pub highlights: Option<HighlightsReport>,
     /// Written from a normalised rest pose (else from the model as it is).
     pub normalized: bool,
     /// The elbows mode of the normalise; `None` when nothing was normalised.

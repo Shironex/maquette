@@ -120,6 +120,9 @@ impl ScriptRunner for FakeBlender {
         (file, script): (&str, &str),
         extra: &[String],
     ) -> CoreResult<()> {
+        if crate::avatar::highlights::tests::leaves_as_is(work, file) {
+            return Ok(());
+        }
         self.runs.set(self.runs.get() + 1);
         assert_eq!(file, SCRIPT_FILE);
         assert_eq!(script, SCRIPT);

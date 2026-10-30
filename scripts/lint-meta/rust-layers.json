@@ -46,6 +46,7 @@
     "prepare::preview": "pipeline",
     "avatar::export": "pipeline",
     "avatar::gate": "pipeline",
+    "avatar::highlights": "pipeline",
     "avatar::normalize": "pipeline",
     "avatar::reweight": "pipeline",
     "avatar::springs": "pipeline",

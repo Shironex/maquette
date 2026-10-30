@@ -5,7 +5,8 @@
 //! finds them there and wait for a person's yes to the new weights, then
 //! normalise the rest pose and wait for a yes to the new pose, then add
 //! the chains of the confirmed springs and wait for a yes to those
-//! ([`springs`]), then write the file.
+//! ([`springs`]), then write the file, with MToon from a copy of the base
+//! color whose baked highlights are softened ([`highlights`]).
 //!
 //! The `.vrm` is a derived export, never a new version: it is written only
 //! to the project's `exports/<asset>.vrm`, over the last one, with a
@@ -20,6 +21,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use super::highlights::{self, HighlightsReport};
 use super::normalize::{
     self, AVATAR_DIR, Elbows, Fingers, NormalizeRequest, NormalizeState, Normalized,
     needs_normalize,
@@ -86,6 +88,11 @@ pub struct AvatarExport {
     #[serde(default)]
     pub reweighted: bool,
     pub material: MaterialMode,
+    /// With MToon, what was done with the highlights baked into the base
+    /// color; `None` with PBR or for a build that predates the option.
+    /// Boxed, so a written build stays near the size of the others.
+    #[serde(default)]
+    pub highlights: Option<Box<HighlightsReport>>,
     /// What the file still lacks, blockers first.
     pub unresolved: Vec<VrmFinding>,
     pub written_at: String,
@@ -355,15 +362,20 @@ pub fn build(
     let dir = asset_dir(req.workspace_root, req.config, req.project, &src.asset.id);
     let output = vrm_file(&src.project_dir, &src.asset.id);
     let file = src.file.clone().unwrap_or_default();
-    let built = |(written, springs), source_version, options, reweight| Built {
-        written,
-        source: &file,
-        source_version,
-        options,
-        reweight,
-        spec: &spec,
-        before: &readiness,
-        springs,
+    let built = |(written, springs), source_version, options, reweight| {
+        let (written, highlights) =
+            highlights::apply(runner, tools, &dir, spec.material, spec.highlights, written);
+        Built {
+            written,
+            source: &file,
+            source_version,
+            options,
+            reweight,
+            spec: &spec,
+            before: &readiness,
+            springs,
+            highlights,
+        }
     };
     let version = src.version.unwrap_or(0);
     if !needs_normalize(&readiness) {

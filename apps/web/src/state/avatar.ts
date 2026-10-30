@@ -107,6 +107,7 @@ export function specFromDefaults(
     },
     bones: {},
     material: d.material ?? 'mtoon-soft',
+    highlights: 'soften',
   };
 }
 

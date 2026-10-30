@@ -17,12 +17,24 @@ describe('the export panel', () => {
     expect(useAvatarStore.getState().dirty).toBe(true);
   });
 
+  it('offers to keep the baked highlights with MToon only', async () => {
+    await openAvatar();
+    render(<ExportPanel />);
+    expect(screen.getByText(/Tones down only strong highlights/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(useAvatarStore.getState().draft?.highlights).toBe('keep');
+    expect(useAvatarStore.getState().dirty).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'PBR' }));
+    expect(screen.queryByRole('button', { name: 'Keep' })).not.toBeInTheDocument();
+  });
+
   it('shows the written file with what it still lacks', async () => {
     const calls = await openAvatar('written');
     render(<ExportPanel />);
     const last = screen.getByRole('region', { name: 'Last export' });
     expect(last).toHaveTextContent('9.4 MB');
     expect(last).toHaveTextContent('Normalised');
+    expect(last).toHaveTextContent('3.0% softened');
     expect(last).toHaveTextContent('64 vertices still follow the arms after the reweight');
     expect(last).toHaveTextContent('Round trip: Reads back as a VRM with 52 humanoid bones.');
     expect(last).toHaveTextContent('exports/elsheria.vrm.report.json');
