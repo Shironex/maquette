@@ -19,6 +19,7 @@ compare_versions
 copy_asset
 discard_inbox_model
 dismiss_download
+find_look_alikes
 get_avatar
 get_bake_settings
 get_codex_usage
@@ -57,6 +58,7 @@ list_projects
 list_removed_assets
 make_object_refs
 make_other_views
+merge_library_entries
 pick_concepts
 preview_fixups
 prioritize_concept_jobs
@@ -65,9 +67,12 @@ redo_inbox_model
 redo_inbox_models
 remove_assets
 remove_fixups
+remove_from_library
+rename_library_entry
 render_thumbnail
 restore_asset
 restore_inbox_model
+restore_to_library
 retry_concept_jobs
 retry_usage_limited_jobs
 run_pipeline
@@ -81,6 +86,7 @@ set_compression_presets
 set_game_settings
 set_image_backend
 set_layout
+set_library_collection
 set_material_tweaks
 set_pad_edges
 set_parts
@@ -94,6 +100,7 @@ star_concepts
 start_concepts
 start_page_preview
 stop_page_preview
+tag_library_entries
 update_from_library
 update_starters
 use_animations

@@ -144,6 +144,29 @@ export const commands = {
 	libraryUpdatePlan: (project: string, asset: string) => __TAURI_INVOKE<UpdatePlan>("library_update_plan", { project, asset }),
 	/**  Brings the library's newest version in as the asset's next version. */
 	libraryUpdate: (project: string, asset: string) => __TAURI_INVOKE<LibraryUpdated>("library_update", { project, asset }),
+	/**  Puts tags on and takes tags off every entry named. */
+	libraryTag: (request: TagEntries) => __TAURI_INVOKE<LibraryEntry[]>("library_tag", { request }),
+	/**  Renames an entry; its id and files stay. */
+	libraryRename: (entry: string, name: string) => __TAURI_INVOKE<LibraryEntry>("library_rename", { entry, name }),
+	/**
+	 *  Creates, fills, empties, renames or deletes a collection. Answers every
+	 *  collection after the change.
+	 */
+	libraryCollection: (change: CollectionChange) => __TAURI_INVOKE<LibraryCollection[]>("library_collection", { change }),
+	/**  Moves entries out of the library; projects keep their copies. */
+	libraryRemove: (entries: string[]) => __TAURI_INVOKE<string[]>("library_remove", { entries }),
+	/**  Puts removed entries back, undoing a merge for a merged one. */
+	libraryRestore: (entries: string[]) => __TAURI_INVOKE<LibraryRestored>("library_restore", { entries }),
+	/**  The entries that may be one model twice, with the recent merges. */
+	libraryLookAlikes: () => __TAURI_INVOKE<LookAlikes>("library_look_alikes"),
+	/**  Records a verdict on a look-alike pair so it is no longer listed. */
+	libraryDecide: (a: string, b: string, verdict: LookAlikeVerdict) => __TAURI_INVOKE<null>("library_decide", { a, b, verdict }),
+	/**  Saves the look-alike settings; answers them as saved. */
+	libraryLookSettings: (settings: LookAlikeSettings) => __TAURI_INVOKE<LookAlikeSettings>("library_look_settings", { settings }),
+	/**  Merges one entry into another; restoring the merged entry undoes it. */
+	libraryMerge: (request: MergeEntries) => __TAURI_INVOKE<LibraryMerged>("library_merge", { request }),
+	/**  What adding every asset of a project would do. Reads only. */
+	libraryAddManyPlan: (project: string) => __TAURI_INVOKE<AddManyPlan>("library_add_many_plan", { project }),
 	/**  Every clip in the animation library. */
 	animationsGet: () => __TAURI_INVOKE<AnimationsView>("animations_get"),
 	/**
@@ -700,6 +723,16 @@ export type AcceptResult = {
 	note: string | null,
 };
 
+/**  What adding a project's assets to the library would do. */
+export type AddManyPlan = {
+	project: string,
+	projectName: string,
+	/**  The suggested project tag: the project name slugified. */
+	tag: string,
+	checkOnAdd: boolean,
+	assets: PlannedAdd[],
+};
+
 /**  What Add to library asks for. */
 export type AddToLibrary = {
 	project: string,
@@ -708,6 +741,11 @@ export type AddToLibrary = {
 	name: string | null,
 	/**  Replaces the entry's tags; left out, they stay. */
 	tags: string[] | null,
+	/**
+	 *  Adds the model as the next version of this entry instead of the one
+	 *  the asset belongs to.
+	 */
+	into: string | null,
 };
 
 export type AgentRules = {
@@ -2037,6 +2075,9 @@ export type CodexUsage = {
 /**  A Codex usage read finished: the status bar and the Lab show it. */
 export type CodexUsageUpdate = CodexUsage;
 
+/**  One change to the collections. */
+export type CollectionChange = { op: "create"; name: string; entries: string[] } | { op: "add"; collection: string; entries: string[] } | { op: "remove"; collection: string; entries: string[] } | { op: "rename"; collection: string; name: string } | { op: "delete"; collection: string };
+
 /**  A collider's shape, in its bone's space. */
 export type ColliderShape = ({ sphere: {
 	offset: [(number | null), (number | null), (number | null)],
@@ -3271,6 +3312,15 @@ export type LibraryAdded = {
  */
 export type LibraryChanged = null;
 
+/**  One collection. */
+export type LibraryCollection = {
+	id: string,
+	name: string,
+	/**  Entry ids, in the order they joined. */
+	entries: string[],
+	createdAt: string,
+};
+
 /**  `entry.json`. */
 export type LibraryEntry = {
 	version: number,
@@ -3302,6 +3352,32 @@ export type LibraryItem = {
 	 *  every use that is not the asset the version came from.
 	 */
 	saved: number | null,
+};
+
+/**  One merge, as the look-alikes list shows it. */
+export type LibraryMerge = {
+	merged: string,
+	mergedName: string,
+	into: string,
+	intoName: string,
+	/**  The versions of `into` the merged entry's versions became. */
+	versions: number[],
+	at: string,
+};
+
+/**  What a merge did. */
+export type LibraryMerged = {
+	entry: LibraryEntry,
+	merge: LibraryMerge,
+	/**  Projects whose assets now point at the kept entry. */
+	projects: ProjectManifest[],
+};
+
+/**  What a restore did. */
+export type LibraryRestored = {
+	entries: string[],
+	/**  Projects whose asset origins a restore changed (an undone merge). */
+	projects: ProjectManifest[],
 };
 
 /**  What made a library model. */
@@ -3369,6 +3445,8 @@ export type LibraryView = {
 	/**  The library folder, absolute. */
 	dir: string,
 	items: LibraryItem[],
+	/**  Every collection by name, each listing only entries in `items`. */
+	collections: LibraryCollection[],
 };
 
 export type LogEntry = {
@@ -3385,6 +3463,46 @@ export type LogLevel = "info" | "ok" | "warn" | "error";
 export type LogStream = "stdout" | "stderr" | 
 /**  Lines the runner writes itself. */
 "system";
+
+export type LookAlikeKind = "same-look" | "same-name";
+
+/**  Two entries that may be one model. */
+export type LookAlikePair = {
+	kind: LookAlikeKind,
+	/**  The older entry. */
+	a: string,
+	b: string,
+	/**  How alike the pictures are, 0 to 1, when both read. */
+	score: number | null,
+	shape: number | null,
+	colour: number | null,
+	ratio: number | null,
+};
+
+/**  How look-alikes are found. */
+export type LookAlikeSettings = {
+	/**  The least picture score, 0.5 to 0.99, that pairs two entries. */
+	threshold: number | null,
+	/**  Whether adding many assets checks each against the library's pictures. */
+	checkOnAdd: boolean,
+	/**  Whether a merge copies the merged entry's tags by default. */
+	copyTags: boolean,
+};
+
+/**  What a person said about a pair. */
+export type LookAlikeVerdict = "keep-both" | "not-alike" | "keep-names";
+
+/**  What the look-alike check found. */
+export type LookAlikes = {
+	pairs: LookAlikePair[],
+	/**  Entries with no readable picture, skipped by the picture match. */
+	unseen: string[],
+	/**  Recent merges, newest first (at most 5), each undoable with restore. */
+	merges: LibraryMerge[],
+	settings: LookAlikeSettings,
+	scannedAt: string,
+	tookMs: number,
+};
 
 /**  The model bone chosen for one humanoid bone; `None` leaves it at rest. */
 export type MapChoice = {
@@ -3485,6 +3603,16 @@ export type Measured =
 "raw" | 
 /**  The source model, before the first export. */
 "source";
+
+/**  What a merge asks for. */
+export type MergeEntries = {
+	/**  The entry that stays. */
+	keep: string,
+	/**  The entry that goes into it. */
+	merge: string,
+	/**  Whether the merged entry's tags join the kept entry's. */
+	copyTags: boolean,
+};
 
 export type MeshoptLevel = "low" | "medium" | "high";
 
@@ -4267,6 +4395,26 @@ export type PlanClip = {
 	status: ClipStatus,
 	matched: MatchedClip | null,
 };
+
+/**  One asset in the plan. */
+export type PlannedAdd = {
+	asset: string,
+	name: string,
+	kind: AssetKind,
+	state: PlannedState,
+	/**  The library entry it meets: the one it would join, has the same file, the same name or the same look. */
+	entry: string | null,
+	entryName: string | null,
+	/**  How alike the two pictures are, when both read. */
+	looks: number | null,
+	/**  The model file, relative to the project folder. */
+	file: string,
+	triangles: number | null,
+	/**  Why it cannot be added, for unreadable. */
+	reason: string | null,
+};
+
+export type PlannedState = "new" | "next-version" | "same-file" | "name-clash" | "looks-like" | "unreadable";
 
 /**  The rest pose as the script measured it, in glTF metres and degrees. */
 export type PoseMeasures = {
@@ -6027,6 +6175,15 @@ export type SyncConflict = {
 export type TagCount = {
 	tag: string,
 	count: number,
+};
+
+/**  What a bulk tag change asks for. */
+export type TagEntries = {
+	entries: string[],
+	/**  Tags put on every entry. */
+	add: string[],
+	/**  Tags taken off every entry. */
+	remove: string[],
 };
 
 export type TextureCodec = "etc1s" | "uastc";

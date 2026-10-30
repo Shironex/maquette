@@ -23,6 +23,8 @@ pub mod image_round;
 pub mod inbox;
 pub mod inbox_triage;
 pub mod library;
+pub mod library_batch;
+pub mod library_many;
 pub mod materials;
 pub mod motion;
 pub mod page;
@@ -171,10 +173,15 @@ versions to another project. remove_assets removes assets from a project into th
 trash (refused while its model is being made or a run is going), list_removed_assets lists \
 them and restore_asset puts one back. \
 The library keeps models outside any project (library/ at the workspace root). list_library \
-reads it, 25 compact entries per page (follow nextCursor, or pass full for everything about an entry); add_to_library copies an asset's newest model in (a newer model of an asset already \
-there becomes its entry's next version); use_from_library copies an entry into a project as a \
+reads it, 25 compact entries per page (follow nextCursor, or pass full for everything about an entry; \
+collection narrows it to one collection); add_to_library copies an asset's newest model in (a newer model of an asset already \
+there becomes its entry's next version), and add_many_to_library adds several (dryRun first says what each \
+would become); use_from_library copies an entry into a project as a \
 new asset that remembers its origin; update_from_library brings a newer library version in as \
-the asset's next version, keeping the fix-ups that still apply. The library copies, never \
+the asset's next version, keeping the fix-ups that still apply. tag_library_entries, rename_library_entry and \
+set_library_collection tidy entries; remove_from_library moves entries to library/.removed and \
+restore_to_library brings them back; find_look_alikes reads entries that may be one model twice and \
+merge_library_entries merges one into another (restore_to_library on the merged entry undoes it). The library copies, never \
 links: nothing changes a project until someone updates it, and none of it spends credits. \
 The animation library keeps clips once, skeleton only (library/animations). list_animations \
 reads it; import_animations reads Mixamo FBX files or pack zips inside the workspace headless \
@@ -308,6 +315,8 @@ impl McpTools {
             + Self::game_router()
             + Self::ship_router()
             + Self::library_router()
+            + Self::library_many_router()
+            + Self::library_batch_router()
             + Self::animations_router()
             + Self::retarget_router()
             + Self::trash_router()

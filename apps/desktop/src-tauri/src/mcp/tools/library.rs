@@ -3,7 +3,7 @@
 //! brings a newer library version into an asset that came from it. The
 //! library copies, never links, and none of it spends credits.
 
-use maquette_core::library::{AddToLibrary, LibraryItem, UpdatePlan};
+use maquette_core::library::{AddToLibrary, LibraryItem, LibraryView, UpdatePlan};
 use maquette_core::project;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
@@ -24,13 +24,15 @@ pub struct ListLibraryArgs {
     pub tag: Option<String>,
     /// A project id: also list its assets that have a newer library version waiting.
     pub project: Option<String>,
+    /// Only entries in this collection (a collection id).
+    pub collection: Option<String>,
     /// How many entries one call returns: 25 by default, 100 at most.
     pub limit: Option<u32>,
     /// The nextCursor of the previous call, to read the next page. Opaque: pass it back as is.
     pub cursor: Option<String>,
     /// true lists every entry in full (versions, sizes, credits and where each is used). By
-    /// default each entry is compact: id, name, kind, tags, newest version, version count and
-    /// use count.
+    /// default each entry is compact: id, name, kind, tags, newest version, version count, use
+    /// count, triangles and what made it.
     #[serde(default)]
     pub full: bool,
 }
@@ -45,28 +47,6 @@ pub struct AddToLibraryArgs {
     /// The entry's name. Defaults to the asset's.
     pub name: Option<String>,
     /// The entry's tags, which replace the ones it has. Left out, they stay.
-    pub tags: Option<Vec<String>>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct LibraryAssetArgs {
-    /// The asset id or name, as list_assets returns it.
-    pub asset: String,
-    /// The entry's name. Defaults to the asset's.
-    pub name: Option<String>,
-    /// This asset's tags. They replace the shared tags for this asset.
-    pub tags: Option<Vec<String>>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct AddManyToLibraryArgs {
-    /// The project id.
-    pub project: String,
-    /// 1 to 200 assets.
-    pub assets: Vec<LibraryAssetArgs>,
-    /// Tags for every asset that names none of its own.
     pub tags: Option<Vec<String>>,
 }
 
@@ -113,18 +93,36 @@ const MAX_LIMIT: u32 = 100;
 /// How many it returns when limit is left out.
 const DEFAULT_LIMIT: u32 = 25;
 
-/// One entry in the short form: no sizes, credits or per project uses.
+/// One entry in the short form: no bytes, credits or per project uses.
 fn compact(item: &LibraryItem) -> Value {
     let entry = &item.entry;
+    let latest = entry.latest();
     json!({
         "id": entry.id,
         "name": entry.name,
         "kind": to_value(entry.kind),
         "tags": entry.tags,
-        "latest": entry.latest().map(|v| v.version),
+        "latest": latest.map(|v| v.version),
         "versions": entry.versions.len(),
         "uses": item.uses.len(),
+        "triangles": latest.and_then(|v| v.stats.as_ref()).map(|s| s.triangles),
+        "source": latest.map(|v| to_value(v.source)),
     })
+}
+
+/// The entry ids of `collection`, or why there is no such collection.
+fn in_collection(
+    view: &LibraryView,
+    collection: Option<&str>,
+) -> Result<Option<Vec<String>>, String> {
+    let Some(id) = collection else {
+        return Ok(None);
+    };
+    view.collections
+        .iter()
+        .find(|c| c.id == id)
+        .map(|c| Some(c.entries.clone()))
+        .ok_or_else(|| format!("There is no collection {id}. list_library lists the collections."))
 }
 
 /// The page of `matching` that follows `cursor` (an entry id), at most
@@ -189,39 +187,12 @@ fn planned(plan: &UpdatePlan) -> Value {
     })
 }
 
-/// The most assets one add_many_to_library call takes.
-const MAX_BATCH: usize = 200;
-
-/// Adds one asset as add_to_library does and answers its result row, or the
-/// reason it failed.
-fn add_one(
-    host: &dyn super::Host,
-    project: &str,
-    item: &LibraryAssetArgs,
-    shared: Option<&Vec<String>>,
-) -> Result<Value, String> {
-    let asset = asset_id(host, project, &item.asset)?;
-    let request = AddToLibrary {
-        project: project.to_string(),
-        asset,
-        name: item.name.clone(),
-        tags: item.tags.clone().or_else(|| shared.cloned()),
-    };
-    let added = commands::add(host.session(), host.studio(), &request).map_err(|e| e.message)?;
-    host.project_changed(&added.project);
-    Ok(json!({
-        "asset": item.asset,
-        "ok": true,
-        "entry": added.entry.id,
-        "name": added.entry.name,
-        "version": added.version,
-        "added": added.added,
-        "tags": added.entry.tags,
-    }))
-}
-
 /// The asset id `wanted` names in `project_id`.
-fn asset_id(host: &dyn super::Host, project_id: &str, wanted: &str) -> Result<String, String> {
+pub(super) fn asset_id(
+    host: &dyn super::Host,
+    project_id: &str,
+    wanted: &str,
+) -> Result<String, String> {
     let (root, config) = workspace(host)?;
     let manifest = project::load(&root, &config.layout, project_id).map_err(super::reason)?;
     find_asset(&manifest, wanted).map(|a| a.id.clone())
@@ -237,10 +208,12 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let view = commands::get(host.session()).map_err(|e| e.message)?;
+                let only = in_collection(&view, args.collection.as_deref())?;
                 let matching: Vec<&LibraryItem> = view
                     .items
                     .iter()
                     .filter(|i| matches(i, args.query.as_deref(), args.tag.as_deref()))
+                    .filter(|i| only.as_ref().is_none_or(|ids| ids.contains(&i.entry.id)))
                     .collect();
                 let (shown, next) = page(
                     &matching,
@@ -266,12 +239,18 @@ impl McpTools {
                         })
                         .collect()
                 });
+                let collections: Vec<Value> = view
+                    .collections
+                    .iter()
+                    .map(|c| json!({ "id": c.id, "name": c.name, "count": c.entries.len() }))
+                    .collect();
                 Ok(json!({
                     "dir": view.dir,
                     "total": matching.len(),
                     "entries": entries,
                     "nextCursor": next,
                     "updates": updates,
+                    "collections": collections,
                 }))
             })
             .await;
@@ -290,6 +269,7 @@ impl McpTools {
                     asset,
                     name: args.name.clone(),
                     tags: args.tags.clone(),
+                    into: None,
                 };
                 let added = commands::add(host.session(), host.studio(), &request)
                     .map_err(|e| e.message)?;
@@ -301,38 +281,6 @@ impl McpTools {
                     "version": added.version,
                     "added": added.added,
                     "tags": added.entry.tags,
-                }))
-            })
-            .await;
-        respond(found)
-    }
-
-    #[tool(
-        description = "Add several project assets to the library in one call, each as add_to_library does (1 to 200 assets). tags are shared by every asset that names none of its own. Each asset answers on its own, with ok true and its entry, version and added, or ok false and why, and one failure does not stop the rest; the answer also counts added and failed. Copies files, spends nothing and needs no approval."
-    )]
-    async fn add_many_to_library(&self, Parameters(args): Parameters<AddManyToLibraryArgs>) -> Out {
-        let found = self
-            .blocking(move |host, _| {
-                if args.assets.is_empty() || args.assets.len() > MAX_BATCH {
-                    return Err(format!("Give 1 to {MAX_BATCH} assets."));
-                }
-                let results: Vec<Value> = args
-                    .assets
-                    .iter()
-                    .map(|item| {
-                        add_one(host, &args.project, item, args.tags.as_ref()).unwrap_or_else(
-                            |why| json!({ "asset": item.asset, "ok": false, "error": why }),
-                        )
-                    })
-                    .collect();
-                let added = results.iter().filter(|r| r["ok"] == json!(true)).count();
-                if added > 0 {
-                    host.library_changed();
-                }
-                Ok(json!({
-                    "added": added,
-                    "failed": results.len() - added,
-                    "results": results,
                 }))
             })
             .await;
