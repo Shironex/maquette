@@ -14,7 +14,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
 
 use super::normalize::{
     self, AVATAR_DIR, Elbows, NormalizeRequest, NormalizeState, Normalized, needs_normalize,
@@ -34,6 +33,10 @@ use crate::{Asset, AssetKind};
 /// The project folder exports are written into.
 pub const EXPORTS_DIR: &str = "exports";
 const RECORD_FILE: &str = "export.json";
+
+mod patch;
+
+pub use patch::{AvatarPatch, apply_patch};
 
 fn invalid(message: impl Into<String>) -> CoreError {
     CoreError::Invalid(message.into())
@@ -431,94 +434,6 @@ pub fn decide(req: &AvatarRequest<'_>, approve: bool) -> CoreResult<Normalized> 
     } else {
         normalize::deny(&dir)
     }
-}
-
-/// A change to one asset's spec, as `set_avatar` takes it. Only what is
-/// given changes.
-#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct AvatarPatch {
-    /// Start from the workspace defaults first, before the rest applies.
-    pub reset: bool,
-    /// Meta fields by their VRM names; null puts one back to its default.
-    pub meta: Map<String, Value>,
-    /// VRM bone name to a joint name, or null to leave the bone unmapped.
-    pub bones: BoneOverrides,
-    /// Bones whose override is dropped, so they map by name again.
-    pub clear_bones: Vec<String>,
-    pub material: Option<MaterialMode>,
-}
-
-/// The meta fields a patch may name.
-const META_FIELDS: [&str; 18] = [
-    "name",
-    "version",
-    "authors",
-    "copyrightInformation",
-    "contactInformation",
-    "references",
-    "thirdPartyLicenses",
-    "licenseUrl",
-    "avatarPermission",
-    "allowExcessivelyViolentUsage",
-    "allowExcessivelySexualUsage",
-    "commercialUsage",
-    "allowPoliticalOrReligiousUsage",
-    "allowAntisocialOrHateUsage",
-    "creditNotation",
-    "allowRedistribution",
-    "modification",
-    "otherLicenseUrl",
-];
-
-/// Applies `patch` to `current` (`defaults` when it resets).
-///
-/// # Errors
-///
-/// Refuses an unknown meta field, a value of the wrong kind, or a spec
-/// [`AvatarSpec::validate`] refuses.
-pub fn apply_patch(
-    current: &AvatarSpec,
-    defaults: &AvatarSpec,
-    patch: &AvatarPatch,
-) -> CoreResult<AvatarSpec> {
-    let mut next = if patch.reset {
-        defaults.clone()
-    } else {
-        current.clone()
-    };
-    if !patch.meta.is_empty() {
-        let mut meta = match serde_json::to_value(&next.meta) {
-            Ok(Value::Object(map)) => map,
-            _ => Map::new(),
-        };
-        for (field, value) in &patch.meta {
-            if !META_FIELDS.contains(&field.as_str()) {
-                return Err(invalid(format!(
-                    "{field} is not a VRM meta field. Use one of {}.",
-                    META_FIELDS.join(", ")
-                )));
-            }
-            if value.is_null() {
-                meta.remove(field);
-            } else {
-                meta.insert(field.clone(), value.clone());
-            }
-        }
-        next.meta = serde_json::from_value(Value::Object(meta))
-            .map_err(|e| invalid(format!("The meta does not read: {e}.")))?;
-    }
-    for bone in &patch.clear_bones {
-        next.bones.remove(bone);
-    }
-    for (bone, joint) in &patch.bones {
-        next.bones.insert(bone.clone(), joint.clone());
-    }
-    if let Some(material) = patch.material {
-        next.material = material;
-    }
-    next.validate()?;
-    Ok(next)
 }
 
 #[cfg(test)]
