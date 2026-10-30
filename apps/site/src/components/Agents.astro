@@ -1,6 +1,7 @@
 ---
 import { Icon } from '@maquette/ui';
 import Figure from './Figure.astro';
+import { withBase } from '../lib/with-base';
 import { SHOTS } from '../content/copy';
 
 const command =
@@ -15,8 +16,8 @@ const command =
       <p class="lead">
         <span class="wide-only"
           >Turn on the MCP server in Settings and an agent can list assets, start concepts, run the
-          pipeline and accept models. Nothing ships or spends credits until you approve it in the
-          app.</span
+          pipeline, accept models and build avatars. Nothing ships or spends credits until you
+          approve it in the app.</span
         >
         <span class="narrow-only"
           >A local MCP server on 127.0.0.1. Nothing ships or spends credits until you approve it in
@@ -37,6 +38,15 @@ const command =
           <span
             ><b>Credits wait for you.</b> A send to Tripo or Meshy always waits for Approve. Deny cancels
             it.</span
+          >
+        </li>
+        <li>
+          <Icon name="books" size={18} className="text-clay-text" />
+          <span
+            ><b>Skills for both agents.</b> Five agent skills teach Claude Code and Codex the Maquette
+            workflows, from a concept round to a VRM avatar. <a
+              href={withBase('/docs/agents/skills/')}>Install them</a
+            > from the plugin in the repo.</span
           >
         </li>
         <li>
@@ -115,6 +125,11 @@ const command =
   .rules b {
     color: var(--text);
     font-weight: 500;
+  }
+  .rules a {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .narrow-only {
     display: none;
