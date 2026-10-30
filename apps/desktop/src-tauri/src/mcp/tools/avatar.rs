@@ -138,7 +138,7 @@ fn build_answer(hub: &Hub, name: &str, built: &AvatarBuild) -> Value {
 #[tool_router(router = avatar_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Get a character asset's VRM avatar: its VRM readiness (the 55 humanoid bones with the joint each maps to, the 15 required, the rest pose measures and the findings, blockers first), the spec (the VRM meta, bone map overrides and material mode; from the workspace's avatar defaults until first saved), whether the rest pose needs normalising, the last normalised rest pose with its before and after sheets and its state (pending, approved or denied), the last export (path, size, what it still lacks) and whether an approval waits.",
+        description = "Get a character asset's VRM avatar: its VRM readiness (the 55 humanoid bones with the joint each maps to and the naming it matched by, the 15 required, the naming report saying which convention the joints matched, any ambiguous matches and whether the map is confident, the skin's joints to pick from with set_avatar bones, the rest pose measures and the findings, blockers first), the spec (the VRM meta, bone map overrides and material mode; from the workspace's avatar defaults until first saved), whether the rest pose needs normalising, the last normalised rest pose with its before and after sheets and its state (pending, approved or denied), the last export (path, size, what it still lacks) and whether an approval waits.",
         annotations(read_only_hint = true)
     )]
     async fn get_avatar(&self, Parameters(args): Parameters<GetAvatarArgs>) -> Out {
