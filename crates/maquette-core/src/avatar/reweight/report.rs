@@ -28,6 +28,23 @@ pub struct ReweightSide {
     /// The limb radius along the arm, shoulder to finger tips, as a share
     /// of the height.
     pub limb_radius: Vec<f64>,
+    /// Faces of this arm's bridges.
+    pub bridge_faces: u32,
+}
+
+/// Faces that join a part following an arm to a part staying with the
+/// body, far from the shoulder: lifting the arm stretches them whatever the
+/// weights (a mesh fused where a sleeve rested on the hip).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ReweightBridge {
+    /// `left` or `right`.
+    pub side: String,
+    pub faces: u32,
+    /// Their middle in the model's own space, metres.
+    pub at: [f64; 3],
+    /// The longest stretched edge once the arm is level, metres.
+    pub length: f64,
 }
 
 /// The script's `report.json`.
@@ -46,6 +63,13 @@ pub struct ReweightReport {
     pub kept_as_sleeve: u32,
     /// Vertices in the smooth band between the two, keeping some.
     pub band: u32,
+    /// Arm vertices that gave their body or leg weight to the arm, to
+    /// follow it wholly where the lift moves them far.
+    pub follow_arm: u32,
+    /// Faces of every bridge.
+    pub bridge_faces: u32,
+    /// The largest bridges, largest first.
+    pub bridges: Vec<ReweightBridge>,
     /// The arm bones the weight came from, with how many vertices each.
     pub from_bones: BTreeMap<String, u32>,
     /// The trunk bones it went to, with how many vertices each.

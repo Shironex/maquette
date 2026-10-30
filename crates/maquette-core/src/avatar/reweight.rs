@@ -33,7 +33,7 @@ use crate::pipeline::cache::{self, CacheRecord, FileHasher};
 use crate::pipeline::tools::Toolbox;
 use crate::workspace::WorkspaceConfig;
 
-pub use report::{ReweightChecks, ReweightReport, ReweightSide, Reweighted};
+pub use report::{ReweightBridge, ReweightChecks, ReweightReport, ReweightSide, Reweighted};
 
 /// The script, run headless on a copy of the model.
 pub const SCRIPT: &str = include_str!("avatar_reweight.py");

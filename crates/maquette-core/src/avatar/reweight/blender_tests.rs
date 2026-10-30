@@ -134,3 +134,44 @@ fn whatever_the_hand_holds_stays_with_the_arm_in_blender() {
         found.report.from_bones
     );
 }
+
+#[test]
+#[ignore = "runs Blender"]
+fn a_ribbon_from_the_forearm_to_the_hip_follows_one_side_in_blender() {
+    let Some(blender) = test_blender::blender() else {
+        return;
+    };
+    // A ribbon fused from the hanging forearm to the hip, its weight fading
+    // from one to the other: lifting the arm pulled it into a long membrane.
+    // It must split between the two, and only the faces where it does are
+    // left to stretch, named as a bridge.
+    let w = world_with(&fixture::humanoid(&HumanoidSpec {
+        arm_drop: 55.0,
+        sleeve_bridge: true,
+        animation: false,
+        ..HumanoidSpec::default()
+    }));
+    let none = BoneOverrides::new();
+    let planned = plan(&ReweightRequest {
+        workspace_root: &w.root,
+        config: &w.config,
+        project: &w.project,
+        asset: &w.asset,
+        version: None,
+        overrides: &none,
+    })
+    .expect("plan");
+    let runner = test_blender::runner();
+    let found = run(&runner, &test_blender::toolbox(&blender), &planned).expect("reweight");
+    let report = &found.report;
+    println!("{}", serde_json::to_string_pretty(report).expect("json"));
+    assert!(report.moved > 0, "{report:#?}");
+    assert!(report.follow_arm > 0, "{report:#?}");
+    assert_eq!(report.band, 0, "{report:#?}");
+    assert_eq!(report.bridges.len(), 1, "{report:#?}");
+    let bridge = &report.bridges[0];
+    assert_eq!(bridge.side, "left");
+    assert!(bridge.faces > 0 && bridge.faces <= 4, "{bridge:?}");
+    assert_eq!(report.bridge_faces, bridge.faces);
+    assert_eq!(report.sides["right"].bridge_faces, 0);
+}
