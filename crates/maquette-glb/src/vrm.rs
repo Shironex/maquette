@@ -3,10 +3,18 @@
 //! T-pose, and the findings that stand between it and a VRM file.
 //!
 //! **Bones.** All 55 VRM humanoid bones (15 required), matched by name from
-//! VRM's own and VRoid's names, Mixamo, Unreal and Tripo's own rig, with an
+//! VRM's own and VRoid's names, Mixamo, Unreal and Tripo's own rig, then
+//! descriptive names such as `Left elbow` for the bones left, with an
 //! avatar spec's overrides on top ([`bones`]). Each mapped bone's nearest
 //! humanoid ancestor in the node tree must be the one VRM's tree puts above
-//! it; other nodes may sit between.
+//! it; other nodes may sit between. When the names leave the map unclear
+//! (required bones missing from a humanoid looking rig, or two joints for
+//! one bone) a finding asks a person to assign them.
+//!
+//! **Skin.** Every skinned mesh and primitive: joint indices inside the
+//! skin, weights that carry something and add up to 1, at most four
+//! influences, each joint once per skin, no loop in the node tree, limb
+//! bones with length and the same bones on both sides ([`skin`]).
 //!
 //! **Rest pose.** The VRM T-pose faces +Z with the character's left on +X,
 //! arms level along X, soles on Y = 0, the hips on the Y axis, both sides
@@ -29,6 +37,7 @@ mod findings;
 mod meta;
 mod mtoon;
 mod pose;
+mod skin;
 mod write;
 
 use std::path::Path;
@@ -38,7 +47,9 @@ use serde::{Deserialize, Serialize};
 use crate::analyse::{load_uri, world_matrices};
 use maquette_base::error::{CoreError, CoreResult};
 
-pub use bones::{BoneNaming, BoneOverrides, HUMAN_BONES, REQUIRED_BONES};
+pub use bones::{
+    BoneNaming, BoneOverrides, HUMAN_BONES, HUMANOID_JOINTS_MIN, NamingReport, REQUIRED_BONES,
+};
 pub use findings::{ARM_SLACK_DEG, FACING_SLACK_DEG, GROUND_SLACK};
 pub use meta::{
     AvatarPermission, CommercialUsage, CreditNotation, LICENSE_URL, META_TEXT_MAX, Modification,
@@ -46,6 +57,7 @@ pub use meta::{
 };
 pub use mtoon::VRMC_MATERIALS_MTOON;
 pub use pose::{Axis, RestPose, SCALE_NOISE};
+pub use skin::{MAX_INFLUENCES, WEIGHT_SUM_SLACK};
 pub use write::{MaterialMode, Thumbnail, VRMC_VRM, WriteSpec, Written, write};
 
 /// True when `name` is one of VRM 1.0's humanoid bones, such as `hips` or
@@ -100,6 +112,11 @@ pub struct VrmReadiness {
     pub required: u32,
     /// Every humanoid bone, parents before children.
     pub bones: Vec<VrmBone>,
+    /// What the name matching made of the rig.
+    pub naming: NamingReport,
+    /// The skins' joints by name, each once, for picking a bone's joint by
+    /// hand (every node's name when the model has no skin).
+    pub joints: Vec<String>,
     pub pose: RestPose,
     /// Blockers first, then warnings, then notes.
     pub findings: Vec<VrmFinding>,
@@ -166,9 +183,11 @@ fn assess(
     let joints = skin_joints(doc);
     let nodes: Vec<(usize, String)> = doc.nodes().map(|n| (n.index(), node_name(&n))).collect();
     let mapped = bones::map_joints(&human, &joints, &nodes, overrides);
+    let naming = bones::naming_report(&human, &joints, &mapped, overrides);
     let wrong = bones::wrong_parents(&human, &mapped, &parents(doc));
     let worlds = world_matrices(doc);
     let pose = pose::measure(doc, buffers, &worlds, &mapped);
+    let skin = skin::check(doc, buffers, &worlds, &mapped, pose.height);
     let mut findings = findings::bone_findings(&findings::RigFacts {
         bones: &human,
         mapped: &mapped,
@@ -178,6 +197,8 @@ fn assess(
             .any(|n| n.skin().is_some() && n.mesh().is_some()),
         animations: doc.animations().len(),
     });
+    findings.extend(findings::naming_finding(&naming));
+    findings.extend(findings::skin_findings(&skin));
     findings.extend(findings::pose_findings(&pose));
     if let Some(drag) = arm_weights::measure(doc, buffers, &worlds, &mapped, &human)
         .filter(arm_weights::ArmDrag::matters)
@@ -202,11 +223,18 @@ fn assess(
             }
         })
         .collect();
+    let joint_names = if joints.is_empty() {
+        nodes.iter().map(|(_, n)| n.clone()).collect()
+    } else {
+        joints.iter().map(|(_, n)| n.clone()).collect()
+    };
     let readiness = VrmReadiness {
         ready: !findings.iter().any(|f| f.level == FindingLevel::Blocker),
         mapped: count(mapped.len()),
         required: count(required),
         bones,
+        naming,
+        joints: joint_names,
         pose,
         findings,
     };
@@ -258,6 +286,7 @@ pub fn readiness(bytes: &[u8], base: &Path, overrides: &BoneOverrides) -> CoreRe
 pub(crate) fn register(types: specta::Types) -> specta::Types {
     types
         .register::<BoneNaming>()
+        .register::<NamingReport>()
         .register::<Axis>()
         .register::<RestPose>()
         .register::<FindingLevel>()
@@ -272,6 +301,10 @@ pub(crate) fn register(types: specta::Types) -> specta::Types {
         .register::<MaterialMode>()
 }
 
+#[cfg(test)]
+mod naming_tests;
+#[cfg(test)]
+mod skin_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

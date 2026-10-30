@@ -11,6 +11,23 @@ pub(super) struct Mesh {
     pub(super) uvs: Vec<[f32; 2]>,
     pub(super) indices: Vec<u32>,
     pub(super) joints: Vec<[u16; 4]>,
+    pub(super) weights: Vec<[f32; 4]>,
+    /// A second joint and weight set, written when not empty (then one per
+    /// vertex).
+    pub(super) joints1: Vec<[u16; 4]>,
+    pub(super) weights1: Vec<[f32; 4]>,
+}
+
+/// How a skinned primitive stores its joints and weights.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum WeightFormat {
+    /// 16 bit joints, float weights.
+    #[default]
+    Float,
+    /// 8 bit joints, 8 bit normalised weights.
+    U8,
+    /// 16 bit joints, 16 bit normalised weights.
+    U16,
 }
 
 impl Mesh {
@@ -39,10 +56,48 @@ impl Mesh {
                 self.normals.push(n);
                 self.uvs.push([(du + 1.0) / 2.0, (dv + 1.0) / 2.0]);
                 self.joints.push([joint, 0, 0, 0]);
+                self.weights.push([1.0, 0.0, 0.0, 0.0]);
             }
             self.indices
                 .extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
         }
+    }
+}
+
+impl Mesh {
+    /// Vertices and indices one [`Mesh::cuboid`] adds.
+    pub(super) const BOX_VERTICES: usize = 24;
+    const BOX_INDICES: usize = 36;
+
+    /// Splits a mesh of boxes into the first `boxes` boxes and the rest.
+    pub(super) fn split_boxes(&self, boxes: usize) -> (Mesh, Mesh) {
+        let v = (boxes * Self::BOX_VERTICES).min(self.positions.len());
+        let i = (boxes * Self::BOX_INDICES).min(self.indices.len());
+        let base = u32::try_from(v).unwrap_or(u32::MAX);
+        let part = |vs: std::ops::Range<usize>, is: &[u32], rebase: u32| Mesh {
+            positions: self.positions[vs.clone()].to_vec(),
+            normals: self.normals[vs.clone()].to_vec(),
+            uvs: self.uvs[vs.clone()].to_vec(),
+            indices: is.iter().map(|x| x - rebase).collect(),
+            joints: self.joints[vs.clone()].to_vec(),
+            weights: self.weights[vs.clone()].to_vec(),
+            joints1: self
+                .joints1
+                .get(vs.clone())
+                .map(<[_]>::to_vec)
+                .unwrap_or_default(),
+            weights1: self.weights1.get(vs).map(<[_]>::to_vec).unwrap_or_default(),
+        };
+        let n = self.positions.len();
+        (
+            part(0..v, &self.indices[..i], 0),
+            part(v..n, &self.indices[i..], base),
+        )
+    }
+
+    /// How many boxes the mesh holds.
+    pub(super) fn boxes(&self) -> usize {
+        self.positions.len() / Self::BOX_VERTICES
     }
 }
 
@@ -76,6 +131,7 @@ impl Mesh {
                     self.uvs
                         .push([(step(i) + 1.0) / 2.0, (step(j) + 1.0) / 2.0]);
                     self.joints.push([0; 4]);
+                    self.weights.push([1.0, 0.0, 0.0, 0.0]);
                 }
             }
             let row = n + 1;
@@ -151,19 +207,68 @@ impl Builder {
         self.accessors.len() - 1
     }
 
-    pub(super) fn joints(&mut self, data: &[[u16; 4]]) -> usize {
-        let bytes: Vec<u8> = data
-            .iter()
-            .flatten()
-            .flat_map(|j| j.to_le_bytes())
-            .collect();
+    pub(super) fn joints(&mut self, data: &[[u16; 4]], format: WeightFormat) -> usize {
+        let (bytes, kind): (Vec<u8>, u32) = if format == WeightFormat::U8 {
+            let bytes = data
+                .iter()
+                .flatten()
+                .map(|j| u8::try_from(*j).unwrap_or(u8::MAX))
+                .collect();
+            (bytes, 5121)
+        } else {
+            let bytes = data
+                .iter()
+                .flatten()
+                .flat_map(|j| j.to_le_bytes())
+                .collect();
+            (bytes, 5123)
+        };
         let view = self.view(&bytes, Some(34962));
-        self.accessors.push(json!({ "bufferView": view, "componentType": 5123, "count": data.len(), "type": "VEC4" }));
+        self.accessors.push(json!({ "bufferView": view, "componentType": kind, "count": data.len(), "type": "VEC4" }));
+        self.accessors.len() - 1
+    }
+
+    /// Weights in `format`, normalised integers rounded as an exporter does.
+    pub(super) fn weights(&mut self, data: &[[f32; 4]], format: WeightFormat) -> usize {
+        let flat: Vec<f32> = data.iter().flatten().copied().collect();
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "weights are 0 to 1"
+        )]
+        let (bytes, kind): (Vec<u8>, u32) = match format {
+            WeightFormat::Float => return self.floats(&flat, "VEC4", 4, Some(34962), false),
+            WeightFormat::U8 => (
+                flat.iter()
+                    .map(|w| (w.clamp(0.0, 1.0) * 255.0).round() as u8)
+                    .collect(),
+                5121,
+            ),
+            WeightFormat::U16 => (
+                flat.iter()
+                    .flat_map(|w| ((w.clamp(0.0, 1.0) * 65535.0).round() as u16).to_le_bytes())
+                    .collect(),
+                5123,
+            ),
+        };
+        let view = self.view(&bytes, Some(34962));
+        self.accessors.push(json!({ "bufferView": view, "componentType": kind, "normalized": true, "count": data.len(), "type": "VEC4" }));
         self.accessors.len() - 1
     }
 
     /// The primitive JSON for `mesh`, with skin attributes when `skinned`.
     pub(super) fn primitive(&mut self, mesh: &Mesh, material: usize, skinned: bool) -> Value {
+        self.primitive_as(mesh, material, skinned, WeightFormat::Float)
+    }
+
+    /// [`Builder::primitive`] with the joints and weights in `format`.
+    pub(super) fn primitive_as(
+        &mut self,
+        mesh: &Mesh,
+        material: usize,
+        skinned: bool,
+        format: WeightFormat,
+    ) -> Value {
         let flat3 = |v: &[[f32; 3]]| v.iter().flatten().copied().collect::<Vec<f32>>();
         let position = self.floats(&flat3(&mesh.positions), "VEC3", 3, Some(34962), true);
         let normal = self.floats(&flat3(&mesh.normals), "VEC3", 3, Some(34962), false);
@@ -172,15 +277,16 @@ impl Builder {
         let indices = self.indices(&mesh.indices);
         let mut attributes = json!({ "POSITION": position, "NORMAL": normal, "TEXCOORD_0": uv });
         if skinned {
-            let joints = self.joints(&mesh.joints);
-            let weights: Vec<f32> = mesh
-                .joints
-                .iter()
-                .flat_map(|_| [1.0, 0.0, 0.0, 0.0])
-                .collect();
-            let weights = self.floats(&weights, "VEC4", 4, Some(34962), false);
+            let joints = self.joints(&mesh.joints, format);
+            let weights = self.weights(&mesh.weights, format);
             attributes["JOINTS_0"] = json!(joints);
             attributes["WEIGHTS_0"] = json!(weights);
+            if !mesh.joints1.is_empty() {
+                let joints = self.joints(&mesh.joints1, format);
+                let weights = self.weights(&mesh.weights1, format);
+                attributes["JOINTS_1"] = json!(joints);
+                attributes["WEIGHTS_1"] = json!(weights);
+            }
         }
         json!({ "attributes": attributes, "indices": indices, "material": material })
     }

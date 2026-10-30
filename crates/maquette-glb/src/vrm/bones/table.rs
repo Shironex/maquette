@@ -12,7 +12,7 @@ pub(crate) struct HumanBone {
     pub(crate) parent: Option<String>,
     pub(crate) required: bool,
     /// Normalised names per naming.
-    pub(super) names: Vec<(BoneNaming, String)>,
+    pub(in crate::vrm) names: Vec<(BoneNaming, String)>,
 }
 
 /// A bone before its side is filled in: `{side}` reads `left` or `right`,

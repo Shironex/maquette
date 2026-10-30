@@ -547,8 +547,19 @@ uses.
   names four namings give them: VRM's own and VRoid's `J_Bip_` names, Mixamo, Unreal, and Tripo's
   own rig (unverified, as in `animations::rig`), and `bones.rs` maps the joints onto them. Joints are compared by bare name in lower case;
   the naming with the most matches is tried first, a joint maps to one bone, and an override (a
-  bone to any node name, or to none) wins. The parent check walks both trees up to the nearest
-  mapped bone, so other nodes may sit between.
+  bone to any node name, or to none) wins. `bones/descriptive.rs` then reads descriptive names
+  (`Left elbow`, `Upper arm L`, `ThumbProximal_L`) into words, a side and a joint for the bones
+  still empty, taking a joint only when it alone reads as that bone. `naming_report` gives the
+  `NamingReport`: the winning naming, the required bones it matched, the joints that look
+  humanoid, the ambiguities (two joints for one bone, one joint for two) and whether the map is
+  confident; an unclear map is a warning that asks a person to assign the bones, never a guess.
+  The parent check walks both trees up to the nearest mapped bone, so other nodes may sit
+  between.
+- **Skin.** `skin.rs` reads every skinned mesh and primitive, every `JOINTS_n`/`WEIGHTS_n` set in
+  any component type: joint indices past the skin, unweighted vertices and weights off 1 by more
+  than `WEIGHT_SUM_SLACK` block, as do a joint listed twice in a skin and a loop in the node tree;
+  more than `MAX_INFLUENCES` influences, limb bones without length and sides that differ warn.
+  A sheared node matrix counts as an uneven scale in `pose.rs`.
 - **Rest pose.** `pose.rs` measures the nodes' rest transforms: the facing from the left minus
   right upper legs and arms (left crossed with up; the toes must agree or the sides look swapped),
   each arm's drop below horizontal, the soles (a skinned mesh's bounds through its first joint's
@@ -561,11 +572,13 @@ uses.
   rides on `GlbReport::vrm` (the inbox caches it under a report version) and `Rig::vrm` (Motion's
   rig check). Core's `inbox::checks::vrm` makes the one Inbox row from it, a pass or a warning.
 - **Fixture.** `fixture::humanoid(&HumanoidSpec)` builds a box humanoid on the 65 joint skeleton
-  under any of the four namings, optionally in an A-pose, turned, lifted, scaled, or with float
-  noise in its armature's scale.
+  under any of the five namings (the fifth descriptive), optionally in an A-pose, turned, lifted,
+  scaled, or with float noise in its armature's scale; its skin in float, 8 or 16 bit weights,
+  split over two meshes, or with one `SkinFlaw`.
 - **Writer.** `vrm::write(glb, &WriteSpec, base)` returns VRM 1.0 bytes and the pose findings the
   file still carries. It refuses a rig VRM cannot hold (no skin, a required bone missing, a gap,
-  a wrong parent, swapped sides, a negative or uneven scale) and a meta `VrmMeta::validate` refuses
+  a wrong parent, swapped sides, a negative, uneven or sheared scale, a loop in the node tree, or
+  a skin blocker) and a meta `VrmMeta::validate` refuses
   (no name, no author, another licence URL); facing, arms and ground do not stop it, since
   normalising the rest pose is a step before. `container.rs` splits and joins the GLB chunks and
   only adds to them: `VRMC_vrm` (meta, `humanoid.humanBones` by node index, `firstPerson` auto on

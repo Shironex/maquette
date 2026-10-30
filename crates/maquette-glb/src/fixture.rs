@@ -10,7 +10,7 @@ mod skeleton;
 use serde_json::{Value, json};
 
 use builder::{Builder, Mesh};
-pub use humanoid::{HumanoidSpec, Naming, humanoid};
+pub use humanoid::{HumanoidSpec, Naming, SkinFlaw, WeightFormat, humanoid};
 use skeleton::{skeleton, world_positions};
 
 /// A full PBR material set (base colour, metal/rough, normal) at `size`.

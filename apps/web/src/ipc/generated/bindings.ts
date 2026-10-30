@@ -1394,6 +1394,11 @@ export type BoneNaming =
 "vrm" | "mixamo" | "unreal" | 
 /**  Tripo's own rig names, unverified. */
 "tripo" | 
+/**
+ *  Read from a descriptive name (`Left elbow`, `ThumbProximal_L`): a
+ *  guess, ranked below every exact naming.
+ */
+"descriptive" | 
 /**  Set by hand in the avatar spec. */
 "override";
 
@@ -3392,6 +3397,37 @@ export type MovedDirection = {
 	refs: string[],
 };
 
+/**  What the name matching made of a rig. */
+export type NamingReport = {
+	/**
+	 *  The naming most bones matched by, overrides aside; `None` when no
+	 *  bone matched by name.
+	 */
+	convention: BoneNaming | null,
+	/**  Required bones that naming matched, of the 15. */
+	conventionRequired: number,
+	/**  Required bones nothing maps that no override leaves out on purpose. */
+	missingRequired: number,
+	/**
+	 *  Skin joints whose names read as a humanoid bone in any naming, or
+	 *  hold a body word such as arm or knee.
+	 */
+	humanoidJoints: number,
+	/**  Bones mapped from descriptive names. */
+	descriptive: number,
+	/**
+	 *  Two joints that match one bone, or one joint that matches two, as
+	 *  sentences.
+	 */
+	ambiguous: string[],
+	/**
+	 *  False when the names leave the map unclear: required bones missing
+	 *  from a rig with enough humanoid joints, or any ambiguity. The
+	 *  bones are then for a person to assign.
+	 */
+	confident: boolean,
+};
+
 export type NewAsset = {
 	name: string,
 	kind: AssetKind,
@@ -4266,7 +4302,7 @@ export type RestPose = {
 	uniformScale: boolean,
 	/**  Nodes with a negative scale component. */
 	negativeScale: string[],
-	/**  Nodes whose scale differs per axis. */
+	/**  Nodes whose scale differs per axis, or whose matrix shears. */
 	unevenScale: string[],
 	/**
 	 *  Nodes scaled evenly by something other than 1, such as a 0.01
@@ -5741,6 +5777,13 @@ export type VrmReadiness = {
 	required: number,
 	/**  Every humanoid bone, parents before children. */
 	bones: VrmBone[],
+	/**  What the name matching made of the rig. */
+	naming: NamingReport,
+	/**
+	 *  The skins' joints by name, each once, for picking a bone's joint by
+	 *  hand (every node's name when the model has no skin).
+	 */
+	joints: string[],
 	pose: RestPose,
 	/**  Blockers first, then warnings, then notes. */
 	findings: VrmFinding[],

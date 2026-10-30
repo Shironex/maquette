@@ -89,7 +89,7 @@ pub struct RestPose {
     pub uniform_scale: bool,
     /// Nodes with a negative scale component.
     pub negative_scale: Vec<String>,
-    /// Nodes whose scale differs per axis.
+    /// Nodes whose scale differs per axis, or whose matrix shears.
     pub uneven_scale: Vec<String>,
     /// Nodes scaled evenly by something other than 1, such as a 0.01
     /// armature, each with its scale.
@@ -206,6 +206,10 @@ fn scales(doc: &gltf::Document) -> Scales {
             out.negative.push(name);
             continue;
         }
+        if sheared(&node.transform().matrix()) {
+            out.uneven.push(format!("{name} (sheared)"));
+            continue;
+        }
         let top = s.iter().copied().fold(0.0f32, f32::max);
         let low = s.iter().copied().fold(f32::INFINITY, f32::min);
         if s.iter().all(|v| (v - 1.0).abs() <= SCALE_NOISE) {
@@ -226,6 +230,17 @@ fn scales(doc: &gltf::Document) -> Scales {
         }
     }
     out
+}
+
+/// A matrix whose axes are not at right angles: a shear, which a
+/// translation, rotation and scale cannot hold.
+fn sheared(m: &Mat4) -> bool {
+    let axes = [m[0], m[1], m[2]].map(|c| [c[0], c[1], c[2]]);
+    [(0, 1), (0, 2), (1, 2)].iter().any(|(a, b)| {
+        let (x, y) = (axes[*a], axes[*b]);
+        let lengths = dot(x, x).sqrt() * dot(y, y).sqrt();
+        dot(x, y).abs() > UNIFORM_SLACK * lengths.max(f32::MIN_POSITIVE)
+    })
 }
 
 fn det3(m: &Mat4) -> f32 {

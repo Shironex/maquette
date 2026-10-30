@@ -4,7 +4,8 @@
  * a normalised rest pose waiting for a yes, the same on an older version
  * through the version picker, its shoulders up close and the
  * floating card an agent's build leaves; the written VRM; and Settings >
- * Avatar defaults. Mock mode's `?avatar=` sets the state (see
+ * Avatar defaults; and a rig with its own joint names, its bones picked by
+ * hand in the Bone map. Mock mode's `?avatar=` sets the state (see
  * apps/web/src/ipc/mock/create-avatar-handlers.ts).
  */
 
@@ -50,6 +51,29 @@ export async function avatarShots({ open, shot }) {
   await shot(written, 'avatar-written');
   await shot(written.getByRole('region', { name: 'Export', exact: true }), 'avatar-written-export');
   await written.context().close();
+
+  // A rig named its own way: the readiness asks for the bones, the Bone
+  // map picks them from a search over the joints.
+  const custom = await avatar(open, 'custom');
+  const bones = custom.getByRole('region', { name: 'Bone map' });
+  await custom.getByText('Bone names are unclear').waitFor();
+  await shot(custom.getByRole('region', { name: 'VRM readiness' }), 'avatar-custom-readiness');
+  await bones.scrollIntoViewIfNeeded();
+  await shot(bones, 'avatar-custom-bones');
+  await bones.getByRole('button', { name: 'Pick the joint for Left upper leg' }).click();
+  await bones.getByRole('combobox', { name: 'Search the joints for Left upper leg' }).fill('thigh');
+  await bones.getByRole('listbox', { name: 'Joints for Left upper leg' }).waitFor();
+  await shot(bones, 'avatar-custom-picker');
+  await bones.getByRole('option', { name: 'Left thigh' }).click();
+  await bones.getByText('Left thigh').waitFor();
+  await bones.getByRole('button', { name: 'Pick the joint for Right upper leg' }).click();
+  await bones
+    .getByRole('combobox', { name: 'Search the joints for Right upper leg' })
+    .fill('right th');
+  await custom.keyboard.press('Enter');
+  await custom.getByText('44 bones matched by descriptive names').waitFor();
+  await shot(custom, 'avatar-custom-mapped');
+  await custom.context().close();
 
   // An agent's build waits; the card floats over every other view.
   const board = await open(`${BASE}&avatar=pending`, '#/board');

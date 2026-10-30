@@ -6,6 +6,12 @@ use super::bones::{HumanBone, Mapped, WrongParent, needs};
 use super::pose::RestPose;
 use super::{FindingLevel, VrmFinding};
 
+mod naming;
+mod skin;
+
+pub(super) use naming::naming_finding;
+pub(super) use skin::skin_findings;
+
 /// The front may turn this far from +Z and still count as facing it.
 pub const FACING_SLACK_DEG: f32 = 5.0;
 
@@ -21,7 +27,12 @@ pub(super) const CENTRE_SLACK: f32 = 0.05;
 /// Mirrored bones may differ by this share of the height.
 pub(super) const SYMMETRY_SLACK: f32 = 0.02;
 
-fn finding(id: &str, level: FindingLevel, title: String, detail: Option<String>) -> VrmFinding {
+pub(super) fn finding(
+    id: &str,
+    level: FindingLevel,
+    title: String,
+    detail: Option<String>,
+) -> VrmFinding {
     VrmFinding {
         id: id.to_string(),
         level,
@@ -30,7 +41,7 @@ fn finding(id: &str, level: FindingLevel, title: String, detail: Option<String>)
     }
 }
 
-fn list(names: &[String]) -> String {
+pub(super) fn list(names: &[String]) -> String {
     match names {
         [] => String::new(),
         [one] => one.clone(),
@@ -38,7 +49,7 @@ fn list(names: &[String]) -> String {
     }
 }
 
-fn plural(n: usize, one: &str, many: &str) -> String {
+pub(super) fn plural(n: usize, one: &str, many: &str) -> String {
     format!("{n} {}", if n == 1 { one } else { many })
 }
 
@@ -328,7 +339,7 @@ fn scale_findings(pose: &RestPose, out: &mut Vec<VrmFinding>) {
                 plural(pose.uneven_scale.len(), "node is", "nodes are")
             ),
             Some(format!(
-                "{}. VRM needs the same scale on every axis. Apply the transforms in Blender.",
+                "{}. VRM needs the same scale on every axis and no shear. Apply the transforms in Blender.",
                 list(&pose.uneven_scale)
             )),
         ));

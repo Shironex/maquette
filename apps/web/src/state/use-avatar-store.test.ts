@@ -41,6 +41,23 @@ describe('the avatar store', () => {
     expect(useAgentsStore.getState().status?.approvals.map(a => a.kind)).not.toContain('rest-pose');
   });
 
+  it('saves a bone by hand and keeps the meta being typed', async () => {
+    await openAvatar('custom');
+    state().editMeta({ authors: ['Ana'] });
+    await state().setBone('rightUpperLeg', 'Right thigh');
+    expect(lastOf('avatar_save')?.args.spec).toMatchObject({
+      bones: { rightUpperLeg: 'Right thigh' },
+      meta: { authors: [] },
+    });
+    expect(state().dirty).toBe(true);
+    expect(state().draft?.meta.authors).toEqual(['Ana']);
+    expect(state().draft?.bones).toEqual({ rightUpperLeg: 'Right thigh' });
+    const bone = state().view?.readiness?.bones.find(b => b.bone === 'rightUpperLeg');
+    expect(bone).toMatchObject({ joint: 'Right thigh', naming: 'override' });
+    await state().setBone('rightUpperLeg', null);
+    expect(state().view?.spec.bones).toEqual({ rightUpperLeg: null });
+  });
+
   it('reloads only the avatar an agent changed', async () => {
     const calls = await openAvatar();
     const before = calls.filter(c => c === 'avatar_get').length;

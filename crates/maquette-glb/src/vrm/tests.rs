@@ -480,6 +480,8 @@ fn probe_a_model_from_disk() {
         "ready {}, mapped {}, required {}",
         r.ready, r.mapped, r.required
     );
+    println!("{:#?}", r.naming);
+    println!("{} joints to pick from", r.joints.len());
     println!("{:#?}", r.pose);
     for f in &r.findings {
         println!(
