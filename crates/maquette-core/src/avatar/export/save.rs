@@ -8,6 +8,7 @@ use super::report::{
 };
 use super::{AvatarExport, RECORD_FILE};
 use crate::avatar::AvatarSpec;
+use crate::avatar::highlights::HighlightsReport;
 use crate::avatar::normalize::{Elbows, Fingers};
 use crate::avatar::reweight::ReweightReport;
 use crate::avatar::springs::SpringsSummary;
@@ -34,6 +35,8 @@ pub(super) struct Built<'a> {
     pub(super) before: &'a VrmReadiness,
     /// The springs the file carries; `None` without.
     pub(super) springs: Option<SpringsSummary>,
+    /// What was done with the baked highlights; `None` with PBR.
+    pub(super) highlights: Option<HighlightsReport>,
 }
 
 /// Writes the `.vrm`, reads it back, and writes the report beside it and
@@ -68,6 +71,7 @@ pub(super) fn save(dir: &Path, output: &Path, built: &Built<'_>) -> CoreResult<A
             sha256: hash_file(built.source).map_err(|e| CoreError::io(built.source, e))?,
         },
         material: built.spec.material,
+        highlights: built.highlights.clone(),
         normalized: built.options.is_some(),
         elbows: built.options.map(|o| o.0),
         fingers: built.options.map(|o| o.1),
@@ -93,6 +97,7 @@ pub(super) fn save(dir: &Path, output: &Path, built: &Built<'_>) -> CoreResult<A
         normalized: built.options.is_some(),
         reweighted: built.reweight.is_some(),
         material: built.spec.material,
+        highlights: built.highlights.clone().map(Box::new),
         unresolved,
         written_at,
         exists: true,
