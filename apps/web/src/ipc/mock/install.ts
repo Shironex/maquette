@@ -13,6 +13,7 @@ import { conceptFiles, OBJECT_REF_FILES, REF_FILES } from './lab-fixtures';
 import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
 import { motionFiles } from './create-motion-handlers';
+import { avatarSheetFiles } from './create-avatar-handlers';
 import { PARTS_CACHE, partsFiles } from './create-parts-handlers';
 import { SPLIT_FILES } from './create-split-handlers';
 import { PROVIDER_REF_FILES } from './providers';
@@ -43,6 +44,11 @@ const concepts = import.meta.glob<string>('../../assets/mock/concepts/*.webp', {
 });
 // The landing page hero the mock site shows at its first stop.
 const site = import.meta.glob<string>('../../assets/mock/site/*.webp', {
+  eager: true,
+  import: 'default',
+});
+// The rest pose sheets a normalise makes, before and after.
+const sheets = import.meta.glob<string>('../../assets/mock/avatar/*.webp', {
   eager: true,
   import: 'default',
 });
@@ -86,6 +92,10 @@ for (const [file, model] of Object.entries(PREVIEW_FILE)) {
 for (const [file, render] of Object.entries(libraryFiles())) {
   const url = renders[`../../assets/mock/${render}`];
   if (url) registerMockFile(`${root}/library/${file}`, url);
+}
+for (const [path, sheet] of Object.entries(avatarSheetFiles(root))) {
+  const url = sheets[`../../assets/mock/avatar/${sheet}`];
+  if (url) registerMockFile(path, url);
 }
 // `?timeline=` brings the motion demo models along.
 const motion = params.get('motion') ?? (params.get('timeline') ? 'demo' : null);
@@ -158,6 +168,7 @@ const handle = createBackend({
   updater: params.get('updater'),
   pipeline: params.get('pipeline'),
   stress: params.get('stress'),
+  avatar: params.get('avatar'),
   // `?timeline=demo` lights the demo paths too, for its paths lane.
   paths: params.get('paths') ?? (params.get('timeline') === 'demo' ? 'demo' : null),
   emit: event => {

@@ -46,6 +46,7 @@ import { createPageHandlers } from './create-page-handlers';
 import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPathsHandlers } from './create-paths-handlers';
 import { createGameHandlers } from './create-game-handlers';
+import { createAvatarHandlers } from './create-avatar-handlers';
 import { withManyAssets, wrapManyInspect } from './many-assets-fixtures';
 import { manyPipeline, seedManyPipeline } from './pipeline-many';
 import { stressInbox, stressProjects, wrapStress } from './stress-fixtures';
@@ -91,6 +92,7 @@ export function createBackend({
   stress = null,
   codex = null,
   images: imagesState = null,
+  avatar: avatarState = null,
 }: BackendOptions) {
   const configured = ['configured', 'running', 'idle'].includes(scenario);
   let config: WorkspaceConfig = defaultConfig();
@@ -244,6 +246,14 @@ export function createBackend({
     fail,
   });
 
+  const avatars = createAvatarHandlers({
+    project: id => project(id),
+    root: () => root ?? expand(DEFAULT_ROOT),
+    config: () => config,
+    state: configured ? avatarState : null,
+    buildMs: pace === 0 ? 0 : 1200,
+  });
+
   const agents = createFakeAgents({
     config: () => config,
     active: agentsOn,
@@ -252,6 +262,7 @@ export function createBackend({
     emit: payload => emit?.({ name: 'mcp', payload }),
     onSendDecision: providers.decide,
     games: game,
+    avatars,
   });
 
   const built = createBuiltHandlers({
@@ -376,6 +387,7 @@ export function createBackend({
     ...createPathsHandlers({ layout, paths: configured ? paths : null }),
     ...page.handlers,
     ...game.handlers,
+    ...avatars.handlers,
   };
   page.wrapInspect(handlers);
   if (configured && inspectState === 'many') wrapManyInspect(handlers, project);

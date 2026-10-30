@@ -39,12 +39,17 @@ came through the Maquette pipeline, so the sample shows real work.
   lantern's parts the way a Tripo split names them, untextured, the three
   Sigil gate parts as models of their own, and the gate assembled from them
   by `crates/maquette-core/src/parts/assemble.py`. Generated the same way.
+- `avatar/sheet_before.webp` and `sheet_after.webp`: the rest pose sheets of the
+  Avatar view, before and after a normalise. They are the sheets
+  `crates/maquette-core/src/avatar/avatar_normalize.py` renders headless, made
+  from the box humanoid test fixture in an A-pose facing +X, 1200 px wide, and
+  are not part of the reserved artwork below.
 
 `src/ipc/mock/install.ts` registers every file here under the mock workspace
 paths, so new renders only need the right file name.
 
 ## License
 
-Apart from the generated Motion and Parts demo models above, these images and models are Frostveil
+Apart from the generated Motion and Parts demo models and the avatar sheets above, these images and models are Frostveil
 artwork. All rights are reserved; they are not covered by the code license. See
 [ARTWORK.md](../../../../../ARTWORK.md) at the repository root.
