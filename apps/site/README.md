@@ -69,7 +69,7 @@ The Download section reads the `release` object in `src/content/copy.ts` (versio
 ## Placeholders
 
 - The laptop screen (`public/scene/laptop-screen.webp`) is a mock mode capture of the Board; swap in a capture of a real project.
-- The app screenshots in `public/scene/screens/` are mock mode captures too, of the v0.2.0 web UI (`apps/web` with `?scenario=...`), whole windows or one dialog each. The sample project in the mock fixtures carries real names, so they were swapped for neutral ones (Winter Spire, Aria) when the shots were taken; retake them the same way after a UI change.
+- The app screenshots in `public/scene/screens/` are mock mode captures too, of the v0.2.0 web UI (`apps/web` with `?scenario=...`), whole windows or one dialog each. The sample project in the mock fixtures carries real names, so they were swapped for neutral ones (Winter Spire, Aria) when the shots were taken; retake them the same way after a UI change: `pnpm --filter @maquette/site screens` (or `screens board,inbox` for some ids) runs `scripts/capture-screens.mjs`, which needs no build and writes the WebP files in place, the laptop screen included. Render the posters again afterwards (see Posters), since the scene shows the laptop screen.
 
 ## Showcase
 
