@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use maquette_core::avatar::export::{self, AvatarBuild, AvatarPatch};
-use maquette_core::avatar::normalize::{Elbows, Normalized};
+use maquette_core::avatar::normalize::{Elbows, Fingers, Normalized};
 use maquette_core::avatar::reweight::{ReweightMode, Reweighted};
 use maquette_core::project;
 use rmcp::handler::server::wrapper::Parameters;
@@ -82,6 +82,9 @@ pub struct BuildAvatarArgs {
     /// skirt, long hair) when the readiness finds them and the arms are lifted, as a step with
     /// its own approval; "off" lifts the arms without it.
     pub reweight: Option<String>,
+    /// "straighten" (the default) lays the fingers straight along the hand and the thumb 45
+    /// degrees forward in the normalise, as far as the hand's mesh holds; "keep" leaves them.
+    pub fingers: Option<String>,
 }
 
 /// The asset id an agent names, by id or by name.
@@ -95,6 +98,13 @@ fn parse_elbows(word: Option<&str>) -> Result<Elbows, String> {
     word.map_or(Ok(Elbows::default()), |w| {
         serde_json::from_value(json!(w.to_lowercase()))
             .map_err(|_| format!("elbows must be straighten or keep, not {w:?}."))
+    })
+}
+
+fn parse_fingers(word: Option<&str>) -> Result<Fingers, String> {
+    word.map_or(Ok(Fingers::default()), |w| {
+        serde_json::from_value(json!(w.to_lowercase()))
+            .map_err(|_| format!("fingers must be straighten or keep, not {w:?}."))
     })
 }
 
@@ -128,6 +138,8 @@ fn pose_summary(found: &Normalized) -> Value {
         "sheets": to_short_value(&found.sheets),
         "turnedDeg": found.report.turned_deg,
         "elbows": to_short_value(found.report.elbows),
+        "fingers": to_short_value(found.report.fingers),
+        "straightened": to_short_value(&found.report.straightened),
         "lifted": to_short_value(&found.report.lifted),
         "after": to_short_value(&found.report.after),
         "findingsAfter": to_short_value(&found.readiness.findings),
@@ -196,6 +208,7 @@ impl McpTools {
                     version: args.version,
                     elbows: Elbows::default(),
                     reweight: ReweightMode::default(),
+                    fingers: Fingers::default(),
                 };
                 let view = commands::view(host.session(), &target).map_err(|e| e.message)?;
                 let mut value = to_short_value(&view);
@@ -223,6 +236,7 @@ impl McpTools {
                     version: None,
                     elbows: Elbows::default(),
                     reweight: ReweightMode::default(),
+                    fingers: Fingers::default(),
                 };
                 let current = commands::view(host.session(), &target).map_err(|e| e.message)?;
                 let (_, config) = workspace(host)?;
@@ -252,7 +266,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Build a character asset's VRM 1.0 avatar into the project's exports/<asset>.vrm (a derived export, never a new version). When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), it is first normalised headless in Blender on a copy (elbows straighten by default, or keep), which makes before and after pose sheets. When the readiness finds cloth or hair weighted to the arms (the arm-weights finding), reweight auto (the default) frees them before that: Blender moves their weight from the arm bones to the trunk on a copy, keeping the arms, sleeves and gloves, and makes before and after sheets; the call answers \"waiting for approval\" with step reweight, and the rest pose comes after that yes (or after a no, from the model as it is). reweight off skips it. A changed rest pose needs a person's yes: the call then answers \"waiting for approval\" with step rest pose and the sheet paths, and a person approves or denies it in the app's Avatar view. You cannot approve it: call get_avatar or build_avatar again later (the normalised result is cached, Blender does not run again), and once approved it writes the file and returns its path, size, what it still lacks, the validation report beside it (exports/<asset>.vrm.report.json: source version and hash, readiness before and after, the bone map with each bone's source, the meta, and what the reweight changed when one was applied) and the round trip (the written file read back and checked; a failure is a blocker in what it still lacks). \"denied\" means the person turned the pose down. dryRun returns the plan and does nothing. Needs a meta name and an author (set_avatar).",
+        description = "Build a character asset's VRM 1.0 avatar into the project's exports/<asset>.vrm (a derived export, never a new version). When the rest pose is not VRM's T-pose yet (facing +Z, arms level, on the ground, centred), it is first normalised headless in Blender on a copy (elbows straighten by default, or keep; fingers straighten by default, as far as the hand's mesh holds, or keep), which makes before and after pose sheets with a row of the hands up close. When the readiness finds cloth or hair weighted to the arms (the arm-weights finding), reweight auto (the default) frees them before that: Blender moves their weight from the arm bones to the trunk on a copy, keeping the arms, sleeves and gloves, and makes before and after sheets; the call answers \"waiting for approval\" with step reweight, and the rest pose comes after that yes (or after a no, from the model as it is). reweight off skips it. A changed rest pose needs a person's yes: the call then answers \"waiting for approval\" with step rest pose and the sheet paths, and a person approves or denies it in the app's Avatar view. You cannot approve it: call get_avatar or build_avatar again later (the normalised result is cached, Blender does not run again), and once approved it writes the file and returns its path, size, what it still lacks, the validation report beside it (exports/<asset>.vrm.report.json: source version and hash, readiness before and after, the bone map with each bone's source, the meta, and what the reweight changed when one was applied) and the round trip (the written file read back and checked; a failure is a blocker in what it still lacks). \"denied\" means the person turned the pose down. dryRun returns the plan and does nothing. Needs a meta name and an author (set_avatar).",
         annotations(idempotent_hint = true)
     )]
     async fn build_avatar(&self, Parameters(args): Parameters<BuildAvatarArgs>) -> Out {
@@ -265,6 +279,7 @@ impl McpTools {
                     version: args.version,
                     elbows: parse_elbows(args.elbows.as_deref())?,
                     reweight: parse_reweight(args.reweight.as_deref())?,
+                    fingers: parse_fingers(args.fingers.as_deref())?,
                 };
                 if args.dry_run {
                     let plan = commands::plan(host.session(), &target).map_err(|e| e.message)?;

@@ -228,7 +228,8 @@ export const commands = {
 	 *  Builds the avatar's `.vrm`: frees cloth and hair from the arms when they
 	 *  hang there (unless `reweight` is off) and waits for that yes, normalises
 	 *  the rest pose headless when it is not VRM's yet and waits for the yes,
-	 *  or writes the file once both are given.
+	 *  or writes the file once both are given. `fingers` straightens the fingers
+	 *  in that normalise (the default) or keeps them.
 	 */
 	avatarBuild: (project: string, asset: string, version: number | null, elbows: 
 /**  The whole arm turns at the shoulder; a bent elbow stays bent. */
@@ -244,7 +245,11 @@ export const commands = {
  *  The arms are lifted without a new reweight; one a person already
  *  approved still counts until they turn it down.
  */
-"off" | null) => __TAURI_INVOKE<AvatarBuild>("avatar_build", { project, asset, version, elbows, reweight }),
+"off" | null, fingers: 
+/**  Laid straight along the hand, as far as the hand's mesh holds. */
+"straighten" | 
+/**  Left as the rig has them. */
+"keep" | null) => __TAURI_INVOKE<AvatarBuild>("avatar_build", { project, asset, version, elbows, reweight, fingers }),
 	/**
 	 *  A person's yes or no to a version's new rest pose. Not an agent tool:
 	 *  only the app's approval card calls it. An agent's waiting request for
@@ -2239,6 +2244,29 @@ export type FindingLevel =
 /**  What the export drops or leaves out. */
 "note";
 
+/**  One finger's curl at rest. */
+export type FingerCurl = {
+	/**  The finger with its side, such as `leftIndex`. */
+	finger: string,
+	/**  Degrees it bends in all, 0 when straight. */
+	curlDeg: number | null,
+};
+
+/**  How far one hand's fingers were straightened. */
+export type FingerStraighten = {
+	/**
+	 *  The share of the way to straight, 0 to 1: less where the whole way
+	 *  stretched the finger mesh too far and would tear fused fingers.
+	 */
+	share?: number | null,
+	/**  How much the finger edges stretched there (95th percentile, a ratio). */
+	stretch?: number | null,
+	/**  The largest turn of one finger joint, degrees. */
+	turnedDeg?: number | null,
+	/**  Why the hand was left as it was. */
+	skipped?: string | null,
+};
+
 export type FingerWeights = {
 	vertices: number,
 	/**  The finger and hand joints holding flagged vertices, most first. */
@@ -2246,6 +2274,13 @@ export type FingerWeights = {
 	/**  The distance used, in model units. */
 	reach: number | null,
 };
+
+/**  What happens to the fingers when the rest pose is normalised. */
+export type Fingers = 
+/**  Laid straight along the hand, as far as the hand's mesh holds. */
+"straighten" | 
+/**  Left as the rig has them. */
+"keep";
 
 /**  What the first camera stop sees and what that costs to load. */
 export type FirstView = {
@@ -3613,6 +3648,9 @@ export type NormalizeReport = {
 	moved?: [(number | null), (number | null), (number | null)],
 	elbows?: Elbows,
 	lifted?: { [key in string]: ArmLift },
+	fingers?: Fingers,
+	/**  Per side, how far the fingers were straightened; empty when kept. */
+	straightened?: { [key in string]: FingerStraighten },
 	weightsBefore?: WeightChecks,
 	weights?: WeightChecks,
 };
@@ -3968,6 +4006,13 @@ export type PoseMeasures = {
 	/**  Degrees each elbow bends at rest. */
 	elbowLeftDeg?: number | null,
 	elbowRightDeg?: number | null,
+	/**
+	 *  Degrees each finger curls (`leftIndex`), a hand whose finger bones
+	 *  sit bunched at the wrist left out.
+	 */
+	fingers?: { [key in string]: number | null },
+	/**  The most any finger curls. */
+	fingerCurlDeg?: number | null,
 	groundY?: number | null,
 	height?: number | null,
 	hips?: [(number | null), (number | null), (number | null)],
@@ -4381,6 +4426,15 @@ export type RestPose = {
 	asymmetry: number | null,
 	/**  The left bone of that pair, such as `leftHand`. */
 	asymmetryBone: string | null,
+	/**
+	 *  Each finger's curl, thumb first per side. A hand whose finger bones
+	 *  sit bunched at the wrist is left out.
+	 */
+	fingers?: FingerCurl[],
+	/**  The most any finger curls, degrees; `None` without finger bones. */
+	fingerCurlDeg?: number | null,
+	/**  The sides whose finger bones sit bunched at the wrist. */
+	bunchedHands?: string[],
 };
 
 /**  A bake waiting for review, on a copy of the newest version. */

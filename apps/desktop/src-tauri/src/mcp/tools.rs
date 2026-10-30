@@ -129,8 +129,8 @@ the last reweight, the last normalised rest pose with its before and after sheet
 export); set_avatar changes its meta, bone overrides and material mode (mtoon-soft or pbr); \
 build_avatar writes the project's \
 exports/<asset>.vrm, never a new version. When cloth or hair weighted to the arms needs freeing \
-(reweight auto, the default) and when the rest pose needs normalising (headless, elbows straighten by \
-default) it answers \"waiting for approval\" with the step and the sheets: a person approves the new \
+(reweight auto, the default) and when the rest pose needs normalising (headless, elbows and fingers \
+straighten by default) it answers \"waiting for approval\" with the step and the sheets: a person approves the new \
 weights and the new pose in the app's Avatar view and no tool can, so call get_avatar or build_avatar \
 again later. \
 get_real_size reads an asset's real size and fix-ups with what its model measures; set_real_size \
