@@ -9,6 +9,7 @@ import { fileUrl, registerMockFile } from '../files';
 import { createBackend } from './backend';
 import { DEFAULT_ROOT, HOME, MOCK_PROJECT_IDS } from './fixtures';
 import { PREVIEW_FILE, thumbsDir } from './inbox-fixtures';
+import { TRIAGE_PREVIEW } from './triage-fixtures';
 import { conceptFiles, OBJECT_REF_FILES, REF_FILES } from './lab-fixtures';
 import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
@@ -83,7 +84,7 @@ for (const [path, url] of Object.entries(renders)) {
     registerMockFile(`${root}/projects/${id}/thumbs/${base(path)}`, url);
   registerMockFile(`${thumbsDir(`${root}/inbox`)}/${base(path)}`, url);
 }
-for (const [file, model] of Object.entries(PREVIEW_FILE)) {
+for (const [file, model] of Object.entries({ ...PREVIEW_FILE, ...TRIAGE_PREVIEW })) {
   const url = models[`../../assets/mock/models/${model}`];
   if (url) registerMockFile(`${root}/inbox/${file}`, url);
 }

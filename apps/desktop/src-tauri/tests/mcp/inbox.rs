@@ -205,6 +205,39 @@ async fn the_inbox_tools_agree_on_the_checks_and_a_discard_moves_a_model_aside()
         assert_eq!(refused.is_error, Some(true), "{id}");
     }
 
+    // Both discards are listed; restoring the sent one aims it at its asset
+    // again, so accept_inbox_models takes it home without a project.
+    let listed = call(&client, "list_inbox", json!({})).await;
+    let discarded = listed["discarded"].as_array().expect("discarded");
+    assert_eq!(discarded.len(), 2);
+    let sent = discarded
+        .iter()
+        .find(|d| d["name"] == json!(sent_file))
+        .expect("the sent model is listed");
+    assert_eq!(sent["assetName"], json!("Lantern"));
+    let back = call(&client, "restore_inbox_model", json!({ "name": sent_file })).await;
+    assert_eq!(back["id"], json!(sent_file));
+    assert!(inbox.join(&sent_file).is_file(), "back in the inbox");
+    let refused = raw_call(&client, "restore_inbox_model", json!({ "name": sent_file })).await;
+    assert_eq!(refused.is_error, Some(true), "already restored");
+
+    let accepted = call(
+        &client,
+        "accept_inbox_models",
+        json!({ "ids": [sent_file, "nowhere.glb"] }),
+    )
+    .await;
+    assert_eq!(accepted["accepted"], json!(1), "{accepted}");
+    assert_eq!(accepted["failed"], json!(1));
+    let first = &accepted["results"][0];
+    assert_eq!(first["ok"], json!(true));
+    assert_eq!(first["project"], json!(project_id));
+    assert_eq!(first["asset"]["id"], json!(asset));
+    assert_eq!(first["version"], json!(1));
+    assert_eq!(accepted["results"][1]["ok"], json!(false));
+    let empty = raw_call(&client, "accept_inbox_models", json!({ "ids": [] })).await;
+    assert_eq!(empty.is_error, Some(true));
+
     client.cancel().await.expect("close");
     server.stop();
 }

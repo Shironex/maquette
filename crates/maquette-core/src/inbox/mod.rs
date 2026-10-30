@@ -13,7 +13,9 @@ pub(crate) use maquette_glb::{images, math};
 mod accept;
 mod aim;
 mod discard;
+mod place;
 mod port;
+mod restore;
 
 pub use accept::{AcceptRequest, AcceptResult, accept, open_in_blender_args};
 // A model's card numbers are made below the pipeline too, so they live
@@ -21,7 +23,11 @@ pub use accept::{AcceptRequest, AcceptResult, accept, open_in_blender_args};
 pub use crate::assets::stats_of;
 pub use aim::{InboxAim, set_aim};
 pub use discard::{DISCARDED_DIR, Discarded, discard};
+pub use place::place;
 pub use port::{Inbox, send_ports};
+pub use restore::{
+    DiscardedModel, Restored, list_discarded, remember as remember_discard, restore,
+};
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -90,6 +96,15 @@ pub struct InboxItem {
     pub link: Option<crate::sends::InboxLink>,
     /// The asset it was attached to without a send, which Accept defaults to.
     pub aim: Option<InboxAim>,
+    /// The version Accept would make of the asset it goes to (1 for an
+    /// asset with no model yet); null for a model that goes nowhere yet.
+    /// Filled by [`place`].
+    #[serde(default)]
+    pub next_version: Option<u32>,
+    /// The newest version of that asset made after this model arrived, as a
+    /// redo that was accepted makes; this model then only takes room.
+    #[serde(default)]
+    pub replaced_by: Option<u32>,
 }
 
 fn cache_dir(root: &Path, config: &WorkspaceConfig) -> PathBuf {
@@ -267,6 +282,8 @@ fn build_item(
         // The shell asks the provider jobs, which know the send ids.
         link: None,
         aim: None,
+        next_version: None,
+        replaced_by: None,
     })
 }
 
@@ -388,4 +405,6 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<InboxItem>()
         .register::<AcceptRequest>()
         .register::<AcceptResult>()
+        .register::<DiscardedModel>()
+        .register::<Restored>()
 }

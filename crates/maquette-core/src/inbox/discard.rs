@@ -29,7 +29,7 @@ pub struct Discarded {
 }
 
 /// A name in `dir` that is free: `name`, else `stem-2.ext`, `stem-3.ext`.
-fn free_name(dir: &Path, id: &str) -> PathBuf {
+pub(super) fn free_name(dir: &Path, id: &str) -> PathBuf {
     let first = dir.join(id);
     if !first.exists() {
         return first;

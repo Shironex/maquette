@@ -21,6 +21,7 @@ pub mod handoffs;
 pub mod image_api;
 pub mod image_round;
 pub mod inbox;
+pub mod inbox_triage;
 pub mod library;
 pub mod materials;
 pub mod motion;
@@ -82,7 +83,9 @@ needsLook, and one it could not place under unmatched: nothing lands without att
 (into the inbox for the asset you name, ready for accept_inbox_model) or dismiss_download. \
 add_model_file takes a model file someone fixed by hand (an absolute .glb, .gltf, .fbx or \
 .obj path outside the workspace's versions) into the inbox as an asset's next version the same \
-way, and accepts it at once with accept true. \
+way, and accepts it at once with accept true. accept_inbox_models accepts several inbox models in \
+one call, each answering on its own; restore_inbox_model puts a discarded one back (list_inbox \
+lists them under discarded). \
 cancel_provider_jobs stops sends by id (a by hand send stops waiting, a send not yet started is cancelled, one that cannot be stopped says why), but a send waiting for approval is only denied by a person in the app. make_object_refs turns the objects of one concept into \
 one isolated image each. get_ref_views reads an asset's refs and the view each shows \
 (front, left, back, right or other); set_ref_views sets them, and every send then carries \
@@ -281,6 +284,7 @@ impl McpTools {
             + Self::projects_router()
             + Self::motion_router()
             + Self::inbox_router()
+            + Self::inbox_triage_router()
             + Self::concepts_router()
             + Self::concept_jobs_router()
             + Self::codex_usage_router()

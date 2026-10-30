@@ -264,6 +264,11 @@ or its removal; the Timeline's stop and scroll changes go through the `states` e
 `energize` edits (a path's whole energize track or its removal), which `projects.rs` turns into the
 layout patch's `paths` and `pathTracks`.
 
+`tools/inbox.rs` holds `list_inbox`, `get_inbox_checks`, `accept_inbox_model`, `discard_inbox_model` and
+`render_thumbnail`; `tools/inbox_triage.rs` holds `accept_inbox_models` and `restore_inbox_model`. A discard
+notes the asset the model was going to in `inbox/.discarded/discarded.json` (`inbox::restore`), so a restore
+aims the model there again; `inbox::place` fills each model's `nextVersion` and `replacedBy` from its project.
+
 `tools/library.rs` holds `list_library`, `add_to_library`, `add_many_to_library`, `use_from_library` and
 `update_from_library`, which call the same `maquette_core::library` functions as the commands and
 emit `libraryChanged` and the project events. `list_library` pages (a `limit` and an entry id `cursor`) and answers compact entries unless `full`. The send tools' `modelWarning` comes from the core `HasModel` send warning (`refs/checks.rs`), which the Send to 3D and batch panels show as a note beside the ref warnings. `tools/animations.rs` holds `list_animations`,

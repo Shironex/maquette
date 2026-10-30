@@ -5,18 +5,21 @@ import { KIND_ICON } from '@/state/thumbs';
 
 export interface RowThumbProps {
   item: InboxItem;
+  /** `sm` for a table row. */
+  size?: 'md' | 'sm';
 }
 
 /** The studio render, or the kind icon while it renders (or for a file that cannot be read). */
-export default function RowThumb({ item }: RowThumbProps) {
+export default function RowThumb({ item, size = 'md' }: RowThumbProps) {
   const src = fileUrl(item.thumbnail);
+  const box = size === 'sm' ? 'size-8 rounded-[6px]' : 'size-[52px] rounded-[8px]';
   if (src) {
     return (
       <img
         src={src}
         alt=""
         draggable={false}
-        className="size-[52px] flex-none rounded-[8px] bg-studio object-cover"
+        className={cn(box, 'flex-none bg-studio object-cover')}
       />
     );
   }
@@ -24,11 +27,14 @@ export default function RowThumb({ item }: RowThumbProps) {
   return (
     <span
       title={rendering ? 'Rendering a thumbnail' : undefined}
-      className="grid size-[52px] flex-none place-items-center rounded-[8px] border border-line bg-raised text-fg-mute"
+      className={cn(
+        box,
+        'grid flex-none place-items-center border border-line bg-raised text-fg-mute'
+      )}
     >
       <Icon
         name={item.state === 'failed' ? 'warning-circle' : KIND_ICON[item.kind]}
-        size={20}
+        size={size === 'sm' ? 14 : 20}
         className={cn(rendering && 'animate-pulse motion-reduce:animate-none')}
       />
     </span>

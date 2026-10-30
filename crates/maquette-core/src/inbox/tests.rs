@@ -307,3 +307,102 @@ fn discard_moves_the_model_aside_and_forgets_what_the_inbox_kept() {
     assert!(discard(root, &config, "../lamp.glb").is_err());
     assert!(discard(root, &config, "notes.txt").is_err());
 }
+
+#[test]
+fn restore_puts_a_discarded_model_back_aimed_at_its_asset() {
+    let (dir, config) = workspace();
+    let root = dir.path();
+    drop_in(root, &config, "lamp.glb", &fixture::clean_prop());
+    drop_in(root, &config, "old.glb", &fixture::clean_prop());
+    let goal = InboxAim {
+        project: "harbour".into(),
+        asset: "lamp".into(),
+        asset_name: "Lamp".into(),
+    };
+    let done = discard(root, &config, "lamp.glb").expect("discard");
+    remember_discard(root, &config, &done, Some(goal.clone()), Some(2), 5_000.0);
+    // A discard from before the notes: listed by its file, last.
+    discard(root, &config, "old.glb").expect("discard old");
+
+    let listed = list_discarded(root, &config).expect("listed");
+    let names: Vec<&str> = listed.iter().map(|d| d.name.as_str()).collect();
+    assert_eq!(names.len(), 2);
+    let lamp = listed.iter().find(|d| d.name == "lamp.glb").expect("lamp");
+    assert_eq!(lamp.asset_name.as_deref(), Some("Lamp"));
+    assert_eq!(lamp.replaced_by, Some(2));
+    assert_eq!(lamp.discarded_ms, 5_000.0);
+    let old = listed.iter().find(|d| d.name == "old.glb").expect("old");
+    assert_eq!(old.id, "old.glb");
+    assert!(old.asset_name.is_none());
+
+    // The name was taken meanwhile: the restored one gets a number.
+    drop_in(root, &config, "lamp.glb", b"a newer download");
+    let back = restore(root, &config, "lamp.glb").expect("restore");
+    assert_eq!(back.id, "lamp-2.glb");
+    let restored = item(root, &config, "lamp-2.glb").expect("in the inbox");
+    assert_eq!(restored.aim, Some(goal));
+    assert_eq!(list_discarded(root, &config).expect("left").len(), 1);
+
+    assert!(restore(root, &config, "lamp.glb").is_err(), "already back");
+    assert!(restore(root, &config, "../old.glb").is_err());
+    assert!(restore(root, &config, "discarded.json").is_err());
+}
+
+#[test]
+fn place_reads_the_next_version_and_a_newer_one_made_after_arrival() {
+    let (dir, config) = workspace();
+    let root = dir.path();
+    let manifest = project::create(
+        root,
+        &config.layout,
+        NewProject {
+            name: "Harbour".into(),
+            template: ProjectTemplate::FloatingDiorama,
+            target: Default::default(),
+            game: None,
+            site_repo: None,
+            source_folder: None,
+        },
+    )
+    .expect("project");
+    drop_in(root, &config, "lamp_a.glb", &fixture::clean_prop());
+    drop_in(root, &config, "lamp_b.glb", &fixture::clean_prop());
+    let request = AcceptRequest {
+        item: "lamp_a.glb".into(),
+        project: manifest.id.clone(),
+        asset: None,
+        name: Some("Lamp".into()),
+        prep: None,
+    };
+    let first = accept(root, &config, &request).expect("accept");
+    let goal = InboxAim {
+        project: manifest.id.clone(),
+        asset: first.asset.id.clone(),
+        asset_name: "Lamp".into(),
+    };
+    set_aim(root, &config, "lamp_b.glb", Some(goal)).expect("aim");
+    drop_in(root, &config, "free.glb", &fixture::clean_prop());
+
+    let mut items = list(root, &config).expect("list");
+    // lamp_b arrived before v1 was accepted, so v1 replaced it.
+    for i in &mut items {
+        if i.id == "lamp_b.glb" {
+            i.modified_ms = 0.0;
+        }
+    }
+    place(root, &config, &mut items);
+    let b = items.iter().find(|i| i.id == "lamp_b.glb").expect("b");
+    assert_eq!(b.next_version, Some(2));
+    assert_eq!(b.replaced_by, Some(1));
+    let free = items.iter().find(|i| i.id == "free.glb").expect("free");
+    assert_eq!(free.next_version, None);
+    assert_eq!(free.replaced_by, None);
+
+    // Arrived after v1: nothing replaced it.
+    for i in &mut items {
+        i.modified_ms = f64::MAX;
+    }
+    place(root, &config, &mut items);
+    let b = items.iter().find(|i| i.id == "lamp_b.glb").expect("b");
+    assert_eq!(b.replaced_by, None);
+}
