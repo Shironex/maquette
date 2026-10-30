@@ -34,6 +34,8 @@ interface InspectorStore {
   load: (project: string) => Promise<void>;
   pick: (patch: Partial<Pick<InspectorStore, 'comparison' | 'left' | 'right'>>) => void;
   select: (model: string | null) => void;
+  /** Opens the compare tab on one version of an asset, before or after the project loads. */
+  focusVersion: (project: string, asset: string, version: number) => void;
   setMode: (mode: InspectMode) => void;
   flyTo: (index: number) => void;
   /** The camera moved by hand, so no stop is current any more. */
@@ -89,6 +91,19 @@ export const useInspectorStore = create<InspectorStore>((set, get) => ({
   },
   pick: patch => set(patch),
   select: selected => set({ selected }),
+  focusVersion: (project, asset, version) => {
+    const model = `asset/${asset}/v${version}`;
+    // The picks hold through the load: it keeps them for the project it already has.
+    set(s => ({
+      tab: 'compare',
+      project,
+      ...(s.project === project ? {} : { view: null, stop: null }),
+      comparison: `asset/${asset}`,
+      left: null,
+      right: `${model}/side`,
+      selected: model,
+    }));
+  },
   setMode: mode => set({ mode }),
   flyTo: index => set({ stop: { index, at: clock.nowMs() } }),
   leaveStop: () => {
