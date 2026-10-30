@@ -60,8 +60,8 @@
  * (scripts/visual-check/fixes.mjs) a download's look card with its picture
  * suggestions, a rotate fix-up, Add a model file, a game folder, the moved
  * file in the Ship plan and the drop maps switch, and the avatar set
- * (scripts/visual-check/avatar.mjs) the Avatar view: readiness, meta, a rest
- * pose waiting for a yes with its sheets, the written VRM, an agent's
+ * (scripts/visual-check/avatar.mjs) the Avatar view: readiness, meta, new
+ * weights and a rest pose waiting for a yes with their sheets, the written VRM, an agent's
  * floating card and Settings > Avatar defaults. It renders
  * pages to files and never captures the screen.
  *
