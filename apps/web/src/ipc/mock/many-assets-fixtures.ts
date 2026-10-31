@@ -129,12 +129,8 @@ export function withInspectAssets(project: ProjectManifest, state: string | null
 /** Project files to the bundled model that stands in for each, for `?inspect=diorama`. */
 export function dioramaFiles(): Record<string, string> {
   const empty = { assets: [] } as unknown as ProjectManifest;
-  const entries = (withDioramaAssets(empty).assets ?? []).flatMap(a => a.versions);
-  // Scene fixtures bring their own; the rest stand in with the crystals, one model each.
-  const pad = Array.from({ length: DIORAMA_MODELS }, (_, i) => ({
-    file: `models/diorama-piece-${i + 1}_v1.glb`,
-  }));
-  return Object.fromEntries([...entries, ...pad].map(v => [v.file, 'ice_crystals.glb']));
+  const versions = (withDioramaAssets(empty).assets ?? []).flatMap(a => a.versions);
+  return Object.fromEntries(versions.map(v => [v.file, 'ice_crystals.glb']));
 }
 
 function assetComparison(asset: Asset): Comparison {
