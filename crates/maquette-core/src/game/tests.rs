@@ -133,6 +133,7 @@ pub(super) fn game_project(
             game: Some(NewGame {
                 format,
                 models_dir: DEFAULT_MODELS_DIR.into(),
+                template: None,
             }),
         },
     )

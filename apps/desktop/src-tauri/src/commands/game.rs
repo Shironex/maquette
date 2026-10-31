@@ -241,6 +241,7 @@ mod tests {
             Some(NewGame {
                 format: GameFormat::Glb,
                 models_dir: "assets/models".into(),
+                template: None,
             }),
         );
         let site = make("Moon Island", ProjectTarget::Website, None);
@@ -321,6 +322,7 @@ mod tests {
                 game: Some(NewGame {
                     format: GameFormat::Glb,
                     models_dir: "assets/models".into(),
+                    template: None,
                 }),
                 site_repo: Some(repo.display().to_string()),
                 source_folder: None,

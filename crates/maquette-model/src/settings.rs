@@ -37,4 +37,5 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<game::GameModel>()
         .register::<game::GameSettings>()
         .register::<game::NewGame>()
+        .register::<game::GameTemplate>()
 }

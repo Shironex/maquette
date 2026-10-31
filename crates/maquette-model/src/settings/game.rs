@@ -10,10 +10,12 @@ use serde::{Deserialize, Serialize};
 
 mod lookup;
 mod new;
+mod templates;
 
 pub use lookup::{asset_budget, budget_for, file_of, folder_of, settings_of};
 pub use new::{default_budgets, new_settings, stays_inside};
 pub use new::{model_files, model_folders};
+pub use templates::{GameTemplate, GameTemplateId, game_template, game_templates, merge_budgets};
 
 /// Where a project ships.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -153,6 +155,10 @@ pub struct GameSettings {
 pub struct NewGame {
     pub format: GameFormat,
     pub models_dir: String,
+    /// Lays the template's folders and budgets over the ones found in the
+    /// repo. The format above still decides the format.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub template: Option<GameTemplateId>,
 }
 
 /// The fewest triangles a folder budget allows, the floor of Decimate.

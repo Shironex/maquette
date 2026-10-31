@@ -98,6 +98,7 @@ fn fixture(dir: &Path) -> (Session, String, std::path::PathBuf) {
             game: Some(NewGame {
                 format: GameFormat::Glb,
                 models_dir: "assets/models".into(),
+                template: None,
             }),
             site_repo: Some(repo.display().to_string()),
             source_folder: None,
