@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { moves } from '@/state/motion';
 import { stageViews } from '@/state/pipeline';
 import { useAppStore } from '@/state/use-app-store';
+import { useBakedStore } from '@/state/use-baked-store';
 import { isGame } from '@/state/game';
 import { useMotionStore } from '@/state/use-motion-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
@@ -22,9 +23,12 @@ export function useMotionView() {
   const asset = useMotionStore(s => s.asset);
   const projectId = project?.id ?? null;
   const versions = (project?.assets ?? []).map(a => a.versions.length).join(',');
+  const loadBaked = useBakedStore(s => s.load);
   useEffect(() => {
-    if (projectId) void load(projectId);
-  }, [projectId, versions, load]);
+    if (!projectId) return;
+    void load(projectId);
+    void loadBaked(projectId);
+  }, [projectId, versions, load, loadBaked]);
   const current = view && view.project === projectId ? view : null;
   const model = current?.models.find(m => m.asset === asset) ?? null;
   return {

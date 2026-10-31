@@ -60,7 +60,7 @@ The **Game export** panel in the Pipeline view sets what the engine reads:
 - KTX2, meshopt and Draco are always off. Game export refuses an exported model that uses them, or a texture over the cap.
 - **Drop normal and metal maps**: leaves out the normal and metal-roughness textures, for engines that light flat or pack their own maps. Color and emission stay.
 
-Rigs and animation clips export with a `.glb`. Each rigged model keeps only its own clips, never another rig's. LOD levels are shown in the panel but not built yet.
+Rigs and animation clips export with a `.glb`. Each rigged model keeps only its own clips, never another rig's. A clip switched off in Motion stays out of the model's game file. LOD levels are shown in the panel but not built yet.
 
 A project made before the per folder cap keeps its own copies of `export_game.py` and `game_export.mjs`. The Pipeline view offers to update them; until then every model exports at the global cap.
 
@@ -78,7 +78,7 @@ It also shows where Ship writes (game repo, model folder, branch), how many file
 
 ## Views
 
-Game projects hide the Page and Timeline views; Motion stays. Every view's top bar shows the model budget (how many models are over their folder's budget) and the stages Concept, Refs, 3D model, Blender, Export and Ship, never a scene MB budget. Motion shows only the clips of each model: a game export keeps every clip in the model file, so there are no ship switches, states or scene budget, and the list marks the models over their folder's budget. Long clip names truncate with the full name on hover, and a model with eight clips or more gets a search box. The Inspector shows Compare and Budget, without Layout and Paths. Its model panel checks the selected model's triangles against its folder's budget and leaves out the website's compression and scene total. Game preview, the model in the game's own lighting, is listed as planned and is not built yet.
+Game projects hide the Page and Timeline views; Motion stays. Every view's top bar shows the model budget (how many models are over their folder's budget) and the stages Concept, Refs, 3D model, Blender, Export and Ship, never a scene MB budget. Motion shows only the clips of each model: a game export keeps a clip in the model file unless its switch says to leave it out of the game file, and there are no states or scene budget, and the list marks the models over their folder's budget. Long clip names truncate with the full name on hover, and a model with eight clips or more gets a search box. The Inspector shows Compare and Budget, without Layout and Paths. Its model panel checks the selected model's triangles against its folder's budget and leaves out the website's compression and scene total. Game preview, the model in the game's own lighting, is listed as planned and is not built yet.
 
 ## Agents
 

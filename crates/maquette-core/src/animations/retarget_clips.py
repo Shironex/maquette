@@ -7,7 +7,8 @@ Maquette runs this headless, never with a window:
 
 retarget.json names the model, where the baked copy and the report go, the
 clips with their settings and bone pairs, the model bones that keep their
-rest direction, the model clips the bake replaces and the model's feet:
+rest direction, the model clips the bake replaces, the model's feet and the
+bones only on the model that follow another bone rather than their parent:
 
     {"model": "in/model.glb", "out": "draft.glb", "report": "report.json",
      "clips": [{"id": "standing-dodge-left", "file": "in/clips/standing-dodge-left.glb",
@@ -15,7 +16,8 @@ rest direction, the model clips the bake replaces and the model's feet:
                 "rootMotion": true, "speed": 1.0,
                 "pairs": [["mixamorig:Hips", "hips"], ["mixamorig:LeftArm", "upper_arm.L"]],
                 "pins": {"left": [[0, 12]]}}],
-     "keepRest": ["spine", "neck"], "replace": [], "feet": ["foot.L", "foot.R"]}
+     "keepRest": ["spine", "neck"], "replace": [], "feet": ["foot.L", "foot.R"],
+     "follow": [["sword_socket", "hand.R"]]}
 
 How a clip is baked: the model's limbs are first turned so each points the
 way the clip's skeleton points at rest (a T pose, say, against the model's
@@ -24,7 +26,8 @@ rotation of every clip bone against its rest and applies that change to
 the paired model bone, converted back into the bone's own space under its
 posed parent. The hips also move, scaled by the model's hips height over
 the clip's. Bones with no pair (fingers, a skirt, a sword socket) keep
-their rest pose and follow their parents.
+their rest pose and follow their parents, unless "follow" names another
+driven bone: each frame such a bone then moves rigidly with that one.
 
 Each clip is written as one action on the model's armature, named as the
 settings say, and the model is written back as GLB with its own clips and
@@ -179,7 +182,8 @@ class Target:
 
     def reference(self, src_rest_dir):
         """World rotations of the model's bones in a pose matching the clip
-        skeleton's rest directions, and how far each limb was turned."""
+        skeleton's rest directions, how far each limb was turned, and that
+        pose's armature space matrices."""
         pose, ref_rot, angles = {}, {}, {}
         for b in self.order:
             n = b.name
@@ -194,7 +198,7 @@ class Target:
                 p = Matrix.Translation(p.translation) @ r.to_4x4()
             pose[n] = p
             ref_rot[n] = self.mw_rot @ rot3(p).to_quaternion()
-        return ref_rot, angles
+        return ref_rot, angles, pose
 
 
 class Source:
@@ -252,7 +256,7 @@ def set_frame(scene, t):
     scene.frame_set(whole, subframe=t - whole)
 
 
-def write_action(name, tgt, frames, rot_samples, loc_samples):
+def write_action(name, tgt, frames, rot_samples, loc_samples, follow_locs):
     action = bpy.data.actions.new(name)
     if action.name != name:
         raise RuntimeError(f"the model already has an action named {name}")
@@ -282,6 +286,10 @@ def write_action(name, tgt, frames, rot_samples, loc_samples):
     hips = f'pose.bones["{tgt.hips.name}"].location'
     for i in range(3):
         write(hips, i, tgt.hips.name, [v[i] for v in loc_samples])
+    for bone, samples in follow_locs.items():
+        path = f'pose.bones["{bone}"].location'
+        for i in range(3):
+            write(path, i, bone, [v[i] for v in samples])
     action.use_fake_user = True
     action.use_frame_range = True
     action.frame_start = 0
@@ -345,13 +353,16 @@ def pin_weights(runs, count):
     return out
 
 
-def frame_pose(tgt, driven_rot, head_world, overrides):
+def frame_pose(tgt, driven_rot, head_world, overrides, fixed=None):
     """Every bone's armature space matrix for one frame: driven bones take
-    their world rotation (or an override), the hips also their place, and
-    the rest follow their parents."""
+    their world rotation (or an override), the hips also their place, the
+    `fixed` ones the matrix given, and the rest follow their parents."""
     pose = {}
     for b in tgt.order:
         n = b.name
+        if fixed and n in fixed:
+            pose[n] = fixed[n]
+            continue
         base = tgt.base(pose, b)
         if n not in driven_rot:
             pose[n] = base
@@ -361,12 +372,19 @@ def frame_pose(tgt, driven_rot, head_world, overrides):
     return pose
 
 
-def bake(scene, tgt, src, action, clip, feet, out_fps):
-    ref_rot, angles = tgt.reference(src.rest_dir)
+def bake(scene, tgt, src, action, clip, feet, follow, out_fps):
+    ref_rot, angles, ref_pose = tgt.reference(src.rest_dir)
     src_ref_inv = {k: q.inverted() for k, q in src.rest_rot.items()}
     scale = tgt.hips_rest_world.z / src.hips_rest_world.z if src.hips_rest_world.z > 1e-4 else 1.0
     driven = [b.name for b in tgt.order if tgt.source.get(b.name) in src.rest_rot]
     rot_samples = {n: [] for n in driven}
+    followers = {
+        bone: lead for bone, lead in follow if lead in rot_samples and bone in tgt.rest and bone not in rot_samples
+    }
+    # What a follower keeps from its lead: their offset in the reference pose.
+    held_to = {bone: ref_pose[lead].inverted() @ ref_pose[bone] for bone, lead in followers.items()}
+    follow_locs = {bone: [] for bone in followers}
+    rot_samples.update({bone: [] for bone in followers})
     loc_samples, hips_track, prev_q = [], [], {}
     foot_tracks = {side: [] for side in feet}
     times = frame_times(action, clip)
@@ -389,7 +407,7 @@ def bake(scene, tgt, src, action, clip, feet, out_fps):
         head_world = tgt.hips_rest_world + delta
         hips_track.append(head_world + removed)
         driven_rot = {}
-        for n in rot_samples:
+        for n in driven:
             k = tgt.source[n]
             r_world = srot[k] @ src_ref_inv[k] @ ref_rot[n]
             driven_rot[n] = (tgt.mw_rot_inv @ r_world).to_matrix().to_4x4()
@@ -408,6 +426,9 @@ def bake(scene, tgt, src, action, clip, feet, out_fps):
             overrides.update(solve_leg(pose, leg, tgt.mw_inv @ want))
         if overrides:
             pose = frame_pose(tgt, driven_rot, head_world, overrides)
+        if followers:
+            fixed = {bone: pose[lead] @ held_to[bone] for bone, lead in followers.items()}
+            pose = frame_pose(tgt, driven_rot, head_world, overrides, fixed)
         for b in tgt.order:
             n = b.name
             if n not in rot_samples:
@@ -420,13 +441,15 @@ def bake(scene, tgt, src, action, clip, feet, out_fps):
             rot_samples[n].append(q)
             if b == tgt.hips:
                 loc_samples.append(local.translation.copy())
+            if n in follow_locs:
+                follow_locs[n].append(local.translation.copy())
         for side, bone in feet.items():
             if bone in pose:
                 foot_tracks[side].append(tgt.mw @ pose[bone].translation + removed)
     if not loc_samples:
         loc_samples = [Vector((0.0, 0.0, 0.0))]
     frames = key_frames(len(times), clip, out_fps)
-    made, slot = write_action(clip["name"], tgt, frames, rot_samples, loc_samples)
+    made, slot = write_action(clip["name"], tgt, frames, rot_samples, loc_samples, follow_locs)
     first, last = hips_track[0], hips_track[-1]
     travel = math.hypot(last.x - first.x, last.y - first.y) if clip["rootMotion"] else 0.0
     farthest = max((h - first).length for h in hips_track)
@@ -496,7 +519,7 @@ def main():
             tgt = Target(target_arm, clip["pairs"], job.get("keepRest", []))
             hips = next(s for s, t in clip["pairs"] if t == tgt.hips.name)
             src = Source(src_arm, hips)
-            made, slot, info = bake(scene, tgt, src, action, clip, feet, out_fps)
+            made, slot, info = bake(scene, tgt, src, action, clip, feet, job.get("follow", []), out_fps)
             stash(target_arm, made, slot)
             keep.add(made)
             report["driven"] = max(report["driven"], info.pop("driven"))

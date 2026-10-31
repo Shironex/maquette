@@ -39,7 +39,13 @@ export function useClipDetails() {
       mono: true,
     },
   ];
-  const off = !game && isOff(draft, asset, clip.name);
-  const status = off ? 'kept off the site' : game ? 'ships in the model' : `ships as ${clip.name}`;
+  const off = isOff(draft, asset, clip.name);
+  const status = off
+    ? game
+      ? 'left out of the game file'
+      : 'kept off the site'
+    : game
+      ? 'ships in the model'
+      : `ships as ${clip.name}`;
   return { clip, items, off, status };
 }

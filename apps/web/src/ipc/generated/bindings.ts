@@ -277,6 +277,11 @@ export const commands = {
 	 */
 	animationsRetargetPlan: (project: string, asset: string, clips: string[], picked: MapChoice[]) => __TAURI_INVOKE<RetargetPlan>("animations_retarget_plan", { project, asset, clips, picked }),
 	/**
+	 *  What a project took from the library, per model: the clips baked in, the
+	 *  map and the last review. Motion groups a model's clips by it.
+	 */
+	animationsOfProject: (project: string) => __TAURI_INVOKE<ProjectAnimations>("animations_of_project", { project }),
+	/**
 	 *  Bakes library clips onto a copy of the model's newest version, headless,
 	 *  and reviews them. The project is not changed yet.
 	 */
@@ -1164,6 +1169,21 @@ export type Asset = {
 	refs?: AssetRef[],
 };
 
+export type AssetAnimations = {
+	/**  The bone map saved for this model's rig. */
+	map?: MapChoice[],
+	/**  What the bones only on this model follow, saved with the map. */
+	follow?: FollowChoice[],
+	/**
+	 *  Every library clip baked in, newest bake last; a clip baked again
+	 *  replaces its older entry.
+	 */
+	baked?: BakedClip[],
+	/**  The last retarget review and the version it made. */
+	review?: RetargetReview | null,
+	reviewVersion?: number | null,
+};
+
 export type AssetKind = "prop" | "character" | "scene";
 
 /**
@@ -1580,6 +1600,22 @@ export type Baked = {
 	warnings: string[],
 };
 
+/**  A library clip baked into a model version. */
+export type BakedClip = {
+	setting: ClipSetting,
+	/**  The clip's revision when it was baked. */
+	revision: number,
+	/**  The library clip's name then. */
+	libraryName: string,
+	/**  The asset version it went into. */
+	version: number,
+	/**
+	 *  The library clip's whole length, frames; 0 for a bake recorded
+	 *  before this was kept.
+	 */
+	libraryFrames?: number,
+};
+
 /**  One service's balance, or why there is none. */
 export type Balance = {
 	service: ProviderId,
@@ -1715,6 +1751,13 @@ export type BonePair = {
 	/**  The model's bone. */
 	target: string | null,
 	how: PairMatch,
+};
+
+/**  How far a limb turns to line the model up with the clip, degrees. */
+export type BoneTurn = {
+	/**  The humanoid name. */
+	bone: string,
+	deg: number | null,
 };
 
 /**  Everything the UI needs before its first paint. */
@@ -2749,6 +2792,12 @@ export type FolderLayout = {
 	projects: string,
 	inbox: string,
 	cache: string,
+};
+
+/**  What one bone only on the model follows; `None` goes back to its parent. */
+export type FollowChoice = {
+	bone: string,
+	follows: string | null,
 };
 
 /**  What the finder found on the model a VRM is written from. */
@@ -4298,6 +4347,17 @@ export type ObjectStates = {
 	triggers: StateTrigger[],
 };
 
+/**  A bone only on the model. */
+export type OnlyBone = {
+	bone: string,
+	/**  The nearest driven bone above it, which it moves with on its own. */
+	carriedBy: string | null,
+	/**  The driven bone chosen for it instead. */
+	follows: string | null,
+	/**  Whether it can be given another bone: not with a driven bone under it. */
+	free: boolean,
+};
+
 /**  The saved key, as Settings shows it. */
 export type OpenAiKeyStatus = {
 	saved: boolean,
@@ -4934,6 +4994,11 @@ export type ProjectActivity = {
 	sends: number,
 };
 
+export type ProjectAnimations = {
+	version?: number,
+	assets?: { [key in string]: AssetAnimations },
+};
+
 /**
  *  An agent changed a project through the MCP server, for example by
  *  accepting an inbox model, so the Board shows the new state.
@@ -5425,6 +5490,21 @@ export type RestBone = {
 	tail: [(number | null), (number | null), (number | null)],
 };
 
+export type RestCompare = {
+	clip: RestBone[],
+	model: RestBone[],
+	clipShape: RestShape,
+	modelShape: RestShape,
+	/**  How far each one's arms drop from level, degrees. */
+	clipArmsDeg: number | null,
+	modelArmsDeg: number | null,
+	/**  Hips heights, metres, and what the hips' moves are scaled by. */
+	clipHips: number | null,
+	modelHips: number | null,
+	hipsScale: number | null,
+	turns: BoneTurn[],
+};
+
 export type RestPose = {
 	/**  The axis the front points along; `None` without both legs or arms. */
 	facing: Axis | null,
@@ -5484,6 +5564,8 @@ export type RestPose = {
 	bunchedHands?: string[],
 };
 
+export type RestShape = "t-pose" | "a-pose" | "other";
+
 /**  Where a restored model went. */
 export type Restored = {
 	/**  Its inbox id now. */
@@ -5527,6 +5609,10 @@ export type RetargetPlan = {
 	needsLook: boolean,
 	/**  Model bones no humanoid bone maps to; they follow their parents. */
 	onlyOnModel: string[],
+	/**  The same bones with what each moves with and what was chosen for it. */
+	onlyBones: OnlyBone[],
+	/**  Both skeletons at rest, when the chosen clips and the model have one. */
+	rest: RestCompare | null,
 	/**
 	 *  Per clip, the settings it bakes with: the ones it was baked with
 	 *  before on this model, or its defaults.
@@ -7472,6 +7558,8 @@ export type UseClips = {
 	map: MapChoice[],
 	/**  Keeps the map for this model's next retarget. */
 	saveMap: boolean,
+	/**  What the bones only on the model follow, over the saved choices. */
+	follow?: FollowChoice[],
 };
 
 /**  The project asset version a library version was copied from. */

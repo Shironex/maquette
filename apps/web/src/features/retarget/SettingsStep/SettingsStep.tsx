@@ -1,6 +1,7 @@
 import { Button, NumberField, SegmentedControl, TextField, Toggle, cn } from '@maquette/ui';
 import { formatBytes } from '@/lib/format';
 import { playLine, trimmed } from '@/state/retarget';
+import FrameStrip from '../FrameStrip';
 import { useSettingsStep } from './SettingsStep.hooks';
 
 const MOTION = [
@@ -109,22 +110,6 @@ export default function SettingsStep() {
             checked={selected.setting.pinFeet ?? false}
             onChange={pinFeet => step.edit({ pinFeet })}
           />
-          <div className="grid grid-cols-2 gap-2">
-            <NumberField
-              label="Trim in"
-              value={selected.setting.start}
-              min={0}
-              max={selected.clip.frames}
-              onChange={start => step.edit({ start })}
-            />
-            <NumberField
-              label="Trim out"
-              value={selected.setting.end}
-              min={0}
-              max={selected.clip.frames}
-              onChange={end => step.edit({ end })}
-            />
-          </div>
           <NumberField
             label="Speed"
             unit="x"
@@ -133,9 +118,19 @@ export default function SettingsStep() {
             max={4}
             onChange={speed => step.edit({ speed })}
           />
-          <p className="font-mono text-[12px] text-fg-dim">
-            {playLine(selected.setting, selected.clip)}
-          </p>
+          <div className="flex flex-col gap-1.5">
+            <p className="text-caption tracking-[0.04em] text-fg-mute uppercase">Trim</p>
+            <FrameStrip
+              label={`Trim ${selected.clip.name}`}
+              frames={selected.clip.frames}
+              range={[selected.setting.start, selected.setting.end]}
+              onTrim={([start, end]) => step.edit({ start, end })}
+            />
+            <p className="font-mono text-[12px] text-fg-dim">
+              in {selected.setting.start} · out {selected.setting.end} ·{' '}
+              {playLine(selected.setting, selected.clip)}
+            </p>
+          </div>
           <p className="mt-auto text-meta text-fg-mute">
             Runs headless in Blender and makes v{(step.sheet.plan?.version ?? 0) + 1} for review; v
             {step.sheet.plan?.version ?? 0} stays.

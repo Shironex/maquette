@@ -141,6 +141,7 @@ impl McpTools {
                     settings,
                     map: picked,
                     save_map: args.save_map.unwrap_or(true),
+                    follow: Vec::new(),
                 };
                 let tools = host.toolbox();
                 let draft =

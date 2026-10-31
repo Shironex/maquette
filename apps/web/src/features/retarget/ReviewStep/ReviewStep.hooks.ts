@@ -14,7 +14,9 @@ export function useReviewStep() {
   const openInBlender = useRetargetStore(s => s.openInBlender);
   const view = useAnimationsStore(s => s.view);
   const items = view?.items ?? [];
+  const acceptAsIs = useRetargetStore(s => s.acceptAsIs);
   const [time, setTime] = useState(0);
+  const [playing, setPlaying] = useState(true);
   const draft = sheet?.draft ?? null;
   const clips = draft ? reviewOrder(draft.review.clips) : [];
   const selected = clips.find(c => c.clip === sheet?.selected) ?? clips[0] ?? null;
@@ -37,10 +39,21 @@ export function useReviewStep() {
     draftClip: selected ? Math.max(0, names.indexOf(selected.name)) : 0,
     time,
     frame: Math.min(selected?.frames ?? 0, Math.round(time * fps)),
-    tick: (delta: number) => setTime(t => (length > 0 ? (t + delta) % length : 0)),
+    tick: (delta: number) => {
+      if (playing) setTime(t => (length > 0 ? (t + delta) % length : 0));
+    },
+    playing,
+    togglePlay: () => setPlaying(p => !p),
+    seek: (frame: number) => {
+      setPlaying(false);
+      setTime(frame / fps);
+    },
+    accepted: sheet?.accepted ?? [],
+    accept: acceptAsIs,
     openInBlender: () => void openInBlender(),
     select: (clip: string) => {
       setTime(0);
+      setPlaying(true);
       change({ selected: clip });
     },
   };

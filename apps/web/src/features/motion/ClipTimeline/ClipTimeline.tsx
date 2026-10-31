@@ -14,7 +14,8 @@ const HINTS: readonly [readonly string[], string][] = [
 
 /** Play, scrub and loop the clip; In and Out set the preview loop, the clip ships whole. */
 export default function ClipTimeline() {
-  const { clip, player, frame, frames, readout, ticks, fps, controls } = useClipTimeline();
+  const { clip, player, frame, frames, readout, ticks, fps, controls, trimmedFrom } =
+    useClipTimeline();
   if (!clip) return null;
   const [from, to] = player.range;
   const step = fps > 0 && frames / fps > 4 ? 1 : 0.5;
@@ -122,7 +123,7 @@ export default function ClipTimeline() {
           {readout}
         </span>
         <span className="ml-auto text-meta text-fg-dim">
-          Loop {from} to {to}
+          {trimmedFrom ? `Trimmed from ${trimmedFrom} f in the library · ` : ''}Loop {from} to {to}
         </span>
       </div>
       <div className="relative grid grid-cols-[132px_1fr]">

@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { useAppStore } from '@/state/use-app-store';
+import { useMotionStore } from '@/state/use-motion-store';
 import { useRetargetStore } from '@/state/use-retarget-store';
 import { animationClips } from '@/ipc/mock/animation-fixtures';
 import { ClipDetail } from '.';
@@ -57,5 +59,23 @@ describe('the clip detail', () => {
       'aria-disabled',
       'true'
     );
+  });
+
+  it('tries the clip on the first rigged model and goes back to its skeleton', () => {
+    useAppStore.setState({
+      workspace: { project: { id: 'frostveil' } },
+    } as unknown as Partial<ReturnType<typeof useAppStore.getState>>);
+    useMotionStore.setState({
+      load: vi.fn(),
+      view: {
+        project: 'frostveil',
+        models: [{ asset: 'clay', name: 'Clay figure', rig: { bones: 20 } }],
+      },
+    } as unknown as Partial<ReturnType<typeof useMotionStore.getState>>);
+    render(<ClipDetail item={item('Standing Dodge Left')} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Try on Clay figure' }));
+    expect(screen.getByRole('button', { name: 'Back to its skeleton' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to its skeleton' }));
+    expect(screen.getByRole('button', { name: 'Try on Clay figure' })).toBeVisible();
   });
 });

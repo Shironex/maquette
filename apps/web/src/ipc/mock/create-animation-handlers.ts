@@ -334,6 +334,7 @@ export function createAnimationHandlers(ctx: AnimationContext) {
   }
 
   return {
+    bakedClips: retarget.bakedClips,
     handlers: {
       ...retarget.handlers,
       animations_get: () => view(),

@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { Icon, InlineBanner, Select } from '@maquette/ui';
+import { Button, Icon, InlineBanner, Select } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { ClipTimeline } from '../ClipTimeline';
 import { MotionTabs } from '../MotionTabs';
@@ -70,6 +70,23 @@ export default function ClipStage() {
           onChange={overlays.setTurntable}
         />
       </div>
+      {stage.bake ? (
+        <div className="flex items-center gap-3 rounded-card border border-line bg-raised px-3 py-2">
+          <Icon name="books" size={15} className="flex-none text-fg-dim" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] leading-[18px] font-semibold">{stage.bake.title}</p>
+            <p className="text-meta text-fg-mute">{stage.bake.detail}</p>
+          </div>
+          <Button
+            size="sm"
+            icon="arrows-left-right"
+            tooltip="Opens both versions side by side in the Inspector"
+            onClick={stage.bake.compare}
+          >
+            {stage.bake.compareLabel}
+          </Button>
+        </div>
+      ) : null}
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-card border border-line bg-studio">
         {stage.url && !stage.failed ? (
           <CanvasBoundary resetKey={stage.url}>

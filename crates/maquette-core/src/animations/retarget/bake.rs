@@ -12,7 +12,7 @@ use serde::Serialize;
 
 use super::{
     Baked, BakedClip, Pending, RetargetDraft, RetargetReview, UseClips, bone_names, bones, feet,
-    library_clips, model, review, settings, taken, uses,
+    library_clips, model, rest, review, settings, taken, uses,
 };
 use crate::animations::{blender, clip_dir};
 use crate::assets;
@@ -63,6 +63,9 @@ struct ScriptJob<'a> {
     /// Model clips the bake replaces.
     replace: Vec<String>,
     feet: Vec<String>,
+    /// Bones only on the model, with the driven bone each moves with.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    follow: Vec<(String, String)>,
 }
 
 fn read<T: serde::de::DeserializeOwned>(file: &Path) -> CoreResult<T> {
@@ -138,6 +141,8 @@ pub fn draft(
         .filter(|b| ids.contains(&b.setting.clip))
         .map(|b| b.setting.name.clone())
         .collect();
+    let follow_choices = rest::merged(&entry.follow, &request.follow);
+    let follow = rest::follow_pairs(&follow_choices, &rest::model_bones(&model.path), &map);
     let mut job = ScriptJob {
         model: "in/model.glb",
         out: DRAFT_FILE,
@@ -146,6 +151,7 @@ pub fn draft(
         keep_rest: bones::keep_rest(&map),
         replace,
         feet: foot_bones,
+        follow,
     };
     let mut report = run(runner, tools, &work, &job)?;
     let pinned: Vec<&str> = settings
@@ -186,7 +192,10 @@ pub fn draft(
     );
     if request.save_map {
         let choices = bones::choices(&map);
-        uses::update(&model.dir, &request.asset, |e| e.map = choices)?;
+        uses::update(&model.dir, &request.asset, |e| {
+            e.map = choices;
+            e.follow = follow_choices;
+        })?;
     }
     let token = work
         .file_name()
@@ -316,6 +325,7 @@ pub fn bake(root: &Path, config: &WorkspaceConfig, token: &str) -> CoreResult<Ba
                 revision,
                 library_name,
                 version: version.version,
+                library_frames: crate::animations::load(root, &c.clip).map_or(0, |l| l.frames),
             })
         })
         .collect();

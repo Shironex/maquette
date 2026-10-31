@@ -390,3 +390,11 @@ export const MOTION_FIXTURES: Record<string, MotionFixture> = {
     parts: ['Turntable'],
   },
 };
+
+/** Whether a starter is a current one that writes the clip switches: a site's or a game's. */
+export function startsClips(s: { path: string; state: string }): boolean {
+  return (
+    (s.path === 'tools/build_scene.py' || s.path === 'tools/export_game.py') &&
+    s.state === 'current'
+  );
+}

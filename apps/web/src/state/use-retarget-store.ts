@@ -10,6 +10,7 @@ import {
   commands,
   errorMessage,
   type ClipSetting,
+  type FollowChoice,
   type MapChoice,
   type RetargetDraft,
   type RetargetPlan,
@@ -17,7 +18,7 @@ import {
 import { useAnimationsStore } from './use-animations-store';
 import { useAppStore } from './use-app-store';
 import { useMotionStore } from './use-motion-store';
-import { withSetting, type RetargetStep } from './retarget';
+import { reviewOrder, withSetting, type RetargetStep } from './retarget';
 
 export interface RetargetSheet {
   project: string;
@@ -37,6 +38,13 @@ export interface RetargetSheet {
   error: string | null;
   query: string;
   pack: string | null;
+  tag: string | null;
+  /** Hides clips whose rig a humanoid map cannot read. */
+  humanoidOnly: boolean;
+  /** Bones only on the model given another bone in this retarget. */
+  follow: FollowChoice[];
+  /** Clips to look at that the person took as they are, by library clip id. */
+  accepted: string[];
 }
 
 export interface OpenRetarget {
@@ -46,7 +54,10 @@ export interface OpenRetarget {
   step?: RetargetStep;
 }
 
-type Editable = Pick<RetargetSheet, 'query' | 'pack' | 'saveMap' | 'selected'>;
+type Editable = Pick<
+  RetargetSheet,
+  'query' | 'pack' | 'tag' | 'humanoidOnly' | 'saveMap' | 'selected'
+>;
 
 interface RetargetStore {
   sheet: RetargetSheet | null;
@@ -63,6 +74,10 @@ interface RetargetStore {
   next: () => Promise<void>;
   back: () => void;
   pick: (bone: string, target: string | null) => Promise<void>;
+  /** What these bones only on the model follow; null goes back to their parents. */
+  setFollow: (bones: readonly string[], follows: string | null) => void;
+  /** Takes a flagged clip as it is, and shows the next one still flagged. */
+  acceptAsIs: (clip: string) => void;
   changeSetting: (clip: string, change: Partial<ClipSetting>) => void;
   resetNames: () => void;
   /** Bakes the clips onto a copy, headless, and opens the review. */
@@ -107,6 +122,10 @@ export const useRetargetStore = create<RetargetStore>((set, get) => {
           error: null,
           query: '',
           pack: null,
+          tag: null,
+          humanoidOnly: true,
+          follow: [],
+          accepted: [],
         },
       });
       if (asset) await get().refresh();
@@ -121,7 +140,8 @@ export const useRetargetStore = create<RetargetStore>((set, get) => {
       const chosen = sheet.chosen.includes(clip)
         ? sheet.chosen.filter(c => c !== clip)
         : [...sheet.chosen, clip];
-      patch({ chosen, draft: null });
+      const on = !sheet.chosen.includes(clip);
+      patch({ chosen, draft: null, ...(on ? { selected: clip } : {}) });
     },
 
     setAsset: async asset => {
@@ -183,6 +203,23 @@ export const useRetargetStore = create<RetargetStore>((set, get) => {
       await get().refresh();
     },
 
+    setFollow: (bones, follows) => {
+      const sheet = get().sheet;
+      if (!sheet) return;
+      const others = sheet.follow.filter(f => !bones.includes(f.bone));
+      patch({ follow: [...others, ...bones.map(bone => ({ bone, follows }))], draft: null });
+    },
+
+    acceptAsIs: clip => {
+      const sheet = get().sheet;
+      if (!sheet?.draft) return;
+      const accepted = [...sheet.accepted, clip];
+      const next = reviewOrder(sheet.draft.review.clips).find(
+        c => c.status === 'look' && !accepted.includes(c.clip)
+      );
+      patch({ accepted, selected: next?.clip ?? clip });
+    },
+
     changeSetting: (clip, change) => {
       const sheet = get().sheet;
       if (sheet) patch({ settings: withSetting(sheet.settings, clip, change), draft: null });
@@ -212,12 +249,14 @@ export const useRetargetStore = create<RetargetStore>((set, get) => {
           settings: sheet.settings,
           map: sheet.picked,
           saveMap: sheet.saveMap,
+          follow: sheet.follow,
         });
         patch({
           draft,
+          accepted: [],
           step: 'review',
           settings: draft.settings,
-          selected: draft.review.clips[0]?.clip ?? null,
+          selected: reviewOrder(draft.review.clips)[0]?.clip ?? null,
         });
       } catch (error) {
         patch({ error: errorMessage(error) });

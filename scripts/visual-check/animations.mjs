@@ -94,5 +94,20 @@ export async function animationsShots({ open, shot }) {
   await use.getByRole('group', { name: 'Feet pinned' }).waitFor();
   await use.waitForTimeout(2500);
   await shot(use, 'retarget-review-pinned');
+  // The bake lands in Motion: the library's clips apart, the source line, Compare.
+  await use.getByRole('button', { name: /^Bake \d+ clips? into v\d+$/ }).click();
+  await use.getByText(/^From the library · \d+/).waitFor();
+  await use.getByRole('button', { name: /^dodge_left/ }).click();
+  await use.getByText('from Standing Dodge Left').waitFor();
+  await use.getByRole('button', { name: /^Compare with v\d+$/ }).waitFor();
+  await use.waitForTimeout(1500);
+  await shot(use, 'retarget-result');
   await use.context().close();
+
+  const tryOn = await open(`${DEMO}&motion=demo`, '#/animations');
+  await tryOn.getByRole('button', { name: /^Try on / }).click();
+  await tryOn.getByRole('button', { name: 'Back to its skeleton' }).waitFor();
+  await tryOn.waitForTimeout(2500);
+  await shot(tryOn, 'animations-try-on');
+  await tryOn.context().close();
 }

@@ -260,3 +260,5 @@ fn turn() -> std::sync::MutexGuard<'static, ()> {
 mod tests;
 #[cfg(test)]
 mod tests_blender;
+#[cfg(test)]
+mod tests_blender_follow;

@@ -54,6 +54,10 @@ pub struct IndexModel {
     /// The longest texture edge Export writes for it: its folder's budget,
     /// or the Game export cap for a folder with no budget.
     pub texture_cap: u32,
+    /// Clips the person left out of the game file; Export drops them, so
+    /// such a model is never copied as it is.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clips_off: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -102,11 +106,16 @@ pub fn build(
     settings: &GameSettings,
     prep: &ScenePrep,
 ) -> GameIndex {
+    let layout = crate::layout::load(project_dir).unwrap_or_default();
     let models = manifest
         .assets
         .iter()
         .filter_map(|asset| {
             let latest = asset.latest()?;
+            let clips_off: Vec<String> = crate::layout::states::clips_off(&layout, &asset.id)
+                .into_iter()
+                .map(str::to_string)
+                .collect();
             let imported = settings
                 .models
                 .get(&asset.id)
@@ -115,7 +124,7 @@ pub fn build(
                 .models
                 .get(&asset.id)
                 .is_some_and(|p| p.size.is_some() || !p.fixups.is_empty());
-            let as_is = imported == Some(latest.version) && !prepared;
+            let as_is = imported == Some(latest.version) && !prepared && clips_off.is_empty();
             let target = file_of(settings, asset);
             Some(IndexModel {
                 asset: asset.id.clone(),
@@ -129,6 +138,7 @@ pub fn build(
                 } else {
                     Vec::new()
                 },
+                clips_off,
             })
         })
         .collect();

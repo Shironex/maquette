@@ -4,6 +4,7 @@
 //! its parts (the nodes that draw a mesh, which object states move).
 
 mod clips;
+mod rest;
 mod rig;
 
 use std::fs;
@@ -16,6 +17,7 @@ use crate::analyse::{self, RigKind};
 use crate::vrm;
 
 pub use clips::{clip_bytes, json_of};
+pub use rest::{RestJoint, rest_joints};
 pub use rig::{BoneMap, BoneMatch, Rig, WEB_INFLUENCES, humanoid_map};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]

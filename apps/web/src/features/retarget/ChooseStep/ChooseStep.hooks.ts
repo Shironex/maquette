@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { filterClips, NO_ANIMATION_FILTERS, packCounts } from '@/state/animations';
-import { chosenTotals, riggedModels } from '@/state/retarget';
+import { filterClips, NO_ANIMATION_FILTERS, packCounts, tagCounts } from '@/state/animations';
+import { chosenTotals, isHumanoidClip, riggedModels } from '@/state/retarget';
 import { useAnimationsStore } from '@/state/use-animations-store';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useRetargetStore } from '@/state/use-retarget-store';
@@ -19,11 +19,18 @@ export function useChooseStep() {
   }, [view, load]);
   const items = view?.items ?? [];
   const models = motion && motion.project === sheet?.project ? riggedModels(motion.models) : [];
-  const shown = filterClips(items, {
+  const humanoid = items.filter(i => isHumanoidClip(i.clip));
+  const shown = filterClips(sheet?.humanoidOnly ? humanoid : items, {
     ...NO_ANIMATION_FILTERS,
     query: sheet?.query ?? '',
     pack: sheet?.pack ?? null,
+    tag: sheet?.tag ?? null,
   });
+  // The clip last ticked, which is the one the preview plays.
+  const preview =
+    items.find(i => i.clip.id === sheet?.selected && sheet.chosen.includes(i.clip.id)) ??
+    items.find(i => i.clip.id === sheet?.chosen[0]) ??
+    null;
   const model = models.find(m => m.asset === sheet?.asset) ?? null;
   return {
     sheet,
@@ -31,6 +38,11 @@ export function useChooseStep() {
     model,
     shown,
     packs: packCounts(items),
+    tags: tagCounts(items),
+    humanoid: humanoid.length,
+    previewClip: preview
+      ? { id: preview.clip.id, name: preview.clip.name, file: preview.file }
+      : null,
     total: items.length,
     totals: chosenTotals(items, sheet?.chosen ?? []),
     change,

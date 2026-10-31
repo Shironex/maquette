@@ -13,6 +13,7 @@
  */
 import type {
   Asset,
+  Clip,
   MotionModel,
   MotionView,
   ObjectStates,
@@ -149,19 +150,29 @@ export function createMotionHandlers(deps: {
   /** The project's Build scene can leave clips out (its starters are current). */
   clipsSupported: (id: string) => boolean;
   motion: string | null;
+  /** The clips a retarget baked into a model, after its own. */
+  bakedClips: (project: string, asset: string, from: number) => Clip[];
 }) {
   const files = { ...LAYOUT_FILES, ...motionFiles(deps.motion) };
   if (deps.motion && deps.motion !== 'still') {
     deps.layout.setMotion('frostveil', { 'switch-cabinet': cabinetStates() }, {});
   }
 
+  /** The bundled file of a model's path; a baked version is that same file. */
+  const stemOf = (path: string) => path.replace(/_v\d+\.glb$/, '');
+  const fileOf = (path: string) =>
+    files[path] ??
+    Object.entries(files).find(([known]) => stemOf(known) === stemOf(path))?.[1] ??
+    '';
+
   function view(id: string): MotionView {
     const layout = deps.layout.view(id);
     const assets = deps.project(id).assets ?? [];
     const models: MotionModel[] = layout.models.map(m => {
       const fixture =
-        MOTION_FIXTURES[files[m.path] ?? ''] ?? importedMotion(assets.find(a => a.id === m.asset));
-      const clips = fixture?.clips ?? [];
+        MOTION_FIXTURES[fileOf(m.path)] ?? importedMotion(assets.find(a => a.id === m.asset));
+      const own = fixture?.clips ?? [];
+      const clips = [...own, ...deps.bakedClips(id, m.asset, own.length)];
       return {
         asset: m.asset,
         name: m.name,

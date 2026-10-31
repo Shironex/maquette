@@ -20,12 +20,14 @@ use crate::workspace::WorkspaceConfig;
 mod bake;
 pub mod bones;
 pub mod feet;
+pub mod rest;
 pub mod review;
 pub mod settings;
 pub mod uses;
 
 pub use bake::{RETARGET_SCRIPT, bake, draft, draft_file};
 pub use bones::{BonePair, MapChoice, PairMatch};
+pub use rest::{BoneTurn, FollowChoice, OnlyBone, RestCompare, RestShape};
 pub use review::{ClipReview, RetargetReview, ReviewStatus};
 pub use settings::ClipSetting;
 pub use uses::{BakedClip, ClipUse};
@@ -54,6 +56,10 @@ pub struct RetargetPlan {
     pub needs_look: bool,
     /// Model bones no humanoid bone maps to; they follow their parents.
     pub only_on_model: Vec<String>,
+    /// The same bones with what each moves with and what was chosen for it.
+    pub only_bones: Vec<OnlyBone>,
+    /// Both skeletons at rest, when the chosen clips and the model have one.
+    pub rest: Option<RestCompare>,
     /// Per clip, the settings it bakes with: the ones it was baked with
     /// before on this model, or its defaults.
     pub settings: Vec<ClipSetting>,
@@ -72,6 +78,9 @@ pub struct UseClips {
     pub map: Vec<MapChoice>,
     /// Keeps the map for this model's next retarget.
     pub save_map: bool,
+    /// What the bones only on the model follow, over the saved choices.
+    #[serde(default)]
+    pub follow: Vec<FollowChoice>,
 }
 
 /// A bake waiting for review, on a copy of the newest version.
@@ -208,6 +217,9 @@ pub fn plan(
         .collect();
     let settings = settings::normalise(&defaults, &clips, &taken(&model, &entry, clip_ids))?;
     let saved = !entry.map.is_empty();
+    let joints = rest::model_bones(&model.path);
+    let source_rig = clips.first();
+    let rest_compare = source_rig.and_then(|c| rest::compare(c, &joints, &map));
     Ok(RetargetPlan {
         project: project_id.to_string(),
         asset: asset_id.to_string(),
@@ -219,6 +231,8 @@ pub fn plan(
         source_rig: clips.first().map(|c| c.rig.kind),
         source_bones: u32::try_from(source.len()).unwrap_or(u32::MAX),
         needs_look: bones::needs_look(&map, saved),
+        only_bones: rest::only_bones(&joints, &map, &entry.follow),
+        rest: rest_compare,
         only_on_model: model
             .joints
             .iter()

@@ -383,8 +383,8 @@ export function createLibraryHandlers(ctx: LibraryContext) {
     pace: ctx.pack.pace,
     state: ctx.render.state,
   });
-
   return {
+    bakedClips: animations.bakedClips,
     handlers: {
       ...animations.handlers,
       ...renders.handlers,

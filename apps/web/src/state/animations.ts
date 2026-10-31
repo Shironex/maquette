@@ -124,6 +124,9 @@ export interface AnimationStats {
   packs: number;
   singles: number;
   disk: number;
+  /** Clips some model has baked, and the models that baked any. */
+  inUse: number;
+  models: number;
 }
 
 export function animationStats(items: readonly AnimationItem[], disk: number): AnimationStats {
@@ -133,6 +136,8 @@ export function animationStats(items: readonly AnimationItem[], disk: number): A
     packs: packs.size,
     singles: items.filter(i => i.clip.pack === SINGLES).length,
     disk,
+    inUse: items.filter(i => i.uses.length > 0).length,
+    models: new Set(items.flatMap(i => i.uses.map(u => `${u.project}/${u.asset}`))).size,
   };
 }
 
