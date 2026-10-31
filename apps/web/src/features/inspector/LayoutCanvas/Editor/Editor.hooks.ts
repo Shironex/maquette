@@ -22,11 +22,18 @@ import { useClickSelect } from './use-click-select';
 import { useEditorCamera } from './use-editor-camera';
 import { useEditorGizmo } from './use-editor-gizmo';
 import { useEditorScene } from './use-editor-scene';
+import { LOAD_AT_ONCE, inTurns, uploadTextures } from './load-in-turns';
 
-/** Loads every model once; each sits in a holder the layout moves. */
+/**
+ * Loads every model once, a few at a time with turns for the window between,
+ * so the tabs stay clickable; each sits in a holder the layout moves. Leaving
+ * starts nothing more and frees what still arrives. `onProgress` hears how
+ * many are done.
+ */
 export function useHolders(
   models: LayoutModel[],
-  onError: (message: string) => void
+  onError: (message: string) => void,
+  onProgress?: (done: number) => void
 ): Map<string, THREE.Group> | null {
   const gl = useThree(s => s.gl);
   const [holders, setHolders] = useState<Map<string, THREE.Group> | null>(null);
@@ -34,16 +41,23 @@ export function useHolders(
   const key = models.map(m => `${m.asset}|${m.file}`).join('\n');
   const current = useEffectEvent(() => models);
   const fail = useEffectEvent(onError);
+  const progress = useEffectEvent((done: number) => onProgress?.(done));
   useEffect(() => {
-    let alive = true;
+    let live = true;
+    const alive = () => live;
     const made = new Map<string, THREE.Group>();
     const loader = gltfLoader(gl);
     const list = current();
-    Promise.allSettled(
-      list.map(async model => {
+    let done = 0;
+    void inTurns(list, LOAD_AT_ONCE, alive, async model => {
+      try {
         const url = fileUrl(model.file);
         if (!url) throw new Error(`${model.name} has no file to show.`);
         const gltf = await loader.loadAsync(url);
+        if (!live) {
+          disposeObject(gltf.scene);
+          return;
+        }
         const holder = new THREE.Group();
         holder.name = model.asset;
         holder.userData.asset = model.asset;
@@ -53,21 +67,24 @@ export function useHolders(
           if ((o as THREE.Mesh).isMesh) o.receiveShadow = true;
         });
         made.set(model.asset, holder);
-      })
-    ).then(results => {
-      if (!alive) return;
-      const failed = results.filter(r => r.status === 'rejected');
-      if (failed.length > 0) {
+        await uploadTextures(gl, holder, alive);
+      } finally {
+        done += 1;
+        if (live) progress(done);
+      }
+    }).then(failed => {
+      if (!live) return;
+      if (failed > 0) {
         fail(
-          failed.length === results.length
+          failed === list.length
             ? 'The models did not load.'
-            : `${failed.length} of ${results.length} models did not load.`
+            : `${failed} of ${list.length} models did not load.`
         );
       }
       setHolders(made);
     });
     return () => {
-      alive = false;
+      live = false;
       for (const holder of made.values()) disposeObject(holder);
     };
   }, [key, gl]);
@@ -78,7 +95,7 @@ export function useHolders(
 export function useEditorRig(props: EditorProps): EditorRig {
   const { gl, scene, size } = useThree();
   const camera = useThree(s => s.camera) as THREE.PerspectiveCamera;
-  const holders = useHolders(props.models, props.handlers.onError);
+  const holders = useHolders(props.models, props.handlers.onError, props.handlers.onProgress);
   const live = useRef(props);
   useLayoutEffect(() => {
     live.current = props;

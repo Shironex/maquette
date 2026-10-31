@@ -18,6 +18,7 @@ import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { badge } from '../badge';
 import { PathsPanel } from '../PathsPanel';
 import { PointsTable } from '../PointsTable';
+import { loadingLabel } from '../loadingLabel';
 import { newPath, usePathsEditor } from './PathsEditor.hooks';
 
 const PathsCanvas = lazyAfterPaint(() => import('../PathsCanvas'));
@@ -42,7 +43,8 @@ export interface PathsEditorProps {
 
 /** Curves through the scene, drawn point by point in 3D, that the site lights as it scrolls. */
 export default function PathsEditor({ project, tabs }: PathsEditorProps) {
-  const { store, layout, frame, frameAll, handlers, loadError, ready } = usePathsEditor(project);
+  const { store, layout, frame, frameAll, handlers, loadError, ready, loaded } =
+    usePathsEditor(project);
   const { view, draft, selection, error, loading } = store;
 
   if (!view || view.project !== project || !layout) {
@@ -175,9 +177,9 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
             </div>
           ) : null}
           {loadingModels ? (
-            <span className="absolute inset-x-0 top-3 text-center text-fg-mute">
-              Loading {view.models.length} models…
-            </span>
+            <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
+              <Loader label={loadingLabel(view.models.length, loaded)} />
+            </div>
           ) : null}
           {loadError ? (
             <span className="absolute inset-x-6 top-3 rounded-card bg-danger-soft px-3 py-2 text-center text-danger">

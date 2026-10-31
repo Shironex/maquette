@@ -15,6 +15,8 @@ export interface LayoutCanvasHandlers {
   onUserMove: () => void;
   onError: (message: string) => void;
   onReady: () => void;
+  /** How many models are done while the scene loads. */
+  onProgress?: (done: number) => void;
 }
 
 export interface LayoutCanvasProps {

@@ -45,11 +45,13 @@ export function usePathsEditor(project: string) {
   const [frame, setFrame] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [loaded, setLoaded] = useState(0);
   const layout = useMemo(() => (store.view ? fromLayout(store.view.layout) : null), [store.view]);
 
   useEffect(() => {
     void load(project);
     setReady(false);
+    setLoaded(0);
     setLoadError(null);
   }, [project, load]);
 
@@ -110,6 +112,7 @@ export function usePathsEditor(project: string) {
       },
       onError: setLoadError,
       onReady: () => setReady(true),
+      onProgress: setLoaded,
     }),
     []
   );
@@ -122,5 +125,6 @@ export function usePathsEditor(project: string) {
     handlers,
     loadError,
     ready,
+    loaded,
   };
 }

@@ -20,10 +20,12 @@ export function useLayoutEditor(project: string) {
   const [frame, setFrame] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [loaded, setLoaded] = useState(0);
 
   useEffect(() => {
     void load(project);
     setReady(false);
+    setLoaded(0);
     setLoadError(null);
   }, [project, load]);
 
@@ -68,5 +70,7 @@ export function useLayoutEditor(project: string) {
     setLoadError,
     ready,
     setReady,
+    loaded,
+    setLoaded,
   };
 }
