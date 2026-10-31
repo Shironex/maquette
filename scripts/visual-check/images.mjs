@@ -28,6 +28,12 @@ async function draftRound(page) {
 export async function imagesShots({ open, shot }) {
   const lab = '&scenario=configured&conceptMs=60000';
 
+  const asking = await open('&scenario=configured&images=on&promptMs=60000', '#/settings');
+  const askingSection = await imagesSection(asking);
+  await askingSection.getByText(/^Waiting for the /).waitFor();
+  await shot(askingSection, 'images-settings-waiting-for-keychain');
+  await asking.context().close();
+
   const off = await open('&scenario=configured', '#/settings');
   const offSection = await imagesSection(off);
   await offSection.getByText('No key yet').waitFor();

@@ -11,6 +11,8 @@ import { notify } from './providers-store-helpers';
 
 interface ImageApiStore {
   status: ImageApiStatus | null;
+  /** The first read has not answered, which a Keychain prompt can hold up. */
+  reading: boolean;
   /** A key call is on its way. */
   busy: boolean;
   load: () => Promise<void>;
@@ -20,6 +22,8 @@ interface ImageApiStore {
 }
 
 export const useImageApiStore = create<ImageApiStore>((set, get) => {
+  /** Only the newest read may answer: a slow older one must not replace it. */
+  let newest = 0;
   const keyCall = async <T>(call: () => Promise<T>): Promise<T> => {
     set({ busy: true });
     try {
@@ -31,13 +35,17 @@ export const useImageApiStore = create<ImageApiStore>((set, get) => {
 
   return {
     status: null,
+    reading: true,
     busy: false,
 
     load: async () => {
+      const read = ++newest;
       try {
-        set({ status: await commands.imageApiStatus() });
+        const status = await commands.imageApiStatus();
+        if (read === newest) set({ status, reading: false });
       } catch {
         // Without a workspace there is nothing to show yet.
+        if (read === newest) set({ reading: false });
       }
     },
 

@@ -20,6 +20,7 @@ export function useImagesSection(
 ) {
   const status = useImageApiStore(s => s.status);
   const busy = useImageApiStore(s => s.busy);
+  const reading = useImageApiStore(s => s.reading) && !status;
   const load = useImageApiStore(s => s.load);
   const saveKey = useImageApiStore(s => s.saveKey);
   const removeKey = useImageApiStore(s => s.removeKey);
@@ -53,6 +54,7 @@ export function useImagesSection(
   const key = useKeyDraft({
     status: status?.key,
     busy,
+    reading,
     save: saveKey,
     remove: removeKey,
     test: testKey,

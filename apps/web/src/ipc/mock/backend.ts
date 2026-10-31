@@ -24,6 +24,7 @@ import { createFakeLab } from './lab';
 import { healThumbnails } from './lab-helpers';
 import { createCodexUsageHandlers } from './create-codex-usage-handlers';
 import { createImageApiHandlers } from './create-image-api-handlers';
+import { holdForPrompt } from './hold-for-prompt';
 import { createFakeLayout, layoutBounds } from './layout';
 import { projectSummary } from './project-summary';
 import { createFakeBake, createPrepareHandlers } from './prepare';
@@ -71,6 +72,7 @@ export function createBackend({
   files,
   lab: labState = null,
   conceptMs = 4000,
+  promptMs = 0,
   agents: agentsState = null,
   rig = null,
   projects: projectsState = null,
@@ -390,6 +392,7 @@ export function createBackend({
     setTimeout(() => runner.submit('frostveil', view('frostveil').def, null, false), 50);
   }
 
+  holdForPrompt(handlers, promptMs);
   return async function handle(cmd: string, args: Args = {}): Promise<unknown> {
     const handler = handlers[cmd];
     if (!handler) fail('unavailable', `Mock mode has no handler for ${cmd}.`);

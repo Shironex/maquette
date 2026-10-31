@@ -57,6 +57,8 @@ export interface ProvidersStore {
   project: string | null;
   jobs: ProviderJob[];
   keys: KeyStatus[];
+  /** The keys are being read, which a Keychain prompt can hold up. */
+  keysReading: boolean;
   panel: Panel | null;
   /** The queue sheet is open. */
   queueOpen: boolean;

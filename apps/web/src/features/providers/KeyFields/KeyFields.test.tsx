@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useProvidersStore } from '@/state/use-providers-store';
@@ -7,10 +7,25 @@ import { KeyFields } from '.';
 
 afterEach(() => {
   clearMocks();
-  useProvidersStore.setState({ keys: [] });
+  useProvidersStore.setState({ keys: [], keysReading: false });
 });
 
 describe('the API keys', () => {
+  it('say they wait for the Keychain instead of offering a new key', async () => {
+    useProvidersStore.setState({ keys: [], keysReading: true });
+    render(<KeyFields />);
+    expect(screen.getAllByText('Waiting for the Keychain...')).toHaveLength(2);
+    expect(screen.queryByLabelText('Tripo API key')).toBeNull();
+    act(() =>
+      useProvidersStore.setState({
+        keys: [{ service: 'tripo', saved: false, tail: null }],
+        keysReading: false,
+      })
+    );
+    expect(screen.queryByText('Waiting for the Keychain...')).toBeNull();
+    expect(screen.getByLabelText('Tripo API key')).toBeInTheDocument();
+  });
+
   it('drop a test result once its key is removed or replaced', async () => {
     await openMockWorkspace();
     await useProvidersStore.getState().saveKey('tripo', 'tsk_live_1234');

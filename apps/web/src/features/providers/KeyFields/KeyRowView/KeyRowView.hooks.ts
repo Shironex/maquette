@@ -9,6 +9,8 @@ export interface KeyCalls<R extends KeyResult> {
   /** The saved key: whether there is one and its last four characters. */
   status: { saved: boolean; tail: string | null } | undefined;
   busy: boolean;
+  /** Nothing is known yet: the read is waiting, maybe on a Keychain prompt. */
+  reading?: boolean;
   save: (key: string) => Promise<boolean>;
   remove: () => Promise<void>;
   /** Tests the pasted key, or the saved one with null. */
@@ -21,6 +23,7 @@ export type KeyDraft = ReturnType<typeof useKeyDraft>;
 export function useKeyDraft<R extends KeyResult>({
   status,
   busy,
+  reading = false,
   save,
   remove,
   test,
@@ -29,7 +32,7 @@ export function useKeyDraft<R extends KeyResult>({
   const [editing, setEditing] = useState(false);
   const [result, setResult] = useState<KeyResult | null>(null);
   const saved = Boolean(status?.saved);
-  const showInput = !saved || editing;
+  const showInput = !reading && (!saved || editing);
 
   const onSave = async () => {
     if (!(await save(draft))) return;
@@ -52,6 +55,7 @@ export function useKeyDraft<R extends KeyResult>({
   return {
     status,
     busy,
+    reading,
     draft,
     setDraft,
     editing,

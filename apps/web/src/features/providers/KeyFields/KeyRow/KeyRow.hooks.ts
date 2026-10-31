@@ -6,12 +6,14 @@ import { useProvidersStore } from '@/state/use-providers-store';
 export function useKeyRow(service: ProviderId) {
   const status = useProvidersStore(s => s.keys.find(k => k.service === service));
   const busy = useProvidersStore(s => s.keyBusy === service);
+  const reading = useProvidersStore(s => s.keysReading) && !status;
   const save = useProvidersStore(s => s.saveKey);
   const remove = useProvidersStore(s => s.removeKey);
   const test = useProvidersStore(s => s.testKey);
   return useKeyDraft({
     status,
     busy,
+    reading,
     save: key => save(service, key),
     remove: () => remove(service),
     test: key => test(service, key),

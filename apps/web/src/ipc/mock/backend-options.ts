@@ -94,6 +94,8 @@ export interface BackendOptions {
   lab?: string | null;
   /** Milliseconds one fake concept image takes (default 4000). */
   conceptMs?: number;
+  /** Milliseconds a fake Keychain or folder privacy prompt holds its reads (default none). */
+  promptMs?: number;
   /** `many`: eight projects instead of three. */
   projects?: string | null;
   /** `batch`: the veil gate objects and their By hand batch. */

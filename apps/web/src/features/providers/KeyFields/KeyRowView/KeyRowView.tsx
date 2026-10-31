@@ -22,6 +22,7 @@ export default function KeyRowView({
   testTip,
   status,
   busy,
+  reading,
   draft,
   setDraft,
   editing,
@@ -37,7 +38,9 @@ export default function KeyRowView({
     <div className="flex flex-col gap-2 rounded-[8px] border border-line bg-raised px-3 py-2.5">
       <div className="flex items-center gap-2.5">
         <span className="font-semibold">{label}</span>
-        {saved ? (
+        {reading ? (
+          <span className="ml-auto text-meta text-fg-mute">Waiting for the {KEYCHAIN}...</span>
+        ) : saved ? (
           <>
             <code className="flex min-w-0 items-center gap-1.5 truncate font-mono text-[12.5px] text-fg-dim">
               <Icon name="lock-simple" size={13} className="flex-none text-fg-mute" />
@@ -50,7 +53,12 @@ export default function KeyRowView({
           <span className="ml-auto text-meta text-fg-mute">No key yet</span>
         )}
       </div>
-      {showInput ? (
+      {reading ? (
+        <p role="status" className="text-meta text-fg-mute">
+          If macOS is asking to use the {KEYCHAIN}, answer it and this fills in. The rest of the app
+          keeps working.
+        </p>
+      ) : showInput ? (
         <div className="flex items-center gap-2">
           <TextField
             aria-label={`${label} API key`}

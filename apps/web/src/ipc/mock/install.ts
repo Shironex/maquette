@@ -200,6 +200,7 @@ const handle = createBackend({
   codex: params.get('codex'),
   images: params.get('images'),
   conceptMs: Number(params.get('conceptMs') ?? 4000),
+  promptMs: Number(params.get('promptMs') ?? 0),
   agents: params.get('agents'),
   rig: params.get('rig'),
   projects: params.get('projects'),

@@ -11,12 +11,16 @@ import { createRedoSlice } from './create-redo-slice';
 import { draftFrom, foldIn, notify, sendRequest, upsert } from './providers-store-helpers';
 import type { ProvidersStore } from './providers-store.types';
 
+/** Only the newest key read may answer: a slow older one must not replace it. */
+let newestKeysRead = 0;
+
 export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
   ...createBatchSlice(set, get, api),
   ...createRedoSlice(set, get, api),
   project: null,
   jobs: [],
   keys: [],
+  keysReading: false,
   panel: null,
   queueOpen: false,
   sending: false,
@@ -219,10 +223,15 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
   },
 
   loadKeys: async () => {
+    const read = ++newestKeysRead;
+    set({ keysReading: true });
     try {
-      set({ keys: await commands.providerKeys() });
+      const keys = await commands.providerKeys();
+      if (read === newestKeysRead) set({ keys });
     } catch (error) {
       notify('failed', 'Could not read the keychain', errorMessage(error));
+    } finally {
+      if (read === newestKeysRead) set({ keysReading: false });
     }
   },
 
