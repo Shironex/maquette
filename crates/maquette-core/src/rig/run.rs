@@ -71,7 +71,6 @@ impl Run {
             c.draft = None;
             c.checks.clear();
             c.fix_steps.clear();
-            c.round = c.round.saturating_sub(1);
             for d in c.defects.iter_mut().filter(|d| d.kind != DefectKind::Note) {
                 d.fixed = false;
                 d.outcome = Some("still open, the fix changed nothing".to_string());

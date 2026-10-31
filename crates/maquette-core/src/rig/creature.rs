@@ -219,7 +219,9 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
     let input = run.dir.join("in.glb");
     let draft = run.dir.join("draft.glb");
     let scripts = run.dir.join("scripts").join(ROUTE);
-    let last_round = case.round >= MAX_ROUNDS;
+    // The round counts once it made a draft: while it runs, and if it fails or moves nothing, the case stays as it was.
+    let round = case.round + 1;
+    let last_round = round >= MAX_ROUNDS;
     // Installing the scripts put the example config back: read the chains again.
     read_chains(run, &input, &scripts)?;
     if last_round {
@@ -337,6 +339,7 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
     let stop = steps::stop_of(&case.name, &checks, last_round, worst.as_ref());
     let draft_path = arg(&draft);
     run.update(|c| {
+        c.round = round;
         c.after = Some(after);
         c.stats = stats;
         c.checks = checks;

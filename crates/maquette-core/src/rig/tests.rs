@@ -170,6 +170,34 @@ fn the_verify_checks_fail_on_a_mesh_change() {
 }
 
 #[test]
+fn a_running_fix_shows_the_rounds_done_and_a_failed_one_uses_none() {
+    let dir = tempfile::tempdir().expect("dir");
+    let (root, config) = (dir.path(), WorkspaceConfig::default());
+    case(root, |c| {
+        c.before = Some(RigSheet::default());
+        c.state = RigState::Tested;
+    });
+    let both = doctors();
+    let tools = crate::pipeline::tools::Toolbox::default();
+    let running = both
+        .run(root, &config, tools, "hero-v1", RigRun::Fix)
+        .expect("run");
+    assert_eq!(running.state, RigState::Fixing);
+    assert_eq!(running.round, 0, "a round counts once it made a draft");
+    for _ in 0..200 {
+        if !both.active().contains_key("hero-v1") {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert_eq!(
+        both.get(root, &config, "hero-v1").expect("read").round,
+        0,
+        "a fix with no Blender made nothing"
+    );
+}
+
+#[test]
 fn a_tear_left_stops_only_on_the_last_round() {
     let worst = ("raise".to_string(), 80.0);
     assert!(steps::stop_of("Hero", &[], false, Some(&worst)).is_none());
