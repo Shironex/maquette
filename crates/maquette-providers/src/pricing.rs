@@ -94,6 +94,9 @@ pub fn estimate(
 impl ProviderJob {
     /// What this send should cost; `None` for By hand.
     pub fn estimate(&self) -> Option<f64> {
+        if self.retexture.is_some() {
+            return Some(super::split::MESHY_RETEXTURE_CREDITS);
+        }
         if let Some(split) = &self.split {
             return super::split::credits(split.tripo.as_ref(), split.meshy.as_ref());
         }

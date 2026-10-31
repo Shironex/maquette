@@ -38,12 +38,14 @@ export interface CompareRow {
   better: 'left' | 'right' | null;
 }
 
-const pick = (left: number, right: number, higher = false): CompareRow['better'] => {
+/** The side with the better number; equal numbers have none. */
+export const betterOf = (left: number, right: number, higher = false): CompareRow['better'] => {
   if (left === right) return null;
   return (higher ? left > right : left < right) ? 'left' : 'right';
 };
 
-const checks = (n: ModelParts) =>
+/** "5 pass, 1 warning". */
+export const checksLine = (n: ModelParts) =>
   [
     `${n.checks.pass} pass`,
     n.checks.warning ? `${n.checks.warning} warning${n.checks.warning > 1 ? 's' : ''}` : '',
@@ -52,17 +54,19 @@ const checks = (n: ModelParts) =>
     .filter(Boolean)
     .join(', ');
 
+/** Worse the higher: a failing check counts for more than any warnings. */
+export const checksTrouble = (n: ModelParts) => n.checks.fail * 100 + n.checks.warning;
+
 const texture = (n: ModelParts) => (n.textures ? `${n.textures} × ${n.maxTexture} px` : 'none');
 
 /** The table under the two sides. */
 export function compareRows(left: ModelParts, right: ModelParts): CompareRow[] {
-  const trouble = (n: ModelParts) => n.checks.fail * 100 + n.checks.warning;
   return [
     {
       label: 'Parts Motion can move',
       left: left.parts.join(', ') || 'none',
       right: right.parts.join(', ') || 'none',
-      better: pick(left.parts.length, right.parts.length, true),
+      better: betterOf(left.parts.length, right.parts.length, true),
     },
     {
       label: 'Draw calls',
@@ -74,20 +78,20 @@ export function compareRows(left: ModelParts, right: ModelParts): CompareRow[] {
       label: 'Triangles',
       left: formatK(left.triangles),
       right: formatK(right.triangles),
-      better: pick(left.triangles, right.triangles),
+      better: betterOf(left.triangles, right.triangles),
     },
     { label: 'Texture', left: texture(left), right: texture(right), better: null },
     {
       label: 'Transfer',
       left: formatBytes(left.bytes ?? 0),
       right: formatBytes(right.bytes ?? 0),
-      better: pick(Math.round((left.bytes ?? 0) / 1e4), Math.round((right.bytes ?? 0) / 1e4)),
+      better: betterOf(Math.round((left.bytes ?? 0) / 1e4), Math.round((right.bytes ?? 0) / 1e4)),
     },
     {
       label: 'Inbox checks',
-      left: checks(left),
-      right: checks(right),
-      better: pick(trouble(left), trouble(right)),
+      left: checksLine(left),
+      right: checksLine(right),
+      better: betterOf(checksTrouble(left), checksTrouble(right)),
     },
   ];
 }

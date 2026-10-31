@@ -389,6 +389,7 @@ fn prepare(
         estimate,
         split: None,
         studio,
+        retexture: None,
     })
 }
 

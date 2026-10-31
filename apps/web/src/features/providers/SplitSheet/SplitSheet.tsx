@@ -149,10 +149,17 @@ function KeyLine({ s }: { s: SplitSheetModel }) {
 function WayFields({ s, source }: { s: SplitSheetModel; source: SplitSource }) {
   const next = 'the next version';
   if (s.way === 'tripo') {
-    return <TripoFields source={source} value={s.tripo} onChange={s.setTripo} next={next} />;
+    return <TripoFields source={source} value={s.tripo.value} onChange={s.tripo.set} next={next} />;
   }
   if (s.way === 'meshy') {
-    return <MeshyFields source={source} value={s.meshy} onChange={s.setMeshy} />;
+    return (
+      <MeshyFields
+        source={source}
+        value={s.meshy.value}
+        onChange={s.meshy.set}
+        texture={s.texture}
+      />
+    );
   }
   return (
     <div className={noteCard}>

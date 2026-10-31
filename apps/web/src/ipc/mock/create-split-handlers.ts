@@ -7,7 +7,9 @@
  * `?parts=` gives Frostveil the three Sigil gate parts (frame, door leaf,
  * steps) as models of their own, for Assemble. `?parts=split` adds a Tripo
  * split of the frost lantern, accepted as v3, that lost its texture and
- * offers the bake back from v2.
+ * offers the bake back from v2. `?parts=grey` is the same split on Meshy,
+ * kept grey on purpose. `?parts=compare` gives the lantern a Tripo v2 and a
+ * Meshy v3 for the Inspector's version compare.
  */
 import type {
   Asset,
@@ -18,6 +20,7 @@ import type {
   ProviderId,
   ProviderJob,
   Recipe,
+  RetextureRequest,
   SplitRequest,
   SplitSheet,
   SplitSource,
@@ -26,6 +29,7 @@ import { clock } from '@/lib/clock';
 import { DEFAULT_TRIPO, assembleProblem, meshyProblem, splitCredits } from '@/state/split';
 import { fail, type Args } from './backend-options';
 import type { createFakeProviders } from './providers';
+import { lanternPair, seedPairJobs, sendRetexture } from './split-fixtures';
 
 type Providers = ReturnType<typeof createFakeProviders>;
 
@@ -118,37 +122,53 @@ export function createSplitHandlers({ project, saveProject, providers, scenario 
     const p = project('frostveil');
     const gate = GATE.map(g => gateAsset(g.id, g.name, g.triangles));
     const assets = (p.assets ?? []).map(a =>
-      a.id === 'frost-lantern' && scenario === 'split' ? withVersion(a, 18_200, 0) : a
+      a.id !== 'frost-lantern'
+        ? a
+        : scenario === 'split' || scenario === 'grey'
+          ? withVersion(a, 18_200, 0)
+          : scenario === 'compare'
+            ? lanternPair(withVersion(a, 9_600, 1))
+            : a
     );
     saveProject({ ...p, assets: [...assets, ...gate] });
-    if (scenario !== 'split') return;
+    if (scenario === 'compare') {
+      seedPairJobs(providers);
+      return;
+    }
+    if (scenario !== 'split' && scenario !== 'grey') return;
+    const grey = scenario === 'grey';
     const job = providers.base({
       id: 'frost-lantern-split-1',
       asset: 'frost-lantern',
       assetName: 'Frost lantern',
-      provider: 'tripo',
+      provider: grey ? 'meshy' : 'tripo',
       tripo: null,
+      meshy: null,
       state: 'accepted',
       version: 3,
-      credits: 40,
-      estimate: 40,
+      credits: grey ? 10 : 40,
+      estimate: grey ? 10 : 40,
       cancel: 'none',
       createdAtMs: clock.nowMs() - 40 * 60_000,
       finishedAtMs: clock.nowMs() - 30 * 60_000,
       split: {
         fromVersion: 2,
         fromItem: null,
-        tripo: {
-          model: 'semantic',
-          granularity: 'balanced',
-          splitByConnectivity: true,
-          complete: null,
-        },
-        meshy: null,
+        tripo: grey
+          ? null
+          : {
+              model: 'semantic',
+              granularity: 'balanced',
+              splitByConnectivity: true,
+              complete: null,
+            },
+        meshy: grey ? { mode: 'auto', parts: [] } : null,
         inputTask: 'tripo-task-lantern',
         texturesBefore: 1,
         textureKept: false,
         bake: { state: 'offered', onto: 3, version: null, message: null },
+        after: grey ? 'grey' : 'bake',
+        texturePrompt: null,
       },
     });
     providers.seed(job);
@@ -231,10 +251,19 @@ export function createSplitHandlers({ project, saveProject, providers, scenario 
           texturesBefore: from.textures,
           textureKept: null,
           bake: null,
+          after: req.after ?? 'bake',
+          texturePrompt: req.texturePrompt ?? null,
         },
       });
       return providers.start(job);
     },
+    retexture_send: ({ request }: Args) =>
+      sendRetexture(
+        request as RetextureRequest,
+        providers,
+        id => assetOf(project((request as RetextureRequest).project), id),
+        keys()
+      ),
     split_bake_back: ({ id }: Args): ProviderJob => {
       const job =
         providers.jobs().find(j => j.id === String(id)) ??

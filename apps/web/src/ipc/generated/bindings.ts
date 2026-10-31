@@ -443,6 +443,11 @@ export const commands = {
 	/**  Starts a split from the app. Confirming it in the sheet is the approval. */
 	splitSend: (request: SplitRequest) => __TAURI_INVOKE<ProviderJob>("split_send", { request }),
 	/**
+	 *  Paints a version again on Meshy. Confirming the price in the app is the
+	 *  approval; no agent tool reaches this.
+	 */
+	retextureSend: (request: RetextureRequest) => __TAURI_INVOKE<ProviderJob>("retexture_send", { request }),
+	/**
 	 *  Bakes the texture back onto a split now: an offered one, or one that
 	 *  failed. Runs Blender, so off the main thread.
 	 */
@@ -5059,6 +5064,8 @@ export type ProviderJob = {
 	 *  records have none.
 	 */
 	studio?: StudioSettings | null,
+	/**  Set for painting a version again on Meshy; `prompt` holds the words. */
+	retexture?: RetextureJob | null,
 };
 
 /**
@@ -5521,6 +5528,22 @@ export type RetargetReview = {
 	 *  the clip's.
 	 */
 	hipsScale: number | null,
+};
+
+/**  Painting one version of an asset again on Meshy. */
+export type RetextureJob = {
+	/**  The version it paints; that version stays as it is. */
+	fromVersion: number,
+};
+
+/**  What a re-texture asks for. */
+export type RetextureRequest = {
+	project: string,
+	asset: string,
+	/**  The version to paint; it stays as it is. */
+	version: number,
+	/**  What the new texture looks like. */
+	prompt: string,
 };
 
 export type ReviewStatus = "good" | "look" | "failed";
@@ -6636,6 +6659,15 @@ export type SpendOutcome =
 /**  Who was paid: the provider's API, or a web subscription by hand. */
 export type SpendSource = "api" | "subscription";
 
+/**  What happens to the texture once a Meshy split is accepted. Meshy drops it. */
+export type SplitAfter = 
+/**  Bakes it back from the version it came from, free, on its own. */
+"bake" | 
+/**  Offers a re-texture on Meshy, which asks before it spends credits. */
+"retexture" | 
+/**  Stays grey; a bake back and a re-texture stay on offer. */
+"grey";
+
 /**  What a split cuts the model along. */
 export type SplitBy = 
 /**  Each loose piece (faces that touch) is a part. */
@@ -6664,6 +6696,10 @@ export type SplitJob = {
 	textureKept: boolean | null,
 	/**  The texture bake back from the model it was split from. */
 	bake: BakeBack | null,
+	/**  What to do about the texture Meshy drops. */
+	after?: SplitAfter,
+	/**  The words for a re-texture, when that was the choice. */
+	texturePrompt?: string | null,
 };
 
 /**
@@ -6700,6 +6736,10 @@ export type SplitRequest = {
 	/**  This split's settings; `None` takes the defaults. */
 	tripo?: TripoSplit | null,
 	meshy?: MeshySplit | null,
+	/**  Meshy only: what happens to the texture it drops. */
+	after?: SplitAfter,
+	/**  The words for a re-texture, when that is the choice. */
+	texturePrompt?: string | null,
 };
 
 /**  Everything the split sheet needs for one model. */

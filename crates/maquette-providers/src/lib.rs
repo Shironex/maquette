@@ -41,7 +41,7 @@ pub use handoff::{CardRow, HandoffCard};
 pub use jobs::{
     BakeBack, BakeState, BatchFailure, BatchItem, BatchRequest, BatchSent, CancelMode, Endpoints,
     InboxLink, JobPhase, JobState, MAX_BATCH, Options, Provider, ProviderEvent, ProviderJob,
-    ProviderJobs, SendRequest, SplitJob, SplitRequest, SplitSource,
+    ProviderJobs, RetextureJob, RetextureRequest, SendRequest, SplitJob, SplitRequest, SplitSource,
 };
 pub use ledger::{Ledger, ServiceTotals, Spend, SpendOutcome, SpendSource};
 pub use maquette_model::settings::{catalog, presets};

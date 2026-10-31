@@ -3,6 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { commands } from '@/ipc/client';
 import { clearMocks, openMockParts } from '@/test/mock-ipc';
+import { useAppStore } from '@/state/use-app-store';
+import { useInspectorStore } from '@/state/use-inspector-store';
+import { useMotionStore } from '@/state/use-motion-store';
 import { useSplitStore } from '@/state/use-split-store';
 import { PartsPanel } from '.';
 
@@ -97,5 +100,28 @@ describe('PartsPanel', () => {
     await waitFor(() => expect(list()).toBeInTheDocument());
     const prep = await commands.prepareAsset('frostveil', 'rune-chest');
     expect(prep.entry.fixups).toEqual([{ op: 'split-parts', by: 'loose', mergeUnder: 0.01 }]);
+  });
+
+  it('tweaks only the materials of the selected parts', async () => {
+    await useInspectorStore.getState().load('frostveil');
+    render(<PartsPanel />);
+    await waitFor(() => expect(list()).toBeInTheDocument());
+    await userEvent.click(within(list()).getByRole('button', { name: 'cage' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Tweak materials' }));
+    const applies = screen.getByRole('combobox', { name: 'Applies to' });
+    const options = within(applies)
+      .getAllByRole('option')
+      .map(o => o.textContent);
+    expect(options).not.toContain('All materials');
+    expect(options).toContain('iron');
+    expect(options).not.toContain('stone');
+  });
+
+  it('opens the model in Motion', async () => {
+    render(<PartsPanel />);
+    await waitFor(() => expect(list()).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: 'Open in Motion' }));
+    expect(useAppStore.getState().view).toBe('motion');
+    expect(useMotionStore.getState().asset).toBe('frost-lantern');
   });
 });

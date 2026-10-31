@@ -2,7 +2,7 @@
  * The Inspector's compare menu for scripts/visual-check.mjs (ONLY=compare):
  * a project with 52 assets, the long menu capped to the window and scrolled
  * inside, the search narrowing it, and the menu opening upwards low in a
- * short window.
+ * short window. Then two versions by their numbers, at a stop and close up.
  */
 
 export async function compareShots({ open, shot }) {
@@ -32,4 +32,15 @@ export async function compareShots({ open, shot }) {
   await short.getByRole('combobox', { name: 'Search compare' }).waitFor();
   await shot(short, 'compare-menu-short-window');
   await short.context().close();
+
+  const versions = await open('&scenario=configured&parts=compare', '#/inspector');
+  await versions.getByRole('button', { name: 'Provider vs provider' }).click();
+  await versions.getByRole('table', { name: 'Version numbers' }).waitFor();
+  await versions.getByRole('button', { name: 'Keep Tripo v2' }).waitFor();
+  await versions.waitForTimeout(2500);
+  await shot(versions, 'compare-versions-stop');
+  await versions.getByRole('button', { name: /Turntable, close up/ }).click();
+  await versions.waitForTimeout(1500);
+  await shot(versions, 'compare-versions-close');
+  await versions.context().close();
 }

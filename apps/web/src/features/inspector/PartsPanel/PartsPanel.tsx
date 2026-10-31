@@ -5,8 +5,15 @@ import { BakeBackNote } from '../BakeBackNote';
 import { formatK } from '@/lib/format';
 import { badge } from '../badge';
 import { PartActions, PartsList } from './PartsList';
+import { MaterialPanel } from '../MaterialPanel';
 import { PartsCompare } from '../PartsCompare';
-import { usePartsPanel, usePartsSheets, type PartsMode, type PartsPage } from './PartsPanel.hooks';
+import {
+  usePartsModel,
+  usePartsPanel,
+  usePartsSheets,
+  type PartsMode,
+  type PartsPage,
+} from './PartsPanel.hooks';
 
 const ModelPreview = lazy(() => import('@/features/viewer/ModelPreview'));
 
@@ -26,7 +33,8 @@ const CARD = 'flex flex-col gap-1.5 rounded-card border border-line bg-panel p-3
 /** One model's parts: select them in the viewer, rename, join and hide them. */
 export default function PartsPanel() {
   const p = usePartsPanel();
-  const { openSplit, openAssemble, openInBlender } = usePartsSheets();
+  const { openSplit, openAssemble, openInBlender, openMotion } = usePartsSheets();
+  const measured = usePartsModel(p.asset?.id ?? null, p.found?.version ?? null);
   if (!p.asset) {
     return (
       <div className="grid flex-1 place-items-center">
@@ -39,6 +47,10 @@ export default function PartsPanel() {
     );
   }
   const found = p.found;
+  const tweak =
+    measured.tweaking && measured.model && measured.project
+      ? { project: measured.project, model: measured.model }
+      : null;
   const stem = found?.name.toLowerCase().replace(/[^a-z0-9]+/g, '_') ?? '';
   const oneMesh = found !== null && found.rows.length < 2;
   const { url, mode, setMode, look, selectedNames, hiddenNames } = p.view;
@@ -88,6 +100,11 @@ export default function PartsPanel() {
             value={p.page}
             onChange={p.setPage}
           />
+          {p.page === 'compare' && measured.compareVersions ? (
+            <Button size="sm" onClick={measured.compareVersions}>
+              Provider vs provider
+            </Button>
+          ) : null}
           {p.page === 'parts' ? (
             <SegmentedControl label="Parts view" options={MODES} value={mode} onChange={setMode} />
           ) : null}
@@ -196,8 +213,41 @@ export default function PartsPanel() {
         )}
         {p.chosen.length ? (
           <div className={CARD}>
-            <h3 className="font-semibold">Selected parts</h3>
+            <h3 className="flex items-center justify-between font-semibold">
+              Selected parts
+              {measured.model?.tweakAsset ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-expanded={measured.tweaking}
+                  onClick={measured.toggleTweaking}
+                >
+                  Tweak materials
+                </Button>
+              ) : null}
+            </h3>
             <ul className="flex flex-col gap-1 text-meta">{chosenRows}</ul>
+            {tweak ? (
+              <>
+                <MaterialPanel
+                  project={tweak.project}
+                  model={tweak.model}
+                  only={p.chosen.flatMap(r => r.materials)}
+                />
+                <p className="text-meta text-fg-mute">
+                  A tweak goes by material, so every part that shares it changes with it.
+                </p>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+        {p.page === 'compare' ? (
+          <div className={CARD}>
+            <h3 className="font-semibold">What keeping does</h3>
+            <p className="text-meta text-fg-mute">
+              The kept version becomes current on the Board and in the next export. Motion states
+              that name parts need the split version; keeping the one mesh parks them.
+            </p>
           </div>
         ) : null}
         {found ? (
@@ -212,6 +262,28 @@ export default function PartsPanel() {
               onClick={() => openAssemble({ project: found.project, parts: [found.asset] })}
             >
               Assemble a prop...
+            </Button>
+          </div>
+        ) : null}
+        {found ? (
+          <div className="mt-auto flex gap-2">
+            <Button
+              className="flex-1"
+              icon="export"
+              disabled={!measured.model}
+              disabledReason="Its numbers are still loading"
+              loading={measured.exporting}
+              onClick={measured.export}
+            >
+              Export GLB
+            </Button>
+            <Button
+              className="flex-1"
+              icon="film-strip"
+              tooltip="Its clips and states, in Motion"
+              onClick={() => openMotion(found.asset)}
+            >
+              Open in Motion
             </Button>
           </div>
         ) : null}

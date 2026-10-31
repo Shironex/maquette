@@ -45,6 +45,10 @@ export async function partsShots({ open, shot }) {
   await tab.getByText('cage and crystal selected').waitFor();
   await tab.waitForTimeout(1500);
   await shot(tab, 'parts-tab');
+  await tab.getByRole('button', { name: 'Tweak materials' }).click();
+  await tab.getByRole('combobox', { name: 'Applies to' }).waitFor();
+  await shot(tab, 'parts-tweak-materials');
+  await tab.getByRole('button', { name: 'Tweak materials' }).click();
   await list.getByRole('button', { name: 'post' }).dblclick();
   await tab.getByRole('textbox', { name: 'Rename post' }).fill('pillar');
   await shot(tab.getByRole('complementary', { name: 'Parts' }), 'parts-rename');

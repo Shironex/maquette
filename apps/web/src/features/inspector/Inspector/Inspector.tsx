@@ -17,6 +17,7 @@ import { FrameTime } from '../FrameTime';
 import { InspectorShell } from '../InspectorShell';
 import { InspectorTabs } from '../InspectorTabs';
 import { ModelPanel } from '../ModelPanel';
+import { VersionAside, VersionCompare, useCompareWay, useVersionCompare } from '../VersionCompare';
 import {
   useCompareSides,
   useCompareStatus,
@@ -24,6 +25,11 @@ import {
   useSelectedModel,
 } from './Inspector.hooks';
 import { useGameLimits } from './useGameLimits';
+
+const WAYS: SegmentedOption<'before' | 'versions'>[] = [
+  { value: 'before', label: 'Before and after' },
+  { value: 'versions', label: 'Provider vs provider' },
+];
 
 const MODES: SegmentedOption<InspectMode>[] = [
   { value: 'shaded', label: 'Shaded' },
@@ -43,11 +49,17 @@ export default function Inspector({ view }: InspectorProps) {
   const selected = useSelectedModel(view, pick);
   const page = useInspectorPage(view);
   const gameLimits = useGameLimits(selected.model);
+  const way = useCompareWay(view, pick, selected.model?.id ?? null);
+  const versions = way.value === 'versions';
+  const v = useVersionCompare(view, pick, versions, left, right);
+  const stage = versions ? v.stage : { kind, stops, left, right };
 
   const title = pick
-    ? pick.comparison.kind === 'scene'
-      ? 'Scene comparison'
-      : `${pick.comparison.label} comparison`
+    ? versions
+      ? pick.comparison.label
+      : pick.comparison.kind === 'scene'
+        ? 'Scene comparison'
+        : `${pick.comparison.label} comparison`
     : 'Inspector';
   const totalMb = num(view.scene.bytes) / 1e6;
 
@@ -72,9 +84,19 @@ export default function Inspector({ view }: InspectorProps) {
       <main className="flex min-h-0 flex-1">
         <section className="flex min-w-0 flex-1 flex-col gap-3.5 overflow-y-auto px-6 py-[18px]">
           <InspectorTabs />
-          <div className="flex items-center gap-3">
-            <h1 className="text-panel-title">{title}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="max-w-[260px] truncate text-panel-title" title={title}>
+              {title}
+            </h1>
             {pick ? <CompareMenu view={view} pick={pick} /> : null}
+            {way.available ? (
+              <SegmentedControl
+                label="Compare way"
+                options={WAYS}
+                value={way.value}
+                onChange={way.change}
+              />
+            ) : null}
             <div className="ml-auto flex items-center gap-2">
               <SegmentedControl
                 label="View mode"
@@ -99,12 +121,12 @@ export default function Inspector({ view }: InspectorProps) {
 
           {pick ? (
             <CompareStage
-              pick={pick}
-              kind={kind}
-              left={left}
-              right={right}
+              pick={versions && v.stagePick ? v.stagePick : pick}
+              kind={stage.kind}
+              left={stage.left}
+              right={stage.right}
               turntable={page.turntable}
-              stops={stops}
+              stops={stage.stops}
               lightmaps={status.lightmaps}
               ready={status.ready}
               loadError={status.loadError}
@@ -130,21 +152,32 @@ export default function Inspector({ view }: InspectorProps) {
             </div>
           )}
 
-          {stops.length > 0 ? <CameraStops view={view} stops={stops} shots={status.shots} /> : null}
-
-          <FrameTime samples={page.samples} />
+          {versions ? (
+            <VersionCompare v={v} />
+          ) : (
+            <>
+              {stops.length > 0 ? (
+                <CameraStops view={view} stops={stops} shots={status.shots} />
+              ) : null}
+              <FrameTime samples={page.samples} />
+            </>
+          )}
         </section>
 
-        <ModelPanel
-          view={view}
-          model={selected.model}
-          thumb={selected.thumb}
-          onPickBudget={selected.onPickBudget}
-          onPreset={page.savePreset}
-          onExport={selected.onExport}
-          exporting={selected.exporting}
-          game={gameLimits}
-        />
+        {versions && pick ? (
+          <VersionAside v={v} pick={pick} />
+        ) : (
+          <ModelPanel
+            view={view}
+            model={selected.model}
+            thumb={selected.thumb}
+            onPickBudget={selected.onPickBudget}
+            onPreset={page.savePreset}
+            onExport={selected.onExport}
+            exporting={selected.exporting}
+            game={gameLimits}
+          />
+        )}
       </main>
     </InspectorShell>
   );

@@ -3,6 +3,7 @@ import {
   commands,
   errorMessage,
   type MeshySplit,
+  type SplitAfter,
   type SplitSheet,
   type TripoSplit,
 } from '@/ipc/client';
@@ -11,6 +12,7 @@ import { notify, upsert } from '@/state/providers-store-helpers';
 import {
   DEFAULT_MESHY,
   DEFAULT_TRIPO,
+  afterLine,
   confirmLine,
   meshyLine,
   meshyProblem,
@@ -54,6 +56,8 @@ export function useSplitSheet() {
   const [way, setWay] = useState<SplitWay>('tripo');
   const [tripo, setTripo] = useState<TripoSplit>(DEFAULT_TRIPO);
   const [meshy, setMeshy] = useState<MeshySplit>(DEFAULT_MESHY);
+  const [after, setAfter] = useState<SplitAfter>('bake');
+  const [texturePrompt, setTexturePrompt] = useState('');
   const [asking, setAsking] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -61,6 +65,8 @@ export function useSplitSheet() {
     setWay(target?.inBlender ? 'blender' : 'tripo');
     setTripo(DEFAULT_TRIPO);
     setMeshy(DEFAULT_MESHY);
+    setAfter('bake');
+    setTexturePrompt('');
     setAsking(false);
   }, [target]);
 
@@ -86,9 +92,11 @@ export function useSplitSheet() {
       ? 'Split into parts fix-up, by loose pieces, run headless on a copy'
       : way === 'tripo'
         ? `Tripo segment · ${tripoLine(tripo)}`
-        : `${meshyLine(meshy)}${(source?.textures ?? 0) > 0 ? ' · then a bake back in Blender' : ''}`;
+        : `${meshyLine(meshy)}${afterLine(after, source?.textures ?? 0).replace(', then', ' · then')}`;
   const question =
-    sheet && service ? confirmLine(service, tripo, meshy, sheet.prices, sheet.source.textures) : '';
+    sheet && service
+      ? confirmLine(service, tripo, meshy, sheet.prices, sheet.source.textures, after)
+      : '';
 
   const send = async () => {
     if (!target || !service) return;
@@ -102,6 +110,8 @@ export function useSplitSheet() {
         provider: service,
         tripo: service === 'tripo' ? tripo : null,
         meshy: service === 'meshy' ? meshy : null,
+        after: service === 'meshy' ? after : 'bake',
+        texturePrompt: service === 'meshy' && after === 'retexture' ? texturePrompt : null,
       });
       useProvidersStore.setState(s => ({
         jobs: job.project === s.project ? upsert(s.jobs, job) : s.jobs,
@@ -136,10 +146,16 @@ export function useSplitSheet() {
     error,
     way,
     setWay,
-    tripo,
-    setTripo: (patch: Partial<TripoSplit>) => setTripo(t => ({ ...t, ...patch })),
-    meshy,
-    setMeshy: (patch: Partial<MeshySplit>) => setMeshy(m => ({ ...m, ...patch })),
+    tripo: {
+      value: tripo,
+      set: (patch: Partial<TripoSplit>) => setTripo(t => ({ ...t, ...patch })),
+    },
+    meshy: {
+      value: meshy,
+      set: (patch: Partial<MeshySplit>) => setMeshy(m => ({ ...m, ...patch })),
+    },
+    /** What follows for the texture Meshy drops. */
+    texture: { after, setAfter, prompt: texturePrompt, setPrompt: setTexturePrompt },
     key,
     blocker,
     credits,

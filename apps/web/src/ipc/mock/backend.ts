@@ -47,7 +47,7 @@ import { createPathsHandlers } from './create-paths-handlers';
 import { createGameHandlers } from './create-game-handlers';
 import { createAvatarHandlers } from './create-avatar-handlers';
 import { seedAvatar } from './avatar-fixtures';
-import { withManyAssets, wrapManyInspect } from './many-assets-fixtures';
+import { withManyAssets, wrapInspectFixtures } from './many-assets-fixtures';
 import { manyPipeline, seedManyPipeline } from './pipeline-many';
 import { stressInbox, stressProjects, wrapStress } from './stress-fixtures';
 import { createLibraryHandlers } from './create-library-handlers';
@@ -384,7 +384,7 @@ export function createBackend({
     ...avatars.handlers,
   };
   page.wrapInspect(handlers);
-  if (configured && inspectState === 'many') wrapManyInspect(handlers, project);
+  if (configured) wrapInspectFixtures(handlers, project, inspectState, partsState);
   if (configured && stress) wrapStress(handlers);
 
   // The `running` scenario starts run 25 as soon as the app opens.

@@ -21,6 +21,10 @@ pub const TRIPO_SEGMENT_CREDITS: f64 = 40.0;
 pub const TRIPO_COMPLETE_CREDITS: f64 = 100.0;
 /// Meshy's Auto Split, refunded when the task fails.
 pub const MESHY_SPLIT_CREDITS: f64 = 10.0;
+/// Meshy's Retexture, refunded when the task fails.
+pub const MESHY_RETEXTURE_CREDITS: f64 = 10.0;
+/// Meshy reads a texture prompt of at most 800 characters.
+pub const MAX_RETEXTURE_PROMPT: usize = 800;
 /// Meshy reads 1 to 10 part names from a prompt of at most 600 characters.
 pub const MAX_MESHY_PARTS: usize = 10;
 pub const MAX_MESHY_PROMPT: usize = 600;
@@ -122,6 +126,19 @@ pub enum MeshySplitMode {
     ByParts,
     /// Along the colour regions named, found in the source image.
     ByColor,
+}
+
+/// What happens to the texture once a Meshy split is accepted. Meshy drops it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum SplitAfter {
+    /// Bakes it back from the version it came from, free, on its own.
+    #[default]
+    Bake,
+    /// Offers a re-texture on Meshy, which asks before it spends credits.
+    Retexture,
+    /// Stays grey; a bake back and a re-texture stay on offer.
+    Grey,
 }
 
 /// A Meshy split's settings.

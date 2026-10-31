@@ -14,6 +14,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use super::ids::next_id;
+use super::split_files::{SOURCE_FILE, split_dir};
 use super::{
     CancelMode, Chain, Entry, JobState, Provider, ProviderEvent, ProviderJob, ProviderJobs, Shared,
     SplitJob, Stored, Workspace, api_key, persist, pump, snapshot, touch_asset,
@@ -21,14 +22,11 @@ use super::{
 use crate::error::{CoreError, CoreResult};
 use crate::http::StopFlag;
 use crate::presets::{PresetVariant, ProviderId};
-use crate::split::{self as rules, MeshySplit, TripoSplit};
+use crate::split::{self as rules, MeshySplit, SplitAfter, TripoSplit};
 use maquette_base::history::now_ms;
 use maquette_glb::analyse;
 use maquette_model::assets::{self, Asset, AssetKind, AssetStatus};
 use maquette_model::project;
-
-/// The copy of the model a split cuts, inside its job's folder.
-pub(super) const SOURCE_FILE: &str = "source.glb";
 
 /// What a split into parts asks for.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -49,6 +47,12 @@ pub struct SplitRequest {
     pub tripo: Option<TripoSplit>,
     #[serde(default)]
     pub meshy: Option<MeshySplit>,
+    /// Meshy only: what happens to the texture it drops.
+    #[serde(default)]
+    pub after: SplitAfter,
+    /// The words for a re-texture, when that is the choice.
+    #[serde(default)]
+    pub texture_prompt: Option<String>,
 }
 
 /// The model a split would cut, and what each provider can do with it.
@@ -83,15 +87,6 @@ struct Found {
     version: Option<u32>,
     item: Option<String>,
     made: Option<Stored>,
-}
-
-/// The split's own folder in the workspace cache.
-pub(super) fn split_dir(workspace: &Workspace, id: &str) -> PathBuf {
-    workspace
-        .root
-        .join(&workspace.config.layout.cache)
-        .join("splits")
-        .join(id)
 }
 
 fn find_model(
@@ -185,6 +180,11 @@ fn meshy_task(made: Option<&Stored>, label: &str) -> Result<String, String> {
     if made.job.split.is_some() {
         return Err("This model is already a Meshy split.".to_string());
     }
+    if made.job.retexture.is_some() {
+        return Err(
+            "This model is a Meshy re-texture. Auto Split takes the model before it.".to_string(),
+        );
+    }
     if made.chain.rig_task.is_some() {
         return Err(
             "This is Meshy's rigged model. Auto Split takes the model before the rig.".to_string(),
@@ -211,8 +211,8 @@ fn label(found: &Found) -> String {
     }
 }
 
-/// The split of the asset already on its way, if any.
-fn busy(shared: &Shared, project: &str, asset: &str) -> Option<String> {
+/// The split or re-texture of the asset already on its way, if any.
+pub(super) fn busy(shared: &Shared, project: &str, asset: &str) -> Option<String> {
     shared
         .jobs()
         .iter()
@@ -220,7 +220,7 @@ fn busy(shared: &Shared, project: &str, asset: &str) -> Option<String> {
         .find(|j| {
             j.project == project
                 && j.asset == asset
-                && j.split.is_some()
+                && (j.split.is_some() || j.retexture.is_some())
                 && matches!(
                     j.state,
                     JobState::Approval | JobState::Queued | JobState::Running
@@ -374,6 +374,13 @@ fn prepare(
         textures_before: u32::try_from(report.textures.len()).unwrap_or(u32::MAX),
         texture_kept: None,
         bake: None,
+        after: request.after,
+        texture_prompt: request
+            .texture_prompt
+            .as_deref()
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .map(str::to_string),
     };
     let estimate = rules::credits(split.tripo.as_ref(), split.meshy.as_ref());
     let job = ProviderJob {
@@ -413,30 +420,7 @@ fn prepare(
         estimate,
         split: Some(split),
         studio: None,
+        retexture: None,
     };
     Ok((job, found.file))
-}
-
-/// The model a split cuts, as it was when it went out; the version it
-/// came from when an older job has no copy.
-pub(super) fn source_of(workspace: &Workspace, job: &ProviderJob) -> Option<PathBuf> {
-    let copy = split_dir(workspace, &job.id).join(SOURCE_FILE);
-    if copy.is_file() {
-        return Some(copy);
-    }
-    let version = job.split.as_ref()?.from_version?;
-    version_file(workspace, &job.project, &job.asset, version)
-}
-
-/// The file of one version of an asset.
-pub(super) fn version_file(
-    workspace: &Workspace,
-    project_id: &str,
-    asset: &str,
-    version: u32,
-) -> Option<PathBuf> {
-    let manifest = project::load(&workspace.root, &workspace.config.layout, project_id).ok()?;
-    let found = assets::find(&manifest, asset).ok()?;
-    let file = &found.versions.iter().find(|v| v.version == version)?.file;
-    Some(workspace.project_dir(project_id).ok()?.join(file))
 }

@@ -29,7 +29,7 @@ A split is a send like any other: it waits in the 3D queue, its credits show in 
 
 ## The texture after a split
 
-Meshy's split never keeps the texture: the parts come back grey. Once you accept them, Maquette bakes the texture back from the version they came from onto the parts, headless in Blender and free, and adds the result as the version after. Tripo does not say whether a split keeps the texture, so the Inbox looks when it arrives; when it is gone, the Parts tab offers **Bake back** instead of running it. Either way the grey version stays: **Keep** it from the note in the Parts tab to undo the bake. A bake that fails says why and can run again. An agent runs an offered or failed bake with `bake_back`.
+Meshy's split never keeps the texture: the parts come back grey. The sheet asks what follows. **Bake the texture back** (the default) bakes it from the version they came from onto the parts once you accept them, headless in Blender and free, and adds the result as the version after. **Keep it grey for now** leaves them grey, so you can set up Motion states first; the note in the Parts tab keeps offering the bake. **Re-texture with Meshy** paints the parts again from a prompt: once you accept them the note asks you with the price (about 10 credits, refunded when it fails) before anything goes out, and the result lands in the Inbox as the next version. Whether Meshy keeps every part apart through a re-texture is up to Meshy, so look at the parts when it arrives; agents cannot start one. Tripo does not say whether a split keeps the texture, so the Inbox looks when it arrives; when it is gone, the Parts tab offers **Bake back** instead of running it. Either way the grey version stays: **Keep** it from the note in the Parts tab to undo the bake. A bake that fails says why and can run again. An agent runs an offered or failed bake with `bake_back`.
 
 ## Assemble one prop
 
@@ -46,13 +46,13 @@ The Inspector's **Parts** tab shows one model's parts as it ships them. Pick the
 
 **Open in Blender** opens the version the tab shows in Blender's window, to look closer. It is the one place Maquette opens Blender with a window, and only on that click; everything else runs headless.
 
-The view colours each part, or shows it shaded or as wireframe. The side panel lists the selected parts' materials and triangles. Under the view, the export card lists the node names and the Motion states card the states and explode tracks that pick parts by name. A model that is still one mesh offers **Split into parts** right there.
+The view colours each part, or shows it shaded or as wireframe. The side panel lists the selected parts' materials and triangles, and **Tweak materials** opens the Material panel on just those materials; a tweak goes by material, so every part that shares it changes. **Export GLB** and **Open in Motion** sit at the foot of the panel. Under the view, the export card lists the node names and the Motion states card the states and explode tracks that pick parts by name. A model that is still one mesh offers **Split into parts** right there.
 
 Names, joins and hidden parts are kept per asset in `prepare.json`, under `parts`, next to the fix-ups.
 
 ## Before and after
 
-**Before and after** in the Parts tab puts the model as it came next to the split, in one canvas with one camera, as Compare does. It colours each part, shades or draws wireframe. When there is no split, it shows the version before against the newest. Under it a table compares the parts Motion can move, draw calls, triangles, textures, transfer size and Inbox checks; a dot marks the better number.
+**Before and after** in the Parts tab puts the model as it came next to the split, in one canvas with one camera, as Compare does. It colours each part, shades or draws wireframe. When there is no split, it shows the version before against the newest. Under it a table compares the parts Motion can move, draw calls, triangles, textures, transfer size and Inbox checks; a dot marks the better number. **Provider vs provider** jumps to the same table for any two versions on the [Compare tab](/docs/views/inspector/).
 
 **Keep** picks a side. Keeping the model as it came takes the split fix-up off; keeping an older version makes it the one the Board and the next export use. Every version stays in the asset either way. In a [game project](/docs/start/game-projects/), which has no Timeline, **Explode parts** pulls the parts apart from the middle on both sides, to see where each one ends.
 

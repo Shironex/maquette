@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::handoff::HandoffCard;
 use crate::handoff::options::{StudioRig, StudioSettings};
 use crate::presets::{MeshyPreset, PresetVariant, ProviderId, TripoPreset, TripoRigSpec};
-use crate::split::{MeshySplit, TripoSplit};
+use crate::split::{MeshySplit, SplitAfter, TripoSplit};
 use maquette_model::project::ProjectManifest;
 // How a model gets made and the link to its send are shared with the inbox,
 // so they live in the sends module; this keeps the old paths.
@@ -131,12 +131,18 @@ pub struct ProviderJob {
     /// records have none.
     #[serde(default)]
     pub studio: Option<StudioSettings>,
+    /// Set for painting a version again on Meshy; `prompt` holds the words.
+    #[serde(default)]
+    pub retexture: Option<RetextureJob>,
 }
 
 impl ProviderJob {
     /// The settings in a few words, for an approval prompt: "Tripo H3.1,
     /// 2 images as multi-view, rig with Mixamo, 2 animations".
     pub fn summary(&self) -> String {
+        if let Some(retexture) = &self.retexture {
+            return format!("Meshy re-texture of v{}", retexture.from_version);
+        }
         if let Some(split) = &self.split {
             return format!(
                 "{} of {}",
@@ -238,6 +244,20 @@ pub struct SplitJob {
     pub texture_kept: Option<bool>,
     /// The texture bake back from the model it was split from.
     pub bake: Option<BakeBack>,
+    /// What to do about the texture Meshy drops.
+    #[serde(default)]
+    pub after: SplitAfter,
+    /// The words for a re-texture, when that was the choice.
+    #[serde(default)]
+    pub texture_prompt: Option<String>,
+}
+
+/// Painting one version of an asset again on Meshy.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RetextureJob {
+    /// The version it paints; that version stays as it is.
+    pub from_version: u32,
 }
 
 impl SplitJob {

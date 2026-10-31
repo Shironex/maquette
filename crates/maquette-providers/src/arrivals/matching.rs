@@ -154,6 +154,7 @@ pub(super) mod tests {
             estimate: None,
             split: None,
             studio: None,
+            retexture: None,
         }
     }
 

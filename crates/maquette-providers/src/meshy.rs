@@ -21,6 +21,8 @@ pub const SERVICE: &str = "Meshy";
 
 /// Meshy refuses images over 20 MB.
 pub const MAX_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
+/// Meshy takes a data URI of at most 100 MB; base64 makes a file a third longer.
+pub const MAX_RETEXTURE_MODEL_BYTES: u64 = 75 * 1024 * 1024;
 
 /// Which endpoint a task lives under.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,6 +32,8 @@ pub enum Kind {
     Rigging,
     /// Auto Split, which cuts a finished model into parts.
     Split,
+    /// Paints a model again from a prompt.
+    Retexture,
 }
 
 impl Kind {
@@ -39,13 +43,20 @@ impl Kind {
             Self::MultiImage => "multi-image-to-3d",
             Self::Rigging => "rigging",
             Self::Split => "print/split",
+            Self::Retexture => "retexture",
         }
     }
 
     pub fn from_path(path: &str) -> Option<Self> {
-        [Self::Image, Self::MultiImage, Self::Rigging, Self::Split]
-            .into_iter()
-            .find(|k| k.path() == path)
+        [
+            Self::Image,
+            Self::MultiImage,
+            Self::Rigging,
+            Self::Split,
+            Self::Retexture,
+        ]
+        .into_iter()
+        .find(|k| k.path() == path)
     }
 }
 
@@ -149,11 +160,37 @@ pub fn rigging_request(preset: &MeshyPreset, model_task: &str) -> Value {
     })
 }
 
+/// The body that paints a model again from a prompt. A split's parts have no
+/// UVs to keep, so Meshy lays out new ones.
+pub fn retexture_request(model: &str, prompt: &str) -> Value {
+    json!({
+        "model_url": model,
+        "text_style_prompt": prompt,
+        "enable_original_uv": false,
+        "enable_pbr": true,
+        "target_formats": ["glb"],
+    })
+}
+
+/// A model file as the data URI a re-texture sends.
+pub fn model_data_uri(path: &Path) -> Result<String, String> {
+    let bytes = fs::read(path).map_err(|e| format!("could not read {}: {e}", path.display()))?;
+    if bytes.len() as u64 > MAX_RETEXTURE_MODEL_BYTES {
+        return Err(format!("{} is over 75 MB.", path.display()));
+    }
+    Ok(format!(
+        "data:application/octet-stream;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(&bytes)
+    ))
+}
+
 /// The GLB link of a finished task.
 pub fn glb_url(kind: Kind, body: &Value) -> Option<String> {
     let found = match kind {
         Kind::Rigging => body.pointer("/result/rigged_character_glb_url"),
-        Kind::Image | Kind::MultiImage | Kind::Split => body.pointer("/model_urls/glb"),
+        Kind::Image | Kind::MultiImage | Kind::Split | Kind::Retexture => {
+            body.pointer("/model_urls/glb")
+        }
     };
     found
         .and_then(Value::as_str)
@@ -202,6 +239,11 @@ impl Meshy<'_> {
             Kind::Split,
             &super::split::meshy_split_request(split, input_task),
         )
+    }
+
+    /// Starts painting a model again; `model` is its data URI.
+    pub fn retexture(&self, model: &str, prompt: &str) -> ApiResult<String> {
+        self.create(Kind::Retexture, &retexture_request(model, prompt))
     }
 
     pub fn task(&self, kind: Kind, id: &str) -> ApiResult<Task> {
@@ -319,6 +361,15 @@ mod tests {
         let gif = dir.path().join("front.gif");
         fs::write(&gif, b"GIF8").expect("write");
         assert!(data_uri(&gif).is_err());
+    }
+
+    #[test]
+    fn a_retexture_sends_the_model_and_lays_out_new_uvs() {
+        let body = retexture_request("data:m", "weathered iron");
+        assert_eq!(body["model_url"], "data:m");
+        assert_eq!(body["text_style_prompt"], "weathered iron");
+        assert_eq!(body["enable_original_uv"], false);
+        assert_eq!(Kind::from_path("retexture"), Some(Kind::Retexture));
     }
 
     #[test]

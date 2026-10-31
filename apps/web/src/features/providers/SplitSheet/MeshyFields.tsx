@@ -1,18 +1,27 @@
-import { IconButton, SegmentedControl, TextField } from '@maquette/ui';
-import type { MeshySplit, SplitSource } from '@/ipc/client';
-import { MAX_MESHY_PARTS, MESHY_MODES, sourceLabel } from '@/state/split';
+import { Fragment } from 'react';
+import { IconButton, SegmentedControl, TextField, cn } from '@maquette/ui';
+import type { MeshySplit, SplitAfter, SplitSource } from '@/ipc/client';
+import { MAX_MESHY_PARTS, MAX_RETEXTURE_PROMPT, MESHY_MODES, sourceLabel } from '@/state/split';
 import { SectionTitle } from '../SectionTitle';
 import { usePartNames } from './MeshyFields.hooks';
-import { noteCard } from './noteCard';
 
 export interface MeshyFieldsProps {
   source: SplitSource;
   value: MeshySplit;
   onChange: (patch: Partial<MeshySplit>) => void;
+  texture: TextureChoice;
 }
 
-/** Meshy Auto Split's mode, the part names it looks for, and the bake back after. */
-export default function MeshyFields({ source, value, onChange }: MeshyFieldsProps) {
+/** What follows for the texture Meshy drops. */
+export interface TextureChoice {
+  after: SplitAfter;
+  setAfter: (after: SplitAfter) => void;
+  prompt: string;
+  setPrompt: (prompt: string) => void;
+}
+
+/** Meshy Auto Split's mode, the part names it looks for, and what follows for the texture. */
+export default function MeshyFields({ source, value, onChange, texture }: MeshyFieldsProps) {
   const names = value.parts ?? [];
   const named = value.mode !== 'auto';
   const input = usePartNames(names, onChange);
@@ -70,23 +79,88 @@ export default function MeshyFields({ source, value, onChange }: MeshyFieldsProp
           </p>
         )}
       </section>
-      <div className={noteCard}>
-        <h4 className="font-semibold">Then, after the parts arrive</h4>
+      <section className="flex flex-col gap-2.5">
+        <SectionTitle aside="after the parts arrive">Then</SectionTitle>
         {source.textures > 0 ? (
-          <p className="text-meta text-fg-mute">
-            Meshy drops the texture: the parts come back as grey geometry. Once you accept them, the
-            texture bakes back from {sourceLabel(source)} in Blender, free and headless, as the
-            version after. The grey version stays, so you can keep it instead.
-          </p>
+          <>
+            <p className="text-meta text-fg-mute">
+              Meshy drops the texture: the parts come back as grey geometry. {sourceLabel(source)}{' '}
+              keeps its texture whatever you pick.
+            </p>
+            <AfterChoice source={source} texture={texture} />
+          </>
         ) : (
           <p className="text-meta text-fg-mute">
             {sourceLabel(source)} has no texture, so the parts come back as they are.
           </p>
         )}
-        <p className="text-meta text-fg-mute">
-          {sourceLabel(source)} keeps its texture whatever happens.
-        </p>
-      </div>
+      </section>
     </>
+  );
+}
+
+/** The three things that can happen to the texture, one to pick. */
+function AfterChoice({
+  source,
+  texture: { after, setAfter, prompt, setPrompt },
+}: Pick<MeshyFieldsProps, 'source' | 'texture'>) {
+  const from = sourceLabel(source);
+  const choices: { value: SplitAfter; title: string; tag?: string; body: string }[] = [
+    {
+      value: 'bake',
+      title: 'Bake the texture back',
+      tag: 'free',
+      body: `Headless in Blender: projects ${from}'s texture onto the parts. Best when the split keeps the shape.`,
+    },
+    {
+      value: 'retexture',
+      title: 'Re-texture with Meshy',
+      tag: 'more credits',
+      body: 'Paints the parts again from the texture prompt. A new look on the same parts. It asks before it spends them.',
+    },
+    {
+      value: 'grey',
+      title: 'Keep it grey for now',
+      body: 'Set up Motion states first and texture later. The bake back and the re-texture stay on offer.',
+    },
+  ];
+  const cards = choices.map(c => (
+    <Fragment key={c.value}>
+      <label
+        className={cn(
+          'flex cursor-pointer items-start gap-2.5 rounded-card border p-3',
+          after === c.value ? 'border-clay-line bg-raised' : 'border-line hover:border-line-strong'
+        )}
+      >
+        <input
+          type="radio"
+          name="split-after"
+          className="mt-0.5 accent-clay"
+          checked={after === c.value}
+          onChange={() => setAfter(c.value)}
+        />
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="flex items-baseline justify-between gap-2 font-semibold">
+            {c.title}
+            {c.tag ? <span className="text-meta font-normal text-fg-mute">{c.tag}</span> : null}
+          </span>
+          <span className="text-meta text-fg-mute">{c.body}</span>
+        </span>
+      </label>
+      {c.value === 'retexture' && after === 'retexture' ? (
+        <TextField
+          aria-label="Texture prompt"
+          placeholder="Weathered iron, frosted glass, warm glow"
+          maxLength={MAX_RETEXTURE_PROMPT}
+          value={prompt}
+          onChange={e => setPrompt(e.target.value)}
+        />
+      ) : null}
+    </Fragment>
+  ));
+  return (
+    <div role="radiogroup" aria-label="After the parts arrive" className="flex flex-col gap-2">
+      {cards}
+    </div>
   );
 }

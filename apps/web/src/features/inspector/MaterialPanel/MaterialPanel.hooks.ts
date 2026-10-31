@@ -17,7 +17,7 @@ import { useMaterialsStore } from '@/state/use-materials-store';
  * fields edit (every one, or one by name) and the answers. Edits go to the
  * store, so the preview and the quit guard see them before Apply.
  */
-export function useMaterialPanel(project: string, model: InspectModel) {
+export function useMaterialPanel(project: string, model: InspectModel, only?: readonly string[]) {
   const asset = model.tweakAsset;
   const saved = useMaterialsStore(s => s.saved[project]) ?? null;
   const edits = useMaterialsStore(s => s.edits[project]);
@@ -28,8 +28,12 @@ export function useMaterialPanel(project: string, model: InspectModel) {
   const apply = useMaterialsStore(s => s.apply);
   const [target, setTarget] = useState(ALL_MATERIALS);
   // A name outside the model's materials falls back to every material.
-  const known = target === ALL_MATERIALS || model.materialNames.includes(target);
-  const on = known ? target : ALL_MATERIALS;
+  // Limited to some materials, the first of them stands in for one outside them.
+  const allowed = only ? model.materialNames.filter(n => only.includes(n)) : null;
+  const known = allowed
+    ? allowed.includes(target)
+    : target === ALL_MATERIALS || model.materialNames.includes(target);
+  const on = known ? target : (allowed?.[0] ?? ALL_MATERIALS);
 
   const look = asset ? lookOf(saved, edits ?? {}, asset) : emptyLook();
   const tweak = tweakOf(look, on);
