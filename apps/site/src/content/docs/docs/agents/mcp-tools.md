@@ -9,6 +9,8 @@ The server offers 118 tools. Set it up first on [Connect an agent](/docs/agents/
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
+Jump to a group: [Read only](#read-only), [Changes the project, spends nothing](#changes-the-project-spends-nothing), [Spends credits, Codex usage or dollars, or needs approval](#spends-credits-codex-usage-or-dollars-or-needs-approval), [The main tools](#the-main-tools).
+
 ## Read only
 
 These look at the workspace and change nothing.
