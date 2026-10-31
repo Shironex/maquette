@@ -2,6 +2,7 @@
 //! Blender.
 
 use maquette_core::inbox::{self, AcceptRequest, AcceptResult, InboxItem};
+use maquette_core::providers::JobState;
 use maquette_core::thumbs::ThumbTarget;
 use maquette_core::{AssetKind, CoreResult};
 use serde::Serialize;
@@ -212,7 +213,38 @@ pub async fn inbox_discarded(
     session: State<'_, Session>,
 ) -> CommandResult<Vec<inbox::DiscardedModel>> {
     let (root, config) = session.workspace()?;
-    Ok(blocking(move || inbox::list_discarded(&root, &config)).await??)
+    Ok(blocking(move || {
+        let gone = inbox::prune_discarded(&root, &config, now_ms());
+        if !gone.is_empty() {
+            tracing::info!(
+                count = gone.len(),
+                "discarded models past their days were removed"
+            );
+        }
+        inbox::list_discarded(&root, &config)
+    })
+    .await??)
+}
+
+/// The numbers of the round since `since_ms`: what was accepted and discarded,
+/// and the redos sent, with their credits as far as known.
+#[tauri::command]
+#[specta::specta]
+pub fn inbox_round(
+    session: State<'_, Session>,
+    studio: State<'_, Studio>,
+    since_ms: f64,
+) -> CommandResult<inbox::InboxRound> {
+    let (root, config) = session.workspace()?;
+    let mut round = inbox::round(&root, &config, since_ms);
+    for job in studio.0.list(None) {
+        let spent = !matches!(job.state, JobState::Failed | JobState::Cancelled);
+        if job.redo_of.is_some() && job.created_at_ms >= since_ms && spent {
+            round.redo_sent += 1;
+            round.redo_credits += job.credits.or(job.estimate).unwrap_or(0.0);
+        }
+    }
+    Ok(round)
 }
 
 /// Puts a discarded model back into the inbox, aimed at the asset it was

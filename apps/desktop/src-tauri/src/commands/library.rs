@@ -3,6 +3,7 @@
 //! Update brings a newer library version into an asset that came from it.
 //! None of it spends credits.
 
+use maquette_core::inbox;
 use maquette_core::library::{
     self, AddToLibrary, LibraryAdded, LibraryUpdated, LibraryUsed, LibraryView, UpdatePlan,
 };
@@ -27,7 +28,9 @@ pub(crate) fn add(
 ) -> CommandResult<LibraryAdded> {
     let (root, config) = session.workspace()?;
     let sends = jobs.list(Some(&request.project));
-    Ok(library::add(&root, &config.layout, request, &sends)?)
+    let added = library::add(&root, &config.layout, request, &sends)?;
+    inbox::note_library(&root, &config, &request.project, &request.asset);
+    Ok(added)
 }
 
 /// Closes the By hand sends a library model just stood in for, and reads

@@ -81,6 +81,7 @@ pub fn downloads_watch_status(
 
 /// The watcher's status, saying whether Settings picked its folder.
 fn status(session: &Session, watch: &Watch) -> WatchStatus {
+    watch.0.retry_held();
     let mut status = watch.0.status();
     status.custom = session.app_state().downloads_watch.folder.is_some();
     status

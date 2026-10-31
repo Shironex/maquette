@@ -125,7 +125,7 @@ pub(super) fn accept_item(host: &dyn Host, args: AcceptArgs) -> Result<Value, St
 #[tool_router(router = inbox_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "List the models waiting in the workspace inbox, with their kind, size, triangle count and worst check, the version Accept would make of the asset each goes to (nextVersion) and replacedBy, the newer version of that asset made after the model arrived (a redo that was accepted; the model then only takes room). discarded lists the models moved aside into inbox/.discarded/, most recent first, which restore_inbox_model puts back by name.",
+        description = "List the models waiting in the workspace inbox, with their kind, size, triangle count and worst check, the version Accept would make of the asset each goes to (nextVersion) and replacedBy, the newer version of that asset made after the model arrived (a redo that was accepted; the model then only takes room). discarded lists the models moved aside into inbox/.discarded/, most recent first, which restore_inbox_model puts back by name until expiresMs, when the 30 days they are kept run out.",
         annotations(read_only_hint = true)
     )]
     async fn list_inbox(&self) -> Out {
@@ -175,6 +175,7 @@ impl McpTools {
                             "id": d.id,
                             "bytes": d.bytes,
                             "discardedMs": d.discarded_ms,
+                            "expiresMs": d.expires_ms,
                             "assetName": d.asset_name,
                             "replacedBy": d.replaced_by,
                         })
@@ -232,7 +233,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Discard an inbox model, such as the losing version of a redo or a bad download. The file is not deleted: it moves into inbox/.discarded/ in the workspace (a name already there gets a number) and restore_inbox_model puts it back. Its cached checks, picked kind and aim are forgotten. A send that was waiting on this model in the Inbox ends as cancelled with the note Discarded from the Inbox (closedSend is its id, or null); the credits ledger and the asset's earlier versions are not touched. Spends nothing and needs no approval."
+        description = "Discard an inbox model, such as the losing version of a redo or a bad download. The file is not deleted: it moves into inbox/.discarded/ in the workspace (a name already there gets a number) and restore_inbox_model puts it back for 30 days. Its cached checks, picked kind and aim are forgotten. A send that was waiting on this model in the Inbox ends as cancelled with the note Discarded from the Inbox (closedSend is its id, or null); the credits ledger and the asset's earlier versions are not touched. Spends nothing and needs no approval."
     )]
     async fn discard_inbox_model(&self, Parameters(args): Parameters<InboxItemArgs>) -> Out {
         let found = self
