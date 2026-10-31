@@ -10,7 +10,8 @@ const DEMO = '&scenario=configured&library=demo';
 
 export async function libraryShots({ open, shot }) {
   const grid = await open(DEMO, '#/library');
-  await grid.getByText('8 models · most used first').waitFor();
+  await grid.getByText('8 models', { exact: true }).waitFor();
+  await grid.getByRole('button', { name: 'Sort: Most used' }).waitFor();
   await grid
     .getByRole('complementary', { name: 'Selected model' })
     .getByText('Versions · 2')
@@ -22,7 +23,7 @@ export async function libraryShots({ open, shot }) {
     .getByRole('button', { name: /^props/ })
     .click();
   await grid.getByRole('searchbox', { name: 'Find a model' }).fill('lights');
-  await grid.getByText('1 of 8 models · most used first').waitFor();
+  await grid.getByText('1 of 8 models', { exact: true }).waitFor();
   await shot(grid, 'library-search-filter');
 
   await grid
@@ -32,7 +33,7 @@ export async function libraryShots({ open, shot }) {
   await grid.getByRole('searchbox', { name: 'Find a model' }).fill('');
   await grid
     .getByRole('region', { name: 'Models' })
-    .getByRole('button', { name: 'Guardian statue' })
+    .getByRole('button', { name: 'Guardian statue', exact: true })
     .click();
   await grid.getByRole('button', { name: 'Add, no credits' }).click();
   await grid.getByText('Added Guardian statue to Frostveil, no credits').waitFor();
