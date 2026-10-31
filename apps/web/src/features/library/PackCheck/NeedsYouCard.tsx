@@ -5,6 +5,8 @@ import { formatCount } from '@/lib/format';
 export interface NeedsYouCardProps {
   item: PackItem;
   busy: boolean;
+  /** The pack is stopped: an answer does not start the rest of it. */
+  stopped?: boolean;
   onDecide: (decision: PackDecision) => void;
 }
 
@@ -13,9 +15,10 @@ export interface NeedsYouCardProps {
  * exported again; one that lost thin parts is raised to the budget that
  * keeps them or kept as it is; any other warning is kept or exported again.
  */
-export default function NeedsYouCard({ item, busy, onDecide }: NeedsYouCardProps) {
+export default function NeedsYouCard({ item, busy, stopped = false, onDecide }: NeedsYouCardProps) {
   const key = item.model.key;
   const failed = item.state === 'fail';
+  const again = stopped ? 'Runs only this model again, then the pack stays stopped' : '';
   let actions;
   if (failed) {
     actions = (
@@ -24,7 +27,11 @@ export default function NeedsYouCard({ item, busy, onDecide }: NeedsYouCardProps
         variant="primary"
         icon="arrow-clockwise"
         disabled={busy}
-        tooltip="Runs this model in Blender again, after you fixed its source"
+        tooltip={
+          stopped
+            ? 'Runs only this model in Blender again, then the pack stays stopped'
+            : 'Runs this model in Blender again, after you fixed its source'
+        }
         onClick={() => onDecide({ choice: 'again', key })}
       >
         Export again
@@ -38,7 +45,11 @@ export default function NeedsYouCard({ item, busy, onDecide }: NeedsYouCardProps
           size="sm"
           variant="primary"
           disabled={busy}
-          tooltip="Decimates it again to the higher budget, then checks it"
+          tooltip={
+            stopped
+              ? 'Decimates only this model again to the higher budget, then the pack stays stopped'
+              : 'Decimates it again to the higher budget, then checks it'
+          }
           onClick={() => onDecide({ choice: 'raise', key, triangles: suggest })}
         >
           Raise to {formatCount(suggest)}
@@ -46,7 +57,11 @@ export default function NeedsYouCard({ item, busy, onDecide }: NeedsYouCardProps
         <Button
           size="sm"
           disabled={busy}
-          tooltip="Lets it into the pack as the check found it"
+          tooltip={
+            stopped
+              ? 'Lets it into the pack as the check found it. The pack stays stopped'
+              : 'Lets it into the pack as the check found it'
+          }
           onClick={() => onDecide({ choice: 'keep', key })}
         >
           Keep {formatCount(item.budget)}
@@ -60,11 +75,17 @@ export default function NeedsYouCard({ item, busy, onDecide }: NeedsYouCardProps
           size="sm"
           variant="primary"
           disabled={busy}
+          tooltip={stopped ? 'Lets it into the pack. The pack stays stopped' : undefined}
           onClick={() => onDecide({ choice: 'keep', key })}
         >
           Keep it
         </Button>
-        <Button size="sm" disabled={busy} onClick={() => onDecide({ choice: 'again', key })}>
+        <Button
+          size="sm"
+          disabled={busy}
+          tooltip={again || undefined}
+          onClick={() => onDecide({ choice: 'again', key })}
+        >
           Export again
         </Button>
       </>
