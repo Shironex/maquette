@@ -639,6 +639,7 @@ export const commands = {
 	codexUsageRead: () => __TAURI_INVOKE<CodexUsage>("codex_usage_read"),
 	/**  Limit lifted, retry now (see [`lift`]). */
 	labLiftUsageLimit: () => __TAURI_INVOKE<UsageLift>("lab_lift_usage_limit"),
+	/**  Reads the saved key, which can wait on a Keychain prompt. */
 	imageApiStatus: () => __TAURI_INVOKE<ImageApiStatus>("image_api_status"),
 	/**
 	 *  Saves the OpenAI key in the keychain. Only its last four characters
@@ -680,12 +681,14 @@ export const commands = {
 	 *  on the next run.
 	 */
 	inspectExportGlb: (project: string, model: string) => __TAURI_INVOKE<ExportedModel>("inspect_export_glb", { project, model }),
+	/**  Reads the saved keys, which can wait on a Keychain prompt. */
 	providerSendOptions: (project: string, asset: string) => __TAURI_INVOKE<SendOptions>("provider_send_options", { project, asset }),
 	/**
 	 *  Starts a send from the app. You are the one pressing Send, so it needs
 	 *  no approval.
 	 */
 	providerSend: (request: SendRequest) => __TAURI_INVOKE<ProviderJob>("provider_send", { request }),
+	/**  Reads the saved keys, which can wait on a Keychain prompt. */
 	providerBatchOptions: (project: string, assets: string[]) => __TAURI_INVOKE<BatchOptions>("provider_batch_options", { project, assets }),
 	/**
 	 *  Sends several assets at once from the app. Pressing Send in the panel
@@ -716,6 +719,7 @@ export const commands = {
 	 *  into the inbox once you confirm it with `provider_hand_back`.
 	 */
 	providerCheckDownloads: (project: string) => __TAURI_INVOKE<DownloadsScan>("provider_check_downloads", { project }),
+	/**  Every key's status. A read can wait on a Keychain prompt. */
 	providerKeys: () => __TAURI_INVOKE<KeyStatus[]>("provider_keys"),
 	/**  Saves a key in the keychain. Only its last four characters come back. */
 	providerKeySave: (service: ProviderId, key: string) => __TAURI_INVOKE<KeyStatus>("provider_key_save", { service, key }),
