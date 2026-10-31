@@ -162,6 +162,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             parts::parts_keep_version,
             split::split_sheet,
             split::split_send,
+            split::retexture_send,
             split::split_bake_back,
             split::assemble_prop,
             split::assemble_recipe,

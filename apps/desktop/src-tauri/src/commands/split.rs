@@ -10,7 +10,9 @@ use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::providers::split::{
     MESHY_SPLIT_CREDITS, TRIPO_COMPLETE_CREDITS, TRIPO_SEGMENT_CREDITS,
 };
-use maquette_core::providers::{KeyStatus, ProviderJob, ProviderJobs, SplitRequest, SplitSource};
+use maquette_core::providers::{
+    KeyStatus, ProviderJob, ProviderJobs, RetextureRequest, SplitRequest, SplitSource,
+};
 use maquette_core::thumbs::{ThumbTarget, Thumbnails};
 use maquette_core::{WorkspaceConfig, project};
 use serde::Serialize;
@@ -175,6 +177,17 @@ pub fn split_sheet(
 #[specta::specta]
 pub fn split_send(studio: State<'_, Studio>, request: SplitRequest) -> CommandResult<ProviderJob> {
     Ok(studio.0.send_split(&request, false, false)?)
+}
+
+/// Paints a version again on Meshy. Confirming the price in the app is the
+/// approval; no agent tool reaches this.
+#[tauri::command]
+#[specta::specta]
+pub fn retexture_send(
+    studio: State<'_, Studio>,
+    request: RetextureRequest,
+) -> CommandResult<ProviderJob> {
+    Ok(studio.0.send_retexture(&request, false, false)?)
 }
 
 /// Bakes the texture back onto a split now: an offered one, or one that

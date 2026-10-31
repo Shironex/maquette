@@ -35,6 +35,7 @@ export function jobFactory(config: () => WorkspaceConfig, now: number) {
       prompt: null,
       redoOf: null,
       studio: null,
+      retexture: null,
       ...partial,
     };
     return {
