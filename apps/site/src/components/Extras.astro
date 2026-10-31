@@ -1,0 +1,92 @@
+---
+import { Icon } from '@maquette/ui';
+import { withBase } from '../lib/with-base';
+
+const ITEMS = [
+  {
+    icon: 'package',
+    title: 'Export packs.',
+    text: 'Write a set of library models as one pack for another engine or a friend: OBJ or GLB, each file opened again in headless Blender and checked, with a README, a manifest and a contact sheet.',
+    href: '/docs/views/library/#export-packs',
+  },
+  {
+    icon: 'wrench',
+    title: 'Rig doctor.',
+    text: 'Fixes the skin weights of a rigged model in Blender on a copy, shows before and after sheets with the numbers, and lands the result as the next version once you add it.',
+    href: '/docs/views/rig-doctor/',
+  },
+  {
+    icon: 'game-controller',
+    title: 'Game templates.',
+    text: 'Fill the model format and the budget rows per folder of a game project in one step. A template changes settings only: no assets, no game code, no moved files.',
+    href: '/docs/start/game-projects/#game-templates',
+  },
+] as const;
+---
+
+<section class="extras" aria-labelledby="extras-title">
+  <div class="wrap inner">
+    <h2 class="h3" id="extras-title">Also in the app.</h2>
+    <ul class="rules">
+      {
+        ITEMS.map(item => (
+          <li>
+            <Icon name={item.icon} size={18} className="text-clay-text" />
+            <span>
+              <b>{item.title}</b> {item.text} <a href={withBase(item.href)}>Read more</a>
+            </span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .extras {
+    padding-block: 64px;
+    border-top: 1px solid var(--line);
+  }
+  .inner {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+  .inner :global(h2) {
+    margin: 0;
+  }
+  .rules {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 40px;
+  }
+  .rules li {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 12px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line-strong);
+    font-size: 15px;
+    line-height: 23px;
+    color: var(--text-dim);
+  }
+  .rules li :global(svg) {
+    margin-top: 2px;
+  }
+  .rules b {
+    color: var(--text);
+    font-weight: 500;
+  }
+  @media (max-width: 899px) {
+    .extras {
+      padding-block: 40px;
+    }
+    .rules {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 24px;
+    }
+  }
+</style>

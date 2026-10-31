@@ -131,9 +131,9 @@ export default defineConfig({
       nav: view(
         'scenario=idle&motion=demo&library=demo',
         'motion',
-        '119 bones · 2 clips',
+        /119 bones · \d+ clips/,
         async page => {
-          await page.getByText('119 bones · 2 clips').click();
+          await page.getByText(/119 bones · \d+ clips/).click();
           // Stop the clip on its first frame, so the pose is the same every run.
           await page.getByRole('button', { name: 'Pause' }).click();
           await page.getByRole('button', { name: 'Go to In' }).click();
@@ -197,7 +197,7 @@ export default defineConfig({
       nav: view(
         'scenario=configured&library=demo&motion=demo',
         'motion',
-        '119 bones · 2 clips',
+        /119 bones · \d+ clips/,
         async page => {
           await page.getByRole('button', { name: 'Add clip' }).click();
           await page.getByRole('menuitem', { name: 'Add from library' }).click();
