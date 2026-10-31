@@ -9,6 +9,7 @@ import {
   passes,
   readme,
   settled,
+  warningGroups,
   timeLeft,
   type CheckFilter,
 } from '@/state/packs';
@@ -30,6 +31,8 @@ export function usePackCheck(record: PackRecord) {
   return {
     busy: store.busy,
     decide: store.decide,
+    decideAll: store.decideAll,
+    groups: warningGroups(record.items),
     zip: store.zip,
     stop: store.stop,
     resume: () => store.resume(record.id),
