@@ -290,7 +290,7 @@ pub(crate) fn view(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pipeline_get(
     session: State<'_, Session>,

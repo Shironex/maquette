@@ -193,7 +193,7 @@ impl Notify for Windows {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn built_list(session: State<'_, Session>, project: String) -> CommandResult<Vec<BuiltAsset>> {
     list(&session, &project)

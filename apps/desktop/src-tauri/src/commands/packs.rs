@@ -177,7 +177,7 @@ pub async fn pack_start(
 }
 
 /// One pack's record.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pack_get(
     session: State<'_, Session>,
@@ -189,7 +189,7 @@ pub fn pack_get(
 }
 
 /// The newest packs first.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pack_recent(
     session: State<'_, Session>,

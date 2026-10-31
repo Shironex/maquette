@@ -87,7 +87,7 @@ pub(crate) fn save(
 }
 
 /// The ship settings, the plan of the next Ship and the size report.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn ship_get(session: State<'_, Session>, project: String) -> CommandResult<ShipView> {
     view(&session, &project)

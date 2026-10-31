@@ -225,7 +225,7 @@ pub fn lab_send_object_picks(
     )?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn lab_get(
     session: State<'_, Session>,

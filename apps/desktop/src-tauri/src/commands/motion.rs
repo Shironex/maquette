@@ -8,15 +8,19 @@ use maquette_core::layout::ObjectStates;
 use maquette_core::motion::{self, MotionView};
 use maquette_core::prepare::preview::previews_dir;
 use maquette_core::{pipeline, project};
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 use super::CommandResult;
 use crate::session::Session;
 
+/// Reads every model file of the project whole, so never on the main thread:
+/// a blocked main thread freezes the window, loader included.
 #[tauri::command]
 #[specta::specta]
-pub fn motion_get(session: State<'_, Session>, project: String) -> CommandResult<MotionView> {
-    get(&session, &project)
+pub async fn motion_get(app: AppHandle, project: String) -> CommandResult<MotionView> {
+    tauri::async_runtime::spawn_blocking(move || get(app.state::<Session>().inner(), &project))
+        .await
+        .map_err(super::join_failed)?
 }
 
 pub(crate) fn get(session: &Session, project_id: &str) -> CommandResult<MotionView> {

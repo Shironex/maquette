@@ -80,7 +80,7 @@ pub(crate) fn update(
 }
 
 /// Every library entry with the projects that use it.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_get(session: State<'_, Session>) -> CommandResult<LibraryView> {
     get(&session)

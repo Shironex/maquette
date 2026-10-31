@@ -178,7 +178,7 @@ fn changed(app: &AppHandle) {
 }
 
 /// Every clip in the animation library.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn animations_get(session: State<'_, Session>) -> CommandResult<AnimationsView> {
     get(&session)
@@ -260,7 +260,7 @@ pub fn animations_retarget_plan(
 
 /// What a project took from the library, per model: the clips baked in, the
 /// map and the last review. Motion groups a model's clips by it.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn animations_of_project(
     session: State<'_, Session>,

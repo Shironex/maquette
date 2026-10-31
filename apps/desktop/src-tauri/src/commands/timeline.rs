@@ -12,7 +12,7 @@ use tauri::State;
 use super::CommandResult;
 use crate::session::Session;
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn timeline_get(session: State<'_, Session>, project: String) -> CommandResult<TimelineView> {
     get(&session, &project)
