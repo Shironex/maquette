@@ -20,7 +20,7 @@ In New project, pick **Game** under Ships to, then the **Game repo**. Maquette r
 | Loader           | The library the engine reads models with (cgltf, tinygltf, fastgltf, tinyobjloader or Assimp), named in the build files or a vendored folder.     |
 | KTX2 and meshopt | Whether the engine can decode them. Game projects never use them either way.                                                                      |
 
-You can change the format and the model folder before you create the project, and the model folder later in Settings. There are no game templates: a game starts from its own models.
+You can change the format and the model folder before you create the project, and the model folder later in Settings. New project also offers the [game templates](#game-templates). A game still starts from its own models.
 
 A website repo with a `CMakeLists.txt` gets a hint to pick Game instead. A website project's check line names the folders its `maquette.site.json` gives, never a fixed path.
 
@@ -64,6 +64,25 @@ Rigs and animation clips export with a `.glb`. Each rigged model keeps only its 
 
 A project made before the per folder cap keeps its own copies of `export_game.py` and `game_export.mjs`. The Pipeline view offers to update them; until then every model exports at the global cap.
 
+## Game templates
+
+A template fills export settings you could also set by hand: the model format, and a budget row for each folder it lays out. It adds no assets and no game code, and the project does not remember it, so you keep editing the settings as usual. Pick one in New project, or use **Use a template** in the Game export panel.
+
+| Template        | Format        | Folder and budget          | Why                                                                                |
+| --------------- | ------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| Prop set        | `.glb`        | `props/` 12k, 1024 px      | One file per prop with its textures inside. The same numbers a new game gives it.  |
+| Character       | `.glb`        | `characters/` 60k, 2048 px | Rigs and clips only export with a `.glb`. The same numbers a new game gives it.    |
+| Level kit       | `.glb`        | `kit/` 5k, 1024 px         | A piece is drawn many times in a view, so it gets far fewer triangles than a prop. |
+| Level kit, .obj | `.obj + .mtl` | `kit/` 5k, 1024 px         | The same pieces for an engine that reads `.obj`. Static pieces need no rig.        |
+
+Before it applies, the sheet shows what would change in this project: the format, each budget row before and after, how many models would be over budget, and any model that would land somewhere new.
+
+- Rows for other folders stay. The textures, the size cap, Bake light and the model folder stay too.
+- No file moves or goes away. A model Ship already wrote into the game keeps its path and its format, also when the template picks another format. Imported models always do.
+- A model that has not shipped yet has nothing in the game, so it follows the new settings, and the sheet lists its new path.
+- New props go to `props/` when the game has a budget for it, otherwise `kit/` when it has one. In a game with both, move a piece with its **Game folder** in the Budget tab.
+- The sheet warns when most of the game's models are in another format than the template's, or when rigged models would lose their rig in `.obj`.
+
 ## Ship to the game
 
 When a run reaches Ship, the Pipeline view opens the Ship diff and the run waits. The diff lists each file:
@@ -82,4 +101,4 @@ Game projects hide the Page and Timeline views; Motion stays. Every view's top b
 
 ## Agents
 
-Over MCP, `get_game` reads a game project's settings and each model against its budget, `scan_game_models` and `import_game_models` scan and import the model folder (an import asks for each model's preview), `set_game_settings` changes the format, model folder, export (`dropMaps` too), bake, budgets, each asset's own folder (`assetFolders`, null to go back) and the game repo (`repo`, an absolute path to a git checkout or a worktree), and `get_ship_plan` shows what Ship would change, which replaced files are imported originals, and how many files the game repo has uncommitted. `get_ship_plan` and `run_pipeline` also take `repo` for that one plan or run, so an agent can ship into a worktree without changing the project. `run_pipeline` runs the game pipeline; Ship waits for a person to approve it in the app, whoever started the run.
+Over MCP, `get_game` reads a game project's settings and each model against its budget, `scan_game_models` and `import_game_models` scan and import the model folder (an import asks for each model's preview), `set_game_settings` changes the format, model folder, export (`dropMaps` too), bake, budgets, each asset's own folder (`assetFolders`, null to go back) and the game repo (`repo`, an absolute path to a git checkout or a worktree), or applies a game template (`template`, listed with what each would change under `templates` in `get_game`), and `get_ship_plan` shows what Ship would change, which replaced files are imported originals, and how many files the game repo has uncommitted. `get_ship_plan` and `run_pipeline` also take `repo` for that one plan or run, so an agent can ship into a worktree without changing the project. `run_pipeline` runs the game pipeline; Ship waits for a person to approve it in the app, whoever started the run.
