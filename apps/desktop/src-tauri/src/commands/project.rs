@@ -7,11 +7,11 @@ use maquette_core::{
 };
 use tauri::State;
 
-use super::CommandResult;
 use super::app::{WorkspaceSnapshot, snapshot};
 use super::lab::Lab;
 use super::pipeline::Pipelines;
 use super::providers::Studio;
+use super::{CommandResult, blocking};
 use crate::session::Session;
 
 /// What runs in `id` right now: its pipeline run, concept images and sends.
@@ -129,14 +129,22 @@ pub fn project_update(
 
 #[tauri::command]
 #[specta::specta]
-pub fn project_inspect_repo(session: State<'_, Session>, path: String) -> RepoInspection {
-    project::inspect_site_repo(&session.expand(&path))
+pub async fn project_inspect_repo(
+    session: State<'_, Session>,
+    path: String,
+) -> CommandResult<RepoInspection> {
+    let path = session.expand(&path);
+    blocking(move || project::inspect_site_repo(&path)).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn project_scan_import(session: State<'_, Session>, path: String) -> CommandResult<ImportScan> {
-    Ok(project::scan_import(&session.expand(&path))?)
+pub async fn project_scan_import(
+    session: State<'_, Session>,
+    path: String,
+) -> CommandResult<ImportScan> {
+    let path = session.expand(&path);
+    Ok(blocking(move || project::scan_import(&path)).await??)
 }
 
 #[cfg(test)]

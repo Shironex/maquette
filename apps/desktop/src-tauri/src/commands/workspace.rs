@@ -1,10 +1,10 @@
 use maquette_core::workspace::sync::SyncConflict;
 use maquette_core::{CoreError, RootInspection, WorkspaceConfig, workspace};
 use serde::Serialize;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager as _, State};
 
-use super::CommandResult;
 use super::app::{WorkspaceSnapshot, snapshot};
+use super::{CommandResult, blocking};
 use crate::mcp::Agents;
 use crate::session::Session;
 
@@ -27,14 +27,15 @@ fn cache_info(bytes: u64) -> CacheInfo {
 
 #[tauri::command]
 #[specta::specta]
-pub fn workspace_inspect(
-    session: State<'_, Session>,
-    root: String,
-) -> CommandResult<RootInspection> {
-    Ok(workspace::inspect_root(
-        &session.expand(&root),
-        session.home(),
-    )?)
+pub async fn workspace_inspect(app: AppHandle, root: String) -> CommandResult<RootInspection> {
+    blocking(move || -> CommandResult<RootInspection> {
+        let session = app.state::<Session>();
+        Ok(workspace::inspect_root(
+            &session.expand(&root),
+            session.home(),
+        )?)
+    })
+    .await?
 }
 
 #[tauri::command]

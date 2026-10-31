@@ -13,10 +13,10 @@ use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::thumbs::Thumbnails;
 use maquette_core::toolchain::find_on_path;
 use maquette_core::{CoreError, ProbeEnv, ProjectManifest, SystemRunner, project};
-use tauri::State;
+use tauri::{AppHandle, Manager as _, State};
 
 use super::thumbs::{self, Thumbs};
-use super::{CommandResult, toolchain};
+use super::{CommandResult, blocking, toolchain};
 use crate::mcp::gate::{ShipGate, ShipReason};
 use crate::mcp::hub::Hub;
 use crate::session::Session;
@@ -161,8 +161,12 @@ pub(crate) fn ship_plan(
 /// format and the loader.
 #[tauri::command]
 #[specta::specta]
-pub fn game_inspect_repo(session: State<'_, Session>, path: String) -> GameRepoInspection {
-    game::inspect_game_repo(&session.expand(&path))
+pub async fn game_inspect_repo(
+    session: State<'_, Session>,
+    path: String,
+) -> CommandResult<GameRepoInspection> {
+    let path = session.expand(&path);
+    blocking(move || game::inspect_game_repo(&path)).await
 }
 
 /// Every model in the game's model folder, with its numbers and budget.
@@ -188,12 +192,12 @@ pub async fn game_import(
 
 #[tauri::command]
 #[specta::specta]
-pub fn game_save_settings(
-    session: State<'_, Session>,
+pub async fn game_save_settings(
+    app: AppHandle,
     project: String,
     change: GameSettingsChange,
 ) -> CommandResult<ProjectManifest> {
-    save_settings(&session, &project, change)
+    blocking(move || save_settings(&app.state::<Session>(), &project, change)).await?
 }
 
 /// The built-in game templates.
@@ -206,35 +210,35 @@ pub fn game_template_list() -> Vec<GameTemplate> {
 /// What applying a template would change in this project. Changes nothing.
 #[tauri::command]
 #[specta::specta]
-pub fn game_template_preview(
-    session: State<'_, Session>,
+pub async fn game_template_preview(
+    app: AppHandle,
     project: String,
     template: GameTemplateId,
 ) -> CommandResult<GameTemplatePreview> {
-    let (manifest, dir) = game_project(&session, &project)?;
-    Ok(game::preview_template(&dir, &manifest, template)?)
+    blocking(move || -> CommandResult<GameTemplatePreview> {
+        let (manifest, dir) = game_project(&app.state::<Session>(), &project)?;
+        Ok(game::preview_template(&dir, &manifest, template)?)
+    })
+    .await?
 }
 
 /// Fills the game settings from a template. Moves and deletes no file.
 #[tauri::command]
 #[specta::specta]
-pub fn game_apply_template(
-    session: State<'_, Session>,
+pub async fn game_apply_template(
+    app: AppHandle,
     project: String,
     template: GameTemplateId,
 ) -> CommandResult<ProjectManifest> {
-    apply_template(&session, &project, template)
+    blocking(move || apply_template(&app.state::<Session>(), &project, template)).await?
 }
 
 /// Adds Decimate and Shrink textures to every model over its folder's
 /// budget; a rigged model gets no Decimate. Returns the assets that changed.
 #[tauri::command]
 #[specta::specta]
-pub fn game_add_budget_fixups(
-    session: State<'_, Session>,
-    project: String,
-) -> CommandResult<Vec<String>> {
-    add_budget_fixups(&session, &project)
+pub async fn game_add_budget_fixups(app: AppHandle, project: String) -> CommandResult<Vec<String>> {
+    blocking(move || add_budget_fixups(&app.state::<Session>(), &project)).await?
 }
 
 /// What Ship would write into the game repo from the last Game export,
