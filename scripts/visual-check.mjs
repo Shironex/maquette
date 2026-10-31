@@ -62,13 +62,14 @@
  * file in the Ship plan and the drop maps switch, and the avatar set
  * (scripts/visual-check/avatar.mjs) the Avatar view: readiness, meta, new
  * weights and a rest pose waiting for a yes with their sheets, the written VRM, an agent's
- * floating card and Settings > Avatar defaults. It renders
+ * floating card and Settings > Avatar defaults, and the minsize set
+ * (scripts/visual-check/minsize.mjs) the screens at the minimum window size. It renders
  * pages to files and never captures the screen.
  *
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=renders, ONLY=codex, ONLY=images, ONLY=fixes, ONLY=avatar, ONLY=rig or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=renders, ONLY=codex, ONLY=images, ONLY=fixes, ONLY=avatar, ONLY=rig, ONLY=minsize or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -90,6 +91,7 @@ import { animationsShots } from './visual-check/animations.mjs';
 import { avatarShots } from './visual-check/avatar.mjs';
 import { compareShots } from './visual-check/compare.mjs';
 import { shipShots } from './visual-check/ship.mjs';
+import { minSizeShots } from './visual-check/minsize.mjs';
 import { motionShots } from './visual-check/motion.mjs';
 import { pageShots } from './visual-check/page.mjs';
 import { partsShots } from './visual-check/parts.mjs';
@@ -1126,6 +1128,8 @@ try {
   if (!only || only === 'avatar') await avatarShots({ open, shot });
   await settle();
   if (!only || only === 'rig') await rigShots({ open, shot });
+  await settle();
+  if (!only || only === 'minsize') await minSizeShots({ open, shot });
   await settle();
 } finally {
   await browser.close();

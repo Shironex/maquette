@@ -23,7 +23,7 @@ export default function QuickViewDialog(props: QuickViewDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(16,15,14,0.55)] p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(16,15,14,0.55)] p-12"
       onClick={e => {
         if (e.target === e.currentTarget) onClose();
       }}

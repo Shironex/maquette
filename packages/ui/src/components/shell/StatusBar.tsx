@@ -29,6 +29,11 @@ export function StatusDotMark({ dot }: { dot: StatusDot }) {
   return <span aria-hidden="true" className={cn('size-[7px] flex-none rounded-full', DOT[dot])} />;
 }
 
+/**
+ * One line of items, most important first. An item that does not fit wraps
+ * to a second line the bar clips, so a narrow window loses the last items
+ * whole instead of cutting one in half.
+ */
 export function StatusBar({
   items,
   className,
@@ -39,7 +44,7 @@ export function StatusBar({
   const statusItems = items.map((it, i) => (
     <span
       key={`${i}-${it.label}`}
-      className={cn('flex items-center gap-1.5 whitespace-nowrap', it.right && 'ml-auto')}
+      className={cn('flex h-7 items-center gap-1.5 whitespace-nowrap', it.right && 'ml-auto')}
     >
       {it.node ?? (
         <>
@@ -56,7 +61,7 @@ export function StatusBar({
   return (
     <footer
       className={cn(
-        'flex h-7 flex-none items-center gap-[18px] border-t border-line bg-panel px-4 text-[11.5px] text-fg-mute',
+        'flex h-7 flex-none flex-wrap content-start gap-x-[18px] overflow-hidden border-t border-line bg-panel px-4 text-[11.5px] text-fg-mute',
         className
       )}
     >
