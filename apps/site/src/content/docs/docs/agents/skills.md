@@ -9,13 +9,13 @@ The [MCP tools](/docs/agents/mcp-tools/) let an agent act. The skills tell it ho
 
 ## The skills
 
-| Skill                    | Use it to                                                                                                                                                                                   |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `maquette-lab-round`     | Run a concept art round: read the Codex usage and image backend, set the style board, start a direction per asset, let you pick, make object refs and the missing views, clean backgrounds. |
-| `maquette-by-hand-round` | Write By hand handoffs for Tripo or Meshy, then land the downloads: match them by picture, attach, read the inbox checks, accept, add to the library, redo a bad generation.                |
-| `maquette-character-rig` | Take a rigged character from its rig check to a clean v2: pose test, fix skin weights per island, verify, add the file as the next version, bake clips.                                     |
-| `maquette-game-export`   | Set up a game project, import its models, set budgets and export, plan and run the pipeline, wait for your approval at Ship and check the files in the repo.                                |
-| `maquette-avatar-vrm`    | Early: turn a rigged character's rest pose into the VRM T-pose facing +Z on a copy, and judge the before and after pose sheets with you.                                                    |
+| Skill                    | Use it to                                                                                                                                                                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maquette-lab-round`     | Run a concept art round: read the Codex usage and image backend, set the style board, start a direction per asset, let you pick, make object refs and the missing views, clean backgrounds.                                                   |
+| `maquette-by-hand-round` | Write By hand handoffs for Tripo or Meshy, then land the downloads: match them by picture, attach, read the inbox checks, accept (one by one or many), compare two versions, make render pictures, add to the library, redo a bad generation. |
+| `maquette-character-rig` | Take a rigged character from its rig check to a clean v2, through the rig doctor first: pose test, fix skin weights per island, verify, add the file as the next version, bake clips.                                                         |
+| `maquette-game-export`   | Set up a game project, import its models, set budgets and export, plan and run the pipeline, wait for your approval at Ship and check the files in the repo, or write an export pack for another engine.                                      |
+| `maquette-avatar-vrm`    | Early: turn a rigged character's rest pose into the VRM T-pose facing +Z on a copy, and judge the before and after pose sheets with you.                                                                                                      |
 
 The rig skill carries headless Blender scripts (a humanoid set and a creature set with an example config), and the avatar skill the rest pose script Maquette itself runs. Everything else is instructions.
 
