@@ -66,7 +66,14 @@ describe('the animation library rules', () => {
       ['custom', 1],
     ]);
     const stats = animationStats(items, 23_600_000);
-    expect(stats).toEqual({ clips: 16, packs: 4, singles: 4, disk: 23_600_000 });
+    expect(stats).toEqual({
+      clips: 16,
+      packs: 4,
+      singles: 4,
+      disk: 23_600_000,
+      inUse: 0,
+      models: 0,
+    });
   });
 
   it('says how long a clip is and where its root goes', () => {

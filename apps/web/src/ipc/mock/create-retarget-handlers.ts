@@ -12,18 +12,21 @@ import type {
   BonePair,
   ClipReview,
   ClipSetting,
+  Clip,
   ClipUse,
   MapChoice,
+  ProjectAnimations,
   ProjectManifest,
   RetargetDraft,
   RetargetPlan,
-  RetargetReview,
   UseClips,
 } from '../client';
 import { clock } from '@/lib/clock';
 import { fail, type Args } from './backend-options';
 import { MOTION_FIXTURES, type MotionFixture } from './motion-fixtures';
 import { HUMANOID, boneIn, defaultName, snake } from './retarget-names';
+import { clipInFile, type AssetRecord, type BakedClip } from './retarget-baked';
+import { onlyBones, restCompare } from './retarget-rest';
 
 interface RetargetContext {
   project: (id: string) => ProjectManifest;
@@ -34,28 +37,19 @@ interface RetargetContext {
   state: string | null;
 }
 
-/** A library clip baked into a model version, as the project records it. */
-interface BakedClip {
-  setting: ClipSetting;
-  revision: number;
-  libraryName: string;
-  version: number;
-}
-
-interface AssetRecord {
-  map: MapChoice[];
-  baked: BakedClip[];
-  review: RetargetReview | null;
-  reviewVersion: number | null;
-}
-
 export function createRetargetHandlers(ctx: RetargetContext) {
   const records = new Map<string, AssetRecord>();
   const drafts = new Map<string, { draft: RetargetDraft; revisions: [string, number, string][] }>();
   let runs = 0;
   const keyOf = (project: string, asset: string) => `${project}/${asset}`;
   const record = (project: string, asset: string) =>
-    records.get(keyOf(project, asset)) ?? { map: [], baked: [], review: null, reviewVersion: null };
+    records.get(keyOf(project, asset)) ?? {
+      map: [],
+      follow: [],
+      baked: [],
+      review: null,
+      reviewVersion: null,
+    };
   const clipOf = (id: string) =>
     ctx.clips().find(c => c.id === id) ?? fail('not-found', `the library clip ${id}`);
 
@@ -159,6 +153,8 @@ export function createRetargetHandlers(ctx: RetargetContext) {
       saved,
       needsLook: !saved && map.some(p => !p.bone.endsWith('ToeBase') && (!p.source || !p.target)),
       onlyOnModel: joints.filter(j => !used.includes(j)),
+      onlyBones: onlyBones(joints, map, rec.follow),
+      rest: restCompare(clips[0], joints, map),
       settings: normalise(defaults, own),
       outdated: rec.baked
         .filter(b => ids.includes(b.setting.clip) && clipOf(b.setting.clip).revision > b.revision)
@@ -228,6 +224,10 @@ export function createRetargetHandlers(ctx: RetargetContext) {
       records.set(keyOf(request.project, request.asset), {
         ...rec,
         map: p.map.map(b => ({ bone: b.bone, target: b.target })),
+        follow: [
+          ...rec.follow.filter(f => !(request.follow ?? []).some(n => n.bone === f.bone)),
+          ...(request.follow ?? []),
+        ].filter(f => f.follows),
       });
     }
     runs += 1;
@@ -285,10 +285,12 @@ export function createRetargetHandlers(ctx: RetargetContext) {
         revision,
         libraryName,
         version: number,
+        libraryFrames: clipOf(c.clip).frames,
       };
     });
     records.set(keyOf(draft.project, draft.asset), {
       map: rec.map,
+      follow: rec.follow,
       baked: [
         ...rec.baked.filter(b => !baked.some(n => n.setting.clip === b.setting.clip)),
         ...baked,
@@ -308,6 +310,7 @@ export function createRetargetHandlers(ctx: RetargetContext) {
     ];
     records.set(keyOf('frostveil', 'elsheria'), {
       map: [],
+      follow: [],
       baked: seeded
         .filter(([id]) => ctx.clips().some(c => c.id === id))
         .map(([id, name, revision]) => {
@@ -325,6 +328,7 @@ export function createRetargetHandlers(ctx: RetargetContext) {
             revision,
             libraryName: clip.name,
             version: 2,
+            libraryFrames: clip.frames,
           };
         }),
       review: null,
@@ -353,9 +357,26 @@ export function createRetargetHandlers(ctx: RetargetContext) {
     });
   }
 
+  /** What the project took from the library, as its `animations.json` says. */
+  function ofProject(project: string): ProjectAnimations {
+    const assets = [...records]
+      .filter(([key]) => key.startsWith(`${project}/`))
+      .map(([key, rec]) => [key.slice(project.length + 1), rec] as const);
+    return { version: 1, assets: Object.fromEntries(assets) };
+  }
+
+  /** The clips a bake put in a model's file, which the bundled file does not hold. */
+  function bakedClips(project: string, asset: string, from: number): Clip[] {
+    return record(project, asset).baked.map((b, i) =>
+      clipInFile(b, clipOf(b.setting.clip), from + i)
+    );
+  }
+
   return {
     uses,
+    bakedClips,
     handlers: {
+      animations_of_project: (args: Args) => ofProject(args.project as string),
       animations_retarget_plan: (args: Args) =>
         plan(
           args.project as string,

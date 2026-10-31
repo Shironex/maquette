@@ -131,6 +131,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             animations::animations_save_plan,
             animations::animations_save,
             animations::animations_retarget_plan,
+            animations::animations_of_project,
             animations::animations_retarget,
             animations::animations_bake,
             animations::animations_open_draft_in_blender,

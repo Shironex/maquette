@@ -7,6 +7,7 @@
 
 use std::sync::{Arc, LazyLock};
 
+use maquette_core::animations::retarget::uses::ProjectAnimations;
 use maquette_core::animations::retarget::{
     self, Baked, MapChoice, RetargetDraft, RetargetPlan, UseClips,
 };
@@ -255,6 +256,19 @@ pub fn animations_retarget_plan(
     picked: Vec<MapChoice>,
 ) -> CommandResult<RetargetPlan> {
     retarget_plan(&session, (&project, &asset), &clips, &picked)
+}
+
+/// What a project took from the library, per model: the clips baked in, the
+/// map and the last review. Motion groups a model's clips by it.
+#[tauri::command]
+#[specta::specta]
+pub fn animations_of_project(
+    session: State<'_, Session>,
+    project: String,
+) -> CommandResult<ProjectAnimations> {
+    let (root, config) = session.workspace()?;
+    let dir = maquette_core::project::dir(&root, &config.layout, &project)?;
+    Ok(retarget::uses::load(&dir)?)
 }
 
 /// Bakes library clips onto a copy of the model's newest version, headless,

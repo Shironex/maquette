@@ -90,6 +90,14 @@ fn has_map(json: &serde_json::Value, key: &str) -> bool {
 /// Exports the two rigs with `drop_maps`, returning the walker's and the
 /// biter's exported GLB JSON, or `None` without Blender or node.
 fn export_rigs(drop_maps: bool) -> Option<(serde_json::Value, serde_json::Value)> {
+    export_with(drop_maps, &[])
+}
+
+/// As [`export_rigs`], with the named `(model, clip)` switched off in Motion.
+fn export_with(
+    drop_maps: bool,
+    off: &[(&str, &str)],
+) -> Option<(serde_json::Value, serde_json::Value)> {
     let blender = blender()?;
     let (ws, manifest) = game_project(glb_game, GameFormat::Glb);
     let characters = ws.repo.join("assets/models/characters");
@@ -141,6 +149,21 @@ fn export_rigs(drop_maps: bool) -> Option<(serde_json::Value, serde_json::Value)
     })
     .expect("settings");
     crate::pipeline::ensure(&project_dir, &manifest).expect("pipeline");
+    if !off.is_empty() {
+        let mut clips: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+        for (model, clip) in off {
+            let asset = manifest
+                .assets
+                .iter()
+                .find(|a| a.id == *model)
+                .expect("model");
+            clips
+                .entry(asset.id.clone())
+                .or_default()
+                .push((*clip).to_string());
+        }
+        crate::motion::save(&project_dir, &manifest, Default::default(), &clips).expect("save");
+    }
     index::write(&project_dir, &manifest).expect("index");
     run_chain(&project_dir, settings_of(&manifest).expect("game"))?;
     let raw = project_dir.join("web/raw/characters");
@@ -168,4 +191,13 @@ fn each_rig_keeps_its_own_clips_and_maps_drop_only_when_asked() {
         "the normal map is dropped"
     );
     assert!(!has_map(&walker, "metallicRoughnessTexture"));
+}
+
+#[test]
+fn a_clip_switched_off_in_motion_stays_out_of_the_game_file() {
+    let Some((walker, biter)) = export_with(false, &[("walker", "walk")]) else {
+        return;
+    };
+    assert!(clips(&walker).is_empty(), "walk was switched off");
+    assert_eq!(clips(&biter), ["bite"], "the other model keeps its clip");
 }

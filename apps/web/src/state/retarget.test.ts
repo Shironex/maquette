@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { BonePair, ClipReview, ClipSetting } from '@/ipc/client';
 import { animationClips } from '@/ipc/mock/animation-fixtures';
 import {
+  armsLine,
+  isHumanoidClip,
+  onlyGroups,
   canPin,
   chosenTotals,
   mapCounts,
@@ -88,5 +91,56 @@ describe('retarget rules', () => {
     expect(canPin(review('idle', 'look'))).toBe(false);
     expect(canPin(review('idle', 'good'))).toBe(false);
     expect(slideText(4.25)).toBe('4.3 cm');
+  });
+});
+
+describe('the rest pose words', () => {
+  it('says how the arms stand against the clip', () => {
+    expect(armsLine(0, 47, 't-pose')).toBe('47° below the T pose');
+    expect(armsLine(47, 0, 'a-pose')).toBe('47° above the A pose');
+    expect(armsLine(1, 1, 't-pose')).toBe('level with the T pose');
+  });
+});
+
+describe('the bones only on the model', () => {
+  const only = (bone: string, carriedBy: string | null = 'hips') => ({
+    bone,
+    carriedBy,
+    follows: null,
+    free: true,
+  });
+  it('rolls numbered chains into a row and counts the fingers apart', () => {
+    const { groups, fingers } = onlyGroups([
+      only('skirt_01'),
+      only('skirt_02'),
+      only('skirt_03'),
+      only('sword_socket', 'hand.R'),
+      only('mixamorig:LeftHandIndex1', 'hand.L'),
+    ]);
+    expect(groups.map(g => g.label)).toEqual(['skirt_01 to 03', 'sword_socket']);
+    expect(groups[0]!.bones).toHaveLength(3);
+    expect(fingers).toBe(1);
+  });
+});
+
+describe('a humanoid clip', () => {
+  const rig = (kind: 'mixamo' | 'custom', names: string[]) => ({
+    rig: {
+      kind,
+      hipsHeight: 1,
+      bones: names.map(name => ({
+        name,
+        parent: null,
+        head: [0, 0, 0] as [number, number, number],
+        tail: [0, 0, 0] as [number, number, number],
+      })),
+    },
+  });
+  it('is any Mixamo or Tripo rig, and a custom one with hips and legs', () => {
+    expect(isHumanoidClip(rig('mixamo', []))).toBe(true);
+    expect(isHumanoidClip(rig('custom', ['base', 'seg_a', 'tip']))).toBe(false);
+    expect(
+      isHumanoidClip(rig('custom', ['heroine_hips', 'heroine_leftupleg', 'heroine_rightupleg']))
+    ).toBe(true);
   });
 });

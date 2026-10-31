@@ -15,7 +15,9 @@ for a target without one). The folder is emptied first.
   jpg, or keep for each image's own), never KTX2, never meshopt or Draco.
   The rig and its animation clips export with the model: each armature
   carries only its own actions (its active one and its NLA tracks), so a
-  rig never carries the clips of another model in the same file.
+  rig never carries the clips of another model in the same file. A clip
+  the game index lists under the model's "clipsOff" (a switch in the Motion
+  view) is left out of the file.
 - With "dropMaps": true in the game index (a Game export setting, for a
   game whose shader reads neither), normal maps and metal-roughness maps
   are left out: each Principled BSDF's Normal, Metallic and Roughness
@@ -44,6 +46,7 @@ Edit freely: this file is yours.
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -55,6 +58,7 @@ OFFSET = "maquette_offset"
 SOURCE_NAME = "maquette_name"
 TAG_PREFIX = "maquette_"
 EXPORTED_TYPES = {"MESH", "EMPTY", "ARMATURE", "CURVE", "SURFACE", "META", "FONT"}
+SUFFIX = re.compile(r"^(.*)\.\d{3,}$")
 
 
 def log(message):
@@ -363,9 +367,59 @@ def caps_of(index, path, fallback):
     }
 
 
-def export_one(collection, args, originals, caps, drop_maps):
+def drop_clips(collection, names):
+    """Removes the named clips (glTF animations, which import as actions and
+    NLA tracks of the same name) from a model's objects, so the export
+    leaves them out. Returns the names it found."""
+    wanted = set(names)
+    gone = set()
+    actions = set()
+
+    def named(action):
+        if action is None:
+            return False
+        match = SUFFIX.match(action.name)
+        return (match.group(1) if match else action.name) in wanted
+
+    for obj in collection.all_objects:
+        data = obj.animation_data
+        if data is None:
+            continue
+        if named(data.action):
+            actions.add(data.action)
+            data.action = None
+        for track in list(data.nla_tracks):
+            for strip in list(track.strips):
+                if named(strip.action) or track.name in wanted:
+                    if strip.action is not None:
+                        actions.add(strip.action)
+                    track.strips.remove(strip)
+            if len(track.strips) == 0:
+                data.nla_tracks.remove(track)
+    for action in actions:
+        match = SUFFIX.match(action.name)
+        gone.add(match.group(1) if match else action.name)
+        bpy.data.actions.remove(action)
+    return gone
+
+
+def clips_off_of(index):
+    """The clips each target leaves out, from the game index."""
+    return {
+        m["target"]: m["clipsOff"]
+        for m in (index or {}).get("models") or []
+        if m.get("target") and m.get("clipsOff")
+    }
+
+
+def export_one(collection, args, originals, caps, drop_maps, clips_off):
     target = str(collection[TARGET])
     cap = caps.get(target, args.cap)
+    off = clips_off.get(target)
+    if off:
+        gone = drop_clips(collection, off)
+        left = sorted(set(off) - gone)
+        log(f"{target}: left {len(gone)} clips out" + (f", no clip named {', '.join(left)}" if left else ""))
     move = float(collection.get(OFFSET, 0.0))
     if move:
         for obj in collection.all_objects:
@@ -414,9 +468,10 @@ def main():
     index = read_index(args.index)
     caps = caps_of(index, args.index, args.cap)
     drop_maps = bool((index or {}).get("dropMaps"))
+    clips_off = clips_off_of(index)
     models = bpy.data.collections.get(MODELS)
     tagged = [c for c in (models.children if models else []) if TARGET in c]
-    written = [w for w in (export_one(c, args, originals, caps, drop_maps) for c in tagged) if w]
+    written = [w for w in (export_one(c, args, originals, caps, drop_maps, clips_off) for c in tagged) if w]
     report = {"version": 1, "format": args.format, "textures": args.textures,
               "cap": args.cap, "dropMaps": drop_maps, "models": written}
     with open(os.path.join(args.out, "export.json"), "w", encoding="utf-8") as fh:

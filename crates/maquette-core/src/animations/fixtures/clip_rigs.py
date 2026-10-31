@@ -211,9 +211,9 @@ def make_custom(path):
     write_fbx(path)
 
 
-def make_model(path):
+def make_model(path, extra=()):
     reset()
-    arm = armature("elsheria_rig", a_pose(T_POSE), lambda n: MODEL_NAMES[n])
+    arm = armature("elsheria_rig", [*a_pose(T_POSE), *extra], lambda n: MODEL_NAMES.get(n, n))
     skinned_box(arm, size=0.4)
     arm.animation_data_create().action = bpy.data.actions.new("idle")
     key_bone(arm, "chest", [(0, {"rotation_quaternion": (1, 0, 0, 0)}), (30, {"rotation_quaternion": (0.995, 0.1, 0, 0)})])
@@ -235,6 +235,9 @@ def main():
         make_custom(out)
     elif which == "model":
         make_model(out)
+    elif which == "model_socket":
+        # A bone only on the model, off the hips, nowhere near the hand.
+        make_model(out, [("sword_socket", "Hips", (0.4, 0, 1.0), (0.4, 0, 1.1))])
     else:
         raise SystemExit(f"unknown fixture {which!r}")
     print(f"[fixture] wrote {out}", flush=True)

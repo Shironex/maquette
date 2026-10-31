@@ -10,6 +10,8 @@ import type {
   ClipReview,
   ClipSetting,
   MotionModel,
+  OnlyBone,
+  RestShape,
   ReviewStatus,
 } from '@/ipc/client';
 
@@ -102,3 +104,74 @@ export const canPin = (c: ClipReview) =>
 
 /** "4.2 cm", a slide as the review shows it. */
 export const slideText = (cm: number) => `${cm.toFixed(1)} cm`;
+
+/** A clip's rig has a body a humanoid map can read: hips and both upper legs. */
+export function isHumanoidClip(clip: Pick<AnimationClip, 'rig'>): boolean {
+  if (clip.rig.kind !== 'custom') return true;
+  const names = clip.rig.bones.map(b => b.name.toLowerCase());
+  const has = (re: RegExp) => names.some(n => re.test(n));
+  return (
+    has(/hips?$|pelvis/) &&
+    has(/left_?up_?leg|thigh[._]?l|l_thigh/) &&
+    has(/right_?up_?leg|thigh[._]?r|r_thigh/)
+  );
+}
+
+export const SHAPE_LABEL: Record<RestShape, string> = {
+  't-pose': 'T pose',
+  'a-pose': 'A pose',
+  other: 'own pose',
+};
+
+/** "47° below the T pose", how the model's arms stand against the clip's. */
+export function armsLine(clipDeg: number, modelDeg: number, clipShape: RestShape): string {
+  const off = Math.round(modelDeg - clipDeg);
+  const shape = SHAPE_LABEL[clipShape];
+  if (off === 0) return `level with the ${shape}`;
+  return `${Math.abs(off)}° ${off > 0 ? 'below' : 'above'} the ${shape}`;
+}
+
+/** Bones only on the model that read as one row: a numbered chain, or the fingers. */
+export interface OnlyGroup {
+  id: string;
+  /** "skirt_front_01 to 03", or the bone's name. */
+  label: string;
+  bones: string[];
+  carriedBy: string | null;
+  follows: string | null;
+  /** It may be given another bone. */
+  free: boolean;
+}
+
+const FINGER = /(hand)?(index|middle|ring|pinky|thumb)|finger/i;
+const NUMBERED = /^(.*?)(\d+)$/;
+
+export function onlyGroups(bones: readonly OnlyBone[]): { groups: OnlyGroup[]; fingers: number } {
+  const fingers = bones.filter(b => FINGER.test(b.bone)).length;
+  const groups = new Map<string, OnlyGroup>();
+  for (const b of bones) {
+    if (FINGER.test(b.bone)) continue;
+    const id = NUMBERED.exec(b.bone)?.[1] ?? b.bone;
+    const known = groups.get(id);
+    if (known) {
+      known.bones.push(b.bone);
+      known.free &&= b.free;
+    } else {
+      groups.set(id, {
+        id,
+        label: b.bone,
+        bones: [b.bone],
+        carriedBy: b.carriedBy,
+        follows: b.follows,
+        free: b.free,
+      });
+    }
+  }
+  for (const g of groups.values()) {
+    const last = g.bones.at(-1) ?? '';
+    if (g.bones.length > 1) {
+      g.label = `${g.bones[0]} to ${NUMBERED.exec(last)?.[2] ?? last}`;
+    }
+  }
+  return { groups: [...groups.values()], fingers };
+}

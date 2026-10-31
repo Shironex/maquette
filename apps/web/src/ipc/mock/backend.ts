@@ -39,6 +39,7 @@ import { createTrashHandlers } from './create-trash-handlers';
 import { createBuiltHandlers } from './create-built-handlers';
 import { createInboxHandlers } from './create-inbox-handlers';
 import { createMotionHandlers, motionConfig, seedMotionProjects } from './create-motion-handlers';
+import { startsClips } from './motion-fixtures';
 import { createPartsHandlers, seedParts } from './create-parts-handlers';
 import { createSplitHandlers } from './create-split-handlers';
 import { createPageHandlers } from './create-page-handlers';
@@ -200,7 +201,6 @@ export function createBackend({
   }
 
   const activeRun = (id: string) => runner.activeFor(id);
-
   function snapshot(): WorkspaceSnapshot {
     if (!root) fail('invalid', 'No workspace is open yet.');
     const open = projects.find(p => p.id === config.currentProject) ?? projects[0] ?? null;
@@ -373,9 +373,9 @@ export function createBackend({
       project,
       layout,
       config: () => config,
-      clipsSupported: id =>
-        startersOf(id).some(s => s.path === 'tools/build_scene.py' && s.state === 'current'),
+      clipsSupported: id => startersOf(id).some(startsClips),
       motion,
+      bakedClips: library.bakedClips,
     }),
     ...createTimelineHandlers({ layout, timeline: configured ? timeline : null }),
     ...createPathsHandlers({ layout, paths: configured ? paths : null }),

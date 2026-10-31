@@ -14,6 +14,7 @@ use std::sync::{Mutex, PoisonError};
 use serde::{Deserialize, Serialize};
 
 use super::bones::MapChoice;
+use super::rest::FollowChoice;
 use super::review::RetargetReview;
 use super::settings::ClipSetting;
 use crate::animations::AnimationClip;
@@ -36,6 +37,10 @@ pub struct BakedClip {
     pub library_name: String,
     /// The asset version it went into.
     pub version: u32,
+    /// The library clip's whole length, frames; 0 for a bake recorded
+    /// before this was kept.
+    #[serde(default)]
+    pub library_frames: u32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -43,6 +48,8 @@ pub struct BakedClip {
 pub struct AssetAnimations {
     /// The bone map saved for this model's rig.
     pub map: Vec<MapChoice>,
+    /// What the bones only on this model follow, saved with the map.
+    pub follow: Vec<FollowChoice>,
     /// Every library clip baked in, newest bake last; a clip baked again
     /// replaces its older entry.
     pub baked: Vec<BakedClip>,

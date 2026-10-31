@@ -186,7 +186,7 @@ fn import_fixture(s: &Setup, config: &WorkspaceConfig, which: &str, file: &str) 
 
 /// Frostveil with Elsheria (the fixture model, v1) and the dodge clip in
 /// the library.
-fn elsheria_with_a_dodge(s: &Setup, config: &WorkspaceConfig) -> PathBuf {
+pub(crate) fn elsheria_with_a_dodge(s: &Setup, config: &WorkspaceConfig) -> PathBuf {
     let scripts = s.root.path().join("scripts");
     import_fixture(s, config, "clip", "Dodge Left.fbx");
 
@@ -247,6 +247,7 @@ fn library_clips_bake_onto_a_rigged_model_as_its_next_version() {
         settings: plan.settings.clone(),
         map: Vec::new(),
         save_map: true,
+        follow: Vec::new(),
     };
     let tools = (&s.runner, &s.tools);
     let draft = retarget::draft(s.root.path(), &config, tools, &request).expect("draft");
@@ -324,6 +325,7 @@ fn pin_the_feet_holds_a_sliding_foot_and_reports_before_and_after() {
         settings: plan.settings.clone(),
         map: Vec::new(),
         save_map: false,
+        follow: Vec::new(),
     };
     let tools = (&s.runner, &s.tools);
     let draft = retarget::draft(s.root.path(), &config, tools, &request).expect("draft");

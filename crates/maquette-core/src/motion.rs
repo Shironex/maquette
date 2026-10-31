@@ -33,12 +33,12 @@ use crate::workspace::Budgets;
 // Reading a model file's rig, clips and parts lives in the glb crate.
 pub use maquette_glb::motion::{BoneMap, BoneMatch, Clip, Rig, WEB_INFLUENCES};
 pub(crate) use maquette_glb::motion::{
-    clip_bytes, humanoid_map, json_of, read_file, rig_and_clips,
+    clip_bytes, humanoid_map, json_of, read_file, rest_joints, rig_and_clips,
 };
 pub use save::{check_parts, save, with_motion};
 
-/// The marker of a Build scene script that leaves clips set not to ship
-/// out of the model.
+/// The marker of a Build scene or Export script that leaves clips set not
+/// to ship out of the model.
 const CLIPS_MARKER: &str = "def drop_clips(";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -120,9 +120,15 @@ fn weigh(clips: &mut [Clip], measured: Measured, built: Option<&Path>) -> f64 {
     total
 }
 
-fn clips_supported(project_dir: &Path) -> bool {
-    fs::read_to_string(project_dir.join("tools/build_scene.py"))
-        .is_ok_and(|text| text.contains(CLIPS_MARKER))
+/// Whether the script that leaves clips out is new enough: a game's Export
+/// step, a website's Build scene step.
+fn clips_supported(project_dir: &Path, manifest: &ProjectManifest) -> bool {
+    let script = if manifest.target == crate::game::ProjectTarget::Game {
+        "tools/export_game.py"
+    } else {
+        "tools/build_scene.py"
+    };
+    fs::read_to_string(project_dir.join(script)).is_ok_and(|text| text.contains(CLIPS_MARKER))
 }
 
 /// Everything the Motion view shows for a project.
@@ -228,7 +234,7 @@ fn view_of(
         stops: layout.stops.clone(),
         states: layout.states,
         budget,
-        clips_off_supported: clips_supported(project_dir),
+        clips_off_supported: clips_supported(project_dir, manifest),
     }
 }
 

@@ -271,6 +271,7 @@ fn a_fixed_library_clip_offers_the_models_that_baked_it_an_update() {
         revision: clip.revision,
         library_name: clip.name.clone(),
         version,
+        library_frames: 0,
     };
     let mut entry = AssetAnimations::default();
     let review = review::review(&RunReport::default(), |_| false, Vec::new());
