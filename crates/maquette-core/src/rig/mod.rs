@@ -27,6 +27,7 @@ mod run;
 pub mod scripts;
 mod service;
 mod steps;
+mod verdict;
 
 pub use chains::{RigChainEdit, waits_for_chains};
 pub use clips::clips_on_joints;
@@ -34,12 +35,10 @@ pub use land::got_worse;
 pub use read::{read_model, route_of};
 pub use record::{load, recent, register, save, work_dir};
 pub use service::RigDoctors;
+pub use verdict::{SEAM_MM, TEAR_MM};
 
 /// The workspace cache folder records and drafts live in.
 pub const WORK_DIR: &str = "rig";
-/// A pose whose worst edge stretches this far (mm at a one metre tall model)
-/// reads as a tear on the sheet.
-pub const TEAR_MM: f64 = 40.0;
 /// Rounds of fixing before the doctor stops instead of guessing.
 pub const MAX_ROUNDS: u32 = 2;
 
@@ -165,17 +164,54 @@ pub struct RigModel {
 pub struct RigRow {
     pub id: String,
     pub label: String,
-    /// "cape swings", or null for a row that looks fine.
+    /// "cape swings", or null for a row that looks fine. On an after row, how
+    /// its numbers moved.
     pub note: Option<String>,
     /// The defects (by number) this row shows.
     pub defects: Vec<u32>,
-    /// mm at a one metre tall model.
+    /// The worst edge's change in length, mm at a one metre tall model. Any
+    /// rig stretches an edge across a bent joint, so it says little alone.
     pub stretch_mm: f64,
+    /// The worst edge's change past what the mesh does with every vertex
+    /// stuck to its nearest bone: the part the weights answer for. Null on a
+    /// record older than this number.
+    #[serde(default)]
+    pub beyond_body_mm: Option<f64>,
+    /// How far seam copies that share a position at rest came apart: a crack.
     pub seam_gap_mm: f64,
     pub front: Option<String>,
     pub side: Option<String>,
     pub back: Option<String>,
     pub xray: Option<String>,
+    /// The file before, under the same camera as this row. Null when the
+    /// row's own sheet holds only one file.
+    #[serde(default)]
+    pub before_front: Option<String>,
+    #[serde(default)]
+    pub before_side: Option<String>,
+    /// How an after row moved from the before sheet.
+    #[serde(default)]
+    pub change: Option<RigRowChange>,
+}
+
+/// Which way a number went after the fix.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum RigTrend {
+    Better,
+    Worse,
+    Same,
+}
+
+/// An after row's before numbers, and which way each went.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RigRowChange {
+    pub stretch_before: f64,
+    pub beyond_body_before: Option<f64>,
+    pub seam_gap_before: f64,
+    pub stretch: RigTrend,
+    pub seam_gap: RigTrend,
 }
 
 /// A pose sheet: one PNG of everything, and its rows.

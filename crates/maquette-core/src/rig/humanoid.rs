@@ -8,7 +8,7 @@ use super::defects::{self, count, num};
 use super::run::Run;
 use super::{
     DefectKind, JointMove, JointMoveState, MAX_ROUNDS, RigRecord, RigSheet, RigStat, RigState,
-    RigStep, clips, steps,
+    RigStep, clips, steps, verdict,
 };
 use crate::error::{CoreError, CoreResult};
 
@@ -148,16 +148,10 @@ pub(super) fn test(run: &Run) -> CoreResult<()> {
         Ok(format!("{} rows", before.rows.len()))
     })?;
     let found = defects::humanoid(&probe, plan.as_ref(), one_island);
-    defects::mark_rows(&mut before.rows, &found);
-    let worst = before.rows.iter().map(|r| r.stretch_mm).fold(0.0, f64::max);
-    let gaps = before
-        .rows
-        .iter()
-        .map(|r| r.seam_gap_mm)
-        .fold(0.0, f64::max);
+    verdict::mark_rows(&mut before.rows, &found);
     let far =
         |key: &str| num(&probe, &format!("Left_{key}")) + num(&probe, &format!("Right_{key}"));
-    let stats = vec![
+    let mut stats = vec![
         stat(
             "Hand weight far from the hand",
             None,
@@ -170,14 +164,8 @@ pub(super) fn test(run: &Run) -> CoreResult<()> {
             count(far("arm_far")),
             far("arm_far") > 0,
         ),
-        stat(
-            "Worst stretch",
-            None,
-            format!("{worst:.0} mm"),
-            worst >= super::TEAR_MM,
-        ),
-        stat("Seam gaps", None, format!("{gaps:.0} mm"), gaps > 1.0),
     ];
+    stats.extend(steps::before_sums(&before.rows));
     run.update(|case| {
         case.before = Some(before);
         case.defects = found;
@@ -264,13 +252,14 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
         Ok(format!("{} rows", sheet.rows.len()))
     })?;
     let before_sheet = case.before.clone().unwrap_or_default();
-    let worst = defects::mark_after(&mut sheet, &before_sheet);
+    let worst = verdict::mark_after(&mut sheet, &before_sheet);
+    let sums = steps::sums(&before_sheet.rows, &sheet.rows);
     let joint_move = moved_offer(run, &report, &draft, &case)?;
     let far =
         |v: &Value, key: &str| num(v, &format!("Left_{key}")) + num(v, &format!("Right_{key}"));
     let stats = vec![
         stat(
-            "Hair on finger bones",
+            "Hand weight far from the hand",
             Some(count(far(&before, "hand_joint"))),
             count(far(&after, "hand_joint")),
             far(&after, "hand_joint") > 0,
@@ -281,6 +270,9 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
             count(far(&after, "arm_far")),
             far(&after, "arm_far") > 0,
         ),
+        sums.stretch,
+        sums.past,
+        sums.gaps,
         stat("Seam band", None, steps::band_text(&case), false),
         stat(
             "New weights",

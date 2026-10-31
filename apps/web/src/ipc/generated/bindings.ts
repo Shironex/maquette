@@ -6053,17 +6053,47 @@ export type RigRoute =
 export type RigRow = {
 	id: string,
 	label: string,
-	/**  "cape swings", or null for a row that looks fine. */
+	/**
+	 *  "cape swings", or null for a row that looks fine. On an after row, how
+	 *  its numbers moved.
+	 */
 	note: string | null,
 	/**  The defects (by number) this row shows. */
 	defects: number[],
-	/**  mm at a one metre tall model. */
+	/**
+	 *  The worst edge's change in length, mm at a one metre tall model. Any
+	 *  rig stretches an edge across a bent joint, so it says little alone.
+	 */
 	stretchMm: number | null,
+	/**
+	 *  The worst edge's change past what the mesh does with every vertex
+	 *  stuck to its nearest bone: the part the weights answer for. Null on a
+	 *  record older than this number.
+	 */
+	beyondBodyMm?: number | null,
+	/**  How far seam copies that share a position at rest came apart: a crack. */
 	seamGapMm: number | null,
 	front: string | null,
 	side: string | null,
 	back: string | null,
 	xray: string | null,
+	/**
+	 *  The file before, under the same camera as this row. Null when the
+	 *  row's own sheet holds only one file.
+	 */
+	beforeFront?: string | null,
+	beforeSide?: string | null,
+	/**  How an after row moved from the before sheet. */
+	change?: RigRowChange | null,
+};
+
+/**  An after row's before numbers, and which way each went. */
+export type RigRowChange = {
+	stretchBefore: number | null,
+	beyondBodyBefore: number | null,
+	seamGapBefore: number | null,
+	stretch: RigTrend,
+	seamGap: RigTrend,
 };
 
 /**  What a run does. */
@@ -6158,6 +6188,9 @@ export type RigTarget = {
 	asset: string | null,
 	version: number | null,
 };
+
+/**  Which way a number went after the fix. */
+export type RigTrend = "better" | "worse" | "same";
 
 export type RootInspection = {
 	/**  Expanded absolute path. */

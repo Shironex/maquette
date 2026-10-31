@@ -4,7 +4,7 @@
 
 use serde_json::Value;
 
-use super::{DefectKind, RigDefect, RigRow, RigSheet, TEAR_MM};
+use super::{DefectKind, RigDefect, RigRow, RigSheet};
 
 /// 3912 reads "3,912".
 pub(super) fn count(n: u64) -> String {
@@ -42,6 +42,15 @@ fn bone_tags(probe: &Value, pick: impl Fn(&str) -> bool) -> Vec<String> {
         .map(|(n, c)| format!("{n} {} v", count(c)))
         .collect()
 }
+
+/// The chip with the number the tiles show: each vertex once.
+fn total(n: u64) -> String {
+    format!("{} v in all", count(n))
+}
+
+/// Why the bone chips add up to more than the total.
+const SHARED: &str =
+    "A vertex can count under several bones, so the bones add up to more than the total.";
 
 /// A misplaced limb from a fixweights report: its words, how far off and how
 /// many joints.
@@ -95,14 +104,14 @@ pub(super) fn humanoid(probe: &Value, plan: Option<&Value>, one_island: bool) ->
         let hair = num(&probe["places"]["arm"], "hair") >= num(&probe["places"]["arm"], "cloth");
         let what = if hair { "Hair" } else { "Cape or cloth" };
         let mut tags = bone_tags(probe, |n| n.ends_with("Arm"));
-        tags.push(format!("{} v", count(arm)));
+        tags.push(total(arm));
         push(
             format!("{what} weighted to the arm bones"),
             if hair { "hair" } else { "cloth, near the arms" }.to_string(),
             tags,
             DefectKind::WeightsOnly,
             format!(
-                "In raise and forward it swings out with the arms. Fix: reweight it to the trunk with a {} seam at the sleeve.",
+                "In raise and forward it swings out with the arms. Fix: reweight it to the trunk with a {} seam at the sleeve. {SHARED}",
                 if one_island { "faded" } else { "5 cm" }
             ),
         );
@@ -119,10 +128,15 @@ pub(super) fn humanoid(probe: &Value, plan: Option<&Value>, one_island: bool) ->
                 "cloth, away from the hands"
             }
             .to_string(),
-            bone_tags(probe, |n| n.contains("Hand")),
+            {
+                let mut tags = bone_tags(probe, |n| n.contains("Hand"));
+                tags.push(total(hand));
+                tags
+            },
             DefectKind::WeightsOnly,
-            "In hand they follow the fingers. Fix: hand them to the head, neck and trunk."
-                .to_string(),
+            format!(
+                "In hand they follow the fingers. Fix: hand them to the head, neck and trunk. {SHARED}"
+            ),
         );
     }
     if let Some((limb, off, joints, _)) = plan.and_then(misplaced) {
@@ -167,6 +181,12 @@ pub(super) fn rows(data: &Value, label: &str, xray: Option<&Value>) -> Vec<RigRo
             .as_str()
             .map(str::to_string)
     };
+    let other = |row: &str, view: &str| {
+        data["cells"][format!("before/{row}/{view}")]
+            .as_str()
+            .filter(|_| label != "before")
+            .map(str::to_string)
+    };
     data["rows"]
         .as_array()
         .into_iter()
@@ -177,71 +197,20 @@ pub(super) fn rows(data: &Value, label: &str, xray: Option<&Value>) -> Vec<RigRo
             RigRow {
                 id: row.to_string(),
                 label: pose_label(row),
-                note: None,
-                defects: Vec::new(),
+                beyond_body_mm: m["beyond_body_mm"].as_f64(),
                 stretch_mm: m["stretch_mm"].as_f64().unwrap_or(0.0),
                 seam_gap_mm: m["seam_gap_mm"].as_f64().unwrap_or(0.0),
                 front: cell(data, row, "front"),
                 side: cell(data, row, "side"),
                 back: cell(data, row, "back"),
                 xray: xray.and_then(|x| cell(x, row, "front")),
+                // A sheet of two files has the before under the draft's own camera.
+                before_front: other(row, "front"),
+                before_side: other(row, "side"),
+                ..RigRow::default()
             }
         })
         .collect()
-}
-
-/// Says on each before row what shows there.
-pub(super) fn mark_rows(rows: &mut [RigRow], defects: &[RigDefect]) {
-    for row in rows.iter_mut() {
-        for d in defects {
-            let shows = if d.kind == DefectKind::NeedsYes {
-                row.id == "raise"
-            } else if d.kind == DefectKind::Note {
-                false
-            } else if d.title.contains("arm bones") {
-                row.id == "raise" || row.id == "forward"
-            } else {
-                row.id == "hand"
-            };
-            if shows {
-                row.defects.push(d.number);
-                row.note.get_or_insert(short(d));
-            }
-        }
-        if row.note.is_none() && row.stretch_mm >= TEAR_MM {
-            row.note = Some(format!("stretches {:.0} mm", row.stretch_mm));
-        }
-    }
-}
-
-fn short(d: &RigDefect) -> String {
-    if d.kind == DefectKind::NeedsYes {
-        "joints off mesh".to_string()
-    } else if d.title.starts_with("Hair") {
-        "hair follows".to_string()
-    } else {
-        "cloth swings".to_string()
-    }
-}
-
-/// Says on each after row how it changed, and which row tears worst.
-pub(super) fn mark_after(after: &mut RigSheet, before: &RigSheet) -> Option<(String, f64)> {
-    let mut worst: Option<(String, f64)> = None;
-    for row in &mut after.rows {
-        if row.stretch_mm >= TEAR_MM && worst.as_ref().is_none_or(|w| row.stretch_mm > w.1) {
-            worst = Some((row.id.clone(), row.stretch_mm));
-        }
-        let was = before.rows.iter().find(|r| r.id == row.id);
-        let flagged = was.is_some_and(|w| w.note.is_some());
-        row.note = if row.stretch_mm >= TEAR_MM {
-            Some(format!("still {:.0} mm", row.stretch_mm))
-        } else if flagged {
-            Some("holds now".to_string())
-        } else {
-            None
-        };
-    }
-    worst
 }
 
 pub(super) fn names(value: &Value) -> Vec<String> {

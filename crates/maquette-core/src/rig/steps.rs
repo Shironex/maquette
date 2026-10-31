@@ -3,7 +3,57 @@
 use serde_json::Value;
 
 use super::defects::{self, count, num};
-use super::{MAX_ROUNDS, RigCheck, RigFixStep, RigRecord, RigStop, RigStopKind};
+use super::humanoid::stat;
+use super::{
+    MAX_ROUNDS, RigCheck, RigFixStep, RigRecord, RigRow, RigStat, RigStop, RigStopKind, SEAM_MM,
+    TEAR_MM, verdict,
+};
+
+/// The tiles an after sheet shows for its numbers.
+pub(super) struct Sums {
+    pub stretch: RigStat,
+    pub past: RigStat,
+    pub gaps: RigStat,
+}
+
+/// The worst of each number on a before sheet, with the pose it is at.
+pub(super) fn before_sums(rows: &[RigRow]) -> Vec<RigStat> {
+    let tile = |label: &str, value: &dyn Fn(&RigRow) -> f64, limit: f64| {
+        let (at, mm) = verdict::peak(rows, value);
+        stat(
+            &verdict::at_pose(label, &at),
+            None,
+            format!("{mm:.0} mm"),
+            mm >= limit,
+        )
+    };
+    vec![
+        tile("Worst stretch", &|r| r.stretch_mm, f64::INFINITY),
+        tile("Past the body", &verdict::past_body, TEAR_MM),
+        tile("Seam gaps", &|r| r.seam_gap_mm, SEAM_MM),
+    ]
+}
+
+/// The worst of each number, before and after, with the pose it is at now.
+pub(super) fn sums(before: &[RigRow], after: &[RigRow]) -> Sums {
+    let tile = |label: &str, value: &dyn Fn(&RigRow) -> f64, bad: &dyn Fn(f64, f64) -> bool| {
+        let (_, was) = verdict::peak(before, value);
+        let (at, now) = verdict::peak(after, value);
+        stat(
+            &verdict::at_pose(label, &at),
+            Some(format!("{was:.0} mm")),
+            format!("{now:.0} mm"),
+            bad(was, now),
+        )
+    };
+    Sums {
+        stretch: tile("Worst stretch", &|r| r.stretch_mm, &|was, now| now > was),
+        past: tile("Past the body", &verdict::past_body, &|_, now| {
+            now >= TEAR_MM
+        }),
+        gaps: tile("Seam gaps", &|r| r.seam_gap_mm, &|_, now| now >= SEAM_MM),
+    }
+}
 
 /// Why the doctor stops after a fix: a check that failed, or a defect left
 /// after the last round. It never guesses a third time.
@@ -29,7 +79,7 @@ pub(super) fn stop_of(
         kind: RigStopKind::Rounds,
         title: format!("Stopped after two rounds: {name}"),
         detail: format!(
-            "{row} still stretches {mm:.0} mm on the after sheet. The doctor stops here instead of guessing a third time."
+            "{row} still pulls apart by {mm:.0} mm on the after sheet. The doctor stops here instead of guessing a third time."
         ),
         row: Some(row.clone()),
     })

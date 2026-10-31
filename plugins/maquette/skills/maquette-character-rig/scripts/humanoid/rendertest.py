@@ -3,7 +3,7 @@
 Usage:
   Blender -b --factory-startup -P rendertest.py -- --glb a.glb [--glb b.glb] --out sheet.png
           [--poses rest,raise,forward,hand,twist,head,stride] [--views front,side]
-          [--clips walk.001:0,walk.001:0.5] [--colors colors.npy] [--labels before,after] [--cell 300x400]
+          [--clips walk.001:0,walk.001:0.5] [--colors colors.npy] [--labels before,after] [--cell 480x640]
           [--rows rows.json]
 Poses are applied in armature (world) space: each rotation is about a world axis through the bone head,
 so they read the same on any Mixamo rig regardless of bone roll. With several --glb, columns are
@@ -11,10 +11,15 @@ glb x view, rows are poses; the sheet is one PNG. --colors renders per-vertex de
 the texture (an (V,3) float npy in glTF vertex order, which Blender's importer preserves).
 Views and pose axes follow the way the model really faces, read from its shoulders, so "front" shows the
 face whatever way the file points. --rows writes one JSON with each cell's file and, for every pose and
-file, the worst edge stretch and seam gap in mm at a one metre model, and where the worst edge is.
+file, the numbers of surface.py (stretch, stretch beyond the body, seam gap) and where the worst edge is.
+Every row keeps the whole body in frame: one camera per row and view, fitted to that pose in all the files,
+so a row's files compare exactly and a pose only zooms out when it does not fit the rest pose's window.
+Cells carry no text, for a caption beside them; the sheet writes its labels in a strip over each cell.
 """
 import bpy, sys, os, math
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
+import surface
 from mathutils import Vector, Matrix, Quaternion
 
 argv = sys.argv[sys.argv.index("--") + 1:]
@@ -29,10 +34,12 @@ views = opt("--views", "front,side").split(",")
 clips = [c for c in opt("--clips", "").split(",") if c]
 colors = opt("--colors")
 labels = opt("--labels", ",".join(os.path.basename(g)[:-4] for g in glbs)).split(",")
-cw, ch = map(int, opt("--cell", "300x400").split("x"))
-frame = opt("--frame")
-fx, fz, fs = map(float, (frame or "0,0.6,1.45").split(","))
-fy = 0.0
+cw, ch = map(int, opt("--cell", "480x640").split("x"))
+frame = opt("--frame")   # x,z,scale: one fixed window instead of the fit per row
+LABEL_H = 34             # the sheet's label strip over each cell, in pixels
+# The app's studio colour, so a cell sits in its frame without an edge. The outline keeps a dark model apart.
+BACKGROUND = (0.0307, 0.0284, 0.0242)
+OUTLINE = (0.42, 0.44, 0.48)
 # one cell folder per sheet, so runs in parallel never share files
 tmpdir = os.path.abspath(out) + "_cells"
 os.makedirs(tmpdir, exist_ok=True)
@@ -57,37 +64,35 @@ def set_facing(arm):
     FRONT = LEFT.cross(UP)
     YAW0 = math.degrees(math.atan2(FRONT.x, -FRONT.y))
 
-def auto_frame(me):
-    """Centre and window for a model of any size (a one unit tall model gets the old default)."""
-    global fx, fy, fz, fs
-    if frame:
-        return
-    co = [me.matrix_world @ v.co for v in me.data.vertices]
-    lo = Vector([min(c[i] for c in co) for i in range(3)]); hi = Vector([max(c[i] for c in co) for i in range(3)])
-    h = max(hi.z - lo.z, 1e-3)
-    fx, fy = (lo.x + hi.x) / 2, (lo.y + hi.y) / 2
-    fz, fs = lo.z + 0.6 * h, 1.45 * h
+VIEW_YAW = {"front": 0, "side": 90, "back": 180, "left": -90, "q34": 35, "bl": 135, "br": -135, "fl": 60}
 
-def edge_data(me):
-    """Rest edges and vertex groups that share a position (UV seam copies)."""
-    m = me.data
-    co = np.zeros(len(m.vertices) * 3); m.vertices.foreach_get("co", co); co = co.reshape(-1, 3)
-    ed = np.zeros(len(m.edges) * 2, int); m.edges.foreach_get("vertices", ed); ed = ed.reshape(-1, 2)
-    _, inv = np.unique(np.round(co, 5), axis=0, return_inverse=True)
-    inv = inv.ravel()
-    order = np.argsort(inv)
-    seams = [g for g in np.split(order, np.flatnonzero(np.diff(inv[order])) + 1) if len(g) > 1]
-    return co, ed, seams
+def view_axes(view):
+    """The way the camera sits from the model, and the way right runs across its picture."""
+    y = math.radians(VIEW_YAW[view] + YAW0)
+    return Vector((math.sin(y), -math.cos(y), 0)), Vector((math.cos(y), math.sin(y), 0))
 
-def measure(me, data, h):
-    """Worst stretch and seam gap of the posed mesh against rest, in mm at a one metre tall model."""
-    rest, ed, seams = data
+def world_points(me):
     ev = me.evaluated_get(bpy.context.evaluated_depsgraph_get()).data
-    co = np.zeros(len(ev.vertices) * 3); ev.vertices.foreach_get("co", co); co = co.reshape(-1, 3)
-    d = np.abs(np.linalg.norm(co[ed[:, 0]] - co[ed[:, 1]], axis=1) - np.linalg.norm(rest[ed[:, 0]] - rest[ed[:, 1]], axis=1))
-    k = int(d.argmax()) if len(d) else 0
-    gap = max((float(np.linalg.norm(co[g] - co[g].mean(0), axis=1).max()) for g in seams), default=0.0)
-    return dict(stretch_mm=round(float(d[k]) / h * 1000, 1), seam_gap_mm=round(gap / h * 1000, 1), at=[round(float(x), 3) for x in rest[ed[k, 0]]])
+    co = np.zeros(len(ev.vertices) * 3); ev.vertices.foreach_get("co", co)
+    return co.reshape(-1, 3) @ np.array(me.matrix_world.to_3x3()).T + np.array(me.matrix_world.translation)
+
+def grow_bounds(found, key, points):
+    """Adds a pose's points to what this row and view must show: (across low, high, up low, high)."""
+    _, right = view_axes(key[1])
+    across = points @ np.array(right)
+    now = (float(across.min()), float(across.max()), float(points[:, 2].min()), float(points[:, 2].max()))
+    was = found.get(key, now)
+    found[key] = (min(was[0], now[0]), max(was[1], now[1]), min(was[2], now[2]), max(was[3], now[3]))
+
+def window(bounds):
+    """How tall a window shows these bounds with a little air, in a cell of this shape."""
+    return max(bounds[3] - bounds[2], (bounds[1] - bounds[0]) * ch / cw, 1e-3) * 1.08
+
+def row_scale(found, row):
+    """One zoom for a whole row, never closer than the rest pose so standing poses stay the same size."""
+    ours = [window(b) for (r, _), b in found.items() if r == row]
+    rest = [window(b) for (r, _), b in found.items() if r == "rest"]
+    return max(ours + rest)
 
 def rot(axis, deg):
     return Quaternion(Vector(axis).normalized(), math.radians(deg)).to_matrix().to_4x4()
@@ -174,33 +179,45 @@ def setup_scene():
     sc.render.image_settings.file_format = "PNG"
     sc.view_settings.view_transform = "Standard"
     sc.display.shading.background_type = "VIEWPORT"
-    sc.display.shading.background_color = (0.55, 0.58, 0.62)
+    sc.display.shading.background_color = BACKGROUND
+    sh.show_object_outline = True
+    sh.object_outline_color = OUTLINE
     cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam"))
     sc.collection.objects.link(cam)
     cam.data.type = "ORTHO"
-    cam.data.ortho_scale = fs
     sc.camera = cam
-    txt = bpy.data.curves.new("lbl", "FONT"); txt.size = 0.045
-    tob = bpy.data.objects.new("lbl", txt); sc.collection.objects.link(tob)
-    return cam, tob
+    return cam
 
-def place(cam, tob, view, text, follow=None):
-    ctr = Vector((fx, fy, fz)) + (Vector((follow.x, follow.y, 0)) if follow is not None else Vector())
-    yaw = {"front": 0, "side": 90, "back": 180, "left": -90, "q34": 35, "bl": 135, "br": -135, "fl": 60}[view]
-    y = math.radians(yaw + YAW0)
-    d = Vector((math.sin(y), -math.cos(y), 0))  # camera offset direction; front = -Y
-    cam.location = ctr + d * 5
-    cam.rotation_euler = (-d).to_track_quat("-Z", "Y").to_euler()
-    tob.data.body = text
-    right = Vector((math.cos(y), math.sin(y), 0))
-    tob.location = ctr + d * 4 - right * 0.36 * fs + Vector((0, 0, 0.43 * fs))
-    tob.data.size = 0.031 * fs
-    tob.rotation_euler = (math.radians(90), 0, y)
+def place(cam, view, bounds, scale):
+    """Aims the camera at the middle of what this row and view must show."""
+    back, right = view_axes(view)
+    middle = right * ((bounds[0] + bounds[1]) / 2) + UP * ((bounds[2] + bounds[3]) / 2)
+    away = max(5.0, 3 * scale)
+    cam.data.ortho_scale = scale
+    cam.data.clip_end = away * 3
+    cam.location = middle + back * away
+    cam.rotation_euler = (-back).to_track_quat("-Z", "Y").to_euler()
 
-cells = {}
-metrics = {}
-cam = tob = None
-for gi_, glb in enumerate(glbs):
+def label_strip(cam, text, path):
+    """A strip of the cell's width with its label, for the saved sheet."""
+    sc = bpy.context.scene
+    txt = bpy.data.curves.get("lbl") or bpy.data.curves.new("lbl", "FONT")
+    tob = bpy.data.objects.get("lbl") or bpy.data.objects.new("lbl", txt)
+    if tob.name not in sc.collection.objects:
+        sc.collection.objects.link(tob)
+    txt.body = text
+    txt.size = 0.55 * LABEL_H / cw
+    tob.rotation_euler = (math.radians(90), 0, 0)
+    tob.location = (1000 - 0.47, 0, -0.2 * LABEL_H / cw)
+    cam.data.ortho_scale = 1.0
+    cam.location = (1000, -5, 0)
+    cam.rotation_euler = (math.radians(90), 0, 0)
+    sc.render.resolution_x, sc.render.resolution_y = cw, LABEL_H
+    sc.render.filepath = path
+    bpy.ops.render.render(write_still=True)
+    sc.render.resolution_x, sc.render.resolution_y = cw, ch
+
+def load(glb):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=glb)
     for o in list(bpy.data.objects):
@@ -209,17 +226,54 @@ for gi_, glb in enumerate(glbs):
     arm = next(o for o in bpy.data.objects if o.type == "ARMATURE")
     me = next(o for o in bpy.data.objects if o.type == "MESH")
     set_facing(arm)
-    if gi_ == 0:
-        auto_frame(me)
-    edges = edge_data(me) if rows_json else None
-    height = max(me.dimensions.z, 1e-3)
+    return arm, me
+
+def pose_row(arm, row):
+    reset(arm)
+    if row.startswith("clip:"):
+        n, frac = row[5:].rsplit(":", 1)
+        set_clip(arm, n, float(frac))
+    else:
+        apply_pose(arm, row)
+
+metrics = {}
+found = {}
+rows = None
+# The first pass measures every pose in every file, so the cameras can fit them all.
+for gi_, glb in enumerate(glbs):
+    arm, me = load(glb)
+    if gi_ == 0:   # a clip the file does not hold under that name is left out, not a failed sheet
+        clips = [c for c in clips if c.rsplit(":", 1)[0] in bpy.data.actions]
+        rows = poses + ["clip:" + c for c in clips]
+    body = surface.Surface(arm, me) if rows_json else None
+    for r in rows:
+        pose_row(arm, r)
+        if body:
+            metrics[f"{labels[gi_]}/{r}"] = body.measure()
+        points = world_points(me)
+        for v in views:
+            grow_bounds(found, (r, v), points)
+
+if frame:
+    fx, fz, fs = map(float, frame.split(","))
+    for key in found:
+        back, right = view_axes(key[1])
+        across = right.x * fx
+        found[key] = (across - fs / 2, across + fs / 2, fz - fs / 2, fz + fs / 2)
+
+cells = {}
+strips = {}
+loaded = len(glbs) == 1   # one file is still in the scene from the first pass
+for gi_, glb in enumerate(glbs):
+    if not loaded:
+        arm, me = load(glb)
     if colors:
         c = np.load(colors)
         attr = me.data.color_attributes.new("dbg", "FLOAT_COLOR", "POINT")
         rgba = np.concatenate([c, np.ones((len(c), 1))], 1).astype(np.float32)
         attr.data.foreach_set("color", rgba.ravel())
         me.data.color_attributes.active_color = attr
-    cam, tob = setup_scene()
+    cam = setup_scene()
     if "--bones" in argv:
         mat = bpy.data.materials.new("bonecol"); mat.diffuse_color = (0.0, 1.0, 0.2, 1)
         for b in arm.data.bones:
@@ -235,44 +289,45 @@ for gi_, glb in enumerate(glbs):
             c.matrix_parent_inverse = Matrix.Identity(4)
             c.location = (0, -L / 2, 0)
             c.rotation_euler = (math.radians(90), 0, 0)
-        if colors:
-            sh = bpy.context.scene.display.shading
-    if gi_ == 0:   # a clip the file does not hold under that name is left out, not a failed sheet
-        clips = [c for c in clips if c.rsplit(":", 1)[0] in bpy.data.actions]
-    rows = poses + ["clip:" + c for c in clips]
     for r in rows:
-        reset(arm)
-        if r.startswith("clip:"):
-            n, frac = r[5:].rsplit(":", 1)
-            set_clip(arm, n, float(frac))
-        else:
-            apply_pose(arm, r)
-        if rows_json:
-            metrics[f"{labels[gi_]}/{r}"] = measure(me, edges, height)
+        pose_row(arm, r)
+        scale = fs if frame else row_scale(found, r)
         for v in views:
-            hp = (arm.matrix_world @ arm.pose.bones[P + "Hips"].head) if r.startswith("clip:") else None
-            place(cam, tob, v, f"{labels[gi_]}  {r.replace('clip:', '')}  {v}", hp)
+            place(cam, v, found[(r, v)], scale)
             fp = os.path.join(tmpdir, f"{gi_}_{r.replace(':', '_')}_{v}.png")
             bpy.context.scene.render.filepath = fp
             bpy.ops.render.render(write_still=True)
             cells[(gi_, r, v)] = fp
+    # The sheet's labels, in strips of their own so no cell carries text.
+    for o in bpy.data.objects:
+        if o.type == "MESH":
+            o.hide_render = True
+    for r in rows:
+        for v in views:
+            fp = os.path.join(tmpdir, f"label_{gi_}_{r.replace(':', '_')}_{v}.png")
+            label_strip(cam, f"{labels[gi_]}  {r.replace('clip:', '')}  {v}", fp)
+            strips[(gi_, r, v)] = fp
 
 if rows_json:
     import json
     json.dump(dict(labels=labels, views=views, rows=poses + ["clip:" + c for c in clips],
                    cells={f"{labels[g]}/{r}/{v}": os.path.abspath(p) for (g, r, v), p in cells.items()}, metrics=metrics), open(rows_json, "w"), indent=1)
-# assemble sheet: rows = poses, cols = glb x view
-rows = poses + ["clip:" + c for c in clips]
+# assemble sheet: rows = poses, cols = glb x view, a label strip over each cell
 cols = [(g, v) for g in range(len(glbs)) for v in views]
-sheet = np.ones((ch * len(rows), cw * len(cols), 4), np.float32)
+step = ch + LABEL_H
+sheet = np.ones((step * len(rows), cw * len(cols), 4), np.float32)
+
+def paste(path, y, x, w, h):
+    im = bpy.data.images.load(path)
+    sheet[y:y + h, x:x + w] = np.array(im.pixels[:], np.float32).reshape(h, w, 4)[::-1]
+    bpy.data.images.remove(im)
+
 for ri, r in enumerate(rows):
     for ci, (g, v) in enumerate(cols):
-        im = bpy.data.images.load(cells[(g, r, v)])
-        px = np.array(im.pixels[:], np.float32).reshape(ch, cw, 4)[::-1]
-        sheet[ri * ch:(ri + 1) * ch, ci * cw:(ci + 1) * cw] = px
-        bpy.data.images.remove(im)
+        paste(strips[(g, r, v)], ri * step, ci * cw, cw, LABEL_H)
+        paste(cells[(g, r, v)], ri * step + LABEL_H, ci * cw, cw, ch)
         if ci and cols[ci - 1][0] != g:
-            sheet[ri * ch:(ri + 1) * ch, ci * cw:ci * cw + 3, :3] = 0.1
+            sheet[ri * step:(ri + 1) * step, ci * cw:ci * cw + 3, :3] = 0.1
 img = bpy.data.images.new("sheet", sheet.shape[1], sheet.shape[0], alpha=True)
 img.pixels.foreach_set(sheet[::-1].ravel())
 img.filepath_raw = out
