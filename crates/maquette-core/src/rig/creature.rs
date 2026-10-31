@@ -6,8 +6,8 @@ use super::defects::{self, count, num};
 use super::humanoid::{arg, read_json, stat};
 use super::run::Run;
 use super::{
-    DefectKind, MAX_ROUNDS, RigChain, RigCreature, RigRow, RigSheet, RigState, RigStep, TEAR_MM,
-    chains, steps,
+    DefectKind, MAX_ROUNDS, RigChain, RigCreature, RigRow, RigSheet, RigState, RigStep, chains,
+    steps, verdict,
 };
 use crate::error::CoreResult;
 
@@ -47,28 +47,25 @@ fn sheet(run: &Run, tag: &str) -> CoreResult<RigSheet> {
             let rigid = r["rigid"].as_array().map_or(0, Vec::len);
             let stretch = r["stretch_mm"].as_f64().unwrap_or(0.0);
             let bend = r["rigid"][0]["err"].as_f64().unwrap_or(0.0) * 1000.0;
-            let note = if stretch >= TEAR_MM {
-                Some(format!("tears {stretch:.0} mm"))
-            } else if rigid > 0 {
-                Some(format!(
-                    "{rigid} piece{} bend {bend:.0} mm",
-                    if rigid == 1 { "" } else { "s" }
-                ))
-            } else {
-                None
-            };
-            RigRow {
+            let mut row = RigRow {
                 id: chain.clone(),
                 label: format!("{chain} bent"),
-                note,
-                defects: Vec::new(),
                 stretch_mm: stretch,
-                seam_gap_mm: r["seam_gap"].as_f64().unwrap_or(0.0) * 1000.0,
+                beyond_body_mm: r["beyond_body_mm"].as_f64(),
+                seam_gap_mm: r["seam_gap_mm"].as_f64().unwrap_or(0.0),
                 front: tile("pose"),
                 side: tile("rest"),
-                back: None,
-                xray: None,
-            }
+                ..RigRow::default()
+            };
+            row.note = verdict::problem(&row).or_else(|| {
+                (rigid > 0).then(|| {
+                    format!(
+                        "{rigid} piece{} bend {bend:.0} mm",
+                        if rigid == 1 { "" } else { "s" }
+                    )
+                })
+            });
+            row
         })
         .collect();
     Ok(RigSheet {
@@ -164,14 +161,8 @@ pub(super) fn test(run: &Run) -> CoreResult<()> {
             row.defects.push(1);
         }
     }
-    let worst = before.rows.iter().map(|r| r.stretch_mm).fold(0.0, f64::max);
-    let stats = vec![
-        stat(
-            "Worst stretch",
-            None,
-            format!("{worst:.0} mm"),
-            worst >= TEAR_MM,
-        ),
+    let mut stats = steps::before_sums(&before.rows);
+    stats.extend([
         stat(
             "Stray vertices",
             None,
@@ -192,7 +183,7 @@ pub(super) fn test(run: &Run) -> CoreResult<()> {
             false,
         ),
         stat("Chains", None, count(num(&table, "chains_to_test")), false),
-    ];
+    ]);
     run.update(|c| {
         c.before = Some(before);
         c.defects = found;
@@ -286,30 +277,23 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
     )?;
     after.file = arg(&both);
     let before = case.before.clone().unwrap_or_default();
-    let worst = defects::mark_after(&mut after, &before);
-    let worst_before = before.rows.iter().map(|r| r.stretch_mm).fold(0.0, f64::max);
-    let worst_after = after.rows.iter().map(|r| r.stretch_mm).fold(0.0, f64::max);
-    let stats_of = |rows: &[RigRow]| {
+    let worst = verdict::mark_after(&mut after, &before);
+    let sums = steps::sums(&before.rows, &after.rows);
+    let flagged = |rows: &[RigRow]| {
         rows.iter()
-            .filter(|r| {
-                r.note
-                    .as_deref()
-                    .is_some_and(|n| n.contains("bend") || n.contains("tears"))
-            })
-            .count() as u64
+            .filter(|r| verdict::problem(r).is_some())
+            .count()
     };
+    let flagged_before = before.rows.iter().filter(|r| r.note.is_some()).count();
     let stats = vec![
-        stat(
-            "Worst stretch",
-            Some(format!("{worst_before:.0} mm")),
-            format!("{worst_after:.0} mm"),
-            worst_after >= TEAR_MM,
-        ),
+        sums.stretch,
+        sums.past,
+        sums.gaps,
         stat(
             "Chains flagged",
-            Some(count(stats_of(&before.rows))),
-            count(worst.as_ref().map_or(0, |_| 1)),
-            worst.is_some(),
+            Some(count(flagged_before as u64)),
+            count(flagged(&after.rows) as u64),
+            flagged(&after.rows) > 0,
         ),
         stat(
             "New weights",

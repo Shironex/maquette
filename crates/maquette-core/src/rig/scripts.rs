@@ -26,6 +26,7 @@ pub const HUMANOID: &[(&str, &str)] = bundled!(
     "narrow.py",
     "rigmove.py",
     "verify.py",
+    "surface.py",
     "rendertest.py",
 );
 

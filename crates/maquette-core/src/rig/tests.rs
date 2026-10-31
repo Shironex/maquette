@@ -356,3 +356,116 @@ fn only_a_creature_with_a_draft_walks() {
             .is_err()
     );
 }
+
+fn pose(id: &str, numbers: (f64, f64, f64)) -> RigRow {
+    RigRow {
+        id: id.to_string(),
+        label: id.to_string(),
+        stretch_mm: numbers.0,
+        beyond_body_mm: Some(numbers.1),
+        seam_gap_mm: numbers.2,
+        ..RigRow::default()
+    }
+}
+
+#[test]
+fn a_row_flags_on_a_seam_or_on_stretch_past_the_body_only() {
+    let mut rows = vec![
+        pose("stride", (136.0, 40.0, 0.0)),
+        pose("twist", (24.0, 20.0, 112.0)),
+        pose("cast", (260.0, 95.0, 0.0)),
+        pose("head", (20.0, 10.0, 0.0)),
+    ];
+    verdict::mark_rows(&mut rows, &[]);
+    assert_eq!(rows[0].note, None, "a big raw stretch alone is the pose");
+    assert_eq!(rows[1].note.as_deref(), Some("seam opens 112 mm"));
+    assert_eq!(
+        rows[2].note.as_deref(),
+        Some("stretches 95 mm past the body")
+    );
+    assert_eq!(rows[3].note, None);
+}
+
+#[test]
+fn a_record_without_the_new_number_is_judged_by_its_raw_stretch() {
+    let mut row = pose("old", (120.0, 0.0, 0.0));
+    row.beyond_body_mm = None;
+    assert!(verdict::problem(&row).is_some());
+}
+
+#[test]
+fn an_after_row_says_both_numbers_and_their_direction() {
+    let before = RigSheet {
+        rows: vec![
+            pose("cast", (145.0, 96.0, 393.0)),
+            pose("stride", (136.0, 90.0, 54.0)),
+            pose("twist", (24.3, 20.0, 0.0)),
+        ],
+        ..RigSheet::default()
+    };
+    let mut after = RigSheet {
+        rows: vec![
+            pose("cast", (220.0, 41.0, 0.0)),
+            pose("stride", (98.0, 33.0, 0.0)),
+            pose("twist", (27.5, 21.0, 0.0)),
+        ],
+        ..RigSheet::default()
+    };
+    let worst = verdict::mark_after(&mut after, &before);
+    assert_eq!(worst, None, "raw stretch with closed seams is no tear left");
+    assert_eq!(
+        after.rows[0].note.as_deref(),
+        Some("stretch 145 to 220 mm, worse; seam 393 to 0 mm, better")
+    );
+    assert_eq!(
+        after.rows[1].change.as_ref().map(|c| c.stretch),
+        Some(RigTrend::Better)
+    );
+    assert_eq!(after.rows[2].note, None, "a 3 mm move is noise");
+}
+
+#[test]
+fn a_seam_still_open_after_the_fix_is_the_worst_row() {
+    let mut after = RigSheet {
+        rows: vec![pose("cast", (20.0, 10.0, 60.0))],
+        ..RigSheet::default()
+    };
+    let worst = verdict::mark_after(&mut after, &RigSheet::default());
+    assert_eq!(worst, Some(("cast".to_string(), 60.0)));
+}
+
+#[test]
+fn the_tiles_say_where_their_worst_number_is() {
+    let rows = vec![
+        pose("raise", (62.0, 40.0, 0.0)),
+        pose("hand", (244.0, 40.0, 0.0)),
+    ];
+    let (at, mm) = verdict::peak(&rows, |r| r.stretch_mm);
+    assert_eq!((at.as_str(), mm), ("hand", 244.0));
+    assert_eq!(
+        verdict::at_pose("Worst stretch", &at),
+        "Worst stretch, hand, every view"
+    );
+}
+
+#[test]
+fn a_defect_labels_its_bone_chips_and_its_total() {
+    let probe = json!({
+        "Left_hand_joint": 6, "Right_hand_joint": 6, "Left_arm_far": 3719,
+        "bones": {"mixamorig:LeftHand": 6, "mixamorig:LeftHandIndex1": 6, "mixamorig:RightHand": 6,
+                  "mixamorig:LeftArm": 1856, "mixamorig:LeftForeArm": 1702, "mixamorig:RightArm": 1620},
+        "places": {"arm": {"cloth": 1}, "hand": {"cloth": 1}},
+    });
+    let found = defects::humanoid(&probe, None, false);
+    assert!(
+        found[0].tags.contains(&"3,719 v in all".to_string()),
+        "{:?}",
+        found[0].tags
+    );
+    assert!(
+        found[1].tags.contains(&"12 v in all".to_string()),
+        "{:?}",
+        found[1].tags
+    );
+    assert!(found[0].detail.contains("under several bones"));
+}

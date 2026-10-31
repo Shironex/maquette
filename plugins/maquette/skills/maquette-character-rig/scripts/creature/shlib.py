@@ -32,6 +32,9 @@ def bounds(me):
     co = [me.matrix_world @ v.co for v in ev.data.vertices]
     lo = Vector([min(c[i] for c in co) for i in range(3)]); hi = Vector([max(c[i] for c in co) for i in range(3)])
     return lo, hi
+# The app's studio colour, so a tile sits in its frame without an edge; the outline keeps a dark model apart.
+BACKGROUND = (0.0307, 0.0284, 0.0242)
+OUTLINE = (0.42, 0.44, 0.48)
 VIEWS = {"front": (0, 0), "side": (90, 0), "back": (180, 0), "top": (0, 89), "persp": (35, 25)}
 def caption(cam, text, ortho, res):
     """Text parented to the camera, top-left of frame (works headless, no ffmpeg drawtext needed)."""
@@ -63,13 +66,45 @@ def shot(path, ctr, dist=2.0, yaw=0.0, pitch=0.0, res=(640, 560), color="TEXTURE
     caption(cam, text, ortho, res)
     sc.render.engine = "BLENDER_WORKBENCH"
     sh = sc.display.shading; sh.light = "STUDIO"; sh.color_type = color; sh.show_xray = xray
-    sh.show_object_outline = False
+    sh.show_object_outline = True; sh.object_outline_color = OUTLINE
+    sh.background_type = "VIEWPORT"; sh.background_color = BACKGROUND
+    sc.view_settings.view_transform = "Standard"
     sc.render.resolution_x, sc.render.resolution_y = res; sc.render.resolution_percentage = 100
     sc.render.film_transparent = False
     sc.world = sc.world or bpy.data.worlds.new("W")
     sc.render.filepath = path; bpy.ops.render.render(write_still=True)
-def montage(rows, path, gap=4, bg=0.12):
-    """Paste PNG tiles into one sheet: rows is a list of lists of PNG paths (None leaves a blank cell)."""
+def text_strip(text, width, height=30):
+    """A strip of text as (height, width, 4) pixels, rendered with everything but the text hidden."""
+    import numpy as np
+    sc = bpy.context.scene
+    hidden = [o for o in bpy.data.objects if o.type == "MESH" and not o.hide_render]
+    for o in hidden: o.hide_render = True
+    res = (sc.render.resolution_x, sc.render.resolution_y)
+    cam = bpy.data.objects.get("SHOTCAM")
+    cam.location = (1000, -5, 0); cam.rotation_euler = (math.radians(90), 0, 0)
+    cam.data.type = "ORTHO"; cam.data.ortho_scale = 1.0
+    cu = bpy.data.curves.get("STRIP") or bpy.data.curves.new("STRIP", "FONT")
+    t = bpy.data.objects.get("STRIP") or bpy.data.objects.new("STRIP", cu)
+    if t.name not in sc.collection.objects: sc.collection.objects.link(t)
+    cu.body = text; cu.size = 0.55 * height / width
+    t.hide_render = False
+    t.rotation_euler = (math.radians(90), 0, 0); t.location = (1000 - 0.48, 0, -0.2 * height / width)
+    caption_was = bpy.data.objects.get("CAPTION")
+    if caption_was: caption_was.hide_render = True
+    sc.render.resolution_x, sc.render.resolution_y = width, height
+    sc.render.filepath = os.path.join(os.path.dirname(sc.render.filepath), "_strip.png")
+    bpy.ops.render.render(write_still=True)
+    im = bpy.data.images.load(sc.render.filepath)
+    out = np.array(im.pixels[:], dtype=np.float32).reshape(height, width, 4)
+    bpy.data.images.remove(im); os.remove(sc.render.filepath)
+    t.hide_render = True
+    if caption_was: caption_was.hide_render = False
+    for o in hidden: o.hide_render = False
+    sc.render.resolution_x, sc.render.resolution_y = res
+    return out
+def montage(rows, path, gap=4, bg=0.12, labels=None):
+    """Paste PNG tiles into one sheet: rows is a list of lists of PNG paths (None leaves a blank cell).
+    labels maps a tile's path to the text written across its top, in the sheet only."""
     import numpy as np
     imgs = {}
     for r in rows:
@@ -78,6 +113,9 @@ def montage(rows, path, gap=4, bg=0.12):
                 im = bpy.data.images.load(os.path.abspath(p)); w, h = im.size
                 imgs[p] = np.array(im.pixels[:], dtype=np.float32).reshape(h, w, 4)
                 bpy.data.images.remove(im)
+                if labels and p in labels:
+                    strip = text_strip(labels[p], w)
+                    imgs[p][h - strip.shape[0]:] = strip   # Blender pixels start at the bottom
     cw = max(a.shape[1] for a in imgs.values()); chh = max(a.shape[0] for a in imgs.values())
     ncol = max(len(r) for r in rows); W = ncol * cw + (ncol + 1) * gap; H = len(rows) * chh + (len(rows) + 1) * gap
     out = np.full((H, W, 4), bg, dtype=np.float32); out[..., 3] = 1

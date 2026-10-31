@@ -1,7 +1,11 @@
 """rig_models.py: small rigged test models for the rig doctor, built from nothing in headless Blender.
 
 Usage: blender -b --factory-startup -P rig_models.py -- <which> out.glb
-  humanoid    separate limbs, a cape on the arm bones, hair on the finger bones, a walk clip
+  humanoid    separate limbs, a cape on the arm bones, hair on the finger bones, a walk and a fall clip
+  robed       the same, with a robe over the front: its side panels sit on the arm bones and split from the
+              middle at a UV seam, so raising the arms cracks it open, and a cast clip that does that
+  webbed      a clean rig, every vertex on its nearest bones, with cloth webs from each arm to the trunk:
+              raising the arms stretches them as it would any cloth, and no weight is wrong
   misplaced   the same, with the left arm chain 10 cm inside the body and arm translation keys
   one-island  the same body remeshed into one continuous shell
   facing-x    humanoid turned to face +X in the file
@@ -153,9 +157,17 @@ def humanoid(shift_left_arm=0.0):
         tube(bm, (k * 0.07, 0, 0.50), (k * 0.08, 0, 0.27), 0.05, 0.035)
         tube(bm, (k * 0.08, 0, 0.27), (k * 0.08, 0, 0.05), 0.033, 0.03)
         tube(bm, (k * 0.08, 0, 0.05), (k * 0.08, -0.13, 0.015), 0.03, 0.02, 8, 6)
-    panel(bm, ((-0.12, 0.095, 0.80), (0.12, 0.095, 0.80), (0.18, 0.13, 0.15), (-0.18, 0.13, 0.15)))   # the cape
-    for x in (-0.03, 0.03):
-        tube(bm, (x, 0.07, 0.97), (x * 1.5, 0.10, 0.74), 0.012, 0.006, 6, 14)                         # hair strands
+    if which != "webbed":
+        panel(bm, ((-0.12, 0.095, 0.80), (0.12, 0.095, 0.80), (0.18, 0.13, 0.15), (-0.18, 0.13, 0.15)))   # the cape
+        for x in (-0.03, 0.03):
+            tube(bm, (x, 0.07, 0.97), (x * 1.5, 0.10, 0.74), 0.012, 0.006, 6, 14)                         # hair strands
+    if which == "robed":   # the copies along each seam differ by less than a seam reads as apart
+        for k in (1, -1):
+            panel(bm, ((k * (0.12 + 1e-6), -0.11, 0.80), (k * 0.30, -0.11, 0.70), (k * 0.30, -0.11, 0.25), (k * (0.12 + 1e-6), -0.11, 0.25)), 4, 8)
+        panel(bm, ((-0.12, -0.11, 0.80), (0.12, -0.11, 0.80), (0.12, -0.11, 0.25), (-0.12, -0.11, 0.25)), 6, 8)
+    if which == "webbed":
+        for k in (1, -1):
+            panel(bm, ((k * 0.17, 0.0, 0.70), (k * 0.09, 0.0, 0.62), (k * 0.09, 0.0, 0.56), (k * 0.25, 0.0, 0.60)), 1, 1)
     hand_bones = {k: [n for n in segs if n.startswith(f"{P}{k}Hand")] for k in ("Left", "Right")}
     arm_bones = {k: [f"{P}{k}Arm", f"{P}{k}ForeArm"] for k in ("Left", "Right")}
     all_names = list(segs)
@@ -165,6 +177,12 @@ def humanoid(shift_left_arm=0.0):
         total = sum(iw.values())
         out_ = {n: w / total for n, w in iw.items()}
         kx = "Left" if co.x > 0 else "Right"
+        if which == "robed" and abs(co.y + 0.11) < 1e-4:
+            if abs(co.x) > 0.12 + 5e-7:
+                return {P + kx + "Arm": 0.7, P + "Spine2": 0.3}
+            return {P + "Spine2": 1.0}
+        if which == "webbed":
+            return out_
         if co.y > 0.09 and co.z < 0.81 and abs(co.x) < 0.2:          # the cape swings with the arms
             return {P + kx + "Arm": 0.55, P + kx + "ForeArm": 0.15, P + "Spine2": 0.3}
         if co.y > 0.055 and co.z > 0.72 and abs(co.x) < 0.06:         # hair on the fingers
@@ -180,6 +198,31 @@ def humanoid(shift_left_arm=0.0):
         for f, sign in ((1, 1), (15, -1), (30, 1)):
             pb.rotation_euler = (math.radians(deg * sign), 0, 0)
             pb.keyframe_insert("rotation_euler", frame=f)
+    # A fall: the body tips over and sinks under where it stood, as a death clip does, for the framing test.
+    fall = bpy.data.actions.new("fall")
+    arm.animation_data.action = fall
+    hips = arm.pose.bones[P + "Hips"]
+    hips.rotation_mode = "XYZ"
+    for f, deg, down in ((1, 0, 0.0), (30, 88, 0.72)):
+        hips.rotation_euler = (math.radians(deg), 0, 0)
+        hips.location = (0, down, 0)
+        hips.keyframe_insert("rotation_euler", frame=f)
+        hips.keyframe_insert("location", frame=f)
+    arm.animation_data.nla_tracks.new().strips.new("fall", 1, fall)
+    if which in ("robed", "webbed"):   # both arms up, as a cast does
+        cast = bpy.data.actions.new("cast")
+        arm.animation_data.action = cast
+        for name, sign in ((P + "LeftArm", 1), (P + "RightArm", -1)):
+            pb = arm.pose.bones[name]
+            pb.rotation_mode = "XYZ"
+            for f, deg in ((1, 0), (30, 90)):
+                pb.rotation_euler = (0, 0, math.radians(-deg * sign))
+                pb.keyframe_insert("rotation_euler", frame=f)
+            pb.rotation_euler = (0, 0, 0)
+        arm.animation_data.nla_tracks.new().strips.new("cast", 1, cast)
+    arm.animation_data.action = act
+    hips.rotation_euler = (0, 0, 0)
+    hips.location = (0, 0, 0)
     if s:
         pb = arm.pose.bones[P + "LeftArm"]
         for f, y in ((1, 0.0), (30, 0.002)):

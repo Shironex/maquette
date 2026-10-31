@@ -17,10 +17,22 @@ import {
 export function creatureCase(): RigRecord {
   const id = 'spiked-hound-v1';
   const plan: RowPlan[] = [
-    { id: 'leg_RR', note: 'tears 91 mm', defects: [1], stretch: 91 },
-    { id: 'tail', note: '12 pieces bend 18 mm', defects: [2], stretch: 22 },
-    { id: 'leg_FR', stretch: 8 },
-    { id: 'neck', stretch: 6 },
+    {
+      id: 'leg_RR',
+      note: 'stretches 91 mm past the body',
+      defects: [1],
+      before: [120, 91, 0],
+      after: [38, 22, 0],
+    },
+    {
+      id: 'tail',
+      note: '12 pieces bend 18 mm',
+      defects: [2],
+      before: [22, 15, 0],
+      after: [14, 9, 0],
+    },
+    { id: 'leg_FR', before: [8, 6, 0], after: [8, 6, 0] },
+    { id: 'neck', before: [6, 4, 0], after: [6, 4, 0] },
   ];
   const base = readCase(id, 'Spiked hound', null);
   const map = `${DIR}/${id}/map_persp.svg`;
@@ -142,6 +154,8 @@ export function creatureFixedCase(): RigRecord {
     source: running.source,
     model: running.model,
     creature: running.creature,
+    before: running.before,
+    after: running.after,
     jointMove: null,
   };
 }
@@ -179,7 +193,7 @@ export function stoppedCase(): RigRecord {
       kind: 'rounds',
       title: 'Stopped after two rounds: Marrow witch',
       detail:
-        'raise still stretches 74 mm on the after sheet. The doctor stops here instead of guessing a third time.',
+        'raise still pulls apart by 94 mm on the after sheet. The doctor stops here instead of guessing a third time.',
       row: 'raise',
     },
   };
@@ -189,7 +203,7 @@ export function stoppedCase(): RigRecord {
 export function oneIslandCase(): RigRecord {
   const tested = testedCase('rowan-shell-v1', 'Rowan shell');
   const plan = HUMAN_ROWS.map(r =>
-    r.id === 'hand' || r.id === 'left arm' ? { id: r.id, stretch: 9 } : r
+    r.id === 'hand' ? { id: r.id, before: [9, 7, 0] as const } : r
   );
   return {
     ...tested,

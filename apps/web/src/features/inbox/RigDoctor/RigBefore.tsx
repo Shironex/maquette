@@ -1,6 +1,8 @@
 import { SegmentedControl, cn, type SegmentedOption } from '@maquette/ui';
 import type { RigRecord, RigRow } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
+import { cellAspect, rowFlagged, rowNumbers } from '@/state/rig';
+import { Enlarges } from './RigEnlarge';
 import { useChoice } from './RigDoctor.hooks';
 import { DefectCard, Pin, RunProgress, Stats, Tile } from './parts';
 
@@ -14,31 +16,48 @@ const VIEWS: readonly SegmentedOption<View>[] = [
 ];
 
 function Cell({ row, view, record }: { row: RigRow; view: View; record: RigRecord }) {
-  const flagged = row.defects.length > 0;
+  const flagged = rowFlagged(row);
   const pick = { front: row.front, back: row.back, xray: row.xray, both: row.front }[view];
   const pins = row.defects.map(n => (
     <Pin key={n} number={n} amber={record.defects[n - 1]?.kind === 'needs-yes'} />
   ));
+  const pictures =
+    view === 'both'
+      ? [
+          { url: fileUrl(row.front), caption: 'Front' },
+          { url: fileUrl(row.side), caption: 'Side' },
+        ]
+      : [{ url: fileUrl(pick), caption: VIEWS.find(v => v.value === view)?.label ?? view }];
+  const tiles = pictures.map(p => (
+    <Tile
+      key={p.caption}
+      url={p.url}
+      alt={`${row.label}, ${p.caption.toLowerCase()}`}
+      flagged={flagged}
+      aspect={cellAspect(record)}
+    />
+  ));
+  const verdict = row.note ?? 'looks fine';
   return (
     <figure className="m-0 min-w-0">
-      <div className="relative">
-        {view === 'both' ? (
-          <div className="grid h-[132px] grid-cols-2 gap-px">
-            <Tile url={fileUrl(row.front)} alt={`${row.label}, front`} flagged={flagged} />
-            <Tile url={fileUrl(row.side)} alt={`${row.label}, side`} flagged={flagged} />
-          </div>
-        ) : (
-          <div className="h-[132px]">
-            <Tile url={fileUrl(pick)} alt={`${row.label}, ${view}`} flagged={flagged} />
-          </div>
-        )}
-        <span className="absolute top-1.5 left-1.5 flex gap-1">{pins}</span>
-      </div>
-      <figcaption className="mt-1 flex items-baseline justify-between gap-2 font-mono text-meta">
-        <span className="text-fg-dim">{row.label}</span>
-        <span className={cn('truncate', flagged ? 'text-clay-text' : 'text-fg-mute')}>
-          {row.note ?? 'looks fine'}
+      <Enlarges
+        title={row.label}
+        detail={`${verdict}. ${rowNumbers(row)}`}
+        pages={[{ label: view, pictures }]}
+      >
+        <div className="relative">
+          <div className={cn('grid gap-px', view === 'both' && 'grid-cols-2')}>{tiles}</div>
+          <span className="absolute top-1.5 left-1.5 flex gap-1">{pins}</span>
+        </div>
+      </Enlarges>
+      <figcaption className="mt-1 font-mono text-meta">
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="text-fg-dim">{row.label}</span>
+          <span className={cn('text-right', flagged ? 'text-clay-text' : 'text-fg-mute')}>
+            {verdict}
+          </span>
         </span>
+        <span className="block text-fg-mute">{rowNumbers(row)}</span>
       </figcaption>
     </figure>
   );
@@ -73,7 +92,16 @@ export function BeforeCentre({ record }: { record: RigRecord }) {
         />
       </div>
       <RunProgress record={record} />
-      <div className="grid flex-1 grid-cols-3 content-start gap-x-3 gap-y-3">{cells}</div>
+      <div
+        className={cn(
+          'grid flex-1 content-start gap-x-3 gap-y-3',
+          view === 'both'
+            ? 'grid-cols-[repeat(auto-fill,minmax(280px,1fr))]'
+            : 'grid-cols-[repeat(auto-fill,minmax(190px,1fr))]'
+        )}
+      >
+        {cells}
+      </div>
       {record.stats.length > 0 ? <Stats stats={record.stats} /> : null}
     </section>
   );
@@ -81,7 +109,7 @@ export function BeforeCentre({ record }: { record: RigRecord }) {
 
 /** The right column of the first board: what is wrong, by place. */
 export function DefectsAside({ record }: { record: RigRecord }) {
-  const fine = (record.before?.rows ?? []).filter(r => r.defects.length === 0).map(r => r.label);
+  const fine = (record.before?.rows ?? []).filter(r => !rowFlagged(r)).map(r => r.label);
   const cards = record.defects.map(d => (
     <DefectCard key={d.number} defect={d} on={d.number === 1} />
   ));
