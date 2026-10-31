@@ -23,4 +23,19 @@ describe('choosing clips', () => {
     expect(screen.getByText('Chosen · 1')).toBeInTheDocument();
     expect(screen.getByText('90 frames')).toBeInTheDocument();
   });
+
+  it('filters by tag and leaves out rigs a humanoid map cannot read', async () => {
+    await openMockLibrary('demo');
+    await useRetargetStore.getState().open({ project: 'frostveil', asset: 'elsheria' });
+    render(<ChooseStep />);
+    await screen.findByRole('checkbox', { name: 'Standing Dodge Left' });
+    const tags = screen.getByRole('group', { name: 'Tags' });
+    fireEvent.click(within(tags).getByRole('button', { name: /idle/ }));
+    expect(screen.queryByRole('checkbox', { name: 'Standing Dodge Left' })).toBeNull();
+    fireEvent.click(within(tags).getByRole('button', { name: /idle/ }));
+    expect(screen.getByRole('switch', { name: /Humanoid rigs only/ })).toBeChecked();
+    expect(screen.getByRole('region', { name: 'Rough preview' })).toHaveTextContent(
+      'Tick a clip to see it'
+    );
+  });
 });

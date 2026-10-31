@@ -1,7 +1,9 @@
 import { Suspense, lazy } from 'react';
-import { Button, Icon, KeyValueList, cn, type IconName } from '@maquette/ui';
+import { Button, Icon, IconButton, KeyValueList, cn, type IconName } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import type { ReviewStatus } from '@/ipc/client';
+import { slideText } from '@/state/retarget';
+import FrameStrip from '../FrameStrip';
 import { PinFeet } from '../PinFeet';
 import { useReviewStep } from './ReviewStep.hooks';
 
@@ -28,7 +30,7 @@ function Stage({
 }) {
   return (
     <figure className="flex min-w-0 flex-1 flex-col gap-1.5">
-      <div className="relative min-h-[260px] flex-1 overflow-hidden rounded-card border border-line bg-studio">
+      <div className="relative min-h-[200px] flex-1 overflow-hidden rounded-card border border-line bg-studio">
         {url ? (
           <CanvasBoundary resetKey={`${url}#${clip}`}>
             <Suspense fallback={null}>
@@ -54,13 +56,16 @@ function Stage({
   );
 }
 
+const ACCEPTED = { label: 'accepted as is', icon: 'check' as const, className: 'text-fg-dim' };
+
 /** Step four: the bake graded clip by clip, failed clips left out of the version. */
 export default function ReviewStep() {
   const step = useReviewStep();
   const { draft, selected, counts } = step;
   if (!draft || !counts) return null;
   const list = step.clips.map(c => {
-    const s = STATUS[c.status];
+    const taken = step.accepted.includes(c.clip);
+    const s = taken ? ACCEPTED : STATUS[c.status];
     const on = selected?.clip === c.clip;
     return (
       <li key={c.clip}>
@@ -96,6 +101,8 @@ export default function ReviewStep() {
       value: draft.review.atRest.length ? draft.review.atRest.join(', ') : 'none',
     },
   ];
+  const goodCount = counts.good + step.accepted.length;
+  const lookCount = counts.look - step.accepted.length;
   return (
     <>
       <aside
@@ -104,11 +111,14 @@ export default function ReviewStep() {
       >
         <p className="px-1 font-mono text-[11.5px] text-fg-mute">
           {draft.review.clips.length} clips · ran {Math.round(draft.review.seconds ?? 0)} s ·{' '}
-          {counts.good} good · {counts.look} to look at · {counts.failed} failed
+          {goodCount} good · {lookCount} to look at · {counts.failed} failed
         </p>
         <ul className="flex flex-col gap-0.5">{list}</ul>
       </aside>
-      <section aria-label="Side by side" className="flex min-w-0 flex-1 flex-col gap-3 p-4">
+      <section
+        aria-label="Side by side"
+        className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-4"
+      >
         {selected ? (
           <>
             <div className="flex items-center gap-2">
@@ -129,7 +139,7 @@ export default function ReviewStep() {
                 Open in Blender
               </Button>
             </div>
-            <div className="flex min-h-0 flex-1 gap-3">
+            <div className="flex min-h-[226px] flex-1 gap-3">
               <Stage
                 url={step.sourceUrl}
                 clip={0}
@@ -144,11 +154,47 @@ export default function ReviewStep() {
                 label={`On ${draft.name}, v${draft.fromVersion + 1} draft`}
               />
             </div>
+            <div className="flex items-center gap-2">
+              <IconButton
+                icon={step.playing ? 'pause' : 'play'}
+                label={step.playing ? 'Pause' : 'Play'}
+                size="sm"
+                onClick={step.togglePlay}
+              />
+              <div className="min-w-0 flex-1">
+                <FrameStrip
+                  label={`Frame of ${selected.name}`}
+                  frames={Math.max(selected.frames - 1, 1)}
+                  frame={step.frame}
+                  onSeek={step.seek}
+                  flagged={selected.slideFrames}
+                  flaggedLabel={
+                    selected.slideFrames
+                      ? `Slides ${slideText(selected.slideCm ?? 0)}, frames ${selected.slideFrames[0]} to ${selected.slideFrames[1]}`
+                      : undefined
+                  }
+                />
+              </div>
+              <span className="font-mono text-[11.5px] whitespace-nowrap text-fg-dim">
+                {step.frame} / {selected.frames} f
+              </span>
+            </div>
             <p className="text-meta text-fg-dim">{selected.note}.</p>
-            <PinFeet clip={selected} />
+            <div className="flex flex-wrap items-center gap-2">
+              <PinFeet clip={selected} />
+              {selected.status === 'look' && !step.accepted.includes(selected.clip) ? (
+                <Button
+                  size="sm"
+                  tooltip="Keeps the clip in the version as it is and goes to the next flagged one"
+                  onClick={() => step.accept(selected.clip)}
+                >
+                  Accept as is
+                </Button>
+              ) : null}
+            </div>
           </>
         ) : null}
-        <KeyValueList items={facts} />
+        <KeyValueList items={facts} columns={4} />
         {failed.length ? (
           <p className="text-meta text-fg-mute">
             {failed.join(', ')} {failed.length === 1 ? 'is' : 'are'} left out until fixed in the

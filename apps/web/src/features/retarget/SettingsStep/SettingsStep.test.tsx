@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useAnimationsStore } from '@/state/use-animations-store';
 import { useRetargetStore } from '@/state/use-retarget-store';
@@ -32,5 +32,15 @@ describe('the clip settings step', () => {
     expect(useRetargetStore.getState().sheet!.settings[0]!.name).toBe('dodge_left');
     fireEvent.click(screen.getByRole('switch', { name: /Pin the feet/ }));
     expect(useRetargetStore.getState().sheet!.settings[0]!.pinFeet).toBe(true);
+    // The trim handles move a frame at a time from the keyboard, and never cross.
+    const trimIn = screen.getByRole('slider', { name: 'Trim in' });
+    fireEvent.keyDown(trimIn, { key: 'ArrowRight' });
+    expect(useRetargetStore.getState().sheet!.settings[0]!.start).toBe(1);
+    expect(screen.getByText(/^in 1 · out /)).toBeInTheDocument();
+    act(() => {
+      useRetargetStore.getState().changeSetting('standing-dodge-left', { start: 5, end: 6 });
+    });
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Trim out' }), { key: 'ArrowLeft' });
+    expect(useRetargetStore.getState().sheet!.settings[0]!.end).toBe(6);
   });
 });

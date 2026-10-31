@@ -1,6 +1,8 @@
 import { Checkbox, Icon, SegmentedControl, Select, cn } from '@maquette/ui';
-import type { PairMatch } from '@/ipc/client';
+import type { BonePair, PairMatch } from '@/ipc/client';
 import { needsLook } from '@/state/retarget';
+import OnlyBones from '../OnlyBones';
+import RestOverlay from '../RestOverlay';
 import { useMapStep, type MapFilter } from './MapStep.hooks';
 
 const MATCH: Record<PairMatch, { label: string; className: string }> = {
@@ -22,8 +24,8 @@ export default function MapStep() {
   if (!step.sheet) return null;
   const { plan, counts } = step;
   const name = plan?.name ?? 'Model';
-  const options = [
-    { value: '', label: 'None, stays at rest' },
+  const options = (row: BonePair) => [
+    { value: '', label: row.target ? 'None, stays at rest' : 'Pick a bone' },
     ...step.joints.map(j => ({ value: j, label: j })),
   ];
   const rows = step.rows.map(row => {
@@ -41,10 +43,13 @@ export default function MapStep() {
           <Select
             aria-label={`${name} bone for ${row.bone}`}
             size="sm"
-            options={options}
+            options={options(row)}
             value={row.target ?? ''}
             onChange={target => step.pick(row.bone, target)}
           />
+        </td>
+        <td className="py-1 pr-2 text-right font-mono text-[12px] text-fg-dim">
+          {step.turnOf(row.bone)}
         </td>
         <td className="py-1">
           <span
@@ -86,25 +91,35 @@ export default function MapStep() {
                 <th className="py-2 font-normal">Humanoid bone</th>
                 <th className="py-2 font-normal">Clip bone</th>
                 <th className="py-2 font-normal">{name} bone</th>
+                <th className="py-2 pr-2 text-right font-normal">Rest pose</th>
                 <th className="py-2 font-normal">Match</th>
               </tr>
             </thead>
             <tbody>{rows}</tbody>
           </table>
+          {step.unmapped ? (
+            <p className="mt-2 rounded-control bg-amber-soft/50 p-2 text-meta text-fg-dim">
+              {step.unmapped}
+            </p>
+          ) : null}
+          <div className="mt-3">
+            <OnlyBones name={name} />
+          </div>
         </div>
       </section>
       <aside className="flex w-[300px] flex-none flex-col gap-3 overflow-y-auto border-l border-line p-4">
+        {plan?.rest ? (
+          <RestOverlay rest={plan.rest} clipLabel={step.source} modelLabel={name} />
+        ) : null}
         <p className="text-caption tracking-[0.04em] text-fg-mute uppercase">How it bakes</p>
         <p className="text-meta text-fg-dim">
           Before baking, {name}&apos;s limbs are turned to the clip&apos;s rest pose so both rigs
           start matched. Each frame then takes the world rotation of every clip bone against its
           rest and applies that change to the mapped bone. The hips move scaled by the hips height.
         </p>
-        <p className="text-meta text-fg-dim">
-          {only.length
-            ? `Only on ${name} · ${only.length}: ${only.slice(0, 4).join(', ')}${only.length > 4 ? ' and more' : ''}. They follow their parents.`
-            : `Every ${name} bone has a humanoid bone.`}
-        </p>
+        {only.length ? null : (
+          <p className="text-meta text-fg-dim">Every {name} bone has a humanoid bone.</p>
+        )}
         <p className="text-meta text-fg-mute">Fingers and unmapped bones stay at rest.</p>
         <Checkbox
           checked={step.sheet.saveMap}
