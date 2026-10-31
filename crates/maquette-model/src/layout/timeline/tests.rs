@@ -119,3 +119,64 @@ fn removing_a_stop_drops_its_keys_and_a_patch_sets_or_removes_a_track() {
     .expect("patch");
     assert!(apply(&spread(), &unknown, &known).is_err());
 }
+
+#[test]
+fn the_style_and_text_tracks_keep_to_the_stops() {
+    let dir = tempfile::tempdir().expect("dir");
+    let base = SceneLayout {
+        stops: vec![stop("porch"), stop("canopy")],
+        ..SceneLayout::default()
+    };
+    let patch: LayoutPatch = serde_json::from_value(json!({
+        "styleTrack": { "look": "blueprint", "easing": "linear",
+            "keys": [{ "stop": "porch", "amount": 0 }, { "stop": "canopy", "amount": 1 }] },
+        "textTrack": { "easing": "linear",
+            "keys": [{ "stop": "porch", "amount": 1 }, { "stop": "canopy", "amount": 0 }] }
+    }))
+    .expect("patch");
+    let next = apply(&base, &patch, &[]).expect("applies");
+    save(dir.path(), &next).expect("saves");
+    let back = load(dir.path()).expect("loads");
+    assert_eq!(
+        back.timeline.style.as_ref().map(|t| t.look),
+        Some(TrackLook::Blueprint)
+    );
+    assert_eq!(back.timeline.text.as_ref().map(|t| t.keys.len()), Some(2));
+
+    // A removed stop takes its keys along, and null removes a track.
+    let gone: LayoutPatch = serde_json::from_value(json!({
+        "stops": [{ "id": "canopy", "remove": true }], "textTrack": null
+    }))
+    .expect("patch");
+    let after = apply(&back, &gone, &[]).expect("applies");
+    assert_eq!(after.timeline.style.as_ref().map(|t| t.keys.len()), Some(1));
+    assert!(after.timeline.text.is_none());
+
+    // A key at a stop that is not there is refused.
+    let bad = SceneLayout {
+        timeline: Timeline {
+            text: Some(PathTrack {
+                easing: Easing::Linear,
+                keys: vec![PathKey {
+                    stop: "nowhere".into(),
+                    amount: 1.0,
+                }],
+            }),
+            ..Timeline::default()
+        },
+        ..base
+    };
+    assert!(save(dir.path(), &bad).is_err());
+}
+
+#[test]
+fn a_layout_without_the_new_tracks_still_loads() {
+    let dir = tempfile::tempdir().expect("dir");
+    fs::write(
+        path(dir.path()),
+        r#"{ "version": 1, "timeline": { "explode": {} } }"#,
+    )
+    .expect("write");
+    let layout = load(dir.path()).expect("loads");
+    assert!(layout.timeline.style.is_none() && layout.timeline.text.is_none());
+}

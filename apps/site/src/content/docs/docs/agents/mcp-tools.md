@@ -533,6 +533,8 @@ Changes a project's scene layout, as the Layout editor does. Only what you name 
 | `explode`   | object[]       | no       | `{ asset, distance?, easing?, keys, remove? }`. Sets an asset's explode track whole.                              |
 | `paths`     | object[]       | no       | `{ id?, name?, curve?, points?, start?, end?, width?, color?, glow?, remove? }`. Adds, changes or removes a path. |
 | `energize`  | object[]       | no       | `{ path, easing?, keys, remove? }`. Sets a path's energize track whole.                                           |
+| `style`     | object or null | no       | `{ look?, easing?, keys }`. Sets the page's render style track whole, `null` removes it.                          |
+| `text`      | object or null | no       | `{ easing?, keys }`. Sets the page's hero text track whole, `null` removes it.                                    |
 
 ```json
 { "project": "moon-island", "models": [{ "asset": "bench", "rotation": [0, 90, 0] }] }

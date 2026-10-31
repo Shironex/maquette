@@ -1,6 +1,6 @@
 import { fileUrl } from '@/ipc/files';
 import { useNow } from '@/lib/useNow';
-import { formatAgo } from '@/lib/format';
+import { formatAgo, formatBytes } from '@/lib/format';
 import { frameSource, nearestStop, siteName, type DeviceId } from '@/state/page';
 import { compareRows, sceneNumbers } from '@/state/page-numbers';
 import { leadReading, usePageStore, type Reading } from '@/state/use-page-store';
@@ -22,6 +22,7 @@ export function useCompareBoard(): { columns: CompareColumnView[]; device: Devic
   const readings = usePageStore(s => s.readings);
   const target = usePageStore(s => s.target);
   const latest = usePipelineStore(s => s.view?.runs[0]);
+  const firstView = usePipelineStore(s => s.view?.firstView.bytes ?? null);
   const now = useNow(30_000);
   const ship = models ? sceneNumbers(models, 'site') : null;
   const run = models ? sceneNumbers(models, 'shipped') : null;
@@ -98,6 +99,11 @@ export function useCompareBoard(): { columns: CompareColumnView[]; device: Devic
       rows: [
         { label: 'Shows when', value: 'no WebGL' },
         { label: 'Stop', value: cameraStops?.[stopIndex]?.name ?? 'none' },
+        { label: 'Alt text', value: cameraStops?.[stopIndex]?.name.trim() ? 'set' : 'not set' },
+        {
+          label: 'Swaps to 3D',
+          value: firstView === null ? 'with the page' : `at ${formatBytes(firstView)}`,
+        },
         { label: '3D download', value: 'none' },
         readings.poster?.stats
           ? frameRow(readings.poster)

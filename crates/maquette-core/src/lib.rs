@@ -233,6 +233,8 @@ mod tests {
             "ScenePath",
             "PathCurve",
             "PathTrack",
+            "StyleTrack",
+            "TrackLook",
             "PathKey",
             "Clip",
             "Rig",

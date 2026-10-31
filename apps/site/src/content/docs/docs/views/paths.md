@@ -13,6 +13,7 @@ New path adds a path one metre long across the middle of the scene. A path is a 
 
 - **Select** (`V`): click a point to pick it and drag the gizmo to move it, or click a tube to pick its path.
 - **Add points** (`A`): each click on a model or the ground adds a point after the picked one, or at the end.
+- **Draw on surfaces** (`D`): a drag that starts on a model lays a run of points along it, after the picked one or at the end, lifted by the tube's radius so the tube lies on the surface. The drag is thinned to the points that hold its shape, up to the path's limit of 128. A click on a model adds one point, and a drag that starts off the models still orbits.
 - `Delete` removes the picked point; a path keeps at least two. `F` frames the scene, `Escape` lets go of the point, and the magnet snaps to 5 cm.
 
 The points table under the view takes exact numbers, shows how far along the path each point is, and adds a point at the end. The side panel sets the name, colour, glow colour and width. Up to 32 paths of 2 to 128 points each.
@@ -31,4 +32,4 @@ Every edit saves into `layout.json` half a second later, the paths under `paths`
 
 ## Not built yet
 
-Draw on surfaces, end caps, a glow strength, and the energize speed and direction show in the editor as not built yet. The fill always runs from the first point to the last, paced by the camera stops.
+End caps, a glow strength, and the energize speed and direction show in the editor as not built yet. The fill always runs from the first point to the last, paced by the camera stops.

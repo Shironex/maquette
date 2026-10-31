@@ -24,13 +24,16 @@
 //! run the other way: 1 first, then 0.
 //!
 //! `paths` holds the energize tracks of the layout's paths, keyed by path
-//! id, keyed and eased the same way (see [`super::paths`]).
+//! id, keyed and eased the same way (see [`super::paths`]). `style` fades
+//! the scene into a look as the page scrolls (0 as built, 1 the whole look)
+//! and `text` fades the page's hero copy (0 hidden, 1 shown); each is one
+//! track for the page, keyed and eased the same way.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
-use super::paths::PathTrack;
+use super::paths::{PathKey, PathTrack};
 use super::{Easing, MAX_STOPS, SceneLayout, invalid};
 use crate::error::CoreResult;
 
@@ -69,6 +72,39 @@ impl Default for ExplodeTrack {
     }
 }
 
+/// A look the page can fade the scene into as it scrolls. The page draws it
+/// live, so the pictures only Blender renders (a turntable, a contact sheet)
+/// are not among them.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum TrackLook {
+    #[default]
+    Blueprint,
+    Toon,
+    Clay,
+}
+
+/// How far the scene is in a look at each camera stop.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct StyleTrack {
+    pub look: TrackLook,
+    /// How the amount eases from one key to the next.
+    pub easing: Easing,
+    /// 0 as built, 1 the whole look. At most one per stop, in any order.
+    pub keys: Vec<PathKey>,
+}
+
+impl Default for StyleTrack {
+    fn default() -> Self {
+        Self {
+            look: TrackLook::default(),
+            easing: Easing::Linear,
+            keys: Vec::new(),
+        }
+    }
+}
+
 /// The Timeline view's own tracks.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -77,6 +113,10 @@ pub struct Timeline {
     pub explode: BTreeMap<String, ExplodeTrack>,
     /// Path id to how much of it is lit along the scroll.
     pub paths: BTreeMap<String, PathTrack>,
+    /// The scene's look along the scroll.
+    pub style: Option<StyleTrack>,
+    /// How much of the page's hero copy shows along the scroll: 0 hidden, 1 shown.
+    pub text: Option<PathTrack>,
 }
 
 /// Checks a track's keys: at stops that are there, one per stop, amounts
@@ -130,6 +170,14 @@ pub(super) fn validate(layout: &SceneLayout) -> CoreResult<()> {
         }
         check_track(asset, track, &stops)?;
     }
+    if let Some(track) = &layout.timeline.style {
+        let keys = track.keys.iter().map(|k| (k.stop.as_str(), k.amount));
+        check_keys("The render style track", keys, &stops)?;
+    }
+    if let Some(track) = &layout.timeline.text {
+        let keys = track.keys.iter().map(|k| (k.stop.as_str(), k.amount));
+        check_keys("The hero text track", keys, &stops)?;
+    }
     Ok(())
 }
 
@@ -142,6 +190,13 @@ pub fn prune_stops(layout: &mut SceneLayout) -> usize {
         let before = track.keys.len();
         track.keys.retain(|k| stops.contains(&k.stop));
         dropped += before - track.keys.len();
+    }
+    let style = layout.timeline.style.as_mut().map(|t| &mut t.keys);
+    let text = layout.timeline.text.as_mut().map(|t| &mut t.keys);
+    for keys in style.into_iter().chain(text) {
+        let before = keys.len();
+        keys.retain(|k| stops.contains(&k.stop));
+        dropped += before - keys.len();
     }
     dropped
 }

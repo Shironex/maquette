@@ -84,6 +84,7 @@ See [Lab](/docs/views/lab/).
 | ----------------------- | ---------------------------------------------------- |
 | `V`                     | Select tool.                                         |
 | `A`                     | Add points tool. Only while a path is picked.        |
+| `D`                     | Draw on surfaces tool. Only while a path is picked.  |
 | `Delete` or `Backspace` | Removes the picked point.                            |
 | `F`                     | Frames the scene.                                    |
 | `Mod` `S`               | Saves the paths.                                     |

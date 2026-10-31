@@ -7,6 +7,7 @@ import { frameCamera } from '@/features/viewer/studio';
 import { useHolders } from '../../LayoutCanvas/Editor/Editor.hooks';
 import type { PathsRig, PathsSceneProps } from './PathsScene.types';
 import { usePathClicks } from './use-path-clicks';
+import { usePathStroke } from './use-path-stroke';
 import { usePathTubes } from './use-path-tubes';
 import { usePointGizmo } from './use-point-gizmo';
 
@@ -69,4 +70,5 @@ export function usePathsScene(props: PathsSceneProps): void {
   usePointGizmo(rig, props);
   usePathsCamera(rig, props.frame);
   usePathClicks(rig);
+  usePathStroke(rig);
 }

@@ -263,7 +263,8 @@ whole app, so a build an agent starts and one from the Board queue behind each o
 or its removal; the Timeline's stop and scroll changes go through the `states` edits.
 `tools/paths.rs` holds the `paths` edits (add, change or remove a path, anchor its ends) and the
 `energize` edits (a path's whole energize track or its removal), which `projects.rs` turns into the
-layout patch's `paths` and `pathTracks`.
+layout patch's `paths` and `pathTracks`, and the page's render style and hero text
+tracks as `styleTrack` and `textTrack`.
 
 `tools/inbox.rs` holds `list_inbox`, `get_inbox_checks`, `accept_inbox_model`, `discard_inbox_model` and
 `render_thumbnail`; `tools/inbox_triage.rs` holds `accept_inbox_models` and `restore_inbox_model`. A discard

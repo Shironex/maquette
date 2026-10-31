@@ -3,7 +3,9 @@
  * model with the parts the Rust reader reported for its bundled file, the
  * object states and the explode tracks.
  *
- * `?timeline=` in the URL (it brings the `?motion=demo` models along):
+ * `?timeline=` in the URL (`looks` is `demo` with a render style track, a
+ * hero text track and a range that runs off screen; it brings the
+ * `?motion=demo` models along):
  * - `demo`: the switch cabinet opens its door at Veil gate, turns its
  *   breakers on from 55 to 70 percent and spreads apart into Pullback.
  * - `empty`: like demo, but Frostveil has no camera stops yet.
@@ -42,6 +44,28 @@ const DEMO_TIMELINE: Timeline = {
     },
   },
   paths: {},
+  style: null,
+  text: null,
+};
+
+/** `?timeline=looks`: the demo with a blueprint fade and the hero copy fading out. */
+const LOOKS_TIMELINE: Timeline = {
+  ...DEMO_TIMELINE,
+  style: {
+    look: 'blueprint',
+    easing: 'linear',
+    keys: [
+      { stop: 'crystals', amount: 0 },
+      { stop: 'keystone', amount: 1 },
+    ],
+  },
+  text: {
+    easing: 'linear',
+    keys: [
+      { stop: 'arrival', amount: 1 },
+      { stop: 'veil-gate', amount: 0 },
+    ],
+  },
 };
 
 export function createTimelineHandlers(deps: { layout: FakeLayout; timeline: string | null }) {
@@ -51,6 +75,18 @@ export function createTimelineHandlers(deps: { layout: FakeLayout; timeline: str
     deps.layout.setTimeline('frostveil', {}, DEMO_TIMELINE);
   }
   if (deps.timeline === 'empty') deps.layout.clearStops('frostveil');
+  if (deps.timeline === 'looks') {
+    deps.layout.setTimeline('frostveil', {}, LOOKS_TIMELINE);
+    // The camera leaves the cabinet at Crystals, in the middle of its breakers range.
+    const cabinet = demoCabinet();
+    cabinet.triggers = cabinet.triggers.map(t =>
+      t.kind === 'scroll' ? { ...t, start: 45, end: 70 } : t
+    );
+    deps.layout.setMotion('frostveil', { 'switch-cabinet': cabinet }, {});
+    deps.layout.setStopModels('frostveil', 'veil-gate', ['switch-cabinet']);
+    deps.layout.setStopModels('frostveil', 'crystals', []);
+    deps.layout.placeAtStop('frostveil', 'switch-cabinet', 'crystals');
+  }
 
   function view(id: string): TimelineView {
     const { layout, models } = deps.layout.view(id);

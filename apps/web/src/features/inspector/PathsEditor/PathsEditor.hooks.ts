@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fromLayout } from '@/state/layout';
+import { addStroke } from '@/state/path-stroke';
 import type { Vec3 } from '@/state/inspector';
 import {
   addPath,
@@ -66,10 +67,11 @@ export function usePathsEditor(project: string) {
       const key = e.key.toLowerCase();
       if (key === 'v') s.setTool('select');
       else if (key === 'a' && s.selection) s.setTool('add');
+      else if (key === 'd' && s.selection) s.setTool('surface');
       else if (key === 'f') setFrame(n => n + 1);
       else if (key === 'delete' || key === 'backspace') removeSelectedPoint();
       else if (key === 'escape') {
-        if (s.tool === 'add') s.setTool('select');
+        if (s.tool !== 'select') s.setTool('select');
         else if (s.selection?.point !== null && s.selection) {
           s.select({ path: s.selection.path, point: null });
         }
@@ -87,6 +89,13 @@ export function usePathsEditor(project: string) {
         const sel = s.selection;
         if (!sel) return;
         const { draft, index } = addPoint(s.draft, sel.path, point, sel.point);
+        if (index >= 0) s.edit(() => draft, { path: sel.path, point: index });
+      },
+      onStroke: stroke => {
+        const s = usePathsStore.getState();
+        const sel = s.selection;
+        if (!sel) return;
+        const { draft, index } = addStroke(s.draft, sel.path, stroke, sel.point, s.snap);
         if (index >= 0) s.edit(() => draft, { path: sel.path, point: index });
       },
       onDragPoint: (index, point) => {

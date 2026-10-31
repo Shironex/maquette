@@ -95,7 +95,7 @@ function frostveilLayout(): SceneLayout {
     desk: null,
     states: {},
     clips: {},
-    timeline: { explode: {}, paths: {} },
+    timeline: { explode: {}, paths: {}, style: null, text: null },
     paths: [],
   };
 }
@@ -215,7 +215,7 @@ export function createFakeLayout(deps: {
         desk: null,
         states: {},
         clips: {},
-        timeline: { explode: {}, paths: {} },
+        timeline: { explode: {}, paths: {}, style: null, text: null },
         paths: [],
       },
       models: models(id),
@@ -240,7 +240,7 @@ export function createFakeLayout(deps: {
       ...layout,
       states: kept?.states ?? {},
       clips: kept?.clips ?? {},
-      timeline: kept?.timeline ?? { explode: {}, paths: {} },
+      timeline: kept?.timeline ?? { explode: {}, paths: {}, style: null, text: null },
       paths: follow(kept?.paths ?? [], kept?.models ?? {}, layout.models),
     });
     return view(id);
@@ -312,5 +312,31 @@ export function createFakeLayout(deps: {
     layouts.set(id, { ...current, stops: [] });
   }
 
-  return { view, save, firstView, motion, setMotion, setTimeline, setPaths, clearStops };
+  /** `?timeline=looks`: stands a model where a stop looks. */
+  function placeAtStop(id: string, asset: string, stop: string): void {
+    const current = layouts.get(id) ?? view(id).layout;
+    const position = current.stops.find(s => s.id === stop)?.target ?? [0, 0, 0];
+    const models = { ...current.models, [asset]: { position, rotation: [0, 0, 0], scale: 1 } };
+    layouts.set(id, { ...current, models } as SceneLayout);
+  }
+
+  /** `?timeline=looks`: the assets a stop sees, set by hand. */
+  function setStopModels(id: string, stop: string, assets: string[]): void {
+    const current = layouts.get(id) ?? view(id).layout;
+    const stops = current.stops.map(s => (s.id === stop ? { ...s, models: assets } : s));
+    layouts.set(id, { ...current, stops });
+  }
+
+  return {
+    view,
+    save,
+    firstView,
+    motion,
+    setMotion,
+    setTimeline,
+    setPaths,
+    clearStops,
+    placeAtStop,
+    setStopModels,
+  };
 }

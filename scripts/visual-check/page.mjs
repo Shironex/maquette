@@ -1,6 +1,6 @@
 /**
  * The Page view's shots for scripts/visual-check.mjs (ONLY=page): the site
- * dev page running at a stop, its header's server state and Stop, stopped
+ * dev page with its hotspots, running at a stop, its header's server state and Stop, stopped
  * from there, starting, failed, a project without a site
  * repo, a phone, the Devices tab, a page concept, and the compare board
  * (ship against this run on desktop, then with the poster on a phone),
@@ -21,6 +21,14 @@ async function answered(page) {
 }
 
 export async function pageShots({ open, shot }) {
+  const hot = await open(`${RUNNING}&timeline=looks`, '#/page');
+  await answered(hot);
+  await hot.getByRole('button', { name: 'Hotspots' }).click();
+  await hot.getByRole('button', { name: /^Jump to stop 3, / }).click();
+  await hot.waitForTimeout(1200);
+  await shot(hot, 'page-hotspots');
+  await hot.context().close();
+
   const running = await open(RUNNING, '#/page');
   await answered(running);
   await running.getByRole('button', { name: /^Jump to stop 2, / }).click();
@@ -67,7 +75,7 @@ export async function pageShots({ open, shot }) {
 
   await running.getByRole('tab', { name: 'Preview' }).click();
   await running.getByText('HTML concept', { exact: true }).click();
-  await running.getByText('Concept', { exact: true }).waitFor();
+  await running.getByText('Mock', { exact: true }).waitFor();
   await running.waitForTimeout(400);
   await shot(running, 'page-concept');
   await running.context().close();

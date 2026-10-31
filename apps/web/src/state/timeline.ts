@@ -27,12 +27,16 @@ export interface TimelineDraft {
   timeline: Timeline;
 }
 
-export const EMPTY_TIMELINE: TimelineDraft = { triggers: {}, timeline: { explode: {}, paths: {} } };
+export const EMPTY_TIMELINE: TimelineDraft = {
+  triggers: {},
+  timeline: { explode: {}, paths: {}, style: null, text: null },
+};
 
 export type TimelineSelection =
   | { kind: 'state'; asset: string; index: number }
   | { kind: 'explode'; asset: string; stop: string }
   | { kind: 'path'; path: string; stop: string }
+  | { kind: 'page'; lane: 'style' | 'text'; stop: string }
   | null;
 
 export type TimelineUnits = 'percent' | 'pixels' | 'stops';
@@ -207,7 +211,7 @@ export interface ExplodeSpan {
 }
 
 /** Keys in stop order, with the moves between them labelled `up` or `down`. */
-function keyMarks(
+export function keyMarks(
   list: readonly { stop: string; amount: number | null }[],
   stops: readonly LayoutStop[],
   up: string,

@@ -55,7 +55,8 @@ export const useTimelineStore = create<TimelineStore>((set, get) => {
     const gone =
       (s?.kind === 'state' && !draft.triggers[s.asset]?.[s.index]) ||
       (s?.kind === 'explode' && !draft.timeline.explode[s.asset]) ||
-      (s?.kind === 'path' && !draft.timeline.paths[s.path]);
+      (s?.kind === 'path' && !draft.timeline.paths[s.path]) ||
+      (s?.kind === 'page' && !draft.timeline[s.lane]);
     if (gone) set({ selection: null });
   };
 

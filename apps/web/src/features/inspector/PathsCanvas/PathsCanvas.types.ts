@@ -8,6 +8,8 @@ export interface PathsCanvasHandlers {
   onSelect: (selection: PathSelection) => void;
   /** Add points: where a click landed on a model or the ground. */
   onAddPoint: (point: Vec3) => void;
+  /** Draw on surfaces: where a drag went over the models, in order. */
+  onStroke: (stroke: Vec3[]) => void;
   /** A point moves under the gizmo. */
   onDragPoint: (index: number, point: Vec3) => void;
   /** The gizmo let go of a point. */

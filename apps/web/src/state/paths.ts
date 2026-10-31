@@ -28,8 +28,11 @@ export const EMPTY_PATHS: PathsDraft = { paths: [], tracks: {} };
 /** The path being edited and, when one is picked, its point. */
 export type PathSelection = { path: string; point: number | null } | null;
 
-/** Select picks and drags points; Add points puts one where the viewport is clicked. */
-export type PathTool = 'select' | 'add';
+/**
+ * Select picks and drags points; Add points puts one where the viewport is
+ * clicked; Draw on surfaces lays a run of points along a drag over a model.
+ */
+export type PathTool = 'select' | 'add' | 'surface';
 
 export type PathEnd = 'start' | 'end';
 

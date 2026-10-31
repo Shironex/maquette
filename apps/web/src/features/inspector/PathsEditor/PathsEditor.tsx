@@ -19,17 +19,15 @@ import { newPath, usePathsEditor } from './PathsEditor.hooks';
 
 const PathsCanvas = lazy(() => import('../PathsCanvas'));
 
-type ToolOption = PathTool | 'surface';
-
-const TOOLS: SegmentedOption<ToolOption>[] = [
+const TOOLS: SegmentedOption<PathTool>[] = [
   { value: 'select', label: 'Select', icon: 'cursor-click', shortcut: 'V' },
   { value: 'add', label: 'Add points', icon: 'plus', shortcut: 'A' },
   {
     value: 'surface',
     label: 'Draw on surfaces',
     icon: 'note-pencil',
-    hint: 'Not built yet. Add points already lands each click on a model or the ground.',
-    disabled: true,
+    shortcut: 'D',
+    hint: 'Drag over a model to lay points along it. A drag off a model still orbits.',
   },
 ];
 
@@ -75,7 +73,9 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
   const hint =
     store.tool === 'add' && path
       ? 'Click a model or the ground to add a point · drag to orbit'
-      : 'Click a point or a path · drag a point to move it · F frames all';
+      : store.tool === 'surface' && path
+        ? 'Drag over a model to draw on it · click it for one point · drag off it to orbit'
+        : 'Click a point or a path · drag a point to move it · F frames all';
   const loadingModels = !ready && !loadError && view.models.length > 0;
   const status = store.saving ? 'Saving' : store.saveError ? 'Not saved' : 'Saved to layout.json';
 
@@ -87,18 +87,16 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
           <h1 className="text-panel-title">Scene paths</h1>
           <HelpMark
             label="About the paths keys"
-            tip="V selects and A adds points. A click with Add points puts a point on the model or the ground under it, after the picked point. Delete removes the picked point, F frames the scene and the magnet snaps to 5 cm."
+            tip="V selects, A adds points and D draws on surfaces. A click with Add points puts a point on the model or the ground under it, after the picked point; a drag with Draw on surfaces lays a run of points along the model. Delete removes the picked point, F frames the scene and the magnet snaps to 5 cm."
             side="bottom"
           />
           <span className="text-meta text-fg-mute">{status}</span>
           <div className="ml-auto flex items-center gap-1.5">
-            <SegmentedControl<ToolOption>
+            <SegmentedControl<PathTool>
               label="Tool"
               options={TOOLS}
               value={store.tool}
-              onChange={t => {
-                if (t !== 'surface') store.setTool(t);
-              }}
+              onChange={store.setTool}
             />
             <IconButton
               icon="magnet"

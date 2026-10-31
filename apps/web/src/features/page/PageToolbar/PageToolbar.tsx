@@ -97,6 +97,15 @@ export default function PageToolbar() {
             onClick={t.toggleStops}
             hint="Shows the current camera stop on the page"
           />
+          {t.devicesTab || t.concept ? null : (
+            <ToggleChip
+              icon="cursor-click"
+              label="Hotspots"
+              pressed={t.hotspots.on}
+              onClick={t.hotspots.toggle}
+              hint="Pins the props' click and hover triggers on the page"
+            />
+          )}
           <ToggleChip
             icon="image"
             label="Poster"

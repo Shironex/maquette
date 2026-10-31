@@ -221,6 +221,10 @@ export const PATHS: readonly ScenePath[] = shipped.paths;
 /** How much of each path is lit at each keyed stop, by path id. */
 export const PATH_TRACKS: Record<string, PathTrack> = SHIPPED.layout.timeline?.paths ?? {};
 
+/** The look the 3D layer fades into and how much of the hero copy shows, by keyed stop. */
+export const STYLE_TRACK = SHIPPED.layout.timeline?.style ?? null;
+export const TEXT_TRACK = SHIPPED.layout.timeline?.text ?? null;
+
 export function modelUrl(file: string): string {
   return withBase(`/scene/models/${file}`);
 }

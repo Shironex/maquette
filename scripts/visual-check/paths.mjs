@@ -1,7 +1,7 @@
 /**
  * The Paths editor's shots for scripts/visual-check.mjs (ONLY=paths):
  * Frostveil's rune line selected with its points, a point picked with the
- * gizmo on it, Add points with its hint, and a project without paths. Mock
+ * gizmo on it, Add points with its hint, a stroke from Draw on surfaces, and a project without paths. Mock
  * mode's `?paths=demo` and `?paths=empty` serve them.
  */
 
@@ -35,6 +35,22 @@ export async function pathsShots({ open, shot }) {
   await main.getByText(/^Click a model or the ground to add a point/).waitFor();
   await main.waitForTimeout(300);
   await shot(main, 'paths-add');
+
+  // A drag over a model lays a run of points along it.
+  await main.getByRole('button', { name: /^Draw on surfaces/ }).click();
+  await main.getByText(/^Drag over a model to draw on it/).waitFor();
+  const before = await main.getByRole('button', { name: /^Pick point/ }).count();
+  const box = await main.getByRole('img', { name: 'Paths in the scene' }).boundingBox();
+  const at = (x, y) => [box.x + box.width * x, box.y + box.height * y];
+  await main.mouse.move(...at(0.485, 0.52));
+  await main.mouse.down();
+  for (let i = 1; i <= 24; i += 1)
+    await main.mouse.move(...at(0.485 + i * 0.0005, 0.52 + i * 0.005));
+  await main.mouse.up();
+  await main.waitForTimeout(800);
+  const after = await main.getByRole('button', { name: /^Pick point/ }).count();
+  if (after <= before) throw new Error(`Draw on surfaces added no points (${before} to ${after})`);
+  await shot(main, 'paths-surface');
   await main.context().close();
 
   const empty = await paths(open, 'empty');

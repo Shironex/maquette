@@ -9,7 +9,8 @@ const GROUND = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 /**
  * A click (not a drag, not on the gizmo): with Select it picks a point of
  * the selected path, else a path, else nothing; with Add points it puts a
- * point where the click lands on a model or the ground.
+ * point where the click lands on a model or the ground. Draw on surfaces
+ * has its own hook (./use-path-stroke.ts).
  */
 export function usePathClicks(rig: PathsRig): void {
   const { gl, camera, raycaster, world, tubes, handles, transform, live } = rig;
@@ -30,6 +31,7 @@ export function usePathClicks(rig: PathsRig): void {
       );
       raycaster.setFromCamera(ndc, camera);
       const p = live.current;
+      if (p.tool === 'surface') return;
       if (p.tool === 'add') {
         const hit = raycaster.intersectObject(world, true)[0]?.point;
         const ground = hit ?? raycaster.ray.intersectPlane(GROUND, new THREE.Vector3());

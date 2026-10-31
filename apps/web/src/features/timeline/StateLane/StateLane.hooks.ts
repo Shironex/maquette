@@ -24,7 +24,8 @@ export function useStateLane(asset: string) {
       taken.has(stop.id) ? [] : [{ id: stop.id, name: stop.name, at: stopPercent(i, stops.length) }]
     ),
     canAdd: object.states.length > 1,
-    active: selection !== null && selection.kind !== 'path' && selection.asset === asset,
+    active:
+      (selection?.kind === 'state' || selection?.kind === 'explode') && selection.asset === asset,
     select: (index: number) => select({ kind: 'state', asset, index }),
     add: (stop: string) => {
       const added = addStopMark(useTimelineStore.getState().draft, asset, object, stops, stop);

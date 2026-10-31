@@ -81,7 +81,7 @@ export function toLayout(layout: PlainLayout): SceneLayout {
     desk: layout.desk ? { size: layout.desk } : null,
     states: {},
     clips: {},
-    timeline: { explode: {}, paths: {} },
+    timeline: { explode: {}, paths: {}, style: null, text: null },
     paths: [],
   };
 }
