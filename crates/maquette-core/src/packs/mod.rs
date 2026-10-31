@@ -258,7 +258,7 @@ pub fn kind_label(kind: AssetKind) -> &'static str {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 #[cfg(test)]
 mod tests_blender;
 #[cfg(test)]

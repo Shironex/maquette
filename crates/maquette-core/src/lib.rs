@@ -21,6 +21,7 @@ pub mod pipeline;
 pub mod prepare;
 pub mod providers;
 pub mod refs;
+pub mod renders;
 pub mod rig;
 pub mod ship;
 pub mod site;
@@ -78,6 +79,7 @@ const REGISTRIES: [fn(specta::Types) -> specta::Types; 19] = [
     concepts::register,
     library::register,
     packs::register,
+    renders::register,
     rig::register,
     maquette_preview::register,
 ];
