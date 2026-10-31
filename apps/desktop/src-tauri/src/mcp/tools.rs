@@ -27,6 +27,7 @@ pub mod library_batch;
 pub mod library_many;
 pub mod materials;
 pub mod motion;
+pub mod packs;
 pub mod page;
 pub mod parts;
 pub mod paths;
@@ -183,6 +184,11 @@ set_library_collection tidy entries; remove_from_library moves entries to librar
 restore_to_library brings them back; find_look_alikes reads entries that may be one model twice and \
 merge_library_entries merges one into another (restore_to_library on the merged entry undoes it). The library copies, never \
 links: nothing changes a project until someone updates it, and none of it spends credits. \
+export_pack exports library entries, a collection or a project's models as one pack (OBJ or GLB, \
+textures, README, manifest and contact sheet, zipped) inside the workspace: Blender runs headless on \
+each model and opens it again to check it, Mixamo clips are always left out, and dryRun plans it first; \
+get_pack and list_packs read packs and presets, and decide_pack raises a budget, keeps a warning, zips \
+or stops and resumes. \
 The animation library keeps clips once, skeleton only (library/animations). list_animations \
 reads it; import_animations reads Mixamo FBX files or pack zips inside the workspace headless \
 (the skin is dropped, the rig read from the bone names, duplicates skipped, fixed clips become \
@@ -317,6 +323,7 @@ impl McpTools {
             + Self::library_router()
             + Self::library_many_router()
             + Self::library_batch_router()
+            + Self::packs_router()
             + Self::animations_router()
             + Self::retarget_router()
             + Self::trash_router()

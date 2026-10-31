@@ -13,6 +13,7 @@ mod lab_jobs;
 mod library;
 mod library_batch;
 mod own_file;
+mod packs;
 mod page;
 mod picks;
 mod reads;
