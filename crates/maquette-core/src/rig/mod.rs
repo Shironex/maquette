@@ -444,3 +444,5 @@ mod tests;
 mod tests_blender;
 #[cfg(test)]
 mod tests_blender_person;
+#[cfg(test)]
+mod tests_blender_readings;
