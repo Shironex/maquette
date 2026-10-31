@@ -54,6 +54,8 @@ These look at the workspace and change nothing.
 | [`list_library`](#list_library)               | The library's models, with their versions, tags and the projects that use them. Takes an optional `query`, `tag`, `project`, `collection`, `limit`, `cursor` and `full`                                                                                                                                                                                                | Nothing | No       |
 | [`find_look_alikes`](#find_look_alikes)       | Library entries that may be one model twice (same look or same name), the entries with no readable picture, the recent merges and the settings                                                                                                                                                                                                                         | Nothing | No       |
 | [`get_pack`](#get_pack)                       | One export pack: its state, each model's check with triangles before and after, and what needs you                                                                                                                                                                                                                                                                     |
+| [`get_render`](#get_render)                   | One render: its state, each model's files and what stopped them                                                                                                                                                                                                                                                                                                        |
+| [`list_renders`](#list_renders)               | The newest renders                                                                                                                                                                                                                                                                                                                                                     |
 | [`list_packs`](#list_packs)                   | The newest export packs and the pack presets                                                                                                                                                                                                                                                                                                                           |
 | [`get_rig_doctor`](#get_rig_doctor)           | A rig doctor case: its sheets, defects, checks, progress and why it stopped                                                                                                                                                                                                                                                                                            |
 | [`list_rig_doctors`](#list_rig_doctors)       | The rig doctor's cases, newest first                                                                                                                                                                                                                                                                                                                                   |
@@ -120,6 +122,8 @@ These look at the workspace and change nothing.
 | [`start_rig_doctor`](#start_rig_doctor)               | Opens the rig doctor's case of a rigged model and reads it, with no Blender                                                                                                                           |
 | [`run_rig_doctor`](#run_rig_doctor)                   | Starts a case's pose test, fix or second round in headless Blender on a copy                                                                                                                          |
 | [`decide_pack`](#decide_pack)                         | Raises a pack model's budget, keeps a warning, exports it again, zips, stops or goes on                                                                                                               |
+| [`render_styles`](#render_styles)                     | Renders models in headless Blender: blueprint, toon, clay, shaded, turntable, contact sheet                                                                                                           |
+| [`decide_render`](#decide_render)                     | Stops a render or goes on with a stopped one                                                                                                                                                          |
 | [`import_animations`](#import_animations)             | Imports Mixamo FBX files or pack zips into the animation library, skeleton only                                                                                                                       | Nothing | No       |
 | [`save_model_clips`](#save_model_clips)               | Saves a rigged model's clips to the animation library as a pack                                                                                                                                       | Nothing | No       |
 | [`use_animations`](#use_animations)                   | Bakes library clips onto a rigged model as its next version, after a review                                                                                                                           | Nothing | No       |
@@ -961,6 +965,54 @@ Lists the clips in the [Animations](/docs/views/animations/) library, kept once 
 | `pack`    | string | no       | Only clips in this pack.                        |
 | `tag`     | string | no       | Only clips with this tag.                       |
 | `rig`     | string | no       | Only clips made on `mixamo`, `tripo`, `custom`. |
+
+### render_styles
+
+`writes files`
+
+Renders a project's models or library entries in headless Blender, through the pipeline's runner, one file at a time, into `exports/renders/<asset>/`. No credits. It answers at once with a render id; follow it with `get_render`. Give `project` (with `assets` for some of them) or `entries`. A loop is a WebP by default and needs nothing beyond Blender. `gif` and `mp4` need ffmpeg, and a GIF always keeps the fixed rules: one palette, 20 fps, Bayer dithering, a crop box. Toon is left out for a model with no texture, with a problem that says so.
+
+| Parameter  | Type     | Required | Notes                                                                                                                                                                                                                                                      |
+| ---------- | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project`  | string   | no       | A project id.                                                                                                                                                                                                                                              |
+| `assets`   | string[] | no       | Asset ids in the project. Every accepted model by default.                                                                                                                                                                                                 |
+| `entries`  | string[] | no       | Library entry ids.                                                                                                                                                                                                                                         |
+| `styles`   | string[] | no       | Any of `blueprint`, `toon`, `clay`, `shaded`, `turntable`, `contact-sheet`. `clay` by default.                                                                                                                                                             |
+| `settings` | object   | no       | Fields to change: `camera`, `size`, `transparent`, `lineColor`, `paperColor`, `lineWeight`, `crease`, `hiddenDashed`, `marks`, `titleBlock`, `clayColor`, `format`, `length`, `width`, `look`, `tilt`, `stillBackground`, `tightCrop`, `columns`, `names`. |
+| `sheet`    | boolean  | no       | Also one contact sheet of all the models.                                                                                                                                                                                                                  |
+| `replace`  | boolean  | no       | Write over earlier renders instead of numbering new files.                                                                                                                                                                                                 |
+| `dryRun`   | boolean  | no       | List the models and where their files would go; start nothing.                                                                                                                                                                                             |
+
+```json
+{ "project": "frostveil", "assets": ["crystal-lantern"], "styles": ["blueprint", "turntable"] }
+```
+
+### get_render
+
+`read only`
+
+Reads one render: its `state` (`running`, `stopped` or `done`), how many files are done, and each model's files with their path, `state` (`queued`, `running`, `done`, `warn`, `failed` or `skipped`), bytes, seconds, a turntable's moving area and a problem with what to do next.
+
+| Parameter | Type   | Required | Notes                                                         |
+| --------- | ------ | -------- | ------------------------------------------------------------- |
+| `id`      | string | yes      | The render id, as `render_styles` or `list_renders` gives it. |
+
+### list_renders
+
+`read only`
+
+Lists the newest renders. A render Maquette closed on reads as `stopped`, and `decide_render` `resume` goes on with it.
+
+### decide_render
+
+`writes files`
+
+`stop` stops a render after the file running now; `resume` goes on with a stopped render from the next file.
+
+| Parameter | Type   | Required | Notes               |
+| --------- | ------ | -------- | ------------------- |
+| `id`      | string | yes      | The render id.      |
+| `choice`  | string | yes      | `stop` or `resume`. |
 
 ### import_animations
 

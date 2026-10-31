@@ -34,3 +34,7 @@ The Paths tab draws cables, pipes and trails through the scene, anchored to mode
 ## Game projects
 
 A [game project](/docs/start/game-projects/) has no scene to lay out, so its Inspector shows Compare, Budget and Parts instead of Layout and Paths. Budget lists every model against its folder's budget, changes each folder's numbers and adds the fix-ups for the models over.
+
+## Render
+
+The Render tab turns the model into a blueprint, toon, clay or shaded picture, a turntable loop or a contact sheet in headless Blender. See [Render styles](/docs/views/renders/).
