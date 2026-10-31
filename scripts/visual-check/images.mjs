@@ -32,7 +32,7 @@ export async function imagesShots({ open, shot }) {
   const keychainSection = await imagesSection(keychain);
   await keychainSection.getByText(/^Waiting for the /).waitFor();
   await shot(keychainSection, 'images-settings-waiting-for-keychain');
-  await waiting.context().close();
+  await keychain.context().close();
 
   const off = await open('&scenario=configured', '#/settings');
   const offSection = await imagesSection(off);
@@ -84,5 +84,5 @@ export async function imagesShots({ open, shot }) {
   const refused = asking.getByText(/^Refused for safety/).first();
   await refused.scrollIntoViewIfNeeded();
   await shot(queue, 'images-lab-refused');
-  await waiting.context().close();
+  await asking.context().close();
 }
