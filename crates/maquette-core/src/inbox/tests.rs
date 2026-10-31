@@ -309,6 +309,82 @@ fn discard_moves_the_model_aside_and_forgets_what_the_inbox_kept() {
 }
 
 #[test]
+fn discarded_models_go_after_thirty_days_and_restore_works_until_then() {
+    let (dir, config) = workspace();
+    let root = dir.path();
+    let day = 24.0 * 3600.0 * 1000.0;
+    let now = 100.0 * day;
+    for (id, age) in [("old.glb", 31.0), ("young.glb", 29.0), ("edge.glb", 30.0)] {
+        drop_in(root, &config, id, &fixture::clean_prop());
+        let done = discard(root, &config, id).expect("discard");
+        remember_discard(root, &config, &done, None, None, now - age * day);
+    }
+    let list = list_discarded(root, &config).expect("list");
+    let young = list.iter().find(|d| d.id == "young.glb").expect("young");
+    assert_eq!(young.expires_ms, now + day);
+
+    assert_eq!(prune_discarded(root, &config, now).len(), 2);
+    let left = list_discarded(root, &config).expect("list");
+    assert_eq!(left.len(), 1);
+    assert_eq!(left[0].id, "young.glb");
+    assert!(
+        restore(root, &config, "young.glb").is_ok(),
+        "restore still works"
+    );
+    assert!(inbox_dir(root, &config).join("young.glb").is_file());
+    assert!(prune_discarded(root, &config, now).is_empty());
+}
+
+#[test]
+fn a_discarded_file_without_a_note_gets_its_full_days_from_when_it_is_first_seen() {
+    let (dir, config) = workspace();
+    let root = dir.path();
+    let folder = inbox_dir(root, &config).join(DISCARDED_DIR);
+    std::fs::create_dir_all(&folder).expect("folder");
+    std::fs::write(folder.join("long_ago.glb"), fixture::clean_prop()).expect("file");
+    std::fs::write(folder.join("notes.txt"), b"keep me").expect("file");
+    let day = 24.0 * 3600.0 * 1000.0;
+    let far_future = 40_000.0 * day;
+    assert!(
+        prune_discarded(root, &config, far_future).is_empty(),
+        "only noted now"
+    );
+    assert!(folder.join("long_ago.glb").is_file());
+    assert_eq!(
+        prune_discarded(root, &config, far_future + 31.0 * day).len(),
+        1
+    );
+    assert!(!folder.join("long_ago.glb").exists());
+    assert!(folder.join("notes.txt").is_file(), "only models are pruned");
+}
+
+#[test]
+fn the_round_counts_what_was_accepted_discarded_and_taken_back() {
+    let (dir, config) = workspace();
+    let root = dir.path();
+    let now = crate::pipeline::history::now_ms();
+    for id in ["a.glb", "b.glb"] {
+        drop_in(root, &config, id, &fixture::clean_prop());
+        let done = discard(root, &config, id).expect("discard");
+        remember_discard(root, &config, &done, None, None, now);
+    }
+    assert_eq!(round(root, &config, now - 1000.0).discarded, 2);
+    assert_eq!(
+        round(root, &config, now + 1000.0).discarded,
+        0,
+        "an earlier round"
+    );
+    restore(root, &config, "a.glb").expect("restore");
+    assert_eq!(round(root, &config, now - 1000.0).discarded, 1);
+    round::note_accepted(root, &config, "c.glb", "p", "crate");
+    round::note_accepted(root, &config, "d.glb", "p", "barrel");
+    note_library(root, &config, "p", "crate");
+    note_library(root, &config, "p", "never-accepted-here");
+    let seen = round(root, &config, now - 1000.0);
+    assert_eq!((seen.accepted, seen.to_library), (2, 1));
+}
+
+#[test]
 fn restore_puts_a_discarded_model_back_aimed_at_its_asset() {
     let (dir, config) = workspace();
     let root = dir.path();

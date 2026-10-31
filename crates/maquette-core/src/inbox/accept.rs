@@ -138,6 +138,7 @@ pub fn accept(
     let _ = super::set_aim(root, config, &request.item, None);
     let (asset, version, file) =
         result.ok_or_else(|| CoreError::Invalid("The model was not accepted.".to_string()))?;
+    super::round::note_accepted(root, config, &request.item, &request.project, &asset.id);
     let note = save_prep(&project_dir, &asset.id, request.prep.as_ref())
         .err()
         .map(|err| format!("The model is in, but its real size and fix-ups were not saved. {err}"));
