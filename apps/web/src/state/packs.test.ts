@@ -4,6 +4,9 @@ import { DEFAULT_SETTINGS, newItem } from '@/ipc/mock/pack-fixtures';
 import {
   budgetsLine,
   defaultName,
+  doneLine,
+  importRows,
+  triangleTotals,
   filterCounts,
   formatTook,
   itemNote,
@@ -159,5 +162,37 @@ describe('export pack rules', () => {
       'crate.mtl',
       'crate.png',
     ]);
+  });
+
+  it('counts a warned model that shipped, and sums its triangles', () => {
+    const files = (k: string) => [`${k}/${k}.obj`];
+    const done = record([
+      item('a', 'pass', { files: files('a'), triangles: 100 }),
+      item('b', 'warn', { files: files('b'), triangles: 200, note: 'Thin parts lost at 3k tris.' }),
+      item('c', 'kept', { files: files('c'), triangles: 300 }),
+    ]);
+    expect(doneLine(done)).toBe(
+      '3 of 3 models are in the pack, 1 lost thin parts at their budget and 1 carry another warning, kept.'
+    );
+    expect(triangleTotals(done).after).toBe(600);
+    expect(importRows(done)).toEqual([{ label: 'Blender OBJ import', opened: 3, of: 3 }]);
+  });
+
+  it('leaves out a failed model and a warning a passing zip left out', () => {
+    const files = (k: string) => [`${k}/${k}.obj`];
+    const failed = record([
+      item('a', 'pass', { files: files('a'), triangles: 100 }),
+      item('b', 'fail', { files: files('b'), triangles: 999 }),
+    ]);
+    expect(triangleTotals(failed).after).toBe(100);
+    expect(importRows(failed)).toEqual([{ label: 'Blender OBJ import', opened: 1, of: 2 }]);
+    const passing = {
+      ...record([
+        item('a', 'pass', { files: files('a') }),
+        item('b', 'warn', { files: files('b') }),
+      ]),
+      message: '1 model left out of the pack.',
+    };
+    expect(doneLine(passing)).toBe('1 of 2 models are in the pack. 1 model left out of the pack.');
   });
 });

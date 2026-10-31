@@ -94,6 +94,30 @@ export function filterCounts(items: readonly PackItem[]): Record<CheckFilter, nu
 export const settled = (i: PackItem) => i.state !== 'queued' && i.state !== 'running';
 export const passes = (i: PackItem) => i.state === 'pass' || i.state === 'kept';
 
+const hasFiles = (i: PackItem) => i.files.length > 0;
+
+/** How many models the finish left out, as the record's message says. */
+const leftOutCount = (record: Pick<PackRecord, 'message'>) =>
+  Number(/^(\d+) models? left out/.exec(record.message ?? '')?.[1] ?? 0);
+
+/**
+ * The models that are in a finished pack. A model with files that passed,
+ * was kept or still carries a warning shipped: only a failed model, one
+ * with no files, or a warning a "zip the ones that pass" left out is not.
+ * The record keeps no per-model flag for that last case, so it is read from
+ * how many models the finish says it left out.
+ */
+export function shippedItems(record: Pick<PackRecord, 'items' | 'message'>): PackItem[] {
+  const sure = record.items.filter(i => passes(i) && hasFiles(i));
+  const warned = record.items.filter(i => i.state === 'warn' && hasFiles(i));
+  const never = record.items.length - sure.length - warned.length;
+  return leftOutCount(record) > never ? sure : [...sure, ...warned];
+}
+
+/** The shipped models that carry a warning, kept as it is. */
+export const shippedWarnings = (shipped: readonly PackItem[]) =>
+  shipped.filter(i => i.state === 'warn' || i.state === 'kept');
+
 export interface ImportRow {
   /** "Blender OBJ import", "Blender GLB import". */
   label: string;
@@ -106,14 +130,19 @@ export interface ImportRow {
  * imported into an empty scene, so a type's rows count the models that have
  * one, and how many of them came through as asked.
  */
-export function importRows(record: Pick<PackRecord, 'items'>): ImportRow[] {
+export function importRows(record: Pick<PackRecord, 'items' | 'message'>): ImportRow[] {
+  const shipped = new Set(shippedItems(record));
+  // A failed model that wrote files counts as written, and as not opened.
   const types = [
     { ext: '.obj', label: 'Blender OBJ import' },
     { ext: '.glb', label: 'Blender GLB import' },
   ];
   return types.flatMap(({ ext, label }) => {
-    const wrote = record.items.filter(i => i.files.some(f => f.endsWith(ext)));
-    return wrote.length ? [{ label, opened: wrote.filter(passes).length, of: wrote.length }] : [];
+    const wrote = record.items.filter(
+      i => (shipped.has(i) || i.state === 'fail') && i.files.some(f => f.endsWith(ext))
+    );
+    const opened = wrote.filter(i => i.state !== 'fail').length;
+    return wrote.length ? [{ label, opened, of: wrote.length }] : [];
   });
 }
 /** The models a person has to answer before the zip. */
@@ -284,7 +313,7 @@ export interface TreeRow {
 export function packTree(record: PackRecord): TreeRow[] {
   const s = record.settings;
   const rows: TreeRow[] = [];
-  const kept = record.items.filter(i => passes(i) || i.state === 'warn');
+  const kept = shippedItems(record);
   if (s.readme) rows.push({ path: 'README.txt', note: 'How to import', depth: 1 });
   if (s.manifest) rows.push({ path: 'manifest.json', note: 'Names, sources, licences', depth: 1 });
   if (s.contactSheet) rows.push({ path: 'contact-sheet.png', note: 'Every model', depth: 1 });
@@ -298,7 +327,7 @@ export function packTree(record: PackRecord): TreeRow[] {
 
 /** The first models of the manifest, as the Done view previews it. */
 export function manifestSnippet(record: PackRecord, n = 2): string {
-  const models = record.items.filter(passes).slice(0, n);
+  const models = shippedItems(record).slice(0, n);
   const body = models.map(i =>
     JSON.stringify({
       name: i.model.name,
@@ -314,10 +343,17 @@ export function manifestSnippet(record: PackRecord, n = 2): string {
 
 /** "Garden tools went to 3,000 and Flower basket was exported again." */
 export function doneLine(record: PackRecord): string {
-  const passed = record.items.filter(passes).length;
+  const shipped = shippedItems(record);
   const all = record.items.length;
-  const head =
-    passed === all ? `${all} models passed` : `${passed} of ${all} models are in the pack`;
+  const warned = shippedWarnings(shipped);
+  const thin = warned.filter(i => i.note?.startsWith('Thin parts lost')).length;
+  const clauses = [
+    thin ? `${thin} lost thin parts at their budget` : '',
+    warned.length > thin ? `${warned.length - thin} carry another warning` : '',
+  ].filter(Boolean);
+  let head = `${shipped.length} of ${all} models are in the pack`;
+  if (shipped.length === all && !warned.length) head = `${all} models passed`;
+  else if (clauses.length) head += `, ${clauses.join(' and ')}, kept`;
   return record.message ? `${head}. ${record.message}` : `${head}.`;
 }
 
@@ -325,7 +361,7 @@ export function doneLine(record: PackRecord): string {
 export function triangleTotals(record: PackRecord): { before: number; after: number } {
   let before = 0;
   let after = 0;
-  for (const i of record.items.filter(passes)) {
+  for (const i of shippedItems(record)) {
     before += i.model.stats?.triangles ?? 0;
     after += i.triangles ?? 0;
   }

@@ -9,7 +9,8 @@ import {
   formatTook,
   manifestSnippet,
   packTree,
-  passes,
+  shippedItems,
+  shippedWarnings,
   shortTris,
   triangleTotals,
 } from '@/state/packs';
@@ -25,7 +26,8 @@ export function usePackDone(record: PackRecord) {
   const [sheetFailed, setSheetFailed] = useState(false);
   const files = useFileManager();
   const notify = useAppStore(s => s.notify);
-  const kept = record.items.filter(passes);
+  const kept = shippedItems(record);
+  const warned = shippedWarnings(kept).length;
   const { before, after } = triangleTotals(record);
   // The time in Blender, not since it started: a pack may have sat stopped.
   const took = record.items.reduce((ms, i) => ms + (i.tookMs ?? 0), 0);
@@ -40,7 +42,12 @@ export function usePackDone(record: PackRecord) {
     {
       label: 'Models',
       value: String(kept.length),
-      note: kept.length === record.items.length ? 'all pass' : `of ${record.items.length}`,
+      note:
+        kept.length < record.items.length
+          ? `of ${record.items.length}`
+          : warned
+            ? `${warned} with a warning`
+            : 'all pass',
     },
     { label: 'Triangles', value: shortTris(after), note: `was ${shortTris(before)}` },
     { label: 'Took', value: formatTook(took), note: 'in Blender' },
