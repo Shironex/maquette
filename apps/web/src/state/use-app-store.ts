@@ -74,6 +74,9 @@ function currentHash(): string {
   return typeof window === 'undefined' ? '' : window.location.hash;
 }
 
+/** The bootstrap on its way, if any. */
+let booting: Promise<void> | null = null;
+
 export const useAppStore = create<AppStore>((set, get) => ({
   phase: 'booting',
   boot: null,
@@ -83,25 +86,31 @@ export const useAppStore = create<AppStore>((set, get) => ({
   tools: { reports: [], checking: false, busyTool: null, checkedAt: null },
   notice: null,
 
-  init: async () => {
-    try {
-      const boot = await commands.appBootstrap();
-      set({
-        boot,
-        workspace: boot.workspace,
-        phase: boot.workspace ? 'app' : 'onboarding',
-      });
-      if (boot.lastWorkspaceError) {
-        get().notify({
-          status: 'failed',
-          title: 'Could not reopen the last workspace',
-          detail: boot.lastWorkspaceError,
+  init: () => {
+    // StrictMode runs the effect twice: both share one bootstrap.
+    booting ??= (async () => {
+      try {
+        const boot = await commands.appBootstrap();
+        set({
+          boot,
+          workspace: boot.workspace,
+          phase: boot.workspace ? 'app' : 'onboarding',
         });
+        if (boot.lastWorkspaceError) {
+          get().notify({
+            status: 'failed',
+            title: 'Could not reopen the last workspace',
+            detail: boot.lastWorkspaceError,
+          });
+        }
+        if (boot.workspaceInUse) void get().reopenInUse(boot.workspaceInUse);
+      } catch (error) {
+        set({ phase: 'failed', bootError: errorMessage(error) });
       }
-      if (boot.workspaceInUse) void get().reopenInUse(boot.workspaceInUse);
-    } catch (error) {
-      set({ phase: 'failed', bootError: errorMessage(error) });
-    }
+    })().finally(() => {
+      booting = null;
+    });
+    return booting;
   },
 
   reopenInUse: async inUse => {

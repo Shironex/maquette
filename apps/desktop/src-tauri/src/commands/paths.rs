@@ -14,7 +14,7 @@ use crate::session::Session;
 /// Saves every path and their energize tracks, replacing the ones the file
 /// has; a track for a path that is gone goes too. The models, stops, states
 /// and explode tracks stay as they are. Returns the layout view.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn paths_save(
     session: State<'_, Session>,
@@ -34,10 +34,10 @@ pub(crate) fn save(
     let (root, config) = session.workspace()?;
     let manifest = project::load(&root, &config.layout, project_id)?;
     let project_dir = project::dir(&root, &config.layout, project_id)?;
-    let current = layout::load(&project_dir)?;
     let known = layout::known_assets(&manifest);
-    let next = layout::paths::with_paths(&current, &known, paths, tracks)?;
-    layout::save(&project_dir, &next)?;
+    layout::update(&project_dir, |current| {
+        layout::paths::with_paths(current, &known, paths, tracks)
+    })?;
     super::layout::get(session, project_id)
 }
 

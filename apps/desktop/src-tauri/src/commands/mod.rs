@@ -57,3 +57,14 @@ pub(crate) fn invalid(message: &str) -> ErrorPayload {
 pub(crate) fn join_failed(err: impl std::fmt::Display) -> ErrorPayload {
     CoreError::Unavailable(format!("A background task stopped unexpectedly. {err}")).payload()
 }
+
+/// Runs `job` on the blocking pool. For anything that can wait on the
+/// person, a Keychain prompt or a macOS folder privacy prompt: on the main
+/// thread that wait freezes the whole app.
+pub(crate) async fn blocking<T: Send + 'static>(
+    job: impl FnOnce() -> T + Send + 'static,
+) -> CommandResult<T> {
+    tauri::async_runtime::spawn_blocking(job)
+        .await
+        .map_err(join_failed)
+}

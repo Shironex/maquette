@@ -66,7 +66,7 @@ pub(crate) fn plan_many(session: &Session, project: &str) -> CommandResult<AddMa
 }
 
 /// Puts tags on and takes tags off every entry named.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_tag(
     session: State<'_, Session>,
@@ -76,7 +76,7 @@ pub fn library_tag(
 }
 
 /// Renames an entry; its id and files stay.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_rename(
     session: State<'_, Session>,
@@ -88,7 +88,7 @@ pub fn library_rename(
 
 /// Creates, fills, empties, renames or deletes a collection. Answers every
 /// collection after the change.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_collection(
     session: State<'_, Session>,
@@ -98,7 +98,7 @@ pub fn library_collection(
 }
 
 /// Moves entries out of the library; projects keep their copies.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_remove(
     session: State<'_, Session>,
@@ -108,7 +108,7 @@ pub fn library_remove(
 }
 
 /// Puts removed entries back, undoing a merge for a merged one.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_restore(
     session: State<'_, Session>,
@@ -130,7 +130,7 @@ pub async fn library_look_alikes(app: AppHandle) -> CommandResult<LookAlikes> {
 }
 
 /// Records a verdict on a look-alike pair so it is no longer listed.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_decide(
     session: State<'_, Session>,
@@ -154,7 +154,7 @@ pub fn library_look_settings(
 }
 
 /// Merges one entry into another; restoring the merged entry undoes it.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_merge(
     session: State<'_, Session>,
@@ -164,7 +164,7 @@ pub fn library_merge(
 }
 
 /// What adding every asset of a project would do. Reads only.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_add_many_plan(
     session: State<'_, Session>,

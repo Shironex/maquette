@@ -121,7 +121,7 @@ pub fn avatar_get(
 }
 
 /// Saves the asset's avatar spec (meta, bone overrides, material mode).
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn avatar_save(
     session: State<'_, Session>,
@@ -194,7 +194,7 @@ pub async fn avatar_build(
 /// A person's yes or no to a version's new rest pose. Not an agent tool:
 /// only the app's approval card calls it. An agent's waiting request for
 /// that asset is settled with it.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn avatar_decide(
     session: State<'_, Session>,
@@ -223,7 +223,7 @@ pub fn avatar_decide(
 /// A person's yes or no to a version's new weights, which free its cloth
 /// and hair from the arms. Not an agent tool: only the app's approval card
 /// calls it. An agent's waiting request for that asset is settled with it.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn avatar_decide_reweight(
     session: State<'_, Session>,
@@ -288,7 +288,7 @@ pub async fn avatar_find_springs(
 /// A person's yes or no to a version's new spring chains. Not an agent
 /// tool: only the app's approval card calls it. An agent's waiting request
 /// for that asset is settled with it.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn avatar_decide_springs(
     session: State<'_, Session>,

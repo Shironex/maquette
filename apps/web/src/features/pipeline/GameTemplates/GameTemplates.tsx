@@ -122,8 +122,12 @@ function TemplatesSheet({ project, busy, onClose }: GameTemplatesProps & { onClo
         {t.preview ? (
           <Preview preview={t.preview} />
         ) : (
-          <p className="m-0 text-meta text-fg-mute">
-            {t.picked ? 'Reading this game...' : 'Pick a template to see what it would change.'}
+          <p role="status" className="m-0 text-meta text-fg-mute">
+            {t.reading
+              ? 'Reading this game. If macOS asks to open its folder, answer it and this fills in.'
+              : t.picked
+                ? 'Could not read this game. Pick the template again to retry.'
+                : 'Pick a template to see what it would change.'}
           </p>
         )}
       </div>
@@ -140,7 +144,9 @@ function TemplatesSheet({ project, busy, onClose }: GameTemplatesProps & { onClo
               ? 'Wait for the run to finish'
               : t.preview
                 ? 'This game already has these settings'
-                : 'Pick a template first'
+                : t.reading
+                  ? 'Still reading this game'
+                  : 'Pick a template first'
           }
           onClick={() => void t.apply()}
         >

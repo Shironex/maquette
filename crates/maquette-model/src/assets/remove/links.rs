@@ -151,9 +151,12 @@ fn has_layout(links: &AssetLinks) -> bool {
 pub(super) fn clear(project_dir: &Path, id: &str, links: &AssetLinks) -> Vec<String> {
     let steps = [
         when(has_layout(links), layout::LAYOUT_FILE, || {
-            let mut layout = layout::load(project_dir)?;
-            clear_layout(&mut layout, id);
-            layout::save(project_dir, &layout)
+            layout::update(project_dir, |current| {
+                let mut layout = current.clone();
+                clear_layout(&mut layout, id);
+                Ok(layout)
+            })
+            .map(|_| ())
         }),
         when(links.prep.is_some(), prepare::PREPARE_FILE, || {
             prepare::save_entry(project_dir, id, &ModelPrep::default()).map(|_| ())
@@ -223,9 +226,12 @@ fn restore_layout(layout: &mut SceneLayout, id: &str, links: &AssetLinks) {
 pub(super) fn put_back(project_dir: &Path, id: &str, links: &AssetLinks) -> Vec<String> {
     let steps = [
         when(has_layout(links), layout::LAYOUT_FILE, || {
-            let mut layout = layout::load(project_dir)?;
-            restore_layout(&mut layout, id, links);
-            layout::save(project_dir, &layout)
+            layout::update(project_dir, |current| {
+                let mut layout = current.clone();
+                restore_layout(&mut layout, id, links);
+                Ok(layout)
+            })
+            .map(|_| ())
         }),
         when(links.prep.is_some(), prepare::PREPARE_FILE, || {
             prepare::update(project_dir, |current| {

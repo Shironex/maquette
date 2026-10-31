@@ -202,7 +202,7 @@ pub async fn animations_read_import(
 }
 
 /// Adds the clips of a read import as the person chose.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn animations_import(
     app: AppHandle,
@@ -215,7 +215,7 @@ pub fn animations_import(
 }
 
 /// The clips a rigged model offers to the library.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn animations_save_plan(
     session: State<'_, Session>,
@@ -246,7 +246,7 @@ pub async fn animations_save(
 
 /// Where library clips would go on a rigged model: the suggested bone map
 /// and each clip's settings. Reads, never writes.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn animations_retarget_plan(
     session: State<'_, Session>,
@@ -290,7 +290,7 @@ pub async fn animations_retarget(
 
 /// Adds a reviewed bake as the model's next version, the failed clips
 /// left out and the older version kept.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn animations_bake(
     app: AppHandle,

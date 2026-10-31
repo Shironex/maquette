@@ -18,8 +18,14 @@ afterEach(async () => {
   useImageApiStore.setState(store, true);
 });
 
-async function open(images: string | null) {
-  const handle = createBackend({ scenario: 'configured', probeDelay: 0, pace: 0, images });
+async function open(images: string | null, promptMs = 0) {
+  const handle = createBackend({
+    scenario: 'configured',
+    probeDelay: 0,
+    pace: 0,
+    images,
+    promptMs,
+  });
   mockIPC((cmd, args) => handle(cmd, (args ?? {}) as Record<string, unknown>), {
     shouldMockEvents: true,
   });
@@ -28,6 +34,29 @@ async function open(images: string | null) {
 }
 
 describe('the image generation settings', () => {
+  it('open at once and wait for the Keychain in the key row only', async () => {
+    render(<ImagesSection active config={await open('on', 40)} onChange={vi.fn()} />);
+    expect(screen.getByText('Waiting for the Keychain...')).toBeInTheDocument();
+    expect(screen.queryByLabelText('OpenAI API key')).toBeNull();
+    expect(screen.getAllByRole('combobox', { name: /Concepts|Object refs/ })).toHaveLength(2);
+    expect(await screen.findByRole('button', { name: 'Test key' })).toBeInTheDocument();
+    expect(screen.queryByText('Waiting for the Keychain...')).toBeNull();
+  });
+
+  it('keep the newest read when an older one answers late', async () => {
+    const answers: ((tail: string) => void)[] = [];
+    const status = (tail: string) => ({ key: { saved: true, tail } });
+    mockIPC(() => new Promise(resolve => answers.push(tail => resolve(status(tail)))));
+    const { load } = useImageApiStore.getState();
+    const older = load();
+    const newer = load();
+    answers[1]!('new1');
+    await newer;
+    answers[0]!('old1');
+    await older;
+    expect(useImageApiStore.getState().status?.key.tail).toBe('new1');
+  });
+
   it('start on Codex for every kind, with no key', async () => {
     render(<ImagesSection active config={await open(null)} onChange={vi.fn()} />);
     expect(screen.getByRole('region', { name: /Image generation/ })).toBeInTheDocument();

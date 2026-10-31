@@ -122,7 +122,7 @@ pub(crate) fn resume(
 
 /// What a pack made of `source` would hold, with the settings' budgets and
 /// a size estimate. Reads only.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pack_plan(
     session: State<'_, Session>,
@@ -134,7 +134,7 @@ pub fn pack_plan(
 }
 
 /// The pack presets, the built in one first.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pack_presets(session: State<'_, Session>) -> CommandResult<Vec<PackPreset>> {
     let (root, _) = session.workspace()?;
@@ -142,7 +142,7 @@ pub fn pack_presets(session: State<'_, Session>) -> CommandResult<Vec<PackPreset
 }
 
 /// Saves the settings as a preset; answers every preset.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pack_save_preset(
     session: State<'_, Session>,
@@ -226,7 +226,7 @@ pub async fn pack_zip(app: AppHandle, id: String, choice: ZipChoice) -> CommandR
 }
 
 /// Stops a pack once the model running now is done.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pack_stop(packs: State<'_, PackJobs>, id: String) -> CommandResult<PackRecord> {
     Ok(packs.0.stop(&id)?)
@@ -246,7 +246,7 @@ pub async fn pack_resume(
 
 /// Shows a pack's zip (or its folder, without one) in Finder or Explorer.
 /// Only a pack's own files can be shown this way.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pack_reveal(
     session: State<'_, Session>,

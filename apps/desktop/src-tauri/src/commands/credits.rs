@@ -10,7 +10,7 @@ use super::CommandResult;
 use super::providers::Studio;
 
 /// What a send should cost, from the price lists; null for By hand.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn provider_estimate(
     studio: State<'_, Studio>,
@@ -20,7 +20,7 @@ pub fn provider_estimate(
 }
 
 /// What a batch should cost in all; null for By hand.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn provider_estimate_batch(
     studio: State<'_, Studio>,

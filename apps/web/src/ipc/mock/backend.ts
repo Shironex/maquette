@@ -59,7 +59,7 @@ import { createToolchainHandlers } from './create-toolchain-handlers';
 import { createAppHandlers } from './create-app-handlers';
 import { createWorkspaceHandlers } from './create-workspace-handlers';
 import { createSyncHandlers, syncProjects } from './create-sync-handlers';
-import { display, expand, fail, type Args, type BackendOptions } from './backend-options';
+import { display, expand, fail, holdFor, type Args, type BackendOptions } from './backend-options';
 
 export type MockOptions = BackendOptions;
 
@@ -71,6 +71,7 @@ export function createBackend({
   files,
   lab: labState = null,
   conceptMs = 4000,
+  promptMs = 0,
   agents: agentsState = null,
   rig = null,
   projects: projectsState = null,
@@ -390,6 +391,7 @@ export function createBackend({
     setTimeout(() => runner.submit('frostveil', view('frostveil').def, null, false), 50);
   }
 
+  holdFor(handlers, promptMs);
   return async function handle(cmd: string, args: Args = {}): Promise<unknown> {
     const handler = handlers[cmd];
     if (!handler) fail('unavailable', `Mock mode has no handler for ${cmd}.`);

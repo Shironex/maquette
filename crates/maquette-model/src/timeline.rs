@@ -150,10 +150,10 @@ pub fn save(
     triggers: &BTreeMap<String, Vec<StateTrigger>>,
     timeline: Timeline,
 ) -> CoreResult<TimelineView> {
-    let current = layout::load(project_dir)?;
     let known = layout::known_assets(manifest);
-    let next = with_timeline(&current, &known, triggers, timeline)?;
-    layout::save(project_dir, &next)?;
+    let next = layout::update(project_dir, |current| {
+        with_timeline(current, &known, triggers, timeline)
+    })?;
     Ok(view_of(project_dir, manifest, next))
 }
 

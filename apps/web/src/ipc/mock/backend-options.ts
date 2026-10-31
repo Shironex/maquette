@@ -94,6 +94,8 @@ export interface BackendOptions {
   lab?: string | null;
   /** Milliseconds one fake concept image takes (default 4000). */
   conceptMs?: number;
+  /** Milliseconds a fake Keychain or folder privacy prompt holds its reads (default none). */
+  promptMs?: number;
   /** `many`: eight projects instead of three. */
   projects?: string | null;
   /** `batch`: the veil gate objects and their By hand batch. */
@@ -188,4 +190,31 @@ export function slugify(name: string): string {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'project'
   );
+}
+
+/**
+ * The reads a real macOS prompt can hold up: Keychain reads while it asks
+ * to use a key, and reads of a linked game folder while it asks for
+ * Documents. In mock mode `?promptMs=` holds them that long, so the waiting
+ * states can be seen.
+ */
+const HELD = [
+  'provider_keys',
+  'provider_send_options',
+  'provider_batch_options',
+  'split_sheet',
+  'image_api_status',
+  'game_template_preview',
+] as const;
+
+export function holdFor(handlers: Record<string, (args: Args) => unknown>, ms: number) {
+  if (ms <= 0) return;
+  for (const name of HELD) {
+    const handler = handlers[name];
+    if (!handler) continue;
+    handlers[name] = async args => {
+      await new Promise(resolve => setTimeout(resolve, ms));
+      return handler(args);
+    };
+  }
 }

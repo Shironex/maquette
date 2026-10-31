@@ -18,10 +18,10 @@ use maquette_core::{WorkspaceConfig, project};
 use serde::Serialize;
 use tauri::{AppHandle, Manager as _, State};
 
-use super::CommandResult;
 use super::providers::{Studio, key_statuses};
 use super::thumbs::{self, Thumbs};
 use super::toolchain;
+use super::{CommandResult, blocking};
 use crate::session::Session;
 
 /// The published credits of each way, for the sheet's estimates.
@@ -162,32 +162,38 @@ pub(crate) fn version_thumb(
 /// The model a split would cut and what each provider can do with it.
 #[tauri::command]
 #[specta::specta]
-pub fn split_sheet(
+pub async fn split_sheet(
     studio: State<'_, Studio>,
     project: String,
     asset: String,
     version: Option<u32>,
     item: Option<String>,
 ) -> CommandResult<SplitSheet> {
-    sheet(&studio.0, &project, &asset, version, item.as_deref())
+    let jobs = studio.0.clone();
+    blocking(move || sheet(&jobs, &project, &asset, version, item.as_deref())).await?
 }
 
 /// Starts a split from the app. Confirming it in the sheet is the approval.
 #[tauri::command]
 #[specta::specta]
-pub fn split_send(studio: State<'_, Studio>, request: SplitRequest) -> CommandResult<ProviderJob> {
-    Ok(studio.0.send_split(&request, false, false)?)
+pub async fn split_send(
+    studio: State<'_, Studio>,
+    request: SplitRequest,
+) -> CommandResult<ProviderJob> {
+    let jobs = studio.0.clone();
+    Ok(blocking(move || jobs.send_split(&request, false, false)).await??)
 }
 
 /// Paints a version again on Meshy. Confirming the price in the app is the
 /// approval; no agent tool reaches this.
 #[tauri::command]
 #[specta::specta]
-pub fn retexture_send(
+pub async fn retexture_send(
     studio: State<'_, Studio>,
     request: RetextureRequest,
 ) -> CommandResult<ProviderJob> {
-    Ok(studio.0.send_retexture(&request, false, false)?)
+    let jobs = studio.0.clone();
+    Ok(blocking(move || jobs.send_retexture(&request, false, false)).await??)
 }
 
 /// Bakes the texture back onto a split now: an offered one, or one that
@@ -265,7 +271,7 @@ pub(crate) fn run_assembly(
 }
 
 /// The recipe a prop was last assembled with, to assemble it again.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn assemble_recipe(
     session: State<'_, Session>,

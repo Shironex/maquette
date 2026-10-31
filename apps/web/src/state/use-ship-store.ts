@@ -42,7 +42,8 @@ export const useShipStore = create<ShipStore>((set, get) => ({
     set({ saving: true });
     try {
       const view = await commands.shipSave(project, change);
-      set({ view });
+      // Ship may be showing another project by now.
+      if (get().view?.project === project) set({ view });
       return true;
     } catch (error) {
       useAppStore.getState().notify({

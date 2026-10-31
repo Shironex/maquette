@@ -345,13 +345,13 @@ pub async fn pipeline_run(
     )?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pipeline_cancel(runner: State<'_, Pipelines>, run_id: String) -> CommandResult<()> {
     Ok(runner.0.cancel(&run_id)?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pipeline_log(
     session: State<'_, Session>,
@@ -368,14 +368,16 @@ pub(crate) fn save_presets(
     project_id: &str,
     incoming: Vec<CompressPreset>,
 ) -> CommandResult<PipelineView> {
-    let mut ctx = context(session, project_id)?;
-    ctx.def.presets = presets::apply(&ctx.def.presets, incoming)?;
-    pipeline::save(&ctx.project_dir, &ctx.def)?;
+    let ctx = context(session, project_id)?;
+    pipeline::update(&ctx.project_dir, &ctx.manifest, |def| {
+        def.presets = presets::apply(&def.presets, incoming)?;
+        Ok(())
+    })?;
     view(session, runner, project_id)
 }
 
 /// Saves the preset table. Locked rows must come back unchanged.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pipeline_save_presets(
     session: State<'_, Session>,
@@ -406,7 +408,7 @@ pub(crate) fn update_starters(
     view(session, runner, project_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pipeline_update_starters(
     session: State<'_, Session>,

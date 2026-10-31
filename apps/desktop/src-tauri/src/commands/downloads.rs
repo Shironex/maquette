@@ -72,11 +72,8 @@ pub(crate) fn apply(app: &AppHandle) {
 
 #[tauri::command]
 #[specta::specta]
-pub fn downloads_watch_status(
-    session: State<'_, Session>,
-    watch: State<'_, Watch>,
-) -> CommandResult<WatchStatus> {
-    Ok(status(&session, &watch))
+pub async fn downloads_watch_status(app: AppHandle) -> CommandResult<WatchStatus> {
+    super::blocking(move || status(&app.state::<Session>(), &app.state::<Watch>())).await
 }
 
 /// The watcher's status, saying whether Settings picked its folder.
@@ -91,26 +88,28 @@ fn status(session: &Session, watch: &Watch) -> WatchStatus {
 /// folder must exist; it is only ever read.
 #[tauri::command]
 #[specta::specta]
-pub fn downloads_watch_set(
+pub async fn downloads_watch_set(
     app: AppHandle,
-    session: State<'_, Session>,
-    watch: State<'_, Watch>,
     enabled: bool,
     folder: Option<String>,
 ) -> CommandResult<WatchStatus> {
-    let folder = folder
-        .map(|f| f.trim().to_string())
-        .filter(|f| !f.is_empty());
-    if let Some(dir) = folder.as_deref().map(|f| session.expand(f))
-        && !dir.is_dir()
-    {
-        return Err(CoreError::Invalid(format!("{} is not a folder.", dir.display())).into());
-    }
-    session.update_app_state(|state| {
-        state.downloads_watch = DownloadsWatch { enabled, folder };
-    })?;
-    apply(&app);
-    Ok(status(&session, &watch))
+    super::blocking(move || -> CommandResult<WatchStatus> {
+        let session = app.state::<Session>();
+        let folder = folder
+            .map(|f| f.trim().to_string())
+            .filter(|f| !f.is_empty());
+        if let Some(dir) = folder.as_deref().map(|f| session.expand(f))
+            && !dir.is_dir()
+        {
+            return Err(CoreError::Invalid(format!("{} is not a folder.", dir.display())).into());
+        }
+        session.update_app_state(|state| {
+            state.downloads_watch = DownloadsWatch { enabled, folder };
+        })?;
+        apply(&app);
+        Ok(status(&session, &app.state::<Watch>()))
+    })
+    .await?
 }
 
 /// Attaches a download (one waiting for a look, or asking which asset it
@@ -173,7 +172,7 @@ pub async fn downloads_preview(
 
 /// Leaves a download alone ("Not this one", "Not a Maquette model"), and
 /// never asks about it again.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn downloads_dismiss(watch: State<'_, Watch>, arrival: String) -> CommandResult<Arrival> {
     Ok(watch.0.dismiss(&arrival)?)

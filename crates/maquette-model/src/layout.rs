@@ -37,6 +37,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
@@ -195,6 +196,38 @@ pub fn load(project_dir: &Path) -> CoreResult<SceneLayout> {
 ///
 /// Fails when [`validate`] refuses it or the file cannot be written.
 pub fn save(project_dir: &Path, layout: &SceneLayout) -> CoreResult<()> {
+    save_file(project_dir, layout)
+}
+
+/// One read, change and write of `layout.json` at a time, so writers that
+/// overlap all land.
+static WRITES: Mutex<()> = Mutex::new(());
+
+/// Reads `layout.json` from disk, applies `change` and writes what comes
+/// back. Returns what was written. `change` must not call this again.
+///
+/// # Errors
+///
+/// Refuses, writing nothing, when the file on disk comes from a newer
+/// Maquette or cannot be read (so a broken file is never overwritten), and
+/// fails when `change` or the checks refuse or the write fails.
+pub fn update(
+    project_dir: &Path,
+    change: impl FnOnce(&SceneLayout) -> CoreResult<SceneLayout>,
+) -> CoreResult<SceneLayout> {
+    let _one = WRITES.lock().unwrap_or_else(PoisonError::into_inner);
+    let current = load(project_dir).map_err(|err| match err {
+        CoreError::UnsupportedVersion { .. } => err,
+        other => CoreError::Invalid(format!(
+            "{LAYOUT_FILE} could not be read, so nothing was saved over it. Fix or remove the file, then save again. {other}"
+        )),
+    })?;
+    let next = change(&current)?;
+    save_file(project_dir, &next)?;
+    Ok(next)
+}
+
+fn save_file(project_dir: &Path, layout: &SceneLayout) -> CoreResult<()> {
     validate(layout)?;
     let stored = SceneLayout {
         version: LAYOUT_VERSION,

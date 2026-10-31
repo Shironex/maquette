@@ -6,14 +6,14 @@ use tauri::{State, Window};
 use crate::quit::QuitGuard;
 
 /// Tells the shell whether the web view has work that is not applied yet.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn quit_set_unapplied(guard: State<'_, QuitGuard>, unapplied: bool) {
     guard.set_unapplied(unapplied);
 }
 
 /// Closes the window now, whatever is unapplied: the user answered.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn quit_now(guard: State<'_, QuitGuard>, window: Window) {
     guard.approve();

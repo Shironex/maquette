@@ -228,7 +228,7 @@ pub async fn inbox_discarded(
 
 /// The numbers of the round since `since_ms`: what was accepted and discarded,
 /// and the redos sent, with their credits as far as known.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn inbox_round(
     session: State<'_, Session>,
