@@ -38,7 +38,7 @@ const GAME_STEPS = [
 
 /** Nothing in the project moves yet: what makes a model show here. */
 export default function MotionEmpty() {
-  const { name, count, suggestion, game } = useMotionEmpty();
+  const { name, count, suggestion, game, importClip, readDocs } = useMotionEmpty();
   const steps = (game ? GAME_STEPS : STEPS).map((step, i) => (
     <li key={step.title} className="flex items-start gap-3 border-t border-line py-3">
       <span className="grid size-6 flex-none place-items-center rounded-full border-[1.5px] border-line-strong font-mono text-[11.5px] font-semibold text-fg-dim">
@@ -88,6 +88,26 @@ export default function MotionEmpty() {
             </Button>
           </div>
         ) : null}
+        <p className="mt-3.5 flex flex-wrap gap-1.5">
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="download-simple"
+            tooltip="Opens the animation import: a Mixamo pack, a clip file or one clip"
+            onClick={importClip}
+          >
+            Import a clip file
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="file-text"
+            tooltip="Opens the Motion page of the docs in your browser"
+            onClick={() => void readDocs()}
+          >
+            Read how motion ships
+          </Button>
+        </p>
       </div>
     </section>
   );
