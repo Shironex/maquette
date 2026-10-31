@@ -16,8 +16,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager as _, State};
 use tauri_specta::Event as _;
 
-use super::CommandResult;
 use super::lab::{RefImage, list_refs};
+use super::{CommandResult, blocking};
 use crate::events::{ProjectChanged, ProviderUpdate};
 use crate::keychain::{KeychainStore, NoKeychain};
 use crate::opener;
@@ -72,12 +72,6 @@ pub(crate) fn emit(handle: &AppHandle, event: ProviderEvent) {
     if let Err(err) = sent {
         tracing::warn!(error = %err, "could not emit a provider event");
     }
-}
-
-async fn blocking<T: Send + 'static>(job: impl FnOnce() -> T + Send + 'static) -> CommandResult<T> {
-    tauri::async_runtime::spawn_blocking(job)
-        .await
-        .map_err(super::join_failed)
 }
 
 /// Everything the Send to 3D panel needs for one asset.
@@ -201,48 +195,66 @@ fn variant_for(asset: &Asset) -> PresetVariant {
     }
 }
 
-#[tauri::command(async)]
+/// Reads the saved keys, which can wait on a Keychain prompt.
+#[tauri::command]
 #[specta::specta]
-pub fn provider_batch_options(
-    session: State<'_, Session>,
-    studio: State<'_, Studio>,
+pub async fn provider_batch_options(
+    app: AppHandle,
     project: String,
     assets: Vec<String>,
 ) -> CommandResult<BatchOptions> {
-    batch_options(&session, &studio.0, &project, &assets)
+    blocking(move || {
+        batch_options(
+            &app.state::<Session>(),
+            &app.state::<Studio>().0,
+            &project,
+            &assets,
+        )
+    })
+    .await?
 }
 
 /// Sends several assets at once from the app. Pressing Send in the panel
 /// (after its one confirmation for API providers) is the approval.
 #[tauri::command]
 #[specta::specta]
-pub fn provider_send_batch(
+pub async fn provider_send_batch(
     studio: State<'_, Studio>,
     request: BatchRequest,
 ) -> CommandResult<BatchSent> {
-    Ok(studio.0.send_batch(&request, false, false)?)
+    let jobs = studio.0.clone();
+    Ok(blocking(move || jobs.send_batch(&request, false, false)).await??)
 }
 
+/// Reads the saved keys, which can wait on a Keychain prompt.
 #[tauri::command]
 #[specta::specta]
-pub fn provider_send_options(
-    session: State<'_, Session>,
-    studio: State<'_, Studio>,
+pub async fn provider_send_options(
+    app: AppHandle,
     project: String,
     asset: String,
 ) -> CommandResult<SendOptions> {
-    send_options(&session, &studio.0, &project, &asset)
+    blocking(move || {
+        send_options(
+            &app.state::<Session>(),
+            &app.state::<Studio>().0,
+            &project,
+            &asset,
+        )
+    })
+    .await?
 }
 
 /// Starts a send from the app. You are the one pressing Send, so it needs
 /// no approval.
 #[tauri::command]
 #[specta::specta]
-pub fn provider_send(
+pub async fn provider_send(
     studio: State<'_, Studio>,
     request: SendRequest,
 ) -> CommandResult<ProviderJob> {
-    Ok(studio.0.send(&request, false, false)?)
+    let jobs = studio.0.clone();
+    Ok(blocking(move || jobs.send(&request, false, false)).await??)
 }
 
 #[tauri::command]
@@ -368,33 +380,43 @@ pub async fn provider_check_downloads(
     blocking(move || jobs.check_downloads(&project, &downloads)).await
 }
 
+/// Every key's status. A read can wait on a Keychain prompt.
 #[tauri::command]
 #[specta::specta]
-pub fn provider_keys(studio: State<'_, Studio>) -> CommandResult<Vec<KeyStatus>> {
-    key_statuses(&studio.0)
+pub async fn provider_keys(studio: State<'_, Studio>) -> CommandResult<Vec<KeyStatus>> {
+    let jobs = studio.0.clone();
+    blocking(move || key_statuses(&jobs)).await?
 }
 
 /// Saves a key in the keychain. Only its last four characters come back.
 #[tauri::command]
 #[specta::specta]
-pub fn provider_key_save(
+pub async fn provider_key_save(
     studio: State<'_, Studio>,
     service: ProviderId,
     key: String,
 ) -> CommandResult<KeyStatus> {
     let key = secrets::clean_key(service, &key)?;
-    studio.0.secrets().set(service, &key)?;
-    Ok(secrets::status(studio.0.secrets().as_ref(), service)?)
+    let store = Arc::clone(studio.0.secrets());
+    blocking(move || {
+        store.set(service, &key)?;
+        Ok(secrets::status(store.as_ref(), service)?)
+    })
+    .await?
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn provider_key_remove(
+pub async fn provider_key_remove(
     studio: State<'_, Studio>,
     service: ProviderId,
 ) -> CommandResult<KeyStatus> {
-    studio.0.secrets().remove(service)?;
-    Ok(secrets::status(studio.0.secrets().as_ref(), service)?)
+    let store = Arc::clone(studio.0.secrets());
+    blocking(move || {
+        store.remove(service)?;
+        Ok(secrets::status(store.as_ref(), service)?)
+    })
+    .await?
 }
 
 /// Tries a key with the free balance call. Without `key`, the saved one.
@@ -407,9 +429,14 @@ pub async fn provider_key_test(
 ) -> CommandResult<KeyTest> {
     let key = match key.filter(|k| !k.trim().is_empty()) {
         Some(key) => secrets::clean_key(service, &key)?,
-        None => studio.0.secrets().get(service)?.ok_or_else(|| {
-            CoreError::Invalid(format!("Save a {} API key first.", service.label()))
-        })?,
+        None => {
+            let store = Arc::clone(studio.0.secrets());
+            blocking(move || store.get(service))
+                .await??
+                .ok_or_else(|| {
+                    CoreError::Invalid(format!("Save a {} API key first.", service.label()))
+                })?
+        }
     };
     let endpoints = studio.0.options().endpoints.clone();
     let timing = match service {

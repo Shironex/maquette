@@ -16,11 +16,11 @@ use maquette_core::providers::openai_images::{
 use maquette_core::providers::secrets::{self, OPENAI_ACCOUNT, SecretStore};
 use maquette_core::{CoreError, WorkspaceConfig, workspace};
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, Manager as _, State};
 
-use super::CommandResult;
 use super::lab::Lab;
 use super::providers::Studio;
+use super::{CommandResult, blocking};
 use crate::session::Session;
 
 /// The Image API's address. Debug builds can point it at a local fake
@@ -164,34 +164,46 @@ pub(crate) fn save_settings(session: &Session, settings: ImageSettings) -> Comma
     Ok(())
 }
 
+/// Reads the saved key, which can wait on a Keychain prompt.
 #[tauri::command]
 #[specta::specta]
-pub fn image_api_status(
-    session: State<'_, Session>,
-    studio: State<'_, Studio>,
-    lab: State<'_, Lab>,
-) -> CommandResult<ImageApiStatus> {
-    status(&session, studio.0.secrets().as_ref(), &lab.0)
+pub async fn image_api_status(app: AppHandle) -> CommandResult<ImageApiStatus> {
+    blocking(move || {
+        status(
+            &app.state::<Session>(),
+            app.state::<Studio>().0.secrets().as_ref(),
+            &app.state::<Lab>().0,
+        )
+    })
+    .await?
 }
 
 /// Saves the OpenAI key in the keychain. Only its last four characters
 /// come back.
 #[tauri::command]
 #[specta::specta]
-pub fn image_api_key_save(
+pub async fn image_api_key_save(
     studio: State<'_, Studio>,
     key: String,
 ) -> CommandResult<OpenAiKeyStatus> {
     let key = secrets::clean_named_key(SERVICE, &key)?;
-    studio.0.secrets().set_account(OPENAI_ACCOUNT, &key)?;
-    key_status(studio.0.secrets().as_ref())
+    let store = std::sync::Arc::clone(studio.0.secrets());
+    blocking(move || {
+        store.set_account(OPENAI_ACCOUNT, &key)?;
+        key_status(store.as_ref())
+    })
+    .await?
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn image_api_key_remove(studio: State<'_, Studio>) -> CommandResult<OpenAiKeyStatus> {
-    studio.0.secrets().remove_account(OPENAI_ACCOUNT)?;
-    key_status(studio.0.secrets().as_ref())
+pub async fn image_api_key_remove(studio: State<'_, Studio>) -> CommandResult<OpenAiKeyStatus> {
+    let store = std::sync::Arc::clone(studio.0.secrets());
+    blocking(move || {
+        store.remove_account(OPENAI_ACCOUNT)?;
+        key_status(store.as_ref())
+    })
+    .await?
 }
 
 /// Tries a key by listing the models, which costs nothing. Without `key`,
@@ -204,16 +216,13 @@ pub async fn image_api_key_test(
 ) -> CommandResult<OpenAiKeyTest> {
     let key = match key.filter(|k| !k.trim().is_empty()) {
         Some(key) => secrets::clean_named_key(SERVICE, &key)?,
-        None => studio
-            .0
-            .secrets()
-            .get_account(OPENAI_ACCOUNT)?
-            .ok_or_else(|| CoreError::Invalid("Save an OpenAI API key first.".to_string()))?,
+        None => {
+            let store = std::sync::Arc::clone(studio.0.secrets());
+            blocking(move || store.get_account(OPENAI_ACCOUNT))
+                .await??
+                .ok_or_else(|| CoreError::Invalid("Save an OpenAI API key first.".to_string()))?
+        }
     };
     let base = base_url();
-    tauri::async_runtime::spawn_blocking(move || {
-        openai_images::test_key(&base, &key, Timing::OPENAI)
-    })
-    .await
-    .map_err(super::join_failed)
+    blocking(move || openai_images::test_key(&base, &key, Timing::OPENAI)).await
 }
