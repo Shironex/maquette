@@ -45,6 +45,8 @@ pub const CREATURE: &[(&str, &str)] = bundled!(
     "fix.py",
     "verify.py",
     "sheet.py",
+    "walkclip.py",
+    "clipsheet.py",
 );
 
 /// Writes both routes under `<dir>/scripts`, and answers that folder.

@@ -4,11 +4,14 @@
 # another is junk. Chains that sit on the other side than their name says are marked "sides swapped". It also counts
 # weight that sits far from its chain and nearer another (a tail bone on a paw) and sets STRAY_DIST for it.
 # Check the result on the weightmap.py render before trusting it: this is a first pass, the renders decide.
-# Usage: -- in.glb out_dir       writes out_dir/rigconfig.py and out_dir/rigconfig.json (the table for people)
+# Usage: -- in.glb out_dir [edits.json]       writes out_dir/rigconfig.py and out_dir/rigconfig.json (the table for people)
+# edits.json holds a person's corrections, by a chain's first bone: {"bone": {"readAs": "chain" or "junk", "side": "left" or "right"}}.
 import bpy, sys, json, os, re, pprint
 from collections import defaultdict
 from mathutils import Vector
-glb, outd = sys.argv[sys.argv.index("--") + 1:][:2]
+args = sys.argv[sys.argv.index("--") + 1:]
+glb, outd = args[:2]
+EDITS = json.load(open(args[2])) if len(args) > 2 else {}
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=glb)
 arm = next(o for o in bpy.data.objects if o.type == "ARMATURE")
@@ -61,6 +64,10 @@ for s in sorted(limbs, key=length):
         if all(chain_dist(HEAD[b], o) < 0.05 * SIZE and chain_dist(TAIL[b], o) < 0.05 * SIZE for b in s):
             junk.append(s)
             break
+# a person's word beats the read
+edit_of = lambda s: EDITS.get(s[0], {})
+junk = [s for s in junk if edit_of(s).get("readAs") != "chain"]
+junk += [s for s in limbs if s not in junk and edit_of(s).get("readAs") == "junk"]
 limbs = [s for s in limbs if s not in junk]
 reach = lo.z + 0.25 * (hi.z - lo.z)
 legs = [s for s in limbs if TAIL[s[-1]].z < reach and HEAD[s[0]].z - TAIL[s[-1]].z > 0.2 * (hi.z - lo.z)]
@@ -97,7 +104,8 @@ def named_side(names):
 leg_rows = []
 for s in legs:
     a = HEAD[s[0]] - centre
-    leg_rows.append(dict(bones=s, side="L" if a.dot(LEFT) > 0 else "R", along=a.dot(FRONT), named=named_side(s)))
+    by_hand = {"left": "L", "right": "R"}.get(edit_of(s).get("side"))
+    leg_rows.append(dict(bones=s, side=by_hand or ("L" if a.dot(LEFT) > 0 else "R"), by_hand=bool(by_hand), along=a.dot(FRONT), named=named_side(s)))
 leg_rows.sort(key=lambda r: -r["along"])
 four = len(leg_rows) == 4 and sum(r["along"] > 0 for r in leg_rows) == 2
 per = defaultdict(int)
@@ -107,6 +115,11 @@ for r in leg_rows:
     else:
         per[r["side"]] += 1
         r["name"] = f"leg_{r['side']}{per[r['side']]}"
+# two legs put on one side by hand would share a name and lose a chain
+taken = set()
+for r in leg_rows:
+    while r["name"] in taken: r["name"] += "_2"
+    taken.add(r["name"])
 legs_by = {r["name"]: r["bones"] for r in leg_rows}
 neck, head_only = head[:-1], head[-1:]
 CHAINS = {"body": trunk or [head[0]]}
@@ -192,14 +205,14 @@ for r in leg_rows:
     swapped = r["named"] and r["named"] != r["side"]
     stray_here = sum(n for (near, o), n in stray.items() if o == r["name"])
     side = {"L": "left", "R": "right"}[r["side"]]
-    text = f"named {r['named']}, sits {side}" if swapped else f"{side}, by position"
-    table.append(dict(chain=r["name"], bones=len(r["bones"]), side=text, read_as="swapped" if swapped else "stray" if stray_here else "chain", note=f"{stray_here} vertices of another chain" if stray_here else None))
+    text = f"{side}, by hand" if r["by_hand"] else f"named {r['named']}, sits {side}" if swapped else f"{side}, by position"
+    table.append(dict(chain=r["name"], key=r["bones"][0], bones=len(r["bones"]), side=text, read_as="swapped" if swapped else "stray" if stray_here else "chain", note=f"{stray_here} vertices of another chain" if stray_here else None))
 for i, s in enumerate(tails):
-    table.append(dict(chain="tail" if i == 0 else f"tail_{i}", bones=len(s), side=side_text(s), read_as="chain", note=None))
+    table.append(dict(chain="tail" if i == 0 else f"tail_{i}", key=s[0], bones=len(s), side=side_text(s), read_as="chain", note=None))
 if spikes:
     table.append(dict(chain="spikes", bones=sum(len(s) for s in spikes), side="on the body", read_as="chain", note=None))
-if junk:
-    table.append(dict(chain=", ".join(s[0] for s in junk), bones=sum(len(s) for s in junk), side="on other chains", read_as="junk", note=None))
+for s in junk:
+    table.append(dict(chain=s[0], key=s[0], bones=len(s), side="on other chains", read_as="junk", note=None))
 facing = next((n for n, a in (("+X", (1, 0, 0)), ("-X", (-1, 0, 0)), ("-Z", (0, 1, 0)), ("+Z", (0, -1, 0))) if FRONT.dot(Vector(a)) > 0.94), "at an angle")
 summary = dict(front=facing, legs=len(legs), swapped=sum(1 for r in leg_rows if r["named"] and r["named"] != r["side"]), junk=[s[0] for s in junk], junk_bones=len(JUNK),
                rigid_pieces=rigid, pieces=len(pieces), one_shell=not welded, chains=table, bones=len(arm.data.bones), chains_to_test=len(CHAINS),

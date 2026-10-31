@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 
-use super::run::Run;
+use super::run::{Run, check_can_run};
 use super::{
     JointMoveState, RigRecord, RigRun, RigSource, RigStarter, RigState, RigStep, RigStop,
     RigStopKind, read, record,
@@ -60,14 +60,14 @@ impl RigDoctors {
         }
     }
 
-    fn active(&self) -> MutexGuard<'_, HashMap<String, Arc<AtomicBool>>> {
+    pub(super) fn active(&self) -> MutexGuard<'_, HashMap<String, Arc<AtomicBool>>> {
         self.inner
             .active
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    fn publish(&self, record: &mut RigRecord) -> CoreResult<()> {
+    pub(super) fn publish(&self, record: &mut RigRecord) -> CoreResult<()> {
         record.updated_ms = now_ms();
         record::save(record)?;
         (self.inner.on_change)(record);
@@ -161,7 +161,10 @@ impl RigDoctors {
             .ok_or_else(|| CoreError::Invalid(format!("No rig doctor case {id}.")))?;
         // A run the app closed on did not finish.
         if found.state.running() && !self.active().contains_key(id) {
-            found.state = if found.before.is_some() {
+            found.state = if found.draft.is_some() && found.after.is_some() {
+                // Only the walk clip proof runs with a finished draft.
+                RigState::Fixed
+            } else if found.before.is_some() {
                 RigState::Tested
             } else {
                 RigState::Ready
@@ -203,18 +206,19 @@ impl RigDoctors {
         } else {
             RigState::Fixing
         };
-        case.step = if what == RigRun::PoseTest {
-            RigStep::Before
-        } else {
-            RigStep::Fix
-        };
+        match what {
+            RigRun::PoseTest => case.step = RigStep::Before,
+            RigRun::Fix | RigRun::Round2 => case.step = RigStep::Fix,
+            RigRun::WalkProof => {}
+        }
         case.error = None;
         case.stop = None;
-        if what == RigRun::PoseTest {
-            case.stages.clear();
-        } else {
-            case.round += 1;
+        match what {
+            RigRun::PoseTest => case.stages.clear(),
+            RigRun::Fix | RigRun::Round2 => case.round += 1,
+            RigRun::WalkProof => {}
         }
+        case.walk_proof = None;
         self.publish(&mut case)?;
         let dir = PathBuf::from(&case.dir);
         let answer = case.clone();
@@ -356,31 +360,5 @@ impl RigDoctors {
         case.joint_move = None;
         self.publish(&mut case)?;
         Ok(case)
-    }
-}
-
-fn check_can_run(case: &RigRecord, what: RigRun) -> CoreResult<()> {
-    let refuse = |why: &str| Err(CoreError::Invalid(why.to_string()));
-    if case.state == RigState::Refused {
-        return refuse("The rig doctor refuses this model. Its case says why.");
-    }
-    if case.source.version.is_none() {
-        return refuse("Accept the model as v1 first: v1 is what the doctor compares against.");
-    }
-    if case.state.running() {
-        return refuse("This rig doctor case is already running.");
-    }
-    match what {
-        RigRun::PoseTest => Ok(()),
-        RigRun::Fix if case.before.is_some() => Ok(()),
-        RigRun::Fix => refuse("Run the pose test first: the fix is judged against its sheet."),
-        RigRun::Round2 if case.round >= super::MAX_ROUNDS => {
-            refuse("The doctor stops after two rounds instead of guessing a third time.")
-        }
-        RigRun::Round2 if case.model.one_island => {
-            refuse("A one island mesh has no second round. Finish it in Blender.")
-        }
-        RigRun::Round2 if case.draft.is_some() => Ok(()),
-        RigRun::Round2 => refuse("Run the fix first."),
     }
 }

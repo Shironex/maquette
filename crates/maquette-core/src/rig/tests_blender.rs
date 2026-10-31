@@ -13,7 +13,7 @@ use crate::workspace::WorkspaceConfig;
 
 const BUILD: &str = include_str!("fixtures/rig_models.py");
 
-fn build(blender: &Path, dir: &Path, which: &str) -> PathBuf {
+pub(super) fn build(blender: &Path, dir: &Path, which: &str) -> PathBuf {
     let script = dir.join("rig_models.py");
     fs::write(&script, BUILD).expect("script");
     let out = dir.join(format!("{which}.glb"));
@@ -31,7 +31,7 @@ fn build(blender: &Path, dir: &Path, which: &str) -> PathBuf {
 }
 
 /// A doctor and a way to wait until a run is over.
-fn doctors() -> (RigDoctors, Arc<(Mutex<bool>, Condvar)>) {
+pub(super) fn doctors() -> (RigDoctors, Arc<(Mutex<bool>, Condvar)>) {
     let signal = Arc::new((Mutex::new(false), Condvar::new()));
     let seen = Arc::clone(&signal);
     let runner = Arc::new(PipelineRunner::new(Arc::new(NullSink)));
@@ -44,7 +44,7 @@ fn doctors() -> (RigDoctors, Arc<(Mutex<bool>, Condvar)>) {
     (doctors, signal)
 }
 
-fn wait(signal: &Arc<(Mutex<bool>, Condvar)>) {
+pub(super) fn wait(signal: &Arc<(Mutex<bool>, Condvar)>) {
     let mut done = signal.0.lock().expect("lock");
     while !*done {
         let (next, timeout) = signal
@@ -57,7 +57,7 @@ fn wait(signal: &Arc<(Mutex<bool>, Condvar)>) {
     *done = false;
 }
 
-fn at_v1(name: &str) -> RigSource {
+pub(super) fn at_v1(name: &str) -> RigSource {
     RigSource {
         inbox: None,
         project: Some("p".to_string()),
@@ -67,7 +67,7 @@ fn at_v1(name: &str) -> RigSource {
 }
 
 /// Runs `what` and waits for it.
-fn go(
+pub(super) fn go(
     (doctors, signal): &(RigDoctors, Arc<(Mutex<bool>, Condvar)>),
     (root, config, blender): (&Path, &WorkspaceConfig, &Path),
     id: &str,
@@ -303,6 +303,64 @@ fn a_real_creature_reads_its_chains_and_loses_the_junk_weight() {
     );
     assert!(fixed.checks.iter().all(|c| c.ok), "{:?}", fixed.checks);
     assert!(Path::new(&fixed.after.as_ref().expect("after").file).is_file());
+}
+
+#[test]
+fn a_real_second_round_widens_the_seam_and_holds_the_checks() {
+    let Some(blender) = crate::test_blender::blender() else {
+        return;
+    };
+    let dir = tempfile::tempdir().expect("dir");
+    let (root, config) = (dir.path(), WorkspaceConfig::default());
+    let file = build(&blender, root, "humanoid");
+    let both = doctors();
+    let open = both
+        .0
+        .open(
+            root,
+            &config,
+            "Hero",
+            &file,
+            at_v1("hero"),
+            RigStarter::Person,
+        )
+        .expect("open");
+    let at = (root, &config, blender.as_path());
+    go(&both, at, &open.id, RigRun::PoseTest);
+    let first = go(&both, at, &open.id, RigRun::Fix);
+    assert_eq!(first.round, 1);
+    assert_eq!(
+        first.state,
+        RigState::Fixed,
+        "{:?} {:?}",
+        first.error,
+        first.stop
+    );
+    let second = go(&both, at, &open.id, RigRun::Round2);
+    assert_eq!(second.round, 2);
+    assert_eq!(
+        second.state,
+        RigState::Fixed,
+        "{:?} {:?}",
+        second.error,
+        second.stop
+    );
+    assert!(second.checks.iter().all(|c| c.ok), "{:?}", second.checks);
+    let band = second
+        .fix_steps
+        .iter()
+        .find(|s| s.title == "Smooth the seams")
+        .expect("band");
+    assert_eq!(band.value, "8 cm");
+    let draft = PathBuf::from(second.draft.as_ref().expect("draft"));
+    assert!(got_worse(&file, &draft).expect("compare").is_none());
+    // A third round is refused.
+    let tools = crate::test_blender::toolbox(&blender);
+    assert!(
+        both.0
+            .run(root, &config, tools, &open.id, RigRun::Round2)
+            .is_err()
+    );
 }
 
 #[test]
