@@ -4,6 +4,7 @@
  */
 import type {
   GameFormat,
+  GameTemplateId,
   GameRepoInspection,
   NewProject,
   ProjectTarget,
@@ -60,6 +61,8 @@ export interface Draft {
   game: GameRepoInspection | null;
   gameFormat: GameFormat;
   modelsDir: string;
+  /** A game template whose folder budgets a new game starts with. */
+  gameTemplate: GameTemplateId | null;
 }
 
 export const DEFAULT_MODELS_DIR = 'assets/models';
@@ -69,6 +72,7 @@ const NO_GAME = {
   game: null,
   gameFormat: 'glb',
   modelsDir: DEFAULT_MODELS_DIR,
+  gameTemplate: null,
 } as const;
 
 /** The fields of the first project step, shared with New project in the switcher. */
@@ -84,6 +88,7 @@ export type ProjectFields = Pick<
   | 'game'
   | 'gameFormat'
   | 'modelsDir'
+  | 'gameTemplate'
 >;
 
 export function emptyProjectFields(name = ''): ProjectFields {
@@ -115,7 +120,11 @@ export function newProjectRequest(fields: ProjectFields): NewProject {
       target: 'game',
       siteRepo: fields.siteRepo.trim() || null,
       sourceFolder: null,
-      game: { format: fields.gameFormat, modelsDir: fields.modelsDir.trim() },
+      game: {
+        format: fields.gameFormat,
+        modelsDir: fields.modelsDir.trim(),
+        template: fields.gameTemplate,
+      },
     };
   }
   return {

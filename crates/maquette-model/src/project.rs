@@ -147,6 +147,7 @@ pub fn create(
             let wanted = new.game.unwrap_or(NewGame {
                 format: crate::settings::game::GameFormat::Glb,
                 models_dir: crate::settings::game::DEFAULT_MODELS_DIR.to_string(),
+                template: None,
             });
             let repo = site_repo.as_deref().map(Path::new);
             let settings = crate::settings::game::new_settings(&wanted, repo)?;

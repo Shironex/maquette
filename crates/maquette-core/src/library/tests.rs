@@ -47,6 +47,7 @@ pub(super) fn new_project(root: &Path, layout: &FolderLayout, name: &str, game: 
             game: game.then(|| NewGame {
                 format: GameFormat::Obj,
                 models_dir: "assets/models".into(),
+                template: None,
             }),
             site_repo: None,
             source_folder: None,

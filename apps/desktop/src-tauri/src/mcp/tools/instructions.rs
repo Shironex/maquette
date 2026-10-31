@@ -147,7 +147,8 @@ run_pipeline rebuilds the changed ones first. \
 A project ships to a website or to a game (list_projects and get_project give its target). \
 For a game project, get_game reads the game repo, model format, model folder, Game export \
 settings, Bake light and the budget per folder with each asset's numbers against it; \
-set_game_settings changes them; scan_game_models lists the models in the game's model folder \
+set_game_settings changes them or applies a template (get_game shows what each would change, \
+export settings only, no assets and no moved files); scan_game_models lists the models in the game's model folder \
 and import_game_models imports picked ones, each as an asset with the repo file as v1. \
 get_ship_plan shows which files Ship would add or replace in the game; Ship never touches \
 hand made files and always waits for a person to approve it in the app. \

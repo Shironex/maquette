@@ -1102,6 +1102,7 @@ fn a_game_projects_inbox_checks_use_the_folder_budget_of_the_asset() {
             &crate::settings::game::NewGame {
                 format: crate::settings::game::GameFormat::Glb,
                 models_dir: "assets/models".into(),
+                template: None,
             },
             None,
         )?;

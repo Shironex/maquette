@@ -5,7 +5,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use maquette_core::game::{
-    self, GameRepoInspection, GameScan, GameSettingsChange, ImportResult, ShipPlan,
+    self, GameRepoInspection, GameScan, GameSettingsChange, GameTemplate, GameTemplateId,
+    GameTemplatePreview, ImportResult, ShipPlan,
 };
 use maquette_core::pipeline::runner::StepGate;
 use maquette_core::pipeline::tools::Toolbox;
@@ -110,6 +111,20 @@ pub(crate) fn save_settings(
     )?)
 }
 
+pub(crate) fn apply_template(
+    session: &Session,
+    project_id: &str,
+    template: GameTemplateId,
+) -> CommandResult<ProjectManifest> {
+    let (root, config) = session.workspace()?;
+    Ok(game::apply_template(
+        &root,
+        &config.layout,
+        project_id,
+        template,
+    )?)
+}
+
 pub(crate) fn add_budget_fixups(session: &Session, project_id: &str) -> CommandResult<Vec<String>> {
     let (manifest, dir) = game_project(session, project_id)?;
     Ok(game::add_budget_fixups(&dir, &manifest)?)
@@ -181,6 +196,36 @@ pub fn game_save_settings(
     save_settings(&session, &project, change)
 }
 
+/// The built-in game templates.
+#[tauri::command]
+#[specta::specta]
+pub fn game_template_list() -> Vec<GameTemplate> {
+    game::game_templates()
+}
+
+/// What applying a template would change in this project. Changes nothing.
+#[tauri::command]
+#[specta::specta]
+pub fn game_template_preview(
+    session: State<'_, Session>,
+    project: String,
+    template: GameTemplateId,
+) -> CommandResult<GameTemplatePreview> {
+    let (manifest, dir) = game_project(&session, &project)?;
+    Ok(game::preview_template(&dir, &manifest, template)?)
+}
+
+/// Fills the game settings from a template. Moves and deletes no file.
+#[tauri::command]
+#[specta::specta]
+pub fn game_apply_template(
+    session: State<'_, Session>,
+    project: String,
+    template: GameTemplateId,
+) -> CommandResult<ProjectManifest> {
+    apply_template(&session, &project, template)
+}
+
 /// Adds Decimate and Shrink textures to every model over its folder's
 /// budget; a rigged model gets no Decimate. Returns the assets that changed.
 #[tauri::command]
@@ -241,6 +286,7 @@ mod tests {
             Some(NewGame {
                 format: GameFormat::Glb,
                 models_dir: "assets/models".into(),
+                template: None,
             }),
         );
         let site = make("Moon Island", ProjectTarget::Website, None);
@@ -321,6 +367,7 @@ mod tests {
                 game: Some(NewGame {
                     format: GameFormat::Glb,
                     models_dir: "assets/models".into(),
+                    template: None,
                 }),
                 site_repo: Some(repo.display().to_string()),
                 source_folder: None,

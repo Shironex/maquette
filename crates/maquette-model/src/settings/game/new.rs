@@ -4,7 +4,9 @@
 use std::collections::BTreeMap;
 use std::path::{Component, Path};
 
-use super::{FolderBudget, GameExport, GameSettings, NewGame, folder_of};
+use super::{
+    FolderBudget, GameExport, GameSettings, NewGame, folder_of, game_template, merge_budgets,
+};
 use crate::error::{CoreError, CoreResult};
 use crate::project::{has_ext, sorted_children};
 
@@ -43,12 +45,16 @@ pub fn new_settings(new: &NewGame, repo: Option<&Path>) -> CoreResult<GameSettin
     let folders = repo
         .map(|r| model_folders(&r.join(&models_dir)))
         .unwrap_or_default();
+    let mut budgets = default_budgets(&folders);
+    if let Some(id) = new.template {
+        budgets = merge_budgets(&budgets, &game_template(id).budgets);
+    }
     Ok(GameSettings {
         format: new.format,
         models_dir,
         export: GameExport::default(),
         bake: false,
-        budgets: default_budgets(&folders),
+        budgets,
         models: BTreeMap::new(),
         folders: BTreeMap::new(),
     })

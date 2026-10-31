@@ -14,6 +14,7 @@ import { ArtifactsList } from '../ArtifactsList';
 import { PipelineGraph } from '../PipelineGraph';
 import { BakePanel } from '../BakePanel';
 import { GameExportPanel } from '../GameExportPanel';
+import { GameTemplates } from '../GameTemplates';
 import { PanelResizer } from '../PanelResizer';
 import { PresetsPanel } from '../PresetsPanel';
 import { PreviewSiteButton } from '../PreviewSiteButton';
@@ -249,6 +250,7 @@ export default function PipelineView() {
                   onDisk={onDisk}
                   busy={active || starting}
                   onSave={saveGame}
+                  templates={<GameTemplates project={project.id} busy={active || starting} />}
                 />
               </div>
             ) : (

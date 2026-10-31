@@ -32,6 +32,10 @@ export async function gameShots({ open, shot }) {
   await repo.press('Tab');
   await game.getByText('CMake project found.').waitFor();
   await shot(game, 'game-new-project');
+  await game.getByRole('button', { name: /^Level kit, \.obj/ }).click();
+  await game.getByText(/kit\/ at 5k triangles/).waitFor();
+  await game.getByText(/Model format below wins/).waitFor({ state: 'detached' });
+  await shot(game, 'game-new-project-template');
   await game.context().close();
 
   const site = await newProject(open);
@@ -60,6 +64,21 @@ export async function gameShots({ open, shot }) {
   await run.getByRole('region', { name: 'Game export' }).waitFor();
   await shot(run, 'game-pipeline');
   await run.context().close();
+
+  const kit = await open(`${GAME}import`, '#/pipeline');
+  await kit.getByRole('button', { name: 'Use a template' }).click();
+  const templates = kit.getByRole('dialog', { name: 'Use a template' });
+  await templates.getByRole('button', { name: /^Level kit, \.obj/ }).waitFor();
+  await shot(kit, 'game-templates-empty');
+  await templates.getByRole('button', { name: /^Level kit, \.obj/ }).click();
+  await templates.getByText('What will change').waitFor();
+  await shot(kit, 'game-templates-preview');
+  await templates.getByRole('button', { name: 'Apply Level kit, .obj' }).click();
+  await templates.waitFor({ state: 'detached' });
+  await kit.getByRole('button', { name: '.obj + .mtl', pressed: true }).waitFor();
+  await kit.getByText(/kit\/ 1024 px/).waitFor();
+  await shot(kit, 'game-templates-applied');
+  await kit.context().close();
 
   const budget = await open(`${GAME}maze`, '#/inspector');
   await budget.getByRole('tab', { name: 'Budget' }).click();
