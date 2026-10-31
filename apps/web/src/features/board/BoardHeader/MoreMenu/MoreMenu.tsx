@@ -1,0 +1,123 @@
+import { IconButton } from '@maquette/ui';
+import { Menu, type MenuItem } from '@/features/common/Menu';
+import { RecentlyRemoved } from '../../RecentlyRemoved';
+import { useMoreMenu } from './MoreMenu.hooks';
+
+/** The ⋯ menu; a small dot says the project's trash holds something. */
+export default function MoreMenu() {
+  const {
+    wrap,
+    project,
+    open,
+    setOpen,
+    removed,
+    failed,
+    missing,
+    rendering,
+    allSends,
+    exportPack,
+    renderMissing,
+  } = useMoreMenu();
+  const trash = removed.entries.length;
+  const items: MenuItem[] = [
+    {
+      id: 'pack',
+      label: 'Export pack',
+      icon: 'package',
+      section: 'make',
+      disabled: !project || (project.assets ?? []).every(a => a.versions.length === 0),
+      hint: !project
+        ? 'Open a project first'
+        : (project.assets ?? []).every(a => a.versions.length === 0)
+          ? 'No model accepted yet'
+          : 'Every accepted model of this project as one pack for another engine, checked in Blender',
+      onSelect: exportPack,
+    },
+    ...(missing > 0
+      ? [
+          {
+            id: 'previews',
+            label: missing === 1 ? 'Render 1 preview' : `Render ${missing} previews`,
+            icon: 'image',
+            section: 'make',
+            disabled: rendering,
+            hint: rendering
+              ? 'Rendering the previews now'
+              : 'Renders each model without a preview, headless in Blender, one at a time. Run it again to retry the ones that failed',
+            onSelect: renderMissing,
+          } satisfies MenuItem,
+        ]
+      : []),
+    {
+      id: 'sends',
+      label: failed > 0 ? `All sends, ${failed} failed` : 'All sends',
+      icon: 'cube',
+      section: 'sends',
+      disabled: !project,
+      hint: project
+        ? 'The 3D queue: every send to Tripo or Meshy and by hand, finished ones too, with Credits'
+        : 'Open a project first',
+      onSelect: allSends,
+    },
+    ...(trash > 0
+      ? [
+          {
+            id: 'removed',
+            label: 'Removed',
+            icon: 'trash',
+            section: 'sends',
+            count: trash,
+            hint: 'Recently removed: assets in the workspace trash, ready to restore',
+            onSelect: () => removed.setOpen(true),
+          } satisfies MenuItem,
+        ]
+      : []),
+  ];
+
+  return (
+    <div ref={wrap} className="relative">
+      <IconButton
+        icon="dots-three"
+        label="More board actions"
+        hint={trash > 0 ? `${trash} recently removed` : undefined}
+        variant="secondary"
+        aria-haspopup="menu"
+        aria-expanded={open || removed.open}
+        // A press on the open menu's own button must not close it and open it again.
+        onPointerDown={e => {
+          if (open) e.stopPropagation();
+        }}
+        onClick={() => {
+          removed.setOpen(false);
+          setOpen(!open);
+        }}
+      />
+      {trash > 0 ? (
+        <span
+          aria-hidden
+          data-testid="removed-dot"
+          className="pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-fg-mute"
+        />
+      ) : null}
+      {open ? (
+        <Menu
+          label="More board actions"
+          onClose={() => setOpen(false)}
+          className="absolute top-full right-0 mt-1 w-[230px]"
+          items={items}
+        />
+      ) : null}
+      {removed.open ? (
+        <RecentlyRemoved
+          entries={removed.entries}
+          restoring={removed.restoring}
+          restoreOne={removed.restoreOne}
+          onClose={() => {
+            removed.setOpen(false);
+            wrap.current?.querySelector('button')?.focus();
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}

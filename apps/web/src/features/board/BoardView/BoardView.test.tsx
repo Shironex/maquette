@@ -201,6 +201,8 @@ describe('the Board', () => {
       expect(screen.queryByRole('toolbar', { name: 'Selected assets' })).toBeNull()
     );
     expect(screen.queryByRole('button', { name: /^Elsheria, v2/ })).toBeNull();
-    expect(await screen.findByRole('button', { name: /Removed/ })).toHaveTextContent('3');
+    await screen.findByTestId('removed-dot');
+    await userEvent.click(screen.getByRole('button', { name: 'More board actions' }));
+    expect(screen.getByRole('menuitem', { name: /^Removed/ })).toHaveTextContent('3');
   });
 });

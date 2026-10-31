@@ -1,45 +1,29 @@
-import { Button, SegmentedControl } from '@maquette/ui';
+import { SegmentedControl } from '@maquette/ui';
 import { clock } from '@/lib/clock';
 import { formatAgo } from '@/lib/format';
 import { assetCount } from '@/state/board';
 import { TEMPLATE_LABEL } from '@/state/onboarding';
-import { AddAssetForm } from '../AddAssetForm';
-import { RecentlyRemoved } from '../RecentlyRemoved';
+import { AddMenu } from './AddMenu';
 import { useBoardHeader } from './BoardHeader.hooks';
+import { MoreMenu } from './MoreMenu';
+import { SendsButton } from './SendsButton';
 
-/** The project name and what it holds, then the Board's buttons. */
+/** The project name and what it holds, then the Board's controls. */
 export default function BoardHeader() {
-  const {
-    project,
-    layout,
-    setLayout,
-    adding,
-    setAdding,
-    added,
-    activeJobs,
-    byHand,
-    toMake,
-    setQueueOpen,
-    setChecklistOpen,
-    addBuilt,
-    game,
-    importModels,
-    missing,
-    rendering,
-    renderPreviews,
-    exportPack,
-  } = useBoardHeader();
+  const { project, game, layout, setLayout } = useBoardHeader();
   const subtitle = project
     ? `${assetCount((project.assets ?? []).length)} · ${game ? `game · .${game.format} in ${game.modelsDir}/` : TEMPLATE_LABEL[project.template]} · created ${formatAgo(Date.parse(project.createdAt), clock.nowMs())}`
     : 'Create a project in Settings to start.';
 
   return (
-    <div className="flex items-end gap-4">
-      <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-3">
+      <div className="flex min-w-0 flex-col gap-1">
         <h1 className="text-screen-title">{project?.name ?? 'No project'}</h1>
-        <p className="text-fg-mute">{subtitle}</p>
+        <p className="truncate text-fg-mute" title={subtitle}>
+          {subtitle}
+        </p>
       </div>
-      <div className="relative ml-auto flex items-center gap-2">
+      <div className="flex items-center gap-2">
         <SegmentedControl
           label="Board layout"
           options={[
@@ -49,87 +33,11 @@ export default function BoardHeader() {
           value={layout}
           onChange={setLayout}
         />
-        {byHand ? (
-          <Button
-            icon="hand-pointing"
-            tooltip="By hand: models waiting for you to make on the provider's site"
-            onClick={() => setChecklistOpen(true)}
-          >
-            By hand
-            {toMake > 0 ? (
-              <span className="ml-0.5 rounded-pill bg-clay-soft px-1.5 font-mono text-[11px] leading-[18px] text-clay-text">
-                {toMake}
-              </span>
-            ) : null}
-          </Button>
-        ) : null}
-        <div>
-          <Button
-            icon="cube"
-            disabled={!project}
-            disabledReason="Open a project first"
-            tooltip="3D queue: sends to Tripo or Meshy and their progress"
-            onClick={() => setQueueOpen(true)}
-          >
-            3D queue
-            {activeJobs > 0 ? (
-              <span className="ml-0.5 rounded-pill bg-amber-soft px-1.5 font-mono text-[11px] leading-[18px] text-amber">
-                {activeJobs}
-              </span>
-            ) : null}
-          </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <SendsButton />
+          <MoreMenu />
+          <AddMenu />
         </div>
-        <RecentlyRemoved />
-        {missing > 0 ? (
-          <Button
-            icon="image"
-            loading={rendering}
-            tooltip="Renders each model without a preview, headless in Blender, one at a time. Run it again to retry the ones that failed"
-            onClick={renderPreviews}
-          >
-            {missing === 1 ? 'Render 1 preview' : `Render ${missing} previews`}
-          </Button>
-        ) : null}
-        {game ? (
-          <Button
-            icon="download-simple"
-            tooltip="Import models: bring existing game models into this project"
-            onClick={importModels}
-          >
-            Import models
-          </Button>
-        ) : null}
-        <Button
-          icon="package"
-          disabled={!project || (project.assets ?? []).every(a => a.versions.length === 0)}
-          disabledReason={project ? 'No model accepted yet' : 'Open a project first'}
-          tooltip="Export pack: every accepted model of this project as one pack for another engine, checked in Blender"
-          onClick={exportPack}
-        >
-          Export pack
-        </Button>
-        <Button
-          icon="wrench"
-          disabled={!project}
-          disabledReason="Open a project first"
-          tooltip="Built asset: a model a Blender script in the project makes"
-          onClick={addBuilt}
-        >
-          Built asset
-        </Button>
-        <Button
-          icon="plus"
-          disabled={!project}
-          disabledReason="Open a project first"
-          tooltip="Add asset: a new card on the Board, named, with its kind and column"
-          aria-expanded={adding}
-          onClick={() => setAdding(v => !v)}
-        >
-          Add asset
-        </Button>
-        {adding && project ? (
-          <AddAssetForm project={project.id} onDone={added} onCancel={() => setAdding(false)} />
-        ) : null}
       </div>
     </div>
   );
