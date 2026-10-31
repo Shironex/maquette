@@ -68,6 +68,7 @@
     "game": "pipeline",
     "inspect": "pipeline",
     "inbox": "pipeline",
+    "rig": "pipeline",
     "motion": "pipeline",
     "parts": "pipeline",
     "site": "pipeline",
