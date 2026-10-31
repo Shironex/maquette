@@ -19,6 +19,8 @@ A step has an `id`, a `kind` (`blender`, `shell`, `gltf-transform`, `toktx` or `
 
 ## Panels
 
+Generated artifacts (Generated files in a game project) lists what the last run wrote, each model file from its raw export to its compressed (or game export) size, with the files still being written marked as exporting. It shows the first few and **Show all N** opens the rest.
+
 Compression presets sets the texture size, data map size, codec and meshopt level per model, as [Compress](/docs/pipeline/compress/) reads them. Each row also shows what the last run made of that model, its raw export and the size it ships at, and the line above the table adds them up for every model. Sort the table by name, shipped size or raw size. **Size report** opens Ship settings at the size report, with the budgets and the dry run plan. Drag the edge between the log and the presets (or focus it and use the arrow keys) to give either more room; double click puts it back.
 
 Baked light sets the lightmap size, samples and denoiser, as [Bake light](/docs/pipeline/bake-light/) reads them. When every model skips the bake, or the project ships to a hand-built site, the card folds to one line that says why. **Bake settings** opens it again.
