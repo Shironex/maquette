@@ -84,14 +84,13 @@ pub fn workspace_save_config(
     agents: State<'_, Agents>,
     config: WorkspaceConfig,
 ) -> CommandResult<WorkspaceConfig> {
-    let (root, open) = session.workspace()?;
     // The switcher owns the current project; a settings save never moves it.
-    let config = WorkspaceConfig {
-        current_project: open.current_project,
-        ..config
-    };
-    workspace::save(&root, &config)?;
-    session.set_config(config.clone());
+    let (_, config) = session.update_config(|open| {
+        *open = WorkspaceConfig {
+            current_project: open.current_project.take(),
+            ..config
+        };
+    })?;
     // Turning the server on or off, or a new port, takes effect at once.
     super::agents::sync(&app, &session, &agents);
     Ok(config)

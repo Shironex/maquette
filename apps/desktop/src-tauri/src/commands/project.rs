@@ -3,7 +3,7 @@ use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::providers::ProviderJobs;
 use maquette_core::{
     ImportScan, NewProject, ProjectActivity, ProjectManifest, ProjectSummary, RepoInspection,
-    project, workspace,
+    project,
 };
 use tauri::State;
 
@@ -74,8 +74,8 @@ pub fn project_list(
 /// Runs, concept jobs and sends of the project left behind keep going.
 pub(crate) fn switch(session: &Session, id: &str) -> CommandResult<WorkspaceSnapshot> {
     let (root, config) = session.workspace()?;
-    let (config, _) = project::switch(&root, &config, id)?;
-    session.set_config(config.clone());
+    let manifest = project::load(&root, &config.layout, id)?;
+    let (root, config) = session.update_config(|c| c.current_project = Some(manifest.id))?;
     snapshot(session, &root, &config)
 }
 
@@ -92,7 +92,7 @@ pub fn project_create(
     session: State<'_, Session>,
     project: NewProject,
 ) -> CommandResult<WorkspaceSnapshot> {
-    let (root, mut config) = session.workspace()?;
+    let (root, config) = session.workspace()?;
     let new = NewProject {
         site_repo: project
             .site_repo
@@ -106,9 +106,7 @@ pub fn project_create(
     session.save_repos(&root)?;
     let dir = project::dir(&root, &config.layout, &manifest.id)?;
     maquette_core::pipeline::ensure(&dir, &manifest)?;
-    config.current_project = Some(manifest.id);
-    workspace::save(&root, &config)?;
-    session.set_config(config.clone());
+    let (root, config) = session.update_config(|c| c.current_project = Some(manifest.id))?;
     snapshot(&session, &root, &config)
 }
 
@@ -150,6 +148,7 @@ pub async fn project_scan_import(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use maquette_core::workspace;
     use maquette_core::{AppState, ProjectTemplate, WorkspaceConfig};
 
     fn new(name: &str, template: ProjectTemplate) -> NewProject {

@@ -14,7 +14,7 @@ use maquette_core::providers::openai_images::{
     self, ImageQuality, OpenAiKeyTest, PRICES_CHECKED, PRICES_URL, SERVICE, estimate_usd,
 };
 use maquette_core::providers::secrets::{self, OPENAI_ACCOUNT, SecretStore};
-use maquette_core::{CoreError, WorkspaceConfig, workspace};
+use maquette_core::{CoreError, WorkspaceConfig};
 use serde::Serialize;
 use tauri::{AppHandle, Manager as _, State};
 
@@ -157,10 +157,7 @@ pub(crate) fn status(
 /// Saves new image settings into `maquette.json`. Shared with the MCP
 /// server.
 pub(crate) fn save_settings(session: &Session, settings: ImageSettings) -> CommandResult<()> {
-    let (root, mut config) = session.workspace()?;
-    config.lab.images = settings;
-    workspace::save(&root, &config)?;
-    session.set_config(config);
+    session.update_config(|config| config.lab.images = settings)?;
     Ok(())
 }
 

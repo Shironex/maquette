@@ -30,6 +30,9 @@ pub struct Session {
     config_dir: PathBuf,
     home: Option<PathBuf>,
     inner: Mutex<Inner>,
+    /// One open or `maquette.json` change at a time. Held across slow work,
+    /// so apart from `inner`.
+    workspace_turn: Mutex<()>,
     /// Set once the window exists; tests run without one.
     handle: OnceLock<AppHandle>,
     /// This computer's name, read once.
@@ -50,6 +53,7 @@ impl Session {
                 app,
                 ..Inner::default()
             }),
+            workspace_turn: Mutex::new(()),
             handle: OnceLock::new(),
             host_name: OnceLock::new(),
         }
@@ -109,7 +113,16 @@ impl Session {
         Ok(next)
     }
 
+    fn workspace_turn(&self) -> std::sync::MutexGuard<'_, ()> {
+        self.workspace_turn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// Opens a workspace. One at a time: two opens at once would each load
+    /// the stored provider jobs into the same list.
     pub fn set_workspace(&self, root: PathBuf, config: WorkspaceConfig) -> CoreResult<()> {
+        let _turn = self.workspace_turn();
         let pointer = root.display().to_string();
         self.update_app_state(|state| state.last_workspace = Some(pointer))?;
         if let Ok((previous, _)) = self.workspace()
@@ -217,6 +230,21 @@ impl Session {
         self.lock().watcher.is_some()
     }
 
+    /// Changes `maquette.json`: one writer at a time from the config now
+    /// open, so a settings save and a project switch both land. Returns the
+    /// workspace root and what was written.
+    pub fn update_config(
+        &self,
+        change: impl FnOnce(&mut WorkspaceConfig),
+    ) -> CoreResult<(PathBuf, WorkspaceConfig)> {
+        let _turn = self.workspace_turn();
+        let (root, mut config) = self.workspace()?;
+        change(&mut config);
+        maquette_core::workspace::save(&root, &config)?;
+        self.set_config(config.clone());
+        Ok((root, config))
+    }
+
     pub fn set_config(&self, config: WorkspaceConfig) {
         if let Some(studio) = self
             .handle
@@ -295,6 +323,35 @@ mod tests {
         let manifest =
             maquette_core::project::load(&root, &FolderLayout::default(), "studio").expect("load");
         assert_eq!(manifest.site_repo, Some(repo.display().to_string()));
+    }
+
+    #[test]
+    fn overlapping_config_changes_both_land() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join("ws");
+        let config =
+            maquette_core::workspace::create(&root, &WorkspaceConfig::default()).expect("create");
+        let session = Session::with_state(dir.path().join("cfg"), None, AppState::default());
+        session.set_workspace(root.clone(), config).expect("open");
+        std::thread::scope(|scope| {
+            for n in 0..20u32 {
+                let session = &session;
+                scope.spawn(move || {
+                    session
+                        .update_config(|c| {
+                            if n % 2 == 0 {
+                                c.current_project = Some("rooftop".to_string());
+                            } else {
+                                c.lab.images.monthly_cap_usd = 77;
+                            }
+                        })
+                        .expect("update");
+                });
+            }
+        });
+        let saved = maquette_core::workspace::open(&root).expect("reopen");
+        assert_eq!(saved.current_project.as_deref(), Some("rooftop"));
+        assert_eq!(saved.lab.images.monthly_cap_usd, 77);
     }
 
     #[test]
