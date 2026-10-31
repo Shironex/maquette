@@ -148,6 +148,12 @@ pub struct PackChanged {
 #[serde(rename_all = "camelCase")]
 pub struct RigChanged {
     pub record: maquette_core::rig::RigRecord,
+/// A render changed: a file started, was written or failed, or the render
+/// stopped or is done. The Render tab and the batch sheet follow it.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderChanged {
+    pub record: maquette_core::renders::RenderRecord,
 }
 
 /// The MCP server started or stopped, took a call, or a run started by an

@@ -34,6 +34,7 @@ pub mod providers;
 pub mod quit;
 pub mod refs;
 pub mod rig;
+pub mod renders;
 pub mod ship;
 pub mod site;
 pub mod split;

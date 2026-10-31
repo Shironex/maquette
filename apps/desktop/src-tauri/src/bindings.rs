@@ -11,6 +11,7 @@ use crate::commands::{
     about, agents, animations, app, assets, avatar, built, codex_usage, credits, dialogs,
     downloads, game, image_api, inbox, inspect, lab, layout, library, library_batch, materials,
     motion, packs, page, parts, paths, pipeline, prepare, project, providers, quit, refs, rig,
+    motion, packs, page, parts, paths, pipeline, prepare, project, providers, quit, refs, renders,
     ship, site, split, thumbs, timeline, toolchain, trash, updater, workspace,
 };
 use crate::events::{
@@ -18,6 +19,7 @@ use crate::events::{
     ImageSettingsChanged, InboxChanged, LayoutChanged, LibraryChanged, MaterialsChanged, McpUpdate,
     PackChanged, PageServerChanged, PipelineChanged, PipelineUpdate, PrepareChanged,
     ProjectChanged, ProviderUpdate, QuitRequested, RigChanged, ThumbnailReady, UpdaterUpdate,
+    ProjectChanged, ProviderUpdate, QuitRequested, RenderChanged, ThumbnailReady, UpdaterUpdate,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -116,6 +118,14 @@ pub fn builder() -> Builder<tauri::Wry> {
             rig::rig_discard,
             rig::rig_save_sheet,
             rig::rig_open_blender,
+            renders::render_plan,
+            renders::render_preview,
+            renders::render_start,
+            renders::render_get,
+            renders::render_recent,
+            renders::render_stop,
+            renders::render_resume,
+            renders::render_reveal,
             animations::animations_get,
             animations::animations_read_import,
             animations::animations_import,
@@ -272,6 +282,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             ImageSettingsChanged,
             PackChanged,
             RigChanged
+            RenderChanged
         ])
         .types(&maquette_core::types())
 }
