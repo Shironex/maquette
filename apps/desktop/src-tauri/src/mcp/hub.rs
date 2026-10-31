@@ -70,6 +70,9 @@ pub enum ApprovalKind {
     /// An agent built an avatar whose new spring chains wait for a person
     /// to look at the parts and the sway sheet.
     Springs,
+    /// A rig doctor fix an agent started waits for a person to look at the
+    /// sheets and add the draft as a version.
+    RigDoctor,
 }
 
 /// One send of a batch approval.
@@ -466,6 +469,7 @@ impl Hub {
 }
 
 mod rest_pose;
+mod rig;
 
 #[cfg(test)]
 mod tests;

@@ -42,6 +42,7 @@ get_provider_job
 get_real_size
 get_ref_views
 get_retarget_review
+get_rig_doctor
 get_run
 get_ship_plan
 get_ship_settings
@@ -60,6 +61,7 @@ list_library
 list_packs
 list_projects
 list_removed_assets
+list_rig_doctors
 make_object_refs
 make_other_views
 merge_library_entries
@@ -80,6 +82,7 @@ restore_to_library
 retry_concept_jobs
 retry_usage_limited_jobs
 run_pipeline
+run_rig_doctor
 save_model_clips
 scan_game_models
 send_batch_to_3d
@@ -103,6 +106,7 @@ split_with_provider
 star_concepts
 start_concepts
 start_page_preview
+start_rig_doctor
 stop_page_preview
 tag_library_entries
 update_from_library

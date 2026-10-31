@@ -36,6 +36,7 @@ pub mod prepare;
 pub mod projects;
 pub mod refs;
 pub mod retarget;
+pub mod rig;
 pub mod runs;
 pub mod sending;
 pub mod ship;
@@ -172,6 +173,7 @@ impl McpTools {
             + Self::library_many_router()
             + Self::library_batch_router()
             + Self::packs_router()
+            + Self::rig_router()
             + Self::animations_router()
             + Self::retarget_router()
             + Self::trash_router()

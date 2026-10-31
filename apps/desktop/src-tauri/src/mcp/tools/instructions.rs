@@ -117,6 +117,9 @@ set_library_collection tidy entries; remove_from_library moves entries to librar
 restore_to_library brings them back; find_look_alikes reads entries that may be one model twice and \
 merge_library_entries merges one into another (restore_to_library on the merged entry undoes it). The library copies, never \
 links: nothing changes a project until someone updates it, and none of it spends credits. \
+start_rig_doctor reads a rigged model; run_rig_doctor starts its pose test or fix in headless \
+Blender on a copy; get_rig_doctor and list_rig_doctors read the cases. A person approves a joint \
+move and adds the draft as a version in the app: no tool can. \
 export_pack exports library entries, a collection or a project's models as one pack (OBJ or GLB, \
 textures, README, manifest and contact sheet, zipped) inside the workspace: Blender runs headless on \
 each model and opens it again to check it, Mixamo clips are always left out, and dryRun plans it first; \
