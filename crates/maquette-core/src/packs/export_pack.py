@@ -42,8 +42,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fixups  # noqa: E402
 
 # How much of its surface a decimated model may lose before thin parts
-# (tines, spokes, handles) count as gone.
-THIN_LOSS = 0.06
+# (tines, spokes, handles) count as gone. A lumpy solid with nothing thin
+# loses surface too as its bumps flatten: 8 to 11 percent for real Tripo hay,
+# peat and stone props at 3k, against 14 to 32 for trees with fine branches.
+THIN_LOSS = 0.12
 # How far off the floor or off centre the pivot may sit, in metres.
 PIVOT_SLACK = 0.01
 
@@ -278,7 +280,11 @@ def main():
         if name.endswith((".obj", ".glb")):
             folder = os.path.dirname(job["glbOut"]) if name.endswith(".glb") and job.get("glbOut") else out
             checks.append(check(os.path.join(folder, name)))
-    loss = 1.0 - area_after / area_before if area_before > 0 else 0.0
+    # Real size scales the surface too, which is no loss, and a model the
+    # budget left alone has lost no part.
+    resized = area_after / (scale * scale) if scale else area_after
+    decimated = after["triangles"] < before["triangles"]
+    loss = 1.0 - resized / area_before if area_before > 0 and decimated else 0.0
     report = {
         "key": key,
         "before": before,
