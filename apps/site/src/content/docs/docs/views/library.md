@@ -95,7 +95,7 @@ The side holds the threshold, **Check when models are added** (adding a whole pr
 An export pack is a set of models made ready for another engine or a friend: one folder (and a zip next to it) with each model's files, a README, a manifest and a contact sheet. Start one from:
 
 - **Library:** **Export pack** in the selection bar packs the selected models. **Export pack** in the top bar packs the collection on show, or every model in view.
-- **Board:** **Export pack** in a project's header packs every accepted model of that project, at its newest version.
+- **Board:** **Export pack** in the ... menu of a project's header packs every accepted model of that project, at its newest version.
 - **Agents:** the [`export_pack`](/docs/agents/mcp-tools/#export_pack) tool, with a preset.
 
 **Settings.** The sheet starts from a preset (**Plain OBJ pack** comes with Maquette; **Save as preset** keeps yours for the next pack; the line under the picker says how often the preset was used):

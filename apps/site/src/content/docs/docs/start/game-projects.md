@@ -26,7 +26,7 @@ A website repo with a `CMakeLists.txt` gets a hint to pick Game instead. A websi
 
 ## Import the game's models
 
-Right after you create the project, and from **Import models** on the Board, Maquette scans the model folder and lists every model with its folder, format, triangles, textures, size and its folder's budget check. Pick the ones Maquette should look after. Each becomes an asset whose version 1 is the repo file, and joins the ship record, so a later Ship may replace it. Models you leave out stay hand made: Ship never touches them. An import changes nothing in the game repo.
+Right after you create the project, and from **Import models** in the Board's Add menu, Maquette scans the model folder and lists every model with its folder, format, triangles, textures, size and its folder's budget check. Pick the ones Maquette should look after. Each becomes an asset whose version 1 is the repo file, and joins the ship record, so a later Ship may replace it. Models you leave out stay hand made: Ship never touches them. An import changes nothing in the game repo.
 
 Each imported model gets a preview render in the background, so the Board cards fill in as Blender finishes. A project imported before previews came with the import shows **Render N previews** in the Board header, which renders every model that has none.
 

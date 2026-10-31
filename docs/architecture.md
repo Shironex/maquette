@@ -58,8 +58,8 @@ features/board/BoardView/
 ### Feature boundaries
 
 A leaf feature imports `@/state`, `@/ipc`, `@/lib`, `@maquette/ui` and the shared features, never
-another leaf feature. When a leaf needs another feature's UI, a composition root passes it in (the
-shell hands the 3D queue to the Board as the `queue` render prop).
+another leaf feature. When a leaf needs another feature's UI, a composition root mounts it (the shell
+mounts the Sends panel, and the Board only asks the providers store to open it).
 
 | Kind              | Features                          | May import other features     |
 | ----------------- | --------------------------------- | ----------------------------- |
