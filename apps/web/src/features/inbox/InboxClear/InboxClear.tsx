@@ -17,9 +17,10 @@ export interface InboxClearProps {
  */
 export default function InboxClear({ dir, watching = false }: InboxClearProps) {
   return (
-    <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-6 py-10">
-      <div className="flex w-full max-w-[640px] flex-col gap-6">
-        <div className="flex flex-col items-center gap-2 text-center">
+    <div className="flex min-h-0 flex-1 overflow-y-auto px-6 py-10">
+      {/* Auto margins centre it while it fits, and let it scroll from the top when it does not. */}
+      <div className="m-auto flex w-full max-w-[640px] flex-col gap-6">
+        <div className="flex flex-col items-center gap-2 rounded-card border border-line bg-panel px-8 py-10 text-center">
           <span className="grid size-11 place-items-center rounded-full bg-sage-soft text-sage">
             <Icon name="check-circle" size={22} />
           </span>
