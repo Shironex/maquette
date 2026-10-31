@@ -290,6 +290,51 @@ pub fn messy_prop() -> Vec<u8> {
     b.finish(root)
 }
 
+/// A row of `parts` touching boxes as the split into parts sends them: each
+/// its own named node and mesh, 12 triangles a box, untextured.
+pub fn split_parts(parts: u32) -> Vec<u8> {
+    let mut b = Builder::default();
+    let (mut nodes, mut meshes) = (Vec::new(), Vec::new());
+    for i in 0..parts {
+        let mut mesh = Mesh::default();
+        mesh.cuboid([i as f32 * 0.1, 0.05, 0.0], [0.1, 0.1, 0.1], 0);
+        let prim = b.primitive(&mesh, 0, false);
+        nodes.push(json!({ "name": format!("Part_{i}"), "mesh": i }));
+        meshes.push(json!({ "name": format!("Part_{i}"), "primitives": [prim] }));
+    }
+    let root = json!({
+        "scene": 0,
+        "scenes": [{ "nodes": (0..parts).collect::<Vec<_>>() }],
+        "nodes": nodes,
+        "meshes": meshes,
+        "materials": [{ "name": "Grey" }],
+    });
+    b.finish(root)
+}
+
+/// The same row of boxes painted again and come back as one node and one
+/// mesh with `parts` touching pieces, with one base color map.
+pub fn repainted_merged(parts: u32) -> Vec<u8> {
+    let mut b = Builder::default();
+    let mut mesh = Mesh::default();
+    for i in 0..parts {
+        mesh.cuboid([i as f32 * 0.1, 0.05, 0.0], [0.1, 0.1, 0.1], 0);
+    }
+    let view = b.checker(64, [120, 150, 90], [80, 110, 60]);
+    let prim = b.primitive(&mesh, 0, false);
+    let root = json!({
+        "scene": 0,
+        "scenes": [{ "nodes": [0] }],
+        "nodes": [{ "name": "Model", "mesh": 0 }],
+        "meshes": [{ "name": "Model", "primitives": [prim] }],
+        "materials": [{ "name": "Painted", "pbrMetallicRoughness": { "baseColorTexture": { "index": 0 } } }],
+        "images": [{ "bufferView": view, "mimeType": "image/png" }],
+        "textures": [{ "source": 0, "sampler": 0 }],
+        "samplers": [{}],
+    });
+    b.finish(root)
+}
+
 /// Every fixture with a file name, for the e2e run and the mock assets.
 pub fn all() -> Vec<(&'static str, Vec<u8>)> {
     vec![

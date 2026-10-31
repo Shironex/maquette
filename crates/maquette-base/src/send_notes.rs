@@ -15,6 +15,25 @@ pub enum SentMaps {
     NoTexture,
 }
 
+/// The provider a send went to, so a check can name the right settings.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SentTo {
+    /// Not from a send.
+    #[default]
+    Nobody,
+    Tripo,
+    Meshy,
+}
+
+/// The version a re-texture painted, for comparing what came back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RetextureSource {
+    pub version: u32,
+    /// How many mesh objects draw it.
+    pub objects: u32,
+    pub triangles: u32,
+}
+
 /// What the send record says about a model, so a check does not warn
 /// about something that was chosen on purpose.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -25,4 +44,12 @@ pub struct SendNotes {
     /// Made by hand on Tripo's site, where a Smart Mesh character exports
     /// base color only whatever the PBR setting.
     pub by_hand_tripo: bool,
+    pub sent_to: SentTo,
+    /// Made on the provider's own site, not over its API.
+    pub by_hand: bool,
+    /// A split into parts, which has no PBR setting: Meshy's comes back
+    /// grey on purpose, the texture follows with a bake back or a re-texture.
+    pub split: bool,
+    /// A re-texture, which has no PBR setting either: it always asks for it.
+    pub retexture_of: Option<RetextureSource>,
 }

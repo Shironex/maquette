@@ -1,11 +1,13 @@
 //! Painting a version of an asset again on Meshy: a paid send like any other.
 //! The version goes up as a file, copied into the job's folder when it goes
 //! out, and the result lands in the Inbox as the next version. Meshy's own
-//! answer decides whether the parts stay parts, so the Inbox checks look.
+//! answer decides whether the parts stay parts, so the Inbox checks compare
+//! what came back with the version it painted.
 
+use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -16,8 +18,8 @@ use super::split_files::{SOURCE_FILE, split_dir, version_file};
 use super::worker::Run;
 use super::{
     CLOSED_WHILE_SENDING, CancelMode, Chain, Entry, Flow, FlowResult, JobPhase, JobState, Outcome,
-    Provider, ProviderEvent, ProviderJob, ProviderJobs, RetextureJob, Stored, api_key, persist,
-    pump, snapshot, touch_asset,
+    Provider, ProviderEvent, ProviderJob, ProviderJobs, RetextureJob, Stored, Workspace, api_key,
+    persist, pump, snapshot, touch_asset,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::http::{ApiError, StopFlag};
@@ -27,6 +29,7 @@ use crate::split::{MAX_RETEXTURE_PROMPT, MESHY_RETEXTURE_CREDITS};
 use maquette_base::history::now_ms;
 use maquette_model::assets::{self, AssetKind, AssetStatus};
 use maquette_model::project;
+use maquette_model::sends::RetextureSource;
 
 /// What a re-texture asks for.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -38,6 +41,42 @@ pub struct RetextureRequest {
     pub version: u32,
     /// What the new texture looks like.
     pub prompt: String,
+}
+
+/// A version's numbers once read: its file never changes, and the Inbox asks
+/// on every listing.
+static SOURCES: LazyLock<Mutex<HashMap<PathBuf, (u32, u32)>>> = LazyLock::new(Mutex::default);
+
+/// What the Inbox compares a re-texture with: the version it painted, while
+/// that version's file is there to read.
+pub(super) fn retexture_source(
+    job: &ProviderJob,
+    workspace: &Workspace,
+) -> Option<RetextureSource> {
+    let version = job.retexture.as_ref()?.from_version;
+    let file = version_file(workspace, &job.project, &job.asset, version)?;
+    let known = SOURCES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(&file)
+        .copied();
+    let (objects, triangles) = match known {
+        Some(numbers) => numbers,
+        None => {
+            let report = maquette_glb::analyse::analyse(&file).ok()?;
+            let numbers = (report.objects, report.triangles);
+            SOURCES
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .insert(file, numbers);
+            numbers
+        }
+    };
+    Some(RetextureSource {
+        version,
+        objects,
+        triangles,
+    })
 }
 
 impl ProviderJobs {

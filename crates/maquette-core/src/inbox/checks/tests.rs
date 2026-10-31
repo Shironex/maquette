@@ -191,7 +191,7 @@ fn a_by_hand_tripo_character_with_base_color_only_gets_a_note() {
             row.detail
                 .as_deref()
                 .unwrap_or_default()
-                .contains("Turn on PBR in the Tripo settings")
+                .contains("Turn on PBR where you make the next model")
         );
     }
     // Without even a base color map it still warns.
@@ -220,6 +220,143 @@ fn detailed_textures_keep_the_warning_and_say_why() {
     let detail = row.detail.as_deref().unwrap_or_default();
     assert!(detail.contains("sent with detailed textures"), "{detail}");
     assert!(detail.contains("Compress resizes them"));
+}
+
+#[test]
+fn the_pbr_advice_names_where_the_model_came_from() {
+    let config = WorkspaceConfig::default();
+    let report = analyse_bytes(&fixture::repainted_merged(3), Path::new(".")).expect("analyse");
+    let detail = |notes| {
+        let list = run(&report, AssetKind::Prop, &config, notes, None);
+        let row = list.iter().find(|c| c.id == "pbr").expect("row").clone();
+        (row.status, row.detail.unwrap_or_default())
+    };
+    let meshy = SendNotes {
+        sent_to: SentTo::Meshy,
+        ..SendNotes::default()
+    };
+    let (status, text) = detail(meshy);
+    assert_eq!(status, CheckStatus::Warning);
+    assert!(text.contains("asked Meshy"), "{text}");
+    assert!(!text.contains("Tripo"), "{text}");
+
+    let tripo_off = SendNotes {
+        sent_to: SentTo::Tripo,
+        maps: SentMaps::NoTexture,
+        ..SendNotes::default()
+    };
+    // With no base color at all, a send without PBR still explains itself.
+    assert_eq!(detail(tripo_off).0, CheckStatus::Pass);
+
+    let dropped = detail(SendNotes::default()).1;
+    assert!(
+        dropped.contains("where you make the next model"),
+        "{dropped}"
+    );
+    assert!(!dropped.contains("Tripo") && !dropped.contains("Meshy"));
+
+    let by_hand = SendNotes {
+        sent_to: SentTo::Meshy,
+        by_hand: true,
+        ..SendNotes::default()
+    };
+    assert!(detail(by_hand).1.contains("on Meshy's site"));
+
+    let repainted = SendNotes {
+        sent_to: SentTo::Meshy,
+        retexture_of: Some(RetextureSource {
+            version: 2,
+            objects: 1,
+            triangles: 36,
+        }),
+        ..SendNotes::default()
+    };
+    assert!(detail(repainted).1.contains("The re-texture asked Meshy"));
+}
+
+#[test]
+fn a_split_that_is_grey_on_purpose_does_not_warn_about_maps() {
+    let config = WorkspaceConfig::default();
+    let report = analyse_bytes(&fixture::split_parts(3), Path::new(".")).expect("analyse");
+    assert!(!report.pbr.base_color, "grey");
+    let notes = SendNotes {
+        sent_to: SentTo::Meshy,
+        split: true,
+        ..SendNotes::default()
+    };
+    let list = run(&report, AssetKind::Prop, &config, notes, None);
+    let row = list.iter().find(|c| c.id == "pbr").expect("row");
+    assert_eq!(row.status, CheckStatus::Pass);
+    assert_eq!(row.title, "No texture, as split");
+}
+
+/// The fern's rows: what was seen in the app comes from one mesh node.
+#[test]
+fn a_repaint_that_came_back_as_one_mesh_warns_and_points_at_the_bake_back() {
+    let config = WorkspaceConfig::default();
+    let source = analyse_bytes(&fixture::split_parts(35), Path::new(".")).expect("analyse");
+    assert_eq!((source.objects, source.triangles), (35, 420));
+    let merged = analyse_bytes(&fixture::repainted_merged(35), Path::new(".")).expect("analyse");
+    assert_eq!((merged.objects, merged.triangles), (1, 420));
+
+    // Without the comparison a merged model looks fine: this is the silent loss.
+    let plain = run(
+        &merged,
+        AssetKind::Prop,
+        &config,
+        SendNotes::default(),
+        None,
+    );
+    let row = plain.iter().find(|c| c.id == "merged").expect("merged");
+    assert_eq!(row.title, "One object per mesh");
+    assert_eq!(status(&plain, "objects"), None);
+
+    let notes = SendNotes {
+        sent_to: SentTo::Meshy,
+        retexture_of: Some(RetextureSource {
+            version: 2,
+            objects: source.objects,
+            triangles: 15_900,
+        }),
+        ..SendNotes::default()
+    };
+    let list = run(&merged, AssetKind::Prop, &config, notes, None);
+    let row = list
+        .iter()
+        .find(|c| c.id == "retexture-parts")
+        .expect("row");
+    assert_eq!(row.status, CheckStatus::Warning);
+    assert_eq!(row.title, "Parts gone: v2 has 35, this is one mesh");
+    let detail = row.detail.as_deref().unwrap_or_default();
+    assert!(detail.contains("15.9k tris on v2"), "{detail}");
+    assert!(detail.contains("Bake back on v2"), "{detail}");
+    assert_eq!(
+        status(&list, "merged"),
+        None,
+        "no all clear next to the loss"
+    );
+    assert_eq!(worst(&list), CheckStatus::Warning);
+}
+
+#[test]
+fn a_repaint_that_kept_its_parts_says_so() {
+    let config = WorkspaceConfig::default();
+    let report = analyse_bytes(&fixture::split_parts(35), Path::new(".")).expect("analyse");
+    let notes = SendNotes {
+        retexture_of: Some(RetextureSource {
+            version: 2,
+            objects: 35,
+            triangles: 420,
+        }),
+        ..SendNotes::default()
+    };
+    let list = run(&report, AssetKind::Prop, &config, notes, None);
+    let row = list
+        .iter()
+        .find(|c| c.id == "retexture-parts")
+        .expect("row");
+    assert_eq!(row.status, CheckStatus::Pass);
+    assert_eq!(row.title, "Parts kept: 35, as on v2");
 }
 
 fn fixes(list: &[Check], id: &str) -> Vec<Fixup> {

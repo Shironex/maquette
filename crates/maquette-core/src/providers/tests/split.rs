@@ -12,6 +12,8 @@ use crate::providers::split::{
 /// splits return two untextured crates, the way a split loses the texture.
 #[derive(Default)]
 struct SplitFake {
+    /// The split sends 35 parts and the re-texture one mesh with all of them.
+    parts: AtomicBool,
     hold: AtomicBool,
     fail: AtomicBool,
 }
@@ -73,6 +75,12 @@ impl SplitFake {
                 .with_header("Retry-After", "0.01")
             }
             ("GET", "/dl/task_model.glb" | "/dl/m-model.glb") => Reply::bytes(200, glb()),
+            ("GET", "/dl/m-split.glb") if self.parts.load(Ordering::SeqCst) => {
+                Reply::bytes(200, fixture::split_parts(35))
+            }
+            ("GET", "/dl/m-paint.glb") if self.parts.load(Ordering::SeqCst) => {
+                Reply::bytes(200, fixture::repainted_merged(35))
+            }
             ("GET", p) if p.starts_with("/dl/") => Reply::bytes(200, fixture::merged_islands()),
             _ => Reply::json(404, &json!({ "message": "no route" })),
         }
@@ -426,6 +434,56 @@ fn keeping_a_meshy_split_grey_only_offers_the_bake_and_a_retexture_lands_as_a_ve
         jobs.send_split(&again, false, false).is_err(),
         "a re-texture is not split again"
     );
+}
+
+#[test]
+fn a_retexture_that_merges_the_parts_warns_in_the_inbox() {
+    let world = World::new();
+    let (server, fake) = split_server();
+    fake.parts.store(true, Ordering::SeqCst);
+    let jobs = world.jobs(&server);
+    made_by(&world, &jobs, Provider::Meshy);
+    let mut request = split_request(&world, Provider::Meshy);
+    request.meshy = Some(MeshySplit::default());
+    request.after = SplitAfter::Grey;
+    let job = jobs.send_split(&request, false, false).expect("split");
+    let file = finished(&jobs, &job.id).inbox_file.expect("item");
+
+    // The grey split waits in the Inbox without a word about maps.
+    let mut items = inbox::list(&world.root, &world.config).expect("list");
+    jobs.link_inbox(&mut items);
+    let split = items.iter().find(|i| i.id == file).expect("split item");
+    let pbr = split.checks.iter().find(|c| c.id == "pbr").expect("pbr");
+    assert_eq!(pbr.status, inbox::CheckStatus::Pass, "{pbr:?}");
+    assert_eq!(accept(&world, &jobs, &file), 2);
+
+    let paint = RetextureRequest {
+        project: world.project.clone(),
+        asset: world.asset.clone(),
+        version: 2,
+        prompt: "weathered iron".to_string(),
+    };
+    let sent = jobs.send_retexture(&paint, false, false).expect("sent");
+    let painted = finished(&jobs, &sent.id).inbox_file.expect("item");
+
+    let mut items = inbox::list(&world.root, &world.config).expect("list");
+    jobs.link_inbox(&mut items);
+    let item = items
+        .iter()
+        .find(|i| i.id == painted)
+        .expect("painted item");
+    let row = item
+        .checks
+        .iter()
+        .find(|c| c.id == "retexture-parts")
+        .expect("the parts row");
+    assert_eq!(row.status, inbox::CheckStatus::Warning);
+    assert_eq!(row.title, "Parts gone: v2 has 35, this is one mesh");
+    assert_eq!(item.worst, inbox::CheckStatus::Warning);
+    let pbr = item.checks.iter().find(|c| c.id == "pbr").expect("pbr");
+    let detail = pbr.detail.as_deref().unwrap_or_default();
+    assert!(detail.contains("The re-texture asked Meshy"), "{detail}");
+    assert!(!detail.contains("Tripo"), "{detail}");
 }
 
 #[test]
