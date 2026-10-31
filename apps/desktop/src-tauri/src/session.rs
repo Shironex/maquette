@@ -184,7 +184,7 @@ impl Session {
     /// does nothing.
     fn watch_inbox(&self, root: &Path, config: &WorkspaceConfig) -> Option<watch::InboxWatcher> {
         let handle = self.handle.get()?.clone();
-        if let Err(err) = handle.asset_protocol_scope().allow_directory(root, true) {
+        if let Err(err) = crate::asset_scope::open_workspace(&handle, root) {
             tracing::warn!(error = %err, "could not open the workspace to the asset protocol");
         }
         let dir = inbox::inbox_dir(root, config);
