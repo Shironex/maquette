@@ -23,7 +23,9 @@ describe('recent packs', () => {
       />
     );
     const rows = screen.getAllByRole('listitem');
-    expect(within(rows[0]!).getByText('Blender quit at model 7 of 18')).toBeVisible();
+    expect(
+      within(rows[0]!).getByText('Maquette closed with 6 of 18 done, model 7 is next')
+    ).toBeVisible();
     await userEvent.click(within(rows[0]!).getByRole('button', { name: 'Go on from 7' }));
     expect(onResume).toHaveBeenCalledWith(recent[0]!.id);
     await userEvent.click(within(rows[1]!).getByRole('button', { name: 'Open' }));

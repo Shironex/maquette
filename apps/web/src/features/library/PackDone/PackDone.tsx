@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Button, Icon } from '@maquette/ui';
 import type { PackRecord } from '@/ipc/client';
 import { shortPath } from '@/lib/format';
+import PackPicture from '../PackCheck/PackPicture';
 import { RecentPacks } from '../RecentPacks';
 import { usePackDone } from './PackDone.hooks';
 
@@ -57,12 +58,12 @@ export default function PackDone({ record }: PackDoneProps) {
       {row.label}, {row.opened} of {row.of}
     </li>
   ));
-  const pictures = d.pictures.map(p => (
+  const pictures = d.kept.map(item => (
     <li
-      key={p.key}
+      key={item.model.key}
       className="grid aspect-square place-items-center overflow-hidden rounded-[4px] bg-studio"
     >
-      {p.url ? <img src={p.url} alt="" className="size-full object-contain" /> : null}
+      <PackPicture item={item} />
     </li>
   ));
   return (
@@ -95,6 +96,7 @@ export default function PackDone({ record }: PackDoneProps) {
                 src={d.sheet}
                 alt={`Every model in ${record.name}`}
                 className="rounded-card border border-line"
+                onError={d.sheetFailed}
               />
             ) : (
               <ul

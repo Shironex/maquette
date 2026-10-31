@@ -1,10 +1,13 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import { registerMockFile } from '@/ipc/files';
+import { newItem } from '@/ipc/mock/pack-fixtures';
 import { usePackStore } from '@/state/use-pack-store';
 import { clearMocks } from '@/test/mock-ipc';
 import { follow, resetPacks, runPack } from '@/test/open-pack';
 import PackCheck from './PackCheck';
+import PackCheckCard from './PackCheckCard';
 
 afterEach(() => {
   clearMocks();
@@ -50,5 +53,103 @@ describe('the check of a pack', () => {
     expect(now.items.every(i => i.state === 'pass')).toBe(true);
     expect(now.zip).toMatch(/village-props\.zip$/);
     await waitFor(() => expect(usePackStore.getState().record?.state).toBe('done'));
+  });
+
+  it('counts the model running apart from the models waiting', async () => {
+    const record = await runPack(8);
+    const items = record.items.map((item, n) => ({
+      ...item,
+      state: n === 0 ? ('pass' as const) : n === 1 ? ('running' as const) : ('queued' as const),
+    }));
+    render(<PackCheck record={{ ...record, state: 'running', items }} />);
+    expect(screen.getByRole('tab', { name: /^Running/ })).toHaveTextContent('1');
+    expect(screen.getByRole('tab', { name: /^Waiting/ })).toHaveTextContent('6');
+    await userEvent.click(screen.getByRole('tab', { name: /^Waiting/ }));
+    const models = screen.getByRole('region', { name: 'Models in the pack' });
+    expect(within(models).getAllByRole('article')).toHaveLength(6);
+  });
+
+  it('says it is stopping until the model on now is done, and goes on from the next', async () => {
+    const record = await runPack(8);
+    const items = record.items.map((item, n) => ({
+      ...item,
+      state: n < 7 ? ('pass' as const) : ('running' as const),
+    }));
+    usePackStore.setState({ stopping: record.id });
+    const { rerender } = render(<PackCheck record={{ ...record, state: 'running', items }} />);
+    expect(screen.getByText(/stopping after this model/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Stopping' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    usePackStore.setState({ stopping: null });
+    const stopped = items.map((item, n) =>
+      n === 7 ? { ...item, state: 'queued' as const } : item
+    );
+    const message = 'Stopped with 7 of 8 done, model 8 is next';
+    rerender(<PackCheck record={{ ...record, state: 'stopped', items: stopped, message }} />);
+    expect(screen.getByText(message)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Go on from 8' })).toBeVisible();
+  });
+});
+
+describe('the picture on a card', () => {
+  const model = (thumbnail: string | null) => ({
+    key: 'crate',
+    name: 'Crate',
+    kind: 'prop' as const,
+    entry: 'crate',
+    project: null,
+    asset: null,
+    version: 1,
+    file: '/ws/crate.glb',
+    stats: null,
+    rigged: false,
+    heightM: null,
+    mixamo: false,
+    source: null,
+    licence: '',
+    thumbnail,
+    refs: [],
+    prep: null,
+  });
+  const src = (card: HTMLElement) => card.querySelector('img')?.getAttribute('src');
+
+  it('gives way to the library picture, then the kind icon, never a broken image', () => {
+    registerMockFile('/ws/exports/.packs/1/crate.png', 'mock://render');
+    registerMockFile('/ws/library/crate/thumb.png', 'mock://thumb');
+    const item = {
+      ...newItem(model('/ws/library/crate/thumb.png'), 3000),
+      state: 'pass' as const,
+      picture: '/ws/exports/.packs/1/crate.png',
+    };
+    const { container } = render(<PackCheckCard item={item} format="obj" />);
+    expect(src(container)).toBe('mock://render');
+    fireEvent.error(container.querySelector('img')!);
+    expect(src(container)).toBe('mock://thumb');
+    fireEvent.error(container.querySelector('img')!);
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('svg')).not.toBeNull();
+  });
+
+  it('tries again when a new run gives it a new picture', () => {
+    registerMockFile('/ws/a.png', 'mock://a');
+    registerMockFile('/ws/b.png', 'mock://b');
+    const item = { ...newItem(model(null), 3000), state: 'pass' as const, picture: '/ws/a.png' };
+    const { container, rerender } = render(<PackCheckCard item={item} format="obj" />);
+    fireEvent.error(container.querySelector('img')!);
+    expect(container.querySelector('img')).toBeNull();
+    rerender(<PackCheckCard item={{ ...item, picture: '/ws/b.png' }} format="obj" />);
+    expect(src(container)).toBe('mock://b');
+  });
+
+  it('says on the numbers which budget the model ran under', () => {
+    const item = {
+      ...newItem({ ...model(null), kind: 'character' }, null),
+      state: 'pass' as const,
+      triangles: 5999,
+    };
+    render(<PackCheckCard item={item} format="obj" />);
+    expect(screen.getByTitle('5,999 tris · Characters, no budget')).toBeVisible();
   });
 });

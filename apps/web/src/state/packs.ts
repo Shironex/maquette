@@ -54,7 +54,7 @@ export function defaultName(source: PackSource, names: { collection?: string; pr
   return 'library-pack';
 }
 
-export type CheckFilter = 'all' | 'pass' | 'look' | 'failed' | 'running';
+export type CheckFilter = 'all' | 'pass' | 'look' | 'failed' | 'running' | 'waiting';
 
 export const FILTER_LABEL: Record<CheckFilter, string> = {
   all: 'All',
@@ -62,6 +62,7 @@ export const FILTER_LABEL: Record<CheckFilter, string> = {
   look: 'To look at',
   failed: 'Failed',
   running: 'Running',
+  waiting: 'Waiting',
 };
 
 const IN_FILTER: Record<CheckFilter, readonly PackItemState[]> = {
@@ -69,7 +70,8 @@ const IN_FILTER: Record<CheckFilter, readonly PackItemState[]> = {
   pass: ['pass', 'kept'],
   look: ['warn'],
   failed: ['fail'],
-  running: ['running', 'queued'],
+  running: ['running'],
+  waiting: ['queued'],
 };
 
 export function inFilter(item: PackItem, filter: CheckFilter): boolean {
@@ -84,6 +86,7 @@ export function filterCounts(items: readonly PackItem[]): Record<CheckFilter, nu
     look: count('look'),
     failed: count('failed'),
     running: count('running'),
+    waiting: count('waiting'),
   };
 }
 
@@ -116,13 +119,40 @@ export function importRows(record: Pick<PackRecord, 'items'>): ImportRow[] {
 export const needsYou = (items: readonly PackItem[]) =>
   items.filter(i => i.state === 'warn' || i.state === 'fail');
 
-/** "about 40 s left" from the models done so far, or null before one is. */
+/** The model that runs next, counted from 1: what Go on picks up. */
+export function nextModel(items: readonly PackItem[]): number {
+  const at = items.findIndex(i => !settled(i));
+  return at < 0 ? items.length : at + 1;
+}
+
+/** It has to come down to its budget in Blender, which takes far longer. */
+const decimates = (i: PackItem) =>
+  i.budget !== null && !i.model.rigged && (i.model.stats?.triangles ?? 0) > i.budget;
+
+const mean = (ms: readonly number[]) => ms.reduce((a, b) => a + b, 0) / ms.length;
+
+/**
+ * "about 40 min left" from the models that ran, or null before one has. A
+ * model still queued has no time of its own (the core keeps it at 0), and
+ * one decimated takes far longer than one left as it is, so each side is
+ * read from its own kind of model, or from all of them until one has run.
+ */
 export function timeLeft(items: readonly PackItem[]): string | null {
-  const took = items.map(i => i.tookMs).filter((ms): ms is number => ms !== null);
-  const left = items.filter(i => !settled(i)).length;
-  if (!took.length || !left) return null;
-  const s = Math.round(((took.reduce((a, b) => a + b, 0) / took.length) * left) / 1000);
-  return s < 60 ? `about ${Math.max(1, s)} s left` : `about ${Math.round(s / 60)} min left`;
+  const ran = items.filter(i => settled(i) && (i.tookMs ?? 0) > 0);
+  const left = items.filter(i => !settled(i));
+  if (!ran.length || !left.length) return null;
+  const took = (of: readonly PackItem[]) => of.map(i => i.tookMs ?? 0);
+  const all = mean(took(ran));
+  const slow = took(ran.filter(decimates));
+  const quick = took(ran.filter(i => !decimates(i)));
+  const slowMs = slow.length ? mean(slow) : all;
+  const quickMs = quick.length ? mean(quick) : all;
+  const ms = left.reduce((sum, i) => sum + (decimates(i) ? slowMs : quickMs), 0);
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `about ${Math.max(1, s)} s left`;
+  const min = Math.round(s / 60);
+  if (min < 90) return `about ${min} min left`;
+  return `about ${Math.floor(min / 60)} h ${min % 60} min left`;
 }
 
 /** "3:12", a run's length. */
@@ -143,6 +173,12 @@ export function itemNumbers(item: PackItem): string {
   const height = item.heightM ?? item.model.heightM;
   if (height !== null) parts.push(`${height.toFixed(2)} m`);
   return parts.filter(Boolean).join(' · ');
+}
+
+/** The budget a model ran under, "Props budget 3,000" or "Characters, no budget". */
+export function itemBudget(item: PackItem): string {
+  const kind = KIND_LABEL[item.model.kind];
+  return item.budget === null ? `${kind}, no budget` : `${kind} budget ${formatCount(item.budget)}`;
 }
 
 /** What a waiting card says while it waits. */

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { copyText } from '@/features/config/copyText';
 import type { PackRecord } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
@@ -19,11 +20,15 @@ import { usePackStore } from '@/state/use-pack-store';
 /** A finished pack's numbers, tree, manifest and contact sheet, and its actions. */
 export function usePackDone(record: PackRecord) {
   const store = usePackStore();
+  // A pack written outside the workspace is out of the web view's reach, so
+  // its sheet gives way to the pictures it was made from.
+  const [sheetFailed, setSheetFailed] = useState(false);
   const files = useFileManager();
   const notify = useAppStore(s => s.notify);
   const kept = record.items.filter(passes);
   const { before, after } = triangleTotals(record);
-  const took = record.finishedAt ? Date.parse(record.finishedAt) - Date.parse(record.createdAt) : 0;
+  // The time in Blender, not since it started: a pack may have sat stopped.
+  const took = record.items.reduce((ms, i) => ms + (i.tookMs ?? 0), 0);
   const path = record.zip ?? record.dir;
   const where = record.dir.replace(/[\\/][^\\/]+$/, '');
   const stats = [
@@ -60,10 +65,13 @@ export function usePackDone(record: PackRecord) {
     stats,
     tree: packTree(record),
     manifest: record.settings.manifest ? manifestSnippet(record) : null,
-    sheet: record.settings.contactSheet ? fileUrl(`${record.dir}/contact-sheet.png`) : null,
-    pictures: kept.map(i => ({ key: i.model.key, url: fileUrl(i.picture ?? i.model.thumbnail) })),
+    sheet:
+      record.settings.contactSheet && !sheetFailed
+        ? fileUrl(`${record.dir}/contact-sheet.png`)
+        : null,
+    sheetFailed: () => setSheetFailed(true),
+    kept,
     where,
-    kept: kept.length,
     imports: importRows(record),
   };
 }
