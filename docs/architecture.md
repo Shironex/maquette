@@ -129,7 +129,7 @@ against it.
 | pipeline  | model, glb | `pipeline`, `prepare::preview`, `avatar::{normalize, reweight, springs}`, `built::{build, blender}`, `materials::{apply, split}`, `ship::{plan, report}`, `layout::view`, `thumbs`, `game`, `inspect`, `inbox`, `motion`, `parts`, `site` |
 | providers | model, glb | `providers` (the maquette-providers crate)                                                                                                                                                                                                |
 | lab       | model, glb | `concepts`, `refs::{files, suggested}`                                                                                                                                                                                                    |
-| library   | pipeline   | `library`, `animations`                                                                                                                                                                                                                   |
+| library   | pipeline   | `library`, `animations`, `packs`                                                                                                                                                                                                          |
 | facade    | everything | `lib.rs`, `providers::tests` (the provider tests that drive a send into the inbox)                                                                                                                                                        |
 
 A module whose file on disk is model data but whose work runs Blender or reads other layers is split
@@ -225,7 +225,7 @@ added. The order does not change `bindings.ts`: the TypeScript exporter sorts th
 | `inspect`                      | the Inspect view                                                                                                                                                                                                                                                                               |
 | `game`                         | a game repo's checks, scan, import and ship plan                                                                                                                                                                                                                                               |
 | `concepts`                     | Lab concepts and jobs                                                                                                                                                                                                                                                                          |
-| `library`                      | library entries, their uses and updates                                                                                                                                                                                                                                                        |
+| `library`, `packs`             | library entries, their uses and updates; export packs, their records and presets                                                                                                                                                                                                               |
 | `maquette_preview::register`   | the Page view's settings and the dev server's command and status                                                                                                                                                                                                                               |
 
 ## MCP tools
@@ -273,6 +273,15 @@ aims the model there again; `inbox::place` fills each model's `nextVersion` and 
 `update_from_library`, which call the same `maquette_core::library` functions as the commands and
 emit `libraryChanged` and the project events. `list_library` pages (a `limit` and an entry id `cursor`) and answers compact entries unless `full`. The send tools' `modelWarning` comes from the core `HasModel` send warning (`refs/checks.rs`), which the Send to 3D and batch panels show as a note beside the ref warnings. `tools/animations.rs` holds `list_animations`,
 `import_animations` and `save_model_clips`; import paths must resolve inside the workspace.
+
+`tools/packs.rs` holds `export_pack`, `get_pack`, `list_packs` and `decide_pack`. They go through
+`commands/packs.rs` like the Library's pack sheet, with `from_anywhere` false, so an agent's pack
+lands inside the workspace. `maquette_core::packs` plans a pack (the source closure that reads a
+project's sends is passed in, since the library layer may not use providers), runs each model through
+`export_pack.py` with the starter `fixups.py` beside it, renders the check with `render_thumb.py`,
+compresses a web pack with the pipeline's compress step, and writes the README, manifest, contact
+sheet and zip. A record per pack lives in `exports/.packs/`, and a folder Maquette wrote carries a
+`.maquette-pack` marker, the only kind it replaces.
 
 `tools/trash.rs` holds `remove_assets`, `list_removed_assets` and `restore_asset`, which go
 through `commands/trash.rs` like the Board's Remove from project and Recently removed.
