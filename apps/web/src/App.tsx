@@ -1,4 +1,5 @@
-import { Button, EmptyState, Toast } from '@maquette/ui';
+import { Button, EmptyState, Toast, cn } from '@maquette/ui';
+import { useFloatingApprovals } from '@/features/agents/ApprovalPrompt/ApprovalPrompt.hooks';
 import { AppShell } from '@/features/shell/AppShell';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { WorkspaceInUseDialog } from '@/features/common/WorkspaceInUseDialog';
@@ -39,8 +40,16 @@ function BootFailure() {
 
 function NoticeHost() {
   const { notice, dismiss, act } = useNoticeHost();
+  const approvals = useFloatingApprovals();
   return (
-    <div aria-live="polite" className="pointer-events-none fixed right-5 bottom-11 z-50">
+    <div
+      aria-live="polite"
+      // An approval prompt holds the corner, so a notice sits beside it.
+      className={cn(
+        'pointer-events-none fixed bottom-11 z-50',
+        approvals?.length ? 'right-[436px]' : 'right-5'
+      )}
+    >
       {notice ? (
         <Toast
           key={notice.id}

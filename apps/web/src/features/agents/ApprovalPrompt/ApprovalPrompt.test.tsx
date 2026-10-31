@@ -22,6 +22,15 @@ describe('the approval prompt', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
+  it('holds the bottom right corner, clear of the views header controls', async () => {
+    await openAgentSession('batch');
+    act(() => useAppStore.setState({ view: 'board' }));
+    const { container } = render(<ApprovalPrompt />);
+    const column = container.firstElementChild;
+    expect(column).toHaveClass('bottom-11', 'right-5', 'overflow-y-auto');
+    expect(column).not.toHaveClass('top-[68px]');
+  });
+
   it('renders nothing with no approvals', async () => {
     await openAgentSession(null);
     const { container } = render(<ApprovalPrompt />);
