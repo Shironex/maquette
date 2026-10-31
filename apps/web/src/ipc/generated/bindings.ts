@@ -5243,6 +5243,8 @@ export type RenderProblem = {
 	message: string,
 	/**  What a WebP loop of the same turn would weigh, about. */
 	webpBytes: number | null,
+	/**  The last of what Blender said, for Show the log, when it failed. */
+	log?: string | null,
 };
 
 /**  A render, as the app and agents read it. */
@@ -5286,6 +5288,8 @@ export type RenderRow = {
 /**  How the files of a render are made. */
 export type RenderSettings = {
 	camera?: RenderCamera,
+	/**  A camera stop's view, which a still takes in place of `camera`. */
+	stop?: RenderStop | null,
 	/**  A still's edge in pixels. */
 	size?: number,
 	/**  Leaves the paper out of a still. */
@@ -5332,6 +5336,19 @@ export type RenderShot = {
 export type RenderState = "running" | 
 /**  Stopped by a person, or the app closed: it can go on. */
 "stopped" | "done";
+
+/**
+ *  A camera stop's view of a model: where the stop stands around it and how
+ *  far it looks down, in degrees, so a still can be taken from there.
+ */
+export type RenderStop = {
+	/**  The stop's name, for the file and the picture's tag. */
+	name: string,
+	/**  The turn from the front, 0 to 359. */
+	azimuth: number,
+	/**  How far it looks down, 0 to 80. */
+	elevation: number,
+};
 
 /**  What a file is drawn as. */
 export type RenderStyle = "blueprint" | "toon" | "clay" | "shaded" | "turntable" | "contact-sheet";

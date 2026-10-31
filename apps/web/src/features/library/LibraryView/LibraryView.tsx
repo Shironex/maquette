@@ -1,4 +1,13 @@
-import { Button, EmptyState, SegmentedControl, TextField, TopBar } from '@maquette/ui';
+import {
+  Button,
+  EmptyState,
+  SegmentedControl,
+  TextField,
+  TopBar,
+  type WindowItemProps,
+} from '@maquette/ui';
+import type { LibraryItem } from '@/ipc/client';
+import { groupItems } from '@/state/library';
 import { AddManySheet } from '../AddManySheet';
 import { LibraryBulkBar } from '../LibraryBulkBar';
 import { LibraryCard } from '../LibraryCard';
@@ -9,6 +18,7 @@ import { LibraryStats } from '../LibraryStats';
 import { LibrarySummary } from '../LibrarySummary';
 import { LookAlikesView } from '../LookAlikesView';
 import { PackSheet } from '../PackSheet';
+import LibraryGroups from './LibraryGroups';
 import { useLibraryView, useModelSelection, useModelsWindow } from './LibraryView.hooks';
 
 const EMPTY_STEPS = [
@@ -26,12 +36,15 @@ const EMPTY_STEPS = [
 export default function LibraryView() {
   const v = useLibraryView();
   const { filters, setFilters, layout, setLayout, sort, setSort, item, select } = v;
-  const order = v.shown.map(i => i.entry.id);
+  const groups = groupItems(v.shown, v.group);
+  // Shift picks a range in the order the models are on screen.
+  const order = groups.flatMap(g => g.items.map(i => i.entry.id));
   const pick = useModelSelection(order, select);
   const picked = v.shown.filter(i => pick.isPicked(i.entry.id));
-  const { scrollRef, listRef, shown } = useModelsWindow(v.shown.length, layout);
+  const grouped = v.group !== 'none';
+  const { scrollRef, listRef, shown } = useModelsWindow(grouped ? 0 : v.shown.length, layout);
   const pad = { paddingTop: shown.before, paddingBottom: shown.after };
-  const cards = v.shown.slice(shown.start, shown.end).map((i, n) => {
+  const build = (i: LibraryItem, position?: WindowItemProps) => {
     const id = i.entry.id;
     const selection = {
       checked: pick.isPicked(id),
@@ -41,14 +54,14 @@ export default function LibraryView() {
     return layout === 'list' ? (
       <LibraryRow
         key={id}
-        position={shown.itemProps(shown.start + n)}
+        position={position}
         item={i}
         selected={!pick.selecting && id === item?.entry.id}
         onSelect={pick.click(id)}
         {...selection}
       />
     ) : (
-      <li key={id} {...shown.itemProps(shown.start + n)}>
+      <li key={id} {...position}>
         <LibraryCard
           item={i}
           selected={!pick.selecting && id === item?.entry.id}
@@ -59,7 +72,10 @@ export default function LibraryView() {
         />
       </li>
     );
-  });
+  };
+  const cards = v.shown
+    .slice(shown.start, shown.end)
+    .map((i, n) => build(i, shown.itemProps(shown.start + n)));
   const addOne = (
     <Button
       icon="plus"
@@ -172,6 +188,8 @@ export default function LibraryView() {
                     untagged={v.untagged}
                     sort={sort}
                     onSort={setSort}
+                    group={v.group}
+                    onGroup={v.setGroup}
                     onLookAlikes={() => setLayout('look-alikes')}
                     onUntagged={v.showUntagged}
                   />
@@ -184,6 +202,12 @@ export default function LibraryView() {
                     <p className="py-10 text-center text-fg-mute">
                       No model matches. Clear the search or pick All models.
                     </p>
+                  ) : grouped ? (
+                    <LibraryGroups
+                      groups={groups}
+                      list={layout === 'list'}
+                      render={i => build(i)}
+                    />
                   ) : layout === 'list' ? (
                     <ul ref={listRef} style={pad} className="flex list-none flex-col gap-1">
                       {cards}

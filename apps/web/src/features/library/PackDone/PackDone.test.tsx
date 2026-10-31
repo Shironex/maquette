@@ -25,6 +25,8 @@ describe('a finished pack', () => {
     expect(within(inside).getByText('manifest.json')).toBeVisible();
     const manifest = screen.getByRole('region', { name: 'manifest.json' });
     expect(manifest).toHaveTextContent('"pack": "three-props"');
+    expect(screen.getByText('Blender OBJ import, 3 of 3')).toBeVisible();
+    expect(screen.queryByText(/GLB import/)).toBeNull();
     const recent = screen.getByRole('region', { name: /^Recent packs/ });
     expect(within(recent).getByRole('button', { name: 'Go on from 7' })).toBeVisible();
     expect(within(recent).queryByText('three-props')).toBeNull();

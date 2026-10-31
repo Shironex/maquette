@@ -37,4 +37,18 @@ describe('Clean background', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Keep the original' }));
     expect(useRefsStore.getState().sheet?.mode).toBe('refs');
   });
+
+  it('lists what the copy keeps and clears, following its options', async () => {
+    await openMockRefs();
+    render(<RefsSheet />);
+    await useRefsStore.getState().open('frostveil', 'guardian-statues', 'clean', CROP);
+    const list = await screen.findByRole('region', { name: 'Kept and removed' });
+    expect(within(list).getByText('The object, as drawn')).toBeVisible();
+    expect(within(list).getByText('The background, studio grey')).toBeVisible();
+    expect(within(list).queryByText(/cut off edge/)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Transparent' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /Draw what the frame cut off/ }));
+    expect(within(list).getByText('The background, left transparent')).toBeVisible();
+    expect(within(list).getByText(/cut off edge/)).toBeVisible();
+  });
 });

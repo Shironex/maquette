@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { useAnimationsStore } from '@/state/use-animations-store';
 import { useMotionStore } from '@/state/use-motion-store';
 import { clearMocks, openMotion } from '@/test/open-motion';
 import MotionEmpty from './MotionEmpty';
@@ -15,5 +16,15 @@ describe('the empty motion view', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Give it states' }));
     expect(useMotionStore.getState().tab).toBe('states');
     expect(useMotionStore.getState().asset).toBe('switch-cabinet');
+  });
+
+  it('offers the clip import and the docs page', async () => {
+    await openMotion('still');
+    render(<MotionEmpty />);
+    expect(useAnimationsStore.getState().importing).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Import a clip file' }));
+    expect(useAnimationsStore.getState().importing).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Read how motion ships' })).toBeEnabled();
+    useAnimationsStore.setState({ importing: null });
   });
 });

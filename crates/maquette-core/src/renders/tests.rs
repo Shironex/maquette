@@ -69,6 +69,22 @@ fn settings_refuse_what_they_do_not_offer() {
             columns: 0,
             ..ok.clone()
         },
+        RenderSettings {
+            stop: Some(RenderStop {
+                name: "Sky".into(),
+                azimuth: 10,
+                elevation: 85,
+            }),
+            ..ok.clone()
+        },
+        RenderSettings {
+            stop: Some(RenderStop {
+                name: "Round".into(),
+                azimuth: 360,
+                elevation: 0,
+            }),
+            ..ok.clone()
+        },
     ] {
         assert!(bad.check().is_err(), "{bad:?}");
     }
@@ -202,6 +218,23 @@ fn jobs_carry_the_settings() {
     assert_eq!(job["style"], "blueprint");
     assert_eq!(job["azimuth"], u64::from(angles(RenderCamera::Side).0 + 90));
     assert_eq!(job["hidden"], true);
+    let at_stop = RenderSettings {
+        stop: Some(RenderStop {
+            name: "Moon".into(),
+            azimuth: 200,
+            elevation: 30,
+        }),
+        ..settings.clone()
+    };
+    let job = still_job(
+        RenderStyle::Clay,
+        &at_stop,
+        std::path::Path::new("o.png"),
+        520,
+        0,
+    );
+    assert_eq!(job["azimuth"], 200, "a camera stop replaces the camera");
+    assert_eq!(job["elevation"], 30);
     let turn = turn_job(&settings, std::path::Path::new("f"), 240, 8, 10, 72);
     assert_eq!(turn["style"], "clay", "a loop takes the settings' look");
     assert_eq!(turn["elevation"], 12);

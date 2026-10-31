@@ -4,6 +4,7 @@ import { fileUrl } from '@/ipc/files';
 import { formatBytes } from '@/lib/format';
 import {
   doneLine,
+  importRows,
   formatTook,
   manifestSnippet,
   packTree,
@@ -63,5 +64,6 @@ export function usePackDone(record: PackRecord) {
     pictures: kept.map(i => ({ key: i.model.key, url: fileUrl(i.picture ?? i.model.thumbnail) })),
     where,
     kept: kept.length,
+    imports: importRows(record),
   };
 }

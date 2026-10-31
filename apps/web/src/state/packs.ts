@@ -89,6 +89,29 @@ export function filterCounts(items: readonly PackItem[]): Record<CheckFilter, nu
 
 export const settled = (i: PackItem) => i.state !== 'queued' && i.state !== 'running';
 export const passes = (i: PackItem) => i.state === 'pass' || i.state === 'kept';
+
+export interface ImportRow {
+  /** "Blender OBJ import", "Blender GLB import". */
+  label: string;
+  opened: number;
+  of: number;
+}
+
+/**
+ * What the check opened again, per file type: every file the pack wrote is
+ * imported into an empty scene, so a type's rows count the models that have
+ * one, and how many of them came through as asked.
+ */
+export function importRows(record: Pick<PackRecord, 'items'>): ImportRow[] {
+  const types = [
+    { ext: '.obj', label: 'Blender OBJ import' },
+    { ext: '.glb', label: 'Blender GLB import' },
+  ];
+  return types.flatMap(({ ext, label }) => {
+    const wrote = record.items.filter(i => i.files.some(f => f.endsWith(ext)));
+    return wrote.length ? [{ label, opened: wrote.filter(passes).length, of: wrote.length }] : [];
+  });
+}
 /** The models a person has to answer before the zip. */
 export const needsYou = (items: readonly PackItem[]) =>
   items.filter(i => i.state === 'warn' || i.state === 'fail');

@@ -10,6 +10,7 @@ import { inProject } from '@/state/lab';
 import { VIEW_LABEL } from '@/state/refs';
 import { SectionTitle } from '../../SectionTitle';
 import { useCleanBackground } from './CleanBackground.hooks';
+import KeptAndRemoved from './KeptAndRemoved';
 
 export interface CleanBackgroundProps {
   view: RefsView;
@@ -51,6 +52,8 @@ export default function CleanBackground({ view, file }: CleanBackgroundProps) {
             </div>
           )}
         </section>
+
+        <KeptAndRemoved ground={c.ground} pad={c.pad} extend={c.extend} />
 
         <section className="flex flex-col gap-2.5">
           <SectionTitle>The copy</SectionTitle>

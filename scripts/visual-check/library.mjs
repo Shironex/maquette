@@ -17,6 +17,12 @@ export async function libraryShots({ open, shot }) {
     .getByText('Versions · 2')
     .waitFor();
   await shot(grid, 'library-grid');
+  await grid.getByRole('button', { name: 'Group: No groups' }).click();
+  await grid.getByRole('menuitem', { name: 'Made with' }).click();
+  await grid.getByRole('region', { name: 'Tripo' }).waitFor();
+  await shot(grid, 'library-grouped');
+  await grid.getByRole('button', { name: 'Group: Made with' }).click();
+  await grid.getByRole('menuitem', { name: 'No groups' }).click();
 
   await grid
     .getByRole('region', { name: 'Filters' })

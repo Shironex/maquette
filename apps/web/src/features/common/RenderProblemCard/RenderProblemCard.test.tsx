@@ -34,4 +34,24 @@ describe('a problem with a render', () => {
     );
     expect(screen.getByRole('heading', { name: 'Turntable GIF came out at 6.8 MB' })).toBeVisible();
   });
+
+  it("keeps Blender's log behind Show the log", async () => {
+    render(
+      <RenderProblemCard
+        name="Market stall"
+        style="blueprint"
+        problem={{
+          kind: 'out-of-memory',
+          message: 'The line pass ran out of memory at 4096 px.',
+          webpBytes: null,
+          log: 'malloc: failed to allocate 6442450944 bytes',
+        }}
+      />
+    );
+    expect(screen.queryByLabelText('Blender log')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Show the log' }));
+    expect(screen.getByLabelText('Blender log')).toHaveTextContent('failed to allocate');
+    await userEvent.click(screen.getByRole('button', { name: 'Hide the log' }));
+    expect(screen.queryByLabelText('Blender log')).toBeNull();
+  });
 });

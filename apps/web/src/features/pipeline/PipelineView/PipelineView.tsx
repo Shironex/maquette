@@ -10,6 +10,7 @@ import {
 import { stageViews } from '@/state/pipeline';
 import { FirstViewBar } from '@/features/common/FirstViewBar';
 import { SceneBudgetMeter } from '@/features/common/SceneBudgetMeter';
+import { ArtifactsList } from '../ArtifactsList';
 import { PipelineGraph } from '../PipelineGraph';
 import { BakePanel } from '../BakePanel';
 import { GameExportPanel } from '../GameExportPanel';
@@ -235,6 +236,8 @@ export default function PipelineView() {
           {view.bake ? (
             <BakePanel bake={view.bake} busy={active || starting} onSave={saveBake} fold={fold} />
           ) : null}
+
+          <ArtifactsList models={view.models} busy={active || starting} game={Boolean(game)} />
 
           {/* The log takes the height that is left; the presets beside it can be made wider. */}
           <div data-resize-row className="flex min-h-[300px] flex-1">

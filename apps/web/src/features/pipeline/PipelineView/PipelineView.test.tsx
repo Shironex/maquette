@@ -72,7 +72,7 @@ describe('the Pipeline view', () => {
       screen.getByText(/^All \d+ models skip the bake, so this step bakes nothing\.$/)
     ).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Lightmap size' })).toBeNull();
-    expect(screen.queryByText('Generated artifacts')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Generated artifacts' })).toBeVisible();
     expect(screen.getByText(/^24 models · /)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Size report' }));
     expect(

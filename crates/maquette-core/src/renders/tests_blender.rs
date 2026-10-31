@@ -165,6 +165,79 @@ fn every_style_of_a_real_model_comes_out_right() {
     assert!(Path::new(&again.shots[0].file).is_file());
 }
 
+/// A blueprint turntable keeps the sheet's grid and its height mark under
+/// the turning model, where a plain loop has bare paper.
+#[test]
+fn a_blueprint_turntable_has_its_grid_and_marks() {
+    let Some(blender) = crate::test_blender::blender() else {
+        return;
+    };
+    let dir = tempfile::tempdir().expect("dir");
+    let root = dir.path();
+    super::tests::entry(root, "crate", "Old crate");
+    let source = PackSource::Entries {
+        entries: vec!["crate".into()],
+    };
+    let tools = crate::test_blender::toolbox(&blender);
+    let renders = Renders::new(
+        PipelineRunner::new(Arc::new(NullSink)),
+        |_: &RenderRecord| {},
+    );
+    let shots = [RenderShot {
+        style: RenderStyle::Turntable,
+        turn: 0,
+        size: 240,
+    }];
+    let config = WorkspaceConfig::default();
+    let frames_of = |marks: bool, look: RenderLook| {
+        let settings = RenderSettings {
+            look,
+            marks,
+            width: 240,
+            length: 1,
+            ..RenderSettings::default()
+        };
+        let got = renders
+            .preview(root, &config, &tools, &source, "crate", &settings, &shots)
+            .expect("preview");
+        let frame = &got.shots[0].frames[0];
+        if let Some(keep) = std::env::var_os("MAQUETTE_KEEP_RENDERS") {
+            fs::create_dir_all(&keep).expect("keep");
+            let name = format!("turn-{look:?}-marks-{marks}.png");
+            let _ = fs::copy(frame, Path::new(&keep).join(name));
+        }
+        png::decode(&fs::read(frame).expect("read")).expect("png")
+    };
+    // The spread of one channel over the top left block, away from the model.
+    let spread = |frame: &png::Pixels| {
+        let mut lo = u8::MAX;
+        let mut hi = 0u8;
+        for y in 0..40 {
+            for x in 0..40 {
+                let v = frame.at(x, y)[2];
+                lo = lo.min(v);
+                hi = hi.max(v);
+            }
+        }
+        hi - lo
+    };
+    let plain = frames_of(true, RenderLook::Clay);
+    assert_eq!(spread(&plain), 0, "a clay loop has bare paper");
+    let drawn = frames_of(true, RenderLook::Blueprint);
+    assert!(spread(&drawn) > 4, "the grid shows: {}", spread(&drawn));
+    // The height mark is a line of ink beside the model: more of the frame
+    // differs from its paper with the marks than without.
+    let bare = frames_of(false, RenderLook::Blueprint);
+    let ink = |f: &png::Pixels| {
+        let paper = f.at(1, 1);
+        (0..f.height)
+            .flat_map(|y| (0..f.width).map(move |x| (x, y)))
+            .filter(|&(x, y)| f.at(x, y)[2].abs_diff(paper[2]) > 40)
+            .count()
+    };
+    assert!(ink(&drawn) > ink(&bare), "marks add ink");
+}
+
 /// GIF and MP4 through a real ffmpeg, where one is found.
 #[test]
 fn a_gif_keeps_the_rules_in_a_real_ffmpeg() {

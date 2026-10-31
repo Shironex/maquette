@@ -25,6 +25,11 @@ async function renderTab(open, params) {
 export async function rendersShots({ open, shot }) {
   const tab = await renderTab(open, '');
   await shot(tab, 'renders-blueprint');
+  await tab.getByRole('button', { name: 'Camera stop', exact: true }).click();
+  await tab.getByRole('combobox', { name: 'Camera stop' }).waitFor();
+  await tab.waitForTimeout(900);
+  await shot(tab, 'renders-camera-stop');
+  await tab.getByRole('button', { name: 'Three quarter' }).click();
   await tab.getByRole('button', { name: /^Clay/ }).click();
   await tab.waitForTimeout(900);
   await shot(tab, 'renders-clay');
@@ -77,6 +82,9 @@ export async function rendersShots({ open, shot }) {
 
   const failures = await renderTab(open, '&render=failures');
   await shot(failures, 'renders-failures');
+  await failures.getByRole('button', { name: 'Show the log' }).click();
+  await failures.getByLabel('Blender log').waitFor();
+  await shot(failures, 'renders-failure-log');
   await failures.getByLabel('Asset').selectOption({ label: 'Guardian statues · no model' });
   await failures.getByRole('heading', { name: 'Nothing to render yet' }).waitFor();
   await failures.waitForTimeout(300);

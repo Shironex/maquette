@@ -72,6 +72,7 @@ fn left_out(style: RenderStyle, target: &plan::RenderTarget) -> Option<RenderPro
             kind: ProblemKind::Unreadable,
             message: why.clone(),
             webp_bytes: None,
+            log: None,
         });
     }
     (style == RenderStyle::Toon && !target.has_colour).then(|| RenderProblem {
@@ -81,6 +82,7 @@ fn left_out(style: RenderStyle, target: &plan::RenderTarget) -> Option<RenderPro
             target.name
         ),
         webp_bytes: None,
+        log: None,
     })
 }
 

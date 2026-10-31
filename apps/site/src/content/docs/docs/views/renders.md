@@ -9,7 +9,7 @@ Render styles makes pictures of a model for a README, a store page or a devlog. 
 
 ## The Render tab
 
-The Inspector's Render tab works on one asset. Pick a style and an asset on the left, a camera above the picture and the settings on the right. The preview is rendered small and cached, so going back to settings you have seen answers at once. Render writes the full size file.
+The Inspector's Render tab works on one asset. Pick a style and an asset on the left, a camera above the picture and the settings on the right. The camera is Front, Three quarter, Side or **Camera stop**, which takes the view of one of the project's camera stops (its side of the model and how far it looks down) and lists them by name. The preview is rendered small and cached, so going back to settings you have seen answers at once. Render writes the full size file.
 
 | Style         | What you get                                                                                           | How                                 |
 | ------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------- |
@@ -33,7 +33,11 @@ The GIF rules are fixed, not settings:
 - Bayer dithering at scale 5, because an ordered pattern compresses better than error diffusion.
 - A crop box around the moving area. Pixels outside it stay still and cost almost nothing.
 
+A blueprint loop keeps the sheet's grid and its height and width marks (the width is the circle the model sweeps) still under the turning model; the marks stay inside the crop, and the title block is left out of a loop.
+
 The sheet shows sample frames, the moving area and a size estimate against a 2 MB target. A GIF over the target is still written, and the Render tab offers Crop to the model and Save as WebP.
+
+When a render fails, the card in the Render tab says what to do next. A failure that Maquette reads for you (the line pass running out of memory) also has **Show the log**, which opens the end of what Blender said.
 
 ## Many at once
 

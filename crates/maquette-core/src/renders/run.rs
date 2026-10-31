@@ -59,13 +59,36 @@ fn blender_problem(
                 "The line pass ran out of memory at {size} px ({edges}k edges). Try 2048 px or Edges from crease 45°."
             ),
             webp_bytes: None,
+            log: log_tail(&failed.message),
         };
     }
     RenderProblem {
         kind: ProblemKind::Failed,
         message: format!("Blender stopped: {}", failed.message),
         webp_bytes: None,
+        log: None,
     }
+}
+
+/// How much of Blender's last words Show the log keeps, for a failure whose
+/// message is a plain reading of them (a failure with none carries them whole).
+const LOG_CHARS: usize = 4000;
+
+/// The end of what Blender said, from a whole line.
+fn log_tail(said: &str) -> Option<String> {
+    let said = said.trim();
+    if said.is_empty() {
+        return None;
+    }
+    let skip = said.chars().count().saturating_sub(LOG_CHARS);
+    let tail: String = said.chars().skip(skip).collect();
+    let tail = if skip > 0 {
+        tail.split_once('\n')
+            .map_or(tail.as_str(), |(_, rest)| rest)
+    } else {
+        tail.as_str()
+    };
+    Some(tail.to_string())
 }
 
 fn gif_over(moving: MovingBox, settings: &RenderSettings, bytes: f64) -> RenderProblem {
@@ -97,6 +120,7 @@ fn gif_over(moving: MovingBox, settings: &RenderSettings, bytes: f64) -> RenderP
             mb(webp)
         ),
         webp_bytes: Some(webp),
+        log: None,
     }
 }
 
@@ -141,6 +165,7 @@ fn missing_ffmpeg(format: LoopFormat) -> RenderProblem {
             format.extension().to_uppercase()
         ),
         webp_bytes: None,
+        log: None,
     }
 }
 
@@ -221,6 +246,7 @@ fn turntable(run: &FileRun<'_>, target: &RenderTarget, file: &mut RenderFile) ->
                 kind: ProblemKind::MissingTool,
                 message,
                 webp_bytes: None,
+                log: None,
             });
         }
     }
@@ -284,6 +310,7 @@ pub(super) fn run_file(
             kind: ProblemKind::Failed,
             message: err.to_string(),
             webp_bytes: None,
+            log: None,
         });
     }
     file.seconds = started.elapsed().as_secs_f64();
@@ -351,6 +378,7 @@ pub(super) fn batch_sheet(
         kind: ProblemKind::Failed,
         message,
         webp_bytes: None,
+        log: None,
     });
     file.seconds = started.elapsed().as_secs_f64();
     file.bytes = bytes_of(Path::new(&file.file));

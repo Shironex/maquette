@@ -23,7 +23,7 @@ The top bar reads Models with how many the library holds. Grid, List or Look-ali
 - **Tags:** each tag with its count, and **untagged** for the models with none.
 - **Made with** (Tripo, Meshy, By hand, Built or Imported), **Format** (.glb or .obj, shown when both exist) and **Used in** (each project, or Not used).
 
-The stat strip shows Models with how many are shared, Credits saved by reuse and Updates waiting. Under it a line names what is shown (All models, Models found or the collection) with the count, then a button for the open look-alike groups, one for the untagged models, and the sort: Newest first, Most used, By name, Most triangles or Fewest triangles.
+The stat strip shows Models with how many are shared, Credits saved by reuse and Updates waiting. Under it a line names what is shown (All models, Models found or the collection) with the count, then a button for the open look-alike groups, one for the untagged models, a **Group** menu (No groups, Made with or Kind) that puts the models under a header each, such as Tripo with its count, and the sort: Newest first, Most used, By name, Most triangles or Fewest triangles. A group keeps the sort inside it.
 
 ### Search
 
@@ -98,7 +98,7 @@ An export pack is a set of models made ready for another engine or a friend: one
 - **Board:** **Export pack** in a project's header packs every accepted model of that project, at its newest version.
 - **Agents:** the [`export_pack`](/docs/agents/mcp-tools/#export_pack) tool, with a preset.
 
-**Settings.** The sheet starts from a preset (**Plain OBJ pack** comes with Maquette; **Save as preset** keeps yours for the next pack):
+**Settings.** The sheet starts from a preset (**Plain OBJ pack** comes with Maquette; **Save as preset** keeps yours for the next pack; the line under the picker says how often the preset was used):
 
 - **Format:** OBJ with its MTL and PNG textures, GLB, or both. With OBJ, **Also write a GLB with the bones** gives a rigged model a GLB too, since OBJ cannot hold a rig. A GLB can be compressed with the workspace's meshopt and KTX2 settings; the check opens it before it is compressed.
 - **Units and pivot:** metres at the real size the project gave each model, and the origin at the bottom centre, on the floor. Every model is written Y up.

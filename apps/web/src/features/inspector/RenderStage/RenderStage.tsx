@@ -1,13 +1,6 @@
-import { InlineBanner, SegmentedControl, cn } from '@maquette/ui';
-import type { RenderCamera } from '@/ipc/client';
+import { InlineBanner, SegmentedControl, Select, cn } from '@maquette/ui';
 import { STYLE_LABEL } from '@/state/renders';
 import { useRenderStage } from './RenderStage.hooks';
-
-const CAMERAS: readonly { value: RenderCamera; label: string }[] = [
-  { value: 'front', label: 'Front' },
-  { value: 'three-quarter', label: 'Three quarter' },
-  { value: 'side', label: 'Side' },
-];
 
 const TAG = 'rounded-[5px] bg-[rgba(16,15,14,0.72)] px-2 py-0.5 text-meta text-[#f5f1ea]';
 
@@ -43,9 +36,17 @@ export default function RenderStage() {
           {label.toLowerCase()}
         </span>
         <span className="flex-1" />
+        {s.stopName ? (
+          <Select
+            aria-label="Camera stop"
+            options={s.stopOptions}
+            value={s.stopName}
+            onChange={s.pickStop}
+          />
+        ) : null}
         <SegmentedControl
           label="Camera"
-          options={CAMERAS}
+          options={s.cameras}
           value={s.camera}
           onChange={s.setCamera}
         />

@@ -1,6 +1,7 @@
 import { Button, Icon, cn, type IconName } from '@maquette/ui';
 import type { RenderProblem, RenderStyle } from '@/ipc/client';
 import { problemCard } from '@/state/renders';
+import { useLogToggle } from './RenderProblemCard.hooks';
 
 export interface ProblemAction {
   label: string;
@@ -30,6 +31,7 @@ export default function RenderProblemCard({
   actions = [],
 }: RenderProblemCardProps) {
   const { title, tone } = problemCard(problem, name, style, bytes);
+  const log = useLogToggle();
   const buttons = actions.map((action, i) => (
     <Button
       key={action.label}
@@ -48,7 +50,30 @@ export default function RenderProblemCard({
         {title}
       </h4>
       <p className="text-meta text-fg-dim">{problem.message}</p>
-      {actions.length > 0 ? <div className="mt-1 flex flex-wrap gap-1.5">{buttons}</div> : null}
+      {actions.length > 0 || problem.log ? (
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {buttons}
+          {problem.log ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              icon="terminal-window"
+              aria-expanded={log.open}
+              onClick={log.toggle}
+            >
+              {log.open ? 'Hide the log' : 'Show the log'}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {problem.log && log.open ? (
+        <pre
+          aria-label="Blender log"
+          className="max-h-[180px] overflow-auto rounded-control border border-line bg-app p-2 font-mono text-[11px] leading-[1.5] whitespace-pre-wrap text-fg-dim"
+        >
+          {problem.log}
+        </pre>
+      ) : null}
     </article>
   );
 }

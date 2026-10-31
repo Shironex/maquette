@@ -1,7 +1,16 @@
 import type { PreviewShot, RenderCamera, RenderShot } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
-import { LOOK_PAPER, STYLE_LABEL, isLook } from '@/state/renders';
+import { stopsOf } from '@/state/inspector';
+import { LOOK_PAPER, STYLE_LABEL, aimOf, isLook } from '@/state/renders';
+import { useInspectorStore } from '@/state/use-inspector-store';
 import { useRenderTabStore } from '@/state/use-render-tab-store';
+
+const CAMERAS: readonly { value: RenderCamera | 'stop'; label: string }[] = [
+  { value: 'front', label: 'Front' },
+  { value: 'three-quarter', label: 'Three quarter' },
+  { value: 'side', label: 'Side' },
+  { value: 'stop', label: 'Camera stop' },
+];
 
 export interface StripTile {
   key: string;
@@ -22,6 +31,8 @@ export function useRenderStage() {
   const loading = useRenderTabStore(s => s.loading);
   const error = useRenderTabStore(s => s.error);
   const camera = useRenderTabStore(s => s.settings.camera);
+  const aim = useRenderTabStore(s => s.settings.stop);
+  const view = useInspectorStore(s => s.view);
   const look = useRenderTabStore(s => s.settings.look);
   const paper = useRenderTabStore(s => s.settings.paperColor);
   const change = useRenderTabStore(s => s.change);
@@ -36,6 +47,12 @@ export function useRenderStage() {
       if (s.turn === 0) setStyle(s.style);
     },
   }));
+  const stops = view ? stopsOf(view) : [];
+  const stopOptions = stops.map(s => ({ value: s.name, label: s.name }));
+  const pickStop = (name: string) => {
+    const found = stops.find(s => s.name === name);
+    if (found) change({ stop: aimOf(found) });
+  };
   const seconds = stage?.seconds;
   const taken =
     shot && seconds != null
@@ -48,8 +65,20 @@ export function useRenderStage() {
     preview,
     loading,
     error,
-    camera,
-    setCamera: (next: RenderCamera) => change({ camera: next }),
+    camera: aim ? ('stop' as const) : camera,
+    stopName: aim?.name ?? null,
+    stopOptions,
+    pickStop,
+    cameras: CAMERAS.map(o =>
+      o.value === 'stop' && stops.length === 0
+        ? { ...o, disabled: true, hint: 'This project has no camera stops yet' }
+        : o
+    ),
+    setCamera: (next: RenderCamera | 'stop') => {
+      if (next !== 'stop') return change({ camera: next, stop: null });
+      const first = stops[0];
+      if (first) change({ stop: aimOf(first) });
+    },
     stageUrl: fileUrl(stage?.file),
     paper: paper ?? LOOK_PAPER[isLook(style) ? style : look],
     frames: (stage?.frames ?? []).map(f => fileUrl(f)),

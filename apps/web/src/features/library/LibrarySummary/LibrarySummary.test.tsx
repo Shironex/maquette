@@ -8,6 +8,8 @@ const base = {
   count: '214 models',
   sort: 'recent' as const,
   onSort: () => {},
+  group: 'none' as const,
+  onGroup: () => {},
   onLookAlikes: () => {},
   onUntagged: () => {},
 };
@@ -41,5 +43,13 @@ describe('the library summary line', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sort: Newest first' }));
     await userEvent.click(screen.getByRole('menuitem', { name: /Most triangles/ }));
     expect(onSort).toHaveBeenCalledWith('heaviest');
+  });
+
+  it('groups from its own menu', async () => {
+    const onGroup = vi.fn();
+    render(<LibrarySummary {...base} pairs={0} untagged={0} onGroup={onGroup} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Group: No groups' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /Made with/ }));
+    expect(onGroup).toHaveBeenCalledWith('source');
   });
 });
