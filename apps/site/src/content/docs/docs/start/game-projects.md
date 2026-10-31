@@ -78,8 +78,8 @@ A template fills export settings you could also set by hand: the model format, a
 Before it applies, the sheet shows what would change in this project: the format, each budget row before and after, how many models would be over budget, and any model that would land somewhere new.
 
 - Rows for other folders stay. The textures, the size cap, Bake light and the model folder stay too.
-- No file moves or goes away. A model Ship already wrote into the game keeps its path and its format, also when the template picks another format. Imported models always do.
-- A model that has not shipped yet has nothing in the game, so it follows the new settings, and the sheet lists its new path.
+- No file moves or goes away. A model whose file is in the model folder keeps its path and its format, also when the template picks another format: one Ship wrote, one you imported, or one that was just there under the name Export would use.
+- A model with nothing in the game yet takes the new format in the folder it was going to, and the sheet lists its new path. A new budget row moves no model that exists, so a template in the same format changes no path.
 - New props go to `props/` when the game has a budget for it, otherwise `kit/` when it has one. In a game with both, move a piece with its **Game folder** in the Budget tab.
 - The sheet warns when most of the game's models are in another format than the template's, or when rigged models would lose their rig in `.obj`.
 

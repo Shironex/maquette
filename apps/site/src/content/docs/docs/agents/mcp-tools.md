@@ -1083,7 +1083,7 @@ Puts library clips on a rigged model, as Use on model does. The clip's skeleton 
 
 `read only`
 
-A model's last retarget review: each library clip baked onto it with its status, a one line note, its planted foot slide (`slideCm`, and `unpinnedCm` before Pin the feet when it was pinned), the bones driven and left at rest, and the version it made, with every library clip baked into the model and the revision it was baked at.
+A model's last retarget review: each library clip baked onto it with its status, a one line note, its planted foot slide (`slideCm`, and `unpinnedCm` before Pin the feet when it was pinned, or `pinWorseCm` when the pin slid more and was left off), the bones driven and left at rest, and the version it made, with every library clip baked into the model and the revision it was baked at.
 
 | Parameter | Type   | Required | Notes           |
 | --------- | ------ | -------- | --------------- |

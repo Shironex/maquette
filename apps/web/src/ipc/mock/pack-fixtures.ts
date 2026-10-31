@@ -194,7 +194,7 @@ export function outcome(
       note: `Texture missing: ${item.model.key}.png did not load when opened again`,
     };
   }
-  if (index === 3 && attempt === 0 && decimated) {
+  if (index % 8 === 3 && attempt === 0 && decimated) {
     const suggest = Math.min(before, budget * 2);
     return {
       ...base,

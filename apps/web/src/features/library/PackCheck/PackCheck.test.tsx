@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import type { PackRecord } from '@/ipc/client';
 import { registerMockFile } from '@/ipc/files';
 import { newItem } from '@/ipc/mock/pack-fixtures';
 import { usePackStore } from '@/state/use-pack-store';
@@ -13,6 +14,8 @@ afterEach(() => {
   clearMocks();
   resetPacks();
 });
+
+const failedKey = (record: PackRecord) => record.items.find(i => i.state === 'fail')!.model.key;
 
 describe('the check of a pack', () => {
   it('shows a card per model and waits for the models that need you', async () => {
@@ -29,6 +32,56 @@ describe('the check of a pack', () => {
     expect(screen.getByRole('button', { name: 'Zip all 7' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Stop' })).toHaveAttribute('aria-disabled', 'true');
     expect(within(needs).getByText(/^village-props, 8 models/)).toBeVisible();
+  });
+
+  it('answers every model with the same warning in one go', async () => {
+    const record = await runPack(8);
+    const thin = (key: string, n: number) => ({
+      ...record.items[n]!,
+      model: { ...record.items[n]!.model, key, name: key },
+      state: 'warn' as const,
+      budget: 3000,
+      suggest: 6000,
+      note: 'Thin parts lost at 3k tris; 6k keeps more of them.',
+    });
+    const items = [thin('a', 0), thin('b', 1), thin('c', 2)];
+    const shown = { ...record, items };
+    usePackStore.setState({ record: shown });
+    const said: unknown[] = [];
+    const decideAll = usePackStore.getState().decideAll;
+    usePackStore.setState({
+      decideAll: async d => {
+        said.push(d);
+      },
+    });
+    render(<PackCheck record={shown} />);
+    const group = screen.getByRole('group', { name: 'Thin parts lost, 3 models' });
+    await userEvent.click(within(group).getByRole('button', { name: 'Raise all' }));
+    await userEvent.click(within(group).getByRole('button', { name: 'Keep all' }));
+    expect(said[0]).toEqual(
+      ['a', 'b', 'c'].map(key => ({ choice: 'raise', key, triangles: 6000 }))
+    );
+    expect(said[1]).toEqual(['a', 'b', 'c'].map(key => ({ choice: 'keep', key })));
+    usePackStore.setState({ decideAll });
+  });
+
+  it('keeps every warning through the real answers and finishes the pack', async () => {
+    const record = await runPack(8);
+    await usePackStore.getState().decide({ choice: 'again', key: failedKey(record) });
+    const waiting = await follow(record.id, ['waiting', 'done']);
+    const warned = waiting.items.filter(i => i.state === 'warn');
+    await usePackStore
+      .getState()
+      .decideAll(warned.map(i => ({ choice: 'keep', key: i.model.key })));
+    const now = await follow(record.id, ['waiting', 'done', 'zipping']);
+    expect(now.items.filter(i => i.state === 'warn')).toHaveLength(0);
+    expect(now.items.filter(i => i.state === 'kept')).toHaveLength(warned.length);
+  });
+
+  it('offers no group for a warning only one model has', async () => {
+    const record = await runPack(8);
+    render(<PackCheck record={record} />);
+    expect(screen.queryByRole('button', { name: 'Keep all' })).toBeNull();
   });
 
   it('filters the cards by what the check found', async () => {

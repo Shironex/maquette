@@ -352,3 +352,48 @@ fn pin_the_feet_holds_a_sliding_foot_and_reports_before_and_after() {
     );
     assert!(pinned.settings[0].pin_feet, "kept with the clip settings");
 }
+
+/// A foot that drifts a little and then leaves fast and low: holding it makes
+/// the way back a longer slide than the drift it saved. The draft keeps the
+/// clip without the pin, says so, and the setting does not stick.
+#[test]
+fn a_pin_that_slides_more_comes_off_and_stays_off() {
+    use super::retarget::{self, UseClips};
+    let Some(s) = setup() else { return };
+    let config = WorkspaceConfig::default();
+    elsheria_with_a_dodge(&s, &config);
+    import_fixture(&s, &config, "skim", "Foot Skim.fbx");
+    let target = ("frostveil", "elsheria");
+    let clips = ["foot-skim".to_string()];
+    let plan = retarget::plan(s.root.path(), &config, target, &clips, &[]).expect("plan");
+    let mut request = UseClips {
+        project: target.0.into(),
+        asset: target.1.into(),
+        settings: plan.settings.clone(),
+        map: Vec::new(),
+        save_map: false,
+        follow: Vec::new(),
+    };
+    let tools = (&s.runner, &s.tools);
+    let plain = retarget::draft(s.root.path(), &config, tools, &request).expect("plain");
+    let plain = plain.review.clips[0].clone();
+    assert!(plain.pin_worse_cm.is_none(), "{plain:?}");
+
+    request.settings[0].pin_feet = true;
+    let pinned = retarget::draft(s.root.path(), &config, tools, &request).expect("pinned");
+    let clip = &pinned.review.clips[0];
+    let worse = clip.pin_worse_cm.expect("the pin slid more");
+    assert!(worse > plain.slide_cm + 0.05, "{clip:?} {plain:?}");
+    assert!(
+        (clip.slide_cm - plain.slide_cm).abs() < 0.01,
+        "the draft holds the bake without the pin: {clip:?} {plain:?}"
+    );
+    assert!(clip.unpinned_cm.is_none(), "{clip:?}");
+    assert!(clip.note.contains("so the pin is off"), "{clip:?}");
+    assert!(!pinned.settings[0].pin_feet, "not pinned next time");
+
+    let baked = retarget::bake(s.root.path(), &config, &pinned.token).expect("bake");
+    assert_eq!(baked.review.clips[0].pin_worse_cm, Some(worse));
+    let again = retarget::plan(s.root.path(), &config, target, &clips, &[]).expect("again");
+    assert!(!again.settings[0].pin_feet, "the bake did not save the pin");
+}

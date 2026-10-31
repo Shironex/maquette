@@ -78,7 +78,7 @@ function Preview({ preview }: { preview: GameTemplatePreview }) {
       ) : null}
       {notes}
       <FileList title="In the game already, keep their path and format" files={preview.keptFiles} />
-      <FileList title="Not shipped yet, export at a new path" files={newPaths} />
+      <FileList title="Nothing in the game yet, export at a new path" files={newPaths} />
       <p className="m-0 text-fg-mute">
         Other budget rows, textures, the size cap, Bake light and the model folder stay. No file
         moves or goes away, and no assets are added. You can still edit every setting afterwards.
@@ -144,7 +144,7 @@ function TemplatesSheet({ project, busy, onClose }: GameTemplatesProps & { onClo
           }
           onClick={() => void t.apply()}
         >
-          {t.preview ? `Apply ${t.preview.template.name}` : 'Apply'}
+          Apply template
         </Button>
       </div>
     </Sheet>

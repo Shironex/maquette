@@ -51,7 +51,7 @@ describe('GameTemplates', () => {
 
   it('shows what will change before anything is saved, then applies', async () => {
     const sheet = await openSheet();
-    expect(within(sheet).getByRole('button', { name: 'Apply' })).toHaveAttribute(
+    expect(within(sheet).getByRole('button', { name: 'Apply template' })).toHaveAttribute(
       'aria-disabled',
       'true'
     );
@@ -68,7 +68,7 @@ describe('GameTemplates', () => {
     expect(within(sheet).getByText('wall.glb to kit/wall.obj')).toBeInTheDocument();
     expect(within(sheet).getByText(/No file moves or goes away/)).toBeInTheDocument();
 
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Apply Level kit, .obj' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Apply template' }));
     expect(applyTemplate).toHaveBeenCalledWith('crypt', 'level-kit-obj');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
@@ -76,7 +76,7 @@ describe('GameTemplates', () => {
   it('waits for a running pipeline before it applies', async () => {
     const sheet = await openSheet(true);
     await userEvent.click(await within(sheet).findByRole('button', { name: /^Level kit, \.obj/ }));
-    await userEvent.click(await within(sheet).findByRole('button', { name: /^Apply Level/ }));
+    await userEvent.click(await within(sheet).findByRole('button', { name: 'Apply template' }));
     expect(applyTemplate).not.toHaveBeenCalled();
   });
 
@@ -85,7 +85,7 @@ describe('GameTemplates', () => {
     const sheet = await openSheet();
     await userEvent.click(await within(sheet).findByRole('button', { name: /^Prop set/ }));
     await within(sheet).findByText('This game already has these settings.');
-    await userEvent.click(within(sheet).getByRole('button', { name: /^Apply/ }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Apply template' }));
     expect(applyTemplate).not.toHaveBeenCalled();
   });
 
@@ -93,7 +93,7 @@ describe('GameTemplates', () => {
     applyTemplate.mockResolvedValue(false);
     const sheet = await openSheet();
     await userEvent.click(await within(sheet).findByRole('button', { name: /^Level kit, \.obj/ }));
-    await userEvent.click(await within(sheet).findByRole('button', { name: /^Apply Level/ }));
+    await userEvent.click(await within(sheet).findByRole('button', { name: 'Apply template' }));
     expect(applyTemplate).toHaveBeenCalled();
     expect(screen.getByRole('dialog', { name: 'Use a template' })).toBeInTheDocument();
   });

@@ -145,7 +145,7 @@ fn a_shipped_model_keeps_its_file_and_an_unshipped_one_follows() {
     let preview = preview_template(&dir, &current, GameTemplateId::LevelKitObj).expect("preview");
     assert_eq!(preview.kept_files, ["shipped_crate.glb"]);
     assert_eq!(preview.new_paths.len(), 1);
-    assert_eq!(preview.new_paths[0].to, "kit/fresh_crate.obj");
+    assert_eq!(preview.new_paths[0].to, "fresh_crate.obj");
 
     let saved = apply_template(
         &ws.root,
@@ -160,12 +160,74 @@ fn a_shipped_model_keeps_its_file_and_an_unshipped_one_follows() {
         file_of(settings, asset)
     };
     assert_eq!(file("shipped-crate"), "shipped_crate.glb");
-    assert_eq!(file("fresh-crate"), "kit/fresh_crate.obj");
+    assert_eq!(file("fresh-crate"), "fresh_crate.obj");
     let record = ship::read_record(&dir);
     assert!(
         record.remove.is_empty(),
         "Ship removes nothing after a template"
     );
+}
+
+/// A game with its own files in the model folder that no import or Ship
+/// recorded: a template leaves them on their paths, and what the preview says
+/// is what the settings then export.
+#[test]
+fn a_file_already_in_the_game_stays_and_the_preview_says_what_export_does() {
+    let (ws, manifest) = game_project(
+        |d| {
+            let repo = d.join("obj-game");
+            fs::create_dir_all(repo.join("assets/models")).expect("models");
+            fs::write(repo.join("assets/models/iron_street_lamp.obj"), "o lamp\n").expect("obj");
+            repo
+        },
+        GameFormat::Obj,
+    );
+    let current = project::modify(&ws.root, &ws.config.layout, &manifest.id, |m| {
+        for name in ["Iron street lamp", "Fresh crate"] {
+            let asset = crate::assets::add(
+                m,
+                crate::NewAsset {
+                    name: name.into(),
+                    kind: AssetKind::Prop,
+                    stage: crate::Stage::Web,
+                },
+            )?;
+            crate::assets::add_version(m, &asset.id, "models/x_v1.obj".to_string(), None)?;
+        }
+        Ok(())
+    })
+    .expect("assets");
+    let dir = project::dir(&ws.root, &ws.config.layout, &manifest.id).expect("dir");
+    let before = tree(&ws.repo);
+
+    // The same format: only a budget row is new, so no path changes at all.
+    let kit = preview_template(&dir, &current, GameTemplateId::LevelKitObj).expect("preview");
+    assert!(kit.new_paths.is_empty(), "{:?}", kit.new_paths);
+    assert_eq!(kit.kept_files, ["iron_street_lamp.obj"]);
+    assert!(kit.changes, "the budget row is still a change");
+
+    // Another format: the game's file stays, the one not there yet follows.
+    let props = preview_template(&dir, &current, GameTemplateId::PropSet).expect("preview");
+    assert_eq!(props.kept_files, ["iron_street_lamp.obj"]);
+    assert_eq!(props.new_paths.len(), 1);
+    assert_eq!(props.new_paths[0].from, "fresh_crate.obj");
+    assert_eq!(props.new_paths[0].to, "fresh_crate.glb");
+
+    let saved = apply_template(
+        &ws.root,
+        &ws.config.layout,
+        &manifest.id,
+        GameTemplateId::PropSet,
+    )
+    .expect("apply");
+    let settings = settings_of(&saved).expect("game");
+    let file = |id: &str| {
+        let asset = saved.assets.iter().find(|a| a.id == id).expect("asset");
+        file_of(settings, asset)
+    };
+    assert_eq!(file("iron-street-lamp"), "iron_street_lamp.obj");
+    assert_eq!(file("fresh-crate"), "fresh_crate.glb");
+    assert_eq!(tree(&ws.repo), before, "the game repo is untouched");
 }
 
 #[test]

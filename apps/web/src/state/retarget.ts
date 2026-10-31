@@ -100,7 +100,7 @@ export function reviewOrder(clips: readonly ClipReview[]): ClipReview[] {
 
 /** A clip Pin the feet can help: flagged for a sliding foot and not pinned yet. */
 export const canPin = (c: ClipReview) =>
-  c.status === 'look' && c.slideFrames !== null && c.unpinnedCm === null;
+  c.status === 'look' && c.slideFrames !== null && c.unpinnedCm === null && c.pinWorseCm === null;
 
 /** "4.2 cm", a slide as the review shows it. */
 export const slideText = (cm: number) => `${cm.toFixed(1)} cm`;

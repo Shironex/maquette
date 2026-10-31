@@ -1,7 +1,8 @@
 /**
  * Pin the feet for a clip the review flags for sliding: bakes it again
  * holding each foot where it went down, the leg solved back to it in
- * Blender, then shows the slide before and after.
+ * Blender, then shows the slide before and after. A pin that slid more
+ * came off again in the core, and this says so.
  */
 import { Button, cn } from '@maquette/ui';
 import type { ClipReview } from '@/ipc/client';
@@ -11,6 +12,27 @@ import { usePinFeet } from './PinFeet.hooks';
 export default function PinFeet({ clip }: { clip: ClipReview }) {
   const pin = usePinFeet(clip);
   const before = pin.before;
+  if (pin.worse !== null) {
+    return (
+      <div
+        role="group"
+        aria-label="Pin left off"
+        className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13px]"
+      >
+        <span>
+          <span className="text-meta text-fg-mute">Slide pinned </span>
+          <span className="font-semibold text-amber tabular-nums">{slideText(pin.worse)}</span>
+        </span>
+        <span>
+          <span className="text-meta text-fg-mute">Slide without </span>
+          <span className="font-semibold tabular-nums">{slideText(pin.after ?? 0)}</span>
+        </span>
+        <span className="text-meta text-fg-mute">
+          The pin slid more, so this bake leaves it off
+        </span>
+      </div>
+    );
+  }
   if (before !== null) {
     return (
       <div

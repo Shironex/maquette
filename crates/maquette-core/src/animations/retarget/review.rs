@@ -11,6 +11,9 @@ use super::feet::{self, Track};
 
 /// A planted foot may drift this far before the clip is flagged, cm.
 pub const PLANTED_CM: f32 = 1.5;
+/// How much more a pin may slide before it counts as worse, cm: the tracks
+/// are rounded, so two equal bakes can differ by this little.
+const PIN_WORSE_CM: f32 = 0.05;
 /// Hips that end farther than this from where they start have keys in
 /// the wrong units, metres.
 const FAR_M: f32 = 25.0;
@@ -41,6 +44,9 @@ pub struct ClipReview {
     pub slide_frames: Option<[u32; 2]>,
     /// The slide before Pin the feet, cm, when this bake pinned them.
     pub unpinned_cm: Option<f32>,
+    /// The slide with Pin the feet on, cm, when that was worse than without
+    /// it: this bake then left the pin off, and these numbers are without.
+    pub pin_worse_cm: Option<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -92,6 +98,10 @@ pub(crate) struct ClipRun {
     /// The slide of the same clip baked without the pin, filled in here.
     #[serde(skip)]
     pub unpinned_cm: Option<f32>,
+    /// The slide a bake with the pin measured, when this run left it off
+    /// because of that.
+    #[serde(skip)]
+    pub pin_worse_cm: Option<f32>,
 }
 
 impl ClipRun {
@@ -118,6 +128,33 @@ pub(crate) struct RunReport {
     pub hips_scale: f32,
 }
 
+impl RunReport {
+    /// Notes on each clip of this run that `pinned` holds its feet the
+    /// slide it had in `before`, the same clip baked without the pin.
+    pub(crate) fn compare_with(&mut self, before: &Self, pinned: impl Fn(&str) -> bool) {
+        for clip in &mut self.clips {
+            let was = before.clips.iter().find(|r| r.id == clip.id);
+            if let Some(was) = was.filter(|_| pinned(&clip.id) && clip.pin_error.is_none()) {
+                clip.unpinned_cm = Some(was.slide_cm);
+            }
+        }
+    }
+
+    /// The clips of this run whose pin slides more than they did without it,
+    /// with that slide.
+    pub(crate) fn pins_made_worse(&self) -> Vec<(String, f32)> {
+        self.clips
+            .iter()
+            .filter(|c| c.error.is_none())
+            .filter(|c| {
+                c.unpinned_cm
+                    .is_some_and(|was| c.slide_cm > was + PIN_WORSE_CM)
+            })
+            .map(|c| (c.id.clone(), c.slide_cm))
+            .collect()
+    }
+}
+
 fn review_clip(run: &ClipRun, root_motion: bool) -> ClipReview {
     let travel = (root_motion && run.travel > 0.05).then_some(run.travel);
     let (status, note) = if let Some(error) = &run.error {
@@ -141,13 +178,13 @@ fn review_clip(run: &ClipRun, root_motion: bool) -> ClipReview {
             Some(why) => format!("{note}. The feet could not be pinned: {why}"),
             None => note,
         };
-        (ReviewStatus::Look, note)
+        (ReviewStatus::Look, with_pin_left_off(note, run))
     } else {
         let note = travel.map_or_else(
             || "Looks right".to_string(),
             |m| format!("Looks right, {m:.2} m root motion"),
         );
-        (ReviewStatus::Good, note)
+        (ReviewStatus::Good, with_pin_left_off(note, run))
     };
     ClipReview {
         clip: run.id.clone(),
@@ -159,6 +196,15 @@ fn review_clip(run: &ClipRun, root_motion: bool) -> ClipReview {
         slide_cm: run.slide_cm,
         slide_frames: (run.slide_cm > PLANTED_CM).then_some([run.slide_from, run.slide_to]),
         unpinned_cm: run.unpinned_cm,
+        pin_worse_cm: run.pin_worse_cm,
+    }
+}
+
+/// `note`, and that the pin was left off when it slid more.
+fn with_pin_left_off(note: String, run: &ClipRun) -> String {
+    match run.pin_worse_cm {
+        Some(cm) => format!("{note}. Pinning the feet slid {cm:.1} cm, so the pin is off"),
+        None => note,
     }
 }
 
