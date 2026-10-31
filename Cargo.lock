@@ -1992,7 +1992,7 @@ checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
 
 [[package]]
 name = "maquette-base"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hex",
  "serde",
@@ -2005,7 +2005,7 @@ dependencies = [
 
 [[package]]
 name = "maquette-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "base64 0.23.1",
  "chrono",
@@ -2033,7 +2033,7 @@ dependencies = [
 
 [[package]]
 name = "maquette-desktop"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "apple-native-keyring-store",
  "getrandom 0.4.3",
@@ -2067,7 +2067,7 @@ dependencies = [
 
 [[package]]
 name = "maquette-glb"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "gltf",
  "maquette-base",
@@ -2079,7 +2079,7 @@ dependencies = [
 
 [[package]]
 name = "maquette-model"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "flate2",
  "hex",
@@ -2095,7 +2095,7 @@ dependencies = [
 
 [[package]]
 name = "maquette-preview"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "flate2",
  "http-body-util",
@@ -2114,7 +2114,7 @@ dependencies = [
 
 [[package]]
 name = "maquette-providers"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "base64 0.23.1",
  "chrono",
