@@ -415,6 +415,26 @@ fn a_row_flags_on_a_seam_or_on_stretch_past_the_body_only() {
 }
 
 #[test]
+fn a_few_long_edges_say_look_here_and_do_not_flag_the_row() {
+    let mut row = pose("cast", (204.0, 45.0, 0.0));
+    row.worst_edge_mm = Some(190.8);
+    assert_eq!(verdict::problem(&row), None);
+    assert_eq!(
+        verdict::look(&row, Some("LeftLeg")).as_deref(),
+        Some("a few edges stretch 191 mm near LeftLeg, look here")
+    );
+    row.worst_edge_mm = Some(60.0);
+    assert_eq!(
+        verdict::look(&row, Some("LeftLeg")),
+        None,
+        "under the limit"
+    );
+    row.worst_edge_mm = Some(300.0);
+    row.beyond_body_mm = Some(95.0);
+    assert_eq!(verdict::look(&row, None), None, "a tear says so itself");
+}
+
+#[test]
 fn a_record_without_the_new_number_is_judged_by_its_raw_stretch() {
     let mut row = pose("old", (120.0, 0.0, 0.0));
     row.beyond_body_mm = None;

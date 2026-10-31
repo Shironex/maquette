@@ -74,6 +74,23 @@ fn a_hem_blended_onto_a_far_arm_is_flagged() {
     );
 }
 
+#[test]
+fn a_few_edges_stepped_onto_the_leg_say_look_here_and_are_no_tear() {
+    let Some(blender) = crate::test_blender::blender() else {
+        return;
+    };
+    let dir = tempfile::tempdir().expect("dir");
+    let case = tested("robe-patch", &blender, dir.path());
+    let walk = row(&case, "clip:walk:0.5");
+    // Real, long edges at a hard step, on too little of the surface to call a tear.
+    assert!(walk.worst_edge_mm.expect("number") >= TEAR_MM, "{walk:?}");
+    assert!(walk.beyond_body_mm.expect("number") < TEAR_MM, "{walk:?}");
+    assert_eq!(walk.note, None, "{walk:?}");
+    let look = walk.look.as_deref().expect("look");
+    assert!(look.ends_with("look here"), "{look}");
+    assert!(look.contains("near "), "{look}");
+}
+
 const TOE_WEIGHTS: &str = r#"
 import bpy, sys
 bpy.ops.import_scene.gltf(filepath=sys.argv[sys.argv.index("--") + 1])

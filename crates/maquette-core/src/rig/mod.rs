@@ -172,11 +172,19 @@ pub struct RigRow {
     /// The worst edge's change in length, mm at a one metre tall model. Any
     /// rig stretches an edge across a bent joint, so it says little alone.
     pub stretch_mm: f64,
-    /// The worst edge's change past what the mesh does with every vertex
-    /// stuck to its nearest bone: the part the weights answer for. Null on a
-    /// record older than this number.
+    /// How far an edge stretches past what a healthy skin does, held over half
+    /// a percent of the surface: the part the weights answer for. A record
+    /// older than the share has its single worst edge here. Null on a record
+    /// older than this number.
     #[serde(default)]
     pub beyond_body_mm: Option<f64>,
+    /// The single worst edge of that reading. Null on an older record.
+    #[serde(default)]
+    pub worst_edge_mm: Option<f64>,
+    /// A few edges pull hard on too little of the surface to call a tear, so
+    /// the row is not flagged: where to look, in words.
+    #[serde(default)]
+    pub look: Option<String>,
     /// How far seam copies that share a position at rest came apart: a crack.
     pub seam_gap_mm: f64,
     pub front: Option<String>,

@@ -4,7 +4,7 @@
 
 use serde_json::Value;
 
-use super::{DefectKind, RigDefect, RigRow};
+use super::{DefectKind, RigDefect, RigRow, verdict};
 
 /// 3912 reads "3,912".
 pub(super) fn count(n: u64) -> String {
@@ -194,10 +194,11 @@ pub(super) fn rows(data: &Value, label: &str, xray: Option<&Value>) -> Vec<RigRo
         .filter_map(Value::as_str)
         .map(|row| {
             let m = &data["metrics"][format!("{label}/{row}")];
-            RigRow {
+            let mut read = RigRow {
                 id: row.to_string(),
                 label: pose_label(row),
                 beyond_body_mm: m["beyond_body_mm"].as_f64(),
+                worst_edge_mm: m["worst_edge_mm"].as_f64(),
                 stretch_mm: m["stretch_mm"].as_f64().unwrap_or(0.0),
                 seam_gap_mm: m["seam_gap_mm"].as_f64().unwrap_or(0.0),
                 front: cell(data, row, "front"),
@@ -208,7 +209,9 @@ pub(super) fn rows(data: &Value, label: &str, xray: Option<&Value>) -> Vec<RigRo
                 before_front: other(row, "front"),
                 before_side: other(row, "side"),
                 ..RigRow::default()
-            }
+            };
+            read.look = verdict::look(&read, m["worst_edge_near"].as_str());
+            read
         })
         .collect()
 }

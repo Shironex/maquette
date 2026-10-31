@@ -6080,11 +6080,19 @@ export type RigRow = {
 	 */
 	stretchMm: number | null,
 	/**
-	 *  The worst edge's change past what the mesh does with every vertex
-	 *  stuck to its nearest bone: the part the weights answer for. Null on a
-	 *  record older than this number.
+	 *  How far an edge stretches past what a healthy skin does, held over half
+	 *  a percent of the surface: the part the weights answer for. A record
+	 *  older than the share has its single worst edge here. Null on a record
+	 *  older than this number.
 	 */
 	beyondBodyMm?: number | null,
+	/**  The single worst edge of that reading. Null on an older record. */
+	worstEdgeMm?: number | null,
+	/**
+	 *  A few edges pull hard on too little of the surface to call a tear, so
+	 *  the row is not flagged: where to look, in words.
+	 */
+	look?: string | null,
 	/**  How far seam copies that share a position at rest came apart: a crack. */
 	seamGapMm: number | null,
 	front: string | null,

@@ -64,11 +64,13 @@ fn sheet(run: &Run, tag: &str) -> CoreResult<RigSheet> {
                 label: format!("{chain} bent"),
                 stretch_mm: stretch,
                 beyond_body_mm: r["beyond_body_mm"].as_f64(),
+                worst_edge_mm: r["worst_edge_mm"].as_f64(),
                 seam_gap_mm: r["seam_gap_mm"].as_f64().unwrap_or(0.0),
                 front: tile("pose"),
                 side: tile("rest"),
                 ..RigRow::default()
             };
+            row.look = verdict::look(&row, r["worst_edge_near"].as_str());
             row.note = verdict::problem(&row).or_else(|| {
                 (rigid > 0).then(|| {
                     format!(
