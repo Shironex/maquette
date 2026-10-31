@@ -12,7 +12,6 @@ import type {
   Provider,
   ProviderId,
   ModelOption,
-  ProviderJob,
   StudioSettings,
   TripoPreset,
 } from '@/ipc/client';
@@ -328,58 +327,7 @@ export function batchLabel(draft: BatchDraft): string {
     : `Send ${n} to ${PROVIDER_LABEL[draft.provider]}`;
 }
 
-export interface ChecklistGroup {
-  /** The batch id, or null for single sends. */
-  batch: string | null;
-  jobs: ProviderJob[];
-  /** How many models came back. */
-  back: number;
-  createdAtMs: number;
-}
-
-const BACK: ReadonlySet<ProviderJob['state']> = new Set(['inbox', 'accepted']);
-
-/**
- * Every By hand send, grouped by batch, newest group first. A group shows
- * while any of its sends still waits or none was cancelled.
- */
-export function checklist(jobs: readonly ProviderJob[]): ChecklistGroup[] {
-  const groups = new Map<string, ChecklistGroup>();
-  for (const job of jobs) {
-    if (job.provider !== 'by-hand') continue;
-    const key = job.batch ?? `single:${job.id}`;
-    const group = groups.get(key) ?? {
-      batch: job.batch,
-      jobs: [],
-      back: 0,
-      createdAtMs: job.createdAtMs ?? 0,
-    };
-    group.jobs.push(job);
-    if (BACK.has(job.state)) group.back += 1;
-    group.createdAtMs = Math.max(group.createdAtMs, job.createdAtMs ?? 0);
-    groups.set(key, group);
-  }
-  return [...groups.values()]
-    .filter(g => g.jobs.some(j => j.state !== 'cancelled'))
-    .map(g => ({ ...g, jobs: [...g.jobs].sort((a, b) => a.assetName.localeCompare(b.assetName)) }))
-    .sort((a, b) => b.createdAtMs - a.createdAtMs);
-}
-
-/** True when the job still wants a model: the checklist row offers Add model. */
-export function wantsModel(job: ProviderJob): boolean {
-  return job.provider === 'by-hand' && job.state === 'waiting';
-}
-
-/** By hand sends still waiting for a model. */
-export function waitingByHand(jobs: readonly ProviderJob[]): ProviderJob[] {
-  return jobs.filter(wantsModel);
-}
-
-/** "4 of 6 back", "All 6 back". */
-export function backLabel(group: Pick<ChecklistGroup, 'jobs' | 'back'>): string {
-  const live = group.jobs.filter(j => j.state !== 'cancelled').length;
-  return group.back >= live ? `All ${live} back` : `${group.back} of ${live} back`;
-}
+export * from './checklist';
 
 /** The first match for every file of a scan: its own, or none. */
 export function initialMatches(scan: DownloadsScan): Record<string, string | null> {

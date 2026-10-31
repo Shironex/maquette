@@ -11,6 +11,7 @@ import {
   batchRequest,
   batchSummary,
   checklist,
+  liveJobs,
   initialMatches,
   isCustom,
   itemDiff,
@@ -286,6 +287,21 @@ describe('the By hand checklist', () => {
     expect(backLabel(groups[0]!)).toBe('1 of 2 back');
     expect(backLabel({ jobs: [job({ state: 'accepted' })], back: 1 })).toBe('All 1 back');
     expect(waitingByHand(jobs).map(j => j.id)).toEqual(['lamp-1', 'old-1']);
+  });
+
+  it('puts groups with a model still waiting first, and counts a stopped send out', () => {
+    const jobs = [
+      job({ id: 'done-1', batch: 'done', state: 'accepted', createdAtMs: 9_000 }),
+      job({ id: 'done-2', batch: 'done', state: 'inbox', createdAtMs: 9_000 }),
+      job({ id: 'mix-1', assetName: 'Zed', batch: 'mix', createdAtMs: 2_000 }),
+      job({ id: 'mix-2', assetName: 'Abe', batch: 'mix', state: 'inbox', createdAtMs: 2_000 }),
+      job({ id: 'mix-3', assetName: 'Cut', batch: 'mix', state: 'cancelled', createdAtMs: 2_000 }),
+    ];
+    const groups = checklist(jobs);
+    expect(groups.map(g => g.batch)).toEqual(['mix', 'done']);
+    expect(groups[0]!.jobs.map(j => j.id)).toEqual(['mix-1', 'mix-2', 'mix-3']);
+    expect(liveJobs(groups[0]!)).toHaveLength(2);
+    expect(backLabel(groups[0]!)).toBe('1 of 2 back');
   });
 
   it('starts every Downloads file at its own match', () => {
