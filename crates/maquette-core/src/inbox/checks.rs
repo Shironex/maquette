@@ -17,8 +17,8 @@ mod vrm;
 // What a send asked for is shared with the provider sends, so it lives in
 // the base crate; this keeps the old path.
 use crate::workspace::{TextureSize, WorkspaceConfig};
-pub use maquette_base::send_notes::{SendNotes, SentMaps};
-use shape::{merged_check, shape_checks};
+pub use maquette_base::send_notes::{RetextureSource, SendNotes, SentMaps, SentTo};
+use shape::{merged_check, retexture_check, shape_checks};
 use vrm::vrm_check;
 
 #[derive(
@@ -82,6 +82,24 @@ fn folder_label(folder: &FolderBudget) -> String {
         "the model folder's budget".to_string()
     } else {
         format!("the {} budget", folder.folder)
+    }
+}
+
+/// What to do about missing maps, in the words of where the model came from.
+fn pbr_advice(notes: SendNotes) -> String {
+    let provider = match notes.sent_to {
+        SentTo::Nobody => return "Turn on PBR where you make the next model.".to_string(),
+        SentTo::Tripo => "Tripo",
+        SentTo::Meshy => "Meshy",
+    };
+    if notes.retexture_of.is_some() {
+        format!("The re-texture asked {provider} for them, so it left them out this time.")
+    } else if notes.by_hand {
+        format!("Turn on PBR on {provider}'s site for the next model.")
+    } else if notes.maps == SentMaps::NoPbr {
+        format!("Turn on PBR in the {provider} settings for the next model.")
+    } else {
+        format!("The send asked {provider} for them, so it left them out this time.")
     }
 }
 
@@ -272,6 +290,18 @@ pub fn run(
             "Base color only, as exported",
             "Base color only, as Tripo's Smart Mesh exports it.".to_string(),
         ));
+    } else if notes.split {
+        // No setting asks for these maps, so there is nothing to turn on.
+        out.push(check(
+            "pbr",
+            CheckStatus::Pass,
+            if p.base_color {
+                "Base color only, as split"
+            } else {
+                "No texture, as split"
+            },
+            "A split has no PBR setting. A bake back or a re-texture brings the maps.".to_string(),
+        ));
     } else if notes.maps == SentMaps::NoTexture {
         out.push(check(
             "pbr",
@@ -284,14 +314,21 @@ pub fn run(
             "pbr",
             CheckStatus::Warning,
             "PBR maps missing",
-            format!(
-                "No {} map. Turn on PBR in the Tripo settings for the next model.",
-                missing.join(", ")
-            ),
+            format!("No {} map. {}", missing.join(", "), pbr_advice(notes)),
         ));
     }
 
-    out.extend(merged_check(report, kind));
+    let retexture = notes
+        .retexture_of
+        .map(|source| retexture_check(report, source));
+    // A row saying one object per mesh reads as all is well next to lost parts.
+    if retexture
+        .as_ref()
+        .is_none_or(|c| c.status == CheckStatus::Pass)
+    {
+        out.extend(merged_check(report, kind));
+    }
+    out.extend(retexture);
 
     if let Some(fw) = &report.finger_weights {
         if fw.vertices == 0 {

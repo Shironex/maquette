@@ -10,7 +10,7 @@ use super::blender;
 use super::providers::Studio;
 use crate::session::Session;
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn asset_add(
     session: State<'_, Session>,
@@ -31,7 +31,7 @@ pub(crate) fn add(
     })?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn asset_move(
     session: State<'_, Session>,
@@ -54,7 +54,7 @@ pub(crate) fn move_to(
     })?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn asset_rename(
     session: State<'_, Session>,
@@ -79,7 +79,7 @@ pub(crate) fn rename(
 
 /// Copies an asset with its refs, versions, thumbnails and finished sends
 /// to another project. The asset stays where it is.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn asset_copy_to_project(
     session: State<'_, Session>,

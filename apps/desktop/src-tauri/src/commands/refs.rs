@@ -255,7 +255,7 @@ pub fn refs_get(
 }
 
 /// Saves the views of every ref of the asset at once.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn refs_set_views(
     session: State<'_, Session>,
@@ -295,7 +295,7 @@ pub async fn refs_clean(
 
 /// "Use as Left" or "Use the clean copy". `view` overrides the view a
 /// drawn candidate was made for. A view replaces the one in its slot.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn refs_use(
     session: State<'_, Session>,

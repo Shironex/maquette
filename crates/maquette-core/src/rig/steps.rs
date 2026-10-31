@@ -86,7 +86,7 @@ pub(super) fn stop_of(
 }
 
 /// The creature fix's steps.
-pub(super) fn creature(report: &Value, junk: usize) -> Vec<RigFixStep> {
+pub(super) fn creature(report: &Value) -> Vec<RigFixStep> {
     let stats = &report["stats"];
     let strays: u64 = report["strays"]
         .as_array()
@@ -111,22 +111,22 @@ pub(super) fn creature(report: &Value, junk: usize) -> Vec<RigFixStep> {
             title: "Empty the junk chains".to_string(),
             detail: "The bones stay, at zero weight, so names and hierarchy do not change."
                 .to_string(),
-            value: junk.to_string(),
+            value: num(report, "junk_emptied").to_string(),
         },
     ]
 }
 
-pub(super) fn band_text(case: &RigRecord) -> String {
+pub(super) fn band_text(case: &RigRecord, round: u32) -> String {
     if case.model.one_island {
         "faded".to_string()
-    } else if case.round >= MAX_ROUNDS {
+    } else if round >= MAX_ROUNDS {
         "8 cm".to_string()
     } else {
         "5 cm".to_string()
     }
 }
 
-pub(super) fn humanoid(case: &RigRecord, report: &Value) -> Vec<RigFixStep> {
+pub(super) fn humanoid(case: &RigRecord, round: u32, report: &Value) -> Vec<RigFixStep> {
     let step = |title: &str, detail: &str, value: String| RigFixStep {
         title: title.to_string(),
         detail: detail.to_string(),
@@ -161,7 +161,7 @@ pub(super) fn humanoid(case: &RigRecord, report: &Value) -> Vec<RigFixStep> {
     out.push(step(
         "Smooth the seams",
         "A geodesic band where cloth meets sleeve, so it stretches, not tears.",
-        band_text(case),
+        band_text(case, round),
     ));
     out
 }

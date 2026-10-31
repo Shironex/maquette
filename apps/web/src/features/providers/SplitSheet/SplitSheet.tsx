@@ -1,4 +1,4 @@
-import { Button, InlineBanner, SegmentedControl, cn } from '@maquette/ui';
+import { Button, InlineBanner, SegmentedControl, cn, type SegmentedOption } from '@maquette/ui';
 import type { SplitSource } from '@/ipc/client';
 import { ChoiceDialog } from '@/features/common/ChoiceDialog';
 import { CostEstimate } from '../CostEstimate';
@@ -31,13 +31,20 @@ export default function SplitSheet() {
   if (!s.target) return null;
   const source = s.sheet?.source ?? null;
   const name = source?.assetName ?? 'the model';
-  const ways = SPLIT_WAYS.map(w =>
+  const ways: SegmentedOption<SplitWay>[] = SPLIT_WAYS.map(w =>
     w.value === 'meshy' && source?.meshyProblem
       ? { ...w, disabled: true, hint: source.meshyProblem }
       : w.value === 'blender' && !s.target?.inBlender
         ? { ...w, disabled: true, hint: 'Accept the model first: the free split is a fix-up.' }
         : w
   );
+  const blocked = ways
+    .filter(w => w.disabled)
+    .map(w => (
+      <p key={w.value} className="text-meta text-fg-mute">
+        {w.hint}
+      </p>
+    ));
   return (
     <Sheet
       id="split-sheet"
@@ -60,6 +67,7 @@ export default function SplitSheet() {
             value={s.way}
             onChange={s.setWay}
           />
+          {blocked}
           {s.way !== 'blender' ? <KeyLine s={s} /> : null}
         </section>
         {source ? <WayFields s={s} source={source} /> : null}

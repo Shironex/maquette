@@ -246,7 +246,7 @@ pub(crate) fn store(session: &Session, file: &str, png: &[u8]) -> CommandResult<
     Ok(saved.display().to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn thumbnail_store(
     session: State<'_, Session>,

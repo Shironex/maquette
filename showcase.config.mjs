@@ -195,7 +195,7 @@ export default defineConfig({
       title: 'Use on model',
       caption: 'Use on model: library clips retargeted onto a rig, feet pinned.',
       nav: view(
-        'scenario=configured&library=demo&motion=demo',
+        'scenario=idle&library=demo&motion=demo',
         'motion',
         /119 bones · \d+ clips/,
         async page => {

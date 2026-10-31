@@ -29,7 +29,7 @@ pub(crate) fn get(session: &Session, project_id: &str) -> CommandResult<Timeline
 /// whole timeline. The states, their transitions and the click and hover
 /// triggers stay as the Motion view saved them; the models and camera stops
 /// stay as they are.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn timeline_save(
     session: State<'_, Session>,

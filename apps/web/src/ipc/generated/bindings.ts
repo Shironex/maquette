@@ -639,6 +639,7 @@ export const commands = {
 	codexUsageRead: () => __TAURI_INVOKE<CodexUsage>("codex_usage_read"),
 	/**  Limit lifted, retry now (see [`lift`]). */
 	labLiftUsageLimit: () => __TAURI_INVOKE<UsageLift>("lab_lift_usage_limit"),
+	/**  Reads the saved key, which can wait on a Keychain prompt. */
 	imageApiStatus: () => __TAURI_INVOKE<ImageApiStatus>("image_api_status"),
 	/**
 	 *  Saves the OpenAI key in the keychain. Only its last four characters
@@ -680,12 +681,14 @@ export const commands = {
 	 *  on the next run.
 	 */
 	inspectExportGlb: (project: string, model: string) => __TAURI_INVOKE<ExportedModel>("inspect_export_glb", { project, model }),
+	/**  Reads the saved keys, which can wait on a Keychain prompt. */
 	providerSendOptions: (project: string, asset: string) => __TAURI_INVOKE<SendOptions>("provider_send_options", { project, asset }),
 	/**
 	 *  Starts a send from the app. You are the one pressing Send, so it needs
 	 *  no approval.
 	 */
 	providerSend: (request: SendRequest) => __TAURI_INVOKE<ProviderJob>("provider_send", { request }),
+	/**  Reads the saved keys, which can wait on a Keychain prompt. */
 	providerBatchOptions: (project: string, assets: string[]) => __TAURI_INVOKE<BatchOptions>("provider_batch_options", { project, assets }),
 	/**
 	 *  Sends several assets at once from the app. Pressing Send in the panel
@@ -716,6 +719,7 @@ export const commands = {
 	 *  into the inbox once you confirm it with `provider_hand_back`.
 	 */
 	providerCheckDownloads: (project: string) => __TAURI_INVOKE<DownloadsScan>("provider_check_downloads", { project }),
+	/**  Every key's status. A read can wait on a Keychain prompt. */
 	providerKeys: () => __TAURI_INVOKE<KeyStatus[]>("provider_keys"),
 	/**  Saves a key in the keychain. Only its last four characters come back. */
 	providerKeySave: (service: ProviderId, key: string) => __TAURI_INVOKE<KeyStatus>("provider_key_save", { service, key }),
@@ -2118,6 +2122,11 @@ export type ClipReview = {
 	slideFrames: [number, number] | null,
 	/**  The slide before Pin the feet, cm, when this bake pinned them. */
 	unpinnedCm: number | null,
+	/**
+	 *  The slide with Pin the feet on, cm, when that was worse than without
+	 *  it: this bake then left the pin off, and these numbers are without.
+	 */
+	pinWorseCm: number | null,
 };
 
 /**  The skeleton a clip was made on. */
@@ -2958,8 +2967,8 @@ export type GameTemplatePreview = {
 	/**  Only the rows that differ; every other row stays as it is. */
 	budgets: TemplateBudgetChange[],
 	/**
-	 *  Files already in the game that the template would have put elsewhere:
-	 *  they keep their path and format.
+	 *  Files already in the game, shipped or there before, that the template
+	 *  would have put elsewhere: they keep their path and format.
 	 */
 	keptFiles: string[],
 	newPaths: TemplateNewPath[],
@@ -5916,6 +5925,8 @@ export type RigCreature = {
 	legs: number,
 	swapped: number,
 	junk: string[],
+	/**  Bones with no or trivial weight: in no chain, and left in the file. */
+	ignored?: string[],
 	rigidPieces: number,
 	oneShell: boolean,
 	chains: RigChain[],
@@ -6075,11 +6086,19 @@ export type RigRow = {
 	 */
 	stretchMm: number | null,
 	/**
-	 *  The worst edge's change past what the mesh does with every vertex
-	 *  stuck to its nearest bone: the part the weights answer for. Null on a
-	 *  record older than this number.
+	 *  How far an edge stretches past what a healthy skin does, held over half
+	 *  a percent of the surface: the part the weights answer for. A record
+	 *  older than the share has its single worst edge here. Null on a record
+	 *  older than this number.
 	 */
 	beyondBodyMm?: number | null,
+	/**  The single worst edge of that reading. Null on an older record. */
+	worstEdgeMm?: number | null,
+	/**
+	 *  A few edges pull hard on too little of the surface to call a tear, so
+	 *  the row is not flagged: where to look, in words.
+	 */
+	look?: string | null,
 	/**  How far seam copies that share a position at rest came apart: a crack. */
 	seamGapMm: number | null,
 	front: string | null,
@@ -6185,7 +6204,9 @@ export type RigStopKind =
 /**  It still tears after the last round. */
 "rounds" | 
 /**  A check got worse after the fix. */
-"worse";
+"worse" | 
+/**  The fix moved no weight: there is no draft, and the defects stay open. */
+"no-change";
 
 /**
  *  Which model a case is for: an Inbox item, or a version of an asset (its
@@ -7364,7 +7385,7 @@ export type TemplateBudgetChange = {
 	after: FolderBudget,
 };
 
-/**  A model that has not shipped and exports at a new path after the template. */
+/**  A model with no file in the game that exports at a new path after the template. */
 export type TemplateNewPath = {
 	asset: string,
 	from: string,

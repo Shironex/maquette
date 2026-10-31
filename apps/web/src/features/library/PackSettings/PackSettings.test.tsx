@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { usePackStore } from '@/state/use-pack-store';
 import { clearMocks, openMockLibrary } from '@/test/mock-ipc';
-import { resetPacks } from '@/test/open-pack';
+import { resetPacks, runPack } from '@/test/open-pack';
 import PackSettings from './PackSettings';
 
 afterEach(() => {
@@ -21,6 +21,23 @@ async function openSettings() {
 }
 
 describe('the settings of a pack', () => {
+  it('leads with the earlier packs and opens one', async () => {
+    const ran = await runPack(3, 'older-pack');
+    await act(() => usePackStore.getState().close());
+    await act(() =>
+      usePackStore
+        .getState()
+        .show({ from: 'collection', collection: 'village-props' }, { collection: 'Village props' })
+    );
+    render(<PackSettings />);
+    const earlier = screen.getByRole('region', { name: 'Earlier packs' });
+    const form = screen.getByRole('region', { name: 'Pack settings' });
+    expect(earlier.compareDocumentPosition(form)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    const row = within(earlier).getByText('older-pack').closest('li')!;
+    await userEvent.click(within(row).getByRole('button', { name: 'Open' }));
+    await waitFor(() => expect(usePackStore.getState().record?.id).toBe(ran.id));
+  });
+
   it('starts from the built in preset, named after the collection', async () => {
     await openSettings();
     expect(screen.getByRole('textbox', { name: 'Pack name' })).toHaveValue('village-props');

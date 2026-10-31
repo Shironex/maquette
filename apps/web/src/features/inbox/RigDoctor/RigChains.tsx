@@ -48,6 +48,7 @@ function Looked({ yes }: { yes: boolean }) {
 export function RigChains({ record }: { record: RigRecord }) {
   const e = useChainEditor(record);
   const chains = record.creature?.chains ?? [];
+  const ignored = record.creature?.ignored ?? [];
   const open = canEditChains(record);
   const editsSide = (c: RigChain) => e.editing && isLeg(c) && e.readAsOf(c) !== 'junk';
   const rows = chains.map((c, i) => (
@@ -146,6 +147,11 @@ export function RigChains({ record }: { record: RigRecord }) {
           The pose test reads them from the bone tree first. You check them here.
         </p>
       )}
+      {ignored.length > 0 ? (
+        <p className="m-0 flex-none text-meta text-fg-mute">
+          {ignored.join(', ')} carry no weight: in no chain, and left in the file.
+        </p>
+      ) : null}
       {e.editing ? (
         <p className="m-0 flex-none text-meta text-fg-mute">
           A change starts again from the pose test, and any draft goes. v

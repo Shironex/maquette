@@ -36,7 +36,7 @@ fn project_dir(session: &Session, project_id: &str) -> CommandResult<PathBuf> {
 /// the asset's tweaks) into `materials.json` as it is on disk, so every other
 /// asset keeps its tweaks. Returns the whole file as written. They apply the
 /// next time Compress runs.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn materials_save(
     session: State<'_, Session>,

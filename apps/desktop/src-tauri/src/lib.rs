@@ -65,7 +65,9 @@ pub fn run() {
                 commands::downloads::Watch::new(app.handle().clone(), studio.0.clone(), config_dir);
             app.manage(studio);
             app.manage(watch);
-            commands::downloads::apply(app.handle());
+            // Watching Downloads can wait on a macOS privacy prompt, so never on this thread.
+            let starter = app.handle().clone();
+            tauri::async_runtime::spawn_blocking(move || commands::downloads::apply(&starter));
             let host = Arc::new(mcp::host::AppHost(app.handle().clone()));
             app.manage(mcp::Agents::new(host, hub));
             workspace_lock::start_heartbeat(app.handle().clone());

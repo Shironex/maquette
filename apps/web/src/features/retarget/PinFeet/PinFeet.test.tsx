@@ -39,6 +39,26 @@ describe('pin the feet', () => {
     );
   });
 
+  it('leaves a pin off that slid more, says so and does not offer it again', async () => {
+    await openMockLibrary('demo');
+    await useAnimationsStore.getState().load();
+    await useRetargetStore.getState().open({
+      project: 'frostveil',
+      asset: 'elsheria',
+      clips: ['sword-and-shield-block'],
+      step: 'settings',
+    });
+    await useRetargetStore.getState().retarget();
+    render(<ReviewStep />);
+    fireEvent.click(screen.getByRole('button', { name: 'Pin the feet and bake again' }));
+    const off = await screen.findByRole('group', { name: 'Pin left off' });
+    expect(within(off).getByText('8.9 cm')).toBeInTheDocument();
+    expect(within(off).getByText('2.8 cm')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Pin the feet and bake again' })).toBeNull();
+    const sheet = useRetargetStore.getState().sheet!;
+    expect(sheet.settings[0]?.pinFeet).toBe(false);
+  });
+
   it('opens the draft in Blender only from the button, and says when it cannot', async () => {
     await openMockLibrary('demo');
     await useAnimationsStore.getState().load();

@@ -268,3 +268,41 @@ fn the_view_holds_what_is_in_front_and_inside_the_frame() {
     let down = stop("Top", [0.0, 5.0, 0.0], [0.0, 0.0, 0.0]);
     assert!(in_view(&down, at(0.0, 0.0, 0.0)));
 }
+
+#[test]
+fn overlapping_updates_all_land() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::thread::scope(|scope| {
+        for n in 0..24 {
+            let project = dir.path();
+            scope.spawn(move || {
+                update(project, |current| {
+                    let mut next = current.clone();
+                    next.models.insert(
+                        format!("model-{n}"),
+                        Placement {
+                            position: [0.0, 0.0, 0.0],
+                            rotation: [0.0, 0.0, 0.0],
+                            scale: 1.0,
+                        },
+                    );
+                    Ok(next)
+                })
+                .expect("update");
+            });
+        }
+    });
+    assert_eq!(load(dir.path()).expect("load").models.len(), 24);
+}
+
+#[test]
+fn an_update_leaves_a_file_it_cannot_read_alone() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    fs::write(path(dir.path()), "not json").expect("broken");
+    let refused = update(dir.path(), |_| Ok(SceneLayout::default())).expect_err("refused");
+    assert!(refused.to_string().contains("could not be read"));
+    assert_eq!(
+        fs::read_to_string(path(dir.path())).expect("read"),
+        "not json"
+    );
+}

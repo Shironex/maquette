@@ -7,7 +7,7 @@ use super::{CommandResult, invalid};
 use crate::mcp::{self, Agents, McpStatus};
 use crate::session::Session;
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn mcp_status(session: State<'_, Session>, agents: State<'_, Agents>) -> McpStatus {
     agents.status(&session)
@@ -15,7 +15,7 @@ pub fn mcp_status(session: State<'_, Session>, agents: State<'_, Agents>) -> Mcp
 
 /// Approves or denies what an agent asked: a run's Ship step, or a send to
 /// 3D that spends credits.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn mcp_decide(
     session: State<'_, Session>,
@@ -29,7 +29,7 @@ pub fn mcp_decide(
     Ok(agents.status(&session))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn mcp_clear_activity(session: State<'_, Session>, agents: State<'_, Agents>) -> McpStatus {
     agents.hub.clear_calls();
@@ -37,7 +37,7 @@ pub fn mcp_clear_activity(session: State<'_, Session>, agents: State<'_, Agents>
 }
 
 /// Makes a new token. Agents set up with the old one must be set up again.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn mcp_renew_token(
     app: AppHandle,

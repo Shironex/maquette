@@ -39,9 +39,10 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
             icon="upload-simple"
             tooltip="Choose the GLB, or the .zip the site downloads, that you made for this card"
             data-card-action
+            className="max-w-full"
             onClick={() => void addModel(waiting.id)}
           >
-            Add model...
+            <span className="min-w-0 truncate @max-[120px]:sr-only">Add model...</span>
           </Button>
         ) : built && wantsRebuild(built.state) ? (
           <Button
@@ -49,19 +50,21 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
             icon="arrow-clockwise"
             tooltip={`Runs ${built.source.script} in Blender headless again`}
             data-card-action
+            className="max-w-full"
             onClick={rebuild}
           >
-            Rebuild
+            <span className="min-w-0 truncate @max-[120px]:sr-only">Rebuild</span>
           </Button>
         ) : update ? (
           <Button
             size="sm"
             icon="arrow-up"
             data-card-action
+            className="max-w-full"
             tooltip={`Update available: the library has v${update.to} of ${update.entry.entry.name}, this is on v${update.from}`}
             onClick={card.openUpdate}
           >
-            Update to v{update.to}
+            <span className="min-w-0 truncate @max-[120px]:sr-only">Update to v{update.to}</span>
           </Button>
         ) : undefined
       }

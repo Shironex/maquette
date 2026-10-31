@@ -46,7 +46,7 @@ export type Args = Record<string, unknown>;
  * saves a Meshy key too, for Redo. The credits ledger holds the live sends
  * and a month of earlier ones. `?inbox=triage` adds eight more models and
  * three discarded ones, `?inbox=clear` empties the inbox but keeps those
- * three (see `triage-fixtures.ts`). `?arrival=named|unmatched|look` drops downloads
+ * three, `?inbox=retexture` adds a re-texture that lost its parts (see `triage-fixtures.ts`). `?arrival=named|unmatched|look` drops downloads
  * for the Downloads watcher (see `create-downloads-handlers.ts`).
  * `?render=` what the Render tab opens with (see `create-render-handlers.ts`).
  * `?built=demo` adds two built assets to Frostveil (see
@@ -58,7 +58,7 @@ export type Args = Record<string, unknown>;
  * (see `create-paths-handlers.ts`), `?game=` a game project (see
  * `create-game-handlers.ts`), `?library=demo` the library's entries (`scale` for 214 of them, see
  * `create-library-handlers.ts`), `?inspect=many` a long compare menu (see
- * `many-assets-fixtures.ts`), `?ship=hand-built` the website Ship settings
+ * `many-assets-fixtures.ts`), `?inspect=diorama` 66 models in the scene, `?ship=hand-built` the website Ship settings
  * (see `create-ship-handlers.ts`), `?updater=` the app updater turned on (see
  * `create-app-handlers.ts`), `?pipeline=many` a runner with 24 models (see
  * `pipeline-many.ts`), `?stress=lists` every long list at a busy workspace's size
@@ -94,6 +94,8 @@ export interface BackendOptions {
   lab?: string | null;
   /** Milliseconds one fake concept image takes (default 4000). */
   conceptMs?: number;
+  /** Milliseconds a fake Keychain or folder privacy prompt holds its reads (default none). */
+  promptMs?: number;
   /** `many`: eight projects instead of three. */
   projects?: string | null;
   /** `batch`: the veil gate objects and their By hand batch. */
@@ -125,7 +127,10 @@ export interface BackendOptions {
    */
   library?: string | null;
   render?: string | null;
-  /** `many`: Frostveil gets 49 more versioned assets, so the Inspector's compare menu is long. */
+  /**
+   * `many`: Frostveil gets 49 more versioned assets, so the Inspector's compare menu is long.
+   * `diorama`: up to 66 models, so the Layout and Paths tabs have a heavy scene to load.
+   */
   inspect?: string | null;
   /** `hand-built`: Frostveil ships as a hand-built site (see create-ship-handlers.ts). */
   ship?: string | null;
@@ -185,4 +190,31 @@ export function slugify(name: string): string {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'project'
   );
+}
+
+/**
+ * The reads a real macOS prompt can hold up: Keychain reads while it asks
+ * to use a key, and reads of a linked game folder while it asks for
+ * Documents. In mock mode `?promptMs=` holds them that long, so the waiting
+ * states can be seen.
+ */
+const HELD = [
+  'provider_keys',
+  'provider_send_options',
+  'provider_batch_options',
+  'split_sheet',
+  'image_api_status',
+  'game_template_preview',
+] as const;
+
+export function holdFor(handlers: Record<string, (args: Args) => unknown>, ms: number) {
+  if (ms <= 0) return;
+  for (const name of HELD) {
+    const handler = handlers[name];
+    if (!handler) continue;
+    handlers[name] = async args => {
+      await new Promise(resolve => setTimeout(resolve, ms));
+      return handler(args);
+    };
+  }
 }

@@ -201,7 +201,7 @@ pub fn built_list(session: State<'_, Session>, project: String) -> CommandResult
 
 /// Copies the script and helpers into the project's `built/` folder and
 /// puts the asset on the Board at Blender. Nothing is built yet.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn built_add(
     session: State<'_, Session>,

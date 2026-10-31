@@ -3,15 +3,15 @@ use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::providers::ProviderJobs;
 use maquette_core::{
     ImportScan, NewProject, ProjectActivity, ProjectManifest, ProjectSummary, RepoInspection,
-    project, workspace,
+    project,
 };
 use tauri::State;
 
-use super::CommandResult;
 use super::app::{WorkspaceSnapshot, snapshot};
 use super::lab::Lab;
 use super::pipeline::Pipelines;
 use super::providers::Studio;
+use super::{CommandResult, blocking};
 use crate::session::Session;
 
 /// What runs in `id` right now: its pipeline run, concept images and sends.
@@ -59,7 +59,7 @@ pub(crate) fn summaries(
 }
 
 /// The projects for the switcher.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn project_list(
     session: State<'_, Session>,
@@ -74,25 +74,25 @@ pub fn project_list(
 /// Runs, concept jobs and sends of the project left behind keep going.
 pub(crate) fn switch(session: &Session, id: &str) -> CommandResult<WorkspaceSnapshot> {
     let (root, config) = session.workspace()?;
-    let (config, _) = project::switch(&root, &config, id)?;
-    session.set_config(config.clone());
+    let manifest = project::load(&root, &config.layout, id)?;
+    let (root, config) = session.update_config(|c| c.current_project = Some(manifest.id))?;
     snapshot(session, &root, &config)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn project_switch(session: State<'_, Session>, id: String) -> CommandResult<WorkspaceSnapshot> {
     switch(&session, &id)
 }
 
 /// Creates a project in the open workspace and makes it the current one.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn project_create(
     session: State<'_, Session>,
     project: NewProject,
 ) -> CommandResult<WorkspaceSnapshot> {
-    let (root, mut config) = session.workspace()?;
+    let (root, config) = session.workspace()?;
     let new = NewProject {
         site_repo: project
             .site_repo
@@ -106,13 +106,11 @@ pub fn project_create(
     session.save_repos(&root)?;
     let dir = project::dir(&root, &config.layout, &manifest.id)?;
     maquette_core::pipeline::ensure(&dir, &manifest)?;
-    config.current_project = Some(manifest.id);
-    workspace::save(&root, &config)?;
-    session.set_config(config.clone());
+    let (root, config) = session.update_config(|c| c.current_project = Some(manifest.id))?;
     snapshot(&session, &root, &config)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn project_update(
     session: State<'_, Session>,
@@ -129,19 +127,28 @@ pub fn project_update(
 
 #[tauri::command]
 #[specta::specta]
-pub fn project_inspect_repo(session: State<'_, Session>, path: String) -> RepoInspection {
-    project::inspect_site_repo(&session.expand(&path))
+pub async fn project_inspect_repo(
+    session: State<'_, Session>,
+    path: String,
+) -> CommandResult<RepoInspection> {
+    let path = session.expand(&path);
+    blocking(move || project::inspect_site_repo(&path)).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn project_scan_import(session: State<'_, Session>, path: String) -> CommandResult<ImportScan> {
-    Ok(project::scan_import(&session.expand(&path))?)
+pub async fn project_scan_import(
+    session: State<'_, Session>,
+    path: String,
+) -> CommandResult<ImportScan> {
+    let path = session.expand(&path);
+    Ok(blocking(move || project::scan_import(&path)).await??)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use maquette_core::workspace;
     use maquette_core::{AppState, ProjectTemplate, WorkspaceConfig};
 
     fn new(name: &str, template: ProjectTemplate) -> NewProject {

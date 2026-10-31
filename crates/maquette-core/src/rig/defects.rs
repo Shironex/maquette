@@ -4,7 +4,7 @@
 
 use serde_json::Value;
 
-use super::{DefectKind, RigDefect, RigRow, RigSheet};
+use super::{DefectKind, RigDefect, RigRow, verdict};
 
 /// 3912 reads "3,912".
 pub(super) fn count(n: u64) -> String {
@@ -194,10 +194,11 @@ pub(super) fn rows(data: &Value, label: &str, xray: Option<&Value>) -> Vec<RigRo
         .filter_map(Value::as_str)
         .map(|row| {
             let m = &data["metrics"][format!("{label}/{row}")];
-            RigRow {
+            let mut read = RigRow {
                 id: row.to_string(),
                 label: pose_label(row),
                 beyond_body_mm: m["beyond_body_mm"].as_f64(),
+                worst_edge_mm: m["worst_edge_mm"].as_f64(),
                 stretch_mm: m["stretch_mm"].as_f64().unwrap_or(0.0),
                 seam_gap_mm: m["seam_gap_mm"].as_f64().unwrap_or(0.0),
                 front: cell(data, row, "front"),
@@ -208,7 +209,9 @@ pub(super) fn rows(data: &Value, label: &str, xray: Option<&Value>) -> Vec<RigRo
                 before_front: other(row, "front"),
                 before_side: other(row, "side"),
                 ..RigRow::default()
-            }
+            };
+            read.look = verdict::look(&read, m["worst_edge_near"].as_str());
+            read
         })
         .collect()
 }
@@ -224,7 +227,7 @@ pub(super) fn names(value: &Value) -> Vec<String> {
 }
 
 /// The creature defects, from the chain table and the before sheet.
-pub(super) fn creature(table: &Value, sheet: &RigSheet) -> Vec<RigDefect> {
+pub(super) fn creature(table: &Value, bent: usize) -> Vec<RigDefect> {
     let mut out = Vec::new();
     let mut push = |title: String, place: String, tags: Vec<String>, kind, detail: String| {
         let number = u32::try_from(out.len()).unwrap_or(0) + 1;
@@ -257,17 +260,12 @@ pub(super) fn creature(table: &Value, sheet: &RigSheet) -> Vec<RigDefect> {
             ),
         );
     }
-    let split: usize = sheet
-        .rows
-        .iter()
-        .filter(|r| r.note.as_deref().is_some_and(|n| n.contains("bend")))
-        .count();
-    if split > 0 {
+    if bent > 0 {
         push(
             "Rigid pieces split between bones".to_string(),
             "spikes and plates".to_string(),
             vec![
-                format!("{} pieces", num(table, "rigid_pieces")),
+                format!("{bent} of {} pieces", num(table, "rigid_pieces")),
                 "one bone each".to_string(),
             ],
             DefectKind::WeightsOnly,
@@ -295,4 +293,30 @@ pub(super) fn creature(table: &Value, sheet: &RigSheet) -> Vec<RigDefect> {
         );
     }
     out
+}
+
+/// Says of each creature defect what the fix really did: a defect is fixed
+/// only when the report or the after sheet shows it gone.
+pub(super) fn settle_creature(defects: &mut [RigDefect], report: &Value, still_bent: usize) {
+    let strays: u64 = report["strays"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|s| num(s, "vertices"))
+        .sum();
+    let junk_left = report["junk_left"].as_array().map_or(0, Vec::len);
+    for d in defects
+        .iter_mut()
+        .filter(|d| d.kind == DefectKind::WeightsOnly)
+    {
+        let open = if d.title.starts_with("Rigid") {
+            (still_bent > 0).then(|| format!("{still_bent} pieces still bend"))
+        } else if d.title.starts_with("Junk") {
+            (junk_left > 0).then(|| format!("{junk_left} junk bones still carry weight"))
+        } else {
+            (strays == 0).then(|| "no stray weight was moved".to_string())
+        };
+        d.fixed = open.is_none();
+        d.outcome = Some(open.unwrap_or_else(|| "fixed".to_string()));
+    }
 }

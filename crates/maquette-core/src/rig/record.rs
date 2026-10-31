@@ -75,6 +75,7 @@ pub(super) fn blank(
         id,
         name,
         started_by: RigStarter::Person,
+        agent_opened: false,
         route: None,
         state: RigState::Ready,
         step: RigStep::Read,

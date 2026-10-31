@@ -95,8 +95,9 @@ impl RigDoctors {
                 && !matches!(r.state, RigState::Discarded | RigState::Failed)
         }) {
             let mut found = found;
-            if starter == RigStarter::Agent && found.started_by != starter {
-                found.started_by = starter;
+            // Who started a case stays who started it; the agent is noted apart.
+            if starter == RigStarter::Agent && found.started_by != starter && !found.agent_opened {
+                found.agent_opened = true;
                 self.publish(&mut found)?;
             }
             return Ok(found);
@@ -213,10 +214,8 @@ impl RigDoctors {
         }
         case.error = None;
         case.stop = None;
-        match what {
-            RigRun::PoseTest => case.stages.clear(),
-            RigRun::Fix | RigRun::Round2 => case.round += 1,
-            RigRun::WalkProof => {}
+        if what == RigRun::PoseTest {
+            case.stages.clear();
         }
         case.walk_proof = None;
         self.publish(&mut case)?;

@@ -1,10 +1,10 @@
 use maquette_core::workspace::sync::SyncConflict;
 use maquette_core::{CoreError, RootInspection, WorkspaceConfig, workspace};
 use serde::Serialize;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager as _, State};
 
-use super::CommandResult;
 use super::app::{WorkspaceSnapshot, snapshot};
+use super::{CommandResult, blocking};
 use crate::mcp::Agents;
 use crate::session::Session;
 
@@ -27,17 +27,18 @@ fn cache_info(bytes: u64) -> CacheInfo {
 
 #[tauri::command]
 #[specta::specta]
-pub fn workspace_inspect(
-    session: State<'_, Session>,
-    root: String,
-) -> CommandResult<RootInspection> {
-    Ok(workspace::inspect_root(
-        &session.expand(&root),
-        session.home(),
-    )?)
+pub async fn workspace_inspect(app: AppHandle, root: String) -> CommandResult<RootInspection> {
+    blocking(move || -> CommandResult<RootInspection> {
+        let session = app.state::<Session>();
+        Ok(workspace::inspect_root(
+            &session.expand(&root),
+            session.home(),
+        )?)
+    })
+    .await?
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn workspace_create(
     app: AppHandle,
@@ -56,7 +57,7 @@ pub fn workspace_create(
 /// Opens a workspace. While another computer has it open (a fresh lock)
 /// it answers `workspace-in-use` with the warning to show, unless `force`
 /// (the person chose Open anyway).
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn workspace_open(
     app: AppHandle,
@@ -75,7 +76,7 @@ pub fn workspace_open(
     snapshot(&session, &root, &config)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn workspace_save_config(
     app: AppHandle,
@@ -83,14 +84,13 @@ pub fn workspace_save_config(
     agents: State<'_, Agents>,
     config: WorkspaceConfig,
 ) -> CommandResult<WorkspaceConfig> {
-    let (root, open) = session.workspace()?;
     // The switcher owns the current project; a settings save never moves it.
-    let config = WorkspaceConfig {
-        current_project: open.current_project,
-        ..config
-    };
-    workspace::save(&root, &config)?;
-    session.set_config(config.clone());
+    let (_, config) = session.update_config(|open| {
+        *open = WorkspaceConfig {
+            current_project: open.current_project.take(),
+            ..config
+        };
+    })?;
     // Turning the server on or off, or a new port, takes effect at once.
     super::agents::sync(&app, &session, &agents);
     Ok(config)
@@ -111,7 +111,7 @@ pub async fn workspace_sync_conflicts(
 /// Shows a file of the open workspace (a conflict copy, say) selected in
 /// Finder or Explorer. `path` is relative to the workspace, as
 /// `workspace_sync_conflicts` gives it, and must stay inside it.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn workspace_reveal(session: State<'_, Session>, path: String) -> CommandResult<()> {
     let (root, _) = session.workspace()?;

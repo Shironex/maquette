@@ -177,7 +177,7 @@ pub(crate) fn read_soon(app: &AppHandle) {
 }
 
 /// The last read, without reading again. `None` before the first.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn codex_usage_get(watch: State<'_, CodexUsageWatch>) -> Option<CodexUsage> {
     watch.latest()

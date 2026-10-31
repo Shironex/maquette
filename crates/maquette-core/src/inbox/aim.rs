@@ -51,6 +51,7 @@ pub fn set_aim(
 ) -> CoreResult<()> {
     check_id(id)?;
     let cache = cache_dir(root, config);
+    let _one = super::choice_turn();
     let mut aims = load(&cache);
     let before = aims.len();
     match aim {

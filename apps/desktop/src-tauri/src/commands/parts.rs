@@ -188,7 +188,7 @@ pub(crate) fn save_plan(
 
 /// Saves the asset's part names, joins and hidden parts in `prepare.json`.
 /// The next build ships the names and joins; hiding changes no export.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn parts_save(
     session: State<'_, Session>,
@@ -274,7 +274,7 @@ pub async fn parts_compare(
 
 /// Makes one version the asset's current one, for the next export. Every
 /// version stays in the asset.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn parts_keep_version(
     session: State<'_, Session>,

@@ -281,6 +281,12 @@ The checklist stays for reference; keep it for the next key or repository change
    `node scripts/release/bump-version.mjs --check v0.2.0` is the same check the release runs on
    the tag.
 
+   Two places the script does not reach: set `version` in `plugins/maquette/.claude-plugin/plugin.json`
+   to the same number (Claude Code only offers new skills to people who installed the plugin when
+   that version changes), and after the release is published update `release` in
+   `apps/site/src/content/copy.ts` (its date and the two installer sizes in bytes) so the landing
+   page's Download section matches the published files.
+
 2. **Write the notes** in `docs/releases/v0.2.0.md`, starting with `# v0.2.0: short summary`.
 3. **Merge** the PR (for example `build(workspace): release 0.2.0`) once CI is green.
 4. **Tag** the merge commit on `main` and push the tag:

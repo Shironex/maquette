@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use super::ids::next_id;
 use super::landed;
+use super::retexture::retexture_source;
 use super::{
     Entry, InboxLink, JobState, Provider, ProviderJob, ProviderJobs, Stored, Workspace, persist,
     send_notes, touch_asset, update,
@@ -188,7 +189,9 @@ impl ProviderJobs {
                                 .ok()
                                 .and_then(|m| game::asset_budget(&m, &job.asset))
                         });
-                    item.apply_send(kind, send_notes(job), &workspace.config, folder.as_ref());
+                    let mut notes = send_notes(job);
+                    notes.retexture_of = retexture_source(job, workspace);
+                    item.apply_send(kind, notes, &workspace.config, folder.as_ref());
                 }
                 if job.state == JobState::Waiting {
                     arrived.push((job.id.clone(), item.inbox_name().to_string()));

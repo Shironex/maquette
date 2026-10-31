@@ -32,6 +32,13 @@ export function creatureCase(): RigRecord {
       after: [14, 9, 0],
     },
     { id: 'leg_FR', before: [8, 6, 0], after: [8, 6, 0] },
+    {
+      id: 'spike_0',
+      look: 'a few edges stretch 92 mm near bone_26, look here',
+      worst: 92,
+      before: [110, 40, 0],
+      after: [110, 40, 0],
+    },
     { id: 'neck', before: [6, 4, 0], after: [6, 4, 0] },
   ];
   const base = readCase(id, 'Spiked hound', null);
@@ -57,6 +64,7 @@ export function creatureCase(): RigRecord {
       legs: 4,
       swapped: 2,
       junk: ['dup_FL', 'dup_FR'],
+      ignored: ['bone_17', 'bone_25'],
       rigidPieces: 41,
       oneShell: false,
       chains: [
@@ -195,6 +203,45 @@ export function stoppedCase(): RigRecord {
       detail:
         'raise still pulls apart by 94 mm on the after sheet. The doctor stops here instead of guessing a third time.',
       row: 'raise',
+    },
+  };
+}
+
+/** A fix that moved no weight: no draft, the defects open, the words say so. */
+export function noChangeCase(): RigRecord {
+  const tested = creatureCase();
+  return {
+    ...tested,
+    state: 'tested',
+    step: 'before',
+    progress: null,
+    after: null,
+    draft: null,
+    checks: [],
+    fixSteps: [],
+    stages: [],
+    log: [],
+    model: { ...tested.model, islands: 1, oneIsland: true },
+    creature: tested.creature && { ...tested.creature, oneShell: true, rigidPieces: 0 },
+    before: tested.before && {
+      ...tested.before,
+      rows: tested.before.rows.map(r =>
+        r.note?.includes('bend') ? { ...r, note: null, defects: [] } : r
+      ),
+    },
+    defects: tested.defects
+      .filter(d => !d.title.startsWith('Rigid'))
+      .map(d => ({
+        ...d,
+        fixed: false,
+        outcome: d.kind === 'note' ? d.outcome : 'still open, the fix changed nothing',
+      })),
+    stop: {
+      kind: 'no-change',
+      title: 'The fix changed nothing',
+      detail:
+        'This is one continuous shell, so the per piece rules stay off and only stray weight can move, and none did. No draft was made and v1 stays. If the chains read wrong, correct them and run it again.',
+      row: null,
     },
   };
 }

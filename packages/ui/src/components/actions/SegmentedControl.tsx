@@ -31,6 +31,11 @@ export interface SegmentedControlProps<T extends string> {
   /** The whole control is shown but locked: dimmed, and every option says so. */
   disabled?: boolean;
   className?: string;
+  /**
+   * Classes for each option's label, such as a container query that hides it
+   * (`@max-[900px]:sr-only`) so the options shrink to their icons in a narrow bar.
+   */
+  labelClassName?: string;
 }
 
 export function SegmentedControl<T extends string>({
@@ -43,6 +48,7 @@ export function SegmentedControl<T extends string>({
   block,
   disabled: locked,
   className,
+  labelClassName,
 }: SegmentedControlProps<T>) {
   const first = options[0]?.value;
   const [current, set] = useControllable<T | undefined>(value, defaultValue ?? first, next => {
@@ -64,7 +70,9 @@ export function SegmentedControl<T extends string>({
           }}
           className={cn(
             'inline-flex h-[26px] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-2.5 text-[12px] font-medium text-fg-dim transition-colors duration-120 hover:text-fg active:bg-raised',
-            o.disabled && 'cursor-default text-fg-mute hover:text-fg-mute active:bg-transparent',
+            // Dimmed, and still 4.5:1 on the track: its name and hint must stay readable.
+            o.disabled &&
+              'cursor-not-allowed text-fg-mute opacity-80 hover:text-fg-mute active:bg-transparent',
             block && 'flex-1',
             on &&
               (tone === 'clay'
@@ -73,7 +81,8 @@ export function SegmentedControl<T extends string>({
           )}
         >
           {o.icon ? <Icon name={o.icon} size={14} /> : null}
-          {o.label}
+          {o.disabled && !o.icon ? <Icon name="lock-simple" size={12} /> : null}
+          {labelClassName && o.label ? <span className={labelClassName}>{o.label}</span> : o.label}
         </button>
       </Tooltip>
     );

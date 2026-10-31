@@ -38,6 +38,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
@@ -270,6 +271,9 @@ pub fn load_or_default(project_dir: &Path) -> ShipSettings {
     })
 }
 
+/// One read, change and write at a time, so overlapping saves both land.
+static WRITES: Mutex<()> = Mutex::new(());
+
 /// Applies `change` to the stored settings and saves them. Entries set back
 /// to the defaults are dropped, so the file only lists real choices.
 ///
@@ -277,6 +281,7 @@ pub fn load_or_default(project_dir: &Path) -> ShipSettings {
 ///
 /// Fails when the result does not validate or cannot be written.
 pub fn update(project_dir: &Path, change: ShipSettingsChange) -> CoreResult<ShipSettings> {
+    let _one = WRITES.lock().unwrap_or_else(PoisonError::into_inner);
     let mut settings = load(project_dir)?;
     if let Some(style) = change.style {
         settings.style = style;

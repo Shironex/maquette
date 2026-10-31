@@ -137,7 +137,7 @@ pub(crate) fn bootstrap_with(session: &Session, version: &str) -> Bootstrap {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn app_bootstrap(
     app: tauri::AppHandle,

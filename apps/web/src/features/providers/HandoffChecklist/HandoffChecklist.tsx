@@ -5,7 +5,7 @@
  */
 import { Button, cn } from '@maquette/ui';
 import { formatAgo } from '@/lib/format';
-import { backLabel } from '@/state/batch';
+import { backLabel, liveJobs } from '@/state/batch';
 import { siteLabel } from '../siteLabel';
 import { ChecklistRow } from './ChecklistRow';
 import { useHandoffChecklist } from './HandoffChecklist.hooks';
@@ -24,6 +24,8 @@ export default function HandoffChecklist() {
     </Button>
   ));
   const sections = groups.map(group => {
+    const live = liveJobs(group).length;
+    const stopped = group.jobs.length - live;
     const rows = group.jobs.map(job => <ChecklistRow key={job.id} job={job} />);
     return (
       <section
@@ -33,15 +35,16 @@ export default function HandoffChecklist() {
       >
         <div className="flex items-baseline gap-2 pb-1.5">
           <h3 className="text-[11px] leading-[14px] font-medium tracking-[0.04em] text-fg-mute uppercase">
-            {group.batch ? `Batch of ${group.jobs.length}` : 'Single send'}
+            {group.batch ? `Batch of ${live}` : 'Single send'}
           </h3>
           <span className="text-meta text-fg-mute">
             written {formatAgo(group.createdAtMs, now)}
+            {stopped > 0 ? `, ${stopped} stopped` : ''}
           </span>
           <span
             className={cn(
               'ml-auto font-mono text-[11.5px] tabular-nums',
-              group.back >= group.jobs.length ? 'text-sage' : 'text-fg-dim'
+              group.back >= live ? 'text-sage' : 'text-fg-dim'
             )}
           >
             {backLabel(group)}

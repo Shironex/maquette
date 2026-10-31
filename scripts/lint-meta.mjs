@@ -12,6 +12,7 @@
  *   (scripts/lint-meta/rust-layers.json, read by scripts/rust-layers.mjs);
  * - a workspace crate only depends on the crates below it
  *   (scripts/lint-meta/crate-layers.json, read by scripts/crate-layers.mjs);
+ * - no Tauri command runs on the main thread (scripts/main-thread-commands.mjs);
  * - the agent skills only name tools the MCP server lists, and the README and the
  *   docs site's MCP tools page name every one (scripts/check-skills.mjs, against the
  *   generated apps/desktop/src-tauri/tool-names.txt).
@@ -39,6 +40,7 @@ import { createFileSizeRatchetRule } from '@noctcore/lint-meta-rules';
 import { createEslintConfigNoWarnRule } from '@noctcore/lint-meta-rules/resolved-config';
 import { checkSkills, staleToolCount, undocumentedTools } from './check-skills.mjs';
 import { CRATE_MAP, crateLayers } from './crate-layers.mjs';
+import { checkMainThreadCommands } from './main-thread-commands.mjs';
 import { LAYER_MAP, upwardUses } from './rust-layers.mjs';
 
 const root = resolve(import.meta.dirname, '..');
@@ -193,6 +195,13 @@ const rules = [
     description: 'A workspace crate only depends on the crates below it.',
     run: () =>
       crateLayers(ctx).map(v => ({ file: CRATE_MAP, rule: 'crate-layers', message: v.message })),
+  },
+  {
+    id: 'commands-off-main-thread',
+    category: 'source-text',
+    ciCritical: true,
+    description: 'Every Tauri command is async, so no prompt can freeze the main thread.',
+    run: () => checkMainThreadCommands(ctx),
   },
   createEslintConfigNoWarnRule({ packages: ['.'], probes: probeFiles() }),
   {

@@ -36,6 +36,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::UNIX_EPOCH;
 
 use serde::{Deserialize, Serialize};
@@ -347,6 +348,13 @@ pub fn reprocess(root: &Path, config: &WorkspaceConfig, id: &str) -> CoreResult<
     item(root, config, id)
 }
 
+/// One read, change and write of the kinds and aims files at a time.
+static CHOICES: Mutex<()> = Mutex::new(());
+
+fn choice_turn() -> MutexGuard<'static, ()> {
+    CHOICES.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
 /// Records the kind someone picked, which changes the rig checks.
 ///
 /// # Errors
@@ -360,10 +368,13 @@ pub fn set_kind(
 ) -> CoreResult<InboxItem> {
     check_id(id)?;
     let cache = cache_dir(root, config);
-    let mut kinds = load_kinds(&cache);
-    kinds.insert(id.to_string(), kind);
-    fs::create_dir_all(&cache).map_err(|e| CoreError::io(&cache, e))?;
-    write_json(&cache.join(KINDS_FILE), &kinds)?;
+    {
+        let _one = choice_turn();
+        let mut kinds = load_kinds(&cache);
+        kinds.insert(id.to_string(), kind);
+        fs::create_dir_all(&cache).map_err(|e| CoreError::io(&cache, e))?;
+        write_json(&cache.join(KINDS_FILE), &kinds)?;
+    }
     item(root, config, id)
 }
 

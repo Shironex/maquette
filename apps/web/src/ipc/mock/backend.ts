@@ -48,7 +48,7 @@ import { createPathsHandlers } from './create-paths-handlers';
 import { createGameHandlers } from './create-game-handlers';
 import { createAvatarHandlers } from './create-avatar-handlers';
 import { seedAvatar } from './avatar-fixtures';
-import { withManyAssets, wrapInspectFixtures } from './many-assets-fixtures';
+import { withInspectAssets, wrapInspectFixtures } from './many-assets-fixtures';
 import { manyPipeline, seedManyPipeline } from './pipeline-many';
 import { stressInbox, stressProjects, wrapStress } from './stress-fixtures';
 import { createLibraryHandlers } from './create-library-handlers';
@@ -59,7 +59,7 @@ import { createToolchainHandlers } from './create-toolchain-handlers';
 import { createAppHandlers } from './create-app-handlers';
 import { createWorkspaceHandlers } from './create-workspace-handlers';
 import { createSyncHandlers, syncProjects } from './create-sync-handlers';
-import { display, expand, fail, type Args, type BackendOptions } from './backend-options';
+import { display, expand, fail, holdFor, type Args, type BackendOptions } from './backend-options';
 
 export type MockOptions = BackendOptions;
 
@@ -71,6 +71,7 @@ export function createBackend({
   files,
   lab: labState = null,
   conceptMs = 4000,
+  promptMs = 0,
   agents: agentsState = null,
   rig = null,
   projects: projectsState = null,
@@ -129,9 +130,7 @@ export function createBackend({
     state: configured ? gameState : null,
   });
   [projects, config] = game.seedInto(projects, config);
-  if (configured && inspectState === 'many') {
-    projects = projects.map(p => (p.id === 'frostveil' ? withManyAssets(p) : p));
-  }
+  if (configured) projects = projects.map(p => withInspectAssets(p, inspectState));
   if (configured) projects = projects.map(p => seedManyPipeline(p, pipelineState));
   const listed = configured ? seedInbox(inboxState, `${expand(DEFAULT_ROOT)}/inbox`, now) : [];
   let inbox: InboxItem[] = linkGameInbox(
@@ -392,6 +391,7 @@ export function createBackend({
     setTimeout(() => runner.submit('frostveil', view('frostveil').def, null, false), 50);
   }
 
+  holdFor(handlers, promptMs);
   return async function handle(cmd: string, args: Args = {}): Promise<unknown> {
     const handler = handlers[cmd];
     if (!handler) fail('unavailable', `Mock mode has no handler for ${cmd}.`);

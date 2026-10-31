@@ -207,7 +207,7 @@ pub async fn lab_make_objects(
 
 /// Send picks for a direction of object refs: one asset per picked object,
 /// each with its own ref. `kind` overrides the direction's kind.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn lab_send_object_picks(
     session: State<'_, Session>,
@@ -248,7 +248,7 @@ pub async fn lab_generate(
 }
 
 /// Stars or picks one image; `None` leaves that mark alone.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn lab_mark(
     session: State<'_, Session>,
@@ -286,7 +286,7 @@ pub async fn lab_contact_sheet(
 
 /// Copies the picks into `refs/` and puts the asset of the same name on
 /// the Board at Refs.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn lab_send_picks(
     session: State<'_, Session>,
@@ -342,7 +342,7 @@ pub(crate) fn move_direction(
     )?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn lab_move_direction(
     session: State<'_, Session>,
@@ -426,7 +426,7 @@ pub(crate) fn set_style(
     Ok(style::update(&dir, &change)?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn lab_set_style(
     session: State<'_, Session>,
@@ -436,7 +436,7 @@ pub fn lab_set_style(
     set_style(&session, &project, &change, true)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn lab_import_refs(
     session: State<'_, Session>,

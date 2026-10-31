@@ -49,8 +49,9 @@ Pin the feet: a clip's optional "pins" give, per foot, the frames it is
 planted on (Maquette finds them in an earlier run's foot tracks). Over each
 run the foot is held where it was put down, and its leg is solved back to
 it with a two bone IK (thigh and shin, the knee bending the way it bends in
-the clip); the foot keeps the clip's turn. It eases back over a few frames
-after the run. A foot whose leg is not mapped cannot be pinned, and says so.
+the clip); the foot keeps the clip's turn. It eases back along the ground
+over a few frames after the run, and rises when the clip rises: dragged low
+on its way back, it would slide more than the pin saved. A foot whose leg is not mapped cannot be pinned, and says so.
 """
 
 import argparse
@@ -422,7 +423,10 @@ def bake(scene, tgt, src, action, clip, feet, follow, out_fps):
             if i == start:
                 held[side] = ankle
             # Held where it went down, in the travelling frame, eased out.
-            want = held.get(side, ankle).lerp(ankle, 1.0 - weight) - removed
+            want = held.get(side, ankle).lerp(ankle, 1.0 - weight)
+            if weight < 1.0:
+                want.z = max(want.z, ankle.z)
+            want = want - removed
             overrides.update(solve_leg(pose, leg, tgt.mw_inv @ want))
         if overrides:
             pose = frame_pose(tgt, driven_rot, head_world, overrides)

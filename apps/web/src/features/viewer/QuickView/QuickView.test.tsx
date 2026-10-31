@@ -73,6 +73,21 @@ describe('the 3D quick view', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('still closes with Escape after a preview mode is picked', async () => {
+    registerMockFile(LANTERN.file, '/mock/frost_lantern.glb');
+    useQuickViewStore.setState({ target: LANTERN });
+    render(<QuickView />);
+    await screen.findByTestId('preview');
+    const modes = screen.getByRole('group', { name: 'Preview mode' });
+    await userEvent.click(within(modes).getByRole('button', { name: 'UV' }));
+    expect(screen.getByTestId('preview')).toHaveAttribute('data-mode', 'uv');
+    // A press on something that takes no focus must leave focus in the dialog.
+    await userEvent.click(screen.getByRole('heading', { name: 'Crystal lantern' }));
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('opens the version in the Inspector', async () => {
     registerMockFile(LANTERN.file, '/mock/frost_lantern.glb');
     useQuickViewStore.setState({ target: LANTERN });

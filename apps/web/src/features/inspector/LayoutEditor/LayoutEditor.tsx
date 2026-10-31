@@ -20,6 +20,7 @@ import { badge } from '../badge';
 import { LayoutPanel } from '../LayoutPanel';
 import { Letterbox } from '../Letterbox';
 import { useLayoutEditor } from './LayoutEditor.hooks';
+import { loadingLabel } from '../loadingLabel';
 import { KEYS } from '@/lib/keys';
 
 const LayoutCanvas = lazyAfterPaint(() => import('../LayoutCanvas'));
@@ -50,6 +51,8 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
     setLoadError,
     ready,
     setReady,
+    loaded,
+    setLoaded,
   } = useLayoutEditor(project);
   const { view, draft, error, loading } = store;
 
@@ -224,6 +227,7 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
                     },
                     onError: setLoadError,
                     onReady: () => setReady(true),
+                    onProgress: setLoaded,
                   }}
                 />
               </Suspense>
@@ -241,9 +245,7 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
                 : 'Click to select · drag to orbit · F frames all'}
             </span>
             {!ready && !loadError ? (
-              <span className="absolute inset-0 grid place-items-center text-fg-mute">
-                Loading {view.models.length} models…
-              </span>
+              <StageLoader label={loadingLabel(view.models.length, loaded)} />
             ) : null}
             {loadError ? (
               <span className="absolute inset-x-6 top-3 rounded-card bg-danger-soft px-3 py-2 text-center text-danger">

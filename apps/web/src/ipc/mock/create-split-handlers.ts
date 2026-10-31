@@ -8,7 +8,8 @@
  * steps) as models of their own, for Assemble. `?parts=split` adds a Tripo
  * split of the frost lantern, accepted as v3, that lost its texture and
  * offers the bake back from v2. `?parts=grey` is the same split on Meshy,
- * kept grey on purpose. `?parts=compare` gives the lantern a Tripo v2 and a
+ * kept grey on purpose, and `?parts=retexture` the same with a re-texture
+ * chosen. `?parts=compare` gives the lantern a Tripo v2 and a
  * Meshy v3 for the Inspector's version compare.
  */
 import type {
@@ -124,7 +125,7 @@ export function createSplitHandlers({ project, saveProject, providers, scenario 
     const assets = (p.assets ?? []).map(a =>
       a.id !== 'frost-lantern'
         ? a
-        : scenario === 'split' || scenario === 'grey'
+        : scenario === 'split' || scenario === 'grey' || scenario === 'retexture'
           ? withVersion(a, 18_200, 0)
           : scenario === 'compare'
             ? lanternPair(withVersion(a, 9_600, 1))
@@ -135,8 +136,9 @@ export function createSplitHandlers({ project, saveProject, providers, scenario 
       seedPairJobs(providers);
       return;
     }
-    if (scenario !== 'split' && scenario !== 'grey') return;
-    const grey = scenario === 'grey';
+    if (scenario !== 'split' && scenario !== 'grey' && scenario !== 'retexture') return;
+    const painting = scenario === 'retexture';
+    const grey = scenario === 'grey' || painting;
     const job = providers.base({
       id: 'frost-lantern-split-1',
       asset: 'frost-lantern',
@@ -167,8 +169,8 @@ export function createSplitHandlers({ project, saveProject, providers, scenario 
         texturesBefore: 1,
         textureKept: false,
         bake: { state: 'offered', onto: 3, version: null, message: null },
-        after: grey ? 'grey' : 'bake',
-        texturePrompt: null,
+        after: painting ? 'retexture' : grey ? 'grey' : 'bake',
+        texturePrompt: painting ? 'old oak' : null,
       },
     });
     providers.seed(job);

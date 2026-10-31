@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 // What a send asked for is read by the inbox checks too, which sit beside
 // this module, so it lives in the base crate.
-pub use maquette_base::send_notes::{SendNotes, SentMaps};
+pub use maquette_base::send_notes::{RetextureSource, SendNotes, SentMaps, SentTo};
 
 use crate::assets::AssetKind;
 use crate::error::CoreResult;

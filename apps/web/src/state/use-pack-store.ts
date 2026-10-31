@@ -50,6 +50,8 @@ interface PackStore {
   pickFolder: () => Promise<void>;
   start: () => Promise<void>;
   decide: (decision: PackDecision) => Promise<void>;
+  /** Answers several models in turn; one refused does not stop the rest. */
+  decideAll: (decisions: readonly PackDecision[]) => Promise<void>;
   zip: (choice: ZipChoice) => Promise<void>;
   stop: () => Promise<void>;
   resume: (id: string) => Promise<void>;
@@ -120,8 +122,8 @@ export const usePackStore = create<PackStore>((set, get) => {
 
     showRecord: async id => {
       try {
-        const record = await commands.packGet(id);
-        set({ open: true, record, source: record.source, settings: record.settings });
+        const [record, recent] = await Promise.all([commands.packGet(id), commands.packRecent()]);
+        set({ open: true, record, recent, source: record.source, settings: record.settings });
       } catch (error) {
         notifyFailed('Could not open the pack', error);
       }
@@ -182,6 +184,24 @@ export const usePackStore = create<PackStore>((set, get) => {
     decide: async decision => {
       const id = get().record?.id;
       if (id) await act('Could not change the pack', () => commands.packDecide(id, decision));
+    },
+
+    decideAll: async decisions => {
+      const id = get().record?.id;
+      if (!id) return;
+      await act('Could not change the pack', async () => {
+        let refused = 0;
+        let why: unknown = null;
+        for (const decision of decisions) {
+          try {
+            get().onChanged(await commands.packDecide(id, decision));
+          } catch (error) {
+            refused += 1;
+            why = error;
+          }
+        }
+        if (refused) throw new Error(`${refused} of ${decisions.length}: ${errorMessage(why)}`);
+      });
     },
 
     zip: async choice => {

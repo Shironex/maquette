@@ -196,7 +196,7 @@ export function AssetCard({
           </div>
         ) : null}
         {note ? <div className="min-w-0">{note}</div> : null}
-        {actions ? <div className="mt-1.5 flex flex-wrap gap-1.5">{actions}</div> : null}
+        {actions ? <div className="@container mt-1.5 flex flex-wrap gap-1.5">{actions}</div> : null}
       </div>
       {moreOpen && menu ? <div className="absolute top-full right-1 z-20 -mt-8">{menu}</div> : null}
     </div>

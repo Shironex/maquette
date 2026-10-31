@@ -133,6 +133,20 @@ After `done`, check the game repo (read only):
 Report the file list, any model over budget that shipped anyway, and what the person should
 review before committing.
 
+## 7. Models for another engine, not this repo
+
+To give finished models to a friend or another engine without shipping into a game repo, use an
+export pack: `export_pack` `{ entries | collection | project, preset?, settings?, dryRun? }` (give
+one source; library entry ids come from `list_library`). Run `dryRun: true` first and read the
+plan. It writes OBJ, GLB or both with a README, a manifest and a contact sheet inside the
+workspace, then zips it. Each model is opened again in headless Blender and checked. Poll
+`get_pack` `{ id }` (`list_packs` lists presets and recent packs). A warned or failed model waits
+for `decide_pack` `{ id, choice, key?, triangles? }`: `raise` a budget (with `key` and
+`triangles`), `keep` a warning, export `again`, `zip-passing`, `zip-all`, `stop` or `resume`. Say
+what each choice costs the pack before you answer for the person. Mixamo clips are never put in a
+pack: the bones stay and the clips are left out. A pack spends nothing and writes only inside the
+workspace; it never touches a game repo.
+
 ## The ship record
 
 Maquette keeps a record of every file it wrote or imported. Ship writes only files in the record

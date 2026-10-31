@@ -88,7 +88,7 @@ pub fn library_get(session: State<'_, Session>) -> CommandResult<LibraryView> {
 
 /// Copies an asset's newest model, picture, refs and settings into the
 /// library, as a new entry or the next version of its entry.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_add(
     session: State<'_, Session>,
@@ -100,7 +100,7 @@ pub fn library_add(
 
 /// Copies a library version (the newest without `version`) into a project
 /// as a new asset that remembers where it came from.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_use(
     session: State<'_, Session>,
@@ -113,7 +113,7 @@ pub fn library_use(
 }
 
 /// What updating the asset from the library would keep and drop.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_update_plan(
     session: State<'_, Session>,
@@ -124,7 +124,7 @@ pub fn library_update_plan(
 }
 
 /// Brings the library's newest version in as the asset's next version.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_update(
     session: State<'_, Session>,

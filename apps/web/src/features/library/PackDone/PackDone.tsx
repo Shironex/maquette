@@ -130,7 +130,7 @@ export default function PackDone({ record }: PackDoneProps) {
             </ul>
           </Block>
         </div>
-        <Block title={`Recent packs · ${shortPath(d.where, 2)}`}>
+        <Block title={`Earlier packs · ${shortPath(d.where, 2)}`}>
           <RecentPacks
             recent={d.recent}
             current={record.id}

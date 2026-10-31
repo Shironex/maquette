@@ -10,6 +10,7 @@ import {
 } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { useAppStore } from './use-app-store';
+import { retextureOffer } from './retexture-offer';
 import { usePrepareStore } from './use-prepare-store';
 import { contentKey, firstToReview, goesTo, itemTitle } from './inbox';
 import { isStale, keepRenders, needsSnapshot, withThumbnail } from './thumbs';
@@ -138,10 +139,12 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
       const kept = prep
         ? (result.note ?? 'Its real size and fix-ups apply on the next run.')
         : null;
+      const offer = retextureOffer(item, result.version.version);
       useAppStore.getState().notify({
         status: result.note ? 'info' : 'done',
         title: `${result.asset.name} v${result.version.version} accepted`,
-        detail: [`Moved to ${result.version.file}.`, kept].filter(Boolean).join(' '),
+        detail: [`Moved to ${result.version.file}.`, kept, offer?.detail].filter(Boolean).join(' '),
+        action: offer?.action,
       });
       useAppStore.getState().setProject(result.project);
       await get().load();

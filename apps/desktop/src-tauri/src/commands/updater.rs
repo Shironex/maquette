@@ -10,7 +10,7 @@ use crate::quit::QuitGuard;
 use crate::updater::{UpdateInfo, UpdaterEvent, UpdaterStatus, Updates};
 
 /// Whether this build updates itself, and what the last check found.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn updater_status(updates: State<'_, Updates>) -> UpdaterStatus {
     updates.status()
@@ -50,7 +50,7 @@ pub(crate) fn restart_blocker(work_running: bool, unapplied: bool) -> Option<&'s
 
 /// Installs the downloaded update and restarts into it, unless work is
 /// running that a restart would cut off.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn updater_install(
     app: AppHandle,

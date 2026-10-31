@@ -10,7 +10,7 @@ const DEMO = '&scenario=configured&library=demo';
 
 /** A pack mid run: one running, the rest waiting, then a stop and what goes on from there. */
 async function packRunShots({ open, shot }) {
-  const page = await open('&scenario=configured&library=scale', '#/library');
+  const page = await open('&scenario=configured&library=scale&pace=800', '#/library');
   await page.getByRole('button', { name: 'Export pack', exact: true }).click();
   const sheet = page.getByRole('dialog', { name: 'Export pack' });
   await sheet.getByRole('button', { name: 'Export and check' }).click();
@@ -23,10 +23,49 @@ async function packRunShots({ open, shot }) {
   await sheet.getByRole('button', { name: /^Go on from \d+$/ }).waitFor({ timeout: 15_000 });
   await sheet.getByText(/^Stopped with \d+ of \d+ done, model \d+ is next$/).waitFor();
   await shot(page, 'library-pack-stopped');
+  await page.context().close();
+}
+
+/** Many models with one warning, answered in one go, then the way back to that pack. */
+async function packBulkShots({ open, shot }) {
+  const page = await open('&scenario=configured&library=scale&pace=4', '#/library');
+  await page.getByRole('button', { name: 'Export pack', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name: 'Export pack' });
+  await sheet.getByRole('button', { name: 'Export and check' }).click();
+  const thin = sheet.getByRole('group', { name: /^Thin parts lost, \d+ models$/ });
+  await thin.waitFor({ timeout: 60_000 });
+  await sheet.getByText(/^214 of 214 done/).waitFor({ timeout: 60_000 });
+  await shot(page, 'library-pack-bulk-answers');
+  await thin.getByRole('button', { name: 'Keep all' }).click();
+  await thin.waitFor({ state: 'detached', timeout: 60_000 });
+  await page.keyboard.press('Escape');
+  await sheet.waitFor({ state: 'detached' });
+  await page.getByRole('button', { name: 'Export pack', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Export pack' })
+    .getByRole('region', { name: 'Earlier packs' })
+    .waitFor();
+  await shot(page, 'library-pack-earlier');
+  await page.context().close();
+}
+
+/** Zip every model with the warnings kept: the done view counts them in the pack. */
+async function packDoneShots({ open, shot }) {
+  const page = await open('&scenario=configured&library=scale&pace=4', '#/library');
+  await page.getByRole('button', { name: 'Export pack', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name: 'Export pack' });
+  await sheet.getByRole('button', { name: 'Export and check' }).click();
+  await sheet.getByText(/^214 of 214 done/).waitFor({ timeout: 60_000 });
+  await sheet.getByRole('button', { name: /^Zip all \d+$/ }).click();
+  await page.getByRole('region', { name: 'Opened again' }).waitFor({ timeout: 60_000 });
+  await shot(page, 'library-pack-done');
+  await page.context().close();
 }
 
 export async function libraryShots({ open, shot }) {
   await packRunShots({ open, shot });
+  await packBulkShots({ open, shot });
+  await packDoneShots({ open, shot });
   const grid = await open(DEMO, '#/library');
   await grid.getByText('8 models', { exact: true }).waitFor();
   await grid.getByRole('button', { name: 'Sort: Most used' }).waitFor();

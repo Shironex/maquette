@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GameTemplatePreview } from '@/ipc/client';
@@ -42,6 +42,13 @@ async function openSheet(busy = false) {
   return screen.getByRole('dialog', { name: 'Use a template' });
 }
 
+/** A preview call the test answers itself. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(r => (resolve = r));
+  return { promise, resolve };
+}
+
 describe('GameTemplates', () => {
   beforeEach(() => {
     previewTemplate.mockReset().mockResolvedValue(preview);
@@ -49,9 +56,29 @@ describe('GameTemplates', () => {
     useGameStore.setState({ previewTemplate, applyTemplate, saving: false });
   });
 
+  it('says it is reading while a preview waits, and a late answer cannot replace a newer pick', async () => {
+    const first = deferred<GameTemplatePreview | null>();
+    const second = deferred<GameTemplatePreview | null>();
+    previewTemplate.mockReset();
+    previewTemplate.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const sheet = await openSheet();
+    const cards = await within(sheet).findAllByRole('button', { pressed: false });
+
+    await userEvent.click(cards[0]!);
+    expect(within(sheet).getByRole('status')).toHaveTextContent(/^Reading this game/);
+    await userEvent.click(cards[1]!);
+
+    second.resolve(null);
+    await waitFor(() =>
+      expect(within(sheet).getByRole('status')).toHaveTextContent(/^Could not read this game/)
+    );
+    await act(async () => first.resolve(preview));
+    expect(within(sheet).queryByText('What will change')).toBeNull();
+  });
+
   it('shows what will change before anything is saved, then applies', async () => {
     const sheet = await openSheet();
-    expect(within(sheet).getByRole('button', { name: 'Apply' })).toHaveAttribute(
+    expect(within(sheet).getByRole('button', { name: 'Apply template' })).toHaveAttribute(
       'aria-disabled',
       'true'
     );
@@ -68,7 +95,7 @@ describe('GameTemplates', () => {
     expect(within(sheet).getByText('wall.glb to kit/wall.obj')).toBeInTheDocument();
     expect(within(sheet).getByText(/No file moves or goes away/)).toBeInTheDocument();
 
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Apply Level kit, .obj' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Apply template' }));
     expect(applyTemplate).toHaveBeenCalledWith('crypt', 'level-kit-obj');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
@@ -76,7 +103,7 @@ describe('GameTemplates', () => {
   it('waits for a running pipeline before it applies', async () => {
     const sheet = await openSheet(true);
     await userEvent.click(await within(sheet).findByRole('button', { name: /^Level kit, \.obj/ }));
-    await userEvent.click(await within(sheet).findByRole('button', { name: /^Apply Level/ }));
+    await userEvent.click(await within(sheet).findByRole('button', { name: 'Apply template' }));
     expect(applyTemplate).not.toHaveBeenCalled();
   });
 
@@ -85,7 +112,7 @@ describe('GameTemplates', () => {
     const sheet = await openSheet();
     await userEvent.click(await within(sheet).findByRole('button', { name: /^Prop set/ }));
     await within(sheet).findByText('This game already has these settings.');
-    await userEvent.click(within(sheet).getByRole('button', { name: /^Apply/ }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Apply template' }));
     expect(applyTemplate).not.toHaveBeenCalled();
   });
 
@@ -93,7 +120,7 @@ describe('GameTemplates', () => {
     applyTemplate.mockResolvedValue(false);
     const sheet = await openSheet();
     await userEvent.click(await within(sheet).findByRole('button', { name: /^Level kit, \.obj/ }));
-    await userEvent.click(await within(sheet).findByRole('button', { name: /^Apply Level/ }));
+    await userEvent.click(await within(sheet).findByRole('button', { name: 'Apply template' }));
     expect(applyTemplate).toHaveBeenCalled();
     expect(screen.getByRole('dialog', { name: 'Use a template' })).toBeInTheDocument();
   });

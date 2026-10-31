@@ -37,8 +37,9 @@ export default function BakeBackNote({ project, asset }: BakeBackNoteProps) {
             <div className="flex flex-col gap-1.5 rounded-card border border-line bg-panel p-3">
               <h3 className="font-semibold">v{bake.onto} is grey for now</h3>
               <p className="text-meta text-fg-mute">
-                Meshy drops the texture. Bake it back from {from} in Blender, free, or paint the
-                parts again on Meshy. v{bake.onto} stays either way.
+                Meshy drops the texture. Bake it back from {from} in Blender, free, which keeps the
+                parts, or paint it again on Meshy, which may merge them into one mesh. v{bake.onto}{' '}
+                stays either way.
               </p>
               <div className="flex gap-2">
                 <Button className="flex-1" icon="palette" loading={busy} onClick={bakeNow}>
@@ -68,7 +69,8 @@ export default function BakeBackNote({ project, asset }: BakeBackNoteProps) {
                 <div className="flex flex-col gap-2">
                   <p>
                     Paints v{bake.onto} again from your words. {retexture.cost}. You can cancel
-                    while Meshy has not started. It lands in the Inbox as the next version.
+                    while Meshy has not started. It lands in the Inbox as the next version, and the
+                    Inbox says if Meshy merged the parts.
                   </p>
                   <TextField
                     aria-label="Texture prompt"

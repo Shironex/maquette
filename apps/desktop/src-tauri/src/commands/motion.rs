@@ -41,7 +41,7 @@ pub(crate) fn get(session: &Session, project_id: &str) -> CommandResult<MotionVi
 /// Saves every asset's object states and the clips that stay off the site
 /// (asset to clip names), replacing the ones the layout had. The models and
 /// camera stops stay as they are.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn motion_save(
     session: State<'_, Session>,

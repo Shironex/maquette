@@ -82,6 +82,7 @@ pub fn discard(root: &Path, config: &WorkspaceConfig, id: &str) -> CoreResult<Di
 }
 
 fn forget_kind(cache: &Path, id: &str) {
+    let _one = super::choice_turn();
     let mut kinds = super::load_kinds(cache);
     if kinds.remove(id).is_some()
         && let Err(err) = write_json(&cache.join(super::KINDS_FILE), &kinds)

@@ -5,6 +5,7 @@ import { commands, type RigRecord } from '@/ipc/client';
 import {
   creatureCase,
   creatureFixedCase,
+  noChangeCase,
   oneIslandCase,
   refusedCase,
   stoppedCase,
@@ -64,6 +65,27 @@ describe('RigDoctor', () => {
     expect(screen.getByText('One continuous mesh')).toBeInTheDocument();
     expect(screen.getByText(/narrow reweight moves only/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Round 2' })).toBeDisabled();
+  });
+
+  it('words one continuous mesh for a creature and leaves it its second round', () => {
+    const fixed = creatureFixedCase();
+    show({ ...fixed, model: { ...fixed.model, oneIsland: true } });
+    expect(screen.getByText(/only takes stray weight off/i)).toBeInTheDocument();
+    expect(screen.queryByText(/arm and hand weight/i)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Round 2' })).toBeEnabled();
+  });
+
+  it('names the bones it left out of the chains', () => {
+    show(creatureCase());
+    expect(screen.getByText(/bone_17, bone_25 carry no weight/)).toBeInTheDocument();
+  });
+
+  it('says a fix changed nothing and offers no version to add', () => {
+    show(noChangeCase());
+    expect(screen.getByText(/The fix changed nothing/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Add as/ })).toBeNull();
+    expect(screen.queryByText('Only JOINTS_0 and WEIGHTS_0 changed')).toBeNull();
+    expect(noChangeCase().defects.every(d => !d.fixed)).toBe(true);
   });
 
   it('shows a creature run with its chains, map, log and a disabled Add', () => {
@@ -197,9 +219,13 @@ describe('RigDoctor', () => {
     const tested = testedCase('a-v1', 'A');
     show(tested);
     const fine = screen.getByRole('heading', { name: 'Looks fine' }).parentElement;
-    expect(fine).toHaveTextContent('rest, head carry the body');
+    expect(fine).toHaveTextContent('rest carry the body');
     expect(fine).not.toHaveTextContent('stride');
-    expect(screen.getAllByText('looks fine')).toHaveLength(2);
+    expect(fine).not.toHaveTextContent('head');
+    expect(screen.getAllByText('looks fine')).toHaveLength(1);
+    const look = screen.getByRole('heading', { name: 'Look here' }).parentElement!;
+    expect(look).toHaveTextContent('head: a few edges stretch 92 mm near Neck, look here');
+    expect(screen.getByText('stretch 108, past body 18, seam 0 mm')).toBeInTheDocument();
     expect(screen.getByText('stretch 244, past body 236, seam 45 mm')).toBeInTheDocument();
     expect(screen.getByText('Seam gaps, cast_orb 0.5, every view')).toBeInTheDocument();
   });

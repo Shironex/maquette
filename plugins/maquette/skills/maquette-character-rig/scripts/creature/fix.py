@@ -179,7 +179,8 @@ for (own, near), n in sorted(stray_near.items(), key=lambda kv: -kv[1]):
     print("STRAY", own, "weight on", n, "verts nearest to", near, "max weight there %.2f" % stray_w[(own, near)])
 print("BONES_NOW_DRIVING", len(bc), "zero:", sorted(set(gidx) - set(bc)))
 import json
-json.dump(dict(changed=diff, verts=N, stats=dict(stats), strays=[dict(owner=o, near=n_, vertices=c) for (o, n_), c in stray_near.items()]), open(out + ".report.json", "w"), indent=1)
+junk_had = {b for b in JUNK for w in W0 if b in w}
+json.dump(dict(changed=diff, verts=N, stats=dict(stats), junk_emptied=len(junk_had - set(bc)), junk_left=sorted(junk_had & set(bc)), strays=[dict(owner=o, near=n_, vertices=c) for (o, n_), c in stray_near.items()]), open(out + ".report.json", "w"), indent=1)
 if dry: raise SystemExit
 import os, numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(sys.argv[sys.argv.index("--")-1])), "..", "humanoid"))

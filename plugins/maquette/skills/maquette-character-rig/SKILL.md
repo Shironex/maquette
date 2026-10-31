@@ -13,6 +13,17 @@ result as the asset's next version. The original stays as v1. Tools are Maquette
 `run_rig_doctor` and `get_rig_doctor` give you its sheets and defects, and a person adds the result
 there. Use this skill by hand when the doctor refuses a model or stops.
 
+## Start with the rig doctor
+
+`start_rig_doctor` `{ inbox | project + asset, version? }` opens a case and reads the file with no
+Blender: the route (humanoid for Mixamo names, creature otherwise), what it refuses and why. If it
+does not refuse, `run_rig_doctor` `{ id, step }` runs `pose-test`, then `fix`, then (once, if
+needed) `round-2` on a copy, each answering at once; follow with `get_rig_doctor` `{ id }` and LOOK
+at its sheets. Its numbers: stretch past the body (a row is flagged from about 80 mm) and seam gap
+(from 5 mm), in mm. An inbox model must be accepted first (step 2). The result lands only when the
+person adds it as the next version on the approval card in the app: no tool does that or approves
+a joint move. Come back to the manual steps below when the doctor refuses a model or stops.
+
 ## Hard rules
 
 - Blender runs headless (`-b`). Never open its window. Never capture the screen. Pictures are PNG
@@ -149,7 +160,8 @@ Iterate until the sheets are clean. Keep the changes the sheets justify and no m
 speed?, pinFeet? }], map?, dryRun? }`. Run with `dryRun: true` first and read the review: each
   clip is `good`, `look` (a planted foot slides more than 1.5 cm) or `failed` (wrong units,
   nothing mapped). Failed clips are left out. For `look`, set `pinFeet` on that clip and bake
-  again. The bake becomes the next version; `get_retarget_review` shows the last review.
+  again; the review gives the slide before (`unpinnedCm`) and after (`slideCm`). When the pin slid
+  more than the clip did, it is left off and the review says `pinWorseCm`: keep the unpinned clip. The bake becomes the next version; `get_retarget_review` shows the last review.
 - Importing Mixamo FBX or a pack zip: `import_animations` `{ paths, singles?, keepDuplicates?,
 dryRun? }`, paths inside the workspace; use `dryRun` first. Clips keep their own frame rate (30
   fps stays 30 fps) and the model exports at the highest rate among its clips.

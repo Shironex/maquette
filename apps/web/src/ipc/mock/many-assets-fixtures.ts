@@ -102,6 +102,37 @@ export function withManyAssets(project: ProjectManifest): ProjectManifest {
   return { ...project, assets: [...(project.assets ?? []), ...manyAssets()] };
 }
 
+/** How many models `?inspect=diorama` puts in the scene, as a busy diorama has. */
+export const DIORAMA_MODELS = 66;
+
+/** The project filled up to a diorama's models, as `?inspect=diorama` shows it. */
+export function withDioramaAssets(project: ProjectManifest): ProjectManifest {
+  const many = withManyAssets(project);
+  const assets = many.assets ?? [];
+  const models = assets.filter(a => a.versions.length > 0).length;
+  const filler = manyAssets()[0]!;
+  const extra = Array.from({ length: Math.max(0, DIORAMA_MODELS - models) }, (_, i) => {
+    const id = `diorama-piece-${i + 1}`;
+    const version = { ...filler.versions[0]!, file: `models/${id}_v1.glb` };
+    return { ...filler, id, name: `Diorama piece ${i + 1}`, versions: [version] };
+  });
+  return { ...many, assets: [...assets, ...extra] };
+}
+
+/** Frostveil with the assets `?inspect=` asks for. */
+export function withInspectAssets(project: ProjectManifest, state: string | null): ProjectManifest {
+  if (project.id !== 'frostveil') return project;
+  if (state === 'many') return withManyAssets(project);
+  return state === 'diorama' ? withDioramaAssets(project) : project;
+}
+
+/** Project files to the bundled model that stands in for each, for `?inspect=diorama`. */
+export function dioramaFiles(): Record<string, string> {
+  const empty = { assets: [] } as unknown as ProjectManifest;
+  const versions = (withDioramaAssets(empty).assets ?? []).flatMap(a => a.versions);
+  return Object.fromEntries(versions.map(v => [v.file, 'ice_crystals.glb']));
+}
+
 function assetComparison(asset: Asset): Comparison {
   const last = asset.versions[asset.versions.length - 1]?.version;
   return {

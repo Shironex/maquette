@@ -74,7 +74,8 @@ const TREND_TONE = { better: 'text-sage', worse: 'text-amber', same: 'text-fg-mu
 export function RowChange({ row }: { row: RigRow }) {
   const lines = changeLines(row);
   if (lines.length === 0) {
-    return <p className="m-0 text-meta text-fg-mute">{row.note ?? 'no numbers for this row'}</p>;
+    const said = row.note ?? row.look ?? 'no numbers for this row';
+    return <p className="m-0 text-meta text-fg-mute">{said}</p>;
   }
   const said = lines.map(l => (
     <p key={l.label} className={cn('m-0 text-meta', TREND_TONE[l.trend])}>
@@ -90,6 +91,7 @@ export function RowChange({ row }: { row: RigRow }) {
           {Math.round(row.beyondBodyMm)} mm
         </p>
       )}
+      {row.look ? <p className="m-0 text-meta text-amber">{row.look}</p> : null}
     </>
   );
 }

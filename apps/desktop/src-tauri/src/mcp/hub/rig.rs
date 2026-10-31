@@ -10,7 +10,8 @@ use super::{Approval, ApprovalKind, Hub};
 impl Hub {
     /// A case changed: a draft an agent's run left asks a person, once.
     pub fn ask_about_rig_draft(&self, case: &RigRecord) {
-        if case.started_by == RigStarter::Agent && case.state == RigState::Fixed {
+        let agent = case.started_by == RigStarter::Agent || case.agent_opened;
+        if agent && case.state == RigState::Fixed {
             self.request_rig_doctor(case);
         }
     }

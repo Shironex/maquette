@@ -170,6 +170,34 @@ fn the_verify_checks_fail_on_a_mesh_change() {
 }
 
 #[test]
+fn a_running_fix_shows_the_rounds_done_and_a_failed_one_uses_none() {
+    let dir = tempfile::tempdir().expect("dir");
+    let (root, config) = (dir.path(), WorkspaceConfig::default());
+    case(root, |c| {
+        c.before = Some(RigSheet::default());
+        c.state = RigState::Tested;
+    });
+    let both = doctors();
+    let tools = crate::pipeline::tools::Toolbox::default();
+    let running = both
+        .run(root, &config, tools, "hero-v1", RigRun::Fix)
+        .expect("run");
+    assert_eq!(running.state, RigState::Fixing);
+    assert_eq!(running.round, 0, "a round counts once it made a draft");
+    for _ in 0..200 {
+        if !both.active().contains_key("hero-v1") {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert_eq!(
+        both.get(root, &config, "hero-v1").expect("read").round,
+        0,
+        "a fix with no Blender made nothing"
+    );
+}
+
+#[test]
 fn a_tear_left_stops_only_on_the_last_round() {
     let worst = ("raise".to_string(), 80.0);
     assert!(steps::stop_of("Hero", &[], false, Some(&worst)).is_none());
@@ -197,6 +225,7 @@ fn hound(c: &mut RigRecord) {
         legs: 4,
         swapped: 0,
         junk: Vec::new(),
+        ignored: Vec::new(),
         rigid_pieces: 0,
         one_shell: false,
         chains: vec![
@@ -384,6 +413,26 @@ fn a_row_flags_on_a_seam_or_on_stretch_past_the_body_only() {
         Some("stretches 95 mm past the body")
     );
     assert_eq!(rows[3].note, None);
+}
+
+#[test]
+fn a_few_long_edges_say_look_here_and_do_not_flag_the_row() {
+    let mut row = pose("cast", (204.0, 45.0, 0.0));
+    row.worst_edge_mm = Some(190.8);
+    assert_eq!(verdict::problem(&row), None);
+    assert_eq!(
+        verdict::look(&row, Some("LeftLeg")).as_deref(),
+        Some("a few edges stretch 191 mm near LeftLeg, look here")
+    );
+    row.worst_edge_mm = Some(60.0);
+    assert_eq!(
+        verdict::look(&row, Some("LeftLeg")),
+        None,
+        "under the limit"
+    );
+    row.worst_edge_mm = Some(300.0);
+    row.beyond_body_mm = Some(95.0);
+    assert_eq!(verdict::look(&row, None), None, "a tear says so itself");
 }
 
 #[test]
