@@ -78,6 +78,7 @@
     "refs::files": "lab",
     "refs::suggested": "lab",
     "library": "library",
+    "packs": "library",
     "animations": "library"
   }
 }
