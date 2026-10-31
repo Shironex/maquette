@@ -130,7 +130,7 @@ export const STAGES: readonly Stage[] = [
     short: 'Tripo, Meshy, or by hand with a settings card and no credits.',
     title: '3D model',
     body: 'Send refs to Tripo or Meshy from your preset, or make the model yourself in their web app. By hand spends nothing: Maquette writes a folder with the images and a settings card, then watches your Downloads for the GLB.',
-    note: 'A download named for its send goes to the inbox by itself. One whose name is only close waits for you to confirm, and any other can be attached to the asset it belongs to.',
+    note: 'The Sends button in the Board header lists every send and the By hand checklist. A download named for its send goes to the inbox by itself. One whose name is only close waits for you to confirm, and any other can be attached to the asset it belongs to.',
     chips: ['Tripo', 'Meshy', 'By hand', 'Downloads watch'],
     shots: [
       {
