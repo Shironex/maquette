@@ -22,6 +22,20 @@ Mesh, UVs, texture, bone names, hierarchy and rest pose stay untouched. The doct
 
 The status bar shows a line while a run goes on, such as "Rig doctor: pose test after 9 of 13".
 
+## Reading the numbers
+
+Every cell gives three numbers for its pose, in mm at a model one metre tall (its longest side for a creature). They are of the whole mesh in that pose, so every view of the pose shares them, and the tiles under the sheet name the pose their worst number came from.
+
+- **Stretch** is how much the worst single edge changed length from rest. Any rig stretches an edge across a bent joint, so a big number here does not mean the weights are wrong.
+- **Past body** is that stretch after taking off what the pose does anyway, measured against the mesh with every vertex stuck to its nearest bone. This is the part the weights answer for. A pose reads as stretching wrongly from 80 mm.
+- **Seam** is how far vertices that share a position at rest came apart: a real crack in the surface, from 5 mm. A split surface has no edge across it, so stretch does not see a tear.
+
+A cell says **looks fine** only when it has no defect and neither number passes its limit, and the Looks fine panel lists those same rows.
+
+After the fix, each row shows its before and after and which way they went, and the header counts the rows that moved by 5 mm or more. Stretch often rises where a seam closes: the surface that tore now holds, so its edges stretch instead. When a pose got worse, a warning sits by **Add as v2**. It does not block, so play those clips in Motion and decide.
+
+Click a cell to enlarge it; in a comparison, before and draft open together under the same camera. Each row's camera fits that pose, so nothing leaves the frame. The sheet from **Save sheet** carries a label over each picture.
+
 ## Check the chains
 
 A creature's chains are read from the bone tree, so the guess needs a person. The **Chains** table lists what each one was read as, with a **Not checked yet** mark until you answer. **Edit** lets you change what a chain is read as, and a leg's side. The body, neck and head, and the grouped spike rows stay as read.
@@ -47,7 +61,7 @@ When one island holds nearly the whole model, the per island fix would tear slee
 
 - **It refuses** a model with no skin, several skinned meshes, or interleaved or compressed data, and says why. The model keeps its Inbox checks, and Accept as is stays one click away. **Redo...** opens the usual redo sheet for its asset. That spends credits, so it is your call in the sheet; the doctor never starts one.
 - **A check got worse** after the fix: the draft is held and v1 stays.
-- **Two rounds** left a tear: the doctor stops instead of guessing a third time. The draft is kept, not added.
+- **Two rounds** left a tear (a seam still open or stretch past the body): the doctor stops instead of guessing a third time. The draft is kept, not added.
 
 ## Agents
 
