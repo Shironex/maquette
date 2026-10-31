@@ -33,6 +33,7 @@ mod fingers;
 mod geometry;
 mod islands;
 mod rig;
+mod rig_probe;
 mod source;
 
 pub use geometry::bounds;
@@ -43,6 +44,7 @@ use fingers::finger_weights;
 pub(crate) use geometry::primitive_corners;
 use islands::primitive_islands;
 use rig::rig_kind;
+pub use rig_probe::RigProbe;
 pub use source::load_uri;
 use source::textures;
 
@@ -153,6 +155,9 @@ pub struct GlbReport {
     pub geometry_readable: bool,
     pub islands: Option<Islands>,
     pub finger_weights: Option<FingerWeights>,
+    /// What the rig doctor reads on arrival; `None` without a skin.
+    #[serde(default)]
+    pub rig_probe: Option<RigProbe>,
     /// How far a rigged model is from a VRM 1.0 file; `None` without a skin.
     #[serde(default)]
     pub vrm: Option<VrmReadiness>,
@@ -309,6 +314,7 @@ pub fn analyse_bytes(bytes: &[u8], base: &Path) -> CoreResult<GlbReport> {
         geometry_readable: !compressed,
         islands,
         finger_weights,
+        rig_probe: rig_probe::probe(doc, &buffers, &worlds, compressed),
         vrm,
     })
 }
