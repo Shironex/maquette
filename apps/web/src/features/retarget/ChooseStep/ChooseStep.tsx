@@ -124,6 +124,8 @@ export default function ChooseStep() {
       </section>
       <aside
         aria-label="Chosen clips"
+        // It scrolls, and may hold nothing to focus, so the keyboard needs it to scroll.
+        tabIndex={0}
         className="flex w-[300px] flex-none flex-col gap-3 overflow-y-auto border-l border-line p-4"
       >
         <section aria-label="Rough preview" className="flex flex-col gap-1.5">
