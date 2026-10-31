@@ -19,6 +19,8 @@ import {
   unmergePart,
 } from '@/state/parts';
 import { useAppStore } from '@/state/use-app-store';
+import { useInspectorStore } from '@/state/use-inspector-store';
+import { useMotionStore } from '@/state/use-motion-store';
 import { useSplitStore } from '@/state/use-split-store';
 
 export type PartsMode = 'parts' | 'shaded' | 'wireframe';
@@ -193,6 +195,42 @@ export function usePartsPanel() {
 }
 
 /**
+ * The measured model behind the Parts tab's version, for its material
+ * tweaks and Export GLB, and the jump to comparing its versions.
+ */
+export function usePartsModel(asset: string | null, version: number | null) {
+  const view = useInspectorStore(s => s.view);
+  const exporting = useInspectorStore(s => s.exporting);
+  const exportGlb = useInspectorStore(s => s.exportGlb);
+  const pick = useInspectorStore(s => s.pick);
+  const setTab = useInspectorStore(s => s.setTab);
+  const setWay = useInspectorStore(s => s.setWay);
+  const model =
+    view?.models.find(m => m.asset === asset && m.version === version) ??
+    view?.models.find(m => m.tweakAsset === asset) ??
+    null;
+  const comparison = view?.comparisons.find(c => c.id === `asset/${asset}`);
+  const [tweaking, setTweaking] = useState(false);
+  return {
+    tweaking,
+    toggleTweaking: () => setTweaking(on => !on),
+    project: view?.project ?? null,
+    model,
+    exporting: Boolean(model && exporting === model.model),
+    export: () => model && void exportGlb(model.model, model.label),
+    /** Two versions by their numbers, on the Compare tab. */
+    compareVersions:
+      comparison && comparison.sides.length >= 2
+        ? () => {
+            pick({ comparison: comparison.id, left: null, right: null });
+            setWay('versions');
+            setTab('compare');
+          }
+        : null,
+  };
+}
+
+/**
  * What the Parts tab opens: the Split into parts and Assemble one prop
  * sheets, and the version in Blender's window (only on a click).
  */
@@ -200,6 +238,12 @@ export function usePartsSheets() {
   const openSplit = useSplitStore(s => s.openSplit);
   const openAssemble = useSplitStore(s => s.openAssemble);
   const notify = useAppStore(s => s.notify);
+  const setView = useAppStore(s => s.setView);
+  const selectMotion = useMotionStore(s => s.select);
+  const openMotion = (asset: string) => {
+    selectMotion(asset);
+    setView('motion');
+  };
   const openInBlender = async ({ project, asset, version }: AssetParts) => {
     try {
       await commands.assetOpenInBlender(project, asset, version);
@@ -207,5 +251,5 @@ export function usePartsSheets() {
       notify({ status: 'failed', title: 'Could not open Blender', detail: errorMessage(error) });
     }
   };
-  return { openSplit, openAssemble, openInBlender };
+  return { openSplit, openAssemble, openInBlender, openMotion };
 }

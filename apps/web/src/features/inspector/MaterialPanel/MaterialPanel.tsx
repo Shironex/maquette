@@ -36,6 +36,8 @@ const two = (n: number) => n.toFixed(2);
 export interface MaterialPanelProps {
   project: string;
   model: InspectModel;
+  /** Only these materials to pick from, for the selected parts. */
+  only?: readonly string[];
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -94,8 +96,8 @@ function Tint({
  * strength for every material or one by name. Edits preview at once and
  * wait for Apply; Compress writes them into the shipped model.
  */
-export default function MaterialPanel({ project, model }: MaterialPanelProps) {
-  const p = useMaterialPanel(project, model);
+export default function MaterialPanel({ project, model, only }: MaterialPanelProps) {
+  const p = useMaterialPanel(project, model, only);
   if (!p.asset) {
     return (
       <div className="flex flex-col gap-2.5">
@@ -107,8 +109,10 @@ export default function MaterialPanel({ project, model }: MaterialPanelProps) {
     );
   }
   const targets: SelectOption<string>[] = [
-    { value: ALL_MATERIALS, label: 'All materials' },
-    ...model.materialNames.map(name => ({ value: name, label: name })),
+    ...(only ? [] : [{ value: ALL_MATERIALS, label: 'All materials' }]),
+    ...model.materialNames
+      .filter(name => !only || only.includes(name))
+      .map(name => ({ value: name, label: name })),
   ];
   const { tweak, edit } = p;
   const rough = tweak.roughness;
