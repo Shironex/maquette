@@ -32,7 +32,7 @@ import { useAppShell } from './AppShell.hooks';
 export default function AppShell() {
   const {
     view,
-    setView,
+    goTo,
     items,
     groups,
     planned,
@@ -53,7 +53,7 @@ export default function AppShell() {
         planned={planned}
         footer={SETTINGS_VIEW}
         value={view}
-        onChange={setView}
+        onChange={goTo}
         collapsed={collapsed}
         onToggleCollapsed={toggleRail}
         header={
