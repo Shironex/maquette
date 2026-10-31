@@ -61,3 +61,7 @@ Without Blender, or for an FBX, the name alone ranks the sends.
 **Add a model file as the next version...** in a card's menu on the Board does the same for a file you made or fixed yourself, whether or not a send waits: pick a `.glb`, `.gltf`, `.fbx` or `.obj` and it is copied into the inbox for that asset (the others are turned into a GLB by headless Blender first). A file already in the inbox or in a project's `models` folder is refused.
 
 Attaching sends the model to the inbox for that asset, as a file named for its send would go: for the asset's newest waiting By hand send, or aimed at the asset when none waits. The usual checks run, and the real size and fix-ups draft is there as for any inbox model. Accept goes to that asset by default and closes its By hand sends still waiting. The downloaded file stays where it is.
+
+## Rig doctor
+
+A rig check that did not pass offers **Fix in rig doctor**. A run goes on while you work elsewhere, and the top bar of the Inbox leads back to it. See [Rig doctor](/docs/views/rig-doctor/).

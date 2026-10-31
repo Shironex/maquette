@@ -9,7 +9,9 @@ Fixes SKIN WEIGHTS (and only if approved, a misplaced joint chain) of an auto-ri
 headless Blender, proves the fix with before and after pose sheets that you LOOK at, and lands the
 result as the asset's next version. The original stays as v1. Tools are Maquette MCP tools
 (`/docs/agents/mcp-tools/`); scripts are in `scripts/` next to this file, usage in
-`references/scripts.md`.
+`references/scripts.md`. The app's Rig doctor runs these same scripts: `start_rig_doctor`,
+`run_rig_doctor` and `get_rig_doctor` give you its sheets and defects, and a person adds the result
+there. Use this skill by hand when the doctor refuses a model or stops.
 
 ## Hard rules
 
@@ -69,9 +71,9 @@ the count against the hand's real size: on oversized fists (a golem, a brute) hu
 vertices 25 cm out are the hand itself. The pose sheet decides, not the count.
 
 Creature: copy `scripts/creature/rigconfig.py` to your scratch folder and set
-`RIG_CONFIG_DIR`. Run `probe.py` first: the renders need real bone names in `CHAINS`, so fill a first
-pass from its bone heads and parents, and set `FRONT` from where the head is (a Tripo quadruped can face
--X). Then run `weightmap.py` (rig map renders: every bone group in its own colour from five
+`RIG_CONFIG_DIR`. The renders need real bone names in `CHAINS`: run `autoconfig.py in.glb <scratch>`
+for a first pass, or fill them from `probe.py`'s bone heads and parents and set `FRONT` from where
+the head is (a Tripo quadruped can face -X). Then run `weightmap.py` (rig map renders: every bone group in its own colour from five
 views), `probe.py` (bones, weights, islands), `pieces.py` and `piecemap.py` (rigid pieces and
 their weight mix). READ the renders and fill the `rigconfig.py` tables: what the groups really
 are, which chains are junk, which pieces are rigid. If `pieces.py` reports `WELDED_PIECES 1`, the model
@@ -90,6 +92,10 @@ LOOK at every sheet. Name the defects you see, by place, before changing anythin
   chains; rigid pieces (crystals, plates) split between bones so they bend.
 
 ## 5. Fix
+
+One island first: if `probe.py` reports `one_island`, skip `fixweights.py` (it refuses, since a per
+island fix tears sleeves and legs on one surface). Run `narrow.py in.glb out.glb` instead, and say
+in your report that only a narrow tail-off-arm reweight ran.
 
 Humanoid: `fixweights.py in.glb out.glb` re-skins per connected island (limb tubes, fused pieces,
 trunk weights with a smooth geodesic seam). Only the JOINTS_0 and WEIGHTS_0 bytes change, so mesh,

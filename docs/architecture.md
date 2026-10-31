@@ -274,6 +274,8 @@ aims the model there again; `inbox::place` fills each model's `nextVersion` and 
 emit `libraryChanged` and the project events. `list_library` pages (a `limit` and an entry id `cursor`) and answers compact entries unless `full`. The send tools' `modelWarning` comes from the core `HasModel` send warning (`refs/checks.rs`), which the Send to 3D and batch panels show as a note beside the ref warnings. `tools/animations.rs` holds `list_animations`,
 `import_animations` and `save_model_clips`; import paths must resolve inside the workspace.
 
+`tools/rig.rs` holds `start_rig_doctor`, `run_rig_doctor`, `get_rig_doctor` and `list_rig_doctors`. They go through `maquette_core::rig`, which bundles the `maquette-character-rig` skill's scripts with `include_str!`, so there is one copy of them, and runs them headless on a copy in `cache/rig/<case>/`. The arrival read is `maquette_glb::analyse::rig_probe`, in Rust. No tool approves a joint move or lands a draft: `commands/rig.rs` does, and `mcp/hub/rig.rs` raises the approval card for a fix an agent started.
+
 `tools/packs.rs` holds `export_pack`, `get_pack`, `list_packs` and `decide_pack`. They go through
 `commands/packs.rs` like the Library's pack sheet, with `from_anywhere` false, so an agent's pack
 lands inside the workspace. `maquette_core::packs` plans a pack (the source closure that reads a

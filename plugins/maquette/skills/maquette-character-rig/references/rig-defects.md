@@ -13,6 +13,14 @@ How to recognise each in a pose sheet or a probe, and what fixes it.
   weights, and a geodesic falloff band blends the two so a welded sleeve stretches a little instead
   of tearing.
 
+## One continuous mesh
+
+- Seen as: `probe.py` says `one_island` (one island holds over 90 percent of the vertices). Hair,
+  cloth and body are one surface.
+- Skip `fixweights.py`: it decides per island, so it would tear sleeves and legs, and it refuses
+  here. Use `humanoid/narrow.py`, a narrow reweight that moves only the arm and hand weight far
+  from the arms, with a faded tail. Say that is what ran. Round 2 does not apply: finish by hand.
+
 ## A limb chain placed off its mesh
 
 - Seen as: arm bones sit inside the cape or torso; the arm pose moves cloth, not the arm.
