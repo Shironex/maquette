@@ -225,7 +225,10 @@ const shots = {
   },
   async retarget() {
     const p = await open('scenario=configured&library=demo&motion=demo', 'motion');
-    await p.getByText('119 bones · 2 clips').first().waitFor();
+    await p
+      .getByText(/119 bones · \d+ clips/)
+      .first()
+      .waitFor();
     await p.getByRole('button', { name: 'Add clip' }).click();
     await p.getByRole('menuitem', { name: 'Add from library' }).click();
     const steps = p.getByRole('dialog', { name: /^Add library clips to / });

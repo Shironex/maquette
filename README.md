@@ -147,6 +147,8 @@ Concept  ->  Refs  ->  3D model  ->  Blender  ->  Web or Export  ->  Ship
   </tr>
 </table>
 
+**Packs, rig doctor and game templates.** Export pack writes library models (a selection, a collection or a project's accepted models) as one folder and zip for another engine or a friend, each model opened again in headless Blender and checked. Rig doctor fixes the skin weights of a rigged model on a copy, shows before and after sheets with the numbers, and lands the result as the next version once you add it. A game template fills a game project's model format and the budget rows per folder, and nothing else. See the [Library](https://shironex.github.io/maquette/docs/views/library/#export-packs), [Rig doctor](https://shironex.github.io/maquette/docs/views/rig-doctor/) and [game project](https://shironex.github.io/maquette/docs/start/game-projects/#game-templates) pages.
+
 **Built for agents.** A local MCP server lets Claude Code or Codex drive the whole flow, with the same rules as the app (see [Agents (MCP)](#agents-mcp)).
 
 ## Real projects
@@ -342,7 +344,7 @@ Board layout in the Board's header switches between the stage columns and a list
 
 Copy to project... in a Board card's menu copies the asset into another project and leaves it where it is: its refs, every model version, thumbnails and finished sends go along, renamed to the new id. When the other project already has an asset by that name the copy is called "Name 2". A send still running stays with the original.
 
-Remove from project... in the same menu, or Remove... with several cards selected, takes assets off the Board. Nothing is deleted: each asset's refs, model versions, thumbnails, handoff folders and settings move to `trash/<project>/<asset>-<time>/` in the workspace with a `removed.json` record, and the Removed button on the Board (or Undo on the notice) puts it back with its place in the scene. Sends waiting for a model are stopped first; an asset whose Tripo or Meshy model is being made right now, or that is building, is refused, and so is any remove while a run is going.
+Remove from project... in the same menu, or Remove... with several cards selected, takes assets off the Board. Nothing is deleted: each asset's refs, model versions, thumbnails, handoff folders and settings move to `trash/<project>/<asset>-<time>/` in the workspace with a `removed.json` record, and Removed in the Board's ... menu (or Undo on the notice) puts it back with its place in the scene. Sends waiting for a model are stopped first; an asset whose Tripo or Meshy model is being made right now, or that is building, is refused, and so is any remove while a run is going.
 
 In the Lab, an earlier direction's menu has Move to project..., which moves its folder (concepts, picks, stars and brief) into another project. The refs it sent and its Board card go along when the card has no model yet; a card with models, or one with a send under way, stays where it is.
 

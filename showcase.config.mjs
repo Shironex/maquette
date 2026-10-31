@@ -178,7 +178,7 @@ export default defineConfig({
       title: 'Animations',
       caption: 'Animations: a library of clips, each one playing on its own skeleton.',
       nav: view(
-        'scenario=configured&library=demo',
+        'scenario=idle&library=demo',
         'animations',
         '16 clips · newest first',
         async page => {
@@ -232,26 +232,21 @@ export default defineConfig({
       id: 'avatar',
       title: 'Avatar',
       caption: 'Avatar: a rigged character to VRM 1.0, each step waiting for a yes.',
-      nav: view(
-        'scenario=configured&avatar=pending&library=demo',
-        'avatar',
-        'Rest pose',
-        async page => {
-          const approval = page.getByRole('region', { name: 'Rest pose approval' });
-          await approval.waitFor();
-          await page.getByRole('img', { name: 'The after sheet' }).last().waitFor();
-          // Bring the rest pose card and its before and after sheets to the top.
-          await approval.evaluate(el => el.scrollIntoView({ block: 'start' }));
-          await page.waitForTimeout(500);
-        }
-      ),
+      nav: view('scenario=idle&avatar=pending&library=demo', 'avatar', 'Rest pose', async page => {
+        const approval = page.getByRole('region', { name: 'Rest pose approval' });
+        await approval.waitFor();
+        await page.getByRole('img', { name: 'The after sheet' }).last().waitFor();
+        // Bring the rest pose card and its before and after sheets to the top.
+        await approval.evaluate(el => el.scrollIntoView({ block: 'start' }));
+        await page.waitForTimeout(500);
+      }),
       delayMs: 1500,
     },
     {
       id: 'parts',
       title: 'Parts',
       caption: 'Parts: a model split into named parts, coloured and picked in the Inspector.',
-      nav: view('scenario=configured&parts=demo&library=demo', 'inspector', 'Parts', async page => {
+      nav: view('scenario=idle&parts=demo&library=demo', 'inspector', 'Parts', async page => {
         await page.getByRole('tab', { name: 'Parts' }).click();
         const list = page.getByRole('list', { name: 'Parts' });
         await list.waitFor();
