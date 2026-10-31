@@ -71,7 +71,7 @@ The repo is a plugin marketplace. In Claude Code:
 /plugin install maquette@maquette
 ```
 
-The skills then appear as `/maquette:maquette-lab-round` and so on, and Claude picks them up from what you ask for.
+To update the skills later, run `/plugin marketplace update maquette`, then update the plugin from the `/plugin` menu (the plugin version in `plugin.json` changes with each release, which is what tells Claude Code there is something new). The skills then appear as `/maquette:maquette-lab-round` and so on, and Claude picks them up from what you ask for.
 
 The plugin also declares the Maquette MCP server, so the tools come with it. Its `.mcp.json` reads the token and the port from your environment (`${MAQUETTE_MCP_TOKEN}` and `${MAQUETTE_MCP_PORT:-4791}`), so no token is written into a file. Set them in the shell you start Claude Code from. Copy the token from Settings > Agents:
 
@@ -79,6 +79,10 @@ The plugin also declares the Maquette MCP server, so the tools come with it. Its
 export MAQUETTE_MCP_TOKEN="<token>"
 export MAQUETTE_MCP_PORT=4791   # only when you changed the port
 ```
+
+On Windows, in PowerShell, `$env:MAQUETTE_MCP_TOKEN = "<token>"` sets it for that window only; `setx MAQUETTE_MCP_TOKEN "<token>"` keeps it for windows opened afterwards (open a new one). On a Mac, a Claude Code started from the Dock or a launcher does not see variables from your shell profile: start `claude` from a terminal where you ran the export.
+
+Maquette must be open with the server on before the tools can answer (see [Connect an agent](/docs/agents/connect/#before-you-connect)). If you started Claude Code first, run `/mcp` and reconnect Maquette.
 
 Use this when you install the plugin. The `claude mcp add ... --header "Authorization: Bearer <token>"` line from [Connect an agent](/docs/agents/connect/) is the way to add the server without the plugin, and it stores the token as it is in Claude Code's own config. If you already added the server that way, keep one of the two entries so the tools are not listed twice.
 

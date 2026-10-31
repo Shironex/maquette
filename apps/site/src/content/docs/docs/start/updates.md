@@ -9,13 +9,13 @@ Maquette checks for a newer version of itself, downloads it when you say so, and
 
 ## Where it stands
 
-v0.1.0 is the first release, so a check right now finds that you are on the current version. When a newer release is published, it arrives through Settings > About, as described below. To run a newer commit before that, build from source as in [Install](/docs/start/install/).
+The newest release is the one on the [releases page](https://github.com/Shironex/maquette/releases/latest). A build older than that finds the newer one through Settings > About, as described below. The first install of a version does not come through the app: download it as in [Install](/docs/start/install/). To run a newer commit than the last release, build from source.
 
 ## How it works
 
 - **The feed.** Every release on GitHub carries a `latest.json` file that names the version, its notes and one download per platform. The app reads `https://github.com/Shironex/maquette/releases/latest/download/latest.json`.
 - **When it checks.** Ten seconds after launch, then every six hours, and whenever you press Check now in Settings > About. A check that fails offline stays quiet.
-- **When it finds one.** A small "Update 0.2.0" pill shows by the logo in the sidebar. Click it, or open Settings > About, to read the release notes.
+- **When it finds one.** A small "Update <version>" pill shows by the logo in the sidebar. Click it, or open Settings > About, to read the release notes.
 - **Download.** About shows the progress. Every download is checked against the app's signing key before it can install; a file that does not match is refused.
 - **Restart to update.** The app installs the update and restarts. It waits while a pipeline run or a build is going, or while changes are not applied yet, and says why.
 
