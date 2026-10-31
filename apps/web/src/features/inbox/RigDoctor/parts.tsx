@@ -75,7 +75,11 @@ export function Stats({ stats }: { stats: RigStat[] }) {
       </div>
     );
   });
-  return <div className="grid flex-none grid-cols-4 gap-2.5">{tiles}</div>;
+  return (
+    <div className="grid flex-none grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5">
+      {tiles}
+    </div>
+  );
 }
 
 /** A numbered defect, by place. */
@@ -139,16 +143,20 @@ export function Tile({
   alt,
   flagged,
   dim,
+  aspect = 'h-full',
 }: {
   url: string | null;
   alt: string;
   flagged?: boolean;
   dim?: boolean;
+  /** The tile's shape: a class that matches its picture, or filling its parent. */
+  aspect?: string;
 }) {
   return (
     <div
       className={cn(
-        'relative h-full overflow-hidden rounded-[8px] border border-line bg-studio',
+        'relative overflow-hidden rounded-[8px] border border-line bg-studio',
+        aspect,
         flagged && 'border-clay-text',
         dim && 'opacity-45'
       )}
@@ -163,11 +171,26 @@ export function Tile({
 }
 
 /** The bar under a layout: what it means on the left, its actions on the right. */
-export function Footer({ note, children }: { note: ReactNode; children: ReactNode }) {
+export function Footer({
+  note,
+  warning,
+  children,
+}: {
+  note: ReactNode;
+  /** Said instead of the note: something to look at first, which blocks nothing. */
+  warning?: string | null;
+  children: ReactNode;
+}) {
   return (
     <footer className="flex flex-none items-center gap-3 border-t border-line px-5 py-3">
-      <Icon name="info" size={15} className="flex-none text-clay-text" />
-      <p className="m-0 min-w-0 flex-1 text-fg-dim">{note}</p>
+      <Icon
+        name={warning ? 'warning' : 'info'}
+        size={15}
+        className={cn('flex-none', warning ? 'text-amber' : 'text-clay-text')}
+      />
+      <p className={cn('m-0 min-w-0 flex-1', warning ? 'text-amber' : 'text-fg-dim')}>
+        {warning ?? note}
+      </p>
       <div className="flex flex-none items-center gap-2">{children}</div>
     </footer>
   );

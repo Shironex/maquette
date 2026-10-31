@@ -1,7 +1,15 @@
 import { Button, Icon, SegmentedControl, cn, type SegmentedOption } from '@maquette/ui';
 import type { RigRecord, RigRow } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
-import { nextVersion } from '@/state/rig';
+import {
+  cellAspect,
+  changeLines,
+  changedRows,
+  nextVersion,
+  rowFlagged,
+  rowNumbers,
+} from '@/state/rig';
+import { Enlarges } from './RigEnlarge';
 import { useChoice, useRigActions } from './RigDoctor.hooks';
 import { WalkProof } from './RigCreature';
 import { RunProgress, Stats, Tile } from './parts';
@@ -19,14 +27,19 @@ function Slider({
   before,
   after,
   label,
+  span,
 }: {
   before: string | null;
   after: string | null;
   label: string;
+  span: number;
 }) {
   const [at, setAt] = useChoice(50);
   return (
-    <div className="relative col-span-3 h-[220px] overflow-hidden rounded-[8px] border border-line bg-studio">
+    <div
+      style={{ gridColumn: `span ${span}` }}
+      className="relative aspect-[3/4] max-h-[520px] overflow-hidden rounded-[8px] border border-line bg-studio"
+    >
       {after ? (
         <img
           src={after}
@@ -55,44 +68,104 @@ function Slider({
   );
 }
 
-function Row({ record, row, mode }: { record: RigRecord; row: RigRow; mode: Mode }) {
-  const was = record.before?.rows.find(r => r.id === row.id);
-  const moved = record.jointMove?.sheet?.rows.find(r => r.id === row.id);
-  const used = record.jointMove?.state === 'approved';
-  const flagged = (was?.defects.length ?? 0) > 0;
-  const tears = (row.stretchMm ?? 0) >= 40;
+const TREND_TONE = { better: 'text-sage', worse: 'text-amber', same: 'text-fg-mute' };
+
+/** What a row's numbers did, in words and the colour of their direction. */
+export function RowChange({ row }: { row: RigRow }) {
+  const lines = changeLines(row);
+  if (lines.length === 0) {
+    return <p className="m-0 text-meta text-fg-mute">{row.note ?? 'no numbers for this row'}</p>;
+  }
+  const said = lines.map(l => (
+    <p key={l.label} className={cn('m-0 text-meta', TREND_TONE[l.trend])}>
+      {l.label} {l.text}
+    </p>
+  ));
   return (
     <>
-      <div className="min-w-0 self-center">
-        <p className="m-0 font-mono text-fg-dim">{row.label}</p>
-        <p className={cn('m-0 text-meta', tears ? 'text-clay-text' : 'text-fg-mute')}>
-          {row.note ?? 'unchanged'}
+      {said}
+      {row.beyondBodyMm == null ? null : (
+        <p className="m-0 text-meta text-fg-mute">
+          past body {Math.round(row.change?.beyondBodyBefore ?? 0)} to{' '}
+          {Math.round(row.beyondBodyMm)} mm
         </p>
+      )}
+    </>
+  );
+}
+
+function Row({ record, row, mode }: { record: RigRecord; row: RigRow; mode: Mode }) {
+  const was = record.before?.rows.find(r => r.id === row.id);
+  const move = record.jointMove;
+  const moved = move?.sheet?.rows.find(r => r.id === row.id);
+  const front = fileUrl(row.beforeFront ?? was?.front);
+  const pages = [
+    {
+      label: 'Front',
+      pictures: [
+        { url: front, caption: 'Before' },
+        { url: fileUrl(row.front), caption: 'Draft' },
+      ],
+    },
+    {
+      label: 'Side',
+      pictures: [
+        { url: fileUrl(row.beforeSide ?? was?.side), caption: 'Before' },
+        { url: fileUrl(row.side), caption: 'Draft' },
+      ],
+    },
+  ];
+  return (
+    <>
+      <div className="min-w-0 self-center font-mono">
+        <p className="m-0 text-fg-dim">{row.label}</p>
+        <RowChange row={row} />
       </div>
       {mode === 'slider' ? (
-        <Slider before={fileUrl(was?.front)} after={fileUrl(row.front)} label={row.label} />
+        <Slider
+          before={front}
+          after={fileUrl(row.front)}
+          label={row.label}
+          span={move?.sheet ? 3 : 2}
+        />
       ) : (
         <>
-          <div className="h-[92px]">
-            <Tile url={fileUrl(was?.front)} alt={`${row.label}, before`} flagged={flagged} />
-          </div>
-          <div className="h-[92px]">
-            <Tile url={fileUrl(row.front)} alt={`${row.label}, draft`} />
-          </div>
-          <div className="h-[92px]">
-            <Tile url={fileUrl(moved?.front)} alt={`${row.label}, joints moved`} dim={!used} />
-          </div>
+          <Enlarges title={row.label} detail={row.note ?? rowNumbers(row)} pages={pages}>
+            <Tile
+              url={front}
+              alt={`${row.label}, before`}
+              flagged={rowFlaggedIn(was)}
+              aspect={cellAspect(record)}
+            />
+          </Enlarges>
+          <Enlarges title={row.label} detail={row.note ?? rowNumbers(row)} pages={pages}>
+            <Tile
+              url={fileUrl(row.front)}
+              alt={`${row.label}, draft`}
+              aspect={cellAspect(record)}
+            />
+          </Enlarges>
+          {move?.sheet ? (
+            <Tile
+              url={fileUrl(moved?.front)}
+              alt={`${row.label}, joints moved`}
+              dim={move.state !== 'approved'}
+              aspect={cellAspect(record)}
+            />
+          ) : null}
         </>
       )}
     </>
   );
 }
 
+const rowFlaggedIn = (row: RigRow | undefined) => (row ? rowFlagged(row) : false);
+
 /** The centre of the second board: the same poses, before and draft. */
 export function CompareCentre({ record }: { record: RigRecord }) {
   const [mode, setMode] = useChoice<Mode>('side');
   const rows = record.after?.rows ?? [];
-  const changed = rows.filter(r => record.before?.rows.find(b => b.id === r.id)?.defects.length);
+  const changed = changedRows(record);
   const shown = mode === 'side' ? rows : changed;
   const n = nextVersion(record);
   const move = record.jointMove;
@@ -124,7 +197,12 @@ export function CompareCentre({ record }: { record: RigRecord }) {
         />
       </div>
       <RunProgress record={record} />
-      <div className="grid flex-1 grid-cols-[72px_1fr_1fr_1fr] content-start items-stretch gap-x-2.5 gap-y-2">
+      <div
+        className={cn(
+          'grid flex-1 content-start items-start gap-x-2.5 gap-y-3',
+          move?.sheet ? 'grid-cols-[170px_1fr_1fr_1fr]' : 'grid-cols-[170px_1fr_1fr]'
+        )}
+      >
         <span />
         <span className="text-caption tracking-[0.06em] text-fg-mute uppercase">
           v{was} · before
@@ -132,10 +210,12 @@ export function CompareCentre({ record }: { record: RigRecord }) {
         <span className="text-caption tracking-[0.06em] text-fg-mute uppercase">
           Draft v{n} · weights only
         </span>
-        <span className="inline-flex items-center gap-1 text-caption tracking-[0.06em] text-fg-mute uppercase">
-          With joints moved
-          {move?.state === 'approved' ? null : <Icon name="clock" size={11} />}
-        </span>
+        {move?.sheet ? (
+          <span className="inline-flex items-center gap-1 text-caption tracking-[0.06em] text-fg-mute uppercase">
+            With joints moved
+            {move.state === 'approved' ? null : <Icon name="clock" size={11} />}
+          </span>
+        ) : null}
         {lines}
       </div>
       {record.stats.length > 0 ? <Stats stats={record.stats} /> : null}

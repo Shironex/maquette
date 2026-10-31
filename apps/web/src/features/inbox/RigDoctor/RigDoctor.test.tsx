@@ -192,4 +192,64 @@ describe('RigDoctor', () => {
     expect(screen.queryByRole('button', { name: /Add as/ })).toBeNull();
     expect(screen.getByRole('button', { name: 'Discard draft' })).toBeInTheDocument();
   });
+
+  it('takes one verdict from a row: a flagged cell is never listed as fine', () => {
+    const tested = testedCase('a-v1', 'A');
+    show(tested);
+    const fine = screen.getByRole('heading', { name: 'Looks fine' }).parentElement;
+    expect(fine).toHaveTextContent('rest, head carry the body');
+    expect(fine).not.toHaveTextContent('stride');
+    expect(screen.getAllByText('looks fine')).toHaveLength(2);
+    expect(screen.getByText('stretch 244, past body 236, seam 45 mm')).toBeInTheDocument();
+    expect(screen.getByText('Seam gaps, cast_orb 0.5, every view')).toBeInTheDocument();
+  });
+
+  it('says the model has its joints once', () => {
+    show(testedCase('a-v1', 'A'));
+    expect(screen.getByText('Mixamo, 65 joints')).toBeInTheDocument();
+    expect(screen.queryByText(/joints, 65 joints/)).toBeNull();
+  });
+
+  it('shows before, after and direction, and warns by Add without blocking it', () => {
+    show(fixedCase('a-v1', 'A'));
+    expect(screen.getByText('stretch 145 to 220 mm, worse')).toHaveClass('text-amber');
+    expect(screen.getByText('stretch 136 to 98 mm, better')).toHaveClass('text-sage');
+    expect(screen.getByText('seam 393 to 0 mm, better')).toBeInTheDocument();
+    expect(screen.getByText(/8 of 9 rows changed/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/cast_orb 0.5, death 0.5 stretch more than before/)
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add as v2' })).toBeEnabled();
+  });
+
+  it('has no joint move column without a joint move result', () => {
+    show(fixedCase('a-v1', 'A'));
+    expect(screen.getByText('With joints moved')).toBeInTheDocument();
+    cleanup();
+    show({ ...fixedCase('a-v1', 'A'), jointMove: null });
+    expect(screen.queryByText('With joints moved')).toBeNull();
+    expect(screen.queryByText(/stretch more than before/)).toBeInTheDocument();
+  });
+
+  it('enlarges a cell with before and draft together, and turns to the side', async () => {
+    show(fixedCase('a-v1', 'A'));
+    const cells = screen.getAllByRole('button', { name: 'Enlarge cast_orb 0.5' });
+    await userEvent.click(cells[0]!);
+    const dialog = screen.getByRole('dialog', { name: 'cast_orb 0.5, enlarged' });
+    expect(within(dialog).getByAltText('cast_orb 0.5, Before')).toBeInTheDocument();
+    expect(within(dialog).getByAltText('cast_orb 0.5, Draft')).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Side' }));
+    expect((within(dialog).getByAltText('cast_orb 0.5, Draft') as HTMLImageElement).src).toContain(
+      'svg'
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog', { name: 'cast_orb 0.5, enlarged' })).toBeNull();
+  });
+
+  it('shows a creature its numbers before and after, and enlarges them too', async () => {
+    show(creatureFixedCase());
+    expect(screen.getByText('stretch 120 to 38 mm, better')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Enlarge leg_RR' }));
+    expect(screen.getByRole('dialog', { name: 'leg_RR, enlarged' })).toBeInTheDocument();
+  });
 });

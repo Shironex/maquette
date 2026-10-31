@@ -1,5 +1,13 @@
 /** Words for the rig doctor: its six steps and how a case stands. */
-import type { Check, RigChain, RigChainEdit, RigRecord, RigStep } from '@/ipc/client';
+import type {
+  Check,
+  RigChain,
+  RigChainEdit,
+  RigRecord,
+  RigRow,
+  RigStep,
+  RigTrend,
+} from '@/ipc/client';
 
 /** The Inbox checks that offer the rig doctor when they are not a pass. */
 export const RIG_CHECKS = new Set(['rig', 'finger-weights', 'arm-weights']);
@@ -126,3 +134,58 @@ export function rigStatusLine(open: readonly RigRecord[]): string | null {
   if (p) return `Rig doctor: ${p.label.toLowerCase()} ${p.done} of ${p.total}`;
   return `Rig doctor: ${going.name} running`;
 }
+
+/** The one test of a row: everything that says a pose is fine or not reads this. */
+export const rowFlagged = (row: RigRow) => row.note !== null || row.defects.length > 0;
+
+/** A row's numbers, shown on every cell so the tiles above can be checked against them. */
+export function rowNumbers(row: RigRow): string {
+  const past = row.beyondBodyMm == null ? '' : `, past body ${Math.round(row.beyondBodyMm)}`;
+  return `stretch ${Math.round(row.stretchMm ?? 0)}${past}, seam ${Math.round(row.seamGapMm ?? 0)} mm`;
+}
+
+export interface ChangeLine {
+  label: string;
+  text: string;
+  trend: RigTrend;
+}
+
+function moved(label: string, was: number | null, now: number | null, trend: RigTrend): ChangeLine {
+  const [a, b] = [Math.round(was ?? 0), Math.round(now ?? 0)];
+  const word = trend === 'same' ? (a === b ? 'same' : 'about the same') : trend;
+  return { label, text: `${a} to ${b} mm, ${word}`, trend };
+}
+
+/** An after row's before and after, by number. */
+export function changeLines(row: RigRow): ChangeLine[] {
+  const c = row.change;
+  if (!c) return [];
+  return [
+    moved('stretch', c.stretchBefore, row.stretchMm, c.stretch),
+    moved('seam', c.seamGapBefore, row.seamGapMm, c.seamGap),
+  ];
+}
+
+const hasMoved = (row: RigRow) =>
+  Boolean(row.change) && (row.change?.stretch !== 'same' || row.change?.seamGap !== 'same');
+
+const gotWorse = (row: RigRow) =>
+  row.change?.stretch === 'worse' || row.change?.seamGap === 'worse';
+
+/** The after rows whose numbers moved, either way. */
+export const changedRows = (r: RigRecord) => (r.after?.rows ?? []).filter(hasMoved);
+
+/** The warning beside Add: which poses got worse, and what that likely means. It never blocks. */
+export function worseWarning(r: RigRecord): string | null {
+  const worse = (r.after?.rows ?? []).filter(gotWorse);
+  if (worse.length === 0) return null;
+  const names = worse.map(row => row.label).join(', ');
+  const traded = worse.every(row => row.change?.seamGap === 'better');
+  return traded
+    ? `${names} stretch more than before, where seams that tore now hold: the fix's usual trade. Play those clips in Motion before you add it.`
+    : `${names} got worse after the fix. Play those clips in Motion before you add it.`;
+}
+
+/** The shape a route's cells are rendered in, so a picture fills its frame. */
+export const cellAspect = (r: RigRecord) =>
+  r.route === 'creature' ? 'aspect-[6/5]' : 'aspect-[3/4]';

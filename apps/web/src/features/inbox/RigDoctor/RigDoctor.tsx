@@ -1,6 +1,6 @@
 import { Button, Icon, SegmentedControl, TopBar, type SegmentedOption } from '@maquette/ui';
 import type { RigRecord, RigRoute } from '@/ipc/client';
-import { addWaitsFor, isRunning, nextVersion, routeHeldBy } from '@/state/rig';
+import { addWaitsFor, isRunning, nextVersion, routeHeldBy, worseWarning } from '@/state/rig';
 import { useRigActions } from './RigDoctor.hooks';
 import { BeforeCentre, DefectsAside } from './RigBefore';
 import { CompareCentre, FixAside } from './RigCompare';
@@ -90,7 +90,7 @@ function LeftColumn({ record }: { record: RigRecord }) {
         <Facts
           title="The model"
           rows={[
-            ['Rig', `${m.rig}, ${m.joints} joints`],
+            ['Rig', m.rig],
             ['Skinned meshes', m.skinnedMeshes],
             ['Clips', m.clips.length ? m.clips.join(', ') : 'none'],
             ['Triangles', count(m.triangles)],
@@ -254,7 +254,10 @@ function Working({ record }: { record: RigRecord }) {
             </>
           )}
         </div>
-        <Footer note={footerNote(record)}>
+        <Footer
+          note={footerNote(record)}
+          warning={record.state === 'fixed' ? worseWarning(record) : null}
+        >
           <Actions record={record} />
         </Footer>
       </div>
