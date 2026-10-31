@@ -1,6 +1,6 @@
-import { Button, Icon, TopBar } from '@maquette/ui';
-import type { RigRecord } from '@/ipc/client';
-import { isRunning, nextVersion } from '@/state/rig';
+import { Button, Icon, SegmentedControl, TopBar, type SegmentedOption } from '@maquette/ui';
+import type { RigRecord, RigRoute } from '@/ipc/client';
+import { addWaitsFor, isRunning, nextVersion, routeHeldBy } from '@/state/rig';
 import { useRigActions } from './RigDoctor.hooks';
 import { BeforeCentre, DefectsAside } from './RigBefore';
 import { CompareCentre, FixAside } from './RigCompare';
@@ -10,6 +10,41 @@ import { Facts, Footer, Steps } from './parts';
 
 function count(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+}
+
+/** The route the bone names picked, and the other one when a person knows better. */
+function RouteChoice({ record }: { record: RigRecord }) {
+  const { setRoute, busy } = useRigActions();
+  const held = routeHeldBy(record);
+  const options: readonly SegmentedOption<RigRoute>[] = [
+    {
+      value: 'humanoid',
+      label: 'Humanoid',
+      disabled: !record.model.humanoidOk || Boolean(held),
+      hint: held ?? (record.model.humanoidOk ? 'Mixamo names' : 'It needs Mixamo bone names'),
+    },
+    {
+      value: 'creature',
+      label: 'Creature',
+      disabled: Boolean(held),
+      hint: held ?? 'Its own chains, legs and junk lists',
+    },
+  ];
+  return (
+    <div className="flex flex-col gap-1.5 px-1">
+      <h3 className="m-0 text-caption tracking-[0.06em] text-fg-mute uppercase">Route</h3>
+      <SegmentedControl
+        label="Route"
+        tone="neutral"
+        options={options}
+        value={record.route ?? 'creature'}
+        onChange={route => !busy && void setRoute(route)}
+      />
+      <p className="m-0 text-meta text-fg-mute">
+        Picked from the bone names. Creature takes its own chains, legs and junk lists.
+      </p>
+    </div>
+  );
 }
 
 /** The left column: where the case stands and what the model is. */
@@ -63,10 +98,7 @@ function LeftColumn({ record }: { record: RigRecord }) {
           ]}
         />
       )}
-      <p className="m-0 px-1 text-meta text-fg-mute">
-        Route picked from the bone names:{' '}
-        {record.route === 'creature' ? 'its own chains, legs and junk lists.' : 'Mixamo names.'}
-      </p>
+      <RouteChoice record={record} />
     </aside>
   );
 }
@@ -125,7 +157,13 @@ function Actions({ record }: { record: RigRecord }) {
         >
           Round 2
         </Button>
-        <Button variant="primary" disabled={s.busy} loading={s.busy} onClick={() => void s.land()}>
+        <Button
+          variant="primary"
+          disabled={s.busy || Boolean(addWaitsFor(record))}
+          disabledReason={addWaitsFor(record) ?? undefined}
+          loading={s.busy}
+          onClick={() => void s.land()}
+        >
           Add as v{n}
         </Button>
       </>
@@ -173,6 +211,7 @@ function footerNote(record: RigRecord): string {
   if (record.state === 'cancelled') return `The run was cancelled. v${v} stays as it came.`;
   if (isRunning(record))
     return 'You can leave this view. The run goes on and the Inbox shows its progress.';
+  if (addWaitsFor(record)) return `${addWaitsFor(record)} Add as v${v + 1} waits for that.`;
   if (record.state === 'fixed') {
     return `Add as v${v + 1} sends the draft through the Inbox checks. v${v} stays, Compare works as for a redo.`;
   }

@@ -4,11 +4,20 @@
  * timer. Nothing is written; only the rig doctor view adds a draft, as in
  * the app, and the agents tools have no way to.
  */
-import type { Approval, RigRecord, RigRun, RigTarget } from '../client';
+import type { Approval, RigChainEdit, RigRecord, RigRoute, RigRun, RigTarget } from '../client';
+import { chainChanged } from '@/state/rig';
 import { clock } from '@/lib/clock';
 import { fail, type Args } from './backend-options';
-import { creatureCase, oneIslandCase, refusedCase, runningCase, stoppedCase } from './rig-cases';
-import { fixedCase, readCase, testedCase } from './rig-fixtures';
+import {
+  creatureCase,
+  creatureFixedCase,
+  oneIslandCase,
+  refusedCase,
+  runningCase,
+  stoppedCase,
+} from './rig-cases';
+import { registerMockFile } from '../files';
+import { figure, fixedCase, readCase, testedCase } from './rig-fixtures';
 
 interface RigContext {
   state: string | null;
@@ -22,11 +31,37 @@ const SEEDS: Record<string, () => RigRecord> = {
   read: () => testedCase('duchess-vesperine-v1', 'Duchess Vesperine'),
   compare: () => fixedCase('duchess-vesperine-v1', 'Duchess Vesperine'),
   creature: creatureCase,
+  'creature-fixed': creatureFixedCase,
   refused: refusedCase,
   stopped: stoppedCase,
   'one-island': oneIslandCase,
   running: runningCase,
 };
+
+/** The table a first pose test reads on the creature route. */
+const CREATURE_READ = () => creatureCase().creature;
+
+/** Drops what the runs made, as the core does when the sheets go stale. */
+const startOver = (c: RigRecord): RigRecord => ({
+  ...c,
+  state: 'ready',
+  step: c.source.version === null ? 'accept' : 'before',
+  before: null,
+  after: null,
+  defects: [],
+  stats: [],
+  fixSteps: [],
+  checks: [],
+  jointMove: null,
+  round: 0,
+  draft: null,
+  progress: null,
+  stages: [],
+  log: [],
+  stop: null,
+  walkProof: null,
+  error: null,
+});
 
 const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
@@ -51,7 +86,18 @@ export function createRigHandlers(state: string | null, pace: number, emit: RigC
   const run = (id: string, what: RigRun) => {
     const c = get(id);
     if (what === 'pose-test') {
-      later(() => put({ ...testedCase(id, c.name), source: c.source, input: c.input }));
+      later(() =>
+        put({
+          ...testedCase(id, c.name),
+          source: c.source,
+          input: c.input,
+          route: c.route,
+          creature: c.route === 'creature' ? (c.creature ?? CREATURE_READ()) : null,
+          chainsConfirmed: c.chainsConfirmed,
+          chainEdits: c.chainEdits,
+          startedBy: c.startedBy,
+        })
+      );
       return put({
         ...c,
         state: 'testing',
@@ -59,7 +105,23 @@ export function createRigHandlers(state: string | null, pace: number, emit: RigC
         progress: { label: 'Pose test before', done: 3, total: 27 },
       });
     }
-    later(() => put({ ...fixedCase(id, c.name), source: c.source, round: c.round + 1 }));
+    if (what === 'walk-proof') {
+      later(() => put({ ...get(id), state: 'fixed', walkProof: `${c.dir}/walk_proof.svg` }));
+      registerMockFile(`${c.dir}/walk_proof.svg`, figure('walk', 'side', true));
+      return put({ ...c, state: 'fixing' });
+    }
+    later(() =>
+      put({
+        ...fixedCase(id, c.name),
+        source: c.source,
+        round: c.round + 1,
+        route: c.route,
+        creature: c.creature,
+        chainsConfirmed: c.chainsConfirmed,
+        chainEdits: c.chainEdits,
+        startedBy: c.startedBy,
+      })
+    );
     return put({ ...c, state: 'fixing', step: 'fix', round: c.round });
   };
 
@@ -146,8 +208,51 @@ export function createRigHandlers(state: string | null, pace: number, emit: RigC
           draft: args.approve ? move.draft : c.draft,
         });
       },
+      rig_set_route: (args: Args) => {
+        const c = get(args.id as string);
+        const route = args.route as RigRoute;
+        if (c.route === route) return structuredClone(c);
+        if (c.draft) fail('invalid', 'Discard the draft first: it came from the other route.');
+        if (route === 'humanoid' && !c.model.humanoidOk)
+          fail('invalid', 'The humanoid route needs Mixamo bone names.');
+        return put({
+          ...startOver(c),
+          route,
+          creature: null,
+          chainsConfirmed: false,
+          chainEdits: [],
+        });
+      },
+      rig_confirm_chains: (args: Args) => {
+        const c = get(args.id as string);
+        if (!c.creature) fail('invalid', 'No chains were read yet.');
+        const edits = args.edits as RigChainEdit[];
+        const changed = edits.some(e => chainChanged(e, c.creature!.chains));
+        const chains = c.creature.chains.map(row => {
+          const edit = edits.find(e => e.key === row.key);
+          if (!edit) return row;
+          return {
+            ...row,
+            readAs: edit.side ? 'chain' : (edit.readAs ?? row.readAs),
+            side: edit.side ? `${edit.side}, by hand` : row.side,
+            note: null,
+          };
+        });
+        const creature = { ...c.creature, chains };
+        const kept = (c.chainEdits ?? []).filter(e => !edits.some(n => n.key === e.key));
+        return changed
+          ? put({
+              ...startOver(c),
+              creature,
+              chainsConfirmed: true,
+              chainEdits: [...kept, ...edits],
+            })
+          : put({ ...c, creature, chainsConfirmed: true });
+      },
       rig_land: (args: Args) => {
         const c = get(args.id as string);
+        if (c.route === 'creature' && !c.chainsConfirmed)
+          fail('invalid', 'Look at the chains first: they were only read from the bone tree.');
         return put({ ...c, state: 'landed', landed: (c.source.version ?? 1) + 1 });
       },
       rig_discard: (args: Args) =>

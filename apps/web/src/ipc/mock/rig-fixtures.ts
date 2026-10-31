@@ -100,6 +100,7 @@ export function readCase(id: string, name: string, inbox: string | null): RigRec
       armFar: 3912,
       islands: 12,
       oneIsland: false,
+      humanoidOk: true,
       finding:
         'Hair vertices weighted to finger bones. 1,284 vertices far from the hands follow LeftHandIndex1 (652) and RightHandIndex1 (632).',
     },
@@ -118,6 +119,9 @@ export function readCase(id: string, name: string, inbox: string | null): RigRec
     stages: [],
     log: [],
     stop: null,
+    chainsConfirmed: false,
+    chainEdits: [],
+    walkProof: null,
     landed: null,
     error: null,
     updatedMs: 0,

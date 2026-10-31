@@ -1,38 +1,13 @@
-import { Icon, cn } from '@maquette/ui';
-import type { RigChain, RigRecord } from '@/ipc/client';
+import { Button, Icon, cn } from '@maquette/ui';
+import type { RigRecord } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
+import { useRigActions } from './RigDoctor.hooks';
+import { RigChains } from './RigChains';
 import { DefectCard, RunProgress, Stats, Tile } from './parts';
-
-const READ_TONE: Record<string, string> = {
-  chain: 'text-fg-dim',
-  stray: 'text-clay-text',
-  swapped: 'text-amber',
-  junk: 'text-clay-text',
-};
-
-const READ_WORD: Record<string, string> = {
-  chain: 'Chain',
-  stray: 'Stray weight',
-  swapped: 'Sides swapped',
-  junk: 'Junk',
-};
-
-function chainWord(c: RigChain): string {
-  return c.note ?? READ_WORD[c.readAs] ?? c.readAs;
-}
 
 /** The centre of the third board: the chains read from the bones. */
 export function CreatureCentre({ record }: { record: RigRecord }) {
-  const creature = record.creature;
   const rows = record.before?.rows ?? [];
-  const chains = (creature?.chains ?? []).map(c => (
-    <tr key={c.chain} className="border-t border-line">
-      <td className="py-1.5 font-mono text-fg">{c.chain}</td>
-      <td className="py-1.5 font-mono text-fg-dim">{c.bones}</td>
-      <td className="py-1.5 font-mono text-fg-dim">{c.side}</td>
-      <td className={cn('py-1.5', READ_TONE[c.readAs] ?? 'text-fg-dim')}>{chainWord(c)}</td>
-    </tr>
-  ));
   const pairs = rows
     .filter(r => r.note)
     .slice(0, 2)
@@ -76,20 +51,7 @@ export function CreatureCentre({ record }: { record: RigRecord }) {
           Names stay as they are.
         </p>
       </div>
-      <h3 className="m-0 text-caption tracking-[0.06em] text-fg-mute uppercase">
-        Chains, filled from the bone tree
-      </h3>
-      <table className="w-full flex-none border-collapse text-meta">
-        <thead>
-          <tr className="text-left text-caption tracking-[0.06em] text-fg-mute uppercase">
-            <th className="py-1 font-medium">Chain</th>
-            <th className="py-1 font-medium">Bones</th>
-            <th className="py-1 font-medium">Side</th>
-            <th className="py-1 font-medium">Read as</th>
-          </tr>
-        </thead>
-        <tbody>{chains}</tbody>
-      </table>
+      <RigChains record={record} />
       <div className="grid flex-none grid-cols-2 gap-3">{pairs}</div>
       <div className="flex flex-none flex-col gap-2">{cards}</div>
       <RunProgress record={record} />
@@ -152,8 +114,55 @@ export function CreatureAside({ record }: { record: RigRecord }) {
         <h3 className="m-0 mb-1.5 text-caption tracking-[0.06em] text-fg-mute uppercase">
           Headless Blender
         </h3>
-        <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-meta">{stages}</ul>
+        <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-meta">
+          {stages}
+          {record.stages.some(s => s.name === 'Walk clip proof') ? null : (
+            <li className="flex items-start gap-2">
+              <Icon name="circle" size={14} className="mt-0.5 flex-none text-fg-mute" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-fg-dim">Walk clip proof</span>
+                <span className="block text-fg-mute">Optional, in place, 30 fps</span>
+              </span>
+              <span className="flex-none text-fg-mute">after the fix</span>
+            </li>
+          )}
+        </ul>
       </div>
     </aside>
+  );
+}
+
+/** Shows a creature's draft walking: a test on a copy that never reaches the draft. */
+export function WalkProof({ record }: { record: RigRecord }) {
+  const { run, busy } = useRigActions();
+  if (record.route !== 'creature') return null;
+  const strip = fileUrl(record.walkProof);
+  return (
+    <section
+      aria-label="Walk clip proof"
+      className="flex flex-col gap-2 border-t border-line pt-2.5"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="m-0 font-medium text-fg">Walk clip proof</h3>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon="person-simple-walk"
+          disabled={busy}
+          onClick={() => void run('walk-proof')}
+        >
+          {strip ? 'Run it again' : 'Run the proof'}
+        </Button>
+      </div>
+      <p className="m-0 text-meta text-fg-mute">
+        Optional. A made up walk, in place at 30 fps, on a copy, to see the rig move. It never goes
+        into the draft.
+      </p>
+      {strip ? (
+        <div className="h-[120px]">
+          <Tile url={strip} alt="The draft walking, frame by frame" />
+        </div>
+      ) : null}
+    </section>
   );
 }

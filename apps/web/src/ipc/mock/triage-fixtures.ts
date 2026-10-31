@@ -158,6 +158,9 @@ function triageItem(base: InboxItem, dir: string, now: number, spec: Spec): Inbo
   };
 }
 
+/** How long the core keeps a discarded model. */
+export const KEEP_MS = 30 * 24 * HOUR;
+
 /** The discarded models: their notes, and the model each puts back. */
 export interface DiscardedSeed {
   model: DiscardedModel;
@@ -180,6 +183,7 @@ function discardedSeeds(dir: string, now: number, base: InboxItem): DiscardedSee
         file: `${dir}/.discarded/${spec.id}`,
         bytes: item.bytes,
         discardedMs: now - ago,
+        expiresMs: now - ago + KEEP_MS,
         assetName: spec.link?.[2] ?? null,
         replacedBy,
       },

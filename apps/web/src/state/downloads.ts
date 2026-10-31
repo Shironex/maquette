@@ -88,6 +88,13 @@ export function askingArrivals(status: WatchStatus | null): Arrival[] {
   return (status?.arrivals ?? []).filter(a => a.state === 'unmatched' || a.state === 'failed');
 }
 
+/** Downloads on hold: they wait for Blender to give them a picture. */
+export function heldArrivals(status: WatchStatus | null): Arrival[] {
+  return (status?.arrivals ?? []).filter(
+    a => a.picture === 'held' && (a.state === 'unmatched' || a.state === 'review')
+  );
+}
+
 /** Every download waiting for an answer: the ones to look at first. */
 export function waitingArrivals(status: WatchStatus | null): Arrival[] {
   return [...lookingArrivals(status), ...askingArrivals(status)];

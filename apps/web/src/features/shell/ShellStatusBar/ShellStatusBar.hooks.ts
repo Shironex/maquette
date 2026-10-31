@@ -12,6 +12,8 @@ import { useLibraryStore } from '@/state/use-library-store';
 import { usePageStore } from '@/state/use-page-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { renderStatusLine } from '@/state/renders';
+import { rigStatusLine } from '@/state/rig';
+import { useRigStore } from '@/state/use-rig-store';
 import { useRenderStore } from '@/state/use-render-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { shellStatusItems, type ShellStatus } from './statusItems';
@@ -39,6 +41,7 @@ export function useShellStatusBar(
   const animations = useAnimationsStore(s => s.view);
   const codexUsage = useCodexUsageStore(s => s.usage);
   const rendering = renderStatusLine(useRenderStore(s => s.live));
+  const rigging = rigStatusLine(useRigStore(s => s.open));
   const projectId = workspace?.project?.id;
   useEffect(() => {
     if (projectId) void useRenderStore.getState().loadRecent();
@@ -56,6 +59,7 @@ export function useShellStatusBar(
     sends,
     server,
     rendering,
+    rigging,
     siteControl,
     libraryModels,
     animationClips: animations?.items.length ?? null,

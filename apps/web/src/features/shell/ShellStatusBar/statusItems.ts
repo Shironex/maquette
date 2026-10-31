@@ -30,6 +30,8 @@ export interface ShellStatus {
   mcp: StatusBarItem | null;
   /** "Rendering 7 of 13 files" while a render runs. */
   rendering?: string | null;
+  /** "Rig doctor: pose test 9 of 13" while a case runs. */
+  rigging?: string | null;
   sends: readonly ProviderJob[];
   /** The site dev server the Page view and Preview on site share. */
   server?: ServerStatus | null;
@@ -199,6 +201,7 @@ export function shellStatusItems(s: ShellStatus): StatusBarItem[] {
     ...codexUsageItems(s),
     ...(s.view === 'lab' ? [] : inboxItems(s.inbox, s.workspace)),
     ...(s.rendering ? [{ label: s.rendering, dot: 'running' as const }] : []),
+    ...(s.rigging ? [{ label: s.rigging, dot: 'running' as const }] : []),
     ...libraryItems(s),
     ...animationItems(s),
     ...labItems(s.labJobs),

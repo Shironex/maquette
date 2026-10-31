@@ -28,6 +28,13 @@ describe('the shell status items', () => {
     expect(labels({ server: server('idle') }).some(l => l.startsWith('Site dev page'))).toBe(false);
   });
 
+  it('says where a running rig doctor case is', () => {
+    expect(labels({ rigging: 'Rig doctor: pose test 9 of 13' })).toContain(
+      'Rig doctor: pose test 9 of 13'
+    );
+    expect(labels({}).some(l => l.startsWith('Rig doctor'))).toBe(false);
+  });
+
   it('hands the site dev page to its control, with its label and dot', () => {
     const seen: string[] = [];
     const items = shellStatusItems({

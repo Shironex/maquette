@@ -5,7 +5,7 @@
 import type { DiscardedModel, InboxItem, ProjectManifest } from '../client';
 import { clock } from '@/lib/clock';
 import { fail } from './backend-options';
-import { seedDiscarded, type DiscardedSeed } from './triage-fixtures';
+import { KEEP_MS, seedDiscarded, type DiscardedSeed } from './triage-fixtures';
 
 /** Fills each item's next version and the newer version that replaced it, as `inbox::place` does. */
 export function placeItems(
@@ -48,6 +48,7 @@ export function createDiscarded(state: string | null, dir: string) {
         file: `${dir}/.discarded/${name}`,
         bytes: item.bytes,
         discardedMs: clock.nowMs(),
+        expiresMs: clock.nowMs() + KEEP_MS,
         assetName: (item.link ?? item.aim)?.assetName ?? null,
         replacedBy: item.replacedBy ?? null,
       };

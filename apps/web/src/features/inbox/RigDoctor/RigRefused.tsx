@@ -1,7 +1,7 @@
 import { Button, Icon } from '@maquette/ui';
 import type { RigRecord } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
-import { useRigActions } from './RigDoctor.hooks';
+import { useRigActions, useRigRedo } from './RigDoctor.hooks';
 import { Footer, Tile } from './parts';
 
 /** The stops that are not this model's, so a person knows what else ends a case. */
@@ -17,6 +17,7 @@ const OTHER_STOPS = [
 /** The fourth board's first card: a model the doctor cannot fix, and why. */
 export function RigRefused({ record }: { record: RigRecord }) {
   const { openBlender, leave, accept, busy, project } = useRigActions();
+  const redo = useRigRedo(record);
   const issues = record.issues.map(i => (
     <li key={i.title} className="flex gap-2.5 border-t border-line py-2 first:border-t-0">
       <Icon
@@ -44,10 +45,20 @@ export function RigRefused({ record }: { record: RigRecord }) {
           <div className="grid grid-cols-2 gap-2.5">
             <div className="rounded-[9px] border border-line bg-raised p-3">
               <p className="m-0 font-medium text-fg">Redo it as rigged</p>
-              <p className="m-0 mt-1 text-meta text-fg-mute">
-                A new send from the Inbox row spends credits, so it is your call. The doctor never
-                starts one.
+              <p className="m-0 mt-1 mb-2 text-meta text-fg-mute">
+                Send the asset again with rig on and one mesh. That spends credits, so it is your
+                call in the send sheet. The doctor never starts one.
               </p>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="arrow-bend-up-right"
+                disabled={Boolean(redo.blocker)}
+                disabledReason={redo.blocker ?? undefined}
+                onClick={redo.open}
+              >
+                Redo...
+              </Button>
             </div>
             <div className="rounded-[9px] border border-line bg-raised p-3">
               <p className="m-0 font-medium text-fg">Join the meshes in Blender</p>
