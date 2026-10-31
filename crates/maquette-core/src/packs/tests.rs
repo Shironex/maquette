@@ -7,8 +7,9 @@ use std::io::Read as _;
 use std::path::Path;
 
 use super::finish::{manifest, readme};
-use super::model_run::{Check, Numbers, Report, plan_for, verdict};
+use super::model_run::plan_for;
 use super::record::{MARKER, PackItem, PackItemState, PackRecord, PackState};
+use super::verdict::{Check, Numbers, Report, verdict};
 use super::*;
 use crate::assets::ModelStats;
 use crate::inbox::fixture;
@@ -520,6 +521,10 @@ fn finishing_writes_the_readme_manifest_sheet_and_zip_of_what_passes() {
     let text = readme(&record, &taken);
     assert!(text.starts_with("village-props, 1 models"));
     assert!(text.contains("Format    OBJ, Y up, metres, real size"));
+    assert!(
+        text.contains("Budget    props 3,000, characters as they are, scenes 20,000"),
+        "{text}"
+    );
     assert!(text.contains("Mixamo clips left out"));
     let json = manifest(&record, &taken);
     assert_eq!(json["up"], "Y");
@@ -585,4 +590,52 @@ fn finishing_with_all_keeps_the_warnings() {
     assert!(Path::new(&record.dir).join("rake").is_dir());
     assert_eq!(record.zip, None);
     assert!(!dir.path().join("village-props.zip").exists());
+}
+
+#[test]
+fn a_model_left_over_its_budget_waits_for_a_person() {
+    let report = |after: u32| Report {
+        before: Numbers { triangles: 6_000 },
+        after: Numbers { triangles: after },
+        thin: false,
+        clips_removed: 0,
+        files: Vec::new(),
+        checks: vec![Check::default()],
+        pivot_slack: 0.01,
+    };
+    let settings = PackSettings {
+        pivot_bottom: false,
+        real_size: false,
+        ..PackSettings::default()
+    };
+    let over = verdict(&item(6_000, false, Some(3_000)), &report(6_000), &settings);
+    assert_eq!(over.state, PackItemState::Warn);
+    assert_eq!(
+        over.suggest,
+        Some(6_000),
+        "raising to what it is lets it pass"
+    );
+    assert!(
+        over.note
+            .as_deref()
+            .is_some_and(|n| n.starts_with("Over budget"))
+    );
+    let near = verdict(&item(6_000, false, Some(3_000)), &report(3_040), &settings);
+    assert_eq!(
+        near.state,
+        PackItemState::Pass,
+        "a collapse rounds per mesh"
+    );
+    let no_budget = verdict(&item(6_000, false, None), &report(5_999), &settings);
+    assert_eq!(
+        no_budget.state,
+        PackItemState::Pass,
+        "its own fix-up, no budget"
+    );
+    let raised = verdict(&item(6_000, false, Some(20_000)), &report(5_999), &settings);
+    assert_eq!(
+        raised.state,
+        PackItemState::Pass,
+        "its own fix-up, under budget"
+    );
 }

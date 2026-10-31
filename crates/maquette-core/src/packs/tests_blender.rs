@@ -8,7 +8,7 @@ use std::io::Read as _;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::record::{PackItemState, PackState};
+use super::record::{self, PackItemState, PackState};
 use super::tests::{entry, stats};
 use super::*;
 use crate::inbox::fixture;
@@ -186,4 +186,137 @@ fn a_real_pack_is_written_checked_rendered_and_zipped() {
         )
         .expect("zip");
     }
+}
+
+fn start_props(packs: &Packs, root: &Path, names: &[&str], blender: &Path) -> String {
+    for name in names {
+        entry(
+            root,
+            name,
+            name,
+            AssetKind::Prop,
+            &fixture::clean_prop(),
+            stats(12, 0, 0),
+        );
+    }
+    let settings = PackSettings {
+        name: "village".into(),
+        contact_sheet: false,
+        ..PackSettings::default()
+    };
+    let source = PackSource::Entries {
+        entries: names.iter().map(ToString::to_string).collect(),
+    };
+    let no_source = |_: &Path, _: &crate::assets::Asset, _: u32| (LibrarySource::Imported, None);
+    let plan = plan(
+        root,
+        &FolderLayout::default(),
+        &source,
+        &settings,
+        &no_source,
+    )
+    .expect("plan");
+    let request = PackRequest {
+        source,
+        settings,
+        out: None,
+        preset: None,
+    };
+    let tools = crate::test_blender::toolbox(blender);
+    packs
+        .start(root, tools, pack_defaults(), &request, plan, false)
+        .expect("start")
+        .id
+}
+
+fn pack_defaults() -> CompressDefaults {
+    CompressDefaults {
+        texture_size: 2048,
+        codec: TextureCodec::Etc1s,
+        meshopt: MeshoptLevel::Medium,
+    }
+}
+
+/// Stops a real pack mid run, then reads it as if the app closed on the
+/// next model: nothing that ran runs again, nothing is skipped, and the
+/// model cut short is written and checked from the start.
+#[test]
+fn a_real_pack_stops_goes_on_and_rechecks_the_model_it_closed_on() {
+    let Some(blender) = crate::test_blender::blender() else {
+        return;
+    };
+    let dir = tempfile::tempdir().expect("dir");
+    let root = dir.path();
+    let packs = Packs::new(PipelineRunner::new(Arc::new(NullSink)), |_: &PackRecord| {});
+    let id = start_props(&packs, root, &["one", "two", "three", "four"], &blender);
+    while packs.get(root, &id).expect("get").done() == 0 {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    packs.stop(&id).expect("stop");
+    packs.wait();
+    let mut closed = packs.get(root, &id).expect("stopped");
+    assert_eq!(closed.state, PackState::Stopped);
+    let done = closed.done();
+    assert!((1..4).contains(&done), "{done} done");
+    assert_eq!(
+        closed.message.as_deref(),
+        Some(format!("Stopped with {done} of 4 done, model {} is next", done + 1).as_str())
+    );
+    assert!(closed.items[..done].iter().all(|i| i.took_ms > 0.0));
+    assert!(
+        closed.items[done..].iter().all(|i| i.took_ms == 0.0),
+        "a model still queued has no time yet"
+    );
+
+    closed.state = PackState::Running;
+    closed.items[done].state = PackItemState::Running;
+    let cut = Path::new(&closed.dir).join(&closed.items[done].model.key);
+    fs::create_dir_all(&cut).expect("folder");
+    fs::write(cut.join("half-written.obj"), "v 0 0").expect("junk");
+    record::save(root, &closed).expect("save");
+    let before: Vec<f64> = closed.items[..done].iter().map(|i| i.took_ms).collect();
+
+    let reopened = Packs::new(PipelineRunner::new(Arc::new(NullSink)), |_: &PackRecord| {});
+    let read = reopened.get(root, &id).expect("read");
+    assert_eq!(read.state, PackState::Stopped);
+    assert_eq!(read.items[done].state, PackItemState::Queued);
+    let tools = crate::test_blender::toolbox(&blender);
+    reopened
+        .resume(root, tools, pack_defaults(), &id)
+        .expect("go on");
+    reopened.wait();
+    let finished = reopened.get(root, &id).expect("finished");
+    assert_eq!(finished.state, PackState::Done, "{:?}", finished.message);
+    assert!(
+        finished
+            .items
+            .iter()
+            .all(|i| i.state == PackItemState::Pass && i.took_ms > 0.0)
+    );
+    let after: Vec<f64> = finished.items[..done].iter().map(|i| i.took_ms).collect();
+    assert_eq!(before, after, "what ran is not run again");
+    assert!(
+        !cut.join("half-written.obj").exists(),
+        "written from the start"
+    );
+}
+
+/// Stop during the last model has nothing left to stop before: the pack
+/// finishes, it does not read as stopped with nothing to go on with.
+#[test]
+fn a_real_pack_stopped_on_its_last_model_finishes() {
+    let Some(blender) = crate::test_blender::blender() else {
+        return;
+    };
+    let dir = tempfile::tempdir().expect("dir");
+    let root = dir.path();
+    let packs = Packs::new(PipelineRunner::new(Arc::new(NullSink)), |_: &PackRecord| {});
+    let id = start_props(&packs, root, &["only"], &blender);
+    while packs.get(root, &id).expect("get").items[0].state != PackItemState::Running {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    packs.stop(&id).expect("stop");
+    packs.wait();
+    let record = packs.get(root, &id).expect("record");
+    assert_eq!(record.state, PackState::Done, "{:?}", record.message);
 }

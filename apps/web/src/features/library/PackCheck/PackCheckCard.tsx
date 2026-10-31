@@ -1,8 +1,7 @@
-import { Icon, StatusChip, cn, type Status } from '@maquette/ui';
+import { StatusChip, cn, type Status } from '@maquette/ui';
 import type { PackItem, PackItemState } from '@/ipc/client';
-import { fileUrl } from '@/ipc/files';
-import { itemNote, itemNumbers } from '@/state/packs';
-import { KIND_ICON } from '@/state/thumbs';
+import { itemBudget, itemNote, itemNumbers } from '@/state/packs';
+import PackPicture from './PackPicture';
 
 const CHIP: Record<PackItemState, { status: Status; label: string }> = {
   queued: { status: 'queued', label: 'Waiting' },
@@ -29,7 +28,6 @@ export interface PackCheckCardProps {
  * and what the check found in a line.
  */
 export default function PackCheckCard({ item, format }: PackCheckCardProps) {
-  const url = fileUrl(item.picture ?? item.model.thumbnail);
   const chip = CHIP[item.state];
   const numbers = itemNumbers(item);
   const note = itemNote(item);
@@ -46,22 +44,17 @@ export default function PackCheckCard({ item, format }: PackCheckCardProps) {
       )}
     >
       <div className="grid aspect-[4/3] place-items-center overflow-hidden bg-studio">
-        {url ? (
-          <img
-            src={url}
-            alt=""
-            className={cn('size-full object-contain', item.state === 'queued' && 'opacity-45')}
-          />
-        ) : (
-          <Icon name={KIND_ICON[item.model.kind]} size={28} className="text-fg-mute" />
-        )}
+        <PackPicture item={item} className={item.state === 'queued' ? 'opacity-45' : undefined} />
       </div>
       <div className="flex min-w-0 flex-col gap-1 px-2.5 pt-2 pb-2.5">
         <b className="truncate font-mono text-[12px]" title={fileName(item, format)}>
           {fileName(item, format)}
         </b>
         {numbers ? (
-          <span className="truncate font-mono text-meta text-fg-dim" title={numbers}>
+          <span
+            className="truncate font-mono text-meta text-fg-dim"
+            title={`${numbers} · ${itemBudget(item)}`}
+          >
             {numbers}
           </span>
         ) : null}

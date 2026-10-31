@@ -49,16 +49,16 @@ export default function PackCheck({ record }: PackCheckProps) {
     footer = (
       <>
         <span className="min-w-0 flex-1 text-meta text-fg-mute">
-          The zip waits until every model passes or you say keep it.
+          {record.message ?? 'The zip waits until every model passes or you say keep it.'}
         </span>
         <Button
           icon="stop"
-          disabled={record.state !== 'running' || c.busy}
-          disabledReason="Every model has run"
-          tooltip="Stops after the model Blender is on now; Go on picks it up from there"
+          disabled={record.state !== 'running' || c.busy || c.stopping}
+          disabledReason={c.stopping ? 'Stops once this model is done' : 'Every model has run'}
+          tooltip="Stops once the model Blender is on now is done; Go on takes the next one"
           onClick={() => void c.stop()}
         >
-          Stop
+          {c.stopping ? 'Stopping' : 'Stop'}
         </Button>
         <Button
           disabled={!waiting || c.passing === 0 || c.busy}
@@ -87,7 +87,12 @@ export default function PackCheck({ record }: PackCheckProps) {
       <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-2.5">
         <Tabs tabs={c.tabs} value={c.filter} onChange={c.setFilter} />
         <span className="flex-1" />
-        <span className="font-mono text-meta text-fg-dim">{c.progress}</span>
+        <span
+          className="font-mono text-meta text-fg-dim"
+          title="A rough guess from the models done so far. A model over budget takes far longer than one left as it is."
+        >
+          {c.progress}
+        </span>
         <ProgressBar value={c.percent} label="Models checked" className="w-[140px]" />
       </div>
       <div className="flex min-h-0 flex-1">

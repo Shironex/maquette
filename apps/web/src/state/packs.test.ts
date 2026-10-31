@@ -8,6 +8,7 @@ import {
   formatTook,
   itemNote,
   needsYou,
+  nextModel,
   packName,
   packTree,
   readme,
@@ -78,7 +79,14 @@ describe('export pack rules', () => {
       item('e', 'running'),
       item('f', 'queued'),
     ];
-    expect(filterCounts(items)).toEqual({ all: 6, pass: 2, look: 1, failed: 1, running: 2 });
+    expect(filterCounts(items)).toEqual({
+      all: 6,
+      pass: 2,
+      look: 1,
+      failed: 1,
+      running: 1,
+      waiting: 1,
+    });
     expect(needsYou(items).map(i => i.model.key)).toEqual(['c', 'd']);
   });
 
@@ -88,6 +96,43 @@ describe('export pack rules', () => {
       'about 20 s left'
     );
     expect(formatTook(192_000)).toBe('3:12');
+  });
+
+  it('leaves the models still queued out of the time left, as the core records them', () => {
+    const ran = Array.from({ length: 8 }, (_, n) => item(`r${n}`, 'pass', { tookMs: 5_000 }));
+    const queued = Array.from({ length: 423 }, (_, n) => item(`q${n}`, 'queued', { tookMs: 0 }));
+    expect(timeLeft([...ran, item('now', 'running', { tookMs: 0 }), ...queued])).toBe(
+      'about 35 min left'
+    );
+  });
+
+  it('reads decimated models and models left as they are apart', () => {
+    const light = { stats: { ...item('a', 'pass').model.stats!, triangles: 500 } };
+    const quick = (key: string, state: PackItem['state'], tookMs = 0) => {
+      const it = item(key, state, { tookMs });
+      return { ...it, model: { ...it.model, ...light } };
+    };
+    const slow = item('slow', 'pass', { tookMs: 60_000 });
+    const items = [
+      slow,
+      quick('done', 'pass', 2_000),
+      item('next', 'queued'),
+      quick('later', 'queued'),
+    ];
+    expect(timeLeft(items)).toBe('about 1 min left');
+    expect(timeLeft([quick('done', 'pass', 2_000), item('next', 'queued')])).toBe('about 2 s left');
+  });
+
+  it('still reads the time left after a stop and go on', () => {
+    const again = item('again', 'queued', { tookMs: 90_000 });
+    const items = [item('a', 'pass', { tookMs: 10_000 }), again, item('c', 'queued')];
+    expect(timeLeft(items)).toBe('about 20 s left');
+    expect(nextModel(items)).toBe(2);
+  });
+
+  it('goes on from the first model not settled', () => {
+    expect(nextModel([item('a', 'pass'), item('b', 'running'), item('c', 'queued')])).toBe(2);
+    expect(nextModel([item('a', 'pass'), item('b', 'fail'), item('c', 'queued')])).toBe(3);
   });
 
   it('says what each card waits on', () => {

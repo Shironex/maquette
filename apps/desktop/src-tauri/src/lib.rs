@@ -2,6 +2,7 @@
 //! `maquette-core`; this crate owns the window, the command surface and the
 //! TypeScript bindings it exports.
 
+mod asset_scope;
 pub mod bindings;
 pub mod commands;
 pub mod events;

@@ -35,6 +35,8 @@ interface PackStore {
   record: PackRecord | null;
   recent: PackRecord[];
   busy: boolean;
+  /** The pack asked to stop, until it has. */
+  stopping: string | null;
 
   /** Opens the sheet on the settings for `source`. */
   show: (source: PackSource, names?: { collection?: string; project?: string }) => Promise<void>;
@@ -98,6 +100,7 @@ export const usePackStore = create<PackStore>((set, get) => {
     record: null,
     recent: [],
     busy: false,
+    stopping: null,
 
     show: async (source, names = {}) => {
       set({ open: true, source, record: null, plan: null, error: null, out: null });
@@ -188,7 +191,13 @@ export const usePackStore = create<PackStore>((set, get) => {
 
     stop: async () => {
       const id = get().record?.id;
-      if (id) await act('Could not stop the pack', () => commands.packStop(id));
+      if (!id) return;
+      // Its answer is the record as it stands now, which an event may have
+      // passed by the time it arrives, so only the events move the pack on.
+      await act('Could not stop the pack', async () => {
+        await commands.packStop(id);
+        set({ stopping: id });
+      });
     },
 
     resume: async id => {
@@ -216,7 +225,12 @@ export const usePackStore = create<PackStore>((set, get) => {
       const recent = [record, ...get().recent.filter(r => r.id !== record.id)].sort((a, b) =>
         b.createdAt.localeCompare(a.createdAt)
       );
-      set({ recent, ...(shown?.id === record.id ? { record } : {}) });
+      const stopped = get().stopping === record.id && record.state !== 'running';
+      set({
+        recent,
+        ...(shown?.id === record.id ? { record } : {}),
+        ...(stopped ? { stopping: null } : {}),
+      });
     },
   };
 });

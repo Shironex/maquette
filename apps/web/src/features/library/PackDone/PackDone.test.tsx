@@ -1,6 +1,7 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { commands } from '@/ipc/client';
+import { registerMockFile } from '@/ipc/files';
 import { usePackStore } from '@/state/use-pack-store';
 import { clearMocks } from '@/test/mock-ipc';
 import { resetPacks, runPack } from '@/test/open-pack';
@@ -30,5 +31,16 @@ describe('a finished pack', () => {
     const recent = screen.getByRole('region', { name: /^Recent packs/ });
     expect(within(recent).getByRole('button', { name: 'Go on from 7' })).toBeVisible();
     expect(within(recent).queryByText('three-props')).toBeNull();
+  });
+
+  it('shows the pictures it was made from when the contact sheet will not load', async () => {
+    const record = await runPack(3, 'three-props');
+    registerMockFile(`${record.dir}/contact-sheet.png`, 'mock://sheet');
+    render(<PackDone record={record} />);
+    const sheet = screen.getByRole('img', { name: 'Every model in three-props' });
+    expect(sheet.tagName).toBe('IMG');
+    fireEvent.error(sheet);
+    const list = screen.getByRole('list', { name: 'Every model in three-props' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(3);
   });
 });

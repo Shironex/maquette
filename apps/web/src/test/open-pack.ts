@@ -48,6 +48,7 @@ export function resetPacks() {
     source: null,
     settings: null,
     presets: [],
+    stopping: null,
     plan: null,
     error: null,
     record: null,

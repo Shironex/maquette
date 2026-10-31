@@ -147,7 +147,7 @@ export function newItem(model: PackModel, budget: number | null): PackItem {
     note: null,
     suggest: null,
     clipsLeftOut: 0,
-    tookMs: null,
+    tookMs: 0,
     bytes: null,
   };
 }
@@ -260,7 +260,7 @@ export function seedRecords(
   const closed = record('market-set', 50, 18, 5 * 3_600_000);
   closed.state = 'stopped';
   closed.finishedAt = null;
-  closed.message = 'Blender quit at model 7 of 18';
+  closed.message = 'Maquette closed with 6 of 18 done, model 7 is next';
   closed.items = closed.items.map((i, n) =>
     n < 6 ? { ...outcome(i, n + 10, 1, closed.settings, 15_000), state: 'pass' } : i
   );

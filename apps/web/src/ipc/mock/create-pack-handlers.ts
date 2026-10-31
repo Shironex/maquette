@@ -147,9 +147,11 @@ export function createPackHandlers(ctx: PackContext) {
     if (r.state !== 'running') return;
     const index = r.items.findIndex(i => i.state === 'queued');
     if (index < 0 || stopping.has(id)) {
-      if (stopping.delete(id) && index >= 0) {
-        const at = r.items.filter(i => i.state !== 'queued').length + 1;
-        tell({ ...r, state: 'stopped', message: `Stopped at model ${at} of ${r.items.length}` });
+      const asked = stopping.delete(id);
+      if (asked && index >= 0) {
+        const done = r.items.filter(i => i.state !== 'queued').length;
+        const message = `Stopped with ${done} of ${r.items.length} done, model ${index + 1} is next`;
+        tell({ ...r, state: 'stopped', message });
         return;
       }
       settle(r);
