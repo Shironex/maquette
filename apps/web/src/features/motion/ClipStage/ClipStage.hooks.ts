@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { fileUrl } from '@/ipc/files';
 import { frameAt, n } from '@/state/motion';
+import { useAppStore } from '@/state/use-app-store';
+import { bakedClip, useBakedOf } from '@/state/use-baked-store';
+import { useInspectorStore } from '@/state/use-inspector-store';
 import { currentClip, useMotionStore } from '@/state/use-motion-store';
 
 /** The selected model and clip, the playhead, and which overlays the viewport shows. */
@@ -18,6 +21,25 @@ export function useClipStage() {
   const model = view?.models.find(m => m.asset === asset) ?? null;
   const url = model ? fileUrl(model.file) : null;
   const clip = currentClip({ view, asset, clip: clipName });
+  const entry = useBakedOf(asset);
+  const from = bakedClip(entry, clip?.name);
+  const projectId = useAppStore(s => s.workspace?.project?.id ?? null);
+  const setView = useAppStore(s => s.setView);
+  const focusVersion = useInspectorStore(s => s.focusVersion);
+  const bakedNow = (entry.baked ?? []).filter(b => b.version === model?.version).length;
+  const bake =
+    model && entry.reviewVersion === model.version && bakedNow > 0 && model.version > 1
+      ? {
+          title: `v${model.version} is v${model.version - 1} with ${bakedNow} library ${bakedNow === 1 ? 'clip' : 'clips'} baked in`,
+          detail: `Made headless in Blender with the bone map you checked; v${model.version - 1} is kept.`,
+          compareLabel: `Compare with v${model.version - 1}`,
+          compare: () => {
+            if (!projectId) return;
+            focusVersion(projectId, model.asset, model.version);
+            setView('inspector');
+          },
+        }
+      : null;
   const travel = clip?.rootTravel ?? null;
   const badges = model
     ? clip
@@ -26,6 +48,7 @@ export function useClipStage() {
           ...(travel
             ? [{ icon: 'path' as const, text: `Root motion, ${n(travel).toFixed(2)} m per loop` }]
             : []),
+          ...(from ? [{ icon: 'books' as const, text: `from ${from.libraryName}` }] : []),
         ]
       : [
           { icon: 'person-simple' as const, text: 'Rest pose' },
@@ -43,6 +66,7 @@ export function useClipStage() {
     time,
     tick,
     selectClip,
+    bake,
     url,
     label,
     badges,

@@ -1,5 +1,6 @@
 import { useEffect, useRef, type PointerEvent } from 'react';
 import { frameAt, n, readout, ticks, timeOfFrame, type Speed } from '@/state/motion';
+import { bakedClip, useBakedOf } from '@/state/use-baked-store';
 import { currentClip, useMotionStore } from '@/state/use-motion-store';
 import { typing } from '@/lib/typing';
 
@@ -9,6 +10,9 @@ export function useClipTimeline() {
   const player = useMotionStore(s => s.player);
   const setPlayer = useMotionStore(s => s.setPlayer);
   const frames = clip?.frames ?? 0;
+  const asset = useMotionStore(s => s.asset);
+  const baked = bakedClip(useBakedOf(asset), clip?.name);
+  const whole = baked?.libraryFrames ?? 0;
   const [from, to] = player.range;
   const frame = clip ? frameAt(clip, player.time) : 0;
   const seek = (f: number) => {
@@ -66,6 +70,8 @@ export function useClipTimeline() {
     ticks: ticks(frames),
     fps: n(clip?.fps),
     controls,
+    /** The library clip's length, when the bake trimmed it. */
+    trimmedFrom: baked && whole > baked.setting.end - baked.setting.start ? whole : null,
   };
 }
 

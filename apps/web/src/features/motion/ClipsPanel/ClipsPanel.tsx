@@ -9,9 +9,9 @@ import { SEARCH_FROM, useClipsPanel } from './ClipsPanel.hooks';
 /** The selected model's clips, what ships, the clip's numbers and the rig check. */
 export default function ClipsPanel() {
   const panel = useClipsPanel();
-  const { model, rows, total } = panel;
+  const { model, rows, total, groups } = panel;
   if (!model) return null;
-  const clipRows = rows.map(row => (
+  const clipRow = (row: (typeof rows)[number]) => (
     <div
       key={row.clip.name}
       className={cn(
@@ -52,16 +52,17 @@ export default function ClipsPanel() {
           </span>
         </span>
       </button>
-      {panel.game ? null : (
-        <Toggle
-          aria-label={`Ship ${row.clip.name}`}
-          checked={row.ship}
-          disabled={!panel.supported}
-          onChange={ship => panel.setShip(row.clip.name, ship)}
-        />
-      )}
+      <Toggle
+        aria-label={`Ship ${row.clip.name}`}
+        checked={row.ship}
+        disabled={!panel.supported}
+        onChange={ship => panel.setShip(row.clip.name, ship)}
+      />
     </div>
-  ));
+  );
+  const ownRows = groups?.own.map(clipRow);
+  const libraryRows = groups?.fromLibrary.map(clipRow);
+  const allRows = rows.map(clipRow);
   return (
     <aside
       aria-label="Clips and rig"
@@ -142,19 +143,46 @@ export default function ClipsPanel() {
       ) : rows.length === 0 ? (
         <p className="-mt-1.5 text-meta text-fg-mute">No clip name has all of those words.</p>
       ) : (
-        <div className="flex flex-col gap-1.5">{clipRows}</div>
+        <div className="flex flex-col gap-1.5">
+          {groups ? (
+            <>
+              <p className="text-meta text-fg-mute">In the model file · {groups.own.length}</p>
+              {ownRows}
+              <p className="mt-1.5 flex items-center justify-between text-meta text-fg-mute">
+                From the library · {groups.fromLibrary.length}
+                {model.version === groups.newest ? (
+                  <span className="rounded-pill bg-sage-soft px-1.5 text-sage">
+                    new in v{groups.newest}
+                  </span>
+                ) : null}
+              </p>
+              {libraryRows}
+            </>
+          ) : (
+            allRows
+          )}
+        </div>
       )}
+      {panel.leftOut.length ? (
+        <p className="text-meta text-fg-mute">
+          {panel.leftOut.join(', ')} failed in review and{' '}
+          {panel.leftOut.length === 1 ? 'was' : 'were'} left out. Fix{' '}
+          {panel.leftOut.length === 1 ? 'it' : 'them'} in the library, then add{' '}
+          {panel.leftOut.length === 1 ? 'it' : 'them'} again.
+        </p>
+      ) : null}
       {panel.gameNote ? (
         <p className="text-meta text-fg-mute">
-          Game export keeps every clip in the model file, so each one ships with it. Clips count
-          toward no budget here; the model&apos;s folder budget checks triangles and textures.
+          Game export keeps the clips switched on in the model file; one switched off stays out of
+          it from the next run. Clips count toward no budget here; the model&apos;s folder budget
+          checks triangles and textures.
         </p>
       ) : null}
       {panel.oldStarters ? (
         <InlineBanner
           tone="warning"
           title="Every clip ships for now"
-          detail="This project's Build scene script is older than the one that leaves clips out. Update the starter scripts in the Pipeline view."
+          detail={`This project's ${panel.game ? 'Export' : 'Build scene'} script is older than the one that leaves clips out. Update the starter scripts in the Pipeline view.`}
           actions={
             <Button
               size="sm"
