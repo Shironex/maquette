@@ -59,6 +59,24 @@ export function undocumentedTools(root, pages = TOOL_DOCS) {
   return violations;
 }
 
+/** One violation per page that states a tool count other than the server's real one. */
+export function staleToolCount(root, pages = TOOL_DOCS) {
+  const real = serverTools(root).size;
+  const violations = [];
+  for (const page of pages) {
+    for (const m of read(root, page).matchAll(
+      /\b(?:offers|lists|has|with) (\d+) (?:MCP )?tools\b/g
+    ))
+      if (Number(m[1]) !== real)
+        violations.push({
+          rule: 'tools-documented',
+          file: page,
+          message: `says ${m[1]} tools, the MCP server lists ${real} (${TOOL_NAMES})`,
+        });
+  }
+  return violations;
+}
+
 /** Inline backticked tokens of a Markdown text, fenced blocks included. */
 export function backticked(text) {
   return [...text.matchAll(/`([^`\n]+)`/g)].map(m => m[1].trim());

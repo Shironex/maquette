@@ -5,7 +5,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { after, describe, test } from 'node:test';
 
-import { checkSkills, serverTools, toolMentions, undocumentedTools } from './check-skills.mjs';
+import {
+  checkSkills,
+  serverTools,
+  staleToolCount,
+  toolMentions,
+  undocumentedTools,
+} from './check-skills.mjs';
 
 const REPO = resolve(import.meta.dirname, '..');
 const scratch = mkdtempSync(join(tmpdir(), 'maquette-skills-test-'));
@@ -64,6 +70,17 @@ describe('undocumentedTools', () => {
     const missing = undocumentedTools(root, ['TOOLS.md']).map(v => v.message.split('`')[1]);
     assert.ok(missing.includes('send_to_3d'));
     assert.ok(!missing.includes('get_game') && !missing.includes('run_pipeline'));
+  });
+});
+
+describe('staleToolCount', () => {
+  test('passes on the real pages', () => {
+    assert.deepEqual(staleToolCount(REPO), []);
+  });
+
+  test('flags a count that is not the real one', () => {
+    const root = fixture({ 'TOOLS.md': 'The server offers 7 tools.' });
+    assert.equal(staleToolCount(root, ['TOOLS.md']).length, 1);
   });
 });
 
