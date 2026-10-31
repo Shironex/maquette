@@ -64,6 +64,7 @@ A bar over the models then reads how many are selected, with **Select all** for 
 - **Tag:** a popover with a field. Type a tag and press Enter to put it on every selected model; the tags it matches show how many of the selection carry them. Under **On all** each tag on every selected model comes off with its x; under **On some** a click puts that tag on the rest.
 - **Add to collection:** pick a collection; the models already in it are left as they are. New collection in the filter column makes one that starts with the selection.
 - **Use in project:** pick a project, and each model's newest version is copied in, at no credits.
+- **Export pack:** writes the selected models as one pack. See [Export packs](#export-packs).
 - **Remove:** takes the models out of the library. Copies in projects stay as they are. The notice has an Undo that brings them back.
 
 ## Look-alikes
@@ -88,6 +89,31 @@ The side holds the threshold, **Check when models are added** (adding a whole pr
 - **Could not be read:** a missing file, or a `.glb` cut short, stays in the project; add it after a redo.
 
 **Add N models** copies them one after another with a progress bar. **Stop after this one** finishes the model being copied, then stops. Tags and the collection are set once the copies are done. It spends no credits.
+
+## Export packs
+
+An export pack is a set of models made ready for another engine or a friend: one folder (and a zip next to it) with each model's files, a README, a manifest and a contact sheet. Start one from:
+
+- **Library:** **Export pack** in the selection bar packs the selected models. **Export pack** in the top bar packs the collection on show, or every model in view.
+- **Board:** **Export pack** in a project's header packs every accepted model of that project, at its newest version.
+- **Agents:** the [`export_pack`](/docs/agents/mcp-tools/#export_pack) tool, with a preset.
+
+**Settings.** The sheet starts from a preset (**Plain OBJ pack** comes with Maquette; **Save as preset** keeps yours for the next pack):
+
+- **Format:** OBJ with its MTL and PNG textures, GLB, or both. With OBJ, **Also write a GLB with the bones** gives a rigged model a GLB too, since OBJ cannot hold a rig. A GLB can be compressed with the workspace's meshopt and KTX2 settings; the check opens it before it is compressed.
+- **Units and pivot:** metres at the real size the project gave each model, and the origin at the bottom centre, on the floor. Every model is written Y up.
+- **Materials and texture:** materials named `body` (then `body_2` and on), textures up to 512, 1024, 2048 or 4096 px, or as each model has them.
+- **Triangle budget per kind:** props, characters and scenes, each with how many models it has and the biggest one now. A model over its budget is decimated in Blender; a rigged one is never decimated. A switch leaves a kind as it is.
+- **Beside the models:** README, `manifest.json` (names, versions, triangles, where each came from and its licence notes), the contact sheet and, if you want them, each model's concept and refs.
+- **Where:** `exports/` in the workspace by default, or any folder you choose. Maquette replaces only a pack folder it wrote itself.
+
+**Mixamo clips are never shared.** Mixamo allows using its clips in your own work, not handing them on as files. A model on a Mixamo rig, or with clips baked from the animation library, keeps its bones and loses its clips, and the card, the README and the manifest say so.
+
+**The check.** **Export and check** runs Blender headless on each model in turn: it applies the real size, fix-ups and budget, writes the files, then opens each one again in an empty scene and measures it. A card per model shows the render of what was written, its triangles and height, and what the check found: passed, under budget and left as is, a texture that did not load (failed), thin parts lost at the budget with the budget that keeps them, a rigged model over budget, or a pivot or height off. Models that need you wait in **Needs you**: **Raise to N** or **Keep**, and **Export again** for a failed one. The zip waits until every model passes or you say keep it: **Zip N that pass** leaves the rest out, **Zip all** takes the warnings as they are. **Stop** stops after the model running now, and a pack Maquette closed on reads as stopped; **Go on from N** picks it up there.
+
+**Done.** The finished pack shows its size, how many models it holds, its triangles before and after and how long Blender took, what is inside, the manifest and the contact sheet, with **Copy path** and a button that shows the zip in Finder or Explorer. Recent packs are listed under it. A pack spends no credits.
+
+The pack records live in `exports/.packs/` next to the packs, and the presets in `exports/presets.json`.
 
 ## Use in project
 

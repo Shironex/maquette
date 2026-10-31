@@ -45,7 +45,7 @@ The pixel checks read PNG refs; a JPEG or WebP gets the size check only. Each wa
 
 An asset that already has a model, for example one it got from the library, also gets a note above the settings: "Stone well already has a model (v1, from the library entry stone-well). This send makes v2; the library entry is not changed." It is not a ref warning, is not counted and never blocks Send. In the batch panel each such asset carries the same note. To put the new model in the library, use Add to library afterwards: it becomes the entry's next version, not a second entry.
 
-**Built asset** adds a model a Blender script in the project makes. **By hand** opens the checklist of sends waiting for a model from the provider's site. A send there closes on its own once its asset gets a model another way (the Inbox, the library), also for a model that came in while Maquette was closed.
+**Built asset** adds a model a Blender script in the project makes. **Export pack** writes every accepted model of the project as one pack for another engine, checked in Blender (see [Export packs](/docs/views/library/#export-packs)). **By hand** opens the checklist of sends waiting for a model from the provider's site. A send there closes on its own once its asset gets a model another way (the Inbox, the library), also for a model that came in while Maquette was closed.
 
 ## Projects
 
