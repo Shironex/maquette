@@ -39,6 +39,7 @@ mod model_run;
 mod plan;
 mod presets;
 mod record;
+mod run;
 mod sheet;
 mod verdict;
 

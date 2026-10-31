@@ -1,6 +1,7 @@
 //! The pack service without Blender: what it refuses, decisions on a pack
 //! that waits, a pack the app closed on, and going on from a stop.
 
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use super::record::{self, PackItemState, PackState};
@@ -188,4 +189,39 @@ fn a_pack_the_app_closed_on_while_zipping_waits_for_the_zip_again() {
         .zip(&root, &closed.id, ZipChoice::Passing)
         .expect("zip");
     assert_eq!(done.state, PackState::Done);
+}
+
+/// A pack stopped with models still queued and one warning to answer.
+fn stopped_record(dir: &Path) -> PackRecord {
+    let mut record = done_record(dir);
+    record.state = PackState::Stopped;
+    record.items[1].state = PackItemState::Queued;
+    record
+}
+
+#[test]
+fn keeping_a_warning_on_a_stopped_pack_leaves_it_stopped() {
+    let dir = tempfile::tempdir().expect("dir");
+    let root = dir.path().join("ws");
+    let stopped = stopped_record(dir.path());
+    record::save(&root, &stopped).expect("save");
+    let (packs, heard) = service();
+    let keep = PackDecision::Keep { key: "rake".into() };
+    // Without Blender a restart would fail loudly, so none is tried.
+    let read = packs
+        .decide(&root, Toolbox::default(), defaults(), &stopped.id, &keep)
+        .expect("keep");
+    assert_eq!(read.state, PackState::Stopped);
+    assert_eq!(read.items[2].state, PackItemState::Kept);
+    assert_eq!(read.items[1].state, PackItemState::Queued, "still waits");
+    assert_eq!(
+        read.message.as_deref(),
+        Some("Stopped with 2 of 3 done, model 2 is next")
+    );
+    assert_eq!(*heard.lock().expect("heard"), [PackState::Stopped]);
+    packs.wait();
+    let saved = record::load(&root, &stopped.id).expect("load");
+    assert_eq!(saved.state, PackState::Stopped);
+    assert_eq!(saved.items[2].state, PackItemState::Kept);
+    assert!(packs.stop(&stopped.id).is_err(), "nothing runs");
 }
