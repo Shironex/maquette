@@ -165,7 +165,12 @@ fn a_changed_dev_command_starts_afresh() {
     let first = preview
         .start(&plan, "moon-island", ServerOwner::Page)
         .expect("first");
+    // free_port can hand the same port out twice in a row, and the first
+    // server is still bound to it while it is being stopped: ask again.
     let mut changed = node_plan(site.path(), &node, SERVE);
+    while changed.port == plan.port {
+        changed.port = Some(free_port().expect("port"));
+    }
     changed.key = "node -e <another server>".into();
     let second = preview
         .start(&changed, "moon-island", ServerOwner::Page)
