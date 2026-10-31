@@ -15,12 +15,14 @@ mod model;
 mod records;
 mod remote;
 mod request;
+mod retexture;
 mod send;
 mod sends;
 mod settle;
 mod spend;
 mod split;
 mod split_bake;
+mod split_files;
 mod split_remote;
 mod store;
 #[cfg(test)]
@@ -43,10 +45,11 @@ use maquette_model::workspace::WorkspaceConfig;
 
 pub use model::{
     BakeBack, BakeState, CancelMode, InboxLink, JobPhase, JobState, Provider, ProviderEvent,
-    ProviderJob, SplitJob,
+    ProviderJob, RetextureJob, SplitJob,
 };
 pub use records::ModelAttached;
 pub use request::{BatchFailure, BatchItem, BatchRequest, BatchSent, SendRequest};
+pub use retexture::RetextureRequest;
 pub use split::{SplitRequest, SplitSource};
 
 use model::{Chain, JobsFile, Stored};

@@ -6,6 +6,8 @@ use std::sync::Arc;
 
 use super::records::write_inbox;
 use super::remote::{run_meshy, run_tripo};
+use super::retexture::run_meshy_retexture;
+use super::split_files::{SOURCE_FILE, source_of, split_dir};
 use super::split_remote::{run_meshy_split, run_tripo_split};
 use super::{
     Chain, Flow, FlowResult, JobPhase, JobState, Outcome, ProviderJob, Shared, Stored, Workspace,
@@ -235,7 +237,7 @@ fn run_remote(
             )?;
             let client = Tripo { api: &api, stop };
             if let Some(split) = &job.split {
-                let source = super::split::source_of(workspace, job).ok_or_else(|| {
+                let source = source_of(workspace, job).ok_or_else(|| {
                     Flow::Fail("The model to split is gone from the project.".to_string())
                 })?;
                 return run_tripo_split(run, &client, split, &source);
@@ -251,6 +253,10 @@ fn run_remote(
                 options.meshy,
             )?;
             let client = Meshy { api: &api, stop };
+            if job.retexture.is_some() {
+                let source = split_dir(workspace, &job.id).join(SOURCE_FILE);
+                return run_meshy_retexture(run, &client, job, &source);
+            }
             if let Some(split) = &job.split {
                 return run_meshy_split(run, &client, split);
             }

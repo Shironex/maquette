@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use maquette_core::parts::assemble::{AssemblePart, AssembleRequest, Pivot};
 use maquette_core::providers::split::{
-    CompletionMode, Granularity, MeshySplit, MeshySplitMode, SegmentModel, TripoSplit,
+    CompletionMode, Granularity, MeshySplit, MeshySplitMode, SegmentModel, SplitAfter, TripoSplit,
 };
 use maquette_core::providers::{JobState, Provider, SplitRequest};
 use rmcp::handler::server::wrapper::Parameters;
@@ -122,6 +122,8 @@ impl SplitArgs {
             provider,
             tripo,
             meshy,
+            after: SplitAfter::default(),
+            texture_prompt: None,
         }
     }
 }

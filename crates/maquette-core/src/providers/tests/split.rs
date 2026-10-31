@@ -5,7 +5,7 @@
 use super::*;
 use crate::pipeline::tools::Toolbox;
 use crate::providers::split::{
-    CompletionMode, Granularity, MeshySplit, MeshySplitMode, SegmentModel, TripoSplit,
+    CompletionMode, Granularity, MeshySplit, MeshySplitMode, SegmentModel, SplitAfter, TripoSplit,
 };
 
 /// Both providers in one double. Generations return the textured crate;
@@ -47,6 +47,11 @@ impl SplitFake {
             ("POST", "/image-to-3d") => Reply::ok(&json!({ "result": "m-model" })),
             ("POST", "/print/split") => Reply::ok(&json!({ "result": "m-split" })),
             ("DELETE", "/print/split/m-split") => Reply::ok(&json!({})),
+            ("POST", "/retexture") => Reply::ok(&json!({ "result": "m-paint" })),
+            ("GET", "/retexture/m-paint") => Reply::ok(&json!({
+                "id": "m-paint", "status": "SUCCEEDED", "progress": 100, "consumed_credits": 10,
+                "model_urls": { "glb": format!("{base}/dl/m-paint.glb") },
+            })),
             ("GET", "/image-to-3d/m-model") => Reply::ok(&json!({
                 "id": "m-model", "status": "SUCCEEDED", "progress": 100, "consumed_credits": 20,
                 "model_urls": { "glb": format!("{base}/dl/m-model.glb") },
@@ -120,6 +125,8 @@ fn split_request(world: &World, provider: Provider) -> SplitRequest {
         provider,
         tripo: None,
         meshy: None,
+        after: SplitAfter::default(),
+        texture_prompt: None,
     }
 }
 
@@ -357,6 +364,67 @@ fn a_meshy_split_waits_for_approval_lands_as_a_version_and_bakes_the_texture_bac
     assert!(
         jobs.bake_back(&job.id, &Toolbox::default()).is_err(),
         "done once"
+    );
+}
+
+#[test]
+fn keeping_a_meshy_split_grey_only_offers_the_bake_and_a_retexture_lands_as_a_version() {
+    let world = World::new();
+    let (server, _) = split_server();
+    let jobs = world.jobs(&server);
+    made_by(&world, &jobs, Provider::Meshy);
+    let mut request = split_request(&world, Provider::Meshy);
+    request.meshy = Some(MeshySplit::default());
+    request.after = SplitAfter::Grey;
+    let job = jobs.send_split(&request, false, false).expect("split");
+    let done = finished(&jobs, &job.id);
+    assert_eq!(accept(&world, &jobs, &done.inbox_file.expect("item")), 2);
+    assert!(jobs.scheduled_bakes().is_empty(), "grey runs no bake");
+    let split = jobs.get(&job.id).and_then(|j| j.split).expect("split");
+    assert_eq!(split.bake.map(|b| b.state), Some(BakeState::Offered));
+
+    let paint = RetextureRequest {
+        project: world.project.clone(),
+        asset: world.asset.clone(),
+        version: 2,
+        prompt: " weathered iron ".to_string(),
+    };
+    let blank = RetextureRequest {
+        prompt: "  ".to_string(),
+        ..paint.clone()
+    };
+    assert!(jobs.send_retexture(&blank, false, false).is_err());
+    assert_eq!(server.count("POST", "/retexture"), 0);
+
+    let asked = jobs.send_retexture(&paint, true, true).expect("asked");
+    assert_eq!(asked.state, JobState::Approval);
+    assert_eq!(asked.estimate, Some(10.0));
+    assert_eq!(asked.summary(), "Meshy re-texture of v2");
+    assert_eq!(
+        server.count("POST", "/retexture"),
+        0,
+        "nothing before approval"
+    );
+    jobs.approve(&asked.id).expect("approve");
+    let painted = finished(&jobs, &asked.id);
+    assert_eq!(painted.state, JobState::Inbox, "{painted:?}");
+    assert_eq!(painted.credits, Some(10.0));
+    let body = server.find("POST", "/retexture").expect("sent").json();
+    assert_eq!(body["text_style_prompt"], "weathered iron");
+    assert_eq!(body["target_formats"], json!(["glb"]));
+    assert!(
+        body["model_url"]
+            .as_str()
+            .is_some_and(|m| m.starts_with("data:application/octet-stream;base64,"))
+    );
+    assert_eq!(accept(&world, &jobs, &painted.inbox_file.expect("item")), 3);
+    let again = SplitRequest {
+        version: Some(3),
+        ..request
+    };
+    assert!(
+        jobs.send_split(&again, false, false).is_err(),
+        "a re-texture is not split again"
     );
 }
 

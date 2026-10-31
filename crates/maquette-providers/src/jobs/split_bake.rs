@@ -5,10 +5,11 @@
 //! lost its texture offers it. The untextured version stays, so keeping it
 //! undoes the bake.
 
-use super::split::{source_of, split_dir, version_file};
+use super::split_files::{source_of, split_dir, version_file};
 use super::{BakeBack, BakeState, ProviderEvent, ProviderJob, ProviderJobs, Stored, Workspace};
 use super::{Provider, update};
 use crate::error::{CoreError, CoreResult};
+use crate::split::SplitAfter;
 use maquette_base::ports::TextureBake;
 use maquette_base::tools::Toolbox;
 use maquette_glb::analyse;
@@ -31,9 +32,13 @@ pub(super) fn arrived(stored: &mut Stored, textures: u32) {
     let lost = split.textures_before > 0 && textures == 0;
     split.texture_kept = Some(!lost);
     let from = split.source_label();
+    let after = split.after;
     stored.job.message = Some(match (provider, lost) {
-        (Provider::Meshy, true) => format!(
+        (Provider::Meshy, true) if after == SplitAfter::Bake => format!(
             "In the Inbox. Meshy drops the texture: accept it and the texture bakes back from {from} in Blender, free."
+        ),
+        (Provider::Meshy, true) => format!(
+            "In the Inbox. Meshy drops the texture: accept it, then re-texture it or bake it back from {from}, or keep it grey."
         ),
         (_, true) => format!(
             "In the Inbox. Tripo did not keep the texture: accept it, then bake it back from {from} for free."
@@ -43,7 +48,8 @@ pub(super) fn arrived(stored: &mut Stored, textures: u32) {
 }
 
 /// Once the split is accepted as `version`: a Meshy split that lost its
-/// texture schedules the bake back, a Tripo one offers it.
+/// texture schedules the bake back unless another choice was made; the
+/// others, and a Tripo one, offer it.
 pub(super) fn on_accept(stored: &mut Stored, version: u32) {
     let provider = stored.job.provider;
     let Some(split) = stored.job.split.as_mut() else {
@@ -52,7 +58,7 @@ pub(super) fn on_accept(stored: &mut Stored, version: u32) {
     if split.texture_kept != Some(false) || split.bake.is_some() {
         return;
     }
-    let state = if provider == Provider::Meshy {
+    let state = if provider == Provider::Meshy && split.after == SplitAfter::Bake {
         BakeState::Scheduled
     } else {
         BakeState::Offered
