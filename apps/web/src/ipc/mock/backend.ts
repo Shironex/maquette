@@ -48,7 +48,7 @@ import { createPathsHandlers } from './create-paths-handlers';
 import { createGameHandlers } from './create-game-handlers';
 import { createAvatarHandlers } from './create-avatar-handlers';
 import { seedAvatar } from './avatar-fixtures';
-import { withManyAssets, wrapInspectFixtures } from './many-assets-fixtures';
+import { withInspectAssets, wrapInspectFixtures } from './many-assets-fixtures';
 import { manyPipeline, seedManyPipeline } from './pipeline-many';
 import { stressInbox, stressProjects, wrapStress } from './stress-fixtures';
 import { createLibraryHandlers } from './create-library-handlers';
@@ -129,9 +129,7 @@ export function createBackend({
     state: configured ? gameState : null,
   });
   [projects, config] = game.seedInto(projects, config);
-  if (configured && inspectState === 'many') {
-    projects = projects.map(p => (p.id === 'frostveil' ? withManyAssets(p) : p));
-  }
+  if (configured) projects = projects.map(p => withInspectAssets(p, inspectState));
   if (configured) projects = projects.map(p => seedManyPipeline(p, pipelineState));
   const listed = configured ? seedInbox(inboxState, `${expand(DEFAULT_ROOT)}/inbox`, now) : [];
   let inbox: InboxItem[] = linkGameInbox(

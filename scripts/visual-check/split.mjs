@@ -41,7 +41,39 @@ export async function splitShots({ open, shot }) {
   await names.press('Enter');
   await sheet.getByText('3 of 10').waitFor();
   await shot(tab, 'parts-split-meshy');
+  await sheet.getByRole('radio', { name: /Re-texture with Meshy/ }).click();
+  await sheet.getByRole('textbox', { name: 'Texture prompt' }).fill('old oak');
+  await shot(tab, 'parts-split-retexture');
+  await sheet.getByRole('button', { name: 'Split with Meshy' }).click();
+  await tab.getByText(/You start it from the Parts tab once you accept the parts/).waitFor();
+  await shot(tab, 'parts-split-retexture-confirm');
   await tab.context().close();
+
+  // A disabled way is dimmed and says why on the sheet.
+  const blocked = await partsTab(open, DEMO, 'Sigil gate frame');
+  await blocked.getByRole('button', { name: 'Split into parts...' }).click();
+  await blocked
+    .getByRole('dialog', { name: /^Split Sigil gate frame/ })
+    .getByText(/Meshy splits only models it made/)
+    .waitFor();
+  await shot(blocked, 'parts-split-disabled-way');
+  await blocked.context().close();
+
+  // A re-texture that came back as one mesh says so in the Inbox.
+  const lost = await open('&scenario=configured&inbox=retexture&parts=retexture', '#/inbox');
+  await lost.getByText('Fern clump').first().click();
+  await lost.getByText('Parts gone: v2 has 35, this is one mesh').waitFor();
+  await shot(lost, 'inbox-retexture-parts-gone');
+
+  // Accepting a split with a re-texture chosen links to the offer.
+  await lost.getByText('Frost lantern parts').first().click();
+  await lost.getByRole('button', { name: /^Accept to Blender/ }).click();
+  await lost.getByRole('button', { name: 'Open Parts tab' }).waitFor();
+  await shot(lost, 'parts-retexture-accepted');
+  await lost.getByRole('button', { name: 'Open Parts tab' }).click();
+  await lost.getByText('v3 is grey for now').waitFor();
+  await shot(lost, 'parts-retexture-offer');
+  await lost.context().close();
 
   const bake = await partsTab(open, SPLIT, 'Frost lantern');
   await bake.getByText('Tripo did not keep the texture').waitFor();

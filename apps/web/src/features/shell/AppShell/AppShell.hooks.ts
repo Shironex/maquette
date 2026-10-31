@@ -4,6 +4,7 @@ import { PLATFORM } from '@/ipc/runtime';
 import { readFlag, writeFlag } from '@/lib/storage';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
+import type { ViewId } from '@/state/views';
 import { useAvatarStore } from '@/state/use-avatar-store';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useInboxStore } from '@/state/use-inbox-store';
@@ -111,7 +112,11 @@ export function useAppShell() {
 
   return {
     view,
-    setView,
+    /** The rail's click: Inbox always means the list, not a case left open. */
+    goTo: (next: ViewId) => {
+      if (next === 'inbox') useRigStore.getState().leave();
+      setView(next);
+    },
     items,
     groups: [{ title: 'Libraries', items: libraries }],
     planned: plannedViewsFor(project?.target),

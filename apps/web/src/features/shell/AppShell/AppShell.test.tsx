@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '@/state/use-app-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 import { useProjectsStore } from '@/state/use-projects-store';
+import { useRigStore } from '@/state/use-rig-store';
+import type { RigRecord } from '@/ipc/client';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { AppShell } from '.';
 
@@ -30,6 +32,20 @@ async function renderShell() {
 }
 
 describe('the app shell', () => {
+  it('shows the Inbox list from the rail, even with a rig doctor case left open', async () => {
+    const rail = await renderShell();
+    const record = { id: 'case-1' } as unknown as RigRecord;
+    useRigStore.setState({ record });
+    await userEvent.click(within(rail).getByRole('button', { name: /Inbox/ }));
+    expect(useAppStore.getState().view).toBe('inbox');
+    expect(useRigStore.getState().record).toBeNull();
+    // Another view leaves the case where it was.
+    useRigStore.setState({ record });
+    await userEvent.click(within(rail).getByRole('button', { name: /Pipeline/ }));
+    expect(useRigStore.getState().record).toBe(record);
+    useRigStore.setState({ record: null });
+  });
+
   it('shows the selected view and switches views from the rail', async () => {
     const rail = await renderShell();
     expect(

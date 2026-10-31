@@ -15,7 +15,7 @@ import { usePointGizmo } from './use-point-gizmo';
 export function usePathsRig(props: PathsSceneProps): PathsRig {
   const { gl, scene } = useThree();
   const camera = useThree(s => s.camera) as THREE.PerspectiveCamera;
-  const holders = useHolders(props.models, props.handlers.onError);
+  const holders = useHolders(props.models, props.handlers.onError, props.handlers.onProgress);
   const live = useRef(props);
   useLayoutEffect(() => {
     live.current = props;

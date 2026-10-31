@@ -40,7 +40,7 @@ use super::secrets::SecretStore;
 use super::tripo;
 use crate::error::{CoreError, CoreResult};
 use maquette_model::project;
-use maquette_model::sends::{SendNotes, SendPorts, SentMaps};
+use maquette_model::sends::{SendNotes, SendPorts, SentMaps, SentTo};
 use maquette_model::workspace::WorkspaceConfig;
 
 pub use model::{
@@ -87,7 +87,7 @@ pub fn send_notes(job: &ProviderJob) -> SendNotes {
             m.enable_pbr,
             m.texture_resolution != MeshyTexture::K2,
         ),
-        (None, None) => return SendNotes::default(),
+        (None, None) => (true, true, false),
     };
     let maps = if !texture {
         SentMaps::NoTexture
@@ -96,10 +96,18 @@ pub fn send_notes(job: &ProviderJob) -> SendNotes {
     } else {
         SentMaps::Any
     };
+    let by_hand = job.provider == Provider::ByHand;
     SendNotes {
         maps,
         large_textures: large_textures && texture,
-        by_hand_tripo: job.provider == Provider::ByHand && job.service == ProviderId::Tripo,
+        by_hand_tripo: by_hand && job.service == ProviderId::Tripo,
+        sent_to: match job.service {
+            ProviderId::Tripo => SentTo::Tripo,
+            ProviderId::Meshy => SentTo::Meshy,
+        },
+        by_hand,
+        split: job.split.is_some(),
+        retexture_of: None,
     }
 }
 

@@ -9,6 +9,7 @@ import { commands, errorMessage, type AcceptResult, type DiscardedModel } from '
 import { acceptTarget, goesTo, itemTitle } from './inbox';
 import type { TriageFilter } from './triage';
 import { useAppStore } from './use-app-store';
+import { retextureOffer } from './retexture-offer';
 import { useInboxStore } from './use-inbox-store';
 import { useLibraryStore } from './use-library-store';
 import { usePrepareStore } from './use-prepare-store';
@@ -98,6 +99,7 @@ export const useTriageStore = create<TriageStore>((set, get) => ({
     const results: AcceptResult[] = [];
     const failed: string[] = [];
     try {
+      let offer: ReturnType<typeof retextureOffer> = null;
       for (const id of ids) {
         const item = inbox.snapshot?.items.find(i => i.id === id);
         if (!item) continue;
@@ -123,6 +125,7 @@ export const useTriageStore = create<TriageStore>((set, get) => ({
           if (prep) prepare.setDraft(id, null);
           setProject(result.project);
           results.push(result);
+          offer ??= retextureOffer(item, result.version.version);
         } catch (error) {
           failed.push(`${itemTitle(item)}: ${errorMessage(error)}`);
         }
@@ -134,7 +137,10 @@ export const useTriageStore = create<TriageStore>((set, get) => ({
         title: n
           ? `${n} ${n === 1 ? 'model' : 'models'} accepted${after?.library ? `, ${added} added to the library` : ''}`
           : 'Nothing was accepted',
-        detail: failed.length ? failures(failed) : 'Each became a version of its asset.',
+        detail: failed.length
+          ? failures(failed)
+          : (offer?.detail ?? 'Each became a version of its asset.'),
+        action: offer?.action,
       });
       inbox.clearChecked();
       await inbox.load();

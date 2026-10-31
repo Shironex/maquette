@@ -118,6 +118,7 @@ describe('SegmentedControl', () => {
     );
     const pixels = screen.getByRole('button', { name: 'Pixels' });
     expect(pixels).toHaveAttribute('aria-disabled', 'true');
+    expect(pixels).toHaveClass('opacity-80', 'cursor-not-allowed');
     await userEvent.click(pixels);
     expect(onChange).not.toHaveBeenCalled();
   });

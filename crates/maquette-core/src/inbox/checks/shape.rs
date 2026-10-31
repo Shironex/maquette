@@ -1,7 +1,7 @@
 //! The checks on a model's shape: where its origin sits, how many objects
 //! draw it and whether one mesh holds what should be separate parts.
 
-use super::{Check, CheckStatus, check};
+use super::{Check, CheckStatus, RetextureSource, check, short_count};
 use crate::assets::AssetKind;
 use crate::inbox::analyse::GlbReport;
 use crate::prepare::{DEFAULT_LOOSE_SHARE, DEFAULT_MERGE_UNDER, Fixup, SplitBy};
@@ -128,4 +128,43 @@ pub(super) fn merged_check(report: &GlbReport, kind: AssetKind) -> Option<Check>
             remove,
         ]),
     )
+}
+
+/// A re-texture against the version it painted. Meshy's answer decides whether
+/// the parts stay parts, so a loss has to say so.
+pub(super) fn retexture_check(report: &GlbReport, source: RetextureSource) -> Check {
+    let (before, after) = (source.objects, report.objects);
+    let tris = format!(
+        "{} tris on v{}, {} here.",
+        short_count(source.triangles),
+        source.version,
+        short_count(report.triangles)
+    );
+    if after < before {
+        return check(
+            "retexture-parts",
+            CheckStatus::Warning,
+            if after <= 1 {
+                format!(
+                    "Parts gone: v{} has {before}, this is one mesh",
+                    source.version
+                )
+            } else {
+                format!(
+                    "Parts lost: v{} has {before}, this has {after}",
+                    source.version
+                )
+            },
+            format!(
+                "Meshy's re-texture merged them, so Motion states and explode tracks cannot move them. {tris} To keep the parts, discard this and use Bake back on v{} in Inspector > Parts.",
+                source.version
+            ),
+        );
+    }
+    let title = if before >= 2 {
+        format!("Parts kept: {after}, as on v{}", source.version)
+    } else {
+        format!("One mesh, as on v{}", source.version)
+    };
+    check("retexture-parts", CheckStatus::Pass, title, tris)
 }

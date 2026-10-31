@@ -14,6 +14,7 @@ import { TRIAGE_PREVIEW } from './triage-fixtures';
 import { conceptFiles, OBJECT_REF_FILES, REF_FILES } from './lab-fixtures';
 import { INSPECT_FILES } from './inspect-fixtures';
 import { LAYOUT_FILES } from './layout';
+import { dioramaFiles } from './many-assets-fixtures';
 import { motionFiles } from './create-motion-handlers';
 import { avatarSheetFiles, avatarVrmFiles } from './avatar-files';
 import { SPRINGS_SCENARIOS } from './create-avatar-springs';
@@ -144,12 +145,15 @@ const motion = params.get('motion') ?? (params.get('timeline') ? 'demo' : null);
 for (const [file, model] of Object.entries({
   ...INSPECT_FILES,
   ...LAYOUT_FILES,
+  ...(params.get('inspect') === 'diorama' ? dioramaFiles() : {}),
   ...motionFiles(motion),
   ...partsFiles(params.get('parts')),
   ...(params.get('parts') ? SPLIT_FILES : {}),
 })) {
   const url = models[`../../assets/mock/models/${model}`];
-  if (url) registerMockFile(`${root}/projects/frostveil/${file}`, url);
+  // A diorama's models are files of their own, so each one fetches.
+  const own = params.get('inspect') === 'diorama' ? `?file=${encodeURIComponent(file)}` : '';
+  if (url) registerMockFile(`${root}/projects/frostveil/${file}`, `${url}${own}`);
 }
 // The fix-up previews' copies the Parts tab and Compare show.
 for (const [path, model] of Object.entries(params.get('parts') ? PARTS_CACHE : {})) {
