@@ -9,9 +9,9 @@ import { clock } from '@/lib/clock';
 export type InspectMode = Extract<MaterialMode, 'shaded' | 'parts' | 'wireframe' | 'lightmap'>;
 /**
  * Compare versions, lay out the scene, or draw paths through it; a game
- * checks budgets. Both name a model's parts.
+ * checks budgets. Both name a model's parts and render it.
  */
-export type InspectorTab = 'compare' | 'layout' | 'paths' | 'budget' | 'parts';
+export type InspectorTab = 'compare' | 'layout' | 'paths' | 'budget' | 'parts' | 'render';
 
 interface InspectorStore {
   tab: InspectorTab;
