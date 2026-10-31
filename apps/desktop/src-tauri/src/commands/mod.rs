@@ -23,6 +23,7 @@ pub mod library;
 pub mod library_batch;
 pub mod materials;
 pub mod motion;
+pub mod packs;
 pub mod page;
 pub mod parts;
 pub mod paths;

@@ -15,6 +15,7 @@ import { useLabStore } from '@/state/use-lab-store';
 import { useLayoutStore } from '@/state/use-layout-store';
 import { useMaterialsStore } from '@/state/use-materials-store';
 import { useMotionStore } from '@/state/use-motion-store';
+import { usePackStore } from '@/state/use-pack-store';
 import { useTimelineStore } from '@/state/use-timeline-store';
 import { usePathsStore } from '@/state/use-paths-store';
 import { usePageStore } from '@/state/use-page-store';
@@ -235,6 +236,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
         useLibraryStore.getState().onChanged();
         useAnimationsStore.getState().onChanged();
       }),
+      events.packChanged.listen(e => usePackStore.getState().onChanged(e.payload.record)),
       events.mcpUpdate.listen(e => onAgents(e.payload)),
       events.providerUpdate.listen(e => onProvider(e.payload)),
       events.materialsChanged.listen(e => void loadMaterials(e.payload.project)),

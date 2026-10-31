@@ -167,6 +167,37 @@ export const commands = {
 	libraryMerge: (request: MergeEntries) => __TAURI_INVOKE<LibraryMerged>("library_merge", { request }),
 	/**  What adding every asset of a project would do. Reads only. */
 	libraryAddManyPlan: (project: string) => __TAURI_INVOKE<AddManyPlan>("library_add_many_plan", { project }),
+	/**
+	 *  What a pack made of `source` would hold, with the settings' budgets and
+	 *  a size estimate. Reads only.
+	 */
+	packPlan: (source: PackSource, settings: PackSettings) => __TAURI_INVOKE<PackPlan>("pack_plan", { source, settings }),
+	/**  The pack presets, the built in one first. */
+	packPresets: () => __TAURI_INVOKE<PackPreset[]>("pack_presets"),
+	/**  Saves the settings as a preset; answers every preset. */
+	packSavePreset: (name: string, settings: PackSettings) => __TAURI_INVOKE<PackPreset[]>("pack_save_preset", { name, settings }),
+	/**  Starts a pack; its progress comes as `PackChanged` events. */
+	packStart: (request: PackRequest) => __TAURI_INVOKE<PackRecord>("pack_start", { request }),
+	/**  One pack's record. */
+	packGet: (id: string) => __TAURI_INVOKE<PackRecord>("pack_get", { id }),
+	/**  The newest packs first. */
+	packRecent: () => __TAURI_INVOKE<PackRecord[]>("pack_recent"),
+	/**  Raises a model's budget, keeps its warning or exports it again. */
+	packDecide: (id: string, decision: PackDecision) => __TAURI_INVOKE<PackRecord>("pack_decide", { id, decision }),
+	/**
+	 *  Writes the README, manifest and contact sheet and zips the pack, with
+	 *  the models that pass or every one with files.
+	 */
+	packZip: (id: string, choice: ZipChoice) => __TAURI_INVOKE<PackRecord>("pack_zip", { id, choice }),
+	/**  Stops a pack once the model running now is done. */
+	packStop: (id: string) => __TAURI_INVOKE<PackRecord>("pack_stop", { id }),
+	/**  Goes on with a stopped pack from the model it reached. */
+	packResume: (id: string) => __TAURI_INVOKE<PackRecord>("pack_resume", { id }),
+	/**
+	 *  Shows a pack's zip (or its folder, without one) in Finder or Explorer.
+	 *  Only a pack's own files can be shown this way.
+	 */
+	packReveal: (id: string) => __TAURI_INVOKE<null>("pack_reveal", { id }),
 	/**  Every clip in the animation library. */
 	animationsGet: () => __TAURI_INVOKE<AnimationsView>("animations_get"),
 	/**
@@ -661,6 +692,7 @@ export const events = {
 	libraryChanged: makeEvent<LibraryChanged>("library-changed"),
 	materialsChanged: makeEvent<MaterialsChanged>("materials-changed"),
 	mcpUpdate: makeEvent<McpUpdate>("mcp-update"),
+	packChanged: makeEvent<PackChanged>("pack-changed"),
 	pageServerChanged: makeEvent<PageServerChanged>("page-server-changed"),
 	pipelineChanged: makeEvent<PipelineChanged>("pipeline-changed"),
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
@@ -3193,6 +3225,22 @@ export type KeyTest = {
 	message: string,
 };
 
+/**  The triangle budget of one kind; `None` leaves that kind as it is. */
+export type KindBudget = {
+	kind: AssetKind,
+	triangles: number | null,
+};
+
+/**  One kind's row in the budget table. */
+export type KindRow = {
+	kind: AssetKind,
+	label: string,
+	count: number,
+	/**  The most triangles one model of the kind has now. */
+	biggest: number,
+	budget: number | null,
+};
+
 /**  The Concept lab's Codex jobs. */
 export type LabSettings = {
 	/**
@@ -4131,11 +4179,227 @@ export type OpenAiKeyTest = {
 	message: string,
 };
 
+/**
+ *  An export pack changed: a model started, passed, warned or failed, or
+ *  the pack waits, zips or is done. The Library's pack sheet follows it.
+ */
+export type PackChanged = {
+	record: PackRecord,
+};
+
 /**  The pack a dropped file's clips go to. */
 export type PackChoice = {
 	file: string,
 	pack: string,
 };
+
+/**  What happens to the GLB files after Blender writes them. */
+export type PackCompression = 
+/**  Plain files any importer opens. */
+"none" | 
+/**
+ *  The workspace's compress settings, as the pipeline's Compress step
+ *  runs them (meshopt and KTX2): small, but only for engines that read
+ *  both. The check opens the plain file before it is compressed.
+ */
+"web";
+
+/**  A person's answer to a model the check flagged. */
+export type PackDecision = 
+/**  Export it again at a higher budget. */
+{ choice: "raise"; key: string; triangles: number } | 
+/**  Keep it as the check found it. */
+{ choice: "keep"; key: string } | 
+/**  Export it again as it is (after fixing its source, say). */
+{ choice: "again"; key: string };
+
+/**  The files each model becomes. */
+export type PackFormat = 
+/**  OBJ with its MTL and PNG textures. */
+"obj" | 
+/**  Binary glTF with the textures inside. */
+"glb" | "both";
+
+/**  One model of a pack and what its run found. */
+export type PackItem = {
+	model: PackModel,
+	state: PackItemState,
+	/**  The budget it is decimated to, after any raise. */
+	budget: number | null,
+	/**  Its triangles once written. */
+	triangles: number | null,
+	/**  Its height in metres, as the check measured it. */
+	heightM: number | null,
+	/**  The files written, relative to the pack folder. */
+	files: string[],
+	/**  The check's render of what was written, an absolute path. */
+	picture: string | null,
+	/**  What the check found, in a line. */
+	note: string | null,
+	/**  For thin parts lost: the budget that keeps them, about. */
+	suggest: number | null,
+	/**  Clips left out because they may be Mixamo's. */
+	clipsLeftOut: number,
+	/**  How long its run took, in ms. */
+	tookMs: number | null,
+	/**  What its files weigh. */
+	bytes: number | null,
+};
+
+/**  Where one model of a pack stands. */
+export type PackItemState = "queued" | "running" | 
+/**  Written, opened again and as asked. */
+"pass" | 
+/**  Written, but the check found something a person should look at. */
+"warn" | 
+/**  Not written, or written wrong. */
+"fail" | 
+/**  A warning a person chose to keep. */
+"kept";
+
+/**  One model of a pack. */
+export type PackModel = {
+	/**  Its file stem and folder in the pack: `cast_iron_stove`. */
+	key: string,
+	name: string,
+	kind: AssetKind,
+	/**  The library entry it comes from. */
+	entry: string | null,
+	/**  The project asset it comes from. */
+	project: string | null,
+	asset: string | null,
+	version: number,
+	/**  The model file, an absolute path. */
+	file: string,
+	stats: ModelStats | null,
+	rigged: boolean,
+	/**  Its height in metres when its real size gives one. */
+	heightM: number | null,
+	/**  Its clips may be Mixamo's, so they stay out. */
+	mixamo: boolean,
+	source: LibrarySource | null,
+	licence: string,
+	/**  Its picture, an absolute path. */
+	thumbnail: string | null,
+	/**  Its concept and refs, absolute paths. */
+	refs: string[],
+	/**  The real size and fix-ups it has where it came from. */
+	prep: ModelPrep | null,
+};
+
+/**  What a pack would hold. */
+export type PackPlan = {
+	/**  "12 models from the library", "8 models of Frostveil". */
+	label: string,
+	models: PackModel[],
+	kinds: KindRow[],
+	/**  About what the zip weighs. */
+	estimateBytes: number | null,
+	/**  Models whose clips stay out. */
+	mixamo: number,
+	/**  Models left out, each with why. */
+	skipped: string[],
+};
+
+/**  Settings saved under a name. */
+export type PackPreset = {
+	id: string,
+	name: string,
+	/**  The settings, the pack name aside: each pack names its own. */
+	settings: PackSettings,
+	/**  True for the one that comes with Maquette. */
+	builtIn: boolean,
+	savedAt: string | null,
+	used: number,
+};
+
+/**  `exports/.packs/<id>.json`. */
+export type PackRecord = {
+	version: number,
+	id: string,
+	name: string,
+	/**  "12 models from the library". */
+	label: string,
+	source: PackSource,
+	settings: PackSettings,
+	/**  The pack folder, an absolute path. */
+	dir: string,
+	/**  The zip, once written. */
+	zip: string | null,
+	state: PackState,
+	items: PackItem[],
+	createdAt: string,
+	finishedAt: string | null,
+	/**  What the zip (or the folder, without one) weighs, once done. */
+	bytes: number | null,
+	/**  Why it stopped or failed, or what finishing left out. */
+	message: string | null,
+	preset: string | null,
+};
+
+/**  Everything a pack needs to start. */
+export type PackRequest = {
+	source: PackSource,
+	settings: PackSettings,
+	/**
+	 *  The folder the pack folder and zip go in. `None` means
+	 *  `<workspace>/exports`.
+	 */
+	out: string | null,
+	/**  The preset it was made from, counted as used. */
+	preset: string | null,
+};
+
+/**  How a pack is made. */
+export type PackSettings = {
+	/**  The folder and zip name: lowercase words joined by dashes. */
+	name: string,
+	format: PackFormat,
+	/**  Scales each model to the real size its project gave it (metres). */
+	realSize: boolean,
+	/**  Puts each model's origin at its bottom centre, on the floor. */
+	pivotBottom: boolean,
+	/**  Names each model's materials body, body_2 and so on. */
+	oneMaterial: boolean,
+	/**  The longest texture edge in pixels; 0 keeps every texture as it is. */
+	texture: number,
+	/**
+	 *  With OBJ, also writes a GLB with the bones and clips of a rigged
+	 *  model (OBJ cannot hold a rig).
+	 */
+	riggedGlb: boolean,
+	compression: PackCompression,
+	budgets: KindBudget[],
+	readme: boolean,
+	manifest: boolean,
+	contactSheet: boolean,
+	/**  Copies each model's concept and refs beside it. */
+	refs: boolean,
+	/**  Writes `<name>.zip` next to the folder. */
+	zip: boolean,
+};
+
+/**  What the pack is made of. */
+export type PackSource = 
+/**  Library entries, each at its newest version. */
+{ from: "entries"; entries: string[] } | 
+/**  Every entry of a library collection. */
+{ from: "collection"; collection: string } | 
+/**  Every accepted model of a project, at its newest version. */
+{ from: "project"; project: string };
+
+/**  Where a pack stands. */
+export type PackState = 
+/**  Models are being written and checked. */
+"running" | 
+/**  Every model ran; some need a person before the zip. */
+"waiting" | 
+/**  The README, manifest, contact sheet and zip are being written. */
+"zipping" | "done" | 
+/**  Stopped by a person, or Maquette closed, before every model ran. */
+"stopped" | 
+/**  Something outside one model went wrong (the folder, Blender). */
+"failed";
 
 /**  The site's dev server changed state or printed, for the Page view. */
 export type PageServerChanged = ServerStatus;
@@ -6661,6 +6925,13 @@ export type WorkspaceSnapshot = {
 	project: ProjectManifest | null,
 	projects: ProjectManifest[],
 };
+
+/**  Which models a finish takes. */
+export type ZipChoice = 
+/**  Only the models that pass or were kept. */
+"passing" | 
+/**  Those and the ones with a warning, kept as they are. */
+"all";
 
 /* Tauri Specta runtime */
 type EventEmit<T> = [T] extends [null] ? () => Promise<void> : (payload: T) => Promise<void>;

@@ -162,13 +162,19 @@ export function libraryStats(items: readonly LibraryItem[]): LibraryStats {
 /** Whole thousands from 10k up, so the line fits a narrow card: "35k", "7.4k". */
 const shortK = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000)}k` : formatK(n));
 
+/** ["v3", "Built", "412k tris"], ["v2", "Tripo, rigged", "35k tris"]: the card wraps between them. */
+export function itemParts(item: LibraryItem): string[] {
+  const latest = latestOf(item);
+  if (!latest) return ['No model'];
+  const rigged = (latest.stats?.joints ?? 0) > 0 ? ', rigged' : '';
+  const parts = [`v${latest.version}`, `${SOURCE_LABEL[latest.source]}${rigged}`];
+  if (latest.stats) parts.push(`${shortK(latest.stats.triangles)} tris`);
+  return parts;
+}
+
 /** "v3 · Built · 412k tris", "v2 · Tripo, rigged · 35k tris". */
 export function itemLine(item: LibraryItem): string {
-  const latest = latestOf(item);
-  if (!latest) return 'No model';
-  const rigged = (latest.stats?.joints ?? 0) > 0 ? ', rigged' : '';
-  const tris = latest.stats ? ` · ${shortK(latest.stats.triangles)} tris` : '';
-  return `v${latest.version} · ${SOURCE_LABEL[latest.source]}${rigged}${tris}`;
+  return itemParts(item).join(' · ');
 }
 
 /** "2 projects", "Not used yet". */

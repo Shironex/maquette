@@ -21,14 +21,15 @@ export interface LibraryBulkBarProps {
 /**
  * The bar over the models while some are picked: how many, Select all,
  * and the actions that take the whole selection at once (Tag, Add to
- * collection, Use in project, Remove). Nothing here spends credits.
+ * collection, Use in project, Export pack, Remove). Nothing here spends
+ * credits.
  */
 export default function LibraryBulkBar(props: LibraryBulkBarProps) {
   const { picked, shown, onSelectAll, onClear, known, collections } = props;
   const ids = picked.map(i => i.entry.id);
   const n = picked.length;
   const all = n >= shown;
-  const { open, close, toggle, collectionItems, projectItems } = useLibraryBulkBar(
+  const { open, close, toggle, collectionItems, projectItems, exportPack } = useLibraryBulkBar(
     ids,
     collections
   );
@@ -115,6 +116,14 @@ export default function LibraryBulkBar(props: LibraryBulkBarProps) {
           />
         ) : null}
       </div>
+      <Button
+        size="sm"
+        icon="package"
+        tooltip="Writes the selected models as one pack for another engine or a friend: OBJ or GLB, checked in Blender, zipped"
+        onClick={exportPack}
+      >
+        Export pack
+      </Button>
       <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-line-strong" />
       <Button
         size="sm"

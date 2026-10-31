@@ -6,6 +6,7 @@ import { useAppStore } from '@/state/use-app-store';
 import { useAddManyStore } from '@/state/use-add-many-store';
 import { useLibrarySelectionStore } from '@/state/use-library-selection-store';
 import { useLibraryStore } from '@/state/use-library-store';
+import { usePackStore } from '@/state/use-pack-store';
 import { useLookAlikesStore } from '@/state/use-look-alikes-store';
 import { useLibraryQuickView } from '@/state/use-quick-view-store';
 import type { ModelFlag } from './LibraryView.types';
@@ -22,6 +23,8 @@ export function useLibraryView() {
   const scan = looks.scan;
   const showAddMany = useAddManyStore(s => s.show);
   const addManyOpen = useAddManyStore(s => s.open);
+  const packOpen = usePackStore(s => s.open);
+  const showPack = usePackStore(s => s.show);
   const items = view?.items ?? [];
   const collections = view?.collections ?? [];
   const shown = sortItems(filterItems(items, filters, collections), sort);
@@ -62,6 +65,19 @@ export function useLibraryView() {
     showUntagged: () => store.setFilters({ tag: UNTAGGED }),
     addManyOpen,
     openAddMany: () => showAddMany(workspace?.project?.id ?? null),
+    pack: {
+      open: packOpen,
+      tip: collection
+        ? `Writes every model in ${collection.name} as one pack, checked in Blender and zipped`
+        : 'Writes the models in view as one pack, checked in Blender and zipped; pick some first to pack only those',
+      start: () =>
+        void (collection
+          ? showPack(
+              { from: 'collection', collection: collection.id },
+              { collection: collection.name }
+            )
+          : showPack({ from: 'entries', entries: shown.map(i => i.entry.id) })),
+    },
   };
 }
 

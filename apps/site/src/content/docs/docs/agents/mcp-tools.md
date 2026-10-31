@@ -5,7 +5,7 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 97 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 101 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
 
@@ -53,6 +53,8 @@ These look at the workspace and change nothing.
 | [`get_size_report`](#get_size_report)         | Each model's source bytes and triangles against what ships, with totals, as rows, CSV and Markdown                                                                                                                                                                                                                                                                     | Nothing | No       |
 | [`list_library`](#list_library)               | The library's models, with their versions, tags and the projects that use them. Takes an optional `query`, `tag`, `project`, `collection`, `limit`, `cursor` and `full`                                                                                                                                                                                                | Nothing | No       |
 | [`find_look_alikes`](#find_look_alikes)       | Library entries that may be one model twice (same look or same name), the entries with no readable picture, the recent merges and the settings                                                                                                                                                                                                                         | Nothing | No       |
+| [`get_pack`](#get_pack)                       | One export pack: its state, each model's check with triangles before and after, and what needs you                                                                                                                                                                                                                                                                     |
+| [`list_packs`](#list_packs)                   | The newest export packs and the pack presets                                                                                                                                                                                                                                                                                                                           |
 | [`list_animations`](#list_animations)         | The animation library's clips: pack, tags, source rig, bone count, frames, rate, seconds, root motion, loop and size. Takes an optional `query`, `pack`, `tag` and `rig`                                                                                                                                                                                               | Nothing | No       |
 | Tool                                          | What it returns                                                                                                                                                                                                                                                                                                                                                        | Spends  | Approval |
 | --------------------------------------------- | -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------                                                                                                      | ------- | -------- |
@@ -112,6 +114,8 @@ These look at the workspace and change nothing.
 | [`remove_from_library`](#remove_from_library)         | Moves library entries to `library/.removed`; the copies in projects stay                                                                                                                              | Nothing | No       |
 | [`restore_to_library`](#restore_to_library)           | Puts removed library entries back, undoing a merge for a merged one                                                                                                                                   | Nothing | No       |
 | [`merge_library_entries`](#merge_library_entries)     | Merges one library entry into another and points project assets along                                                                                                                                 | Nothing | No       |
+| [`export_pack`](#export_pack)                         | Writes library models as one pack (OBJ or GLB, README, manifest, contact sheet, zip) inside the workspace, each checked in headless Blender                                                           |
+| [`decide_pack`](#decide_pack)                         | Raises a pack model's budget, keeps a warning, exports it again, zips, stops or goes on                                                                                                               |
 | [`import_animations`](#import_animations)             | Imports Mixamo FBX files or pack zips into the animation library, skeleton only                                                                                                                       | Nothing | No       |
 | [`save_model_clips`](#save_model_clips)               | Saves a rigged model's clips to the animation library as a pack                                                                                                                                       | Nothing | No       |
 | [`use_animations`](#use_animations)                   | Bakes library clips onto a rigged model as its next version, after a review                                                                                                                           | Nothing | No       |
@@ -877,6 +881,68 @@ Merges one library entry into another. Every version of `merge` the kept entry l
 
 ```json
 { "keep": "desk-lamp", "merge": "desk-lamp-2" }
+```
+
+### export_pack
+
+`writes files`
+
+Writes a set of models as one pack for another engine or a person: library `entries`, a library `collection` or a `project`'s accepted models (give one). It starts from a `preset` (`list_packs`; `plain-obj`, the built in one, by default) with the `settings` fields you give laid over it. Blender runs headless on each model: the real size its project gave it, the pivot at the bottom centre, the kind's triangle budget (a rigged model is never decimated), textures as PNG up to the size asked, materials named `body`, then OBJ with its MTL, GLB, or both. Each written file is opened again in an empty scene and checked: triangles, height, where it stands, textures that did not load and clips left.
+
+Mixamo clips are never shared. A model on a Mixamo rig (or with clips baked from the animation library) keeps its bones and loses its clips, and the README and manifest say so.
+
+A pack an agent asks for is written inside the workspace only, to `exports/<name>` by default, with `README.txt`, `manifest.json` (names, versions, triangles, source and licence notes) and `contact-sheet.png`, and zipped next to the folder once every model passes. A warning or a failure waits for [`decide_pack`](#decide_pack). With `dryRun`, it starts nothing and answers the plan: the models, the biggest model per kind against its budget, about what the zip weighs and how many models lose Mixamo clips. It spends no credits.
+
+| Parameter    | Type     | Required | Notes                                                                                                                                                                                                                                                                                    |
+| ------------ | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entries`    | string[] | no       | Library entry ids, as `list_library` returns them.                                                                                                                                                                                                                                       |
+| `collection` | string   | no       | A library collection id: every entry in it.                                                                                                                                                                                                                                              |
+| `project`    | string   | no       | A project id: every accepted model.                                                                                                                                                                                                                                                      |
+| `preset`     | string   | no       | A preset id. `plain-obj` by default.                                                                                                                                                                                                                                                     |
+| `settings`   | object   | no       | Fields to change: `name`, `format` (`obj`, `glb` or `both`), `realSize`, `pivotBottom`, `oneMaterial`, `texture` (512 to 4096, or 0 to keep), `riggedGlb`, `compression` (`none` or `web`), `budgets` (`[{ kind, triangles }]`), `readme`, `manifest`, `contactSheet`, `refs` and `zip`. |
+| `out`        | string   | no       | A folder inside the workspace. `exports/` by default.                                                                                                                                                                                                                                    |
+| `dryRun`     | boolean  | no       | Answer the plan and start nothing.                                                                                                                                                                                                                                                       |
+
+```json
+{ "collection": "village-props", "settings": { "name": "village-props", "format": "both" } }
+```
+
+### get_pack
+
+`read only`
+
+Reads one export pack: its `state` (`running`, `waiting`, `zipping`, `done`, `stopped` or `failed`), each model's check (`queued`, `running`, `pass`, `warn`, `fail` or `kept`) with its triangles before and after, height, note and, when thin parts were lost, the budget to raise to (`suggest`), how many need you, and the folder and zip.
+
+| Parameter | Type   | Required | Notes                                                   |
+| --------- | ------ | -------- | ------------------------------------------------------- |
+| `id`      | string | yes      | The pack id, as `export_pack` or `list_packs` gives it. |
+
+### list_packs
+
+`read only`
+
+Lists the newest export packs (a pack Maquette closed on reads as `stopped`) and the pack presets with their settings.
+
+### decide_pack
+
+`writes files`
+
+Answers what a pack asks for. `raise` (with `key` and `triangles`) exports a model again at a higher budget, `keep` (with `key`) lets a warned model into the pack, `again` (with `key`) exports a model again as it is. `zip-passing` zips the models that pass and leaves the rest out, `zip-all` zips every model with files. `stop` stops after the model running now and `resume` goes on with a stopped pack from the model it reached. It answers the pack as `get_pack` does.
+
+| Parameter   | Type   | Required | Notes                                                                   |
+| ----------- | ------ | -------- | ----------------------------------------------------------------------- |
+| `id`        | string | yes      | The pack id.                                                            |
+| `choice`    | string | yes      | `raise`, `keep`, `again`, `zip-passing`, `zip-all`, `stop` or `resume`. |
+| `key`       | string | no       | The model's key in the pack, for `raise`, `keep` and `again`.           |
+| `triangles` | number | no       | The new budget, for `raise`.                                            |
+
+```json
+{
+  "id": "village-props-20261031140200",
+  "choice": "raise",
+  "key": "garden_tools",
+  "triangles": 3000
+}
 ```
 
 ### list_animations

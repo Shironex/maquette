@@ -29,6 +29,7 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
     missing,
     rendering,
     renderPreviews,
+    exportPack,
   } = useBoardHeader();
   const subtitle = project
     ? `${assetCount((project.assets ?? []).length)} · ${game ? `game · .${game.format} in ${game.modelsDir}/` : TEMPLATE_LABEL[project.template]} · created ${formatAgo(Date.parse(project.createdAt), clock.nowMs())}`
@@ -103,6 +104,15 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
             Import models
           </Button>
         ) : null}
+        <Button
+          icon="package"
+          disabled={!project || (project.assets ?? []).every(a => a.versions.length === 0)}
+          disabledReason={project ? 'No model accepted yet' : 'Open a project first'}
+          tooltip="Export pack: every accepted model of this project as one pack for another engine, checked in Blender"
+          onClick={exportPack}
+        >
+          Export pack
+        </Button>
         <Button
           icon="wrench"
           disabled={!project}

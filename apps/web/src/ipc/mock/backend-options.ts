@@ -3,6 +3,7 @@ import type {
   ConceptEvent,
   ErrorPayload,
   McpStatus,
+  PackRecord,
   PipelineEvent,
   ProjectManifest,
   ProviderEvent,
@@ -80,6 +81,7 @@ export interface BackendOptions {
       | { name: 'built'; project: string; manifest?: ProjectManifest }
       | { name: 'page'; payload: ServerStatus }
       | { name: 'updater'; payload: UpdaterEvent }
+      | { name: 'pack'; payload: PackRecord }
   ) => void;
   /** `active`: the MCP server is on, mid agent session. */
   agents?: string | null;

@@ -16,6 +16,7 @@ import type {
   LibraryUsed,
   LibraryView,
   ModelPrep,
+  PackRecord,
   ProjectManifest,
   SettingChange,
   UpdatePlan,
@@ -25,6 +26,7 @@ import { fail, slugify, type Args } from './backend-options';
 import { LIBRARY_ORIGINS } from './library-fixtures';
 import { createAnimationHandlers } from './create-animation-handlers';
 import { createLibraryBatchHandlers, seedLibrary } from './create-library-batch-handlers';
+import { createPackHandlers } from './create-pack-handlers';
 
 interface LibraryContext {
   projects: () => readonly ProjectManifest[];
@@ -36,6 +38,8 @@ interface LibraryContext {
   /** Serves a project file at a library path and back, since mock mode has no disk. */
   alias: (path: string, from: string) => void;
   state: string | null;
+  /** Export packs: how fast a model runs, and the pack changed event. */
+  pack: { pace: number; emit: (record: PackRecord) => void };
 }
 
 const key = (id: string) => id.replace(/-/g, '_');
@@ -358,10 +362,20 @@ export function createLibraryHandlers(ctx: LibraryContext) {
     saveProject: ctx.saveProject,
   });
 
+  const packs = createPackHandlers({
+    library: view,
+    project: ctx.project,
+    root: ctx.root,
+    emit: ctx.pack.emit,
+    pace: ctx.pack.pace,
+    state: ctx.state,
+  });
+
   return {
     handlers: {
       ...animations.handlers,
       ...batch,
+      ...packs.handlers,
       library_get: () => view(),
       library_add: add,
       library_use: use,

@@ -284,6 +284,7 @@ export function createBackend({
     savePrep: (id, asset, entry) => prepare.handlers.prepare_save?.({ project: id, asset, entry }),
     alias: (path, from) => files?.alias(path, from),
     state: configured ? libraryState : null,
+    pack: { pace, emit: payload => emit?.({ name: 'pack', payload }) },
   });
 
   const handlers: Record<string, (args: Args) => unknown> = {

@@ -3,6 +3,7 @@ import type { MenuItem } from '@/features/common/Menu';
 import type { LibraryCollection } from '@/ipc/client';
 import { changeCollection, copyIntoProject } from '@/state/library-actions';
 import { useAppStore } from '@/state/use-app-store';
+import { usePackStore } from '@/state/use-pack-store';
 
 const NONE: never[] = [];
 
@@ -39,5 +40,6 @@ export function useLibraryBulkBar(
     toggle: (which: BulkMenu) => setOpen(o => (o === which ? null : which)),
     collectionItems,
     projectItems,
+    exportPack: () => void usePackStore.getState().show({ from: 'entries', entries: [...ids] }),
   };
 }

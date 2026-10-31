@@ -17,8 +17,10 @@ cancel_run
 clean_ref_background
 compare_versions
 copy_asset
+decide_pack
 discard_inbox_model
 dismiss_download
+export_pack
 find_look_alikes
 get_avatar
 get_bake_settings
@@ -31,6 +33,7 @@ get_inbox_checks
 get_layout
 get_material_tweaks
 get_motion
+get_pack
 get_page_preview
 get_parts
 get_pipeline
@@ -54,6 +57,7 @@ list_fixups
 list_handoffs
 list_inbox
 list_library
+list_packs
 list_projects
 list_removed_assets
 make_object_refs

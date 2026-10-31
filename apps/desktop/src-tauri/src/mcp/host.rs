@@ -7,6 +7,7 @@ use maquette_core::ProjectManifest;
 use maquette_core::concepts::backend::ImageSettings;
 use maquette_core::concepts::codex_usage::CodexUsage;
 use maquette_core::concepts::{ConceptEvent, Concepts, Direction, StyleBoard};
+use maquette_core::packs::Packs;
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::providers::{Arrivals, ProviderJobs};
@@ -17,6 +18,7 @@ use tauri_specta::Event as _;
 
 use crate::commands::downloads::Watch;
 use crate::commands::lab::Lab;
+use crate::commands::packs::PackJobs;
 use crate::commands::pipeline::Pipelines;
 use crate::commands::providers::Studio;
 use crate::commands::thumbs::Thumbs;
@@ -44,6 +46,12 @@ pub trait Host: Send + Sync + 'static {
     fn arrivals(&self) -> Option<&Arrivals> {
         None
     }
+
+    /// The export packs service, where the app runs one.
+    fn packs(&self) -> Option<&Packs> {
+        None
+    }
+
     /// Tells the windows that a tool changed a project, so the Board updates.
     fn project_changed(&self, _project: &ProjectManifest) {}
     /// Tells the windows that a tool changed a project's pipeline file, so
@@ -111,6 +119,10 @@ impl Host for AppHost {
 
     fn arrivals(&self) -> Option<&Arrivals> {
         self.0.try_state::<Watch>().map(|w| &w.inner().0)
+    }
+
+    fn packs(&self) -> Option<&Packs> {
+        self.0.try_state::<PackJobs>().map(|p| &p.inner().0)
     }
 
     fn site_preview(&self) -> Option<Arc<SitePreview>> {

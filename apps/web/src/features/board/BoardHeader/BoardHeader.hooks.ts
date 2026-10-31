@@ -10,6 +10,7 @@ import { useProvidersStore } from '@/state/use-providers-store';
 import { useGameStore } from '@/state/use-game-store';
 import { gameOf } from '@/state/game';
 import { missingPreviews } from '@/state/thumbs';
+import { usePackStore } from '@/state/use-pack-store';
 
 /** The Board's title row: the project, the By hand and 3D queue counts, Built asset and Add asset. */
 export function useBoardHeader() {
@@ -45,7 +46,16 @@ export function useBoardHeader() {
     setAdding(false);
   };
 
+  /** Every accepted model as one pack: the Library's pack sheet opens on it. */
+  const exportPack = () => {
+    if (!project) return;
+    useAppStore.getState().setView('library');
+    void usePackStore
+      .getState()
+      .show({ from: 'project', project: project.id }, { project: project.name });
+  };
   return {
+    exportPack,
     project,
     layout,
     setLayout,

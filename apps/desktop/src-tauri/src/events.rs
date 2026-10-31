@@ -134,6 +134,14 @@ pub struct DownloadsArrival(pub maquette_core::providers::Arrival);
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 pub struct PageServerChanged(pub maquette_core::site::preview::ServerStatus);
 
+/// An export pack changed: a model started, passed, warned or failed, or
+/// the pack waits, zips or is done. The Library's pack sheet follows it.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct PackChanged {
+    pub record: maquette_core::packs::PackRecord,
+}
+
 /// The MCP server started or stopped, took a call, or a run started by an
 /// agent waits for a shipping approval.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
