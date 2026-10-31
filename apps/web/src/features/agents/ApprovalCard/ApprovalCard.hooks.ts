@@ -8,6 +8,7 @@ import { formatUsd } from '@/state/image-api';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
+import { useRigStore } from '@/state/use-rig-store';
 
 /**
  * For a game's Ship: which replaced files are the game's imported originals,
@@ -92,9 +93,17 @@ function useRestPose(approval: Approval) {
     sheets: sheets ? { before: fileUrl(sheets.before), after: fileUrl(sheets.after) } : null,
     denying,
     open: () => {
+      if (approval.kind === 'rig-doctor') {
+        if (approval.job) void useRigStore.getState().showCase(approval.job);
+        return;
+      }
       if (asset) useAvatarStore.getState().open(project, asset, version ?? null);
     },
     deny: async () => {
+      if (approval.kind === 'rig-doctor') {
+        await useAgentsStore.getState().decide(approval.id, false);
+        return;
+      }
       if (!asset) return;
       setDenying(true);
       try {

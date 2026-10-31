@@ -71,6 +71,7 @@ export function createBackend({
   lab: labState = null,
   conceptMs = 4000,
   agents: agentsState = null,
+  rig = null,
   projects: projectsState = null,
   handoff = null,
   style = null,
@@ -246,7 +247,6 @@ export function createBackend({
   });
 
   const avatars = createAvatarHandlers(project, () => config, configured ? avatar : null, pace);
-
   const agents = createFakeAgents({
     config: () => config,
     active: agentsOn,
@@ -256,8 +256,8 @@ export function createBackend({
     onSendDecision: providers.decide,
     games: game,
     avatars,
+    rig: { state: rig, pace, emit: payload => emit?.({ name: 'rig', payload }) },
   });
-
   const built = createBuiltHandlers({
     project,
     saveProject,

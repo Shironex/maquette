@@ -10,14 +10,14 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 use crate::commands::{
     about, agents, animations, app, assets, avatar, built, codex_usage, credits, dialogs,
     downloads, game, image_api, inbox, inspect, lab, layout, library, library_batch, materials,
-    motion, packs, page, parts, paths, pipeline, prepare, project, providers, quit, refs, ship,
-    site, split, thumbs, timeline, toolchain, trash, updater, workspace,
+    motion, packs, page, parts, paths, pipeline, prepare, project, providers, quit, refs, rig,
+    ship, site, split, thumbs, timeline, toolchain, trash, updater, workspace,
 };
 use crate::events::{
     AvatarChanged, BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival,
     ImageSettingsChanged, InboxChanged, LayoutChanged, LibraryChanged, MaterialsChanged, McpUpdate,
     PackChanged, PageServerChanged, PipelineChanged, PipelineUpdate, PrepareChanged,
-    ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady, UpdaterUpdate,
+    ProjectChanged, ProviderUpdate, QuitRequested, RigChanged, ThumbnailReady, UpdaterUpdate,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -105,6 +105,17 @@ pub fn builder() -> Builder<tauri::Wry> {
             packs::pack_stop,
             packs::pack_resume,
             packs::pack_reveal,
+            rig::rig_open,
+            rig::rig_get,
+            rig::rig_list,
+            rig::rig_accept,
+            rig::rig_run,
+            rig::rig_cancel,
+            rig::rig_decide_joints,
+            rig::rig_land,
+            rig::rig_discard,
+            rig::rig_save_sheet,
+            rig::rig_open_blender,
             animations::animations_get,
             animations::animations_read_import,
             animations::animations_import,
@@ -259,7 +270,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             UpdaterUpdate,
             CodexUsageUpdate,
             ImageSettingsChanged,
-            PackChanged
+            PackChanged,
+            RigChanged
         ])
         .types(&maquette_core::types())
 }

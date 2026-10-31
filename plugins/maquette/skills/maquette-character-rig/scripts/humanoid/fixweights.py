@@ -21,8 +21,14 @@ Method (positions in glTF units; Tripo normalises characters to 1.0 tall):
     weights, so a cape welded to a sleeve stretches a little instead of tearing.
  6. Top 4 influences, normalised; no vertex left without weight.
 
-Usage: blender -b --factory-startup -P fixweights.py -- in.glb out.glb [--debug prefix]
+It refuses a mesh that is one continuous island (exit code 3, report says "one_island"): a limb tube
+cannot tell a sleeve from a body there and the seam band tears sleeves and legs. Use narrow.py instead.
+
+Usage: blender -b --factory-startup -P fixweights.py -- in.glb out.glb [--debug prefix] [--band metres]
+           [--report-only]
        (or Blender's own python: <python> -I fixweights.py in.glb out.glb; it needs numpy only)
+--report-only writes out.glb.report.json (limbs, misplaced chains) and no GLB. --band widens the seam.
+All distances are for a model one unit tall and scale with the model's real height.
 """
 import sys, os, json, heapq
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -52,8 +58,20 @@ def smoothstep(x):
     return x * x * (3 - 2 * x)
 
 
-def main(src, dst, debug=None):
+def scale_tunables(h):
+    """The tube radii and bands are for a model one unit tall."""
+    global R_UPPERARM, R_FOREARM, R_HAND, R_THIGH, R_SHIN, R_FOOT, MIRROR_TOL, BAND, LEG_NEAR, LEG_FAR
+    R_UPPERARM, R_FOREARM, R_HAND = R_UPPERARM * h, R_FOREARM * h, R_HAND * h
+    R_THIGH, R_SHIN, R_FOOT = R_THIGH * h, R_SHIN * h, R_FOOT * h
+    MIRROR_TOL, BAND, LEG_NEAR, LEG_FAR = MIRROR_TOL * h, BAND * h, LEG_NEAR * h, LEG_FAR * h
+
+
+def main(src, dst, debug=None, band=None, report_only=False):
+    global BAND
+    if band is not None:
+        BAND = band
     g = glbio.load(src)
+    scale_tunables(glbio.height(g))
     V, NJ = len(g.pos), len(g.names)
     hips = next(n for n in g.names if n.endswith("Hips"))
     PFX = hips[:-4]
@@ -63,6 +81,10 @@ def main(src, dst, debug=None):
     M = np.array([-1.0, 1.0, 1.0])
     W0 = glbio.dense(g)
     lab, inv = glbio.components(g)
+    if glbio.one_island(lab):
+        json.dump({"one_island": True, "limbs": {}}, open(dst + ".report.json", "w"), indent=1)
+        print("REFUSED one_island: one connected island holds nearly every vertex, so a limb tube would tear sleeves and legs. Use narrow.py.")
+        sys.exit(3)
     ncomp = lab.max() + 1
     csize = np.bincount(lab)
 
@@ -352,7 +374,8 @@ def main(src, dst, debug=None):
     W = (1 - A.sum(0))[:, None] * Wtrunk + np.einsum("kv,kvj->vj", A, Wband)
 
     joints, weights = glbio.to_top4(W)
-    glbio.save_weights(g, joints, weights, dst)
+    if not report_only:
+        glbio.save_weights(g, joints, weights, dst)
 
     Wn = np.zeros((V, NJ)); np.add.at(Wn, (np.repeat(np.arange(V), 4), joints.astype(int).ravel()), weights.ravel())
     changed = np.abs(Wn - W0).sum(1) > 0.05
@@ -372,4 +395,5 @@ def main(src, dst, debug=None):
 if __name__ == "__main__":
     a = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
     dbg = a[a.index("--debug") + 1] if "--debug" in a else None
-    main(a[0], a[1], dbg)
+    bnd = float(a[a.index("--band") + 1]) if "--band" in a else None
+    main(a[0], a[1], dbg, bnd, "--report-only" in a)

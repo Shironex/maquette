@@ -142,6 +142,14 @@ pub struct PackChanged {
     pub record: maquette_core::packs::PackRecord,
 }
 
+/// A rig doctor case changed: it was read, a script finished, or its draft
+/// waits. The Inbox's rig doctor view and row follow it.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct RigChanged {
+    pub record: maquette_core::rig::RigRecord,
+}
+
 /// The MCP server started or stopped, took a call, or a run started by an
 /// agent waits for a shipping approval.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

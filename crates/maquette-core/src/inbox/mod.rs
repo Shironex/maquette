@@ -58,7 +58,7 @@ const KINDS_FILE: &str = "kinds.json";
 /// it are read again (version 1 added the VRM readiness, version 2 its
 /// offsets in the character's own frame and the wider scale noise,
 /// version 3 its naming report, joint list and skin checks).
-const REPORT_VERSION: u32 = 3;
+const REPORT_VERSION: u32 = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]

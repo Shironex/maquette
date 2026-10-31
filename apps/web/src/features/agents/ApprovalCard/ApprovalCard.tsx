@@ -15,7 +15,8 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
   const titleId = `${approval.id}-title`;
   const weights = approval.kind === 'reweight';
   const chains = approval.kind === 'springs';
-  const rest = approval.kind === 'rest-pose' || weights || chains;
+  const doctor = approval.kind === 'rig-doctor';
+  const rest = approval.kind === 'rest-pose' || weights || chains || doctor;
   const send = approval.kind === 'send-to-3d';
   const round = approval.kind === 'image-round';
   const detailLine = (send || round || rest) && approval.detail ? approval.detail : null;
@@ -54,7 +55,12 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
           <h2 id={titleId} className="text-emphasis leading-5 font-semibold">
             {approvalTitle(approval, site?.name)}
           </h2>
-          {chains ? (
+          {doctor ? (
+            <p className="mt-0.5 text-meta text-fg-mute">
+              An agent started this rig doctor run over MCP. Nothing is added until you look at the
+              sheets and add it yourself.
+            </p>
+          ) : chains ? (
             <p className="mt-0.5 text-meta text-fg-mute">
               An agent built this avatar over MCP and added a chain of joints to each confirmed
               spring. Nothing is written with them until you approve the sheets in the Avatar view.
@@ -139,11 +145,13 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
             disabled={pose.denying}
             loading={pose.denying}
             tooltip={
-              chains
-                ? 'Writes the VRM without springs; the agent is told it was turned down'
-                : weights
-                  ? 'Lifts the arms from the model as it is; the agent is told it was turned down'
-                  : 'Writes nothing; the agent is told the pose was turned down'
+              doctor
+                ? 'Adds nothing; the draft is kept and the agent can read that it waits'
+                : chains
+                  ? 'Writes the VRM without springs; the agent is told it was turned down'
+                  : weights
+                    ? 'Lifts the arms from the model as it is; the agent is told it was turned down'
+                    : 'Writes nothing; the agent is told the pose was turned down'
             }
             onClick={() => void pose.deny()}
           >
@@ -152,7 +160,11 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
           <Button
             variant="primary"
             icon="magnifying-glass"
-            tooltip="Opens the before and after sheets large, to approve or deny there"
+            tooltip={
+              doctor
+                ? 'Opens the rig doctor, to add the draft or discard it there'
+                : 'Opens the before and after sheets large, to approve or deny there'
+            }
             onClick={pose.open}
           >
             Open the sheets

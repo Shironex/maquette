@@ -6,7 +6,8 @@
  * `?agents=images` a round of two Lab images on OpenAI Images (the jobs
  * `?lab=approval` holds).
  */
-import type { Approval, McpCall, McpStatus, WorkspaceConfig } from '../client';
+import type { Approval, McpCall, McpStatus, RigRecord, WorkspaceConfig } from '../client';
+import { createRigHandlers } from './create-rig-handlers';
 import { clock } from '@/lib/clock';
 
 type Args = Record<string, unknown>;
@@ -57,6 +58,7 @@ export function createFakeAgents({
   active,
   batch = false,
   images = false,
+  rig: rigOptions,
   emit,
   onSendDecision,
   games,
@@ -76,7 +78,12 @@ export function createFakeAgents({
   games?: { approvals: () => Approval[]; decide: (a: Approval, approve: boolean) => void };
   /** Rest pose approvals agents' avatar builds wait on; only the Avatar view answers them. */
   avatars?: { approvals: () => Approval[] };
+  /** What an agent's rig doctor case waits for; only the rig doctor view adds it. */
+  rig?: { state: string | null; pace: number; emit: (record: RigRecord) => void };
 }) {
+  const rig = rigOptions
+    ? createRigHandlers(rigOptions.state, rigOptions.pace, rigOptions.emit)
+    : null;
   const now = clock.nowMs();
   let token: string | null = active ? MOCK_TOKEN : null;
   let calls: McpCall[] = active ? agentCalls(now) : [];
@@ -184,13 +191,19 @@ export function createFakeAgents({
       error: null,
       askBeforeShipping: agents.rules.askBeforeShipping,
       calls,
-      approvals: [...approvals, ...(games?.approvals() ?? []), ...(avatars?.approvals() ?? [])],
+      approvals: [
+        ...approvals,
+        ...(games?.approvals() ?? []),
+        ...(avatars?.approvals() ?? []),
+        ...(rig?.approvals() ?? []),
+      ],
     };
   };
 
   const changed = () => emit?.(status());
 
   const handlers: Record<string, (args: Args) => unknown> = {
+    ...rig?.handlers,
     mcp_status: () => status(),
     mcp_decide: ({ approvalId, approve }) => {
       const game = games?.approvals().find(a => a.id === approvalId);
@@ -202,6 +215,7 @@ export function createFakeAgents({
       if (!found) {
         throw { code: 'invalid', message: 'That request is no longer waiting for approval.' };
       }
+      rig?.deny(approvalId as string);
       approvals = approvals.filter(a => a.id !== approvalId);
       const jobs = found.items.length ? found.items.map(i => i.job) : found.job ? [found.job] : [];
       for (const job of jobs) onSendDecision?.(job, Boolean(approve));

@@ -45,6 +45,7 @@ describe('CardMenu', () => {
       'Add a model file as the next version...',
       'Add to library...',
       'Inspect 3D model',
+      'Fix in rig doctor',
       'Open in Blender',
       'Remove from project...',
       'Move to',

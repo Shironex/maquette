@@ -51,8 +51,8 @@ def load(path):
     g.prim = p
     at = p["attributes"]
     g.pos = read_acc(g, at["POSITION"]).astype(np.float64)
-    g.nrm = read_acc(g, at["NORMAL"]).astype(np.float64)
-    g.uv = read_acc(g, at["TEXCOORD_0"]).astype(np.float64)
+    g.nrm = read_acc(g, at["NORMAL"]).astype(np.float64) if "NORMAL" in at else None
+    g.uv = read_acc(g, at["TEXCOORD_0"]).astype(np.float64) if "TEXCOORD_0" in at else None
     g.idx = read_acc(g, p["indices"]).astype(np.int64).reshape(-1, 3)
     g.joints = read_acc(g, at["JOINTS_0"]).astype(np.int64)
     g.weights = read_acc(g, at["WEIGHTS_0"]).astype(np.float64)
@@ -71,6 +71,20 @@ def load(path):
     g.parent = [jindex.get(node_parent.get(n, -1), -1) for n in g.joint_nodes]
     # mesh node world transform must be identity for positions to be in joint space
     return g
+
+
+def height(g):
+    """The model's height in file units (glTF is Y up)."""
+    return float(g.pos[:, 1].max() - g.pos[:, 1].min())
+
+
+ONE_ISLAND_SHARE = 0.9
+
+
+def one_island(lab):
+    """True when one connected island holds nearly every vertex: per-island fixing cannot work there."""
+    sizes = np.bincount(lab)
+    return bool(sizes.max() >= ONE_ISLAND_SHARE * sizes.sum())
 
 
 def dense(g):

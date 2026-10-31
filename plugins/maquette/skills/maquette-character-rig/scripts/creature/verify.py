@@ -2,7 +2,9 @@
 # rest heads/tails (max delta), influence stats, zero-weight verts, mesh positions (max delta at rest).
 import bpy, sys; sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(sys.argv[sys.argv.index("--")-1])))
 from shlib import *
-a, b = sys.argv[sys.argv.index("--")+1:]
+args = sys.argv[sys.argv.index("--")+1:]
+a, b = args[:2]
+summary = dict(changed=[], images_same=None, reexported=None)
 # byte level (when both files have one skinned primitive): which accessors changed, every image's bytes
 import os, numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(sys.argv[sys.argv.index("--")-1])), "..", "humanoid"))
@@ -19,11 +21,16 @@ try:
         for i in range(len(ga.json["accessors"])):
             off, dt, n, cnt = glbio._acc_view(ga, i)
             if diff[off:off + cnt * n * dt.itemsize].any(): ch.append(att.get(i, i))
+        summary.update(changed=[str(c) for c in ch], accessors=len(ga.json["accessors"]), reexported=False)
         print("BYTES changed accessors:", ch, "(a weights-only fix changes only JOINTS_0 and WEIGHTS_0)")
+        same = True
         for im in ga.json.get("images", []):
             bv = ga.json["bufferViews"][im["bufferView"]]; o = bv.get("byteOffset", 0)
+            same = same and not diff[o:o + bv["byteLength"]].any()
             print("BYTES image", im.get("name"), im.get("mimeType"), "identical:", not diff[o:o + bv["byteLength"]].any())
+        summary["images_same"] = bool(same)
     else:
+        summary["reexported"] = True
         print("BYTES files differ in layout (a Blender export): only the re-import checks below apply")
 except Exception as e:
     print("BYTES check skipped:", e)
@@ -50,3 +57,9 @@ kd = kdtree.KDTree(len(A["co"]))
 for i, c in enumerate(A["co"]): kd.insert(c, i)
 kd.balance()
 print("REST max dist v2->v1 nearest:", max(kd.find(c)[2] for c in Bq["co"]))
+if len(args) > 2:
+    import json
+    delta = max(max((A["bones"][n][0] - Bq["bones"][n][0]).length, (A["bones"][n][1] - Bq["bones"][n][1]).length) for n in A["bones"])
+    summary.update(max_influences=Bq["maxinfl"], zero_weight=Bq["zero"], sum_error=Bq["wsum"], verts_same=A["nv"] == Bq["nv"], faces_same=A["nf"] == Bq["nf"], bones=len(Bq["bones"]),
+                   same_names=set(A["bones"]) == set(Bq["bones"]), same_parents=all(A["bones"][n][2] == Bq["bones"][n][2] for n in A["bones"]), rest_delta=delta, tris=Bq["nf"])
+    json.dump(summary, open(args[2], "w"), indent=1)

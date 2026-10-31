@@ -55,6 +55,8 @@ These look at the workspace and change nothing.
 | [`find_look_alikes`](#find_look_alikes)       | Library entries that may be one model twice (same look or same name), the entries with no readable picture, the recent merges and the settings                                                                                                                                                                                                                         | Nothing | No       |
 | [`get_pack`](#get_pack)                       | One export pack: its state, each model's check with triangles before and after, and what needs you                                                                                                                                                                                                                                                                     |
 | [`list_packs`](#list_packs)                   | The newest export packs and the pack presets                                                                                                                                                                                                                                                                                                                           |
+| [`get_rig_doctor`](#get_rig_doctor)           | A rig doctor case: its sheets, defects, checks, progress and why it stopped                                                                                                                                                                                                                                                                                            |
+| [`list_rig_doctors`](#list_rig_doctors)       | The rig doctor's cases, newest first                                                                                                                                                                                                                                                                                                                                   |
 | [`list_animations`](#list_animations)         | The animation library's clips: pack, tags, source rig, bone count, frames, rate, seconds, root motion, loop and size. Takes an optional `query`, `pack`, `tag` and `rig`                                                                                                                                                                                               | Nothing | No       |
 | Tool                                          | What it returns                                                                                                                                                                                                                                                                                                                                                        | Spends  | Approval |
 | --------------------------------------------- | -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------                                                                                                      | ------- | -------- |
@@ -115,6 +117,8 @@ These look at the workspace and change nothing.
 | [`restore_to_library`](#restore_to_library)           | Puts removed library entries back, undoing a merge for a merged one                                                                                                                                   | Nothing | No       |
 | [`merge_library_entries`](#merge_library_entries)     | Merges one library entry into another and points project assets along                                                                                                                                 | Nothing | No       |
 | [`export_pack`](#export_pack)                         | Writes library models as one pack (OBJ or GLB, README, manifest, contact sheet, zip) inside the workspace, each checked in headless Blender                                                           |
+| [`start_rig_doctor`](#start_rig_doctor)               | Opens the rig doctor's case of a rigged model and reads it, with no Blender                                                                                                                           |
+| [`run_rig_doctor`](#run_rig_doctor)                   | Starts a case's pose test, fix or second round in headless Blender on a copy                                                                                                                          |
 | [`decide_pack`](#decide_pack)                         | Raises a pack model's budget, keeps a warning, exports it again, zips, stops or goes on                                                                                                               |
 | [`import_animations`](#import_animations)             | Imports Mixamo FBX files or pack zips into the animation library, skeleton only                                                                                                                       | Nothing | No       |
 | [`save_model_clips`](#save_model_clips)               | Saves a rigged model's clips to the animation library as a pack                                                                                                                                       | Nothing | No       |
@@ -1029,3 +1033,43 @@ A model's last retarget review: each library clip baked onto it with its status,
 | --------- | ------ | -------- | --------------- |
 | `project` | string | yes      | The project id. |
 | `asset`   | string | yes      | The asset id.   |
+
+### start_rig_doctor
+
+`read only`
+
+Opens the rig doctor's case of a rigged model and reads the file at once, with no Blender: the route (humanoid for Mixamo names, creature otherwise), what it refuses and why, hand and arm weight far from the limb, and whether it is one continuous mesh. An Inbox model must be accepted with `accept_inbox_model` before it can run. See [Rig doctor](/docs/views/rig-doctor/).
+
+| Argument  | Type   | Required | What                                              |
+| --------- | ------ | -------- | ------------------------------------------------- |
+| `inbox`   | string | no       | An Inbox item id. Or give project and asset.      |
+| `project` | string | no       | A project id.                                     |
+| `asset`   | string | no       | An asset id in that project.                      |
+| `version` | number | no       | The version to work from. Defaults to the newest. |
+
+### run_rig_doctor
+
+`writes files`
+
+Starts a case's step in headless Blender on a copy and answers at once; follow it with `get_rig_doctor`. It takes minutes and spends no credits. `pose-test` renders the sheets and names the defects, `fix` changes joints and weights only and verifies that, and `round-2` is one last try. A third round is refused. The draft waits for a person in the app, on an approval card: no tool adds it or approves a joint move.
+
+| Argument | Type   | Required | What                             |
+| -------- | ------ | -------- | -------------------------------- |
+| `id`     | string | yes      | The case id.                     |
+| `step`   | string | yes      | `pose-test`, `fix` or `round-2`. |
+
+### get_rig_doctor
+
+`read only`
+
+A case's state, model, refusals, defects by place, creature chains, before and after sheets with each pose's stretch and seam gap in mm, fix steps, checks, the joint move if one is asked with the clips it would break, progress, log and why it stopped. Look at the sheet files: the numbers say where to look.
+
+| Argument | Type   | Required | What         |
+| -------- | ------ | -------- | ------------ |
+| `id`     | string | yes      | The case id. |
+
+### list_rig_doctors
+
+`read only`
+
+The cases, newest first: id, name, state, route, round, who started it and the version it landed as.

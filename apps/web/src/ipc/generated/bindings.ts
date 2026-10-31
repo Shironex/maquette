@@ -198,6 +198,34 @@ export const commands = {
 	 *  Only a pack's own files can be shown this way.
 	 */
 	packReveal: (id: string) => __TAURI_INVOKE<null>("pack_reveal", { id }),
+	/**  Opens the case of a model. Reads only: no Blender runs. */
+	rigOpen: (target: RigTarget) => __TAURI_INVOKE<RigRecord>("rig_open", { target }),
+	/**  Case `id`. */
+	rigGet: (id: string) => __TAURI_INVOKE<RigRecord>("rig_get", { id }),
+	/**  The cases on disk, newest first. */
+	rigList: () => __TAURI_INVOKE<RigRecord[]>("rig_list"),
+	/**
+	 *  Accepts the case's Inbox model as v1 and goes on from that version. The
+	 *  original stays as it came.
+	 */
+	rigAccept: (id: string, project: string, asset: string | null) => __TAURI_INVOKE<RigRecord>("rig_accept", { id, project, asset }),
+	/**  Starts the pose test, the fix or the second round; answers at once. */
+	rigRun: (id: string, what: RigRun) => __TAURI_INVOKE<RigRecord>("rig_run", { id, what }),
+	/**  Asks a running case to stop after the script it is in. */
+	rigCancel: (id: string) => __TAURI_INVOKE<null>("rig_cancel", { id }),
+	/**  A person's answer to the joint move. */
+	rigDecideJoints: (id: string, approve: boolean) => __TAURI_INVOKE<RigRecord>("rig_decide_joints", { id, approve }),
+	/**
+	 *  Sends the draft through the Inbox as the next version. It stops when a
+	 *  check got worse; the version it came from stays either way.
+	 */
+	rigLand: (id: string) => __TAURI_INVOKE<RigRecord>("rig_land", { id }),
+	/**  Drops the draft. The version it came from is as it was. */
+	rigDiscard: (id: string) => __TAURI_INVOKE<RigRecord>("rig_discard", { id }),
+	/**  Copies the case's newest sheet to `exports/rig/` and shows it. */
+	rigSaveSheet: (id: string) => __TAURI_INVOKE<string>("rig_save_sheet", { id }),
+	/**  Opens the case's draft, or else its model, in Blender's window. */
+	rigOpenBlender: (id: string) => __TAURI_INVOKE<null>("rig_open_blender", { id }),
 	/**  Every clip in the animation library. */
 	animationsGet: () => __TAURI_INVOKE<AnimationsView>("animations_get"),
 	/**
@@ -700,6 +728,7 @@ export const events = {
 	projectChanged: makeEvent<ProjectChanged>("project-changed"),
 	providerUpdate: makeEvent<ProviderUpdate>("provider-update"),
 	quitRequested: makeEvent<QuitRequested>("quit-requested"),
+	rigChanged: makeEvent<RigChanged>("rig-changed"),
 	thumbnailReady: makeEvent<ThumbnailReady>("thumbnail-ready"),
 	updaterUpdate: makeEvent<UpdaterUpdate>("updater-update"),
 };
@@ -934,7 +963,12 @@ export type ApprovalKind =
  *  An agent built an avatar whose new spring chains wait for a person
  *  to look at the parts and the sway sheet.
  */
-"springs";
+"springs" | 
+/**
+ *  A rig doctor fix an agent started waits for a person to look at the
+ *  sheets and add the draft as a version.
+ */
+"rig-doctor";
 
 /**  How far one arm turned. */
 export type ArmLift = {
@@ -2311,6 +2345,14 @@ export type CopiedAsset = {
 /**  Whether a user must credit the author. */
 export type CreditNotation = "required" | "unnecessary";
 
+export type DefectKind = 
+/**  Weights alone answer it. */
+"weights-only" | 
+/**  A joint move would be needed, and waits for a person's yes. */
+"needs-yes" | 
+/**  Nothing the doctor changes; a note for the person. */
+"note";
+
 /**  A plain slab the models stand on, so they cast their shadows somewhere. */
 export type Desk = {
 	/**  Width (X) and depth (Z) in metres. The top is at y = 0. */
@@ -2822,6 +2864,8 @@ export type GlbReport = {
 	geometryReadable: boolean,
 	islands: Islands | null,
 	fingerWeights: FingerWeights | null,
+	/**  What the rig doctor reads on arrival; `None` without a skin. */
+	rigProbe?: RigProbe | null,
 	/**  How far a rigged model is from a VRM 1.0 file; `None` without a skin. */
 	vrm?: VrmReadiness | null,
 };
@@ -3207,6 +3251,29 @@ export type JointCount = {
 	name: string,
 	vertices: number,
 };
+
+/**  The offer to move a misplaced joint chain onto its mesh. */
+export type JointMove = {
+	state: JointMoveState,
+	/**  "left arm". */
+	limb: string,
+	/**  How far the chain sits off the mesh. */
+	offCm: number | null,
+	joints: number,
+	/**
+	 *  The clips with translation tracks on those joints: they would pull
+	 *  the joints back.
+	 */
+	breaksClips: string[],
+	/**  The file with the joints moved, ready if the answer is yes. */
+	draft: string,
+	/**  The same poses with the joints moved. */
+	sheet: RigSheet | null,
+};
+
+export type JointMoveState = 
+/**  Waits for a person. No agent can answer it. */
+"asked" | "approved" | "declined";
 
 /**  What Settings shows for one key. */
 export type KeyStatus = {
@@ -5319,7 +5386,273 @@ export type Rig = {
 	vrm?: VrmReadiness | null,
 };
 
+/**  One row of a creature's chains table. */
+export type RigChain = {
+	chain: string,
+	bones: number,
+	side: string,
+	/**  chain, stray, swapped or junk. */
+	readAs: string,
+	note: string | null,
+};
+
+/**
+ *  A rig doctor case changed: it was read, a script finished, or its draft
+ *  waits. The Inbox's rig doctor view and row follow it.
+ */
+export type RigChanged = {
+	record: RigRecord,
+};
+
+/**  One check of the verify step. */
+export type RigCheck = {
+	ok: boolean,
+	title: string,
+	detail: string,
+	value: string,
+};
+
+/**  What the creature route read from the bones. */
+export type RigCreature = {
+	front: string,
+	legs: number,
+	swapped: number,
+	junk: string[],
+	rigidPieces: number,
+	oneShell: boolean,
+	chains: RigChain[],
+	/**  The weight map render. */
+	weightMap: string | null,
+};
+
+export type RigDefect = {
+	number: number,
+	title: string,
+	place: string,
+	/**  Bones and counts: "LeftArm 3,912 v". */
+	tags: string[],
+	kind: DefectKind,
+	detail: string,
+	/**  Set by the fix: "fixed", or what stays open. */
+	outcome: string | null,
+	fixed: boolean,
+};
+
+/**  One step the fix took, with its number ("5,330 v"). */
+export type RigFixStep = {
+	title: string,
+	detail: string,
+	value: string,
+};
+
+/**  One line of why the model is refused, or what was fine about it. */
+export type RigIssue = {
+	ok: boolean,
+	title: string,
+	detail: string,
+};
+
 export type RigKind = "none" | "mixamo" | "other";
+
+/**  One log line under a running pose test. */
+export type RigLogLine = {
+	at: string,
+	script: string,
+	text: string,
+};
+
+/**  What the read says about the model. */
+export type RigModel = {
+	/**  "Mixamo, 65 joints". */
+	rig: string,
+	joints: number,
+	skinnedMeshes: number,
+	clips: string[],
+	triangles: number,
+	height: number | null,
+	textures: number,
+	handFar: number,
+	armFar: number,
+	islands: number,
+	/**  One continuous shell: the per island fix would tear it. */
+	oneIsland: boolean,
+	/**  The Inbox check that sends a person here, in words. */
+	finding: string | null,
+};
+
+export type RigProbe = {
+	/**  Mesh primitives with skin weights. */
+	skinnedPrimitives: number,
+	/**  The names of the meshes they belong to. */
+	skinnedMeshes: string[],
+	/**  Vertex data shares one buffer view, so weights cannot be patched. */
+	interleaved: boolean,
+	/**  Vertices with hand or finger weight far from that hand. */
+	handFar: number,
+	/**  Vertices with arm weight far from that arm. */
+	armFar: number,
+	/**  The bones holding them, most first. */
+	farBones: JointCount[],
+	/**  How many of them are hair, by height. */
+	farHair: number,
+	islands: number,
+	largestIslandShare: number | null,
+	oneIsland: boolean,
+	/**  The model's height in file units. */
+	height: number | null,
+};
+
+export type RigProgress = {
+	label: string,
+	done: number,
+	total: number,
+};
+
+/**  One rig doctor case, on disk in its work folder. */
+export type RigRecord = {
+	id: string,
+	name: string,
+	startedBy: RigStarter,
+	route: RigRoute | null,
+	state: RigState,
+	step: RigStep,
+	source: RigSource,
+	/**  The file the doctor reads (the Inbox file or the accepted version). */
+	input: string,
+	/**  The work folder. */
+	dir: string,
+	model: RigModel,
+	issues: RigIssue[],
+	creature: RigCreature | null,
+	before: RigSheet | null,
+	after: RigSheet | null,
+	defects: RigDefect[],
+	stats: RigStat[],
+	fixSteps: RigFixStep[],
+	checks: RigCheck[],
+	jointMove: JointMove | null,
+	round: number,
+	draft: string | null,
+	progress: RigProgress | null,
+	stages: RigStage[],
+	log: RigLogLine[],
+	stop: RigStop | null,
+	/**  The version the draft became. */
+	landed: number | null,
+	error: string | null,
+	updatedMs: number | null,
+};
+
+export type RigRoute = 
+/**  Mixamo names and one skinned primitive. */
+"humanoid" | 
+/**  Its own bone names: chains read from the bone tree. */
+"creature";
+
+/**  One row of a pose sheet: a pose or clip frame, or a creature chain bent. */
+export type RigRow = {
+	id: string,
+	label: string,
+	/**  "cape swings", or null for a row that looks fine. */
+	note: string | null,
+	/**  The defects (by number) this row shows. */
+	defects: number[],
+	/**  mm at a one metre tall model. */
+	stretchMm: number | null,
+	seamGapMm: number | null,
+	front: string | null,
+	side: string | null,
+	back: string | null,
+	xray: string | null,
+};
+
+/**  What a run does. */
+export type RigRun = 
+/**  The pose test before, with the probe. */
+"pose-test" | 
+/**  The fix, its checks and the pose test after. */
+"fix" | 
+/**  The fix again with a wider seam; the last round. */
+"round2";
+
+/**  A pose sheet: one PNG of everything, and its rows. */
+export type RigSheet = {
+	file: string,
+	rows: RigRow[],
+	seconds: number | null,
+};
+
+/**  Where the model comes from: an Inbox file until it is accepted. */
+export type RigSource = {
+	/**  The Inbox file; null once accepted. */
+	inbox: string | null,
+	project: string | null,
+	asset: string | null,
+	/**  The accepted version the doctor starts from. */
+	version: number | null,
+};
+
+/**  One run step, for the Headless Blender list. */
+export type RigStage = {
+	name: string,
+	detail: string,
+	/**  Null while it runs. */
+	seconds: number | null,
+};
+
+export type RigStarter = "person" | "agent";
+
+/**  A number before and after the fix. */
+export type RigStat = {
+	label: string,
+	before: string | null,
+	after: string,
+	/**  A number that is still bad. */
+	bad: boolean,
+};
+
+export type RigState = 
+/**  The scripts cannot work on this model; nothing was written. */
+"refused" | 
+/**  Read; the pose test waits for a click or an agent's call. */
+"ready" | "testing" | 
+/**  The before sheet is there; the fix waits for a click or a call. */
+"tested" | "fixing" | 
+/**  A draft and its checks are there; adding it is a person's call. */
+"fixed" | 
+/**  A stop: the draft (if any) is kept and not added. */
+"stopped" | 
+/**  The draft became the next version. */
+"landed" | "discarded" | "cancelled" | "failed";
+
+/**  The six steps on the rig doctor's left. */
+export type RigStep = "read" | "accept" | "before" | "fix" | "verify" | "land";
+
+/**  Why the doctor stopped, with the row that shows it. */
+export type RigStop = {
+	kind: RigStopKind,
+	title: string,
+	detail: string,
+	/**  The pose row that shows it. */
+	row: string | null,
+};
+
+export type RigStopKind = 
+/**  It still tears after the last round. */
+"rounds" | 
+/**  A check got worse after the fix. */
+"worse";
+
+/**
+ *  Which model a case is for: an Inbox item, or a version of an asset (its
+ *  newest without `version`).
+ */
+export type RigTarget = {
+	inbox: string | null,
+	project: string | null,
+	asset: string | null,
+	version: number | null,
+};
 
 export type RootInspection = {
 	/**  Expanded absolute path. */

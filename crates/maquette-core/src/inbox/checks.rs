@@ -327,6 +327,18 @@ pub fn run(
         }
     }
 
+    if let Some(probe) = report.rig_probe.as_ref().filter(|p| p.arm_far > 0) {
+        out.push(check(
+            "arm-weights",
+            CheckStatus::Warning,
+            "Cloth or hair weighted to the arm bones",
+            format!(
+                "{} far from the arms swing with them. The rig doctor can fix it.",
+                plural(probe.arm_far, "vertex", "vertices"),
+            ),
+        ));
+    }
+
     out.extend(shape_checks(report, kind));
 
     if report.animations.is_empty() {

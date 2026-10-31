@@ -4,6 +4,7 @@ import type {
   ErrorPayload,
   McpStatus,
   PackRecord,
+  RigRecord,
   PipelineEvent,
   ProjectManifest,
   ProviderEvent,
@@ -82,6 +83,7 @@ export interface BackendOptions {
       | { name: 'page'; payload: ServerStatus }
       | { name: 'updater'; payload: UpdaterEvent }
       | { name: 'pack'; payload: PackRecord }
+      | { name: 'rig'; payload: RigRecord }
   ) => void;
   /** `active`: the MCP server is on, mid agent session. */
   agents?: string | null;
@@ -129,6 +131,11 @@ export interface BackendOptions {
   sync?: string | null;
   /** `available`, `ready`, `current` or `pending`: the updater is on (see create-app-handlers.ts). */
   updater?: string | null;
+  /**
+   * Opens rig doctor cases (see rig-fixtures.ts): `read`, `compare`, `creature`,
+   * `refused`, `stopped`, `one-island` or `running`. The Inbox's top bar leads to them.
+   */
+  rig?: string | null;
   /** `lists`: every long list at a busy workspace's size (see stress-fixtures.ts). */
   stress?: string | null;
   /** `low`, `limit`, `lifted` or `unknown`: the Codex usage read (see create-codex-usage-handlers.ts). */
