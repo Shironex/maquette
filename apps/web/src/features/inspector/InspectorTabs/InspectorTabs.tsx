@@ -7,6 +7,7 @@ const TABS = [
   { id: 'layout', label: 'Layout' },
   { id: 'paths', label: 'Paths' },
   { id: 'parts', label: 'Parts' },
+  { id: 'render', label: 'Render' },
 ] as const;
 
 /** A game has no scene to lay out: it checks each model against its budget. */
@@ -14,6 +15,7 @@ const GAME_TABS = [
   { id: 'compare', label: 'Compare' },
   { id: 'budget', label: 'Budget' },
   { id: 'parts', label: 'Parts' },
+  { id: 'render', label: 'Render' },
 ] as const;
 
 /** Compare versions, lay out the scene, or draw paths through it; in a game, the budgets. */

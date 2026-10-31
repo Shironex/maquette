@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useRenderStore } from '@/state/use-render-store';
 import { useUpdaterStore } from '@/state/use-updater-store';
 import { useSettingsGuard } from '@/state/settings-guard';
 import type { SectionId } from '../sections';
@@ -16,7 +17,19 @@ export function useSettingsScreen() {
       ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, []);
   useRevealAbout(go);
+  useRevealToolchain(go);
   return { ...autosave, leaveTo, active, go };
+}
+
+/** Jumps to Toolchain when a render's failure asked for it. */
+function useRevealToolchain(go: (id: SectionId) => void) {
+  const asked = useRenderStore(s => s.toolchainAsked);
+  const done = useRenderStore(s => s.toolchainShown);
+  useEffect(() => {
+    if (!asked) return;
+    done();
+    go('toolchain');
+  }, [asked, done, go]);
 }
 
 /** Jumps to About when the header's update pill asked for it. */
