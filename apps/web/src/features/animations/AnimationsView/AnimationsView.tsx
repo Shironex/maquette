@@ -1,4 +1,4 @@
-import { Button, EmptyState, SegmentedControl, TextField, TopBar } from '@maquette/ui';
+import { Button, EmptyState, Loader, SegmentedControl, TextField, TopBar } from '@maquette/ui';
 import { StatTile } from '@/features/common/StatTile';
 import { formatBytes } from '@/lib/format';
 import { AnimationFilters } from '../AnimationFilters';
@@ -153,7 +153,11 @@ export default function AnimationsView() {
                 {v.error}
               </p>
             ) : null}
-            {v.shown.length === 0 && v.loaded ? (
+            {!v.loaded && !v.error ? (
+              <div className="grid flex-1 place-items-center">
+                <Loader label="Reading the clips..." />
+              </div>
+            ) : v.shown.length === 0 ? (
               <p className="py-10 text-center text-fg-mute">
                 No clip matches. Clear the search or pick All clips.
               </p>

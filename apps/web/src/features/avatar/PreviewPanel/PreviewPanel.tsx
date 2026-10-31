@@ -1,11 +1,13 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
+import { StageLoader } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import { Button, EmptyState, Icon, InlineBanner, SegmentedControl } from '@maquette/ui';
 import { Panel } from '@/features/common/Panel';
 import { PressToggle } from '@/features/common/PressToggle';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { usePreviewPanel } from './PreviewPanel.hooks';
 
-const VrmStage = lazy(() => import('@/features/viewer/VrmStage'));
+const VrmStage = lazyAfterPaint(() => import('@/features/viewer/VrmStage'));
 
 const CHIP =
   'inline-flex h-6 items-center gap-1.5 rounded-control bg-app/85 px-2 text-[11.5px] leading-none font-medium text-fg';
@@ -101,7 +103,7 @@ export default function PreviewPanel() {
       <div className="relative h-[520px] overflow-hidden rounded-card border border-line bg-studio">
         {p.failed ? null : (
           <CanvasBoundary resetKey={p.url}>
-            <Suspense fallback={null}>
+            <Suspense fallback={<StageLoader />}>
               <VrmStage
                 className="absolute! inset-0"
                 label={`${p.name} as a VRM`}

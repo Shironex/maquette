@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Button, EmptyState, Icon, TopBar } from '@maquette/ui';
+import { Button, EmptyState, Icon, TopBar, Loader } from '@maquette/ui';
 import { ProjectTopBar } from '@/features/common/ProjectTopBar';
 import { TimelineEmpty } from '../TimelineEmpty';
 import { TimelinePanel } from '../TimelinePanel';
@@ -61,7 +61,9 @@ export default function TimelineView({ preview }: TimelineViewProps) {
                 </Button>
               }
             />
-          ) : null}
+          ) : (
+            <Loader />
+          )}
         </main>
       </>
     );

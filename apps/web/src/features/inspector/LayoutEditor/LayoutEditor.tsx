@@ -1,4 +1,6 @@
-import { Suspense, lazy, type ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
+import { StageLoader } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import {
   Button,
   EmptyState,
@@ -9,6 +11,7 @@ import {
   SegmentedControl,
   cn,
   type SegmentedOption,
+  Loader,
 } from '@maquette/ui';
 import type { Tool } from '@/state/layout';
 import { useLayoutStore } from '@/state/use-layout-store';
@@ -19,7 +22,7 @@ import { Letterbox } from '../Letterbox';
 import { useLayoutEditor } from './LayoutEditor.hooks';
 import { KEYS } from '@/lib/keys';
 
-const LayoutCanvas = lazy(() => import('../LayoutCanvas'));
+const LayoutCanvas = lazyAfterPaint(() => import('../LayoutCanvas'));
 
 const TOOLS: SegmentedOption<Tool>[] = [
   { value: 'translate', label: 'Move', icon: 'arrows-out-cardinal', shortcut: 'W' },
@@ -71,7 +74,11 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
               }
             />
           </div>
-        ) : null}
+        ) : (
+          <div className="grid flex-1 place-items-center">
+            <Loader />
+          </div>
+        )}
       </main>
     );
   }
@@ -195,7 +202,7 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
         ) : (
           <div className="relative min-h-[380px] flex-1 overflow-hidden rounded-window border border-line bg-[#141311]">
             <CanvasBoundary resetKey={project}>
-              <Suspense fallback={null}>
+              <Suspense fallback={<StageLoader />}>
                 <LayoutCanvas
                   className="absolute! inset-0"
                   models={view.models}

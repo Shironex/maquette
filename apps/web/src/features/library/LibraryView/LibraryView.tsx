@@ -1,6 +1,7 @@
 import {
   Button,
   EmptyState,
+  Loader,
   SegmentedControl,
   TextField,
   TopBar,
@@ -198,7 +199,11 @@ export default function LibraryView() {
                       {v.error}
                     </p>
                   ) : null}
-                  {v.shown.length === 0 && v.loaded ? (
+                  {!v.loaded && !v.error ? (
+                    <div className="grid flex-1 place-items-center">
+                      <Loader label="Reading the library..." />
+                    </div>
+                  ) : v.shown.length === 0 ? (
                     <p className="py-10 text-center text-fg-mute">
                       No model matches. Clear the search or pick All models.
                     </p>

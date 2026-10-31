@@ -6,8 +6,8 @@ import type { SceneProps } from './Scene.types';
 
 /** The model in the studio, posed by its clip or its state, with the overlays asked for. */
 export default function Scene(props: SceneProps) {
-  const loaded = useMotionModel(props.url, props.onError);
-  const framing = useFraming(loaded, undefined);
+  const loaded = useMotionModel(props.url, props.report?.onError);
+  const framing = useFraming(loaded, props.report?.onLoaded);
   const rig = useStudioRig(framing);
   const extent = framing?.extent ?? 1;
   usePoses(loaded, props.poses);

@@ -3,14 +3,16 @@
  * Nothing bakes: three.js does the rough version here, and Blender the exact
  * one in Review.
  */
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
+import { StageLoader } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import { InlineBanner } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { fileUrl } from '@/ipc/files';
 import type { MapChoice } from '@/ipc/client';
 import { useRoughMap } from './RoughPreview.hooks';
 
-const RoughStage = lazy(() => import('@/features/viewer/RoughStage'));
+const RoughStage = lazyAfterPaint(() => import('@/features/viewer/RoughStage'));
 
 export interface RoughPreviewProps {
   project: string | null;
@@ -41,7 +43,7 @@ export default function RoughPreview(props: RoughPreviewProps) {
     >
       {ready ? (
         <CanvasBoundary resetKey={`${modelUrl}#${clipUrl}`}>
-          <Suspense fallback={null}>
+          <Suspense fallback={<StageLoader />}>
             <RoughStage
               key={`${modelUrl}#${clipUrl}`}
               className="absolute! inset-0"

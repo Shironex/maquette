@@ -1,4 +1,6 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
+import { StageLoader, useStageReady } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import {
   Button,
   CheckRow,
@@ -23,7 +25,7 @@ import { offersRigDoctor } from '@/state/rig';
 import { useInboxDetail, useInboxPreview } from './InboxDetail.hooks';
 import type { InboxDetailProps } from './InboxDetail.types';
 
-const ModelPreview = lazy(() => import('@/features/viewer/ModelPreview'));
+const ModelPreview = lazyAfterPaint(() => import('@/features/viewer/ModelPreview'));
 
 const KINDS: readonly { value: AssetKind; label: string }[] = [
   { value: 'prop', label: 'Prop' },
@@ -54,6 +56,8 @@ export default function InboxDetail({ item }: InboxDetailProps) {
   const preview = useInboxPreview(item, project?.id ?? null);
   const { mode, setMode, setLoadError, loadError, url, modes, modeLabel, noPreview, orbitHint } =
     preview;
+  const model = useStageReady(url);
+  const waiting = url && item.state === 'ready' && !loadError && !model.ready;
   const passed = item.worst === 'pass' && item.state !== 'failed';
   const hasClips = Boolean(
     item.report && item.report.rig !== 'none' && item.report.animations.length
@@ -100,17 +104,19 @@ export default function InboxDetail({ item }: InboxDetailProps) {
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-[14px] border border-line bg-studio">
             {url && item.state === 'ready' ? (
               <CanvasBoundary resetKey={item.id}>
-                <Suspense fallback={null}>
+                <Suspense fallback={<StageLoader />}>
                   <ModelPreview
                     url={url}
                     mode={mode}
                     turntable={preview.turning}
                     onError={setLoadError}
+                    onLoaded={model.onLoaded}
                     className="absolute inset-0"
                   />
                 </Suspense>
               </CanvasBoundary>
             ) : null}
+            {waiting ? <StageLoader /> : null}
             {noPreview ? (
               <div className="absolute inset-0 grid place-items-center p-6">
                 <EmptyState

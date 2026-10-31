@@ -1,4 +1,6 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
+import { StageLoader } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import { EmptyState, Icon, SegmentedControl, cn } from '@maquette/ui';
 import type { Asset, AssetParts } from '@/ipc/client';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
@@ -9,7 +11,7 @@ import { SplitHandle } from '../SplitHandle';
 import { KeepRow, NumbersTable } from './NumbersTable';
 import { usePartsCompare, type ComparePartsMode } from './PartsCompare.hooks';
 
-const CompareCanvas = lazy(() => import('../CompareCanvas'));
+const CompareCanvas = lazyAfterPaint(() => import('../CompareCanvas'));
 
 const MODES: readonly { value: ComparePartsMode; label: string }[] = [
   { value: 'shaded', label: 'Shaded' },
@@ -92,7 +94,7 @@ export default function PartsCompare({ asset, found, onChanged, handlers }: Part
       <div className="relative min-h-[300px] flex-1 overflow-hidden rounded-[14px] border border-line bg-studio">
         {leftUrl && rightUrl ? (
           <CanvasBoundary resetKey={`${leftUrl}|${rightUrl}`}>
-            <Suspense fallback={null}>
+            <Suspense fallback={<StageLoader />}>
               <CompareCanvas
                 className="absolute! inset-0"
                 kind="asset"

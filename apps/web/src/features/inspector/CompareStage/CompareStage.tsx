@@ -1,4 +1,6 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
+import { StageLoader } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import { Icon, cn } from '@maquette/ui';
 import type { SidePick, Stop } from '@/state/inspector';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
@@ -7,7 +9,7 @@ import type { CompareCanvasHandlers, CompareModel } from '../CompareCanvas';
 import { SplitHandle } from '../SplitHandle';
 import { useCompareStage } from './CompareStage.hooks';
 
-const CompareCanvas = lazy(() => import('../CompareCanvas'));
+const CompareCanvas = lazyAfterPaint(() => import('../CompareCanvas'));
 
 export interface CompareStageProps {
   pick: SidePick;
@@ -44,7 +46,7 @@ export default function CompareStage({
   return (
     <div className="relative min-h-[340px] flex-1 overflow-hidden rounded-window border border-line bg-[#141311]">
       <CanvasBoundary resetKey={`${pick.left?.id ?? ''}|${pick.right?.id ?? ''}`}>
-        <Suspense fallback={null}>
+        <Suspense fallback={<StageLoader />}>
           <CompareCanvas
             className="absolute! inset-0"
             kind={kind}
@@ -84,11 +86,7 @@ export default function CompareStage({
         />
         {fps === 0 ? 'WebGL 2 · starting' : `WebGL 2 · ${Math.round(fps)} fps`}
       </span>
-      {!ready && !loadError ? (
-        <span className="absolute inset-0 grid place-items-center text-fg-mute">
-          Loading {models} models…
-        </span>
-      ) : null}
+      {!ready && !loadError ? <StageLoader label={`Loading ${models} models…`} /> : null}
       {loadError ? (
         <span className="absolute inset-x-6 top-1/2 -translate-y-1/2 rounded-card bg-danger-soft px-3 py-2 text-center text-danger">
           {loadError}

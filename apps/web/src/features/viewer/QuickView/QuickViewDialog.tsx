@@ -1,4 +1,6 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
+import { StageLoader } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import { Button, EmptyState, Icon, IconButton, SegmentedControl, cn } from '@maquette/ui';
 import { KEYS } from '@/lib/keys';
 import { quickViewLine } from '@/state/quick-view';
@@ -8,7 +10,7 @@ import { useQuickViewDialog } from './QuickView.hooks';
 import type { QuickViewDialogProps } from './QuickView.types';
 
 // three.js loads with the first quick view, not with the Board or the Library.
-const ModelPreview = lazy(() => import('../ModelPreview'));
+const ModelPreview = lazyAfterPaint(() => import('../ModelPreview'));
 
 /**
  * One model in the same 3D preview as the Inbox, over the screen: orbit and
@@ -65,7 +67,7 @@ export default function QuickViewDialog(props: QuickViewDialogProps) {
         <div className="relative m-4 min-h-0 flex-1 overflow-hidden rounded-[14px] border border-line bg-studio">
           {q.url ? (
             <CanvasBoundary resetKey={target.file}>
-              <Suspense fallback={null}>
+              <Suspense fallback={<StageLoader />}>
                 <ModelPreview
                   url={q.url}
                   mode={q.mode}

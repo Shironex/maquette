@@ -1,4 +1,6 @@
-import { Suspense, lazy, type ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
+import { StageLoader } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import {
   Button,
   EmptyState,
@@ -9,6 +11,7 @@ import {
   SegmentedControl,
   cn,
   type SegmentedOption,
+  Loader,
 } from '@maquette/ui';
 import { pathLength, type PathTool } from '@/state/paths';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
@@ -17,7 +20,7 @@ import { PathsPanel } from '../PathsPanel';
 import { PointsTable } from '../PointsTable';
 import { newPath, usePathsEditor } from './PathsEditor.hooks';
 
-const PathsCanvas = lazy(() => import('../PathsCanvas'));
+const PathsCanvas = lazyAfterPaint(() => import('../PathsCanvas'));
 
 const TOOLS: SegmentedOption<PathTool>[] = [
   { value: 'select', label: 'Select', icon: 'cursor-click', shortcut: 'V' },
@@ -63,7 +66,11 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
               }
             />
           </div>
-        ) : null}
+        ) : (
+          <div className="grid flex-1 place-items-center">
+            <Loader />
+          </div>
+        )}
       </main>
     );
   }
@@ -125,7 +132,7 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
 
         <div className="relative min-h-[380px] flex-1 overflow-hidden rounded-window border border-line bg-[#141311]">
           <CanvasBoundary resetKey={project}>
-            <Suspense fallback={null}>
+            <Suspense fallback={<StageLoader />}>
               <PathsCanvas
                 className="absolute! inset-0"
                 models={view.models}

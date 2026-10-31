@@ -1,4 +1,4 @@
-import { Button, EmptyState, StageStepper, TopBar } from '@maquette/ui';
+import { Button, EmptyState, StageStepper, TopBar, Loader } from '@maquette/ui';
 import { AvatarList } from '../AvatarList';
 import { AvatarTabs } from '../AvatarTabs';
 import { BoneMap } from '../BoneMap';
@@ -94,7 +94,7 @@ export default function AvatarView() {
             </div>
           </div>
         ) : (
-          <div className="flex-1" />
+          <div className="grid flex-1 place-items-center">{loading ? <Loader /> : null}</div>
         )}
       </main>
     </>

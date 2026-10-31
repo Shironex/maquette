@@ -1,11 +1,13 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
+import { StageLoader } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import { SegmentedControl, Select, cn, type SegmentedOption } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import type { GizmoMode } from '@/features/viewer/AssembleStage';
 import type { DraftPart } from '@/state/split';
 import { useAssembleViewer } from './AssembleViewer.hooks';
 
-const AssembleStage = lazy(() => import('@/features/viewer/AssembleStage'));
+const AssembleStage = lazyAfterPaint(() => import('@/features/viewer/AssembleStage'));
 
 const GIZMOS: SegmentedOption<GizmoMode>[] = [
   { value: 'translate', label: 'Move', icon: 'arrows-out-cardinal' },
@@ -26,7 +28,7 @@ export default function AssembleViewer({ parts, onPlace }: AssembleViewerProps) 
     <div className="flex flex-col gap-2">
       <div className="relative h-[260px] overflow-hidden rounded-card border border-line bg-studio">
         <CanvasBoundary resetKey={v.files}>
-          <Suspense fallback={null}>
+          <Suspense fallback={<StageLoader />}>
             <AssembleStage
               className="absolute! inset-0"
               parts={v.stage}
