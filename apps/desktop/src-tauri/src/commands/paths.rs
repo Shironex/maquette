@@ -14,7 +14,7 @@ use crate::session::Session;
 /// Saves every path and their energize tracks, replacing the ones the file
 /// has; a track for a path that is gone goes too. The models, stops, states
 /// and explode tracks stay as they are. Returns the layout view.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn paths_save(
     session: State<'_, Session>,

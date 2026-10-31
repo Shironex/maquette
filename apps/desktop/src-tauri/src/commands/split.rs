@@ -271,7 +271,7 @@ pub(crate) fn run_assembly(
 }
 
 /// The recipe a prop was last assembled with, to assemble it again.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn assemble_recipe(
     session: State<'_, Session>,

@@ -105,7 +105,7 @@ pub(crate) fn open(
 }
 
 /// Opens the case of a model. Reads only: no Blender runs.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rig_open(
     session: State<'_, Session>,
@@ -189,14 +189,14 @@ pub async fn rig_run(
 }
 
 /// Asks a running case to stop after the script it is in.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rig_cancel(rig: State<'_, RigJobs>, id: String) -> CommandResult<()> {
     Ok(rig.0.cancel(&id)?)
 }
 
 /// A person picks the other route. The case starts over.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rig_set_route(
     session: State<'_, Session>,
@@ -210,7 +210,7 @@ pub fn rig_set_route(
 
 /// A person's word on a creature's chains. With a correction the case starts
 /// over, so an agent's card about the old draft closes; its next fix asks again.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rig_confirm_chains(
     session: State<'_, Session>,
@@ -227,7 +227,7 @@ pub fn rig_confirm_chains(
 }
 
 /// A person's answer to the joint move.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rig_decide_joints(
     session: State<'_, Session>,
@@ -296,7 +296,7 @@ pub async fn rig_land(
 }
 
 /// Drops the draft. The version it came from is as it was.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rig_discard(
     session: State<'_, Session>,
@@ -310,7 +310,7 @@ pub fn rig_discard(
 }
 
 /// Copies the case's newest sheet to `exports/rig/` and shows it.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rig_save_sheet(
     session: State<'_, Session>,

@@ -172,7 +172,7 @@ pub async fn downloads_preview(
 
 /// Leaves a download alone ("Not this one", "Not a Maquette model"), and
 /// never asks about it again.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn downloads_dismiss(watch: State<'_, Watch>, arrival: String) -> CommandResult<Arrival> {
     Ok(watch.0.dismiss(&arrival)?)

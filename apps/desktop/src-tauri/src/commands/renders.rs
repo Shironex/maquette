@@ -59,7 +59,7 @@ pub(crate) fn start(
 
 /// The models a render of `source` would hold, with where their files go.
 /// Reads only.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn render_plan(session: State<'_, Session>, source: PackSource) -> CommandResult<RenderPlan> {
     plan(&session, &source)
@@ -134,7 +134,7 @@ pub fn render_recent(
 }
 
 /// Stops a render once the file running now is done.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn render_stop(renders: State<'_, RenderJobs>, id: String) -> CommandResult<RenderRecord> {
     Ok(renders.0.stop(&id)?)
@@ -155,7 +155,7 @@ pub async fn render_resume(
 
 /// Shows a render's folder in Finder or Explorer. Only a render's own
 /// folder can be shown this way.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn render_reveal(
     session: State<'_, Session>,

@@ -38,7 +38,7 @@ pub async fn workspace_inspect(app: AppHandle, root: String) -> CommandResult<Ro
     .await?
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn workspace_create(
     app: AppHandle,
@@ -57,7 +57,7 @@ pub fn workspace_create(
 /// Opens a workspace. While another computer has it open (a fresh lock)
 /// it answers `workspace-in-use` with the warning to show, unless `force`
 /// (the person chose Open anyway).
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn workspace_open(
     app: AppHandle,
@@ -76,7 +76,7 @@ pub fn workspace_open(
     snapshot(&session, &root, &config)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn workspace_save_config(
     app: AppHandle,
@@ -112,7 +112,7 @@ pub async fn workspace_sync_conflicts(
 /// Shows a file of the open workspace (a conflict copy, say) selected in
 /// Finder or Explorer. `path` is relative to the workspace, as
 /// `workspace_sync_conflicts` gives it, and must stay inside it.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn workspace_reveal(session: State<'_, Session>, path: String) -> CommandResult<()> {
     let (root, _) = session.workspace()?;

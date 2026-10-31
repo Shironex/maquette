@@ -94,7 +94,7 @@ pub fn ship_get(session: State<'_, Session>, project: String) -> CommandResult<S
 }
 
 /// Saves the ship settings and, with a target, the site's folders.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn ship_save(
     session: State<'_, Session>,

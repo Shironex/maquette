@@ -37,7 +37,7 @@ pub(crate) fn get(session: &Session, project_id: &str) -> CommandResult<LayoutVi
 /// ([`crate::commands::paths`]). Triggers and keys that wait for a stop this
 /// layout removes go with it, and path ends anchored to a model it moves
 /// move with it.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn layout_save(
     session: State<'_, Session>,

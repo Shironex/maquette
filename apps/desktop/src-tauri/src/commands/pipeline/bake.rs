@@ -21,7 +21,7 @@ pub(crate) fn save_bake(
 }
 
 /// Changes the given bake settings; the next run bakes with them.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub(crate) fn pipeline_save_bake(
     session: State<'_, Session>,

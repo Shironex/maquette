@@ -201,7 +201,7 @@ pub async fn game_save_settings(
 }
 
 /// The built-in game templates.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn game_template_list() -> Vec<GameTemplate> {
     game::game_templates()

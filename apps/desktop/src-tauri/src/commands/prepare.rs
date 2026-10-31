@@ -152,7 +152,7 @@ pub(crate) fn asset_view(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn prepare_asset(
     session: State<'_, Session>,
@@ -179,7 +179,7 @@ pub(crate) fn save(
 /// Saves one asset's real size and fix-ups (an empty entry clears them) in
 /// `prepare.json` as it is on disk, so every other asset keeps its own. The
 /// next run of Build scene applies them.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn prepare_save(
     session: State<'_, Session>,
@@ -201,7 +201,7 @@ pub(crate) fn update(
 
 /// A suggested real size for a name and kind, from a small table of
 /// everyday objects.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn prepare_suggest(name: String, kind: AssetKind) -> Option<Suggestion> {
     suggest(&name, kind)

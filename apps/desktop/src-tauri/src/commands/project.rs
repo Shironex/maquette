@@ -59,7 +59,7 @@ pub(crate) fn summaries(
 }
 
 /// The projects for the switcher.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn project_list(
     session: State<'_, Session>,
@@ -79,14 +79,14 @@ pub(crate) fn switch(session: &Session, id: &str) -> CommandResult<WorkspaceSnap
     snapshot(session, &root, &config)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn project_switch(session: State<'_, Session>, id: String) -> CommandResult<WorkspaceSnapshot> {
     switch(&session, &id)
 }
 
 /// Creates a project in the open workspace and makes it the current one.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn project_create(
     session: State<'_, Session>,
@@ -112,7 +112,7 @@ pub fn project_create(
     snapshot(&session, &root, &config)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn project_update(
     session: State<'_, Session>,

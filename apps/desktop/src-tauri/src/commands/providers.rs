@@ -257,7 +257,7 @@ pub async fn provider_send(
     Ok(blocking(move || jobs.send(&request, false, false)).await??)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn provider_jobs(
     studio: State<'_, Studio>,
@@ -275,7 +275,7 @@ pub async fn provider_cancel(studio: State<'_, Studio>, id: String) -> CommandRe
 }
 
 /// By hand: a GLB dropped on the asset's card.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn provider_hand_back(
     studio: State<'_, Studio>,
@@ -285,7 +285,7 @@ pub fn provider_hand_back(
     Ok(studio.0.hand_back(&id, Path::new(&file))?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn provider_clear_finished(
     studio: State<'_, Studio>,
@@ -296,7 +296,7 @@ pub fn provider_clear_finished(
 }
 
 /// Shows a By hand job's folder in Finder or Explorer.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn provider_open_handoff(studio: State<'_, Studio>, id: String) -> CommandResult<()> {
     let job = studio
@@ -315,7 +315,7 @@ pub fn provider_open_handoff(studio: State<'_, Studio>, id: String) -> CommandRe
 
 /// Opens the service's web studio in the system browser. Only the two
 /// allowlisted sites open, never an address from the web view.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn provider_open_site(service: ProviderId) -> CommandResult<()> {
     let url = handoff::site(service);
@@ -348,7 +348,7 @@ pub(crate) fn handoff_image(job: &ProviderJob, image: &str) -> CommandResult<Pat
 
 /// Shows one image of a By hand job selected in Finder or Explorer, ready
 /// to drag into the web studio's upload.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn provider_reveal_image(
     studio: State<'_, Studio>,
