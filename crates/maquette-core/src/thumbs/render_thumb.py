@@ -292,4 +292,5 @@ def main():
     print(f"thumbnail {a.out} ({a.size} px)")
 
 
-main()
+if __name__ == "__main__":
+    main()

@@ -68,7 +68,7 @@
  *   PLAYWRIGHT=/path/to/playwright/index.mjs OUT_DIR=/tmp/shots pnpm visual
  *
  * ONLY=handoff, ONLY=scene, ONLY=ux, ONLY=material, ONLY=redo, ONLY=byhand, ONLY=built, ONLY=motion,
- * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=codex, ONLY=images, ONLY=fixes, ONLY=avatar or ONLY=size
+ * ONLY=timeline, ONLY=paths, ONLY=pipeline, ONLY=page, ONLY=game, ONLY=library, ONLY=animations, ONLY=board, ONLY=compare, ONLY=sync, ONLY=ship, ONLY=about, ONLY=style, ONLY=refs, ONLY=parts, ONLY=renders, ONLY=codex, ONLY=images, ONLY=fixes, ONLY=avatar or ONLY=size
  * renders that set alone (size holds the Board list and the real size and fix-ups), ONLY=guards the questions asked before work is dropped; PORT
  * picks the dev server port.
  *
@@ -92,6 +92,7 @@ import { shipShots } from './visual-check/ship.mjs';
 import { motionShots } from './visual-check/motion.mjs';
 import { pageShots } from './visual-check/page.mjs';
 import { partsShots } from './visual-check/parts.mjs';
+import { rendersShots } from './visual-check/renders.mjs';
 import { pathsShots } from './visual-check/paths.mjs';
 import { pipelineShots } from './visual-check/pipeline.mjs';
 import { refsShots } from './visual-check/refs.mjs';
@@ -1096,6 +1097,7 @@ try {
   if (!only || only === 'compare') await compareShots({ open, shot });
   await settle();
   if (!only || only === 'parts') await partsShots({ open, shot });
+  if (!only || only === 'renders') await rendersShots({ open, shot });
   await settle();
   if (!only || only === 'ship') await shipShots({ open, shot, hoverTip });
   await settle();

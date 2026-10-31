@@ -5,12 +5,20 @@ import { MAX_BATCH } from '@/state/batch';
 export interface SelectionBarProps {
   count: number;
   onSend: () => void;
+  /** Opens the batch render sheet on the selection. */
+  onRender?: () => void;
   onRemove: () => void;
   onClear: () => void;
 }
 
 /** The bar under a selection: how many cards, Send to 3D, Remove and Clear. */
-export default function SelectionBar({ count, onSend, onRemove, onClear }: SelectionBarProps) {
+export default function SelectionBar({
+  count,
+  onSend,
+  onRender,
+  onRemove,
+  onClear,
+}: SelectionBarProps) {
   const over = count > MAX_BATCH;
   return (
     <div
@@ -35,6 +43,16 @@ export default function SelectionBar({ count, onSend, onRemove, onClear }: Selec
       >
         Send to 3D
       </Button>
+      {onRender ? (
+        <Button
+          variant="ghost"
+          icon="image"
+          tooltip="Renders the selected models in headless Blender: clay, toon, blueprint, turntable, a contact sheet. No credits"
+          onClick={onRender}
+        >
+          Render...
+        </Button>
+      ) : null}
       <Button
         variant="ghost"
         icon="trash"

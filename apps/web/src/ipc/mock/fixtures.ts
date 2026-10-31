@@ -172,7 +172,15 @@ export function toolReports(scenario: string): ToolReport[] {
       version: '0.46.0',
       detail: 'signed in',
     }),
-    report({ id: 'ffmpeg', label: 'ffmpeg', path: '/opt/homebrew/bin/ffmpeg', version: '7.1' }),
+    scenario === 'no-ffmpeg'
+      ? report({
+          id: 'ffmpeg',
+          label: 'ffmpeg',
+          status: 'missing',
+          source: null,
+          detail: 'not found on PATH',
+        })
+      : report({ id: 'ffmpeg', label: 'ffmpeg', path: '/opt/homebrew/bin/ffmpeg', version: '7.1' }),
     report({
       id: 'toktx',
       label: 'KTX-Software toktx',

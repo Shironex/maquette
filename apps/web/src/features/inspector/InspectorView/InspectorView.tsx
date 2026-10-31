@@ -7,6 +7,7 @@ import { LayoutEditor } from '../LayoutEditor';
 import { PathsEditor } from '../PathsEditor';
 import { BudgetPanel } from '../BudgetPanel';
 import { PartsPanel } from '../PartsPanel';
+import { RenderPanel } from '../RenderPanel';
 import { useInspectorView } from './InspectorView.hooks';
 
 /** The Inspector: compare the project's versions, lay out its scene or draw its paths. */
@@ -19,6 +20,16 @@ export default function InspectorView() {
         <main className="flex min-h-0 flex-1 flex-col gap-3.5 px-6 py-[18px]">
           <InspectorTabs />
           <BudgetPanel />
+        </main>
+      </InspectorShell>
+    );
+  }
+  if (project && tab === 'render') {
+    return (
+      <InspectorShell>
+        <main className="flex min-h-0 flex-1 flex-col gap-3.5 px-6 py-[18px]">
+          <InspectorTabs />
+          <RenderPanel />
         </main>
       </InspectorShell>
     );

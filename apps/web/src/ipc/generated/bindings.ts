@@ -226,6 +226,31 @@ export const commands = {
 	rigSaveSheet: (id: string) => __TAURI_INVOKE<string>("rig_save_sheet", { id }),
 	/**  Opens the case's draft, or else its model, in Blender's window. */
 	rigOpenBlender: (id: string) => __TAURI_INVOKE<null>("rig_open_blender", { id }),
+	/**
+	 *  The models a render of `source` would hold, with where their files go.
+	 *  Reads only.
+	 */
+	renderPlan: (source: PackSource) => __TAURI_INVOKE<RenderPlan>("render_plan", { source }),
+	/**
+	 *  The small pictures of one model the Render tab shows. Blender runs for
+	 *  what is not cached yet.
+	 */
+	renderPreview: (source: PackSource, key: string, settings: RenderSettings, shots: RenderShot[]) => __TAURI_INVOKE<RenderPreview>("render_preview", { source, key, settings, shots }),
+	/**  Starts a render; its progress comes as `RenderChanged` events. */
+	renderStart: (request: RenderRequest) => __TAURI_INVOKE<RenderRecord>("render_start", { request }),
+	/**  One render's record. */
+	renderGet: (id: string) => __TAURI_INVOKE<RenderRecord>("render_get", { id }),
+	/**  The newest renders first. */
+	renderRecent: () => __TAURI_INVOKE<RenderRecord[]>("render_recent"),
+	/**  Stops a render once the file running now is done. */
+	renderStop: (id: string) => __TAURI_INVOKE<RenderRecord>("render_stop", { id }),
+	/**  Goes on with a stopped render from the next file. */
+	renderResume: (id: string) => __TAURI_INVOKE<RenderRecord>("render_resume", { id }),
+	/**
+	 *  Shows a render's folder in Finder or Explorer. Only a render's own
+	 *  folder can be shown this way.
+	 */
+	renderReveal: (id: string) => __TAURI_INVOKE<null>("render_reveal", { id }),
 	/**  Every clip in the animation library. */
 	animationsGet: () => __TAURI_INVOKE<AnimationsView>("animations_get"),
 	/**
@@ -728,6 +753,7 @@ export const events = {
 	projectChanged: makeEvent<ProjectChanged>("project-changed"),
 	providerUpdate: makeEvent<ProviderUpdate>("provider-update"),
 	quitRequested: makeEvent<QuitRequested>("quit-requested"),
+	renderChanged: makeEvent<RenderChanged>("render-changed"),
 	rigChanged: makeEvent<RigChanged>("rig-changed"),
 	thumbnailReady: makeEvent<ThumbnailReady>("thumbnail-ready"),
 	updaterUpdate: makeEvent<UpdaterUpdate>("updater-update"),
@@ -3619,6 +3645,9 @@ export type LookAlikes = {
 	tookMs: number,
 };
 
+/**  A turntable's file. */
+export type LoopFormat = "webp" | "gif" | "mp4";
+
 /**  The model bone chosen for one humanoid bone; `None` leaves it at rest. */
 export type MapChoice = {
 	bone: string,
@@ -3998,6 +4027,15 @@ export type MovedDirection = {
 	asset: Asset | null,
 	/**  Its ref files in the other project's `refs/`, relative to that project. */
 	refs: string[],
+};
+
+/**  The box a turntable's pixels change in, top down, on its square canvas. */
+export type MovingBox = {
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	canvas: number,
 };
 
 /**  What the name matching made of a rig. */
@@ -4806,6 +4844,22 @@ export type PreviewRequest = {
 	plan: ModelPrep,
 };
 
+/**  A picture made. */
+export type PreviewShot = {
+	style: RenderStyle,
+	turn: number,
+	size: number,
+	/**  The picture; a turn's first frame. */
+	file: string,
+	seconds: number | null,
+	/**  A turn's eight sample frames. */
+	frames: string[],
+	/**  A turn's moving area, at its size. */
+	moving: MovingBox | null,
+	/**  What the whole loop would weigh, about, with the settings' format. */
+	estimateBytes: number | null,
+};
+
 /**  What Render previews asked for. */
 export type PreviewsAsked = {
 	/**  Models that had no preview and were asked for one. */
@@ -4822,6 +4876,19 @@ export type PreviewsAsked = {
 	/**  Why the first of them failed. */
 	reason: string | null,
 };
+
+/**  Why a file came out wrong, so the app can offer the next step. */
+export type ProblemKind = 
+/**  Toon on a model with nothing to colour it with: left out. */
+"no-texture" | 
+/**  A GIF over the size target: written, but look at it. */
+"over-target" | 
+/**  The line pass ran out of memory. */
+"out-of-memory" | 
+/**  ffmpeg is missing or cannot write this format. */
+"missing-tool" | 
+/**  Compressed so that Blender cannot read it. */
+"unreadable" | "failed";
 
 /**
  *  What runs in a project right now. Core leaves it empty; the shell fills
@@ -5107,6 +5174,187 @@ export type RemoveState = "removed" |
 "not-found" | 
 /**  Something is still working on it; `reason` says what to do. */
 "refused";
+
+/**  Where a still's camera stands. */
+export type RenderCamera = "front" | "three-quarter" | "side";
+
+/**
+ *  A render changed: a file started, was written or failed, or the render
+ *  stopped or is done. The Render tab and the batch sheet follow it.
+ */
+export type RenderChanged = {
+	record: RenderRecord,
+};
+
+/**  One file a render makes. */
+export type RenderFile = {
+	style: RenderStyle,
+	/**  Where it goes, an absolute path. */
+	file: string,
+	state: RenderFileState,
+	bytes: number | null,
+	seconds: number | null,
+	problem: RenderProblem | null,
+	moving: MovingBox | null,
+};
+
+/**  Where one file stands. */
+export type RenderFileState = "queued" | "running" | "done" | 
+/**  Written, with a problem to look at. */
+"warn" | "failed" | 
+/**  Left out, and the problem says why. */
+"skipped";
+
+/**  One model of a render. */
+export type RenderItem = {
+	target: RenderTarget,
+	files: RenderFile[],
+};
+
+/**  How a turntable or a contact sheet looks. */
+export type RenderLook = "blueprint" | "toon" | "clay" | "shaded";
+
+/**  What a render of a source would hold. */
+export type RenderPlan = {
+	/**  "of Winter Spire", "from the library". */
+	label: string,
+	/**  Where the files go, an absolute path. */
+	dir: string,
+	targets: RenderTarget[],
+	/**  Models left out, each with why. */
+	skipped: string[],
+};
+
+/**  A model's pictures. */
+export type RenderPreview = {
+	key: string,
+	name: string,
+	version: number,
+	heightM: number | null,
+	hasColour: boolean,
+	folder: string,
+	/**  Where the finished files go, an absolute path. */
+	dir: string,
+	shots: PreviewShot[],
+};
+
+export type RenderProblem = {
+	kind: ProblemKind,
+	message: string,
+	/**  What a WebP loop of the same turn would weigh, about. */
+	webpBytes: number | null,
+};
+
+/**  A render, as the app and agents read it. */
+export type RenderRecord = {
+	version: number,
+	id: string,
+	source: PackSource,
+	/**  "of Winter Spire", "from the library". */
+	label: string,
+	/**  The `exports/renders` folder of its files. */
+	dir: string,
+	settings: RenderSettings,
+	state: RenderState,
+	items: RenderItem[],
+	/**  The one contact sheet of all the models, when it was asked for. */
+	sheet: RenderFile | null,
+	createdAt: string,
+	finishedAt: string | null,
+	message: string | null,
+};
+
+/**  Everything a render needs to start. */
+export type RenderRequest = {
+	/**  A project's models or library entries; a collection works too. */
+	source: PackSource,
+	rows: RenderRow[],
+	settings: RenderSettings,
+	/**  Writes over earlier renders; else the new files get a number. */
+	replace: boolean,
+	/**  One contact sheet of all the models at the end, in the settings' look. */
+	sheet: boolean,
+};
+
+/**  The styles one model gets. */
+export type RenderRow = {
+	/**  The asset id in a project, the entry id in the library. */
+	key: string,
+	styles: RenderStyle[],
+};
+
+/**  How the files of a render are made. */
+export type RenderSettings = {
+	camera?: RenderCamera,
+	/**  A still's edge in pixels. */
+	size?: number,
+	/**  Leaves the paper out of a still. */
+	transparent?: boolean,
+	/**  The blueprint's line colour. */
+	lineColor?: string,
+	/**  The paper behind a still; `None` keeps each style's own. */
+	paperColor?: string | null,
+	/**  Line weight in pixels on a 1024 px picture. */
+	lineWeight?: number | null,
+	/**  How sharp a fold must be, in degrees, to get a line. */
+	crease?: number,
+	hiddenDashed?: boolean,
+	marks?: boolean,
+	titleBlock?: boolean,
+	clayColor?: string,
+	format?: LoopFormat,
+	/**  A loop's length in seconds, at the fixed [`encode::FPS`]. */
+	length?: number,
+	/**  A loop's frame edge in pixels, before the crop. */
+	width?: number,
+	look?: RenderLook,
+	/**  How far a loop's camera looks down, in degrees. */
+	tilt?: number,
+	/**  Keeps the ground out of a loop, so only the model's pixels change. */
+	stillBackground?: boolean,
+	/**  Crops a loop right up to the model, no margin. */
+	tightCrop?: boolean,
+	/**  Columns of a batch's contact sheet. */
+	columns?: number,
+	/**  A name under each picture of a contact sheet. */
+	names?: boolean,
+};
+
+/**  A picture the tab wants. */
+export type RenderShot = {
+	style: RenderStyle,
+	/**  Degrees on from the settings' camera. */
+	turn: number,
+	size: number,
+};
+
+/**  How a whole render stands. */
+export type RenderState = "running" | 
+/**  Stopped by a person, or the app closed: it can go on. */
+"stopped" | "done";
+
+/**  What a file is drawn as. */
+export type RenderStyle = "blueprint" | "toon" | "clay" | "shaded" | "turntable" | "contact-sheet";
+
+/**  One model a render can start from. */
+export type RenderTarget = {
+	/**  The asset id in a project, the entry id in the library. */
+	key: string,
+	name: string,
+	/**  Its folder under `exports/renders`. */
+	folder: string,
+	version: number,
+	/**  The file Blender reads, an absolute path. */
+	file: string,
+	/**  Its picture, an absolute path. */
+	thumbnail: string | null,
+	heightM: number | null,
+	triangles: number,
+	/**  It has a texture or material colours, so toon has something to show. */
+	hasColour: boolean,
+	/**  Why Blender cannot read it, when it cannot. */
+	unreadable: string | null,
+};
 
 export type RepoInspection = {
 	path: string,

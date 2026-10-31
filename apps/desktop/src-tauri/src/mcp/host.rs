@@ -11,6 +11,7 @@ use maquette_core::packs::Packs;
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::pipeline::tools::Toolbox;
 use maquette_core::providers::{Arrivals, ProviderJobs};
+use maquette_core::renders::Renders;
 use maquette_core::rig::RigDoctors;
 use maquette_core::site::preview::SitePreview;
 use maquette_core::thumbs::Thumbnails;
@@ -22,6 +23,7 @@ use crate::commands::lab::Lab;
 use crate::commands::packs::PackJobs;
 use crate::commands::pipeline::Pipelines;
 use crate::commands::providers::Studio;
+use crate::commands::renders::RenderJobs;
 use crate::commands::rig::RigJobs;
 use crate::commands::thumbs::Thumbs;
 use crate::events::{
@@ -56,6 +58,11 @@ pub trait Host: Send + Sync + 'static {
 
     /// The rig doctor service, where the app runs one.
     fn rig(&self) -> Option<&RigDoctors> {
+        None
+    }
+
+    /// The render styles service, where the app runs one.
+    fn renders(&self) -> Option<&Renders> {
         None
     }
 
@@ -134,6 +141,10 @@ impl Host for AppHost {
 
     fn rig(&self) -> Option<&RigDoctors> {
         self.0.try_state::<RigJobs>().map(|r| &r.inner().0)
+    }
+
+    fn renders(&self) -> Option<&Renders> {
+        self.0.try_state::<RenderJobs>().map(|r| &r.inner().0)
     }
 
     fn site_preview(&self) -> Option<Arc<SitePreview>> {

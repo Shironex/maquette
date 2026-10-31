@@ -80,6 +80,7 @@
     "refs::suggested": "lab",
     "library": "library",
     "packs": "library",
+    "renders": "library",
     "animations": "library"
   }
 }

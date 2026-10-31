@@ -125,6 +125,11 @@ textures, README, manifest and contact sheet, zipped) inside the workspace: Blen
 each model and opens it again to check it, Mixamo clips are always left out, and dryRun plans it first; \
 get_pack and list_packs read packs and presets, and decide_pack raises a budget, keeps a warning, zips \
 or stops and resumes. \
+render_styles renders a project's models or library entries in blueprint, toon, clay, shaded, as a \
+turntable loop (WebP by default, GIF or MP4 through ffmpeg) or a contact sheet of eight angles: headless \
+Blender, one file at a time, into the project's exports/renders/<asset>/, with no credits; dryRun lists \
+the models first. get_render reads each file's path, state, bytes and problem so you can open the \
+pictures; list_renders reads the newest ones; decide_render stops after the file running now or goes on. \
 The animation library keeps clips once, skeleton only (library/animations). list_animations \
 reads it; import_animations reads Mixamo FBX files or pack zips inside the workspace headless \
 (the skin is dropped, the rig read from the bone names, duplicates skipped, fixed clips become \

@@ -129,7 +129,7 @@ against it.
 | pipeline  | model, glb | `pipeline`, `prepare::preview`, `avatar::{normalize, reweight, springs}`, `built::{build, blender}`, `materials::{apply, split}`, `ship::{plan, report}`, `layout::view`, `thumbs`, `game`, `inspect`, `inbox`, `motion`, `parts`, `site` |
 | providers | model, glb | `providers` (the maquette-providers crate)                                                                                                                                                                                                |
 | lab       | model, glb | `concepts`, `refs::{files, suggested}`                                                                                                                                                                                                    |
-| library   | pipeline   | `library`, `animations`, `packs`                                                                                                                                                                                                          |
+| library   | pipeline   | `library`, `animations`, `packs`, `renders`                                                                                                                                                                                               |
 | facade    | everything | `lib.rs`, `providers::tests` (the provider tests that drive a send into the inbox)                                                                                                                                                        |
 
 A module whose file on disk is model data but whose work runs Blender or reads other layers is split
@@ -225,6 +225,7 @@ added. The order does not change `bindings.ts`: the TypeScript exporter sorts th
 | `inspect`                      | the Inspect view                                                                                                                                                                                                                                                                               |
 | `game`                         | a game repo's checks, scan, import and ship plan                                                                                                                                                                                                                                               |
 | `concepts`                     | Lab concepts and jobs                                                                                                                                                                                                                                                                          |
+| `renders`                      | render styles: plans, previews, loops and their records                                                                                                                                                                                                                                        |
 | `library`, `packs`             | library entries, their uses and updates; export packs, their records and presets                                                                                                                                                                                                               |
 | `maquette_preview::register`   | the Page view's settings and the dev server's command and status                                                                                                                                                                                                                               |
 
@@ -275,6 +276,11 @@ emit `libraryChanged` and the project events. `list_library` pages (a `limit` an
 `import_animations` and `save_model_clips`; import paths must resolve inside the workspace.
 
 `tools/rig.rs` holds `start_rig_doctor`, `run_rig_doctor`, `get_rig_doctor` and `list_rig_doctors`. They go through `maquette_core::rig`, which bundles the `maquette-character-rig` skill's scripts with `include_str!`, so there is one copy of them, and runs them headless on a copy in `cache/rig/<case>/`. The arrival read is `maquette_glb::analyse::rig_probe`, in Rust. No tool approves a joint move or lands a draft: `commands/rig.rs` does, and `mcp/hub/rig.rs` raises the approval card for a fix an agent started.
+`tools/renders.rs` holds `render_styles`, `get_render`, `list_renders` and `decide_render`. They go
+through the same `maquette_core::renders::Renders` service as the Inspector's Render tab and the batch
+sheet: `renders/render_styles.py` runs headless through `PipelineRunner` on a lane of its own, `encode.rs`
+joins the frames (WebP by its own RIFF writer, so a loop needs no ffmpeg; GIF and MP4 through ffmpeg with
+the fixed palette, frame rate and dither), and a record per render lives in `exports/.renders/`.
 
 `tools/packs.rs` holds `export_pack`, `get_pack`, `list_packs` and `decide_pack`. They go through
 `commands/packs.rs` like the Library's pack sheet, with `from_anywhere` false, so an agent's pack

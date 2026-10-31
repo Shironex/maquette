@@ -29,10 +29,8 @@ export default function LibraryBulkBar(props: LibraryBulkBarProps) {
   const ids = picked.map(i => i.entry.id);
   const n = picked.length;
   const all = n >= shown;
-  const { open, close, toggle, collectionItems, projectItems, exportPack } = useLibraryBulkBar(
-    ids,
-    collections
-  );
+  const { open, close, toggle, collectionItems, projectItems, exportPack, renderModels } =
+    useLibraryBulkBar(ids, collections);
 
   return (
     <div
@@ -123,6 +121,14 @@ export default function LibraryBulkBar(props: LibraryBulkBarProps) {
         onClick={exportPack}
       >
         Export pack
+      </Button>
+      <Button
+        size="sm"
+        icon="image"
+        tooltip="Renders the selected models in headless Blender: clay, toon, blueprint, turntable, a contact sheet. No credits"
+        onClick={renderModels}
+      >
+        Render
       </Button>
       <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-line-strong" />
       <Button

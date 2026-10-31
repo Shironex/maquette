@@ -16,7 +16,7 @@ use crate::library::{LibraryEntry, LibraryVersion, VersionFrom};
 use crate::prepare::{Fixup, ModelPrep, RealSize, SizeAxis, SizeUnit};
 use crate::workspace::FolderLayout;
 
-pub(super) fn stats(triangles: u32, joints: u32, animations: u32) -> ModelStats {
+pub(crate) fn stats(triangles: u32, joints: u32, animations: u32) -> ModelStats {
     ModelStats {
         triangles,
         bytes: 1000.0,
@@ -28,7 +28,7 @@ pub(super) fn stats(triangles: u32, joints: u32, animations: u32) -> ModelStats 
 }
 
 /// A library entry `id` of `kind` whose newest model is `bytes`.
-pub(super) fn entry(
+pub(crate) fn entry(
     root: &Path,
     id: &str,
     name: &str,

@@ -4,6 +4,7 @@ import type { LibraryCollection } from '@/ipc/client';
 import { changeCollection, copyIntoProject } from '@/state/library-actions';
 import { useAppStore } from '@/state/use-app-store';
 import { usePackStore } from '@/state/use-pack-store';
+import { useRenderStore } from '@/state/use-render-store';
 
 const NONE: never[] = [];
 
@@ -41,5 +42,9 @@ export function useLibraryBulkBar(
     collectionItems,
     projectItems,
     exportPack: () => void usePackStore.getState().show({ from: 'entries', entries: [...ids] }),
+    renderModels: () =>
+      void useRenderStore
+        .getState()
+        .show({ from: 'entries', entries: [...ids] }, [...ids], 'Opened from the Models selection'),
   };
 }

@@ -9,6 +9,7 @@ import { FirstRunCard } from '../FirstRunCard';
 import { PrepDialog } from '../PrepDialog';
 import { RemoveAssetsDialog } from '../RemoveAssetsDialog';
 import { RenameAssetDialog } from '../RenameAssetDialog';
+import { useRenderStore } from '@/state/use-render-store';
 import { SelectionBar } from '../SelectionBar';
 import { useBoardData, useBoardSelection, useCardActions, useCardDrop } from './BoardView.hooks';
 import type { BoardViewProps } from './BoardView.types';
@@ -87,6 +88,17 @@ export default function BoardView({ queue }: BoardViewProps) {
             <SelectionBar
               count={present.length}
               onSend={selection.send}
+              onRender={() =>
+                project
+                  ? void useRenderStore
+                      .getState()
+                      .show(
+                        { from: 'project', project: project.id },
+                        present,
+                        `Opened from the Board selection · ${project.name}`
+                      )
+                  : undefined
+              }
               onRemove={() => actions.setRemoving(assets.filter(a => present.includes(a.id)))}
               onClear={selection.clear}
             />
