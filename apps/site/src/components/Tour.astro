@@ -97,11 +97,11 @@ const side = (index: number) => STOP_MOTION[STOP_IDS[index] ?? 'hero'].copy ?? '
 
   <div class="stops">
     <TourStop index={0} id="hero" side="left" labelledby="hero-title" hero>
-      <h1 class="display" id="hero-title">Turn concept art into real&#8209;time 3D scenes.</h1>
-      <p class="lead hero-lead">
+      <h1 class="display" id="hero-title" data-maquette-text>Turn concept art into real&#8209;time 3D scenes.</h1>
+      <p class="lead hero-lead" data-maquette-text>
         From a Codex sketch to a compressed GLB in your site repo. Everything runs on your machine.
       </p>
-      <div class="actions hero-actions">
+      <div class="actions hero-actions" data-maquette-text>
         <DownloadLink />
         <a class="btn btn-text see" href="#pipeline"
           >See the pipeline<Icon name="arrow-right" size={18} /></a

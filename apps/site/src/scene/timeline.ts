@@ -30,6 +30,7 @@
  * range scrubs it with the page. Click and hover triggers do not play here.
  */
 import type { Vec3 } from './manifest';
+import type { StyleTrack } from './page-tracks';
 
 export type Easing = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
 type MaybeVec3 = readonly [number | null, number | null, number | null];
@@ -87,6 +88,10 @@ export interface Timeline {
   explode: Record<string, ExplodeTrack>;
   /** Older layouts have none. */
   paths?: Record<string, PathTrack>;
+  /** The look the 3D layer fades into (./page-tracks.ts). Older layouts have none. */
+  style?: StyleTrack | null;
+  /** How much of the marked hero copy shows. Older layouts have none. */
+  text?: PathTrack | null;
 }
 
 /** A part's offset from rest, plain numbers. */
