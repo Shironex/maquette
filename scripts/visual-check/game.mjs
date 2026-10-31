@@ -74,7 +74,7 @@ export async function gameShots({ open, shot }) {
   await templates.getByRole('button', { name: /^Level kit, \.obj/ }).click();
   await templates.getByText('What will change').waitFor();
   await shot(kit, 'game-templates-preview');
-  await templates.getByRole('button', { name: 'Apply Level kit, .obj' }).click();
+  await templates.getByRole('button', { name: 'Apply template' }).click();
   await templates.waitFor({ state: 'detached' });
   await kit.getByRole('button', { name: '.obj + .mtl', pressed: true }).waitFor();
   await kit.getByText(/kit\/ 1024 px/).waitFor();
