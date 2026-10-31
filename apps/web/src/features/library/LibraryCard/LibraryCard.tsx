@@ -1,7 +1,7 @@
-import type { MouseEvent } from 'react';
+import { Fragment, type MouseEvent } from 'react';
 import { Icon, cn } from '@maquette/ui';
 import type { LibraryItem } from '@/ipc/client';
-import { creditLine, itemLine, usedLine } from '@/state/library';
+import { creditLine, itemParts, usedLine } from '@/state/library';
 import { CARD, CARD_BUTTON } from '@/features/common/cardButton';
 import { LibraryPicture } from '../LibraryPicture';
 import { SelectBox } from '../SelectBox';
@@ -37,6 +37,13 @@ const FLAG_LABEL: Record<ModelFlag, string> = {
 export default function LibraryCard(props: LibraryCardProps) {
   const { item, selected, onSelect, onInspect, checked = false, selecting = false } = props;
   const credits = creditLine(item);
+  // Each part keeps together, so a long line ("Meshy, rigged") wraps between parts instead of being cut.
+  const line = itemParts(item).map((part, n) => (
+    <Fragment key={n}>
+      {n ? ' · ' : null}
+      <span className="whitespace-nowrap">{part}</span>
+    </Fragment>
+  ));
   const tags = item.entry.tags.map(tag => (
     <span
       key={tag}
@@ -91,8 +98,8 @@ export default function LibraryCard(props: LibraryCardProps) {
       </div>
       <span className="flex flex-col gap-1.5 p-3">
         <span className="truncate font-semibold">{item.entry.name}</span>
-        <span className="truncate font-mono text-[11.5px] leading-[14px] text-fg-mute">
-          {itemLine(item)}
+        <span className="line-clamp-2 font-mono text-[11.5px] leading-[14px] text-fg-mute">
+          {line}
         </span>
         {tags.length ? (
           <span className="flex flex-wrap gap-1">{tags}</span>
