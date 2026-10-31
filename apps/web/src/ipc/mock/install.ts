@@ -160,6 +160,11 @@ if (params.get('parts')) {
   const url = models['../../assets/mock/models/frost_lantern.glb'];
   if (url) registerMockFile(`${root}/inbox/frost_lantern.glb`, url);
 }
+// `?game=hero` imported a rigged heroine: the clay figure stands in for her file.
+if (params.get('game') === 'hero') {
+  const url = models['../../assets/mock/models/clay_figure.glb'];
+  if (url) registerMockFile(`${root}/projects/crypt-game/models/heroine_v1.glb`, url);
+}
 // `?motion=still` puts its prop in Frost cathedral.
 for (const [file, model] of Object.entries(motion === 'still' ? motionFiles(motion) : {})) {
   const url = models[`../../assets/mock/models/${model}`];

@@ -99,7 +99,6 @@ export function useCompareBoard(): { columns: CompareColumnView[]; device: Devic
       rows: [
         { label: 'Shows when', value: 'no WebGL' },
         { label: 'Stop', value: cameraStops?.[stopIndex]?.name ?? 'none' },
-        { label: 'Alt text', value: cameraStops?.[stopIndex]?.name.trim() ? 'set' : 'not set' },
         {
           label: 'Swaps to 3D',
           value: firstView === null ? 'with the page' : `at ${formatBytes(firstView)}`,

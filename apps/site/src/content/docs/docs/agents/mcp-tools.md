@@ -5,9 +5,11 @@ sidebar:
   label: MCP tools
 ---
 
-The server offers 101 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
+The server offers 118 tools. Set it up first on [Connect an agent](/docs/agents/connect/). Tools that work on a project take its id as `project`, as `list_projects` returns it.
 
 How to read the tables: **Spends** says whether a call costs anything. **Approval** says whether a person has to answer in the Maquette app before it goes on.
+
+Jump to a group: [Read only](#read-only), [Changes the project, spends nothing](#changes-the-project-spends-nothing), [Spends credits, Codex usage or dollars, or needs approval](#spends-credits-codex-usage-or-dollars-or-needs-approval), [The main tools](#the-main-tools).
 
 ## Read only
 

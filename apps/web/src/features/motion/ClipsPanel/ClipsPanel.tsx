@@ -30,7 +30,7 @@ export default function ClipsPanel() {
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span
             className={cn(
-              'truncate text-[13px] leading-[18px] font-semibold',
+              'line-clamp-2 break-all text-[13px] leading-[18px] font-semibold',
               !row.ship && 'text-fg-dim'
             )}
           >

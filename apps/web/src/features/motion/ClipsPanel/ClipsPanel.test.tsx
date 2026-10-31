@@ -18,7 +18,7 @@ describe('the clips panel in a game', () => {
     const name = 'Combat_Run_Forward_Combat_Stance_01';
     const row = screen.getByRole('button', { name: new RegExp(name) });
     expect(row).toHaveAttribute('title', name);
-    expect(within(row).getByText(name)).toHaveClass('truncate');
+    expect(within(row).getByText(name)).toHaveClass('line-clamp-2');
     expect(screen.queryByText('Over')).toBeNull();
     expect(screen.queryByText(/scene/i)).toBeNull();
     expect(screen.getByText(/Game export keeps the clips switched on/)).toBeInTheDocument();

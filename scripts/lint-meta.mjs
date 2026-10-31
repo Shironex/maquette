@@ -37,7 +37,7 @@ import { join, resolve } from 'node:path';
 import { isGrandfathered, loadBaseline, serializeBaseline } from '@noctcore/harness';
 import { createFileSizeRatchetRule } from '@noctcore/lint-meta-rules';
 import { createEslintConfigNoWarnRule } from '@noctcore/lint-meta-rules/resolved-config';
-import { checkSkills, undocumentedTools } from './check-skills.mjs';
+import { checkSkills, staleToolCount, undocumentedTools } from './check-skills.mjs';
 import { CRATE_MAP, crateLayers } from './crate-layers.mjs';
 import { LAYER_MAP, upwardUses } from './rust-layers.mjs';
 
@@ -202,8 +202,9 @@ const rules = [
   },
   {
     id: 'tools-documented',
-    description: 'The README and the MCP tools docs page name every tool the server lists.',
-    run: () => undocumentedTools(root),
+    description:
+      'The README and the MCP tools docs page name every tool the server lists and state its real count.',
+    run: () => [...undocumentedTools(root), ...staleToolCount(root)],
   },
 ];
 
