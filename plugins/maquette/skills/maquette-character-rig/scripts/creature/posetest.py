@@ -109,7 +109,7 @@ for ch in CHAINS:
     report[ch] = dict(rigid=[dict(piece=p, n=psize[p], ext=round(EXT[p], 3), err=round(e, 4), bend_mm=round(e / BODY.size * 1000, 1), at=[round(x, 3) for x in co[worst[p][1]]]) for e, p in rig],
                       articulated=[dict(piece=p, n=psize[p], ext=round(EXT[p], 3), err=round(e, 4)) for e, p in art],
                       seam_gap=round(gap, 4), stretch_p99=round(s99, 3), stretch_max=round(smax, 3), stretch_at=sat, stretch_mm=held["stretch_mm"],
-                      beyond_body_mm=held["beyond_body_mm"], seam_gap_mm=held["seam_gap_mm"])
+                      beyond_body_mm=held["beyond_body_mm"], worst_edge_mm=held["worst_edge_mm"], worst_edge_near=held["worst_edge_near"], seam_gap_mm=held["seam_gap_mm"])
     a, b = chain_dir(CHAINS[ch]); c = (a + b) / 2
     if ch.startswith("leg") or ch.startswith("rear"): c = Vector((c.x, c.y, ctr.z))
     off = Vector((c.x - ctr.x, c.y - ctr.y, 0))

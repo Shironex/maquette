@@ -3,9 +3,10 @@
 
 use super::{RigDefect, RigRow, RigRowChange, RigSheet, RigTrend};
 
-/// A row is flagged when an edge stretches this far past what a healthy skin
-/// does to it (mm at a one metre tall model, see surface.py). A clean rig
-/// stays well under it in big poses while the raw stretch reads 260.
+/// A row is flagged when half a percent of its surface stretches this far past
+/// what a healthy skin does to it (mm at a one metre tall model, see
+/// surface.py). A clean rig stays well under it in big poses while the raw
+/// stretch reads 260. One edge this far only says look here.
 pub const TEAR_MM: f64 = 80.0;
 /// Seam copies this far apart read as a crack.
 pub const SEAM_MM: f64 = 5.0;
@@ -27,6 +28,19 @@ pub(super) fn problem(row: &RigRow) -> Option<String> {
     } else {
         None
     }
+}
+
+/// Where to look on a row that is not wrong by its numbers but has an edge
+/// past the tear limit: real, and too small to call a tear.
+pub(super) fn look(row: &RigRow, near: Option<&str>) -> Option<String> {
+    let mm = row.worst_edge_mm.filter(|mm| *mm >= TEAR_MM)?;
+    if problem(row).is_some() {
+        return None;
+    }
+    let place = near
+        .filter(|n| !n.is_empty())
+        .map_or(String::new(), |n| format!(" near {n}"));
+    Some(format!("a few edges stretch {mm:.0} mm{place}, look here"))
 }
 
 fn trend(before: f64, after: f64) -> RigTrend {

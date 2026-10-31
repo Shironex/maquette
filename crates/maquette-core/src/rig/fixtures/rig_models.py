@@ -12,9 +12,11 @@ Usage: blender -b --factory-startup -P rig_models.py -- <which> out.glb
   long-robe   a clean rig under a floor length robe whose weights blend from the hips to the legs, and a wide walk
   robe-torn   the same robe with rows of it on the hips and on the thigh in turn: a real tear in the walk
   robe-arm    the same robe with its hem blended smoothly onto the far arm bone: a real stretch in raise
+  robe-patch  the clean robe with two neighbouring vertices stepped hard onto the thigh: a few long edges, no tear
   creature    a four legged beast facing -X: swapped side names, a junk chain, split spikes, a tail on a leg
   hound       a four legged beast as a Tripo rig names it: toes forked at each paw, all weighted, a nub on a
               leg, a long tail and weighted back spikes
+  hound-spare the same with weightless side bones forking at both front knees, and a nose tip past the head
   hound-shell the same remeshed into one shell with many UV islands and clean weights: the fix has nothing to do
   no-skin     bones and a mesh with no weights
 """
@@ -168,7 +170,7 @@ def humanoid(shift_left_arm=0.0):
         tube(bm, (k * 0.07, 0, 0.50), (k * 0.08, 0, 0.27), 0.05, 0.035)
         tube(bm, (k * 0.08, 0, 0.27), (k * 0.08, 0, 0.05), 0.033, 0.03)
         tube(bm, (k * 0.08, 0, 0.05), (k * 0.08, -0.13, 0.015), 0.03, 0.02, 8, 6)
-    robe = which in ("long-robe", "robe-torn", "robe-arm")
+    robe = which in ("long-robe", "robe-torn", "robe-arm", "robe-patch")
     if robe:
         tube(bm, (0, 0, 0.56), (0, 0, 0.08), 0.17, 0.24, 28, 24)
     if which != "webbed" and not robe:
@@ -211,6 +213,8 @@ def humanoid(shift_left_arm=0.0):
                     blend[b] = down * share * w
             if which == "robe-torn" and co.y < 0 and co.x > 0 and 0.16 < co.z < 0.40:
                 return {P + "LeftUpLeg": 1.0} if int(co.z / 0.02) % 2 else {P + "Hips": 1.0}
+            if which == "robe-patch" and 0.235 < co.z < 0.265 and co.y < 0 and 0.05 < co.x < 0.13:
+                return {P + "LeftLeg": 1.0}
             if which == "robe-arm" and co.x > 0 and co.z < 0.30:
                 onto = min((0.30 - co.z) / 0.20, 1.0)
                 blend = {b: w * (1 - onto) for b, w in blend.items()}
@@ -337,8 +341,12 @@ def hound():
     spikes = [(0.05 + 0.1 * i, 0.60) for i in range(3)]
     for i, (x, z) in enumerate(spikes):
         joints.append((f"bone_6{i}", (x, 0, z), (x, 0, z + 0.09), "bone_1"))
+    if which == "hound-spare":   # as a Tripo rig leaves them: one reaches the ground, one stops at the knee
+        joints.append(("bone_70", (-0.18, -0.11, 0.30), (-0.16, -0.11, 0.08), "tripo::0_Limb_1"))
+        joints.append(("bone_71", (-0.18, 0.11, 0.30), (-0.16, 0.11, 0.40), "tripo::1_Limb_1"))
+        joints.append(("bone_72", (-0.46, 0, 0.65), (-0.50, 0, 0.66), "bone_4"))
     arm = make_arm(joints)
-    segs = {n: (Vector(h), Vector(t)) for n, h, t, _ in joints}
+    segs = {n: (Vector(h), Vector(t)) for n, h, t, _ in joints if n not in ("bone_70", "bone_71")}
     bm = bmesh.new()
     tube(bm, (0.32, 0, 0.50), (-0.2, 0, 0.52), 0.11, 0.10, 14, 24)
     tube(bm, (-0.2, 0, 0.52), (-0.32, 0, 0.60), 0.08, 0.06, 12, 10)
@@ -363,7 +371,7 @@ def hound():
 bpy.ops.wm.read_factory_settings(use_empty=True)
 if which == "creature":
     arm = creature()
-elif which in ("hound", "hound-shell"):
+elif which in ("hound", "hound-shell", "hound-spare"):
     arm = hound()
 elif which == "misplaced":
     arm = humanoid(0.05)

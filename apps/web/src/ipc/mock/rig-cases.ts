@@ -32,6 +32,13 @@ export function creatureCase(): RigRecord {
       after: [14, 9, 0],
     },
     { id: 'leg_FR', before: [8, 6, 0], after: [8, 6, 0] },
+    {
+      id: 'spike_0',
+      look: 'a few edges stretch 92 mm near bone_26, look here',
+      worst: 92,
+      before: [110, 40, 0],
+      after: [110, 40, 0],
+    },
     { id: 'neck', before: [6, 4, 0], after: [6, 4, 0] },
   ];
   const base = readCase(id, 'Spiked hound', null);
@@ -57,6 +64,7 @@ export function creatureCase(): RigRecord {
       legs: 4,
       swapped: 2,
       junk: ['dup_FL', 'dup_FR'],
+      ignored: ['bone_17', 'bone_25'],
       rigidPieces: 41,
       oneShell: false,
       chains: [

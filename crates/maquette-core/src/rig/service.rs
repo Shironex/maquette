@@ -214,10 +214,8 @@ impl RigDoctors {
         }
         case.error = None;
         case.stop = None;
-        match what {
-            RigRun::PoseTest => case.stages.clear(),
-            RigRun::Fix | RigRun::Round2 => case.round += 1,
-            RigRun::WalkProof => {}
+        if what == RigRun::PoseTest {
+            case.stages.clear();
         }
         case.walk_proof = None;
         self.publish(&mut case)?;

@@ -64,11 +64,13 @@ fn sheet(run: &Run, tag: &str) -> CoreResult<RigSheet> {
                 label: format!("{chain} bent"),
                 stretch_mm: stretch,
                 beyond_body_mm: r["beyond_body_mm"].as_f64(),
+                worst_edge_mm: r["worst_edge_mm"].as_f64(),
                 seam_gap_mm: r["seam_gap_mm"].as_f64().unwrap_or(0.0),
                 front: tile("pose"),
                 side: tile("rest"),
                 ..RigRow::default()
             };
+            row.look = verdict::look(&row, r["worst_edge_near"].as_str());
             row.note = verdict::problem(&row).or_else(|| {
                 (rigid > 0).then(|| {
                     format!(
@@ -150,6 +152,7 @@ pub(super) fn test(run: &Run) -> CoreResult<()> {
         legs: u32::try_from(num(&table, "legs")).unwrap_or(0),
         swapped: u32::try_from(num(&table, "swapped")).unwrap_or(0),
         junk: defects::names(&table["junk"]),
+        ignored: defects::names(&table["ignored"]),
         rigid_pieces: u32::try_from(num(&table, "rigid_pieces")).unwrap_or(0),
         one_shell: table["one_shell"] == true,
         chains: chains_of(&table),
@@ -219,7 +222,9 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
     let input = run.dir.join("in.glb");
     let draft = run.dir.join("draft.glb");
     let scripts = run.dir.join("scripts").join(ROUTE);
-    let last_round = case.round >= MAX_ROUNDS;
+    // The round counts once it made a draft: while it runs, and if it fails or moves nothing, the case stays as it was.
+    let round = case.round + 1;
+    let last_round = round >= MAX_ROUNDS;
     // Installing the scripts put the example config back: read the chains again.
     read_chains(run, &input, &scripts)?;
     if last_round {
@@ -337,6 +342,7 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
     let stop = steps::stop_of(&case.name, &checks, last_round, worst.as_ref());
     let draft_path = arg(&draft);
     run.update(|c| {
+        c.round = round;
         c.after = Some(after);
         c.stats = stats;
         c.checks = checks;

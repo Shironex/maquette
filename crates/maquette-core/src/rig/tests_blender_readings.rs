@@ -74,6 +74,73 @@ fn a_hem_blended_onto_a_far_arm_is_flagged() {
     );
 }
 
+#[test]
+fn a_few_edges_stepped_onto_the_leg_say_look_here_and_are_no_tear() {
+    let Some(blender) = crate::test_blender::blender() else {
+        return;
+    };
+    let dir = tempfile::tempdir().expect("dir");
+    let case = tested("robe-patch", &blender, dir.path());
+    let walk = row(&case, "clip:walk:0.5");
+    // Real, long edges at a hard step, on too little of the surface to call a tear.
+    assert!(walk.worst_edge_mm.expect("number") >= TEAR_MM, "{walk:?}");
+    assert!(walk.beyond_body_mm.expect("number") < TEAR_MM, "{walk:?}");
+    assert_eq!(walk.note, None, "{walk:?}");
+    let look = walk.look.as_deref().expect("look");
+    assert!(look.ends_with("look here"), "{look}");
+    assert!(look.contains("near "), "{look}");
+}
+
+#[test]
+fn bones_with_no_weight_make_no_chains_and_stay_in_the_file() {
+    let Some(blender) = crate::test_blender::blender() else {
+        return;
+    };
+    let dir = tempfile::tempdir().expect("dir");
+    let case = tested("hound-spare", &blender, dir.path());
+    let table = case.creature.as_ref().expect("chains");
+    assert_eq!(table.legs, 4, "{:?}", table.chains);
+    assert_eq!(table.ignored, ["bone_70", "bone_71"]);
+    assert!(table.junk.is_empty(), "{:?}", table.junk);
+    let named = |start: &str| {
+        table
+            .chains
+            .iter()
+            .filter(|c| c.chain.starts_with(start))
+            .collect::<Vec<_>>()
+    };
+    let legs = named("leg_");
+    assert_eq!(legs.len(), 4, "{legs:?}");
+    // A spare bone at the knee no longer cuts a leg in two.
+    assert!(legs.iter().all(|l| l.bones >= 6), "{legs:?}");
+    let tails = named("tail");
+    assert_eq!(tails.len(), 1, "{tails:?}");
+    assert_eq!(tails[0].bones, 6, "{tails:?}");
+    assert_eq!(named("spikes")[0].bones, 3);
+    let config =
+        std::fs::read_to_string(Path::new(&case.dir).join("scripts/creature/rigconfig.py"))
+            .expect("config");
+    // The nose tip past the head moves with it: bending it alone would not test the head.
+    assert!(config.contains("HEAD_BONE = 'bone_4'"), "{config}");
+    let spare = crate::test_blender::run(
+        &blender,
+        &[
+            "--python-expr",
+            SPARE_BONES,
+            "--",
+            Path::new(&case.dir).join("in.glb").to_str().expect("path"),
+        ],
+    );
+    assert!(spare.contains("SPARE 2"), "{spare}");
+}
+
+const SPARE_BONES: &str = r#"
+import bpy, sys
+bpy.ops.import_scene.gltf(filepath=sys.argv[sys.argv.index("--") + 1])
+arm = next(o for o in bpy.data.objects if o.type == "ARMATURE")
+print("SPARE", sum(1 for b in arm.data.bones if b.name in ("bone_70", "bone_71")))
+"#;
+
 const TOE_WEIGHTS: &str = r#"
 import bpy, sys
 bpy.ops.import_scene.gltf(filepath=sys.argv[sys.argv.index("--") + 1])

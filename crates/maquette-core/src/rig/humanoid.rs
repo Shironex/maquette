@@ -190,7 +190,9 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
     let case = run.snapshot();
     let input = run.dir.join("in.glb");
     let draft = run.dir.join("draft.glb");
-    let last_round = case.round >= MAX_ROUNDS;
+    // The round counts once it made a draft: while it runs, and if it fails or moves nothing, the case stays as it was.
+    let round = case.round + 1;
+    let last_round = round >= MAX_ROUNDS;
     run.update(|c| c.after = None);
     let mut report = Value::Null;
     run.stage("Fix", || {
@@ -198,7 +200,7 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
             run.script(ROUTE, "narrow.py", &[arg(&input), arg(&draft)])?;
         } else {
             let mut args = vec![arg(&input), arg(&draft)];
-            if case.round >= MAX_ROUNDS {
+            if last_round {
                 args.extend(["--band".to_string(), ROUND2_BAND.to_string()]);
             }
             run.script(ROUTE, "fixweights.py", &args)?;
@@ -280,7 +282,7 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
         sums.stretch,
         sums.past,
         sums.gaps,
-        stat("Seam band", None, steps::band_text(&case), false),
+        stat("Seam band", None, steps::band_text(&case, round), false),
         stat(
             "New weights",
             None,
@@ -288,10 +290,11 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
             false,
         ),
     ];
-    let fix_steps = steps::humanoid(&case, &report);
+    let fix_steps = steps::humanoid(&case, round, &report);
     let stop = steps::stop_of(&case.name, &checks, last_round, worst.as_ref());
     let draft_path = arg(&draft);
     run.update(|c| {
+        c.round = round;
         c.after = Some(sheet);
         c.stats = stats;
         c.checks = checks;

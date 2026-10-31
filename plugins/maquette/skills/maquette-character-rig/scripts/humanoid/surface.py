@@ -3,13 +3,16 @@
 Three numbers, in mm at a model one metre tall (its longest side for a creature):
   stretch_mm      the worst single edge: how much its length changed from rest. An edge pulled across a
                   bent joint changes length on any rig, so this alone does not say the weights are wrong.
-  beyond_body_mm  the same worst edge after taking off what a healthy skin does anyway, by the kinder of two
-                  answers. The rigid body has every vertex stuck to its nearest bone: it answers for an edge
+  beyond_body_mm  how far an edge stretches past what a healthy skin does anyway, held over SURFACE_SHARE of the
+                  surface: a handful of sliver edges in a dense mesh cannot set it, a tear that shows can. A healthy
+                  skin is the kinder of two answers. The rigid body has every vertex stuck to its nearest bone: it answers for an edge
                   across a joint, but only there, since two ends on one bone give it nothing to say. The fair
                   skin keeps this model's own weights on nearby bones and evens them over a few rings: a blend
                   across a robe survives that, so it answers for the blend, while a hard step between two
                   neighbours, or weight on a bone far away, does not survive and stays counted. An edge may
                   also grow by half its own length: on a long edge of a coarse mesh that is mild, not a tear.
+  worst_edge_mm   the single worst edge of that same reading, and worst_edge_near the bone nearest it: where to
+                  look when a few edges pull hard but too little of the surface to call a tear.
   seam_gap_mm     how far vertices that share a position at rest (copies split at a UV seam) came apart:
                   a real crack. A split surface has no edge across it, so stretch never sees a tear.
 """
@@ -22,6 +25,10 @@ FAIR_PASSES = 5
 FAIR_REACH = 0.35
 # How much of its own length an edge may stretch by and still read as cloth.
 EDGE_GIVE = 0.5
+# How much of the surface has to stretch for the pose to read that far. On real robed models the worst edges are
+# a rim of slivers between a layer on the leg and a layer on the trunk, far under this and mostly out of sight;
+# torn cloth and a hem on the far arm cover well over it. Share of area, not of edges, so density does not matter.
+SURFACE_SHARE = 0.005
 
 
 def _matrix(m):
@@ -51,6 +58,7 @@ class Surface:
         m.edges.foreach_get("vertices", ed)
         self.edges = ed.reshape(-1, 2)
         self.rest_len = self._lengths(self.rest)
+        self.edge_area = self._edge_areas()
         # The model's own size in the units of its vertices: a pose or a parent's scale cannot change it.
         self.size = max(float(np.ptp(self.rest, axis=0).max()), 1e-6)
         self.height = max(float(np.ptp(self.rest[:, 2])), 1e-6)
@@ -71,6 +79,27 @@ class Surface:
             best[near], self.nearest[near] = d[near], i
         self.rest_inv = [np.linalg.inv(_matrix(b.matrix_local)) for b in self.bones]
         self.fair = self._fair_weights(dist, best, inv)
+
+    def _edge_areas(self):
+        """Each edge's part of the surface: every face shared out over its edges."""
+        m = self.me.data
+        area, sides = np.zeros(len(m.polygons)), np.zeros(len(m.polygons), int)
+        m.polygons.foreach_get("area", area)
+        m.polygons.foreach_get("loop_total", sides)
+        loop_edge = np.zeros(len(m.loops), int)
+        m.loops.foreach_get("edge_index", loop_edge)
+        out = np.zeros(len(m.edges))
+        np.add.at(out, loop_edge, np.repeat(area / np.maximum(sides, 1), sides))
+        return out
+
+    def _over_share(self, beyond):
+        """The stretch that SURFACE_SHARE of the surface reaches or passes."""
+        total = float(self.edge_area.sum())
+        if total <= 0:
+            return float(beyond.max())
+        order = np.argsort(-beyond)
+        reached = np.searchsorted(np.cumsum(self.edge_area[order]), SURFACE_SHARE * total)
+        return float(beyond[order[min(int(reached), len(order) - 1)]])
 
     def _fair_weights(self, dist, best, inv):
         """{bone index: (vertices, weights)} of the fair skin."""
@@ -141,6 +170,8 @@ class Surface:
         # For two copies, the box's diagonal is exactly how far apart they are.
         gap = max((float(np.linalg.norm(np.ptp(co[g], axis=0))) for g in self.seams), default=0.0)
         mm = lambda value: round(float(value) / size * 1000, 1)
-        at = self.rest[self.edges[b if beyond[b] > 0 else k, 0]] if len(change) else (0, 0, 0)
-        return dict(stretch_mm=mm(change[k]) if len(change) else 0.0, beyond_body_mm=mm(beyond[b]) if len(beyond) else 0.0,
-                    seam_gap_mm=mm(gap), at=[round(float(x), 3) for x in at])
+        worst = self.edges[b if beyond[b] > 0 else k, 0] if len(change) else 0
+        near = self.bones[self.nearest[worst]].name.split(":")[-1] if len(change) else ""
+        return dict(stretch_mm=mm(change[k]) if len(change) else 0.0, beyond_body_mm=mm(self._over_share(beyond)) if len(beyond) else 0.0,
+                    worst_edge_mm=mm(beyond[b]) if len(beyond) else 0.0, worst_edge_near=near,
+                    seam_gap_mm=mm(gap), at=[round(float(x), 3) for x in self.rest[worst]] if len(change) else [0, 0, 0])

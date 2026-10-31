@@ -11,43 +11,53 @@ import { DefectCard, RunProgress, Stats, Tile } from './parts';
 /** The centre of the third board: the chains read from the bones. */
 export function CreatureCentre({ record }: { record: RigRecord }) {
   const rows = record.before?.rows ?? [];
-  const pairs = rows.filter(rowFlagged).map(row => {
-    const after = record.after?.rows.find(r => r.id === row.id);
-    const pictures = [
-      { url: fileUrl(row.front), caption: 'Before' },
-      { url: fileUrl(after?.front), caption: 'Draft' },
-    ];
-    return (
-      <figure key={row.id} className="m-0">
-        <Enlarges
-          title={row.label}
-          detail={after?.note ?? `${row.note ?? 'looks fine'}. ${rowNumbers(row)}`}
-          pages={[{ label: 'Pose', pictures }]}
-        >
-          <div className="grid grid-cols-2 gap-1.5">
-            <Tile
-              url={pictures[0]!.url}
-              alt={`${row.label}, before`}
-              flagged
-              aspect={cellAspect(record)}
-            />
-            <Tile url={pictures[1]!.url} alt={`${row.label}, draft`} aspect={cellAspect(record)} />
-          </div>
-        </Enlarges>
-        <figcaption className="mt-1 font-mono text-meta">
-          <span className="flex justify-between gap-2">
-            <span className="text-fg-dim">{row.label}</span>
-            {after ? null : <span className="text-right text-clay-text">{row.note}</span>}
-          </span>
-          {after ? (
-            <RowChange row={after} />
-          ) : (
-            <span className="text-fg-mute">{rowNumbers(row)}</span>
-          )}
-        </figcaption>
-      </figure>
-    );
-  });
+  const pairs = rows
+    .filter(r => rowFlagged(r) || r.look)
+    .map(row => {
+      const after = record.after?.rows.find(r => r.id === row.id);
+      const pictures = [
+        { url: fileUrl(row.front), caption: 'Before' },
+        { url: fileUrl(after?.front), caption: 'Draft' },
+      ];
+      return (
+        <figure key={row.id} className="m-0">
+          <Enlarges
+            title={row.label}
+            detail={after?.note ?? `${row.note ?? row.look ?? 'looks fine'}. ${rowNumbers(row)}`}
+            pages={[{ label: 'Pose', pictures }]}
+          >
+            <div className="grid grid-cols-2 gap-1.5">
+              <Tile
+                url={pictures[0]!.url}
+                alt={`${row.label}, before`}
+                flagged={rowFlagged(row)}
+                aspect={cellAspect(record)}
+              />
+              <Tile
+                url={pictures[1]!.url}
+                alt={`${row.label}, draft`}
+                aspect={cellAspect(record)}
+              />
+            </div>
+          </Enlarges>
+          <figcaption className="mt-1 font-mono text-meta">
+            <span className="flex justify-between gap-2">
+              <span className="text-fg-dim">{row.label}</span>
+              {after ? null : (
+                <span className={cn('text-right', row.note ? 'text-clay-text' : 'text-amber')}>
+                  {row.note ?? row.look}
+                </span>
+              )}
+            </span>
+            {after ? (
+              <RowChange row={after} />
+            ) : (
+              <span className="text-fg-mute">{rowNumbers(row)}</span>
+            )}
+          </figcaption>
+        </figure>
+      );
+    });
   const cards = record.defects.map(d => <DefectCard key={d.number} defect={d} />);
   const log = record.log.slice(-6).map(l => (
     <li key={`${l.at}-${l.text}`} className="flex gap-2.5">
