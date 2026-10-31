@@ -18,5 +18,6 @@ mod page;
 mod picks;
 mod reads;
 mod rig;
+mod renders;
 mod ship;
 mod trash;

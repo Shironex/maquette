@@ -18,6 +18,7 @@ clean_ref_background
 compare_versions
 copy_asset
 decide_pack
+decide_render
 discard_inbox_model
 dismiss_download
 export_pack
@@ -41,6 +42,7 @@ get_project
 get_provider_job
 get_real_size
 get_ref_views
+get_render
 get_retarget_review
 get_rig_doctor
 get_run
@@ -62,6 +64,7 @@ list_packs
 list_projects
 list_removed_assets
 list_rig_doctors
+list_renders
 make_object_refs
 make_other_views
 merge_library_entries
@@ -75,6 +78,7 @@ remove_assets
 remove_fixups
 remove_from_library
 rename_library_entry
+render_styles
 render_thumbnail
 restore_asset
 restore_inbox_model
