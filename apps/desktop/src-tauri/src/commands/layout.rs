@@ -54,17 +54,18 @@ pub(crate) fn save(
 ) -> CommandResult<LayoutView> {
     let (root, config) = session.workspace()?;
     let project_dir = project::dir(&root, &config.layout, project_id)?;
-    let current = layout::load(&project_dir).unwrap_or_default();
-    let mut next = SceneLayout {
-        states: current.states,
-        clips: current.clips,
-        timeline: current.timeline,
-        paths: current.paths,
-        ..next.clone()
-    };
-    layout::paths::follow(&current.models, &mut next);
-    layout::prune_stops(&mut next);
-    layout::save(&project_dir, &next)?;
+    layout::update(&project_dir, |current| {
+        let mut next = SceneLayout {
+            states: current.states.clone(),
+            clips: current.clips.clone(),
+            timeline: current.timeline.clone(),
+            paths: current.paths.clone(),
+            ..next.clone()
+        };
+        layout::paths::follow(&current.models, &mut next);
+        layout::prune_stops(&mut next);
+        Ok(next)
+    })?;
     get(session, project_id)
 }
 
@@ -77,16 +78,17 @@ pub(crate) fn patch(
     let (root, config) = session.workspace()?;
     let manifest = project::load(&root, &config.layout, project_id)?;
     let project_dir = project::dir(&root, &config.layout, project_id)?;
-    let current = layout::load(&project_dir)?;
-    let next = layout::apply(&current, patch, &layout::known_assets(&manifest))?;
-    let changed = next
-        .states
-        .iter()
-        .filter(|(asset, _)| patch.states.contains_key(*asset))
-        .map(|(asset, set)| (asset.clone(), set.clone()))
-        .collect();
-    maquette_core::motion::check_parts(&project_dir, &manifest, &changed)?;
-    layout::save(&project_dir, &next)?;
+    layout::update(&project_dir, |current| {
+        let next = layout::apply(current, patch, &layout::known_assets(&manifest))?;
+        let changed = next
+            .states
+            .iter()
+            .filter(|(asset, _)| patch.states.contains_key(*asset))
+            .map(|(asset, set)| (asset.clone(), set.clone()))
+            .collect();
+        maquette_core::motion::check_parts(&project_dir, &manifest, &changed)?;
+        Ok(next)
+    })?;
     get(session, project_id)
 }
 

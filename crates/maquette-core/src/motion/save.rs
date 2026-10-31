@@ -84,7 +84,8 @@ pub fn save(
     states: BTreeMap<String, ObjectStates>,
     clips_off: &BTreeMap<String, Vec<String>>,
 ) -> CoreResult<()> {
-    let current = layout::load(project_dir)?;
-    let next = with_motion(project_dir, manifest, &current, states, clips_off)?;
-    layout::save(project_dir, &next)
+    layout::update(project_dir, |current| {
+        with_motion(project_dir, manifest, current, states, clips_off)
+    })?;
+    Ok(())
 }

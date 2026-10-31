@@ -34,10 +34,10 @@ pub(crate) fn save(
     let (root, config) = session.workspace()?;
     let manifest = project::load(&root, &config.layout, project_id)?;
     let project_dir = project::dir(&root, &config.layout, project_id)?;
-    let current = layout::load(&project_dir)?;
     let known = layout::known_assets(&manifest);
-    let next = layout::paths::with_paths(&current, &known, paths, tracks)?;
-    layout::save(&project_dir, &next)?;
+    layout::update(&project_dir, |current| {
+        layout::paths::with_paths(current, &known, paths, tracks)
+    })?;
     super::layout::get(session, project_id)
 }
 
