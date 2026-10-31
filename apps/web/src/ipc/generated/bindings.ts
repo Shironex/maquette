@@ -753,8 +753,8 @@ export const events = {
 	projectChanged: makeEvent<ProjectChanged>("project-changed"),
 	providerUpdate: makeEvent<ProviderUpdate>("provider-update"),
 	quitRequested: makeEvent<QuitRequested>("quit-requested"),
-	rigChanged: makeEvent<RigChanged>("rig-changed"),
 	renderChanged: makeEvent<RenderChanged>("render-changed"),
+	rigChanged: makeEvent<RigChanged>("rig-changed"),
 	thumbnailReady: makeEvent<ThumbnailReady>("thumbnail-ready"),
 	updaterUpdate: makeEvent<UpdaterUpdate>("updater-update"),
 };

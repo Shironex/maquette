@@ -10,16 +10,15 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 use crate::commands::{
     about, agents, animations, app, assets, avatar, built, codex_usage, credits, dialogs,
     downloads, game, image_api, inbox, inspect, lab, layout, library, library_batch, materials,
-    motion, packs, page, parts, paths, pipeline, prepare, project, providers, quit, refs, rig,
     motion, packs, page, parts, paths, pipeline, prepare, project, providers, quit, refs, renders,
-    ship, site, split, thumbs, timeline, toolchain, trash, updater, workspace,
+    rig, ship, site, split, thumbs, timeline, toolchain, trash, updater, workspace,
 };
 use crate::events::{
     AvatarChanged, BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival,
     ImageSettingsChanged, InboxChanged, LayoutChanged, LibraryChanged, MaterialsChanged, McpUpdate,
     PackChanged, PageServerChanged, PipelineChanged, PipelineUpdate, PrepareChanged,
-    ProjectChanged, ProviderUpdate, QuitRequested, RigChanged, ThumbnailReady, UpdaterUpdate,
-    ProjectChanged, ProviderUpdate, QuitRequested, RenderChanged, ThumbnailReady, UpdaterUpdate,
+    ProjectChanged, ProviderUpdate, QuitRequested, RenderChanged, RigChanged, ThumbnailReady,
+    UpdaterUpdate,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -281,7 +280,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             CodexUsageUpdate,
             ImageSettingsChanged,
             PackChanged,
-            RigChanged
+            RigChanged,
             RenderChanged
         ])
         .types(&maquette_core::types())

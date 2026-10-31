@@ -63,8 +63,8 @@ list_library
 list_packs
 list_projects
 list_removed_assets
-list_rig_doctors
 list_renders
+list_rig_doctors
 make_object_refs
 make_other_views
 merge_library_entries

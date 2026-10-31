@@ -17,7 +17,7 @@ mod packs;
 mod page;
 mod picks;
 mod reads;
-mod rig;
 mod renders;
+mod rig;
 mod ship;
 mod trash;
