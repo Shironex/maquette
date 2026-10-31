@@ -123,6 +123,8 @@ pub enum PictureState {
     Skipped,
     /// Waiting for its headless render.
     Queued,
+    /// On hold: Blender is missing, so it waits for it to come back.
+    Held,
     /// Rendered, and the sends ranked by it.
     Ready,
     /// The render or the comparison did not work out; the name ranks.

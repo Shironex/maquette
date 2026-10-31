@@ -55,6 +55,12 @@ pub trait PictureRender: Send + Sync {
     ///
     /// Fails without Blender, or when the render does.
     fn render(&self, model: &Path, dir: &Path, key: &str) -> CoreResult<PathBuf>;
+
+    /// False while the tool it renders with is missing: the downloads wait
+    /// for it instead of failing.
+    fn ready(&self) -> bool {
+        true
+    }
 }
 
 /// Bakes the texture of a model back onto the parts it was split into.
