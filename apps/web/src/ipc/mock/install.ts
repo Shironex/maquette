@@ -213,6 +213,7 @@ const handle = createBackend({
     else if (event.name === 'mcp') void events.mcpUpdate.emit(event.payload);
     else if (event.name === 'downloads') void events.downloadsArrival.emit(event.payload);
     else if (event.name === 'updater') void events.updaterUpdate.emit(event.payload);
+    else if (event.name === 'pack') void events.packChanged.emit({ record: event.payload });
     else if (event.name === 'provider') {
       const payload = event.payload;
       if (payload.type === 'project') void events.projectChanged.emit({ project: payload.project });

@@ -8,6 +8,7 @@ import { LibraryRow } from '../LibraryRow';
 import { LibraryStats } from '../LibraryStats';
 import { LibrarySummary } from '../LibrarySummary';
 import { LookAlikesView } from '../LookAlikesView';
+import { PackSheet } from '../PackSheet';
 import { useLibraryView, useModelSelection, useModelsWindow } from './LibraryView.hooks';
 
 const EMPTY_STEPS = [
@@ -104,6 +105,15 @@ export default function LibraryView() {
             />
             {addOne}
             <Button
+              icon="package"
+              disabled={v.shown.length === 0}
+              disabledReason="No model in view"
+              tooltip={v.pack.tip}
+              onClick={v.pack.start}
+            >
+              Export pack
+            </Button>
+            <Button
               icon="books"
               tooltip="Adds every accepted model of a project at once, names and tags set first"
               onClick={v.openAddMany}
@@ -195,6 +205,7 @@ export default function LibraryView() {
         </main>
       )}
       {v.addManyOpen ? <AddManySheet /> : null}
+      {v.pack.open ? <PackSheet /> : null}
     </>
   );
 }
