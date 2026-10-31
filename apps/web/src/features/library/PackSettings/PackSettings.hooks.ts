@@ -14,7 +14,9 @@ export function usePackSettings() {
   const mixamo = s.plan?.mixamo ?? 0;
   const presetNote = current
     ? current.builtIn
-      ? 'Comes with Maquette'
+      ? ['Comes with Maquette', current.used ? `used ${current.used}x` : null]
+          .filter(Boolean)
+          .join(', ')
       : [
           'Your own',
           current.savedAt ? `saved ${formatAgo(Date.parse(current.savedAt), clock.nowMs())}` : null,

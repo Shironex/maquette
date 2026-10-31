@@ -47,6 +47,16 @@ export default function PackDone({ record }: PackDoneProps) {
       {row.note ? <span className="text-fg-mute">{row.note}</span> : null}
     </li>
   ));
+  const imports = d.imports.map(row => (
+    <li key={row.label} className="flex items-center gap-2">
+      <Icon
+        name={row.opened === row.of ? 'check-circle' : 'warning'}
+        size={16}
+        className={row.opened === row.of ? 'text-sage' : 'text-amber'}
+      />
+      {row.label}, {row.opened} of {row.of}
+    </li>
+  ));
   const pictures = d.pictures.map(p => (
     <li
       key={p.key}
@@ -106,10 +116,7 @@ export default function PackDone({ record }: PackDoneProps) {
           ) : null}
           <Block title="Opened again">
             <ul className="flex list-none flex-col gap-1.5">
-              <li className="flex items-center gap-2">
-                <Icon name="check-circle" size={16} className="text-sage" />
-                Blender import, {d.kept} of {d.kept}
-              </li>
+              {imports}
               <li className="flex items-center gap-2">
                 <Icon name="check-circle" size={16} className="text-sage" />Y up, size and pivot as
                 the manifest says

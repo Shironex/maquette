@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { usePackStore } from '@/state/use-pack-store';
@@ -52,5 +52,15 @@ describe('the settings of a pack', () => {
       expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveValue('for-godot')
     );
     expect(screen.getByText('Your own, saved just now')).toBeVisible();
+  });
+
+  it('counts how often the preset was used, the built in one too', async () => {
+    await openSettings();
+    expect(screen.getByText('Comes with Maquette')).toBeVisible();
+    const { presets } = usePackStore.getState();
+    act(() =>
+      usePackStore.setState({ presets: presets.map(p => (p.builtIn ? { ...p, used: 3 } : p)) })
+    );
+    expect(screen.getByText('Comes with Maquette, used 3x')).toBeVisible();
   });
 });
