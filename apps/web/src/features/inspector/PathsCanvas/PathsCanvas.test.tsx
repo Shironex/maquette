@@ -23,6 +23,7 @@ const props: PathsCanvasProps = {
   handlers: {
     onSelect: vi.fn(),
     onAddPoint: vi.fn(),
+    onStroke: vi.fn(),
     onDragPoint: vi.fn(),
     onDropPoint: vi.fn(),
     onError: vi.fn(),

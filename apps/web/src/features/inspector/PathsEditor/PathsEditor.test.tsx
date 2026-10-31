@@ -77,9 +77,22 @@ describe('the paths editor', () => {
     expect(selection).toEqual({ path: 'path-1', point: null });
   });
 
-  it('keeps Draw on surfaces off, as it is not built yet', async () => {
-    await editor();
-    const surface = screen.getByRole('button', { name: /Draw on surfaces/ });
-    expect(surface).toHaveAttribute('aria-disabled', 'true');
+  it('lays a stroke from Draw on surfaces after the picked point', async () => {
+    const props = await editor();
+    await userEvent.click(screen.getByRole('button', { name: /^Draw on surfaces/ }));
+    expect(usePathsStore.getState().tool).toBe('surface');
+    expect(canvas.props!.tool).toBe('surface');
+    act(() => canvas.props!.handlers.onSelect({ path: 'rune-line', point: 1 }));
+    act(() =>
+      props.handlers.onStroke([
+        [1, 1, 1],
+        [2, 1, 1],
+        [3, 1, 2],
+      ])
+    );
+    const s = usePathsStore.getState();
+    expect(s.draft.paths[0]!.points[2]).toEqual([1, 1, 1]);
+    expect(s.draft.paths[0]!.points.length).toBe(8);
+    expect(s.selection).toEqual({ path: 'rune-line', point: 4 });
   });
 });
