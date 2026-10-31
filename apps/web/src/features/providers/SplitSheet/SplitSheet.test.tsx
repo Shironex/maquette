@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { commands } from '@/ipc/client';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useSplitStore } from '@/state/use-split-store';
 import { clearMocks, openMockParts } from '@/test/mock-ipc';
@@ -53,7 +54,7 @@ describe('SplitSheet', () => {
     open('rune-chest');
     render(<SplitSheet />);
     await userEvent.click(await screen.findByRole('button', { name: 'Meshy' }));
-    expect(screen.getByText(/the texture bakes back from v1 in Blender/)).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Bake the texture back/ })).toBeChecked();
     await userEvent.click(screen.getByRole('button', { name: 'By parts' }));
     expect(screen.getByText('Name at least one part for Meshy to look for.')).toBeInTheDocument();
     await userEvent.type(
@@ -65,5 +66,25 @@ describe('SplitSheet', () => {
     expect(screen.getByRole('dialog', { name: 'Split Rune chest with Meshy?' })).toHaveTextContent(
       'Meshy Auto Split, by parts, 2 names, then a bake back in Blender. About 10 credits.'
     );
+  });
+
+  it('lets a Meshy split keep it grey or ask for a re-texture, and sends the choice', async () => {
+    open('rune-chest');
+    render(<SplitSheet />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Meshy' }));
+    await userEvent.click(screen.getByRole('radio', { name: /Re-texture with Meshy/ }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Texture prompt' }), 'old oak');
+    expect(screen.getByText(/then a re-texture on Meshy/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Split with Meshy' }));
+    expect(screen.getByRole('dialog', { name: /with Meshy\?/ })).toHaveTextContent(
+      /asked again when the parts arrive/
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, split' }));
+    await waitFor(() => expect(useSplitStore.getState().split).toBeNull());
+    const jobs = await commands.providerJobs('frostveil');
+    const job = jobs.find(j => j.asset === 'rune-chest' && j.split);
+    expect(job?.split?.after).toBe('retexture');
+    expect(job?.split?.texturePrompt).toBe('old oak');
+    expect(job?.estimate).toBe(10);
   });
 });

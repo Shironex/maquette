@@ -15,6 +15,7 @@ import type {
   SplitSource,
   TripoSplit,
 } from '@/ipc/client';
+import type { SplitAfter } from '@/ipc/client';
 import { estimateText } from './credits';
 
 /** Where a split runs. */
@@ -50,6 +51,29 @@ export const PIVOTS: readonly { value: Pivot; label: string }[] = [
   { value: 'right-hinge', label: 'Right hinge' },
   { value: 'origin', label: 'Its own origin' },
 ];
+
+/** Meshy's Retexture, as the core prices it. */
+export const MESHY_RETEXTURE_CREDITS = 10;
+/** Meshy reads a texture prompt of at most this many characters. */
+export const MAX_RETEXTURE_PROMPT = 800;
+
+/** What a re-texture's prompt lacks, as a sentence. */
+export function retextureProblem(prompt: string): string | null {
+  const words = prompt.trim();
+  if (!words) return 'Say what the new texture should look like.';
+  if (words.length > MAX_RETEXTURE_PROMPT) {
+    return `Keep it under ${MAX_RETEXTURE_PROMPT} characters; Meshy refuses longer ones.`;
+  }
+  return null;
+}
+
+/** The clause on what follows a Meshy split, for its summary and its question. */
+export function afterLine(after: SplitAfter, textures: number): string {
+  if (textures <= 0) return '';
+  if (after === 'grey') return ', then the parts stay grey';
+  if (after === 'retexture') return ', then a re-texture on Meshy';
+  return ', then a bake back in Blender';
+}
 
 /** Meshy looks for at most this many named parts. */
 export const MAX_MESHY_PARTS = 10;
@@ -121,14 +145,19 @@ export function confirmLine(
   tripo: TripoSplit,
   meshy: MeshySplit,
   prices: SplitPrices,
-  textures: number
+  textures: number,
+  after: SplitAfter = 'bake'
 ): string {
   const cost = estimateText(splitCredits(way, tripo, prices));
   if (way === 'tripo') {
     return `${tripoLine(tripo)}. ${cost ?? ''}. Tripo cannot cancel once it is sent.`;
   }
-  const bake = textures > 0 ? ', then a bake back in Blender' : '';
-  return `${meshyLine(meshy)}${bake}. ${cost ?? ''}. You can cancel while Meshy has not started.`;
+  const next = afterLine(after, textures);
+  const more =
+    after === 'retexture' && textures > 0
+      ? ` The re-texture is ${estimateText(MESHY_RETEXTURE_CREDITS)?.toLowerCase() ?? ''} more, asked again when the parts arrive.`
+      : '';
+  return `${meshyLine(meshy)}${next}. ${cost ?? ''}. You can cancel while Meshy has not started.${more}`;
 }
 
 /** "v2" or "the Inbox model": the model a split cuts. */
