@@ -15,7 +15,13 @@ export default function SceneBudgetMeter({ value, target }: SceneBudgetMeterProp
   return (
     <Tooltip label={label} wrap side="bottom">
       <span tabIndex={0} className="rounded-control">
-        <BudgetMeter label="Scene budget" value={value} target={target} unit="MB" />
+        <BudgetMeter
+          label="Scene budget"
+          shortLabel="Scene"
+          value={value}
+          target={target}
+          unit="MB"
+        />
       </span>
     </Tooltip>
   );

@@ -3,6 +3,8 @@ import { budgetScale } from './BudgetBar';
 
 export interface BudgetMeterProps {
   label: string;
+  /** What the label shrinks to in a narrow top bar; the meter's name stays whole. */
+  shortLabel?: string;
   value: number;
   target: number;
   unit: string;
@@ -13,6 +15,7 @@ export interface BudgetMeterProps {
 /** The compact budget read for the top bar: one line of numbers over a 4 px bar. */
 export function BudgetMeter({
   label,
+  shortLabel,
   value,
   target,
   unit,
@@ -21,9 +24,16 @@ export function BudgetMeter({
 }: BudgetMeterProps) {
   const { over, fill } = budgetScale(value, target);
   return (
-    <div className={cn('flex min-w-42 flex-col gap-[5px]', className)}>
+    <div className={cn('flex min-w-42 flex-col gap-[5px] @max-[1000px]:min-w-0', className)}>
       <div className="flex items-baseline justify-between gap-3 text-[12px] leading-[14px] text-fg-mute">
-        <span>{label}</span>
+        {shortLabel ? (
+          <>
+            <span className="@max-[1000px]:hidden">{label}</span>
+            <span className="hidden @max-[1000px]:inline">{shortLabel}</span>
+          </>
+        ) : (
+          <span>{label}</span>
+        )}
         <span className={cn('font-mono text-[12px]', over ? 'text-danger' : 'text-fg')}>
           {format(value)} <span className="text-fg-mute">{`/ ${format(target)} ${unit}`}</span>
         </span>

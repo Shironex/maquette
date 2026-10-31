@@ -25,13 +25,17 @@ export default function ModelBudgetMeter({ summary }: ModelBudgetMeterProps) {
   return (
     <Tooltip label={label} wrap side="bottom">
       <span tabIndex={0} className="rounded-control">
-        <div className="flex min-w-42 flex-col gap-[5px]">
+        <div className="flex min-w-42 flex-col gap-[5px] @max-[1000px]:min-w-0">
           <div className="flex items-baseline justify-between gap-3 text-[12px] leading-[14px] text-fg-mute">
-            <span>Game budget</span>
+            <span className="@max-[1000px]:hidden">Game budget</span>
+            <span className="hidden @max-[1000px]:inline">Game</span>
             <span className={cn('font-mono text-[12px]', over ? 'text-amber' : 'text-fg')}>
               {over} over{' '}
               <span className="text-fg-mute">
-                / {summary.models} {summary.models === 1 ? 'model' : 'models'}
+                / {summary.models}
+                <span className="@max-[1000px]:hidden">
+                  {summary.models === 1 ? ' model' : ' models'}
+                </span>
               </span>
             </span>
           </div>

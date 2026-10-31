@@ -15,4 +15,10 @@ describe('the scene budget meter', () => {
     );
     expect(screen.getByText('Scene budget')).toBeVisible();
   });
+
+  it('carries a short label for a narrow top bar, and keeps the meter named in full', () => {
+    render(<SceneBudgetMeter value={2.345} target={3} />);
+    expect(screen.getByText('Scene')).toBeInTheDocument();
+    expect(screen.getByRole('meter', { name: /^Scene budget, / })).toBeInTheDocument();
+  });
 });
