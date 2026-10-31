@@ -71,3 +71,5 @@ paths, so new renders only need the right file name.
 Apart from the generated Motion and Parts demo models, the avatar sheets (rest pose and freed arms) and the box humanoid VRM above, these images and models are Frostveil
 artwork. All rights are reserved; they are not covered by the code license. See
 [ARTWORK.md](../../../../../ARTWORK.md) at the repository root.
+
+- `renders/*.webp`: what the Render tab shows: real headless renders of a lantern made by `crates/maquette-core/src/renders/render_styles.py`, turntable frames every eighth of the turn at 480 px, the four looks at 720 px.

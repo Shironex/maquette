@@ -85,6 +85,7 @@ export function createBackend({
   paths = null,
   game: gameState = null,
   library: libraryState = null,
+  render: renderState = null,
   inspect: inspectState = null,
   sync = null,
   ship: shipState = null,
@@ -274,7 +275,6 @@ export function createBackend({
     state: configured ? pageState : null,
     startMs: pace === 0 ? 0 : 900,
   });
-
   const library = createLibraryHandlers({
     projects: () => projects,
     project,
@@ -285,8 +285,8 @@ export function createBackend({
     alias: (path, from) => files?.alias(path, from),
     state: configured ? libraryState : null,
     pack: { pace, emit: payload => emit?.({ name: 'pack', payload }) },
+    render: { state: renderState, emit: payload => emit?.({ name: 'render', payload }) },
   });
-
   const handlers: Record<string, (args: Args) => unknown> = {
     ...lab.handlers,
     ...createCodexUsageHandlers({ state: codex, lab: lab.handlers }),
@@ -323,7 +323,7 @@ export function createBackend({
         agents.changed();
       },
     }),
-    ...createToolchainHandlers(scenario, probeDelay),
+    ...createToolchainHandlers(renderState?.startsWith('no-') ? renderState : scenario, probeDelay),
     ...createSyncHandlers(sync),
     ...createProjectHandlers({
       snapshot,

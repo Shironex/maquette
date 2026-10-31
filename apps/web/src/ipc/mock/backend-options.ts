@@ -5,6 +5,7 @@ import type {
   McpStatus,
   PackRecord,
   RigRecord,
+  RenderRecord,
   PipelineEvent,
   ProjectManifest,
   ProviderEvent,
@@ -47,6 +48,7 @@ export type Args = Record<string, unknown>;
  * three discarded ones, `?inbox=clear` empties the inbox but keeps those
  * three (see `triage-fixtures.ts`). `?arrival=named|unmatched|look` drops downloads
  * for the Downloads watcher (see `create-downloads-handlers.ts`).
+ * `?render=` what the Render tab opens with (see `create-render-handlers.ts`).
  * `?built=demo` adds two built assets to Frostveil (see
  * `create-built-handlers.ts`), `?motion=` models that move (see
  * `create-motion-handlers.ts`), `?parts=demo` props with parts (see
@@ -84,6 +86,7 @@ export interface BackendOptions {
       | { name: 'updater'; payload: UpdaterEvent }
       | { name: 'pack'; payload: PackRecord }
       | { name: 'rig'; payload: RigRecord }
+      | { name: 'render'; payload: RenderRecord }
   ) => void;
   /** `active`: the MCP server is on, mid agent session. */
   agents?: string | null;
@@ -121,6 +124,7 @@ export interface BackendOptions {
    * models to add in one go (see library-scale-fixtures.ts).
    */
   library?: string | null;
+  render?: string | null;
   /** `many`: Frostveil gets 49 more versioned assets, so the Inspector's compare menu is long. */
   inspect?: string | null;
   /** `hand-built`: Frostveil ships as a hand-built site (see create-ship-handlers.ts). */

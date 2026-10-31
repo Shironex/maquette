@@ -17,6 +17,7 @@ import type {
   LibraryView,
   ModelPrep,
   PackRecord,
+  RenderRecord,
   ProjectManifest,
   SettingChange,
   UpdatePlan,
@@ -27,6 +28,7 @@ import { LIBRARY_ORIGINS } from './library-fixtures';
 import { createAnimationHandlers } from './create-animation-handlers';
 import { createLibraryBatchHandlers, seedLibrary } from './create-library-batch-handlers';
 import { createPackHandlers } from './create-pack-handlers';
+import { createRenderHandlers } from './create-render-handlers';
 
 interface LibraryContext {
   projects: () => readonly ProjectManifest[];
@@ -40,6 +42,8 @@ interface LibraryContext {
   state: string | null;
   /** Export packs: how fast a model runs, and the pack changed event. */
   pack: { pace: number; emit: (record: PackRecord) => void };
+  /** Render styles: the `?render=` state, and the render changed event. */
+  render: { state: string | null; emit: (record: RenderRecord) => void };
 }
 
 const key = (id: string) => id.replace(/-/g, '_');
@@ -371,9 +375,19 @@ export function createLibraryHandlers(ctx: LibraryContext) {
     state: ctx.state,
   });
 
+  const renders = createRenderHandlers({
+    library: view,
+    project: ctx.project,
+    root: ctx.root,
+    emit: ctx.render.emit,
+    pace: ctx.pack.pace,
+    state: ctx.render.state,
+  });
+
   return {
     handlers: {
       ...animations.handlers,
+      ...renders.handlers,
       ...batch,
       ...packs.handlers,
       library_get: () => view(),

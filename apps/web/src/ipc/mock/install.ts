@@ -6,6 +6,7 @@
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { events } from '../generated/bindings';
 import { fileUrl, registerMockFile } from '../files';
+import { RENDER_FILES, previewDir } from './render-fixtures';
 import { createBackend } from './backend';
 import { DEFAULT_ROOT, HOME, MOCK_PROJECT_IDS } from './fixtures';
 import { PREVIEW_FILE, thumbsDir } from './inbox-fixtures';
@@ -110,6 +111,15 @@ if (params.get('library') === 'scale') {
     if (url) registerMockFile(path, url);
   }
 }
+// The Render tab's pictures: real headless renders of the crystal lantern.
+const renderPictures = import.meta.glob<string>('../../assets/mock/renders/*.webp', {
+  eager: true,
+  import: 'default',
+});
+for (const file of RENDER_FILES) {
+  const url = renderPictures[`../../assets/mock/renders/${file}`];
+  if (url) registerMockFile(`${previewDir(root)}/${file}`, url);
+}
 for (const [file, render] of Object.entries(libraryFiles())) {
   const url = renders[`../../assets/mock/${render}`];
   if (url) registerMockFile(`${root}/library/${file}`, url);
@@ -195,6 +205,7 @@ const handle = createBackend({
   timeline: params.get('timeline'),
   game: params.get('game'),
   library: params.get('library'),
+  render: params.get('render'),
   inspect: params.get('inspect'),
   sync: params.get('sync'),
   ship: params.get('ship'),
@@ -216,6 +227,7 @@ const handle = createBackend({
     else if (event.name === 'updater') void events.updaterUpdate.emit(event.payload);
     else if (event.name === 'pack') void events.packChanged.emit({ record: event.payload });
     else if (event.name === 'rig') void events.rigChanged.emit({ record: event.payload });
+    else if (event.name === 'render') void events.renderChanged.emit({ record: event.payload });
     else if (event.name === 'provider') {
       const payload = event.payload;
       if (payload.type === 'project') void events.projectChanged.emit({ project: payload.project });
