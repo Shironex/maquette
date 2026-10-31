@@ -6,7 +6,7 @@ interface SourceRowProps {
   name: string;
   line: string;
   onPick: () => void;
-  badge?: boolean;
+  badge?: 'live' | 'mock';
 }
 
 function SourceRow({ on, name, line, onPick, badge }: SourceRowProps) {
@@ -33,8 +33,12 @@ function SourceRow({ on, name, line, onPick, badge }: SourceRowProps) {
       </span>
       {badge ? (
         <span className="inline-flex h-[22px] flex-none items-center gap-[5px] rounded-control bg-[rgba(28,27,25,0.78)] px-2 text-[11.5px] font-medium text-fg">
-          <span aria-hidden="true" className="size-1.5 rounded-full bg-sage" />
-          Live
+          {badge === 'live' ? (
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-sage" />
+          ) : (
+            <Icon name="file-text" size={12} className="text-fg-dim" />
+          )}
+          {badge === 'live' ? 'Live' : 'Generated mock'}
         </span>
       ) : null}
     </label>
@@ -72,19 +76,20 @@ export default function PageSource() {
           name="Site dev page"
           line={siteLine}
           onPick={showSite}
-          badge={source === 'site' && live}
+          badge={source === 'site' && live ? 'live' : undefined}
         />
         <SourceRow
           on={source === 'concept'}
           name="HTML concept"
           line={conceptLine}
           onPick={showConcept}
+          badge={source === 'concept' ? 'mock' : undefined}
         />
       </div>
       <InlineBanner
         tone="info"
         title="What is live here"
-        detail="The site dev page is the site's own dev server, so the 3D scene is the models the site repo holds, the last ship, and the frame time comes from the page itself. This run's numbers come from its build until Ship copies it to the site. A page concept shows as it is."
+        detail="The site dev page is the site's own dev server, so the 3D scene is the models the site repo holds, the last ship, and the frame time comes from the page itself. This run's numbers come from its build until Ship copies it to the site. With a generated mock the address bar says Mock, it shows as it is with no site needed, and only the scene numbers count."
       />
     </section>
   );

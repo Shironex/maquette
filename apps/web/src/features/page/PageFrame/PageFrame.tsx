@@ -1,11 +1,12 @@
 import { Icon, IconButton, cn, type IconName } from '@maquette/ui';
+import { PageHotspots } from '../PageHotspots';
 import { usePageFrame } from './PageFrame.hooks';
 import type { FrameBadge, PageFrameProps } from './PageFrame.types';
 
 const BADGES: Record<FrameBadge, { label: string; icon?: IconName }> = {
   live: { label: 'Live' },
   poster: { label: 'Poster', icon: 'image' },
-  concept: { label: 'Concept', icon: 'file-text' },
+  concept: { label: 'Mock', icon: 'file-text' },
   run: { label: 'Still', icon: 'image' },
 };
 
@@ -17,8 +18,10 @@ const BADGES: Record<FrameBadge, { label: string; icon?: IconName }> = {
 export default function PageFrame(props: PageFrameProps) {
   const { src, address, badge, label, showStop, image, actions, children, className } = props;
   const compact = props.layout === 'tile' || props.layout === 'column';
-  const { frame, viewport, d, scale, fitText, reloadKey, reload, pin } = usePageFrame(props);
+  const { frame, viewport, d, scale, fitText, reloadKey, reload, pin, hotspots } =
+    usePageFrame(props);
   const shown = BADGES[badge];
+  const showHotspots = props.id === 'main' && hotspots && badge === 'live';
   const width = d.width * scale;
   const height = d.height * scale;
   const stopPin = showStop && src ? pin : null;
@@ -89,6 +92,7 @@ export default function PageFrame(props: PageFrameProps) {
               className="absolute top-0 left-0 origin-top-left border-0 bg-white"
               style={{ width: d.width, height: d.height, transform: `scale(${scale})` }}
             />
+            {showHotspots ? <PageHotspots /> : null}
           </div>
         ) : (
           children

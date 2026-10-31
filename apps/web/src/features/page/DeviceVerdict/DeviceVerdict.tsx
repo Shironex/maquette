@@ -5,7 +5,8 @@ const TITLE = 'm-0 text-caption font-medium tracking-[0.04em] text-fg-mute upper
 
 /** The compare board's side: this run against the device's budget and what changed since the ship. */
 export default function DeviceVerdict() {
-  const { name, banner, profile, changes, openInspector, openPipeline } = useDeviceVerdict();
+  const { name, banner, profile, changes, changesTitle, openInspector, openPipeline } =
+    useDeviceVerdict();
   const kv = profile.map(p => (
     <div key={p.label} className="contents">
       <dt className="text-fg-mute">{p.label}</dt>
@@ -38,7 +39,7 @@ export default function DeviceVerdict() {
       <div className="h-px flex-none bg-line" />
       <section aria-labelledby="page-changes" className="flex flex-col gap-1">
         <h2 id="page-changes" className={TITLE}>
-          What changed since the ship
+          {changesTitle}
         </h2>
         {changes.length ? (
           <ul className="m-0 list-none p-0">{changed}</ul>

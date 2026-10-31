@@ -4,6 +4,12 @@ import { useAppStore } from '@/state/use-app-store';
 import { leadReading, usePageStore } from '@/state/use-page-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
 
+/** The list's heading, once the ship and this run can be weighed against each other. */
+export function changesTitle(ship: number | undefined, run: number | undefined): string {
+  if (!ship || !run || ship === run) return 'What changed since the ship';
+  return run < ship ? 'Why this run is lighter' : 'Why this run is heavier';
+}
+
 /** This run against what the device may spend, and what changed since the ship. */
 export function useDeviceVerdict() {
   const deviceId = usePageStore(s => s.device);
@@ -15,6 +21,7 @@ export function useDeviceVerdict() {
   const run = models ? sceneNumbers(models, 'shipped') : null;
   const p95 = (readings.ship ?? leadReading(readings)).stats?.p95Ms ?? null;
   const rows = verdict(budget, run, firstView, p95);
+  const ship = models ? sceneNumbers(models, 'site') : null;
   const over = rows.filter(r => r.over);
   const name = deviceOf(deviceId).label;
   const lower = name.toLowerCase();
@@ -46,6 +53,7 @@ export function useDeviceVerdict() {
       { label: 'Draw calls', value: String(budget.drawCalls) },
     ],
     changes: models ? modelChanges(models) : [],
+    changesTitle: changesTitle(ship?.bytes, run?.bytes),
     openInspector: () => setView('inspector'),
     openPipeline: () => setView('pipeline'),
   };

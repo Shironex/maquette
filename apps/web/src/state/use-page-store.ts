@@ -76,6 +76,8 @@ interface PageStore {
   mode: CompareMode;
   tab: PageTab;
   showStops: boolean;
+  /** Pins the props' click and hover triggers on the page. */
+  hotspots: boolean;
   poster: boolean;
   /** The stop the scrubber asks the frames for, fractional. */
   target: number;
@@ -107,6 +109,7 @@ interface PageStore {
   setMode: (mode: CompareMode) => void;
   setTab: (tab: PageTab) => void;
   setShowStops: (on: boolean) => void;
+  setHotspots: (on: boolean) => void;
   setPoster: (on: boolean) => void;
   reload: () => void;
   seek: (stop: number, smooth?: boolean) => void;
@@ -150,6 +153,7 @@ export const usePageStore = create<PageStore>((set, get) => {
     mode: 'one',
     tab: 'preview',
     showStops: true,
+    hotspots: false,
     poster: false,
     target: 0,
     seekId: 0,
@@ -315,6 +319,7 @@ export const usePageStore = create<PageStore>((set, get) => {
     setMode: mode => set({ mode }),
     setTab: tab => set({ tab }),
     setShowStops: showStops => set({ showStops }),
+    setHotspots: hotspots => set({ hotspots }),
     setPoster: poster => set({ poster }),
     reload: () => set(s => ({ reloadKey: s.reloadKey + 1, readings: {} })),
 

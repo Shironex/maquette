@@ -24,6 +24,7 @@ export function usePageToolbar() {
   const mode = usePageStore(s => s.mode);
   const tab = usePageStore(s => s.tab);
   const showStops = usePageStore(s => s.showStops);
+  const hotspots = usePageStore(s => s.hotspots);
   const poster = usePageStore(s => s.poster);
   const store = usePageStore.getState;
   const path = view?.settings.path ?? '/';
@@ -54,6 +55,7 @@ export function usePageToolbar() {
     devicesTab: tab === 'devices',
     showStops,
     toggleStops: () => store().setShowStops(!showStops),
+    hotspots: { on: hotspots, toggle: () => store().setHotspots(!hotspots) },
     poster,
     togglePoster: () => store().setPoster(!poster),
   };

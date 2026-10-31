@@ -123,6 +123,7 @@ export function usePageFrame({ id, src, device: deviceId, layout }: PageFramePro
   const stops = reading?.stops ?? [];
   const at = reading?.at ?? null;
   const index = at === null ? null : nearestStop(at, stops.length);
+  const hotspots = usePageStore(s => s.hotspots);
   return {
     frame,
     viewport: viewport.ref,
@@ -132,5 +133,6 @@ export function usePageFrame({ id, src, device: deviceId, layout }: PageFramePro
     reloadKey,
     reload,
     pin: index === null || !stops[index] ? null : { number: index + 1, name: stops[index].name },
+    hotspots,
   };
 }
