@@ -6,6 +6,7 @@
  */
 import type {
   AssetKind,
+  PackDecision,
   PackFormat,
   PackItem,
   PackItemState,
@@ -118,6 +119,58 @@ export function importRows(record: Pick<PackRecord, 'items'>): ImportRow[] {
 /** The models a person has to answer before the zip. */
 export const needsYou = (items: readonly PackItem[]) =>
   items.filter(i => i.state === 'warn' || i.state === 'fail');
+
+export type WarningKind = 'thin' | 'rigged' | 'over' | 'pivot' | 'height' | 'other';
+
+const WARNING_LABEL: Record<WarningKind, string> = {
+  thin: 'Thin parts lost',
+  rigged: 'Rigged, over budget',
+  over: 'Over budget',
+  pivot: 'Pivot off',
+  height: 'Height off',
+  other: 'Other warnings',
+};
+
+/** Which warning a model has, from the start of the note the core's verdict writes. */
+function warningKind(item: PackItem): WarningKind {
+  const note = item.note ?? '';
+  if (note.startsWith('Thin parts lost')) return 'thin';
+  if (note.startsWith('Rigged')) return 'rigged';
+  if (note.startsWith('Over budget')) return 'over';
+  if (note.startsWith('The pivot')) return 'pivot';
+  if (note.startsWith('Measures')) return 'height';
+  return 'other';
+}
+
+export interface WarningGroup {
+  kind: WarningKind;
+  label: string;
+  keep: PackDecision[];
+  /** A raise for each model of the group a higher budget helps. */
+  raise: PackDecision[];
+}
+
+/** The warnings two or more models share, to answer in one go. */
+export function warningGroups(items: readonly PackItem[]): WarningGroup[] {
+  const kinds = new Map<WarningKind, PackItem[]>();
+  for (const item of items) {
+    if (item.state !== 'warn') continue;
+    const kind = warningKind(item);
+    kinds.set(kind, [...(kinds.get(kind) ?? []), item]);
+  }
+  return [...kinds]
+    .filter(([, group]) => group.length > 1)
+    .map(([kind, group]) => ({
+      kind,
+      label: WARNING_LABEL[kind],
+      keep: group.map(i => ({ choice: 'keep', key: i.model.key })),
+      raise: group.flatMap(i =>
+        i.suggest !== null && i.budget !== null && i.suggest > i.budget
+          ? [{ choice: 'raise' as const, key: i.model.key, triangles: i.suggest }]
+          : []
+      ),
+    }));
+}
 
 /** The model that runs next, counted from 1: what Go on picks up. */
 export function nextModel(items: readonly PackItem[]): number {

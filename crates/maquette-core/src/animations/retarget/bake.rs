@@ -2,7 +2,9 @@
 //! job, one headless Blender run, the review, and the draft kept by its
 //! token until [`bake`] adds it as the model's next version. A clip with
 //! Pin the feet on takes a second run that holds its feet where the first
-//! found them planted ([`super::feet`]); the review compares the two.
+//! found them planted ([`super::feet`]); the review compares the two. A pin
+//! that slides more than the clip did without it comes off again, in a third
+//! run, so the draft holds whichever slid less.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -101,7 +103,8 @@ pub fn draft(
     let ids: Vec<String> = request.settings.iter().map(|s| s.clip.clone()).collect();
     let clips = library_clips(root, &ids)?;
     let entry = uses::of_asset(&model.dir, &request.asset)?;
-    let settings = settings::normalise(&request.settings, &clips, &taken(&model, &entry, &ids))?;
+    let mut settings =
+        settings::normalise(&request.settings, &clips, &taken(&model, &entry, &ids))?;
     let source = clips.first().map(bone_names).unwrap_or_default();
     let map = bones::suggest(&source, &model.joints, &entry.map, &request.map);
 
@@ -154,30 +157,16 @@ pub fn draft(
         follow,
     };
     let mut report = run(runner, tools, &work, &job)?;
-    let pinned: Vec<&str> = settings
+    let pinned: Vec<String> = settings
         .iter()
         .filter(|s| s.pin_feet)
-        .map(|s| s.clip.as_str())
+        .map(|s| s.clip.clone())
         .collect();
     if !pinned.is_empty() {
-        let before = report;
-        for clip in job.clips.iter_mut().filter(|c| pinned.contains(&c.id)) {
-            if let Some(first) = before.clips.iter().find(|r| r.id == clip.id) {
-                clip.pins = feet::pins(&first.feet);
-            }
-        }
-        report = run(runner, tools, &work, &job)?;
-        for clip in &mut report.clips {
-            let Some(was) = before.clips.iter().find(|r| r.id == clip.id) else {
-                continue;
-            };
-            let pins = job
-                .clips
-                .iter()
-                .any(|c| c.id == clip.id && !c.pins.is_empty());
-            if pins && clip.pin_error.is_none() {
-                clip.unpinned_cm = Some(was.slide_cm);
-            }
+        let (with_pins, left_off) = pin_feet(runner, tools, &work, &mut job, report, &pinned)?;
+        report = with_pins;
+        for setting in settings.iter_mut().filter(|s| left_off.contains(&s.clip)) {
+            setting.pin_feet = false;
         }
     }
     let at_rest = map
@@ -226,6 +215,53 @@ pub fn draft(
         review,
         settings,
     })
+}
+
+/// Bakes again with the feet of the `pinned` clips held where `before`
+/// found them planted, and once more without the pins that slid more than
+/// the clip did without them. The report of the last run, which wrote the
+/// draft, and the clips whose pin came off.
+fn pin_feet(
+    runner: &PipelineRunner,
+    tools: &Toolbox,
+    work: &Path,
+    job: &mut ScriptJob<'_>,
+    before: review::RunReport,
+    pinned: &[String],
+) -> CoreResult<(review::RunReport, Vec<String>)> {
+    for clip in job
+        .clips
+        .iter_mut()
+        .filter(|c| pinned.iter().any(|p| p == c.id))
+    {
+        if let Some(first) = before.clips.iter().find(|r| r.id == clip.id) {
+            clip.pins = feet::pins(&first.feet);
+        }
+    }
+    let holding =
+        |job: &ScriptJob<'_>, id: &str| job.clips.iter().any(|c| c.id == id && !c.pins.is_empty());
+    let mut report = run(runner, tools, work, job)?;
+    report.compare_with(&before, |id| holding(job, id));
+    let worse = report.pins_made_worse();
+    if worse.is_empty() {
+        return Ok((report, Vec::new()));
+    }
+    for clip in job
+        .clips
+        .iter_mut()
+        .filter(|c| worse.iter().any(|(id, _)| id == c.id))
+    {
+        clip.pins.clear();
+    }
+    report = run(runner, tools, work, job)?;
+    report.compare_with(&before, |id| holding(job, id));
+    for clip in &mut report.clips {
+        clip.pin_worse_cm = worse
+            .iter()
+            .find(|(id, _)| *id == clip.id)
+            .map(|(_, cm)| *cm);
+    }
+    Ok((report, worse.into_iter().map(|(id, _)| id).collect()))
 }
 
 /// One headless run of the job, and its report with the slides measured.

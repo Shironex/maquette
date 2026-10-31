@@ -3,10 +3,11 @@
 //! module. Nothing here writes to the game repo.
 //!
 //! A format or a new budget row can change where an asset made in Maquette
-//! goes. A model Ship already wrote into the game stays put: its file is
-//! recorded in [`GameSettings::models`], so the next export lands on it and
-//! no old file is left behind. A model that never shipped has nothing in
-//! the game yet and simply follows the new settings.
+//! goes. A model whose file is in the game already, because Ship wrote it or
+//! it was there before, stays put: its file is recorded in
+//! [`GameSettings::models`], so the next export lands on it and no old file
+//! is left behind. A model with nothing in the game yet follows the new
+//! format, in the folder it was going to.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -34,7 +35,7 @@ pub struct TemplateBudgetChange {
     pub after: FolderBudget,
 }
 
-/// A model that has not shipped and exports at a new path after the template.
+/// A model with no file in the game that exports at a new path after the template.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct TemplateNewPath {
@@ -52,8 +53,8 @@ pub struct GameTemplatePreview {
     pub format_after: GameFormat,
     /// Only the rows that differ; every other row stays as it is.
     pub budgets: Vec<TemplateBudgetChange>,
-    /// Files already in the game that the template would have put elsewhere:
-    /// they keep their path and format.
+    /// Files already in the game, shipped or there before, that the template
+    /// would have put elsewhere: they keep their path and format.
     pub kept_files: Vec<String>,
     pub new_paths: Vec<TemplateNewPath>,
     pub over_before: u32,
@@ -74,7 +75,7 @@ struct Outcome {
 fn outcome(
     settings: &GameSettings,
     manifest: &ProjectManifest,
-    shipped: &BTreeSet<String>,
+    in_game: &BTreeSet<String>,
     template: &GameTemplate,
 ) -> Outcome {
     let mut next = settings.clone();
@@ -87,7 +88,7 @@ fn outcome(
         if from == to {
             continue;
         }
-        if shipped.contains(&from) {
+        if in_game.contains(&from) {
             next.models.insert(
                 asset.id.clone(),
                 GameModel {
@@ -96,11 +97,23 @@ fn outcome(
                 },
             );
             kept_files.push(from);
-        } else {
+            continue;
+        }
+        let stays = same_folder(&from, &to);
+        if stays != to {
+            next.models.insert(
+                asset.id.clone(),
+                GameModel {
+                    file: stays.clone(),
+                    imported_version: None,
+                },
+            );
+        }
+        if stays != from {
             new_paths.push(TemplateNewPath {
                 asset: asset.id.clone(),
                 from,
-                to,
+                to: stays,
             });
         }
     }
@@ -111,14 +124,33 @@ fn outcome(
     }
 }
 
-/// The files the ship record lists in this game's model folder.
-fn shipped_files(project_dir: &Path, settings: &GameSettings) -> BTreeSet<String> {
-    ship::read_record(project_dir)
+/// `to`'s file name in the folder of `from`: a new budget row is for new
+/// models, not a reason to move one that was going somewhere already.
+fn same_folder(from: &str, to: &str) -> String {
+    let name = to.rsplit_once('/').map_or(to, |(_, name)| name);
+    match from.rsplit_once('/') {
+        Some((folder, _)) => format!("{folder}/{name}"),
+        None => name.to_string(),
+    }
+}
+
+/// The files of this game's model folder: those the ship record lists and
+/// those on disk, whether Maquette wrote them or not.
+fn files_in_game(
+    project_dir: &Path,
+    manifest: &ProjectManifest,
+    settings: &GameSettings,
+) -> BTreeSet<String> {
+    let mut files: BTreeSet<String> = ship::read_record(project_dir)
         .targets
         .remove(&settings.models_dir)
         .unwrap_or_default()
         .into_iter()
-        .collect()
+        .collect();
+    if let Some(repo) = manifest.site_repo.as_deref() {
+        files.extend(model_files(&Path::new(repo).join(&settings.models_dir)));
+    }
+    files
 }
 
 fn over_count(settings: &GameSettings, manifest: &ProjectManifest) -> u32 {
@@ -193,8 +225,8 @@ pub fn preview_template(
 ) -> CoreResult<GameTemplatePreview> {
     let settings = settings_of(manifest)?;
     let template = game_template(id);
-    let shipped = shipped_files(project_dir, settings);
-    let done = outcome(settings, manifest, &shipped, &template);
+    let in_game = files_in_game(project_dir, manifest, settings);
+    let done = outcome(settings, manifest, &in_game, &template);
     let budgets: Vec<TemplateBudgetChange> = template
         .budgets
         .iter()
@@ -235,8 +267,8 @@ pub fn apply_template(
     let template = game_template(template);
     let manifest = project::modify(workspace_root, layout, id, |m| {
         let settings = settings_of(m)?;
-        let shipped = shipped_files(&dir, settings);
-        let next = outcome(settings, m, &shipped, &template).next;
+        let in_game = files_in_game(&dir, m, settings);
+        let next = outcome(settings, m, &in_game, &template).next;
         validate(&next)?;
         m.game = Some(Box::new(next));
         Ok(())

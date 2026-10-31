@@ -2118,6 +2118,11 @@ export type ClipReview = {
 	slideFrames: [number, number] | null,
 	/**  The slide before Pin the feet, cm, when this bake pinned them. */
 	unpinnedCm: number | null,
+	/**
+	 *  The slide with Pin the feet on, cm, when that was worse than without
+	 *  it: this bake then left the pin off, and these numbers are without.
+	 */
+	pinWorseCm: number | null,
 };
 
 /**  The skeleton a clip was made on. */
@@ -2958,8 +2963,8 @@ export type GameTemplatePreview = {
 	/**  Only the rows that differ; every other row stays as it is. */
 	budgets: TemplateBudgetChange[],
 	/**
-	 *  Files already in the game that the template would have put elsewhere:
-	 *  they keep their path and format.
+	 *  Files already in the game, shipped or there before, that the template
+	 *  would have put elsewhere: they keep their path and format.
 	 */
 	keptFiles: string[],
 	newPaths: TemplateNewPath[],
@@ -7366,7 +7371,7 @@ export type TemplateBudgetChange = {
 	after: FolderBudget,
 };
 
-/**  A model that has not shipped and exports at a new path after the template. */
+/**  A model with no file in the game that exports at a new path after the template. */
 export type TemplateNewPath = {
 	asset: string,
 	from: string,

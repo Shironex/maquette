@@ -199,6 +199,10 @@ fn start_props(packs: &Packs, root: &Path, names: &[&str], blender: &Path) -> St
             stats(12, 0, 0),
         );
     }
+    start_entries(packs, root, names, blender)
+}
+
+fn start_entries(packs: &Packs, root: &Path, names: &[&str], blender: &Path) -> String {
     let settings = PackSettings {
         name: "village".into(),
         contact_sheet: false,
@@ -365,4 +369,36 @@ fn a_raise_on_a_stopped_pack_runs_only_that_model() {
         after.message.as_deref(),
         Some(format!("Stopped with {done} of 4 done, model {} is next", done + 1).as_str())
     );
+}
+
+/// Real size shrinks a model's surface without it losing a part, so a model
+/// brought down to its real size is no thin parts warning.
+#[test]
+fn a_model_shrunk_to_its_real_size_has_lost_no_thin_parts() {
+    let Some(blender) = crate::test_blender::blender() else {
+        return;
+    };
+    let dir = tempfile::tempdir().expect("dir");
+    let root = dir.path();
+    let packs = Packs::new(PipelineRunner::new(Arc::new(NullSink)), |_: &PackRecord| {});
+    entry(
+        root,
+        "seed",
+        "seed",
+        AssetKind::Prop,
+        &fixture::clean_prop(),
+        stats(12, 0, 0),
+    );
+    let path = root.join("library/seed/entry.json");
+    let text = fs::read_to_string(&path).expect("entry");
+    let text = text.replace("\"value\": 92.0", "\"value\": 0.5");
+    assert!(text.contains("\"value\": 0.5"), "{text}");
+    fs::write(&path, text).expect("write");
+    let id = start_entries(&packs, root, &["seed"], &blender);
+    packs.wait();
+    let record = packs.get(root, &id).expect("record");
+    let item = &record.items[0];
+    assert_eq!(item.state, PackItemState::Pass, "{:?}", item.note);
+    let height = item.height_m.expect("height");
+    assert!((height - 0.005).abs() < 0.001, "shrunk: {height}");
 }

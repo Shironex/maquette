@@ -104,6 +104,20 @@ export async function animationsShots({ open, shot }) {
   await shot(use, 'retarget-result');
   await use.context().close();
 
+  // A pin that slid more comes off again, with both numbers.
+  const worse = await open(`${DEMO}&motion=demo`, '#/motion');
+  await worse.getByRole('region', { name: 'Models that move' }).waitFor();
+  await worse.getByRole('button', { name: 'Add clip' }).click();
+  await worse.getByRole('menuitem', { name: 'Add from library' }).click();
+  const pick = worse.getByRole('dialog', { name: /^Add library clips to / });
+  await pick.getByText('Sword And Shield Block', { exact: true }).click();
+  await pick.getByRole('button', { name: 'Next: bone map' }).click();
+  await pick.getByRole('button', { name: /^Retarget 1 clip$/ }).click();
+  await worse.getByRole('button', { name: 'Pin the feet and bake again' }).click();
+  await worse.getByRole('group', { name: 'Pin left off' }).waitFor();
+  await shot(worse, 'retarget-review-pin-off');
+  await worse.context().close();
+
   const tryOn = await open(`${DEMO}&motion=demo`, '#/animations');
   await tryOn.getByRole('button', { name: /^Try on / }).click();
   await tryOn.getByRole('button', { name: 'Back to its skeleton' }).waitFor();

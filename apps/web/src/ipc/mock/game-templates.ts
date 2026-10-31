@@ -66,6 +66,13 @@ function merged(current: FolderBudget[], rows: FolderBudget[]): FolderBudget[] {
 
 const templateOf = (id: GameTemplateId) => GAME_TEMPLATES.find(t => t.id === id)!;
 
+/** `to`'s file name in the folder of `from`. */
+function sameFolder(from: string, to: string): string {
+  const name = to.slice(to.lastIndexOf('/') + 1);
+  const at = from.lastIndexOf('/');
+  return at < 0 ? name : `${from.slice(0, at)}/${name}`;
+}
+
 export function templateOutcome(
   project: ProjectManifest,
   settings: GameSettings,
@@ -79,18 +86,21 @@ export function templateOutcome(
     budgets: merged(settings.budgets, template.budgets),
     models: { ...settings.models },
   };
+  const inGame = new Set([...shipped, ...repoModels(settings.format).map(m => m.file)]);
   const keptFiles: string[] = [];
   const newPaths: TemplateNewPath[] = [];
   for (const asset of project.assets ?? []) {
     if (!asset.versions.length) continue;
     const [from, to] = [fileOf(settings, asset), fileOf(next, asset)];
     if (from === to) continue;
-    if (shipped.has(from)) {
+    if (inGame.has(from)) {
       next.models[asset.id] = { file: from, importedVersion: null };
       keptFiles.push(from);
-    } else {
-      newPaths.push({ asset: asset.id, from, to });
+      continue;
     }
+    const stays = sameFolder(from, to);
+    if (stays !== to) next.models[asset.id] = { file: stays, importedVersion: null };
+    if (stays !== from) newPaths.push({ asset: asset.id, from, to: stays });
   }
   return { next, keptFiles, newPaths };
 }

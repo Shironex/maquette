@@ -1,5 +1,6 @@
 import { Button, ProgressBar, Tabs } from '@maquette/ui';
 import type { PackRecord } from '@/ipc/client';
+import BulkAnswers from './BulkAnswers';
 import NeedsYouCard from './NeedsYouCard';
 import PackCheckCard from './PackCheckCard';
 import { usePackCheck } from './PackCheck.hooks';
@@ -121,6 +122,7 @@ export default function PackCheck({ record }: PackCheckProps) {
           <h3 className="text-[11px] font-semibold tracking-[0.04em] text-fg-mute uppercase">
             Needs you{c.needs.length ? ` · ${c.needs.length}` : ''}
           </h3>
+          <BulkAnswers groups={c.groups} busy={c.busy} onDecide={c.decideAll} />
           {c.needs.length ? (
             needCards
           ) : (

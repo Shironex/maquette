@@ -7,6 +7,8 @@
   and one clip, "Dodge Left" (30 frames at 30 fps, the hips moving 0.9 m
   to the left), written as FBX with a skinned box, the way clip packs come.
 - still: the same skeleton holding one pose, with keys that never change.
+- skim: the same skeleton with one clip, "Foot Skim", whose left foot drifts
+  a little while planted, then leaves fast and low: Pin the feet slides more.
 - slide: the same skeleton with one clip, "Foot Slide" (30 frames), its
   left leg swaying a few degrees so the planted left foot slides about
   5 cm and back, within the leg's reach: a clip Pin the feet can fix.
@@ -176,6 +178,23 @@ def sway(arm, leg):
     key_bone(arm, hips, [(0, {"location": (0, 0, 0)}), (30, {"location": (0, 0, 0)})])
 
 
+def skim(arm, leg):
+    """A left leg that drifts slowly, then swings off fast and stays low for
+    two frames, which Pin the feet's ease back drags out into a longer slide."""
+    arm.animation_data_create().action = bpy.data.actions.new("Foot Skim")
+    keys = [(0, 0.0), (12, 1.4), (13, 6.9), (14, 12.4), (15, 17.9), (16, 23.4), (30, 23.4)]
+    key_bone(
+        arm,
+        leg,
+        [
+            (f, {"rotation_quaternion": (math.cos(math.radians(a) / 2), math.sin(math.radians(a) / 2), 0, 0)})
+            for f, a in keys
+        ],
+    )
+    hips = PREFIX + "Hips"
+    key_bone(arm, hips, [(0, {"location": (0, 0, 0)}), (30, {"location": (0, 0, 0)})])
+
+
 def write_fbx(path):
     bpy.ops.export_scene.fbx(
         filepath=path,
@@ -199,6 +218,14 @@ def make_slide(path):
     arm = armature("Armature", T_POSE, lambda n: PREFIX + n)
     skinned_box(arm)
     sway(arm, PREFIX + "LeftUpLeg")
+    write_fbx(path)
+
+
+def make_skim(path):
+    reset()
+    arm = armature("Armature", T_POSE, lambda n: PREFIX + n)
+    skinned_box(arm)
+    skim(arm, PREFIX + "LeftUpLeg")
     write_fbx(path)
 
 
@@ -231,6 +258,8 @@ def main():
         make_clip(out, still=True)
     elif which == "slide":
         make_slide(out)
+    elif which == "skim":
+        make_skim(out)
     elif which == "custom":
         make_custom(out)
     elif which == "model":

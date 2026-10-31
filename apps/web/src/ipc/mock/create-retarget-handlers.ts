@@ -6,6 +6,7 @@
  * `?library=demo` opens with Elsheria having baked a few clips, one of
  * them since fixed.
  */
+import { pinOffReview } from './pin-off-review';
 import type {
   AnimationClip,
   Baked,
@@ -174,7 +175,11 @@ export function createRetargetHandlers(ctx: RetargetContext) {
       slideCm: 0.4,
       slideFrames: null,
       unpinnedCm: null,
+      pinWorseCm: null,
     };
+    if (/\bblock\b/i.test(clip.name)) {
+      return pinOffReview({ ...base, status: 'look', note: '' }, setting.pinFeet ?? false);
+    }
     if (/crouch/i.test(clip.name)) {
       return {
         ...base,
@@ -231,6 +236,7 @@ export function createRetargetHandlers(ctx: RetargetContext) {
       });
     }
     runs += 1;
+    const clips = settings.map(reviewOf);
     const draft: RetargetDraft = {
       token: `retarget-${runs}`,
       project: request.project,
@@ -238,7 +244,7 @@ export function createRetargetHandlers(ctx: RetargetContext) {
       name: p.name,
       fromVersion: p.version,
       review: {
-        clips: settings.map(reviewOf),
+        clips,
         seconds: 4.8 * settings.length,
         driven: p.map.filter(b => b.target).length,
         atRest: p.map.filter(b => !b.target).map(b => b.bone),
@@ -246,7 +252,7 @@ export function createRetargetHandlers(ctx: RetargetContext) {
         hipsScale: 0.94,
       },
       file: p.file,
-      settings,
+      settings: settings.map((s, i) => (clips[i]?.pinWorseCm ? { ...s, pinFeet: false } : s)),
     };
     drafts.set(draft.token, {
       draft,

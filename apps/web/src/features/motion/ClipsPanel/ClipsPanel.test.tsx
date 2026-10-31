@@ -140,6 +140,7 @@ describe('a model with library clips baked in', () => {
                   slideCm: 0,
                   slideFrames: null,
                   unpinnedCm: null,
+                  pinWorseCm: null,
                 },
               ],
               seconds: 5,
