@@ -39,6 +39,7 @@ How to recognise each in a pose sheet or a probe, and what fixes it.
 
 - Seen as: extra bones on top of the rear legs or back that carry weight; legs jitter or bend
   twice. `weightmap.py` shows them as a second colour on one leg.
+- Not junk: a short branch off a limb (toes, a dew claw) belongs to that limb, and a bone that is the heaviest on most of the vertices it touches carries real weight. `autoconfig.py` reads both that way, and neither may go under `JUNK`.
 - Fix: list them under `JUNK`. `fix.py` removes their weights (the bones stay, at zero weight, so
   names and hierarchy do not change).
 

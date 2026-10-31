@@ -1,7 +1,9 @@
 # groups.py: colour helpers over the CHAINS table in rigconfig.py (bone -> chain -> colour).
 import colorsys
 from shlib import CHAINS
+import rigconfig as _rc
 BONE2CHAIN = {b: c for c, bs in CHAINS.items() for b in bs}
+BONE2CHAIN.update(getattr(_rc, "TWIGS", {}))   # toes and nubs read in the colour of their chain
 def chain_color(chain, seg=0):
     names = list(CHAINS); i = names.index(chain)
     h = (i * 0.618034) % 1.0
