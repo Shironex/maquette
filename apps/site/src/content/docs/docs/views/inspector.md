@@ -33,6 +33,12 @@ The Paths tab draws cables, pipes and trails through the scene, anchored to mode
 
 ## Game projects
 
+## Provider vs provider
+
+**Provider vs provider**, next to the compare menu, holds two versions of one asset against each other by their numbers, whoever made them. From the scene it moves to the selected model's asset. The table under the canvas lists triangles, draw calls, GPU memory, transfer, real size match (against the size set in the asset's fix-ups), texture detail, Inbox checks and credits, with a dot on the better side. Texture detail is an estimate: the longest texture edge against how tall the model stands in the view, since the true spread depends on the UVs.
+
+The side panel lists the asset's versions (click one to compare it on the left) and **Compare at**: the camera stops that see the asset, opening where it stands biggest, and Turntable, close up. **Keep** makes a version current on the Board and in the next run. The other stays in versions, nothing is deleted and no credits come back.
+
 A [game project](/docs/start/game-projects/) has no scene to lay out, so its Inspector shows Compare, Budget and Parts instead of Layout and Paths. Budget lists every model against its folder's budget, changes each folder's numbers and adds the fix-ups for the models over.
 
 ## Render
