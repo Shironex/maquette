@@ -93,4 +93,13 @@ export async function splitShots({ open, shot }) {
   await gate.waitForTimeout(1500);
   await shot(gate, 'parts-assembled');
   await gate.context().close();
+
+  const grey = await partsTab(open, '&scenario=configured&parts=grey', 'Frost lantern');
+  await grey.getByText('v3 is grey for now').waitFor();
+  await grey.waitForTimeout(1500);
+  await shot(grey, 'parts-meshy-grey');
+  await grey.getByRole('button', { name: 'Re-texture...' }).click();
+  await grey.getByRole('dialog', { name: 'Re-texture with Meshy?' }).waitFor();
+  await shot(grey, 'parts-meshy-retexture-ask');
+  await grey.context().close();
 }
