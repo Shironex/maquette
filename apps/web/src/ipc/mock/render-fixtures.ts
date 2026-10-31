@@ -164,6 +164,7 @@ const NO_MEMORY = (): RenderProblem => ({
   message:
     'The line pass ran out of memory at 4096 px (380k edges). Try 2048 px or Edges from crease 45°.',
   webpBytes: null,
+  log: 'Blender 4.3.2, background mode\nrender_styles: freestyle pass at 4096 px\nmalloc: failed to allocate 6442450944 bytes\nBlender quit with signal 9',
 });
 
 const MISSING_BLENDER = (): RenderProblem => ({
