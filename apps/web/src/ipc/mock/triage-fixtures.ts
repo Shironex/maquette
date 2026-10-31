@@ -196,9 +196,76 @@ export function seedInbox(state: string | null, dir: string, now: number): Inbox
   const listed = inboxItems(dir, now);
   if (state === 'clear') return [];
   if (state === 'redo') return linkForRedo(listed);
+  if (state === 'retexture') {
+    const base = listed.find(i => i.id === 'veil_gate.glb')!;
+    return [repaintedFern(base, dir, now), splitWaitingToPaint(base, dir, now), ...listed];
+  }
   if (state !== 'triage') return listed;
   const gate = listed.find(i => i.id === 'veil_gate.glb')!;
   return [...linkForRedo(listed), ...SPECS.map(s => triageItem(gate, dir, now, s))];
+}
+
+/** A Meshy re-texture of a 35 part split that came back as one mesh, for `?inbox=retexture`. */
+function repaintedFern(base: InboxItem, dir: string, now: number): InboxItem {
+  const row = (id: string, status: InboxItem['worst'], title: string, detail: string | null) => ({
+    id,
+    status,
+    title,
+    detail,
+    fixes: [],
+  });
+  return {
+    ...base,
+    id: 'fern_clump_retexture.glb',
+    name: 'Fern clump',
+    file: `${dir}/fern_clump_retexture.glb`,
+    modifiedMs: now,
+    worst: 'warning',
+    link: {
+      job: 'fern-clump-3',
+      project: 'frostveil',
+      asset: 'fern-clump',
+      assetName: 'Fern clump',
+      provider: 'meshy',
+      redoOf: null,
+    },
+    checks: [
+      row('triangles', 'pass', '14.2k triangles', 'Within the 60k per model budget.'),
+      row('rig', 'pass', 'No rig, as expected', null),
+      row(
+        'pbr',
+        'warning',
+        'PBR maps missing',
+        'No normal map. The re-texture asked Meshy for them, so it left them out this time.'
+      ),
+      row(
+        'retexture-parts',
+        'warning',
+        'Parts gone: v2 has 35, this is one mesh',
+        "Meshy's re-texture merged them, so Motion states and explode tracks cannot move them. 15.9k tris on v2, 14.2k here. To keep the parts, discard this and use Bake back on v2 in Inspector > Parts."
+      ),
+      row('origin', 'pass', 'Origin at the bottom centre', null),
+    ],
+  };
+}
+
+/** A Meshy split with a re-texture chosen, for `?inbox=retexture&parts=retexture`. */
+function splitWaitingToPaint(base: InboxItem, dir: string, now: number): InboxItem {
+  return {
+    ...base,
+    id: 'frost_lantern_parts.glb',
+    name: 'Frost lantern parts',
+    file: `${dir}/frost_lantern_parts.glb`,
+    modifiedMs: now - 1000,
+    link: {
+      job: 'frost-lantern-split-1',
+      project: 'frostveil',
+      asset: 'frost-lantern',
+      assetName: 'Frost lantern parts',
+      provider: 'meshy',
+      redoOf: null,
+    },
+  };
 }
 
 /** The models discarded before the app opened, for `?inbox=triage` and `?inbox=clear`. */

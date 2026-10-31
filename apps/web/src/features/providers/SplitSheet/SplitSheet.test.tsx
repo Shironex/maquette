@@ -48,6 +48,8 @@ describe('SplitSheet', () => {
     render(<SplitSheet />);
     expect(await screen.findByText(/v2 from Tripo/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Meshy' })).toHaveAttribute('aria-disabled', 'true');
+    // The reason is on the sheet too, not only in a hover tooltip.
+    expect(screen.getByText(/Meshy splits only models it made/)).toBeInTheDocument();
   });
 
   it('needs the part names Meshy looks for, and says the texture bakes back', async () => {
@@ -77,7 +79,7 @@ describe('SplitSheet', () => {
     expect(screen.getByText(/then a re-texture on Meshy/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Split with Meshy' }));
     expect(screen.getByRole('dialog', { name: /with Meshy\?/ })).toHaveTextContent(
-      /asked again when the parts arrive/
+      /You start it from the Parts tab once you accept the parts/
     );
     await userEvent.click(screen.getByRole('button', { name: 'Yes, split' }));
     await waitFor(() => expect(useSplitStore.getState().split).toBeNull());

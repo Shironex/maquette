@@ -46,7 +46,7 @@ export type Args = Record<string, unknown>;
  * saves a Meshy key too, for Redo. The credits ledger holds the live sends
  * and a month of earlier ones. `?inbox=triage` adds eight more models and
  * three discarded ones, `?inbox=clear` empties the inbox but keeps those
- * three (see `triage-fixtures.ts`). `?arrival=named|unmatched|look` drops downloads
+ * three, `?inbox=retexture` adds a re-texture that lost its parts (see `triage-fixtures.ts`). `?arrival=named|unmatched|look` drops downloads
  * for the Downloads watcher (see `create-downloads-handlers.ts`).
  * `?render=` what the Render tab opens with (see `create-render-handlers.ts`).
  * `?built=demo` adds two built assets to Frostveil (see
@@ -58,7 +58,7 @@ export type Args = Record<string, unknown>;
  * (see `create-paths-handlers.ts`), `?game=` a game project (see
  * `create-game-handlers.ts`), `?library=demo` the library's entries (`scale` for 214 of them, see
  * `create-library-handlers.ts`), `?inspect=many` a long compare menu (see
- * `many-assets-fixtures.ts`), `?ship=hand-built` the website Ship settings
+ * `many-assets-fixtures.ts`), `?inspect=diorama` 66 models in the scene, `?ship=hand-built` the website Ship settings
  * (see `create-ship-handlers.ts`), `?updater=` the app updater turned on (see
  * `create-app-handlers.ts`), `?pipeline=many` a runner with 24 models (see
  * `pipeline-many.ts`), `?stress=lists` every long list at a busy workspace's size
@@ -125,7 +125,10 @@ export interface BackendOptions {
    */
   library?: string | null;
   render?: string | null;
-  /** `many`: Frostveil gets 49 more versioned assets, so the Inspector's compare menu is long. */
+  /**
+   * `many`: Frostveil gets 49 more versioned assets, so the Inspector's compare menu is long.
+   * `diorama`: up to 66 models, so the Layout and Paths tabs have a heavy scene to load.
+   */
   inspect?: string | null;
   /** `hand-built`: Frostveil ships as a hand-built site (see create-ship-handlers.ts). */
   ship?: string | null;

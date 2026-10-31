@@ -54,7 +54,10 @@ export function usePartsPanel() {
     () => (project?.assets ?? []).filter(a => a.kind !== 'scene' && a.versions.length > 0),
     [project?.assets]
   );
-  const [picked, setPicked] = useState<string | null>(null);
+  // A version focused from elsewhere, such as a re-texture's offer, opens on its asset.
+  const [picked, setPicked] = useState<string | null>(
+    () => useInspectorStore.getState().selected?.match(/^asset\/(.+)\/v\d+$/)?.[1] ?? null
+  );
   const asset = models.find(a => a.id === picked) ?? models[0] ?? null;
   const assetId = asset?.id ?? null;
   const [found, setFound] = useState<AssetParts | null>(null);

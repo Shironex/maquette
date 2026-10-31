@@ -155,7 +155,7 @@ export function confirmLine(
   const next = afterLine(after, textures);
   const more =
     after === 'retexture' && textures > 0
-      ? ` The re-texture is ${estimateText(MESHY_RETEXTURE_CREDITS)?.toLowerCase() ?? ''} more, asked again when the parts arrive.`
+      ? ` The re-texture is ${estimateText(MESHY_RETEXTURE_CREDITS)?.toLowerCase() ?? ''} more. You start it from the Parts tab once you accept the parts.`
       : '';
   return `${meshyLine(meshy)}${next}. ${cost ?? ''}. You can cancel while Meshy has not started.${more}`;
 }

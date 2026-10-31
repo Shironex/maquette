@@ -116,7 +116,7 @@ function AfterChoice({
       value: 'retexture',
       title: 'Re-texture with Meshy',
       tag: 'more credits',
-      body: 'Paints the parts again from the texture prompt. A new look on the same parts. It asks before it spends them.',
+      body: 'Paints the model again from the texture prompt, for a new look. Meshy may merge the parts into one mesh; the bake back keeps them. You start it from the Parts tab after accepting the parts, and it asks before it spends.',
     },
     {
       value: 'grey',
