@@ -84,7 +84,9 @@ expected name, save it where the Downloads watcher looks (Settings > 3D provider
   are; null until the render is in or without Blender), `name`, and `image` (the ref compared);
   `render` is the download's front render PNG.
 
-Exact `maq_...` names need nothing from you: they are in the inbox (`list_inbox`).
+Exact `maq_...` names need nothing from you: they are in the inbox (`list_inbox`). While Blender is
+missing the app holds new downloads and matches them by picture when it is back; say so if
+`list_handoffs` shows files waiting and the person says Blender is not installed.
 
 ## 4. Match by picture, then look
 
@@ -132,10 +134,17 @@ Sites often name downloads after the caption ("stone well 3d model.glb"). For ea
      `maquette-character-rig` before accepting as final.
    - Origin away from the bottom centre, scale off: fix-ups (`add_fixups`, `set_real_size`) cover
      them.
+     `list_inbox` also gives each model's `nextVersion` (what Accept would make), `replacedBy` (a
+     later redo of the same send) and the `discarded` models. A model that shows replaced is the
+     losing one of a redo; the person picks.
 3. Accept: `accept_inbox_model` `{ id, project, asset?, name? }`. Without `asset` it goes to the
    asset the model was sent for, or the one the download was attached to. It makes a new asset
    version and closes that asset's waiting By hand send. A Tripo or Meshy API send of the asset
    keeps running. Use `name` only when a NEW asset should be made.
+   For many models that all pass, `accept_inbox_models` `{ ids, project? }` (1 to 200) accepts each
+   into its own asset's project and answers per model. Read the checks of each first; accepting in
+   bulk is for models the person already looked at, not a way to skip the checks. The app's Inbox
+   has a Table layout for the same job, and the person can open any model in a 3D quick view.
 4. A character with a rig problem: accept the original as v1 first, then continue in
    `maquette-character-rig` so v1 stays as a safe base.
 
@@ -156,7 +165,21 @@ Tripo or Meshy it costs credits and waits for approval. The earlier model stays 
 the person can compare. Before redoing, say what you would change (a cleaner front ref, an
 added view, another `mesh` or `rig`, a lower face limit) so the redo is not the same send again.
 `discard_inbox_model` `{ id }` throws the losing model away: it moves into `inbox/.discarded/`
-(never deleted) and the send behind it closes as cancelled. Discard only after the person picked.
+(never deleted, pruned after 30 days) and the send behind it closes as cancelled. Discard only
+after the person picked. `restore_inbox_model` `{ name }` puts a discarded model back, aimed at the
+asset it was going to; its `name` is the file name `list_inbox` lists under `discarded`.
+
+Two versions of one asset (a Tripo against a Meshy, or before and after a fix) can be compared
+part by part with `compare_versions` `{ project, asset, left: { version }, right: { version } }`,
+read only. Use it to back a recommendation; the person still chooses which to keep.
+
+## 8. Pictures of the result
+
+`render_styles` `{ project, assets?, styles? }` makes blueprint, toon, clay, shaded, turntable or
+contact sheet pictures of accepted models in headless Blender, into `exports/renders/<asset>/`. No
+credits, no approval. It answers at once with a render `id`: poll `get_render`, and read the files
+it names. `dryRun: true` lists what it would write. Use it to show the person a result, never as a
+check of the model.
 
 ## Stop conditions
 

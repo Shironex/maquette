@@ -9,13 +9,13 @@ The [MCP tools](/docs/agents/mcp-tools/) let an agent act. The skills tell it ho
 
 ## The skills
 
-| Skill                    | Use it to                                                                                                                                                                                   |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `maquette-lab-round`     | Run a concept art round: read the Codex usage and image backend, set the style board, start a direction per asset, let you pick, make object refs and the missing views, clean backgrounds. |
-| `maquette-by-hand-round` | Write By hand handoffs for Tripo or Meshy, then land the downloads: match them by picture, attach, read the inbox checks, accept, add to the library, redo a bad generation.                |
-| `maquette-character-rig` | Take a rigged character from its rig check to a clean v2: pose test, fix skin weights per island, verify, add the file as the next version, bake clips.                                     |
-| `maquette-game-export`   | Set up a game project, import its models, set budgets and export, plan and run the pipeline, wait for your approval at Ship and check the files in the repo.                                |
-| `maquette-avatar-vrm`    | Early: turn a rigged character's rest pose into the VRM T-pose facing +Z on a copy, and judge the before and after pose sheets with you.                                                    |
+| Skill                    | Use it to                                                                                                                                                                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maquette-lab-round`     | Run a concept art round: read the Codex usage and image backend, set the style board, start a direction per asset, let you pick, make object refs and the missing views, clean backgrounds.                                                   |
+| `maquette-by-hand-round` | Write By hand handoffs for Tripo or Meshy, then land the downloads: match them by picture, attach, read the inbox checks, accept (one by one or many), compare two versions, make render pictures, add to the library, redo a bad generation. |
+| `maquette-character-rig` | Take a rigged character from its rig check to a clean v2, through the rig doctor first: pose test, fix skin weights per island, verify, add the file as the next version, bake clips.                                                         |
+| `maquette-game-export`   | Set up a game project, import its models, set budgets and export, plan and run the pipeline, wait for your approval at Ship and check the files in the repo, or write an export pack for another engine.                                      |
+| `maquette-avatar-vrm`    | Early: turn a rigged character's rest pose into the VRM T-pose facing +Z on a copy, and judge the before and after pose sheets with you.                                                                                                      |
 
 The rig skill carries headless Blender scripts (a humanoid set and a creature set with an example config), and the avatar skill the rest pose script Maquette itself runs. Everything else is instructions.
 
@@ -71,7 +71,7 @@ The repo is a plugin marketplace. In Claude Code:
 /plugin install maquette@maquette
 ```
 
-The skills then appear as `/maquette:maquette-lab-round` and so on, and Claude picks them up from what you ask for.
+To update the skills later, run `/plugin marketplace update maquette`, then update the plugin from the `/plugin` menu (the plugin version in `plugin.json` changes with each release, which is what tells Claude Code there is something new). The skills then appear as `/maquette:maquette-lab-round` and so on, and Claude picks them up from what you ask for.
 
 The plugin also declares the Maquette MCP server, so the tools come with it. Its `.mcp.json` reads the token and the port from your environment (`${MAQUETTE_MCP_TOKEN}` and `${MAQUETTE_MCP_PORT:-4791}`), so no token is written into a file. Set them in the shell you start Claude Code from. Copy the token from Settings > Agents:
 
@@ -79,6 +79,10 @@ The plugin also declares the Maquette MCP server, so the tools come with it. Its
 export MAQUETTE_MCP_TOKEN="<token>"
 export MAQUETTE_MCP_PORT=4791   # only when you changed the port
 ```
+
+On Windows, in PowerShell, `$env:MAQUETTE_MCP_TOKEN = "<token>"` sets it for that window only; `setx MAQUETTE_MCP_TOKEN "<token>"` keeps it for windows opened afterwards (open a new one). On a Mac, a Claude Code started from the Dock or a launcher does not see variables from your shell profile: start `claude` from a terminal where you ran the export.
+
+Maquette must be open with the server on before the tools can answer (see [Connect an agent](/docs/agents/connect/#before-you-connect)). If you started Claude Code first, run `/mcp` and reconnect Maquette.
 
 Use this when you install the plugin. The `claude mcp add ... --header "Authorization: Bearer <token>"` line from [Connect an agent](/docs/agents/connect/) is the way to add the server without the plugin, and it stores the token as it is in Claude Code's own config. If you already added the server that way, keep one of the two entries so the tools are not listed twice.
 
