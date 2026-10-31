@@ -24,7 +24,6 @@ import { createFakeLab } from './lab';
 import { healThumbnails } from './lab-helpers';
 import { createCodexUsageHandlers } from './create-codex-usage-handlers';
 import { createImageApiHandlers } from './create-image-api-handlers';
-import { holdForPrompt } from './hold-for-prompt';
 import { createFakeLayout, layoutBounds } from './layout';
 import { projectSummary } from './project-summary';
 import { createFakeBake, createPrepareHandlers } from './prepare';
@@ -60,7 +59,7 @@ import { createToolchainHandlers } from './create-toolchain-handlers';
 import { createAppHandlers } from './create-app-handlers';
 import { createWorkspaceHandlers } from './create-workspace-handlers';
 import { createSyncHandlers, syncProjects } from './create-sync-handlers';
-import { display, expand, fail, type Args, type BackendOptions } from './backend-options';
+import { display, expand, fail, holdFor, type Args, type BackendOptions } from './backend-options';
 
 export type MockOptions = BackendOptions;
 
@@ -392,7 +391,7 @@ export function createBackend({
     setTimeout(() => runner.submit('frostveil', view('frostveil').def, null, false), 50);
   }
 
-  holdForPrompt(handlers, promptMs);
+  holdFor(handlers, promptMs);
   return async function handle(cmd: string, args: Args = {}): Promise<unknown> {
     const handler = handlers[cmd];
     if (!handler) fail('unavailable', `Mock mode has no handler for ${cmd}.`);
