@@ -13,6 +13,9 @@ export type InspectMode = Extract<MaterialMode, 'shaded' | 'parts' | 'wireframe'
  */
 export type InspectorTab = 'compare' | 'layout' | 'paths' | 'budget' | 'parts' | 'render';
 
+export type CompareWay = 'before' | 'versions';
+export type CompareAt = number | 'close' | null;
+
 interface InspectorStore {
   tab: InspectorTab;
   setTab: (tab: InspectorTab) => void;
@@ -25,6 +28,12 @@ interface InspectorStore {
   left: string | null;
   right: string | null;
   selected: string | null;
+  /** Compare the build over time, or two versions by their numbers. */
+  way: CompareWay;
+  /** Where two versions are judged: a stop's index, close up, or not chosen yet. */
+  compareAt: CompareAt;
+  setWay: (way: CompareWay) => void;
+  setCompareAt: (at: CompareAt) => void;
   mode: InspectMode;
   /** The stop the camera flies to, and a counter so a second click flies again. */
   stop: { index: number; at: number } | null;
@@ -58,6 +67,10 @@ export const useInspectorStore = create<InspectorStore>((set, get) => ({
   left: null,
   right: null,
   selected: null,
+  way: 'before',
+  compareAt: null,
+  setWay: way => set({ way, compareAt: null }),
+  setCompareAt: compareAt => set({ compareAt }),
   mode: 'shaded',
   stop: null,
   samples: [],
@@ -71,6 +84,8 @@ export const useInspectorStore = create<InspectorStore>((set, get) => ({
       view: null,
       project,
       selected: null,
+      way: 'before' as const,
+      compareAt: null,
       comparison: null,
       left: null,
       right: null,

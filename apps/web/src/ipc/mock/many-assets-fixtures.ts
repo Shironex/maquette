@@ -1,4 +1,11 @@
-import type { Asset, AssetKind, Comparison, InspectView, ProjectManifest } from '../client';
+import type {
+  Asset,
+  AssetKind,
+  Comparison,
+  InspectModel,
+  InspectView,
+  ProjectManifest,
+} from '../client';
 import { clock } from '@/lib/clock';
 import type { Args } from './backend-options';
 
@@ -123,4 +130,79 @@ export function wrapManyInspect(
     const assets = (project(found.project).assets ?? []).filter(a => a.versions.length > 0);
     return { ...found, comparisons: [...found.comparisons, ...assets.map(assetComparison)] };
   };
+}
+
+/** A version of the frost lantern as the view lists it, for `?parts=`. */
+function lanternModel(base: InspectModel, version: number): InspectModel {
+  const tripo = version <= 2;
+  return {
+    ...base,
+    id: `asset/frost-lantern/v${version}`,
+    model: 'frost_lantern',
+    label: `Frost lantern v${version}`,
+    source: 'version',
+    file: `${base.file.split('/web/dist/')[0]}/models/frost_lantern_v${version}.glb`,
+    path: `models/frost_lantern_v${version}.glb`,
+    asset: 'frost-lantern',
+    version,
+    tweakAsset: 'frost-lantern',
+    materials: 4,
+    materialNames: ['stone', 'iron', 'crystal_glow', 'brass'],
+    triangles: tripo ? 18_200 : 9_600,
+    bytes: tripo ? 1_100_000 : 620_000,
+    gpuBytes: tripo ? 9_400_000 : 5_100_000,
+    size: tripo ? [0.34, 0.59, 0.34] : [0.32, 0.54, 0.32],
+    error: null,
+  };
+}
+
+/** The frost lantern's versions, placed in the scene, for every `?parts=`. */
+function wrapCompareInspect(
+  all: Record<string, (args: Args) => unknown>,
+  project: (id: string) => ProjectManifest
+) {
+  const inspect = all.inspect_project;
+  if (!inspect) return;
+  all.inspect_project = args => {
+    const found = inspect(args) as InspectView;
+    const asset = project(found.project).assets?.find(a => a.id === 'frost-lantern');
+    const base = found.models[0];
+    if (found.project !== 'frostveil' || !asset || !base) return found;
+    // It stands where a stop looks, so the stop can judge it.
+    const place = found.stops.stops[2]?.target ?? [0, 0, 0];
+    const shipped: InspectModel = {
+      ...base,
+      id: 'shipped/frost_lantern',
+      model: 'frost_lantern',
+      asset: 'frost-lantern',
+      tweakAsset: 'frost-lantern',
+    };
+    const scene = found.comparisons.map(c =>
+      c.kind !== 'scene'
+        ? c
+        : {
+            ...c,
+            sides: c.sides.map(s => ({
+              ...s,
+              members: [...s.members, { model: shipped.id, position: place }],
+            })),
+          }
+    ) as InspectView['comparisons'];
+    return {
+      ...found,
+      models: [...found.models, shipped, ...asset.versions.map(v => lanternModel(base, v.version))],
+      comparisons: [...scene, { ...assetComparison(asset), label: asset.name }],
+    };
+  };
+}
+
+/** The inspect fixtures the mock's options ask for. */
+export function wrapInspectFixtures(
+  all: Record<string, (args: Args) => unknown>,
+  project: (id: string) => ProjectManifest,
+  inspect: string | null,
+  parts: string | null
+) {
+  if (inspect === 'many') wrapManyInspect(all, project);
+  if (parts) wrapCompareInspect(all, project);
 }
