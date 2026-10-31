@@ -5,6 +5,7 @@ import { commands, type RigRecord } from '@/ipc/client';
 import {
   creatureCase,
   creatureFixedCase,
+  noChangeCase,
   oneIslandCase,
   refusedCase,
   stoppedCase,
@@ -64,6 +65,22 @@ describe('RigDoctor', () => {
     expect(screen.getByText('One continuous mesh')).toBeInTheDocument();
     expect(screen.getByText(/narrow reweight moves only/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Round 2' })).toBeDisabled();
+  });
+
+  it('words one continuous mesh for a creature and leaves it its second round', () => {
+    const fixed = creatureFixedCase();
+    show({ ...fixed, model: { ...fixed.model, oneIsland: true } });
+    expect(screen.getByText(/only takes stray weight off/i)).toBeInTheDocument();
+    expect(screen.queryByText(/arm and hand weight/i)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Round 2' })).toBeEnabled();
+  });
+
+  it('says a fix changed nothing and offers no version to add', () => {
+    show(noChangeCase());
+    expect(screen.getByText(/The fix changed nothing/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Add as/ })).toBeNull();
+    expect(screen.queryByText('Only JOINTS_0 and WEIGHTS_0 changed')).toBeNull();
+    expect(noChangeCase().defects.every(d => !d.fixed)).toBe(true);
   });
 
   it('shows a creature run with its chains, map, log and a disabled Add', () => {

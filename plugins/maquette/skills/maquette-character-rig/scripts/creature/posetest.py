@@ -2,7 +2,9 @@
 # rig without knowing bone rolls), render rest/posed tiles with weight colours, and measure per welded
 # piece the non-rigid deviation: Kabsch best rigid fit of the piece's posed verts to its rest verts, max
 # residual in model units (model is ~1.0 wide, so 0.01 = 1% of body width). Rigid crystal should be ~0.
-# Pieces longer than ART_EXT span a joint (whole leg crystals) and are reported apart as "articulated".
+# Rigid means what autoconfig.py and fix.py mean: smaller than RIGID_EXT, on a model that has pieces at all. Other pieces
+# span a joint (whole leg crystals) and are reported apart as "articulated"; so is every island of one continuous shell
+# (PIECE_RULES False), where edge islands are only UV islands and nothing has to hold rigid.
 # Two surface checks catch tearing on meshes that are one continuous shell (no rigid pieces):
 #   seam gap: vertices that share a position at rest (glTF splits them at UV seams) must stay together;
 #             a gap means the two copies carry different weights and the surface cracks open there.
@@ -22,6 +24,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(sys.argv[sys.argv.index("--")-1])), "..", "humanoid"))
 import surface as _surface
 WELD = getattr(_rc, "WELD_PIECES", True)
+PIECE_RULES = getattr(_rc, "PIECE_RULES", True)
 glb, outd, tag = sys.argv[sys.argv.index("--")+1:]
 arm, me, stray = load(glb)
 for s in stray: s.hide_render = True
@@ -64,7 +67,6 @@ R0 = np.array([tuple(me.matrix_world @ v) for v in rest])
 PI = np.array(piece)
 PIDX = {p: np.where(PI == p)[0] for p in set(piece)}
 EXT = {p: float((R0[ix].max(0) - R0[ix].min(0)).max()) for p, ix in PIDX.items()}
-ART_EXT = 0.25
 def kabsch_err(A, B):
     ca, cb = A.mean(0), B.mean(0); H = (A - ca).T @ (B - cb)
     U, S, Vt = np.linalg.svd(H); d = np.sign(np.linalg.det(Vt.T @ U.T))
@@ -101,9 +103,10 @@ for ch in CHAINS:
     worst, co = measure()
     gap, s99, smax, sat, sabs = surface(co)
     held = BODY.measure(BODY.size)
-    rig = sorted(((e, p) for p, (e, k) in worst.items() if e > 0.004 and EXT[p] <= ART_EXT), reverse=True)
-    art = sorted(((e, p) for p, (e, k) in worst.items() if e > 0.004 and EXT[p] > ART_EXT), reverse=True)
-    report[ch] = dict(rigid=[dict(piece=p, n=psize[p], ext=round(EXT[p], 3), err=round(e, 4), at=[round(x, 3) for x in co[worst[p][1]]]) for e, p in rig],
+    bent = [(e, p) for p, (e, k) in worst.items() if e > 0.004 * BODY.size]
+    rig = sorted(((e, p) for e, p in bent if PIECE_RULES and EXT[p] < RIGID_EXT), reverse=True)
+    art = sorted(((e, p) for e, p in bent if not (PIECE_RULES and EXT[p] < RIGID_EXT)), reverse=True)
+    report[ch] = dict(rigid=[dict(piece=p, n=psize[p], ext=round(EXT[p], 3), err=round(e, 4), bend_mm=round(e / BODY.size * 1000, 1), at=[round(x, 3) for x in co[worst[p][1]]]) for e, p in rig],
                       articulated=[dict(piece=p, n=psize[p], ext=round(EXT[p], 3), err=round(e, 4)) for e, p in art],
                       seam_gap=round(gap, 4), stretch_p99=round(s99, 3), stretch_max=round(smax, 3), stretch_at=sat, stretch_mm=held["stretch_mm"],
                       beyond_body_mm=held["beyond_body_mm"], seam_gap_mm=held["seam_gap_mm"])

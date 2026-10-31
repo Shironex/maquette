@@ -11,6 +11,7 @@ import { fail, type Args } from './backend-options';
 import {
   creatureCase,
   creatureFixedCase,
+  noChangeCase,
   oneIslandCase,
   refusedCase,
   runningCase,
@@ -34,6 +35,7 @@ const SEEDS: Record<string, () => RigRecord> = {
   'creature-fixed': creatureFixedCase,
   refused: refusedCase,
   stopped: stoppedCase,
+  'no-change': noChangeCase,
   'one-island': oneIslandCase,
   running: runningCase,
 };

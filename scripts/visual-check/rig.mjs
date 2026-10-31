@@ -39,4 +39,9 @@ export async function rigShots({ open, shot }) {
   await hound.getByRole('region', { name: 'Chains' }).waitFor();
   await shot(hound, 'rig-creature');
   await hound.context().close();
+
+  const unchanged = await openCase(open, 'no-change', /Spiked hound/);
+  await unchanged.getByText('The fix changed nothing', { exact: false }).waitFor();
+  await shot(unchanged, 'rig-no-change');
+  await unchanged.context().close();
 }

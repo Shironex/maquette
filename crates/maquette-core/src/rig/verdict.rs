@@ -3,9 +3,9 @@
 
 use super::{RigDefect, RigRow, RigRowChange, RigSheet, RigTrend};
 
-/// A row is flagged when an edge stretches this far past what the body does
-/// by itself (mm at a one metre tall model). A clean rig with cloth across
-/// its armpits stays near 60 in big poses while the raw stretch reads 260.
+/// A row is flagged when an edge stretches this far past what a healthy skin
+/// does to it (mm at a one metre tall model, see surface.py). A clean rig
+/// stays well under it in big poses while the raw stretch reads 260.
 pub const TEAR_MM: f64 = 80.0;
 /// Seam copies this far apart read as a crack.
 pub const SEAM_MM: f64 = 5.0;
@@ -121,7 +121,9 @@ pub(super) fn mark_after(after: &mut RigSheet, before: &RigSheet) -> Option<(Str
                 word(change.seam_gap)
             ));
         }
-        row.note = (!said.is_empty()).then(|| said.join("; "));
+        if !said.is_empty() {
+            row.note = Some(said.join("; "));
+        }
         row.change = Some(change);
     }
     worst

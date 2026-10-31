@@ -1,6 +1,13 @@
 import { Button, Icon, SegmentedControl, TopBar, type SegmentedOption } from '@maquette/ui';
 import type { RigRecord, RigRoute } from '@/ipc/client';
-import { addWaitsFor, isRunning, nextVersion, routeHeldBy, worseWarning } from '@/state/rig';
+import {
+  addWaitsFor,
+  isRunning,
+  nextVersion,
+  noSecondRound,
+  routeHeldBy,
+  worseWarning,
+} from '@/state/rig';
 import { useRigActions } from './RigDoctor.hooks';
 import { BeforeCentre, DefectsAside } from './RigBefore';
 import { CompareCentre, FixAside } from './RigCompare';
@@ -64,8 +71,9 @@ function LeftColumn({ record }: { record: RigRecord }) {
       {m.oneIsland ? (
         <div className="rounded-[9px] border border-amber/40 bg-amber-soft p-3 text-meta text-fg-dim">
           <p className="m-0 mb-1 font-medium text-amber">One continuous mesh</p>
-          The per island fix would tear it, so it stays off. A narrow reweight moves only the arm
-          and hand weight far from the arms.
+          {record.route === 'creature'
+            ? 'Its islands are only UV islands, so the per piece rules stay off. The fix only takes stray weight off the chains.'
+            : 'The per island fix would tear it, so it stays off. A narrow reweight moves only the arm and hand weight far from the arms.'}
         </div>
       ) : m.finding ? (
         <div className="rounded-[9px] border border-amber/40 bg-amber-soft p-3 text-meta text-fg-dim">
@@ -147,9 +155,9 @@ function Actions({ record }: { record: RigRecord }) {
         <Button
           variant="secondary"
           icon="arrow-clockwise"
-          disabled={s.busy || record.round >= 2 || record.model.oneIsland}
+          disabled={s.busy || record.round >= 2 || noSecondRound(record)}
           tooltip={
-            record.model.oneIsland
+            noSecondRound(record)
               ? 'A one island mesh has no second round'
               : 'One last try with a wider seam'
           }
@@ -206,6 +214,7 @@ function Actions({ record }: { record: RigRecord }) {
 function footerNote(record: RigRecord): string {
   const v = nextVersion(record) - 1;
   if (record.error) return record.error;
+  if (record.stop?.kind === 'no-change') return `${record.stop.title}. ${record.stop.detail}`;
   if (record.landed !== null) return `Added as v${record.landed}. v${v} stays.`;
   if (record.state === 'discarded') return `The draft is gone. v${v} is as it was.`;
   if (record.state === 'cancelled') return `The run was cancelled. v${v} stays as it came.`;

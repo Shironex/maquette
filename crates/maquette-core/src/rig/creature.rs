@@ -6,8 +6,7 @@ use super::defects::{self, count, num};
 use super::humanoid::{arg, read_json, stat};
 use super::run::Run;
 use super::{
-    DefectKind, MAX_ROUNDS, RigChain, RigCreature, RigRow, RigSheet, RigState, RigStep, chains,
-    steps, verdict,
+    MAX_ROUNDS, RigChain, RigCreature, RigRow, RigSheet, RigState, RigStep, chains, steps, verdict,
 };
 use crate::error::CoreResult;
 
@@ -31,7 +30,20 @@ fn chains_of(table: &Value) -> Vec<RigChain> {
         .collect()
 }
 
-/// The sheet of a posetest run.
+/// The most rigid pieces any one chain's bend deforms in a posetest run.
+fn bent_pieces(run: &Run, tag: &str) -> CoreResult<usize> {
+    let report = read_json(&run.dir.join(format!("{tag}_report.json")))?;
+    Ok(report
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter(|(chain, _)| !chain.starts_with("junk"))
+        .map(|(_, r)| r["rigid"].as_array().map_or(0, Vec::len))
+        .max()
+        .unwrap_or(0))
+}
+
+/// The sheet of a posetest run. Its seconds are the caller's to set.
 fn sheet(run: &Run, tag: &str) -> CoreResult<RigSheet> {
     let report = read_json(&run.dir.join(format!("{tag}_report.json")))?;
     let rows = report
@@ -46,7 +58,7 @@ fn sheet(run: &Run, tag: &str) -> CoreResult<RigSheet> {
             };
             let rigid = r["rigid"].as_array().map_or(0, Vec::len);
             let stretch = r["stretch_mm"].as_f64().unwrap_or(0.0);
-            let bend = r["rigid"][0]["err"].as_f64().unwrap_or(0.0) * 1000.0;
+            let bend = r["rigid"][0]["bend_mm"].as_f64().unwrap_or(0.0);
             let mut row = RigRow {
                 id: chain.clone(),
                 label: format!("{chain} bent"),
@@ -81,7 +93,7 @@ fn posetest(
     glb: &std::path::Path,
     tag: &str,
     chains: u64,
-) -> CoreResult<()> {
+) -> CoreResult<f64> {
     let total = usize::try_from(chains).unwrap_or(0) * TILES;
     let args = [arg(glb), arg(&run.dir), tag.to_string()];
     let started = std::time::Instant::now();
@@ -94,7 +106,7 @@ fn posetest(
         "posetest.py",
         format!("{tag} in {:.0} s", started.elapsed().as_secs_f64()),
     );
-    Ok(())
+    Ok(started.elapsed().as_secs_f64())
 }
 
 /// Reads the chains from the bones, with a person's corrections on top.
@@ -144,8 +156,9 @@ pub(super) fn test(run: &Run) -> CoreResult<()> {
         weight_map: map,
     };
     run.update(|c| c.creature = Some(creature));
+    let mut seconds = 0.0;
     run.stage("Pose test before", || {
-        posetest(
+        seconds = posetest(
             run,
             "Pose test before",
             &input,
@@ -155,10 +168,12 @@ pub(super) fn test(run: &Run) -> CoreResult<()> {
         Ok(format!("{} chains", num(&table, "chains_to_test")))
     })?;
     let mut before = sheet(run, "before")?;
-    let found = defects::creature(&table, &before);
+    before.seconds = seconds;
+    let found = defects::creature(&table, bent_pieces(run, "before")?);
+    let rigid = found.iter().find(|d| d.title.starts_with("Rigid"));
     for row in &mut before.rows {
-        if row.note.is_some() {
-            row.defects.push(1);
+        if let Some(d) = rigid.filter(|_| row.note.as_deref().is_some_and(|n| n.contains("bend"))) {
+            row.defects.push(d.number);
         }
     }
     let mut stats = steps::before_sums(&before.rows);
@@ -192,6 +207,10 @@ pub(super) fn test(run: &Run) -> CoreResult<()> {
         c.step = RigStep::Before;
     });
     Ok(())
+}
+
+fn table_one_shell(scripts: &std::path::Path) -> CoreResult<bool> {
+    Ok(read_json(&scripts.join("rigconfig.json"))?["one_shell"] == true)
 }
 
 /// The fix (dry run first, as the skill asks), verify and the pose test after.
@@ -233,6 +252,18 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
             count(num(&report, "changed"))
         ),
     );
+    if num(&report, "changed") == 0 {
+        let v = case.source.version.unwrap_or(1);
+        let why = if table_one_shell(&scripts)? {
+            "This is one continuous shell, so the per piece rules stay off and only stray weight can move, and none did."
+        } else {
+            "No weight on any vertex moved by more than 0.02."
+        };
+        run.nothing_changed(format!(
+            "{why} No draft was made and v{v} stays. If the chains read wrong, correct them and run it again."
+        ));
+        return Ok(());
+    }
     run.update(|c| c.step = RigStep::Verify);
     let verify_file = run.dir.join("verify.json");
     run.stage("Verify", || {
@@ -254,8 +285,9 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
         ),
     );
     let table = read_json(&scripts.join("rigconfig.json"))?;
+    let mut seconds = 0.0;
     run.stage("Pose test after", || {
-        posetest(
+        seconds = posetest(
             run,
             "Pose test after",
             &draft,
@@ -265,6 +297,10 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
         Ok(format!("{} chains", num(&table, "chains_to_test")))
     })?;
     let mut after = sheet(run, "after")?;
+    after.seconds = seconds;
+    let still_bent = bent_pieces(run, "after")?;
+    // The same words judge both sheets, read before the after rows say how they moved.
+    let flagged_after = after.rows.iter().filter(|r| r.note.is_some()).count();
     let both = run.dir.join("before_after.png");
     run.script(
         ROUTE,
@@ -279,11 +315,6 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
     let before = case.before.clone().unwrap_or_default();
     let worst = verdict::mark_after(&mut after, &before);
     let sums = steps::sums(&before.rows, &after.rows);
-    let flagged = |rows: &[RigRow]| {
-        rows.iter()
-            .filter(|r| verdict::problem(r).is_some())
-            .count()
-    };
     let flagged_before = before.rows.iter().filter(|r| r.note.is_some()).count();
     let stats = vec![
         sums.stretch,
@@ -292,8 +323,8 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
         stat(
             "Chains flagged",
             Some(count(flagged_before as u64)),
-            count(flagged(&after.rows) as u64),
-            flagged(&after.rows) > 0,
+            count(flagged_after as u64),
+            flagged_after > 0,
         ),
         stat(
             "New weights",
@@ -302,7 +333,7 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
             false,
         ),
     ];
-    let fix_steps = steps::creature(&report, defects::names(&table["junk"]).len());
+    let fix_steps = steps::creature(&report);
     let stop = steps::stop_of(&case.name, &checks, last_round, worst.as_ref());
     let draft_path = arg(&draft);
     run.update(|c| {
@@ -311,14 +342,7 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
         c.checks = checks;
         c.fix_steps = fix_steps;
         c.draft = Some(draft_path);
-        for d in c
-            .defects
-            .iter_mut()
-            .filter(|d| d.kind == DefectKind::WeightsOnly)
-        {
-            d.fixed = true;
-            d.outcome = Some("fixed".to_string());
-        }
+        defects::settle_creature(&mut c.defects, &report, still_bent);
         c.state = if stop.is_some() {
             RigState::Stopped
         } else {

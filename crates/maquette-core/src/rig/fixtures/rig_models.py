@@ -9,7 +9,13 @@ Usage: blender -b --factory-startup -P rig_models.py -- <which> out.glb
   misplaced   the same, with the left arm chain 10 cm inside the body and arm translation keys
   one-island  the same body remeshed into one continuous shell
   facing-x    humanoid turned to face +X in the file
+  long-robe   a clean rig under a floor length robe whose weights blend from the hips to the legs, and a wide walk
+  robe-torn   the same robe with rows of it on the hips and on the thigh in turn: a real tear in the walk
+  robe-arm    the same robe with its hem blended smoothly onto the far arm bone: a real stretch in raise
   creature    a four legged beast facing -X: swapped side names, a junk chain, split spikes, a tail on a leg
+  hound       a four legged beast as a Tripo rig names it: toes forked at each paw, all weighted, a nub on a
+              leg, a long tail and weighted back spikes
+  hound-shell the same remeshed into one shell with many UV islands and clean weights: the fix has nothing to do
   no-skin     bones and a mesh with no weights
 """
 import bpy, bmesh, math, sys
@@ -76,7 +82,7 @@ def finish(bm, arm, weigh, name="Body"):
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
-    if which == "one-island":
+    if which in ("one-island", "hound-shell"):
         ob0 = bpy.data.objects.new("tmp", me)
         bpy.context.scene.collection.objects.link(ob0)
         m = ob0.modifiers.new("r", "REMESH")
@@ -90,6 +96,11 @@ def finish(bm, arm, weigh, name="Body"):
     for li, loop in enumerate(me.loops):
         co = me.vertices[loop.vertex_index].co
         uv.data[li].uv = (co.x + 0.5, co.z)
+    if which == "hound-shell":   # a patchwork of UV islands, so its vertices split along them in the file
+        for poly in me.polygons:
+            c = poly.center
+            for li in poly.loop_indices:
+                uv.data[li].uv = (uv.data[li].uv[0] + int((c.x + 2) * 6) * 0.5, uv.data[li].uv[1] + int(c.z * 6) * 0.5)
     img = bpy.data.images.new("tex", 16, 16)
     img.pixels = [c for i in range(256) for c in (0.5 + (i % 16) / 40, 0.45, 0.4 + (i // 16) / 40, 1)]
     img.pack()
@@ -157,7 +168,10 @@ def humanoid(shift_left_arm=0.0):
         tube(bm, (k * 0.07, 0, 0.50), (k * 0.08, 0, 0.27), 0.05, 0.035)
         tube(bm, (k * 0.08, 0, 0.27), (k * 0.08, 0, 0.05), 0.033, 0.03)
         tube(bm, (k * 0.08, 0, 0.05), (k * 0.08, -0.13, 0.015), 0.03, 0.02, 8, 6)
-    if which != "webbed":
+    robe = which in ("long-robe", "robe-torn", "robe-arm")
+    if robe:
+        tube(bm, (0, 0, 0.56), (0, 0, 0.08), 0.17, 0.24, 28, 24)
+    if which != "webbed" and not robe:
         panel(bm, ((-0.12, 0.095, 0.80), (0.12, 0.095, 0.80), (0.18, 0.13, 0.15), (-0.18, 0.13, 0.15)))   # the cape
         for x in (-0.03, 0.03):
             tube(bm, (x, 0.07, 0.97), (x * 1.5, 0.10, 0.74), 0.012, 0.006, 6, 14)                         # hair strands
@@ -183,6 +197,25 @@ def humanoid(shift_left_arm=0.0):
             return {P + "Spine2": 1.0}
         if which == "webbed":
             return out_
+        if robe:
+            r = (co.x ** 2 + co.y ** 2) ** 0.5
+            if r < 0.16 or co.z > 0.565 or co.z < 0.075:   # the body under it
+                return out_
+            down = min(max((0.56 - co.z) / 0.48, 0.0), 1.0)
+            left = min(max((co.x + 0.17) / 0.34, 0.0), 1.0)
+            left = left * left * (3 - 2 * left)
+            kx_leg = lambda s: {P + s + "UpLeg": 0.6, P + s + "Leg": 0.4}
+            blend = {P + "Hips": 1 - down}
+            for s, share in (("Left", left), ("Right", 1 - left)):
+                for b, w in kx_leg(s).items():
+                    blend[b] = down * share * w
+            if which == "robe-torn" and co.y < 0 and co.x > 0 and 0.16 < co.z < 0.40:
+                return {P + "LeftUpLeg": 1.0} if int(co.z / 0.02) % 2 else {P + "Hips": 1.0}
+            if which == "robe-arm" and co.x > 0 and co.z < 0.30:
+                onto = min((0.30 - co.z) / 0.20, 1.0)
+                blend = {b: w * (1 - onto) for b, w in blend.items()}
+                blend[P + "LeftArm"] = onto
+            return {b: w for b, w in blend.items() if w > 0}
         if co.y > 0.09 and co.z < 0.81 and abs(co.x) < 0.2:          # the cape swings with the arms
             return {P + kx + "Arm": 0.55, P + kx + "ForeArm": 0.15, P + "Spine2": 0.3}
         if co.y > 0.055 and co.z > 0.72 and abs(co.x) < 0.06:         # hair on the fingers
@@ -192,7 +225,8 @@ def humanoid(shift_left_arm=0.0):
     arm.animation_data_create()
     act = bpy.data.actions.new("walk")
     arm.animation_data.action = act
-    for name, deg in ((P + "LeftUpLeg", 20), (P + "RightUpLeg", -20)):
+    stride = 50 if robe else 20
+    for name, deg in ((P + "LeftUpLeg", stride), (P + "RightUpLeg", -stride)):
         pb = arm.pose.bones[name]
         pb.rotation_mode = "XYZ"
         for f, sign in ((1, 1), (15, -1), (30, 1)):
@@ -280,9 +314,57 @@ def creature():
     return arm
 
 
+def hound():
+    """A beast about one unit long facing -X, with the bone tree a Tripo rig gives a quadruped."""
+    R = "tripo::Root"
+    joints = [(R, (0.30, 0, 0.50), (0.15, 0, 0.50), None), ("bone_1", (0.15, 0, 0.50), (0.0, 0, 0.51), R), ("bone_2", (0.0, 0, 0.51), (-0.20, 0, 0.52), "bone_1"),
+              ("bone_3", (-0.20, 0, 0.52), (-0.32, 0, 0.60), "bone_2"), ("bone_4", (-0.32, 0, 0.60), (-0.46, 0, 0.65), "bone_3")]
+    joints.append(("bone_40", (0.30, 0, 0.50), (0.38, 0, 0.53), R))
+    for i in range(1, 6):
+        joints.append((f"bone_{40 + i}", (0.30 + 0.08 * i, 0, 0.50 + 0.03 * i), (0.38 + 0.08 * i, 0, 0.53 + 0.03 * i), f"bone_{40 + i - 1}"))
+    legs = ((0, -0.18, -0.11, "bone_2"), (1, -0.18, 0.11, "bone_2"), (2, 0.25, -0.11, R), (3, 0.25, 0.11, R))
+    paws = []
+    for n, x, y, par in legs:
+        p = par
+        for i, (z0, z1) in enumerate(((0.46, 0.30), (0.30, 0.15), (0.15, 0.05)), 1):
+            joints.append((f"tripo::{n}_Limb_{i}", (x, y, z0), (x, y, z1), p))
+            p = f"tripo::{n}_Limb_{i}"
+        for t, dy in enumerate((-0.03, 0.0, 0.03), 1):   # toes fork from the paw, one long enough to read as a chain by size
+            tip = -0.15 if t == 2 else -0.07
+            joints.append((f"bone_{n}{t}", (x, y, 0.05), (x + tip, y + dy, 0.01), p))
+            paws.append((x, y, dy, tip))
+    joints.append(("bone_99", (-0.18, -0.11, 0.22), (-0.13, -0.11, 0.20), "tripo::0_Limb_2"))   # a nub by a front leg
+    spikes = [(0.05 + 0.1 * i, 0.60) for i in range(3)]
+    for i, (x, z) in enumerate(spikes):
+        joints.append((f"bone_6{i}", (x, 0, z), (x, 0, z + 0.09), "bone_1"))
+    arm = make_arm(joints)
+    segs = {n: (Vector(h), Vector(t)) for n, h, t, _ in joints}
+    bm = bmesh.new()
+    tube(bm, (0.32, 0, 0.50), (-0.2, 0, 0.52), 0.11, 0.10, 14, 24)
+    tube(bm, (-0.2, 0, 0.52), (-0.32, 0, 0.60), 0.08, 0.06, 12, 10)
+    tube(bm, (-0.32, 0, 0.60), (-0.48, 0, 0.65), 0.07, 0.04, 12, 10)
+    tube(bm, (0.30, 0, 0.50), (0.78, 0, 0.68), 0.03, 0.008, 8, 24)
+    for n, x, y, _ in legs:
+        tube(bm, (x, y, 0.46), (x, y, 0.05), 0.04, 0.025, 10, 20)
+    for x, y, dy, tip in paws:
+        tube(bm, (x, y, 0.05), (x + tip, y + dy, 0.01), 0.018, 0.01, 6, 6)
+    tube(bm, (-0.18, -0.11, 0.22), (-0.13, -0.11, 0.20), 0.016, 0.008, 6, 3)
+    for x, z in spikes:
+        tube(bm, (x, 0, z), (x, 0, z + 0.09), 0.02, 0.003, 6, 4)
+    def weigh(co):
+        ds = sorted((seg_dist(co, *s), n) for n, s in segs.items())[:2]
+        iw = {n: 1 / max(d, 0.005) ** 6 for d, n in ds}
+        total = sum(iw.values())
+        return {n: v / total for n, v in iw.items()}
+    finish(bm, arm, weigh)
+    return arm
+
+
 bpy.ops.wm.read_factory_settings(use_empty=True)
 if which == "creature":
     arm = creature()
+elif which in ("hound", "hound-shell"):
+    arm = hound()
 elif which == "misplaced":
     arm = humanoid(0.05)
 else:

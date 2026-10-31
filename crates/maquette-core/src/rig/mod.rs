@@ -372,6 +372,8 @@ pub enum RigStopKind {
     Rounds,
     /// A check got worse after the fix.
     Worse,
+    /// The fix moved no weight: there is no draft, and the defects stay open.
+    NoChange,
 }
 
 /// Why the doctor stopped, with the row that shows it.
@@ -392,6 +394,10 @@ pub struct RigRecord {
     pub id: String,
     pub name: String,
     pub started_by: RigStarter,
+    /// An agent opened this case too, so its next draft asks a person.
+    #[serde(default)]
+    #[specta(skip)]
+    pub agent_opened: bool,
     pub route: Option<RigRoute>,
     pub state: RigState,
     pub step: RigStep,
@@ -438,3 +444,5 @@ mod tests;
 mod tests_blender;
 #[cfg(test)]
 mod tests_blender_person;
+#[cfg(test)]
+mod tests_blender_readings;

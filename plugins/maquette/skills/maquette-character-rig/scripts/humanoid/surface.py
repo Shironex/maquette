@@ -3,13 +3,25 @@
 Three numbers, in mm at a model one metre tall (its longest side for a creature):
   stretch_mm      the worst single edge: how much its length changed from rest. An edge pulled across a
                   bent joint changes length on any rig, so this alone does not say the weights are wrong.
-  beyond_body_mm  the same worst edge after taking off what the body does anyway. The body here is the
-                  mesh with every vertex stuck to its nearest bone, whatever its weights say: what that
-                  rigid body does to an edge is the pose, and only the change beyond it is the weights.
+  beyond_body_mm  the same worst edge after taking off what a healthy skin does anyway, by the kinder of two
+                  answers. The rigid body has every vertex stuck to its nearest bone: it answers for an edge
+                  across a joint, but only there, since two ends on one bone give it nothing to say. The fair
+                  skin keeps this model's own weights on nearby bones and evens them over a few rings: a blend
+                  across a robe survives that, so it answers for the blend, while a hard step between two
+                  neighbours, or weight on a bone far away, does not survive and stays counted. An edge may
+                  also grow by half its own length: on a long edge of a coarse mesh that is mild, not a tear.
   seam_gap_mm     how far vertices that share a position at rest (copies split at a UV seam) came apart:
                   a real crack. A split surface has no edge across it, so stretch never sees a tear.
 """
 import numpy as np
+
+# Rings of neighbours the fair skin evens weights over: flattens a step, leaves a blend of several rings.
+FAIR_PASSES = 5
+# A bone counts as near a vertex up to this share of the model past its nearest bone: a robe's hem may
+# carry the hips, a hem on the arm may not.
+FAIR_REACH = 0.35
+# How much of its own length an edge may stretch by and still read as cloth.
+EDGE_GIVE = 0.5
 
 
 def _matrix(m):
@@ -52,11 +64,42 @@ class Surface:
         heads = _apply(self.from_arm, np.array([list(b.head_local) for b in self.bones], float))
         tails = _apply(self.from_arm, np.array([list(b.tail_local) for b in self.bones], float))
         best, self.nearest = np.full(len(self.rest), np.inf), np.zeros(len(self.rest), int)
+        dist = np.zeros((len(self.bones), len(self.rest)), np.float32)
         for i, (a, b) in enumerate(zip(heads, tails)):
-            d = _segment_distance(self.rest, a, b)
+            d = dist[i] = _segment_distance(self.rest, a, b)
             near = d < best
             best[near], self.nearest[near] = d[near], i
         self.rest_inv = [np.linalg.inv(_matrix(b.matrix_local)) for b in self.bones]
+        self.fair = self._fair_weights(dist, best, inv)
+
+    def _fair_weights(self, dist, best, inv):
+        """{bone index: (vertices, weights)} of the fair skin."""
+        index = {b.name: i for i, b in enumerate(self.bones)}
+        group = {g.index: index.get(g.name) for g in self.me.vertex_groups}
+        found = [(v.index, group[g.group], g.weight) for v in self.me.data.vertices for g in v.groups if group.get(g.group) is not None]
+        ids = sorted({f[1] for f in found} | set(np.unique(self.nearest).tolist()))
+        col = {b: c for c, b in enumerate(ids)}
+        w = np.zeros((len(self.rest), len(ids)), np.float32)
+        for vert, bone, weight in found:
+            if dist[bone, vert] <= best[vert] + FAIR_REACH * self.size:
+                w[vert, col[bone]] = weight
+        empty = w.sum(1) <= 0
+        w[empty, np.array([col[b] for b in self.nearest[empty].tolist()], int)] = 1
+        # Copies at a UV seam are one vertex here, or the skin would stop at every seam.
+        count = inv.max() + 1 if len(inv) else 0
+        each = np.bincount(inv, minlength=count)
+        welded = np.stack([np.bincount(inv, w[:, c], count) / each for c in range(w.shape[1])], 1)
+        a, b = inv[self.edges[:, 0]], inv[self.edges[:, 1]]
+        keep = a != b
+        a, b = a[keep], b[keep]
+        degree = np.bincount(a, minlength=count) + np.bincount(b, minlength=count) + 1
+        for c in range(welded.shape[1]):
+            for _ in range(FAIR_PASSES):
+                x = welded[:, c]
+                welded[:, c] = (x + np.bincount(a, x[b], count) + np.bincount(b, x[a], count)) / degree
+        welded /= welded.sum(1, keepdims=True)
+        w = welded[inv]
+        return {b: (np.flatnonzero(w[:, c] > 0), w[w[:, c] > 0, c]) for c, b in enumerate(ids)}
 
     def _lengths(self, co):
         return np.linalg.norm(co[self.edges[:, 0]] - co[self.edges[:, 1]], axis=1)
@@ -68,6 +111,14 @@ class Surface:
             skin = _matrix(self.arm.pose.bones[self.bones[i].name].matrix) @ self.rest_inv[i]
             at = self.nearest == i
             out[at] = _apply(self.from_arm @ skin @ self.to_arm, self.rest[at])
+        return out
+
+    def _fair_body(self):
+        """The rest mesh under the fair skin, as posed now."""
+        out = np.zeros_like(self.rest)
+        for i, (at, w) in self.fair.items():
+            skin = _matrix(self.arm.pose.bones[self.bones[i].name].matrix) @ self.rest_inv[i]
+            out[at] += w[:, None] * _apply(self.from_arm @ skin @ self.to_arm, self.rest[at])
         return out
 
     def posed(self):
@@ -82,7 +133,9 @@ class Surface:
         size = size or self.height
         co = self.posed()
         change = np.abs(self._lengths(co) - self.rest_len)
-        beyond = np.maximum(change - np.abs(self._lengths(self._body()) - self.rest_len), 0)
+        rigid = np.abs(self._lengths(self._body()) - self.rest_len)
+        fair = np.abs(self._lengths(self._fair_body()) - self.rest_len)
+        beyond = np.maximum(change - np.maximum(np.maximum(rigid, fair), EDGE_GIVE * self.rest_len), 0)
         k = int(change.argmax()) if len(change) else 0
         b = int(beyond.argmax()) if len(beyond) else 0
         # For two copies, the box's diagonal is exactly how far apart they are.

@@ -27,7 +27,7 @@ The status bar shows a line while a run goes on, such as "Rig doctor: pose test 
 Every cell gives three numbers for its pose, in mm at a model one metre tall (its longest side for a creature). They are of the whole mesh in that pose, so every view of the pose shares them, and the tiles under the sheet name the pose their worst number came from.
 
 - **Stretch** is how much the worst single edge changed length from rest. Any rig stretches an edge across a bent joint, so a big number here does not mean the weights are wrong.
-- **Past body** is that stretch after taking off what the pose does anyway, measured against the mesh with every vertex stuck to its nearest bone. This is the part the weights answer for. A pose reads as stretching wrongly from 80 mm.
+- **Past body** is that stretch after taking off what the pose does anyway, measured against the kinder of two healthy skins: the mesh with every vertex stuck to its nearest bone, and the model's own weights on nearby bones evened over a few rings. A blend across a robe is fine by the second; a hard step between neighbours, or weight on a far bone, is not. This is the part the weights answer for. A pose reads as stretching wrongly from 80 mm.
 - **Seam** is how far vertices that share a position at rest came apart: a real crack in the surface, from 5 mm. A split surface has no edge across it, so stretch does not see a tear.
 
 A cell says **looks fine** only when it has no defect and neither number passes its limit, and the Looks fine panel lists those same rows.
@@ -55,12 +55,15 @@ A chain that sits off its mesh gets its weights mirrored from the other side. Mo
 
 ## One continuous mesh
 
-When one island holds nearly the whole model, the per island fix would tear sleeves and legs, so it does not run. A narrow reweight moves only the arm and hand weight far from the arms, and the doctor says so. There is no second round.
+When one island holds nearly the whole model, the per island fix would tear sleeves and legs, so it does not run. On a humanoid, a narrow reweight moves only the arm and hand weight far from the arms, and the doctor says so. There is no second round.
+
+On a creature with one continuous shell, its islands are only UV islands, so the per piece rules stay off and the fix only takes stray weight off the chains.
 
 ## When it stops
 
 - **It refuses** a model with no skin, several skinned meshes, or interleaved or compressed data, and says why. The model keeps its Inbox checks, and Accept as is stays one click away. **Redo...** opens the usual redo sheet for its asset. That spends credits, so it is your call in the sheet; the doctor never starts one.
 - **A check got worse** after the fix: the draft is held and v1 stays.
+- **The fix changed nothing**: no weight moved, so there is no draft to add and every defect stays open. The case stands where its pose test left it: correct the chains and run it again, or keep the version as it is.
 - **Two rounds** left a tear (a seam still open or stretch past the body): the doctor stops instead of guessing a third time. The draft is kept, not added.
 
 ## Agents
