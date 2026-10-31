@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GameTemplatePreview } from '@/ipc/client';
@@ -42,11 +42,38 @@ async function openSheet(busy = false) {
   return screen.getByRole('dialog', { name: 'Use a template' });
 }
 
+/** A preview call the test answers itself. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(r => (resolve = r));
+  return { promise, resolve };
+}
+
 describe('GameTemplates', () => {
   beforeEach(() => {
     previewTemplate.mockReset().mockResolvedValue(preview);
     applyTemplate.mockReset().mockResolvedValue(true);
     useGameStore.setState({ previewTemplate, applyTemplate, saving: false });
+  });
+
+  it('says it is reading while a preview waits, and a late answer cannot replace a newer pick', async () => {
+    const first = deferred<GameTemplatePreview | null>();
+    const second = deferred<GameTemplatePreview | null>();
+    previewTemplate.mockReset();
+    previewTemplate.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const sheet = await openSheet();
+    const cards = await within(sheet).findAllByRole('button', { pressed: false });
+
+    await userEvent.click(cards[0]!);
+    expect(within(sheet).getByRole('status')).toHaveTextContent(/^Reading this game/);
+    await userEvent.click(cards[1]!);
+
+    second.resolve(null);
+    await waitFor(() =>
+      expect(within(sheet).getByRole('status')).toHaveTextContent(/^Could not read this game/)
+    );
+    await act(async () => first.resolve(preview));
+    expect(within(sheet).queryByText('What will change')).toBeNull();
   });
 
   it('shows what will change before anything is saved, then applies', async () => {

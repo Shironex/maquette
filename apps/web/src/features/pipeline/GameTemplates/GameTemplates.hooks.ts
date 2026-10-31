@@ -11,14 +11,18 @@ export function useGameTemplates(project: string, onClose: () => void) {
   const templates = useGameTemplateList();
   const [picked, setPicked] = useState<GameTemplateId | null>(null);
   const [preview, setPreview] = useState<GameTemplatePreview | null>(null);
+  const [reading, setReading] = useState(false);
 
   // A quick second pick must not show the first one's answer.
   useEffect(() => {
     setPreview(null);
+    setReading(Boolean(picked));
     if (!picked) return;
     let live = true;
     void previewTemplate(project, picked).then(found => {
-      if (live) setPreview(found);
+      if (!live) return;
+      setPreview(found);
+      setReading(false);
     });
     return () => {
       live = false;
@@ -28,7 +32,7 @@ export function useGameTemplates(project: string, onClose: () => void) {
   const apply = async () => {
     if (picked && (await applyTemplate(project, picked))) onClose();
   };
-  return { templates, picked, pick: setPicked, preview, apply, saving };
+  return { templates, picked, pick: setPicked, preview, reading, apply, saving };
 }
 
 /** Whether the sheet is open. */
