@@ -17,7 +17,6 @@ export function useBoardHeader() {
   const project = useAppStore(s => s.workspace?.project);
   const setProject = useAppStore(s => s.setProject);
   const jobs = useProvidersStore(s => s.jobs);
-  const queueOpen = useProvidersStore(s => s.queueOpen);
   const setQueueOpen = useProvidersStore(s => s.setQueueOpen);
   const setChecklistOpen = useProvidersStore(s => s.setChecklistOpen);
   const byProject = useBoardPrefsStore(s => s.byProject);
@@ -65,7 +64,6 @@ export function useBoardHeader() {
     activeJobs,
     byHand,
     toMake,
-    queueOpen,
     setQueueOpen,
     setChecklistOpen,
     game: gameOf(project),

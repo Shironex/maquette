@@ -6,10 +6,9 @@ import { TEMPLATE_LABEL } from '@/state/onboarding';
 import { AddAssetForm } from '../AddAssetForm';
 import { RecentlyRemoved } from '../RecentlyRemoved';
 import { useBoardHeader } from './BoardHeader.hooks';
-import type { BoardHeaderProps } from './BoardHeader.types';
 
 /** The project name and what it holds, then the Board's buttons. */
-export default function BoardHeader({ queue }: BoardHeaderProps) {
+export default function BoardHeader() {
   const {
     project,
     layout,
@@ -20,7 +19,6 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
     activeJobs,
     byHand,
     toMake,
-    queueOpen,
     setQueueOpen,
     setChecklistOpen,
     addBuilt,
@@ -65,15 +63,13 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
             ) : null}
           </Button>
         ) : null}
-        <div className="relative">
+        <div>
           <Button
             icon="cube"
-            data-queue-toggle
-            aria-expanded={queueOpen}
             disabled={!project}
             disabledReason="Open a project first"
             tooltip="3D queue: sends to Tripo or Meshy and their progress"
-            onClick={() => setQueueOpen(!queueOpen)}
+            onClick={() => setQueueOpen(true)}
           >
             3D queue
             {activeJobs > 0 ? (
@@ -82,7 +78,6 @@ export default function BoardHeader({ queue }: BoardHeaderProps) {
               </span>
             ) : null}
           </Button>
-          {queueOpen ? queue(() => setQueueOpen(false)) : null}
         </div>
         <RecentlyRemoved />
         {missing > 0 ? (

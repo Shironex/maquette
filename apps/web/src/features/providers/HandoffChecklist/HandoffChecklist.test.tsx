@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { HandoffChecklist } from '.';
+import { SendsPanel } from '../SendsPanel';
 
 afterEach(() => {
   clearMocks();
@@ -19,7 +19,7 @@ afterEach(() => {
 async function openChecklist() {
   await openMockWorkspace('configured', undefined, 'batch');
   await useProvidersStore.getState().load('frostveil');
-  render(<HandoffChecklist />);
+  render(<SendsPanel />);
   useProvidersStore.getState().setChecklistOpen(true);
   return screen.findByRole('dialog', { name: 'By hand checklist' });
 }

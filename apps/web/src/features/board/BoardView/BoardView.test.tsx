@@ -25,7 +25,7 @@ afterEach(() => {
 async function renderBoard() {
   await openMockWorkspace('configured', undefined, 'batch');
   await useProvidersStore.getState().load('frostveil');
-  render(<BoardView queue={() => null} />);
+  render(<BoardView />);
   await screen.findByRole('button', { name: /^Elsheria, v2/ });
 }
 

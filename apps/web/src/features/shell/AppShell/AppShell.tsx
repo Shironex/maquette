@@ -7,7 +7,7 @@ import { ArrivalPicker } from '@/features/providers/ArrivalPicker';
 import { BatchSendPanel } from '@/features/providers/BatchSendPanel';
 import { CreditsSheet } from '@/features/providers/CreditsSheet';
 import { DownloadsMatches } from '@/features/providers/DownloadsMatches';
-import { HandoffChecklist } from '@/features/providers/HandoffChecklist';
+import { SendsPanel } from '@/features/providers/SendsPanel';
 import { SendPanel } from '@/features/providers/SendPanel';
 import { RefsSheet } from '@/features/providers/RefsSheet';
 import { AssembleSheet } from '@/features/providers/AssembleSheet';
@@ -84,7 +84,7 @@ export default function AppShell() {
         </div>
         <ShellStatusBar />
       </div>
-      <HandoffChecklist />
+      <SendsPanel />
       <BatchSendPanel />
       <SendPanel />
       <RefsSheet />

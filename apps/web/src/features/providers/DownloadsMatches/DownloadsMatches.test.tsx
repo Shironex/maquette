@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
-import { HandoffChecklist } from '../HandoffChecklist';
+import { SendsPanel } from '../SendsPanel';
 import { DownloadsMatches } from '.';
 
 afterEach(() => {
@@ -22,7 +22,7 @@ async function openChecklist() {
   await useProvidersStore.getState().load('frostveil');
   render(
     <>
-      <HandoffChecklist />
+      <SendsPanel />
       <DownloadsMatches />
     </>
   );

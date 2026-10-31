@@ -145,7 +145,7 @@ export const createBatchSlice: StateCreator<ProvidersStore, [], [], BatchSlice> 
       const n = sent.jobs.length;
       const failed = sent.failed.map(f => `${f.asset}: ${f.message}`).join(' ');
       if (draft.provider === 'by-hand') {
-        set({ checklistOpen: true });
+        set({ checklistOpen: true, queueOpen: false });
         notify(
           sent.failed.length ? 'failed' : 'done',
           `${n} ${n === 1 ? 'handoff folder' : 'handoff folders'} written`,

@@ -25,7 +25,7 @@ afterEach(() => {
 describe('BoardHeader', () => {
   it('gives every button of the header a tooltip', async () => {
     await openMockGame('crypt');
-    render(<BoardHeader queue={() => null} />);
+    render(<BoardHeader />);
     const buttons = screen.getAllByRole('button');
     const names = buttons.map(b => b.textContent ?? '');
     for (const name of ['By hand', '3D queue', 'Import models', 'Built asset', 'Add asset'])
@@ -42,7 +42,7 @@ describe('BoardHeader', () => {
   });
 
   it('says what By hand opens', async () => {
-    render(<BoardHeader queue={() => null} />);
+    render(<BoardHeader />);
     await userEvent.hover(screen.getByRole('button', { name: /By hand/ }));
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
       "By hand: models waiting for you to make on the provider's site"
@@ -56,7 +56,7 @@ describe('BoardHeader', () => {
         .getState()
         .workspace!.project!.assets!.filter(a => !a.thumbnail?.startsWith('thumbs/'));
     expect(without().length).toBeGreaterThan(0);
-    render(<BoardHeader queue={() => null} />);
+    render(<BoardHeader />);
     await userEvent.click(screen.getByRole('button', { name: /^Render \d+ previews?$/ }));
     await vi.waitFor(() => expect(without()).toEqual([]));
     expect(screen.queryByRole('button', { name: /^Render \d+ previews?$/ })).toBeNull();
@@ -88,7 +88,7 @@ describe('BoardHeader', () => {
 
     it('is hidden while every model shows a render', () => {
       withAssets([model('lantern', 'thumbs/lantern_v1.png')]);
-      render(<BoardHeader queue={() => null} />);
+      render(<BoardHeader />);
       expect(screen.queryByRole('button', { name: /^Render \d+ previews?$/ })).toBeNull();
     });
 
@@ -105,7 +105,7 @@ describe('BoardHeader', () => {
         reason: null,
         project: useAppStore.getState().workspace!.project!,
       });
-      render(<BoardHeader queue={() => null} />);
+      render(<BoardHeader />);
       const button = screen.getByRole('button', { name: 'Render 2 previews' });
       await userEvent.click(button);
       expect(asked).toHaveBeenCalledWith('frostveil');
@@ -122,7 +122,7 @@ describe('BoardHeader', () => {
         reason: 'Blender is not installed.',
         project: useAppStore.getState().workspace!.project!,
       });
-      render(<BoardHeader queue={() => null} />);
+      render(<BoardHeader />);
       await userEvent.click(screen.getByRole('button', { name: 'Render 1 preview' }));
       await vi.waitFor(() =>
         expect(useAppStore.getState().notice).toMatchObject({
@@ -135,22 +135,19 @@ describe('BoardHeader', () => {
   });
 
   it('names the project and counts the By hand models still to make', () => {
-    render(<BoardHeader queue={() => null} />);
+    render(<BoardHeader />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Frostveil');
     expect(screen.getByRole('button', { name: /By hand/ })).toHaveTextContent('By hand5');
   });
 
-  it('opens the 3D queue the shell supplies', async () => {
-    const queue = vi.fn(() => <div role="dialog" aria-label="3D queue panel" />);
-    render(<BoardHeader queue={queue} />);
-    expect(queue).not.toHaveBeenCalled();
+  it('opens the 3D queue', async () => {
+    render(<BoardHeader />);
     await userEvent.click(screen.getByRole('button', { name: /3D queue/ }));
-    expect(screen.getByRole('dialog', { name: '3D queue panel' })).toBeInTheDocument();
     expect(useProvidersStore.getState().queueOpen).toBe(true);
   });
 
   it('toggles the add asset form', async () => {
-    render(<BoardHeader queue={() => null} />);
+    render(<BoardHeader />);
     const add = screen.getByRole('button', { name: 'Add asset' });
     await userEvent.click(add);
     expect(screen.getByRole('form', { name: 'Add asset' })).toBeInTheDocument();
@@ -160,7 +157,7 @@ describe('BoardHeader', () => {
   });
 
   it('switches the Board to the list and remembers it for the project', async () => {
-    render(<BoardHeader queue={() => null} />);
+    render(<BoardHeader />);
     const layout = screen.getByRole('group', { name: 'Board layout' });
     const list = within(layout).getByRole('button', { name: 'List' });
     expect(within(layout).getByRole('button', { name: 'Board' })).toHaveAttribute(
