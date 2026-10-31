@@ -14,6 +14,7 @@ import type {
   GameScan,
   GameSettings,
   GameSettingsChange,
+  GameTemplateId,
   ImportResult,
   PipelineView,
   ProjectManifest,
@@ -37,6 +38,7 @@ import { createPreviewHandlers } from './create-preview-handlers';
 import type { RunStore } from './runner';
 import { gamePipeline, gameRuns } from './game-pipeline';
 import { BAKE_DEFAULT } from './bake';
+import { GAME_TEMPLATES, templateOutcome, templatePreview } from './game-templates';
 
 const GAME_STARTERS = [
   'tools/build_models.py',
@@ -92,6 +94,13 @@ export function createGameHandlers({ project, saveProject, store, state, files }
   /** Files Ship wrote before, per project, so a second Ship finds them unchanged. */
   const shipped = new Set<string>();
   const waiting = new Map<string, string>();
+
+  /** The files of this project's ship record, relative to the model folder. */
+  function shippedFiles(id: string): Set<string> {
+    const prefix = `${id}:`;
+    const done = [...shipped].filter(f => f.startsWith(prefix)).map(f => f.slice(prefix.length));
+    return new Set([...done, ...Object.values(settings(id).models).map(m => m.file)]);
+  }
 
   function settings(id: string): GameSettings {
     const found = gameOf(project(id));
@@ -297,6 +306,17 @@ export function createGameHandlers({ project, saveProject, store, state, files }
         folders: withFolders(current.folders ?? {}, c.assetFolders ?? {}),
       };
       return saveProject({ ...p, game });
+    },
+    game_template_list: () => GAME_TEMPLATES,
+    game_template_preview: ({ project: id, template }) => {
+      const p = project(String(id));
+      return templatePreview(p, settings(p.id), template as GameTemplateId, shippedFiles(p.id));
+    },
+    game_apply_template: ({ project: id, template }) => {
+      const p = project(String(id));
+      const current = settings(p.id);
+      const { next } = templateOutcome(p, current, template as GameTemplateId, shippedFiles(p.id));
+      return saveProject({ ...p, game: next });
     },
     game_add_budget_fixups: ({ project: id }) => {
       const p = project(String(id));

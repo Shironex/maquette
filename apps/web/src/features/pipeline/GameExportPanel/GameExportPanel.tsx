@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Button, HelpMark, SegmentedControl, Select, Toggle } from '@maquette/ui';
 import type { GameSettings, GameSettingsChange } from '@/ipc/client';
 import { formatBytes } from '@/lib/format';
@@ -9,6 +10,8 @@ export interface GameExportPanelProps {
   onDisk: number;
   busy: boolean;
   onSave: (change: GameSettingsChange) => Promise<boolean>;
+  /** Sits under the panel's title: the way to fill these settings from a template. */
+  templates?: ReactNode;
 }
 
 const FORMATS = [
@@ -25,7 +28,13 @@ const CAP_OPTIONS = TEXTURE_CAPS.map(cap => ({ value: String(cap), label: `${cap
 const label = 'text-[12px] leading-4 font-medium text-fg-dim';
 
 /** What Game export writes: the format, the textures and their size cap. */
-export default function GameExportPanel({ settings, onDisk, busy, onSave }: GameExportPanelProps) {
+export default function GameExportPanel({
+  settings,
+  onDisk,
+  busy,
+  onSave,
+  templates,
+}: GameExportPanelProps) {
   const { draft, dirty, update, save, saving, reset } = useGameExportPanel(settings, onSave);
   const blocked = busy ? 'Wait for the run to finish' : 'Nothing changed yet';
   return (
@@ -45,6 +54,7 @@ export default function GameExportPanel({ settings, onDisk, busy, onSave }: Game
           />
         </div>
         <p className="text-meta mt-0.5 text-fg-mute">What the game&apos;s engine can read</p>
+        {templates}
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
         <div className="flex flex-col gap-1.5">

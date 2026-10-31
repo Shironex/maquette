@@ -8,6 +8,8 @@ import {
   errorMessage,
   type GameScan,
   type GameSettingsChange,
+  type GameTemplateId,
+  type GameTemplatePreview,
   type ShipPlan,
   type ThumbnailReady,
 } from '@/ipc/client';
@@ -38,6 +40,9 @@ interface GameStore {
   pickAll: (on: boolean) => void;
   runImport: () => Promise<boolean>;
   saveSettings: (project: string, change: GameSettingsChange) => Promise<boolean>;
+  /** What a template would change; null (with a notice) when it cannot say. */
+  previewTemplate: (project: string, id: GameTemplateId) => Promise<GameTemplatePreview | null>;
+  applyTemplate: (project: string, id: GameTemplateId) => Promise<boolean>;
   addBudgetFixups: (project: string) => Promise<void>;
   loadPlan: (project: string) => Promise<void>;
   /** Asks for a preview of every model without one; the cards update as they finish. */
@@ -120,6 +125,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return true;
     } catch (error) {
       fail('Could not save the game settings', error);
+      return false;
+    } finally {
+      set({ saving: false });
+    }
+  },
+
+  previewTemplate: async (project, id) => {
+    try {
+      return await commands.gameTemplatePreview(project, id);
+    } catch (error) {
+      fail('Could not read that template', error);
+      return null;
+    }
+  },
+
+  applyTemplate: async (project, id) => {
+    set({ saving: true });
+    try {
+      useAppStore.getState().setProject(await commands.gameApplyTemplate(project, id));
+      void usePipelineStore.getState().refresh(project);
+      return true;
+    } catch (error) {
+      fail('Could not apply the template', error);
       return false;
     } finally {
       set({ saving: false });

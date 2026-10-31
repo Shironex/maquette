@@ -55,7 +55,7 @@ export const commands = {
 	toolchainLocate: (tool: ToolId, path: string) => __TAURI_INVOKE<ToolReport>("toolchain_locate", { tool, path }),
 	toolchainReset: (tool: ToolId) => __TAURI_INVOKE<ToolReport>("toolchain_reset", { tool }),
 	/**  Creates a project in the open workspace and makes it the current one. */
-	projectCreate: (project: NewProject) => __TAURI_INVOKE<WorkspaceSnapshot>("project_create", { project }),
+	projectCreate: (project: NewProject_Deserialize) => __TAURI_INVOKE<WorkspaceSnapshot>("project_create", { project }),
 	/**  The projects for the switcher. */
 	projectList: () => __TAURI_INVOKE<ProjectSummary[]>("project_list"),
 	projectSwitch: (id: string) => __TAURI_INVOKE<WorkspaceSnapshot>("project_switch", { id }),
@@ -75,6 +75,12 @@ export const commands = {
 	 */
 	gameImport: (project: string, files: string[]) => __TAURI_INVOKE<ImportResult>("game_import", { project, files }),
 	gameSaveSettings: (project: string, change: GameSettingsChange) => __TAURI_INVOKE<ProjectManifest>("game_save_settings", { project, change }),
+	/**  The built-in game templates. */
+	gameTemplateList: () => __TAURI_INVOKE<GameTemplate[]>("game_template_list"),
+	/**  What applying a template would change in this project. Changes nothing. */
+	gameTemplatePreview: (project: string, template: GameTemplateId) => __TAURI_INVOKE<GameTemplatePreview>("game_template_preview", { project, template }),
+	/**  Fills the game settings from a template. Moves and deletes no file. */
+	gameApplyTemplate: (project: string, template: GameTemplateId) => __TAURI_INVOKE<ProjectManifest>("game_apply_template", { project, template }),
 	/**
 	 *  Adds Decimate and Shrink textures to every model over its folder's
 	 *  budget; a rigged model gets no Decimate. Returns the assets that changed.
@@ -2919,6 +2925,43 @@ export type GameSettingsChange = {
 	assetFolders?: { [key in string]: string | null } | null,
 };
 
+/**  What a template sets. */
+export type GameTemplate = {
+	id: GameTemplateId,
+	name: string,
+	/**  What it is for, one line. */
+	detail: string,
+	/**  Why it has these values. */
+	why: string,
+	format: GameFormat,
+	/**  The folders it lays out, with the budget of each. */
+	budgets: FolderBudget[],
+};
+
+/**  One of the built-in templates. */
+export type GameTemplateId = "prop-set" | "character" | "level-kit" | "level-kit-obj";
+
+/**  What applying a template would change in one project. */
+export type GameTemplatePreview = {
+	template: GameTemplate,
+	formatBefore: GameFormat,
+	formatAfter: GameFormat,
+	/**  Only the rows that differ; every other row stays as it is. */
+	budgets: TemplateBudgetChange[],
+	/**
+	 *  Files already in the game that the template would have put elsewhere:
+	 *  they keep their path and format.
+	 */
+	keptFiles: string[],
+	newPaths: TemplateNewPath[],
+	overBefore: number,
+	overAfter: number,
+	/**  What to look at before applying. */
+	notes: string[],
+	/**  False when the settings already match the template. */
+	changes: boolean,
+};
+
 /**  The image files Game export writes. */
 export type GameTextures = "png" | "jpg" | 
 /**  PNG stays PNG and JPG stays JPG. */
@@ -4203,9 +4246,28 @@ export type NewConcepts = {
 };
 
 /**  What New project asks for a game. */
-export type NewGame = {
+export type NewGame = NewGame_Serialize | NewGame_Deserialize;
+
+/**  What New project asks for a game. */
+export type NewGame_Deserialize = {
 	format: GameFormat,
 	modelsDir: string,
+	/**
+	 *  Lays the template's folders and budgets over the ones found in the
+	 *  repo. The format above still decides the format.
+	 */
+	template?: GameTemplateId | null,
+};
+
+/**  What New project asks for a game. */
+export type NewGame_Serialize = {
+	format: GameFormat,
+	modelsDir: string,
+	/**
+	 *  Lays the template's folders and budgets over the ones found in the
+	 *  repo. The format above still decides the format.
+	 */
+	template?: GameTemplateId | null,
 };
 
 /**  What "Make object refs" asks for. */
@@ -4254,7 +4316,9 @@ export type NewOtherViews = {
 	notes?: string | null,
 };
 
-export type NewProject = {
+export type NewProject = NewProject_Serialize | NewProject_Deserialize;
+
+export type NewProject_Deserialize = {
 	name: string,
 	template: ProjectTemplate,
 	/**  Left out, a website. */
@@ -4262,7 +4326,18 @@ export type NewProject = {
 	siteRepo: string | null,
 	sourceFolder: string | null,
 	/**  For a game: the format and the model folder New project found. */
-	game?: NewGame | null,
+	game?: NewGame_Deserialize | null,
+};
+
+export type NewProject_Serialize = {
+	name: string,
+	template: ProjectTemplate,
+	/**  Left out, a website. */
+	target: ProjectTarget,
+	siteRepo: string | null,
+	sourceFolder: string | null,
+	/**  For a game: the format and the model folder New project found. */
+	game: NewGame_Serialize | null,
 };
 
 /**  The script's `report.json`. */
@@ -7237,6 +7312,21 @@ export type TagEntries = {
 	add: string[],
 	/**  Tags taken off every entry. */
 	remove: string[],
+};
+
+/**  One budget row a template adds or changes. */
+export type TemplateBudgetChange = {
+	folder: string,
+	/**  The row as it is saved, none for a new row. */
+	before: FolderBudget | null,
+	after: FolderBudget,
+};
+
+/**  A model that has not shipped and exports at a new path after the template. */
+export type TemplateNewPath = {
+	asset: string,
+	from: string,
+	to: string,
 };
 
 export type TextureCodec = "etc1s" | "uastc";

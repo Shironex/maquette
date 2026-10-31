@@ -7,6 +7,7 @@ import { GameFields } from './GameFields';
 import { ImportPicker } from './ImportPicker';
 import { RepoLines } from './RepoLines';
 import { TargetPicker } from './TargetPicker';
+import { GameTemplatePicker } from './GameTemplatePicker';
 import { TemplateGrid } from './TemplateGrid';
 import { useProjectForm } from './ProjectForm.hooks';
 
@@ -58,7 +59,9 @@ export default function ProjectForm({
       ) : (
         <>
           <TargetPicker value={value.target} compact={compact} onChange={pickTarget} />
-          {game ? null : (
+          {game ? (
+            <GameTemplatePicker value={value} onChange={onChange} />
+          ) : (
             <>
               <SegmentedControl
                 label="How to start"
