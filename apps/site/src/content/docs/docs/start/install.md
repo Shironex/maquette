@@ -74,6 +74,8 @@ After a welcome screen, the onboarding walks through six steps.
 5. Your first project: a template, a name and an optional site repo, or an imported folder.
 6. A summary of what was set up.
 
+The window will not shrink below 1120 by 720 pixels. On a smaller or heavily scaled display, lower the display scaling a step or use a bigger screen.
+
 The workspace is a plain folder you picked, for example `~/Maquette` or `Documents\Maquette`. Nothing is created anywhere else except the app's own settings and the keys below.
 
 ### The By hand route, with no keys
