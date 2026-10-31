@@ -34,7 +34,7 @@ const names = () =>
 const row = (name: string) => within(grid()).getByRole('row', { name });
 
 async function renderList() {
-  render(<BoardView queue={() => null} />);
+  render(<BoardView />);
   await screen.findByRole('grid', { name: 'Assets' });
 }
 

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { BatchSendPanel } from '.';
-import { HandoffChecklist } from '../HandoffChecklist';
+import { SendsPanel } from '../SendsPanel';
 
 afterEach(() => {
   clearMocks();
@@ -24,7 +24,7 @@ async function openBatch(assets: string[]) {
   render(
     <>
       <BatchSendPanel />
-      <HandoffChecklist />
+      <SendsPanel />
     </>
   );
   await useProvidersStore.getState().openBatch('frostveil', assets);

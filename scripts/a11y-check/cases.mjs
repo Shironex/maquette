@@ -20,7 +20,8 @@ async function partsTab(page, model) {
 
 async function openQueue(page) {
   await boardReady(page);
-  await page.getByRole('button', { name: /3D queue/ }).click();
+  await page.getByRole('button', { name: 'More board actions' }).click();
+  await page.getByRole('menuitem', { name: /^All sends/ }).click();
   await page
     .getByRole('region', { name: '3D queue' })
     .getByRole('button', { name: 'Credits' })
@@ -303,7 +304,8 @@ export const cases = [
     query: `${CONFIGURED}&game=import`,
     hash: '#/board',
     async ready(page) {
-      await page.getByRole('button', { name: 'Import models' }).first().click();
+      await page.getByRole('button', { name: 'More ways to add' }).click();
+      await page.getByRole('menuitem', { name: 'Import models' }).click();
       await page.getByRole('dialog', { name: /^Import models from / }).waitFor();
     },
   },

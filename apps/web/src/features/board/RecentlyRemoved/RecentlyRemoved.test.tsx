@@ -1,41 +1,44 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useAppStore } from '@/state/use-app-store';
-import { useTrashStore } from '@/state/use-trash-store';
-import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
+import { describe, expect, it, vi } from 'vitest';
 import RecentlyRemoved from './RecentlyRemoved';
 
-beforeEach(async () => {
-  await openMockWorkspace();
-});
-
-afterEach(() => {
-  clearMocks();
-  useTrashStore.setState({ project: null, entries: [], restoring: null });
-  useAppStore.setState({ notice: null });
-});
+const entry = {
+  id: 'elsheria',
+  name: 'Elsheria',
+  files: 2,
+  removedAt: '2026-10-01T00:00:00Z',
+} as never;
 
 describe('RecentlyRemoved', () => {
-  it('shows nothing while the trash is empty', async () => {
-    const { container } = render(<RecentlyRemoved />);
-    await vi.waitFor(() => expect(useTrashStore.getState().project).toBe('frostveil'));
-    expect(container).toBeEmptyDOMElement();
+  it('restores the picked asset and closes', async () => {
+    const restoreOne = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <RecentlyRemoved
+        entries={[entry]}
+        restoring={null}
+        restoreOne={restoreOne}
+        onClose={onClose}
+      />
+    );
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Elsheria' }));
+    expect(restoreOne).toHaveBeenCalledWith('elsheria');
+    expect(onClose).toHaveBeenCalled();
   });
 
-  it('lists a removed asset and restores it', async () => {
-    await useTrashStore.getState().remove('frostveil', ['elsheria']);
-    render(<RecentlyRemoved />);
-    const button = await screen.findByRole('button', { name: /Removed/ });
-    expect(button).toHaveTextContent('1');
-    await userEvent.click(button);
-    const item = screen.getByRole('menuitem', { name: 'Elsheria' });
-    await userEvent.click(item);
-    await vi.waitFor(() =>
-      expect(
-        (useAppStore.getState().workspace?.project?.assets ?? []).some(a => a.id === 'elsheria')
-      ).toBe(true)
+  it('holds the list while one is restoring', async () => {
+    render(
+      <RecentlyRemoved
+        entries={[entry]}
+        restoring="elsheria"
+        restoreOne={() => {}}
+        onClose={() => {}}
+      />
     );
-    await vi.waitFor(() => expect(screen.queryByRole('button', { name: /Removed/ })).toBeNull());
+    expect(await screen.findByRole('menuitem', { name: 'Elsheria' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 });

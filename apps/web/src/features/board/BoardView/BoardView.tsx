@@ -12,10 +12,9 @@ import { RenameAssetDialog } from '../RenameAssetDialog';
 import { useRenderStore } from '@/state/use-render-store';
 import { SelectionBar } from '../SelectionBar';
 import { useBoardData, useBoardSelection, useCardActions, useCardDrop } from './BoardView.hooks';
-import type { BoardViewProps } from './BoardView.types';
 
 /** The project's assets in one column per pipeline stage. */
-export default function BoardView({ queue }: BoardViewProps) {
+export default function BoardView() {
   const { workspace, project, assets, jobs, otherProjects, prefs, byStage, rows, order, budget } =
     useBoardData();
   const selection = useBoardSelection(project?.id, order);
@@ -39,7 +38,7 @@ export default function BoardView({ queue }: BoardViewProps) {
     <>
       <ProjectTopBar />
       <main className="flex min-h-0 flex-1 flex-col gap-[18px] px-6 pt-[22px] pb-5">
-        <BoardHeader queue={queue} />
+        <BoardHeader />
 
         <div className="relative min-h-0 flex-1">
           {prefs.layout === 'list' && assets.length > 0 ? (

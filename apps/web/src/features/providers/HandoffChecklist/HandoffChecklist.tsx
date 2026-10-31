@@ -1,20 +1,17 @@
 /**
  * Every By hand send of the project in one list, grouped by batch: its
- * settings, its folder and whether the model is back. Opens after a By
- * hand batch, and from the 3D queue.
+ * settings, its folder and whether the model is back. One of the lists of
+ * the Sends panel.
  */
 import { Button, cn } from '@maquette/ui';
 import { formatAgo } from '@/lib/format';
 import { backLabel } from '@/state/batch';
-import { Sheet } from '@/features/common/Sheet';
 import { siteLabel } from '../siteLabel';
 import { ChecklistRow } from './ChecklistRow';
 import { useHandoffChecklist } from './HandoffChecklist.hooks';
 
 export default function HandoffChecklist() {
-  const { open, groups, waiting, services, openSite, checkDownloads, close, now } =
-    useHandoffChecklist();
-  if (!open) return null;
+  const { groups, waiting, services, openSite, checkDownloads, now } = useHandoffChecklist();
   const siteButtons = (services.length ? services : (['tripo'] as const)).map(service => (
     <Button
       key={service}
@@ -57,18 +54,7 @@ export default function HandoffChecklist() {
     );
   });
   return (
-    <Sheet
-      id="checklist"
-      icon="hand-pointing"
-      title="By hand checklist"
-      meta={
-        waiting.length
-          ? `${waiting.length} ${waiting.length === 1 ? 'model' : 'models'} to make · no API credits`
-          : 'Every model is back'
-      }
-      onClose={close}
-      width={600}
-    >
+    <>
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-2.5">
         {siteButtons}
         <Button
@@ -94,11 +80,6 @@ export default function HandoffChecklist() {
           sections
         )}
       </div>
-      <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
-        <Button variant="primary" onClick={close}>
-          Done
-        </Button>
-      </div>
-    </Sheet>
+    </>
   );
 }

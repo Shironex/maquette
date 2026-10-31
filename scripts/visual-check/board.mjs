@@ -2,7 +2,8 @@
  * The Board card's shots for scripts/visual-check.mjs (ONLY=board): a card
  * waiting for a By hand model with its export name line, its menu with the
  * By hand section first and the Move to submenu open (by hover and from the
- * keyboard), a right-click on a card, the header's tooltips and a game card
+ * keyboard), a right-click on a card, the header's controls with their menus
+ * (website and game, Board and List, at the window's narrow widths) and a game card
  * whose budget warnings run longer than the card, with the chip's tooltip,
  * and the card menu in a short window: on the leftmost column's first card,
  * and on the bottom card of a column, where it flips up and stays inside.
@@ -10,6 +11,28 @@
  * for one card with the By hand send it stops and for a selection with a
  * card a paid send is making, the notice with its Undo and Recently removed.
  */
+
+/** The header row: its menus, and Board and List at the narrow widths the window allows. */
+async function toolbarShots(page, shot, name) {
+  const size = page.viewportSize();
+  await page.getByRole('button', { name: 'More board actions' }).click();
+  await page.getByRole('menu', { name: 'More board actions' }).waitFor();
+  await shot(page, `board-toolbar-${name}-more`);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'More ways to add' }).click();
+  await page.getByRole('menu', { name: 'Add to the project' }).waitFor();
+  await shot(page, `board-toolbar-${name}-add`);
+  await page.keyboard.press('Escape');
+  const layout = page.getByRole('group', { name: 'Board layout' });
+  for (const width of [1100, 1120, 1440]) {
+    await page.setViewportSize({ width, height: size.height });
+    await shot(page, `board-toolbar-${name}-board-${width}`);
+    await layout.getByRole('button', { name: 'List' }).click();
+    await shot(page, `board-toolbar-${name}-list-${width}`);
+    await layout.getByRole('button', { name: 'Board' }).click();
+  }
+  await page.setViewportSize(size);
+}
 
 async function removeShots(board, shot) {
   await board.getByRole('button', { name: 'More for Guardian statues' }).click();
@@ -25,7 +48,8 @@ async function removeShots(board, shot) {
   await dialog.getByRole('button', { name: 'Remove' }).click();
   await board.getByText('Removed Guardian statues').waitFor();
   await shot(board, 'board-removed-notice');
-  await board.getByRole('button', { name: /^Removed/ }).click();
+  await board.getByRole('button', { name: 'More board actions' }).click();
+  await board.getByRole('menuitem', { name: /^Removed/ }).click();
   await board.getByRole('menu', { name: 'Recently removed' }).waitFor();
   await board.mouse.move(0, 0);
   await shot(board, 'board-recently-removed');
@@ -82,14 +106,17 @@ export async function boardShots({ open, shot }) {
   await shot(board, 'board-card-context-menu');
   await board.keyboard.press('Escape');
 
-  await board.getByRole('button', { name: /^By hand/ }).hover();
+  await board.getByRole('button', { name: /^Sends/ }).hover();
   await board.getByRole('tooltip').waitFor();
-  await shot(board, 'board-tooltip-by-hand');
-  await board.getByRole('button', { name: /^3D queue/ }).hover();
-  await board.getByRole('tooltip').filter({ hasText: '3D queue:' }).waitFor();
-  await shot(board, 'board-tooltip-queue');
+  await shot(board, 'board-tooltip-sends');
+  await board.mouse.move(0, 0);
+  await toolbarShots(board, shot, 'website');
   await removeShots(board, shot);
   await board.context().close();
+
+  const fresh = await open('&scenario=configured&game=import', '#/board');
+  await toolbarShots(fresh, shot, 'game');
+  await fresh.context().close();
 
   const game = await open('&scenario=configured&game=crypt', '#/board');
   const warning = game.getByText('Over 12k triangles, Texture over 1024 px').first();

@@ -48,7 +48,8 @@ export async function gameShots({ open, shot }) {
   await site.context().close();
 
   const fresh = await open(`${GAME}import`, '#/board');
-  await fresh.getByRole('button', { name: 'Import models' }).first().click();
+  await fresh.getByRole('button', { name: 'More ways to add' }).click();
+  await fresh.getByRole('menuitem', { name: 'Import models' }).click();
   const sheet = fresh.getByRole('dialog', { name: /^Import models from / });
   await sheet.getByRole('button', { name: /^Import \d+ models$/ }).waitFor();
   await shot(fresh, 'game-import-list');
@@ -100,9 +101,17 @@ export async function gameShots({ open, shot }) {
   await motion.context().close();
 
   const board = await open(`${GAME}crypt`, '#/board');
-  const render = board.getByRole('button', { name: /^Render \d+ previews?$/ });
-  await render.click();
-  await render.waitFor({ state: 'detached' });
+  const more = board.getByRole('button', { name: 'More board actions' });
+  // This fixture's approval prompt sits over the row, so the keyboard opens the menu.
+  await more.focus();
+  await board.keyboard.press('Enter');
+  await board.getByRole('menuitem', { name: /^Render \d+ previews?$/ }).click();
+  await board.waitForTimeout(1500);
+  await more.focus();
+  await board.keyboard.press('Enter');
+  await board.getByRole('menu', { name: 'More board actions' }).waitFor();
+  await board.getByRole('menuitem', { name: /^Render/ }).waitFor({ state: 'detached' });
+  await board.keyboard.press('Escape');
   await board.waitForLoadState('networkidle');
   await shot(board, 'game-board-previews');
   await board.context().close();

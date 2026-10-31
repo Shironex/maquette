@@ -123,4 +123,4 @@ In the path field above the preview, `Esc` closes the field without changing the
 
 ## Dialogs
 
-`Esc` closes the New project, Import game, Add built asset, Rename, Prepare, Downloads and library dialogs, the provider sheets, the 3D queue and the menus. Their close buttons show `Esc` in the tooltip.
+`Esc` closes the New project, Import game, Add built asset, Rename, Prepare, Downloads and library dialogs, the provider sheets, the Sends panel and the menus. Their close buttons show `Esc` in the tooltip.

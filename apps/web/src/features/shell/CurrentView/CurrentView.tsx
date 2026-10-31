@@ -1,7 +1,6 @@
 import { Suspense } from 'react';
 import { BoardView } from '@/features/board/BoardView';
 import { ViewLoader } from '@/features/common/ViewLoader';
-import { ProviderQueue } from '@/features/providers/ProviderQueue';
 import { PlaceholderView } from '@/features/tools/PlaceholderView';
 import { lazyAfterPaint } from '@/lib/after-paint';
 import { LIBRARY_VIEWS, SETTINGS_VIEW, TOOL_VIEWS, type ViewId } from '@/state/views';
@@ -68,7 +67,7 @@ const PRELOADS = [
 function viewFor(view: ViewId) {
   switch (view) {
     case 'board':
-      return <BoardView queue={onClose => <ProviderQueue onClose={onClose} />} />;
+      return <BoardView />;
     case 'pipeline':
       return <PipelineView />;
     case 'inbox':

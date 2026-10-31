@@ -281,8 +281,10 @@ async function handoffShots() {
   await discard.getByRole('button', { name: 'Discard' }).click();
   await batch.waitFor({ state: 'detached' });
 
-  // The Board's By hand button carries its count; the panel's provider choice is gone.
-  await board.getByRole('button', { name: /^By hand \d+$/ }).click();
+  // Paid sends are under way too, so Sends opens on the queue with By hand as a tab.
+  await board.getByRole('button', { name: /^Sends\s*\d+/ }).click();
+  await shot(board, 'sends-panel-queue');
+  await board.getByRole('tab', { name: /^By hand/ }).click();
   await board.getByRole('dialog', { name: 'By hand checklist' }).waitFor();
   await shot(board, 'handoff-checklist');
   await board.getByRole('button', { name: 'Settings card' }).first().click();
@@ -631,7 +633,8 @@ async function coreShots() {
   const board = await open('&scenario=configured', '#/board');
   await board.getByRole('button', { name: /^Elsheria, v2/ }).waitFor();
   await shot(board, 'board');
-  await board.getByRole('button', { name: /3D queue/ }).click();
+  await board.getByRole('button', { name: 'More board actions' }).click();
+  await board.getByRole('menuitem', { name: /^All sends/ }).click();
   await board.getByRole('region', { name: '3D queue' }).waitFor();
   await shot(board, 'provider-queue');
   await board.keyboard.press('Escape');
@@ -806,7 +809,8 @@ async function redoShots() {
   await shot(gone, 'inbox-discarded');
 
   const board = await open(fixture, '#/board');
-  await board.getByRole('button', { name: /3D queue/ }).click();
+  await board.getByRole('button', { name: 'More board actions' }).click();
+  await board.getByRole('menuitem', { name: /^All sends/ }).click();
   await board
     .getByRole('region', { name: '3D queue' })
     .getByRole('button', { name: 'Credits' })
@@ -876,7 +880,8 @@ async function builtShots() {
   await board.getByRole('menu', { name: 'Laptop actions' }).waitFor();
   await shot(board, 'built-menu');
   await board.keyboard.press('Escape');
-  await board.getByRole('button', { name: 'Built asset' }).click();
+  await board.getByRole('button', { name: 'More ways to add' }).click();
+  await board.getByRole('menuitem', { name: 'Built asset' }).click();
   const dialog = board.getByRole('dialog', { name: 'Add built asset' });
   await dialog.waitFor();
   await shot(board, 'built-add-empty');
@@ -953,7 +958,8 @@ async function prepShots() {
 async function byHandShots() {
   const fixture = '&scenario=configured&handoff=batch';
   const board = await open(fixture, '#/board');
-  await board.getByRole('button', { name: /^By hand \d+$/ }).click();
+  await board.getByRole('button', { name: /^Sends\s*\d+/ }).click();
+  await board.getByRole('tab', { name: /^By hand/ }).click();
   const checklist = board.getByRole('dialog', { name: 'By hand checklist' });
   await checklist.getByRole('button', { name: 'Settings card' }).first().click();
   await checklist.getByText('credits', { exact: false }).first().waitFor();
@@ -1030,7 +1036,8 @@ async function byHandShots() {
   await shot(settings.locator('#settings-providers'), 'byhand-settings-watch-off');
 
   const credits = await open(fixture, '#/board');
-  await credits.getByRole('button', { name: /3D queue/ }).click();
+  await credits.getByRole('button', { name: 'More board actions' }).click();
+  await credits.getByRole('menuitem', { name: /^All sends/ }).click();
   await credits
     .getByRole('region', { name: '3D queue' })
     .getByRole('button', { name: 'Credits' })

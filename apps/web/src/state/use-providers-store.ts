@@ -163,7 +163,8 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
       },
     }),
 
-  setQueueOpen: queueOpen => set({ queueOpen }),
+  setQueueOpen: queueOpen =>
+    set(s => ({ queueOpen, checklistOpen: queueOpen ? false : s.checklistOpen })),
 
   cancel: async id => {
     set(s => ({ busy: [...s.busy, id] }));
@@ -268,7 +269,8 @@ export const useProvidersStore = create<ProvidersStore>((set, get, api) => ({
     }
   },
 
-  setChecklistOpen: checklistOpen => set({ checklistOpen }),
+  setChecklistOpen: checklistOpen =>
+    set(s => ({ checklistOpen, queueOpen: checklistOpen ? false : s.queueOpen })),
 
   checkDownloads: async () => {
     const project = get().project;
