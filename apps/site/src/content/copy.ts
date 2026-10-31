@@ -315,18 +315,18 @@ export function formatMegabytes(bytes: number): string {
 
 export const release = {
   version: VERSION,
-  date: '29 Oct 2026',
+  date: '1 Nov 2026',
   notesUrl: `${REPO_URL}/releases/tag/v${VERSION}`,
   allUrl: `${REPO_URL}/releases`,
   mac: {
     file: `Maquette_${VERSION}_aarch64.dmg`,
-    bytes: 16_422_239,
+    bytes: 20_166_876,
     note: 'Apple silicon',
     url: `${DOWNLOAD_BASE}/Maquette_${VERSION}_aarch64.dmg`,
   },
   windows: {
     file: `Maquette_${VERSION}_x64-setup.exe`,
-    bytes: 12_564_355,
+    bytes: 15_743_646,
     note: 'x64',
     url: `${DOWNLOAD_BASE}/Maquette_${VERSION}_x64-setup.exe`,
   },
