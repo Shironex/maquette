@@ -48,34 +48,39 @@ export function StageStepper({ stages, onSelect, className }: StageStepperProps)
   const stageItems = list.map((st, i) => {
     const state = st.state ?? 'todo';
     const pill = cn(
-      'flex h-7 items-center gap-1.5 rounded-pill px-2.5 font-medium whitespace-nowrap text-fg-mute',
+      'flex h-7 items-center gap-1.5 rounded-pill px-2.5 font-medium whitespace-nowrap text-fg-mute @max-[550px]:px-1.5',
       state === 'done' && 'text-fg-dim',
       state === 'running' && 'text-amber',
       state === 'failed' && 'text-danger',
       state === 'current' && 'bg-clay-soft text-fg shadow-[inset_0_0_0_1px_var(--clay-line)]',
       onSelect && 'cursor-pointer hover:text-fg'
     );
+    const title = st.label;
     const body = (
       <>
         <Mark state={state} />
-        {st.label}
+        <span className={cn(state === 'done' || state === 'todo' ? '@max-[550px]:sr-only' : null)}>
+          {st.label}
+        </span>
         <span className="sr-only">{`, ${WORD[state]}`}</span>
       </>
     );
     return (
       <Fragment key={st.id}>
         {i > 0 ? (
-          <li aria-hidden="true" className="flex text-line-strong">
+          <li aria-hidden="true" className="flex text-line-strong @max-[550px]:hidden">
             <Icon name="caret-right" size={12} />
           </li>
         ) : null}
         <li aria-current={state === 'current' ? 'step' : undefined} className="flex">
           {onSelect ? (
-            <button type="button" className={pill} onClick={() => onSelect(st.id)}>
+            <button type="button" title={title} className={pill} onClick={() => onSelect(st.id)}>
               {body}
             </button>
           ) : (
-            <span className={pill}>{body}</span>
+            <span title={title} className={pill}>
+              {body}
+            </span>
           )}
         </li>
       </Fragment>
