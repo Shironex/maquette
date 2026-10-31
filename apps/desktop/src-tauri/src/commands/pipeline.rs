@@ -368,9 +368,11 @@ pub(crate) fn save_presets(
     project_id: &str,
     incoming: Vec<CompressPreset>,
 ) -> CommandResult<PipelineView> {
-    let mut ctx = context(session, project_id)?;
-    ctx.def.presets = presets::apply(&ctx.def.presets, incoming)?;
-    pipeline::save(&ctx.project_dir, &ctx.def)?;
+    let ctx = context(session, project_id)?;
+    pipeline::update(&ctx.project_dir, &ctx.manifest, |def| {
+        def.presets = presets::apply(&def.presets, incoming)?;
+        Ok(())
+    })?;
     view(session, runner, project_id)
 }
 

@@ -14,9 +14,11 @@ pub(crate) fn save_bake(
     project_id: &str,
     patch: &BakePatch,
 ) -> CommandResult<PipelineView> {
-    let mut ctx = context(session, project_id)?;
-    pipeline::bake::apply(&ctx.project_dir, ctx.manifest.template, &mut ctx.def, patch)?;
-    pipeline::save(&ctx.project_dir, &ctx.def)?;
+    let ctx = context(session, project_id)?;
+    pipeline::update(&ctx.project_dir, &ctx.manifest, |def| {
+        pipeline::bake::apply(&ctx.project_dir, ctx.manifest.template, def, patch)?;
+        Ok(())
+    })?;
     view(session, runner, project_id)
 }
 

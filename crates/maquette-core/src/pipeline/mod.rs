@@ -16,6 +16,7 @@ pub mod template;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
@@ -138,6 +139,36 @@ pub fn load(project_dir: &Path) -> CoreResult<Option<PipelineDef>> {
 /// Validates the graph and writes pretty JSON atomically. A pipeline with
 /// errors is refused so the file on disk always runs.
 pub fn save(project_dir: &Path, def: &PipelineDef) -> CoreResult<()> {
+    let _one = write_turn();
+    save_file(project_dir, def)
+}
+
+/// One read, fit or change, and write of `pipeline.json` at a time.
+static WRITES: Mutex<()> = Mutex::new(());
+
+fn write_turn() -> MutexGuard<'static, ()> {
+    WRITES.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// Applies `change` to the pipeline on disk and saves it, so overlapping
+/// changes all land. Returns what was saved. `change` must not save.
+///
+/// # Errors
+///
+/// As [`ensure`], or when `change` refuses or the save fails.
+pub fn update(
+    project_dir: &Path,
+    manifest: &crate::project::ProjectManifest,
+    change: impl FnOnce(&mut PipelineDef) -> CoreResult<()>,
+) -> CoreResult<PipelineDef> {
+    let _one = write_turn();
+    let mut def = ensure_file(project_dir, manifest)?;
+    change(&mut def)?;
+    save_file(project_dir, &def)?;
+    Ok(def)
+}
+
+fn save_file(project_dir: &Path, def: &PipelineDef) -> CoreResult<()> {
     if let Some(issue) = validate(def).into_iter().find(PipelineIssue::is_error) {
         return Err(CoreError::Invalid(issue.message));
     }
@@ -156,10 +187,18 @@ pub fn ensure(
     project_dir: &Path,
     manifest: &crate::project::ProjectManifest,
 ) -> CoreResult<PipelineDef> {
+    let _one = write_turn();
+    ensure_file(project_dir, manifest)
+}
+
+fn ensure_file(
+    project_dir: &Path,
+    manifest: &crate::project::ProjectManifest,
+) -> CoreResult<PipelineDef> {
     if let Some(mut def) = load(project_dir)? {
         if let Ok(settings) = crate::game::settings_of(manifest) {
             if template::fit_game(&mut def, settings)
-                && let Err(err) = save(project_dir, &def)
+                && let Err(err) = save_file(project_dir, &def)
             {
                 tracing::warn!(error = %err, "the fitted game pipeline was not saved");
             }
@@ -170,7 +209,7 @@ pub fn ensure(
         let ship = template::fit_ship_args(&mut def, project_dir);
         let origin = template::fit_export_origin(&mut def, project_dir);
         if presets || layout || ship || origin {
-            match save(project_dir, &def) {
+            match save_file(project_dir, &def) {
                 Ok(()) => {
                     tracing::info!(
                         presets,
@@ -189,7 +228,7 @@ pub fn ensure(
     template::fit_presets(&mut def, manifest);
     // A proposal with problems is still shown, so it can be fixed; it is
     // only written once it validates.
-    match save(project_dir, &def) {
+    match save_file(project_dir, &def) {
         Ok(()) => match starter::write(project_dir, manifest.template) {
             Ok(written) if !written.is_empty() => {
                 tracing::info!(scripts = ?written, "wrote the starter scripts");
