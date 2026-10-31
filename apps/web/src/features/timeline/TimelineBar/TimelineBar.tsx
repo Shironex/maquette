@@ -51,7 +51,7 @@ export default function TimelineBar() {
         <Button
           size="sm"
           icon="plus"
-          tooltip="Add a track for a prop's explode, a path's fill or a prop's states"
+          tooltip="Add a track for a prop's explode, a path's fill, the render style or the hero text"
           aria-expanded={bar.menu}
           onClick={() => bar.setMenu(!bar.menu)}
         >

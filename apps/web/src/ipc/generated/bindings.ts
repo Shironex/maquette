@@ -7002,6 +7002,15 @@ export type StyleImage = {
 	source: string | null,
 };
 
+/**  How far the scene is in a look at each camera stop. */
+export type StyleTrack = {
+	look: TrackLook,
+	/**  How the amount eases from one key to the next. */
+	easing: Easing,
+	/**  0 as built, 1 the whole look. At most one per stop, in any order. */
+	keys: PathKey[],
+};
+
 /**  A size from the table and the word of the name it matched. */
 export type Suggestion = {
 	size: RealSize,
@@ -7094,6 +7103,10 @@ export type Timeline = {
 	explode: { [key in string]: ExplodeTrack },
 	/**  Path id to how much of it is lit along the scroll. */
 	paths: { [key in string]: PathTrack },
+	/**  The scene's look along the scroll. */
+	style: StyleTrack | null,
+	/**  How much of the page's hero copy shows along the scroll: 0 hidden, 1 shown. */
+	text: PathTrack | null,
 };
 
 /**  A model the timeline can move. */
@@ -7147,6 +7160,13 @@ export type ToolStatus = "found" | "missing" |
 
 /**  The mesh a provider makes: triangles or quads. */
 export type Topology = "triangle" | "quad";
+
+/**
+ *  A look the page can fade the scene into as it scrolls. The page draws it
+ *  live, so the pictures only Blender renders (a turntable, a contact sheet)
+ *  are not among them.
+ */
+export type TrackLook = "blueprint" | "toon" | "clay";
 
 /**  One removed asset in the trash, newest first in [`list_trash`]. */
 export type TrashEntry = {

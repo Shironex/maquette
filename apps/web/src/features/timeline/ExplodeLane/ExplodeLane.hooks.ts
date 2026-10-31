@@ -31,7 +31,8 @@ export function useExplodeLane(asset: string) {
         ? []
         : [{ id: stop.id, name: stop.name, at: stopPercent(i, view.stops.length) }]
     ),
-    active: selection !== null && selection.kind !== 'path' && selection.asset === asset,
+    active:
+      (selection?.kind === 'state' || selection?.kind === 'explode') && selection.asset === asset,
     select: (stop: string) => select({ kind: 'explode', asset, stop }),
     add: (stop: string) =>
       edit(d => setExplodeKey(d, asset, stop, 1), { kind: 'explode', asset, stop }),

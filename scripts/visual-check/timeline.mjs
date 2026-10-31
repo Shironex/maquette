@@ -3,7 +3,8 @@
  * the switch cabinet's lanes with a scroll range selected and the page
  * preview scrolled to the playhead, an explode key selected, the lantern
  * cable's energize lane with a key selected, Add track offering a path's
- * energize track, and a project without camera stops. Mock mode's
+ * energize track, the render style and hero text lanes with a check's fix
+ * buttons, and a project without camera stops. Mock mode's
  * `?timeline=demo` cabinet and paths and its dev page serve them.
  */
 
@@ -29,6 +30,17 @@ async function scrubTo(page, percent) {
 }
 
 export async function timelineShots({ open, shot }) {
+  const looks = await timeline(open, 'looks');
+  await looks.getByRole('button', { name: 'Render style blueprint at Keystone' }).click();
+  await looks.getByRole('heading', { name: 'Render style at Keystone' }).waitFor();
+  await looks.getByText('Switch cabinet finishes off screen').waitFor();
+  await shot(looks, 'timeline-looks');
+  await looks.getByRole('button', { name: 'End at 50%' }).click();
+  await looks.getByText('Switch cabinet finishes off screen').waitFor({ state: 'detached' });
+  await looks.waitForTimeout(800);
+  await shot(looks, 'timeline-fixed');
+  await looks.context().close();
+
   const main = await timeline(open, 'demo');
   await main.getByRole('button', { name: /^Switch cabinet: Breakers on from / }).click();
   await scrubTo(main, 62);

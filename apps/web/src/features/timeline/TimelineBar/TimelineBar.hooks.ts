@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { MenuItem } from '@/features/common/Menu';
 import { addExplode, addPathTrack, type TimelineUnits } from '@/state/timeline';
 import { placeLine, unitLabel } from '@/state/timeline-checks';
+import { PAGE_LANES, addPageTrack } from '@/state/timeline-page';
 import { useAppStore } from '@/state/use-app-store';
 import { useInspectorStore } from '@/state/use-inspector-store';
 import { useTimelineStore } from '@/state/use-timeline-store';
@@ -9,12 +10,13 @@ import { usePlayhead } from '../TimelineTracks/TimelineTracks.hooks';
 
 /**
  * What Add track offers: an explode track per model, an energize track per
- * path, the Motion view for states and the Paths editor for a new path.
+ * path, the scene's render style, the hero text, the Motion view for states
+ * and the Paths editor for a new path.
  */
 export function useTrackMenu(): MenuItem[] {
   const view = useTimelineStore(s => s.view);
-  const explode = useTimelineStore(s => s.draft.timeline.explode);
-  const energized = useTimelineStore(s => s.draft.timeline.paths);
+  const draft = useTimelineStore(s => s.draft);
+  const { explode, paths: energized } = draft.timeline;
   const edit = useTimelineStore(s => s.edit);
   const setView = useAppStore(s => s.setView);
   if (!view) return [];
@@ -53,6 +55,15 @@ export function useTrackMenu(): MenuItem[] {
       onSelect: () =>
         edit(d => addPathTrack(d, p.id, view.stops), { kind: 'path', path: p.id, stop: first }),
     }));
+  const page = PAGE_LANES.filter(lane => !draft.timeline[lane.id]).map(lane => ({
+    id: lane.id,
+    label: lane.name,
+    icon: lane.icon,
+    disabled: view.stops.length === 0,
+    hint: view.stops.length === 0 ? 'Add a camera stop first: it is keyed at stops' : lane.hint,
+    onSelect: () =>
+      edit(d => addPageTrack(d, lane.id, view.stops), { kind: 'page', lane: lane.id, stop: first }),
+  }));
   return [
     ...tracks,
     {
@@ -63,6 +74,7 @@ export function useTrackMenu(): MenuItem[] {
       onSelect: () => setView('motion'),
     },
     ...paths,
+    ...page,
     {
       id: 'new-path',
       label: 'New path...',

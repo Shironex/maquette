@@ -1,5 +1,6 @@
 import { Kbd } from '@maquette/ui';
 import { ExplodeLane } from '../ExplodeLane';
+import { PageLane } from '../PageLane';
 import { PathLane } from '../PathLane';
 import { StateLane } from '../StateLane';
 import { TimelineBar } from '../TimelineBar';
@@ -14,7 +15,8 @@ const HINTS: readonly [readonly string[], string][] = [
 
 /**
  * The page from top to bottom with a lane per track: the camera, each
- * prop's states, each explode track and each path's energize track. The
+ * prop's states, each explode track, each path's energize track, the
+ * scene's render style and the hero text. The
  * playhead is where the page preview is scrolled to.
  */
 export default function TimelineTracks() {
@@ -42,6 +44,8 @@ export default function TimelineTracks() {
         {stateLanes}
         {explodeLanes}
         {pathLanes}
+        <PageLane lane="style" />
+        <PageLane lane="text" />
         <div
           aria-hidden="true"
           className="pointer-events-none absolute top-0 bottom-0 -ml-px w-0.5 bg-clay-text"

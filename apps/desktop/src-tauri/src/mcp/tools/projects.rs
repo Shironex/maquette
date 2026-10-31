@@ -11,7 +11,9 @@ use crate::commands::{assets, layout};
 
 use super::motion::{ClipEdit, StatesEdit, clips_patch, states_patch};
 use super::paths::{EnergizeEdit, PathEdit, energize_patch, paths_patch};
-use super::timeline::{ExplodeEdit, explode_patch};
+use super::timeline::{
+    ExplodeEdit, StyleTrackEdit, TextTrackEdit, explode_patch, style_patch, text_patch,
+};
 use super::{
     McpTools, Out, ProjectArgs, explicit, reason, respond, to_short_value, to_value, workspace,
 };
@@ -97,6 +99,12 @@ pub struct SetLayoutArgs {
     /// whole (remove drops it). Keys name camera stops that are in the layout.
     #[serde(default)]
     pub energize: Vec<EnergizeEdit>,
+    /// The scroll timeline's render style track, replaced whole. null removes it.
+    #[serde(default, deserialize_with = "explicit")]
+    pub style: Option<Option<StyleTrackEdit>>,
+    /// The scroll timeline's hero text track, replaced whole. null removes it.
+    #[serde(default, deserialize_with = "explicit")]
+    pub text: Option<Option<TextTrackEdit>>,
 }
 
 impl SetLayoutArgs {
@@ -138,6 +146,8 @@ impl SetLayoutArgs {
             explode: explode_patch(&self.explode),
             paths: paths_patch(&self.paths),
             path_tracks: energize_patch(&self.energize),
+            style_track: self.style.as_ref().map(|t| t.as_ref().map(style_patch)),
+            text_track: self.text.as_ref().map(|t| t.as_ref().map(text_patch)),
         }
     }
 }

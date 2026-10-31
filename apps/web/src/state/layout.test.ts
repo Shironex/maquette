@@ -75,7 +75,7 @@ describe('the layout helpers', () => {
       desk: { size: [1.2, 0.6] },
       states: {},
       clips: {},
-      timeline: { explode: {}, paths: {} },
+      timeline: { explode: {}, paths: {}, style: null, text: null },
       paths: [],
     };
     const plain = fromLayout(saved);

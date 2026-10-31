@@ -64,6 +64,12 @@ pub struct LayoutPatch {
     /// Path id to its whole energize track; `None` removes it.
     #[serde(default)]
     pub path_tracks: BTreeMap<String, Option<PathTrack>>,
+    /// The whole render style track; an explicit null removes it.
+    #[serde(default, deserialize_with = "explicit")]
+    pub style_track: Option<Option<StyleTrack>>,
+    /// The whole hero text track; an explicit null removes it.
+    #[serde(default, deserialize_with = "explicit")]
+    pub text_track: Option<Option<PathTrack>>,
 }
 
 /// Applies `patch` to `layout`. `known` are the asset ids a placement, a
@@ -229,6 +235,12 @@ pub fn apply(
                 next.timeline.explode.insert(id.clone(), track.clone());
             }
         }
+    }
+    if let Some(track) = &patch.style_track {
+        next.timeline.style.clone_from(track);
+    }
+    if let Some(track) = &patch.text_track {
+        next.timeline.text.clone_from(track);
     }
     paths::follow(&layout.models, &mut next);
     paths::apply_patch(&mut next, &patch.paths, &patch.path_tracks, known)?;

@@ -57,7 +57,7 @@ const view = (): TimelineView => ({
   models: [{ asset: 'cabinet', name: 'Switch cabinet', thumbnail: null, parts: ['Body', 'Door'] }],
   states: { cabinet: cabinet() },
   paths: [],
-  timeline: { explode: {}, paths: {} },
+  timeline: { explode: {}, paths: {}, style: null, text: null },
 });
 
 describe('the timeline rules', () => {

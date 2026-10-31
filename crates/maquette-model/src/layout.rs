@@ -62,7 +62,7 @@ pub use states::{
     TriggerKind,
 };
 
-pub use timeline::{ExplodeKey, ExplodeTrack, Timeline};
+pub use timeline::{ExplodeKey, ExplodeTrack, StyleTrack, Timeline, TrackLook};
 
 pub use paths::{PathCurve, PathKey, PathPatch, PathTrack, ScenePath};
 
