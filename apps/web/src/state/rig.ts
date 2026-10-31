@@ -54,7 +54,13 @@ export function stepLines(r: RigRecord): StepLine[] {
     ],
     fix: [
       'Fix',
-      r.model.oneIsland ? 'Narrow reweight, one island' : 'Per island weights, smooth seams',
+      r.route === 'creature'
+        ? r.model.oneIsland
+          ? 'Stray weight only, one shell'
+          : 'Per piece weights, stray weight off'
+        : r.model.oneIsland
+          ? 'Narrow reweight, one island'
+          : 'Per island weights, smooth seams',
     ],
     verify: [
       'Verify',
@@ -90,6 +96,9 @@ export function caseLine(r: RigRecord): string {
   if (isRunning(r)) return `${r.name}: running`;
   return `${r.name}: open`;
 }
+
+/** A humanoid on one island has no wider seam to try; a creature's second round is its own. */
+export const noSecondRound = (r: RigRecord) => r.model.oneIsland && r.route !== 'creature';
 
 /** A leg has a side a person can correct. */
 export const isLeg = (c: RigChain) => c.chain.startsWith('leg_') && Boolean(c.key);
