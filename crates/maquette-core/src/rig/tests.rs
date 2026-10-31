@@ -225,6 +225,7 @@ fn hound(c: &mut RigRecord) {
         legs: 4,
         swapped: 0,
         junk: Vec::new(),
+        ignored: Vec::new(),
         rigid_pieces: 0,
         one_shell: false,
         chains: vec![

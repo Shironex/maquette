@@ -281,6 +281,9 @@ pub struct RigCreature {
     pub legs: u32,
     pub swapped: u32,
     pub junk: Vec<String>,
+    /// Bones with no or trivial weight: in no chain, and left in the file.
+    #[serde(default)]
+    pub ignored: Vec<String>,
     pub rigid_pieces: u32,
     pub one_shell: bool,
     pub chains: Vec<RigChain>,

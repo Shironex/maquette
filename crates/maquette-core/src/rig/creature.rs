@@ -152,6 +152,7 @@ pub(super) fn test(run: &Run) -> CoreResult<()> {
         legs: u32::try_from(num(&table, "legs")).unwrap_or(0),
         swapped: u32::try_from(num(&table, "swapped")).unwrap_or(0),
         junk: defects::names(&table["junk"]),
+        ignored: defects::names(&table["ignored"]),
         rigid_pieces: u32::try_from(num(&table, "rigid_pieces")).unwrap_or(0),
         one_shell: table["one_shell"] == true,
         chains: chains_of(&table),

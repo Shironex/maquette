@@ -5921,6 +5921,8 @@ export type RigCreature = {
 	legs: number,
 	swapped: number,
 	junk: string[],
+	/**  Bones with no or trivial weight: in no chain, and left in the file. */
+	ignored?: string[],
 	rigidPieces: number,
 	oneShell: boolean,
 	chains: RigChain[],
