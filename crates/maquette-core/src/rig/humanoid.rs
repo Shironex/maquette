@@ -213,6 +213,13 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
         "fixweights.py",
         format!("{} vertices changed", count(num(&report, "changed"))),
     );
+    if num(&report, "changed") == 0 && defects::misplaced(&report).is_none() {
+        let v = case.source.version.unwrap_or(1);
+        run.nothing_changed(format!(
+            "No vertex's weights moved. No draft was made and v{v} stays."
+        ));
+        return Ok(());
+    }
     let verify_file = run.dir.join("verify.json");
     run.update(|c| c.step = RigStep::Verify);
     run.stage("Verify", || {
@@ -294,8 +301,18 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
         for d in c.defects.iter_mut() {
             match d.kind {
                 DefectKind::WeightsOnly => {
-                    d.fixed = true;
-                    d.outcome = Some("fixed".to_string());
+                    let key = if d.title.contains("arm bones") {
+                        "arm_far"
+                    } else {
+                        "hand_joint"
+                    };
+                    let left = far(&after, key);
+                    d.fixed = left == 0;
+                    d.outcome = Some(if left == 0 {
+                        "fixed".to_string()
+                    } else {
+                        format!("{} v still there", count(left))
+                    });
                 }
                 DefectKind::NeedsYes => {
                     d.outcome = Some("Weights mirrored, joints wait for a yes".to_string());
@@ -335,7 +352,7 @@ fn moved_offer(
         "rigmove.py",
         &[arg(draft), arg(&report_file), arg(&moved)],
     )?;
-    render(
+    let seconds = render(
         run,
         "Joints moved",
         &Render {
@@ -358,7 +375,7 @@ fn moved_offer(
         sheet: Some(RigSheet {
             file: arg(&run.dir.join("moved.png")),
             rows: defects::rows(&data, "moved", None),
-            seconds: 0.0,
+            seconds,
         }),
     }))
 }

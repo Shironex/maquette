@@ -214,6 +214,7 @@ function Actions({ record }: { record: RigRecord }) {
 function footerNote(record: RigRecord): string {
   const v = nextVersion(record) - 1;
   if (record.error) return record.error;
+  if (record.stop?.kind === 'no-change') return `${record.stop.title}. ${record.stop.detail}`;
   if (record.landed !== null) return `Added as v${record.landed}. v${v} stays.`;
   if (record.state === 'discarded') return `The draft is gone. v${v} is as it was.`;
   if (record.state === 'cancelled') return `The run was cancelled. v${v} stays as it came.`;

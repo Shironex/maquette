@@ -6185,7 +6185,9 @@ export type RigStopKind =
 /**  It still tears after the last round. */
 "rounds" | 
 /**  A check got worse after the fix. */
-"worse";
+"worse" | 
+/**  The fix moved no weight: there is no draft, and the defects stay open. */
+"no-change";
 
 /**
  *  Which model a case is for: an Inbox item, or a version of an asset (its

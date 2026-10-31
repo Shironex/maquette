@@ -10,8 +10,8 @@ use std::time::{Duration, Instant};
 
 use super::service::Inner;
 use super::{
-    MAX_ROUNDS, RigLogLine, RigProgress, RigRecord, RigRoute, RigRun, RigStage, RigState, creature,
-    humanoid, record, scripts,
+    DefectKind, MAX_ROUNDS, RigLogLine, RigProgress, RigRecord, RigRoute, RigRun, RigStage,
+    RigState, RigStep, RigStop, RigStopKind, creature, humanoid, record, scripts,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::now_ms;
@@ -59,6 +59,32 @@ impl Run {
             (_, false) => humanoid::fix(self),
             (_, true) => creature::fix(self),
         }
+    }
+
+    /// The fix moved no weight: no draft and nothing to add. The defects stay
+    /// open, and the case stands where its pose test left it, so a person can
+    /// correct the chains and run it again.
+    pub(super) fn nothing_changed(&self, detail: String) {
+        let _ = std::fs::remove_file(self.dir.join("draft.glb"));
+        self.update(|c| {
+            c.after = None;
+            c.draft = None;
+            c.checks.clear();
+            c.fix_steps.clear();
+            c.round = c.round.saturating_sub(1);
+            for d in c.defects.iter_mut().filter(|d| d.kind != DefectKind::Note) {
+                d.fixed = false;
+                d.outcome = Some("still open, the fix changed nothing".to_string());
+            }
+            c.state = RigState::Tested;
+            c.step = RigStep::Before;
+            c.stop = Some(RigStop {
+                kind: RigStopKind::NoChange,
+                title: "The fix changed nothing".to_string(),
+                detail,
+                row: None,
+            });
+        });
     }
 
     pub(super) fn finish(&self, outcome: CoreResult<()>) {
@@ -238,7 +264,7 @@ pub(super) fn check_can_run(case: &RigRecord, what: RigRun) -> CoreResult<()> {
         RigRun::Round2 if case.round >= MAX_ROUNDS => {
             refuse("The doctor stops after two rounds instead of guessing a third time.")
         }
-        RigRun::Round2 if case.model.one_island => {
+        RigRun::Round2 if case.model.one_island && case.route != Some(RigRoute::Creature) => {
             refuse("A one island mesh has no second round. Finish it in Blender.")
         }
         RigRun::Round2 if case.draft.is_some() => Ok(()),

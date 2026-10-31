@@ -86,7 +86,7 @@ pub(super) fn stop_of(
 }
 
 /// The creature fix's steps.
-pub(super) fn creature(report: &Value, junk: usize) -> Vec<RigFixStep> {
+pub(super) fn creature(report: &Value) -> Vec<RigFixStep> {
     let stats = &report["stats"];
     let strays: u64 = report["strays"]
         .as_array()
@@ -111,7 +111,7 @@ pub(super) fn creature(report: &Value, junk: usize) -> Vec<RigFixStep> {
             title: "Empty the junk chains".to_string(),
             detail: "The bones stay, at zero weight, so names and hierarchy do not change."
                 .to_string(),
-            value: junk.to_string(),
+            value: num(report, "junk_emptied").to_string(),
         },
     ]
 }

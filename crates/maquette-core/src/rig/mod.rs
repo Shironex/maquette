@@ -372,6 +372,8 @@ pub enum RigStopKind {
     Rounds,
     /// A check got worse after the fix.
     Worse,
+    /// The fix moved no weight: there is no draft, and the defects stay open.
+    NoChange,
 }
 
 /// Why the doctor stopped, with the row that shows it.
