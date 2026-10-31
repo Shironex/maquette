@@ -19,7 +19,7 @@ pub enum PackDecision {
 }
 
 impl PackDecision {
-    fn key(&self) -> &str {
+    pub(super) fn key(&self) -> &str {
         match self {
             Self::Raise { key, .. } | Self::Keep { key } | Self::Again { key } => key,
         }

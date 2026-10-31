@@ -939,7 +939,7 @@ Lists the newest export packs (a pack Maquette closed on reads as `stopped`) and
 
 `writes files`
 
-Answers what a pack asks for. `raise` (with `key` and `triangles`) exports a model again at a higher budget, `keep` (with `key`) lets a warned model into the pack, `again` (with `key`) exports a model again as it is. `zip-passing` zips the models that pass and leaves the rest out, `zip-all` zips every model with files. `stop` stops after the model running now and `resume` goes on with a stopped pack from the model it reached. It answers the pack as `get_pack` does.
+Answers what a pack asks for. `raise` (with `key` and `triangles`) exports a model again at a higher budget, `keep` (with `key`) lets a warned model into the pack, `again` (with `key`) exports a model again as it is. `zip-passing` zips the models that pass and leaves the rest out, `zip-all` zips every model with files. `stop` stops after the model running now and `resume` goes on with a stopped pack from the model it reached. On a stopped pack `keep` only records the answer, and `raise` or `again` runs just that one model, then the pack is stopped again until `resume`. On a running or waiting pack an answer works as before. It answers the pack as `get_pack` does.
 
 | Parameter   | Type   | Required | Notes                                                                   |
 | ----------- | ------ | -------- | ----------------------------------------------------------------------- |

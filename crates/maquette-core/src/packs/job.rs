@@ -11,10 +11,10 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use super::decide::{PackDecision, apply, settle_closed, stopped_at};
 use super::finish::{ZipChoice, finish};
-use super::model_run::{ModelRun, run_one};
 use super::plan::PackPlan;
 use super::record::{self, MARKER, PackItem, PackItemState, PackRecord, PackState, RECORD_VERSION};
-use super::{EXPORTS_DIR, PackRequest, RECORDS_DIR, presets};
+use super::run::{run_pack, settle};
+use super::{PackRequest, presets};
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::CompressDefaults;
 use crate::pipeline::runner::PipelineRunner;
@@ -28,27 +28,30 @@ pub(super) const LANE: &str = "packs";
 /// What the app hears: a pack's record after every change.
 pub type PackEvent = PackRecord;
 
-struct Active {
-    record: PackRecord,
-    stop: bool,
-    zip: Option<ZipChoice>,
+pub(super) struct Active {
+    pub(super) record: PackRecord,
+    pub(super) stop: bool,
+    /// Runs only this model (a decision on a stopped pack), then stops
+    /// again with the rest still queued.
+    pub(super) only: Option<String>,
+    pub(super) zip: Option<ZipChoice>,
     /// The last model ran and the pack is being finished: nothing else
     /// may change it now.
-    closing: bool,
+    pub(super) closing: bool,
 }
 
-struct Inner {
-    runner: PipelineRunner,
-    on_change: Box<dyn Fn(&PackRecord) + Send + Sync>,
-    active: Mutex<HashMap<String, Active>>,
+pub(super) struct Inner {
+    pub(super) runner: PipelineRunner,
+    pub(super) on_change: Box<dyn Fn(&PackRecord) + Send + Sync>,
+    pub(super) active: Mutex<HashMap<String, Active>>,
 }
 
 impl Inner {
-    fn active(&self) -> MutexGuard<'_, HashMap<String, Active>> {
+    pub(super) fn active(&self) -> MutexGuard<'_, HashMap<String, Active>> {
         self.active.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn tell(&self, root: &Path, record: &PackRecord) {
+    pub(super) fn tell(&self, root: &Path, record: &PackRecord) {
         if let Err(err) = record::save(root, record) {
             tracing::warn!(error = %err, pack = %record.id, "could not save a pack record");
         }
@@ -58,10 +61,10 @@ impl Inner {
 
 /// Everything a pack's thread needs besides the record.
 #[derive(Clone)]
-struct Drive {
-    root: PathBuf,
-    tools: Toolbox,
-    defaults: CompressDefaults,
+pub(super) struct Drive {
+    pub(super) root: PathBuf,
+    pub(super) tools: Toolbox,
+    pub(super) defaults: CompressDefaults,
 }
 
 /// The pack service. Cheap to clone.
@@ -156,12 +159,13 @@ impl Packs {
             tools,
             defaults,
         };
-        self.launch(&drive, record.clone());
+        self.launch(&drive, record.clone(), None);
         Ok(record)
     }
 
-    /// Puts `record` in the running set and starts its thread.
-    fn launch(&self, drive: &Drive, mut record: PackRecord) {
+    /// Puts `record` in the running set and starts its thread. With `only`
+    /// set, just that model runs and the pack then stops.
+    fn launch(&self, drive: &Drive, mut record: PackRecord, only: Option<String>) {
         record.state = PackState::Running;
         record.message = None;
         self.inner.tell(&drive.root, &record);
@@ -170,6 +174,7 @@ impl Packs {
             Active {
                 record: record.clone(),
                 stop: false,
+                only,
                 zip: None,
                 closing: false,
             },
@@ -233,6 +238,7 @@ impl Packs {
                 "This pack is done. Start a new one to change it.".to_string(),
             ));
         }
+        let stopped = record.state == PackState::Stopped;
         apply(&mut record, decision)?;
         let drive = Drive {
             root: root.to_path_buf(),
@@ -244,7 +250,19 @@ impl Packs {
             .iter()
             .any(|i| i.state == PackItemState::Queued)
         {
-            self.launch(&drive, record.clone());
+            if stopped {
+                // A stopped pack stays stopped: a keep only records the
+                // answer, a raise or again runs that one model and the
+                // rest waits for go on.
+                if matches!(decision, PackDecision::Keep { .. }) {
+                    record.message = Some(stopped_at(&record, "Stopped"));
+                    self.inner.tell(root, &record);
+                    return Ok(record);
+                }
+                self.launch(&drive, record.clone(), Some(decision.key().to_string()));
+            } else {
+                self.launch(&drive, record.clone(), None);
+            }
             return self.get(root, id);
         }
         settle(&self.inner, &drive, &mut record);
@@ -334,7 +352,7 @@ impl Packs {
             tools,
             defaults,
         };
-        self.launch(&drive, record.clone());
+        self.launch(&drive, record.clone(), None);
         Ok(self.get(root, id).unwrap_or(record))
     }
 
@@ -355,7 +373,7 @@ fn closing(active: &Active) -> CoreResult<()> {
     Ok(())
 }
 
-fn zip_now(
+pub(super) fn zip_now(
     inner: &Inner,
     root: &Path,
     record: &mut PackRecord,
@@ -374,97 +392,5 @@ fn zip_now(
             inner.tell(root, record);
             Err(err)
         }
-    }
-}
-
-/// After the last model: zips at once when everything passes, else waits.
-fn settle(inner: &Inner, drive: &Drive, record: &mut PackRecord) {
-    if record.items.iter().all(|i| i.state.passes()) {
-        let _ = zip_now(inner, &drive.root, record, ZipChoice::Passing);
-    } else {
-        record.state = PackState::Waiting;
-        inner.tell(&drive.root, record);
-    }
-}
-
-enum Next {
-    Model(usize, Box<PackItem>),
-    Zip(ZipChoice),
-    Stop,
-    Settle,
-}
-
-fn run_pack(inner: &Inner, drive: &Drive, id: &str) {
-    let pictures = drive.root.join(EXPORTS_DIR).join(RECORDS_DIR).join(id);
-    loop {
-        let (next, record) = {
-            let mut active = inner.active();
-            let Some(a) = active.get_mut(id) else {
-                return;
-            };
-            let next = if let Some(choice) = a.zip {
-                Next::Zip(choice)
-            } else if let Some(at) = a
-                .record
-                .items
-                .iter()
-                .position(|i| i.state == PackItemState::Queued)
-            {
-                if a.stop {
-                    Next::Stop
-                } else {
-                    a.record.items[at].state = PackItemState::Running;
-                    Next::Model(at, Box::new(a.record.items[at].clone()))
-                }
-            } else {
-                Next::Settle
-            };
-            if !matches!(next, Next::Model(..)) {
-                a.closing = true;
-            }
-            (next, a.record.clone())
-        };
-        let mut record = record;
-        match next {
-            Next::Model(at, item) => {
-                inner.tell(&drive.root, &record);
-                let run = ModelRun {
-                    runner: &inner.runner,
-                    tools: &drive.tools,
-                    dir: Path::new(&record.dir),
-                    pictures: &pictures,
-                    settings: &record.settings,
-                    defaults: drive.defaults,
-                };
-                let done = run_one(&run, &item);
-                let snapshot = {
-                    let mut active = inner.active();
-                    let Some(a) = active.get_mut(id) else {
-                        return;
-                    };
-                    a.record.items[at] = done;
-                    a.record.clone()
-                };
-                inner.tell(&drive.root, &snapshot);
-                continue;
-            }
-            Next::Zip(choice) => {
-                for item in &mut record.items {
-                    if !item.state.is_settled() {
-                        item.state = PackItemState::Queued;
-                    }
-                }
-                let _ = zip_now(inner, &drive.root, &mut record, choice);
-            }
-            Next::Stop => {
-                record.state = PackState::Stopped;
-                record.message = Some(stopped_at(&record, "Stopped"));
-                inner.tell(&drive.root, &record);
-            }
-            Next::Settle => settle(inner, drive, &mut record),
-        }
-        // Only now, with the last state saved, does the pack stop running.
-        inner.active().remove(id);
-        return;
     }
 }

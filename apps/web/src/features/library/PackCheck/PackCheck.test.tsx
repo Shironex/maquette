@@ -93,6 +93,26 @@ describe('the check of a pack', () => {
   });
 });
 
+describe('an answer on a stopped pack', () => {
+  it('says the pack stays stopped, and a running or waiting one says nothing of it', async () => {
+    const record = await runPack(8);
+    const stopped = { ...record, state: 'stopped' as const };
+    const { rerender } = render(<PackCheck record={stopped} />);
+    let needs = screen.getByRole('complementary', { name: 'Needs you' });
+    await userEvent.hover(within(needs).getByRole('button', { name: /^Raise to / }));
+    expect((await screen.findByRole('tooltip')).textContent).toContain(
+      'Decimates only this model again'
+    );
+    await userEvent.unhover(within(needs).getByRole('button', { name: /^Raise to / }));
+    await userEvent.hover(within(needs).getByRole('button', { name: /^Keep / }));
+    expect((await screen.findByRole('tooltip')).textContent).toContain('The pack stays stopped');
+    rerender(<PackCheck record={record} />);
+    needs = screen.getByRole('complementary', { name: 'Needs you' });
+    await userEvent.hover(within(needs).getByRole('button', { name: /^Keep / }));
+    expect((await screen.findByRole('tooltip')).textContent).not.toContain('stays stopped');
+  });
+});
+
 describe('the picture on a card', () => {
   const model = (thumbnail: string | null) => ({
     key: 'crate',

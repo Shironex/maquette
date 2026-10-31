@@ -272,7 +272,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Answer what an export pack asks for. raise (key, triangles) exports a model again with a higher triangle budget, keep (key) lets a warned model into the pack, again (key) exports a model again as it is; zip-passing zips the models that pass and leaves the rest out, zip-all zips every model with files; stop stops after the model running now and resume goes on with a stopped pack. Answers the pack as get_pack does."
+        description = "Answer what an export pack asks for. raise (key, triangles) exports a model again with a higher triangle budget, keep (key) lets a warned model into the pack, again (key) exports a model again as it is; zip-passing zips the models that pass and leaves the rest out, zip-all zips every model with files; stop stops after the model running now and resume goes on with a stopped pack. On a stopped pack keep only records the answer, and raise or again runs just that one model and the pack is stopped again until resume; the queued models do not start. Answers the pack as get_pack does."
     )]
     async fn decide_pack(&self, Parameters(args): Parameters<DecidePackArgs>) -> Out {
         let found = self

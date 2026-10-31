@@ -23,7 +23,13 @@ export default function PackCheck({ record }: PackCheckProps) {
     </li>
   ));
   const needCards = c.needs.map(item => (
-    <NeedsYouCard key={item.model.key} item={item} busy={c.busy} onDecide={c.decide} />
+    <NeedsYouCard
+      key={item.model.key}
+      item={item}
+      busy={c.busy}
+      stopped={record.state === 'stopped'}
+      onDecide={c.decide}
+    />
   ));
   let footer;
   if (record.state === 'stopped' || record.state === 'failed') {

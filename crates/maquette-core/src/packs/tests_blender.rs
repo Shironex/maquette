@@ -320,3 +320,49 @@ fn a_real_pack_stopped_on_its_last_model_finishes() {
     let record = packs.get(root, &id).expect("record");
     assert_eq!(record.state, PackState::Done, "{:?}", record.message);
 }
+
+/// A raise on a stopped pack runs that one model at its new budget and the
+/// pack is stopped again: the models still queued wait for go on, and what
+/// was settled before is not run again.
+#[test]
+fn a_raise_on_a_stopped_pack_runs_only_that_model() {
+    let Some(blender) = crate::test_blender::blender() else {
+        return;
+    };
+    let dir = tempfile::tempdir().expect("dir");
+    let root = dir.path();
+    let packs = Packs::new(PipelineRunner::new(Arc::new(NullSink)), |_: &PackRecord| {});
+    let id = start_props(&packs, root, &["one", "two", "three", "four"], &blender);
+    while packs.get(root, &id).expect("get").done() == 0 {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    packs.stop(&id).expect("stop");
+    packs.wait();
+    let stopped = packs.get(root, &id).expect("stopped");
+    assert_eq!(stopped.state, PackState::Stopped);
+    let done = stopped.done();
+    assert!((1..4).contains(&done), "{done} done");
+    let budget = stopped.items[0].budget.expect("budget");
+    let raise = PackDecision::Raise {
+        key: stopped.items[0].model.key.clone(),
+        triangles: budget + 1_000,
+    };
+    let tools = crate::test_blender::toolbox(&blender);
+    packs
+        .decide(root, tools, pack_defaults(), &id, &raise)
+        .expect("raise");
+    packs.wait();
+    let after = packs.get(root, &id).expect("after");
+    assert_eq!(after.state, PackState::Stopped, "{:?}", after.message);
+    assert_eq!(after.items[0].budget, Some(budget + 1_000));
+    assert_eq!(after.items[0].state, PackItemState::Pass);
+    assert_eq!(after.done(), done, "the same models are done");
+    for at in 1..4 {
+        assert_eq!(after.items[at].state, stopped.items[at].state);
+        assert_eq!(after.items[at].took_ms, stopped.items[at].took_ms);
+    }
+    assert_eq!(
+        after.message.as_deref(),
+        Some(format!("Stopped with {done} of 4 done, model {} is next", done + 1).as_str())
+    );
+}

@@ -48,6 +48,8 @@ export function createPackHandlers(ctx: PackContext) {
   const records = new Map<string, PackRecord>();
   const attempts = new Map<string, number>();
   const stopping = new Set<string>();
+  /** A stopped pack's decision runs just this model, then it stops again. */
+  const onlyModel = new Map<string, string>();
   let saved: PackPreset[] = [];
   let seeded = false;
 
@@ -116,6 +118,11 @@ export function createPackHandlers(ctx: PackContext) {
     };
   }
 
+  function stoppedAt(r: PackRecord, next: number) {
+    const done = r.items.filter(i => i.state !== 'queued').length;
+    return `Stopped with ${done} of ${r.items.length} done, model ${next + 1} is next`;
+  }
+
   function settle(r: PackRecord) {
     if (r.items.every(i => i.state === 'pass' || i.state === 'kept')) return zipNow(r, 'passing');
     tell({ ...r, state: 'waiting' });
@@ -145,15 +152,19 @@ export function createPackHandlers(ctx: PackContext) {
   function step(id: string) {
     const r = record(id);
     if (r.state !== 'running') return;
-    const index = r.items.findIndex(i => i.state === 'queued');
+    const only = onlyModel.get(id);
+    const next = r.items.findIndex(i => i.state === 'queued');
+    const index = only
+      ? r.items.findIndex(i => i.state === 'queued' && i.model.key === only)
+      : next;
     if (index < 0 || stopping.has(id)) {
-      const asked = stopping.delete(id);
-      if (asked && index >= 0) {
-        const done = r.items.filter(i => i.state !== 'queued').length;
-        const message = `Stopped with ${done} of ${r.items.length} done, model ${index + 1} is next`;
-        tell({ ...r, state: 'stopped', message });
+      const asked = stopping.delete(id) || (only !== undefined && next >= 0);
+      if (asked && next >= 0) {
+        onlyModel.delete(id);
+        tell({ ...r, state: 'stopped', message: stoppedAt(r, next) });
         return;
       }
+      onlyModel.delete(id);
       settle(r);
       return;
     }
@@ -232,6 +243,14 @@ export function createPackHandlers(ctx: PackContext) {
           };
     const changed = { ...r, items: r.items.map((i, n) => (n === at ? next : i)) };
     if (r.state === 'running') return tell(changed);
+    const queued = changed.items.findIndex(i => i.state === 'queued');
+    if (r.state === 'stopped' && queued >= 0) {
+      // A stopped pack stays stopped: keep records the answer, raise and
+      // again run that one model and the rest waits for go on.
+      if (d.choice === 'keep') return tell({ ...changed, message: stoppedAt(changed, queued) });
+      onlyModel.set(r.id, d.key);
+      return launch(changed);
+    }
     if (next.state === 'queued') return launch(changed);
     settle(changed);
     return clone(records.get(r.id)!);
@@ -284,6 +303,7 @@ export function createPackHandlers(ctx: PackContext) {
       pack_resume: ({ id }) => {
         const r = record(id as string);
         if (r.state !== 'stopped') fail('invalid', 'Only a stopped pack goes on.');
+        onlyModel.delete(r.id);
         return launch(r);
       },
       pack_reveal: ({ id }) => {
