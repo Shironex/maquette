@@ -7,7 +7,7 @@ use super::humanoid::{arg, read_json, stat};
 use super::run::Run;
 use super::{
     DefectKind, MAX_ROUNDS, RigChain, RigCreature, RigRow, RigSheet, RigState, RigStep, TEAR_MM,
-    steps,
+    chains, steps,
 };
 use crate::error::CoreResult;
 
@@ -22,6 +22,7 @@ fn chains_of(table: &Value) -> Vec<RigChain> {
         .flatten()
         .map(|c| RigChain {
             chain: c["chain"].as_str().unwrap_or_default().to_string(),
+            key: c["key"].as_str().unwrap_or_default().to_string(),
             bones: u32::try_from(num(c, "bones")).unwrap_or(0),
             side: c["side"].as_str().unwrap_or_default().to_string(),
             read_as: c["read_as"].as_str().unwrap_or("chain").to_string(),
@@ -99,13 +100,25 @@ fn posetest(
     Ok(())
 }
 
+/// Reads the chains from the bones, with a person's corrections on top.
+fn read_chains(run: &Run, input: &std::path::Path, scripts: &std::path::Path) -> CoreResult<()> {
+    let mut args = vec![arg(input), arg(scripts)];
+    let edits = run.snapshot().chain_edits;
+    if !edits.is_empty() {
+        let file = run.dir.join("chain_edits.json");
+        crate::json::write_json(&file, &chains::by_first_bone(&edits))?;
+        args.push(arg(&file));
+    }
+    run.script(ROUTE, "autoconfig.py", &args)
+}
+
 /// Reads the chains from the bones, then bends every chain.
 pub(super) fn test(run: &Run) -> CoreResult<()> {
     let input = run.working_copy()?;
     let scripts = run.dir.join("scripts").join(ROUTE);
     let mut table = Value::Null;
     run.stage("Chains and weight map", || {
-        run.script(ROUTE, "autoconfig.py", &[arg(&input), arg(&scripts)])?;
+        read_chains(run, &input, &scripts)?;
         table = read_json(&scripts.join("rigconfig.json"))?;
         run.script(
             ROUTE,
@@ -198,7 +211,7 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
     let scripts = run.dir.join("scripts").join(ROUTE);
     let last_round = case.round >= MAX_ROUNDS;
     // Installing the scripts put the example config back: read the chains again.
-    run.script(ROUTE, "autoconfig.py", &[arg(&input), arg(&scripts)])?;
+    read_chains(run, &input, &scripts)?;
     if last_round {
         // The last round: tighter stray cut, larger rigid pieces.
         let file = scripts.join("rigconfig.py");
@@ -329,6 +342,29 @@ pub(super) fn fix(run: &Run) -> CoreResult<()> {
         };
         c.step = RigStep::Land;
         c.stop = stop;
+    });
+    Ok(())
+}
+
+/// Walks a copy of the draft on the spot and renders it to one strip, so a
+/// person sees the rig move. The clip is a test: it never reaches the draft,
+/// and a proof that fails leaves the draft as it is.
+pub(super) fn walk_proof(run: &Run) -> CoreResult<()> {
+    let draft = run.dir.join("draft.glb");
+    let clip = run.dir.join("walk_proof.glb");
+    let strip = run.dir.join("walk_proof.png");
+    let outcome = run.stage("Walk clip proof", || {
+        run.script(ROUTE, "walkclip.py", &[arg(&draft), arg(&clip)])?;
+        run.script(ROUTE, "clipsheet.py", &[arg(&clip), arg(&strip)])?;
+        Ok("In place, 30 fps, on a copy".to_string())
+    });
+    run.update(|c| {
+        c.state = RigState::Fixed;
+        c.step = RigStep::Land;
+        match outcome {
+            Ok(()) => c.walk_proof = Some(arg(&strip)),
+            Err(error) => c.error = Some(format!("The walk clip proof did not finish. {error}")),
+        }
     });
     Ok(())
 }

@@ -45,7 +45,9 @@ When a round brings in a pile of models, switch the top bar from **One by one** 
 
 Tick models, or a whole group, and the selection bar offers Accept, Redo, Discard and Clear. The side column says what accepting does before it runs: how many become a first version and which become a later one, how many By hand sends close, and which unreadable files stay. **Add to library after** puts every accepted asset in the library too, optionally all tagged the same. Each model goes in on its own, so one that fails does not stop the rest. The models a redo replaced are listed apart with one Discard for all of them.
 
-Discard moves a file into `inbox/.discarded/` in the workspace, never deletes it. When the inbox is empty it shows the sends still waiting for a model and the recently discarded models; **Restore** puts one back in the inbox, aimed at the asset it was going to.
+Discard moves a file into `inbox/.discarded/` in the workspace and keeps it for 30 days, then it goes for good. When the inbox is empty it shows the sends still waiting for a model and the recently discarded models with the days left; **Restore** puts one back in the inbox, aimed at the asset it was going to.
+
+The empty inbox also sums up the day since local midnight: what arrived, what was accepted and how much of it went to the library, redos sent and their credits, what was discarded, and what still waits. Only what passed through the Inbox counts.
 
 ## Downloads from By hand sends
 
@@ -56,7 +58,7 @@ Each of those is matched by its picture too. Blender renders it headless from th
 - **Needs a look**: the picture looks like one waiting send's, the name is close to one (a site's batch export such as `lantern post 3d model.glb`), or it is the only send waiting. The card shows the download's front render next to the send's front ref, how alike they are ("88% alike"), the file name and why it matched. **Attach to Lantern post** takes it, the other waiting sends are listed after it, ranked, to attach to instead, **Pick another asset** chooses any asset, and **Not this one** leaves the file alone and never asks about it again.
 - **Which asset is this?**: files it could not place, with the closest send when the picture was read. **Attach to an asset** opens a searchable list of the project's assets, the ones a By hand send waits on first, best fit first with how alike each is, each with its ref picture and state. Type to search, use the arrows and press Enter; the list moves on to the next file, so a batch goes quickly. Esc closes it.
 
-Without Blender, or for an FBX, the name alone ranks the sends.
+For an FBX, the name alone ranks the sends. When Blender is missing, a banner on the Inbox says picture match is off and leads to Settings. New downloads then wait **on hold**, listed on the empty inbox, and are matched by picture when Blender is back. **Match these by hand** attaches them without waiting.
 
 **Add a model file as the next version...** in a card's menu on the Board does the same for a file you made or fixed yourself, whether or not a send waits: pick a `.glb`, `.gltf`, `.fbx` or `.obj` and it is copied into the inbox for that asset (the others are turned into a GLB by headless Blender first). A file already in the inbox or in a project's `models` folder is refused.
 

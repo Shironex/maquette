@@ -134,6 +134,44 @@ fn the_picture_port_draws_what_the_waiting_sends_are_ranked_by() {
     );
 }
 
+/// A renderer whose Blender comes and goes.
+struct Comes(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+impl PictureRender for Comes {
+    fn render(&self, model: &Path, dir: &Path, key: &str) -> CoreResult<PathBuf> {
+        RedBlock.render(model, dir, key)
+    }
+    fn ready(&self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+#[test]
+fn a_download_waits_on_hold_without_blender_and_is_matched_when_it_is_back() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let rig = rig();
+    let back = std::sync::Arc::new(AtomicBool::new(false));
+    rig.arrivals.set_renderer(Comes(back.clone()));
+    let (red, _) = two_sends(&rig);
+    let file = rig.download("model (3).glb", &fixture::clean_prop());
+    let arrival = rig.arrivals.take(&file).expect("seen");
+    let held = settled(&rig, &arrival.id);
+    assert_eq!(held.picture, PictureState::Held, "{held:?}");
+    assert_eq!(
+        held.state,
+        ArrivalState::Unmatched,
+        "still yours to match by hand"
+    );
+    assert_eq!(rig.arrivals.retry_held(), 0, "Blender is still away");
+
+    back.store(true, Ordering::SeqCst);
+    assert_eq!(rig.arrivals.retry_held(), 1);
+    let done = settled(&rig, &arrival.id);
+    assert_eq!(done.picture, PictureState::Ready, "{done:?}");
+    assert_eq!(done.suggestions[0].job, red);
+    assert_eq!(rig.arrivals.retry_held(), 0, "nothing left on hold");
+}
+
 #[test]
 fn a_red_cube_download_is_suggested_for_the_red_crate_and_never_attached() {
     let Some(blender) = test_blender::blender() else {

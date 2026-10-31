@@ -1,11 +1,20 @@
 import { Button } from '@maquette/ui';
 import type { DiscardedModel } from '@/ipc/client';
 import { formatAgo, formatBytes } from '@/lib/format';
+import { DAY_MS } from '@/state/credits';
 import { useDiscardedList } from './DiscardedList.hooks';
 
 export interface DiscardedListProps {
   /** How many to list before "and N more". */
   limit?: number;
+}
+
+/** How long a discarded model has before it goes for good. */
+export function timeLeft(expiresMs: number | null | undefined, now: number): string | null {
+  if (expiresMs == null) return null;
+  const days = Math.ceil((expiresMs - now) / DAY_MS);
+  if (days <= 1) return 'goes within a day';
+  return `${days} days left`;
 }
 
 /** Why a discarded model left, in a few words. */
@@ -14,13 +23,14 @@ function why(model: DiscardedModel, now: number): string {
     model.replacedBy != null ? `replaced by v${model.replacedBy}` : null,
     model.bytes != null ? formatBytes(model.bytes) : null,
     model.discardedMs != null ? formatAgo(model.discardedMs, now) : null,
+    timeLeft(model.expiresMs, now),
   ];
   return parts.filter(Boolean).join(' · ');
 }
 
 /**
- * The models discarded from the inbox, newest first, each with Restore. The
- * files wait in inbox/.discarded until someone removes them.
+ * The models discarded from the inbox, newest first, each with Restore and
+ * the days it has left. The files wait in inbox/.discarded for 30 days.
  */
 export default function DiscardedList({ limit = 5 }: DiscardedListProps) {
   const { now, total, shown, more, restoring, restore } = useDiscardedList(limit);
@@ -59,13 +69,13 @@ export default function DiscardedList({ limit = 5 }: DiscardedListProps) {
         >
           Recently discarded
         </h3>
-        <span className="text-meta text-fg-mute">{total} kept</span>
+        <span className="text-meta text-fg-mute">{total} kept 30 days</span>
       </div>
       <ul className="flex list-none flex-col gap-1.5">{rows}</ul>
       <p className="text-meta text-fg-mute">
         {more > 0 ? `And ${more} more. ` : ''}
-        Files wait in inbox/.discarded in the workspace. Restore puts one back aimed at the asset it
-        was going to.
+        Files wait in inbox/.discarded in the workspace, then go for good. Restore puts one back
+        aimed at the asset it was going to.
       </p>
     </section>
   );

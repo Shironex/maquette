@@ -10,7 +10,8 @@ use maquette_core::inbox::{self, AcceptRequest};
 use maquette_core::pipeline::runner::{NullSink, PipelineRunner};
 use maquette_core::providers::own_file::{self, OwnFile};
 use maquette_core::rig::{
-    RigDoctors, RigRecord, RigRun, RigSource, RigStarter, RigState, got_worse,
+    RigChainEdit, RigDoctors, RigRecord, RigRoute, RigRun, RigSource, RigStarter, RigState,
+    got_worse, waits_for_chains,
 };
 use maquette_core::{CoreError, assets, project};
 use tauri::{AppHandle, State};
@@ -33,9 +34,7 @@ impl RigJobs {
         let asks = Arc::clone(&hub);
         let runner = Arc::new(PipelineRunner::new(Arc::new(NullSink)));
         let doctors = RigDoctors::new(runner, move |record: &RigRecord| {
-            if record.started_by == RigStarter::Agent && record.state == RigState::Fixed {
-                asks.request_rig_doctor(record);
-            }
+            asks.ask_about_rig_draft(record);
             let event = RigChanged {
                 record: record.clone(),
             };
@@ -196,6 +195,37 @@ pub fn rig_cancel(rig: State<'_, RigJobs>, id: String) -> CommandResult<()> {
     Ok(rig.0.cancel(&id)?)
 }
 
+/// A person picks the other route. The case starts over.
+#[tauri::command]
+#[specta::specta]
+pub fn rig_set_route(
+    session: State<'_, Session>,
+    rig: State<'_, RigJobs>,
+    id: String,
+    route: RigRoute,
+) -> CommandResult<RigRecord> {
+    let (root, config) = session.workspace()?;
+    Ok(rig.0.set_route(&root, &config, &id, route)?)
+}
+
+/// A person's word on a creature's chains. With a correction the case starts
+/// over, so an agent's card about the old draft closes; its next fix asks again.
+#[tauri::command]
+#[specta::specta]
+pub fn rig_confirm_chains(
+    session: State<'_, Session>,
+    rig: State<'_, RigJobs>,
+    id: String,
+    edits: Vec<RigChainEdit>,
+) -> CommandResult<RigRecord> {
+    let (root, config) = session.workspace()?;
+    let case = rig.0.confirm_chains(&root, &config, &id, edits)?;
+    if case.state != RigState::Fixed {
+        rig.1.close_rig_doctor(&id);
+    }
+    Ok(case)
+}
+
 /// A person's answer to the joint move.
 #[tauri::command]
 #[specta::specta]
@@ -229,6 +259,9 @@ pub async fn rig_land(
         .map(PathBuf::from)
         .filter(|_| matches!(case.state, RigState::Fixed))
         .ok_or_else(|| super::invalid("There is no finished draft to add."))?;
+    if let Some(why) = waits_for_chains(&case) {
+        return Err(super::invalid(why));
+    }
     let (Some(project), Some(asset)) = (case.source.project.clone(), case.source.asset.clone())
     else {
         return Err(super::invalid("Accept the model as v1 first."));

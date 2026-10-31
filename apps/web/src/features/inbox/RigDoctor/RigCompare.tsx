@@ -3,6 +3,7 @@ import type { RigRecord, RigRow } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
 import { nextVersion } from '@/state/rig';
 import { useChoice, useRigActions } from './RigDoctor.hooks';
+import { WalkProof } from './RigCreature';
 import { RunProgress, Stats, Tile } from './parts';
 
 type Mode = 'side' | 'changed' | 'slider';
@@ -244,6 +245,7 @@ export function FixAside({ record }: { record: RigRecord }) {
         {checks}
       </ul>
       <JointMoveCard record={record} />
+      <WalkProof record={record} />
     </aside>
   );
 }

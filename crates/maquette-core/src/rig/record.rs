@@ -93,6 +93,7 @@ pub(super) fn blank(
             arm_far: 0,
             islands: 0,
             one_island: false,
+            humanoid_ok: false,
             finding: None,
         },
         issues: Vec::new(),
@@ -110,6 +111,9 @@ pub(super) fn blank(
         stages: Vec::new(),
         log: Vec::new(),
         stop: None,
+        chains_confirmed: false,
+        chain_edits: Vec::new(),
+        walk_proof: None,
         landed: None,
         error: None,
         updated_ms: now_ms(),
@@ -132,6 +136,7 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<super::DefectKind>()
         .register::<super::RigDefect>()
         .register::<super::RigChain>()
+        .register::<super::RigChainEdit>()
         .register::<super::RigCreature>()
         .register::<super::RigFixStep>()
         .register::<super::RigCheck>()

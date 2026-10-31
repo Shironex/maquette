@@ -5,6 +5,7 @@ import { useInboxStore } from '@/state/use-inbox-store';
 import { useTriageStore } from '@/state/use-triage-store';
 import { clearMocks, openMockWorkspace } from '@/test/mock-ipc';
 import { DiscardedList } from '.';
+import { timeLeft } from './DiscardedList';
 
 beforeEach(async () => {
   await openMockWorkspace('configured', undefined, undefined, 'clear');
@@ -25,10 +26,18 @@ describe('the recently discarded list', () => {
     expect(within(list).getAllByRole('listitem')).toHaveLength(3);
     expect(list).toHaveTextContent('replaced by v2');
     await userEvent.click(screen.getByRole('button', { name: 'Restore Crystal lantern' }));
-    await screen.findByText('2 kept');
+    await screen.findByText('2 kept 30 days');
     expect(useInboxStore.getState().snapshot!.items.map(i => i.id)).toEqual([
       'crystal_lantern_v1.glb',
     ]);
+  });
+
+  it('shows how long each has left', () => {
+    render(<DiscardedList />);
+    const list = screen.getByRole('region', { name: 'Recently discarded' });
+    expect(list).toHaveTextContent(/30 days left/);
+    expect(timeLeft(5_000, 0)).toBe('goes within a day');
+    expect(timeLeft(2.5 * 24 * 3600 * 1000, 0)).toBe('3 days left');
   });
 
   it('lists only the first ones and says how many more', () => {

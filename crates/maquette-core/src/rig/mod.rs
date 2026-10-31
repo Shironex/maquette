@@ -15,6 +15,7 @@
 
 use serde::{Deserialize, Serialize};
 
+mod chains;
 mod clips;
 mod creature;
 mod defects;
@@ -27,6 +28,7 @@ pub mod scripts;
 mod service;
 mod steps;
 
+pub use chains::{RigChainEdit, waits_for_chains};
 pub use clips::clips_on_joints;
 pub use land::got_worse;
 pub use read::{read_model, route_of};
@@ -107,6 +109,9 @@ pub enum RigRun {
     Fix,
     /// The fix again with a wider seam; the last round.
     Round2,
+    /// A creature's draft walking on a copy, to see the rig move. The clip
+    /// never goes into the draft.
+    WalkProof,
 }
 
 /// Where the model comes from: an Inbox file until it is accepted.
@@ -147,6 +152,9 @@ pub struct RigModel {
     pub islands: u32,
     /// One continuous shell: the per island fix would tear it.
     pub one_island: bool,
+    /// Mixamo names, so the humanoid route can run on it.
+    #[serde(default)]
+    pub humanoid_ok: bool,
     /// The Inbox check that sends a person here, in words.
     pub finding: Option<String>,
 }
@@ -210,6 +218,10 @@ pub struct RigDefect {
 #[serde(rename_all = "camelCase")]
 pub struct RigChain {
     pub chain: String,
+    /// The chain's first bone, which an edit names; empty on a row of several
+    /// chains, which cannot be edited.
+    #[serde(default)]
+    pub key: String,
     pub bones: u32,
     pub side: String,
     /// chain, stray, swapped or junk.
@@ -368,6 +380,16 @@ pub struct RigRecord {
     pub stages: Vec<RigStage>,
     pub log: Vec<RigLogLine>,
     pub stop: Option<RigStop>,
+    /// A person looked at the chains read from the bone tree. A creature's
+    /// draft cannot be added before that.
+    #[serde(default)]
+    pub chains_confirmed: bool,
+    /// What a person corrected in those chains; every read applies it.
+    #[serde(default)]
+    pub chain_edits: Vec<RigChainEdit>,
+    /// The strip of a creature's walk clip proof.
+    #[serde(default)]
+    pub walk_proof: Option<String>,
     /// The version the draft became.
     pub landed: Option<u32>,
     pub error: Option<String>,
@@ -378,3 +400,5 @@ pub struct RigRecord {
 mod tests;
 #[cfg(test)]
 mod tests_blender;
+#[cfg(test)]
+mod tests_blender_person;

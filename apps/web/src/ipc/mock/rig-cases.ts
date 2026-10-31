@@ -34,6 +34,7 @@ export function creatureCase(): RigRecord {
     source: { inbox: null, project: 'frostveil', asset: 'spiked-hound', version: 1 },
     model: {
       ...base.model,
+      humanoidOk: false,
       rig: 'Own names',
       joints: 87,
       clips: [],
@@ -47,23 +48,41 @@ export function creatureCase(): RigRecord {
       rigidPieces: 41,
       oneShell: false,
       chains: [
-        { chain: 'leg_FL', bones: 4, side: 'left', readAs: 'chain', note: null },
+        { chain: 'body', key: '', bones: 6, side: 'centre', readAs: 'chain', note: null },
+        { chain: 'neck, head', key: '', bones: 7, side: 'centre', readAs: 'chain', note: null },
+        {
+          chain: 'leg_FL',
+          key: 'bone_1',
+          bones: 4,
+          side: 'left, by position',
+          readAs: 'chain',
+          note: null,
+        },
         {
           chain: 'leg_FR',
+          key: 'bone_5',
           bones: 4,
-          side: 'right',
+          side: 'named L, sits right',
           readAs: 'swapped',
           note: 'Named Left, sits on the right',
         },
         {
           chain: 'leg_RR',
+          key: 'bone_9',
           bones: 4,
-          side: 'right',
+          side: 'right, by position',
           readAs: 'stray',
           note: 'Pulls the tail, 200 v',
         },
-        { chain: 'tail', bones: 6, side: 'middle', readAs: 'chain', note: null },
-        { chain: 'dup_FL', bones: 3, side: 'left', readAs: 'junk', note: 'On top of leg_FL' },
+        { chain: 'tail', key: 'bone_20', bones: 6, side: 'centre', readAs: 'chain', note: null },
+        {
+          chain: 'dup_FL',
+          key: 'dup_FL',
+          bones: 3,
+          side: 'on other chains',
+          readAs: 'junk',
+          note: 'On top of leg_FL',
+        },
       ],
       weightMap: map,
     },
@@ -112,9 +131,24 @@ export function creatureCase(): RigRecord {
   };
 }
 
+/** The creature's draft, waiting for a person to look at the chains. */
+export function creatureFixedCase(): RigRecord {
+  const running = creatureCase();
+  const fixed = fixedCase(running.id, running.name);
+  return {
+    ...fixed,
+    route: 'creature',
+    startedBy: running.startedBy,
+    source: running.source,
+    model: running.model,
+    creature: running.creature,
+    jointMove: null,
+  };
+}
+
 /** The fourth board's first card. */
 export function refusedCase(): RigRecord {
-  const base = readCase('crystal-golem-inbox', 'Crystal golem', 'crystal-golem.glb');
+  const base = readCase('crystal-golem-inbox', 'Crystal golem', 'veil_gate.glb');
   return {
     ...base,
     route: 'creature',

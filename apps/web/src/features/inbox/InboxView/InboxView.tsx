@@ -1,6 +1,7 @@
 import { Button, SegmentedControl, TopBar, type SegmentedOption } from '@maquette/ui';
 import { contentKey } from '@/state/inbox';
 import type { InboxLayout } from '@/state/use-triage-store';
+import { BlenderBanner } from '../BlenderBanner';
 import { BulkDiscardDialog } from '../BulkDiscardDialog';
 import { InboxClear } from '../InboxClear';
 import { InboxDetail } from '../InboxDetail';
@@ -116,6 +117,7 @@ export default function InboxView() {
           </div>
         }
       />
+      <BlenderBanner />
       <main className="flex min-h-0 flex-1">
         {empty ? (
           <InboxClear dir={snapshot.dir} watching={snapshot.watching} />

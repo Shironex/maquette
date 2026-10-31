@@ -16,6 +16,7 @@ mod discard;
 mod place;
 mod port;
 mod restore;
+mod round;
 
 pub use accept::{AcceptRequest, AcceptResult, accept, open_in_blender_args};
 // A model's card numbers are made below the pipeline too, so they live
@@ -26,8 +27,10 @@ pub use discard::{DISCARDED_DIR, Discarded, discard};
 pub use place::place;
 pub use port::{Inbox, send_ports};
 pub use restore::{
-    DiscardedModel, Restored, list_discarded, remember as remember_discard, restore,
+    DISCARD_KEEP_DAYS, DiscardedModel, Restored, list_discarded, prune_discarded,
+    remember as remember_discard, restore,
 };
+pub use round::{InboxRound, note_library, round};
 
 use std::collections::BTreeMap;
 use std::fs;

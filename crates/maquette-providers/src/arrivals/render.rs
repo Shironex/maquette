@@ -96,6 +96,10 @@ impl Arrivals {
     fn work(&self) {
         loop {
             while let Some(id) = self.next_picture() {
+                if self.renderer().is_some_and(|r| !r.ready()) {
+                    self.picture_held(&id);
+                    continue;
+                }
                 let done = self
                     .picture_of(&id)
                     .and_then(|png| self.rank_by_picture(&id, &png));
@@ -177,6 +181,40 @@ impl Arrivals {
             suggest(&mut next, job);
         }
         Ok(self.replace(next))
+    }
+
+    /// Downloads on hold go back in the queue once Blender is there again.
+    /// Answers how many did.
+    pub fn retry_held(&self) -> usize {
+        if !self.renderer().is_some_and(|r| r.ready()) {
+            return 0;
+        }
+        let held: Vec<Arrival> = {
+            let state = self.inner.state();
+            state
+                .arrivals
+                .iter()
+                .filter(|a| a.picture == PictureState::Held && is_open(a.state))
+                .cloned()
+                .collect()
+        };
+        for arrival in &held {
+            self.replace(Arrival {
+                picture: PictureState::Queued,
+                ..arrival.clone()
+            });
+            self.queue_picture(arrival.id.clone());
+        }
+        held.len()
+    }
+
+    fn picture_held(&self, id: &str) {
+        if let Ok((arrival, _)) = self.find(id) {
+            self.replace(Arrival {
+                picture: PictureState::Held,
+                ..arrival
+            });
+        }
     }
 
     fn picture_failed(&self, id: &str) {

@@ -2,7 +2,17 @@ import { describe, expect, it } from 'vitest';
 import type { Check } from '@/ipc/client';
 import { creatureCase } from '@/ipc/mock/rig-cases';
 import { fixedCase, testedCase } from '@/ipc/mock/rig-fixtures';
-import { caseLine, nextVersion, offersRigDoctor, stepLines } from './rig';
+import { creatureFixedCase } from '@/ipc/mock/rig-cases';
+import {
+  addWaitsFor,
+  caseLine,
+  chainChanged,
+  nextVersion,
+  offersRigDoctor,
+  rigStatusLine,
+  routeHeldBy,
+  stepLines,
+} from './rig';
 
 const check = (id: string, status: Check['status']): Check => ({
   id,
@@ -36,5 +46,39 @@ describe('rig words', () => {
   it('says how a case stands in the Inbox', () => {
     expect(caseLine(creatureCase())).toBe('Spiked hound: pose test after 9 of 13');
     expect(caseLine(fixedCase('a-v1', 'A'))).toBe('A: draft v2 waits');
+  });
+});
+
+describe('what a person still decides', () => {
+  it('says what a running case is at, for the status bar', () => {
+    expect(rigStatusLine([])).toBeNull();
+    expect(rigStatusLine([testedCase('a', 'A')])).toBeNull();
+    expect(rigStatusLine([testedCase('a', 'A'), creatureCase()])).toBe(
+      'Rig doctor: pose test after 9 of 13'
+    );
+    expect(rigStatusLine([{ ...creatureCase(), progress: null }])).toBe(
+      'Rig doctor: Spiked hound running'
+    );
+  });
+
+  it('holds Add until a creatures chains were looked at', () => {
+    expect(addWaitsFor(fixedCase('a', 'A'))).toBeNull();
+    expect(addWaitsFor(creatureFixedCase())).toMatch(/Look at the chains/);
+    expect(addWaitsFor({ ...creatureFixedCase(), chainsConfirmed: true })).toBeNull();
+  });
+
+  it('holds the route on a run, a draft and a landed case', () => {
+    expect(routeHeldBy(testedCase('a', 'A'))).toBeNull();
+    expect(routeHeldBy(creatureCase())).toMatch(/run/);
+    expect(routeHeldBy(fixedCase('a', 'A'))).toMatch(/draft/);
+    expect(routeHeldBy({ ...testedCase('a', 'A'), state: 'landed' })).toMatch(/version/);
+  });
+
+  it('sees through an edit that says what the table says', () => {
+    const rows = creatureCase().creature!.chains;
+    expect(chainChanged({ key: 'bone_1', readAs: 'chain', side: 'left' }, rows)).toBe(false);
+    expect(chainChanged({ key: 'bone_1', readAs: null, side: 'right' }, rows)).toBe(true);
+    expect(chainChanged({ key: 'bone_1', readAs: 'junk', side: null }, rows)).toBe(true);
+    expect(chainChanged({ key: 'dup_FL', readAs: 'chain', side: null }, rows)).toBe(true);
   });
 });

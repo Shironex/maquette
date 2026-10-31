@@ -2,6 +2,7 @@ import type {
   AcceptRequest,
   AssetKind,
   InboxItem,
+  InboxRound,
   ModelPrep,
   ProjectManifest,
   ScenePrep,
@@ -46,6 +47,11 @@ export function createInboxHandlers({
   const kinds = new Map<string, AssetKind>();
   const dir = `${expand(DEFAULT_ROOT)}/inbox`;
   const discarded = createDiscarded(inbox.state ?? null, dir);
+  // `?inbox=clear` is the end of a round: its numbers are the fixture's.
+  let round: InboxRound =
+    inbox.state === 'clear'
+      ? { accepted: 40, toLibrary: 7, discarded: 3, redoSent: 1, redoCredits: 30 }
+      : { accepted: 0, toLibrary: 0, discarded: 0, redoSent: 0, redoCredits: 0 };
   const projectOrNull = (id: string) => {
     try {
       return project(id);
@@ -138,6 +144,7 @@ export function createInboxHandlers({
       };
       const next = saveProject({ ...p, assets: assets.map(a => (a.id === assetId ? updated : a)) });
       inbox.set(inbox.get().filter(i => i.id !== item.id));
+      round = { ...round, accepted: round.accepted + 1 };
       prepare.remember(version.file, item);
       // Like the core: an Inbox model skips the bake and pads its texture
       // edges unless someone chose.
@@ -159,12 +166,15 @@ export function createInboxHandlers({
       const item = one(id);
       inbox.set(inbox.get().filter(i => i.id !== item.id));
       const kept = discarded.add(item);
+      round = { ...round, discarded: round.discarded + 1 };
       emit?.({ name: 'inbox' });
       return { id: item.id, file: kept.file };
     },
     inbox_discarded: () => discarded.list(),
+    inbox_round: () => round,
     inbox_restore: ({ name }) => {
       const item = discarded.restore(String(name), inbox.get());
+      round = { ...round, discarded: Math.max(0, round.discarded - 1) };
       inbox.set([item, ...inbox.get()]);
       emit?.({ name: 'inbox' });
       return { id: item.id, file: item.file };

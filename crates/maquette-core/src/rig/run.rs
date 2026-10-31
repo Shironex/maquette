@@ -10,8 +10,8 @@ use std::time::{Duration, Instant};
 
 use super::service::Inner;
 use super::{
-    RigLogLine, RigProgress, RigRecord, RigRoute, RigRun, RigStage, RigState, creature, humanoid,
-    record, scripts,
+    MAX_ROUNDS, RigLogLine, RigProgress, RigRecord, RigRoute, RigRun, RigStage, RigState, creature,
+    humanoid, record, scripts,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::pipeline::history::now_ms;
@@ -53,6 +53,7 @@ impl Run {
         let case = self.snapshot();
         let creature = case.route == Some(RigRoute::Creature);
         match (what, creature) {
+            (RigRun::WalkProof, _) => creature::walk_proof(self),
             (RigRun::PoseTest, false) => humanoid::test(self),
             (RigRun::PoseTest, true) => creature::test(self),
             (_, false) => humanoid::fix(self),
@@ -216,5 +217,36 @@ impl Run {
         let _ = watcher.join();
         self.update(|case| case.progress = None);
         outcome
+    }
+}
+
+pub(super) fn check_can_run(case: &RigRecord, what: RigRun) -> CoreResult<()> {
+    let refuse = |why: &str| Err(CoreError::Invalid(why.to_string()));
+    if case.state == RigState::Refused {
+        return refuse("The rig doctor refuses this model. Its case says why.");
+    }
+    if case.source.version.is_none() {
+        return refuse("Accept the model as v1 first: v1 is what the doctor compares against.");
+    }
+    if case.state.running() {
+        return refuse("This rig doctor case is already running.");
+    }
+    match what {
+        RigRun::PoseTest => Ok(()),
+        RigRun::Fix if case.before.is_some() => Ok(()),
+        RigRun::Fix => refuse("Run the pose test first: the fix is judged against its sheet."),
+        RigRun::Round2 if case.round >= MAX_ROUNDS => {
+            refuse("The doctor stops after two rounds instead of guessing a third time.")
+        }
+        RigRun::Round2 if case.model.one_island => {
+            refuse("A one island mesh has no second round. Finish it in Blender.")
+        }
+        RigRun::Round2 if case.draft.is_some() => Ok(()),
+        RigRun::Round2 => refuse("Run the fix first."),
+        RigRun::WalkProof if case.route != Some(RigRoute::Creature) => {
+            refuse("The walk clip proof is for a creature.")
+        }
+        RigRun::WalkProof if case.state == RigState::Fixed && case.draft.is_some() => Ok(()),
+        RigRun::WalkProof => refuse("Run the fix first: the proof walks the draft."),
     }
 }

@@ -1,5 +1,7 @@
 import { Icon, cn } from '@maquette/ui';
 import { DiscardedList } from '../DiscardedList';
+import { DownloadsOnHold } from '../DownloadsOnHold';
+import { RoundSummary } from '../RoundSummary';
 import { WaitingSends } from '../WaitingSends';
 
 export interface InboxClearProps {
@@ -9,13 +11,14 @@ export interface InboxClearProps {
 }
 
 /**
- * The empty inbox after a round: where new models come from, the By hand
- * sends still waiting, and the models discarded lately with Restore.
+ * The empty inbox after a round: where new models come from, what the round
+ * came to, the By hand sends still waiting, the models discarded lately with
+ * Restore and the downloads on hold.
  */
 export default function InboxClear({ dir, watching = false }: InboxClearProps) {
   return (
     <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-6 py-10">
-      <div className="flex w-full max-w-[560px] flex-col gap-6">
+      <div className="flex w-full max-w-[640px] flex-col gap-6">
         <div className="flex flex-col items-center gap-2 text-center">
           <span className="grid size-11 place-items-center rounded-full bg-sage-soft text-sage">
             <Icon name="check-circle" size={22} />
@@ -30,8 +33,10 @@ export default function InboxClear({ dir, watching = false }: InboxClearProps) {
             {watching ? 'Watching the folder' : 'The folder is not watched'}
           </span>
         </div>
+        <RoundSummary />
         <WaitingSends />
         <DiscardedList limit={8} />
+        <DownloadsOnHold />
       </div>
     </div>
   );

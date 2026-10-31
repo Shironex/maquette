@@ -4,7 +4,15 @@
  * date through the rig changed event, whether or not it is on show.
  */
 import { create } from 'zustand';
-import { commands, errorMessage, type RigRecord, type RigRun, type RigTarget } from '@/ipc/client';
+import {
+  commands,
+  errorMessage,
+  type RigChainEdit,
+  type RigRecord,
+  type RigRoute,
+  type RigRun,
+  type RigTarget,
+} from '@/ipc/client';
 import { useAppStore } from './use-app-store';
 
 interface RigStore {
@@ -25,6 +33,10 @@ interface RigStore {
   run: (what: RigRun) => Promise<void>;
   cancel: () => Promise<void>;
   decideJoints: (approve: boolean) => Promise<void>;
+  /** A person picks the other route; the case starts over. */
+  setRoute: (route: RigRoute) => Promise<void>;
+  /** A person's word on a creature's chains; a correction starts the case over. */
+  confirmChains: (edits: RigChainEdit[]) => Promise<void>;
   land: () => Promise<void>;
   discard: () => Promise<void>;
   saveSheet: () => Promise<void>;
@@ -97,6 +109,9 @@ export const useRigStore = create<RigStore>((set, get) => {
     },
     decideJoints: approve =>
       act('Could not answer the joint move', id => commands.rigDecideJoints(id, approve)),
+    setRoute: route => act('Could not change the route', id => commands.rigSetRoute(id, route)),
+    confirmChains: edits =>
+      act('Could not save the chains', id => commands.rigConfirmChains(id, edits)),
     land: () => act('Could not add the draft', id => commands.rigLand(id)),
     discard: () => act('Could not discard the draft', id => commands.rigDiscard(id)),
     saveSheet: async () => {

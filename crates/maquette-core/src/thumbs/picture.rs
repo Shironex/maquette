@@ -45,6 +45,10 @@ impl PictureRenderer {
 }
 
 impl PictureRender for PictureRenderer {
+    fn ready(&self) -> bool {
+        (self.tools)().has(ToolId::Blender)
+    }
+
     fn render(&self, model: &Path, dir: &Path, key: &str) -> CoreResult<PathBuf> {
         let out = format!("{key}.png");
         let png = dir.join(&out);

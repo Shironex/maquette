@@ -4,6 +4,10 @@
 //! was going to, so the Inbox can list them newest first and a restore can
 //! aim the model at that asset again. A file discarded before the notes
 //! existed is still listed and restored, by its modified time and name.
+//!
+//! A discarded model is kept [`DISCARD_KEEP_DAYS`] days, counted from when it
+//! left the inbox, then [`prune_discarded`] removes it for good. Nothing else
+//! in the workspace is touched by that.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -19,8 +23,15 @@ use crate::thumbs::Fingerprint;
 use crate::workspace::{WorkspaceConfig, is_single_segment};
 
 const NOTES_FILE: &str = "discarded.json";
+/// How long a discarded model waits before it goes for good.
+pub const DISCARD_KEEP_DAYS: u32 = 30;
+const DAY_MS: f64 = 24.0 * 3600.0 * 1000.0;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+fn expires_at(discarded_ms: f64) -> f64 {
+    discarded_ms + f64::from(DISCARD_KEEP_DAYS) * DAY_MS
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Note {
     /// The inbox name the model had.
@@ -43,6 +54,8 @@ pub struct DiscardedModel {
     pub bytes: f64,
     /// When it was discarded; the file's modified time for an older discard.
     pub discarded_ms: f64,
+    /// When it goes for good.
+    pub expires_ms: f64,
     /// The asset it was going to, when it was going somewhere.
     pub asset_name: Option<String>,
     /// The version that had replaced it, when a redo had.
@@ -102,6 +115,49 @@ pub fn remember(
         },
     );
     save(&dir, &notes);
+    super::round::note_discarded(root, config, &done.id, at_ms);
+}
+
+/// Removes the discarded models whose days are up, with their notes, and
+/// answers their names. A file without a note has no known discard time (a
+/// move keeps its old modified date), so it gets a note now and its full days
+/// from here. Nothing is removed when the folder cannot be read.
+pub fn prune_discarded(root: &Path, config: &WorkspaceConfig, now_ms: f64) -> Vec<String> {
+    let dir = folder(root, config);
+    let Ok(read) = fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let mut notes = load(&dir);
+    let before = notes.clone();
+    let mut gone = Vec::new();
+    for path in read.filter_map(Result::ok).map(|e| e.path()) {
+        if !path.is_file() || !watch::is_model(&path) {
+            continue;
+        }
+        let name = path
+            .file_name()
+            .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+        let note = notes.entry(name.clone()).or_default();
+        if note.at_ms <= 0.0 {
+            note.at_ms = now_ms;
+            continue;
+        }
+        if now_ms < expires_at(note.at_ms) {
+            continue;
+        }
+        match fs::remove_file(&path) {
+            Ok(()) => {
+                notes.remove(&name);
+                gone.push(name);
+            }
+            Err(err) => tracing::warn!(error = %err, "could not prune a discarded model"),
+        }
+    }
+    notes.retain(|name, _| dir.join(name).is_file());
+    if notes != before {
+        save(&dir, &notes);
+    }
+    gone
 }
 
 /// Every discarded model, the most recently discarded first.
@@ -127,6 +183,11 @@ pub fn list_discarded(root: &Path, config: &WorkspaceConfig) -> CoreResult<Vec<D
             let (len, modified_ns) = stamp(&meta);
             let Fingerprint { bytes, modified_ms } = Fingerprint::new(len, modified_ns);
             let note = notes.get(&name).cloned().unwrap_or_default();
+            let discarded_ms = if note.at_ms > 0.0 {
+                note.at_ms
+            } else {
+                modified_ms
+            };
             Some(DiscardedModel {
                 id: if note.id.is_empty() {
                     name.clone()
@@ -135,11 +196,8 @@ pub fn list_discarded(root: &Path, config: &WorkspaceConfig) -> CoreResult<Vec<D
                 },
                 file: path.display().to_string(),
                 bytes,
-                discarded_ms: if note.at_ms > 0.0 {
-                    note.at_ms
-                } else {
-                    modified_ms
-                },
+                discarded_ms,
+                expires_ms: expires_at(discarded_ms),
                 asset_name: note.goal.map(|g| g.asset_name),
                 replaced_by: note.replaced_by,
                 name,
@@ -190,6 +248,7 @@ pub fn restore(root: &Path, config: &WorkspaceConfig, name: &str) -> CoreResult<
         fs::remove_file(&source).map_err(|e| CoreError::io(&source, e))?;
     }
     save(&dir, &notes);
+    super::round::note_restored(root, config, &wanted);
     let id = target
         .file_name()
         .map_or_else(|| wanted.clone(), |n| n.to_string_lossy().into_owned());

@@ -6,6 +6,7 @@
  * `?arrival=unmatched` drops "model (3).glb", which asks which asset it is,
  * and `?arrival=look` drops a Tripo batch export whose name is only close
  * to the Lantern post send (it waits for a look) and two that fit no send.
+ * `?arrival=hold` has two downloads on hold, waiting for Blender to come back.
  */
 import type {
   Arrival,
@@ -176,6 +177,28 @@ export function createDownloadsHandlers({
       ...pictured(name, ranked(lantern.assetName, 0.91, 0.47)),
     });
   };
+
+  if (arrival === 'hold') {
+    const held = (name: string, n: number, reason: string, close: string | null) => ({
+      ...file(name, n),
+      reason,
+      picture: 'held' as const,
+      suggestions: waiting().map((job, i) => ({
+        job: job.id,
+        project: job.project,
+        asset: job.asset,
+        assetName: close && i === 0 ? close : job.assetName,
+        score: close && i === 0 ? 0.6 : 0,
+        picture: null,
+        name: close && i === 0 ? 0.6 : 0,
+        image: job.images[0] ?? null,
+      })),
+    });
+    arrivals = [
+      held('snowman 3d model.glb', 8, 'No name match', null),
+      held('festive wreath 3d model.glb', 9, 'Name is close', 'Wreath stand'),
+    ];
+  }
 
   if (arrival === 'named' || arrival === 'unmatched' || arrival === 'look') {
     setTimeout(() => {

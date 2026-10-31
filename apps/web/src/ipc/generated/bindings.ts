@@ -222,6 +222,13 @@ export const commands = {
 	rigLand: (id: string) => __TAURI_INVOKE<RigRecord>("rig_land", { id }),
 	/**  Drops the draft. The version it came from is as it was. */
 	rigDiscard: (id: string) => __TAURI_INVOKE<RigRecord>("rig_discard", { id }),
+	/**  A person picks the other route. The case starts over. */
+	rigSetRoute: (id: string, route: RigRoute) => __TAURI_INVOKE<RigRecord>("rig_set_route", { id, route }),
+	/**
+	 *  A person's word on a creature's chains. With a correction the case starts
+	 *  over, so an agent's card about the old draft closes; its next fix asks again.
+	 */
+	rigConfirmChains: (id: string, edits: RigChainEdit[]) => __TAURI_INVOKE<RigRecord>("rig_confirm_chains", { id, edits }),
 	/**  Copies the case's newest sheet to `exports/rig/` and shows it. */
 	rigSaveSheet: (id: string) => __TAURI_INVOKE<string>("rig_save_sheet", { id }),
 	/**  Opens the case's draft, or else its model, in Blender's window. */
@@ -520,6 +527,11 @@ export const commands = {
 	inboxDiscard: (id: string) => __TAURI_INVOKE<Discarded>("inbox_discard", { id }),
 	/**  The models discarded from the inbox, the most recent first. */
 	inboxDiscarded: () => __TAURI_INVOKE<DiscardedModel[]>("inbox_discarded"),
+	/**
+	 *  The numbers of the round since `since_ms`: what was accepted and discarded,
+	 *  and the redos sent, with their credits as far as known.
+	 */
+	inboxRound: (sinceMs: number | null) => __TAURI_INVOKE<InboxRound>("inbox_round", { sinceMs }),
 	/**
 	 *  Puts a discarded model back into the inbox, aimed at the asset it was
 	 *  going to. The watcher then lists it with its checks.
@@ -2458,6 +2470,8 @@ export type DiscardedModel = {
 	bytes: number | null,
 	/**  When it was discarded; the file's modified time for an older discard. */
 	discardedMs: number | null,
+	/**  When it goes for good. */
+	expiresMs: number | null,
 	/**  The asset it was going to, when it was going somewhere. */
 	assetName: string | null,
 	/**  The version that had replaced it, when a redo had. */
@@ -3194,6 +3208,16 @@ export type InboxLink = {
 	provider: Provider,
 	/**  The send it redoes, when it came from a Redo. */
 	redoOf?: string | null,
+};
+
+/**  The numbers of a round: everything since a moment the app chooses. */
+export type InboxRound = {
+	accepted: number,
+	toLibrary: number,
+	discarded: number,
+	redoSent: number,
+	/**  What those redos cost or are estimated to, as far as known. */
+	redoCredits: number | null,
 };
 
 export type InboxSnapshot = {
@@ -4664,6 +4688,8 @@ export type PictureState =
 "skipped" | 
 /**  Waiting for its headless render. */
 "queued" | 
+/**  On hold: Blender is missing, so it waits for it to come back. */
+"held" | 
 /**  Rendered, and the sends ranked by it. */
 "ready" | 
 /**  The render or the comparison did not work out; the name ranks. */
@@ -5677,11 +5703,25 @@ export type Rig = {
 /**  One row of a creature's chains table. */
 export type RigChain = {
 	chain: string,
+	/**
+	 *  The chain's first bone, which an edit names; empty on a row of several
+	 *  chains, which cannot be edited.
+	 */
+	key?: string,
 	bones: number,
 	side: string,
 	/**  chain, stray, swapped or junk. */
 	readAs: string,
 	note: string | null,
+};
+
+/**  A person's correction of one chain, named by its first bone. */
+export type RigChainEdit = {
+	key: string,
+	/**  `chain` or `junk`. */
+	readAs: string | null,
+	/**  `left` or `right`, for a leg. */
+	side: string | null,
 };
 
 /**
@@ -5764,6 +5804,8 @@ export type RigModel = {
 	islands: number,
 	/**  One continuous shell: the per island fix would tear it. */
 	oneIsland: boolean,
+	/**  Mixamo names, so the humanoid route can run on it. */
+	humanoidOk?: boolean,
 	/**  The Inbox check that sends a person here, in words. */
 	finding: string | null,
 };
@@ -5825,6 +5867,15 @@ export type RigRecord = {
 	stages: RigStage[],
 	log: RigLogLine[],
 	stop: RigStop | null,
+	/**
+	 *  A person looked at the chains read from the bone tree. A creature's
+	 *  draft cannot be added before that.
+	 */
+	chainsConfirmed?: boolean,
+	/**  What a person corrected in those chains; every read applies it. */
+	chainEdits?: RigChainEdit[],
+	/**  The strip of a creature's walk clip proof. */
+	walkProof?: string | null,
 	/**  The version the draft became. */
 	landed: number | null,
 	error: string | null,
@@ -5861,7 +5912,12 @@ export type RigRun =
 /**  The fix, its checks and the pose test after. */
 "fix" | 
 /**  The fix again with a wider seam; the last round. */
-"round2";
+"round2" | 
+/**
+ *  A creature's draft walking on a copy, to see the rig move. The clip
+ *  never goes into the draft.
+ */
+"walk-proof";
 
 /**  A pose sheet: one PNG of everything, and its rows. */
 export type RigSheet = {

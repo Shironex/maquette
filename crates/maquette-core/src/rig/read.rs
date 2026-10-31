@@ -148,6 +148,7 @@ pub fn read_model(file: &Path) -> CoreResult<(RigModel, Option<RigRoute>, Vec<Ri
         arm_far: probe.map_or(0, |p| p.arm_far),
         islands: probe.map_or(0, |p| p.islands),
         one_island: probe.is_some_and(|p| p.one_island),
+        humanoid_ok: report.rig == RigKind::Mixamo,
         finding: finding(&report, probe),
     };
     Ok((model, route_of(&report), issues(&report, probe)))
