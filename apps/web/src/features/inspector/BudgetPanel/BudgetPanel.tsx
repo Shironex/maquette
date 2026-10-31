@@ -114,8 +114,9 @@ export default function BudgetPanel() {
           onChange={b.setFilter}
         />
         {b.total ? (
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-card border border-line bg-panel">
-            <table className="w-full table-fixed border-collapse text-[12px]">
+          <div className="min-h-0 flex-1 overflow-auto rounded-card border border-line bg-panel">
+            {/* The columns keep their widths and the model column its room; a narrow panel scrolls. */}
+            <table className="w-full min-w-[800px] table-fixed border-collapse text-[12px]">
               <colgroup>
                 <col />
                 <col className="w-[160px]" />

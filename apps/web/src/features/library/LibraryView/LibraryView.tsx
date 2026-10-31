@@ -83,7 +83,7 @@ export default function LibraryView() {
       tooltip="Pick a model from a project to keep in the library"
       onClick={() => v.openAdd('pick')}
     >
-      Add from a project
+      <span className="@max-[800px]:sr-only">Add from a project</span>
     </Button>
   );
 
@@ -91,10 +91,12 @@ export default function LibraryView() {
     <>
       <TopBar
         lead={
-          <div className="flex items-baseline gap-2.5">
-            <h1 className="text-panel-title">Models</h1>
+          <div className="flex min-w-0 items-baseline gap-2.5">
+            <h1 className="flex-none text-panel-title">Models</h1>
             {v.loaded ? (
-              <span className="text-meta text-fg-mute">{v.items.length} in the library</span>
+              <span className="min-w-0 truncate text-meta text-fg-mute">
+                {v.items.length} in the library
+              </span>
             ) : null}
           </div>
         }
@@ -108,7 +110,7 @@ export default function LibraryView() {
               value={filters.query}
               maxLength={120}
               onChange={e => setFilters({ query: e.target.value })}
-              fieldClassName="w-[260px]"
+              fieldClassName="w-[260px] @max-[1100px]:w-[200px] @max-[800px]:w-[150px]"
             />
             <SegmentedControl
               label="Layout"
@@ -119,6 +121,7 @@ export default function LibraryView() {
               ]}
               value={layout}
               onChange={setLayout}
+              labelClassName="@max-[950px]:sr-only"
             />
             {addOne}
             <Button
@@ -128,14 +131,14 @@ export default function LibraryView() {
               tooltip={v.pack.tip}
               onClick={v.pack.start}
             >
-              Export pack
+              <span className="@max-[1100px]:sr-only">Export pack</span>
             </Button>
             <Button
               icon="books"
               tooltip="Adds every accepted model of a project at once, names and tags set first"
               onClick={v.openAddMany}
             >
-              Add a whole project
+              <span className="@max-[1100px]:sr-only">Add a whole project</span>
             </Button>
           </div>
         }

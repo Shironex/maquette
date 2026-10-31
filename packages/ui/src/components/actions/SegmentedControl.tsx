@@ -31,6 +31,11 @@ export interface SegmentedControlProps<T extends string> {
   /** The whole control is shown but locked: dimmed, and every option says so. */
   disabled?: boolean;
   className?: string;
+  /**
+   * Classes for each option's label, such as a container query that hides it
+   * (`@max-[900px]:sr-only`) so the options shrink to their icons in a narrow bar.
+   */
+  labelClassName?: string;
 }
 
 export function SegmentedControl<T extends string>({
@@ -43,6 +48,7 @@ export function SegmentedControl<T extends string>({
   block,
   disabled: locked,
   className,
+  labelClassName,
 }: SegmentedControlProps<T>) {
   const first = options[0]?.value;
   const [current, set] = useControllable<T | undefined>(value, defaultValue ?? first, next => {
@@ -73,7 +79,7 @@ export function SegmentedControl<T extends string>({
           )}
         >
           {o.icon ? <Icon name={o.icon} size={14} /> : null}
-          {o.label}
+          {labelClassName && o.label ? <span className={labelClassName}>{o.label}</span> : o.label}
         </button>
       </Tooltip>
     );
