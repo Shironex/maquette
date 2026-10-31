@@ -8,7 +8,25 @@
 
 const DEMO = '&scenario=configured&library=demo';
 
+/** A pack mid run: one running, the rest waiting, then a stop and what goes on from there. */
+async function packRunShots({ open, shot }) {
+  const page = await open('&scenario=configured&library=scale', '#/library');
+  await page.getByRole('button', { name: 'Export pack', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name: 'Export pack' });
+  await sheet.getByRole('button', { name: 'Export and check' }).click();
+  await sheet.getByText(/^2 of \d+ done · about/).waitFor();
+  await sheet.getByRole('tab', { name: /^Waiting/ }).waitFor();
+  await shot(page, 'library-pack-running');
+  await sheet.getByRole('button', { name: 'Stop', exact: true }).click();
+  await sheet.getByText(/stopping after this model/).waitFor();
+  await shot(page, 'library-pack-stopping');
+  await sheet.getByRole('button', { name: /^Go on from \d+$/ }).waitFor({ timeout: 15_000 });
+  await sheet.getByText(/^Stopped with \d+ of \d+ done, model \d+ is next$/).waitFor();
+  await shot(page, 'library-pack-stopped');
+}
+
 export async function libraryShots({ open, shot }) {
+  await packRunShots({ open, shot });
   const grid = await open(DEMO, '#/library');
   await grid.getByText('8 models', { exact: true }).waitFor();
   await grid.getByRole('button', { name: 'Sort: Most used' }).waitFor();
