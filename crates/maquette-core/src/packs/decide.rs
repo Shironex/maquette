@@ -26,15 +26,37 @@ impl PackDecision {
     }
 }
 
-/// What to call a pack that stopped before every model ran.
-pub(super) fn stopped_at(record: &PackRecord, why: &str) -> String {
-    let at = record.done() + 1;
-    format!("{why} at model {at} of {}", record.items.len())
+/// The model that runs next, counted from 1: the first not settled. A
+/// model cut short counts as not run, so going on checks it again.
+fn next_model(record: &PackRecord) -> Option<usize> {
+    record
+        .items
+        .iter()
+        .position(|i| !i.state.is_settled())
+        .map(|at| at + 1)
 }
 
-/// A record left running by an app that closed reads as stopped.
+/// What to call a pack that stopped before every model ran.
+pub(super) fn stopped_at(record: &PackRecord, why: &str) -> String {
+    let done = record.done();
+    let all = record.items.len();
+    match next_model(record) {
+        Some(next) => format!("{why} with {done} of {all} done, model {next} is next"),
+        None => format!("{why} with {done} of {all} done"),
+    }
+}
+
+/// A record left running by an app that closed reads as stopped. One that
+/// closed with every model run has nothing to go on with, so it waits for
+/// the zip again.
 pub(super) fn settle_closed(mut record: PackRecord) -> PackRecord {
     if record.state.is_active() {
+        if next_model(&record).is_none() {
+            record.message =
+                Some("Maquette closed while finishing the pack. Zip it again.".to_string());
+            record.state = PackState::Waiting;
+            return record;
+        }
         record.message = Some(stopped_at(&record, "Maquette closed"));
         record.state = PackState::Stopped;
         for item in &mut record.items {

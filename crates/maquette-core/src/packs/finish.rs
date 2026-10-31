@@ -14,6 +14,7 @@ use super::licence::{self, MIXAMO_NOTE};
 use super::model_run::WORK_DIR;
 use super::record::{MARKER, PackItem, PackItemState, PackRecord, PackState};
 use super::{PackCompression, PackSettings, sheet};
+use crate::assets::AssetKind;
 use crate::error::{CoreError, CoreResult};
 use crate::project::now_rfc3339;
 
@@ -36,25 +37,31 @@ fn takes(item: &PackItem, choice: ZipChoice) -> bool {
         && (item.state.passes() || (choice == ZipChoice::All && item.state == PackItemState::Warn))
 }
 
-fn budgets_line(settings: &PackSettings) -> String {
-    let set: Vec<String> = settings
-        .budgets
-        .iter()
-        .filter_map(|b| {
-            b.triangles.map(|t| {
-                format!(
-                    "{} {}",
-                    super::kind_label(b.kind).to_lowercase(),
-                    crate::assets::short_count(t)
-                )
-            })
-        })
-        .collect();
-    if set.is_empty() {
-        "none, every model as it was".to_string()
-    } else {
-        set.join(", ")
+/// "115,673".
+fn with_commas(n: u32) -> String {
+    let digits = n.to_string();
+    let mut text = String::new();
+    for (at, digit) in digits.chars().enumerate() {
+        if at > 0 && (digits.len() - at).is_multiple_of(3) {
+            text.push(',');
+        }
+        text.push(digit);
     }
+    text
+}
+
+fn budgets_line(settings: &PackSettings) -> String {
+    [AssetKind::Prop, AssetKind::Character, AssetKind::Scene]
+        .into_iter()
+        .map(|kind| {
+            let label = super::kind_label(kind).to_lowercase();
+            match settings.budget(kind) {
+                Some(t) => format!("{label} {}", with_commas(t)),
+                None => format!("{label} as they are"),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// The README a pack carries.

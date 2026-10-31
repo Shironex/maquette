@@ -148,7 +148,7 @@ fn a_pack_the_app_closed_on_reads_as_stopped_and_goes_on_from_there() {
     assert_eq!(read.state, PackState::Stopped);
     assert_eq!(
         read.message.as_deref(),
-        Some("Maquette closed at model 2 of 3")
+        Some("Maquette closed with 1 of 3 done, model 2 is next")
     );
     assert_eq!(read.items[1].state, PackItemState::Queued);
     assert_eq!(packs.recent(&root)[0].state, PackState::Stopped);
@@ -157,4 +157,35 @@ fn a_pack_the_app_closed_on_reads_as_stopped_and_goes_on_from_there() {
         .resume(&root, Toolbox::default(), defaults(), &closed.id)
         .expect_err("no blender");
     assert!(err.to_string().contains("Blender"));
+}
+
+#[test]
+fn a_model_sent_back_is_the_next_one_the_stop_message_names() {
+    let dir = tempfile::tempdir().expect("dir");
+    let mut record = done_record(dir.path());
+    record.items[0].state = PackItemState::Queued;
+    assert_eq!(
+        super::decide::stopped_at(&record, "Stopped"),
+        "Stopped with 2 of 3 done, model 1 is next"
+    );
+}
+
+#[test]
+fn a_pack_the_app_closed_on_while_zipping_waits_for_the_zip_again() {
+    let dir = tempfile::tempdir().expect("dir");
+    let root = dir.path().join("ws");
+    let mut closed = done_record(dir.path());
+    closed.state = PackState::Zipping;
+    record::save(&root, &closed).expect("save");
+    let (packs, _) = service();
+    let read = packs.get(&root, &closed.id).expect("get");
+    assert_eq!(read.state, PackState::Waiting);
+    assert_eq!(
+        read.message.as_deref(),
+        Some("Maquette closed while finishing the pack. Zip it again.")
+    );
+    let done = packs
+        .zip(&root, &closed.id, ZipChoice::Passing)
+        .expect("zip");
+    assert_eq!(done.state, PackState::Done);
 }

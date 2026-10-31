@@ -40,6 +40,7 @@ mod plan;
 mod presets;
 mod record;
 mod sheet;
+mod verdict;
 
 pub use decide::PackDecision;
 pub use finish::{ZipChoice, finish};

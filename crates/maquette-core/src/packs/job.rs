@@ -404,16 +404,18 @@ fn run_pack(inner: &Inner, drive: &Drive, id: &str) {
             };
             let next = if let Some(choice) = a.zip {
                 Next::Zip(choice)
-            } else if a.stop {
-                Next::Stop
             } else if let Some(at) = a
                 .record
                 .items
                 .iter()
                 .position(|i| i.state == PackItemState::Queued)
             {
-                a.record.items[at].state = PackItemState::Running;
-                Next::Model(at, Box::new(a.record.items[at].clone()))
+                if a.stop {
+                    Next::Stop
+                } else {
+                    a.record.items[at].state = PackItemState::Running;
+                    Next::Model(at, Box::new(a.record.items[at].clone()))
+                }
             } else {
                 Next::Settle
             };
