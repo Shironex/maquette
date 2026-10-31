@@ -11,7 +11,7 @@ import {
 import type { PackFormat } from '@/ipc/client';
 import { formatBytes } from '@/lib/format';
 import { FORMAT_LABEL, TEXTURE_SIZES } from '@/state/packs';
-import { RecentPacks } from '../RecentPacks';
+import { EarlierPacks } from '../RecentPacks';
 import BudgetTable from './BudgetTable';
 import { usePackSettings } from './PackSettings.hooks';
 
@@ -53,6 +53,12 @@ export default function PackSettings() {
   return (
     <>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-3">
+        <EarlierPacks
+          recent={s.recent}
+          busy={s.busy}
+          onOpen={id => void s.showRecord(id)}
+          onResume={id => void s.resume(id)}
+        />
         <section aria-label="Pack settings" className="flex flex-col">
           <Row label="Preset" note={s.presetNote}>
             <div className="flex items-center gap-2">
@@ -216,20 +222,6 @@ export default function PackSettings() {
             browseLabel="Choose"
           />
         </section>
-        {s.recent.length ? (
-          <section aria-label="Recent packs" className="flex flex-col gap-1">
-            <h3 className="text-[11px] font-semibold tracking-[0.04em] text-fg-mute uppercase">
-              Recent packs
-            </h3>
-            <RecentPacks
-              recent={s.recent}
-              current={null}
-              busy={s.busy}
-              onOpen={id => void s.showRecord(id)}
-              onResume={id => void s.resume(id)}
-            />
-          </section>
-        ) : null}
         {s.error ? (
           <p role="alert" className="text-meta text-danger">
             {s.error}
