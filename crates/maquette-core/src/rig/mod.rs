@@ -392,6 +392,10 @@ pub struct RigRecord {
     pub id: String,
     pub name: String,
     pub started_by: RigStarter,
+    /// An agent opened this case too, so its next draft asks a person.
+    #[serde(default)]
+    #[specta(skip)]
+    pub agent_opened: bool,
     pub route: Option<RigRoute>,
     pub state: RigState,
     pub step: RigStep,
