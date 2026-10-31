@@ -408,31 +408,42 @@ fn a_lane_runs_up_to_its_limit_at_once() {
         dir.path(),
         vec![shell_step("job", "tools/job.sh", &[], &[])],
     );
-    // Each job notes when it starts and ends, sleeping in between.
+    // Each job logs its start, then waits until two jobs have started before
+    // it ends. With a limit of two the first pair meets and the third can only
+    // start once one of them is done. The proof is the order of the log, never
+    // the wall clock, so a busy machine only makes it slower.
     script(
         &s,
         "job.sh",
-        "echo \"start $(date +%s%N)\" >> order.log\nsleep 0.6\necho \"end $(date +%s%N)\" >> order.log\n",
+        "echo \"start $$\" >> order.log\n\
+         i=0\n\
+         while [ \"$(grep -c '^start' order.log)\" -lt 2 ] && [ $i -lt 400 ]; do sleep 0.05; i=$((i+1)); done\n\
+         [ \"$(grep -c '^start' order.log)\" -ge 2 ] || echo \"timeout $$\" >> order.log\n\
+         echo \"end $$\" >> order.log\n",
     );
     let runner = PipelineRunner::new(Arc::new(NullSink));
     runner.set_limit("moon", 2);
-    let started = Instant::now();
     let mut forced = s.clone();
     forced.force = true;
-    let runs: Vec<RunRecord> = (0..3)
-        .map(|_| runner.submit(forced.clone()).expect("submit"))
-        .collect();
-    assert_eq!(runs[2].state, RunState::Queued);
-    thread::sleep(Duration::from_millis(200));
-    assert_eq!(runner.running("moon").len(), 2);
+    for _ in 0..3 {
+        runner.submit(forced.clone()).expect("submit");
+    }
     while !runner.running("moon").is_empty() || !runner.active("moon").1.is_empty() {
         thread::sleep(Duration::from_millis(20));
     }
-    // Two at a time: about two rounds of 0.6 s, not three.
-    let took = started.elapsed();
-    assert!(took < Duration::from_millis(1700), "{took:?}");
     let log = fs::read_to_string(s.project_dir.join("order.log")).expect("log");
-    assert_eq!(log.lines().filter(|l| l.starts_with("start")).count(), 3);
+    let words: Vec<&str> = log
+        .lines()
+        .map(|l| l.split(' ').next().unwrap_or(""))
+        .collect();
+    // The first two overlap (each waited for the other), the third starts only
+    // after a slot was freed, and nobody timed out waiting for a partner.
+    assert!(!log.contains("timeout"), "{log}");
+    assert_eq!(words.iter().filter(|w| **w == "start").count(), 3, "{log}");
+    assert_eq!(&words[..2], ["start", "start"], "{log}");
+    assert_eq!(words[2], "end", "{log}");
+    let third = words.iter().rposition(|w| *w == "start").expect("third");
+    assert!(third >= 3, "{log}");
     let done = history::load_runs(&s.cache_dir);
     assert!(done.iter().all(|r| r.state == RunState::Done), "{done:?}");
 }
