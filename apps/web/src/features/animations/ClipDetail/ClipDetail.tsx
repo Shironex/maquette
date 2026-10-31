@@ -7,6 +7,7 @@ import {
   rootMotionLine,
   storedLine,
 } from '@/state/animations';
+import RoughPreview from '@/features/viewer/RoughPreview';
 import { ClipPreview } from '../ClipPreview';
 import { useClipDetail } from './ClipDetail.hooks';
 
@@ -58,7 +59,19 @@ export default function ClipDetail({ item }: ClipDetailProps) {
       aria-label="Selected clip"
       className="flex w-[360px] flex-none flex-col gap-4 overflow-y-auto border-l border-line bg-panel p-[18px]"
     >
-      <ClipPreview key={clip.id} item={item} className="aspect-[4/3] w-full flex-none" />
+      {detail.trying && detail.first ? (
+        <RoughPreview
+          key={clip.id}
+          project={detail.project?.id ?? null}
+          asset={detail.first.asset}
+          modelName={detail.first.name}
+          modelFile={detail.first.file}
+          clip={{ id: clip.id, name: clip.name, file: item.file }}
+          className="aspect-[4/3] w-full flex-none"
+        />
+      ) : (
+        <ClipPreview key={clip.id} item={item} className="aspect-[4/3] w-full flex-none" />
+      )}
       <div>
         <h2 className="text-panel-title">{clip.name}</h2>
         <p className="mt-0.5 text-meta text-fg-mute">{originLine(clip)}</p>
@@ -74,6 +87,16 @@ export default function ClipDetail({ item }: ClipDetailProps) {
       >
         Use on model
       </Button>
+      {detail.first ? (
+        <Button
+          icon="person-simple-walk"
+          aria-pressed={detail.trying}
+          tooltip="Plays the clip live on the model, roughly, with its bone map. Nothing bakes."
+          onClick={detail.toggleTry}
+        >
+          {detail.trying ? 'Back to its skeleton' : `Try on ${detail.first.name}`}
+        </Button>
+      ) : null}
       <section aria-label="Where it is used" className="flex flex-col gap-1.5">
         <p className="text-caption tracking-[0.04em] text-fg-mute uppercase">Where it is used</p>
         {uses.length ? (
