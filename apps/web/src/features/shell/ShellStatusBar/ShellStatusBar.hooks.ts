@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNow } from '@/lib/useNow';
 import { mcpStatusItem } from '@/state/agents';
 import { runStatusLine } from '@/state/pipeline';
@@ -10,6 +11,8 @@ import { useCodexUsageStore } from '@/state/use-codex-usage-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { usePageStore } from '@/state/use-page-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
+import { renderStatusLine } from '@/state/renders';
+import { useRenderStore } from '@/state/use-render-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { shellStatusItems, type ShellStatus } from './statusItems';
 
@@ -35,6 +38,11 @@ export function useShellStatusBar(
   const libraryModels = useLibraryStore(s => s.view?.items.length ?? null);
   const animations = useAnimationsStore(s => s.view);
   const codexUsage = useCodexUsageStore(s => s.usage);
+  const rendering = renderStatusLine(useRenderStore(s => s.live));
+  const projectId = workspace?.project?.id;
+  useEffect(() => {
+    if (projectId) void useRenderStore.getState().loadRecent();
+  }, [projectId]);
   return shellStatusItems({
     view,
     workspace,
@@ -47,6 +55,7 @@ export function useShellStatusBar(
     mcp,
     sends,
     server,
+    rendering,
     siteControl,
     libraryModels,
     animationClips: animations?.items.length ?? null,

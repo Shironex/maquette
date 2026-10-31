@@ -17,6 +17,7 @@ import { useMaterialsStore } from '@/state/use-materials-store';
 import { useMotionStore } from '@/state/use-motion-store';
 import { useRigStore } from '@/state/use-rig-store';
 import { usePackStore } from '@/state/use-pack-store';
+import { useRenderStore } from '@/state/use-render-store';
 import { useTimelineStore } from '@/state/use-timeline-store';
 import { usePathsStore } from '@/state/use-paths-store';
 import { usePageStore } from '@/state/use-page-store';
@@ -239,6 +240,7 @@ export function useLiveData(projectId: string | null, root: string | null) {
       }),
       events.packChanged.listen(e => usePackStore.getState().onChanged(e.payload.record)),
       events.rigChanged.listen(e => useRigStore.getState().onChanged(e.payload.record)),
+      events.renderChanged.listen(e => useRenderStore.getState().onChanged(e.payload.record)),
       events.mcpUpdate.listen(e => onAgents(e.payload)),
       events.providerUpdate.listen(e => onProvider(e.payload)),
       events.materialsChanged.listen(e => void loadMaterials(e.payload.project)),
