@@ -54,6 +54,10 @@ pub struct RenderProblem {
     pub message: String,
     /// What a WebP loop of the same turn would weigh, about.
     pub webp_bytes: Option<f64>,
+    /// The last of what Blender said, for Show the log, when it failed.
+    #[serde(default)]
+    #[specta(optional)]
+    pub log: Option<String>,
 }
 
 /// Where one file stands.

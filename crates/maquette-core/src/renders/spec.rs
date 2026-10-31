@@ -32,6 +32,15 @@ pub(super) fn angles(camera: RenderCamera) -> (u32, u32) {
     }
 }
 
+/// The camera of a still of `settings`: a camera stop's view when one is
+/// picked, else the camera's.
+pub(super) fn aim(settings: &RenderSettings) -> (u32, u32) {
+    settings
+        .stop
+        .as_ref()
+        .map_or_else(|| angles(settings.camera), |s| (s.azimuth, s.elevation))
+}
+
 /// The look of a style that is a look of its own; a loop or a sheet takes
 /// the settings' look.
 pub(super) fn look_name(style: RenderStyle, settings: &RenderSettings) -> &'static str {
@@ -76,7 +85,7 @@ pub(super) fn still_job(
     size: u32,
     turn: u32,
 ) -> Value {
-    let (azimuth, elevation) = angles(settings.camera);
+    let (azimuth, elevation) = aim(settings);
     merged(
         base(look_name(style, settings), settings, out, size),
         json!({

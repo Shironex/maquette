@@ -479,7 +479,7 @@ def screen_box(scene, cam, points):
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def furniture(scene, cam, model, s, job, distance):
+def furniture(scene, cam, model, s, job, distance, swept=None):
     collection = bpy.data.collections[OVERLAY]
     if job["style"] != "blueprint":
         return
@@ -506,7 +506,7 @@ def furniture(scene, cam, model, s, job, distance):
     measured = max(model.hi.z - model.lo.z, 1e-6)
     real_h = s.get("heightM") or measured
     per_unit = real_h / measured
-    left, bottom, right, top = screen_box(scene, cam, model.points)
+    left, bottom, right, top = screen_box(scene, cam, swept or model.points)
     t = px * 1.3
     if job["marks"]:
         x = max(left - 0.09, -0.94)
@@ -525,7 +525,9 @@ def furniture(scene, cam, model, s, job, distance):
         )
         size = 0.034
         sheet.text("height", f"{real_h:.2f} m", x - 0.016, (bottom + top) / 2, size, "CENTER", math.pi / 2)
-        width_real = (model.hi.x - model.lo.x) * per_unit
+        # A turning model's width is the circle it sweeps.
+        across = max(p.x for p in swept) - min(p.x for p in swept) if swept else model.hi.x - model.lo.x
+        width_real = across * per_unit
         sheet.text("width", f"{width_real:.2f} m", (left + right) / 2, y - 0.046, size, "CENTER")
     if job["titleBlock"]:
         w, h = 0.62, 0.15
@@ -636,16 +638,20 @@ def read_pixels(path):
     return px.reshape(h, w, 4)
 
 
-def run_turn(scene, model, job):
+def run_turn(scene, model, s, job):
     """One full turn: the frames, the box they move in, then cropped and flat."""
     overlay_collection(scene)
     scene.render.resolution_x = scene.render.resolution_y = job["size"]
     points = model.corners(True)
-    cam, centre, _ = place_camera(scene, points, job["azimuth"], job["elevation"], 0.9)
+    drawn = job["style"] == "blueprint" and job["marks"]
+    cam, centre, distance = place_camera(scene, points, job["azimuth"], job["elevation"], 0.76 if drawn else 0.9)
     cam.data.shift_y = 0.0
     paper = apply_look(scene, model, job, centre)
     out = os.path.abspath(job["out"])
     os.makedirs(out, exist_ok=True)
+    # A blueprint's grid and marks hold still: each is drawn once, with the
+    # model out of the picture, and laid under the turning frames.
+    layers = drawing_layers(scene, cam, model, s, job, distance, points, out) if job["style"] == "blueprint" else []
     frames = job["frames"]
     transparent = job["still"] or job["style"] != "shaded"
     moved = None
@@ -666,14 +672,24 @@ def run_turn(scene, model, job):
             mask = numpy.abs(px[:, :, :3] - first[:, :, :3]).max(axis=2) > 0.04
         moved = mask if moved is None else moved | mask
     model.turn(0)
-    x, y, w, h = crop_box(moved, job["crop"])
+    # The crop keeps the marks beside the model; the moving area stays the model's.
+    kept = moved
+    for name, px in layers:
+        if name == "marks":
+            kept = kept | (px[:, :, 3] > 0.01)
+    x, y, w, h = crop_box(kept, job["crop"])
     flat = numpy.array(gamma_of(paper), dtype=numpy.float32)
     height = moved.shape[0]
+    ground = numpy.empty(moved.shape + (3,), dtype=numpy.float32)
+    ground[:, :] = flat
+    for _, px in layers:
+        alpha = px[:, :, 3:4]
+        ground = px[:, :, :3] * alpha + ground * (1 - alpha)
     for n, path in enumerate(raws):
         px = read_pixels(path)
         if transparent:
             alpha = px[:, :, 3:4]
-            px[:, :, :3] = px[:, :, :3] * alpha + flat * (1 - alpha)
+            px[:, :, :3] = px[:, :, :3] * alpha + ground * (1 - alpha)
         px[:, :, 3] = 1.0
         # Pixels run bottom up in Blender, the box top down.
         cut = px[height - y - h : height - y, x : x + w]
@@ -685,6 +701,30 @@ def run_turn(scene, model, job):
     if job["boxMargin"]:
         x, y, w, h = crop_box(moved, job["boxMargin"])
     return {"moving": {"x": x, "y": y, "w": w, "h": h, "canvas": job["size"]}, "paper": paper}
+
+
+def drawing_layers(scene, cam, model, s, job, distance, points, out):
+    """The blueprint's grid and its marks as two transparent pictures, in frame pixels."""
+    layers = []
+    overlay_collection(scene)
+    furniture(scene, cam, model, s, dict(job, titleBlock=False), distance, swept=points)
+    objects = list(bpy.data.collections[OVERLAY].objects)
+    for obj in model.meshes:
+        obj.hide_render = True
+    for name, wanted in (("grid", lambda o: o.name.startswith("grid")), ("marks", lambda o: not o.name.startswith("grid"))):
+        mine = [o for o in objects if wanted(o)]
+        if not mine:
+            continue
+        for obj in objects:
+            obj.hide_render = obj not in mine
+        path = os.path.join(out, f"layer_{name}.png")
+        still(scene, job, path, True)
+        layers.append((name, read_pixels(path)))
+        os.remove(path)
+    for obj in model.meshes:
+        obj.hide_render = False
+    overlay_collection(scene)
+    return layers
 
 
 def crop_box(moved, margin):
@@ -803,7 +843,7 @@ def main():
         if job["sheet"]:
             run_sheet(scene, job)
         elif job["frames"]:
-            extra = run_turn(scene, model, job)
+            extra = run_turn(scene, model, s, job)
         else:
             run_still(scene, model, s, job)
         report["jobs"].append({"out": job["out"], "seconds": round(time.time() - begun, 2), **extra})

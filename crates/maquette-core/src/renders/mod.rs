@@ -136,11 +136,26 @@ pub enum RenderCamera {
     Side,
 }
 
+/// A camera stop's view of a model: where the stop stands around it and how
+/// far it looks down, in degrees, so a still can be taken from there.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderStop {
+    /// The stop's name, for the file and the picture's tag.
+    pub name: String,
+    /// The turn from the front, 0 to 359.
+    pub azimuth: u32,
+    /// How far it looks down, 0 to 80.
+    pub elevation: u32,
+}
+
 /// How the files of a render are made.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", default)]
 pub struct RenderSettings {
     pub camera: RenderCamera,
+    /// A camera stop's view, which a still takes in place of `camera`.
+    pub stop: Option<RenderStop>,
     /// A still's edge in pixels.
     pub size: u32,
     /// Leaves the paper out of a still.
@@ -179,6 +194,7 @@ impl Default for RenderSettings {
     fn default() -> Self {
         Self {
             camera: RenderCamera::ThreeQuarter,
+            stop: None,
             size: 2048,
             transparent: false,
             line_color: "#b3d9ff".to_string(),
@@ -246,6 +262,11 @@ impl RenderSettings {
         if self.tilt > 60 {
             return bad("Keep the camera tilt at 60 degrees or under.");
         }
+        if let Some(stop) = &self.stop
+            && (stop.azimuth >= 360 || stop.elevation > 80)
+        {
+            return bad("Keep a camera stop's turn under 360 degrees and its tilt at 80 or under.");
+        }
         if !(1..=8).contains(&self.columns) {
             return bad("Keep a contact sheet between 1 and 8 columns.");
         }
@@ -291,6 +312,7 @@ pub fn register(types: specta::Types) -> specta::Types {
         .register::<RenderLook>()
         .register::<LoopFormat>()
         .register::<RenderCamera>()
+        .register::<RenderStop>()
         .register::<RenderSettings>()
         .register::<RenderRow>()
         .register::<RenderRequest>()
