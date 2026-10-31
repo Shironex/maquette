@@ -12,8 +12,10 @@ import type {
   RenderProblem,
   RenderRecord,
   RenderSettings,
+  RenderStop,
   RenderStyle,
 } from '@/ipc/client';
+import type { Stop, Vec3 } from './inspector';
 
 export const STYLES: readonly { id: RenderStyle; label: string; line: string }[] = [
   { id: 'blueprint', label: 'Blueprint', line: 'lines on blue · PNG' },
@@ -37,6 +39,7 @@ export const LOOK_OPTIONS = (['clay', 'toon', 'blueprint', 'shaded'] as const).m
 /** The core's defaults, spelled out so a form always has a value to show. */
 export const RENDER_DEFAULTS: Required<RenderSettings> = {
   camera: 'three-quarter',
+  stop: null,
   size: 2048,
   transparent: false,
   lineColor: '#b3d9ff',
@@ -192,4 +195,21 @@ export function problemCard(
     case 'failed':
       return { title: `${label} stopped on ${name}`, tone: 'danger' };
   }
+}
+
+/**
+ * Where a camera stop stands around the model, as a still's camera: the turn
+ * from the front (the stop's side of the scene looking in) and how far it
+ * looks down. Both are whole degrees inside what the core accepts.
+ */
+export function aimOf(stop: Pick<Stop, 'name' | 'position' | 'target'>): RenderStop {
+  const [dx, dy, dz] = stop.position.map((p, i) => p - stop.target[i]!) as Vec3;
+  const reach = Math.hypot(dx, dy, dz) || 1;
+  const turn = (Math.atan2(dx, dz) * 180) / Math.PI;
+  const tilt = (Math.asin(Math.max(-1, Math.min(1, dy / reach))) * 180) / Math.PI;
+  return {
+    name: stop.name,
+    azimuth: Math.round((turn + 360) % 360) % 360,
+    elevation: Math.max(0, Math.min(80, Math.round(tilt))),
+  };
 }
