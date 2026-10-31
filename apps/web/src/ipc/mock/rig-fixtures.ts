@@ -35,6 +35,8 @@ export type RowNumbers = readonly [number, number, number];
 export interface RowPlan {
   id: string;
   note?: string;
+  look?: string;
+  worst?: number;
   defects?: number[];
   before: RowNumbers;
   after?: RowNumbers;
@@ -52,7 +54,13 @@ export const HUMAN_ROWS: RowPlan[] = [
   { id: 'forward', note: 'cloth swings', defects: [1], before: [76, 52, 359], after: [66, 29, 0] },
   { id: 'hand', note: 'hair follows', defects: [2], before: [244, 236, 45], after: [12, 12, 0] },
   { id: 'twist', note: 'seam opens 112 mm', before: [24, 20, 112], after: [28, 21, 0] },
-  { id: 'head', before: [24, 18, 0], after: [12, 10, 0] },
+  {
+    id: 'head',
+    look: 'a few edges stretch 92 mm near Neck, look here',
+    worst: 92,
+    before: [108, 18, 0],
+    after: [12, 10, 0],
+  },
   { id: 'stride', note: 'seam opens 54 mm', before: [136, 90, 54], after: [98, 33, 0] },
   {
     id: 'clip:cast_orb:0.5',
@@ -91,6 +99,8 @@ function rows(tag: string, plan: RowPlan[], fixed: boolean, moved = false): RigR
       defects: fixed ? [] : (p.defects ?? []),
       stretchMm: now[0],
       beyondBodyMm: now[1],
+      worstEdgeMm: p.worst ?? now[1],
+      look: p.look ?? null,
       seamGapMm: now[2],
       front: cell('front'),
       side: cell('side'),

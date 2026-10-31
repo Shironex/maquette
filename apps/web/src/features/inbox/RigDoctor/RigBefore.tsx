@@ -37,7 +37,8 @@ function Cell({ row, view, record }: { row: RigRow; view: View; record: RigRecor
       aspect={cellAspect(record)}
     />
   ));
-  const verdict = row.note ?? 'looks fine';
+  const verdict = row.note ?? row.look ?? 'looks fine';
+  const tone = flagged ? 'text-clay-text' : row.look ? 'text-amber' : 'text-fg-mute';
   return (
     <figure className="m-0 min-w-0">
       <Enlarges
@@ -53,9 +54,7 @@ function Cell({ row, view, record }: { row: RigRow; view: View; record: RigRecor
       <figcaption className="mt-1 font-mono text-meta">
         <span className="flex items-baseline justify-between gap-2">
           <span className="text-fg-dim">{row.label}</span>
-          <span className={cn('text-right', flagged ? 'text-clay-text' : 'text-fg-mute')}>
-            {verdict}
-          </span>
+          <span className={cn('text-right', tone)}>{verdict}</span>
         </span>
         <span className="block text-fg-mute">{rowNumbers(row)}</span>
       </figcaption>
@@ -109,7 +108,14 @@ export function BeforeCentre({ record }: { record: RigRecord }) {
 
 /** The right column of the first board: what is wrong, by place. */
 export function DefectsAside({ record }: { record: RigRecord }) {
-  const fine = (record.before?.rows ?? []).filter(r => !rowFlagged(r)).map(r => r.label);
+  const rows = record.before?.rows ?? [];
+  const fine = rows.filter(r => !rowFlagged(r) && !r.look).map(r => r.label);
+  const looks = rows.filter(r => !rowFlagged(r) && r.look);
+  const lookItems = looks.map(r => (
+    <li key={r.id}>
+      {r.label}: {r.look}
+    </li>
+  ));
   const cards = record.defects.map(d => (
     <DefectCard key={d.number} defect={d} on={d.number === 1} />
   ));
@@ -123,6 +129,16 @@ export function DefectsAside({ record }: { record: RigRecord }) {
         <span className="text-meta text-fg-mute">{record.defects.length} found</span>
       </div>
       {cards}
+      {looks.length > 0 ? (
+        <article className="rounded-[10px] border border-amber/40 p-3">
+          <h4 className="m-0 font-medium text-amber">Look here</h4>
+          <p className="m-0 mt-1 text-meta text-fg-mute">
+            Real but small: too little of the surface to call a tear. Play these clips in Motion and
+            decide.
+          </p>
+          <ul className="m-0 mt-1 list-none p-0 text-meta text-fg-dim">{lookItems}</ul>
+        </article>
+      ) : null}
       {fine.length > 0 ? (
         <article className="rounded-[10px] border border-line p-3">
           <h4 className="m-0 font-medium text-fg-dim">Looks fine</h4>

@@ -75,6 +75,11 @@ describe('RigDoctor', () => {
     expect(screen.getByRole('button', { name: 'Round 2' })).toBeEnabled();
   });
 
+  it('names the bones it left out of the chains', () => {
+    show(creatureCase());
+    expect(screen.getByText(/bone_17, bone_25 carry no weight/)).toBeInTheDocument();
+  });
+
   it('says a fix changed nothing and offers no version to add', () => {
     show(noChangeCase());
     expect(screen.getByText(/The fix changed nothing/)).toBeInTheDocument();
@@ -214,9 +219,13 @@ describe('RigDoctor', () => {
     const tested = testedCase('a-v1', 'A');
     show(tested);
     const fine = screen.getByRole('heading', { name: 'Looks fine' }).parentElement;
-    expect(fine).toHaveTextContent('rest, head carry the body');
+    expect(fine).toHaveTextContent('rest carry the body');
     expect(fine).not.toHaveTextContent('stride');
-    expect(screen.getAllByText('looks fine')).toHaveLength(2);
+    expect(fine).not.toHaveTextContent('head');
+    expect(screen.getAllByText('looks fine')).toHaveLength(1);
+    const look = screen.getByRole('heading', { name: 'Look here' }).parentElement!;
+    expect(look).toHaveTextContent('head: a few edges stretch 92 mm near Neck, look here');
+    expect(screen.getByText('stretch 108, past body 18, seam 0 mm')).toBeInTheDocument();
     expect(screen.getByText('stretch 244, past body 236, seam 45 mm')).toBeInTheDocument();
     expect(screen.getByText('Seam gaps, cast_orb 0.5, every view')).toBeInTheDocument();
   });
