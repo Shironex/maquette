@@ -1,6 +1,6 @@
 import { Button } from '@maquette/ui';
 import type { Check, InboxItem } from '@/ipc/client';
-import { useCheckFixes, useProviderSplit } from './CheckFixes.hooks';
+import { useCheckFixes, useProviderSplit, useRigDoctorFix } from './CheckFixes.hooks';
 
 export interface CheckFixesProps {
   item: InboxItem;
@@ -38,10 +38,23 @@ export default function CheckFixes({ item, check }: CheckFixesProps) {
       Split on Tripo or Meshy...
     </Button>
   ) : null;
+  const openDoctor = useRigDoctorFix(item, check);
+  const doctor = openDoctor ? (
+    <Button
+      size="sm"
+      variant="secondary"
+      icon="wrench"
+      tooltip="Reads the rig in seconds; the pose test and fix wait for your click, on a copy"
+      onClick={openDoctor}
+    >
+      Fix in rig doctor
+    </Button>
+  ) : null;
   return (
     <>
       {buttons}
       {split}
+      {doctor}
     </>
   );
 }

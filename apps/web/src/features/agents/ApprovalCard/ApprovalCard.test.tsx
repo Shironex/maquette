@@ -1,10 +1,12 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { clearMocks } from '@tauri-apps/api/mocks';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Approval } from '@/ipc/client';
 import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { useAvatarStore } from '@/state/use-avatar-store';
+import { useRigStore } from '@/state/use-rig-store';
 import { openAvatar } from '@/test/open-avatar';
 import { openMockGame } from '@/test/mock-ipc';
 import { openAgentSession } from '../openAgentSession';
@@ -87,5 +89,35 @@ describe('an approval card', () => {
       'The game repo has 3 files not committed yet. Commit them first, so the Ship change is ' +
         'easy to review and undo.'
     );
+  });
+
+  it('opens the rig doctor for an agent fix and has no way to add it from the card', async () => {
+    const showCase = vi.fn().mockResolvedValue(undefined);
+    useRigStore.setState({ showCase });
+    const rig = {
+      id: 'approval-rig-1',
+      kind: 'rig-doctor',
+      project: 'frostveil',
+      runId: null,
+      runNumber: null,
+      step: null,
+      job: 'spiked-hound-v1',
+      assetName: 'Spiked hound v2',
+      service: null,
+      detail: 'The rig doctor fixed 2 defects.',
+      items: [],
+      requestedAtMs: 0,
+      estimate: null,
+      conceptJobs: [],
+      estimateUsd: null,
+      asset: 'spiked-hound',
+      version: 1,
+      sheets: null,
+    } satisfies Approval;
+    render(<ApprovalCard approval={rig} />);
+    expect(screen.getByRole('alertdialog', { name: 'Add Spiked hound v2?' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Open the sheets' }));
+    expect(showCase).toHaveBeenCalledWith('spiked-hound-v1');
   });
 });

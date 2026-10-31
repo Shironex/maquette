@@ -14,6 +14,7 @@ import { useProvidersStore } from '@/state/use-providers-store';
 import { assetQuickView } from '@/state/quick-view';
 import { useQuickViewStore } from '@/state/use-quick-view-store';
 import { useRefsStore } from '@/state/use-refs-store';
+import { useRigStore } from '@/state/use-rig-store';
 import { STAGE_ICON } from '../../constants';
 import { copyExportName } from '../../copyExportName';
 import type { CardMenuProps } from './CardMenu.types';
@@ -242,6 +243,20 @@ function useAssetItems({ asset, built, board }: CardMenuProps): MenuItem[] {
       : []),
     ...(hasModel
       ? [
+          {
+            id: 'rig-doctor',
+            label: 'Fix in rig doctor',
+            icon: 'wrench' as const,
+            section,
+            hint: 'Reads the rig of the newest version; the pose test and fix wait for your click, on a copy',
+            onSelect: () =>
+              void useRigStore.getState().show({
+                inbox: null,
+                project: board.project?.id ?? null,
+                asset: asset.id,
+                version: null,
+              }),
+          },
           {
             id: 'blender',
             label: 'Open in Blender',

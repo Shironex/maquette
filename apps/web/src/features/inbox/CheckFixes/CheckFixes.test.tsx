@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Check, InboxItem } from '@/ipc/client';
 import { usePrepareStore } from '@/state/use-prepare-store';
+import { useRigStore } from '@/state/use-rig-store';
 import { useSplitStore } from '@/state/use-split-store';
 import { CheckFixes } from '.';
 
@@ -77,5 +78,21 @@ describe('CheckFixes', () => {
       version: null,
       item: 'frost-lantern-2.glb',
     });
+  });
+
+  it('opens the rig doctor from a rig check that did not pass, and not from one that did', async () => {
+    const show = vi.fn().mockResolvedValue(undefined);
+    useRigStore.setState({ show });
+    const rig: Check = { id: 'finger-weights', status: 'fail', title: '', detail: null, fixes: [] };
+    const { rerender } = render(<CheckFixes item={item} check={rig} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Fix in rig doctor' }));
+    expect(show).toHaveBeenCalledWith({
+      inbox: 'lamp.glb',
+      project: null,
+      asset: null,
+      version: null,
+    });
+    rerender(<CheckFixes item={item} check={{ ...rig, status: 'pass' }} />);
+    expect(screen.queryByRole('button', { name: 'Fix in rig doctor' })).toBeNull();
   });
 });

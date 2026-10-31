@@ -19,6 +19,7 @@ import { CheckFixes } from '../CheckFixes';
 import { DiscardDialog } from '../DiscardDialog';
 import { InboxPrep } from '../InboxPrep';
 import { BADGE, MODE_ICON } from '@/features/viewer/previewModes';
+import { offersRigDoctor } from '@/state/rig';
 import { useInboxDetail, useInboxPreview } from './InboxDetail.hooks';
 import type { InboxDetailProps } from './InboxDetail.types';
 
@@ -63,7 +64,9 @@ export default function InboxDetail({ item }: InboxDetailProps) {
       status={c.status}
       title={c.title}
       detail={c.detail ?? undefined}
-      footer={c.fixes.length ? <CheckFixes item={item} check={c} /> : undefined}
+      footer={
+        c.fixes.length || offersRigDoctor(c) ? <CheckFixes item={item} check={c} /> : undefined
+      }
     />
   ));
 

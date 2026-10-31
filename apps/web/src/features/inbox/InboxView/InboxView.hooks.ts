@@ -1,3 +1,5 @@
+import { caseLine } from '@/state/rig';
+import { useRigStore } from '@/state/use-rig-store';
 import { useEffect } from 'react';
 import { firstToReview } from '@/state/inbox';
 import { filterItems, triageGroup } from '@/state/triage';
@@ -31,4 +33,16 @@ export function useInboxView() {
     setLayout,
     replaced: items.filter(i => triageGroup(i) === 'replaced'),
   };
+}
+
+/** The rig doctor case on show, and the way back to one that is still open. */
+export function useRigCases() {
+  const rigCase = useRigStore(s => s.record);
+  const open = useRigStore(s => s.open);
+  const load = useRigStore(s => s.load);
+  const showCase = useRigStore(s => s.showCase);
+  useEffect(() => void load(), [load]);
+  const going = open[0];
+  const more = open.length > 1 ? ` and ${open.length - 1} more` : '';
+  return { rigCase, going, goingLabel: going ? `${caseLine(going)}${more}` : '', showCase };
 }

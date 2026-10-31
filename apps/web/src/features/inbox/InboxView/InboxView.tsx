@@ -1,4 +1,4 @@
-import { SegmentedControl, TopBar, type SegmentedOption } from '@maquette/ui';
+import { Button, SegmentedControl, TopBar, type SegmentedOption } from '@maquette/ui';
 import { contentKey } from '@/state/inbox';
 import type { InboxLayout } from '@/state/use-triage-store';
 import { BulkDiscardDialog } from '../BulkDiscardDialog';
@@ -6,11 +6,12 @@ import { InboxClear } from '../InboxClear';
 import { InboxDetail } from '../InboxDetail';
 import { InboxEmpty } from '../InboxEmpty';
 import { InboxList } from '../InboxList';
+import { RigDoctor } from '../RigDoctor';
 import { SelectionBar } from '../SelectionBar';
 import { useSelection } from '../SelectionBar/SelectionBar.hooks';
 import { TriageAside } from '../TriageAside';
 import { TriageTable } from '../TriageTable';
-import { useInboxView } from './InboxView.hooks';
+import { useInboxView, useRigCases } from './InboxView.hooks';
 
 const LAYOUTS: readonly SegmentedOption<InboxLayout>[] = [
   {
@@ -84,20 +85,35 @@ function TableLayout({ replaced }: { replaced: ReturnType<typeof useInboxView>['
 export default function InboxView() {
   const { snapshot, items, item, layout, setLayout, replaced } = useInboxView();
   const empty = snapshot !== null && items.length === 0;
+  const { rigCase, going, goingLabel, showCase } = useRigCases();
+  if (rigCase) return <RigDoctor record={rigCase} />;
   return (
     <>
       <TopBar
         lead={<h1 className="text-panel-title">Inbox</h1>}
         right={
-          empty ? null : (
-            <SegmentedControl
-              label="Inbox layout"
-              tone="neutral"
-              options={LAYOUTS}
-              value={layout}
-              onChange={setLayout}
-            />
-          )
+          <div className="flex items-center gap-2">
+            {going ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="wrench"
+                tooltip="Back to this rig doctor case"
+                onClick={() => void showCase(going.id)}
+              >
+                {goingLabel}
+              </Button>
+            ) : null}
+            {empty ? null : (
+              <SegmentedControl
+                label="Inbox layout"
+                tone="neutral"
+                options={LAYOUTS}
+                value={layout}
+                onChange={setLayout}
+              />
+            )}
+          </div>
         }
       />
       <main className="flex min-h-0 flex-1">

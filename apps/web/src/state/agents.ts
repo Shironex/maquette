@@ -46,6 +46,9 @@ export function approvalTitle(approval: Approval, projectName?: string): string 
   if (approval.kind === 'springs') {
     return `Add spring chains to ${approval.assetName ?? 'the avatar'}?`;
   }
+  if (approval.kind === 'rig-doctor') {
+    return `Add ${approval.assetName ?? 'the draft'}?`;
+  }
   if (approval.kind === 'reweight') {
     return `Free ${approval.assetName ?? 'the avatar'}'s cloth and hair from the arms?`;
   }
