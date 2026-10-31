@@ -43,6 +43,11 @@ export default function MenuRow({ item, onClose }: MenuRowProps) {
           />
         ) : null}
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        {item.count !== undefined ? (
+          <span className="rounded-pill bg-raised px-1.5 font-mono text-[11px] leading-[18px] text-fg-dim">
+            {item.count}
+          </span>
+        ) : null}
         {item.submenu ? <Icon name="caret-right" size={12} className="text-fg-mute" /> : null}
       </button>
     </Tooltip>
