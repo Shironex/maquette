@@ -5,6 +5,7 @@
  */
 import type {
   Asset,
+  AssetKind,
   GameFormat,
   LibraryCollection,
   LibraryItem,
@@ -29,6 +30,41 @@ export const FORMATS: readonly GameFormat[] = ['glb', 'obj'];
 
 export type LibrarySort = 'recent' | 'used' | 'name' | 'heaviest' | 'lightest';
 export type LibraryLayout = 'grid' | 'list' | 'look-alikes';
+
+/** What the grid and list put under a header each. */
+export type LibraryGroup = 'none' | 'source' | 'kind';
+
+export const GROUP_LABEL: Record<LibraryGroup, string> = {
+  none: 'No groups',
+  source: 'Made with',
+  kind: 'Kind',
+};
+
+const KIND_NAME: Record<AssetKind, string> = {
+  prop: 'Props',
+  character: 'Characters',
+  scene: 'Scenes',
+};
+const KIND_ORDER: readonly AssetKind[] = ['prop', 'character', 'scene'];
+
+export interface ItemGroup {
+  key: string;
+  label: string;
+  items: LibraryItem[];
+}
+
+/** `items` (already sorted) under one header per source or kind, empty groups left out. */
+export function groupItems(items: readonly LibraryItem[], group: LibraryGroup): ItemGroup[] {
+  if (group === 'none') return [{ key: 'all', label: 'All models', items: [...items] }];
+  const keys: readonly string[] = group === 'source' ? SOURCES : KIND_ORDER;
+  const of = (i: LibraryItem): string =>
+    group === 'source' ? (latestOf(i)?.source ?? 'imported') : i.entry.kind;
+  const label = (k: string) =>
+    group === 'source' ? SOURCE_LABEL[k as LibrarySource] : KIND_NAME[k as AssetKind];
+  return keys
+    .map(key => ({ key, label: label(key), items: items.filter(i => of(i) === key) }))
+    .filter(g => g.items.length > 0);
+}
 
 export const SORT_LABEL: Record<LibrarySort, string> = {
   recent: 'Newest first',

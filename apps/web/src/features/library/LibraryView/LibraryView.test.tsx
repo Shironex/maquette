@@ -19,6 +19,7 @@ afterEach(() => {
     selected: null,
     adding: null,
     layout: 'grid',
+    group: 'none',
   });
   useQuickViewStore.setState({ target: null });
 });
@@ -138,5 +139,22 @@ describe('the Library view', () => {
     render(<LibraryView />);
     await screen.findByRole('button', { name: 'Crypt brazier' });
     expect(screen.queryByRole('button', { name: 'Inspect 3D model of Crypt brazier' })).toBeNull();
+  });
+
+  it('puts the models under a header each when grouped by what made them', async () => {
+    await openMockLibrary('demo');
+    render(<LibraryView />);
+    const models = await screen.findByRole('region', { name: 'Models' });
+    await within(models).findByText('8 models');
+    expect(within(models).queryByRole('heading', { level: 3 })).toBeNull();
+    act(() => useLibraryStore.setState({ group: 'source' }));
+    const heads = within(models).getAllByRole('heading', { level: 3 });
+    expect(heads.length).toBeGreaterThan(0);
+    const total = within(models)
+      .getAllByText(/^\d+ models?$/)
+      .filter(el => el.closest('h3'))
+      .map(el => Number(el.textContent!.split(' ')[0]))
+      .reduce((a, b) => a + b, 0);
+    expect(total).toBe(8);
   });
 });

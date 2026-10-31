@@ -12,7 +12,13 @@ import {
   type LibraryView,
   type UpdatePlan,
 } from '@/ipc/client';
-import { NO_FILTERS, type LibraryFilters, type LibraryLayout, type LibrarySort } from './library';
+import {
+  NO_FILTERS,
+  type LibraryFilters,
+  type LibraryGroup,
+  type LibraryLayout,
+  type LibrarySort,
+} from './library';
 import { useAppStore } from './use-app-store';
 import { useLibrarySelectionStore } from './use-library-selection-store';
 
@@ -28,6 +34,7 @@ interface LibraryStore {
   filters: LibraryFilters;
   sort: LibrarySort;
   layout: LibraryLayout;
+  group: LibraryGroup;
   /** The entry the side panel shows. */
   selected: string | null;
   /** The Add to library dialog: an asset, `'pick'` to choose one, or closed. */
@@ -45,6 +52,7 @@ interface LibraryStore {
   setFilters: (change: Partial<LibraryFilters>) => void;
   setSort: (sort: LibrarySort) => void;
   setLayout: (layout: LibraryLayout) => void;
+  setGroup: (group: LibraryGroup) => void;
   select: (entry: string | null) => void;
   openAdd: (target: AssetRef | 'pick') => void;
   closeAdd: () => void;
@@ -63,6 +71,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   filters: NO_FILTERS,
   sort: 'used',
   layout: 'grid',
+  group: 'none',
   selected: null,
   adding: null,
   updating: null,
@@ -89,6 +98,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   setFilters: change => set(s => ({ filters: { ...s.filters, ...change } })),
   setSort: sort => set({ sort }),
   setLayout: layout => set({ layout }),
+  setGroup: group => set({ group }),
   select: selected => set({ selected }),
   openAdd: adding => set({ adding }),
   closeAdd: () => set({ adding: null }),

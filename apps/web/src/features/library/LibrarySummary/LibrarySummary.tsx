@@ -1,6 +1,6 @@
 import { Button } from '@maquette/ui';
 import { Menu } from '@/features/common/Menu';
-import { SORT_LABEL, type LibrarySort } from '@/state/library';
+import { GROUP_LABEL, SORT_LABEL, type LibraryGroup, type LibrarySort } from '@/state/library';
 import { useSortMenu } from './LibrarySummary.hooks';
 
 export interface LibrarySummaryProps {
@@ -13,18 +13,26 @@ export interface LibrarySummaryProps {
   untagged: number;
   sort: LibrarySort;
   onSort: (sort: LibrarySort) => void;
+  group: LibraryGroup;
+  onGroup: (group: LibraryGroup) => void;
   onLookAlikes: () => void;
   onUntagged: () => void;
 }
 
 /** The line over the models: what is shown, the pairs to look at, the untagged ones and the sort. */
 export default function LibrarySummary(props: LibrarySummaryProps) {
-  const { sorting, toggle, close } = useSortMenu();
+  const { sorting, grouping, toggle, toggleGroup, close } = useSortMenu();
   const sorts = (Object.keys(SORT_LABEL) as LibrarySort[]).map(value => ({
     id: value,
     label: SORT_LABEL[value],
     icon: value === props.sort ? ('check' as const) : undefined,
     onSelect: () => props.onSort(value),
+  }));
+  const groups = (Object.keys(GROUP_LABEL) as LibraryGroup[]).map(value => ({
+    id: value,
+    label: GROUP_LABEL[value],
+    icon: value === props.group ? ('check' as const) : undefined,
+    onSelect: () => props.onGroup(value),
   }));
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -53,6 +61,27 @@ export default function LibrarySummary(props: LibrarySummaryProps) {
             {props.untagged} untagged
           </Button>
         ) : null}
+        <div className="relative">
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="stack"
+            aria-expanded={grouping}
+            aria-label={`Group: ${GROUP_LABEL[props.group]}`}
+            tooltip="Puts the models under a header each"
+            onClick={toggleGroup}
+          >
+            {props.group === 'none' ? 'Group' : GROUP_LABEL[props.group]}
+          </Button>
+          {grouping ? (
+            <Menu
+              label="Group"
+              onClose={close}
+              className="absolute top-full right-0 mt-1 w-[200px]"
+              items={groups}
+            />
+          ) : null}
+        </div>
         <div className="relative">
           <Button
             size="sm"
