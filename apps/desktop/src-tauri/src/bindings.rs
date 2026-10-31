@@ -10,14 +10,14 @@ use tauri_specta::{Builder, ErrorHandlingMode, collect_commands, collect_events}
 use crate::commands::{
     about, agents, animations, app, assets, avatar, built, codex_usage, credits, dialogs,
     downloads, game, image_api, inbox, inspect, lab, layout, library, library_batch, materials,
-    motion, page, parts, paths, pipeline, prepare, project, providers, quit, refs, ship, site,
-    split, thumbs, timeline, toolchain, trash, updater, workspace,
+    motion, packs, page, parts, paths, pipeline, prepare, project, providers, quit, refs, ship,
+    site, split, thumbs, timeline, toolchain, trash, updater, workspace,
 };
 use crate::events::{
     AvatarChanged, BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival,
     ImageSettingsChanged, InboxChanged, LayoutChanged, LibraryChanged, MaterialsChanged, McpUpdate,
-    PageServerChanged, PipelineChanged, PipelineUpdate, PrepareChanged, ProjectChanged,
-    ProviderUpdate, QuitRequested, ThumbnailReady, UpdaterUpdate,
+    PackChanged, PageServerChanged, PipelineChanged, PipelineUpdate, PrepareChanged,
+    ProjectChanged, ProviderUpdate, QuitRequested, ThumbnailReady, UpdaterUpdate,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -94,6 +94,17 @@ pub fn builder() -> Builder<tauri::Wry> {
             library_batch::library_look_settings,
             library_batch::library_merge,
             library_batch::library_add_many_plan,
+            packs::pack_plan,
+            packs::pack_presets,
+            packs::pack_save_preset,
+            packs::pack_start,
+            packs::pack_get,
+            packs::pack_recent,
+            packs::pack_decide,
+            packs::pack_zip,
+            packs::pack_stop,
+            packs::pack_resume,
+            packs::pack_reveal,
             animations::animations_get,
             animations::animations_read_import,
             animations::animations_import,
@@ -247,7 +258,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             LibraryChanged,
             UpdaterUpdate,
             CodexUsageUpdate,
-            ImageSettingsChanged
+            ImageSettingsChanged,
+            PackChanged
         ])
         .types(&maquette_core::types())
 }
