@@ -77,9 +77,10 @@ SEAM = [np.array(g) for g in coloc.values()]
 EA = np.array(edges); L0n = np.linalg.norm(R0[EA[:, 0]] - R0[EA[:, 1]], axis=1); EOK = L0n > 1e-6
 def surface(co):
     gap = max((float(np.linalg.norm(co[g] - co[g].mean(0), axis=1).max()) for g in SEAM), default=0.0)
-    r = np.linalg.norm(co[EA[:, 0]] - co[EA[:, 1]], axis=1)[EOK] / L0n[EOK]
+    ln = np.linalg.norm(co[EA[:, 0]] - co[EA[:, 1]], axis=1)[EOK]
+    r = ln / L0n[EOK]
     at = R0[EA[EOK][int(r.argmax()), 0]]   # rest position of the worst edge, to find it on the model
-    return gap, float(np.percentile(r, 99)), float(r.max()), [round(float(x), 3) for x in at]
+    return gap, float(np.percentile(r, 99)), float(r.max()), [round(float(x), 3) for x in at], float(np.abs(ln - L0n[EOK]).max())
 lo, hi = bounds(me); ctr = (lo + hi) / 2
 psize = {}
 for p in piece: psize[p] = psize.get(p, 0) + 1
@@ -88,12 +89,12 @@ tiles = []
 for ch in CHAINS:
     reset(); pose_chain(ch)
     worst, co = measure()
-    gap, s99, smax, sat = surface(co)
+    gap, s99, smax, sat, sabs = surface(co)
     rig = sorted(((e, p) for p, (e, k) in worst.items() if e > 0.004 and EXT[p] <= ART_EXT), reverse=True)
     art = sorted(((e, p) for p, (e, k) in worst.items() if e > 0.004 and EXT[p] > ART_EXT), reverse=True)
     report[ch] = dict(rigid=[dict(piece=p, n=psize[p], ext=round(EXT[p], 3), err=round(e, 4), at=[round(x, 3) for x in co[worst[p][1]]]) for e, p in rig],
                       articulated=[dict(piece=p, n=psize[p], ext=round(EXT[p], 3), err=round(e, 4)) for e, p in art],
-                      seam_gap=round(gap, 4), stretch_p99=round(s99, 3), stretch_max=round(smax, 3), stretch_at=sat)
+                      seam_gap=round(gap, 4), stretch_p99=round(s99, 3), stretch_max=round(smax, 3), stretch_at=sat, stretch_mm=round(sabs * 1000, 1))
     a, b = chain_dir(CHAINS[ch]); c = (a + b) / 2
     if ch.startswith("leg") or ch.startswith("rear"): c = Vector((c.x, c.y, ctr.z))
     off = Vector((c.x - ctr.x, c.y - ctr.y, 0))

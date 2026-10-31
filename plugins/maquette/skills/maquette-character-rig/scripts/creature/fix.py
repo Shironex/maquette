@@ -178,6 +178,8 @@ bc = Counter(b for w in W for b in w)
 for (own, near), n in sorted(stray_near.items(), key=lambda kv: -kv[1]):
     print("STRAY", own, "weight on", n, "verts nearest to", near, "max weight there %.2f" % stray_w[(own, near)])
 print("BONES_NOW_DRIVING", len(bc), "zero:", sorted(set(gidx) - set(bc)))
+import json
+json.dump(dict(changed=diff, verts=N, stats=dict(stats), strays=[dict(owner=o, near=n_, vertices=c) for (o, n_), c in stray_near.items()]), open(out + ".report.json", "w"), indent=1)
 if dry: raise SystemExit
 import os, numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(sys.argv[sys.argv.index("--")-1])), "..", "humanoid"))
@@ -195,6 +197,7 @@ if same_order:
         for k, (b, w) in enumerate(sorted(W[i].items(), key=lambda kv: -kv[1])): J[i, k] = jix[b]; Wt[i, k] = w
     glbio.save_weights(g, J, Wt, out)
     print("EXPORTED (byte patch: only JOINTS_0 and WEIGHTS_0 changed)", out); raise SystemExit
+json.dump(dict(json.load(open(out + ".report.json")), reexported=True), open(out + ".report.json", "w"), indent=1)
 print("WARNING: vertex order differs from the GLB, falling back to a Blender export (images re-encoded, mesh may be re-split)")
 for g in me.vertex_groups: g.remove(range(N))
 for i in range(N):
