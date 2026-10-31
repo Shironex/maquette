@@ -95,7 +95,7 @@ pub(crate) fn get(session: &Session, project_id: &str) -> CommandResult<ScenePre
     Ok(prepare::load(&project_dir(session, project_id)?)?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn prepare_get(session: State<'_, Session>, project: String) -> CommandResult<ScenePrep> {
     get(&session, &project)

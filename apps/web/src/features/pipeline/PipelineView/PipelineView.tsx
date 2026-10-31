@@ -6,6 +6,7 @@ import {
   StageStepper,
   Tooltip,
   TopBar,
+  Loader,
 } from '@maquette/ui';
 import { stageViews } from '@/state/pipeline';
 import { FirstViewBar } from '@/features/common/FirstViewBar';
@@ -79,7 +80,9 @@ export default function PipelineView() {
                 </Button>
               }
             />
-          ) : null}
+          ) : (
+            <Loader />
+          )}
         </main>
       </>
     );

@@ -243,7 +243,7 @@ pub(crate) fn warnings(
         .collect()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn refs_get(
     session: State<'_, Session>,

@@ -1,4 +1,4 @@
-import { Button, EmptyState } from '@maquette/ui';
+import { Button, EmptyState, Loader } from '@maquette/ui';
 import { Inspector } from '../Inspector';
 import { InspectorShell } from '../InspectorShell';
 import { InspectorTabs } from '../InspectorTabs';
@@ -93,7 +93,11 @@ export default function InspectorView() {
                 }
               />
             </div>
-          ) : null}
+          ) : (
+            <div className="grid flex-1 place-items-center">
+              <Loader />
+            </div>
+          )}
         </main>
       </InspectorShell>
     );

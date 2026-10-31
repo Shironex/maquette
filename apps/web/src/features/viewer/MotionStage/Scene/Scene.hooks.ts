@@ -21,7 +21,7 @@ import type { LoadedMotion, SceneProps } from './Scene.types';
  */
 export function useMotionModel(
   url: string | null,
-  onError: SceneProps['onError']
+  onError: ((message: string) => void) | undefined
 ): LoadedMotion | null {
   const gl = useThree(s => s.gl);
   const scene = useThree(s => s.scene);

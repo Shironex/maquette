@@ -1,4 +1,6 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
+import { StageLoader } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import { Button, Icon, IconButton, KeyValueList, cn, type IconName } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import type { ReviewStatus } from '@/ipc/client';
@@ -7,7 +9,7 @@ import FrameStrip from '../FrameStrip';
 import { PinFeet } from '../PinFeet';
 import { useReviewStep } from './ReviewStep.hooks';
 
-const MotionStage = lazy(() => import('@/features/viewer/MotionStage'));
+const MotionStage = lazyAfterPaint(() => import('@/features/viewer/MotionStage'));
 
 const STATUS: Record<ReviewStatus, { label: string; icon: IconName; className: string }> = {
   good: { label: 'good', icon: 'check-circle', className: 'text-sage' },
@@ -33,7 +35,7 @@ function Stage({
       <div className="relative min-h-[200px] flex-1 overflow-hidden rounded-card border border-line bg-studio">
         {url ? (
           <CanvasBoundary resetKey={`${url}#${clip}`}>
-            <Suspense fallback={null}>
+            <Suspense fallback={<StageLoader />}>
               <MotionStage
                 className="absolute! inset-0"
                 label={label}

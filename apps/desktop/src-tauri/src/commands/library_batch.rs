@@ -7,7 +7,7 @@ use maquette_core::library::{
     self, AddManyPlan, CollectionChange, LibraryCollection, LibraryEntry, LibraryMerged,
     LibraryRestored, LookAlikeSettings, LookAlikeVerdict, LookAlikes, MergeEntries, TagEntries,
 };
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 use super::CommandResult;
 use crate::session::Session;
@@ -118,10 +118,15 @@ pub fn library_restore(
 }
 
 /// The entries that may be one model twice, with the recent merges.
+///
+/// Opening the library asks for this, and it decodes every entry's picture and
+/// scores every pair: seconds at a few hundred models, so never the main thread.
 #[tauri::command]
 #[specta::specta]
-pub fn library_look_alikes(session: State<'_, Session>) -> CommandResult<LookAlikes> {
-    look_alikes(&session)
+pub async fn library_look_alikes(app: AppHandle) -> CommandResult<LookAlikes> {
+    tauri::async_runtime::spawn_blocking(move || look_alikes(app.state::<Session>().inner()))
+        .await
+        .map_err(super::join_failed)?
 }
 
 /// Records a verdict on a look-alike pair so it is no longer listed.
@@ -138,7 +143,7 @@ pub fn library_decide(
 }
 
 /// Saves the look-alike settings; answers them as saved.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_look_settings(
     session: State<'_, Session>,

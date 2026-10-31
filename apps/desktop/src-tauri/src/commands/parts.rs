@@ -125,7 +125,7 @@ pub(crate) fn get(
 
 /// The asset's parts as its newest model ships them. Reads files only: a
 /// split that has not been previewed says so in `needsPreview`.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn parts_get(
     session: State<'_, Session>,

@@ -1,4 +1,6 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
+import { StageLoader, useStageReady } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import { Button, EmptyState, Icon, InlineBanner, Select } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { MotionTabs } from '../MotionTabs';
@@ -6,7 +8,7 @@ import { PressToggle } from '@/features/common/PressToggle';
 import { StatesStrip } from '../StatesStrip';
 import { useStatesStage } from './StatesStage.hooks';
 
-const MotionStage = lazy(() => import('@/features/viewer/MotionStage'));
+const MotionStage = lazyAfterPaint(() => import('@/features/viewer/MotionStage'));
 
 const CHIP =
   'inline-flex h-6 items-center gap-1.5 rounded-control bg-app/85 px-2 text-[11.5px] leading-none font-medium text-fg';
@@ -14,6 +16,8 @@ const CHIP =
 /** The selected model posed in its state, the move into it, and the states strip. */
 export default function StatesStage() {
   const stage = useStatesStage();
+  const shown = useStageReady(stage.url);
+  const waiting = stage.url && !stage.failed && !shown.ready;
   const { model, object, state, player } = stage;
   if (!model) return <section className="flex-1" aria-label="States" />;
   const pct = Math.round(player.progress * 100);
@@ -46,7 +50,7 @@ export default function StatesStage() {
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-card border border-line bg-studio">
         {stage.url && !stage.failed ? (
           <CanvasBoundary resetKey={stage.url}>
-            <Suspense fallback={null}>
+            <Suspense fallback={<StageLoader />}>
               <MotionStage
                 className="absolute! inset-0"
                 label={stage.label}
@@ -58,11 +62,12 @@ export default function StatesStage() {
                 turntable={false}
                 poses={stage.poses}
                 outline={stage.outline}
-                onError={stage.setFailed}
+                report={{ onError: stage.setFailed, onLoaded: shown.onLoaded }}
               />
             </Suspense>
           </CanvasBoundary>
         ) : null}
+        {waiting ? <StageLoader /> : null}
         {stage.failed ? (
           <InlineBanner
             tone="danger"

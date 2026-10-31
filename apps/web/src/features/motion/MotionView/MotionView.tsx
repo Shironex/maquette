@@ -1,4 +1,4 @@
-import { Button, EmptyState, StageStepper, TopBar } from '@maquette/ui';
+import { Button, EmptyState, StageStepper, TopBar, Loader } from '@maquette/ui';
 import { ClipStage } from '../ClipStage';
 import { ClipsPanel } from '../ClipsPanel';
 import { MotionBarActions } from '../MotionBarActions';
@@ -38,7 +38,9 @@ export default function MotionView() {
                 </Button>
               }
             />
-          ) : null}
+          ) : (
+            <Loader />
+          )}
         </main>
       </>
     );

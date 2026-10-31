@@ -1,4 +1,6 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
+import { StageLoader, useStageReady } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import { Button, EmptyState, Icon, SegmentedControl, Select, cn } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { BakeBackNote } from '../BakeBackNote';
@@ -15,7 +17,7 @@ import {
   type PartsPage,
 } from './PartsPanel.hooks';
 
-const ModelPreview = lazy(() => import('@/features/viewer/ModelPreview'));
+const ModelPreview = lazyAfterPaint(() => import('@/features/viewer/ModelPreview'));
 
 const MODES: readonly { value: PartsMode; label: string }[] = [
   { value: 'shaded', label: 'Shaded' },
@@ -34,6 +36,7 @@ const CARD = 'flex flex-col gap-1.5 rounded-card border border-line bg-panel p-3
 export default function PartsPanel() {
   const p = usePartsPanel();
   const { openSplit, openAssemble, openInBlender, openMotion } = usePartsSheets();
+  const preview = useStageReady(p.view.url);
   const measured = usePartsModel(p.asset?.id ?? null, p.found?.version ?? null);
   if (!p.asset) {
     return (
@@ -116,17 +119,19 @@ export default function PartsPanel() {
             <div className="relative min-h-0 flex-1 overflow-hidden rounded-[14px] border border-line bg-studio">
               {url ? (
                 <CanvasBoundary resetKey={url}>
-                  <Suspense fallback={null}>
+                  <Suspense fallback={<StageLoader />}>
                     <ModelPreview
                       url={url}
                       mode={mode}
                       parts={mode === 'parts' ? look : undefined}
                       onPickPart={(part, adding) => p.pick(part, adding)}
+                      onLoaded={preview.onLoaded}
                       className="absolute inset-0"
                     />
                   </Suspense>
                 </CanvasBoundary>
               ) : null}
+              {url && !preview.ready ? <StageLoader /> : null}
               {mode === 'parts' && selectedNames.length ? (
                 <span className={cn(badge, 'pointer-events-none top-3 left-3')}>
                   {selectedNames.join(' and ')} selected

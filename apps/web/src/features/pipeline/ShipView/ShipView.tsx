@@ -1,4 +1,5 @@
 import { Button, EmptyState, Icon, cn } from '@maquette/ui';
+import { ViewLoader } from '@/features/common/ViewLoader';
 import type { ShipFile } from '@/ipc/client';
 import { commitFirstLine, originalsLine, shipCounts } from '@/state/game';
 import { shipCells, splitPath, useShipView } from './ShipView.hooks';
@@ -69,7 +70,7 @@ export default function ShipView({ project, onClose }: ShipViewProps) {
   const { plan, groups, approval, deciding, answer, name, repo, showAll, setShowAll } =
     useShipView(project);
   if (!plan || !groups) {
-    return <main className="grid flex-1 place-items-center" aria-busy="true" />;
+    return <ViewLoader />;
   }
   const changing = groups.added.length + groups.replaced.length + groups.removed.length;
   const total = plan.files.length + plan.handMade.length;

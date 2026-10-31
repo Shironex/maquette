@@ -201,7 +201,7 @@ fn variant_for(asset: &Asset) -> PresetVariant {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn provider_batch_options(
     session: State<'_, Session>,

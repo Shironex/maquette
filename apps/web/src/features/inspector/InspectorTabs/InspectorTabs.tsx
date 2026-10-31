@@ -2,29 +2,13 @@ import { Tabs } from '@maquette/ui';
 import type { InspectorTab } from '@/state/use-inspector-store';
 import { useInspectorTabs } from './InspectorTabs.hooks';
 
-const TABS = [
-  { id: 'compare', label: 'Compare' },
-  { id: 'layout', label: 'Layout' },
-  { id: 'paths', label: 'Paths' },
-  { id: 'parts', label: 'Parts' },
-  { id: 'render', label: 'Render' },
-] as const;
-
-/** A game has no scene to lay out: it checks each model against its budget. */
-const GAME_TABS = [
-  { id: 'compare', label: 'Compare' },
-  { id: 'budget', label: 'Budget' },
-  { id: 'parts', label: 'Parts' },
-  { id: 'render', label: 'Render' },
-] as const;
-
 /** Compare versions, lay out the scene, or draw paths through it; in a game, the budgets. */
 export default function InspectorTabs() {
-  const { tab, setTab, game } = useInspectorTabs();
+  const { tab, tabs, setTab, game } = useInspectorTabs();
   if (!game) {
     return (
       <Tabs
-        tabs={TABS}
+        tabs={tabs}
         value={tab}
         onChange={id => setTab(id as InspectorTab)}
         className="-mt-1 flex-none"
@@ -34,7 +18,7 @@ export default function InspectorTabs() {
   return (
     <div className="-mt-1 flex flex-none items-end gap-4 border-b border-line">
       <Tabs
-        tabs={GAME_TABS}
+        tabs={tabs}
         value={tab}
         onChange={id => setTab(id as InspectorTab)}
         className="border-b-0"

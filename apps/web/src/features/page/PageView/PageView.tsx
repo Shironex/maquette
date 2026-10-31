@@ -1,4 +1,4 @@
-import { Button, EmptyState, Tabs, TopBar } from '@maquette/ui';
+import { Button, EmptyState, Tabs, TopBar, Loader } from '@maquette/ui';
 import { ProjectTopBar } from '@/features/common/ProjectTopBar';
 import { CompareBoard } from '../CompareBoard';
 import { DeviceVerdict } from '../DeviceVerdict';
@@ -59,7 +59,9 @@ export default function PageView() {
                 </Button>
               }
             />
-          ) : null}
+          ) : (
+            <Loader />
+          )}
         </main>
       </>
     );

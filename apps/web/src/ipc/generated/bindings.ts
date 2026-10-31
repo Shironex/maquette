@@ -163,7 +163,12 @@ export const commands = {
 	libraryRemove: (entries: string[]) => __TAURI_INVOKE<string[]>("library_remove", { entries }),
 	/**  Puts removed entries back, undoing a merge for a merged one. */
 	libraryRestore: (entries: string[]) => __TAURI_INVOKE<LibraryRestored>("library_restore", { entries }),
-	/**  The entries that may be one model twice, with the recent merges. */
+	/**
+	 *  The entries that may be one model twice, with the recent merges.
+	 * 
+	 *  Opening the library asks for this, and it decodes every entry's picture and
+	 *  scores every pair: seconds at a few hundred models, so never the main thread.
+	 */
 	libraryLookAlikes: () => __TAURI_INVOKE<LookAlikes>("library_look_alikes"),
 	/**  Records a verdict on a look-alike pair so it is no longer listed. */
 	libraryDecide: (a: string, b: string, verdict: LookAlikeVerdict) => __TAURI_INVOKE<null>("library_decide", { a, b, verdict }),
@@ -313,6 +318,10 @@ export const commands = {
 	 *  move with it.
 	 */
 	layoutSave: (project: string, layout: SceneLayout) => __TAURI_INVOKE<LayoutView>("layout_save", { project, layout }),
+	/**
+	 *  Reads every model file of the project whole, so never on the main thread:
+	 *  a blocked main thread freezes the window, loader included.
+	 */
 	motionGet: (project: string) => __TAURI_INVOKE<MotionView>("motion_get", { project }),
 	/**
 	 *  Saves every asset's object states and the clips that stay off the site

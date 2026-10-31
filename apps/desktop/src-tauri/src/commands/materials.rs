@@ -12,7 +12,7 @@ use tauri::State;
 use super::CommandResult;
 use crate::session::Session;
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn materials_get(
     session: State<'_, Session>,

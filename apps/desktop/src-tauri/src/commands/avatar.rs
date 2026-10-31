@@ -98,7 +98,7 @@ pub(crate) fn save(
 
 /// One character asset's avatar: the spec (or the workspace defaults), the
 /// readiness, the last normalised rest pose and the last export.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn avatar_get(
     session: State<'_, Session>,

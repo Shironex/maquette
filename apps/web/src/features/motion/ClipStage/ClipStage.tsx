@@ -1,4 +1,6 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
+import { StageLoader, useStageReady } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import { Button, Icon, InlineBanner, Select } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { ClipTimeline } from '../ClipTimeline';
@@ -7,7 +9,7 @@ import { NoClipsOptions } from '../NoClipsOptions';
 import { PressToggle } from '@/features/common/PressToggle';
 import { useClipStage } from './ClipStage.hooks';
 
-const MotionStage = lazy(() => import('@/features/viewer/MotionStage'));
+const MotionStage = lazyAfterPaint(() => import('@/features/viewer/MotionStage'));
 
 const CHIP =
   'inline-flex h-6 items-center gap-1.5 rounded-control bg-app/85 px-2 text-[11.5px] leading-none font-medium text-fg';
@@ -15,6 +17,8 @@ const CHIP =
 /** The selected model playing its clip, with the overlays and the timeline under it. */
 export default function ClipStage() {
   const stage = useClipStage();
+  const shown = useStageReady(stage.url);
+  const waiting = stage.url && !stage.failed && !shown.ready;
   const { model, clip, overlays } = stage;
   if (!model) return <section className="flex-1" aria-label="Preview" />;
   const clipOptions = model.clips.map(c => ({ value: c.name, label: c.name }));
@@ -90,7 +94,7 @@ export default function ClipStage() {
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-card border border-line bg-studio">
         {stage.url && !stage.failed ? (
           <CanvasBoundary resetKey={stage.url}>
-            <Suspense fallback={null}>
+            <Suspense fallback={<StageLoader />}>
               <MotionStage
                 className="absolute! inset-0"
                 label={stage.label}
@@ -103,11 +107,12 @@ export default function ClipStage() {
                 poses={null}
                 outline={[]}
                 onFrame={stage.tick}
-                onError={stage.setFailed}
+                report={{ onError: stage.setFailed, onLoaded: shown.onLoaded }}
               />
             </Suspense>
           </CanvasBoundary>
         ) : null}
+        {waiting ? <StageLoader /> : null}
         {stage.failed ? (
           <InlineBanner
             tone="danger"

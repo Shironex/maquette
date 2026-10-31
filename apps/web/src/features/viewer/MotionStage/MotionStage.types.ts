@@ -18,7 +18,8 @@ export interface MotionStageProps {
   outline: readonly string[];
   /** Each frame's wall time, for the player to move on. */
   onFrame?: (delta: number) => void;
-  onError?: (message: string) => void;
+  /** The model is up and framed, or could not be read. */
+  report?: { onLoaded?: () => void; onError?: (message: string) => void };
   className?: string;
   label: string;
 }

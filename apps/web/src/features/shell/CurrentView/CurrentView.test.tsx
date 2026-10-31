@@ -30,6 +30,7 @@ describe('the current view', () => {
     await openMockWorkspace();
     const { container, rerender } = render(<CurrentView view="library" />);
     expect(container.querySelector('main[aria-busy="true"]')).not.toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('Opening Models...');
     expect(
       await screen.findByRole('searchbox', { name: 'Find a model' }, { timeout: 4000 })
     ).toBeVisible();

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { isGame } from '@/state/game';
+import { shownInspectorTab } from '@/state/inspector-tabs';
 import { useAppStore } from '@/state/use-app-store';
 import { useInspectorStore } from '@/state/use-inspector-store';
 import { usePipelineStore } from '@/state/use-pipeline-store';
@@ -23,14 +24,5 @@ export function useInspectorView() {
     // A finished run changes the shipped models, so it reloads too.
   }, [projectId, lastRun, load]);
 
-  // A game has no Layout or Paths; a website has no Budget. Both have Parts.
-  const game = isGame(project);
-  const shown = game
-    ? tab === 'budget' || tab === 'parts'
-      ? tab
-      : 'compare'
-    : tab === 'budget'
-      ? 'compare'
-      : tab;
-  return { project, view, loading, error, load, tab: shown };
+  return { project, view, loading, error, load, tab: shownInspectorTab(tab, isGame(project)) };
 }

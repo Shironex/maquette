@@ -9,7 +9,7 @@ use tauri::State;
 use super::CommandResult;
 use crate::session::Session;
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn layout_get(session: State<'_, Session>, project: String) -> CommandResult<LayoutView> {
     get(&session, &project)

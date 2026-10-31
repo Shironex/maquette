@@ -3,13 +3,15 @@
  * view's stage. The clip file holds bones and keys only, so the stage
  * draws the skeleton and the root's trail.
  */
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
+import { StageLoader } from '@/features/common/ViewLoader';
+import { lazyAfterPaint } from '@/lib/after-paint';
 import { Icon, InlineBanner } from '@maquette/ui';
 import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import type { AnimationItem } from '@/ipc/client';
 import { useClipPreview } from './ClipPreview.hooks';
 
-const MotionStage = lazy(() => import('@/features/viewer/MotionStage'));
+const MotionStage = lazyAfterPaint(() => import('@/features/viewer/MotionStage'));
 
 const CHIP =
   'inline-flex h-6 items-center gap-1.5 rounded-control bg-app/85 px-2 text-[11.5px] leading-none font-medium text-fg';
@@ -28,7 +30,7 @@ export default function ClipPreview({ item, className }: ClipPreviewProps) {
     >
       {url && !failed ? (
         <CanvasBoundary resetKey={url}>
-          <Suspense fallback={null}>
+          <Suspense fallback={<StageLoader />}>
             <MotionStage
               className="absolute! inset-0"
               label={`${clip.name} on its own skeleton, frame ${frame}`}
@@ -41,7 +43,7 @@ export default function ClipPreview({ item, className }: ClipPreviewProps) {
               poses={null}
               outline={[]}
               onFrame={tick}
-              onError={setFailed}
+              report={{ onError: setFailed }}
             />
           </Suspense>
         </CanvasBoundary>

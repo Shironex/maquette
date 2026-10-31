@@ -1,4 +1,4 @@
-import { Button, EmptyState } from '@maquette/ui';
+import { Button, EmptyState, Loader } from '@maquette/ui';
 import { ShipSettingsPanel } from './ShipSettingsPanel';
 import { SitePlanTable } from './SitePlanTable';
 import { SizeReportTable } from './SizeReportTable';
@@ -43,7 +43,9 @@ export default function SiteShipView({ project, focus = null, onClose }: SiteShi
               </div>
             }
           />
-        ) : null}
+        ) : (
+          <Loader />
+        )}
       </main>
     );
   }

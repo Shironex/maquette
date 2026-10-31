@@ -116,7 +116,7 @@ pub fn rig_open(
 }
 
 /// Case `id`.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rig_get(
     session: State<'_, Session>,
@@ -128,7 +128,7 @@ pub fn rig_get(
 }
 
 /// The cases on disk, newest first.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rig_list(session: State<'_, Session>) -> CommandResult<Vec<RigRecord>> {
     let (root, config) = session.workspace()?;

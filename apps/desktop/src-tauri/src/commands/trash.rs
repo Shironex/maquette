@@ -75,7 +75,7 @@ pub async fn asset_remove(
 }
 
 /// The assets removed from the project, newest first.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn asset_trash_list(
     session: tauri::State<'_, Session>,

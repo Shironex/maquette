@@ -111,7 +111,7 @@ pub async fn render_start(app: AppHandle, request: RenderRequest) -> CommandResu
 }
 
 /// One render's record.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn render_get(
     session: State<'_, Session>,
@@ -123,7 +123,7 @@ pub fn render_get(
 }
 
 /// The newest renders first.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn render_recent(
     session: State<'_, Session>,
