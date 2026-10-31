@@ -2,7 +2,9 @@
 //! import the game's own models, change the settings and see what Ship
 //! would change. Ship itself still waits for a person in the app.
 
-use maquette_core::game::{self, FolderBudget, GameExport, GameFormat, GameSettingsChange};
+use maquette_core::game::{
+    self, FolderBudget, GameExport, GameFormat, GameSettingsChange, GameTemplateId,
+};
 use maquette_core::project;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
@@ -73,6 +75,10 @@ pub struct SetGameSettingsArgs {
     /// it back where its kind or imported file puts it. The next Ship writes it there and
     /// removes its old file when Maquette wrote or imported that file.
     pub asset_folders: Option<std::collections::BTreeMap<String, Option<String>>>,
+    /// "prop-set", "character", "level-kit" or "level-kit-obj": fills the format and the
+    /// template's folder budgets, keeping other rows and every existing file. get_game lists
+    /// what each would change. Refused together with any other setting except repo.
+    pub template: Option<String>,
 }
 
 fn word<T: serde::de::DeserializeOwned>(what: &str, value: &str) -> Result<T, String> {
@@ -81,6 +87,29 @@ fn word<T: serde::de::DeserializeOwned>(what: &str, value: &str) -> Result<T, St
 }
 
 impl SetGameSettingsArgs {
+    /// The template to apply, refused alongside the settings it would race.
+    fn template(&self) -> Result<Option<GameTemplateId>, String> {
+        let Some(name) = self.template.as_deref() else {
+            return Ok(None);
+        };
+        let others = self.format.is_some()
+            || self.models_dir.is_some()
+            || self.textures.is_some()
+            || self.texture_cap.is_some()
+            || self.drop_maps.is_some()
+            || self.bake.is_some()
+            || self.budgets.is_some()
+            || self.asset_folders.is_some();
+        if others {
+            return Err("Apply a template on its own, then change other settings.".to_string());
+        }
+        word(
+            "game template (prop-set, character, level-kit or level-kit-obj)",
+            name,
+        )
+        .map(Some)
+    }
+
     fn change(&self, current: &GameExport) -> Result<GameSettingsChange, String> {
         let format = self
             .format
@@ -120,7 +149,7 @@ impl SetGameSettingsArgs {
 #[tool_router(router = game_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Get a game project's settings: the game repo, the model format, the model folder, the Game export settings (texture format and size cap), whether Bake light runs, the budget per folder and, per asset, its file in the model folder (with the folder set for it, if any) and its numbers against its folder's budget. A website project answers that it is not a game.",
+        description = "Get a game project's settings: the game repo, the model format, the model folder, the Game export settings (texture format and size cap), whether Bake light runs, the budget per folder, per asset its file in the model folder (with the folder set for it, if any) and its numbers against its folder's budget, and templates: what each built-in game template would change here. A website project answers that it is not a game.",
         annotations(read_only_hint = true)
     )]
     async fn get_game(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
@@ -130,6 +159,12 @@ impl McpTools {
                 let manifest =
                     project::load(&root, &config.layout, &args.project).map_err(reason)?;
                 let settings = game::settings_of(&manifest).map_err(reason)?;
+                let dir = project::dir(&root, &config.layout, &args.project).map_err(reason)?;
+                let templates = game::game_templates()
+                    .into_iter()
+                    .map(|t| game::preview_template(&dir, &manifest, t.id).map(|p| to_value(&p)))
+                    .collect::<Result<Vec<Value>, _>>()
+                    .map_err(reason)?;
                 let assets: Vec<Value> = manifest
                     .assets
                     .iter()
@@ -155,6 +190,7 @@ impl McpTools {
                         "budgets": to_value(&settings.budgets),
                     },
                     "assets": assets,
+                    "templates": templates,
                 }))
             })
             .await;
@@ -203,7 +239,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change a game project's settings: repo (the game repo on this computer, an absolute path to a git repo or worktree, saved per computer), format, modelsDir, textures, textureCap, dropMaps (true leaves normal and metal-roughness maps out of exported models; false, the default, keeps them), bake, assetFolders (per asset id, its own folder inside the model folder such as kit, or null to put it back; the next Ship moves the file and removes the old one it owns) and the budgets table (each field left out keeps what is saved). The pipeline follows: Bake light goes in or out and Export uses the new texture settings on the next run. Refused, changing nothing, when a value is out of range. Returns the settings like get_game."
+        description = "Change a game project's settings: repo (the game repo on this computer, an absolute path to a git repo or worktree, saved per computer), format, modelsDir, textures, textureCap, dropMaps (true leaves normal and metal-roughness maps out of exported models; false, the default, keeps them), bake, assetFolders (per asset id, its own folder inside the model folder such as kit, or null to put it back; the next Ship moves the file and removes the old one it owns) the budgets table (each field left out keeps what is saved) and template (prop-set, character, level-kit or level-kit-obj, alone or with repo: fills the format and that template's folder budgets, keeps other rows, adds no assets, and models already shipped keep their path). The pipeline follows: Bake light goes in or out and Export uses the new texture settings on the next run. Refused, changing nothing, when a value is out of range. Returns the settings like get_game."
     )]
     async fn set_game_settings(&self, Parameters(args): Parameters<SetGameSettingsArgs>) -> Out {
         let project_id = args.project.clone();
@@ -214,6 +250,7 @@ impl McpTools {
                     project::load(&root, &config.layout, &args.project).map_err(reason)?;
                 let current = game::settings_of(&manifest).map_err(reason)?;
                 let change = args.change(&current.export)?;
+                let template = args.template()?;
                 if let Some(repo) = args.repo.as_deref() {
                     let path = game::check_repo(repo).map_err(reason)?;
                     let path = Some(path.display().to_string());
@@ -221,8 +258,11 @@ impl McpTools {
                         .map_err(reason)?;
                     host.session().save_repos(&root).map_err(reason)?;
                 }
-                let saved = commands::save_settings(host.session(), &args.project, change)
-                    .map_err(|e| e.message)?;
+                let saved = match template {
+                    Some(id) => commands::apply_template(host.session(), &args.project, id),
+                    None => commands::save_settings(host.session(), &args.project, change),
+                }
+                .map_err(|e| e.message)?;
                 host.project_changed(&saved);
                 host.pipeline_changed(&args.project);
                 Ok(())

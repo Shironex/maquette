@@ -213,6 +213,42 @@ async fn agents_read_scan_import_and_change_a_game_project() {
     assert_eq!(imported["imported"], json!(["brazier", "coffin"]));
     assert!(host.pipeline_changes.load(Ordering::SeqCst) > 0);
 
+    let templates = call(&client, "get_game", json!({ "project": project_id })).await;
+    let kit = templates["templates"]
+        .as_array()
+        .expect("templates")
+        .iter()
+        .find(|t| t["template"]["id"] == "level-kit")
+        .expect("level kit");
+    assert_eq!(kit["budgets"][0]["folder"], "kit");
+    assert_eq!(kit["changes"], true);
+    let mixed = raw_call(
+        &client,
+        "set_game_settings",
+        json!({ "project": project_id, "template": "level-kit", "bake": true }),
+    )
+    .await;
+    assert_eq!(mixed.is_error, Some(true), "{}", text(&mixed));
+    let unknown = raw_call(
+        &client,
+        "set_game_settings",
+        json!({ "project": project_id, "template": "racing" }),
+    )
+    .await;
+    assert_eq!(unknown.is_error, Some(true), "{}", text(&unknown));
+    let applied = call(
+        &client,
+        "set_game_settings",
+        json!({ "project": project_id, "template": "level-kit" }),
+    )
+    .await;
+    let budgets = applied["settings"]["budgets"].as_array().expect("budgets");
+    assert!(budgets.iter().any(|b| b["folder"] == "kit"));
+    assert!(
+        budgets.iter().any(|b| b["folder"] == "props"),
+        "other rows stay"
+    );
+
     let refused = raw_call(
         &client,
         "set_game_settings",
