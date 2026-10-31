@@ -435,3 +435,90 @@ fn a_pinned_clip_is_reviewed_against_its_slide_before() {
         "{note}"
     );
 }
+
+#[test]
+fn a_pin_that_slides_more_is_told_apart_and_reads_as_left_off() {
+    let plain = ClipRun {
+        slide_cm: 2.8,
+        slide_from: 3,
+        slide_to: 12,
+        foot: "left".into(),
+        ..run("walk")
+    };
+    let before = RunReport {
+        clips: vec![
+            plain.clone(),
+            ClipRun {
+                slide_cm: 4.0,
+                ..run("run")
+            },
+            ClipRun {
+                slide_cm: 3.0,
+                ..run("unmapped")
+            },
+        ],
+        ..RunReport::default()
+    };
+    let mut pinned = RunReport {
+        clips: vec![
+            ClipRun {
+                slide_cm: 8.9,
+                ..run("walk")
+            },
+            ClipRun {
+                slide_cm: 0.3,
+                ..run("run")
+            },
+            ClipRun {
+                slide_cm: 3.0,
+                pin_error: Some("the left leg is not mapped".into()),
+                ..run("unmapped")
+            },
+        ],
+        ..RunReport::default()
+    };
+    pinned.compare_with(&before, |_| true);
+    assert_eq!(pinned.clips[0].unpinned_cm, Some(2.8));
+    assert_eq!(pinned.clips[1].unpinned_cm, Some(4.0));
+    assert_eq!(pinned.clips[2].unpinned_cm, None, "a pin that never ran");
+    assert_eq!(pinned.pins_made_worse(), vec![("walk".to_string(), 8.9)]);
+
+    // Rounding is no worse.
+    let mut same = RunReport {
+        clips: vec![ClipRun {
+            slide_cm: 2.82,
+            ..run("walk")
+        }],
+        ..RunReport::default()
+    };
+    same.compare_with(&before, |_| true);
+    assert!(same.pins_made_worse().is_empty());
+
+    // The clip baked again without it keeps its own numbers and says why.
+    let report = RunReport {
+        clips: vec![
+            ClipRun {
+                pin_worse_cm: Some(8.9),
+                ..plain
+            },
+            ClipRun {
+                slide_cm: 0.4,
+                pin_worse_cm: Some(2.0),
+                ..run("idle")
+            },
+        ],
+        ..RunReport::default()
+    };
+    let review = review::review(&report, |_| false, Vec::new());
+    let walk = &review.clips[0];
+    assert_eq!(walk.status, ReviewStatus::Look);
+    assert_eq!(walk.slide_cm, 2.8);
+    assert_eq!(walk.unpinned_cm, None);
+    assert_eq!(walk.pin_worse_cm, Some(8.9));
+    assert_eq!(
+        walk.note,
+        "The left foot slides 2.8 cm while planted, frames 3 to 12. Pinning the feet slid 8.9 cm, so the pin is off"
+    );
+    assert_eq!(review.clips[1].status, ReviewStatus::Good);
+    assert!(review.clips[1].note.ends_with("so the pin is off"));
+}

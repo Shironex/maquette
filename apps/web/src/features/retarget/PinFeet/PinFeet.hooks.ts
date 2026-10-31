@@ -10,6 +10,7 @@ export function usePinFeet(clip: ClipReview) {
     busy,
     offer: canPin(clip),
     before: clip.unpinnedCm,
+    worse: clip.pinWorseCm,
     after: clip.slideCm,
     still: clip.status === 'look',
     pin: () => void pinFeet(clip.clip),

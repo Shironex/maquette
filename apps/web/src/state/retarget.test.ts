@@ -39,6 +39,7 @@ const review = (clip: string, status: ClipReview['status']): ClipReview => ({
   slideCm: 0,
   slideFrames: null,
   unpinnedCm: null,
+  pinWorseCm: null,
 });
 
 describe('retarget rules', () => {
