@@ -329,7 +329,7 @@ fn a_saved_repo_whose_link_moved_into_the_workspace_is_refused() {
     let run = setup(&session, &id, RunAsk::default(), tools()).expect("setup");
     assert_eq!(
         run.vars["siteRepo"],
-        maquette_base::fs::real_folder(&site).display().to_string()
+        maquette_core::fs::real_folder(&site).display().to_string()
     );
     std::fs::remove_file(&link).expect("unlink");
     std::os::unix::fs::symlink(&root, &link).expect("moved");
@@ -360,7 +360,7 @@ fn a_run_ships_into_a_repo_given_for_it_alone() {
         repo,
         ..RunAsk::default()
     };
-    let at = maquette_base::fs::real_folder(&worktree)
+    let at = maquette_core::fs::real_folder(&worktree)
         .display()
         .to_string();
     let run = setup(&session, &id, ask(Some(at.clone())), tools()).expect("setup");
