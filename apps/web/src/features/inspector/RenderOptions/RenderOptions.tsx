@@ -177,7 +177,7 @@ export default function RenderOptions({ source, assetId }: RenderOptionsProps) {
         <Button icon="stack" onClick={o.addToBatch}>
           Add to batch
         </Button>
-        <Button variant="primary" icon="image" onClick={o.render}>
+        <Button variant="primary" icon="image" loading={o.rendering} onClick={o.render}>
           Render
         </Button>
       </div>

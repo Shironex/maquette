@@ -1,4 +1,4 @@
-import { InlineBanner, SegmentedControl, Select, cn } from '@maquette/ui';
+import { InlineBanner, Loader, SegmentedControl, Select, cn } from '@maquette/ui';
 import { STYLE_LABEL } from '@/state/renders';
 import { useRenderStage } from './RenderStage.hooks';
 
@@ -74,7 +74,7 @@ export default function RenderStage() {
             )}
           />
         ) : !s.error ? (
-          <p className="text-meta text-fg-mute">Asking headless Blender for a picture...</p>
+          <Loader label="Asking headless Blender for a picture..." />
         ) : null}
         {s.error ? (
           <div className="absolute inset-x-4 top-4">
