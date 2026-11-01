@@ -294,9 +294,6 @@ pub fn preview_template(
     })
 }
 
-/// Fills the game settings of project `id` from a template and fits its
-/// pipeline to them. Moves and deletes no file, in the game or the project;
-/// the settings stay editable like any others.
 /// Refuses a template [`apply_template`] would refuse, writing nothing.
 pub fn check_template(
     workspace_root: &Path,
@@ -310,6 +307,9 @@ pub fn check_template(
     validate(&outcome(settings, m, &in_game, &game_template(template)).next)
 }
 
+/// Fills the game settings of project `id` from a template and fits its
+/// pipeline to them. Moves and deletes no file, in the game or the project;
+/// the settings stay editable like any others.
 pub fn apply_template(
     workspace_root: &Path,
     layout: &FolderLayout,

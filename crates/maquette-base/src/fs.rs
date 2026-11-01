@@ -59,9 +59,6 @@ fn rename_retrying(from: &Path, to: &Path) -> io::Result<()> {
     result
 }
 
-/// True for a path written on any computer as absolute: `/Users/me`,
-/// `\\server\share` or `C:\Users\me`. A path from macOS is not absolute to
-/// Windows' own check, so this looks at the text.
 /// The real folder behind `path`, links resolved, in the form the rest of
 /// the app writes paths (no Windows `\\\\?\\` prefix). `path` itself when it
 /// cannot be resolved.
@@ -76,6 +73,9 @@ pub fn real_folder(path: &Path) -> PathBuf {
     }
 }
 
+/// True for a path written on any computer as absolute: `/Users/me`,
+/// `\\server\share` or `C:\Users\me`. A path from macOS is not absolute to
+/// Windows' own check, so this looks at the text.
 pub fn looks_absolute(text: &str) -> bool {
     let bytes = text.as_bytes();
     let drive = bytes.len() >= 3
