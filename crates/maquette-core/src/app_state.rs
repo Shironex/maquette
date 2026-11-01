@@ -39,8 +39,8 @@ pub struct AppState {
     pub machine_id: Option<String>,
     /// The projects whose repo an agent set: workspace root, then project
     /// ids. Files from before this have none, so those repos count as a
-    /// person's. Kept here, out of every tool's reach and off the synced
-    /// workspace, like the paths themselves.
+    /// person's. Kept here, per computer and off the synced workspace, like
+    /// the paths themselves.
     pub agent_set_repos: BTreeMap<String, BTreeSet<String>>,
     /// The dev commands a person approved for an agent-set repo: the repo's
     /// folder, then each question's key (`site::preview::PreviewAsk::key`).

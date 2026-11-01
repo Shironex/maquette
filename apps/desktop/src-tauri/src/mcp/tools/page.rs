@@ -42,7 +42,7 @@ pub struct StartPageArgs {
 const NOTE: &str = "The server runs the project's dev command in its site repo: the command set in Settings > Project, else the preview command of the site's maquette.site.json, else the package manager of the nearest lockfile running the dev, start or serve script with a free port. It is the server the Page view and Preview on site share; Maquette stops it when the app quits and never deploys anything.";
 
 const APPROVAL_NOTE: &str = "A person reads this folder and command and approves or denies in the Maquette app; nothing runs until then, and a yes starts the server. Poll get_page_preview or call start_page_preview again; neither raises a second card.";
-const REFUSED_FIX: &str = "Do not retry: this answer stands until the app restarts. Ask the person; they can start the server from the Page view, which shows the card again. A changed path or command is a new question.";
+const REFUSED_FIX: &str = "Do not retry: this answer stands until the app restarts. Ask the person; they can start the server from the Page view, which shows the card again. A change to what the card lists is a new question.";
 
 fn server(host: &dyn Host) -> Result<Arc<SitePreview>, String> {
     host.site_preview()
@@ -90,6 +90,8 @@ fn approval_value(id: &str, ask: &PreviewAsk) -> Value {
         "repo": ask.repo,
         "command": ask.command,
         "scriptRuns": ask.script_runs,
+        "scriptHooks": ask.hooks,
+        "scriptShell": ask.script_shell,
         "note": APPROVAL_NOTE,
     })
 }
@@ -147,7 +149,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Start a project's site dev server, the one the Page view shows, or reuse it when it already serves that site. This runs the site repo's dev command on this computer. The first start of a repo an agent set waits for a person, who reads the folder and the command in the app: it answers waiting for approval, a yes starts the server, and any changed path or command asks again. A no is an error with code preview-refused. A repo a person set never asks. A server already answering at the site's configured address is reused and never stopped. Starting another project's site stops the one before. Waits up to waitSeconds (default 30) for it to answer and returns its state and address like get_page_preview; a failed start says why with the last log lines. The server stays until stop_page_preview or the app quits. Nothing is built or deployed.",
+        description = "Start a project's site dev server, the one the Page view shows, or reuse it when it already serves that site. This runs the site repo's dev command on this computer. The first start of a repo an agent set waits for a person, who reads the folder, the command and its package scripts in the app: it answers waiting for approval, a yes starts the server, and a changed path, command, script or .npmrc asks again. A yes trusts the repo: files a script loads are not covered. A no is an error with code preview-refused. A repo a person set never asks. A server already answering at the site's configured address is reused and never stopped. Starting another project's site stops the one before. Waits up to waitSeconds (default 30) for it to answer and returns its state and address like get_page_preview; a failed start says why with the last log lines. The server stays until stop_page_preview or the app quits. Nothing is built or deployed.",
         annotations(idempotent_hint = true)
     )]
     async fn start_page_preview(&self, Parameters(args): Parameters<StartPageArgs>) -> Out {
