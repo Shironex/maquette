@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   commands,
   errorMessage,
@@ -21,7 +21,9 @@ import {
 import { useAppStore } from '@/state/use-app-store';
 import { useInspectorStore } from '@/state/use-inspector-store';
 import { useMotionStore } from '@/state/use-motion-store';
+import { openInBlender as openBlender } from '@/state/open-in-blender';
 import { useSplitStore } from '@/state/use-split-store';
+import { useWait } from '@/lib/waiting';
 
 export type PartsMode = 'parts' | 'shaded' | 'wireframe';
 /** The parts themselves, or before and after the split side by side. */
@@ -69,8 +71,16 @@ export function usePartsPanel() {
   const [mode, setMode] = useState<PartsMode>('parts');
   const [page, setPage] = useState<PartsPage>('parts');
   const [uses, setUses] = useState<PartUse[]>([]);
+  const failed = error !== null;
+  const partsKey = projectId && assetId && `${projectId}:${assetId}`;
+  const readEstimate = useWait(partsKey && `parts:${partsKey}`, busy && !splitting, failed);
+  const splitEstimate = useWait(partsKey && `parts-split:${partsKey}`, busy && splitting, failed);
+  // Picking another asset drops the answer on its way, and with it that wait's end.
+  const asked = useRef(0);
 
   const load = useCallback(async (projectId: string, assetId: string, run: boolean) => {
+    const mine = ++asked.current;
+    const newest = () => mine === asked.current;
     setBusy(true);
     setSplitting(run);
     setError(null);
@@ -78,15 +88,17 @@ export function usePartsPanel() {
       const got = run
         ? await commands.partsPreview(projectId, assetId)
         : await commands.partsGet(projectId, assetId);
+      if (!newest()) return;
       setFound(got);
       if (got.needsPreview && !run) {
         setSplitting(true);
-        setFound(await commands.partsPreview(projectId, assetId));
+        const split = await commands.partsPreview(projectId, assetId);
+        if (newest()) setFound(split);
       }
     } catch (e) {
-      setError(errorMessage(e));
+      if (newest()) setError(errorMessage(e));
     } finally {
-      setBusy(false);
+      if (newest()) setBusy(false);
     }
   }, []);
 
@@ -165,6 +177,7 @@ export function usePartsPanel() {
     rows,
     busy,
     splitting,
+    estimate: splitting ? splitEstimate : readEstimate,
     error,
     uses,
     game,
@@ -245,19 +258,16 @@ export function usePartsModel(asset: string | null, version: number | null) {
 export function usePartsSheets() {
   const openSplit = useSplitStore(s => s.openSplit);
   const openAssemble = useSplitStore(s => s.openAssemble);
-  const notify = useAppStore(s => s.notify);
   const setView = useAppStore(s => s.setView);
   const selectMotion = useMotionStore(s => s.select);
   const openMotion = (asset: string) => {
     selectMotion(asset);
     setView('motion');
   };
-  const openInBlender = async ({ project, asset, version }: AssetParts) => {
-    try {
-      await commands.assetOpenInBlender(project, asset, version);
-    } catch (error) {
-      notify({ status: 'failed', title: 'Could not open Blender', detail: errorMessage(error) });
-    }
+  const openInBlender = async ({ project, asset, name, version }: AssetParts) => {
+    await openBlender(`${name} v${version}`, () =>
+      commands.assetOpenInBlender(project, asset, version)
+    );
   };
   return { openSplit, openAssemble, openInBlender, openMotion };
 }

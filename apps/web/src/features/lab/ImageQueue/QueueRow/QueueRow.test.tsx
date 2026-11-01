@@ -20,7 +20,7 @@ describe('a queue row', () => {
     useLabStore.setState({ cancel });
     const now = running!.startedAtMs! + 41_000;
     render(<QueueRow job={running!} projectDir="/w" now={now} />);
-    expect(screen.getByText('41s')).toBeVisible();
+    expect(screen.getByText('Generating · 41s')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel Concept 05' }));
     expect(cancel).toHaveBeenCalledWith(running!.id);
   });

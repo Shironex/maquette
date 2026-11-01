@@ -50,7 +50,7 @@ export default function JobTile({ direction, job }: JobTileProps) {
         <span
           className={cn(
             'text-meta tabular-nums',
-            running || limited || approval ? 'text-amber' : 'text-fg-mute'
+            limited || approval ? 'text-amber' : 'text-fg-mute'
           )}
         >
           {elapsed}

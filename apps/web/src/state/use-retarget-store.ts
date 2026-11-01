@@ -16,6 +16,7 @@ import {
   type RetargetPlan,
 } from '@/ipc/client';
 import { useAnimationsStore } from './use-animations-store';
+import { openInBlender } from './open-in-blender';
 import { useAppStore } from './use-app-store';
 import { useMotionStore } from './use-motion-store';
 import { reviewOrder, withSetting, type RetargetStep } from './retarget';
@@ -276,15 +277,7 @@ export const useRetargetStore = create<RetargetStore>((set, get) => {
     openInBlender: async () => {
       const token = get().sheet?.draft?.token;
       if (!token) return;
-      try {
-        await commands.animationsOpenDraftInBlender(token);
-      } catch (error) {
-        useAppStore.getState().notify({
-          status: 'failed',
-          title: 'Could not open Blender',
-          detail: errorMessage(error),
-        });
-      }
+      await openInBlender('the draft', () => commands.animationsOpenDraftInBlender(token));
     },
 
     bake: async () => {

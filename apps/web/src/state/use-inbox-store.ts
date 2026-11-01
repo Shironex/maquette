@@ -9,6 +9,7 @@ import {
   type ThumbnailReady,
 } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
+import { openInBlender as openBlender } from './open-in-blender';
 import { useAppStore } from './use-app-store';
 import { retextureOffer } from './retexture-offer';
 import { usePrepareStore } from './use-prepare-store';
@@ -21,6 +22,8 @@ interface InboxStore {
   /** Models ticked for a batch redo, in list order. */
   checked: string[];
   loading: boolean;
+  /** The newest read of the inbox failed. */
+  loadFailed: boolean;
   /** The item an action is running for. */
   busy: string | null;
   load: () => Promise<void>;
@@ -60,11 +63,12 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
   selected: null,
   checked: [],
   loading: false,
+  loadFailed: false,
   busy: null,
 
   load: async () => {
     const ticket = ++loads;
-    set({ loading: true });
+    set({ loading: true, loadFailed: false });
     try {
       const listed = await commands.inboxList();
       // The watcher fires several loads when a model lands; an older answer
@@ -83,7 +87,7 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
       void get().snapshotMissing();
     } catch (error) {
       if (ticket !== loads) return;
-      set({ loading: false });
+      set({ loading: false, loadFailed: true });
       fail('Could not read the inbox', error);
     }
   },
@@ -178,11 +182,8 @@ export const useInboxStore = create<InboxStore>((set, get) => ({
   },
 
   openInBlender: async id => {
-    try {
-      await commands.inboxOpenInBlender(id);
-    } catch (error) {
-      fail('Could not open Blender', error);
-    }
+    const name = get().snapshot?.items.find(i => i.id === id)?.name ?? id;
+    await openBlender(name, () => commands.inboxOpenInBlender(id));
   },
 
   onThumbnail: event => {

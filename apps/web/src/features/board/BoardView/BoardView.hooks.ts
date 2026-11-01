@@ -9,6 +9,8 @@ import {
 } from '@/ipc/client';
 import { useNativeDrop } from '@/lib/useNativeDrop';
 import { columns } from '@/state/board';
+import { moveCard } from '@/state/move-card';
+import { openInBlender as openBlender } from '@/state/open-in-blender';
 import { filterRows, listRow, sortRows } from '@/state/board-list';
 import { MAX_BATCH, nextSelection } from '@/state/batch';
 import { STAGES } from '@/state/pipeline';
@@ -143,16 +145,7 @@ export function useCardActions(project: ProjectManifest | null | undefined) {
     });
 
   const move = async (asset: Asset, stage: Stage) => {
-    if (!project || asset.stage === stage) return;
-    try {
-      setProject(await commands.assetMove(project.id, asset.id, stage));
-    } catch (error) {
-      notify({
-        status: 'failed',
-        title: `Could not move ${asset.name}`,
-        detail: errorMessage(error),
-      });
-    }
+    if (project) await moveCard(project.id, asset, stage);
   };
   /** A card dragged onto a column. */
   const dropOn = (stage: Stage, id: string) => {
@@ -191,11 +184,7 @@ export function useCardActions(project: ProjectManifest | null | undefined) {
   };
   const openInBlender = async (asset: Asset) => {
     if (!project) return;
-    try {
-      await commands.assetOpenInBlender(project.id, asset.id, null);
-    } catch (error) {
-      notify({ status: 'failed', title: 'Could not open Blender', detail: errorMessage(error) });
-    }
+    await openBlender(asset.name, () => commands.assetOpenInBlender(project.id, asset.id, null));
   };
   const renamed = (next: ProjectManifest) => {
     setProject(next);

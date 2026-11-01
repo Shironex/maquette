@@ -77,7 +77,12 @@ export default function BoardCard({ asset, board }: BoardCardProps) {
         thumb,
         placeholder: {
           icon: KIND_ICON[asset.kind],
-          label: asset.versions.length > 0 ? 'No preview yet' : undefined,
+          label: card.previewing
+            ? 'Rendering a preview'
+            : asset.versions.length > 0
+              ? 'No preview yet'
+              : undefined,
+          busy: card.previewing,
         },
       }}
       details={{

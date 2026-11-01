@@ -1,6 +1,7 @@
 import { caseLine } from '@/state/rig';
 import { useRigStore } from '@/state/use-rig-store';
 import { useEffect } from 'react';
+import { useWait } from '@/lib/waiting';
 import { firstToReview } from '@/state/inbox';
 import { filterItems, triageGroup } from '@/state/triage';
 import { useInboxStore } from '@/state/use-inbox-store';
@@ -12,7 +13,7 @@ import { useTriageStore } from '@/state/use-triage-store';
  * inbox changes, so a discard shows up under Recently discarded.
  */
 export function useInboxView() {
-  const { snapshot, selected } = useInboxStore();
+  const { snapshot, selected, loading, loadFailed } = useInboxStore();
   const { layout, setLayout, filter, loadDiscarded } = useTriageStore();
   const items = snapshot?.items ?? [];
   // The list's filter decides too: a model it hides is not the one on show.
@@ -25,8 +26,12 @@ export function useInboxView() {
   useEffect(() => {
     void loadDiscarded();
   }, [snapshot, loadDiscarded]);
+  const reading = snapshot === null && loading;
+  const estimate = useWait('inbox', reading, loadFailed);
   return {
     snapshot,
+    reading,
+    estimate,
     items,
     item,
     layout,
@@ -38,11 +43,18 @@ export function useInboxView() {
 /** The rig doctor case on show, and the way back to one that is still open. */
 export function useRigCases() {
   const rigCase = useRigStore(s => s.record);
+  const rigOpening = useRigStore(s => s.opening);
   const open = useRigStore(s => s.open);
   const load = useRigStore(s => s.load);
   const showCase = useRigStore(s => s.showCase);
   useEffect(() => void load(), [load]);
   const going = open[0];
   const more = open.length > 1 ? ` and ${open.length - 1} more` : '';
-  return { rigCase, going, goingLabel: going ? `${caseLine(going)}${more}` : '', showCase };
+  return {
+    rigCase,
+    rigOpening,
+    going,
+    goingLabel: going ? `${caseLine(going)}${more}` : '',
+    showCase,
+  };
 }

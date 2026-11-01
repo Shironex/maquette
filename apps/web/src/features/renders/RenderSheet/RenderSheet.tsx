@@ -153,6 +153,7 @@ export default function RenderSheet() {
                 </span>
                 <span className="font-mono text-fg-dim">
                   {s.progress.done} of {s.progress.total} files
+                  {s.estimate ? ` · ${s.estimate}` : ''}
                 </span>
               </div>
               <div

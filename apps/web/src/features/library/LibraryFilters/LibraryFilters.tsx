@@ -16,6 +16,8 @@ import { NewCollection } from '../NewCollection';
 const DOTS = ['bg-clay', 'bg-sage', 'bg-amber', 'bg-fg-dim', 'bg-danger'];
 
 export interface LibraryFiltersProps {
+  /** False until the library is read: the counts wait rather than say zero. */
+  loaded?: boolean;
   items: readonly LibraryItem[];
   filters: Filters;
   onChange: (change: Partial<Filters>) => void;
@@ -30,6 +32,7 @@ export interface LibraryFiltersProps {
  * it; the counts are over the whole library.
  */
 export default function LibraryFilters({
+  loaded = true,
   items,
   filters,
   onChange,
@@ -104,37 +107,41 @@ export default function LibraryFilters({
       <FilterGroup title="Collections">
         <FilterOption
           label="All models"
-          count={items.length}
+          count={loaded ? items.length : undefined}
           on={!anyFilter && filters.usedIn === null}
           onClick={() =>
             onChange({ collection: null, tag: null, source: null, format: null, usedIn: null })
           }
         />
-        {sets}
+        {loaded ? sets : null}
         <NewCollection entries={selected} />
       </FilterGroup>
-      <FilterGroup title="Tags">
-        {tags}
-        {untagged ? (
-          <FilterOption
-            label={<span className="text-amber">untagged</span>}
-            count={untagged}
-            on={filters.tag === UNTAGGED}
-            onClick={() => toggle('tag', UNTAGGED)}
-          />
-        ) : null}
-      </FilterGroup>
-      <FilterGroup title="Made with">{sources}</FilterGroup>
+      {loaded ? (
+        <FilterGroup title="Tags">
+          {tags}
+          {untagged ? (
+            <FilterOption
+              label={<span className="text-amber">untagged</span>}
+              count={untagged}
+              on={filters.tag === UNTAGGED}
+              onClick={() => toggle('tag', UNTAGGED)}
+            />
+          ) : null}
+        </FilterGroup>
+      ) : null}
+      {loaded ? <FilterGroup title="Made with">{sources}</FilterGroup> : null}
       {formats.length > 1 ? <FilterGroup title="Format">{formats}</FilterGroup> : null}
-      <FilterGroup title="Used in">
-        {projects}
-        <FilterOption
-          label="Not used"
-          count={unused}
-          on={filters.usedIn === NOT_USED}
-          onClick={() => toggle('usedIn', NOT_USED)}
-        />
-      </FilterGroup>
+      {loaded ? (
+        <FilterGroup title="Used in">
+          {projects}
+          <FilterOption
+            label="Not used"
+            count={unused}
+            on={filters.usedIn === NOT_USED}
+            onClick={() => toggle('usedIn', NOT_USED)}
+          />
+        </FilterGroup>
+      ) : null}
     </FilterList>
   );
 }

@@ -1,4 +1,4 @@
-import { InlineBanner, Loader, SegmentedControl, Select, cn } from '@maquette/ui';
+import { InlineBanner, Loader, SegmentedControl, Select, WaitLine, cn } from '@maquette/ui';
 import { STYLE_LABEL } from '@/state/renders';
 import { useRenderStage } from './RenderStage.hooks';
 
@@ -74,12 +74,19 @@ export default function RenderStage() {
             )}
           />
         ) : !s.error ? (
-          <Loader label="Asking headless Blender for a picture..." />
+          <Loader label="Asking headless Blender for a picture..." estimate={s.estimate} />
         ) : null}
         {s.error ? (
           <div className="absolute inset-x-4 top-4">
             <InlineBanner tone="danger" title="No picture" detail={s.error} />
           </div>
+        ) : null}
+        {s.loading && s.stageUrl ? (
+          <WaitLine
+            label="Rendering..."
+            estimate={s.estimate}
+            className={cn(TAG, 'absolute top-2.5 right-2.5')}
+          />
         ) : null}
         {s.taken ? <span className={cn(TAG, 'absolute top-2.5 left-2.5')}>{s.taken}</span> : null}
         {s.title ? (

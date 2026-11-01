@@ -32,6 +32,7 @@ export const useLabStore = create<LabStore>((set, get, api) => ({
   ...createLabStyleSlice(set, get, api),
   view: null,
   loading: false,
+  loadFailed: false,
   selected: null,
   draft: EMPTY_DRAFT,
   lightbox: null,
@@ -53,7 +54,7 @@ export const useLabStore = create<LabStore>((set, get, api) => ({
     }
     // Make object refs reads a concept of the project it opened in.
     if (get().objects && get().objects?.project !== project) set({ objects: null });
-    set({ loading: true });
+    set({ loading: true, loadFailed: false });
     try {
       const view = await commands.labGet(project);
       if (requested !== project) return;
@@ -66,7 +67,7 @@ export const useLabStore = create<LabStore>((set, get, api) => ({
       if (first && !draft.name && !draft.prompt && draft.refs.length === 0) get().reuse(first);
     } catch (error) {
       if (requested !== project) return;
-      set({ loading: false });
+      set({ loading: false, loadFailed: true });
       notify('failed', 'Could not read the concepts', errorMessage(error));
     }
   },

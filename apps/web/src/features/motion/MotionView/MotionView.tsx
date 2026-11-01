@@ -14,7 +14,8 @@ import { useMotionView } from './MotionView.hooks';
  * States poses a prop's parts and times the moves between them.
  */
 export default function MotionView() {
-  const { project, stages, view, loading, error, retry, moving, model, tab } = useMotionView();
+  const { project, stages, view, loading, error, retry, moving, model, tab, estimate } =
+    useMotionView();
   const bar = <TopBar lead={<StageStepper stages={stages} />} right={<MotionBarActions />} />;
   if (!project || !view) {
     return (
@@ -39,7 +40,7 @@ export default function MotionView() {
               }
             />
           ) : (
-            <Loader label="Reading the motion..." />
+            <Loader label="Reading the motion..." estimate={estimate} />
           )}
         </main>
       </>

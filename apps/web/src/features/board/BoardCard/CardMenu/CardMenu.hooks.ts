@@ -250,12 +250,15 @@ function useAssetItems({ asset, built, board }: CardMenuProps): MenuItem[] {
             section,
             hint: 'Reads the rig of the newest version; the pose test and fix wait for your click, on a copy',
             onSelect: () =>
-              void useRigStore.getState().show({
-                inbox: null,
-                project: board.project?.id ?? null,
-                asset: asset.id,
-                version: null,
-              }),
+              void useRigStore.getState().show(
+                {
+                  inbox: null,
+                  project: board.project?.id ?? null,
+                  asset: asset.id,
+                  version: null,
+                },
+                asset.name
+              ),
           },
           {
             id: 'blender',

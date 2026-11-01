@@ -137,6 +137,7 @@ export default function PartsPanel() {
               {!url && p.busy ? (
                 <StageLoader
                   label={p.splitting ? 'Splitting a copy in Blender...' : 'Reading the parts...'}
+                  estimate={p.estimate}
                 />
               ) : null}
               {mode === 'parts' && selectedNames.length ? (

@@ -1,3 +1,4 @@
+import { usePastRun } from '@/lib/waiting';
 import { Button, Icon, NumberField, SegmentedControl, Select, Toggle, cn } from '@maquette/ui';
 import type { LoopFormat, PackSource, RenderLook } from '@/ipc/client';
 import { RenderProblemCard } from '@/features/common/RenderProblemCard';
@@ -10,7 +11,7 @@ import {
   STYLE_LABEL,
   TARGET_BYTES,
   fileOf,
-  secondsAbout,
+  renderWait,
   shortPath,
 } from '@/state/renders';
 import { useTurntableSheet } from './TurntableSheet.hooks';
@@ -34,6 +35,7 @@ const RULES: readonly [string, string][] = [
 /** One full turn: the format, the frames, the crop box, the GIF rules and the size. */
 export default function TurntableSheet({ source, assetId, name }: TurntableSheetProps) {
   const t = useTurntableSheet(source, assetId);
+  const lastRun = usePastRun(renderWait('turntable', t.settings));
   if (!t.open) return null;
   const { settings: s, moving } = t;
   const look = STYLE_LABEL[s.look].toLowerCase();
@@ -236,7 +238,8 @@ export default function TurntableSheet({ source, assetId, name }: TurntableSheet
       <div className="flex items-center gap-2 border-t border-line px-4 py-3">
         <span className="flex flex-1 items-center gap-1.5 text-meta text-fg-mute">
           <Icon name="clock" size={13} />
-          About {secondsAbout('turntable', s)} s in headless Blender · no credits
+          Headless Blender · no credits
+          {lastRun ? ` · ${lastRun}` : ''}
         </span>
         <Button variant="ghost" onClick={t.close}>
           Cancel

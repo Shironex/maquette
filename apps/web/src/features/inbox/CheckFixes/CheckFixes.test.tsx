@@ -86,12 +86,15 @@ describe('CheckFixes', () => {
     const rig: Check = { id: 'finger-weights', status: 'fail', title: '', detail: null, fixes: [] };
     const { rerender } = render(<CheckFixes item={item} check={rig} />);
     await userEvent.click(screen.getByRole('button', { name: 'Fix in rig doctor' }));
-    expect(show).toHaveBeenCalledWith({
-      inbox: 'lamp.glb',
-      project: null,
-      asset: null,
-      version: null,
-    });
+    expect(show).toHaveBeenCalledWith(
+      {
+        inbox: 'lamp.glb',
+        project: null,
+        asset: null,
+        version: null,
+      },
+      item.name
+    );
     rerender(<CheckFixes item={item} check={{ ...rig, status: 'pass' }} />);
     expect(screen.queryByRole('button', { name: 'Fix in rig doctor' })).toBeNull();
   });

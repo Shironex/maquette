@@ -6,14 +6,21 @@ import {
   nextVersion,
   noSecondRound,
   routeHeldBy,
+  WAIT_FOR_ANSWER,
+  acceptWaitsFor,
+  WAIT_FOR_RUN,
   worseWarning,
 } from '@/state/rig';
+import type { RigFrom } from '@/state/use-rig-store';
 import { useRigActions } from './RigDoctor.hooks';
 import { BeforeCentre, DefectsAside } from './RigBefore';
 import { CompareCentre, FixAside } from './RigCompare';
 import { CreatureAside, CreatureCentre } from './RigCreature';
 import { RigRefused, RigStopped } from './RigRefused';
 import { Facts, Footer, Steps } from './parts';
+import { RigCrumbs } from './RigOpening';
+
+const backLabel = (from: RigFrom) => (from === 'board' ? 'Back to the Board' : 'Back to the Inbox');
 
 function count(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
@@ -123,7 +130,7 @@ function Actions({ record }: { record: RigRecord }) {
         <Button variant="secondary" onClick={() => void s.cancel()}>
           Cancel run
         </Button>
-        <Button variant="primary" disabled>
+        <Button variant="primary" disabled disabledReason={WAIT_FOR_RUN}>
           Add as v{n}
         </Button>
       </>
@@ -133,11 +140,12 @@ function Actions({ record }: { record: RigRecord }) {
     return (
       <>
         <Button variant="ghost" onClick={s.leave}>
-          Back to the Inbox
+          {backLabel(s.from)}
         </Button>
         <Button
           variant="primary"
           disabled={!project || s.busy}
+          disabledReason={acceptWaitsFor(project)}
           loading={s.busy}
           onClick={() => project && void s.accept(project, null)}
         >
@@ -149,18 +157,26 @@ function Actions({ record }: { record: RigRecord }) {
   if (record.state === 'fixed') {
     return (
       <>
-        <Button variant="ghost" disabled={s.busy} onClick={() => void s.discard()}>
+        <Button
+          variant="ghost"
+          disabled={s.busy}
+          disabledReason={WAIT_FOR_ANSWER}
+          onClick={() => void s.discard()}
+        >
           Discard draft
         </Button>
         <Button
           variant="secondary"
           icon="arrow-clockwise"
           disabled={s.busy || record.round >= 2 || noSecondRound(record)}
-          tooltip={
+          disabledReason={
             noSecondRound(record)
               ? 'A one island mesh has no second round'
-              : 'One last try with a wider seam'
+              : record.round >= 2
+                ? 'Round 2 already ran; there is no third'
+                : WAIT_FOR_ANSWER
           }
+          tooltip="One last try with a wider seam"
           onClick={() => void s.run('round2')}
         >
           Round 2
@@ -186,7 +202,12 @@ function Actions({ record }: { record: RigRecord }) {
         <Button variant="secondary" icon="download-simple" onClick={() => void s.saveSheet()}>
           Save sheet
         </Button>
-        <Button variant="primary" disabled={s.busy} onClick={() => void s.run('fix')}>
+        <Button
+          variant="primary"
+          disabled={s.busy}
+          disabledReason={WAIT_FOR_ANSWER}
+          onClick={() => void s.run('fix')}
+        >
           Run the fix
         </Button>
       </>
@@ -195,7 +216,7 @@ function Actions({ record }: { record: RigRecord }) {
   if (record.state === 'landed' || record.state === 'discarded') {
     return (
       <Button variant="secondary" onClick={s.leave}>
-        Back to the Inbox
+        {backLabel(s.from)}
       </Button>
     );
   }
@@ -204,7 +225,12 @@ function Actions({ record }: { record: RigRecord }) {
       <Button variant="ghost" onClick={s.leave}>
         Keep v{was} as is
       </Button>
-      <Button variant="primary" disabled={s.busy} onClick={() => void s.run('pose-test')}>
+      <Button
+        variant="primary"
+        disabled={s.busy}
+        disabledReason={WAIT_FOR_ANSWER}
+        onClick={() => void s.run('pose-test')}
+      >
         Run the pose test
       </Button>
     </>
@@ -285,17 +311,7 @@ export default function RigDoctor({ record }: { record: RigRecord }) {
   return (
     <>
       <TopBar
-        lead={
-          <nav aria-label="Where you are" className="flex items-center gap-2 text-fg-mute">
-            <button type="button" className="cursor-pointer hover:text-fg" onClick={s.leave}>
-              Inbox
-            </button>
-            <Icon name="caret-right" size={11} />
-            <span>{record.name}</span>
-            <Icon name="caret-right" size={11} />
-            <h1 className="m-0 text-panel-title text-fg">Rig doctor</h1>
-          </nav>
-        }
+        lead={<RigCrumbs name={record.name} />}
         right={
           <div className="flex items-center gap-2">
             {version !== null ? (

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { clock } from '@/lib/clock';
+import { useWait } from '@/lib/waiting';
 import { formatAgo } from '@/lib/format';
 import { useAppStore } from '@/state/use-app-store';
 import { usePackStore } from '@/state/use-pack-store';
@@ -7,6 +8,7 @@ import { usePackStore } from '@/state/use-pack-store';
 /** The settings on show, the preset picker and its Save as preset, and where the pack goes. */
 export function usePackSettings() {
   const s = usePackStore();
+  const estimate = useWait('pack-plan', !s.settings && !s.error, Boolean(s.error));
   const root = useAppStore(st => st.workspace?.root) ?? '';
   const [naming, setNaming] = useState(false);
   const [presetName, setPresetName] = useState('');
@@ -27,6 +29,7 @@ export function usePackSettings() {
     : undefined;
 
   return {
+    estimate,
     ...s,
     naming,
     presetName,

@@ -1,6 +1,8 @@
 /** Thumbnails in the UI: kind placeholders and folding in finished renders. */
+import { slashed } from '@/lib/format';
 import type { IconName } from '@maquette/ui';
 import type {
+  Asset,
   AssetKind,
   InboxItem,
   InboxSnapshot,
@@ -22,20 +24,20 @@ const RENDERABLE = /\.(glb|gltf|obj|blend)$/i;
  * ref image standing in. Render previews asks for these.
  */
 export function missingPreviews(project: ProjectManifest | null | undefined): number {
-  return (project?.assets ?? []).filter(a => {
-    const latest = a.versions[a.versions.length - 1];
-    const shown = a.thumbnail && !a.thumbnail.startsWith('refs/');
-    return latest && RENDERABLE.test(latest.file) && !shown;
-  }).length;
+  return (project?.assets ?? []).filter(wantsPreview).length;
 }
 
-/** True when `file` (an absolute path) is the newest model of one of the project's assets. */
-export function isBoardModel(project: ProjectManifest, file: string): boolean {
-  const path = file.replaceAll('\\', '/');
-  return (project.assets ?? []).some(a => {
-    const latest = a.versions[a.versions.length - 1];
-    return latest && path.endsWith(`/${latest.file}`);
-  });
+/** True for an asset whose newest model can be rendered and has no picture of its own yet. */
+export function wantsPreview(asset: Asset): boolean {
+  const latest = asset.versions[asset.versions.length - 1];
+  const shown = asset.thumbnail && !asset.thumbnail.startsWith('refs/');
+  return Boolean(latest && RENDERABLE.test(latest.file) && !shown);
+}
+
+/** True when `file` (an absolute path) is the asset's newest model. */
+export function isModelFile(file: string, asset: Asset): boolean {
+  const latest = asset.versions[asset.versions.length - 1];
+  return latest ? slashed(file).endsWith(`/${latest.file}`) : false;
 }
 
 /** True when Blender will not render this item, so the preview must snapshot it. */

@@ -1,5 +1,6 @@
 import type { PreviewShot, RenderCamera, RenderShot } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
+import { useWait } from '@/lib/waiting';
 import { stopsOf } from '@/state/inspector';
 import { LOOK_PAPER, STYLE_LABEL, aimOf, isLook } from '@/state/renders';
 import { useInspectorStore } from '@/state/use-inspector-store';
@@ -37,6 +38,8 @@ export function useRenderStage() {
   const paper = useRenderTabStore(s => s.settings.paperColor);
   const change = useRenderTabStore(s => s.change);
   const [stage, ...strip] = preview?.shots ?? [];
+  const ask = useRenderTabStore(s => s.ask);
+  const estimate = useWait(`render-preview:${style}`, loading, Boolean(error), ask);
   const shot: RenderShot | undefined = stage;
   const tiles: StripTile[] = strip.map(s => ({
     key: `${s.style}-${s.turn}`,
@@ -64,6 +67,7 @@ export function useRenderStage() {
     style,
     preview,
     loading,
+    estimate,
     error,
     camera: aim ? ('stop' as const) : camera,
     stopName: aim?.name ?? null,

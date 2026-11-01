@@ -1,4 +1,6 @@
 import type { PackSource } from '@/ipc/client';
+import { lastRunLabel, readLastRun } from '@/lib/waiting';
+import { renderWait } from '@/state/renders';
 import { useRenderStore } from '@/state/use-render-store';
 import { useRenderTabStore } from '@/state/use-render-tab-store';
 
@@ -17,6 +19,7 @@ export function useRenderOptions(source: PackSource, assetId: string) {
     change,
     reset,
     rendering,
+    lastRender: lastRunLabel(readLastRun(renderWait(style, settings))),
     dir: preview?.dir ?? null,
     folder: preview?.folder ?? '',
     render: () => void store().renderOne(source, assetId, style, settings),

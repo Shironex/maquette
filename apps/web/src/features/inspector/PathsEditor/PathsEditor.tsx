@@ -18,6 +18,7 @@ import { CanvasBoundary } from '@/features/viewer/CanvasBoundary';
 import { badge } from '../badge';
 import { PathsPanel } from '../PathsPanel';
 import { PointsTable } from '../PointsTable';
+import { useWait, waitCount } from '@/lib/waiting';
 import { loadingLabel } from '../loadingLabel';
 import { newPath, usePathsEditor } from './PathsEditor.hooks';
 
@@ -46,6 +47,13 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
   const { store, layout, frame, frameAll, handlers, loadError, ready, loaded } =
     usePathsEditor(project);
   const { view, draft, selection, error, loading } = store;
+  const reading = !view || view.project !== project || !layout;
+  const readEstimate = useWait(`paths:${project}`, reading && !error, Boolean(error));
+  const modelsEstimate = useWait(
+    `paths-models:${project}`,
+    !reading && !ready && !loadError && (view?.models.length ?? 0) > 0,
+    Boolean(loadError)
+  );
 
   if (!view || view.project !== project || !layout) {
     return (
@@ -70,7 +78,7 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
           </div>
         ) : (
           <div className="grid flex-1 place-items-center">
-            <Loader label="Reading the paths..." />
+            <Loader label="Reading the paths..." estimate={readEstimate} />
           </div>
         )}
       </main>
@@ -178,7 +186,11 @@ export default function PathsEditor({ project, tabs }: PathsEditorProps) {
           ) : null}
           {loadingModels ? (
             <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
-              <Loader label={loadingLabel(view.models.length, loaded)} />
+              <Loader
+                label={loadingLabel}
+                count={waitCount(loaded, view.models.length)}
+                estimate={modelsEstimate}
+              />
             </div>
           ) : null}
           {loadError ? (

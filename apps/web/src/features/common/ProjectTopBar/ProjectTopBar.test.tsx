@@ -21,6 +21,14 @@ describe('the project top bar', () => {
     expect(await tooltipText(run)).toBe('Loading the pipeline');
   });
 
+  it('does not say it is reading the budget with no project open', async () => {
+    await openMockWorkspace();
+    const workspace = useAppStore.getState().workspace!;
+    useAppStore.setState({ workspace: { ...workspace, project: null } });
+    render(<ProjectTopBar />);
+    expect(screen.getByRole('meter')).toHaveAccessibleName('Scene budget, No project');
+  });
+
   it('runs the pipeline and opens the Pipeline view', async () => {
     await openMockWorkspace();
     await usePipelineStore.getState().load('frostveil');

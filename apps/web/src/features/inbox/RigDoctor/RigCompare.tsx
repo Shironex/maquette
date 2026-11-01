@@ -8,6 +8,7 @@ import {
   nextVersion,
   rowFlagged,
   rowNumbers,
+  WAIT_FOR_ANSWER,
 } from '@/state/rig';
 import { Enlarges } from './RigEnlarge';
 import { useChoice, useRigActions } from './RigDoctor.hooks';
@@ -258,7 +259,13 @@ export function JointMoveCard({ record }: { record: RigRecord }) {
           : `No clip of this model has translation tracks on the ${move.limb}, so none would break.`}
       </p>
       <div className="flex justify-end gap-2">
-        <Button size="sm" variant="secondary" disabled={busy} onClick={() => void decide(false)}>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy}
+          disabledReason={WAIT_FOR_ANSWER}
+          onClick={() => void decide(false)}
+        >
           Keep weights only
         </Button>
         <Button
@@ -266,6 +273,7 @@ export function JointMoveCard({ record }: { record: RigRecord }) {
           variant="primary"
           icon="check"
           disabled={busy}
+          disabledReason={WAIT_FOR_ANSWER}
           onClick={() => void decide(true)}
         >
           Approve and move

@@ -55,6 +55,7 @@ export default function ListRow(props: ListRowProps) {
       </td>
       <td className={cn(CELL, 'w-[60px]')}>
         <span
+          title={v.previewing ? 'Rendering a preview' : undefined}
           className={cn(
             'grid h-[30px] w-[44px] place-items-center overflow-hidden rounded-[6px] border border-line text-fg-mute',
             v.thumb ? 'bg-studio' : 'bg-raised'
@@ -63,8 +64,13 @@ export default function ListRow(props: ListRowProps) {
           {v.thumb ? (
             <img src={v.thumb} alt="" draggable={false} className="size-full object-contain" />
           ) : (
-            <Icon name={v.kindIcon} size={15} />
+            <Icon
+              name={v.kindIcon}
+              size={15}
+              className={cn(v.previewing && 'animate-pulse motion-reduce:animate-none')}
+            />
           )}
+          {v.previewing ? <span className="sr-only">Rendering a preview</span> : null}
         </span>
       </td>
       <td className={cn(CELL, 'max-w-0')}>

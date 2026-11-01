@@ -12,7 +12,9 @@ async function paths(open, demo) {
   const page = await open(`&scenario=configured&paths=${demo}`, '#/inspector');
   await page.getByRole('tab', { name: 'Paths' }).click();
   await page.getByRole('heading', { name: 'Scene paths' }).waitFor();
-  await page.getByText(/Loading \d+ models/).waitFor({ state: 'detached', timeout: SLOW });
+  await page
+    .getByText(/Loading (\d+ models|the models)/)
+    .waitFor({ state: 'detached', timeout: SLOW });
   await page.waitForTimeout(1500);
   return page;
 }

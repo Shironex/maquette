@@ -114,7 +114,7 @@ describe('Render previews', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    useGameStore.setState({ rendering: false, waiting: 0, waitingFor: null, failedPreviews: 0 });
+    useGameStore.setState({ rendering: false, queued: [], waitingFor: null, failedPreviews: 0 });
   });
 
   it('renders a preview for each imported game model without one', async () => {
@@ -148,6 +148,10 @@ describe('Render previews', () => {
     const asked = vi.spyOn(commands, 'thumbnailRenderMissing').mockResolvedValue({
       asked: 2,
       rendering: 2,
+      renderingFiles: [
+        '/ws/projects/frostveil/models/lantern_v1.glb',
+        '/ws/projects/frostveil/models/fox_v1.glb',
+      ],
       failed: 0,
       reason: null,
       project: useAppStore.getState().workspace!.project!,
@@ -171,6 +175,7 @@ describe('Render previews', () => {
     vi.spyOn(commands, 'thumbnailRenderMissing').mockResolvedValue({
       asked: 1,
       rendering: 0,
+      renderingFiles: [],
       failed: 1,
       reason: 'Blender is not installed.',
       project: useAppStore.getState().workspace!.project!,

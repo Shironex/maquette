@@ -14,7 +14,7 @@ export function useMoreMenu() {
   const jobs = useProvidersStore(s => s.jobs);
   const renderPreviews = useGameStore(s => s.renderPreviews);
   const asking = useGameStore(s => s.rendering);
-  const waiting = useGameStore(s => s.waiting);
+  const waiting = useGameStore(s => s.queued.length);
   const removed = useRecentlyRemoved();
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -28,6 +28,7 @@ export function useMoreMenu() {
     failed: sendCounts(jobs).failed,
     missing: missingPreviews(project),
     rendering: asking || waiting > 0,
+    waiting,
     allSends: () => setQueueOpen(true),
     /** Every accepted model as one pack: the Library's pack sheet opens on it. */
     exportPack: () => {

@@ -1,6 +1,6 @@
 import { Button } from '@maquette/ui';
 import type { LabView } from '@/ipc/client';
-import { queueFooter, queueSummary } from '@/state/lab';
+import { lastJobMs, queueFooter, queueSummary } from '@/state/lab';
 import { QueueRow } from './QueueRow';
 import { useImageQueue } from './ImageQueue.hooks';
 
@@ -17,9 +17,10 @@ export default function ImageQueue({ view }: ImageQueueProps) {
   const last = jobs[jobs.length - 1];
   const finished = jobs.length - live;
   const queued = jobs.filter(j => j.state === 'queued').length;
+  const lastMs = lastJobMs(jobs);
   const rows = jobs.map(job => (
     <li key={job.id}>
-      <QueueRow job={job} projectDir={view.projectDir} now={now} />
+      <QueueRow job={job} projectDir={view.projectDir} now={now} lastMs={lastMs} />
     </li>
   ));
 

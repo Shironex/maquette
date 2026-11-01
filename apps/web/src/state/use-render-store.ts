@@ -15,6 +15,8 @@ import {
   type RenderStyle,
 } from '@/ipc/client';
 import { RENDER_DEFAULTS } from './renders';
+import { rememberRun } from '@/lib/waiting';
+import { finishedRender } from './renders';
 import { useAppStore } from './use-app-store';
 
 /** The styles a row starts with: clay always works, toon needs colour. */
@@ -277,12 +279,15 @@ export const useRenderStore = create<RenderStore>((set, get) => ({
     }
   },
 
-  onChanged: record =>
+  onChanged: record => {
+    const finished = finishedRender(record);
+    if (finished) for (const key of finished.keys) rememberRun(key, finished.ms);
     set(s => ({
       record: s.record?.id === record.id ? record : s.record,
       live: record.state === 'running' || s.live?.id === record.id ? record : s.live,
       recent: upsert(s.recent, record),
-    })),
+    }));
+  },
 
   openToolchain: () => {
     set({ toolchainAsked: true });

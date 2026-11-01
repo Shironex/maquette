@@ -1,3 +1,4 @@
+import { useWait } from '@/lib/waiting';
 import { useEffect, type MouseEvent } from 'react';
 import { useGridOrListWindow } from '@/lib/useGridOrListWindow';
 import type { LibraryLayout } from '@/state/library';
@@ -30,6 +31,8 @@ export function useLibraryView() {
   const shown = sortItems(filterItems(items, filters, collections), sort);
   const item = items.find(i => i.entry.id === selected) ?? shown[0] ?? null;
   const loaded = view !== null;
+  const readFailed = Boolean(store.error);
+  const estimate = useWait('library', !loaded && !readFailed, readFailed);
 
   useEffect(() => {
     void load();
@@ -48,6 +51,7 @@ export function useLibraryView() {
 
   return {
     ...store,
+    estimate,
     workspace,
     items,
     collections,

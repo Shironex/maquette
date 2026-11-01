@@ -8,6 +8,7 @@ import { badge } from '../badge';
 import type { CompareCanvasHandlers, CompareModel } from '../CompareCanvas';
 import { SplitHandle } from '../SplitHandle';
 import { useCompareStage } from './CompareStage.hooks';
+import { useWait } from '@/lib/waiting';
 
 const CompareCanvas = lazyAfterPaint(() => import('../CompareCanvas'));
 
@@ -43,6 +44,11 @@ export default function CompareStage({
 }: CompareStageProps) {
   const { split, setSplit, mode, stop, fps, activeStop, looks } = useCompareStage(stops, project);
   const models = right.length + left.length;
+  const estimate = useWait(
+    `compare:${project}:${models}`,
+    !ready && !loadError,
+    Boolean(loadError)
+  );
   return (
     <div className="relative min-h-[340px] flex-1 overflow-hidden rounded-window border border-line bg-[#141311]">
       <CanvasBoundary resetKey={`${pick.left?.id ?? ''}|${pick.right?.id ?? ''}`}>
@@ -86,7 +92,12 @@ export default function CompareStage({
         />
         {fps === 0 ? 'WebGL 2 · starting' : `WebGL 2 · ${Math.round(fps)} fps`}
       </span>
-      {!ready && !loadError ? <StageLoader label={`Loading ${models} models...`} /> : null}
+      {!ready && !loadError ? (
+        <StageLoader
+          label={models === 1 ? 'Loading the model...' : `Loading ${models} models...`}
+          estimate={estimate}
+        />
+      ) : null}
       {loadError ? (
         <span className="absolute inset-x-6 top-1/2 -translate-y-1/2 rounded-card bg-danger-soft px-3 py-2 text-center text-danger">
           {loadError}

@@ -117,7 +117,13 @@ export {
   type EmptyStateProps,
   type EmptyStateStep,
 } from './components/feedback/EmptyState';
-export { Loader, type LoaderProps } from './components/feedback/Loader';
+export {
+  Loader,
+  WaitLine,
+  type LoaderProps,
+  type WaitLineProps,
+  type WaitProps,
+} from './components/feedback/Loader';
 export {
   InlineBanner,
   type BannerTone,

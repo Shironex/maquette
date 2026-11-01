@@ -1,14 +1,6 @@
 import { Button, Icon, NumberField, Select, Toggle } from '@maquette/ui';
 import type { PackSource, RenderLook } from '@/ipc/client';
-import {
-  LOOK_PAPER,
-  LOOK_OPTIONS,
-  STYLE_LABEL,
-  secondsAbout,
-  isLook,
-  shortPath,
-  fileOf,
-} from '@/state/renders';
+import { LOOK_PAPER, LOOK_OPTIONS, STYLE_LABEL, isLook, shortPath, fileOf } from '@/state/renders';
 import { useRenderOptions } from './RenderOptions.hooks';
 
 export interface RenderOptionsProps {
@@ -170,8 +162,8 @@ export default function RenderOptions({ source, assetId }: RenderOptionsProps) {
       </div>
       <p className="flex gap-1.5 text-meta text-fg-mute">
         <Icon name="info" size={13} className="mt-0.5 flex-none" />
-        Headless Blender, {HOW[look]}. No credits, about {secondsAbout(style, settings)} s at{' '}
-        {settings.size} px.
+        Headless Blender, {HOW[look]}. No credits.
+        {o.lastRender ? ` At ${settings.size} px: ${o.lastRender}.` : ''}
       </p>
       <div className="flex justify-end gap-2">
         <Button icon="stack" onClick={o.addToBatch}>

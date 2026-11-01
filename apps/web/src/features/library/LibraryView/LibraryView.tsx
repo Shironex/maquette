@@ -156,6 +156,7 @@ export default function LibraryView() {
       ) : (
         <main className="flex min-h-0 flex-1" aria-busy={!v.loaded}>
           <LibraryFilters
+            loaded={v.loaded}
             items={v.items}
             filters={filters}
             onChange={setFilters}
@@ -187,7 +188,7 @@ export default function LibraryView() {
                   {v.loaded ? <LibraryStats stats={v.stats} /> : null}
                   <LibrarySummary
                     title={v.title}
-                    count={v.count}
+                    count={v.loaded ? v.count : ''}
                     pairs={v.report?.pairs.length ?? null}
                     untagged={v.untagged}
                     sort={sort}
@@ -204,7 +205,7 @@ export default function LibraryView() {
                   ) : null}
                   {!v.loaded && !v.error ? (
                     <div className="grid flex-1 place-items-center">
-                      <Loader label="Reading the library..." />
+                      <Loader label="Reading the library..." estimate={v.estimate} />
                     </div>
                   ) : v.shown.length === 0 ? (
                     <p className="py-10 text-center text-fg-mute">

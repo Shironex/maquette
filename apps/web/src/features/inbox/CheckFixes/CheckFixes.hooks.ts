@@ -36,5 +36,5 @@ export function useProviderSplit(item: InboxItem, check: Check): (() => void) | 
 export function useRigDoctorFix(item: InboxItem, check: Check): (() => void) | null {
   const show = useRigStore(s => s.show);
   if (!offersRigDoctor(check)) return null;
-  return () => void show({ inbox: item.id, project: null, asset: null, version: null });
+  return () => void show({ inbox: item.id, project: null, asset: null, version: null }, item.name);
 }

@@ -1,4 +1,4 @@
-import { Button, SegmentedControl, TopBar, type SegmentedOption } from '@maquette/ui';
+import { Button, Loader, SegmentedControl, TopBar, type SegmentedOption } from '@maquette/ui';
 import { contentKey } from '@/state/inbox';
 import type { InboxLayout } from '@/state/use-triage-store';
 import { BlenderBanner } from '../BlenderBanner';
@@ -7,7 +7,7 @@ import { InboxClear } from '../InboxClear';
 import { InboxDetail } from '../InboxDetail';
 import { InboxEmpty } from '../InboxEmpty';
 import { InboxList } from '../InboxList';
-import { RigDoctor } from '../RigDoctor';
+import { RigDoctor, RigOpening } from '../RigDoctor';
 import { SelectionBar } from '../SelectionBar';
 import { useSelection } from '../SelectionBar/SelectionBar.hooks';
 import { TriageAside } from '../TriageAside';
@@ -84,9 +84,10 @@ function TableLayout({ replaced }: { replaced: ReturnType<typeof useInboxView>['
 
 /** The models waiting in the inbox folder: one by one with its checks, or all in one table. */
 export default function InboxView() {
-  const { snapshot, items, item, layout, setLayout, replaced } = useInboxView();
+  const { snapshot, reading, estimate, items, item, layout, setLayout, replaced } = useInboxView();
   const empty = snapshot !== null && items.length === 0;
-  const { rigCase, going, goingLabel, showCase } = useRigCases();
+  const { rigCase, rigOpening, going, goingLabel, showCase } = useRigCases();
+  if (rigOpening) return <RigOpening name={rigOpening.name} />;
   if (rigCase) return <RigDoctor record={rigCase} />;
   return (
     <>
@@ -119,7 +120,11 @@ export default function InboxView() {
       />
       <BlenderBanner />
       <main className="flex min-h-0 flex-1">
-        {empty ? (
+        {reading ? (
+          <div className="grid flex-1 place-items-center">
+            <Loader label="Reading the inbox..." estimate={estimate} />
+          </div>
+        ) : empty ? (
           <InboxClear dir={snapshot.dir} watching={snapshot.watching} />
         ) : layout === 'table' ? (
           <TableLayout replaced={replaced} />

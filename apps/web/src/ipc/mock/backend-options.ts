@@ -10,6 +10,7 @@ import type {
   ProjectManifest,
   ProviderEvent,
   ServerStatus,
+  ThumbnailReady,
   UpdaterEvent,
 } from '../client';
 import { HOME } from './fixtures';
@@ -65,7 +66,7 @@ export type Args = Record<string, unknown>;
  * `create-app-handlers.ts`), `?pipeline=many` a runner with 24 models (see
  * `pipeline-many.ts`), `?stress=lists` every long list at a busy workspace's size
  * (see `stress-fixtures.ts`), `?avatar=` an avatar build (see
- * `create-avatar-handlers.ts`). Configured scenarios also open with
+ * `create-avatar-handlers.ts`), `?previews=slow` Render previews a picture at a time. Configured scenarios also open with
  * Send to 3D jobs (see `providers.ts`).
  */
 export interface BackendOptions {
@@ -89,6 +90,7 @@ export interface BackendOptions {
       | { name: 'pack'; payload: PackRecord }
       | { name: 'rig'; payload: RigRecord }
       | { name: 'render'; payload: RenderRecord }
+      | { name: 'thumbnail'; payload: ThumbnailReady }
   ) => void;
   /** `active`: the MCP server is on, mid agent session. */
   agents?: string | null;
@@ -120,6 +122,8 @@ export interface BackendOptions {
   timeline?: string | null;
   /** `demo` or `empty`: the Paths editor's paths (see create-paths-handlers.ts). */
   paths?: string | null;
+  /** `slow`: Render previews lands each picture a while after it is asked, as Blender does. */
+  previews?: string | null;
   /** `crypt`, `import` or `maze`: a game project is open (see create-game-handlers.ts). */
   game?: string | null;
   /**

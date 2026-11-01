@@ -1,13 +1,15 @@
-import { IconButton, ProgressBar, StatusChip, Tooltip, cn } from '@maquette/ui';
+import { Icon, IconButton, StatusChip, Tooltip, cn } from '@maquette/ui';
 import type { ConceptJob } from '@/ipc/client';
 import { fileUrl } from '@/ipc/files';
-import { canRetry, formatElapsed, inProject, jobMeta, jobStatus, tileLabel } from '@/state/lab';
+import { canRetry, inProject, jobMeta, jobStatus, tileLabel } from '@/state/lab';
 import { useQueueRow } from './QueueRow.hooks';
 
 export interface QueueRowProps {
   job: ConceptJob;
   projectDir: string;
   now: number;
+  /** How long the job finished last took, said beside one still going. */
+  lastMs?: number | null;
 }
 
 /**
@@ -15,7 +17,7 @@ export interface QueueRowProps {
  * waits in the queue, Cancel while it is live and Retry once it failed or
  * waits out a rate limit.
  */
-export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
+export default function QueueRow({ job, projectDir, now, lastMs = null }: QueueRowProps) {
   const { cancel, retry, runNext, openLightbox } = useQueueRow();
   const path = inProject(projectDir, job.file);
   const thumb = job.state === 'done' ? fileUrl(path) : null;
@@ -28,10 +30,6 @@ export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
   const queued = job.state === 'queued';
   const chip = !(job.state === 'running' || queued || limited || approval || job.refused);
   const label = tileLabel(job);
-  const elapsed =
-    job.state === 'running' && job.startedAtMs !== null
-      ? formatElapsed(now - job.startedAtMs)
-      : null;
   return (
     <div className="group flex items-center gap-2.5 border-t border-line py-2.5 first:border-t-0">
       {thumb ? (
@@ -49,40 +47,34 @@ export default function QueueRow({ job, projectDir, now }: QueueRowProps) {
         <span
           className={cn(
             'h-9 w-14 flex-none rounded-control',
-            failed ? 'bg-danger-soft' : 'bg-hover'
+            failed ? 'bg-danger-soft' : 'bg-hover',
+            'grid place-items-center text-clay-text'
           )}
-        />
+        >
+          {job.state === 'running' ? <Icon name="circle-notch" size={14} spin /> : null}
+        </span>
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate font-medium">{label}</span>
-          {elapsed !== null ? (
-            <span className="text-meta text-amber tabular-nums">{elapsed}</span>
-          ) : null}
-        </div>
-        {job.state === 'running' ? (
-          <ProgressBar className="min-w-0" label={undefined} />
-        ) : (
-          <span
-            className={cn(
-              'text-[11.5px] tabular-nums',
-              failed
-                ? 'line-clamp-2 text-danger'
-                : limited || approval
-                  ? 'line-clamp-2 text-amber'
-                  : 'text-fg-mute'
-            )}
-            title={
-              job.refused
-                ? (job.message ?? undefined)
-                : failed
-                  ? job.logTail.slice(-6).join('\n') || undefined
-                  : undefined
-            }
-          >
-            {jobMeta(job, now)}
-          </span>
-        )}
+        <span className="truncate font-medium">{label}</span>
+        <span
+          className={cn(
+            'text-[11.5px] tabular-nums',
+            failed
+              ? 'line-clamp-2 text-danger'
+              : limited || approval
+                ? 'line-clamp-2 text-amber'
+                : 'text-fg-mute'
+          )}
+          title={
+            job.refused
+              ? (job.message ?? undefined)
+              : failed
+                ? job.logTail.slice(-6).join('\n') || undefined
+                : undefined
+          }
+        >
+          {jobMeta(job, now, lastMs)}
+        </span>
       </div>
       {canRetry(job) ? (
         <IconButton

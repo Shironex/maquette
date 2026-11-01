@@ -55,6 +55,8 @@ export interface GameContext {
   store: RunStore;
   state: string | null;
   files: BackendOptions['files'];
+  emit?: BackendOptions['emit'];
+  previews?: string | null;
 }
 
 /** The folders after a change: a folder sets one, null or '' clears it. */
@@ -89,8 +91,22 @@ function removedFile(
   };
 }
 
-export function createGameHandlers({ project, saveProject, store, state, files }: GameContext) {
-  const previews = createPreviewHandlers({ project, saveProject, files });
+export function createGameHandlers({
+  project,
+  saveProject,
+  store,
+  state,
+  files,
+  emit,
+  previews: previewsOption,
+}: GameContext) {
+  const previews = createPreviewHandlers({
+    project,
+    saveProject,
+    files,
+    emit,
+    previews: previewsOption,
+  });
   /** Files Ship wrote before, per project, so a second Ship finds them unchanged. */
   const shipped = new Set<string>();
   const waiting = new Map<string, string>();

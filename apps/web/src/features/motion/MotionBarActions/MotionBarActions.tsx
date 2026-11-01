@@ -11,7 +11,8 @@ import { useMotionBarActions } from './MotionBarActions.hooks';
  * budgets, as the other views do.
  */
 export default function MotionBarActions() {
-  const { view, line, tip, saving, save, revert, dirty, models } = useMotionBarActions();
+  const { view, pending, line, tip, saving, save, revert, dirty, models } = useMotionBarActions();
+  const nothing = view ? 'No unsaved changes' : 'The motion has not been read yet';
   if (models) return <ModelBudgetMeter summary={models} />;
   return (
     <>
@@ -19,9 +20,10 @@ export default function MotionBarActions() {
         <span tabIndex={0} className="rounded-control">
           <BudgetMeter
             label="Scene budget"
-            value={line?.sceneMb ?? 0}
+            value={line?.sceneMb ?? null}
             target={line?.targetMb ?? 3}
             unit="MB"
+            pending={pending}
             format={mb => mb.toFixed(2)}
           />
         </span>
@@ -29,7 +31,7 @@ export default function MotionBarActions() {
       <Button
         icon="arrow-u-up-left"
         disabled={!dirty || saving}
-        disabledReason="No unsaved changes"
+        disabledReason={nothing}
         tooltip="Drops your unsaved edits and goes back to what was saved"
         onClick={revert}
       >
@@ -40,7 +42,7 @@ export default function MotionBarActions() {
         icon="check"
         loading={saving}
         disabled={!view || !dirty}
-        disabledReason="No unsaved changes"
+        disabledReason={nothing}
         onClick={() => void save()}
         tooltip="Saves the states and clip choices into layout.json; the next run builds the scene with them"
         shortcut={KEYS.save}

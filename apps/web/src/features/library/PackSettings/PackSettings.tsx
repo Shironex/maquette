@@ -56,7 +56,7 @@ export default function PackSettings() {
             {s.error}
           </p>
         ) : (
-          <Loader label="Reading the models..." />
+          <Loader label="Reading the models..." estimate={s.estimate} />
         )}
       </div>
     );

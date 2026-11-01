@@ -20,6 +20,7 @@ import { badge } from '../badge';
 import { LayoutPanel } from '../LayoutPanel';
 import { Letterbox } from '../Letterbox';
 import { useLayoutEditor } from './LayoutEditor.hooks';
+import { useWait, waitCount } from '@/lib/waiting';
 import { loadingLabel } from '../loadingLabel';
 import { KEYS } from '@/lib/keys';
 
@@ -55,6 +56,13 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
     setLoaded,
   } = useLayoutEditor(project);
   const { view, draft, error, loading } = store;
+  const reading = !view || view.project !== project;
+  const readEstimate = useWait(`layout:${project}`, reading && !error, Boolean(error));
+  const modelsEstimate = useWait(
+    `layout-models:${project}`,
+    !reading && !ready && !loadError,
+    Boolean(loadError)
+  );
 
   if (!view || view.project !== project) {
     return (
@@ -79,7 +87,7 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
           </div>
         ) : (
           <div className="grid flex-1 place-items-center">
-            <Loader label="Reading the layout..." />
+            <Loader label="Reading the layout..." estimate={readEstimate} />
           </div>
         )}
       </main>
@@ -245,7 +253,11 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
                 : 'Click to select · drag to orbit · F frames all'}
             </span>
             {!ready && !loadError ? (
-              <StageLoader label={loadingLabel(view.models.length, loaded)} />
+              <StageLoader
+                label={loadingLabel}
+                count={waitCount(loaded, view.models.length)}
+                estimate={modelsEstimate}
+              />
             ) : null}
             {loadError ? (
               <span className="absolute inset-x-6 top-3 rounded-card bg-danger-soft px-3 py-2 text-center text-danger">

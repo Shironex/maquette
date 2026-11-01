@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { progressOf, runningOf, STYLE_LABEL } from '@/state/renders';
+import { usePastRun } from '@/lib/waiting';
+import { progressOf, renderBatchWait, runningOf, STYLE_LABEL } from '@/state/renders';
 import { useRenderStore } from '@/state/use-render-store';
 
 /** The batch sheet: its heading, what it would write, and how far the render got. */
@@ -21,6 +22,7 @@ export function useRenderSheet() {
         )
       )
     : [];
+  const estimate = usePastRun(record?.state === 'running' ? renderBatchWait(record) : null);
   const leftOut = record ? [] : picked.filter(t => !t.hasColour && rows[t.key]?.includes('toon'));
   return {
     ...s,
@@ -28,6 +30,7 @@ export function useRenderSheet() {
     picked,
     fileCount,
     progress,
+    estimate,
     problems,
     leftOut,
     isProject: s.source?.from === 'project',

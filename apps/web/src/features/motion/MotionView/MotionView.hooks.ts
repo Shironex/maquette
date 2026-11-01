@@ -1,3 +1,4 @@
+import { useWait } from '@/lib/waiting';
 import { useEffect } from 'react';
 import { moves } from '@/state/motion';
 import { stageViews } from '@/state/pipeline';
@@ -31,10 +32,16 @@ export function useMotionView() {
   }, [projectId, versions, load, loadBaked]);
   const current = view && view.project === projectId ? view : null;
   const model = current?.models.find(m => m.asset === asset) ?? null;
+  const estimate = useWait(
+    projectId && `motion:${projectId}`,
+    Boolean(projectId) && !current && !error,
+    Boolean(error)
+  );
   return {
     project,
     stages: stageViews(project?.assets ?? [], latest, project?.target),
     view: current,
+    estimate,
     loading,
     error,
     retry: () => (projectId ? void load(projectId) : undefined),
