@@ -134,6 +134,17 @@ pub fn create(
     layout: &FolderLayout,
     new: NewProject,
 ) -> CoreResult<ProjectManifest> {
+    create_with(workspace_root, layout, new, |_| Ok(()))
+}
+
+/// [`create`], calling `before_repo` with the new id once it is claimed and
+/// before the repo is recorded. When it fails, the project is not made.
+pub fn create_with(
+    workspace_root: &Path,
+    layout: &FolderLayout,
+    new: NewProject,
+    before_repo: impl FnOnce(&str) -> CoreResult<()>,
+) -> CoreResult<ProjectManifest> {
     let name = clean_name(&new.name)?;
     let site_repo = clean_optional(new.site_repo);
     let (template, game) = match new.target {
@@ -179,6 +190,10 @@ pub fn create(
         fs::create_dir_all(&path).map_err(|e| CoreError::io(&path, e))?;
     }
 
+    if let Err(err) = before_repo(&id) {
+        let _ = fs::remove_dir_all(&dir);
+        return Err(err);
+    }
     repos::set(workspace_root, &id, site_repo.clone());
     let (site_repo, site_repo_state) = repos::resolve(workspace_root, &id, None, None);
     let manifest = ProjectManifest {

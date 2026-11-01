@@ -327,3 +327,26 @@ fn scan_import_finds_blends_and_scripts() {
         "not-found"
     );
 }
+
+#[test]
+fn a_failed_hook_before_the_repo_makes_no_project() {
+    let dir = tempfile::tempdir().expect("dir");
+    let layout = FolderLayout::default();
+    let new = || NewProject {
+        name: "Hooked".into(),
+        template: ProjectTemplate::Room,
+        target: Default::default(),
+        game: None,
+        site_repo: Some("/code/site".into()),
+        source_folder: None,
+    };
+    let failed = create_with(dir.path(), &layout, new(), |id| {
+        assert_eq!(repos::get(dir.path(), id), None, "the hook runs first");
+        Err(CoreError::Invalid("no".into()))
+    });
+    assert!(failed.is_err());
+    assert_eq!(repos::get(dir.path(), "hooked"), None);
+    assert!(!dir.path().join(&layout.projects).join("hooked").exists());
+    let made = create_with(dir.path(), &layout, new(), |_| Ok(())).expect("made");
+    assert_eq!(made.site_repo.as_deref(), Some("/code/site"));
+}
