@@ -16,6 +16,7 @@ mod library_batch;
 mod own_file;
 mod packs;
 mod page;
+mod page_gate;
 mod picks;
 mod reads;
 mod renders;

@@ -1,6 +1,7 @@
 //! The two tools an agent starts from: get_started reads where things stand
 //! and says what to do next, create_project makes a project to work in.
 
+use maquette_core::app_state::RepoSetBy;
 use maquette_core::game::inspect_game_repo;
 use maquette_core::providers::{ProviderId, secrets};
 use maquette_core::settings::game::{DEFAULT_MODELS_DIR, GameFormat, GameTemplateId, NewGame};
@@ -235,6 +236,10 @@ fn gates(reports: &[ToolReport], keys: &Keys, ask_before_shipping: bool) -> Vec<
             "The approval prompt in the Maquette app",
         ),
         gate(
+            "Approve the first dev server start of a repo an agent set, and again when its path or command changes",
+            "The approval prompt in the Maquette app",
+        ),
+        gate(
             "Approve an avatar's new weights, rest pose and spring chains",
             "The Avatar view in the Maquette app",
         ),
@@ -384,7 +389,7 @@ impl McpTools {
                     });
                 }
                 let new = new_project(host, &args)?;
-                let manifest = create_in_workspace(host.session(), new)?;
+                let manifest = create_in_workspace(host.session(), new, RepoSetBy::Agent)?;
                 host.project_created(&manifest);
                 Ok(json!({
                     "project": {

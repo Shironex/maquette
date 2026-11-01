@@ -31,13 +31,14 @@ WAITS FOR A PERSON (in the Maquette app, no tool can answer; poll, and never sta
 - Spending: send_to_3d, send_batch_to_3d, redo_inbox_model, redo_inbox_models and split_with_provider on Tripo or Meshy (follow with get_provider_job).
 - Paid images: a round an agent asks for on openai-images (follow with get_concepts).
 - Shipping: run_pipeline at its Ship step while Ask before shipping is on, and always in a game project (follow with get_run). buildOnly stops before Ship.
+- Page preview: start_page_preview, the first time for a repo an agent set, and again when its path or command changes (follow with get_page_preview).
 - Avatars: new weights, rest pose and spring chains (follow with get_avatar). Rig doctor: a joint move, and adding its draft as a version.
 - Only a person can: save API keys, set the monthly OpenAI image cap, sign in to Codex, install Blender and the other tools, open a workspace.
 A waiting answer gives status \"waiting for approval\", pollEverySeconds and whereToApprove.
 Nothing is lost without them: send_to_3d with provider by-hand and add_built_asset spend nothing.
 
 ALWAYS
-start_page_preview runs the site repo's dev command on this computer. Blender only runs headless. No tool opens its window or captures the screen. Nothing is deployed.
+start_page_preview runs the site repo's dev command on this computer; only a repo a person set runs it unasked. Blender only runs headless. No tool opens its window or captures the screen. Nothing is deployed.
 
 SKILLS (in the Maquette plugin, when your client has it)
 maquette-lab-round: concepts to clean refs.

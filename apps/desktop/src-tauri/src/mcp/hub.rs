@@ -2,7 +2,7 @@
 //! agent can ask about, and the approvals (shipping, sends to 3D) waiting
 //! for a person.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Condvar, Mutex, MutexGuard};
 use std::time::Duration;
@@ -12,6 +12,7 @@ use maquette_core::pipeline::StepDef;
 use maquette_core::pipeline::history::{LogEntry, RunRecord, now_ms};
 use maquette_core::pipeline::runner::PipelineEvent;
 use maquette_core::providers::{ProviderJob, format_credits};
+use maquette_core::site::preview::PreviewAsk;
 use serde::{Deserialize, Serialize};
 
 /// How many calls the activity list keeps.
@@ -73,6 +74,9 @@ pub enum ApprovalKind {
     /// A rig doctor fix an agent started waits for a person to look at the
     /// sheets and add the draft as a version.
     RigDoctor,
+    /// The first start of the dev server of a repo an agent set waits for a
+    /// person to read the folder and the command.
+    PagePreview,
 }
 
 /// One send of a batch approval.
@@ -124,6 +128,9 @@ pub struct Approval {
     /// Rest pose and reweight: the before and after sheets.
     #[serde(default)]
     pub sheets: Option<NormalizeSheets>,
+    /// Page preview: the folder and the command that will run.
+    #[serde(default)]
+    pub preview: Option<PreviewAsk>,
 }
 
 impl Approval {
@@ -156,6 +163,10 @@ struct Inner {
     next_approval: u32,
     runs: HashMap<String, RunRecord>,
     logs: HashMap<String, VecDeque<LogEntry>>,
+    /// Page preview: project to the question a person refused, for this app run.
+    preview_refused: HashMap<String, PreviewAsk>,
+    /// Page preview: approvals taken back because the question changed.
+    preview_withdrawn: HashSet<String>,
 }
 
 /// Shared between the server's tools, the run gate and the app.
@@ -318,6 +329,7 @@ impl Hub {
             asset: None,
             version: None,
             sheets: None,
+            preview: None,
         })
     }
 
@@ -342,6 +354,7 @@ impl Hub {
             asset: None,
             version: None,
             sheets: None,
+            preview: None,
         })
     }
 
@@ -368,6 +381,7 @@ impl Hub {
             asset: None,
             version: None,
             sheets: None,
+            preview: None,
         })
     }
 
@@ -421,6 +435,7 @@ impl Hub {
                 asset: None,
                 version: None,
                 sheets: None,
+                preview: None,
             }
         }))
     }
@@ -473,6 +488,7 @@ impl Hub {
     }
 }
 
+mod preview;
 mod rest_pose;
 mod rig;
 

@@ -4,20 +4,25 @@
 //! live, and a server an agent started stays until it is stopped or the
 //! app quits.
 
+use std::path::Path;
 use std::time::Duration;
 
 use maquette_core::page::PageView;
-use maquette_core::site::preview::{START_TIMEOUT, ServerOwner, SitePreview};
+use maquette_core::site::preview::{PreviewAsk, START_TIMEOUT, ServerOwner, SitePreview};
 use rmcp::handler::server::wrapper::Parameters;
+use rmcp::model::{CallToolResult, ContentBlock};
 use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::sync::Arc;
 
 use crate::commands::page as page_commands;
+use crate::commands::site::gate::{self, StartGate, Starter};
 use crate::mcp::host::Host;
+use crate::mcp::hub::Hub;
 
-use super::{McpTools, Out, ProjectArgs, respond, to_value};
+use super::hints::APPROVE_IN_APP;
+use super::{McpTools, Out, ProjectArgs, WAITING, respond, to_value};
 
 /// How long start_page_preview waits by default, in seconds.
 const DEFAULT_WAIT: u64 = 30;
@@ -35,6 +40,9 @@ pub struct StartPageArgs {
 }
 
 const NOTE: &str = "The server runs the project's dev command in its site repo: the command set in Settings > Project, else the preview command of the site's maquette.site.json, else the package manager of the nearest lockfile running the dev, start or serve script with a free port. It is the server the Page view and Preview on site share; Maquette stops it when the app quits and never deploys anything.";
+
+const APPROVAL_NOTE: &str = "A person reads this folder and command and approves or denies in the Maquette app; nothing runs until then, and a yes starts the server. Poll get_page_preview or call start_page_preview again; neither raises a second card.";
+const REFUSED_FIX: &str = "Do not retry: this answer stands until the app restarts. Ask the person; they can start the server from the Page view, which shows the card again. A changed path or command is a new question.";
 
 fn server(host: &dyn Host) -> Result<Arc<SitePreview>, String> {
     host.site_preview()
@@ -76,6 +84,49 @@ fn page_value(view: &PageView) -> Value {
     })
 }
 
+fn approval_value(id: &str, ask: &PreviewAsk) -> Value {
+    json!({
+        "id": id,
+        "repo": ask.repo,
+        "command": ask.command,
+        "scriptRuns": ask.script_runs,
+        "note": APPROVAL_NOTE,
+    })
+}
+
+/// What a get_page_preview adds while the start waits on a person, or after
+/// a person said no.
+fn add_approval(value: &mut Value, hub: &Hub, view: &PageView) {
+    if let Some(card) = hub.preview_for(&view.project) {
+        value["status"] = json!(WAITING);
+        if let Some(ask) = &card.preview {
+            value["approval"] = approval_value(&card.id, ask);
+        }
+        return;
+    }
+    let (Some(repo), Some(command)) = (&view.site_repo, &view.command) else {
+        return;
+    };
+    let ask = PreviewAsk::of(Path::new(repo), command);
+    if hub.preview_refused(&view.project, &ask) {
+        value["approval"] = json!({ "refused": true, "note": REFUSED_FIX });
+    }
+}
+
+/// The error of a start a person turned down.
+fn refused_body(ask: &PreviewAsk) -> Value {
+    json!({
+        "error": format!(
+            "A person refused to run {} in {}. The server stays stopped.",
+            ask.command, ask.repo
+        ),
+        "code": "preview-refused",
+        "fix": REFUSED_FIX,
+        "personOnly": true,
+        "whereToApprove": APPROVE_IN_APP,
+    })
+}
+
 #[tool_router(router = page_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
@@ -84,34 +135,56 @@ impl McpTools {
     )]
     async fn get_page_preview(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
-            .blocking(move |host, _| {
+            .blocking(move |host, hub| {
                 let server = server(host)?;
                 let view = page_commands::view(host.session(), &server, &args.project)?;
-                Ok(page_value(&view))
+                let mut value = page_value(&view);
+                add_approval(&mut value, hub, &view);
+                Ok(value)
             })
             .await;
         respond(found)
     }
 
     #[tool(
-        description = "Start a project's site dev server, the one the Page view shows, or reuse it when it already serves that site. This runs the site repo's dev command on this computer, so set a repo you trust. A server already answering at the site's configured address is reused and never stopped. Starting another project's site stops the one before. Waits up to waitSeconds (default 30) for it to answer and returns its state and address like get_page_preview; a failed start says why with the last log lines. The server stays until stop_page_preview or the app quits. Nothing is built or deployed.",
+        description = "Start a project's site dev server, the one the Page view shows, or reuse it when it already serves that site. This runs the site repo's dev command on this computer. The first start of a repo an agent set waits for a person, who reads the folder and the command in the app: it answers waiting for approval, a yes starts the server, and any changed path or command asks again. A no is an error with code preview-refused. A repo a person set never asks. A server already answering at the site's configured address is reused and never stopped. Starting another project's site stops the one before. Waits up to waitSeconds (default 30) for it to answer and returns its state and address like get_page_preview; a failed start says why with the last log lines. The server stays until stop_page_preview or the app quits. Nothing is built or deployed.",
         annotations(idempotent_hint = true)
     )]
     async fn start_page_preview(&self, Parameters(args): Parameters<StartPageArgs>) -> Out {
+        let (host, hub) = (Arc::clone(&self.host), Arc::clone(&self.hub));
         let found = self
-            .blocking(move |host, _| {
-                let server = server(host)?;
-                page_commands::start(host.session(), &server, &args.project, ServerOwner::Agent)?;
-                let wait = args
-                    .wait_seconds
-                    .unwrap_or(DEFAULT_WAIT)
-                    .min(START_TIMEOUT.as_secs());
-                server.wait(Duration::from_secs(wait));
-                let view = page_commands::view(host.session(), &server, &args.project)?;
-                Ok(page_value(&view))
+            .blocking(move |_, _| {
+                let server = server(host.as_ref())?;
+                let project = &args.project;
+                let waiting = match gate::check(&host, &hub, project, Starter::Agent)? {
+                    StartGate::Clear(plan) => {
+                        server.begin(&plan, project, ServerOwner::Agent);
+                        let wait = args
+                            .wait_seconds
+                            .unwrap_or(DEFAULT_WAIT)
+                            .min(START_TIMEOUT.as_secs());
+                        server.wait(Duration::from_secs(wait));
+                        None
+                    }
+                    StartGate::Waiting { id, ask } => Some((id, ask)),
+                    StartGate::Refused(ask) => return Ok(Err(refused_body(&ask))),
+                };
+                let view = page_commands::view(host.session(), &server, project)?;
+                let mut value = page_value(&view);
+                if let Some((id, ask)) = waiting {
+                    value["status"] = json!(WAITING);
+                    value["approval"] = approval_value(&id, &ask);
+                }
+                Ok(Ok(value))
             })
             .await;
-        respond(found)
+        match found {
+            Ok(Err(body)) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                body.to_string(),
+            )])),
+            Ok(Ok(value)) => respond(Ok(value)),
+            Err(err) => respond(Err(err)),
+        }
     }
 
     #[tool(

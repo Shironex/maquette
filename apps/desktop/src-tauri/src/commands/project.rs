@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use maquette_core::app_state::RepoSetBy;
 use maquette_core::concepts::Concepts;
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::providers::ProviderJobs;
@@ -13,6 +14,7 @@ use super::app::{WorkspaceSnapshot, snapshot};
 use super::lab::Lab;
 use super::pipeline::Pipelines;
 use super::providers::Studio;
+use super::site::gate::mark_repo;
 use super::{CommandResult, blocking, invalid};
 use crate::session::Session;
 
@@ -92,6 +94,7 @@ pub fn project_switch(session: State<'_, Session>, id: String) -> CommandResult<
 pub(crate) fn create_in_workspace(
     session: &Session,
     project: NewProject,
+    by: RepoSetBy,
 ) -> CommandResult<ProjectManifest> {
     let (root, config) = session.workspace()?;
     let new = NewProject {
@@ -105,6 +108,12 @@ pub(crate) fn create_in_workspace(
     };
     let manifest = project::create(&root, &config.layout, new)?;
     session.save_repos(&root)?;
+    let by = if manifest.site_repo.is_some() {
+        by
+    } else {
+        RepoSetBy::Person
+    };
+    mark_repo(session, &root, &manifest.id, by)?;
     let dir = project::dir(&root, &config.layout, &manifest.id)?;
     maquette_core::pipeline::ensure(&dir, &manifest)?;
     Ok(manifest)
@@ -117,7 +126,7 @@ pub fn project_create(
     session: State<'_, Session>,
     project: NewProject,
 ) -> CommandResult<WorkspaceSnapshot> {
-    let manifest = create_in_workspace(&session, project)?;
+    let manifest = create_in_workspace(&session, project, RepoSetBy::Person)?;
     let (root, config) = session.update_config(|c| c.current_project = Some(manifest.id))?;
     snapshot(&session, &root, &config)
 }
@@ -131,7 +140,14 @@ pub fn project_update(
     name: String,
     site_repo: Option<String>,
 ) -> CommandResult<ProjectManifest> {
-    set_repo(&session, &pipelines.0, &id, name, site_repo)
+    set_repo(
+        &session,
+        &pipelines.0,
+        &id,
+        name,
+        site_repo,
+        RepoSetBy::Person,
+    )
 }
 
 /// Checks a repo an agent names: `~` expanded, an absolute path to a git repo
@@ -196,14 +212,26 @@ pub(crate) fn set_repo(
     id: &str,
     name: String,
     site_repo: Option<String>,
+    by: RepoSetBy,
 ) -> CommandResult<ProjectManifest> {
     let (root, config) = session.workspace()?;
     let site_repo = site_repo.map(|p| session.expand(&p).display().to_string());
-    if project::load(&root, &config.layout, id)?.site_repo != site_repo {
+    let before = project::load(&root, &config.layout, id)?;
+    let moved = before.site_repo != site_repo;
+    if moved {
         refuse_during_run(runner, id)?;
     }
+    // Settings saves the name and the repo together, so a rename alone says
+    // nothing about the repo and leaves an agent's mark on it.
+    let renamed_only = !moved && before.name != name;
     let manifest = project::update(&root, &config.layout, id, name, site_repo)?;
     session.save_repos(&root)?;
+    let cleared = manifest.site_repo.is_none();
+    match by {
+        RepoSetBy::Person if renamed_only => {}
+        RepoSetBy::Agent if !cleared => mark_repo(session, &root, id, RepoSetBy::Agent)?,
+        _ => mark_repo(session, &root, id, RepoSetBy::Person)?,
+    }
     Ok(manifest)
 }
 

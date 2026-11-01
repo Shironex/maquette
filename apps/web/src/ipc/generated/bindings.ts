@@ -969,6 +969,18 @@ export type AppState = {
 	 *  tell it from another one with the same name.
 	 */
 	machineId: string | null,
+	/**
+	 *  The projects whose repo an agent set: workspace root, then project
+	 *  ids. Files from before this have none, so those repos count as a
+	 *  person's. Kept here, out of every tool's reach and off the synced
+	 *  workspace, like the paths themselves.
+	 */
+	agentSetRepos: { [key in string]: string[] },
+	/**
+	 *  The dev commands a person approved for an agent-set repo: the repo's
+	 *  folder, then each question's key (`site::preview::PreviewAsk::key`).
+	 */
+	previewApprovals: { [key in string]: string[] },
 };
 
 /**  Something an agent asked for that waits for a yes or no in the app. */
@@ -999,6 +1011,8 @@ export type Approval = {
 	version?: number | null,
 	/**  Rest pose and reweight: the before and after sheets. */
 	sheets?: NormalizeSheets | null,
+	/**  Page preview: the folder and the command that will run. */
+	preview?: PreviewAsk | null,
 };
 
 /**  One send of a batch approval. */
@@ -1041,7 +1055,12 @@ export type ApprovalKind =
  *  A rig doctor fix an agent started waits for a person to look at the
  *  sheets and add the draft as a version.
  */
-"rig-doctor";
+"rig-doctor" | 
+/**
+ *  The first start of the dev server of a repo an agent set waits for a
+ *  person to read the folder and the command.
+ */
+"page-preview";
 
 /**  How far one arm turned. */
 export type ArmLift = {
@@ -5047,6 +5066,22 @@ export type PrepareChanged = {
 
 /**  Which preset a send starts from. */
 export type PresetVariant = "prop" | "character";
+
+/**
+ *  What a person is asked before an agent-set repo's dev command first
+ *  runs, resolved the way the server resolves it. Its [`key`](Self::key)
+ *  holds both the folder's command and what a package script runs, so a
+ *  changed path, command or script asks again.
+ */
+export type PreviewAsk = {
+	/**  The repo's real folder: links resolved, so a moved link asks again. */
+	repo: string,
+	/**  The command as one line, before the port is picked. */
+	command: string,
+	source: CommandSource,
+	/**  For a package script, what the script itself runs. */
+	scriptRuns: string | null,
+};
 
 /**  What a preview runs on: an inbox model, or an asset's newest version. */
 export type PreviewRequest = {

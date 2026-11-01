@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use maquette_core::app_state::RepoSetBy;
 use maquette_core::project;
 use maquette_core::ship::{AssetShip, ShipChoice, ShipSettingsChange, ShipStyle, TextureFormat};
 use maquette_core::site::{self, SiteTarget};
@@ -203,6 +204,7 @@ impl McpTools {
                         &args.project,
                         manifest.name.clone(),
                         repo,
+                        RepoSetBy::Agent,
                     )?;
                     host.project_changed(&moved);
                 }

@@ -2,6 +2,7 @@
 //! import the game's own models, change the settings and see what Ship
 //! would change. Ship itself still waits for a person in the app.
 
+use maquette_core::app_state::RepoSetBy;
 use maquette_core::game::{
     self, FolderBudget, GameExport, GameFormat, GameSettingsChange, GameTemplateId,
 };
@@ -294,6 +295,7 @@ impl McpTools {
                         &args.project,
                         manifest.name,
                         path,
+                        RepoSetBy::Agent,
                     )?;
                 }
                 let saved = match template {
