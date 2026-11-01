@@ -75,8 +75,15 @@ Anything still on its way says one recipe: a verb (`Reading the motion...`), a c
 reports one (`3 of 13`) and how long the same wait took last time when that was measured
 (`last 12s`, like the pipeline runner's steps). `Loader` and `WaitLine` in `packages/ui` draw it;
 `lib/waiting.ts` times a wait with `useWait` and keeps the last run in local storage. A wait that
-failed or was left behind is not a past run. No past run means no time: nothing guesses one. Mock
-mode can not prove real timing; `?previews=slow` lands Render previews one at a time.
+failed, was left behind or took under 2 s is not a past run. No past run means no time: nothing
+guesses one. A run's name holds what makes it different work: `renderWait` the style, look and size,
+`runWait` the rig doctor's run and route. Mock mode can not prove real timing; `?previews=slow` lands
+Render previews one at a time.
+
+A card moves at once (`state/move-card.ts`). A project's moves reach the core one at a time and the
+Board takes the core's answer once the last has settled; after a failure each card goes back to the
+last stage the core confirmed. `thumbnail_render_missing` answers with the files it queued, and the
+Render previews wait ends when each of those has its `ThumbnailReady`, in whichever project is open.
 
 ### packages/ui
 
