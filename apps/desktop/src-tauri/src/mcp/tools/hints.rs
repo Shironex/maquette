@@ -42,9 +42,31 @@ pub(super) fn add_waiting_fields(value: &mut Value) {
     });
 }
 
+/// What a finished run says about Ship.
+#[derive(Debug, Clone, Copy, Default)]
+pub(super) struct RunEnd {
+    pub build_only: bool,
+    /// The run left Ship out, for want of a repo.
+    pub no_repo: bool,
+    pub ship_denied: bool,
+}
+
 /// What to do after a run ended.
-pub(super) fn after_run(status: &str, build_only: bool, no_repo: bool) -> Option<Vec<Value>> {
+pub(super) fn after_run(status: &str, end: RunEnd) -> Option<Vec<Value>> {
+    let RunEnd {
+        build_only,
+        no_repo,
+        ship_denied,
+    } = end;
     match status {
+        // A denied Ship ends the run as cancelled, not failed, and everything
+        // before it is built: only a person takes this further.
+        "cancelled" if ship_denied => Some(vec![
+            person_step(
+                "A person denied Ship. Ask them before running it again; do not retry on your own.",
+            ),
+            step("get_ship_plan", "See what Ship would have written."),
+        ]),
         "failed" => Some(vec![
             step(
                 "get_run",
@@ -112,14 +134,37 @@ mod tests {
 
     #[test]
     fn a_failed_run_points_at_its_log_and_a_running_one_at_nothing() {
-        let failed = after_run("failed", false, false).expect("steps");
+        let failed = after_run("failed", RunEnd::default()).expect("steps");
         assert_eq!(failed[0]["tool"], "get_run");
-        assert!(after_run("running", false, false).is_none());
+        assert!(after_run("running", RunEnd::default()).is_none());
         // A run that left Ship out sends the agent to the repo, not to what shipped.
-        let no_repo = after_run("done", false, true).expect("steps");
-        assert_eq!(no_repo[0]["tool"], "set_ship_settings");
+        let no_repo = RunEnd {
+            no_repo: true,
+            ..RunEnd::default()
+        };
         assert_eq!(
-            after_run("done", true, false).expect("steps")[0]["tool"],
+            after_run("done", no_repo).expect("steps")[0]["tool"],
+            "set_ship_settings"
+        );
+        // A denied Ship stops at a person; a plain cancel has nothing to add.
+        let denied = RunEnd {
+            ship_denied: true,
+            ..RunEnd::default()
+        };
+        assert_eq!(
+            after_run("cancelled", denied).expect("steps")[0]["person"],
+            true
+        );
+        assert!(after_run("cancelled", RunEnd::default()).is_none());
+        assert_eq!(
+            after_run(
+                "done",
+                RunEnd {
+                    build_only: true,
+                    ..RunEnd::default()
+                }
+            )
+            .expect("steps")[0]["tool"],
             "get_ship_plan"
         );
     }

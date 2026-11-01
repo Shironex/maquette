@@ -14,8 +14,8 @@ use serde_json::{Value, json};
 use crate::commands::pipeline;
 
 mod presets;
-use super::hints::after_run;
-use crate::mcp::gate::ShipGate;
+use super::hints::{RunEnd, after_run};
+use crate::mcp::gate::{DENIED, ShipGate};
 use crate::mcp::host::Host;
 use crate::mcp::hub::Hub;
 use presets::edited_presets;
@@ -146,7 +146,14 @@ fn run_summary(hub: &Hub, run: &RunRecord) -> Value {
         out["shipped"] = json!(shipped);
         out["shipReason"] = json!(reason);
     }
-    if let Some(next) = after_run(status, run.build_only, run.not_shipped.is_some()) {
+    if let Some(next) = after_run(
+        status,
+        RunEnd {
+            build_only: run.build_only,
+            no_repo: run.not_shipped.is_some(),
+            ship_denied: run.message.as_deref() == Some(DENIED),
+        },
+    ) {
         out["next"] = Value::Array(next);
     }
     if let Some(approval) = approval {
