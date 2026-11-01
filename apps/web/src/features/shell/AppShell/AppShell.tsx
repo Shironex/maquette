@@ -1,4 +1,3 @@
-import { Suspense, lazy } from 'react';
 import { Logo, NavRail, TrafficLights, cn } from '@maquette/ui';
 import { CHROME } from '@/ipc/runtime';
 import { NewProjectDialog } from '@/features/project/NewProjectDialog';
@@ -21,6 +20,7 @@ import { AnimationDialogs } from '@/features/animations/AnimationDialogs';
 import { RetargetDialog } from '@/features/retarget/RetargetDialog';
 import { SETTINGS_VIEW, showsView, type ViewId } from '@/state/views';
 import { CurrentView } from '../CurrentView';
+import { PackSheetHost } from '../PackSheetHost';
 import { ProjectSwitcherMenu } from '../ProjectSwitcherMenu';
 import { QuitDialog } from '../QuitDialog';
 import { RepoPrompt } from '../RepoPrompt';
@@ -30,14 +30,8 @@ import { SyncConflictBanner } from '../SyncConflictBanner';
 import { UpdatePill } from '../UpdatePill';
 import { useAppShell } from './AppShell.hooks';
 
-// About 8 kB gzipped that most sessions never open, so it stays out of the first chunk.
-const PackSheet = lazy(async () => ({
-  default: (await import('@/features/library/PackSheet')).PackSheet,
-}));
-
 export default function AppShell() {
   const {
-    packOpen,
     view,
     goTo,
     items,
@@ -98,11 +92,7 @@ export default function AppShell() {
       <CreditsSheet />
       <SplitSheet />
       <RenderSheet />
-      {packOpen ? (
-        <Suspense fallback={null}>
-          <PackSheet />
-        </Suspense>
-      ) : null}
+      <PackSheetHost />
       <AssembleSheet />
       <ObjectRefsDialog />
       <StyleBoardDialog />

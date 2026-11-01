@@ -64,7 +64,6 @@ export function useSwitcherShortcut(mac: boolean, toggleMenu: () => void) {
 
 /** The shell's view, rail items and project switcher, with live data for the open project. */
 export function useAppShell() {
-  const packOpen = usePackStore(s => s.open);
   const view = useAppStore(s => s.view);
   const setView = useAppStore(s => s.setView);
   const workspace = useAppStore(s => s.workspace);
@@ -112,7 +111,6 @@ export function useAppShell() {
     : undefined;
 
   return {
-    packOpen,
     view,
     /** The rail's click: Inbox always means the list, not a case left open. */
     goTo: (next: ViewId) => {
