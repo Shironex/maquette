@@ -94,19 +94,35 @@ const NO_WORKSPACE: Advice = person(
     Some("get_started"),
 );
 
-/// Message parts to the advice they call for, first match wins. A test keeps
-/// them in step with the messages the core really sends.
+const CAP: Advice = agent(
+    "Ask for fewer images or use the codex backend (set_image_backend). Only a person can raise the cap, in Settings > Image generation.",
+    "set_image_backend",
+);
+
+/// Message parts to the advice they call for, first match wins. Whole phrases,
+/// because a bare word can sit in an asset's name or a path. A test reads the
+/// sources these come from, so a reworded message fails it.
 const BY_MESSAGE: &[(&str, Advice)] = &[
-    ("Tripo API key", NEW_KEY),
-    ("Meshy API key", NEW_KEY),
-    ("Settings > 3D providers", NEW_KEY),
-    ("OpenAI API key", OPENAI_KEY),
-    ("Settings > Image generation", OPENAI_KEY),
+    ("would pass the monthly OpenAI image cap", CAP),
+    ("cap can only be changed by a person", CAP),
+    ("API key in Settings > 3D providers first", NEW_KEY),
+    ("Save a Tripo API key first", NEW_KEY),
+    ("Save a Meshy API key first", NEW_KEY),
+    (
+        "did not accept the API key. Check it in Settings > 3D providers",
+        NEW_KEY,
+    ),
+    ("Save an OpenAI API key first", OPENAI_KEY),
+    (
+        "did not accept the API key. Check it in Settings > Image generation",
+        OPENAI_KEY,
+    ),
     ("Codex CLI is not installed", CODEX),
-    ("not signed in", CODEX),
+    ("Codex CLI is not signed in", CODEX),
     ("Blender is not installed", BLENDER),
     ("Blender was not found", BLENDER),
-    ("ffmpeg", FFMPEG),
+    ("needs ffmpeg, and it was not found", FFMPEG),
+    ("ffmpeg is not installed", FFMPEG),
     ("No workspace is open", NO_WORKSPACE),
     (
         "has not run yet",
@@ -207,6 +223,109 @@ mod tests {
             "No workspace is open yet.",
         ] {
             assert_eq!(err(message)["personOnly"], true, "{message}");
+        }
+    }
+
+    #[test]
+    fn the_table_matches_what_the_sources_really_say() {
+        // Up from src/mcp/tools to the repo root.
+        macro_rules! source {
+            ($path:literal) => {
+                include_str!(concat!("../../../../../../", $path))
+            };
+        }
+        let sent: &[(&str, &str)] = &[
+            (
+                "would pass the monthly OpenAI image cap",
+                source!("crates/maquette-core/src/concepts/jobs/api.rs"),
+            ),
+            (
+                "cap can only be changed by a person",
+                include_str!("image_api.rs"),
+            ),
+            (
+                "API key in Settings > 3D providers first",
+                source!("crates/maquette-providers/src/jobs/mod.rs"),
+            ),
+            (
+                "did not accept the API key. Check it in Settings > 3D providers",
+                source!("crates/maquette-providers/src/http.rs"),
+            ),
+            (
+                "did not accept the API key. Check it in Settings > Image generation",
+                source!("crates/maquette-providers/src/openai_images.rs"),
+            ),
+            (
+                "Save an OpenAI API key first",
+                include_str!("../../commands/image_api.rs"),
+            ),
+            (
+                "Codex CLI is not installed",
+                source!("crates/maquette-core/src/concepts/jobs.rs"),
+            ),
+            (
+                "Codex CLI is not signed in",
+                source!("crates/maquette-base/src/toolchain/detection.rs"),
+            ),
+            (
+                "Blender was not found",
+                source!("crates/maquette-core/src/renders/job.rs"),
+            ),
+            (
+                "needs ffmpeg, and it was not found",
+                source!("crates/maquette-core/src/renders/run.rs"),
+            ),
+            (
+                "ffmpeg is not installed",
+                source!("crates/maquette-core/src/concepts/sheet.rs"),
+            ),
+            (
+                "No workspace is open",
+                source!("apps/desktop/src-tauri/src/session.rs"),
+            ),
+        ];
+        for (phrase, source) in sent {
+            assert!(source.contains(phrase), "no source says {phrase:?}");
+            assert!(BY_MESSAGE.iter().any(|(p, _)| p == phrase), "{phrase:?}");
+        }
+        // These two take the provider's name.
+        let providers = include_str!("../../commands/providers.rs");
+        assert!(providers.contains("Save a {} API key first"));
+    }
+
+    #[test]
+    fn a_word_in_a_name_or_a_path_earns_no_advice() {
+        for message in [
+            "Could not write /site/ffmpeg-demo/loop.mp4: disk full.",
+            "ffmpeg could not write the loop: disk full.",
+            "Could not find an asset named ffmpeg.",
+            "Settings > 3D providers has no such field.",
+            "The asset Tripo API key was renamed.",
+        ] {
+            let out = err(message);
+            assert!(out.get("fix").is_none(), "{message}");
+            assert!(out.get("personOnly").is_none(), "{message}");
+        }
+    }
+
+    #[test]
+    fn a_cap_error_says_the_cap_and_an_agent_can_still_go_on() {
+        for message in [
+            "This round of 4 would pass the monthly OpenAI image cap: $9.00 spent this month.",
+            "Not sent: this image (about $0.20) would pass the monthly OpenAI image cap, $9.90 of $10.",
+            super::super::image_api::CAP_REFUSED,
+        ] {
+            let out = err(message);
+            assert_eq!(out["tryTool"], "set_image_backend", "{message}");
+            assert!(out.get("personOnly").is_none(), "{message}");
+            assert!(
+                out["fix"].as_str().expect("fix").contains("codex"),
+                "{message}"
+            );
+            assert!(
+                !out["fix"].as_str().expect("fix").contains("saves the key"),
+                "{message}"
+            );
         }
     }
 
