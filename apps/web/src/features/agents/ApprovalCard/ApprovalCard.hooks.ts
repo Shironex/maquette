@@ -38,20 +38,36 @@ function useShipNotes(approval: Approval, game: boolean): string[] {
 /** How long Approve stays unarmed after its place on screen changed. */
 export const ARM_DELAY_MS = 500;
 
-/** Smaller height changes do not move a button enough to hit the wrong one. */
+/** A smaller shift does not move a button enough to hit the wrong one. */
 const MOVE_PX = 2;
+
+const placeOf = (list: Element) => Array.from(list.children, c => c.getBoundingClientRect());
+
+function moved(from: readonly DOMRect[], to: readonly DOMRect[]) {
+  if (from.length !== to.length) return true;
+  return to.some((now, i) => {
+    const was = from[i]!;
+    return (
+      Math.abs(now.top - was.top) >= MOVE_PX ||
+      Math.abs(now.left - was.left) >= MOVE_PX ||
+      Math.abs(now.height - was.height) >= MOVE_PX
+    );
+  });
+}
 
 /**
  * The one hold on every Approve of a list. `armed` goes false in the same
- * render the cards change (one opens, folds, arrives or leaves), and when
- * they really move: a card or the list changes height, the list or a parent
- * scrolls, the window resizes. It comes back `ARM_DELAY_MS` after the last of
- * those, so a click in between does nothing and is not kept. Nothing on the
- * cards keeps moving by itself, and changes under `MOVE_PX` do not count, so
- * it settles; a list that really never stopped moving would stay held. The
- * delay guards a press and is no animation, so reduced motion keeps it.
+ * render the cards change (one opens, folds, arrives or leaves), and when a
+ * card really moves on screen, whatever moved it: its own height, content
+ * above it, a scroll, a resized window. While any card is open each frame
+ * compares the cards with where they were at the last restart, so small steps
+ * cannot add up unseen. It comes back `ARM_DELAY_MS` after the last of those,
+ * so a click in between does nothing and is not kept. Nothing on the cards
+ * keeps moving by itself, and shifts under `MOVE_PX` do not count, so it
+ * settles; a list that really never stopped moving would stay held. The delay
+ * guards a press and is no animation, so reduced motion keeps it.
  */
-function useApprovalHold(layout: string) {
+function useApprovalHold(layout: string, anyOpen: boolean) {
   const column = useRef<HTMLDivElement>(null);
   const [seen, setSeen] = useState(layout);
   const [restarts, setRestarts] = useState(0);
@@ -70,37 +86,22 @@ function useApprovalHold(layout: string) {
     return () => clearTimeout(timer);
   }, [restarts]);
 
+  // A new layout is a new set of cards, measured afresh.
   useEffect(() => {
     const list = column.current;
-    if (!list) return;
-    const heights = new Map<Element, number>();
-    const observer =
-      typeof ResizeObserver === 'undefined'
-        ? null
-        : new ResizeObserver(entries => {
-            let moved = false;
-            for (const { target, contentRect } of entries) {
-              const before = heights.get(target);
-              heights.set(target, contentRect.height);
-              if (before !== undefined && Math.abs(contentRect.height - before) >= MOVE_PX)
-                moved = true;
-            }
-            if (moved) restart();
-          });
-    observer?.observe(list);
-    for (const card of list.children) observer?.observe(card);
-    const onScroll = (e: Event) => {
-      if (e.target instanceof Node && e.target.contains(list)) restart();
+    if (!list || !anyOpen) return;
+    let place = placeOf(list);
+    const look = () => {
+      const now = placeOf(list);
+      if (moved(place, now)) {
+        place = now;
+        restart();
+      }
+      frame = requestAnimationFrame(look);
     };
-    window.addEventListener('scroll', onScroll, { capture: true, passive: true });
-    window.addEventListener('resize', restart);
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener('scroll', onScroll, { capture: true });
-      window.removeEventListener('resize', restart);
-    };
-    // A new layout is a new set of cards to watch.
-  }, [layout, restart]);
+    let frame = requestAnimationFrame(look);
+    return () => cancelAnimationFrame(frame);
+  }, [layout, anyOpen, restart]);
 
   return { column, armed };
 }
@@ -114,7 +115,10 @@ export function useApprovalStack(approvals: readonly Approval[] | undefined) {
   const ids = approvals?.map(a => a.id) ?? [];
   const open = settleOpen(stored, ids);
   if (open !== stored) setOpen(open);
-  const { column, armed } = useApprovalHold(ids.map(id => `${id}:${open[id] ? 1 : 0}`).join(','));
+  const { column, armed } = useApprovalHold(
+    ids.map(id => `${id}:${open[id] ? 1 : 0}`).join(','),
+    ids.some(id => open[id])
+  );
   return {
     column,
     armed,

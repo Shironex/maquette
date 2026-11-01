@@ -117,84 +117,114 @@ describe('arming Approve', () => {
   });
 
   describe('when the cards really move', () => {
-    let notify: ResizeObserverCallback = () => {};
-    const disconnect = vi.fn();
-    const height = (target: Element, h: number) =>
-      act(() =>
-        notify(
-          [{ target, contentRect: { height: h } } as ResizeObserverEntry],
-          {} as ResizeObserver
-        )
-      );
+    let frames: FrameRequestCallback[] = [];
+    let rect = { top: 100, left: 50, height: 200 };
+
+    /** Runs one animation frame of the page. */
+    const frame = () =>
+      act(() => {
+        const due = frames;
+        frames = [];
+        for (const callback of due) callback(0);
+      });
 
     beforeEach(() => {
-      disconnect.mockClear();
-      vi.stubGlobal(
-        'ResizeObserver',
-        class {
-          constructor(callback: ResizeObserverCallback) {
-            notify = callback;
-          }
-          observe() {}
-          unobserve() {}
-          disconnect = disconnect;
-        }
+      rect = { top: 100, left: 50, height: 200 };
+      vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
+        () => rect as DOMRect
       );
     });
 
-    afterEach(() => vi.unstubAllGlobals());
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    /** The session on fake timers, with animation frames run by hand. */
+    async function paced() {
+      await session();
+      frames = [];
+      vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+        frames.push(callback)
+      );
+      vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+        frames.splice(id - 1, 1);
+      });
+    }
 
     /** The first card, open and armed. */
     async function armedCard() {
-      const decide = await session();
+      await paced();
       render(<ApprovalPrompt />);
       waited(ARM_DELAY_MS);
       const card = screen.getAllByRole('alertdialog')[0]!;
       expect(approve(card)).not.toHaveAttribute('aria-disabled');
-      return { decide, card };
+      return card;
     }
 
-    it('holds when a card grows after its first measure, as late Ship notes do', async () => {
-      const { card } = await armedCard();
-      height(card, 200);
-      expect(approve(card)).not.toHaveAttribute('aria-disabled');
-      height(card, 260);
+    it('holds when content above moves the column, and comes back after', async () => {
+      const card = await armedCard();
+      rect = { ...rect, top: rect.top + 40 };
+      frame();
       expect(approve(card)).toHaveAttribute('aria-disabled', 'true');
-      waited(ARM_DELAY_MS);
+      waited(ARM_DELAY_MS - 1);
+      frame();
+      expect(approve(card)).toHaveAttribute('aria-disabled', 'true');
+      waited(1);
       expect(approve(card)).not.toHaveAttribute('aria-disabled');
     });
 
-    it('settles through changes too small to move a button', async () => {
-      const { card } = await armedCard();
-      height(card, 200);
+    it('stays armed on a column that stays still', async () => {
+      const card = await armedCard();
+      for (let i = 0; i < 50; i += 1) frame();
+      expect(approve(card)).not.toHaveAttribute('aria-disabled');
+    });
+
+    it('holds when a card grows, as late Ship notes do', async () => {
+      const card = await armedCard();
+      rect = { ...rect, height: rect.height + 60 };
+      frame();
+      expect(approve(card)).toHaveAttribute('aria-disabled', 'true');
+    });
+
+    it('holds when the column slides sideways, as on a resized window', async () => {
+      const card = await armedCard();
+      rect = { ...rect, left: rect.left - 80 };
+      frame();
+      expect(approve(card)).toHaveAttribute('aria-disabled', 'true');
+    });
+
+    it('settles through jitter too small to move a button', async () => {
+      const card = await armedCard();
       for (let i = 0; i < 20; i += 1) {
-        height(card, 200 + (i % 2));
+        rect = { ...rect, height: 200 + (i % 2) };
+        frame();
         waited(100);
       }
       expect(approve(card)).not.toHaveAttribute('aria-disabled');
     });
 
-    it('holds on a scroll of the column and a resize of the window, not a scroll elsewhere', async () => {
-      const { card } = await armedCard();
-      fireEvent.scroll(document.createElement('div'));
-      const other = document.body.appendChild(document.createElement('div'));
-      fireEvent.scroll(other);
-      other.remove();
+    it('adds small steps up from the last restart', async () => {
+      const card = await armedCard();
+      rect = { ...rect, height: rect.height + 1 };
+      frame();
       expect(approve(card)).not.toHaveAttribute('aria-disabled');
-      fireEvent.scroll(card.parentElement!);
+      rect = { ...rect, height: rect.height + 1 };
+      frame();
       expect(approve(card)).toHaveAttribute('aria-disabled', 'true');
-      waited(ARM_DELAY_MS);
-      fireEvent(window, new Event('resize'));
-      expect(approve(card)).toHaveAttribute('aria-disabled', 'true');
-      waited(ARM_DELAY_MS);
-      expect(approve(card)).not.toHaveAttribute('aria-disabled');
     });
 
-    it('lets go of its observer and listeners', async () => {
-      await session();
+    it('looks only while a card is open, and stops on unmount', async () => {
+      await paced();
       const { unmount } = render(<ApprovalPrompt />);
+      expect(frames).toHaveLength(1);
+      const card = screen.getAllByRole('alertdialog')[0]!;
+      fireEvent.click(within(card).getByRole('button', { name: /^Hide/ }));
+      expect(frames).toHaveLength(0);
+      fireEvent.click(within(card).getByRole('button', { name: /^Review/ }));
+      expect(frames).toHaveLength(1);
       unmount();
-      expect(disconnect).toHaveBeenCalled();
+      expect(frames).toHaveLength(0);
       expect(vi.getTimerCount()).toBe(0);
     });
   });
