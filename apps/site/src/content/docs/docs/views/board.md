@@ -61,4 +61,4 @@ The project switcher at the top of the rail (Cmd+P on macOS, Ctrl+P on Windows) 
 
 ## Next step
 
-A strip under the header says what the project is waiting on, in one sentence with one button: a missing Blender, models in the Inbox, refs with no model, a first run, or a repo to ship to. It stays quiet during a run and once nothing waits on you. Dismiss a step and it stays away until a different one comes up.
+A strip under the header says what the project is waiting on, in one sentence with one button: a missing Blender, models in the Inbox, refs with no model, a card with no refs or picture, a first run, or a repo to ship to. It stays quiet during a run and once nothing waits on you. Dismissing a step applies to this project and shows the next waiting step, if any. It stays away until it changes: a new failed run, more models in the Inbox, another asset at Refs, or Blender trouble that went away and came back.

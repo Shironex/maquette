@@ -23,7 +23,7 @@ export default function NextStepStrip() {
         size="sm"
         variant="ghost"
         label="Dismiss this step"
-        hint="Stays away until a different step comes up"
+        hint="Stays away in this project until this step changes"
         onClick={dismiss}
       />
     </section>
