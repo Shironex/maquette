@@ -127,7 +127,7 @@ fn changed(m: &ProjectManifest, change: &GameSettingsChange) -> CoreResult<GameS
         next.models_dir = dir.trim().trim_matches('/').to_string();
     }
     if let Some(export) = &change.export {
-        next.export = export.clone();
+        next.export = *export;
     }
     if let Some(bake) = change.bake {
         next.bake = bake;
