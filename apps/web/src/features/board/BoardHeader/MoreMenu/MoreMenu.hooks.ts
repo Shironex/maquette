@@ -28,6 +28,7 @@ export function useMoreMenu() {
     failed: sendCounts(jobs).failed,
     missing: missingPreviews(project),
     rendering: asking || waiting > 0,
+    waiting,
     allSends: () => setQueueOpen(true),
     /** Every accepted model as one pack: the Library's pack sheet opens on it. */
     exportPack: () => {

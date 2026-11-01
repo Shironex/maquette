@@ -4,6 +4,7 @@ import { cardNumbers } from '@/state/board';
 import { useBuiltStore } from '@/state/use-built-store';
 import { useProvidersStore } from '@/state/use-providers-store';
 import { useBudgetCheck } from '@/state/use-budget-check';
+import { useRendersPreview } from '@/state/use-game-store';
 import { trianglesLine } from '@/state/game';
 import { updateFor } from '@/state/library';
 import { useLibraryStore } from '@/state/use-library-store';
@@ -27,6 +28,7 @@ export function useBoardCard(asset: Asset, board: BoardEnv) {
     e.dataTransfer.setData(DRAG_TYPE, asset.id);
     e.dataTransfer.effectAllowed = 'move';
   };
+  const previewing = useRendersPreview(asset, board.project?.id);
   const n = cardNumbers(asset);
   const view = assetView(asset, board);
   const card = view.waiting?.card;
@@ -35,6 +37,7 @@ export function useBoardCard(asset: Asset, board: BoardEnv) {
     n: budget ? { ...n, tris: trianglesLine(budget), size: undefined } : n,
     over: budget?.problems.length ? budget.problems.join(', ') : null,
     ...view,
+    previewing,
     exportName: card ? exportNameOf(card) : null,
     addModel,
     onDragStart,

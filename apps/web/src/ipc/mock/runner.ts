@@ -4,7 +4,7 @@
  * lines, Capture posters fails once (a missing camera) and passes after.
  */
 import type { LogEntry, PipelineDef, PipelineEvent, RunRecord, StepRecord } from '../client';
-import { blenderLines } from './pipeline-fixtures';
+import { blenderLines, run24Log, runHistory } from './pipeline-fixtures';
 import { clock } from '@/lib/clock';
 
 export interface FakeRunnerOptions {
@@ -25,6 +25,15 @@ export interface RunStore {
 }
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/** The run history a mock workspace opens with; a busy one also has run 24's log. */
+export function seedRunStore(configured: boolean, idle: boolean, now: number): RunStore {
+  const history = configured ? runHistory(now) : [];
+  return {
+    runs: idle ? history.slice(1) : history,
+    logs: new Map(configured && !idle ? [[24, run24Log(now)]] : []),
+  };
+}
 
 export function createFakeRunner(store: RunStore, options: FakeRunnerOptions) {
   let active: { id: string; cancelled: boolean } | null = null;

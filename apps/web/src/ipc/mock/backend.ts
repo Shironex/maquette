@@ -11,14 +11,7 @@ import type {
 } from '../client';
 import { DEFAULT_ROOT, defaultConfig, mockProjects } from './fixtures';
 import { linkGameInbox } from './game-inbox';
-import {
-  currentStarters,
-  dioramaPipeline,
-  oldStarters,
-  pipelineView,
-  run24Log,
-  runHistory,
-} from './pipeline-fixtures';
+import { currentStarters, dioramaPipeline, oldStarters, pipelineView } from './pipeline-fixtures';
 import { createFakeAgents } from './agents';
 import { createFakeLab } from './lab';
 import { healThumbnails } from './lab-helpers';
@@ -32,7 +25,7 @@ import { createFakeProviders } from './providers';
 import { createCreditHandlers } from './create-credit-handlers';
 import { createDownloadsHandlers } from './create-downloads-handlers';
 import { seedInbox } from './triage-fixtures';
-import { createFakeRunner, type RunStore } from './runner';
+import { createFakeRunner, seedRunStore } from './runner';
 import { clock } from '@/lib/clock';
 import { createAssetHandlers } from './create-asset-handlers';
 import { createTrashHandlers } from './create-trash-handlers';
@@ -46,6 +39,7 @@ import { createPageHandlers, holdPageStarts } from './create-page-handlers';
 import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPathsHandlers } from './create-paths-handlers';
 import { createGameHandlers } from './create-game-handlers';
+import { withoutPreviews } from './create-preview-handlers';
 import { createAvatarHandlers } from './create-avatar-handlers';
 import { seedAvatar } from './avatar-fixtures';
 import { withInspectAssets, wrapInspectFixtures } from './many-assets-fixtures';
@@ -86,6 +80,7 @@ export function createBackend({
   timeline = null,
   paths = null,
   game: gameState = null,
+  previews = null,
   library: libraryState = null,
   render: renderState = null,
   inspect: inspectState = null,
@@ -109,11 +104,7 @@ export function createBackend({
     config = { ...config, agents: { ...config.agents, mcpEnabled: true } };
   }
   const now = clock.nowMs();
-  const history = configured ? runHistory(now) : [];
-  const store: RunStore = {
-    runs: scenario === 'idle' ? history.slice(1) : history,
-    logs: new Map(configured && scenario !== 'idle' ? [[24, run24Log(now)]] : []),
-  };
+  const store = seedRunStore(configured, scenario === 'idle', now);
   const presets = new Map<string, CompressPreset[]>();
   const runner = createFakeRunner(store, {
     emit: payload => emit?.({ name: 'pipeline', payload }),
@@ -127,11 +118,14 @@ export function createBackend({
     saveProject: next => saveProject(next),
     store,
     files,
+    emit,
+    previews,
     state: configured ? gameState : null,
   });
   [projects, config] = game.seedInto(projects, config);
   if (configured) projects = projects.map(p => withInspectAssets(p, inspectState));
   if (configured) projects = projects.map(p => seedManyPipeline(p, pipelineState));
+  if (previews === 'slow') projects = projects.map(withoutPreviews);
   const listed = configured ? seedInbox(inboxState, `${expand(DEFAULT_ROOT)}/inbox`, now) : [];
   let inbox: InboxItem[] = linkGameInbox(
     listed,

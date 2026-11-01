@@ -214,6 +214,7 @@ const handle = createBackend({
   page: pageOption(params),
   timeline: params.get('timeline'),
   game: params.get('game'),
+  previews: params.get('previews'),
   library: params.get('library'),
   render: params.get('render'),
   inspect: params.get('inspect'),
@@ -238,6 +239,7 @@ const handle = createBackend({
     else if (event.name === 'pack') void events.packChanged.emit({ record: event.payload });
     else if (event.name === 'rig') void events.rigChanged.emit({ record: event.payload });
     else if (event.name === 'render') void events.renderChanged.emit({ record: event.payload });
+    else if (event.name === 'thumbnail') void events.thumbnailReady.emit(event.payload);
     else if (event.name === 'provider') {
       const payload = event.payload;
       if (payload.type === 'project') void events.projectChanged.emit({ project: payload.project });

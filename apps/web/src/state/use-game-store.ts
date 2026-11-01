@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import {
   commands,
   errorMessage,
+  type Asset,
   type GameScan,
   type GameSettingsChange,
   type GameTemplateId,
@@ -13,7 +14,7 @@ import {
   type ShipPlan,
   type ThumbnailReady,
 } from '@/ipc/client';
-import { isBoardModel } from './thumbs';
+import { isBoardModel, wantsPreview } from './thumbs';
 import { useAppStore } from './use-app-store';
 import { usePipelineStore } from './use-pipeline-store';
 
@@ -34,6 +35,8 @@ interface GameStore {
   waitingFor: string | null;
   /** Previews that failed since the last notice about them. */
   failedPreviews: number;
+  /** The models those were of, so their cards stop saying they render. */
+  failedFiles: string[];
   openImport: (project: string) => Promise<void>;
   closeImport: () => void;
   toggle: (file: string, on: boolean) => void;
@@ -71,6 +74,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   waiting: 0,
   waitingFor: null,
   failedPreviews: 0,
+  failedFiles: [],
 
   openImport: async project => {
     set({ importFor: project, scan: null, scanning: true, picked: [] });
@@ -171,7 +175,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   renderPreviews: async project => {
     if (get().rendering || get().waiting > 0) return;
-    set({ rendering: true, failedPreviews: 0 });
+    set({ rendering: true, failedPreviews: 0, failedFiles: [] });
     try {
       const {
         asked,
@@ -213,7 +217,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const waiting = counted ? get().waiting - 1 : get().waiting;
     const failed = get().failedPreviews + (event.state === 'fallback' ? 1 : 0);
     const done = waiting === 0;
-    set({ waiting, failedPreviews: done ? 0 : failed });
+    const failedFiles =
+      event.state === 'fallback' ? [...get().failedFiles, event.file] : get().failedFiles;
+    set({ waiting, failedPreviews: done ? 0 : failed, failedFiles: done ? [] : failedFiles });
     if (done && failed > 0) {
       useAppStore.getState().notify({
         status: 'failed',
@@ -232,3 +238,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 }));
+
+/** True while Render previews is on this card's model, as the Inbox's thumbnails say theirs. */
+export function useRendersPreview(asset: Asset, project: string | undefined): boolean {
+  return useGameStore(s => {
+    if (!s.rendering && !(s.waiting > 0 && s.waitingFor === project)) return false;
+    if (!wantsPreview(asset)) return false;
+    const file = asset.versions[asset.versions.length - 1]?.file ?? '';
+    return !s.failedFiles.some(f => f.replaceAll('\\', '/').endsWith(file));
+  });
+}

@@ -14,6 +14,7 @@ export default function MoreMenu() {
     failed,
     missing,
     rendering,
+    waiting,
     allSends,
     exportPack,
     renderMissing,
@@ -42,7 +43,7 @@ export default function MoreMenu() {
             section: 'make',
             disabled: rendering,
             hint: rendering
-              ? 'Rendering the previews now'
+              ? `Rendering the previews now${waiting > 0 ? `, ${waiting} left` : ''}`
               : 'Renders each model without a preview, headless in Blender, one at a time. Run it again to retry the ones that failed',
             onSelect: renderMissing,
           } satisfies MenuItem,
