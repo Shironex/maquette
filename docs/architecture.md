@@ -69,6 +69,15 @@ mounts the Sends panel, and the Board only asks the providers store to open it).
 
 The lists are `SHARED_FEATURES` and `COMPOSITION_ROOTS` in `eslint.config.mjs`.
 
+### Waiting
+
+Anything still on its way says one recipe: a verb (`Reading the motion...`), a count when the work
+reports one (`3 of 13`) and how long the same wait took last time when that was measured
+(`last 12s`, like the pipeline runner's steps). `Loader` and `WaitLine` in `packages/ui` draw it;
+`lib/waiting.ts` times a wait with `useWait` and keeps the last run in local storage. A wait that
+failed or was left behind is not a past run. No past run means no time: nothing guesses one. Mock
+mode can not prove real timing; `?previews=slow` lands Render previews one at a time.
+
 ### packages/ui
 
 The kit stays flat: `src/components/<group>/<Name>.tsx`, exported from `src/index.ts`. A group is a
