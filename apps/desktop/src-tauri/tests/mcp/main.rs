@@ -3,6 +3,7 @@
 
 mod support;
 
+mod agent_repo;
 mod animations;
 mod bake;
 mod built;

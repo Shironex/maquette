@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use maquette_core::concepts::Concepts;
 use maquette_core::pipeline::runner::PipelineRunner;
 use maquette_core::providers::ProviderJobs;
@@ -11,7 +13,7 @@ use super::app::{WorkspaceSnapshot, snapshot};
 use super::lab::Lab;
 use super::pipeline::Pipelines;
 use super::providers::Studio;
-use super::{CommandResult, blocking};
+use super::{CommandResult, blocking, invalid};
 use crate::session::Session;
 
 /// What runs in `id` right now: its pipeline run, concept images and sends.
@@ -124,23 +126,82 @@ pub fn project_create(
 #[specta::specta]
 pub fn project_update(
     session: State<'_, Session>,
+    pipelines: State<'_, Pipelines>,
     id: String,
     name: String,
     site_repo: Option<String>,
 ) -> CommandResult<ProjectManifest> {
-    set_repo(&session, &id, name, site_repo)
+    set_repo(&session, &pipelines.0, &id, name, site_repo)
 }
 
-/// Names a project and sets this computer's repo for it. Shared with the
-/// MCP server.
+/// Checks a repo an agent names: `~` expanded, an absolute path to a git repo
+/// or worktree, and nowhere Ship could write over Maquette's own files or a
+/// home folder. Every door an agent has to a repo goes through this.
+pub(crate) fn checked_repo(session: &Session, path: &str) -> CommandResult<PathBuf> {
+    let (root, config) = session.workspace()?;
+    let expanded = session.expand(path);
+    let at = maquette_core::game::check_repo(&expanded.display().to_string())?;
+    let real = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let found = real(&at);
+    let workspace = real(&root);
+    let projects = real(&root.join(&config.layout.projects));
+    let home = real(&session.expand("~"));
+    match repo_refusal(&found, &workspace, &projects, &home) {
+        Some(why) => Err(invalid(&format!(
+            "{} {why} Pick the site's own repo.",
+            at.display()
+        ))),
+        None => Ok(at),
+    }
+}
+
+/// Why a repo cannot take Ship's files, all paths already resolved.
+fn repo_refusal(
+    found: &Path,
+    workspace: &Path,
+    projects: &Path,
+    home: &Path,
+) -> Option<&'static str> {
+    if found.starts_with(workspace) {
+        Some("is inside the Maquette workspace.")
+    } else if workspace.starts_with(found) {
+        Some("holds the Maquette workspace.")
+    } else if found.starts_with(projects) {
+        Some("is inside a project's folder.")
+    } else if found == home {
+        Some("is the home folder.")
+    } else {
+        None
+    }
+}
+
+/// A repo change while a run is going would ship somewhere other than the
+/// plan a person approves.
+fn refuse_during_run(runner: &PipelineRunner, id: &str) -> CommandResult<()> {
+    let (active, queued) = runner.active(id);
+    if active.is_some() || !queued.is_empty() {
+        return Err(invalid(&format!(
+            "A run is going in {id}. Wait for it or cancel it, then change the repo."
+        )));
+    }
+    Ok(())
+}
+
+/// Names a project and sets this computer's repo for it. Refused while the
+/// project has a run going when the repo would change. Shared with the MCP
+/// server.
 pub(crate) fn set_repo(
     session: &Session,
+    runner: &PipelineRunner,
     id: &str,
     name: String,
     site_repo: Option<String>,
 ) -> CommandResult<ProjectManifest> {
     let (root, config) = session.workspace()?;
     let site_repo = site_repo.map(|p| session.expand(&p).display().to_string());
+    if project::load(&root, &config.layout, id)?.site_repo != site_repo {
+        refuse_during_run(runner, id)?;
+    }
     let manifest = project::update(&root, &config.layout, id, name, site_repo)?;
     session.save_repos(&root)?;
     Ok(manifest)
@@ -251,5 +312,30 @@ mod tests {
     struct NoSink;
     impl maquette_core::pipeline::runner::RunSink for NoSink {
         fn event(&self, _: maquette_core::pipeline::runner::PipelineEvent) {}
+    }
+}
+
+#[cfg(test)]
+mod repo_tests {
+    use std::path::Path;
+
+    use super::repo_refusal;
+
+    #[test]
+    fn ship_cannot_be_pointed_at_home_or_maquettes_own_folders() {
+        let check = |path: &str| {
+            repo_refusal(
+                Path::new(path),
+                Path::new("/w/maquette"),
+                Path::new("/elsewhere/projects"),
+                Path::new("/home/me"),
+            )
+        };
+        assert!(check("/home/me").is_some());
+        assert!(check("/w/maquette").is_some());
+        assert!(check("/w/maquette/projects/web").is_some());
+        assert!(check("/w").is_some());
+        assert!(check("/elsewhere/projects/web").is_some());
+        assert!(check("/home/me/code/site").is_none());
     }
 }

@@ -57,11 +57,14 @@ pub(crate) fn view(session: &Session, project_id: &str) -> CommandResult<ShipVie
     })
 }
 
-pub(crate) fn save(
+/// Checks a save against `repo`, writing nothing, so a save cannot stop
+/// half way and leave a file behind.
+pub(crate) fn check_save(
     session: &Session,
     project_id: &str,
-    change: ShipSave,
-) -> CommandResult<ShipView> {
+    change: &ShipSave,
+    repo: Option<&str>,
+) -> CommandResult<()> {
     let (root, config) = session.workspace()?;
     let manifest = project::load(&root, &config.layout, project_id)?;
     if manifest.target == ProjectTarget::Game {
@@ -76,10 +79,27 @@ pub(crate) fn save(
             )));
         }
     }
+    ship::check_change(&dir, change.settings.clone())?;
     if let Some(target) = &change.target {
-        let repo = manifest.site_repo.as_deref().ok_or_else(|| {
+        let repo = repo.ok_or_else(|| {
             invalid("This project has no site repo yet. Pick one in Settings > Project.")
         })?;
+        site::check_target(Path::new(repo), target)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn save(
+    session: &Session,
+    project_id: &str,
+    change: ShipSave,
+) -> CommandResult<ShipView> {
+    let (root, config) = session.workspace()?;
+    let manifest = project::load(&root, &config.layout, project_id)?;
+    let repo = manifest.site_repo.as_deref();
+    check_save(session, project_id, &change, repo)?;
+    let dir = project::dir(&root, &config.layout, project_id)?;
+    if let (Some(target), Some(repo)) = (&change.target, repo) {
         site::save_target(Path::new(repo), target)?;
     }
     ship::update(&dir, change.settings)?;

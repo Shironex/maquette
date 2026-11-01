@@ -12,6 +12,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::commands::game as commands;
+use crate::commands::project::{checked_repo, set_repo};
 
 use super::{McpTools, Out, ProjectArgs, respond, to_value, workspace};
 
@@ -176,8 +177,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                let manifest =
-                    project::load(&root, &config.layout, &args.project)?;
+                let manifest = project::load(&root, &config.layout, &args.project)?;
                 let settings = game::settings_of(&manifest)?;
                 let dir = project::dir(&root, &config.layout, &args.project)?;
                 let wanted = args.previews.unwrap_or_default();
@@ -286,10 +286,15 @@ impl McpTools {
                 let change = args.change(&current.export)?;
                 let template = args.template()?;
                 if let Some(repo) = args.repo.as_deref() {
-                    let path = game::check_repo(repo)?;
+                    let path = checked_repo(host.session(), repo)?;
                     let path = Some(path.display().to_string());
-                    project::update(&root, &config.layout, &args.project, manifest.name, path)?;
-                    host.session().save_repos(&root)?;
+                    set_repo(
+                        host.session(),
+                        host.runner(),
+                        &args.project,
+                        manifest.name,
+                        path,
+                    )?;
                 }
                 let saved = match template {
                     Some(id) => commands::apply_template(host.session(), &args.project, id),

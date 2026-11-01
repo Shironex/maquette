@@ -3,16 +3,17 @@
 //! and file name, the site's folders, and the size report.
 
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use maquette_core::project;
 use maquette_core::ship::{AssetShip, ShipChoice, ShipSettingsChange, ShipStyle, TextureFormat};
-use maquette_core::site::SiteTarget;
+use maquette_core::site::{self, SiteTarget};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::commands::project::set_repo;
+use crate::commands::project::{checked_repo, set_repo};
 use crate::commands::ship::{self as commands, ShipSave, ShipView};
 use crate::mcp::host::Host;
 
@@ -39,8 +40,9 @@ pub struct AssetShipEdit {
 pub struct SetShipArgs {
     /// The project id of a website project.
     pub project: String,
-    /// The site repo: a folder on this computer, absolute or starting with ~, saved per
-    /// computer. null clears it. A game's repo goes through set_game_settings.
+    /// The site repo: a git repo or worktree on this computer, absolute or starting with ~,
+    /// outside the workspace, saved per computer. Only null clears it. Refused while the project
+    /// has a run going. A game's repo goes through set_game_settings.
     #[serde(default, deserialize_with = "explicit")]
     pub site_repo: Option<Option<String>>,
     /// "scene" (Maquette builds the scene: placed exports, versioned names) or "models"
@@ -85,11 +87,14 @@ fn view_value(view: &ShipView) -> Value {
 }
 
 impl SetShipArgs {
+    /// `repo` is the repo this call moves to, whose folders the ones left
+    /// out then come from.
     fn save(
         &self,
         view: &ShipView,
         manifest: &maquette_core::ProjectManifest,
-    ) -> Result<ShipSave, String> {
+        repo: Option<&Option<String>>,
+    ) -> Result<ShipSave, ToolError> {
         let mut assets = BTreeMap::new();
         for edit in &self.assets {
             let asset = find_asset(manifest, &edit.asset)?;
@@ -108,14 +113,23 @@ impl SetShipArgs {
             assets.insert(asset.id.clone(), entry);
         }
         let target_changes = self.models.is_some() || self.posters.is_some() || self.data.is_some();
-        let target = target_changes.then(|| {
+        let target = if target_changes {
             let now = &view.plan.target;
-            SiteTarget {
-                models: self.models.clone().unwrap_or_else(|| now.models.clone()),
-                posters: self.posters.clone().unwrap_or_else(|| now.posters.clone()),
-                data: self.data.clone().unwrap_or_else(|| now.data.clone()),
-            }
-        });
+            let (models, posters, data) = match repo {
+                Some(Some(repo)) => {
+                    let found = site::load_config(Path::new(repo))?;
+                    (found.models, found.posters, found.data)
+                }
+                _ => (now.models.clone(), now.posters.clone(), now.data.clone()),
+            };
+            Some(SiteTarget {
+                models: self.models.clone().unwrap_or(models),
+                posters: self.posters.clone().unwrap_or(posters),
+                data: self.data.clone().unwrap_or(data),
+            })
+        } else {
+            None
+        };
         Ok(ShipSave {
             settings: ShipSettingsChange {
                 style: self
@@ -136,21 +150,17 @@ impl SetShipArgs {
     }
 }
 
-/// The repo an agent asked for, checked: `None` clears it.
-fn checked_repo(host: &dyn Host, wanted: Option<&str>) -> Result<Option<String>, ToolError> {
-    let Some(wanted) = wanted.map(str::trim).filter(|w| !w.is_empty()) else {
+/// The repo a call moves to: `None` when it leaves the repo alone, and an
+/// inner `None` when it clears it. Only null clears: "" is refused.
+fn new_repo(host: &dyn Host, args: &SetShipArgs) -> Result<Option<Option<String>>, ToolError> {
+    let Some(wanted) = &args.site_repo else {
         return Ok(None);
     };
-    let path = host.session().expand(wanted);
-    if path.is_dir() {
-        Ok(Some(path.display().to_string()))
-    } else {
-        Err(format!(
-            "{} is not a folder on this computer. Pass the repo's full path.",
-            path.display()
-        )
-        .into())
-    }
+    let Some(wanted) = wanted else {
+        return Ok(Some(None));
+    };
+    let path = checked_repo(host.session(), wanted)?;
+    Ok(Some(Some(path.display().to_string())))
 }
 
 #[tool_router(router = ship_router, vis = "pub(super)")]
@@ -179,29 +189,24 @@ impl McpTools {
                 let (root, config) = workspace(host)?;
                 let manifest = project::load(&root, &config.layout, &args.project)?;
                 let view = commands::view(host.session(), &args.project)?;
-                // Checked before the repo moves, so a bad word changes nothing.
-                let save = args.save(&view, &manifest)?;
-                let saved = match &args.site_repo {
-                    None => commands::save(host.session(), &args.project, save)?,
-                    Some(wanted) => {
-                        let repo = checked_repo(host, wanted.as_deref())?;
-                        let before = manifest.site_repo.clone();
-                        let set = |repo| {
-                            set_repo(host.session(), &args.project, manifest.name.clone(), repo)
-                        };
-                        host.project_changed(&set(repo)?);
-                        // The folders are read from the new repo now.
-                        let view = commands::view(host.session(), &args.project)?;
-                        let save = args.save(&view, &manifest)?;
-                        match commands::save(host.session(), &args.project, save) {
-                            Ok(saved) => saved,
-                            Err(err) => {
-                                host.project_changed(&set(before)?);
-                                return Err(err.into());
-                            }
-                        }
-                    }
-                };
+                let repo = new_repo(host, &args)?;
+                let at = repo
+                    .as_ref()
+                    .map_or(manifest.site_repo.as_deref(), Option::as_deref);
+                let save = args.save(&view, &manifest, repo.as_ref())?;
+                // Everything is checked against where it goes before anything moves.
+                commands::check_save(host.session(), &args.project, &save, at)?;
+                if let Some(repo) = repo {
+                    let moved = set_repo(
+                        host.session(),
+                        host.runner(),
+                        &args.project,
+                        manifest.name.clone(),
+                        repo,
+                    )?;
+                    host.project_changed(&moved);
+                }
+                let saved = commands::save(host.session(), &args.project, save)?;
                 host.pipeline_changed(&args.project);
                 Ok(view_value(&saved))
             })

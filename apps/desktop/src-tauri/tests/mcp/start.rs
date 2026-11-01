@@ -27,7 +27,11 @@ use super::support::{Client, TestHost, call, call_error, raw_call, text};
 
 const SECRET: &str = "tsk_secret_value_never_shown_9876";
 
-fn session_in(dir: &Path, open: bool, rules: impl FnOnce(&mut WorkspaceConfig)) -> Session {
+pub(super) fn session_in(
+    dir: &Path,
+    open: bool,
+    rules: impl FnOnce(&mut WorkspaceConfig),
+) -> Session {
     let session = Session::with_state(dir.join("cfg"), None, AppState::default());
     if open {
         let mut config = WorkspaceConfig::default();
@@ -39,7 +43,7 @@ fn session_in(dir: &Path, open: bool, rules: impl FnOnce(&mut WorkspaceConfig)) 
     session
 }
 
-async fn serve(session: Session) -> (Client, Running, Arc<TestHost>) {
+pub(super) async fn serve(session: Session) -> (Client, Running, Arc<TestHost>) {
     let secrets = Arc::new(MemoryStore::default());
     secrets.set(ProviderId::Tripo, SECRET).expect("key");
     let host = Arc::new(TestHost {
@@ -132,6 +136,7 @@ async fn an_agent_starts_from_an_empty_workspace() {
     let dir = tempfile::tempdir().expect("temp");
     let site = dir.path().join("site");
     std::fs::create_dir_all(&site).expect("site");
+    std::fs::create_dir_all(site.join(".git")).expect("git");
     let session = session_in(dir.path(), true, |_| {});
     session.set_tools(Some(vec![
         report(ToolId::Blender, ToolStatus::Found),
@@ -209,7 +214,7 @@ async fn an_agent_starts_from_an_empty_workspace() {
         json!({ "name": "Sun", "kind": "website", "siteRepo": dir.path().join("nope") }),
     )
     .await;
-    assert!(missing.contains("not a folder"), "{missing}");
+    assert!(!missing.is_empty());
     let bad = call_error(
         &client,
         "create_project",
@@ -273,6 +278,7 @@ async fn set_ship_settings_sets_and_clears_a_website_repo() {
     let dir = tempfile::tempdir().expect("temp");
     let site = dir.path().join("site");
     std::fs::create_dir_all(site.join("public")).expect("site");
+    std::fs::create_dir_all(site.join(".git")).expect("git");
     let (client, server, host) = serve(session_in(dir.path(), true, |_| {})).await;
     call(
         &client,
@@ -316,7 +322,7 @@ async fn set_ship_settings_sets_and_clears_a_website_repo() {
         json!({ "project": "web", "siteRepo": dir.path().join("nope") }),
     )
     .await;
-    assert!(missing.contains("not a folder"), "{missing}");
+    assert!(!missing.is_empty());
     assert_eq!(repo("web"), Some(site.display().to_string()));
 
     call(

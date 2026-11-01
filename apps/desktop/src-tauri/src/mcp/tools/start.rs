@@ -17,7 +17,7 @@ use super::hints::{person_step, step};
 use super::image_api::status_value;
 use super::{McpTools, Out, ToolError, respond, to_value};
 use crate::commands::image_api;
-use crate::commands::project::{create_in_workspace, summaries};
+use crate::commands::project::{checked_repo, create_in_workspace, summaries};
 use crate::mcp::host::Host;
 
 mod next;
@@ -44,10 +44,11 @@ pub struct CreateProjectArgs {
     /// website or game.
     pub kind: KindArg,
     /// A website template id such as floating-diorama (the default), room or character-showcase,
-    /// or a game template id: prop-set, character, level-kit or level-kit-obj (none by default).
+    /// or a game template id as get_game lists them, such as prop-set (none by default).
     pub template: Option<String>,
-    /// The site repo, or the game repo for a game: a folder on this computer, absolute or
-    /// starting with ~. It can be set later (set_ship_settings siteRepo, set_game_settings repo).
+    /// The site repo, or the game repo for a game: a git repo or worktree on this computer,
+    /// absolute or starting with ~, outside the workspace. It can be set later
+    /// (set_ship_settings siteRepo, set_game_settings repo).
     pub site_repo: Option<String>,
 }
 
@@ -81,9 +82,11 @@ fn game_template(template: Option<&str>) -> Result<Option<GameTemplateId>, Strin
     template
         .map(|t| {
             word(t).ok_or_else(|| {
-                format!(
-                    "{t:?} is not a game template. Use prop-set, character, level-kit or level-kit-obj."
-                )
+                let known: Vec<Value> = maquette_core::game::game_templates()
+                    .iter()
+                    .map(|g| to_value(g.id))
+                    .collect();
+                format!("{t:?} is not a game template. Use one of {known:?}.")
             })
         })
         .transpose()
@@ -106,18 +109,8 @@ fn new_project(
     let repo = args
         .site_repo
         .as_deref()
-        .map(str::trim)
-        .filter(|r| !r.is_empty())
-        .map(|r| host.session().expand(r));
-    if let Some(repo) = &repo
-        && !repo.is_dir()
-    {
-        return Err(format!(
-            "{} is not a folder on this computer. Pass the repo's full path, or leave siteRepo out and set it later.",
-            repo.display()
-        )
-        .into());
-    }
+        .map(|r| checked_repo(host.session(), r))
+        .transpose()?;
     let site_repo = repo.as_ref().map(|r| r.display().to_string());
     let (template, target, game) = match args.kind {
         KindArg::Website => (
