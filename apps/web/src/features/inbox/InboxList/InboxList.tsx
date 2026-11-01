@@ -35,7 +35,7 @@ export default function InboxList({ shownId }: InboxListProps) {
   return (
     <section
       aria-label="Models in the inbox"
-      className="flex w-[300px] flex-none flex-col border-r border-line bg-panel"
+      className="flex w-[300px] flex-none max-[1023px]:w-[240px] flex-col border-r border-line bg-panel"
     >
       <div className="flex flex-col gap-2.5 px-4 pt-[18px] pb-3">
         <div>
