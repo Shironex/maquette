@@ -7,12 +7,12 @@ import { DefaultsStep } from '.';
 
 afterEach(() => clearMocks());
 
-function Harness() {
+function Harness({ away = false }: { away?: boolean }) {
   const api = useOnboarding();
   return (
     <>
       <output aria-label="step">{api.step}</output>
-      <DefaultsStep api={api} />
+      {away ? null : <DefaultsStep api={api} />}
     </>
   );
 }
@@ -26,6 +26,19 @@ describe('the defaults step', () => {
     const routes = screen.getByRole('region', { name: 'Ways to make models' });
     expect(routes).toHaveTextContent('By hand');
     expect(routes).toHaveTextContent('ready, free');
+  });
+
+  it('opens on the fields when the values were edited, as after Back', async () => {
+    await openMockWorkspace('first-run');
+    const { rerender } = render(<Harness />);
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const field = screen.getByRole('textbox', { name: 'Scene target' });
+    await userEvent.clear(field);
+    await userEvent.type(field, '5{Enter}');
+    rerender(<Harness away />);
+    rerender(<Harness />);
+    expect(screen.queryByRole('region', { name: 'Recommended defaults' })).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Scene target' })).toBeVisible();
   });
 
   it('puts edits back with Use recommended', async () => {
