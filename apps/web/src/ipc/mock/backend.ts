@@ -99,7 +99,7 @@ export function createBackend({
   const seeded = seedMotionProjects(mockProjects(projectsState, libraryState), motion);
   let projects = configured ? syncProjects(seedAvatar(seeded, avatar), sync) : [];
   if (configured) config = motionConfig({ ...config, currentProject: 'frostveil' }, motion);
-  const agentsOn = ['active', 'batch', 'images', 'preview'].includes(agentsState ?? '');
+  const agentsOn = ['active', 'batch', 'images', 'preview', 'many'].includes(agentsState ?? '');
   if (configured && agentsOn) {
     config = { ...config, agents: { ...config.agents, mcpEnabled: true } };
   }
@@ -228,7 +228,7 @@ export function createBackend({
     config: () => config,
     configured,
     agentsActive: agentsOn,
-    agentsBatch: agentsState === 'batch',
+    agentsBatch: agentsState === 'batch' || agentsState === 'many',
     handoff,
     inbox: inboxState,
     keys: inboxState === 'redo' ? ['tripo', 'meshy'] : undefined,

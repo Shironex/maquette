@@ -45,6 +45,26 @@ export const COMMAND_SOURCE: Record<CommandSource, string> = {
  * display name when known, "Send Guardian statue to Tripo?", or "Make 2
  * images for Harbour with OpenAI Images?".
  */
+/**
+ * Which approval cards are open. A new card opens only while no other is, so
+ * several never bury the page. One answered does not open the next: its
+ * Approve must not slide under the pointer that just clicked.
+ */
+export function settleOpen(
+  open: Readonly<Record<string, boolean>>,
+  ids: readonly string[]
+): Readonly<Record<string, boolean>> {
+  const next: Record<string, boolean> = {};
+  let anyOpen = ids.some(id => open[id]);
+  for (const id of ids) {
+    const known = open[id];
+    next[id] = known ?? !anyOpen;
+    if (next[id]) anyOpen = true;
+  }
+  const same = ids.length === Object.keys(open).length && ids.every(id => open[id] === next[id]);
+  return same ? open : next;
+}
+
 export function approvalTitle(approval: Approval, projectName?: string): string {
   if (approval.kind === 'image-round') {
     const n = approval.conceptJobs?.length ?? 0;

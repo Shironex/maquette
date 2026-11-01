@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { commands, errorMessage, type Approval } from '@/ipc/client';
+import { settleOpen } from '@/state/agents';
 import { fileUrl } from '@/ipc/files';
 import { useNow } from '@/lib/useNow';
 import { commitFirstLine, originalsLine, shipGroups } from '@/state/game';
@@ -32,6 +33,17 @@ function useShipNotes(approval: Approval, game: boolean): string[] {
     };
   }, [game, project, runId]);
   return game ? notes : [];
+}
+
+/** Which of a list of approval cards are open, and the toggle each one gets. */
+export function useApprovalStack(approvals: readonly Approval[] | undefined) {
+  const [stored, setOpen] = useState<Readonly<Record<string, boolean>>>({});
+  const open = settleOpen(stored, approvals?.map(a => a.id) ?? []);
+  if (open !== stored) setOpen(open);
+  return {
+    collapsed: (id: string) => !open[id],
+    toggle: (id: string) => setOpen(now => ({ ...now, [id]: !now[id] })),
+  };
 }
 
 /** The project an approval is for, the clock for its age, and the decision. */
