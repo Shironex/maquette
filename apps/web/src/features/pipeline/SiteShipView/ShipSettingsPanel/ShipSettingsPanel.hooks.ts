@@ -20,9 +20,12 @@ export function targetOf(draft: FolderDraft): SiteTarget {
   return { models: or(draft.models) ?? '', posters: or(draft.posters), data: or(draft.data) };
 }
 
+/** The one line every field shows while there is no repo; the button beside them says how. */
+export const NEEDS_REPO = 'Waits for a site repo';
+
 /** Why the folders cannot be saved, or null when they can. */
 export function folderBlock(draft: FolderDraft, target: ShipTarget): string | null {
-  if (!target.repo) return 'Set the site repo in Settings first';
+  if (!target.repo) return NEEDS_REPO;
   const next = targetOf(draft);
   if (!next.models) return 'Name the models folder';
   const same =

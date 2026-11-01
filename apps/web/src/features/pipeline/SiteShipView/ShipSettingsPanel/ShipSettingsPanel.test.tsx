@@ -76,9 +76,7 @@ describe('the Ship settings panel', () => {
   it('says why the folders cannot be saved', () => {
     const same = { models: 'public/models', posters: 'public/posters', data: '' };
     expect(folderBlock(same, target)).toBe('Nothing changed yet');
-    expect(folderBlock(same, { ...target, repo: null })).toBe(
-      'Set the site repo in Settings first'
-    );
+    expect(folderBlock(same, { ...target, repo: null })).toBe('Waits for a site repo');
     expect(folderBlock({ ...same, models: ' ' }, target)).toBe('Name the models folder');
     expect(targetOf({ models: 'a/', posters: '', data: 'src/x.json' })).toEqual({
       models: 'a',
