@@ -8,7 +8,7 @@ import {
   TopBar,
   Loader,
 } from '@maquette/ui';
-import { hasModels } from '@/state/board';
+import { hasModels, nothingToRun } from '@/state/board';
 import { stageViews } from '@/state/pipeline';
 import { FirstViewBar } from '@/features/common/FirstViewBar';
 import { SceneBudgetMeter } from '@/features/common/SceneBudgetMeter';
@@ -91,6 +91,7 @@ export default function PipelineView() {
   }
 
   const { latest, active, transfer, failedAt, failedName, errors, subtitle } = runOverview(view);
+  const nothing = nothingToRun(project);
   const errorText = errors.map(e => e.message).join(' ');
   const budgetMb = transfer / 1e6;
 
@@ -140,13 +141,15 @@ export default function PipelineView() {
               <Button
                 variant={hasModels(project.assets ?? []) ? 'primary' : 'secondary'}
                 icon="play"
-                disabled={starting || errors.length > 0 || view.def.steps.length === 0}
+                disabled={
+                  starting || errors.length > 0 || view.def.steps.length === 0 || Boolean(nothing)
+                }
                 disabledReason={
                   errors.length > 0
                     ? 'Fix the pipeline errors first'
                     : view.def.steps.length === 0
                       ? 'The pipeline has no steps'
-                      : 'Starting the run'
+                      : (nothing ?? 'Starting the run')
                 }
                 tooltip={[
                   force

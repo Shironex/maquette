@@ -13,6 +13,15 @@ export const KIND_LABEL: Record<AssetKind, string> = {
 /** True once any asset has a model, so a pipeline run has something to build. */
 export const hasModels = (assets: readonly Asset[]) => assets.some(a => a.versions.length > 0);
 
+/**
+ * Why a run has nothing to do, or null: no asset has a model. An imported
+ * folder keeps its own scene and scripts, so it may build without any.
+ */
+export function nothingToRun(project: ProjectManifest | null | undefined): string | null {
+  if (!project || project.template === 'imported' || hasModels(project.assets ?? [])) return null;
+  return 'No models yet, so a run has nothing to build';
+}
+
 /** What the Board's one bright button is. */
 export type BoardPrimary = 'run' | 'add' | null;
 

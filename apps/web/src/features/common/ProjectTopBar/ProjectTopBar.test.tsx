@@ -71,6 +71,7 @@ describe('the project top bar', () => {
     expect(run).toHaveClass('bg-clay');
     const project = useAppStore.getState().workspace!.project!;
     act(() => useAppStore.getState().setProject({ ...project, assets: [] }));
+    expect(run).toHaveAttribute('aria-disabled', 'true');
     expect(await tooltipText(run)).toBe('No models yet, so a run has nothing to build');
   });
 });
