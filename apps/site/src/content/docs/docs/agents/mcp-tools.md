@@ -111,7 +111,7 @@ These look at the workspace and change nothing.
 | `add_built_asset`                                     | Adds a model a Blender script in the project makes, and builds it headless                                                                                                                                                                                             | Nothing | No       |
 | `rebuild_built_asset`                                 | Builds one built asset again, or every new or stale one                                                                                                                                                                                                                | Nothing | No       |
 | `render_thumbnail`                                    | Renders a studio thumbnail of a model with headless Blender and returns the PNG's path                                                                                                                                                                                 | Nothing | No       |
-| `start_page_preview`                                  | Starts the site dev server the Page view shows, or reuses the running one                                                                                                                                                                                              | Nothing | No       |
+| `start_page_preview`                                  | Runs the site repo's dev command: starts the server the Page view shows, or reuses the running one                                                                                                                                                                     | Nothing | No       |
 | `stop_page_preview`                                   | Stops that server, whoever started it                                                                                                                                                                                                                                  | Nothing | No       |
 | `cancel_run`                                          | Cancels a queued or running run. A run waiting for approval is cancelled too                                                                                                                                                                                           | Nothing | No       |
 | [`add_to_library`](#add_to_library)                   | Copies an asset's newest model into the library                                                                                                                                                                                                                        | Nothing | No       |
@@ -161,12 +161,12 @@ Takes nothing and works with no workspace open. `toolchain` lists each tool with
 
 ### create_project
 
-| Argument   | What it does                                                                                                                                                                       |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`     | The name. One another project has, or that makes the same id, is refused with code `taken`                                                                                         |
-| `kind`     | `website` or `game`                                                                                                                                                                |
-| `template` | Optional. A website template such as `floating-diorama` (the default), `room` or `character-showcase`, or a game template: `prop-set`, `character`, `level-kit` or `level-kit-obj` |
-| `siteRepo` | Optional. The site repo, or the game repo for a game: a folder on this computer. Set it later with `set_ship_settings` or `set_game_settings`                                      |
+| Argument   | What it does                                                                                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`     | The name. One another project has, or that makes the same id, is refused with code `taken`                                                                                                       |
+| `kind`     | `website` or `game`                                                                                                                                                                              |
+| `template` | Optional. A website template such as `floating-diorama` (the default), `room` or `character-showcase`, or a game template: `prop-set`, `character`, `level-kit` or `level-kit-obj`               |
+| `siteRepo` | Optional. The site repo, or the game repo for a game: a git repo or worktree, absolute or starting with `~`, outside the workspace. Set it later with `set_ship_settings` or `set_game_settings` |
 
 It takes the same path as New project in the app and spends nothing. The app's open project stays as it is unless none was open. No tool deletes a project.
 
@@ -410,7 +410,7 @@ Reads how a website project ships: the style, texture format and quality, each a
 
 ### set_ship_settings
 
-`siteRepo` sets a website's site repo, a folder on this computer, and null clears it. A game project is refused: its repo goes through `set_game_settings`.
+`siteRepo` sets a website's site repo, and only null clears it. It must be a git repo or worktree, absolute or starting with `~`, and not the workspace, inside it, around it or the home folder. It is refused while the project has a run going. Everything in the call is checked against the new repo before anything is written. A game project is refused: its repo goes through `set_game_settings`, which takes the same checks.
 
 `changes the project`
 
