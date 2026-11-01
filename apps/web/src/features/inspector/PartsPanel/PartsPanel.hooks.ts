@@ -62,6 +62,8 @@ export function usePartsPanel() {
   const assetId = asset?.id ?? null;
   const [found, setFound] = useState<AssetParts | null>(null);
   const [busy, setBusy] = useState(false);
+  // True while Blender runs the split; false while the parts are only read.
+  const [splitting, setSplitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [mode, setMode] = useState<PartsMode>('parts');
@@ -70,6 +72,7 @@ export function usePartsPanel() {
 
   const load = useCallback(async (projectId: string, assetId: string, run: boolean) => {
     setBusy(true);
+    setSplitting(run);
     setError(null);
     try {
       const got = run
@@ -77,6 +80,7 @@ export function usePartsPanel() {
         : await commands.partsGet(projectId, assetId);
       setFound(got);
       if (got.needsPreview && !run) {
+        setSplitting(true);
         setFound(await commands.partsPreview(projectId, assetId));
       }
     } catch (e) {
@@ -160,6 +164,7 @@ export function usePartsPanel() {
     found,
     rows,
     busy,
+    splitting,
     error,
     uses,
     game,
