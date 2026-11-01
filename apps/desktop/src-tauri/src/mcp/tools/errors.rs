@@ -140,10 +140,14 @@ const BY_MESSAGE: &[(&str, Advice)] = &[
     ),
 ];
 
+/// How a missing project reads, from `CoreError::NotFound`; a repo or file
+/// whose path holds the word "project" must not match.
+const NO_SUCH_PROJECT: &str = "Could not find the project ";
+
 /// Advice by code, when the message itself names nothing.
 fn by_code(code: &str, message: &str) -> Option<Advice> {
     match code {
-        "not-found" if message.contains("project") => Some(agent(
+        "not-found" if message.starts_with(NO_SUCH_PROJECT) => Some(agent(
             "Check the project id; list_projects gives every id.",
             "list_projects",
         )),
@@ -193,11 +197,13 @@ mod tests {
 
     #[test]
     fn the_code_of_a_core_error_comes_through() {
-        let out = body(&CoreError::NotFound("project nope".into()).into());
+        let out = body(&CoreError::NotFound("the project nope".into()).into());
         assert_eq!(out["code"], "not-found");
-        assert_eq!(out["error"], "Could not find project nope.");
+        assert_eq!(out["error"], "Could not find the project nope.");
         assert_eq!(out["tryTool"], "list_projects");
         assert!(out.get("personOnly").is_none());
+        let repo = body(&CoreError::NotFound("the site repo /code/project-x".into()).into());
+        assert!(repo.get("tryTool").is_none(), "{repo}");
     }
 
     #[test]
@@ -283,6 +289,12 @@ mod tests {
                 "No workspace is open",
                 source!("apps/desktop/src-tauri/src/session.rs"),
             ),
+            (
+                "Blender is not installed",
+                source!("crates/maquette-core/src/thumbs/picture.rs"),
+            ),
+            ("has not run yet", include_str!("runs.rs")),
+            ("is already a project", include_str!("start.rs")),
         ];
         for (phrase, source) in sent {
             assert!(source.contains(phrase), "no source says {phrase:?}");
@@ -291,6 +303,14 @@ mod tests {
         // These two take the provider's name.
         let providers = include_str!("../../commands/providers.rs");
         assert!(providers.contains("Save a {} API key first"));
+        let named = ["Save a Tripo API key first", "Save a Meshy API key first"];
+        // Every row is pinned: a phrase no source says never matches.
+        for (phrase, _) in BY_MESSAGE {
+            assert!(
+                named.contains(phrase) || sent.iter().any(|(p, _)| p == phrase),
+                "{phrase:?} is not pinned to a source"
+            );
+        }
     }
 
     #[test]
