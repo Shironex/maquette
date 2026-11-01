@@ -3,6 +3,7 @@
 //! spend against its cap. The OpenAI key and the monthly cap are only ever
 //! set in the app.
 
+use crate::mcp::tools::ToolError;
 use maquette_core::concepts::backend::{ImageBackend, ImageSettings};
 use maquette_core::providers::openai_images::ImageQuality;
 use rmcp::handler::server::wrapper::Parameters;
@@ -82,7 +83,7 @@ pub struct SetImageBackendArgs {
 /// Why `set_image_backend` refuses a cap.
 pub const CAP_REFUSED: &str = "The monthly OpenAI image cap can only be changed by a person in Maquette (Settings > Image generation), not over MCP. Nothing was changed. Ask the owner to raise it, or use the codex backend.";
 
-fn status_value(status: &ImageApiStatus) -> Value {
+pub(super) fn status_value(status: &ImageApiStatus) -> Value {
     let s = &status.settings;
     json!({
         "backends": {
@@ -122,6 +123,7 @@ impl McpTools {
                 )
                 .map(|s| status_value(&s))
                 .map_err(|e| e.message)
+                .map_err(ToolError::from)
             })
             .await;
         respond(found)
@@ -135,7 +137,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 if args.monthly_cap_usd.is_some() {
-                    return Err(CAP_REFUSED.to_string());
+                    return Err(CAP_REFUSED.to_string().into());
                 }
                 let (_, config) = host.session().workspace().map_err(|e| e.to_string())?;
                 let mut settings: ImageSettings = config.lab.images;
@@ -155,7 +157,7 @@ impl McpTools {
                 if let Some(q) = args.quality {
                     settings.quality = q.into();
                 }
-                image_api::save_settings(host.session(), settings).map_err(|e| e.message)?;
+                image_api::save_settings(host.session(), settings)?;
                 host.image_settings_changed(&settings);
                 image_api::status(
                     host.session(),
@@ -164,6 +166,7 @@ impl McpTools {
                 )
                 .map(|s| status_value(&s))
                 .map_err(|e| e.message)
+                .map_err(ToolError::from)
             })
             .await;
         respond(found)

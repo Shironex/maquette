@@ -33,6 +33,8 @@ pub struct Session {
     /// One open or `maquette.json` change at a time. Held across slow work,
     /// so apart from `inner`.
     workspace_turn: Mutex<()>,
+    /// One change to a project's repo at a time, its who-set-it mark included.
+    repo_turn: Mutex<()>,
     /// Set once the window exists; tests run without one.
     handle: OnceLock<AppHandle>,
     /// This computer's name, read once.
@@ -54,6 +56,7 @@ impl Session {
                 ..Inner::default()
             }),
             workspace_turn: Mutex::new(()),
+            repo_turn: Mutex::new(()),
             handle: OnceLock::new(),
             host_name: OnceLock::new(),
         }
@@ -111,6 +114,14 @@ impl Session {
         app_state::save(&self.config_dir, &next)?;
         inner.app = next.clone();
         Ok(next)
+    }
+
+    /// Held across a repo's mark, its write and the mark's clearing, so two
+    /// saves cannot interleave and leave an agent's repo unmarked.
+    pub(crate) fn repo_turn(&self) -> std::sync::MutexGuard<'_, ()> {
+        self.repo_turn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     fn workspace_turn(&self) -> std::sync::MutexGuard<'_, ()> {

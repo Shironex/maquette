@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ServerStatus } from '@/ipc/client';
+import type { McpStatus, ServerStatus } from '@/ipc/client';
+import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { usePageStore } from '@/state/use-page-store';
 import { FrameStatus } from '.';
@@ -37,6 +38,21 @@ describe('the frame status', () => {
     );
     expect(screen.getByRole('heading', { name: "Starting the site's dev server" })).toBeVisible();
     expect(screen.getAllByText('pnpm run dev --port 4321')[0]).toBeVisible();
+  });
+
+  it('waits on the card instead of offering a start while a person is asked', () => {
+    usePageStore.setState({ project: 'frostveil' });
+    useAgentsStore.setState({
+      status: {
+        approvals: [{ kind: 'page-preview', project: 'frostveil' }],
+      } as unknown as McpStatus,
+    });
+    render(<FrameStatus state={{ kind: 'idle' }} site="frostveil-site" command="pnpm run dev" />);
+    expect(
+      screen.getByRole('heading', { name: 'The dev server waits for your approval' })
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Start the dev server' })).toBeNull();
+    useAgentsStore.setState({ status: null });
   });
 
   it('says why a server failed and offers to try again', async () => {

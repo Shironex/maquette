@@ -1,5 +1,6 @@
 //! Building the send requests from tool arguments.
 
+use crate::mcp::tools::ToolError;
 use maquette_core::providers::{
     BatchItem, BatchRequest, MeshyPreset, PresetVariant, Provider, ProviderId, SendRequest,
     StudioChoice, StudioMesh, StudioRig, TripoPreset,
@@ -70,11 +71,10 @@ pub(super) fn studio_choice(
 }
 
 /// Builds the send an agent asked for, filling in what it left out.
-pub(super) fn send_request(host: &dyn Host, args: &SendTo3dArgs) -> Result<SendRequest, String> {
+pub(super) fn send_request(host: &dyn Host, args: &SendTo3dArgs) -> Result<SendRequest, ToolError> {
     let (_, config) = workspace(host)?;
     let options =
-        providers::send_options(host.session(), host.studio(), &args.project, &args.asset)
-            .map_err(|e| e.message)?;
+        providers::send_options(host.session(), host.studio(), &args.project, &args.asset)?;
     let variant = match args.variant {
         Some(VariantArg::Prop) => PresetVariant::Prop,
         Some(VariantArg::Character) => PresetVariant::Character,
@@ -90,7 +90,8 @@ pub(super) fn send_request(host: &dyn Host, args: &SendTo3dArgs) -> Result<SendR
             "{} has no refs of its own yet. Pass images, for example [\"refs/{}_front.png\"].",
             options.asset.name,
             options.asset.id.replace('-', "_")
-        ));
+        )
+        .into());
     }
     let (provider, service) = match args.provider {
         ProviderArg::Tripo => (Provider::Tripo, ProviderId::Tripo),
@@ -140,11 +141,13 @@ fn variant(arg: Option<VariantArg>, fallback: PresetVariant) -> PresetVariant {
 /// Builds the batch an agent asked for: each asset's own refs and kind
 /// unless given, one preset per variant with the overrides laid over both,
 /// and an asset's own overrides laid over its variant's preset.
-pub(super) fn batch_request(host: &dyn Host, args: &SendBatchArgs) -> Result<BatchRequest, String> {
+pub(super) fn batch_request(
+    host: &dyn Host,
+    args: &SendBatchArgs,
+) -> Result<BatchRequest, ToolError> {
     let (_, config) = workspace(host)?;
     let ids: Vec<String> = args.items.iter().map(|i| i.asset.clone()).collect();
-    let options = providers::batch_options(host.session(), host.studio(), &args.project, &ids)
-        .map_err(|e| e.message)?;
+    let options = providers::batch_options(host.session(), host.studio(), &args.project, &ids)?;
     let (provider, service) = match args.provider {
         ProviderArg::Tripo => (Provider::Tripo, ProviderId::Tripo),
         ProviderArg::Meshy => (Provider::Meshy, ProviderId::Meshy),
@@ -164,7 +167,7 @@ pub(super) fn batch_request(host: &dyn Host, args: &SendBatchArgs) -> Result<Bat
     let mut items = Vec::new();
     for arg in &args.items {
         let Some(found) = options.items.iter().find(|o| o.asset.id == arg.asset) else {
-            return Err(format!("{} is in the batch twice.", arg.asset));
+            return Err(format!("{} is in the batch twice.", arg.asset).into());
         };
         let images = if arg.images.is_empty() {
             found.suggested.clone()
@@ -176,7 +179,8 @@ pub(super) fn batch_request(host: &dyn Host, args: &SendBatchArgs) -> Result<Bat
                 "{} has no refs of its own yet. Pass its images, for example [\"refs/{}.png\"].",
                 found.asset.name,
                 found.asset.id.replace('-', "_")
-            ));
+            )
+            .into());
         }
         let variant = variant(arg.variant, found.variant);
         let own = arg.overrides.as_ref().filter(|o| !o.is_empty());

@@ -15,6 +15,7 @@ use maquette_core::toolchain::find_on_path;
 use maquette_core::{CoreError, ProbeEnv, ProjectManifest, SystemRunner, project};
 use tauri::{AppHandle, Manager as _, State};
 
+use super::project::checked_repo;
 use super::thumbs::{self, Thumbs};
 use super::{CommandResult, blocking, toolchain};
 use crate::mcp::gate::{ShipGate, ShipReason};
@@ -60,11 +61,13 @@ pub(crate) fn ship_gate(
     session: &Session,
     project_id: &str,
     hub: &Arc<Hub>,
+    destination: Option<String>,
 ) -> Option<Arc<dyn StepGate>> {
     game_project(session, project_id).ok()?;
     Some(Arc::new(ShipGate {
         hub: Arc::clone(hub),
         reason: ShipReason::Game,
+        destination,
     }))
 }
 
@@ -138,8 +141,18 @@ fn uncommitted(repo: &Path) -> Option<u32> {
     game::detect::uncommitted(repo, &git, &SystemRunner, &env.child_path(None))
 }
 
+/// `git status` runs what a repo's own config says: a clean filter or a
+/// submodule's settings, which no flag turns off by name. So it only runs in
+/// a repo a person chose, never in one an agent named or set.
+fn may_run_git(session: &Session, project_id: &str, named_here: bool) -> CommandResult<bool> {
+    let (root, _) = session.workspace()?;
+    let key = maquette_core::project::repos::root_key(&root);
+    let by_agent = session.app_state().repo_set_by_agent(&key, project_id);
+    Ok(!named_here && !by_agent)
+}
+
 /// What Ship would write, into the project's game repo or, for one look,
-/// into `repo` (an agent's worktree, checked by [`game::check_repo`]).
+/// into `repo` (an agent's worktree, checked by [`checked_repo`]).
 pub(crate) fn ship_plan(
     session: &Session,
     project_id: &str,
@@ -147,13 +160,17 @@ pub(crate) fn ship_plan(
 ) -> CommandResult<ShipPlan> {
     let (mut manifest, dir) = game_project(session, project_id)?;
     if let Some(repo) = repo {
-        manifest.site_repo = Some(game::check_repo(repo)?.display().to_string());
+        manifest.site_repo = Some(checked_repo(session, repo)?.display().to_string());
     }
     let mut plan = game::ship_plan(&dir, &manifest)?;
-    plan.uncommitted = manifest
-        .site_repo
-        .as_deref()
-        .and_then(|r| uncommitted(Path::new(r)));
+    plan.uncommitted = if may_run_git(session, project_id, repo.is_some())? {
+        manifest
+            .site_repo
+            .as_deref()
+            .and_then(|r| uncommitted(Path::new(r)))
+    } else {
+        None
+    };
     Ok(plan)
 }
 
@@ -296,7 +313,7 @@ mod tests {
         let site = make("Moon Island", ProjectTarget::Website, None);
         let hub = Arc::new(Hub::new(|| {}));
 
-        let gate = ship_gate(&session, &game.id, &hub).expect("a game gates Ship");
+        let gate = ship_gate(&session, &game.id, &hub, None).expect("a game gates Ship");
         let dir = project::dir(&root, &config.layout, &game.id).expect("dir");
         let def = maquette_core::pipeline::ensure(&dir, &game).expect("pipeline");
         let ship = def
@@ -306,7 +323,7 @@ mod tests {
             .expect("ship step");
         assert!(gate.applies(ship));
         assert!(gate.waiting_message(ship).contains("game repo"));
-        assert!(ship_gate(&session, &site.id, &hub).is_none());
+        assert!(ship_gate(&session, &site.id, &hub, None).is_none());
         assert!(
             scan(&session, &site.id).is_err(),
             "a website has no game scan"

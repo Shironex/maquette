@@ -127,8 +127,7 @@ impl McpTools {
                     (&args.project, &args.asset),
                     &ids,
                     &picked,
-                )
-                .map_err(|e| e.message)?;
+                )?;
                 let settings = args
                     .clips
                     .iter()
@@ -145,7 +144,7 @@ impl McpTools {
                 };
                 let tools = host.toolbox();
                 let draft =
-                    commands::retarget(host.session(), &tools, &request).map_err(|e| e.message)?;
+                    commands::retarget(host.session(), &tools, &request)?;
                 let map: Vec<Value> = plan
                     .map
                     .iter()
@@ -159,7 +158,7 @@ impl McpTools {
                         "map": map,
                     }));
                 }
-                let baked = commands::bake(host.session(), &draft.token).map_err(|e| e.message)?;
+                let baked = commands::bake(host.session(), &draft.token)?;
                 host.project_changed(&baked.project);
                 host.library_changed();
                 Ok(json!({

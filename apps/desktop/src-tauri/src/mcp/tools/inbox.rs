@@ -1,5 +1,6 @@
 //! Tools for the inbox: its checks, accepting or discarding a model and thumbnails.
 
+use crate::mcp::tools::ToolError;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -12,7 +13,8 @@ use serde_json::{Value, json};
 
 use crate::mcp::host::Host;
 
-use super::{McpTools, Out, failed, json_result, reason, respond, to_value, workspace};
+use super::hints::{step, with_next};
+use super::{McpTools, Out, failed, json_result, respond, to_value, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -70,11 +72,11 @@ fn resolve_model(root: &Path, file: &str) -> Result<PathBuf, String> {
 
 /// Accepts inbox item `args.id` into its project, as accept_inbox_model does,
 /// and starts its thumbnail.
-pub(super) fn accept_item(host: &dyn Host, args: AcceptArgs) -> Result<Value, String> {
+pub(super) fn accept_item(host: &dyn Host, args: AcceptArgs) -> Result<Value, ToolError> {
     let (root, config) = workspace(host)?;
     // A model from a send goes to the asset it was sent for; the
     // core falls back on the asset a download was attached to.
-    let mut item = inbox::item(&root, &config, &args.id).map_err(reason)?;
+    let mut item = inbox::item(&root, &config, &args.id)?;
     host.studio().link_inbox(std::slice::from_mut(&mut item));
     let linked = item
         .link
@@ -87,7 +89,7 @@ pub(super) fn accept_item(host: &dyn Host, args: AcceptArgs) -> Result<Value, St
         name: args.name,
         prep: None,
     };
-    let mut result = inbox::accept(&root, &config, &request).map_err(reason)?;
+    let mut result = inbox::accept(&root, &config, &request)?;
     host.studio().accepted(
         &request.item,
         &request.project,
@@ -132,7 +134,7 @@ impl McpTools {
         let found = self
             .blocking(|host, _| {
                 let (root, config) = workspace(host)?;
-                let mut items = inbox::list(&root, &config).map_err(reason)?;
+                let mut items = inbox::list(&root, &config)?;
                 host.studio().link_inbox(&mut items);
                 inbox::place(&root, &config, &mut items);
                 let items: Vec<Value> = items
@@ -166,8 +168,7 @@ impl McpTools {
                         })
                     })
                     .collect();
-                let discarded: Vec<Value> = inbox::list_discarded(&root, &config)
-                    .map_err(reason)?
+                let discarded: Vec<Value> = inbox::list_discarded(&root, &config)?
                     .iter()
                     .map(|d| {
                         json!({
@@ -181,11 +182,29 @@ impl McpTools {
                         })
                     })
                     .collect();
-                Ok(json!({
+                let empty = items.is_empty();
+                let answer = json!({
                     "inbox": host.session().display(&inbox::inbox_dir(&root, &config)),
                     "items": items,
                     "discarded": discarded,
-                }))
+                });
+                Ok(if empty {
+                    with_next(
+                        answer,
+                        vec![
+                            step(
+                                "list_handoffs",
+                                "See which By hand sends still wait for a model.",
+                            ),
+                            step(
+                                "send_to_3d",
+                                "Models land here after a send; by-hand is free.",
+                            ),
+                        ],
+                    )
+                } else {
+                    answer
+                })
             })
             .await;
         respond(found)
@@ -199,7 +218,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                let mut item = inbox::item(&root, &config, &args.id).map_err(reason)?;
+                let mut item = inbox::item(&root, &config, &args.id)?;
                 // As list_inbox does: a model from a send is checked against
                 // what the send asked for (its kind, maps and budgets), so
                 // both tools report the same checks and worst.
@@ -240,8 +259,7 @@ impl McpTools {
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
                 let (done, closed) =
-                    crate::commands::inbox::discard_model(host.studio(), &root, &config, &args.id)
-                        .map_err(reason)?;
+                    crate::commands::inbox::discard_model(host.studio(), &root, &config, &args.id)?;
                 Ok(json!({ "id": done.id, "file": done.file, "closedSend": closed }))
             })
             .await;
@@ -259,11 +277,8 @@ impl McpTools {
                 let file = resolve_model(&root, &args.file)?;
                 let dir = thumbs::thumbs_dir(&root, &config);
                 let tools = host.toolbox();
-                let found = host
-                    .thumbs()
-                    .request(&dir, &file, None, &tools)
-                    .map_err(reason)?;
-                let png = thumbs::png_for(&dir, &file).map_err(reason)?;
+                let found = host.thumbs().request(&dir, &file, None, &tools)?;
+                let png = thumbs::png_for(&dir, &file)?;
                 Ok((found, png))
             })
             .await;

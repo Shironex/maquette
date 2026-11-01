@@ -20,7 +20,12 @@ export function defaultConfig(): WorkspaceConfig {
     agents: {
       mcpEnabled: false,
       mcpPort: 4791,
-      rules: { blenderHeadlessOnly: true, neverCaptureScreen: true, askBeforeShipping: true },
+      rules: {
+        blenderHeadlessOnly: true,
+        neverCaptureScreen: true,
+        askBeforeShipping: true,
+        avatarRigTools: true,
+      },
     },
     lab: { concurrency: 4, timeoutMinutes: 10 },
     currentProject: null,

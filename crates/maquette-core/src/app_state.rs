@@ -2,7 +2,7 @@
 //! data folder, not in the workspace, because install paths differ per
 //! machine.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -37,6 +37,14 @@ pub struct AppState {
     /// A random id made once for this computer, so the workspace lock can
     /// tell it from another one with the same name.
     pub machine_id: Option<String>,
+    /// The projects whose repo an agent set: workspace root, then project
+    /// ids. Files from before this have none, so those repos count as a
+    /// person's. Kept here, per computer and off the synced workspace, like
+    /// the paths themselves.
+    pub agent_set_repos: BTreeMap<String, BTreeSet<String>>,
+    /// The dev commands a person approved for an agent-set repo: the repo's
+    /// folder, then each question's key (`site::preview::PreviewAsk::key`).
+    pub preview_approvals: BTreeMap<String, BTreeSet<String>>,
 }
 
 /// Whether the Downloads watcher runs, and on which folder.
@@ -67,7 +75,61 @@ impl Default for AppState {
             downloads_watch: DownloadsWatch::default(),
             site_repos: BTreeMap::new(),
             machine_id: None,
+            agent_set_repos: BTreeMap::new(),
+            preview_approvals: BTreeMap::new(),
         }
+    }
+}
+
+/// Who set a project's repo. An agent's repo asks a person before its dev
+/// command first runs; a person's never asks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RepoSetBy {
+    Person,
+    Agent,
+}
+
+impl AppState {
+    /// Records who set the repo of project `id` in the workspace `root_key`.
+    pub fn mark_repo(&mut self, root_key: &str, id: &str, by: RepoSetBy) {
+        match by {
+            RepoSetBy::Agent => {
+                self.agent_set_repos
+                    .entry(root_key.to_string())
+                    .or_default()
+                    .insert(id.to_string());
+            }
+            RepoSetBy::Person => {
+                if let Some(ids) = self.agent_set_repos.get_mut(root_key) {
+                    ids.remove(id);
+                    if ids.is_empty() {
+                        self.agent_set_repos.remove(root_key);
+                    }
+                }
+            }
+        }
+    }
+
+    /// True when an agent set the repo of project `id`.
+    pub fn repo_set_by_agent(&self, root_key: &str, id: &str) -> bool {
+        self.agent_set_repos
+            .get(root_key)
+            .is_some_and(|ids| ids.contains(id))
+    }
+
+    /// True when a person approved this very command in this very folder.
+    pub fn preview_approved(&self, repo: &str, key: &str) -> bool {
+        self.preview_approvals
+            .get(repo)
+            .is_some_and(|keys| keys.contains(key))
+    }
+
+    /// Remembers that a person approved this command in this folder.
+    pub fn approve_preview(&mut self, repo: &str, key: String) {
+        self.preview_approvals
+            .entry(repo.to_string())
+            .or_default()
+            .insert(key);
     }
 }
 

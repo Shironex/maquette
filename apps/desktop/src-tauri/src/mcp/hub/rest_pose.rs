@@ -125,6 +125,7 @@ impl Hub {
             asset: Some(ask.asset.to_string()),
             version: Some(ask.version),
             sheets: Some(ask.sheets.clone()),
+            preview: None,
         })
     }
 

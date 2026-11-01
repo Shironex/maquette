@@ -10,6 +10,15 @@ front, left, back and right refs. Every tool below is an MCP tool of the Maquett
 `/docs/agents/mcp-tools/`); `project` is the id `list_projects` returns, `asset` the id
 `list_assets` returns.
 
+## Before you start
+
+Call `get_started` first. It says whether a workspace is open, which tools work, which keys are saved
+(true or false, never a value), every project with its stage, the gates only a person can pass, and
+a `next` list. No project to work in: `create_project` makes one and spends nothing. If the Maquette
+tools fail with `ECONNREFUSED`, the app is closed or its server is off: ask the person to open
+Maquette and turn the server on in Settings > Agents. An error names its `code`, and `fix` and
+`tryTool` when they help; `personOnly` means ask the person instead of trying again.
+
 ## Hard rules
 
 - A person picks the concepts. Present the options (file paths, plus the star and pick state from

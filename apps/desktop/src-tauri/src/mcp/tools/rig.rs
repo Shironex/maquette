@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 
 use crate::commands::rig::{self as commands, RigTarget};
 
-use super::{Host, McpTools, Out, reason, respond, to_value, workspace};
+use super::{Host, McpTools, Out, respond, to_value, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -86,8 +86,7 @@ impl McpTools {
                     version: args.version,
                 };
                 let case =
-                    commands::open(host.session(), doctors(host)?, &target, RigStarter::Agent)
-                        .map_err(|e| e.message)?;
+                    commands::open(host.session(), doctors(host)?, &target, RigStarter::Agent)?;
                 Ok(to_value(&case))
             })
             .await;
@@ -106,9 +105,7 @@ impl McpTools {
                     RigStep::Fix => RigRun::Fix,
                     RigStep::Round2 => RigRun::Round2,
                 };
-                let case = doctors(host)?
-                    .run(&root, &config, host.toolbox(), &args.id, what)
-                    .map_err(reason)?;
+                let case = doctors(host)?.run(&root, &config, host.toolbox(), &args.id, what)?;
                 Ok(line(&case))
             })
             .await;
@@ -122,9 +119,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                let case = doctors(host)?
-                    .get(&root, &config, &args.id)
-                    .map_err(reason)?;
+                let case = doctors(host)?.get(&root, &config, &args.id)?;
                 Ok(to_value(&case))
             })
             .await;

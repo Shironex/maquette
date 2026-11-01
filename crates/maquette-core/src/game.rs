@@ -35,9 +35,9 @@ pub use budget::{BudgetCheck, asset_budget, check_asset, default_budgets, folder
 pub use detect::{GameRepoInspection, check_repo, inspect_game_repo};
 pub use import::{ImportResult, import_models};
 pub use scan::{GameScan, ScannedModel, scan_models};
-pub use settings::{GameSettingsChange, add_budget_fixups, save_settings};
+pub use settings::{GameSettingsChange, add_budget_fixups, check_settings, save_settings};
 pub use ship::{ShipChange, ShipFile, ShipPlan, plan as ship_plan};
-pub use templates::{GameTemplatePreview, apply_template, preview_template};
+pub use templates::{GameTemplatePreview, apply_template, check_template, preview_template};
 
 /// Checks the settings a person or an agent saves.
 pub fn validate(settings: &GameSettings) -> CoreResult<()> {

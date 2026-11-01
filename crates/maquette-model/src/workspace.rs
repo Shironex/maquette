@@ -177,6 +177,14 @@ pub struct AgentRules {
     pub blender_headless_only: bool,
     pub never_capture_screen: bool,
     pub ask_before_shipping: bool,
+    /// Whether agents are offered the avatar and rig doctor tools. Files
+    /// from before this setting leave it out, and keep them.
+    #[serde(default = "offered")]
+    pub avatar_rig_tools: bool,
+}
+
+const fn offered() -> bool {
+    true
 }
 
 impl Default for AgentRules {
@@ -185,6 +193,7 @@ impl Default for AgentRules {
             blender_headless_only: true,
             never_capture_screen: true,
             ask_before_shipping: true,
+            avatar_rig_tools: true,
         }
     }
 }

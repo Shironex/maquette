@@ -311,6 +311,40 @@ fn a_run_without_scripts_fails_with_a_clear_message() {
     assert!(!view.log.is_empty());
 }
 
+#[cfg(unix)]
+#[test]
+fn a_saved_repo_whose_link_moved_into_the_workspace_is_refused() {
+    let (dir, session, id) = open();
+    let tools = maquette_core::pipeline::tools::Toolbox::default;
+    let site = dir.path().join("site");
+    std::fs::create_dir_all(site.join(".git")).expect("site");
+    let link = dir.path().join("link");
+    std::os::unix::fs::symlink(&site, &link).expect("link");
+    let (root, config) = session.workspace().expect("workspace");
+    let name = maquette_core::project::load(&root, &config.layout, &id)
+        .expect("load")
+        .name;
+    let saved = link.display().to_string();
+    maquette_core::project::update(&root, &config.layout, &id, name, Some(saved)).expect("save");
+    let run = setup(&session, &id, RunAsk::default(), tools()).expect("setup");
+    assert_eq!(
+        run.vars["siteRepo"],
+        maquette_core::fs::real_folder(&site).display().to_string()
+    );
+    std::fs::remove_file(&link).expect("unlink");
+    std::os::unix::fs::symlink(&root, &link).expect("moved");
+    // A person chose this repo, so it stays their call.
+    assert!(setup(&session, &id, RunAsk::default(), tools()).is_ok());
+    crate::commands::site::gate::mark_repo(
+        &session,
+        &root,
+        &id,
+        maquette_core::app_state::RepoSetBy::Agent,
+    )
+    .expect("mark");
+    assert!(setup(&session, &id, RunAsk::default(), tools()).is_err());
+}
+
 #[test]
 fn a_run_ships_into_a_repo_given_for_it_alone() {
     let (dir, session, id) = open();
@@ -326,7 +360,9 @@ fn a_run_ships_into_a_repo_given_for_it_alone() {
         repo,
         ..RunAsk::default()
     };
-    let at = worktree.display().to_string();
+    let at = maquette_core::fs::real_folder(&worktree)
+        .display()
+        .to_string();
     let run = setup(&session, &id, ask(Some(at.clone())), tools()).expect("setup");
     assert_eq!(run.vars["siteRepo"], at);
     let plain = dir.path().join("plain");

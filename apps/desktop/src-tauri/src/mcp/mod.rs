@@ -18,6 +18,8 @@ use tauri_specta::Event as _;
 
 use self::host::Host;
 use self::hub::{Approval, Hub, McpCall};
+use crate::commands::CommandResult;
+use crate::commands::site::gate::{StartGate, Starter, check as check_start};
 use crate::events::McpUpdate;
 use crate::session::Session;
 
@@ -87,6 +89,11 @@ impl Agents {
 
     fn lock(&self) -> MutexGuard<'_, ServerState> {
         self.state.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// A start of the site's dev server a person asked for in the app.
+    pub(crate) fn preview_gate(&self, project: &str) -> CommandResult<StartGate> {
+        check_start(&self.host, &self.hub, project, Starter::Person)
     }
 
     pub fn status(&self, session: &Session) -> McpStatus {

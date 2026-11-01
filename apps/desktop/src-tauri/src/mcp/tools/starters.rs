@@ -59,8 +59,7 @@ impl McpTools {
     async fn get_starters(&self, Parameters(args): Parameters<super::ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let view = pipeline::view(host.session(), host.runner(), &args.project)
-                    .map_err(|e| e.message)?;
+                let view = pipeline::view(host.session(), host.runner(), &args.project)?;
                 Ok(starters_value(&args.project, &view.starters))
             })
             .await;
@@ -77,8 +76,7 @@ impl McpTools {
                 let scripts = match args.scripts {
                     Some(list) => list,
                     None => {
-                        let view = pipeline::view(host.session(), host.runner(), &args.project)
-                            .map_err(|e| e.message)?;
+                        let view = pipeline::view(host.session(), host.runner(), &args.project)?;
                         offered(&view.starters, args.replace)
                     }
                 };
@@ -86,7 +84,7 @@ impl McpTools {
                     return Err(format!(
                         "{}'s starter scripts are all current or edited by hand; pass replace true to replace edited ones.",
                         args.project
-                    ));
+                    ).into());
                 }
                 let view = pipeline::update_starters(
                     host.session(),
@@ -94,8 +92,7 @@ impl McpTools {
                     &args.project,
                     &scripts,
                     args.replace,
-                )
-                .map_err(|e| e.message)?;
+                )?;
                 host.pipeline_changed(&args.project);
                 Ok(starters_value(&args.project, &view.starters))
             })

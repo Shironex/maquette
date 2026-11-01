@@ -11,6 +11,7 @@
  * - needs `name` (equal to the folder) and `description` in the frontmatter, and a
  *   description that says when to use the skill;
  * - keeps each SKILL.md at 250 lines or fewer;
+ * - needs every SKILL.md to carry the plugin's shared/before-you-start.md word for word, when it has one;
  * - rejects em and en dashes in skills and in the plugin files;
  * - needs the marketplace entry to point at a plugin folder whose plugin.json has the same name;
  * - needs the plugin's MCP server entry to read its token from the environment, never a literal.
@@ -25,6 +26,7 @@ import { pathToFileURL } from 'node:url';
 const TOOL_NAMES = 'apps/desktop/src-tauri/tool-names.txt';
 const MAX_LINES = 250;
 const DASHES = /[\u2013\u2014]/;
+const SHARED_BLOCK = 'shared/before-you-start.md';
 const SNAKE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
 
 const read = (root, rel) => readFileSync(join(root, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -135,6 +137,8 @@ export function checkSkills(root) {
     const skillsDir = join(base, 'skills');
     const skills = existsSync(skillsDir) ? readdirSync(skillsDir) : [];
     if (skills.length === 0) add(rel(base), 'the plugin has no skills');
+    const sharedPath = join(base, SHARED_BLOCK);
+    const shared = existsSync(sharedPath) ? read(root, rel(sharedPath)).trim() : null;
     for (const skill of skills) {
       const file = join(skillsDir, skill, 'SKILL.md');
       if (!existsSync(file)) {
@@ -150,6 +154,8 @@ export function checkSkills(root) {
         if (!fm.description || !/\buse\b/i.test(fm.description))
           add(rel(file), 'description must say when to use the skill ("Use when ...")');
       }
+      if (shared && !text.includes(shared))
+        add(rel(file), `must carry ${SHARED_BLOCK} word for word`);
       const lines = text.split('\n').length;
       if (lines > MAX_LINES + 1) add(rel(file), `${lines} lines exceeds the ${MAX_LINES} line cap`);
     }

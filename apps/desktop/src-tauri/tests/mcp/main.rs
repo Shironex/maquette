@@ -3,6 +3,7 @@
 
 mod support;
 
+mod agent_repo;
 mod animations;
 mod bake;
 mod built;
@@ -15,9 +16,11 @@ mod library_batch;
 mod own_file;
 mod packs;
 mod page;
+mod page_gate;
 mod picks;
 mod reads;
 mod renders;
 mod rig;
 mod ship;
+mod start;
 mod trash;

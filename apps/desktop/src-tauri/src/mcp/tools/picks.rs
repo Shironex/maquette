@@ -1,6 +1,7 @@
 //! Tools that star Lab concepts and pick them onto the Board, the agent's
 //! side of Star and Send picks to Refs. They spend nothing.
 
+use crate::mcp::tools::ToolError;
 use maquette_core::concepts::{self, Direction, ImageRef, PickRequest, Picked};
 use maquette_core::{AssetKind, project};
 use rmcp::handler::server::wrapper::Parameters;
@@ -8,7 +9,7 @@ use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::{McpTools, Out, reason, respond, to_value, workspace};
+use super::{McpTools, Out, respond, to_value, workspace};
 use crate::mcp::host::Host;
 
 /// What a new asset becomes on the Board.
@@ -152,7 +153,7 @@ fn picked_value(project_id: &str, picked: &Picked) -> Value {
     })
 }
 
-fn pick(host: &dyn Host, args: PickConceptsArgs) -> Result<Value, String> {
+fn pick(host: &dyn Host, args: PickConceptsArgs) -> Result<Value, ToolError> {
     let (root, config) = workspace(host)?;
     let requests = args
         .images
@@ -166,8 +167,7 @@ fn pick(host: &dyn Host, args: PickConceptsArgs) -> Result<Value, String> {
             })
         })
         .collect::<Result<Vec<_>, String>>()?;
-    let picked =
-        concepts::pick_images(&root, &config.layout, &args.project, &requests).map_err(reason)?;
+    let picked = concepts::pick_images(&root, &config.layout, &args.project, &requests)?;
     host.project_changed(&picked.project);
     for direction in &picked.directions {
         host.concepts_changed(&args.project, direction);
@@ -175,16 +175,16 @@ fn pick(host: &dyn Host, args: PickConceptsArgs) -> Result<Value, String> {
     Ok(picked_value(&args.project, &picked))
 }
 
-fn star(host: &dyn Host, args: StarConceptsArgs) -> Result<Value, String> {
+fn star(host: &dyn Host, args: StarConceptsArgs) -> Result<Value, ToolError> {
     let (root, config) = workspace(host)?;
-    project::load(&root, &config.layout, &args.project).map_err(reason)?;
-    let dir = project::dir(&root, &config.layout, &args.project).map_err(reason)?;
+    project::load(&root, &config.layout, &args.project)?;
+    let dir = project::dir(&root, &config.layout, &args.project)?;
     let stars = args
         .images
         .into_iter()
         .map(|i| Ok((image_ref(i.file, i.direction, i.index)?, i.starred)))
         .collect::<Result<Vec<_>, String>>()?;
-    let changed = concepts::star_images(&dir, &stars).map_err(reason)?;
+    let changed = concepts::star_images(&dir, &stars)?;
     for direction in &changed {
         host.concepts_changed(&args.project, direction);
     }

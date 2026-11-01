@@ -71,6 +71,14 @@ pub struct ProjectChanged {
     pub project: ProjectManifest,
 }
 
+/// An agent made a project in the open workspace through the MCP server, so
+/// it joins the switcher. A plain change to a project never adds one.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectCreated {
+    pub project: ProjectManifest,
+}
+
 /// The library changed: a tool added a model to it or used or updated one
 /// from it, so the Library view and the Board's update marks reload.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

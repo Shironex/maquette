@@ -149,3 +149,29 @@ describe('checkSkills', () => {
     assert.deepEqual(checkSkills(REPO), []);
   });
 });
+
+describe('the shared before you start block', () => {
+  const block = '## Before you start\n\nCall `get_run` first.\n';
+  const skill = body =>
+    `---\nname: demo-skill\ndescription: Does a thing. Use when asked.\n---\n\n${body}\n`;
+
+  test('a skill without the block is flagged', () => {
+    const root = fixture({
+      'plugins/demo/shared/before-you-start.md': block,
+      'plugins/demo/skills/demo-skill/SKILL.md': skill('# Demo'),
+    });
+    const found = checkSkills(root).filter(v => v.message.includes('word for word'));
+    assert.equal(found.length, 1);
+  });
+
+  test('a skill with the block passes', () => {
+    const root = fixture({
+      'plugins/demo/shared/before-you-start.md': block,
+      'plugins/demo/skills/demo-skill/SKILL.md': skill(`# Demo\n\n${block}`),
+    });
+    assert.deepEqual(
+      checkSkills(root).filter(v => v.message.includes('word for word')),
+      []
+    );
+  });
+});

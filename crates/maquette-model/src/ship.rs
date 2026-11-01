@@ -282,6 +282,22 @@ static WRITES: Mutex<()> = Mutex::new(());
 /// Fails when the result does not validate or cannot be written.
 pub fn update(project_dir: &Path, change: ShipSettingsChange) -> CoreResult<ShipSettings> {
     let _one = WRITES.lock().unwrap_or_else(PoisonError::into_inner);
+    let settings = changed(project_dir, change)?;
+    write_json(&path(project_dir), &settings)?;
+    Ok(settings)
+}
+
+/// Checks a change without writing it, so a caller can check it before
+/// it writes anything else.
+///
+/// # Errors
+///
+/// Fails as [`update`] does when the change is not valid.
+pub fn check_change(project_dir: &Path, change: ShipSettingsChange) -> CoreResult<()> {
+    changed(project_dir, change).map(|_| ())
+}
+
+fn changed(project_dir: &Path, change: ShipSettingsChange) -> CoreResult<ShipSettings> {
     let mut settings = load(project_dir)?;
     if let Some(style) = change.style {
         settings.style = style;
@@ -305,6 +321,5 @@ pub fn update(project_dir: &Path, change: ShipSettingsChange) -> CoreResult<Ship
     }
     settings.version = SHIP_VERSION;
     validate(&settings)?;
-    write_json(&path(project_dir), &settings)?;
     Ok(settings)
 }

@@ -452,11 +452,13 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     );
 
     // run_pipeline pauses before Ship and says so.
+    let ship_repo = dir.path().join("ship-repo");
+    std::fs::create_dir_all(ship_repo.join(".git")).expect("repo");
     let started = Instant::now();
     let run = call(
         &client,
         "run_pipeline",
-        json!({ "project": project_id, "waitSeconds": 30 }),
+        json!({ "project": project_id, "waitSeconds": 30, "repo": ship_repo }),
     )
     .await;
     assert_eq!(run["status"], json!("waiting for approval"), "{run}");
@@ -473,6 +475,14 @@ async fn a_client_connects_lists_tools_reads_and_runs_with_an_approval_pause() {
     assert!(project_dir.join("out/build.txt").is_file(), "build ran");
     assert!(!project_dir.join("shipped.log").exists(), "ship waits");
     assert_eq!(hub.approvals().len(), 1, "the app shows the prompt");
+    assert_eq!(
+        hub.approvals()[0].detail,
+        Some(format!(
+            "Writes to {}",
+            maquette_core::fs::real_folder(&ship_repo).display()
+        )),
+        "the prompt says where Ship writes"
+    );
 
     let polled = call(
         &client,

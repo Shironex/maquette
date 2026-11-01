@@ -56,6 +56,7 @@ interface AppStore {
   setConfig: (config: WorkspaceConfig) => void;
   /** Swaps in a changed project (new assets, a move) everywhere it shows. */
   setProject: (project: ProjectManifest) => void;
+  addProject: (project: ProjectManifest) => void;
   /**
    * Opens a view. Leaving Settings with an invalid draft asks first, unless
    * `force` (a new workspace or project is not a way to leave).
@@ -146,6 +147,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
         ...workspace,
         project: workspace.project?.id === project.id ? project : workspace.project,
         projects: workspace.projects.map(p => (p.id === project.id ? project : p)),
+      },
+    });
+  },
+
+  addProject: project => {
+    const workspace = get().workspace;
+    if (!workspace || workspace.projects.some(p => p.id === project.id)) return;
+    set({
+      workspace: {
+        ...workspace,
+        // It opens only when none is open.
+        project: workspace.project ?? project,
+        projects: [...workspace.projects, project],
       },
     });
   },

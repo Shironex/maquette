@@ -44,6 +44,53 @@ describe('an approval card', () => {
     expect(calls).toContain('mcp_decide');
   });
 
+  it('names the folder and the command before a dev server of an agent-set repo runs', async () => {
+    const calls = await openAgentSession('preview');
+    render(<ApprovalCard approval={approval('approval-4')} />);
+    const card = screen.getByRole('alertdialog', {
+      name: 'Run the dev command of frostveil-site?',
+    });
+    expect(card).toHaveTextContent('/Users/you/code/frostveil-site');
+    expect(card).toHaveTextContent('pnpm run dev --port {port}');
+    expect(card).toHaveTextContent('astro dev');
+    expect(card).toHaveTextContent('predev: node scripts/sync-models.js');
+    expect(card).toHaveTextContent('including nested packages and the files scripts load');
+    expect(card).not.toHaveTextContent('cannot tell');
+    expect(card).toHaveTextContent("the site's package.json");
+    await userEvent.click(within(card).getByRole('button', { name: 'Approve and run' }));
+    expect(calls).toContain('mcp_decide');
+    await waitFor(() => expect(useAgentsStore.getState().status?.approvals).toHaveLength(0));
+  });
+
+  it('says it cannot tell what a command runs, and names a file that can change it', async () => {
+    await openAgentSession('preview');
+    const known = approval('approval-4');
+    const unknown: Approval = {
+      ...known,
+      preview: {
+        ...known.preview!,
+        command: 'corepack pnpm dev',
+        scriptRuns: null,
+        hooks: [],
+        managerConfig: ['.yarnrc.yml'],
+      },
+    };
+    render(<ApprovalCard approval={unknown} />);
+    const card = screen.getByRole('alertdialog');
+    expect(card).toHaveTextContent('Maquette cannot tell what this command runs.');
+    expect(card).not.toHaveTextContent('Script runs');
+    expect(card).toHaveTextContent('.yarnrc.yml');
+  });
+
+  it('denies a page preview without running anything', async () => {
+    const calls = await openAgentSession('preview');
+    render(<ApprovalCard approval={approval('approval-4')} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Deny' }));
+    await waitFor(() => expect(calls).toContain('mcp_decide'));
+    expect(calls).not.toContain('page_server_start');
+    expect(calls).not.toContain('site_preview');
+  });
+
   it('opens the Avatar view on the version a rest pose waits on', async () => {
     await openAvatar('older');
     const pose = useAgentsStore.getState().status!.approvals.find(a => a.kind === 'rest-pose')!;
@@ -75,6 +122,7 @@ describe('an approval card', () => {
     render(<ApprovalCard approval={approval('approval-1')} />);
     const card = screen.getByRole('alertdialog');
     expect(card).toHaveTextContent('Everything before Ship is done');
+    expect(card).toHaveTextContent('Writes to /Users/you/code/frostveil-site');
     expect(within(card).getByRole('button', { name: 'Approve and ship' })).toBeEnabled();
   });
 

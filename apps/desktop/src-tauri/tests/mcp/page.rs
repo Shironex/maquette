@@ -29,13 +29,13 @@ use serde_json::json;
 
 use super::support::call;
 
-struct TestHost {
-    session: Session,
-    runner: PipelineRunner,
-    concepts: Concepts,
-    thumbs: Thumbnails,
-    studio: ProviderJobs,
-    preview: Arc<SitePreview>,
+pub(super) struct TestHost {
+    pub(super) session: Session,
+    pub(super) runner: PipelineRunner,
+    pub(super) concepts: Concepts,
+    pub(super) thumbs: Thumbnails,
+    pub(super) studio: ProviderJobs,
+    pub(super) preview: Arc<SitePreview>,
 }
 
 impl Host for TestHost {
@@ -68,7 +68,7 @@ http.createServer((q, r) => r.end('ok')).listen(+process.env.PORT, '127.0.0.1', 
   console.log('  Local  http://127.0.0.1:' + process.env.PORT + '/'));\n";
 
 /// A workspace with one project and a site folder beside it, not linked yet.
-fn fixture(dir: &Path) -> (Session, PathBuf, String, PathBuf, PathBuf) {
+pub(super) fn fixture(dir: &Path) -> (Session, PathBuf, String, PathBuf, PathBuf) {
     let root = dir.join("ws");
     let config = workspace::create(&root, &WorkspaceConfig::default()).expect("workspace");
     let session = Session::with_state(dir.join("cfg"), None, AppState::default());
@@ -100,7 +100,7 @@ fn fixture(dir: &Path) -> (Session, PathBuf, String, PathBuf, PathBuf) {
     (session, root, manifest.id, project_dir, site)
 }
 
-fn set_command(root: &Path, project_dir: &Path, command: &str) {
+pub(super) fn set_command(root: &Path, project_dir: &Path, command: &str) {
     page::save(
         project_dir,
         root,

@@ -15,8 +15,9 @@ use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use super::hints::{step, with_next};
 use super::inbox::{AcceptArgs, accept_item};
-use super::{McpTools, Out, reason, respond, to_value, workspace};
+use super::{McpTools, Out, respond, to_value, workspace};
 use crate::mcp::host::Host;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -80,7 +81,7 @@ fn waiting_in(
 #[tool_router(router = handoffs_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "List the By hand hand-offs: every send waiting for a model made by a person on the Tripo or Meshy site (job, asset, provider, the export file name it waits for as maq_<asset>_v<n>_<provider>, its handoff folder with send.json, its front ref, about what the site's subscription charges), and the Downloads watcher: whether it is on and watching, and the recent files it saw. Only a file named for its send goes into the inbox by itself. needsLook lists the downloads whose name is only close to a waiting send's, that came for the only send waiting, or whose picture looks like one send's (however late they came): each names the asset it looks like and why, and waits. unmatched lists the downloads it could not place. Every download in either carries suggestions: each waiting send ranked best first with score (0 to 1), picture (how alike the download's headless front render and the send's front ref are, null until the render is in) and name, plus picture (queued, ready, failed or skipped) and render (the PNG). A suggestion is never attached by itself. Answer either with attach_download or dismiss_download. Reads only: Maquette never opens or drives the provider's site, and nothing is spent.",
+        description = "List the By hand hand-offs: every send waiting for a model a person makes on the Tripo or Meshy site (job, asset, provider, the export file name it waits for as maq_<asset>_v<n>_<provider>, its handoff folder, its front ref, about what the site's subscription charges), and the Downloads watcher with the recent files it saw. Only a file named for its send lands in the inbox by itself. needsLook lists downloads only close to a waiting send by name, the only send waiting or picture; unmatched lists ones it could not place. Each carries suggestions (waiting sends ranked best first with score, picture and name), picture (queued, ready, failed or skipped) and render (the PNG). Nothing is attached by itself: answer with attach_download or dismiss_download. Reads only: Maquette never opens or drives the provider's site, and nothing is spent.",
         annotations(read_only_hint = true)
     )]
     async fn list_handoffs(&self, Parameters(args): Parameters<HandoffsArgs>) -> Out {
@@ -111,7 +112,19 @@ impl McpTools {
                         "arrivals": recent,
                     })
                 });
-                Ok(json!({ "pending": pending, "watcher": watcher }))
+                let empty = pending.is_empty();
+                let answer = json!({ "pending": pending, "watcher": watcher });
+                Ok(if empty {
+                    with_next(
+                        answer,
+                        vec![step(
+                            "send_to_3d",
+                            "Nothing waits. Provider by-hand writes a handoff folder for free.",
+                        )],
+                    )
+                } else {
+                    answer
+                })
             })
             .await;
         respond(found)
@@ -123,9 +136,7 @@ impl McpTools {
     async fn attach_download(&self, Parameters(args): Parameters<AttachDownloadArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let arrival = watcher(host)?
-                    .attach(&args.arrival, &args.project, &args.asset)
-                    .map_err(reason)?;
+                let arrival = watcher(host)?.attach(&args.arrival, &args.project, &args.asset)?;
                 Ok(json!({
                     "inboxFile": arrival.inbox_file,
                     "job": arrival.job,
@@ -155,8 +166,7 @@ impl McpTools {
                         asset: &args.asset,
                         file: Path::new(args.path.trim()),
                     },
-                )
-                .map_err(reason)?;
+                )?;
                 let accepted = if args.accept.unwrap_or(false) {
                     let accept = AcceptArgs {
                         id: added.inbox_file.clone(),
@@ -185,7 +195,7 @@ impl McpTools {
     async fn dismiss_download(&self, Parameters(args): Parameters<DismissDownloadArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let arrival = watcher(host)?.dismiss(&args.arrival).map_err(reason)?;
+                let arrival = watcher(host)?.dismiss(&args.arrival)?;
                 Ok(json!({ "arrival": to_value(&arrival) }))
             })
             .await;

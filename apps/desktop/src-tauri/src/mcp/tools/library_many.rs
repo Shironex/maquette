@@ -2,6 +2,7 @@
 //! call, or with dryRun the plan of what each would become. Copies files,
 //! never spends credits.
 
+use crate::mcp::tools::ToolError;
 use maquette_core::library::{AddToLibrary, CollectionChange, PlannedAdd};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
@@ -54,7 +55,7 @@ fn add_one(
     project: &str,
     item: &LibraryAssetArgs,
     shared: Option<&Vec<String>>,
-) -> Result<Value, String> {
+) -> Result<Value, ToolError> {
     let asset = asset_id(host, project, &item.asset)?;
     let request = AddToLibrary {
         project: project.to_string(),
@@ -63,7 +64,7 @@ fn add_one(
         tags: item.tags.clone().or_else(|| shared.cloned()),
         into: item.into.clone(),
     };
-    let added = commands::add(host.session(), host.studio(), &request).map_err(|e| e.message)?;
+    let added = commands::add(host.session(), host.studio(), &request)?;
     host.project_changed(&added.project);
     Ok(json!({
         "asset": item.asset,
@@ -77,8 +78,8 @@ fn add_one(
 }
 
 /// The plan for the project, cut to the assets asked about when any are.
-fn dry_run(host: &dyn super::Host, args: &AddManyToLibraryArgs) -> Result<Value, String> {
-    let mut plan = batch::plan_many(host.session(), &args.project).map_err(|e| e.message)?;
+fn dry_run(host: &dyn super::Host, args: &AddManyToLibraryArgs) -> Result<Value, ToolError> {
+    let mut plan = batch::plan_many(host.session(), &args.project)?;
     if !args.assets.is_empty() {
         let wanted = args
             .assets
@@ -103,14 +104,15 @@ impl McpTools {
                     return dry_run(host, &args);
                 }
                 if args.assets.is_empty() || args.assets.len() > MAX_BATCH {
-                    return Err(format!("Give 1 to {MAX_BATCH} assets."));
+                    return Err(format!("Give 1 to {MAX_BATCH} assets.").into());
                 }
                 if let Some(id) = &args.collection {
-                    let known = batch::collections(host.session()).map_err(|e| e.message)?;
+                    let known = batch::collections(host.session())?;
                     if !known.iter().any(|c| &c.id == id) {
                         return Err(format!(
                             "There is no collection {id}. list_library lists the collections."
-                        ));
+                        )
+                        .into());
                     }
                 }
                 let results: Vec<Value> = args
@@ -118,7 +120,7 @@ impl McpTools {
                     .iter()
                     .map(|item| {
                         add_one(host, &args.project, item, args.tags.as_ref()).unwrap_or_else(
-                            |why| json!({ "asset": item.asset, "ok": false, "error": why }),
+                            |why| json!({ "asset": item.asset, "ok": false, "error": why.message }),
                         )
                     })
                     .collect();
@@ -134,7 +136,7 @@ impl McpTools {
                         collection: id.clone(),
                         entries: ok.clone(),
                     };
-                    batch::collection(host.session(), &change).map_err(|e| e.message)?;
+                    batch::collection(host.session(), &change)?;
                 }
                 if !ok.is_empty() {
                     host.library_changed();

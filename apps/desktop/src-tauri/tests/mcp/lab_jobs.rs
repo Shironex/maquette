@@ -179,9 +179,11 @@ async fn agents_cancel_and_run_lab_jobs_next() {
     assert_eq!(hints.destructive_hint, Some(true));
     assert!(tools.iter().any(|t| t.name == "prioritize_concept_jobs"));
     let info = client.peer_info().expect("server info");
-    assert!(info.instructions.as_deref().is_some_and(|i| {
-        i.contains("cancel_concept_jobs") && i.contains("prioritize_concept_jobs")
-    }));
+    assert!(
+        info.instructions
+            .as_deref()
+            .is_some_and(|i| i.contains("[lab]"))
+    );
 
     let slow = codex(&f.root, "slow", "sleep 30");
     let jobs = start(&host, &f, &slow, "Lanterns", 4);

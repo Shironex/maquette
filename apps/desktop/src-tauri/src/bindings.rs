@@ -17,8 +17,8 @@ use crate::events::{
     AvatarChanged, BuiltChanged, CodexUsageUpdate, ConceptUpdate, DownloadsArrival,
     ImageSettingsChanged, InboxChanged, LayoutChanged, LibraryChanged, MaterialsChanged, McpUpdate,
     PackChanged, PageServerChanged, PipelineChanged, PipelineUpdate, PrepareChanged,
-    ProjectChanged, ProviderUpdate, QuitRequested, RenderChanged, RigChanged, ThumbnailReady,
-    UpdaterUpdate,
+    ProjectChanged, ProjectCreated, ProviderUpdate, QuitRequested, RenderChanged, RigChanged,
+    ThumbnailReady, UpdaterUpdate,
 };
 
 /// Compile time path, so the export never depends on the working folder.
@@ -272,6 +272,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             ThumbnailReady,
             ConceptUpdate,
             ProjectChanged,
+            ProjectCreated,
             PipelineChanged,
             McpUpdate,
             ProviderUpdate,

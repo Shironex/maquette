@@ -42,7 +42,7 @@ import { createMotionHandlers, motionConfig, seedMotionProjects } from './create
 import { startsClips } from './motion-fixtures';
 import { createPartsHandlers, seedParts } from './create-parts-handlers';
 import { createSplitHandlers } from './create-split-handlers';
-import { createPageHandlers } from './create-page-handlers';
+import { createPageHandlers, holdPageStarts } from './create-page-handlers';
 import { createTimelineHandlers } from './create-timeline-handlers';
 import { createPathsHandlers } from './create-paths-handlers';
 import { createGameHandlers } from './create-game-handlers';
@@ -104,7 +104,7 @@ export function createBackend({
   const seeded = seedMotionProjects(mockProjects(projectsState, libraryState), motion);
   let projects = configured ? syncProjects(seedAvatar(seeded, avatar), sync) : [];
   if (configured) config = motionConfig({ ...config, currentProject: 'frostveil' }, motion);
-  const agentsOn = agentsState === 'active' || agentsState === 'batch' || agentsState === 'images';
+  const agentsOn = ['active', 'batch', 'images', 'preview'].includes(agentsState ?? '');
   if (configured && agentsOn) {
     config = { ...config, agents: { ...config.agents, mcpEnabled: true } };
   }
@@ -250,8 +250,7 @@ export function createBackend({
   const agents = createFakeAgents({
     config: () => config,
     active: agentsOn,
-    batch: agentsState === 'batch',
-    images: agentsState === 'images',
+    scene: agentsState,
     emit: payload => emit?.({ name: 'mcp', payload }),
     onSendDecision: providers.decide,
     games: game,
@@ -378,7 +377,7 @@ export function createBackend({
     }),
     ...createTimelineHandlers({ layout, timeline: configured ? timeline : null }),
     ...createPathsHandlers({ layout, paths: configured ? paths : null }),
-    ...page.handlers,
+    ...holdPageStarts(page.handlers, agents),
     ...game.handlers,
     ...avatars.handlers,
   };

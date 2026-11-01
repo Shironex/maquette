@@ -1,4 +1,5 @@
 import { useProjectsStore } from '@/state/use-projects-store';
+import { useAgentsStore } from '@/state/use-agents-store';
 import { useAppStore } from '@/state/use-app-store';
 import { usePageStore } from '@/state/use-page-store';
 import type { LogLine } from '@maquette/ui';
@@ -20,7 +21,12 @@ export function useFrameStatus() {
   const save = usePageStore(s => s.save);
   const setView = useAppStore(s => s.setView);
   const projects = useProjectsStore(s => s.list);
+  const project = usePageStore(s => s.project);
+  const asking = useAgentsStore(s =>
+    s.status?.approvals.some(a => a.kind === 'page-preview' && a.project === project)
+  );
   return {
+    asking: Boolean(asking),
     start: () => void start(),
     pickConcept: () => void pickConcept(),
     showSite: () => void save({ source: 'site' }),

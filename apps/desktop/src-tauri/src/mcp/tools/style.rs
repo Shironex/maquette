@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 use crate::commands::lab;
 
-use super::{McpTools, Out, ProjectArgs, reason, respond, to_value, workspace};
+use super::{McpTools, Out, ProjectArgs, respond, to_value, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -51,9 +51,9 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                project::load(&root, &config.layout, &args.project).map_err(reason)?;
-                let dir = project::dir(&root, &config.layout, &args.project).map_err(reason)?;
-                let board = style::load(&dir).map_err(reason)?;
+                project::load(&root, &config.layout, &args.project)?;
+                let dir = project::dir(&root, &config.layout, &args.project)?;
+                let board = style::load(&dir)?;
                 Ok(board_value(&args.project, &board))
             })
             .await;
@@ -71,8 +71,7 @@ impl McpTools {
                     palette: args.palette,
                     images: args.images,
                 };
-                let board = lab::set_style(host.session(), &args.project, &change, false)
-                    .map_err(|e| e.message)?;
+                let board = lab::set_style(host.session(), &args.project, &change, false)?;
                 host.style_changed(&args.project, &board);
                 Ok(board_value(&args.project, &board))
             })

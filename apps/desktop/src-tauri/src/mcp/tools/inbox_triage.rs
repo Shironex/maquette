@@ -1,6 +1,7 @@
 //! Tools for going through the inbox many models at a time: accepting
 //! several in one call and putting a discarded model back.
 
+use crate::mcp::tools::ToolError;
 use maquette_core::inbox;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
@@ -10,7 +11,7 @@ use serde_json::{Value, json};
 use crate::mcp::host::Host;
 
 use super::inbox::{AcceptArgs, accept_item};
-use super::{McpTools, Out, reason, respond, workspace};
+use super::{McpTools, Out, respond, workspace};
 
 /// The most models one accept_inbox_models call takes.
 const MAX_BATCH: usize = 200;
@@ -34,9 +35,9 @@ pub struct RestoreArgs {
 }
 
 /// The project inbox model `id` goes to without one given: its send's, else its aim's.
-fn home_project(host: &dyn Host, id: &str) -> Result<String, String> {
+fn home_project(host: &dyn Host, id: &str) -> Result<String, ToolError> {
     let (root, config) = workspace(host)?;
-    let mut item = inbox::item(&root, &config, id).map_err(reason)?;
+    let mut item = inbox::item(&root, &config, id)?;
     host.studio().link_inbox(std::slice::from_mut(&mut item));
     item.link
         .map(|l| l.project)
@@ -44,10 +45,11 @@ fn home_project(host: &dyn Host, id: &str) -> Result<String, String> {
         .ok_or_else(|| {
             format!("{id} was not sent for or attached to an asset; give project to accept it.")
         })
+        .map_err(ToolError::from)
 }
 
 /// Accepts one model as accept_inbox_model does and answers its result row.
-fn accept_one(host: &dyn Host, id: &str, project: Option<&str>) -> Result<Value, String> {
+fn accept_one(host: &dyn Host, id: &str, project: Option<&str>) -> Result<Value, ToolError> {
     let project = match project {
         Some(p) => p.to_string(),
         None => home_project(host, id)?,
@@ -80,14 +82,15 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 if args.ids.is_empty() || args.ids.len() > MAX_BATCH {
-                    return Err(format!("Give 1 to {MAX_BATCH} inbox ids."));
+                    return Err(format!("Give 1 to {MAX_BATCH} inbox ids.").into());
                 }
                 let results: Vec<Value> = args
                     .ids
                     .iter()
                     .map(|id| {
-                        accept_one(host, id, args.project.as_deref())
-                            .unwrap_or_else(|why| json!({ "id": id, "ok": false, "error": why }))
+                        accept_one(host, id, args.project.as_deref()).unwrap_or_else(
+                            |why| json!({ "id": id, "ok": false, "error": why.message }),
+                        )
                     })
                     .collect();
                 let accepted = results.iter().filter(|r| r["ok"] == json!(true)).count();
@@ -108,7 +111,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                let back = inbox::restore(&root, &config, &args.name).map_err(reason)?;
+                let back = inbox::restore(&root, &config, &args.name)?;
                 Ok(json!({ "id": back.id, "file": back.file }))
             })
             .await;

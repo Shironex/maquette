@@ -17,7 +17,7 @@ mod requests;
 mod warnings;
 
 use self::requests::{batch_request, send_request};
-use super::{McpTools, Out, WAITING, failed, json_result, reason, respond, to_value, workspace};
+use super::{McpTools, Out, WAITING, failed, json_result, respond, to_value, workspace};
 
 /// Where a model gets made.
 #[derive(Debug, Clone, Copy, Deserialize, schemars::JsonSchema)]
@@ -238,17 +238,14 @@ pub(super) fn await_send_approval(
 #[tool_router(router = sending_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
-        description = "Send an asset's refs to 3D. \"tripo\" or \"meshy\" spend credits, so the send always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back. Settings start from the workspace preset (prop or character) and overrides change them for this send only. A by hand Tripo send also takes mesh (Tripo Studio's HD Model or Smart Mesh (P2.0) tab) and rig (biped on the Mixamo skeleton, quadruped, multi-legged or none); the settings card follows them, and more than the front view goes as Multiview to 3D. The images go front, left, back, right by the asset's ref views (get_ref_views), and refWarnings lists weak refs (small, cropped, busy background, one view only, a view that looks different from the front) without stopping the send. modelWarning says when the asset already has a model (for example one that came from the library): the send then makes its next version and the library entry is not changed; it is null for a first model."
+        description = "Send an asset's refs to 3D. \"tripo\" or \"meshy\" spend credits, so the send always waits for a person to approve it in the Maquette app and answers \"waiting for approval\"; follow it with get_provider_job. \"by-hand\" spends nothing: it writes a handoff folder with the images and a settings card, and the asset waits for a person to bring the GLB back. Settings start from the workspace preset (prop or character); overrides change them for this send. The images go front, left, back, right by the asset's ref views (get_ref_views); on a by hand Tripo send, more than the front view goes as Multiview to 3D. refWarnings lists weak refs without stopping the send; modelWarning says when the asset already has a model, so the send makes its next version (null for a first model)."
     )]
     async fn send_to_3d(&self, Parameters(args): Parameters<SendTo3dArgs>) -> Out {
         let sent = self
             .blocking(move |host, hub| {
                 let request = send_request(host, &args)?;
                 let approval = request.provider != Provider::ByHand;
-                let job = host
-                    .studio()
-                    .send(&request, approval, true)
-                    .map_err(reason)?;
+                let job = host.studio().send(&request, approval, true)?;
                 let pending = (job.state == JobState::Approval).then(|| hub.request_send(&job));
                 let warned = warnings::of(host, &job);
                 Ok((job, pending, warned))
@@ -287,10 +284,7 @@ impl McpTools {
             .blocking(move |host, hub| {
                 let request = batch_request(host, &args)?;
                 let approval = request.provider != Provider::ByHand;
-                let sent = host
-                    .studio()
-                    .send_batch(&request, approval, true)
-                    .map_err(reason)?;
+                let sent = host.studio().send_batch(&request, approval, true)?;
                 let waiting: Vec<ProviderJob> = sent
                     .jobs
                     .iter()
@@ -370,10 +364,12 @@ impl McpTools {
                     return Ok(job_value(hub, &job));
                 }
                 let Some(project) = args.project.as_deref() else {
-                    return Err("Pass the job id, or a project to list its sends.".to_string());
+                    return Err("Pass the job id, or a project to list its sends."
+                        .to_string()
+                        .into());
                 };
                 let (root, config) = workspace(host)?;
-                project::load(&root, &config.layout, project).map_err(reason)?;
+                project::load(&root, &config.layout, project)?;
                 let jobs: Vec<Value> = host
                     .studio()
                     .list(Some(project))
@@ -440,6 +436,6 @@ fn cancel_one(jobs: &ProviderJobs, hub: &Hub, id: &str) -> Value {
             "status": to_value(job.state),
             "message": job.message,
         }),
-        Err(err) => refuse(reason(err)),
+        Err(err) => refuse(maquette_core::ErrorPayload::from(err).message),
     }
 }

@@ -3,7 +3,6 @@
 
 use std::sync::Arc;
 
-use maquette_core::ProjectManifest;
 use maquette_core::concepts::backend::ImageSettings;
 use maquette_core::concepts::codex_usage::CodexUsage;
 use maquette_core::concepts::{ConceptEvent, Concepts, Direction, StyleBoard};
@@ -15,6 +14,7 @@ use maquette_core::renders::Renders;
 use maquette_core::rig::RigDoctors;
 use maquette_core::site::preview::SitePreview;
 use maquette_core::thumbs::Thumbnails;
+use maquette_core::{ProjectManifest, ToolReport};
 use tauri::{AppHandle, Manager as _};
 use tauri_specta::Event as _;
 
@@ -28,7 +28,7 @@ use crate::commands::rig::RigJobs;
 use crate::commands::thumbs::Thumbs;
 use crate::events::{
     AvatarChanged, BuiltChanged, ConceptUpdate, LayoutChanged, LibraryChanged, MaterialsChanged,
-    PipelineChanged, PrepareChanged, ProjectChanged,
+    PipelineChanged, PrepareChanged, ProjectChanged, ProjectCreated,
 };
 use crate::session::Session;
 
@@ -41,6 +41,11 @@ pub trait Host: Send + Sync + 'static {
     fn studio(&self) -> &ProviderJobs;
     /// The tools a job runs with. May probe them, so it blocks.
     fn toolbox(&self) -> Toolbox;
+    /// The last tool check, for an agent to read. The app makes one when
+    /// there is none, so it may block.
+    fn tool_reports(&self) -> Vec<ToolReport> {
+        self.session().tools().unwrap_or_default()
+    }
     /// The site's dev server the Page view and Preview on site share, when
     /// the host runs one.
     fn site_preview(&self) -> Option<Arc<SitePreview>> {
@@ -68,6 +73,7 @@ pub trait Host: Send + Sync + 'static {
 
     /// Tells the windows that a tool changed a project, so the Board updates.
     fn project_changed(&self, _project: &ProjectManifest) {}
+    fn project_created(&self, _project: &ProjectManifest) {}
     /// Tells the windows that a tool changed a project's pipeline file, so
     /// the Pipeline view reloads it.
     fn pipeline_changed(&self, _project: &str) {}
@@ -131,6 +137,11 @@ impl Host for AppHost {
         crate::commands::toolchain::toolbox_blocking(self.session())
     }
 
+    fn tool_reports(&self) -> Vec<ToolReport> {
+        self.toolbox();
+        self.session().tools().unwrap_or_default()
+    }
+
     fn arrivals(&self) -> Option<&Arrivals> {
         self.0.try_state::<Watch>().map(|w| &w.inner().0)
     }
@@ -155,6 +166,15 @@ impl Host for AppHost {
 
     fn project_changed(&self, project: &ProjectManifest) {
         let event = ProjectChanged {
+            project: project.clone(),
+        };
+        if let Err(err) = event.emit(&self.0) {
+            tracing::warn!(error = %err, "could not emit a project event");
+        }
+    }
+
+    fn project_created(&self, project: &ProjectManifest) {
+        let event = ProjectCreated {
             project: project.clone(),
         };
         if let Err(err) = event.emit(&self.0) {

@@ -11,7 +11,9 @@ use maquette_core::{CoreError, project};
 use tauri::State;
 
 use super::CommandResult;
-use super::site::{Preview, dev_plan};
+use super::site::Preview;
+use super::site::gate::StartGate;
+use crate::mcp::Agents;
 use crate::opener;
 use crate::session::Session;
 
@@ -31,19 +33,6 @@ pub(crate) fn view(
         settings,
         &server.status(),
     ))
-}
-
-/// Starts the project's dev server for `owner`, or reuses the one serving
-/// its site. Returns at once. Blocks briefly to find the program.
-pub(crate) fn start(
-    session: &Session,
-    server: &SitePreview,
-    project_id: &str,
-    owner: ServerOwner,
-) -> CommandResult<PageView> {
-    let plan = dev_plan(session, project_id)?;
-    server.begin(&plan, project_id, owner);
-    view(session, server, project_id)
 }
 
 /// Stops the dev server when it serves `project_id`.
@@ -90,14 +79,17 @@ pub async fn page_save(
 pub async fn page_server_start(
     session: State<'_, Session>,
     preview: State<'_, Preview>,
+    agents: State<'_, Agents>,
     project: String,
 ) -> CommandResult<PageView> {
-    let plan = dev_plan(&session, &project)?;
-    let server = Arc::clone(&preview.0);
-    let id = project.clone();
-    tauri::async_runtime::spawn_blocking(move || server.begin(&plan, &id, ServerOwner::Page))
-        .await
-        .map_err(super::join_failed)?;
+    // While a card waits the server stays idle and the view says why.
+    if let StartGate::Clear(plan) = agents.preview_gate(&project)? {
+        let server = Arc::clone(&preview.0);
+        let id = project.clone();
+        tauri::async_runtime::spawn_blocking(move || server.begin(&plan, &id, ServerOwner::Page))
+            .await
+            .map_err(super::join_failed)?;
+    }
     view(&session, &preview.0, &project)
 }
 

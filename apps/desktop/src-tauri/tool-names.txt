@@ -17,6 +17,7 @@ cancel_run
 clean_ref_background
 compare_versions
 copy_asset
+create_project
 decide_pack
 decide_render
 discard_inbox_model
@@ -49,6 +50,7 @@ get_run
 get_ship_plan
 get_ship_settings
 get_size_report
+get_started
 get_starters
 get_style_board
 import_animations

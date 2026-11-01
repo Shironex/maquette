@@ -52,6 +52,7 @@ impl Hub {
                 before: sheet(&case.before),
                 after: sheet(&case.after),
             }),
+            preview: None,
         })
     }
 

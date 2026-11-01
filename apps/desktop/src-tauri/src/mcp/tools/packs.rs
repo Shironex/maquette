@@ -3,6 +3,7 @@
 //! read how packs stand; decide_pack answers what a pack asks for. A pack
 //! an agent asks for is written inside the workspace only.
 
+use crate::mcp::tools::ToolError;
 use maquette_core::packs::{
     PackDecision, PackItemState, PackPreset, PackRecord, PackRequest, PackSettings, PackSource,
     Packs, ZipChoice, presets,
@@ -201,8 +202,7 @@ impl McpTools {
                 let preset = args.preset.clone().unwrap_or_else(|| "plain-obj".into());
                 let settings = settings(&all, &preset, args.settings.as_ref())?;
                 if args.dry_run {
-                    let plan = commands::plan(host.session(), host.studio(), &source, &settings)
-                        .map_err(|e| e.message)?;
+                    let plan = commands::plan(host.session(), host.studio(), &source, &settings)?;
                     return Ok(json!({ "dryRun": true, "settings": to_value(&settings), "plan": to_value(&plan) }));
                 }
                 let request = PackRequest {
@@ -218,8 +218,7 @@ impl McpTools {
                     host.toolbox(),
                     &request,
                     false,
-                )
-                .map_err(|e| e.message)?;
+                )?;
                 Ok(summary(&record))
             })
             .await;
@@ -288,7 +287,8 @@ impl McpTools {
                     PackChoice::Resume => {
                         return commands::resume(host.session(), service, host.toolbox(), &args.id)
                             .map(|r| summary(&r))
-                            .map_err(|e| e.message);
+                            .map_err(|e| e.message)
+                            .map_err(ToolError::from);
                     }
                     _ => {
                         let decision = decision(&args)?;
@@ -300,10 +300,14 @@ impl McpTools {
                             &decision,
                         )
                         .map(|r| summary(&r))
-                        .map_err(|e| e.message);
+                        .map_err(|e| e.message)
+                        .map_err(ToolError::from);
                     }
                 };
-                record.map(|r| summary(&r)).map_err(|e| e.to_string())
+                record
+                    .map(|r| summary(&r))
+                    .map_err(|e| e.to_string())
+                    .map_err(ToolError::from)
             })
             .await;
         respond(found)

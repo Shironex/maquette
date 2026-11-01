@@ -294,6 +294,19 @@ pub fn preview_template(
     })
 }
 
+/// Refuses a template [`apply_template`] would refuse, writing nothing.
+pub fn check_template(
+    workspace_root: &Path,
+    layout: &FolderLayout,
+    m: &ProjectManifest,
+    template: GameTemplateId,
+) -> CoreResult<()> {
+    let dir = project::dir(workspace_root, layout, &m.id)?;
+    let settings = settings_of(m)?;
+    let in_game = files_in_game(&dir, m, settings);
+    validate(&outcome(settings, m, &in_game, &game_template(template)).next)
+}
+
 /// Fills the game settings of project `id` from a template and fits its
 /// pipeline to them. Moves and deletes no file, in the game or the project;
 /// the settings stay editable like any others.

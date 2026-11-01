@@ -204,7 +204,7 @@ async fn agents_star_and_pick_concepts_onto_the_board() {
     assert!(
         info.instructions
             .as_deref()
-            .is_some_and(|i| i.contains("pick_concepts") && i.contains("star_concepts"))
+            .is_some_and(|i| i.contains("picks to the Board"))
     );
     let tools = client.list_all_tools().await.expect("tools");
     for name in ["pick_concepts", "star_concepts"] {

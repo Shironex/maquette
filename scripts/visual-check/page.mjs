@@ -1,5 +1,6 @@
 /**
- * The Page view's shots for scripts/visual-check.mjs (ONLY=page): the site
+ * The Page view's shots for scripts/visual-check.mjs (ONLY=page): the card
+ * that asks before an agent-set repo's dev command runs, the site
  * dev page with its hotspots, running at a stop, its header's server state and Stop, stopped
  * from there, starting, failed, a project without a site
  * repo, a phone, the Devices tab, a page concept, and the compare board
@@ -28,6 +29,14 @@ export async function pageShots({ open, shot }) {
   await hot.waitForTimeout(1200);
   await shot(hot, 'page-hotspots');
   await hot.context().close();
+
+  const asked = await open('&scenario=configured&agents=preview', '#/page');
+  await asked
+    .getByRole('alertdialog', { name: 'Run the dev command of frostveil-site?' })
+    .waitFor();
+  await asked.getByRole('heading', { name: 'The dev server waits for your approval' }).waitFor();
+  await shot(asked, 'page-preview-approval');
+  await asked.context().close();
 
   const running = await open(RUNNING, '#/page');
   await answered(running);

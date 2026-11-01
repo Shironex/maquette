@@ -1,7 +1,9 @@
 //! What a run is asked to do, and the setup the runner gets for it.
 
 use std::collections::BTreeMap;
+use std::path::Path;
 
+use maquette_core::fs::real_folder;
 use maquette_core::materials;
 use maquette_core::pipeline::runner::RunSetup;
 use maquette_core::pipeline::tools::Toolbox;
@@ -29,6 +31,16 @@ pub struct RunAsk {
     pub repo: Option<String>,
 }
 
+/// Where a run's Ship writes, for the approval to show. None with no repo:
+/// it then only fills the project's shipped folder.
+pub(crate) fn destination(setup: &RunSetup) -> Option<String> {
+    setup
+        .vars
+        .get("siteRepo")
+        .filter(|repo| !repo.is_empty())
+        .cloned()
+}
+
 pub(crate) fn setup(
     session: &Session,
     project_id: &str,
@@ -44,11 +56,23 @@ pub(crate) fn setup(
     let ctx = context(session, project_id)?;
     let repo = match repo {
         Some(path) => Some(
-            maquette_core::game::check_repo(&path)?
+            crate::commands::project::checked_repo(session, &path)?
                 .display()
                 .to_string(),
         ),
-        None => ctx.manifest.site_repo.clone(),
+        // The folder itself, so the card names what Ship writes to and a link
+        // moved during the wait changes nothing. An agent's repo is checked
+        // again for that link; a repo a person chose stays their call.
+        None => match ctx.manifest.site_repo.as_deref() {
+            Some(saved) => {
+                let found = real_folder(Path::new(saved));
+                if crate::commands::site::gate::repo_set_by_agent(session, &ctx.root, project_id) {
+                    crate::commands::project::refuse_ship_folder(session, &found)?;
+                }
+                Some(found.display().to_string())
+            }
+            None => None,
+        },
     };
     let ship = maquette_core::ship::load(&ctx.project_dir)?;
     let mut vars = BTreeMap::new();

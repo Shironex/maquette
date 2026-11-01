@@ -3,6 +3,7 @@
 //! a candidate into the refs. The drawing and cleaning are Lab jobs on the
 //! Codex lane, the same as start_concepts.
 
+use crate::mcp::tools::ToolError;
 use maquette_core::concepts::{CleanGround, NewCleanRef, NewOtherViews};
 use maquette_core::refs::{AssetRef, RefView};
 use maquette_core::{assets, project};
@@ -13,7 +14,7 @@ use serde_json::{Value, json};
 
 use super::concepts::job_value;
 use super::image_api::{BackendArg, backend};
-use super::{McpTools, Out, reason, respond, to_value, workspace};
+use super::{McpTools, Out, respond, to_value, workspace};
 use crate::commands::refs as shared;
 use crate::mcp::host::Host;
 
@@ -166,9 +167,8 @@ fn refs_value(view: &shared::RefsView) -> Value {
     })
 }
 
-fn after(host: &dyn Host, project_id: &str, asset_id: &str) -> Result<Value, String> {
-    let view = shared::view(host.session(), host.concepts(), project_id, asset_id)
-        .map_err(|e| e.message)?;
+fn after(host: &dyn Host, project_id: &str, asset_id: &str) -> Result<Value, ToolError> {
+    let view = shared::view(host.session(), host.concepts(), project_id, asset_id)?;
     host.project_changed(&view.project);
     for d in &view.directions {
         host.concepts_changed(project_id, d);
@@ -177,10 +177,10 @@ fn after(host: &dyn Host, project_id: &str, asset_id: &str) -> Result<Value, Str
 }
 
 /// The asset's id, checked to be on the project's Board.
-fn check_asset(host: &dyn Host, project_id: &str, asset_id: &str) -> Result<(), String> {
+fn check_asset(host: &dyn Host, project_id: &str, asset_id: &str) -> Result<(), ToolError> {
     let (root, config) = workspace(host)?;
-    let manifest = project::load(&root, &config.layout, project_id).map_err(reason)?;
-    assets::find(&manifest, asset_id).map_err(reason)?;
+    let manifest = project::load(&root, &config.layout, project_id)?;
+    assets::find(&manifest, asset_id)?;
     Ok(())
 }
 
@@ -194,8 +194,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let view =
-                    shared::view(host.session(), host.concepts(), &args.project, &args.asset)
-                        .map_err(|e| e.message)?;
+                    shared::view(host.session(), host.concepts(), &args.project, &args.asset)?;
                 Ok(refs_value(&view))
             })
             .await;
@@ -224,8 +223,7 @@ impl McpTools {
                     &args.project,
                     &args.asset,
                     &refs,
-                )
-                .map_err(reason)?;
+                )?;
                 after(host, &args.project, &args.asset)
             })
             .await;
@@ -250,8 +248,7 @@ impl McpTools {
                 };
                 let tools = host.toolbox();
                 let (direction, jobs) =
-                    shared::make_views(host.session(), host.concepts(), &tools, &request, backend(args.backend))
-                        .map_err(|e| e.message)?;
+                    shared::make_views(host.session(), host.concepts(), &tools, &request, backend(args.backend))?;
                 Ok(json!({
                     "status": "started",
                     "direction": { "id": direction.id, "name": direction.name },
@@ -285,8 +282,7 @@ impl McpTools {
                 };
                 let tools = host.toolbox();
                 let (direction, jobs) =
-                    shared::clean(host.session(), host.concepts(), &tools, &request, backend(args.backend))
-                        .map_err(|e| e.message)?;
+                    shared::clean(host.session(), host.concepts(), &tools, &request, backend(args.backend))?;
                 Ok(json!({
                     "status": "started",
                     "direction": { "id": direction.id, "name": direction.name },
@@ -313,8 +309,7 @@ impl McpTools {
                     &args.file,
                     args.view.map(RefView::from),
                     args.replace.unwrap_or(true),
-                )
-                .map_err(|e| e.message)?;
+                )?;
                 let mut out = after(host, &args.project, &args.asset)?;
                 out["replaced"] = to_value(&replaced);
                 Ok(out)

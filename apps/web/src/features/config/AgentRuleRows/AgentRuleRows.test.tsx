@@ -20,6 +20,17 @@ describe('the agent rule rows', () => {
     });
   });
 
+  it('offer the avatar and rig tools switch in Settings, on by default, not in the first run', () => {
+    const { rerender } = render(
+      <AgentRuleRows config={defaultConfig()} onChange={() => {}} density="compact" />
+    );
+    const name = 'Offer avatar and rig tools';
+    expect(screen.getByRole('switch', { name })).toBeChecked();
+    expect(screen.getByText(/next agent that connects/)).toBeInTheDocument();
+    rerender(<AgentRuleRows config={defaultConfig()} onChange={() => {}} />);
+    expect(screen.queryByRole('switch', { name })).toBeNull();
+  });
+
   it('show the details only when roomy', () => {
     const detail = 'Agents run Blender in the background and never open its window';
     const { rerender } = render(<AgentRuleRows config={defaultConfig()} onChange={() => {}} />);

@@ -792,6 +792,7 @@ export const events = {
 	pipelineUpdate: makeEvent<PipelineUpdate>("pipeline-update"),
 	prepareChanged: makeEvent<PrepareChanged>("prepare-changed"),
 	projectChanged: makeEvent<ProjectChanged>("project-changed"),
+	projectCreated: makeEvent<ProjectCreated>("project-created"),
 	providerUpdate: makeEvent<ProviderUpdate>("provider-update"),
 	quitRequested: makeEvent<QuitRequested>("quit-requested"),
 	renderChanged: makeEvent<RenderChanged>("render-changed"),
@@ -880,6 +881,11 @@ export type AgentRules = {
 	blenderHeadlessOnly: boolean,
 	neverCaptureScreen: boolean,
 	askBeforeShipping: boolean,
+	/**
+	 *  Whether agents are offered the avatar and rig doctor tools. Files
+	 *  from before this setting leave it out, and keep them.
+	 */
+	avatarRigTools?: boolean,
 };
 
 export type AgentSettings = {
@@ -963,6 +969,18 @@ export type AppState = {
 	 *  tell it from another one with the same name.
 	 */
 	machineId: string | null,
+	/**
+	 *  The projects whose repo an agent set: workspace root, then project
+	 *  ids. Files from before this have none, so those repos count as a
+	 *  person's. Kept here, per computer and off the synced workspace, like
+	 *  the paths themselves.
+	 */
+	agentSetRepos: { [key in string]: string[] },
+	/**
+	 *  The dev commands a person approved for an agent-set repo: the repo's
+	 *  folder, then each question's key (`site::preview::PreviewAsk::key`).
+	 */
+	previewApprovals: { [key in string]: string[] },
 };
 
 /**  Something an agent asked for that waits for a yes or no in the app. */
@@ -993,6 +1011,8 @@ export type Approval = {
 	version?: number | null,
 	/**  Rest pose and reweight: the before and after sheets. */
 	sheets?: NormalizeSheets | null,
+	/**  Page preview: the folder and the command that will run. */
+	preview?: PreviewAsk | null,
 };
 
 /**  One send of a batch approval. */
@@ -1035,7 +1055,12 @@ export type ApprovalKind =
  *  A rig doctor fix an agent started waits for a person to look at the
  *  sheets and add the draft as a version.
  */
-"rig-doctor";
+"rig-doctor" | 
+/**
+ *  The first start of the dev server of a repo an agent set waits for a
+ *  person to read the folder and the command.
+ */
+"page-preview";
 
 /**  How far one arm turned. */
 export type ArmLift = {
@@ -5042,6 +5067,32 @@ export type PrepareChanged = {
 /**  Which preset a send starts from. */
 export type PresetVariant = "prop" | "character";
 
+/**
+ *  The question, resolved the way the server resolves the command. A change
+ *  to the folder, the command or a listed file asks again. A yes trusts the
+ *  repo, including nested packages and the files scripts load.
+ */
+export type PreviewAsk = {
+	/**  The repo's real folder: links resolved, so a moved link asks again. */
+	repo: string,
+	/**  The command as one line, before the port is picked. */
+	command: string,
+	source: CommandSource,
+	/**
+	 *  What the command's package script runs, only when that is certain.
+	 *  None means Maquette cannot tell what the command runs.
+	 */
+	scriptRuns: string | null,
+	/**  That script's `pre` and `post` scripts, as `predev: its command`. */
+	hooks: string[],
+	/**  The last `script-shell` of the repo's `.npmrc`. */
+	scriptShell: string | null,
+	/**  The other files here that can change the shell or the manager. */
+	managerConfig: string[],
+	/**  A hash of each listed file that exists. */
+	filesHash: string,
+};
+
 /**  What a preview runs on: an inbox model, or an asset's newest version. */
 export type PreviewRequest = {
 	/**
@@ -5124,6 +5175,14 @@ export type ProjectAnimations = {
  *  accepting an inbox model, so the Board shows the new state.
  */
 export type ProjectChanged = {
+	project: ProjectManifest,
+};
+
+/**
+ *  An agent made a project in the open workspace through the MCP server, so
+ *  it joins the switcher. A plain change to a project never adds one.
+ */
+export type ProjectCreated = {
 	project: ProjectManifest,
 };
 

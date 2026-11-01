@@ -56,8 +56,7 @@ export function agentCalls(now: number): McpCall[] {
 export function createFakeAgents({
   config,
   active,
-  batch = false,
-  images = false,
+  scene = null,
   rig: rigOptions,
   emit,
   onSendDecision,
@@ -67,10 +66,12 @@ export function createFakeAgents({
   config: () => WorkspaceConfig;
   /** `active`: an agent session is under way, with a run waiting at Ship. */
   active: boolean;
-  /** The send waiting for approval is a batch of three. */
-  batch?: boolean;
-  /** An OpenAI Images round waits instead of the send. */
-  images?: boolean;
+  /**
+   * `batch`: the send waiting is a batch of three. `images`: an OpenAI Images
+   * round waits instead of it. `preview`: only a page preview waits, the first
+   * start of a repo an agent set.
+   */
+  scene?: string | null;
   emit?: (status: McpStatus) => void;
   /** A send to 3D an agent asked for was approved or denied. */
   onSendDecision?: (job: string, approve: boolean) => void;
@@ -81,6 +82,9 @@ export function createFakeAgents({
   /** What an agent's rig doctor case waits for; only the rig doctor view adds it. */
   rig?: { state: string | null; pace: number; emit: (record: RigRecord) => void };
 }) {
+  const batch = scene === 'batch';
+  const images = scene === 'images';
+  const preview = scene === 'preview';
   const rig = rigOptions
     ? createRigHandlers(rigOptions.state, rigOptions.pace, rigOptions.emit)
     : null;
@@ -99,7 +103,7 @@ export function createFakeAgents({
           job: null,
           assetName: null,
           service: null,
-          detail: null,
+          detail: 'Writes to /Users/you/code/frostveil-site',
           requestedAtMs: now - 12_000,
           items: [],
         },
@@ -179,6 +183,35 @@ export function createFakeAgents({
     ];
   }
 
+  if (preview) {
+    approvals = [
+      {
+        id: 'approval-4',
+        kind: 'page-preview',
+        runId: null,
+        project: 'frostveil',
+        runNumber: null,
+        step: null,
+        job: null,
+        assetName: null,
+        service: null,
+        detail: null,
+        requestedAtMs: now - 8_000,
+        items: [],
+        preview: {
+          repo: '/Users/you/code/frostveil-site',
+          command: 'pnpm run dev --port {port}',
+          source: 'package-json',
+          scriptRuns: 'astro dev',
+          hooks: ['predev: node scripts/sync-models.js'],
+          scriptShell: null,
+          managerConfig: [],
+          filesHash: '',
+        },
+      },
+    ];
+  }
+
   const status = (): McpStatus => {
     const agents = config().agents;
     if (agents.mcpEnabled && !token) token = MOCK_TOKEN;
@@ -231,5 +264,11 @@ export function createFakeAgents({
     },
   };
 
-  return { handlers, changed };
+  return {
+    handlers,
+    changed,
+    /** True while a page preview card holds `project`'s dev server back. */
+    previewWaits: (project: string) =>
+      approvals.some(a => a.kind === 'page-preview' && a.project === project),
+  };
 }

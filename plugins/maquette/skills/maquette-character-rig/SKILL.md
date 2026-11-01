@@ -13,6 +13,15 @@ result as the asset's next version. The original stays as v1. Tools are Maquette
 `run_rig_doctor` and `get_rig_doctor` give you its sheets and defects, and a person adds the result
 there. Use this skill by hand when the doctor refuses a model or stops.
 
+## Before you start
+
+Call `get_started` first. It says whether a workspace is open, which tools work, which keys are saved
+(true or false, never a value), every project with its stage, the gates only a person can pass, and
+a `next` list. No project to work in: `create_project` makes one and spends nothing. If the Maquette
+tools fail with `ECONNREFUSED`, the app is closed or its server is off: ask the person to open
+Maquette and turn the server on in Settings > Agents. An error names its `code`, and `fix` and
+`tryTool` when they help; `personOnly` means ask the person instead of trying again.
+
 ## Start with the rig doctor
 
 `start_rig_doctor` `{ inbox | project + asset, version? }` opens a case and reads the file with no
