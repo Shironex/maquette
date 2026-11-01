@@ -108,8 +108,13 @@ pub fn uncommitted(
         "-C",
         repo_arg.as_ref(),
         "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "-c",
+        "core.untrackedCache=false",
         "status",
         "--porcelain",
+        "--ignore-submodules=all",
     ];
     let out = runner
         .run(git, &args, path_env, GIT_STATUS_TIMEOUT)
@@ -275,5 +280,44 @@ mod tests {
         ] {
             assert!(check_repo(&bad).is_err(), "{bad}");
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn git_status_does_not_run_the_repos_fsmonitor() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let git = |args: &[&str]| {
+            let done = std::process::Command::new("git")
+                .arg("-C")
+                .arg(dir.path())
+                .args(args)
+                .output()
+                .expect("git");
+            assert!(done.status.success(), "{args:?}");
+        };
+        git(&["init", "-q"]);
+        let marker = dir.path().join("hook-ran");
+        let hook = dir.path().join("hook.sh");
+        fs::write(&hook, format!("#!/bin/sh\ntouch '{}'\n", marker.display())).expect("hook");
+        fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).expect("mode");
+        fs::write(dir.path().join("a.txt"), "x").expect("file");
+        git(&["add", "a.txt"]);
+        git(&["config", "core.fsmonitor", &hook.display().to_string()]);
+        let found = which_git();
+        let path = std::env::var_os("PATH").unwrap_or_default();
+        let count = uncommitted(dir.path(), &found, &crate::SystemRunner, &path);
+        assert_eq!(count, Some(2), "hook.sh is untracked, a.txt is added");
+        assert!(!marker.exists(), "the fsmonitor hook ran");
+    }
+
+    #[cfg(unix)]
+    fn which_git() -> std::path::PathBuf {
+        let out = std::process::Command::new("/bin/sh")
+            .args(["-c", "command -v git"])
+            .output()
+            .expect("sh");
+        std::path::PathBuf::from(String::from_utf8_lossy(&out.stdout).trim())
     }
 }
