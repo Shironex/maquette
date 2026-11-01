@@ -104,10 +104,10 @@ async function headerMenuShots({ open, shot }) {
       // The corners of the 40 px target still hit the button, the card did not move.
       const box = await dots.boundingBox();
       const hits = await dots.evaluate(
-        (el, { x, y }) =>
+        (el, { x, y, width, height }) =>
           [
-            [x - 6, y - 6],
-            [x + 32, y + 32],
+            [x + width / 2 - 19, y + height / 2 - 19],
+            [x + width / 2 + 19, y + height / 2 + 19],
           ].every(([px, py]) => {
             const at = document.elementFromPoint(px, py);
             return at === el || el.contains(at);
