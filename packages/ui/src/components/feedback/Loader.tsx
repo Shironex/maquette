@@ -1,5 +1,6 @@
 import { Icon } from '../../icons/Icon';
 import { cn } from '../../lib/cn';
+import { useMounted } from './Loader.hooks';
 
 /** The one recipe for waiting: a verb, how far when that is known, how long it took last time. */
 export interface WaitProps {
@@ -22,6 +23,7 @@ function waitMeta(count?: string | null, estimate?: string | null): string {
 /** The one spinner for anything still on its way: a view, its data or a 3D stage. */
 export function Loader({ label = 'Loading...', count, estimate, className }: LoaderProps) {
   const meta = waitMeta(count, estimate);
+  const say = useMounted();
   return (
     <div
       role="status"
@@ -29,8 +31,8 @@ export function Loader({ label = 'Loading...', count, estimate, className }: Loa
       className={cn('flex flex-col items-center gap-2 text-meta text-fg-mute', className)}
     >
       <Icon name="circle-notch" size={20} spin className="text-clay-text" />
-      <span className="text-center">{label}</span>
-      {meta ? <span className="font-mono tabular-nums">{meta}</span> : null}
+      {say ? <span className="text-center">{label}</span> : null}
+      {say && meta ? <span className="font-mono tabular-nums">{meta}</span> : null}
     </div>
   );
 }
@@ -43,14 +45,15 @@ export interface WaitLineProps extends WaitProps {
 /** The same recipe on one line, for a row or a heading with no room for the stacked loader. */
 export function WaitLine({ label, count, estimate, className }: WaitLineProps) {
   const meta = waitMeta(count, estimate);
+  const say = useMounted();
   return (
     <span
       role="status"
       className={cn('inline-flex min-w-0 items-center gap-1.5 text-meta text-fg-mute', className)}
     >
       <Icon name="circle-notch" size={13} spin className="flex-none text-clay-text" />
-      <span className="min-w-0 truncate">{label}</span>
-      {meta ? <span className="flex-none font-mono tabular-nums">{meta}</span> : null}
+      {say ? <span className="min-w-0 truncate">{label}</span> : null}
+      {say && meta ? <span className="flex-none font-mono tabular-nums">{meta}</span> : null}
     </span>
   );
 }

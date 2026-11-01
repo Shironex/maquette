@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { BudgetMeter } from '../status/BudgetMeter';
 import { Loader, WaitLine } from './Loader';
@@ -7,6 +8,12 @@ describe('the waiting recipe', () => {
   it('says the verb alone when nothing else is known', () => {
     render(<Loader label="Reading the motion..." />);
     expect(screen.getByRole('status')).toHaveTextContent(/^Reading the motion\.\.\.$/);
+  });
+
+  it('puts its words into a live region that is already there', () => {
+    render(<Loader label="Reading..." />);
+    expect(screen.getByRole('status')).toHaveTextContent('Reading...');
+    expect(renderToStaticMarkup(<Loader label="Reading..." />)).not.toContain('Reading...');
   });
 
   it('adds the count and the past time when they are known', () => {
