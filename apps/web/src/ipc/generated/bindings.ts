@@ -5068,10 +5068,9 @@ export type PrepareChanged = {
 export type PresetVariant = "prop" | "character";
 
 /**
- *  The question, resolved the way the server resolves the command. Its
- *  [`key`](Self::key) holds everything named here, so a change to any of it
- *  asks again. A yes trusts the repo's contents: files a script loads are
- *  not covered.
+ *  The question, resolved the way the server resolves the command. A change
+ *  to the folder, the command or a listed file asks again. A yes trusts the
+ *  repo, including nested packages and the files scripts load.
  */
 export type PreviewAsk = {
 	/**  The repo's real folder: links resolved, so a moved link asks again. */
@@ -5079,18 +5078,19 @@ export type PreviewAsk = {
 	/**  The command as one line, before the port is picked. */
 	command: string,
 	source: CommandSource,
-	/**  When the command runs a package script, what that script runs. */
-	scriptRuns: string | null,
-	/**  The script's `pre` and `post` scripts, as `predev: its command`. */
-	hooks: string[],
-	/**  The `script-shell` of the repo's `.npmrc`, which runs every script. */
-	scriptShell: string | null,
 	/**
-	 *  Hashes of files that change what runs: `.npmrc` (never its text, it
-	 *  can hold tokens), and `package.json` when a package manager runs
-	 *  something no script here names.
+	 *  What the command's package script runs, only when that is certain.
+	 *  None means Maquette cannot tell what the command runs.
 	 */
-	filesHash: string | null,
+	scriptRuns: string | null,
+	/**  That script's `pre` and `post` scripts, as `predev: its command`. */
+	hooks: string[],
+	/**  The last `script-shell` of the repo's `.npmrc`. */
+	scriptShell: string | null,
+	/**  The other files here that can change the shell or the manager. */
+	managerConfig: string[],
+	/**  A hash of each listed file that exists. */
+	filesHash: string,
 };
 
 /**  What a preview runs on: an inbox model, or an asset's newest version. */

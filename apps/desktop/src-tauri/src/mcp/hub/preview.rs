@@ -106,7 +106,8 @@ mod tests {
             script_runs: None,
             hooks: Vec::new(),
             script_shell: None,
-            files_hash: None,
+            manager_config: Vec::new(),
+            files_hash: String::new(),
         }
     }
 

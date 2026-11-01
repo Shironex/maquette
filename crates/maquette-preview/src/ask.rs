@@ -1,4 +1,9 @@
 //! What a person is asked before an agent-set repo's dev command first runs.
+//!
+//! The approval never depends on reading the command: its key holds the
+//! command line and a hash of every repo file listed here, whatever the
+//! program. Reading the command only feeds the card, and only for forms whose
+//! meaning is exact; anything else says so instead of guessing.
 
 use std::fs;
 use std::path::Path;
@@ -9,13 +14,74 @@ use serde::{Deserialize, Serialize};
 
 use crate::command::{CommandSource, DevCommand, scripts};
 
-/// The programs that run a package script.
-const MANAGERS: [&str; 4] = ["npm", "pnpm", "yarn", "bun"];
+/// The repo files that change what a dev command runs. Hashed, never kept as
+/// text: `.npmrc` can hold tokens.
+const CONFIG_FILES: [&str; 6] = [
+    "package.json",
+    ".npmrc",
+    "pnpm-workspace.yaml",
+    ".yarnrc.yml",
+    "bunfig.toml",
+    "maquette.site.json",
+];
 
-/// The question, resolved the way the server resolves the command. Its
-/// [`key`](Self::key) holds everything named here, so a change to any of it
-/// asks again. A yes trusts the repo's contents: files a script loads are
-/// not covered.
+/// The listed files that can set the shell or the manager in a way the card
+/// does not read: `scriptShell`, `yarnPath` and bun's own settings.
+const MANAGER_FILES: [&str; 3] = ["pnpm-workspace.yaml", ".yarnrc.yml", "bunfig.toml"];
+
+/// Words `pnpm X` or `yarn X` take as the manager's own command, not a script,
+/// even when `package.json` has a script of that name.
+const MANAGER_WORDS: [&str; 45] = [
+    "add",
+    "audit",
+    "bin",
+    "cache",
+    "config",
+    "create",
+    "dedupe",
+    "deploy",
+    "dlx",
+    "env",
+    "exec",
+    "explain",
+    "fetch",
+    "global",
+    "help",
+    "i",
+    "import",
+    "info",
+    "init",
+    "install",
+    "licenses",
+    "link",
+    "list",
+    "login",
+    "logout",
+    "ls",
+    "node",
+    "outdated",
+    "pack",
+    "patch",
+    "plugin",
+    "prune",
+    "publish",
+    "rebuild",
+    "remove",
+    "rm",
+    "root",
+    "set",
+    "store",
+    "unlink",
+    "up",
+    "update",
+    "version",
+    "why",
+    "workspace",
+];
+
+/// The question, resolved the way the server resolves the command. A change
+/// to the folder, the command or a listed file asks again. A yes trusts the
+/// repo, including nested packages and the files scripts load.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct PreviewAsk {
@@ -24,55 +90,82 @@ pub struct PreviewAsk {
     /// The command as one line, before the port is picked.
     pub command: String,
     pub source: CommandSource,
-    /// When the command runs a package script, what that script runs.
+    /// What the command's package script runs, only when that is certain.
+    /// None means Maquette cannot tell what the command runs.
     pub script_runs: Option<String>,
-    /// The script's `pre` and `post` scripts, as `predev: its command`.
+    /// That script's `pre` and `post` scripts, as `predev: its command`.
     pub hooks: Vec<String>,
-    /// The `script-shell` of the repo's `.npmrc`, which runs every script.
+    /// The last `script-shell` of the repo's `.npmrc`.
     pub script_shell: Option<String>,
-    /// Hashes of files that change what runs: `.npmrc` (never its text, it
-    /// can hold tokens), and `package.json` when a package manager runs
-    /// something no script here names.
-    pub files_hash: Option<String>,
+    /// The other files here that can change the shell or the manager.
+    pub manager_config: Vec<String>,
+    /// A hash of each listed file that exists.
+    pub files_hash: String,
 }
 
-/// The script a package manager's command line runs: `npm run dev`,
-/// `pnpm dev`, `pnpm run dev`, `yarn dev`, `bun run dev`. Flags are skipped.
+/// The program, with Windows' `.cmd` taken off; `.exe` and paths stay as they
+/// are, so they match no manager.
+fn manager(program: &str) -> &str {
+    program.strip_suffix(".cmd").unwrap_or(program)
+}
+
+/// The script of an exact form: `npm run X`, `npm run-script X`, `pnpm X`,
+/// `pnpm run X`, `yarn X`, `yarn run X`, `bun run X`. No flags and no other
+/// words: every other command line answers None.
 fn script_word(argv: &[String]) -> Option<&str> {
-    let mut words = argv.iter().skip(1).map(String::as_str);
-    let mut next = || words.find(|w| !w.starts_with('-'));
-    match next()? {
-        "run" | "run-script" => next(),
-        word => Some(word),
-    }
+    let words: Vec<&str> = argv.iter().map(String::as_str).collect();
+    let word = match words.as_slice() {
+        [program, "run", word] if matches!(manager(program), "npm" | "pnpm" | "yarn" | "bun") => {
+            *word
+        }
+        [program, "run-script", word] if manager(program) == "npm" => *word,
+        [program, word]
+            if matches!(manager(program), "pnpm" | "yarn") && !MANAGER_WORDS.contains(word) =>
+        {
+            *word
+        }
+        _ => return None,
+    };
+    (!word.starts_with('-')).then_some(word)
 }
 
-fn runs_a_manager(argv: &[String]) -> bool {
-    argv.first().is_some_and(|program| {
-        let name = program.to_lowercase();
-        let name = name.strip_suffix(".cmd").unwrap_or(&name);
-        MANAGERS.contains(&name)
-    })
+/// The script behind `command`. Maquette picked it itself on the package.json
+/// route, adding only the port; any other route has to be an exact form.
+fn script_name(command: &DevCommand) -> Option<&str> {
+    match command.source {
+        CommandSource::PackageJson => command.script.as_deref(),
+        _ => script_word(&command.argv),
+    }
 }
 
 fn script_shell(npmrc: &Path) -> Option<String> {
     let text = fs::read_to_string(npmrc).ok()?;
-    text.lines().find_map(|line| {
+    text.lines().rev().find_map(|line| {
         let (name, value) = line.split_once('=')?;
-        (name.trim() == "script-shell").then(|| value.trim().to_string())
+        let name = name.trim().replace('_', "-");
+        (name == "script-shell").then(|| value.trim().to_string())
     })
+}
+
+/// One line per listed file that exists. A file that cannot be read still
+/// counts, so it appearing or going away asks again.
+fn files_hash(site: &Path) -> String {
+    let lines: Vec<String> = CONFIG_FILES
+        .iter()
+        .filter(|name| fs::symlink_metadata(site.join(name)).is_ok())
+        .map(|name| {
+            let hash = hash_file(&site.join(name)).unwrap_or_else(|_| "unreadable".to_string());
+            format!("{name} {hash}")
+        })
+        .collect();
+    lines.join("\n")
 }
 
 impl PreviewAsk {
     /// The question for `command` in `site`.
     pub fn of(site: &Path, command: &DevCommand) -> Self {
-        let manager = runs_a_manager(&command.argv);
-        let found = scripts(site)
-            .ok()
-            .flatten()
-            .filter(|_| manager)
-            .unwrap_or_default();
-        let name = script_word(&command.argv).filter(|n| found.contains_key(*n));
+        let found = scripts(site).ok().flatten().unwrap_or_default();
+        let name = script_name(command).filter(|n| found.contains_key(*n));
         let script_runs = name.and_then(|n| found.get(n).cloned());
         let hooks = name.map_or_else(Vec::new, |n| {
             [format!("pre{n}"), format!("post{n}")]
@@ -83,35 +176,26 @@ impl PreviewAsk {
                 })
                 .collect()
         });
-        let npmrc = site.join(".npmrc");
-        let mut hashes = Vec::new();
-        if let Ok(hash) = hash_file(&npmrc) {
-            hashes.push(format!("npmrc {hash}"));
-        }
-        if manager
-            && script_runs.is_none()
-            && let Ok(hash) = hash_file(&site.join("package.json"))
-        {
-            hashes.push(format!("package.json {hash}"));
-        }
         Self {
             repo: real_folder(site).to_string_lossy().into_owned(),
             command: command.line(),
             source: command.source,
             script_runs,
             hooks,
-            script_shell: script_shell(&npmrc),
-            files_hash: (!hashes.is_empty()).then(|| hashes.join(" ")),
+            script_shell: script_shell(&site.join(".npmrc")),
+            manager_config: MANAGER_FILES
+                .iter()
+                .filter(|name| fs::symlink_metadata(site.join(name)).is_ok())
+                .map(ToString::to_string)
+                .collect(),
+            files_hash: files_hash(site),
         }
     }
 
-    /// What an approval is remembered by, with [`repo`](Self::repo).
+    /// What an approval is remembered by, with [`repo`](Self::repo). Nothing
+    /// read from the command goes in.
     pub fn key(&self) -> String {
-        let mut parts = vec![self.command.clone()];
-        parts.extend(self.script_runs.clone());
-        parts.extend(self.hooks.iter().cloned());
-        parts.extend(self.files_hash.clone());
-        parts.join("\n")
+        format!("{}\n{}", self.command, self.files_hash)
     }
 }
 
@@ -139,11 +223,10 @@ mod tests {
         dir
     }
 
-    const SCRIPTS: &str =
-        r#"{ "scripts": { "dev": "vite", "predev": "node a.js", "postdev": "node b.js" } }"#;
+    const SCRIPTS: &str = r#"{ "scripts": { "dev": "vite", "predev": "node a.js", "postdev": "node b.js", "install": "harmless", "exec": "harmless" } }"#;
 
     #[test]
-    fn every_way_to_name_a_script_shows_its_body() {
+    fn only_an_exact_form_shows_a_script_body() {
         let dir = site(SCRIPTS);
         for line in [
             "npm run dev",
@@ -153,8 +236,10 @@ mod tests {
             "yarn dev",
             "yarn run dev",
             "bun run dev",
-            "npm run dev -- --port {port}",
-            "pnpm --silent run dev",
+            "npm.cmd run dev",
+            "pnpm.cmd dev",
+            "yarn.cmd dev",
+            "bun.cmd run dev",
         ] {
             let ask = PreviewAsk::of(dir.path(), &settings(line));
             assert_eq!(ask.script_runs.as_deref(), Some("vite"), "{line}");
@@ -164,9 +249,70 @@ mod tests {
                 "{line}"
             );
         }
-        let plain = PreviewAsk::of(dir.path(), &settings("node server.js"));
-        assert_eq!(plain.script_runs, None);
-        assert!(plain.hooks.is_empty());
+    }
+
+    #[test]
+    fn any_other_form_shows_no_script_body() {
+        let dir = site(SCRIPTS);
+        for line in [
+            "pnpm --filter web dev",
+            "pnpm -C other dev",
+            "pnpm --silent run dev",
+            "pnpm run --silent dev",
+            "npm run dev --prefix other",
+            "npm --prefix other run dev",
+            "npm run dev -- --port {port}",
+            "yarn workspace web dev",
+            "corepack pnpm dev",
+            "npx vite",
+            "env A=1 pnpm dev",
+            "node --run dev",
+            "node server.js",
+            "pnpm.exe dev",
+            "npm.exe run dev",
+            "npm exec dev",
+            "npm dev",
+            "bun dev",
+            "pnpm exec",
+            "pnpm install",
+            "yarn exec",
+            "pnpm run nope",
+        ] {
+            let ask = PreviewAsk::of(dir.path(), &settings(line));
+            assert_eq!(ask.script_runs, None, "{line}");
+            assert!(ask.hooks.is_empty(), "{line}");
+        }
+    }
+
+    #[test]
+    fn the_package_json_route_names_the_script_maquette_picked() {
+        let dir = site(SCRIPTS);
+        let config = SiteConfig::legacy();
+        let command = choose(dir.path(), &config, None).expect("command");
+        assert_eq!(command.source, CommandSource::PackageJson);
+        let ask = PreviewAsk::of(dir.path(), &command);
+        assert_eq!(ask.script_runs.as_deref(), Some("vite"));
+    }
+
+    #[test]
+    fn any_listed_file_changing_asks_again_whatever_the_program() {
+        for line in [
+            "node server.js",
+            "corepack pnpm dev",
+            "pnpm --filter web dev",
+            "pnpm dev",
+        ] {
+            let dir = site(SCRIPTS);
+            let key = || PreviewAsk::of(dir.path(), &settings(line)).key();
+            for name in CONFIG_FILES {
+                let before = key();
+                fs::write(dir.path().join(name), "one").expect("write");
+                let written = key();
+                assert_ne!(before, written, "{name} appearing, {line}");
+                fs::write(dir.path().join(name), "two").expect("write");
+                assert_ne!(written, key(), "{name} changing, {line}");
+            }
+        }
     }
 
     #[test]
@@ -179,12 +325,16 @@ mod tests {
             }),
             ..SiteConfig::legacy()
         };
-        let from_config = |d: &Path| choose(d, &config, None).expect("command");
-        let from_settings = |d: &Path| choose(d, &config, Some("npm run dev")).expect("command");
-        let before = [
-            PreviewAsk::of(dir.path(), &from_config(dir.path())),
-            PreviewAsk::of(dir.path(), &from_settings(dir.path())),
-        ];
+        let asks = |d: &Path| {
+            [
+                PreviewAsk::of(d, &choose(d, &config, None).expect("command")),
+                PreviewAsk::of(
+                    d,
+                    &choose(d, &config, Some("npm run dev")).expect("command"),
+                ),
+            ]
+        };
+        let before = asks(dir.path());
         assert_eq!(before[0].source, CommandSource::SiteConfig);
         assert_eq!(before[1].source, CommandSource::Settings);
         fs::write(
@@ -192,11 +342,7 @@ mod tests {
             r#"{ "scripts": { "dev": "node evil.js" } }"#,
         )
         .expect("changed");
-        let after = [
-            PreviewAsk::of(dir.path(), &from_config(dir.path())),
-            PreviewAsk::of(dir.path(), &from_settings(dir.path())),
-        ];
-        for (old, new) in before.iter().zip(&after) {
+        for (old, new) in before.iter().zip(&asks(dir.path())) {
             assert_eq!(old.script_runs.as_deref(), Some("vite"));
             assert_eq!(new.script_runs.as_deref(), Some("node evil.js"));
             assert_ne!(old.key(), new.key());
@@ -204,40 +350,30 @@ mod tests {
     }
 
     #[test]
-    fn a_changed_pre_or_post_script_asks_again() {
-        let dir = site(r#"{ "scripts": { "dev": "vite" } }"#);
-        let key = || PreviewAsk::of(dir.path(), &settings("pnpm dev")).key();
-        let first = key();
-        fs::write(
-            dir.path().join("package.json"),
-            r#"{ "scripts": { "dev": "vite", "postdev": "node evil.js" } }"#,
-        )
-        .expect("post");
-        assert_ne!(first, key());
-    }
-
-    #[test]
-    fn a_changed_npmrc_asks_again_without_its_text_in_the_key() {
-        let dir = site(r#"{ "scripts": { "dev": "vite" } }"#);
-        let ask = || PreviewAsk::of(dir.path(), &settings("pnpm dev"));
-        let first = ask().key();
+    fn the_last_script_shell_wins_and_no_npmrc_text_reaches_the_key() {
+        let dir = site(SCRIPTS);
         fs::write(
             dir.path().join(".npmrc"),
-            "//registry/:_authToken=secret\nscript-shell = /tmp/evil.sh\n",
+            "script-shell=/bin/first\n//registry/:_authToken=secret\n; script-shell=/bin/off\nscript-shell = /tmp/last.sh\n",
         )
         .expect("npmrc");
-        let second = ask();
-        assert_ne!(first, second.key());
-        assert_eq!(second.script_shell.as_deref(), Some("/tmp/evil.sh"));
-        assert!(!second.key().contains("secret"));
+        let ask = PreviewAsk::of(dir.path(), &settings("pnpm dev"));
+        assert_eq!(ask.script_shell.as_deref(), Some("/tmp/last.sh"));
+        assert!(!ask.key().contains("secret"));
+        assert!(!ask.files_hash.contains("secret"));
     }
 
     #[test]
-    fn a_manager_running_something_unnamed_is_tied_to_the_whole_package_file() {
-        let dir = site(r#"{ "scripts": { "dev": "vite" } }"#);
-        let key = || PreviewAsk::of(dir.path(), &settings("pnpm --filter web dev")).key();
-        let first = key();
-        fs::write(dir.path().join("package.json"), r#"{ "scripts": {} }"#).expect("changed");
-        assert_ne!(first, key());
+    fn a_file_that_can_set_the_shell_or_manager_is_named() {
+        let dir = site(SCRIPTS);
+        let names = || PreviewAsk::of(dir.path(), &settings("pnpm dev")).manager_config;
+        assert!(names().is_empty());
+        fs::write(dir.path().join(".yarnrc.yml"), "yarnPath: evil.cjs\n").expect("yarn");
+        fs::write(dir.path().join("pnpm-workspace.yaml"), "scriptShell: x\n").expect("pnpm");
+        fs::write(dir.path().join("bunfig.toml"), "[run]\n").expect("bun");
+        assert_eq!(
+            names(),
+            ["pnpm-workspace.yaml", ".yarnrc.yml", "bunfig.toml"]
+        );
     }
 }

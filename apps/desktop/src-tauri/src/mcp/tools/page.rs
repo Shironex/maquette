@@ -92,6 +92,7 @@ fn approval_value(id: &str, ask: &PreviewAsk) -> Value {
         "scriptRuns": ask.script_runs,
         "scriptHooks": ask.hooks,
         "scriptShell": ask.script_shell,
+        "managerConfig": ask.manager_config,
         "note": APPROVAL_NOTE,
     })
 }
@@ -149,7 +150,7 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Start a project's site dev server, the one the Page view shows, or reuse it when it already serves that site. This runs the site repo's dev command on this computer. The first start of a repo an agent set waits for a person, who reads the folder, the command and its package scripts in the app: it answers waiting for approval, a yes starts the server, and a changed path, command, script or .npmrc asks again. A yes trusts the repo: files a script loads are not covered. A no is an error with code preview-refused. A repo a person set never asks. A server already answering at the site's configured address is reused and never stopped. Starting another project's site stops the one before. Waits up to waitSeconds (default 30) for it to answer and returns its state and address like get_page_preview; a failed start says why with the last log lines. The server stays until stop_page_preview or the app quits. Nothing is built or deployed.",
+        description = "Start a project's site dev server, the one the Page view shows, or reuse it when it already serves that site. This runs the site repo's dev command on this computer. The first start of a repo an agent set waits for a person, who reads the folder and the command in the app: it answers waiting for approval, a yes starts the server, and a changed folder, command, package.json or listed manager config asks again. A yes trusts the repo, including nested packages and the files scripts load. A no is an error with code preview-refused. A repo a person set never asks. A server already answering at the site's configured address is reused and never stopped. Starting another project's site stops the one before. Waits up to waitSeconds (default 30) for it to answer and returns its state and address like get_page_preview; a failed start says why with the last log lines. The server stays until stop_page_preview or the app quits. Nothing is built or deployed.",
         annotations(idempotent_hint = true)
     )]
     async fn start_page_preview(&self, Parameters(args): Parameters<StartPageArgs>) -> Out {
