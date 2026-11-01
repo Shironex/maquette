@@ -78,8 +78,9 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
           {preview ? (
             <p className="mt-0.5 text-meta text-fg-mute">
               An agent set this site repo over MCP. Its dev command runs on this computer as you, so
-              read it first. Nothing runs until you approve; a change to what is listed asks again.
-              A yes trusts this repo: files the script loads are not checked.
+              read it first. Nothing runs until you approve. A changed folder, command, package.json
+              or listed manager config asks again. A yes trusts the repo, including nested packages
+              and the files scripts load.
             </p>
           ) : doctor ? (
             <p className="mt-0.5 text-meta text-fg-mute">
@@ -149,6 +150,20 @@ export default function ApprovalCard({ approval, floating }: ApprovalCardProps) 
             <>
               <dt className="text-fg-mute">Script shell</dt>
               <dd className="m-0 font-mono break-all text-amber">{preview.scriptShell}</dd>
+            </>
+          ) : null}
+          {preview.scriptRuns ? null : (
+            <>
+              <dt className="text-fg-mute">Runs</dt>
+              <dd className="m-0 text-amber">Maquette cannot tell what this command runs.</dd>
+            </>
+          )}
+          {preview.managerConfig.length > 0 ? (
+            <>
+              <dt className="text-fg-mute">Shell or manager</dt>
+              <dd className="m-0 text-fg-dim">
+                Can be set in <span className="font-mono">{preview.managerConfig.join(', ')}</span>
+              </dd>
             </>
           ) : null}
           <dt className="text-fg-mute">From</dt>

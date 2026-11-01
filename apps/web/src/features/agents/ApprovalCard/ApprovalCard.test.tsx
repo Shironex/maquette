@@ -54,11 +54,32 @@ describe('an approval card', () => {
     expect(card).toHaveTextContent('pnpm run dev --port {port}');
     expect(card).toHaveTextContent('astro dev');
     expect(card).toHaveTextContent('predev: node scripts/sync-models.js');
-    expect(card).toHaveTextContent('files the script loads are not checked');
+    expect(card).toHaveTextContent('including nested packages and the files scripts load');
+    expect(card).not.toHaveTextContent('cannot tell');
     expect(card).toHaveTextContent("the site's package.json");
     await userEvent.click(within(card).getByRole('button', { name: 'Approve and run' }));
     expect(calls).toContain('mcp_decide');
     await waitFor(() => expect(useAgentsStore.getState().status?.approvals).toHaveLength(0));
+  });
+
+  it('says it cannot tell what a command runs, and names a file that can change it', async () => {
+    await openAgentSession('preview');
+    const known = approval('approval-4');
+    const unknown: Approval = {
+      ...known,
+      preview: {
+        ...known.preview!,
+        command: 'corepack pnpm dev',
+        scriptRuns: null,
+        hooks: [],
+        managerConfig: ['.yarnrc.yml'],
+      },
+    };
+    render(<ApprovalCard approval={unknown} />);
+    const card = screen.getByRole('alertdialog');
+    expect(card).toHaveTextContent('Maquette cannot tell what this command runs.');
+    expect(card).not.toHaveTextContent('Script runs');
+    expect(card).toHaveTextContent('.yarnrc.yml');
   });
 
   it('denies a page preview without running anything', async () => {
