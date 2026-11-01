@@ -10,8 +10,11 @@ import { clock } from '@/lib/clock';
 import { moveFocus } from './menuKeys';
 import { placeMenu, type MenuPlace } from './menuPlacement';
 
-/** How long after opening the second click of a double-click is dropped. */
-export const DOUBLE_CLICK_GUARD_MS = 300;
+/**
+ * How long after opening a click that counts as second of a double-click is
+ * dropped. Long enough for a slow one; a single click is never held up.
+ */
+export const DOUBLE_CLICK_GUARD_MS = 600;
 
 /**
  * The menu's place in the window, and its keyboard. The menu first renders

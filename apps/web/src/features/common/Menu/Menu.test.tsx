@@ -148,7 +148,10 @@ describe('the menu', () => {
       expect(onSelect).not.toHaveBeenCalled();
       fireEvent.click(row, { detail: 0 });
       expect(onSelect).toHaveBeenCalledTimes(1);
-      vi.advanceTimersByTime(300);
+      vi.advanceTimersByTime(599);
+      fireEvent.click(row, { detail: 2 });
+      expect(onSelect).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(1);
       fireEvent.click(row, { detail: 2 });
       expect(onSelect).toHaveBeenCalledTimes(2);
     } finally {
