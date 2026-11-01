@@ -88,7 +88,7 @@ fn layout_with_states() -> SceneLayout {
 fn the_view_lists_every_model_with_its_parts_and_the_stops() {
     let dir = tempfile::tempdir().expect("tempdir");
     let manifest = manifest(dir.path());
-    layout::save(dir.path(), &layout_with_states()).expect("layout");
+    layout::update(dir.path(), |_| Ok(layout_with_states())).expect("layout");
     let view = view(dir.path(), &manifest).expect("view");
     assert_eq!(view.stops.len(), 1);
     assert_eq!(view.models.len(), 1);
@@ -100,7 +100,7 @@ fn the_view_lists_every_model_with_its_parts_and_the_stops() {
 fn a_save_replaces_the_scroll_driven_triggers_and_keeps_the_rest() {
     let dir = tempfile::tempdir().expect("tempdir");
     let manifest = manifest(dir.path());
-    layout::save(dir.path(), &layout_with_states()).expect("layout");
+    layout::update(dir.path(), |_| Ok(layout_with_states())).expect("layout");
     let triggers = BTreeMap::from([(
         "crate".to_string(),
         vec![trigger(TriggerKind::Scroll, "open")],

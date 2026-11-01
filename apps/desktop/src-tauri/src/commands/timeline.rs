@@ -113,7 +113,7 @@ mod tests {
         placed
             .models
             .insert("lamp".into(), layout::Placement::default());
-        layout::save(&project_dir, &placed).expect("layout");
+        layout::update(&project_dir, |_| Ok(placed.clone())).expect("layout");
 
         let view = get(&session, &manifest.id).expect("get");
         assert_eq!(view.stops[0].id, "porch");

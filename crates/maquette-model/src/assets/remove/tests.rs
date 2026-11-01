@@ -175,7 +175,7 @@ fn world() -> World {
             ..ExplodeTrack::default()
         },
     );
-    layout::save(&project, &scene).expect("layout");
+    layout::update(&project, |_| Ok(scene.clone())).expect("layout");
     let prep = ModelPrep {
         skip_bake: Some(true),
         ..ModelPrep::default()

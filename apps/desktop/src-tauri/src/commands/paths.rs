@@ -113,7 +113,7 @@ mod tests {
             ..SceneLayout::default()
         };
         placed.models.insert("lamp".into(), Placement::default());
-        layout::save(&project_dir, &placed).expect("layout");
+        layout::update(&project_dir, |_| Ok(placed.clone())).expect("layout");
 
         let refused = save(
             &session,

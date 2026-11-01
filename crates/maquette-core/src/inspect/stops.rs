@@ -415,7 +415,7 @@ mod tests {
                 .collect(),
             ..Default::default()
         };
-        crate::layout::save(project, &layout).expect("layout");
+        crate::layout::update(project, |_| Ok(layout.clone())).expect("layout");
         let stops = load(project, &[]);
         assert_eq!(stops.source, StopsSource::Layout);
         assert_eq!(stops.file.as_deref(), Some("layout.json"));
