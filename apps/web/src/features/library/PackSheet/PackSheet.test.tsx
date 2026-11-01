@@ -1,14 +1,13 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { commands } from '@/ipc/client';
 import { NO_FILTERS } from '@/state/library';
 import { useAppStore } from '@/state/use-app-store';
 import { useLibrarySelectionStore } from '@/state/use-library-selection-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { usePackStore } from '@/state/use-pack-store';
 import { clearMocks, openMockLibrary } from '@/test/mock-ipc';
-import { follow, resetPacks, runPack } from '@/test/open-pack';
+import { follow, resetPacks } from '@/test/open-pack';
 import LibraryView from '../LibraryView/LibraryView';
 import PackSheet from './PackSheet';
 
@@ -64,49 +63,6 @@ describe('export pack from the library', () => {
     expect(within(sheet).getByRole('textbox', { name: 'Pack name' })).toHaveValue('market-set');
     await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
     expect(usePackStore.getState().open).toBe(false);
-  });
-
-  /** Another project's pack, waiting for an answer, with the sheet mounted. */
-  async function othersPack() {
-    const record = await runPack(3, 'others-pack');
-    const other = { ...record, source: { from: 'project' as const, project: 'someone-else' } };
-    vi.spyOn(commands, 'packGet').mockResolvedValue(other);
-    render(<PackSheet />);
-    return other;
-  }
-
-  it('stays open on the recent pack of another project', async () => {
-    const pack = await othersPack();
-    await act(() => usePackStore.getState().showRecord(pack.id));
-    await waitFor(() => expect(usePackStore.getState().record?.id).toBe(pack.id));
-    expect(usePackStore.getState().open).toBe(true);
-  });
-
-  it('stays open on resuming the pack of another project', async () => {
-    const pack = await othersPack();
-    vi.spyOn(commands, 'packResume').mockResolvedValue(pack);
-    await act(() => usePackStore.getState().resume(pack.id));
-    await waitFor(() => expect(usePackStore.getState().record?.id).toBe(pack.id));
-    expect(usePackStore.getState().open).toBe(true);
-  });
-
-  it('closes when another project opens, and the pack can still be answered after', async () => {
-    const pack = await runPack(3, 'left-behind');
-    render(<PackSheet />);
-    expect(usePackStore.getState().open).toBe(true);
-    const workspace = useAppStore.getState().workspace!;
-    act(() =>
-      useAppStore.setState({
-        workspace: { ...workspace, project: { ...workspace.project!, id: 'other' } },
-      })
-    );
-    await waitFor(() => expect(usePackStore.getState().open).toBe(false));
-    await act(() => usePackStore.getState().showRecord(pack.id));
-    expect(usePackStore.getState()).toMatchObject({ open: true });
-    expect(usePackStore.getState().record?.id).toBe(pack.id);
-    const decide = vi.spyOn(commands, 'packDecide').mockResolvedValue(pack);
-    await act(() => usePackStore.getState().decide({} as never));
-    expect(decide).toHaveBeenCalledWith(pack.id, {});
   });
 
   it('gives focus back to what opened it on close', async () => {

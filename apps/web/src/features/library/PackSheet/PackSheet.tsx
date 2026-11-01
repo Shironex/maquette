@@ -2,7 +2,7 @@ import { Sheet } from '@/features/common/Sheet';
 import { PackCheck } from '../PackCheck';
 import { PackDone } from '../PackDone';
 import { PackSettings } from '../PackSettings';
-import { useClosesWithProject, usePackSheet } from './PackSheet.hooks';
+import { usePackSheet } from './PackSheet.hooks';
 
 /**
  * Export pack: the settings for a selection, a collection or a project's
@@ -13,7 +13,6 @@ import { useClosesWithProject, usePackSheet } from './PackSheet.hooks';
  */
 export default function PackSheet() {
   const s = usePackSheet();
-  useClosesWithProject();
   if (!s.open) return null;
   return (
     <Sheet
