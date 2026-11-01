@@ -49,16 +49,11 @@ describe('fullPlan', () => {
     ]);
   });
 
-  test('without a cache folder ESLint and Prettier are the plain scripts', () => {
-    const { node } = fullPlan({ ...options, cacheDir: null });
-    assert.deepEqual(node[0].args, ['lint']);
-    assert.deepEqual(node.at(-1).args, ['format:check']);
-  });
-
-  test('the cache flags reach ESLint and Prettier and nothing else', () => {
+  test('only Prettier keeps a cache: ESLint rules read other files from disk', () => {
     const { node, rust } = fullPlan(options);
     const cached = [...node, ...rust].filter(s => s.args.includes('--cache'));
-    assert.deepEqual(names(cached), ['lint', 'format:check']);
+    assert.deepEqual(names(cached), ['format:check']);
+    assert.deepEqual(node[0].args, ['lint']);
   });
 });
 
@@ -118,6 +113,7 @@ describe('fastPlan', () => {
       rust: [],
     });
     assert.ok(plan.node[0].args.includes('apps/web/src/App.tsx'));
+    assert.ok(plan.node[0].args.includes('--cache'));
     assert.deepEqual(plan.node[3].args.slice(1, 5), ['vitest', 'run', '--changed', 'abc']);
   });
 

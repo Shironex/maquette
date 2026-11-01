@@ -2,7 +2,6 @@
  * The local gate, with the Node and Rust checks side by side.
  *
  *   pnpm gate                the whole gate: has to exit 0 before a pull request
- *   pnpm gate --no-cache     the same with no ESLint or Prettier cache
  *   pnpm gate:fast           only what the changes since main touch (proves less)
  *
  * `cargo test -p maquette-desktop` writes the IPC bindings and tool-names.txt
@@ -79,9 +78,9 @@ function changedSince(base) {
 }
 
 /** The plan, plus the notices to repeat in the summary. */
-function choosePlan({ fast, noCache }) {
+function choosePlan({ fast }) {
   const nextest = hasNextest();
-  const cacheDir = noCache ? null : cacheFolder();
+  const cacheDir = cacheFolder();
   const notices = [];
   if (!nextest) {
     notices.push(
@@ -104,7 +103,7 @@ function choosePlan({ fast, noCache }) {
 }
 
 const argv = process.argv.slice(2).filter(arg => arg !== '--');
-const unknown = argv.filter(arg => arg !== '--fast' && arg !== '--no-cache');
+const unknown = argv.filter(arg => arg !== '--fast');
 if (unknown.length > 0) {
   console.error(`gate: unknown argument ${unknown.join(' ')}`);
   process.exit(2);
@@ -122,10 +121,7 @@ for (const [signal, code] of [
 
 process.chdir(root);
 const started = performance.now();
-const { plan, notices } = choosePlan({
-  fast: argv.includes('--fast'),
-  noCache: argv.includes('--no-cache'),
-});
+const { plan, notices } = choosePlan({ fast: argv.includes('--fast') });
 notices.forEach(notice => console.log(notice));
 
 const generatedBefore = generatedState();

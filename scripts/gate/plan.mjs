@@ -33,7 +33,6 @@ const heavy = s => ({ ...s, exclusive: true });
  * not file times, so switching branches keeps what is still true.
  */
 function cacheFlags(tool, cacheDir) {
-  if (!cacheDir) return [];
   return ['--cache', '--cache-strategy', 'content', '--cache-location', join(cacheDir, tool)];
 }
 
@@ -52,11 +51,15 @@ const rustLane = nextest => [
   ...rustTests(nextest),
 ];
 
-/** The whole gate: the same steps in the same order per lane as ever. */
+/**
+ * The whole gate: the same steps in the same order per lane as ever. ESLint has
+ * no cache here: rules read sibling files and package.json from disk, so a
+ * cached pass can outlive a deleted required test. Prettier judges a file alone.
+ */
 export function fullPlan({ nextest, cacheDir }) {
   return {
     node: [
-      pnpm('lint', 'lint', ...cacheFlags('eslint', cacheDir)),
+      pnpm('lint', 'lint'),
       pnpm('lint:meta', 'lint:meta'),
       pnpm('typecheck', 'typecheck'),
       heavy(pnpm('test', 'test')),

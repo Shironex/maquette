@@ -68,9 +68,8 @@ The gate differs from CI in three ways:
 - **Rust tests:** it uses [cargo-nextest](https://nexte.st) (`cargo install cargo-nextest --locked`)
   plus `cargo test --doc`. Without nextest it runs `cargo test` and says so; the tests are the same.
   CI runs `cargo test`, on both macOS and Windows.
-- **Cache:** ESLint and Prettier keep a cache in `node_modules/.cache`, so a rule that looks at other
-  files (a component's required test, say) may not re-check an unchanged file. CI has no cache.
-  `pnpm gate --no-cache` runs without it.
+- **Cache:** Prettier keeps a cache in `node_modules/.cache`, which is safe since it judges each file
+  alone. ESLint has none in the gate, because its rules read other files. CI has no cache.
 - **Generated files:** the gate fails if the Rust tests rewrote the IPC bindings or `tool-names.txt`,
   because the Node lane may have read either version. Commit the new files and run it again.
 
