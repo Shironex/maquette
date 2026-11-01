@@ -93,41 +93,59 @@ pub fn save_settings(
     let mut moved = Vec::new();
     let mut models_dir = String::new();
     let manifest = project::modify(workspace_root, layout, id, |m| {
-        let snapshot = m.clone();
-        let name = m.name.clone();
-        let game = match (m.target, m.game.as_mut()) {
-            (ProjectTarget::Game, Some(game)) => game,
-            _ => return Err(CoreError::Invalid(format!("{name} is not a game project."))),
-        };
-        let mut next = (**game).clone();
-        if let Some(format) = change.format {
-            next.format = format;
+        let next = changed(m, &change)?;
+        if let (Some(folders), Some(game)) = (&change.asset_folders, m.game.as_deref()) {
+            moved = moves(game, &next, m, folders);
         }
-        if let Some(dir) = change.models_dir {
-            next.models_dir = dir.trim().trim_matches('/').to_string();
-        }
-        if let Some(export) = change.export {
-            next.export = export;
-        }
-        if let Some(bake) = change.bake {
-            next.bake = bake;
-        }
-        if let Some(budgets) = change.budgets {
-            next.budgets = budgets;
-        }
-        if let Some(folders) = &change.asset_folders {
-            apply_folders(&mut next, &snapshot, folders)?;
-            moved = moves(game, &next, &snapshot, folders);
-        }
-        validate(&next)?;
         models_dir.clone_from(&next.models_dir);
-        **game = next;
+        m.game = Some(Box::new(next));
         Ok(())
     })?;
     let dir = project::dir(workspace_root, layout, id)?;
     ship::record_moves(&dir, &models_dir, &moved)?;
     crate::pipeline::ensure(&dir, &manifest)?;
     Ok(manifest)
+}
+
+/// The settings `change` leads to, checked, with nothing saved.
+fn changed(m: &ProjectManifest, change: &GameSettingsChange) -> CoreResult<GameSettings> {
+    let Some(game) = m
+        .game
+        .as_deref()
+        .filter(|_| m.target == ProjectTarget::Game)
+    else {
+        return Err(CoreError::Invalid(format!(
+            "{} is not a game project.",
+            m.name
+        )));
+    };
+    let mut next = game.clone();
+    if let Some(format) = change.format {
+        next.format = format;
+    }
+    if let Some(dir) = &change.models_dir {
+        next.models_dir = dir.trim().trim_matches('/').to_string();
+    }
+    if let Some(export) = &change.export {
+        next.export = export.clone();
+    }
+    if let Some(bake) = change.bake {
+        next.bake = bake;
+    }
+    if let Some(budgets) = &change.budgets {
+        next.budgets = budgets.clone();
+    }
+    if let Some(folders) = &change.asset_folders {
+        apply_folders(&mut next, m, folders)?;
+    }
+    validate(&next)?;
+    Ok(next)
+}
+
+/// Refuses a change [`save_settings`] would refuse, writing nothing, for a
+/// call that moves the repo first.
+pub fn check_settings(m: &ProjectManifest, change: &GameSettingsChange) -> CoreResult<()> {
+    changed(m, change).map(|_| ())
 }
 
 /// The fix-ups that bring a model within `check`: Decimate to the folder's
