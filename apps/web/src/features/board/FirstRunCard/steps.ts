@@ -7,7 +7,7 @@ export const STEPS = [
   {
     title: 'Cut it into objects, then send to 3D',
     detail:
-      'A picture sent whole comes back as one fused mesh. Make object refs in the Lab gives each object its own image and model. Send them to Tripo, Meshy or by hand, and I check what comes back.',
+      'A picture sent whole comes back as one fused mesh. Make object refs in the Lab gives each object its own model. Send them to Tripo, Meshy or by hand.',
   },
   {
     title: 'Run the pipeline',
