@@ -25,7 +25,7 @@ New parts are named `part_1`, `part_2` and on, top first, each with its origin a
 - **Tripo** segments the mesh. **Geometry** cuts where the shape changes; **Semantic, beta** looks for parts that mean something, like a lid or a cage, with a granularity (Simple, Balanced, Detailed) and loose pieces split too by default. **Complete hidden parts** runs a second Tripo task that rebuilds faces one part hid in another, for more credits. A model Tripo made goes by its task; any other goes up as a file. The parts arrive as `tripo_part_0`, `tripo_part_1` and on; name them in the Parts tab.
 - **Meshy** runs Auto Split on a model Meshy made with Meshy 6 or 7 (Low Poly and Smart Topology models cannot be split). **Auto** lets Meshy choose the cuts; **By parts** and **By colour** take 1 to 10 names to look for ("lid, cage, crystal"). About 10 credits, refunded when the split fails, and you can cancel while Meshy has not started.
 
-A split is a send like any other: it waits in the 3D queue, its credits show in the Credits sheet, it carries on after a restart, and an agent's split waits for your approval in the app. It lands in the Inbox; accept it and it becomes the asset's next version. The version it came from stays, so Before and after compares the two and **Keep** picks one.
+A split is a send like any other: it waits in Sends, its credits show in the Credits sheet, it carries on after a restart, and an agent's split waits for your approval in the app. It lands in the Inbox; accept it and it becomes the asset's next version. The version it came from stays, so Before and after compares the two and **Keep** picks one.
 
 ## The texture after a split
 

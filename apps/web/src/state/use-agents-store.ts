@@ -47,7 +47,7 @@ export const useAgentsStore = create<AgentsStore>((set, get) => ({
           approve ? 'done' : 'info',
           approve ? `${asset} is on its way to ${approval.service}` : `${asset} was not sent`,
           approve
-            ? 'Follow it in the 3D queue. The agent sees it on its next get_provider_job.'
+            ? 'Follow it in Sends. The agent sees it on its next get_provider_job.'
             : 'Nothing was spent. The agent is told it was denied.'
         );
       } else if (

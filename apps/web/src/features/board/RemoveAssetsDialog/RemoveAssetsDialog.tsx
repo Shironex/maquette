@@ -47,7 +47,7 @@ export default function RemoveAssetsDialog(props: RemoveAssetsDialogProps) {
           disabled: removable.length === 0 || tooMany,
           disabledReason: tooMany
             ? `Remove at most ${MAX_REMOVE} assets at a time`
-            : 'Wait for its send to finish, or cancel it in the 3D queue',
+            : 'Wait for its send to finish, or cancel it in Sends',
           onClick: () => void confirm(),
         },
         { label: 'Cancel', onClick: onClose },

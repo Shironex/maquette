@@ -37,7 +37,7 @@ You can also skip the bake for an asset and pad its texture edges. A model accep
 
 ## Accept and redo
 
-Accept to Blender moves the file into the project's `models/` folder as a new asset version. By default it goes to the asset the model was sent for, or the one a download was attached to. A model accepted for an asset with a By hand send still waiting also closes that send, as done with the note "Model added to the asset, no longer waiting"; a Tripo or Meshy send of the asset runs on. Redo sends an inbox model's asset again, prefilled from its send; the earlier model stays in the inbox so you can compare and accept one. A model that came as one mesh can also go to Tripo or Meshy to be split into parts from its One mesh, no parts check, and the split comes back as another inbox model; a Meshy split's texture bakes back once it is accepted. See [Parts](/docs/views/parts/#split-on-tripo-or-meshy).
+Accept into project moves the file into the project's `models/` folder as a new asset version. By default it goes to the asset the model was sent for, or the one a download was attached to. A model accepted for an asset with a By hand send still waiting also closes that send, as done with the note "Model added to the asset, no longer waiting"; a Tripo or Meshy send of the asset runs on. Redo sends an inbox model's asset again, prefilled from its send; the earlier model stays in the inbox so you can compare and accept one. A model that came as one mesh can also go to Tripo or Meshy to be split into parts from its One mesh, no parts check, and the split comes back as another inbox model; a Meshy split's texture bakes back once it is accepted. See [Parts](/docs/views/parts/#split-on-tripo-or-meshy).
 
 ## Many models at a time
 

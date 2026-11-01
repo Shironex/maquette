@@ -58,7 +58,7 @@ describe('an earlier direction', () => {
     const moveDirection = vi.fn(async () => true);
     useLabStore.setState({ moveDirection });
     renderRow(true);
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Move to project…' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Move to project...' }));
     expect(screen.getByText('Its concepts, picks, stars and Board card go along.')).toBeVisible();
     await userEvent.click(screen.getByRole('menuitem', { name: 'Frost cathedral' }));
     expect(moveDirection).toHaveBeenCalledWith('veil-gate-kit', 'frost-cathedral');
@@ -67,7 +67,7 @@ describe('an earlier direction', () => {
   it('holds the move while its images are generating', async () => {
     const job = { direction: 'veil-gate-kit', state: 'running' } as LabView['jobs'][number];
     renderRow(true, vi.fn(), { ...view, jobs: [job] });
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Move to project…' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Move to project...' }));
     expect(screen.getByText(/still generating/)).toBeVisible();
   });
 });

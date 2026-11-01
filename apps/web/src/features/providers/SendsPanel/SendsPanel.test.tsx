@@ -39,9 +39,9 @@ describe('the Sends panel', () => {
     const paid = job('a', 'tripo', 'running');
     useProvidersStore.setState({ queueOpen: true });
     withJobs(paid);
-    const sheet = screen.getByRole('dialog', { name: '3D queue' });
+    const sheet = screen.getByRole('dialog', { name: 'Sends' });
     expect(within(sheet).queryByRole('tablist')).toBeNull();
-    expect(within(sheet).getByRole('region', { name: '3D queue' })).toBeInTheDocument();
+    expect(within(sheet).getByRole('region', { name: 'Sends' })).toBeInTheDocument();
     expect(within(sheet).getByText('1 send in flight')).toBeInTheDocument();
   });
 
@@ -58,13 +58,13 @@ describe('the Sends panel', () => {
     await openProviders();
     useProvidersStore.setState({ queueOpen: true });
     withJobs(job('a', 'by-hand', 'waiting'), job('b', 'meshy', 'queued'));
-    const queueTab = screen.getByRole('tab', { name: /^3D queue\s*2$/ });
+    const queueTab = screen.getByRole('tab', { name: /^Sends\s*2$/ });
     expect(queueTab).toHaveAttribute('aria-selected', 'true');
     await userEvent.click(screen.getByRole('tab', { name: /^By hand\s*1$/ }));
     expect(screen.getByRole('dialog', { name: 'By hand checklist' })).toBeInTheDocument();
     expect(useProvidersStore.getState().queueOpen).toBe(false);
     await userEvent.keyboard('{ArrowLeft}');
-    expect(screen.getByRole('dialog', { name: '3D queue' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Sends' })).toBeInTheDocument();
   });
 
   it('keeps a way to the other list when the open one is no longer the only kind', async () => {

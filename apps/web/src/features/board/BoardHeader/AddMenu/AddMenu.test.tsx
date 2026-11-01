@@ -45,7 +45,7 @@ describe('the Add split button', () => {
     expect(screen.queryByRole('form', { name: 'Add asset' })).toBeNull();
   });
 
-  it('lists Add asset and Built asset on a website, without Import models', async () => {
+  it('lists only Built asset on a website: the main button already adds an asset', async () => {
     render(<AddMenu />);
     await openAdd();
     const menu = screen.getByRole('menu', { name: 'Add to the project' });
@@ -53,9 +53,8 @@ describe('the Add split button', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map(i => i.textContent)
-    ).toEqual(['Add asset', 'Built asset']);
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Add asset' }));
-    expect(screen.getByRole('form', { name: 'Add asset' })).toBeInTheDocument();
+    ).toEqual(['Built asset']);
+    expect(within(menu).queryByRole('menuitem', { name: 'Add asset' })).toBeNull();
   });
 
   it('adds Import models on a game and opens the import', async () => {
@@ -70,7 +69,7 @@ describe('the Add split button', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map(i => i.textContent)
-    ).toEqual(['Add asset', 'Import models', 'Built asset']);
+    ).toEqual(['Import models', 'Built asset']);
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Import models' }));
     expect(open).toHaveBeenCalledWith(useAppStore.getState().workspace!.project!.id);
     useGameStore.setState({ openImport: before });

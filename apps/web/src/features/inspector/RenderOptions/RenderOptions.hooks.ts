@@ -9,12 +9,14 @@ export function useRenderOptions(source: PackSource, assetId: string) {
   const change = useRenderTabStore(s => s.change);
   const reset = useRenderTabStore(s => s.reset);
   const preview = useRenderTabStore(s => s.preview);
+  const rendering = useRenderStore(s => s.busy || s.live?.state === 'running');
   const store = useRenderStore.getState;
   return {
     style,
     settings,
     change,
     reset,
+    rendering,
     dir: preview?.dir ?? null,
     folder: preview?.folder ?? '',
     render: () => void store().renderOne(source, assetId, style, settings),

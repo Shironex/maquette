@@ -28,7 +28,7 @@ export default function LocateButton({
       className={fixedWidth ? 'w-[72px]' : undefined}
       onClick={() => void onLocate(tool)}
     >
-      Locate…
+      Locate...
     </Button>
   );
 }

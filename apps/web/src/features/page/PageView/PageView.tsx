@@ -60,7 +60,7 @@ export default function PageView() {
               }
             />
           ) : (
-            <Loader />
+            <Loader label="Reading the page..." />
           )}
         </main>
       </>

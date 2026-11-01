@@ -56,7 +56,7 @@ async function packDoneShots({ open, shot }) {
   const sheet = page.getByRole('dialog', { name: 'Export pack' });
   await sheet.getByRole('button', { name: 'Export and check' }).click();
   await sheet.getByText(/^214 of 214 done/).waitFor({ timeout: 60_000 });
-  await sheet.getByRole('button', { name: /^Zip all \d+$/ }).click();
+  await sheet.getByRole('button', { name: /^Zip (all \d+|\d+ of \d+)$/ }).click();
   await page.getByRole('region', { name: 'Opened again' }).waitFor({ timeout: 60_000 });
   await shot(page, 'library-pack-done');
   await page.context().close();

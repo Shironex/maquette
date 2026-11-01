@@ -73,7 +73,7 @@ export default function PackCheck({ record }: PackCheckProps) {
           tooltip="Leaves the models that need you out of the pack"
           onClick={() => void c.zip('passing')}
         >
-          Zip {c.passing} that pass
+          {`Zip ${c.passing} that pass`}
         </Button>
         <Button
           variant="primary"
@@ -83,7 +83,7 @@ export default function PackCheck({ record }: PackCheckProps) {
           tooltip="Zips every model with files, the warnings as they are; a failed one has none"
           onClick={() => void c.zip('all')}
         >
-          Zip all {c.zipAll}
+          {c.zipAll === c.total ? `Zip all ${c.zipAll}` : `Zip ${c.zipAll} of ${c.total}`}
         </Button>
       </>
     );

@@ -29,7 +29,7 @@ describe('the check of a pack', () => {
     expect(within(needs).getByRole('button', { name: /^Raise to / })).toBeVisible();
     expect(within(needs).getByRole('button', { name: 'Export again' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Zip 6 that pass' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Zip all 7' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Zip 7 of 8' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Stop' })).toHaveAttribute('aria-disabled', 'true');
     expect(within(needs).getByText(/^village-props, 8 models/)).toBeVisible();
   });

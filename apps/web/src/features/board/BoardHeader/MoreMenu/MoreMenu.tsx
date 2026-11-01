@@ -55,7 +55,7 @@ export default function MoreMenu() {
       section: 'sends',
       disabled: !project,
       hint: project
-        ? 'The 3D queue: every send to Tripo or Meshy and by hand, finished ones too, with Credits'
+        ? 'Every send to Tripo or Meshy and by hand, finished ones too, with Credits'
         : 'Open a project first',
       onSelect: allSends,
     },

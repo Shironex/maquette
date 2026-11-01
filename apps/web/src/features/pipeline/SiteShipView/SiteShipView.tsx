@@ -44,7 +44,7 @@ export default function SiteShipView({ project, focus = null, onClose }: SiteShi
             }
           />
         ) : (
-          <Loader />
+          <Loader label="Reading the ship settings..." />
         )}
       </main>
     );

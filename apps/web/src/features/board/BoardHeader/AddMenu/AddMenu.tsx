@@ -5,18 +5,11 @@ import { useAddMenu } from './AddMenu.hooks';
 
 const NO_PROJECT = 'Open a project first';
 
-/** Add: the main click adds an asset; the caret lists the other ways to bring one in. */
+/** Add: the main click adds an asset; the caret lists only the other ways to bring one in. */
 export default function AddMenu() {
   const { project, game, adding, setAdding, menuOpen, setMenuOpen, added, addBuilt, importModels } =
     useAddMenu();
   const items: MenuItem[] = [
-    {
-      id: 'asset',
-      label: 'Add asset',
-      icon: 'plus',
-      hint: 'A new card on the Board, named, with its kind and column',
-      onSelect: () => setAdding(true),
-    },
     ...(game
       ? [
           {

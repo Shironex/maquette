@@ -44,7 +44,7 @@ describe('BoardHeader', () => {
   it('names the project and keeps the old buttons out of the row', () => {
     render(<BoardHeader />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Frostveil');
-    for (const gone of [/^By hand/, /^3D queue/, /^Export pack/, /^Built asset/, /^Removed/])
+    for (const gone of [/^By hand/, /^Export pack/, /^Built asset/, /^Removed/])
       expect(screen.queryByRole('button', { name: gone })).toBeNull();
   });
 

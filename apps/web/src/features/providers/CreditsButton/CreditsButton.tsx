@@ -4,7 +4,7 @@ import { useCreditsButton } from './CreditsButton.hooks';
 export interface CreditsButtonProps {
   /** Filters the sheet to this project; null shows every project. */
   project?: string | null;
-  /** Runs before the sheet opens, for example to close the 3D queue. */
+  /** Runs before the sheet opens, for example to close Sends. */
   onOpen?: () => void;
 }
 

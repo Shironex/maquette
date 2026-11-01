@@ -105,7 +105,7 @@ export default function NeedsYouCard({ item, busy, stopped = false, onDecide }: 
           className={failed ? 'text-danger' : 'text-clay-text'}
         />
         <b className="min-w-0 flex-1 truncate">{item.model.name}</b>
-        <span className="font-mono text-meta text-fg-mute">{failed ? 'failed' : 'to look at'}</span>
+        <span className="font-mono text-meta text-fg-mute">{failed ? 'Failed' : 'To look at'}</span>
       </div>
       <p className="text-meta text-fg-dim">{item.note}</p>
       <div className="flex flex-wrap gap-2">{actions}</div>
