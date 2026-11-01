@@ -1,11 +1,8 @@
-import { useState } from 'react';
-import { readFlag, writeFlag } from '@/lib/storage';
 import { isGame } from '@/state/game';
 import { useAppStore } from '@/state/use-app-store';
+import { useFirstRunTips } from '@/state/use-first-run-tips';
 import { useGameStore } from '@/state/use-game-store';
 import { GAME_STEPS, STEPS } from './steps';
-
-const TIPS_KEY = 'maquette.board.tipsHidden';
 
 /** Whether the tips were hidden, remembered across launches, and where they lead. */
 export function useFirstRunCard() {
@@ -13,11 +10,7 @@ export function useFirstRunCard() {
   const project = useAppStore(s => s.workspace?.project);
   const openImport = useGameStore(s => s.openImport);
   const game = isGame(project);
-  const [hidden, setHidden] = useState(() => readFlag(TIPS_KEY));
-  const hide = () => {
-    setHidden(true);
-    writeFlag(TIPS_KEY, true);
-  };
+  const { hidden, hide } = useFirstRunTips();
   return {
     hidden,
     hide,

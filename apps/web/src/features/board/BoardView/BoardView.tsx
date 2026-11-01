@@ -10,6 +10,7 @@ import { PrepDialog } from '../PrepDialog';
 import { RemoveAssetsDialog } from '../RemoveAssetsDialog';
 import { RenameAssetDialog } from '../RenameAssetDialog';
 import { useRenderStore } from '@/state/use-render-store';
+import { useBoardPrimary } from '../useBoardPrimary';
 import { SelectionBar } from '../SelectionBar';
 import { useBoardData, useBoardSelection, useCardActions, useCardDrop } from './BoardView.hooks';
 
@@ -24,6 +25,7 @@ export default function BoardView() {
   const { present } = selection;
   const { renaming, sizing, removing } = actions;
   const builtDialog = useBuiltDialog();
+  const primary = useBoardPrimary();
   const stageColumns = STAGES.map(stage => (
     <BoardColumn
       key={stage}
@@ -36,7 +38,7 @@ export default function BoardView() {
 
   return (
     <>
-      <ProjectTopBar />
+      <ProjectTopBar primaryRun={primary === 'run'} />
       <main className="flex min-h-0 flex-1 flex-col gap-[18px] px-6 pt-[22px] pb-5">
         <BoardHeader />
 

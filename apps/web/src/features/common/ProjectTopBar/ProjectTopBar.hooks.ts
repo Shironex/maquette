@@ -1,3 +1,4 @@
+import { hasModels } from '@/state/board';
 import { useAppStore } from '@/state/use-app-store';
 import { estimatedTransfer, stageViews } from '@/state/pipeline';
 import { budgetPending } from '@/state/motion';
@@ -20,6 +21,7 @@ export function useProjectTopBar() {
     loaded: Boolean(pipeline),
     canRun: (pipeline?.def.steps.length ?? 0) > 0,
     running: Boolean(pipeline?.active),
+    models: hasModels(assets),
     showPipeline: () => setView('pipeline'),
     run: () => {
       void runPipeline();

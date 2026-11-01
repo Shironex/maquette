@@ -7,9 +7,19 @@ import type { ProjectTopBarProps } from './ProjectTopBar.types';
  * The stage stepper, the scene budget and Run pipeline, as the Board and
  * the Lab show them; `extra` goes before Run pipeline.
  */
-export default function ProjectTopBar({ extra }: ProjectTopBarProps) {
-  const { stages, budget, sceneMb, budgetPending, loaded, canRun, running, showPipeline, run } =
-    useProjectTopBar();
+export default function ProjectTopBar({ extra, primaryRun }: ProjectTopBarProps) {
+  const {
+    stages,
+    budget,
+    sceneMb,
+    budgetPending,
+    loaded,
+    canRun,
+    running,
+    models,
+    showPipeline,
+    run,
+  } = useProjectTopBar();
   return (
     <TopBar
       lead={<StageStepper stages={stages} />}
@@ -27,10 +37,15 @@ export default function ProjectTopBar({ extra }: ProjectTopBarProps) {
             </Button>
           ) : (
             <Button
+              variant={primaryRun ? 'primary' : 'secondary'}
               icon="play"
               disabled={!canRun}
               disabledReason={loaded ? undefined : 'Loading the pipeline'}
-              tooltip="Runs every step, skipping cached ones"
+              tooltip={
+                models
+                  ? 'Runs every step, skipping cached ones'
+                  : 'No models yet, so a run has nothing to build'
+              }
               onClick={run}
             >
               Run pipeline

@@ -1,6 +1,7 @@
 import { Button, IconButton } from '@maquette/ui';
 import { Menu, type MenuItem } from '@/features/common/Menu';
 import { AddAssetForm } from '../../AddAssetForm';
+import { useBoardPrimary } from '../../useBoardPrimary';
 import { useAddMenu } from './AddMenu.hooks';
 
 const NO_PROJECT = 'Open a project first';
@@ -9,6 +10,7 @@ const NO_PROJECT = 'Open a project first';
 export default function AddMenu() {
   const { project, game, adding, setAdding, menuOpen, setMenuOpen, added, addBuilt, importModels } =
     useAddMenu();
+  const variant = useBoardPrimary() === 'add' ? 'primary' : 'secondary';
   const items: MenuItem[] = [
     ...(game
       ? [
@@ -33,6 +35,7 @@ export default function AddMenu() {
   return (
     <div className="relative flex items-center">
       <Button
+        variant={variant}
         icon="plus"
         aria-label="Add asset"
         aria-expanded={adding}
@@ -47,7 +50,7 @@ export default function AddMenu() {
       <IconButton
         icon="caret-down"
         label="More ways to add"
-        variant="secondary"
+        variant={variant}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         disabled={!project}
