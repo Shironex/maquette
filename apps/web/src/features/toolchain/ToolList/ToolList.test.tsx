@@ -39,7 +39,7 @@ describe('the tool list', () => {
     render(<ToolList density="roomy" />);
     expect(screen.getByText('Blender')).toBeVisible();
     expect(screen.getByText('KTX-Software toktx')).toBeVisible();
-    expect(screen.getAllByText('checking…')).toHaveLength(6);
+    expect(screen.getAllByText('checking...')).toHaveLength(6);
     expect(screen.getByRole('button', { name: 'Locate Blender' })).toBeDisabled();
   });
 
@@ -87,6 +87,6 @@ describe('the tool headline', () => {
     tools({ checking: true });
     const { result } = renderHook(() => useToolHeadline());
     expect(result.current.headline).toBe('Checking your tools');
-    expect(result.current.checked).toBe('Checking…');
+    expect(result.current.checked).toBe('Checking...');
   });
 });

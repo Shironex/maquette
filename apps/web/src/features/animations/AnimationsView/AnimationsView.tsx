@@ -113,19 +113,21 @@ export default function AnimationsView() {
             aria-label="Clips"
             className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pt-[18px] pb-5"
           >
-            <div className="flex gap-3">
-              <StatTile
-                label="Clips"
-                value={String(stats.clips)}
-                note={`${stats.packs} ${stats.packs === 1 ? 'pack' : 'packs'}, ${stats.singles} singles`}
-              />
-              <StatTile label="On disk" value={formatBytes(stats.disk)} note="skeleton only" />
-              <StatTile
-                label="In use"
-                value={String(stats.inUse)}
-                note={`on ${stats.models} ${stats.models === 1 ? 'model' : 'models'}`}
-              />
-            </div>
+            {v.loaded ? (
+              <div className="flex gap-3">
+                <StatTile
+                  label="Clips"
+                  value={String(stats.clips)}
+                  note={`${stats.packs} ${stats.packs === 1 ? 'pack' : 'packs'}, ${stats.singles} singles`}
+                />
+                <StatTile label="On disk" value={formatBytes(stats.disk)} note="skeleton only" />
+                <StatTile
+                  label="In use"
+                  value={String(stats.inUse)}
+                  note={`on ${stats.models} ${stats.models === 1 ? 'model' : 'models'}`}
+                />
+              </div>
+            ) : null}
             <div className="flex items-center gap-3">
               <h2 className="text-panel-title">{filtered ? 'Clips found' : 'All clips'}</h2>
               <span className="text-meta text-fg-mute">

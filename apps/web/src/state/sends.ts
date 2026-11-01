@@ -1,5 +1,5 @@
 /**
- * What the Board's Sends button counts. By hand and the 3D queue read the
+ * What the Board's Sends button counts. By hand and the queue read the
  * same list of provider jobs: a By hand send waiting for its model is also
  * an active send of the queue, so `inFlight` is the only count to total.
  */
@@ -47,15 +47,25 @@ export function sendsNeedYou(counts: SendCounts): boolean {
   return counts.toMake > 0 || counts.approval > 0;
 }
 
-/** The Sends tooltip: what is under way, by what it waits on. */
+/** Whether the Sends button shows: something is under way, or a failed send is still listed. */
+export function sendsVisible(counts: SendCounts): boolean {
+  return counts.inFlight > 0 || counts.failed > 0;
+}
+
+/**
+ * The Sends tooltip: what is under way, by what it waits on. Failed sends
+ * are listed apart, never as part of the in flight count.
+ */
 export function sendsSummary(counts: SendCounts): string {
-  const parts = [
+  const waits = [
     counts.toMake > 0 ? `${counts.toMake} to make by hand` : null,
     counts.approval > 0 ? `${counts.approval} waiting for approval` : null,
-    counts.failed > 0 ? `${counts.failed} failed` : null,
   ].filter(Boolean);
+  const failed = counts.failed > 0 ? `${counts.failed} failed, not counted as in flight` : null;
+  if (counts.inFlight === 0) return failed ? `No sends in flight. ${failed}` : 'No sends in flight';
   const sends = counts.inFlight === 1 ? '1 send in flight' : `${counts.inFlight} sends in flight`;
-  return parts.length ? `${sends}: ${parts.join(', ')}` : sends;
+  const head = waits.length ? `${sends}: ${waits.join(', ')}` : sends;
+  return failed ? `${head}. ${failed}` : head;
 }
 
 /**

@@ -49,7 +49,12 @@ describe('sendsSummary', () => {
       sendsSummary(
         sendCounts([job('by-hand', 'waiting'), job('meshy', 'approval'), job('tripo', 'failed')])
       )
-    ).toBe('2 sends in flight: 1 to make by hand, 1 waiting for approval, 1 failed');
+    ).toBe(
+      '2 sends in flight: 1 to make by hand, 1 waiting for approval. 1 failed, not counted as in flight'
+    );
+    expect(sendsSummary(sendCounts([job('tripo', 'failed')]))).toBe(
+      'No sends in flight. 1 failed, not counted as in flight'
+    );
   });
 });
 

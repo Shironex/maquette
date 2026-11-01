@@ -94,7 +94,9 @@ export default function AvatarView() {
             </div>
           </div>
         ) : (
-          <div className="grid flex-1 place-items-center">{loading ? <Loader /> : null}</div>
+          <div className="grid flex-1 place-items-center">
+            {loading ? <Loader label="Reading the avatar..." /> : null}
+          </div>
         )}
       </main>
     </>

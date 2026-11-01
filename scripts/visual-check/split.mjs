@@ -67,7 +67,7 @@ export async function splitShots({ open, shot }) {
 
   // Accepting a split with a re-texture chosen links to the offer.
   await lost.getByText('Frost lantern parts').first().click();
-  await lost.getByRole('button', { name: /^Accept to Blender/ }).click();
+  await lost.getByRole('button', { name: /^Accept into project/ }).click();
   await lost.getByRole('button', { name: 'Open Parts tab' }).waitFor();
   await shot(lost, 'parts-retexture-accepted');
   await lost.getByRole('button', { name: 'Open Parts tab' }).click();

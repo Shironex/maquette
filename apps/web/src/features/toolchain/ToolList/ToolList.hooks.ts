@@ -20,6 +20,10 @@ export function useToolHeadline() {
     checking && reports.length === 0
       ? 'Checking your tools'
       : `${summary.found} of ${summary.total || TOOL_ORDER.length} found`;
-  const checked = checking ? 'Checking…' : checkedAt ? `Checked ${formatAgo(checkedAt, now)}` : '';
+  const checked = checking
+    ? 'Checking...'
+    : checkedAt
+      ? `Checked ${formatAgo(checkedAt, now)}`
+      : '';
   return { headline, checked, summary };
 }

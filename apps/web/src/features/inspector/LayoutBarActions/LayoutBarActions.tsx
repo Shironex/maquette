@@ -33,7 +33,7 @@ export default function LayoutBarActions() {
         tooltip="Saves layout.json; the next pipeline run builds the scene and its posters from it"
         shortcut={KEYS.save}
       >
-        {saving ? 'Saving…' : 'Save layout'}
+        {saving ? 'Saving...' : 'Save layout'}
       </Button>
     </>
   );

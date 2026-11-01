@@ -20,7 +20,7 @@ describe('the generated artifacts list', () => {
     const rows = artifactRows([file('b_v1', null, null), file('a_v1', 4.6e6, 1.1e6)], true);
     expect(rows.map(r => r.file)).toEqual(['a_v1.glb', 'b_v1.glb']);
     expect(rows[0]!.size).toBe('4.6 MB → 1.1 MB');
-    expect(rows[1]!.size).toBe('exporting…');
+    expect(rows[1]!.size).toBe('exporting...');
     expect(artifactRows([file('lod', null, 0.41e6)], false)[0]!.size).toBe('new · 410 KB');
   });
 

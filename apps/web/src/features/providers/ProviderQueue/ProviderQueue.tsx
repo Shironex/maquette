@@ -1,5 +1,5 @@
 /**
- * The 3D queue: every send of the open project with its provider,
+ * Every send of the open project with its provider,
  * progress, credits and time, newest first. Cancel where the provider
  * allows it; a By hand send opens its card.
  */
@@ -18,7 +18,7 @@ export default function ProviderQueue({ onClose }: ProviderQueueProps) {
   const rows = sorted.map(job => <QueueRow key={job.id} job={job} now={now} />);
 
   return (
-    <section aria-label="3D queue" className="flex min-h-0 flex-1 flex-col">
+    <section aria-label="Sends" className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-2.5">
         <CreditsButton project={project} onOpen={onClose} />
         <Button

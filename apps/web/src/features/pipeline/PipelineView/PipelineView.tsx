@@ -81,7 +81,7 @@ export default function PipelineView() {
               }
             />
           ) : (
-            <Loader />
+            <Loader label="Reading the pipeline..." />
           )}
         </main>
       </>

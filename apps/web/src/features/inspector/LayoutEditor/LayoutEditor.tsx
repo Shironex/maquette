@@ -79,7 +79,7 @@ export default function LayoutEditor({ project, tabs }: LayoutEditorProps) {
           </div>
         ) : (
           <div className="grid flex-1 place-items-center">
-            <Loader />
+            <Loader label="Reading the layout..." />
           </div>
         )}
       </main>

@@ -247,5 +247,7 @@ export function seedProviders({
       ...objects,
     ],
   });
+  // handoff=failed: only the failed send is left, so the Sends button has to keep it on show.
+  if (handoff === 'failed') return jobs.filter(job => job.state === 'failed');
   return jobs;
 }

@@ -67,7 +67,7 @@ export default function DirectionRow({ view, direction: d, menuOpen, onMenu }: D
           items={[
             {
               id: 'move',
-              label: 'Move to project…',
+              label: 'Move to project...',
               icon: 'arrow-bend-up-right',
               keepOpen: true,
               onSelect: () => setStage('move'),

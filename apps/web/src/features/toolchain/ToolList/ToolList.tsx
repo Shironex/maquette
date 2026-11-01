@@ -23,7 +23,7 @@ export default function ToolList({ density }: ToolListProps) {
         required={tool.required}
         status={status}
         density={density}
-        summary={report && !busy ? rowSummary(report, density) : busy ? 'checking…' : undefined}
+        summary={report && !busy ? rowSummary(report, density) : busy ? 'checking...' : undefined}
         hint={report && !busy && roomy ? rowHint(report) : undefined}
         action={
           <LocateButton

@@ -63,7 +63,7 @@ describe('the compare stage', () => {
   it('labels both sides and counts the models while they load', async () => {
     stage();
     await screen.findByTestId('compare-canvas');
-    expect(screen.getByText('Loading 3 models…')).toBeInTheDocument();
+    expect(screen.getByText('Loading 3 models...')).toBeInTheDocument();
     expect(screen.getByText('v6')).toBeInTheDocument();
     expect(screen.getByText('baked Oct 23')).toBeInTheDocument();
     expect(screen.getByText('v7')).toBeInTheDocument();

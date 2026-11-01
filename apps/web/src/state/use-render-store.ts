@@ -220,6 +220,7 @@ export const useRenderStore = create<RenderStore>((set, get) => ({
   },
 
   renderOne: async (source, key, style, settings) => {
+    set({ busy: true });
     try {
       const record = await commands.renderStart({
         source,
@@ -231,6 +232,8 @@ export const useRenderStore = create<RenderStore>((set, get) => ({
       set(s => ({ live: record, recent: upsert(s.recent, record) }));
     } catch (error) {
       notifyFailed('Could not start the render', error);
+    } finally {
+      set({ busy: false });
     }
   },
 

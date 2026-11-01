@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import {
   Button,
   Checkbox,
+  Loader,
   PathField,
   SegmentedControl,
   Select,
@@ -47,7 +48,19 @@ const TEXTURES = [
 export default function PackSettings() {
   const s = usePackSettings();
   const { settings, plan } = s;
-  if (!settings) return <div className="flex-1" />;
+  if (!settings) {
+    return (
+      <div className="grid flex-1 place-items-center px-5 py-10">
+        {s.error ? (
+          <p role="alert" className="text-meta text-danger">
+            {s.error}
+          </p>
+        ) : (
+          <Loader label="Reading the models..." />
+        )}
+      </div>
+    );
+  }
   const glb = settings.format !== 'obj';
 
   return (

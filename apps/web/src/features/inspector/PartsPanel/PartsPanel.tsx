@@ -83,7 +83,9 @@ export default function PartsPanel() {
                   ? 'One mesh: it moves only as a whole'
                   : `${found.rows.length} parts${found.split ? ' · split in Blender' : ''}`
                 : p.busy
-                  ? 'Splitting a copy in Blender...'
+                  ? p.splitting
+                    ? 'Splitting a copy in Blender...'
+                    : 'Reading the parts...'
                   : ' '}
             </p>
           </div>
@@ -132,6 +134,11 @@ export default function PartsPanel() {
                 </CanvasBoundary>
               ) : null}
               {url && !preview.ready ? <StageLoader /> : null}
+              {!url && p.busy ? (
+                <StageLoader
+                  label={p.splitting ? 'Splitting a copy in Blender...' : 'Reading the parts...'}
+                />
+              ) : null}
               {mode === 'parts' && selectedNames.length ? (
                 <span className={cn(badge, 'pointer-events-none top-3 left-3')}>
                   {selectedNames.join(' and ')} selected

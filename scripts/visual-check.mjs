@@ -5,7 +5,7 @@
  * generating), the Inbox in every preview mode, the Inspector (compare, a
  * camera stop, budgets, Export GLB), Settings, Settings > Agents with an
  * agent's activity, the approval prompts (Ship and a send to 3D), Send to 3D
- * for Tripo, Meshy and by hand, the by hand settings card, the 3D queue, a
+ * for Tripo, Meshy and by hand, the by hand settings card, Sends, a
  * Board card waiting for a model, Send to 3D from the Lab and Settings > 3D
  * providers with a tested key, the project switcher (open, with search, the
  * New project dialog, the collapsed rail, the Board after a switch), moving
@@ -637,7 +637,7 @@ async function coreShots() {
   await shot(board, 'board');
   await board.getByRole('button', { name: 'More board actions' }).click();
   await board.getByRole('menuitem', { name: /^All sends/ }).click();
-  await board.getByRole('region', { name: '3D queue' }).waitFor();
+  await board.getByRole('region', { name: 'Sends' }).waitFor();
   await shot(board, 'provider-queue');
   await board.keyboard.press('Escape');
   await board.getByRole('button', { name: 'More for Guardian statues' }).click();
@@ -814,7 +814,7 @@ async function redoShots() {
   await board.getByRole('button', { name: 'More board actions' }).click();
   await board.getByRole('menuitem', { name: /^All sends/ }).click();
   await board
-    .getByRole('region', { name: '3D queue' })
+    .getByRole('region', { name: 'Sends' })
     .getByRole('button', { name: 'Credits' })
     .click();
   const credits = board.getByRole('dialog', { name: 'Credits' });
@@ -1041,7 +1041,7 @@ async function byHandShots() {
   await credits.getByRole('button', { name: 'More board actions' }).click();
   await credits.getByRole('menuitem', { name: /^All sends/ }).click();
   await credits
-    .getByRole('region', { name: '3D queue' })
+    .getByRole('region', { name: 'Sends' })
     .getByRole('button', { name: 'Credits' })
     .click();
   const sheet = credits.getByRole('dialog', { name: 'Credits' });

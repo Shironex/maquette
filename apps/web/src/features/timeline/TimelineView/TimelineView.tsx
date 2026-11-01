@@ -62,7 +62,7 @@ export default function TimelineView({ preview }: TimelineViewProps) {
               }
             />
           ) : (
-            <Loader />
+            <Loader label="Reading the timeline..." />
           )}
         </main>
       </>

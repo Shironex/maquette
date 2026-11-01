@@ -16,8 +16,8 @@ export function sizeText(m: Pick<ModelFile, 'rawBytes' | 'shippedBytes'>, busy: 
   const { rawBytes: raw, shippedBytes: shipped } = m;
   if (raw && shipped) return `${formatBytes(raw)} → ${formatBytes(shipped)}`;
   if (shipped) return `new · ${formatBytes(shipped)}`;
-  if (raw) return busy ? `${formatBytes(raw)} → compressing…` : `${formatBytes(raw)} raw`;
-  return busy ? 'exporting…' : 'not exported';
+  if (raw) return busy ? `${formatBytes(raw)} → compressing...` : `${formatBytes(raw)} raw`;
+  return busy ? 'exporting...' : 'not exported';
 }
 
 /** The generated model files of a project, raw export to compressed, in name order. */
