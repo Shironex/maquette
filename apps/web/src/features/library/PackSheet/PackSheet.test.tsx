@@ -1,7 +1,8 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NO_FILTERS } from '@/state/library';
+import { useAppStore } from '@/state/use-app-store';
 import { useLibrarySelectionStore } from '@/state/use-library-selection-store';
 import { useLibraryStore } from '@/state/use-library-store';
 import { usePackStore } from '@/state/use-pack-store';
@@ -61,5 +62,37 @@ describe('export pack from the library', () => {
     expect(within(sheet).getByRole('textbox', { name: 'Pack name' })).toHaveValue('market-set');
     await userEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
     expect(usePackStore.getState().open).toBe(false);
+  });
+
+  it('closes on a project pack when another project opens', async () => {
+    await openMockLibrary('scale');
+    const workspace = useAppStore.getState().workspace!;
+    const id = workspace.project!.id;
+    render(<PackSheet />);
+    await act(() => usePackStore.getState().show({ from: 'project', project: id }));
+    expect(screen.getByRole('dialog', { name: 'Export pack' })).toBeVisible();
+    act(() =>
+      useAppStore.setState({
+        workspace: { ...workspace, project: { ...workspace.project!, id: 'other' } },
+      })
+    );
+    await waitFor(() => expect(usePackStore.getState().open).toBe(false));
+  });
+
+  it('gives focus back to what opened it on close', async () => {
+    await openMockLibrary('scale');
+    const id = useAppStore.getState().workspace!.project!.id;
+    render(
+      <>
+        <button type="button">More</button>
+        <PackSheet />
+      </>
+    );
+    const opener = screen.getByRole('button', { name: 'More' });
+    opener.focus();
+    await act(() => usePackStore.getState().show({ from: 'project', project: id }));
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(usePackStore.getState().open).toBe(false));
+    await waitFor(() => expect(opener).toHaveFocus());
   });
 });
