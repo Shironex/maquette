@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   commands,
   errorMessage,
@@ -72,10 +72,15 @@ export function usePartsPanel() {
   const [page, setPage] = useState<PartsPage>('parts');
   const [uses, setUses] = useState<PartUse[]>([]);
   const failed = error !== null;
-  const readEstimate = useWait(projectId && `parts:${projectId}`, busy && !splitting, failed);
-  const splitEstimate = useWait('parts-split', busy && splitting, failed);
+  const partsKey = projectId && assetId && `${projectId}:${assetId}`;
+  const readEstimate = useWait(partsKey && `parts:${partsKey}`, busy && !splitting, failed);
+  const splitEstimate = useWait(partsKey && `parts-split:${partsKey}`, busy && splitting, failed);
+  // Picking another asset drops the answer on its way, and with it that wait's end.
+  const asked = useRef(0);
 
   const load = useCallback(async (projectId: string, assetId: string, run: boolean) => {
+    const mine = ++asked.current;
+    const newest = () => mine === asked.current;
     setBusy(true);
     setSplitting(run);
     setError(null);
@@ -83,15 +88,17 @@ export function usePartsPanel() {
       const got = run
         ? await commands.partsPreview(projectId, assetId)
         : await commands.partsGet(projectId, assetId);
+      if (!newest()) return;
       setFound(got);
       if (got.needsPreview && !run) {
         setSplitting(true);
-        setFound(await commands.partsPreview(projectId, assetId));
+        const split = await commands.partsPreview(projectId, assetId);
+        if (newest()) setFound(split);
       }
     } catch (e) {
-      setError(errorMessage(e));
+      if (newest()) setError(errorMessage(e));
     } finally {
-      setBusy(false);
+      if (newest()) setBusy(false);
     }
   }, []);
 
@@ -257,8 +264,10 @@ export function usePartsSheets() {
     selectMotion(asset);
     setView('motion');
   };
-  const openInBlender = async ({ project, asset, version }: AssetParts) => {
-    await openBlender(`v${version}`, () => commands.assetOpenInBlender(project, asset, version));
+  const openInBlender = async ({ project, asset, name, version }: AssetParts) => {
+    await openBlender(`${name} v${version}`, () =>
+      commands.assetOpenInBlender(project, asset, version)
+    );
   };
   return { openSplit, openAssemble, openInBlender, openMotion };
 }

@@ -49,6 +49,25 @@ describe('the waiting recipe', () => {
     expect(readLastRun('left')).toBeNull();
   });
 
+  it('leaves a real time be when a wait was too short to mention', () => {
+    rememberRun('cached', 12_000);
+    rememberRun('cached', 200);
+    expect(readLastRun('cached')).toBe(12_000);
+    rememberRun('cached', 2000);
+    expect(readLastRun('cached')).toBe(2000);
+  });
+
+  it('times only the newest question of a wait that never stopped', () => {
+    const { rerender } = renderHook(({ active, ask }) => useWait('p', active, false, ask), {
+      initialProps: { active: true, ask: 1 },
+    });
+    vi.setSystemTime(1_030_000);
+    rerender({ active: true, ask: 2 });
+    vi.setSystemTime(1_035_000);
+    rerender({ active: false, ask: 2 });
+    expect(readLastRun('p')).toBe(5000);
+  });
+
   it('starts over when the wait changes name', () => {
     const { rerender } = renderHook(({ key }) => useWait(key, true), {
       initialProps: { key: 'a' },

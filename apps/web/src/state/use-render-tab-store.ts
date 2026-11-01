@@ -43,6 +43,8 @@ interface RenderTabStore {
   settings: Required<RenderSettings>;
   preview: RenderPreview | null;
   loading: boolean;
+  /** Counts the previews asked for, so a dropped question's time is not the answer's. */
+  ask: number;
   error: string | null;
   turntableOpen: boolean;
   pick: (key: string) => void;
@@ -61,6 +63,7 @@ export const useRenderTabStore = create<RenderTabStore>((set, get) => ({
   settings: RENDER_DEFAULTS,
   preview: null,
   loading: false,
+  ask: 0,
   error: null,
   turntableOpen: false,
 
@@ -79,7 +82,7 @@ export const useRenderTabStore = create<RenderTabStore>((set, get) => ({
     const { style, settings } = get();
     asked += 1;
     const mine = asked;
-    set({ loading: true, error: null });
+    set({ loading: true, ask: mine, error: null });
     try {
       const preview = await commands.renderPreview(source, key, settings, shotsOf(style, settings));
       if (mine === asked) set({ preview, loading: false });

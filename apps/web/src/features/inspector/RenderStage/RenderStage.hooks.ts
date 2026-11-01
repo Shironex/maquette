@@ -38,7 +38,8 @@ export function useRenderStage() {
   const paper = useRenderTabStore(s => s.settings.paperColor);
   const change = useRenderTabStore(s => s.change);
   const [stage, ...strip] = preview?.shots ?? [];
-  const estimate = useWait(`render-preview:${style}`, loading, Boolean(error));
+  const ask = useRenderTabStore(s => s.ask);
+  const estimate = useWait(`render-preview:${style}`, loading, Boolean(error), ask);
   const shot: RenderShot | undefined = stage;
   const tiles: StripTile[] = strip.map(s => ({
     key: `${s.style}-${s.turn}`,
