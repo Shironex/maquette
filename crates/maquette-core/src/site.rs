@@ -66,6 +66,24 @@ pub struct SiteTarget {
 /// Fails when a folder leaves the site, or the file cannot be read or
 /// written.
 pub fn save_target(site: &Path, target: &SiteTarget) -> CoreResult<SiteConfig> {
+    let (file, value, config) = target_file(site, target)?;
+    write_json(&file, &value)?;
+    Ok(config)
+}
+
+/// Checks that [`save_target`] would take `target`, writing nothing.
+///
+/// # Errors
+///
+/// Fails as [`save_target`] does, short of writing the file.
+pub fn check_target(site: &Path, target: &SiteTarget) -> CoreResult<()> {
+    target_file(site, target).map(|_| ())
+}
+
+fn target_file(
+    site: &Path,
+    target: &SiteTarget,
+) -> CoreResult<(PathBuf, serde_json::Value, SiteConfig)> {
     let clean = |p: &str| p.trim().trim_matches('/').replace('\\', "/");
     let models = clean(&target.models);
     let posters = target
@@ -94,8 +112,7 @@ pub fn save_target(site: &Path, target: &SiteTarget) -> CoreResult<SiteConfig> {
     let config: SiteConfig =
         serde_json::from_value(value.clone()).map_err(|e| CoreError::json(&file, e))?;
     validate(&config)?;
-    write_json(&file, &value)?;
-    Ok(config)
+    Ok((file, value, config))
 }
 
 /// The folder the site keeps its shipped models in. An unreadable config
