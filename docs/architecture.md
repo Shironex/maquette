@@ -865,6 +865,17 @@ code below lives in `crates/maquette-preview`; core re-exports it as `site::prev
   remount keeps it) and only stops it when it is still the owner, so Preview on site and
   agents keep theirs. Every change emits `PageServerChanged`, which the view, the status bar
   and `use-page-store.ts` follow.
+- **Ask first.** `commands/site/gate.rs` is the only way to a plan: `dev_plan` is private to
+  `commands/site.rs`, so `start_page_preview`, `page_server_start` and `site_preview` all go through
+  `gate::check`. A project in `AppState.agent_set_repos` (marked by `create_project`,
+  `set_ship_settings` and `set_game_settings` through `RepoSetBy`; a person's New project or Settings
+  save clears it, a rename alone does not) needs a `PreviewAsk` in `AppState.preview_approvals`. Its
+  key holds the real folder, the command line and what a package script runs, so a change asks again.
+  Both live in the per computer app state: out of every tool's reach and off a synced workspace.
+  Otherwise `Hub::request_preview` raises one `ApprovalKind::PagePreview` card per project and a
+  thread waits: a yes is saved and the start goes through `check` again, so only what the person read
+  runs; a no holds in memory for that question until a person asks from the app or the app restarts.
+  A click in the app shows the same card, since the Page view starts its server just by opening.
 - **The frame proxy.** `site::preview::frame::FrameProxy`: once the server answers (started or
   reused), `SitePreview` starts one in front of it on `127.0.0.1` and puts its address in the
   status's `frame_url`; a stop, a failure or another start drops it, which closes every
