@@ -86,8 +86,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let server = server(host)?;
-                let view = page_commands::view(host.session(), &server, &args.project)
-                    .map_err(|e| e.message)?;
+                let view = page_commands::view(host.session(), &server, &args.project)?;
                 Ok(page_value(&view))
             })
             .await;
@@ -102,15 +101,13 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let server = server(host)?;
-                page_commands::start(host.session(), &server, &args.project, ServerOwner::Agent)
-                    .map_err(|e| e.message)?;
+                page_commands::start(host.session(), &server, &args.project, ServerOwner::Agent)?;
                 let wait = args
                     .wait_seconds
                     .unwrap_or(DEFAULT_WAIT)
                     .min(START_TIMEOUT.as_secs());
                 server.wait(Duration::from_secs(wait));
-                let view = page_commands::view(host.session(), &server, &args.project)
-                    .map_err(|e| e.message)?;
+                let view = page_commands::view(host.session(), &server, &args.project)?;
                 Ok(page_value(&view))
             })
             .await;
@@ -125,8 +122,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let server = server(host)?;
-                let view = page_commands::stop(host.session(), &server, &args.project)
-                    .map_err(|e| e.message)?;
+                let view = page_commands::stop(host.session(), &server, &args.project)?;
                 Ok(page_value(&view))
             })
             .await;

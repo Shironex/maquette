@@ -16,7 +16,7 @@ use crate::commands::built::{self as commands, BuildEnv};
 use crate::mcp::host::{Host, HostNotify};
 
 use super::materials::find_asset;
-use super::{McpTools, Out, ProjectArgs, reason, respond, to_value, workspace};
+use super::{McpTools, Out, ProjectArgs, respond, to_value, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -163,7 +163,7 @@ impl McpTools {
                     replace: args.replace,
                 };
                 let added =
-                    commands::add(host.session(), &args.project, &request).map_err(|e| e.message)?;
+                    commands::add(host.session(), &args.project, &request)?;
                 host.project_changed(&added.project);
                 host.built_changed(&args.project);
                 let build = if args.build.unwrap_or(true) {
@@ -172,7 +172,7 @@ impl McpTools {
                 } else {
                     None
                 };
-                let all = commands::list(host.session(), &args.project).map_err(|e| e.message)?;
+                let all = commands::list(host.session(), &args.project)?;
                 let source = all.iter().find(|b| b.asset == added.asset.id).map(listed);
                 Ok(json!({
                     "asset": { "id": added.asset.id, "name": added.asset.name, "kind": to_value(added.asset.kind) },
@@ -195,12 +195,10 @@ impl McpTools {
                 let targets: Vec<String> = match (&args.asset, args.all) {
                     (Some(wanted), _) => {
                         let (root, config) = workspace(host)?;
-                        let manifest =
-                            project::load(&root, &config.layout, &args.project).map_err(reason)?;
+                        let manifest = project::load(&root, &config.layout, &args.project)?;
                         vec![find_asset(&manifest, wanted)?.id.clone()]
                     }
-                    (None, true) => commands::list(host.session(), &args.project)
-                        .map_err(|e| e.message)?
+                    (None, true) => commands::list(host.session(), &args.project)?
                         .into_iter()
                         .filter(|b| {
                             args.force
@@ -213,7 +211,7 @@ impl McpTools {
                         .map(|b| b.asset)
                         .collect(),
                     (None, false) => {
-                        return Err("Name the asset to rebuild, or set all.".to_string());
+                        return Err("Name the asset to rebuild, or set all.".to_string().into());
                     }
                 };
                 let builds = targets
@@ -233,7 +231,7 @@ impl McpTools {
     async fn list_built_assets(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let items = commands::list(host.session(), &args.project).map_err(|e| e.message)?;
+                let items = commands::list(host.session(), &args.project)?;
                 Ok(json!({
                     "project": args.project,
                     "assets": items.iter().map(listed).collect::<Vec<_>>(),

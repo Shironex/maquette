@@ -9,7 +9,7 @@ use serde_json::json;
 
 use crate::commands::trash;
 
-use super::{McpTools, Out, ProjectArgs, reason, respond, to_value};
+use super::{McpTools, Out, ProjectArgs, respond, to_value};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -38,7 +38,7 @@ impl McpTools {
     async fn remove_assets(&self, Parameters(args): Parameters<RemoveAssetsArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let done = trash::remove(host, &args.project, &args.assets).map_err(reason)?;
+                let done = trash::remove(host, &args.project, &args.assets)?;
                 Ok(json!({
                     "project": done.project.id,
                     "assets": done.outcomes.iter().map(to_value).collect::<Vec<_>>(),
@@ -55,7 +55,7 @@ impl McpTools {
     async fn restore_asset(&self, Parameters(args): Parameters<RestoreAssetArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let done = trash::restore(host, &args.project, &args.trash).map_err(reason)?;
+                let done = trash::restore(host, &args.project, &args.trash)?;
                 Ok(json!({
                     "project": done.project.id,
                     "asset": {
@@ -80,7 +80,7 @@ impl McpTools {
     async fn list_removed_assets(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let removed = trash::list(host.session(), &args.project).map_err(reason)?;
+                let removed = trash::list(host.session(), &args.project)?;
                 Ok(json!({ "project": args.project, "removed": removed }))
             })
             .await;

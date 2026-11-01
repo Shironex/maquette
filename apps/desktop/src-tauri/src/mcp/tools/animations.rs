@@ -152,7 +152,7 @@ impl McpTools {
     async fn list_animations(&self, Parameters(args): Parameters<ListAnimationsArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let view = commands::get(host.session()).map_err(|e| e.message)?;
+                let view = commands::get(host.session())?;
                 let clips: Vec<Value> = view
                     .items
                     .iter()
@@ -174,8 +174,7 @@ impl McpTools {
                 let (root, _) = workspace(host)?;
                 let paths = inside(&root, &args.paths)?;
                 let tools = host.toolbox();
-                let plan =
-                    commands::read_import(host.session(), &tools, &paths).map_err(|e| e.message)?;
+                let plan = commands::read_import(host.session(), &tools, &paths)?;
                 let keep_both: Vec<String> = plan
                     .files
                     .iter()
@@ -193,7 +192,7 @@ impl McpTools {
                 if args.dry_run {
                     return Ok(json!({ "dryRun": true, "plan": to_short_value(&plan) }));
                 }
-                let done = commands::import(host.session(), &request).map_err(|e| e.message)?;
+                let done = commands::import(host.session(), &request)?;
                 host.library_changed();
                 let names = |list: &[maquette_core::animations::AnimationClip]| {
                     list.iter()
@@ -228,8 +227,7 @@ impl McpTools {
                     asset: args.asset.clone(),
                     inbox: args.inbox.clone(),
                 };
-                let plan = commands::save_plan(host.session(), host.studio(), &from)
-                    .map_err(|e| e.message)?;
+                let plan = commands::save_plan(host.session(), host.studio(), &from)?;
                 if args.dry_run {
                     return Ok(json!({ "dryRun": true, "plan": to_short_value(&plan) }));
                 }
@@ -247,8 +245,7 @@ impl McpTools {
                     tags: args.tags.clone().unwrap_or_default(),
                 };
                 let tools = host.toolbox();
-                let saved = commands::save(host.session(), host.studio(), &tools, &request)
-                    .map_err(|e| e.message)?;
+                let saved = commands::save(host.session(), host.studio(), &tools, &request)?;
                 host.library_changed();
                 Ok(json!({
                     "pack": request.pack,

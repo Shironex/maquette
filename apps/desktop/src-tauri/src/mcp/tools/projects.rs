@@ -9,14 +9,13 @@ use serde_json::{Value, json};
 
 use crate::commands::{assets, layout};
 
+use super::hints::{step, with_next};
 use super::motion::{ClipEdit, StatesEdit, clips_patch, states_patch};
 use super::paths::{EnergizeEdit, PathEdit, energize_patch, paths_patch};
 use super::timeline::{
     ExplodeEdit, StyleTrackEdit, TextTrackEdit, explode_patch, style_patch, text_patch,
 };
-use super::{
-    McpTools, Out, ProjectArgs, explicit, reason, respond, to_short_value, to_value, workspace,
-};
+use super::{McpTools, Out, ProjectArgs, explicit, respond, to_short_value, to_value, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -82,21 +81,32 @@ pub struct SetLayoutArgs {
     #[serde(default, deserialize_with = "explicit")]
     pub desk: Option<Option<DeskEdit>>,
     /// Object states per asset: each entry replaces that asset's states, transitions and
-    /// triggers whole (remove drops them). Parts must be ones get_motion lists for the model.
+    /// triggers whole (remove drops them). The first state is the rest pose; each moves named
+    /// parts by a position offset in metres and a rotation in degrees from rest. Transitions go
+    /// between two states (duration, delay and stagger in seconds, easing linear, ease-in,
+    /// ease-out or ease-in-out). Triggers: stop with a stop id, scroll with start and end percent,
+    /// click or hover with an optional part. Parts must be ones get_motion lists for the model.
     #[serde(default)]
     pub states: Vec<StatesEdit>,
-    /// Whether animation clips ship. ship false keeps a clip off the site.
+    /// Whether animation clips ship. ship false keeps a clip off the site from the next Build scene.
     #[serde(default)]
     pub clips: Vec<ClipEdit>,
     /// Explode tracks of the scroll timeline per asset: each entry replaces that asset's
-    /// track whole (remove drops it). Keys name camera stops that are in the layout.
+    /// track whole (remove drops it): distance in metres, easing and keys of an amount from 0
+    /// (parts together) to 1 (spread the whole distance), eased between stops as the page
+    /// scrolls. Keys name camera stops that are in the layout.
     #[serde(default)]
     pub explode: Vec<ExplodeEdit>,
-    /// Paths through the scene to add, change or remove, in this order.
+    /// Paths through the scene to add (name and 2 to 128 points in metres, optional curve
+    /// polyline or catmull-rom, width in metres, color and glow as #rrggbb, start and end asset
+    /// ids its first and last point follow), change by id (only the fields you give change) or
+    /// remove by id with its track, in this order.
     #[serde(default)]
     pub paths: Vec<PathEdit>,
     /// Energize tracks of the scroll timeline per path: each entry replaces that path's track
-    /// whole (remove drops it). Keys name camera stops that are in the layout.
+    /// whole (remove drops it): easing and keys of an amount from 0 (unlit) to 1 (lit from the
+    /// first point to the last), eased between stops as the page scrolls. Keys name camera stops
+    /// that are in the layout.
     #[serde(default)]
     pub energize: Vec<EnergizeEdit>,
     /// The scroll timeline's render style track, replaced whole. null removes it.
@@ -177,7 +187,7 @@ impl McpTools {
     #[tool(
         description = "List the projects in the open Maquette workspace: template, target (website or game), site repo on this computer (the game repo for a game; siteRepoMissing is true when one was picked on another computer or the folder is gone, and the app then asks the user where it is), created, asset count, \
 the picture the app shows for it, what runs in it now and which one is open in the app. Every other tool takes \
-a project id; no tool changes which project the app has open.",
+a project id; no tool changes which project the app has open. An empty workspace answers next.",
         annotations(read_only_hint = true)
     )]
     async fn list_projects(&self) -> Out {
@@ -189,8 +199,7 @@ a project id; no tool changes which project the app has open.",
                     host.runner(),
                     host.concepts(),
                     host.studio(),
-                )
-                .map_err(reason)?;
+                )?;
                 // The app opens the remembered project, else the oldest one.
                 let current = config
                     .current_project
@@ -218,10 +227,15 @@ a project id; no tool changes which project the app has open.",
                         })
                     })
                     .collect();
-                Ok(json!({
+                let answer = json!({
                     "workspace": host.session().display(&root),
                     "projects": projects,
-                }))
+                });
+                Ok(if rows.is_empty() {
+                    with_next(answer, vec![step("create_project", "There is no project yet. Make a website or a game project; it spends nothing.")])
+                } else {
+                    answer
+                })
             })
             .await;
         respond(found)
@@ -235,9 +249,8 @@ a project id; no tool changes which project the app has open.",
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                let manifest =
-                    project::load(&root, &config.layout, &args.project).map_err(reason)?;
-                let dir = project::dir(&root, &config.layout, &args.project).map_err(reason)?;
+                let manifest = project::load(&root, &config.layout, &args.project)?;
+                let dir = project::dir(&root, &config.layout, &args.project)?;
                 Ok(json!({
                     "folder": host.session().display(&dir),
                     "project": to_value(&manifest),
@@ -255,9 +268,8 @@ a project id; no tool changes which project the app has open.",
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                let manifest =
-                    project::load(&root, &config.layout, &args.project).map_err(reason)?;
-                let dir = project::dir(&root, &config.layout, &args.project).map_err(reason)?;
+                let manifest = project::load(&root, &config.layout, &args.project)?;
+                let dir = project::dir(&root, &config.layout, &args.project)?;
                 let stage = args.stage.as_deref().map(str::to_ascii_lowercase);
                 let assets: Vec<Value> = manifest
                     .assets
@@ -282,7 +294,24 @@ a project id; no tool changes which project the app has open.",
                         })
                     })
                     .collect();
-                Ok(json!({ "project": manifest.id, "assets": assets }))
+                let answer = json!({ "project": manifest.id, "assets": assets });
+                Ok(if manifest.assets.is_empty() {
+                    with_next(
+                        answer,
+                        vec![
+                            step(
+                                "start_concepts",
+                                "Make concept images, then pick_concepts puts them on the Board.",
+                            ),
+                            step(
+                                "add_built_asset",
+                                "Or make a model with a Blender script: no credits, no approval.",
+                            ),
+                        ],
+                    )
+                } else {
+                    answer
+                })
             })
             .await;
         respond(found)
@@ -295,7 +324,7 @@ a project id; no tool changes which project the app has open.",
     async fn get_layout(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let view = layout::get(host.session(), &args.project).map_err(|e| e.message)?;
+                let view = layout::get(host.session(), &args.project)?;
                 Ok(to_short_value(&view))
             })
             .await;
@@ -303,14 +332,13 @@ a project id; no tool changes which project the app has open.",
     }
 
     #[tool(
-        description = "Change a project's scene layout, as the Layout editor does. models changes placements per asset (only the fields you give change; remove drops one). stops adds a stop (name, position, target, optional fov and models), changes one by id, or removes one by id. stopOrder lists every stop id in the new order. desk sets the desk size or null removes it. states sets an asset's object states whole: states in order (the first is the rest pose; each moves named parts by a position offset in metres and a rotation in degrees from rest), transitions between two states (duration, delay and stagger in seconds, easing linear, ease-in, ease-out or ease-in-out) and triggers (stop with a stop id, scroll with start and end percent, click or hover with an optional part); remove drops them. clips sets whether a model's clip ships (ship false keeps it off the site from the next Build scene). explode sets an asset's explode track whole: distance in metres, easing and keys of an amount from 0 (parts together) to 1 (spread the whole distance) at camera stop ids, eased between stops as the page scrolls; remove drops it. paths adds a path (name and 2 to 128 points in metres, optional curve polyline or catmull-rom, width in metres, color and glow as #rrggbb, start and end asset ids its first and last point follow), changes one by id (only the fields you give change) or removes one by id with its track. energize sets a path's energize track whole: easing and keys of an amount from 0 (unlit) to 1 (lit from the first point to the last) at camera stop ids, eased between stops as the page scrolls; remove drops it. Moving a model moves the path ends anchored to it. Removing a stop drops the triggers and keys that wait for it. Unknown assets or stops are refused and nothing changes. The open app updates live. The next Build scene and Render stops use it. Returns the layout like get_layout.",
+        description = "Change a project's scene layout, as the Layout editor does. Each argument below says what it changes: models, stops, stopOrder, desk, states, clips, explode, paths, energize, style and text. Moving a model moves the path ends anchored to it. Removing a stop drops the triggers and keys that wait for it. Unknown assets or stops are refused and nothing changes. The open app updates live. The next Build scene and Render stops use it. Returns the layout like get_layout.",
         annotations(idempotent_hint = true)
     )]
     async fn set_layout(&self, Parameters(args): Parameters<SetLayoutArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let view = layout::patch(host.session(), &args.project, &args.patch())
-                    .map_err(|e| e.message)?;
+                let view = layout::patch(host.session(), &args.project, &args.patch())?;
                 host.layout_changed(&args.project);
                 Ok(to_short_value(&view))
             })
@@ -330,8 +358,7 @@ a project id; no tool changes which project the app has open.",
                     &args.project,
                     &args.asset,
                     &args.to,
-                )
-                .map_err(|e| e.message)?;
+                )?;
                 host.project_changed(&copied.to);
                 Ok(json!({
                     "project": copied.to.id,

@@ -4,6 +4,7 @@
 //! the old model stays in the inbox so a person can compare and accept one.
 //! A paid redo waits for approval in the app, like any send an agent asks for.
 
+use crate::mcp::tools::ToolError;
 use std::sync::Arc;
 
 use maquette_core::inbox;
@@ -19,7 +20,7 @@ use serde_json::{Value, json};
 use super::requests::{studio_choice, with_overrides};
 use super::{MeshArg, ProviderArg, RigArg, VariantArg, await_send_approval, job_value};
 use crate::mcp::host::Host;
-use crate::mcp::tools::{McpTools, Out, WAITING, failed, json_result, reason, workspace};
+use crate::mcp::tools::{McpTools, Out, WAITING, failed, json_result, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -66,9 +67,9 @@ pub(crate) struct RedoManyArgs {
 }
 
 /// The send an inbox model came from.
-fn record(host: &dyn Host, id: &str) -> Result<ProviderJob, String> {
+fn record(host: &dyn Host, id: &str) -> Result<ProviderJob, ToolError> {
     let (root, config) = workspace(host)?;
-    let mut items = inbox::list(&root, &config).map_err(reason)?;
+    let mut items = inbox::list(&root, &config)?;
     host.studio().link_inbox(&mut items);
     let item = items
         .iter()
@@ -79,12 +80,15 @@ fn record(host: &dyn Host, id: &str) -> Result<ProviderJob, String> {
             "{id} did not come from a send, so there are no settings to repeat. Use send_to_3d."
         )
     })?;
-    host.studio().get(&link.job).ok_or_else(|| {
-        format!(
-            "The send {} behind {id} is no longer on record. Use send_to_3d.",
-            link.job
-        )
-    })
+    host.studio()
+        .get(&link.job)
+        .ok_or_else(|| {
+            format!(
+                "The send {} behind {id} is no longer on record. Use send_to_3d.",
+                link.job
+            )
+        })
+        .map_err(ToolError::from)
 }
 
 fn provider_of(arg: ProviderArg, earlier: &ProviderJob) -> (Provider, ProviderId) {
@@ -108,7 +112,7 @@ fn settings(
     service: ProviderId,
     variant: PresetVariant,
     overrides: Option<&serde_json::Map<String, Value>>,
-) -> Result<Settings, String> {
+) -> Result<Settings, ToolError> {
     let (_, config) = workspace(host)?;
     let same = service == earlier.service && variant == earlier.variant;
     Ok(match service {
@@ -154,7 +158,7 @@ fn studio_for(
     }
 }
 
-fn redo_request(host: &dyn Host, args: &RedoArgs) -> Result<(SendRequest, String), String> {
+fn redo_request(host: &dyn Host, args: &RedoArgs) -> Result<(SendRequest, String), ToolError> {
     let earlier = record(host, &args.id)?;
     let (provider, service) = args.provider.map_or_else(
         || (earlier.provider, earlier.service),
@@ -200,20 +204,20 @@ fn redo_request(host: &dyn Host, args: &RedoArgs) -> Result<(SendRequest, String
     ))
 }
 
-fn redo_batch(host: &dyn Host, args: &RedoManyArgs) -> Result<BatchRequest, String> {
+fn redo_batch(host: &dyn Host, args: &RedoManyArgs) -> Result<BatchRequest, ToolError> {
     let earlier = args
         .ids
         .iter()
         .map(|id| record(host, id))
         .collect::<Result<Vec<_>, _>>()?;
     let Some(first) = earlier.first() else {
-        return Err("Pass at least one inbox model id.".to_string());
+        return Err("Pass at least one inbox model id.".to_string().into());
     };
     if let Some(other) = earlier.iter().find(|j| j.project != first.project) {
         return Err(format!(
             "{} and {} were sent from different projects; redo each project's models in its own batch.",
             first.asset_name, other.asset_name
-        ));
+        ).into());
     }
     let (provider, service) = match args.provider {
         Some(p) => provider_of(p, first),
@@ -223,7 +227,8 @@ fn redo_batch(host: &dyn Host, args: &RedoManyArgs) -> Result<BatchRequest, Stri
         None => {
             return Err(
                 "These models were sent to different providers. Pass provider for the batch."
-                    .to_string(),
+                    .to_string()
+                    .into(),
             );
         }
     };
@@ -265,10 +270,7 @@ impl McpTools {
             .blocking(move |host, hub| {
                 let (request, earlier) = redo_request(host, &args)?;
                 let approval = request.provider != Provider::ByHand;
-                let job = host
-                    .studio()
-                    .send(&request, approval, true)
-                    .map_err(reason)?;
+                let job = host.studio().send(&request, approval, true)?;
                 let pending = (job.state == JobState::Approval).then(|| hub.request_send(&job));
                 Ok((job, pending, earlier))
             })
@@ -303,10 +305,7 @@ impl McpTools {
             .blocking(move |host, hub| {
                 let request = redo_batch(host, &args)?;
                 let approval = request.provider != Provider::ByHand;
-                let sent = host
-                    .studio()
-                    .send_batch(&request, approval, true)
-                    .map_err(reason)?;
+                let sent = host.studio().send_batch(&request, approval, true)?;
                 let waiting: Vec<ProviderJob> = sent
                     .jobs
                     .iter()

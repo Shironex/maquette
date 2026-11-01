@@ -3,6 +3,7 @@
 //! stand and where the files are, decide_render stops and goes on. The files
 //! go to the exports folder, never anywhere an agent names.
 
+use crate::mcp::tools::ToolError;
 use maquette_core::packs::PackSource;
 use maquette_core::renders::{
     RenderFile, RenderRecord, RenderRequest, RenderRow, RenderSettings, RenderStyle, Renders,
@@ -164,7 +165,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let source = source_of(&args)?;
-                let planned = commands::plan(host.session(), &source).map_err(|e| e.message)?;
+                let planned = commands::plan(host.session(), &source)?;
                 if args.dry_run {
                     return Ok(json!({ "dryRun": true, "plan": to_value(&planned) }));
                 }
@@ -189,8 +190,7 @@ impl McpTools {
                     sheet: args.sheet,
                 };
                 let record =
-                    commands::start(host.session(), service(host)?, host.toolbox(), &request)
-                        .map_err(|e| e.message)?;
+                    commands::start(host.session(), service(host)?, host.toolbox(), &request)?;
                 Ok(summary(&record))
             })
             .await;
@@ -254,7 +254,10 @@ impl McpTools {
                     RenderChoice::Stop => renders.stop(&args.id),
                     RenderChoice::Resume => renders.resume(&root, host.toolbox(), &args.id),
                 };
-                record.map(|r| summary(&r)).map_err(|e| e.to_string())
+                record
+                    .map(|r| summary(&r))
+                    .map_err(|e| e.to_string())
+                    .map_err(ToolError::from)
             })
             .await;
         respond(found)

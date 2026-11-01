@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 
 use crate::commands::game as commands;
 
-use super::{McpTools, Out, ProjectArgs, reason, respond, to_value, workspace};
+use super::{McpTools, Out, ProjectArgs, respond, to_value, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -177,16 +177,17 @@ impl McpTools {
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
                 let manifest =
-                    project::load(&root, &config.layout, &args.project).map_err(reason)?;
-                let settings = game::settings_of(&manifest).map_err(reason)?;
-                let dir = project::dir(&root, &config.layout, &args.project).map_err(reason)?;
+                    project::load(&root, &config.layout, &args.project)?;
+                let settings = game::settings_of(&manifest)?;
+                let dir = project::dir(&root, &config.layout, &args.project)?;
                 let wanted = args.previews.unwrap_or_default();
                 let ids = template_ids();
                 if let Some(bad) = wanted.iter().find(|w| *w != "all" && !ids.contains(w)) {
                     return Err(format!(
                         "{bad:?} is not a game template ({}). Use one of those or \"all\".",
                         ids.join(", ")
-                    ));
+                    )
+                    .into());
                 }
                 let all = wanted.iter().any(|w| w == "all");
                 let templates = game::game_templates()
@@ -199,8 +200,7 @@ impl McpTools {
                             Ok(json!({ "template": to_value(&t) }))
                         }
                     })
-                    .collect::<Result<Vec<Value>, _>>()
-                    .map_err(reason)?;
+                    .collect::<Result<Vec<Value>, _>>()?;
                 let assets: Vec<Value> = manifest
                     .assets
                     .iter()
@@ -240,7 +240,7 @@ impl McpTools {
     async fn scan_game_models(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let scan = commands::scan(host.session(), &args.project).map_err(|e| e.message)?;
+                let scan = commands::scan(host.session(), &args.project)?;
                 Ok(to_value(&scan))
             })
             .await;
@@ -260,8 +260,7 @@ impl McpTools {
                     &args.files,
                     host.thumbs(),
                     &tools,
-                )
-                .map_err(|e| e.message)?;
+                )?;
                 host.project_changed(&result.project);
                 host.pipeline_changed(&args.project);
                 Ok(json!({
@@ -282,23 +281,20 @@ impl McpTools {
         let changed = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                let manifest =
-                    project::load(&root, &config.layout, &args.project).map_err(reason)?;
-                let current = game::settings_of(&manifest).map_err(reason)?;
+                let manifest = project::load(&root, &config.layout, &args.project)?;
+                let current = game::settings_of(&manifest)?;
                 let change = args.change(&current.export)?;
                 let template = args.template()?;
                 if let Some(repo) = args.repo.as_deref() {
-                    let path = game::check_repo(repo).map_err(reason)?;
+                    let path = game::check_repo(repo)?;
                     let path = Some(path.display().to_string());
-                    project::update(&root, &config.layout, &args.project, manifest.name, path)
-                        .map_err(reason)?;
-                    host.session().save_repos(&root).map_err(reason)?;
+                    project::update(&root, &config.layout, &args.project, manifest.name, path)?;
+                    host.session().save_repos(&root)?;
                 }
                 let saved = match template {
                     Some(id) => commands::apply_template(host.session(), &args.project, id),
                     None => commands::save_settings(host.session(), &args.project, change),
-                }
-                .map_err(|e| e.message)?;
+                }?;
                 host.project_changed(&saved);
                 host.pipeline_changed(&args.project);
                 Ok(())
@@ -322,15 +318,13 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                let manifest =
-                    project::load(&root, &config.layout, &args.project).map_err(reason)?;
+                let manifest = project::load(&root, &config.layout, &args.project)?;
                 if game::settings_of(&manifest).is_err() {
-                    let view = crate::commands::ship::view(host.session(), &args.project)
-                        .map_err(|e| e.message)?;
+                    let view = crate::commands::ship::view(host.session(), &args.project)?;
                     return Ok(to_value(&view.plan));
                 }
-                let plan = commands::ship_plan(host.session(), &args.project, args.repo.as_deref())
-                    .map_err(|e| e.message)?;
+                let plan =
+                    commands::ship_plan(host.session(), &args.project, args.repo.as_deref())?;
                 Ok(to_value(&plan))
             })
             .await;

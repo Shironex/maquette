@@ -1,6 +1,7 @@
 //! Tools that read and change an asset's material tweaks and the codec of
 //! each of its texture map groups.
 
+use crate::mcp::tools::ToolError;
 use std::collections::BTreeMap;
 
 use maquette_core::materials::{
@@ -17,7 +18,7 @@ use serde_json::{Value, json};
 use crate::commands::{materials as commands, pipeline};
 use crate::mcp::host::Host;
 
-use super::{McpTools, Out, explicit, reason, respond, to_short_value, to_value, workspace};
+use super::{McpTools, Out, explicit, respond, to_short_value, to_value, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -167,10 +168,10 @@ struct Target {
     names: Vec<String>,
 }
 
-fn target(host: &dyn Host, project_id: &str, wanted: &str) -> Result<Target, String> {
+fn target(host: &dyn Host, project_id: &str, wanted: &str) -> Result<Target, ToolError> {
     let (root, config) = workspace(host)?;
-    let manifest = project::load(&root, &config.layout, project_id).map_err(reason)?;
-    let dir = project::dir(&root, &config.layout, project_id).map_err(reason)?;
+    let manifest = project::load(&root, &config.layout, project_id)?;
+    let dir = project::dir(&root, &config.layout, project_id)?;
     let asset = find_asset(&manifest, wanted)?.clone();
     let latest = asset.latest().map(|v| dir.join(&v.file));
     let stem = latest
@@ -190,8 +191,8 @@ fn summary(
     project_id: &str,
     target: &Target,
     saved: &SceneMaterials,
-) -> Result<Value, String> {
-    let view = pipeline::view(host.session(), host.runner(), project_id).map_err(|e| e.message)?;
+) -> Result<Value, ToolError> {
+    let view = pipeline::view(host.session(), host.runner(), project_id)?;
     let defaults = CompressDefaults {
         texture_size: view.defaults.texture_size,
         codec: view.defaults.codec,
@@ -240,8 +241,8 @@ fn with_codecs(
     stem: &str,
     label: &str,
     edit: &CodecsEdit,
-) -> Result<PresetChange, String> {
-    let view = pipeline::view(host.session(), host.runner(), project_id).map_err(|e| e.message)?;
+) -> Result<PresetChange, ToolError> {
+    let view = pipeline::view(host.session(), host.runner(), project_id)?;
     let previous = view.def.presets.clone();
     let mut table = previous.clone();
     let index = table
@@ -275,7 +276,7 @@ fn with_codecs(
         }
     }
     row.map_codecs = (!codecs.is_empty()).then_some(codecs);
-    let next = presets::apply(&previous, table).map_err(reason)?;
+    let next = presets::apply(&previous, table)?;
     Ok(PresetChange { next, previous })
 }
 
@@ -308,7 +309,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let target = target(host, &args.project, &args.asset)?;
-                let saved = commands::get(host.session(), &args.project).map_err(|e| e.message)?;
+                let saved = commands::get(host.session(), &args.project)?;
                 summary(host, &args.project, &target, &saved)
             })
             .await;
@@ -336,15 +337,14 @@ impl McpTools {
                         return Err(format!(
                             "{} has no model yet, so it has no textures to compress.",
                             target.asset.name
-                        ));
+                        )
+                        .into());
                     }
                     (None, _) => None,
                 };
                 // Both checked whole before anything is written.
-                let current =
-                    commands::get(host.session(), &args.project).map_err(|e| e.message)?;
-                materials::apply_patch(&current, &target.asset.id, &change, &target.names)
-                    .map_err(reason)?;
+                let current = commands::get(host.session(), &args.project)?;
+                materials::apply_patch(&current, &target.asset.id, &change, &target.names)?;
                 let codecs = table.is_some();
                 let saved = presets_then_tweaks(
                     table,

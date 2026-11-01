@@ -192,10 +192,10 @@ pub(super) fn asset_id(
     host: &dyn super::Host,
     project_id: &str,
     wanted: &str,
-) -> Result<String, String> {
+) -> Result<String, super::ToolError> {
     let (root, config) = workspace(host)?;
-    let manifest = project::load(&root, &config.layout, project_id).map_err(super::reason)?;
-    find_asset(&manifest, wanted).map(|a| a.id.clone())
+    let manifest = project::load(&root, &config.layout, project_id)?;
+    Ok(find_asset(&manifest, wanted)?.id.clone())
 }
 
 #[tool_router(router = library_router, vis = "pub(super)")]
@@ -207,7 +207,7 @@ impl McpTools {
     async fn list_library(&self, Parameters(args): Parameters<ListLibraryArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let view = commands::get(host.session()).map_err(|e| e.message)?;
+                let view = commands::get(host.session())?;
                 let only = in_collection(&view, args.collection.as_deref())?;
                 let matching: Vec<&LibraryItem> = view
                     .items
@@ -271,8 +271,7 @@ impl McpTools {
                     tags: args.tags.clone(),
                     into: None,
                 };
-                let added = commands::add(host.session(), host.studio(), &request)
-                    .map_err(|e| e.message)?;
+                let added = commands::add(host.session(), host.studio(), &request)?;
                 host.project_changed(&added.project);
                 host.library_changed();
                 Ok(json!({
@@ -293,8 +292,7 @@ impl McpTools {
     async fn use_from_library(&self, Parameters(args): Parameters<UseFromLibraryArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let used = commands::use_entry(host.session(), host.studio(), &args.entry, args.version, &args.project)
-                    .map_err(|e| e.message)?;
+                let used = commands::use_entry(host.session(), host.studio(), &args.entry, args.version, &args.project)?;
                 host.project_changed(&used.project);
                 if used.settings {
                     host.prepare_changed(&args.project);
@@ -324,12 +322,10 @@ impl McpTools {
             .blocking(move |host, _| {
                 let asset = asset_id(host, &args.project, &args.asset)?;
                 if args.dry_run {
-                    let plan = commands::plan(host.session(), &args.project, &asset)
-                        .map_err(|e| e.message)?;
+                    let plan = commands::plan(host.session(), &args.project, &asset)?;
                     return Ok(json!({ "dryRun": true, "plan": planned(&plan) }));
                 }
-                let done = commands::update(host.session(), host.studio(), &args.project, &asset)
-                    .map_err(|e| e.message)?;
+                let done = commands::update(host.session(), host.studio(), &args.project, &asset)?;
                 host.project_changed(&done.project);
                 if !done.plan.dropped.is_empty() {
                     host.prepare_changed(&args.project);

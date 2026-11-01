@@ -85,13 +85,12 @@ pub fn project_switch(session: State<'_, Session>, id: String) -> CommandResult<
     switch(&session, &id)
 }
 
-/// Creates a project in the open workspace and makes it the current one.
-#[tauri::command(async)]
-#[specta::specta]
-pub fn project_create(
-    session: State<'_, Session>,
+/// Creates a project in the open workspace, with its pipeline. Shared with
+/// the MCP server, which leaves the app's open project alone.
+pub(crate) fn create_in_workspace(
+    session: &Session,
     project: NewProject,
-) -> CommandResult<WorkspaceSnapshot> {
+) -> CommandResult<ProjectManifest> {
     let (root, config) = session.workspace()?;
     let new = NewProject {
         site_repo: project
@@ -106,6 +105,17 @@ pub fn project_create(
     session.save_repos(&root)?;
     let dir = project::dir(&root, &config.layout, &manifest.id)?;
     maquette_core::pipeline::ensure(&dir, &manifest)?;
+    Ok(manifest)
+}
+
+/// Creates a project in the open workspace and makes it the current one.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn project_create(
+    session: State<'_, Session>,
+    project: NewProject,
+) -> CommandResult<WorkspaceSnapshot> {
+    let manifest = create_in_workspace(&session, project)?;
     let (root, config) = session.update_config(|c| c.current_project = Some(manifest.id))?;
     snapshot(&session, &root, &config)
 }
@@ -118,9 +128,20 @@ pub fn project_update(
     name: String,
     site_repo: Option<String>,
 ) -> CommandResult<ProjectManifest> {
+    set_repo(&session, &id, name, site_repo)
+}
+
+/// Names a project and sets this computer's repo for it. Shared with the
+/// MCP server.
+pub(crate) fn set_repo(
+    session: &Session,
+    id: &str,
+    name: String,
+    site_repo: Option<String>,
+) -> CommandResult<ProjectManifest> {
     let (root, config) = session.workspace()?;
     let site_repo = site_repo.map(|p| session.expand(&p).display().to_string());
-    let manifest = project::update(&root, &config.layout, &id, name, site_repo)?;
+    let manifest = project::update(&root, &config.layout, id, name, site_repo)?;
     session.save_repos(&root)?;
     Ok(manifest)
 }

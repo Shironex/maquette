@@ -18,7 +18,7 @@ use crate::commands::split::{run_assembly, thumb_for, version_thumb};
 
 use super::prepare::asset_id;
 use super::sending::{ServiceArg, await_send_approval, job_value};
-use super::{McpTools, Out, failed, json_result, reason, respond, workspace};
+use super::{McpTools, Out, failed, json_result, respond, workspace};
 
 #[derive(Debug, Clone, Copy, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
@@ -203,10 +203,7 @@ impl McpTools {
             .blocking(move |host, hub| {
                 let asset = asset_id(host, &args.project, &args.asset)?;
                 let request = args.request(asset);
-                let job = host
-                    .studio()
-                    .send_split(&request, true, true)
-                    .map_err(reason)?;
+                let job = host.studio().send_split(&request, true, true)?;
                 let pending = (job.state == JobState::Approval).then(|| hub.request_send(&job));
                 Ok((job, pending))
             })
@@ -235,12 +232,10 @@ impl McpTools {
                 let (root, config) = workspace(host)?;
                 let asset = asset_id(host, &args.project, &args.asset)?;
                 let studio = host.studio();
-                let id = studio
-                    .waiting_bake(&args.project, &asset, args.version)
-                    .map_err(reason)?;
-                studio.schedule_bake(&id).map_err(reason)?;
+                let id = studio.waiting_bake(&args.project, &asset, args.version)?;
+                studio.schedule_bake(&id)?;
                 let tools = host.toolbox();
-                let job = studio.bake_back(&id, &tools).map_err(reason)?;
+                let job = studio.bake_back(&id, &tools)?;
                 thumb_for(host.thumbs(), &root, &config, &tools, &job);
                 let bake = job.split.as_ref().and_then(|s| s.bake.clone());
                 Ok(json!({
@@ -283,7 +278,7 @@ impl McpTools {
                     parts,
                 };
                 let tools = host.toolbox();
-                let made = run_assembly(&root, &config, &tools, &request).map_err(|e| e.message)?;
+                let made = run_assembly(&root, &config, &tools, &request)?;
                 version_thumb(
                     host.thumbs(),
                     &root,

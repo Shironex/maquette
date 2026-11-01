@@ -12,10 +12,12 @@ use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use crate::commands::project::set_repo;
 use crate::commands::ship::{self as commands, ShipSave, ShipView};
+use crate::mcp::host::Host;
 
 use super::materials::find_asset;
-use super::{McpTools, Out, ProjectArgs, explicit, reason, respond, to_value, workspace};
+use super::{McpTools, Out, ProjectArgs, ToolError, explicit, respond, to_value, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -37,6 +39,10 @@ pub struct AssetShipEdit {
 pub struct SetShipArgs {
     /// The project id of a website project.
     pub project: String,
+    /// The site repo: a folder on this computer, absolute or starting with ~, saved per
+    /// computer. null clears it. A game's repo goes through set_game_settings.
+    #[serde(default, deserialize_with = "explicit")]
+    pub site_repo: Option<Option<String>>,
     /// "scene" (Maquette builds the scene: placed exports, versioned names) or "models"
     /// (a hand-built site: each model at its own origin, one stable file name per asset,
     /// a smaller site file is never replaced unless the asset is set to always).
@@ -130,6 +136,23 @@ impl SetShipArgs {
     }
 }
 
+/// The repo an agent asked for, checked: `None` clears it.
+fn checked_repo(host: &dyn Host, wanted: Option<&str>) -> Result<Option<String>, ToolError> {
+    let Some(wanted) = wanted.map(str::trim).filter(|w| !w.is_empty()) else {
+        return Ok(None);
+    };
+    let path = host.session().expand(wanted);
+    if path.is_dir() {
+        Ok(Some(path.display().to_string()))
+    } else {
+        Err(format!(
+            "{} is not a folder on this computer. Pass the repo's full path.",
+            path.display()
+        )
+        .into())
+    }
+}
+
 #[tool_router(router = ship_router, vis = "pub(super)")]
 impl McpTools {
     #[tool(
@@ -139,7 +162,7 @@ impl McpTools {
     async fn get_ship_settings(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let view = commands::view(host.session(), &args.project).map_err(|e| e.message)?;
+                let view = commands::view(host.session(), &args.project)?;
                 Ok(view_value(&view))
             })
             .await;
@@ -147,19 +170,38 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Change how a website project ships, as the Ship view does: style (scene or models), textures (ktx2, webp or avif), quality (1 to 100), per asset choice (auto, never, always) and file name (without .glb, null for the default), and the site's folders (models, posters, data; written to the site's maquette.site.json, keeping its other keys). Only the given fields change; everything is checked before anything is written. Spends nothing. Returns what get_ship_settings returns.",
+        description = "Change how a website project ships, as the Ship view does: style (scene or models), textures (ktx2, webp or avif), quality (1 to 100), per asset choice (auto, never, always) and file name (without .glb, null for the default), the site repo (siteRepo, null clears it), and the site's folders (models, posters, data; written to the site's maquette.site.json, keeping its other keys). Only the given fields change; everything is checked before anything is written. Spends nothing. Returns what get_ship_settings returns.",
         annotations(idempotent_hint = true)
     )]
     async fn set_ship_settings(&self, Parameters(args): Parameters<SetShipArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                let manifest =
-                    project::load(&root, &config.layout, &args.project).map_err(reason)?;
-                let view = commands::view(host.session(), &args.project).map_err(|e| e.message)?;
+                let manifest = project::load(&root, &config.layout, &args.project)?;
+                let view = commands::view(host.session(), &args.project)?;
+                // Checked before the repo moves, so a bad word changes nothing.
                 let save = args.save(&view, &manifest)?;
-                let saved =
-                    commands::save(host.session(), &args.project, save).map_err(|e| e.message)?;
+                let saved = match &args.site_repo {
+                    None => commands::save(host.session(), &args.project, save)?,
+                    Some(wanted) => {
+                        let repo = checked_repo(host, wanted.as_deref())?;
+                        let before = manifest.site_repo.clone();
+                        let set = |repo| {
+                            set_repo(host.session(), &args.project, manifest.name.clone(), repo)
+                        };
+                        host.project_changed(&set(repo)?);
+                        // The folders are read from the new repo now.
+                        let view = commands::view(host.session(), &args.project)?;
+                        let save = args.save(&view, &manifest)?;
+                        match commands::save(host.session(), &args.project, save) {
+                            Ok(saved) => saved,
+                            Err(err) => {
+                                host.project_changed(&set(before)?);
+                                return Err(err.into());
+                            }
+                        }
+                    }
+                };
                 host.pipeline_changed(&args.project);
                 Ok(view_value(&saved))
             })
@@ -174,7 +216,7 @@ impl McpTools {
     async fn get_size_report(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let view = commands::view(host.session(), &args.project).map_err(|e| e.message)?;
+                let view = commands::view(host.session(), &args.project)?;
                 Ok(to_value(&view.report))
             })
             .await;

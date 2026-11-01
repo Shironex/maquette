@@ -20,4 +20,5 @@ mod reads;
 mod renders;
 mod rig;
 mod ship;
+mod start;
 mod trash;

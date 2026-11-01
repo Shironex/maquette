@@ -1,5 +1,6 @@
 //! Tools that read, edit and run a project's pipeline.
 
+use crate::mcp::tools::ToolError;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -13,6 +14,7 @@ use serde_json::{Value, json};
 use crate::commands::pipeline;
 
 mod presets;
+use super::hints::after_run;
 use crate::mcp::gate::ShipGate;
 use crate::mcp::host::Host;
 use crate::mcp::hub::Hub;
@@ -20,7 +22,7 @@ use presets::edited_presets;
 pub use presets::{PresetEdit, SetPresetsArgs};
 
 use super::{
-    McpTools, Out, ProjectArgs, WAITING, cache_dir, failed, json_result, reason, respond, to_value,
+    McpTools, Out, ProjectArgs, WAITING, cache_dir, failed, json_result, respond, to_value,
     workspace,
 };
 
@@ -86,7 +88,7 @@ fn log_line(entry: &LogEntry) -> String {
 }
 
 /// The run an agent asked for: live from the runner, or from history.
-fn find_run(host: &dyn Host, hub: &Hub, args: &GetRunArgs) -> Result<RunRecord, String> {
+fn find_run(host: &dyn Host, hub: &Hub, args: &GetRunArgs) -> Result<RunRecord, ToolError> {
     let cache = cache_dir(host, &args.project)?;
     let saved = history::load_runs(&cache);
     let wanted = args
@@ -97,14 +99,14 @@ fn find_run(host: &dyn Host, hub: &Hub, args: &GetRunArgs) -> Result<RunRecord, 
         Some(id) => hub
             .live_run(&id)
             .or_else(|| saved.into_iter().find(|r| r.id == id))
-            .ok_or_else(|| format!("There is no run {id} in {}.", args.project)),
+            .ok_or_else(|| format!("There is no run {id} in {}.", args.project).into()),
         None => {
             let (active, queued) = host.runner().active(&args.project);
             let live = active
                 .or_else(|| queued.last().map(|r| r.id.clone()))
                 .and_then(|id| hub.live_run(&id));
             live.or_else(|| saved.into_iter().next())
-                .ok_or_else(|| format!("{} has not run yet.", args.project))
+                .ok_or_else(|| format!("{} has not run yet.", args.project).into())
         }
     }
 }
@@ -144,6 +146,9 @@ fn run_summary(hub: &Hub, run: &RunRecord) -> Value {
         out["shipped"] = json!(shipped);
         out["shipReason"] = json!(reason);
     }
+    if let Some(next) = after_run(status, run.build_only) {
+        out["next"] = Value::Array(next);
+    }
     if let Some(approval) = approval {
         out["approval"] = json!({
             "id": approval.id,
@@ -163,8 +168,7 @@ impl McpTools {
     async fn get_pipeline(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let view = pipeline::view(host.session(), host.runner(), &args.project)
-                    .map_err(|e| e.message)?;
+                let view = pipeline::view(host.session(), host.runner(), &args.project)?;
                 let mut value = to_value(&view);
                 if let Some(map) = value.as_object_mut() {
                     // The log has its own tool, and five runs are plenty here.
@@ -186,11 +190,9 @@ impl McpTools {
     async fn set_compression_presets(&self, Parameters(args): Parameters<SetPresetsArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let view = pipeline::view(host.session(), host.runner(), &args.project)
-                    .map_err(|e| e.message)?;
+                let view = pipeline::view(host.session(), host.runner(), &args.project)?;
                 let table = edited_presets(&view, &args.presets)?;
-                let saved = pipeline::save_presets(host.session(), host.runner(), &args.project, table)
-                    .map_err(|e| e.message)?;
+                let saved = pipeline::save_presets(host.session(), host.runner(), &args.project, table)?;
                 host.pipeline_changed(&args.project);
                 let built: f64 = saved
                     .models
@@ -258,8 +260,7 @@ impl McpTools {
                         repo: args.repo,
                     },
                     tools,
-                )
-                .map_err(|e| e.message)?;
+                )?;
                 let gate =
                     crate::commands::game::ship_gate(host.session(), &args.project, &gate_hub)
                         .or_else(|| {
@@ -275,7 +276,7 @@ impl McpTools {
                             ..RunOptions::default()
                         },
                     )
-                    .map_err(reason)
+                    .map_err(ToolError::from)
             })
             .await;
         let record = match started {
@@ -307,7 +308,7 @@ impl McpTools {
     async fn cancel_run(&self, Parameters(args): Parameters<RunIdArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                host.runner().cancel(&args.run_id).map_err(reason)?;
+                host.runner().cancel(&args.run_id)?;
                 Ok(json!({ "status": "cancelled", "runId": args.run_id }))
             })
             .await;

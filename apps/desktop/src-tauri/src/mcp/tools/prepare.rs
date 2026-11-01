@@ -2,6 +2,7 @@
 //! preparation the Build scene step gives its model, and preview what the
 //! fix-ups do on its newest model (headless).
 
+use crate::mcp::tools::ToolError;
 use maquette_core::prepare::{
     self, DEFAULT_MERGE_UNDER, Fixup, FixupKind, PrepPatch, RealSize, SizeAxis, SizeUnit, SplitBy,
 };
@@ -18,7 +19,7 @@ use crate::commands::prepare::{
 use crate::mcp::host::Host;
 
 use super::materials::find_asset;
-use super::{McpTools, Out, reason, respond, to_short_value, workspace};
+use super::{McpTools, Out, respond, to_short_value, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -100,6 +101,15 @@ pub struct AddFixupsArgs {
     /// The asset id as list_assets returns it, or the asset's name.
     pub asset: String,
     /// The fix-ups to add; one of a kind already there is replaced. Each kind at most once.
+    /// rotate { x, y, z } stands up a model that came out leaning, about its centre, x then y
+    /// then z. apply-transforms bakes object transforms (rigged meshes keep theirs).
+    /// remove-loose { minShare 0 to 0.5, default 0.02 of the model's diagonal }. merge
+    /// { byMaterial, default false }. split-parts { by: loose (default) or material, mergeUnder 0
+    /// to 0.2, default 0.01 of the diagonal } cuts each unrigged mesh into parts named part_1,
+    /// part_2 top first, a piece that small joining its nearest neighbour, texture and UVs kept;
+    /// name them with set_parts. decimate { triangles, default the workspace budget }.
+    /// shrink-textures { maxSize px, default the workspace texture size }. origin-bottom puts the
+    /// bottom centre at the origin, on the floor.
     pub fixups: Vec<FixupEdit>,
 }
 
@@ -193,9 +203,13 @@ impl RemoveFixupsArgs {
 }
 
 /// The asset's id, found by id or name.
-pub(super) fn asset_id(host: &dyn Host, project_id: &str, wanted: &str) -> Result<String, String> {
+pub(super) fn asset_id(
+    host: &dyn Host,
+    project_id: &str,
+    wanted: &str,
+) -> Result<String, ToolError> {
     let (root, config) = workspace(host)?;
-    let manifest = project::load(&root, &config.layout, project_id).map_err(reason)?;
+    let manifest = project::load(&root, &config.layout, project_id)?;
     Ok(find_asset(&manifest, wanted)?.id.clone())
 }
 
@@ -232,16 +246,15 @@ fn summary(found: &AssetPrep) -> Value {
 /// file as it is on disk (the app may have saved since), so nothing is
 /// written when any part is refused.
 fn change(host: &dyn Host, project_id: &str, wanted: &str, patch: &PrepPatch) -> Out {
-    let found = (|| {
+    let found = (|| -> Result<Value, ToolError> {
         let id = asset_id(host, project_id, wanted)?;
-        let current = commands::get(host.session(), project_id).map_err(|e| e.message)?;
-        prepare::apply_patch(&current, &id, patch).map_err(reason)?;
+        let current = commands::get(host.session(), project_id)?;
+        prepare::apply_patch(&current, &id, patch)?;
         commands::update(host.session(), project_id, |now| {
             prepare::apply_patch(now, &id, patch)
-        })
-        .map_err(|e| e.message)?;
+        })?;
         host.prepare_changed(project_id);
-        view(host, project_id, &id).map(|v| summary(&v))
+        Ok(view(host, project_id, &id).map(|v| summary(&v))?)
     })();
     respond(found)
 }
@@ -256,7 +269,9 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let id = asset_id(host, &args.project, &args.asset)?;
-                view(host, &args.project, &id).map(|v| summary(&v))
+                view(host, &args.project, &id)
+                    .map(|v| summary(&v))
+                    .map_err(ToolError::from)
             })
             .await;
         respond(found)
@@ -306,14 +321,14 @@ impl McpTools {
     }
 
     #[tool(
-        description = "Add fix-ups to an asset; one of a kind already there is replaced. Each is { op, ...numbers }: rotate { x, y, z degrees in the app's axes (y up), -360 to 360, default 0, applied x then y then z about the model's centre: stands up a model that came out leaning, no credits spent }, apply-transforms (bakes object transforms, rigged meshes keep theirs), remove-loose { minShare 0 to 0.5, default 0.02 of the model's diagonal }, merge { byMaterial, default false }, split-parts { by: loose (default) | material, mergeUnder 0 to 0.2, default 0.01 of the model's diagonal: cuts each unrigged mesh into parts named part_1, part_2 top first, a piece that small joining its nearest neighbour, texture and UVs kept; name the parts with set_parts }, decimate { triangles, default the workspace budget }, shrink-textures { maxSize px, default the workspace texture size }, origin-bottom (bottom centre to the origin, on the floor). They always apply in that order, headless, on a copy: the inbox file and the asset's versions never change, and every new version gets them on the next run. Nothing is written when any one is refused. Returns the result like get_real_size; preview_fixups shows what they do.",
+        description = "Add fix-ups to an asset; one of a kind already there is replaced. Each is { op, ...numbers } (see fixups for the ops and numbers). They always apply in the order rotate, apply-transforms, remove-loose, merge, split-parts, decimate, shrink-textures, origin-bottom, headless, on a copy: the inbox file and the asset's versions never change, and every new version gets them on the next run. Nothing is written when any one is refused. Returns the result like get_real_size; preview_fixups shows what they do.",
         annotations(idempotent_hint = true)
     )]
     async fn add_fixups(&self, Parameters(args): Parameters<AddFixupsArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
                 if args.fixups.is_empty() {
-                    return Err("Give at least one fix-up to add.".to_string());
+                    return Err("Give at least one fix-up to add.".to_string().into());
                 }
                 let (_, config) = workspace(host)?;
                 let defaults = commands::defaults(&config);
@@ -358,7 +373,8 @@ impl McpTools {
                     return Err(format!(
                         "{} has no real size or fix-ups to preview. Add some first.",
                         found.name
-                    ));
+                    )
+                    .into());
                 }
                 let request = PreviewRequest {
                     project: Some(args.project.clone()),
@@ -366,8 +382,8 @@ impl McpTools {
                     inbox: None,
                     plan: found.entry.clone(),
                 };
-                let job = preview_job(host.session(), &request).map_err(|e| e.message)?;
-                let report = job.run(&host.toolbox()).map_err(|e| e.message)?;
+                let job = preview_job(host.session(), &request)?;
+                let report = job.run(&host.toolbox())?;
                 Ok(json!({
                     "project": args.project,
                     "asset": id,

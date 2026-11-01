@@ -1,6 +1,7 @@
 //! The tools that control Lab jobs as the Lab queue does: Retry, Cancel and
 //! Run next.
 
+use crate::mcp::tools::ToolError;
 use maquette_core::concepts::ConceptJobState;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{schemars, tool, tool_router};
@@ -8,7 +9,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use super::concepts::job_value;
-use super::{McpTools, Out, reason, respond, to_value};
+use super::{McpTools, Out, respond, to_value};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -90,7 +91,8 @@ impl McpTools {
                         "{} has no {} Lab job to retry.",
                         args.project,
                         args.include.noun()
-                    ));
+                    )
+                    .into());
                 }
                 for id in &ids {
                     let job = own.iter().find(|j| &j.id == id).ok_or_else(|| {
@@ -106,7 +108,8 @@ impl McpTools {
                             "{} is {}; only a failed, cancelled or rate limited job runs again.",
                             job.file,
                             to_value(job.state).as_str().unwrap_or_default()
-                        ));
+                        )
+                        .into());
                     }
                 }
                 let jobs = ids
@@ -116,7 +119,7 @@ impl McpTools {
                         concepts
                             .retry_with(id, true)
                             .map(|j| job_value(&j))
-                            .map_err(reason)
+                            .map_err(ToolError::from)
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(json!({ "project": args.project, "jobs": jobs }))
@@ -143,7 +146,7 @@ impl McpTools {
                         .collect(),
                 };
                 if ids.is_empty() {
-                    return Err(format!("{} has no unfinished Lab job.", args.project));
+                    return Err(format!("{} has no unfinished Lab job.", args.project).into());
                 }
                 let jobs: Vec<_> = ids
                     .iter()
@@ -161,7 +164,7 @@ impl McpTools {
                                 value["cancelled"] = json!(true);
                                 value
                             }
-                            Err(err) => json!({ "id": id, "cancelled": false, "state": to_value(job.state), "reason": reason(err) }),
+                            Err(err) => json!({ "id": id, "cancelled": false, "state": to_value(job.state), "reason": maquette_core::ErrorPayload::from(err).message }),
                         }
                     })
                     .collect();
@@ -198,7 +201,7 @@ impl McpTools {
                     })
                     .collect();
                 if moved.is_empty() && skipped.is_empty() {
-                    return Err(format!("{} has no queued Lab job to run next.", args.project));
+                    return Err(format!("{} has no queued Lab job to run next.", args.project).into());
                 }
                 Ok(json!({
                     "project": args.project,

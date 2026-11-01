@@ -1,5 +1,6 @@
 //! The credits tool: what is left on each provider and what sends spent.
 
+use crate::mcp::tools::ToolError;
 use maquette_core::pipeline::history::now_ms;
 use maquette_core::providers::ledger::{self, ImageSpend, images::month_start_ms};
 use rmcp::handler::server::wrapper::Parameters;
@@ -7,7 +8,7 @@ use rmcp::{schemars, tool, tool_router};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::{McpTools, Out, reason, respond, to_value, workspace};
+use super::{McpTools, Out, respond, to_value, workspace};
 use crate::mcp::host::Host;
 
 /// The most spends one answer lists.
@@ -34,7 +35,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let studio = host.studio();
-                let mut spends = studio.ledger().map_err(reason)?.spends;
+                let mut spends = studio.ledger()?.spends;
                 if let Some(project) = args.project.as_deref() {
                     spends.retain(|s| s.project == project);
                 }
@@ -65,10 +66,10 @@ fn usd(n: f64) -> f64 {
 }
 
 /// The month's OpenAI image dollars against the cap, from `credits.jsonl`.
-fn openai_images(host: &dyn Host, project: Option<&str>, limit: usize) -> Result<Value, String> {
+fn openai_images(host: &dyn Host, project: Option<&str>, limit: usize) -> Result<Value, ToolError> {
     let (root, config) = workspace(host)?;
     let settings = config.lab.images;
-    let lines = ledger::read(&root).map_err(reason)?.images;
+    let lines = ledger::read(&root)?.images;
     let now = now_ms();
     let start = month_start_ms(now);
     let this_month: Vec<&ImageSpend> = lines.iter().filter(|l| l.at_ms >= start).collect();

@@ -176,7 +176,7 @@ async fn agents_add_build_and_rebuild_a_built_asset() {
     assert!(
         info.instructions
             .as_deref()
-            .is_some_and(|i| i.contains("add_built_asset") && i.contains("rebuild_built_asset"))
+            .is_some_and(|i| i.contains("[built]") && i.contains("add_built_asset"))
     );
     let tools = client.list_all_tools().await.expect("tools");
     let listing = tools

@@ -12,7 +12,7 @@ use maquette_core::pipeline::history::now_ms;
 use maquette_core::providers::ledger::{self, month_to_date};
 use serde_json::{Value, json};
 
-use super::{McpTools, WAITING};
+use super::{McpTools, ToolError, WAITING};
 use crate::mcp::host::Host;
 use crate::mcp::hub::{Hub, ImageRound};
 
@@ -90,8 +90,8 @@ impl McpTools {
     pub(super) async fn ask_for_round(
         &self,
         project: String,
-        found: Result<Value, String>,
-    ) -> Result<Value, String> {
+        found: Result<Value, ToolError>,
+    ) -> Result<Value, ToolError> {
         let mut value = found?;
         let jobs = held(&value);
         if jobs.is_empty() {
@@ -114,7 +114,7 @@ impl McpTools {
             (id, estimate)
         })
         .await
-        .map_err(|e| format!("The task stopped unexpectedly. {e}"))?;
+        .map_err(|e| ToolError::from(format!("The task stopped unexpectedly. {e}")))?;
         value["status"] = json!(WAITING);
         value["approval"] = json!({
             "id": id,

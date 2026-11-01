@@ -226,7 +226,7 @@ impl McpTools {
     async fn get_motion(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let view = motion::get(host.session(), &args.project).map_err(|e| e.message)?;
+                let view = motion::get(host.session(), &args.project)?;
                 Ok(to_short_value(&view))
             })
             .await;

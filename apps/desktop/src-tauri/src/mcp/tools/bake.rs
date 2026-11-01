@@ -1,6 +1,7 @@
 //! Tools that read and change how the Bake light step bakes: the project's
 //! lightmap size, samples and denoiser, and which assets skip the bake.
 
+use crate::mcp::tools::ToolError;
 use maquette_core::pipeline::bake::{BakePatch, BakeView};
 use maquette_core::prepare::{self, PrepPatch};
 use maquette_core::project;
@@ -14,7 +15,7 @@ use crate::commands::prepare as prep_commands;
 use crate::mcp::host::Host;
 
 use super::materials::find_asset;
-use super::{McpTools, Out, ProjectArgs, reason, respond, to_value, workspace};
+use super::{McpTools, Out, ProjectArgs, respond, to_value, workspace};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -59,12 +60,20 @@ fn bake_value(project: &str, bake: Option<&BakeView>) -> Result<Value, String> {
 }
 
 /// The asset ids for `wanted` (ids or names), refusing the first unknown.
-fn asset_ids(host: &dyn Host, project_id: &str, wanted: &[String]) -> Result<Vec<String>, String> {
+fn asset_ids(
+    host: &dyn Host,
+    project_id: &str,
+    wanted: &[String],
+) -> Result<Vec<String>, ToolError> {
     let (root, config) = workspace(host)?;
-    let manifest = project::load(&root, &config.layout, project_id).map_err(reason)?;
+    let manifest = project::load(&root, &config.layout, project_id)?;
     wanted
         .iter()
-        .map(|w| find_asset(&manifest, w).map(|a| a.id.clone()))
+        .map(|w| {
+            find_asset(&manifest, w)
+                .map(|a| a.id.clone())
+                .map_err(ToolError::from)
+        })
         .collect()
 }
 
@@ -77,9 +86,8 @@ impl McpTools {
     async fn get_bake_settings(&self, Parameters(args): Parameters<ProjectArgs>) -> Out {
         let found = self
             .blocking(move |host, _| {
-                let view = pipeline::view(host.session(), host.runner(), &args.project)
-                    .map_err(|e| e.message)?;
-                bake_value(&args.project, view.bake.as_ref())
+                let view = pipeline::view(host.session(), host.runner(), &args.project)?;
+                bake_value(&args.project, view.bake.as_ref()).map_err(ToolError::from)
             })
             .await;
         respond(found)
@@ -98,13 +106,14 @@ impl McpTools {
                     denoise: args.denoise,
                 };
                 if patch == BakePatch::default() {
-                    return Err("Give size, samples or denoise to change.".to_string());
+                    return Err("Give size, samples or denoise to change."
+                        .to_string()
+                        .into());
                 }
                 let view =
-                    pipeline::save_bake(host.session(), host.runner(), &args.project, &patch)
-                        .map_err(|e| e.message)?;
+                    pipeline::save_bake(host.session(), host.runner(), &args.project, &patch)?;
                 host.pipeline_changed(&args.project);
-                bake_value(&args.project, view.bake.as_ref())
+                bake_value(&args.project, view.bake.as_ref()).map_err(ToolError::from)
             })
             .await;
         respond(found)
@@ -118,7 +127,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 if args.assets.is_empty() {
-                    return Err("Name at least one asset.".to_string());
+                    return Err("Name at least one asset.".to_string().into());
                 }
                 let ids = asset_ids(host, &args.project, &args.assets)?;
                 let patch = PrepPatch {
@@ -129,11 +138,9 @@ impl McpTools {
                     ids.iter().try_fold(now.clone(), |next, id| {
                         prepare::apply_patch(&next, id, &patch)
                     })
-                })
-                .map_err(|e| e.message)?;
+                })?;
                 host.prepare_changed(&args.project);
-                let view = pipeline::view(host.session(), host.runner(), &args.project)
-                    .map_err(|e| e.message)?;
+                let view = pipeline::view(host.session(), host.runner(), &args.project)?;
                 Ok(json!({
                     "project": args.project,
                     "assets": ids,

@@ -2,6 +2,7 @@
 //! explode tracks move by name, and compare two versions part by part. A
 //! split itself is a fix-up (add_fixups, op split-parts).
 
+use crate::mcp::tools::ToolError;
 use std::collections::BTreeMap;
 
 use maquette_core::prepare::{self, PartsPatch, PrepPatch};
@@ -15,7 +16,7 @@ use crate::commands::prepare as prep_commands;
 use crate::mcp::host::Host;
 
 use super::prepare::PrepArgs;
-use super::{McpTools, Out, reason, respond, to_short_value};
+use super::{McpTools, Out, respond, to_short_value};
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -64,9 +65,11 @@ pub struct CompareArgs {
 }
 
 /// The asset's parts, after running its split headless when it has not run.
-fn parts(host: &dyn Host, project: &str, wanted: &str) -> Result<AssetParts, String> {
+fn parts(host: &dyn Host, project: &str, wanted: &str) -> Result<AssetParts, ToolError> {
     let id = super::prepare::asset_id(host, project, wanted)?;
-    commands::run_listing(host.session(), &host.toolbox(), project, &id).map_err(|e| e.message)
+    commands::run_listing(host.session(), &host.toolbox(), project, &id)
+        .map_err(|e| e.message)
+        .map_err(ToolError::from)
 }
 
 fn summary(found: &AssetParts) -> Value {
@@ -147,16 +150,13 @@ impl McpTools {
                     parts: Some(args.patch(&found)?),
                     ..PrepPatch::default()
                 };
-                let current =
-                    prep_commands::get(host.session(), &args.project).map_err(|e| e.message)?;
-                prepare::apply_patch(&current, &found.asset, &patch).map_err(reason)?;
+                let current = prep_commands::get(host.session(), &args.project)?;
+                prepare::apply_patch(&current, &found.asset, &patch)?;
                 prep_commands::update(host.session(), &args.project, |now| {
                     prepare::apply_patch(now, &found.asset, &patch)
-                })
-                .map_err(|e| e.message)?;
+                })?;
                 host.prepare_changed(&args.project);
-                let after = commands::get(host.session(), &args.project, &found.asset)
-                    .map_err(|e| e.message)?;
+                let after = commands::get(host.session(), &args.project, &found.asset)?;
                 Ok(summary(&after))
             })
             .await;
@@ -182,8 +182,7 @@ impl McpTools {
                     &args.project,
                     &id,
                     [&left, &right],
-                )
-                .map_err(|e| e.message)?;
+                )?;
                 Ok(json!({
                     "project": args.project,
                     "asset": id,

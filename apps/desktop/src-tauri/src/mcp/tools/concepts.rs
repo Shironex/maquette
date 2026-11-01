@@ -11,9 +11,10 @@ use serde_json::{Value, json};
 
 use crate::commands::lab;
 
+use super::hints::{step, with_next};
 use super::image_api::{BackendArg, backend};
 use super::sending::VariantArg;
-use super::{McpTools, Out, reason, respond, to_value, workspace};
+use super::{McpTools, Out, respond, to_value, workspace};
 
 /// The aspect ratio of the concept images.
 #[derive(Debug, Clone, Copy, Deserialize, schemars::JsonSchema)]
@@ -165,8 +166,7 @@ impl McpTools {
                     &tools,
                     &request,
                     backend(args.backend),
-                )
-                .map_err(|e| e.message)?;
+                )?;
                 let jobs: Vec<Value> = jobs
                     .iter()
                     .map(|j| json!({ "id": j.id, "file": j.file, "state": to_value(j.state), "backend": to_value(j.backend) }))
@@ -191,8 +191,8 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                let dir = project::dir(&root, &config.layout, &args.project).map_err(reason)?;
-                project::load(&root, &config.layout, &args.project).map_err(reason)?;
+                let dir = project::dir(&root, &config.layout, &args.project)?;
+                project::load(&root, &config.layout, &args.project)?;
                 let wanted = args.direction.as_deref().map(str::trim);
                 let directions: Vec<Value> = concepts::list_directions(&dir)
                     .into_iter()
@@ -231,7 +231,7 @@ impl McpTools {
                     })
                     .collect();
                 if let (Some(w), true) = (wanted, directions.is_empty()) {
-                    return Err(format!("There is no direction {w:?} in {}.", args.project));
+                    return Err(format!("There is no direction {w:?} in {}.", args.project).into());
                 }
                 // A named direction limits the jobs to the direction found, too.
                 let shown: Vec<&str> = directions.iter().filter_map(|d| d["id"].as_str()).collect();
@@ -245,12 +245,24 @@ impl McpTools {
                     .iter()
                     .filter(|j| j.state != ConceptJobState::Done)
                     .partition(|j| !j.state.is_finished());
-                Ok(json!({
+                let empty = directions.is_empty() && running.is_empty() && failed.is_empty();
+                let answer = json!({
                     "project": args.project,
                     "directions": directions,
                     "running": running.into_iter().map(job_value).collect::<Vec<_>>(),
                     "failed": failed.into_iter().map(job_value).collect::<Vec<_>>(),
-                }))
+                });
+                Ok(if empty {
+                    with_next(
+                        answer,
+                        vec![step(
+                            "start_concepts",
+                            "The Lab is empty. Start a direction.",
+                        )],
+                    )
+                } else {
+                    answer
+                })
             })
             .await;
         respond(found)
@@ -264,7 +276,7 @@ impl McpTools {
         let found = self
             .blocking(move |host, _| {
                 let (root, config) = workspace(host)?;
-                let dir = project::dir(&root, &config.layout, &args.project).map_err(reason)?;
+                let dir = project::dir(&root, &config.layout, &args.project)?;
                 let name = args
                     .name
                     .clone()
@@ -290,8 +302,7 @@ impl McpTools {
                     &tools,
                     &request,
                     backend(args.backend),
-                )
-                .map_err(|e| e.message)?;
+                )?;
                 let jobs: Vec<Value> = jobs
                     .iter()
                     .map(|j| {

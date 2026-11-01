@@ -156,7 +156,7 @@ impl McpTools {
                     add: args.add,
                     remove: args.remove,
                 };
-                let entries = commands::tag(host.session(), &request).map_err(|e| e.message)?;
+                let entries = commands::tag(host.session(), &request)?;
                 host.library_changed();
                 Ok(json!({
                     "entries": entries.iter().map(|e| json!({ "id": e.id, "name": e.name, "tags": e.tags })).collect::<Vec<_>>(),
@@ -172,8 +172,7 @@ impl McpTools {
     async fn rename_library_entry(&self, Parameters(args): Parameters<RenameEntryArgs>) -> Out {
         let done = self
             .blocking(move |host, _| {
-                let entry = commands::rename(host.session(), &args.entry, &args.name)
-                    .map_err(|e| e.message)?;
+                let entry = commands::rename(host.session(), &args.entry, &args.name)?;
                 host.library_changed();
                 Ok(json!({ "id": entry.id, "name": entry.name }))
             })
@@ -188,7 +187,7 @@ impl McpTools {
         let done = self
             .blocking(move |host, _| {
                 let change = change_of(args)?;
-                let all = commands::collection(host.session(), &change).map_err(|e| e.message)?;
+                let all = commands::collection(host.session(), &change)?;
                 host.library_changed();
                 Ok(listed(&all))
             })
@@ -202,8 +201,7 @@ impl McpTools {
     async fn remove_from_library(&self, Parameters(args): Parameters<EntriesArgs>) -> Out {
         let done = self
             .blocking(move |host, _| {
-                let removed =
-                    commands::remove(host.session(), &args.entries).map_err(|e| e.message)?;
+                let removed = commands::remove(host.session(), &args.entries)?;
                 host.library_changed();
                 Ok(json!({ "removed": removed }))
             })
@@ -217,8 +215,7 @@ impl McpTools {
     async fn restore_to_library(&self, Parameters(args): Parameters<EntriesArgs>) -> Out {
         let done = self
             .blocking(move |host, _| {
-                let back =
-                    commands::restore(host.session(), &args.entries).map_err(|e| e.message)?;
+                let back = commands::restore(host.session(), &args.entries)?;
                 for project in &back.projects {
                     host.project_changed(project);
                 }
@@ -239,10 +236,9 @@ impl McpTools {
     async fn find_look_alikes(&self) -> Out {
         let done = self
             .blocking(move |host, _| {
-                let alikes = commands::look_alikes(host.session()).map_err(|e| e.message)?;
+                let alikes = commands::look_alikes(host.session())?;
                 let (root, _) = workspace(host)?;
-                let names = library::list(&root)
-                    .map_err(super::reason)?
+                let names = library::list(&root)?
                     .into_iter()
                     .map(|e| (e.id, e.name))
                     .collect();
@@ -260,18 +256,14 @@ impl McpTools {
             .blocking(move |host, _| {
                 let copy_tags = match args.copy_tags {
                     Some(copy) => copy,
-                    None => {
-                        commands::look_settings(host.session())
-                            .map_err(|e| e.message)?
-                            .copy_tags
-                    }
+                    None => commands::look_settings(host.session())?.copy_tags,
                 };
                 let request = MergeEntries {
                     keep: args.keep,
                     merge: args.merge,
                     copy_tags,
                 };
-                let merged = commands::merge(host.session(), &request).map_err(|e| e.message)?;
+                let merged = commands::merge(host.session(), &request)?;
                 for project in &merged.projects {
                     host.project_changed(project);
                 }

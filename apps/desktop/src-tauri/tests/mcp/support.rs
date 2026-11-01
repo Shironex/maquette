@@ -79,9 +79,13 @@ pub(crate) async fn call(client: &Client, tool: &str, args: Value) -> Value {
     serde_json::from_str(&text(&result)).expect("json")
 }
 
-/// Calls `tool`, which must fail, and returns its message.
+/// Calls `tool`, which must fail, and returns the message in its error.
 pub(crate) async fn call_error(client: &Client, tool: &str, args: Value) -> String {
     let result = raw_call(client, tool, args).await;
     assert_eq!(result.is_error, Some(true), "{tool} should fail");
-    text(&result)
+    let body = text(&result);
+    serde_json::from_str::<Value>(&body)
+        .ok()
+        .and_then(|v| v["error"].as_str().map(str::to_string))
+        .unwrap_or(body)
 }
